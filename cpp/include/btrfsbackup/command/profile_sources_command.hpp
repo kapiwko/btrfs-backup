@@ -1,10 +1,11 @@
 #pragma once
 
+#include <iosfwd>
 #include <string>
 #include <vector>
 
 namespace btrfsbackup::command {
 
-int profile_create(const std::vector<std::string>& args);
+void profile_sources(const std::vector<std::string>& args, std::ostream& output);
 
 } // namespace btrfsbackup::command

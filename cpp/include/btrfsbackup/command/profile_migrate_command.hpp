@@ -1,11 +1,10 @@
 #pragma once
 
-#include <iosfwd>
 #include <string>
 #include <vector>
 
 namespace btrfsbackup::command {
 
-void config_fingerprint(const std::vector<std::string>& args, std::ostream& output);
+int profile_migrate(const std::vector<std::string>& args);
 
 } // namespace btrfsbackup::command

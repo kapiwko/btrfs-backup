@@ -6,8 +6,8 @@
 #include <btrfsbackup/json.hpp>
 #include <btrfsbackup/json_io.hpp>
 #include <btrfsbackup/command/profile_command.hpp>
-#include <btrfsbackup/migrate_profile.hpp>
-#include <btrfsbackup/source_definition.hpp>
+#include <btrfsbackup/command/profile_migrate_command.hpp>
+#include <btrfsbackup/command/profile_sources_command.hpp>
 
 #include "test_helpers.hpp"
 
@@ -59,7 +59,7 @@ void test_parse_profile_sources_from_json() {
     test_helpers::write_file(profile_json, btrfsbackup::dump_json(profile));
 
     std::ostringstream output;
-    btrfsbackup::command_parse_profile_sources(
+    btrfsbackup::command::profile_sources(
         {
             "--file",
             profile_json.string(),
@@ -75,7 +75,7 @@ void test_parse_profile_sources_from_json() {
     fs::remove_all(root);
 }
 
-void test_profile_create_command_writes_json() {
+void test_profile_create_writes_json() {
     fs::path root = test_root("profile-create");
     fs::path profile_json = root / "profile.json";
 
@@ -151,7 +151,7 @@ void test_migrate_profile_creates_profile_files() {
     chmod(source_config.c_str(), 0600);
     chmod((source_dir / "10-home.conf").c_str(), 0600);
 
-    int result = btrfsbackup::command_migrate_profile({
+    int result = btrfsbackup::command::profile_migrate({
         "--source", source_config.string(),
         "--profile-dir", profile_dir.string(),
         "--udev-dir", udev_dir.string(),
@@ -176,7 +176,7 @@ void test_migrate_profile_creates_profile_files() {
 
 int main() {
     test_parse_profile_sources_from_json();
-    test_profile_create_command_writes_json();
+    test_profile_create_writes_json();
     test_migrate_profile_creates_profile_files();
 
     return test_helpers::finish("profile command tests");

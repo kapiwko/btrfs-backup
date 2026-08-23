@@ -31,7 +31,7 @@ int parse_int(const std::string& option, const std::string& value) {
 
 namespace btrfsbackup::command {
 
-void write_status(
+void status_write(
     const fs::path& status_root,
     const fs::path& history_root,
     const std::vector<std::string>& args

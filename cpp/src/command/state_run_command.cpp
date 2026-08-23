@@ -1,4 +1,4 @@
-#include <btrfsbackup/command/run_state_command.hpp>
+#include <btrfsbackup/command/state_run_command.hpp>
 
 #include <algorithm>
 #include <cctype>
@@ -38,7 +38,7 @@ int parse_int(const std::string& option, const std::string& value) {
 
 namespace btrfsbackup::command {
 
-void check_last_success(const std::vector<std::string>& args, std::ostream& output) {
+void state_check_last_success(const std::vector<std::string>& args, std::ostream& output) {
     fs::path profile_state_dir;
     std::string today;
     std::string target_luks_uuid;
@@ -69,7 +69,7 @@ void check_last_success(const std::vector<std::string>& args, std::ostream& outp
     output << (btrfsbackup::last_success_matches(profile_state_dir, today, target_luks_uuid, config_fingerprint) ? "yes\n" : "no\n");
 }
 
-void write_success_state(const std::vector<std::string>& args) {
+void state_write_success(const std::vector<std::string>& args) {
     fs::path profile_state_dir;
     btrfsbackup::SuccessState state;
 
@@ -104,7 +104,7 @@ void write_success_state(const std::vector<std::string>& args) {
     btrfsbackup::write_success_state(profile_state_dir, state);
 }
 
-void migrate_legacy_state(const std::vector<std::string>& args) {
+void state_migrate_legacy(const std::vector<std::string>& args) {
     fs::path state_dir;
     fs::path profile_state_dir;
 
@@ -128,7 +128,7 @@ void migrate_legacy_state(const std::vector<std::string>& args) {
     btrfsbackup::migrate_legacy_state(state_dir, profile_state_dir);
 }
 
-void write_pending_marker(const std::vector<std::string>& args) {
+void state_pending_write(const std::vector<std::string>& args) {
     fs::path profile_state_dir;
     btrfsbackup::PendingMarker marker;
 
@@ -155,7 +155,7 @@ void write_pending_marker(const std::vector<std::string>& args) {
     btrfsbackup::write_pending_marker(profile_state_dir, marker);
 }
 
-void read_pending_marker(const std::vector<std::string>& args, std::ostream& output) {
+void state_pending_read(const std::vector<std::string>& args, std::ostream& output) {
     fs::path marker_path;
     std::string field = "local_snapshot_path";
 
@@ -176,7 +176,7 @@ void read_pending_marker(const std::vector<std::string>& args, std::ostream& out
     output << btrfsbackup::read_pending_marker_field(marker_path, field) << '\n';
 }
 
-void clear_pending_marker(const std::vector<std::string>& args) {
+void state_pending_clear(const std::vector<std::string>& args) {
     fs::path marker_path;
     fs::path profile_state_dir;
 

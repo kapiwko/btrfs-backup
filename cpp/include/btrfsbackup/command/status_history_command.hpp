@@ -5,13 +5,12 @@
 #include <string>
 #include <vector>
 
-namespace btrfsbackup {
+namespace btrfsbackup::command {
 
-void command_status(
-    const std::filesystem::path& status_root,
+void status_history(
     const std::filesystem::path& history_root,
     const std::vector<std::string>& args,
     std::ostream& output
 );
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::command

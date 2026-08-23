@@ -10,9 +10,9 @@
 #include <vector>
 
 #include <btrfsbackup/errors.hpp>
-#include <btrfsbackup/history.hpp>
+#include <btrfsbackup/command/status_history_command.hpp>
+#include <btrfsbackup/command/status_show_command.hpp>
 #include <btrfsbackup/identifiers.hpp>
-#include <btrfsbackup/status.hpp>
 #include <btrfsbackup/command/status_write_command.hpp>
 
 namespace fs = std::filesystem;
@@ -95,11 +95,11 @@ int status(const fs::path& status_root, const fs::path& history_root, const std:
     std::string command = args[0];
     std::vector<std::string> rest(args.begin() + 1, args.end());
     if (command == "show") {
-        btrfsbackup::command_status(status_root, history_root, rest, std::cout);
+        status_show(status_root, history_root, rest, std::cout);
         return 0;
     }
     if (command == "history") {
-        btrfsbackup::command_history(history_root, rest, std::cout);
+        status_history(history_root, rest, std::cout);
         return 0;
     }
     if (command == "watch") {
@@ -107,7 +107,7 @@ int status(const fs::path& status_root, const fs::path& history_root, const std:
         return 0;
     }
     if (command == "write") {
-        write_status(status_root, history_root, rest);
+        status_write(status_root, history_root, rest);
         return 0;
     }
     if (command == "-h" || command == "--help") {

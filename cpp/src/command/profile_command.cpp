@@ -8,15 +8,15 @@
 
 #include <btrfsbackup/command/profile_create_command.hpp>
 #include <btrfsbackup/command/profile_command.hpp>
+#include <btrfsbackup/command/profile_migrate_command.hpp>
 #include <btrfsbackup/errors.hpp>
 #include <btrfsbackup/file_io.hpp>
 #include <btrfsbackup/json_io.hpp>
-#include <btrfsbackup/migrate_profile.hpp>
 #include <btrfsbackup/profile.hpp>
-#include <btrfsbackup/profile_list.hpp>
+#include <btrfsbackup/command/profile_list_command.hpp>
 #include <btrfsbackup/profile_render.hpp>
 #include <btrfsbackup/profile_store.hpp>
-#include <btrfsbackup/source_definition.hpp>
+#include <btrfsbackup/command/profile_sources_command.hpp>
 
 namespace fs = std::filesystem;
 using btrfsbackup::ValidationError;
@@ -94,17 +94,17 @@ int profile(const std::vector<std::string>& args, const fs::path& profile_config
         }
         std::string command = rest[0];
         if (command == "create") {
-            return create_profile(std::vector<std::string>(rest.begin() + 1, rest.end()));
+            return profile_create(std::vector<std::string>(rest.begin() + 1, rest.end()));
         }
         if (command == "list") {
-            command_list_profiles(profile_config_dir, profile_config_dir.parent_path() / "profiles", std::cout);
+            profile_list(profile_config_dir, profile_config_dir.parent_path() / "profiles", std::cout);
             return 0;
         }
         if (command == "migrate") {
-            return command_migrate_profile(std::vector<std::string>(rest.begin() + 1, rest.end()));
+            return profile_migrate(std::vector<std::string>(rest.begin() + 1, rest.end()));
         }
         if (command == "sources") {
-            command_parse_profile_sources(std::vector<std::string>(rest.begin() + 1, rest.end()), std::cout);
+            profile_sources(std::vector<std::string>(rest.begin() + 1, rest.end()), std::cout);
             return 0;
         }
         fs::path file;

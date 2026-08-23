@@ -1,4 +1,4 @@
-#include <btrfsbackup/source_definition.hpp>
+#include <btrfsbackup/command/profile_sources_command.hpp>
 
 #include <filesystem>
 #include <ostream>
@@ -172,9 +172,9 @@ void write_source_record(
 
 } // namespace
 
-namespace btrfsbackup {
+namespace btrfsbackup::command {
 
-void command_parse_profile_sources(const std::vector<std::string>& args, std::ostream& output) {
+void profile_sources(const std::vector<std::string>& args, std::ostream& output) {
     fs::path profile_json;
 
     for (std::size_t i = 0; i < args.size(); ++i) {
@@ -206,4 +206,4 @@ void command_parse_profile_sources(const std::vector<std::string>& args, std::os
     }
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::command
