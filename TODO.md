@@ -14,9 +14,6 @@
 Port helpers from `scripts/lib/btrfs-backup-common.sh` in small, testable steps
 before replacing larger runner flows.
 
-- Extend the new mount-info module with `mount_for_path`, `mount_at`,
-  filesystem UUID or device fallback, and mapper matching equivalents for
-  `bb_paths_are_same_filesystem` and `bb_mount_uses_mapper`.
 - Add small device helpers for mapper paths, canonical device resolution, and
   stripping Btrfs subvolume suffixes from mount sources.
 - Port free-space checks with `std::filesystem::space` as the C++ equivalent of
