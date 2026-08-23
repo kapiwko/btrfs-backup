@@ -6,7 +6,8 @@ export LC_ALL=C
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 PKGBASE=btrfs-backup
 PKGNAME=btrfs-backup
-VERSION=0.2.0
+KDE_PKGNAME=btrfs-backup-kde
+VERSION=0.2.1
 PKGREL=1
 SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-1787356800}"
 DIST_DIR="$ROOT/dist"
@@ -153,6 +154,7 @@ PACKAGE_STAGE="$TMP_ROOT/package"
 ZIP_STAGE="$TMP_ROOT/zip/$SOURCE_NAME"
 SOURCE_ARCHIVE="$DIST_DIR/$SOURCE_NAME.tar.gz"
 PACKAGE_ARCHIVE="$DIST_DIR/$PKGNAME-$VERSION-$PKGREL-$ARCH.pkg.tar.zst"
+KDE_PACKAGE_ARCHIVE="$DIST_DIR/$KDE_PKGNAME-$VERSION-$PKGREL-$ARCH.pkg.tar.zst"
 SOURCE_ZIP="$DIST_DIR/$SOURCE_NAME-source.zip"
 DEB_ARCHIVE="$DIST_DIR/${PKGNAME}_${VERSION}-${PKGREL}_${DEB_ARCH}.deb"
 RPM_PACKAGING_ARCHIVE="$DIST_DIR/$SOURCE_NAME-rpm-packaging.tar.gz"
@@ -232,10 +234,10 @@ copy_source_tree() {
     local destination="$1"
     install -d -m0755 "$destination"
     local entry
-    for entry in bin config cpp docs systemd tests tools udev; do
+    for entry in bin config cpp docs integrations systemd tests tools udev; do
         cp -a -- "$ROOT/$entry" "$destination/"
     done
-    for entry in README.md CHANGELOG.md TODO.md LICENSE .gitignore CMakeLists.txt Makefile btrfs-backup.install; do
+    for entry in README.md CHANGELOG.md TODO.md LICENSE .gitignore CMakeLists.txt Makefile btrfs-backup.install btrfs-backup-kde.install; do
         cp -a -- "$ROOT/$entry" "$destination/"
     done
 
@@ -311,6 +313,24 @@ stage_package_payload() {
         install -Dm644 "$document" "$pkgdir/usr/share/doc/btrfs-backup/$(basename -- "$document")"
     done
     install -Dm644 "$root/LICENSE" "$pkgdir/usr/share/licenses/$PKGNAME/LICENSE"
+}
+
+stage_kde_package_payload() {
+    local root="$1"
+    local pkgdir="$2"
+    local build_dir="$TMP_ROOT/plasma-build"
+
+    rm -rf -- "$build_dir"
+    cmake -S "$root/integrations/plasma" -B "$build_dir" -DCMAKE_BUILD_TYPE=Release >/dev/null
+    cmake --build "$build_dir" -j"$(nproc)" >/dev/null
+    ctest --test-dir "$build_dir" --output-on-failure >/dev/null
+    cmake --install "$build_dir" --prefix "$pkgdir/usr" >/dev/null
+
+    install -Dm644 "$root/docs/plasma-integration.md" \
+        "$pkgdir/usr/share/doc/btrfs-backup-kde/plasma-integration.md"
+    install -Dm644 "$root/integrations/plasma/README.md" \
+        "$pkgdir/usr/share/doc/btrfs-backup-kde/README.md"
+    install -Dm644 "$root/LICENSE" "$pkgdir/usr/share/licenses/$KDE_PKGNAME/LICENSE"
 }
 
 build_deb_package() {
@@ -590,16 +610,13 @@ build_pkgbuild_packaging() {
     cat > "$package_dir/PKGBUILD" <<EOF_PKGBUILD
 # Maintainer: local package
 pkgbase=btrfs-backup
-pkgname=btrfs-backup
+pkgname=('btrfs-backup' 'btrfs-backup-kde')
 pkgver=$VERSION
 pkgrel=$PKGREL
 pkgdesc='Verified Btrfs send/receive backups to an encrypted removable target'
 arch=('$ARCH')
 license=('GPL-3.0-or-later')
-depends=('bash' 'btrfs-progs' 'coreutils' 'cryptsetup' 'findutils' 'gawk' 'gcc-libs' 'grep' 'sed' 'systemd' 'systemd-libs' 'util-linux' 'util-linux-libs')
-makedepends=('cmake' 'gcc' 'nlohmann-json' 'pkgconf')
-optdepends=('libnotify: desktop notifications via notify-send' 'pv: live progress during btrfs send')
-install="\$pkgname.install"
+makedepends=('cmake' 'extra-cmake-modules' 'gcc' 'ki18n' 'kirigami' 'kpackage' 'libplasma' 'nlohmann-json' 'pkgconf' 'qt6-base' 'qt6-declarative')
 source=("\$pkgbase-\$pkgver.tar.gz")
 sha256sums=('$SOURCE_SHA256')
 
@@ -608,7 +625,11 @@ check() {
   ./tests/run-tests.sh --static-only
 }
 
-package() {
+package_btrfs-backup() {
+  depends=('bash' 'btrfs-progs' 'coreutils' 'cryptsetup' 'findutils' 'gawk' 'gcc-libs' 'grep' 'sed' 'systemd' 'systemd-libs' 'util-linux' 'util-linux-libs')
+  optdepends=('btrfs-backup-kde: Plasma status widget' 'libnotify: desktop notifications via notify-send' 'pv: live progress during btrfs send')
+  install='btrfs-backup.install'
+
   local root="\$srcdir/\$pkgbase-\$pkgver"
   make -C "\$root"
   install -Dm755 "\$root/build/btrfs-backupctl" "\$pkgdir/usr/lib/btrfs-backup/btrfs-backupctl"
@@ -628,8 +649,27 @@ package() {
   install -Dm644 "\$root"/docs/*.md -t "\$pkgdir/usr/share/doc/btrfs-backup/"
   install -Dm644 "\$root/LICENSE" "\$pkgdir/usr/share/licenses/\$pkgname/LICENSE"
 }
+
+package_btrfs-backup-kde() {
+  pkgdesc='Plasma status widget for btrfs-backup'
+  depends=("btrfs-backup=\$pkgver-\$pkgrel" 'kirigami' 'kservice' 'libplasma' 'qt6-base' 'qt6-declarative')
+  install='btrfs-backup-kde.install'
+
+  local root="\$srcdir/\$pkgbase-\$pkgver"
+  local build_dir="\$srcdir/plasma-build"
+
+  cmake -S "\$root/integrations/plasma" -B "\$build_dir" -DCMAKE_BUILD_TYPE=Release
+  cmake --build "\$build_dir" -j"\$(nproc)"
+  ctest --test-dir "\$build_dir" --output-on-failure
+  cmake --install "\$build_dir" --prefix "\$pkgdir/usr"
+
+  install -Dm644 "\$root/docs/plasma-integration.md" "\$pkgdir/usr/share/doc/btrfs-backup-kde/plasma-integration.md"
+  install -Dm644 "\$root/integrations/plasma/README.md" "\$pkgdir/usr/share/doc/btrfs-backup-kde/README.md"
+  install -Dm644 "\$root/LICENSE" "\$pkgdir/usr/share/licenses/\$pkgname/LICENSE"
+}
 EOF_PKGBUILD
     cp -a -- "$ROOT/btrfs-backup.install" "$package_dir/btrfs-backup.install"
+    cp -a -- "$ROOT/btrfs-backup-kde.install" "$package_dir/btrfs-backup-kde.install"
     cat > "$package_dir/.SRCINFO" <<EOF_SRCINFO
 pkgbase = btrfs-backup
 	pkgdesc = Verified Btrfs send/receive backups to an encrypted removable target
@@ -638,6 +678,21 @@ pkgbase = btrfs-backup
 	url = https://github.com/kamil/btrfs-backup
 	arch = $ARCH
 	license = GPL-3.0-or-later
+	makedepends = cmake
+	makedepends = extra-cmake-modules
+	makedepends = gcc
+	makedepends = ki18n
+	makedepends = kirigami
+	makedepends = kpackage
+	makedepends = libplasma
+	makedepends = nlohmann-json
+	makedepends = pkgconf
+	makedepends = qt6-base
+	makedepends = qt6-declarative
+	source = btrfs-backup-$VERSION.tar.gz
+	sha256sums = $SOURCE_SHA256
+
+pkgname = btrfs-backup
 	depends = bash
 	depends = btrfs-progs
 	depends = coreutils
@@ -651,16 +706,20 @@ pkgbase = btrfs-backup
 	depends = systemd-libs
 	depends = util-linux
 	depends = util-linux-libs
-	makedepends = cmake
-	makedepends = gcc
-	makedepends = nlohmann-json
-	makedepends = pkgconf
+	optdepends = btrfs-backup-kde: Plasma status widget
 	optdepends = libnotify: desktop notifications via notify-send
 	optdepends = pv: live progress during btrfs send
-	source = btrfs-backup-$VERSION.tar.gz
-	sha256sums = $SOURCE_SHA256
+	install = btrfs-backup.install
 
-pkgname = btrfs-backup
+pkgname = btrfs-backup-kde
+	pkgdesc = Plasma status widget for btrfs-backup
+	depends = btrfs-backup=$VERSION-$PKGREL
+	depends = kirigami
+	depends = kservice
+	depends = libplasma
+	depends = qt6-base
+	depends = qt6-declarative
+	install = btrfs-backup-kde.install
 EOF_SRCINFO
     find "$package_dir" -exec touch -h -d "@$SOURCE_DATE_EPOCH" {} +
     create_deterministic_tar_gz "$package_dir" "$PKGBUILD_ARCHIVE" "$(basename -- "$package_dir")"
@@ -712,6 +771,45 @@ EOF_PKGINFO
             "${package_entries[@]}"
     )
     BUILD_OUTPUTS+=("$PACKAGE_ARCHIVE")
+
+    KDE_PACKAGE_STAGE="$TMP_ROOT/package-kde"
+    install -d -m0755 "$KDE_PACKAGE_STAGE"
+    stage_kde_package_payload "$SOURCE_STAGE" "$KDE_PACKAGE_STAGE"
+    install -m0644 "$SOURCE_STAGE/btrfs-backup-kde.install" "$KDE_PACKAGE_STAGE/.INSTALL"
+
+    INSTALLED_SIZE="$(find "$KDE_PACKAGE_STAGE/usr" -type f -printf '%s\n' | awk '{sum += $1} END {print sum + 0}')"
+    cat > "$KDE_PACKAGE_STAGE/.PKGINFO" <<EOF_KDE_PKGINFO
+# Generated by tools/build-release.sh
+pkgname = $KDE_PKGNAME
+pkgbase = $PKGBASE
+xdata = pkgtype=pkg
+pkgver = $VERSION-$PKGREL
+pkgdesc = Plasma status widget for btrfs-backup
+builddate = $BUILD_DATE
+packager = local reproducible build
+size = $INSTALLED_SIZE
+arch = $ARCH
+license = GPL-3.0-or-later
+depend = btrfs-backup=$VERSION-$PKGREL
+depend = kirigami
+depend = kservice
+depend = libplasma
+depend = qt6-base
+depend = qt6-declarative
+EOF_KDE_PKGINFO
+    chmod 0644 "$KDE_PACKAGE_STAGE/.PKGINFO" "$KDE_PACKAGE_STAGE/.INSTALL"
+    find "$KDE_PACKAGE_STAGE" -exec touch -h -d "@$SOURCE_DATE_EPOCH" {} +
+    create_arch_mtree "$KDE_PACKAGE_STAGE"
+
+    (
+        cd "$KDE_PACKAGE_STAGE"
+        mapfile -t package_entries < <(find . -mindepth 1 -maxdepth 1 -printf '%P\n' | LC_ALL=C sort)
+        bsdtar \
+            --uid 0 --gid 0 --uname root --gname root \
+            --zstd -cf "$KDE_PACKAGE_ARCHIVE" \
+            "${package_entries[@]}"
+    )
+    BUILD_OUTPUTS+=("$KDE_PACKAGE_ARCHIVE")
 fi
 
 if [[ "$TARGET" == all || "$TARGET" == deb ]]; then
@@ -838,6 +936,31 @@ if [[ "$TARGET" == all || "$TARGET" == arch ]]; then
     "$PACKAGE_AUDIT_ROOT/usr/bin/btrfs-backupctl" installation validate --rendered-root "$PACKAGE_RENDERED" >/dev/null
 
     tar --zstd -xOf "$PACKAGE_ARCHIVE" .PKGINFO | grep -qx "arch = $ARCH"
+
+    tar --zstd -tf "$KDE_PACKAGE_ARCHIVE" > "$TMP_ROOT/package-kde-files.txt"
+    grep -qx '.PKGINFO' "$TMP_ROOT/package-kde-files.txt"
+    grep -qx '.INSTALL' "$TMP_ROOT/package-kde-files.txt"
+    grep -qx '.MTREE' "$TMP_ROOT/package-kde-files.txt"
+    grep -qx 'usr/share/plasma/plasmoids/org.btrfsbackup.plasmoid/metadata.json' "$TMP_ROOT/package-kde-files.txt"
+    grep -qx 'usr/share/plasma/plasmoids/org.btrfsbackup.plasmoid/contents/ui/main.qml' "$TMP_ROOT/package-kde-files.txt"
+    grep -qx 'usr/lib/qt6/qml/org/btrfsbackup/plasma/qmldir' "$TMP_ROOT/package-kde-files.txt"
+    grep -qx 'usr/lib/qt6/qml/org/btrfsbackup/plasma/libbtrfsbackup_plasma_backend.so' "$TMP_ROOT/package-kde-files.txt"
+    grep -qx 'usr/lib/qt6/qml/org/btrfsbackup/plasma/libbtrfsbackup_plasma_backendplugin.so' "$TMP_ROOT/package-kde-files.txt"
+    if command -v pacman >/dev/null 2>&1; then
+        pacman -Qip "$KDE_PACKAGE_ARCHIVE" >/dev/null
+    fi
+    KDE_PACKAGE_AUDIT_ROOT="$TMP_ROOT/package-kde-audit"
+    mkdir -p "$KDE_PACKAGE_AUDIT_ROOT"
+    tar --zstd -xf "$KDE_PACKAGE_ARCHIVE" -C "$KDE_PACKAGE_AUDIT_ROOT"
+    bash -n "$KDE_PACKAGE_AUDIT_ROOT/.INSTALL"
+    /usr/lib/qt6/bin/qmllint \
+        -I "$KDE_PACKAGE_AUDIT_ROOT/usr/lib/qt6/qml" \
+        "$KDE_PACKAGE_AUDIT_ROOT/usr/share/plasma/plasmoids/org.btrfsbackup.plasmoid/contents/ui/main.qml" >/dev/null
+    QT_QPA_PLATFORM=offscreen /usr/lib/qt6/bin/qmlscene \
+        -I "$KDE_PACKAGE_AUDIT_ROOT/usr/lib/qt6/qml" \
+        "$SOURCE_STAGE/integrations/plasma/tests/backend-smoke.qml" >/dev/null
+    tar --zstd -xOf "$KDE_PACKAGE_ARCHIVE" .PKGINFO | grep -qx "pkgname = $KDE_PKGNAME"
+    tar --zstd -xOf "$KDE_PACKAGE_ARCHIVE" .PKGINFO | grep -qx "pkgver = $VERSION-$PKGREL"
 fi
 
 printf '\nBuilt release artifacts:\n'

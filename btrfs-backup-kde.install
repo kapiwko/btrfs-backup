@@ -1,0 +1,17 @@
+_btrfs_backup_kde_refresh_cache() {
+    if command -v kbuildsycoca6 >/dev/null 2>&1; then
+        kbuildsycoca6 >/dev/null 2>&1 || true
+    fi
+}
+
+post_install() {
+    _btrfs_backup_kde_refresh_cache
+}
+
+post_upgrade() {
+    _btrfs_backup_kde_refresh_cache
+}
+
+post_remove() {
+    _btrfs_backup_kde_refresh_cache
+}

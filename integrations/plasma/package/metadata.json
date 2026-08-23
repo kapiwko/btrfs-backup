@@ -15,7 +15,7 @@
     "License": "GPL-3.0-or-later",
     "Name": "Btrfs Backup",
     "Name[pl]": "Kopie zapasowe Btrfs",
-    "Version": "0.2.0",
+    "Version": "0.2.1",
     "Website": "https://github.com/kapiwko/btrfs-backup"
   },
   "X-Plasma-API": "declarativeappletscript",

@@ -23,6 +23,14 @@ ctest --test-dir /tmp/btrfs-backup-plasma-build --output-on-failure
 cmake --install /tmp/btrfs-backup-plasma-build --prefix "$HOME/.local"
 ```
 
+The compiled QML module is installed under `lib/qt6/qml` relative to the chosen
+prefix. On a local prefix, run test tools with:
+
+```bash
+QML2_IMPORT_PATH="$HOME/.local/lib/qt6/qml${QML2_IMPORT_PATH:+:$QML2_IMPORT_PATH}" \
+    plasmawindowed org.btrfsbackup.plasmoid
+```
+
 For local package iteration, use the CMake install step above. Installing only
 `integrations/plasma/package` with `kpackagetool6` is not enough because the
 plasmoid also needs the compiled `org.btrfsbackup.plasma` QML module.
