@@ -61,8 +61,16 @@ if(BUILD_TESTING)
         cpp/tests/profile_tests.cpp
     )
 
-    add_executable(btrfsbackup-ctl-tests
-        cpp/tests/ctl_tests.cpp
+    add_executable(btrfsbackup-status-history-tests
+        cpp/tests/status_history_tests.cpp
+    )
+
+    add_executable(btrfsbackup-run-state-tests
+        cpp/tests/run_state_tests.cpp
+    )
+
+    add_executable(btrfsbackup-profile-command-tests
+        cpp/tests/profile_command_tests.cpp
     )
 
     add_executable(btrfsbackup-status-writer-tests
@@ -74,7 +82,17 @@ if(BUILD_TESTING)
             btrfsbackup_profile_tool
     )
 
-    target_link_libraries(btrfsbackup-ctl-tests
+    target_link_libraries(btrfsbackup-status-history-tests
+        PRIVATE
+            btrfsbackup_profile_tool
+    )
+
+    target_link_libraries(btrfsbackup-run-state-tests
+        PRIVATE
+            btrfsbackup_profile_tool
+    )
+
+    target_link_libraries(btrfsbackup-profile-command-tests
         PRIVATE
             btrfsbackup_profile_tool
     )
@@ -85,6 +103,8 @@ if(BUILD_TESTING)
     )
 
     add_test(NAME profile-tests COMMAND btrfsbackup-profile-tests)
-    add_test(NAME ctl-tests COMMAND btrfsbackup-ctl-tests)
+    add_test(NAME status-history-tests COMMAND btrfsbackup-status-history-tests)
+    add_test(NAME run-state-tests COMMAND btrfsbackup-run-state-tests)
+    add_test(NAME profile-command-tests COMMAND btrfsbackup-profile-command-tests)
     add_test(NAME status-writer-tests COMMAND btrfsbackup-status-writer-tests)
 endif()
