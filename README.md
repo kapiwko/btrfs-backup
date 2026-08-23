@@ -28,6 +28,7 @@ Source builds require:
 - `pkgconf` / `pkg-config`;
 - `nlohmann-json`;
 - `libmount` development files from `util-linux`;
+- `libblkid` development files from `util-linux`;
 - `libudev` development files from `systemd`;
 - `libbtrfsutil` development files from `btrfs-progs`.
 

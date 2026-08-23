@@ -1,7 +1,9 @@
 #include <btrfsbackup/mount_info.hpp>
 
+#include <blkid/blkid.h>
 #include <libmount/libmount.h>
 
+#include <cstdlib>
 #include <memory>
 #include <set>
 #include <sstream>
@@ -31,6 +33,23 @@ std::string device_id(dev_t device) {
 } // namespace
 
 std::vector<MountEntry> read_mount_table(const std::filesystem::path& mountinfo_path) {
+    return read_mount_table(mountinfo_path, blkid_filesystem_uuid);
+}
+
+std::string blkid_filesystem_uuid(const std::string& source) {
+    if (source.empty() || source.front() != '/') {
+        return "";
+    }
+    char* value = blkid_get_tag_value(nullptr, "UUID", source.c_str());
+    if (value == nullptr) {
+        return "";
+    }
+    std::string uuid = value;
+    std::free(value);
+    return uuid;
+}
+
+std::vector<MountEntry> read_mount_table(const std::filesystem::path& mountinfo_path, const FilesystemUuidResolver& filesystem_uuid_resolver) {
     std::unique_ptr<libmnt_table, decltype(&mnt_unref_table)> table(mnt_new_table(), mnt_unref_table);
     if (!table || mnt_table_parse_file(table.get(), mountinfo_path.c_str()) != 0) {
         throw ValidationError("could not read mount table");
@@ -43,14 +62,16 @@ std::vector<MountEntry> read_mount_table(const std::filesystem::path& mountinfo_
     std::vector<MountEntry> entries;
     libmnt_fs* mount = nullptr;
     while (mnt_table_next_fs(table.get(), iter.get(), &mount) == 0) {
+        std::string source = c_string(mnt_fs_get_source(mount));
+        std::string fstype = c_string(mnt_fs_get_fstype(mount));
         entries.push_back({
-            .source = c_string(mnt_fs_get_source(mount)),
+            .source = source,
             .target = c_string(mnt_fs_get_target(mount)),
-            .fstype = c_string(mnt_fs_get_fstype(mount)),
+            .fstype = fstype,
             .root = c_string(mnt_fs_get_root(mount)),
             .options = c_string(mnt_fs_get_options(mount)),
             .device_id = device_id(mnt_fs_get_devno(mount)),
-            .filesystem_uuid = "",
+            .filesystem_uuid = fstype == "btrfs" ? filesystem_uuid_resolver(strip_subvolume_suffix(source)) : "",
         });
     }
     return entries;

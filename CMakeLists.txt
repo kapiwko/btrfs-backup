@@ -10,6 +10,7 @@ include(CTest)
 
 find_package(nlohmann_json REQUIRED)
 find_package(PkgConfig REQUIRED)
+pkg_check_modules(BLKID REQUIRED IMPORTED_TARGET blkid)
 pkg_check_modules(MOUNT REQUIRED IMPORTED_TARGET mount)
 pkg_check_modules(UDEV REQUIRED IMPORTED_TARGET libudev)
 pkg_check_modules(BTRFSUTIL REQUIRED IMPORTED_TARGET libbtrfsutil)
@@ -75,6 +76,7 @@ target_include_directories(btrfsbackup_profile_tool
 target_link_libraries(btrfsbackup_profile_tool
     PUBLIC
         nlohmann_json::nlohmann_json
+        PkgConfig::BLKID
         PkgConfig::BTRFSUTIL
         PkgConfig::MOUNT
         PkgConfig::UDEV
