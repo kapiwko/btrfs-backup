@@ -44,8 +44,8 @@ BUILD-REPORT.txt
 ```
 
 The `source` target avoids package construction and does not require `zstd`. Package-specific backends may have additional tool requirements.
-Building from source requires a C++20 compiler and `nlohmann-json` headers for
-the native profile helper under `cpp/`.
+Building from source requires CMake, a C++20 compiler, and `nlohmann-json`
+headers for the native profile helper under `cpp/`.
 
 ## Arch Packaging
 

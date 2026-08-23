@@ -26,7 +26,8 @@ Rules for new C++ code:
 8. Keep compatibility tests against the existing Bash behavior until the Bash
    implementation is intentionally removed.
 
-The first migrated native tool is `btrfs-backup-profile`. It is still mostly a
-single translation unit, but future changes should move reusable pieces out of
-`cpp/apps/btrfs-backup-profile.cpp` into the library layout above before they are
-shared by another command.
+The first migrated native tool is `btrfs-backup-profile`. Its CLI entry point
+stays in `cpp/apps/btrfs-backup-profile.cpp`, while the implementation is built
+as the reusable `btrfsbackup_profile_tool` library from `cpp/src/`. New shared
+logic should go through headers under `cpp/include/btrfsbackup/` before it is
+used by another command.

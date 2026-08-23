@@ -106,7 +106,7 @@ make_invoker_owned() {
     fi
 }
 
-require_commands awk basename bsdtar chmod cp date find g++ gzip install make mkdir mktemp mv readlink rm sha256sum stat tar touch
+require_commands awk basename bsdtar chmod cmake cp date find g++ gzip install make mkdir mktemp mv readlink rm sha256sum stat tar touch
 if [[ "$TARGET" == all || "$TARGET" == arch ]]; then
     require_commands zstd
 fi
@@ -235,7 +235,7 @@ copy_source_tree() {
     for entry in bin config cpp docs install scripts systemd tests tools udev; do
         cp -a -- "$ROOT/$entry" "$destination/"
     done
-    for entry in README.md CHANGELOG.md TODO.md LICENSE .gitignore Makefile btrfs-backup.install; do
+    for entry in README.md CHANGELOG.md TODO.md LICENSE .gitignore CMakeLists.txt Makefile btrfs-backup.install; do
         cp -a -- "$ROOT/$entry" "$destination/"
     done
 
@@ -511,6 +511,7 @@ build_nix_packaging() {
 , findutils
 , gawk
 , gnugrep
+, cmake
 , gcc
 , nlohmann_json
 , gnused
@@ -525,7 +526,7 @@ stdenvNoCC.mkDerivation {
   src = ./.;
 
   dontBuild = true;
-  nativeBuildInputs = [ gcc nlohmann_json ];
+  nativeBuildInputs = [ cmake gcc nlohmann_json ];
 
   installPhase = ''
     runHook preInstall
@@ -601,6 +602,7 @@ RDEPEND="
 	sys-apps/gawk
 	sys-apps/grep
 	dev-cpp/nlohmann_json
+	dev-build/cmake
 	sys-devel/gcc
 	sys-apps/sed
 	sys-apps/systemd
@@ -647,7 +649,7 @@ pkgdesc='Verified Btrfs send/receive backups to an encrypted removable target'
 arch=('$ARCH')
 license=('GPL-3.0-or-later')
 depends=('bash' 'btrfs-progs' 'coreutils' 'cryptsetup' 'findutils' 'gawk' 'gcc-libs' 'grep' 'sed' 'systemd' 'util-linux')
-makedepends=('gcc' 'nlohmann-json')
+makedepends=('cmake' 'gcc' 'nlohmann-json')
 optdepends=('libnotify: desktop notifications via notify-send' 'pv: live progress during btrfs send')
 install="\$pkgname.install"
 source=("\$pkgbase-\$pkgver.tar.gz")
@@ -710,6 +712,7 @@ pkgbase = btrfs-backup
 	depends = sed
 	depends = systemd
 	depends = util-linux
+	makedepends = cmake
 	makedepends = gcc
 	makedepends = nlohmann-json
 	optdepends = libnotify: desktop notifications via notify-send
