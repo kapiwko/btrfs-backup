@@ -111,6 +111,17 @@ Json required_object(const Json& root, const std::string& key, const std::string
     return root.at(key);
 }
 
+void reject_unknown_properties(const Json& object, const std::set<std::string>& allowed, const std::string& name) {
+    if (!object.is_object()) {
+        throw ValidationError(name + " must be an object");
+    }
+    for (auto it = object.begin(); it != object.end(); ++it) {
+        if (allowed.count(it.key()) == 0) {
+            throw ValidationError(name + "." + it.key() + " is not supported");
+        }
+    }
+}
+
 const Json& required_value(const Json& root, const std::string& key, const std::string& name) {
     if (!root.contains(key) || root.at(key).is_null()) {
         throw ValidationError(name + " is required");
@@ -240,6 +251,11 @@ Json normalize_profile(const Json& raw) {
     if (!raw.is_object()) {
         throw ValidationError("profile must be an object");
     }
+    reject_unknown_properties(
+        raw,
+        {"schemaVersion", "profileId", "name", "enabled", "target", "paths", "settings", "notifications", "sources"},
+        "profile"
+    );
     if (!raw.contains("schemaVersion") || raw.at("schemaVersion") != schema_version) {
         throw ValidationError("schemaVersion must be 1");
     }
@@ -248,6 +264,11 @@ Json normalize_profile(const Json& raw) {
     bool enabled = boolean_value(raw, "enabled", "enabled", true);
 
     Json target = required_object(raw, "target", "target");
+    reject_unknown_properties(
+        target,
+        {"device", "luksUuid", "btrfsUuid", "partitionUuid", "serial", "mapperName", "mountPoint", "mountUnit"},
+        "target"
+    );
     std::string device = absolute_path(target.at("device"), "target.device");
     if (!(device == "/dev" || starts_with(device, "/dev/"))) {
         throw ValidationError("target.device must point inside /dev");
@@ -264,8 +285,20 @@ Json normalize_profile(const Json& raw) {
     if (forbidden_mount_points.count(mount_point) > 0) {
         throw ValidationError("target.mountPoint is unsafe: " + mount_point);
     }
+    std::string mount_unit = systemd_mount_unit(mount_point);
+    if (target.contains("mountUnit") && !target.at("mountUnit").is_null() && target.at("mountUnit") != "") {
+        std::string configured_mount_unit = text(target.at("mountUnit"), "target.mountUnit", false, 256);
+        if (configured_mount_unit != mount_unit) {
+            throw ValidationError("target.mountUnit does not match target.mountPoint");
+        }
+    }
 
     Json paths = object_or_empty(raw, "paths", "paths");
+    reject_unknown_properties(
+        paths,
+        {"sourcesDir", "remoteRoot", "incomingRoot", "stateDir", "statusRoot", "historyRoot"},
+        "paths"
+    );
     std::string sources_dir = absolute_path(paths.value("sourcesDir", "/etc/btrfs-backup/profiles/" + profile_id + "/sources.d"), "paths.sourcesDir");
     std::string remote_root = absolute_path(paths.value("remoteRoot", mount_point + "/snapshots"), "paths.remoteRoot");
     std::string incoming_root = absolute_path(paths.value("incomingRoot", mount_point + "/.incoming"), "paths.incomingRoot");
@@ -278,6 +311,25 @@ Json normalize_profile(const Json& raw) {
 
     Json settings = object_or_empty(raw, "settings", "settings");
     Json notifications = object_or_empty(raw, "notifications", "notifications");
+    reject_unknown_properties(
+        settings,
+        {
+            "dailyLimit",
+            "incrementalRequired",
+            "keepFailedLocalSnapshot",
+            "autoEject",
+            "remoteRetention",
+            "localRetention",
+            "minimumTargetFreeBytes",
+            "minimumLocalFreeBytes"
+        },
+        "settings"
+    );
+    reject_unknown_properties(
+        notifications,
+        {"enabled", "user", "method"},
+        "notifications"
+    );
     std::string notify_method = text(notifications.value("method", "auto"), "notifications.method");
     if (notify_method != "auto" && notify_method != "desktop" && notify_method != "journal" && notify_method != "none") {
         throw ValidationError("notifications.method must be auto, desktop, journal, or none");
@@ -305,6 +357,11 @@ Json normalize_profile(const Json& raw) {
         if (!item.is_object()) {
             throw ValidationError("sources[" + std::to_string(index) + "] must be an object");
         }
+        reject_unknown_properties(
+            item,
+            {"id", "name", "enabled", "subvolume", "localSnapshotDir", "remoteSubdir", "remoteRetention", "localRetention"},
+            "sources[" + std::to_string(index) + "]"
+        );
         std::string source_id = identifier(item.at("id"), "sources[" + std::to_string(index) + "].id");
         if (!seen_ids.insert(source_id).second) {
             throw ValidationError("duplicate source id: " + source_id);
@@ -347,7 +404,7 @@ Json normalize_profile(const Json& raw) {
             {"serial", serial},
             {"mapperName", mapper_name},
             {"mountPoint", mount_point},
-            {"mountUnit", systemd_mount_unit(mount_point)}
+            {"mountUnit", mount_unit}
         }},
         {"paths", {
             {"sourcesDir", sources_dir},
@@ -447,21 +504,25 @@ Json profile_to_json(const Profile& profile) {
         });
     }
 
+    Json target = {
+        {"device", profile.target.device},
+        {"luksUuid", profile.target.luks_uuid},
+        {"btrfsUuid", profile.target.btrfs_uuid},
+        {"partitionUuid", profile.target.partition_uuid},
+        {"serial", profile.target.serial},
+        {"mapperName", profile.target.mapper_name},
+        {"mountPoint", profile.target.mount_point}
+    };
+    if (!profile.target.mount_unit.empty()) {
+        target["mountUnit"] = profile.target.mount_unit;
+    }
+
     return {
         {"schemaVersion", profile.schema_version},
         {"profileId", profile.id},
         {"name", profile.name},
         {"enabled", profile.enabled},
-        {"target", {
-            {"device", profile.target.device},
-            {"luksUuid", profile.target.luks_uuid},
-            {"btrfsUuid", profile.target.btrfs_uuid},
-            {"partitionUuid", profile.target.partition_uuid},
-            {"serial", profile.target.serial},
-            {"mapperName", profile.target.mapper_name},
-            {"mountPoint", profile.target.mount_point},
-            {"mountUnit", profile.target.mount_unit}
-        }},
+        {"target", target},
         {"paths", {
             {"sourcesDir", profile.paths.sources_dir},
             {"remoteRoot", profile.paths.remote_root},

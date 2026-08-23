@@ -127,7 +127,7 @@ btrfsbackup::Profile test_profile(const fs::path& root) {
     profile.target.serial = "";
     profile.target.mapper_name = "backup";
     profile.target.mount_point = (root / "target").string();
-    profile.target.mount_unit = "target.mount";
+    profile.target.mount_unit = "";
     profile.paths.sources_dir = (root / "config" / "sources.d").string();
     profile.paths.remote_root = (root / "target" / "snapshots").string();
     profile.paths.incoming_root = (root / "target" / ".incoming").string();
