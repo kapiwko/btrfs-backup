@@ -5,7 +5,6 @@
 - Expand `BackupRunExecutor` parity coverage:
   - pending incoming recovery;
   - interrupted send/receive;
-  - failed receive after successful send;
   - failed commit after successful receive;
   - local and remote retention failures.
 
