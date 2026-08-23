@@ -74,10 +74,12 @@ Keep this harness opt-in. It needs QEMU, nested privileges, disposable disk
 images, and root-equivalent control inside the guest, so it should not run from
 `make` or the default local test script.
 
-Future privileged-control tests should verify that manual start, force,
-validate, cancel and eject operations cannot conflict with an active backup
-unit, cannot operate on a mismatched profile id, and cannot affect unrelated
-processes or targets.
+Local runner tests cover the file-based cancellation request and verify that an
+active transfer sees the request, reports `runner.cancelled`, and clears the
+handled marker. Future privileged-control tests should still verify that manual
+start, force, validate, cancel and eject operations cannot conflict with an
+active backup unit, cannot operate on a mismatched profile id, and cannot affect
+unrelated processes or targets.
 
 ## Real Btrfs Docker Test
 
