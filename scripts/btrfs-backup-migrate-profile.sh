@@ -30,7 +30,7 @@ Options:
   --udev-dir PATH     udev rules directory (default: /etc/udev/rules.d).
   --public-dir PATH   Public profile manifest directory.
   --force             Replace an existing profile file after saving a timestamped backup.
-  --remove-legacy     Move the legacy source file aside after creating the profile.
+  --remove-legacy     Move the legacy configuration and source directory aside.
   --dry-run           Validate inputs and print the target path without writing.
   -h, --help          Show this help.
 USAGE
@@ -55,6 +55,18 @@ backup_existing_file() {
     backup="$path.backup-$stamp"
     cp -a -- "$path" "$backup"
     chmod 0600 "$backup"
+}
+
+move_legacy_path_aside() {
+    local path="$1"
+    local label="$2"
+    local stamp backup
+
+    [[ -e "$path" ]] || return 0
+    stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+    backup="$path.migrated-$stamp"
+    mv -- "$path" "$backup"
+    bb_log INFO "Moved legacy $label aside: $backup"
 }
 
 assert_migration_shell_input() {
@@ -168,7 +180,7 @@ fi
 if (( EUID != 0 && SYSTEM_WRITE == 1 )); then
     bb_die "Writing system profile configuration requires root."
 fi
-bb_require_commands chmod chown cp date install mktemp mv python3 stat
+bb_require_commands chmod chown cp date install mktemp mv python3 realpath stat
 assert_migration_shell_input "$SOURCE_CONFIG"
 
 # Trusted legacy deployment input.
@@ -381,9 +393,10 @@ bb_log INFO "Created profile configuration: $TARGET_CONFIG"
 bb_log INFO "Created canonical profile JSON: $TARGET_PROFILE_JSON"
 
 if (( REMOVE_LEGACY == 1 )); then
-    stamp="$(date -u +%Y%m%dT%H%M%SZ)"
-    legacy_backup="$SOURCE_CONFIG.migrated-$stamp"
-    mv -- "$SOURCE_CONFIG" "$legacy_backup"
-    chmod 0600 "$legacy_backup"
-    bb_log INFO "Moved legacy configuration aside: $legacy_backup"
+    source_config_dir_real="$(realpath -m -- "$SOURCE_CONFIG_DIR")"
+    target_sources_dir_real="$(realpath -m -- "$TARGET_PROFILE_DIR/sources.d")"
+    move_legacy_path_aside "$SOURCE_CONFIG" "configuration"
+    if [[ "$source_config_dir_real" != "$target_sources_dir_real" ]]; then
+        move_legacy_path_aside "$SOURCE_CONFIG_DIR" "source directory"
+    fi
 fi

@@ -245,6 +245,31 @@ CONFIG
         list-profiles)"
     grep -qx 'default (legacy)' <<< "$profile_list" \
         || fail 'btrfs-backupctl did not list legacy default profile'
+
+    local remove_config="$TEST_ROOT/remove-legacy-backup.env"
+    local remove_source_dir="$TEST_ROOT/remove-legacy-sources.d"
+    mkdir -p "$remove_source_dir"
+    cp -- "$source_config" "$remove_config"
+    sed -i "s|^SOURCES_DIR=.*|SOURCES_DIR=$remove_source_dir|" "$remove_config"
+    cp -- "$source_dir/10-home.conf" "$remove_source_dir/10-home.conf"
+    chmod 0600 "$remove_config" "$remove_source_dir/10-home.conf"
+    "$ROOT/bin/btrfs-backup-migrate-profile" \
+        --source "$remove_config" \
+        --profile-dir "$profile_dir" \
+        --udev-dir "$udev_dir" \
+        --public-dir "$public_dir" \
+        --profile removelegacy \
+        --remove-legacy >/dev/null
+    assert_file "$profile_dir/removelegacy.env"
+    assert_not_exists "$remove_config"
+    assert_not_exists "$remove_source_dir"
+    remove_config_backups=("$TEST_ROOT"/remove-legacy-backup.env.migrated-*)
+    remove_source_backups=("$TEST_ROOT"/remove-legacy-sources.d.migrated-*)
+    (( ${#remove_config_backups[@]} == 1 )) || fail 'legacy config was not moved aside'
+    (( ${#remove_source_backups[@]} == 1 )) || fail 'legacy sources.d was not moved aside'
+    assert_file "${remove_config_backups[0]}"
+    assert_dir "${remove_source_backups[0]}"
+    assert_file "${remove_source_backups[0]}/10-home.conf"
     pass 'profile migrator validates and materializes JSON runtime files'
 }
 

@@ -123,6 +123,13 @@ Profiles can also be stored directly as `/etc/btrfs-backup/profiles.d/<profile>.
 sudo btrfs-backup-migrate-profile --profile default
 ```
 
+After validating the migrated profile, the old legacy configuration and
+`sources.d` directory can be moved aside:
+
+```bash
+sudo btrfs-backup-migrate-profile --profile default --force --remove-legacy
+```
+
 ## Recovery
 
 Target snapshots remain read-only. You can copy individual files from them or send a whole snapshot to another Btrfs filesystem. See [docs/recovery.md](docs/recovery.md) for the detailed procedure.
