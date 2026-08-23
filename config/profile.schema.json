@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "io.github.btrfsbackup.profile.schema.json",
+  "title": "btrfs-backup profile",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "profileId", "name", "enabled", "target", "paths", "settings", "notifications", "sources"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "profileId": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$" },
+    "name": { "type": "string", "minLength": 1, "maxLength": 160 },
+    "enabled": { "type": "boolean" },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["device", "luksUuid", "btrfsUuid", "mapperName", "mountPoint"],
+      "properties": {
+        "device": { "type": "string", "pattern": "^/dev(?:/|$)", "maxLength": 4096 },
+        "luksUuid": { "$ref": "#/$defs/uuid" },
+        "btrfsUuid": { "$ref": "#/$defs/optionalUuid" },
+        "partitionUuid": { "$ref": "#/$defs/optionalUuid" },
+        "serial": { "type": "string", "pattern": "^(|[A-Za-z0-9][A-Za-z0-9._:+-]{0,255})$" },
+        "mapperName": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$" },
+        "mountPoint": { "$ref": "#/$defs/absolutePath" }
+      }
+    },
+    "paths": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sourcesDir", "remoteRoot", "incomingRoot", "stateDir", "statusRoot", "historyRoot"],
+      "properties": {
+        "sourcesDir": { "$ref": "#/$defs/absolutePath" },
+        "remoteRoot": { "$ref": "#/$defs/absolutePath" },
+        "incomingRoot": { "$ref": "#/$defs/absolutePath" },
+        "stateDir": { "$ref": "#/$defs/absolutePath" },
+        "statusRoot": { "$ref": "#/$defs/absolutePath" },
+        "historyRoot": { "$ref": "#/$defs/absolutePath" }
+      }
+    },
+    "settings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dailyLimit",
+        "incrementalRequired",
+        "keepFailedLocalSnapshot",
+        "autoEject",
+        "remoteRetention",
+        "localRetention",
+        "minimumTargetFreeBytes",
+        "minimumLocalFreeBytes"
+      ],
+      "properties": {
+        "dailyLimit": { "type": "boolean" },
+        "incrementalRequired": { "type": "boolean" },
+        "keepFailedLocalSnapshot": { "type": "boolean" },
+        "autoEject": { "type": "boolean" },
+        "remoteRetention": { "$ref": "#/$defs/retentionCount" },
+        "localRetention": { "$ref": "#/$defs/retentionCount" },
+        "minimumTargetFreeBytes": { "$ref": "#/$defs/byteCount" },
+        "minimumLocalFreeBytes": { "$ref": "#/$defs/byteCount" }
+      }
+    },
+    "notifications": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "user", "method"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "user": { "type": "string", "maxLength": 256 },
+        "method": { "enum": ["auto", "desktop", "journal", "none"] }
+      }
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 128,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "enabled", "subvolume", "localSnapshotDir", "remoteSubdir"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$" },
+          "name": { "type": "string", "minLength": 1, "maxLength": 160 },
+          "enabled": { "type": "boolean" },
+          "subvolume": { "$ref": "#/$defs/absolutePath" },
+          "localSnapshotDir": { "$ref": "#/$defs/absolutePath" },
+          "remoteSubdir": { "$ref": "#/$defs/relativePath" },
+          "remoteRetention": { "$ref": "#/$defs/retentionCount" },
+          "localRetention": { "$ref": "#/$defs/retentionCount" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "absolutePath": { "type": "string", "pattern": "^/", "maxLength": 4096 },
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096,
+      "not": { "pattern": "^/|(^|/)\\.\\.?(/|$)" }
+    },
+    "uuid": {
+      "type": "string",
+      "pattern": "^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$"
+    },
+    "optionalUuid": {
+      "type": "string",
+      "pattern": "^(|[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12})$"
+    },
+    "retentionCount": { "type": "integer", "minimum": 0, "maximum": 100000 },
+    "byteCount": { "type": "integer", "minimum": 0, "maximum": 1000000000000000 }
+  }
+}
