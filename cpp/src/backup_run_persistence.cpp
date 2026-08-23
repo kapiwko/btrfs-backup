@@ -32,6 +32,30 @@ std::string phase_for_action(BackupRunActionKind kind) {
     return backup_run_action_kind_name(kind);
 }
 
+std::string error_code_for_failed_action(BackupRunActionKind kind) {
+    switch (kind) {
+        case BackupRunActionKind::BeforeSnapshotHook:
+            return "hook.before_snapshot_failed";
+        case BackupRunActionKind::AfterSnapshotHook:
+            return "hook.after_snapshot_failed";
+        default:
+            return "runner.action_failed";
+    }
+}
+
+bool failed_action_is_recoverable(BackupRunActionKind kind) {
+    return kind == BackupRunActionKind::BeforeSnapshotHook
+        || kind == BackupRunActionKind::AfterSnapshotHook;
+}
+
+std::string suggested_action_for_failed_action(BackupRunActionKind kind) {
+    if (kind == BackupRunActionKind::BeforeSnapshotHook
+        || kind == BackupRunActionKind::AfterSnapshotHook) {
+        return "inspect-hook-program";
+    }
+    return "inspect-run-history";
+}
+
 std::string message_for_event(const BackupRunEvent& event) {
     if (!event.message.empty()) {
         return event.message;
@@ -97,13 +121,14 @@ StatusRecord status_record_for_event(const BackupRunStatusContext& context, cons
     bool recoverable = false;
     std::string suggested_action;
     if (event.kind == BackupRunEventKind::ActionFailed) {
-        error_code = "runner.action_failed";
+        error_code = error_code_for_failed_action(event.action_kind);
         error_message = event.message;
         details = {
             {"sourceId", event.source_id},
             {"action", backup_run_action_kind_name(event.action_kind)}
         };
-        suggested_action = "inspect-run-history";
+        recoverable = failed_action_is_recoverable(event.action_kind);
+        suggested_action = suggested_action_for_failed_action(event.action_kind);
     } else if (event.kind == BackupRunEventKind::RunCancelled) {
         error_code = "runner.cancelled";
         error_message = message_for_event(event);

@@ -40,8 +40,8 @@
     in status updates.
 
 - Add application-consistency hooks to the C++ run plan:
-  - record hook start, success, failure, timeout and cancellation as stable
-    runner events with structured error codes;
+  - add hook timeout and cancellation handling with stable structured error
+    codes;
   - make hook effects checkpoint-aware so pending recovery can distinguish
     failure before snapshot creation from failure after snapshot creation;
   - leave integration-specific helpers, such as PostgreSQL, MariaDB, libvirt,

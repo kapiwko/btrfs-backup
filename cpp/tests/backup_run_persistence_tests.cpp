@@ -100,6 +100,33 @@ void test_status_sink_writes_current_and_terminal_history() {
     fs::remove_all(root);
 }
 
+void test_hook_failure_status_uses_stable_error_code() {
+    fs::path root = test_helpers::test_root("backup-run-persistence", "hook-failure");
+    btrfsbackup::StatusBackupRunEventSink sink({
+        .status_root = root / "status",
+        .history_root = root / "history",
+        .profile_name = "Default backup",
+        .source_count = 1,
+        .started_at = "2026-08-23T12:00:00Z",
+    });
+
+    btrfsbackup::BackupRunEvent failed = event(btrfsbackup::BackupRunEventKind::ActionFailed);
+    failed.action_kind = btrfsbackup::BackupRunActionKind::BeforeSnapshotHook;
+    failed.message = "hook failed: /usr/local/bin/prepare";
+
+    sink.on_backup_run_event(failed);
+
+    btrfsbackup::Json current = btrfsbackup::load_json_file(root / "status" / "default" / "current.json");
+    test_helpers::expect_true("hook state", current.at("state") == "failed", "wrong state");
+    test_helpers::expect_true("hook phase", current.at("phase") == "before-snapshot-hook", "wrong phase");
+    test_helpers::expect_true("hook error code", current.at("errorCode") == "hook.before_snapshot_failed", "wrong error code");
+    test_helpers::expect_true("hook recoverable", current.at("recoverable") == true, "hook failures should be recoverable");
+    test_helpers::expect_true("hook action", current.at("details").at("action") == "before-snapshot-hook", "wrong action detail");
+    test_helpers::expect_true("hook suggested action", current.at("suggestedAction") == "inspect-hook-program", "wrong suggested action");
+
+    fs::remove_all(root);
+}
+
 } // namespace
 
 int main() {
@@ -107,6 +134,7 @@ int main() {
     test_build_event_json();
     test_checkpoint_store_writes_private_json_in_state_dir();
     test_status_sink_writes_current_and_terminal_history();
+    test_hook_failure_status_uses_stable_error_code();
 
     return test_helpers::finish("backup run persistence tests");
 }
