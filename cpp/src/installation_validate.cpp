@@ -88,17 +88,17 @@ void validate_rendered_installation(const fs::path& root) {
     fs::path profile_json = root / "config" / "profile.json";
     fs::path service_file = root / "systemd" / "btrfs-backup.service";
     fs::path profile_service_file = root / "systemd" / "btrfs-backup@.service";
-    fs::path udev_file = root / "udev" / "99-btrfs-backup.rules";
 
     require_file(profile_json, "missing rendered canonical profile JSON");
     require_file(service_file, "missing rendered systemd unit");
     require_file(profile_service_file, "missing rendered systemd template unit");
-    require_file(udev_file, "missing rendered udev rule");
     if (contains_unresolved_placeholder(root)) {
         throw ValidationError("unresolved placeholders remain in rendered files");
     }
 
-    profile_from_json(load_json_file(profile_json));
+    Profile profile = profile_from_json(load_json_file(profile_json));
+    fs::path udev_file = root / "udev" / ("99-btrfs-backup-" + profile.id + ".rules");
+    require_file(udev_file, "missing rendered profile udev rule");
     run_checked({"systemd-analyze", "verify", service_file.string(), profile_service_file.string()}, true);
     run_checked({"udevadm", "verify", udev_file.string()});
     std::cerr << "Rendered configuration passed syntax, systemd, and udev validation: " << root << '\n';
@@ -111,17 +111,17 @@ void validate_active_installation(const std::string& profile_id) {
     fs::path profile_json = fs::path("/etc/btrfs-backup/profiles") / profile_id / "profile.json";
     fs::path service_file = "/etc/systemd/system/btrfs-backup.service";
     fs::path profile_service_file = "/etc/systemd/system/btrfs-backup@.service";
-    fs::path udev_file = "/etc/udev/rules.d/99-btrfs-backup.rules";
 
     require_file(profile_json, "missing profile JSON");
     if (!fs::is_regular_file(service_file)) {
         throw ValidationError("missing " + service_file.string());
     }
+
+    Profile profile = profile_from_json(load_json_file(profile_json));
+    fs::path udev_file = fs::path("/etc/udev/rules.d") / ("99-btrfs-backup-" + profile.id + ".rules");
     if (!fs::is_regular_file(udev_file)) {
         throw ValidationError("missing " + udev_file.string());
     }
-
-    Profile profile = profile_from_json(load_json_file(profile_json));
     std::vector<std::string> verify_units = {"systemd-analyze", "verify", service_file.string()};
     if (fs::is_regular_file(profile_service_file)) {
         verify_units.push_back(profile_service_file.string());
