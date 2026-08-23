@@ -347,6 +347,62 @@ void test_runner_execute_uses_injected_services_and_writes_state() {
     fs::remove_all(root);
 }
 
+void test_runner_execute_validate_builds_plan_without_effects() {
+    fs::path root = test_helpers::test_root("runner-command", "execute-validate");
+    fs::create_directories(root / "source" / "root");
+    fs::create_directories(root / "source" / ".snapshots" / "root");
+    fs::create_directories(root / "target" / "snapshots" / "root");
+    fs::create_directories(root / "target" / ".incoming");
+
+    btrfsbackup::Profile profile = test_profile(root);
+    fs::path config_root = root / "config";
+    fs::path mountinfo = root / "mountinfo";
+    write_profile(config_root, profile);
+    write_mountinfo(mountinfo, profile);
+
+    RecordingActionEffects action_effects;
+    ConfigurableTransferPipeline transfer_pipeline;
+    btrfsbackup::command::RunnerExecutionServices services{
+        .action_effects = action_effects,
+        .transfer_pipeline = transfer_pipeline,
+    };
+
+    std::ostringstream output;
+    int result = btrfsbackup::command::runner(
+        config_root,
+        {
+            "execute",
+            "--validate",
+            "--profile",
+            "default",
+            "--timestamp",
+            "2026-08-23T080000Z",
+            "--run-id",
+            "20260823T080000Z-123-456",
+            "--mountinfo",
+            mountinfo.string(),
+            "--mount-uuid",
+            "/dev/source",
+            "source-fs",
+            "--mount-uuid",
+            "/dev/mapper/backup",
+            profile.target.btrfs_uuid,
+        },
+        output,
+        &services
+    );
+
+    btrfsbackup::Json json = btrfsbackup::Json::parse(output.str());
+    test_helpers::expect_eq("validate result", std::to_string(result), "0");
+    test_helpers::expect_eq("validate mode", json.at("mode").get<std::string>(), "cpp-validate");
+    test_helpers::expect_true("validate completed", json.at("completed").get<bool>(), "validation should complete");
+    test_helpers::expect_eq("validate transfer count", std::to_string(transfer_pipeline.plans.size()), "0");
+    test_helpers::expect_true("validate effects", action_effects.calls.empty(), "validation should not execute actions");
+    test_helpers::expect_true("validate checkpoint absent", !fs::exists(root / "state" / "profiles" / "default" / "checkpoint.json"), "validation should not write checkpoint");
+
+    fs::remove_all(root);
+}
+
 void test_runner_execute_transfer_failure_writes_failed_status() {
     fs::path root = test_helpers::test_root("runner-command", "execute-transfer-failure");
     fs::create_directories(root / "source" / "root");
@@ -857,6 +913,7 @@ int main() {
     test_runner_plan_outputs_shadow_json();
     test_runner_plan_validates_target_mount();
     test_runner_execute_uses_injected_services_and_writes_state();
+    test_runner_execute_validate_builds_plan_without_effects();
     test_runner_execute_transfer_failure_writes_failed_status();
     test_runner_execute_commit_failure_writes_failed_status();
     test_runner_execute_verify_failure_writes_failed_status();
