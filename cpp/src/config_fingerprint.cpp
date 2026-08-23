@@ -186,15 +186,15 @@ void command_config_fingerprint(const std::vector<std::string>& args, std::ostre
         } else if (arg == "--source") {
             source_files.emplace_back(arg_value(args, i, arg));
         } else {
-            throw ValidationError("unknown config-fingerprint option: " + arg);
+            throw ValidationError("unknown state fingerprint option: " + arg);
         }
     }
 
     if (version.empty()) {
-        throw ValidationError("config-fingerprint requires --version");
+        throw ValidationError("state fingerprint requires --version");
     }
     if (config_file.empty()) {
-        throw ValidationError("config-fingerprint requires --config");
+        throw ValidationError("state fingerprint requires --config");
     }
 
     output << compute_config_fingerprint(version, config_file, source_files) << '\n';

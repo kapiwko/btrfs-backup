@@ -849,7 +849,7 @@ if [[ "$TARGET" == all || "$TARGET" == arch ]]; then
     "$PACKAGE_AUDIT_ROOT/usr/bin/btrfs-backupctl" profile --help >/dev/null
     "$PACKAGE_AUDIT_ROOT/usr/bin/btrfs-backup-eject" --help >/dev/null
     "$PACKAGE_AUDIT_ROOT/usr/bin/btrfs-backup-mount" --help >/dev/null
-    "$PACKAGE_AUDIT_ROOT/usr/bin/btrfs-backupctl" migrate-profile --help >/dev/null
+    "$PACKAGE_AUDIT_ROOT/usr/bin/btrfs-backupctl" profile migrate --help >/dev/null
     "$PACKAGE_AUDIT_ROOT/usr/bin/btrfs-backup-unplug" --help >/dev/null 2>&1
     "$PACKAGE_AUDIT_ROOT/usr/bin/btrfs-backup-configure" --help >/dev/null
 

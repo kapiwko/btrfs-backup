@@ -4,7 +4,7 @@
 
 1. removed runtime fallback to legacy source and main configuration files;
 2. stopped generating legacy source configuration files for profile render/save;
-3. `btrfs-backupctl list-profiles` now lists canonical profile JSON storage;
+3. `btrfs-backupctl profile list` now lists canonical profile JSON storage;
 4. started replacing Python runtime tooling with C++ by porting profile commands
    to native `btrfs-backupctl profile` code under the `cpp/` source tree;
 5. package builds now compile and install the native control helper;
@@ -12,7 +12,7 @@
    the native helper instead of embedded Python snippets;
 7. generated runtime packages no longer depend on Python and the old Python
    profile helper has been removed;
-8. profile migration is now handled natively by `btrfs-backupctl migrate-profile`,
+8. profile migration is now handled natively by `btrfs-backupctl profile migrate`,
    and the standalone migration wrapper and shell implementation have been
    removed;
 9. backup, mount, and eject runtime entrypoints now load profile JSON as their
@@ -25,7 +25,10 @@
     installation validation that used to live in the shell configurator;
 13. `btrfs-backupctl installation render` now renders systemd, fstab, and
     crypttab installation files that used to be templated by the shell
-    configurator.
+    configurator;
+14. `btrfs-backupctl` commands are grouped by area, including `profile list`,
+    `profile migrate`, `status show`, `status history`, and internal
+    `state ...` runtime commands.
 
 ## 0.1.1 - 2026-08-23
 

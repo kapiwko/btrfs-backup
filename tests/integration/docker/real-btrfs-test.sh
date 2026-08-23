@@ -293,7 +293,7 @@ grep -q '"state": "succeeded"' /run/btrfs-backup/profiles/default/current.json \
 grep -q '"state": "succeeded"' /var/lib/btrfs-backup/history/default/last.json \
     || fail 'history JSON was not written'
 set +e
-CTL_STATUS_OUTPUT="$(btrfs-backupctl status --profile default --human 2>&1)"
+CTL_STATUS_OUTPUT="$(btrfs-backupctl status show --profile default --human 2>&1)"
 CTL_STATUS_CODE=$?
 set -e
 [[ "$CTL_STATUS_CODE" -eq 0 ]] \
@@ -301,7 +301,7 @@ set -e
 grep -q 'Default backup: succeeded' <<< "$CTL_STATUS_OUTPUT" \
     || { printf '%s\n' "$CTL_STATUS_OUTPUT" >&2; fail 'btrfs-backupctl did not render human status'; }
 set +e
-CTL_HISTORY_OUTPUT="$(btrfs-backupctl history --profile default --limit 1 2>&1)"
+CTL_HISTORY_OUTPUT="$(btrfs-backupctl status history --profile default --limit 1 2>&1)"
 CTL_HISTORY_CODE=$?
 set -e
 [[ "$CTL_HISTORY_CODE" -eq 0 ]] \

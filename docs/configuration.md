@@ -32,7 +32,7 @@ The preferred active profile file is
 `--profile <profile>` or `BTRFS_BACKUP_PROFILE=<profile>`.
 
 The legacy `/etc/btrfs-backup/backup.env` file is no longer used by the runtime.
-Use `btrfs-backupctl migrate-profile` to convert it to profile JSON.
+Use `btrfs-backupctl profile migrate` to convert it to profile JSON.
 
 Important fields:
 
@@ -72,7 +72,7 @@ profile state directory on the next run.
 To convert an existing legacy file into the preferred default profile:
 
 ```bash
-sudo btrfs-backupctl migrate-profile --profile default
+sudo btrfs-backupctl profile migrate --profile default
 ```
 
 The migrator creates canonical profile JSON and keeps the legacy input files in
