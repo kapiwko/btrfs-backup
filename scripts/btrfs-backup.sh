@@ -126,7 +126,7 @@ load_main_config() {
 
     bb_validate_safe_name PROFILE_ID "$PROFILE_ID"
     bb_validate_safe_name BACKUP_MAPPER_NAME "$BACKUP_MAPPER_NAME"
-    bb_validate_safe_name BACKUP_SERVICE_NAME "${BACKUP_SERVICE_NAME%.service}"
+    bb_validate_systemd_service_name BACKUP_SERVICE_NAME "$BACKUP_SERVICE_NAME"
     bb_validate_absolute_path BACKUP_MOUNTPOINT "$BACKUP_MOUNTPOINT"
     bb_validate_absolute_path BACKUP_DEVICE "$BACKUP_DEVICE"
     bb_validate_absolute_path SOURCES_DIR "$SOURCES_DIR"

@@ -166,7 +166,7 @@ def normalize_profile(raw: Any) -> dict[str, Any]:
     sources_dir = absolute_path(paths.get("sourcesDir", f"/etc/btrfs-backup/profiles/{profile_id}/sources.d"), "paths.sourcesDir")
     remote_root = absolute_path(paths.get("remoteRoot", f"{mount_point}/snapshots"), "paths.remoteRoot")
     incoming_root = absolute_path(paths.get("incomingRoot", f"{mount_point}/.incoming"), "paths.incomingRoot")
-    state_dir = absolute_path(paths.get("stateDir", f"/var/lib/btrfs-backup/profiles/{profile_id}"), "paths.stateDir")
+    state_dir = absolute_path(paths.get("stateDir", "/var/lib/btrfs-backup"), "paths.stateDir")
     status_root = absolute_path(paths.get("statusRoot", "/run/btrfs-backup/profiles"), "paths.statusRoot")
     history_root = absolute_path(paths.get("historyRoot", "/var/lib/btrfs-backup/history"), "paths.historyRoot")
 

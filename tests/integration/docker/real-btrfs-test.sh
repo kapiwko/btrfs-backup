@@ -19,6 +19,7 @@ RENDERED_CONFIG="$TEST_ROOT/rendered"
 LOG_DIR="$TEST_ROOT/logs"
 RUN_LOG="$LOG_DIR/btrfs-backup.log"
 ACTIVE_CONFIG=/etc/btrfs-backup/backup.env
+SOURCE_CONFIG=/etc/btrfs-backup/profiles/default/sources.d/010-home.conf
 
 cleanup() {
     set +e
@@ -120,18 +121,19 @@ ANSWERS
         --output-dir "$RENDERED_CONFIG" >/dev/null
     btrfs-backup-configure --validate-dir "$RENDERED_CONFIG" >/dev/null
 
-    install -d -m0700 /etc/btrfs-backup /etc/btrfs-backup/sources.d
+    install -d -m0700 /etc/btrfs-backup /etc/btrfs-backup/profiles/default/sources.d /etc/btrfs-backup/profiles.d
     install -m0600 "$RENDERED_CONFIG/config/backup.env" /etc/btrfs-backup/backup.env
-    rm -f -- /etc/btrfs-backup/sources.d/*.conf
-    install -m0600 "$RENDERED_CONFIG/config/sources.d"/*.conf /etc/btrfs-backup/sources.d/
+    install -m0600 "$RENDERED_CONFIG/config/profiles.d/default.env" /etc/btrfs-backup/profiles.d/default.env
+    rm -f -- /etc/btrfs-backup/profiles/default/sources.d/*.conf
+    install -m0600 "$RENDERED_CONFIG/config/profiles/default/sources.d"/*.conf /etc/btrfs-backup/profiles/default/sources.d/
+    install -m0600 "$RENDERED_CONFIG/config/profile.json" /etc/btrfs-backup/profiles/default/profile.json
     install -Dm0644 "$RENDERED_CONFIG/systemd/btrfs-backup.service" /etc/systemd/system/btrfs-backup.service
     install -Dm0644 "$RENDERED_CONFIG/systemd/btrfs-backup@.service" /etc/systemd/system/btrfs-backup@.service
     install -Dm0644 "$RENDERED_CONFIG/udev/99-btrfs-backup.rules" /etc/udev/rules.d/99-btrfs-backup.rules
     btrfs-backup-configure --validate >/dev/null
-    btrfs-backup-migrate-profile --profile default --remove-legacy >/dev/null
     ACTIVE_CONFIG=/etc/btrfs-backup/profiles.d/default.env
-    [[ -f "$ACTIVE_CONFIG" ]] || fail 'profile migration did not create default.env'
-    [[ ! -f /etc/btrfs-backup/backup.env ]] || fail 'profile migration did not move legacy backup.env aside'
+    [[ -f "$ACTIVE_CONFIG" ]] || fail 'configuration did not create default profile env'
+    SOURCE_CONFIG=/etc/btrfs-backup/profiles/default/sources.d/010-home.conf
 }
 
 run_backup() {
@@ -213,7 +215,7 @@ target_uuid_mismatch_test() {
 source_on_target_test() {
     btrfs subvolume create "$TARGET_MOUNT/bad-source" >/dev/null
     install -d -m0700 "$TARGET_MOUNT/.bad-local"
-    cat > /etc/btrfs-backup/sources.d/10-home.conf <<CONFIG
+    cat > "$SOURCE_CONFIG" <<CONFIG
 ENABLED=true
 SOURCE_NAME=home
 SOURCE_SUBVOLUME=$TARGET_MOUNT/bad-source
@@ -222,7 +224,7 @@ REMOTE_SUBDIR=home
 SOURCE_RETENTION_COUNT=2
 SOURCE_LOCAL_RETENTION_COUNT=2
 CONFIG
-    chmod 0600 /etc/btrfs-backup/sources.d/10-home.conf
+    chmod 0600 "$SOURCE_CONFIG"
     expect_backup_failure 'SOURCE_SUBVOLUME must not be on the backup target filesystem'
     btrfs subvolume delete -- "$TARGET_MOUNT/bad-source" >/dev/null
     rm -rf -- "$TARGET_MOUNT/.bad-local"
@@ -231,7 +233,7 @@ CONFIG
 
 missing_incremental_parent_test() {
     local empty_local_dir="$SOURCE_MOUNT/.snapshots/empty-parent-check"
-    local source_config=/etc/btrfs-backup/sources.d/10-home.conf
+    local source_config="$SOURCE_CONFIG"
     local source_config_backup="$TEST_ROOT/10-home.conf.parent-check.bak"
 
     cp -a -- "$source_config" "$source_config_backup"
@@ -290,7 +292,7 @@ pass 'installed runtime validates the mounted target'
 btrfs-backup-mount >/dev/null
 pass 'installed mount command validates the mounted target'
 with_restored_file "$ACTIVE_CONFIG" target_uuid_mismatch_test
-with_restored_file /etc/btrfs-backup/sources.d/10-home.conf source_on_target_test
+with_restored_file "$SOURCE_CONFIG" source_on_target_test
 
 run_backup
 grep -q 'Sending full stream' "$RUN_LOG" || fail 'full stream was not used for first backup'
