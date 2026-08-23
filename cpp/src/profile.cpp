@@ -9,6 +9,7 @@
 #include <vector>
 
 #include <btrfsbackup/errors.hpp>
+#include <btrfsbackup/identifiers.hpp>
 #include <btrfsbackup/json_io.hpp>
 #include <btrfsbackup/process.hpp>
 
@@ -19,7 +20,6 @@ namespace btrfsbackup {
 namespace {
 
 constexpr int schema_version = 1;
-const std::regex profile_re{"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"};
 const std::regex uuid_re{"^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$"};
 const std::regex serial_re{"^(|[A-Za-z0-9][A-Za-z0-9._:+-]{0,255})$"};
 const std::set<std::string> forbidden_mount_points{"/", "/boot", "/dev", "/etc", "/home", "/proc", "/root", "/run", "/sys", "/usr", "/var"};
@@ -257,9 +257,7 @@ Json load_profile_from_runtime(const fs::path& etc_root, const std::string& prof
 
 std::string identifier(const Json& value, const std::string& name) {
     std::string result = text(value, name, false, 64);
-    if (!std::regex_match(result, profile_re)) {
-        throw ValidationError(name + " contains unsupported characters");
-    }
+    validate_identifier(result, name);
     return result;
 }
 
@@ -465,9 +463,7 @@ Json normalize_profile(const Json& raw) {
 }
 
 Json load_profile_by_id(const fs::path& etc_root, const std::string& profile_id) {
-    if (!std::regex_match(profile_id, profile_re)) {
-        throw ValidationError("profile contains unsupported characters");
-    }
+    validate_identifier(profile_id, "profile");
     fs::path canonical = profile_json_path(etc_root, profile_id);
     if (fs::exists(canonical)) {
         return normalize_profile(load_json_file(canonical));
