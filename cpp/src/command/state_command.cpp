@@ -5,8 +5,8 @@
 #include <string>
 #include <vector>
 
+#include <btrfsbackup/command/config_fingerprint_command.hpp>
 #include <btrfsbackup/command/run_state_command.hpp>
-#include <btrfsbackup/config_fingerprint.hpp>
 
 namespace {
 
@@ -59,7 +59,7 @@ int state(const std::vector<std::string>& args) {
     std::string command = args[0];
     std::vector<std::string> rest(args.begin() + 1, args.end());
     if (command == "fingerprint") {
-        btrfsbackup::command_config_fingerprint(rest, std::cout);
+        config_fingerprint(rest, std::cout);
         return 0;
     }
     if (command == "check-last-success") {
