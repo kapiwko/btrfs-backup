@@ -11,6 +11,7 @@ include(CTest)
 find_package(nlohmann_json REQUIRED)
 
 add_library(btrfsbackup_profile_tool STATIC
+    cpp/src/ctl_tool.cpp
     cpp/src/file_io.cpp
     cpp/src/json_io.cpp
     cpp/src/process.cpp
@@ -40,6 +41,15 @@ add_executable(btrfs-backup-profile
 )
 
 target_link_libraries(btrfs-backup-profile
+    PRIVATE
+        btrfsbackup_profile_tool
+)
+
+add_executable(btrfs-backupctl
+    cpp/apps/btrfs-backupctl.cpp
+)
+
+target_link_libraries(btrfs-backupctl
     PRIVATE
         btrfsbackup_profile_tool
 )
