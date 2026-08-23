@@ -2,14 +2,6 @@
 
 ## C++ Runtime Migration
 
-- Port snapshot operations behind an interface:
-  - check subvolume existence and readonly state;
-  - read UUID and received UUID;
-  - create readonly local snapshots;
-  - delete snapshots;
-  - keep a fake implementation for unit tests and Bash compatibility tests for
-    behavior.
-
 - Port receive-to-incoming and commit logic:
   - receive into `.incoming`;
   - verify received UUID against the local snapshot UUID;
