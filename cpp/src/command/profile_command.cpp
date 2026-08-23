@@ -14,6 +14,7 @@
 #include <btrfsbackup/json_io.hpp>
 #include <btrfsbackup/profile.hpp>
 #include <btrfsbackup/command/profile_list_command.hpp>
+#include <btrfsbackup/profile_loader.hpp>
 #include <btrfsbackup/profile_render.hpp>
 #include <btrfsbackup/profile_store.hpp>
 #include <btrfsbackup/command/profile_sources_command.hpp>

@@ -10,9 +10,6 @@
 
 #include <btrfsbackup/errors.hpp>
 #include <btrfsbackup/identifiers.hpp>
-#include <btrfsbackup/json_io.hpp>
-#include <btrfsbackup/process.hpp>
-#include <btrfsbackup/trusted_file.hpp>
 #include <btrfsbackup/validation.hpp>
 
 namespace fs = std::filesystem;
@@ -121,12 +118,53 @@ const Json& required_value(const Json& root, const std::string& key, const std::
     return root.at(key);
 }
 
-std::string systemd_mount_unit(const std::string& mount_point) {
-    return run_capture({"systemd-escape", "-p", "--suffix=mount", mount_point});
+bool systemd_unit_plain_char(unsigned char c) {
+    return std::isalnum(c) || c == ':' || c == '_' || c == '.';
 }
 
-fs::path profile_json_path(const fs::path& etc_root, const std::string& profile_id) {
-    return etc_root / "profiles" / profile_id / "profile.json";
+std::string systemd_hex_escape(unsigned char c) {
+    const char* digits = "0123456789abcdef";
+    std::string result = "\\x";
+    result.push_back(digits[(c >> 4) & 0x0f]);
+    result.push_back(digits[c & 0x0f]);
+    return result;
+}
+
+std::string systemd_path_unit_stem(const std::string& mount_point) {
+    fs::path normalized = fs::path(mount_point).lexically_normal();
+    std::string path = normalized.string();
+    while (path.size() > 1 && path.back() == '/') {
+        path.pop_back();
+    }
+    if (path == "/") {
+        return "-";
+    }
+    if (!path.empty() && path.front() == '/') {
+        path.erase(path.begin());
+    }
+
+    std::string escaped;
+    bool previous_slash = false;
+    for (unsigned char c : path) {
+        if (c == '/') {
+            if (!escaped.empty() && !previous_slash) {
+                escaped.push_back('-');
+            }
+            previous_slash = true;
+            continue;
+        }
+        previous_slash = false;
+        if (systemd_unit_plain_char(c)) {
+            escaped.push_back(static_cast<char>(c));
+        } else {
+            escaped += systemd_hex_escape(c);
+        }
+    }
+    return escaped.empty() ? "-" : escaped;
+}
+
+std::string systemd_mount_unit(const std::string& mount_point) {
+    return systemd_path_unit_stem(mount_point) + ".mount";
 }
 
 } // namespace
@@ -449,27 +487,6 @@ Json profile_to_json(const Profile& profile) {
         }},
         {"sources", sources}
     };
-}
-
-namespace {
-
-Json load_profile_json(const fs::path& etc_root, const std::string& profile_id) {
-    validate_identifier(profile_id, "profile");
-    fs::path canonical = profile_json_path(etc_root, profile_id);
-    TrustedFilePolicy policy{
-        .allow_current_user_owner = fs::absolute(etc_root).lexically_normal() != fs::path("/etc/btrfs-backup"),
-    };
-    try {
-        return normalize_profile(Json::parse(read_trusted_config_file(canonical, policy)));
-    } catch (const Json::exception& exc) {
-        throw ValidationError("cannot read JSON profile " + canonical.string() + ": " + exc.what());
-    }
-}
-
-} // namespace
-
-Profile load_profile_by_id(const fs::path& etc_root, const std::string& profile_id) {
-    return profile_from_json(load_profile_json(etc_root, profile_id));
 }
 
 } // namespace btrfsbackup
