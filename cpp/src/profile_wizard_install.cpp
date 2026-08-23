@@ -17,18 +17,6 @@ namespace fs = std::filesystem;
 
 namespace btrfsbackup {
 
-namespace {
-
-std::string detect_eject_script() {
-    fs::path repo_candidate = fs::current_path() / "bin" / "btrfs-backup-eject";
-    if (fs::exists(repo_candidate)) {
-        return repo_candidate.string();
-    }
-    return "/usr/bin/btrfs-backup-eject";
-}
-
-} // namespace
-
 void render_wizard_tree(const Profile& profile, const std::string& keyfile, const fs::path& output_dir) {
     wizard::assert_safe_output_dir(output_dir);
     std::error_code ec;
@@ -45,7 +33,7 @@ void render_wizard_tree(const Profile& profile, const std::string& keyfile, cons
         output_dir,
         {
             "/usr/bin/btrfs-backupctl runner execute",
-            detect_eject_script(),
+            "/usr/bin/btrfs-backupctl target eject",
             keyfile
         }
     );
