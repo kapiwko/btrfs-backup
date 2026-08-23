@@ -3,10 +3,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
-#include <fstream>
 #include <iostream>
-#include <iterator>
-#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -16,7 +13,6 @@
 #include <btrfsbackup/file_io.hpp>
 #include <btrfsbackup/json.hpp>
 #include <btrfsbackup/json_io.hpp>
-#include <btrfsbackup/process.hpp>
 #include <btrfsbackup/profile.hpp>
 #include <btrfsbackup/profile_render.hpp>
 #include <btrfsbackup/profile_store.hpp>
@@ -33,7 +29,6 @@ using btrfsbackup::profile_from_json;
 using btrfsbackup::profile_to_json;
 using btrfsbackup::render_profile_env;
 using btrfsbackup::render_tree;
-using btrfsbackup::run_command;
 using btrfsbackup::save_tree;
 
 namespace {
@@ -71,147 +66,6 @@ bool arg_bool(const std::string& value, const std::string& option) {
         return false;
     }
     fail(option + " must be true or false");
-}
-
-bool contains_unresolved_placeholder(const fs::path& root) {
-    std::error_code ec;
-    for (fs::recursive_directory_iterator it(root, ec), end; it != end; it.increment(ec)) {
-        if (ec) {
-            throw ValidationError("cannot scan rendered tree: " + root.string());
-        }
-        if (!it->is_regular_file(ec)) {
-            continue;
-        }
-        std::ifstream stream(it->path());
-        std::string line;
-        while (std::getline(stream, line)) {
-            if (line.find("{{") != std::string::npos && line.find("}}") != std::string::npos) {
-                return true;
-            }
-        }
-    }
-    return false;
-}
-
-bool allowed_systemd_verify_failure(const std::string& output) {
-    bool saw_output = false;
-    std::istringstream stream(output);
-    std::string line;
-    while (std::getline(stream, line)) {
-        if (line.empty()) {
-            continue;
-        }
-        saw_output = true;
-        if (line != "Failed to turn off SO_PASSRIGHTS on user lookup socket, ignoring: Operation not permitted" &&
-            line != "Failed to enable SO_PASSCRED on handoff timestamp socket: Operation not permitted") {
-            return false;
-        }
-    }
-    return saw_output;
-}
-
-void run_checked(const std::vector<std::string>& argv, bool allow_systemd_warnings = false) {
-    btrfsbackup::CommandResult result = run_command(argv);
-    if (result.exit_code == 0) {
-        if (!result.output.empty()) {
-            std::cerr << result.output;
-        }
-        return;
-    }
-    if (allow_systemd_warnings && allowed_systemd_verify_failure(result.output)) {
-        std::cerr << result.output;
-        return;
-    }
-    if (!result.output.empty()) {
-        std::cerr << result.output;
-    }
-    throw ValidationError("command failed: " + argv.front());
-}
-
-void validate_rendered_installation(const fs::path& root) {
-    fs::path profile_json = root / "config" / "profile.json";
-    fs::path service_file = root / "systemd" / "btrfs-backup.service";
-    fs::path profile_service_file = root / "systemd" / "btrfs-backup@.service";
-    fs::path udev_file = root / "udev" / "99-btrfs-backup.rules";
-
-    if (!fs::is_regular_file(profile_json)) fail("missing rendered canonical profile JSON: " + profile_json.string());
-    if (!fs::is_regular_file(service_file)) fail("missing rendered systemd unit: " + service_file.string());
-    if (!fs::is_regular_file(profile_service_file)) fail("missing rendered systemd template unit: " + profile_service_file.string());
-    if (!fs::is_regular_file(udev_file)) fail("missing rendered udev rule: " + udev_file.string());
-    if (contains_unresolved_placeholder(root)) {
-        fail("unresolved placeholders remain in rendered files");
-    }
-
-    profile_from_json(load_json_file(profile_json));
-    run_checked({"systemd-analyze", "verify", service_file.string(), profile_service_file.string()}, true);
-    run_checked({"udevadm", "verify", udev_file.string()});
-    std::cerr << "Rendered configuration passed syntax, systemd, and udev validation: " << root << '\n';
-}
-
-void validate_active_installation(const std::string& profile_id) {
-    if (geteuid() != 0) {
-        fail("active installation validation must be run as root", 1);
-    }
-    fs::path profile_json = fs::path("/etc/btrfs-backup/profiles") / profile_id / "profile.json";
-    fs::path service_file = "/etc/systemd/system/btrfs-backup.service";
-    fs::path profile_service_file = "/etc/systemd/system/btrfs-backup@.service";
-    fs::path udev_file = "/etc/udev/rules.d/99-btrfs-backup.rules";
-
-    if (!fs::is_regular_file(profile_json)) fail("missing profile JSON: " + profile_json.string());
-    if (!fs::is_regular_file(service_file)) fail("missing " + service_file.string());
-    if (!fs::is_regular_file(udev_file)) fail("missing " + udev_file.string());
-
-    Profile profile = profile_from_json(load_json_file(profile_json));
-    std::vector<std::string> verify_units = {"systemd-analyze", "verify", service_file.string()};
-    if (fs::is_regular_file(profile_service_file)) {
-        verify_units.push_back(profile_service_file.string());
-    }
-    run_checked(verify_units, true);
-    run_checked({"udevadm", "verify", udev_file.string()});
-
-    std::string mount_unit = btrfsbackup::run_capture({"systemd-escape", "-p", "--suffix=mount", profile.target.mount_point});
-    fs::path old_dropin = fs::path("/etc/systemd/system") / (mount_unit + ".d") / "backup.conf";
-    if (fs::is_regular_file(old_dropin)) {
-        std::ifstream stream(old_dropin);
-        std::string content{std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()};
-        if (content.find("Wants=") != std::string::npos || content.find("After=") != std::string::npos) {
-            if (content.find("btrfs-backup.service") != std::string::npos) {
-                fail("obsolete cyclic mount drop-in still exists: " + old_dropin.string());
-            }
-        }
-    }
-
-    std::cerr << "Active static configuration is valid. Run 'sudo btrfs-backup --validate' with the target connected for runtime validation.\n";
-}
-
-int command_validate_installation(const std::vector<std::string>& args) {
-    fs::path rendered_root;
-    bool active = false;
-    std::string profile_id = "default";
-    for (std::size_t i = 0; i < args.size(); ++i) {
-        const std::string& arg = args[i];
-        if (arg == "--rendered-root") {
-            rendered_root = arg_value(i, args, arg);
-        } else if (arg == "--active") {
-            active = true;
-        } else if (arg == "--profile") {
-            profile_id = arg_value(i, args, arg);
-        } else if (arg == "-h" || arg == "--help") {
-            std::cout << "Usage: btrfs-backupctl profile validate-installation (--rendered-root PATH | --active [--profile ID])\n";
-            return 0;
-        } else {
-            fail("unknown validate-installation option: " + arg);
-        }
-    }
-    if (active == !rendered_root.empty()) {
-        fail("validate-installation requires exactly one of --rendered-root or --active");
-    }
-    if (active) {
-        validate_active_installation(profile_id);
-    } else {
-        validate_rendered_installation(rendered_root);
-    }
-    return 0;
 }
 
 int command_create_profile(const std::vector<std::string>& args) {
@@ -374,7 +228,6 @@ void usage() {
     std::cout << "Usage: btrfs-backupctl profile [--etc-root PATH] [--udev-root PATH] [--public-root PATH] COMMAND\n"
               << "\nCommands:\n"
               << "  create --output PATH [OPTIONS]\n"
-              << "  validate-installation (--rendered-root PATH | --active [--profile ID])\n"
               << "  validate --file PATH\n"
               << "  render --file PATH --output-dir PATH\n"
               << "  save --file PATH\n"
@@ -418,9 +271,6 @@ int command_profile(const std::vector<std::string>& args) {
         std::string command = rest[0];
         if (command == "create") {
             return command_create_profile(std::vector<std::string>(rest.begin() + 1, rest.end()));
-        }
-        if (command == "validate-installation") {
-            return command_validate_installation(std::vector<std::string>(rest.begin() + 1, rest.end()));
         }
         fs::path file;
         fs::path output_dir;

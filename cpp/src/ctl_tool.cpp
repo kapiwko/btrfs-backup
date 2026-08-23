@@ -14,6 +14,7 @@
 #include <btrfsbackup/errors.hpp>
 #include <btrfsbackup/history.hpp>
 #include <btrfsbackup/identifiers.hpp>
+#include <btrfsbackup/installation_tool.hpp>
 #include <btrfsbackup/migrate_profile.hpp>
 #include <btrfsbackup/profile_list.hpp>
 #include <btrfsbackup/profile_tool.hpp>
@@ -46,6 +47,7 @@ void usage() {
               << "  --profile-dir PATH   Override profile config dir (default: /etc/btrfs-backup/profiles.d).\n"
               << "\nCommands:\n"
               << "  profile COMMAND\n"
+              << "  installation COMMAND\n"
               << "  migrate-profile [OPTIONS]\n"
               << "  list-profiles\n"
               << "  status [--profile ID|--all] [--human]\n"
@@ -143,6 +145,8 @@ int ctl_tool_main(int argc, char** argv) {
 
         if (command == "profile") {
             return command_profile(args);
+        } else if (command == "installation") {
+            return command_installation(args);
         } else if (command == "migrate-profile") {
             return command_migrate_profile(args);
         } else if (command == "list-profiles") {
