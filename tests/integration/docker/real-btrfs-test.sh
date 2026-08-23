@@ -286,7 +286,7 @@ pass 'installed runtime validates the mounted target'
 btrfs-backup-mount >/dev/null
 pass 'installed mount command validates the mounted target'
 with_restored_file "$ACTIVE_CONFIG" target_uuid_mismatch_test
-with_restored_file "$SOURCE_CONFIG" source_on_target_test
+source_on_target_test
 
 run_backup
 grep -q 'Sending full stream' "$RUN_LOG" || fail 'full stream was not used for first backup'
