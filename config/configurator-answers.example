@@ -1,6 +1,8 @@
 # This file is sourced by Bash. Copy it, fill it in, and run: chmod 0600 answers.conf
 
 BACKUP_DEVICE=/dev/disk/by-uuid/11111111-2222-3333-4444-555555555555
+PROFILE_ID=default
+PROFILE_NAME='Default backup'
 BACKUP_LUKS_UUID=11111111-2222-3333-4444-555555555555
 BACKUP_BTRFS_UUID=66666666-7777-8888-9999-aaaaaaaaaaaa
 BACKUP_UDEV_MATCH='ENV{DEVTYPE}=="partition", ENV{ID_FS_TYPE}=="crypto_LUKS", ENV{ID_FS_UUID}=="11111111-2222-3333-4444-555555555555", ENV{ID_PART_ENTRY_UUID}=="aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"'

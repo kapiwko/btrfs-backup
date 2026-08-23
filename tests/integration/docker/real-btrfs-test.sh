@@ -284,6 +284,8 @@ with_restored_file /etc/btrfs-backup/sources.d/10-home.conf source_on_target_tes
 
 run_backup
 grep -q 'Sending full stream' "$RUN_LOG" || fail 'full stream was not used for first backup'
+grep -q '^profile_id=default$' /var/lib/btrfs-backup/profiles/default/last-success \
+    || fail 'profile last-success state was not written'
 assert_count 1 "$TARGET_MOUNT/snapshots/home"
 assert_count 1 "$SOURCE_MOUNT/.snapshots/home"
 assert_remote_matches_latest_local
