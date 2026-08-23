@@ -307,8 +307,6 @@ stage_package_payload() {
         "$pkgdir/usr/share/btrfs-backup/examples/systemd/btrfs-backup.service.example"
     install -Dm644 "$root/systemd/btrfs-backup@.service.example" \
         "$pkgdir/usr/share/btrfs-backup/examples/systemd/btrfs-backup@.service.example"
-    install -Dm644 "$root/udev/99-btrfs-backup.rules.example" \
-        "$pkgdir/usr/share/btrfs-backup/examples/udev/99-btrfs-backup.rules.example"
     install -d -m0755 "$pkgdir/usr/lib/systemd/system"
     sed \
         -e 's#{{BACKUP_COMMAND}}#/usr/bin/btrfs-backupctl runner execute#g' \
@@ -872,7 +870,6 @@ if [[ "$TARGET" == all || "$TARGET" == arch ]]; then
         --udev-root "$PACKAGE_RENDERED/udev" \
         --public-root "$PACKAGE_RENDERED/public/profiles" \
         save --file "$PACKAGE_PROFILE" >/dev/null
-    install -m0644 "$PACKAGE_RENDERED/udev/99-btrfs-backup-default.rules" "$PACKAGE_RENDERED/udev/99-btrfs-backup.rules"
     "$PACKAGE_AUDIT_ROOT/usr/bin/btrfs-backupctl" installation render \
         --file "$PACKAGE_PROFILE" \
         --output-dir "$PACKAGE_RENDERED" \
