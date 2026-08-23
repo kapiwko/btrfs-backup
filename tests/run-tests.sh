@@ -252,6 +252,7 @@ CONFIG
     cp -- "$source_config" "$remove_config"
     sed -i "s|^SOURCES_DIR=.*|SOURCES_DIR=$remove_source_dir|" "$remove_config"
     cp -- "$source_dir/10-home.conf" "$remove_source_dir/10-home.conf"
+    printf '%s\n' 'ACTION=="add", ENV{SYSTEMD_WANTS}+="btrfs-backup.service"' > "$udev_dir/99-btrfs-backup.rules"
     chmod 0600 "$remove_config" "$remove_source_dir/10-home.conf"
     "$ROOT/bin/btrfs-backup-migrate-profile" \
         --source "$remove_config" \
@@ -261,15 +262,20 @@ CONFIG
         --profile removelegacy \
         --remove-legacy >/dev/null
     assert_file "$profile_dir/removelegacy.env"
+    assert_file "$udev_dir/99-btrfs-backup-removelegacy.rules"
     assert_not_exists "$remove_config"
     assert_not_exists "$remove_source_dir"
+    assert_not_exists "$udev_dir/99-btrfs-backup.rules"
     remove_config_backups=("$TEST_ROOT"/remove-legacy-backup.env.migrated-*)
     remove_source_backups=("$TEST_ROOT"/remove-legacy-sources.d.migrated-*)
+    remove_udev_backups=("$udev_dir"/99-btrfs-backup.rules.migrated-*)
     (( ${#remove_config_backups[@]} == 1 )) || fail 'legacy config was not moved aside'
     (( ${#remove_source_backups[@]} == 1 )) || fail 'legacy sources.d was not moved aside'
+    (( ${#remove_udev_backups[@]} == 1 )) || fail 'legacy udev rule was not moved aside'
     assert_file "${remove_config_backups[0]}"
     assert_dir "${remove_source_backups[0]}"
     assert_file "${remove_source_backups[0]}/10-home.conf"
+    assert_file "${remove_udev_backups[0]}"
     pass 'profile migrator validates and materializes JSON runtime files'
 }
 

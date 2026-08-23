@@ -32,8 +32,8 @@ btrfs-backupctl list-profiles
 btrfs-backupctl status --profile default --human
 ```
 
-After confirming that the profile works, the legacy configuration and source
-directory can be moved aside:
+After confirming that the profile works, the legacy configuration, source
+directory, and old udev rule can be moved aside:
 
 ```bash
 sudo btrfs-backup-migrate-profile --profile default --force --remove-legacy

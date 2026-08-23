@@ -30,7 +30,7 @@ Options:
   --udev-dir PATH     udev rules directory (default: /etc/udev/rules.d).
   --public-dir PATH   Public profile manifest directory.
   --force             Replace an existing profile file after saving a timestamped backup.
-  --remove-legacy     Move the legacy configuration and source directory aside.
+  --remove-legacy     Move legacy configuration, source directory, and udev rule aside.
   --dry-run           Validate inputs and print the target path without writing.
   -h, --help          Show this help.
 USAGE
@@ -395,8 +395,13 @@ bb_log INFO "Created canonical profile JSON: $TARGET_PROFILE_JSON"
 if (( REMOVE_LEGACY == 1 )); then
     source_config_dir_real="$(realpath -m -- "$SOURCE_CONFIG_DIR")"
     target_sources_dir_real="$(realpath -m -- "$TARGET_PROFILE_DIR/sources.d")"
+    legacy_udev_rule="$UDEV_RULES_DIR/99-btrfs-backup.rules"
+    profile_udev_rule="$UDEV_RULES_DIR/99-btrfs-backup-$PROFILE_ID.rules"
     move_legacy_path_aside "$SOURCE_CONFIG" "configuration"
     if [[ "$source_config_dir_real" != "$target_sources_dir_real" ]]; then
         move_legacy_path_aside "$SOURCE_CONFIG_DIR" "source directory"
+    fi
+    if [[ "$legacy_udev_rule" != "$profile_udev_rule" ]]; then
+        move_legacy_path_aside "$legacy_udev_rule" "udev rule"
     fi
 fi

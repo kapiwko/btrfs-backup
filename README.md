@@ -123,8 +123,8 @@ Profiles can also be stored directly as `/etc/btrfs-backup/profiles.d/<profile>.
 sudo btrfs-backup-migrate-profile --profile default
 ```
 
-After validating the migrated profile, the old legacy configuration and
-`sources.d` directory can be moved aside:
+After validating the migrated profile, the old legacy configuration,
+`sources.d` directory, and udev rule can be moved aside:
 
 ```bash
 sudo btrfs-backup-migrate-profile --profile default --force --remove-legacy

@@ -81,7 +81,8 @@ sudo btrfs-backup-migrate-profile --profile default
 The migrator creates canonical profile JSON, materializes
 `/etc/btrfs-backup/profiles.d/default.env`, writes profile-local source
 definitions, and keeps the legacy `/etc/btrfs-backup/backup.env` and
-`/etc/btrfs-backup/sources.d` paths in place unless `--remove-legacy` is used.
+`/etc/btrfs-backup/sources.d` paths and old udev rule in place unless
+`--remove-legacy` is used.
 
 ## JSON Schema
 
