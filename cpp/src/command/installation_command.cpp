@@ -1,5 +1,6 @@
 #include <unistd.h>
 
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -9,7 +10,7 @@
 #include <string>
 #include <vector>
 
-#include <btrfsbackup/installation_tool.hpp>
+#include <btrfsbackup/command/installation_command.hpp>
 #include <btrfsbackup/errors.hpp>
 #include <btrfsbackup/file_io.hpp>
 #include <btrfsbackup/json_io.hpp>
@@ -245,9 +246,9 @@ void validate_active_installation(const std::string& profile_id) {
 
 } // namespace
 
-namespace btrfsbackup {
+namespace btrfsbackup::command {
 
-int command_render_installation(const std::vector<std::string>& args) {
+int render_installation(const std::vector<std::string>& args) {
     fs::path file;
     fs::path output_dir;
     std::string backup_script = "/usr/lib/btrfs-backup/btrfs-backup.sh";
@@ -285,7 +286,7 @@ int command_render_installation(const std::vector<std::string>& args) {
     return 0;
 }
 
-int command_validate_installation(const std::vector<std::string>& args) {
+int validate_installation(const std::vector<std::string>& args) {
     fs::path rendered_root;
     bool active = false;
     std::string profile_id = "default";
@@ -322,7 +323,7 @@ void installation_usage() {
               << "  validate (--rendered-root PATH | --active [--profile ID])\n";
 }
 
-int command_installation(const std::vector<std::string>& args) {
+int installation(const std::vector<std::string>& args) {
     if (args.empty()) {
         installation_usage();
         return 2;
@@ -330,10 +331,10 @@ int command_installation(const std::vector<std::string>& args) {
     std::string command = args[0];
     std::vector<std::string> rest(args.begin() + 1, args.end());
     if (command == "render") {
-        return command_render_installation(rest);
+        return render_installation(rest);
     }
     if (command == "validate") {
-        return command_validate_installation(rest);
+        return validate_installation(rest);
     }
     if (command == "-h" || command == "--help") {
         installation_usage();
@@ -342,4 +343,4 @@ int command_installation(const std::vector<std::string>& args) {
     fail("unknown installation command: " + command);
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::command

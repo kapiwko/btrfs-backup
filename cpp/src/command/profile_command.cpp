@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 
-#include <btrfsbackup/profile_tool.hpp>
+#include <btrfsbackup/command/profile_command.hpp>
 #include <btrfsbackup/errors.hpp>
 #include <btrfsbackup/file_io.hpp>
 #include <btrfsbackup/json.hpp>
@@ -243,9 +243,9 @@ void usage() {
 
 } // namespace
 
-namespace btrfsbackup {
+namespace btrfsbackup::command {
 
-int command_profile(const std::vector<std::string>& args, const fs::path& profile_config_dir) {
+int profile(const std::vector<std::string>& args, const fs::path& profile_config_dir) {
     fs::path etc_root = std::getenv("BTRFS_BACKUP_ETC_ROOT") ? std::getenv("BTRFS_BACKUP_ETC_ROOT") : "/etc/btrfs-backup";
     fs::path udev_root = std::getenv("BTRFS_BACKUP_UDEV_ROOT") ? std::getenv("BTRFS_BACKUP_UDEV_ROOT") : "/etc/udev/rules.d";
     fs::path public_root = std::getenv("BTRFS_BACKUP_PUBLIC_ROOT") ? std::getenv("BTRFS_BACKUP_PUBLIC_ROOT") : "/var/lib/btrfs-backup/public/profiles";
@@ -354,4 +354,4 @@ int command_profile(const std::vector<std::string>& args, const fs::path& profil
     return 0;
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::command
