@@ -33,9 +33,20 @@ public:
     }
 };
 
-class SuccessfulTransferPipeline final : public btrfsbackup::ITransferPipeline {
+class ConfigurableTransferPipeline final : public btrfsbackup::ITransferPipeline {
 public:
     std::vector<btrfsbackup::TransferPipelinePlan> plans;
+    btrfsbackup::TransferResult next_result{
+        .producer = {
+            .started = true,
+            .exit_code = 0,
+        },
+        .consumer = {
+            .started = true,
+            .exit_code = 0,
+        },
+        .bytes_transferred = 1024,
+    };
 
     btrfsbackup::TransferResult run(
         const btrfsbackup::TransferPipelinePlan& plan,
@@ -47,17 +58,7 @@ public:
             .kind = btrfsbackup::TransferEventKind::Progress,
             .bytes_transferred = 1024,
         });
-        return {
-            .producer = {
-                .started = true,
-                .exit_code = 0,
-            },
-            .consumer = {
-                .started = true,
-                .exit_code = 0,
-            },
-            .bytes_transferred = 1024,
-        };
+        return next_result;
     }
 };
 
@@ -245,7 +246,7 @@ void test_runner_execute_uses_injected_services_and_writes_state() {
     write_mountinfo(mountinfo, profile);
 
     RecordingActionEffects action_effects;
-    SuccessfulTransferPipeline transfer_pipeline;
+    ConfigurableTransferPipeline transfer_pipeline;
     btrfsbackup::command::RunnerExecutionServices services{
         .action_effects = action_effects,
         .transfer_pipeline = transfer_pipeline,
@@ -298,6 +299,78 @@ void test_runner_execute_uses_injected_services_and_writes_state() {
     fs::remove_all(root);
 }
 
+void test_runner_execute_transfer_failure_writes_failed_status() {
+    fs::path root = test_helpers::test_root("runner-command", "execute-transfer-failure");
+    fs::create_directories(root / "source" / "root");
+    fs::create_directories(root / "source" / ".snapshots" / "root");
+    fs::create_directories(root / "target" / "snapshots" / "root");
+    fs::create_directories(root / "target" / ".incoming");
+
+    btrfsbackup::Profile profile = test_profile(root);
+    fs::path config_root = root / "config";
+    fs::path mountinfo = root / "mountinfo";
+    write_profile(config_root, profile);
+    write_mountinfo(mountinfo, profile);
+
+    RecordingActionEffects action_effects;
+    ConfigurableTransferPipeline transfer_pipeline;
+    transfer_pipeline.next_result.producer.exit_code = 7;
+    transfer_pipeline.next_result.producer.diagnostics = "send failed";
+    btrfsbackup::command::RunnerExecutionServices services{
+        .action_effects = action_effects,
+        .transfer_pipeline = transfer_pipeline,
+    };
+
+    std::ostringstream output;
+    test_helpers::expect_validation_error("execute transfer failure", [&] {
+        (void)btrfsbackup::command::runner(
+            config_root,
+            {
+                "execute",
+                "--experimental-cpp-runner",
+                "--profile",
+                "default",
+                "--timestamp",
+                "2026-08-23T080000Z",
+                "--run-id",
+                "20260823T080000Z-123-456",
+                "--mountinfo",
+                mountinfo.string(),
+                "--mount-uuid",
+                "/dev/source",
+                "source-fs",
+                "--mount-uuid",
+                "/dev/mapper/backup",
+                profile.target.btrfs_uuid,
+            },
+            output,
+            &services
+        );
+    }, "producer failed with exit code 7");
+
+    fs::path checkpoint = root / "state" / "profiles" / "default" / "checkpoint.json";
+    fs::path current = root / "status" / "default" / "current.json";
+    fs::path history = root / "history" / "default" / "20260823T080000Z-123-456.json";
+    test_helpers::expect_true("failed checkpoint exists", fs::is_regular_file(checkpoint), "missing checkpoint before failure");
+    test_helpers::expect_true(
+        "failed checkpoint action",
+        btrfsbackup::load_json_file(checkpoint).at("action") == "create-snapshot",
+        "failed send-receive should not be checkpointed"
+    );
+    test_helpers::expect_true(
+        "failed current",
+        btrfsbackup::load_json_file(current).at("state") == "failed",
+        "current status should fail"
+    );
+    test_helpers::expect_true(
+        "failed history",
+        btrfsbackup::load_json_file(history).at("state") == "failed",
+        "history should fail"
+    );
+
+    fs::remove_all(root);
+}
+
 } // namespace
 
 int main() {
@@ -305,6 +378,7 @@ int main() {
     test_runner_plan_validates_target_mount();
     test_runner_execute_requires_experimental_guard_before_loading_profile();
     test_runner_execute_uses_injected_services_and_writes_state();
+    test_runner_execute_transfer_failure_writes_failed_status();
 
     return test_helpers::finish("runner command tests");
 }
