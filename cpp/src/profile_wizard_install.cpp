@@ -19,13 +19,12 @@ namespace btrfsbackup {
 
 namespace {
 
-std::string detect_runtime_script(const std::string& filename) {
-    fs::path repo_candidate = fs::current_path() / "scripts" / filename;
+std::string detect_eject_script() {
+    fs::path repo_candidate = fs::current_path() / "scripts" / "btrfs-backup-eject.sh";
     if (fs::exists(repo_candidate)) {
         return repo_candidate.string();
     }
-    fs::path installed = fs::path("/usr/lib/btrfs-backup") / filename;
-    return installed.string();
+    return "/usr/lib/btrfs-backup/btrfs-backup-eject.sh";
 }
 
 } // namespace
@@ -45,8 +44,8 @@ void render_wizard_tree(const Profile& profile, const std::string& keyfile, cons
         profile,
         output_dir,
         {
-            detect_runtime_script("btrfs-backup.sh"),
-            detect_runtime_script("btrfs-backup-eject.sh"),
+            "/usr/bin/btrfs-backupctl runner execute",
+            detect_eject_script(),
             keyfile
         }
     );

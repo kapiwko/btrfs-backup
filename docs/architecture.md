@@ -71,7 +71,7 @@ Each receive first lands under:
 <INCOMING_ROOT>/<SOURCE_NAME>/<RUN_ID>/
 ```
 
-After the transfer completes, the script verifies:
+After the transfer completes, the runtime verifies:
 
 1. the expected subvolume exists;
 2. it is read-only;
@@ -81,7 +81,7 @@ Only then is the subvolume moved into the final snapshot directory. The move hap
 
 ## Interrupted Runs
 
-Before creating a local snapshot, the script writes a private `pending-<source>` file in the profile state directory under `STATE_DIR/profiles/<PROFILE_ID>`. On the next run, it:
+Before creating a local snapshot, the runtime writes a private `pending-<source>` file in the profile state directory under `STATE_DIR/profiles/<PROFILE_ID>`. On the next run, it:
 
 1. checks whether the local snapshot still exists;
 2. searches the target for a subvolume with a matching `Received UUID`;
@@ -101,6 +101,6 @@ Snapshot names are used for sorting and display. A parent is considered common o
 
 ## Filesystem and Path Boundaries
 
-For each source, the script compares the Btrfs filesystem UUID and falls back to the device number if the UUID is unavailable. The source and local snapshot directory must belong to the same Btrfs filesystem, while the source and target must belong to different filesystems.
+For each source, the runtime compares the Btrfs filesystem UUID and falls back to the device number if the UUID is unavailable. The source and local snapshot directory must belong to the same Btrfs filesystem, while the source and target must belong to different filesystems.
 
 `REMOTE_ROOT`, `INCOMING_ROOT`, and per-source target directories are canonicalized before writes. An existing symlink that escapes the expected target directory aborts the operation instead of writing outside the backup repository.

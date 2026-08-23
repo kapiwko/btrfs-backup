@@ -1,9 +1,9 @@
 # Engine Contract
 
 This document defines the stable boundary between configuration tooling, the
-backup engine, and status consumers. The current engine is implemented with
-Bash and system tools. Future implementations must preserve this contract
-before they can replace the current engine.
+backup engine, and status consumers. The current backup engine is implemented
+in C++ and delegates Btrfs send/receive to system tools. Future implementations
+must preserve this contract before they can replace the current engine.
 
 ## Inputs
 
@@ -196,5 +196,5 @@ The contract starts at `schemaVersion: 1`. Compatible changes may add fields to
 JSON documents. Consumers must ignore unknown fields and treat missing optional
 fields as unavailable.
 
-Any future engine implementation must pass the same mocked runtime tests and
-the real Btrfs integration test before becoming the default.
+Any future engine implementation must pass the C++ runtime tests and the real
+Btrfs integration test before becoming the default.

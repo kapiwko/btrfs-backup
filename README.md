@@ -36,7 +36,7 @@ On Arch Linux, the build dependencies are provided by packages such as
 `base-devel`, `cmake`, `pkgconf`, `nlohmann-json`, `util-linux`, `systemd`, and
 `btrfs-progs`.
 
-Each source must be a Btrfs subvolume. The local snapshot directory must be on the same Btrfs filesystem as its source. The target must be a separate Btrfs filesystem inside LUKS; the script rejects a source that belongs to the same filesystem as the target, even if it is available through another mount point.
+Each source must be a Btrfs subvolume. The local snapshot directory must be on the same Btrfs filesystem as its source. The target must be a separate Btrfs filesystem inside LUKS; the runtime rejects a source that belongs to the same filesystem as the target, even if it is available through another mount point.
 
 ## Arch Package Installation
 
@@ -122,7 +122,7 @@ The canonical format for tools and source definitions is JSON.
 runner.
 
 Active runtime profile JSON is trusted root-owned configuration. It must use
-mode `0600`; the script refuses files that are accessible by group or other
+mode `0600`; the runtime refuses files that are accessible by group or other
 users.
 
 Profiles are selected with `--profile <profile>` or `BTRFS_BACKUP_PROFILE=<profile>`.

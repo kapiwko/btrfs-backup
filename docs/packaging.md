@@ -59,9 +59,10 @@ The package name and package base should both be `btrfs-backup`.
 
 ## Package Contents
 
-Runtime scripts are installed under `/usr/lib/btrfs-backup`, commands under
-`/usr/bin`, the profile systemd unit under `/usr/lib/systemd/system`, examples
-under `/usr/share/btrfs-backup/examples`, and documentation under
+The native control binary and mount/eject helper scripts are installed under
+`/usr/lib/btrfs-backup`, commands under `/usr/bin`, the profile systemd unit
+under `/usr/lib/systemd/system`, examples under
+`/usr/share/btrfs-backup/examples`, and documentation under
 `/usr/share/doc/btrfs-backup`.
 
 The package does not install active fstab, crypttab, or udev entries.

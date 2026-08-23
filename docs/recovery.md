@@ -79,7 +79,7 @@ After reconnecting the correct target, run:
 sudo btrfs-backup --force
 ```
 
-The script checks `Received UUID`, preserves a committed local parent, or removes an orphaned snapshot according to configuration.
+The runtime checks `Received UUID`, preserves a committed local parent, or removes an orphaned snapshot according to configuration.
 
 Remaining data under `.incoming` is uncommitted and is cleaned during the next real run. Do not treat it as a valid backup.
 
