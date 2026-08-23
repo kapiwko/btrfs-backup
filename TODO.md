@@ -2,22 +2,21 @@
 
 ## C++ Runtime Migration
 
-- Wire `TransferPipeline` into the future `SendReceive` execution action:
-  - use `build_send_receive_command_plan()` as the command source;
-  - map transfer progress and side-specific failures into stable runner events;
+- Wire `BackupRunExecutor` to real action adapters:
+  - map non-transfer actions to Btrfs/libbtrfsutil and filesystem adapters
+    instead of shell parsing where a library/API is available;
+  - persist checkpoints through the existing state/status files;
+  - write stable event output for status, history and UI consumers;
   - keep the Bash runner as production executor until failure parity tests pass.
 
-- Add `BackupRunExecutor` as the C++ execution boundary for `BackupRunPlan`:
-  - accept a prepared `BackupRunPlan`;
-  - execute actions in plan order;
-  - write a checkpoint after each durable state change;
-  - emit stable machine-readable events for status, history and UI consumers;
-  - support cancellation between actions and during long-running transfers;
-  - delegate `btrfs send/receive` to the async transfer layer;
-  - distinguish retryable cleanup/recovery work from fatal data-transfer
-    failures;
-  - pass the same failure and recovery scenarios covered by the current Bash
-    integration tests before replacing the Bash runner.
+- Expand `BackupRunExecutor` parity coverage:
+  - full backup without parent;
+  - incremental backup with parent;
+  - pending incoming recovery;
+  - interrupted send/receive;
+  - failed receive after successful send;
+  - failed commit after successful receive;
+  - local and remote retention failures.
 
 - Move the main backup flow from Bash to C++ after parity tests pass:
   - keep Bash wrappers for mount/eject compatibility while needed;
