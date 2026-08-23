@@ -168,7 +168,7 @@ copy_source_tree() {
     for entry in bin config docs install scripts systemd tests tools udev; do
         cp -a -- "$ROOT/$entry" "$destination/"
     done
-    for entry in README.md CHANGELOG.md LICENSE .gitignore btrfs-backup.install; do
+    for entry in README.md CHANGELOG.md TODO.md LICENSE .gitignore btrfs-backup.install; do
         cp -a -- "$ROOT/$entry" "$destination/"
     done
 
@@ -251,9 +251,17 @@ stage_package_payload() {
         "$pkgdir/usr/share/btrfs-backup/examples/systemd/btrfs-backup@.service.example"
     install -Dm644 "$root/udev/99-btrfs-backup.rules.example" \
         "$pkgdir/usr/share/btrfs-backup/examples/udev/99-btrfs-backup.rules.example"
+    install -d -m0755 "$pkgdir/usr/lib/systemd/system"
+    sed \
+        -e 's#{{BACKUP_SCRIPT_PATH}}#/usr/lib/btrfs-backup/btrfs-backup.sh#g' \
+        -e 's#{{EJECT_SCRIPT_PATH}}#/usr/lib/btrfs-backup/btrfs-backup-eject.sh#g' \
+        "$root/systemd/btrfs-backup@.service.example" \
+        > "$pkgdir/usr/lib/systemd/system/btrfs-backup@.service"
+    chmod 0644 "$pkgdir/usr/lib/systemd/system/btrfs-backup@.service"
 
     install -Dm644 "$root/README.md" "$pkgdir/usr/share/doc/btrfs-backup/README.md"
     install -Dm644 "$root/CHANGELOG.md" "$pkgdir/usr/share/doc/btrfs-backup/CHANGELOG.md"
+    install -Dm644 "$root/TODO.md" "$pkgdir/usr/share/doc/btrfs-backup/TODO.md"
     for document in "$root"/docs/*.md; do
         install -Dm644 "$document" "$pkgdir/usr/share/doc/btrfs-backup/$(basename -- "$document")"
     done
@@ -380,10 +388,16 @@ install -Dm755 bin/btrfs-backup-mount %{buildroot}%{_bindir}/btrfs-backup-mount
 install -Dm755 bin/btrfs-backup-migrate-profile %{buildroot}%{_bindir}/btrfs-backup-migrate-profile
 install -Dm755 bin/btrfs-backup-unplug %{buildroot}%{_bindir}/btrfs-backup-unplug
 install -Dm755 install/btrfs-backup-configure.sh %{buildroot}%{_bindir}/btrfs-backup-configure
+install -d %{buildroot}/usr/lib/systemd/system
+sed -e 's#{{BACKUP_SCRIPT_PATH}}#/usr/lib/btrfs-backup/btrfs-backup.sh#g' \
+    -e 's#{{EJECT_SCRIPT_PATH}}#/usr/lib/btrfs-backup/btrfs-backup-eject.sh#g' \
+    systemd/btrfs-backup@.service.example \
+    > %{buildroot}/usr/lib/systemd/system/btrfs-backup@.service
 install -d %{buildroot}%{_datadir}/btrfs-backup/examples
 cp -a config systemd udev %{buildroot}%{_datadir}/btrfs-backup/examples/
 install -Dm644 README.md %{buildroot}%{_docdir}/btrfs-backup/README.md
 install -Dm644 CHANGELOG.md %{buildroot}%{_docdir}/btrfs-backup/CHANGELOG.md
+install -Dm644 TODO.md %{buildroot}%{_docdir}/btrfs-backup/TODO.md
 cp -a docs/*.md %{buildroot}%{_docdir}/btrfs-backup/
 install -Dm644 LICENSE %{buildroot}%{_licensedir}/btrfs-backup/LICENSE
 
@@ -397,6 +411,7 @@ install -Dm644 LICENSE %{buildroot}%{_licensedir}/btrfs-backup/LICENSE
 %{_bindir}/btrfs-backup-unplug
 %{_bindir}/btrfs-backup-configure
 %{_libdir}/btrfs-backup/
+/usr/lib/systemd/system/btrfs-backup@.service
 %{_datadir}/btrfs-backup/
 %{_docdir}/btrfs-backup/
 %{_licensedir}/btrfs-backup/
@@ -454,10 +469,16 @@ stdenvNoCC.mkDerivation {
     install -Dm755 bin/btrfs-backup-migrate-profile $out/bin/btrfs-backup-migrate-profile
     install -Dm755 bin/btrfs-backup-unplug $out/bin/btrfs-backup-unplug
     install -Dm755 install/btrfs-backup-configure.sh $out/bin/btrfs-backup-configure
+    mkdir -p $out/lib/systemd/system
+    sed -e 's#{{BACKUP_SCRIPT_PATH}}#/usr/lib/btrfs-backup/btrfs-backup.sh#g' \
+        -e 's#{{EJECT_SCRIPT_PATH}}#/usr/lib/btrfs-backup/btrfs-backup-eject.sh#g' \
+        systemd/btrfs-backup@.service.example \
+        > $out/lib/systemd/system/btrfs-backup@.service
     mkdir -p $out/share/btrfs-backup/examples
     cp -a config systemd udev $out/share/btrfs-backup/examples/
     install -Dm644 README.md $out/share/doc/btrfs-backup/README.md
     install -Dm644 CHANGELOG.md $out/share/doc/btrfs-backup/CHANGELOG.md
+    install -Dm644 TODO.md $out/share/doc/btrfs-backup/TODO.md
     cp -a docs/*.md $out/share/doc/btrfs-backup/
     install -Dm644 LICENSE $out/share/licenses/btrfs-backup/LICENSE
     runHook postInstall
@@ -516,9 +537,14 @@ src_install() {
 	doexe scripts/btrfs-backup.sh scripts/btrfs-backup-eject.sh scripts/btrfs-backup-mount.sh scripts/btrfs-backup-migrate-profile.sh scripts/btrfs-backup-unplug.sh
 	exeinto /usr/lib/btrfs-backup/lib
 	doexe scripts/lib/btrfs-backup-common.sh
+	sed -e 's#{{BACKUP_SCRIPT_PATH}}#/usr/lib/btrfs-backup/btrfs-backup.sh#g' \
+		-e 's#{{EJECT_SCRIPT_PATH}}#/usr/lib/btrfs-backup/btrfs-backup-eject.sh#g' \
+		systemd/btrfs-backup@.service.example > "${T}/btrfs-backup@.service"
+	insinto /usr/lib/systemd/system
+	doins "${T}/btrfs-backup@.service"
 	insinto /usr/share/btrfs-backup/examples
 	doins -r config systemd udev
-	dodoc README.md CHANGELOG.md docs/*.md
+	dodoc README.md CHANGELOG.md TODO.md docs/*.md
 }
 EOF_EBUILD
     sha256sum "$SOURCE_ARCHIVE" > "$package_dir/source.SHA256SUM"
@@ -567,10 +593,16 @@ package() {
   install -Dm755 "\$root/bin/btrfs-backup-migrate-profile" "\$pkgdir/usr/bin/btrfs-backup-migrate-profile"
   install -Dm755 "\$root/bin/btrfs-backup-unplug" "\$pkgdir/usr/bin/btrfs-backup-unplug"
   install -Dm755 "\$root/install/btrfs-backup-configure.sh" "\$pkgdir/usr/bin/btrfs-backup-configure"
+  install -d "\$pkgdir/usr/lib/systemd/system"
+  sed -e 's#{{BACKUP_SCRIPT_PATH}}#/usr/lib/btrfs-backup/btrfs-backup.sh#g' \\
+      -e 's#{{EJECT_SCRIPT_PATH}}#/usr/lib/btrfs-backup/btrfs-backup-eject.sh#g' \\
+      "\$root/systemd/btrfs-backup@.service.example" \\
+      > "\$pkgdir/usr/lib/systemd/system/btrfs-backup@.service"
   install -d "\$pkgdir/usr/share/btrfs-backup/examples"
   cp -a "\$root/config" "\$root/systemd" "\$root/udev" "\$pkgdir/usr/share/btrfs-backup/examples/"
   install -Dm644 "\$root/README.md" "\$pkgdir/usr/share/doc/btrfs-backup/README.md"
   install -Dm644 "\$root/CHANGELOG.md" "\$pkgdir/usr/share/doc/btrfs-backup/CHANGELOG.md"
+  install -Dm644 "\$root/TODO.md" "\$pkgdir/usr/share/doc/btrfs-backup/TODO.md"
   install -Dm644 "\$root"/docs/*.md -t "\$pkgdir/usr/share/doc/btrfs-backup/"
   install -Dm644 "\$root/LICENSE" "\$pkgdir/usr/share/licenses/\$pkgname/LICENSE"
 }
@@ -783,6 +815,7 @@ if [[ "$TARGET" == all || "$TARGET" == arch ]]; then
     grep -qx 'usr/lib/btrfs-backup/btrfs-backup.sh' "$TMP_ROOT/package-files.txt"
     grep -qx 'usr/lib/btrfs-backup/btrfs-backup-mount.sh' "$TMP_ROOT/package-files.txt"
     grep -qx 'usr/lib/btrfs-backup/btrfs-backup-migrate-profile.sh' "$TMP_ROOT/package-files.txt"
+    grep -qx 'usr/lib/systemd/system/btrfs-backup@.service' "$TMP_ROOT/package-files.txt"
     grep -qx 'usr/share/btrfs-backup/examples/config/profile.schema.json' "$TMP_ROOT/package-files.txt"
     if command -v pacman >/dev/null 2>&1; then
         pacman -Qip "$PACKAGE_ARCHIVE" >/dev/null
