@@ -115,7 +115,7 @@ bb_load_profile_json_config() {
 
     bb_assert_trusted_config_file "$profile_json"
     backupctl="$(bb_backupctl_path)" || bb_die "Could not locate btrfs-backupctl."
-    profile_env="$("$backupctl" profile env --file "$profile_json")" \
+    profile_env="$("$backupctl" profile emit-runtime-env --file "$profile_json")" \
         || bb_die "Could not load profile JSON: $profile_json"
 
     # btrfs-backupctl validates JSON and emits trusted shell assignments.
