@@ -1,6 +1,9 @@
+#include <poll.h>
+
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <future>
 #include <string>
 #include <thread>
 #include <vector>
@@ -54,6 +57,22 @@ void test_cancellation_token() {
     test_helpers::expect_true("initial cancellation", !cancellation.cancellation_requested(), "token should not start cancelled");
     cancellation.request_cancel();
     test_helpers::expect_true("requested cancellation", cancellation.cancellation_requested(), "token should report cancellation");
+}
+
+void test_cancellation_token_signals_fd() {
+    btrfsbackup::CancellationToken cancellation;
+    pollfd fd{
+        .fd = cancellation.cancellation_fd(),
+        .events = POLLIN,
+        .revents = 0,
+    };
+
+    test_helpers::expect_eq("initial cancellation poll", std::to_string(poll(&fd, 1, 0)), "0");
+    cancellation.request_cancel();
+    test_helpers::expect_eq("requested cancellation poll", std::to_string(poll(&fd, 1, 100)), "1");
+    cancellation.drain_cancellation_signal();
+    fd.revents = 0;
+    test_helpers::expect_eq("drained cancellation poll", std::to_string(poll(&fd, 1, 0)), "0");
 }
 
 void test_success_result() {
@@ -249,6 +268,44 @@ void test_posix_pipeline_honors_cancellation() {
     }, "Transfer was cancelled");
 }
 
+void test_posix_pipeline_cancellation_wakes_event_loop() {
+    btrfsbackup::PosixTransferPipeline pipeline;
+    RecordingEventSink sink;
+    btrfsbackup::CancellationToken cancellation;
+
+    auto started_at = std::chrono::steady_clock::now();
+    std::future<btrfsbackup::TransferResult> future = std::async(
+        std::launch::async,
+        [&] {
+            return pipeline.run(
+                {
+                    .producer_argv = {"sh", "-c", "sleep 5; printf late"},
+                    .consumer_argv = {"cat"},
+                },
+                sink,
+                cancellation
+            );
+        }
+    );
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    cancellation.request_cancel();
+    btrfsbackup::TransferResult result = future.get();
+    auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - started_at
+    ).count();
+
+    test_helpers::expect_true("event loop cancellation", result.cancelled, "pipeline should cancel after start");
+    test_helpers::expect_true("event loop cancellation latency", elapsed_ms < 2000, "cancellation should not wait for producer sleep");
+    test_helpers::expect_true(
+        "event loop cancelled event",
+        std::any_of(sink.events.begin(), sink.events.end(), [](const btrfsbackup::TransferEvent& event) {
+            return event.kind == btrfsbackup::TransferEventKind::Cancelled;
+        }),
+        "cancelled event missing"
+    );
+}
+
 void test_threaded_async_pipeline_runs_in_background() {
     BlockingTransferPipeline blocking;
     btrfsbackup::ThreadedAsyncTransferPipeline async(blocking);
@@ -264,7 +321,14 @@ void test_threaded_async_pipeline_runs_in_background() {
 
     wait_until_entered(blocking);
     test_helpers::expect_true("async not finished", !handle->finished(), "async handle should not finish before release");
+    pollfd completion{
+        .fd = handle->completion_fd(),
+        .events = POLLIN | POLLHUP,
+        .revents = 0,
+    };
+    test_helpers::expect_eq("async completion initially quiet", std::to_string(poll(&completion, 1, 0)), "0");
     blocking.allow_finish.store(true);
+    test_helpers::expect_eq("async completion signalled", std::to_string(poll(&completion, 1, 1000)), "1");
     btrfsbackup::TransferResult result = handle->wait();
     test_helpers::expect_true("async transfer success", btrfsbackup::transfer_succeeded(result), "async transfer should succeed");
     test_helpers::expect_true("async finished", handle->finished(), "async handle should report completion");
@@ -294,6 +358,7 @@ void test_threaded_async_pipeline_requests_cancellation() {
 
 int main() {
     test_cancellation_token();
+    test_cancellation_token_signals_fd();
     test_success_result();
     test_producer_failure_is_reported_separately();
     test_consumer_failure_is_reported_separately();
@@ -305,6 +370,7 @@ int main() {
     test_posix_pipeline_reports_consumer_failure();
     test_posix_pipeline_handles_early_consumer_exit();
     test_posix_pipeline_honors_cancellation();
+    test_posix_pipeline_cancellation_wakes_event_loop();
     test_threaded_async_pipeline_runs_in_background();
     test_threaded_async_pipeline_requests_cancellation();
 
