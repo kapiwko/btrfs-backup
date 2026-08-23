@@ -18,7 +18,7 @@ PACKAGE_DIR="$TEST_ROOT/package"
 RENDERED_CONFIG="$TEST_ROOT/rendered"
 LOG_DIR="$TEST_ROOT/logs"
 RUN_LOG="$LOG_DIR/btrfs-backup.log"
-ACTIVE_CONFIG=/etc/btrfs-backup/backup.env
+ACTIVE_CONFIG=/etc/btrfs-backup/profiles.d/default.env
 PROFILE_JSON=/etc/btrfs-backup/profiles/default/profile.json
 
 cleanup() {
@@ -122,7 +122,6 @@ ANSWERS
     btrfs-backup-configure --validate-dir "$RENDERED_CONFIG" >/dev/null
 
     install -d -m0700 /etc/btrfs-backup /etc/btrfs-backup/profiles/default /etc/btrfs-backup/profiles.d
-    install -m0600 "$RENDERED_CONFIG/config/backup.env" /etc/btrfs-backup/backup.env
     install -m0600 "$RENDERED_CONFIG/config/profiles.d/default.env" /etc/btrfs-backup/profiles.d/default.env
     install -m0600 "$RENDERED_CONFIG/config/profile.json" /etc/btrfs-backup/profiles/default/profile.json
     install -Dm0644 "$RENDERED_CONFIG/systemd/btrfs-backup.service" /etc/systemd/system/btrfs-backup.service

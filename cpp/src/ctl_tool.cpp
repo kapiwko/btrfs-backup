@@ -42,7 +42,6 @@ void usage() {
               << "  --status-root PATH   Override status root (default: /run/btrfs-backup/profiles).\n"
               << "  --history-root PATH  Override history root (default: /var/lib/btrfs-backup/history).\n"
               << "  --profile-dir PATH   Override profile config dir (default: /etc/btrfs-backup/profiles.d).\n"
-              << "  --legacy-config PATH Override legacy config path (default: /etc/btrfs-backup/backup.env).\n"
               << "\nCommands:\n"
               << "  list-profiles\n"
               << "  status [--profile ID|--all] [--human]\n"
@@ -109,7 +108,6 @@ int ctl_tool_main(int argc, char** argv) {
     fs::path status_root = std::getenv("BTRFS_BACKUP_STATUS_ROOT") ? std::getenv("BTRFS_BACKUP_STATUS_ROOT") : "/run/btrfs-backup/profiles";
     fs::path history_root = std::getenv("BTRFS_BACKUP_HISTORY_ROOT") ? std::getenv("BTRFS_BACKUP_HISTORY_ROOT") : "/var/lib/btrfs-backup/history";
     fs::path profile_config_dir = std::getenv("BTRFS_BACKUP_PROFILE_CONFIG_DIR") ? std::getenv("BTRFS_BACKUP_PROFILE_CONFIG_DIR") : "/etc/btrfs-backup/profiles.d";
-    fs::path legacy_config_file = std::getenv("BTRFS_BACKUP_LEGACY_CONFIG") ? std::getenv("BTRFS_BACKUP_LEGACY_CONFIG") : "/etc/btrfs-backup/backup.env";
     std::vector<std::string> rest;
 
     try {
@@ -121,8 +119,6 @@ int ctl_tool_main(int argc, char** argv) {
                 history_root = arg_value(i, argc, argv, arg);
             } else if (arg == "--profile-dir") {
                 profile_config_dir = arg_value(i, argc, argv, arg);
-            } else if (arg == "--legacy-config") {
-                legacy_config_file = arg_value(i, argc, argv, arg);
             } else if (arg == "-h" || arg == "--help") {
                 usage();
                 return 0;
@@ -142,7 +138,7 @@ int ctl_tool_main(int argc, char** argv) {
         std::vector<std::string> args(rest.begin() + 1, rest.end());
 
         if (command == "list-profiles") {
-            command_list_profiles(profile_config_dir, profile_config_dir.parent_path() / "profiles", legacy_config_file, std::cout);
+            command_list_profiles(profile_config_dir, profile_config_dir.parent_path() / "profiles", std::cout);
         } else if (command == "status") {
             command_status(status_root, history_root, args, std::cout);
         } else if (command == "history") {

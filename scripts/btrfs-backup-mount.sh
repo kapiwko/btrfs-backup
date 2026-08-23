@@ -10,7 +10,6 @@ REQUESTED_PROFILE_ID="${BTRFS_BACKUP_PROFILE:-default}"
 PROFILE_WAS_REQUESTED=0
 [[ -n "${BTRFS_BACKUP_PROFILE:-}" ]] && PROFILE_WAS_REQUESTED=1
 PROFILE_CONFIG_DIR="${BTRFS_BACKUP_PROFILE_CONFIG_DIR:-/etc/btrfs-backup/profiles.d}"
-LEGACY_CONFIG_FILE="${BTRFS_BACKUP_LEGACY_CONFIG:-/etc/btrfs-backup/backup.env}"
 CONFIG_FILE="${BTRFS_BACKUP_CONFIG:-}"
 
 usage() {
@@ -49,7 +48,7 @@ done
 
 bb_require_root
 bb_require_commands cryptsetup findmnt install mountpoint readlink systemctl systemd-escape
-CONFIG_FILE="$(bb_resolve_profile_config "$REQUESTED_PROFILE_ID" "$CONFIG_FILE" "$PROFILE_CONFIG_DIR" "$LEGACY_CONFIG_FILE")"
+CONFIG_FILE="$(bb_resolve_profile_config "$REQUESTED_PROFILE_ID" "$CONFIG_FILE" "$PROFILE_CONFIG_DIR")"
 bb_load_config "$CONFIG_FILE"
 
 PROFILE_ID="${PROFILE_ID:-$REQUESTED_PROFILE_ID}"
