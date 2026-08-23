@@ -3,9 +3,11 @@
 #include <filesystem>
 #include <sstream>
 #include <string>
+#include <vector>
 
 #include <btrfsbackup/command/runner_command.hpp>
 #include <btrfsbackup/json.hpp>
+#include <btrfsbackup/json_io.hpp>
 #include <btrfsbackup/profile.hpp>
 
 #include "test_helpers.hpp"
@@ -13,6 +15,51 @@
 namespace fs = std::filesystem;
 
 namespace {
+
+std::string action_name(btrfsbackup::BackupRunActionKind kind) {
+    return std::to_string(static_cast<int>(kind));
+}
+
+class RecordingActionEffects final : public btrfsbackup::IBackupRunActionEffects {
+public:
+    std::vector<std::string> calls;
+
+    void execute_action(
+        const btrfsbackup::BackupRunAction& action,
+        const btrfsbackup::BackupSourceRunPlan& source_plan,
+        const btrfsbackup::BackupRunPlan&
+    ) override {
+        calls.push_back(source_plan.source_id + ":" + action_name(action.kind));
+    }
+};
+
+class SuccessfulTransferPipeline final : public btrfsbackup::ITransferPipeline {
+public:
+    std::vector<btrfsbackup::TransferPipelinePlan> plans;
+
+    btrfsbackup::TransferResult run(
+        const btrfsbackup::TransferPipelinePlan& plan,
+        btrfsbackup::ITransferEventSink& events,
+        btrfsbackup::CancellationToken&
+    ) override {
+        plans.push_back(plan);
+        events.on_transfer_event({
+            .kind = btrfsbackup::TransferEventKind::Progress,
+            .bytes_transferred = 1024,
+        });
+        return {
+            .producer = {
+                .started = true,
+                .exit_code = 0,
+            },
+            .consumer = {
+                .started = true,
+                .exit_code = 0,
+            },
+            .bytes_transferred = 1024,
+        };
+    }
+};
 
 btrfsbackup::Profile test_profile(const fs::path& root) {
     btrfsbackup::Profile profile;
@@ -184,12 +231,80 @@ void test_runner_execute_requires_experimental_guard_before_loading_profile() {
     fs::remove_all(root);
 }
 
+void test_runner_execute_uses_injected_services_and_writes_state() {
+    fs::path root = test_helpers::test_root("runner-command", "execute-injected");
+    fs::create_directories(root / "source" / "root");
+    fs::create_directories(root / "source" / ".snapshots" / "root");
+    fs::create_directories(root / "target" / "snapshots" / "root");
+    fs::create_directories(root / "target" / ".incoming");
+
+    btrfsbackup::Profile profile = test_profile(root);
+    fs::path config_root = root / "config";
+    fs::path mountinfo = root / "mountinfo";
+    write_profile(config_root, profile);
+    write_mountinfo(mountinfo, profile);
+
+    RecordingActionEffects action_effects;
+    SuccessfulTransferPipeline transfer_pipeline;
+    btrfsbackup::command::RunnerExecutionServices services{
+        .action_effects = action_effects,
+        .transfer_pipeline = transfer_pipeline,
+    };
+
+    std::ostringstream output;
+    int result = btrfsbackup::command::runner(
+        config_root,
+        {
+            "execute",
+            "--experimental-cpp-runner",
+            "--profile",
+            "default",
+            "--timestamp",
+            "2026-08-23T080000Z",
+            "--run-id",
+            "20260823T080000Z-123-456",
+            "--mountinfo",
+            mountinfo.string(),
+            "--mount-uuid",
+            "/dev/source",
+            "source-fs",
+            "--mount-uuid",
+            "/dev/mapper/backup",
+            profile.target.btrfs_uuid,
+        },
+        output,
+        &services
+    );
+
+    btrfsbackup::Json json = btrfsbackup::Json::parse(output.str());
+    test_helpers::expect_eq("execute result", std::to_string(result), "0");
+    test_helpers::expect_eq("execute mode", json.at("mode").get<std::string>(), "experimental-cpp-execute");
+    test_helpers::expect_true("execute completed", json.at("completed").get<bool>(), "run should complete");
+    test_helpers::expect_eq("execute transfer count", std::to_string(transfer_pipeline.plans.size()), "1");
+    test_helpers::expect_true("execute effects", !action_effects.calls.empty(), "expected non-transfer effects");
+
+    fs::path checkpoint = root / "state" / "profiles" / "default" / "checkpoint.json";
+    fs::path current = root / "status" / "default" / "current.json";
+    fs::path history = root / "history" / "default" / "20260823T080000Z-123-456.json";
+    test_helpers::expect_true("checkpoint exists", fs::is_regular_file(checkpoint), "missing checkpoint");
+    test_helpers::expect_true("current exists", fs::is_regular_file(current), "missing current status");
+    test_helpers::expect_true("history exists", fs::is_regular_file(history), "missing history");
+    test_helpers::expect_true(
+        "current succeeded",
+        btrfsbackup::load_json_file(current).at("state") == "succeeded",
+        "current status should be succeeded"
+    );
+
+    fs::remove_all(root);
+}
+
 } // namespace
 
 int main() {
     test_runner_plan_outputs_shadow_json();
     test_runner_plan_validates_target_mount();
     test_runner_execute_requires_experimental_guard_before_loading_profile();
+    test_runner_execute_uses_injected_services_and_writes_state();
 
     return test_helpers::finish("runner command tests");
 }

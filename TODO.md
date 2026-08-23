@@ -2,10 +2,11 @@
 
 ## C++ Runtime Migration
 
-- Add guarded parity tests for `runner execute --experimental-cpp-runner`:
+- Expand guarded parity tests for `runner execute --experimental-cpp-runner`:
   - keep Bash as the default production executor;
-  - run synthetic/local C++ execution scenarios only behind the explicit guard;
-  - verify JSON checkpoint, status and history persistence from the executor;
+  - add synthetic full backup success with fake action and transfer services;
+  - add transfer failure checks for checkpoint/status/history output;
+  - add pending recovery and retention scenarios;
   - keep the Bash runner as production executor until failure parity tests pass.
 
 - Expand `BackupRunExecutor` parity coverage:
