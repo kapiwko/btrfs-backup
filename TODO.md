@@ -2,11 +2,6 @@
 
 ## C++ Runtime Migration
 
-- Add a C++ incremental parent selector:
-  - match local snapshot UUID to remote received UUID;
-  - reject ambiguous or missing parents when incremental backups are required;
-  - expose the selected parent as data only, without running `btrfs send`.
-
 - Add a C++ retention planner:
   - compute local and remote snapshots to keep/delete from inventory data;
   - keep current Bash behavior for simple count-based retention first;

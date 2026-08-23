@@ -34,6 +34,7 @@ add_library(btrfsbackup_profile_tool STATIC
     cpp/src/file_io.cpp
     cpp/src/file_lock.cpp
     cpp/src/identifiers.cpp
+    cpp/src/incremental_parent.cpp
     cpp/src/installation_render.cpp
     cpp/src/installation_validate.cpp
     cpp/src/json_io.cpp
@@ -110,6 +111,10 @@ if(BUILD_TESTING)
         cpp/tests/installation_tests.cpp
     )
 
+    add_executable(btrfsbackup-incremental-parent-tests
+        cpp/tests/incremental_parent_tests.cpp
+    )
+
     add_executable(btrfsbackup-profile-wizard-tests
         cpp/tests/profile_wizard_tests.cpp
     )
@@ -172,6 +177,11 @@ if(BUILD_TESTING)
             btrfsbackup_profile_tool
     )
 
+    target_link_libraries(btrfsbackup-incremental-parent-tests
+        PRIVATE
+            btrfsbackup_profile_tool
+    )
+
     target_link_libraries(btrfsbackup-profile-wizard-tests
         PRIVATE
             btrfsbackup_profile_tool
@@ -218,6 +228,7 @@ if(BUILD_TESTING)
     add_test(NAME run-state-tests COMMAND btrfsbackup-run-state-tests)
     add_test(NAME profile-command-tests COMMAND btrfsbackup-profile-command-tests)
     add_test(NAME installation-tests COMMAND btrfsbackup-installation-tests)
+    add_test(NAME incremental-parent-tests COMMAND btrfsbackup-incremental-parent-tests)
     add_test(NAME profile-wizard-tests COMMAND btrfsbackup-profile-wizard-tests)
     add_test(NAME file-lock-tests COMMAND btrfsbackup-file-lock-tests)
     add_test(NAME mount-info-tests COMMAND btrfsbackup-mount-info-tests)
