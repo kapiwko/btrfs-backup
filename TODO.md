@@ -14,9 +14,6 @@
 Port helpers from `scripts/lib/btrfs-backup-common.sh` in small, testable steps
 before replacing larger runner flows.
 
-- Add trusted-file checks for profile JSON, matching
-  `bb_assert_trusted_config_file`; include owner, readability, and private mode
-  validation with a test-only rootless policy.
 - Port generic path and value validation helpers: unsigned integers, positive
   integers, absolute paths, relative paths, canonicalization, and
   `path_is_within`.
