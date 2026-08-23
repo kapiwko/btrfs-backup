@@ -18,7 +18,9 @@
 9. backup, mount, and eject runtime entrypoints now load profile JSON as their
    only profile configuration source;
 10. profile render, save, migration, and configurator flows no longer generate
-    `profiles.d/*.env` files.
+    `profiles.d/*.env` files;
+11. `btrfs-backupctl profile create` now builds canonical profile JSON directly,
+    replacing the old environment-and-TSV based profile compose path.
 
 ## 0.1.1 - 2026-08-23
 
