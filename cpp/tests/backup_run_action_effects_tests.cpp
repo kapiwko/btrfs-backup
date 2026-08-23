@@ -181,11 +181,13 @@ void test_cleanup_incoming_deletes_subvolumes_and_plain_paths() {
     btrfsbackup::BackupSourceRunPlan source = source_plan(root);
     fs::path subvolume = source.incoming_source_root / "old-subvol";
     fs::path directory = source.incoming_source_root / "old-dir";
+    fs::path nested_subvolume = directory / "received-subvol";
     FakeBtrfsOperations btrfs;
-    btrfs.subvolumes = {subvolume.string()};
+    btrfs.subvolumes = {subvolume.string(), nested_subvolume.string()};
     FakeFileSystemEffects fs_effects;
-    fs_effects.directories = {directory, subvolume};
+    fs_effects.directories = {directory, subvolume, nested_subvolume};
     fs_effects.directory_entries[source.incoming_source_root.string()] = {directory, subvolume};
+    fs_effects.directory_entries[directory.string()] = {nested_subvolume};
     btrfsbackup::BackupRunActionEffects effects(btrfs, fs_effects);
 
     effects.execute_action(action(btrfsbackup::BackupRunActionKind::CleanupIncoming), source, run_plan());
@@ -195,11 +197,16 @@ void test_cleanup_incoming_deletes_subvolumes_and_plain_paths() {
         fs_effects.calls.end(),
         action_path("list", source.incoming_source_root)
     ) != fs_effects.calls.end(), "incoming root should be listed");
+    test_helpers::expect_true("delete nested subvolume", std::find(
+        btrfs.calls.begin(),
+        btrfs.calls.end(),
+        action_path("delete", nested_subvolume)
+    ) != btrfs.calls.end(), "nested subvolume should be deleted before removing its parent directory");
     test_helpers::expect_true("delete plain dir", std::find(
         fs_effects.calls.begin(),
         fs_effects.calls.end(),
-        action_path("remove-tree", directory)
-    ) != fs_effects.calls.end(), "plain directory should be removed recursively");
+        action_path("rmdir", directory)
+    ) != fs_effects.calls.end(), "plain directory should be removed after its contents");
     test_helpers::expect_true("delete subvolume", std::find(
         btrfs.calls.begin(),
         btrfs.calls.end(),
