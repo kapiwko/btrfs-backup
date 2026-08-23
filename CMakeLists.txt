@@ -13,13 +13,16 @@ find_package(nlohmann_json REQUIRED)
 add_library(btrfsbackup_profile_tool STATIC
     cpp/src/ctl_tool.cpp
     cpp/src/file_io.cpp
+    cpp/src/history.cpp
     cpp/src/json_io.cpp
     cpp/src/process.cpp
     cpp/src/profile.cpp
     cpp/src/profile_compose.cpp
+    cpp/src/profile_list.cpp
     cpp/src/profile_render.cpp
     cpp/src/profile_store.cpp
     cpp/src/profile_tool.cpp
+    cpp/src/status.cpp
 )
 
 target_compile_features(btrfsbackup_profile_tool PUBLIC cxx_std_20)
@@ -59,10 +62,20 @@ if(BUILD_TESTING)
         cpp/tests/profile_tests.cpp
     )
 
+    add_executable(btrfsbackup-ctl-tests
+        cpp/tests/ctl_tests.cpp
+    )
+
     target_link_libraries(btrfsbackup-profile-tests
         PRIVATE
             btrfsbackup_profile_tool
     )
 
+    target_link_libraries(btrfsbackup-ctl-tests
+        PRIVATE
+            btrfsbackup_profile_tool
+    )
+
     add_test(NAME profile-tests COMMAND btrfsbackup-profile-tests)
+    add_test(NAME ctl-tests COMMAND btrfsbackup-ctl-tests)
 endif()
