@@ -4,12 +4,12 @@
 #include <string>
 #include <vector>
 
-#include <btrfsbackup/command/config_fingerprint_command.hpp>
-#include <btrfsbackup/command/run_state_command.hpp>
+#include <btrfsbackup/command/state_fingerprint_command.hpp>
+#include <btrfsbackup/command/state_run_command.hpp>
+#include <btrfsbackup/command/status_show_command.hpp>
 #include <btrfsbackup/command/status_write_command.hpp>
 #include <btrfsbackup/config_fingerprint.hpp>
 #include <btrfsbackup/run_state.hpp>
-#include <btrfsbackup/status.hpp>
 
 #include "test_helpers.hpp"
 
@@ -26,10 +26,10 @@ std::string read_file(const fs::path& path) {
     return {std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()};
 }
 
-void test_write_status_command_writes_current_and_history() {
+void test_status_write_writes_current_and_history() {
     fs::path root = test_root("write-status");
 
-    btrfsbackup::command::write_status(
+    btrfsbackup::command::status_write(
         root / "status",
         root / "history",
         {
@@ -69,7 +69,7 @@ void test_write_status_command_writes_current_and_history() {
     test_helpers::expect_eq("last exists", fs::is_regular_file(root / "history" / "default" / "last.json") ? "yes" : "no", "yes");
 
     std::ostringstream output;
-    btrfsbackup::command_status(root / "status", root / "history", {"--human"}, output);
+    btrfsbackup::command::status_show(root / "status", root / "history", {"--human"}, output);
     test_helpers::expect_contains("write human status", output.str(), "Default backup: succeeded\n");
     fs::remove_all(root);
 }
@@ -78,7 +78,7 @@ void test_write_status_requires_target() {
     test_helpers::expect_validation_error(
         "write target",
         [&] {
-            btrfsbackup::command::write_status(
+            btrfsbackup::command::status_write(
                 "/tmp/status",
                 "/tmp/history",
                 {
@@ -107,7 +107,7 @@ void test_write_history_requires_finished_at() {
     test_helpers::expect_validation_error(
         "write history finished",
         [&] {
-            btrfsbackup::command::write_status(
+            btrfsbackup::command::status_write(
                 "/tmp/status",
                 "/tmp/history",
                 {
@@ -148,7 +148,7 @@ void test_config_fingerprint_matches_legacy_stream() {
     test_helpers::expect_eq("config fingerprint", digest, "f125982c7f64868550006c139bdba904248a93b4118afcc2332190e516494c34");
 
     std::ostringstream output;
-    btrfsbackup::command::config_fingerprint(
+    btrfsbackup::command::state_fingerprint(
         {
             "--version",
             "2.0.0",
@@ -169,7 +169,7 @@ void test_success_state_write_and_match() {
     fs::path root = test_root("success-state");
     fs::path state_dir = root / "state" / "profiles" / "default";
 
-    btrfsbackup::command::write_success_state(
+    btrfsbackup::command::state_write_success(
         {
             "--profile-state-dir",
             state_dir.string(),
@@ -219,7 +219,7 @@ void test_success_state_write_and_match() {
     );
 
     std::ostringstream output;
-    btrfsbackup::command::check_last_success(
+    btrfsbackup::command::state_check_last_success(
         {
             "--profile-state-dir",
             state_dir.string(),
@@ -241,7 +241,7 @@ void test_pending_marker_write_read_and_clear() {
     fs::path state_dir = root / "state" / "profiles" / "default";
     fs::path snapshot = root / "local" / "root" / "root-2026-08-23T082504";
 
-    btrfsbackup::command::write_pending_marker(
+    btrfsbackup::command::state_pending_write(
         {
             "--profile-state-dir",
             state_dir.string(),
@@ -263,7 +263,7 @@ void test_pending_marker_write_read_and_clear() {
     test_helpers::expect_contains("pending run", content, "run_id=20260823T062504Z-123-456\n");
 
     std::ostringstream output;
-    btrfsbackup::command::read_pending_marker(
+    btrfsbackup::command::state_pending_read(
         {
             "--marker",
             marker.string(),
@@ -274,7 +274,7 @@ void test_pending_marker_write_read_and_clear() {
     );
     test_helpers::expect_eq("pending path", output.str(), snapshot.string() + "\n");
 
-    btrfsbackup::command::clear_pending_marker(
+    btrfsbackup::command::state_pending_clear(
         {
             "--marker",
             marker.string(),
@@ -295,7 +295,7 @@ void test_migrate_legacy_state_moves_unclaimed_files() {
     test_helpers::write_file(state_dir / "pending-home", "local_snapshot_path=/snapshots/home-old\n");
     test_helpers::write_file(profile_state_dir / "pending-home", "local_snapshot_path=/snapshots/home-current\n");
 
-    btrfsbackup::command::migrate_legacy_state(
+    btrfsbackup::command::state_migrate_legacy(
         {
             "--state-dir",
             state_dir.string(),
@@ -318,7 +318,7 @@ void test_migrate_legacy_state_moves_unclaimed_files() {
 } // namespace
 
 int main() {
-    test_write_status_command_writes_current_and_history();
+    test_status_write_writes_current_and_history();
     test_write_status_requires_target();
     test_write_history_requires_finished_at();
     test_config_fingerprint_matches_legacy_stream();

@@ -1,4 +1,4 @@
-#include <btrfsbackup/status.hpp>
+#include <btrfsbackup/command/status_show_command.hpp>
 
 #include <algorithm>
 #include <filesystem>
@@ -72,9 +72,9 @@ void print_human_status(const fs::path& path, std::ostream& output) {
 
 } // namespace
 
-namespace btrfsbackup {
+namespace btrfsbackup::command {
 
-void command_status(
+void status_show(
     const fs::path& status_root,
     const fs::path& history_root,
     const std::vector<std::string>& args,
@@ -140,4 +140,4 @@ void command_status(
     }
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::command

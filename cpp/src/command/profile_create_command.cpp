@@ -65,7 +65,7 @@ void usage() {
 
 namespace btrfsbackup::command {
 
-int create_profile(const std::vector<std::string>& args) {
+int profile_create(const std::vector<std::string>& args) {
     fs::path output;
     std::string profile_id = "default";
     std::string profile_name = "Default backup";

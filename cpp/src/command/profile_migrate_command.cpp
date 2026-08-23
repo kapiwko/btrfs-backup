@@ -1,4 +1,4 @@
-#include <btrfsbackup/migrate_profile.hpp>
+#include <btrfsbackup/command/profile_migrate_command.hpp>
 
 #include <sys/stat.h>
 #include <unistd.h>
@@ -23,7 +23,7 @@
 
 namespace fs = std::filesystem;
 
-namespace btrfsbackup {
+namespace btrfsbackup::command {
 namespace {
 
 [[noreturn]] void fail(const std::string& message, int code = 2) {
@@ -235,7 +235,7 @@ void move_legacy_path_aside(const fs::path& path, const std::string& label) {
 
 } // namespace
 
-int command_migrate_profile(const std::vector<std::string>& args) {
+int profile_migrate(const std::vector<std::string>& args) {
     fs::path source_config = getenv_or("BTRFS_BACKUP_LEGACY_CONFIG", "/etc/btrfs-backup/backup.env");
     fs::path profile_config_dir = getenv_or("BTRFS_BACKUP_PROFILE_CONFIG_DIR", "/etc/btrfs-backup/profiles.d");
     fs::path source_config_dir;
@@ -348,4 +348,4 @@ int command_migrate_profile(const std::vector<std::string>& args) {
     return 0;
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::command
