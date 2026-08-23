@@ -166,7 +166,8 @@ std::vector<btrfsbackup::MountEntry> read_mounts(const RunnerOptions& options) {
 btrfsbackup::BackupRunPlan build_runner_plan(
     const fs::path& profile_config_dir,
     const RunnerOptions& options,
-    btrfsbackup::Profile& profile
+    btrfsbackup::Profile& profile,
+    const btrfsbackup::SnapshotMetadataReader& metadata_reader
 ) {
     profile = btrfsbackup::load_profile_by_id(profile_config_dir, options.profile_id);
     std::vector<btrfsbackup::MountEntry> mounts = read_mounts(options);
@@ -187,19 +188,19 @@ btrfsbackup::BackupRunPlan build_runner_plan(
             source.local_snapshot_dir,
             source.id,
             btrfsbackup::SnapshotSide::Local,
-            btrfsbackup::read_btrfs_snapshot_metadata
+            metadata_reader
         );
         remote_inventory[source.id] = btrfsbackup::list_snapshot_inventory(
             remote_dir,
             source.id,
             btrfsbackup::SnapshotSide::Remote,
-            btrfsbackup::read_btrfs_snapshot_metadata
+            metadata_reader
         );
 
         std::optional<btrfsbackup::PendingMarker> marker = btrfsbackup::read_pending_marker_if_exists(profile_state_dir, source.id);
         pending_markers[source.id] = marker;
         if (marker.has_value()) {
-            pending_snapshots[source.id] = btrfsbackup::read_btrfs_snapshot_metadata(marker->local_snapshot_path);
+            pending_snapshots[source.id] = metadata_reader(marker->local_snapshot_path);
         }
     }
 
@@ -245,7 +246,10 @@ int runner(
     }
 
     Profile profile;
-    BackupRunPlan plan = build_runner_plan(profile_config_dir, options, profile);
+    SnapshotMetadataReader metadata_reader = execution_services != nullptr && execution_services->snapshot_metadata_reader
+        ? execution_services->snapshot_metadata_reader
+        : read_btrfs_snapshot_metadata;
+    BackupRunPlan plan = build_runner_plan(profile_config_dir, options, profile, metadata_reader);
 
     if (command == "execute") {
         JsonFileBackupRunCheckpointStore checkpoints(fs::path(profile.paths.state_dir) / "profiles" / profile.id);

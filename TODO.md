@@ -4,7 +4,6 @@
 
 - Expand guarded parity tests for `runner execute --experimental-cpp-runner`:
   - keep Bash as the default production executor;
-  - add synthetic incremental parent selection and transfer command checks;
   - add pending recovery and retention scenarios;
   - keep the Bash runner as production executor until failure parity tests pass.
 
