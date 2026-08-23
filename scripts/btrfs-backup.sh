@@ -26,8 +26,6 @@ RUN_SUCCEEDED=0
 RUN_SKIPPED=0
 SOURCE_COUNT=0
 PROFILE_STATE_DIR=""
-STATUS_DIR=""
-HISTORY_DIR=""
 RUN_STARTED_AT=""
 RUN_FINISHED_AT=""
 CURRENT_PHASE="initialization"
@@ -172,8 +170,6 @@ load_main_config() {
     fi
 
     PROFILE_STATE_DIR="$STATE_DIR/profiles/$PROFILE_ID"
-    STATUS_DIR="$STATUS_ROOT/$PROFILE_ID"
-    HISTORY_DIR="$HISTORY_ROOT/$PROFILE_ID"
 
     local config_mode
     config_mode="$(stat -c '%a' "$CONFIG_FILE" 2>/dev/null || true)"
@@ -185,61 +181,52 @@ load_main_config() {
     fi
 }
 
-json_escape() {
-    local value="$1"
-    value="${value//\\/\\\\}"
-    value="${value//\"/\\\"}"
-    value="${value//$'\n'/\\n}"
-    value="${value//$'\r'/\\r}"
-    value="${value//$'\t'/\\t}"
-    printf '%s' "$value"
+backupctl_path() {
+    local candidate
+    for candidate in \
+        "$SCRIPT_DIR/btrfs-backupctl" \
+        "$SCRIPT_DIR/../bin/btrfs-backupctl"; do
+        if [[ -x "$candidate" ]]; then
+            realpath -m -- "$candidate"
+            return 0
+        fi
+    done
+    command -v btrfs-backupctl
 }
 
-json_string() {
-    printf '"%s"' "$(json_escape "$1")"
-}
+write_status_record() {
+    local target="$1"
+    local state="$2"
+    local phase="$3"
+    local message="$4"
+    local error="$5"
+    local exit_code="$6"
+    local finished_at="$7"
+    local backupctl updated_at
 
-write_json_atomic() {
-    local path="$1"
-    local mode="$2"
-    local temp_file
+    [[ -n "${RUN_ID:-}" ]] || return 0
+    backupctl="$(backupctl_path)" || return 1
+    updated_at="$(date --iso-8601=seconds)"
 
-    install -d -m0755 "$(dirname -- "$path")"
-    temp_file="$(mktemp "$(dirname -- "$path")/.${path##*/}.XXXXXX")"
-    chmod "$mode" "$temp_file"
-    cat > "$temp_file"
-    sync -f "$temp_file" 2>/dev/null || true
-    mv -f -- "$temp_file" "$path"
-    sync -f "$(dirname -- "$path")" 2>/dev/null || true
-}
-
-build_status_json() {
-    local state="$1"
-    local phase="$2"
-    local message="$3"
-    local error="$4"
-    local exit_code="$5"
-    local finished_at="$6"
-
-    cat <<JSON
-{
-  "schemaVersion": 1,
-  "profileId": $(json_string "$PROFILE_ID"),
-  "profileName": $(json_string "$PROFILE_NAME"),
-  "runId": $(json_string "${RUN_ID:-}"),
-  "state": $(json_string "$state"),
-  "phase": $(json_string "$phase"),
-  "message": $(json_string "$message"),
-  "currentSourceName": $(json_string "$CURRENT_SOURCE_NAME"),
-  "sourceIndex": $SOURCE_INDEX,
-  "sourceCount": $SOURCE_COUNT,
-  "startedAt": $(json_string "$RUN_STARTED_AT"),
-  "updatedAt": $(json_string "$(date --iso-8601=seconds)"),
-  "finishedAt": $(json_string "$finished_at"),
-  "error": $(json_string "$error"),
-  "exitCode": $exit_code
-}
-JSON
+    "$backupctl" \
+        --status-root "$STATUS_ROOT" \
+        --history-root "$HISTORY_ROOT" \
+        write-status \
+        "$target" \
+        --profile-id "$PROFILE_ID" \
+        --profile-name "$PROFILE_NAME" \
+        --run-id "$RUN_ID" \
+        --state "$state" \
+        --phase "$phase" \
+        --message "$message" \
+        --current-source-name "$CURRENT_SOURCE_NAME" \
+        --source-index "$SOURCE_INDEX" \
+        --source-count "$SOURCE_COUNT" \
+        --started-at "$RUN_STARTED_AT" \
+        --updated-at "$updated_at" \
+        --finished-at "$finished_at" \
+        --error "$error" \
+        --exit-code "$exit_code"
 }
 
 write_current_status() {
@@ -250,9 +237,8 @@ write_current_status() {
     local exit_code="${5:-0}"
     local finished_at="${6:-}"
 
-    [[ -n "${RUN_ID:-}" && -n "$STATUS_DIR" ]] || return 0
-    build_status_json "$state" "$phase" "$message" "$error" "$exit_code" "$finished_at" \
-        | write_json_atomic "$STATUS_DIR/current.json" 0644 \
+    [[ -n "${RUN_ID:-}" && -n "$STATUS_ROOT" ]] || return 0
+    write_status_record --current "$state" "$phase" "$message" "$error" "$exit_code" "$finished_at" \
         || bb_warn "Could not write current status JSON for profile $PROFILE_ID."
 }
 
@@ -263,14 +249,10 @@ write_history_entry() {
     local error="${4:-}"
     local exit_code="${5:-0}"
     local finished_at="$6"
-    local temp_json
 
-    [[ -n "${RUN_ID:-}" && -n "$HISTORY_DIR" ]] || return 0
-    temp_json="$(build_status_json "$state" "$phase" "$message" "$error" "$exit_code" "$finished_at")"
-    printf '%s\n' "$temp_json" | write_json_atomic "$HISTORY_DIR/$RUN_ID.json" 0644 \
-        || { bb_warn "Could not write history JSON for profile $PROFILE_ID."; return 0; }
-    printf '%s\n' "$temp_json" | write_json_atomic "$HISTORY_DIR/last.json" 0644 \
-        || bb_warn "Could not write last history JSON for profile $PROFILE_ID."
+    [[ -n "${RUN_ID:-}" && -n "$HISTORY_ROOT" ]] || return 0
+    write_status_record --history "$state" "$phase" "$message" "$error" "$exit_code" "$finished_at" \
+        || bb_warn "Could not write history JSON for profile $PROFILE_ID."
 }
 
 update_run_status() {
