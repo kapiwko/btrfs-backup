@@ -383,6 +383,57 @@ void test_success_state_write_and_match() {
     fs::remove_all(root);
 }
 
+void test_pending_marker_write_read_and_clear() {
+    fs::path root = test_root("pending-marker");
+    fs::path state_dir = root / "state" / "profiles" / "default";
+    fs::path snapshot = root / "local" / "root" / "root-2026-08-23T082504";
+
+    btrfsbackup::command_write_pending_marker(
+        {
+            "--profile-state-dir",
+            state_dir.string(),
+            "--source-name",
+            "root",
+            "--local-snapshot-path",
+            snapshot.string(),
+            "--run-id",
+            "20260823T062504Z-123-456",
+            "--timestamp",
+            "2026-08-23T08:25:04+02:00",
+        }
+    );
+
+    fs::path marker = state_dir / "pending-root";
+    expect_eq("pending marker exists", fs::is_regular_file(marker) ? "yes" : "no", "yes");
+    std::ifstream stream(marker);
+    std::string content{std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()};
+    expect_contains("pending source", content, "source_name=root\n");
+    expect_contains("pending run", content, "run_id=20260823T062504Z-123-456\n");
+
+    std::ostringstream output;
+    btrfsbackup::command_read_pending_marker(
+        {
+            "--marker",
+            marker.string(),
+            "--field",
+            "local_snapshot_path",
+        },
+        output
+    );
+    expect_eq("pending path", output.str(), snapshot.string() + "\n");
+
+    btrfsbackup::command_clear_pending_marker(
+        {
+            "--marker",
+            marker.string(),
+            "--profile-state-dir",
+            state_dir.string(),
+        }
+    );
+    expect_eq("pending marker cleared", fs::exists(marker) ? "yes" : "no", "no");
+    fs::remove_all(root);
+}
+
 } // namespace
 
 int main() {
@@ -398,6 +449,7 @@ int main() {
     test_write_history_requires_finished_at();
     test_config_fingerprint_matches_legacy_stream();
     test_success_state_write_and_match();
+    test_pending_marker_write_read_and_clear();
 
     if (failures > 0) {
         return 1;

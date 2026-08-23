@@ -343,27 +343,29 @@ pending_marker_path() {
 write_pending_marker() {
     local source_name="$1"
     local local_snapshot_path="$2"
-    local marker temp_file
+    local marker backupctl
 
     marker="$(pending_marker_path "$source_name")"
-    temp_file="$(mktemp "$PROFILE_STATE_DIR/.pending-${source_name}.XXXXXX")"
-    chmod 0600 "$temp_file"
-    {
-        printf 'source_name=%s\n' "$source_name"
-        printf 'local_snapshot_path=%s\n' "$local_snapshot_path"
-        printf 'run_id=%s\n' "$RUN_ID"
-        printf 'timestamp=%s\n' "$(date --iso-8601=seconds)"
-    } > "$temp_file"
-    mv -f -- "$temp_file" "$marker"
-    sync -f "$PROFILE_STATE_DIR" 2>/dev/null || sync
+    backupctl="$(backupctl_path)" || return 1
+    "$backupctl" \
+        write-pending-marker \
+        --profile-state-dir "$PROFILE_STATE_DIR" \
+        --source-name "$source_name" \
+        --local-snapshot-path "$local_snapshot_path" \
+        --run-id "$RUN_ID" \
+        --timestamp "$(date --iso-8601=seconds)"
     CURRENT_PENDING_MARKER="$marker"
 }
 
 clear_pending_marker() {
     local marker="${1:-$CURRENT_PENDING_MARKER}"
+    local backupctl
     if [[ -n "$marker" ]]; then
-        rm -f -- "$marker"
-        sync -f "$PROFILE_STATE_DIR" 2>/dev/null || true
+        backupctl="$(backupctl_path)" || return 1
+        "$backupctl" \
+            clear-pending-marker \
+            --marker "$marker" \
+            --profile-state-dir "$PROFILE_STATE_DIR" || true
     fi
     if [[ "$marker" == "$CURRENT_PENDING_MARKER" ]]; then
         CURRENT_PENDING_MARKER=""
@@ -389,12 +391,13 @@ recover_pending_snapshot() {
     local source_name="$1"
     local local_snapshot_dir="$2"
     local remote_snapshot_dir="$3"
-    local marker pending_path pending_uuid
+    local marker pending_path pending_uuid backupctl
 
     marker="$(pending_marker_path "$source_name")"
     [[ -r "$marker" ]] || return 0
 
-    pending_path="$(sed -n 's/^local_snapshot_path=//p' "$marker" | head -n1)"
+    backupctl="$(backupctl_path)" || return 1
+    pending_path="$("$backupctl" read-pending-marker --marker "$marker" --field local_snapshot_path)"
     if [[ -z "$pending_path" ]] \
         || ! bb_path_is_within "$pending_path" "$local_snapshot_dir" \
         || [[ "$(basename -- "$pending_path")" != "$source_name-"* ]]; then

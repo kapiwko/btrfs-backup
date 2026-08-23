@@ -156,6 +156,12 @@ int ctl_tool_main(int argc, char** argv) {
             command_check_last_success(args, std::cout);
         } else if (command == "write-success-state") {
             command_write_success_state(args);
+        } else if (command == "write-pending-marker") {
+            command_write_pending_marker(args);
+        } else if (command == "read-pending-marker") {
+            command_read_pending_marker(args, std::cout);
+        } else if (command == "clear-pending-marker") {
+            command_clear_pending_marker(args);
         } else if (command == "-h" || command == "--help") {
             usage();
         } else {
