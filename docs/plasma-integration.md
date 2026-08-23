@@ -10,6 +10,34 @@ QML UI talks to a C++ `BackupStatusModel`, and that model reads the public
 commands and private state files while the versioned system D-Bus manager is not
 ready yet.
 
+## Package
+
+The Plasma integration is shipped separately as `btrfs-backup-kde`. Install it
+next to the matching base package version:
+
+```bash
+sudo pacman -U btrfs-backup-0.2.1-1-x86_64.pkg.tar.zst \
+               btrfs-backup-kde-0.2.1-1-x86_64.pkg.tar.zst
+```
+
+The base package does not depend on Plasma. The KDE package installs:
+
+```text
+/usr/share/plasma/plasmoids/org.btrfsbackup.plasmoid
+/usr/lib/qt6/qml/org/btrfsbackup/plasma
+```
+
+The package install hook runs `kbuildsycoca6` when available. If a widget is
+already present on the desktop or panel, the running shell may still have the
+old QML module loaded. Restart the shell after upgrading the widget:
+
+```bash
+systemctl --user restart plasma-plasmashell.service
+```
+
+If that user unit is not available, remove and add the widget again after
+restarting the shell through the desktop session tools.
+
 The target architecture remains:
 
 1. system manager with a versioned D-Bus API and polkit for mutating actions;
