@@ -180,7 +180,7 @@ fi
 if (( EUID != 0 && SYSTEM_WRITE == 1 )); then
     bb_die "Writing system profile configuration requires root."
 fi
-bb_require_commands chmod chown cp date install mktemp mv python3 realpath stat
+bb_require_commands chmod chown cp date install mktemp mv realpath stat
 assert_migration_shell_input "$SOURCE_CONFIG"
 
 # Trusted legacy deployment input.
@@ -297,87 +297,7 @@ MIN_LOCAL_FREE_BYTES="$MIN_LOCAL_FREE_BYTES" \
 NOTIFY_ENABLE="$NOTIFY_ENABLE" \
 NOTIFY_USER="$NOTIFY_USER" \
 NOTIFY_METHOD="$NOTIFY_METHOD" \
-python3 - "$profile_json_temp" "$sources_table" <<'PY'
-import json
-import os
-import sys
-
-
-def as_bool(name):
-    return os.environ[name].lower() == "true"
-
-
-def as_int(name):
-    return int(os.environ[name])
-
-
-profile_id = os.environ["PROFILE_ID"]
-profile_root = os.environ["PROFILE_ROOT"]
-if profile_root == "/etc/btrfs-backup":
-    sources_dir = f"/etc/btrfs-backup/profiles/{profile_id}/sources.d"
-else:
-    sources_dir = f"{profile_root}/profiles/{profile_id}/sources.d"
-sources = []
-with open(sys.argv[2], "r", encoding="utf-8") as stream:
-    for line in stream:
-        source_id, display_name, subvolume, local_dir, remote_subdir, remote_retention, local_retention = line.rstrip("\n").split("\t")
-        sources.append(
-            {
-                "id": source_id,
-                "name": display_name,
-                "enabled": True,
-                "subvolume": subvolume,
-                "localSnapshotDir": local_dir,
-                "remoteSubdir": remote_subdir,
-                "remoteRetention": int(remote_retention),
-                "localRetention": int(local_retention),
-            }
-        )
-
-profile = {
-    "schemaVersion": 1,
-    "profileId": profile_id,
-    "name": os.environ["PROFILE_NAME"],
-    "enabled": True,
-    "target": {
-        "device": os.environ["BACKUP_DEVICE"],
-        "luksUuid": os.environ["BACKUP_LUKS_UUID"],
-        "btrfsUuid": os.environ["BACKUP_BTRFS_UUID"],
-        "partitionUuid": "",
-        "serial": "",
-        "mapperName": os.environ["BACKUP_MAPPER_NAME"],
-        "mountPoint": os.environ["BACKUP_MOUNTPOINT"],
-    },
-    "paths": {
-        "sourcesDir": sources_dir,
-        "remoteRoot": os.environ["REMOTE_ROOT"],
-        "incomingRoot": os.environ["INCOMING_ROOT"],
-        "stateDir": os.environ["STATE_DIR"],
-        "statusRoot": os.environ["STATUS_ROOT"],
-        "historyRoot": os.environ["HISTORY_ROOT"],
-    },
-    "settings": {
-        "dailyLimit": as_bool("DAILY_LIMIT"),
-        "incrementalRequired": as_bool("INCREMENTAL_REQUIRED"),
-        "keepFailedLocalSnapshot": as_bool("KEEP_FAILED_LOCAL_SNAPSHOT"),
-        "autoEject": as_bool("AUTO_EJECT"),
-        "remoteRetention": as_int("RETENTION_COUNT"),
-        "localRetention": as_int("LOCAL_RETENTION_COUNT"),
-        "minimumTargetFreeBytes": as_int("MIN_TARGET_FREE_BYTES"),
-        "minimumLocalFreeBytes": as_int("MIN_LOCAL_FREE_BYTES"),
-    },
-    "notifications": {
-        "enabled": as_bool("NOTIFY_ENABLE"),
-        "user": os.environ["NOTIFY_USER"],
-        "method": os.environ["NOTIFY_METHOD"],
-    },
-    "sources": sources,
-}
-
-with open(sys.argv[1], "w", encoding="utf-8") as stream:
-    json.dump(profile, stream, indent=2)
-    stream.write("\n")
-PY
+"$PROFILE_HELPER" compose --sources-table "$sources_table" --output "$profile_json_temp"
 
 "$PROFILE_HELPER" \
     --etc-root "$PROFILE_ROOT" \

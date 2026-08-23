@@ -30,20 +30,22 @@ The script runs the selected test suite, creates deterministic source archives, 
 Outputs are written to `dist/`:
 
 ```text
-btrfs-backup-1.1.0.tar.gz
-btrfs-backup-1.1.0-1-any.pkg.tar.zst
-btrfs-backup_1.1.0-1_all.deb
-btrfs-backup-1.1.0-install.tar.gz
-btrfs-backup-1.1.0-rpm-packaging.tar.gz
-btrfs-backup-1.1.0-nix-packaging.tar.gz
-btrfs-backup-1.1.0-ebuild.tar.gz
-btrfs-backup-1.1.0-pkgbuild.tar.gz
-btrfs-backup-1.1.0-source.zip
+btrfs-backup-1.2.0.tar.gz
+btrfs-backup-1.2.0-1-x86_64.pkg.tar.zst
+btrfs-backup_1.2.0-1_amd64.deb
+btrfs-backup-1.2.0-install.tar.gz
+btrfs-backup-1.2.0-rpm-packaging.tar.gz
+btrfs-backup-1.2.0-nix-packaging.tar.gz
+btrfs-backup-1.2.0-ebuild.tar.gz
+btrfs-backup-1.2.0-pkgbuild.tar.gz
+btrfs-backup-1.2.0-source.zip
 SHA256SUMS
 BUILD-REPORT.txt
 ```
 
 The `source` target avoids package construction and does not require `zstd`. Package-specific backends may have additional tool requirements.
+Building from source requires a C++20 compiler and `nlohmann-json` headers for
+the native profile helper under `cpp/`.
 
 ## Arch Packaging
 

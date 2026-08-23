@@ -8,6 +8,7 @@
 # Arch build output
 /pkg/
 /src/
+/build/
 /dist/
 *.pkg.tar.*
 *.src.tar.*
