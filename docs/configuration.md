@@ -21,8 +21,9 @@ btrfs-backupctl profile export --profile default --output profile.json
 /var/lib/btrfs-backup/public/profiles/<profile>.json
 ```
 
-`btrfs-backup-configure` follows the same model: it renders `profile.json`
-first and then materializes derived files from that JSON.
+`btrfs-backup-configure` follows the same model: it uses
+`btrfs-backupctl profile create` to render `profile.json` first and then
+materializes derived files from that JSON.
 
 ## Runtime Profile Files
 
