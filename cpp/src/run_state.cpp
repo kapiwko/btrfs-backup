@@ -123,6 +123,41 @@ void write_success_state(const fs::path& profile_state_dir, const SuccessState& 
     fsync_dir(profile_state_dir);
 }
 
+void migrate_legacy_state(const fs::path& state_dir, const fs::path& profile_state_dir) {
+    fs::create_directories(state_dir);
+    chmod(state_dir.c_str(), 0755);
+    fs::create_directories(profile_state_dir);
+    chmod(profile_state_dir.c_str(), 0700);
+
+    std::error_code ec;
+    fs::path legacy_success = state_dir / "last-success";
+    fs::path profile_success = profile_state_dir / "last-success";
+    if (fs::is_regular_file(legacy_success, ec) && !fs::exists(profile_success, ec)) {
+        fs::rename(legacy_success, profile_success);
+    }
+
+    for (const auto& entry : fs::directory_iterator(state_dir, ec)) {
+        if (ec) {
+            break;
+        }
+        if (!entry.is_regular_file(ec)) {
+            continue;
+        }
+        std::string name = entry.path().filename().string();
+        if (name.rfind("pending-", 0) != 0) {
+            continue;
+        }
+        fs::path target = profile_state_dir / name;
+        if (fs::exists(target, ec)) {
+            continue;
+        }
+        fs::rename(entry.path(), target);
+    }
+
+    fsync_dir(state_dir);
+    fsync_dir(profile_state_dir);
+}
+
 fs::path pending_marker_path(const fs::path& profile_state_dir, const std::string& source_name) {
     validate_identifier(source_name, "source_name");
     return profile_state_dir / ("pending-" + source_name);
@@ -222,6 +257,30 @@ void command_write_success_state(const std::vector<std::string>& args) {
         throw ValidationError("write-success-state requires --profile-state-dir");
     }
     write_success_state(profile_state_dir, state);
+}
+
+void command_migrate_legacy_state(const std::vector<std::string>& args) {
+    fs::path state_dir;
+    fs::path profile_state_dir;
+
+    for (std::size_t i = 0; i < args.size(); ++i) {
+        const std::string& arg = args[i];
+        if (arg == "--state-dir") {
+            state_dir = arg_value(args, i, arg);
+        } else if (arg == "--profile-state-dir") {
+            profile_state_dir = arg_value(args, i, arg);
+        } else {
+            throw ValidationError("unknown migrate-legacy-state option: " + arg);
+        }
+    }
+
+    if (state_dir.empty()) {
+        throw ValidationError("migrate-legacy-state requires --state-dir");
+    }
+    if (profile_state_dir.empty()) {
+        throw ValidationError("migrate-legacy-state requires --profile-state-dir");
+    }
+    migrate_legacy_state(state_dir, profile_state_dir);
 }
 
 void command_write_pending_marker(const std::vector<std::string>& args) {
