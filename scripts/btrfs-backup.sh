@@ -264,19 +264,13 @@ update_run_status() {
 }
 
 migrate_legacy_state() {
-    local legacy_path entry
+    local backupctl
 
-    install -d -m0755 "$STATE_DIR"
-    install -d -m0700 "$PROFILE_STATE_DIR"
-    legacy_path="$STATE_DIR/last-success"
-    if [[ -f "$legacy_path" && ! -e "$PROFILE_STATE_DIR/last-success" ]]; then
-        mv -- "$legacy_path" "$PROFILE_STATE_DIR/last-success"
-    fi
-
-    while IFS= read -r -d '' entry; do
-        [[ -e "$PROFILE_STATE_DIR/$(basename -- "$entry")" ]] && continue
-        mv -- "$entry" "$PROFILE_STATE_DIR/"
-    done < <(find "$STATE_DIR" -maxdepth 1 -type f -name 'pending-*' -print0 2>/dev/null)
+    backupctl="$(backupctl_path)" || return 1
+    "$backupctl" \
+        migrate-legacy-state \
+        --state-dir "$STATE_DIR" \
+        --profile-state-dir "$PROFILE_STATE_DIR"
 }
 
 cleanup_incoming_run() {
