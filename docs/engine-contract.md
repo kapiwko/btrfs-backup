@@ -44,7 +44,7 @@ Every operation is scoped to one profile id. The profile id selects:
 
 ```text
 profile JSON
-runtime env
+derived runtime settings
 lock file
 state directory
 status directory

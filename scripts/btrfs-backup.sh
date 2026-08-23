@@ -510,7 +510,7 @@ compute_config_fingerprint() {
     profile_env_file="$profile_env_dir/profile.env"
     : > "$profile_env_file"
     chmod 0600 "$profile_env_file"
-    if ! "$backupctl" profile env --file "$PROFILE_JSON_FILE" > "$profile_env_file"; then
+    if ! "$backupctl" profile emit-runtime-env --file "$PROFILE_JSON_FILE" > "$profile_env_file"; then
         rm -rf -- "$profile_env_dir"
         return 1
     fi
