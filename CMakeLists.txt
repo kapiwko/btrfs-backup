@@ -16,6 +16,7 @@ pkg_check_modules(UDEV REQUIRED IMPORTED_TARGET libudev)
 pkg_check_modules(BTRFSUTIL REQUIRED IMPORTED_TARGET libbtrfsutil)
 
 add_library(btrfsbackup-core STATIC
+    cpp/src/backup_run_executor.cpp
     cpp/src/backup_run_plan.cpp
     cpp/src/btrfs_operations.cpp
     cpp/src/command/installation_command.cpp
@@ -110,6 +111,7 @@ if(BUILD_TESTING)
     endfunction()
 
     add_btrfsbackup_test(btrfsbackup-backup-run-plan-tests cpp/tests/backup_run_plan_tests.cpp backup-run-plan-tests)
+    add_btrfsbackup_test(btrfsbackup-backup-run-executor-tests cpp/tests/backup_run_executor_tests.cpp backup-run-executor-tests)
     add_btrfsbackup_test(btrfsbackup-btrfs-operations-tests cpp/tests/btrfs_operations_tests.cpp btrfs-operations-tests)
     add_btrfsbackup_test(btrfsbackup-profile-tests cpp/tests/profile_tests.cpp profile-tests)
     add_btrfsbackup_test(btrfsbackup-device-info-tests cpp/tests/device_info_tests.cpp device-info-tests)
