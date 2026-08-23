@@ -36,17 +36,30 @@ On Arch Linux, the build dependencies are provided by packages such as
 `base-devel`, `cmake`, `pkgconf`, `nlohmann-json`, `util-linux`, `systemd`, and
 `btrfs-progs`.
 
+The optional Plasma widget is built as a separate package and additionally
+requires Qt 6 QML/Quick, Extra CMake Modules, Kirigami, KPackage, KI18n and
+libplasma development files.
+
 Each source must be a Btrfs subvolume. The local snapshot directory must be on the same Btrfs filesystem as its source. The target must be a separate Btrfs filesystem inside LUKS; the runtime rejects a source that belongs to the same filesystem as the target, even if it is available through another mount point.
 
 ## Arch Package Installation
 
 ```bash
-sudo pacman -U btrfs-backup-2.0.0-1-x86_64.pkg.tar.zst
+sudo pacman -U btrfs-backup-2.1.0-1-x86_64.pkg.tar.zst
 ```
 
 The package installs the systemd template unit used by udev, but it does not
 enable a service at boot and does not create active backup configuration without
 an explicit user action.
+
+The optional Plasma status widget is packaged separately:
+
+```bash
+sudo pacman -U btrfs-backup-kde-2.1.0-1-x86_64.pkg.tar.zst
+```
+
+That package installs the plasmoid and the compiled QML backend only. The base
+backup runtime does not depend on a graphical session.
 
 ## First Configuration
 
