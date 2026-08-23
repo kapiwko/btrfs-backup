@@ -1,0 +1,52 @@
+# Migration To Profiles
+
+Version 0.1.1 introduces profile configuration files:
+
+```text
+/etc/btrfs-backup/profiles.d/<profile>.env
+```
+
+The legacy `/etc/btrfs-backup/backup.env` fallback still works for the
+`default` profile in 1.x, but it is deprecated and will be removed in 0.2.
+
+## Convert The Existing Configuration
+
+Create the default profile from the legacy file:
+
+```bash
+sudo btrfs-backup-migrate-profile --profile default
+```
+
+Validate the migrated profile with the target connected:
+
+```bash
+sudo btrfs-backup --profile default --validate --no-eject
+btrfs-backupctl list-profiles
+btrfs-backupctl status --profile default --human
+```
+
+After confirming that the profile works, the legacy file can be moved aside:
+
+```bash
+sudo btrfs-backup-migrate-profile --profile default --force --remove-legacy
+```
+
+The command keeps a timestamped backup next to the original legacy file.
+
+## Regenerate Systemd And Udev Files
+
+Newly rendered configuration includes:
+
+```text
+/etc/btrfs-backup/profiles.d/<profile>.env
+/etc/systemd/system/btrfs-backup@.service
+/etc/udev/rules.d/99-btrfs-backup.rules
+```
+
+The udev rule starts `btrfs-backup@<profile>.service`. Reload systemd and udev
+after applying generated files:
+
+```bash
+sudo systemctl daemon-reload
+sudo udevadm control --reload
+```
