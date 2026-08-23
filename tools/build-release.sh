@@ -230,6 +230,10 @@ stage_package_payload() {
         "$pkgdir/usr/share/btrfs-backup/examples/config/source.conf.example"
     install -Dm644 "$root/config/configurator-answers.example" \
         "$pkgdir/usr/share/btrfs-backup/examples/config/configurator-answers.example"
+    install -Dm644 "$root/config/profile.example.json" \
+        "$pkgdir/usr/share/btrfs-backup/examples/config/profile.example.json"
+    install -Dm644 "$root/config/profile.schema.json" \
+        "$pkgdir/usr/share/btrfs-backup/examples/config/profile.schema.json"
     install -Dm644 "$root/config/crypttab.fragment.example" \
         "$pkgdir/usr/share/btrfs-backup/examples/config/crypttab.fragment.example"
     install -Dm644 "$root/config/fstab.fragment.example" \
@@ -739,6 +743,7 @@ if [[ "$TARGET" == all || "$TARGET" == arch ]]; then
     grep -qx 'usr/bin/btrfs-backupctl' "$TMP_ROOT/package-files.txt"
     grep -qx 'usr/bin/btrfs-backup-configure' "$TMP_ROOT/package-files.txt"
     grep -qx 'usr/lib/btrfs-backup/btrfs-backup.sh' "$TMP_ROOT/package-files.txt"
+    grep -qx 'usr/share/btrfs-backup/examples/config/profile.schema.json' "$TMP_ROOT/package-files.txt"
     if command -v pacman >/dev/null 2>&1; then
         pacman -Qip "$PACKAGE_ARCHIVE" >/dev/null
     fi

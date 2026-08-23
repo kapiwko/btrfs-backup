@@ -36,6 +36,17 @@ If `PROFILE_ID` is missing, the runner uses `default`. Legacy files directly
 under `STATE_DIR`, such as `last-success` and `pending-*`, are migrated to the
 profile state directory on the next run.
 
+## Profile JSON
+
+`config/profile.example.json` and `config/profile.schema.json` define a
+versioned, machine-readable profile model for tooling. The current runner still
+uses `backup.env` and `sources.d/*.conf` as its active configuration, so the
+JSON profile is not installed as an active file by default.
+
+The profile model mirrors the shell configuration: encrypted target identity,
+state paths, retention settings, notification policy, and source definitions.
+It is intended for generators, validators, and future migration tooling.
+
 ## Source Definitions
 
 Each `/etc/btrfs-backup/sources.d/*.conf` file describes one source:
