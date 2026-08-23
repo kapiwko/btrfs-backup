@@ -142,7 +142,7 @@ int ctl_tool_main(int argc, char** argv) {
         std::vector<std::string> args(rest.begin() + 1, rest.end());
 
         if (command == "list-profiles") {
-            command_list_profiles(profile_config_dir, legacy_config_file, std::cout);
+            command_list_profiles(profile_config_dir, profile_config_dir.parent_path() / "profiles", legacy_config_file, std::cout);
         } else if (command == "status") {
             command_status(status_root, history_root, args, std::cout);
         } else if (command == "history") {
