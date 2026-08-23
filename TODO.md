@@ -22,6 +22,18 @@
   - keep the interface independent enough to later back it with a GUI/event-loop
     process implementation.
 
+- Add `BackupRunExecutor` as the C++ execution boundary for `BackupRunPlan`:
+  - accept a prepared `BackupRunPlan`;
+  - execute actions in plan order;
+  - write a checkpoint after each durable state change;
+  - emit stable machine-readable events for status, history and UI consumers;
+  - support cancellation between actions and during long-running transfers;
+  - delegate `btrfs send/receive` to the async transfer layer;
+  - distinguish retryable cleanup/recovery work from fatal data-transfer
+    failures;
+  - pass the same failure and recovery scenarios covered by the current Bash
+    integration tests before replacing the Bash runner.
+
 - Move the main backup flow from Bash to C++ after parity tests pass:
   - keep Bash wrappers for mount/eject compatibility while needed;
   - keep existing integration tests as regression coverage;
