@@ -1,6 +1,28 @@
 # Configuration
 
-## Profile Files
+## Canonical Profile JSON
+
+The canonical format for tooling is a JSON profile document matching
+`config/profile.schema.json`. The runner does not read this JSON directly.
+Instead, `btrfs-backup-profile` validates the JSON and materializes trusted
+runtime files for the Bash runner.
+
+```bash
+btrfs-backup-profile validate --file profile.json
+btrfs-backup-profile render --file profile.json --output-dir ./generated-profile
+sudo btrfs-backup-profile save --file profile.json
+```
+
+`save` writes:
+
+```text
+/etc/btrfs-backup/profiles.d/<profile>.env
+/etc/btrfs-backup/profiles/<profile>/sources.d/*.conf
+/etc/udev/rules.d/99-btrfs-backup-<profile>.rules
+/var/lib/btrfs-backup/public/profiles/<profile>.json
+```
+
+## Runtime Profile Files
 
 The preferred active profile file is
 `/etc/btrfs-backup/profiles.d/<profile>.env`. Commands select a profile with
@@ -55,12 +77,10 @@ The migrator creates `/etc/btrfs-backup/profiles.d/default.env`, keeps
 `/etc/btrfs-backup/backup.env` in place, and leaves existing `sources.d`
 definitions unchanged.
 
-## Profile JSON
+## JSON Schema
 
 `config/profile.example.json` and `config/profile.schema.json` define a
-versioned, machine-readable profile model for tooling. The current runner uses
-trusted shell profile files and `sources.d/*.conf` as its active configuration,
-so the JSON profile is not installed as an active file by default.
+versioned, machine-readable profile model for tooling.
 
 The profile model mirrors the shell configuration: encrypted target identity,
 state paths, retention settings, notification policy, and source definitions.

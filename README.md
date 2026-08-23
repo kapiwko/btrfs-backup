@@ -79,6 +79,8 @@ sudo btrfs-backup --profile default --validate
 sudo btrfs-backup-mount
 sudo btrfs-backup-eject
 sudo btrfs-backup-migrate-profile --profile default
+btrfs-backup-profile validate --file profile.json
+btrfs-backup-profile render --file profile.json --output-dir ./generated-profile
 btrfs-backupctl status --profile default --human
 btrfs-backupctl history --profile default --limit 10
 btrfs-backupctl list-profiles
@@ -107,7 +109,9 @@ SOURCE_LOCAL_RETENTION_COUNT=30
 
 Active configuration files are trusted Bash code executed as root. They must be owned by root and use mode `0600`; the script refuses files that are accessible by group or other users.
 
-Profiles can be stored as `/etc/btrfs-backup/profiles.d/<profile>.env` and selected with `--profile <profile>` or `BTRFS_BACKUP_PROFILE=<profile>`. The legacy `/etc/btrfs-backup/backup.env` remains supported as the fallback for the `default` profile in 1.x, but it is deprecated and will be removed in 0.2. To create the default profile file from an existing legacy configuration:
+The canonical format for tools is JSON. `btrfs-backup-profile save` validates that JSON and writes the runtime `.env` and source files consumed by the backup runner.
+
+Profiles can also be stored directly as `/etc/btrfs-backup/profiles.d/<profile>.env` and selected with `--profile <profile>` or `BTRFS_BACKUP_PROFILE=<profile>`. The legacy `/etc/btrfs-backup/backup.env` remains supported as the fallback for the `default` profile in 1.x, but it is deprecated and will be removed in 0.2. To create the default profile file from an existing legacy configuration:
 
 ```bash
 sudo btrfs-backup-migrate-profile --profile default

@@ -96,10 +96,14 @@ META
 }
 
 syntax_test() {
-    mapfile -t scripts < <(find "$ROOT" -type f \( -name '*.sh' -o -name '*.install' -o -path "$ROOT/bin/*" \) | sort)
+    mapfile -t scripts < <(find "$ROOT" -type f \( -name '*.sh' -o -name '*.install' -o \( -path "$ROOT/bin/*" ! -path "$ROOT/bin/__pycache__/*" \) \) | sort)
     local script
     for script in "${scripts[@]}"; do
-        bash -n "$script"
+        if head -n1 "$script" | grep -q 'python3'; then
+            python3 -m py_compile "$script"
+        else
+            bash -n "$script"
+        fi
     done
     pass 'all Bash files parse'
 }
@@ -185,6 +189,36 @@ migrate_profile_dry_run_test() {
     grep -qx 'default (legacy)' <<< "$profile_list" \
         || fail 'btrfs-backupctl did not list legacy default profile'
     pass 'profile migrator dry-run validates paths'
+}
+
+profile_json_test() {
+    local rendered="$TEST_ROOT/profile-json-rendered"
+    local saved="$TEST_ROOT/profile-json-saved"
+
+    "$ROOT/bin/btrfs-backup-profile" validate --file "$ROOT/config/profile.example.json" >/dev/null
+    "$ROOT/bin/btrfs-backup-profile" render \
+        --file "$ROOT/config/profile.example.json" \
+        --output-dir "$rendered" >/dev/null
+
+    assert_file "$rendered/etc/btrfs-backup/profiles.d/default.env"
+    assert_file "$rendered/etc/btrfs-backup/profiles/default/sources.d/010-home.conf"
+    assert_file "$rendered/etc/udev/rules.d/99-btrfs-backup-default.rules"
+    assert_file "$rendered/var/lib/btrfs-backup/public/profiles/default.json"
+    assert_contains "$rendered/etc/btrfs-backup/profiles.d/default.env" 'PROFILE_ID=default'
+    assert_contains "$rendered/etc/btrfs-backup/profiles/default/sources.d/010-home.conf" 'SOURCE_NAME=home'
+    assert_contains "$rendered/etc/udev/rules.d/99-btrfs-backup-default.rules" 'btrfs-backup@default.service'
+
+    "$ROOT/bin/btrfs-backup-profile" \
+        --etc-root "$saved/etc/btrfs-backup" \
+        --udev-root "$saved/etc/udev/rules.d" \
+        --public-root "$saved/var/lib/btrfs-backup/public/profiles" \
+        save --file "$ROOT/config/profile.example.json" >/dev/null
+
+    assert_file "$saved/etc/btrfs-backup/profiles.d/default.env"
+    assert_file "$saved/etc/btrfs-backup/profiles/default/sources.d/010-home.conf"
+    assert_file "$saved/etc/udev/rules.d/99-btrfs-backup-default.rules"
+    assert_file "$saved/var/lib/btrfs-backup/public/profiles/default.json"
+    pass 'profile JSON validates, renders, and saves generated runtime files'
 }
 
 create_mock_commands() {
@@ -758,10 +792,11 @@ eject_test() {
 }
 
 if [[ "$MODE" == static ]]; then
-    printf '1..3\n'
+    printf '1..4\n'
     syntax_test
     render_test
     migrate_profile_dry_run_test
+    profile_json_test
     exit 0
 fi
 
@@ -769,10 +804,11 @@ if (( EUID != 0 )); then
     fail 'full mocked runtime tests require root; use --static-only otherwise'
 fi
 
-printf '1..13\n'
+printf '1..14\n'
 syntax_test
 render_test
 migrate_profile_dry_run_test
+profile_json_test
 profile_loading_test
 runtime_success_test
 runtime_failure_cleanup_test

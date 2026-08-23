@@ -222,6 +222,7 @@ stage_package_payload() {
         "$pkgdir/usr/lib/btrfs-backup/lib/btrfs-backup-common.sh"
 
     install -Dm755 "$root/bin/btrfs-backup" "$pkgdir/usr/bin/btrfs-backup"
+    install -Dm755 "$root/bin/btrfs-backup-profile" "$pkgdir/usr/bin/btrfs-backup-profile"
     install -Dm755 "$root/bin/btrfs-backupctl" "$pkgdir/usr/bin/btrfs-backupctl"
     install -Dm755 "$root/bin/btrfs-backup-eject" "$pkgdir/usr/bin/btrfs-backup-eject"
     install -Dm755 "$root/bin/btrfs-backup-mount" "$pkgdir/usr/bin/btrfs-backup-mount"
@@ -279,7 +280,7 @@ Section: admin
 Priority: optional
 Architecture: all
 Maintainer: local reproducible build <root@localhost>
-Depends: bash, btrfs-progs, coreutils, cryptsetup, findutils, gawk, grep, sed, systemd, util-linux
+Depends: bash, btrfs-progs, coreutils, cryptsetup, findutils, gawk, grep, python3, sed, systemd, util-linux
 Recommends: pv, libnotify-bin
 Description: Verified Btrfs send/receive backups to an encrypted removable target
  systemd and udev driven Btrfs send/receive backups with LUKS target validation,
@@ -350,6 +351,7 @@ Requires:       cryptsetup
 Requires:       findutils
 Requires:       gawk
 Requires:       grep
+Requires:       python3
 Requires:       sed
 Requires:       systemd
 Requires:       util-linux
@@ -371,6 +373,7 @@ install -Dm755 scripts/btrfs-backup-migrate-profile.sh %{buildroot}%{_libdir}/bt
 install -Dm755 scripts/btrfs-backup-unplug.sh %{buildroot}%{_libdir}/btrfs-backup/btrfs-backup-unplug.sh
 install -Dm755 scripts/lib/btrfs-backup-common.sh %{buildroot}%{_libdir}/btrfs-backup/lib/btrfs-backup-common.sh
 install -Dm755 bin/btrfs-backup %{buildroot}%{_bindir}/btrfs-backup
+install -Dm755 bin/btrfs-backup-profile %{buildroot}%{_bindir}/btrfs-backup-profile
 install -Dm755 bin/btrfs-backupctl %{buildroot}%{_bindir}/btrfs-backupctl
 install -Dm755 bin/btrfs-backup-eject %{buildroot}%{_bindir}/btrfs-backup-eject
 install -Dm755 bin/btrfs-backup-mount %{buildroot}%{_bindir}/btrfs-backup-mount
@@ -386,6 +389,7 @@ install -Dm644 LICENSE %{buildroot}%{_licensedir}/btrfs-backup/LICENSE
 
 %files
 %{_bindir}/btrfs-backup
+%{_bindir}/btrfs-backup-profile
 %{_bindir}/btrfs-backupctl
 %{_bindir}/btrfs-backup-eject
 %{_bindir}/btrfs-backup-mount
@@ -420,6 +424,7 @@ build_nix_packaging() {
 , findutils
 , gawk
 , gnugrep
+, python3
 , gnused
 , systemd
 , util-linux
@@ -442,6 +447,7 @@ stdenvNoCC.mkDerivation {
     install -Dm755 scripts/btrfs-backup-unplug.sh $out/lib/btrfs-backup/btrfs-backup-unplug.sh
     install -Dm755 scripts/lib/btrfs-backup-common.sh $out/lib/btrfs-backup/lib/btrfs-backup-common.sh
     install -Dm755 bin/btrfs-backup $out/bin/btrfs-backup
+    install -Dm755 bin/btrfs-backup-profile $out/bin/btrfs-backup-profile
     install -Dm755 bin/btrfs-backupctl $out/bin/btrfs-backupctl
     install -Dm755 bin/btrfs-backup-eject $out/bin/btrfs-backup-eject
     install -Dm755 bin/btrfs-backup-mount $out/bin/btrfs-backup-mount
@@ -497,13 +503,14 @@ RDEPEND="
 	sys-apps/findutils
 	sys-apps/gawk
 	sys-apps/grep
+	dev-lang/python
 	sys-apps/sed
 	sys-apps/systemd
 	sys-apps/util-linux
 "
 
 src_install() {
-	dobin bin/btrfs-backup bin/btrfs-backupctl bin/btrfs-backup-eject bin/btrfs-backup-mount bin/btrfs-backup-migrate-profile bin/btrfs-backup-unplug
+	dobin bin/btrfs-backup bin/btrfs-backup-profile bin/btrfs-backupctl bin/btrfs-backup-eject bin/btrfs-backup-mount bin/btrfs-backup-migrate-profile bin/btrfs-backup-unplug
 	dobin install/btrfs-backup-configure.sh
 	exeinto /usr/lib/btrfs-backup
 	doexe scripts/btrfs-backup.sh scripts/btrfs-backup-eject.sh scripts/btrfs-backup-mount.sh scripts/btrfs-backup-migrate-profile.sh scripts/btrfs-backup-unplug.sh
@@ -533,7 +540,7 @@ pkgrel=$PKGREL
 pkgdesc='Verified Btrfs send/receive backups to an encrypted removable target'
 arch=('any')
 license=('GPL-3.0-or-later')
-depends=('bash' 'btrfs-progs' 'coreutils' 'cryptsetup' 'findutils' 'gawk' 'grep' 'sed' 'systemd' 'util-linux')
+depends=('bash' 'btrfs-progs' 'coreutils' 'cryptsetup' 'findutils' 'gawk' 'grep' 'python' 'sed' 'systemd' 'util-linux')
 optdepends=('libnotify: desktop notifications via notify-send' 'pv: live progress during btrfs send')
 install="\$pkgname.install"
 source=("\$pkgbase-\$pkgver.tar.gz")
@@ -553,6 +560,7 @@ package() {
   install -Dm755 "\$root/scripts/btrfs-backup-unplug.sh" "\$pkgdir/usr/lib/btrfs-backup/btrfs-backup-unplug.sh"
   install -Dm755 "\$root/scripts/lib/btrfs-backup-common.sh" "\$pkgdir/usr/lib/btrfs-backup/lib/btrfs-backup-common.sh"
   install -Dm755 "\$root/bin/btrfs-backup" "\$pkgdir/usr/bin/btrfs-backup"
+  install -Dm755 "\$root/bin/btrfs-backup-profile" "\$pkgdir/usr/bin/btrfs-backup-profile"
   install -Dm755 "\$root/bin/btrfs-backupctl" "\$pkgdir/usr/bin/btrfs-backupctl"
   install -Dm755 "\$root/bin/btrfs-backup-eject" "\$pkgdir/usr/bin/btrfs-backup-eject"
   install -Dm755 "\$root/bin/btrfs-backup-mount" "\$pkgdir/usr/bin/btrfs-backup-mount"
@@ -583,6 +591,7 @@ pkgbase = btrfs-backup
 	depends = findutils
 	depends = gawk
 	depends = grep
+	depends = python
 	depends = sed
 	depends = systemd
 	depends = util-linux
@@ -623,6 +632,7 @@ depend = cryptsetup
 depend = findutils
 depend = gawk
 depend = grep
+depend = python
 depend = sed
 depend = systemd
 depend = util-linux
@@ -765,6 +775,7 @@ if [[ "$TARGET" == all || "$TARGET" == arch ]]; then
     grep -qx '.INSTALL' "$TMP_ROOT/package-files.txt"
     grep -qx '.MTREE' "$TMP_ROOT/package-files.txt"
     grep -qx 'usr/bin/btrfs-backup' "$TMP_ROOT/package-files.txt"
+    grep -qx 'usr/bin/btrfs-backup-profile' "$TMP_ROOT/package-files.txt"
     grep -qx 'usr/bin/btrfs-backupctl' "$TMP_ROOT/package-files.txt"
     grep -qx 'usr/bin/btrfs-backup-configure' "$TMP_ROOT/package-files.txt"
     grep -qx 'usr/bin/btrfs-backup-mount' "$TMP_ROOT/package-files.txt"
@@ -782,10 +793,15 @@ if [[ "$TARGET" == all || "$TARGET" == arch ]]; then
     mkdir -p "$PACKAGE_AUDIT_ROOT"
     tar --zstd -xf "$PACKAGE_ARCHIVE" -C "$PACKAGE_AUDIT_ROOT"
     while IFS= read -r -d '' packaged_script; do
-        bash -n "$packaged_script"
+        if head -n1 "$packaged_script" | grep -q 'python3'; then
+            python3 -m py_compile "$packaged_script"
+        else
+            bash -n "$packaged_script"
+        fi
     done < <(find "$PACKAGE_AUDIT_ROOT/usr/bin" "$PACKAGE_AUDIT_ROOT/usr/lib/btrfs-backup" -type f -print0)
     bash -n "$PACKAGE_AUDIT_ROOT/.INSTALL"
     "$PACKAGE_AUDIT_ROOT/usr/bin/btrfs-backup" --help >/dev/null
+    "$PACKAGE_AUDIT_ROOT/usr/bin/btrfs-backup-profile" --help >/dev/null
     "$PACKAGE_AUDIT_ROOT/usr/bin/btrfs-backupctl" --help >/dev/null
     "$PACKAGE_AUDIT_ROOT/usr/bin/btrfs-backup-eject" --help >/dev/null
     "$PACKAGE_AUDIT_ROOT/usr/bin/btrfs-backup-mount" --help >/dev/null
