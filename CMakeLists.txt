@@ -66,6 +66,7 @@ add_library(btrfsbackup-core STATIC
     cpp/src/status_writer.cpp
     cpp/src/target_mount_validation.cpp
     cpp/src/trusted_file.cpp
+    cpp/src/transfer_pipeline.cpp
     cpp/src/validation.cpp
 )
 
@@ -130,5 +131,6 @@ if(BUILD_TESTING)
     add_btrfsbackup_test(btrfsbackup-snapshot-transfer-tests cpp/tests/snapshot_transfer_tests.cpp snapshot-transfer-tests)
     add_btrfsbackup_test(btrfsbackup-target-mount-validation-tests cpp/tests/target_mount_validation_tests.cpp target-mount-validation-tests)
     add_btrfsbackup_test(btrfsbackup-trusted-file-tests cpp/tests/trusted_file_tests.cpp trusted-file-tests)
+    add_btrfsbackup_test(btrfsbackup-transfer-pipeline-tests cpp/tests/transfer_pipeline_tests.cpp transfer-pipeline-tests)
     add_btrfsbackup_test(btrfsbackup-validation-tests cpp/tests/validation_tests.cpp validation-tests)
 endif()
