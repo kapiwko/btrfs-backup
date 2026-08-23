@@ -107,20 +107,9 @@ void test_list_profiles_from_json_and_env_files() {
     write_file(root / "profiles" / "default" / "profile.json", "{}\n");
     std::ostringstream output;
 
-    btrfsbackup::command_list_profiles(root / "profiles.d", root / "profiles", root / "backup.env", output);
+    btrfsbackup::command_list_profiles(root / "profiles.d", root / "profiles", output);
 
     expect_eq("list profiles", output.str(), "alpha\nbeta\ndefault\n");
-    fs::remove_all(root);
-}
-
-void test_list_profiles_legacy_fallback() {
-    fs::path root = test_root("legacy");
-    write_file(root / "backup.env", "BACKUP_DEVICE=/dev/test\n");
-    std::ostringstream output;
-
-    btrfsbackup::command_list_profiles(root / "profiles.d", root / "profiles", root / "backup.env", output);
-
-    expect_eq("legacy fallback", output.str(), "default (legacy)\n");
     fs::remove_all(root);
 }
 
@@ -157,7 +146,7 @@ void test_list_profiles_rejects_invalid_name() {
         "invalid profile",
         [&] {
             std::ostringstream output;
-            btrfsbackup::command_list_profiles(root / "profiles.d", root / "profiles", root / "backup.env", output);
+            btrfsbackup::command_list_profiles(root / "profiles.d", root / "profiles", output);
         },
         "invalid profile id"
     );
@@ -291,18 +280,18 @@ void test_config_fingerprint_matches_legacy_stream() {
     write_file(root / "20-home.conf", "SOURCE_NAME=home\n");
 
     std::string digest = btrfsbackup::compute_config_fingerprint(
-        "1.2.0",
+        "2.0.0",
         root / "main.env",
         {root / "10-root.conf", root / "20-home.conf"}
     );
 
-    expect_eq("config fingerprint", digest, "630b159cf7939e5baf76ce27d4505a5cf68fe2995d5071c1f22e011e143b7c67");
+    expect_eq("config fingerprint", digest, "f125982c7f64868550006c139bdba904248a93b4118afcc2332190e516494c34");
 
     std::ostringstream output;
     btrfsbackup::command_config_fingerprint(
         {
             "--version",
-            "1.2.0",
+            "2.0.0",
             "--config",
             (root / "main.env").string(),
             "--source",
@@ -531,7 +520,6 @@ int main() {
     test_history_without_directory_returns_empty_array();
     test_status_falls_back_to_last_json();
     test_list_profiles_from_json_and_env_files();
-    test_list_profiles_legacy_fallback();
     test_status_human_format();
     test_list_profiles_rejects_invalid_name();
     test_history_limit();

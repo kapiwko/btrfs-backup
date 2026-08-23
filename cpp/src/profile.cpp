@@ -12,7 +12,6 @@
 #include <btrfsbackup/identifiers.hpp>
 #include <btrfsbackup/json_io.hpp>
 #include <btrfsbackup/process.hpp>
-#include <btrfsbackup/shell_env.hpp>
 
 namespace fs = std::filesystem;
 
@@ -140,98 +139,6 @@ std::string systemd_mount_unit(const std::string& mount_point) {
 
 fs::path profile_json_path(const fs::path& etc_root, const std::string& profile_id) {
     return etc_root / "profiles" / profile_id / "profile.json";
-}
-
-fs::path profile_env_path(const fs::path& etc_root, const std::string& profile_id) {
-    return etc_root / "profiles.d" / (profile_id + ".env");
-}
-
-Json load_profile_from_runtime(const fs::path& etc_root, const std::string& profile_id) {
-    std::map<std::string, std::string> env;
-    fs::path env_path = profile_env_path(etc_root, profile_id);
-    if (fs::exists(env_path)) {
-        env = read_shell_environment(env_path);
-    } else if (profile_id == "default" && fs::exists(etc_root / "backup.env")) {
-        env = read_shell_environment(etc_root / "backup.env");
-    } else {
-        throw ValidationError("profile JSON or runtime env not found for profile: " + profile_id);
-    }
-    std::string resolved = env_get(env, "PROFILE_ID", profile_id);
-    if (resolved != profile_id) {
-        throw ValidationError("requested profile " + profile_id + " but runtime env declares PROFILE_ID=" + resolved);
-    }
-    std::string sources_dir = env_get(env, "SOURCES_DIR", "/etc/btrfs-backup/sources.d");
-    fs::path source_root = map_etc_path(sources_dir, etc_root);
-    std::vector<fs::path> source_files;
-    for (const auto& entry : fs::directory_iterator(source_root)) {
-        if (entry.is_regular_file() && entry.path().extension() == ".conf") {
-            source_files.push_back(entry.path());
-        }
-    }
-    std::sort(source_files.begin(), source_files.end());
-    if (source_files.empty()) {
-        throw ValidationError("no source definitions found in " + source_root.string());
-    }
-    long long remote_retention = env_int(env, "RETENTION_COUNT", 30);
-    long long local_retention = env_int(env, "LOCAL_RETENTION_COUNT", remote_retention);
-    Json sources = Json::array();
-    for (const auto& source_file : source_files) {
-        auto source_env = read_shell_environment(source_file);
-        if (!env_bool(source_env, "ENABLED", true)) {
-            continue;
-        }
-        std::string source_id = env_required(source_env, "SOURCE_NAME");
-        sources.push_back({
-            {"id", source_id},
-            {"name", env_get(source_env, "SOURCE_DISPLAY_NAME", source_id)},
-            {"enabled", true},
-            {"subvolume", env_required(source_env, "SOURCE_SUBVOLUME")},
-            {"localSnapshotDir", env_required(source_env, "LOCAL_SNAPSHOT_DIR")},
-            {"remoteSubdir", env_get(source_env, "REMOTE_SUBDIR", source_id)},
-            {"remoteRetention", env_int(source_env, "SOURCE_RETENTION_COUNT", remote_retention)},
-            {"localRetention", env_int(source_env, "SOURCE_LOCAL_RETENTION_COUNT", local_retention)}
-        });
-    }
-    std::string mount = env_required(env, "BACKUP_MOUNTPOINT");
-    return normalize_profile({
-        {"schemaVersion", schema_version},
-        {"profileId", profile_id},
-        {"name", env_get(env, "PROFILE_NAME", profile_id)},
-        {"enabled", true},
-        {"target", {
-            {"device", env_required(env, "BACKUP_DEVICE")},
-            {"luksUuid", env_required(env, "BACKUP_LUKS_UUID")},
-            {"btrfsUuid", env_get(env, "BACKUP_BTRFS_UUID", "")},
-            {"partitionUuid", ""},
-            {"serial", ""},
-            {"mapperName", env_required(env, "BACKUP_MAPPER_NAME")},
-            {"mountPoint", mount}
-        }},
-        {"paths", {
-            {"sourcesDir", sources_dir},
-            {"remoteRoot", env_get(env, "REMOTE_ROOT", mount + "/snapshots")},
-            {"incomingRoot", env_get(env, "INCOMING_ROOT", mount + "/.incoming")},
-            {"stateDir", env_get(env, "STATE_DIR", "/var/lib/btrfs-backup")},
-            {"statusRoot", env_get(env, "STATUS_ROOT", "/run/btrfs-backup/profiles")},
-            {"historyRoot", env_get(env, "HISTORY_ROOT", env_get(env, "STATE_DIR", "/var/lib/btrfs-backup") + "/history")}
-        }},
-        {"settings", {
-            {"dailyLimit", env_bool(env, "DAILY_LIMIT", true)},
-            {"incrementalRequired", env_bool(env, "INCREMENTAL_REQUIRED", true)},
-            {"keepFailedLocalSnapshot", env_bool(env, "KEEP_FAILED_LOCAL_SNAPSHOT", false)},
-            {"autoEject", env_bool(env, "AUTO_EJECT", true)},
-            {"remoteRetention", remote_retention},
-            {"localRetention", local_retention},
-            {"minimumTargetFreeBytes", env_int(env, "MIN_TARGET_FREE_BYTES", 5LL * 1024 * 1024 * 1024)},
-            {"minimumLocalFreeBytes", env_int(env, "MIN_LOCAL_FREE_BYTES", 1024LL * 1024 * 1024)}
-        }},
-        {"notifications", {
-            {"enabled", env_bool(env, "NOTIFY_ENABLE", true)},
-            {"user", env_get(env, "NOTIFY_USER", "")},
-            {"method", env_get(env, "NOTIFY_METHOD", "auto")}
-        }},
-        {"sources", sources}
-    });
 }
 
 } // namespace
@@ -564,7 +471,7 @@ Json load_profile_json(const fs::path& etc_root, const std::string& profile_id) 
     if (fs::exists(canonical)) {
         return normalize_profile(load_json_file(canonical));
     }
-    return load_profile_from_runtime(etc_root, profile_id);
+    throw ValidationError("profile JSON not found for profile: " + profile_id);
 }
 
 } // namespace

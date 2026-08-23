@@ -11,7 +11,6 @@ REQUESTED_PROFILE_ID="${BTRFS_BACKUP_PROFILE:-default}"
 PROFILE_WAS_REQUESTED=0
 [[ -n "${BTRFS_BACKUP_PROFILE:-}" ]] && PROFILE_WAS_REQUESTED=1
 PROFILE_CONFIG_DIR="${BTRFS_BACKUP_PROFILE_CONFIG_DIR:-/etc/btrfs-backup/profiles.d}"
-LEGACY_CONFIG_FILE="${BTRFS_BACKUP_LEGACY_CONFIG:-/etc/btrfs-backup/backup.env}"
 CONFIG_FILE="${BTRFS_BACKUP_CONFIG:-}"
 PROFILE_JSON_FILE="${BTRFS_BACKUP_PROFILE_JSON:-}"
 FORCE_RUN=0
@@ -84,7 +83,7 @@ while (( $# > 0 )); do
 done
 
 load_main_config() {
-    CONFIG_FILE="$(bb_resolve_profile_config "$REQUESTED_PROFILE_ID" "$CONFIG_FILE" "$PROFILE_CONFIG_DIR" "$LEGACY_CONFIG_FILE")"
+    CONFIG_FILE="$(bb_resolve_profile_config "$REQUESTED_PROFILE_ID" "$CONFIG_FILE" "$PROFILE_CONFIG_DIR")"
     bb_load_config "$CONFIG_FILE"
 
     PROFILE_ID="${PROFILE_ID:-$REQUESTED_PROFILE_ID}"
@@ -137,8 +136,6 @@ load_main_config() {
     bb_validate_absolute_path HISTORY_ROOT "$HISTORY_ROOT"
     bb_validate_absolute_path EJECT_SCRIPT_PATH "$EJECT_SCRIPT_PATH"
     bb_validate_absolute_path PROFILE_CONFIG_DIR "$PROFILE_CONFIG_DIR"
-    bb_validate_absolute_path LEGACY_CONFIG_FILE "$LEGACY_CONFIG_FILE"
-
     bb_validate_uint RETENTION_COUNT "$RETENTION_COUNT"
     bb_validate_uint LOCAL_RETENTION_COUNT "$LOCAL_RETENTION_COUNT"
     bb_validate_uint MIN_TARGET_FREE_BYTES "$MIN_TARGET_FREE_BYTES"

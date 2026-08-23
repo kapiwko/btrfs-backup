@@ -6,7 +6,7 @@ export LC_ALL=C
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 PKGBASE=btrfs-backup
 PKGNAME=btrfs-backup
-VERSION=1.2.0
+VERSION=0.2.0
 PKGREL=1
 SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-1787356800}"
 DIST_DIR="$ROOT/dist"
@@ -303,10 +303,6 @@ stage_package_payload() {
     install -Dm755 "$root/install/btrfs-backup-configure.sh" \
         "$pkgdir/usr/bin/btrfs-backup-configure"
 
-    install -Dm644 "$root/config/backup.env.example" \
-        "$pkgdir/usr/share/btrfs-backup/examples/config/backup.env.example"
-    install -Dm644 "$root/config/source.conf.example" \
-        "$pkgdir/usr/share/btrfs-backup/examples/config/source.conf.example"
     install -Dm644 "$root/config/configurator-answers.example" \
         "$pkgdir/usr/share/btrfs-backup/examples/config/configurator-answers.example"
     install -Dm644 "$root/config/profile.example.json" \

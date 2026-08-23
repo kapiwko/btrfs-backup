@@ -9,8 +9,8 @@ Version 0.1.1 introduces profile configuration files:
 
 The backup runtime uses `profile.json` for source definitions.
 
-The legacy `/etc/btrfs-backup/backup.env` fallback still works for the
-`default` profile in 1.x, but it is deprecated and will be removed in 0.2.
+The legacy `/etc/btrfs-backup/backup.env` file is accepted only by the migrator.
+The runtime requires a profile env and profile JSON.
 
 For new tooling, the canonical source format is JSON. Use
 `btrfs-backup-profile save --file profile.json` to generate the runtime profile

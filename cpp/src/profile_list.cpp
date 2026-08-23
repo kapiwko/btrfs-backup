@@ -69,7 +69,6 @@ namespace btrfsbackup {
 void command_list_profiles(
     const fs::path& profile_config_dir,
     const fs::path& profile_root_dir,
-    const fs::path& legacy_config_file,
     std::ostream& output
 ) {
     std::set<std::string> profiles;
@@ -90,14 +89,7 @@ void command_list_profiles(
         output << profile << '\n';
     }
 
-    std::error_code ec;
-    bool has_legacy = fs::is_regular_file(legacy_config_file, ec) && !ec;
-    ec.clear();
-    bool has_default_profile = profiles.count("default") > 0 || (fs::exists(profile_config_dir / "default.env", ec) && !ec);
-    if (has_legacy && !has_default_profile) {
-        output << "default (legacy)\n";
-    }
-    if (profiles.empty() && !(has_legacy && !has_default_profile)) {
+    if (profiles.empty()) {
         throw ValidationError("no profiles found");
     }
 }
