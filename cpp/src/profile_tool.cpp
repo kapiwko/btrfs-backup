@@ -33,19 +33,19 @@ using btrfsbackup::save_tree;
 namespace {
 
 [[noreturn]] void fail(const std::string& message, int code = 2) {
-    std::cerr << "btrfs-backup-profile: " << message << '\n';
+    std::cerr << "btrfs-backupctl profile: " << message << '\n';
     std::exit(code);
 }
 
-std::string arg_value(int& index, int argc, char** argv, const std::string& option) {
-    if (index + 1 >= argc) {
+std::string arg_value(std::size_t& index, const std::vector<std::string>& args, const std::string& option) {
+    if (index + 1 >= args.size()) {
         fail(option + " requires a value");
     }
-    return argv[++index];
+    return args[++index];
 }
 
 void usage() {
-    std::cout << "Usage: btrfs-backup-profile [--etc-root PATH] [--udev-root PATH] [--public-root PATH] COMMAND\n"
+    std::cout << "Usage: btrfs-backupctl profile [--etc-root PATH] [--udev-root PATH] [--public-root PATH] COMMAND\n"
               << "\nCommands:\n"
               << "  compose --sources-table PATH --output PATH\n"
               << "  validate --file PATH\n"
@@ -59,27 +59,27 @@ void usage() {
 
 namespace btrfsbackup {
 
-int profile_tool_main(int argc, char** argv) {
+int command_profile(const std::vector<std::string>& args) {
     fs::path etc_root = std::getenv("BTRFS_BACKUP_ETC_ROOT") ? std::getenv("BTRFS_BACKUP_ETC_ROOT") : "/etc/btrfs-backup";
     fs::path udev_root = std::getenv("BTRFS_BACKUP_UDEV_ROOT") ? std::getenv("BTRFS_BACKUP_UDEV_ROOT") : "/etc/udev/rules.d";
     fs::path public_root = std::getenv("BTRFS_BACKUP_PUBLIC_ROOT") ? std::getenv("BTRFS_BACKUP_PUBLIC_ROOT") : "/var/lib/btrfs-backup/public/profiles";
     std::vector<std::string> rest;
 
     try {
-        for (int i = 1; i < argc; ++i) {
-            std::string arg = argv[i];
+        for (std::size_t i = 0; i < args.size(); ++i) {
+            const std::string& arg = args[i];
             if (arg == "--etc-root") {
-                etc_root = arg_value(i, argc, argv, arg);
+                etc_root = arg_value(i, args, arg);
             } else if (arg == "--udev-root") {
-                udev_root = arg_value(i, argc, argv, arg);
+                udev_root = arg_value(i, args, arg);
             } else if (arg == "--public-root") {
-                public_root = arg_value(i, argc, argv, arg);
+                public_root = arg_value(i, args, arg);
             } else if (arg == "-h" || arg == "--help") {
                 usage();
                 return 0;
             } else {
-                for (; i < argc; ++i) {
-                    rest.emplace_back(argv[i]);
+                for (; i < args.size(); ++i) {
+                    rest.emplace_back(args[i]);
                 }
                 break;
             }

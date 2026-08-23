@@ -576,14 +576,14 @@ detect_runtime_script() {
 }
 
 detect_profile_helper() {
-    if [[ -x "$REPO_ROOT/bin/btrfs-backup-profile" ]]; then
-        printf '%s\n' "$REPO_ROOT/bin/btrfs-backup-profile"
-    elif [[ -x "$INSTALLED_PREFIX_ROOT/bin/btrfs-backup-profile" ]]; then
-        printf '%s\n' "$INSTALLED_PREFIX_ROOT/bin/btrfs-backup-profile"
-    elif [[ -x /usr/bin/btrfs-backup-profile ]]; then
-        printf '%s\n' /usr/bin/btrfs-backup-profile
+    if [[ -x "$REPO_ROOT/bin/btrfs-backupctl" ]]; then
+        printf '%s\n' "$REPO_ROOT/bin/btrfs-backupctl"
+    elif [[ -x "$INSTALLED_PREFIX_ROOT/bin/btrfs-backupctl" ]]; then
+        printf '%s\n' "$INSTALLED_PREFIX_ROOT/bin/btrfs-backupctl"
+    elif [[ -x /usr/bin/btrfs-backupctl ]]; then
+        printf '%s\n' /usr/bin/btrfs-backupctl
     else
-        bb_die "Could not locate btrfs-backup-profile."
+        bb_die "Could not locate btrfs-backupctl."
     fi
 }
 
@@ -637,7 +637,7 @@ write_profile_json() {
     NOTIFY_ENABLE="$NOTIFY_ENABLE" \
     NOTIFY_USER="$NOTIFY_USER" \
     NOTIFY_METHOD="$NOTIFY_METHOD" \
-    "$PROFILE_HELPER" compose --sources-table "$sources_table" --output "$destination"
+    "$PROFILE_HELPER" profile compose --sources-table "$sources_table" --output "$destination"
 }
 
 validate_uuid() {
@@ -718,7 +718,7 @@ validate_rendered_tree() {
 
     local profile_helper
     profile_helper="$(detect_profile_helper)"
-    "$profile_helper" validate --file "$profile_json" >/dev/null
+    "$profile_helper" profile validate --file "$profile_json" >/dev/null
     bash -n "${profile_files[@]}"
     verify_systemd_units "$service_file" "$profile_service_file"
     udevadm verify "$udev_file"
@@ -783,7 +783,7 @@ validate_active_installation() {
     fi
 
     bash -n "$active_config"
-    "$(detect_profile_helper)" validate --file "$profile_json" >/dev/null
+    "$(detect_profile_helper)" profile validate --file "$profile_json" >/dev/null
     verify_systemd_units "${verify_units[@]}"
     udevadm verify "$udev_file"
 
@@ -879,6 +879,7 @@ install -d -m0750 "$OUTPUT_DIR/config" "$OUTPUT_DIR/systemd" "$OUTPUT_DIR/udev"
 profile_sources_table="$OUTPUT_DIR/.profile-sources.tsv"
 write_profile_json "$OUTPUT_DIR/config/profile.json" "$profile_sources_table"
 "$PROFILE_HELPER" \
+    profile \
     --etc-root "$OUTPUT_DIR/config" \
     --udev-root "$OUTPUT_DIR/udev" \
     --public-root "$OUTPUT_DIR/public/profiles" \

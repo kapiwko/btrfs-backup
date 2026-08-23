@@ -15,6 +15,7 @@
 #include <btrfsbackup/history.hpp>
 #include <btrfsbackup/identifiers.hpp>
 #include <btrfsbackup/profile_list.hpp>
+#include <btrfsbackup/profile_tool.hpp>
 #include <btrfsbackup/run_state_command.hpp>
 #include <btrfsbackup/source_definition.hpp>
 #include <btrfsbackup/status.hpp>
@@ -43,6 +44,7 @@ void usage() {
               << "  --history-root PATH  Override history root (default: /var/lib/btrfs-backup/history).\n"
               << "  --profile-dir PATH   Override profile config dir (default: /etc/btrfs-backup/profiles.d).\n"
               << "\nCommands:\n"
+              << "  profile COMMAND\n"
               << "  list-profiles\n"
               << "  status [--profile ID|--all] [--human]\n"
               << "  history [--profile ID] [--limit N]\n"
@@ -137,7 +139,9 @@ int ctl_tool_main(int argc, char** argv) {
         std::string command = rest[0];
         std::vector<std::string> args(rest.begin() + 1, rest.end());
 
-        if (command == "list-profiles") {
+        if (command == "profile") {
+            return command_profile(args);
+        } else if (command == "list-profiles") {
             command_list_profiles(profile_config_dir, profile_config_dir.parent_path() / "profiles", std::cout);
         } else if (command == "status") {
             command_status(status_root, history_root, args, std::cout);
