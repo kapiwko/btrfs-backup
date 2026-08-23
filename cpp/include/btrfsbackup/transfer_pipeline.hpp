@@ -70,6 +70,15 @@ public:
     ) = 0;
 };
 
+class PosixTransferPipeline final : public ITransferPipeline {
+public:
+    TransferResult run(
+        const TransferPipelinePlan& plan,
+        ITransferEventSink& events,
+        CancellationToken& cancellation
+    ) override;
+};
+
 bool transfer_succeeded(const TransferResult& result);
 void require_transfer_success(const TransferResult& result);
 

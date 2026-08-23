@@ -2,16 +2,10 @@
 
 ## C++ Runtime Migration
 
-- Implement the concrete asynchronous process backend for `TransferPipeline`
-  before porting `btrfs send/receive`:
-  - keep `ICommandRunner` limited to short synchronous administrative commands;
-  - support connecting producer and consumer processes without shell pipelines;
-  - preserve backpressure between `btrfs send` and `btrfs receive`;
-  - report byte progress and lifecycle events while the transfer is running;
-  - support cancellation and cleanup of both processes;
-  - surface separate send-side and receive-side exit status and diagnostics;
-  - keep the interface independent enough to later back it with a GUI/event-loop
-    process implementation.
+- Wire `TransferPipeline` into the future `SendReceive` execution action:
+  - use `build_send_receive_command_plan()` as the command source;
+  - map transfer progress and side-specific failures into stable runner events;
+  - keep the Bash runner as production executor until failure parity tests pass.
 
 - Add `BackupRunExecutor` as the C++ execution boundary for `BackupRunPlan`:
   - accept a prepared `BackupRunPlan`;
