@@ -1,6 +1,3 @@
-#include <fcntl.h>
-#include <sys/stat.h>
-#include <sys/wait.h>
 #include <unistd.h>
 
 #include <algorithm>
@@ -21,9 +18,19 @@
 #include <nlohmann/json.hpp>
 
 #include <btrfsbackup/profile_tool.hpp>
+#include <btrfsbackup/errors.hpp>
+#include <btrfsbackup/file_io.hpp>
+#include <btrfsbackup/json.hpp>
+#include <btrfsbackup/json_io.hpp>
+#include <btrfsbackup/process.hpp>
 
 namespace fs = std::filesystem;
-using json = nlohmann::ordered_json;
+using json = btrfsbackup::Json;
+using btrfsbackup::ValidationError;
+using btrfsbackup::atomic_write;
+using btrfsbackup::dump_json;
+using btrfsbackup::load_json_file;
+using btrfsbackup::run_capture;
 
 namespace {
 
@@ -34,10 +41,6 @@ const std::regex serial_re{"^(|[A-Za-z0-9][A-Za-z0-9._:+-]{0,255})$"};
 const std::set<std::string> forbidden_mount_points{"/", "/boot", "/dev", "/etc", "/home", "/proc", "/root", "/run", "/sys", "/usr", "/var"};
 
 json normalize_profile(const json& raw);
-
-struct ValidationError : std::runtime_error {
-    using std::runtime_error::runtime_error;
-};
 
 [[noreturn]] void fail(const std::string& message, int code = 2) {
     std::cerr << "btrfs-backup-profile: " << message << '\n';
@@ -190,102 +193,8 @@ std::string assignment(const std::string& name, const json& value) {
     return name + "=" + shell_quote(value.get<std::string>()) + "\n";
 }
 
-std::string run_capture(const std::vector<std::string>& argv) {
-    int pipefd[2];
-    if (pipe(pipefd) != 0) {
-        throw ValidationError("cannot create pipe");
-    }
-    pid_t pid = fork();
-    if (pid < 0) {
-        close(pipefd[0]);
-        close(pipefd[1]);
-        throw ValidationError("cannot fork");
-    }
-    if (pid == 0) {
-        dup2(pipefd[1], STDOUT_FILENO);
-        close(pipefd[0]);
-        close(pipefd[1]);
-        std::vector<char*> args;
-        args.reserve(argv.size() + 1);
-        for (const auto& item : argv) {
-            args.push_back(const_cast<char*>(item.c_str()));
-        }
-        args.push_back(nullptr);
-        execvp(args[0], args.data());
-        _exit(127);
-    }
-    close(pipefd[1]);
-    std::string output;
-    char buffer[4096];
-    ssize_t n;
-    while ((n = read(pipefd[0], buffer, sizeof(buffer))) > 0) {
-        output.append(buffer, static_cast<std::size_t>(n));
-    }
-    close(pipefd[0]);
-    int status = 0;
-    waitpid(pid, &status, 0);
-    if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
-        throw ValidationError("command failed: " + argv.front());
-    }
-    while (!output.empty() && (output.back() == '\n' || output.back() == '\r')) {
-        output.pop_back();
-    }
-    return output;
-}
-
 std::string systemd_mount_unit(const std::string& mount_point) {
     return run_capture({"systemd-escape", "-p", "--suffix=mount", mount_point});
-}
-
-json load_json_file(const fs::path& path) {
-    std::ifstream stream(path);
-    if (!stream) {
-        throw ValidationError("cannot read JSON profile " + path.string());
-    }
-    try {
-        json data;
-        stream >> data;
-        return data;
-    } catch (const std::exception& exc) {
-        throw ValidationError("cannot read JSON profile " + path.string() + ": " + exc.what());
-    }
-}
-
-void atomic_write(const fs::path& path, const std::string& data, mode_t mode) {
-    fs::create_directories(path.parent_path());
-    std::string pattern = (path.parent_path() / ("." + path.filename().string() + ".XXXXXX")).string();
-    std::vector<char> writable(pattern.begin(), pattern.end());
-    writable.push_back('\0');
-    int fd = mkstemp(writable.data());
-    if (fd < 0) {
-        throw ValidationError("cannot create temporary file for " + path.string());
-    }
-    fs::path temporary(writable.data());
-    try {
-        fchmod(fd, mode);
-        const char* ptr = data.data();
-        std::size_t remaining = data.size();
-        while (remaining > 0) {
-            ssize_t written = write(fd, ptr, remaining);
-            if (written < 0) {
-                throw ValidationError("cannot write " + temporary.string());
-            }
-            ptr += written;
-            remaining -= static_cast<std::size_t>(written);
-        }
-        fsync(fd);
-        close(fd);
-        fd = -1;
-        fs::rename(temporary, path);
-        chmod(path.c_str(), mode);
-    } catch (...) {
-        if (fd >= 0) {
-            close(fd);
-        }
-        std::error_code ec;
-        fs::remove(temporary, ec);
-        throw;
-    }
 }
 
 std::map<std::string, std::string> read_shell_environment(const fs::path& path) {
@@ -626,10 +535,6 @@ json normalize_profile(const json& raw) {
         }},
         {"sources", sources}
     };
-}
-
-std::string dump_json(const json& data) {
-    return data.dump(2) + "\n";
 }
 
 json load_profile_from_runtime(const fs::path& etc_root, const std::string& profile_id) {

@@ -9,6 +9,9 @@ project(
 find_package(nlohmann_json REQUIRED)
 
 add_library(btrfsbackup_profile_tool STATIC
+    cpp/src/file_io.cpp
+    cpp/src/json_io.cpp
+    cpp/src/process.cpp
     cpp/src/profile_tool.cpp
 )
 
