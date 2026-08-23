@@ -15,7 +15,7 @@ Current status is written atomically to:
 /run/btrfs-backup/profiles/<PROFILE_ID>/current.json
 ```
 
-The root directory can be overridden with `STATUS_ROOT` in `backup.env`.
+The root directory can be overridden with `STATUS_ROOT` in the runtime profile env.
 
 Example:
 
@@ -78,7 +78,7 @@ Finished runs are written atomically to:
 /var/lib/btrfs-backup/history/<PROFILE_ID>/last.json
 ```
 
-The root directory can be overridden with `HISTORY_ROOT` in `backup.env`.
+The root directory can be overridden with `HISTORY_ROOT` in the runtime profile env.
 History entries use the same schema as `current.json`, with `finishedAt` and
 the final `exitCode` populated.
 
