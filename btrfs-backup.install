@@ -14,11 +14,20 @@ MSG
     fi
 }
 
+_btrfs_backup_reload_managers() {
+    if command -v systemctl >/dev/null 2>&1; then
+        systemctl daemon-reload || true
+    fi
+    if command -v udevadm >/dev/null 2>&1; then
+        udevadm control --reload-rules || true
+    fi
+}
+
 post_install() {
     cat <<'MSG'
 
 ==> btrfs-backup was installed.
-==> No service was enabled and no active system configuration was changed.
+==> No service was enabled and no active files under /etc were overwritten.
 ==>
 ==> Start with:
 ==>   btrfs-backup-configure --render-only --output-dir ./generated
@@ -31,6 +40,7 @@ post_install() {
 ==>   sudo btrfs-backup --validate
 
 MSG
+    _btrfs_backup_reload_managers
     _btrfs_backup_profile_hint
 }
 
@@ -43,6 +53,7 @@ post_upgrade() {
 ==>   sudo btrfs-backup-configure --apply
 
 MSG
+    _btrfs_backup_reload_managers
     _btrfs_backup_profile_hint
 }
 
