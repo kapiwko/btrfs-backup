@@ -98,6 +98,8 @@ sudo btrfs-backup --no-eject
 sudo btrfs-backup --profile default --validate
 sudo btrfs-backup-mount
 sudo btrfs-backup-eject
+btrfs-backupctl target mount --profile default
+btrfs-backupctl target eject --profile default
 btrfs-backupctl profile validate --file profile.json
 btrfs-backupctl profile render --file profile.json --output-dir ./generated-profile
 btrfs-backupctl profile show --profile default
@@ -106,6 +108,9 @@ btrfs-backupctl status show --profile default --human
 btrfs-backupctl status history --profile default --limit 10
 btrfs-backupctl profile list
 ```
+
+`btrfs-backup-mount` and `btrfs-backup-eject` are compatibility wrappers for
+the native `btrfs-backupctl target mount/eject` commands.
 
 Logs:
 
