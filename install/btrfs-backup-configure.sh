@@ -798,9 +798,43 @@ validate_rendered_tree() {
 
     python3 -m json.tool "$profile_json" >/dev/null
     bash -n "$main_config" "${profile_files[@]}" "${source_files[@]}"
-    systemd-analyze verify "$service_file" "$profile_service_file"
+    verify_systemd_units "$service_file" "$profile_service_file"
     udevadm verify "$udev_file"
     bb_log INFO "Rendered configuration passed syntax, systemd, and udev validation: $root"
+}
+
+verify_systemd_units() {
+    local output status line only_socket_warnings=1 saw_output=0
+
+    set +e
+    output="$(systemd-analyze verify "$@" 2>&1)"
+    status=$?
+    set -e
+    if (( status == 0 )); then
+        [[ -z "$output" ]] || printf '%s\n' "$output" >&2
+        return 0
+    fi
+
+    while IFS= read -r line; do
+        [[ -n "$line" ]] || continue
+        saw_output=1
+        case "$line" in
+            'Failed to turn off SO_PASSRIGHTS on user lookup socket, ignoring: Operation not permitted'|\
+            'Failed to enable SO_PASSCRED on handoff timestamp socket: Operation not permitted')
+                ;;
+            *)
+                only_socket_warnings=0
+                ;;
+        esac
+    done <<< "$output"
+
+    if (( saw_output == 1 && only_socket_warnings == 1 )); then
+        printf '%s\n' "$output" >&2
+        return 0
+    fi
+
+    printf '%s\n' "$output" >&2
+    return "$status"
 }
 
 validate_active_installation() {
@@ -831,7 +865,7 @@ validate_active_installation() {
     fi
 
     bash -n "$active_config" "${source_files[@]}"
-    systemd-analyze verify "${verify_units[@]}"
+    verify_systemd_units "${verify_units[@]}"
     udevadm verify "$udev_file"
 
     local mountpoint mount_unit old_dropin
