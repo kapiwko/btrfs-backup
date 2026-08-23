@@ -28,6 +28,7 @@ void test_parse_profile_sources_from_json() {
         {"target", {
             {"device", (root / "dev/disk/by-uuid/11111111-2222-3333-4444-555555555555").string()},
             {"luksUuid", "11111111-2222-3333-4444-555555555555"},
+            {"btrfsUuid", "66666666-7777-8888-9999-aaaaaaaaaaaa"},
             {"mapperName", "backupdisk"},
             {"mountPoint", "/mnt/backup"}
         }},

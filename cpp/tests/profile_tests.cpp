@@ -113,6 +113,12 @@ void test_rejects_bad_uuid() {
     expect_validation_error("bad uuid", [&] { btrfsbackup::normalize_profile(profile); }, "target.luksUuid");
 }
 
+void test_rejects_missing_btrfs_uuid() {
+    Json profile = valid_profile();
+    profile["target"].erase("btrfsUuid");
+    expect_validation_error("missing btrfs uuid", [&] { btrfsbackup::normalize_profile(profile); }, "btrfsUuid");
+}
+
 void test_rejects_non_dev_target() {
     Json profile = valid_profile();
     profile["target"]["device"] = "/tmp/not-a-device";
@@ -203,6 +209,7 @@ void test_render_udev_optional_matches() {
 
 int main() {
     test_rejects_bad_uuid();
+    test_rejects_missing_btrfs_uuid();
     test_rejects_non_dev_target();
     test_rejects_nested_roots();
     test_profile_round_trips_normalized_json();
