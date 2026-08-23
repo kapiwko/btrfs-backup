@@ -13,7 +13,7 @@ PROFILE_WAS_REQUESTED=0
 PROFILE_CONFIG_DIR="${BTRFS_BACKUP_PROFILE_CONFIG_DIR:-/etc/btrfs-backup/profiles.d}"
 LEGACY_CONFIG_FILE="${BTRFS_BACKUP_LEGACY_CONFIG:-/etc/btrfs-backup/backup.env}"
 CONFIG_FILE="${BTRFS_BACKUP_CONFIG:-}"
-PROFILE_JSON_FILE=""
+PROFILE_JSON_FILE="${BTRFS_BACKUP_PROFILE_JSON:-}"
 FORCE_RUN=0
 VALIDATE_ONLY=0
 NO_EJECT=0
@@ -171,7 +171,9 @@ load_main_config() {
     fi
 
     PROFILE_STATE_DIR="$STATE_DIR/profiles/$PROFILE_ID"
-    if [[ "$(realpath -m -- "$CONFIG_FILE")" == "$(realpath -m -- "$PROFILE_CONFIG_DIR/$PROFILE_ID.env")" ]]; then
+    if [[ -n "$PROFILE_JSON_FILE" ]]; then
+        PROFILE_JSON_FILE="$(realpath -m -- "$PROFILE_JSON_FILE")"
+    elif [[ "$(realpath -m -- "$CONFIG_FILE")" == "$(realpath -m -- "$PROFILE_CONFIG_DIR/$PROFILE_ID.env")" ]]; then
         PROFILE_JSON_FILE="$(dirname -- "$PROFILE_CONFIG_DIR")/profiles/$PROFILE_ID/profile.json"
     else
         PROFILE_JSON_FILE=""
@@ -527,20 +529,14 @@ on_interrupt() {
 }
 
 compute_config_fingerprint() {
-    local backupctl source_file
+    local backupctl
     local args=(
         config-fingerprint
         --version "$BTRFS_BACKUP_VERSION"
         --config "$CONFIG_FILE"
     )
 
-    if [[ -r "$PROFILE_JSON_FILE" ]]; then
-        args+=(--source "$PROFILE_JSON_FILE")
-    else
-        for source_file in "${SOURCE_FILES[@]}"; do
-            args+=(--source "$source_file")
-        done
-    fi
+    args+=(--source "$PROFILE_JSON_FILE")
 
     backupctl="$(backupctl_path)" || return 1
     "$backupctl" "${args[@]}"
@@ -759,75 +755,6 @@ prune_snapshots() {
     done
 }
 
-validate_source_definition() {
-    local source_config="$1"
-    bb_assert_trusted_config_file "$source_config"
-    local parsed=()
-    local parser_output
-    local backupctl
-    local SOURCE_NAME SOURCE_SUBVOLUME LOCAL_SNAPSHOT_DIR REMOTE_SUBDIR
-    local SOURCE_RETENTION_COUNT SOURCE_LOCAL_RETENTION_COUNT
-
-    backupctl="$(backupctl_path)" || return 1
-    parser_output="$("$backupctl" \
-        parse-source-definition \
-        --file "$source_config" \
-        --remote-retention "$RETENTION_COUNT" \
-        --local-retention "$LOCAL_RETENTION_COUNT")" || return $?
-    mapfile -t parsed <<< "$parser_output"
-    [[ "${parsed[0]:-}" != disabled ]] || return 2
-
-    SOURCE_NAME="${parsed[1]:-}"
-    SOURCE_SUBVOLUME="${parsed[2]:-}"
-    LOCAL_SNAPSHOT_DIR="${parsed[3]:-}"
-    REMOTE_SUBDIR="${parsed[4]:-}"
-    SOURCE_RETENTION_COUNT="${parsed[5]:-}"
-    SOURCE_LOCAL_RETENTION_COUNT="${parsed[6]:-}"
-
-    if [[ ! -d "$SOURCE_SUBVOLUME" ]] || ! bb_is_subvolume "$SOURCE_SUBVOLUME"; then
-        bb_die "SOURCE_SUBVOLUME is not an available Btrfs subvolume: $SOURCE_SUBVOLUME"
-    fi
-
-    install -d -m0700 "$LOCAL_SNAPSHOT_DIR"
-    if ! bb_paths_are_same_filesystem "$SOURCE_SUBVOLUME" "$LOCAL_SNAPSHOT_DIR"; then
-        bb_die "LOCAL_SNAPSHOT_DIR must be on the same Btrfs filesystem as $SOURCE_SUBVOLUME"
-    fi
-
-    if bb_paths_are_same_filesystem "$SOURCE_SUBVOLUME" "$BACKUP_MOUNTPOINT"; then
-        bb_die "SOURCE_SUBVOLUME must not be on the backup target filesystem: $SOURCE_SUBVOLUME"
-    fi
-
-    if bb_path_is_within "$LOCAL_SNAPSHOT_DIR" "$BACKUP_MOUNTPOINT"; then
-        bb_die "LOCAL_SNAPSHOT_DIR must not be inside the backup target: $LOCAL_SNAPSHOT_DIR"
-    fi
-
-    bb_check_minimum_free_space "$LOCAL_SNAPSHOT_DIR" "$MIN_LOCAL_FREE_BYTES" "local snapshots for $SOURCE_NAME"
-
-    printf '%s\n' "$SOURCE_NAME" "$SOURCE_SUBVOLUME" "$LOCAL_SNAPSHOT_DIR" "$REMOTE_SUBDIR" \
-        "$SOURCE_RETENTION_COUNT" "$SOURCE_LOCAL_RETENTION_COUNT"
-}
-
-process_source() {
-    local source_config="$1"
-    local values=()
-    local validation_output=""
-    local validation_status=0
-
-    CURRENT_STEP="validating source definition $source_config"
-    if validation_output="$(validate_source_definition "$source_config")"; then
-        mapfile -t values <<< "$validation_output"
-    else
-        validation_status=$?
-        if (( validation_status == 2 )); then
-            bb_log INFO "Skipping disabled source definition: $source_config"
-            return 0
-        fi
-        return "$validation_status"
-    fi
-
-    process_source_values "$source_config" "${values[@]}"
-}
-
 process_source_values() {
     local source_label="$1"
     shift
@@ -840,6 +767,25 @@ process_source_values() {
     local local_retention="${values[5]}"
     local remote_snapshot_dir="$REMOTE_ROOT/$remote_subdir"
     local source_incoming_root="$INCOMING_ROOT/$source_name"
+
+    if [[ ! -d "$source_subvolume" ]] || ! bb_is_subvolume "$source_subvolume"; then
+        bb_die "SOURCE_SUBVOLUME is not an available Btrfs subvolume: $source_subvolume"
+    fi
+
+    install -d -m0700 "$local_snapshot_dir"
+    if ! bb_paths_are_same_filesystem "$source_subvolume" "$local_snapshot_dir"; then
+        bb_die "LOCAL_SNAPSHOT_DIR must be on the same Btrfs filesystem as $source_subvolume"
+    fi
+
+    if bb_paths_are_same_filesystem "$source_subvolume" "$BACKUP_MOUNTPOINT"; then
+        bb_die "SOURCE_SUBVOLUME must not be on the backup target filesystem: $source_subvolume"
+    fi
+
+    if bb_path_is_within "$local_snapshot_dir" "$BACKUP_MOUNTPOINT"; then
+        bb_die "LOCAL_SNAPSHOT_DIR must not be inside the backup target: $local_snapshot_dir"
+    fi
+
+    bb_check_minimum_free_space "$local_snapshot_dir" "$MIN_LOCAL_FREE_BYTES" "local snapshots for $source_name"
 
     if [[ -n "${SEEN_SOURCE_NAMES[$source_name]+x}" ]]; then
         bb_die "Duplicate SOURCE_NAME=$source_name in $source_label and ${SEEN_SOURCE_NAMES[$source_name]}"
@@ -997,17 +943,8 @@ migrate_legacy_state
 write_current_status starting starting "Backup run started."
 
 declare -A SEEN_SOURCE_NAMES=()
-if [[ -r "$PROFILE_JSON_FILE" ]]; then
-    SOURCE_FILES=()
-else
-    SOURCE_FILES=("$SOURCES_DIR"/*.conf)
-    if (( ${#SOURCE_FILES[@]} == 0 )); then
-        bb_die "No source definitions found in $SOURCES_DIR"
-    fi
-    for source_config in "${SOURCE_FILES[@]}"; do
-        bb_assert_trusted_config_file "$source_config"
-    done
-fi
+[[ -n "$PROFILE_JSON_FILE" ]] || bb_die "Profile JSON is required for runtime source definitions."
+bb_assert_trusted_config_file "$PROFILE_JSON_FILE"
 CONFIG_FINGERPRINT="$(compute_config_fingerprint)"
 
 if (( VALIDATE_ONLY == 0 && FORCE_RUN == 0 )) \
@@ -1020,13 +957,7 @@ fi
 ensure_target_mounted
 validate_target
 
-if [[ -r "$PROFILE_JSON_FILE" ]]; then
-    process_profile_json_sources
-else
-    for source_config in "${SOURCE_FILES[@]}"; do
-        process_source "$source_config"
-    done
-fi
+process_profile_json_sources
 
 if (( SOURCE_COUNT == 0 )); then
     bb_die "No enabled source definitions were found."

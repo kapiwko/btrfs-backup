@@ -1,17 +1,14 @@
 #include <btrfsbackup/source_definition.hpp>
 
-#include <algorithm>
-#include <cctype>
 #include <filesystem>
 #include <ostream>
+#include <set>
 #include <string>
 #include <vector>
 
 #include <btrfsbackup/errors.hpp>
-#include <btrfsbackup/identifiers.hpp>
 #include <btrfsbackup/json_io.hpp>
 #include <btrfsbackup/profile.hpp>
-#include <btrfsbackup/shell_env.hpp>
 
 namespace fs = std::filesystem;
 
@@ -24,41 +21,136 @@ std::string arg_value(const std::vector<std::string>& args, std::size_t& index, 
     return args[++index];
 }
 
-long long parse_uint(const std::string& option, const std::string& value) {
-    if (value.empty() || !std::all_of(value.begin(), value.end(), [](unsigned char c) { return std::isdigit(c); })) {
-        throw btrfsbackup::ValidationError(option + " must be an integer");
-    }
-    return std::stoll(value);
+bool starts_with(const std::string& value, const std::string& prefix) {
+    return value.rfind(prefix, 0) == 0;
 }
 
-std::string require_absolute_path(const std::string& field, const std::string& value) {
-    if (value.empty()) {
-        throw btrfsbackup::ValidationError("missing required configuration variable: " + field);
+std::string text(const btrfsbackup::Json& value, const std::string& name, bool allow_empty = false, std::size_t maximum = 512) {
+    if (!value.is_string()) {
+        throw btrfsbackup::ValidationError(name + " must be text");
     }
-    if (value.front() != '/') {
-        throw btrfsbackup::ValidationError(field + " must be an absolute path");
+    std::string result = value.get<std::string>();
+    if (result.find('\0') != std::string::npos || result.find('\n') != std::string::npos || result.find('\r') != std::string::npos) {
+        throw btrfsbackup::ValidationError(name + " contains a forbidden control character");
     }
-    if (value.find('\n') != std::string::npos || value.find('\r') != std::string::npos) {
-        throw btrfsbackup::ValidationError(field + " contains a newline");
+    if (result.size() > maximum) {
+        throw btrfsbackup::ValidationError(name + " is too long");
     }
-    return value;
+    if (!allow_empty && result.empty()) {
+        throw btrfsbackup::ValidationError(name + " must not be empty");
+    }
+    return result;
 }
 
-std::string require_relative_path(const std::string& field, const std::string& value) {
-    if (value.empty()) {
-        throw btrfsbackup::ValidationError("missing required configuration variable: " + field);
+std::string absolute_path(const btrfsbackup::Json& value, const std::string& name) {
+    std::string result = text(value, name, false, 4096);
+    if (!starts_with(result, "/")) {
+        throw btrfsbackup::ValidationError(name + " must be an absolute path");
     }
-    if (value.front() == '/') {
-        throw btrfsbackup::ValidationError(field + " must be a safe relative path");
+    result = fs::path(result).lexically_normal().string();
+    if (!starts_with(result, "/")) {
+        throw btrfsbackup::ValidationError(name + " is invalid");
     }
-    if (value.find('\n') != std::string::npos || value.find('\r') != std::string::npos) {
-        throw btrfsbackup::ValidationError(field + " contains a newline");
+    return result;
+}
+
+std::string relative_path(const btrfsbackup::Json& value, const std::string& name) {
+    std::string result = text(value, name, false, 4096);
+    fs::path path(result);
+    if (path.is_absolute()) {
+        throw btrfsbackup::ValidationError(name + " must be a safe relative path");
     }
-    std::string wrapped = "/" + value + "/";
-    if (wrapped.find("/../") != std::string::npos || wrapped.find("/./") != std::string::npos) {
-        throw btrfsbackup::ValidationError(field + " must be a safe relative path");
+    for (const auto& part : path) {
+        std::string item = part.string();
+        if (item.empty() || item == "." || item == "..") {
+            throw btrfsbackup::ValidationError(name + " must be a safe relative path");
+        }
     }
-    return value;
+    return path.lexically_normal().string();
+}
+
+bool boolean_value(const btrfsbackup::Json& object, const std::string& key, const std::string& name, bool default_value) {
+    if (!object.contains(key) || object.at(key).is_null()) {
+        return default_value;
+    }
+    if (!object.at(key).is_boolean()) {
+        throw btrfsbackup::ValidationError(name + " must be true or false");
+    }
+    return object.at(key).get<bool>();
+}
+
+long long integer_value(const btrfsbackup::Json& object, const std::string& key, const std::string& name, long long default_value) {
+    if (!object.contains(key) || object.at(key).is_null()) {
+        return default_value;
+    }
+    if (!object.at(key).is_number_integer()) {
+        throw btrfsbackup::ValidationError(name + " must be an integer");
+    }
+    long long result = object.at(key).get<long long>();
+    if (result < 0 || result > 100000) {
+        throw btrfsbackup::ValidationError(name + " is outside the supported range");
+    }
+    return result;
+}
+
+std::vector<btrfsbackup::ProfileSource> profile_sources_from_json(const btrfsbackup::Json& root) {
+    if (!root.is_object()) {
+        throw btrfsbackup::ValidationError("profile must be an object");
+    }
+    if (!root.contains("sources") || !root.at("sources").is_array()) {
+        throw btrfsbackup::ValidationError("sources must be an array");
+    }
+    if (root.at("sources").size() > 128) {
+        throw btrfsbackup::ValidationError("at most 128 sources are supported");
+    }
+
+    if (root.contains("settings") && !root.at("settings").is_null() && !root.at("settings").is_object()) {
+        throw btrfsbackup::ValidationError("settings must be an object");
+    }
+    const btrfsbackup::Json settings = root.contains("settings") && root.at("settings").is_object()
+        ? root.at("settings")
+        : btrfsbackup::Json::object();
+    const long long remote_retention = integer_value(settings, "remoteRetention", "settings.remoteRetention", 30);
+    const long long local_retention = integer_value(settings, "localRetention", "settings.localRetention", 30);
+
+    std::set<std::string> seen_ids;
+    std::set<std::string> seen_local;
+    std::set<std::string> seen_remote;
+    std::vector<btrfsbackup::ProfileSource> sources;
+
+    for (std::size_t index = 0; index < root.at("sources").size(); ++index) {
+        const btrfsbackup::Json& item = root.at("sources").at(index);
+        const std::string prefix = "sources[" + std::to_string(index) + "]";
+        if (!item.is_object()) {
+            throw btrfsbackup::ValidationError(prefix + " must be an object");
+        }
+
+        std::string source_id = btrfsbackup::identifier(item.at("id"), prefix + ".id");
+        if (!seen_ids.insert(source_id).second) {
+            throw btrfsbackup::ValidationError("duplicate source id: " + source_id);
+        }
+        std::string local = absolute_path(item.at("localSnapshotDir"), prefix + ".localSnapshotDir");
+        if (!seen_local.insert(local).second) {
+            throw btrfsbackup::ValidationError("duplicate localSnapshotDir: " + local);
+        }
+        std::string remote = relative_path(item.value("remoteSubdir", source_id), prefix + ".remoteSubdir");
+        if (!seen_remote.insert(remote).second) {
+            throw btrfsbackup::ValidationError("duplicate remoteSubdir: " + remote);
+        }
+
+        sources.push_back({
+            .id = source_id,
+            .name = text(item.value("name", source_id), prefix + ".name", false, 160),
+            .enabled = boolean_value(item, "enabled", prefix + ".enabled", true),
+            .subvolume = absolute_path(item.at("subvolume"), prefix + ".subvolume"),
+            .local_snapshot_dir = local,
+            .remote_subdir = remote,
+            .remote_retention = integer_value(item, "remoteRetention", prefix + ".remoteRetention", remote_retention),
+            .local_retention = integer_value(item, "localRetention", prefix + ".localRetention", local_retention),
+        });
+    }
+
+    return sources;
 }
 
 void write_source_record(
@@ -82,68 +174,6 @@ void write_source_record(
 
 namespace btrfsbackup {
 
-SourceDefinition load_source_definition(
-    const fs::path& source_config,
-    long long default_remote_retention,
-    long long default_local_retention
-) {
-    auto env = read_shell_environment(source_config);
-    SourceDefinition source;
-    source.enabled = env_bool(env, "ENABLED", true);
-    if (!source.enabled) {
-        return source;
-    }
-
-    source.name = env_required(env, "SOURCE_NAME");
-    validate_identifier(source.name, "SOURCE_NAME");
-    source.subvolume = require_absolute_path("SOURCE_SUBVOLUME", env_required(env, "SOURCE_SUBVOLUME"));
-    source.local_snapshot_dir = require_absolute_path("LOCAL_SNAPSHOT_DIR", env_required(env, "LOCAL_SNAPSHOT_DIR"));
-    source.remote_subdir = require_relative_path("REMOTE_SUBDIR", env_required(env, "REMOTE_SUBDIR"));
-    source.remote_retention = env_int(env, "SOURCE_RETENTION_COUNT", default_remote_retention);
-    source.local_retention = env_int(env, "SOURCE_LOCAL_RETENTION_COUNT", default_local_retention);
-    return source;
-}
-
-void command_parse_source_definition(const std::vector<std::string>& args, std::ostream& output) {
-    fs::path source_config;
-    long long default_remote_retention = 30;
-    long long default_local_retention = 30;
-
-    for (std::size_t i = 0; i < args.size(); ++i) {
-        const std::string& arg = args[i];
-        if (arg == "--file") {
-            source_config = arg_value(args, i, arg);
-        } else if (arg == "--remote-retention") {
-            default_remote_retention = parse_uint(arg, arg_value(args, i, arg));
-        } else if (arg == "--local-retention") {
-            default_local_retention = parse_uint(arg, arg_value(args, i, arg));
-        } else {
-            throw ValidationError("unknown parse-source-definition option: " + arg);
-        }
-    }
-
-    if (source_config.empty()) {
-        throw ValidationError("parse-source-definition requires --file");
-    }
-
-    SourceDefinition source = load_source_definition(source_config, default_remote_retention, default_local_retention);
-    if (!source.enabled) {
-        output << "disabled\n";
-        return;
-    }
-
-    output << "enabled\n";
-    write_source_record(
-        output,
-        source.name,
-        source.subvolume,
-        source.local_snapshot_dir,
-        source.remote_subdir,
-        source.remote_retention,
-        source.local_retention
-    );
-}
-
 void command_parse_profile_sources(const std::vector<std::string>& args, std::ostream& output) {
     fs::path profile_json;
 
@@ -160,8 +190,7 @@ void command_parse_profile_sources(const std::vector<std::string>& args, std::os
         throw ValidationError("parse-profile-sources requires --file");
     }
 
-    Profile profile = profile_from_json(load_json_file(profile_json));
-    for (const ProfileSource& source : profile.sources) {
+    for (const ProfileSource& source : profile_sources_from_json(load_json_file(profile_json))) {
         if (!source.enabled) {
             continue;
         }
