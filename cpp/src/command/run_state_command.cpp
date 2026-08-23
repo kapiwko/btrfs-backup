@@ -1,4 +1,4 @@
-#include <btrfsbackup/run_state_command.hpp>
+#include <btrfsbackup/command/run_state_command.hpp>
 
 #include <algorithm>
 #include <cctype>
@@ -36,9 +36,9 @@ int parse_int(const std::string& option, const std::string& value) {
 
 } // namespace
 
-namespace btrfsbackup {
+namespace btrfsbackup::command {
 
-void command_check_last_success(const std::vector<std::string>& args, std::ostream& output) {
+void check_last_success(const std::vector<std::string>& args, std::ostream& output) {
     fs::path profile_state_dir;
     std::string today;
     std::string target_luks_uuid;
@@ -66,12 +66,12 @@ void command_check_last_success(const std::vector<std::string>& args, std::ostre
     require_non_empty(target_luks_uuid, "target_luks_uuid");
     require_non_empty(config_fingerprint, "config_fingerprint");
 
-    output << (last_success_matches(profile_state_dir, today, target_luks_uuid, config_fingerprint) ? "yes\n" : "no\n");
+    output << (btrfsbackup::last_success_matches(profile_state_dir, today, target_luks_uuid, config_fingerprint) ? "yes\n" : "no\n");
 }
 
-void command_write_success_state(const std::vector<std::string>& args) {
+void write_success_state(const std::vector<std::string>& args) {
     fs::path profile_state_dir;
-    SuccessState state;
+    btrfsbackup::SuccessState state;
 
     for (std::size_t i = 0; i < args.size(); ++i) {
         const std::string& arg = args[i];
@@ -101,10 +101,10 @@ void command_write_success_state(const std::vector<std::string>& args) {
     if (profile_state_dir.empty()) {
         throw ValidationError("state write-success requires --profile-state-dir");
     }
-    write_success_state(profile_state_dir, state);
+    btrfsbackup::write_success_state(profile_state_dir, state);
 }
 
-void command_migrate_legacy_state(const std::vector<std::string>& args) {
+void migrate_legacy_state(const std::vector<std::string>& args) {
     fs::path state_dir;
     fs::path profile_state_dir;
 
@@ -125,12 +125,12 @@ void command_migrate_legacy_state(const std::vector<std::string>& args) {
     if (profile_state_dir.empty()) {
         throw ValidationError("state migrate-legacy requires --profile-state-dir");
     }
-    migrate_legacy_state(state_dir, profile_state_dir);
+    btrfsbackup::migrate_legacy_state(state_dir, profile_state_dir);
 }
 
-void command_write_pending_marker(const std::vector<std::string>& args) {
+void write_pending_marker(const std::vector<std::string>& args) {
     fs::path profile_state_dir;
-    PendingMarker marker;
+    btrfsbackup::PendingMarker marker;
 
     for (std::size_t i = 0; i < args.size(); ++i) {
         const std::string& arg = args[i];
@@ -152,10 +152,10 @@ void command_write_pending_marker(const std::vector<std::string>& args) {
     if (profile_state_dir.empty()) {
         throw ValidationError("state pending write requires --profile-state-dir");
     }
-    write_pending_marker(profile_state_dir, marker);
+    btrfsbackup::write_pending_marker(profile_state_dir, marker);
 }
 
-void command_read_pending_marker(const std::vector<std::string>& args, std::ostream& output) {
+void read_pending_marker(const std::vector<std::string>& args, std::ostream& output) {
     fs::path marker_path;
     std::string field = "local_snapshot_path";
 
@@ -173,10 +173,10 @@ void command_read_pending_marker(const std::vector<std::string>& args, std::ostr
     if (marker_path.empty()) {
         throw ValidationError("state pending read requires --marker");
     }
-    output << read_pending_marker_field(marker_path, field) << '\n';
+    output << btrfsbackup::read_pending_marker_field(marker_path, field) << '\n';
 }
 
-void command_clear_pending_marker(const std::vector<std::string>& args) {
+void clear_pending_marker(const std::vector<std::string>& args) {
     fs::path marker_path;
     fs::path profile_state_dir;
 
@@ -197,7 +197,7 @@ void command_clear_pending_marker(const std::vector<std::string>& args) {
     if (profile_state_dir.empty()) {
         throw ValidationError("state pending clear requires --profile-state-dir");
     }
-    clear_pending_marker(marker_path, profile_state_dir);
+    btrfsbackup::clear_pending_marker(marker_path, profile_state_dir);
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::command
