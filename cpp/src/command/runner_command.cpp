@@ -16,6 +16,7 @@
 #include <btrfsbackup/backup_run_persistence.hpp>
 #include <btrfsbackup/backup_run_plan.hpp>
 #include <btrfsbackup/btrfs_operations.hpp>
+#include <btrfsbackup/config_fingerprint.hpp>
 #include <btrfsbackup/errors.hpp>
 #include <btrfsbackup/json.hpp>
 #include <btrfsbackup/mount_info.hpp>
@@ -25,6 +26,7 @@
 #include <btrfsbackup/run_state.hpp>
 #include <btrfsbackup/runtime_adapters.hpp>
 #include <btrfsbackup/snapshot_inventory.hpp>
+#include <btrfsbackup/status_writer.hpp>
 #include <btrfsbackup/target_mount_validation.hpp>
 #include <btrfsbackup/transfer_pipeline.hpp>
 
@@ -51,6 +53,26 @@ std::string current_utc_timestamp() {
     gmtime_r(&time, &tm);
     std::ostringstream out;
     out << std::put_time(&tm, "%Y-%m-%dT%H%M%SZ");
+    return out.str();
+}
+
+std::string current_local_date() {
+    auto now = std::chrono::system_clock::now();
+    std::time_t time = std::chrono::system_clock::to_time_t(now);
+    std::tm tm{};
+    localtime_r(&time, &tm);
+    std::ostringstream out;
+    out << std::put_time(&tm, "%Y-%m-%d");
+    return out.str();
+}
+
+std::string current_local_iso_timestamp() {
+    auto now = std::chrono::system_clock::now();
+    std::time_t time = std::chrono::system_clock::to_time_t(now);
+    std::tm tm{};
+    localtime_r(&time, &tm);
+    std::ostringstream out;
+    out << std::put_time(&tm, "%Y-%m-%dT%H:%M:%S%z");
     return out.str();
 }
 
@@ -123,7 +145,7 @@ void usage() {
     std::cout << "Usage: btrfs-backupctl runner COMMAND\n"
               << "\nCommands:\n"
               << "  plan --profile ID [--timestamp TS] [--run-id ID] [--mountinfo PATH]\n"
-              << "  execute --profile ID [--timestamp TS] [--run-id ID] [--validate]\n";
+              << "  execute --profile ID [--timestamp TS] [--run-id ID] [--force] [--validate]\n";
 }
 
 struct RunnerOptions {
@@ -132,6 +154,8 @@ struct RunnerOptions {
     std::string timestamp = current_utc_timestamp();
     std::string run_id;
     std::map<std::string, std::string> mount_uuid_overrides;
+    std::string today = current_local_date();
+    bool force = false;
     bool validate_only = false;
 };
 
@@ -145,12 +169,16 @@ RunnerOptions parse_options(const std::string& command, const std::vector<std::s
             options.timestamp = arg_value(args, i, arg);
         } else if (arg == "--run-id") {
             options.run_id = arg_value(args, i, arg);
+        } else if (arg == "--today") {
+            options.today = arg_value(args, i, arg);
         } else if (arg == "--mountinfo") {
             options.mountinfo = arg_value(args, i, arg);
         } else if (arg == "--mount-uuid") {
             std::string source = arg_value(args, i, arg);
             std::string uuid = arg_value(args, i, arg);
             options.mount_uuid_overrides[source] = uuid;
+        } else if (arg == "--force") {
+            options.force = true;
         } else if (arg == "--validate") {
             options.validate_only = true;
         } else {
@@ -229,6 +257,57 @@ btrfsbackup::BackupRunPlan build_runner_plan(
     );
 }
 
+fs::path profile_json_path(const fs::path& profile_config_dir, const std::string& profile_id) {
+    return profile_config_dir / "profiles" / profile_id / "profile.json";
+}
+
+std::string config_fingerprint_for_profile(const fs::path& profile_config_dir, const btrfsbackup::Profile& profile) {
+    return btrfsbackup::compute_config_fingerprint("2.0.0", profile_json_path(profile_config_dir, profile.id), {});
+}
+
+void write_skipped_status(const btrfsbackup::Profile& profile, const RunnerOptions& options, std::size_t source_count) {
+    btrfsbackup::StatusRecord record{
+        .profile_id = profile.id,
+        .profile_name = profile.name,
+        .run_id = options.run_id,
+        .state = "skipped",
+        .phase = "skipped",
+        .message = "A successful backup already exists for today; no new snapshot was created.",
+        .current_source_name = "",
+        .source_count = static_cast<int>(source_count),
+        .started_at = options.timestamp,
+        .updated_at = current_local_iso_timestamp(),
+        .finished_at = current_local_iso_timestamp(),
+        .error_code = "",
+        .error_message = "",
+        .suggested_action = "",
+        .exit_code = 0,
+    };
+    btrfsbackup::write_current_status(profile.paths.status_root, record);
+    btrfsbackup::write_history_entry(profile.paths.history_root, record);
+}
+
+void write_success_state_for_run(
+    const btrfsbackup::Profile& profile,
+    const RunnerOptions& options,
+    const std::string& config_fingerprint,
+    std::size_t source_count
+) {
+    btrfsbackup::write_success_state(
+        fs::path(profile.paths.state_dir) / "profiles" / profile.id,
+        btrfsbackup::SuccessState{
+            .date = options.today,
+            .timestamp = current_local_iso_timestamp(),
+            .run_id = options.run_id,
+            .profile_id = profile.id,
+            .profile_name = profile.name,
+            .source_count = static_cast<int>(source_count),
+            .target_luks_uuid = profile.target.luks_uuid,
+            .config_fingerprint = config_fingerprint,
+        }
+    );
+}
+
 } // namespace
 
 namespace btrfsbackup::command {
@@ -259,6 +338,7 @@ int runner(
         ? execution_services->snapshot_metadata_reader
         : read_btrfs_snapshot_metadata;
     BackupRunPlan plan = build_runner_plan(profile_config_dir, options, profile, metadata_reader);
+    const std::string config_fingerprint = config_fingerprint_for_profile(profile_config_dir, profile);
 
     if (command == "execute") {
         if (options.validate_only) {
@@ -268,6 +348,28 @@ int runner(
                 {"profileId", plan.profile_id},
                 {"runId", plan.run_id},
                 {"completed", true},
+                {"cancelled", false},
+                {"actionsCompleted", 0}
+            }.dump(2) << '\n';
+            return 0;
+        }
+
+        if (!options.force
+            && profile.settings.daily_limit
+            && btrfsbackup::last_success_matches(
+                fs::path(profile.paths.state_dir) / "profiles" / profile.id,
+                options.today,
+                profile.target.luks_uuid,
+                config_fingerprint
+            )) {
+            write_skipped_status(profile, options, plan.sources.size());
+            output << Json{
+                {"schemaVersion", 1},
+                {"mode", "cpp-execute"},
+                {"profileId", plan.profile_id},
+                {"runId", plan.run_id},
+                {"completed", true},
+                {"skipped", true},
                 {"cancelled", false},
                 {"actionsCompleted", 0}
             }.dump(2) << '\n';
@@ -298,6 +400,9 @@ int runner(
 
         BackupRunExecutor executor(action_effects, transfer_pipeline, checkpoints);
         BackupRunExecutionResult result = executor.execute(plan, status_events, cancellation);
+        if (result.completed) {
+            write_success_state_for_run(profile, options, config_fingerprint, plan.sources.size());
+        }
 
         output << Json{
             {"schemaVersion", 1},
@@ -305,6 +410,7 @@ int runner(
             {"profileId", plan.profile_id},
             {"runId", plan.run_id},
             {"completed", result.completed},
+            {"skipped", false},
             {"cancelled", result.cancelled},
             {"actionsCompleted", result.actions_completed}
         }.dump(2) << '\n';
