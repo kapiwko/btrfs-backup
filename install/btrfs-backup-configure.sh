@@ -710,105 +710,26 @@ validate_answers() {
 
 validate_rendered_tree() {
     local root="$1"
-    local service_file="$root/systemd/btrfs-backup.service"
-    local profile_service_file="$root/systemd/btrfs-backup@.service"
-    local udev_file="$root/udev/99-btrfs-backup.rules"
-    local profile_json="$root/config/profile.json"
-
-    [[ -f "$profile_json" ]] || bb_die "Missing rendered canonical profile JSON: $profile_json"
-    [[ -f "$service_file" ]] || bb_die "Missing rendered systemd unit: $service_file"
-    [[ -f "$profile_service_file" ]] || bb_die "Missing rendered systemd template unit: $profile_service_file"
-    [[ -f "$udev_file" ]] || bb_die "Missing rendered udev rule: $udev_file"
-    if grep -R -n -E '\{\{[A-Z0-9_]+\}\}' "$root"; then
-        bb_die "Unresolved placeholders remain in rendered files."
-    fi
-
     local profile_helper
-    profile_helper="$(detect_profile_helper)"
-    "$profile_helper" profile validate --file "$profile_json" >/dev/null
-    verify_systemd_units "$service_file" "$profile_service_file"
-    udevadm verify "$udev_file"
-    bb_log INFO "Rendered configuration passed syntax, systemd, and udev validation: $root"
-}
-
-verify_systemd_units() {
-    local output status line only_socket_warnings=1 saw_output=0
-
-    set +e
-    output="$(systemd-analyze verify "$@" 2>&1)"
-    status=$?
-    set -e
-    if (( status == 0 )); then
-        [[ -z "$output" ]] || printf '%s\n' "$output" >&2
-        return 0
-    fi
-
-    while IFS= read -r line; do
-        [[ -n "$line" ]] || continue
-        saw_output=1
-        case "$line" in
-            'Failed to turn off SO_PASSRIGHTS on user lookup socket, ignoring: Operation not permitted'|\
-            'Failed to enable SO_PASSCRED on handoff timestamp socket: Operation not permitted')
-                ;;
-            *)
-                only_socket_warnings=0
-                ;;
-        esac
-    done <<< "$output"
-
-    if (( saw_output == 1 && only_socket_warnings == 1 )); then
-        printf '%s\n' "$output" >&2
-        return 0
-    fi
-
-    printf '%s\n' "$output" >&2
-    return "$status"
+    profile_helper="${PROFILE_HELPER:-$(detect_profile_helper)}"
+    "$profile_helper" profile validate-installation --rendered-root "$root"
 }
 
 validate_active_installation() {
-    bb_require_root
     local profile_id="${PROFILE_ID:-default}"
-    local profile_json="/etc/btrfs-backup/profiles/$profile_id/profile.json"
-    local service_file=/etc/systemd/system/btrfs-backup.service
-    local profile_service_file=/etc/systemd/system/btrfs-backup@.service
-    local udev_file=/etc/udev/rules.d/99-btrfs-backup.rules
-    local verify_units=("$service_file")
-
-    [[ -f "$profile_json" ]] || bb_die "Missing profile JSON: $profile_json"
-    bb_load_profile_json_config "$profile_json"
-    [[ -f "$service_file" ]] || bb_die "Missing $service_file"
-    [[ -f "$udev_file" ]] || bb_die "Missing $udev_file"
-    if grep -q 'btrfs-backup@' "$udev_file"; then
-        [[ -f "$profile_service_file" ]] || bb_die "Missing $profile_service_file"
-        verify_units+=("$profile_service_file")
-    fi
-
-    "$(detect_profile_helper)" profile validate --file "$profile_json" >/dev/null
-    verify_systemd_units "${verify_units[@]}"
-    udevadm verify "$udev_file"
-
-    local mountpoint mount_unit old_dropin
-    mountpoint="${BACKUP_MOUNTPOINT:-}"
-    mount_unit="${BACKUP_MOUNT_UNIT:-}"
-    [[ -n "$mountpoint" && -n "$mount_unit" ]] || bb_die "Active configuration lacks BACKUP_MOUNTPOINT or BACKUP_MOUNT_UNIT."
-    [[ "$mount_unit" == "$(systemd-escape -p --suffix=mount "$mountpoint")" ]] || bb_die "BACKUP_MOUNT_UNIT does not match BACKUP_MOUNTPOINT."
-
-    old_dropin="/etc/systemd/system/${mount_unit}.d/backup.conf"
-    if [[ -f "$old_dropin" ]] && grep -Eq '(^|[[:space:]])(Wants|After)=.*btrfs-backup\.service' "$old_dropin"; then
-        bb_die "Obsolete cyclic mount drop-in still exists: $old_dropin"
-    fi
-
-    bb_log INFO "Active static configuration is valid. Run 'sudo btrfs-backup --validate' with the target connected for runtime validation."
+    local profile_helper
+    profile_helper="${PROFILE_HELPER:-$(detect_profile_helper)}"
+    "$profile_helper" profile validate-installation --active --profile "$profile_id"
 }
 
 if [[ "$ACTION" == validate ]]; then
-    bb_require_commands bash grep stat systemd-analyze systemd-escape udevadm
+    bb_require_commands systemd-analyze systemd-escape udevadm
     validate_active_installation
     exit 0
 fi
 
 if [[ "$ACTION" == validate-dir ]]; then
-    bb_require_commands bash grep stat systemd-analyze udevadm
+    bb_require_commands systemd-analyze udevadm
     validate_rendered_tree "$VALIDATE_DIR"
     exit 0
 fi
