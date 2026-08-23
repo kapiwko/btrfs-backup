@@ -106,7 +106,7 @@ make_invoker_owned() {
     fi
 }
 
-require_commands awk basename bsdtar chmod cmake cp date find g++ gzip install make mkdir mktemp mv readlink rm sha256sum stat tar touch
+require_commands awk basename bsdtar chmod cmake cp date find g++ gzip install make mkdir mktemp mv pkg-config readlink rm sha256sum stat tar touch
 if [[ "$TARGET" == all || "$TARGET" == arch ]]; then
     require_commands zstd
 fi
@@ -350,7 +350,7 @@ Section: admin
 Priority: optional
 Architecture: $DEB_ARCH
 Maintainer: local reproducible build <root@localhost>
-Depends: bash, btrfs-progs, coreutils, cryptsetup, findutils, gawk, grep, libstdc++6, sed, systemd, util-linux
+Depends: bash, btrfs-progs, coreutils, cryptsetup, findutils, gawk, grep, libmount1, libstdc++6, libudev1, sed, systemd, util-linux
 Recommends: pv, libnotify-bin
 Description: Verified Btrfs send/receive backups to an encrypted removable target
  systemd and udev driven Btrfs send/receive backups with LUKS target validation,
@@ -502,6 +502,7 @@ build_nix_packaging() {
 , cmake
 , gcc
 , nlohmann_json
+, pkg-config
 , gnused
 , systemd
 , util-linux
@@ -514,7 +515,8 @@ stdenvNoCC.mkDerivation {
   src = ./.;
 
   dontBuild = true;
-  nativeBuildInputs = [ cmake gcc nlohmann_json ];
+  nativeBuildInputs = [ cmake gcc nlohmann_json pkg-config ];
+  buildInputs = [ systemd util-linux ];
 
   installPhase = ''
     runHook preInstall
@@ -588,6 +590,7 @@ RDEPEND="
 	sys-apps/grep
 	dev-cpp/nlohmann_json
 	dev-build/cmake
+	dev-build/pkgconf
 	sys-devel/gcc
 	sys-apps/sed
 	sys-apps/systemd
@@ -633,8 +636,8 @@ pkgrel=$PKGREL
 pkgdesc='Verified Btrfs send/receive backups to an encrypted removable target'
 arch=('$ARCH')
 license=('GPL-3.0-or-later')
-depends=('bash' 'btrfs-progs' 'coreutils' 'cryptsetup' 'findutils' 'gawk' 'gcc-libs' 'grep' 'sed' 'systemd' 'util-linux')
-makedepends=('cmake' 'gcc' 'nlohmann-json')
+depends=('bash' 'btrfs-progs' 'coreutils' 'cryptsetup' 'findutils' 'gawk' 'gcc-libs' 'grep' 'sed' 'systemd' 'systemd-libs' 'util-linux' 'util-linux-libs')
+makedepends=('cmake' 'gcc' 'nlohmann-json' 'pkgconf')
 optdepends=('libnotify: desktop notifications via notify-send' 'pv: live progress during btrfs send')
 install="\$pkgname.install"
 source=("\$pkgbase-\$pkgver.tar.gz")
@@ -693,10 +696,13 @@ pkgbase = btrfs-backup
 	depends = grep
 	depends = sed
 	depends = systemd
+	depends = systemd-libs
 	depends = util-linux
+	depends = util-linux-libs
 	makedepends = cmake
 	makedepends = gcc
 	makedepends = nlohmann-json
+	makedepends = pkgconf
 	optdepends = libnotify: desktop notifications via notify-send
 	optdepends = pv: live progress during btrfs send
 	source = btrfs-backup-$VERSION.tar.gz

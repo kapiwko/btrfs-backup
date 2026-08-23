@@ -9,6 +9,9 @@ project(
 include(CTest)
 
 find_package(nlohmann_json REQUIRED)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(MOUNT REQUIRED IMPORTED_TARGET mount)
+pkg_check_modules(UDEV REQUIRED IMPORTED_TARGET libudev)
 
 add_library(btrfsbackup_profile_tool STATIC
     cpp/src/command/installation_command.cpp
@@ -17,6 +20,7 @@ add_library(btrfsbackup_profile_tool STATIC
     cpp/src/command/profile_list_command.cpp
     cpp/src/command/profile_migrate_command.cpp
     cpp/src/command/profile_sources_command.cpp
+    cpp/src/command/profile_wizard_command.cpp
     cpp/src/command/state_command.cpp
     cpp/src/command/state_fingerprint_command.cpp
     cpp/src/command/state_run_command.cpp
@@ -37,6 +41,7 @@ add_library(btrfsbackup_profile_tool STATIC
     cpp/src/profile_sources.cpp
     cpp/src/profile_render.cpp
     cpp/src/profile_store.cpp
+    cpp/src/profile_wizard.cpp
     cpp/src/run_state.cpp
     cpp/src/shell_env.cpp
     cpp/src/status_writer.cpp
@@ -50,6 +55,8 @@ target_include_directories(btrfsbackup_profile_tool
 target_link_libraries(btrfsbackup_profile_tool
     PUBLIC
         nlohmann_json::nlohmann_json
+        PkgConfig::MOUNT
+        PkgConfig::UDEV
 )
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")

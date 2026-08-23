@@ -9,6 +9,7 @@
 #include <btrfsbackup/command/profile_create_command.hpp>
 #include <btrfsbackup/command/profile_command.hpp>
 #include <btrfsbackup/command/profile_migrate_command.hpp>
+#include <btrfsbackup/command/profile_wizard_command.hpp>
 #include <btrfsbackup/errors.hpp>
 #include <btrfsbackup/file_io.hpp>
 #include <btrfsbackup/json_io.hpp>
@@ -51,6 +52,7 @@ void usage() {
               << "  list\n"
               << "  migrate [OPTIONS]\n"
               << "  sources --file PATH\n"
+              << "  wizard [OPTIONS]\n"
               << "  create --output PATH [OPTIONS]\n"
               << "  validate --file PATH\n"
               << "  render --file PATH --output-dir PATH\n"
@@ -106,6 +108,9 @@ int profile(const std::vector<std::string>& args, const fs::path& profile_config
         if (command == "sources") {
             profile_sources(std::vector<std::string>(rest.begin() + 1, rest.end()), std::cout);
             return 0;
+        }
+        if (command == "wizard") {
+            return profile_wizard(std::vector<std::string>(rest.begin() + 1, rest.end()));
         }
         fs::path file;
         fs::path output_dir;
