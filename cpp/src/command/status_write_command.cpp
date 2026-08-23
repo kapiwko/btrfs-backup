@@ -1,4 +1,4 @@
-#include <btrfsbackup/status_write_command.hpp>
+#include <btrfsbackup/command/status_write_command.hpp>
 
 #include <filesystem>
 #include <regex>
@@ -29,14 +29,14 @@ int parse_int(const std::string& option, const std::string& value) {
 
 } // namespace
 
-namespace btrfsbackup {
+namespace btrfsbackup::command {
 
-void command_write_status(
+void write_status(
     const fs::path& status_root,
     const fs::path& history_root,
     const std::vector<std::string>& args
 ) {
-    StatusRecord record;
+    btrfsbackup::StatusRecord record;
     bool current = false;
     bool history = false;
 
@@ -87,11 +87,11 @@ void command_write_status(
     }
 
     if (current) {
-        write_current_status(status_root, record);
+        btrfsbackup::write_current_status(status_root, record);
     }
     if (history) {
-        write_history_entry(history_root, record);
+        btrfsbackup::write_history_entry(history_root, record);
     }
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::command

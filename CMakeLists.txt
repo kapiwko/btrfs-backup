@@ -14,8 +14,10 @@ add_library(btrfsbackup_profile_tool STATIC
     cpp/src/command/installation_command.cpp
     cpp/src/command/profile_create_command.cpp
     cpp/src/command/profile_command.cpp
+    cpp/src/command/run_state_command.cpp
     cpp/src/command/state_command.cpp
     cpp/src/command/status_command.cpp
+    cpp/src/command/status_write_command.cpp
     cpp/src/config_fingerprint.cpp
     cpp/src/ctl_tool.cpp
     cpp/src/file_io.cpp
@@ -31,11 +33,9 @@ add_library(btrfsbackup_profile_tool STATIC
     cpp/src/profile_render.cpp
     cpp/src/profile_store.cpp
     cpp/src/run_state.cpp
-    cpp/src/run_state_command.cpp
     cpp/src/shell_env.cpp
     cpp/src/source_definition.cpp
     cpp/src/status.cpp
-    cpp/src/status_write_command.cpp
     cpp/src/status_writer.cpp
 )
 
