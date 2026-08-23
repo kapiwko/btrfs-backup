@@ -343,6 +343,60 @@ void test_commit_failure_after_successful_transfer_keeps_verify_checkpoint() {
     test_helpers::expect_true("commit failed action event", events.has_event(btrfsbackup::BackupRunEventKind::ActionFailed), "missing failed action event");
 }
 
+void test_remote_retention_failure_keeps_commit_checkpoint() {
+    RecordingEffects effects;
+    effects.should_throw = true;
+    effects.throw_on = btrfsbackup::BackupRunActionKind::ApplyRemoteRetention;
+    RecordingTransferPipeline transfers;
+    RecordingCheckpoints checkpoints;
+    RecordingEvents events;
+    btrfsbackup::CancellationToken cancellation;
+    btrfsbackup::BackupRunExecutor executor(effects, transfers, checkpoints);
+
+    btrfsbackup::BackupRunPlan plan = plan_with_actions({
+        action(btrfsbackup::BackupRunActionKind::CreateSnapshot),
+        action(btrfsbackup::BackupRunActionKind::SendReceive),
+        action(btrfsbackup::BackupRunActionKind::VerifyReceived),
+        action(btrfsbackup::BackupRunActionKind::CommitReceived),
+        action(btrfsbackup::BackupRunActionKind::ApplyRemoteRetention),
+        action(btrfsbackup::BackupRunActionKind::ApplyLocalRetention),
+    });
+
+    test_helpers::expect_validation_error("remote retention failure", [&] {
+        (void)executor.execute(plan, events, cancellation);
+    }, "injected action failure");
+    test_helpers::expect_eq("remote retention checkpoint count", std::to_string(checkpoints.checkpoints.size()), "4");
+    test_helpers::expect_eq("remote retention last checkpoint", action_name(checkpoints.checkpoints.back().action_kind), action_name(btrfsbackup::BackupRunActionKind::CommitReceived));
+    test_helpers::expect_true("remote retention failed event", events.has_event(btrfsbackup::BackupRunEventKind::ActionFailed), "missing failed action event");
+}
+
+void test_local_retention_failure_keeps_remote_retention_checkpoint() {
+    RecordingEffects effects;
+    effects.should_throw = true;
+    effects.throw_on = btrfsbackup::BackupRunActionKind::ApplyLocalRetention;
+    RecordingTransferPipeline transfers;
+    RecordingCheckpoints checkpoints;
+    RecordingEvents events;
+    btrfsbackup::CancellationToken cancellation;
+    btrfsbackup::BackupRunExecutor executor(effects, transfers, checkpoints);
+
+    btrfsbackup::BackupRunPlan plan = plan_with_actions({
+        action(btrfsbackup::BackupRunActionKind::CreateSnapshot),
+        action(btrfsbackup::BackupRunActionKind::SendReceive),
+        action(btrfsbackup::BackupRunActionKind::VerifyReceived),
+        action(btrfsbackup::BackupRunActionKind::CommitReceived),
+        action(btrfsbackup::BackupRunActionKind::ApplyRemoteRetention),
+        action(btrfsbackup::BackupRunActionKind::ApplyLocalRetention),
+    });
+
+    test_helpers::expect_validation_error("local retention failure", [&] {
+        (void)executor.execute(plan, events, cancellation);
+    }, "injected action failure");
+    test_helpers::expect_eq("local retention checkpoint count", std::to_string(checkpoints.checkpoints.size()), "5");
+    test_helpers::expect_eq("local retention last checkpoint", action_name(checkpoints.checkpoints.back().action_kind), action_name(btrfsbackup::BackupRunActionKind::ApplyRemoteRetention));
+    test_helpers::expect_true("local retention failed event", events.has_event(btrfsbackup::BackupRunEventKind::ActionFailed), "missing failed action event");
+}
+
 } // namespace
 
 int main() {
@@ -354,6 +408,8 @@ int main() {
     test_transfer_failure_emits_failed_action();
     test_receive_failure_is_reported_separately();
     test_commit_failure_after_successful_transfer_keeps_verify_checkpoint();
+    test_remote_retention_failure_keeps_commit_checkpoint();
+    test_local_retention_failure_keeps_remote_retention_checkpoint();
 
     return test_helpers::finish("backup run executor tests");
 }
