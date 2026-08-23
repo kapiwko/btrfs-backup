@@ -79,9 +79,29 @@ The root directory can be overridden with `HISTORY_ROOT` in `backup.env`.
 History entries use the same schema as `current.json`, with `finishedAt` and
 the final `exitCode` populated.
 
+## CLI
+
+Use `btrfs-backupctl` to inspect the file-based status API:
+
+```bash
+btrfs-backupctl status --profile default
+btrfs-backupctl status --profile default --human
+btrfs-backupctl status --all --human
+btrfs-backupctl history --profile default --limit 10
+btrfs-backupctl watch --profile default --interval 1
+```
+
+For tests or chrooted environments, the roots can be overridden:
+
+```bash
+btrfs-backupctl \
+  --status-root /tmp/run/profiles \
+  --history-root /tmp/history \
+  status --profile default
+```
+
 ## Compatibility
 
 The JSON schema starts at `schemaVersion: 1`. Future compatible changes may add
 fields. Clients should ignore unknown fields and treat missing optional fields
 as unavailable.
-
