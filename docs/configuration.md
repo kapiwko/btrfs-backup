@@ -8,7 +8,8 @@ The preferred active profile file is
 
 For compatibility, `/etc/btrfs-backup/backup.env` remains supported as the
 fallback configuration for the `default` profile when
-`/etc/btrfs-backup/profiles.d/default.env` does not exist.
+`/etc/btrfs-backup/profiles.d/default.env` does not exist. This legacy fallback
+is deprecated in 0.1.1 and will be removed in 0.2.
 
 Important fields:
 

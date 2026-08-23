@@ -106,7 +106,7 @@ SOURCE_LOCAL_RETENTION_COUNT=30
 
 Active configuration files are trusted Bash code executed as root. They must be owned by root and use mode `0600`; the script refuses files that are accessible by group or other users.
 
-Profiles can be stored as `/etc/btrfs-backup/profiles.d/<profile>.env` and selected with `--profile <profile>` or `BTRFS_BACKUP_PROFILE=<profile>`. The legacy `/etc/btrfs-backup/backup.env` remains supported as the fallback for the `default` profile. To create the default profile file from an existing legacy configuration:
+Profiles can be stored as `/etc/btrfs-backup/profiles.d/<profile>.env` and selected with `--profile <profile>` or `BTRFS_BACKUP_PROFILE=<profile>`. The legacy `/etc/btrfs-backup/backup.env` remains supported as the fallback for the `default` profile in 1.x, but it is deprecated and will be removed in 0.2. To create the default profile file from an existing legacy configuration:
 
 ```bash
 sudo btrfs-backup-migrate-profile --profile default
