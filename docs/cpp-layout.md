@@ -25,6 +25,18 @@ Rules for new C++ code:
    codebase.
 8. Keep compatibility tests against the existing Bash behavior until the Bash
    implementation is intentionally removed.
+9. Keep model code independent from systemd, D-Bus, Qt, desktop libraries,
+   block-device libraries, mount libraries, and LUKS libraries.
+10. Use Linux system libraries in system-facing code when they replace command
+    output parsing: `libbtrfsutil` for subvolumes, `libmount` for mount-table
+    inspection, and `libblkid` for filesystem identity.
+11. Keep long-running transfer process orchestration separate from short
+    synchronous administrative commands. A future asynchronous runner may use an
+    event loop, but simple tested POSIX execution should remain available for
+    small operations and unit tests.
+12. Do not make the base package depend on a graphical session. Any future
+    desktop integration must communicate with the system backend instead of
+    becoming part of the backup core.
 
 The migrated native profile and status tooling currently lives in
 `btrfs-backupctl`. Its CLI entry point stays in `cpp/apps/`, while reusable

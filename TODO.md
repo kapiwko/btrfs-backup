@@ -2,11 +2,37 @@
 
 ## C++ Runtime Migration
 
+- Split the current native core into clearer library layers:
+  - keep `btrfsbackup-model` limited to C++20, `nlohmann-json`, schema
+    normalization, validation, status/history shapes and migrations;
+  - move Linux-specific inspection and mutation into `btrfsbackup-system`,
+    including Btrfs subvolumes, mount tables, block-device identity, locks,
+    trusted file writes and future LUKS helpers;
+  - keep backup state machine, run planning, transfer orchestration,
+    checkpointing, progress and cancellation in `btrfsbackup-engine`;
+  - keep CLI parsing and process exit behavior outside model/system/engine
+    libraries.
+
 - Move the main backup flow from Bash to C++ after parity tests pass:
   - keep Bash wrappers for mount/eject compatibility while needed;
   - keep existing integration tests as regression coverage;
   - remove Bash runtime code only after the C++ runner completes full,
     incremental, failure and recovery scenarios.
+
+- Add an asynchronous process runner for long-running backup work:
+  - define a process interface that passes program and arguments separately;
+  - keep the existing POSIX runner for short administrative operations and
+    tests;
+  - add a later Qt Core based runner for event-loop driven transfer, progress,
+    cancellation and multi-process coordination;
+  - do not route `btrfs send` or `btrfs receive` through shell command strings.
+
+- Add a transfer pump for `btrfs send | btrfs receive`:
+  - stream stdout from producer to stdin of consumer with backpressure;
+  - count bytes, speed and ETA without relying on `pv`;
+  - report producer and consumer failures separately;
+  - support cancellation and cleanup of `.incoming`;
+  - expose aggregate progress that does not reset between sources.
 
 - Add application-consistency hooks to the C++ run plan:
   - support controlled `beforeSnapshot` and `afterSnapshot` hook phases;
@@ -40,6 +66,17 @@
   - cancel or defer safely on critical battery;
   - support CPU and I/O weight configuration;
   - bound shutdown inhibition so the system is not blocked indefinitely.
+
+- Preserve conservative dependency boundaries:
+  - keep `btrfs send` and `btrfs receive` as `btrfs-progs` processes instead of
+    implementing the send stream format;
+  - use `libbtrfsutil` for subvolume metadata, snapshots, readonly state and
+    subvolume deletion where available;
+  - use `libmount` for mount inspection and safety checks, while systemd
+    remains responsible for mount and cryptsetup units;
+  - use `libblkid` for filesystem type, labels and UUID identity;
+  - postpone `libcryptsetup` until the state machine, D-Bus/control API,
+    cancellation and recovery behavior are stable.
 
 ## Repository And Restore Roadmap
 
@@ -220,6 +257,18 @@
   - avoid making desktop tools parse journal text or private state files;
   - keep status messages translatable by relying on stable codes and structured
     details.
+
+- Add a system daemon after the C++ engine boundary is stable:
+  - own active run state, history updates, cancellation, privileged operations
+    and communication with systemd;
+  - expose a versioned system D-Bus API for profile listing, status, current
+    run, history, validation, start, cancel, eject, save and delete operations;
+  - require authorization for mutating or privileged operations while allowing
+    unprivileged reads of status and history;
+  - use polkit for daemon authorization rather than a short-lived privileged
+    helper model;
+  - consider `libsystemd` only for `sd_notify`, watchdog or structured journal
+    needs, not as a competing application D-Bus layer.
 
 - Add backup freshness policy:
   - configure warning and critical age thresholds;
