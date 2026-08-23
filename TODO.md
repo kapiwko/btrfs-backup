@@ -14,8 +14,6 @@
 Port helpers from `scripts/lib/btrfs-backup-common.sh` in small, testable steps
 before replacing larger runner flows.
 
-- Add small device helpers for mapper paths, canonical device resolution, and
-  stripping Btrfs subvolume suffixes from mount sources.
 - Port free-space checks with `std::filesystem::space` as the C++ equivalent of
   `bb_available_bytes` and `bb_check_minimum_free_space`.
 - Add an RAII file lock for the future runner and manager, matching
