@@ -56,6 +56,22 @@ std::string suggested_action_for_failed_action(BackupRunActionKind kind) {
     return "inspect-run-history";
 }
 
+int estimated_overall_progress(const BackupRunStatusContext& context, const BackupRunEvent& event) {
+    if (context.source_count <= 0) {
+        return -1;
+    }
+    if (event.kind == BackupRunEventKind::RunCompleted) {
+        return 100;
+    }
+    if (event.kind == BackupRunEventKind::SourceCompleted && event.source_index > 0) {
+        return event.source_index * 100 / context.source_count;
+    }
+    if (!event.source_id.empty() && event.source_index > 0) {
+        return (event.source_index - 1) * 100 / context.source_count;
+    }
+    return 0;
+}
+
 std::string message_for_event(const BackupRunEvent& event) {
     if (!event.message.empty()) {
         return event.message;
@@ -123,10 +139,14 @@ StatusRecord status_record_for_event(const BackupRunStatusContext& context, cons
     Json progress_details = Json::object();
     bool can_cancel = false;
     std::uint64_t bytes_processed = 0;
+    std::uint64_t run_bytes_processed = 0;
     std::uint64_t speed_bps = 0;
+    int overall_progress = estimated_overall_progress(context, event);
+    std::string progress_accuracy = overall_progress >= 0 ? "estimated" : "indeterminate";
     if (event.kind == BackupRunEventKind::TransferProgress) {
         can_cancel = true;
         bytes_processed = event.bytes_transferred;
+        run_bytes_processed = event.run_bytes_transferred;
         speed_bps = event.speed_bps;
         progress_details = {
             {"bytesProduced", event.bytes_produced},
@@ -137,6 +157,9 @@ StatusRecord status_record_for_event(const BackupRunStatusContext& context, cons
             {"speedBps", event.speed_bps}
         };
         details = progress_details;
+    }
+    if (run_bytes_processed == 0) {
+        run_bytes_processed = bytes_processed;
     }
     if (event.kind == BackupRunEventKind::ActionFailed) {
         error_code = event.error_code.empty() ? error_code_for_failed_action(event.action_kind) : event.error_code;
@@ -166,7 +189,7 @@ StatusRecord status_record_for_event(const BackupRunStatusContext& context, cons
         .phase = phase,
         .message = message_for_event(event),
         .current_source_name = event.source_id,
-        .source_index = 0,
+        .source_index = event.source_index,
         .source_count = context.source_count,
         .started_at = context.started_at,
         .updated_at = current_utc_iso_timestamp(),
@@ -178,9 +201,10 @@ StatusRecord status_record_for_event(const BackupRunStatusContext& context, cons
         .suggested_action = suggested_action,
         .can_cancel = can_cancel,
         .bytes_processed = bytes_processed,
-        .run_bytes_processed = bytes_processed,
+        .run_bytes_processed = run_bytes_processed,
         .speed_bps = speed_bps,
-        .progress_accuracy = "indeterminate",
+        .overall_progress = overall_progress,
+        .progress_accuracy = progress_accuracy,
         .exit_code = exit_code,
     };
 }
@@ -287,9 +311,11 @@ Json build_backup_run_event_json(const BackupRunEvent& event) {
         {"profileId", event.profile_id},
         {"runId", event.run_id},
         {"sourceId", event.source_id},
+        {"sourceIndex", event.source_index},
         {"action", backup_run_action_kind_name(event.action_kind)},
         {"bytesTransferred", event.bytes_transferred},
         {"bytesProduced", event.bytes_produced},
+        {"runBytesTransferred", event.run_bytes_transferred},
         {"deltaBytes", event.delta_bytes},
         {"pendingBytes", event.pending_bytes},
         {"elapsedMs", event.elapsed_ms},

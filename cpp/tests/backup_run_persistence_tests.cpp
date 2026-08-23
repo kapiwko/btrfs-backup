@@ -26,9 +26,11 @@ btrfsbackup::BackupRunEvent event(btrfsbackup::BackupRunEventKind kind) {
         .profile_id = "default",
         .run_id = "20260823T120000Z-123-456",
         .source_id = "root",
+        .source_index = 1,
         .action_kind = btrfsbackup::BackupRunActionKind::SendReceive,
         .bytes_transferred = 4096,
         .bytes_produced = 8192,
+        .run_bytes_transferred = 12288,
         .delta_bytes = 1024,
         .pending_bytes = 4096,
         .elapsed_ms = 2000,
@@ -56,8 +58,10 @@ void test_build_event_json() {
     test_helpers::expect_true("schema", data.at("schemaVersion") == 1, "wrong schema");
     test_helpers::expect_true("event", data.at("event") == "transfer-progress", "wrong event");
     test_helpers::expect_true("action", data.at("action") == "send-receive", "wrong action");
+    test_helpers::expect_true("source index", data.at("sourceIndex") == 1, "wrong source index");
     test_helpers::expect_true("bytes", data.at("bytesTransferred") == 4096, "wrong bytes");
     test_helpers::expect_true("produced bytes", data.at("bytesProduced") == 8192, "wrong produced bytes");
+    test_helpers::expect_true("run bytes", data.at("runBytesTransferred") == 12288, "wrong run bytes");
     test_helpers::expect_true("delta bytes", data.at("deltaBytes") == 1024, "wrong delta bytes");
     test_helpers::expect_true("pending bytes", data.at("pendingBytes") == 4096, "wrong pending bytes");
     test_helpers::expect_true("elapsed", data.at("elapsedMs") == 2000, "wrong elapsed");
@@ -81,6 +85,27 @@ void test_checkpoint_store_writes_private_json_in_state_dir() {
     test_helpers::expect_true("checkpoint action", data.at("action") == "create-snapshot", "wrong action");
     test_helpers::expect_true("state dir mode", mode_of(root / "state") == 0700, "state dir should be private");
     test_helpers::expect_true("checkpoint mode", mode_of(checkpoint) == 0600, "checkpoint should be private");
+    fs::remove_all(root);
+}
+
+void test_transfer_progress_status_uses_source_index_and_run_bytes() {
+    fs::path root = test_helpers::test_root("backup-run-persistence", "transfer-progress");
+    btrfsbackup::StatusBackupRunEventSink sink({
+        .status_root = root / "status",
+        .history_root = root / "history",
+        .profile_name = "Default backup",
+        .source_count = 2,
+        .started_at = "2026-08-23T12:00:00Z",
+    });
+
+    sink.on_backup_run_event(event(btrfsbackup::BackupRunEventKind::TransferProgress));
+    btrfsbackup::Json current = btrfsbackup::load_json_file(root / "status" / "default" / "current.json");
+    test_helpers::expect_true("progress source index", current.at("sourceIndex") == 1, "wrong source index");
+    test_helpers::expect_true("progress source count", current.at("sourceCount") == 2, "wrong source count");
+    test_helpers::expect_true("progress bytes", current.at("bytesProcessed") == 4096, "wrong source bytes");
+    test_helpers::expect_true("progress run bytes", current.at("runBytesProcessed") == 12288, "wrong run bytes");
+    test_helpers::expect_true("progress overall", current.at("overallProgress") == 0, "wrong overall progress");
+    test_helpers::expect_true("progress accuracy", current.at("progressAccuracy") == "estimated", "wrong progress accuracy");
     fs::remove_all(root);
 }
 
@@ -144,6 +169,7 @@ int main() {
     test_build_event_json();
     test_checkpoint_store_writes_private_json_in_state_dir();
     test_status_sink_writes_current_and_terminal_history();
+    test_transfer_progress_status_uses_source_index_and_run_bytes();
     test_hook_failure_status_uses_stable_error_code();
 
     return test_helpers::finish("backup run persistence tests");

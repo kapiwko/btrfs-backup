@@ -14,14 +14,12 @@
 - Extend asynchronous transfer execution beyond the current threaded adapter:
   - keep the existing POSIX runner for short administrative operations and
     tests;
-  - add an event-loop driven process runner for richer progress, cancellation and
-    multi-process coordination;
+  - add a dedicated event-loop process runner for multi-transfer coordination;
   - do not route `btrfs send` or `btrfs receive` through shell command strings.
 
 - Improve transfer progress beyond the current native pump:
   - estimate total bytes and ETA without relying on `pv`;
-  - expose source progress and aggregate run progress that does not reset
-    between sources;
+  - make `sourceProgress` exact or estimated when a source byte total is known;
   - add live external-transfer cancellation tests and `.incoming` recovery
     coverage after cancellation.
 
