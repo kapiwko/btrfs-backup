@@ -2,11 +2,9 @@
 
 ## C++ Runtime Migration
 
-- Add an asynchronous transfer execution layer before porting
-  `btrfs send/receive`:
+- Implement the concrete asynchronous process backend for `TransferPipeline`
+  before porting `btrfs send/receive`:
   - keep `ICommandRunner` limited to short synchronous administrative commands;
-  - introduce a dedicated `TransferPipeline` or async process runner for
-    long-running stream transfers;
   - support connecting producer and consumer processes without shell pipelines;
   - preserve backpressure between `btrfs send` and `btrfs receive`;
   - report byte progress and lifecycle events while the transfer is running;
