@@ -35,6 +35,7 @@ add_library(btrfsbackup_profile_tool STATIC
     cpp/src/installation_render.cpp
     cpp/src/installation_validate.cpp
     cpp/src/json_io.cpp
+    cpp/src/mount_info.cpp
     cpp/src/process.cpp
     cpp/src/profile.cpp
     cpp/src/profile_migrate.cpp
@@ -103,6 +104,10 @@ if(BUILD_TESTING)
         cpp/tests/profile_wizard_tests.cpp
     )
 
+    add_executable(btrfsbackup-mount-info-tests
+        cpp/tests/mount_info_tests.cpp
+    )
+
     add_executable(btrfsbackup-status-writer-tests
         cpp/tests/status_writer_tests.cpp
     )
@@ -137,6 +142,11 @@ if(BUILD_TESTING)
             btrfsbackup_profile_tool
     )
 
+    target_link_libraries(btrfsbackup-mount-info-tests
+        PRIVATE
+            btrfsbackup_profile_tool
+    )
+
     target_link_libraries(btrfsbackup-status-writer-tests
         PRIVATE
             btrfsbackup_profile_tool
@@ -148,5 +158,6 @@ if(BUILD_TESTING)
     add_test(NAME profile-command-tests COMMAND btrfsbackup-profile-command-tests)
     add_test(NAME installation-tests COMMAND btrfsbackup-installation-tests)
     add_test(NAME profile-wizard-tests COMMAND btrfsbackup-profile-wizard-tests)
+    add_test(NAME mount-info-tests COMMAND btrfsbackup-mount-info-tests)
     add_test(NAME status-writer-tests COMMAND btrfsbackup-status-writer-tests)
 endif()
