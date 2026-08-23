@@ -165,6 +165,32 @@ void test_render_profile_env_quotes_values() {
     Json profile = btrfsbackup::normalize_profile(valid_profile());
     std::string rendered = btrfsbackup::render_profile_env(profile);
     expect_true("profile env quote", rendered.find("PROFILE_NAME='Default backup'\n") != std::string::npos, "profile name was not shell quoted");
+    expect_true(
+        "profile env eject script",
+        rendered.find("EJECT_SCRIPT_PATH=/usr/lib/btrfs-backup/btrfs-backup-eject.sh\n") != std::string::npos,
+        "eject script path was not rendered as a string"
+    );
+}
+
+void test_typed_render_matches_json_render() {
+    Json normalized = btrfsbackup::normalize_profile(valid_profile());
+    btrfsbackup::Profile profile = btrfsbackup::profile_from_json(normalized);
+
+    expect_true(
+        "typed profile env",
+        btrfsbackup::render_profile_env(profile) == btrfsbackup::render_profile_env(normalized),
+        "typed profile env render differs from JSON render"
+    );
+    expect_true(
+        "typed source",
+        btrfsbackup::render_source(profile.sources.at(0)) == btrfsbackup::render_source(normalized.at("sources").at(0)),
+        "typed source render differs from JSON render"
+    );
+    expect_true(
+        "typed udev",
+        btrfsbackup::render_udev(profile) == btrfsbackup::render_udev(normalized),
+        "typed udev render differs from JSON render"
+    );
 }
 
 void test_render_udev_optional_matches() {
@@ -198,6 +224,7 @@ int main() {
     test_rejects_nested_roots();
     test_profile_model_round_trips_normalized_json();
     test_render_profile_env_quotes_values();
+    test_typed_render_matches_json_render();
     test_render_udev_optional_matches();
     test_compose_sources_table();
 
