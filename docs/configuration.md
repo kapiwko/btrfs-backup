@@ -6,6 +6,8 @@ The active main file is `/etc/btrfs-backup/backup.env`. Important fields:
 
 | Field | Meaning |
 |---|---|
+| `PROFILE_ID` | stable profile identifier used for state and future profile-aware units |
+| `PROFILE_NAME` | human-readable profile name |
 | `BACKUP_MAPPER_NAME` | mapper name under `/dev/mapper` |
 | `BACKUP_DEVICE` | stable path to the LUKS partition, preferably `/dev/disk/by-uuid/...` |
 | `BACKUP_LUKS_UUID` | expected UUID of the LUKS container |
@@ -23,10 +25,14 @@ The active main file is `/etc/btrfs-backup/backup.env`. Important fields:
 | `AUTO_EJECT` | automatically unmount and close LUKS |
 | `MIN_TARGET_FREE_BYTES` | minimum free space required on the target |
 | `MIN_LOCAL_FREE_BYTES` | minimum free space required for local snapshots |
-| `STATE_DIR` | state directory for `last-success` and pending markers |
+| `STATE_DIR` | base state directory; per-profile state lives under `profiles/<PROFILE_ID>` |
 | `LOCK_FILE` | lock shared by backup, eject, and configurator operations |
 
 A retention value of `0` disables automatic pruning for that scope.
+
+If `PROFILE_ID` is missing, the runner uses `default`. Legacy files directly
+under `STATE_DIR`, such as `last-success` and `pending-*`, are migrated to the
+profile state directory on the next run.
 
 ## Source Definitions
 

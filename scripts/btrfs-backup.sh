@@ -20,6 +20,7 @@ CURRENT_REMOTE_SNAPSHOT_DIR=""
 RUN_SUCCEEDED=0
 RUN_SKIPPED=0
 SOURCE_COUNT=0
+PROFILE_STATE_DIR=""
 
 usage() {
     cat <<'USAGE'
@@ -66,6 +67,8 @@ done
 load_main_config() {
     bb_load_config "$CONFIG_FILE"
 
+    PROFILE_ID="${PROFILE_ID:-default}"
+    PROFILE_NAME="${PROFILE_NAME:-$PROFILE_ID}"
     BACKUP_MOUNT_UNIT="${BACKUP_MOUNT_UNIT:-}"
     BACKUP_SERVICE_NAME="${BACKUP_SERVICE_NAME:-btrfs-backup.service}"
     BACKUP_BTRFS_UUID="${BACKUP_BTRFS_UUID:-}"
@@ -89,12 +92,13 @@ load_main_config() {
 
     local required
     for required in \
-        BACKUP_MAPPER_NAME BACKUP_MOUNTPOINT BACKUP_MOUNT_UNIT \
+        PROFILE_ID PROFILE_NAME BACKUP_MAPPER_NAME BACKUP_MOUNTPOINT BACKUP_MOUNT_UNIT \
         BACKUP_DEVICE BACKUP_LUKS_UUID SOURCES_DIR REMOTE_ROOT \
         INCOMING_ROOT LOCK_FILE STATE_DIR; do
         bb_require_var "$required"
     done
 
+    bb_validate_safe_name PROFILE_ID "$PROFILE_ID"
     bb_validate_safe_name BACKUP_MAPPER_NAME "$BACKUP_MAPPER_NAME"
     bb_validate_safe_name BACKUP_SERVICE_NAME "${BACKUP_SERVICE_NAME%.service}"
     bb_validate_absolute_path BACKUP_MOUNTPOINT "$BACKUP_MOUNTPOINT"
@@ -137,6 +141,8 @@ load_main_config() {
         bb_die "Eject script is missing or not executable: $EJECT_SCRIPT_PATH"
     fi
 
+    PROFILE_STATE_DIR="$STATE_DIR/profiles/$PROFILE_ID"
+
     local config_mode
     config_mode="$(stat -c '%a' "$CONFIG_FILE" 2>/dev/null || true)"
     if [[ "$config_mode" =~ ^[0-7]{3,4}$ ]]; then
@@ -145,6 +151,21 @@ load_main_config() {
             bb_warn "Configuration file should not be group/world accessible: $CONFIG_FILE (mode $config_mode)"
         fi
     fi
+}
+
+migrate_legacy_state() {
+    local legacy_path entry
+
+    install -d -m0700 "$STATE_DIR" "$PROFILE_STATE_DIR"
+    legacy_path="$STATE_DIR/last-success"
+    if [[ -f "$legacy_path" && ! -e "$PROFILE_STATE_DIR/last-success" ]]; then
+        mv -- "$legacy_path" "$PROFILE_STATE_DIR/last-success"
+    fi
+
+    while IFS= read -r -d '' entry; do
+        [[ -e "$PROFILE_STATE_DIR/$(basename -- "$entry")" ]] && continue
+        mv -- "$entry" "$PROFILE_STATE_DIR/"
+    done < <(find "$STATE_DIR" -maxdepth 1 -type f -name 'pending-*' -print0 2>/dev/null)
 }
 
 cleanup_incoming_run() {
@@ -205,7 +226,7 @@ cleanup_stale_incoming() {
 
 pending_marker_path() {
     local source_name="$1"
-    printf '%s/pending-%s' "$STATE_DIR" "$source_name"
+    printf '%s/pending-%s' "$PROFILE_STATE_DIR" "$source_name"
 }
 
 write_pending_marker() {
@@ -214,7 +235,7 @@ write_pending_marker() {
     local marker temp_file
 
     marker="$(pending_marker_path "$source_name")"
-    temp_file="$(mktemp "$STATE_DIR/.pending-${source_name}.XXXXXX")"
+    temp_file="$(mktemp "$PROFILE_STATE_DIR/.pending-${source_name}.XXXXXX")"
     chmod 0600 "$temp_file"
     {
         printf 'source_name=%s\n' "$source_name"
@@ -223,7 +244,7 @@ write_pending_marker() {
         printf 'timestamp=%s\n' "$(date --iso-8601=seconds)"
     } > "$temp_file"
     mv -f -- "$temp_file" "$marker"
-    sync -f "$STATE_DIR" 2>/dev/null || sync
+    sync -f "$PROFILE_STATE_DIR" 2>/dev/null || sync
     CURRENT_PENDING_MARKER="$marker"
 }
 
@@ -231,7 +252,7 @@ clear_pending_marker() {
     local marker="${1:-$CURRENT_PENDING_MARKER}"
     if [[ -n "$marker" ]]; then
         rm -f -- "$marker"
-        sync -f "$STATE_DIR" 2>/dev/null || true
+        sync -f "$PROFILE_STATE_DIR" 2>/dev/null || true
     fi
     if [[ "$marker" == "$CURRENT_PENDING_MARKER" ]]; then
         CURRENT_PENDING_MARKER=""
@@ -386,7 +407,7 @@ compute_config_fingerprint() {
 }
 
 last_success_is_today() {
-    local state_file="$STATE_DIR/last-success"
+    local state_file="$PROFILE_STATE_DIR/last-success"
     local stored_date stored_target_uuid stored_fingerprint
     [[ -r "$state_file" ]] || return 1
 
@@ -400,22 +421,24 @@ last_success_is_today() {
 }
 
 write_success_state() {
-    local state_file="$STATE_DIR/last-success"
+    local state_file="$PROFILE_STATE_DIR/last-success"
     local temp_file
 
-    install -d -m0700 "$STATE_DIR"
-    temp_file="$(mktemp "$STATE_DIR/.last-success.XXXXXX")"
+    install -d -m0700 "$PROFILE_STATE_DIR"
+    temp_file="$(mktemp "$PROFILE_STATE_DIR/.last-success.XXXXXX")"
     chmod 0600 "$temp_file"
     {
         printf 'date=%s\n' "$(date +%F)"
         printf 'timestamp=%s\n' "$(date --iso-8601=seconds)"
         printf 'run_id=%s\n' "$RUN_ID"
+        printf 'profile_id=%s\n' "$PROFILE_ID"
+        printf 'profile_name=%s\n' "$PROFILE_NAME"
         printf 'source_count=%s\n' "$SOURCE_COUNT"
         printf 'target_luks_uuid=%s\n' "$BACKUP_LUKS_UUID"
         printf 'config_fingerprint=%s\n' "$CONFIG_FINGERPRINT"
     } > "$temp_file"
     mv -f -- "$temp_file" "$state_file"
-    sync -f "$STATE_DIR" 2>/dev/null || sync
+    sync -f "$PROFILE_STATE_DIR" 2>/dev/null || sync
 }
 
 ensure_target_mounted() {
@@ -795,7 +818,7 @@ trap 'on_interrupt 143' TERM
 trap 'on_interrupt 129' HUP
 
 RUN_ID="$(date -u +%Y%m%dT%H%M%SZ)-$$-${RANDOM}"
-install -d -m0700 "$STATE_DIR"
+migrate_legacy_state
 
 declare -A SEEN_SOURCE_NAMES=()
 SOURCE_FILES=("$SOURCES_DIR"/*.conf)

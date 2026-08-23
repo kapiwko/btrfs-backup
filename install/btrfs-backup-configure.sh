@@ -437,6 +437,8 @@ collect_interactive_answers() {
     bb_require_commands blkid find findmnt lsblk sed sort systemd-escape udevadm
     select_backup_device
 
+    prompt_value PROFILE_ID 'Profile identifier' default
+    prompt_value PROFILE_NAME 'Profile display name' "$PROFILE_ID"
     prompt_value BACKUP_MAPPER_NAME 'LUKS mapper name' backupdisk
     prompt_value BACKUP_MOUNTPOINT 'Backup mountpoint' /mnt/backup
 
@@ -521,6 +523,8 @@ load_answers_file() {
     declare -p SOURCE_RETENTION_COUNTS >/dev/null 2>&1 || SOURCE_RETENTION_COUNTS=()
     declare -p SOURCE_LOCAL_RETENTION_COUNTS >/dev/null 2>&1 || SOURCE_LOCAL_RETENTION_COUNTS=()
 
+    PROFILE_ID="${PROFILE_ID:-default}"
+    PROFILE_NAME="${PROFILE_NAME:-$PROFILE_ID}"
     BACKUP_MAPPER_NAME="${BACKUP_MAPPER_NAME:-backupdisk}"
     BACKUP_MOUNTPOINT="${BACKUP_MOUNTPOINT:-/mnt/backup}"
     BACKUP_BTRFS_UUID="${BACKUP_BTRFS_UUID:-}"
@@ -585,6 +589,9 @@ validate_uuid() {
 }
 
 validate_answers() {
+    bb_validate_safe_name PROFILE_ID "$PROFILE_ID"
+    [[ "$PROFILE_NAME" != *$'\n'* && "$PROFILE_NAME" != *$'\r'* ]] \
+        || bb_die "PROFILE_NAME must be a single-line value."
     bb_validate_safe_name BACKUP_MAPPER_NAME "$BACKUP_MAPPER_NAME"
     bb_validate_absolute_path BACKUP_DEVICE "$BACKUP_DEVICE"
     bb_validate_absolute_path BACKUP_MOUNTPOINT "$BACKUP_MOUNTPOINT"
@@ -719,6 +726,8 @@ KEYFILE_PATH_CRYPTTAB="$(fstab_escape "$KEYFILE_PATH_OR_NONE")"
 
 # Values used by the main templates.
 declare -A PLACEHOLDERS=(
+    [PROFILE_ID_SHELL]="$(shell_quote "$PROFILE_ID")"
+    [PROFILE_NAME_SHELL]="$(shell_quote "$PROFILE_NAME")"
     [BACKUP_MAPPER_NAME]="$BACKUP_MAPPER_NAME"
     [BACKUP_MAPPER_NAME_FSTAB]="$(fstab_escape "$BACKUP_MAPPER_NAME")"
     [BACKUP_MAPPER_NAME_SHELL]="$(shell_quote "$BACKUP_MAPPER_NAME")"
