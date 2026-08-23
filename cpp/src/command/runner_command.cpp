@@ -11,15 +11,21 @@
 #include <string>
 #include <vector>
 
+#include <btrfsbackup/backup_run_action_effects.hpp>
+#include <btrfsbackup/backup_run_executor.hpp>
+#include <btrfsbackup/backup_run_persistence.hpp>
 #include <btrfsbackup/backup_run_plan.hpp>
+#include <btrfsbackup/btrfs_operations.hpp>
 #include <btrfsbackup/errors.hpp>
 #include <btrfsbackup/json.hpp>
 #include <btrfsbackup/mount_info.hpp>
 #include <btrfsbackup/pending_recovery_plan.hpp>
 #include <btrfsbackup/profile.hpp>
 #include <btrfsbackup/run_state.hpp>
+#include <btrfsbackup/runtime_adapters.hpp>
 #include <btrfsbackup/snapshot_inventory.hpp>
 #include <btrfsbackup/target_mount_validation.hpp>
+#include <btrfsbackup/transfer_pipeline.hpp>
 
 namespace fs = std::filesystem;
 
@@ -103,7 +109,110 @@ btrfsbackup::Json paths_to_json(const std::vector<btrfsbackup::SnapshotInfo>& sn
 void usage() {
     std::cout << "Usage: btrfs-backupctl runner COMMAND\n"
               << "\nCommands:\n"
-              << "  plan --profile ID [--timestamp TS] [--run-id ID] [--mountinfo PATH]\n";
+              << "  plan --profile ID [--timestamp TS] [--run-id ID] [--mountinfo PATH]\n"
+              << "  execute --experimental-cpp-runner --profile ID [--timestamp TS] [--run-id ID]\n";
+}
+
+struct RunnerOptions {
+    std::string profile_id = "default";
+    fs::path mountinfo = "/proc/self/mountinfo";
+    std::string timestamp = current_utc_timestamp();
+    std::string run_id;
+    std::map<std::string, std::string> mount_uuid_overrides;
+    bool experimental_cpp_runner = false;
+};
+
+RunnerOptions parse_options(const std::string& command, const std::vector<std::string>& args) {
+    RunnerOptions options;
+    for (std::size_t i = 1; i < args.size(); ++i) {
+        const std::string& arg = args.at(i);
+        if (arg == "--profile") {
+            options.profile_id = arg_value(args, i, arg);
+        } else if (arg == "--timestamp") {
+            options.timestamp = arg_value(args, i, arg);
+        } else if (arg == "--run-id") {
+            options.run_id = arg_value(args, i, arg);
+        } else if (arg == "--mountinfo") {
+            options.mountinfo = arg_value(args, i, arg);
+        } else if (arg == "--mount-uuid") {
+            std::string source = arg_value(args, i, arg);
+            std::string uuid = arg_value(args, i, arg);
+            options.mount_uuid_overrides[source] = uuid;
+        } else if (arg == "--experimental-cpp-runner") {
+            options.experimental_cpp_runner = true;
+        } else {
+            fail("unknown " + command + " option: " + arg);
+        }
+    }
+
+    if (options.run_id.empty()) {
+        options.run_id = compact_timestamp(options.timestamp) + "-shadow";
+    }
+    return options;
+}
+
+std::vector<btrfsbackup::MountEntry> read_mounts(const RunnerOptions& options) {
+    return options.mount_uuid_overrides.empty()
+        ? btrfsbackup::read_mount_table(options.mountinfo)
+        : btrfsbackup::read_mount_table(options.mountinfo, [&options](const std::string& source) {
+              auto found = options.mount_uuid_overrides.find(source);
+              if (found != options.mount_uuid_overrides.end()) {
+                  return found->second;
+              }
+              return btrfsbackup::blkid_filesystem_uuid(source);
+          });
+}
+
+btrfsbackup::BackupRunPlan build_runner_plan(
+    const fs::path& profile_config_dir,
+    const RunnerOptions& options,
+    btrfsbackup::Profile& profile
+) {
+    profile = btrfsbackup::load_profile_by_id(profile_config_dir, options.profile_id);
+    std::vector<btrfsbackup::MountEntry> mounts = read_mounts(options);
+    btrfsbackup::validate_target_mount(profile, mounts);
+
+    btrfsbackup::SnapshotInventoryBySource local_inventory;
+    btrfsbackup::SnapshotInventoryBySource remote_inventory;
+    btrfsbackup::PendingMarkerBySource pending_markers;
+    btrfsbackup::PendingSnapshotBySource pending_snapshots;
+    const fs::path profile_state_dir = fs::path(profile.paths.state_dir) / "profiles" / profile.id;
+
+    for (const btrfsbackup::ProfileSource& source : profile.sources) {
+        if (!source.enabled) {
+            continue;
+        }
+        fs::path remote_dir = fs::path(profile.paths.remote_root) / source.remote_subdir;
+        local_inventory[source.id] = btrfsbackup::list_snapshot_inventory(
+            source.local_snapshot_dir,
+            source.id,
+            btrfsbackup::SnapshotSide::Local,
+            btrfsbackup::read_btrfs_snapshot_metadata
+        );
+        remote_inventory[source.id] = btrfsbackup::list_snapshot_inventory(
+            remote_dir,
+            source.id,
+            btrfsbackup::SnapshotSide::Remote,
+            btrfsbackup::read_btrfs_snapshot_metadata
+        );
+
+        std::optional<btrfsbackup::PendingMarker> marker = btrfsbackup::read_pending_marker_if_exists(profile_state_dir, source.id);
+        pending_markers[source.id] = marker;
+        if (marker.has_value()) {
+            pending_snapshots[source.id] = btrfsbackup::read_btrfs_snapshot_metadata(marker->local_snapshot_path);
+        }
+    }
+
+    return btrfsbackup::build_backup_run_plan(
+        profile,
+        mounts,
+        local_inventory,
+        remote_inventory,
+        pending_markers,
+        pending_snapshots,
+        options.run_id,
+        options.timestamp
+    );
 }
 
 } // namespace
@@ -121,92 +230,46 @@ int runner(const fs::path& profile_config_dir, const std::vector<std::string>& a
         usage();
         return 0;
     }
-    if (command != "plan") {
+    if (command != "plan" && command != "execute") {
         fail("unknown command: " + command);
     }
 
-    std::string profile_id = "default";
-    fs::path mountinfo = "/proc/self/mountinfo";
-    std::string timestamp = current_utc_timestamp();
-    std::string run_id;
-    std::map<std::string, std::string> mount_uuid_overrides;
-
-    for (std::size_t i = 1; i < args.size(); ++i) {
-        const std::string& arg = args.at(i);
-        if (arg == "--profile") {
-            profile_id = arg_value(args, i, arg);
-        } else if (arg == "--timestamp") {
-            timestamp = arg_value(args, i, arg);
-        } else if (arg == "--run-id") {
-            run_id = arg_value(args, i, arg);
-        } else if (arg == "--mountinfo") {
-            mountinfo = arg_value(args, i, arg);
-        } else if (arg == "--mount-uuid") {
-            std::string source = arg_value(args, i, arg);
-            std::string uuid = arg_value(args, i, arg);
-            mount_uuid_overrides[source] = uuid;
-        } else {
-            fail("unknown plan option: " + arg);
-        }
+    RunnerOptions options = parse_options(command, args);
+    if (command == "execute" && !options.experimental_cpp_runner) {
+        throw ValidationError("runner execute requires --experimental-cpp-runner");
     }
 
-    if (run_id.empty()) {
-        run_id = compact_timestamp(timestamp) + "-shadow";
+    Profile profile;
+    BackupRunPlan plan = build_runner_plan(profile_config_dir, options, profile);
+
+    if (command == "execute") {
+        LibBtrfsOperations btrfs;
+        StdFileSystemEffects fs_effects;
+        BackupRunActionEffects action_effects(btrfs, fs_effects);
+        PosixTransferPipeline transfer_pipeline;
+        JsonFileBackupRunCheckpointStore checkpoints(fs::path(profile.paths.state_dir) / "profiles" / profile.id);
+        StatusBackupRunEventSink status_events({
+            .status_root = profile.paths.status_root,
+            .history_root = profile.paths.history_root,
+            .profile_name = profile.name,
+            .source_count = static_cast<int>(plan.sources.size()),
+            .started_at = options.timestamp,
+        });
+        CancellationToken cancellation;
+        BackupRunExecutor executor(action_effects, transfer_pipeline, checkpoints);
+        BackupRunExecutionResult result = executor.execute(plan, status_events, cancellation);
+
+        output << Json{
+            {"schemaVersion", 1},
+            {"mode", "experimental-cpp-execute"},
+            {"profileId", plan.profile_id},
+            {"runId", plan.run_id},
+            {"completed", result.completed},
+            {"cancelled", result.cancelled},
+            {"actionsCompleted", result.actions_completed}
+        }.dump(2) << '\n';
+        return result.completed ? 0 : 1;
     }
-
-    Profile profile = load_profile_by_id(profile_config_dir, profile_id);
-    std::vector<MountEntry> mounts = mount_uuid_overrides.empty()
-        ? read_mount_table(mountinfo)
-        : read_mount_table(mountinfo, [&mount_uuid_overrides](const std::string& source) {
-              auto found = mount_uuid_overrides.find(source);
-              if (found != mount_uuid_overrides.end()) {
-                  return found->second;
-              }
-              return blkid_filesystem_uuid(source);
-          });
-    validate_target_mount(profile, mounts);
-
-    SnapshotInventoryBySource local_inventory;
-    SnapshotInventoryBySource remote_inventory;
-    PendingMarkerBySource pending_markers;
-    PendingSnapshotBySource pending_snapshots;
-    const fs::path profile_state_dir = fs::path(profile.paths.state_dir) / "profiles" / profile.id;
-
-    for (const ProfileSource& source : profile.sources) {
-        if (!source.enabled) {
-            continue;
-        }
-        fs::path remote_dir = fs::path(profile.paths.remote_root) / source.remote_subdir;
-        local_inventory[source.id] = list_snapshot_inventory(
-            source.local_snapshot_dir,
-            source.id,
-            SnapshotSide::Local,
-            read_btrfs_snapshot_metadata
-        );
-        remote_inventory[source.id] = list_snapshot_inventory(
-            remote_dir,
-            source.id,
-            SnapshotSide::Remote,
-            read_btrfs_snapshot_metadata
-        );
-
-        std::optional<PendingMarker> marker = read_pending_marker_if_exists(profile_state_dir, source.id);
-        pending_markers[source.id] = marker;
-        if (marker.has_value()) {
-            pending_snapshots[source.id] = read_btrfs_snapshot_metadata(marker->local_snapshot_path);
-        }
-    }
-
-    BackupRunPlan plan = build_backup_run_plan(
-        profile,
-        mounts,
-        local_inventory,
-        remote_inventory,
-        pending_markers,
-        pending_snapshots,
-        run_id,
-        timestamp
-    );
 
     Json sources = Json::array();
     for (const BackupSourceRunPlan& source : plan.sources) {
