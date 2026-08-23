@@ -13,6 +13,7 @@
 #include <btrfsbackup/history.hpp>
 #include <btrfsbackup/profile_list.hpp>
 #include <btrfsbackup/status.hpp>
+#include <btrfsbackup/status_write_command.hpp>
 
 namespace fs = std::filesystem;
 
@@ -163,6 +164,113 @@ void test_history_limit() {
     fs::remove_all(root);
 }
 
+void test_write_status_command_writes_current_and_history() {
+    fs::path root = test_root("write-status");
+
+    btrfsbackup::command_write_status(
+        root / "status",
+        root / "history",
+        {
+            "--current",
+            "--history",
+            "--profile-id",
+            "default",
+            "--profile-name",
+            "Default backup",
+            "--run-id",
+            "20260823T024407Z-4298-30158",
+            "--state",
+            "succeeded",
+            "--phase",
+            "succeeded",
+            "--message",
+            "Backup completed.",
+            "--current-source-name",
+            "Home",
+            "--source-index",
+            "1",
+            "--source-count",
+            "2",
+            "--started-at",
+            "2026-08-23T02:44:07+00:00",
+            "--updated-at",
+            "2026-08-23T02:45:07+00:00",
+            "--finished-at",
+            "2026-08-23T02:45:07+00:00",
+            "--exit-code",
+            "0",
+        }
+    );
+
+    expect_eq("current exists", fs::is_regular_file(root / "status" / "default" / "current.json") ? "yes" : "no", "yes");
+    expect_eq("history exists", fs::is_regular_file(root / "history" / "default" / "20260823T024407Z-4298-30158.json") ? "yes" : "no", "yes");
+    expect_eq("last exists", fs::is_regular_file(root / "history" / "default" / "last.json") ? "yes" : "no", "yes");
+
+    std::ostringstream output;
+    btrfsbackup::command_status(root / "status", root / "history", {"--human"}, output);
+    expect_contains("write human status", output.str(), "Default backup: succeeded\n");
+    fs::remove_all(root);
+}
+
+void test_write_status_requires_target() {
+    expect_validation_error(
+        "write target",
+        [&] {
+            btrfsbackup::command_write_status(
+                "/tmp/status",
+                "/tmp/history",
+                {
+                    "--profile-id",
+                    "default",
+                    "--profile-name",
+                    "Default backup",
+                    "--run-id",
+                    "20260823T024407Z-4298-30158",
+                    "--state",
+                    "running",
+                    "--phase",
+                    "starting",
+                    "--started-at",
+                    "2026-08-23T02:44:07+00:00",
+                    "--updated-at",
+                    "2026-08-23T02:44:07+00:00",
+                }
+            );
+        },
+        "requires --current or --history"
+    );
+}
+
+void test_write_history_requires_finished_at() {
+    expect_validation_error(
+        "write history finished",
+        [&] {
+            btrfsbackup::command_write_status(
+                "/tmp/status",
+                "/tmp/history",
+                {
+                    "--history",
+                    "--profile-id",
+                    "default",
+                    "--profile-name",
+                    "Default backup",
+                    "--run-id",
+                    "20260823T024407Z-4298-30158",
+                    "--state",
+                    "succeeded",
+                    "--phase",
+                    "succeeded",
+                    "--started-at",
+                    "2026-08-23T02:44:07+00:00",
+                    "--updated-at",
+                    "2026-08-23T02:45:07+00:00",
+                }
+            );
+        },
+        "requires --finished-at"
+    );
+}
+
 } // namespace
 
 int main() {
@@ -173,6 +281,9 @@ int main() {
     test_status_human_format();
     test_list_profiles_rejects_invalid_name();
     test_history_limit();
+    test_write_status_command_writes_current_and_history();
+    test_write_status_requires_target();
+    test_write_history_requires_finished_at();
 
     if (failures > 0) {
         return 1;
