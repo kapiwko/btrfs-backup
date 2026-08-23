@@ -575,7 +575,9 @@ Json profile_to_json(const Profile& profile) {
     };
 }
 
-Json load_profile_by_id(const fs::path& etc_root, const std::string& profile_id) {
+namespace {
+
+Json load_profile_json(const fs::path& etc_root, const std::string& profile_id) {
     validate_identifier(profile_id, "profile");
     fs::path canonical = profile_json_path(etc_root, profile_id);
     if (fs::exists(canonical)) {
@@ -584,8 +586,10 @@ Json load_profile_by_id(const fs::path& etc_root, const std::string& profile_id)
     return load_profile_from_runtime(etc_root, profile_id);
 }
 
-Profile load_profile_model_by_id(const fs::path& etc_root, const std::string& profile_id) {
-    return profile_from_json(load_profile_by_id(etc_root, profile_id));
+} // namespace
+
+Profile load_profile_by_id(const fs::path& etc_root, const std::string& profile_id) {
+    return profile_from_json(load_profile_json(etc_root, profile_id));
 }
 
 } // namespace btrfsbackup

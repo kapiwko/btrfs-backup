@@ -22,9 +22,9 @@ using btrfsbackup::ValidationError;
 using btrfsbackup::atomic_write;
 using btrfsbackup::dump_json;
 using btrfsbackup::load_json_file;
-using btrfsbackup::load_profile_model_by_id;
+using btrfsbackup::load_profile_by_id;
 using btrfsbackup::Profile;
-using btrfsbackup::profile_model_from_environment_sources;
+using btrfsbackup::profile_from_environment_sources;
 using btrfsbackup::profile_from_json;
 using btrfsbackup::profile_to_json;
 using btrfsbackup::render_tree;
@@ -116,7 +116,7 @@ int profile_tool_main(int argc, char** argv) {
         if (command == "compose") {
             if (sources_table.empty()) fail("compose requires --sources-table");
             if (output_dir.empty()) fail("compose requires --output");
-            atomic_write(output_dir, dump_json(profile_to_json(profile_model_from_environment_sources(sources_table))), 0600);
+            atomic_write(output_dir, dump_json(profile_to_json(profile_from_environment_sources(sources_table))), 0600);
         } else if (command == "validate") {
             if (file.empty()) fail("validate requires --file");
             std::cout << dump_json(profile_to_json(profile_from_json(load_json_file(file))));
@@ -141,10 +141,10 @@ int profile_tool_main(int argc, char** argv) {
             save_tree(profile, etc_root, udev_root, public_root);
             std::cout << "Saved profile " << profile.id << "\n";
         } else if (command == "show") {
-            std::cout << dump_json(profile_to_json(load_profile_model_by_id(etc_root, profile_id)));
+            std::cout << dump_json(profile_to_json(load_profile_by_id(etc_root, profile_id)));
         } else if (command == "export") {
             if (output_dir.empty()) fail("export requires --output");
-            Profile profile = load_profile_model_by_id(etc_root, profile_id);
+            Profile profile = load_profile_by_id(etc_root, profile_id);
             atomic_write(output_dir, dump_json(profile_to_json(profile)), 0600);
             std::cout << "Exported profile " << profile.id << " to " << output_dir << "\n";
         } else {

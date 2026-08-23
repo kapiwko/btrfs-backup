@@ -6,6 +6,6 @@
 
 namespace btrfsbackup {
 
-Profile profile_model_from_environment_sources(const std::filesystem::path& sources_table);
+Profile profile_from_environment_sources(const std::filesystem::path& sources_table);
 
 } // namespace btrfsbackup
