@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.0.2 - 2026-08-23
+
+1. started replacing Python runtime tooling with C++ by porting
+   `btrfs-backup-profile` to a native helper under the `cpp/` source tree;
+2. package builds now compile and install the native profile helper;
+3. configurator and profile migrator now create canonical profile JSON through
+   the native helper instead of embedded Python snippets;
+4. generated runtime packages no longer depend on Python and the old Python
+   profile helper has been removed.
+
 ## 0.1.1 - 2026-08-23
 
 1. profile-aware configuration loading from `/etc/btrfs-backup/profiles.d/<profile>.env`;

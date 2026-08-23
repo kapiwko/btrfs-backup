@@ -90,6 +90,6 @@ The test covers:
 `tools/build-release.sh --target all` runs tests, creates the source tarball, builds all supported release targets, and writes SHA-256 reports. Package targets that produce installable archives are also smoke-tested where practical. After building the Arch target, also check:
 
 ```bash
-tar --zstd -tf dist/btrfs-backup-0.1.1-1-any.pkg.tar.zst
+tar --zstd -tf dist/btrfs-backup-1.0.2-1-x86_64.pkg.tar.zst
 sha256sum -c dist/SHA256SUMS
 ```

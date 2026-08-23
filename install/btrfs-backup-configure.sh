@@ -576,12 +576,12 @@ detect_runtime_script() {
 }
 
 detect_profile_helper() {
-    if [[ -x "$INSTALLED_PREFIX_ROOT/bin/btrfs-backup-profile" ]]; then
+    if [[ -x "$REPO_ROOT/bin/btrfs-backup-profile" ]]; then
+        printf '%s\n' "$REPO_ROOT/bin/btrfs-backup-profile"
+    elif [[ -x "$INSTALLED_PREFIX_ROOT/bin/btrfs-backup-profile" ]]; then
         printf '%s\n' "$INSTALLED_PREFIX_ROOT/bin/btrfs-backup-profile"
     elif [[ -x /usr/bin/btrfs-backup-profile ]]; then
         printf '%s\n' /usr/bin/btrfs-backup-profile
-    elif [[ -x "$REPO_ROOT/bin/btrfs-backup-profile" ]]; then
-        printf '%s\n' "$REPO_ROOT/bin/btrfs-backup-profile"
     else
         bb_die "Could not locate btrfs-backup-profile."
     fi
@@ -637,82 +637,7 @@ write_profile_json() {
     NOTIFY_ENABLE="$NOTIFY_ENABLE" \
     NOTIFY_USER="$NOTIFY_USER" \
     NOTIFY_METHOD="$NOTIFY_METHOD" \
-    python3 - "$destination" "$sources_table" <<'PY'
-import json
-import os
-import sys
-
-
-def as_bool(name):
-    return os.environ[name].lower() == "true"
-
-
-def as_int(name):
-    return int(os.environ[name])
-
-
-profile_id = os.environ["PROFILE_ID"]
-sources = []
-with open(sys.argv[2], "r", encoding="utf-8") as stream:
-    for line in stream:
-        source_id, subvolume, local_dir, remote_subdir, remote_retention, local_retention = line.rstrip("\n").split("\t")
-        sources.append(
-            {
-                "id": source_id,
-                "name": source_id,
-                "enabled": True,
-                "subvolume": subvolume,
-                "localSnapshotDir": local_dir,
-                "remoteSubdir": remote_subdir,
-                "remoteRetention": int(remote_retention),
-                "localRetention": int(local_retention),
-            }
-        )
-
-profile = {
-    "schemaVersion": 1,
-    "profileId": profile_id,
-    "name": os.environ["PROFILE_NAME"],
-    "enabled": True,
-    "target": {
-        "device": os.environ["BACKUP_DEVICE"],
-        "luksUuid": os.environ["BACKUP_LUKS_UUID"],
-        "btrfsUuid": os.environ["BACKUP_BTRFS_UUID"],
-        "partitionUuid": os.environ["BACKUP_PARTITION_UUID"],
-        "serial": os.environ["BACKUP_SERIAL"],
-        "mapperName": os.environ["BACKUP_MAPPER_NAME"],
-        "mountPoint": os.environ["BACKUP_MOUNTPOINT"],
-    },
-    "paths": {
-        "sourcesDir": f"/etc/btrfs-backup/profiles/{profile_id}/sources.d",
-        "remoteRoot": f"{os.environ['BACKUP_MOUNTPOINT']}/snapshots",
-        "incomingRoot": f"{os.environ['BACKUP_MOUNTPOINT']}/.incoming",
-        "stateDir": "/var/lib/btrfs-backup",
-        "statusRoot": "/run/btrfs-backup/profiles",
-        "historyRoot": "/var/lib/btrfs-backup/history",
-    },
-    "settings": {
-        "dailyLimit": as_bool("DAILY_LIMIT"),
-        "incrementalRequired": as_bool("INCREMENTAL_REQUIRED"),
-        "keepFailedLocalSnapshot": as_bool("KEEP_FAILED_LOCAL_SNAPSHOT"),
-        "autoEject": as_bool("AUTO_EJECT"),
-        "remoteRetention": as_int("RETENTION_COUNT"),
-        "localRetention": as_int("LOCAL_RETENTION_COUNT"),
-        "minimumTargetFreeBytes": as_int("MIN_TARGET_FREE_BYTES"),
-        "minimumLocalFreeBytes": as_int("MIN_LOCAL_FREE_BYTES"),
-    },
-    "notifications": {
-        "enabled": as_bool("NOTIFY_ENABLE"),
-        "user": os.environ["NOTIFY_USER"],
-        "method": os.environ["NOTIFY_METHOD"],
-    },
-    "sources": sources,
-}
-
-with open(sys.argv[1], "w", encoding="utf-8") as stream:
-    json.dump(profile, stream, indent=2)
-    stream.write("\n")
-PY
+    "$PROFILE_HELPER" compose --sources-table "$sources_table" --output "$destination"
 }
 
 validate_uuid() {
@@ -796,7 +721,9 @@ validate_rendered_tree() {
         bb_die "Unresolved placeholders remain in rendered files."
     fi
 
-    python3 -m json.tool "$profile_json" >/dev/null
+    local profile_helper
+    profile_helper="$(detect_profile_helper)"
+    "$profile_helper" validate --file "$profile_json" >/dev/null
     bash -n "$main_config" "${profile_files[@]}" "${source_files[@]}"
     verify_systemd_units "$service_file" "$profile_service_file"
     udevadm verify "$udev_file"
@@ -889,12 +816,11 @@ if [[ "$ACTION" == validate ]]; then
 fi
 
 if [[ "$ACTION" == validate-dir ]]; then
-    bb_require_commands bash grep python3 stat systemd-analyze udevadm
+    bb_require_commands bash grep stat systemd-analyze udevadm
     validate_rendered_tree "$VALIDATE_DIR"
     exit 0
 fi
 
-bb_require_commands python3
 [[ -d "$TEMPLATE_DIR" ]] || bb_die "Template directory does not exist: $TEMPLATE_DIR"
 if [[ -n "$ANSWERS_FILE" ]]; then
     load_answers_file

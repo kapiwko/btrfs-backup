@@ -96,20 +96,11 @@ META
 }
 
 syntax_test() {
+    make -C "$ROOT" >/dev/null
     mapfile -t scripts < <(find "$ROOT" -type f \( -name '*.sh' -o -name '*.install' -o \( -path "$ROOT/bin/*" ! -path "$ROOT/bin/__pycache__/*" \) \) | sort)
     local script
     for script in "${scripts[@]}"; do
-        if head -n1 "$script" | grep -q 'python3'; then
-            python3 - "$script" <<'PY'
-import pathlib
-import sys
-
-path = pathlib.Path(sys.argv[1])
-compile(path.read_text(encoding="utf-8"), str(path), "exec")
-PY
-        else
-            bash -n "$script"
-        fi
+        bash -n "$script"
     done
     pass 'all Bash files parse'
 }
