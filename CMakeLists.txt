@@ -12,6 +12,7 @@ find_package(nlohmann_json REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(MOUNT REQUIRED IMPORTED_TARGET mount)
 pkg_check_modules(UDEV REQUIRED IMPORTED_TARGET libudev)
+pkg_check_modules(BTRFSUTIL REQUIRED IMPORTED_TARGET libbtrfsutil)
 
 add_library(btrfsbackup_profile_tool STATIC
     cpp/src/command/installation_command.cpp
@@ -52,6 +53,7 @@ add_library(btrfsbackup_profile_tool STATIC
     cpp/src/run_state.cpp
     cpp/src/shell_env.cpp
     cpp/src/space_check.cpp
+    cpp/src/snapshot_inventory.cpp
     cpp/src/status_writer.cpp
     cpp/src/trusted_file.cpp
     cpp/src/validation.cpp
@@ -65,6 +67,7 @@ target_include_directories(btrfsbackup_profile_tool
 target_link_libraries(btrfsbackup_profile_tool
     PUBLIC
         nlohmann_json::nlohmann_json
+        PkgConfig::BTRFSUTIL
         PkgConfig::MOUNT
         PkgConfig::UDEV
 )
@@ -125,6 +128,10 @@ if(BUILD_TESTING)
 
     add_executable(btrfsbackup-space-check-tests
         cpp/tests/space_check_tests.cpp
+    )
+
+    add_executable(btrfsbackup-snapshot-inventory-tests
+        cpp/tests/snapshot_inventory_tests.cpp
     )
 
     add_executable(btrfsbackup-trusted-file-tests
@@ -190,6 +197,11 @@ if(BUILD_TESTING)
             btrfsbackup_profile_tool
     )
 
+    target_link_libraries(btrfsbackup-snapshot-inventory-tests
+        PRIVATE
+            btrfsbackup_profile_tool
+    )
+
     target_link_libraries(btrfsbackup-trusted-file-tests
         PRIVATE
             btrfsbackup_profile_tool
@@ -210,6 +222,7 @@ if(BUILD_TESTING)
     add_test(NAME file-lock-tests COMMAND btrfsbackup-file-lock-tests)
     add_test(NAME mount-info-tests COMMAND btrfsbackup-mount-info-tests)
     add_test(NAME space-check-tests COMMAND btrfsbackup-space-check-tests)
+    add_test(NAME snapshot-inventory-tests COMMAND btrfsbackup-snapshot-inventory-tests)
     add_test(NAME status-writer-tests COMMAND btrfsbackup-status-writer-tests)
     add_test(NAME trusted-file-tests COMMAND btrfsbackup-trusted-file-tests)
     add_test(NAME validation-tests COMMAND btrfsbackup-validation-tests)

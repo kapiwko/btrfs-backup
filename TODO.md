@@ -2,14 +2,6 @@
 
 ## C++ Runtime Migration
 
-- Add a C++ snapshot inventory model:
-  - parse and validate snapshot names;
-  - list local and remote snapshot directories;
-  - keep UUID, received UUID, readonly flag, path, source id and timestamp in
-    one typed structure;
-  - test sorting, invalid names and empty directories without requiring a real
-    Btrfs filesystem.
-
 - Add a C++ incremental parent selector:
   - match local snapshot UUID to remote received UUID;
   - reject ambiguous or missing parents when incremental backups are required;
