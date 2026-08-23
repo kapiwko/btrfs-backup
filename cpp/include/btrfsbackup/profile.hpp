@@ -80,5 +80,6 @@ Json normalize_profile(const Json& raw);
 Profile profile_from_json(const Json& raw);
 Json profile_to_json(const Profile& profile);
 Json load_profile_by_id(const std::filesystem::path& etc_root, const std::string& profile_id);
+Profile load_profile_model_by_id(const std::filesystem::path& etc_root, const std::string& profile_id);
 
 } // namespace btrfsbackup

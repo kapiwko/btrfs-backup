@@ -18,14 +18,15 @@
 #include <btrfsbackup/profile_store.hpp>
 
 namespace fs = std::filesystem;
-using json = btrfsbackup::Json;
 using btrfsbackup::ValidationError;
 using btrfsbackup::atomic_write;
 using btrfsbackup::dump_json;
 using btrfsbackup::load_json_file;
-using btrfsbackup::load_profile_by_id;
-using btrfsbackup::normalize_profile;
+using btrfsbackup::load_profile_model_by_id;
+using btrfsbackup::Profile;
 using btrfsbackup::profile_from_environment_sources;
+using btrfsbackup::profile_from_json;
+using btrfsbackup::profile_to_json;
 using btrfsbackup::render_tree;
 using btrfsbackup::save_tree;
 
@@ -118,7 +119,7 @@ int profile_tool_main(int argc, char** argv) {
             atomic_write(output_dir, dump_json(profile_from_environment_sources(sources_table)), 0600);
         } else if (command == "validate") {
             if (file.empty()) fail("validate requires --file");
-            std::cout << dump_json(normalize_profile(load_json_file(file)));
+            std::cout << dump_json(profile_to_json(profile_from_json(load_json_file(file))));
         } else if (command == "render") {
             if (file.empty()) fail("render requires --file");
             if (output_dir.empty()) fail("render requires --output-dir");
@@ -128,24 +129,24 @@ int profile_tool_main(int argc, char** argv) {
             }
             std::error_code ec;
             fs::remove_all(output_dir, ec);
-            json profile = normalize_profile(load_json_file(file));
+            Profile profile = profile_from_json(load_json_file(file));
             render_tree(profile, output_dir);
-            std::cout << "Rendered profile " << profile.at("profileId").get<std::string>() << " to " << output_dir << "\n";
+            std::cout << "Rendered profile " << profile.id << " to " << output_dir << "\n";
         } else if (command == "save") {
             if (file.empty()) fail("save requires --file");
             if (geteuid() != 0 && etc_root == "/etc/btrfs-backup") {
                 fail("save to system configuration must be run as root", 1);
             }
-            json profile = normalize_profile(load_json_file(file));
+            Profile profile = profile_from_json(load_json_file(file));
             save_tree(profile, etc_root, udev_root, public_root);
-            std::cout << "Saved profile " << profile.at("profileId").get<std::string>() << "\n";
+            std::cout << "Saved profile " << profile.id << "\n";
         } else if (command == "show") {
-            std::cout << dump_json(load_profile_by_id(etc_root, profile_id));
+            std::cout << dump_json(profile_to_json(load_profile_model_by_id(etc_root, profile_id)));
         } else if (command == "export") {
             if (output_dir.empty()) fail("export requires --output");
-            json profile = load_profile_by_id(etc_root, profile_id);
-            atomic_write(output_dir, dump_json(profile), 0600);
-            std::cout << "Exported profile " << profile.at("profileId").get<std::string>() << " to " << output_dir << "\n";
+            Profile profile = load_profile_model_by_id(etc_root, profile_id);
+            atomic_write(output_dir, dump_json(profile_to_json(profile)), 0600);
+            std::cout << "Exported profile " << profile.id << " to " << output_dir << "\n";
         } else {
             fail("unknown command: " + command);
         }

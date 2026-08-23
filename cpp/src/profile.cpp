@@ -584,4 +584,8 @@ Json load_profile_by_id(const fs::path& etc_root, const std::string& profile_id)
     return load_profile_from_runtime(etc_root, profile_id);
 }
 
+Profile load_profile_model_by_id(const fs::path& etc_root, const std::string& profile_id) {
+    return profile_from_json(load_profile_by_id(etc_root, profile_id));
+}
+
 } // namespace btrfsbackup
