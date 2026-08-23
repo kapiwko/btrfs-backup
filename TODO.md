@@ -2,11 +2,6 @@
 
 ## C++ Runtime Migration
 
-- Add a C++ pending recovery planner:
-  - read pending markers and snapshot inventory;
-  - decide whether to preserve, delete or retry a local snapshot;
-  - keep actual deletion in Bash until executor operations are ported.
-
 - Add a C++ backup run plan:
   - load profile JSON directly;
   - validate source, local snapshot directory and target constraints using the
