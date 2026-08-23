@@ -14,7 +14,5 @@
 Port helpers from `scripts/lib/btrfs-backup-common.sh` in small, testable steps
 before replacing larger runner flows.
 
-- Port free-space checks with `std::filesystem::space` as the C++ equivalent of
-  `bb_available_bytes` and `bb_check_minimum_free_space`.
 - Add an RAII file lock for the future runner and manager, matching
   `bb_acquire_lock` and `bb_release_lock`.
