@@ -21,8 +21,11 @@
     `profiles.d/*.env` files;
 11. `btrfs-backupctl profile create` now builds canonical profile JSON directly,
     replacing the old environment-and-TSV based profile compose path;
-12. `btrfs-backupctl profile validate-installation` now owns rendered and active
-    installation validation that used to live in the shell configurator.
+12. `btrfs-backupctl installation validate` now owns rendered and active
+    installation validation that used to live in the shell configurator;
+13. `btrfs-backupctl installation render` now renders systemd, fstab, and
+    crypttab installation files that used to be templated by the shell
+    configurator.
 
 ## 1.1.0 - 2026-08-23
 
