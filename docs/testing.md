@@ -42,6 +42,45 @@ source Btrfs -> snapshot -> send/receive -> disconnect -> reconnect -> restore
 
 The test should also cover process interruption, low disk space, and device loss.
 
+## QEMU Hotplug System Tests
+
+The Docker integration test is useful for real Btrfs, LUKS and package
+installation coverage, but it still cannot model the full desktop/system
+boundary: kernel hotplug events, udev rule delivery, systemd instance startup,
+device disappearance and reconnect behavior. Those cases belong in a separate
+QEMU-based system test target, outside the default suite.
+
+The target scenario should boot a minimal Arch Linux guest, install the package
+from the current source tree, create a Btrfs source filesystem, then dynamically
+attach a virtual USB target disk. The test should let udev trigger the
+configured systemd instance and verify:
+
+1. first full transfer;
+2. second incremental transfer;
+3. target detach after a successful run;
+4. reconnect of the same target;
+5. recovery from pending state created by an interrupted run;
+6. status and history JSON with stable `errorCode`, `errorMessage`, `details`,
+   `recoverable` and `suggestedAction` fields.
+
+Failure scenarios should be injected at the process or block-device boundary,
+not by shell mocks:
+
+1. `SIGKILL` for `btrfs send`;
+2. `SIGKILL` for `btrfs receive`;
+3. ENOSPC on the target;
+4. target remounted read-only;
+5. mapper loss while the run is active;
+6. corrupted active profile JSON;
+7. stale pending marker from an old run;
+8. interruption during commit;
+9. interruption after commit but before history write;
+10. guest suspend while transfer is active.
+
+Keep this harness opt-in. It needs QEMU, nested privileges, disposable disk
+images, and root-equivalent control inside the guest, so it should not run from
+`make` or the default local test script.
+
 ## Real Btrfs Docker Test
 
 The repository also includes a heavier Docker integration test that builds and
