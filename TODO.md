@@ -16,8 +16,21 @@
 - Move the main backup flow from Bash to C++ after parity tests pass:
   - keep Bash wrappers for mount/eject compatibility while needed;
   - keep existing integration tests as regression coverage;
+  - keep the runner executable independent from any long-lived manager process
+    so systemd can start a backup directly from a device event;
+  - make the runner read canonical profile JSON directly, without generated
+    `.env` or `.conf` runtime configuration;
   - remove Bash runtime code only after the C++ runner completes full,
     incremental, failure and recovery scenarios.
+
+- Define C++ runner completion criteria:
+  - full and incremental runs pass the existing compatibility suite;
+  - every backup phase has tests for success, failure and cancellation;
+  - interrupted transfers, interruption during commit and interruption after
+    commit before history are recoverable on the next run;
+  - cancellation terminates child processes and leaves retryable state;
+  - status/history formats and error taxonomy are documented;
+  - real Btrfs tests cover full backup, incremental backup and restore.
 
 - Add an asynchronous process runner for long-running backup work:
   - define a process interface that passes program and arguments separately;
@@ -77,6 +90,14 @@
   - use `libblkid` for filesystem type, labels and UUID identity;
   - postpone `libcryptsetup` until the state machine, D-Bus/control API,
     cancellation and recovery behavior are stable.
+
+- Keep profile validation single-sourced:
+  - use one C++ validator for CLI commands, runner, future manager API and
+    tests;
+  - keep `config/profile.schema.json` as the formal contract documentation;
+  - add tests that verify C++ validation and schema expectations stay aligned;
+  - reject unknown fields or explicitly preserve them as versioned extensions,
+    instead of silently ignoring them.
 
 ## Repository And Restore Roadmap
 
@@ -265,10 +286,21 @@
     run, history, validation, start, cancel, eject, save and delete operations;
   - require authorization for mutating or privileged operations while allowing
     unprivileged reads of status and history;
+  - treat `/run/btrfs-backup` and history JSON as recovery/fallback state, not
+    as the primary live communication channel when the daemon is active;
+  - recover visible run state after daemon restart by reading current status and
+    history files;
   - use polkit for daemon authorization rather than a short-lived privileged
     helper model;
   - consider `libsystemd` only for `sd_notify`, watchdog or structured journal
     needs, not as a competing application D-Bus layer.
+
+- Version the system control API:
+  - expose capabilities covering API version, profile schema version, status
+    schema version and optional features;
+  - make clients check capabilities before interpreting unknown formats;
+  - document read-only operations separately from operations that require
+    authorization.
 
 - Add backup freshness policy:
   - configure warning and critical age thresholds;
@@ -289,3 +321,30 @@
 - Add quick commands for status, manual backup, eject, history and restore:
   - route them through the same stable control API as other clients;
   - avoid launching competing backup processes by using the request queue.
+
+## Security And Migration Completion
+
+- Preserve explicit trust boundaries:
+  - runner and future system manager may run privileged;
+  - ordinary CLI invocations and user-facing clients must not write directly to
+    `/etc/btrfs-backup`;
+  - profile JSON remains root-owned configuration with strict permissions;
+  - configuration is data, not executable code.
+
+- Harden systemd units only with integration coverage:
+  - evaluate `CapabilityBoundingSet`, `ProtectSystem`, `ProtectHome`,
+    `PrivateTmp`, `NoNewPrivileges`, `RestrictAddressFamilies`,
+    `SystemCallFilter` and `DeviceAllow`;
+  - add each hardening option only after real mount, cryptsetup and Btrfs tests
+    prove it does not break supported workflows.
+
+- Define migration completion:
+  - backup starts from device events without a logged-in user;
+  - base package remains independent from any graphical session;
+  - canonical profile JSON is the only runtime configuration source;
+  - active backup survives user logout and manager/client restarts;
+  - progress is reported as exact, estimated or indeterminate without false
+    precision;
+  - interrupted runs are recoverable and documented;
+  - restore has been executed and documented on real Btrfs;
+  - API, profile, status and history formats are documented and versioned.
