@@ -14,7 +14,9 @@
    profile helper has been removed;
 8. profile migration is now handled natively by `btrfs-backupctl migrate-profile`,
    and the standalone migration wrapper and shell implementation have been
-   removed.
+   removed;
+9. backup, mount, and eject runtime entrypoints now load profile JSON as their
+   default profile configuration source.
 
 ## 0.1.1 - 2026-08-23
 

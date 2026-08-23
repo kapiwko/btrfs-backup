@@ -104,6 +104,58 @@ bb_load_config() {
     source "$config_file"
 }
 
+bb_backupctl_path() {
+    local candidate script_dir
+    script_dir="${SCRIPT_DIR:-}"
+    for candidate in \
+        "$script_dir/btrfs-backupctl" \
+        "$script_dir/../bin/btrfs-backupctl"; do
+        if [[ -n "$candidate" && -x "$candidate" ]]; then
+            realpath -m -- "$candidate"
+            return 0
+        fi
+    done
+    command -v btrfs-backupctl
+}
+
+bb_load_profile_json_config() {
+    local profile_json="$1"
+    local backupctl profile_env
+
+    bb_assert_trusted_config_file "$profile_json"
+    backupctl="$(bb_backupctl_path)" || bb_die "Could not locate btrfs-backupctl."
+    profile_env="$("$backupctl" profile env --file "$profile_json")" \
+        || bb_die "Could not load profile JSON: $profile_json"
+
+    # btrfs-backupctl validates JSON and emits trusted shell assignments.
+    # shellcheck disable=SC1090
+    source <(printf '%s\n' "$profile_env")
+}
+
+bb_resolve_profile_json() {
+    local profile_id="$1"
+    local explicit_profile_json="$2"
+    local profile_config_dir="$3"
+    local profile_root profile_json
+
+    if [[ -n "$explicit_profile_json" ]]; then
+        printf '%s\n' "$(realpath -m -- "$explicit_profile_json")"
+        return 0
+    fi
+
+    bb_validate_safe_name PROFILE_ID "$profile_id"
+    bb_validate_absolute_path PROFILE_CONFIG_DIR "$profile_config_dir"
+
+    profile_root="$(dirname -- "$profile_config_dir")"
+    profile_json="$profile_root/profiles/$profile_id/profile.json"
+    if [[ -e "$profile_json" ]]; then
+        printf '%s\n' "$profile_json"
+        return 0
+    fi
+
+    bb_die "Profile JSON does not exist: $profile_json"
+}
+
 bb_resolve_profile_config() {
     local profile_id="$1"
     local explicit_config="$2"
