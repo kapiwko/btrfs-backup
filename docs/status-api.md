@@ -82,7 +82,9 @@ skipped
 Transfer progress fields are present in every status document. During a live
 transfer, byte and speed fields are updated from the native transfer pipeline.
 The backup executor starts transfers through an asynchronous handle and forwards
-progress events from that running transfer into the status writer.
+progress events from that running transfer into the status writer. Transfer
+completion and cancellation are handled through pollable file descriptors rather
+than sleep-based polling in the executor.
 When no transfer is active or a value cannot be estimated, numeric progress
 fields use `0` or `-1` as documented below:
 

@@ -46,9 +46,11 @@ Rules for new C++ code:
     inspection, and `libblkid` for filesystem identity.
 11. Keep long-running transfer process orchestration separate from short
     synchronous administrative commands. The backup executor uses an
-    asynchronous transfer handle around the POSIX pump; a future event-loop
-    runner can replace that adapter, while simple tested POSIX execution remains
-    available for small operations and unit tests.
+    asynchronous transfer handle around the POSIX pump. Cancellation and
+    transfer completion are exposed as pollable file descriptors, and the POSIX
+    pump polls process pipes and cancellation together. A future event-loop
+    runner can replace the threaded adapter, while simple tested POSIX execution
+    remains available for small operations and unit tests.
 12. Do not make the base package depend on a graphical session. Any future
     desktop integration must communicate with the system backend instead of
     becoming part of the backup core.
