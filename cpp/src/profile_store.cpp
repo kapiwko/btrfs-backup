@@ -30,7 +30,6 @@ std::string iso_now() {
 
 void render_tree(const Profile& profile, const fs::path& output_dir) {
     fs::path root = output_dir / "etc" / "btrfs-backup";
-    atomic_write(root / "profiles.d" / (profile.id + ".env"), render_profile_env(profile), 0600);
     atomic_write(root / "profiles" / profile.id / "profile.json", dump_json(profile_to_json(profile)), 0600);
     atomic_write(output_dir / "etc" / "udev" / "rules.d" / ("99-btrfs-backup-" + profile.id + ".rules"), render_udev(profile), 0644);
     Json public_profile = profile_to_json(profile);
@@ -40,7 +39,6 @@ void render_tree(const Profile& profile, const fs::path& output_dir) {
 
 void save_tree(const Profile& profile, const fs::path& etc_root, const fs::path& udev_root, const fs::path& public_root) {
     fs::path source_root = map_etc_path(profile.paths.sources_dir, etc_root);
-    atomic_write(etc_root / "profiles.d" / (profile.id + ".env"), render_profile_env(profile), 0600);
     atomic_write(etc_root / "profiles" / profile.id / "profile.json", dump_json(profile_to_json(profile)), 0600);
     if (fs::exists(source_root)) {
         auto now = std::chrono::system_clock::now();

@@ -11,7 +11,6 @@ REQUESTED_PROFILE_ID="${BTRFS_BACKUP_PROFILE:-default}"
 PROFILE_WAS_REQUESTED=0
 [[ -n "${BTRFS_BACKUP_PROFILE:-}" ]] && PROFILE_WAS_REQUESTED=1
 PROFILE_CONFIG_DIR="${BTRFS_BACKUP_PROFILE_CONFIG_DIR:-/etc/btrfs-backup/profiles.d}"
-CONFIG_FILE="${BTRFS_BACKUP_CONFIG:-}"
 PROFILE_JSON_FILE="${BTRFS_BACKUP_PROFILE_JSON:-}"
 FORCE_RUN=0
 VALIDATE_ONLY=0
@@ -39,7 +38,6 @@ Usage: btrfs-backup [options]
 
 Options:
   --profile ID   Use /etc/btrfs-backup/profiles/ID/profile.json.
-  --config PATH   Use a non-default generated env configuration file.
   --force         Run even if a successful backup was already made today.
   --validate      Mount the target and validate configuration without creating snapshots.
   --no-eject      Do not automatically eject after a manual invocation.
@@ -49,11 +47,6 @@ USAGE
 
 while (( $# > 0 )); do
     case "$1" in
-        --config)
-            [[ $# -ge 2 ]] || bb_die "--config requires a path."
-            CONFIG_FILE="$2"
-            shift 2
-            ;;
         --profile)
             [[ $# -ge 2 ]] || bb_die "--profile requires an identifier."
             REQUESTED_PROFILE_ID="$2"
@@ -83,13 +76,8 @@ while (( $# > 0 )); do
 done
 
 load_main_config() {
-    if [[ -n "$CONFIG_FILE" ]]; then
-        CONFIG_FILE="$(bb_resolve_profile_config "$REQUESTED_PROFILE_ID" "$CONFIG_FILE" "$PROFILE_CONFIG_DIR")"
-        bb_load_config "$CONFIG_FILE"
-    else
-        PROFILE_JSON_FILE="$(bb_resolve_profile_json "$REQUESTED_PROFILE_ID" "$PROFILE_JSON_FILE" "$PROFILE_CONFIG_DIR")"
-        bb_load_profile_json_config "$PROFILE_JSON_FILE"
-    fi
+    PROFILE_JSON_FILE="$(bb_resolve_profile_json "$REQUESTED_PROFILE_ID" "$PROFILE_JSON_FILE" "$PROFILE_CONFIG_DIR")"
+    bb_load_profile_json_config "$PROFILE_JSON_FILE"
 
     PROFILE_ID="${PROFILE_ID:-$REQUESTED_PROFILE_ID}"
     if (( PROFILE_WAS_REQUESTED == 1 )) && [[ "$PROFILE_ID" != "$REQUESTED_PROFILE_ID" ]]; then
@@ -173,24 +161,7 @@ load_main_config() {
     fi
 
     PROFILE_STATE_DIR="$STATE_DIR/profiles/$PROFILE_ID"
-    if [[ -n "$PROFILE_JSON_FILE" ]]; then
-        PROFILE_JSON_FILE="$(realpath -m -- "$PROFILE_JSON_FILE")"
-    elif [[ -z "$CONFIG_FILE" ]]; then
-        PROFILE_JSON_FILE="$(bb_resolve_profile_json "$PROFILE_ID" "" "$PROFILE_CONFIG_DIR")"
-    elif [[ "$(realpath -m -- "$CONFIG_FILE")" == "$(realpath -m -- "$PROFILE_CONFIG_DIR/$PROFILE_ID.env")" ]]; then
-        PROFILE_JSON_FILE="$(dirname -- "$PROFILE_CONFIG_DIR")/profiles/$PROFILE_ID/profile.json"
-    else
-        PROFILE_JSON_FILE=""
-    fi
-
-    local config_mode
-    config_mode="$(stat -c '%a' "$CONFIG_FILE" 2>/dev/null || true)"
-    if [[ "$config_mode" =~ ^[0-7]{3,4}$ ]]; then
-        local permissions=$((8#$config_mode))
-        if (( permissions & 0077 )); then
-            bb_warn "Configuration file should not be group/world accessible: $CONFIG_FILE (mode $config_mode)"
-        fi
-    fi
+    PROFILE_JSON_FILE="$(realpath -m -- "$PROFILE_JSON_FILE")"
 }
 
 backupctl_path() {
@@ -509,7 +480,7 @@ on_exit() {
         && (( NO_EJECT == 0 )) \
         && bb_bool_is_true "${AUTO_EJECT:-false}"; then
         bb_release_lock
-        "$EJECT_SCRIPT_PATH" --from-runner --config "$CONFIG_FILE"
+        "$EJECT_SCRIPT_PATH" --from-runner --profile "$PROFILE_ID"
         eject_status=$?
         if (( eject_status != 0 && status == 0 )); then
             status=$eject_status
@@ -533,17 +504,28 @@ on_interrupt() {
 }
 
 compute_config_fingerprint() {
-    local backupctl
+    local backupctl profile_env_dir profile_env_file fingerprint_status
+    backupctl="$(backupctl_path)" || return 1
+    profile_env_dir="$(mktemp -d)"
+    profile_env_file="$profile_env_dir/profile.env"
+    : > "$profile_env_file"
+    chmod 0600 "$profile_env_file"
+    if ! "$backupctl" profile env --file "$PROFILE_JSON_FILE" > "$profile_env_file"; then
+        rm -rf -- "$profile_env_dir"
+        return 1
+    fi
     local args=(
         config-fingerprint
         --version "$BTRFS_BACKUP_VERSION"
-        --config "$CONFIG_FILE"
+        --config "$profile_env_file"
     )
 
     args+=(--source "$PROFILE_JSON_FILE")
 
-    backupctl="$(backupctl_path)" || return 1
     "$backupctl" "${args[@]}"
+    fingerprint_status=$?
+    rm -rf -- "$profile_env_dir"
+    return "$fingerprint_status"
 }
 
 last_success_is_today() {

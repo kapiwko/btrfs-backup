@@ -2,10 +2,8 @@
 
 ## Canonical Profile JSON
 
-The canonical format for tooling is a JSON profile document matching
-`config/profile.schema.json`. The runner reads source definitions from this
-JSON; generated shell files are compatibility runtime metadata, not a separate
-source of truth.
+The canonical format for tooling and runtime is a JSON profile document matching
+`config/profile.schema.json`.
 
 ```bash
 btrfs-backupctl profile validate --file profile.json
@@ -18,7 +16,6 @@ btrfs-backupctl profile export --profile default --output profile.json
 `save` writes:
 
 ```text
-/etc/btrfs-backup/profiles.d/<profile>.env
 /etc/btrfs-backup/profiles/<profile>/profile.json
 /etc/udev/rules.d/99-btrfs-backup-<profile>.rules
 /var/lib/btrfs-backup/public/profiles/<profile>.json
@@ -30,11 +27,11 @@ first and then materializes derived files from that JSON.
 ## Runtime Profile Files
 
 The preferred active profile file is
-`/etc/btrfs-backup/profiles.d/<profile>.env`. Commands select a profile with
+`/etc/btrfs-backup/profiles/<profile>/profile.json`. Commands select a profile with
 `--profile <profile>` or `BTRFS_BACKUP_PROFILE=<profile>`.
 
 The legacy `/etc/btrfs-backup/backup.env` file is no longer used by the runtime.
-Use `btrfs-backupctl migrate-profile` to convert it to a profile JSON and env file.
+Use `btrfs-backupctl migrate-profile` to convert it to profile JSON.
 
 Important fields:
 
@@ -48,7 +45,6 @@ Important fields:
 | `BACKUP_BTRFS_UUID` | optional Btrfs UUID inside LUKS |
 | `BACKUP_MOUNTPOINT` | target mount point |
 | `BACKUP_MOUNT_UNIT` | `.mount` unit matching the mount point |
-| `SOURCES_DIR` | legacy source definition directory retained for migration compatibility |
 | `REMOTE_ROOT` | directory for committed snapshots on the target |
 | `INCOMING_ROOT` | directory for uncommitted receives |
 | `RETENTION_COUNT` | default number of remote snapshots; `0` means unlimited |
@@ -78,9 +74,8 @@ To convert an existing legacy file into the preferred default profile:
 sudo btrfs-backupctl migrate-profile --profile default
 ```
 
-The migrator creates canonical profile JSON, materializes
-`/etc/btrfs-backup/profiles.d/default.env`, and keeps the legacy input files
-in place unless `--remove-legacy` is used.
+The migrator creates canonical profile JSON and keeps the legacy input files in
+place unless `--remove-legacy` is used.
 
 ## JSON Schema
 

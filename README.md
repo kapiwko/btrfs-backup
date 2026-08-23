@@ -50,7 +50,6 @@ sudo btrfs-backup-configure --apply
 `--apply` installs:
 
 ```text
-/etc/btrfs-backup/profiles.d/default.env
 /etc/btrfs-backup/profiles/default/profile.json
 /var/lib/btrfs-backup/public/profiles/default.json
 /etc/systemd/system/btrfs-backup.service

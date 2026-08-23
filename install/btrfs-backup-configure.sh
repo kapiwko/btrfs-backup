@@ -704,11 +704,9 @@ validate_rendered_tree() {
     local service_file="$root/systemd/btrfs-backup.service"
     local profile_service_file="$root/systemd/btrfs-backup@.service"
     local udev_file="$root/udev/99-btrfs-backup.rules"
-    local profile_files=("$root/config/profiles.d"/*.env)
     local profile_json="$root/config/profile.json"
 
     [[ -f "$profile_json" ]] || bb_die "Missing rendered canonical profile JSON: $profile_json"
-    (( ${#profile_files[@]} > 0 )) || bb_die "No rendered profile configuration found."
     [[ -f "$service_file" ]] || bb_die "Missing rendered systemd unit: $service_file"
     [[ -f "$profile_service_file" ]] || bb_die "Missing rendered systemd template unit: $profile_service_file"
     [[ -f "$udev_file" ]] || bb_die "Missing rendered udev rule: $udev_file"
@@ -719,7 +717,6 @@ validate_rendered_tree() {
     local profile_helper
     profile_helper="$(detect_profile_helper)"
     "$profile_helper" profile validate --file "$profile_json" >/dev/null
-    bash -n "${profile_files[@]}"
     verify_systemd_units "$service_file" "$profile_service_file"
     udevadm verify "$udev_file"
     bb_log INFO "Rendered configuration passed syntax, systemd, and udev validation: $root"
@@ -761,20 +758,15 @@ verify_systemd_units() {
 
 validate_active_installation() {
     bb_require_root
-    local active_config=/etc/btrfs-backup/profiles.d/default.env
+    local profile_id="${PROFILE_ID:-default}"
+    local profile_json="/etc/btrfs-backup/profiles/$profile_id/profile.json"
     local service_file=/etc/systemd/system/btrfs-backup.service
     local profile_service_file=/etc/systemd/system/btrfs-backup@.service
     local udev_file=/etc/udev/rules.d/99-btrfs-backup.rules
     local verify_units=("$service_file")
 
-    [[ -f "$active_config" ]] || bb_die "Missing $active_config"
-    bb_assert_trusted_config_file "$active_config"
-    # shellcheck disable=SC1090
-    source "$active_config"
-    local profile_id="${PROFILE_ID:-default}"
-    local profile_json="/etc/btrfs-backup/profiles/$profile_id/profile.json"
     [[ -f "$profile_json" ]] || bb_die "Missing profile JSON: $profile_json"
-    bb_assert_trusted_config_file "$profile_json"
+    bb_load_profile_json_config "$profile_json"
     [[ -f "$service_file" ]] || bb_die "Missing $service_file"
     [[ -f "$udev_file" ]] || bb_die "Missing $udev_file"
     if grep -q 'btrfs-backup@' "$udev_file"; then
@@ -782,7 +774,6 @@ validate_active_installation() {
         verify_units+=("$profile_service_file")
     fi
 
-    bash -n "$active_config"
     "$(detect_profile_helper)" profile validate --file "$profile_json" >/dev/null
     verify_systemd_units "${verify_units[@]}"
     udevadm verify "$udev_file"
@@ -891,7 +882,7 @@ render_template "$TEMPLATE_DIR/config/crypttab.fragment.example" "$OUTPUT_DIR/co
 render_template "$TEMPLATE_DIR/systemd/btrfs-backup.service.example" "$OUTPUT_DIR/systemd/btrfs-backup.service"
 render_template "$TEMPLATE_DIR/systemd/btrfs-backup@.service.example" "$OUTPUT_DIR/systemd/btrfs-backup@.service"
 
-chmod 0600 "$OUTPUT_DIR/config/profiles.d"/*.env "$OUTPUT_DIR/config/profiles/$PROFILE_ID/profile.json"
+chmod 0600 "$OUTPUT_DIR/config/profiles/$PROFILE_ID/profile.json"
 validate_rendered_tree "$OUTPUT_DIR"
 
 if [[ "$ACTION" == apply ]]; then
@@ -927,9 +918,6 @@ if [[ "$ACTION" == apply ]]; then
     backup_existing_file /etc/systemd/system/btrfs-backup@.service 'btrfs-backup@.service'
     backup_existing_file /etc/udev/rules.d/99-btrfs-backup.rules 99-btrfs-backup.rules
 
-    install -d -m0700 /etc/btrfs-backup/profiles.d
-    install -m0600 "$OUTPUT_DIR/config/profiles.d/$PROFILE_ID.env" "/etc/btrfs-backup/profiles.d/.$PROFILE_ID.env.new"
-    mv -f -- "/etc/btrfs-backup/profiles.d/.$PROFILE_ID.env.new" "/etc/btrfs-backup/profiles.d/$PROFILE_ID.env"
     install -d -m0700 "/etc/btrfs-backup/profiles/$PROFILE_ID"
     rm -rf -- "/etc/btrfs-backup/profiles/$PROFILE_ID/sources.d"
     install -Dm0600 "$OUTPUT_DIR/config/profile.json" "/etc/btrfs-backup/profiles/$PROFILE_ID/profile.json"
@@ -942,6 +930,7 @@ if [[ "$ACTION" == apply ]]; then
     install -Dm0644 "$OUTPUT_DIR/udev/99-btrfs-backup.rules" /etc/udev/rules.d/.99-btrfs-backup.rules.new
     mv -f -- /etc/udev/rules.d/.99-btrfs-backup.rules.new /etc/udev/rules.d/99-btrfs-backup.rules
     rm -f -- /etc/btrfs-backup/backup.env
+    rm -rf -- /etc/btrfs-backup/profiles.d
 
     migrate_old_dropin() {
         local path="$1"
@@ -973,7 +962,6 @@ if [[ "$ACTION" == apply ]]; then
 
     cat <<MSG
 Installed active configuration:
-  /etc/btrfs-backup/profiles.d/$PROFILE_ID.env
   /etc/btrfs-backup/profiles/$PROFILE_ID/profile.json
   /var/lib/btrfs-backup/public/profiles/$PROFILE_ID.json
   /etc/systemd/system/btrfs-backup.service

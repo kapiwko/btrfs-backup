@@ -137,10 +137,6 @@ ANSWERS
         --render-only >/dev/null
 
     assert_file "$output/config/profile.json"
-    assert_file "$output/config/profiles.d/laptop.env"
-    assert_contains "$output/config/profiles.d/laptop.env" "PROFILE_ID=laptop"
-    assert_contains "$output/config/profiles.d/laptop.env" "PROFILE_NAME='Laptop backup'"
-    assert_contains "$output/config/profiles.d/laptop.env" "SOURCES_DIR=/etc/btrfs-backup/profiles/laptop/sources.d"
     assert_file "$output/config/profiles/laptop/profile.json"
     assert_contains "$output/config/profile.json" '"profileId": "laptop"'
     assert_file "$output/systemd/btrfs-backup.service"
@@ -209,21 +205,18 @@ CONFIG
         --public-dir "$public_dir" \
         --profile default \
         --name 'Default backup' >/dev/null
-    assert_file "$profile_dir/default.env"
+    assert_not_exists "$profile_dir/default.env"
     assert_file "$TEST_ROOT/profiles/default/profile.json"
     assert_file "$udev_dir/99-btrfs-backup-default.rules"
     assert_file "$public_dir/default.json"
-    assert_contains "$profile_dir/default.env" "SOURCES_DIR=$TEST_ROOT/profiles/default/sources.d"
     assert_contains "$TEST_ROOT/profiles/default/profile.json" '"profileId": "default"'
 
-    printf 'PROFILE_ID=laptop\n' > "$profile_dir/laptop.env"
     local profile_list
     profile_list="$("$ROOT/bin/btrfs-backupctl" \
         --profile-dir "$profile_dir" \
         list-profiles)"
-    grep -qx laptop <<< "$profile_list" \
+    grep -qx default <<< "$profile_list" \
         || fail 'btrfs-backupctl did not list profile files'
-    rm -f -- "$profile_dir/laptop.env"
     local empty_history
     empty_history="$("$ROOT/bin/btrfs-backupctl" \
         --history-root "$TEST_ROOT/missing-history" \
@@ -273,7 +266,7 @@ JSON
         --public-dir "$public_dir" \
         --profile removelegacy \
         --remove-legacy >/dev/null
-    assert_file "$profile_dir/removelegacy.env"
+    assert_not_exists "$profile_dir/removelegacy.env"
     assert_file "$udev_dir/99-btrfs-backup-removelegacy.rules"
     assert_not_exists "$remove_config"
     assert_not_exists "$remove_source_dir"
@@ -300,11 +293,10 @@ profile_json_test() {
         --file "$ROOT/config/profile.example.json" \
         --output-dir "$rendered" >/dev/null
 
-    assert_file "$rendered/etc/btrfs-backup/profiles.d/default.env"
+    assert_not_exists "$rendered/etc/btrfs-backup/profiles.d/default.env"
     assert_file "$rendered/etc/btrfs-backup/profiles/default/profile.json"
     assert_file "$rendered/etc/udev/rules.d/99-btrfs-backup-default.rules"
     assert_file "$rendered/var/lib/btrfs-backup/public/profiles/default.json"
-    assert_contains "$rendered/etc/btrfs-backup/profiles.d/default.env" 'PROFILE_ID=default'
     assert_contains "$rendered/etc/btrfs-backup/profiles/default/profile.json" '"id": "home"'
     assert_contains "$rendered/etc/udev/rules.d/99-btrfs-backup-default.rules" 'btrfs-backup@default.service'
 
@@ -314,7 +306,7 @@ profile_json_test() {
         --public-root "$saved/var/lib/btrfs-backup/public/profiles" \
         save --file "$ROOT/config/profile.example.json" >/dev/null
 
-    assert_file "$saved/etc/btrfs-backup/profiles.d/default.env"
+    assert_not_exists "$saved/etc/btrfs-backup/profiles.d/default.env"
     assert_file "$saved/etc/btrfs-backup/profiles/default/profile.json"
     assert_file "$saved/etc/udev/rules.d/99-btrfs-backup-default.rules"
     assert_file "$saved/var/lib/btrfs-backup/public/profiles/default.json"
@@ -549,6 +541,28 @@ fi
 exit 1
 MOCK
 
+    cat > "$mockbin/readlink" <<'MOCK'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "${1:-}" == -f ]]; then
+    shift
+fi
+if [[ "${1:-}" == -- ]]; then
+    shift
+fi
+case "${1:-}" in
+    "/dev/disk/by-uuid/$MOCK_LUKS_UUID")
+        printf '%s\n' "$MOCK_PHYSICAL_DEVICE"
+        ;;
+    "/dev/mapper/$MOCK_MAPPER_NAME")
+        printf '%s\n' "$MOCK_DM_DEVICE"
+        ;;
+    *)
+        /usr/bin/readlink -f -- "$1"
+        ;;
+esac
+MOCK
+
     cat > "$mockbin/cryptsetup" <<'MOCK'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -603,10 +617,10 @@ prepare_runtime_fixture() {
     MOCKBIN="$RUNTIME/mockbin"
     MOCK_LOG="$RUNTIME/mock.log"
     MOCK_MOUNTPOINT="$RUNTIME/mnt/backup"
+    MOCK_LUKS_UUID=11111111-2222-3333-4444-555555555555
     MOCK_PHYSICAL_DEVICE="$RUNTIME/dev/sdb1"
     MOCK_DM_DEVICE="$RUNTIME/dev/dm-0"
-    MOCK_DEVICE_LINK="$RUNTIME/dev/disk/by-uuid/test-luks"
-    MOCK_LUKS_UUID=11111111-2222-3333-4444-555555555555
+    MOCK_DEVICE_LINK="/dev/disk/by-uuid/$MOCK_LUKS_UUID"
     MOCK_TARGET_UUID=aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee
     MOCK_SOURCE_UUID=99999999-8888-7777-6666-555555555555
     SOURCES_DIR="$RUNTIME/config/sources.d"
@@ -619,15 +633,14 @@ prepare_runtime_fixture() {
     SOURCE_HOME="$RUNTIME/sources/home"
     LOCAL_ROOT="$RUNTIME/local/root"
     LOCAL_HOME="$RUNTIME/local/home"
-    CONFIG_FILE="$RUNTIME/config/profiles.d/default.env"
+    CONFIG_FILE="$RUNTIME/config/legacy.env"
     PROFILE_JSON_FILE="$RUNTIME/config/profiles/default/profile.json"
 
     rm -rf -- "$RUNTIME"
-    mkdir -p "$MOCKBIN" "$RUNTIME/dev/disk/by-uuid" "$RUNTIME/dev" "$SOURCES_DIR" "$(dirname -- "$CONFIG_FILE")" "$(dirname -- "$PROFILE_JSON_FILE")" \
+    mkdir -p "$MOCKBIN" "$RUNTIME/dev" "$SOURCES_DIR" "$(dirname -- "$CONFIG_FILE")" "$(dirname -- "$PROFILE_JSON_FILE")" \
         "$STATE_DIR" "$SOURCE_ROOT" "$SOURCE_HOME" "$LOCAL_ROOT" "$LOCAL_HOME" "$MOCK_MOUNTPOINT" /dev/mapper
     : > "$MOCK_PHYSICAL_DEVICE"
     : > "$MOCK_DM_DEVICE"
-    ln -s "$MOCK_PHYSICAL_DEVICE" "$MOCK_DEVICE_LINK"
     ln -sfn "$MOCK_DM_DEVICE" "$MAPPER_PATH"
     : > "$MOCK_LOG"
 
@@ -758,7 +771,7 @@ run_backup() {
         MOCK_SOURCE_UUID="$MOCK_SOURCE_UUID" \
         BTRFS_BACKUP_PROFILE_JSON="$PROFILE_JSON_FILE" \
         "${EXTRA_ENV[@]}" \
-        "$ROOT/scripts/btrfs-backup.sh" --config "$CONFIG_FILE" "$@"
+        "$ROOT/scripts/btrfs-backup.sh" "$@"
 }
 
 run_backup_profile() {
@@ -777,7 +790,6 @@ run_backup_profile() {
         MOCK_LUKS_UUID="$MOCK_LUKS_UUID" \
         MOCK_TARGET_UUID="$MOCK_TARGET_UUID" \
         MOCK_SOURCE_UUID="$MOCK_SOURCE_UUID" \
-        BTRFS_BACKUP_PROFILE_JSON="$PROFILE_JSON_FILE" \
         "${EXTRA_ENV[@]}" \
         "$ROOT/scripts/btrfs-backup.sh" "$@"
 }
@@ -786,7 +798,6 @@ profile_loading_test() {
     prepare_runtime_fixture
     EXTRA_ENV=()
     local profile_dir="$RUNTIME/config/profiles.d"
-    local migrated="$profile_dir/default.env"
     local empty_profile_dir="$RUNTIME/config/empty-profiles.d"
     local migration_config="$RUNTIME/config/migration.env"
 
@@ -802,11 +813,8 @@ profile_loading_test() {
         --profile default \
         --force >/dev/null
 
-    assert_file "$migrated"
-    assert_contains "$migrated" 'PROFILE_ID=default'
-    assert_contains "$migrated" "PROFILE_NAME='Default backup'"
     assert_file "$RUNTIME/config/profiles/default/profile.json"
-    sed -i "s|^BACKUP_DEVICE=.*|BACKUP_DEVICE=$MOCK_DEVICE_LINK|" "$migrated"
+    perl -0pi -e 's#"device": "[^"]*"#"device": "/dev/disk/by-uuid/'"$MOCK_LUKS_UUID"'"#' "$RUNTIME/config/profiles/default/profile.json"
 
     local profile_list
     profile_list="$("$ROOT/bin/btrfs-backupctl" \
@@ -818,9 +826,10 @@ profile_loading_test() {
     run_backup_profile "$profile_dir" --profile default --validate --no-eject >/dev/null
     assert_contains "$STATUS_ROOT/default/current.json" '"state": "validated"'
 
-    cp -- "$CONFIG_FILE" "$profile_dir/mismatch.env"
-    printf '\nPROFILE_ID=other\n' >> "$profile_dir/mismatch.env"
-    chmod 0600 "$profile_dir/mismatch.env"
+    install -d -m0700 "$RUNTIME/config/profiles/mismatch"
+    cp -- "$RUNTIME/config/profiles/default/profile.json" "$RUNTIME/config/profiles/mismatch/profile.json"
+    perl -0pi -e 's#"profileId": "default"#"profileId": "other"#' "$RUNTIME/config/profiles/mismatch/profile.json"
+    chmod 0600 "$RUNTIME/config/profiles/mismatch/profile.json"
     if run_backup_profile "$profile_dir" --profile mismatch --validate --no-eject >/dev/null 2>&1; then
         fail 'profile id mismatch was accepted'
     fi
@@ -953,17 +962,11 @@ target_loss_recovery_test() {
 trusted_config_test() {
     prepare_runtime_fixture
     EXTRA_ENV=()
-    chmod 0644 "$CONFIG_FILE"
-    if run_backup --force >/dev/null 2>&1; then
-        fail 'world-readable main configuration was accepted'
-    fi
-
-    chmod 0600 "$CONFIG_FILE"
     chmod 0644 "$PROFILE_JSON_FILE"
     if run_backup --force >/dev/null 2>&1; then
         fail 'world-readable profile JSON was accepted'
     fi
-    pass 'runtime rejects active shell and JSON configuration that is not root-only'
+    pass 'runtime rejects active JSON configuration that is not root-only'
 }
 
 same_filesystem_rejected_test() {
@@ -1006,7 +1009,8 @@ eject_test() {
         MOCK_LUKS_UUID="$MOCK_LUKS_UUID" \
         MOCK_TARGET_UUID="$MOCK_TARGET_UUID" \
         MOCK_SOURCE_UUID="$MOCK_SOURCE_UUID" \
-        "$ROOT/scripts/btrfs-backup-eject.sh" --config "$CONFIG_FILE" >/dev/null
+        BTRFS_BACKUP_PROFILE_JSON="$PROFILE_JSON_FILE" \
+        "$ROOT/scripts/btrfs-backup-eject.sh" >/dev/null
 
     assert_not_exists "$MOCK_MOUNTPOINT/.mock-mounted"
     assert_not_exists "$MAPPER_PATH"

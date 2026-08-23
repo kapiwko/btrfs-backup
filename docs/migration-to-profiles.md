@@ -1,20 +1,17 @@
 # Migration To Profiles
 
-Version 0.1.1 introduces profile configuration files:
+Version 0.2 uses profile JSON as the runtime configuration file:
 
 ```text
-/etc/btrfs-backup/profiles.d/<profile>.env
 /etc/btrfs-backup/profiles/<profile>/profile.json
 ```
 
-The backup runtime uses `profile.json` for source definitions.
-
 The legacy `/etc/btrfs-backup/backup.env` file is accepted only by the migrator.
-The runtime requires a profile env and profile JSON.
+The runtime requires profile JSON.
 
 For new tooling, the canonical source format is JSON. Use
-`btrfs-backupctl profile save --file profile.json` to generate the runtime profile
-files from that JSON.
+`btrfs-backupctl profile save --file profile.json` to generate runtime files from
+that JSON.
 
 ## Convert The Existing Configuration
 
@@ -47,7 +44,6 @@ The command keeps timestamped backups next to the original legacy paths.
 Newly rendered configuration includes:
 
 ```text
-/etc/btrfs-backup/profiles.d/<profile>.env
 /etc/btrfs-backup/profiles/<profile>/profile.json
 /etc/systemd/system/btrfs-backup@.service
 /etc/udev/rules.d/99-btrfs-backup.rules
