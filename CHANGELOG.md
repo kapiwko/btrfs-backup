@@ -20,7 +20,9 @@
 10. profile render, save, migration, and configurator flows no longer generate
     `profiles.d/*.env` files;
 11. `btrfs-backupctl profile create` now builds canonical profile JSON directly,
-    replacing the old environment-and-TSV based profile compose path.
+    replacing the old environment-and-TSV based profile compose path;
+12. `btrfs-backupctl profile validate-installation` now owns rendered and active
+    installation validation that used to live in the shell configurator.
 
 ## 0.1.1 - 2026-08-23
 

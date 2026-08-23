@@ -3,13 +3,18 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include <cerrno>
+#include <cstring>
 #include <vector>
 
 #include <btrfsbackup/errors.hpp>
 
 namespace btrfsbackup {
 
-std::string run_capture(const std::vector<std::string>& argv) {
+CommandResult run_command(const std::vector<std::string>& argv) {
+    if (argv.empty()) {
+        throw ValidationError("empty command");
+    }
     int pipefd[2];
     if (pipe(pipefd) != 0) {
         throw ValidationError("cannot create pipe");
@@ -22,6 +27,7 @@ std::string run_capture(const std::vector<std::string>& argv) {
     }
     if (pid == 0) {
         dup2(pipefd[1], STDOUT_FILENO);
+        dup2(pipefd[1], STDERR_FILENO);
         close(pipefd[0]);
         close(pipefd[1]);
         std::vector<char*> args;
@@ -34,22 +40,34 @@ std::string run_capture(const std::vector<std::string>& argv) {
         _exit(127);
     }
     close(pipefd[1]);
-    std::string output;
+    CommandResult result;
     char buffer[4096];
     ssize_t n;
     while ((n = read(pipefd[0], buffer, sizeof(buffer))) > 0) {
-        output.append(buffer, static_cast<std::size_t>(n));
+        result.output.append(buffer, static_cast<std::size_t>(n));
     }
     close(pipefd[0]);
     int status = 0;
-    waitpid(pid, &status, 0);
-    if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
+    if (waitpid(pid, &status, 0) < 0) {
+        throw ValidationError(std::string("cannot wait for command: ") + std::strerror(errno));
+    }
+    if (WIFEXITED(status)) {
+        result.exit_code = WEXITSTATUS(status);
+    } else {
+        result.exit_code = 128;
+    }
+    return result;
+}
+
+std::string run_capture(const std::vector<std::string>& argv) {
+    CommandResult result = run_command(argv);
+    if (result.exit_code != 0) {
         throw ValidationError("command failed: " + argv.front());
     }
-    while (!output.empty() && (output.back() == '\n' || output.back() == '\r')) {
-        output.pop_back();
+    while (!result.output.empty() && (result.output.back() == '\n' || result.output.back() == '\r')) {
+        result.output.pop_back();
     }
-    return output;
+    return result.output;
 }
 
 } // namespace btrfsbackup
