@@ -2,16 +2,114 @@
 set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-INSTALLED_TARGET="$(realpath -m -- "$SCRIPT_DIR/../lib/btrfs-backup/btrfs-backup.sh")"
-SOURCE_TARGET="$(realpath -m -- "$SCRIPT_DIR/../scripts/btrfs-backup.sh")"
 
-if [[ -x "$SOURCE_TARGET" ]]; then
-    exec "$SOURCE_TARGET" "$@"
-elif [[ -x "$INSTALLED_TARGET" ]]; then
-    exec "$INSTALLED_TARGET" "$@"
-elif [[ -x /usr/lib/btrfs-backup/btrfs-backup.sh ]]; then
-    exec /usr/lib/btrfs-backup/btrfs-backup.sh "$@"
-else
-    printf 'Cannot locate btrfs-backup.sh.\n' >&2
+usage() {
+    cat <<'USAGE'
+Usage: btrfs-backup [options]
+
+Options:
+  --profile ID   Use /etc/btrfs-backup/profiles/ID/profile.json.
+  --force         Run even if a successful backup was already made today.
+  --validate      Mount the target and validate configuration without creating snapshots.
+  --no-eject      Do not automatically eject after a manual invocation.
+  -h, --help      Show this help.
+USAGE
+}
+
+backupctl_path() {
+    local candidate
+    for candidate in \
+        "$SCRIPT_DIR/../build/btrfs-backupctl" \
+        "$SCRIPT_DIR/../lib/btrfs-backup/btrfs-backupctl" \
+        /usr/lib/btrfs-backup/btrfs-backupctl; do
+        if [[ -x "$candidate" ]]; then
+            realpath -m -- "$candidate"
+            return 0
+        fi
+    done
+    command -v btrfs-backupctl
+}
+
+eject_path() {
+    local candidate
+    for candidate in \
+        "$SCRIPT_DIR/btrfs-backup-eject" \
+        "$SCRIPT_DIR/../bin/btrfs-backup-eject" \
+        "$SCRIPT_DIR/../lib/btrfs-backup/btrfs-backup-eject.sh" \
+        /usr/bin/btrfs-backup-eject \
+        /usr/lib/btrfs-backup/btrfs-backup-eject.sh; do
+        if [[ -x "$candidate" ]]; then
+            realpath -m -- "$candidate"
+            return 0
+        fi
+    done
+    return 1
+}
+
+auto_eject_enabled() {
+    local backupctl="$1"
+    "$backupctl" profile show --profile "$PROFILE_ID" \
+        | grep -q '"autoEject"[[:space:]]*:[[:space:]]*true'
+}
+
+PROFILE_ID="${BTRFS_BACKUP_PROFILE:-default}"
+FORCE_RUN=0
+VALIDATE_ONLY=0
+NO_EJECT=0
+
+while (( $# > 0 )); do
+    case "$1" in
+        --profile)
+            [[ $# -ge 2 ]] || { printf '%s\n' 'btrfs-backup: --profile requires an identifier.' >&2; exit 2; }
+            PROFILE_ID="$2"
+            shift 2
+            ;;
+        --force)
+            FORCE_RUN=1
+            shift
+            ;;
+        --validate)
+            VALIDATE_ONLY=1
+            shift
+            ;;
+        --no-eject)
+            NO_EJECT=1
+            shift
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        *)
+            printf 'btrfs-backup: unknown option: %s\n' "$1" >&2
+            exit 2
+            ;;
+    esac
+done
+
+BACKUPCTL="$(backupctl_path)" || {
+    printf '%s\n' 'Cannot locate btrfs-backupctl.' >&2
     exit 1
+}
+
+runner_args=(runner execute --profile "$PROFILE_ID")
+if (( FORCE_RUN == 1 )); then
+    runner_args+=(--force)
 fi
+if (( VALIDATE_ONLY == 1 )); then
+    runner_args+=(--validate)
+fi
+
+status=0
+"$BACKUPCTL" "${runner_args[@]}" || status=$?
+
+if [[ $status -eq 0 && -z "${INVOCATION_ID:-}" && $NO_EJECT -eq 0 ]] \
+    && auto_eject_enabled "$BACKUPCTL"; then
+    EJECT="$(eject_path)" || {
+        printf '%s\n' 'Cannot locate btrfs-backup-eject.' >&2
+        exit 1
+    }
+    "$EJECT" --from-runner --profile "$PROFILE_ID" || status=$?
+fi
+
+exit "$status"
