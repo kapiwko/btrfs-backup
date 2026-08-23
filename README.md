@@ -17,7 +17,23 @@ Unattended backup of Btrfs subvolumes to an encrypted removable disk. The projec
 
 ## Requirements
 
-The project primarily targets Arch Linux and derivatives. It requires Bash, Btrfs, systemd, udev, cryptsetup, and tools from `coreutils`, `findutils`, and `util-linux`. Source builds also require CMake, a C++20 compiler, and `nlohmann-json`. `pv` and `libnotify` are optional.
+The project primarily targets Arch Linux and derivatives. It requires Bash,
+Btrfs, systemd, udev, cryptsetup, and tools from `coreutils`, `findutils`, and
+`util-linux`. `pv` and `libnotify` are optional runtime integrations.
+
+Source builds require:
+
+- CMake 3.20 or newer;
+- a C++20 compiler;
+- `pkgconf` / `pkg-config`;
+- `nlohmann-json`;
+- `libmount` development files from `util-linux`;
+- `libudev` development files from `systemd`;
+- `libbtrfsutil` development files from `btrfs-progs`.
+
+On Arch Linux, the build dependencies are provided by packages such as
+`base-devel`, `cmake`, `pkgconf`, `nlohmann-json`, `util-linux`, `systemd`, and
+`btrfs-progs`.
 
 Each source must be a Btrfs subvolume. The local snapshot directory must be on the same Btrfs filesystem as its source. The target must be a separate Btrfs filesystem inside LUKS; the script rejects a source that belongs to the same filesystem as the target, even if it is available through another mount point.
 
