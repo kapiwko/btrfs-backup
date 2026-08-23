@@ -50,7 +50,6 @@ add_library(btrfsbackup-system STATIC
     cpp/src/space_check.cpp
     cpp/src/target_mount_validation.cpp
     cpp/src/trusted_file.cpp
-    cpp/src/transfer_pipeline.cpp
 )
 
 target_compile_features(btrfsbackup-system PUBLIC cxx_std_20)
@@ -67,11 +66,30 @@ target_link_libraries(btrfsbackup-system
         PkgConfig::UDEV
 )
 
-add_library(btrfsbackup-core STATIC
+add_library(btrfsbackup-engine STATIC
     cpp/src/backup_run_action_effects.cpp
     cpp/src/backup_run_executor.cpp
     cpp/src/backup_run_persistence.cpp
     cpp/src/backup_run_plan.cpp
+    cpp/src/incremental_parent.cpp
+    cpp/src/pending_recovery_plan.cpp
+    cpp/src/snapshot_transfer.cpp
+    cpp/src/status_writer.cpp
+    cpp/src/transfer_pipeline.cpp
+)
+
+target_compile_features(btrfsbackup-engine PUBLIC cxx_std_20)
+target_include_directories(btrfsbackup-engine
+    PUBLIC
+        cpp/include
+)
+target_link_libraries(btrfsbackup-engine
+    PUBLIC
+        btrfsbackup-model
+        btrfsbackup-system
+)
+
+add_library(btrfsbackup-core STATIC
     cpp/src/command/installation_command.cpp
     cpp/src/command/profile_create_command.cpp
     cpp/src/command/profile_command.cpp
@@ -87,10 +105,8 @@ add_library(btrfsbackup-core STATIC
     cpp/src/command/status_show_command.cpp
     cpp/src/command/status_write_command.cpp
     cpp/src/ctl_tool.cpp
-    cpp/src/incremental_parent.cpp
     cpp/src/installation_render.cpp
     cpp/src/installation_validate.cpp
-    cpp/src/pending_recovery_plan.cpp
     cpp/src/profile_render.cpp
     cpp/src/profile_store.cpp
     cpp/src/profile_wizard.cpp
@@ -100,8 +116,6 @@ add_library(btrfsbackup-core STATIC
     cpp/src/profile_wizard_prompt.cpp
     cpp/src/profile_wizard_sources.cpp
     cpp/src/runtime_adapters.cpp
-    cpp/src/snapshot_transfer.cpp
-    cpp/src/status_writer.cpp
 )
 
 target_compile_features(btrfsbackup-core PUBLIC cxx_std_20)
@@ -113,11 +127,13 @@ target_link_libraries(btrfsbackup-core
     PUBLIC
         btrfsbackup-model
         btrfsbackup-system
+        btrfsbackup-engine
 )
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(btrfsbackup-model PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(btrfsbackup-system PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(btrfsbackup-engine PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(btrfsbackup-core PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 
