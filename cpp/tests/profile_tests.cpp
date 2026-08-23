@@ -264,10 +264,10 @@ void test_compose_sources_table() {
         stream << "home\tHome source\t/home\t/.snapshots/btrfs-backup/home\thome\t45\t25\n";
     }
     set_required_compose_env();
-    Json profile = btrfsbackup::profile_from_environment_sources(table);
-    expect_true("compose count", profile.at("sources").size() == 2, "wrong source count");
-    expect_true("compose six-column name", profile.at("sources").at(0).at("name") == "root", "six-column source did not default name");
-    expect_true("compose seven-column name", profile.at("sources").at(1).at("name") == "Home source", "seven-column source name was not preserved");
+    btrfsbackup::Profile profile = btrfsbackup::profile_model_from_environment_sources(table);
+    expect_true("compose count", profile.sources.size() == 2, "wrong source count");
+    expect_true("compose six-column name", profile.sources.at(0).name == "root", "six-column source did not default name");
+    expect_true("compose seven-column name", profile.sources.at(1).name == "Home source", "seven-column source name was not preserved");
     fs::remove_all(root);
 }
 

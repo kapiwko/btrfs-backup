@@ -19,7 +19,7 @@ constexpr int schema_version = 1;
 
 } // namespace
 
-Json profile_from_environment_sources(const fs::path& sources_table) {
+Profile profile_model_from_environment_sources(const fs::path& sources_table) {
     std::map<std::string, std::string> env;
     const std::vector<std::string> env_names{
         "PROFILE_ID", "PROFILE_NAME", "PROFILE_ROOT", "PROFILE_SOURCES_DIR",
@@ -85,7 +85,7 @@ Json profile_from_environment_sources(const fs::path& sources_table) {
         });
     }
 
-    return normalize_profile({
+    return profile_from_json({
         {"schemaVersion", schema_version},
         {"profileId", profile_id},
         {"name", env_required(env, "PROFILE_NAME")},

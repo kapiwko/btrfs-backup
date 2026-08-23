@@ -2,10 +2,10 @@
 
 #include <filesystem>
 
-#include <btrfsbackup/json.hpp>
+#include <btrfsbackup/profile.hpp>
 
 namespace btrfsbackup {
 
-Json profile_from_environment_sources(const std::filesystem::path& sources_table);
+Profile profile_model_from_environment_sources(const std::filesystem::path& sources_table);
 
 } // namespace btrfsbackup

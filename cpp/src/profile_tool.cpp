@@ -24,7 +24,7 @@ using btrfsbackup::dump_json;
 using btrfsbackup::load_json_file;
 using btrfsbackup::load_profile_model_by_id;
 using btrfsbackup::Profile;
-using btrfsbackup::profile_from_environment_sources;
+using btrfsbackup::profile_model_from_environment_sources;
 using btrfsbackup::profile_from_json;
 using btrfsbackup::profile_to_json;
 using btrfsbackup::render_tree;
@@ -116,7 +116,7 @@ int profile_tool_main(int argc, char** argv) {
         if (command == "compose") {
             if (sources_table.empty()) fail("compose requires --sources-table");
             if (output_dir.empty()) fail("compose requires --output");
-            atomic_write(output_dir, dump_json(profile_from_environment_sources(sources_table)), 0600);
+            atomic_write(output_dir, dump_json(profile_to_json(profile_model_from_environment_sources(sources_table))), 0600);
         } else if (command == "validate") {
             if (file.empty()) fail("validate requires --file");
             std::cout << dump_json(profile_to_json(profile_from_json(load_json_file(file))));
