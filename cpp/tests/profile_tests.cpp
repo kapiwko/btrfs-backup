@@ -179,11 +179,7 @@ void test_typed_store_renders_tree() {
 
     btrfsbackup::render_tree(profile, root / "rendered");
 
-    expect_true(
-        "typed tree profile env",
-        fs::is_regular_file(root / "rendered" / "etc" / "btrfs-backup" / "profiles.d" / "default.env"),
-        "missing rendered profile env"
-    );
+    expect_true("typed tree profile env", !fs::exists(root / "rendered" / "etc" / "btrfs-backup" / "profiles.d" / "default.env"), "profile env should not be rendered");
     expect_true(
         "typed tree profile json",
         fs::is_regular_file(root / "rendered" / "etc" / "btrfs-backup" / "profiles" / "default" / "profile.json"),
@@ -209,11 +205,7 @@ void test_typed_store_saves_tree() {
         root / "public"
     );
 
-    expect_true(
-        "typed save profile env",
-        fs::is_regular_file(root / "etc" / "btrfs-backup" / "profiles.d" / "default.env"),
-        "missing saved profile env"
-    );
+    expect_true("typed save profile env", !fs::exists(root / "etc" / "btrfs-backup" / "profiles.d" / "default.env"), "profile env should not be saved");
     expect_true(
         "typed save profile json",
         fs::is_regular_file(root / "etc" / "btrfs-backup" / "profiles" / "default" / "profile.json"),

@@ -18,7 +18,6 @@ PACKAGE_DIR="$TEST_ROOT/package"
 RENDERED_CONFIG="$TEST_ROOT/rendered"
 LOG_DIR="$TEST_ROOT/logs"
 RUN_LOG="$LOG_DIR/btrfs-backup.log"
-ACTIVE_CONFIG=/etc/btrfs-backup/profiles.d/default.env
 PROFILE_JSON=/etc/btrfs-backup/profiles/default/profile.json
 
 cleanup() {
@@ -121,16 +120,14 @@ ANSWERS
         --output-dir "$RENDERED_CONFIG" >/dev/null
     btrfs-backup-configure --validate-dir "$RENDERED_CONFIG" >/dev/null
 
-    install -d -m0700 /etc/btrfs-backup /etc/btrfs-backup/profiles/default /etc/btrfs-backup/profiles.d
-    install -m0600 "$RENDERED_CONFIG/config/profiles.d/default.env" /etc/btrfs-backup/profiles.d/default.env
+    install -d -m0700 /etc/btrfs-backup /etc/btrfs-backup/profiles/default
     install -m0600 "$RENDERED_CONFIG/config/profile.json" /etc/btrfs-backup/profiles/default/profile.json
     install -Dm0644 "$RENDERED_CONFIG/systemd/btrfs-backup.service" /etc/systemd/system/btrfs-backup.service
     install -Dm0644 "$RENDERED_CONFIG/systemd/btrfs-backup@.service" /etc/systemd/system/btrfs-backup@.service
     install -Dm0644 "$RENDERED_CONFIG/udev/99-btrfs-backup.rules" /etc/udev/rules.d/99-btrfs-backup.rules
     btrfs-backup-configure --validate >/dev/null
-    ACTIVE_CONFIG=/etc/btrfs-backup/profiles.d/default.env
-    [[ -f "$ACTIVE_CONFIG" ]] || fail 'configuration did not create default profile env'
     PROFILE_JSON=/etc/btrfs-backup/profiles/default/profile.json
+    [[ -f "$PROFILE_JSON" ]] || fail 'configuration did not create default profile JSON'
 }
 
 run_backup() {
@@ -203,8 +200,7 @@ validate_runtime_preflight() {
 }
 
 target_uuid_mismatch_test() {
-    sed -i "s/^BACKUP_BTRFS_UUID=.*/BACKUP_BTRFS_UUID=00000000-0000-0000-0000-000000000000/" \
-        "$ACTIVE_CONFIG"
+    perl -0pi -e 's#"btrfsUuid": "[^"]*"#"btrfsUuid": "00000000-0000-0000-0000-000000000000"#' "$PROFILE_JSON"
     expect_backup_failure 'Btrfs UUID mismatch'
     pass 'runtime rejects a mismatched target Btrfs UUID'
 }
@@ -285,7 +281,7 @@ validate_runtime_preflight
 pass 'installed runtime validates the mounted target'
 btrfs-backup-mount >/dev/null
 pass 'installed mount command validates the mounted target'
-with_restored_file "$ACTIVE_CONFIG" target_uuid_mismatch_test
+with_restored_file "$PROFILE_JSON" target_uuid_mismatch_test
 source_on_target_test
 
 run_backup

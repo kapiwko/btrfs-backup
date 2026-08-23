@@ -16,7 +16,9 @@
    and the standalone migration wrapper and shell implementation have been
    removed;
 9. backup, mount, and eject runtime entrypoints now load profile JSON as their
-   default profile configuration source.
+   only profile configuration source;
+10. profile render, save, migration, and configurator flows no longer generate
+    `profiles.d/*.env` files.
 
 ## 1.1.0 - 2026-08-23
 
