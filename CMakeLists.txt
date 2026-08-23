@@ -39,6 +39,7 @@ add_library(btrfsbackup_profile_tool STATIC
     cpp/src/installation_validate.cpp
     cpp/src/json_io.cpp
     cpp/src/mount_info.cpp
+    cpp/src/pending_recovery_plan.cpp
     cpp/src/process.cpp
     cpp/src/profile.cpp
     cpp/src/profile_sources.cpp
@@ -116,6 +117,10 @@ if(BUILD_TESTING)
         cpp/tests/incremental_parent_tests.cpp
     )
 
+    add_executable(btrfsbackup-pending-recovery-plan-tests
+        cpp/tests/pending_recovery_plan_tests.cpp
+    )
+
     add_executable(btrfsbackup-profile-wizard-tests
         cpp/tests/profile_wizard_tests.cpp
     )
@@ -187,6 +192,11 @@ if(BUILD_TESTING)
             btrfsbackup_profile_tool
     )
 
+    target_link_libraries(btrfsbackup-pending-recovery-plan-tests
+        PRIVATE
+            btrfsbackup_profile_tool
+    )
+
     target_link_libraries(btrfsbackup-profile-wizard-tests
         PRIVATE
             btrfsbackup_profile_tool
@@ -239,6 +249,7 @@ if(BUILD_TESTING)
     add_test(NAME profile-command-tests COMMAND btrfsbackup-profile-command-tests)
     add_test(NAME installation-tests COMMAND btrfsbackup-installation-tests)
     add_test(NAME incremental-parent-tests COMMAND btrfsbackup-incremental-parent-tests)
+    add_test(NAME pending-recovery-plan-tests COMMAND btrfsbackup-pending-recovery-plan-tests)
     add_test(NAME profile-wizard-tests COMMAND btrfsbackup-profile-wizard-tests)
     add_test(NAME retention-plan-tests COMMAND btrfsbackup-retention-plan-tests)
     add_test(NAME file-lock-tests COMMAND btrfsbackup-file-lock-tests)
