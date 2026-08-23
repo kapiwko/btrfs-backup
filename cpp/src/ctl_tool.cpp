@@ -7,11 +7,11 @@
 #include <string>
 #include <vector>
 
+#include <btrfsbackup/command/installation_command.hpp>
+#include <btrfsbackup/command/profile_command.hpp>
 #include <btrfsbackup/command/state_command.hpp>
 #include <btrfsbackup/command/status_command.hpp>
 #include <btrfsbackup/errors.hpp>
-#include <btrfsbackup/installation_tool.hpp>
-#include <btrfsbackup/profile_tool.hpp>
 
 namespace fs = std::filesystem;
 
@@ -81,13 +81,13 @@ int ctl_tool_main(int argc, char** argv) {
         std::vector<std::string> args(rest.begin() + 1, rest.end());
 
         if (command == "profile") {
-            return command_profile(args, profile_config_dir);
+            return command::profile(args, profile_config_dir);
         } else if (command == "status") {
             return command::status(status_root, history_root, args);
         } else if (command == "state") {
             return command::state(args);
         } else if (command == "installation") {
-            return command_installation(args);
+            return command::installation(args);
         } else if (command == "-h" || command == "--help") {
             usage();
         } else {

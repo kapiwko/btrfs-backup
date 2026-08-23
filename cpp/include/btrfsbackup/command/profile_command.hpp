@@ -4,11 +4,11 @@
 #include <string>
 #include <vector>
 
-namespace btrfsbackup {
+namespace btrfsbackup::command {
 
-int command_profile(
+int profile(
     const std::vector<std::string>& args,
     const std::filesystem::path& profile_config_dir = "/etc/btrfs-backup/profiles.d"
 );
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::command

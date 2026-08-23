@@ -11,6 +11,8 @@ include(CTest)
 find_package(nlohmann_json REQUIRED)
 
 add_library(btrfsbackup_profile_tool STATIC
+    cpp/src/command/installation_command.cpp
+    cpp/src/command/profile_command.cpp
     cpp/src/command/state_command.cpp
     cpp/src/command/status_command.cpp
     cpp/src/config_fingerprint.cpp
@@ -18,7 +20,6 @@ add_library(btrfsbackup_profile_tool STATIC
     cpp/src/file_io.cpp
     cpp/src/history.cpp
     cpp/src/identifiers.cpp
-    cpp/src/installation_tool.cpp
     cpp/src/json_io.cpp
     cpp/src/migrate_profile.cpp
     cpp/src/process.cpp
@@ -26,7 +27,6 @@ add_library(btrfsbackup_profile_tool STATIC
     cpp/src/profile_list.cpp
     cpp/src/profile_render.cpp
     cpp/src/profile_store.cpp
-    cpp/src/profile_tool.cpp
     cpp/src/run_state.cpp
     cpp/src/run_state_command.cpp
     cpp/src/shell_env.cpp

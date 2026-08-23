@@ -2,7 +2,7 @@
 #include <fstream>
 #include <string>
 
-#include <btrfsbackup/installation_tool.hpp>
+#include <btrfsbackup/command/installation_command.hpp>
 #include <btrfsbackup/json.hpp>
 #include <btrfsbackup/json_io.hpp>
 
@@ -51,7 +51,7 @@ void test_installation_render_writes_static_files() {
     };
     test_helpers::write_file(profile_json, btrfsbackup::dump_json(profile));
 
-    int result = btrfsbackup::command_installation({
+    int result = btrfsbackup::command::installation({
         "render",
         "--file",
         profile_json.string(),
