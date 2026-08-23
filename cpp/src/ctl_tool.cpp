@@ -15,6 +15,7 @@
 #include <btrfsbackup/history.hpp>
 #include <btrfsbackup/identifiers.hpp>
 #include <btrfsbackup/profile_list.hpp>
+#include <btrfsbackup/run_state.hpp>
 #include <btrfsbackup/status.hpp>
 #include <btrfsbackup/status_write_command.hpp>
 
@@ -151,6 +152,10 @@ int ctl_tool_main(int argc, char** argv) {
             command_write_status(status_root, history_root, args);
         } else if (command == "config-fingerprint") {
             command_config_fingerprint(args, std::cout);
+        } else if (command == "check-last-success") {
+            command_check_last_success(args, std::cout);
+        } else if (command == "write-success-state") {
+            command_write_success_state(args);
         } else if (command == "-h" || command == "--help") {
             usage();
         } else {
