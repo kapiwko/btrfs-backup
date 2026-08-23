@@ -16,6 +16,7 @@ pkg_check_modules(BTRFSUTIL REQUIRED IMPORTED_TARGET libbtrfsutil)
 
 add_library(btrfsbackup_profile_tool STATIC
     cpp/src/backup_run_plan.cpp
+    cpp/src/btrfs_operations.cpp
     cpp/src/command/installation_command.cpp
     cpp/src/command/profile_create_command.cpp
     cpp/src/command/profile_command.cpp
@@ -95,6 +96,10 @@ if(BUILD_TESTING)
         cpp/tests/backup_run_plan_tests.cpp
     )
 
+    add_executable(btrfsbackup-btrfs-operations-tests
+        cpp/tests/btrfs_operations_tests.cpp
+    )
+
     add_executable(btrfsbackup-profile-tests
         cpp/tests/profile_tests.cpp
     )
@@ -168,6 +173,11 @@ if(BUILD_TESTING)
     )
 
     target_link_libraries(btrfsbackup-backup-run-plan-tests
+        PRIVATE
+            btrfsbackup_profile_tool
+    )
+
+    target_link_libraries(btrfsbackup-btrfs-operations-tests
         PRIVATE
             btrfsbackup_profile_tool
     )
@@ -263,6 +273,7 @@ if(BUILD_TESTING)
     )
 
     add_test(NAME backup-run-plan-tests COMMAND btrfsbackup-backup-run-plan-tests)
+    add_test(NAME btrfs-operations-tests COMMAND btrfsbackup-btrfs-operations-tests)
     add_test(NAME profile-tests COMMAND btrfsbackup-profile-tests)
     add_test(NAME device-info-tests COMMAND btrfsbackup-device-info-tests)
     add_test(NAME status-history-tests COMMAND btrfsbackup-status-history-tests)
