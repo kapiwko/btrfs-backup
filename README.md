@@ -70,7 +70,7 @@ sudo btrfs-backupctl profile wizard --apply
 /var/lib/btrfs-backup/public/profiles/default.json
 /etc/systemd/system/btrfs-backup.service
 /etc/systemd/system/btrfs-backup@.service
-/etc/udev/rules.d/99-btrfs-backup.rules
+/etc/udev/rules.d/99-btrfs-backup-default.rules
 ```
 
 The wizard intentionally does not edit `/etc/crypttab` or `/etc/fstab` automatically. Merge the generated fragments into those files, then run:

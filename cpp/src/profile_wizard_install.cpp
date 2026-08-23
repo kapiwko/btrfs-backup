@@ -40,10 +40,6 @@ void render_wizard_tree(const Profile& profile, const std::string& keyfile, cons
 
     atomic_write(output_dir / "config" / "profile.json", dump_json(profile_to_json(profile)), 0600);
     save_tree(profile, output_dir / "config", output_dir / "udev", output_dir / "public" / "profiles");
-    fs::path profile_rule = output_dir / "udev" / ("99-btrfs-backup-" + profile.id + ".rules");
-    if (fs::exists(profile_rule)) {
-        fs::copy_file(profile_rule, output_dir / "udev" / "99-btrfs-backup.rules", fs::copy_options::overwrite_existing);
-    }
 
     render_installation_files(
         profile,
@@ -70,7 +66,8 @@ void apply_rendered_wizard_tree(const Profile& profile, const fs::path& output_d
     save_tree(profile, "/etc/btrfs-backup", "/etc/udev/rules.d", "/var/lib/btrfs-backup/public/profiles");
     fs::copy_file(output_dir / "systemd" / "btrfs-backup.service", "/etc/systemd/system/btrfs-backup.service", fs::copy_options::overwrite_existing);
     fs::copy_file(output_dir / "systemd" / "btrfs-backup@.service", "/etc/systemd/system/btrfs-backup@.service", fs::copy_options::overwrite_existing);
-    fs::copy_file(output_dir / "udev" / "99-btrfs-backup.rules", "/etc/udev/rules.d/99-btrfs-backup.rules", fs::copy_options::overwrite_existing);
+    std::error_code ec;
+    fs::remove("/etc/udev/rules.d/99-btrfs-backup.rules", ec);
 
     run_command({"systemctl", "disable", "btrfs-backup.service"});
     run_capture({"systemctl", "daemon-reload"});

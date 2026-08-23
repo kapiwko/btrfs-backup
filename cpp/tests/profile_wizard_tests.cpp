@@ -184,9 +184,14 @@ void test_render_wizard_tree() {
         "/root/keys/backupdisk.key"
     );
     test_helpers::expect_contains(
-        "wizard render generic udev rule",
-        read_file(root / "rendered" / "udev" / "99-btrfs-backup.rules"),
+        "wizard render profile udev rule",
+        read_file(root / "rendered" / "udev" / "99-btrfs-backup-laptop.rules"),
         "btrfs-backup@laptop.service"
+    );
+    test_helpers::expect_true(
+        "wizard render no generic udev rule",
+        !fs::exists(root / "rendered" / "udev" / "99-btrfs-backup.rules"),
+        "wizard render should not duplicate the profile udev rule"
     );
 
     fs::remove_all(root);
