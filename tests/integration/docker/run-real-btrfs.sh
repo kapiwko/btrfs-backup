@@ -5,6 +5,7 @@ export LC_ALL=C
 
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../.." && pwd)"
 IMAGE_NAME="${IMAGE_NAME:-btrfs-backup-real-test:local}"
+BUILD_JOBS="${BUILD_JOBS:-$(nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)}"
 CONTAINER_WORKDIR=/work
 
 usage() {
@@ -35,10 +36,10 @@ docker build \
     "$ROOT"
 
 docker run --rm --privileged \
+    -e BUILD_JOBS="$BUILD_JOBS" \
     --tmpfs /run \
     --tmpfs /tmp:exec,mode=1777 \
     -v "$ROOT:$CONTAINER_WORKDIR:ro" \
     -w "$CONTAINER_WORKDIR" \
     "$IMAGE_NAME" \
     "$CONTAINER_WORKDIR/tests/integration/docker/real-btrfs-test.sh"
-
