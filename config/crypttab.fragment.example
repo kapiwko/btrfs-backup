@@ -1,0 +1,4 @@
+# Merge this single line into /etc/crypttab.
+# Format: <name> <device> <password> <options>
+
+{{BACKUP_MAPPER_NAME}}  UUID={{BACKUP_LUKS_UUID}}  {{KEYFILE_PATH_CRYPTTAB}}  luks,noauto,nofail,x-systemd.device-timeout=30s

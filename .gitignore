@@ -1,0 +1,24 @@
+# Generated configuration and local deployment data
+/generated/
+/local/
+/backups/
+*.key
+*.keyfile
+
+# Arch build output
+/pkg/
+/src/
+/dist/
+*.pkg.tar.*
+*.src.tar.*
+
+# Release archives
+*.tar.gz
+*.zip
+
+# Editors and temporary files
+/.idea/
+*~
+*.swp
+*.tmp
+.DS_Store
