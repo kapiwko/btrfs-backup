@@ -281,25 +281,6 @@ void test_runner_plan_validates_target_mount() {
     fs::remove_all(root);
 }
 
-void test_runner_execute_requires_experimental_guard_before_loading_profile() {
-    fs::path root = test_helpers::test_root("runner-command", "execute-guard");
-
-    std::ostringstream output;
-    test_helpers::expect_validation_error("runner execute guard", [&] {
-        (void)btrfsbackup::command::runner(
-            root / "missing-config",
-            {
-                "execute",
-                "--profile",
-                "default",
-            },
-            output
-        );
-    }, "runner execute requires --experimental-cpp-runner");
-
-    fs::remove_all(root);
-}
-
 void test_runner_execute_uses_injected_services_and_writes_state() {
     fs::path root = test_helpers::test_root("runner-command", "execute-injected");
     fs::create_directories(root / "source" / "root");
@@ -325,7 +306,6 @@ void test_runner_execute_uses_injected_services_and_writes_state() {
         config_root,
         {
             "execute",
-            "--experimental-cpp-runner",
             "--profile",
             "default",
             "--timestamp",
@@ -347,7 +327,7 @@ void test_runner_execute_uses_injected_services_and_writes_state() {
 
     btrfsbackup::Json json = btrfsbackup::Json::parse(output.str());
     test_helpers::expect_eq("execute result", std::to_string(result), "0");
-    test_helpers::expect_eq("execute mode", json.at("mode").get<std::string>(), "experimental-cpp-execute");
+    test_helpers::expect_eq("execute mode", json.at("mode").get<std::string>(), "cpp-execute");
     test_helpers::expect_true("execute completed", json.at("completed").get<bool>(), "run should complete");
     test_helpers::expect_eq("execute transfer count", std::to_string(transfer_pipeline.plans.size()), "1");
     test_helpers::expect_true("execute effects", !action_effects.calls.empty(), "expected non-transfer effects");
@@ -395,7 +375,6 @@ void test_runner_execute_transfer_failure_writes_failed_status() {
             config_root,
             {
                 "execute",
-                "--experimental-cpp-runner",
                 "--profile",
                 "default",
                 "--timestamp",
@@ -467,7 +446,6 @@ void test_runner_execute_commit_failure_writes_failed_status() {
             config_root,
             {
                 "execute",
-                "--experimental-cpp-runner",
                 "--profile",
                 "default",
                 "--timestamp",
@@ -538,7 +516,6 @@ void test_runner_execute_verify_failure_writes_failed_status() {
             config_root,
             {
                 "execute",
-                "--experimental-cpp-runner",
                 "--profile",
                 "default",
                 "--timestamp",
@@ -610,7 +587,6 @@ void test_runner_execute_multi_source_success() {
         config_root,
         {
             "execute",
-            "--experimental-cpp-runner",
             "--profile",
             "default",
             "--timestamp",
@@ -689,7 +665,6 @@ void test_runner_execute_incremental_uses_selected_parent() {
         config_root,
         {
             "execute",
-            "--experimental-cpp-runner",
             "--profile",
             "default",
             "--timestamp",
@@ -763,7 +738,6 @@ void test_runner_execute_retention_plans_local_and_remote_deletes() {
         config_root,
         {
             "execute",
-            "--experimental-cpp-runner",
             "--profile",
             "default",
             "--timestamp",
@@ -845,7 +819,6 @@ void test_runner_execute_pending_recovery_deletes_orphan() {
         config_root,
         {
             "execute",
-            "--experimental-cpp-runner",
             "--profile",
             "default",
             "--timestamp",
@@ -883,7 +856,6 @@ void test_runner_execute_pending_recovery_deletes_orphan() {
 int main() {
     test_runner_plan_outputs_shadow_json();
     test_runner_plan_validates_target_mount();
-    test_runner_execute_requires_experimental_guard_before_loading_profile();
     test_runner_execute_uses_injected_services_and_writes_state();
     test_runner_execute_transfer_failure_writes_failed_status();
     test_runner_execute_commit_failure_writes_failed_status();

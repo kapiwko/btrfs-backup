@@ -51,7 +51,7 @@ std::string render_crypttab_fragment(const btrfsbackup::Profile& profile, const 
         "  luks,noauto,nofail,x-systemd.device-timeout=30s\n";
 }
 
-std::string render_backup_service(const btrfsbackup::Profile& profile, const std::string& backup_script, const std::string& eject_script) {
+std::string render_backup_service(const btrfsbackup::Profile& profile, const std::string& backup_command, const std::string& eject_script) {
     return
         "[Unit]\n"
         "Description=Verified Btrfs backup to an encrypted removable target\n"
@@ -63,7 +63,7 @@ std::string render_backup_service(const btrfsbackup::Profile& profile, const std
         "\n"
         "[Service]\n"
         "Type=oneshot\n"
-        "ExecStart=" + backup_script + " --profile " + profile.id + "\n"
+        "ExecStart=" + backup_command + " --profile " + profile.id + "\n"
         "ExecStopPost=" + eject_script + " --from-service --profile " + profile.id + "\n"
         "User=root\n"
         "Group=root\n"
@@ -81,7 +81,7 @@ std::string render_backup_service(const btrfsbackup::Profile& profile, const std
         "SyslogIdentifier=btrfs-backup\n";
 }
 
-std::string render_profile_service(const std::string& backup_script, const std::string& eject_script) {
+std::string render_profile_service(const std::string& backup_command, const std::string& eject_script) {
     return
         "[Unit]\n"
         "Description=Verified Btrfs backup profile %i to an encrypted removable target\n"
@@ -93,7 +93,7 @@ std::string render_profile_service(const std::string& backup_script, const std::
         "\n"
         "[Service]\n"
         "Type=oneshot\n"
-        "ExecStart=" + backup_script + " --profile %i\n"
+        "ExecStart=" + backup_command + " --profile %i\n"
         "ExecStopPost=" + eject_script + " --from-service --profile %i\n"
         "User=root\n"
         "Group=root\n"
@@ -124,8 +124,8 @@ void render_installation_files(
     fs::create_directories(output_dir / "systemd");
     atomic_write(output_dir / "config" / "fstab.fragment", render_fstab_fragment(profile), 0644);
     atomic_write(output_dir / "config" / "crypttab.fragment", render_crypttab_fragment(profile, options.keyfile), 0644);
-    atomic_write(output_dir / "systemd" / "btrfs-backup.service", render_backup_service(profile, options.backup_script, options.eject_script), 0644);
-    atomic_write(output_dir / "systemd" / "btrfs-backup@.service", render_profile_service(options.backup_script, options.eject_script), 0644);
+    atomic_write(output_dir / "systemd" / "btrfs-backup.service", render_backup_service(profile, options.backup_command, options.eject_script), 0644);
+    atomic_write(output_dir / "systemd" / "btrfs-backup@.service", render_profile_service(options.backup_command, options.eject_script), 0644);
 }
 
 } // namespace btrfsbackup
