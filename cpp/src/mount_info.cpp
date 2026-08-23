@@ -4,8 +4,11 @@
 
 #include <memory>
 #include <set>
+#include <sstream>
+#include <sys/sysmacros.h>
 
 #include <btrfsbackup/errors.hpp>
+#include <btrfsbackup/validation.hpp>
 
 namespace btrfsbackup {
 
@@ -13,6 +16,23 @@ namespace {
 
 std::string c_string(const char* value) {
     return value == nullptr ? "" : value;
+}
+
+std::string device_id(dev_t device) {
+    if (device == 0) {
+        return "";
+    }
+    std::ostringstream output;
+    output << major(device) << ":" << minor(device);
+    return output.str();
+}
+
+std::string strip_subvolume_suffix(const std::string& source) {
+    std::size_t bracket = source.find('[');
+    if (bracket == std::string::npos) {
+        return source;
+    }
+    return source.substr(0, bracket);
 }
 
 } // namespace
@@ -34,6 +54,10 @@ std::vector<MountEntry> read_mount_table(const std::filesystem::path& mountinfo_
             .source = c_string(mnt_fs_get_source(mount)),
             .target = c_string(mnt_fs_get_target(mount)),
             .fstype = c_string(mnt_fs_get_fstype(mount)),
+            .root = c_string(mnt_fs_get_root(mount)),
+            .options = c_string(mnt_fs_get_options(mount)),
+            .device_id = device_id(mnt_fs_get_devno(mount)),
+            .filesystem_uuid = "",
         });
     }
     return entries;
@@ -47,6 +71,59 @@ std::vector<std::string> btrfs_mount_targets(const std::filesystem::path& mounti
         }
     }
     return {unique.begin(), unique.end()};
+}
+
+std::optional<MountEntry> mount_at(const std::vector<MountEntry>& entries, const std::filesystem::path& target) {
+    std::filesystem::path normalized_target = normalized_path(target);
+    for (const MountEntry& entry : entries) {
+        if (normalized_path(entry.target) == normalized_target) {
+            return entry;
+        }
+    }
+    return std::nullopt;
+}
+
+std::optional<MountEntry> mount_for_path(const std::vector<MountEntry>& entries, const std::filesystem::path& path) {
+    std::filesystem::path normalized = normalized_path(path);
+    const MountEntry* best = nullptr;
+    std::size_t best_size = 0;
+    for (const MountEntry& entry : entries) {
+        if (entry.target.empty()) {
+            continue;
+        }
+        std::filesystem::path target = normalized_path(entry.target);
+        if (path_is_within(normalized, target)) {
+            std::size_t size = target.string().size();
+            if (best == nullptr || size > best_size) {
+                best = &entry;
+                best_size = size;
+            }
+        }
+    }
+    if (best == nullptr) {
+        return std::nullopt;
+    }
+    return *best;
+}
+
+bool paths_are_same_filesystem(const std::vector<MountEntry>& entries, const std::filesystem::path& path_a, const std::filesystem::path& path_b) {
+    std::optional<MountEntry> mount_a = mount_for_path(entries, path_a);
+    std::optional<MountEntry> mount_b = mount_for_path(entries, path_b);
+    if (!mount_a || !mount_b) {
+        return false;
+    }
+    if (!mount_a->filesystem_uuid.empty() && !mount_b->filesystem_uuid.empty()) {
+        return mount_a->filesystem_uuid == mount_b->filesystem_uuid;
+    }
+    return !mount_a->device_id.empty() && mount_a->device_id == mount_b->device_id;
+}
+
+bool mount_uses_mapper(const std::vector<MountEntry>& entries, const std::filesystem::path& mountpoint, const std::filesystem::path& mapper_path) {
+    std::optional<MountEntry> mount = mount_at(entries, mountpoint);
+    if (!mount) {
+        return false;
+    }
+    return normalized_path(strip_subvolume_suffix(mount->source)) == normalized_path(mapper_path);
 }
 
 } // namespace btrfsbackup
