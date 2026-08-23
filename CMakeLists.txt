@@ -15,7 +15,7 @@ pkg_check_modules(MOUNT REQUIRED IMPORTED_TARGET mount)
 pkg_check_modules(UDEV REQUIRED IMPORTED_TARGET libudev)
 pkg_check_modules(BTRFSUTIL REQUIRED IMPORTED_TARGET libbtrfsutil)
 
-add_library(btrfsbackup_profile_tool STATIC
+add_library(btrfsbackup-core STATIC
     cpp/src/backup_run_plan.cpp
     cpp/src/btrfs_operations.cpp
     cpp/src/command/installation_command.cpp
@@ -68,12 +68,12 @@ add_library(btrfsbackup_profile_tool STATIC
     cpp/src/validation.cpp
 )
 
-target_compile_features(btrfsbackup_profile_tool PUBLIC cxx_std_20)
-target_include_directories(btrfsbackup_profile_tool
+target_compile_features(btrfsbackup-core PUBLIC cxx_std_20)
+target_include_directories(btrfsbackup-core
     PUBLIC
         cpp/include
 )
-target_link_libraries(btrfsbackup_profile_tool
+target_link_libraries(btrfsbackup-core
     PUBLIC
         nlohmann_json::nlohmann_json
         PkgConfig::BLKID
@@ -83,7 +83,7 @@ target_link_libraries(btrfsbackup_profile_tool
 )
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-    target_compile_options(btrfsbackup_profile_tool PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(btrfsbackup-core PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 
 add_executable(btrfs-backupctl
@@ -92,228 +92,41 @@ add_executable(btrfs-backupctl
 
 target_link_libraries(btrfs-backupctl
     PRIVATE
-        btrfsbackup_profile_tool
+        btrfsbackup-core
 )
 
 if(BUILD_TESTING)
-    add_executable(btrfsbackup-backup-run-plan-tests
-        cpp/tests/backup_run_plan_tests.cpp
-    )
+    function(add_btrfsbackup_test target source test_name)
+        add_executable(${target}
+            ${source}
+        )
+        target_link_libraries(${target}
+            PRIVATE
+                btrfsbackup-core
+        )
+        add_test(NAME ${test_name} COMMAND ${target})
+    endfunction()
 
-    add_executable(btrfsbackup-btrfs-operations-tests
-        cpp/tests/btrfs_operations_tests.cpp
-    )
-
-    add_executable(btrfsbackup-profile-tests
-        cpp/tests/profile_tests.cpp
-    )
-
-    add_executable(btrfsbackup-device-info-tests
-        cpp/tests/device_info_tests.cpp
-    )
-
-    add_executable(btrfsbackup-status-history-tests
-        cpp/tests/status_history_tests.cpp
-    )
-
-    add_executable(btrfsbackup-run-state-tests
-        cpp/tests/run_state_tests.cpp
-    )
-
-    add_executable(btrfsbackup-profile-command-tests
-        cpp/tests/profile_command_tests.cpp
-    )
-
-    add_executable(btrfsbackup-installation-tests
-        cpp/tests/installation_tests.cpp
-    )
-
-    add_executable(btrfsbackup-incremental-parent-tests
-        cpp/tests/incremental_parent_tests.cpp
-    )
-
-    add_executable(btrfsbackup-pending-recovery-plan-tests
-        cpp/tests/pending_recovery_plan_tests.cpp
-    )
-
-    add_executable(btrfsbackup-profile-wizard-tests
-        cpp/tests/profile_wizard_tests.cpp
-    )
-
-    add_executable(btrfsbackup-retention-plan-tests
-        cpp/tests/retention_plan_tests.cpp
-    )
-
-    add_executable(btrfsbackup-runtime-adapters-tests
-        cpp/tests/runtime_adapters_tests.cpp
-    )
-
-    add_executable(btrfsbackup-runner-command-tests
-        cpp/tests/runner_command_tests.cpp
-    )
-
-    add_executable(btrfsbackup-mount-info-tests
-        cpp/tests/mount_info_tests.cpp
-    )
-
-    add_executable(btrfsbackup-file-lock-tests
-        cpp/tests/file_lock_tests.cpp
-    )
-
-    add_executable(btrfsbackup-status-writer-tests
-        cpp/tests/status_writer_tests.cpp
-    )
-
-    add_executable(btrfsbackup-space-check-tests
-        cpp/tests/space_check_tests.cpp
-    )
-
-    add_executable(btrfsbackup-snapshot-inventory-tests
-        cpp/tests/snapshot_inventory_tests.cpp
-    )
-
-    add_executable(btrfsbackup-snapshot-transfer-tests
-        cpp/tests/snapshot_transfer_tests.cpp
-    )
-
-    add_executable(btrfsbackup-trusted-file-tests
-        cpp/tests/trusted_file_tests.cpp
-    )
-
-    add_executable(btrfsbackup-validation-tests
-        cpp/tests/validation_tests.cpp
-    )
-
-    target_link_libraries(btrfsbackup-backup-run-plan-tests
-        PRIVATE
-            btrfsbackup_profile_tool
-    )
-
-    target_link_libraries(btrfsbackup-btrfs-operations-tests
-        PRIVATE
-            btrfsbackup_profile_tool
-    )
-
-    target_link_libraries(btrfsbackup-profile-tests
-        PRIVATE
-            btrfsbackup_profile_tool
-    )
-
-    target_link_libraries(btrfsbackup-device-info-tests
-        PRIVATE
-            btrfsbackup_profile_tool
-    )
-
-    target_link_libraries(btrfsbackup-status-history-tests
-        PRIVATE
-            btrfsbackup_profile_tool
-    )
-
-    target_link_libraries(btrfsbackup-run-state-tests
-        PRIVATE
-            btrfsbackup_profile_tool
-    )
-
-    target_link_libraries(btrfsbackup-profile-command-tests
-        PRIVATE
-            btrfsbackup_profile_tool
-    )
-
-    target_link_libraries(btrfsbackup-installation-tests
-        PRIVATE
-            btrfsbackup_profile_tool
-    )
-
-    target_link_libraries(btrfsbackup-incremental-parent-tests
-        PRIVATE
-            btrfsbackup_profile_tool
-    )
-
-    target_link_libraries(btrfsbackup-pending-recovery-plan-tests
-        PRIVATE
-            btrfsbackup_profile_tool
-    )
-
-    target_link_libraries(btrfsbackup-profile-wizard-tests
-        PRIVATE
-            btrfsbackup_profile_tool
-    )
-
-    target_link_libraries(btrfsbackup-retention-plan-tests
-        PRIVATE
-            btrfsbackup_profile_tool
-    )
-
-    target_link_libraries(btrfsbackup-runtime-adapters-tests
-        PRIVATE
-            btrfsbackup_profile_tool
-    )
-
-    target_link_libraries(btrfsbackup-runner-command-tests
-        PRIVATE
-            btrfsbackup_profile_tool
-    )
-
-    target_link_libraries(btrfsbackup-mount-info-tests
-        PRIVATE
-            btrfsbackup_profile_tool
-    )
-
-    target_link_libraries(btrfsbackup-file-lock-tests
-        PRIVATE
-            btrfsbackup_profile_tool
-    )
-
-    target_link_libraries(btrfsbackup-status-writer-tests
-        PRIVATE
-            btrfsbackup_profile_tool
-    )
-
-    target_link_libraries(btrfsbackup-space-check-tests
-        PRIVATE
-            btrfsbackup_profile_tool
-    )
-
-    target_link_libraries(btrfsbackup-snapshot-inventory-tests
-        PRIVATE
-            btrfsbackup_profile_tool
-    )
-
-    target_link_libraries(btrfsbackup-snapshot-transfer-tests
-        PRIVATE
-            btrfsbackup_profile_tool
-    )
-
-    target_link_libraries(btrfsbackup-trusted-file-tests
-        PRIVATE
-            btrfsbackup_profile_tool
-    )
-
-    target_link_libraries(btrfsbackup-validation-tests
-        PRIVATE
-            btrfsbackup_profile_tool
-    )
-
-    add_test(NAME backup-run-plan-tests COMMAND btrfsbackup-backup-run-plan-tests)
-    add_test(NAME btrfs-operations-tests COMMAND btrfsbackup-btrfs-operations-tests)
-    add_test(NAME profile-tests COMMAND btrfsbackup-profile-tests)
-    add_test(NAME device-info-tests COMMAND btrfsbackup-device-info-tests)
-    add_test(NAME status-history-tests COMMAND btrfsbackup-status-history-tests)
-    add_test(NAME run-state-tests COMMAND btrfsbackup-run-state-tests)
-    add_test(NAME profile-command-tests COMMAND btrfsbackup-profile-command-tests)
-    add_test(NAME installation-tests COMMAND btrfsbackup-installation-tests)
-    add_test(NAME incremental-parent-tests COMMAND btrfsbackup-incremental-parent-tests)
-    add_test(NAME pending-recovery-plan-tests COMMAND btrfsbackup-pending-recovery-plan-tests)
-    add_test(NAME profile-wizard-tests COMMAND btrfsbackup-profile-wizard-tests)
-    add_test(NAME retention-plan-tests COMMAND btrfsbackup-retention-plan-tests)
-    add_test(NAME runtime-adapters-tests COMMAND btrfsbackup-runtime-adapters-tests)
-    add_test(NAME runner-command-tests COMMAND btrfsbackup-runner-command-tests)
-    add_test(NAME file-lock-tests COMMAND btrfsbackup-file-lock-tests)
-    add_test(NAME mount-info-tests COMMAND btrfsbackup-mount-info-tests)
-    add_test(NAME space-check-tests COMMAND btrfsbackup-space-check-tests)
-    add_test(NAME snapshot-inventory-tests COMMAND btrfsbackup-snapshot-inventory-tests)
-    add_test(NAME snapshot-transfer-tests COMMAND btrfsbackup-snapshot-transfer-tests)
-    add_test(NAME status-writer-tests COMMAND btrfsbackup-status-writer-tests)
-    add_test(NAME trusted-file-tests COMMAND btrfsbackup-trusted-file-tests)
-    add_test(NAME validation-tests COMMAND btrfsbackup-validation-tests)
+    add_btrfsbackup_test(btrfsbackup-backup-run-plan-tests cpp/tests/backup_run_plan_tests.cpp backup-run-plan-tests)
+    add_btrfsbackup_test(btrfsbackup-btrfs-operations-tests cpp/tests/btrfs_operations_tests.cpp btrfs-operations-tests)
+    add_btrfsbackup_test(btrfsbackup-profile-tests cpp/tests/profile_tests.cpp profile-tests)
+    add_btrfsbackup_test(btrfsbackup-device-info-tests cpp/tests/device_info_tests.cpp device-info-tests)
+    add_btrfsbackup_test(btrfsbackup-status-history-tests cpp/tests/status_history_tests.cpp status-history-tests)
+    add_btrfsbackup_test(btrfsbackup-run-state-tests cpp/tests/run_state_tests.cpp run-state-tests)
+    add_btrfsbackup_test(btrfsbackup-profile-command-tests cpp/tests/profile_command_tests.cpp profile-command-tests)
+    add_btrfsbackup_test(btrfsbackup-installation-tests cpp/tests/installation_tests.cpp installation-tests)
+    add_btrfsbackup_test(btrfsbackup-incremental-parent-tests cpp/tests/incremental_parent_tests.cpp incremental-parent-tests)
+    add_btrfsbackup_test(btrfsbackup-pending-recovery-plan-tests cpp/tests/pending_recovery_plan_tests.cpp pending-recovery-plan-tests)
+    add_btrfsbackup_test(btrfsbackup-profile-wizard-tests cpp/tests/profile_wizard_tests.cpp profile-wizard-tests)
+    add_btrfsbackup_test(btrfsbackup-retention-plan-tests cpp/tests/retention_plan_tests.cpp retention-plan-tests)
+    add_btrfsbackup_test(btrfsbackup-runtime-adapters-tests cpp/tests/runtime_adapters_tests.cpp runtime-adapters-tests)
+    add_btrfsbackup_test(btrfsbackup-runner-command-tests cpp/tests/runner_command_tests.cpp runner-command-tests)
+    add_btrfsbackup_test(btrfsbackup-mount-info-tests cpp/tests/mount_info_tests.cpp mount-info-tests)
+    add_btrfsbackup_test(btrfsbackup-file-lock-tests cpp/tests/file_lock_tests.cpp file-lock-tests)
+    add_btrfsbackup_test(btrfsbackup-status-writer-tests cpp/tests/status_writer_tests.cpp status-writer-tests)
+    add_btrfsbackup_test(btrfsbackup-space-check-tests cpp/tests/space_check_tests.cpp space-check-tests)
+    add_btrfsbackup_test(btrfsbackup-snapshot-inventory-tests cpp/tests/snapshot_inventory_tests.cpp snapshot-inventory-tests)
+    add_btrfsbackup_test(btrfsbackup-snapshot-transfer-tests cpp/tests/snapshot_transfer_tests.cpp snapshot-transfer-tests)
+    add_btrfsbackup_test(btrfsbackup-trusted-file-tests cpp/tests/trusted_file_tests.cpp trusted-file-tests)
+    add_btrfsbackup_test(btrfsbackup-validation-tests cpp/tests/validation_tests.cpp validation-tests)
 endif()
