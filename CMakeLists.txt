@@ -12,6 +12,7 @@ find_package(nlohmann_json REQUIRED)
 
 add_library(btrfsbackup_profile_tool STATIC
     cpp/src/command/installation_command.cpp
+    cpp/src/command/profile_create_command.cpp
     cpp/src/command/profile_command.cpp
     cpp/src/command/state_command.cpp
     cpp/src/command/status_command.cpp
