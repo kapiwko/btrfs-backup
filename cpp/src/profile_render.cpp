@@ -71,7 +71,7 @@ std::string render_profile_env(const Profile& profile) {
     out += assignment("STATE_DIR", profile.paths.state_dir);
     out += assignment("STATUS_ROOT", profile.paths.status_root);
     out += assignment("HISTORY_ROOT", profile.paths.history_root);
-    out += assignment("EJECT_SCRIPT_PATH", "/usr/lib/btrfs-backup/btrfs-backup-eject.sh");
+    out += assignment("EJECT_SCRIPT_PATH", "/usr/bin/btrfs-backup-eject");
     out += assignment("NOTIFY_ENABLE", profile.notifications.enabled);
     out += assignment("NOTIFY_USER", profile.notifications.user);
     out += assignment("NOTIFY_METHOD", profile.notifications.method);
