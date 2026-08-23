@@ -1,6 +1,7 @@
 #pragma once
 
 #include <filesystem>
+#include <functional>
 #include <optional>
 #include <string>
 #include <vector>
@@ -17,7 +18,11 @@ struct MountEntry {
     std::string filesystem_uuid;
 };
 
+using FilesystemUuidResolver = std::function<std::string(const std::string&)>;
+
+std::string blkid_filesystem_uuid(const std::string& source);
 std::vector<MountEntry> read_mount_table(const std::filesystem::path& mountinfo_path = "/proc/self/mountinfo");
+std::vector<MountEntry> read_mount_table(const std::filesystem::path& mountinfo_path, const FilesystemUuidResolver& filesystem_uuid_resolver);
 std::vector<std::string> btrfs_mount_targets(const std::filesystem::path& mountinfo_path = "/proc/self/mountinfo");
 std::optional<MountEntry> mount_at(const std::vector<MountEntry>& entries, const std::filesystem::path& target);
 std::optional<MountEntry> mount_for_path(const std::vector<MountEntry>& entries, const std::filesystem::path& path);

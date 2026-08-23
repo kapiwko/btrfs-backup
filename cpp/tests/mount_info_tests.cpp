@@ -20,14 +20,25 @@ void test_reads_mount_table() {
         "24 21 0:21 / /mnt/backup rw,relatime - btrfs /dev/mapper/backupdisk[/snapshots] rw,subvolid=5\n"
     );
 
-    std::vector<btrfsbackup::MountEntry> entries = btrfsbackup::read_mount_table(mountinfo);
+    std::vector<btrfsbackup::MountEntry> entries = btrfsbackup::read_mount_table(mountinfo, [](const std::string& source) {
+        if (source == "/dev/sda2") {
+            return std::string{"source-uuid"};
+        }
+        if (source == "/dev/mapper/backupdisk") {
+            return std::string{"target-uuid"};
+        }
+        return std::string{};
+    });
     test_helpers::expect_eq("mount entry count", std::to_string(entries.size()), "4");
     test_helpers::expect_eq("mount first target", entries.at(0).target, "/");
     test_helpers::expect_eq("mount first fstype", entries.at(0).fstype, "btrfs");
     test_helpers::expect_eq("mount first root", entries.at(0).root, "/");
     test_helpers::expect_eq("mount first options", entries.at(0).options, "rw,relatime,subvolid=5");
     test_helpers::expect_eq("mount first device id", entries.at(0).device_id, "0:20");
+    test_helpers::expect_eq("mount first filesystem uuid", entries.at(0).filesystem_uuid, "source-uuid");
     test_helpers::expect_eq("mount tmpfs source", entries.at(2).source, "tmpfs");
+    test_helpers::expect_eq("mount tmpfs filesystem uuid", entries.at(2).filesystem_uuid, "");
+    test_helpers::expect_eq("mount backup filesystem uuid", entries.at(3).filesystem_uuid, "target-uuid");
 
     std::vector<std::string> targets = btrfsbackup::btrfs_mount_targets(mountinfo);
     test_helpers::expect_eq("btrfs target count", std::to_string(targets.size()), "3");
