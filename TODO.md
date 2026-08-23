@@ -2,12 +2,6 @@
 
 ## C++ Runtime Migration
 
-- Port receive-to-incoming and commit logic:
-  - receive into `.incoming`;
-  - verify received UUID against the local snapshot UUID;
-  - atomically commit on the same filesystem;
-  - preserve the existing recovery guarantees after interrupted runs.
-
 - Add a C++ runner entrypoint in shadow mode:
   - build the plan from the real profile and filesystem state;
   - print or write the planned actions;
