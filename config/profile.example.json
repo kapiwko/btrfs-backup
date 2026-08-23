@@ -13,7 +13,7 @@
     "mountPoint": "/mnt/backup"
   },
   "paths": {
-    "sourcesDir": "/etc/btrfs-backup/sources.d",
+    "sourcesDir": "/etc/btrfs-backup/profiles/default/sources.d",
     "remoteRoot": "/mnt/backup/snapshots",
     "incomingRoot": "/mnt/backup/.incoming",
     "stateDir": "/var/lib/btrfs-backup",
