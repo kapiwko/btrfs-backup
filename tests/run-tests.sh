@@ -532,8 +532,11 @@ profile_loading_test() {
     assert_contains "$STATUS_ROOT/default/current.json" '"state": "validated"'
 
     mkdir -p "$empty_profile_dir"
-    run_backup_profile "$empty_profile_dir" "$CONFIG_FILE" --profile default --validate --no-eject >/dev/null
+    local fallback_log="$RUNTIME/fallback.log"
+    run_backup_profile "$empty_profile_dir" "$CONFIG_FILE" --profile default --validate --no-eject >"$fallback_log" 2>&1
     assert_contains "$STATUS_ROOT/default/current.json" '"state": "validated"'
+    grep -q 'Legacy configuration fallback is deprecated' "$fallback_log" \
+        || fail 'legacy fallback did not emit a deprecation warning'
 
     cp -- "$CONFIG_FILE" "$profile_dir/mismatch.env"
     printf '\nPROFILE_ID=other\n' >> "$profile_dir/mismatch.env"

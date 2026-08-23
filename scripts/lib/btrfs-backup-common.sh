@@ -127,6 +127,7 @@ bb_resolve_profile_config() {
     fi
 
     if [[ "$profile_id" == default && -e "$legacy_config" ]]; then
+        bb_warn "Legacy configuration fallback is deprecated and will be removed in 2.0. Run: btrfs-backup-migrate-profile --profile default"
         printf '%s\n' "$legacy_config"
         return 0
     fi
