@@ -12,6 +12,7 @@
 #include <btrfsbackup/identifiers.hpp>
 #include <btrfsbackup/json_io.hpp>
 #include <btrfsbackup/process.hpp>
+#include <btrfsbackup/trusted_file.hpp>
 #include <btrfsbackup/validation.hpp>
 
 namespace fs = std::filesystem;
@@ -448,10 +449,14 @@ namespace {
 Json load_profile_json(const fs::path& etc_root, const std::string& profile_id) {
     validate_identifier(profile_id, "profile");
     fs::path canonical = profile_json_path(etc_root, profile_id);
-    if (fs::exists(canonical)) {
-        return normalize_profile(load_json_file(canonical));
+    TrustedFilePolicy policy{
+        .allow_current_user_owner = fs::absolute(etc_root).lexically_normal() != fs::path("/etc/btrfs-backup"),
+    };
+    try {
+        return normalize_profile(Json::parse(read_trusted_config_file(canonical, policy)));
+    } catch (const Json::exception& exc) {
+        throw ValidationError("cannot read JSON profile " + canonical.string() + ": " + exc.what());
     }
-    throw ValidationError("profile JSON not found for profile: " + profile_id);
 }
 
 } // namespace

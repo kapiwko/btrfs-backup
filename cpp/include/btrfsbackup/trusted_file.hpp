@@ -1,6 +1,7 @@
 #pragma once
 
 #include <filesystem>
+#include <string>
 
 namespace btrfsbackup {
 
@@ -9,5 +10,6 @@ struct TrustedFilePolicy {
 };
 
 void assert_trusted_config_file(const std::filesystem::path& path, const TrustedFilePolicy& policy = {});
+std::string read_trusted_config_file(const std::filesystem::path& path, const TrustedFilePolicy& policy = {});
 
 } // namespace btrfsbackup
