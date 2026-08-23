@@ -794,7 +794,13 @@ if [[ "$TARGET" == all || "$TARGET" == arch ]]; then
     tar --zstd -xf "$PACKAGE_ARCHIVE" -C "$PACKAGE_AUDIT_ROOT"
     while IFS= read -r -d '' packaged_script; do
         if head -n1 "$packaged_script" | grep -q 'python3'; then
-            python3 -m py_compile "$packaged_script"
+            python3 - "$packaged_script" <<'PY'
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+compile(path.read_text(encoding="utf-8"), str(path), "exec")
+PY
         else
             bash -n "$packaged_script"
         fi

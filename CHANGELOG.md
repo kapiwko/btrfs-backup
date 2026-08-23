@@ -5,7 +5,7 @@
 1. profile-aware configuration loading from `/etc/btrfs-backup/profiles.d/<profile>.env`;
 2. `--profile` support for backup, mount, and eject commands;
 3. compatibility fallback to `/etc/btrfs-backup/backup.env` for the `default` profile;
-4. `btrfs-backup-migrate-profile` for creating `profiles.d/default.env` from an existing legacy configuration;
+4. `btrfs-backup-migrate-profile` for converting an existing legacy configuration and source definitions into canonical profile JSON and runtime profile files;
 5. `btrfs-backupctl` for status, history, and watch access to the file-based status API;
 6. `btrfs-backup-mount` for mounting and validating the configured backup target without starting a backup;
 7. profile JSON examples and schema for future tooling;

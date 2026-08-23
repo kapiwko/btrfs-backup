@@ -4,6 +4,8 @@ Version 0.1.1 introduces profile configuration files:
 
 ```text
 /etc/btrfs-backup/profiles.d/<profile>.env
+/etc/btrfs-backup/profiles/<profile>/profile.json
+/etc/btrfs-backup/profiles/<profile>/sources.d/*.conf
 ```
 
 The legacy `/etc/btrfs-backup/backup.env` fallback still works for the
@@ -15,7 +17,8 @@ files from that JSON.
 
 ## Convert The Existing Configuration
 
-Create the default profile from the legacy file:
+Create the default profile from the legacy file and its `SOURCES_DIR` source
+definitions:
 
 ```bash
 sudo btrfs-backup-migrate-profile --profile default
@@ -43,8 +46,11 @@ Newly rendered configuration includes:
 
 ```text
 /etc/btrfs-backup/profiles.d/<profile>.env
+/etc/btrfs-backup/profiles/<profile>/profile.json
+/etc/btrfs-backup/profiles/<profile>/sources.d/*.conf
 /etc/systemd/system/btrfs-backup@.service
 /etc/udev/rules.d/99-btrfs-backup.rules
+/var/lib/btrfs-backup/public/profiles/<profile>.json
 ```
 
 The udev rule starts `btrfs-backup@<profile>.service`. Reload systemd and udev
