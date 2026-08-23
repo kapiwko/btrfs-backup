@@ -35,9 +35,7 @@ eject_path() {
     for candidate in \
         "$SCRIPT_DIR/btrfs-backup-eject" \
         "$SCRIPT_DIR/../bin/btrfs-backup-eject" \
-        "$SCRIPT_DIR/../lib/btrfs-backup/btrfs-backup-eject.sh" \
-        /usr/bin/btrfs-backup-eject \
-        /usr/lib/btrfs-backup/btrfs-backup-eject.sh; do
+        /usr/bin/btrfs-backup-eject; do
         if [[ -x "$candidate" ]]; then
             realpath -m -- "$candidate"
             return 0

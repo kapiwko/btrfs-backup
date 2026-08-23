@@ -9,7 +9,7 @@ namespace btrfsbackup {
 
 struct InstallationRenderOptions {
     std::string backup_command = "/usr/bin/btrfs-backupctl runner execute";
-    std::string eject_script = "/usr/lib/btrfs-backup/btrfs-backup-eject.sh";
+    std::string eject_script = "/usr/bin/btrfs-backup-eject";
     std::string keyfile = "none";
 };
 

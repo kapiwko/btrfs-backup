@@ -276,14 +276,6 @@ stage_package_payload() {
     local document
 
     make -C "$root" >/dev/null
-    install -Dm755 "$root/scripts/btrfs-backup-eject.sh" \
-        "$pkgdir/usr/lib/btrfs-backup/btrfs-backup-eject.sh"
-    install -Dm755 "$root/scripts/btrfs-backup-mount.sh" \
-        "$pkgdir/usr/lib/btrfs-backup/btrfs-backup-mount.sh"
-    install -Dm755 "$root/scripts/btrfs-backup-unplug.sh" \
-        "$pkgdir/usr/lib/btrfs-backup/btrfs-backup-unplug.sh"
-    install -Dm755 "$root/scripts/lib/btrfs-backup-common.sh" \
-        "$pkgdir/usr/lib/btrfs-backup/lib/btrfs-backup-common.sh"
     install -Dm755 "$root/build/btrfs-backupctl" \
         "$pkgdir/usr/lib/btrfs-backup/btrfs-backupctl"
 
@@ -291,7 +283,6 @@ stage_package_payload() {
     install -Dm755 "$root/bin/btrfs-backupctl" "$pkgdir/usr/bin/btrfs-backupctl"
     install -Dm755 "$root/bin/btrfs-backup-eject" "$pkgdir/usr/bin/btrfs-backup-eject"
     install -Dm755 "$root/bin/btrfs-backup-mount" "$pkgdir/usr/bin/btrfs-backup-mount"
-    install -Dm755 "$root/bin/btrfs-backup-unplug" "$pkgdir/usr/bin/btrfs-backup-unplug"
 
     install -Dm644 "$root/config/profile.example.json" \
         "$pkgdir/usr/share/btrfs-backup/examples/config/profile.example.json"
@@ -308,7 +299,7 @@ stage_package_payload() {
     install -d -m0755 "$pkgdir/usr/lib/systemd/system"
     sed \
         -e 's#{{BACKUP_COMMAND}}#/usr/bin/btrfs-backupctl runner execute#g' \
-        -e 's#{{EJECT_SCRIPT_PATH}}#/usr/lib/btrfs-backup/btrfs-backup-eject.sh#g' \
+        -e 's#{{EJECT_SCRIPT_PATH}}#/usr/bin/btrfs-backup-eject#g' \
         "$root/systemd/btrfs-backup@.service.example" \
         > "$pkgdir/usr/lib/systemd/system/btrfs-backup@.service"
     chmod 0644 "$pkgdir/usr/lib/systemd/system/btrfs-backup@.service"
@@ -429,19 +420,14 @@ interrupted-run recovery, retention, and controlled eject.
 %{__make}
 
 %install
-install -Dm755 scripts/btrfs-backup-eject.sh %{buildroot}%{_libdir}/btrfs-backup/btrfs-backup-eject.sh
-install -Dm755 scripts/btrfs-backup-mount.sh %{buildroot}%{_libdir}/btrfs-backup/btrfs-backup-mount.sh
-install -Dm755 scripts/btrfs-backup-unplug.sh %{buildroot}%{_libdir}/btrfs-backup/btrfs-backup-unplug.sh
-install -Dm755 scripts/lib/btrfs-backup-common.sh %{buildroot}%{_libdir}/btrfs-backup/lib/btrfs-backup-common.sh
 install -Dm755 build/btrfs-backupctl %{buildroot}%{_libdir}/btrfs-backup/btrfs-backupctl
 install -Dm755 bin/btrfs-backup %{buildroot}%{_bindir}/btrfs-backup
 install -Dm755 bin/btrfs-backupctl %{buildroot}%{_bindir}/btrfs-backupctl
 install -Dm755 bin/btrfs-backup-eject %{buildroot}%{_bindir}/btrfs-backup-eject
 install -Dm755 bin/btrfs-backup-mount %{buildroot}%{_bindir}/btrfs-backup-mount
-install -Dm755 bin/btrfs-backup-unplug %{buildroot}%{_bindir}/btrfs-backup-unplug
 install -d %{buildroot}/usr/lib/systemd/system
 sed -e 's#{{BACKUP_COMMAND}}#/usr/bin/btrfs-backupctl runner execute#g' \
-    -e 's#{{EJECT_SCRIPT_PATH}}#/usr/lib/btrfs-backup/btrfs-backup-eject.sh#g' \
+    -e 's#{{EJECT_SCRIPT_PATH}}#/usr/bin/btrfs-backup-eject#g' \
     systemd/btrfs-backup@.service.example \
     > %{buildroot}/usr/lib/systemd/system/btrfs-backup@.service
 install -d %{buildroot}%{_datadir}/btrfs-backup/examples
@@ -457,7 +443,6 @@ install -Dm644 LICENSE %{buildroot}%{_licensedir}/btrfs-backup/LICENSE
 %{_bindir}/btrfs-backupctl
 %{_bindir}/btrfs-backup-eject
 %{_bindir}/btrfs-backup-mount
-%{_bindir}/btrfs-backup-unplug
 %{_libdir}/btrfs-backup/btrfs-backupctl
 %{_libdir}/btrfs-backup/
 /usr/lib/systemd/system/btrfs-backup@.service
@@ -510,19 +495,14 @@ stdenvNoCC.mkDerivation {
   installPhase = ''
     runHook preInstall
     make
-    install -Dm755 scripts/btrfs-backup-eject.sh $out/lib/btrfs-backup/btrfs-backup-eject.sh
-    install -Dm755 scripts/btrfs-backup-mount.sh $out/lib/btrfs-backup/btrfs-backup-mount.sh
-    install -Dm755 scripts/btrfs-backup-unplug.sh $out/lib/btrfs-backup/btrfs-backup-unplug.sh
-    install -Dm755 scripts/lib/btrfs-backup-common.sh $out/lib/btrfs-backup/lib/btrfs-backup-common.sh
     install -Dm755 build/btrfs-backupctl $out/lib/btrfs-backup/btrfs-backupctl
     install -Dm755 bin/btrfs-backup $out/bin/btrfs-backup
     install -Dm755 bin/btrfs-backupctl $out/bin/btrfs-backupctl
     install -Dm755 bin/btrfs-backup-eject $out/bin/btrfs-backup-eject
     install -Dm755 bin/btrfs-backup-mount $out/bin/btrfs-backup-mount
-    install -Dm755 bin/btrfs-backup-unplug $out/bin/btrfs-backup-unplug
     mkdir -p $out/lib/systemd/system
     sed -e 's#{{BACKUP_COMMAND}}#/usr/bin/btrfs-backupctl runner execute#g' \
-        -e 's#{{EJECT_SCRIPT_PATH}}#/usr/lib/btrfs-backup/btrfs-backup-eject.sh#g' \
+        -e 's#{{EJECT_SCRIPT_PATH}}#/usr/bin/btrfs-backup-eject#g' \
         systemd/btrfs-backup@.service.example \
         > $out/lib/systemd/system/btrfs-backup@.service
     mkdir -p $out/share/btrfs-backup/examples
@@ -586,15 +566,11 @@ RDEPEND="
 
 src_install() {
 	emake
-	dobin bin/btrfs-backup bin/btrfs-backupctl bin/btrfs-backup-eject bin/btrfs-backup-mount bin/btrfs-backup-unplug
-	exeinto /usr/lib/btrfs-backup
-	doexe scripts/btrfs-backup-eject.sh scripts/btrfs-backup-mount.sh scripts/btrfs-backup-unplug.sh
-	exeinto /usr/lib/btrfs-backup/lib
-	doexe scripts/lib/btrfs-backup-common.sh
+	dobin bin/btrfs-backup bin/btrfs-backupctl bin/btrfs-backup-eject bin/btrfs-backup-mount
 	exeinto /usr/lib/btrfs-backup
 	doexe build/btrfs-backupctl
 	sed -e 's#{{BACKUP_COMMAND}}#/usr/bin/btrfs-backupctl runner execute#g' \
-		-e 's#{{EJECT_SCRIPT_PATH}}#/usr/lib/btrfs-backup/btrfs-backup-eject.sh#g' \
+		-e 's#{{EJECT_SCRIPT_PATH}}#/usr/bin/btrfs-backup-eject#g' \
 		systemd/btrfs-backup@.service.example > "${T}/btrfs-backup@.service"
 	insinto /usr/lib/systemd/system
 	doins "${T}/btrfs-backup@.service"
@@ -637,19 +613,14 @@ check() {
 package() {
   local root="\$srcdir/\$pkgbase-\$pkgver"
   make -C "\$root"
-  install -Dm755 "\$root/scripts/btrfs-backup-eject.sh" "\$pkgdir/usr/lib/btrfs-backup/btrfs-backup-eject.sh"
-  install -Dm755 "\$root/scripts/btrfs-backup-mount.sh" "\$pkgdir/usr/lib/btrfs-backup/btrfs-backup-mount.sh"
-  install -Dm755 "\$root/scripts/btrfs-backup-unplug.sh" "\$pkgdir/usr/lib/btrfs-backup/btrfs-backup-unplug.sh"
-  install -Dm755 "\$root/scripts/lib/btrfs-backup-common.sh" "\$pkgdir/usr/lib/btrfs-backup/lib/btrfs-backup-common.sh"
   install -Dm755 "\$root/build/btrfs-backupctl" "\$pkgdir/usr/lib/btrfs-backup/btrfs-backupctl"
   install -Dm755 "\$root/bin/btrfs-backup" "\$pkgdir/usr/bin/btrfs-backup"
   install -Dm755 "\$root/bin/btrfs-backupctl" "\$pkgdir/usr/bin/btrfs-backupctl"
   install -Dm755 "\$root/bin/btrfs-backup-eject" "\$pkgdir/usr/bin/btrfs-backup-eject"
   install -Dm755 "\$root/bin/btrfs-backup-mount" "\$pkgdir/usr/bin/btrfs-backup-mount"
-  install -Dm755 "\$root/bin/btrfs-backup-unplug" "\$pkgdir/usr/bin/btrfs-backup-unplug"
   install -d "\$pkgdir/usr/lib/systemd/system"
   sed -e 's#{{BACKUP_COMMAND}}#/usr/bin/btrfs-backupctl runner execute#g' \\
-      -e 's#{{EJECT_SCRIPT_PATH}}#/usr/lib/btrfs-backup/btrfs-backup-eject.sh#g' \\
+      -e 's#{{EJECT_SCRIPT_PATH}}#/usr/bin/btrfs-backup-eject#g' \\
       "\$root/systemd/btrfs-backup@.service.example" \\
       > "\$pkgdir/usr/lib/systemd/system/btrfs-backup@.service"
   install -d "\$pkgdir/usr/share/btrfs-backup/examples"
@@ -813,7 +784,6 @@ if [[ "$TARGET" == all || "$TARGET" == arch ]]; then
     grep -qx 'usr/bin/btrfs-backup' "$TMP_ROOT/package-files.txt"
     grep -qx 'usr/bin/btrfs-backupctl' "$TMP_ROOT/package-files.txt"
     grep -qx 'usr/bin/btrfs-backup-mount' "$TMP_ROOT/package-files.txt"
-    grep -qx 'usr/lib/btrfs-backup/btrfs-backup-mount.sh' "$TMP_ROOT/package-files.txt"
     grep -qx 'usr/lib/btrfs-backup/btrfs-backupctl' "$TMP_ROOT/package-files.txt"
     grep -qx 'usr/lib/systemd/system/btrfs-backup@.service' "$TMP_ROOT/package-files.txt"
     grep -qx 'usr/share/btrfs-backup/examples/config/profile.schema.json' "$TMP_ROOT/package-files.txt"
@@ -839,7 +809,6 @@ if [[ "$TARGET" == all || "$TARGET" == arch ]]; then
     "$PACKAGE_AUDIT_ROOT/usr/bin/btrfs-backup-eject" --help >/dev/null
     "$PACKAGE_AUDIT_ROOT/usr/bin/btrfs-backup-mount" --help >/dev/null
     "$PACKAGE_AUDIT_ROOT/usr/bin/btrfs-backupctl" profile migrate --help >/dev/null
-    "$PACKAGE_AUDIT_ROOT/usr/bin/btrfs-backup-unplug" --help >/dev/null 2>&1
 
     PACKAGE_RENDERED="$TMP_ROOT/package-rendered"
     PACKAGE_PROFILE="$PACKAGE_RENDERED/config/profile.json"
@@ -868,7 +837,7 @@ if [[ "$TARGET" == all || "$TARGET" == arch ]]; then
         --file "$PACKAGE_PROFILE" \
         --output-dir "$PACKAGE_RENDERED" \
         --backup-command "$PACKAGE_AUDIT_ROOT/usr/bin/btrfs-backupctl runner execute" \
-        --eject-script "$PACKAGE_AUDIT_ROOT/usr/lib/btrfs-backup/btrfs-backup-eject.sh" \
+        --eject-script "$PACKAGE_AUDIT_ROOT/usr/bin/btrfs-backup-eject" \
         --keyfile none
     "$PACKAGE_AUDIT_ROOT/usr/bin/btrfs-backupctl" installation validate --rendered-root "$PACKAGE_RENDERED" >/dev/null
 

@@ -58,7 +58,7 @@ void test_installation_render_writes_static_files() {
         "--output-dir",
         (root / "rendered").string(),
         "--eject-script",
-        "/usr/lib/btrfs-backup/btrfs-backup-eject.sh",
+        "/usr/bin/btrfs-backup-eject",
         "--keyfile",
         "/root/keys/backupdisk.key",
     });

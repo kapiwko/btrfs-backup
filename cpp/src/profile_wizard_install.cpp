@@ -20,11 +20,11 @@ namespace btrfsbackup {
 namespace {
 
 std::string detect_eject_script() {
-    fs::path repo_candidate = fs::current_path() / "scripts" / "btrfs-backup-eject.sh";
+    fs::path repo_candidate = fs::current_path() / "bin" / "btrfs-backup-eject";
     if (fs::exists(repo_candidate)) {
         return repo_candidate.string();
     }
-    return "/usr/lib/btrfs-backup/btrfs-backup-eject.sh";
+    return "/usr/bin/btrfs-backup-eject";
 }
 
 } // namespace
