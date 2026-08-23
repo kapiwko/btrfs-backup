@@ -3,6 +3,8 @@ set -Eeuo pipefail
 
 STATUS_ROOT="${BTRFS_BACKUP_STATUS_ROOT:-/run/btrfs-backup/profiles}"
 HISTORY_ROOT="${BTRFS_BACKUP_HISTORY_ROOT:-/var/lib/btrfs-backup/history}"
+PROFILE_CONFIG_DIR="${BTRFS_BACKUP_PROFILE_CONFIG_DIR:-/etc/btrfs-backup/profiles.d}"
+LEGACY_CONFIG_FILE="${BTRFS_BACKUP_LEGACY_CONFIG:-/etc/btrfs-backup/backup.env}"
 
 usage() {
     cat <<'USAGE'
@@ -11,8 +13,11 @@ Usage: btrfs-backupctl [options] COMMAND
 Options:
   --status-root PATH   Override status root (default: /run/btrfs-backup/profiles).
   --history-root PATH  Override history root (default: /var/lib/btrfs-backup/history).
+  --profile-dir PATH   Override profile config dir (default: /etc/btrfs-backup/profiles.d).
+  --legacy-config PATH Override legacy config path (default: /etc/btrfs-backup/backup.env).
 
 Commands:
+  list-profiles
   status [--profile ID|--all] [--human]
   history [--profile ID] [--limit N]
   watch [--profile ID] [--interval SECONDS]
@@ -154,6 +159,27 @@ command_history() {
     printf '\n]\n'
 }
 
+command_list_profiles() {
+    local found=0
+    local file profile
+
+    if [[ -d "$PROFILE_CONFIG_DIR" ]]; then
+        while IFS= read -r -d '' file; do
+            profile="$(basename -- "$file" .env)"
+            validate_profile_id "$profile"
+            printf '%s\n' "$profile"
+            found=1
+        done < <(find "$PROFILE_CONFIG_DIR" -maxdepth 1 -type f -name '*.env' -print0 2>/dev/null | sort -z)
+    fi
+
+    if [[ -f "$LEGACY_CONFIG_FILE" && ! -e "$PROFILE_CONFIG_DIR/default.env" ]]; then
+        printf 'default (legacy)\n'
+        found=1
+    fi
+
+    (( found == 1 )) || die "no profiles found"
+}
+
 command_watch() {
     local profile=default
     local interval=1
@@ -201,6 +227,16 @@ while (( $# > 0 )); do
             HISTORY_ROOT="$2"
             shift 2
             ;;
+        --profile-dir)
+            [[ $# -ge 2 ]] || die "--profile-dir requires a value"
+            PROFILE_CONFIG_DIR="$2"
+            shift 2
+            ;;
+        --legacy-config)
+            [[ $# -ge 2 ]] || die "--legacy-config requires a value"
+            LEGACY_CONFIG_FILE="$2"
+            shift 2
+            ;;
         -h|--help)
             usage
             exit 0
@@ -214,6 +250,7 @@ command="${1:-}"
 shift
 
 case "$command" in
+    list-profiles) command_list_profiles "$@" ;;
     status) command_status "$@" ;;
     history) command_history "$@" ;;
     watch) command_watch "$@" ;;

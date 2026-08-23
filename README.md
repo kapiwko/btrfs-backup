@@ -81,6 +81,7 @@ sudo btrfs-backup-eject
 sudo btrfs-backup-migrate-profile --profile default
 btrfs-backupctl status --profile default --human
 btrfs-backupctl history --profile default --limit 10
+btrfs-backupctl list-profiles
 ```
 
 Logs:
@@ -122,10 +123,11 @@ Backups should be checked regularly with a restore test. A successful transfer e
 
 1. [architecture and runtime flow](docs/architecture.md);
 2. [configuration](docs/configuration.md);
-3. [recovery](docs/recovery.md);
-4. [testing](docs/testing.md);
-5. [status API](docs/status-api.md);
-6. [release and packaging](docs/packaging.md).
+3. [migration to profiles](docs/migration-to-profiles.md);
+4. [recovery](docs/recovery.md);
+5. [testing](docs/testing.md);
+6. [status API](docs/status-api.md);
+7. [release and packaging](docs/packaging.md).
 
 ## Security and Limits
 

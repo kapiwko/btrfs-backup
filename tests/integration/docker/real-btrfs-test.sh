@@ -125,11 +125,13 @@ ANSWERS
     rm -f -- /etc/btrfs-backup/sources.d/*.conf
     install -m0600 "$RENDERED_CONFIG/config/sources.d"/*.conf /etc/btrfs-backup/sources.d/
     install -Dm0644 "$RENDERED_CONFIG/systemd/btrfs-backup.service" /etc/systemd/system/btrfs-backup.service
+    install -Dm0644 "$RENDERED_CONFIG/systemd/btrfs-backup@.service" /etc/systemd/system/btrfs-backup@.service
     install -Dm0644 "$RENDERED_CONFIG/udev/99-btrfs-backup.rules" /etc/udev/rules.d/99-btrfs-backup.rules
     btrfs-backup-configure --validate >/dev/null
-    btrfs-backup-migrate-profile --profile default >/dev/null
+    btrfs-backup-migrate-profile --profile default --remove-legacy >/dev/null
     ACTIVE_CONFIG=/etc/btrfs-backup/profiles.d/default.env
     [[ -f "$ACTIVE_CONFIG" ]] || fail 'profile migration did not create default.env'
+    [[ ! -f /etc/btrfs-backup/backup.env ]] || fail 'profile migration did not move legacy backup.env aside'
 }
 
 run_backup() {

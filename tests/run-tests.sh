@@ -135,13 +135,17 @@ ANSWERS
         --render-only >/dev/null
 
     assert_file "$output/config/backup.env"
+    assert_file "$output/config/profiles.d/laptop.env"
     assert_contains "$output/config/backup.env" "PROFILE_ID=laptop"
+    assert_contains "$output/config/profiles.d/laptop.env" "PROFILE_ID=laptop"
     assert_contains "$output/config/backup.env" "PROFILE_NAME=Laptop\\ backup"
     assert_file "$output/config/sources.d/10-root.conf"
     assert_file "$output/config/sources.d/20-home.conf"
     assert_file "$output/systemd/btrfs-backup.service"
+    assert_file "$output/systemd/btrfs-backup@.service"
     assert_file "$output/udev/99-btrfs-backup.rules"
     assert_not_contains "$output/udev/99-btrfs-backup.rules" 'ACTION=="remove"'
+    assert_contains "$output/udev/99-btrfs-backup.rules" 'btrfs-backup@laptop.service'
     assert_not_contains "$output/systemd/btrfs-backup.service" 'WantedBy='
     assert_not_contains "$output/systemd/btrfs-backup.service" 'Requires=mnt-backup.mount'
     assert_contains "$output/systemd/btrfs-backup.service" 'ExecStart='
@@ -165,6 +169,21 @@ migrate_profile_dry_run_test() {
         --source "$source_config" \
         --profile-dir "$profile_dir" \
         --profile default >/dev/null
+    printf 'PROFILE_ID=laptop\n' > "$profile_dir/laptop.env"
+    local profile_list
+    profile_list="$("$ROOT/bin/btrfs-backupctl" \
+        --profile-dir "$profile_dir" \
+        --legacy-config "$source_config" \
+        list-profiles)"
+    grep -qx laptop <<< "$profile_list" \
+        || fail 'btrfs-backupctl did not list profile files'
+    rm -f -- "$profile_dir/laptop.env"
+    profile_list="$("$ROOT/bin/btrfs-backupctl" \
+        --profile-dir "$profile_dir" \
+        --legacy-config "$source_config" \
+        list-profiles)"
+    grep -qx 'default (legacy)' <<< "$profile_list" \
+        || fail 'btrfs-backupctl did not list legacy default profile'
     pass 'profile migrator dry-run validates paths'
 }
 
@@ -527,6 +546,14 @@ profile_loading_test() {
     assert_file "$migrated"
     assert_contains "$migrated" 'PROFILE_ID=default'
     assert_contains "$migrated" 'PROFILE_NAME=Default\ backup'
+
+    local profile_list
+    profile_list="$("$ROOT/bin/btrfs-backupctl" \
+        --profile-dir "$profile_dir" \
+        --legacy-config "$CONFIG_FILE" \
+        list-profiles)"
+    grep -qx default <<< "$profile_list" \
+        || fail 'btrfs-backupctl did not list migrated default profile'
 
     run_backup_profile "$profile_dir" "$RUNTIME/config/missing.env" --profile default --validate --no-eject >/dev/null
     assert_contains "$STATUS_ROOT/default/current.json" '"state": "validated"'

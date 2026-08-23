@@ -58,9 +58,9 @@ definitions unchanged.
 ## Profile JSON
 
 `config/profile.example.json` and `config/profile.schema.json` define a
-versioned, machine-readable profile model for tooling. The current runner still
-uses `backup.env` and `sources.d/*.conf` as its active configuration, so the
-JSON profile is not installed as an active file by default.
+versioned, machine-readable profile model for tooling. The current runner uses
+trusted shell profile files and `sources.d/*.conf` as its active configuration,
+so the JSON profile is not installed as an active file by default.
 
 The profile model mirrors the shell configuration: encrypted target identity,
 state paths, retention settings, notification policy, and source definitions.

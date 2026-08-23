@@ -246,6 +246,8 @@ stage_package_payload() {
         "$pkgdir/usr/share/btrfs-backup/examples/config/fstab.fragment.example"
     install -Dm644 "$root/systemd/btrfs-backup.service.example" \
         "$pkgdir/usr/share/btrfs-backup/examples/systemd/btrfs-backup.service.example"
+    install -Dm644 "$root/systemd/btrfs-backup@.service.example" \
+        "$pkgdir/usr/share/btrfs-backup/examples/systemd/btrfs-backup@.service.example"
     install -Dm644 "$root/udev/99-btrfs-backup.rules.example" \
         "$pkgdir/usr/share/btrfs-backup/examples/udev/99-btrfs-backup.rules.example"
 
