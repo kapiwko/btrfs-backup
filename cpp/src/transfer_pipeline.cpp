@@ -1,6 +1,15 @@
 #include <btrfsbackup/transfer_pipeline.hpp>
 
+#include <fcntl.h>
+#include <poll.h>
+#include <signal.h>
+#include <sys/wait.h>
+#include <unistd.h>
+
+#include <cerrno>
+#include <cstring>
 #include <string>
+#include <vector>
 
 #include <btrfsbackup/errors.hpp>
 
@@ -27,6 +36,204 @@ bool transfer_succeeded(const TransferResult& result) {
 
 namespace {
 
+class UniqueFd {
+public:
+    UniqueFd() = default;
+    explicit UniqueFd(int fd) : fd_(fd) {}
+    UniqueFd(const UniqueFd&) = delete;
+    UniqueFd& operator=(const UniqueFd&) = delete;
+    UniqueFd(UniqueFd&& other) noexcept : fd_(other.fd_) {
+        other.fd_ = -1;
+    }
+    UniqueFd& operator=(UniqueFd&& other) noexcept {
+        if (this != &other) {
+            reset();
+            fd_ = other.fd_;
+            other.fd_ = -1;
+        }
+        return *this;
+    }
+    ~UniqueFd() {
+        reset();
+    }
+
+    int get() const {
+        return fd_;
+    }
+
+    int release() {
+        int result = fd_;
+        fd_ = -1;
+        return result;
+    }
+
+    void reset(int fd = -1) {
+        if (fd_ >= 0) {
+            close(fd_);
+        }
+        fd_ = fd;
+    }
+
+private:
+    int fd_ = -1;
+};
+
+class ScopedIgnoredSigpipe {
+public:
+    ScopedIgnoredSigpipe() {
+        struct sigaction action {};
+        action.sa_handler = SIG_IGN;
+        sigemptyset(&action.sa_mask);
+        sigaction(SIGPIPE, &action, &previous_);
+    }
+    ScopedIgnoredSigpipe(const ScopedIgnoredSigpipe&) = delete;
+    ScopedIgnoredSigpipe& operator=(const ScopedIgnoredSigpipe&) = delete;
+    ~ScopedIgnoredSigpipe() {
+        sigaction(SIGPIPE, &previous_, nullptr);
+    }
+
+private:
+    struct sigaction previous_ {};
+};
+
+struct Pipe {
+    UniqueFd read_end;
+    UniqueFd write_end;
+};
+
+Pipe create_pipe() {
+    int fds[2];
+    if (pipe2(fds, O_CLOEXEC) != 0) {
+        throw ValidationError(std::string("cannot create transfer pipe: ") + std::strerror(errno));
+    }
+    return Pipe{.read_end = UniqueFd(fds[0]), .write_end = UniqueFd(fds[1])};
+}
+
+void set_nonblocking(int fd) {
+    int flags = fcntl(fd, F_GETFL, 0);
+    if (flags < 0 || fcntl(fd, F_SETFL, flags | O_NONBLOCK) != 0) {
+        throw ValidationError(std::string("cannot configure transfer pipe: ") + std::strerror(errno));
+    }
+}
+
+UniqueFd open_dev_null() {
+    int fd = open("/dev/null", O_RDWR | O_CLOEXEC);
+    if (fd < 0) {
+        throw ValidationError(std::string("cannot open /dev/null: ") + std::strerror(errno));
+    }
+    return UniqueFd(fd);
+}
+
+std::vector<char*> argv_for_exec(const std::vector<std::string>& argv) {
+    std::vector<char*> result;
+    result.reserve(argv.size() + 1);
+    for (const std::string& item : argv) {
+        result.push_back(const_cast<char*>(item.c_str()));
+    }
+    result.push_back(nullptr);
+    return result;
+}
+
+pid_t spawn_process(
+    const std::vector<std::string>& argv,
+    int stdin_fd,
+    int stdout_fd,
+    int stderr_fd
+) {
+    if (argv.empty()) {
+        throw ValidationError("empty transfer command");
+    }
+
+    pid_t pid = fork();
+    if (pid < 0) {
+        throw ValidationError(std::string("cannot fork transfer process: ") + std::strerror(errno));
+    }
+    if (pid == 0) {
+        dup2(stdin_fd, STDIN_FILENO);
+        dup2(stdout_fd, STDOUT_FILENO);
+        dup2(stderr_fd, STDERR_FILENO);
+        std::vector<char*> args = argv_for_exec(argv);
+        execvp(args[0], args.data());
+        _exit(127);
+    }
+    return pid;
+}
+
+int status_to_exit_code(int status) {
+    if (WIFEXITED(status)) {
+        return WEXITSTATUS(status);
+    }
+    if (WIFSIGNALED(status)) {
+        return 128 + WTERMSIG(status);
+    }
+    return 128;
+}
+
+bool reap_child(pid_t pid, TransferSideResult& result) {
+    int status = 0;
+    pid_t waited = waitpid(pid, &status, WNOHANG);
+    if (waited == 0) {
+        return false;
+    }
+    if (waited < 0) {
+        result.exit_code = 128;
+        result.diagnostics = std::string("waitpid failed: ") + std::strerror(errno);
+        return true;
+    }
+    result.exit_code = status_to_exit_code(status);
+    return true;
+}
+
+void terminate_child(pid_t pid) {
+    if (pid > 0) {
+        kill(pid, SIGTERM);
+    }
+}
+
+void read_available(int fd, std::string& output) {
+    char buffer[4096];
+    while (true) {
+        ssize_t count = read(fd, buffer, sizeof(buffer));
+        if (count > 0) {
+            output.append(buffer, static_cast<std::size_t>(count));
+            continue;
+        }
+        if (count == 0) {
+            return;
+        }
+        if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            return;
+        }
+        if (errno == EINTR) {
+            continue;
+        }
+        output.append("read failed: ");
+        output.append(std::strerror(errno));
+        return;
+    }
+}
+
+void trim_diagnostics(std::string& diagnostics) {
+    while (!diagnostics.empty() && (diagnostics.back() == '\n' || diagnostics.back() == '\r')) {
+        diagnostics.pop_back();
+    }
+}
+
+void append_diagnostic(std::string& diagnostics, const std::string& message) {
+    if (!diagnostics.empty()) {
+        diagnostics += '\n';
+    }
+    diagnostics += message;
+}
+
+void emit_event(ITransferEventSink& events, TransferEventKind kind, std::uint64_t bytes_transferred = 0, const std::string& message = "") {
+    events.on_transfer_event({
+        .kind = kind,
+        .bytes_transferred = bytes_transferred,
+        .message = message,
+    });
+}
+
 std::string side_failure(const char* side, const TransferSideResult& result) {
     std::string message = std::string(side) + " failed";
     if (!result.started) {
@@ -41,6 +248,192 @@ std::string side_failure(const char* side, const TransferSideResult& result) {
 }
 
 } // namespace
+
+TransferResult PosixTransferPipeline::run(
+    const TransferPipelinePlan& plan,
+    ITransferEventSink& events,
+    CancellationToken& cancellation
+) {
+    ScopedIgnoredSigpipe ignored_sigpipe;
+    Pipe data_pipe = create_pipe();
+    Pipe consumer_input_pipe = create_pipe();
+    Pipe producer_error_pipe = create_pipe();
+    Pipe consumer_error_pipe = create_pipe();
+    UniqueFd dev_null = open_dev_null();
+
+    pid_t producer_pid = spawn_process(
+        plan.producer_argv,
+        dev_null.get(),
+        data_pipe.write_end.get(),
+        producer_error_pipe.write_end.get()
+    );
+    pid_t consumer_pid = spawn_process(
+        plan.consumer_argv,
+        consumer_input_pipe.read_end.get(),
+        dev_null.get(),
+        consumer_error_pipe.write_end.get()
+    );
+
+    TransferResult result;
+    result.producer.started = true;
+    result.consumer.started = true;
+    emit_event(events, TransferEventKind::Started);
+
+    data_pipe.write_end.reset();
+    consumer_input_pipe.read_end.reset();
+    producer_error_pipe.write_end.reset();
+    consumer_error_pipe.write_end.reset();
+    set_nonblocking(data_pipe.read_end.get());
+    set_nonblocking(consumer_input_pipe.write_end.get());
+    set_nonblocking(producer_error_pipe.read_end.get());
+    set_nonblocking(consumer_error_pipe.read_end.get());
+
+    std::string pending;
+    bool producer_stdout_open = true;
+    bool consumer_stdin_open = true;
+    bool producer_stderr_open = true;
+    bool consumer_stderr_open = true;
+    bool producer_done = false;
+    bool consumer_done = false;
+    bool cancellation_sent = false;
+
+    while (!producer_done || !consumer_done || producer_stdout_open || producer_stderr_open || consumer_stderr_open || !pending.empty()) {
+        if (cancellation.cancellation_requested() && !cancellation_sent) {
+            result.cancelled = true;
+            terminate_child(producer_pid);
+            terminate_child(consumer_pid);
+            if (consumer_stdin_open) {
+                consumer_input_pipe.write_end.reset();
+                consumer_stdin_open = false;
+            }
+            emit_event(events, TransferEventKind::Cancelled, result.bytes_transferred);
+            cancellation_sent = true;
+        }
+
+        std::vector<pollfd> fds;
+        std::vector<int> tags;
+        constexpr int producer_stdout_tag = 1;
+        constexpr int consumer_stdin_tag = 2;
+        constexpr int producer_stderr_tag = 3;
+        constexpr int consumer_stderr_tag = 4;
+
+        if (producer_stdout_open) {
+            fds.push_back({.fd = data_pipe.read_end.get(), .events = POLLIN | POLLHUP, .revents = 0});
+            tags.push_back(producer_stdout_tag);
+        }
+        if (consumer_stdin_open && !pending.empty()) {
+            fds.push_back({.fd = consumer_input_pipe.write_end.get(), .events = POLLOUT | POLLHUP | POLLERR, .revents = 0});
+            tags.push_back(consumer_stdin_tag);
+        }
+        if (producer_stderr_open) {
+            fds.push_back({.fd = producer_error_pipe.read_end.get(), .events = POLLIN | POLLHUP, .revents = 0});
+            tags.push_back(producer_stderr_tag);
+        }
+        if (consumer_stderr_open) {
+            fds.push_back({.fd = consumer_error_pipe.read_end.get(), .events = POLLIN | POLLHUP, .revents = 0});
+            tags.push_back(consumer_stderr_tag);
+        }
+
+        if (!fds.empty()) {
+            int ready = poll(fds.data(), fds.size(), 100);
+            if (ready < 0 && errno != EINTR) {
+                terminate_child(producer_pid);
+                terminate_child(consumer_pid);
+                throw ValidationError(std::string("transfer poll failed: ") + std::strerror(errno));
+            }
+        }
+
+        for (std::size_t i = 0; i < fds.size(); ++i) {
+            if (fds[i].revents == 0) {
+                continue;
+            }
+            int tag = tags[i];
+            if (tag == producer_stdout_tag && (fds[i].revents & (POLLIN | POLLHUP)) != 0) {
+                char buffer[65536];
+                while (true) {
+                    ssize_t count = read(data_pipe.read_end.get(), buffer, sizeof(buffer));
+                    if (count > 0) {
+                        pending.append(buffer, static_cast<std::size_t>(count));
+                        result.bytes_transferred += static_cast<std::uint64_t>(count);
+                        emit_event(events, TransferEventKind::Progress, result.bytes_transferred);
+                        continue;
+                    }
+                    if (count == 0) {
+                        data_pipe.read_end.reset();
+                        producer_stdout_open = false;
+                        break;
+                    }
+                    if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                        break;
+                    }
+                    if (errno == EINTR) {
+                        continue;
+                    }
+                    result.producer.diagnostics = std::string("stdout read failed: ") + std::strerror(errno);
+                    data_pipe.read_end.reset();
+                    producer_stdout_open = false;
+                    break;
+                }
+            } else if (tag == consumer_stdin_tag && (fds[i].revents & (POLLHUP | POLLERR)) != 0) {
+                append_diagnostic(result.consumer.diagnostics, "stdin closed before transfer completed");
+                consumer_input_pipe.write_end.reset();
+                consumer_stdin_open = false;
+                pending.clear();
+                if (producer_stdout_open) {
+                    data_pipe.read_end.reset();
+                    producer_stdout_open = false;
+                }
+                terminate_child(producer_pid);
+            } else if (tag == consumer_stdin_tag && (fds[i].revents & POLLOUT) != 0) {
+                ssize_t count = write(consumer_input_pipe.write_end.get(), pending.data(), pending.size());
+                if (count > 0) {
+                    pending.erase(0, static_cast<std::size_t>(count));
+                } else if (count < 0 && errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR) {
+                    append_diagnostic(result.consumer.diagnostics, std::string("stdin write failed: ") + std::strerror(errno));
+                    consumer_input_pipe.write_end.reset();
+                    consumer_stdin_open = false;
+                    pending.clear();
+                    if (producer_stdout_open) {
+                        data_pipe.read_end.reset();
+                        producer_stdout_open = false;
+                    }
+                    terminate_child(producer_pid);
+                }
+            } else if (tag == producer_stderr_tag && (fds[i].revents & (POLLIN | POLLHUP)) != 0) {
+                read_available(producer_error_pipe.read_end.get(), result.producer.diagnostics);
+                if ((fds[i].revents & POLLHUP) != 0) {
+                    producer_error_pipe.read_end.reset();
+                    producer_stderr_open = false;
+                }
+            } else if (tag == consumer_stderr_tag && (fds[i].revents & (POLLIN | POLLHUP)) != 0) {
+                read_available(consumer_error_pipe.read_end.get(), result.consumer.diagnostics);
+                if ((fds[i].revents & POLLHUP) != 0) {
+                    consumer_error_pipe.read_end.reset();
+                    consumer_stderr_open = false;
+                }
+            }
+        }
+
+        if (!producer_stdout_open && pending.empty() && consumer_stdin_open) {
+            consumer_input_pipe.write_end.reset();
+            consumer_stdin_open = false;
+        }
+
+        if (!producer_done && reap_child(producer_pid, result.producer)) {
+            producer_done = true;
+            emit_event(events, TransferEventKind::ProducerFinished, result.bytes_transferred);
+        }
+        if (!consumer_done && reap_child(consumer_pid, result.consumer)) {
+            consumer_done = true;
+            emit_event(events, TransferEventKind::ConsumerFinished, result.bytes_transferred);
+        }
+    }
+
+    trim_diagnostics(result.producer.diagnostics);
+    trim_diagnostics(result.consumer.diagnostics);
+    emit_event(events, TransferEventKind::Completed, result.bytes_transferred);
+    return result;
+}
 
 void require_transfer_success(const TransferResult& result) {
     if (transfer_succeeded(result)) {

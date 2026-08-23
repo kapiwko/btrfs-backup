@@ -92,6 +92,116 @@ void test_event_sink_contract() {
     test_helpers::expect_eq("event message", sink.events.at(0).message, "chunk");
 }
 
+void test_posix_pipeline_transfers_bytes() {
+    btrfsbackup::PosixTransferPipeline pipeline;
+    RecordingEventSink sink;
+    btrfsbackup::CancellationToken cancellation;
+
+    btrfsbackup::TransferResult result = pipeline.run(
+        {
+            .producer_argv = {"printf", "hello"},
+            .consumer_argv = {"cat"},
+        },
+        sink,
+        cancellation
+    );
+
+    test_helpers::expect_true("posix transfer success", btrfsbackup::transfer_succeeded(result), "pipeline should succeed");
+    test_helpers::expect_eq("posix transfer bytes", std::to_string(result.bytes_transferred), "5");
+    test_helpers::expect_true("posix transfer events", sink.events.size() >= 3, "pipeline should emit lifecycle events");
+    test_helpers::expect_eq(
+        "posix final event",
+        std::to_string(static_cast<int>(sink.events.back().kind)),
+        std::to_string(static_cast<int>(btrfsbackup::TransferEventKind::Completed))
+    );
+}
+
+void test_posix_pipeline_reports_producer_failure() {
+    btrfsbackup::PosixTransferPipeline pipeline;
+    RecordingEventSink sink;
+    btrfsbackup::CancellationToken cancellation;
+
+    btrfsbackup::TransferResult result = pipeline.run(
+        {
+            .producer_argv = {"sh", "-c", "echo producer-error >&2; exit 7"},
+            .consumer_argv = {"cat"},
+        },
+        sink,
+        cancellation
+    );
+
+    test_helpers::expect_eq("producer exit", std::to_string(result.producer.exit_code), "7");
+    test_helpers::expect_eq("consumer exit", std::to_string(result.consumer.exit_code), "0");
+    test_helpers::expect_contains("producer diagnostics", result.producer.diagnostics, "producer-error");
+    test_helpers::expect_validation_error("producer failure result", [&] {
+        btrfsbackup::require_transfer_success(result);
+    }, "producer failed with exit code 7");
+}
+
+void test_posix_pipeline_reports_consumer_failure() {
+    btrfsbackup::PosixTransferPipeline pipeline;
+    RecordingEventSink sink;
+    btrfsbackup::CancellationToken cancellation;
+
+    btrfsbackup::TransferResult result = pipeline.run(
+        {
+            .producer_argv = {"printf", "hello"},
+            .consumer_argv = {"sh", "-c", "cat >/dev/null; echo consumer-error >&2; exit 9"},
+        },
+        sink,
+        cancellation
+    );
+
+    test_helpers::expect_eq("producer exit for consumer failure", std::to_string(result.producer.exit_code), "0");
+    test_helpers::expect_eq("consumer exit", std::to_string(result.consumer.exit_code), "9");
+    test_helpers::expect_contains("consumer diagnostics", result.consumer.diagnostics, "consumer-error");
+    test_helpers::expect_validation_error("consumer failure result", [&] {
+        btrfsbackup::require_transfer_success(result);
+    }, "consumer failed with exit code 9");
+}
+
+void test_posix_pipeline_handles_early_consumer_exit() {
+    btrfsbackup::PosixTransferPipeline pipeline;
+    RecordingEventSink sink;
+    btrfsbackup::CancellationToken cancellation;
+
+    btrfsbackup::TransferResult result = pipeline.run(
+        {
+            .producer_argv = {"yes"},
+            .consumer_argv = {"sh", "-c", "echo closed >&2; exit 9"},
+        },
+        sink,
+        cancellation
+    );
+
+    test_helpers::expect_eq("early consumer exit", std::to_string(result.consumer.exit_code), "9");
+    test_helpers::expect_contains("early consumer diagnostics", result.consumer.diagnostics, "closed");
+    test_helpers::expect_validation_error("early consumer failure result", [&] {
+        btrfsbackup::require_transfer_success(result);
+    }, "consumer failed with exit code 9");
+}
+
+void test_posix_pipeline_honors_cancellation() {
+    btrfsbackup::PosixTransferPipeline pipeline;
+    RecordingEventSink sink;
+    btrfsbackup::CancellationToken cancellation;
+    cancellation.request_cancel();
+
+    btrfsbackup::TransferResult result = pipeline.run(
+        {
+            .producer_argv = {"yes"},
+            .consumer_argv = {"cat"},
+        },
+        sink,
+        cancellation
+    );
+
+    test_helpers::expect_true("posix cancelled", result.cancelled, "pipeline should report cancellation");
+    test_helpers::expect_validation_error("cancelled pipeline result", [&] {
+        btrfsbackup::require_transfer_success(result);
+    }, "Transfer was cancelled");
+}
+
 } // namespace
 
 int main() {
@@ -102,6 +212,11 @@ int main() {
     test_both_sides_failure_keeps_both_diagnostics();
     test_cancelled_transfer_is_reported();
     test_event_sink_contract();
+    test_posix_pipeline_transfers_bytes();
+    test_posix_pipeline_reports_producer_failure();
+    test_posix_pipeline_reports_consumer_failure();
+    test_posix_pipeline_handles_early_consumer_exit();
+    test_posix_pipeline_honors_cancellation();
 
     return test_helpers::finish("transfer pipeline tests");
 }
