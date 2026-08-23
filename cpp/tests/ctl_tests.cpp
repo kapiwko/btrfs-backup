@@ -13,6 +13,7 @@
 #include <btrfsbackup/errors.hpp>
 #include <btrfsbackup/history.hpp>
 #include <btrfsbackup/profile_list.hpp>
+#include <btrfsbackup/run_state.hpp>
 #include <btrfsbackup/status.hpp>
 #include <btrfsbackup/status_write_command.hpp>
 
@@ -38,6 +39,12 @@ void expect_eq(const std::string& name, const std::string& actual, const std::st
 void expect_contains(const std::string& name, const std::string& actual, const std::string& needle) {
     if (actual.find(needle) == std::string::npos) {
         fail(name, "missing [" + needle + "] in [" + actual + "]");
+    }
+}
+
+void expect_true(const std::string& name, bool condition, const std::string& message) {
+    if (!condition) {
+        fail(name, message);
     }
 }
 
@@ -304,6 +311,78 @@ void test_config_fingerprint_matches_legacy_stream() {
     fs::remove_all(root);
 }
 
+void test_success_state_write_and_match() {
+    fs::path root = test_root("success-state");
+    fs::path state_dir = root / "state" / "profiles" / "default";
+
+    btrfsbackup::command_write_success_state(
+        {
+            "--profile-state-dir",
+            state_dir.string(),
+            "--date",
+            "2026-08-23",
+            "--timestamp",
+            "2026-08-23T08:25:04+02:00",
+            "--run-id",
+            "20260823T062504Z-123-456",
+            "--profile-id",
+            "default",
+            "--profile-name",
+            "Default backup",
+            "--source-count",
+            "2",
+            "--target-luks-uuid",
+            "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE",
+            "--config-fingerprint",
+            "630b159cf7939e5baf76ce27d4505a5cf68fe2995d5071c1f22e011e143b7c67",
+        }
+    );
+
+    fs::path state_file = state_dir / "last-success";
+    expect_eq("success state exists", fs::is_regular_file(state_file) ? "yes" : "no", "yes");
+    std::ifstream stream(state_file);
+    std::string content{std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()};
+    expect_contains("success state date", content, "date=2026-08-23\n");
+    expect_contains("success state source count", content, "source_count=2\n");
+    expect_true(
+        "success state match",
+        btrfsbackup::last_success_matches(
+            state_dir,
+            "2026-08-23",
+            "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+            "630b159cf7939e5baf76ce27d4505a5cf68fe2995d5071c1f22e011e143b7c67"
+        ),
+        "expected last success to match"
+    );
+    expect_true(
+        "success state mismatch",
+        !btrfsbackup::last_success_matches(
+            state_dir,
+            "2026-08-24",
+            "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+            "630b159cf7939e5baf76ce27d4505a5cf68fe2995d5071c1f22e011e143b7c67"
+        ),
+        "stale date matched"
+    );
+
+    std::ostringstream output;
+    btrfsbackup::command_check_last_success(
+        {
+            "--profile-state-dir",
+            state_dir.string(),
+            "--today",
+            "2026-08-23",
+            "--target-luks-uuid",
+            "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+            "--config-fingerprint",
+            "630b159cf7939e5baf76ce27d4505a5cf68fe2995d5071c1f22e011e143b7c67",
+        },
+        output
+    );
+    expect_eq("success state command", output.str(), "yes\n");
+    fs::remove_all(root);
+}
+
 } // namespace
 
 int main() {
@@ -318,6 +397,7 @@ int main() {
     test_write_status_requires_target();
     test_write_history_requires_finished_at();
     test_config_fingerprint_matches_legacy_stream();
+    test_success_state_write_and_match();
 
     if (failures > 0) {
         return 1;

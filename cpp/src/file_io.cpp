@@ -1,5 +1,6 @@
 #include <btrfsbackup/file_io.hpp>
 
+#include <fcntl.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -46,6 +47,15 @@ void atomic_write(const fs::path& path, const std::string& data, mode_t mode) {
         fs::remove(temporary, ec);
         throw;
     }
+}
+
+void fsync_dir(const fs::path& path) {
+    int fd = open(path.c_str(), O_RDONLY | O_DIRECTORY);
+    if (fd < 0) {
+        return;
+    }
+    fsync(fd);
+    close(fd);
 }
 
 } // namespace btrfsbackup

@@ -540,38 +540,33 @@ compute_config_fingerprint() {
 }
 
 last_success_is_today() {
-    local state_file="$PROFILE_STATE_DIR/last-success"
-    local stored_date stored_target_uuid stored_fingerprint
-    [[ -r "$state_file" ]] || return 1
+    local backupctl result
 
-    stored_date="$(sed -n 's/^date=//p' "$state_file" | head -n1)"
-    stored_target_uuid="$(sed -n 's/^target_luks_uuid=//p' "$state_file" | head -n1)"
-    stored_fingerprint="$(sed -n 's/^config_fingerprint=//p' "$state_file" | head -n1)"
-
-    [[ "$stored_date" == "$(date +%F)" \
-        && "${stored_target_uuid,,}" == "${BACKUP_LUKS_UUID,,}" \
-        && "$stored_fingerprint" == "$CONFIG_FINGERPRINT" ]]
+    backupctl="$(backupctl_path)" || return 1
+    result="$("$backupctl" \
+        check-last-success \
+        --profile-state-dir "$PROFILE_STATE_DIR" \
+        --today "$(date +%F)" \
+        --target-luks-uuid "$BACKUP_LUKS_UUID" \
+        --config-fingerprint "$CONFIG_FINGERPRINT")" || return 1
+    [[ "$result" == yes ]]
 }
 
 write_success_state() {
-    local state_file="$PROFILE_STATE_DIR/last-success"
-    local temp_file
+    local backupctl
 
-    install -d -m0700 "$PROFILE_STATE_DIR"
-    temp_file="$(mktemp "$PROFILE_STATE_DIR/.last-success.XXXXXX")"
-    chmod 0600 "$temp_file"
-    {
-        printf 'date=%s\n' "$(date +%F)"
-        printf 'timestamp=%s\n' "$(date --iso-8601=seconds)"
-        printf 'run_id=%s\n' "$RUN_ID"
-        printf 'profile_id=%s\n' "$PROFILE_ID"
-        printf 'profile_name=%s\n' "$PROFILE_NAME"
-        printf 'source_count=%s\n' "$SOURCE_COUNT"
-        printf 'target_luks_uuid=%s\n' "$BACKUP_LUKS_UUID"
-        printf 'config_fingerprint=%s\n' "$CONFIG_FINGERPRINT"
-    } > "$temp_file"
-    mv -f -- "$temp_file" "$state_file"
-    sync -f "$PROFILE_STATE_DIR" 2>/dev/null || sync
+    backupctl="$(backupctl_path)" || return 1
+    "$backupctl" \
+        write-success-state \
+        --profile-state-dir "$PROFILE_STATE_DIR" \
+        --date "$(date +%F)" \
+        --timestamp "$(date --iso-8601=seconds)" \
+        --run-id "$RUN_ID" \
+        --profile-id "$PROFILE_ID" \
+        --profile-name "$PROFILE_NAME" \
+        --source-count "$SOURCE_COUNT" \
+        --target-luks-uuid "$BACKUP_LUKS_UUID" \
+        --config-fingerprint "$CONFIG_FINGERPRINT"
 }
 
 ensure_target_mounted() {
