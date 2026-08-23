@@ -1,7 +1,9 @@
 #include <btrfsbackup/ctl_tool.hpp>
 
+#include <cerrno>
 #include <chrono>
 #include <cstdlib>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -9,6 +11,7 @@
 #include <string>
 #include <thread>
 #include <vector>
+#include <unistd.h>
 
 #include <btrfsbackup/config_fingerprint.hpp>
 #include <btrfsbackup/errors.hpp>
@@ -45,6 +48,7 @@ void usage() {
               << "  --profile-dir PATH   Override profile config dir (default: /etc/btrfs-backup/profiles.d).\n"
               << "\nCommands:\n"
               << "  profile COMMAND\n"
+              << "  migrate-profile [OPTIONS]\n"
               << "  list-profiles\n"
               << "  status [--profile ID|--all] [--human]\n"
               << "  history [--profile ID] [--limit N]\n"
@@ -102,6 +106,48 @@ void command_watch(const fs::path& status_root, const std::vector<std::string>& 
     }
 }
 
+fs::path current_executable() {
+    std::error_code ec;
+    fs::path path = fs::read_symlink("/proc/self/exe", ec);
+    return ec ? fs::path{} : path;
+}
+
+[[noreturn]] void exec_script(const fs::path& script, const std::vector<std::string>& args) {
+    std::vector<std::string> storage;
+    storage.reserve(args.size() + 1);
+    storage.push_back(script.string());
+    storage.insert(storage.end(), args.begin(), args.end());
+
+    std::vector<char*> argv;
+    argv.reserve(storage.size() + 1);
+    for (std::string& value : storage) {
+        argv.push_back(value.data());
+    }
+    argv.push_back(nullptr);
+
+    execv(script.c_str(), argv.data());
+    fail("cannot execute " + script.string() + ": " + std::strerror(errno), 1);
+}
+
+[[noreturn]] void command_migrate_profile(const std::vector<std::string>& args) {
+    std::vector<fs::path> candidates;
+    fs::path self = current_executable();
+    if (!self.empty()) {
+        candidates.push_back(self.parent_path() / ".." / "scripts" / "btrfs-backup-migrate-profile.sh");
+        candidates.push_back(self.parent_path() / "btrfs-backup-migrate-profile.sh");
+    }
+    candidates.emplace_back("/usr/lib/btrfs-backup/btrfs-backup-migrate-profile.sh");
+
+    std::error_code ec;
+    for (const fs::path& candidate : candidates) {
+        if (fs::is_regular_file(candidate, ec) && !ec) {
+            exec_script(candidate, args);
+        }
+        ec.clear();
+    }
+    fail("cannot locate btrfs-backup-migrate-profile.sh", 1);
+}
+
 } // namespace
 
 namespace btrfsbackup {
@@ -141,6 +187,8 @@ int ctl_tool_main(int argc, char** argv) {
 
         if (command == "profile") {
             return command_profile(args);
+        } else if (command == "migrate-profile") {
+            command_migrate_profile(args);
         } else if (command == "list-profiles") {
             command_list_profiles(profile_config_dir, profile_config_dir.parent_path() / "profiles", std::cout);
         } else if (command == "status") {

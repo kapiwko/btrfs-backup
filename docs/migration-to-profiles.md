@@ -22,7 +22,7 @@ Create the default profile from the legacy file and its `SOURCES_DIR` source
 definitions:
 
 ```bash
-sudo btrfs-backup-migrate-profile --profile default
+sudo btrfs-backupctl migrate-profile --profile default
 ```
 
 Validate the migrated profile with the target connected:
@@ -37,7 +37,7 @@ After confirming that the profile works, the legacy configuration, source
 directory, and old udev rule can be moved aside:
 
 ```bash
-sudo btrfs-backup-migrate-profile --profile default --force --remove-legacy
+sudo btrfs-backupctl migrate-profile --profile default --force --remove-legacy
 ```
 
 The command keeps timestamped backups next to the original legacy paths.

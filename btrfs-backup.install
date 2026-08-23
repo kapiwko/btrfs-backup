@@ -5,10 +5,10 @@ _btrfs_backup_profile_hint() {
 ==>   /etc/btrfs-backup/backup.env
 ==>
 ==> Create the default profile from the existing configuration:
-==>   sudo btrfs-backup-migrate-profile --profile default
+==>   sudo btrfs-backupctl migrate-profile --profile default
 ==>
 ==> After validating the migrated profile, the legacy file can be moved aside:
-==>   sudo btrfs-backup-migrate-profile --profile default --force --remove-legacy
+==>   sudo btrfs-backupctl migrate-profile --profile default --force --remove-legacy
 
 MSG
     fi

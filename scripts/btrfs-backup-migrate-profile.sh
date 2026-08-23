@@ -19,7 +19,7 @@ REMOVE_LEGACY=0
 
 usage() {
     cat <<'USAGE'
-Usage: btrfs-backup-migrate-profile [options]
+Usage: btrfs-backupctl migrate-profile [options]
 
 Options:
   --source PATH       Legacy configuration file (default: /etc/btrfs-backup/backup.env).
