@@ -15,12 +15,63 @@ pkg_check_modules(MOUNT REQUIRED IMPORTED_TARGET mount)
 pkg_check_modules(UDEV REQUIRED IMPORTED_TARGET libudev)
 pkg_check_modules(BTRFSUTIL REQUIRED IMPORTED_TARGET libbtrfsutil)
 
+add_library(btrfsbackup-model STATIC
+    cpp/src/config_fingerprint.cpp
+    cpp/src/identifiers.cpp
+    cpp/src/json_io.cpp
+    cpp/src/profile.cpp
+    cpp/src/profile_sources.cpp
+    cpp/src/profile_wizard_model.cpp
+    cpp/src/retention_plan.cpp
+    cpp/src/snapshot_inventory.cpp
+    cpp/src/validation.cpp
+)
+
+target_compile_features(btrfsbackup-model PUBLIC cxx_std_20)
+target_include_directories(btrfsbackup-model
+    PUBLIC
+        cpp/include
+)
+target_link_libraries(btrfsbackup-model
+    PUBLIC
+        nlohmann_json::nlohmann_json
+)
+
+add_library(btrfsbackup-system STATIC
+    cpp/src/btrfs_operations.cpp
+    cpp/src/device_info.cpp
+    cpp/src/file_io.cpp
+    cpp/src/file_lock.cpp
+    cpp/src/mount_info.cpp
+    cpp/src/process.cpp
+    cpp/src/profile_loader.cpp
+    cpp/src/run_state.cpp
+    cpp/src/shell_env.cpp
+    cpp/src/space_check.cpp
+    cpp/src/target_mount_validation.cpp
+    cpp/src/trusted_file.cpp
+    cpp/src/transfer_pipeline.cpp
+)
+
+target_compile_features(btrfsbackup-system PUBLIC cxx_std_20)
+target_include_directories(btrfsbackup-system
+    PUBLIC
+        cpp/include
+)
+target_link_libraries(btrfsbackup-system
+    PUBLIC
+        btrfsbackup-model
+        PkgConfig::BLKID
+        PkgConfig::BTRFSUTIL
+        PkgConfig::MOUNT
+        PkgConfig::UDEV
+)
+
 add_library(btrfsbackup-core STATIC
     cpp/src/backup_run_action_effects.cpp
     cpp/src/backup_run_executor.cpp
     cpp/src/backup_run_persistence.cpp
     cpp/src/backup_run_plan.cpp
-    cpp/src/btrfs_operations.cpp
     cpp/src/command/installation_command.cpp
     cpp/src/command/profile_create_command.cpp
     cpp/src/command/profile_command.cpp
@@ -35,42 +86,22 @@ add_library(btrfsbackup-core STATIC
     cpp/src/command/status_history_command.cpp
     cpp/src/command/status_show_command.cpp
     cpp/src/command/status_write_command.cpp
-    cpp/src/config_fingerprint.cpp
     cpp/src/ctl_tool.cpp
-    cpp/src/device_info.cpp
-    cpp/src/file_io.cpp
-    cpp/src/file_lock.cpp
-    cpp/src/identifiers.cpp
     cpp/src/incremental_parent.cpp
     cpp/src/installation_render.cpp
     cpp/src/installation_validate.cpp
-    cpp/src/json_io.cpp
-    cpp/src/mount_info.cpp
     cpp/src/pending_recovery_plan.cpp
-    cpp/src/process.cpp
-    cpp/src/profile.cpp
-    cpp/src/profile_sources.cpp
     cpp/src/profile_render.cpp
     cpp/src/profile_store.cpp
+    cpp/src/profile_wizard.cpp
     cpp/src/profile_wizard_device.cpp
     cpp/src/profile_wizard_install.cpp
-    cpp/src/profile_wizard_model.cpp
     cpp/src/profile_wizard_paths.cpp
     cpp/src/profile_wizard_prompt.cpp
     cpp/src/profile_wizard_sources.cpp
-    cpp/src/profile_wizard.cpp
-    cpp/src/retention_plan.cpp
-    cpp/src/run_state.cpp
     cpp/src/runtime_adapters.cpp
-    cpp/src/shell_env.cpp
-    cpp/src/space_check.cpp
-    cpp/src/snapshot_inventory.cpp
     cpp/src/snapshot_transfer.cpp
     cpp/src/status_writer.cpp
-    cpp/src/target_mount_validation.cpp
-    cpp/src/trusted_file.cpp
-    cpp/src/transfer_pipeline.cpp
-    cpp/src/validation.cpp
 )
 
 target_compile_features(btrfsbackup-core PUBLIC cxx_std_20)
@@ -80,14 +111,13 @@ target_include_directories(btrfsbackup-core
 )
 target_link_libraries(btrfsbackup-core
     PUBLIC
-        nlohmann_json::nlohmann_json
-        PkgConfig::BLKID
-        PkgConfig::BTRFSUTIL
-        PkgConfig::MOUNT
-        PkgConfig::UDEV
+        btrfsbackup-model
+        btrfsbackup-system
 )
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(btrfsbackup-model PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(btrfsbackup-system PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(btrfsbackup-core PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 
