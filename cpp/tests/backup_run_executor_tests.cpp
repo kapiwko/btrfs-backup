@@ -24,7 +24,8 @@ public:
 
     void execute_action(
         const btrfsbackup::BackupRunAction& action,
-        const btrfsbackup::BackupSourceRunPlan& source_plan
+        const btrfsbackup::BackupSourceRunPlan& source_plan,
+        const btrfsbackup::BackupRunPlan&
     ) override {
         calls.push_back(source_plan.source_id + ":" + action_name(action.kind));
     }

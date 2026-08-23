@@ -61,7 +61,8 @@ public:
     virtual ~IBackupRunActionEffects() = default;
     virtual void execute_action(
         const BackupRunAction& action,
-        const BackupSourceRunPlan& source_plan
+        const BackupSourceRunPlan& source_plan,
+        const BackupRunPlan& run_plan
     ) = 0;
 };
 
