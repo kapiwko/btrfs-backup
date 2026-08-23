@@ -12,8 +12,9 @@
    the native helper instead of embedded Python snippets;
 7. generated runtime packages no longer depend on Python and the old Python
    profile helper has been removed;
-8. profile migration is now exposed as `btrfs-backupctl migrate-profile`, and
-   the standalone migration wrapper has been removed.
+8. profile migration is now handled natively by `btrfs-backupctl migrate-profile`,
+   and the standalone migration wrapper and shell implementation have been
+   removed.
 
 ## 1.1.0 - 2026-08-23
 
