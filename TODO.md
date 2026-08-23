@@ -6,7 +6,6 @@
   - keep Bash as the default production executor;
   - extend synthetic full backup success toward multi-source/incremental cases;
   - add pending recovery and retention scenarios;
-  - add verify failure checks for checkpoint/status/history output;
   - keep the Bash runner as production executor until failure parity tests pass.
 
 - Expand `BackupRunExecutor` parity coverage:

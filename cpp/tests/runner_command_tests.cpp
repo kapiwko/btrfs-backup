@@ -448,6 +448,77 @@ void test_runner_execute_commit_failure_writes_failed_status() {
     fs::remove_all(root);
 }
 
+void test_runner_execute_verify_failure_writes_failed_status() {
+    fs::path root = test_helpers::test_root("runner-command", "execute-verify-failure");
+    fs::create_directories(root / "source" / "root");
+    fs::create_directories(root / "source" / ".snapshots" / "root");
+    fs::create_directories(root / "target" / "snapshots" / "root");
+    fs::create_directories(root / "target" / ".incoming");
+
+    btrfsbackup::Profile profile = test_profile(root);
+    fs::path config_root = root / "config";
+    fs::path mountinfo = root / "mountinfo";
+    write_profile(config_root, profile);
+    write_mountinfo(mountinfo, profile);
+
+    RecordingActionEffects action_effects;
+    action_effects.should_throw = true;
+    action_effects.throw_on = btrfsbackup::BackupRunActionKind::VerifyReceived;
+    ConfigurableTransferPipeline transfer_pipeline;
+    btrfsbackup::command::RunnerExecutionServices services{
+        .action_effects = action_effects,
+        .transfer_pipeline = transfer_pipeline,
+    };
+
+    std::ostringstream output;
+    test_helpers::expect_validation_error("execute verify failure", [&] {
+        (void)btrfsbackup::command::runner(
+            config_root,
+            {
+                "execute",
+                "--experimental-cpp-runner",
+                "--profile",
+                "default",
+                "--timestamp",
+                "2026-08-23T080000Z",
+                "--run-id",
+                "20260823T080000Z-123-456",
+                "--mountinfo",
+                mountinfo.string(),
+                "--mount-uuid",
+                "/dev/source",
+                "source-fs",
+                "--mount-uuid",
+                "/dev/mapper/backup",
+                profile.target.btrfs_uuid,
+            },
+            output,
+            &services
+        );
+    }, "injected action failure");
+
+    fs::path checkpoint = root / "state" / "profiles" / "default" / "checkpoint.json";
+    fs::path current = root / "status" / "default" / "current.json";
+    fs::path history = root / "history" / "default" / "20260823T080000Z-123-456.json";
+    test_helpers::expect_true(
+        "verify failure checkpoint action",
+        btrfsbackup::load_json_file(checkpoint).at("action") == "send-receive",
+        "failed verify should not be checkpointed"
+    );
+    test_helpers::expect_true(
+        "verify failure current",
+        btrfsbackup::load_json_file(current).at("state") == "failed",
+        "current status should fail"
+    );
+    test_helpers::expect_true(
+        "verify failure phase",
+        btrfsbackup::load_json_file(history).at("phase") == "verify-received",
+        "history should identify verify phase"
+    );
+
+    fs::remove_all(root);
+}
+
 } // namespace
 
 int main() {
@@ -457,6 +528,7 @@ int main() {
     test_runner_execute_uses_injected_services_and_writes_state();
     test_runner_execute_transfer_failure_writes_failed_status();
     test_runner_execute_commit_failure_writes_failed_status();
+    test_runner_execute_verify_failure_writes_failed_status();
 
     return test_helpers::finish("runner command tests");
 }
