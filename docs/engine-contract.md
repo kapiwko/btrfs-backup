@@ -93,7 +93,7 @@ The engine writes current status atomically:
 <STATUS_ROOT>/<PROFILE_ID>/current.json
 ```
 
-The minimum fields are:
+Schema version 1 currently requires these fields:
 
 ```json
 {
@@ -104,31 +104,21 @@ The minimum fields are:
   "state": "running",
   "phase": "transferring",
   "message": "Transferring snapshot for home.",
-  "currentSourceId": "home",
   "currentSourceName": "home",
   "sourceIndex": 1,
   "sourceCount": 1,
-  "sourceProgress": -1,
-  "overallProgress": -1,
-  "progressAccuracy": "indeterminate",
-  "bytesProcessed": 0,
-  "bytesTotalEstimated": 0,
-  "runBytesProcessed": 0,
-  "runBytesEstimated": 0,
-  "speedBps": 0,
-  "etaSeconds": -1,
   "startedAt": "2026-08-23T02:44:07+00:00",
   "updatedAt": "2026-08-23T02:44:07+00:00",
   "finishedAt": "",
-  "durationSeconds": 0,
-  "canCancel": true,
-  "result": "",
   "error": "",
-  "exitCode": 0,
-  "targetMounted": true,
-  "safeToRemove": false
+  "exitCode": 0
 }
 ```
+
+Consumers must ignore additional fields. Future compatible status writers may
+add fields such as `currentSourceId`, progress percentages, byte counters,
+speed, ETA, cancellation availability, target mount state, and safe-removal
+state without changing `schemaVersion`.
 
 Known `state` values are:
 
@@ -157,7 +147,7 @@ Finished runs are written atomically:
 ```
 
 History entries use the same schema as `current.json` and must include final
-`state`, `result`, `finishedAt`, `durationSeconds`, and `exitCode`.
+`state`, `phase`, `message`, `finishedAt`, and `exitCode`.
 
 ## Exit Codes
 

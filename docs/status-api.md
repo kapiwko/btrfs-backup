@@ -17,6 +17,9 @@ Current status is written atomically to:
 
 The root directory can be overridden with `STATUS_ROOT` in the runtime profile env.
 The status directory is intended to be readable by unprivileged local users.
+After a oneshot service exits, systemd may remove the runtime directory. In
+that case, `btrfs-backupctl status --profile <profile>` falls back to
+`/var/lib/btrfs-backup/history/<PROFILE_ID>/last.json` when it exists.
 
 Example:
 
@@ -84,6 +87,7 @@ History entries use the same schema as `current.json`, with `finishedAt` and
 the final `exitCode` populated.
 History is intended to be readable by unprivileged local users; private recovery
 state remains under `STATE_DIR/profiles/<PROFILE_ID>`.
+`btrfs-backupctl history` returns an empty JSON array when no history exists yet.
 
 ## CLI
 

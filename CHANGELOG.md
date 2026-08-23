@@ -9,15 +9,20 @@
 5. `btrfs-backupctl` for status, history, and watch access to the file-based status API;
 6. `btrfs-backup-mount` for mounting and validating the configured backup target without starting a backup;
 7. profile JSON examples and schema for future tooling;
-8. package contents updated for all generated packaging backends.
+8. package contents updated for all generated packaging backends;
 9. configurator renders and installs profile files and a templated systemd unit;
 10. udev starts the profile-specific systemd unit;
 11. `btrfs-backupctl list-profiles` lists profile files and the legacy fallback;
-12. `btrfs-backup-migrate-profile --remove-legacy` moves the legacy configuration, source directory, and old udev rule aside after migration.
+12. `btrfs-backup-migrate-profile --remove-legacy` moves the legacy configuration, source directory, and old udev rule aside after migration;
 13. `btrfs-backup-profile` validates canonical JSON profiles and materializes runtime `.env`, source, udev, and public manifest files;
 14. `btrfs-backup-configure` now renders canonical `profile.json` first, then materializes the runtime profile files from that JSON;
 15. `btrfs-backup-profile show` and `export` can read the active canonical profile or reconstruct it from runtime profile files;
-16. `docs/engine-contract.md` defines the stable profile, status, history, phase, and recovery contract for future engine implementations.
+16. `docs/engine-contract.md` defines the stable profile, status, history, phase, and recovery contract for future engine implementations;
+17. installable packages include the profile systemd template unit used by udev;
+18. package install and upgrade hooks reload systemd and udev rules without triggering devices;
+19. status and history JSON are readable by unprivileged local users while private recovery state remains root-only;
+20. `btrfs-backupctl status` falls back to the last history entry after the oneshot service exits;
+21. `btrfs-backupctl history` returns `[]` when no history exists yet and renders cleaner JSON arrays.
 
 The legacy `/etc/btrfs-backup/backup.env` fallback is deprecated in 1.1 and
 will be removed in 2.0. Use `btrfs-backup-migrate-profile --profile default`
