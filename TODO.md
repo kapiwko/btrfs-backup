@@ -5,10 +5,6 @@
 - Move the main backup flow from Bash to C++ after parity tests pass:
   - keep Bash wrappers for mount/eject compatibility while needed;
   - keep existing integration tests as regression coverage;
-  - keep the runner executable independent from any long-lived manager process
-    so systemd can start a backup directly from a device event;
-  - make the runner read canonical profile JSON directly, without generated
-    `.env` or `.conf` runtime configuration;
   - remove Bash runtime code only after the C++ runner completes full,
     incremental, failure and recovery scenarios.
 

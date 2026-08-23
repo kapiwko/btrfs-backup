@@ -138,7 +138,7 @@ render_test() {
     "$ROOT/bin/btrfs-backupctl" installation render \
         --file "$profile" \
         --output-dir "$output" \
-        --backup-script "$ROOT/scripts/btrfs-backup.sh" \
+        --backup-command "$ROOT/scripts/btrfs-backup.sh" \
         --eject-script "$ROOT/scripts/btrfs-backup-eject.sh" \
         --keyfile /root/keys/backupdisk.key
     "$ROOT/bin/btrfs-backupctl" installation validate --rendered-root "$output" >/dev/null

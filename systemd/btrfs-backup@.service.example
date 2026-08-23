@@ -8,7 +8,7 @@ StartLimitBurst=3
 
 [Service]
 Type=oneshot
-ExecStart={{BACKUP_SCRIPT_PATH}} --profile %i
+ExecStart={{BACKUP_COMMAND}} --profile %i
 ExecStopPost={{EJECT_SCRIPT_PATH}} --from-service --profile %i
 User=root
 Group=root
