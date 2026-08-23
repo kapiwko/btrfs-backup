@@ -139,12 +139,15 @@ ANSWERS
         --render-only >/dev/null
 
     assert_file "$output/config/backup.env"
+    assert_file "$output/config/profile.json"
     assert_file "$output/config/profiles.d/laptop.env"
     assert_contains "$output/config/backup.env" "PROFILE_ID=laptop"
     assert_contains "$output/config/profiles.d/laptop.env" "PROFILE_ID=laptop"
-    assert_contains "$output/config/backup.env" "PROFILE_NAME=Laptop\\ backup"
-    assert_file "$output/config/sources.d/10-root.conf"
-    assert_file "$output/config/sources.d/20-home.conf"
+    assert_contains "$output/config/backup.env" "PROFILE_NAME='Laptop backup'"
+    assert_contains "$output/config/profiles.d/laptop.env" "SOURCES_DIR=/etc/btrfs-backup/profiles/laptop/sources.d"
+    assert_file "$output/config/profiles/laptop/sources.d/010-root.conf"
+    assert_file "$output/config/profiles/laptop/sources.d/020-home.conf"
+    assert_contains "$output/config/profile.json" '"profileId": "laptop"'
     assert_file "$output/systemd/btrfs-backup.service"
     assert_file "$output/systemd/btrfs-backup@.service"
     assert_file "$output/udev/99-btrfs-backup.rules"

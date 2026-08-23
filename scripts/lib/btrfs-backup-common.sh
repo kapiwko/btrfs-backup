@@ -167,6 +167,14 @@ bb_validate_safe_name() {
     fi
 }
 
+bb_validate_systemd_service_name() {
+    local name="$1"
+    local value="$2"
+    if [[ ! "$value" =~ ^[A-Za-z0-9][A-Za-z0-9._@-]*\.service$ ]]; then
+        bb_die "$name must be a safe systemd service unit name; got: $value"
+    fi
+}
+
 bb_validate_absolute_path() {
     local name="$1"
     local value="$2"

@@ -575,6 +575,146 @@ detect_runtime_script() {
     fi
 }
 
+detect_profile_helper() {
+    if [[ -x "$INSTALLED_PREFIX_ROOT/bin/btrfs-backup-profile" ]]; then
+        printf '%s\n' "$INSTALLED_PREFIX_ROOT/bin/btrfs-backup-profile"
+    elif [[ -x /usr/bin/btrfs-backup-profile ]]; then
+        printf '%s\n' /usr/bin/btrfs-backup-profile
+    elif [[ -x "$REPO_ROOT/bin/btrfs-backup-profile" ]]; then
+        printf '%s\n' "$REPO_ROOT/bin/btrfs-backup-profile"
+    else
+        bb_die "Could not locate btrfs-backup-profile."
+    fi
+}
+
+extract_udev_env_match() {
+    local key="$1"
+    local pattern="ENV\\{$key\\}==\\\"([^\\\"]*)\\\""
+    if [[ "$BACKUP_UDEV_MATCH" =~ $pattern ]]; then
+        printf '%s\n' "${BASH_REMATCH[1]}"
+    fi
+}
+
+write_profile_json() {
+    local destination="$1"
+    local sources_table="$2"
+    local source_count="${#SOURCE_SUBVOLUMES[@]}"
+    local index source_retention source_local_retention
+
+    : > "$sources_table"
+    chmod 0600 "$sources_table"
+    for ((index = 0; index < source_count; index++)); do
+        source_retention="${SOURCE_RETENTION_COUNTS[$index]:-$RETENTION_COUNT}"
+        source_local_retention="${SOURCE_LOCAL_RETENTION_COUNTS[$index]:-$LOCAL_RETENTION_COUNT}"
+        bb_validate_uint SOURCE_RETENTION_COUNT "$source_retention"
+        bb_validate_uint SOURCE_LOCAL_RETENTION_COUNT "$source_local_retention"
+        printf '%s\t%s\t%s\t%s\t%s\t%s\n' \
+            "${SOURCE_NAMES[$index]}" \
+            "${SOURCE_SUBVOLUMES[$index]}" \
+            "${LOCAL_SNAPSHOT_DIRS[$index]}" \
+            "${REMOTE_SUBDIRS[$index]}" \
+            "$source_retention" \
+            "$source_local_retention" >> "$sources_table"
+    done
+
+    PROFILE_ID="$PROFILE_ID" \
+    PROFILE_NAME="$PROFILE_NAME" \
+    BACKUP_DEVICE="$BACKUP_DEVICE" \
+    BACKUP_LUKS_UUID="$BACKUP_LUKS_UUID" \
+    BACKUP_BTRFS_UUID="$BACKUP_BTRFS_UUID" \
+    BACKUP_PARTITION_UUID="$(extract_udev_env_match ID_PART_ENTRY_UUID)" \
+    BACKUP_SERIAL="$(extract_udev_env_match ID_SERIAL_SHORT)" \
+    BACKUP_MAPPER_NAME="$BACKUP_MAPPER_NAME" \
+    BACKUP_MOUNTPOINT="$BACKUP_MOUNTPOINT" \
+    RETENTION_COUNT="$RETENTION_COUNT" \
+    LOCAL_RETENTION_COUNT="$LOCAL_RETENTION_COUNT" \
+    DAILY_LIMIT="$DAILY_LIMIT" \
+    INCREMENTAL_REQUIRED="$INCREMENTAL_REQUIRED" \
+    KEEP_FAILED_LOCAL_SNAPSHOT="$KEEP_FAILED_LOCAL_SNAPSHOT" \
+    AUTO_EJECT="$AUTO_EJECT" \
+    MIN_TARGET_FREE_BYTES="$MIN_TARGET_FREE_BYTES" \
+    MIN_LOCAL_FREE_BYTES="$MIN_LOCAL_FREE_BYTES" \
+    NOTIFY_ENABLE="$NOTIFY_ENABLE" \
+    NOTIFY_USER="$NOTIFY_USER" \
+    NOTIFY_METHOD="$NOTIFY_METHOD" \
+    python3 - "$destination" "$sources_table" <<'PY'
+import json
+import os
+import sys
+
+
+def as_bool(name):
+    return os.environ[name].lower() == "true"
+
+
+def as_int(name):
+    return int(os.environ[name])
+
+
+profile_id = os.environ["PROFILE_ID"]
+sources = []
+with open(sys.argv[2], "r", encoding="utf-8") as stream:
+    for line in stream:
+        source_id, subvolume, local_dir, remote_subdir, remote_retention, local_retention = line.rstrip("\n").split("\t")
+        sources.append(
+            {
+                "id": source_id,
+                "name": source_id,
+                "enabled": True,
+                "subvolume": subvolume,
+                "localSnapshotDir": local_dir,
+                "remoteSubdir": remote_subdir,
+                "remoteRetention": int(remote_retention),
+                "localRetention": int(local_retention),
+            }
+        )
+
+profile = {
+    "schemaVersion": 1,
+    "profileId": profile_id,
+    "name": os.environ["PROFILE_NAME"],
+    "enabled": True,
+    "target": {
+        "device": os.environ["BACKUP_DEVICE"],
+        "luksUuid": os.environ["BACKUP_LUKS_UUID"],
+        "btrfsUuid": os.environ["BACKUP_BTRFS_UUID"],
+        "partitionUuid": os.environ["BACKUP_PARTITION_UUID"],
+        "serial": os.environ["BACKUP_SERIAL"],
+        "mapperName": os.environ["BACKUP_MAPPER_NAME"],
+        "mountPoint": os.environ["BACKUP_MOUNTPOINT"],
+    },
+    "paths": {
+        "sourcesDir": f"/etc/btrfs-backup/profiles/{profile_id}/sources.d",
+        "remoteRoot": f"{os.environ['BACKUP_MOUNTPOINT']}/snapshots",
+        "incomingRoot": f"{os.environ['BACKUP_MOUNTPOINT']}/.incoming",
+        "stateDir": "/var/lib/btrfs-backup",
+        "statusRoot": "/run/btrfs-backup/profiles",
+        "historyRoot": "/var/lib/btrfs-backup/history",
+    },
+    "settings": {
+        "dailyLimit": as_bool("DAILY_LIMIT"),
+        "incrementalRequired": as_bool("INCREMENTAL_REQUIRED"),
+        "keepFailedLocalSnapshot": as_bool("KEEP_FAILED_LOCAL_SNAPSHOT"),
+        "autoEject": as_bool("AUTO_EJECT"),
+        "remoteRetention": as_int("RETENTION_COUNT"),
+        "localRetention": as_int("LOCAL_RETENTION_COUNT"),
+        "minimumTargetFreeBytes": as_int("MIN_TARGET_FREE_BYTES"),
+        "minimumLocalFreeBytes": as_int("MIN_LOCAL_FREE_BYTES"),
+    },
+    "notifications": {
+        "enabled": as_bool("NOTIFY_ENABLE"),
+        "user": os.environ["NOTIFY_USER"],
+        "method": os.environ["NOTIFY_METHOD"],
+    },
+    "sources": sources,
+}
+
+with open(sys.argv[1], "w", encoding="utf-8") as stream:
+    json.dump(profile, stream, indent=2)
+    stream.write("\n")
+PY
+}
+
 validate_uuid() {
     local name="$1"
     local value="$2"
@@ -590,8 +730,8 @@ validate_uuid() {
 
 validate_answers() {
     bb_validate_safe_name PROFILE_ID "$PROFILE_ID"
-    [[ "$PROFILE_NAME" != *$'\n'* && "$PROFILE_NAME" != *$'\r'* ]] \
-        || bb_die "PROFILE_NAME must be a single-line value."
+    [[ "$PROFILE_NAME" != *$'\n'* && "$PROFILE_NAME" != *$'\r'* && "$PROFILE_NAME" != *$'\t'* ]] \
+        || bb_die "PROFILE_NAME must be a single-line value without tabs."
     bb_validate_safe_name BACKUP_MAPPER_NAME "$BACKUP_MAPPER_NAME"
     bb_validate_absolute_path BACKUP_DEVICE "$BACKUP_DEVICE"
     bb_validate_absolute_path BACKUP_MOUNTPOINT "$BACKUP_MOUNTPOINT"
@@ -628,6 +768,9 @@ validate_answers() {
         bb_validate_absolute_path SOURCE_SUBVOLUME "${SOURCE_SUBVOLUMES[$index]}"
         bb_validate_absolute_path LOCAL_SNAPSHOT_DIR "${LOCAL_SNAPSHOT_DIRS[$index]}"
         bb_validate_relative_path REMOTE_SUBDIR "${REMOTE_SUBDIRS[$index]}"
+        [[ "${SOURCE_SUBVOLUMES[$index]}" != *$'\t'* ]] || bb_die "SOURCE_SUBVOLUME must not contain tabs."
+        [[ "${LOCAL_SNAPSHOT_DIRS[$index]}" != *$'\t'* ]] || bb_die "LOCAL_SNAPSHOT_DIR must not contain tabs."
+        [[ "${REMOTE_SUBDIRS[$index]}" != *$'\t'* ]] || bb_die "REMOTE_SUBDIR must not contain tabs."
     done
 }
 
@@ -638,9 +781,11 @@ validate_rendered_tree() {
     local profile_service_file="$root/systemd/btrfs-backup@.service"
     local udev_file="$root/udev/99-btrfs-backup.rules"
     local profile_files=("$root/config/profiles.d"/*.env)
-    local source_files=("$root/config/sources.d"/*.conf)
+    local source_files=("$root/config/profiles"/*/sources.d/*.conf)
+    local profile_json="$root/config/profile.json"
 
     [[ -f "$main_config" ]] || bb_die "Missing rendered main configuration: $main_config"
+    [[ -f "$profile_json" ]] || bb_die "Missing rendered canonical profile JSON: $profile_json"
     (( ${#profile_files[@]} > 0 )) || bb_die "No rendered profile configuration found."
     [[ -f "$service_file" ]] || bb_die "Missing rendered systemd unit: $service_file"
     [[ -f "$profile_service_file" ]] || bb_die "Missing rendered systemd template unit: $profile_service_file"
@@ -651,6 +796,7 @@ validate_rendered_tree() {
         bb_die "Unresolved placeholders remain in rendered files."
     fi
 
+    python3 -m json.tool "$profile_json" >/dev/null
     bash -n "$main_config" "${profile_files[@]}" "${source_files[@]}"
     systemd-analyze verify "$service_file" "$profile_service_file"
     udevadm verify "$udev_file"
@@ -661,15 +807,18 @@ validate_active_installation() {
     bb_require_root
     local active_config=/etc/btrfs-backup/profiles.d/default.env
     [[ -f "$active_config" ]] || active_config=/etc/btrfs-backup/backup.env
-    local source_files=(/etc/btrfs-backup/sources.d/*.conf)
     local service_file=/etc/systemd/system/btrfs-backup.service
     local profile_service_file=/etc/systemd/system/btrfs-backup@.service
     local udev_file=/etc/udev/rules.d/99-btrfs-backup.rules
     local verify_units=("$service_file")
 
     [[ -f "$active_config" ]] || bb_die "Missing $active_config"
-    (( ${#source_files[@]} > 0 )) || bb_die "No source definitions under /etc/btrfs-backup/sources.d"
     bb_assert_trusted_config_file "$active_config"
+    # shellcheck disable=SC1090
+    source "$active_config"
+    SOURCES_DIR="${SOURCES_DIR:-/etc/btrfs-backup/sources.d}"
+    local source_files=("$SOURCES_DIR"/*.conf)
+    (( ${#source_files[@]} > 0 )) || bb_die "No source definitions under $SOURCES_DIR"
     local source_file
     for source_file in "${source_files[@]}"; do
         bb_assert_trusted_config_file "$source_file"
@@ -686,8 +835,6 @@ validate_active_installation() {
     udevadm verify "$udev_file"
 
     local mountpoint mount_unit old_dropin
-    # shellcheck disable=SC1090
-    source "$active_config"
     mountpoint="${BACKUP_MOUNTPOINT:-}"
     mount_unit="${BACKUP_MOUNT_UNIT:-}"
     [[ -n "$mountpoint" && -n "$mount_unit" ]] || bb_die "Active configuration lacks BACKUP_MOUNTPOINT or BACKUP_MOUNT_UNIT."
@@ -708,11 +855,12 @@ if [[ "$ACTION" == validate ]]; then
 fi
 
 if [[ "$ACTION" == validate-dir ]]; then
-    bb_require_commands bash grep stat systemd-analyze udevadm
+    bb_require_commands bash grep python3 stat systemd-analyze udevadm
     validate_rendered_tree "$VALIDATE_DIR"
     exit 0
 fi
 
+bb_require_commands python3
 [[ -d "$TEMPLATE_DIR" ]] || bb_die "Template directory does not exist: $TEMPLATE_DIR"
 if [[ -n "$ANSWERS_FILE" ]]; then
     load_answers_file
@@ -728,6 +876,7 @@ BACKUP_PROFILE_SERVICE_NAME="btrfs-backup@${PROFILE_ID}.service"
 BACKUP_ENV_PATH=/etc/btrfs-backup/backup.env
 BACKUP_SCRIPT_PATH="$(detect_runtime_script btrfs-backup.sh)"
 EJECT_SCRIPT_PATH="$(detect_runtime_script btrfs-backup-eject.sh)"
+PROFILE_HELPER="$(detect_profile_helper)"
 REMOTE_ROOT="$BACKUP_MOUNTPOINT/snapshots"
 INCOMING_ROOT="$BACKUP_MOUNTPOINT/.incoming"
 
@@ -776,35 +925,23 @@ declare -A PLACEHOLDERS=(
 )
 
 rm -rf -- "$OUTPUT_DIR"
-install -d -m0750 "$OUTPUT_DIR/config/sources.d" "$OUTPUT_DIR/config/profiles.d" "$OUTPUT_DIR/systemd" "$OUTPUT_DIR/udev"
-render_template "$TEMPLATE_DIR/config/backup.env.example" "$OUTPUT_DIR/config/backup.env"
-render_template "$TEMPLATE_DIR/config/backup.env.example" "$OUTPUT_DIR/config/profiles.d/$PROFILE_ID.env"
+install -d -m0750 "$OUTPUT_DIR/config" "$OUTPUT_DIR/systemd" "$OUTPUT_DIR/udev"
+profile_sources_table="$OUTPUT_DIR/.profile-sources.tsv"
+write_profile_json "$OUTPUT_DIR/config/profile.json" "$profile_sources_table"
+"$PROFILE_HELPER" \
+    --etc-root "$OUTPUT_DIR/config" \
+    --udev-root "$OUTPUT_DIR/udev" \
+    --public-root "$OUTPUT_DIR/public/profiles" \
+    save --file "$OUTPUT_DIR/config/profile.json" >/dev/null
+rm -f -- "$profile_sources_table"
+install -m0600 "$OUTPUT_DIR/config/profiles.d/$PROFILE_ID.env" "$OUTPUT_DIR/config/backup.env"
+install -m0644 "$OUTPUT_DIR/udev/99-btrfs-backup-$PROFILE_ID.rules" "$OUTPUT_DIR/udev/99-btrfs-backup.rules"
 render_template "$TEMPLATE_DIR/config/fstab.fragment.example" "$OUTPUT_DIR/config/fstab.fragment"
 render_template "$TEMPLATE_DIR/config/crypttab.fragment.example" "$OUTPUT_DIR/config/crypttab.fragment"
 render_template "$TEMPLATE_DIR/systemd/btrfs-backup.service.example" "$OUTPUT_DIR/systemd/btrfs-backup.service"
 render_template "$TEMPLATE_DIR/systemd/btrfs-backup@.service.example" "$OUTPUT_DIR/systemd/btrfs-backup@.service"
-render_template "$TEMPLATE_DIR/udev/99-btrfs-backup.rules.example" "$OUTPUT_DIR/udev/99-btrfs-backup.rules"
 
-source_count="${#SOURCE_SUBVOLUMES[@]}"
-for ((index = 0; index < source_count; index++)); do
-    source_retention="${SOURCE_RETENTION_COUNTS[$index]:-$RETENTION_COUNT}"
-    source_local_retention="${SOURCE_LOCAL_RETENTION_COUNTS[$index]:-$LOCAL_RETENTION_COUNT}"
-    bb_validate_uint SOURCE_RETENTION_COUNT "$source_retention"
-    bb_validate_uint SOURCE_LOCAL_RETENTION_COUNT "$source_local_retention"
-
-    PLACEHOLDERS[SOURCE_NAME_SHELL]="$(shell_quote "${SOURCE_NAMES[$index]}")"
-    PLACEHOLDERS[SOURCE_SUBVOLUME_SHELL]="$(shell_quote "${SOURCE_SUBVOLUMES[$index]}")"
-    PLACEHOLDERS[LOCAL_SNAPSHOT_DIR_SHELL]="$(shell_quote "${LOCAL_SNAPSHOT_DIRS[$index]}")"
-    PLACEHOLDERS[REMOTE_SUBDIR_SHELL]="$(shell_quote "${REMOTE_SUBDIRS[$index]}")"
-    PLACEHOLDERS[SOURCE_RETENTION_COUNT]="$source_retention"
-    PLACEHOLDERS[SOURCE_LOCAL_RETENTION_COUNT]="$source_local_retention"
-
-    printf -v sequence '%02d' "$(((index + 1) * 10))"
-    render_template "$TEMPLATE_DIR/config/source.conf.example" \
-        "$OUTPUT_DIR/config/sources.d/${sequence}-${SOURCE_NAMES[$index]}.conf"
-done
-
-chmod 0600 "$OUTPUT_DIR/config/backup.env" "$OUTPUT_DIR/config/profiles.d"/*.env "$OUTPUT_DIR/config/sources.d"/*.conf
+chmod 0600 "$OUTPUT_DIR/config/backup.env" "$OUTPUT_DIR/config/profiles.d"/*.env "$OUTPUT_DIR/config/profiles"/*/sources.d/*.conf
 validate_rendered_tree "$OUTPUT_DIR"
 
 if [[ "$ACTION" == apply ]]; then
@@ -835,22 +972,26 @@ if [[ "$ACTION" == apply ]]; then
     backup_existing_file /etc/btrfs-backup/backup.env backup.env
     backup_existing_file /etc/btrfs-backup/profiles.d profiles.d
     backup_existing_file /etc/btrfs-backup/sources.d sources.d
+    backup_existing_file "/etc/btrfs-backup/profiles/$PROFILE_ID" "profile-$PROFILE_ID"
     backup_existing_file /etc/systemd/system/btrfs-backup.service btrfs-backup.service
     backup_existing_file /etc/systemd/system/btrfs-backup@.service 'btrfs-backup@.service'
     backup_existing_file /etc/udev/rules.d/99-btrfs-backup.rules 99-btrfs-backup.rules
 
-    new_sources="/etc/btrfs-backup/.sources.d.new.$$"
+    new_sources="/etc/btrfs-backup/.profile-$PROFILE_ID-sources.d.new.$$"
     rm -rf -- "$new_sources"
     install -d -m0700 "$new_sources"
-    install -m0600 "$OUTPUT_DIR/config/sources.d"/*.conf "$new_sources/"
+    install -m0600 "$OUTPUT_DIR/config/profiles/$PROFILE_ID/sources.d"/*.conf "$new_sources/"
 
     install -m0600 "$OUTPUT_DIR/config/backup.env" /etc/btrfs-backup/.backup.env.new
     mv -f -- /etc/btrfs-backup/.backup.env.new /etc/btrfs-backup/backup.env
     install -d -m0700 /etc/btrfs-backup/profiles.d
     install -m0600 "$OUTPUT_DIR/config/profiles.d/$PROFILE_ID.env" "/etc/btrfs-backup/profiles.d/.$PROFILE_ID.env.new"
     mv -f -- "/etc/btrfs-backup/profiles.d/.$PROFILE_ID.env.new" "/etc/btrfs-backup/profiles.d/$PROFILE_ID.env"
-    rm -rf -- /etc/btrfs-backup/sources.d
-    mv -- "$new_sources" /etc/btrfs-backup/sources.d
+    install -d -m0700 "/etc/btrfs-backup/profiles/$PROFILE_ID"
+    rm -rf -- "/etc/btrfs-backup/profiles/$PROFILE_ID/sources.d"
+    mv -- "$new_sources" "/etc/btrfs-backup/profiles/$PROFILE_ID/sources.d"
+    install -Dm0600 "$OUTPUT_DIR/config/profile.json" "/etc/btrfs-backup/profiles/$PROFILE_ID/profile.json"
+    install -Dm0644 "$OUTPUT_DIR/public/profiles/$PROFILE_ID.json" "/var/lib/btrfs-backup/public/profiles/$PROFILE_ID.json"
 
     install -Dm0644 "$OUTPUT_DIR/systemd/btrfs-backup.service" /etc/systemd/system/.btrfs-backup.service.new
     mv -f -- /etc/systemd/system/.btrfs-backup.service.new /etc/systemd/system/btrfs-backup.service
@@ -891,7 +1032,9 @@ if [[ "$ACTION" == apply ]]; then
 Installed active configuration:
   /etc/btrfs-backup/backup.env
   /etc/btrfs-backup/profiles.d/$PROFILE_ID.env
-  /etc/btrfs-backup/sources.d/*.conf
+  /etc/btrfs-backup/profiles/$PROFILE_ID/profile.json
+  /etc/btrfs-backup/profiles/$PROFILE_ID/sources.d/*.conf
+  /var/lib/btrfs-backup/public/profiles/$PROFILE_ID.json
   /etc/systemd/system/btrfs-backup.service
   /etc/systemd/system/btrfs-backup@.service
   /etc/udev/rules.d/99-btrfs-backup.rules
