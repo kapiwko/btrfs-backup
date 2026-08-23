@@ -17,6 +17,8 @@ namespace {
 
 constexpr const char* luks_uuid = "11111111-2222-3333-4444-555555555555";
 constexpr const char* btrfs_uuid = "22222222-3333-4444-5555-666666666666";
+constexpr const char* mapper_name = "btrfsbackup-test-target-command";
+constexpr const char* crypt_unit_name = "systemd-cryptsetup@btrfsbackup\\x2dtest\\x2dtarget\\x2dcommand.service";
 
 class RecordingCommandRunner final : public btrfsbackup::ICommandRunner {
 public:
@@ -28,8 +30,8 @@ public:
         if (argv == std::vector<std::string>{"cryptsetup", "luksUUID", "/dev/disk/by-uuid/target-luks"}) {
             return {0, std::string(luks_uuid) + "\n"};
         }
-        if (argv == std::vector<std::string>{"systemd-escape", "--template=systemd-cryptsetup@.service", "backupdisk"}) {
-            return {0, "systemd-cryptsetup@backupdisk.service\n"};
+        if (argv == std::vector<std::string>{"systemd-escape", "--template=systemd-cryptsetup@.service", mapper_name}) {
+            return {0, std::string(crypt_unit_name) + "\n"};
         }
         if (argv.size() == 3 && argv.at(0) == "systemctl" && argv.at(1) == "start") {
             mounted = true;
@@ -65,7 +67,7 @@ btrfsbackup::Json profile_json(const std::string& mount_point, bool auto_eject =
             {"device", "/dev/disk/by-uuid/target-luks"},
             {"luksUuid", luks_uuid},
             {"btrfsUuid", btrfs_uuid},
-            {"mapperName", "backupdisk"},
+            {"mapperName", mapper_name},
             {"mountPoint", mount_point}
         }},
         {"paths", {
@@ -110,7 +112,7 @@ std::vector<btrfsbackup::MountEntry> mounts_for(bool mounted, const std::string&
     }
     return {
         {
-            .source = "/dev/mapper/backupdisk",
+            .source = std::string("/dev/mapper/") + mapper_name,
             .target = mount_point,
             .fstype = "btrfs",
             .root = "/",
@@ -183,7 +185,7 @@ void test_eject_unmounts_and_stops_crypt_unit() {
     test_helpers::expect_true("target eject unmount", contains_call(commands, "umount -- " + mount_point), "target was not unmounted");
     test_helpers::expect_true(
         "target eject stop crypt unit",
-        contains_call(commands, "systemctl stop systemd-cryptsetup@backupdisk.service"),
+        contains_call(commands, std::string("systemctl stop ") + crypt_unit_name),
         "cryptsetup unit was not stopped"
     );
     fs::remove_all(root);
