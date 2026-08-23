@@ -74,58 +74,57 @@ build_and_install_package() {
     "$ROOT/tools/build-release.sh" --target arch --skip-tests --dist-dir "$PACKAGE_DIR" >/dev/null
     pacman -U --noconfirm "$PACKAGE_DIR"/btrfs-backup-*.pkg.tar.zst >/dev/null
     command -v btrfs-backup >/dev/null
-    command -v btrfs-backup-configure >/dev/null
+    command -v btrfs-backupctl >/dev/null
 }
 
 configure_backup_with_cli() {
     local target_device="$1"
     local luks_uuid="$2"
     local btrfs_uuid="$3"
-    local answers="$TEST_ROOT/configurator-answers.conf"
 
-    cat > "$answers" <<ANSWERS
-BACKUP_DEVICE=$target_device
-PROFILE_ID=default
-PROFILE_NAME='Default backup'
-BACKUP_LUKS_UUID=$luks_uuid
-BACKUP_BTRFS_UUID=$btrfs_uuid
-BACKUP_UDEV_MATCH='ENV{DEVTYPE}=="disk", ENV{ID_FS_TYPE}=="crypto_LUKS", ENV{ID_FS_UUID}=="$luks_uuid"'
-BACKUP_MAPPER_NAME=$MAPPER_NAME
-BACKUP_MOUNTPOINT=$TARGET_MOUNT
-KEYFILE_PATH_OR_NONE=none
-SOURCE_SUBVOLUMES=($SOURCE_MOUNT/home)
-SOURCE_NAMES=(home)
-LOCAL_SNAPSHOT_DIRS=($SOURCE_MOUNT/.snapshots/home)
-REMOTE_SUBDIRS=(home)
-SOURCE_RETENTION_COUNTS=(2)
-SOURCE_LOCAL_RETENTION_COUNTS=(2)
-RETENTION_COUNT=2
-LOCAL_RETENTION_COUNT=2
-DAILY_LIMIT=false
-INCREMENTAL_REQUIRED=true
-KEEP_FAILED_LOCAL_SNAPSHOT=false
-AUTO_EJECT=false
-MIN_TARGET_FREE_BYTES=0
-MIN_LOCAL_FREE_BYTES=0
-NOTIFY_ENABLE=false
-NOTIFY_USER=root
-NOTIFY_METHOD=none
-ANSWERS
-    chmod 0600 "$answers"
-    chown root:root "$answers"
-
-    btrfs-backup-configure \
-        --render-only \
-        --answers "$answers" \
-        --output-dir "$RENDERED_CONFIG" >/dev/null
-    btrfs-backup-configure --validate-dir "$RENDERED_CONFIG" >/dev/null
+    install -d -m0750 "$RENDERED_CONFIG/config" "$RENDERED_CONFIG/systemd" "$RENDERED_CONFIG/udev"
+    btrfs-backupctl profile create \
+        --output "$RENDERED_CONFIG/config/profile.json" \
+        --profile default \
+        --name 'Default backup' \
+        --device "$target_device" \
+        --luks-uuid "$luks_uuid" \
+        --btrfs-uuid "$btrfs_uuid" \
+        --mapper-name "$MAPPER_NAME" \
+        --mount-point "$TARGET_MOUNT" \
+        --remote-retention 2 \
+        --local-retention 2 \
+        --daily-limit false \
+        --incremental-required true \
+        --keep-failed-local-snapshot false \
+        --auto-eject false \
+        --minimum-target-free-bytes 0 \
+        --minimum-local-free-bytes 0 \
+        --notify-enable false \
+        --notify-user root \
+        --notify-method none \
+        --source home home "$SOURCE_MOUNT/home" "$SOURCE_MOUNT/.snapshots/home" home 2 2 >/dev/null
+    btrfs-backupctl \
+        profile \
+        --etc-root "$RENDERED_CONFIG/config" \
+        --udev-root "$RENDERED_CONFIG/udev" \
+        --public-root "$RENDERED_CONFIG/public/profiles" \
+        save --file "$RENDERED_CONFIG/config/profile.json" >/dev/null
+    install -m0644 "$RENDERED_CONFIG/udev/99-btrfs-backup-default.rules" "$RENDERED_CONFIG/udev/99-btrfs-backup.rules"
+    btrfs-backupctl installation render \
+        --file "$RENDERED_CONFIG/config/profile.json" \
+        --output-dir "$RENDERED_CONFIG" \
+        --backup-script /usr/lib/btrfs-backup/btrfs-backup.sh \
+        --eject-script /usr/lib/btrfs-backup/btrfs-backup-eject.sh \
+        --keyfile none
+    btrfs-backupctl installation validate --rendered-root "$RENDERED_CONFIG" >/dev/null
 
     install -d -m0700 /etc/btrfs-backup /etc/btrfs-backup/profiles/default
     install -m0600 "$RENDERED_CONFIG/config/profile.json" /etc/btrfs-backup/profiles/default/profile.json
     install -Dm0644 "$RENDERED_CONFIG/systemd/btrfs-backup.service" /etc/systemd/system/btrfs-backup.service
     install -Dm0644 "$RENDERED_CONFIG/systemd/btrfs-backup@.service" /etc/systemd/system/btrfs-backup@.service
     install -Dm0644 "$RENDERED_CONFIG/udev/99-btrfs-backup.rules" /etc/udev/rules.d/99-btrfs-backup.rules
-    btrfs-backup-configure --validate >/dev/null
+    btrfs-backupctl installation validate --active --profile default >/dev/null
     PROFILE_JSON=/etc/btrfs-backup/profiles/default/profile.json
     [[ -f "$PROFILE_JSON" ]] || fail 'configuration did not create default profile JSON'
 }

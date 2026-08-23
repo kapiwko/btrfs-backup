@@ -21,9 +21,8 @@ btrfs-backupctl profile export --profile default --output profile.json
 /var/lib/btrfs-backup/public/profiles/<profile>.json
 ```
 
-`btrfs-backup-configure` follows the same model: it uses
-`btrfs-backupctl profile create` to render `profile.json` first and then
-materializes derived files from that JSON.
+`btrfs-backupctl profile wizard` follows the same model: it renders
+`profile.json` first and then materializes derived files from that JSON.
 
 ## Runtime Profile Files
 
@@ -108,19 +107,30 @@ Source ids must be unique. `remoteSubdir` is a relative path under `remoteRoot`.
 
 For the `/` source, use a dedicated subvolume for snapshots, such as `/.snapshots`. Placing the snapshot repository in a regular directory inside the source subvolume creates unnecessary empty nested-subvolume mount points in future snapshots.
 
-## Non-Interactive Answers
+## Non-Interactive Configuration
 
-An example is available at `config/configurator-answers.example`. The file is sourced by Bash, so it must be private:
+Automation should create the canonical JSON profile directly:
 
 ```bash
-chmod 0600 answers.conf
-btrfs-backup-configure \
-  --answers ./answers.conf \
+btrfs-backupctl profile create \
+  --output ./profile.json \
+  --profile default \
+  --name 'Default backup' \
+  --device /dev/disk/by-uuid/<LUKS-UUID> \
+  --luks-uuid <LUKS-UUID> \
+  --mapper-name backupdisk \
+  --mount-point /mnt/backup \
+  --source home home /home /.snapshots/btrfs-backup/home home 30 30
+
+btrfs-backupctl profile render --file ./profile.json --output-dir ./generated-profile
+btrfs-backupctl installation render \
+  --file ./profile.json \
   --output-dir ./generated \
-  --render-only
+  --keyfile none
 ```
 
-When the configurator is run through `sudo`, the answers file should still belong to the invoking user; the configurator checks `SUDO_UID`. This lets you prepare a private file as a normal user, review the render output, and then use the same file with `--apply`.
+For manual setup, use `btrfs-backupctl profile wizard --render-only` and review
+the generated files before applying them.
 
 ## crypttab
 
@@ -145,7 +155,9 @@ sudo systemctl reset-failed btrfs-backup@default.service
 
 ## udev Matching
 
-The configurator builds match conditions from the LUKS UUID and, when available, node type, PARTUUID, and serial number. The goal is to match a specific partition, not every node on the same disk. With non-interactive input, the `ID_FS_UUID` condition must contain exactly the configured `BACKUP_LUKS_UUID`.
+The profile wizard builds match conditions from the LUKS UUID and, when
+available, node type, PARTUUID, and serial number. The goal is to match a
+specific partition, not every node on the same disk.
 
 The rule does not execute scripts through `RUN+=`; it delegates work to systemd through `SYSTEMD_WANTS`.
 

@@ -51,7 +51,7 @@ privileged container. It creates:
 1. an installable `btrfs-backup` package from the current source tree;
 2. a source Btrfs filesystem with a `home` subvolume;
 3. a LUKS2 target image with a Btrfs filesystem inside `/dev/mapper`;
-4. rendered configuration from the installed `btrfs-backup-configure`;
+4. rendered configuration from the installed `btrfs-backupctl`;
 5. active test configuration under `/etc/btrfs-backup` inside the container.
 
 Run it with:
