@@ -343,6 +343,62 @@ profile_json_test() {
     pass 'profile JSON validates, renders, and saves generated runtime files'
 }
 
+status_writer_cli_test() {
+    local status_root="$TEST_ROOT/status-writer-cli/status"
+    local history_root="$TEST_ROOT/status-writer-cli/history"
+    local run_id="20260823T082504Z-123-456"
+    local current="$status_root/default/current.json"
+    local history="$history_root/default/$run_id.json"
+    local last="$history_root/default/last.json"
+    local message=$'Backup "done"\nLine'
+
+    "$ROOT/bin/btrfs-backupctl" \
+        --status-root "$status_root" \
+        --history-root "$history_root" \
+        write-status \
+        --current \
+        --history \
+        --profile-id default \
+        --profile-name 'Default backup' \
+        --run-id "$run_id" \
+        --state succeeded \
+        --phase complete \
+        --message "$message" \
+        --current-source-name home \
+        --source-index 2 \
+        --source-count 2 \
+        --started-at '2026-08-23T08:24:00+02:00' \
+        --updated-at '2026-08-23T08:25:04+02:00' \
+        --finished-at '2026-08-23T08:25:04+02:00' \
+        --error '' \
+        --exit-code 0
+
+    assert_file "$current"
+    assert_file "$history"
+    assert_file "$last"
+    cmp -s "$history" "$last" \
+        || fail 'last history status does not match run history status'
+    assert_contains "$current" '"schemaVersion": 1'
+    assert_contains "$current" '"state": "succeeded"'
+    assert_contains "$current" '"message": "Backup \"done\"\nLine"'
+    assert_contains "$history" '"currentSourceName": "home"'
+
+    "$ROOT/bin/btrfs-backupctl" \
+        --status-root "$status_root" \
+        --history-root "$history_root" \
+        status --profile default --human \
+        | grep -q 'Default backup: succeeded' \
+        || fail 'btrfs-backupctl did not render written status'
+
+    "$ROOT/bin/btrfs-backupctl" \
+        --history-root "$history_root" \
+        history --profile default --limit 1 \
+        | grep -q '"runId": "20260823T082504Z-123-456"' \
+        || fail 'btrfs-backupctl did not render written history'
+
+    pass 'backupctl writes runtime status and history through the CLI'
+}
+
 create_mock_commands() {
     local mockbin="$1"
     mkdir -p "$mockbin"
@@ -929,11 +985,12 @@ eject_test() {
 }
 
 if [[ "$MODE" == static ]]; then
-    printf '1..4\n'
+    printf '1..5\n'
     syntax_test
     render_test
     migrate_profile_dry_run_test
     profile_json_test
+    status_writer_cli_test
     exit 0
 fi
 
@@ -941,11 +998,12 @@ if (( EUID != 0 )); then
     fail 'full mocked runtime tests require root; use --static-only otherwise'
 fi
 
-printf '1..14\n'
+printf '1..15\n'
 syntax_test
 render_test
 migrate_profile_dry_run_test
 profile_json_test
+status_writer_cli_test
 profile_loading_test
 runtime_success_test
 runtime_failure_cleanup_test
