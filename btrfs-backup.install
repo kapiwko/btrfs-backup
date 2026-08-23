@@ -1,3 +1,19 @@
+_btrfs_backup_profile_hint() {
+    if [[ -f /etc/btrfs-backup/backup.env && ! -f /etc/btrfs-backup/profiles.d/default.env ]]; then
+        cat <<'MSG'
+==> Legacy configuration detected:
+==>   /etc/btrfs-backup/backup.env
+==>
+==> Create the default profile from the existing configuration:
+==>   sudo btrfs-backup-migrate-profile --profile default
+==>
+==> After validating the migrated profile, the legacy file can be moved aside:
+==>   sudo btrfs-backup-migrate-profile --profile default --force --remove-legacy
+
+MSG
+    fi
+}
+
 post_install() {
     cat <<'MSG'
 
@@ -15,6 +31,7 @@ post_install() {
 ==>   sudo btrfs-backup --validate
 
 MSG
+    _btrfs_backup_profile_hint
 }
 
 post_upgrade() {
@@ -26,6 +43,7 @@ post_upgrade() {
 ==>   sudo btrfs-backup-configure --apply
 
 MSG
+    _btrfs_backup_profile_hint
 }
 
 pre_remove() {
