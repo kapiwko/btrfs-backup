@@ -58,8 +58,21 @@ public:
         calls.push_back("remove:" + path.string());
     }
 
+    void remove_directory(const fs::path& path) override {
+        calls.push_back("rmdir:" + path.string());
+    }
+
+    void remove_tree(const fs::path& path) override {
+        calls.push_back("remove-tree:" + path.string());
+    }
+
     void rename_path(const fs::path& source, const fs::path& target) override {
         calls.push_back("rename:" + source.string() + "->" + target.string());
+    }
+
+    std::vector<fs::path> list_directory(const fs::path& path) override {
+        calls.push_back("list:" + path.string());
+        return {};
     }
 };
 

@@ -161,7 +161,7 @@ BackupRunExecutionResult BackupRunExecutor::execute(
                     }
                     require_transfer_success(transfer_result);
                 } else if (action_has_external_effect(action.kind)) {
-                    action_effects_.execute_action(action, source);
+                    action_effects_.execute_action(action, source, plan);
                 }
             } catch (const std::exception& error) {
                 emit_event(events, BackupRunEventKind::ActionFailed, plan, &source, action.kind, 0, error.what());
