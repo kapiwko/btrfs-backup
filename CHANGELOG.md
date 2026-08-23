@@ -11,6 +11,10 @@
 7. profile JSON examples and schema for future tooling;
 8. package contents updated for all generated packaging backends.
 
+The legacy `/etc/btrfs-backup/backup.env` fallback is deprecated in 1.1 and
+will be removed in 2.0. Use `btrfs-backup-migrate-profile --profile default`
+to create `/etc/btrfs-backup/profiles.d/default.env`.
+
 ## 1.0.0 - 2026-08-22
 
 1. multi-source backup through `sources.d`;
