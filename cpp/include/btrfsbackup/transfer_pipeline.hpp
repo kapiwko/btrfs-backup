@@ -2,6 +2,7 @@
 
 #include <atomic>
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -85,6 +86,36 @@ public:
         ITransferEventSink& events,
         CancellationToken& cancellation
     ) override;
+};
+
+class IAsyncTransferHandle {
+public:
+    virtual ~IAsyncTransferHandle() = default;
+    virtual bool finished() const = 0;
+    virtual void request_cancel() = 0;
+    virtual TransferResult wait() = 0;
+};
+
+class IAsyncTransferPipeline {
+public:
+    virtual ~IAsyncTransferPipeline() = default;
+    virtual std::unique_ptr<IAsyncTransferHandle> start(
+        const TransferPipelinePlan& plan,
+        ITransferEventSink& events
+    ) = 0;
+};
+
+class ThreadedAsyncTransferPipeline final : public IAsyncTransferPipeline {
+public:
+    explicit ThreadedAsyncTransferPipeline(ITransferPipeline& pipeline);
+
+    std::unique_ptr<IAsyncTransferHandle> start(
+        const TransferPipelinePlan& plan,
+        ITransferEventSink& events
+    ) override;
+
+private:
+    ITransferPipeline& pipeline_;
 };
 
 bool transfer_succeeded(const TransferResult& result);

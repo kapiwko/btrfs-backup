@@ -505,8 +505,9 @@ int runner(
         ITransferPipeline& transfer_pipeline = execution_services == nullptr
             ? static_cast<ITransferPipeline&>(real_transfer_pipeline)
             : execution_services->transfer_pipeline;
+        ThreadedAsyncTransferPipeline async_transfer_pipeline(transfer_pipeline);
 
-        BackupRunExecutor executor(action_effects, transfer_pipeline, checkpoints);
+        BackupRunExecutor executor(action_effects, async_transfer_pipeline, checkpoints);
         BackupRunExecutionResult result = executor.execute(plan, status_events, cancellation);
         btrfsbackup::clear_cancel_request(profile_state_dir);
         if (result.completed) {
