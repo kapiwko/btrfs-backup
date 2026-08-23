@@ -70,7 +70,7 @@ If the configuration does not use a keyfile, systemd may ask for the LUKS passph
 
 ## Usage
 
-After installation and after merging the generated fragments, do not run `systemctl enable btrfs-backup.service`. The unit has no `[Install]` section; udev starts it when the exact configured device appears.
+After installation and after merging the generated fragments, do not run `systemctl enable btrfs-backup.service` or `systemctl enable btrfs-backup@default.service`. The units have no `[Install]` section; udev starts the profile instance when the exact configured device appears.
 
 Manual commands:
 
@@ -95,8 +95,8 @@ btrfs-backupctl list-profiles
 Logs:
 
 ```bash
-journalctl -u btrfs-backup.service
-journalctl -u btrfs-backup.service -f
+journalctl -u btrfs-backup@default.service
+journalctl -u btrfs-backup@default.service -f
 ```
 
 ## Configuration Layout

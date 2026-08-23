@@ -1,4 +1,4 @@
-# One file per source under /etc/btrfs-backup/sources.d/*.conf
+# Runtime source file generated under /etc/btrfs-backup/profiles/<profile>/sources.d/*.conf
 ENABLED=true
 SOURCE_NAME={{SOURCE_NAME_SHELL}}
 SOURCE_SUBVOLUME={{SOURCE_SUBVOLUME_SHELL}}
