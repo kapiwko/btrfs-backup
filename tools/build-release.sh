@@ -106,9 +106,9 @@ make_invoker_owned() {
     fi
 }
 
-require_commands awk basename chmod cp date find g++ gzip install make mkdir mktemp mv python3 rm sha256sum tar touch
+require_commands awk basename bsdtar chmod cp date find g++ gzip install make mkdir mktemp mv readlink rm sha256sum stat tar touch
 if [[ "$TARGET" == all || "$TARGET" == arch ]]; then
-    require_commands bsdtar zstd
+    require_commands zstd
 fi
 if [[ "$TARGET" == all || "$TARGET" == deb ]]; then
     require_commands ar
@@ -177,6 +177,54 @@ create_deterministic_tar_gz() {
             --mtime="@$SOURCE_DATE_EPOCH" \
             -cf - "$entry_name" \
             | gzip -n -9 > "$destination"
+    )
+}
+
+create_arch_mtree() {
+    local root="$1"
+    local mtree_plain="$TMP_ROOT/package.MTREE"
+    local path rel mode size digest target
+
+    {
+        printf '%s\n' '#mtree'
+        printf '%s\n' '/set type=file uid=0 gid=0 mode=644'
+        while IFS= read -r -d '' path; do
+            [[ "$(basename -- "$path")" == .MTREE ]] && continue
+            rel="./${path#"$root"/}"
+            mode="$(stat -c '%a' "$path")"
+            if [[ -d "$path" ]]; then
+                printf '%s time=%s.0 mode=%s type=dir\n' "$rel" "$SOURCE_DATE_EPOCH" "$mode"
+            elif [[ -L "$path" ]]; then
+                target="$(readlink -- "$path")"
+                printf '%s time=%s.0 mode=%s type=link link=%s\n' "$rel" "$SOURCE_DATE_EPOCH" "$mode" "$target"
+            elif [[ -f "$path" ]]; then
+                size="$(stat -c '%s' "$path")"
+                digest="$(sha256sum "$path" | awk '{print $1}')"
+                if [[ "$mode" == 644 ]]; then
+                    printf '%s time=%s.0 size=%s sha256digest=%s\n' "$rel" "$SOURCE_DATE_EPOCH" "$size" "$digest"
+                else
+                    printf '%s time=%s.0 mode=%s size=%s sha256digest=%s\n' "$rel" "$SOURCE_DATE_EPOCH" "$mode" "$size" "$digest"
+                fi
+            else
+                printf 'Unsupported package entry: %s\n' "$path" >&2
+                return 1
+            fi
+        done < <(find "$root" -mindepth 1 -print0 | LC_ALL=C sort -z)
+    } > "$mtree_plain"
+
+    gzip -n -9 < "$mtree_plain" > "$root/.MTREE"
+    chmod 0644 "$root/.MTREE"
+    touch -h -d "@$SOURCE_DATE_EPOCH" "$root/.MTREE"
+}
+
+create_deterministic_zip() {
+    local source_dir="$1"
+    local destination="$2"
+
+    (
+        cd "$(dirname -- "$source_dir")"
+        mapfile -t zip_entries < <(find "$(basename -- "$source_dir")" -type f -printf '%p\n' | LC_ALL=C sort)
+        bsdtar --format=zip -cf "$destination" "${zip_entries[@]}"
     )
 }
 
@@ -710,41 +758,7 @@ optdepend = pv: live progress during btrfs send
 EOF_PKGINFO
     chmod 0644 "$PACKAGE_STAGE/.PKGINFO" "$PACKAGE_STAGE/.INSTALL"
     find "$PACKAGE_STAGE" -exec touch -h -d "@$SOURCE_DATE_EPOCH" {} +
-
-    python3 - "$PACKAGE_STAGE" "$SOURCE_DATE_EPOCH" <<'PY'
-from pathlib import Path
-import gzip
-import hashlib
-import os
-import stat
-import sys
-
-root = Path(sys.argv[1])
-epoch = int(sys.argv[2])
-lines = ['#mtree', '/set type=file uid=0 gid=0 mode=644']
-for path in sorted(root.rglob('*'), key=lambda item: item.as_posix()):
-    if path.name == '.MTREE':
-        continue
-    rel = './' + path.relative_to(root).as_posix()
-    st = path.lstat()
-    mode = stat.S_IMODE(st.st_mode)
-    if path.is_dir():
-        lines.append(f'{rel} time={epoch}.0 mode={mode:o} type=dir')
-    elif path.is_symlink():
-        target = os.readlink(path)
-        lines.append(f'{rel} time={epoch}.0 mode={mode:o} type=link link={target}')
-    elif path.is_file():
-        digest = hashlib.sha256(path.read_bytes()).hexdigest()
-        mode_field = '' if mode == 0o644 else f' mode={mode:o}'
-        lines.append(f'{rel} time={epoch}.0{mode_field} size={st.st_size} sha256digest={digest}')
-    else:
-        raise SystemExit(f'Unsupported package entry: {path}')
-content = ('\n'.join(lines) + '\n').encode()
-with gzip.GzipFile(filename='', mode='wb', fileobj=open(root / '.MTREE', 'wb'), mtime=0) as stream:
-    stream.write(content)
-os.chmod(root / '.MTREE', 0o644)
-os.utime(root / '.MTREE', (epoch, epoch), follow_symlinks=False)
-PY
+    create_arch_mtree "$PACKAGE_STAGE"
 
     (
         cd "$PACKAGE_STAGE"
@@ -789,29 +803,7 @@ fi
 
 copy_source_tree "$ZIP_STAGE"
 find "$ZIP_STAGE" -exec touch -h -d "@$SOURCE_DATE_EPOCH" {} +
-python3 - "$TMP_ROOT/zip" "$SOURCE_ZIP" "$SOURCE_DATE_EPOCH" <<'PY'
-from pathlib import Path
-import datetime
-import stat
-import sys
-import zipfile
-
-root = Path(sys.argv[1])
-destination = Path(sys.argv[2])
-epoch = int(sys.argv[3])
-dt = datetime.datetime.fromtimestamp(epoch, datetime.timezone.utc)
-zip_time = (dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second)
-with zipfile.ZipFile(destination, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
-    for path in sorted(root.rglob('*'), key=lambda item: item.as_posix()):
-        if not path.is_file():
-            continue
-        rel = path.relative_to(root).as_posix()
-        info = zipfile.ZipInfo(rel, zip_time)
-        mode = stat.S_IMODE(path.stat().st_mode)
-        info.external_attr = (mode & 0xFFFF) << 16
-        info.compress_type = zipfile.ZIP_DEFLATED
-        archive.writestr(info, path.read_bytes())
-PY
+create_deterministic_zip "$ZIP_STAGE" "$SOURCE_ZIP"
 BUILD_OUTPUTS+=("$SOURCE_ZIP")
 
 cat > "$DIST_DIR/BUILD-REPORT.txt" <<EOF_REPORT
