@@ -135,7 +135,6 @@ render_test() {
         --udev-root "$output/udev" \
         --public-root "$output/public/profiles" \
         save --file "$profile" >/dev/null
-    install -m0644 "$output/udev/99-btrfs-backup-laptop.rules" "$output/udev/99-btrfs-backup.rules"
     "$ROOT/bin/btrfs-backupctl" installation render \
         --file "$profile" \
         --output-dir "$output" \
@@ -149,9 +148,10 @@ render_test() {
     assert_contains "$output/config/profile.json" '"profileId": "laptop"'
     assert_file "$output/systemd/btrfs-backup.service"
     assert_file "$output/systemd/btrfs-backup@.service"
-    assert_file "$output/udev/99-btrfs-backup.rules"
-    assert_not_contains "$output/udev/99-btrfs-backup.rules" 'ACTION=="remove"'
-    assert_contains "$output/udev/99-btrfs-backup.rules" 'btrfs-backup@laptop.service'
+    assert_file "$output/udev/99-btrfs-backup-laptop.rules"
+    assert_not_exists "$output/udev/99-btrfs-backup.rules"
+    assert_not_contains "$output/udev/99-btrfs-backup-laptop.rules" 'ACTION=="remove"'
+    assert_contains "$output/udev/99-btrfs-backup-laptop.rules" 'btrfs-backup@laptop.service'
     assert_not_contains "$output/systemd/btrfs-backup.service" 'WantedBy='
     assert_not_contains "$output/systemd/btrfs-backup.service" 'Requires=mnt-backup.mount'
     assert_contains "$output/systemd/btrfs-backup.service" 'ExecStart='
