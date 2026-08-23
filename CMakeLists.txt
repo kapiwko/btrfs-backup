@@ -52,6 +52,7 @@ add_library(btrfsbackup_profile_tool STATIC
     cpp/src/profile_wizard.cpp
     cpp/src/run_state.cpp
     cpp/src/shell_env.cpp
+    cpp/src/space_check.cpp
     cpp/src/status_writer.cpp
     cpp/src/trusted_file.cpp
     cpp/src/validation.cpp
@@ -119,6 +120,10 @@ if(BUILD_TESTING)
         cpp/tests/status_writer_tests.cpp
     )
 
+    add_executable(btrfsbackup-space-check-tests
+        cpp/tests/space_check_tests.cpp
+    )
+
     add_executable(btrfsbackup-trusted-file-tests
         cpp/tests/trusted_file_tests.cpp
     )
@@ -172,6 +177,11 @@ if(BUILD_TESTING)
             btrfsbackup_profile_tool
     )
 
+    target_link_libraries(btrfsbackup-space-check-tests
+        PRIVATE
+            btrfsbackup_profile_tool
+    )
+
     target_link_libraries(btrfsbackup-trusted-file-tests
         PRIVATE
             btrfsbackup_profile_tool
@@ -190,6 +200,7 @@ if(BUILD_TESTING)
     add_test(NAME installation-tests COMMAND btrfsbackup-installation-tests)
     add_test(NAME profile-wizard-tests COMMAND btrfsbackup-profile-wizard-tests)
     add_test(NAME mount-info-tests COMMAND btrfsbackup-mount-info-tests)
+    add_test(NAME space-check-tests COMMAND btrfsbackup-space-check-tests)
     add_test(NAME status-writer-tests COMMAND btrfsbackup-status-writer-tests)
     add_test(NAME trusted-file-tests COMMAND btrfsbackup-trusted-file-tests)
     add_test(NAME validation-tests COMMAND btrfsbackup-validation-tests)
