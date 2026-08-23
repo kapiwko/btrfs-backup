@@ -8,9 +8,9 @@
 #include <vector>
 
 #include <btrfsbackup/errors.hpp>
+#include <btrfsbackup/identifiers.hpp>
 #include <btrfsbackup/json.hpp>
 #include <btrfsbackup/json_io.hpp>
-#include <btrfsbackup/profile_list.hpp>
 
 namespace fs = std::filesystem;
 using json = btrfsbackup::Json;
