@@ -85,7 +85,7 @@ Snapshot names are used for sorting and display. A parent is considered common o
 
 ## Daily Limit
 
-`last-success` is written in the profile state directory only after all sources complete, the target is synchronized, and retention is applied. It contains the date, profile id, profile name, target LUKS UUID, and SHA-256 fingerprint of the main configuration and all source files. Changing the configuration forces a new run even on the same day.
+`last-success` is written in the profile state directory only after all sources complete, the target is synchronized, and retention is applied. It contains the date, profile id, profile name, target LUKS UUID, and SHA-256 fingerprint of the active profile JSON. Changing the configuration forces a new run even on the same day.
 
 ## Filesystem and Path Boundaries
 

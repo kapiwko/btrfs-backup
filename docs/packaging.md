@@ -64,9 +64,9 @@ Runtime scripts are installed under `/usr/lib/btrfs-backup`, commands under
 under `/usr/share/btrfs-backup/examples`, and documentation under
 `/usr/share/doc/btrfs-backup`.
 
-The package does not install active fstab, crypttab, or udev entries. The
-configurator writes active configuration and udev files only after an explicit
-user command.
+The package does not install active fstab, crypttab, or udev entries.
+`btrfs-backupctl profile wizard --apply` and `profile save` write active
+configuration and udev files only after an explicit user command.
 
 ## Reproducibility
 
