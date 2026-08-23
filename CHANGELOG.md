@@ -26,7 +26,9 @@
     widget and its compiled QML backend;
 11. kept the base `btrfs-backup` package independent from Qt, Kirigami and
     Plasma runtime dependencies;
-12. added KDE package install hooks that refresh the service cache with
+12. installed the compiled Plasma QML module under the Qt 6 import path
+    `/usr/lib/qt6/qml`;
+13. added KDE package install hooks that refresh the service cache with
     `kbuildsycoca6` when available.
 
 ## 2.0.0 - 2026-08-23

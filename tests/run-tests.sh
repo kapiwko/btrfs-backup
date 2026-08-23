@@ -76,8 +76,13 @@ assert_not_contains() {
 }
 
 syntax_test() {
+    local ctest_log="$TEST_ROOT/ctest.log"
+
     make -C "$ROOT" >/dev/null
-    ctest --test-dir "$ROOT/build" --output-on-failure >/dev/null
+    if ! ctest --test-dir "$ROOT/build" --output-on-failure >"$ctest_log" 2>&1; then
+        cat "$ctest_log" >&2
+        fail 'CTest suite failed'
+    fi
     mapfile -t scripts < <(find "$ROOT" -type f \( -name '*.sh' -o -name '*.install' -o \( -path "$ROOT/bin/*" ! -path "$ROOT/bin/__pycache__/*" \) \) | sort)
     local script
     for script in "${scripts[@]}"; do
