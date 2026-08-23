@@ -1,0 +1,26 @@
+{
+  "KPackageStructure": "Plasma/Applet",
+  "KPlugin": {
+    "Authors": [
+      {
+        "Name": "btrfs-backup contributors"
+      }
+    ],
+    "Category": "System Information",
+    "Description": "Status and progress for independent system Btrfs backups",
+    "Description[pl]": "Stan i postęp niezależnych systemowych kopii zapasowych Btrfs",
+    "EnabledByDefault": true,
+    "Icon": "drive-harddisk",
+    "Id": "org.btrfsbackup.plasmoid",
+    "License": "GPL-3.0-or-later",
+    "Name": "Btrfs Backup",
+    "Name[pl]": "Kopie zapasowe Btrfs",
+    "Version": "2.0.0",
+    "Website": "https://github.com/kapiwko/btrfs-backup"
+  },
+  "X-Plasma-API": "declarativeappletscript",
+  "X-Plasma-API-Minimum-Version": "6.0",
+  "X-Plasma-MainScript": "ui/main.qml",
+  "X-Plasma-NotificationArea": "true",
+  "X-Plasma-NotificationAreaCategory": "SystemServices"
+}
