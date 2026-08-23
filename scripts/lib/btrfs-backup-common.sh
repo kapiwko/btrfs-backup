@@ -5,7 +5,7 @@ if [[ -n "${BTRFS_BACKUP_COMMON_LOADED:-}" ]]; then
     return 0
 fi
 readonly BTRFS_BACKUP_COMMON_LOADED=1
-readonly BTRFS_BACKUP_VERSION='1.0.0'
+readonly BTRFS_BACKUP_VERSION='1.1.0'
 
 export LC_ALL=C
 
@@ -102,6 +102,36 @@ bb_load_config() {
     # Configuration files are deliberately trusted root-owned Bash syntax.
     # shellcheck disable=SC1090
     source "$config_file"
+}
+
+bb_resolve_profile_config() {
+    local profile_id="$1"
+    local explicit_config="$2"
+    local profile_config_dir="$3"
+    local legacy_config="$4"
+    local profile_config
+
+    if [[ -n "$explicit_config" ]]; then
+        printf '%s\n' "$explicit_config"
+        return 0
+    fi
+
+    bb_validate_safe_name PROFILE_ID "$profile_id"
+    bb_validate_absolute_path PROFILE_CONFIG_DIR "$profile_config_dir"
+    bb_validate_absolute_path LEGACY_CONFIG_FILE "$legacy_config"
+
+    profile_config="$profile_config_dir/$profile_id.env"
+    if [[ -e "$profile_config" ]]; then
+        printf '%s\n' "$profile_config"
+        return 0
+    fi
+
+    if [[ "$profile_id" == default && -e "$legacy_config" ]]; then
+        printf '%s\n' "$legacy_config"
+        return 0
+    fi
+
+    bb_die "Profile configuration does not exist: $profile_config"
 }
 
 bb_require_var() {

@@ -30,15 +30,15 @@ The script runs the selected test suite, creates deterministic source archives, 
 Outputs are written to `dist/`:
 
 ```text
-btrfs-backup-1.0.0.tar.gz
-btrfs-backup-1.0.0-1-any.pkg.tar.zst
-btrfs-backup_1.0.0-1_all.deb
-btrfs-backup-1.0.0-install.tar.gz
-btrfs-backup-1.0.0-rpm-packaging.tar.gz
-btrfs-backup-1.0.0-nix-packaging.tar.gz
-btrfs-backup-1.0.0-ebuild.tar.gz
-btrfs-backup-1.0.0-pkgbuild.tar.gz
-btrfs-backup-1.0.0-source.zip
+btrfs-backup-1.1.0.tar.gz
+btrfs-backup-1.1.0-1-any.pkg.tar.zst
+btrfs-backup_1.1.0-1_all.deb
+btrfs-backup-1.1.0-install.tar.gz
+btrfs-backup-1.1.0-rpm-packaging.tar.gz
+btrfs-backup-1.1.0-nix-packaging.tar.gz
+btrfs-backup-1.1.0-ebuild.tar.gz
+btrfs-backup-1.1.0-pkgbuild.tar.gz
+btrfs-backup-1.1.0-source.zip
 SHA256SUMS
 BUILD-REPORT.txt
 ```

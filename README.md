@@ -24,7 +24,7 @@ Each source must be a Btrfs subvolume. The local snapshot directory must be on t
 ## Arch Package Installation
 
 ```bash
-sudo pacman -U btrfs-backup-1.0.0-1-any.pkg.tar.zst
+sudo pacman -U btrfs-backup-1.1.0-1-any.pkg.tar.zst
 ```
 
 The package does not enable the service at boot and does not create active configuration without an explicit user action.
@@ -75,8 +75,10 @@ sudo btrfs-backup
 sudo btrfs-backup --force
 sudo btrfs-backup --validate
 sudo btrfs-backup --no-eject
+sudo btrfs-backup --profile default --validate
 sudo btrfs-backup-mount
 sudo btrfs-backup-eject
+sudo btrfs-backup-migrate-profile --profile default
 btrfs-backupctl status --profile default --human
 btrfs-backupctl history --profile default --limit 10
 ```
@@ -103,6 +105,12 @@ SOURCE_LOCAL_RETENTION_COUNT=30
 ```
 
 Active configuration files are trusted Bash code executed as root. They must be owned by root and use mode `0600`; the script refuses files that are accessible by group or other users.
+
+Profiles can be stored as `/etc/btrfs-backup/profiles.d/<profile>.env` and selected with `--profile <profile>` or `BTRFS_BACKUP_PROFILE=<profile>`. The legacy `/etc/btrfs-backup/backup.env` remains supported as the fallback for the `default` profile. To create the default profile file from an existing legacy configuration:
+
+```bash
+sudo btrfs-backup-migrate-profile --profile default
+```
 
 ## Recovery
 

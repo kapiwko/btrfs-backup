@@ -726,6 +726,7 @@ KEYFILE_PATH_CRYPTTAB="$(fstab_escape "$KEYFILE_PATH_OR_NONE")"
 
 # Values used by the main templates.
 declare -A PLACEHOLDERS=(
+    [PROFILE_ID]="$PROFILE_ID"
     [PROFILE_ID_SHELL]="$(shell_quote "$PROFILE_ID")"
     [PROFILE_NAME_SHELL]="$(shell_quote "$PROFILE_NAME")"
     [BACKUP_MAPPER_NAME]="$BACKUP_MAPPER_NAME"
