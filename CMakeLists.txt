@@ -6,6 +6,8 @@ project(
     LANGUAGES CXX
 )
 
+include(CTest)
+
 find_package(nlohmann_json REQUIRED)
 
 add_library(btrfsbackup_profile_tool STATIC
@@ -41,3 +43,16 @@ target_link_libraries(btrfs-backup-profile
     PRIVATE
         btrfsbackup_profile_tool
 )
+
+if(BUILD_TESTING)
+    add_executable(btrfsbackup-profile-tests
+        cpp/tests/profile_tests.cpp
+    )
+
+    target_link_libraries(btrfsbackup-profile-tests
+        PRIVATE
+            btrfsbackup_profile_tool
+    )
+
+    add_test(NAME profile-tests COMMAND btrfsbackup-profile-tests)
+endif()
