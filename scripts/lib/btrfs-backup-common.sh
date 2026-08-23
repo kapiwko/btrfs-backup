@@ -95,15 +95,6 @@ bb_assert_trusted_config_file() {
     fi
 }
 
-bb_load_config() {
-    local config_file="$1"
-    bb_assert_trusted_config_file "$config_file"
-
-    # Configuration files are deliberately trusted root-owned Bash syntax.
-    # shellcheck disable=SC1090
-    source "$config_file"
-}
-
 bb_backupctl_path() {
     local candidate script_dir
     script_dir="${SCRIPT_DIR:-}"
@@ -154,29 +145,6 @@ bb_resolve_profile_json() {
     fi
 
     bb_die "Profile JSON does not exist: $profile_json"
-}
-
-bb_resolve_profile_config() {
-    local profile_id="$1"
-    local explicit_config="$2"
-    local profile_config_dir="$3"
-    local profile_config
-
-    if [[ -n "$explicit_config" ]]; then
-        printf '%s\n' "$explicit_config"
-        return 0
-    fi
-
-    bb_validate_safe_name PROFILE_ID "$profile_id"
-    bb_validate_absolute_path PROFILE_CONFIG_DIR "$profile_config_dir"
-
-    profile_config="$profile_config_dir/$profile_id.env"
-    if [[ -e "$profile_config" ]]; then
-        printf '%s\n' "$profile_config"
-        return 0
-    fi
-
-    bb_die "Profile configuration does not exist: $profile_config"
 }
 
 bb_require_var() {

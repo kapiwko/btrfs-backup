@@ -289,7 +289,6 @@ int command_migrate_profile(const std::vector<std::string>& args) {
         }
 
         fs::path profile_root = profile_config_dir.parent_path();
-        fs::path target_config = profile_config_dir / (profile_id + ".env");
         fs::path target_profile_dir = profile_root / "profiles" / profile_id;
         fs::path target_profile_json = target_profile_dir / "profile.json";
         bool system_write =
@@ -301,8 +300,8 @@ int command_migrate_profile(const std::vector<std::string>& args) {
             if (!fs::is_regular_file(source_config)) {
                 throw ValidationError("Legacy configuration does not exist: " + source_config.string());
             }
-            std::cout << "Would create profile " << profile_id << " at " << target_config << " from " << source_config << '\n';
-            std::cout << "Would create canonical profile JSON at " << target_profile_json << '\n';
+            std::cout << "Would create profile " << profile_id << " from " << source_config << '\n';
+            std::cout << "Would create profile JSON at " << target_profile_json << '\n';
             return 0;
         }
         if (geteuid() != 0 && system_write) {
@@ -316,21 +315,18 @@ int command_migrate_profile(const std::vector<std::string>& args) {
         }
         require_absolute(source_config_dir, "SOURCE_CONFIG_DIR");
 
-        if (fs::exists(target_config) && !force) {
-            throw ValidationError("Profile already exists: " + target_config.string() + " (use --force to replace it)");
+        if (fs::exists(target_profile_json) && !force) {
+            throw ValidationError("Profile already exists: " + target_profile_json.string() + " (use --force to replace it)");
         }
 
         Profile profile = build_profile(env, source_config_dir, profile_root, profile_id, profile_name, system_write);
-        backup_existing_file(target_config);
         backup_existing_file(target_profile_json);
         save_tree(profile, profile_root, udev_rules_dir, public_profile_dir);
         if (geteuid() == 0) {
-            chown(target_config.c_str(), 0, 0);
             chown(target_profile_json.c_str(), 0, 0);
         }
 
-        std::cout << "Created profile configuration: " << target_config << '\n';
-        std::cout << "Created canonical profile JSON: " << target_profile_json << '\n';
+        std::cout << "Created profile JSON: " << target_profile_json << '\n';
 
         if (remove_legacy) {
             fs::path legacy_udev_rule = udev_rules_dir / "99-btrfs-backup.rules";

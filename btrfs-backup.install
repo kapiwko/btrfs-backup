@@ -1,5 +1,5 @@
 _btrfs_backup_profile_hint() {
-    if [[ -f /etc/btrfs-backup/backup.env && ! -f /etc/btrfs-backup/profiles.d/default.env ]]; then
+    if [[ -f /etc/btrfs-backup/backup.env && ! -f /etc/btrfs-backup/profiles/default/profile.json ]]; then
         cat <<'MSG'
 ==> Legacy configuration detected:
 ==>   /etc/btrfs-backup/backup.env

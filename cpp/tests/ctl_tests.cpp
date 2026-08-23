@@ -104,15 +104,13 @@ void test_status_falls_back_to_last_json() {
 
 void test_list_profiles_from_json_and_env_files() {
     fs::path root = test_root("profiles");
-    write_file(root / "profiles.d" / "alpha.env", "");
-    write_file(root / "profiles.d" / "default.env", "");
     write_file(root / "profiles" / "beta" / "profile.json", "{}\n");
     write_file(root / "profiles" / "default" / "profile.json", "{}\n");
     std::ostringstream output;
 
     btrfsbackup::command_list_profiles(root / "profiles.d", root / "profiles", output);
 
-    expect_eq("list profiles", output.str(), "alpha\nbeta\ndefault\n");
+    expect_eq("list profiles", output.str(), "beta\ndefault\n");
     fs::remove_all(root);
 }
 
@@ -143,7 +141,7 @@ void test_status_human_format() {
 
 void test_list_profiles_rejects_invalid_name() {
     fs::path root = test_root("bad-profile");
-    write_file(root / "profiles.d" / "-bad.env", "");
+    write_file(root / "profiles" / "-bad" / "profile.json", "{}\n");
 
     expect_validation_error(
         "invalid profile",
@@ -559,7 +557,7 @@ void test_migrate_profile_creates_profile_files() {
     });
 
     expect_eq("migrate result", std::to_string(result), "0");
-    expect_true("migrate env", fs::is_regular_file(profile_dir / "default.env"), "missing profile env");
+    expect_true("migrate env", !fs::exists(profile_dir / "default.env"), "profile env should not be generated");
     expect_true("migrate json", fs::is_regular_file(root / "profiles" / "default" / "profile.json"), "missing profile JSON");
     expect_true("migrate udev", fs::is_regular_file(udev_dir / "99-btrfs-backup-default.rules"), "missing udev rule");
     expect_true("migrate public", fs::is_regular_file(public_dir / "default.json"), "missing public profile");
