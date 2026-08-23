@@ -1,4 +1,0 @@
-# Start the backup only when the exact configured LUKS block device appears.
-# There is intentionally no removal handler: after physical removal it is too late to sync or unmount safely.
-
-ACTION=="add", SUBSYSTEM=="block", {{BACKUP_UDEV_MATCH}}, TAG+="systemd", ENV{SYSTEMD_WANTS}+="{{BACKUP_PROFILE_SERVICE_NAME}}"
