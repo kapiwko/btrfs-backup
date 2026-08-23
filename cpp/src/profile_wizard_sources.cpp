@@ -1,30 +1,20 @@
 #include <btrfsbackup/profile_wizard_sources.hpp>
 
-#include <libmount/libmount.h>
-
 #include <algorithm>
 #include <cctype>
 #include <filesystem>
-#include <memory>
 #include <ostream>
 #include <set>
 #include <sstream>
 #include <string>
 
 #include <btrfsbackup/errors.hpp>
+#include <btrfsbackup/mount_info.hpp>
 #include <btrfsbackup/profile_wizard_prompt.hpp>
 
 namespace fs = std::filesystem;
 
 namespace btrfsbackup::wizard {
-
-namespace {
-
-std::string c_string(const char* value) {
-    return value == nullptr ? "" : value;
-}
-
-} // namespace
 
 std::string source_name_from_path(const std::string& path) {
     if (path == "/") {
@@ -43,25 +33,7 @@ std::string source_name_from_path(const std::string& path) {
 }
 
 std::vector<std::string> detect_btrfs_sources() {
-    std::unique_ptr<libmnt_table, decltype(&mnt_unref_table)> table(mnt_new_table(), mnt_unref_table);
-    if (!table || mnt_table_parse_file(table.get(), "/proc/self/mountinfo") != 0) {
-        throw ValidationError("could not read mount table");
-    }
-    std::unique_ptr<libmnt_iter, decltype(&mnt_free_iter)> iter(mnt_new_iter(MNT_ITER_FORWARD), mnt_free_iter);
-    if (!iter) {
-        throw ValidationError("could not iterate mount table");
-    }
-    std::set<std::string> unique;
-    libmnt_fs* mount = nullptr;
-    while (mnt_table_next_fs(table.get(), iter.get(), &mount) == 0) {
-        if (std::string(c_string(mnt_fs_get_fstype(mount))) == "btrfs") {
-            std::string target = c_string(mnt_fs_get_target(mount));
-            if (!target.empty()) {
-                unique.insert(target);
-            }
-        }
-    }
-    return {unique.begin(), unique.end()};
+    return btrfs_mount_targets();
 }
 
 std::string default_source_selection(const std::vector<std::string>& candidates) {

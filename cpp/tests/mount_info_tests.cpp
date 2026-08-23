@@ -1,0 +1,50 @@
+#include <filesystem>
+#include <string>
+
+#include <btrfsbackup/mount_info.hpp>
+
+#include "test_helpers.hpp"
+
+namespace fs = std::filesystem;
+
+namespace {
+
+void test_reads_mount_table() {
+    fs::path root = test_helpers::test_root("mount-info", "read");
+    fs::path mountinfo = root / "mountinfo";
+    test_helpers::write_file(
+        mountinfo,
+        "21 31 0:20 / / rw,relatime - btrfs /dev/sda2 rw,subvolid=5\n"
+        "22 21 0:21 /@home /home rw,relatime - btrfs /dev/sda2 rw,subvol=/@home\n"
+        "23 21 0:22 / /run rw,nosuid,nodev - tmpfs tmpfs rw,size=123\n"
+        "24 21 0:21 /@home /home rw,relatime - btrfs /dev/sda2 rw,subvol=/@home\n"
+    );
+
+    std::vector<btrfsbackup::MountEntry> entries = btrfsbackup::read_mount_table(mountinfo);
+    test_helpers::expect_eq("mount entry count", std::to_string(entries.size()), "4");
+    test_helpers::expect_eq("mount first target", entries.at(0).target, "/");
+    test_helpers::expect_eq("mount first fstype", entries.at(0).fstype, "btrfs");
+    test_helpers::expect_eq("mount tmpfs source", entries.at(2).source, "tmpfs");
+
+    std::vector<std::string> targets = btrfsbackup::btrfs_mount_targets(mountinfo);
+    test_helpers::expect_eq("btrfs target count", std::to_string(targets.size()), "2");
+    test_helpers::expect_eq("btrfs target root", targets.at(0), "/");
+    test_helpers::expect_eq("btrfs target home", targets.at(1), "/home");
+
+    fs::remove_all(root);
+}
+
+void test_missing_mount_table_is_error() {
+    test_helpers::expect_validation_error("missing mount table", [] {
+        (void)btrfsbackup::read_mount_table("/tmp/does-not-exist-btrfs-backup-mountinfo");
+    }, "could not read mount table");
+}
+
+} // namespace
+
+int main() {
+    test_reads_mount_table();
+    test_missing_mount_table_is_error();
+
+    return test_helpers::finish("mount info tests");
+}
