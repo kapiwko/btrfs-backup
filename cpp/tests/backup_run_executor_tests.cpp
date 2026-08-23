@@ -259,6 +259,31 @@ void test_transfer_failure_emits_failed_action() {
     test_helpers::expect_true("failed action event", events.has_event(btrfsbackup::BackupRunEventKind::ActionFailed), "missing failed action event");
 }
 
+void test_receive_failure_is_reported_separately() {
+    RecordingEffects effects;
+    RecordingTransferPipeline transfers;
+    transfers.next_result.consumer.exit_code = 9;
+    transfers.next_result.consumer.diagnostics = "receive failed";
+    RecordingCheckpoints checkpoints;
+    RecordingEvents events;
+    btrfsbackup::CancellationToken cancellation;
+    btrfsbackup::BackupRunExecutor executor(effects, transfers, checkpoints);
+
+    btrfsbackup::BackupRunPlan plan = plan_with_actions({
+        action(btrfsbackup::BackupRunActionKind::SendReceive),
+    });
+
+    test_helpers::expect_validation_error("receive failure", [&] {
+        (void)executor.execute(plan, events, cancellation);
+    }, "consumer failed with exit code 9");
+    test_helpers::expect_eq("receive failure checkpoint count", std::to_string(checkpoints.checkpoints.size()), "0");
+    auto failed = std::find_if(events.events.begin(), events.events.end(), [](const btrfsbackup::BackupRunEvent& event) {
+        return event.kind == btrfsbackup::BackupRunEventKind::ActionFailed;
+    });
+    test_helpers::expect_true("receive failed action event", failed != events.events.end(), "missing failed action event");
+    test_helpers::expect_contains("receive failed message", failed->message, "consumer failed with exit code 9");
+}
+
 } // namespace
 
 int main() {
@@ -267,6 +292,7 @@ int main() {
     test_send_receive_delegates_to_transfer_pipeline();
     test_cancels_between_actions();
     test_transfer_failure_emits_failed_action();
+    test_receive_failure_is_reported_separately();
 
     return test_helpers::finish("backup run executor tests");
 }
