@@ -45,9 +45,10 @@ Rules for new C++ code:
     output parsing: `libbtrfsutil` for subvolumes, `libmount` for mount-table
     inspection, and `libblkid` for filesystem identity.
 11. Keep long-running transfer process orchestration separate from short
-    synchronous administrative commands. A future asynchronous runner may use an
-    event loop, but simple tested POSIX execution should remain available for
-    small operations and unit tests.
+    synchronous administrative commands. The backup executor uses an
+    asynchronous transfer handle around the POSIX pump; a future event-loop
+    runner can replace that adapter, while simple tested POSIX execution remains
+    available for small operations and unit tests.
 12. Do not make the base package depend on a graphical session. Any future
     desktop integration must communicate with the system backend instead of
     becoming part of the backup core.

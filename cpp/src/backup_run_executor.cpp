@@ -1,8 +1,10 @@
 #include <btrfsbackup/backup_run_executor.hpp>
 
+#include <chrono>
 #include <exception>
 #include <filesystem>
 #include <string>
+#include <thread>
 
 #include <btrfsbackup/snapshot_transfer.hpp>
 
@@ -131,7 +133,7 @@ void write_checkpoint(
 
 BackupRunExecutor::BackupRunExecutor(
     IBackupRunActionEffects& action_effects,
-    ITransferPipeline& transfer_pipeline,
+    IAsyncTransferPipeline& transfer_pipeline,
     IBackupRunCheckpointStore& checkpoints
 )
     : action_effects_(action_effects),
@@ -169,11 +171,17 @@ BackupRunExecutionResult BackupRunExecutor::execute(
                 if (action.kind == BackupRunActionKind::SendReceive) {
                     action_effects_.execute_action(action, source, plan);
                     BackupTransferEventAdapter transfer_events(events, plan, source, action.kind);
-                    TransferResult transfer_result = transfer_pipeline_.run(
+                    std::unique_ptr<IAsyncTransferHandle> transfer = transfer_pipeline_.start(
                         transfer_plan_for_source(source),
-                        transfer_events,
-                        cancellation
+                        transfer_events
                     );
+                    while (!transfer->finished()) {
+                        if (cancellation.cancellation_requested()) {
+                            transfer->request_cancel();
+                        }
+                        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+                    }
+                    TransferResult transfer_result = transfer->wait();
                     if (transfer_result.cancelled) {
                         result.cancelled = true;
                         emit_event(events, BackupRunEventKind::RunCancelled, plan, &source, action.kind);

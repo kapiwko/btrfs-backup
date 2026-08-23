@@ -1,5 +1,8 @@
 #include <algorithm>
+#include <atomic>
+#include <chrono>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include <btrfsbackup/transfer_pipeline.hpp>
@@ -16,6 +19,35 @@ public:
         events.push_back(event);
     }
 };
+
+class BlockingTransferPipeline final : public btrfsbackup::ITransferPipeline {
+public:
+    std::atomic_bool entered = false;
+    std::atomic_bool allow_finish = false;
+
+    btrfsbackup::TransferResult run(
+        const btrfsbackup::TransferPipelinePlan&,
+        btrfsbackup::ITransferEventSink&,
+        btrfsbackup::CancellationToken& cancellation
+    ) override {
+        entered.store(true);
+        while (!allow_finish.load() && !cancellation.cancellation_requested()) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        }
+        return {
+            .producer = {.started = true, .exit_code = 0},
+            .consumer = {.started = true, .exit_code = 0},
+            .cancelled = cancellation.cancellation_requested(),
+        };
+    }
+};
+
+void wait_until_entered(BlockingTransferPipeline& pipeline) {
+    for (int i = 0; i < 100 && !pipeline.entered.load(); ++i) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
+    test_helpers::expect_true("async pipeline entered", pipeline.entered.load(), "pipeline did not start");
+}
 
 void test_cancellation_token() {
     btrfsbackup::CancellationToken cancellation;
@@ -217,6 +249,47 @@ void test_posix_pipeline_honors_cancellation() {
     }, "Transfer was cancelled");
 }
 
+void test_threaded_async_pipeline_runs_in_background() {
+    BlockingTransferPipeline blocking;
+    btrfsbackup::ThreadedAsyncTransferPipeline async(blocking);
+    RecordingEventSink sink;
+
+    std::unique_ptr<btrfsbackup::IAsyncTransferHandle> handle = async.start(
+        {
+            .producer_argv = {"producer"},
+            .consumer_argv = {"consumer"},
+        },
+        sink
+    );
+
+    wait_until_entered(blocking);
+    test_helpers::expect_true("async not finished", !handle->finished(), "async handle should not finish before release");
+    blocking.allow_finish.store(true);
+    btrfsbackup::TransferResult result = handle->wait();
+    test_helpers::expect_true("async transfer success", btrfsbackup::transfer_succeeded(result), "async transfer should succeed");
+    test_helpers::expect_true("async finished", handle->finished(), "async handle should report completion");
+}
+
+void test_threaded_async_pipeline_requests_cancellation() {
+    BlockingTransferPipeline blocking;
+    btrfsbackup::ThreadedAsyncTransferPipeline async(blocking);
+    RecordingEventSink sink;
+
+    std::unique_ptr<btrfsbackup::IAsyncTransferHandle> handle = async.start(
+        {
+            .producer_argv = {"producer"},
+            .consumer_argv = {"consumer"},
+        },
+        sink
+    );
+
+    wait_until_entered(blocking);
+    handle->request_cancel();
+    btrfsbackup::TransferResult result = handle->wait();
+    test_helpers::expect_true("async cancelled", result.cancelled, "async cancellation should reach pipeline");
+    test_helpers::expect_eq("async cancel error code", btrfsbackup::transfer_failure_error_code(result), "runner.cancelled");
+}
+
 } // namespace
 
 int main() {
@@ -232,6 +305,8 @@ int main() {
     test_posix_pipeline_reports_consumer_failure();
     test_posix_pipeline_handles_early_consumer_exit();
     test_posix_pipeline_honors_cancellation();
+    test_threaded_async_pipeline_runs_in_background();
+    test_threaded_async_pipeline_requests_cancellation();
 
     return test_helpers::finish("transfer pipeline tests");
 }

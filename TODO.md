@@ -11,13 +11,13 @@
   - keep status/history formats and error taxonomy documented;
   - add restore verification to the real Btrfs suite.
 
-- Add an asynchronous process runner for long-running backup work:
-  - build on the existing POSIX transfer pump that already passes program and
-    arguments separately;
+- Extend asynchronous transfer execution beyond the current threaded adapter:
   - keep the existing POSIX runner for short administrative operations and
     tests;
-  - add a later event-loop driven runner for richer progress, cancellation and
+  - add an event-loop driven process runner for richer progress, cancellation and
     multi-process coordination;
+  - make transfer cancellation and process reaping observable without polling
+    sleeps in the backup executor;
   - do not route `btrfs send` or `btrfs receive` through shell command strings.
 
 - Improve transfer progress beyond the current native pump:
