@@ -151,6 +151,16 @@ void test_rejects_nested_roots() {
     expect_validation_error("nested roots", [&] { btrfsbackup::normalize_profile(profile); }, "remoteRoot and paths.incomingRoot");
 }
 
+void test_profile_model_round_trips_normalized_json() {
+    Json normalized = btrfsbackup::normalize_profile(valid_profile());
+    btrfsbackup::Profile profile = btrfsbackup::profile_from_json(normalized);
+    Json round_trip = btrfsbackup::profile_to_json(profile);
+
+    expect_true("profile model id", profile.id == "default", "wrong profile id");
+    expect_true("profile model source", profile.sources.size() == 1 && profile.sources.at(0).id == "home", "wrong profile source");
+    expect_true("profile model round trip", round_trip == normalized, "typed profile did not preserve normalized JSON");
+}
+
 void test_render_profile_env_quotes_values() {
     Json profile = btrfsbackup::normalize_profile(valid_profile());
     std::string rendered = btrfsbackup::render_profile_env(profile);
@@ -186,6 +196,7 @@ int main() {
     test_rejects_bad_uuid();
     test_rejects_non_dev_target();
     test_rejects_nested_roots();
+    test_profile_model_round_trips_normalized_json();
     test_render_profile_env_quotes_values();
     test_render_udev_optional_matches();
     test_compose_sources_table();
