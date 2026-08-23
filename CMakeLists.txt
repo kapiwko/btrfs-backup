@@ -11,6 +11,7 @@ include(CTest)
 find_package(nlohmann_json REQUIRED)
 
 add_library(btrfsbackup_profile_tool STATIC
+    cpp/src/config_fingerprint.cpp
     cpp/src/ctl_tool.cpp
     cpp/src/file_io.cpp
     cpp/src/history.cpp
