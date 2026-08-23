@@ -123,7 +123,7 @@ void usage() {
     std::cout << "Usage: btrfs-backupctl runner COMMAND\n"
               << "\nCommands:\n"
               << "  plan --profile ID [--timestamp TS] [--run-id ID] [--mountinfo PATH]\n"
-              << "  execute --profile ID [--timestamp TS] [--run-id ID]\n";
+              << "  execute --profile ID [--timestamp TS] [--run-id ID] [--validate]\n";
 }
 
 struct RunnerOptions {
@@ -132,6 +132,7 @@ struct RunnerOptions {
     std::string timestamp = current_utc_timestamp();
     std::string run_id;
     std::map<std::string, std::string> mount_uuid_overrides;
+    bool validate_only = false;
 };
 
 RunnerOptions parse_options(const std::string& command, const std::vector<std::string>& args) {
@@ -150,6 +151,8 @@ RunnerOptions parse_options(const std::string& command, const std::vector<std::s
             std::string source = arg_value(args, i, arg);
             std::string uuid = arg_value(args, i, arg);
             options.mount_uuid_overrides[source] = uuid;
+        } else if (arg == "--validate") {
+            options.validate_only = true;
         } else {
             fail("unknown " + command + " option: " + arg);
         }
@@ -258,6 +261,19 @@ int runner(
     BackupRunPlan plan = build_runner_plan(profile_config_dir, options, profile, metadata_reader);
 
     if (command == "execute") {
+        if (options.validate_only) {
+            output << Json{
+                {"schemaVersion", 1},
+                {"mode", "cpp-validate"},
+                {"profileId", plan.profile_id},
+                {"runId", plan.run_id},
+                {"completed", true},
+                {"cancelled", false},
+                {"actionsCompleted", 0}
+            }.dump(2) << '\n';
+            return 0;
+        }
+
         JsonFileBackupRunCheckpointStore checkpoints(fs::path(profile.paths.state_dir) / "profiles" / profile.id);
         StatusBackupRunEventSink status_events({
             .status_root = profile.paths.status_root,
