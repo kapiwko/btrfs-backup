@@ -43,7 +43,7 @@ Actions:
 
 Input/output:
   --answers PATH        Read non-interactive answers from a trusted shell file.
-  --template-dir PATH   Override the template source directory.
+  --template-dir PATH   Accepted for compatibility; templates are rendered natively.
   --output-dir PATH     Override the rendered output directory.
   --cli                 Accepted for compatibility; the configurator is CLI-only.
   -h, --help            Show this help.
@@ -128,9 +128,8 @@ case "$OUTPUT_DIR" in
         bb_die "Refusing unsafe output directory: $OUTPUT_DIR"
         ;;
 esac
-if [[ "$OUTPUT_DIR" == "$(realpath -m -- "$REPO_ROOT")" \
-    || "$OUTPUT_DIR" == "$(realpath -m -- "$TEMPLATE_DIR")" ]]; then
-    bb_die "The output directory must not be the repository or template root: $OUTPUT_DIR"
+if [[ "$OUTPUT_DIR" == "$(realpath -m -- "$REPO_ROOT")" ]]; then
+    bb_die "The output directory must not be the repository root: $OUTPUT_DIR"
 fi
 
 # Rendering starts by removing OUTPUT_DIR. Refuse any directory that is or
@@ -145,40 +144,8 @@ for protected_path in \
     fi
 done
 
-shell_quote() {
-    printf '%q' "$1"
-}
-
-sed_escape() {
-    printf '%s' "$1" | sed -e 's/[\\&|]/\\&/g'
-}
-
 udev_escape() {
     printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'
-}
-
-fstab_escape() {
-    local value="$1"
-    value="${value//\\/\\134}"
-    value="${value//$'\t'/\\011}"
-    value="${value// /\\040}"
-    value="${value//#/\\043}"
-    printf '%s' "$value"
-}
-
-render_template() {
-    local source_file="$1"
-    local destination_file="$2"
-    local key value escaped
-
-    [[ -f "$source_file" ]] || bb_die "Missing template: $source_file"
-    install -Dm0644 "$source_file" "$destination_file"
-
-    for key in "${!PLACEHOLDERS[@]}"; do
-        value="${PLACEHOLDERS[$key]}"
-        escaped="$(sed_escape "$value")"
-        sed -i "s|{{${key}}}|${escaped}|g" "$destination_file"
-    done
 }
 
 prompt_value() {
@@ -712,14 +679,14 @@ validate_rendered_tree() {
     local root="$1"
     local profile_helper
     profile_helper="${PROFILE_HELPER:-$(detect_profile_helper)}"
-    "$profile_helper" profile validate-installation --rendered-root "$root"
+    "$profile_helper" installation validate --rendered-root "$root"
 }
 
 validate_active_installation() {
     local profile_id="${PROFILE_ID:-default}"
     local profile_helper
     profile_helper="${PROFILE_HELPER:-$(detect_profile_helper)}"
-    "$profile_helper" profile validate-installation --active --profile "$profile_id"
+    "$profile_helper" installation validate --active --profile "$profile_id"
 }
 
 if [[ "$ACTION" == validate ]]; then
@@ -734,7 +701,6 @@ if [[ "$ACTION" == validate-dir ]]; then
     exit 0
 fi
 
-[[ -d "$TEMPLATE_DIR" ]] || bb_die "Template directory does not exist: $TEMPLATE_DIR"
 if [[ -n "$ANSWERS_FILE" ]]; then
     load_answers_file
 else
@@ -743,9 +709,6 @@ fi
 validate_answers
 
 BACKUP_MOUNT_UNIT="$(systemd-escape -p --suffix=mount "$BACKUP_MOUNTPOINT")"
-BACKUP_CRYPTSETUP_UNIT="$(systemd-escape --template=systemd-cryptsetup@.service "$BACKUP_MAPPER_NAME")"
-BACKUP_SERVICE_NAME=btrfs-backup.service
-BACKUP_PROFILE_SERVICE_NAME="btrfs-backup@${PROFILE_ID}.service"
 BACKUP_SCRIPT_PATH="$(detect_runtime_script btrfs-backup.sh)"
 EJECT_SCRIPT_PATH="$(detect_runtime_script btrfs-backup-eject.sh)"
 PROFILE_HELPER="$(detect_profile_helper)"
@@ -754,46 +717,6 @@ INCOMING_ROOT="$BACKUP_MOUNTPOINT/.incoming"
 
 BACKUP_BTRFS_UUID="${BACKUP_BTRFS_UUID:-}"
 KEYFILE_PATH_OR_NONE="${KEYFILE_PATH_OR_NONE:-none}"
-
-KEYFILE_PATH_CRYPTTAB="$(fstab_escape "$KEYFILE_PATH_OR_NONE")"
-
-# Values used by the main templates.
-declare -A PLACEHOLDERS=(
-    [PROFILE_ID]="$PROFILE_ID"
-    [PROFILE_ID_SHELL]="$(shell_quote "$PROFILE_ID")"
-    [PROFILE_NAME_SHELL]="$(shell_quote "$PROFILE_NAME")"
-    [BACKUP_MAPPER_NAME]="$BACKUP_MAPPER_NAME"
-    [BACKUP_MAPPER_NAME_FSTAB]="$(fstab_escape "$BACKUP_MAPPER_NAME")"
-    [BACKUP_MAPPER_NAME_SHELL]="$(shell_quote "$BACKUP_MAPPER_NAME")"
-    [BACKUP_DEVICE_SHELL]="$(shell_quote "$BACKUP_DEVICE")"
-    [BACKUP_LUKS_UUID]="$BACKUP_LUKS_UUID"
-    [BACKUP_LUKS_UUID_SHELL]="$(shell_quote "$BACKUP_LUKS_UUID")"
-    [BACKUP_BTRFS_UUID_SHELL]="$(shell_quote "$BACKUP_BTRFS_UUID")"
-    [BACKUP_MOUNTPOINT_FSTAB]="$(fstab_escape "$BACKUP_MOUNTPOINT")"
-    [BACKUP_MOUNTPOINT_SHELL]="$(shell_quote "$BACKUP_MOUNTPOINT")"
-    [BACKUP_MOUNT_UNIT_SHELL]="$(shell_quote "$BACKUP_MOUNT_UNIT")"
-    [BACKUP_CRYPTSETUP_UNIT]="$BACKUP_CRYPTSETUP_UNIT"
-    [BACKUP_SERVICE_NAME]="$BACKUP_SERVICE_NAME"
-    [BACKUP_PROFILE_SERVICE_NAME]="$BACKUP_PROFILE_SERVICE_NAME"
-    [BACKUP_UDEV_MATCH]="$BACKUP_UDEV_MATCH"
-    [BACKUP_SCRIPT_PATH]="$BACKUP_SCRIPT_PATH"
-    [EJECT_SCRIPT_PATH]="$EJECT_SCRIPT_PATH"
-    [EJECT_SCRIPT_PATH_SHELL]="$(shell_quote "$EJECT_SCRIPT_PATH")"
-    [REMOTE_ROOT_SHELL]="$(shell_quote "$REMOTE_ROOT")"
-    [INCOMING_ROOT_SHELL]="$(shell_quote "$INCOMING_ROOT")"
-    [RETENTION_COUNT]="$RETENTION_COUNT"
-    [LOCAL_RETENTION_COUNT]="$LOCAL_RETENTION_COUNT"
-    [DAILY_LIMIT]="$DAILY_LIMIT"
-    [INCREMENTAL_REQUIRED]="$INCREMENTAL_REQUIRED"
-    [KEEP_FAILED_LOCAL_SNAPSHOT]="$KEEP_FAILED_LOCAL_SNAPSHOT"
-    [AUTO_EJECT]="$AUTO_EJECT"
-    [MIN_TARGET_FREE_BYTES]="$MIN_TARGET_FREE_BYTES"
-    [MIN_LOCAL_FREE_BYTES]="$MIN_LOCAL_FREE_BYTES"
-    [KEYFILE_PATH_CRYPTTAB]="$KEYFILE_PATH_CRYPTTAB"
-    [NOTIFY_ENABLE]="$NOTIFY_ENABLE"
-    [NOTIFY_USER_SHELL]="$(shell_quote "$NOTIFY_USER")"
-    [NOTIFY_METHOD_SHELL]="$(shell_quote "$NOTIFY_METHOD")"
-)
 
 rm -rf -- "$OUTPUT_DIR"
 install -d -m0750 "$OUTPUT_DIR/config" "$OUTPUT_DIR/systemd" "$OUTPUT_DIR/udev"
@@ -805,10 +728,14 @@ write_profile_json "$OUTPUT_DIR/config/profile.json"
     --public-root "$OUTPUT_DIR/public/profiles" \
     save --file "$OUTPUT_DIR/config/profile.json" >/dev/null
 install -m0644 "$OUTPUT_DIR/udev/99-btrfs-backup-$PROFILE_ID.rules" "$OUTPUT_DIR/udev/99-btrfs-backup.rules"
-render_template "$TEMPLATE_DIR/config/fstab.fragment.example" "$OUTPUT_DIR/config/fstab.fragment"
-render_template "$TEMPLATE_DIR/config/crypttab.fragment.example" "$OUTPUT_DIR/config/crypttab.fragment"
-render_template "$TEMPLATE_DIR/systemd/btrfs-backup.service.example" "$OUTPUT_DIR/systemd/btrfs-backup.service"
-render_template "$TEMPLATE_DIR/systemd/btrfs-backup@.service.example" "$OUTPUT_DIR/systemd/btrfs-backup@.service"
+"$PROFILE_HELPER" \
+    installation \
+    render \
+    --file "$OUTPUT_DIR/config/profile.json" \
+    --output-dir "$OUTPUT_DIR" \
+    --backup-script "$BACKUP_SCRIPT_PATH" \
+    --eject-script "$EJECT_SCRIPT_PATH" \
+    --keyfile "$KEYFILE_PATH_OR_NONE"
 
 chmod 0600 "$OUTPUT_DIR/config/profiles/$PROFILE_ID/profile.json"
 validate_rendered_tree "$OUTPUT_DIR"
