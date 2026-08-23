@@ -73,7 +73,7 @@ ensure_loop_devices() {
 
 build_and_install_package() {
     "$ROOT/tools/build-release.sh" --target arch --skip-tests --dist-dir "$PACKAGE_DIR" >/dev/null
-    pacman -U --noconfirm "$PACKAGE_DIR"/btrfs-backup-*-any.pkg.tar.zst >/dev/null
+    pacman -U --noconfirm "$PACKAGE_DIR"/btrfs-backup-*.pkg.tar.zst >/dev/null
     command -v btrfs-backup >/dev/null
     command -v btrfs-backup-configure >/dev/null
 }

@@ -5,7 +5,7 @@ if [[ -n "${BTRFS_BACKUP_COMMON_LOADED:-}" ]]; then
     return 0
 fi
 readonly BTRFS_BACKUP_COMMON_LOADED=1
-readonly BTRFS_BACKUP_VERSION='0.1.1'
+readonly BTRFS_BACKUP_VERSION='1.2.0'
 
 export LC_ALL=C
 

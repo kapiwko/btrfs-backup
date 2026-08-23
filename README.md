@@ -17,14 +17,14 @@ Unattended backup of Btrfs subvolumes to an encrypted removable disk. The projec
 
 ## Requirements
 
-The project primarily targets Arch Linux and derivatives. It requires Bash, Btrfs, systemd, udev, cryptsetup, and tools from `coreutils`, `findutils`, and `util-linux`. `pv` and `libnotify` are optional.
+The project primarily targets Arch Linux and derivatives. It requires Bash, Btrfs, systemd, udev, cryptsetup, and tools from `coreutils`, `findutils`, and `util-linux`. Source builds also require a C++20 compiler and `nlohmann-json`. `pv` and `libnotify` are optional.
 
 Each source must be a Btrfs subvolume. The local snapshot directory must be on the same Btrfs filesystem as its source. The target must be a separate Btrfs filesystem inside LUKS; the script rejects a source that belongs to the same filesystem as the target, even if it is available through another mount point.
 
 ## Arch Package Installation
 
 ```bash
-sudo pacman -U btrfs-backup-0.1.1-1-any.pkg.tar.zst
+sudo pacman -U btrfs-backup-1.0.2-1-x86_64.pkg.tar.zst
 ```
 
 The package installs the systemd template unit used by udev, but it does not
@@ -147,7 +147,8 @@ Backups should be checked regularly with a restore test. A successful transfer e
 5. [testing](docs/testing.md);
 6. [status API](docs/status-api.md);
 7. [engine contract](docs/engine-contract.md);
-8. [release and packaging](docs/packaging.md).
+8. [C++ source layout](docs/cpp-layout.md);
+9. [release and packaging](docs/packaging.md).
 
 ## Security and Limits
 
