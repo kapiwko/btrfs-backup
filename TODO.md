@@ -2,13 +2,6 @@
 
 ## C++ Runtime Migration
 
-- Add a C++ backup run plan:
-  - load profile JSON directly;
-  - validate source, local snapshot directory and target constraints using the
-    existing C++ helpers;
-  - produce an ordered per-source action plan for create snapshot, select parent,
-    send/receive, commit, retention and cleanup.
-
 - Add command execution adapters for the runner:
   - introduce testable interfaces for process execution and filesystem effects;
   - run external commands without shell parsing;
