@@ -136,12 +136,10 @@ ANSWERS
         --output-dir "$output" \
         --render-only >/dev/null
 
-    assert_file "$output/config/backup.env"
     assert_file "$output/config/profile.json"
     assert_file "$output/config/profiles.d/laptop.env"
-    assert_contains "$output/config/backup.env" "PROFILE_ID=laptop"
     assert_contains "$output/config/profiles.d/laptop.env" "PROFILE_ID=laptop"
-    assert_contains "$output/config/backup.env" "PROFILE_NAME='Laptop backup'"
+    assert_contains "$output/config/profiles.d/laptop.env" "PROFILE_NAME='Laptop backup'"
     assert_contains "$output/config/profiles.d/laptop.env" "SOURCES_DIR=/etc/btrfs-backup/profiles/laptop/sources.d"
     assert_file "$output/config/profiles/laptop/profile.json"
     assert_contains "$output/config/profile.json" '"profileId": "laptop"'
@@ -166,11 +164,10 @@ migrate_profile_dry_run_test() {
     local source_config="$TEST_ROOT/legacy-backup.env"
     local source_dir="$TEST_ROOT/legacy-sources.d"
     local profile_dir="$TEST_ROOT/profiles.d"
-    local legacy_only_profile_dir="$TEST_ROOT/legacy-only/config/profiles.d"
     local udev_dir="$TEST_ROOT/udev"
     local public_dir="$TEST_ROOT/public"
 
-    mkdir -p "$source_dir" "$profile_dir" "$legacy_only_profile_dir" "$udev_dir" "$public_dir"
+    mkdir -p "$source_dir" "$profile_dir" "$udev_dir" "$public_dir"
     cat > "$source_config" <<CONFIG
 BACKUP_MAPPER_NAME=backupdisk
 BACKUP_DEVICE=/dev/disk/by-uuid/11111111-2222-3333-4444-555555555555
@@ -223,17 +220,10 @@ CONFIG
     local profile_list
     profile_list="$("$ROOT/bin/btrfs-backupctl" \
         --profile-dir "$profile_dir" \
-        --legacy-config "$source_config" \
         list-profiles)"
     grep -qx laptop <<< "$profile_list" \
         || fail 'btrfs-backupctl did not list profile files'
     rm -f -- "$profile_dir/laptop.env"
-    profile_list="$("$ROOT/bin/btrfs-backupctl" \
-        --profile-dir "$legacy_only_profile_dir" \
-        --legacy-config "$source_config" \
-        list-profiles)"
-    grep -qx 'default (legacy)' <<< "$profile_list" \
-        || fail 'btrfs-backupctl did not list legacy default profile'
     local empty_history
     empty_history="$("$ROOT/bin/btrfs-backupctl" \
         --history-root "$TEST_ROOT/missing-history" \
@@ -629,11 +619,11 @@ prepare_runtime_fixture() {
     SOURCE_HOME="$RUNTIME/sources/home"
     LOCAL_ROOT="$RUNTIME/local/root"
     LOCAL_HOME="$RUNTIME/local/home"
-    CONFIG_FILE="$RUNTIME/config/backup.env"
+    CONFIG_FILE="$RUNTIME/config/profiles.d/default.env"
     PROFILE_JSON_FILE="$RUNTIME/config/profiles/default/profile.json"
 
     rm -rf -- "$RUNTIME"
-    mkdir -p "$MOCKBIN" "$RUNTIME/dev/disk/by-uuid" "$RUNTIME/dev" "$SOURCES_DIR" "$(dirname -- "$PROFILE_JSON_FILE")" \
+    mkdir -p "$MOCKBIN" "$RUNTIME/dev/disk/by-uuid" "$RUNTIME/dev" "$SOURCES_DIR" "$(dirname -- "$CONFIG_FILE")" "$(dirname -- "$PROFILE_JSON_FILE")" \
         "$STATE_DIR" "$SOURCE_ROOT" "$SOURCE_HOME" "$LOCAL_ROOT" "$LOCAL_HOME" "$MOCK_MOUNTPOINT" /dev/mapper
     : > "$MOCK_PHYSICAL_DEVICE"
     : > "$MOCK_DM_DEVICE"
@@ -773,14 +763,12 @@ run_backup() {
 
 run_backup_profile() {
     local profile_config_dir="$1"
-    local legacy_config="$2"
-    shift 2
+    shift
 
     env \
         PATH="$MOCKBIN:$PATH" \
         INVOCATION_ID=test-invocation \
         BTRFS_BACKUP_PROFILE_CONFIG_DIR="$profile_config_dir" \
-        BTRFS_BACKUP_LEGACY_CONFIG="$legacy_config" \
         MOCK_LOG="$MOCK_LOG" \
         MOCK_MOUNTPOINT="$MOCK_MOUNTPOINT" \
         MOCK_PHYSICAL_DEVICE="$MOCK_PHYSICAL_DEVICE" \
@@ -822,29 +810,21 @@ profile_loading_test() {
     local profile_list
     profile_list="$("$ROOT/bin/btrfs-backupctl" \
         --profile-dir "$profile_dir" \
-        --legacy-config "$CONFIG_FILE" \
         list-profiles)"
     grep -qx default <<< "$profile_list" \
         || fail 'btrfs-backupctl did not list migrated default profile'
 
-    run_backup_profile "$profile_dir" "$RUNTIME/config/missing.env" --profile default --validate --no-eject >/dev/null
+    run_backup_profile "$profile_dir" --profile default --validate --no-eject >/dev/null
     assert_contains "$STATUS_ROOT/default/current.json" '"state": "validated"'
-
-    mkdir -p "$empty_profile_dir"
-    local fallback_log="$RUNTIME/fallback.log"
-    run_backup_profile "$empty_profile_dir" "$CONFIG_FILE" --profile default --validate --no-eject >"$fallback_log" 2>&1
-    assert_contains "$STATUS_ROOT/default/current.json" '"state": "validated"'
-    grep -q 'Legacy configuration fallback is deprecated' "$fallback_log" \
-        || fail 'legacy fallback did not emit a deprecation warning'
 
     cp -- "$CONFIG_FILE" "$profile_dir/mismatch.env"
     printf '\nPROFILE_ID=other\n' >> "$profile_dir/mismatch.env"
     chmod 0600 "$profile_dir/mismatch.env"
-    if run_backup_profile "$profile_dir" "$RUNTIME/config/missing.env" --profile mismatch --validate --no-eject >/dev/null 2>&1; then
+    if run_backup_profile "$profile_dir" --profile mismatch --validate --no-eject >/dev/null 2>&1; then
         fail 'profile id mismatch was accepted'
     fi
 
-    pass 'runtime loads profile files and preserves legacy fallback'
+    pass 'runtime loads profile files'
 }
 
 runtime_success_test() {

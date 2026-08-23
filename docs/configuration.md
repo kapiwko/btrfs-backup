@@ -33,10 +33,8 @@ The preferred active profile file is
 `/etc/btrfs-backup/profiles.d/<profile>.env`. Commands select a profile with
 `--profile <profile>` or `BTRFS_BACKUP_PROFILE=<profile>`.
 
-For compatibility, `/etc/btrfs-backup/backup.env` remains supported as the
-fallback configuration for the `default` profile when
-`/etc/btrfs-backup/profiles.d/default.env` does not exist. This legacy fallback
-is deprecated in 1.1 and will be removed in 2.0.
+The legacy `/etc/btrfs-backup/backup.env` file is no longer used by the runtime.
+Use `btrfs-backup-migrate-profile` to convert it to a profile JSON and env file.
 
 Important fields:
 
@@ -81,9 +79,8 @@ sudo btrfs-backup-migrate-profile --profile default
 ```
 
 The migrator creates canonical profile JSON, materializes
-`/etc/btrfs-backup/profiles.d/default.env`, and keeps the legacy `/etc/btrfs-backup/backup.env` and
-`/etc/btrfs-backup/sources.d` paths and old udev rule in place unless
-`--remove-legacy` is used.
+`/etc/btrfs-backup/profiles.d/default.env`, and keeps the legacy input files
+in place unless `--remove-legacy` is used.
 
 ## JSON Schema
 

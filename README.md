@@ -24,7 +24,7 @@ Each source must be a Btrfs subvolume. The local snapshot directory must be on t
 ## Arch Package Installation
 
 ```bash
-sudo pacman -U btrfs-backup-1.2.0-1-x86_64.pkg.tar.zst
+sudo pacman -U btrfs-backup-2.0.0-1-x86_64.pkg.tar.zst
 ```
 
 The package installs the systemd template unit used by udev, but it does not
@@ -50,7 +50,6 @@ sudo btrfs-backup-configure --apply
 `--apply` installs:
 
 ```text
-/etc/btrfs-backup/backup.env
 /etc/btrfs-backup/profiles.d/default.env
 /etc/btrfs-backup/profiles/default/profile.json
 /var/lib/btrfs-backup/public/profiles/default.json
@@ -109,7 +108,8 @@ the backup runner.
 
 Active runtime configuration files are trusted Bash code executed as root. They must be owned by root and use mode `0600`; the script refuses files that are accessible by group or other users.
 
-Profiles can also be stored directly as `/etc/btrfs-backup/profiles.d/<profile>.env` and selected with `--profile <profile>` or `BTRFS_BACKUP_PROFILE=<profile>`. The legacy `/etc/btrfs-backup/backup.env` remains supported as the fallback for the `default` profile in 1.x, but it is deprecated and will be removed in 2.0. To create the default profile file from an existing legacy configuration:
+Profiles are selected with `--profile <profile>` or `BTRFS_BACKUP_PROFILE=<profile>`.
+To create the default profile from an existing legacy configuration:
 
 ```bash
 sudo btrfs-backup-migrate-profile --profile default

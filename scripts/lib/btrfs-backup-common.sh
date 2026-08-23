@@ -5,7 +5,7 @@ if [[ -n "${BTRFS_BACKUP_COMMON_LOADED:-}" ]]; then
     return 0
 fi
 readonly BTRFS_BACKUP_COMMON_LOADED=1
-readonly BTRFS_BACKUP_VERSION='1.2.0'
+readonly BTRFS_BACKUP_VERSION='2.0.0'
 
 export LC_ALL=C
 
@@ -108,7 +108,6 @@ bb_resolve_profile_config() {
     local profile_id="$1"
     local explicit_config="$2"
     local profile_config_dir="$3"
-    local legacy_config="$4"
     local profile_config
 
     if [[ -n "$explicit_config" ]]; then
@@ -118,17 +117,10 @@ bb_resolve_profile_config() {
 
     bb_validate_safe_name PROFILE_ID "$profile_id"
     bb_validate_absolute_path PROFILE_CONFIG_DIR "$profile_config_dir"
-    bb_validate_absolute_path LEGACY_CONFIG_FILE "$legacy_config"
 
     profile_config="$profile_config_dir/$profile_id.env"
     if [[ -e "$profile_config" ]]; then
         printf '%s\n' "$profile_config"
-        return 0
-    fi
-
-    if [[ "$profile_id" == default && -e "$legacy_config" ]]; then
-        bb_warn "Legacy configuration fallback is deprecated and will be removed in 2.0. Run: btrfs-backup-migrate-profile --profile default"
-        printf '%s\n' "$legacy_config"
         return 0
     fi
 

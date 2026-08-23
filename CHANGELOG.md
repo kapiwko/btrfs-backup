@@ -1,13 +1,16 @@
 # Changelog
 
-## 1.2.0 - 2026-08-23
+## 2.0.0 - unreleased
 
-1. started replacing Python runtime tooling with C++ by porting
+1. removed runtime fallback to legacy source and main configuration files;
+2. stopped generating legacy source configuration files for profile render/save;
+3. `btrfs-backupctl list-profiles` now lists canonical profile JSON storage;
+4. started replacing Python runtime tooling with C++ by porting
    `btrfs-backup-profile` to a native helper under the `cpp/` source tree;
-2. package builds now compile and install the native profile helper;
-3. configurator and profile migrator now create canonical profile JSON through
+5. package builds now compile and install the native profile helper;
+6. configurator and profile migrator now create canonical profile JSON through
    the native helper instead of embedded Python snippets;
-4. generated runtime packages no longer depend on Python and the old Python
+7. generated runtime packages no longer depend on Python and the old Python
    profile helper has been removed.
 
 ## 1.1.0 - 2026-08-23
@@ -22,7 +25,7 @@
 8. package contents updated for all generated packaging backends;
 9. configurator renders and installs profile files and a templated systemd unit;
 10. udev starts the profile-specific systemd unit;
-11. `btrfs-backupctl list-profiles` lists profile files and the legacy fallback;
+11. `btrfs-backupctl list-profiles` lists profile files;
 12. `btrfs-backup-migrate-profile --remove-legacy` moves the legacy configuration, source directory, and old udev rule aside after migration;
 13. `btrfs-backup-profile` validates canonical JSON profiles and materializes runtime `.env`, source, udev, and public manifest files;
 14. `btrfs-backup-configure` now renders canonical `profile.json` first, then materializes the runtime profile files from that JSON;
@@ -33,10 +36,6 @@
 19. status and history JSON are readable by unprivileged local users while private recovery state remains root-only;
 20. `btrfs-backupctl status` falls back to the last history entry after the oneshot service exits;
 21. `btrfs-backupctl history` returns `[]` when no history exists yet and renders cleaner JSON arrays.
-
-The legacy `/etc/btrfs-backup/backup.env` fallback is deprecated in 1.1 and
-will be removed in 2.0. Use `btrfs-backup-migrate-profile --profile default`
-to create `/etc/btrfs-backup/profiles.d/default.env`.
 
 ## 1.0.0 - 2026-08-22
 
