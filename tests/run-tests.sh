@@ -143,8 +143,7 @@ ANSWERS
     assert_contains "$output/config/profiles.d/laptop.env" "PROFILE_ID=laptop"
     assert_contains "$output/config/backup.env" "PROFILE_NAME='Laptop backup'"
     assert_contains "$output/config/profiles.d/laptop.env" "SOURCES_DIR=/etc/btrfs-backup/profiles/laptop/sources.d"
-    assert_file "$output/config/profiles/laptop/sources.d/010-root.conf"
-    assert_file "$output/config/profiles/laptop/sources.d/020-home.conf"
+    assert_file "$output/config/profiles/laptop/profile.json"
     assert_contains "$output/config/profile.json" '"profileId": "laptop"'
     assert_file "$output/systemd/btrfs-backup.service"
     assert_file "$output/systemd/btrfs-backup@.service"
@@ -215,12 +214,10 @@ CONFIG
         --name 'Default backup' >/dev/null
     assert_file "$profile_dir/default.env"
     assert_file "$TEST_ROOT/profiles/default/profile.json"
-    assert_file "$TEST_ROOT/profiles/default/sources.d/010-home.conf"
     assert_file "$udev_dir/99-btrfs-backup-default.rules"
     assert_file "$public_dir/default.json"
     assert_contains "$profile_dir/default.env" "SOURCES_DIR=$TEST_ROOT/profiles/default/sources.d"
     assert_contains "$TEST_ROOT/profiles/default/profile.json" '"profileId": "default"'
-    assert_contains "$TEST_ROOT/profiles/default/sources.d/010-home.conf" 'SOURCE_NAME=home'
 
     printf 'PROFILE_ID=laptop\n' > "$profile_dir/laptop.env"
     local profile_list
@@ -314,11 +311,11 @@ profile_json_test() {
         --output-dir "$rendered" >/dev/null
 
     assert_file "$rendered/etc/btrfs-backup/profiles.d/default.env"
-    assert_file "$rendered/etc/btrfs-backup/profiles/default/sources.d/010-home.conf"
+    assert_file "$rendered/etc/btrfs-backup/profiles/default/profile.json"
     assert_file "$rendered/etc/udev/rules.d/99-btrfs-backup-default.rules"
     assert_file "$rendered/var/lib/btrfs-backup/public/profiles/default.json"
     assert_contains "$rendered/etc/btrfs-backup/profiles.d/default.env" 'PROFILE_ID=default'
-    assert_contains "$rendered/etc/btrfs-backup/profiles/default/sources.d/010-home.conf" 'SOURCE_NAME=home'
+    assert_contains "$rendered/etc/btrfs-backup/profiles/default/profile.json" '"id": "home"'
     assert_contains "$rendered/etc/udev/rules.d/99-btrfs-backup-default.rules" 'btrfs-backup@default.service'
 
     "$ROOT/bin/btrfs-backup-profile" \
@@ -328,7 +325,7 @@ profile_json_test() {
         save --file "$ROOT/config/profile.example.json" >/dev/null
 
     assert_file "$saved/etc/btrfs-backup/profiles.d/default.env"
-    assert_file "$saved/etc/btrfs-backup/profiles/default/sources.d/010-home.conf"
+    assert_file "$saved/etc/btrfs-backup/profiles/default/profile.json"
     assert_file "$saved/etc/udev/rules.d/99-btrfs-backup-default.rules"
     assert_file "$saved/var/lib/btrfs-backup/public/profiles/default.json"
     "$ROOT/bin/btrfs-backup-profile" \
@@ -820,7 +817,6 @@ profile_loading_test() {
     assert_contains "$migrated" 'PROFILE_ID=default'
     assert_contains "$migrated" "PROFILE_NAME='Default backup'"
     assert_file "$RUNTIME/config/profiles/default/profile.json"
-    assert_file "$RUNTIME/config/profiles/default/sources.d/010-root.conf"
     sed -i "s|^BACKUP_DEVICE=.*|BACKUP_DEVICE=$MOCK_DEVICE_LINK|" "$migrated"
 
     local profile_list
