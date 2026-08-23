@@ -1,3 +1,5 @@
+#include <sys/stat.h>
+
 #include <filesystem>
 #include <sstream>
 #include <string>
@@ -55,6 +57,7 @@ btrfsbackup::Profile test_profile(const fs::path& root) {
 void write_profile(const fs::path& config_root, const btrfsbackup::Profile& profile) {
     fs::path profile_path = config_root / "profiles" / profile.id / "profile.json";
     test_helpers::write_file(profile_path, btrfsbackup::profile_to_json(profile).dump(2));
+    chmod(profile_path.c_str(), 0600);
 }
 
 void write_mountinfo(const fs::path& path, const btrfsbackup::Profile& profile) {
