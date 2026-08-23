@@ -8,7 +8,7 @@
 4. started replacing Python runtime tooling with C++ by porting profile commands
    to native `btrfs-backupctl profile` code under the `cpp/` source tree;
 5. package builds now compile and install the native control helper;
-6. configurator and profile migrator now create canonical profile JSON through
+6. profile wizard and migrator now create canonical profile JSON through
    the native helper instead of embedded Python snippets;
 7. generated runtime packages no longer depend on Python and the old Python
    profile helper has been removed;
@@ -17,7 +17,7 @@
    removed;
 9. backup, mount, and eject runtime entrypoints now load profile JSON as their
    only profile configuration source;
-10. profile render, save, migration, and configurator flows no longer generate
+10. profile render, save, migration, and wizard flows no longer generate
     `profiles.d/*.env` files;
 11. `btrfs-backupctl profile create` now builds canonical profile JSON directly,
     replacing the old environment-and-TSV based profile compose path;

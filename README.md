@@ -4,7 +4,7 @@ Unattended backup of Btrfs subvolumes to an encrypted removable disk. The projec
 
 ## Key Features
 
-1. multiple backup sources through separate profile source files;
+1. multiple backup sources defined in one profile JSON document;
 2. full and incremental `btrfs send/receive`, with the incremental parent selected by UUID rather than by name;
 3. receives into `.incoming`, verifies `Received UUID`, then commits a read-only target snapshot;
 4. `pending` markers so the next run can resolve interrupted transfers or power loss;
@@ -13,7 +13,7 @@ Unattended backup of Btrfs subvolumes to an encrypted removable disk. The projec
 7. `flock` locking, target LUKS validation, mapper validation, source/target separation, symlink escape checks, and free-space checks;
 8. automatic startup only when the exact configured LUKS partition appears;
 9. automatic `sync`, unmount, and LUKS closure after the service finishes;
-10. CLI configurator with render, install, and validation modes.
+10. native CLI tooling for profile wizards, rendering, installation files, and validation.
 
 ## Requirements
 
@@ -41,7 +41,7 @@ btrfs-backupctl profile wizard \
   --output-dir "$PWD/generated"
 ```
 
-The wizard detects connected LUKS devices and mounted Btrfs sources. Installation mode requires root:
+The wizard detects connected LUKS devices and mounted Btrfs sources. Apply mode requires root:
 
 ```bash
 sudo btrfs-backupctl profile wizard --apply
@@ -57,7 +57,7 @@ sudo btrfs-backupctl profile wizard --apply
 /etc/udev/rules.d/99-btrfs-backup.rules
 ```
 
-The configurator intentionally does not edit `/etc/crypttab` or `/etc/fstab` automatically. Merge the generated fragments into those files, then run:
+The wizard intentionally does not edit `/etc/crypttab` or `/etc/fstab` automatically. Merge the generated fragments into those files, then run:
 
 ```bash
 sudo systemctl daemon-reload

@@ -58,7 +58,7 @@ Important fields:
 | `STATE_DIR` | base state directory; per-profile state lives under `profiles/<PROFILE_ID>` |
 | `STATUS_ROOT` | root directory for per-profile `current.json` runtime status |
 | `HISTORY_ROOT` | root directory for per-profile run history JSON |
-| `LOCK_FILE` | lock shared by backup, eject, and configurator operations |
+| `LOCK_FILE` | lock shared by backup, eject, and profile-management operations |
 
 A retention value of `0` disables automatic pruning for that scope.
 `STATUS_ROOT` and `HISTORY_ROOT` are intended for unprivileged status readers.
@@ -169,4 +169,4 @@ If all local parents were intentionally lost, you can temporarily set `INCREMENT
 
 ## Output Directory Safety
 
-The configurator removes the previous contents of `--output-dir`, so it rejects the repository root, template root, system directories, and any path containing active project configuration. The default root output directory, `/etc/btrfs-backup/generated`, is separate from active files.
+Render commands remove the previous contents of `--output-dir`, so they reject the repository root, template root, system directories, and any path containing active project configuration. The default root output directory, `/etc/btrfs-backup/generated`, is separate from active files.
