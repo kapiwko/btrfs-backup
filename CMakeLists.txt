@@ -47,15 +47,6 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(btrfsbackup_profile_tool PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 
-add_executable(btrfs-backup-profile
-    cpp/apps/btrfs-backup-profile.cpp
-)
-
-target_link_libraries(btrfs-backup-profile
-    PRIVATE
-        btrfsbackup_profile_tool
-)
-
 add_executable(btrfs-backupctl
     cpp/apps/btrfs-backupctl.cpp
 )

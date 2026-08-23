@@ -2,9 +2,9 @@ BUILD_JOBS ?= $(shell nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null
 
 .PHONY: all clean
 
-all: build/btrfs-backup-profile
+all: build/btrfs-backupctl
 
-build/btrfs-backup-profile: CMakeLists.txt $(shell find cpp -type f | sort)
+build/btrfs-backupctl: CMakeLists.txt $(shell find cpp -type f | sort)
 	cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 	cmake --build build --parallel $(BUILD_JOBS)
 

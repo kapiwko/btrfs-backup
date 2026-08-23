@@ -21,7 +21,7 @@ source definitions from JSON:
 /etc/btrfs-backup/profiles/<PROFILE_ID>/profile.json
 ```
 
-These files are generated from the canonical JSON by `btrfs-backup-profile` and
+These files are generated from the canonical JSON by `btrfs-backupctl profile` and
 must be trusted root-owned runtime files. Legacy `sources.d/*.conf` files may
 exist for migration compatibility, but the runtime no longer uses them as source
 definitions.

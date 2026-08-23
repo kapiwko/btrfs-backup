@@ -83,10 +83,10 @@ sudo btrfs-backup --profile default --validate
 sudo btrfs-backup-mount
 sudo btrfs-backup-eject
 sudo btrfs-backup-migrate-profile --profile default
-btrfs-backup-profile validate --file profile.json
-btrfs-backup-profile render --file profile.json --output-dir ./generated-profile
-btrfs-backup-profile show --profile default
-btrfs-backup-profile export --profile default --output profile.json
+btrfs-backupctl profile validate --file profile.json
+btrfs-backupctl profile render --file profile.json --output-dir ./generated-profile
+btrfs-backupctl profile show --profile default
+btrfs-backupctl profile export --profile default --output profile.json
 btrfs-backupctl status --profile default --human
 btrfs-backupctl history --profile default --limit 10
 btrfs-backupctl list-profiles
@@ -103,7 +103,7 @@ journalctl -u btrfs-backup@default.service -f
 
 The canonical format for tools and source definitions is JSON.
 `btrfs-backup-configure` writes `profile.json` and uses
-`btrfs-backup-profile save` to materialize the trusted runtime files consumed by
+`btrfs-backupctl profile save` to materialize the trusted runtime files consumed by
 the backup runner.
 
 Active runtime configuration files are trusted Bash code executed as root. They must be owned by root and use mode `0600`; the script refuses files that are accessible by group or other users.

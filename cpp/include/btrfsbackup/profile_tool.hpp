@@ -1,7 +1,10 @@
 #pragma once
 
+#include <string>
+#include <vector>
+
 namespace btrfsbackup {
 
-int profile_tool_main(int argc, char** argv);
+int command_profile(const std::vector<std::string>& args);
 
 } // namespace btrfsbackup

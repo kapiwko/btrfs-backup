@@ -13,7 +13,7 @@ The legacy `/etc/btrfs-backup/backup.env` file is accepted only by the migrator.
 The runtime requires a profile env and profile JSON.
 
 For new tooling, the canonical source format is JSON. Use
-`btrfs-backup-profile save --file profile.json` to generate the runtime profile
+`btrfs-backupctl profile save --file profile.json` to generate the runtime profile
 files from that JSON.
 
 ## Convert The Existing Configuration
