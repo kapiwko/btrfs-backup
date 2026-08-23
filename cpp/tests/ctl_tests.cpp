@@ -15,6 +15,7 @@
 #include <btrfsbackup/profile_list.hpp>
 #include <btrfsbackup/run_state.hpp>
 #include <btrfsbackup/run_state_command.hpp>
+#include <btrfsbackup/source_definition.hpp>
 #include <btrfsbackup/status.hpp>
 #include <btrfsbackup/status_write_command.hpp>
 
@@ -465,6 +466,55 @@ void test_migrate_legacy_state_moves_unclaimed_files() {
     fs::remove_all(root);
 }
 
+void test_parse_source_definition() {
+    fs::path root = test_root("source-definition");
+    write_file(
+        root / "10-root.conf",
+        "ENABLED=true\n"
+        "SOURCE_NAME=root\n"
+        "SOURCE_SUBVOLUME=/mnt/source/root\n"
+        "LOCAL_SNAPSHOT_DIR=/mnt/source/.snapshots/root\n"
+        "REMOTE_SUBDIR=root\n"
+    );
+
+    std::ostringstream output;
+    btrfsbackup::command_parse_source_definition(
+        {
+            "--file",
+            (root / "10-root.conf").string(),
+            "--remote-retention",
+            "7",
+            "--local-retention",
+            "3",
+        },
+        output
+    );
+
+    expect_eq(
+        "source definition",
+        output.str(),
+        "enabled\nroot\n/mnt/source/root\n/mnt/source/.snapshots/root\nroot\n7\n3\n"
+    );
+    fs::remove_all(root);
+}
+
+void test_parse_disabled_source_definition() {
+    fs::path root = test_root("source-disabled");
+    write_file(root / "20-home.conf", "ENABLED=false\n");
+    std::ostringstream output;
+
+    btrfsbackup::command_parse_source_definition(
+        {
+            "--file",
+            (root / "20-home.conf").string(),
+        },
+        output
+    );
+
+    expect_eq("disabled source", output.str(), "disabled\n");
+    fs::remove_all(root);
+}
+
 } // namespace
 
 int main() {
@@ -482,6 +532,8 @@ int main() {
     test_success_state_write_and_match();
     test_pending_marker_write_read_and_clear();
     test_migrate_legacy_state_moves_unclaimed_files();
+    test_parse_source_definition();
+    test_parse_disabled_source_definition();
 
     if (failures > 0) {
         return 1;

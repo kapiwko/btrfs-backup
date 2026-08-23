@@ -752,30 +752,27 @@ prune_snapshots() {
 validate_source_definition() {
     local source_config="$1"
     bb_assert_trusted_config_file "$source_config"
-    local SOURCE_NAME=""
-    local SOURCE_SUBVOLUME=""
-    local LOCAL_SNAPSHOT_DIR=""
-    local REMOTE_SUBDIR=""
-    local ENABLED="true"
-    local SOURCE_RETENTION_COUNT="$RETENTION_COUNT"
-    local SOURCE_LOCAL_RETENTION_COUNT="$LOCAL_RETENTION_COUNT"
+    local parsed=()
+    local parser_output
+    local backupctl
+    local SOURCE_NAME SOURCE_SUBVOLUME LOCAL_SNAPSHOT_DIR REMOTE_SUBDIR
+    local SOURCE_RETENTION_COUNT SOURCE_LOCAL_RETENTION_COUNT
 
-    # shellcheck disable=SC1090
-    source "$source_config"
+    backupctl="$(backupctl_path)" || return 1
+    parser_output="$("$backupctl" \
+        parse-source-definition \
+        --file "$source_config" \
+        --remote-retention "$RETENTION_COUNT" \
+        --local-retention "$LOCAL_RETENTION_COUNT")" || return $?
+    mapfile -t parsed <<< "$parser_output"
+    [[ "${parsed[0]:-}" != disabled ]] || return 2
 
-    bb_validate_bool ENABLED "$ENABLED"
-    bb_bool_is_true "$ENABLED" || return 2
-
-    bb_require_var SOURCE_NAME
-    bb_require_var SOURCE_SUBVOLUME
-    bb_require_var LOCAL_SNAPSHOT_DIR
-    bb_require_var REMOTE_SUBDIR
-    bb_validate_safe_name SOURCE_NAME "$SOURCE_NAME"
-    bb_validate_absolute_path SOURCE_SUBVOLUME "$SOURCE_SUBVOLUME"
-    bb_validate_absolute_path LOCAL_SNAPSHOT_DIR "$LOCAL_SNAPSHOT_DIR"
-    bb_validate_relative_path REMOTE_SUBDIR "$REMOTE_SUBDIR"
-    bb_validate_uint SOURCE_RETENTION_COUNT "$SOURCE_RETENTION_COUNT"
-    bb_validate_uint SOURCE_LOCAL_RETENTION_COUNT "$SOURCE_LOCAL_RETENTION_COUNT"
+    SOURCE_NAME="${parsed[1]:-}"
+    SOURCE_SUBVOLUME="${parsed[2]:-}"
+    LOCAL_SNAPSHOT_DIR="${parsed[3]:-}"
+    REMOTE_SUBDIR="${parsed[4]:-}"
+    SOURCE_RETENTION_COUNT="${parsed[5]:-}"
+    SOURCE_LOCAL_RETENTION_COUNT="${parsed[6]:-}"
 
     if [[ ! -d "$SOURCE_SUBVOLUME" ]] || ! bb_is_subvolume "$SOURCE_SUBVOLUME"; then
         bb_die "SOURCE_SUBVOLUME is not an available Btrfs subvolume: $SOURCE_SUBVOLUME"
