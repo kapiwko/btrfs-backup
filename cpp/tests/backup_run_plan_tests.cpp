@@ -14,7 +14,9 @@ btrfsbackup::Profile profile() {
     btrfsbackup::Profile result;
     result.id = "default";
     result.name = "Default backup";
+    result.target.mapper_name = "backup";
     result.target.mount_point = "/mnt/backup";
+    result.target.btrfs_uuid = "target-fs";
     result.paths.remote_root = "/mnt/backup/snapshots";
     result.paths.incoming_root = "/mnt/backup/.incoming";
     result.paths.state_dir = "/var/lib/btrfs-backup";
