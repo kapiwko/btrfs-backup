@@ -7,7 +7,12 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/btrfs-backup-common.sh
 source "$SCRIPT_DIR/lib/btrfs-backup-common.sh"
 
-CONFIG_FILE="${BTRFS_BACKUP_CONFIG:-/etc/btrfs-backup/backup.env}"
+REQUESTED_PROFILE_ID="${BTRFS_BACKUP_PROFILE:-default}"
+PROFILE_WAS_REQUESTED=0
+[[ -n "${BTRFS_BACKUP_PROFILE:-}" ]] && PROFILE_WAS_REQUESTED=1
+PROFILE_CONFIG_DIR="${BTRFS_BACKUP_PROFILE_CONFIG_DIR:-/etc/btrfs-backup/profiles.d}"
+LEGACY_CONFIG_FILE="${BTRFS_BACKUP_LEGACY_CONFIG:-/etc/btrfs-backup/backup.env}"
+CONFIG_FILE="${BTRFS_BACKUP_CONFIG:-}"
 FORCE_RUN=0
 VALIDATE_ONLY=0
 NO_EJECT=0
@@ -35,6 +40,7 @@ usage() {
 Usage: btrfs-backup [options]
 
 Options:
+  --profile ID   Use /etc/btrfs-backup/profiles.d/ID.env.
   --config PATH   Use a non-default main configuration file.
   --force         Run even if a successful backup was already made today.
   --validate      Mount the target and validate configuration without creating snapshots.
@@ -48,6 +54,12 @@ while (( $# > 0 )); do
         --config)
             [[ $# -ge 2 ]] || bb_die "--config requires a path."
             CONFIG_FILE="$2"
+            shift 2
+            ;;
+        --profile)
+            [[ $# -ge 2 ]] || bb_die "--profile requires an identifier."
+            REQUESTED_PROFILE_ID="$2"
+            PROFILE_WAS_REQUESTED=1
             shift 2
             ;;
         --force)
@@ -73,9 +85,13 @@ while (( $# > 0 )); do
 done
 
 load_main_config() {
+    CONFIG_FILE="$(bb_resolve_profile_config "$REQUESTED_PROFILE_ID" "$CONFIG_FILE" "$PROFILE_CONFIG_DIR" "$LEGACY_CONFIG_FILE")"
     bb_load_config "$CONFIG_FILE"
 
-    PROFILE_ID="${PROFILE_ID:-default}"
+    PROFILE_ID="${PROFILE_ID:-$REQUESTED_PROFILE_ID}"
+    if (( PROFILE_WAS_REQUESTED == 1 )) && [[ "$PROFILE_ID" != "$REQUESTED_PROFILE_ID" ]]; then
+        bb_die "Requested profile $REQUESTED_PROFILE_ID but $CONFIG_FILE declares PROFILE_ID=$PROFILE_ID"
+    fi
     PROFILE_NAME="${PROFILE_NAME:-$PROFILE_ID}"
     BACKUP_MOUNT_UNIT="${BACKUP_MOUNT_UNIT:-}"
     BACKUP_SERVICE_NAME="${BACKUP_SERVICE_NAME:-btrfs-backup.service}"
@@ -121,6 +137,8 @@ load_main_config() {
     bb_validate_absolute_path STATUS_ROOT "$STATUS_ROOT"
     bb_validate_absolute_path HISTORY_ROOT "$HISTORY_ROOT"
     bb_validate_absolute_path EJECT_SCRIPT_PATH "$EJECT_SCRIPT_PATH"
+    bb_validate_absolute_path PROFILE_CONFIG_DIR "$PROFILE_CONFIG_DIR"
+    bb_validate_absolute_path LEGACY_CONFIG_FILE "$LEGACY_CONFIG_FILE"
 
     bb_validate_uint RETENTION_COUNT "$RETENTION_COUNT"
     bb_validate_uint LOCAL_RETENTION_COUNT "$LOCAL_RETENTION_COUNT"

@@ -1,8 +1,16 @@
 # Configuration
 
-## Main File
+## Profile Files
 
-The active main file is `/etc/btrfs-backup/backup.env`. Important fields:
+The preferred active profile file is
+`/etc/btrfs-backup/profiles.d/<profile>.env`. Commands select a profile with
+`--profile <profile>` or `BTRFS_BACKUP_PROFILE=<profile>`.
+
+For compatibility, `/etc/btrfs-backup/backup.env` remains supported as the
+fallback configuration for the `default` profile when
+`/etc/btrfs-backup/profiles.d/default.env` does not exist.
+
+Important fields:
 
 | Field | Meaning |
 |---|---|
@@ -35,6 +43,16 @@ A retention value of `0` disables automatic pruning for that scope.
 If `PROFILE_ID` is missing, the runner uses `default`. Legacy files directly
 under `STATE_DIR`, such as `last-success` and `pending-*`, are migrated to the
 profile state directory on the next run.
+
+To convert an existing legacy file into the preferred default profile:
+
+```bash
+sudo btrfs-backup-migrate-profile --profile default
+```
+
+The migrator creates `/etc/btrfs-backup/profiles.d/default.env`, keeps
+`/etc/btrfs-backup/backup.env` in place, and leaves existing `sources.d`
+definitions unchanged.
 
 ## Profile JSON
 
