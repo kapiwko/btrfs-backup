@@ -12,6 +12,7 @@
 #include <btrfsbackup/json.hpp>
 #include <btrfsbackup/json_io.hpp>
 #include <btrfsbackup/profile.hpp>
+#include <btrfsbackup/run_state.hpp>
 
 #include "test_helpers.hpp"
 
@@ -28,6 +29,7 @@ public:
     std::vector<std::string> calls;
     std::vector<std::string> local_retention_deletes;
     std::vector<std::string> remote_retention_deletes;
+    std::vector<std::string> recovered_pending_paths;
     btrfsbackup::BackupRunActionKind throw_on = btrfsbackup::BackupRunActionKind::SelectParent;
     bool should_throw = false;
 
@@ -46,6 +48,10 @@ public:
             for (const btrfsbackup::SnapshotInfo& snapshot : source_plan.remote_retention.delete_snapshots) {
                 remote_retention_deletes.push_back(snapshot.path.string());
             }
+        }
+        if (action.kind == btrfsbackup::BackupRunActionKind::RecoverPending
+            && source_plan.recovery.delete_local_snapshot) {
+            recovered_pending_paths.push_back(source_plan.recovery.local_snapshot_path.string());
         }
         if (should_throw && action.kind == throw_on) {
             throw btrfsbackup::ValidationError("injected action failure: " + action_name(action.kind));
@@ -796,6 +802,82 @@ void test_runner_execute_retention_plans_local_and_remote_deletes() {
     fs::remove_all(root);
 }
 
+void test_runner_execute_pending_recovery_deletes_orphan() {
+    fs::path root = test_helpers::test_root("runner-command", "execute-pending-recovery");
+    fs::create_directories(root / "source" / "root");
+    fs::create_directories(root / "source" / ".snapshots" / "root");
+    fs::create_directories(root / "target" / "snapshots" / "root");
+    fs::create_directories(root / "target" / ".incoming");
+
+    btrfsbackup::Profile profile = test_profile(root);
+    fs::path pending = root / "source" / ".snapshots" / "root" / "root-2026-08-22T080000Z";
+    fs::create_directories(pending);
+
+    fs::path config_root = root / "config";
+    fs::path mountinfo = root / "mountinfo";
+    write_profile(config_root, profile);
+    write_mountinfo(mountinfo, profile);
+    btrfsbackup::write_pending_marker(
+        root / "state" / "profiles" / "default",
+        btrfsbackup::PendingMarker{
+            .source_name = "root",
+            .local_snapshot_path = pending.string(),
+            .run_id = "20260822T080000Z-123-456",
+            .timestamp = "2026-08-22T08:00:00Z",
+        }
+    );
+
+    MetadataMap metadata;
+    add_snapshot_metadata(metadata, pending, "orphan-uuid");
+
+    RecordingActionEffects action_effects;
+    ConfigurableTransferPipeline transfer_pipeline;
+    btrfsbackup::command::RunnerExecutionServices services{
+        .action_effects = action_effects,
+        .transfer_pipeline = transfer_pipeline,
+        .snapshot_metadata_reader = [&metadata](const fs::path& path) {
+            return metadata.read(path);
+        },
+    };
+
+    std::ostringstream output;
+    int result = btrfsbackup::command::runner(
+        config_root,
+        {
+            "execute",
+            "--experimental-cpp-runner",
+            "--profile",
+            "default",
+            "--timestamp",
+            "2026-08-23T080000Z",
+            "--run-id",
+            "20260823T080000Z-123-456",
+            "--mountinfo",
+            mountinfo.string(),
+            "--mount-uuid",
+            "/dev/source",
+            "source-fs",
+            "--mount-uuid",
+            "/dev/mapper/backup",
+            profile.target.btrfs_uuid,
+        },
+        output,
+        &services
+    );
+
+    test_helpers::expect_eq("pending recovery result", std::to_string(result), "0");
+    test_helpers::expect_true("recover action first", !action_effects.calls.empty(), "expected action calls");
+    test_helpers::expect_eq(
+        "recover first action",
+        action_effects.calls.at(0),
+        "root:" + action_name(btrfsbackup::BackupRunActionKind::RecoverPending)
+    );
+    test_helpers::expect_eq("pending delete count", std::to_string(action_effects.recovered_pending_paths.size()), "1");
+    test_helpers::expect_eq("pending delete path", action_effects.recovered_pending_paths.at(0), pending.string());
+
+    fs::remove_all(root);
+}
+
 } // namespace
 
 int main() {
@@ -809,6 +891,7 @@ int main() {
     test_runner_execute_multi_source_success();
     test_runner_execute_incremental_uses_selected_parent();
     test_runner_execute_retention_plans_local_and_remote_deletes();
+    test_runner_execute_pending_recovery_deletes_orphan();
 
     return test_helpers::finish("runner command tests");
 }
