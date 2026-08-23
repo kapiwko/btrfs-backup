@@ -82,7 +82,7 @@ class BackupRunExecutor {
 public:
     BackupRunExecutor(
         IBackupRunActionEffects& action_effects,
-        ITransferPipeline& transfer_pipeline,
+        IAsyncTransferPipeline& transfer_pipeline,
         IBackupRunCheckpointStore& checkpoints
     );
 
@@ -94,7 +94,7 @@ public:
 
 private:
     IBackupRunActionEffects& action_effects_;
-    ITransferPipeline& transfer_pipeline_;
+    IAsyncTransferPipeline& transfer_pipeline_;
     IBackupRunCheckpointStore& checkpoints_;
 };
 
