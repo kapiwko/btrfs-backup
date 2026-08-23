@@ -34,7 +34,7 @@ Example:
   "message": "Transferring snapshot for home.",
   "currentSourceName": "home",
   "sourceIndex": 1,
-  "sourceCount": 0,
+  "sourceCount": 1,
   "startedAt": "2026-08-23T02:44:07+00:00",
   "updatedAt": "2026-08-23T02:44:07+00:00",
   "finishedAt": "",
