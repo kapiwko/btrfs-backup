@@ -286,6 +286,10 @@ run_backup
 grep -q 'Sending full stream' "$RUN_LOG" || fail 'full stream was not used for first backup'
 grep -q '^profile_id=default$' /var/lib/btrfs-backup/profiles/default/last-success \
     || fail 'profile last-success state was not written'
+grep -q '"state": "succeeded"' /run/btrfs-backup/profiles/default/current.json \
+    || fail 'current status JSON was not written'
+grep -q '"state": "succeeded"' /var/lib/btrfs-backup/history/default/last.json \
+    || fail 'history JSON was not written'
 assert_count 1 "$TARGET_MOUNT/snapshots/home"
 assert_count 1 "$SOURCE_MOUNT/.snapshots/home"
 assert_remote_matches_latest_local

@@ -26,6 +26,8 @@ The active main file is `/etc/btrfs-backup/backup.env`. Important fields:
 | `MIN_TARGET_FREE_BYTES` | minimum free space required on the target |
 | `MIN_LOCAL_FREE_BYTES` | minimum free space required for local snapshots |
 | `STATE_DIR` | base state directory; per-profile state lives under `profiles/<PROFILE_ID>` |
+| `STATUS_ROOT` | root directory for per-profile `current.json` runtime status |
+| `HISTORY_ROOT` | root directory for per-profile run history JSON |
 | `LOCK_FILE` | lock shared by backup, eject, and configurator operations |
 
 A retention value of `0` disables automatic pruning for that scope.

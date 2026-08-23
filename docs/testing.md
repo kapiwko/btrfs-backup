@@ -24,12 +24,13 @@ Tests cover:
 6. daily limit and invalidation after configuration changes;
 7. local and remote retention;
 8. cleanup after `btrfs receive` errors;
-9. behavior after losing the target;
-10. pending recovery before and after remote commit;
-11. refusal to use non-private configuration;
-12. refusal to use a source on the same Btrfs filesystem as the target;
-13. refusal to write through a symlink escaping the target directory;
-14. safe unmounting and closure of the expected mapper.
+9. per-profile status and history JSON;
+10. behavior after losing the target;
+11. pending recovery before and after remote commit;
+12. refusal to use non-private configuration;
+13. refusal to use a source on the same Btrfs filesystem as the target;
+14. refusal to write through a symlink escaping the target directory;
+15. safe unmounting and closure of the expected mapper.
 
 ## Mock Boundaries
 
@@ -81,7 +82,8 @@ The test covers:
 10. verification that the remote snapshot `Received UUID` matches the local
    snapshot UUID;
 11. local and remote retention after a third backup;
-12. cleanup of per-source `.incoming` content after successful receives.
+12. cleanup of per-source `.incoming` content after successful receives;
+13. per-profile `current.json` and history JSON after a real backup.
 
 ## Release Checks
 

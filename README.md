@@ -113,7 +113,8 @@ Backups should be checked regularly with a restore test. A successful transfer e
 2. [configuration](docs/configuration.md);
 3. [recovery](docs/recovery.md);
 4. [testing](docs/testing.md);
-5. [release and packaging](docs/packaging.md).
+5. [status API](docs/status-api.md);
+6. [release and packaging](docs/packaging.md).
 
 ## Security and Limits
 
