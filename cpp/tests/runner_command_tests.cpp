@@ -636,6 +636,7 @@ void test_runner_execute_transfer_failure_writes_failed_status() {
     fs::path checkpoint = root / "state" / "profiles" / "default" / "checkpoint.json";
     fs::path current = root / "status" / "default" / "current.json";
     fs::path history = root / "history" / "default" / "20260823T080000Z-123-456.json";
+    btrfsbackup::Json current_json = btrfsbackup::load_json_file(current);
     test_helpers::expect_true("failed checkpoint exists", fs::is_regular_file(checkpoint), "missing checkpoint before failure");
     test_helpers::expect_true(
         "failed checkpoint action",
@@ -644,9 +645,10 @@ void test_runner_execute_transfer_failure_writes_failed_status() {
     );
     test_helpers::expect_true(
         "failed current",
-        btrfsbackup::load_json_file(current).at("state") == "failed",
+        current_json.at("state") == "failed",
         "current status should fail"
     );
+    test_helpers::expect_eq("failed transfer error code", current_json.at("errorCode").get<std::string>(), "transfer.producer_failed");
     test_helpers::expect_true(
         "failed history",
         btrfsbackup::load_json_file(history).at("state") == "failed",

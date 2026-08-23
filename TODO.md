@@ -24,8 +24,6 @@
   - estimate total bytes and ETA without relying on `pv`;
   - expose source progress and aggregate run progress that does not reset
     between sources;
-  - keep producer and consumer failures separately classified in stable error
-    codes;
   - add live external-transfer cancellation tests and `.incoming` recovery
     coverage after cancellation.
 

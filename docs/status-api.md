@@ -114,6 +114,16 @@ directory. The active runner observes that request, asks the transfer pipeline
 to stop, and then removes the handled request. A cancelled run finishes with
 `state` set to `cancelled` and stable `errorCode` `runner.cancelled`.
 
+Transfer failures use stable error codes instead of requiring clients to parse
+the diagnostic text:
+
+| Code | Meaning |
+|---|---|
+| `transfer.producer_failed` | the send side failed |
+| `transfer.consumer_failed` | the receive side failed |
+| `transfer.producer_consumer_failed` | both transfer processes failed |
+| `transfer.failed` | the pipeline failed without a side-specific cause |
+
 ## History
 
 Finished runs are written atomically to:

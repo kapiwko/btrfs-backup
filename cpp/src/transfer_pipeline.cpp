@@ -35,6 +35,28 @@ bool transfer_succeeded(const TransferResult& result) {
         && result.consumer.exit_code == 0;
 }
 
+std::string transfer_failure_error_code(const TransferResult& result) {
+    if (transfer_succeeded(result)) {
+        return {};
+    }
+    if (result.cancelled) {
+        return "runner.cancelled";
+    }
+
+    const bool producer_failed = !result.producer.started || result.producer.exit_code != 0;
+    const bool consumer_failed = !result.consumer.started || result.consumer.exit_code != 0;
+    if (producer_failed && consumer_failed) {
+        return "transfer.producer_consumer_failed";
+    }
+    if (producer_failed) {
+        return "transfer.producer_failed";
+    }
+    if (consumer_failed) {
+        return "transfer.consumer_failed";
+    }
+    return "transfer.failed";
+}
+
 namespace {
 
 class UniqueFd {
