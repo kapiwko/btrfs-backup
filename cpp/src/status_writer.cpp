@@ -57,6 +57,8 @@ Json build_status_json(const StatusRecord& record) {
         {"details", record.details.is_null() ? Json::object() : record.details},
         {"recoverable", record.recoverable},
         {"suggestedAction", record.suggested_action},
+        {"canCancel", record.can_cancel},
+        {"safeToRemove", record.safe_to_remove},
         {"exitCode", record.exit_code},
     };
 }
