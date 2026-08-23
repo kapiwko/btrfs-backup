@@ -60,7 +60,8 @@ void print_human_status(const fs::path& path, std::ostream& output) {
         {"message", "  "},
         {"currentSourceName", "  source: "},
         {"updatedAt", "  updated: "},
-        {"error", "  error: "},
+        {"errorCode", "  error code: "},
+        {"errorMessage", "  error: "},
     };
     for (const auto& [key, prefix] : fields) {
         std::string value = string_or_empty(data, key);

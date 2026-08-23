@@ -70,8 +70,25 @@ void status_write(
             record.updated_at = arg_value(args, i, arg);
         } else if (arg == "--finished-at") {
             record.finished_at = arg_value(args, i, arg);
-        } else if (arg == "--error") {
-            record.error = arg_value(args, i, arg);
+        } else if (arg == "--error-code") {
+            record.error_code = arg_value(args, i, arg);
+        } else if (arg == "--error-message") {
+            record.error_message = arg_value(args, i, arg);
+        } else if (arg == "--detail") {
+            std::string key = arg_value(args, i, arg);
+            std::string value = arg_value(args, i, arg);
+            record.details[key] = value;
+        } else if (arg == "--recoverable") {
+            std::string value = arg_value(args, i, arg);
+            if (value == "true") {
+                record.recoverable = true;
+            } else if (value == "false") {
+                record.recoverable = false;
+            } else {
+                throw ValidationError("--recoverable must be true or false");
+            }
+        } else if (arg == "--suggested-action") {
+            record.suggested_action = arg_value(args, i, arg);
         } else if (arg == "--exit-code") {
             record.exit_code = parse_int(arg, arg_value(args, i, arg));
         } else {

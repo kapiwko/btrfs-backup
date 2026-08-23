@@ -182,14 +182,20 @@ write_status_record() {
     local state="$2"
     local phase="$3"
     local message="$4"
-    local error="$5"
+    local error_message="$5"
     local exit_code="$6"
     local finished_at="$7"
-    local backupctl updated_at
+    local backupctl updated_at error_code suggested_action
 
     [[ -n "${RUN_ID:-}" ]] || return 0
     backupctl="$(backupctl_path)" || return 1
     updated_at="$(date --iso-8601=seconds)"
+    error_code=""
+    suggested_action=""
+    if [[ -n "$error_message" ]]; then
+        error_code="runner.failed"
+        suggested_action="inspect-run-history"
+    fi
 
     "$backupctl" \
         --status-root "$STATUS_ROOT" \
@@ -208,7 +214,10 @@ write_status_record() {
         --started-at "$RUN_STARTED_AT" \
         --updated-at "$updated_at" \
         --finished-at "$finished_at" \
-        --error "$error" \
+        --error-code "$error_code" \
+        --error-message "$error_message" \
+        --recoverable false \
+        --suggested-action "$suggested_action" \
         --exit-code "$exit_code"
 }
 

@@ -52,7 +52,11 @@ Json build_status_json(const StatusRecord& record) {
         {"startedAt", record.started_at},
         {"updatedAt", record.updated_at},
         {"finishedAt", record.finished_at},
-        {"error", record.error},
+        {"errorCode", record.error_code},
+        {"errorMessage", record.error_message},
+        {"details", record.details.is_null() ? Json::object() : record.details},
+        {"recoverable", record.recoverable},
+        {"suggestedAction", record.suggested_action},
         {"exitCode", record.exit_code},
     };
 }

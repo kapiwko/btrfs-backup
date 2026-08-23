@@ -74,7 +74,6 @@ StatusRecord sample_record() {
         .started_at = "2026-08-23T02:44:07+00:00",
         .updated_at = "2026-08-23T02:45:07+00:00",
         .finished_at = "2026-08-23T02:45:07+00:00",
-        .error = "",
         .exit_code = 0,
     };
 }
@@ -104,8 +103,37 @@ void test_build_status_json_matches_contract_shape() {
     expect_true("started", data.at("startedAt") == "2026-08-23T02:44:07+00:00", "wrong startedAt");
     expect_true("updated", data.at("updatedAt") == "2026-08-23T02:45:07+00:00", "wrong updatedAt");
     expect_true("finished", data.at("finishedAt") == "2026-08-23T02:45:07+00:00", "wrong finishedAt");
-    expect_true("error", data.at("error") == "", "wrong error");
+    expect_true("error code", data.at("errorCode") == "", "wrong errorCode");
+    expect_true("error message", data.at("errorMessage") == "", "wrong errorMessage");
+    expect_true("details", data.at("details").is_object() && data.at("details").empty(), "wrong details");
+    expect_true("recoverable", data.at("recoverable") == false, "wrong recoverable");
+    expect_true("suggested action", data.at("suggestedAction") == "", "wrong suggestedAction");
     expect_true("exit", data.at("exitCode") == 0, "wrong exitCode");
+}
+
+void test_build_status_json_includes_structured_error() {
+    StatusRecord record = sample_record();
+    record.state = "failed";
+    record.phase = "validating-target";
+    record.message = "Validation failed.";
+    record.error_code = "target.btrfs_uuid_mismatch";
+    record.error_message = "Target Btrfs UUID does not match.";
+    record.details = {
+        {"expected", "expected-uuid"},
+        {"actual", "actual-uuid"},
+    };
+    record.recoverable = false;
+    record.suggested_action = "connect-correct-target";
+    record.exit_code = 2;
+
+    Json data = btrfsbackup::build_status_json(record);
+
+    expect_true("structured error code", data.at("errorCode") == "target.btrfs_uuid_mismatch", "wrong error code");
+    expect_true("structured error message", data.at("errorMessage") == "Target Btrfs UUID does not match.", "wrong error message");
+    expect_true("structured detail expected", data.at("details").at("expected") == "expected-uuid", "wrong expected detail");
+    expect_true("structured detail actual", data.at("details").at("actual") == "actual-uuid", "wrong actual detail");
+    expect_true("structured recoverable", data.at("recoverable") == false, "wrong recoverable");
+    expect_true("structured action", data.at("suggestedAction") == "connect-correct-target", "wrong suggested action");
 }
 
 void test_dump_status_json_uses_stable_order_and_newline() {
@@ -128,7 +156,11 @@ void test_dump_status_json_uses_stable_order_and_newline() {
         "  \"startedAt\": \"2026-08-23T02:44:07+00:00\",\n"
         "  \"updatedAt\": \"2026-08-23T02:45:07+00:00\",\n"
         "  \"finishedAt\": \"2026-08-23T02:45:07+00:00\",\n"
-        "  \"error\": \"\",\n"
+        "  \"errorCode\": \"\",\n"
+        "  \"errorMessage\": \"\",\n"
+        "  \"details\": {},\n"
+        "  \"recoverable\": false,\n"
+        "  \"suggestedAction\": \"\",\n"
         "  \"exitCode\": 0\n"
         "}\n"
     );
@@ -200,6 +232,7 @@ void test_invalid_profile_does_not_create_status_directory() {
 
 int main() {
     test_build_status_json_matches_contract_shape();
+    test_build_status_json_includes_structured_error();
     test_dump_status_json_uses_stable_order_and_newline();
     test_write_current_status();
     test_write_history_entry();
