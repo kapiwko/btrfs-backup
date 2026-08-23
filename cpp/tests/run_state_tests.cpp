@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 
+#include <btrfsbackup/command/config_fingerprint_command.hpp>
 #include <btrfsbackup/command/run_state_command.hpp>
 #include <btrfsbackup/command/status_write_command.hpp>
 #include <btrfsbackup/config_fingerprint.hpp>
@@ -147,7 +148,7 @@ void test_config_fingerprint_matches_legacy_stream() {
     test_helpers::expect_eq("config fingerprint", digest, "f125982c7f64868550006c139bdba904248a93b4118afcc2332190e516494c34");
 
     std::ostringstream output;
-    btrfsbackup::command_config_fingerprint(
+    btrfsbackup::command::config_fingerprint(
         {
             "--version",
             "2.0.0",
