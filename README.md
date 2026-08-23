@@ -85,6 +85,8 @@ sudo btrfs-backup-eject
 sudo btrfs-backup-migrate-profile --profile default
 btrfs-backup-profile validate --file profile.json
 btrfs-backup-profile render --file profile.json --output-dir ./generated-profile
+btrfs-backup-profile show --profile default
+btrfs-backup-profile export --profile default --output profile.json
 btrfs-backupctl status --profile default --human
 btrfs-backupctl history --profile default --limit 10
 btrfs-backupctl list-profiles

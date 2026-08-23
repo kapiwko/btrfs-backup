@@ -275,6 +275,15 @@ profile_json_test() {
     assert_file "$saved/etc/btrfs-backup/profiles/default/sources.d/010-home.conf"
     assert_file "$saved/etc/udev/rules.d/99-btrfs-backup-default.rules"
     assert_file "$saved/var/lib/btrfs-backup/public/profiles/default.json"
+    "$ROOT/bin/btrfs-backup-profile" \
+        --etc-root "$saved/etc/btrfs-backup" \
+        show --profile default > "$saved/show.json"
+    assert_contains "$saved/show.json" '"profileId": "default"'
+    "$ROOT/bin/btrfs-backup-profile" \
+        --etc-root "$saved/etc/btrfs-backup" \
+        export --profile default --output "$saved/exported.json" >/dev/null
+    assert_file "$saved/exported.json"
+    assert_contains "$saved/exported.json" '"profileId": "default"'
     pass 'profile JSON validates, renders, and saves generated runtime files'
 }
 
