@@ -25,6 +25,7 @@ add_library(btrfsbackup_profile_tool STATIC
     cpp/src/profile_store.cpp
     cpp/src/profile_tool.cpp
     cpp/src/run_state.cpp
+    cpp/src/run_state_command.cpp
     cpp/src/status.cpp
     cpp/src/status_write_command.cpp
     cpp/src/status_writer.cpp
