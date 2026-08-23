@@ -9,6 +9,7 @@
 
 #include <btrfsbackup/errors.hpp>
 #include <btrfsbackup/identifiers.hpp>
+#include <btrfsbackup/json_io.hpp>
 #include <btrfsbackup/profile.hpp>
 #include <btrfsbackup/shell_env.hpp>
 
@@ -58,6 +59,23 @@ std::string require_relative_path(const std::string& field, const std::string& v
         throw btrfsbackup::ValidationError(field + " must be a safe relative path");
     }
     return value;
+}
+
+void write_source_record(
+    std::ostream& output,
+    const std::string& name,
+    const std::string& subvolume,
+    const std::string& local_snapshot_dir,
+    const std::string& remote_subdir,
+    long long remote_retention,
+    long long local_retention
+) {
+    output << name << '\n'
+           << subvolume << '\n'
+           << local_snapshot_dir << '\n'
+           << remote_subdir << '\n'
+           << remote_retention << '\n'
+           << local_retention << '\n';
 }
 
 } // namespace
@@ -114,13 +132,49 @@ void command_parse_source_definition(const std::vector<std::string>& args, std::
         return;
     }
 
-    output << "enabled\n"
-           << source.name << '\n'
-           << source.subvolume << '\n'
-           << source.local_snapshot_dir << '\n'
-           << source.remote_subdir << '\n'
-           << source.remote_retention << '\n'
-           << source.local_retention << '\n';
+    output << "enabled\n";
+    write_source_record(
+        output,
+        source.name,
+        source.subvolume,
+        source.local_snapshot_dir,
+        source.remote_subdir,
+        source.remote_retention,
+        source.local_retention
+    );
+}
+
+void command_parse_profile_sources(const std::vector<std::string>& args, std::ostream& output) {
+    fs::path profile_json;
+
+    for (std::size_t i = 0; i < args.size(); ++i) {
+        const std::string& arg = args[i];
+        if (arg == "--file") {
+            profile_json = arg_value(args, i, arg);
+        } else {
+            throw ValidationError("unknown parse-profile-sources option: " + arg);
+        }
+    }
+
+    if (profile_json.empty()) {
+        throw ValidationError("parse-profile-sources requires --file");
+    }
+
+    Profile profile = profile_from_json(load_json_file(profile_json));
+    for (const ProfileSource& source : profile.sources) {
+        if (!source.enabled) {
+            continue;
+        }
+        write_source_record(
+            output,
+            source.id,
+            source.subvolume,
+            source.local_snapshot_dir,
+            source.remote_subdir,
+            source.remote_retention,
+            source.local_retention
+        );
+    }
 }
 
 } // namespace btrfsbackup

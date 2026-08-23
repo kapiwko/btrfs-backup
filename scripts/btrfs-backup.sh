@@ -13,6 +13,7 @@ PROFILE_WAS_REQUESTED=0
 PROFILE_CONFIG_DIR="${BTRFS_BACKUP_PROFILE_CONFIG_DIR:-/etc/btrfs-backup/profiles.d}"
 LEGACY_CONFIG_FILE="${BTRFS_BACKUP_LEGACY_CONFIG:-/etc/btrfs-backup/backup.env}"
 CONFIG_FILE="${BTRFS_BACKUP_CONFIG:-}"
+PROFILE_JSON_FILE=""
 FORCE_RUN=0
 VALIDATE_ONLY=0
 NO_EJECT=0
@@ -170,6 +171,11 @@ load_main_config() {
     fi
 
     PROFILE_STATE_DIR="$STATE_DIR/profiles/$PROFILE_ID"
+    if [[ "$(realpath -m -- "$CONFIG_FILE")" == "$(realpath -m -- "$PROFILE_CONFIG_DIR/$PROFILE_ID.env")" ]]; then
+        PROFILE_JSON_FILE="$(dirname -- "$PROFILE_CONFIG_DIR")/profiles/$PROFILE_ID/profile.json"
+    else
+        PROFILE_JSON_FILE=""
+    fi
 
     local config_mode
     config_mode="$(stat -c '%a' "$CONFIG_FILE" 2>/dev/null || true)"
@@ -528,9 +534,13 @@ compute_config_fingerprint() {
         --config "$CONFIG_FILE"
     )
 
-    for source_file in "${SOURCE_FILES[@]}"; do
-        args+=(--source "$source_file")
-    done
+    if [[ -r "$PROFILE_JSON_FILE" ]]; then
+        args+=(--source "$PROFILE_JSON_FILE")
+    else
+        for source_file in "${SOURCE_FILES[@]}"; do
+            args+=(--source "$source_file")
+        done
+    fi
 
     backupctl="$(backupctl_path)" || return 1
     "$backupctl" "${args[@]}"
@@ -815,6 +825,13 @@ process_source() {
         return "$validation_status"
     fi
 
+    process_source_values "$source_config" "${values[@]}"
+}
+
+process_source_values() {
+    local source_label="$1"
+    shift
+    local values=("$@")
     local source_name="${values[0]}"
     local source_subvolume="${values[1]}"
     local local_snapshot_dir="${values[2]}"
@@ -825,9 +842,9 @@ process_source() {
     local source_incoming_root="$INCOMING_ROOT/$source_name"
 
     if [[ -n "${SEEN_SOURCE_NAMES[$source_name]+x}" ]]; then
-        bb_die "Duplicate SOURCE_NAME=$source_name in $source_config and ${SEEN_SOURCE_NAMES[$source_name]}"
+        bb_die "Duplicate SOURCE_NAME=$source_name in $source_label and ${SEEN_SOURCE_NAMES[$source_name]}"
     fi
-    SEEN_SOURCE_NAMES["$source_name"]="$source_config"
+    SEEN_SOURCE_NAMES["$source_name"]="$source_label"
     local snapshot_path snapshot_name incoming_run_dir received_path parent_path=""
     local local_uuid received_uuid
 
@@ -933,6 +950,29 @@ process_source() {
     bb_notify "Snapshot for $source_name was transferred and verified."
 }
 
+process_profile_json_sources() {
+    local backupctl parser_output
+    local source_records=()
+    local index=0
+    local values=()
+
+    backupctl="$(backupctl_path)" || return 1
+    parser_output="$("$backupctl" parse-profile-sources --file "$PROFILE_JSON_FILE")" || return $?
+    mapfile -t source_records <<< "$parser_output"
+    if (( ${#source_records[@]} == 0 )); then
+        bb_die "No enabled source definitions found in $PROFILE_JSON_FILE"
+    fi
+    if (( ${#source_records[@]} % 6 != 0 )); then
+        bb_die "Invalid source record output from btrfs-backupctl."
+    fi
+
+    while (( index < ${#source_records[@]} )); do
+        values=("${source_records[@]:index:6}")
+        process_source_values "$PROFILE_JSON_FILE:${values[0]}" "${values[@]}"
+        index=$((index + 6))
+    done
+}
+
 bb_require_root
 bb_require_commands \
     basename btrfs cat chmod cryptsetup date df dirname find findmnt flock grep head id install \
@@ -957,13 +997,17 @@ migrate_legacy_state
 write_current_status starting starting "Backup run started."
 
 declare -A SEEN_SOURCE_NAMES=()
-SOURCE_FILES=("$SOURCES_DIR"/*.conf)
-if (( ${#SOURCE_FILES[@]} == 0 )); then
-    bb_die "No source definitions found in $SOURCES_DIR"
+if [[ -r "$PROFILE_JSON_FILE" ]]; then
+    SOURCE_FILES=()
+else
+    SOURCE_FILES=("$SOURCES_DIR"/*.conf)
+    if (( ${#SOURCE_FILES[@]} == 0 )); then
+        bb_die "No source definitions found in $SOURCES_DIR"
+    fi
+    for source_config in "${SOURCE_FILES[@]}"; do
+        bb_assert_trusted_config_file "$source_config"
+    done
 fi
-for source_config in "${SOURCE_FILES[@]}"; do
-    bb_assert_trusted_config_file "$source_config"
-done
 CONFIG_FINGERPRINT="$(compute_config_fingerprint)"
 
 if (( VALIDATE_ONLY == 0 && FORCE_RUN == 0 )) \
@@ -976,9 +1020,13 @@ fi
 ensure_target_mounted
 validate_target
 
-for source_config in "${SOURCE_FILES[@]}"; do
-    process_source "$source_config"
-done
+if [[ -r "$PROFILE_JSON_FILE" ]]; then
+    process_profile_json_sources
+else
+    for source_config in "${SOURCE_FILES[@]}"; do
+        process_source "$source_config"
+    done
+fi
 
 if (( SOURCE_COUNT == 0 )); then
     bb_die "No enabled source definitions were found."
