@@ -30,6 +30,7 @@ add_library(btrfsbackup_profile_tool STATIC
     cpp/src/command/status_write_command.cpp
     cpp/src/config_fingerprint.cpp
     cpp/src/ctl_tool.cpp
+    cpp/src/device_info.cpp
     cpp/src/file_io.cpp
     cpp/src/identifiers.cpp
     cpp/src/installation_render.cpp
@@ -86,6 +87,10 @@ if(BUILD_TESTING)
         cpp/tests/profile_tests.cpp
     )
 
+    add_executable(btrfsbackup-device-info-tests
+        cpp/tests/device_info_tests.cpp
+    )
+
     add_executable(btrfsbackup-status-history-tests
         cpp/tests/status_history_tests.cpp
     )
@@ -123,6 +128,11 @@ if(BUILD_TESTING)
     )
 
     target_link_libraries(btrfsbackup-profile-tests
+        PRIVATE
+            btrfsbackup_profile_tool
+    )
+
+    target_link_libraries(btrfsbackup-device-info-tests
         PRIVATE
             btrfsbackup_profile_tool
     )
@@ -173,6 +183,7 @@ if(BUILD_TESTING)
     )
 
     add_test(NAME profile-tests COMMAND btrfsbackup-profile-tests)
+    add_test(NAME device-info-tests COMMAND btrfsbackup-device-info-tests)
     add_test(NAME status-history-tests COMMAND btrfsbackup-status-history-tests)
     add_test(NAME run-state-tests COMMAND btrfsbackup-run-state-tests)
     add_test(NAME profile-command-tests COMMAND btrfsbackup-profile-command-tests)

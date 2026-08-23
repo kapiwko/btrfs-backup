@@ -7,6 +7,7 @@
 #include <sstream>
 #include <sys/sysmacros.h>
 
+#include <btrfsbackup/device_info.hpp>
 #include <btrfsbackup/errors.hpp>
 #include <btrfsbackup/validation.hpp>
 
@@ -25,14 +26,6 @@ std::string device_id(dev_t device) {
     std::ostringstream output;
     output << major(device) << ":" << minor(device);
     return output.str();
-}
-
-std::string strip_subvolume_suffix(const std::string& source) {
-    std::size_t bracket = source.find('[');
-    if (bracket == std::string::npos) {
-        return source;
-    }
-    return source.substr(0, bracket);
 }
 
 } // namespace
