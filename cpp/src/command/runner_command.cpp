@@ -21,6 +21,7 @@
 #include <btrfsbackup/mount_info.hpp>
 #include <btrfsbackup/pending_recovery_plan.hpp>
 #include <btrfsbackup/profile.hpp>
+#include <btrfsbackup/profile_loader.hpp>
 #include <btrfsbackup/run_state.hpp>
 #include <btrfsbackup/runtime_adapters.hpp>
 #include <btrfsbackup/snapshot_inventory.hpp>

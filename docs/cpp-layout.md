@@ -10,6 +10,18 @@ cpp/
 └── tests/                 # native unit tests and fixtures
 ```
 
+The current CMake targets are layered this way:
+
+```text
+btrfsbackup-model   # JSON model, validation, identifiers, status/catalog shapes
+btrfsbackup-system  # POSIX, trusted files, process runner, mount/device/Btrfs inspection
+btrfsbackup-core    # commands, profile rendering, runner planning/execution glue
+btrfs-backupctl     # command-line executable
+```
+
+`btrfsbackup-core` links both lower layers. Tests currently link `core` unless a
+test intentionally targets a narrower layer.
+
 Rules for new C++ code:
 
 1. CLI parsing and process exit behavior belong in `cpp/apps/`.
