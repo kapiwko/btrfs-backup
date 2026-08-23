@@ -41,6 +41,7 @@ void test_producer_failure_is_reported_separately() {
         .consumer = {.started = true, .exit_code = 0},
     };
 
+    test_helpers::expect_eq("producer error code", btrfsbackup::transfer_failure_error_code(result), "transfer.producer_failed");
     test_helpers::expect_validation_error("producer failure", [&] {
         btrfsbackup::require_transfer_success(result);
     }, "producer failed with exit code 1: send failed");
@@ -52,6 +53,7 @@ void test_consumer_failure_is_reported_separately() {
         .consumer = {.started = true, .exit_code = 1, .diagnostics = "receive failed"},
     };
 
+    test_helpers::expect_eq("consumer error code", btrfsbackup::transfer_failure_error_code(result), "transfer.consumer_failed");
     test_helpers::expect_validation_error("consumer failure", [&] {
         btrfsbackup::require_transfer_success(result);
     }, "consumer failed with exit code 1: receive failed");
@@ -63,6 +65,7 @@ void test_both_sides_failure_keeps_both_diagnostics() {
         .consumer = {.started = true, .exit_code = 2, .diagnostics = "receive failed"},
     };
 
+    test_helpers::expect_eq("both sides error code", btrfsbackup::transfer_failure_error_code(result), "transfer.producer_consumer_failed");
     test_helpers::expect_validation_error("both sides failure", [&] {
         btrfsbackup::require_transfer_success(result);
     }, "producer failed with exit code 1: send failed; consumer failed with exit code 2: receive failed");

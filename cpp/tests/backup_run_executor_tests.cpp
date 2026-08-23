@@ -319,6 +319,11 @@ void test_transfer_failure_emits_failed_action() {
     }, "producer failed with exit code 7");
     test_helpers::expect_eq("failed checkpoint count", std::to_string(checkpoints.checkpoints.size()), "0");
     test_helpers::expect_true("failed action event", events.has_event(btrfsbackup::BackupRunEventKind::ActionFailed), "missing failed action event");
+    auto failed = std::find_if(events.events.begin(), events.events.end(), [](const btrfsbackup::BackupRunEvent& event) {
+        return event.kind == btrfsbackup::BackupRunEventKind::ActionFailed;
+    });
+    test_helpers::expect_true("transfer failed action event", failed != events.events.end(), "missing failed action event");
+    test_helpers::expect_eq("transfer failed error code", failed->error_code, "transfer.producer_failed");
 }
 
 void test_receive_failure_is_reported_separately() {
@@ -343,6 +348,7 @@ void test_receive_failure_is_reported_separately() {
         return event.kind == btrfsbackup::BackupRunEventKind::ActionFailed;
     });
     test_helpers::expect_true("receive failed action event", failed != events.events.end(), "missing failed action event");
+    test_helpers::expect_eq("receive failed error code", failed->error_code, "transfer.consumer_failed");
     test_helpers::expect_contains("receive failed message", failed->message, "consumer failed with exit code 9");
 }
 

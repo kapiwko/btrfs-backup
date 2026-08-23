@@ -139,7 +139,7 @@ StatusRecord status_record_for_event(const BackupRunStatusContext& context, cons
         details = progress_details;
     }
     if (event.kind == BackupRunEventKind::ActionFailed) {
-        error_code = error_code_for_failed_action(event.action_kind);
+        error_code = event.error_code.empty() ? error_code_for_failed_action(event.action_kind) : event.error_code;
         error_message = event.message;
         details = {
             {"sourceId", event.source_id},
@@ -294,6 +294,7 @@ Json build_backup_run_event_json(const BackupRunEvent& event) {
         {"pendingBytes", event.pending_bytes},
         {"elapsedMs", event.elapsed_ms},
         {"speedBps", event.speed_bps},
+        {"errorCode", event.error_code},
         {"message", event.message},
     };
 }

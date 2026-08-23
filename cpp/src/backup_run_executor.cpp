@@ -25,6 +25,7 @@ void emit_event(
     std::uint64_t pending_bytes = 0,
     std::uint64_t elapsed_ms = 0,
     std::uint64_t speed_bps = 0,
+    const std::string& error_code = "",
     const std::string& message = ""
 ) {
     events.on_backup_run_event({
@@ -39,6 +40,7 @@ void emit_event(
         .pending_bytes = pending_bytes,
         .elapsed_ms = elapsed_ms,
         .speed_bps = speed_bps,
+        .error_code = error_code,
         .message = message,
     });
 }
@@ -71,6 +73,7 @@ public:
                 event.pending_bytes,
                 event.elapsed_ms,
                 event.speed_bps,
+                "",
                 event.message
             );
         }
@@ -161,6 +164,7 @@ BackupRunExecutionResult BackupRunExecutor::execute(
             }
 
             emit_event(events, BackupRunEventKind::ActionStarted, plan, &source, action.kind);
+            std::string error_code;
             try {
                 if (action.kind == BackupRunActionKind::SendReceive) {
                     action_effects_.execute_action(action, source, plan);
@@ -175,12 +179,13 @@ BackupRunExecutionResult BackupRunExecutor::execute(
                         emit_event(events, BackupRunEventKind::RunCancelled, plan, &source, action.kind);
                         return result;
                     }
+                    error_code = transfer_failure_error_code(transfer_result);
                     require_transfer_success(transfer_result);
                 } else if (action_has_external_effect(action.kind)) {
                     action_effects_.execute_action(action, source, plan);
                 }
             } catch (const std::exception& error) {
-                emit_event(events, BackupRunEventKind::ActionFailed, plan, &source, action.kind, 0, 0, 0, 0, 0, 0, error.what());
+                emit_event(events, BackupRunEventKind::ActionFailed, plan, &source, action.kind, 0, 0, 0, 0, 0, 0, error_code, error.what());
                 throw;
             }
 
