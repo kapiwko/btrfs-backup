@@ -30,9 +30,6 @@ The preferred active profile file is
 `/etc/btrfs-backup/profiles/<profile>/profile.json`. Commands select a profile with
 `--profile <profile>` or `BTRFS_BACKUP_PROFILE=<profile>`.
 
-The legacy `/etc/btrfs-backup/backup.env` file is no longer used by the runtime.
-Use `btrfs-backupctl profile migrate` to convert it to profile JSON.
-
 Important fields:
 
 | Field | Meaning |
@@ -64,18 +61,7 @@ A retention value of `0` disables automatic pruning for that scope.
 `STATUS_ROOT` and `HISTORY_ROOT` are intended for unprivileged status readers.
 Private recovery markers remain in `STATE_DIR/profiles/<PROFILE_ID>`.
 
-If `PROFILE_ID` is missing, the runner uses `default`. Legacy files directly
-under `STATE_DIR`, such as `last-success` and `pending-*`, are migrated to the
-profile state directory on the next run.
-
-To convert an existing legacy file into the preferred default profile:
-
-```bash
-sudo btrfs-backupctl profile migrate --profile default
-```
-
-The migrator creates canonical profile JSON and keeps the legacy input files in
-place unless `--remove-legacy` is used.
+If `PROFILE_ID` is missing, the runner uses `default`.
 
 ## JSON Schema
 
