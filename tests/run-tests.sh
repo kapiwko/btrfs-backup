@@ -378,6 +378,8 @@ prepare_runtime_fixture() {
     SOURCES_DIR="$RUNTIME/config/sources.d"
     STATE_DIR="$RUNTIME/state"
     PROFILE_STATE_DIR="$STATE_DIR/profiles/default"
+    STATUS_ROOT="$RUNTIME/run/status"
+    HISTORY_ROOT="$RUNTIME/history"
     LOCK_FILE="$RUNTIME/run/backup.lock"
     SOURCE_ROOT="$RUNTIME/sources/root"
     SOURCE_HOME="$RUNTIME/sources/home"
@@ -423,6 +425,8 @@ MIN_TARGET_FREE_BYTES=0
 MIN_LOCAL_FREE_BYTES=0
 LOCK_FILE=$LOCK_FILE
 STATE_DIR=$STATE_DIR
+STATUS_ROOT=$STATUS_ROOT
+HISTORY_ROOT=$HISTORY_ROOT
 EJECT_SCRIPT_PATH=$ROOT/scripts/btrfs-backup-eject.sh
 NOTIFY_ENABLE=false
 NOTIFY_USER=root
@@ -477,6 +481,10 @@ runtime_success_test() {
     run_backup
     assert_file "$PROFILE_STATE_DIR/last-success"
     assert_contains "$PROFILE_STATE_DIR/last-success" 'profile_id=default'
+    assert_file "$STATUS_ROOT/default/current.json"
+    assert_file "$HISTORY_ROOT/default/last.json"
+    assert_contains "$STATUS_ROOT/default/current.json" '"state": "succeeded"'
+    assert_contains "$HISTORY_ROOT/default/last.json" '"runId":'
     assert_contains "$MOCK_LOG" 'SEND_FULL'
     assert_dir "$MOCK_MOUNTPOINT/snapshots/root"
     assert_dir "$MOCK_MOUNTPOINT/snapshots/home"
@@ -487,6 +495,7 @@ runtime_success_test() {
     sends_before="$(grep -c '^SEND_' "$MOCK_LOG")"
     run_backup
     [[ "$(grep -c '^SEND_' "$MOCK_LOG")" -eq "$sends_before" ]] || fail 'daily limit did not skip second run'
+    assert_contains "$STATUS_ROOT/default/current.json" '"state": "skipped"'
 
     printf '\n# configuration change must invalidate the daily success state\n' >> "$SOURCES_DIR/20-home.conf"
     run_backup

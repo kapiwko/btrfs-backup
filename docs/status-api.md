@@ -1,0 +1,87 @@
+# Status API
+
+The runtime writes machine-readable JSON state for each configured profile.
+This file-based interface is intended for tools and integrations that need
+status without parsing journal text.
+
+## Current Status
+
+Current status is written atomically to:
+
+```text
+/run/btrfs-backup/profiles/<PROFILE_ID>/current.json
+```
+
+The root directory can be overridden with `STATUS_ROOT` in `backup.env`.
+
+Example:
+
+```json
+{
+  "schemaVersion": 1,
+  "profileId": "default",
+  "profileName": "Default backup",
+  "runId": "20260823T024407Z-4298-30158",
+  "state": "running",
+  "phase": "transferring",
+  "message": "Transferring snapshot for home.",
+  "currentSourceName": "home",
+  "sourceIndex": 1,
+  "sourceCount": 0,
+  "startedAt": "2026-08-23T02:44:07+00:00",
+  "updatedAt": "2026-08-23T02:44:07+00:00",
+  "finishedAt": "",
+  "error": "",
+  "exitCode": 0
+}
+```
+
+`state` is one of:
+
+```text
+starting
+running
+validated
+skipped
+succeeded
+failed
+exited
+```
+
+`phase` is a stable, machine-readable step name such as:
+
+```text
+starting
+mounting-target
+validating-target
+validating-source
+creating-snapshot
+selecting-parent
+transferring
+committing
+pruning
+succeeded
+failed
+validated
+skipped
+```
+
+## History
+
+Finished runs are written atomically to:
+
+```text
+/var/lib/btrfs-backup/history/<PROFILE_ID>/<RUN_ID>.json
+/var/lib/btrfs-backup/history/<PROFILE_ID>/last.json
+```
+
+The root directory can be overridden with `HISTORY_ROOT` in `backup.env`.
+History entries use the same schema as `current.json`, with `finishedAt` and
+the final `exitCode` populated.
+
+## Compatibility
+
+The JSON schema starts at `schemaVersion: 1`. Future compatible changes may add
+fields. Clients should ignore unknown fields and treat missing optional fields
+as unavailable.
+
