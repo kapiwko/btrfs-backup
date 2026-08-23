@@ -97,6 +97,7 @@ META
 
 syntax_test() {
     make -C "$ROOT" >/dev/null
+    ctest --test-dir "$ROOT/build" --output-on-failure >/dev/null
     mapfile -t scripts < <(find "$ROOT" -type f \( -name '*.sh' -o -name '*.install' -o \( -path "$ROOT/bin/*" ! -path "$ROOT/bin/__pycache__/*" \) \) | sort)
     local script
     for script in "${scripts[@]}"; do
