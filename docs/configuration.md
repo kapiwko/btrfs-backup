@@ -97,11 +97,10 @@ Source ids must be unique. `remoteSubdir` is a relative path under `remoteRoot`.
 
 For the `/` source, use a dedicated subvolume for snapshots, such as `/.snapshots`. Placing the snapshot repository in a regular directory inside the source subvolume creates unnecessary empty nested-subvolume mount points in future snapshots.
 
-## Planned Application Hooks
+## Application Hooks
 
 Filesystem snapshots do not always provide application-level consistency. A
-future profile version should support controlled hook phases around snapshot
-creation:
+profile may define controlled hook phases around snapshot creation:
 
 ```json
 {
@@ -119,10 +118,9 @@ creation:
 ```
 
 Hook commands must be modeled as an explicit executable path and an argument
-array. The runtime must not execute arbitrary command text through a shell.
-Failures should be reported through structured status fields and stable error
-codes, with enough detail to distinguish hook failure from snapshot, transfer
-or commit failure.
+array. The runtime does not execute arbitrary command text through a shell.
+Hook failures stop the run; structured hook-specific error codes are tracked as
+future hardening work.
 
 This model can cover PostgreSQL, MariaDB, libvirt, containers, virtual
 machines, and administrator-provided programs without hard-coding those

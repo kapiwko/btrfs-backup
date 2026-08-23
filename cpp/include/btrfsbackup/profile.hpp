@@ -46,6 +46,16 @@ struct ProfileNotifications {
     std::string method;
 };
 
+struct ProfileHookCommand {
+    std::string program;
+    std::vector<std::string> arguments;
+};
+
+struct ProfileHooks {
+    std::vector<ProfileHookCommand> before_snapshot;
+    std::vector<ProfileHookCommand> after_snapshot;
+};
+
 struct ProfileSource {
     std::string id;
     std::string name;
@@ -66,6 +76,7 @@ struct Profile {
     ProfilePaths paths;
     ProfileSettings settings;
     ProfileNotifications notifications;
+    ProfileHooks hooks;
     std::vector<ProfileSource> sources;
 };
 

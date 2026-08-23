@@ -9,6 +9,7 @@ namespace btrfsbackup {
 class BackupRunActionEffects final : public IBackupRunActionEffects {
 public:
     BackupRunActionEffects(IBtrfsOperations& btrfs, IFileSystemEffects& fs_effects);
+    BackupRunActionEffects(IBtrfsOperations& btrfs, IFileSystemEffects& fs_effects, ICommandRunner& hooks);
 
     void execute_action(
         const BackupRunAction& action,
@@ -19,6 +20,7 @@ public:
 private:
     IBtrfsOperations& btrfs_;
     IFileSystemEffects& fs_effects_;
+    ICommandRunner* hooks_ = nullptr;
 };
 
 } // namespace btrfsbackup

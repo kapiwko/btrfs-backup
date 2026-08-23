@@ -150,6 +150,42 @@ void test_builds_ordered_source_plan() {
     test_helpers::expect_eq("last action", std::to_string(static_cast<int>(source.actions.back().kind)), std::to_string(static_cast<int>(btrfsbackup::BackupRunActionKind::CleanupSource)));
 }
 
+void test_inserts_snapshot_hooks_around_snapshot_creation() {
+    btrfsbackup::Profile test_profile = profile();
+    test_profile.settings.incremental_required = false;
+    test_profile.hooks.before_snapshot = {
+        btrfsbackup::ProfileHookCommand{
+            .program = "/usr/local/bin/before",
+            .arguments = {"root"},
+        },
+    };
+    test_profile.hooks.after_snapshot = {
+        btrfsbackup::ProfileHookCommand{
+            .program = "/usr/local/bin/after",
+            .arguments = {"root"},
+        },
+    };
+
+    btrfsbackup::BackupRunPlan plan = btrfsbackup::build_backup_run_plan(
+        test_profile,
+        mounts(),
+        {},
+        {},
+        {},
+        {},
+        "20260823T080000Z-123-456",
+        "2026-08-23T080000Z"
+    );
+
+    const std::vector<btrfsbackup::BackupRunAction>& actions = plan.sources.at(0).actions;
+    test_helpers::expect_eq("hook action count", std::to_string(actions.size()), "11");
+    test_helpers::expect_eq("before hook action", std::to_string(static_cast<int>(actions.at(1).kind)), std::to_string(static_cast<int>(btrfsbackup::BackupRunActionKind::BeforeSnapshotHook)));
+    test_helpers::expect_eq("before hook program", actions.at(1).hook.program, "/usr/local/bin/before");
+    test_helpers::expect_eq("snapshot after before hook", std::to_string(static_cast<int>(actions.at(2).kind)), std::to_string(static_cast<int>(btrfsbackup::BackupRunActionKind::CreateSnapshot)));
+    test_helpers::expect_eq("after hook action", std::to_string(static_cast<int>(actions.at(3).kind)), std::to_string(static_cast<int>(btrfsbackup::BackupRunActionKind::AfterSnapshotHook)));
+    test_helpers::expect_eq("after hook argument", actions.at(3).hook.arguments.at(0), "root");
+}
+
 void test_plans_collision_suffix_and_retention() {
     btrfsbackup::Profile test_profile = profile();
     test_profile.sources.at(0).local_retention = 2;
@@ -247,6 +283,7 @@ void test_rejects_invalid_mount_layout() {
 
 int main() {
     test_builds_ordered_source_plan();
+    test_inserts_snapshot_hooks_around_snapshot_creation();
     test_plans_collision_suffix_and_retention();
     test_includes_pending_recovery_action();
     test_rejects_invalid_mount_layout();
