@@ -295,8 +295,8 @@ profile_json_test() {
     local rendered="$TEST_ROOT/profile-json-rendered"
     local saved="$TEST_ROOT/profile-json-saved"
 
-    "$ROOT/bin/btrfs-backup-profile" validate --file "$ROOT/config/profile.example.json" >/dev/null
-    "$ROOT/bin/btrfs-backup-profile" render \
+    "$ROOT/bin/btrfs-backupctl" profile validate --file "$ROOT/config/profile.example.json" >/dev/null
+    "$ROOT/bin/btrfs-backupctl" profile render \
         --file "$ROOT/config/profile.example.json" \
         --output-dir "$rendered" >/dev/null
 
@@ -308,7 +308,7 @@ profile_json_test() {
     assert_contains "$rendered/etc/btrfs-backup/profiles/default/profile.json" '"id": "home"'
     assert_contains "$rendered/etc/udev/rules.d/99-btrfs-backup-default.rules" 'btrfs-backup@default.service'
 
-    "$ROOT/bin/btrfs-backup-profile" \
+    "$ROOT/bin/btrfs-backupctl" profile \
         --etc-root "$saved/etc/btrfs-backup" \
         --udev-root "$saved/etc/udev/rules.d" \
         --public-root "$saved/var/lib/btrfs-backup/public/profiles" \
@@ -318,11 +318,11 @@ profile_json_test() {
     assert_file "$saved/etc/btrfs-backup/profiles/default/profile.json"
     assert_file "$saved/etc/udev/rules.d/99-btrfs-backup-default.rules"
     assert_file "$saved/var/lib/btrfs-backup/public/profiles/default.json"
-    "$ROOT/bin/btrfs-backup-profile" \
+    "$ROOT/bin/btrfs-backupctl" profile \
         --etc-root "$saved/etc/btrfs-backup" \
         show --profile default > "$saved/show.json"
     assert_contains "$saved/show.json" '"profileId": "default"'
-    "$ROOT/bin/btrfs-backup-profile" \
+    "$ROOT/bin/btrfs-backupctl" profile \
         --etc-root "$saved/etc/btrfs-backup" \
         export --profile default --output "$saved/exported.json" >/dev/null
     assert_file "$saved/exported.json"
@@ -799,7 +799,8 @@ profile_loading_test() {
         --profile-dir "$profile_dir" \
         --udev-dir "$RUNTIME/udev" \
         --public-dir "$RUNTIME/public" \
-        --profile default >/dev/null
+        --profile default \
+        --force >/dev/null
 
     assert_file "$migrated"
     assert_contains "$migrated" 'PROFILE_ID=default'

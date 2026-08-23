@@ -37,12 +37,12 @@ USAGE
 }
 
 detect_profile_helper() {
-    if [[ -x "$SCRIPT_DIR/../bin/btrfs-backup-profile" ]]; then
-        printf '%s\n' "$SCRIPT_DIR/../bin/btrfs-backup-profile"
-    elif [[ -x /usr/bin/btrfs-backup-profile ]]; then
-        printf '%s\n' /usr/bin/btrfs-backup-profile
+    if [[ -x "$SCRIPT_DIR/../bin/btrfs-backupctl" ]]; then
+        printf '%s\n' "$SCRIPT_DIR/../bin/btrfs-backupctl"
+    elif [[ -x /usr/bin/btrfs-backupctl ]]; then
+        printf '%s\n' /usr/bin/btrfs-backupctl
     else
-        bb_die "Could not locate btrfs-backup-profile."
+        bb_die "Could not locate btrfs-backupctl."
     fi
 }
 
@@ -297,9 +297,10 @@ MIN_LOCAL_FREE_BYTES="$MIN_LOCAL_FREE_BYTES" \
 NOTIFY_ENABLE="$NOTIFY_ENABLE" \
 NOTIFY_USER="$NOTIFY_USER" \
 NOTIFY_METHOD="$NOTIFY_METHOD" \
-"$PROFILE_HELPER" compose --sources-table "$sources_table" --output "$profile_json_temp"
+"$PROFILE_HELPER" profile compose --sources-table "$sources_table" --output "$profile_json_temp"
 
 "$PROFILE_HELPER" \
+    profile \
     --etc-root "$PROFILE_ROOT" \
     --udev-root "$UDEV_RULES_DIR" \
     --public-root "$PUBLIC_PROFILE_DIR" \

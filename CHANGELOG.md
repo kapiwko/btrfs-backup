@@ -5,9 +5,9 @@
 1. removed runtime fallback to legacy source and main configuration files;
 2. stopped generating legacy source configuration files for profile render/save;
 3. `btrfs-backupctl list-profiles` now lists canonical profile JSON storage;
-4. started replacing Python runtime tooling with C++ by porting
-   `btrfs-backup-profile` to a native helper under the `cpp/` source tree;
-5. package builds now compile and install the native profile helper;
+4. started replacing Python runtime tooling with C++ by porting profile commands
+   to native `btrfs-backupctl profile` code under the `cpp/` source tree;
+5. package builds now compile and install the native control helper;
 6. configurator and profile migrator now create canonical profile JSON through
    the native helper instead of embedded Python snippets;
 7. generated runtime packages no longer depend on Python and the old Python
@@ -27,9 +27,9 @@
 10. udev starts the profile-specific systemd unit;
 11. `btrfs-backupctl list-profiles` lists profile files;
 12. `btrfs-backup-migrate-profile --remove-legacy` moves the legacy configuration, source directory, and old udev rule aside after migration;
-13. `btrfs-backup-profile` validates canonical JSON profiles and materializes runtime `.env`, source, udev, and public manifest files;
+13. profile tooling validates canonical JSON profiles and materializes runtime `.env`, source, udev, and public manifest files;
 14. `btrfs-backup-configure` now renders canonical `profile.json` first, then materializes the runtime profile files from that JSON;
-15. `btrfs-backup-profile show` and `export` can read the active canonical profile or reconstruct it from runtime profile files;
+15. profile `show` and `export` can read the active canonical profile or reconstruct it from runtime profile files;
 16. `docs/engine-contract.md` defines the stable profile, status, history, phase, and recovery contract for future engine implementations;
 17. installable packages include the profile systemd template unit used by udev;
 18. package install and upgrade hooks reload systemd and udev rules without triggering devices;
