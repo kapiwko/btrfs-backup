@@ -104,6 +104,7 @@ add_library(btrfsbackup-core STATIC
     cpp/src/command/status_history_command.cpp
     cpp/src/command/status_show_command.cpp
     cpp/src/command/status_write_command.cpp
+    cpp/src/command/target_command.cpp
     cpp/src/ctl_tool.cpp
     cpp/src/installation_render.cpp
     cpp/src/installation_validate.cpp
@@ -182,6 +183,7 @@ if(BUILD_TESTING)
     add_btrfsbackup_test(btrfsbackup-space-check-tests cpp/tests/space_check_tests.cpp space-check-tests)
     add_btrfsbackup_test(btrfsbackup-snapshot-inventory-tests cpp/tests/snapshot_inventory_tests.cpp snapshot-inventory-tests)
     add_btrfsbackup_test(btrfsbackup-snapshot-transfer-tests cpp/tests/snapshot_transfer_tests.cpp snapshot-transfer-tests)
+    add_btrfsbackup_test(btrfsbackup-target-command-tests cpp/tests/target_command_tests.cpp target-command-tests)
     add_btrfsbackup_test(btrfsbackup-target-mount-validation-tests cpp/tests/target_mount_validation_tests.cpp target-mount-validation-tests)
     add_btrfsbackup_test(btrfsbackup-trusted-file-tests cpp/tests/trusted_file_tests.cpp trusted-file-tests)
     add_btrfsbackup_test(btrfsbackup-transfer-pipeline-tests cpp/tests/transfer_pipeline_tests.cpp transfer-pipeline-tests)
