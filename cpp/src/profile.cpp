@@ -12,6 +12,7 @@
 #include <btrfsbackup/identifiers.hpp>
 #include <btrfsbackup/json_io.hpp>
 #include <btrfsbackup/process.hpp>
+#include <btrfsbackup/shell_env.hpp>
 
 namespace fs = std::filesystem;
 
@@ -135,26 +136,6 @@ Json required_object(const Json& root, const std::string& key, const std::string
 
 std::string systemd_mount_unit(const std::string& mount_point) {
     return run_capture({"systemd-escape", "-p", "--suffix=mount", mount_point});
-}
-
-std::map<std::string, std::string> read_shell_environment(const fs::path& path) {
-    std::string script = "set -a; source \"$1\"; /usr/bin/env -0";
-    std::string output = run_capture({"bash", "-c", script, "bash", path.string()});
-    std::map<std::string, std::string> env;
-    std::size_t start = 0;
-    while (start < output.size()) {
-        std::size_t end = output.find('\0', start);
-        if (end == std::string::npos) {
-            end = output.size();
-        }
-        std::string item = output.substr(start, end - start);
-        std::size_t eq = item.find('=');
-        if (eq != std::string::npos) {
-            env[item.substr(0, eq)] = item.substr(eq + 1);
-        }
-        start = end + 1;
-    }
-    return env;
 }
 
 fs::path profile_json_path(const fs::path& etc_root, const std::string& profile_id) {
