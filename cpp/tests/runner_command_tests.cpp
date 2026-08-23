@@ -9,6 +9,7 @@
 #include <vector>
 
 #include <btrfsbackup/command/runner_command.hpp>
+#include <btrfsbackup/config_fingerprint.hpp>
 #include <btrfsbackup/json.hpp>
 #include <btrfsbackup/json_io.hpp>
 #include <btrfsbackup/profile.hpp>
@@ -185,6 +186,30 @@ void write_mountinfo(const fs::path& path, const btrfsbackup::Profile& profile) 
     test_helpers::write_file(path, content);
 }
 
+std::string profile_fingerprint(const fs::path& config_root, const btrfsbackup::Profile& profile) {
+    return btrfsbackup::compute_config_fingerprint(
+        "2.0.0",
+        config_root / "profiles" / profile.id / "profile.json",
+        {}
+    );
+}
+
+void write_matching_last_success(const fs::path& config_root, const btrfsbackup::Profile& profile) {
+    btrfsbackup::write_success_state(
+        fs::path(profile.paths.state_dir) / "profiles" / profile.id,
+        btrfsbackup::SuccessState{
+            .date = "2026-08-23",
+            .timestamp = "2026-08-23T08:00:00+02:00",
+            .run_id = "20260823T080000Z-previous",
+            .profile_id = profile.id,
+            .profile_name = profile.name,
+            .source_count = 1,
+            .target_luks_uuid = profile.target.luks_uuid,
+            .config_fingerprint = profile_fingerprint(config_root, profile),
+        }
+    );
+}
+
 void test_runner_plan_outputs_shadow_json() {
     fs::path root = test_helpers::test_root("runner-command", "plan");
     fs::create_directories(root / "source" / "root");
@@ -329,6 +354,7 @@ void test_runner_execute_uses_injected_services_and_writes_state() {
     test_helpers::expect_eq("execute result", std::to_string(result), "0");
     test_helpers::expect_eq("execute mode", json.at("mode").get<std::string>(), "cpp-execute");
     test_helpers::expect_true("execute completed", json.at("completed").get<bool>(), "run should complete");
+    test_helpers::expect_true("execute not skipped", !json.at("skipped").get<bool>(), "first run should execute");
     test_helpers::expect_eq("execute transfer count", std::to_string(transfer_pipeline.plans.size()), "1");
     test_helpers::expect_true("execute effects", !action_effects.calls.empty(), "expected non-transfer effects");
 
@@ -343,6 +369,146 @@ void test_runner_execute_uses_injected_services_and_writes_state() {
         btrfsbackup::load_json_file(current).at("state") == "succeeded",
         "current status should be succeeded"
     );
+    test_helpers::expect_true(
+        "last success matches",
+        btrfsbackup::last_success_matches(
+            root / "state" / "profiles" / "default",
+            "2026-08-23",
+            profile.target.luks_uuid,
+            profile_fingerprint(config_root, profile)
+        ),
+        "successful runner should write daily-limit state"
+    );
+
+    fs::remove_all(root);
+}
+
+void test_runner_execute_daily_limit_skips_matching_success() {
+    fs::path root = test_helpers::test_root("runner-command", "execute-daily-limit-skip");
+    fs::create_directories(root / "source" / "root");
+    fs::create_directories(root / "source" / ".snapshots" / "root");
+    fs::create_directories(root / "target" / "snapshots" / "root");
+    fs::create_directories(root / "target" / ".incoming");
+
+    btrfsbackup::Profile profile = test_profile(root);
+    fs::path config_root = root / "config";
+    fs::path mountinfo = root / "mountinfo";
+    write_profile(config_root, profile);
+    write_matching_last_success(config_root, profile);
+    write_mountinfo(mountinfo, profile);
+
+    RecordingActionEffects action_effects;
+    ConfigurableTransferPipeline transfer_pipeline;
+    btrfsbackup::command::RunnerExecutionServices services{
+        .action_effects = action_effects,
+        .transfer_pipeline = transfer_pipeline,
+    };
+
+    std::ostringstream output;
+    int result = btrfsbackup::command::runner(
+        config_root,
+        {
+            "execute",
+            "--profile",
+            "default",
+            "--today",
+            "2026-08-23",
+            "--timestamp",
+            "2026-08-23T080000Z",
+            "--run-id",
+            "20260823T080000Z-123-456",
+            "--mountinfo",
+            mountinfo.string(),
+            "--mount-uuid",
+            "/dev/source",
+            "source-fs",
+            "--mount-uuid",
+            "/dev/mapper/backup",
+            profile.target.btrfs_uuid,
+        },
+        output,
+        &services
+    );
+
+    btrfsbackup::Json json = btrfsbackup::Json::parse(output.str());
+    test_helpers::expect_eq("daily skip result", std::to_string(result), "0");
+    test_helpers::expect_true("daily skip completed", json.at("completed").get<bool>(), "skip should be successful");
+    test_helpers::expect_true("daily skip flag", json.at("skipped").get<bool>(), "matching success should skip");
+    test_helpers::expect_eq("daily skip actions", std::to_string(action_effects.calls.size()), "0");
+    test_helpers::expect_eq("daily skip transfers", std::to_string(transfer_pipeline.plans.size()), "0");
+
+    fs::path current = root / "status" / "default" / "current.json";
+    fs::path history = root / "history" / "default" / "20260823T080000Z-123-456.json";
+    test_helpers::expect_true("daily skip current exists", fs::is_regular_file(current), "missing skipped current status");
+    test_helpers::expect_true("daily skip history exists", fs::is_regular_file(history), "missing skipped history");
+    test_helpers::expect_true(
+        "daily skip current",
+        btrfsbackup::load_json_file(current).at("state") == "skipped",
+        "current status should be skipped"
+    );
+    test_helpers::expect_true(
+        "daily skip history",
+        btrfsbackup::load_json_file(history).at("state") == "skipped",
+        "history should be skipped"
+    );
+
+    fs::remove_all(root);
+}
+
+void test_runner_execute_force_ignores_daily_limit() {
+    fs::path root = test_helpers::test_root("runner-command", "execute-daily-limit-force");
+    fs::create_directories(root / "source" / "root");
+    fs::create_directories(root / "source" / ".snapshots" / "root");
+    fs::create_directories(root / "target" / "snapshots" / "root");
+    fs::create_directories(root / "target" / ".incoming");
+
+    btrfsbackup::Profile profile = test_profile(root);
+    fs::path config_root = root / "config";
+    fs::path mountinfo = root / "mountinfo";
+    write_profile(config_root, profile);
+    write_matching_last_success(config_root, profile);
+    write_mountinfo(mountinfo, profile);
+
+    RecordingActionEffects action_effects;
+    ConfigurableTransferPipeline transfer_pipeline;
+    btrfsbackup::command::RunnerExecutionServices services{
+        .action_effects = action_effects,
+        .transfer_pipeline = transfer_pipeline,
+    };
+
+    std::ostringstream output;
+    int result = btrfsbackup::command::runner(
+        config_root,
+        {
+            "execute",
+            "--force",
+            "--profile",
+            "default",
+            "--today",
+            "2026-08-23",
+            "--timestamp",
+            "2026-08-23T080000Z",
+            "--run-id",
+            "20260823T080000Z-123-456",
+            "--mountinfo",
+            mountinfo.string(),
+            "--mount-uuid",
+            "/dev/source",
+            "source-fs",
+            "--mount-uuid",
+            "/dev/mapper/backup",
+            profile.target.btrfs_uuid,
+        },
+        output,
+        &services
+    );
+
+    btrfsbackup::Json json = btrfsbackup::Json::parse(output.str());
+    test_helpers::expect_eq("force result", std::to_string(result), "0");
+    test_helpers::expect_true("force completed", json.at("completed").get<bool>(), "forced run should complete");
+    test_helpers::expect_true("force not skipped", !json.at("skipped").get<bool>(), "forced run should bypass daily limit");
+    test_helpers::expect_eq("force transfers", std::to_string(transfer_pipeline.plans.size()), "1");
+    test_helpers::expect_true("force actions", !action_effects.calls.empty(), "forced run should execute actions");
 
     fs::remove_all(root);
 }
@@ -913,6 +1079,8 @@ int main() {
     test_runner_plan_outputs_shadow_json();
     test_runner_plan_validates_target_mount();
     test_runner_execute_uses_injected_services_and_writes_state();
+    test_runner_execute_daily_limit_skips_matching_success();
+    test_runner_execute_force_ignores_daily_limit();
     test_runner_execute_validate_builds_plan_without_effects();
     test_runner_execute_transfer_failure_writes_failed_status();
     test_runner_execute_commit_failure_writes_failed_status();
