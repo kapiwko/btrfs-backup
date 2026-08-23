@@ -1,0 +1,222 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+STATUS_ROOT="${BTRFS_BACKUP_STATUS_ROOT:-/run/btrfs-backup/profiles}"
+HISTORY_ROOT="${BTRFS_BACKUP_HISTORY_ROOT:-/var/lib/btrfs-backup/history}"
+
+usage() {
+    cat <<'USAGE'
+Usage: btrfs-backupctl [options] COMMAND
+
+Options:
+  --status-root PATH   Override status root (default: /run/btrfs-backup/profiles).
+  --history-root PATH  Override history root (default: /var/lib/btrfs-backup/history).
+
+Commands:
+  status [--profile ID|--all] [--human]
+  history [--profile ID] [--limit N]
+  watch [--profile ID] [--interval SECONDS]
+  -h, --help
+USAGE
+}
+
+die() {
+    printf 'btrfs-backupctl: %s\n' "$*" >&2
+    exit 2
+}
+
+validate_profile_id() {
+    local profile_id="$1"
+    [[ "$profile_id" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] || die "invalid profile id: $profile_id"
+}
+
+read_json_file() {
+    local path="$1"
+    [[ -r "$path" ]] || die "cannot read $path"
+    cat -- "$path"
+}
+
+extract_json_string() {
+    local key="$1"
+    local file="$2"
+    sed -n "s/^[[:space:]]*\"${key}\":[[:space:]]*\"\\(.*\\)\",[[:space:]]*$/\\1/p; s/^[[:space:]]*\"${key}\":[[:space:]]*\"\\(.*\\)\"[[:space:]]*$/\\1/p" "$file" \
+        | head -n1 \
+        | sed 's/\\"/"/g; s/\\\\/\\/g'
+}
+
+human_status() {
+    local file="$1"
+    local profile state phase message source updated error
+
+    profile="$(extract_json_string profileName "$file")"
+    [[ -n "$profile" ]] || profile="$(extract_json_string profileId "$file")"
+    state="$(extract_json_string state "$file")"
+    phase="$(extract_json_string phase "$file")"
+    message="$(extract_json_string message "$file")"
+    source="$(extract_json_string currentSourceName "$file")"
+    updated="$(extract_json_string updatedAt "$file")"
+    error="$(extract_json_string error "$file")"
+
+    printf '%s: %s\n' "${profile:-unknown}" "${state:-unknown}"
+    [[ -n "$phase" ]] && printf '  phase: %s\n' "$phase"
+    [[ -n "$message" ]] && printf '  %s\n' "$message"
+    [[ -n "$source" ]] && printf '  source: %s\n' "$source"
+    [[ -n "$updated" ]] && printf '  updated: %s\n' "$updated"
+    [[ -n "$error" ]] && printf '  error: %s\n' "$error"
+    return 0
+}
+
+command_status() {
+    local profile=default
+    local all=0
+    local human=0
+    local path
+
+    while (( $# > 0 )); do
+        case "$1" in
+            --profile)
+                [[ $# -ge 2 ]] || die "--profile requires a value"
+                profile="$2"
+                shift 2
+                ;;
+            --all)
+                all=1
+                shift
+                ;;
+            --human)
+                human=1
+                shift
+                ;;
+            *) die "unknown status option: $1" ;;
+        esac
+    done
+
+    if (( all == 1 )); then
+        local found=0
+        while IFS= read -r -d '' path; do
+            found=1
+            if (( human == 1 )); then
+                human_status "$path"
+            else
+                cat -- "$path"
+                printf '\n'
+            fi
+        done < <(find "$STATUS_ROOT" -mindepth 2 -maxdepth 2 -name current.json -type f -print0 2>/dev/null | sort -z)
+        (( found == 1 )) || die "no status files found under $STATUS_ROOT"
+        return 0
+    fi
+
+    validate_profile_id "$profile"
+    path="$STATUS_ROOT/$profile/current.json"
+    if (( human == 1 )); then
+        [[ -r "$path" ]] || die "cannot read $path"
+        human_status "$path"
+    else
+        read_json_file "$path"
+    fi
+}
+
+command_history() {
+    local profile=default
+    local limit=50
+    local directory path count=0
+
+    while (( $# > 0 )); do
+        case "$1" in
+            --profile)
+                [[ $# -ge 2 ]] || die "--profile requires a value"
+                profile="$2"
+                shift 2
+                ;;
+            --limit)
+                [[ $# -ge 2 ]] || die "--limit requires a value"
+                [[ "$2" =~ ^[0-9]+$ ]] || die "--limit must be a number"
+                limit="$2"
+                shift 2
+                ;;
+            *) die "unknown history option: $1" ;;
+        esac
+    done
+
+    validate_profile_id "$profile"
+    directory="$HISTORY_ROOT/$profile"
+    [[ -d "$directory" ]] || die "history directory does not exist: $directory"
+
+    printf '[\n'
+    while IFS= read -r path; do
+        (( count >= limit )) && break
+        (( count == 0 )) || printf ',\n'
+        cat -- "$path"
+        (( count += 1 ))
+    done < <(find "$directory" -maxdepth 1 -type f -name '*.json' ! -name last.json -printf '%f\n' \
+        | sort -r \
+        | sed "s|^|$directory/|")
+    printf '\n]\n'
+}
+
+command_watch() {
+    local profile=default
+    local interval=1
+    local path previous="" current=""
+
+    while (( $# > 0 )); do
+        case "$1" in
+            --profile)
+                [[ $# -ge 2 ]] || die "--profile requires a value"
+                profile="$2"
+                shift 2
+                ;;
+            --interval)
+                [[ $# -ge 2 ]] || die "--interval requires a value"
+                interval="$2"
+                shift 2
+                ;;
+            *) die "unknown watch option: $1" ;;
+        esac
+    done
+
+    validate_profile_id "$profile"
+    path="$STATUS_ROOT/$profile/current.json"
+    while true; do
+        if [[ -r "$path" ]]; then
+            current="$(cat -- "$path")"
+            if [[ "$current" != "$previous" ]]; then
+                printf '%s\n' "$current"
+                previous="$current"
+            fi
+        fi
+        sleep "$interval"
+    done
+}
+
+while (( $# > 0 )); do
+    case "$1" in
+        --status-root)
+            [[ $# -ge 2 ]] || die "--status-root requires a value"
+            STATUS_ROOT="$2"
+            shift 2
+            ;;
+        --history-root)
+            [[ $# -ge 2 ]] || die "--history-root requires a value"
+            HISTORY_ROOT="$2"
+            shift 2
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        *) break ;;
+    esac
+done
+
+command="${1:-}"
+[[ -n "$command" ]] || { usage; exit 2; }
+shift
+
+case "$command" in
+    status) command_status "$@" ;;
+    history) command_history "$@" ;;
+    watch) command_watch "$@" ;;
+    -h|--help) usage ;;
+    *) die "unknown command: $command" ;;
+esac

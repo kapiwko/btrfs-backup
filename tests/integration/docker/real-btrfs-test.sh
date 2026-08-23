@@ -84,6 +84,8 @@ configure_backup_with_cli() {
 
     cat > "$answers" <<ANSWERS
 BACKUP_DEVICE=$target_device
+PROFILE_ID=default
+PROFILE_NAME='Default backup'
 BACKUP_LUKS_UUID=$luks_uuid
 BACKUP_BTRFS_UUID=$btrfs_uuid
 BACKUP_UDEV_MATCH='ENV{DEVTYPE}=="disk", ENV{ID_FS_TYPE}=="crypto_LUKS", ENV{ID_FS_UUID}=="$luks_uuid"'
@@ -290,6 +292,22 @@ grep -q '"state": "succeeded"' /run/btrfs-backup/profiles/default/current.json \
     || fail 'current status JSON was not written'
 grep -q '"state": "succeeded"' /var/lib/btrfs-backup/history/default/last.json \
     || fail 'history JSON was not written'
+set +e
+CTL_STATUS_OUTPUT="$(btrfs-backupctl status --profile default --human 2>&1)"
+CTL_STATUS_CODE=$?
+set -e
+[[ "$CTL_STATUS_CODE" -eq 0 ]] \
+    || { printf '%s\n' "$CTL_STATUS_OUTPUT" >&2; fail 'btrfs-backupctl status failed'; }
+grep -q 'Default backup: succeeded' <<< "$CTL_STATUS_OUTPUT" \
+    || { printf '%s\n' "$CTL_STATUS_OUTPUT" >&2; fail 'btrfs-backupctl did not render human status'; }
+set +e
+CTL_HISTORY_OUTPUT="$(btrfs-backupctl history --profile default --limit 1 2>&1)"
+CTL_HISTORY_CODE=$?
+set -e
+[[ "$CTL_HISTORY_CODE" -eq 0 ]] \
+    || { printf '%s\n' "$CTL_HISTORY_OUTPUT" >&2; fail 'btrfs-backupctl history failed'; }
+grep -q '"state": "succeeded"' <<< "$CTL_HISTORY_OUTPUT" \
+    || { printf '%s\n' "$CTL_HISTORY_OUTPUT" >&2; fail 'btrfs-backupctl did not render history'; }
 assert_count 1 "$TARGET_MOUNT/snapshots/home"
 assert_count 1 "$SOURCE_MOUNT/.snapshots/home"
 assert_remote_matches_latest_local

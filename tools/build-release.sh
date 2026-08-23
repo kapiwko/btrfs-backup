@@ -218,6 +218,7 @@ stage_package_payload() {
         "$pkgdir/usr/lib/btrfs-backup/lib/btrfs-backup-common.sh"
 
     install -Dm755 "$root/bin/btrfs-backup" "$pkgdir/usr/bin/btrfs-backup"
+    install -Dm755 "$root/bin/btrfs-backupctl" "$pkgdir/usr/bin/btrfs-backupctl"
     install -Dm755 "$root/bin/btrfs-backup-eject" "$pkgdir/usr/bin/btrfs-backup-eject"
     install -Dm755 "$root/bin/btrfs-backup-unplug" "$pkgdir/usr/bin/btrfs-backup-unplug"
     install -Dm755 "$root/install/btrfs-backup-configure.sh" \
@@ -525,6 +526,7 @@ package() {
   install -Dm755 "\$root/scripts/btrfs-backup-unplug.sh" "\$pkgdir/usr/lib/btrfs-backup/btrfs-backup-unplug.sh"
   install -Dm755 "\$root/scripts/lib/btrfs-backup-common.sh" "\$pkgdir/usr/lib/btrfs-backup/lib/btrfs-backup-common.sh"
   install -Dm755 "\$root/bin/btrfs-backup" "\$pkgdir/usr/bin/btrfs-backup"
+  install -Dm755 "\$root/bin/btrfs-backupctl" "\$pkgdir/usr/bin/btrfs-backupctl"
   install -Dm755 "\$root/bin/btrfs-backup-eject" "\$pkgdir/usr/bin/btrfs-backup-eject"
   install -Dm755 "\$root/bin/btrfs-backup-unplug" "\$pkgdir/usr/bin/btrfs-backup-unplug"
   install -Dm755 "\$root/install/btrfs-backup-configure.sh" "\$pkgdir/usr/bin/btrfs-backup-configure"
@@ -734,6 +736,7 @@ if [[ "$TARGET" == all || "$TARGET" == arch ]]; then
     grep -qx '.INSTALL' "$TMP_ROOT/package-files.txt"
     grep -qx '.MTREE' "$TMP_ROOT/package-files.txt"
     grep -qx 'usr/bin/btrfs-backup' "$TMP_ROOT/package-files.txt"
+    grep -qx 'usr/bin/btrfs-backupctl' "$TMP_ROOT/package-files.txt"
     grep -qx 'usr/bin/btrfs-backup-configure' "$TMP_ROOT/package-files.txt"
     grep -qx 'usr/lib/btrfs-backup/btrfs-backup.sh' "$TMP_ROOT/package-files.txt"
     if command -v pacman >/dev/null 2>&1; then
@@ -749,6 +752,7 @@ if [[ "$TARGET" == all || "$TARGET" == arch ]]; then
     done < <(find "$PACKAGE_AUDIT_ROOT/usr/bin" "$PACKAGE_AUDIT_ROOT/usr/lib/btrfs-backup" -type f -print0)
     bash -n "$PACKAGE_AUDIT_ROOT/.INSTALL"
     "$PACKAGE_AUDIT_ROOT/usr/bin/btrfs-backup" --help >/dev/null
+    "$PACKAGE_AUDIT_ROOT/usr/bin/btrfs-backupctl" --help >/dev/null
     "$PACKAGE_AUDIT_ROOT/usr/bin/btrfs-backup-eject" --help >/dev/null
     "$PACKAGE_AUDIT_ROOT/usr/bin/btrfs-backup-unplug" --help >/dev/null 2>&1
     "$PACKAGE_AUDIT_ROOT/usr/bin/btrfs-backup-configure" --help >/dev/null
