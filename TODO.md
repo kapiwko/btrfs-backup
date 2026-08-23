@@ -59,6 +59,18 @@
 
 - Add stable error codes for runtime, repository and restore failures.
 
+- Add QEMU system tests with real hotplug:
+  - boot a minimal Arch Linux guest with systemd and udev;
+  - attach a virtual USB target disk dynamically instead of pre-mounting it;
+  - verify udev-triggered service startup, full transfer, incremental transfer,
+    dynamic detach, reconnect and pending-state recovery;
+  - cover failures that mocks and Docker cannot model cleanly: killed
+    `btrfs send`, killed `btrfs receive`, ENOSPC, read-only target remount,
+    mapper loss, corrupted active JSON, stale pending marker, interruption
+    during commit, interruption after commit before history, and suspend during
+    transfer;
+  - make this an explicit system-test target, separate from the default suite.
+
 - Add `btrfs-backupctl doctor`:
   - validate profile files, helper availability, mount state, target identity,
     free space, status/history paths and repository metadata;
