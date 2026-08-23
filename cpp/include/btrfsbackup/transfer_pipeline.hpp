@@ -88,6 +88,7 @@ public:
 };
 
 bool transfer_succeeded(const TransferResult& result);
+std::string transfer_failure_error_code(const TransferResult& result);
 void require_transfer_success(const TransferResult& result);
 
 } // namespace btrfsbackup
