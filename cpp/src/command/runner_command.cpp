@@ -219,7 +219,12 @@ btrfsbackup::BackupRunPlan build_runner_plan(
 
 namespace btrfsbackup::command {
 
-int runner(const fs::path& profile_config_dir, const std::vector<std::string>& args, std::ostream& output) {
+int runner(
+    const fs::path& profile_config_dir,
+    const std::vector<std::string>& args,
+    std::ostream& output,
+    RunnerExecutionServices* execution_services
+) {
     if (args.empty()) {
         usage();
         return 2;
@@ -243,10 +248,6 @@ int runner(const fs::path& profile_config_dir, const std::vector<std::string>& a
     BackupRunPlan plan = build_runner_plan(profile_config_dir, options, profile);
 
     if (command == "execute") {
-        LibBtrfsOperations btrfs;
-        StdFileSystemEffects fs_effects;
-        BackupRunActionEffects action_effects(btrfs, fs_effects);
-        PosixTransferPipeline transfer_pipeline;
         JsonFileBackupRunCheckpointStore checkpoints(fs::path(profile.paths.state_dir) / "profiles" / profile.id);
         StatusBackupRunEventSink status_events({
             .status_root = profile.paths.status_root,
@@ -256,6 +257,18 @@ int runner(const fs::path& profile_config_dir, const std::vector<std::string>& a
             .started_at = options.timestamp,
         });
         CancellationToken cancellation;
+
+        LibBtrfsOperations btrfs;
+        StdFileSystemEffects fs_effects;
+        BackupRunActionEffects real_action_effects(btrfs, fs_effects);
+        PosixTransferPipeline real_transfer_pipeline;
+        IBackupRunActionEffects& action_effects = execution_services == nullptr
+            ? static_cast<IBackupRunActionEffects&>(real_action_effects)
+            : execution_services->action_effects;
+        ITransferPipeline& transfer_pipeline = execution_services == nullptr
+            ? static_cast<ITransferPipeline&>(real_transfer_pipeline)
+            : execution_services->transfer_pipeline;
+
         BackupRunExecutor executor(action_effects, transfer_pipeline, checkpoints);
         BackupRunExecutionResult result = executor.execute(plan, status_events, cancellation);
 
@@ -303,6 +316,10 @@ int runner(const fs::path& profile_config_dir, const std::vector<std::string>& a
     }.dump(2) << '\n';
 
     return 0;
+}
+
+int runner(const fs::path& profile_config_dir, const std::vector<std::string>& args, std::ostream& output) {
+    return runner(profile_config_dir, args, output, nullptr);
 }
 
 } // namespace btrfsbackup::command
