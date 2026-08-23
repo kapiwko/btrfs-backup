@@ -1,6 +1,8 @@
 #include <sys/stat.h>
 
 #include <filesystem>
+#include <map>
+#include <optional>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -65,6 +67,19 @@ public:
             .bytes_transferred = 1024,
         });
         return next_result;
+    }
+};
+
+class MetadataMap {
+public:
+    std::map<std::string, btrfsbackup::SnapshotMetadata> values;
+
+    std::optional<btrfsbackup::SnapshotMetadata> read(const fs::path& path) const {
+        auto found = values.find(path.string());
+        if (found == values.end()) {
+            return std::nullopt;
+        }
+        return found->second;
     }
 };
 
@@ -605,6 +620,81 @@ void test_runner_execute_multi_source_success() {
     fs::remove_all(root);
 }
 
+void test_runner_execute_incremental_uses_selected_parent() {
+    fs::path root = test_helpers::test_root("runner-command", "execute-incremental");
+    fs::create_directories(root / "source" / "root");
+    fs::create_directories(root / "source" / ".snapshots" / "root");
+    fs::create_directories(root / "target" / "snapshots" / "root");
+    fs::create_directories(root / "target" / ".incoming");
+
+    btrfsbackup::Profile profile = test_profile(root);
+    fs::path local_parent = root / "source" / ".snapshots" / "root" / "root-2026-08-22T080000Z";
+    fs::path remote_parent = root / "target" / "snapshots" / "root" / "root-2026-08-22T080000Z";
+    fs::create_directories(local_parent);
+    fs::create_directories(remote_parent);
+
+    fs::path config_root = root / "config";
+    fs::path mountinfo = root / "mountinfo";
+    write_profile(config_root, profile);
+    write_mountinfo(mountinfo, profile);
+
+    MetadataMap metadata;
+    metadata.values[local_parent.string()] = btrfsbackup::SnapshotMetadata{
+        .is_subvolume = true,
+        .readonly = true,
+        .uuid = "parent-uuid",
+    };
+    metadata.values[remote_parent.string()] = btrfsbackup::SnapshotMetadata{
+        .is_subvolume = true,
+        .readonly = true,
+        .uuid = "remote-parent-uuid",
+        .received_uuid = "parent-uuid",
+    };
+
+    RecordingActionEffects action_effects;
+    ConfigurableTransferPipeline transfer_pipeline;
+    btrfsbackup::command::RunnerExecutionServices services{
+        .action_effects = action_effects,
+        .transfer_pipeline = transfer_pipeline,
+        .snapshot_metadata_reader = [&metadata](const fs::path& path) {
+            return metadata.read(path);
+        },
+    };
+
+    std::ostringstream output;
+    int result = btrfsbackup::command::runner(
+        config_root,
+        {
+            "execute",
+            "--experimental-cpp-runner",
+            "--profile",
+            "default",
+            "--timestamp",
+            "2026-08-23T080000Z",
+            "--run-id",
+            "20260823T080000Z-123-456",
+            "--mountinfo",
+            mountinfo.string(),
+            "--mount-uuid",
+            "/dev/source",
+            "source-fs",
+            "--mount-uuid",
+            "/dev/mapper/backup",
+            profile.target.btrfs_uuid,
+        },
+        output,
+        &services
+    );
+
+    test_helpers::expect_eq("incremental result", std::to_string(result), "0");
+    test_helpers::expect_eq("incremental transfers", std::to_string(transfer_pipeline.plans.size()), "1");
+    const std::vector<std::string>& send_argv = transfer_pipeline.plans.at(0).producer_argv;
+    test_helpers::expect_eq("incremental parent flag", send_argv.at(2), "-p");
+    test_helpers::expect_eq("incremental parent path", send_argv.at(3), local_parent.string());
+
+    fs::remove_all(root);
+}
+
 } // namespace
 
 int main() {
@@ -616,6 +706,7 @@ int main() {
     test_runner_execute_commit_failure_writes_failed_status();
     test_runner_execute_verify_failure_writes_failed_status();
     test_runner_execute_multi_source_success();
+    test_runner_execute_incremental_uses_selected_parent();
 
     return test_helpers::finish("runner command tests");
 }
