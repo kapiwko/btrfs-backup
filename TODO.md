@@ -238,6 +238,22 @@
 
 ## System API And Desktop Integration
 
+- Grow the optional Plasma package from the initial status plasmoid:
+  - keep the base package independent from Qt Quick, Kirigami, Plasma and a
+    graphical session;
+  - keep the temporary plasmoid backend on public JSON status only until the
+    system D-Bus manager exists;
+  - add a shared C++ desktop client library for capabilities, status, history
+    and control requests once the D-Bus API is available;
+  - add a session monitor that owns KJob, KUiServer progress and notifications
+    instead of making the plasmoid own long-running progress;
+  - add a KCM with QML/Kirigami views and C++ models for profile browsing,
+    validation, freshness policy and controlled writes through the system API;
+  - keep QML free of shell command strings, private state parsing and direct
+    writes to `/etc/btrfs-backup`;
+  - add Plasma/KCM smoke tests for loading, status rendering, cancellation
+    routing and restart recovery.
+
 - Add a stable system API for status and control:
   - expose profile status, history, freshness, progress, cancellation,
     safe-removal state and suggested recovery actions;
