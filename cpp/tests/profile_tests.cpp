@@ -185,9 +185,9 @@ void test_typed_store_renders_tree() {
         "missing rendered profile env"
     );
     expect_true(
-        "typed tree source",
-        fs::is_regular_file(root / "rendered" / "etc" / "btrfs-backup" / "profiles" / "default" / "sources.d" / "010-home.conf"),
-        "missing rendered source"
+        "typed tree profile json",
+        fs::is_regular_file(root / "rendered" / "etc" / "btrfs-backup" / "profiles" / "default" / "profile.json"),
+        "missing rendered profile JSON"
     );
     expect_true(
         "typed tree public",
@@ -215,9 +215,9 @@ void test_typed_store_saves_tree() {
         "missing saved profile env"
     );
     expect_true(
-        "typed save source",
-        fs::is_regular_file(root / "etc" / "btrfs-backup" / "profiles" / "default" / "sources.d" / "010-home.conf"),
-        "missing saved source"
+        "typed save profile json",
+        fs::is_regular_file(root / "etc" / "btrfs-backup" / "profiles" / "default" / "profile.json"),
+        "missing saved profile JSON"
     );
     expect_true(
         "typed save public",

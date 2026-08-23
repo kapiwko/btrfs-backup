@@ -706,7 +706,6 @@ validate_rendered_tree() {
     local profile_service_file="$root/systemd/btrfs-backup@.service"
     local udev_file="$root/udev/99-btrfs-backup.rules"
     local profile_files=("$root/config/profiles.d"/*.env)
-    local source_files=("$root/config/profiles"/*/sources.d/*.conf)
     local profile_json="$root/config/profile.json"
 
     [[ -f "$main_config" ]] || bb_die "Missing rendered main configuration: $main_config"
@@ -715,8 +714,6 @@ validate_rendered_tree() {
     [[ -f "$service_file" ]] || bb_die "Missing rendered systemd unit: $service_file"
     [[ -f "$profile_service_file" ]] || bb_die "Missing rendered systemd template unit: $profile_service_file"
     [[ -f "$udev_file" ]] || bb_die "Missing rendered udev rule: $udev_file"
-    (( ${#source_files[@]} > 0 )) || bb_die "No rendered source definitions found."
-
     if grep -R -n -E '\{\{[A-Z0-9_]+\}\}' "$root"; then
         bb_die "Unresolved placeholders remain in rendered files."
     fi
@@ -724,7 +721,7 @@ validate_rendered_tree() {
     local profile_helper
     profile_helper="$(detect_profile_helper)"
     "$profile_helper" validate --file "$profile_json" >/dev/null
-    bash -n "$main_config" "${profile_files[@]}" "${source_files[@]}"
+    bash -n "$main_config" "${profile_files[@]}"
     verify_systemd_units "$service_file" "$profile_service_file"
     udevadm verify "$udev_file"
     bb_log INFO "Rendered configuration passed syntax, systemd, and udev validation: $root"
@@ -777,13 +774,10 @@ validate_active_installation() {
     bb_assert_trusted_config_file "$active_config"
     # shellcheck disable=SC1090
     source "$active_config"
-    SOURCES_DIR="${SOURCES_DIR:-/etc/btrfs-backup/sources.d}"
-    local source_files=("$SOURCES_DIR"/*.conf)
-    (( ${#source_files[@]} > 0 )) || bb_die "No source definitions under $SOURCES_DIR"
-    local source_file
-    for source_file in "${source_files[@]}"; do
-        bb_assert_trusted_config_file "$source_file"
-    done
+    local profile_id="${PROFILE_ID:-default}"
+    local profile_json="/etc/btrfs-backup/profiles/$profile_id/profile.json"
+    [[ -f "$profile_json" ]] || bb_die "Missing profile JSON: $profile_json"
+    bb_assert_trusted_config_file "$profile_json"
     [[ -f "$service_file" ]] || bb_die "Missing $service_file"
     [[ -f "$udev_file" ]] || bb_die "Missing $udev_file"
     if grep -q 'btrfs-backup@' "$udev_file"; then
@@ -791,7 +785,8 @@ validate_active_installation() {
         verify_units+=("$profile_service_file")
     fi
 
-    bash -n "$active_config" "${source_files[@]}"
+    bash -n "$active_config"
+    "$(detect_profile_helper)" validate --file "$profile_json" >/dev/null
     verify_systemd_units "${verify_units[@]}"
     udevadm verify "$udev_file"
 
@@ -901,7 +896,7 @@ render_template "$TEMPLATE_DIR/config/crypttab.fragment.example" "$OUTPUT_DIR/co
 render_template "$TEMPLATE_DIR/systemd/btrfs-backup.service.example" "$OUTPUT_DIR/systemd/btrfs-backup.service"
 render_template "$TEMPLATE_DIR/systemd/btrfs-backup@.service.example" "$OUTPUT_DIR/systemd/btrfs-backup@.service"
 
-chmod 0600 "$OUTPUT_DIR/config/backup.env" "$OUTPUT_DIR/config/profiles.d"/*.env "$OUTPUT_DIR/config/profiles"/*/sources.d/*.conf
+chmod 0600 "$OUTPUT_DIR/config/backup.env" "$OUTPUT_DIR/config/profiles.d"/*.env "$OUTPUT_DIR/config/profiles/$PROFILE_ID/profile.json"
 validate_rendered_tree "$OUTPUT_DIR"
 
 if [[ "$ACTION" == apply ]]; then
@@ -937,11 +932,6 @@ if [[ "$ACTION" == apply ]]; then
     backup_existing_file /etc/systemd/system/btrfs-backup@.service 'btrfs-backup@.service'
     backup_existing_file /etc/udev/rules.d/99-btrfs-backup.rules 99-btrfs-backup.rules
 
-    new_sources="/etc/btrfs-backup/.profile-$PROFILE_ID-sources.d.new.$$"
-    rm -rf -- "$new_sources"
-    install -d -m0700 "$new_sources"
-    install -m0600 "$OUTPUT_DIR/config/profiles/$PROFILE_ID/sources.d"/*.conf "$new_sources/"
-
     install -m0600 "$OUTPUT_DIR/config/backup.env" /etc/btrfs-backup/.backup.env.new
     mv -f -- /etc/btrfs-backup/.backup.env.new /etc/btrfs-backup/backup.env
     install -d -m0700 /etc/btrfs-backup/profiles.d
@@ -949,7 +939,6 @@ if [[ "$ACTION" == apply ]]; then
     mv -f -- "/etc/btrfs-backup/profiles.d/.$PROFILE_ID.env.new" "/etc/btrfs-backup/profiles.d/$PROFILE_ID.env"
     install -d -m0700 "/etc/btrfs-backup/profiles/$PROFILE_ID"
     rm -rf -- "/etc/btrfs-backup/profiles/$PROFILE_ID/sources.d"
-    mv -- "$new_sources" "/etc/btrfs-backup/profiles/$PROFILE_ID/sources.d"
     install -Dm0600 "$OUTPUT_DIR/config/profile.json" "/etc/btrfs-backup/profiles/$PROFILE_ID/profile.json"
     install -Dm0644 "$OUTPUT_DIR/public/profiles/$PROFILE_ID.json" "/var/lib/btrfs-backup/public/profiles/$PROFILE_ID.json"
 
@@ -993,7 +982,6 @@ Installed active configuration:
   /etc/btrfs-backup/backup.env
   /etc/btrfs-backup/profiles.d/$PROFILE_ID.env
   /etc/btrfs-backup/profiles/$PROFILE_ID/profile.json
-  /etc/btrfs-backup/profiles/$PROFILE_ID/sources.d/*.conf
   /var/lib/btrfs-backup/public/profiles/$PROFILE_ID.json
   /etc/systemd/system/btrfs-backup.service
   /etc/systemd/system/btrfs-backup@.service

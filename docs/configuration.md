@@ -20,13 +20,9 @@ btrfs-backup-profile export --profile default --output profile.json
 ```text
 /etc/btrfs-backup/profiles.d/<profile>.env
 /etc/btrfs-backup/profiles/<profile>/profile.json
-/etc/btrfs-backup/profiles/<profile>/sources.d/*.conf
 /etc/udev/rules.d/99-btrfs-backup-<profile>.rules
 /var/lib/btrfs-backup/public/profiles/<profile>.json
 ```
-
-`sources.d/*.conf` is generated for legacy tooling and migration compatibility.
-The backup runtime uses `profile.json` for source definitions.
 
 `btrfs-backup-configure` follows the same model: it renders `profile.json`
 first and then materializes derived files from that JSON.
@@ -85,8 +81,7 @@ sudo btrfs-backup-migrate-profile --profile default
 ```
 
 The migrator creates canonical profile JSON, materializes
-`/etc/btrfs-backup/profiles.d/default.env`, writes legacy profile-local source
-definitions for compatibility, and keeps the legacy `/etc/btrfs-backup/backup.env` and
+`/etc/btrfs-backup/profiles.d/default.env`, and keeps the legacy `/etc/btrfs-backup/backup.env` and
 `/etc/btrfs-backup/sources.d` paths and old udev rule in place unless
 `--remove-legacy` is used.
 

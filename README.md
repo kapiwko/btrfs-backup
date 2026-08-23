@@ -102,19 +102,10 @@ journalctl -u btrfs-backup@default.service -f
 
 ## Configuration Layout
 
-The canonical format for tools is JSON. `btrfs-backup-configure` writes `profile.json` first and uses `btrfs-backup-profile save` to materialize the trusted runtime files consumed by the backup runner.
-
-Each runtime source has a separate file under `/etc/btrfs-backup/profiles/<profile>/sources.d`:
-
-```bash
-ENABLED=true
-SOURCE_NAME=root
-SOURCE_SUBVOLUME=/
-LOCAL_SNAPSHOT_DIR=/.snapshots/btrfs-backup/root
-REMOTE_SUBDIR=root
-SOURCE_RETENTION_COUNT=30
-SOURCE_LOCAL_RETENTION_COUNT=30
-```
+The canonical format for tools and source definitions is JSON.
+`btrfs-backup-configure` writes `profile.json` and uses
+`btrfs-backup-profile save` to materialize the trusted runtime files consumed by
+the backup runner.
 
 Active runtime configuration files are trusted Bash code executed as root. They must be owned by root and use mode `0600`; the script refuses files that are accessible by group or other users.
 

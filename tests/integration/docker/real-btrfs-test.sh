@@ -19,7 +19,7 @@ RENDERED_CONFIG="$TEST_ROOT/rendered"
 LOG_DIR="$TEST_ROOT/logs"
 RUN_LOG="$LOG_DIR/btrfs-backup.log"
 ACTIVE_CONFIG=/etc/btrfs-backup/backup.env
-SOURCE_CONFIG=/etc/btrfs-backup/profiles/default/sources.d/010-home.conf
+PROFILE_JSON=/etc/btrfs-backup/profiles/default/profile.json
 
 cleanup() {
     set +e
@@ -121,11 +121,9 @@ ANSWERS
         --output-dir "$RENDERED_CONFIG" >/dev/null
     btrfs-backup-configure --validate-dir "$RENDERED_CONFIG" >/dev/null
 
-    install -d -m0700 /etc/btrfs-backup /etc/btrfs-backup/profiles/default/sources.d /etc/btrfs-backup/profiles.d
+    install -d -m0700 /etc/btrfs-backup /etc/btrfs-backup/profiles/default /etc/btrfs-backup/profiles.d
     install -m0600 "$RENDERED_CONFIG/config/backup.env" /etc/btrfs-backup/backup.env
     install -m0600 "$RENDERED_CONFIG/config/profiles.d/default.env" /etc/btrfs-backup/profiles.d/default.env
-    rm -f -- /etc/btrfs-backup/profiles/default/sources.d/*.conf
-    install -m0600 "$RENDERED_CONFIG/config/profiles/default/sources.d"/*.conf /etc/btrfs-backup/profiles/default/sources.d/
     install -m0600 "$RENDERED_CONFIG/config/profile.json" /etc/btrfs-backup/profiles/default/profile.json
     install -Dm0644 "$RENDERED_CONFIG/systemd/btrfs-backup.service" /etc/systemd/system/btrfs-backup.service
     install -Dm0644 "$RENDERED_CONFIG/systemd/btrfs-backup@.service" /etc/systemd/system/btrfs-backup@.service
@@ -133,7 +131,7 @@ ANSWERS
     btrfs-backup-configure --validate >/dev/null
     ACTIVE_CONFIG=/etc/btrfs-backup/profiles.d/default.env
     [[ -f "$ACTIVE_CONFIG" ]] || fail 'configuration did not create default profile env'
-    SOURCE_CONFIG=/etc/btrfs-backup/profiles/default/sources.d/010-home.conf
+    PROFILE_JSON=/etc/btrfs-backup/profiles/default/profile.json
 }
 
 run_backup() {
@@ -213,19 +211,16 @@ target_uuid_mismatch_test() {
 }
 
 source_on_target_test() {
+    local profile_backup="$TEST_ROOT/profile.source-on-target.json.bak"
     btrfs subvolume create "$TARGET_MOUNT/bad-source" >/dev/null
     install -d -m0700 "$TARGET_MOUNT/.bad-local"
-    cat > "$SOURCE_CONFIG" <<CONFIG
-ENABLED=true
-SOURCE_NAME=home
-SOURCE_SUBVOLUME=$TARGET_MOUNT/bad-source
-LOCAL_SNAPSHOT_DIR=$TARGET_MOUNT/.bad-local
-REMOTE_SUBDIR=home
-SOURCE_RETENTION_COUNT=2
-SOURCE_LOCAL_RETENTION_COUNT=2
-CONFIG
-    chmod 0600 "$SOURCE_CONFIG"
+    cp -a -- "$PROFILE_JSON" "$profile_backup"
+    perl -0pi -e 's#"subvolume": "[^"]*"#"subvolume": "'"$TARGET_MOUNT"'/bad-source"#' "$PROFILE_JSON"
+    perl -0pi -e 's#"localSnapshotDir": "[^"]*"#"localSnapshotDir": "'"$TARGET_MOUNT"'/.bad-local"#' "$PROFILE_JSON"
+    chmod 0600 "$PROFILE_JSON"
     expect_backup_failure 'SOURCE_SUBVOLUME must not be on the backup target filesystem'
+    cp -a -- "$profile_backup" "$PROFILE_JSON"
+    rm -f -- "$profile_backup"
     btrfs subvolume delete -- "$TARGET_MOUNT/bad-source" >/dev/null
     rm -rf -- "$TARGET_MOUNT/.bad-local"
     pass 'runtime rejects a source on the backup target filesystem'
@@ -233,24 +228,24 @@ CONFIG
 
 missing_incremental_parent_test() {
     local empty_local_dir="$SOURCE_MOUNT/.snapshots/empty-parent-check"
-    local source_config="$SOURCE_CONFIG"
-    local source_config_backup="$TEST_ROOT/10-home.conf.parent-check.bak"
+    local profile_backup="$TEST_ROOT/profile.parent-check.json.bak"
 
-    cp -a -- "$source_config" "$source_config_backup"
+    cp -a -- "$PROFILE_JSON" "$profile_backup"
     install -d -m0700 "$empty_local_dir"
-    sed -i "s|^LOCAL_SNAPSHOT_DIR=.*|LOCAL_SNAPSHOT_DIR=$empty_local_dir|" "$source_config"
+    perl -0pi -e 's#"localSnapshotDir": "[^"]*"#"localSnapshotDir": "'"$empty_local_dir"'"#' "$PROFILE_JSON"
+    chmod 0600 "$PROFILE_JSON"
     printf 'delta\n' > "$SOURCE_MOUNT/home/orphan-parent-check.txt"
     sync
     expect_backup_failure 'Remote snapshots exist for home, but no UUID-matching local parent was found.'
     find "$empty_local_dir" -mindepth 1 -maxdepth 1 -type d -name 'home-*' -exec btrfs subvolume delete -- {} \; >/dev/null
     rmdir -- "$empty_local_dir"
-    cp -a -- "$source_config_backup" "$source_config"
-    rm -f -- "$source_config_backup"
+    cp -a -- "$profile_backup" "$PROFILE_JSON"
+    rm -f -- "$profile_backup"
     pass 'runtime rejects incremental backup when remote snapshots exist without a local parent'
 }
 
 require_root
-require_commands btrfs cryptsetup dd diff find findmnt losetup mkfs.btrfs mknod mount pacman seq sha256sum systemd-escape tee truncate
+require_commands btrfs cryptsetup dd diff find findmnt losetup mkfs.btrfs mknod mount pacman perl seq sha256sum systemd-escape tee truncate
 ensure_loop_devices
 
 install -d -m0755 "$SOURCE_MOUNT" "$TARGET_MOUNT"
