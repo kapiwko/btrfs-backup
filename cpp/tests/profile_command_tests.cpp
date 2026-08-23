@@ -5,8 +5,8 @@
 
 #include <btrfsbackup/json.hpp>
 #include <btrfsbackup/json_io.hpp>
+#include <btrfsbackup/command/profile_command.hpp>
 #include <btrfsbackup/migrate_profile.hpp>
-#include <btrfsbackup/profile_tool.hpp>
 #include <btrfsbackup/source_definition.hpp>
 
 #include "test_helpers.hpp"
@@ -79,7 +79,7 @@ void test_profile_create_command_writes_json() {
     fs::path root = test_root("profile-create");
     fs::path profile_json = root / "profile.json";
 
-    int result = btrfsbackup::command_profile({
+    int result = btrfsbackup::command::profile({
         "create",
         "--output",
         profile_json.string(),
