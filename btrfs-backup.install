@@ -1,0 +1,39 @@
+post_install() {
+    cat <<'MSG'
+
+==> btrfs-backup was installed.
+==> No service was enabled and no active system configuration was changed.
+==>
+==> Start with:
+==>   btrfs-backup-configure --render-only --output-dir ./generated
+==>
+==> After review, install the active files with:
+==>   sudo btrfs-backup-configure --apply
+==>
+==> Merge the generated crypttab and fstab fragments manually, then run:
+==>   sudo systemctl daemon-reload
+==>   sudo btrfs-backup --validate
+
+MSG
+}
+
+post_upgrade() {
+    cat <<'MSG'
+
+==> btrfs-backup was upgraded.
+==> Existing files under /etc are intentionally not overwritten by the package.
+==> Review the changelog and rerun the configurator to migrate generated units:
+==>   sudo btrfs-backup-configure --apply
+
+MSG
+}
+
+pre_remove() {
+    cat <<'MSG'
+
+==> Active files under /etc/btrfs-backup, /etc/systemd/system and
+==> /etc/udev/rules.d are user configuration and will not be removed.
+==> Remove or migrate them manually before uninstalling the package permanently.
+
+MSG
+}
