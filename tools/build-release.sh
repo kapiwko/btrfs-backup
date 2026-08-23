@@ -232,7 +232,7 @@ copy_source_tree() {
     local destination="$1"
     install -d -m0755 "$destination"
     local entry
-    for entry in bin config cpp docs scripts systemd tests tools udev; do
+    for entry in bin config cpp docs systemd tests tools udev; do
         cp -a -- "$ROOT/$entry" "$destination/"
     done
     for entry in README.md CHANGELOG.md TODO.md LICENSE .gitignore CMakeLists.txt Makefile btrfs-backup.install; do
