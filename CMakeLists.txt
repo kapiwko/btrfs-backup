@@ -60,6 +60,7 @@ add_library(btrfsbackup_profile_tool STATIC
     cpp/src/shell_env.cpp
     cpp/src/space_check.cpp
     cpp/src/snapshot_inventory.cpp
+    cpp/src/snapshot_transfer.cpp
     cpp/src/status_writer.cpp
     cpp/src/trusted_file.cpp
     cpp/src/validation.cpp
@@ -164,6 +165,10 @@ if(BUILD_TESTING)
         cpp/tests/snapshot_inventory_tests.cpp
     )
 
+    add_executable(btrfsbackup-snapshot-transfer-tests
+        cpp/tests/snapshot_transfer_tests.cpp
+    )
+
     add_executable(btrfsbackup-trusted-file-tests
         cpp/tests/trusted_file_tests.cpp
     )
@@ -262,6 +267,11 @@ if(BUILD_TESTING)
             btrfsbackup_profile_tool
     )
 
+    target_link_libraries(btrfsbackup-snapshot-transfer-tests
+        PRIVATE
+            btrfsbackup_profile_tool
+    )
+
     target_link_libraries(btrfsbackup-trusted-file-tests
         PRIVATE
             btrfsbackup_profile_tool
@@ -289,6 +299,7 @@ if(BUILD_TESTING)
     add_test(NAME mount-info-tests COMMAND btrfsbackup-mount-info-tests)
     add_test(NAME space-check-tests COMMAND btrfsbackup-space-check-tests)
     add_test(NAME snapshot-inventory-tests COMMAND btrfsbackup-snapshot-inventory-tests)
+    add_test(NAME snapshot-transfer-tests COMMAND btrfsbackup-snapshot-transfer-tests)
     add_test(NAME status-writer-tests COMMAND btrfsbackup-status-writer-tests)
     add_test(NAME trusted-file-tests COMMAND btrfsbackup-trusted-file-tests)
     add_test(NAME validation-tests COMMAND btrfsbackup-validation-tests)
