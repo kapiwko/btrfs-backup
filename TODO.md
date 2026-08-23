@@ -2,9 +2,7 @@
 
 ## C++ Runtime Migration
 
-- Wire `BackupRunExecutor` to real action adapters:
-  - map non-transfer actions to Btrfs/libbtrfsutil and filesystem adapters
-    instead of shell parsing where a library/API is available;
+- Wire `BackupRunExecutor` to state and status persistence:
   - persist checkpoints through the existing state/status files;
   - write stable event output for status, history and UI consumers;
   - keep the Bash runner as production executor until failure parity tests pass.

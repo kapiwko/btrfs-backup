@@ -1,6 +1,7 @@
 #include <btrfsbackup/runtime_adapters.hpp>
 
 #include <filesystem>
+#include <algorithm>
 #include <string>
 #include <vector>
 
@@ -55,12 +56,48 @@ void StdFileSystemEffects::remove_file(const fs::path& path) {
     }
 }
 
+void StdFileSystemEffects::remove_directory(const fs::path& path) {
+    std::error_code ec;
+    fs::remove(path, ec);
+    if (ec) {
+        throw ValidationError("could not remove directory " + path.string() + ": " + ec.message());
+    }
+}
+
+void StdFileSystemEffects::remove_tree(const fs::path& path) {
+    std::error_code ec;
+    fs::remove_all(path, ec);
+    if (ec) {
+        throw ValidationError("could not remove path tree " + path.string() + ": " + ec.message());
+    }
+}
+
 void StdFileSystemEffects::rename_path(const fs::path& source, const fs::path& target) {
     std::error_code ec;
     fs::rename(source, target, ec);
     if (ec) {
         throw ValidationError("could not rename " + source.string() + " to " + target.string() + ": " + ec.message());
     }
+}
+
+std::vector<fs::path> StdFileSystemEffects::list_directory(const fs::path& path) {
+    std::vector<fs::path> entries;
+    std::error_code ec;
+    if (!fs::is_directory(path, ec) || ec) {
+        return entries;
+    }
+
+    for (const fs::directory_entry& entry : fs::directory_iterator(path, ec)) {
+        if (ec) {
+            throw ValidationError("could not list directory " + path.string() + ": " + ec.message());
+        }
+        entries.push_back(entry.path());
+    }
+    if (ec) {
+        throw ValidationError("could not list directory " + path.string() + ": " + ec.message());
+    }
+    std::sort(entries.begin(), entries.end());
+    return entries;
 }
 
 } // namespace btrfsbackup
