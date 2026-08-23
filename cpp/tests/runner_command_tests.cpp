@@ -108,6 +108,19 @@ btrfsbackup::Profile test_profile(const fs::path& root) {
     return profile;
 }
 
+void add_home_source(btrfsbackup::Profile& profile, const fs::path& root) {
+    profile.sources.push_back({
+        .id = "home",
+        .name = "Home",
+        .enabled = true,
+        .subvolume = (root / "source" / "home").string(),
+        .local_snapshot_dir = (root / "source" / ".snapshots" / "home").string(),
+        .remote_subdir = "home",
+        .remote_retention = 2,
+        .local_retention = 2,
+    });
+}
+
 void write_profile(const fs::path& config_root, const btrfsbackup::Profile& profile) {
     fs::path profile_path = config_root / "profiles" / profile.id / "profile.json";
     test_helpers::write_file(profile_path, btrfsbackup::profile_to_json(profile).dump(2));
@@ -115,12 +128,14 @@ void write_profile(const fs::path& config_root, const btrfsbackup::Profile& prof
 }
 
 void write_mountinfo(const fs::path& path, const btrfsbackup::Profile& profile) {
-    test_helpers::write_file(
-        path,
-        "21 31 0:20 / " + fs::path(profile.sources.at(0).subvolume).string() + " rw,relatime - btrfs /dev/source rw\n"
-        "22 31 0:20 / " + fs::path(profile.sources.at(0).local_snapshot_dir).string() + " rw,relatime - btrfs /dev/source rw\n"
-        "23 31 0:21 / " + fs::path(profile.target.mount_point).string() + " rw,relatime - btrfs /dev/mapper/backup rw\n"
-    );
+    std::string content;
+    int mount_id = 21;
+    for (const btrfsbackup::ProfileSource& source : profile.sources) {
+        content += std::to_string(mount_id++) + " 31 0:20 / " + fs::path(source.subvolume).string() + " rw,relatime - btrfs /dev/source rw\n";
+        content += std::to_string(mount_id++) + " 31 0:20 / " + fs::path(source.local_snapshot_dir).string() + " rw,relatime - btrfs /dev/source rw\n";
+    }
+    content += std::to_string(mount_id) + " 31 0:21 / " + fs::path(profile.target.mount_point).string() + " rw,relatime - btrfs /dev/mapper/backup rw\n";
+    test_helpers::write_file(path, content);
 }
 
 void test_runner_plan_outputs_shadow_json() {
@@ -519,6 +534,77 @@ void test_runner_execute_verify_failure_writes_failed_status() {
     fs::remove_all(root);
 }
 
+void test_runner_execute_multi_source_success() {
+    fs::path root = test_helpers::test_root("runner-command", "execute-multi-source");
+    fs::create_directories(root / "source" / "root");
+    fs::create_directories(root / "source" / "home");
+    fs::create_directories(root / "source" / ".snapshots" / "root");
+    fs::create_directories(root / "source" / ".snapshots" / "home");
+    fs::create_directories(root / "target" / "snapshots" / "root");
+    fs::create_directories(root / "target" / "snapshots" / "home");
+    fs::create_directories(root / "target" / ".incoming");
+
+    btrfsbackup::Profile profile = test_profile(root);
+    add_home_source(profile, root);
+    fs::path config_root = root / "config";
+    fs::path mountinfo = root / "mountinfo";
+    write_profile(config_root, profile);
+    write_mountinfo(mountinfo, profile);
+
+    RecordingActionEffects action_effects;
+    ConfigurableTransferPipeline transfer_pipeline;
+    btrfsbackup::command::RunnerExecutionServices services{
+        .action_effects = action_effects,
+        .transfer_pipeline = transfer_pipeline,
+    };
+
+    std::ostringstream output;
+    int result = btrfsbackup::command::runner(
+        config_root,
+        {
+            "execute",
+            "--experimental-cpp-runner",
+            "--profile",
+            "default",
+            "--timestamp",
+            "2026-08-23T080000Z",
+            "--run-id",
+            "20260823T080000Z-123-456",
+            "--mountinfo",
+            mountinfo.string(),
+            "--mount-uuid",
+            "/dev/source",
+            "source-fs",
+            "--mount-uuid",
+            "/dev/mapper/backup",
+            profile.target.btrfs_uuid,
+        },
+        output,
+        &services
+    );
+
+    btrfsbackup::Json json = btrfsbackup::Json::parse(output.str());
+    test_helpers::expect_eq("multi execute result", std::to_string(result), "0");
+    test_helpers::expect_true("multi completed", json.at("completed").get<bool>(), "run should complete");
+    test_helpers::expect_eq("multi transfers", std::to_string(transfer_pipeline.plans.size()), "2");
+    test_helpers::expect_true("root actions", std::find(
+        action_effects.calls.begin(),
+        action_effects.calls.end(),
+        "root:" + action_name(btrfsbackup::BackupRunActionKind::CreateSnapshot)
+    ) != action_effects.calls.end(), "missing root create action");
+    test_helpers::expect_true("home actions", std::find(
+        action_effects.calls.begin(),
+        action_effects.calls.end(),
+        "home:" + action_name(btrfsbackup::BackupRunActionKind::CreateSnapshot)
+    ) != action_effects.calls.end(), "missing home create action");
+
+    btrfsbackup::Json current = btrfsbackup::load_json_file(root / "status" / "default" / "current.json");
+    test_helpers::expect_true("multi status", current.at("state") == "succeeded", "status should succeed");
+    test_helpers::expect_true("multi source count", current.at("sourceCount") == 2, "status should include both sources");
+
+    fs::remove_all(root);
+}
+
 } // namespace
 
 int main() {
@@ -529,6 +615,7 @@ int main() {
     test_runner_execute_transfer_failure_writes_failed_status();
     test_runner_execute_commit_failure_writes_failed_status();
     test_runner_execute_verify_failure_writes_failed_status();
+    test_runner_execute_multi_source_success();
 
     return test_helpers::finish("runner command tests");
 }
