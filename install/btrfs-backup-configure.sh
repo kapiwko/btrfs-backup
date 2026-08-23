@@ -597,47 +597,56 @@ extract_udev_env_match() {
 
 write_profile_json() {
     local destination="$1"
-    local sources_table="$2"
     local source_count="${#SOURCE_SUBVOLUMES[@]}"
     local index source_retention source_local_retention
+    local partition_uuid serial
+    local args
 
-    : > "$sources_table"
-    chmod 0600 "$sources_table"
+    partition_uuid="$(extract_udev_env_match ID_PART_ENTRY_UUID)"
+    serial="$(extract_udev_env_match ID_SERIAL_SHORT)"
+    args=(
+        profile create
+        --output "$destination"
+        --profile "$PROFILE_ID"
+        --name "$PROFILE_NAME"
+        --device "$BACKUP_DEVICE"
+        --luks-uuid "$BACKUP_LUKS_UUID"
+        --btrfs-uuid "$BACKUP_BTRFS_UUID"
+        --partition-uuid "$partition_uuid"
+        --serial "$serial"
+        --mapper-name "$BACKUP_MAPPER_NAME"
+        --mount-point "$BACKUP_MOUNTPOINT"
+        --remote-root "$REMOTE_ROOT"
+        --incoming-root "$INCOMING_ROOT"
+        --remote-retention "$RETENTION_COUNT"
+        --local-retention "$LOCAL_RETENTION_COUNT"
+        --daily-limit "$DAILY_LIMIT"
+        --incremental-required "$INCREMENTAL_REQUIRED"
+        --keep-failed-local-snapshot "$KEEP_FAILED_LOCAL_SNAPSHOT"
+        --auto-eject "$AUTO_EJECT"
+        --minimum-target-free-bytes "$MIN_TARGET_FREE_BYTES"
+        --minimum-local-free-bytes "$MIN_LOCAL_FREE_BYTES"
+        --notify-enable "$NOTIFY_ENABLE"
+        --notify-user "$NOTIFY_USER"
+        --notify-method "$NOTIFY_METHOD"
+    )
     for ((index = 0; index < source_count; index++)); do
         source_retention="${SOURCE_RETENTION_COUNTS[$index]:-$RETENTION_COUNT}"
         source_local_retention="${SOURCE_LOCAL_RETENTION_COUNTS[$index]:-$LOCAL_RETENTION_COUNT}"
         bb_validate_uint SOURCE_RETENTION_COUNT "$source_retention"
         bb_validate_uint SOURCE_LOCAL_RETENTION_COUNT "$source_local_retention"
-        printf '%s\t%s\t%s\t%s\t%s\t%s\n' \
-            "${SOURCE_NAMES[$index]}" \
-            "${SOURCE_SUBVOLUMES[$index]}" \
-            "${LOCAL_SNAPSHOT_DIRS[$index]}" \
-            "${REMOTE_SUBDIRS[$index]}" \
-            "$source_retention" \
-            "$source_local_retention" >> "$sources_table"
+        args+=(
+            --source
+            "${SOURCE_NAMES[$index]}"
+            "${SOURCE_NAMES[$index]}"
+            "${SOURCE_SUBVOLUMES[$index]}"
+            "${LOCAL_SNAPSHOT_DIRS[$index]}"
+            "${REMOTE_SUBDIRS[$index]}"
+            "$source_retention"
+            "$source_local_retention"
+        )
     done
-
-    PROFILE_ID="$PROFILE_ID" \
-    PROFILE_NAME="$PROFILE_NAME" \
-    BACKUP_DEVICE="$BACKUP_DEVICE" \
-    BACKUP_LUKS_UUID="$BACKUP_LUKS_UUID" \
-    BACKUP_BTRFS_UUID="$BACKUP_BTRFS_UUID" \
-    BACKUP_PARTITION_UUID="$(extract_udev_env_match ID_PART_ENTRY_UUID)" \
-    BACKUP_SERIAL="$(extract_udev_env_match ID_SERIAL_SHORT)" \
-    BACKUP_MAPPER_NAME="$BACKUP_MAPPER_NAME" \
-    BACKUP_MOUNTPOINT="$BACKUP_MOUNTPOINT" \
-    RETENTION_COUNT="$RETENTION_COUNT" \
-    LOCAL_RETENTION_COUNT="$LOCAL_RETENTION_COUNT" \
-    DAILY_LIMIT="$DAILY_LIMIT" \
-    INCREMENTAL_REQUIRED="$INCREMENTAL_REQUIRED" \
-    KEEP_FAILED_LOCAL_SNAPSHOT="$KEEP_FAILED_LOCAL_SNAPSHOT" \
-    AUTO_EJECT="$AUTO_EJECT" \
-    MIN_TARGET_FREE_BYTES="$MIN_TARGET_FREE_BYTES" \
-    MIN_LOCAL_FREE_BYTES="$MIN_LOCAL_FREE_BYTES" \
-    NOTIFY_ENABLE="$NOTIFY_ENABLE" \
-    NOTIFY_USER="$NOTIFY_USER" \
-    NOTIFY_METHOD="$NOTIFY_METHOD" \
-    "$PROFILE_HELPER" profile compose --sources-table "$sources_table" --output "$destination"
+    "$PROFILE_HELPER" "${args[@]}"
 }
 
 validate_uuid() {
@@ -867,15 +876,13 @@ declare -A PLACEHOLDERS=(
 
 rm -rf -- "$OUTPUT_DIR"
 install -d -m0750 "$OUTPUT_DIR/config" "$OUTPUT_DIR/systemd" "$OUTPUT_DIR/udev"
-profile_sources_table="$OUTPUT_DIR/.profile-sources.tsv"
-write_profile_json "$OUTPUT_DIR/config/profile.json" "$profile_sources_table"
+write_profile_json "$OUTPUT_DIR/config/profile.json"
 "$PROFILE_HELPER" \
     profile \
     --etc-root "$OUTPUT_DIR/config" \
     --udev-root "$OUTPUT_DIR/udev" \
     --public-root "$OUTPUT_DIR/public/profiles" \
     save --file "$OUTPUT_DIR/config/profile.json" >/dev/null
-rm -f -- "$profile_sources_table"
 install -m0644 "$OUTPUT_DIR/udev/99-btrfs-backup-$PROFILE_ID.rules" "$OUTPUT_DIR/udev/99-btrfs-backup.rules"
 render_template "$TEMPLATE_DIR/config/fstab.fragment.example" "$OUTPUT_DIR/config/fstab.fragment"
 render_template "$TEMPLATE_DIR/config/crypttab.fragment.example" "$OUTPUT_DIR/config/crypttab.fragment"

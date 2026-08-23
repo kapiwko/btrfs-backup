@@ -20,7 +20,6 @@ add_library(btrfsbackup_profile_tool STATIC
     cpp/src/migrate_profile.cpp
     cpp/src/process.cpp
     cpp/src/profile.cpp
-    cpp/src/profile_compose.cpp
     cpp/src/profile_list.cpp
     cpp/src/profile_render.cpp
     cpp/src/profile_store.cpp

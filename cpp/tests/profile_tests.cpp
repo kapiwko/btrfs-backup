@@ -1,6 +1,4 @@
-#include <cstdlib>
 #include <filesystem>
-#include <fstream>
 #include <functional>
 #include <iostream>
 #include <stdexcept>
@@ -12,7 +10,6 @@
 #include <btrfsbackup/json.hpp>
 #include <btrfsbackup/json_io.hpp>
 #include <btrfsbackup/profile.hpp>
-#include <btrfsbackup/profile_compose.hpp>
 #include <btrfsbackup/profile_render.hpp>
 #include <btrfsbackup/profile_store.hpp>
 
@@ -110,30 +107,6 @@ fs::path test_root() {
     return root;
 }
 
-void set_required_compose_env() {
-    setenv("PROFILE_ID", "default", 1);
-    setenv("PROFILE_NAME", "Default backup", 1);
-    setenv("PROFILE_ROOT", "/etc/btrfs-backup", 1);
-    setenv("BACKUP_DEVICE", "/dev/disk/by-uuid/11111111-2222-3333-4444-555555555555", 1);
-    setenv("BACKUP_LUKS_UUID", "11111111-2222-3333-4444-555555555555", 1);
-    setenv("BACKUP_BTRFS_UUID", "66666666-7777-8888-9999-aaaaaaaaaaaa", 1);
-    setenv("BACKUP_PARTITION_UUID", "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", 1);
-    setenv("BACKUP_SERIAL", "SERIAL_123", 1);
-    setenv("BACKUP_MAPPER_NAME", "backupdisk", 1);
-    setenv("BACKUP_MOUNTPOINT", "/mnt/backup", 1);
-    setenv("RETENTION_COUNT", "30", 1);
-    setenv("LOCAL_RETENTION_COUNT", "20", 1);
-    setenv("DAILY_LIMIT", "true", 1);
-    setenv("INCREMENTAL_REQUIRED", "true", 1);
-    setenv("KEEP_FAILED_LOCAL_SNAPSHOT", "false", 1);
-    setenv("AUTO_EJECT", "true", 1);
-    setenv("MIN_TARGET_FREE_BYTES", "5368709120", 1);
-    setenv("MIN_LOCAL_FREE_BYTES", "1073741824", 1);
-    setenv("NOTIFY_ENABLE", "true", 1);
-    setenv("NOTIFY_USER", "tester", 1);
-    setenv("NOTIFY_METHOD", "auto", 1);
-}
-
 void test_rejects_bad_uuid() {
     Json profile = valid_profile();
     profile["target"]["luksUuid"] = "bad";
@@ -226,22 +199,6 @@ void test_render_udev_optional_matches() {
     expect_true("udev serial", rendered.find("ENV{ID_SERIAL_SHORT}==\"SERIAL_123\"") != std::string::npos, "missing serial match");
 }
 
-void test_compose_sources_table() {
-    fs::path root = test_root();
-    fs::path table = root / "sources.tsv";
-    {
-        std::ofstream stream(table);
-        stream << "root\t/\t/.snapshots/btrfs-backup/root\troot\t30\t20\n";
-        stream << "home\tHome source\t/home\t/.snapshots/btrfs-backup/home\thome\t45\t25\n";
-    }
-    set_required_compose_env();
-    btrfsbackup::Profile profile = btrfsbackup::profile_from_environment_sources(table);
-    expect_true("compose count", profile.sources.size() == 2, "wrong source count");
-    expect_true("compose six-column name", profile.sources.at(0).name == "root", "six-column source did not default name");
-    expect_true("compose seven-column name", profile.sources.at(1).name == "Home source", "seven-column source name was not preserved");
-    fs::remove_all(root);
-}
-
 } // namespace
 
 int main() {
@@ -253,7 +210,6 @@ int main() {
     test_typed_store_renders_tree();
     test_typed_store_saves_tree();
     test_render_udev_optional_matches();
-    test_compose_sources_table();
 
     if (failures > 0) {
         return 1;

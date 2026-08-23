@@ -17,6 +17,7 @@
 #include <btrfsbackup/json_io.hpp>
 #include <btrfsbackup/migrate_profile.hpp>
 #include <btrfsbackup/profile_list.hpp>
+#include <btrfsbackup/profile_tool.hpp>
 #include <btrfsbackup/run_state.hpp>
 #include <btrfsbackup/run_state_command.hpp>
 #include <btrfsbackup/source_definition.hpp>
@@ -515,6 +516,50 @@ void test_parse_profile_sources_from_json() {
     fs::remove_all(root);
 }
 
+void test_profile_create_command_writes_json() {
+    fs::path root = test_root("profile-create");
+    fs::path profile_json = root / "profile.json";
+
+    int result = btrfsbackup::command_profile({
+        "create",
+        "--output",
+        profile_json.string(),
+        "--profile",
+        "default",
+        "--name",
+        "Default backup",
+        "--device",
+        "/dev/disk/by-uuid/11111111-2222-3333-4444-555555555555",
+        "--luks-uuid",
+        "11111111-2222-3333-4444-555555555555",
+        "--btrfs-uuid",
+        "66666666-7777-8888-9999-aaaaaaaaaaaa",
+        "--mapper-name",
+        "backupdisk",
+        "--mount-point",
+        "/mnt/backup",
+        "--remote-retention",
+        "2",
+        "--local-retention",
+        "2",
+        "--source",
+        "home",
+        "Home",
+        "/home",
+        "/.snapshots/btrfs-backup/home",
+        "home",
+        "2",
+        "2",
+    });
+
+    expect_eq("profile create result", std::to_string(result), "0");
+    btrfsbackup::Json profile = btrfsbackup::load_json_file(profile_json);
+    expect_eq("profile create id", profile.at("profileId").get<std::string>(), "default");
+    expect_eq("profile create source id", profile.at("sources").at(0).at("id").get<std::string>(), "home");
+    expect_eq("profile create remote root", profile.at("paths").at("remoteRoot").get<std::string>(), "/mnt/backup/snapshots");
+    fs::remove_all(root);
+}
+
 void test_migrate_profile_creates_profile_files() {
     fs::path root = test_root("migrate-profile");
     fs::path source_config = root / "legacy.env";
@@ -585,6 +630,7 @@ int main() {
     test_pending_marker_write_read_and_clear();
     test_migrate_legacy_state_moves_unclaimed_files();
     test_parse_profile_sources_from_json();
+    test_profile_create_command_writes_json();
     test_migrate_profile_creates_profile_files();
 
     if (failures > 0) {
