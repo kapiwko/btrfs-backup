@@ -4,7 +4,7 @@ Unattended backup of Btrfs subvolumes to an encrypted removable disk. The projec
 
 ## Key Features
 
-1. multiple backup sources through separate `/etc/btrfs-backup/sources.d/*.conf` files;
+1. multiple backup sources through separate profile source files;
 2. full and incremental `btrfs send/receive`, with the incremental parent selected by UUID rather than by name;
 3. receives into `.incoming`, verifies `Received UUID`, then commits a read-only target snapshot;
 4. `pending` markers so the next run can resolve interrupted transfers or power loss;
@@ -49,8 +49,12 @@ sudo btrfs-backup-configure --apply
 
 ```text
 /etc/btrfs-backup/backup.env
-/etc/btrfs-backup/sources.d/*.conf
+/etc/btrfs-backup/profiles.d/default.env
+/etc/btrfs-backup/profiles/default/profile.json
+/etc/btrfs-backup/profiles/default/sources.d/*.conf
+/var/lib/btrfs-backup/public/profiles/default.json
 /etc/systemd/system/btrfs-backup.service
+/etc/systemd/system/btrfs-backup@.service
 /etc/udev/rules.d/99-btrfs-backup.rules
 ```
 
@@ -95,7 +99,9 @@ journalctl -u btrfs-backup.service -f
 
 ## Configuration Layout
 
-The main file describes the target, runtime policy, and state paths. Each source has a separate file:
+The canonical format for tools is JSON. `btrfs-backup-configure` writes `profile.json` first and uses `btrfs-backup-profile save` to materialize the trusted runtime files consumed by the backup runner.
+
+Each runtime source has a separate file under `/etc/btrfs-backup/profiles/<profile>/sources.d`:
 
 ```bash
 ENABLED=true
@@ -107,9 +113,7 @@ SOURCE_RETENTION_COUNT=30
 SOURCE_LOCAL_RETENTION_COUNT=30
 ```
 
-Active configuration files are trusted Bash code executed as root. They must be owned by root and use mode `0600`; the script refuses files that are accessible by group or other users.
-
-The canonical format for tools is JSON. `btrfs-backup-profile save` validates that JSON and writes the runtime `.env` and source files consumed by the backup runner.
+Active runtime configuration files are trusted Bash code executed as root. They must be owned by root and use mode `0600`; the script refuses files that are accessible by group or other users.
 
 Profiles can also be stored directly as `/etc/btrfs-backup/profiles.d/<profile>.env` and selected with `--profile <profile>` or `BTRFS_BACKUP_PROFILE=<profile>`. The legacy `/etc/btrfs-backup/backup.env` remains supported as the fallback for the `default` profile in 1.x, but it is deprecated and will be removed in 2.0. To create the default profile file from an existing legacy configuration:
 

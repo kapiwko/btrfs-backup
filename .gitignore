@@ -18,6 +18,8 @@
 
 # Editors and temporary files
 /.idea/
+__pycache__/
+*.pyc
 *~
 *.swp
 *.tmp

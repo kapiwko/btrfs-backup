@@ -22,6 +22,9 @@ sudo btrfs-backup-profile save --file profile.json
 /var/lib/btrfs-backup/public/profiles/<profile>.json
 ```
 
+`btrfs-backup-configure` follows the same model: it renders `profile.json`
+first and then materializes the runtime files from that JSON.
+
 ## Runtime Profile Files
 
 The preferred active profile file is
@@ -88,7 +91,8 @@ It is intended for generators, validators, and future migration tooling.
 
 ## Source Definitions
 
-Each `/etc/btrfs-backup/sources.d/*.conf` file describes one source:
+Each `/etc/btrfs-backup/profiles/<profile>/sources.d/*.conf` file describes
+one source:
 
 ```bash
 ENABLED=true
