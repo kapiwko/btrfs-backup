@@ -116,6 +116,41 @@ btrfsbackup::BackupRunPlan plan_with_actions(std::vector<btrfsbackup::BackupRunA
     };
 }
 
+void test_full_backup_flow_without_parent() {
+    RecordingEffects effects;
+    RecordingTransferPipeline transfers;
+    RecordingCheckpoints checkpoints;
+    RecordingEvents events;
+    btrfsbackup::CancellationToken cancellation;
+    btrfsbackup::BackupRunExecutor executor(effects, transfers, checkpoints);
+
+    btrfsbackup::BackupRunPlan plan = plan_with_actions({
+        action(btrfsbackup::BackupRunActionKind::CleanupIncoming),
+        action(btrfsbackup::BackupRunActionKind::CreateSnapshot),
+        action(btrfsbackup::BackupRunActionKind::SelectParent),
+        action(btrfsbackup::BackupRunActionKind::SendReceive),
+        action(btrfsbackup::BackupRunActionKind::VerifyReceived),
+        action(btrfsbackup::BackupRunActionKind::CommitReceived),
+        action(btrfsbackup::BackupRunActionKind::ApplyRemoteRetention),
+        action(btrfsbackup::BackupRunActionKind::ApplyLocalRetention),
+        action(btrfsbackup::BackupRunActionKind::CleanupSource),
+    });
+
+    btrfsbackup::BackupRunExecutionResult result = executor.execute(plan, events, cancellation);
+
+    test_helpers::expect_true("full flow completed", result.completed, "run should complete");
+    test_helpers::expect_eq("full flow actions", std::to_string(result.actions_completed), "9");
+    test_helpers::expect_eq("full flow transfer count", std::to_string(transfers.plans.size()), "1");
+    const std::vector<std::string>& send_argv = transfers.plans.at(0).producer_argv;
+    test_helpers::expect_eq("full send argc", std::to_string(send_argv.size()), "3");
+    test_helpers::expect_eq("full send binary", send_argv.at(0), "btrfs");
+    test_helpers::expect_eq("full send subcommand", send_argv.at(1), "send");
+    test_helpers::expect_eq("full send snapshot", send_argv.at(2), "/.snapshots/root/root-2026-08-23T080000Z");
+    test_helpers::expect_eq("full effect count", std::to_string(effects.calls.size()), "7");
+    test_helpers::expect_eq("full checkpoint count", std::to_string(checkpoints.checkpoints.size()), "8");
+    test_helpers::expect_eq("full last checkpoint", action_name(checkpoints.checkpoints.back().action_kind), action_name(btrfsbackup::BackupRunActionKind::CleanupSource));
+}
+
 void test_executes_actions_and_writes_durable_checkpoints() {
     RecordingEffects effects;
     RecordingTransferPipeline transfers;
@@ -227,6 +262,7 @@ void test_transfer_failure_emits_failed_action() {
 } // namespace
 
 int main() {
+    test_full_backup_flow_without_parent();
     test_executes_actions_and_writes_durable_checkpoints();
     test_send_receive_delegates_to_transfer_pipeline();
     test_cancels_between_actions();
