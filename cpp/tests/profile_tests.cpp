@@ -152,7 +152,7 @@ void test_rejects_nested_roots() {
     expect_validation_error("nested roots", [&] { btrfsbackup::normalize_profile(profile); }, "remoteRoot and paths.incomingRoot");
 }
 
-void test_profile_model_round_trips_normalized_json() {
+void test_profile_round_trips_normalized_json() {
     Json normalized = btrfsbackup::normalize_profile(valid_profile());
     btrfsbackup::Profile profile = btrfsbackup::profile_from_json(normalized);
     Json round_trip = btrfsbackup::profile_to_json(profile);
@@ -264,7 +264,7 @@ void test_compose_sources_table() {
         stream << "home\tHome source\t/home\t/.snapshots/btrfs-backup/home\thome\t45\t25\n";
     }
     set_required_compose_env();
-    btrfsbackup::Profile profile = btrfsbackup::profile_model_from_environment_sources(table);
+    btrfsbackup::Profile profile = btrfsbackup::profile_from_environment_sources(table);
     expect_true("compose count", profile.sources.size() == 2, "wrong source count");
     expect_true("compose six-column name", profile.sources.at(0).name == "root", "six-column source did not default name");
     expect_true("compose seven-column name", profile.sources.at(1).name == "Home source", "seven-column source name was not preserved");
@@ -277,7 +277,7 @@ int main() {
     test_rejects_bad_uuid();
     test_rejects_non_dev_target();
     test_rejects_nested_roots();
-    test_profile_model_round_trips_normalized_json();
+    test_profile_round_trips_normalized_json();
     test_render_profile_env_quotes_values();
     test_typed_render_matches_json_render();
     test_typed_store_renders_tree();
