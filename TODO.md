@@ -14,9 +14,6 @@
 Port helpers from `scripts/lib/btrfs-backup-common.sh` in small, testable steps
 before replacing larger runner flows.
 
-- Port generic path and value validation helpers: unsigned integers, positive
-  integers, absolute paths, relative paths, canonicalization, and
-  `path_is_within`.
 - Extend the new mount-info module with `mount_for_path`, `mount_at`,
   filesystem UUID or device fallback, and mapper matching equivalents for
   `bb_paths_are_same_filesystem` and `bb_mount_uses_mapper`.
