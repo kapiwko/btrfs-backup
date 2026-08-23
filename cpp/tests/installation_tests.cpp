@@ -122,14 +122,14 @@ void test_installation_render_allows_explicit_backup_command_override() {
         "--output-dir",
         (root / "rendered").string(),
         "--backup-command",
-        "/usr/lib/btrfs-backup/btrfs-backup.sh",
+        "/usr/bin/btrfs-backup",
     });
 
     test_helpers::expect_eq("installation render override result", std::to_string(result), "0");
     test_helpers::expect_contains(
         "installation override service",
         read_file(root / "rendered" / "systemd" / "btrfs-backup@.service"),
-        "ExecStart=/usr/lib/btrfs-backup/btrfs-backup.sh --profile %i"
+        "ExecStart=/usr/bin/btrfs-backup --profile %i"
     );
     fs::remove_all(root);
 }

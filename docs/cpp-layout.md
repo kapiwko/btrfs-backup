@@ -35,8 +35,8 @@ Rules for new C++ code:
 6. Do not introduce UI or session dependencies into the base package.
 7. Prefer small types with explicit validation over passing raw JSON through the
    codebase.
-8. Keep compatibility tests against the existing Bash behavior until the Bash
-   implementation is intentionally removed.
+8. Keep compatibility coverage for mount/eject wrappers and real Btrfs runner
+   behavior after the legacy Bash backup runtime has been removed.
 9. Keep model code independent from systemd, D-Bus, Qt, desktop libraries,
    block-device libraries, mount libraries, and LUKS libraries.
 10. Use Linux system libraries in system-facing code when they replace command

@@ -113,7 +113,7 @@ configure_backup_with_cli() {
     btrfs-backupctl installation render \
         --file "$RENDERED_CONFIG/config/profile.json" \
         --output-dir "$RENDERED_CONFIG" \
-        --backup-command /usr/lib/btrfs-backup/btrfs-backup.sh \
+        --backup-command '/usr/bin/btrfs-backupctl runner execute' \
         --eject-script /usr/lib/btrfs-backup/btrfs-backup-eject.sh \
         --keyfile none
     btrfs-backupctl installation validate --rendered-root "$RENDERED_CONFIG" >/dev/null
