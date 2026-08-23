@@ -2,16 +2,16 @@ cmake_minimum_required(VERSION 3.20)
 
 project(
     btrfs-backup-plasma
-    VERSION 0.2.0
+    VERSION 0.2.1
     LANGUAGES CXX
 )
 
 find_package(ECM REQUIRED NO_MODULE)
 set(CMAKE_MODULE_PATH ${ECM_MODULE_PATH})
 set(QT_DEFAULT_MAJOR_VERSION 6)
+set(CMAKE_AUTOMOC ON)
 
 include(KDEInstallDirs)
-include(KDECMakeSettings)
 include(KDECompilerSettings NO_POLICY_SCOPE)
 include(CTest)
 
@@ -45,7 +45,12 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(btrfsbackup_plasma_backend PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 
-set(BTRFSBACKUP_PLASMA_QMLDIR ${KDE_INSTALL_QMLDIR}/org/btrfsbackup/plasma)
+set(
+    BTRFSBACKUP_PLASMA_QMLDIR
+    "lib/qt6/qml/org/btrfsbackup/plasma"
+    CACHE PATH
+    "Install path for the btrfs-backup Plasma QML module"
+)
 set_target_properties(
     btrfsbackup_plasma_backendplugin
     PROPERTIES PREFIX "lib"

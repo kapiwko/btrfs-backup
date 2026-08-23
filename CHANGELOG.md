@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.2.1 - 2026-08-23
+
+1. transfer status now includes byte counters, speed, ETA, current-source
+   progress, aggregate run progress and progress accuracy fields;
+2. transfer execution now runs through asynchronous handles so the executor can
+   observe progress and cancellation without sleep-based polling;
+3. runner cancellation requests are now exposed through
+   `btrfs-backupctl runner cancel --profile <id>` and handled by the active
+   transfer pipeline;
+4. transfer failures now use side-specific stable error codes for producer,
+   consumer and combined send/receive failures;
+5. aggregate progress no longer resets between sources, and the runtime can
+   estimate transfer totals from the local snapshot when exact send-stream
+   totals are not available;
+6. cancellation wakes the transfer event loop immediately instead of waiting for
+   the next process-status poll;
+7. `btrfs-backupctl status watch --profile <id> --json` now validates emitted
+   JSON against the documented status API before writing it to stdout;
+8. added the initial Plasma 6 status plasmoid backed by a C++
+   `BackupStatusModel` reading the public JSON status stream;
+9. added QML runtime smoke coverage for loading and instantiating the compiled
+   `org.btrfsbackup.plasma` module;
+10. added an optional `btrfs-backup-kde` Arch package for the Plasma status
+    widget and its compiled QML backend;
+11. kept the base `btrfs-backup` package independent from Qt, Kirigami and
+    Plasma runtime dependencies;
+12. added KDE package install hooks that refresh the service cache with
+    `kbuildsycoca6` when available.
+
 ## 0.2.0 - 2026-08-23
 
 1. removed runtime fallback to legacy source and main configuration files;

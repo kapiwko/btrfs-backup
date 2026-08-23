@@ -16,7 +16,7 @@ Targets:
 | Target | Output |
 |---|---|
 | `source` | source tarball, source ZIP, checksums, build report |
-| `arch` | source tarball, Arch-compatible `pkg.tar.zst`, source ZIP, checksums, build report |
+| `arch` | source tarball, Arch-compatible base and KDE `pkg.tar.zst` packages, source ZIP, checksums, build report |
 | `deb` | source tarball, Debian-compatible `.deb`, source ZIP, checksums, build report |
 | `tar-install` | source tarball, generic install tree tarball, source ZIP, checksums, build report |
 | `rpm` | source tarball, RPM spec packaging archive, source ZIP, checksums, build report |
@@ -30,15 +30,16 @@ The script runs the selected test suite, creates deterministic source archives, 
 Outputs are written to `dist/`:
 
 ```text
-btrfs-backup-0.2.0.tar.gz
-btrfs-backup-0.2.0-1-x86_64.pkg.tar.zst
-btrfs-backup_0.2.0-1_amd64.deb
-btrfs-backup-0.2.0-install.tar.gz
-btrfs-backup-0.2.0-rpm-packaging.tar.gz
-btrfs-backup-0.2.0-nix-packaging.tar.gz
-btrfs-backup-0.2.0-ebuild.tar.gz
-btrfs-backup-0.2.0-pkgbuild.tar.gz
-btrfs-backup-0.2.0-source.zip
+btrfs-backup-0.2.1.tar.gz
+btrfs-backup-0.2.1-1-x86_64.pkg.tar.zst
+btrfs-backup-kde-0.2.1-1-x86_64.pkg.tar.zst
+btrfs-backup_0.2.1-1_amd64.deb
+btrfs-backup-0.2.1-install.tar.gz
+btrfs-backup-0.2.1-rpm-packaging.tar.gz
+btrfs-backup-0.2.1-nix-packaging.tar.gz
+btrfs-backup-0.2.1-ebuild.tar.gz
+btrfs-backup-0.2.1-pkgbuild.tar.gz
+btrfs-backup-0.2.1-source.zip
 SHA256SUMS
 BUILD-REPORT.txt
 ```
@@ -47,6 +48,8 @@ The `source` target avoids package construction and does not require `zstd`. Pac
 Building from source requires CMake, a C++20 compiler, `pkg-config`,
 `nlohmann-json`, `libmount`, `libblkid`, `libudev`, and `libbtrfsutil`
 development files for the native code under `cpp/`.
+Building the optional Plasma package also requires Extra CMake Modules, Qt 6
+QML/Quick, Kirigami, KPackage, KI18n and libplasma development files.
 
 ## Arch Packaging
 
@@ -56,7 +59,9 @@ The upstream repository intentionally does not track `PKGBUILD`. Arch or AUR pac
 source=("btrfs-backup-${pkgver}.tar.gz")
 ```
 
-The package name and package base should both be `btrfs-backup`.
+The base package name and package base should both be `btrfs-backup`. Optional
+desktop integration should be packaged as `btrfs-backup-kde` and must not add
+Qt, Kirigami or Plasma dependencies to the base package.
 
 ## Package Contents
 
@@ -73,6 +78,11 @@ longer packaged.
 The package does not install active fstab, crypttab, or udev entries.
 `btrfs-backupctl profile wizard --apply` and `profile save` write active
 configuration and udev files only after an explicit user command.
+
+The optional `btrfs-backup-kde` package installs the Plasma applet under
+`/usr/share/plasma/plasmoids` and the compiled QML module under
+`/usr/lib/qt6/qml`. Its install hook refreshes the desktop service cache with
+`kbuildsycoca6` when that command is available.
 
 ## Reproducibility
 
