@@ -23,6 +23,7 @@
 #include <btrfsbackup/pending_recovery_plan.hpp>
 #include <btrfsbackup/profile.hpp>
 #include <btrfsbackup/profile_loader.hpp>
+#include <btrfsbackup/process.hpp>
 #include <btrfsbackup/run_state.hpp>
 #include <btrfsbackup/runtime_adapters.hpp>
 #include <btrfsbackup/snapshot_inventory.hpp>
@@ -204,6 +205,24 @@ std::vector<btrfsbackup::MountEntry> read_mounts(const RunnerOptions& options) {
           });
 }
 
+bool target_is_mounted(const btrfsbackup::Profile& profile, const RunnerOptions& options) {
+    return btrfsbackup::mount_at(read_mounts(options), profile.target.mount_point).has_value();
+}
+
+void ensure_target_mounted(const btrfsbackup::Profile& profile, const RunnerOptions& options) {
+    if (target_is_mounted(profile, options)) {
+        return;
+    }
+    if (profile.target.mount_unit.empty()) {
+        throw btrfsbackup::ValidationError("target.mountUnit is required to mount backup target");
+    }
+
+    btrfsbackup::CommandResult result = btrfsbackup::run_command({"systemctl", "start", profile.target.mount_unit});
+    if (result.exit_code != 0) {
+        throw btrfsbackup::ValidationError("could not start target mount unit " + profile.target.mount_unit);
+    }
+}
+
 btrfsbackup::BackupRunPlan build_runner_plan(
     const fs::path& profile_config_dir,
     const RunnerOptions& options,
@@ -337,6 +356,10 @@ int runner(
     SnapshotMetadataReader metadata_reader = execution_services != nullptr && execution_services->snapshot_metadata_reader
         ? execution_services->snapshot_metadata_reader
         : read_btrfs_snapshot_metadata;
+    profile = btrfsbackup::load_profile_by_id(profile_config_dir, options.profile_id);
+    if (command == "execute") {
+        ensure_target_mounted(profile, options);
+    }
     BackupRunPlan plan = build_runner_plan(profile_config_dir, options, profile, metadata_reader);
     const std::string config_fingerprint = config_fingerprint_for_profile(profile_config_dir, profile);
 

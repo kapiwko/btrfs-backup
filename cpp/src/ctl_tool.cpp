@@ -35,7 +35,7 @@ void usage() {
               << "\nOptions:\n"
               << "  --status-root PATH   Override status root (default: /run/btrfs-backup/profiles).\n"
               << "  --history-root PATH  Override history root (default: /var/lib/btrfs-backup/history).\n"
-              << "  --profile-dir PATH   Override profile config dir (default: /etc/btrfs-backup/profiles.d).\n"
+              << "  --profile-dir PATH   Override profile config root (default: /etc/btrfs-backup).\n"
               << "\nCommands:\n"
               << "  profile COMMAND\n"
               << "  status COMMAND\n"
@@ -52,7 +52,7 @@ namespace btrfsbackup {
 int ctl_tool_main(int argc, char** argv) {
     fs::path status_root = std::getenv("BTRFS_BACKUP_STATUS_ROOT") ? std::getenv("BTRFS_BACKUP_STATUS_ROOT") : "/run/btrfs-backup/profiles";
     fs::path history_root = std::getenv("BTRFS_BACKUP_HISTORY_ROOT") ? std::getenv("BTRFS_BACKUP_HISTORY_ROOT") : "/var/lib/btrfs-backup/history";
-    fs::path profile_config_dir = std::getenv("BTRFS_BACKUP_PROFILE_CONFIG_DIR") ? std::getenv("BTRFS_BACKUP_PROFILE_CONFIG_DIR") : "/etc/btrfs-backup/profiles.d";
+    fs::path profile_config_dir = std::getenv("BTRFS_BACKUP_PROFILE_CONFIG_DIR") ? std::getenv("BTRFS_BACKUP_PROFILE_CONFIG_DIR") : "/etc/btrfs-backup";
     std::vector<std::string> rest;
 
     try {
