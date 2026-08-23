@@ -2,11 +2,11 @@
 
 ## C++ Runtime Migration
 
-- Move the main backup flow from Bash to C++ after parity tests pass:
+- Retire the legacy Bash runtime script after C++ real-device parity is proven:
   - keep Bash wrappers for mount/eject compatibility while needed;
   - keep existing integration tests as regression coverage;
-  - remove Bash runtime code only after the C++ runner completes full,
-    incremental, failure and recovery scenarios.
+  - remove `scripts/btrfs-backup.sh` only after the C++ runner completes full,
+    incremental, failure and recovery scenarios against real Btrfs targets.
 
 - Define C++ runner completion criteria:
   - full and incremental runs pass the existing compatibility suite;
