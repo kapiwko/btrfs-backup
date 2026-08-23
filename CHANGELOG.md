@@ -16,7 +16,8 @@
 12. `btrfs-backup-migrate-profile --remove-legacy` moves the legacy file aside after migration.
 13. `btrfs-backup-profile` validates canonical JSON profiles and materializes runtime `.env`, source, udev, and public manifest files;
 14. `btrfs-backup-configure` now renders canonical `profile.json` first, then materializes the runtime profile files from that JSON;
-15. `btrfs-backup-profile show` and `export` can read the active canonical profile or reconstruct it from runtime profile files.
+15. `btrfs-backup-profile show` and `export` can read the active canonical profile or reconstruct it from runtime profile files;
+16. `docs/engine-contract.md` defines the stable profile, status, history, phase, and recovery contract for future engine implementations.
 
 The legacy `/etc/btrfs-backup/backup.env` fallback is deprecated in 1.1 and
 will be removed in 2.0. Use `btrfs-backup-migrate-profile --profile default`
