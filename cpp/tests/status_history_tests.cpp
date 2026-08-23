@@ -4,7 +4,10 @@
 
 #include <btrfsbackup/command/profile_list_command.hpp>
 #include <btrfsbackup/command/status_history_command.hpp>
+#include <btrfsbackup/command/status_command.hpp>
 #include <btrfsbackup/command/status_show_command.hpp>
+#include <btrfsbackup/json_io.hpp>
+#include <btrfsbackup/status_writer.hpp>
 
 #include "test_helpers.hpp"
 
@@ -74,6 +77,100 @@ void test_status_human_format() {
     fs::remove_all(root);
 }
 
+std::vector<std::string> required_status_api_fields() {
+    return {
+        "schemaVersion",
+        "profileId",
+        "profileName",
+        "runId",
+        "state",
+        "phase",
+        "message",
+        "currentSourceName",
+        "sourceIndex",
+        "sourceCount",
+        "startedAt",
+        "updatedAt",
+        "finishedAt",
+        "errorCode",
+        "errorMessage",
+        "details",
+        "recoverable",
+        "suggestedAction",
+        "canCancel",
+        "safeToRemove",
+        "bytesProcessed",
+        "bytesTotalEstimated",
+        "runBytesProcessed",
+        "speedBps",
+        "etaSeconds",
+        "sourceProgress",
+        "overallProgress",
+        "progressAccuracy",
+        "exitCode",
+    };
+}
+
+btrfsbackup::StatusRecord watch_sample_record() {
+    return {
+        .profile_id = "default",
+        .profile_name = "Default backup",
+        .run_id = "20260823T024407Z-4298-30158",
+        .state = "running",
+        .phase = "transferring",
+        .message = "Backup transfer is running.",
+        .current_source_name = "home",
+        .source_index = 1,
+        .source_count = 2,
+        .started_at = "2026-08-23T02:44:07Z",
+        .updated_at = "2026-08-23T02:45:07Z",
+        .can_cancel = true,
+        .bytes_processed = 4096,
+        .bytes_total_estimated = 8192,
+        .run_bytes_processed = 12288,
+        .speed_bps = 2048,
+        .eta_seconds = 2,
+        .source_progress = 50,
+        .overall_progress = 0,
+        .progress_accuracy = "estimated",
+    };
+}
+
+void test_status_watch_json_emits_status_api_shape_once() {
+    fs::path root = test_root("watch-json");
+    btrfsbackup::write_current_status(root / "status", watch_sample_record());
+
+    std::ostringstream output;
+    std::string previous;
+    bool emitted = btrfsbackup::command::status_watch_once(
+        root / "status",
+        {"--profile", "default", "--json"},
+        previous,
+        output
+    );
+
+    test_helpers::expect_true("watch emitted", emitted, "watch should emit current status");
+    btrfsbackup::Json data = btrfsbackup::Json::parse(output.str());
+    for (const std::string& field : required_status_api_fields()) {
+        test_helpers::expect_true("watch field " + field, data.contains(field), "missing field " + field);
+    }
+    test_helpers::expect_true("watch schema", data.at("schemaVersion") == 1, "wrong schema");
+    test_helpers::expect_true("watch profile", data.at("profileId") == "default", "wrong profile");
+    test_helpers::expect_true("watch progress", data.at("sourceProgress") == 50, "wrong source progress");
+
+    std::ostringstream duplicate_output;
+    bool duplicate = btrfsbackup::command::status_watch_once(
+        root / "status",
+        {"--profile", "default", "--json"},
+        previous,
+        duplicate_output
+    );
+    test_helpers::expect_true("watch duplicate", !duplicate, "unchanged status should not be emitted twice");
+    test_helpers::expect_eq("watch duplicate output", duplicate_output.str(), "");
+
+    fs::remove_all(root);
+}
+
 void test_list_profiles_rejects_invalid_name() {
     fs::path root = test_root("bad-profile");
     test_helpers::write_file(root / "profiles" / "-bad" / "profile.json", "{}\n");
@@ -109,6 +206,7 @@ int main() {
     test_status_falls_back_to_last_json();
     test_list_profiles_from_json_files();
     test_status_human_format();
+    test_status_watch_json_emits_status_api_shape_once();
     test_list_profiles_rejects_invalid_name();
     test_history_limit();
 
