@@ -21,7 +21,11 @@ struct StatusRecord {
     std::string started_at;
     std::string updated_at;
     std::string finished_at;
-    std::string error;
+    std::string error_code;
+    std::string error_message;
+    Json details = Json::object();
+    bool recoverable = false;
+    std::string suggested_action;
     int exit_code = 0;
 };
 

@@ -65,7 +65,6 @@ StatusRecord status_record_for_event(const BackupRunStatusContext& context, cons
     std::string state = "running";
     std::string phase = backup_run_event_kind_name(event.kind);
     std::string finished_at;
-    std::string error;
     int exit_code = 0;
 
     if (event.kind == BackupRunEventKind::ActionStarted
@@ -79,7 +78,6 @@ StatusRecord status_record_for_event(const BackupRunStatusContext& context, cons
 
     if (event.kind == BackupRunEventKind::ActionFailed) {
         state = "failed";
-        error = event.message;
         exit_code = 1;
         finished_at = current_utc_iso_timestamp();
     } else if (event.kind == BackupRunEventKind::RunCompleted) {
@@ -91,6 +89,30 @@ StatusRecord status_record_for_event(const BackupRunStatusContext& context, cons
         phase = "cancelled";
         exit_code = 130;
         finished_at = current_utc_iso_timestamp();
+    }
+
+    Json details = Json::object();
+    std::string error_code;
+    std::string error_message;
+    bool recoverable = false;
+    std::string suggested_action;
+    if (event.kind == BackupRunEventKind::ActionFailed) {
+        error_code = "runner.action_failed";
+        error_message = event.message;
+        details = {
+            {"sourceId", event.source_id},
+            {"action", backup_run_action_kind_name(event.action_kind)}
+        };
+        suggested_action = "inspect-run-history";
+    } else if (event.kind == BackupRunEventKind::RunCancelled) {
+        error_code = "runner.cancelled";
+        error_message = message_for_event(event);
+        details = {
+            {"sourceId", event.source_id},
+            {"action", backup_run_action_kind_name(event.action_kind)}
+        };
+        recoverable = true;
+        suggested_action = "run-backup-again";
     }
 
     return StatusRecord{
@@ -106,7 +128,11 @@ StatusRecord status_record_for_event(const BackupRunStatusContext& context, cons
         .started_at = context.started_at,
         .updated_at = current_utc_iso_timestamp(),
         .finished_at = finished_at,
-        .error = error,
+        .error_code = error_code,
+        .error_message = error_message,
+        .details = details,
+        .recoverable = recoverable,
+        .suggested_action = suggested_action,
         .exit_code = exit_code,
     };
 }

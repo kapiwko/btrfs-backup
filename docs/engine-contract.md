@@ -107,7 +107,11 @@ Schema version 1 currently requires these fields:
   "startedAt": "2026-08-23T02:44:07+00:00",
   "updatedAt": "2026-08-23T02:44:07+00:00",
   "finishedAt": "",
-  "error": "",
+  "errorCode": "",
+  "errorMessage": "",
+  "details": {},
+  "recoverable": false,
+  "suggestedAction": "",
   "exitCode": 0
 }
 ```
@@ -158,8 +162,8 @@ The command exit code remains the primary process result:
 ```
 
 More specific failures should be represented in status/history JSON through
-`phase`, `message`, `error`, and `result` rather than by inventing many process
-exit codes.
+`phase`, `message`, `errorCode`, `errorMessage`, `details`, `recoverable`, and
+`suggestedAction` rather than by inventing many process exit codes.
 
 ## Snapshot Semantics
 
