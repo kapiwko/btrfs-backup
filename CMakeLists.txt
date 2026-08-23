@@ -55,6 +55,7 @@ add_library(btrfsbackup_profile_tool STATIC
     cpp/src/profile_wizard.cpp
     cpp/src/retention_plan.cpp
     cpp/src/run_state.cpp
+    cpp/src/runtime_adapters.cpp
     cpp/src/shell_env.cpp
     cpp/src/space_check.cpp
     cpp/src/snapshot_inventory.cpp
@@ -132,6 +133,10 @@ if(BUILD_TESTING)
 
     add_executable(btrfsbackup-retention-plan-tests
         cpp/tests/retention_plan_tests.cpp
+    )
+
+    add_executable(btrfsbackup-runtime-adapters-tests
+        cpp/tests/runtime_adapters_tests.cpp
     )
 
     add_executable(btrfsbackup-mount-info-tests
@@ -217,6 +222,11 @@ if(BUILD_TESTING)
             btrfsbackup_profile_tool
     )
 
+    target_link_libraries(btrfsbackup-runtime-adapters-tests
+        PRIVATE
+            btrfsbackup_profile_tool
+    )
+
     target_link_libraries(btrfsbackup-mount-info-tests
         PRIVATE
             btrfsbackup_profile_tool
@@ -263,6 +273,7 @@ if(BUILD_TESTING)
     add_test(NAME pending-recovery-plan-tests COMMAND btrfsbackup-pending-recovery-plan-tests)
     add_test(NAME profile-wizard-tests COMMAND btrfsbackup-profile-wizard-tests)
     add_test(NAME retention-plan-tests COMMAND btrfsbackup-retention-plan-tests)
+    add_test(NAME runtime-adapters-tests COMMAND btrfsbackup-runtime-adapters-tests)
     add_test(NAME file-lock-tests COMMAND btrfsbackup-file-lock-tests)
     add_test(NAME mount-info-tests COMMAND btrfsbackup-mount-info-tests)
     add_test(NAME space-check-tests COMMAND btrfsbackup-space-check-tests)
