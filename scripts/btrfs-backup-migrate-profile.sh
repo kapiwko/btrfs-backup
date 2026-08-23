@@ -12,6 +12,7 @@ PROFILE_ID="${BTRFS_BACKUP_PROFILE:-default}"
 PROFILE_NAME="Default backup"
 FORCE=0
 DRY_RUN=0
+REMOVE_LEGACY=0
 
 usage() {
     cat <<'USAGE'
@@ -23,6 +24,7 @@ Options:
   --name TEXT         Human-readable profile name (default: Default backup).
   --profile-dir PATH  Profile directory (default: /etc/btrfs-backup/profiles.d).
   --force             Replace an existing profile file after saving a timestamped backup.
+  --remove-legacy     Move the legacy source file aside after creating the profile.
   --dry-run           Validate inputs and print the target path without writing.
   -h, --help          Show this help.
 USAGE
@@ -67,6 +69,10 @@ while (( $# > 0 )); do
             ;;
         --force)
             FORCE=1
+            shift
+            ;;
+        --remove-legacy)
+            REMOVE_LEGACY=1
             shift
             ;;
         --dry-run)
@@ -123,3 +129,11 @@ chmod 0600 "$TARGET_CONFIG"
 chown 0:0 "$TARGET_CONFIG"
 
 bb_log INFO "Created profile configuration: $TARGET_CONFIG"
+
+if (( REMOVE_LEGACY == 1 )); then
+    stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+    legacy_backup="$SOURCE_CONFIG.migrated-$stamp"
+    mv -- "$SOURCE_CONFIG" "$legacy_backup"
+    chmod 0600 "$legacy_backup"
+    bb_log INFO "Moved legacy configuration aside: $legacy_backup"
+fi

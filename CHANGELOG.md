@@ -10,6 +10,10 @@
 6. `btrfs-backup-mount` for mounting and validating the configured backup target without starting a backup;
 7. profile JSON examples and schema for future tooling;
 8. package contents updated for all generated packaging backends.
+9. configurator renders and installs profile files and a templated systemd unit;
+10. udev starts the profile-specific systemd unit;
+11. `btrfs-backupctl list-profiles` lists profile files and the legacy fallback;
+12. `btrfs-backup-migrate-profile --remove-legacy` moves the legacy file aside after migration.
 
 The legacy `/etc/btrfs-backup/backup.env` fallback is deprecated in 1.1 and
 will be removed in 2.0. Use `btrfs-backup-migrate-profile --profile default`
