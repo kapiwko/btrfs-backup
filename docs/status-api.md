@@ -16,6 +16,7 @@ Current status is written atomically to:
 ```
 
 The root directory can be overridden with `STATUS_ROOT` in the runtime profile env.
+The status directory is intended to be readable by unprivileged local users.
 
 Example:
 
@@ -81,6 +82,8 @@ Finished runs are written atomically to:
 The root directory can be overridden with `HISTORY_ROOT` in the runtime profile env.
 History entries use the same schema as `current.json`, with `finishedAt` and
 the final `exitCode` populated.
+History is intended to be readable by unprivileged local users; private recovery
+state remains under `STATE_DIR/profiles/<PROFILE_ID>`.
 
 ## CLI
 

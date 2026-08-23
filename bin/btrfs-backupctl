@@ -113,6 +113,9 @@ command_status() {
 
     validate_profile_id "$profile"
     path="$STATUS_ROOT/$profile/current.json"
+    if [[ ! -r "$path" && -r "$HISTORY_ROOT/$profile/last.json" ]]; then
+        path="$HISTORY_ROOT/$profile/last.json"
+    fi
     if (( human == 1 )); then
         [[ -r "$path" ]] || die "cannot read $path"
         human_status "$path"
@@ -124,7 +127,7 @@ command_status() {
 command_history() {
     local profile=default
     local limit=50
-    local directory path count=0
+    local directory path content count=0
 
     while (( $# > 0 )); do
         case "$1" in
@@ -145,13 +148,17 @@ command_history() {
 
     validate_profile_id "$profile"
     directory="$HISTORY_ROOT/$profile"
-    [[ -d "$directory" ]] || die "history directory does not exist: $directory"
+    if [[ ! -d "$directory" ]]; then
+        printf '[]\n'
+        return 0
+    fi
 
     printf '[\n'
     while IFS= read -r path; do
         (( count >= limit )) && break
+        content="$(cat -- "$path")"
         (( count == 0 )) || printf ',\n'
-        cat -- "$path"
+        printf '%s' "$content"
         (( count += 1 ))
     done < <(find "$directory" -maxdepth 1 -type f -name '*.json' ! -name last.json -printf '%f\n' \
         | sort -r \

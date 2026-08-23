@@ -245,6 +245,39 @@ CONFIG
         list-profiles)"
     grep -qx 'default (legacy)' <<< "$profile_list" \
         || fail 'btrfs-backupctl did not list legacy default profile'
+    local empty_history
+    empty_history="$("$ROOT/bin/btrfs-backupctl" \
+        --history-root "$TEST_ROOT/missing-history" \
+        history --profile default)"
+    [[ "$empty_history" == '[]' ]] \
+        || fail 'btrfs-backupctl did not render empty history'
+    local fallback_history_root="$TEST_ROOT/status-fallback-history"
+    mkdir -p "$fallback_history_root/default"
+    cat > "$fallback_history_root/default/last.json" <<'JSON'
+{
+  "schemaVersion": 1,
+  "profileId": "default",
+  "profileName": "Default backup",
+  "runId": "test-run",
+  "state": "succeeded",
+  "phase": "complete",
+  "message": "Backup completed successfully.",
+  "currentSourceName": "",
+  "sourceIndex": 1,
+  "sourceCount": 1,
+  "startedAt": "2026-08-23T00:00:00+00:00",
+  "updatedAt": "2026-08-23T00:01:00+00:00",
+  "finishedAt": "2026-08-23T00:01:00+00:00",
+  "error": "",
+  "exitCode": 0
+}
+JSON
+    "$ROOT/bin/btrfs-backupctl" \
+        --status-root "$TEST_ROOT/missing-status" \
+        --history-root "$fallback_history_root" \
+        status --profile default --human \
+        | grep -q 'Default backup: succeeded' \
+        || fail 'btrfs-backupctl did not fall back to last history status'
 
     local remove_config="$TEST_ROOT/remove-legacy-backup.env"
     local remove_source_dir="$TEST_ROOT/remove-legacy-sources.d"
@@ -723,6 +756,8 @@ runtime_success_test() {
     run_backup
     assert_file "$PROFILE_STATE_DIR/last-success"
     assert_contains "$PROFILE_STATE_DIR/last-success" 'profile_id=default'
+    [[ "$(stat -c '%a' "$STATE_DIR")" == 755 ]] || fail 'state root should be traversable for public history'
+    [[ "$(stat -c '%a' "$PROFILE_STATE_DIR")" == 700 ]] || fail 'profile private state should remain root-only'
     assert_file "$STATUS_ROOT/default/current.json"
     assert_file "$HISTORY_ROOT/default/last.json"
     assert_contains "$STATUS_ROOT/default/current.json" '"state": "succeeded"'
@@ -740,6 +775,9 @@ runtime_success_test() {
         history --profile default --limit 1)"
     grep -q '"state": "succeeded"' <<< "$ctl_history_output" \
         || fail 'btrfs-backupctl did not render history'
+    if grep -qx ',' <<< "$ctl_history_output"; then
+        fail 'btrfs-backupctl rendered a comma on a separate history line'
+    fi
     assert_contains "$MOCK_LOG" 'SEND_FULL'
     assert_dir "$MOCK_MOUNTPOINT/snapshots/root"
     assert_dir "$MOCK_MOUNTPOINT/snapshots/home"

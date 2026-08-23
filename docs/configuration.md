@@ -67,6 +67,8 @@ Important fields:
 | `LOCK_FILE` | lock shared by backup, eject, and configurator operations |
 
 A retention value of `0` disables automatic pruning for that scope.
+`STATUS_ROOT` and `HISTORY_ROOT` are intended for unprivileged status readers.
+Private recovery markers remain in `STATE_DIR/profiles/<PROFILE_ID>`.
 
 If `PROFILE_ID` is missing, the runner uses `default`. Legacy files directly
 under `STATE_DIR`, such as `last-success` and `pending-*`, are migrated to the

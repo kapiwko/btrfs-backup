@@ -284,7 +284,8 @@ update_run_status() {
 migrate_legacy_state() {
     local legacy_path entry
 
-    install -d -m0700 "$STATE_DIR" "$PROFILE_STATE_DIR"
+    install -d -m0755 "$STATE_DIR"
+    install -d -m0700 "$PROFILE_STATE_DIR"
     legacy_path="$STATE_DIR/last-success"
     if [[ -f "$legacy_path" && ! -e "$PROFILE_STATE_DIR/last-success" ]]; then
         mv -- "$legacy_path" "$PROFILE_STATE_DIR/last-success"
