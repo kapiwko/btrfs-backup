@@ -17,6 +17,18 @@ void NullBackupRunEventSink::on_backup_run_event(const BackupRunEvent&) {
 
 namespace {
 
+int source_index_for_event(const BackupRunPlan& plan, const BackupSourceRunPlan* source) {
+    if (source == nullptr) {
+        return 0;
+    }
+    for (std::size_t i = 0; i < plan.sources.size(); ++i) {
+        if (plan.sources.at(i).source_id == source->source_id) {
+            return static_cast<int>(i + 1);
+        }
+    }
+    return 0;
+}
+
 void emit_event(
     IBackupRunEventSink& events,
     BackupRunEventKind kind,
@@ -25,6 +37,7 @@ void emit_event(
     BackupRunActionKind action_kind,
     std::uint64_t bytes_transferred = 0,
     std::uint64_t bytes_produced = 0,
+    std::uint64_t run_bytes_transferred = 0,
     std::uint64_t delta_bytes = 0,
     std::uint64_t pending_bytes = 0,
     std::uint64_t elapsed_ms = 0,
@@ -37,9 +50,11 @@ void emit_event(
         .profile_id = plan.profile_id,
         .run_id = plan.run_id,
         .source_id = source == nullptr ? std::string{} : source->source_id,
+        .source_index = source_index_for_event(plan, source),
         .action_kind = action_kind,
         .bytes_transferred = bytes_transferred,
         .bytes_produced = bytes_produced,
+        .run_bytes_transferred = run_bytes_transferred,
         .delta_bytes = delta_bytes,
         .pending_bytes = pending_bytes,
         .elapsed_ms = elapsed_ms,
@@ -55,12 +70,14 @@ public:
         IBackupRunEventSink& events,
         const BackupRunPlan& plan,
         const BackupSourceRunPlan& source,
-        BackupRunActionKind action_kind
+        BackupRunActionKind action_kind,
+        std::uint64_t run_bytes_base
     )
         : events_(events),
           plan_(plan),
           source_(source),
-          action_kind_(action_kind) {
+          action_kind_(action_kind),
+          run_bytes_base_(run_bytes_base) {
     }
 
     void on_transfer_event(const TransferEvent& event) override {
@@ -73,6 +90,7 @@ public:
                 action_kind_,
                 event.bytes_transferred,
                 event.bytes_produced,
+                run_bytes_base_ + event.bytes_transferred,
                 event.delta_bytes,
                 event.pending_bytes,
                 event.elapsed_ms,
@@ -88,6 +106,7 @@ private:
     const BackupRunPlan& plan_;
     const BackupSourceRunPlan& source_;
     BackupRunActionKind action_kind_;
+    std::uint64_t run_bytes_base_ = 0;
 };
 
 std::filesystem::path selected_parent_path(const BackupSourceRunPlan& source_plan) {
@@ -169,6 +188,7 @@ BackupRunExecutionResult BackupRunExecutor::execute(
     CancellationToken& cancellation
 ) {
     BackupRunExecutionResult result;
+    std::uint64_t completed_run_bytes = 0;
     emit_event(events, BackupRunEventKind::RunStarted, plan, nullptr, BackupRunActionKind::CleanupSource);
 
     for (const BackupSourceRunPlan& source : plan.sources) {
@@ -192,7 +212,7 @@ BackupRunExecutionResult BackupRunExecutor::execute(
             try {
                 if (action.kind == BackupRunActionKind::SendReceive) {
                     action_effects_.execute_action(action, source, plan);
-                    BackupTransferEventAdapter transfer_events(events, plan, source, action.kind);
+                    BackupTransferEventAdapter transfer_events(events, plan, source, action.kind, completed_run_bytes);
                     std::unique_ptr<IAsyncTransferHandle> transfer = transfer_pipeline_.start(
                         transfer_plan_for_source(source),
                         transfer_events
@@ -206,11 +226,12 @@ BackupRunExecutionResult BackupRunExecutor::execute(
                     }
                     error_code = transfer_failure_error_code(transfer_result);
                     require_transfer_success(transfer_result);
+                    completed_run_bytes += transfer_result.bytes_transferred;
                 } else if (action_has_external_effect(action.kind)) {
                     action_effects_.execute_action(action, source, plan);
                 }
             } catch (const std::exception& error) {
-                emit_event(events, BackupRunEventKind::ActionFailed, plan, &source, action.kind, 0, 0, 0, 0, 0, 0, error_code, error.what());
+                emit_event(events, BackupRunEventKind::ActionFailed, plan, &source, action.kind, 0, 0, 0, 0, 0, 0, 0, error_code, error.what());
                 throw;
             }
 
