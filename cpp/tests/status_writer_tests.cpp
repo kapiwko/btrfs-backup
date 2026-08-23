@@ -108,6 +108,8 @@ void test_build_status_json_matches_contract_shape() {
     expect_true("details", data.at("details").is_object() && data.at("details").empty(), "wrong details");
     expect_true("recoverable", data.at("recoverable") == false, "wrong recoverable");
     expect_true("suggested action", data.at("suggestedAction") == "", "wrong suggestedAction");
+    expect_true("can cancel", data.at("canCancel") == false, "wrong canCancel");
+    expect_true("safe to remove", data.at("safeToRemove") == false, "wrong safeToRemove");
     expect_true("exit", data.at("exitCode") == 0, "wrong exitCode");
 }
 
@@ -124,6 +126,8 @@ void test_build_status_json_includes_structured_error() {
     };
     record.recoverable = false;
     record.suggested_action = "connect-correct-target";
+    record.can_cancel = true;
+    record.safe_to_remove = false;
     record.exit_code = 2;
 
     Json data = btrfsbackup::build_status_json(record);
@@ -134,6 +138,8 @@ void test_build_status_json_includes_structured_error() {
     expect_true("structured detail actual", data.at("details").at("actual") == "actual-uuid", "wrong actual detail");
     expect_true("structured recoverable", data.at("recoverable") == false, "wrong recoverable");
     expect_true("structured action", data.at("suggestedAction") == "connect-correct-target", "wrong suggested action");
+    expect_true("structured can cancel", data.at("canCancel") == true, "wrong canCancel");
+    expect_true("structured safe to remove", data.at("safeToRemove") == false, "wrong safeToRemove");
 }
 
 void test_dump_status_json_uses_stable_order_and_newline() {
@@ -161,6 +167,8 @@ void test_dump_status_json_uses_stable_order_and_newline() {
         "  \"details\": {},\n"
         "  \"recoverable\": false,\n"
         "  \"suggestedAction\": \"\",\n"
+        "  \"canCancel\": false,\n"
+        "  \"safeToRemove\": false,\n"
         "  \"exitCode\": 0\n"
         "}\n"
     );

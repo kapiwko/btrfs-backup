@@ -45,7 +45,10 @@
   - count bytes, speed and ETA without relying on `pv`;
   - report producer and consumer failures separately;
   - support cancellation and cleanup of `.incoming`;
-  - expose aggregate progress that does not reset between sources.
+  - expose source progress and aggregate run progress that does not reset
+    between sources;
+  - publish `canCancel`, bytes processed, estimated total bytes, speed and ETA
+    in status updates.
 
 - Add application-consistency hooks to the C++ run plan:
   - support controlled `beforeSnapshot` and `afterSnapshot` hook phases;
@@ -290,6 +293,8 @@
     as the primary live communication channel when the daemon is active;
   - recover visible run state after daemon restart by reading current status and
     history files;
+  - expose safe-removal state after eject so clients can distinguish a finished
+    backup from a target that is safe to disconnect;
   - use polkit for daemon authorization rather than a short-lived privileged
     helper model;
   - consider `libsystemd` only for `sd_notify`, watchdog or structured journal
@@ -301,6 +306,15 @@
   - make clients check capabilities before interpreting unknown formats;
   - document read-only operations separately from operations that require
     authorization.
+
+- Add privileged action safety tests:
+  - verify that start, force, validate, cancel and eject actions re-check the
+    profile id and active unit state server-side;
+  - reject eject while a backup unit is active unless an explicit safe path
+    proves the target is idle;
+  - reject starting conflicting profile units for the same target or lock;
+  - ensure cancellation requests stop the system unit or runner transaction
+    without killing unrelated processes.
 
 - Add backup freshness policy:
   - configure warning and critical age thresholds;

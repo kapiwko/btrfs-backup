@@ -89,6 +89,24 @@ void status_write(
             }
         } else if (arg == "--suggested-action") {
             record.suggested_action = arg_value(args, i, arg);
+        } else if (arg == "--can-cancel") {
+            std::string value = arg_value(args, i, arg);
+            if (value == "true") {
+                record.can_cancel = true;
+            } else if (value == "false") {
+                record.can_cancel = false;
+            } else {
+                throw ValidationError("--can-cancel must be true or false");
+            }
+        } else if (arg == "--safe-to-remove") {
+            std::string value = arg_value(args, i, arg);
+            if (value == "true") {
+                record.safe_to_remove = true;
+            } else if (value == "false") {
+                record.safe_to_remove = false;
+            } else {
+                throw ValidationError("--safe-to-remove must be true or false");
+            }
         } else if (arg == "--exit-code") {
             record.exit_code = parse_int(arg, arg_value(args, i, arg));
         } else {

@@ -112,14 +112,16 @@ Schema version 1 currently requires these fields:
   "details": {},
   "recoverable": false,
   "suggestedAction": "",
+  "canCancel": false,
+  "safeToRemove": false,
   "exitCode": 0
 }
 ```
 
 Consumers must ignore additional fields. Future compatible status writers may
-add fields such as `currentSourceId`, progress percentages, byte counters,
-speed, ETA, cancellation availability, target mount state, and safe-removal
-state without changing `schemaVersion`.
+add fields such as `currentSourceId`, `sourceProgress`, `overallProgress`,
+`progressAccuracy`, byte counters, speed, ETA, target mount state, and other
+diagnostic details without changing `schemaVersion`.
 
 Known `state` values are:
 

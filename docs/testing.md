@@ -30,7 +30,8 @@ Tests cover:
 12. refusal to use non-private configuration;
 13. refusal to use a source on the same Btrfs filesystem as the target;
 14. refusal to write through a symlink escaping the target directory;
-15. safe unmounting and closure of the expected mapper.
+15. safe unmounting and closure of the expected mapper;
+16. status/history contract shape, including structured errors.
 
 ## Mock Boundaries
 
@@ -80,6 +81,11 @@ not by shell mocks:
 Keep this harness opt-in. It needs QEMU, nested privileges, disposable disk
 images, and root-equivalent control inside the guest, so it should not run from
 `make` or the default local test script.
+
+Future privileged-control tests should verify that manual start, force,
+validate, cancel and eject operations cannot conflict with an active backup
+unit, cannot operate on a mismatched profile id, and cannot affect unrelated
+processes or targets.
 
 ## Real Btrfs Docker Test
 

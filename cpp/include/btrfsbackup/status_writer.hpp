@@ -26,6 +26,8 @@ struct StatusRecord {
     Json details = Json::object();
     bool recoverable = false;
     std::string suggested_action;
+    bool can_cancel = false;
+    bool safe_to_remove = false;
     int exit_code = 0;
 };
 

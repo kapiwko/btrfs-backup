@@ -142,7 +142,8 @@ Backups should be checked regularly with a restore test. A successful transfer e
 5. [status API](docs/status-api.md);
 6. [engine contract](docs/engine-contract.md);
 7. [C++ source layout](docs/cpp-layout.md);
-8. [release and packaging](docs/packaging.md).
+8. [security model](docs/security.md);
+9. [release and packaging](docs/packaging.md).
 
 ## Security and Limits
 
