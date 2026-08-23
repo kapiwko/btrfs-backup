@@ -775,6 +775,7 @@ run_backup() {
         BTRFS_BACKUP_DEV_MAPPER_ROOT="$MOCK_MAPPER_ROOT" \
         BTRFS_BACKUP_LOCK_FILE="$LOCK_FILE" \
         BTRFS_BACKUP_ALLOW_ROOTLESS_TESTS=true \
+        BTRFS_BACKUP_DISABLE_NOTIFY=true \
         BTRFS_BACKUP_PROFILE_JSON="$PROFILE_JSON_FILE" \
         "${EXTRA_ENV[@]}" \
         "$ROOT/scripts/btrfs-backup.sh" "$@"
@@ -800,6 +801,7 @@ run_backup_profile() {
         BTRFS_BACKUP_DEV_MAPPER_ROOT="$MOCK_MAPPER_ROOT" \
         BTRFS_BACKUP_LOCK_FILE="$LOCK_FILE" \
         BTRFS_BACKUP_ALLOW_ROOTLESS_TESTS=true \
+        BTRFS_BACKUP_DISABLE_NOTIFY=true \
         "${EXTRA_ENV[@]}" \
         "$ROOT/scripts/btrfs-backup.sh" "$@"
 }
@@ -1023,6 +1025,7 @@ eject_test() {
         BTRFS_BACKUP_DEV_MAPPER_ROOT="$MOCK_MAPPER_ROOT" \
         BTRFS_BACKUP_LOCK_FILE="$LOCK_FILE" \
         BTRFS_BACKUP_ALLOW_ROOTLESS_TESTS=true \
+        BTRFS_BACKUP_DISABLE_NOTIFY=true \
         BTRFS_BACKUP_PROFILE_JSON="$PROFILE_JSON_FILE" \
         "$ROOT/scripts/btrfs-backup-eject.sh" >/dev/null
 
