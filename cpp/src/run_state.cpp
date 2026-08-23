@@ -107,41 +107,6 @@ void write_success_state(const fs::path& profile_state_dir, const SuccessState& 
     fsync_dir(profile_state_dir);
 }
 
-void migrate_legacy_state(const fs::path& state_dir, const fs::path& profile_state_dir) {
-    fs::create_directories(state_dir);
-    chmod(state_dir.c_str(), 0755);
-    fs::create_directories(profile_state_dir);
-    chmod(profile_state_dir.c_str(), 0700);
-
-    std::error_code ec;
-    fs::path legacy_success = state_dir / "last-success";
-    fs::path profile_success = profile_state_dir / "last-success";
-    if (fs::is_regular_file(legacy_success, ec) && !fs::exists(profile_success, ec)) {
-        fs::rename(legacy_success, profile_success);
-    }
-
-    for (const auto& entry : fs::directory_iterator(state_dir, ec)) {
-        if (ec) {
-            break;
-        }
-        if (!entry.is_regular_file(ec)) {
-            continue;
-        }
-        std::string name = entry.path().filename().string();
-        if (name.rfind("pending-", 0) != 0) {
-            continue;
-        }
-        fs::path target = profile_state_dir / name;
-        if (fs::exists(target, ec)) {
-            continue;
-        }
-        fs::rename(entry.path(), target);
-    }
-
-    fsync_dir(state_dir);
-    fsync_dir(profile_state_dir);
-}
-
 fs::path pending_marker_path(const fs::path& profile_state_dir, const std::string& source_name) {
     validate_identifier(source_name, "source_name");
     return profile_state_dir / ("pending-" + source_name);

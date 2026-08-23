@@ -81,7 +81,6 @@ sudo btrfs-backup --no-eject
 sudo btrfs-backup --profile default --validate
 sudo btrfs-backup-mount
 sudo btrfs-backup-eject
-sudo btrfs-backupctl profile migrate --profile default
 btrfs-backupctl profile validate --file profile.json
 btrfs-backupctl profile render --file profile.json --output-dir ./generated-profile
 btrfs-backupctl profile show --profile default
@@ -110,18 +109,6 @@ mode `0600`; the script refuses files that are accessible by group or other
 users.
 
 Profiles are selected with `--profile <profile>` or `BTRFS_BACKUP_PROFILE=<profile>`.
-To create the default profile from an existing legacy configuration:
-
-```bash
-sudo btrfs-backupctl profile migrate --profile default
-```
-
-After validating the migrated profile, the old legacy configuration,
-`sources.d` directory, and udev rule can be moved aside:
-
-```bash
-sudo btrfs-backupctl profile migrate --profile default --force --remove-legacy
-```
 
 ## Recovery
 
@@ -133,13 +120,12 @@ Backups should be checked regularly with a restore test. A successful transfer e
 
 1. [architecture and runtime flow](docs/architecture.md);
 2. [configuration](docs/configuration.md);
-3. [migration to profiles](docs/migration-to-profiles.md);
-4. [recovery](docs/recovery.md);
-5. [testing](docs/testing.md);
-6. [status API](docs/status-api.md);
-7. [engine contract](docs/engine-contract.md);
-8. [C++ source layout](docs/cpp-layout.md);
-9. [release and packaging](docs/packaging.md).
+3. [recovery](docs/recovery.md);
+4. [testing](docs/testing.md);
+5. [status API](docs/status-api.md);
+6. [engine contract](docs/engine-contract.md);
+7. [C++ source layout](docs/cpp-layout.md);
+8. [release and packaging](docs/packaging.md).
 
 ## Security and Limits
 

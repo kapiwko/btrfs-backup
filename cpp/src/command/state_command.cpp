@@ -21,7 +21,6 @@ void usage() {
               << "  fingerprint [OPTIONS]\n"
               << "  check-last-success [OPTIONS]\n"
               << "  write-success [OPTIONS]\n"
-              << "  migrate-legacy [OPTIONS]\n"
               << "  pending write|read|clear [OPTIONS]\n";
 }
 
@@ -68,10 +67,6 @@ int state(const std::vector<std::string>& args) {
     }
     if (command == "write-success") {
         state_write_success(rest);
-        return 0;
-    }
-    if (command == "migrate-legacy") {
-        state_migrate_legacy(rest);
         return 0;
     }
     if (command == "pending") {

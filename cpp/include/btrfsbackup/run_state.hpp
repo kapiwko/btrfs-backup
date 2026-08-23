@@ -31,8 +31,6 @@ bool last_success_matches(
 );
 
 void write_success_state(const std::filesystem::path& profile_state_dir, const SuccessState& state);
-void migrate_legacy_state(const std::filesystem::path& state_dir, const std::filesystem::path& profile_state_dir);
-
 std::filesystem::path pending_marker_path(const std::filesystem::path& profile_state_dir, const std::string& source_name);
 void write_pending_marker(const std::filesystem::path& profile_state_dir, const PendingMarker& marker);
 std::string read_pending_marker_field(const std::filesystem::path& marker_path, const std::string& field);

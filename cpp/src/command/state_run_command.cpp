@@ -104,30 +104,6 @@ void state_write_success(const std::vector<std::string>& args) {
     btrfsbackup::write_success_state(profile_state_dir, state);
 }
 
-void state_migrate_legacy(const std::vector<std::string>& args) {
-    fs::path state_dir;
-    fs::path profile_state_dir;
-
-    for (std::size_t i = 0; i < args.size(); ++i) {
-        const std::string& arg = args[i];
-        if (arg == "--state-dir") {
-            state_dir = arg_value(args, i, arg);
-        } else if (arg == "--profile-state-dir") {
-            profile_state_dir = arg_value(args, i, arg);
-        } else {
-            throw ValidationError("unknown state migrate-legacy option: " + arg);
-        }
-    }
-
-    if (state_dir.empty()) {
-        throw ValidationError("state migrate-legacy requires --state-dir");
-    }
-    if (profile_state_dir.empty()) {
-        throw ValidationError("state migrate-legacy requires --profile-state-dir");
-    }
-    btrfsbackup::migrate_legacy_state(state_dir, profile_state_dir);
-}
-
 void state_pending_write(const std::vector<std::string>& args) {
     fs::path profile_state_dir;
     btrfsbackup::PendingMarker marker;

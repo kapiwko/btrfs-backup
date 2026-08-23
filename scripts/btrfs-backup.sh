@@ -246,16 +246,6 @@ update_run_status() {
     write_current_status running "$phase" "$message"
 }
 
-migrate_legacy_state() {
-    local backupctl
-
-    backupctl="$(backupctl_path)" || return 1
-    "$backupctl" \
-        state migrate-legacy \
-        --state-dir "$STATE_DIR" \
-        --profile-state-dir "$PROFILE_STATE_DIR"
-}
-
 cleanup_incoming_run() {
     local run_dir="$1"
     local entry
@@ -909,7 +899,6 @@ trap 'on_interrupt 129' HUP
 
 RUN_ID="$(date -u +%Y%m%dT%H%M%SZ)-$$-${RANDOM}"
 RUN_STARTED_AT="$(date --iso-8601=seconds)"
-migrate_legacy_state
 write_current_status starting starting "Backup run started."
 
 declare -A SEEN_SOURCE_NAMES=()
