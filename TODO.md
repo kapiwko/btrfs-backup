@@ -2,6 +2,24 @@
 
 ## C++ Runtime Migration
 
+- Port target mount validation from `scripts/btrfs-backup.sh::ensure_target_mounted()`
+  to C++ before switching runtime validation to the native helper:
+  - use `libmount`/`libblkid` data already exposed by `mount_info.cpp` instead
+    of parsing `findmnt`;
+  - add a focused module, for example `target_mount_validation.hpp/cpp`;
+  - validate that the configured mount point is mounted;
+  - validate `fstype == "btrfs"`;
+  - validate that the mount source uses `/dev/mapper/<target.mapperName>`;
+  - validate that mount options include `rw`;
+  - validate that the mounted Btrfs filesystem UUID matches
+    `target.btrfsUuid`;
+  - validate that `paths.remoteRoot` and `paths.incomingRoot` stay under the
+    target mount point after path normalization and symlink resolution;
+  - cover success, missing mount, wrong filesystem type, wrong mapper, read-only
+    mount, UUID mismatch and path escape cases with C++ tests;
+  - keep Bash as the executor until this validator has parity with existing
+    Bash integration tests.
+
 - Move the main backup flow from Bash to C++ after parity tests pass:
   - keep Bash wrappers for mount/eject compatibility while needed;
   - keep existing integration tests as regression coverage;
