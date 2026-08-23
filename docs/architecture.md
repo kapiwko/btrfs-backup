@@ -51,6 +51,18 @@ The mount unit does not start the backup service. The service starts the mount u
 
 The service templates have no `[Install]` section and are not intended to be enabled with `systemctl enable`.
 
+## Runner And Manager Boundary
+
+The backup runner must remain executable directly by the system service that is
+started from the device event. A future long-lived manager may expose a control
+API, start or stop units, and publish live progress, but it must not become a
+required process for an already configured automatic backup to run.
+
+If the manager is unavailable or restarts, an active runner continues. The
+manager reconstructs visible state from `/run/btrfs-backup` status files and
+history under `/var/lib/btrfs-backup` instead of owning the only copy of runtime
+state.
+
 ## Commit Model
 
 Each receive first lands under:
