@@ -90,6 +90,7 @@ target_link_libraries(btrfsbackup-engine
 )
 
 add_library(btrfsbackup-core STATIC
+    cpp/src/backup_tool.cpp
     cpp/src/command/installation_command.cpp
     cpp/src/command/profile_create_command.cpp
     cpp/src/command/profile_command.cpp
@@ -147,6 +148,17 @@ target_link_libraries(btrfs-backupctl
         btrfsbackup-core
 )
 
+add_executable(btrfs-backup-native
+    cpp/apps/btrfs-backup.cpp
+)
+
+set_target_properties(btrfs-backup-native PROPERTIES OUTPUT_NAME btrfs-backup)
+
+target_link_libraries(btrfs-backup-native
+    PRIVATE
+        btrfsbackup-core
+)
+
 if(BUILD_TESTING)
     function(add_btrfsbackup_test target source test_name)
         add_executable(${target}
@@ -160,6 +172,7 @@ if(BUILD_TESTING)
     endfunction()
 
     add_btrfsbackup_test(btrfsbackup-backup-run-plan-tests cpp/tests/backup_run_plan_tests.cpp backup-run-plan-tests)
+    add_btrfsbackup_test(btrfsbackup-backup-tool-tests cpp/tests/backup_tool_tests.cpp backup-tool-tests)
     add_btrfsbackup_test(btrfsbackup-backup-run-executor-tests cpp/tests/backup_run_executor_tests.cpp backup-run-executor-tests)
     add_btrfsbackup_test(btrfsbackup-backup-run-action-effects-tests cpp/tests/backup_run_action_effects_tests.cpp backup-run-action-effects-tests)
     add_btrfsbackup_test(btrfsbackup-backup-run-persistence-tests cpp/tests/backup_run_persistence_tests.cpp backup-run-persistence-tests)
