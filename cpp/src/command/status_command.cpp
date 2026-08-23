@@ -13,7 +13,7 @@
 #include <btrfsbackup/history.hpp>
 #include <btrfsbackup/identifiers.hpp>
 #include <btrfsbackup/status.hpp>
-#include <btrfsbackup/status_write_command.hpp>
+#include <btrfsbackup/command/status_write_command.hpp>
 
 namespace fs = std::filesystem;
 
@@ -107,7 +107,7 @@ int status(const fs::path& status_root, const fs::path& history_root, const std:
         return 0;
     }
     if (command == "write") {
-        btrfsbackup::command_write_status(status_root, history_root, rest);
+        write_status(status_root, history_root, rest);
         return 0;
     }
     if (command == "-h" || command == "--help") {

@@ -5,8 +5,8 @@
 #include <string>
 #include <vector>
 
+#include <btrfsbackup/command/run_state_command.hpp>
 #include <btrfsbackup/config_fingerprint.hpp>
-#include <btrfsbackup/run_state_command.hpp>
 
 namespace {
 
@@ -33,15 +33,15 @@ int pending(const std::vector<std::string>& args) {
     std::string command = args[0];
     std::vector<std::string> rest(args.begin() + 1, args.end());
     if (command == "write") {
-        btrfsbackup::command_write_pending_marker(rest);
+        btrfsbackup::command::write_pending_marker(rest);
         return 0;
     }
     if (command == "read") {
-        btrfsbackup::command_read_pending_marker(rest, std::cout);
+        btrfsbackup::command::read_pending_marker(rest, std::cout);
         return 0;
     }
     if (command == "clear") {
-        btrfsbackup::command_clear_pending_marker(rest);
+        btrfsbackup::command::clear_pending_marker(rest);
         return 0;
     }
     fail("unknown pending command: " + command);
@@ -63,15 +63,15 @@ int state(const std::vector<std::string>& args) {
         return 0;
     }
     if (command == "check-last-success") {
-        btrfsbackup::command_check_last_success(rest, std::cout);
+        check_last_success(rest, std::cout);
         return 0;
     }
     if (command == "write-success") {
-        btrfsbackup::command_write_success_state(rest);
+        write_success_state(rest);
         return 0;
     }
     if (command == "migrate-legacy") {
-        btrfsbackup::command_migrate_legacy_state(rest);
+        migrate_legacy_state(rest);
         return 0;
     }
     if (command == "pending") {
