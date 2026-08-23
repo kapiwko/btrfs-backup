@@ -100,7 +100,13 @@ syntax_test() {
     local script
     for script in "${scripts[@]}"; do
         if head -n1 "$script" | grep -q 'python3'; then
-            python3 -m py_compile "$script"
+            python3 - "$script" <<'PY'
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+compile(path.read_text(encoding="utf-8"), str(path), "exec")
+PY
         else
             bash -n "$script"
         fi
@@ -167,15 +173,63 @@ ANSWERS
 
 migrate_profile_dry_run_test() {
     local source_config="$TEST_ROOT/legacy-backup.env"
+    local source_dir="$TEST_ROOT/legacy-sources.d"
     local profile_dir="$TEST_ROOT/profiles.d"
+    local legacy_only_profile_dir="$TEST_ROOT/legacy-only-profiles.d"
+    local udev_dir="$TEST_ROOT/udev"
+    local public_dir="$TEST_ROOT/public"
 
-    mkdir -p "$profile_dir"
-    : > "$source_config"
+    mkdir -p "$source_dir" "$profile_dir" "$legacy_only_profile_dir" "$udev_dir" "$public_dir"
+    cat > "$source_config" <<CONFIG
+BACKUP_MAPPER_NAME=backupdisk
+BACKUP_DEVICE=/dev/disk/by-uuid/11111111-2222-3333-4444-555555555555
+BACKUP_LUKS_UUID=11111111-2222-3333-4444-555555555555
+BACKUP_BTRFS_UUID=66666666-7777-8888-9999-aaaaaaaaaaaa
+BACKUP_MOUNTPOINT=/mnt/backup
+SOURCES_DIR=$source_dir
+RETENTION_COUNT=30
+LOCAL_RETENTION_COUNT=20
+DAILY_LIMIT=true
+INCREMENTAL_REQUIRED=true
+KEEP_FAILED_LOCAL_SNAPSHOT=false
+AUTO_EJECT=true
+MIN_TARGET_FREE_BYTES=0
+MIN_LOCAL_FREE_BYTES=0
+NOTIFY_ENABLE=false
+NOTIFY_USER=tester
+NOTIFY_METHOD=none
+CONFIG
+    cat > "$source_dir/10-home.conf" <<CONFIG
+ENABLED=true
+SOURCE_NAME=home
+SOURCE_SUBVOLUME=/home
+LOCAL_SNAPSHOT_DIR=/.snapshots/btrfs-backup/home
+REMOTE_SUBDIR=home
+SOURCE_RETENTION_COUNT=45
+SOURCE_LOCAL_RETENTION_COUNT=20
+CONFIG
+    chmod 0600 "$source_config" "$source_dir/10-home.conf"
     "$ROOT/bin/btrfs-backup-migrate-profile" \
         --dry-run \
         --source "$source_config" \
         --profile-dir "$profile_dir" \
         --profile default >/dev/null
+    "$ROOT/bin/btrfs-backup-migrate-profile" \
+        --source "$source_config" \
+        --profile-dir "$profile_dir" \
+        --udev-dir "$udev_dir" \
+        --public-dir "$public_dir" \
+        --profile default \
+        --name 'Default backup' >/dev/null
+    assert_file "$profile_dir/default.env"
+    assert_file "$TEST_ROOT/profiles/default/profile.json"
+    assert_file "$TEST_ROOT/profiles/default/sources.d/010-home.conf"
+    assert_file "$udev_dir/99-btrfs-backup-default.rules"
+    assert_file "$public_dir/default.json"
+    assert_contains "$profile_dir/default.env" "SOURCES_DIR=$TEST_ROOT/profiles/default/sources.d"
+    assert_contains "$TEST_ROOT/profiles/default/profile.json" '"profileId": "default"'
+    assert_contains "$TEST_ROOT/profiles/default/sources.d/010-home.conf" 'SOURCE_NAME=home'
+
     printf 'PROFILE_ID=laptop\n' > "$profile_dir/laptop.env"
     local profile_list
     profile_list="$("$ROOT/bin/btrfs-backupctl" \
@@ -186,12 +240,12 @@ migrate_profile_dry_run_test() {
         || fail 'btrfs-backupctl did not list profile files'
     rm -f -- "$profile_dir/laptop.env"
     profile_list="$("$ROOT/bin/btrfs-backupctl" \
-        --profile-dir "$profile_dir" \
+        --profile-dir "$legacy_only_profile_dir" \
         --legacy-config "$source_config" \
         list-profiles)"
     grep -qx 'default (legacy)' <<< "$profile_list" \
         || fail 'btrfs-backupctl did not list legacy default profile'
-    pass 'profile migrator dry-run validates paths'
+    pass 'profile migrator validates and materializes JSON runtime files'
 }
 
 profile_json_test() {
@@ -574,15 +628,25 @@ profile_loading_test() {
     local profile_dir="$RUNTIME/config/profiles.d"
     local migrated="$profile_dir/default.env"
     local empty_profile_dir="$RUNTIME/config/empty-profiles.d"
+    local migration_config="$RUNTIME/config/migration.env"
 
+    cp -- "$CONFIG_FILE" "$migration_config"
+    sed -i "s|^BACKUP_DEVICE=.*|BACKUP_DEVICE=/dev/disk/by-uuid/$MOCK_LUKS_UUID|" "$migration_config"
+    chmod 0600 "$migration_config"
     "$ROOT/scripts/btrfs-backup-migrate-profile.sh" \
-        --source "$CONFIG_FILE" \
+        --source "$migration_config" \
+        --sources-dir "$SOURCES_DIR" \
         --profile-dir "$profile_dir" \
+        --udev-dir "$RUNTIME/udev" \
+        --public-dir "$RUNTIME/public" \
         --profile default >/dev/null
 
     assert_file "$migrated"
     assert_contains "$migrated" 'PROFILE_ID=default'
-    assert_contains "$migrated" 'PROFILE_NAME=Default\ backup'
+    assert_contains "$migrated" "PROFILE_NAME='Default backup'"
+    assert_file "$RUNTIME/config/profiles/default/profile.json"
+    assert_file "$RUNTIME/config/profiles/default/sources.d/010-root.conf"
+    sed -i "s|^BACKUP_DEVICE=.*|BACKUP_DEVICE=$MOCK_DEVICE_LINK|" "$migrated"
 
     local profile_list
     profile_list="$("$ROOT/bin/btrfs-backupctl" \

@@ -76,9 +76,10 @@ To convert an existing legacy file into the preferred default profile:
 sudo btrfs-backup-migrate-profile --profile default
 ```
 
-The migrator creates `/etc/btrfs-backup/profiles.d/default.env`, keeps
-`/etc/btrfs-backup/backup.env` in place, and leaves existing `sources.d`
-definitions unchanged.
+The migrator creates canonical profile JSON, materializes
+`/etc/btrfs-backup/profiles.d/default.env`, writes profile-local source
+definitions, and keeps `/etc/btrfs-backup/backup.env` in place unless
+`--remove-legacy` is used.
 
 ## JSON Schema
 
