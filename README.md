@@ -27,7 +27,9 @@ Each source must be a Btrfs subvolume. The local snapshot directory must be on t
 sudo pacman -U btrfs-backup-0.1.1-1-any.pkg.tar.zst
 ```
 
-The package does not enable the service at boot and does not create active configuration without an explicit user action.
+The package installs the systemd template unit used by udev, but it does not
+enable a service at boot and does not create active backup configuration without
+an explicit user action.
 
 ## First Configuration
 
@@ -62,7 +64,7 @@ The configurator intentionally does not edit `/etc/crypttab` or `/etc/fstab` aut
 
 ```bash
 sudo systemctl daemon-reload
-sudo udevadm control --reload
+sudo udevadm control --reload-rules
 sudo btrfs-backup --validate
 ```
 

@@ -1057,7 +1057,7 @@ if [[ "$ACTION" == apply ]]; then
 
     systemctl disable btrfs-backup.service >/dev/null 2>&1 || true
     systemctl daemon-reload
-    udevadm control --reload
+    udevadm control --reload-rules
     validate_active_installation
     bb_release_lock
     trap - EXIT

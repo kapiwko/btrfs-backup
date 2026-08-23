@@ -59,5 +59,5 @@ after applying generated files:
 
 ```bash
 sudo systemctl daemon-reload
-sudo udevadm control --reload
+sudo udevadm control --reload-rules
 ```
