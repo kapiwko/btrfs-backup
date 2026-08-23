@@ -44,8 +44,9 @@ BUILD-REPORT.txt
 ```
 
 The `source` target avoids package construction and does not require `zstd`. Package-specific backends may have additional tool requirements.
-Building from source requires CMake, a C++20 compiler, and `nlohmann-json`
-headers for the native profile helper under `cpp/`.
+Building from source requires CMake, a C++20 compiler, `pkg-config`,
+`nlohmann-json`, `libmount`, `libblkid`, `libudev`, and `libbtrfsutil`
+development files for the native code under `cpp/`.
 
 ## Arch Packaging
 
@@ -59,11 +60,15 @@ The package name and package base should both be `btrfs-backup`.
 
 ## Package Contents
 
-The native control binary and mount/eject helper scripts are installed under
-`/usr/lib/btrfs-backup`, commands under `/usr/bin`, the profile systemd unit
-under `/usr/lib/systemd/system`, examples under
-`/usr/share/btrfs-backup/examples`, and documentation under
-`/usr/share/doc/btrfs-backup`.
+Native private binaries are installed under `/usr/lib/btrfs-backup`, public
+commands under `/usr/bin`, the profile systemd unit under
+`/usr/lib/systemd/system`, examples under `/usr/share/btrfs-backup/examples`,
+and documentation under `/usr/share/doc/btrfs-backup`.
+
+The public command surface is `btrfs-backup` and `btrfs-backupctl`. Target
+mount and eject operations are `btrfs-backupctl target mount` and
+`btrfs-backupctl target eject`; standalone mount/eject wrapper commands are no
+longer packaged.
 
 The package does not install active fstab, crypttab, or udev entries.
 `btrfs-backupctl profile wizard --apply` and `profile save` write active

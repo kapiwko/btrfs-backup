@@ -16,17 +16,18 @@ Mode without root-only operations:
 
 Tests cover:
 
-1. syntax of remaining Bash wrappers and install hooks;
+1. syntax of remaining shell launchers and install hooks;
 2. multi-source rendering without unresolved placeholders;
 3. systemd unit and udev rule validation;
-4. per-profile status and history JSON;
-5. safe unmounting and closure of the expected mapper.
+4. canonical profile JSON validation, rendering, save, show, and export;
+5. per-profile status and history JSON.
 
 ## Mock Boundaries
 
-C++ unit tests cover planning, transfer orchestration, recovery, retention,
-status writing and validation logic. Production use also needs a test on a real
-or disposable environment:
+C++ unit tests cover the native backup entrypoint, target mount/eject commands,
+planning, transfer orchestration, recovery, retention, status writing and
+validation logic. Production use also needs a test on a real or disposable
+environment:
 
 ```text
 source Btrfs -> snapshot -> send/receive -> disconnect -> reconnect -> restore
