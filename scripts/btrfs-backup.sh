@@ -524,19 +524,19 @@ on_interrupt() {
 }
 
 compute_config_fingerprint() {
-    {
-        printf 'version=%s\0' "$BTRFS_BACKUP_VERSION"
-        printf 'main=%s\0' "$(basename -- "$CONFIG_FILE")"
-        cat -- "$CONFIG_FILE"
-        printf '\0'
+    local backupctl source_file
+    local args=(
+        config-fingerprint
+        --version "$BTRFS_BACKUP_VERSION"
+        --config "$CONFIG_FILE"
+    )
 
-        local source_file
-        for source_file in "${SOURCE_FILES[@]}"; do
-            printf 'source=%s\0' "$(basename -- "$source_file")"
-            cat -- "$source_file"
-            printf '\0'
-        done
-    } | sha256sum | awk '{print $1}'
+    for source_file in "${SOURCE_FILES[@]}"; do
+        args+=(--source "$source_file")
+    done
+
+    backupctl="$(backupctl_path)" || return 1
+    "$backupctl" "${args[@]}"
 }
 
 last_success_is_today() {
@@ -946,8 +946,8 @@ process_source() {
 
 bb_require_root
 bb_require_commands \
-    awk basename btrfs cat chmod cryptsetup date df dirname find findmnt flock grep head id install \
-    mktemp mountpoint mv readlink realpath rm rmdir sed sha256sum sort stat sync systemctl \
+    basename btrfs cat chmod cryptsetup date df dirname find findmnt flock grep head id install \
+    mktemp mountpoint mv readlink realpath rm rmdir sed sort stat sync systemctl \
     systemd-escape tail tr
 load_main_config
 

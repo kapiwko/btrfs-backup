@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <vector>
 
+#include <btrfsbackup/config_fingerprint.hpp>
 #include <btrfsbackup/errors.hpp>
 #include <btrfsbackup/history.hpp>
 #include <btrfsbackup/profile_list.hpp>
@@ -271,6 +272,38 @@ void test_write_history_requires_finished_at() {
     );
 }
 
+void test_config_fingerprint_matches_legacy_stream() {
+    fs::path root = test_root("fingerprint");
+    write_file(root / "main.env", "A=1\n");
+    write_file(root / "10-root.conf", "SOURCE_NAME=root\n");
+    write_file(root / "20-home.conf", "SOURCE_NAME=home\n");
+
+    std::string digest = btrfsbackup::compute_config_fingerprint(
+        "1.2.0",
+        root / "main.env",
+        {root / "10-root.conf", root / "20-home.conf"}
+    );
+
+    expect_eq("config fingerprint", digest, "630b159cf7939e5baf76ce27d4505a5cf68fe2995d5071c1f22e011e143b7c67");
+
+    std::ostringstream output;
+    btrfsbackup::command_config_fingerprint(
+        {
+            "--version",
+            "1.2.0",
+            "--config",
+            (root / "main.env").string(),
+            "--source",
+            (root / "10-root.conf").string(),
+            "--source",
+            (root / "20-home.conf").string(),
+        },
+        output
+    );
+    expect_eq("config fingerprint command", output.str(), digest + "\n");
+    fs::remove_all(root);
+}
+
 } // namespace
 
 int main() {
@@ -284,6 +317,7 @@ int main() {
     test_write_status_command_writes_current_and_history();
     test_write_status_requires_target();
     test_write_history_requires_finished_at();
+    test_config_fingerprint_matches_legacy_stream();
 
     if (failures > 0) {
         return 1;
