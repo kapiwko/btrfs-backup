@@ -95,6 +95,12 @@ void test_runner_plan_outputs_shadow_json() {
             "20260823T080000Z-123-456",
             "--mountinfo",
             mountinfo.string(),
+            "--mount-uuid",
+            "/dev/source",
+            "source-fs",
+            "--mount-uuid",
+            "/dev/mapper/backup",
+            profile.target.btrfs_uuid,
         },
         output
     );
@@ -118,10 +124,52 @@ void test_runner_plan_outputs_shadow_json() {
     fs::remove_all(root);
 }
 
+void test_runner_plan_validates_target_mount() {
+    fs::path root = test_helpers::test_root("runner-command", "target-validation");
+    fs::create_directories(root / "source" / "root");
+    fs::create_directories(root / "source" / ".snapshots" / "root");
+    fs::create_directories(root / "target" / "snapshots" / "root");
+    fs::create_directories(root / "target" / ".incoming");
+
+    btrfsbackup::Profile profile = test_profile(root);
+    fs::path config_root = root / "config";
+    fs::path mountinfo = root / "mountinfo";
+    write_profile(config_root, profile);
+    write_mountinfo(mountinfo, profile);
+
+    std::ostringstream output;
+    test_helpers::expect_validation_error("runner target uuid", [&] {
+        (void)btrfsbackup::command::runner(
+            config_root,
+            {
+                "plan",
+                "--profile",
+                "default",
+                "--timestamp",
+                "2026-08-23T080000Z",
+                "--run-id",
+                "20260823T080000Z-123-456",
+                "--mountinfo",
+                mountinfo.string(),
+                "--mount-uuid",
+                "/dev/source",
+                "source-fs",
+                "--mount-uuid",
+                "/dev/mapper/backup",
+                "99999999-9999-9999-9999-999999999999",
+            },
+            output
+        );
+    }, "Btrfs UUID mismatch");
+
+    fs::remove_all(root);
+}
+
 } // namespace
 
 int main() {
     test_runner_plan_outputs_shadow_json();
+    test_runner_plan_validates_target_mount();
 
     return test_helpers::finish("runner command tests");
 }
