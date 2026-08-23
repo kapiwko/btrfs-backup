@@ -14,6 +14,7 @@ add_library(btrfsbackup_profile_tool STATIC
     cpp/src/ctl_tool.cpp
     cpp/src/file_io.cpp
     cpp/src/history.cpp
+    cpp/src/identifiers.cpp
     cpp/src/json_io.cpp
     cpp/src/process.cpp
     cpp/src/profile.cpp

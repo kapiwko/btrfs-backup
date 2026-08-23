@@ -1,14 +1,13 @@
 #include <btrfsbackup/status_writer.hpp>
 
 #include <filesystem>
-#include <regex>
 #include <string>
 #include <sys/stat.h>
 
 #include <btrfsbackup/errors.hpp>
 #include <btrfsbackup/file_io.hpp>
+#include <btrfsbackup/identifiers.hpp>
 #include <btrfsbackup/json_io.hpp>
-#include <btrfsbackup/profile_list.hpp>
 
 namespace fs = std::filesystem;
 
@@ -17,13 +16,6 @@ namespace {
 void require_non_empty(const std::string& value, const char* field) {
     if (value.empty()) {
         throw btrfsbackup::ValidationError(std::string(field) + " is required");
-    }
-}
-
-void validate_run_id(const std::string& run_id) {
-    static const std::regex pattern("^[A-Za-z0-9][A-Za-z0-9._:-]*$");
-    if (!std::regex_match(run_id, pattern)) {
-        throw btrfsbackup::ValidationError("invalid run id: " + run_id);
     }
 }
 

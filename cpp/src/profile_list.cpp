@@ -4,11 +4,11 @@
 #include <filesystem>
 #include <fstream>
 #include <ostream>
-#include <regex>
 #include <string>
 #include <vector>
 
 #include <btrfsbackup/errors.hpp>
+#include <btrfsbackup/identifiers.hpp>
 
 namespace fs = std::filesystem;
 
@@ -40,13 +40,6 @@ std::vector<fs::path> sorted_files(const fs::path& directory, const std::string&
 } // namespace
 
 namespace btrfsbackup {
-
-void validate_profile_id(const std::string& profile_id) {
-    static const std::regex pattern("^[A-Za-z0-9][A-Za-z0-9._-]*$");
-    if (!std::regex_match(profile_id, pattern)) {
-        throw ValidationError("invalid profile id: " + profile_id);
-    }
-}
 
 void command_list_profiles(
     const fs::path& profile_config_dir,

@@ -7,6 +7,7 @@
 #include <unistd.h>
 
 #include <btrfsbackup/errors.hpp>
+#include <btrfsbackup/identifiers.hpp>
 #include <btrfsbackup/json.hpp>
 #include <btrfsbackup/json_io.hpp>
 #include <btrfsbackup/status_writer.hpp>
@@ -166,6 +167,11 @@ void test_write_history_entry() {
 }
 
 void test_rejects_unsafe_identifiers() {
+    btrfsbackup::ProfileId profile_id("default");
+    btrfsbackup::RunId run_id("20260823T024407Z-4298-30158");
+    expect_eq("profile id wrapper", profile_id.value, "default");
+    expect_eq("run id wrapper", run_id.value, "20260823T024407Z-4298-30158");
+
     StatusRecord bad_profile = sample_record();
     bad_profile.profile_id = "../default";
     expect_validation_error("bad profile", [&] { btrfsbackup::build_status_json(bad_profile); }, "invalid profile id");
