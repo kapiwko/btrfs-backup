@@ -2,12 +2,6 @@
 
 ## C++ Runtime Migration
 
-- Add a C++ runner entrypoint in shadow mode:
-  - build the plan from the real profile and filesystem state;
-  - print or write the planned actions;
-  - compare against current Bash runtime behavior in tests before enabling it as
-    the default executor.
-
 - Move the main backup flow from Bash to C++ after parity tests pass:
   - keep Bash wrappers for mount/eject compatibility while needed;
   - keep existing integration tests as regression coverage;

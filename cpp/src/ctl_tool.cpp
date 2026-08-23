@@ -9,6 +9,7 @@
 
 #include <btrfsbackup/command/installation_command.hpp>
 #include <btrfsbackup/command/profile_command.hpp>
+#include <btrfsbackup/command/runner_command.hpp>
 #include <btrfsbackup/command/state_command.hpp>
 #include <btrfsbackup/command/status_command.hpp>
 #include <btrfsbackup/errors.hpp>
@@ -40,6 +41,7 @@ void usage() {
               << "  status COMMAND\n"
               << "  state COMMAND\n"
               << "  installation COMMAND\n"
+              << "  runner COMMAND\n"
               << "  -h, --help\n";
 }
 
@@ -88,6 +90,8 @@ int ctl_tool_main(int argc, char** argv) {
             return command::state(args);
         } else if (command == "installation") {
             return command::installation(args);
+        } else if (command == "runner") {
+            return command::runner(profile_config_dir, args, std::cout);
         } else if (command == "-h" || command == "--help") {
             usage();
         } else {
