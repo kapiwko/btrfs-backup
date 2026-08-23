@@ -2,17 +2,6 @@
 
 ## C++ Runtime Migration
 
-- Split the current native core into clearer library layers:
-  - keep `btrfsbackup-model` limited to C++20, `nlohmann-json`, schema
-    normalization, validation, status/history shapes and migrations;
-  - move Linux-specific inspection and mutation into `btrfsbackup-system`,
-    including Btrfs subvolumes, mount tables, block-device identity, locks,
-    trusted file writes and future LUKS helpers;
-  - keep backup state machine, run planning, transfer orchestration,
-    checkpointing, progress and cancellation in `btrfsbackup-engine`;
-  - keep CLI parsing and process exit behavior outside model/system/engine
-    libraries.
-
 - Move the main backup flow from Bash to C++ after parity tests pass:
   - keep Bash wrappers for mount/eject compatibility while needed;
   - keep existing integration tests as regression coverage;
@@ -93,14 +82,6 @@
   - use `libblkid` for filesystem type, labels and UUID identity;
   - postpone `libcryptsetup` until the state machine, D-Bus/control API,
     cancellation and recovery behavior are stable.
-
-- Keep profile validation single-sourced:
-  - use one C++ validator for CLI commands, runner, future manager API and
-    tests;
-  - keep `config/profile.schema.json` as the formal contract documentation;
-  - add tests that verify C++ validation and schema expectations stay aligned;
-  - reject unknown fields or explicitly preserve them as versioned extensions,
-    instead of silently ignoring them.
 
 ## Repository And Restore Roadmap
 
