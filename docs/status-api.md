@@ -96,7 +96,7 @@ fields use `0` or `-1` as documented below:
 | `progressAccuracy` | `exact`, `estimated`, or `indeterminate` |
 | `bytesProcessed` | bytes delivered to the receive process in the current stream |
 | `bytesTotalEstimated` | estimated total bytes for the current stream, or `0` when unknown |
-| `runBytesProcessed` | bytes delivered in the current run; currently equal to `bytesProcessed` for the active source |
+| `runBytesProcessed` | cumulative bytes delivered in the current run, including prior sources |
 | `speedBps` | current transfer speed in bytes per second |
 | `etaSeconds` | estimated seconds remaining, or `-1` when unknown |
 | `canCancel` | whether a client should offer cancellation |
@@ -106,6 +106,11 @@ The status `details` object for `transferring` includes lower-level diagnostics:
 `bytesProduced`, `bytesTransferred`, `deltaBytes`, `pendingBytes`, `elapsedMs`,
 and `speedBps`. Clients must treat progress as advisory. Unknown or estimated
 progress must not be displayed as a precise guarantee.
+
+When a source byte total is unknown, `sourceProgress` remains `-1`.
+`overallProgress` is still estimated from the current one-based `sourceIndex`
+and `sourceCount`, so it does not reset to zero between sources. Byte-oriented
+clients should prefer `runBytesProcessed` for a monotonic run-level counter.
 
 When `canCancel` is `true`, a client may request cancellation with:
 
