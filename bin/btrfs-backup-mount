@@ -5,12 +5,12 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 INSTALLED_TARGET="$(realpath -m -- "$SCRIPT_DIR/../lib/btrfs-backup/btrfs-backup-mount.sh")"
 SOURCE_TARGET="$(realpath -m -- "$SCRIPT_DIR/../scripts/btrfs-backup-mount.sh")"
 
-if [[ -x "$INSTALLED_TARGET" ]]; then
+if [[ -x "$SOURCE_TARGET" ]]; then
+    exec "$SOURCE_TARGET" "$@"
+elif [[ -x "$INSTALLED_TARGET" ]]; then
     exec "$INSTALLED_TARGET" "$@"
 elif [[ -x /usr/lib/btrfs-backup/btrfs-backup-mount.sh ]]; then
     exec /usr/lib/btrfs-backup/btrfs-backup-mount.sh "$@"
-elif [[ -x "$SOURCE_TARGET" ]]; then
-    exec "$SOURCE_TARGET" "$@"
 else
     printf 'Cannot locate btrfs-backup-mount.sh.\n' >&2
     exit 1

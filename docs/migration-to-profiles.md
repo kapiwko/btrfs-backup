@@ -32,13 +32,14 @@ btrfs-backupctl list-profiles
 btrfs-backupctl status --profile default --human
 ```
 
-After confirming that the profile works, the legacy file can be moved aside:
+After confirming that the profile works, the legacy configuration and source
+directory can be moved aside:
 
 ```bash
 sudo btrfs-backup-migrate-profile --profile default --force --remove-legacy
 ```
 
-The command keeps a timestamped backup next to the original legacy file.
+The command keeps timestamped backups next to the original legacy paths.
 
 ## Regenerate Systemd And Udev Files
 
