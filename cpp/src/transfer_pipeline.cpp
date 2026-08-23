@@ -22,12 +22,59 @@ namespace btrfsbackup {
 void NullTransferEventSink::on_transfer_event(const TransferEvent&) {
 }
 
+CancellationToken::CancellationToken() {
+    if (pipe2(cancellation_pipe_, O_CLOEXEC | O_NONBLOCK) != 0) {
+        throw ValidationError(std::string("cannot create cancellation pipe: ") + std::strerror(errno));
+    }
+}
+
+CancellationToken::~CancellationToken() {
+    if (cancellation_pipe_[0] >= 0) {
+        close(cancellation_pipe_[0]);
+    }
+    if (cancellation_pipe_[1] >= 0) {
+        close(cancellation_pipe_[1]);
+    }
+}
+
 void CancellationToken::request_cancel() {
-    cancellation_requested_.store(true);
+    bool already_requested = cancellation_requested_.exchange(true);
+    if (already_requested || cancellation_pipe_[1] < 0) {
+        return;
+    }
+
+    char byte = 1;
+    ssize_t ignored = write(cancellation_pipe_[1], &byte, sizeof(byte));
+    (void)ignored;
 }
 
 bool CancellationToken::cancellation_requested() const {
     return cancellation_requested_.load();
+}
+
+int CancellationToken::cancellation_fd() const {
+    return cancellation_pipe_[0];
+}
+
+void CancellationToken::drain_cancellation_signal() const {
+    if (cancellation_pipe_[0] < 0) {
+        return;
+    }
+
+    char buffer[32];
+    while (true) {
+        ssize_t count = read(cancellation_pipe_[0], buffer, sizeof(buffer));
+        if (count > 0) {
+            continue;
+        }
+        if (count == 0 || errno == EAGAIN || errno == EWOULDBLOCK) {
+            return;
+        }
+        if (errno == EINTR) {
+            continue;
+        }
+        return;
+    }
 }
 
 bool transfer_succeeded(const TransferResult& result) {
@@ -175,6 +222,7 @@ pid_t spawn_process(
         throw ValidationError(std::string("cannot fork transfer process: ") + std::strerror(errno));
     }
     if (pid == 0) {
+        setpgid(0, 0);
         dup2(stdin_fd, STDIN_FILENO);
         dup2(stdout_fd, STDOUT_FILENO);
         dup2(stderr_fd, STDERR_FILENO);
@@ -182,6 +230,7 @@ pid_t spawn_process(
         execvp(args[0], args.data());
         _exit(127);
     }
+    setpgid(pid, pid);
     return pid;
 }
 
@@ -212,7 +261,9 @@ bool reap_child(pid_t pid, TransferSideResult& result) {
 
 void terminate_child(pid_t pid) {
     if (pid > 0) {
-        kill(pid, SIGTERM);
+        if (kill(-pid, SIGTERM) != 0 && errno == ESRCH) {
+            kill(pid, SIGTERM);
+        }
     }
 }
 
@@ -306,9 +357,11 @@ class ThreadedAsyncTransferHandle final : public IAsyncTransferHandle {
 public:
     ThreadedAsyncTransferHandle(
         std::shared_ptr<CancellationToken> cancellation,
+        UniqueFd completion_read,
         std::future<TransferResult> future
     )
         : cancellation_(std::move(cancellation)),
+          completion_read_(std::move(completion_read)),
           future_(std::move(future)) {
     }
 
@@ -332,6 +385,10 @@ public:
         return future_.wait_for(std::chrono::milliseconds(0)) == std::future_status::ready;
     }
 
+    int completion_fd() const override {
+        return completion_read_.get();
+    }
+
     void request_cancel() override {
         cancellation_->request_cancel();
     }
@@ -345,6 +402,7 @@ public:
 
 private:
     std::shared_ptr<CancellationToken> cancellation_;
+    UniqueFd completion_read_;
     mutable std::future<TransferResult> future_;
     std::optional<TransferResult> result_;
 };
@@ -360,13 +418,31 @@ std::unique_ptr<IAsyncTransferHandle> ThreadedAsyncTransferPipeline::start(
     ITransferEventSink& events
 ) {
     auto cancellation = std::make_shared<CancellationToken>();
+    Pipe completion_pipe = create_pipe();
     std::future<TransferResult> future = std::async(
         std::launch::async,
-        [this, plan, &events, cancellation] {
-            return pipeline_.run(plan, events, *cancellation);
+        [this, plan, &events, cancellation, completion_write = std::move(completion_pipe.write_end)]() mutable {
+            try {
+                TransferResult result = pipeline_.run(plan, events, *cancellation);
+                char byte = 1;
+                ssize_t ignored = write(completion_write.get(), &byte, sizeof(byte));
+                (void)ignored;
+                return result;
+            } catch (...) {
+                char byte = 1;
+                ssize_t ignored = write(completion_write.get(), &byte, sizeof(byte));
+                (void)ignored;
+                throw;
+            }
         }
     );
-    return std::make_unique<ThreadedAsyncTransferHandle>(std::move(cancellation), std::move(future));
+    completion_pipe.write_end.reset();
+    set_nonblocking(completion_pipe.read_end.get());
+    return std::make_unique<ThreadedAsyncTransferHandle>(
+        std::move(cancellation),
+        std::move(completion_pipe.read_end),
+        std::move(future)
+    );
 }
 
 TransferResult PosixTransferPipeline::run(
@@ -417,18 +493,24 @@ TransferResult PosixTransferPipeline::run(
     bool producer_done = false;
     bool consumer_done = false;
     bool cancellation_sent = false;
+    auto cancel_transfer = [&] {
+        if (cancellation_sent) {
+            return;
+        }
+        result.cancelled = true;
+        terminate_child(producer_pid);
+        terminate_child(consumer_pid);
+        if (consumer_stdin_open) {
+            consumer_input_pipe.write_end.reset();
+            consumer_stdin_open = false;
+        }
+        emit_event(events, TransferEventKind::Cancelled, result, started_at, 0, pending.size());
+        cancellation_sent = true;
+    };
 
     while (!producer_done || !consumer_done || producer_stdout_open || producer_stderr_open || consumer_stderr_open || !pending.empty()) {
-        if (cancellation.cancellation_requested() && !cancellation_sent) {
-            result.cancelled = true;
-            terminate_child(producer_pid);
-            terminate_child(consumer_pid);
-            if (consumer_stdin_open) {
-                consumer_input_pipe.write_end.reset();
-                consumer_stdin_open = false;
-            }
-            emit_event(events, TransferEventKind::Cancelled, result, started_at, 0, pending.size());
-            cancellation_sent = true;
+        if (cancellation.cancellation_requested()) {
+            cancel_transfer();
         }
 
         std::vector<pollfd> fds;
@@ -437,6 +519,7 @@ TransferResult PosixTransferPipeline::run(
         constexpr int consumer_stdin_tag = 2;
         constexpr int producer_stderr_tag = 3;
         constexpr int consumer_stderr_tag = 4;
+        constexpr int cancellation_tag = 5;
 
         if (producer_stdout_open) {
             fds.push_back({.fd = data_pipe.read_end.get(), .events = POLLIN | POLLHUP, .revents = 0});
@@ -453,6 +536,10 @@ TransferResult PosixTransferPipeline::run(
         if (consumer_stderr_open) {
             fds.push_back({.fd = consumer_error_pipe.read_end.get(), .events = POLLIN | POLLHUP, .revents = 0});
             tags.push_back(consumer_stderr_tag);
+        }
+        if (!cancellation_sent && cancellation.cancellation_fd() >= 0) {
+            fds.push_back({.fd = cancellation.cancellation_fd(), .events = POLLIN, .revents = 0});
+            tags.push_back(cancellation_tag);
         }
 
         if (!fds.empty()) {
@@ -540,6 +627,9 @@ TransferResult PosixTransferPipeline::run(
                     consumer_error_pipe.read_end.reset();
                     consumer_stderr_open = false;
                 }
+            } else if (tag == cancellation_tag && (fds[i].revents & POLLIN) != 0) {
+                cancellation.drain_cancellation_signal();
+                cancel_transfer();
             }
         }
 

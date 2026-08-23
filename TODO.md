@@ -16,8 +16,6 @@
     tests;
   - add an event-loop driven process runner for richer progress, cancellation and
     multi-process coordination;
-  - make transfer cancellation and process reaping observable without polling
-    sleeps in the backup executor;
   - do not route `btrfs send` or `btrfs receive` through shell command strings.
 
 - Improve transfer progress beyond the current native pump:

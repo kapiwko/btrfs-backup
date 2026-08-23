@@ -46,10 +46,18 @@ public:
 
 class CancellationToken {
 public:
+    CancellationToken();
+    CancellationToken(const CancellationToken&) = delete;
+    CancellationToken& operator=(const CancellationToken&) = delete;
+    ~CancellationToken();
+
     void request_cancel();
     bool cancellation_requested() const;
+    int cancellation_fd() const;
+    void drain_cancellation_signal() const;
 
 private:
+    int cancellation_pipe_[2] = {-1, -1};
     std::atomic_bool cancellation_requested_ = false;
 };
 
@@ -92,6 +100,7 @@ class IAsyncTransferHandle {
 public:
     virtual ~IAsyncTransferHandle() = default;
     virtual bool finished() const = 0;
+    virtual int completion_fd() const = 0;
     virtual void request_cancel() = 0;
     virtual TransferResult wait() = 0;
 };

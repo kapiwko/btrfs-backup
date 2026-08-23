@@ -1,11 +1,13 @@
 #include <btrfsbackup/backup_run_executor.hpp>
 
-#include <chrono>
+#include <poll.h>
+
+#include <cerrno>
 #include <exception>
 #include <filesystem>
 #include <string>
-#include <thread>
 
+#include <btrfsbackup/errors.hpp>
 #include <btrfsbackup/snapshot_transfer.hpp>
 
 namespace btrfsbackup {
@@ -129,6 +131,26 @@ void write_checkpoint(
     emit_event(events, BackupRunEventKind::CheckpointWritten, plan, &source, action_kind);
 }
 
+void wait_for_transfer_or_cancellation(IAsyncTransferHandle& transfer, CancellationToken& cancellation) {
+    while (!transfer.finished()) {
+        pollfd fds[2]{
+            {.fd = transfer.completion_fd(), .events = POLLIN | POLLHUP, .revents = 0},
+            {.fd = cancellation.cancellation_fd(), .events = POLLIN, .revents = 0},
+        };
+        int ready = poll(fds, 2, -1);
+        if (ready < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            throw ValidationError("transfer wait failed");
+        }
+        if ((fds[1].revents & POLLIN) != 0 || cancellation.cancellation_requested()) {
+            cancellation.drain_cancellation_signal();
+            transfer.request_cancel();
+        }
+    }
+}
+
 } // namespace
 
 BackupRunExecutor::BackupRunExecutor(
@@ -175,12 +197,7 @@ BackupRunExecutionResult BackupRunExecutor::execute(
                         transfer_plan_for_source(source),
                         transfer_events
                     );
-                    while (!transfer->finished()) {
-                        if (cancellation.cancellation_requested()) {
-                            transfer->request_cancel();
-                        }
-                        std::this_thread::sleep_for(std::chrono::milliseconds(50));
-                    }
+                    wait_for_transfer_or_cancellation(*transfer, cancellation);
                     TransferResult transfer_result = transfer->wait();
                     if (transfer_result.cancelled) {
                         result.cancelled = true;
