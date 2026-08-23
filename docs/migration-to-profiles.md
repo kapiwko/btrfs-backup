@@ -8,6 +8,9 @@ Version 0.1.1 introduces profile configuration files:
 /etc/btrfs-backup/profiles/<profile>/sources.d/*.conf
 ```
 
+The backup runtime uses `profile.json` for source definitions. Generated
+`sources.d/*.conf` files remain only for migration compatibility.
+
 The legacy `/etc/btrfs-backup/backup.env` fallback still works for the
 `default` profile in 1.x, but it is deprecated and will be removed in 0.2.
 
@@ -48,7 +51,6 @@ Newly rendered configuration includes:
 ```text
 /etc/btrfs-backup/profiles.d/<profile>.env
 /etc/btrfs-backup/profiles/<profile>/profile.json
-/etc/btrfs-backup/profiles/<profile>/sources.d/*.conf
 /etc/systemd/system/btrfs-backup@.service
 /etc/udev/rules.d/99-btrfs-backup.rules
 /var/lib/btrfs-backup/public/profiles/<profile>.json

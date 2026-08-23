@@ -53,7 +53,6 @@ sudo btrfs-backup-configure --apply
 /etc/btrfs-backup/backup.env
 /etc/btrfs-backup/profiles.d/default.env
 /etc/btrfs-backup/profiles/default/profile.json
-/etc/btrfs-backup/profiles/default/sources.d/*.conf
 /var/lib/btrfs-backup/public/profiles/default.json
 /etc/systemd/system/btrfs-backup.service
 /etc/systemd/system/btrfs-backup@.service

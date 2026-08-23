@@ -3,9 +3,9 @@
 ## Canonical Profile JSON
 
 The canonical format for tooling is a JSON profile document matching
-`config/profile.schema.json`. The runner does not read this JSON directly.
-Instead, `btrfs-backup-profile` validates the JSON and materializes trusted
-runtime files for the Bash runner.
+`config/profile.schema.json`. The runner reads source definitions from this
+JSON; generated shell files are compatibility runtime metadata, not a separate
+source of truth.
 
 ```bash
 btrfs-backup-profile validate --file profile.json
@@ -19,13 +19,17 @@ btrfs-backup-profile export --profile default --output profile.json
 
 ```text
 /etc/btrfs-backup/profiles.d/<profile>.env
+/etc/btrfs-backup/profiles/<profile>/profile.json
 /etc/btrfs-backup/profiles/<profile>/sources.d/*.conf
 /etc/udev/rules.d/99-btrfs-backup-<profile>.rules
 /var/lib/btrfs-backup/public/profiles/<profile>.json
 ```
 
+`sources.d/*.conf` is generated for legacy tooling and migration compatibility.
+The backup runtime uses `profile.json` for source definitions.
+
 `btrfs-backup-configure` follows the same model: it renders `profile.json`
-first and then materializes the runtime files from that JSON.
+first and then materializes derived files from that JSON.
 
 ## Runtime Profile Files
 
@@ -50,7 +54,7 @@ Important fields:
 | `BACKUP_BTRFS_UUID` | optional Btrfs UUID inside LUKS |
 | `BACKUP_MOUNTPOINT` | target mount point |
 | `BACKUP_MOUNT_UNIT` | `.mount` unit matching the mount point |
-| `SOURCES_DIR` | directory containing source definitions |
+| `SOURCES_DIR` | legacy source definition directory retained for migration compatibility |
 | `REMOTE_ROOT` | directory for committed snapshots on the target |
 | `INCOMING_ROOT` | directory for uncommitted receives |
 | `RETENTION_COUNT` | default number of remote snapshots; `0` means unlimited |
@@ -81,8 +85,8 @@ sudo btrfs-backup-migrate-profile --profile default
 ```
 
 The migrator creates canonical profile JSON, materializes
-`/etc/btrfs-backup/profiles.d/default.env`, writes profile-local source
-definitions, and keeps the legacy `/etc/btrfs-backup/backup.env` and
+`/etc/btrfs-backup/profiles.d/default.env`, writes legacy profile-local source
+definitions for compatibility, and keeps the legacy `/etc/btrfs-backup/backup.env` and
 `/etc/btrfs-backup/sources.d` paths and old udev rule in place unless
 `--remove-legacy` is used.
 
@@ -97,20 +101,22 @@ It is intended for generators, validators, and future migration tooling.
 
 ## Source Definitions
 
-Each `/etc/btrfs-backup/profiles/<profile>/sources.d/*.conf` file describes
-one source:
+Each entry in `profile.json` under `sources` describes one source:
 
-```bash
-ENABLED=true
-SOURCE_NAME=home
-SOURCE_SUBVOLUME=/home
-LOCAL_SNAPSHOT_DIR=/.snapshots/btrfs-backup/home
-REMOTE_SUBDIR=home
-SOURCE_RETENTION_COUNT=45
-SOURCE_LOCAL_RETENTION_COUNT=20
+```json
+{
+  "id": "home",
+  "name": "home",
+  "enabled": true,
+  "subvolume": "/home",
+  "localSnapshotDir": "/.snapshots/btrfs-backup/home",
+  "remoteSubdir": "home",
+  "remoteRetention": 45,
+  "localRetention": 20
+}
 ```
 
-`SOURCE_NAME` must be unique. `REMOTE_SUBDIR` is a relative path under `REMOTE_ROOT`. The local snapshot directory must be on the same Btrfs filesystem as the source. The source must not belong to the Btrfs filesystem used as the backup target. This check is based on filesystem UUIDs, so it still works when the same Btrfs filesystem is mounted at multiple locations.
+Source ids must be unique. `remoteSubdir` is a relative path under `remoteRoot`. The local snapshot directory must be on the same Btrfs filesystem as the source. The source must not belong to the Btrfs filesystem used as the backup target. This check is based on filesystem UUIDs, so it still works when the same Btrfs filesystem is mounted at multiple locations.
 
 For the `/` source, use a dedicated subvolume for snapshots, such as `/.snapshots`. Placing the snapshot repository in a regular directory inside the source subvolume creates unnecessary empty nested-subvolume mount points in future snapshots.
 
