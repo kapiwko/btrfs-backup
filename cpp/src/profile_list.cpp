@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <fstream>
 #include <ostream>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -37,33 +38,66 @@ std::vector<fs::path> sorted_files(const fs::path& directory, const std::string&
     return files;
 }
 
+std::vector<fs::path> sorted_profile_json_files(const fs::path& directory) {
+    std::vector<fs::path> files;
+    std::error_code ec;
+    if (!fs::is_directory(directory, ec) || ec) {
+        return files;
+    }
+    for (const auto& entry : fs::directory_iterator(directory, ec)) {
+        if (ec) {
+            break;
+        }
+        if (!entry.is_directory(ec) || ec) {
+            ec.clear();
+            continue;
+        }
+        fs::path profile_json = entry.path() / "profile.json";
+        if (fs::is_regular_file(profile_json, ec) && !ec) {
+            files.push_back(profile_json);
+        }
+        ec.clear();
+    }
+    std::sort(files.begin(), files.end());
+    return files;
+}
+
 } // namespace
 
 namespace btrfsbackup {
 
 void command_list_profiles(
     const fs::path& profile_config_dir,
+    const fs::path& profile_root_dir,
     const fs::path& legacy_config_file,
     std::ostream& output
 ) {
-    bool found = false;
+    std::set<std::string> profiles;
+    for (const auto& file : sorted_profile_json_files(profile_root_dir)) {
+        std::string profile = file.parent_path().filename().string();
+        validate_profile_id(profile);
+        profiles.insert(profile);
+    }
+
     std::vector<fs::path> files = sorted_files(profile_config_dir, ".env");
     for (const auto& file : files) {
         std::string profile = file.stem().string();
         validate_profile_id(profile);
+        profiles.insert(profile);
+    }
+
+    for (const std::string& profile : profiles) {
         output << profile << '\n';
-        found = true;
     }
 
     std::error_code ec;
     bool has_legacy = fs::is_regular_file(legacy_config_file, ec) && !ec;
     ec.clear();
-    bool has_default_profile = fs::exists(profile_config_dir / "default.env", ec) && !ec;
+    bool has_default_profile = profiles.count("default") > 0 || (fs::exists(profile_config_dir / "default.env", ec) && !ec);
     if (has_legacy && !has_default_profile) {
         output << "default (legacy)\n";
-        found = true;
     }
-    if (!found) {
+    if (profiles.empty() && !(has_legacy && !has_default_profile)) {
         throw ValidationError("no profiles found");
     }
 }
