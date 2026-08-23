@@ -2,12 +2,6 @@
 
 ## C++ Runtime Migration
 
-- Add command execution adapters for the runner:
-  - introduce testable interfaces for process execution and filesystem effects;
-  - run external commands without shell parsing;
-  - keep `btrfs send` and `btrfs receive` as external programs in the first C++
-    implementation.
-
 - Port snapshot operations behind an interface:
   - check subvolume existence and readonly state;
   - read UUID and received UUID;
