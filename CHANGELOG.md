@@ -11,7 +11,9 @@
 6. configurator and profile migrator now create canonical profile JSON through
    the native helper instead of embedded Python snippets;
 7. generated runtime packages no longer depend on Python and the old Python
-   profile helper has been removed.
+   profile helper has been removed;
+8. profile migration is now exposed as `btrfs-backupctl migrate-profile`, and
+   the standalone migration wrapper has been removed.
 
 ## 0.1.1 - 2026-08-23
 
@@ -25,7 +27,7 @@
 8. package contents updated for all generated packaging backends;
 9. configurator renders and installs profile files and a templated systemd unit;
 10. udev starts the profile-specific systemd unit;
-11. `btrfs-backupctl list-profiles` lists profile files;
+11. `btrfs-backup-profile list` lists profile files;
 12. `btrfs-backup-migrate-profile --remove-legacy` moves the legacy configuration, source directory, and old udev rule aside after migration;
 13. profile tooling validates canonical JSON profiles and materializes runtime `.env`, source, udev, and public manifest files;
 14. `btrfs-backup-configure` now renders canonical `profile.json` first, then materializes the runtime profile files from that JSON;
