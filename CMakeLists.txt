@@ -53,6 +53,7 @@ add_library(btrfsbackup_profile_tool STATIC
     cpp/src/shell_env.cpp
     cpp/src/status_writer.cpp
     cpp/src/trusted_file.cpp
+    cpp/src/validation.cpp
 )
 
 target_compile_features(btrfsbackup_profile_tool PUBLIC cxx_std_20)
@@ -117,6 +118,10 @@ if(BUILD_TESTING)
         cpp/tests/trusted_file_tests.cpp
     )
 
+    add_executable(btrfsbackup-validation-tests
+        cpp/tests/validation_tests.cpp
+    )
+
     target_link_libraries(btrfsbackup-profile-tests
         PRIVATE
             btrfsbackup_profile_tool
@@ -162,6 +167,11 @@ if(BUILD_TESTING)
             btrfsbackup_profile_tool
     )
 
+    target_link_libraries(btrfsbackup-validation-tests
+        PRIVATE
+            btrfsbackup_profile_tool
+    )
+
     add_test(NAME profile-tests COMMAND btrfsbackup-profile-tests)
     add_test(NAME status-history-tests COMMAND btrfsbackup-status-history-tests)
     add_test(NAME run-state-tests COMMAND btrfsbackup-run-state-tests)
@@ -171,4 +181,5 @@ if(BUILD_TESTING)
     add_test(NAME mount-info-tests COMMAND btrfsbackup-mount-info-tests)
     add_test(NAME status-writer-tests COMMAND btrfsbackup-status-writer-tests)
     add_test(NAME trusted-file-tests COMMAND btrfsbackup-trusted-file-tests)
+    add_test(NAME validation-tests COMMAND btrfsbackup-validation-tests)
 endif()

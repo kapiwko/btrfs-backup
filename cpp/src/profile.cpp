@@ -12,6 +12,7 @@
 #include <btrfsbackup/identifiers.hpp>
 #include <btrfsbackup/json_io.hpp>
 #include <btrfsbackup/process.hpp>
+#include <btrfsbackup/validation.hpp>
 
 namespace fs = std::filesystem;
 
@@ -50,35 +51,14 @@ std::string text(const Json& value, const std::string& name, bool allow_empty = 
     return result;
 }
 
-std::string normalized_path(const std::string& value) {
-    return fs::path(value).lexically_normal().string();
-}
-
 std::string absolute_path(const Json& value, const std::string& name) {
     std::string result = text(value, name, false, 4096);
-    if (!starts_with(result, "/")) {
-        throw ValidationError(name + " must be an absolute path");
-    }
-    result = normalized_path(result);
-    if (!starts_with(result, "/")) {
-        throw ValidationError(name + " is invalid");
-    }
-    return result;
+    return normalized_absolute_path(result, name).string();
 }
 
 std::string relative_path(const Json& value, const std::string& name) {
     std::string result = text(value, name, false, 4096);
-    fs::path path(result);
-    if (path.is_absolute()) {
-        throw ValidationError(name + " must be a safe relative path");
-    }
-    for (const auto& part : path) {
-        std::string item = part.string();
-        if (item.empty() || item == "." || item == "..") {
-            throw ValidationError(name + " must be a safe relative path");
-        }
-    }
-    return path.lexically_normal().string();
+    return normalized_relative_path(result, name).string();
 }
 
 std::string uuid_value(const Json& value, const std::string& name, bool allow_empty = false) {
@@ -110,10 +90,10 @@ long long integer_value(const Json& object, const std::string& key, const std::s
         throw ValidationError(name + " must be an integer");
     }
     long long result = object.at(key).get<long long>();
-    if (result < 0 || result > maximum) {
+    if (result < 0) {
         throw ValidationError(name + " is outside the supported range");
     }
-    return result;
+    return parse_uint(std::to_string(result), name, maximum);
 }
 
 Json object_or_empty(const Json& root, const std::string& key, const std::string& name) {
