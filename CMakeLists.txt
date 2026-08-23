@@ -32,6 +32,7 @@ add_library(btrfsbackup_profile_tool STATIC
     cpp/src/ctl_tool.cpp
     cpp/src/device_info.cpp
     cpp/src/file_io.cpp
+    cpp/src/file_lock.cpp
     cpp/src/identifiers.cpp
     cpp/src/installation_render.cpp
     cpp/src/installation_validate.cpp
@@ -116,6 +117,10 @@ if(BUILD_TESTING)
         cpp/tests/mount_info_tests.cpp
     )
 
+    add_executable(btrfsbackup-file-lock-tests
+        cpp/tests/file_lock_tests.cpp
+    )
+
     add_executable(btrfsbackup-status-writer-tests
         cpp/tests/status_writer_tests.cpp
     )
@@ -172,6 +177,11 @@ if(BUILD_TESTING)
             btrfsbackup_profile_tool
     )
 
+    target_link_libraries(btrfsbackup-file-lock-tests
+        PRIVATE
+            btrfsbackup_profile_tool
+    )
+
     target_link_libraries(btrfsbackup-status-writer-tests
         PRIVATE
             btrfsbackup_profile_tool
@@ -199,6 +209,7 @@ if(BUILD_TESTING)
     add_test(NAME profile-command-tests COMMAND btrfsbackup-profile-command-tests)
     add_test(NAME installation-tests COMMAND btrfsbackup-installation-tests)
     add_test(NAME profile-wizard-tests COMMAND btrfsbackup-profile-wizard-tests)
+    add_test(NAME file-lock-tests COMMAND btrfsbackup-file-lock-tests)
     add_test(NAME mount-info-tests COMMAND btrfsbackup-mount-info-tests)
     add_test(NAME space-check-tests COMMAND btrfsbackup-space-check-tests)
     add_test(NAME status-writer-tests COMMAND btrfsbackup-status-writer-tests)
