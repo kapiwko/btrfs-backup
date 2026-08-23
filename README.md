@@ -76,6 +76,8 @@ sudo btrfs-backup --force
 sudo btrfs-backup --validate
 sudo btrfs-backup --no-eject
 sudo btrfs-backup-eject
+btrfs-backupctl status --profile default --human
+btrfs-backupctl history --profile default --limit 10
 ```
 
 Logs:

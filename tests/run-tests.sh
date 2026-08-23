@@ -485,6 +485,18 @@ runtime_success_test() {
     assert_file "$HISTORY_ROOT/default/last.json"
     assert_contains "$STATUS_ROOT/default/current.json" '"state": "succeeded"'
     assert_contains "$HISTORY_ROOT/default/last.json" '"runId":'
+    "$ROOT/bin/btrfs-backupctl" \
+        --status-root "$STATUS_ROOT" \
+        --history-root "$HISTORY_ROOT" \
+        status --profile default --human \
+        | grep -q 'Default backup: succeeded' \
+        || fail 'btrfs-backupctl did not render human status'
+    "$ROOT/bin/btrfs-backupctl" \
+        --status-root "$STATUS_ROOT" \
+        --history-root "$HISTORY_ROOT" \
+        history --profile default --limit 1 \
+        | grep -q '"state": "succeeded"' \
+        || fail 'btrfs-backupctl did not render history'
     assert_contains "$MOCK_LOG" 'SEND_FULL'
     assert_dir "$MOCK_MOUNTPOINT/snapshots/root"
     assert_dir "$MOCK_MOUNTPOINT/snapshots/home"
