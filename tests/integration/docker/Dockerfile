@@ -3,6 +3,7 @@ FROM archlinux:base-devel
 RUN pacman -Syu --noconfirm --needed \
         bash \
         btrfs-progs \
+        cmake \
         coreutils \
         cryptsetup \
         diffutils \
@@ -10,6 +11,7 @@ RUN pacman -Syu --noconfirm --needed \
         gawk \
         grep \
         libarchive \
+        nlohmann-json \
         sed \
         systemd \
         util-linux \
