@@ -1,0 +1,26 @@
+[Unit]
+Description=Verified Btrfs backup to an encrypted removable target
+Documentation=file:/usr/share/doc/btrfs-backup/README.md
+ConditionPathExists={{BACKUP_ENV_PATH}}
+After=local-fs.target systemd-udevd.service
+StartLimitIntervalSec=5min
+StartLimitBurst=3
+
+[Service]
+Type=oneshot
+ExecStart={{BACKUP_SCRIPT_PATH}} --config {{BACKUP_ENV_PATH}}
+ExecStopPost={{EJECT_SCRIPT_PATH}} --from-service --config {{BACKUP_ENV_PATH}}
+User=root
+Group=root
+UMask=0077
+RuntimeDirectory=btrfs-backup
+RuntimeDirectoryMode=0750
+StateDirectory=btrfs-backup
+StateDirectoryMode=0700
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+TimeoutStartSec=infinity
+TimeoutStopSec=infinity
+KillSignal=SIGINT
+SyslogIdentifier=btrfs-backup
