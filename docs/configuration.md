@@ -24,44 +24,48 @@ btrfs-backupctl profile export --profile default --output profile.json
 `btrfs-backupctl profile wizard` follows the same model: it renders
 `profile.json` first and then materializes derived files from that JSON.
 
-## Runtime Profile Files
+## Active Profile JSON
 
-The preferred active profile file is
-`/etc/btrfs-backup/profiles/<profile>/profile.json`. Commands select a profile with
-`--profile <profile>` or `BTRFS_BACKUP_PROFILE=<profile>`.
+The active profile file is
+`/etc/btrfs-backup/profiles/<profile>/profile.json`. Commands select a profile
+with `--profile <profile>` or `BTRFS_BACKUP_PROFILE=<profile>`.
 
 Important fields:
 
 | Field | Meaning |
 |---|---|
-| `PROFILE_ID` | stable profile identifier used for state and future profile-aware units |
-| `PROFILE_NAME` | human-readable profile name |
-| `BACKUP_MAPPER_NAME` | mapper name under `/dev/mapper` |
-| `BACKUP_DEVICE` | stable path to the LUKS partition, preferably `/dev/disk/by-uuid/...` |
-| `BACKUP_LUKS_UUID` | expected UUID of the LUKS container |
-| `BACKUP_BTRFS_UUID` | optional Btrfs UUID inside LUKS |
-| `BACKUP_MOUNTPOINT` | target mount point |
-| `BACKUP_MOUNT_UNIT` | `.mount` unit matching the mount point |
-| `REMOTE_ROOT` | directory for committed snapshots on the target |
-| `INCOMING_ROOT` | directory for uncommitted receives |
-| `RETENTION_COUNT` | default number of remote snapshots; `0` means unlimited |
-| `LOCAL_RETENTION_COUNT` | default number of local snapshots |
-| `DAILY_LIMIT` | at most one successful backup per local day for unchanged configuration |
-| `INCREMENTAL_REQUIRED` | refuse a full transfer when a remote chain exists without a common parent |
-| `KEEP_FAILED_LOCAL_SNAPSHOT` | keep a local snapshot after an ordinary transfer error |
-| `AUTO_EJECT` | automatically unmount and close LUKS |
-| `MIN_TARGET_FREE_BYTES` | minimum free space required on the target |
-| `MIN_LOCAL_FREE_BYTES` | minimum free space required for local snapshots |
-| `STATE_DIR` | base state directory; per-profile state lives under `profiles/<PROFILE_ID>` |
-| `STATUS_ROOT` | root directory for per-profile `current.json` runtime status |
-| `HISTORY_ROOT` | root directory for per-profile run history JSON |
-| `LOCK_FILE` | lock shared by backup, eject, and profile-management operations |
+| `profileId` | stable profile identifier used for state, status, history, and systemd unit instances |
+| `name` | human-readable profile name |
+| `enabled` | whether the profile may be used by runtime commands |
+| `target.device` | stable path to the LUKS partition, preferably `/dev/disk/by-uuid/...` |
+| `target.luksUuid` | expected UUID of the LUKS container |
+| `target.btrfsUuid` | expected Btrfs filesystem UUID inside LUKS |
+| `target.mapperName` | mapper name under `/dev/mapper` |
+| `target.mountPoint` | target mount point |
+| `target.mountUnit` | `.mount` unit matching the mount point |
+| `paths.remoteRoot` | directory for committed snapshots on the target |
+| `paths.incomingRoot` | directory for uncommitted receives |
+| `paths.stateDir` | base state directory; per-profile state lives under `profiles/<profileId>` |
+| `paths.statusRoot` | root directory for per-profile `current.json` runtime status |
+| `paths.historyRoot` | root directory for per-profile run history JSON |
+| `settings.remoteRetention` | default number of remote snapshots; `0` means unlimited |
+| `settings.localRetention` | default number of local snapshots |
+| `settings.dailyLimit` | at most one successful backup per local day for unchanged configuration |
+| `settings.incrementalRequired` | refuse a full transfer when a remote chain exists without a common parent |
+| `settings.keepFailedLocalSnapshot` | keep a local snapshot after an ordinary transfer error |
+| `settings.autoEject` | automatically unmount and close LUKS |
+| `settings.minimumTargetFreeBytes` | minimum free space required on the target |
+| `settings.minimumLocalFreeBytes` | minimum free space required for local snapshots |
+| `sources[].subvolume` | source Btrfs subvolume to snapshot |
+| `sources[].localSnapshotDir` | local snapshot directory for the source |
+| `sources[].remoteSubdir` | source-specific directory under `paths.remoteRoot` |
+| `sources[].remoteRetention` | source-specific remote retention override |
+| `sources[].localRetention` | source-specific local retention override |
 
 A retention value of `0` disables automatic pruning for that scope.
-`STATUS_ROOT` and `HISTORY_ROOT` are intended for unprivileged status readers.
-Private recovery markers remain in `STATE_DIR/profiles/<PROFILE_ID>`.
-
-If `PROFILE_ID` is missing, the runner uses `default`.
+`paths.statusRoot` and `paths.historyRoot` are intended for unprivileged status
+readers. Private recovery markers remain in
+`paths.stateDir/profiles/<profileId>`.
 
 ## JSON Schema
 
@@ -149,9 +153,12 @@ The rule does not execute scripts through `RUN+=`; it delegates work to systemd 
 
 ## Incremental Chain Changes
 
-With `INCREMENTAL_REQUIRED=true`, remote snapshots without a matching local parent UUID cause an error. This is the conservative behavior.
+With `settings.incrementalRequired` set to `true`, remote snapshots without a
+matching local parent UUID cause an error. This is the conservative behavior.
 
-If all local parents were intentionally lost, you can temporarily set `INCREMENTAL_REQUIRED=false`, perform one full transfer, and then set it back to `true`.
+If all local parents were intentionally lost, you can temporarily set
+`settings.incrementalRequired` to `false`, perform one full transfer, and then
+set it back to `true`.
 
 ## Output Directory Safety
 
