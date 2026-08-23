@@ -10,6 +10,7 @@
 #include <thread>
 #include <vector>
 
+#include <btrfsbackup/config_fingerprint.hpp>
 #include <btrfsbackup/errors.hpp>
 #include <btrfsbackup/history.hpp>
 #include <btrfsbackup/identifiers.hpp>
@@ -148,6 +149,8 @@ int ctl_tool_main(int argc, char** argv) {
             command_watch(status_root, args);
         } else if (command == "write-status") {
             command_write_status(status_root, history_root, args);
+        } else if (command == "config-fingerprint") {
+            command_config_fingerprint(args, std::cout);
         } else if (command == "-h" || command == "--help") {
             usage();
         } else {
