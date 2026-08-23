@@ -165,11 +165,31 @@ void test_runner_plan_validates_target_mount() {
     fs::remove_all(root);
 }
 
+void test_runner_execute_requires_experimental_guard_before_loading_profile() {
+    fs::path root = test_helpers::test_root("runner-command", "execute-guard");
+
+    std::ostringstream output;
+    test_helpers::expect_validation_error("runner execute guard", [&] {
+        (void)btrfsbackup::command::runner(
+            root / "missing-config",
+            {
+                "execute",
+                "--profile",
+                "default",
+            },
+            output
+        );
+    }, "runner execute requires --experimental-cpp-runner");
+
+    fs::remove_all(root);
+}
+
 } // namespace
 
 int main() {
     test_runner_plan_outputs_shadow_json();
     test_runner_plan_validates_target_mount();
+    test_runner_execute_requires_experimental_guard_before_loading_profile();
 
     return test_helpers::finish("runner command tests");
 }
