@@ -36,15 +36,15 @@ an explicit user action.
 The safest flow is to render files into a normal directory first and review them:
 
 ```bash
-btrfs-backup-configure \
+btrfs-backupctl profile wizard \
   --render-only \
   --output-dir "$PWD/generated"
 ```
 
-The configurator detects connected LUKS devices and mounted Btrfs sources. Installation mode requires root:
+The wizard detects connected LUKS devices and mounted Btrfs sources. Installation mode requires root:
 
 ```bash
-sudo btrfs-backup-configure --apply
+sudo btrfs-backupctl profile wizard --apply
 ```
 
 `--apply` installs:
@@ -101,10 +101,9 @@ journalctl -u btrfs-backup@default.service -f
 ## Configuration Layout
 
 The canonical format for tools and source definitions is JSON.
-`btrfs-backup-configure` uses `btrfs-backupctl profile create` to write
-`profile.json` and uses
-`btrfs-backupctl profile save` to materialize the trusted runtime files consumed by
-the backup runner.
+`btrfs-backupctl profile wizard` uses the native profile model to write
+`profile.json` and materialize the trusted runtime files consumed by the backup
+runner.
 
 Active runtime profile JSON is trusted root-owned configuration. It must use
 mode `0600`; the script refuses files that are accessible by group or other

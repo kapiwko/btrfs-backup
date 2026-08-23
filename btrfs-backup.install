@@ -53,10 +53,10 @@ post_install() {
 ==> No service was enabled and no active files under /etc were overwritten.
 ==>
 ==> Start with:
-==>   btrfs-backup-configure --render-only --output-dir ./generated
+==>   btrfs-backupctl profile wizard --render-only --output-dir ./generated
 ==>
 ==> After review, install the active files with:
-==>   sudo btrfs-backup-configure --apply
+==>   sudo btrfs-backupctl profile wizard --apply
 ==>
 ==> Merge the generated crypttab and fstab fragments manually, then run:
 ==>   sudo systemctl daemon-reload
@@ -73,8 +73,8 @@ post_upgrade() {
 
 ==> btrfs-backup was upgraded.
 ==> Existing files under /etc are intentionally not overwritten by the package.
-==> Review the changelog and rerun the configurator to migrate generated units:
-==>   sudo btrfs-backup-configure --apply
+==> Review the changelog and rerun the wizard to migrate generated units:
+==>   sudo btrfs-backupctl profile wizard --apply
 
 MSG
     _btrfs_backup_reload_managers
