@@ -71,7 +71,7 @@ The local snapshot `UUID` should match the remote snapshot `Received UUID`.
 
 ## Interrupted State
 
-Files named `/var/lib/btrfs-backup/pending-*` mark a run whose final state has not been resolved. Do not delete them manually without checking both the local and remote snapshots.
+Files named `/var/lib/btrfs-backup/profiles/<profile>/pending-*` mark a run whose final state has not been resolved. Do not delete them manually without checking both the local and remote snapshots.
 
 After reconnecting the correct target, run:
 

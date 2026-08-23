@@ -109,6 +109,8 @@ render_test() {
     local answers="$TEST_ROOT/answers.sh"
     cat > "$answers" <<ANSWERS
 BACKUP_DEVICE=/dev/disk/by-uuid/11111111-2222-3333-4444-555555555555
+PROFILE_ID=laptop
+PROFILE_NAME='Laptop backup'
 BACKUP_LUKS_UUID=11111111-2222-3333-4444-555555555555
 BACKUP_UDEV_MATCH='ENV{DEVTYPE}=="partition", ENV{ID_FS_TYPE}=="crypto_LUKS", ENV{ID_FS_UUID}=="11111111-2222-3333-4444-555555555555", ENV{ID_PART_ENTRY_UUID}=="aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"'
 BACKUP_MAPPER_NAME=backupdisk
@@ -133,6 +135,8 @@ ANSWERS
         --render-only >/dev/null
 
     assert_file "$output/config/backup.env"
+    assert_contains "$output/config/backup.env" "PROFILE_ID=laptop"
+    assert_contains "$output/config/backup.env" "PROFILE_NAME=Laptop\\ backup"
     assert_file "$output/config/sources.d/10-root.conf"
     assert_file "$output/config/sources.d/20-home.conf"
     assert_file "$output/systemd/btrfs-backup.service"
@@ -373,6 +377,7 @@ prepare_runtime_fixture() {
     MOCK_SOURCE_UUID=99999999-8888-7777-6666-555555555555
     SOURCES_DIR="$RUNTIME/config/sources.d"
     STATE_DIR="$RUNTIME/state"
+    PROFILE_STATE_DIR="$STATE_DIR/profiles/default"
     LOCK_FILE="$RUNTIME/run/backup.lock"
     SOURCE_ROOT="$RUNTIME/sources/root"
     SOURCE_HOME="$RUNTIME/sources/home"
@@ -397,6 +402,8 @@ prepare_runtime_fixture() {
     mount_unit="$(systemd-escape -p --suffix=mount "$MOCK_MOUNTPOINT")"
     cat > "$CONFIG_FILE" <<CONFIG
 BACKUP_MAPPER_NAME=$MAPPER_NAME
+PROFILE_ID=default
+PROFILE_NAME='Default backup'
 BACKUP_DEVICE=$MOCK_DEVICE_LINK
 BACKUP_LUKS_UUID=$MOCK_LUKS_UUID
 BACKUP_BTRFS_UUID=$MOCK_TARGET_UUID
@@ -468,7 +475,8 @@ runtime_success_test() {
     EXTRA_ENV=()
 
     run_backup
-    assert_file "$STATE_DIR/last-success"
+    assert_file "$PROFILE_STATE_DIR/last-success"
+    assert_contains "$PROFILE_STATE_DIR/last-success" 'profile_id=default'
     assert_contains "$MOCK_LOG" 'SEND_FULL'
     assert_dir "$MOCK_MOUNTPOINT/snapshots/root"
     assert_dir "$MOCK_MOUNTPOINT/snapshots/home"
@@ -499,7 +507,7 @@ runtime_failure_cleanup_test() {
     fi
     [[ "$(find "$LOCAL_ROOT" -mindepth 1 -maxdepth 1 -type d | wc -l)" -eq 0 ]] || fail 'failed local snapshot was not removed'
     [[ -z "$(find "$MOCK_MOUNTPOINT/.incoming" -mindepth 1 -type d -name 'root-*' -print -quit 2>/dev/null)" ]] || fail 'partial receive was not removed'
-    [[ -z "$(find "$STATE_DIR" -maxdepth 1 -name 'pending-*' -print -quit)" ]] || fail 'pending marker was not removed after handled failure'
+    [[ -z "$(find "$PROFILE_STATE_DIR" -maxdepth 1 -name 'pending-*' -print -quit)" ]] || fail 'pending marker was not removed after handled failure'
     pass 'failed receive cleans local and incoming snapshots'
 }
 
@@ -518,8 +526,9 @@ PENDING
     run_backup --force
     assert_not_exists "$orphan"
     assert_not_exists "$STATE_DIR/pending-root"
+    assert_not_exists "$PROFILE_STATE_DIR/pending-root"
     assert_contains "$MOCK_LOG" "DELETE $orphan"
-    pass 'pending marker recovers an orphan from an unclean interruption'
+    pass 'legacy pending marker migrates and recovers an orphan from an unclean interruption'
 }
 
 
@@ -530,16 +539,17 @@ pending_committed_recovery_test() {
     write_meta "$committed" committed-uuid
     mkdir -p "$MOCK_MOUNTPOINT/snapshots/root"
     write_meta "$MOCK_MOUNTPOINT/snapshots/root/root-2026-01-01T010000Z" remote-committed committed-uuid
-    cat > "$STATE_DIR/pending-root" <<PENDING
+    mkdir -p "$PROFILE_STATE_DIR"
+    cat > "$PROFILE_STATE_DIR/pending-root" <<PENDING
 source_name=root
 local_snapshot_path=$committed
 run_id=crashed-after-commit
 PENDING
-    chmod 0600 "$STATE_DIR/pending-root"
+    chmod 0600 "$PROFILE_STATE_DIR/pending-root"
 
     run_backup --force
     assert_dir "$committed"
-    assert_not_exists "$STATE_DIR/pending-root"
+    assert_not_exists "$PROFILE_STATE_DIR/pending-root"
     pass 'pending recovery preserves a local parent whose UUID is already committed remotely'
 }
 
@@ -550,11 +560,11 @@ target_loss_recovery_test() {
         fail 'backup unexpectedly succeeded during simulated target loss'
     fi
     [[ "$(find "$LOCAL_ROOT" -mindepth 1 -maxdepth 1 -type d | wc -l)" -eq 1 ]] || fail 'local snapshot was not preserved after target loss'
-    assert_file "$STATE_DIR/pending-root"
+    assert_file "$PROFILE_STATE_DIR/pending-root"
 
     EXTRA_ENV=()
     run_backup --force >/dev/null
-    assert_not_exists "$STATE_DIR/pending-root"
+    assert_not_exists "$PROFILE_STATE_DIR/pending-root"
     [[ "$(find "$MOCK_MOUNTPOINT/.incoming" -mindepth 1 -type d -name 'root-*' -print -quit 2>/dev/null)" == "" ]] || fail 'stale incoming data survived recovery'
     pass 'target loss preserves recovery state and the next run resolves it safely'
 }
