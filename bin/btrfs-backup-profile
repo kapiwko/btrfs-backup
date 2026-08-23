@@ -138,6 +138,167 @@ def load_json(path: Path) -> Any:
         raise ValidationError(f"cannot read JSON profile {path}: {exc}") from exc
 
 
+def dump_json(profile: dict[str, Any]) -> str:
+    return json.dumps(profile, indent=2) + "\n"
+
+
+def read_shell_environment(path: Path) -> dict[str, str]:
+    try:
+        completed = subprocess.run(
+            ["bash", "-c", 'set -a; source "$1"; /usr/bin/env -0', "bash", str(path)],
+            check=True,
+            capture_output=True,
+            env={},
+        )
+    except (OSError, subprocess.CalledProcessError) as exc:
+        raise ValidationError(f"cannot read shell configuration {path}: {exc}") from exc
+
+    environment: dict[str, str] = {}
+    for item in completed.stdout.split(b"\0"):
+        if not item or b"=" not in item:
+            continue
+        key, value = item.split(b"=", 1)
+        try:
+            environment[key.decode()] = value.decode()
+        except UnicodeDecodeError as exc:
+            raise ValidationError(f"configuration contains non-UTF-8 data: {path}") from exc
+    return environment
+
+
+def env_bool(environment: dict[str, str], name: str, default: bool) -> bool:
+    value = environment.get(name)
+    if value is None or value == "":
+        return default
+    if value.lower() in {"1", "yes", "true", "on"}:
+        return True
+    if value.lower() in {"0", "no", "false", "off"}:
+        return False
+    raise ValidationError(f"{name} must be true or false")
+
+
+def env_int(environment: dict[str, str], name: str, default: int) -> int:
+    value = environment.get(name)
+    if value is None or value == "":
+        return default
+    if not value.isdigit():
+        raise ValidationError(f"{name} must be an integer")
+    return int(value)
+
+
+def env_required(environment: dict[str, str], name: str) -> str:
+    value = environment.get(name, "")
+    if value == "":
+        raise ValidationError(f"missing required configuration variable: {name}")
+    return value
+
+
+def map_etc_path(path: str, etc_root: Path) -> Path:
+    configured = Path(path)
+    default_etc_root = Path("/etc/btrfs-backup")
+    if configured == default_etc_root or default_etc_root in configured.parents:
+        return etc_root / configured.relative_to(default_etc_root)
+    return configured
+
+
+def profile_json_path(etc_root: Path, profile_id: str) -> Path:
+    return etc_root / "profiles" / profile_id / "profile.json"
+
+
+def profile_env_path(etc_root: Path, profile_id: str) -> Path:
+    return etc_root / "profiles.d" / f"{profile_id}.env"
+
+
+def load_profile_from_runtime(etc_root: Path, profile_id: str) -> dict[str, Any]:
+    profile_env = profile_env_path(etc_root, profile_id)
+    if profile_env.exists():
+        environment = read_shell_environment(profile_env)
+    elif profile_id == "default" and (etc_root / "backup.env").exists():
+        environment = read_shell_environment(etc_root / "backup.env")
+    else:
+        raise ValidationError(f"profile JSON or runtime env not found for profile: {profile_id}")
+
+    resolved_profile_id = environment.get("PROFILE_ID", profile_id)
+    if resolved_profile_id != profile_id:
+        raise ValidationError(f"requested profile {profile_id} but runtime env declares PROFILE_ID={resolved_profile_id}")
+
+    sources_dir = environment.get("SOURCES_DIR", "/etc/btrfs-backup/sources.d")
+    source_root = map_etc_path(sources_dir, etc_root)
+    source_files = sorted(source_root.glob("*.conf"))
+    if not source_files:
+        raise ValidationError(f"no source definitions found in {source_root}")
+
+    remote_retention = env_int(environment, "RETENTION_COUNT", 30)
+    local_retention = env_int(environment, "LOCAL_RETENTION_COUNT", remote_retention)
+    sources: list[dict[str, Any]] = []
+    for source_file in source_files:
+        source_environment = read_shell_environment(source_file)
+        if not env_bool(source_environment, "ENABLED", True):
+            continue
+        source_id = env_required(source_environment, "SOURCE_NAME")
+        sources.append(
+            {
+                "id": source_id,
+                "name": source_environment.get("SOURCE_DISPLAY_NAME", source_id),
+                "enabled": True,
+                "subvolume": env_required(source_environment, "SOURCE_SUBVOLUME"),
+                "localSnapshotDir": env_required(source_environment, "LOCAL_SNAPSHOT_DIR"),
+                "remoteSubdir": source_environment.get("REMOTE_SUBDIR", source_id),
+                "remoteRetention": env_int(source_environment, "SOURCE_RETENTION_COUNT", remote_retention),
+                "localRetention": env_int(source_environment, "SOURCE_LOCAL_RETENTION_COUNT", local_retention),
+            }
+        )
+
+    return normalize_profile(
+        {
+            "schemaVersion": SCHEMA_VERSION,
+            "profileId": profile_id,
+            "name": environment.get("PROFILE_NAME", profile_id),
+            "enabled": True,
+            "target": {
+                "device": env_required(environment, "BACKUP_DEVICE"),
+                "luksUuid": env_required(environment, "BACKUP_LUKS_UUID"),
+                "btrfsUuid": environment.get("BACKUP_BTRFS_UUID", ""),
+                "partitionUuid": "",
+                "serial": "",
+                "mapperName": env_required(environment, "BACKUP_MAPPER_NAME"),
+                "mountPoint": env_required(environment, "BACKUP_MOUNTPOINT"),
+            },
+            "paths": {
+                "sourcesDir": sources_dir,
+                "remoteRoot": environment.get("REMOTE_ROOT", f"{env_required(environment, 'BACKUP_MOUNTPOINT')}/snapshots"),
+                "incomingRoot": environment.get("INCOMING_ROOT", f"{env_required(environment, 'BACKUP_MOUNTPOINT')}/.incoming"),
+                "stateDir": environment.get("STATE_DIR", "/var/lib/btrfs-backup"),
+                "statusRoot": environment.get("STATUS_ROOT", "/run/btrfs-backup/profiles"),
+                "historyRoot": environment.get("HISTORY_ROOT", environment.get("STATE_DIR", "/var/lib/btrfs-backup") + "/history"),
+            },
+            "settings": {
+                "dailyLimit": env_bool(environment, "DAILY_LIMIT", True),
+                "incrementalRequired": env_bool(environment, "INCREMENTAL_REQUIRED", True),
+                "keepFailedLocalSnapshot": env_bool(environment, "KEEP_FAILED_LOCAL_SNAPSHOT", False),
+                "autoEject": env_bool(environment, "AUTO_EJECT", True),
+                "remoteRetention": remote_retention,
+                "localRetention": local_retention,
+                "minimumTargetFreeBytes": env_int(environment, "MIN_TARGET_FREE_BYTES", 5 * 1024**3),
+                "minimumLocalFreeBytes": env_int(environment, "MIN_LOCAL_FREE_BYTES", 1024**3),
+            },
+            "notifications": {
+                "enabled": env_bool(environment, "NOTIFY_ENABLE", True),
+                "user": environment.get("NOTIFY_USER", ""),
+                "method": environment.get("NOTIFY_METHOD", "auto"),
+            },
+            "sources": sources,
+        }
+    )
+
+
+def load_profile_by_id(etc_root: Path, profile_id: str) -> dict[str, Any]:
+    identifier(profile_id, "profile")
+    canonical_path = profile_json_path(etc_root, profile_id)
+    if canonical_path.exists():
+        return normalize_profile(load_json(canonical_path))
+    return load_profile_from_runtime(etc_root, profile_id)
+
+
 def normalize_profile(raw: Any) -> dict[str, Any]:
     root = require_mapping(raw, "profile")
     if root.get("schemaVersion") != SCHEMA_VERSION:
@@ -402,12 +563,20 @@ def main() -> int:
     save_parser = subparsers.add_parser("save")
     save_parser.add_argument("--file", required=True)
 
+    show_parser = subparsers.add_parser("show")
+    show_parser.add_argument("--profile", default="default")
+
+    export_parser = subparsers.add_parser("export")
+    export_parser.add_argument("--profile", default="default")
+    export_parser.add_argument("--output", required=True)
+
     args = parser.parse_args()
     try:
-        profile = normalize_profile(load_json(Path(args.file)))
         if args.command == "validate":
-            print(json.dumps(profile, indent=2))
+            profile = normalize_profile(load_json(Path(args.file)))
+            print(dump_json(profile), end="")
         elif args.command == "render":
+            profile = normalize_profile(load_json(Path(args.file)))
             output_dir = Path(args.output_dir).resolve()
             if output_dir in {Path("/"), Path("/etc"), Path("/usr"), Path("/var")}:
                 raise ValidationError(f"refusing unsafe output directory: {output_dir}")
@@ -416,10 +585,19 @@ def main() -> int:
             render_tree(profile, output_dir)
             print(f"Rendered profile {profile['profileId']} to {output_dir}")
         elif args.command == "save":
+            profile = normalize_profile(load_json(Path(args.file)))
             if os.geteuid() != 0 and Path(args.etc_root) == Path("/etc/btrfs-backup"):
                 fail("save to system configuration must be run as root", 1)
             save_tree(profile, Path(args.etc_root), Path(args.udev_root), Path(args.public_root))
             print(f"Saved profile {profile['profileId']}")
+        elif args.command == "show":
+            profile = load_profile_by_id(Path(args.etc_root), args.profile)
+            print(dump_json(profile), end="")
+        elif args.command == "export":
+            profile = load_profile_by_id(Path(args.etc_root), args.profile)
+            output_path = Path(args.output)
+            atomic_write(output_path, dump_json(profile).encode(), 0o600)
+            print(f"Exported profile {profile['profileId']} to {output_path}")
     except (ValidationError, OSError) as exc:
         fail(str(exc))
     return 0

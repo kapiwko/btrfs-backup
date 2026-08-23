@@ -11,6 +11,8 @@ runtime files for the Bash runner.
 btrfs-backup-profile validate --file profile.json
 btrfs-backup-profile render --file profile.json --output-dir ./generated-profile
 sudo btrfs-backup-profile save --file profile.json
+btrfs-backup-profile show --profile default
+btrfs-backup-profile export --profile default --output profile.json
 ```
 
 `save` writes:
