@@ -24,5 +24,6 @@ SourceDefinition load_source_definition(
 );
 
 void command_parse_source_definition(const std::vector<std::string>& args, std::ostream& output);
+void command_parse_profile_sources(const std::vector<std::string>& args, std::ostream& output);
 
 } // namespace btrfsbackup
