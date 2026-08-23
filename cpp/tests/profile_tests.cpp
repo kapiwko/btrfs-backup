@@ -14,6 +14,7 @@
 #include <btrfsbackup/profile.hpp>
 #include <btrfsbackup/profile_compose.hpp>
 #include <btrfsbackup/profile_render.hpp>
+#include <btrfsbackup/profile_store.hpp>
 
 namespace fs = std::filesystem;
 
@@ -193,6 +194,60 @@ void test_typed_render_matches_json_render() {
     );
 }
 
+void test_typed_store_renders_tree() {
+    fs::path root = test_root();
+    btrfsbackup::Profile profile = btrfsbackup::profile_from_json(valid_profile());
+
+    btrfsbackup::render_tree(profile, root / "rendered");
+
+    expect_true(
+        "typed tree profile env",
+        fs::is_regular_file(root / "rendered" / "etc" / "btrfs-backup" / "profiles.d" / "default.env"),
+        "missing rendered profile env"
+    );
+    expect_true(
+        "typed tree source",
+        fs::is_regular_file(root / "rendered" / "etc" / "btrfs-backup" / "profiles" / "default" / "sources.d" / "010-home.conf"),
+        "missing rendered source"
+    );
+    expect_true(
+        "typed tree public",
+        fs::is_regular_file(root / "rendered" / "var" / "lib" / "btrfs-backup" / "public" / "profiles" / "default.json"),
+        "missing rendered public profile"
+    );
+    fs::remove_all(root);
+}
+
+void test_typed_store_saves_tree() {
+    fs::path root = test_root();
+    btrfsbackup::Profile profile = btrfsbackup::profile_from_json(valid_profile());
+    profile.paths.sources_dir = "/etc/btrfs-backup/profiles/default/sources.d";
+
+    btrfsbackup::save_tree(
+        profile,
+        root / "etc" / "btrfs-backup",
+        root / "etc" / "udev" / "rules.d",
+        root / "public"
+    );
+
+    expect_true(
+        "typed save profile env",
+        fs::is_regular_file(root / "etc" / "btrfs-backup" / "profiles.d" / "default.env"),
+        "missing saved profile env"
+    );
+    expect_true(
+        "typed save source",
+        fs::is_regular_file(root / "etc" / "btrfs-backup" / "profiles" / "default" / "sources.d" / "010-home.conf"),
+        "missing saved source"
+    );
+    expect_true(
+        "typed save public",
+        fs::is_regular_file(root / "public" / "default.json"),
+        "missing saved public profile"
+    );
+    fs::remove_all(root);
+}
+
 void test_render_udev_optional_matches() {
     Json profile = btrfsbackup::normalize_profile(valid_profile());
     std::string rendered = btrfsbackup::render_udev(profile);
@@ -225,6 +280,8 @@ int main() {
     test_profile_model_round_trips_normalized_json();
     test_render_profile_env_quotes_values();
     test_typed_render_matches_json_render();
+    test_typed_store_renders_tree();
+    test_typed_store_saves_tree();
     test_render_udev_optional_matches();
     test_compose_sources_table();
 
