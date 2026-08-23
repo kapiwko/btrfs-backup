@@ -17,7 +17,7 @@
       "properties": {
         "device": { "type": "string", "pattern": "^/dev(?:/|$)", "maxLength": 4096 },
         "luksUuid": { "$ref": "#/$defs/uuid" },
-        "btrfsUuid": { "$ref": "#/$defs/optionalUuid" },
+        "btrfsUuid": { "$ref": "#/$defs/uuid" },
         "partitionUuid": { "$ref": "#/$defs/optionalUuid" },
         "serial": { "type": "string", "pattern": "^(|[A-Za-z0-9][A-Za-z0-9._:+-]{0,255})$" },
         "mapperName": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$" },

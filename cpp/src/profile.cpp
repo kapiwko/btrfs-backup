@@ -114,6 +114,13 @@ Json required_object(const Json& root, const std::string& key, const std::string
     return root.at(key);
 }
 
+const Json& required_value(const Json& root, const std::string& key, const std::string& name) {
+    if (!root.contains(key) || root.at(key).is_null()) {
+        throw ValidationError(name + " is required");
+    }
+    return root.at(key);
+}
+
 std::string systemd_mount_unit(const std::string& mount_point) {
     return run_capture({"systemd-escape", "-p", "--suffix=mount", mount_point});
 }
@@ -208,7 +215,7 @@ Json normalize_profile(const Json& raw) {
         throw ValidationError("target.device must point inside /dev");
     }
     std::string luks_uuid = uuid_value(target.at("luksUuid"), "target.luksUuid");
-    std::string btrfs_uuid = uuid_value(target.value("btrfsUuid", ""), "target.btrfsUuid", true);
+    std::string btrfs_uuid = uuid_value(required_value(target, "btrfsUuid", "target.btrfsUuid"), "target.btrfsUuid");
     std::string partition_uuid = uuid_value(target.value("partitionUuid", ""), "target.partitionUuid", true);
     std::string serial = text(target.value("serial", ""), "target.serial", true, 256);
     if (!std::regex_match(serial, serial_re)) {
