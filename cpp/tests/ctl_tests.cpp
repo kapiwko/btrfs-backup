@@ -434,6 +434,36 @@ void test_pending_marker_write_read_and_clear() {
     fs::remove_all(root);
 }
 
+void test_migrate_legacy_state_moves_unclaimed_files() {
+    fs::path root = test_root("legacy-state");
+    fs::path state_dir = root / "state";
+    fs::path profile_state_dir = state_dir / "profiles" / "default";
+    write_file(state_dir / "last-success", "profile_id=legacy\n");
+    write_file(state_dir / "pending-root", "local_snapshot_path=/snapshots/root-old\n");
+    write_file(state_dir / "pending-home", "local_snapshot_path=/snapshots/home-old\n");
+    write_file(profile_state_dir / "pending-home", "local_snapshot_path=/snapshots/home-current\n");
+
+    btrfsbackup::command_migrate_legacy_state(
+        {
+            "--state-dir",
+            state_dir.string(),
+            "--profile-state-dir",
+            profile_state_dir.string(),
+        }
+    );
+
+    expect_eq("legacy success moved", fs::is_regular_file(profile_state_dir / "last-success") ? "yes" : "no", "yes");
+    expect_eq("legacy success removed", fs::exists(state_dir / "last-success") ? "yes" : "no", "no");
+    expect_eq("legacy pending moved", fs::is_regular_file(profile_state_dir / "pending-root") ? "yes" : "no", "yes");
+    expect_eq("legacy pending removed", fs::exists(state_dir / "pending-root") ? "yes" : "no", "no");
+    expect_eq("conflicting pending kept", fs::is_regular_file(state_dir / "pending-home") ? "yes" : "no", "yes");
+
+    std::ifstream stream(profile_state_dir / "pending-home");
+    std::string content{std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()};
+    expect_contains("current pending preserved", content, "/snapshots/home-current");
+    fs::remove_all(root);
+}
+
 } // namespace
 
 int main() {
@@ -450,6 +480,7 @@ int main() {
     test_config_fingerprint_matches_legacy_stream();
     test_success_state_write_and_match();
     test_pending_marker_write_read_and_clear();
+    test_migrate_legacy_state_moves_unclaimed_files();
 
     if (failures > 0) {
         return 1;

@@ -156,6 +156,8 @@ int ctl_tool_main(int argc, char** argv) {
             command_check_last_success(args, std::cout);
         } else if (command == "write-success-state") {
             command_write_success_state(args);
+        } else if (command == "migrate-legacy-state") {
+            command_migrate_legacy_state(args);
         } else if (command == "write-pending-marker") {
             command_write_pending_marker(args);
         } else if (command == "read-pending-marker") {
