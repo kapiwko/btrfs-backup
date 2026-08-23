@@ -26,6 +26,8 @@ std::string action_name(btrfsbackup::BackupRunActionKind kind) {
 class RecordingActionEffects final : public btrfsbackup::IBackupRunActionEffects {
 public:
     std::vector<std::string> calls;
+    std::vector<std::string> local_retention_deletes;
+    std::vector<std::string> remote_retention_deletes;
     btrfsbackup::BackupRunActionKind throw_on = btrfsbackup::BackupRunActionKind::SelectParent;
     bool should_throw = false;
 
@@ -35,6 +37,16 @@ public:
         const btrfsbackup::BackupRunPlan&
     ) override {
         calls.push_back(source_plan.source_id + ":" + action_name(action.kind));
+        if (action.kind == btrfsbackup::BackupRunActionKind::ApplyLocalRetention) {
+            for (const btrfsbackup::SnapshotInfo& snapshot : source_plan.local_retention.delete_snapshots) {
+                local_retention_deletes.push_back(snapshot.path.string());
+            }
+        }
+        if (action.kind == btrfsbackup::BackupRunActionKind::ApplyRemoteRetention) {
+            for (const btrfsbackup::SnapshotInfo& snapshot : source_plan.remote_retention.delete_snapshots) {
+                remote_retention_deletes.push_back(snapshot.path.string());
+            }
+        }
         if (should_throw && action.kind == throw_on) {
             throw btrfsbackup::ValidationError("injected action failure: " + action_name(action.kind));
         }
@@ -82,6 +94,20 @@ public:
         return found->second;
     }
 };
+
+void add_snapshot_metadata(
+    MetadataMap& metadata,
+    const fs::path& path,
+    const std::string& uuid,
+    const std::string& received_uuid = ""
+) {
+    metadata.values[path.string()] = btrfsbackup::SnapshotMetadata{
+        .is_subvolume = true,
+        .readonly = true,
+        .uuid = uuid,
+        .received_uuid = received_uuid,
+    };
+}
 
 btrfsbackup::Profile test_profile(const fs::path& root) {
     btrfsbackup::Profile profile;
@@ -639,17 +665,8 @@ void test_runner_execute_incremental_uses_selected_parent() {
     write_mountinfo(mountinfo, profile);
 
     MetadataMap metadata;
-    metadata.values[local_parent.string()] = btrfsbackup::SnapshotMetadata{
-        .is_subvolume = true,
-        .readonly = true,
-        .uuid = "parent-uuid",
-    };
-    metadata.values[remote_parent.string()] = btrfsbackup::SnapshotMetadata{
-        .is_subvolume = true,
-        .readonly = true,
-        .uuid = "remote-parent-uuid",
-        .received_uuid = "parent-uuid",
-    };
+    add_snapshot_metadata(metadata, local_parent, "parent-uuid");
+    add_snapshot_metadata(metadata, remote_parent, "remote-parent-uuid", "parent-uuid");
 
     RecordingActionEffects action_effects;
     ConfigurableTransferPipeline transfer_pipeline;
@@ -695,6 +712,90 @@ void test_runner_execute_incremental_uses_selected_parent() {
     fs::remove_all(root);
 }
 
+void test_runner_execute_retention_plans_local_and_remote_deletes() {
+    fs::path root = test_helpers::test_root("runner-command", "execute-retention");
+    fs::create_directories(root / "source" / "root");
+    fs::create_directories(root / "source" / ".snapshots" / "root");
+    fs::create_directories(root / "target" / "snapshots" / "root");
+    fs::create_directories(root / "target" / ".incoming");
+
+    btrfsbackup::Profile profile = test_profile(root);
+    profile.sources.at(0).local_retention = 2;
+    profile.sources.at(0).remote_retention = 2;
+    fs::path local_old = root / "source" / ".snapshots" / "root" / "root-2026-08-20T080000Z";
+    fs::path local_keep = root / "source" / ".snapshots" / "root" / "root-2026-08-22T080000Z";
+    fs::path remote_old = root / "target" / "snapshots" / "root" / "root-2026-08-20T080000Z";
+    fs::path remote_keep = root / "target" / "snapshots" / "root" / "root-2026-08-22T080000Z";
+    fs::create_directories(local_old);
+    fs::create_directories(local_keep);
+    fs::create_directories(remote_old);
+    fs::create_directories(remote_keep);
+
+    fs::path config_root = root / "config";
+    fs::path mountinfo = root / "mountinfo";
+    write_profile(config_root, profile);
+    write_mountinfo(mountinfo, profile);
+
+    MetadataMap metadata;
+    add_snapshot_metadata(metadata, local_old, "local-old-uuid");
+    add_snapshot_metadata(metadata, local_keep, "local-keep-uuid");
+    add_snapshot_metadata(metadata, remote_old, "remote-old-uuid", "local-old-uuid");
+    add_snapshot_metadata(metadata, remote_keep, "remote-keep-uuid", "local-keep-uuid");
+
+    RecordingActionEffects action_effects;
+    ConfigurableTransferPipeline transfer_pipeline;
+    btrfsbackup::command::RunnerExecutionServices services{
+        .action_effects = action_effects,
+        .transfer_pipeline = transfer_pipeline,
+        .snapshot_metadata_reader = [&metadata](const fs::path& path) {
+            return metadata.read(path);
+        },
+    };
+
+    std::ostringstream output;
+    int result = btrfsbackup::command::runner(
+        config_root,
+        {
+            "execute",
+            "--experimental-cpp-runner",
+            "--profile",
+            "default",
+            "--timestamp",
+            "2026-08-23T080000Z",
+            "--run-id",
+            "20260823T080000Z-123-456",
+            "--mountinfo",
+            mountinfo.string(),
+            "--mount-uuid",
+            "/dev/source",
+            "source-fs",
+            "--mount-uuid",
+            "/dev/mapper/backup",
+            profile.target.btrfs_uuid,
+        },
+        output,
+        &services
+    );
+
+    test_helpers::expect_eq("retention result", std::to_string(result), "0");
+    test_helpers::expect_true("remote retention action", std::find(
+        action_effects.calls.begin(),
+        action_effects.calls.end(),
+        "root:" + action_name(btrfsbackup::BackupRunActionKind::ApplyRemoteRetention)
+    ) != action_effects.calls.end(), "missing remote retention action");
+    test_helpers::expect_true("local retention action", std::find(
+        action_effects.calls.begin(),
+        action_effects.calls.end(),
+        "root:" + action_name(btrfsbackup::BackupRunActionKind::ApplyLocalRetention)
+    ) != action_effects.calls.end(), "missing local retention action");
+    test_helpers::expect_eq("remote retention delete count", std::to_string(action_effects.remote_retention_deletes.size()), "1");
+    test_helpers::expect_eq("remote retention delete", action_effects.remote_retention_deletes.at(0), remote_old.string());
+    test_helpers::expect_eq("local retention delete count", std::to_string(action_effects.local_retention_deletes.size()), "1");
+    test_helpers::expect_eq("local retention delete", action_effects.local_retention_deletes.at(0), local_old.string());
+
+    fs::remove_all(root);
+}
+
 } // namespace
 
 int main() {
@@ -707,6 +808,7 @@ int main() {
     test_runner_execute_verify_failure_writes_failed_status();
     test_runner_execute_multi_source_success();
     test_runner_execute_incremental_uses_selected_parent();
+    test_runner_execute_retention_plans_local_and_remote_deletes();
 
     return test_helpers::finish("runner command tests");
 }
