@@ -2,13 +2,6 @@
 
 ## C++ Runtime Migration
 
-- Wire the C++ target mount validator into the shadow runner/runtime path:
-  - keep `target.btrfsUuid` required;
-  - make synthetic mount-table tests provide filesystem UUIDs without weakening
-    the production `libblkid` path;
-  - keep Bash as the executor until this validator has parity with existing
-    Bash integration tests.
-
 - Add an asynchronous transfer execution layer before porting
   `btrfs send/receive`:
   - keep `ICommandRunner` limited to short synchronous administrative commands;

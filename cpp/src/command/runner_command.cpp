@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <iomanip>
 #include <iostream>
+#include <map>
 #include <optional>
 #include <sstream>
 #include <string>
@@ -18,6 +19,7 @@
 #include <btrfsbackup/profile.hpp>
 #include <btrfsbackup/run_state.hpp>
 #include <btrfsbackup/snapshot_inventory.hpp>
+#include <btrfsbackup/target_mount_validation.hpp>
 
 namespace fs = std::filesystem;
 
@@ -127,6 +129,7 @@ int runner(const fs::path& profile_config_dir, const std::vector<std::string>& a
     fs::path mountinfo = "/proc/self/mountinfo";
     std::string timestamp = current_utc_timestamp();
     std::string run_id;
+    std::map<std::string, std::string> mount_uuid_overrides;
 
     for (std::size_t i = 1; i < args.size(); ++i) {
         const std::string& arg = args.at(i);
@@ -138,6 +141,10 @@ int runner(const fs::path& profile_config_dir, const std::vector<std::string>& a
             run_id = arg_value(args, i, arg);
         } else if (arg == "--mountinfo") {
             mountinfo = arg_value(args, i, arg);
+        } else if (arg == "--mount-uuid") {
+            std::string source = arg_value(args, i, arg);
+            std::string uuid = arg_value(args, i, arg);
+            mount_uuid_overrides[source] = uuid;
         } else {
             fail("unknown plan option: " + arg);
         }
@@ -148,7 +155,16 @@ int runner(const fs::path& profile_config_dir, const std::vector<std::string>& a
     }
 
     Profile profile = load_profile_by_id(profile_config_dir, profile_id);
-    std::vector<MountEntry> mounts = read_mount_table(mountinfo);
+    std::vector<MountEntry> mounts = mount_uuid_overrides.empty()
+        ? read_mount_table(mountinfo)
+        : read_mount_table(mountinfo, [&mount_uuid_overrides](const std::string& source) {
+              auto found = mount_uuid_overrides.find(source);
+              if (found != mount_uuid_overrides.end()) {
+                  return found->second;
+              }
+              return blkid_filesystem_uuid(source);
+          });
+    validate_target_mount(profile, mounts);
 
     SnapshotInventoryBySource local_inventory;
     SnapshotInventoryBySource remote_inventory;
