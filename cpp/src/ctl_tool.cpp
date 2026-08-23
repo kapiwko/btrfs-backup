@@ -15,7 +15,7 @@
 #include <btrfsbackup/history.hpp>
 #include <btrfsbackup/identifiers.hpp>
 #include <btrfsbackup/profile_list.hpp>
-#include <btrfsbackup/run_state.hpp>
+#include <btrfsbackup/run_state_command.hpp>
 #include <btrfsbackup/status.hpp>
 #include <btrfsbackup/status_write_command.hpp>
 
