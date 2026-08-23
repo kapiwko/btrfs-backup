@@ -286,6 +286,33 @@ void test_pending_marker_write_read_and_clear() {
     fs::remove_all(root);
 }
 
+void test_cancel_request_write_check_and_clear() {
+    fs::path root = test_root("cancel-request");
+    fs::path state_dir = root / "state" / "profiles" / "default";
+
+    test_helpers::expect_true(
+        "cancel initially absent",
+        !btrfsbackup::cancel_requested(state_dir),
+        "cancel request should not exist"
+    );
+
+    btrfsbackup::write_cancel_request(state_dir);
+    test_helpers::expect_true("cancel requested", btrfsbackup::cancel_requested(state_dir), "cancel request missing");
+    test_helpers::expect_eq(
+        "cancel path",
+        btrfsbackup::cancel_request_path(state_dir).string(),
+        (state_dir / "cancel-request").string()
+    );
+
+    btrfsbackup::clear_cancel_request(state_dir);
+    test_helpers::expect_true(
+        "cancel cleared",
+        !btrfsbackup::cancel_requested(state_dir),
+        "cancel request should be cleared"
+    );
+    fs::remove_all(root);
+}
+
 } // namespace
 
 int main() {
@@ -295,6 +322,7 @@ int main() {
     test_config_fingerprint_matches_legacy_stream();
     test_success_state_write_and_match();
     test_pending_marker_write_read_and_clear();
+    test_cancel_request_write_check_and_clear();
 
     return test_helpers::finish("run state tests");
 }

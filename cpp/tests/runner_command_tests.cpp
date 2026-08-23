@@ -1,11 +1,13 @@
 #include <sys/stat.h>
 
+#include <chrono>
 #include <filesystem>
 #include <map>
 #include <optional>
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include <btrfsbackup/command/runner_command.hpp>
@@ -74,17 +76,29 @@ public:
         },
         .bytes_transferred = 1024,
     };
+    std::optional<fs::path> request_cancel_path;
 
     btrfsbackup::TransferResult run(
         const btrfsbackup::TransferPipelinePlan& plan,
         btrfsbackup::ITransferEventSink& events,
-        btrfsbackup::CancellationToken&
+        btrfsbackup::CancellationToken& cancellation
     ) override {
         plans.push_back(plan);
         events.on_transfer_event({
             .kind = btrfsbackup::TransferEventKind::Progress,
             .bytes_transferred = 1024,
+            .bytes_produced = 1024,
+            .delta_bytes = 1024,
+            .elapsed_ms = 1000,
+            .speed_bps = 1024,
         });
+        if (request_cancel_path.has_value()) {
+            btrfsbackup::write_cancel_request(*request_cancel_path);
+            for (int i = 0; i < 20 && !cancellation.cancellation_requested(); ++i) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(50));
+            }
+            next_result.cancelled = cancellation.cancellation_requested();
+        }
         return next_result;
     }
 };
@@ -1078,6 +1092,101 @@ void test_runner_execute_pending_recovery_deletes_orphan() {
     fs::remove_all(root);
 }
 
+void test_runner_cancel_writes_cancel_request_without_target_mount() {
+    fs::path root = test_helpers::test_root("runner-command", "cancel");
+    btrfsbackup::Profile profile = test_profile(root);
+    fs::path config_root = root / "config";
+    write_profile(config_root, profile);
+
+    std::ostringstream output;
+    int result = btrfsbackup::command::runner(
+        config_root,
+        {
+            "cancel",
+            "--profile",
+            "default",
+        },
+        output
+    );
+
+    btrfsbackup::Json json = btrfsbackup::Json::parse(output.str());
+    fs::path profile_state_dir = root / "state" / "profiles" / "default";
+    test_helpers::expect_eq("cancel result", std::to_string(result), "0");
+    test_helpers::expect_eq("cancel mode", json.at("mode").get<std::string>(), "cpp-cancel");
+    test_helpers::expect_true("cancel requested json", json.at("cancelRequested").get<bool>(), "cancel should be requested");
+    test_helpers::expect_true(
+        "cancel request exists",
+        btrfsbackup::cancel_requested(profile_state_dir),
+        "cancel request file missing"
+    );
+
+    fs::remove_all(root);
+}
+
+void test_runner_execute_honors_cancel_request_during_transfer() {
+    fs::path root = test_helpers::test_root("runner-command", "execute-cancel");
+    fs::create_directories(root / "source" / "root");
+    fs::create_directories(root / "source" / ".snapshots" / "root");
+    fs::create_directories(root / "target" / "snapshots" / "root");
+    fs::create_directories(root / "target" / ".incoming");
+
+    btrfsbackup::Profile profile = test_profile(root);
+    fs::path config_root = root / "config";
+    fs::path mountinfo = root / "mountinfo";
+    write_profile(config_root, profile);
+    write_mountinfo(mountinfo, profile);
+
+    RecordingActionEffects action_effects;
+    ConfigurableTransferPipeline transfer_pipeline;
+    fs::path profile_state_dir = root / "state" / "profiles" / "default";
+    transfer_pipeline.request_cancel_path = profile_state_dir;
+    btrfsbackup::command::RunnerExecutionServices services{
+        .action_effects = action_effects,
+        .transfer_pipeline = transfer_pipeline,
+    };
+
+    std::ostringstream output;
+    int result = btrfsbackup::command::runner(
+        config_root,
+        {
+            "execute",
+            "--profile",
+            "default",
+            "--timestamp",
+            "2026-08-23T080000Z",
+            "--run-id",
+            "20260823T080000Z-123-456",
+            "--mountinfo",
+            mountinfo.string(),
+            "--mount-uuid",
+            "/dev/source",
+            "source-fs",
+            "--mount-uuid",
+            "/dev/mapper/backup",
+            profile.target.btrfs_uuid,
+        },
+        output,
+        &services
+    );
+
+    btrfsbackup::Json json = btrfsbackup::Json::parse(output.str());
+    test_helpers::expect_eq("execute cancel result", std::to_string(result), "1");
+    test_helpers::expect_true("execute cancel incomplete", !json.at("completed").get<bool>(), "cancelled run should not complete");
+    test_helpers::expect_true("execute cancel flag", json.at("cancelled").get<bool>(), "cancelled flag should be true");
+
+    fs::path current = root / "status" / "default" / "current.json";
+    btrfsbackup::Json current_json = btrfsbackup::load_json_file(current);
+    test_helpers::expect_eq("execute cancel status state", current_json.at("state").get<std::string>(), "cancelled");
+    test_helpers::expect_eq("execute cancel code", current_json.at("errorCode").get<std::string>(), "runner.cancelled");
+    test_helpers::expect_true(
+        "execute cancel request cleaned",
+        !btrfsbackup::cancel_requested(profile_state_dir),
+        "handled cancellation request should be removed"
+    );
+
+    fs::remove_all(root);
+}
+
 } // namespace
 
 int main() {
@@ -1094,6 +1203,8 @@ int main() {
     test_runner_execute_incremental_uses_selected_parent();
     test_runner_execute_retention_plans_local_and_remote_deletes();
     test_runner_execute_pending_recovery_deletes_orphan();
+    test_runner_cancel_writes_cancel_request_without_target_mount();
+    test_runner_execute_honors_cancel_request_during_transfer();
 
     return test_helpers::finish("runner command tests");
 }

@@ -26,8 +26,8 @@
     between sources;
   - keep producer and consumer failures separately classified in stable error
     codes;
-  - add cancellation tests for a live external transfer and `.incoming`
-    recovery after cancellation.
+  - add live external-transfer cancellation tests and `.incoming` recovery
+    coverage after cancellation.
 
 - Add application-consistency hooks to the C++ run plan:
   - add hook timeout and cancellation handling with stable structured error
