@@ -99,15 +99,17 @@ void test_status_falls_back_to_last_json() {
     fs::remove_all(root);
 }
 
-void test_list_profiles_from_env_files() {
+void test_list_profiles_from_json_and_env_files() {
     fs::path root = test_root("profiles");
     write_file(root / "profiles.d" / "alpha.env", "");
     write_file(root / "profiles.d" / "default.env", "");
+    write_file(root / "profiles" / "beta" / "profile.json", "{}\n");
+    write_file(root / "profiles" / "default" / "profile.json", "{}\n");
     std::ostringstream output;
 
-    btrfsbackup::command_list_profiles(root / "profiles.d", root / "backup.env", output);
+    btrfsbackup::command_list_profiles(root / "profiles.d", root / "profiles", root / "backup.env", output);
 
-    expect_eq("list profiles", output.str(), "alpha\ndefault\n");
+    expect_eq("list profiles", output.str(), "alpha\nbeta\ndefault\n");
     fs::remove_all(root);
 }
 
@@ -116,7 +118,7 @@ void test_list_profiles_legacy_fallback() {
     write_file(root / "backup.env", "BACKUP_DEVICE=/dev/test\n");
     std::ostringstream output;
 
-    btrfsbackup::command_list_profiles(root / "profiles.d", root / "backup.env", output);
+    btrfsbackup::command_list_profiles(root / "profiles.d", root / "profiles", root / "backup.env", output);
 
     expect_eq("legacy fallback", output.str(), "default (legacy)\n");
     fs::remove_all(root);
@@ -155,7 +157,7 @@ void test_list_profiles_rejects_invalid_name() {
         "invalid profile",
         [&] {
             std::ostringstream output;
-            btrfsbackup::command_list_profiles(root / "profiles.d", root / "backup.env", output);
+            btrfsbackup::command_list_profiles(root / "profiles.d", root / "profiles", root / "backup.env", output);
         },
         "invalid profile id"
     );
@@ -528,7 +530,7 @@ void test_parse_profile_sources_from_json() {
 int main() {
     test_history_without_directory_returns_empty_array();
     test_status_falls_back_to_last_json();
-    test_list_profiles_from_env_files();
+    test_list_profiles_from_json_and_env_files();
     test_list_profiles_legacy_fallback();
     test_status_human_format();
     test_list_profiles_rejects_invalid_name();

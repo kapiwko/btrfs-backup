@@ -166,7 +166,7 @@ migrate_profile_dry_run_test() {
     local source_config="$TEST_ROOT/legacy-backup.env"
     local source_dir="$TEST_ROOT/legacy-sources.d"
     local profile_dir="$TEST_ROOT/profiles.d"
-    local legacy_only_profile_dir="$TEST_ROOT/legacy-only-profiles.d"
+    local legacy_only_profile_dir="$TEST_ROOT/legacy-only/config/profiles.d"
     local udev_dir="$TEST_ROOT/udev"
     local public_dir="$TEST_ROOT/public"
 
