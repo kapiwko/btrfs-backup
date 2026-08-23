@@ -376,6 +376,10 @@ bb_notify() {
 
     bb_log INFO "$message"
 
+    if [[ "${BTRFS_BACKUP_DISABLE_NOTIFY:-false}" == true ]]; then
+        return 0
+    fi
+
     if ! bb_bool_is_true "${NOTIFY_ENABLE:-true}"; then
         return 0
     fi
