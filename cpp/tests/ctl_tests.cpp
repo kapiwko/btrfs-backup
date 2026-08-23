@@ -1,3 +1,5 @@
+#include <sys/stat.h>
+
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -13,6 +15,7 @@
 #include <btrfsbackup/errors.hpp>
 #include <btrfsbackup/history.hpp>
 #include <btrfsbackup/json_io.hpp>
+#include <btrfsbackup/migrate_profile.hpp>
 #include <btrfsbackup/profile_list.hpp>
 #include <btrfsbackup/run_state.hpp>
 #include <btrfsbackup/run_state_command.hpp>
@@ -514,6 +517,59 @@ void test_parse_profile_sources_from_json() {
     fs::remove_all(root);
 }
 
+void test_migrate_profile_creates_profile_files() {
+    fs::path root = test_root("migrate-profile");
+    fs::path source_config = root / "legacy.env";
+    fs::path source_dir = root / "sources.d";
+    fs::path profile_dir = root / "profiles.d";
+    fs::path udev_dir = root / "udev";
+    fs::path public_dir = root / "public";
+
+    write_file(
+        source_config,
+        "BACKUP_MAPPER_NAME=backupdisk\n"
+        "BACKUP_DEVICE=/dev/disk/by-uuid/11111111-2222-3333-4444-555555555555\n"
+        "BACKUP_LUKS_UUID=11111111-2222-3333-4444-555555555555\n"
+        "BACKUP_BTRFS_UUID=66666666-7777-8888-9999-aaaaaaaaaaaa\n"
+        "BACKUP_MOUNTPOINT=/mnt/backup\n"
+        "SOURCES_DIR=" + source_dir.string() + "\n"
+        "RETENTION_COUNT=30\n"
+        "LOCAL_RETENTION_COUNT=20\n"
+    );
+    write_file(
+        source_dir / "10-home.conf",
+        "SOURCE_NAME=home\n"
+        "SOURCE_DISPLAY_NAME=Home\n"
+        "SOURCE_SUBVOLUME=/home\n"
+        "LOCAL_SNAPSHOT_DIR=/.snapshots/btrfs-backup/home\n"
+        "REMOTE_SUBDIR=home\n"
+        "SOURCE_RETENTION_COUNT=45\n"
+        "SOURCE_LOCAL_RETENTION_COUNT=20\n"
+    );
+    chmod(source_config.c_str(), 0600);
+    chmod((source_dir / "10-home.conf").c_str(), 0600);
+
+    int result = btrfsbackup::command_migrate_profile({
+        "--source", source_config.string(),
+        "--profile-dir", profile_dir.string(),
+        "--udev-dir", udev_dir.string(),
+        "--public-dir", public_dir.string(),
+        "--profile", "default",
+        "--name", "Default backup",
+    });
+
+    expect_eq("migrate result", std::to_string(result), "0");
+    expect_true("migrate env", fs::is_regular_file(profile_dir / "default.env"), "missing profile env");
+    expect_true("migrate json", fs::is_regular_file(root / "profiles" / "default" / "profile.json"), "missing profile JSON");
+    expect_true("migrate udev", fs::is_regular_file(udev_dir / "99-btrfs-backup-default.rules"), "missing udev rule");
+    expect_true("migrate public", fs::is_regular_file(public_dir / "default.json"), "missing public profile");
+
+    btrfsbackup::Json profile = btrfsbackup::load_json_file(root / "profiles" / "default" / "profile.json");
+    expect_eq("migrate profile id", profile.at("profileId").get<std::string>(), "default");
+    expect_eq("migrate source id", profile.at("sources").at(0).at("id").get<std::string>(), "home");
+    fs::remove_all(root);
+}
+
 } // namespace
 
 int main() {
@@ -531,6 +587,7 @@ int main() {
     test_pending_marker_write_read_and_clear();
     test_migrate_legacy_state_moves_unclaimed_files();
     test_parse_profile_sources_from_json();
+    test_migrate_profile_creates_profile_files();
 
     if (failures > 0) {
         return 1;
