@@ -110,7 +110,6 @@ configure_backup_with_cli() {
         --udev-root "$RENDERED_CONFIG/udev" \
         --public-root "$RENDERED_CONFIG/public/profiles" \
         save --file "$RENDERED_CONFIG/config/profile.json" >/dev/null
-    install -m0644 "$RENDERED_CONFIG/udev/99-btrfs-backup-default.rules" "$RENDERED_CONFIG/udev/99-btrfs-backup.rules"
     btrfs-backupctl installation render \
         --file "$RENDERED_CONFIG/config/profile.json" \
         --output-dir "$RENDERED_CONFIG" \
@@ -123,7 +122,7 @@ configure_backup_with_cli() {
     install -m0600 "$RENDERED_CONFIG/config/profile.json" /etc/btrfs-backup/profiles/default/profile.json
     install -Dm0644 "$RENDERED_CONFIG/systemd/btrfs-backup.service" /etc/systemd/system/btrfs-backup.service
     install -Dm0644 "$RENDERED_CONFIG/systemd/btrfs-backup@.service" /etc/systemd/system/btrfs-backup@.service
-    install -Dm0644 "$RENDERED_CONFIG/udev/99-btrfs-backup.rules" /etc/udev/rules.d/99-btrfs-backup.rules
+    install -Dm0644 "$RENDERED_CONFIG/udev/99-btrfs-backup-default.rules" /etc/udev/rules.d/99-btrfs-backup-default.rules
     btrfs-backupctl installation validate --active --profile default >/dev/null
     PROFILE_JSON=/etc/btrfs-backup/profiles/default/profile.json
     [[ -f "$PROFILE_JSON" ]] || fail 'configuration did not create default profile JSON'
