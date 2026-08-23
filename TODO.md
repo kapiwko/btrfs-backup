@@ -2,11 +2,6 @@
 
 ## C++ Runtime Migration
 
-- Add a C++ retention planner:
-  - compute local and remote snapshots to keep/delete from inventory data;
-  - keep current Bash behavior for simple count-based retention first;
-  - make the planner dry-run friendly so later CLI commands can preview changes.
-
 - Add a C++ pending recovery planner:
   - read pending markers and snapshot inventory;
   - decide whether to preserve, delete or retry a local snapshot;
