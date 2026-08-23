@@ -58,6 +58,13 @@ void require_non_empty(const std::string& value, const char* field) {
     }
 }
 
+void require_absolute_path(const std::string& value, const char* field) {
+    require_non_empty(value, field);
+    if (value.front() != '/') {
+        throw btrfsbackup::ValidationError(std::string(field) + " must be an absolute path");
+    }
+}
+
 int parse_int(const std::string& option, const std::string& value) {
     if (value.empty() || !std::all_of(value.begin(), value.end(), [](unsigned char c) { return std::isdigit(c); })) {
         throw btrfsbackup::ValidationError(option + " must be a number");
@@ -113,6 +120,41 @@ void write_success_state(const fs::path& profile_state_dir, const SuccessState& 
             << "config_fingerprint=" << state.config_fingerprint << '\n';
 
     atomic_write(profile_state_dir / "last-success", content.str(), 0600);
+    fsync_dir(profile_state_dir);
+}
+
+fs::path pending_marker_path(const fs::path& profile_state_dir, const std::string& source_name) {
+    validate_identifier(source_name, "source_name");
+    return profile_state_dir / ("pending-" + source_name);
+}
+
+void write_pending_marker(const fs::path& profile_state_dir, const PendingMarker& marker) {
+    validate_identifier(marker.source_name, "source_name");
+    validate_run_id(marker.run_id);
+    require_absolute_path(marker.local_snapshot_path, "local_snapshot_path");
+    require_non_empty(marker.timestamp, "timestamp");
+
+    fs::create_directories(profile_state_dir);
+    chmod(profile_state_dir.c_str(), 0700);
+
+    std::ostringstream content;
+    content << "source_name=" << marker.source_name << '\n'
+            << "local_snapshot_path=" << marker.local_snapshot_path << '\n'
+            << "run_id=" << marker.run_id << '\n'
+            << "timestamp=" << marker.timestamp << '\n';
+
+    atomic_write(pending_marker_path(profile_state_dir, marker.source_name), content.str(), 0600);
+    fsync_dir(profile_state_dir);
+}
+
+std::string read_pending_marker_field(const fs::path& marker_path, const std::string& field) {
+    std::map<std::string, std::string> values = read_state_file(marker_path);
+    return get_value(values, field);
+}
+
+void clear_pending_marker(const fs::path& marker_path, const fs::path& profile_state_dir) {
+    std::error_code ec;
+    fs::remove(marker_path, ec);
     fsync_dir(profile_state_dir);
 }
 
@@ -180,6 +222,78 @@ void command_write_success_state(const std::vector<std::string>& args) {
         throw ValidationError("write-success-state requires --profile-state-dir");
     }
     write_success_state(profile_state_dir, state);
+}
+
+void command_write_pending_marker(const std::vector<std::string>& args) {
+    fs::path profile_state_dir;
+    PendingMarker marker;
+
+    for (std::size_t i = 0; i < args.size(); ++i) {
+        const std::string& arg = args[i];
+        if (arg == "--profile-state-dir") {
+            profile_state_dir = arg_value(args, i, arg);
+        } else if (arg == "--source-name") {
+            marker.source_name = arg_value(args, i, arg);
+        } else if (arg == "--local-snapshot-path") {
+            marker.local_snapshot_path = arg_value(args, i, arg);
+        } else if (arg == "--run-id") {
+            marker.run_id = arg_value(args, i, arg);
+        } else if (arg == "--timestamp") {
+            marker.timestamp = arg_value(args, i, arg);
+        } else {
+            throw ValidationError("unknown write-pending-marker option: " + arg);
+        }
+    }
+
+    if (profile_state_dir.empty()) {
+        throw ValidationError("write-pending-marker requires --profile-state-dir");
+    }
+    write_pending_marker(profile_state_dir, marker);
+}
+
+void command_read_pending_marker(const std::vector<std::string>& args, std::ostream& output) {
+    fs::path marker_path;
+    std::string field = "local_snapshot_path";
+
+    for (std::size_t i = 0; i < args.size(); ++i) {
+        const std::string& arg = args[i];
+        if (arg == "--marker") {
+            marker_path = arg_value(args, i, arg);
+        } else if (arg == "--field") {
+            field = arg_value(args, i, arg);
+        } else {
+            throw ValidationError("unknown read-pending-marker option: " + arg);
+        }
+    }
+
+    if (marker_path.empty()) {
+        throw ValidationError("read-pending-marker requires --marker");
+    }
+    output << read_pending_marker_field(marker_path, field) << '\n';
+}
+
+void command_clear_pending_marker(const std::vector<std::string>& args) {
+    fs::path marker_path;
+    fs::path profile_state_dir;
+
+    for (std::size_t i = 0; i < args.size(); ++i) {
+        const std::string& arg = args[i];
+        if (arg == "--marker") {
+            marker_path = arg_value(args, i, arg);
+        } else if (arg == "--profile-state-dir") {
+            profile_state_dir = arg_value(args, i, arg);
+        } else {
+            throw ValidationError("unknown clear-pending-marker option: " + arg);
+        }
+    }
+
+    if (marker_path.empty()) {
+        throw ValidationError("clear-pending-marker requires --marker");
+    }
+    if (profile_state_dir.empty()) {
+        throw ValidationError("clear-pending-marker requires --profile-state-dir");
+    }
+    clear_pending_marker(marker_path, profile_state_dir);
 }
 
 } // namespace btrfsbackup
