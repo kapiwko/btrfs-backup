@@ -462,6 +462,119 @@ Json normalize_profile(const Json& raw) {
     };
 }
 
+Profile profile_from_json(const Json& raw) {
+    Json normalized = normalize_profile(raw);
+    Profile profile;
+    profile.schema_version = normalized.at("schemaVersion").get<int>();
+    profile.id = normalized.at("profileId").get<std::string>();
+    profile.name = normalized.at("name").get<std::string>();
+    profile.enabled = normalized.at("enabled").get<bool>();
+
+    const Json& target = normalized.at("target");
+    profile.target.device = target.at("device").get<std::string>();
+    profile.target.luks_uuid = target.at("luksUuid").get<std::string>();
+    profile.target.btrfs_uuid = target.at("btrfsUuid").get<std::string>();
+    profile.target.partition_uuid = target.at("partitionUuid").get<std::string>();
+    profile.target.serial = target.at("serial").get<std::string>();
+    profile.target.mapper_name = target.at("mapperName").get<std::string>();
+    profile.target.mount_point = target.at("mountPoint").get<std::string>();
+    profile.target.mount_unit = target.at("mountUnit").get<std::string>();
+
+    const Json& paths = normalized.at("paths");
+    profile.paths.sources_dir = paths.at("sourcesDir").get<std::string>();
+    profile.paths.remote_root = paths.at("remoteRoot").get<std::string>();
+    profile.paths.incoming_root = paths.at("incomingRoot").get<std::string>();
+    profile.paths.state_dir = paths.at("stateDir").get<std::string>();
+    profile.paths.status_root = paths.at("statusRoot").get<std::string>();
+    profile.paths.history_root = paths.at("historyRoot").get<std::string>();
+
+    const Json& settings = normalized.at("settings");
+    profile.settings.daily_limit = settings.at("dailyLimit").get<bool>();
+    profile.settings.incremental_required = settings.at("incrementalRequired").get<bool>();
+    profile.settings.keep_failed_local_snapshot = settings.at("keepFailedLocalSnapshot").get<bool>();
+    profile.settings.auto_eject = settings.at("autoEject").get<bool>();
+    profile.settings.remote_retention = settings.at("remoteRetention").get<long long>();
+    profile.settings.local_retention = settings.at("localRetention").get<long long>();
+    profile.settings.minimum_target_free_bytes = settings.at("minimumTargetFreeBytes").get<long long>();
+    profile.settings.minimum_local_free_bytes = settings.at("minimumLocalFreeBytes").get<long long>();
+
+    const Json& notifications = normalized.at("notifications");
+    profile.notifications.enabled = notifications.at("enabled").get<bool>();
+    profile.notifications.user = notifications.at("user").get<std::string>();
+    profile.notifications.method = notifications.at("method").get<std::string>();
+
+    for (const Json& item : normalized.at("sources")) {
+        profile.sources.push_back({
+            .id = item.at("id").get<std::string>(),
+            .name = item.at("name").get<std::string>(),
+            .enabled = item.at("enabled").get<bool>(),
+            .subvolume = item.at("subvolume").get<std::string>(),
+            .local_snapshot_dir = item.at("localSnapshotDir").get<std::string>(),
+            .remote_subdir = item.at("remoteSubdir").get<std::string>(),
+            .remote_retention = item.at("remoteRetention").get<long long>(),
+            .local_retention = item.at("localRetention").get<long long>(),
+        });
+    }
+    return profile;
+}
+
+Json profile_to_json(const Profile& profile) {
+    Json sources = Json::array();
+    for (const ProfileSource& source : profile.sources) {
+        sources.push_back({
+            {"id", source.id},
+            {"name", source.name},
+            {"enabled", source.enabled},
+            {"subvolume", source.subvolume},
+            {"localSnapshotDir", source.local_snapshot_dir},
+            {"remoteSubdir", source.remote_subdir},
+            {"remoteRetention", source.remote_retention},
+            {"localRetention", source.local_retention}
+        });
+    }
+
+    return {
+        {"schemaVersion", profile.schema_version},
+        {"profileId", profile.id},
+        {"name", profile.name},
+        {"enabled", profile.enabled},
+        {"target", {
+            {"device", profile.target.device},
+            {"luksUuid", profile.target.luks_uuid},
+            {"btrfsUuid", profile.target.btrfs_uuid},
+            {"partitionUuid", profile.target.partition_uuid},
+            {"serial", profile.target.serial},
+            {"mapperName", profile.target.mapper_name},
+            {"mountPoint", profile.target.mount_point},
+            {"mountUnit", profile.target.mount_unit}
+        }},
+        {"paths", {
+            {"sourcesDir", profile.paths.sources_dir},
+            {"remoteRoot", profile.paths.remote_root},
+            {"incomingRoot", profile.paths.incoming_root},
+            {"stateDir", profile.paths.state_dir},
+            {"statusRoot", profile.paths.status_root},
+            {"historyRoot", profile.paths.history_root}
+        }},
+        {"settings", {
+            {"dailyLimit", profile.settings.daily_limit},
+            {"incrementalRequired", profile.settings.incremental_required},
+            {"keepFailedLocalSnapshot", profile.settings.keep_failed_local_snapshot},
+            {"autoEject", profile.settings.auto_eject},
+            {"remoteRetention", profile.settings.remote_retention},
+            {"localRetention", profile.settings.local_retention},
+            {"minimumTargetFreeBytes", profile.settings.minimum_target_free_bytes},
+            {"minimumLocalFreeBytes", profile.settings.minimum_local_free_bytes}
+        }},
+        {"notifications", {
+            {"enabled", profile.notifications.enabled},
+            {"user", profile.notifications.user},
+            {"method", profile.notifications.method}
+        }},
+        {"sources", sources}
+    };
+}
+
 Json load_profile_by_id(const fs::path& etc_root, const std::string& profile_id) {
     validate_identifier(profile_id, "profile");
     fs::path canonical = profile_json_path(etc_root, profile_id);
