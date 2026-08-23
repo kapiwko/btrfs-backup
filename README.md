@@ -82,7 +82,7 @@ sudo btrfs-backup --no-eject
 sudo btrfs-backup --profile default --validate
 sudo btrfs-backup-mount
 sudo btrfs-backup-eject
-sudo btrfs-backup-migrate-profile --profile default
+sudo btrfs-backupctl migrate-profile --profile default
 btrfs-backupctl profile validate --file profile.json
 btrfs-backupctl profile render --file profile.json --output-dir ./generated-profile
 btrfs-backupctl profile show --profile default
@@ -112,14 +112,14 @@ Profiles are selected with `--profile <profile>` or `BTRFS_BACKUP_PROFILE=<profi
 To create the default profile from an existing legacy configuration:
 
 ```bash
-sudo btrfs-backup-migrate-profile --profile default
+sudo btrfs-backupctl migrate-profile --profile default
 ```
 
 After validating the migrated profile, the old legacy configuration,
 `sources.d` directory, and udev rule can be moved aside:
 
 ```bash
-sudo btrfs-backup-migrate-profile --profile default --force --remove-legacy
+sudo btrfs-backupctl migrate-profile --profile default --force --remove-legacy
 ```
 
 ## Recovery

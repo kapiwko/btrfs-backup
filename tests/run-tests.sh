@@ -197,12 +197,12 @@ SOURCE_RETENTION_COUNT=45
 SOURCE_LOCAL_RETENTION_COUNT=20
 CONFIG
     chmod 0600 "$source_config" "$source_dir/10-home.conf"
-    "$ROOT/bin/btrfs-backup-migrate-profile" \
+    "$ROOT/bin/btrfs-backupctl" migrate-profile \
         --dry-run \
         --source "$source_config" \
         --profile-dir "$profile_dir" \
         --profile default >/dev/null
-    "$ROOT/bin/btrfs-backup-migrate-profile" \
+    "$ROOT/bin/btrfs-backupctl" migrate-profile \
         --source "$source_config" \
         --profile-dir "$profile_dir" \
         --udev-dir "$udev_dir" \
@@ -266,7 +266,7 @@ JSON
     cp -- "$source_dir/10-home.conf" "$remove_source_dir/10-home.conf"
     printf '%s\n' 'ACTION=="add", ENV{SYSTEMD_WANTS}+="btrfs-backup.service"' > "$udev_dir/99-btrfs-backup.rules"
     chmod 0600 "$remove_config" "$remove_source_dir/10-home.conf"
-    "$ROOT/bin/btrfs-backup-migrate-profile" \
+    "$ROOT/bin/btrfs-backupctl" migrate-profile \
         --source "$remove_config" \
         --profile-dir "$profile_dir" \
         --udev-dir "$udev_dir" \
@@ -793,7 +793,7 @@ profile_loading_test() {
     cp -- "$CONFIG_FILE" "$migration_config"
     sed -i "s|^BACKUP_DEVICE=.*|BACKUP_DEVICE=/dev/disk/by-uuid/$MOCK_LUKS_UUID|" "$migration_config"
     chmod 0600 "$migration_config"
-    "$ROOT/scripts/btrfs-backup-migrate-profile.sh" \
+    "$ROOT/bin/btrfs-backupctl" migrate-profile \
         --source "$migration_config" \
         --sources-dir "$SOURCES_DIR" \
         --profile-dir "$profile_dir" \
