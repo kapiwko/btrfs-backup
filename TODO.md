@@ -3,8 +3,7 @@
 ## C++ Runtime Migration
 
 - Expand `BackupRunExecutor` parity coverage:
-  - pending incoming recovery;
-  - local and remote retention failures.
+  - pending incoming recovery.
 
 - Move the main backup flow from Bash to C++ after parity tests pass:
   - keep Bash wrappers for mount/eject compatibility while needed;
