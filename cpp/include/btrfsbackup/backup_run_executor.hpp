@@ -29,6 +29,11 @@ struct BackupRunEvent {
     std::string source_id;
     BackupRunActionKind action_kind = BackupRunActionKind::CleanupSource;
     std::uint64_t bytes_transferred = 0;
+    std::uint64_t bytes_produced = 0;
+    std::uint64_t delta_bytes = 0;
+    std::uint64_t pending_bytes = 0;
+    std::uint64_t elapsed_ms = 0;
+    std::uint64_t speed_bps = 0;
     std::string message;
 };
 

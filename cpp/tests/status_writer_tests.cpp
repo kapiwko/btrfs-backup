@@ -110,6 +110,14 @@ void test_build_status_json_matches_contract_shape() {
     expect_true("suggested action", data.at("suggestedAction") == "", "wrong suggestedAction");
     expect_true("can cancel", data.at("canCancel") == false, "wrong canCancel");
     expect_true("safe to remove", data.at("safeToRemove") == false, "wrong safeToRemove");
+    expect_true("bytes processed", data.at("bytesProcessed") == 0, "wrong bytesProcessed");
+    expect_true("bytes total estimated", data.at("bytesTotalEstimated") == 0, "wrong bytesTotalEstimated");
+    expect_true("run bytes processed", data.at("runBytesProcessed") == 0, "wrong runBytesProcessed");
+    expect_true("speed", data.at("speedBps") == 0, "wrong speedBps");
+    expect_true("eta", data.at("etaSeconds") == -1, "wrong etaSeconds");
+    expect_true("source progress", data.at("sourceProgress") == -1, "wrong sourceProgress");
+    expect_true("overall progress", data.at("overallProgress") == -1, "wrong overallProgress");
+    expect_true("progress accuracy", data.at("progressAccuracy") == "indeterminate", "wrong progressAccuracy");
     expect_true("exit", data.at("exitCode") == 0, "wrong exitCode");
 }
 
@@ -169,6 +177,14 @@ void test_dump_status_json_uses_stable_order_and_newline() {
         "  \"suggestedAction\": \"\",\n"
         "  \"canCancel\": false,\n"
         "  \"safeToRemove\": false,\n"
+        "  \"bytesProcessed\": 0,\n"
+        "  \"bytesTotalEstimated\": 0,\n"
+        "  \"runBytesProcessed\": 0,\n"
+        "  \"speedBps\": 0,\n"
+        "  \"etaSeconds\": -1,\n"
+        "  \"sourceProgress\": -1,\n"
+        "  \"overallProgress\": -1,\n"
+        "  \"progressAccuracy\": \"indeterminate\",\n"
         "  \"exitCode\": 0\n"
         "}\n"
     );

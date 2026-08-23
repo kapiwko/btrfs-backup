@@ -20,6 +20,11 @@ void emit_event(
     const BackupSourceRunPlan* source,
     BackupRunActionKind action_kind,
     std::uint64_t bytes_transferred = 0,
+    std::uint64_t bytes_produced = 0,
+    std::uint64_t delta_bytes = 0,
+    std::uint64_t pending_bytes = 0,
+    std::uint64_t elapsed_ms = 0,
+    std::uint64_t speed_bps = 0,
     const std::string& message = ""
 ) {
     events.on_backup_run_event({
@@ -29,6 +34,11 @@ void emit_event(
         .source_id = source == nullptr ? std::string{} : source->source_id,
         .action_kind = action_kind,
         .bytes_transferred = bytes_transferred,
+        .bytes_produced = bytes_produced,
+        .delta_bytes = delta_bytes,
+        .pending_bytes = pending_bytes,
+        .elapsed_ms = elapsed_ms,
+        .speed_bps = speed_bps,
         .message = message,
     });
 }
@@ -56,6 +66,11 @@ public:
                 &source_,
                 action_kind_,
                 event.bytes_transferred,
+                event.bytes_produced,
+                event.delta_bytes,
+                event.pending_bytes,
+                event.elapsed_ms,
+                event.speed_bps,
                 event.message
             );
         }
@@ -165,7 +180,7 @@ BackupRunExecutionResult BackupRunExecutor::execute(
                     action_effects_.execute_action(action, source, plan);
                 }
             } catch (const std::exception& error) {
-                emit_event(events, BackupRunEventKind::ActionFailed, plan, &source, action.kind, 0, error.what());
+                emit_event(events, BackupRunEventKind::ActionFailed, plan, &source, action.kind, 0, 0, 0, 0, 0, 0, error.what());
                 throw;
             }
 
