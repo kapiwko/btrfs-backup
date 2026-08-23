@@ -12,22 +12,22 @@
   - add restore verification to the real Btrfs suite.
 
 - Add an asynchronous process runner for long-running backup work:
-  - define a process interface that passes program and arguments separately;
+  - build on the existing POSIX transfer pump that already passes program and
+    arguments separately;
   - keep the existing POSIX runner for short administrative operations and
     tests;
-  - add a later Qt Core based runner for event-loop driven transfer, progress,
-    cancellation and multi-process coordination;
+  - add a later event-loop driven runner for richer progress, cancellation and
+    multi-process coordination;
   - do not route `btrfs send` or `btrfs receive` through shell command strings.
 
-- Add a transfer pump for `btrfs send | btrfs receive`:
-  - stream stdout from producer to stdin of consumer with backpressure;
-  - count bytes, speed and ETA without relying on `pv`;
-  - report producer and consumer failures separately;
-  - support cancellation and cleanup of `.incoming`;
+- Improve transfer progress beyond the current native pump:
+  - estimate total bytes and ETA without relying on `pv`;
   - expose source progress and aggregate run progress that does not reset
     between sources;
-  - publish `canCancel`, bytes processed, estimated total bytes, speed and ETA
-    in status updates.
+  - keep producer and consumer failures separately classified in stable error
+    codes;
+  - add cancellation tests for a live external transfer and `.incoming`
+    recovery after cancellation.
 
 - Add application-consistency hooks to the C++ run plan:
   - add hook timeout and cancellation handling with stable structured error

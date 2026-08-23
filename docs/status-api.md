@@ -79,8 +79,10 @@ validated
 skipped
 ```
 
-Future runner implementations should add progress fields without changing the
-meaning of existing keys:
+Transfer progress fields are present in every status document. During a live
+transfer, byte and speed fields are updated from the native transfer pipeline.
+When no transfer is active or a value cannot be estimated, numeric progress
+fields use `0` or `-1` as documented below:
 
 | Field | Meaning |
 |---|---|
@@ -88,17 +90,18 @@ meaning of existing keys:
 | `sourceProgress` | percentage for the current source, or `-1` when unknown |
 | `overallProgress` | percentage for the whole run, or `-1` when unknown |
 | `progressAccuracy` | `exact`, `estimated`, or `indeterminate` |
-| `bytesProcessed` | bytes transferred or processed in the current stream |
-| `bytesTotalEstimated` | estimated total bytes for the current stream |
-| `runBytesProcessed` | bytes already completed across earlier sources |
+| `bytesProcessed` | bytes delivered to the receive process in the current stream |
+| `bytesTotalEstimated` | estimated total bytes for the current stream, or `0` when unknown |
+| `runBytesProcessed` | bytes delivered in the current run; currently equal to `bytesProcessed` for the active source |
 | `speedBps` | current transfer speed in bytes per second |
 | `etaSeconds` | estimated seconds remaining, or `-1` when unknown |
-| `durationSeconds` | total duration for a finished run |
 | `canCancel` | whether a client should offer cancellation |
 | `safeToRemove` | whether the target was logically unmounted and closed |
 
-Clients must treat progress as advisory. Unknown or estimated progress must not
-be displayed as a precise guarantee.
+The status `details` object for `transferring` includes lower-level diagnostics:
+`bytesProduced`, `bytesTransferred`, `deltaBytes`, `pendingBytes`, `elapsedMs`,
+and `speedBps`. Clients must treat progress as advisory. Unknown or estimated
+progress must not be displayed as a precise guarantee.
 
 ## History
 

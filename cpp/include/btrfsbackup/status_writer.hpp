@@ -28,6 +28,14 @@ struct StatusRecord {
     std::string suggested_action;
     bool can_cancel = false;
     bool safe_to_remove = false;
+    std::uint64_t bytes_processed = 0;
+    std::uint64_t bytes_total_estimated = 0;
+    std::uint64_t run_bytes_processed = 0;
+    std::uint64_t speed_bps = 0;
+    int eta_seconds = -1;
+    int source_progress = -1;
+    int overall_progress = -1;
+    std::string progress_accuracy = "indeterminate";
     int exit_code = 0;
 };
 

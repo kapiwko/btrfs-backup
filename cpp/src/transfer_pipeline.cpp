@@ -7,6 +7,7 @@
 #include <unistd.h>
 
 #include <cerrno>
+#include <chrono>
 #include <cstring>
 #include <string>
 #include <vector>
@@ -226,10 +227,39 @@ void append_diagnostic(std::string& diagnostics, const std::string& message) {
     diagnostics += message;
 }
 
-void emit_event(ITransferEventSink& events, TransferEventKind kind, std::uint64_t bytes_transferred = 0, const std::string& message = "") {
+using SteadyClock = std::chrono::steady_clock;
+
+std::uint64_t elapsed_ms_since(SteadyClock::time_point started_at) {
+    return static_cast<std::uint64_t>(
+        std::chrono::duration_cast<std::chrono::milliseconds>(SteadyClock::now() - started_at).count()
+    );
+}
+
+std::uint64_t speed_bps(std::uint64_t bytes, std::uint64_t elapsed_ms) {
+    if (elapsed_ms == 0) {
+        return 0;
+    }
+    return bytes * 1000 / elapsed_ms;
+}
+
+void emit_event(
+    ITransferEventSink& events,
+    TransferEventKind kind,
+    const TransferResult& result,
+    SteadyClock::time_point started_at,
+    std::uint64_t delta_bytes = 0,
+    std::uint64_t pending_bytes = 0,
+    const std::string& message = ""
+) {
+    std::uint64_t elapsed = elapsed_ms_since(started_at);
     events.on_transfer_event({
         .kind = kind,
-        .bytes_transferred = bytes_transferred,
+        .bytes_transferred = result.bytes_transferred,
+        .bytes_produced = result.bytes_produced,
+        .delta_bytes = delta_bytes,
+        .pending_bytes = pending_bytes,
+        .elapsed_ms = elapsed,
+        .speed_bps = speed_bps(result.bytes_transferred, elapsed),
         .message = message,
     });
 }
@@ -254,6 +284,7 @@ TransferResult PosixTransferPipeline::run(
     ITransferEventSink& events,
     CancellationToken& cancellation
 ) {
+    const auto started_at = SteadyClock::now();
     ScopedIgnoredSigpipe ignored_sigpipe;
     Pipe data_pipe = create_pipe();
     Pipe consumer_input_pipe = create_pipe();
@@ -277,7 +308,7 @@ TransferResult PosixTransferPipeline::run(
     TransferResult result;
     result.producer.started = true;
     result.consumer.started = true;
-    emit_event(events, TransferEventKind::Started);
+    emit_event(events, TransferEventKind::Started, result, started_at);
 
     data_pipe.write_end.reset();
     consumer_input_pipe.read_end.reset();
@@ -306,7 +337,7 @@ TransferResult PosixTransferPipeline::run(
                 consumer_input_pipe.write_end.reset();
                 consumer_stdin_open = false;
             }
-            emit_event(events, TransferEventKind::Cancelled, result.bytes_transferred);
+            emit_event(events, TransferEventKind::Cancelled, result, started_at, 0, pending.size());
             cancellation_sent = true;
         }
 
@@ -354,8 +385,7 @@ TransferResult PosixTransferPipeline::run(
                     ssize_t count = read(data_pipe.read_end.get(), buffer, sizeof(buffer));
                     if (count > 0) {
                         pending.append(buffer, static_cast<std::size_t>(count));
-                        result.bytes_transferred += static_cast<std::uint64_t>(count);
-                        emit_event(events, TransferEventKind::Progress, result.bytes_transferred);
+                        result.bytes_produced += static_cast<std::uint64_t>(count);
                         continue;
                     }
                     if (count == 0) {
@@ -387,7 +417,16 @@ TransferResult PosixTransferPipeline::run(
             } else if (tag == consumer_stdin_tag && (fds[i].revents & POLLOUT) != 0) {
                 ssize_t count = write(consumer_input_pipe.write_end.get(), pending.data(), pending.size());
                 if (count > 0) {
+                    result.bytes_transferred += static_cast<std::uint64_t>(count);
                     pending.erase(0, static_cast<std::size_t>(count));
+                    emit_event(
+                        events,
+                        TransferEventKind::Progress,
+                        result,
+                        started_at,
+                        static_cast<std::uint64_t>(count),
+                        pending.size()
+                    );
                 } else if (count < 0 && errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR) {
                     append_diagnostic(result.consumer.diagnostics, std::string("stdin write failed: ") + std::strerror(errno));
                     consumer_input_pipe.write_end.reset();
@@ -421,17 +460,19 @@ TransferResult PosixTransferPipeline::run(
 
         if (!producer_done && reap_child(producer_pid, result.producer)) {
             producer_done = true;
-            emit_event(events, TransferEventKind::ProducerFinished, result.bytes_transferred);
+            emit_event(events, TransferEventKind::ProducerFinished, result, started_at, 0, pending.size());
         }
         if (!consumer_done && reap_child(consumer_pid, result.consumer)) {
             consumer_done = true;
-            emit_event(events, TransferEventKind::ConsumerFinished, result.bytes_transferred);
+            emit_event(events, TransferEventKind::ConsumerFinished, result, started_at, 0, pending.size());
         }
     }
 
     trim_diagnostics(result.producer.diagnostics);
     trim_diagnostics(result.consumer.diagnostics);
-    emit_event(events, TransferEventKind::Completed, result.bytes_transferred);
+    result.duration_ms = elapsed_ms_since(started_at);
+    result.average_speed_bps = speed_bps(result.bytes_transferred, result.duration_ms);
+    emit_event(events, TransferEventKind::Completed, result, started_at);
     return result;
 }
 

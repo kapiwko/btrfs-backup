@@ -94,6 +94,10 @@ public:
             events.on_transfer_event({
                 .kind = btrfsbackup::TransferEventKind::Progress,
                 .bytes_transferred = progress_bytes,
+                .bytes_produced = progress_bytes,
+                .delta_bytes = progress_bytes,
+                .elapsed_ms = 1000,
+                .speed_bps = progress_bytes,
                 .message = "progress",
             });
         }
@@ -246,6 +250,7 @@ void test_send_receive_delegates_to_transfer_pipeline() {
     });
     test_helpers::expect_true("progress event", progress != events.events.end(), "missing transfer progress event");
     test_helpers::expect_eq("progress bytes", std::to_string(progress->bytes_transferred), "8192");
+    test_helpers::expect_eq("progress delta", std::to_string(progress->delta_bytes), "8192");
 }
 
 void test_cancels_between_actions() {

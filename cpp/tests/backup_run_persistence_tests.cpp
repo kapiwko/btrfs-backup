@@ -28,6 +28,11 @@ btrfsbackup::BackupRunEvent event(btrfsbackup::BackupRunEventKind kind) {
         .source_id = "root",
         .action_kind = btrfsbackup::BackupRunActionKind::SendReceive,
         .bytes_transferred = 4096,
+        .bytes_produced = 8192,
+        .delta_bytes = 1024,
+        .pending_bytes = 4096,
+        .elapsed_ms = 2000,
+        .speed_bps = 2048,
         .message = "test message",
     };
 }
@@ -52,6 +57,11 @@ void test_build_event_json() {
     test_helpers::expect_true("event", data.at("event") == "transfer-progress", "wrong event");
     test_helpers::expect_true("action", data.at("action") == "send-receive", "wrong action");
     test_helpers::expect_true("bytes", data.at("bytesTransferred") == 4096, "wrong bytes");
+    test_helpers::expect_true("produced bytes", data.at("bytesProduced") == 8192, "wrong produced bytes");
+    test_helpers::expect_true("delta bytes", data.at("deltaBytes") == 1024, "wrong delta bytes");
+    test_helpers::expect_true("pending bytes", data.at("pendingBytes") == 4096, "wrong pending bytes");
+    test_helpers::expect_true("elapsed", data.at("elapsedMs") == 2000, "wrong elapsed");
+    test_helpers::expect_true("speed", data.at("speedBps") == 2048, "wrong speed");
 }
 
 void test_checkpoint_store_writes_private_json_in_state_dir() {

@@ -59,6 +59,14 @@ Json build_status_json(const StatusRecord& record) {
         {"suggestedAction", record.suggested_action},
         {"canCancel", record.can_cancel},
         {"safeToRemove", record.safe_to_remove},
+        {"bytesProcessed", record.bytes_processed},
+        {"bytesTotalEstimated", record.bytes_total_estimated},
+        {"runBytesProcessed", record.run_bytes_processed},
+        {"speedBps", record.speed_bps},
+        {"etaSeconds", record.eta_seconds},
+        {"sourceProgress", record.source_progress},
+        {"overallProgress", record.overall_progress},
+        {"progressAccuracy", record.progress_accuracy},
         {"exitCode", record.exit_code},
     };
 }
