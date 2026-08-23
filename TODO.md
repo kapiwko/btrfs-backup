@@ -4,7 +4,6 @@
 
 - Expand `BackupRunExecutor` parity coverage:
   - pending incoming recovery;
-  - interrupted send/receive;
   - local and remote retention failures.
 
 - Move the main backup flow from Bash to C++ after parity tests pass:

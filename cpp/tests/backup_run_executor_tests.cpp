@@ -82,6 +82,7 @@ public:
         },
     };
     std::uint64_t progress_bytes = 0;
+    bool cancel_during_run = false;
 
     btrfsbackup::TransferResult run(
         const btrfsbackup::TransferPipelinePlan& plan,
@@ -95,6 +96,9 @@ public:
                 .bytes_transferred = progress_bytes,
                 .message = "progress",
             });
+        }
+        if (cancel_during_run) {
+            next_result.cancelled = true;
         }
         return next_result;
     }
@@ -243,6 +247,30 @@ void test_cancels_between_actions() {
     test_helpers::expect_true("cancel event", events.has_event(btrfsbackup::BackupRunEventKind::RunCancelled), "missing cancel event");
 }
 
+void test_cancels_during_transfer_without_checkpointing_transfer() {
+    RecordingEffects effects;
+    RecordingTransferPipeline transfers;
+    transfers.cancel_during_run = true;
+    RecordingCheckpoints checkpoints;
+    RecordingEvents events;
+    btrfsbackup::CancellationToken cancellation;
+    btrfsbackup::BackupRunExecutor executor(effects, transfers, checkpoints);
+
+    btrfsbackup::BackupRunPlan plan = plan_with_actions({
+        action(btrfsbackup::BackupRunActionKind::CreateSnapshot),
+        action(btrfsbackup::BackupRunActionKind::SendReceive),
+        action(btrfsbackup::BackupRunActionKind::VerifyReceived),
+    });
+
+    btrfsbackup::BackupRunExecutionResult result = executor.execute(plan, events, cancellation);
+
+    test_helpers::expect_true("transfer cancellation result", result.cancelled, "run should be cancelled");
+    test_helpers::expect_eq("transfer cancellation completed actions", std::to_string(result.actions_completed), "1");
+    test_helpers::expect_eq("transfer cancellation checkpoint count", std::to_string(checkpoints.checkpoints.size()), "1");
+    test_helpers::expect_eq("transfer cancellation last checkpoint", action_name(checkpoints.checkpoints.back().action_kind), action_name(btrfsbackup::BackupRunActionKind::CreateSnapshot));
+    test_helpers::expect_true("transfer cancellation event", events.has_event(btrfsbackup::BackupRunEventKind::RunCancelled), "missing cancel event");
+}
+
 void test_transfer_failure_emits_failed_action() {
     RecordingEffects effects;
     RecordingTransferPipeline transfers;
@@ -322,6 +350,7 @@ int main() {
     test_executes_actions_and_writes_durable_checkpoints();
     test_send_receive_delegates_to_transfer_pipeline();
     test_cancels_between_actions();
+    test_cancels_during_transfer_without_checkpointing_transfer();
     test_transfer_failure_emits_failed_action();
     test_receive_failure_is_reported_separately();
     test_commit_failure_after_successful_transfer_keeps_verify_checkpoint();
