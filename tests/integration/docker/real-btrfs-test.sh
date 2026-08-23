@@ -283,7 +283,7 @@ with_restored_file "$PROFILE_JSON" target_uuid_mismatch_test
 source_on_target_test
 
 run_backup
-grep -q 'Sending full stream' "$RUN_LOG" || fail 'full stream was not used for first backup'
+grep -q '"incremental": false' "$RUN_LOG" || fail 'full stream was not used for first backup'
 grep -q '^profile_id=default$' /var/lib/btrfs-backup/profiles/default/last-success \
     || fail 'profile last-success state was not written'
 grep -q '"state": "succeeded"' /run/btrfs-backup/profiles/default/current.json \
@@ -316,7 +316,7 @@ rm -f -- "$SOURCE_MOUNT/home/dir/blob.bin"
 dd if=/dev/urandom of="$SOURCE_MOUNT/home/dir/blob-2.bin" bs=1M count=12 status=none
 sync
 run_backup
-grep -q 'Sending incremental stream with parent' "$RUN_LOG" || fail 'incremental stream was not used for second backup'
+grep -q '"incremental": true' "$RUN_LOG" || fail 'incremental stream was not used for second backup'
 assert_count 2 "$TARGET_MOUNT/snapshots/home"
 assert_count 2 "$SOURCE_MOUNT/.snapshots/home"
 assert_remote_matches_latest_local

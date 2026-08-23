@@ -142,6 +142,39 @@ btrfsbackup::Json paths_to_json(const std::vector<btrfsbackup::SnapshotInfo>& sn
     return result;
 }
 
+btrfsbackup::Json source_plan_to_json(const btrfsbackup::BackupSourceRunPlan& source, bool include_actions) {
+    btrfsbackup::Json result = {
+        {"sourceId", source.source_id},
+        {"sourceSubvolume", source.source_subvolume.string()},
+        {"localSnapshotPath", source.local_snapshot_path.string()},
+        {"remoteSnapshotDir", source.remote_snapshot_dir.string()},
+        {"incomingRunDir", source.incoming_run_dir.string()},
+        {"receivedSnapshotPath", source.received_snapshot_path.string()},
+        {"finalRemoteSnapshotPath", source.final_remote_snapshot_path.string()},
+        {"incremental", source.parent.incremental},
+        {"parentPath", source.parent.local_parent.has_value() ? btrfsbackup::Json(source.parent.local_parent->path.string()) : btrfsbackup::Json(nullptr)},
+        {"pendingRecoveryAction", action_name(source.actions.front().kind) == "recover-pending" ? "recover-pending" : "none"},
+        {"localRetentionDelete", paths_to_json(source.local_retention.delete_snapshots)},
+        {"remoteRetentionDelete", paths_to_json(source.remote_retention.delete_snapshots)}
+    };
+    if (include_actions) {
+        btrfsbackup::Json actions = btrfsbackup::Json::array();
+        for (const btrfsbackup::BackupRunAction& action : source.actions) {
+            actions.push_back(action_to_json(action));
+        }
+        result["actions"] = actions;
+    }
+    return result;
+}
+
+btrfsbackup::Json sources_to_json(const std::vector<btrfsbackup::BackupSourceRunPlan>& sources, bool include_actions) {
+    btrfsbackup::Json result = btrfsbackup::Json::array();
+    for (const btrfsbackup::BackupSourceRunPlan& source : sources) {
+        result.push_back(source_plan_to_json(source, include_actions));
+    }
+    return result;
+}
+
 void usage() {
     std::cout << "Usage: btrfs-backupctl runner COMMAND\n"
               << "\nCommands:\n"
@@ -394,7 +427,8 @@ int runner(
                 {"completed", true},
                 {"skipped", true},
                 {"cancelled", false},
-                {"actionsCompleted", 0}
+                {"actionsCompleted", 0},
+                {"sources", sources_to_json(plan.sources, false)}
             }.dump(2) << '\n';
             return 0;
         }
@@ -435,32 +469,10 @@ int runner(
             {"completed", result.completed},
             {"skipped", false},
             {"cancelled", result.cancelled},
-            {"actionsCompleted", result.actions_completed}
+            {"actionsCompleted", result.actions_completed},
+            {"sources", sources_to_json(plan.sources, false)}
         }.dump(2) << '\n';
         return result.completed ? 0 : 1;
-    }
-
-    Json sources = Json::array();
-    for (const BackupSourceRunPlan& source : plan.sources) {
-        Json actions = Json::array();
-        for (const BackupRunAction& action : source.actions) {
-            actions.push_back(action_to_json(action));
-        }
-        sources.push_back({
-            {"sourceId", source.source_id},
-            {"sourceSubvolume", source.source_subvolume.string()},
-            {"localSnapshotPath", source.local_snapshot_path.string()},
-            {"remoteSnapshotDir", source.remote_snapshot_dir.string()},
-            {"incomingRunDir", source.incoming_run_dir.string()},
-            {"receivedSnapshotPath", source.received_snapshot_path.string()},
-            {"finalRemoteSnapshotPath", source.final_remote_snapshot_path.string()},
-            {"incremental", source.parent.incremental},
-            {"parentPath", source.parent.local_parent.has_value() ? Json(source.parent.local_parent->path.string()) : Json(nullptr)},
-            {"pendingRecoveryAction", action_name(source.actions.front().kind) == "recover-pending" ? "recover-pending" : "none"},
-            {"localRetentionDelete", paths_to_json(source.local_retention.delete_snapshots)},
-            {"remoteRetentionDelete", paths_to_json(source.remote_retention.delete_snapshots)},
-            {"actions", actions}
-        });
     }
 
     output << Json{
@@ -468,7 +480,7 @@ int runner(
         {"mode", "shadow-plan"},
         {"profileId", plan.profile_id},
         {"runId", plan.run_id},
-        {"sources", sources}
+        {"sources", sources_to_json(plan.sources, true)}
     }.dump(2) << '\n';
 
     return 0;

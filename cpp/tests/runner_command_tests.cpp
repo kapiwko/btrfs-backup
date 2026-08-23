@@ -355,6 +355,8 @@ void test_runner_execute_uses_injected_services_and_writes_state() {
     test_helpers::expect_eq("execute mode", json.at("mode").get<std::string>(), "cpp-execute");
     test_helpers::expect_true("execute completed", json.at("completed").get<bool>(), "run should complete");
     test_helpers::expect_true("execute not skipped", !json.at("skipped").get<bool>(), "first run should execute");
+    test_helpers::expect_eq("execute source count", std::to_string(json.at("sources").size()), "1");
+    test_helpers::expect_true("execute full stream", !json.at("sources").at(0).at("incremental").get<bool>(), "first run should be full");
     test_helpers::expect_eq("execute transfer count", std::to_string(transfer_pipeline.plans.size()), "1");
     test_helpers::expect_true("execute effects", !action_effects.calls.empty(), "expected non-transfer effects");
 
@@ -907,6 +909,9 @@ void test_runner_execute_incremental_uses_selected_parent() {
     );
 
     test_helpers::expect_eq("incremental result", std::to_string(result), "0");
+    btrfsbackup::Json json = btrfsbackup::Json::parse(output.str());
+    test_helpers::expect_true("incremental output", json.at("sources").at(0).at("incremental").get<bool>(), "runner output should identify incremental transfer");
+    test_helpers::expect_eq("incremental output parent", json.at("sources").at(0).at("parentPath").get<std::string>(), local_parent.string());
     test_helpers::expect_eq("incremental transfers", std::to_string(transfer_pipeline.plans.size()), "1");
     const std::vector<std::string>& send_argv = transfer_pipeline.plans.at(0).producer_argv;
     test_helpers::expect_eq("incremental parent flag", send_argv.at(2), "-p");
