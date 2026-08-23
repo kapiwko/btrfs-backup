@@ -41,6 +41,10 @@ add_library(btrfsbackup_profile_tool STATIC
     cpp/src/profile_sources.cpp
     cpp/src/profile_render.cpp
     cpp/src/profile_store.cpp
+    cpp/src/profile_wizard_device.cpp
+    cpp/src/profile_wizard_paths.cpp
+    cpp/src/profile_wizard_prompt.cpp
+    cpp/src/profile_wizard_sources.cpp
     cpp/src/profile_wizard.cpp
     cpp/src/run_state.cpp
     cpp/src/shell_env.cpp
@@ -93,6 +97,10 @@ if(BUILD_TESTING)
         cpp/tests/installation_tests.cpp
     )
 
+    add_executable(btrfsbackup-profile-wizard-tests
+        cpp/tests/profile_wizard_tests.cpp
+    )
+
     add_executable(btrfsbackup-status-writer-tests
         cpp/tests/status_writer_tests.cpp
     )
@@ -122,6 +130,11 @@ if(BUILD_TESTING)
             btrfsbackup_profile_tool
     )
 
+    target_link_libraries(btrfsbackup-profile-wizard-tests
+        PRIVATE
+            btrfsbackup_profile_tool
+    )
+
     target_link_libraries(btrfsbackup-status-writer-tests
         PRIVATE
             btrfsbackup_profile_tool
@@ -132,5 +145,6 @@ if(BUILD_TESTING)
     add_test(NAME run-state-tests COMMAND btrfsbackup-run-state-tests)
     add_test(NAME profile-command-tests COMMAND btrfsbackup-profile-command-tests)
     add_test(NAME installation-tests COMMAND btrfsbackup-installation-tests)
+    add_test(NAME profile-wizard-tests COMMAND btrfsbackup-profile-wizard-tests)
     add_test(NAME status-writer-tests COMMAND btrfsbackup-status-writer-tests)
 endif()
