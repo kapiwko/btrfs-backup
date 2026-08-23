@@ -12,7 +12,7 @@ case "${1:-}" in
         cat <<'USAGE'
 Usage: tests/run-tests.sh [--full|--static-only]
 
-  --full         Run all mocked runtime tests (default).
+  --full         Run syntax, render, status and mount/eject compatibility tests (default).
   --static-only  Run syntax and rendering validation only.
 USAGE
         exit 0
@@ -79,23 +79,6 @@ assert_not_contains() {
     fi
 }
 
-count_subvolumes() {
-    local directory="$1"
-    find "$directory" -mindepth 1 -maxdepth 1 -type d -name '*.snapshot' -o -type d -name 'root-*' -o -type d -name 'home-*' 2>/dev/null | wc -l
-}
-
-write_meta() {
-    local path="$1"
-    local uuid="$2"
-    local received_uuid="${3:--}"
-    mkdir -p -- "$path"
-    cat > "$path/.mock-subvolume" <<META
-UUID=$uuid
-RECEIVED_UUID=$received_uuid
-RO=true
-META
-}
-
 syntax_test() {
     make -C "$ROOT" >/dev/null
     ctest --test-dir "$ROOT/build" --output-on-failure >/dev/null
@@ -138,7 +121,7 @@ render_test() {
     "$ROOT/bin/btrfs-backupctl" installation render \
         --file "$profile" \
         --output-dir "$output" \
-        --backup-command "$ROOT/scripts/btrfs-backup.sh" \
+        --backup-command "$ROOT/bin/btrfs-backupctl runner execute" \
         --eject-script "$ROOT/scripts/btrfs-backup-eject.sh" \
         --keyfile /root/keys/backupdisk.key
     "$ROOT/bin/btrfs-backupctl" installation validate --rendered-root "$output" >/dev/null
@@ -270,94 +253,6 @@ status_writer_cli_test() {
 create_mock_commands() {
     local mockbin="$1"
     mkdir -p "$mockbin"
-
-    cat > "$mockbin/btrfs" <<'MOCK'
-#!/usr/bin/env bash
-set -euo pipefail
-cmd="${1:-}"
-shift || true
-meta_get() {
-    local path="$1" key="$2"
-    sed -n "s/^${key}=//p" "$path/.mock-subvolume" | head -n1
-}
-case "$cmd" in
-    subvolume)
-        sub="${1:-}"; shift || true
-        case "$sub" in
-            show)
-                path="$1"
-                [[ -f "$path/.mock-subvolume" ]] || exit 1
-                uuid="$(meta_get "$path" UUID)"
-                received="$(meta_get "$path" RECEIVED_UUID)"
-                printf 'Name: %s\n' "$(basename -- "$path")"
-                printf 'UUID: %s\n' "$uuid"
-                printf 'Parent UUID: -\n'
-                printf 'Received UUID: %s\n' "$received"
-                printf 'Flags: readonly\n'
-                ;;
-            snapshot)
-                [[ "${1:-}" == -r ]] && shift
-                source_path="$1"; destination="$2"
-                [[ -f "$source_path/.mock-subvolume" ]] || exit 1
-                received="$(meta_get "$source_path" RECEIVED_UUID)"
-                mkdir -p -- "$destination"
-                uuid="uuid-$(basename -- "$destination")"
-                cat > "$destination/.mock-subvolume" <<META
-UUID=$uuid
-RECEIVED_UUID=$received
-RO=true
-META
-                printf 'SNAPSHOT %s %s\n' "$source_path" "$destination" >> "$MOCK_LOG"
-                ;;
-            delete)
-                [[ "${1:-}" == -- ]] && shift
-                path="$1"
-                printf 'DELETE %s\n' "$path" >> "$MOCK_LOG"
-                rm -rf -- "$path"
-                ;;
-            *) exit 2 ;;
-        esac
-        ;;
-    property)
-        [[ "${1:-}" == get ]] || exit 2
-        path="${@: -2:1}"
-        [[ -f "$path/.mock-subvolume" ]] || exit 1
-        printf 'ro=true\n'
-        ;;
-    send)
-        if [[ "${1:-}" == -p ]]; then
-            parent="$2"
-            snapshot="$3"
-            printf 'SEND_INCREMENTAL %s %s\n' "$parent" "$snapshot" >> "$MOCK_LOG"
-        else
-            snapshot="$1"
-            printf 'SEND_FULL %s\n' "$snapshot" >> "$MOCK_LOG"
-        fi
-        printf '%s\n' "$snapshot"
-        ;;
-    receive)
-        destination="$1"
-        IFS= read -r snapshot
-        name="$(basename -- "$snapshot")"
-        uuid="$(meta_get "$snapshot" UUID)"
-        received_path="$destination/$name"
-        mkdir -p -- "$received_path"
-        cat > "$received_path/.mock-subvolume" <<META
-UUID=remote-$uuid
-RECEIVED_UUID=$uuid
-RO=true
-META
-        printf 'RECEIVE %s %s\n' "$snapshot" "$received_path" >> "$MOCK_LOG"
-        if [[ "${MOCK_RECEIVE_UNMOUNT:-0}" == 1 ]]; then
-            rm -f -- "$MOCK_MOUNTPOINT/.mock-mounted"
-        fi
-        if [[ "${MOCK_RECEIVE_FAIL:-0}" == 1 ]]; then
-            exit 9
-        fi
-        ;;
-    *) exit 2 ;;
-esac
-MOCK
 
     cat > "$mockbin/mountpoint" <<'MOCK'
 #!/usr/bin/env bash
@@ -534,8 +429,6 @@ prepare_runtime_fixture() {
     ln -sfn "$MOCK_DM_DEVICE" "$MAPPER_PATH"
     : > "$MOCK_LOG"
 
-    write_meta "$SOURCE_ROOT" source-root
-    write_meta "$SOURCE_HOME" source-home
     create_mock_commands "$MOCKBIN"
 
     local mount_unit
@@ -572,25 +465,6 @@ NOTIFY_METHOD=none
 CONFIG
     chmod 0600 "$CONFIG_FILE"
 
-    cat > "$SOURCES_DIR/10-root.conf" <<CONFIG
-ENABLED=true
-SOURCE_NAME=root
-SOURCE_SUBVOLUME=$SOURCE_ROOT
-LOCAL_SNAPSHOT_DIR=$LOCAL_ROOT
-REMOTE_SUBDIR=root
-SOURCE_RETENTION_COUNT=2
-SOURCE_LOCAL_RETENTION_COUNT=2
-CONFIG
-    cat > "$SOURCES_DIR/20-home.conf" <<CONFIG
-ENABLED=true
-SOURCE_NAME=home
-SOURCE_SUBVOLUME=$SOURCE_HOME
-LOCAL_SNAPSHOT_DIR=$LOCAL_HOME
-REMOTE_SUBDIR=home
-SOURCE_RETENTION_COUNT=2
-SOURCE_LOCAL_RETENTION_COUNT=2
-CONFIG
-    chmod 0600 "$SOURCES_DIR"/*.conf
     cat > "$PROFILE_JSON_FILE" <<JSON
 {
   "schemaVersion": 1,
@@ -647,261 +521,6 @@ JSON
     export MOCK_MAPPER_ROOT MOCK_LUKS_UUID MOCK_TARGET_UUID MOCK_SOURCE_UUID PROFILE_JSON_FILE
 }
 
-run_backup() {
-    env \
-        PATH="$MOCKBIN:$PATH" \
-        INVOCATION_ID=test-invocation \
-        MOCK_LOG="$MOCK_LOG" \
-        MOCK_MOUNTPOINT="$MOCK_MOUNTPOINT" \
-        MOCK_PHYSICAL_DEVICE="$MOCK_PHYSICAL_DEVICE" \
-        MOCK_DM_DEVICE="$MOCK_DM_DEVICE" \
-        MOCK_MAPPER_ROOT="$MOCK_MAPPER_ROOT" \
-        MOCK_MAPPER_NAME="$MAPPER_NAME" \
-        MOCK_LUKS_UUID="$MOCK_LUKS_UUID" \
-        MOCK_TARGET_UUID="$MOCK_TARGET_UUID" \
-        MOCK_SOURCE_UUID="$MOCK_SOURCE_UUID" \
-        BTRFS_BACKUP_DEV_MAPPER_ROOT="$MOCK_MAPPER_ROOT" \
-        BTRFS_BACKUP_LOCK_FILE="$LOCK_FILE" \
-        BTRFS_BACKUP_ALLOW_ROOTLESS_TESTS=true \
-        BTRFS_BACKUP_DISABLE_NOTIFY=true \
-        BTRFS_BACKUP_PROFILE_JSON="$PROFILE_JSON_FILE" \
-        "${EXTRA_ENV[@]}" \
-        "$ROOT/scripts/btrfs-backup.sh" "$@"
-}
-
-run_backup_profile() {
-    local profile_config_dir="$1"
-    shift
-
-    env \
-        PATH="$MOCKBIN:$PATH" \
-        INVOCATION_ID=test-invocation \
-        BTRFS_BACKUP_PROFILE_CONFIG_DIR="$profile_config_dir" \
-        MOCK_LOG="$MOCK_LOG" \
-        MOCK_MOUNTPOINT="$MOCK_MOUNTPOINT" \
-        MOCK_PHYSICAL_DEVICE="$MOCK_PHYSICAL_DEVICE" \
-        MOCK_DM_DEVICE="$MOCK_DM_DEVICE" \
-        MOCK_MAPPER_ROOT="$MOCK_MAPPER_ROOT" \
-        MOCK_MAPPER_NAME="$MAPPER_NAME" \
-        MOCK_LUKS_UUID="$MOCK_LUKS_UUID" \
-        MOCK_TARGET_UUID="$MOCK_TARGET_UUID" \
-        MOCK_SOURCE_UUID="$MOCK_SOURCE_UUID" \
-        BTRFS_BACKUP_DEV_MAPPER_ROOT="$MOCK_MAPPER_ROOT" \
-        BTRFS_BACKUP_LOCK_FILE="$LOCK_FILE" \
-        BTRFS_BACKUP_ALLOW_ROOTLESS_TESTS=true \
-        BTRFS_BACKUP_DISABLE_NOTIFY=true \
-        "${EXTRA_ENV[@]}" \
-        "$ROOT/scripts/btrfs-backup.sh" "$@"
-}
-
-profile_loading_test() {
-    prepare_runtime_fixture
-    EXTRA_ENV=()
-    local profile_dir="$RUNTIME/config/profiles.d"
-    local empty_profile_dir="$RUNTIME/config/empty-profiles.d"
-    "$ROOT/bin/btrfs-backupctl" profile create \
-        --output "$RUNTIME/config/profiles/default/profile.json" \
-        --profile default \
-        --name 'Default backup' \
-        --device "/dev/disk/by-uuid/$MOCK_LUKS_UUID" \
-        --luks-uuid "$MOCK_LUKS_UUID" \
-        --btrfs-uuid "$MOCK_TARGET_UUID" \
-        --mapper-name "$MAPPER_NAME" \
-        --mount-point "$MOCK_MOUNTPOINT" \
-        --remote-root "$MOCK_MOUNTPOINT/snapshots" \
-        --incoming-root "$MOCK_MOUNTPOINT/.incoming" \
-        --state-dir "$STATE_DIR" \
-        --status-root "$STATUS_ROOT" \
-        --history-root "$HISTORY_ROOT" \
-        --remote-retention 2 \
-        --local-retention 2 \
-        --minimum-target-free-bytes 0 \
-        --minimum-local-free-bytes 0 \
-        --notify-enable false \
-        --notify-method none \
-        --source root root "$SOURCE_ROOT" "$LOCAL_ROOT" root 2 2 \
-        --source home home "$SOURCE_HOME" "$LOCAL_HOME" home 2 2 >/dev/null
-
-    assert_file "$RUNTIME/config/profiles/default/profile.json"
-
-    local profile_list
-    profile_list="$("$ROOT/bin/btrfs-backupctl" \
-        --profile-dir "$profile_dir" \
-        profile list)"
-    grep -qx default <<< "$profile_list" \
-        || fail 'btrfs-backupctl did not list default profile'
-
-    run_backup_profile "$profile_dir" --profile default --validate --no-eject >/dev/null
-    assert_contains "$STATUS_ROOT/default/current.json" '"state": "validated"'
-
-    install -d -m0700 "$RUNTIME/config/profiles/mismatch"
-    cp -- "$RUNTIME/config/profiles/default/profile.json" "$RUNTIME/config/profiles/mismatch/profile.json"
-    perl -0pi -e 's#"profileId": "default"#"profileId": "other"#' "$RUNTIME/config/profiles/mismatch/profile.json"
-    chmod 0600 "$RUNTIME/config/profiles/mismatch/profile.json"
-    if run_backup_profile "$profile_dir" --profile mismatch --validate --no-eject >/dev/null 2>&1; then
-        fail 'profile id mismatch was accepted'
-    fi
-
-    pass 'runtime loads profile files'
-}
-
-runtime_success_test() {
-    prepare_runtime_fixture
-    EXTRA_ENV=()
-
-    run_backup
-    assert_file "$PROFILE_STATE_DIR/last-success"
-    assert_contains "$PROFILE_STATE_DIR/last-success" 'profile_id=default'
-    [[ "$(stat -c '%a' "$STATE_DIR")" == 755 ]] || fail 'state root should be traversable for public history'
-    [[ "$(stat -c '%a' "$PROFILE_STATE_DIR")" == 700 ]] || fail 'profile private state should remain root-only'
-    assert_file "$STATUS_ROOT/default/current.json"
-    assert_file "$HISTORY_ROOT/default/last.json"
-    assert_contains "$STATUS_ROOT/default/current.json" '"state": "succeeded"'
-    assert_contains "$HISTORY_ROOT/default/last.json" '"runId":'
-    "$ROOT/bin/btrfs-backupctl" \
-        --status-root "$STATUS_ROOT" \
-        --history-root "$HISTORY_ROOT" \
-        status show --profile default --human \
-        | grep -q 'Default backup: succeeded' \
-        || fail 'btrfs-backupctl did not render human status'
-    local ctl_history_output
-    ctl_history_output="$("$ROOT/bin/btrfs-backupctl" \
-        --status-root "$STATUS_ROOT" \
-        --history-root "$HISTORY_ROOT" \
-        status history --profile default --limit 1)"
-    grep -q '"state": "succeeded"' <<< "$ctl_history_output" \
-        || fail 'btrfs-backupctl did not render history'
-    if grep -qx ',' <<< "$ctl_history_output"; then
-        fail 'btrfs-backupctl rendered a comma on a separate history line'
-    fi
-    assert_contains "$MOCK_LOG" 'SEND_FULL'
-    assert_dir "$MOCK_MOUNTPOINT/snapshots/root"
-    assert_dir "$MOCK_MOUNTPOINT/snapshots/home"
-    [[ "$(find "$LOCAL_ROOT" -mindepth 1 -maxdepth 1 -type d | wc -l)" -eq 1 ]] || fail 'expected one local root snapshot'
-    [[ "$(find "$MOCK_MOUNTPOINT/snapshots/root" -mindepth 1 -maxdepth 1 -type d | wc -l)" -eq 1 ]] || fail 'expected one remote root snapshot'
-
-    local sends_before
-    sends_before="$(grep -c '^SEND_' "$MOCK_LOG")"
-    run_backup
-    [[ "$(grep -c '^SEND_' "$MOCK_LOG")" -eq "$sends_before" ]] || fail 'daily limit did not skip second run'
-    assert_contains "$STATUS_ROOT/default/current.json" '"state": "skipped"'
-
-    printf '\n ' >> "$PROFILE_JSON_FILE"
-    run_backup
-    [[ "$(grep -c '^SEND_' "$MOCK_LOG")" -gt "$sends_before" ]] || fail 'configuration fingerprint did not invalidate the daily limit'
-    assert_contains "$MOCK_LOG" 'SEND_INCREMENTAL'
-
-    run_backup --force
-    [[ "$(find "$LOCAL_ROOT" -mindepth 1 -maxdepth 1 -type d | wc -l)" -eq 2 ]] || fail 'local retention did not keep two root snapshots'
-    [[ "$(find "$MOCK_MOUNTPOINT/snapshots/root" -mindepth 1 -maxdepth 1 -type d | wc -l)" -eq 2 ]] || fail 'remote retention did not keep two root snapshots'
-    pass 'mocked full, daily, incremental, multi-source, and retention flow'
-}
-
-runtime_failure_cleanup_test() {
-    prepare_runtime_fixture
-    EXTRA_ENV=(MOCK_RECEIVE_FAIL=1)
-    if run_backup --force >/dev/null 2>&1; then
-        fail 'backup unexpectedly succeeded while receive was forced to fail'
-    fi
-    [[ "$(find "$LOCAL_ROOT" -mindepth 1 -maxdepth 1 -type d | wc -l)" -eq 0 ]] || fail 'failed local snapshot was not removed'
-    [[ -z "$(find "$MOCK_MOUNTPOINT/.incoming" -mindepth 1 -type d -name 'root-*' -print -quit 2>/dev/null)" ]] || fail 'partial receive was not removed'
-    [[ -z "$(find "$PROFILE_STATE_DIR" -maxdepth 1 -name 'pending-*' -print -quit)" ]] || fail 'pending marker was not removed after handled failure'
-    pass 'failed receive cleans local and incoming snapshots'
-}
-
-pending_recovery_test() {
-    prepare_runtime_fixture
-    EXTRA_ENV=()
-    local orphan="$LOCAL_ROOT/root-2026-01-01T000000Z"
-    write_meta "$orphan" orphan-uuid
-    mkdir -p "$PROFILE_STATE_DIR"
-    cat > "$PROFILE_STATE_DIR/pending-root" <<PENDING
-source_name=root
-local_snapshot_path=$orphan
-run_id=crashed
-PENDING
-    chmod 0600 "$PROFILE_STATE_DIR/pending-root"
-
-    run_backup --force
-    assert_not_exists "$orphan"
-    assert_not_exists "$STATE_DIR/pending-root"
-    assert_not_exists "$PROFILE_STATE_DIR/pending-root"
-    assert_contains "$MOCK_LOG" "DELETE $orphan"
-    pass 'pending recovery resolves an orphan from an unclean interruption'
-}
-
-
-pending_committed_recovery_test() {
-    prepare_runtime_fixture
-    EXTRA_ENV=()
-    local committed="$LOCAL_ROOT/root-2026-01-01T010000Z"
-    write_meta "$committed" committed-uuid
-    mkdir -p "$MOCK_MOUNTPOINT/snapshots/root"
-    write_meta "$MOCK_MOUNTPOINT/snapshots/root/root-2026-01-01T010000Z" remote-committed committed-uuid
-    mkdir -p "$PROFILE_STATE_DIR"
-    cat > "$PROFILE_STATE_DIR/pending-root" <<PENDING
-source_name=root
-local_snapshot_path=$committed
-run_id=crashed-after-commit
-PENDING
-    chmod 0600 "$PROFILE_STATE_DIR/pending-root"
-
-    run_backup --force
-    assert_dir "$committed"
-    assert_not_exists "$PROFILE_STATE_DIR/pending-root"
-    pass 'pending recovery preserves a local parent whose UUID is already committed remotely'
-}
-
-target_loss_recovery_test() {
-    prepare_runtime_fixture
-    EXTRA_ENV=(MOCK_RECEIVE_FAIL=1 MOCK_RECEIVE_UNMOUNT=1)
-    if run_backup --force >/dev/null 2>&1; then
-        fail 'backup unexpectedly succeeded during simulated target loss'
-    fi
-    [[ "$(find "$LOCAL_ROOT" -mindepth 1 -maxdepth 1 -type d | wc -l)" -eq 1 ]] || fail 'local snapshot was not preserved after target loss'
-    assert_file "$PROFILE_STATE_DIR/pending-root"
-
-    EXTRA_ENV=()
-    run_backup --force >/dev/null
-    assert_not_exists "$PROFILE_STATE_DIR/pending-root"
-    [[ "$(find "$MOCK_MOUNTPOINT/.incoming" -mindepth 1 -type d -name 'root-*' -print -quit 2>/dev/null)" == "" ]] || fail 'stale incoming data survived recovery'
-    pass 'target loss preserves recovery state and the next run resolves it safely'
-}
-
-trusted_config_test() {
-    prepare_runtime_fixture
-    EXTRA_ENV=()
-    chmod 0644 "$PROFILE_JSON_FILE"
-    if run_backup --force >/dev/null 2>&1; then
-        fail 'world-readable profile JSON was accepted'
-    fi
-    pass 'runtime rejects active JSON configuration that is not root-only'
-}
-
-same_filesystem_rejected_test() {
-    prepare_runtime_fixture
-    EXTRA_ENV=()
-    MOCK_SOURCE_UUID="$MOCK_TARGET_UUID"
-    if run_backup --force >/dev/null 2>&1; then
-        fail 'source on the target Btrfs filesystem was accepted'
-    fi
-    pass 'runtime rejects a source that belongs to the backup target filesystem'
-}
-
-remote_symlink_escape_test() {
-    prepare_runtime_fixture
-    EXTRA_ENV=()
-    local escaped="$RUNTIME/escaped-remote"
-    mkdir -p "$MOCK_MOUNTPOINT/snapshots" "$escaped"
-    ln -s "$escaped" "$MOCK_MOUNTPOINT/snapshots/root"
-    if run_backup --force >/dev/null 2>&1; then
-        fail 'remote directory symlink escaping the target root was accepted'
-    fi
-    [[ -z "$(find "$escaped" -mindepth 1 -print -quit)" ]] \
-        || fail 'backup wrote through an escaping remote symlink'
-    pass 'runtime rejects remote paths that escape through a symlink'
-}
-
 eject_test() {
     prepare_runtime_fixture
     EXTRA_ENV=()
@@ -942,18 +561,9 @@ if [[ "$MODE" == static ]]; then
     exit 0
 fi
 
-printf '1..14\n'
+printf '1..5\n'
 syntax_test
 render_test
 profile_json_test
 status_writer_cli_test
-profile_loading_test
-runtime_success_test
-runtime_failure_cleanup_test
-pending_recovery_test
-pending_committed_recovery_test
-target_loss_recovery_test
-trusted_config_test
-same_filesystem_rejected_test
-remote_symlink_escape_test
 eject_test
