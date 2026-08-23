@@ -10,10 +10,10 @@ The project backs up one or more Btrfs subvolumes to a removable Btrfs disk plac
 matching LUKS partition appears
         |
         v
-udev rule sets SYSTEMD_WANTS=btrfs-backup.service
+udev rule sets SYSTEMD_WANTS=btrfs-backup@<PROFILE_ID>.service
         |
         v
-btrfs-backup.service
+btrfs-backup@<PROFILE_ID>.service
         |
         |-- flock lock
         |-- daily limit and configuration fingerprint check
@@ -49,7 +49,7 @@ The udev rule is only responsible for starting the service on an `add` event. Th
 
 The mount unit does not start the backup service. The service starts the mount unit itself, so there is no `service -> mount -> service` dependency cycle.
 
-The service has no `[Install]` section and is not intended to be enabled with `systemctl enable`.
+The service templates have no `[Install]` section and are not intended to be enabled with `systemctl enable`.
 
 ## Commit Model
 

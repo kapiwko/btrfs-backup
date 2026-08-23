@@ -137,7 +137,8 @@ Backups should be checked regularly with a restore test. A successful transfer e
 4. [recovery](docs/recovery.md);
 5. [testing](docs/testing.md);
 6. [status API](docs/status-api.md);
-7. [release and packaging](docs/packaging.md).
+7. [engine contract](docs/engine-contract.md);
+8. [release and packaging](docs/packaging.md).
 
 ## Security and Limits
 

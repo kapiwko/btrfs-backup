@@ -4,6 +4,9 @@ The runtime writes machine-readable JSON state for each configured profile.
 This file-based interface is intended for tools and integrations that need
 status without parsing journal text.
 
+The broader engine boundary is described in
+[engine-contract.md](engine-contract.md).
+
 ## Current Status
 
 Current status is written atomically to:
