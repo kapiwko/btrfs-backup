@@ -2,9 +2,9 @@
 #include <sstream>
 #include <string>
 
-#include <btrfsbackup/history.hpp>
-#include <btrfsbackup/profile_list.hpp>
-#include <btrfsbackup/status.hpp>
+#include <btrfsbackup/command/profile_list_command.hpp>
+#include <btrfsbackup/command/status_history_command.hpp>
+#include <btrfsbackup/command/status_show_command.hpp>
 
 #include "test_helpers.hpp"
 
@@ -20,7 +20,7 @@ void test_history_without_directory_returns_empty_array() {
     fs::path root = test_root("history-empty");
     std::ostringstream output;
 
-    btrfsbackup::command_history(root / "history", {}, output);
+    btrfsbackup::command::status_history(root / "history", {}, output);
 
     test_helpers::expect_eq("history without directory", output.str(), "[]\n");
     fs::remove_all(root);
@@ -31,7 +31,7 @@ void test_status_falls_back_to_last_json() {
     test_helpers::write_file(root / "history" / "default" / "last.json", "{\"profileId\":\"default\",\"state\":\"ok\"}\n");
     std::ostringstream output;
 
-    btrfsbackup::command_status(root / "status", root / "history", {}, output);
+    btrfsbackup::command::status_show(root / "status", root / "history", {}, output);
 
     test_helpers::expect_eq("status fallback", output.str(), "{\"profileId\":\"default\",\"state\":\"ok\"}\n");
     fs::remove_all(root);
@@ -43,7 +43,7 @@ void test_list_profiles_from_json_files() {
     test_helpers::write_file(root / "profiles" / "default" / "profile.json", "{}\n");
     std::ostringstream output;
 
-    btrfsbackup::command_list_profiles(root / "profiles.d", root / "profiles", output);
+    btrfsbackup::command::profile_list(root / "profiles.d", root / "profiles", output);
 
     test_helpers::expect_eq("list profiles", output.str(), "beta\ndefault\n");
     fs::remove_all(root);
@@ -65,7 +65,7 @@ void test_status_human_format() {
     );
     std::ostringstream output;
 
-    btrfsbackup::command_status(root / "status", root / "history", {"--human"}, output);
+    btrfsbackup::command::status_show(root / "status", root / "history", {"--human"}, output);
 
     test_helpers::expect_contains("human status", output.str(), "Default backup: running\n");
     test_helpers::expect_contains("human phase", output.str(), "  phase: send\n");
@@ -82,7 +82,7 @@ void test_list_profiles_rejects_invalid_name() {
         "invalid profile",
         [&] {
             std::ostringstream output;
-            btrfsbackup::command_list_profiles(root / "profiles.d", root / "profiles", output);
+            btrfsbackup::command::profile_list(root / "profiles.d", root / "profiles", output);
         },
         "invalid profile id"
     );
@@ -96,7 +96,7 @@ void test_history_limit() {
     test_helpers::write_file(root / "history" / "default" / "last.json", "{\"id\":3}");
     std::ostringstream output;
 
-    btrfsbackup::command_history(root / "history", {"--limit", "1"}, output);
+    btrfsbackup::command::status_history(root / "history", {"--limit", "1"}, output);
 
     test_helpers::expect_eq("history limit", output.str(), "[\n{\"id\":2}\n]\n");
     fs::remove_all(root);

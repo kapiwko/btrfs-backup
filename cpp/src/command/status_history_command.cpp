@@ -1,4 +1,4 @@
-#include <btrfsbackup/history.hpp>
+#include <btrfsbackup/command/status_history_command.hpp>
 
 #include <algorithm>
 #include <filesystem>
@@ -51,9 +51,9 @@ std::vector<fs::path> sorted_files(const fs::path& directory, const std::string&
 
 } // namespace
 
-namespace btrfsbackup {
+namespace btrfsbackup::command {
 
-void command_history(const fs::path& history_root, const std::vector<std::string>& args, std::ostream& output) {
+void status_history(const fs::path& history_root, const std::vector<std::string>& args, std::ostream& output) {
     std::string profile = "default";
     int limit = 50;
 
@@ -102,4 +102,4 @@ void command_history(const fs::path& history_root, const std::vector<std::string
     output << "\n]\n";
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::command

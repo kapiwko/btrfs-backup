@@ -1,4 +1,4 @@
-#include <btrfsbackup/profile_list.hpp>
+#include <btrfsbackup/command/profile_list_command.hpp>
 
 #include <algorithm>
 #include <filesystem>
@@ -40,9 +40,9 @@ std::vector<fs::path> sorted_profile_json_files(const fs::path& directory) {
 
 } // namespace
 
-namespace btrfsbackup {
+namespace btrfsbackup::command {
 
-void command_list_profiles(
+void profile_list(
     const fs::path&,
     const fs::path& profile_root_dir,
     std::ostream& output
@@ -63,4 +63,4 @@ void command_list_profiles(
     }
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::command

@@ -6,7 +6,7 @@
 
 namespace btrfsbackup::command {
 
-void write_status(
+void status_write(
     const std::filesystem::path& status_root,
     const std::filesystem::path& history_root,
     const std::vector<std::string>& args

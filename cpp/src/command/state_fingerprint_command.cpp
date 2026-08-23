@@ -1,4 +1,4 @@
-#include <btrfsbackup/command/config_fingerprint_command.hpp>
+#include <btrfsbackup/command/state_fingerprint_command.hpp>
 
 #include <filesystem>
 #include <ostream>
@@ -23,7 +23,7 @@ std::string arg_value(const std::vector<std::string>& args, std::size_t& index, 
 
 namespace btrfsbackup::command {
 
-void config_fingerprint(const std::vector<std::string>& args, std::ostream& output) {
+void state_fingerprint(const std::vector<std::string>& args, std::ostream& output) {
     std::string version;
     fs::path config_file;
     std::vector<fs::path> source_files;
