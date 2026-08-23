@@ -3,8 +3,6 @@
 ## C++ Runtime Migration
 
 - Expand `BackupRunExecutor` parity coverage:
-  - full backup without parent;
-  - incremental backup with parent;
   - pending incoming recovery;
   - interrupted send/receive;
   - failed receive after successful send;
