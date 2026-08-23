@@ -233,6 +233,8 @@ status_writer_cli_test() {
         --error-message '' \
         --recoverable false \
         --suggested-action '' \
+        --can-cancel false \
+        --safe-to-remove false \
         --exit-code 0
 
     assert_file "$current"
@@ -245,6 +247,8 @@ status_writer_cli_test() {
     assert_contains "$current" '"message": "Backup \"done\"\nLine"'
     assert_contains "$current" '"errorCode": ""'
     assert_contains "$current" '"errorMessage": ""'
+    assert_contains "$current" '"canCancel": false'
+    assert_contains "$current" '"safeToRemove": false'
     assert_contains "$history" '"currentSourceName": "home"'
 
     "$ROOT/bin/btrfs-backupctl" \

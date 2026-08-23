@@ -43,6 +43,8 @@ Example:
   "details": {},
   "recoverable": false,
   "suggestedAction": "",
+  "canCancel": false,
+  "safeToRemove": false,
   "exitCode": 0
 }
 ```
@@ -76,6 +78,27 @@ failed
 validated
 skipped
 ```
+
+Future runner implementations should add progress fields without changing the
+meaning of existing keys:
+
+| Field | Meaning |
+|---|---|
+| `currentSourceId` | stable id of the currently processed source |
+| `sourceProgress` | percentage for the current source, or `-1` when unknown |
+| `overallProgress` | percentage for the whole run, or `-1` when unknown |
+| `progressAccuracy` | `exact`, `estimated`, or `indeterminate` |
+| `bytesProcessed` | bytes transferred or processed in the current stream |
+| `bytesTotalEstimated` | estimated total bytes for the current stream |
+| `runBytesProcessed` | bytes already completed across earlier sources |
+| `speedBps` | current transfer speed in bytes per second |
+| `etaSeconds` | estimated seconds remaining, or `-1` when unknown |
+| `durationSeconds` | total duration for a finished run |
+| `canCancel` | whether a client should offer cancellation |
+| `safeToRemove` | whether the target was logically unmounted and closed |
+
+Clients must treat progress as advisory. Unknown or estimated progress must not
+be displayed as a precise guarantee.
 
 ## History
 
