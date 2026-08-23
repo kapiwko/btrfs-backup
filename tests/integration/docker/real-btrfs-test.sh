@@ -281,6 +281,8 @@ configure_backup_with_cli "$TARGET_LOOP" "$TARGET_LUKS_UUID" "$TARGET_BTRFS_UUID
 pass 'installed CLI renders, installs, and validates configuration'
 validate_runtime_preflight
 pass 'installed runtime validates the mounted target'
+btrfs-backup-mount >/dev/null
+pass 'installed mount command validates the mounted target'
 with_restored_file /etc/btrfs-backup/backup.env target_uuid_mismatch_test
 with_restored_file /etc/btrfs-backup/sources.d/10-home.conf source_on_target_test
 
