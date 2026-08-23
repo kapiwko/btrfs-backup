@@ -187,6 +187,29 @@ void test_executes_actions_and_writes_durable_checkpoints() {
     test_helpers::expect_true("run completed event", events.has_event(btrfsbackup::BackupRunEventKind::RunCompleted), "missing completion event");
 }
 
+void test_pending_recovery_runs_before_source_cleanup() {
+    RecordingEffects effects;
+    RecordingTransferPipeline transfers;
+    RecordingCheckpoints checkpoints;
+    RecordingEvents events;
+    btrfsbackup::CancellationToken cancellation;
+    btrfsbackup::BackupRunExecutor executor(effects, transfers, checkpoints);
+
+    btrfsbackup::BackupRunPlan plan = plan_with_actions({
+        action(btrfsbackup::BackupRunActionKind::RecoverPending),
+        action(btrfsbackup::BackupRunActionKind::CleanupIncoming),
+        action(btrfsbackup::BackupRunActionKind::CreateSnapshot),
+    });
+
+    btrfsbackup::BackupRunExecutionResult result = executor.execute(plan, events, cancellation);
+
+    test_helpers::expect_true("pending recovery completed", result.completed, "run should complete");
+    test_helpers::expect_eq("pending recovery first effect", effects.calls.at(0), "root:" + action_name(btrfsbackup::BackupRunActionKind::RecoverPending));
+    test_helpers::expect_eq("pending recovery second effect", effects.calls.at(1), "root:" + action_name(btrfsbackup::BackupRunActionKind::CleanupIncoming));
+    test_helpers::expect_eq("pending recovery checkpoint count", std::to_string(checkpoints.checkpoints.size()), "3");
+    test_helpers::expect_eq("pending recovery first checkpoint", action_name(checkpoints.checkpoints.at(0).action_kind), action_name(btrfsbackup::BackupRunActionKind::RecoverPending));
+}
+
 void test_send_receive_delegates_to_transfer_pipeline() {
     RecordingEffects effects;
     RecordingTransferPipeline transfers;
@@ -402,6 +425,7 @@ void test_local_retention_failure_keeps_remote_retention_checkpoint() {
 int main() {
     test_full_backup_flow_without_parent();
     test_executes_actions_and_writes_durable_checkpoints();
+    test_pending_recovery_runs_before_source_cleanup();
     test_send_receive_delegates_to_transfer_pipeline();
     test_cancels_between_actions();
     test_cancels_during_transfer_without_checkpointing_transfer();
