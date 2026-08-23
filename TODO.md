@@ -8,6 +8,18 @@
   - remove Bash runtime code only after the C++ runner completes full,
     incremental, failure and recovery scenarios.
 
+- Add application-consistency hooks to the C++ run plan:
+  - support controlled `beforeSnapshot` and `afterSnapshot` hook phases;
+  - model each hook as an explicit executable path plus an argument array;
+  - never execute arbitrary text through a shell;
+  - record hook start, success, failure, timeout and cancellation as stable
+    runner events with structured error codes;
+  - make hook effects checkpoint-aware so pending recovery can distinguish
+    failure before snapshot creation from failure after snapshot creation;
+  - leave integration-specific helpers, such as PostgreSQL, MariaDB, libvirt,
+    containers and virtual machines, as ordinary administrator-provided
+    programs until a typed integration is justified.
+
 ## Repository And Restore Roadmap
 
 - Add repository metadata on the target:
