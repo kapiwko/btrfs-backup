@@ -268,6 +268,27 @@ void test_verify_commit_retention_and_cleanup_use_existing_helpers() {
     ) != btrfs.calls.end(), "cleanup should delete received subvolume");
 }
 
+void test_send_receive_prepares_remote_and_incoming_directories() {
+    fs::path root = test_helpers::test_root("backup-run-action-effects", "send-receive");
+    btrfsbackup::BackupSourceRunPlan source = source_plan(root);
+    FakeBtrfsOperations btrfs;
+    FakeFileSystemEffects fs_effects;
+    btrfsbackup::BackupRunActionEffects effects(btrfs, fs_effects);
+
+    effects.execute_action(action(btrfsbackup::BackupRunActionKind::SendReceive), source, run_plan());
+
+    test_helpers::expect_true("remote dir", std::find(
+        fs_effects.calls.begin(),
+        fs_effects.calls.end(),
+        action_path("mkdir", source.remote_snapshot_dir)
+    ) != fs_effects.calls.end(), "remote snapshot directory should be created");
+    test_helpers::expect_true("incoming run dir", std::find(
+        fs_effects.calls.begin(),
+        fs_effects.calls.end(),
+        action_path("mkdir", source.incoming_run_dir)
+    ) != fs_effects.calls.end(), "incoming run directory should be created before receive");
+}
+
 void test_hook_actions_use_command_runner_argv() {
     fs::path root = test_helpers::test_root("backup-run-action-effects", "hooks");
     btrfsbackup::BackupSourceRunPlan source = source_plan(root);
@@ -304,6 +325,7 @@ int main() {
     test_create_snapshot_writes_pending_marker_and_verifies_readonly_snapshot();
     test_cleanup_incoming_deletes_subvolumes_and_plain_paths();
     test_verify_commit_retention_and_cleanup_use_existing_helpers();
+    test_send_receive_prepares_remote_and_incoming_directories();
     test_hook_actions_use_command_runner_argv();
     test_hook_failure_is_reported_as_validation_error();
 
