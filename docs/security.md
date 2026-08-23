@@ -25,8 +25,8 @@ and symbolic links before loading the profile.
 
 Configuration is data, not executable code. The runtime must not `source` active
 profile JSON, interpolate shell commands, or execute arbitrary text from the
-profile. Any future hook model must pass an explicit program path and argument
-array to the process runner.
+profile. Application hooks pass an explicit program path and argument array to
+the process runner.
 
 Profile writes must use same-directory temporary files, strict permissions,
 `fsync`, atomic rename, and parent-directory `fsync` where practical. Render and

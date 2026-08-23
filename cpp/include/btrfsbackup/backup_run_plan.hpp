@@ -19,7 +19,9 @@ namespace btrfsbackup {
 enum class BackupRunActionKind {
     RecoverPending,
     CleanupIncoming,
+    BeforeSnapshotHook,
     CreateSnapshot,
+    AfterSnapshotHook,
     SelectParent,
     SendReceive,
     VerifyReceived,
@@ -34,6 +36,7 @@ struct BackupRunAction {
     std::string source_id;
     std::filesystem::path primary_path;
     std::filesystem::path secondary_path;
+    ProfileHookCommand hook;
 };
 
 struct BackupSourceRunPlan {

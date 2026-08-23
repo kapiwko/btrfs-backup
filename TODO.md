@@ -40,9 +40,6 @@
     in status updates.
 
 - Add application-consistency hooks to the C++ run plan:
-  - support controlled `beforeSnapshot` and `afterSnapshot` hook phases;
-  - model each hook as an explicit executable path plus an argument array;
-  - never execute arbitrary text through a shell;
   - record hook start, success, failure, timeout and cancellation as stable
     runner events with structured error codes;
   - make hook effects checkpoint-aware so pending recovery can distinguish

@@ -163,8 +163,12 @@ std::string backup_run_action_kind_name(BackupRunActionKind kind) {
             return "recover-pending";
         case BackupRunActionKind::CleanupIncoming:
             return "cleanup-incoming";
+        case BackupRunActionKind::BeforeSnapshotHook:
+            return "before-snapshot-hook";
         case BackupRunActionKind::CreateSnapshot:
             return "create-snapshot";
+        case BackupRunActionKind::AfterSnapshotHook:
+            return "after-snapshot-hook";
         case BackupRunActionKind::SelectParent:
             return "select-parent";
         case BackupRunActionKind::SendReceive:

@@ -99,6 +99,20 @@ void test_schema_requires_cpp_required_fields() {
         "byte count maximum should match C++ validator"
     );
 
+    const Json& hooks = root.at("properties").at("hooks");
+    expect_no_additional_properties("schema hooks additional", hooks);
+    test_helpers::expect_true("schema before hooks", hooks.at("properties").contains("beforeSnapshot"), "schema should document beforeSnapshot hooks");
+    test_helpers::expect_true("schema after hooks", hooks.at("properties").contains("afterSnapshot"), "schema should document afterSnapshot hooks");
+    const Json& hook_list = root.at("$defs").at("hookList");
+    test_helpers::expect_true("schema hook max", hook_list.at("maxItems") == 64, "hook max should match C++ validator");
+    const Json& hook = hook_list.at("items");
+    expect_no_additional_properties("schema hook additional", hook);
+    expect_required("schema hook type", hook, "type");
+    expect_required("schema hook program", hook, "program");
+    expect_required("schema hook arguments", hook, "arguments");
+    test_helpers::expect_true("schema hook type const", hook.at("properties").at("type").at("const") == "program", "only program hooks should be supported");
+    test_helpers::expect_true("schema hook arg max", hook.at("properties").at("arguments").at("maxItems") == 128, "hook argument max should match C++ validator");
+
     const Json& source = root.at("properties").at("sources").at("items");
     expect_no_additional_properties("schema source additional", source);
     expect_required("schema source id", source, "id");

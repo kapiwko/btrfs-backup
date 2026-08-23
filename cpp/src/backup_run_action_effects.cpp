@@ -6,6 +6,7 @@
 #include <optional>
 #include <sstream>
 #include <string>
+#include <vector>
 
 #include <btrfsbackup/errors.hpp>
 #include <btrfsbackup/run_state.hpp>
@@ -149,11 +150,36 @@ void cleanup_source(IBtrfsOperations& btrfs, IFileSystemEffects& fs_effects, con
     clear_pending_marker(source_plan.recovery.marker_path, profile_state_dir_for_source(source_plan));
 }
 
+void run_hook(ICommandRunner* hooks, const BackupRunAction& action) {
+    if (hooks == nullptr) {
+        throw ValidationError("hook execution is not configured");
+    }
+    if (action.hook.program.empty()) {
+        throw ValidationError("hook program is required");
+    }
+
+    std::vector<std::string> argv;
+    argv.reserve(action.hook.arguments.size() + 1);
+    argv.push_back(action.hook.program);
+    argv.insert(argv.end(), action.hook.arguments.begin(), action.hook.arguments.end());
+
+    CommandResult result = hooks->run(argv);
+    if (result.exit_code != 0) {
+        throw ValidationError("hook failed: " + action.hook.program);
+    }
+}
+
 } // namespace
 
 BackupRunActionEffects::BackupRunActionEffects(IBtrfsOperations& btrfs, IFileSystemEffects& fs_effects)
     : btrfs_(btrfs),
       fs_effects_(fs_effects) {
+}
+
+BackupRunActionEffects::BackupRunActionEffects(IBtrfsOperations& btrfs, IFileSystemEffects& fs_effects, ICommandRunner& hooks)
+    : btrfs_(btrfs),
+      fs_effects_(fs_effects),
+      hooks_(&hooks) {
 }
 
 void BackupRunActionEffects::execute_action(
@@ -167,6 +193,10 @@ void BackupRunActionEffects::execute_action(
             return;
         case BackupRunActionKind::CleanupIncoming:
             cleanup_directory_contents(btrfs_, fs_effects_, source_plan.incoming_source_root);
+            return;
+        case BackupRunActionKind::BeforeSnapshotHook:
+        case BackupRunActionKind::AfterSnapshotHook:
+            run_hook(hooks_, action);
             return;
         case BackupRunActionKind::CreateSnapshot:
             create_local_snapshot(btrfs_, fs_effects_, source_plan, run_plan);

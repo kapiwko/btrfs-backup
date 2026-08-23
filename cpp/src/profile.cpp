@@ -104,6 +104,16 @@ Json object_or_empty(const Json& root, const std::string& key, const std::string
     return root.at(key);
 }
 
+Json array_or_empty(const Json& root, const std::string& key, const std::string& name) {
+    if (!root.contains(key) || root.at(key).is_null()) {
+        return Json::array();
+    }
+    if (!root.at(key).is_array()) {
+        throw ValidationError(name + " must be an array");
+    }
+    return root.at(key);
+}
+
 Json required_object(const Json& root, const std::string& key, const std::string& name) {
     if (!root.contains(key) || !root.at(key).is_object()) {
         throw ValidationError(name + " must be an object");
@@ -127,6 +137,48 @@ const Json& required_value(const Json& root, const std::string& key, const std::
         throw ValidationError(name + " is required");
     }
     return root.at(key);
+}
+
+Json normalize_hook_commands(const Json& hooks, const std::string& key, const std::string& name) {
+    Json commands = array_or_empty(hooks, key, name);
+    if (commands.size() > 64) {
+        throw ValidationError(name + " supports at most 64 hooks");
+    }
+
+    Json normalized = Json::array();
+    for (std::size_t index = 0; index < commands.size(); ++index) {
+        const Json& item = commands.at(index);
+        const std::string item_name = name + "[" + std::to_string(index) + "]";
+        if (!item.is_object()) {
+            throw ValidationError(item_name + " must be an object");
+        }
+        reject_unknown_properties(item, {"type", "program", "arguments"}, item_name);
+        std::string type = text(required_value(item, "type", item_name + ".type"), item_name + ".type", false, 32);
+        if (type != "program") {
+            throw ValidationError(item_name + ".type must be program");
+        }
+
+        Json arguments = array_or_empty(item, "arguments", item_name + ".arguments");
+        if (arguments.size() > 128) {
+            throw ValidationError(item_name + ".arguments supports at most 128 arguments");
+        }
+        Json normalized_arguments = Json::array();
+        for (std::size_t argument_index = 0; argument_index < arguments.size(); ++argument_index) {
+            normalized_arguments.push_back(text(
+                arguments.at(argument_index),
+                item_name + ".arguments[" + std::to_string(argument_index) + "]",
+                true,
+                4096
+            ));
+        }
+
+        normalized.push_back({
+            {"type", type},
+            {"program", absolute_path(required_value(item, "program", item_name + ".program"), item_name + ".program")},
+            {"arguments", normalized_arguments}
+        });
+    }
+    return normalized;
 }
 
 bool systemd_unit_plain_char(unsigned char c) {
@@ -253,7 +305,7 @@ Json normalize_profile(const Json& raw) {
     }
     reject_unknown_properties(
         raw,
-        {"schemaVersion", "profileId", "name", "enabled", "target", "paths", "settings", "notifications", "sources"},
+        {"schemaVersion", "profileId", "name", "enabled", "target", "paths", "settings", "notifications", "hooks", "sources"},
         "profile"
     );
     if (!raw.contains("schemaVersion") || raw.at("schemaVersion") != schema_version) {
@@ -311,6 +363,7 @@ Json normalize_profile(const Json& raw) {
 
     Json settings = object_or_empty(raw, "settings", "settings");
     Json notifications = object_or_empty(raw, "notifications", "notifications");
+    Json hooks = object_or_empty(raw, "hooks", "hooks");
     reject_unknown_properties(
         settings,
         {
@@ -329,6 +382,11 @@ Json normalize_profile(const Json& raw) {
         notifications,
         {"enabled", "user", "method"},
         "notifications"
+    );
+    reject_unknown_properties(
+        hooks,
+        {"beforeSnapshot", "afterSnapshot"},
+        "hooks"
     );
     std::string notify_method = text(notifications.value("method", "auto"), "notifications.method");
     if (notify_method != "auto" && notify_method != "desktop" && notify_method != "journal" && notify_method != "none") {
@@ -429,6 +487,10 @@ Json normalize_profile(const Json& raw) {
             {"user", text(notifications.value("user", ""), "notifications.user", true, 256)},
             {"method", notify_method}
         }},
+        {"hooks", {
+            {"beforeSnapshot", normalize_hook_commands(hooks, "beforeSnapshot", "hooks.beforeSnapshot")},
+            {"afterSnapshot", normalize_hook_commands(hooks, "afterSnapshot", "hooks.afterSnapshot")}
+        }},
         {"sources", sources}
     };
 }
@@ -474,6 +536,20 @@ Profile profile_from_json(const Json& raw) {
     profile.notifications.user = notifications.at("user").get<std::string>();
     profile.notifications.method = notifications.at("method").get<std::string>();
 
+    const Json& hooks = normalized.at("hooks");
+    for (const Json& item : hooks.at("beforeSnapshot")) {
+        profile.hooks.before_snapshot.push_back({
+            .program = item.at("program").get<std::string>(),
+            .arguments = item.at("arguments").get<std::vector<std::string>>(),
+        });
+    }
+    for (const Json& item : hooks.at("afterSnapshot")) {
+        profile.hooks.after_snapshot.push_back({
+            .program = item.at("program").get<std::string>(),
+            .arguments = item.at("arguments").get<std::vector<std::string>>(),
+        });
+    }
+
     for (const Json& item : normalized.at("sources")) {
         profile.sources.push_back({
             .id = item.at("id").get<std::string>(),
@@ -517,6 +593,18 @@ Json profile_to_json(const Profile& profile) {
         target["mountUnit"] = profile.target.mount_unit;
     }
 
+    auto hooks_to_json = [](const std::vector<ProfileHookCommand>& hooks) {
+        Json result = Json::array();
+        for (const ProfileHookCommand& hook : hooks) {
+            result.push_back({
+                {"type", "program"},
+                {"program", hook.program},
+                {"arguments", hook.arguments}
+            });
+        }
+        return result;
+    };
+
     return {
         {"schemaVersion", profile.schema_version},
         {"profileId", profile.id},
@@ -545,6 +633,10 @@ Json profile_to_json(const Profile& profile) {
             {"enabled", profile.notifications.enabled},
             {"user", profile.notifications.user},
             {"method", profile.notifications.method}
+        }},
+        {"hooks", {
+            {"beforeSnapshot", hooks_to_json(profile.hooks.before_snapshot)},
+            {"afterSnapshot", hooks_to_json(profile.hooks.after_snapshot)}
         }},
         {"sources", sources}
     };

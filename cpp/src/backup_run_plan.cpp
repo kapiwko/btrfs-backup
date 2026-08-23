@@ -115,13 +115,15 @@ void add_action(
     btrfsbackup::BackupRunActionKind kind,
     const std::string& source_id,
     const fs::path& primary_path = {},
-    const fs::path& secondary_path = {}
+    const fs::path& secondary_path = {},
+    const btrfsbackup::ProfileHookCommand& hook = {}
 ) {
     actions.push_back({
         .kind = kind,
         .source_id = source_id,
         .primary_path = primary_path,
         .secondary_path = secondary_path,
+        .hook = hook,
     });
 }
 
@@ -227,7 +229,13 @@ BackupRunPlan build_backup_run_plan(
             add_action(source_plan.actions, BackupRunActionKind::RecoverPending, source.id, recovery.local_snapshot_path);
         }
         add_action(source_plan.actions, BackupRunActionKind::CleanupIncoming, source.id, incoming_source_root);
+        for (const ProfileHookCommand& hook : profile.hooks.before_snapshot) {
+            add_action(source_plan.actions, BackupRunActionKind::BeforeSnapshotHook, source.id, {}, {}, hook);
+        }
         add_action(source_plan.actions, BackupRunActionKind::CreateSnapshot, source.id, local_snapshot_path, source.subvolume);
+        for (const ProfileHookCommand& hook : profile.hooks.after_snapshot) {
+            add_action(source_plan.actions, BackupRunActionKind::AfterSnapshotHook, source.id, {}, {}, hook);
+        }
         add_action(source_plan.actions, BackupRunActionKind::SelectParent, source.id, parent.local_parent.has_value() ? parent.local_parent->path : fs::path{});
         add_action(source_plan.actions, BackupRunActionKind::SendReceive, source.id, local_snapshot_path, incoming_run_dir);
         add_action(source_plan.actions, BackupRunActionKind::VerifyReceived, source.id, received_snapshot_path, local_snapshot_path);

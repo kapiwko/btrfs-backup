@@ -70,8 +70,12 @@ std::string action_name(btrfsbackup::BackupRunActionKind kind) {
             return "recover-pending";
         case btrfsbackup::BackupRunActionKind::CleanupIncoming:
             return "cleanup-incoming";
+        case btrfsbackup::BackupRunActionKind::BeforeSnapshotHook:
+            return "before-snapshot-hook";
         case btrfsbackup::BackupRunActionKind::CreateSnapshot:
             return "create-snapshot";
+        case btrfsbackup::BackupRunActionKind::AfterSnapshotHook:
+            return "after-snapshot-hook";
         case btrfsbackup::BackupRunActionKind::SelectParent:
             return "select-parent";
         case btrfsbackup::BackupRunActionKind::SendReceive:
@@ -91,12 +95,20 @@ std::string action_name(btrfsbackup::BackupRunActionKind kind) {
 }
 
 btrfsbackup::Json action_to_json(const btrfsbackup::BackupRunAction& action) {
-    return {
+    btrfsbackup::Json result = {
         {"kind", action_name(action.kind)},
         {"sourceId", action.source_id},
         {"primaryPath", action.primary_path.string()},
         {"secondaryPath", action.secondary_path.string()}
     };
+    if (!action.hook.program.empty()) {
+        result["hook"] = {
+            {"type", "program"},
+            {"program", action.hook.program},
+            {"arguments", action.hook.arguments}
+        };
+    }
+    return result;
 }
 
 btrfsbackup::Json paths_to_json(const std::vector<btrfsbackup::SnapshotInfo>& snapshots) {
@@ -265,7 +277,8 @@ int runner(
 
         LibBtrfsOperations btrfs;
         StdFileSystemEffects fs_effects;
-        BackupRunActionEffects real_action_effects(btrfs, fs_effects);
+        SystemCommandRunner command_runner;
+        BackupRunActionEffects real_action_effects(btrfs, fs_effects, command_runner);
         PosixTransferPipeline real_transfer_pipeline;
         IBackupRunActionEffects& action_effects = execution_services == nullptr
             ? static_cast<IBackupRunActionEffects&>(real_action_effects)

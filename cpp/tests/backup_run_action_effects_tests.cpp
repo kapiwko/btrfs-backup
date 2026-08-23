@@ -102,6 +102,20 @@ public:
     }
 };
 
+class FakeCommandRunner final : public btrfsbackup::ICommandRunner {
+public:
+    std::vector<std::vector<std::string>> calls;
+    int exit_code = 0;
+
+    btrfsbackup::CommandResult run(const std::vector<std::string>& argv) override {
+        calls.push_back(argv);
+        return btrfsbackup::CommandResult{
+            .exit_code = exit_code,
+            .output = {},
+        };
+    }
+};
+
 btrfsbackup::BackupRunPlan run_plan() {
     return btrfsbackup::BackupRunPlan{
         .profile_id = "default",
@@ -128,6 +142,17 @@ btrfsbackup::BackupRunAction action(btrfsbackup::BackupRunActionKind kind) {
     return btrfsbackup::BackupRunAction{
         .kind = kind,
         .source_id = "root",
+    };
+}
+
+btrfsbackup::BackupRunAction hook_action(btrfsbackup::BackupRunActionKind kind) {
+    return btrfsbackup::BackupRunAction{
+        .kind = kind,
+        .source_id = "root",
+        .hook = btrfsbackup::ProfileHookCommand{
+            .program = "/usr/local/bin/prepare-backup",
+            .arguments = {"--source", "root"},
+        },
     };
 }
 
@@ -243,12 +268,44 @@ void test_verify_commit_retention_and_cleanup_use_existing_helpers() {
     ) != btrfs.calls.end(), "cleanup should delete received subvolume");
 }
 
+void test_hook_actions_use_command_runner_argv() {
+    fs::path root = test_helpers::test_root("backup-run-action-effects", "hooks");
+    btrfsbackup::BackupSourceRunPlan source = source_plan(root);
+    FakeBtrfsOperations btrfs;
+    FakeFileSystemEffects fs_effects;
+    FakeCommandRunner hooks;
+    btrfsbackup::BackupRunActionEffects effects(btrfs, fs_effects, hooks);
+
+    effects.execute_action(hook_action(btrfsbackup::BackupRunActionKind::BeforeSnapshotHook), source, run_plan());
+
+    test_helpers::expect_eq("hook call count", std::to_string(hooks.calls.size()), "1");
+    test_helpers::expect_eq("hook program", hooks.calls.at(0).at(0), "/usr/local/bin/prepare-backup");
+    test_helpers::expect_eq("hook arg 1", hooks.calls.at(0).at(1), "--source");
+    test_helpers::expect_eq("hook arg 2", hooks.calls.at(0).at(2), "root");
+}
+
+void test_hook_failure_is_reported_as_validation_error() {
+    fs::path root = test_helpers::test_root("backup-run-action-effects", "hook-failure");
+    btrfsbackup::BackupSourceRunPlan source = source_plan(root);
+    FakeBtrfsOperations btrfs;
+    FakeFileSystemEffects fs_effects;
+    FakeCommandRunner hooks;
+    hooks.exit_code = 42;
+    btrfsbackup::BackupRunActionEffects effects(btrfs, fs_effects, hooks);
+
+    test_helpers::expect_validation_error("hook failure", [&] {
+        effects.execute_action(hook_action(btrfsbackup::BackupRunActionKind::AfterSnapshotHook), source, run_plan());
+    }, "hook failed");
+}
+
 } // namespace
 
 int main() {
     test_create_snapshot_writes_pending_marker_and_verifies_readonly_snapshot();
     test_cleanup_incoming_deletes_subvolumes_and_plain_paths();
     test_verify_commit_retention_and_cleanup_use_existing_helpers();
+    test_hook_actions_use_command_runner_argv();
+    test_hook_failure_is_reported_as_validation_error();
 
     return test_helpers::finish("backup run action effects tests");
 }
