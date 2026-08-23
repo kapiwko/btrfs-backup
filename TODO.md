@@ -11,11 +11,6 @@
   - keep status/history formats and error taxonomy documented;
   - add restore verification to the real Btrfs suite.
 
-- Reduce the remaining Bash entrypoints to thin compatibility wrappers:
-  - move `btrfs-backup` option handling into native code;
-  - keep shell wrappers only for locating the installed or build-tree binary;
-  - avoid parsing profile JSON with shell tools.
-
 - Add an asynchronous process runner for long-running backup work:
   - define a process interface that passes program and arguments separately;
   - keep the existing POSIX runner for short administrative operations and
