@@ -28,7 +28,9 @@
     configurator;
 14. `btrfs-backupctl` commands are grouped by area, including `profile list`,
     `profile migrate`, `status show`, `status history`, and internal
-    `state ...` runtime commands.
+    `state ...` runtime commands;
+15. the standalone `btrfs-backup-configure` entrypoint has been removed; the
+    interactive setup flow is now `btrfs-backupctl profile wizard`.
 
 ## 1.1.0 - 2026-08-23
 

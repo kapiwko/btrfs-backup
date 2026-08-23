@@ -109,33 +109,40 @@ syntax_test() {
 
 render_test() {
     local output="$TEST_ROOT/rendered"
-    local answers="$TEST_ROOT/answers.sh"
-    cat > "$answers" <<ANSWERS
-BACKUP_DEVICE=/dev/disk/by-uuid/11111111-2222-3333-4444-555555555555
-PROFILE_ID=laptop
-PROFILE_NAME='Laptop backup'
-BACKUP_LUKS_UUID=11111111-2222-3333-4444-555555555555
-BACKUP_UDEV_MATCH='ENV{DEVTYPE}=="partition", ENV{ID_FS_TYPE}=="crypto_LUKS", ENV{ID_FS_UUID}=="11111111-2222-3333-4444-555555555555", ENV{ID_PART_ENTRY_UUID}=="aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"'
-BACKUP_MAPPER_NAME=backupdisk
-BACKUP_MOUNTPOINT=/mnt/backup
-BACKUP_BTRFS_UUID=66666666-7777-8888-9999-aaaaaaaaaaaa
-KEYFILE_PATH_OR_NONE=/root/keys/backupdisk.key
-NOTIFY_USER=tester
-SOURCE_SUBVOLUMES=(/ /home)
-SOURCE_NAMES=(root home)
-LOCAL_SNAPSHOT_DIRS=(/.snapshots/btrfs-backup/root /.snapshots/btrfs-backup/home)
-REMOTE_SUBDIRS=(root home)
-SOURCE_RETENTION_COUNTS=(30 45)
-SOURCE_LOCAL_RETENTION_COUNTS=(30 20)
-ANSWERS
-    chmod 0600 "$answers"
-    make_invoker_owned "$answers"
+    local profile="$output/config/profile.json"
 
-    "$ROOT/install/btrfs-backup-configure.sh" \
-        --answers "$answers" \
-        --template-dir "$ROOT" \
+    install -d -m0750 "$output/config" "$output/systemd" "$output/udev"
+    "$ROOT/bin/btrfs-backupctl" profile create \
+        --output "$profile" \
+        --profile laptop \
+        --name 'Laptop backup' \
+        --device /dev/disk/by-uuid/11111111-2222-3333-4444-555555555555 \
+        --luks-uuid 11111111-2222-3333-4444-555555555555 \
+        --btrfs-uuid 66666666-7777-8888-9999-aaaaaaaaaaaa \
+        --partition-uuid aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee \
+        --mapper-name backupdisk \
+        --mount-point /mnt/backup \
+        --remote-retention 30 \
+        --local-retention 30 \
+        --minimum-target-free-bytes 5368709120 \
+        --minimum-local-free-bytes 1073741824 \
+        --notify-user tester \
+        --source root root / /.snapshots/btrfs-backup/root root 30 30 \
+        --source home home /home /.snapshots/btrfs-backup/home home 45 20 >/dev/null
+    "$ROOT/bin/btrfs-backupctl" \
+        profile \
+        --etc-root "$output/config" \
+        --udev-root "$output/udev" \
+        --public-root "$output/public/profiles" \
+        save --file "$profile" >/dev/null
+    install -m0644 "$output/udev/99-btrfs-backup-laptop.rules" "$output/udev/99-btrfs-backup.rules"
+    "$ROOT/bin/btrfs-backupctl" installation render \
+        --file "$profile" \
         --output-dir "$output" \
-        --render-only >/dev/null
+        --backup-script "$ROOT/scripts/btrfs-backup.sh" \
+        --eject-script "$ROOT/scripts/btrfs-backup-eject.sh" \
+        --keyfile /root/keys/backupdisk.key
+    "$ROOT/bin/btrfs-backupctl" installation validate --rendered-root "$output" >/dev/null
 
     assert_file "$output/config/profile.json"
     assert_file "$output/config/profiles/laptop/profile.json"
@@ -154,7 +161,7 @@ ANSWERS
     if grep -R -q '{{' "$output"; then
         fail 'rendered output contains unresolved placeholders'
     fi
-    pass 'configurator renders validated multi-source configuration'
+    pass 'backupctl renders validated multi-source configuration'
 }
 
 migrate_profile_dry_run_test() {
