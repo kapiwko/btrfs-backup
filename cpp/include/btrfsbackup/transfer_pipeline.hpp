@@ -24,6 +24,11 @@ enum class TransferEventKind {
 struct TransferEvent {
     TransferEventKind kind = TransferEventKind::Started;
     std::uint64_t bytes_transferred = 0;
+    std::uint64_t bytes_produced = 0;
+    std::uint64_t delta_bytes = 0;
+    std::uint64_t pending_bytes = 0;
+    std::uint64_t elapsed_ms = 0;
+    std::uint64_t speed_bps = 0;
     std::string message;
 };
 
@@ -57,6 +62,9 @@ struct TransferResult {
     TransferSideResult producer;
     TransferSideResult consumer;
     std::uint64_t bytes_transferred = 0;
+    std::uint64_t bytes_produced = 0;
+    std::uint64_t duration_ms = 0;
+    std::uint64_t average_speed_bps = 0;
     bool cancelled = false;
 };
 

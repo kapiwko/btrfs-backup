@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <string>
 #include <vector>
 
@@ -108,7 +109,18 @@ void test_posix_pipeline_transfers_bytes() {
 
     test_helpers::expect_true("posix transfer success", btrfsbackup::transfer_succeeded(result), "pipeline should succeed");
     test_helpers::expect_eq("posix transfer bytes", std::to_string(result.bytes_transferred), "5");
+    test_helpers::expect_eq("posix produced bytes", std::to_string(result.bytes_produced), "5");
+    test_helpers::expect_true("posix duration", result.duration_ms >= 0, "pipeline should report duration");
     test_helpers::expect_true("posix transfer events", sink.events.size() >= 3, "pipeline should emit lifecycle events");
+    auto progress = std::find_if(sink.events.begin(), sink.events.end(), [](const btrfsbackup::TransferEvent& event) {
+        return event.kind == btrfsbackup::TransferEventKind::Progress;
+    });
+    test_helpers::expect_true("posix progress event", progress != sink.events.end(), "pipeline should emit progress");
+    if (progress != sink.events.end()) {
+        test_helpers::expect_eq("posix progress delta", std::to_string(progress->delta_bytes), "5");
+        test_helpers::expect_eq("posix progress written", std::to_string(progress->bytes_transferred), "5");
+        test_helpers::expect_eq("posix progress produced", std::to_string(progress->bytes_produced), "5");
+    }
     test_helpers::expect_eq(
         "posix final event",
         std::to_string(static_cast<int>(sink.events.back().kind)),

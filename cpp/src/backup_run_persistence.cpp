@@ -120,6 +120,24 @@ StatusRecord status_record_for_event(const BackupRunStatusContext& context, cons
     std::string error_message;
     bool recoverable = false;
     std::string suggested_action;
+    Json progress_details = Json::object();
+    bool can_cancel = false;
+    std::uint64_t bytes_processed = 0;
+    std::uint64_t speed_bps = 0;
+    if (event.kind == BackupRunEventKind::TransferProgress) {
+        can_cancel = true;
+        bytes_processed = event.bytes_transferred;
+        speed_bps = event.speed_bps;
+        progress_details = {
+            {"bytesProduced", event.bytes_produced},
+            {"bytesTransferred", event.bytes_transferred},
+            {"deltaBytes", event.delta_bytes},
+            {"pendingBytes", event.pending_bytes},
+            {"elapsedMs", event.elapsed_ms},
+            {"speedBps", event.speed_bps}
+        };
+        details = progress_details;
+    }
     if (event.kind == BackupRunEventKind::ActionFailed) {
         error_code = error_code_for_failed_action(event.action_kind);
         error_message = event.message;
@@ -158,6 +176,11 @@ StatusRecord status_record_for_event(const BackupRunStatusContext& context, cons
         .details = details,
         .recoverable = recoverable,
         .suggested_action = suggested_action,
+        .can_cancel = can_cancel,
+        .bytes_processed = bytes_processed,
+        .run_bytes_processed = bytes_processed,
+        .speed_bps = speed_bps,
+        .progress_accuracy = "indeterminate",
         .exit_code = exit_code,
     };
 }
@@ -266,6 +289,11 @@ Json build_backup_run_event_json(const BackupRunEvent& event) {
         {"sourceId", event.source_id},
         {"action", backup_run_action_kind_name(event.action_kind)},
         {"bytesTransferred", event.bytes_transferred},
+        {"bytesProduced", event.bytes_produced},
+        {"deltaBytes", event.delta_bytes},
+        {"pendingBytes", event.pending_bytes},
+        {"elapsedMs", event.elapsed_ms},
+        {"speedBps", event.speed_bps},
         {"message", event.message},
     };
 }
