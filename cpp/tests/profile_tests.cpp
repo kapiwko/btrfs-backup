@@ -141,6 +141,61 @@ void test_profile_round_trips_normalized_json() {
     expect_true("profile model round trip", round_trip == normalized, "typed profile did not preserve normalized JSON");
 }
 
+void test_profile_hooks_round_trip_as_explicit_program_arguments() {
+    Json raw = valid_profile();
+    raw["hooks"] = {
+        {"beforeSnapshot", Json::array({
+            {
+                {"type", "program"},
+                {"program", "/usr/local/bin/prepare-postgresql-backup"},
+                {"arguments", Json::array({"--mode", "snapshot"})}
+            }
+        })},
+        {"afterSnapshot", Json::array({
+            {
+                {"type", "program"},
+                {"program", "/usr/local/bin/resume-postgresql"},
+                {"arguments", Json::array()}
+            }
+        })}
+    };
+
+    btrfsbackup::Profile profile = btrfsbackup::profile_from_json(raw);
+    Json round_trip = btrfsbackup::profile_to_json(profile);
+
+    expect_true("before hook count", profile.hooks.before_snapshot.size() == 1, "wrong before hook count");
+    expect_true("before hook program", profile.hooks.before_snapshot.at(0).program == "/usr/local/bin/prepare-postgresql-backup", "wrong hook program");
+    expect_true("before hook arg", profile.hooks.before_snapshot.at(0).arguments.at(1) == "snapshot", "wrong hook argument");
+    expect_true("after hook count", profile.hooks.after_snapshot.size() == 1, "wrong after hook count");
+    expect_true("hook round trip", round_trip == btrfsbackup::normalize_profile(raw), "hook JSON did not round trip");
+}
+
+void test_profile_rejects_unsafe_hook_shape() {
+    Json raw = valid_profile();
+    raw["hooks"] = {
+        {"beforeSnapshot", Json::array({
+            {
+                {"type", "shell"},
+                {"program", "/usr/local/bin/prepare"},
+                {"arguments", Json::array()}
+            }
+        })}
+    };
+    expect_validation_error("hook type", [&] { btrfsbackup::normalize_profile(raw); }, "type must be program");
+
+    raw = valid_profile();
+    raw["hooks"] = {
+        {"beforeSnapshot", Json::array({
+            {
+                {"type", "program"},
+                {"program", "prepare"},
+                {"arguments", Json::array()}
+            }
+        })}
+    };
+    expect_validation_error("hook program absolute", [&] { btrfsbackup::normalize_profile(raw); }, "absolute path");
+}
+
 void test_render_profile_env_quotes_values() {
     btrfsbackup::Profile profile = btrfsbackup::profile_from_json(valid_profile());
     std::string rendered = btrfsbackup::render_profile_env(profile);
@@ -213,6 +268,8 @@ int main() {
     test_rejects_non_dev_target();
     test_rejects_nested_roots();
     test_profile_round_trips_normalized_json();
+    test_profile_hooks_round_trip_as_explicit_program_arguments();
+    test_profile_rejects_unsafe_hook_shape();
     test_render_profile_env_quotes_values();
     test_typed_store_renders_tree();
     test_typed_store_saves_tree();
