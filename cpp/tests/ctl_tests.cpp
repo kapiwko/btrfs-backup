@@ -12,6 +12,7 @@
 #include <btrfsbackup/config_fingerprint.hpp>
 #include <btrfsbackup/errors.hpp>
 #include <btrfsbackup/history.hpp>
+#include <btrfsbackup/json_io.hpp>
 #include <btrfsbackup/profile_list.hpp>
 #include <btrfsbackup/run_state.hpp>
 #include <btrfsbackup/run_state_command.hpp>
@@ -515,6 +516,62 @@ void test_parse_disabled_source_definition() {
     fs::remove_all(root);
 }
 
+void test_parse_profile_sources_from_json() {
+    fs::path root = test_root("profile-sources");
+    btrfsbackup::Json profile = {
+        {"schemaVersion", 1},
+        {"profileId", "default"},
+        {"name", "Default backup"},
+        {"enabled", true},
+        {"target", {
+            {"device", "/dev/disk/by-uuid/11111111-2222-3333-4444-555555555555"},
+            {"luksUuid", "11111111-2222-3333-4444-555555555555"},
+            {"mapperName", "backupdisk"},
+            {"mountPoint", "/mnt/backup"}
+        }},
+        {"sources", btrfsbackup::Json::array({
+            {
+                {"id", "root"},
+                {"name", "Root"},
+                {"enabled", true},
+                {"subvolume", "/mnt/source/root"},
+                {"localSnapshotDir", "/mnt/source/.snapshots/root"},
+                {"remoteSubdir", "root"},
+                {"remoteRetention", 7},
+                {"localRetention", 3}
+            },
+            {
+                {"id", "home"},
+                {"name", "Home"},
+                {"enabled", false},
+                {"subvolume", "/mnt/source/home"},
+                {"localSnapshotDir", "/mnt/source/.snapshots/home"},
+                {"remoteSubdir", "home"},
+                {"remoteRetention", 7},
+                {"localRetention", 3}
+            }
+        })}
+    };
+    fs::path profile_json = root / "profile.json";
+    write_file(profile_json, btrfsbackup::dump_json(profile));
+
+    std::ostringstream output;
+    btrfsbackup::command_parse_profile_sources(
+        {
+            "--file",
+            profile_json.string(),
+        },
+        output
+    );
+
+    expect_eq(
+        "profile sources",
+        output.str(),
+        "root\n/mnt/source/root\n/mnt/source/.snapshots/root\nroot\n7\n3\n"
+    );
+    fs::remove_all(root);
+}
+
 } // namespace
 
 int main() {
@@ -534,6 +591,7 @@ int main() {
     test_migrate_legacy_state_moves_unclaimed_files();
     test_parse_source_definition();
     test_parse_disabled_source_definition();
+    test_parse_profile_sources_from_json();
 
     if (failures > 0) {
         return 1;

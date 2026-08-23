@@ -167,6 +167,8 @@ int ctl_tool_main(int argc, char** argv) {
             command_clear_pending_marker(args);
         } else if (command == "parse-source-definition") {
             command_parse_source_definition(args, std::cout);
+        } else if (command == "parse-profile-sources") {
+            command_parse_profile_sources(args, std::cout);
         } else if (command == "-h" || command == "--help") {
             usage();
         } else {
