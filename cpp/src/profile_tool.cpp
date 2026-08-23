@@ -15,6 +15,7 @@
 #include <btrfsbackup/json_io.hpp>
 #include <btrfsbackup/profile.hpp>
 #include <btrfsbackup/profile_compose.hpp>
+#include <btrfsbackup/profile_render.hpp>
 #include <btrfsbackup/profile_store.hpp>
 
 namespace fs = std::filesystem;
@@ -27,6 +28,7 @@ using btrfsbackup::Profile;
 using btrfsbackup::profile_from_environment_sources;
 using btrfsbackup::profile_from_json;
 using btrfsbackup::profile_to_json;
+using btrfsbackup::render_profile_env;
 using btrfsbackup::render_tree;
 using btrfsbackup::save_tree;
 
@@ -48,6 +50,7 @@ void usage() {
     std::cout << "Usage: btrfs-backupctl profile [--etc-root PATH] [--udev-root PATH] [--public-root PATH] COMMAND\n"
               << "\nCommands:\n"
               << "  compose --sources-table PATH --output PATH\n"
+              << "  env --file PATH\n"
               << "  validate --file PATH\n"
               << "  render --file PATH --output-dir PATH\n"
               << "  save --file PATH\n"
@@ -117,6 +120,9 @@ int command_profile(const std::vector<std::string>& args) {
             if (sources_table.empty()) fail("compose requires --sources-table");
             if (output_dir.empty()) fail("compose requires --output");
             atomic_write(output_dir, dump_json(profile_to_json(profile_from_environment_sources(sources_table))), 0600);
+        } else if (command == "env") {
+            if (file.empty()) fail("env requires --file");
+            std::cout << render_profile_env(profile_from_json(load_json_file(file)));
         } else if (command == "validate") {
             if (file.empty()) fail("validate requires --file");
             std::cout << dump_json(profile_to_json(profile_from_json(load_json_file(file))));

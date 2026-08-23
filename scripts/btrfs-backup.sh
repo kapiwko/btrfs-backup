@@ -38,8 +38,8 @@ usage() {
 Usage: btrfs-backup [options]
 
 Options:
-  --profile ID   Use /etc/btrfs-backup/profiles.d/ID.env.
-  --config PATH   Use a non-default main configuration file.
+  --profile ID   Use /etc/btrfs-backup/profiles/ID/profile.json.
+  --config PATH   Use a non-default generated env configuration file.
   --force         Run even if a successful backup was already made today.
   --validate      Mount the target and validate configuration without creating snapshots.
   --no-eject      Do not automatically eject after a manual invocation.
@@ -83,12 +83,17 @@ while (( $# > 0 )); do
 done
 
 load_main_config() {
-    CONFIG_FILE="$(bb_resolve_profile_config "$REQUESTED_PROFILE_ID" "$CONFIG_FILE" "$PROFILE_CONFIG_DIR")"
-    bb_load_config "$CONFIG_FILE"
+    if [[ -n "$CONFIG_FILE" ]]; then
+        CONFIG_FILE="$(bb_resolve_profile_config "$REQUESTED_PROFILE_ID" "$CONFIG_FILE" "$PROFILE_CONFIG_DIR")"
+        bb_load_config "$CONFIG_FILE"
+    else
+        PROFILE_JSON_FILE="$(bb_resolve_profile_json "$REQUESTED_PROFILE_ID" "$PROFILE_JSON_FILE" "$PROFILE_CONFIG_DIR")"
+        bb_load_profile_json_config "$PROFILE_JSON_FILE"
+    fi
 
     PROFILE_ID="${PROFILE_ID:-$REQUESTED_PROFILE_ID}"
     if (( PROFILE_WAS_REQUESTED == 1 )) && [[ "$PROFILE_ID" != "$REQUESTED_PROFILE_ID" ]]; then
-        bb_die "Requested profile $REQUESTED_PROFILE_ID but $CONFIG_FILE declares PROFILE_ID=$PROFILE_ID"
+        bb_die "Requested profile $REQUESTED_PROFILE_ID but loaded profile declares PROFILE_ID=$PROFILE_ID"
     fi
     PROFILE_NAME="${PROFILE_NAME:-$PROFILE_ID}"
     BACKUP_MOUNT_UNIT="${BACKUP_MOUNT_UNIT:-}"
@@ -170,6 +175,8 @@ load_main_config() {
     PROFILE_STATE_DIR="$STATE_DIR/profiles/$PROFILE_ID"
     if [[ -n "$PROFILE_JSON_FILE" ]]; then
         PROFILE_JSON_FILE="$(realpath -m -- "$PROFILE_JSON_FILE")"
+    elif [[ -z "$CONFIG_FILE" ]]; then
+        PROFILE_JSON_FILE="$(bb_resolve_profile_json "$PROFILE_ID" "" "$PROFILE_CONFIG_DIR")"
     elif [[ "$(realpath -m -- "$CONFIG_FILE")" == "$(realpath -m -- "$PROFILE_CONFIG_DIR/$PROFILE_ID.env")" ]]; then
         PROFILE_JSON_FILE="$(dirname -- "$PROFILE_CONFIG_DIR")/profiles/$PROFILE_ID/profile.json"
     else

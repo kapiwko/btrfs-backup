@@ -11,14 +11,15 @@ PROFILE_WAS_REQUESTED=0
 [[ -n "${BTRFS_BACKUP_PROFILE:-}" ]] && PROFILE_WAS_REQUESTED=1
 PROFILE_CONFIG_DIR="${BTRFS_BACKUP_PROFILE_CONFIG_DIR:-/etc/btrfs-backup/profiles.d}"
 CONFIG_FILE="${BTRFS_BACKUP_CONFIG:-}"
+PROFILE_JSON_FILE="${BTRFS_BACKUP_PROFILE_JSON:-}"
 
 usage() {
     cat <<'USAGE'
 Usage: btrfs-backup-mount [options]
 
 Options:
-  --profile ID      Use /etc/btrfs-backup/profiles.d/ID.env.
-  --config PATH      Use a non-default main configuration file.
+  --profile ID      Use /etc/btrfs-backup/profiles/ID/profile.json.
+  --config PATH      Use a non-default generated env configuration file.
   -h, --help         Show this help.
 USAGE
 }
@@ -48,12 +49,17 @@ done
 
 bb_require_root
 bb_require_commands cryptsetup findmnt install mountpoint readlink systemctl systemd-escape
-CONFIG_FILE="$(bb_resolve_profile_config "$REQUESTED_PROFILE_ID" "$CONFIG_FILE" "$PROFILE_CONFIG_DIR")"
-bb_load_config "$CONFIG_FILE"
+if [[ -n "$CONFIG_FILE" ]]; then
+    CONFIG_FILE="$(bb_resolve_profile_config "$REQUESTED_PROFILE_ID" "$CONFIG_FILE" "$PROFILE_CONFIG_DIR")"
+    bb_load_config "$CONFIG_FILE"
+else
+    PROFILE_JSON_FILE="$(bb_resolve_profile_json "$REQUESTED_PROFILE_ID" "$PROFILE_JSON_FILE" "$PROFILE_CONFIG_DIR")"
+    bb_load_profile_json_config "$PROFILE_JSON_FILE"
+fi
 
 PROFILE_ID="${PROFILE_ID:-$REQUESTED_PROFILE_ID}"
 if (( PROFILE_WAS_REQUESTED == 1 )) && [[ "$PROFILE_ID" != "$REQUESTED_PROFILE_ID" ]]; then
-    bb_die "Requested profile $REQUESTED_PROFILE_ID but $CONFIG_FILE declares PROFILE_ID=$PROFILE_ID"
+    bb_die "Requested profile $REQUESTED_PROFILE_ID but loaded profile declares PROFILE_ID=$PROFILE_ID"
 fi
 BACKUP_BTRFS_UUID="${BACKUP_BTRFS_UUID:-}"
 

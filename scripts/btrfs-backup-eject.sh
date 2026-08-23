@@ -11,6 +11,7 @@ PROFILE_WAS_REQUESTED=0
 [[ -n "${BTRFS_BACKUP_PROFILE:-}" ]] && PROFILE_WAS_REQUESTED=1
 PROFILE_CONFIG_DIR="${BTRFS_BACKUP_PROFILE_CONFIG_DIR:-/etc/btrfs-backup/profiles.d}"
 CONFIG_FILE="${BTRFS_BACKUP_CONFIG:-}"
+PROFILE_JSON_FILE="${BTRFS_BACKUP_PROFILE_JSON:-}"
 FROM_SERVICE=0
 FROM_RUNNER=0
 FORCE=0
@@ -20,8 +21,8 @@ usage() {
 Usage: btrfs-backup-eject [options]
 
 Options:
-  --profile ID      Use /etc/btrfs-backup/profiles.d/ID.env.
-  --config PATH      Use a non-default main configuration file.
+  --profile ID      Use /etc/btrfs-backup/profiles/ID/profile.json.
+  --config PATH      Use a non-default generated env configuration file.
   --force            Continue despite target identity mismatches.
   --from-service     Internal mode used by systemd ExecStopPost.
   --from-runner      Internal mode used after a manual backup run.
@@ -66,12 +67,17 @@ done
 
 bb_require_root
 bb_require_commands blockdev cryptsetup findmnt flock install mountpoint readlink stat sync systemctl systemd-escape udevadm umount
-CONFIG_FILE="$(bb_resolve_profile_config "$REQUESTED_PROFILE_ID" "$CONFIG_FILE" "$PROFILE_CONFIG_DIR")"
-bb_load_config "$CONFIG_FILE"
+if [[ -n "$CONFIG_FILE" ]]; then
+    CONFIG_FILE="$(bb_resolve_profile_config "$REQUESTED_PROFILE_ID" "$CONFIG_FILE" "$PROFILE_CONFIG_DIR")"
+    bb_load_config "$CONFIG_FILE"
+else
+    PROFILE_JSON_FILE="$(bb_resolve_profile_json "$REQUESTED_PROFILE_ID" "$PROFILE_JSON_FILE" "$PROFILE_CONFIG_DIR")"
+    bb_load_profile_json_config "$PROFILE_JSON_FILE"
+fi
 
 PROFILE_ID="${PROFILE_ID:-$REQUESTED_PROFILE_ID}"
 if (( PROFILE_WAS_REQUESTED == 1 )) && [[ "$PROFILE_ID" != "$REQUESTED_PROFILE_ID" ]]; then
-    bb_die "Requested profile $REQUESTED_PROFILE_ID but $CONFIG_FILE declares PROFILE_ID=$PROFILE_ID"
+    bb_die "Requested profile $REQUESTED_PROFILE_ID but loaded profile declares PROFILE_ID=$PROFILE_ID"
 fi
 AUTO_EJECT="${AUTO_EJECT:-true}"
 NOTIFY_ENABLE="${NOTIFY_ENABLE:-true}"
