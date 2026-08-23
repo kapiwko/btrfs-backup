@@ -107,6 +107,28 @@ void write_success_state(const fs::path& profile_state_dir, const SuccessState& 
     fsync_dir(profile_state_dir);
 }
 
+fs::path cancel_request_path(const fs::path& profile_state_dir) {
+    return profile_state_dir / "cancel-request";
+}
+
+void write_cancel_request(const fs::path& profile_state_dir) {
+    fs::create_directories(profile_state_dir);
+    chmod(profile_state_dir.c_str(), 0700);
+    atomic_write(cancel_request_path(profile_state_dir), "requested=1\n", 0600);
+    fsync_dir(profile_state_dir);
+}
+
+bool cancel_requested(const fs::path& profile_state_dir) {
+    std::error_code ec;
+    return fs::is_regular_file(cancel_request_path(profile_state_dir), ec) && !ec;
+}
+
+void clear_cancel_request(const fs::path& profile_state_dir) {
+    std::error_code ec;
+    fs::remove(cancel_request_path(profile_state_dir), ec);
+    fsync_dir(profile_state_dir);
+}
+
 fs::path pending_marker_path(const fs::path& profile_state_dir, const std::string& source_name) {
     validate_identifier(source_name, "source_name");
     return profile_state_dir / ("pending-" + source_name);

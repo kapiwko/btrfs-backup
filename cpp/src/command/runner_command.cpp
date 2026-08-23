@@ -1,5 +1,6 @@
 #include <btrfsbackup/command/runner_command.hpp>
 
+#include <atomic>
 #include <chrono>
 #include <cstdlib>
 #include <filesystem>
@@ -9,6 +10,7 @@
 #include <optional>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include <btrfsbackup/backup_run_action_effects.hpp>
@@ -179,7 +181,8 @@ void usage() {
     std::cout << "Usage: btrfs-backupctl runner COMMAND\n"
               << "\nCommands:\n"
               << "  plan --profile ID [--timestamp TS] [--run-id ID] [--mountinfo PATH]\n"
-              << "  execute --profile ID [--timestamp TS] [--run-id ID] [--force] [--validate]\n";
+              << "  execute --profile ID [--timestamp TS] [--run-id ID] [--force] [--validate]\n"
+              << "  cancel --profile ID\n";
 }
 
 struct RunnerOptions {
@@ -191,6 +194,41 @@ struct RunnerOptions {
     std::string today = current_local_date();
     bool force = false;
     bool validate_only = false;
+};
+
+class CancelRequestMonitor {
+public:
+    CancelRequestMonitor(const fs::path& profile_state_dir, btrfsbackup::CancellationToken& cancellation)
+        : profile_state_dir_(profile_state_dir),
+          cancellation_(cancellation),
+          worker_([this] { run(); }) {
+    }
+
+    CancelRequestMonitor(const CancelRequestMonitor&) = delete;
+    CancelRequestMonitor& operator=(const CancelRequestMonitor&) = delete;
+
+    ~CancelRequestMonitor() {
+        stop_.store(true);
+        if (worker_.joinable()) {
+            worker_.join();
+        }
+    }
+
+private:
+    void run() {
+        while (!stop_.load()) {
+            if (btrfsbackup::cancel_requested(profile_state_dir_)) {
+                cancellation_.request_cancel();
+                return;
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        }
+    }
+
+    fs::path profile_state_dir_;
+    btrfsbackup::CancellationToken& cancellation_;
+    std::atomic_bool stop_ = false;
+    std::thread worker_;
 };
 
 RunnerOptions parse_options(const std::string& command, const std::vector<std::string>& args) {
@@ -380,7 +418,7 @@ int runner(
         usage();
         return 0;
     }
-    if (command != "plan" && command != "execute") {
+    if (command != "plan" && command != "execute" && command != "cancel") {
         fail("unknown command: " + command);
     }
 
@@ -390,6 +428,17 @@ int runner(
         ? execution_services->snapshot_metadata_reader
         : read_btrfs_snapshot_metadata;
     profile = btrfsbackup::load_profile_by_id(profile_config_dir, options.profile_id);
+    const fs::path profile_state_dir = fs::path(profile.paths.state_dir) / "profiles" / profile.id;
+    if (command == "cancel") {
+        btrfsbackup::write_cancel_request(profile_state_dir);
+        output << Json{
+            {"schemaVersion", 1},
+            {"mode", "cpp-cancel"},
+            {"profileId", profile.id},
+            {"cancelRequested", true}
+        }.dump(2) << '\n';
+        return 0;
+    }
     if (command == "execute") {
         ensure_target_mounted(profile, options);
     }
@@ -433,7 +482,8 @@ int runner(
             return 0;
         }
 
-        JsonFileBackupRunCheckpointStore checkpoints(fs::path(profile.paths.state_dir) / "profiles" / profile.id);
+        btrfsbackup::clear_cancel_request(profile_state_dir);
+        JsonFileBackupRunCheckpointStore checkpoints(profile_state_dir);
         StatusBackupRunEventSink status_events({
             .status_root = profile.paths.status_root,
             .history_root = profile.paths.history_root,
@@ -442,6 +492,7 @@ int runner(
             .started_at = options.timestamp,
         });
         CancellationToken cancellation;
+        CancelRequestMonitor cancellation_monitor(profile_state_dir, cancellation);
 
         LibBtrfsOperations btrfs;
         StdFileSystemEffects fs_effects;
@@ -457,6 +508,7 @@ int runner(
 
         BackupRunExecutor executor(action_effects, transfer_pipeline, checkpoints);
         BackupRunExecutionResult result = executor.execute(plan, status_events, cancellation);
+        btrfsbackup::clear_cancel_request(profile_state_dir);
         if (result.completed) {
             write_success_state_for_run(profile, options, config_fingerprint, plan.sources.size());
         }

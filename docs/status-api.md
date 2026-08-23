@@ -103,6 +103,17 @@ The status `details` object for `transferring` includes lower-level diagnostics:
 and `speedBps`. Clients must treat progress as advisory. Unknown or estimated
 progress must not be displayed as a precise guarantee.
 
+When `canCancel` is `true`, a client may request cancellation with:
+
+```bash
+btrfs-backupctl runner cancel --profile <PROFILE_ID>
+```
+
+The command writes a private cancellation request in the profile state
+directory. The active runner observes that request, asks the transfer pipeline
+to stop, and then removes the handled request. A cancelled run finishes with
+`state` set to `cancelled` and stable `errorCode` `runner.cancelled`.
+
 ## History
 
 Finished runs are written atomically to:
