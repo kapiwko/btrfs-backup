@@ -14,6 +14,7 @@
 #include <btrfsbackup/history.hpp>
 #include <btrfsbackup/profile_list.hpp>
 #include <btrfsbackup/status.hpp>
+#include <btrfsbackup/status_write_command.hpp>
 
 namespace fs = std::filesystem;
 
@@ -144,6 +145,8 @@ int ctl_tool_main(int argc, char** argv) {
             command_history(history_root, args, std::cout);
         } else if (command == "watch") {
             command_watch(status_root, args);
+        } else if (command == "write-status") {
+            command_write_status(status_root, history_root, args);
         } else if (command == "-h" || command == "--help") {
             usage();
         } else {
