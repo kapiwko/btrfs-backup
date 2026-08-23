@@ -2,14 +2,19 @@
 
 ## C++ Runtime Migration
 
-- Define C++ runner completion criteria:
-  - full and incremental runs pass the existing compatibility suite;
-  - every backup phase has tests for success, failure and cancellation;
-  - interrupted transfers, interruption during commit and interruption after
-    commit before history are recoverable on the next run;
-  - cancellation terminates child processes and leaves retryable state;
-  - status/history formats and error taxonomy are documented;
-  - real Btrfs tests cover full backup, incremental backup and restore.
+- Harden the C++ runtime now that the main backup flow, target mount and target
+  eject are native:
+  - keep full, incremental and retention real Btrfs tests passing;
+  - add broader failure tests for every backup phase;
+  - expand interrupted-transfer, interruption-during-commit and
+    interruption-after-commit recovery coverage;
+  - keep status/history formats and error taxonomy documented;
+  - add restore verification to the real Btrfs suite.
+
+- Reduce the remaining Bash entrypoints to thin compatibility wrappers:
+  - move `btrfs-backup` option handling into native code;
+  - keep shell wrappers only for locating the installed or build-tree binary;
+  - avoid parsing profile JSON with shell tools.
 
 - Add an asynchronous process runner for long-running backup work:
   - define a process interface that passes program and arguments separately;

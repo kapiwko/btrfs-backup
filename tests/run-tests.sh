@@ -12,7 +12,7 @@ case "${1:-}" in
         cat <<'USAGE'
 Usage: tests/run-tests.sh [--full|--static-only]
 
-  --full         Run syntax, render, status and mount/eject compatibility tests (default).
+  --full         Run syntax, render, profile JSON and status CLI tests (default).
   --static-only  Run syntax and rendering validation only.
 USAGE
         exit 0
