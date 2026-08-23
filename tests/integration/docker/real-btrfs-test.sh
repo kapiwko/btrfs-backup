@@ -18,6 +18,7 @@ PACKAGE_DIR="$TEST_ROOT/package"
 RENDERED_CONFIG="$TEST_ROOT/rendered"
 LOG_DIR="$TEST_ROOT/logs"
 RUN_LOG="$LOG_DIR/btrfs-backup.log"
+ACTIVE_CONFIG=/etc/btrfs-backup/backup.env
 
 cleanup() {
     set +e
@@ -126,6 +127,9 @@ ANSWERS
     install -Dm0644 "$RENDERED_CONFIG/systemd/btrfs-backup.service" /etc/systemd/system/btrfs-backup.service
     install -Dm0644 "$RENDERED_CONFIG/udev/99-btrfs-backup.rules" /etc/udev/rules.d/99-btrfs-backup.rules
     btrfs-backup-configure --validate >/dev/null
+    btrfs-backup-migrate-profile --profile default >/dev/null
+    ACTIVE_CONFIG=/etc/btrfs-backup/profiles.d/default.env
+    [[ -f "$ACTIVE_CONFIG" ]] || fail 'profile migration did not create default.env'
 }
 
 run_backup() {
@@ -199,7 +203,7 @@ validate_runtime_preflight() {
 
 target_uuid_mismatch_test() {
     sed -i "s/^BACKUP_BTRFS_UUID=.*/BACKUP_BTRFS_UUID=00000000-0000-0000-0000-000000000000/" \
-        /etc/btrfs-backup/backup.env
+        "$ACTIVE_CONFIG"
     expect_backup_failure 'Btrfs UUID mismatch'
     pass 'runtime rejects a mismatched target Btrfs UUID'
 }
@@ -283,7 +287,7 @@ validate_runtime_preflight
 pass 'installed runtime validates the mounted target'
 btrfs-backup-mount >/dev/null
 pass 'installed mount command validates the mounted target'
-with_restored_file /etc/btrfs-backup/backup.env target_uuid_mismatch_test
+with_restored_file "$ACTIVE_CONFIG" target_uuid_mismatch_test
 with_restored_file /etc/btrfs-backup/sources.d/10-home.conf source_on_target_test
 
 run_backup

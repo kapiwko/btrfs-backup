@@ -144,12 +144,28 @@ ANSWERS
     assert_not_contains "$output/udev/99-btrfs-backup.rules" 'ACTION=="remove"'
     assert_not_contains "$output/systemd/btrfs-backup.service" 'WantedBy='
     assert_not_contains "$output/systemd/btrfs-backup.service" 'Requires=mnt-backup.mount'
+    assert_contains "$output/systemd/btrfs-backup.service" 'ExecStart='
+    assert_contains "$output/systemd/btrfs-backup.service" '--profile laptop'
     assert_contains "$output/config/fstab.fragment" 'noauto'
     assert_contains "$output/config/fstab.fragment" 'x-systemd.requires=systemd-cryptsetup@backupdisk.service'
     if grep -R -q '{{' "$output"; then
         fail 'rendered output contains unresolved placeholders'
     fi
     pass 'configurator renders validated multi-source configuration'
+}
+
+migrate_profile_dry_run_test() {
+    local source_config="$TEST_ROOT/legacy-backup.env"
+    local profile_dir="$TEST_ROOT/profiles.d"
+
+    mkdir -p "$profile_dir"
+    : > "$source_config"
+    "$ROOT/bin/btrfs-backup-migrate-profile" \
+        --dry-run \
+        --source "$source_config" \
+        --profile-dir "$profile_dir" \
+        --profile default >/dev/null
+    pass 'profile migrator dry-run validates paths'
 }
 
 create_mock_commands() {
@@ -474,6 +490,61 @@ run_backup() {
         "$ROOT/scripts/btrfs-backup.sh" --config "$CONFIG_FILE" "$@"
 }
 
+run_backup_profile() {
+    local profile_config_dir="$1"
+    local legacy_config="$2"
+    shift 2
+
+    env \
+        PATH="$MOCKBIN:$PATH" \
+        INVOCATION_ID=test-invocation \
+        BTRFS_BACKUP_PROFILE_CONFIG_DIR="$profile_config_dir" \
+        BTRFS_BACKUP_LEGACY_CONFIG="$legacy_config" \
+        MOCK_LOG="$MOCK_LOG" \
+        MOCK_MOUNTPOINT="$MOCK_MOUNTPOINT" \
+        MOCK_PHYSICAL_DEVICE="$MOCK_PHYSICAL_DEVICE" \
+        MOCK_DM_DEVICE="$MOCK_DM_DEVICE" \
+        MOCK_MAPPER_NAME="$MAPPER_NAME" \
+        MOCK_LUKS_UUID="$MOCK_LUKS_UUID" \
+        MOCK_TARGET_UUID="$MOCK_TARGET_UUID" \
+        MOCK_SOURCE_UUID="$MOCK_SOURCE_UUID" \
+        "${EXTRA_ENV[@]}" \
+        "$ROOT/scripts/btrfs-backup.sh" "$@"
+}
+
+profile_loading_test() {
+    prepare_runtime_fixture
+    EXTRA_ENV=()
+    local profile_dir="$RUNTIME/config/profiles.d"
+    local migrated="$profile_dir/default.env"
+    local empty_profile_dir="$RUNTIME/config/empty-profiles.d"
+
+    "$ROOT/scripts/btrfs-backup-migrate-profile.sh" \
+        --source "$CONFIG_FILE" \
+        --profile-dir "$profile_dir" \
+        --profile default >/dev/null
+
+    assert_file "$migrated"
+    assert_contains "$migrated" 'PROFILE_ID=default'
+    assert_contains "$migrated" 'PROFILE_NAME=Default\ backup'
+
+    run_backup_profile "$profile_dir" "$RUNTIME/config/missing.env" --profile default --validate --no-eject >/dev/null
+    assert_contains "$STATUS_ROOT/default/current.json" '"state": "validated"'
+
+    mkdir -p "$empty_profile_dir"
+    run_backup_profile "$empty_profile_dir" "$CONFIG_FILE" --profile default --validate --no-eject >/dev/null
+    assert_contains "$STATUS_ROOT/default/current.json" '"state": "validated"'
+
+    cp -- "$CONFIG_FILE" "$profile_dir/mismatch.env"
+    printf '\nPROFILE_ID=other\n' >> "$profile_dir/mismatch.env"
+    chmod 0600 "$profile_dir/mismatch.env"
+    if run_backup_profile "$profile_dir" "$RUNTIME/config/missing.env" --profile mismatch --validate --no-eject >/dev/null 2>&1; then
+        fail 'profile id mismatch was accepted'
+    fi
+
+    pass 'runtime loads profile files and preserves legacy fallback'
+}
+
 runtime_success_test() {
     prepare_runtime_fixture
     EXTRA_ENV=()
@@ -491,11 +562,12 @@ runtime_success_test() {
         status --profile default --human \
         | grep -q 'Default backup: succeeded' \
         || fail 'btrfs-backupctl did not render human status'
-    "$ROOT/bin/btrfs-backupctl" \
+    local ctl_history_output
+    ctl_history_output="$("$ROOT/bin/btrfs-backupctl" \
         --status-root "$STATUS_ROOT" \
         --history-root "$HISTORY_ROOT" \
-        history --profile default --limit 1 \
-        | grep -q '"state": "succeeded"' \
+        history --profile default --limit 1)"
+    grep -q '"state": "succeeded"' <<< "$ctl_history_output" \
         || fail 'btrfs-backupctl did not render history'
     assert_contains "$MOCK_LOG" 'SEND_FULL'
     assert_dir "$MOCK_MOUNTPOINT/snapshots/root"
@@ -656,9 +728,10 @@ eject_test() {
 }
 
 if [[ "$MODE" == static ]]; then
-    printf '1..2\n'
+    printf '1..3\n'
     syntax_test
     render_test
+    migrate_profile_dry_run_test
     exit 0
 fi
 
@@ -666,9 +739,11 @@ if (( EUID != 0 )); then
     fail 'full mocked runtime tests require root; use --static-only otherwise'
 fi
 
-printf '1..11\n'
+printf '1..13\n'
 syntax_test
 render_test
+migrate_profile_dry_run_test
+profile_loading_test
 runtime_success_test
 runtime_failure_cleanup_test
 pending_recovery_test
