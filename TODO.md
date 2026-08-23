@@ -9,6 +9,19 @@
   - keep Bash as the executor until this validator has parity with existing
     Bash integration tests.
 
+- Add an asynchronous transfer execution layer before porting
+  `btrfs send/receive`:
+  - keep `ICommandRunner` limited to short synchronous administrative commands;
+  - introduce a dedicated `TransferPipeline` or async process runner for
+    long-running stream transfers;
+  - support connecting producer and consumer processes without shell pipelines;
+  - preserve backpressure between `btrfs send` and `btrfs receive`;
+  - report byte progress and lifecycle events while the transfer is running;
+  - support cancellation and cleanup of both processes;
+  - surface separate send-side and receive-side exit status and diagnostics;
+  - keep the interface independent enough to later back it with a GUI/event-loop
+    process implementation.
+
 - Move the main backup flow from Bash to C++ after parity tests pass:
   - keep Bash wrappers for mount/eject compatibility while needed;
   - keep existing integration tests as regression coverage;
