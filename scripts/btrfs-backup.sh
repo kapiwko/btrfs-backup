@@ -21,6 +21,14 @@ RUN_SUCCEEDED=0
 RUN_SKIPPED=0
 SOURCE_COUNT=0
 PROFILE_STATE_DIR=""
+STATUS_DIR=""
+HISTORY_DIR=""
+RUN_STARTED_AT=""
+RUN_FINISHED_AT=""
+CURRENT_PHASE="initialization"
+CURRENT_MESSAGE=""
+CURRENT_SOURCE_NAME=""
+SOURCE_INDEX=0
 
 usage() {
     cat <<'USAGE'
@@ -86,6 +94,8 @@ load_main_config() {
     NOTIFY_USER="${NOTIFY_USER:-}"
     LOCK_FILE="${LOCK_FILE:-/run/btrfs-backup/backup.lock}"
     STATE_DIR="${STATE_DIR:-/var/lib/btrfs-backup}"
+    STATUS_ROOT="${STATUS_ROOT:-/run/btrfs-backup/profiles}"
+    HISTORY_ROOT="${HISTORY_ROOT:-$STATE_DIR/history}"
     MIN_TARGET_FREE_BYTES="${MIN_TARGET_FREE_BYTES:-5368709120}"
     MIN_LOCAL_FREE_BYTES="${MIN_LOCAL_FREE_BYTES:-1073741824}"
     EJECT_SCRIPT_PATH="${EJECT_SCRIPT_PATH:-$SCRIPT_DIR/btrfs-backup-eject.sh}"
@@ -94,7 +104,7 @@ load_main_config() {
     for required in \
         PROFILE_ID PROFILE_NAME BACKUP_MAPPER_NAME BACKUP_MOUNTPOINT BACKUP_MOUNT_UNIT \
         BACKUP_DEVICE BACKUP_LUKS_UUID SOURCES_DIR REMOTE_ROOT \
-        INCOMING_ROOT LOCK_FILE STATE_DIR; do
+        INCOMING_ROOT LOCK_FILE STATE_DIR STATUS_ROOT HISTORY_ROOT; do
         bb_require_var "$required"
     done
 
@@ -108,6 +118,8 @@ load_main_config() {
     bb_validate_absolute_path INCOMING_ROOT "$INCOMING_ROOT"
     bb_validate_absolute_path LOCK_FILE "$LOCK_FILE"
     bb_validate_absolute_path STATE_DIR "$STATE_DIR"
+    bb_validate_absolute_path STATUS_ROOT "$STATUS_ROOT"
+    bb_validate_absolute_path HISTORY_ROOT "$HISTORY_ROOT"
     bb_validate_absolute_path EJECT_SCRIPT_PATH "$EJECT_SCRIPT_PATH"
 
     bb_validate_uint RETENTION_COUNT "$RETENTION_COUNT"
@@ -142,6 +154,8 @@ load_main_config() {
     fi
 
     PROFILE_STATE_DIR="$STATE_DIR/profiles/$PROFILE_ID"
+    STATUS_DIR="$STATUS_ROOT/$PROFILE_ID"
+    HISTORY_DIR="$HISTORY_ROOT/$PROFILE_ID"
 
     local config_mode
     config_mode="$(stat -c '%a' "$CONFIG_FILE" 2>/dev/null || true)"
@@ -151,6 +165,102 @@ load_main_config() {
             bb_warn "Configuration file should not be group/world accessible: $CONFIG_FILE (mode $config_mode)"
         fi
     fi
+}
+
+json_escape() {
+    local value="$1"
+    value="${value//\\/\\\\}"
+    value="${value//\"/\\\"}"
+    value="${value//$'\n'/\\n}"
+    value="${value//$'\r'/\\r}"
+    value="${value//$'\t'/\\t}"
+    printf '%s' "$value"
+}
+
+json_string() {
+    printf '"%s"' "$(json_escape "$1")"
+}
+
+write_json_atomic() {
+    local path="$1"
+    local mode="$2"
+    local temp_file
+
+    install -d -m0755 "$(dirname -- "$path")"
+    temp_file="$(mktemp "$(dirname -- "$path")/.${path##*/}.XXXXXX")"
+    chmod "$mode" "$temp_file"
+    cat > "$temp_file"
+    sync -f "$temp_file" 2>/dev/null || true
+    mv -f -- "$temp_file" "$path"
+    sync -f "$(dirname -- "$path")" 2>/dev/null || true
+}
+
+build_status_json() {
+    local state="$1"
+    local phase="$2"
+    local message="$3"
+    local error="$4"
+    local exit_code="$5"
+    local finished_at="$6"
+
+    cat <<JSON
+{
+  "schemaVersion": 1,
+  "profileId": $(json_string "$PROFILE_ID"),
+  "profileName": $(json_string "$PROFILE_NAME"),
+  "runId": $(json_string "${RUN_ID:-}"),
+  "state": $(json_string "$state"),
+  "phase": $(json_string "$phase"),
+  "message": $(json_string "$message"),
+  "currentSourceName": $(json_string "$CURRENT_SOURCE_NAME"),
+  "sourceIndex": $SOURCE_INDEX,
+  "sourceCount": $SOURCE_COUNT,
+  "startedAt": $(json_string "$RUN_STARTED_AT"),
+  "updatedAt": $(json_string "$(date --iso-8601=seconds)"),
+  "finishedAt": $(json_string "$finished_at"),
+  "error": $(json_string "$error"),
+  "exitCode": $exit_code
+}
+JSON
+}
+
+write_current_status() {
+    local state="$1"
+    local phase="$2"
+    local message="$3"
+    local error="${4:-}"
+    local exit_code="${5:-0}"
+    local finished_at="${6:-}"
+
+    [[ -n "${RUN_ID:-}" && -n "$STATUS_DIR" ]] || return 0
+    build_status_json "$state" "$phase" "$message" "$error" "$exit_code" "$finished_at" \
+        | write_json_atomic "$STATUS_DIR/current.json" 0644 \
+        || bb_warn "Could not write current status JSON for profile $PROFILE_ID."
+}
+
+write_history_entry() {
+    local state="$1"
+    local phase="$2"
+    local message="$3"
+    local error="${4:-}"
+    local exit_code="${5:-0}"
+    local finished_at="$6"
+    local temp_json
+
+    [[ -n "${RUN_ID:-}" && -n "$HISTORY_DIR" ]] || return 0
+    temp_json="$(build_status_json "$state" "$phase" "$message" "$error" "$exit_code" "$finished_at")"
+    printf '%s\n' "$temp_json" | write_json_atomic "$HISTORY_DIR/$RUN_ID.json" 0644 \
+        || { bb_warn "Could not write history JSON for profile $PROFILE_ID."; return 0; }
+    printf '%s\n' "$temp_json" | write_json_atomic "$HISTORY_DIR/last.json" 0644 \
+        || bb_warn "Could not write last history JSON for profile $PROFILE_ID."
+}
+
+update_run_status() {
+    local phase="$1"
+    local message="$2"
+    CURRENT_PHASE="$phase"
+    CURRENT_MESSAGE="$message"
+    write_current_status running "$phase" "$message"
 }
 
 migrate_legacy_state() {
@@ -349,19 +459,41 @@ cleanup_current_transfer() {
 on_exit() {
     local status=$?
     local eject_status=0
+    local final_state final_phase final_message final_error=""
     trap - EXIT INT TERM HUP
     set +e
 
     if (( status != 0 )); then
         cleanup_current_transfer
-        bb_notify "Backup failed during: $CURRENT_STEP"
+        final_state=failed
+        final_phase="$CURRENT_PHASE"
+        final_message="Backup failed during: $CURRENT_STEP"
+        final_error="$CURRENT_STEP"
+        bb_notify "$final_message"
     elif (( VALIDATE_ONLY == 1 )); then
-        bb_notify "Configuration and runtime preflight completed successfully."
+        final_state=validated
+        final_phase=validated
+        final_message="Configuration and runtime preflight completed successfully."
+        bb_notify "$final_message"
     elif (( RUN_SKIPPED == 1 )); then
-        bb_notify "A successful backup already exists for today; no new snapshot was created."
+        final_state=skipped
+        final_phase=skipped
+        final_message="A successful backup already exists for today; no new snapshot was created."
+        bb_notify "$final_message"
     elif (( RUN_SUCCEEDED == 1 )); then
-        bb_notify "Backup completed successfully for $SOURCE_COUNT source(s)."
+        final_state=succeeded
+        final_phase=succeeded
+        final_message="Backup completed successfully for $SOURCE_COUNT source(s)."
+        bb_notify "$final_message"
+    else
+        final_state=exited
+        final_phase="$CURRENT_PHASE"
+        final_message="Backup exited."
     fi
+
+    RUN_FINISHED_AT="$(date --iso-8601=seconds)"
+    write_current_status "$final_state" "$final_phase" "$final_message" "$final_error" "$status" "$RUN_FINISHED_AT"
+    write_history_entry "$final_state" "$final_phase" "$final_message" "$final_error" "$status" "$RUN_FINISHED_AT"
 
     if [[ -z "${INVOCATION_ID:-}" ]] \
         && (( NO_EJECT == 0 )) \
@@ -443,6 +575,7 @@ write_success_state() {
 
 ensure_target_mounted() {
     CURRENT_STEP="mounting backup target"
+    update_run_status mounting-target "Mounting encrypted backup target."
     if ! mountpoint -q "$BACKUP_MOUNTPOINT"; then
         bb_notify "Mounting encrypted backup target."
         systemctl start "$BACKUP_MOUNT_UNIT"
@@ -455,6 +588,7 @@ ensure_target_mounted() {
 
 validate_target() {
     CURRENT_STEP="validating backup target"
+    update_run_status validating-target "Validating backup target."
 
     if [[ "$(bb_mount_fstype "$BACKUP_MOUNTPOINT")" != btrfs ]]; then
         bb_die "Backup target is not a Btrfs filesystem: $BACKUP_MOUNTPOINT"
@@ -720,6 +854,9 @@ process_source() {
     install -d -m0700 "$remote_snapshot_dir" "$source_incoming_root"
 
     if (( VALIDATE_ONLY == 1 )); then
+        CURRENT_SOURCE_NAME="$source_name"
+        SOURCE_INDEX=$((SOURCE_COUNT + 1))
+        update_run_status validating-source "Validated source $source_name."
         if [[ -n "$(find "$source_incoming_root" -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null)" ]]; then
             bb_warn "Stale incoming data exists for $source_name and will be cleaned during the next real backup."
         fi
@@ -732,6 +869,9 @@ process_source() {
     recover_pending_snapshot "$source_name" "$local_snapshot_dir" "$remote_snapshot_dir"
 
     CURRENT_STEP="creating readonly snapshot for $source_name"
+    CURRENT_SOURCE_NAME="$source_name"
+    SOURCE_INDEX=$((SOURCE_COUNT + 1))
+    update_run_status creating-snapshot "Creating readonly snapshot for $source_name."
     bb_notify "Creating readonly snapshot for $source_name."
     snapshot_path="$(generate_snapshot_path "$source_name" "$local_snapshot_dir")"
     snapshot_name="$(basename -- "$snapshot_path")"
@@ -743,6 +883,7 @@ process_source() {
     fi
 
     CURRENT_STEP="selecting incremental parent for $source_name"
+    update_run_status selecting-parent "Selecting incremental parent for $source_name."
     if parent_path="$(find_incremental_parent "$local_snapshot_dir" "$remote_snapshot_dir" "$snapshot_path" "$source_name")"; then
         bb_log INFO "Verified incremental parent by UUID: $parent_path"
     elif snapshot_directory_has_subvolumes "$remote_snapshot_dir" "$source_name" && bb_bool_is_true "$INCREMENTAL_REQUIRED"; then
@@ -752,6 +893,7 @@ process_source() {
     fi
 
     CURRENT_STEP="receiving snapshot for $source_name"
+    update_run_status transferring "Transferring snapshot for $source_name."
     incoming_run_dir="$source_incoming_root/$RUN_ID"
     install -d -m0700 "$incoming_run_dir"
     CURRENT_INCOMING_RUN_DIR="$incoming_run_dir"
@@ -779,6 +921,7 @@ process_source() {
     fi
 
     CURRENT_STEP="committing received snapshot for $source_name"
+    update_run_status committing "Committing received snapshot for $source_name."
     commit_received_snapshot "$received_path" "$final_path" "$local_uuid"
     btrfs subvolume delete -- "$received_path"
     sync -f "$remote_snapshot_dir" 2>/dev/null || sync
@@ -791,6 +934,7 @@ process_source() {
     CURRENT_REMOTE_SNAPSHOT_DIR=""
 
     CURRENT_STEP="pruning snapshots for $source_name"
+    update_run_status pruning "Pruning snapshots for $source_name."
     prune_snapshots "$remote_snapshot_dir" "$source_name" "$remote_retention"
     prune_snapshots "$local_snapshot_dir" "$source_name" "$local_retention"
     sync -f "$remote_snapshot_dir" 2>/dev/null || sync
@@ -818,7 +962,9 @@ trap 'on_interrupt 143' TERM
 trap 'on_interrupt 129' HUP
 
 RUN_ID="$(date -u +%Y%m%dT%H%M%SZ)-$$-${RANDOM}"
+RUN_STARTED_AT="$(date --iso-8601=seconds)"
 migrate_legacy_state
+write_current_status starting starting "Backup run started."
 
 declare -A SEEN_SOURCE_NAMES=()
 SOURCE_FILES=("$SOURCES_DIR"/*.conf)
