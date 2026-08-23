@@ -1,0 +1,478 @@
+#include <btrfsbackup/profile.hpp>
+
+#include <algorithm>
+#include <filesystem>
+#include <map>
+#include <regex>
+#include <set>
+#include <string>
+#include <vector>
+
+#include <btrfsbackup/errors.hpp>
+#include <btrfsbackup/json_io.hpp>
+#include <btrfsbackup/process.hpp>
+
+namespace fs = std::filesystem;
+
+namespace btrfsbackup {
+
+namespace {
+
+constexpr int schema_version = 1;
+const std::regex profile_re{"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"};
+const std::regex uuid_re{"^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$"};
+const std::regex serial_re{"^(|[A-Za-z0-9][A-Za-z0-9._:+-]{0,255})$"};
+const std::set<std::string> forbidden_mount_points{"/", "/boot", "/dev", "/etc", "/home", "/proc", "/root", "/run", "/sys", "/usr", "/var"};
+
+bool starts_with(const std::string& value, const std::string& prefix) {
+    return value.rfind(prefix, 0) == 0;
+}
+
+std::string lower(std::string value) {
+    std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    return value;
+}
+
+std::string text(const Json& value, const std::string& name, bool allow_empty = false, std::size_t maximum = 512) {
+    if (!value.is_string()) {
+        throw ValidationError(name + " must be text");
+    }
+    std::string result = value.get<std::string>();
+    if (result.find('\0') != std::string::npos || result.find('\n') != std::string::npos || result.find('\r') != std::string::npos) {
+        throw ValidationError(name + " contains a forbidden control character");
+    }
+    if (result.size() > maximum) {
+        throw ValidationError(name + " is too long");
+    }
+    if (!allow_empty && result.empty()) {
+        throw ValidationError(name + " must not be empty");
+    }
+    return result;
+}
+
+std::string normalized_path(const std::string& value) {
+    return fs::path(value).lexically_normal().string();
+}
+
+std::string absolute_path(const Json& value, const std::string& name) {
+    std::string result = text(value, name, false, 4096);
+    if (!starts_with(result, "/")) {
+        throw ValidationError(name + " must be an absolute path");
+    }
+    result = normalized_path(result);
+    if (!starts_with(result, "/")) {
+        throw ValidationError(name + " is invalid");
+    }
+    return result;
+}
+
+std::string relative_path(const Json& value, const std::string& name) {
+    std::string result = text(value, name, false, 4096);
+    fs::path path(result);
+    if (path.is_absolute()) {
+        throw ValidationError(name + " must be a safe relative path");
+    }
+    for (const auto& part : path) {
+        std::string item = part.string();
+        if (item.empty() || item == "." || item == "..") {
+            throw ValidationError(name + " must be a safe relative path");
+        }
+    }
+    return path.lexically_normal().string();
+}
+
+std::string uuid_value(const Json& value, const std::string& name, bool allow_empty = false) {
+    std::string result = text(value, name, allow_empty, 64);
+    if (result.empty() && allow_empty) {
+        return "";
+    }
+    if (!std::regex_match(result, uuid_re)) {
+        throw ValidationError(name + " is not a canonical UUID");
+    }
+    return lower(result);
+}
+
+bool boolean_value(const Json& object, const std::string& key, const std::string& name, bool default_value) {
+    if (!object.contains(key) || object.at(key).is_null()) {
+        return default_value;
+    }
+    if (!object.at(key).is_boolean()) {
+        throw ValidationError(name + " must be true or false");
+    }
+    return object.at(key).get<bool>();
+}
+
+long long integer_value(const Json& object, const std::string& key, const std::string& name, long long default_value, long long maximum = 1000000000000000LL) {
+    if (!object.contains(key) || object.at(key).is_null()) {
+        return default_value;
+    }
+    if (!object.at(key).is_number_integer()) {
+        throw ValidationError(name + " must be an integer");
+    }
+    long long result = object.at(key).get<long long>();
+    if (result < 0 || result > maximum) {
+        throw ValidationError(name + " is outside the supported range");
+    }
+    return result;
+}
+
+Json object_or_empty(const Json& root, const std::string& key, const std::string& name) {
+    if (!root.contains(key) || root.at(key).is_null()) {
+        return Json::object();
+    }
+    if (!root.at(key).is_object()) {
+        throw ValidationError(name + " must be an object");
+    }
+    return root.at(key);
+}
+
+Json required_object(const Json& root, const std::string& key, const std::string& name) {
+    if (!root.contains(key) || !root.at(key).is_object()) {
+        throw ValidationError(name + " must be an object");
+    }
+    return root.at(key);
+}
+
+std::string systemd_mount_unit(const std::string& mount_point) {
+    return run_capture({"systemd-escape", "-p", "--suffix=mount", mount_point});
+}
+
+std::map<std::string, std::string> read_shell_environment(const fs::path& path) {
+    std::string script = "set -a; source \"$1\"; /usr/bin/env -0";
+    std::string output = run_capture({"bash", "-c", script, "bash", path.string()});
+    std::map<std::string, std::string> env;
+    std::size_t start = 0;
+    while (start < output.size()) {
+        std::size_t end = output.find('\0', start);
+        if (end == std::string::npos) {
+            end = output.size();
+        }
+        std::string item = output.substr(start, end - start);
+        std::size_t eq = item.find('=');
+        if (eq != std::string::npos) {
+            env[item.substr(0, eq)] = item.substr(eq + 1);
+        }
+        start = end + 1;
+    }
+    return env;
+}
+
+fs::path profile_json_path(const fs::path& etc_root, const std::string& profile_id) {
+    return etc_root / "profiles" / profile_id / "profile.json";
+}
+
+fs::path profile_env_path(const fs::path& etc_root, const std::string& profile_id) {
+    return etc_root / "profiles.d" / (profile_id + ".env");
+}
+
+Json load_profile_from_runtime(const fs::path& etc_root, const std::string& profile_id) {
+    std::map<std::string, std::string> env;
+    fs::path env_path = profile_env_path(etc_root, profile_id);
+    if (fs::exists(env_path)) {
+        env = read_shell_environment(env_path);
+    } else if (profile_id == "default" && fs::exists(etc_root / "backup.env")) {
+        env = read_shell_environment(etc_root / "backup.env");
+    } else {
+        throw ValidationError("profile JSON or runtime env not found for profile: " + profile_id);
+    }
+    std::string resolved = env_get(env, "PROFILE_ID", profile_id);
+    if (resolved != profile_id) {
+        throw ValidationError("requested profile " + profile_id + " but runtime env declares PROFILE_ID=" + resolved);
+    }
+    std::string sources_dir = env_get(env, "SOURCES_DIR", "/etc/btrfs-backup/sources.d");
+    fs::path source_root = map_etc_path(sources_dir, etc_root);
+    std::vector<fs::path> source_files;
+    for (const auto& entry : fs::directory_iterator(source_root)) {
+        if (entry.is_regular_file() && entry.path().extension() == ".conf") {
+            source_files.push_back(entry.path());
+        }
+    }
+    std::sort(source_files.begin(), source_files.end());
+    if (source_files.empty()) {
+        throw ValidationError("no source definitions found in " + source_root.string());
+    }
+    long long remote_retention = env_int(env, "RETENTION_COUNT", 30);
+    long long local_retention = env_int(env, "LOCAL_RETENTION_COUNT", remote_retention);
+    Json sources = Json::array();
+    for (const auto& source_file : source_files) {
+        auto source_env = read_shell_environment(source_file);
+        if (!env_bool(source_env, "ENABLED", true)) {
+            continue;
+        }
+        std::string source_id = env_required(source_env, "SOURCE_NAME");
+        sources.push_back({
+            {"id", source_id},
+            {"name", env_get(source_env, "SOURCE_DISPLAY_NAME", source_id)},
+            {"enabled", true},
+            {"subvolume", env_required(source_env, "SOURCE_SUBVOLUME")},
+            {"localSnapshotDir", env_required(source_env, "LOCAL_SNAPSHOT_DIR")},
+            {"remoteSubdir", env_get(source_env, "REMOTE_SUBDIR", source_id)},
+            {"remoteRetention", env_int(source_env, "SOURCE_RETENTION_COUNT", remote_retention)},
+            {"localRetention", env_int(source_env, "SOURCE_LOCAL_RETENTION_COUNT", local_retention)}
+        });
+    }
+    std::string mount = env_required(env, "BACKUP_MOUNTPOINT");
+    return normalize_profile({
+        {"schemaVersion", schema_version},
+        {"profileId", profile_id},
+        {"name", env_get(env, "PROFILE_NAME", profile_id)},
+        {"enabled", true},
+        {"target", {
+            {"device", env_required(env, "BACKUP_DEVICE")},
+            {"luksUuid", env_required(env, "BACKUP_LUKS_UUID")},
+            {"btrfsUuid", env_get(env, "BACKUP_BTRFS_UUID", "")},
+            {"partitionUuid", ""},
+            {"serial", ""},
+            {"mapperName", env_required(env, "BACKUP_MAPPER_NAME")},
+            {"mountPoint", mount}
+        }},
+        {"paths", {
+            {"sourcesDir", sources_dir},
+            {"remoteRoot", env_get(env, "REMOTE_ROOT", mount + "/snapshots")},
+            {"incomingRoot", env_get(env, "INCOMING_ROOT", mount + "/.incoming")},
+            {"stateDir", env_get(env, "STATE_DIR", "/var/lib/btrfs-backup")},
+            {"statusRoot", env_get(env, "STATUS_ROOT", "/run/btrfs-backup/profiles")},
+            {"historyRoot", env_get(env, "HISTORY_ROOT", env_get(env, "STATE_DIR", "/var/lib/btrfs-backup") + "/history")}
+        }},
+        {"settings", {
+            {"dailyLimit", env_bool(env, "DAILY_LIMIT", true)},
+            {"incrementalRequired", env_bool(env, "INCREMENTAL_REQUIRED", true)},
+            {"keepFailedLocalSnapshot", env_bool(env, "KEEP_FAILED_LOCAL_SNAPSHOT", false)},
+            {"autoEject", env_bool(env, "AUTO_EJECT", true)},
+            {"remoteRetention", remote_retention},
+            {"localRetention", local_retention},
+            {"minimumTargetFreeBytes", env_int(env, "MIN_TARGET_FREE_BYTES", 5LL * 1024 * 1024 * 1024)},
+            {"minimumLocalFreeBytes", env_int(env, "MIN_LOCAL_FREE_BYTES", 1024LL * 1024 * 1024)}
+        }},
+        {"notifications", {
+            {"enabled", env_bool(env, "NOTIFY_ENABLE", true)},
+            {"user", env_get(env, "NOTIFY_USER", "")},
+            {"method", env_get(env, "NOTIFY_METHOD", "auto")}
+        }},
+        {"sources", sources}
+    });
+}
+
+} // namespace
+
+std::string identifier(const Json& value, const std::string& name) {
+    std::string result = text(value, name, false, 64);
+    if (!std::regex_match(result, profile_re)) {
+        throw ValidationError(name + " contains unsupported characters");
+    }
+    return result;
+}
+
+std::string env_get(const std::map<std::string, std::string>& env, const std::string& name, const std::string& default_value) {
+    auto it = env.find(name);
+    return it == env.end() ? default_value : it->second;
+}
+
+std::string env_required(const std::map<std::string, std::string>& env, const std::string& name) {
+    std::string value = env_get(env, name);
+    if (value.empty()) {
+        throw ValidationError("missing required configuration variable: " + name);
+    }
+    return value;
+}
+
+bool env_bool(const std::map<std::string, std::string>& env, const std::string& name, bool default_value) {
+    auto it = env.find(name);
+    if (it == env.end() || it->second.empty()) {
+        return default_value;
+    }
+    std::string value = lower(it->second);
+    if (value == "1" || value == "yes" || value == "true" || value == "on") {
+        return true;
+    }
+    if (value == "0" || value == "no" || value == "false" || value == "off") {
+        return false;
+    }
+    throw ValidationError(name + " must be true or false");
+}
+
+long long env_int(const std::map<std::string, std::string>& env, const std::string& name, long long default_value) {
+    auto it = env.find(name);
+    if (it == env.end() || it->second.empty()) {
+        return default_value;
+    }
+    if (!std::all_of(it->second.begin(), it->second.end(), [](unsigned char c) { return std::isdigit(c); })) {
+        throw ValidationError(name + " must be an integer");
+    }
+    return std::stoll(it->second);
+}
+
+fs::path map_etc_path(const std::string& path, const fs::path& etc_root) {
+    fs::path configured(path);
+    fs::path default_root("/etc/btrfs-backup");
+    auto normalized = configured.lexically_normal();
+    auto root_normalized = default_root.lexically_normal();
+    auto root_it = root_normalized.begin();
+    auto path_it = normalized.begin();
+    for (; root_it != root_normalized.end() && path_it != normalized.end(); ++root_it, ++path_it) {
+        if (*root_it != *path_it) {
+            return configured;
+        }
+    }
+    if (root_it == root_normalized.end()) {
+        fs::path suffix;
+        for (; path_it != normalized.end(); ++path_it) {
+            suffix /= *path_it;
+        }
+        return etc_root / suffix;
+    }
+    return configured;
+}
+
+Json normalize_profile(const Json& raw) {
+    if (!raw.is_object()) {
+        throw ValidationError("profile must be an object");
+    }
+    if (!raw.contains("schemaVersion") || raw.at("schemaVersion") != schema_version) {
+        throw ValidationError("schemaVersion must be 1");
+    }
+    std::string profile_id = identifier(raw.at("profileId"), "profileId");
+    std::string profile_name = text(raw.value("name", profile_id), "name", false, 160);
+    bool enabled = boolean_value(raw, "enabled", "enabled", true);
+
+    Json target = required_object(raw, "target", "target");
+    std::string device = absolute_path(target.at("device"), "target.device");
+    if (!(device == "/dev" || starts_with(device, "/dev/"))) {
+        throw ValidationError("target.device must point inside /dev");
+    }
+    std::string luks_uuid = uuid_value(target.at("luksUuid"), "target.luksUuid");
+    std::string btrfs_uuid = uuid_value(target.value("btrfsUuid", ""), "target.btrfsUuid", true);
+    std::string partition_uuid = uuid_value(target.value("partitionUuid", ""), "target.partitionUuid", true);
+    std::string serial = text(target.value("serial", ""), "target.serial", true, 256);
+    if (!std::regex_match(serial, serial_re)) {
+        throw ValidationError("target.serial contains unsupported characters");
+    }
+    std::string mapper_name = identifier(target.at("mapperName"), "target.mapperName");
+    std::string mount_point = absolute_path(target.at("mountPoint"), "target.mountPoint");
+    if (forbidden_mount_points.count(mount_point) > 0) {
+        throw ValidationError("target.mountPoint is unsafe: " + mount_point);
+    }
+
+    Json paths = object_or_empty(raw, "paths", "paths");
+    std::string sources_dir = absolute_path(paths.value("sourcesDir", "/etc/btrfs-backup/profiles/" + profile_id + "/sources.d"), "paths.sourcesDir");
+    std::string remote_root = absolute_path(paths.value("remoteRoot", mount_point + "/snapshots"), "paths.remoteRoot");
+    std::string incoming_root = absolute_path(paths.value("incomingRoot", mount_point + "/.incoming"), "paths.incomingRoot");
+    std::string state_dir = absolute_path(paths.value("stateDir", "/var/lib/btrfs-backup"), "paths.stateDir");
+    std::string status_root = absolute_path(paths.value("statusRoot", "/run/btrfs-backup/profiles"), "paths.statusRoot");
+    std::string history_root = absolute_path(paths.value("historyRoot", "/var/lib/btrfs-backup/history"), "paths.historyRoot");
+    if (remote_root == incoming_root || starts_with(remote_root, incoming_root + "/") || starts_with(incoming_root, remote_root + "/")) {
+        throw ValidationError("paths.remoteRoot and paths.incomingRoot must be separate non-nested paths");
+    }
+
+    Json settings = object_or_empty(raw, "settings", "settings");
+    Json notifications = object_or_empty(raw, "notifications", "notifications");
+    std::string notify_method = text(notifications.value("method", "auto"), "notifications.method");
+    if (notify_method != "auto" && notify_method != "desktop" && notify_method != "journal" && notify_method != "none") {
+        throw ValidationError("notifications.method must be auto, desktop, journal, or none");
+    }
+    long long remote_retention = integer_value(settings, "remoteRetention", "settings.remoteRetention", 30, 100000);
+    long long local_retention = integer_value(settings, "localRetention", "settings.localRetention", 30, 100000);
+
+    if (!raw.contains("sources") || !raw.at("sources").is_array()) {
+        throw ValidationError("sources must be an array");
+    }
+    if (raw.at("sources").empty()) {
+        throw ValidationError("sources must contain at least one source");
+    }
+    if (raw.at("sources").size() > 128) {
+        throw ValidationError("at most 128 sources are supported");
+    }
+
+    std::set<std::string> seen_ids;
+    std::set<std::string> seen_local;
+    std::set<std::string> seen_remote;
+    Json sources = Json::array();
+    bool any_enabled = false;
+    for (std::size_t index = 0; index < raw.at("sources").size(); ++index) {
+        const Json& item = raw.at("sources").at(index);
+        if (!item.is_object()) {
+            throw ValidationError("sources[" + std::to_string(index) + "] must be an object");
+        }
+        std::string source_id = identifier(item.at("id"), "sources[" + std::to_string(index) + "].id");
+        if (!seen_ids.insert(source_id).second) {
+            throw ValidationError("duplicate source id: " + source_id);
+        }
+        std::string local = absolute_path(item.at("localSnapshotDir"), "sources[" + std::to_string(index) + "].localSnapshotDir");
+        std::string remote = relative_path(item.value("remoteSubdir", source_id), "sources[" + std::to_string(index) + "].remoteSubdir");
+        if (!seen_local.insert(local).second) {
+            throw ValidationError("duplicate localSnapshotDir: " + local);
+        }
+        if (!seen_remote.insert(remote).second) {
+            throw ValidationError("duplicate remoteSubdir: " + remote);
+        }
+        bool source_enabled = boolean_value(item, "enabled", "sources[" + std::to_string(index) + "].enabled", true);
+        any_enabled = any_enabled || source_enabled;
+        sources.push_back({
+            {"id", source_id},
+            {"name", text(item.value("name", source_id), "sources[" + std::to_string(index) + "].name", false, 160)},
+            {"enabled", source_enabled},
+            {"subvolume", absolute_path(item.at("subvolume"), "sources[" + std::to_string(index) + "].subvolume")},
+            {"localSnapshotDir", local},
+            {"remoteSubdir", remote},
+            {"remoteRetention", integer_value(item, "remoteRetention", "sources[" + std::to_string(index) + "].remoteRetention", remote_retention, 100000)},
+            {"localRetention", integer_value(item, "localRetention", "sources[" + std::to_string(index) + "].localRetention", local_retention, 100000)}
+        });
+    }
+    if (!any_enabled) {
+        throw ValidationError("at least one source must be enabled");
+    }
+
+    return {
+        {"schemaVersion", schema_version},
+        {"profileId", profile_id},
+        {"name", profile_name},
+        {"enabled", enabled},
+        {"target", {
+            {"device", device},
+            {"luksUuid", luks_uuid},
+            {"btrfsUuid", btrfs_uuid},
+            {"partitionUuid", partition_uuid},
+            {"serial", serial},
+            {"mapperName", mapper_name},
+            {"mountPoint", mount_point},
+            {"mountUnit", systemd_mount_unit(mount_point)}
+        }},
+        {"paths", {
+            {"sourcesDir", sources_dir},
+            {"remoteRoot", remote_root},
+            {"incomingRoot", incoming_root},
+            {"stateDir", state_dir},
+            {"statusRoot", status_root},
+            {"historyRoot", history_root}
+        }},
+        {"settings", {
+            {"dailyLimit", boolean_value(settings, "dailyLimit", "settings.dailyLimit", true)},
+            {"incrementalRequired", boolean_value(settings, "incrementalRequired", "settings.incrementalRequired", true)},
+            {"keepFailedLocalSnapshot", boolean_value(settings, "keepFailedLocalSnapshot", "settings.keepFailedLocalSnapshot", false)},
+            {"autoEject", boolean_value(settings, "autoEject", "settings.autoEject", true)},
+            {"remoteRetention", remote_retention},
+            {"localRetention", local_retention},
+            {"minimumTargetFreeBytes", integer_value(settings, "minimumTargetFreeBytes", "settings.minimumTargetFreeBytes", 5LL * 1024 * 1024 * 1024)},
+            {"minimumLocalFreeBytes", integer_value(settings, "minimumLocalFreeBytes", "settings.minimumLocalFreeBytes", 1024LL * 1024 * 1024)}
+        }},
+        {"notifications", {
+            {"enabled", boolean_value(notifications, "enabled", "notifications.enabled", true)},
+            {"user", text(notifications.value("user", ""), "notifications.user", true, 256)},
+            {"method", notify_method}
+        }},
+        {"sources", sources}
+    };
+}
+
+Json load_profile_by_id(const fs::path& etc_root, const std::string& profile_id) {
+    if (!std::regex_match(profile_id, profile_re)) {
+        throw ValidationError("profile contains unsupported characters");
+    }
+    fs::path canonical = profile_json_path(etc_root, profile_id);
+    if (fs::exists(canonical)) {
+        return normalize_profile(load_json_file(canonical));
+    }
+    return load_profile_from_runtime(etc_root, profile_id);
+}
+
+} // namespace btrfsbackup
