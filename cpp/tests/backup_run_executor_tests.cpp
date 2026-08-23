@@ -21,6 +21,8 @@ std::string action_name(btrfsbackup::BackupRunActionKind kind) {
 class RecordingEffects final : public btrfsbackup::IBackupRunActionEffects {
 public:
     std::vector<std::string> calls;
+    bool should_throw = false;
+    btrfsbackup::BackupRunActionKind throw_on = btrfsbackup::BackupRunActionKind::CleanupSource;
 
     void execute_action(
         const btrfsbackup::BackupRunAction& action,
@@ -28,6 +30,9 @@ public:
         const btrfsbackup::BackupRunPlan&
     ) override {
         calls.push_back(source_plan.source_id + ":" + action_name(action.kind));
+        if (should_throw && action.kind == throw_on) {
+            throw btrfsbackup::ValidationError("injected action failure: " + action_name(action.kind));
+        }
     }
 };
 
@@ -284,6 +289,32 @@ void test_receive_failure_is_reported_separately() {
     test_helpers::expect_contains("receive failed message", failed->message, "consumer failed with exit code 9");
 }
 
+void test_commit_failure_after_successful_transfer_keeps_verify_checkpoint() {
+    RecordingEffects effects;
+    effects.should_throw = true;
+    effects.throw_on = btrfsbackup::BackupRunActionKind::CommitReceived;
+    RecordingTransferPipeline transfers;
+    RecordingCheckpoints checkpoints;
+    RecordingEvents events;
+    btrfsbackup::CancellationToken cancellation;
+    btrfsbackup::BackupRunExecutor executor(effects, transfers, checkpoints);
+
+    btrfsbackup::BackupRunPlan plan = plan_with_actions({
+        action(btrfsbackup::BackupRunActionKind::CreateSnapshot),
+        action(btrfsbackup::BackupRunActionKind::SendReceive),
+        action(btrfsbackup::BackupRunActionKind::VerifyReceived),
+        action(btrfsbackup::BackupRunActionKind::CommitReceived),
+    });
+
+    test_helpers::expect_validation_error("commit failure", [&] {
+        (void)executor.execute(plan, events, cancellation);
+    }, "injected action failure");
+    test_helpers::expect_eq("commit failure transfer count", std::to_string(transfers.plans.size()), "1");
+    test_helpers::expect_eq("commit failure checkpoint count", std::to_string(checkpoints.checkpoints.size()), "3");
+    test_helpers::expect_eq("commit failure last checkpoint", action_name(checkpoints.checkpoints.back().action_kind), action_name(btrfsbackup::BackupRunActionKind::VerifyReceived));
+    test_helpers::expect_true("commit failed action event", events.has_event(btrfsbackup::BackupRunEventKind::ActionFailed), "missing failed action event");
+}
+
 } // namespace
 
 int main() {
@@ -293,6 +324,7 @@ int main() {
     test_cancels_between_actions();
     test_transfer_failure_emits_failed_action();
     test_receive_failure_is_reported_separately();
+    test_commit_failure_after_successful_transfer_keeps_verify_checkpoint();
 
     return test_helpers::finish("backup run executor tests");
 }
