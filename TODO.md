@@ -2,9 +2,10 @@
 
 ## C++ Runtime Migration
 
-- Wire `BackupRunExecutor` to state and status persistence:
-  - persist checkpoints through the existing state/status files;
-  - write stable event output for status, history and UI consumers;
+- Wire `BackupRunExecutor` into an opt-in runner command:
+  - keep Bash as the default production executor;
+  - expose a guarded C++ execution path for synthetic/local parity tests;
+  - use JSON checkpoint, status and history persistence from the executor;
   - keep the Bash runner as production executor until failure parity tests pass.
 
 - Expand `BackupRunExecutor` parity coverage:
