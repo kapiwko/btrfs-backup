@@ -13,6 +13,7 @@
 #include <btrfsbackup/command/status_history_command.hpp>
 #include <btrfsbackup/command/status_show_command.hpp>
 #include <btrfsbackup/identifiers.hpp>
+#include <btrfsbackup/json.hpp>
 #include <btrfsbackup/command/status_write_command.hpp>
 
 namespace fs = std::filesystem;
@@ -27,7 +28,7 @@ namespace {
 std::string read_text_file(const fs::path& path) {
     std::ifstream stream(path);
     if (!stream) {
-        fail("cannot read " + path.string());
+        throw btrfsbackup::ValidationError("cannot read " + path.string());
     }
     return std::string(std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>());
 }
@@ -37,40 +38,92 @@ bool readable_file(const fs::path& path) {
     return fs::is_regular_file(path, ec) && !ec && std::ifstream(path).good();
 }
 
-void watch(const fs::path& status_root, const std::vector<std::string>& args) {
+struct WatchOptions {
     std::string profile = "default";
     double interval = 1.0;
+    bool json = true;
+};
+
+std::string require_arg_value(const std::vector<std::string>& args, std::size_t& index, const std::string& option) {
+    if (index + 1 >= args.size()) {
+        throw btrfsbackup::ValidationError(option + " requires a value");
+    }
+    return args[++index];
+}
+
+WatchOptions parse_watch_options(const std::vector<std::string>& args) {
+    WatchOptions options;
 
     for (std::size_t i = 0; i < args.size(); ++i) {
         const std::string& arg = args[i];
-        if (arg == "--profile" && i + 1 < args.size()) {
-            profile = args[++i];
-        } else if (arg == "--interval" && i + 1 < args.size()) {
-            interval = std::stod(args[++i]);
-            if (interval <= 0) {
-                fail("--interval must be greater than zero");
+        if (arg == "--profile") {
+            options.profile = require_arg_value(args, i, arg);
+        } else if (arg == "--interval") {
+            options.interval = std::stod(require_arg_value(args, i, arg));
+            if (options.interval <= 0) {
+                throw btrfsbackup::ValidationError("--interval must be greater than zero");
             }
+        } else if (arg == "--json") {
+            options.json = true;
         } else {
-            fail("unknown watch option: " + arg);
+            throw btrfsbackup::ValidationError("unknown watch option: " + arg);
         }
     }
+    btrfsbackup::validate_profile_id(options.profile);
+    return options;
+}
 
-    btrfsbackup::validate_profile_id(profile);
-    fs::path path = status_root / profile / "current.json";
+void validate_status_api_json(const std::string& content) {
+    btrfsbackup::Json data = btrfsbackup::Json::parse(content);
+    if (!data.is_object()) {
+        throw btrfsbackup::ValidationError("status JSON must be an object");
+    }
+    if (!data.contains("schemaVersion") || data.at("schemaVersion") != 1) {
+        throw btrfsbackup::ValidationError("status JSON has unsupported schemaVersion");
+    }
+    const std::vector<std::string> required_fields = {
+        "profileId",
+        "profileName",
+        "runId",
+        "state",
+        "phase",
+        "message",
+        "currentSourceName",
+        "sourceIndex",
+        "sourceCount",
+        "startedAt",
+        "updatedAt",
+        "finishedAt",
+        "errorCode",
+        "errorMessage",
+        "details",
+        "recoverable",
+        "suggestedAction",
+        "canCancel",
+        "safeToRemove",
+        "bytesProcessed",
+        "bytesTotalEstimated",
+        "runBytesProcessed",
+        "speedBps",
+        "etaSeconds",
+        "sourceProgress",
+        "overallProgress",
+        "progressAccuracy",
+        "exitCode",
+    };
+    for (const std::string& field : required_fields) {
+        if (!data.contains(field)) {
+            throw btrfsbackup::ValidationError("status JSON is missing required field: " + field);
+        }
+    }
+}
+
+void watch(const fs::path& status_root, const std::vector<std::string>& args) {
+    WatchOptions options = parse_watch_options(args);
     std::string previous;
     while (true) {
-        if (readable_file(path)) {
-            std::string current = read_text_file(path);
-            if (current != previous) {
-                std::cout << current;
-                if (current.empty() || current.back() != '\n') {
-                    std::cout << '\n';
-                }
-                std::cout.flush();
-                previous = std::move(current);
-            }
-        }
-        std::this_thread::sleep_for(std::chrono::duration<double>(interval));
+        (void)btrfsbackup::command::status_watch_once(status_root, args, previous, std::cout);
+        std::this_thread::sleep_for(std::chrono::duration<double>(options.interval));
     }
 }
 
@@ -79,13 +132,41 @@ void usage() {
               << "\nCommands:\n"
               << "  show [--profile ID|--all] [--human]\n"
               << "  history [--profile ID] [--limit N]\n"
-              << "  watch [--profile ID] [--interval SECONDS]\n"
+              << "  watch [--profile ID] [--interval SECONDS] [--json]\n"
               << "  write [OPTIONS]\n";
 }
 
 } // namespace
 
 namespace btrfsbackup::command {
+
+bool status_watch_once(
+    const fs::path& status_root,
+    const std::vector<std::string>& args,
+    std::string& previous,
+    std::ostream& output
+) {
+    WatchOptions options = parse_watch_options(args);
+    fs::path path = status_root / options.profile / "current.json";
+    if (!readable_file(path)) {
+        return false;
+    }
+
+    std::string current = read_text_file(path);
+    if (current == previous) {
+        return false;
+    }
+    if (options.json) {
+        validate_status_api_json(current);
+    }
+    output << current;
+    if (current.empty() || current.back() != '\n') {
+        output << '\n';
+    }
+    output.flush();
+    previous = std::move(current);
+    return true;
+}
 
 int status(const fs::path& status_root, const fs::path& history_root, const std::vector<std::string>& args) {
     if (args.empty()) {
