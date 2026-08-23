@@ -1,0 +1,146 @@
+#include <btrfsbackup/installation_validate.hpp>
+
+#include <unistd.h>
+
+#include <filesystem>
+#include <fstream>
+#include <iostream>
+#include <iterator>
+#include <sstream>
+#include <string>
+#include <vector>
+
+#include <btrfsbackup/errors.hpp>
+#include <btrfsbackup/json_io.hpp>
+#include <btrfsbackup/process.hpp>
+#include <btrfsbackup/profile.hpp>
+
+namespace fs = std::filesystem;
+
+namespace {
+
+bool contains_unresolved_placeholder(const fs::path& root) {
+    std::error_code ec;
+    for (fs::recursive_directory_iterator it(root, ec), end; it != end; it.increment(ec)) {
+        if (ec) {
+            throw btrfsbackup::ValidationError("cannot scan rendered tree: " + root.string());
+        }
+        if (!it->is_regular_file(ec)) {
+            continue;
+        }
+        std::ifstream stream(it->path());
+        std::string line;
+        while (std::getline(stream, line)) {
+            if (line.find("{{") != std::string::npos && line.find("}}") != std::string::npos) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+bool allowed_systemd_verify_failure(const std::string& output) {
+    bool saw_output = false;
+    std::istringstream stream(output);
+    std::string line;
+    while (std::getline(stream, line)) {
+        if (line.empty()) {
+            continue;
+        }
+        saw_output = true;
+        if (line != "Failed to turn off SO_PASSRIGHTS on user lookup socket, ignoring: Operation not permitted" &&
+            line != "Failed to enable SO_PASSCRED on handoff timestamp socket: Operation not permitted") {
+            return false;
+        }
+    }
+    return saw_output;
+}
+
+void run_checked(const std::vector<std::string>& argv, bool allow_systemd_warnings = false) {
+    btrfsbackup::CommandResult result = btrfsbackup::run_command(argv);
+    if (result.exit_code == 0) {
+        if (!result.output.empty()) {
+            std::cerr << result.output;
+        }
+        return;
+    }
+    if (allow_systemd_warnings && allowed_systemd_verify_failure(result.output)) {
+        std::cerr << result.output;
+        return;
+    }
+    if (!result.output.empty()) {
+        std::cerr << result.output;
+    }
+    throw btrfsbackup::ValidationError("command failed: " + argv.front());
+}
+
+void require_file(const fs::path& path, const std::string& label) {
+    if (!fs::is_regular_file(path)) {
+        throw btrfsbackup::ValidationError(label + ": " + path.string());
+    }
+}
+
+} // namespace
+
+namespace btrfsbackup {
+
+void validate_rendered_installation(const fs::path& root) {
+    fs::path profile_json = root / "config" / "profile.json";
+    fs::path service_file = root / "systemd" / "btrfs-backup.service";
+    fs::path profile_service_file = root / "systemd" / "btrfs-backup@.service";
+    fs::path udev_file = root / "udev" / "99-btrfs-backup.rules";
+
+    require_file(profile_json, "missing rendered canonical profile JSON");
+    require_file(service_file, "missing rendered systemd unit");
+    require_file(profile_service_file, "missing rendered systemd template unit");
+    require_file(udev_file, "missing rendered udev rule");
+    if (contains_unresolved_placeholder(root)) {
+        throw ValidationError("unresolved placeholders remain in rendered files");
+    }
+
+    profile_from_json(load_json_file(profile_json));
+    run_checked({"systemd-analyze", "verify", service_file.string(), profile_service_file.string()}, true);
+    run_checked({"udevadm", "verify", udev_file.string()});
+    std::cerr << "Rendered configuration passed syntax, systemd, and udev validation: " << root << '\n';
+}
+
+void validate_active_installation(const std::string& profile_id) {
+    if (geteuid() != 0) {
+        throw ValidationError("active installation validation must be run as root");
+    }
+    fs::path profile_json = fs::path("/etc/btrfs-backup/profiles") / profile_id / "profile.json";
+    fs::path service_file = "/etc/systemd/system/btrfs-backup.service";
+    fs::path profile_service_file = "/etc/systemd/system/btrfs-backup@.service";
+    fs::path udev_file = "/etc/udev/rules.d/99-btrfs-backup.rules";
+
+    require_file(profile_json, "missing profile JSON");
+    if (!fs::is_regular_file(service_file)) {
+        throw ValidationError("missing " + service_file.string());
+    }
+    if (!fs::is_regular_file(udev_file)) {
+        throw ValidationError("missing " + udev_file.string());
+    }
+
+    Profile profile = profile_from_json(load_json_file(profile_json));
+    std::vector<std::string> verify_units = {"systemd-analyze", "verify", service_file.string()};
+    if (fs::is_regular_file(profile_service_file)) {
+        verify_units.push_back(profile_service_file.string());
+    }
+    run_checked(verify_units, true);
+    run_checked({"udevadm", "verify", udev_file.string()});
+
+    std::string mount_unit = run_capture({"systemd-escape", "-p", "--suffix=mount", profile.target.mount_point});
+    fs::path old_dropin = fs::path("/etc/systemd/system") / (mount_unit + ".d") / "backup.conf";
+    if (fs::is_regular_file(old_dropin)) {
+        std::ifstream stream(old_dropin);
+        std::string content{std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()};
+        if ((content.find("Wants=") != std::string::npos || content.find("After=") != std::string::npos) &&
+            content.find("btrfs-backup.service") != std::string::npos) {
+            throw ValidationError("obsolete cyclic mount drop-in still exists: " + old_dropin.string());
+        }
+    }
+
+    std::cerr << "Active static configuration is valid. Run 'sudo btrfs-backup --validate' with the target connected for runtime validation.\n";
+}
+
+} // namespace btrfsbackup
