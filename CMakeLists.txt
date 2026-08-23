@@ -42,6 +42,8 @@ add_library(btrfsbackup_profile_tool STATIC
     cpp/src/profile_render.cpp
     cpp/src/profile_store.cpp
     cpp/src/profile_wizard_device.cpp
+    cpp/src/profile_wizard_install.cpp
+    cpp/src/profile_wizard_model.cpp
     cpp/src/profile_wizard_paths.cpp
     cpp/src/profile_wizard_prompt.cpp
     cpp/src/profile_wizard_sources.cpp
