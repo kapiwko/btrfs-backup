@@ -20,9 +20,7 @@ The runtime engine reads profile metadata and source definitions from JSON:
 ```
 
 This file is generated from canonical JSON by `btrfs-backupctl profile` and must
-be trusted root-owned runtime data. Legacy `sources.d/*.conf` files may exist
-for migration compatibility, but the runtime no longer uses them as source
-definitions.
+be trusted root-owned runtime data.
 
 The engine must support these operation modes:
 

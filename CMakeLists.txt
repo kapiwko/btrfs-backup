@@ -18,7 +18,6 @@ add_library(btrfsbackup_profile_tool STATIC
     cpp/src/command/profile_create_command.cpp
     cpp/src/command/profile_command.cpp
     cpp/src/command/profile_list_command.cpp
-    cpp/src/command/profile_migrate_command.cpp
     cpp/src/command/profile_sources_command.cpp
     cpp/src/command/profile_wizard_command.cpp
     cpp/src/command/state_command.cpp
@@ -40,7 +39,6 @@ add_library(btrfsbackup_profile_tool STATIC
     cpp/src/mount_info.cpp
     cpp/src/process.cpp
     cpp/src/profile.cpp
-    cpp/src/profile_migrate.cpp
     cpp/src/profile_sources.cpp
     cpp/src/profile_render.cpp
     cpp/src/profile_store.cpp

@@ -164,134 +164,6 @@ render_test() {
     pass 'backupctl renders validated multi-source configuration'
 }
 
-migrate_profile_dry_run_test() {
-    local source_config="$TEST_ROOT/legacy-backup.env"
-    local source_dir="$TEST_ROOT/legacy-sources.d"
-    local profile_dir="$TEST_ROOT/profiles.d"
-    local udev_dir="$TEST_ROOT/udev"
-    local public_dir="$TEST_ROOT/public"
-
-    mkdir -p "$source_dir" "$profile_dir" "$udev_dir" "$public_dir"
-    cat > "$source_config" <<CONFIG
-BACKUP_MAPPER_NAME=backupdisk
-BACKUP_DEVICE=/dev/disk/by-uuid/11111111-2222-3333-4444-555555555555
-BACKUP_LUKS_UUID=11111111-2222-3333-4444-555555555555
-BACKUP_BTRFS_UUID=66666666-7777-8888-9999-aaaaaaaaaaaa
-BACKUP_MOUNTPOINT=/mnt/backup
-SOURCES_DIR=$source_dir
-RETENTION_COUNT=30
-LOCAL_RETENTION_COUNT=20
-DAILY_LIMIT=true
-INCREMENTAL_REQUIRED=true
-KEEP_FAILED_LOCAL_SNAPSHOT=false
-AUTO_EJECT=true
-MIN_TARGET_FREE_BYTES=0
-MIN_LOCAL_FREE_BYTES=0
-NOTIFY_ENABLE=false
-NOTIFY_USER=tester
-NOTIFY_METHOD=none
-CONFIG
-    cat > "$source_dir/10-home.conf" <<CONFIG
-ENABLED=true
-SOURCE_NAME=home
-SOURCE_SUBVOLUME=/home
-LOCAL_SNAPSHOT_DIR=/.snapshots/btrfs-backup/home
-REMOTE_SUBDIR=home
-SOURCE_RETENTION_COUNT=45
-SOURCE_LOCAL_RETENTION_COUNT=20
-CONFIG
-    chmod 0600 "$source_config" "$source_dir/10-home.conf"
-    "$ROOT/bin/btrfs-backupctl" profile migrate \
-        --dry-run \
-        --source "$source_config" \
-        --profile-dir "$profile_dir" \
-        --profile default >/dev/null
-    "$ROOT/bin/btrfs-backupctl" profile migrate \
-        --source "$source_config" \
-        --profile-dir "$profile_dir" \
-        --udev-dir "$udev_dir" \
-        --public-dir "$public_dir" \
-        --profile default \
-        --name 'Default backup' >/dev/null
-    assert_not_exists "$profile_dir/default.env"
-    assert_file "$TEST_ROOT/profiles/default/profile.json"
-    assert_file "$udev_dir/99-btrfs-backup-default.rules"
-    assert_file "$public_dir/default.json"
-    assert_contains "$TEST_ROOT/profiles/default/profile.json" '"profileId": "default"'
-
-    local profile_list
-    profile_list="$("$ROOT/bin/btrfs-backupctl" \
-        --profile-dir "$profile_dir" \
-        profile list)"
-    grep -qx default <<< "$profile_list" \
-        || fail 'btrfs-backupctl did not list profile files'
-    local empty_history
-    empty_history="$("$ROOT/bin/btrfs-backupctl" \
-        --history-root "$TEST_ROOT/missing-history" \
-        status history --profile default)"
-    [[ "$empty_history" == '[]' ]] \
-        || fail 'btrfs-backupctl did not render empty history'
-    local fallback_history_root="$TEST_ROOT/status-fallback-history"
-    mkdir -p "$fallback_history_root/default"
-    cat > "$fallback_history_root/default/last.json" <<'JSON'
-{
-  "schemaVersion": 1,
-  "profileId": "default",
-  "profileName": "Default backup",
-  "runId": "test-run",
-  "state": "succeeded",
-  "phase": "complete",
-  "message": "Backup completed successfully.",
-  "currentSourceName": "",
-  "sourceIndex": 1,
-  "sourceCount": 1,
-  "startedAt": "2026-08-23T00:00:00+00:00",
-  "updatedAt": "2026-08-23T00:01:00+00:00",
-  "finishedAt": "2026-08-23T00:01:00+00:00",
-  "error": "",
-  "exitCode": 0
-}
-JSON
-    "$ROOT/bin/btrfs-backupctl" \
-        --status-root "$TEST_ROOT/missing-status" \
-        --history-root "$fallback_history_root" \
-        status show --profile default --human \
-        | grep -q 'Default backup: succeeded' \
-        || fail 'btrfs-backupctl did not fall back to last history status'
-
-    local remove_config="$TEST_ROOT/remove-legacy-backup.env"
-    local remove_source_dir="$TEST_ROOT/remove-legacy-sources.d"
-    mkdir -p "$remove_source_dir"
-    cp -- "$source_config" "$remove_config"
-    sed -i "s|^SOURCES_DIR=.*|SOURCES_DIR=$remove_source_dir|" "$remove_config"
-    cp -- "$source_dir/10-home.conf" "$remove_source_dir/10-home.conf"
-    printf '%s\n' 'ACTION=="add", ENV{SYSTEMD_WANTS}+="btrfs-backup.service"' > "$udev_dir/99-btrfs-backup.rules"
-    chmod 0600 "$remove_config" "$remove_source_dir/10-home.conf"
-    "$ROOT/bin/btrfs-backupctl" profile migrate \
-        --source "$remove_config" \
-        --profile-dir "$profile_dir" \
-        --udev-dir "$udev_dir" \
-        --public-dir "$public_dir" \
-        --profile removelegacy \
-        --remove-legacy >/dev/null
-    assert_not_exists "$profile_dir/removelegacy.env"
-    assert_file "$udev_dir/99-btrfs-backup-removelegacy.rules"
-    assert_not_exists "$remove_config"
-    assert_not_exists "$remove_source_dir"
-    assert_not_exists "$udev_dir/99-btrfs-backup.rules"
-    remove_config_backups=("$TEST_ROOT"/remove-legacy-backup.env.migrated-*)
-    remove_source_backups=("$TEST_ROOT"/remove-legacy-sources.d.migrated-*)
-    remove_udev_backups=("$udev_dir"/99-btrfs-backup.rules.migrated-*)
-    (( ${#remove_config_backups[@]} == 1 )) || fail 'legacy config was not moved aside'
-    (( ${#remove_source_backups[@]} == 1 )) || fail 'legacy sources.d was not moved aside'
-    (( ${#remove_udev_backups[@]} == 1 )) || fail 'legacy udev rule was not moved aside'
-    assert_file "${remove_config_backups[0]}"
-    assert_dir "${remove_source_backups[0]}"
-    assert_file "${remove_source_backups[0]}/10-home.conf"
-    assert_file "${remove_udev_backups[0]}"
-    pass 'profile migrator validates and materializes JSON runtime files'
-}
-
 profile_json_test() {
     local rendered="$TEST_ROOT/profile-json-rendered"
     local saved="$TEST_ROOT/profile-json-saved"
@@ -818,29 +690,37 @@ profile_loading_test() {
     EXTRA_ENV=()
     local profile_dir="$RUNTIME/config/profiles.d"
     local empty_profile_dir="$RUNTIME/config/empty-profiles.d"
-    local migration_config="$RUNTIME/config/migration.env"
-
-    cp -- "$CONFIG_FILE" "$migration_config"
-    sed -i "s|^BACKUP_DEVICE=.*|BACKUP_DEVICE=/dev/disk/by-uuid/$MOCK_LUKS_UUID|" "$migration_config"
-    chmod 0600 "$migration_config"
-    "$ROOT/bin/btrfs-backupctl" profile migrate \
-        --source "$migration_config" \
-        --sources-dir "$SOURCES_DIR" \
-        --profile-dir "$profile_dir" \
-        --udev-dir "$RUNTIME/udev" \
-        --public-dir "$RUNTIME/public" \
+    "$ROOT/bin/btrfs-backupctl" profile create \
+        --output "$RUNTIME/config/profiles/default/profile.json" \
         --profile default \
-        --force >/dev/null
+        --name 'Default backup' \
+        --device "/dev/disk/by-uuid/$MOCK_LUKS_UUID" \
+        --luks-uuid "$MOCK_LUKS_UUID" \
+        --btrfs-uuid "$MOCK_TARGET_UUID" \
+        --mapper-name "$MAPPER_NAME" \
+        --mount-point "$MOCK_MOUNTPOINT" \
+        --remote-root "$MOCK_MOUNTPOINT/snapshots" \
+        --incoming-root "$MOCK_MOUNTPOINT/.incoming" \
+        --state-dir "$STATE_DIR" \
+        --status-root "$STATUS_ROOT" \
+        --history-root "$HISTORY_ROOT" \
+        --remote-retention 2 \
+        --local-retention 2 \
+        --minimum-target-free-bytes 0 \
+        --minimum-local-free-bytes 0 \
+        --notify-enable false \
+        --notify-method none \
+        --source root root "$SOURCE_ROOT" "$LOCAL_ROOT" root 2 2 \
+        --source home home "$SOURCE_HOME" "$LOCAL_HOME" home 2 2 >/dev/null
 
     assert_file "$RUNTIME/config/profiles/default/profile.json"
-    perl -0pi -e 's#"device": "[^"]*"#"device": "/dev/disk/by-uuid/'"$MOCK_LUKS_UUID"'"#' "$RUNTIME/config/profiles/default/profile.json"
 
     local profile_list
     profile_list="$("$ROOT/bin/btrfs-backupctl" \
         --profile-dir "$profile_dir" \
         profile list)"
     grep -qx default <<< "$profile_list" \
-        || fail 'btrfs-backupctl did not list migrated default profile'
+        || fail 'btrfs-backupctl did not list default profile'
 
     run_backup_profile "$profile_dir" --profile default --validate --no-eject >/dev/null
     assert_contains "$STATUS_ROOT/default/current.json" '"state": "validated"'
@@ -925,19 +805,20 @@ pending_recovery_test() {
     EXTRA_ENV=()
     local orphan="$LOCAL_ROOT/root-2026-01-01T000000Z"
     write_meta "$orphan" orphan-uuid
-    cat > "$STATE_DIR/pending-root" <<PENDING
+    mkdir -p "$PROFILE_STATE_DIR"
+    cat > "$PROFILE_STATE_DIR/pending-root" <<PENDING
 source_name=root
 local_snapshot_path=$orphan
 run_id=crashed
 PENDING
-    chmod 0600 "$STATE_DIR/pending-root"
+    chmod 0600 "$PROFILE_STATE_DIR/pending-root"
 
     run_backup --force
     assert_not_exists "$orphan"
     assert_not_exists "$STATE_DIR/pending-root"
     assert_not_exists "$PROFILE_STATE_DIR/pending-root"
     assert_contains "$MOCK_LOG" "DELETE $orphan"
-    pass 'legacy pending marker migrates and recovers an orphan from an unclean interruption'
+    pass 'pending recovery resolves an orphan from an unclean interruption'
 }
 
 
@@ -1044,19 +925,17 @@ eject_test() {
 }
 
 if [[ "$MODE" == static ]]; then
-    printf '1..5\n'
+    printf '1..4\n'
     syntax_test
     render_test
-    migrate_profile_dry_run_test
     profile_json_test
     status_writer_cli_test
     exit 0
 fi
 
-printf '1..15\n'
+printf '1..14\n'
 syntax_test
 render_test
-migrate_profile_dry_run_test
 profile_json_test
 status_writer_cli_test
 profile_loading_test

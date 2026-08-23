@@ -8,7 +8,6 @@
 
 #include <btrfsbackup/command/profile_create_command.hpp>
 #include <btrfsbackup/command/profile_command.hpp>
-#include <btrfsbackup/command/profile_migrate_command.hpp>
 #include <btrfsbackup/command/profile_wizard_command.hpp>
 #include <btrfsbackup/errors.hpp>
 #include <btrfsbackup/file_io.hpp>
@@ -50,7 +49,6 @@ void usage() {
     std::cout << "Usage: btrfs-backupctl profile [--etc-root PATH] [--udev-root PATH] [--public-root PATH] COMMAND\n"
               << "\nCommands:\n"
               << "  list\n"
-              << "  migrate [OPTIONS]\n"
               << "  sources --file PATH\n"
               << "  wizard [OPTIONS]\n"
               << "  create --output PATH [OPTIONS]\n"
@@ -101,9 +99,6 @@ int profile(const std::vector<std::string>& args, const fs::path& profile_config
         if (command == "list") {
             profile_list(profile_config_dir, profile_config_dir.parent_path() / "profiles", std::cout);
             return 0;
-        }
-        if (command == "migrate") {
-            return profile_migrate(std::vector<std::string>(rest.begin() + 1, rest.end()));
         }
         if (command == "sources") {
             profile_sources(std::vector<std::string>(rest.begin() + 1, rest.end()), std::cout);

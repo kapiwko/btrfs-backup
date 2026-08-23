@@ -8,17 +8,15 @@
 4. started replacing Python runtime tooling with C++ by porting profile commands
    to native `btrfs-backupctl profile` code under the `cpp/` source tree;
 5. package builds now compile and install the native control helper;
-6. profile wizard and migrator now create canonical profile JSON through
-   the native helper instead of embedded Python snippets;
+6. profile wizard now creates canonical profile JSON through the native helper
+   instead of embedded Python snippets;
 7. generated runtime packages no longer depend on Python and the old Python
    profile helper has been removed;
-8. profile migration is now handled natively by `btrfs-backupctl profile migrate`,
-   and the standalone migration wrapper and shell implementation have been
-   removed;
+8. legacy profile migration entrypoints and helpers have been removed;
 9. backup, mount, and eject runtime entrypoints now load profile JSON as their
    only profile configuration source;
-10. profile render, save, migration, and wizard flows no longer generate
-    `profiles.d/*.env` files;
+10. profile render, save, and wizard flows no longer generate `profiles.d/*.env`
+    files;
 11. `btrfs-backupctl profile create` now builds canonical profile JSON directly,
     replacing the old environment-and-TSV based profile compose path;
 12. `btrfs-backupctl installation validate` now owns rendered and active
@@ -27,8 +25,7 @@
     crypttab installation files that used to be templated by the shell
     configurator;
 14. `btrfs-backupctl` commands are grouped by area, including `profile list`,
-    `profile migrate`, `status show`, `status history`, and internal
-    `state ...` runtime commands;
+    `status show`, `status history`, and internal `state ...` runtime commands;
 15. the standalone `btrfs-backup-configure` entrypoint has been removed; the
     interactive setup flow is now `btrfs-backupctl profile wizard`.
 
