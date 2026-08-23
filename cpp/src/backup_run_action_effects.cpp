@@ -144,6 +144,11 @@ void commit_received(IBtrfsOperations& btrfs, IFileSystemEffects& fs_effects, co
     );
 }
 
+void prepare_send_receive(IFileSystemEffects& fs_effects, const BackupSourceRunPlan& source_plan) {
+    fs_effects.create_directories(source_plan.remote_snapshot_dir);
+    fs_effects.create_directories(source_plan.incoming_run_dir);
+}
+
 void cleanup_source(IBtrfsOperations& btrfs, IFileSystemEffects& fs_effects, const BackupSourceRunPlan& source_plan) {
     cleanup_path(btrfs, fs_effects, source_plan.received_snapshot_path);
     cleanup_incoming_run_dir(btrfs, fs_effects, source_plan.incoming_run_dir);
@@ -216,8 +221,10 @@ void BackupRunActionEffects::execute_action(
         case BackupRunActionKind::CleanupSource:
             cleanup_source(btrfs_, fs_effects_, source_plan);
             return;
-        case BackupRunActionKind::SelectParent:
         case BackupRunActionKind::SendReceive:
+            prepare_send_receive(fs_effects_, source_plan);
+            return;
+        case BackupRunActionKind::SelectParent:
             return;
     }
 }

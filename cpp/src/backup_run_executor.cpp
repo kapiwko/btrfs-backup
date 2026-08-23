@@ -148,6 +148,7 @@ BackupRunExecutionResult BackupRunExecutor::execute(
             emit_event(events, BackupRunEventKind::ActionStarted, plan, &source, action.kind);
             try {
                 if (action.kind == BackupRunActionKind::SendReceive) {
+                    action_effects_.execute_action(action, source, plan);
                     BackupTransferEventAdapter transfer_events(events, plan, source, action.kind);
                     TransferResult transfer_result = transfer_pipeline_.run(
                         transfer_plan_for_source(source),
