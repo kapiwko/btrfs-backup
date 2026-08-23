@@ -33,12 +33,19 @@ fs::path profile_state_dir_for_source(const BackupSourceRunPlan& source_plan) {
     return source_plan.recovery.marker_path.parent_path();
 }
 
+void cleanup_directory_contents(IBtrfsOperations& btrfs, IFileSystemEffects& fs_effects, const fs::path& directory);
+
 void cleanup_path(IBtrfsOperations& btrfs, IFileSystemEffects& fs_effects, const fs::path& path) {
     if (!fs_effects.exists(path)) {
         return;
     }
     if (btrfs.is_subvolume(path)) {
         btrfs.delete_subvolume(path);
+        return;
+    }
+    if (fs_effects.is_directory(path)) {
+        cleanup_directory_contents(btrfs, fs_effects, path);
+        fs_effects.remove_directory(path);
         return;
     }
     fs_effects.remove_tree(path);
