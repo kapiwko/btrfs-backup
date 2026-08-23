@@ -50,7 +50,6 @@ void usage() {
     std::cout << "Usage: btrfs-backupctl profile [--etc-root PATH] [--udev-root PATH] [--public-root PATH] COMMAND\n"
               << "\nCommands:\n"
               << "  compose --sources-table PATH --output PATH\n"
-              << "  env --file PATH\n"
               << "  validate --file PATH\n"
               << "  render --file PATH --output-dir PATH\n"
               << "  save --file PATH\n"
@@ -120,8 +119,8 @@ int command_profile(const std::vector<std::string>& args) {
             if (sources_table.empty()) fail("compose requires --sources-table");
             if (output_dir.empty()) fail("compose requires --output");
             atomic_write(output_dir, dump_json(profile_to_json(profile_from_environment_sources(sources_table))), 0600);
-        } else if (command == "env") {
-            if (file.empty()) fail("env requires --file");
+        } else if (command == "emit-runtime-env") {
+            if (file.empty()) fail("emit-runtime-env requires --file");
             std::cout << render_profile_env(profile_from_json(load_json_file(file)));
         } else if (command == "validate") {
             if (file.empty()) fail("validate requires --file");
