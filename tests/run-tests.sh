@@ -633,9 +633,10 @@ prepare_runtime_fixture() {
     LOCAL_ROOT="$RUNTIME/local/root"
     LOCAL_HOME="$RUNTIME/local/home"
     CONFIG_FILE="$RUNTIME/config/backup.env"
+    PROFILE_JSON_FILE="$RUNTIME/config/profiles/default/profile.json"
 
     rm -rf -- "$RUNTIME"
-    mkdir -p "$MOCKBIN" "$RUNTIME/dev/disk/by-uuid" "$RUNTIME/dev" "$SOURCES_DIR" \
+    mkdir -p "$MOCKBIN" "$RUNTIME/dev/disk/by-uuid" "$RUNTIME/dev" "$SOURCES_DIR" "$(dirname -- "$PROFILE_JSON_FILE")" \
         "$STATE_DIR" "$SOURCE_ROOT" "$SOURCE_HOME" "$LOCAL_ROOT" "$LOCAL_HOME" "$MOCK_MOUNTPOINT" /dev/mapper
     : > "$MOCK_PHYSICAL_DEVICE"
     : > "$MOCK_DM_DEVICE"
@@ -700,9 +701,60 @@ SOURCE_RETENTION_COUNT=2
 SOURCE_LOCAL_RETENTION_COUNT=2
 CONFIG
     chmod 0600 "$SOURCES_DIR"/*.conf
+    cat > "$PROFILE_JSON_FILE" <<JSON
+{
+  "schemaVersion": 1,
+  "profileId": "default",
+  "name": "Default backup",
+  "enabled": true,
+  "target": {
+    "device": "$MOCK_DEVICE_LINK",
+    "luksUuid": "$MOCK_LUKS_UUID",
+    "btrfsUuid": "$MOCK_TARGET_UUID",
+    "mapperName": "$MAPPER_NAME",
+    "mountPoint": "$MOCK_MOUNTPOINT"
+  },
+  "paths": {
+    "remoteRoot": "$MOCK_MOUNTPOINT/snapshots",
+    "incomingRoot": "$MOCK_MOUNTPOINT/.incoming",
+    "stateDir": "$STATE_DIR",
+    "statusRoot": "$STATUS_ROOT",
+    "historyRoot": "$HISTORY_ROOT"
+  },
+  "settings": {
+    "remoteRetention": 2,
+    "localRetention": 2,
+    "minimumTargetFreeBytes": 0,
+    "minimumLocalFreeBytes": 0
+  },
+  "sources": [
+    {
+      "id": "root",
+      "name": "root",
+      "enabled": true,
+      "subvolume": "$SOURCE_ROOT",
+      "localSnapshotDir": "$LOCAL_ROOT",
+      "remoteSubdir": "root",
+      "remoteRetention": 2,
+      "localRetention": 2
+    },
+    {
+      "id": "home",
+      "name": "home",
+      "enabled": true,
+      "subvolume": "$SOURCE_HOME",
+      "localSnapshotDir": "$LOCAL_HOME",
+      "remoteSubdir": "home",
+      "remoteRetention": 2,
+      "localRetention": 2
+    }
+  ]
+}
+JSON
+    chmod 0600 "$PROFILE_JSON_FILE"
 
     export MOCK_LOG MOCK_MOUNTPOINT MOCK_PHYSICAL_DEVICE MOCK_DM_DEVICE MOCK_MAPPER_NAME="$MAPPER_NAME"
-    export MOCK_LUKS_UUID MOCK_TARGET_UUID MOCK_SOURCE_UUID
+    export MOCK_LUKS_UUID MOCK_TARGET_UUID MOCK_SOURCE_UUID PROFILE_JSON_FILE
 }
 
 run_backup() {
@@ -717,6 +769,7 @@ run_backup() {
         MOCK_LUKS_UUID="$MOCK_LUKS_UUID" \
         MOCK_TARGET_UUID="$MOCK_TARGET_UUID" \
         MOCK_SOURCE_UUID="$MOCK_SOURCE_UUID" \
+        BTRFS_BACKUP_PROFILE_JSON="$PROFILE_JSON_FILE" \
         "${EXTRA_ENV[@]}" \
         "$ROOT/scripts/btrfs-backup.sh" --config "$CONFIG_FILE" "$@"
 }
@@ -739,6 +792,7 @@ run_backup_profile() {
         MOCK_LUKS_UUID="$MOCK_LUKS_UUID" \
         MOCK_TARGET_UUID="$MOCK_TARGET_UUID" \
         MOCK_SOURCE_UUID="$MOCK_SOURCE_UUID" \
+        BTRFS_BACKUP_PROFILE_JSON="$PROFILE_JSON_FILE" \
         "${EXTRA_ENV[@]}" \
         "$ROOT/scripts/btrfs-backup.sh" "$@"
 }
@@ -838,7 +892,7 @@ runtime_success_test() {
     [[ "$(grep -c '^SEND_' "$MOCK_LOG")" -eq "$sends_before" ]] || fail 'daily limit did not skip second run'
     assert_contains "$STATUS_ROOT/default/current.json" '"state": "skipped"'
 
-    printf '\n# configuration change must invalidate the daily success state\n' >> "$SOURCES_DIR/20-home.conf"
+    printf '\n ' >> "$PROFILE_JSON_FILE"
     run_backup
     [[ "$(grep -c '^SEND_' "$MOCK_LOG")" -gt "$sends_before" ]] || fail 'configuration fingerprint did not invalidate the daily limit'
     assert_contains "$MOCK_LOG" 'SEND_INCREMENTAL'
@@ -928,11 +982,11 @@ trusted_config_test() {
     fi
 
     chmod 0600 "$CONFIG_FILE"
-    chmod 0644 "$SOURCES_DIR/10-root.conf"
+    chmod 0644 "$PROFILE_JSON_FILE"
     if run_backup --force >/dev/null 2>&1; then
-        fail 'world-readable source configuration was accepted'
+        fail 'world-readable profile JSON was accepted'
     fi
-    pass 'runtime rejects active shell configuration that is not root-only'
+    pass 'runtime rejects active shell and JSON configuration that is not root-only'
 }
 
 same_filesystem_rejected_test() {

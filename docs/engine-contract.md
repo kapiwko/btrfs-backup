@@ -13,16 +13,18 @@ The canonical profile input is JSON:
 /etc/btrfs-backup/profiles/<PROFILE_ID>/profile.json
 ```
 
-The runtime engine currently reads materialized shell files:
+The runtime engine reads profile metadata from the selected shell profile and
+source definitions from JSON:
 
 ```text
 /etc/btrfs-backup/profiles.d/<PROFILE_ID>.env
-/etc/btrfs-backup/profiles/<PROFILE_ID>/sources.d/*.conf
+/etc/btrfs-backup/profiles/<PROFILE_ID>/profile.json
 ```
 
-These files are generated from the canonical JSON by `btrfs-backup-profile`.
-They are trusted root-owned runtime files, not a separate user-facing source of
-truth.
+These files are generated from the canonical JSON by `btrfs-backup-profile` and
+must be trusted root-owned runtime files. Legacy `sources.d/*.conf` files may
+exist for migration compatibility, but the runtime no longer uses them as source
+definitions.
 
 The engine must support these operation modes:
 
@@ -45,7 +47,6 @@ Every operation is scoped to one profile id. The profile id selects:
 ```text
 profile JSON
 runtime env
-source definitions
 lock file
 state directory
 status directory
