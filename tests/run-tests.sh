@@ -229,7 +229,10 @@ status_writer_cli_test() {
         --started-at '2026-08-23T08:24:00+02:00' \
         --updated-at '2026-08-23T08:25:04+02:00' \
         --finished-at '2026-08-23T08:25:04+02:00' \
-        --error '' \
+        --error-code '' \
+        --error-message '' \
+        --recoverable false \
+        --suggested-action '' \
         --exit-code 0
 
     assert_file "$current"
@@ -240,6 +243,8 @@ status_writer_cli_test() {
     assert_contains "$current" '"schemaVersion": 1'
     assert_contains "$current" '"state": "succeeded"'
     assert_contains "$current" '"message": "Backup \"done\"\nLine"'
+    assert_contains "$current" '"errorCode": ""'
+    assert_contains "$current" '"errorMessage": ""'
     assert_contains "$history" '"currentSourceName": "home"'
 
     "$ROOT/bin/btrfs-backupctl" \
