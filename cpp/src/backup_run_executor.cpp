@@ -3,8 +3,10 @@
 #include <poll.h>
 
 #include <cerrno>
+#include <cstdint>
 #include <exception>
 #include <filesystem>
+#include <limits>
 #include <string>
 
 #include <btrfsbackup/errors.hpp>
@@ -37,6 +39,7 @@ void emit_event(
     BackupRunActionKind action_kind,
     std::uint64_t bytes_transferred = 0,
     std::uint64_t bytes_produced = 0,
+    std::uint64_t bytes_total_estimated = 0,
     std::uint64_t run_bytes_transferred = 0,
     std::uint64_t delta_bytes = 0,
     std::uint64_t pending_bytes = 0,
@@ -54,6 +57,7 @@ void emit_event(
         .action_kind = action_kind,
         .bytes_transferred = bytes_transferred,
         .bytes_produced = bytes_produced,
+        .bytes_total_estimated = bytes_total_estimated,
         .run_bytes_transferred = run_bytes_transferred,
         .delta_bytes = delta_bytes,
         .pending_bytes = pending_bytes,
@@ -90,6 +94,7 @@ public:
                 action_kind_,
                 event.bytes_transferred,
                 event.bytes_produced,
+                event.bytes_total_estimated,
                 run_bytes_base_ + event.bytes_transferred,
                 event.delta_bytes,
                 event.pending_bytes,
@@ -126,7 +131,38 @@ TransferPipelinePlan transfer_plan_for_source(const BackupSourceRunPlan& source_
     return TransferPipelinePlan{
         .producer_argv = command_plan.send_argv,
         .consumer_argv = command_plan.receive_argv,
+        .bytes_total_estimated = 0,
     };
+}
+
+std::uint64_t estimate_regular_file_bytes(const std::filesystem::path& root) {
+    std::error_code ec;
+    if (!std::filesystem::exists(root, ec) || ec) {
+        return 0;
+    }
+
+    std::uint64_t total = 0;
+    std::filesystem::recursive_directory_iterator iterator(
+        root,
+        std::filesystem::directory_options::skip_permission_denied,
+        ec
+    );
+    std::filesystem::recursive_directory_iterator end;
+    while (!ec && iterator != end) {
+        std::error_code entry_ec;
+        if (iterator->is_regular_file(entry_ec) && !entry_ec) {
+            std::uintmax_t size = iterator->file_size(entry_ec);
+            if (!entry_ec) {
+                if (size > std::numeric_limits<std::uint64_t>::max() - total) {
+                    return 0;
+                }
+                total += static_cast<std::uint64_t>(size);
+            }
+        }
+        iterator.increment(ec);
+    }
+
+    return ec ? 0 : total;
 }
 
 bool action_has_external_effect(BackupRunActionKind kind) {
@@ -213,8 +249,10 @@ BackupRunExecutionResult BackupRunExecutor::execute(
                 if (action.kind == BackupRunActionKind::SendReceive) {
                     action_effects_.execute_action(action, source, plan);
                     BackupTransferEventAdapter transfer_events(events, plan, source, action.kind, completed_run_bytes);
+                    TransferPipelinePlan transfer_plan = transfer_plan_for_source(source);
+                    transfer_plan.bytes_total_estimated = estimate_regular_file_bytes(source.local_snapshot_path);
                     std::unique_ptr<IAsyncTransferHandle> transfer = transfer_pipeline_.start(
-                        transfer_plan_for_source(source),
+                        transfer_plan,
                         transfer_events
                     );
                     wait_for_transfer_or_cancellation(*transfer, cancellation);
@@ -231,7 +269,7 @@ BackupRunExecutionResult BackupRunExecutor::execute(
                     action_effects_.execute_action(action, source, plan);
                 }
             } catch (const std::exception& error) {
-                emit_event(events, BackupRunEventKind::ActionFailed, plan, &source, action.kind, 0, 0, 0, 0, 0, 0, 0, error_code, error.what());
+                emit_event(events, BackupRunEventKind::ActionFailed, plan, &source, action.kind, 0, 0, 0, 0, 0, 0, 0, 0, error_code, error.what());
                 throw;
             }
 

@@ -117,6 +117,7 @@ public:
         if (result.bytes_produced == 0) {
             result.bytes_produced = reported_progress_bytes;
         }
+        result.bytes_total_estimated = plan.bytes_total_estimated;
         return result;
     }
 };
@@ -268,6 +269,32 @@ void test_send_receive_delegates_to_transfer_pipeline() {
     test_helpers::expect_true("progress event", progress != events.events.end(), "missing transfer progress event");
     test_helpers::expect_eq("progress bytes", std::to_string(progress->bytes_transferred), "8192");
     test_helpers::expect_eq("progress delta", std::to_string(progress->delta_bytes), "8192");
+}
+
+void test_transfer_plan_estimates_snapshot_bytes() {
+    fs::path root = test_helpers::test_root("backup-run-executor", "estimate-bytes");
+    fs::create_directories(root / ".snapshots" / "root" / "dir");
+    test_helpers::write_file(root / ".snapshots" / "root" / "file-a", "12345");
+    test_helpers::write_file(root / ".snapshots" / "root" / "dir" / "file-b", "1234567");
+
+    RecordingEffects effects;
+    RecordingTransferPipeline transfers;
+    RecordingCheckpoints checkpoints;
+    RecordingEvents events;
+    btrfsbackup::CancellationToken cancellation;
+    btrfsbackup::ThreadedAsyncTransferPipeline async_transfers(transfers);
+    btrfsbackup::BackupRunExecutor executor(effects, async_transfers, checkpoints);
+
+    btrfsbackup::BackupRunPlan plan = plan_with_actions({
+        action(btrfsbackup::BackupRunActionKind::SendReceive),
+    });
+    plan.sources.at(0).local_snapshot_path = root / ".snapshots" / "root";
+
+    btrfsbackup::BackupRunExecutionResult result = executor.execute(plan, events, cancellation);
+
+    test_helpers::expect_true("estimate run completed", result.completed, "run should complete");
+    test_helpers::expect_eq("estimated bytes", std::to_string(transfers.plans.at(0).bytes_total_estimated), "12");
+    fs::remove_all(root);
 }
 
 void test_multi_source_progress_accumulates_run_bytes() {
@@ -515,6 +542,7 @@ int main() {
     test_executes_actions_and_writes_durable_checkpoints();
     test_pending_recovery_runs_before_source_cleanup();
     test_send_receive_delegates_to_transfer_pipeline();
+    test_transfer_plan_estimates_snapshot_bytes();
     test_multi_source_progress_accumulates_run_bytes();
     test_cancels_between_actions();
     test_cancels_during_transfer_without_checkpointing_transfer();

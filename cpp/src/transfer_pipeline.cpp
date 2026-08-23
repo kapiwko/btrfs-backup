@@ -332,6 +332,7 @@ void emit_event(
         .kind = kind,
         .bytes_transferred = result.bytes_transferred,
         .bytes_produced = result.bytes_produced,
+        .bytes_total_estimated = result.bytes_total_estimated,
         .delta_bytes = delta_bytes,
         .pending_bytes = pending_bytes,
         .elapsed_ms = elapsed,
@@ -474,6 +475,7 @@ TransferResult PosixTransferPipeline::run(
     TransferResult result;
     result.producer.started = true;
     result.consumer.started = true;
+    result.bytes_total_estimated = plan.bytes_total_estimated;
     emit_event(events, TransferEventKind::Started, result, started_at);
 
     data_pipe.write_end.reset();
