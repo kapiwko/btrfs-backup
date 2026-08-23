@@ -30,6 +30,7 @@ btrfsbackup::BackupRunEvent event(btrfsbackup::BackupRunEventKind kind) {
         .action_kind = btrfsbackup::BackupRunActionKind::SendReceive,
         .bytes_transferred = 4096,
         .bytes_produced = 8192,
+        .bytes_total_estimated = 8192,
         .run_bytes_transferred = 12288,
         .delta_bytes = 1024,
         .pending_bytes = 4096,
@@ -61,6 +62,7 @@ void test_build_event_json() {
     test_helpers::expect_true("source index", data.at("sourceIndex") == 1, "wrong source index");
     test_helpers::expect_true("bytes", data.at("bytesTransferred") == 4096, "wrong bytes");
     test_helpers::expect_true("produced bytes", data.at("bytesProduced") == 8192, "wrong produced bytes");
+    test_helpers::expect_true("estimated bytes", data.at("bytesTotalEstimated") == 8192, "wrong estimated bytes");
     test_helpers::expect_true("run bytes", data.at("runBytesTransferred") == 12288, "wrong run bytes");
     test_helpers::expect_true("delta bytes", data.at("deltaBytes") == 1024, "wrong delta bytes");
     test_helpers::expect_true("pending bytes", data.at("pendingBytes") == 4096, "wrong pending bytes");
@@ -103,7 +105,10 @@ void test_transfer_progress_status_uses_source_index_and_run_bytes() {
     test_helpers::expect_true("progress source index", current.at("sourceIndex") == 1, "wrong source index");
     test_helpers::expect_true("progress source count", current.at("sourceCount") == 2, "wrong source count");
     test_helpers::expect_true("progress bytes", current.at("bytesProcessed") == 4096, "wrong source bytes");
+    test_helpers::expect_true("progress total", current.at("bytesTotalEstimated") == 8192, "wrong estimated total");
     test_helpers::expect_true("progress run bytes", current.at("runBytesProcessed") == 12288, "wrong run bytes");
+    test_helpers::expect_true("progress source progress", current.at("sourceProgress") == 50, "wrong source progress");
+    test_helpers::expect_true("progress eta", current.at("etaSeconds") == 2, "wrong ETA");
     test_helpers::expect_true("progress overall", current.at("overallProgress") == 0, "wrong overall progress");
     test_helpers::expect_true("progress accuracy", current.at("progressAccuracy") == "estimated", "wrong progress accuracy");
     fs::remove_all(root);

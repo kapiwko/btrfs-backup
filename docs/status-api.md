@@ -111,6 +111,11 @@ When a source byte total is unknown, `sourceProgress` remains `-1`.
 `overallProgress` is still estimated from the current one-based `sourceIndex`
 and `sourceCount`, so it does not reset to zero between sources. Byte-oriented
 clients should prefer `runBytesProcessed` for a monotonic run-level counter.
+When the runtime can walk the local snapshot, `bytesTotalEstimated` is populated
+from the apparent size of regular files in that snapshot. This is an estimate,
+not the exact Btrfs send stream size, especially for incremental sends, reflinks
+and compression. In that case `sourceProgress` and `etaSeconds` are useful for
+orientation but must remain labelled as estimated.
 
 When `canCancel` is `true`, a client may request cancellation with:
 

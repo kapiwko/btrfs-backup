@@ -18,8 +18,9 @@
   - do not route `btrfs send` or `btrfs receive` through shell command strings.
 
 - Improve transfer progress beyond the current native pump:
-  - estimate total bytes and ETA without relying on `pv`;
-  - make `sourceProgress` exact or estimated when a source byte total is known;
+  - replace apparent-file-size transfer estimates with a better Btrfs-aware
+    estimator when an API is available;
+  - make `sourceProgress` exact when exact send-stream totals are available;
   - add live external-transfer cancellation tests and `.incoming` recovery
     coverage after cancellation.
 
