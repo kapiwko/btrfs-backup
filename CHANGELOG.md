@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.0 - unreleased
+## 0.2.0 - 2026-08-23
 
 1. removed runtime fallback to legacy source and main configuration files;
 2. stopped generating legacy source configuration files for profile render/save;
@@ -25,9 +25,31 @@
     crypttab installation files that used to be templated by the shell
     configurator;
 14. `btrfs-backupctl` commands are grouped by area, including `profile list`,
-    `status show`, `status history`, and internal `state ...` runtime commands;
+    `status show`, `status history`, `target mount`, `target eject`, and
+    internal `state ...` runtime commands;
 15. the standalone `btrfs-backup-configure` entrypoint has been removed; the
     interactive setup flow is now `btrfs-backupctl profile wizard`.
+16. the main backup runner is now native C++ and performs full and incremental
+    Btrfs send/receive, pending-state recovery, target validation, status and
+    history updates, and local/remote retention without the legacy Bash runtime;
+17. `btrfs-backup` is now a thin launcher for the native C++ entrypoint, and
+    its option handling no longer shells out to `btrfs-backupctl` or parses
+    profile JSON with text tools;
+18. standalone `btrfs-backup-mount`, `btrfs-backup-eject`, and deprecated
+    `btrfs-backup-unplug` commands have been removed; use
+    `btrfs-backupctl target mount` and `btrfs-backupctl target eject`;
+19. generated systemd units now run `btrfs-backupctl target eject` directly in
+    `ExecStopPost`;
+20. target mount inspection uses `libmount` and Btrfs filesystem UUID identity
+    from `libblkid`;
+21. Btrfs snapshot metadata, readonly checks, snapshot creation/deletion, and
+    subvolume receive verification use `libbtrfsutil` where applicable;
+22. real Btrfs integration coverage now verifies package installation, target
+    validation, full transfer, incremental transfer, mismatch rejection,
+    source-on-target rejection, retention, and `.incoming` cleanup;
+23. release packaging installs only the public `btrfs-backup` and
+    `btrfs-backupctl` commands plus native private binaries under
+    `/usr/lib/btrfs-backup`.
 
 ## 0.1.1 - 2026-08-23
 

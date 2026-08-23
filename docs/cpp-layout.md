@@ -16,6 +16,7 @@ The current CMake targets are layered this way:
 btrfsbackup-model   # JSON model, validation, identifiers, status/catalog shapes
 btrfsbackup-system  # POSIX, trusted files, process runner, mount/device/Btrfs inspection
 btrfsbackup-core    # commands, profile rendering, runner planning/execution glue
+btrfs-backup        # native backup runtime entry point
 btrfs-backupctl     # command-line executable
 ```
 
@@ -24,7 +25,8 @@ test intentionally targets a narrower layer.
 
 Rules for new C++ code:
 
-1. CLI parsing and process exit behavior belong in `cpp/apps/`.
+1. Tiny CLI `main` functions belong in `cpp/apps/`; reusable command parsing
+   and behavior belong under `cpp/include/btrfsbackup/` and `cpp/src/`.
 2. Profile, status, history, validation, filesystem, and command-runner logic
    belong in reusable code under `cpp/include/btrfsbackup/` and `cpp/src/`.
 3. External commands must be invoked without a shell; pass executable and
@@ -35,8 +37,8 @@ Rules for new C++ code:
 6. Do not introduce UI or session dependencies into the base package.
 7. Prefer small types with explicit validation over passing raw JSON through the
    codebase.
-8. Keep compatibility coverage for mount/eject wrappers and real Btrfs runner
-   behavior after the legacy Bash backup runtime has been removed.
+8. Keep compatibility coverage for real Btrfs runner behavior after the legacy
+   Bash backup runtime and standalone target wrappers have been removed.
 9. Keep model code independent from systemd, D-Bus, Qt, desktop libraries,
    block-device libraries, mount libraries, and LUKS libraries.
 10. Use Linux system libraries in system-facing code when they replace command
@@ -50,7 +52,7 @@ Rules for new C++ code:
     desktop integration must communicate with the system backend instead of
     becoming part of the backup core.
 
-The migrated native profile and status tooling currently lives in
-`btrfs-backupctl`. Its CLI entry point stays in `cpp/apps/`, while reusable
+The migrated native runtime currently lives in `btrfs-backup` and
+`btrfs-backupctl`. Their CLI entry points stay in `cpp/apps/`, while reusable
 implementation is built from `cpp/src/`. New shared logic should go through
 headers under `cpp/include/btrfsbackup/` before it is used by another command.
