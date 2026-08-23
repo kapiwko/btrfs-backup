@@ -23,6 +23,7 @@ add_library(btrfsbackup_profile_tool STATIC
     cpp/src/profile_store.cpp
     cpp/src/profile_tool.cpp
     cpp/src/status.cpp
+    cpp/src/status_writer.cpp
 )
 
 target_compile_features(btrfsbackup_profile_tool PUBLIC cxx_std_20)
@@ -66,6 +67,10 @@ if(BUILD_TESTING)
         cpp/tests/ctl_tests.cpp
     )
 
+    add_executable(btrfsbackup-status-writer-tests
+        cpp/tests/status_writer_tests.cpp
+    )
+
     target_link_libraries(btrfsbackup-profile-tests
         PRIVATE
             btrfsbackup_profile_tool
@@ -76,6 +81,12 @@ if(BUILD_TESTING)
             btrfsbackup_profile_tool
     )
 
+    target_link_libraries(btrfsbackup-status-writer-tests
+        PRIVATE
+            btrfsbackup_profile_tool
+    )
+
     add_test(NAME profile-tests COMMAND btrfsbackup-profile-tests)
     add_test(NAME ctl-tests COMMAND btrfsbackup-ctl-tests)
+    add_test(NAME status-writer-tests COMMAND btrfsbackup-status-writer-tests)
 endif()
