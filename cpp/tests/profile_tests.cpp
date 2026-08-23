@@ -202,7 +202,7 @@ void test_render_profile_env_quotes_values() {
     expect_true("profile env quote", rendered.find("PROFILE_NAME='Default backup'\n") != std::string::npos, "profile name was not shell quoted");
     expect_true(
         "profile env eject script",
-        rendered.find("EJECT_SCRIPT_PATH=/usr/bin/btrfs-backup-eject\n") != std::string::npos,
+        rendered.find("EJECT_SCRIPT_PATH='/usr/bin/btrfs-backupctl target eject'\n") != std::string::npos,
         "eject script path was not rendered as a string"
     );
 }

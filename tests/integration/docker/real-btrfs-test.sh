@@ -114,7 +114,7 @@ configure_backup_with_cli() {
         --file "$RENDERED_CONFIG/config/profile.json" \
         --output-dir "$RENDERED_CONFIG" \
         --backup-command '/usr/bin/btrfs-backupctl runner execute' \
-        --eject-script /usr/bin/btrfs-backup-eject \
+        --eject-script '/usr/bin/btrfs-backupctl target eject' \
         --keyfile none
     btrfs-backupctl installation validate --rendered-root "$RENDERED_CONFIG" >/dev/null
 
@@ -277,7 +277,7 @@ configure_backup_with_cli "$TARGET_LOOP" "$TARGET_LUKS_UUID" "$TARGET_BTRFS_UUID
 pass 'installed CLI renders, installs, and validates configuration'
 validate_runtime_preflight
 pass 'installed runtime validates the mounted target'
-btrfs-backup-mount >/dev/null
+btrfs-backupctl target mount --profile default >/dev/null
 pass 'installed mount command validates the mounted target'
 with_restored_file "$PROFILE_JSON" target_uuid_mismatch_test
 source_on_target_test

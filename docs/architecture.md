@@ -34,7 +34,7 @@ btrfs-backup@<PROFILE_ID>.service
         |-- sync and write last-success
         |
         v
-ExecStopPost=btrfs-backup-eject
+ExecStopPost=btrfs-backupctl target eject
         |
         |-- sync
         |-- unmount the expected target
