@@ -504,28 +504,12 @@ on_interrupt() {
 }
 
 compute_config_fingerprint() {
-    local backupctl profile_env_dir profile_env_file fingerprint_status
+    local backupctl
     backupctl="$(backupctl_path)" || return 1
-    profile_env_dir="$(mktemp -d)"
-    profile_env_file="$profile_env_dir/profile.env"
-    : > "$profile_env_file"
-    chmod 0600 "$profile_env_file"
-    if ! "$backupctl" profile emit-runtime-env --file "$PROFILE_JSON_FILE" > "$profile_env_file"; then
-        rm -rf -- "$profile_env_dir"
-        return 1
-    fi
-    local args=(
-        state fingerprint
-        --version "$BTRFS_BACKUP_VERSION"
-        --config "$profile_env_file"
-    )
-
-    args+=(--source "$PROFILE_JSON_FILE")
-
-    "$backupctl" "${args[@]}"
-    fingerprint_status=$?
-    rm -rf -- "$profile_env_dir"
-    return "$fingerprint_status"
+    "$backupctl" \
+        state fingerprint \
+        --version "$BTRFS_BACKUP_VERSION" \
+        --config "$PROFILE_JSON_FILE"
 }
 
 last_success_is_today() {
@@ -908,7 +892,7 @@ process_profile_json_sources() {
 bb_require_root
 bb_require_commands \
     basename btrfs cat chmod cryptsetup date df dirname find findmnt flock grep head id install \
-    mktemp mountpoint mv readlink realpath rm rmdir sed sort stat sync systemctl \
+    mountpoint mv readlink realpath rm rmdir sed sort stat sync systemctl \
     systemd-escape tail tr
 load_main_config
 
