@@ -143,7 +143,7 @@ The generated entry uses `/dev/mapper/<name>`, `noauto`, and a dependency on the
 
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl reset-failed btrfs-backup.service
+sudo systemctl reset-failed btrfs-backup@default.service
 ```
 
 ## udev Matching
