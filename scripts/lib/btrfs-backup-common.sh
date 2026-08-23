@@ -51,6 +51,9 @@ bb_validate_bool() {
 }
 
 bb_require_root() {
+    if [[ "${BTRFS_BACKUP_ALLOW_ROOTLESS_TESTS:-false}" == true ]]; then
+        return 0
+    fi
     if (( EUID != 0 )); then
         bb_die "This command must be run as root."
     fi
@@ -82,7 +85,7 @@ bb_assert_trusted_config_file() {
 
     owner_uid="$(stat -Lc '%u' -- "$config_file" 2>/dev/null || true)"
     mode="$(stat -Lc '%a' -- "$config_file" 2>/dev/null || true)"
-    if [[ "$owner_uid" != 0 ]]; then
+    if [[ "$owner_uid" != 0 && ! ( "${BTRFS_BACKUP_ALLOW_ROOTLESS_TESTS:-false}" == true && "$owner_uid" == "$EUID" ) ]]; then
         bb_die "Trusted shell configuration must be owned by root: $config_file"
     fi
     if [[ ! "$mode" =~ ^[0-7]{3,4}$ ]]; then
@@ -287,6 +290,12 @@ bb_canonical_device() {
     readlink -f -- "$1" 2>/dev/null || true
 }
 
+bb_mapper_path() {
+    local mapper_name="$1"
+    local mapper_root="${BTRFS_BACKUP_DEV_MAPPER_ROOT:-/dev/mapper}"
+    printf '%s/%s\n' "${mapper_root%/}" "$mapper_name"
+}
+
 bb_mount_uses_mapper() {
     local mountpoint="$1"
     local mapper_name="$2"
@@ -294,7 +303,7 @@ bb_mount_uses_mapper() {
 
     actual="$(bb_mount_source "$mountpoint")"
     actual="$(bb_strip_subvolume_suffix "$actual")"
-    expected="/dev/mapper/$mapper_name"
+    expected="$(bb_mapper_path "$mapper_name")"
 
     actual="$(bb_canonical_device "$actual")"
     expected="$(bb_canonical_device "$expected")"

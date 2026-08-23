@@ -15,11 +15,8 @@
 #include <btrfsbackup/history.hpp>
 #include <btrfsbackup/identifiers.hpp>
 #include <btrfsbackup/installation_tool.hpp>
-#include <btrfsbackup/migrate_profile.hpp>
-#include <btrfsbackup/profile_list.hpp>
 #include <btrfsbackup/profile_tool.hpp>
 #include <btrfsbackup/run_state_command.hpp>
-#include <btrfsbackup/source_definition.hpp>
 #include <btrfsbackup/status.hpp>
 #include <btrfsbackup/status_write_command.hpp>
 
@@ -47,12 +44,9 @@ void usage() {
               << "  --profile-dir PATH   Override profile config dir (default: /etc/btrfs-backup/profiles.d).\n"
               << "\nCommands:\n"
               << "  profile COMMAND\n"
+              << "  status COMMAND\n"
+              << "  state COMMAND\n"
               << "  installation COMMAND\n"
-              << "  migrate-profile [OPTIONS]\n"
-              << "  list-profiles\n"
-              << "  status [--profile ID|--all] [--human]\n"
-              << "  history [--profile ID] [--limit N]\n"
-              << "  watch [--profile ID] [--interval SECONDS]\n"
               << "  -h, --help\n";
 }
 
@@ -106,6 +100,110 @@ void command_watch(const fs::path& status_root, const std::vector<std::string>& 
     }
 }
 
+void status_usage() {
+    std::cout << "Usage: btrfs-backupctl status COMMAND\n"
+              << "\nCommands:\n"
+              << "  show [--profile ID|--all] [--human]\n"
+              << "  history [--profile ID] [--limit N]\n"
+              << "  watch [--profile ID] [--interval SECONDS]\n"
+              << "  write [OPTIONS]\n";
+}
+
+int command_status_group(const fs::path& status_root, const fs::path& history_root, const std::vector<std::string>& args) {
+    if (args.empty()) {
+        status_usage();
+        return 2;
+    }
+    std::string command = args[0];
+    std::vector<std::string> rest(args.begin() + 1, args.end());
+    if (command == "show") {
+        btrfsbackup::command_status(status_root, history_root, rest, std::cout);
+        return 0;
+    }
+    if (command == "history") {
+        btrfsbackup::command_history(history_root, rest, std::cout);
+        return 0;
+    }
+    if (command == "watch") {
+        command_watch(status_root, rest);
+        return 0;
+    }
+    if (command == "write") {
+        btrfsbackup::command_write_status(status_root, history_root, rest);
+        return 0;
+    }
+    if (command == "-h" || command == "--help") {
+        status_usage();
+        return 0;
+    }
+    fail("unknown status command: " + command);
+}
+
+void state_usage() {
+    std::cout << "Usage: btrfs-backupctl state COMMAND\n"
+              << "\nCommands:\n"
+              << "  fingerprint [OPTIONS]\n"
+              << "  check-last-success [OPTIONS]\n"
+              << "  write-success [OPTIONS]\n"
+              << "  migrate-legacy [OPTIONS]\n"
+              << "  pending write|read|clear [OPTIONS]\n";
+}
+
+int command_pending_state(const std::vector<std::string>& args) {
+    if (args.empty()) {
+        state_usage();
+        return 2;
+    }
+    std::string command = args[0];
+    std::vector<std::string> rest(args.begin() + 1, args.end());
+    if (command == "write") {
+        btrfsbackup::command_write_pending_marker(rest);
+        return 0;
+    }
+    if (command == "read") {
+        btrfsbackup::command_read_pending_marker(rest, std::cout);
+        return 0;
+    }
+    if (command == "clear") {
+        btrfsbackup::command_clear_pending_marker(rest);
+        return 0;
+    }
+    fail("unknown state pending command: " + command);
+}
+
+int command_state_group(const std::vector<std::string>& args) {
+    if (args.empty()) {
+        state_usage();
+        return 2;
+    }
+    std::string command = args[0];
+    std::vector<std::string> rest(args.begin() + 1, args.end());
+    if (command == "fingerprint") {
+        btrfsbackup::command_config_fingerprint(rest, std::cout);
+        return 0;
+    }
+    if (command == "check-last-success") {
+        btrfsbackup::command_check_last_success(rest, std::cout);
+        return 0;
+    }
+    if (command == "write-success") {
+        btrfsbackup::command_write_success_state(rest);
+        return 0;
+    }
+    if (command == "migrate-legacy") {
+        btrfsbackup::command_migrate_legacy_state(rest);
+        return 0;
+    }
+    if (command == "pending") {
+        return command_pending_state(rest);
+    }
+    if (command == "-h" || command == "--help") {
+        state_usage();
+        return 0;
+    }
+    fail("unknown state command: " + command);
+}
+
 } // namespace
 
 namespace btrfsbackup {
@@ -144,37 +242,13 @@ int ctl_tool_main(int argc, char** argv) {
         std::vector<std::string> args(rest.begin() + 1, rest.end());
 
         if (command == "profile") {
-            return command_profile(args);
+            return command_profile(args, profile_config_dir);
+        } else if (command == "status") {
+            return command_status_group(status_root, history_root, args);
+        } else if (command == "state") {
+            return command_state_group(args);
         } else if (command == "installation") {
             return command_installation(args);
-        } else if (command == "migrate-profile") {
-            return command_migrate_profile(args);
-        } else if (command == "list-profiles") {
-            command_list_profiles(profile_config_dir, profile_config_dir.parent_path() / "profiles", std::cout);
-        } else if (command == "status") {
-            command_status(status_root, history_root, args, std::cout);
-        } else if (command == "history") {
-            command_history(history_root, args, std::cout);
-        } else if (command == "watch") {
-            command_watch(status_root, args);
-        } else if (command == "write-status") {
-            command_write_status(status_root, history_root, args);
-        } else if (command == "config-fingerprint") {
-            command_config_fingerprint(args, std::cout);
-        } else if (command == "check-last-success") {
-            command_check_last_success(args, std::cout);
-        } else if (command == "write-success-state") {
-            command_write_success_state(args);
-        } else if (command == "migrate-legacy-state") {
-            command_migrate_legacy_state(args);
-        } else if (command == "write-pending-marker") {
-            command_write_pending_marker(args);
-        } else if (command == "read-pending-marker") {
-            command_read_pending_marker(args, std::cout);
-        } else if (command == "clear-pending-marker") {
-            command_clear_pending_marker(args);
-        } else if (command == "parse-profile-sources") {
-            command_parse_profile_sources(args, std::cout);
         } else if (command == "-h" || command == "--help") {
             usage();
         } else {

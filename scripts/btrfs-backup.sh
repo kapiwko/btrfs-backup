@@ -99,7 +99,7 @@ load_main_config() {
     NOTIFY_ENABLE="${NOTIFY_ENABLE:-true}"
     NOTIFY_METHOD="${NOTIFY_METHOD:-auto}"
     NOTIFY_USER="${NOTIFY_USER:-}"
-    LOCK_FILE="${LOCK_FILE:-/run/btrfs-backup/backup.lock}"
+    LOCK_FILE="${BTRFS_BACKUP_LOCK_FILE:-${LOCK_FILE:-/run/btrfs-backup/backup.lock}}"
     STATE_DIR="${STATE_DIR:-/var/lib/btrfs-backup}"
     STATUS_ROOT="${STATUS_ROOT:-/run/btrfs-backup/profiles}"
     HISTORY_ROOT="${HISTORY_ROOT:-$STATE_DIR/history}"
@@ -194,7 +194,7 @@ write_status_record() {
     "$backupctl" \
         --status-root "$STATUS_ROOT" \
         --history-root "$HISTORY_ROOT" \
-        write-status \
+        status write \
         "$target" \
         --profile-id "$PROFILE_ID" \
         --profile-name "$PROFILE_NAME" \
@@ -251,7 +251,7 @@ migrate_legacy_state() {
 
     backupctl="$(backupctl_path)" || return 1
     "$backupctl" \
-        migrate-legacy-state \
+        state migrate-legacy \
         --state-dir "$STATE_DIR" \
         --profile-state-dir "$PROFILE_STATE_DIR"
 }
@@ -325,7 +325,7 @@ write_pending_marker() {
     marker="$(pending_marker_path "$source_name")"
     backupctl="$(backupctl_path)" || return 1
     "$backupctl" \
-        write-pending-marker \
+        state pending write \
         --profile-state-dir "$PROFILE_STATE_DIR" \
         --source-name "$source_name" \
         --local-snapshot-path "$local_snapshot_path" \
@@ -340,7 +340,7 @@ clear_pending_marker() {
     if [[ -n "$marker" ]]; then
         backupctl="$(backupctl_path)" || return 1
         "$backupctl" \
-            clear-pending-marker \
+            state pending clear \
             --marker "$marker" \
             --profile-state-dir "$PROFILE_STATE_DIR" || true
     fi
@@ -374,7 +374,7 @@ recover_pending_snapshot() {
     [[ -r "$marker" ]] || return 0
 
     backupctl="$(backupctl_path)" || return 1
-    pending_path="$("$backupctl" read-pending-marker --marker "$marker" --field local_snapshot_path)"
+    pending_path="$("$backupctl" state pending read --marker "$marker" --field local_snapshot_path)"
     if [[ -z "$pending_path" ]] \
         || ! bb_path_is_within "$pending_path" "$local_snapshot_dir" \
         || [[ "$(basename -- "$pending_path")" != "$source_name-"* ]]; then
@@ -515,7 +515,7 @@ compute_config_fingerprint() {
         return 1
     fi
     local args=(
-        config-fingerprint
+        state fingerprint
         --version "$BTRFS_BACKUP_VERSION"
         --config "$profile_env_file"
     )
@@ -533,7 +533,7 @@ last_success_is_today() {
 
     backupctl="$(backupctl_path)" || return 1
     result="$("$backupctl" \
-        check-last-success \
+        state check-last-success \
         --profile-state-dir "$PROFILE_STATE_DIR" \
         --today "$(date +%F)" \
         --target-luks-uuid "$BACKUP_LUKS_UUID" \
@@ -546,7 +546,7 @@ write_success_state() {
 
     backupctl="$(backupctl_path)" || return 1
     "$backupctl" \
-        write-success-state \
+        state write-success \
         --profile-state-dir "$PROFILE_STATE_DIR" \
         --date "$(date +%F)" \
         --timestamp "$(date --iso-8601=seconds)" \
@@ -889,7 +889,7 @@ process_profile_json_sources() {
     local values=()
 
     backupctl="$(backupctl_path)" || return 1
-    parser_output="$("$backupctl" parse-profile-sources --file "$PROFILE_JSON_FILE")" || return $?
+    parser_output="$("$backupctl" profile sources --file "$PROFILE_JSON_FILE")" || return $?
     mapfile -t source_records <<< "$parser_output"
     if (( ${#source_records[@]} == 0 )); then
         bb_die "No enabled source definitions found in $PROFILE_JSON_FILE"

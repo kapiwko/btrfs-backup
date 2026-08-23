@@ -182,12 +182,12 @@ void command_parse_profile_sources(const std::vector<std::string>& args, std::os
         if (arg == "--file") {
             profile_json = arg_value(args, i, arg);
         } else {
-            throw ValidationError("unknown parse-profile-sources option: " + arg);
+            throw ValidationError("unknown profile sources option: " + arg);
         }
     }
 
     if (profile_json.empty()) {
-        throw ValidationError("parse-profile-sources requires --file");
+        throw ValidationError("profile sources requires --file");
     }
 
     for (const ProfileSource& source : profile_sources_from_json(load_json_file(profile_json))) {

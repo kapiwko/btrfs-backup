@@ -12,8 +12,8 @@ case "${1:-}" in
         cat <<'USAGE'
 Usage: tests/run-tests.sh [--full|--static-only]
 
-  --full         Run all mocked runtime tests; requires root (default).
-  --static-only  Run syntax and rendering validation without /dev access.
+  --full         Run all mocked runtime tests (default).
+  --static-only  Run syntax and rendering validation only.
 USAGE
         exit 0
         ;;
@@ -26,7 +26,8 @@ esac
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 TEST_ROOT="$(mktemp -d /tmp/btrfs-backup-tests.XXXXXX)"
 MAPPER_NAME="bbtestbackup$$"
-MAPPER_PATH="/dev/mapper/$MAPPER_NAME"
+MAPPER_ROOT="$TEST_ROOT/dev/mapper"
+MAPPER_PATH="$MAPPER_ROOT/$MAPPER_NAME"
 TESTS_RUN=0
 
 cleanup() {
@@ -193,12 +194,12 @@ SOURCE_RETENTION_COUNT=45
 SOURCE_LOCAL_RETENTION_COUNT=20
 CONFIG
     chmod 0600 "$source_config" "$source_dir/10-home.conf"
-    "$ROOT/bin/btrfs-backupctl" migrate-profile \
+    "$ROOT/bin/btrfs-backupctl" profile migrate \
         --dry-run \
         --source "$source_config" \
         --profile-dir "$profile_dir" \
         --profile default >/dev/null
-    "$ROOT/bin/btrfs-backupctl" migrate-profile \
+    "$ROOT/bin/btrfs-backupctl" profile migrate \
         --source "$source_config" \
         --profile-dir "$profile_dir" \
         --udev-dir "$udev_dir" \
@@ -214,13 +215,13 @@ CONFIG
     local profile_list
     profile_list="$("$ROOT/bin/btrfs-backupctl" \
         --profile-dir "$profile_dir" \
-        list-profiles)"
+        profile list)"
     grep -qx default <<< "$profile_list" \
         || fail 'btrfs-backupctl did not list profile files'
     local empty_history
     empty_history="$("$ROOT/bin/btrfs-backupctl" \
         --history-root "$TEST_ROOT/missing-history" \
-        history --profile default)"
+        status history --profile default)"
     [[ "$empty_history" == '[]' ]] \
         || fail 'btrfs-backupctl did not render empty history'
     local fallback_history_root="$TEST_ROOT/status-fallback-history"
@@ -247,7 +248,7 @@ JSON
     "$ROOT/bin/btrfs-backupctl" \
         --status-root "$TEST_ROOT/missing-status" \
         --history-root "$fallback_history_root" \
-        status --profile default --human \
+        status show --profile default --human \
         | grep -q 'Default backup: succeeded' \
         || fail 'btrfs-backupctl did not fall back to last history status'
 
@@ -259,7 +260,7 @@ JSON
     cp -- "$source_dir/10-home.conf" "$remove_source_dir/10-home.conf"
     printf '%s\n' 'ACTION=="add", ENV{SYSTEMD_WANTS}+="btrfs-backup.service"' > "$udev_dir/99-btrfs-backup.rules"
     chmod 0600 "$remove_config" "$remove_source_dir/10-home.conf"
-    "$ROOT/bin/btrfs-backupctl" migrate-profile \
+    "$ROOT/bin/btrfs-backupctl" profile migrate \
         --source "$remove_config" \
         --profile-dir "$profile_dir" \
         --udev-dir "$udev_dir" \
@@ -334,7 +335,7 @@ status_writer_cli_test() {
     "$ROOT/bin/btrfs-backupctl" \
         --status-root "$status_root" \
         --history-root "$history_root" \
-        write-status \
+        status write \
         --current \
         --history \
         --profile-id default \
@@ -365,13 +366,13 @@ status_writer_cli_test() {
     "$ROOT/bin/btrfs-backupctl" \
         --status-root "$status_root" \
         --history-root "$history_root" \
-        status --profile default --human \
+        status show --profile default --human \
         | grep -q 'Default backup: succeeded' \
         || fail 'btrfs-backupctl did not render written status'
 
     "$ROOT/bin/btrfs-backupctl" \
         --history-root "$history_root" \
-        history --profile default --limit 1 \
+        status history --profile default --limit 1 \
         | grep -q '"runId": "20260823T082504Z-123-456"' \
         || fail 'btrfs-backupctl did not render written history'
 
@@ -482,9 +483,9 @@ MOCK
 set -euo pipefail
 case "${1:-}" in
     start)
-        mkdir -p -- "$MOCK_MOUNTPOINT" /dev/mapper
+        mkdir -p -- "$MOCK_MOUNTPOINT" "$MOCK_MAPPER_ROOT"
         touch "$MOCK_MOUNTPOINT/.mock-mounted"
-        ln -sfn "$MOCK_DM_DEVICE" "/dev/mapper/$MOCK_MAPPER_NAME"
+        ln -sfn "$MOCK_DM_DEVICE" "$MOCK_MAPPER_ROOT/$MOCK_MAPPER_NAME"
         printf 'SYSTEMCTL_START %s\n' "${2:-}" >> "$MOCK_LOG"
         ;;
     *) exit 0 ;;
@@ -507,13 +508,13 @@ for ((i=0; i<${#args[@]}; i++)); do
 done
 if [[ "$output" == SOURCE,TARGET ]]; then
     if [[ -f "$MOCK_MOUNTPOINT/.mock-mounted" ]]; then
-        printf '/dev/mapper/%s %s\n' "$MOCK_MAPPER_NAME" "$MOCK_MOUNTPOINT"
+        printf '%s/%s %s\n' "$MOCK_MAPPER_ROOT" "$MOCK_MAPPER_NAME" "$MOCK_MOUNTPOINT"
     fi
     exit 0
 fi
 if [[ "$mode" == M ]]; then
     case "$output" in
-        SOURCE) printf '/dev/mapper/%s\n' "$MOCK_MAPPER_NAME" ;;
+        SOURCE) printf '%s/%s\n' "$MOCK_MAPPER_ROOT" "$MOCK_MAPPER_NAME" ;;
         FSTYPE) printf 'btrfs\n' ;;
         OPTIONS) printf 'rw,noatime,compress=zstd\n' ;;
         UUID) printf '%s\n' "$MOCK_TARGET_UUID" ;;
@@ -554,7 +555,7 @@ case "${1:-}" in
     "/dev/disk/by-uuid/$MOCK_LUKS_UUID")
         printf '%s\n' "$MOCK_PHYSICAL_DEVICE"
         ;;
-    "/dev/mapper/$MOCK_MAPPER_NAME")
+    "$MOCK_MAPPER_ROOT/$MOCK_MAPPER_NAME")
         printf '%s\n' "$MOCK_DM_DEVICE"
         ;;
     *)
@@ -578,7 +579,7 @@ STATUS
         printf '%s\n' "$MOCK_LUKS_UUID"
         ;;
     close)
-        rm -f -- "/dev/mapper/${2:-$MOCK_MAPPER_NAME}"
+        rm -f -- "$MOCK_MAPPER_ROOT/${2:-$MOCK_MAPPER_NAME}"
         printf 'CRYPT_CLOSE %s\n' "${2:-$MOCK_MAPPER_NAME}" >> "$MOCK_LOG"
         ;;
     *) exit 2 ;;
@@ -620,6 +621,7 @@ prepare_runtime_fixture() {
     MOCK_LUKS_UUID=11111111-2222-3333-4444-555555555555
     MOCK_PHYSICAL_DEVICE="$RUNTIME/dev/sdb1"
     MOCK_DM_DEVICE="$RUNTIME/dev/dm-0"
+    MOCK_MAPPER_ROOT="$MAPPER_ROOT"
     MOCK_DEVICE_LINK="/dev/disk/by-uuid/$MOCK_LUKS_UUID"
     MOCK_TARGET_UUID=aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee
     MOCK_SOURCE_UUID=99999999-8888-7777-6666-555555555555
@@ -638,7 +640,7 @@ prepare_runtime_fixture() {
 
     rm -rf -- "$RUNTIME"
     mkdir -p "$MOCKBIN" "$RUNTIME/dev" "$SOURCES_DIR" "$(dirname -- "$CONFIG_FILE")" "$(dirname -- "$PROFILE_JSON_FILE")" \
-        "$STATE_DIR" "$SOURCE_ROOT" "$SOURCE_HOME" "$LOCAL_ROOT" "$LOCAL_HOME" "$MOCK_MOUNTPOINT" /dev/mapper
+        "$STATE_DIR" "$SOURCE_ROOT" "$SOURCE_HOME" "$LOCAL_ROOT" "$LOCAL_HOME" "$MOCK_MOUNTPOINT" "$MOCK_MAPPER_ROOT"
     : > "$MOCK_PHYSICAL_DEVICE"
     : > "$MOCK_DM_DEVICE"
     ln -sfn "$MOCK_DM_DEVICE" "$MAPPER_PATH"
@@ -754,7 +756,7 @@ JSON
     chmod 0600 "$PROFILE_JSON_FILE"
 
     export MOCK_LOG MOCK_MOUNTPOINT MOCK_PHYSICAL_DEVICE MOCK_DM_DEVICE MOCK_MAPPER_NAME="$MAPPER_NAME"
-    export MOCK_LUKS_UUID MOCK_TARGET_UUID MOCK_SOURCE_UUID PROFILE_JSON_FILE
+    export MOCK_MAPPER_ROOT MOCK_LUKS_UUID MOCK_TARGET_UUID MOCK_SOURCE_UUID PROFILE_JSON_FILE
 }
 
 run_backup() {
@@ -765,10 +767,14 @@ run_backup() {
         MOCK_MOUNTPOINT="$MOCK_MOUNTPOINT" \
         MOCK_PHYSICAL_DEVICE="$MOCK_PHYSICAL_DEVICE" \
         MOCK_DM_DEVICE="$MOCK_DM_DEVICE" \
+        MOCK_MAPPER_ROOT="$MOCK_MAPPER_ROOT" \
         MOCK_MAPPER_NAME="$MAPPER_NAME" \
         MOCK_LUKS_UUID="$MOCK_LUKS_UUID" \
         MOCK_TARGET_UUID="$MOCK_TARGET_UUID" \
         MOCK_SOURCE_UUID="$MOCK_SOURCE_UUID" \
+        BTRFS_BACKUP_DEV_MAPPER_ROOT="$MOCK_MAPPER_ROOT" \
+        BTRFS_BACKUP_LOCK_FILE="$LOCK_FILE" \
+        BTRFS_BACKUP_ALLOW_ROOTLESS_TESTS=true \
         BTRFS_BACKUP_PROFILE_JSON="$PROFILE_JSON_FILE" \
         "${EXTRA_ENV[@]}" \
         "$ROOT/scripts/btrfs-backup.sh" "$@"
@@ -786,10 +792,14 @@ run_backup_profile() {
         MOCK_MOUNTPOINT="$MOCK_MOUNTPOINT" \
         MOCK_PHYSICAL_DEVICE="$MOCK_PHYSICAL_DEVICE" \
         MOCK_DM_DEVICE="$MOCK_DM_DEVICE" \
+        MOCK_MAPPER_ROOT="$MOCK_MAPPER_ROOT" \
         MOCK_MAPPER_NAME="$MAPPER_NAME" \
         MOCK_LUKS_UUID="$MOCK_LUKS_UUID" \
         MOCK_TARGET_UUID="$MOCK_TARGET_UUID" \
         MOCK_SOURCE_UUID="$MOCK_SOURCE_UUID" \
+        BTRFS_BACKUP_DEV_MAPPER_ROOT="$MOCK_MAPPER_ROOT" \
+        BTRFS_BACKUP_LOCK_FILE="$LOCK_FILE" \
+        BTRFS_BACKUP_ALLOW_ROOTLESS_TESTS=true \
         "${EXTRA_ENV[@]}" \
         "$ROOT/scripts/btrfs-backup.sh" "$@"
 }
@@ -804,7 +814,7 @@ profile_loading_test() {
     cp -- "$CONFIG_FILE" "$migration_config"
     sed -i "s|^BACKUP_DEVICE=.*|BACKUP_DEVICE=/dev/disk/by-uuid/$MOCK_LUKS_UUID|" "$migration_config"
     chmod 0600 "$migration_config"
-    "$ROOT/bin/btrfs-backupctl" migrate-profile \
+    "$ROOT/bin/btrfs-backupctl" profile migrate \
         --source "$migration_config" \
         --sources-dir "$SOURCES_DIR" \
         --profile-dir "$profile_dir" \
@@ -819,7 +829,7 @@ profile_loading_test() {
     local profile_list
     profile_list="$("$ROOT/bin/btrfs-backupctl" \
         --profile-dir "$profile_dir" \
-        list-profiles)"
+        profile list)"
     grep -qx default <<< "$profile_list" \
         || fail 'btrfs-backupctl did not list migrated default profile'
 
@@ -853,14 +863,14 @@ runtime_success_test() {
     "$ROOT/bin/btrfs-backupctl" \
         --status-root "$STATUS_ROOT" \
         --history-root "$HISTORY_ROOT" \
-        status --profile default --human \
+        status show --profile default --human \
         | grep -q 'Default backup: succeeded' \
         || fail 'btrfs-backupctl did not render human status'
     local ctl_history_output
     ctl_history_output="$("$ROOT/bin/btrfs-backupctl" \
         --status-root "$STATUS_ROOT" \
         --history-root "$HISTORY_ROOT" \
-        history --profile default --limit 1)"
+        status history --profile default --limit 1)"
     grep -q '"state": "succeeded"' <<< "$ctl_history_output" \
         || fail 'btrfs-backupctl did not render history'
     if grep -qx ',' <<< "$ctl_history_output"; then
@@ -1005,10 +1015,14 @@ eject_test() {
         MOCK_MOUNTPOINT="$MOCK_MOUNTPOINT" \
         MOCK_PHYSICAL_DEVICE="$MOCK_PHYSICAL_DEVICE" \
         MOCK_DM_DEVICE="$MOCK_DM_DEVICE" \
+        MOCK_MAPPER_ROOT="$MOCK_MAPPER_ROOT" \
         MOCK_MAPPER_NAME="$MAPPER_NAME" \
         MOCK_LUKS_UUID="$MOCK_LUKS_UUID" \
         MOCK_TARGET_UUID="$MOCK_TARGET_UUID" \
         MOCK_SOURCE_UUID="$MOCK_SOURCE_UUID" \
+        BTRFS_BACKUP_DEV_MAPPER_ROOT="$MOCK_MAPPER_ROOT" \
+        BTRFS_BACKUP_LOCK_FILE="$LOCK_FILE" \
+        BTRFS_BACKUP_ALLOW_ROOTLESS_TESTS=true \
         BTRFS_BACKUP_PROFILE_JSON="$PROFILE_JSON_FILE" \
         "$ROOT/scripts/btrfs-backup-eject.sh" >/dev/null
 
@@ -1027,10 +1041,6 @@ if [[ "$MODE" == static ]]; then
     profile_json_test
     status_writer_cli_test
     exit 0
-fi
-
-if (( EUID != 0 )); then
-    fail 'full mocked runtime tests require root; use --static-only otherwise'
 fi
 
 printf '1..15\n'

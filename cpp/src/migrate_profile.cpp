@@ -27,7 +27,7 @@ namespace btrfsbackup {
 namespace {
 
 [[noreturn]] void fail(const std::string& message, int code = 2) {
-    std::cerr << "btrfs-backupctl migrate-profile: " << message << '\n';
+    std::cerr << "btrfs-backupctl profile migrate: " << message << '\n';
     std::exit(code);
 }
 
@@ -39,7 +39,7 @@ std::string arg_value(const std::vector<std::string>& args, std::size_t& index, 
 }
 
 void usage() {
-    std::cout << "Usage: btrfs-backupctl migrate-profile [options]\n"
+    std::cout << "Usage: btrfs-backupctl profile migrate [options]\n"
               << "\nOptions:\n"
               << "  --source PATH       Legacy configuration file (default: /etc/btrfs-backup/backup.env).\n"
               << "  --sources-dir PATH  Legacy source definitions directory (default: SOURCES_DIR from source).\n"
