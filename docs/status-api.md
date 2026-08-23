@@ -18,7 +18,7 @@ Current status is written atomically to:
 The root directory can be overridden with `paths.statusRoot` in the runtime profile JSON.
 The status directory is intended to be readable by unprivileged local users.
 After a oneshot service exits, systemd may remove the runtime directory. In
-that case, `btrfs-backupctl status --profile <profile>` falls back to
+that case, `btrfs-backupctl status show --profile <profile>` falls back to
 `/var/lib/btrfs-backup/history/<PROFILE_ID>/last.json` when it exists.
 
 Example:
@@ -87,18 +87,18 @@ History entries use the same schema as `current.json`, with `finishedAt` and
 the final `exitCode` populated.
 History is intended to be readable by unprivileged local users; private recovery
 state remains under `STATE_DIR/profiles/<PROFILE_ID>`.
-`btrfs-backupctl history` returns an empty JSON array when no history exists yet.
+`btrfs-backupctl status history` returns an empty JSON array when no history exists yet.
 
 ## CLI
 
 Use `btrfs-backupctl` to inspect the file-based status API:
 
 ```bash
-btrfs-backupctl status --profile default
-btrfs-backupctl status --profile default --human
-btrfs-backupctl status --all --human
-btrfs-backupctl history --profile default --limit 10
-btrfs-backupctl watch --profile default --interval 1
+btrfs-backupctl status show --profile default
+btrfs-backupctl status show --profile default --human
+btrfs-backupctl status show --all --human
+btrfs-backupctl status history --profile default --limit 10
+btrfs-backupctl status watch --profile default --interval 1
 ```
 
 For tests or chrooted environments, the roots can be overridden:
@@ -107,7 +107,7 @@ For tests or chrooted environments, the roots can be overridden:
 btrfs-backupctl \
   --status-root /tmp/run/profiles \
   --history-root /tmp/history \
-  status --profile default
+  status show --profile default
 ```
 
 ## Compatibility

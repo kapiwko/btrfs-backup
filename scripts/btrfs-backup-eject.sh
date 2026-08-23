@@ -71,7 +71,7 @@ AUTO_EJECT="${AUTO_EJECT:-true}"
 NOTIFY_ENABLE="${NOTIFY_ENABLE:-true}"
 NOTIFY_METHOD="${NOTIFY_METHOD:-auto}"
 NOTIFY_USER="${NOTIFY_USER:-}"
-LOCK_FILE="${LOCK_FILE:-/run/btrfs-backup/backup.lock}"
+LOCK_FILE="${BTRFS_BACKUP_LOCK_FILE:-${LOCK_FILE:-/run/btrfs-backup/backup.lock}}"
 
 for required in BACKUP_MAPPER_NAME BACKUP_MOUNTPOINT BACKUP_DEVICE BACKUP_LUKS_UUID LOCK_FILE; do
     bb_require_var "$required"
@@ -108,7 +108,7 @@ validate_mapper_identity() {
 
 mapper_has_mounts() {
     local expected actual source target
-    expected="$(bb_canonical_device "/dev/mapper/$BACKUP_MAPPER_NAME")"
+    expected="$(bb_canonical_device "$(bb_mapper_path "$BACKUP_MAPPER_NAME")")"
     [[ -n "$expected" ]] || return 1
 
     while read -r source target; do
@@ -145,7 +145,7 @@ crypt_unit="$(cryptsetup_unit_name)"
 bb_log INFO "Stopping LUKS systemd unit $crypt_unit"
 systemctl stop "$crypt_unit" 2>/dev/null || true
 
-if [[ -e "/dev/mapper/$BACKUP_MAPPER_NAME" ]]; then
+if [[ -e "$(bb_mapper_path "$BACKUP_MAPPER_NAME")" ]]; then
     if (( FORCE == 0 )) && ! validate_mapper_identity; then
         bb_die "Refusing to close mapper $BACKUP_MAPPER_NAME because its underlying device does not match configuration."
     fi

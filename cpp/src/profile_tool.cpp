@@ -13,9 +13,12 @@
 #include <btrfsbackup/file_io.hpp>
 #include <btrfsbackup/json.hpp>
 #include <btrfsbackup/json_io.hpp>
+#include <btrfsbackup/migrate_profile.hpp>
 #include <btrfsbackup/profile.hpp>
+#include <btrfsbackup/profile_list.hpp>
 #include <btrfsbackup/profile_render.hpp>
 #include <btrfsbackup/profile_store.hpp>
+#include <btrfsbackup/source_definition.hpp>
 
 namespace fs = std::filesystem;
 using btrfsbackup::ValidationError;
@@ -227,6 +230,9 @@ int command_create_profile(const std::vector<std::string>& args) {
 void usage() {
     std::cout << "Usage: btrfs-backupctl profile [--etc-root PATH] [--udev-root PATH] [--public-root PATH] COMMAND\n"
               << "\nCommands:\n"
+              << "  list\n"
+              << "  migrate [OPTIONS]\n"
+              << "  sources --file PATH\n"
               << "  create --output PATH [OPTIONS]\n"
               << "  validate --file PATH\n"
               << "  render --file PATH --output-dir PATH\n"
@@ -239,7 +245,7 @@ void usage() {
 
 namespace btrfsbackup {
 
-int command_profile(const std::vector<std::string>& args) {
+int command_profile(const std::vector<std::string>& args, const fs::path& profile_config_dir) {
     fs::path etc_root = std::getenv("BTRFS_BACKUP_ETC_ROOT") ? std::getenv("BTRFS_BACKUP_ETC_ROOT") : "/etc/btrfs-backup";
     fs::path udev_root = std::getenv("BTRFS_BACKUP_UDEV_ROOT") ? std::getenv("BTRFS_BACKUP_UDEV_ROOT") : "/etc/udev/rules.d";
     fs::path public_root = std::getenv("BTRFS_BACKUP_PUBLIC_ROOT") ? std::getenv("BTRFS_BACKUP_PUBLIC_ROOT") : "/var/lib/btrfs-backup/public/profiles";
@@ -271,6 +277,17 @@ int command_profile(const std::vector<std::string>& args) {
         std::string command = rest[0];
         if (command == "create") {
             return command_create_profile(std::vector<std::string>(rest.begin() + 1, rest.end()));
+        }
+        if (command == "list") {
+            command_list_profiles(profile_config_dir, profile_config_dir.parent_path() / "profiles", std::cout);
+            return 0;
+        }
+        if (command == "migrate") {
+            return command_migrate_profile(std::vector<std::string>(rest.begin() + 1, rest.end()));
+        }
+        if (command == "sources") {
+            command_parse_profile_sources(std::vector<std::string>(rest.begin() + 1, rest.end()), std::cout);
+            return 0;
         }
         fs::path file;
         fs::path output_dir;

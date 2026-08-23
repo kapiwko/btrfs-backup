@@ -55,12 +55,12 @@ void command_check_last_success(const std::vector<std::string>& args, std::ostre
         } else if (arg == "--config-fingerprint") {
             config_fingerprint = arg_value(args, i, arg);
         } else {
-            throw ValidationError("unknown check-last-success option: " + arg);
+            throw ValidationError("unknown state check-last-success option: " + arg);
         }
     }
 
     if (profile_state_dir.empty()) {
-        throw ValidationError("check-last-success requires --profile-state-dir");
+        throw ValidationError("state check-last-success requires --profile-state-dir");
     }
     require_non_empty(today, "today");
     require_non_empty(target_luks_uuid, "target_luks_uuid");
@@ -94,12 +94,12 @@ void command_write_success_state(const std::vector<std::string>& args) {
         } else if (arg == "--config-fingerprint") {
             state.config_fingerprint = arg_value(args, i, arg);
         } else {
-            throw ValidationError("unknown write-success-state option: " + arg);
+            throw ValidationError("unknown state write-success option: " + arg);
         }
     }
 
     if (profile_state_dir.empty()) {
-        throw ValidationError("write-success-state requires --profile-state-dir");
+        throw ValidationError("state write-success requires --profile-state-dir");
     }
     write_success_state(profile_state_dir, state);
 }
@@ -115,15 +115,15 @@ void command_migrate_legacy_state(const std::vector<std::string>& args) {
         } else if (arg == "--profile-state-dir") {
             profile_state_dir = arg_value(args, i, arg);
         } else {
-            throw ValidationError("unknown migrate-legacy-state option: " + arg);
+            throw ValidationError("unknown state migrate-legacy option: " + arg);
         }
     }
 
     if (state_dir.empty()) {
-        throw ValidationError("migrate-legacy-state requires --state-dir");
+        throw ValidationError("state migrate-legacy requires --state-dir");
     }
     if (profile_state_dir.empty()) {
-        throw ValidationError("migrate-legacy-state requires --profile-state-dir");
+        throw ValidationError("state migrate-legacy requires --profile-state-dir");
     }
     migrate_legacy_state(state_dir, profile_state_dir);
 }
@@ -145,12 +145,12 @@ void command_write_pending_marker(const std::vector<std::string>& args) {
         } else if (arg == "--timestamp") {
             marker.timestamp = arg_value(args, i, arg);
         } else {
-            throw ValidationError("unknown write-pending-marker option: " + arg);
+            throw ValidationError("unknown state pending write option: " + arg);
         }
     }
 
     if (profile_state_dir.empty()) {
-        throw ValidationError("write-pending-marker requires --profile-state-dir");
+        throw ValidationError("state pending write requires --profile-state-dir");
     }
     write_pending_marker(profile_state_dir, marker);
 }
@@ -166,12 +166,12 @@ void command_read_pending_marker(const std::vector<std::string>& args, std::ostr
         } else if (arg == "--field") {
             field = arg_value(args, i, arg);
         } else {
-            throw ValidationError("unknown read-pending-marker option: " + arg);
+            throw ValidationError("unknown state pending read option: " + arg);
         }
     }
 
     if (marker_path.empty()) {
-        throw ValidationError("read-pending-marker requires --marker");
+        throw ValidationError("state pending read requires --marker");
     }
     output << read_pending_marker_field(marker_path, field) << '\n';
 }
@@ -187,15 +187,15 @@ void command_clear_pending_marker(const std::vector<std::string>& args) {
         } else if (arg == "--profile-state-dir") {
             profile_state_dir = arg_value(args, i, arg);
         } else {
-            throw ValidationError("unknown clear-pending-marker option: " + arg);
+            throw ValidationError("unknown state pending clear option: " + arg);
         }
     }
 
     if (marker_path.empty()) {
-        throw ValidationError("clear-pending-marker requires --marker");
+        throw ValidationError("state pending clear requires --marker");
     }
     if (profile_state_dir.empty()) {
-        throw ValidationError("clear-pending-marker requires --profile-state-dir");
+        throw ValidationError("state pending clear requires --profile-state-dir");
     }
     clear_pending_marker(marker_path, profile_state_dir);
 }

@@ -75,12 +75,12 @@ void command_write_status(
         } else if (arg == "--exit-code") {
             record.exit_code = parse_int(arg, arg_value(args, i, arg));
         } else {
-            throw ValidationError("unknown write-status option: " + arg);
+            throw ValidationError("unknown status write option: " + arg);
         }
     }
 
     if (!current && !history) {
-        throw ValidationError("write-status requires --current or --history");
+        throw ValidationError("status write requires --current or --history");
     }
     if (history && record.finished_at.empty()) {
         throw ValidationError("--history requires --finished-at");
