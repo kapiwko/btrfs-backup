@@ -45,6 +45,7 @@ add_library(btrfsbackup-system STATIC
     cpp/src/mount_info.cpp
     cpp/src/process.cpp
     cpp/src/profile_loader.cpp
+    cpp/src/process_spawn.cpp
     cpp/src/run_state.cpp
     cpp/src/shell_env.cpp
     cpp/src/space_check.cpp
@@ -191,6 +192,7 @@ if(BUILD_TESTING)
     add_btrfsbackup_test(btrfsbackup-runtime-adapters-tests cpp/tests/runtime_adapters_tests.cpp runtime-adapters-tests)
     add_btrfsbackup_test(btrfsbackup-runner-command-tests cpp/tests/runner_command_tests.cpp runner-command-tests)
     add_btrfsbackup_test(btrfsbackup-mount-info-tests cpp/tests/mount_info_tests.cpp mount-info-tests)
+    add_btrfsbackup_test(btrfsbackup-process-tests cpp/tests/process_tests.cpp process-tests)
     add_btrfsbackup_test(btrfsbackup-file-lock-tests cpp/tests/file_lock_tests.cpp file-lock-tests)
     add_btrfsbackup_test(btrfsbackup-status-writer-tests cpp/tests/status_writer_tests.cpp status-writer-tests)
     add_btrfsbackup_test(btrfsbackup-space-check-tests cpp/tests/space_check_tests.cpp space-check-tests)

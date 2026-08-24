@@ -16,6 +16,7 @@
 #include <vector>
 
 #include <btrfsbackup/errors.hpp>
+#include <btrfsbackup/process_spawn.hpp>
 
 namespace btrfsbackup {
 
@@ -197,17 +198,7 @@ UniqueFd open_dev_null() {
     return UniqueFd(fd);
 }
 
-std::vector<char*> argv_for_exec(const std::vector<std::string>& argv) {
-    std::vector<char*> result;
-    result.reserve(argv.size() + 1);
-    for (const std::string& item : argv) {
-        result.push_back(const_cast<char*>(item.c_str()));
-    }
-    result.push_back(nullptr);
-    return result;
-}
-
-pid_t spawn_process(
+ProcessSpawnResult spawn_transfer_process(
     const std::vector<std::string>& argv,
     int stdin_fd,
     int stdout_fd,
@@ -216,22 +207,12 @@ pid_t spawn_process(
     if (argv.empty()) {
         throw ValidationError("empty transfer command");
     }
-
-    pid_t pid = fork();
-    if (pid < 0) {
-        throw ValidationError(std::string("cannot fork transfer process: ") + std::strerror(errno));
-    }
-    if (pid == 0) {
-        setpgid(0, 0);
-        dup2(stdin_fd, STDIN_FILENO);
-        dup2(stdout_fd, STDOUT_FILENO);
-        dup2(stderr_fd, STDERR_FILENO);
-        std::vector<char*> args = argv_for_exec(argv);
-        execvp(args[0], args.data());
-        _exit(127);
-    }
-    setpgid(pid, pid);
-    return pid;
+    return spawn_program(argv, {
+        .stdin_fd = stdin_fd,
+        .stdout_fd = stdout_fd,
+        .stderr_fd = stderr_fd,
+        .create_process_group = true,
+    });
 }
 
 int status_to_exit_code(int status) {
@@ -459,13 +440,13 @@ TransferResult PosixTransferPipeline::run(
     Pipe consumer_error_pipe = create_pipe();
     UniqueFd dev_null = open_dev_null();
 
-    pid_t producer_pid = spawn_process(
+    ProcessSpawnResult producer_spawn = spawn_transfer_process(
         plan.producer_argv,
         dev_null.get(),
         data_pipe.write_end.get(),
         producer_error_pipe.write_end.get()
     );
-    pid_t consumer_pid = spawn_process(
+    ProcessSpawnResult consumer_spawn = spawn_transfer_process(
         plan.consumer_argv,
         consumer_input_pipe.read_end.get(),
         dev_null.get(),
@@ -473,8 +454,16 @@ TransferResult PosixTransferPipeline::run(
     );
 
     TransferResult result;
-    result.producer.started = true;
-    result.consumer.started = true;
+    result.producer.started = producer_spawn.started();
+    result.consumer.started = consumer_spawn.started();
+    if (!result.producer.started) {
+        result.producer.diagnostics = "posix_spawnp failed for " + plan.producer_argv.front()
+            + ": " + std::strerror(producer_spawn.error);
+    }
+    if (!result.consumer.started) {
+        result.consumer.diagnostics = "posix_spawnp failed for " + plan.consumer_argv.front()
+            + ": " + std::strerror(consumer_spawn.error);
+    }
     result.bytes_total_estimated = plan.bytes_total_estimated;
     emit_event(events, TransferEventKind::Started, result, started_at);
 
@@ -482,18 +471,40 @@ TransferResult PosixTransferPipeline::run(
     consumer_input_pipe.read_end.reset();
     producer_error_pipe.write_end.reset();
     consumer_error_pipe.write_end.reset();
-    set_nonblocking(data_pipe.read_end.get());
-    set_nonblocking(consumer_input_pipe.write_end.get());
-    set_nonblocking(producer_error_pipe.read_end.get());
-    set_nonblocking(consumer_error_pipe.read_end.get());
+
+    if (result.producer.started) {
+        set_nonblocking(data_pipe.read_end.get());
+        set_nonblocking(producer_error_pipe.read_end.get());
+    } else {
+        data_pipe.read_end.reset();
+        producer_error_pipe.read_end.reset();
+    }
+    if (result.consumer.started) {
+        set_nonblocking(consumer_input_pipe.write_end.get());
+        set_nonblocking(consumer_error_pipe.read_end.get());
+    } else {
+        consumer_input_pipe.write_end.reset();
+        consumer_error_pipe.read_end.reset();
+    }
 
     std::string pending;
-    bool producer_stdout_open = true;
-    bool consumer_stdin_open = true;
-    bool producer_stderr_open = true;
-    bool consumer_stderr_open = true;
-    bool producer_done = false;
-    bool consumer_done = false;
+    bool producer_stdout_open = result.producer.started;
+    bool consumer_stdin_open = result.consumer.started;
+    bool producer_stderr_open = result.producer.started;
+    bool consumer_stderr_open = result.consumer.started;
+    bool producer_done = !result.producer.started;
+    bool consumer_done = !result.consumer.started;
+    const pid_t producer_pid = producer_spawn.pid;
+    const pid_t consumer_pid = consumer_spawn.pid;
+    if (!producer_stdout_open && consumer_stdin_open) {
+        consumer_input_pipe.write_end.reset();
+        consumer_stdin_open = false;
+    }
+    if (!consumer_stdin_open && producer_stdout_open) {
+        data_pipe.read_end.reset();
+        producer_stdout_open = false;
+        terminate_child(producer_pid);
+    }
     bool cancellation_sent = false;
     auto cancel_transfer = [&] {
         if (cancellation_sent) {
