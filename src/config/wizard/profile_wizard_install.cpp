@@ -12,42 +12,48 @@
 #include <config/installation_validate.hpp>
 #include <config/json_io.hpp>
 #include <config/profile.hpp>
+#include <config/render_directory.hpp>
 #include <platform/linux/process.hpp>
 #include <platform/linux/trusted_directory.hpp>
 #include <config/profile_store.hpp>
-#include <config/wizard/profile_wizard_paths.hpp>
 
 namespace fs = std::filesystem;
 
 namespace btrfsbackup {
 
 void render_wizard_tree(const Profile& profile, const std::string& keyfile, const fs::path& output_dir) {
-    wizard::assert_safe_output_dir(output_dir);
-    std::error_code ec;
-    fs::remove_all(output_dir, ec);
-    fs::create_directories(output_dir / "config");
-    fs::create_directories(output_dir / "systemd");
-    fs::create_directories(output_dir / "udev");
-
-    atomic_write(output_dir / "config" / "profile.json", dump_json(profile_to_json(profile)), 0600);
-    save_tree(
-        profile,
-        output_dir / "config",
-        output_dir / "udev",
-        output_dir / "systemd",
-        output_dir / "public" / "profiles"
-    );
-
-    render_installation_files(
-        profile,
+    const fs::path target_mount_root = fs::path(profile.target.mount_point).parent_path();
+    const Profile validated_profile = profile_from_json(profile_to_json(profile), target_mount_root);
+    replace_render_directory(
         output_dir,
-        {
-            "/usr/bin/btrfs-backupctl runner execute",
-            "/usr/bin/btrfs-backupctl target eject",
-            keyfile
+        [&](const fs::path& staging) {
+            fs::create_directories(staging / "config");
+            fs::create_directories(staging / "systemd");
+            fs::create_directories(staging / "udev");
+
+            atomic_write(staging / "config" / "profile.json", dump_json(profile_to_json(validated_profile)), 0600);
+            save_tree(
+                validated_profile,
+                staging / "config",
+                staging / "udev",
+                staging / "systemd",
+                staging / "public" / "profiles"
+            );
+
+            render_installation_files(
+                validated_profile,
+                staging,
+                {
+                    "/usr/bin/btrfs-backupctl runner execute",
+                    "/usr/bin/btrfs-backupctl target eject",
+                    keyfile
+                }
+            );
+        },
+        [&](const fs::path& staging) {
+            validate_rendered_installation(staging, target_mount_root);
         }
     );
-    validate_rendered_installation(output_dir, fs::path(profile.target.mount_point).parent_path());
 }
 
 void apply_rendered_wizard_tree(const Profile& profile, const fs::path& output_dir) {
