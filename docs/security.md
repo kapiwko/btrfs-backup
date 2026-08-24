@@ -47,6 +47,13 @@ a separate high-risk operation. Its polkit policy must require an explicit
 administrator decision and must not grant automatic consent merely because the
 caller owns the active graphical session.
 
+The complete method and action matrix is defined in
+[system-dbus-api.md](system-dbus-api.md). The system bus policy is deny-by-default:
+only sanitized read methods are available without polkit, operational methods
+have distinct actions, and profile, device-preparation, and hook changes require
+fresh administrator authorization. `SaveProfile` cannot be used to smuggle a
+hook change through the lower-risk profile authorization.
+
 Profile writes must use same-directory temporary files, strict permissions,
 `fsync`, atomic rename, and parent-directory `fsync` where practical. Render and
 save operations must reject output paths that point at the repository root,
