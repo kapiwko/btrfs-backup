@@ -266,6 +266,71 @@ void test_includes_pending_recovery_action() {
     test_helpers::expect_true("recovery delete", source.recovery.delete_local_snapshot, "orphan should be scheduled for deletion");
 }
 
+void test_excludes_recovery_deletions_from_retention() {
+    const btrfsbackup::SnapshotInfo orphan = snapshot(
+        btrfsbackup::SnapshotSide::Local,
+        "root",
+        "root-2026-08-20T080000Z",
+        "2026-08-20T080000Z",
+        "/.snapshots/root/root-2026-08-20T080000Z",
+        "orphan-uuid"
+    );
+    btrfsbackup::SnapshotInventoryBySource local{
+        {
+            "root",
+            {
+                orphan,
+                snapshot(btrfsbackup::SnapshotSide::Local, "root", "root-2026-08-21T080000Z", "2026-08-21T080000Z", "/.snapshots/root/one", "one"),
+                snapshot(btrfsbackup::SnapshotSide::Local, "root", "root-2026-08-22T080000Z", "2026-08-22T080000Z", "/.snapshots/root/two", "two"),
+            },
+        },
+    };
+    btrfsbackup::PendingMarkerBySource markers{
+        {
+            "root",
+            btrfsbackup::PendingMarker{
+                .source_name = "root",
+                .local_snapshot_path = orphan.path.string(),
+                .final_snapshot_path = "/mnt/backup/snapshots/root/root-2026-08-20T080000Z",
+                .run_id = "20260820T080000Z-123-456",
+                .timestamp = "2026-08-20T08:00:00+00:00",
+            },
+        },
+    };
+    btrfsbackup::PendingSnapshotBySource pending_snapshots{
+        {
+            "root",
+            btrfsbackup::SnapshotMetadata{
+                .is_subvolume = true,
+                .readonly = true,
+                .uuid = orphan.uuid,
+            },
+        },
+    };
+
+    btrfsbackup::Profile test_profile = profile();
+    test_profile.settings.incremental_required = false;
+    btrfsbackup::BackupRunPlan plan = btrfsbackup::build_backup_run_plan(
+        test_profile,
+        mounts(),
+        local,
+        {},
+        markers,
+        pending_snapshots,
+        "20260823T080000Z-123-456",
+        "2026-08-23T080000Z"
+    );
+
+    const btrfsbackup::BackupSourceRunPlan& source = plan.sources.at(0);
+    test_helpers::expect_true("recovery deletes orphan", source.recovery.delete_local_snapshot, "orphan should be recovered");
+    test_helpers::expect_eq("retention deletes one", std::to_string(source.local_retention.delete_snapshots.size()), "1");
+    test_helpers::expect_true(
+        "retention does not repeat recovery deletion",
+        source.local_retention.delete_snapshots.at(0).path != orphan.path,
+        "a snapshot must not be deleted by recovery and retention"
+    );
+}
+
 void test_rejects_invalid_mount_layout() {
     btrfsbackup::Profile test_profile = profile();
     test_profile.sources.at(0).local_snapshot_dir = "/mnt/backup/local";
@@ -291,6 +356,7 @@ int main() {
     test_inserts_snapshot_hooks_around_snapshot_creation();
     test_plans_collision_suffix_and_retention();
     test_includes_pending_recovery_action();
+    test_excludes_recovery_deletions_from_retention();
     test_rejects_invalid_mount_layout();
 
     return test_helpers::finish("backup run plan tests");

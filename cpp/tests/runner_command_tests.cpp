@@ -1,4 +1,6 @@
 #include <sys/stat.h>
+#include <signal.h>
+#include <unistd.h>
 
 #include <atomic>
 #include <chrono>
@@ -13,6 +15,7 @@
 #include <vector>
 
 #include <btrfsbackup/command/runner_command.hpp>
+#include <btrfsbackup/backup_tool.hpp>
 #include <btrfsbackup/config_fingerprint.hpp>
 #include <btrfsbackup/file_lock.hpp>
 #include <btrfsbackup/json.hpp>
@@ -38,11 +41,14 @@ public:
     std::vector<std::string> recovered_pending_paths;
     btrfsbackup::BackupRunActionKind throw_on = btrfsbackup::BackupRunActionKind::SelectParent;
     bool should_throw = false;
+    bool write_pending_on_snapshot = false;
+    fs::path pending_state_dir;
+    std::string pending_timestamp = "2026-08-23T08:00:00Z";
 
     void execute_action(
         const btrfsbackup::BackupRunAction& action,
         const btrfsbackup::BackupSourceRunPlan& source_plan,
-        const btrfsbackup::BackupRunPlan&,
+        const btrfsbackup::BackupRunPlan& plan,
         btrfsbackup::CancellationToken&
     ) override {
         calls.push_back(source_plan.source_id + ":" + action_name(action.kind));
@@ -59,6 +65,18 @@ public:
         if (action.kind == btrfsbackup::BackupRunActionKind::RecoverPending
             && source_plan.recovery.delete_local_snapshot) {
             recovered_pending_paths.push_back(source_plan.recovery.local_snapshot_path.string());
+        }
+        if (write_pending_on_snapshot && action.kind == btrfsbackup::BackupRunActionKind::CreateSnapshot) {
+            btrfsbackup::write_pending_marker(
+                pending_state_dir,
+                {
+                    .source_name = source_plan.source_id,
+                    .local_snapshot_path = source_plan.local_snapshot_path.string(),
+                    .final_snapshot_path = source_plan.final_remote_snapshot_path.string(),
+                    .run_id = plan.run_id,
+                    .timestamp = pending_timestamp,
+                }
+            );
         }
         if (should_throw && action.kind == throw_on) {
             throw btrfsbackup::ValidationError("injected action failure: " + action_name(action.kind));
@@ -134,6 +152,34 @@ public:
         };
     }
 };
+
+class CancellationAwareTransferPipeline final : public btrfsbackup::ITransferPipeline {
+public:
+    std::atomic_bool entered = false;
+
+    btrfsbackup::TransferResult run(
+        const btrfsbackup::TransferPipelinePlan&,
+        btrfsbackup::ITransferEventSink&,
+        btrfsbackup::CancellationToken& cancellation
+    ) override {
+        entered.store(true);
+        while (!cancellation.cancellation_requested()) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        }
+        return {
+            .producer = {.started = true, .exit_code = 143},
+            .consumer = {.started = true, .exit_code = 143},
+            .cancelled = true,
+        };
+    }
+};
+
+void wait_until_entered(CancellationAwareTransferPipeline& pipeline) {
+    for (int attempt = 0; attempt < 200 && !pipeline.entered.load(); ++attempt) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    test_helpers::expect_true("cancellable runner entered", pipeline.entered.load(), "runner did not reach transfer");
+}
 
 void wait_until_entered(BlockingTransferPipeline& pipeline) {
     for (int attempt = 0; attempt < 200 && !pipeline.entered.load(); ++attempt) {
@@ -494,6 +540,43 @@ void test_runner_execute_serializes_shared_target_but_allows_another_target() {
         }
     });
     wait_until_entered(active_transfer_pipeline);
+
+    RecordingActionEffects same_profile_action_effects;
+    ConfigurableTransferPipeline same_profile_transfer_pipeline;
+    btrfsbackup::command::RunnerExecutionServices same_profile_services{
+        .action_effects = same_profile_action_effects,
+        .transfer_pipeline = same_profile_transfer_pipeline,
+        .lock_root = lock_root,
+    };
+    std::ostringstream same_profile_output;
+    int same_profile_result = btrfsbackup::command::runner(
+        config_root,
+        {
+            "execute",
+            "--profile",
+            active_profile.id,
+            "--mountinfo",
+            active_mountinfo.string(),
+        },
+        same_profile_output,
+        &same_profile_services
+    );
+
+    btrfsbackup::Json same_profile_json = btrfsbackup::Json::parse(same_profile_output.str());
+    test_helpers::expect_eq("concurrent profile result", std::to_string(same_profile_result), "1");
+    test_helpers::expect_eq(
+        "concurrent profile error",
+        same_profile_json.at("errorCode").get<std::string>(),
+        "runner.profile_busy"
+    );
+    test_helpers::expect_true("concurrent profile effects", same_profile_action_effects.calls.empty(), "second runner must not execute actions");
+    test_helpers::expect_true("concurrent profile transfers", same_profile_transfer_pipeline.plans.empty(), "second runner must not transfer");
+    btrfsbackup::Json active_status = btrfsbackup::load_json_file(root / "status" / active_profile.id / "current.json");
+    test_helpers::expect_eq(
+        "active status preserved",
+        active_status.at("runId").get<std::string>(),
+        "20260823T080000Z-active"
+    );
 
     RecordingActionEffects shared_action_effects;
     ConfigurableTransferPipeline shared_transfer_pipeline;
@@ -1462,6 +1545,91 @@ void test_runner_execute_honors_cancel_request_during_transfer() {
     fs::remove_all(root);
 }
 
+void test_runner_execute_handles_sigint_as_cancelled_with_recovery_marker() {
+    fs::path root = test_helpers::test_root("runner-command", "execute-sigint");
+    fs::create_directories(root / "source" / "root");
+    fs::create_directories(root / "source" / ".snapshots" / "root");
+    fs::create_directories(root / "target" / "snapshots" / "root");
+    fs::create_directories(root / "target" / ".incoming");
+
+    btrfsbackup::Profile profile = test_profile(root);
+    fs::path config_root = root / "config";
+    fs::path mountinfo = root / "mountinfo";
+    fs::path profile_state_dir = root / "state" / "profiles" / "default";
+    write_profile(config_root, profile);
+    write_mountinfo(mountinfo, profile);
+
+    RecordingActionEffects action_effects;
+    action_effects.write_pending_on_snapshot = true;
+    action_effects.pending_state_dir = profile_state_dir;
+    CancellationAwareTransferPipeline transfer_pipeline;
+    btrfsbackup::command::RunnerExecutionServices services{
+        .action_effects = action_effects,
+        .transfer_pipeline = transfer_pipeline,
+        .lock_root = root / "locks",
+    };
+    btrfsbackup::CancellationToken cancellation;
+    btrfsbackup::TerminationSignalMonitor termination_signals(cancellation);
+    std::ostringstream output;
+    int result = -1;
+    std::exception_ptr runner_error;
+    std::thread runner([&] {
+        try {
+            result = btrfsbackup::command::runner(
+                config_root,
+                {
+                    "execute",
+                    "--profile",
+                    "default",
+                    "--timestamp",
+                    "2026-08-23T080000Z",
+                    "--run-id",
+                    "20260823T080000Z-sigint",
+                    "--mountinfo",
+                    mountinfo.string(),
+                    "--mount-uuid",
+                    "/dev/source",
+                    "source-fs",
+                    "--mount-uuid",
+                    "/dev/mapper/backup",
+                    profile.target.btrfs_uuid,
+                },
+                output,
+                &services,
+                &cancellation
+            );
+        } catch (...) {
+            runner_error = std::current_exception();
+        }
+    });
+
+    wait_until_entered(transfer_pipeline);
+    test_helpers::expect_eq("send runner SIGINT", std::to_string(kill(getpid(), SIGINT)), "0");
+    runner.join();
+    if (runner_error != nullptr) {
+        std::rethrow_exception(runner_error);
+    }
+
+    btrfsbackup::Json run = btrfsbackup::Json::parse(output.str());
+    btrfsbackup::Json current = btrfsbackup::load_json_file(root / "status" / "default" / "current.json");
+    test_helpers::expect_eq("SIGINT runner result", std::to_string(result), "1");
+    test_helpers::expect_true("SIGINT cancelled result", run.at("cancelled").get<bool>(), "run should report cancellation");
+    test_helpers::expect_eq("SIGINT status state", current.at("state").get<std::string>(), "cancelled");
+    test_helpers::expect_eq("SIGINT status code", current.at("errorCode").get<std::string>(), "runner.cancelled");
+    test_helpers::expect_true(
+        "SIGINT recovery marker",
+        fs::is_regular_file(profile_state_dir / "pending-root"),
+        "cancelled transfer must retain the pending marker"
+    );
+    test_helpers::expect_true(
+        "SIGINT no last success",
+        !fs::exists(profile_state_dir / "last-success"),
+        "cancelled run must not write last-success"
+    );
+
+    fs::remove_all(root);
+}
+
 } // namespace
 
 int main() {
@@ -1482,6 +1650,7 @@ int main() {
     test_runner_execute_pending_recovery_deletes_orphan();
     test_runner_cancel_writes_cancel_request_without_target_mount();
     test_runner_execute_honors_cancel_request_during_transfer();
+    test_runner_execute_handles_sigint_as_cancelled_with_recovery_marker();
 
     return test_helpers::finish("runner command tests");
 }
