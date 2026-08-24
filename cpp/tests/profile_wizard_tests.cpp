@@ -188,6 +188,11 @@ void test_render_wizard_tree() {
         !fs::exists(root / "rendered" / "udev" / "99-btrfs-backup.rules"),
         "wizard render should not duplicate the profile udev rule"
     );
+    test_helpers::expect_contains(
+        "wizard render mount dependency",
+        read_file(root / "rendered" / "systemd" / "btrfs-backup@laptop.service.d" / "target-mount.conf"),
+        "RequiresMountsFor=\"/mnt/backup\""
+    );
 
     fs::remove_all(root);
 }

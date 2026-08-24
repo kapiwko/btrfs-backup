@@ -72,20 +72,21 @@ Qt, Kirigami or Plasma dependencies to the base package.
 
 ## Package Contents
 
-Native commands are installed directly under `/usr/bin`, the profile systemd unit under
-`/usr/lib/systemd/system`, examples under `/usr/share/btrfs-backup/examples`,
-and documentation under `/usr/share/doc/btrfs-backup`. The base package creates
-the trusted hook directory `/etc/btrfs-backup/hooks.d` as `root:root 0755` but
-does not install or enable any hook programs.
+Native commands are installed directly under `/usr/bin`, the profile and eject
+systemd units under `/usr/lib/systemd/system`, examples under
+`/usr/share/btrfs-backup/examples`, and documentation under
+`/usr/share/doc/btrfs-backup`. The base package creates the trusted hook
+directory `/etc/btrfs-backup/hooks.d` as `root:root 0755`.
 
 The public command surface is `btrfs-backup` and `btrfs-backupctl`. Target
 mount and eject operations are `btrfs-backupctl target mount` and
 `btrfs-backupctl target eject`; standalone mount/eject wrapper commands are no
 longer packaged.
 
-The package does not install active fstab, crypttab, or udev entries.
-`btrfs-backupctl profile wizard --apply` and `profile save` write active
-configuration and udev files only after an explicit user command.
+The package provides fstab and crypttab fragments for administrator-managed
+configuration. `btrfs-backupctl profile wizard --apply` and `profile save`
+write active profiles, udev rules, and profile-specific systemd mount-dependency
+drop-ins after an explicit user command.
 
 The optional `btrfs-backup-kde` package installs the Plasma applet under
 `/usr/share/plasma/plasmoids` and the compiled QML module under

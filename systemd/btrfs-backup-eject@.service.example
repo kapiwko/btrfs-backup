@@ -1,0 +1,25 @@
+[Unit]
+Description=Safely eject Btrfs backup target for profile %i
+Documentation=file:/usr/share/doc/btrfs-backup/README.md
+ConditionPathExists=/etc/btrfs-backup
+After=btrfs-backup.service btrfs-backup@%i.service
+
+[Service]
+Type=oneshot
+ExecStart={{EJECT_SCRIPT_PATH}} --from-service --profile %i
+User=root
+Group=root
+UMask=0077
+RuntimeDirectory=btrfs-backup
+RuntimeDirectoryMode=0755
+StateDirectory=btrfs-backup
+StateDirectoryMode=0755
+NoNewPrivileges=yes
+ProtectHostname=yes
+LockPersonality=yes
+RestrictRealtime=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_UNIX AF_NETLINK
+TimeoutStartSec=90s
+SyslogIdentifier=btrfs-backup-eject

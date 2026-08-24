@@ -13,11 +13,14 @@ matching LUKS partition appears
 udev rule sets SYSTEMD_WANTS=btrfs-backup@<PROFILE_ID>.service
         |
         v
+profile drop-in RequiresMountsFor=<TARGET_MOUNT_POINT>
+        |
+        |-- systemd starts the fstab mount and its cryptsetup dependency
+        v
 btrfs-backup@<PROFILE_ID>.service
         |
         |-- flock lock
         |-- daily limit and configuration fingerprint check
-        |-- start the mount unit generated from fstab
         |-- validate LUKS, mapper, Btrfs, and mount point
         |-- verify that sources are on a different Btrfs filesystem than the target
         |
@@ -34,7 +37,7 @@ btrfs-backup@<PROFILE_ID>.service
         |-- sync and write last-success
         |
         v
-ExecStopPost=btrfs-backupctl target eject
+ExecStopPost schedules btrfs-backup-eject@<PROFILE_ID>.service
         |
         |-- sync
         |-- unmount the expected target
@@ -47,9 +50,28 @@ ExecStopPost=btrfs-backupctl target eject
 
 The udev rule is only responsible for starting the service on an `add` event. There is no removal handler because after physical device removal it is too late to safely flush buffers and unmount.
 
-The mount unit does not start the backup service. The service starts the mount unit itself, so there is no `service -> mount -> service` dependency cycle.
+Each saved profile installs a service drop-in with
+`RequiresMountsFor=<target.mountPoint>`. PID 1 therefore starts the fstab mount,
+including its cryptsetup dependency, before it creates the service's private
+mount namespace. The mount unit does not start the backup service, so there is
+no `service -> mount -> service` dependency cycle. A runner started directly
+from the command line retains the explicit mount-start fallback.
 
 The service templates have no `[Install]` section and are not intended to be enabled with `systemctl enable`.
+
+The runner executes in a systemd filesystem, process and system-call sandbox.
+The service keeps device access and the root capabilities
+needed by the current Btrfs/LUKS path, while making `/usr`, `/boot` and `/etc`
+read-only, isolating temporary files, hiding unrelated processes, blocking new
+privilege acquisition and writable-executable mappings, and limiting sockets to
+`AF_UNIX` and `AF_NETLINK`. The runner validates the target mounted by PID 1
+from inside that namespace before it performs any repository operation.
+
+The filesystem sandbox makes service mount changes private. `ExecStopPost`
+queues the short-lived eject unit without blocking, and its ordering makes it
+start only after the runner has left that namespace. The unit performs the host
+unmount and LUKS closure without a private mount namespace, while retaining the
+restrictions that do not interfere with the target lifecycle.
 
 ## Runner And Target Locks
 

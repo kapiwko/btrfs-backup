@@ -87,6 +87,8 @@ sudo btrfs-backupctl profile wizard --apply
 /var/lib/btrfs-backup/public/profiles/default.json
 /etc/systemd/system/btrfs-backup.service
 /etc/systemd/system/btrfs-backup@.service
+/etc/systemd/system/btrfs-backup-eject@.service
+/etc/systemd/system/btrfs-backup@default.service.d/target-mount.conf
 /etc/udev/rules.d/99-btrfs-backup-default.rules
 ```
 
