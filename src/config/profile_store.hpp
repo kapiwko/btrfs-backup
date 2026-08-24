@@ -1,6 +1,7 @@
 #pragma once
 
 #include <filesystem>
+#include <functional>
 
 #include <config/profile.hpp>
 
@@ -12,7 +13,8 @@ void save_tree(
     const std::filesystem::path& etc_root,
     const std::filesystem::path& udev_root,
     const std::filesystem::path& systemd_root,
-    const std::filesystem::path& public_root
+    const std::filesystem::path& public_root,
+    const std::function<void()>& activate = {}
 );
 
 } // namespace btrfsbackup

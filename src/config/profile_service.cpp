@@ -1,14 +1,22 @@
 #include <config/profile_service.hpp>
 
+#include <filesystem>
+#include <functional>
 #include <set>
+#include <string>
+#include <system_error>
+#include <utility>
+#include <vector>
 
 #include <config/profile_store.hpp>
 #include <config/application_config.hpp>
 #include <config/errors.hpp>
 #include <config/identifiers.hpp>
 #include <config/json_io.hpp>
-#include <platform/linux/file_io.hpp>
 #include <config/profile_loader.hpp>
+#include <config/profile.hpp>
+#include <platform/linux/file_io.hpp>
+#include <platform/linux/process.hpp>
 
 namespace fs = std::filesystem;
 
@@ -35,7 +43,18 @@ void render_profile(const fs::path& file, const fs::path& output_dir, const fs::
 Profile save_profile(const fs::path& file, const ProfileInstallationRoots& roots) {
     ApplicationConfig config = ApplicationConfig::load(roots.etc_root);
     Profile profile = validate_profile_file(file, config.paths().target_mount_root);
-    save_tree(profile, roots.etc_root, roots.udev_root, roots.systemd_root, roots.public_root);
+    std::function<void()> activate;
+    if (fs::absolute(roots.etc_root).lexically_normal() == fs::path("/etc/btrfs-backup")
+        && fs::absolute(roots.udev_root).lexically_normal() == fs::path("/etc/udev/rules.d")
+        && fs::absolute(roots.systemd_root).lexically_normal() == fs::path("/etc/systemd/system")
+        && fs::absolute(roots.public_root).lexically_normal()
+            == fs::path("/var/lib/btrfs-backup/public/profiles")) {
+        activate = [] {
+            run_capture({"systemctl", "daemon-reload"});
+            run_capture({"udevadm", "control", "--reload-rules"});
+        };
+    }
+    save_tree(profile, roots.etc_root, roots.udev_root, roots.systemd_root, roots.public_root, activate);
     return profile;
 }
 

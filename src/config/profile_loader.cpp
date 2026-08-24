@@ -1,11 +1,14 @@
 #include <config/profile_loader.hpp>
 
+#include <cstdlib>
 #include <filesystem>
 #include <string>
 
 #include <config/errors.hpp>
 #include <config/application_config.hpp>
 #include <config/identifiers.hpp>
+#include <config/json.hpp>
+#include <config/profile.hpp>
 #include <platform/linux/trusted_file.hpp>
 
 namespace fs = std::filesystem;
@@ -32,7 +35,12 @@ Json load_profile_json_by_id(const fs::path& etc_root, const std::string& profil
 
 Profile load_profile_by_id(const fs::path& etc_root, const std::string& profile_id) {
     ApplicationConfig config = ApplicationConfig::load(etc_root);
-    return profile_from_json(load_profile_json_by_id(etc_root, profile_id), config.paths().target_mount_root);
+    Profile profile = profile_from_json(load_profile_json_by_id(etc_root, profile_id), config.paths().target_mount_root);
+    const char* expected_generation = std::getenv("BTRFS_BACKUP_CONFIGURATION_GENERATION");
+    if (expected_generation != nullptr && profile.configuration_generation != expected_generation) {
+        throw ValidationError("profile configuration generation does not match the active systemd unit");
+    }
+    return profile;
 }
 
 } // namespace btrfsbackup
