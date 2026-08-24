@@ -22,7 +22,8 @@ int runner(
     const std::filesystem::path& profile_config_dir,
     const std::vector<std::string>& args,
     std::ostream& output,
-    RunnerExecutionServices* execution_services
+    RunnerExecutionServices* execution_services,
+    CancellationToken* external_cancellation = nullptr
 );
 
 } // namespace btrfsbackup::command

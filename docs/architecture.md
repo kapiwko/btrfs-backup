@@ -99,6 +99,16 @@ backpressure when the consumer is slower. Readiness latches prevent a busy loop
 when only one side can make progress, and the poll loop retains ownership of
 diagnostics, cancellation, and child reaping.
 
+`SIGINT` and `SIGTERM` are blocked before runner worker threads start and are
+consumed through `signalfd`. Both signals request the same `CancellationToken`
+as the file-based cancellation command. Transfer cancellation closes the data
+pipes and sends `SIGTERM` to both child process groups. A child that remains
+alive after 5 seconds receives `SIGKILL`; the pipeline then allows another 5
+seconds for `waitpid` before it stops waiting for an uninterruptible child. This
+bounds asynchronous handle destruction while preserving normal child reaping.
+Spawned commands receive an empty signal mask and default SIGINT, SIGTERM, and
+SIGPIPE dispositions rather than inheriting the runner's signal integration.
+
 ## Commit Model
 
 Each receive first lands under:

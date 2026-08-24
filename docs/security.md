@@ -83,3 +83,11 @@ mapper. Cancellation must target the matching backup unit or runner transaction,
 not arbitrary processes. The current runner cancellation command writes a
 root-owned request file under the selected profile state directory; the active
 runner consumes that request and clears it after handling.
+
+Service and terminal termination signals follow the same cancellation path.
+The runner consumes SIGINT and SIGTERM through a file descriptor, requests its
+active cancellation token, and terminates transfer process groups with a
+SIGTERM grace period followed by SIGKILL. Installed systemd units use
+`KillMode=mixed`: the initial SIGINT is delivered only to the runner, while the
+90-second stop timeout and final cgroup SIGKILL remain an external bound for
+processes stuck in kernel I/O.

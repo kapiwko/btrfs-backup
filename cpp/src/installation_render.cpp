@@ -76,8 +76,10 @@ std::string render_backup_service(const btrfsbackup::Profile& profile, const std
         "IOSchedulingClass=best-effort\n"
         "IOSchedulingPriority=7\n"
         "TimeoutStartSec=infinity\n"
-        "TimeoutStopSec=infinity\n"
+        "TimeoutStopSec=90s\n"
         "KillSignal=SIGINT\n"
+        "KillMode=mixed\n"
+        "SendSIGKILL=yes\n"
         "SyslogIdentifier=btrfs-backup\n";
 }
 
@@ -106,8 +108,10 @@ std::string render_profile_service(const std::string& backup_command, const std:
         "IOSchedulingClass=best-effort\n"
         "IOSchedulingPriority=7\n"
         "TimeoutStartSec=infinity\n"
-        "TimeoutStopSec=infinity\n"
+        "TimeoutStopSec=90s\n"
         "KillSignal=SIGINT\n"
+        "KillMode=mixed\n"
+        "SendSIGKILL=yes\n"
         "SyslogIdentifier=btrfs-backup\n";
 }
 
