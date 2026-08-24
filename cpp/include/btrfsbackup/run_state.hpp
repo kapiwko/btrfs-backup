@@ -19,6 +19,7 @@ struct SuccessState {
 struct PendingMarker {
     std::string source_name;
     std::string local_snapshot_path;
+    std::string final_snapshot_path;
     std::string run_id;
     std::string timestamp;
 };

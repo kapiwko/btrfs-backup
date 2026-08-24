@@ -22,6 +22,7 @@ public:
     std::map<std::string, btrfsbackup::SnapshotMetadata> metadata_by_path;
     std::vector<std::string> subvolumes;
     std::vector<std::string> calls;
+    std::optional<fs::path> delete_failure_path;
 
     bool is_subvolume(const fs::path& path) override {
         calls.push_back(action_path("is", path));
@@ -48,6 +49,9 @@ public:
 
     void delete_subvolume(const fs::path& path) override {
         calls.push_back(action_path("delete", path));
+        if (delete_failure_path == path) {
+            throw btrfsbackup::ValidationError("injected subvolume delete failure");
+        }
     }
 };
 
@@ -296,6 +300,58 @@ void test_send_receive_prepares_remote_and_incoming_directories() {
     ) != fs_effects.calls.end(), "incoming run directory should be created before receive");
 }
 
+void test_pending_recovery_deletes_invalid_remote_snapshot_first() {
+    fs::path root = test_helpers::test_root("backup-run-action-effects", "recover-invalid-commit");
+    btrfsbackup::BackupSourceRunPlan source = source_plan(root);
+    source.recovery.delete_remote_snapshot = true;
+    source.recovery.remote_snapshot_path = source.final_remote_snapshot_path;
+    source.recovery.delete_local_snapshot = true;
+    source.recovery.local_snapshot_path = source.local_snapshot_path;
+    FakeBtrfsOperations btrfs;
+    FakeFileSystemEffects fs_effects;
+    btrfsbackup::BackupRunActionEffects effects(btrfs, fs_effects);
+
+    effects.execute_action(action(btrfsbackup::BackupRunActionKind::RecoverPending), source, run_plan());
+
+    test_helpers::expect_eq("recovery delete count", std::to_string(btrfs.calls.size()), "2");
+    test_helpers::expect_eq("recovery remote first", btrfs.calls.at(0), action_path("delete", source.final_remote_snapshot_path));
+    test_helpers::expect_eq("recovery local second", btrfs.calls.at(1), action_path("delete", source.local_snapshot_path));
+}
+
+void test_failed_remote_recovery_keeps_local_snapshot_and_marker() {
+    fs::path root = test_helpers::test_root("backup-run-action-effects", "recover-invalid-commit-fails");
+    btrfsbackup::BackupSourceRunPlan source = source_plan(root);
+    source.recovery.delete_remote_snapshot = true;
+    source.recovery.remote_snapshot_path = source.final_remote_snapshot_path;
+    source.recovery.delete_local_snapshot = true;
+    source.recovery.local_snapshot_path = source.local_snapshot_path;
+    source.recovery.clear_marker = true;
+    btrfsbackup::write_pending_marker(
+        root / "state",
+        btrfsbackup::PendingMarker{
+            .source_name = source.source_id,
+            .local_snapshot_path = source.local_snapshot_path.string(),
+            .final_snapshot_path = source.final_remote_snapshot_path.string(),
+            .run_id = "run-1",
+            .timestamp = "2026-08-23T12:00:00Z",
+        }
+    );
+
+    FakeBtrfsOperations btrfs;
+    btrfs.delete_failure_path = source.final_remote_snapshot_path;
+    FakeFileSystemEffects fs_effects;
+    btrfsbackup::BackupRunActionEffects effects(btrfs, fs_effects);
+
+    test_helpers::expect_validation_error("failed recovery delete", [&] {
+        effects.execute_action(action(btrfsbackup::BackupRunActionKind::RecoverPending), source, run_plan());
+    }, "injected subvolume delete failure");
+
+    test_helpers::expect_eq("failed recovery delete count", std::to_string(btrfs.calls.size()), "1");
+    test_helpers::expect_eq("failed recovery stops at remote", btrfs.calls.at(0), action_path("delete", source.final_remote_snapshot_path));
+    test_helpers::expect_true("failed recovery keeps marker", fs::is_regular_file(source.recovery.marker_path), "pending marker must remain after failed cleanup");
+    fs::remove_all(root);
+}
+
 void test_hook_actions_use_command_runner_argv() {
     fs::path root = test_helpers::test_root("backup-run-action-effects", "hooks");
     btrfsbackup::BackupSourceRunPlan source = source_plan(root);
@@ -333,6 +389,8 @@ int main() {
     test_cleanup_incoming_deletes_subvolumes_and_plain_paths();
     test_verify_commit_retention_and_cleanup_use_existing_helpers();
     test_send_receive_prepares_remote_and_incoming_directories();
+    test_pending_recovery_deletes_invalid_remote_snapshot_first();
+    test_failed_remote_recovery_keeps_local_snapshot_and_marker();
     test_hook_actions_use_command_runner_argv();
     test_hook_failure_is_reported_as_validation_error();
 

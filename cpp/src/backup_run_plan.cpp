@@ -194,6 +194,7 @@ BackupRunPlan build_backup_run_plan(
             source.id,
             fs::path(profile.paths.state_dir) / "profiles" / profile.id,
             source.local_snapshot_dir,
+            remote_snapshot_dir,
             pending_marker_for(pending_markers, source.id),
             pending_snapshot_for(pending_snapshots, source.id),
             current_remote_snapshots,

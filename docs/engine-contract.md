@@ -188,9 +188,15 @@ Implementations must preserve these storage rules:
 ## Error Recovery
 
 Before creating a local snapshot, the engine writes a private
-`pending-<SOURCE_NAME>` marker in the profile state directory. After an
+`pending-<SOURCE_NAME>` marker in the profile state directory. The marker
+records the local snapshot path and its planned final target path. After an
 interruption, the next run must resolve the marker before creating a new
 snapshot for the same source.
+
+If verification fails after a snapshot appears at the final path, the engine
+must delete that snapshot. If deletion also fails, it must report
+`repository.recovery_required`, retain the pending marker, and retry deletion
+before clearing the marker or starting a new snapshot for that source.
 
 If target access is lost while handling an error, the engine must preserve the
 local snapshot and pending marker so that a later run can complete recovery.

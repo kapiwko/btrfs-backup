@@ -156,6 +156,11 @@ the diagnostic text:
 | `transfer.consumer_failed` | the receive side failed |
 | `transfer.producer_consumer_failed` | both transfer processes failed |
 | `transfer.failed` | the pipeline failed without a side-specific cause |
+| `repository.recovery_required` | final snapshot verification and its immediate cleanup both failed; pending recovery is required |
+
+`repository.recovery_required` is recoverable and uses suggested action
+`run-backup-recovery`. The private pending marker remains authoritative; status
+clients must not infer that the canonical snapshot is usable.
 
 ## History
 

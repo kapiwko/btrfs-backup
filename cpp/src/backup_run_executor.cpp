@@ -266,6 +266,9 @@ BackupRunExecutionResult BackupRunExecutor::execute(
                     action_effects_.execute_action(action, source, plan);
                 }
             } catch (const std::exception& error) {
+                if (const auto* recovery_error = dynamic_cast<const RecoveryRequiredError*>(&error)) {
+                    error_code = recovery_error->error_code;
+                }
                 emit_event(events, BackupRunEventKind::ActionFailed, plan, &source, action.kind, 0, 0, 0, 0, 0, 0, 0, error_code, error.what());
                 throw;
             }

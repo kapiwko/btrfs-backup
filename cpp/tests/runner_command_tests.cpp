@@ -1310,6 +1310,7 @@ void test_runner_execute_pending_recovery_deletes_orphan() {
         btrfsbackup::PendingMarker{
             .source_name = "root",
             .local_snapshot_path = pending.string(),
+            .final_snapshot_path = (root / "target" / "snapshots" / "root" / pending.filename()).string(),
             .run_id = "20260822T080000Z-123-456",
             .timestamp = "2026-08-22T08:00:00Z",
         }

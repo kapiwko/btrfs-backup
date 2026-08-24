@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 
+#include <btrfsbackup/errors.hpp>
 #include <btrfsbackup/snapshot_transfer.hpp>
 
 #include "test_helpers.hpp"
@@ -15,6 +16,7 @@ class FakeBtrfsOperations final : public btrfsbackup::IBtrfsOperations {
 public:
     std::optional<btrfsbackup::SnapshotMetadata> metadata;
     std::vector<std::string> calls;
+    bool delete_throws = false;
 
     bool is_subvolume(const fs::path& path) override {
         calls.push_back("is:" + path.string());
@@ -32,6 +34,9 @@ public:
 
     void delete_subvolume(const fs::path& path) override {
         calls.push_back("delete:" + path.string());
+        if (delete_throws) {
+            throw btrfsbackup::ValidationError("injected delete failure");
+        }
     }
 };
 
@@ -175,6 +180,35 @@ void test_commit_rejects_existing_destination() {
     }, "Destination snapshot already exists");
 }
 
+void test_commit_reports_verification_and_cleanup_failure() {
+    FakeBtrfsOperations btrfs;
+    btrfs.metadata = btrfsbackup::SnapshotMetadata{
+        .is_subvolume = true,
+        .readonly = true,
+        .received_uuid = "wrong-uuid",
+    };
+    btrfs.delete_throws = true;
+    FakeFileSystemEffects fs_effects;
+
+    try {
+        btrfsbackup::commit_received_snapshot(
+            btrfs,
+            fs_effects,
+            "/incoming/run/home",
+            "/remote/home/home-2026-08-23T080000Z",
+            "expected-uuid"
+        );
+        test_helpers::fail("commit cleanup failure", "expected RecoveryRequiredError");
+    } catch (const btrfsbackup::RecoveryRequiredError& error) {
+        test_helpers::expect_eq("commit cleanup error code", error.error_code, "repository.recovery_required");
+        test_helpers::expect_contains("commit verification error", error.what(), "Committed snapshot Received UUID");
+        test_helpers::expect_contains("commit cleanup error", error.what(), "cleanup failed");
+        test_helpers::expect_contains("commit recovery state", error.what(), "repository requires recovery");
+    } catch (const std::exception& error) {
+        test_helpers::fail("commit cleanup failure", std::string("unexpected exception: ") + error.what());
+    }
+}
+
 } // namespace
 
 int main() {
@@ -183,6 +217,7 @@ int main() {
     test_commit_received_snapshot();
     test_commit_deletes_invalid_final_snapshot();
     test_commit_rejects_existing_destination();
+    test_commit_reports_verification_and_cleanup_failure();
 
     return test_helpers::finish("snapshot transfer tests");
 }

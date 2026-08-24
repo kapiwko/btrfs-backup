@@ -116,6 +116,8 @@ void state_pending_write(const std::vector<std::string>& args) {
             marker.source_name = arg_value(args, i, arg);
         } else if (arg == "--local-snapshot-path") {
             marker.local_snapshot_path = arg_value(args, i, arg);
+        } else if (arg == "--final-snapshot-path") {
+            marker.final_snapshot_path = arg_value(args, i, arg);
         } else if (arg == "--run-id") {
             marker.run_id = arg_value(args, i, arg);
         } else if (arg == "--timestamp") {

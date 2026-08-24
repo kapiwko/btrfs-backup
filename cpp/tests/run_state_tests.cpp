@@ -240,6 +240,7 @@ void test_pending_marker_write_read_and_clear() {
     fs::path root = test_root("pending-marker");
     fs::path state_dir = root / "state" / "profiles" / "default";
     fs::path snapshot = root / "local" / "root" / "root-2026-08-23T082504";
+    fs::path final_snapshot = root / "remote" / "root" / snapshot.filename();
 
     btrfsbackup::command::state_pending_write(
         {
@@ -249,6 +250,8 @@ void test_pending_marker_write_read_and_clear() {
             "root",
             "--local-snapshot-path",
             snapshot.string(),
+            "--final-snapshot-path",
+            final_snapshot.string(),
             "--run-id",
             "20260823T062504Z-123-456",
             "--timestamp",
@@ -260,6 +263,7 @@ void test_pending_marker_write_read_and_clear() {
     test_helpers::expect_eq("pending marker exists", fs::is_regular_file(marker) ? "yes" : "no", "yes");
     std::string content = read_file(marker);
     test_helpers::expect_contains("pending source", content, "source_name=root\n");
+    test_helpers::expect_contains("pending final path", content, "final_snapshot_path=" + final_snapshot.string() + "\n");
     test_helpers::expect_contains("pending run", content, "run_id=20260823T062504Z-123-456\n");
 
     std::ostringstream output;

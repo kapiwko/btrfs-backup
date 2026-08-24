@@ -220,8 +220,13 @@ RunStatusRecord status_record_for_event(
             {"sourceId", event.source_id},
             {"action", backup_run_action_kind_name(event.action_kind)}
         };
-        recoverable = failed_action_is_recoverable(event.action_kind);
-        suggested_action = suggested_action_for_failed_action(event.action_kind);
+        if (error_code == "repository.recovery_required") {
+            recoverable = true;
+            suggested_action = "run-backup-recovery";
+        } else {
+            recoverable = failed_action_is_recoverable(event.action_kind);
+            suggested_action = suggested_action_for_failed_action(event.action_kind);
+        }
     } else if (event.kind == BackupRunEventKind::RunCancelled) {
         error_code = "runner.cancelled";
         error_message = message_for_event(event);
