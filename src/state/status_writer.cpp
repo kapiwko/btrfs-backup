@@ -23,10 +23,10 @@ void require_non_empty(const std::string& value, const char* field) {
 }
 
 void validate_status(const btrfsbackup::RunStatus& status) {
-    btrfsbackup::validate_profile_id(status.profile_id);
+    btrfsbackup::validate_profile_id(status.profile_id.value);
     require_non_empty(status.profile_name, "profileName");
-    require_non_empty(status.run_id, "runId");
-    btrfsbackup::validate_run_id(status.run_id);
+    require_non_empty(status.run_id.value, "runId");
+    btrfsbackup::validate_run_id(status.run_id.value);
     require_non_empty(status.started_at, "startedAt");
     require_non_empty(status.updated_at, "updatedAt");
 }
@@ -74,9 +74,9 @@ Json build_status_json(const RunStatus& status) {
 
     return {
         {"schemaVersion", 2},
-        {"profileId", status.profile_id},
+        {"profileId", status.profile_id.value},
         {"profileName", status.profile_name},
-        {"runId", status.run_id},
+        {"runId", status.run_id.value},
         {"state", run_state_name(status.state)},
         {"phase", run_phase_name(status.phase)},
         {"message", status.message},
@@ -87,7 +87,7 @@ Json build_status_json(const RunStatus& status) {
         {"startedAt", status.started_at},
         {"updatedAt", status.updated_at},
         {"finishedAt", status.finished_at},
-        {"errorCode", error == nullptr ? "" : error->code.value},
+        {"errorCode", error == nullptr ? "" : error_code_name(error->code)},
         {"errorMessage", error == nullptr ? "" : error->message},
         {"details", build_details_json(status.details)},
         {"recoverable", error != nullptr && error->recoverable},
@@ -135,15 +135,15 @@ std::string dump_public_status_json(const RunStatus& status) {
 
 void write_current_status(const fs::path& status_root, const RunStatus& status, mode_t mode) {
     std::string content = dump_public_status_json(status);
-    fs::path path = status_root / status.profile_id / "current.json";
+    fs::path path = status_root / status.profile_id.value / "current.json";
     prepare_public_parent(path);
     atomic_write(path, content, mode);
 }
 
 void write_history_entry(const fs::path& history_root, const RunStatus& status) {
     std::string content = dump_status_json(status);
-    fs::path directory = history_root / status.profile_id;
-    fs::path run_path = directory / (status.run_id + ".json");
+    fs::path directory = history_root / status.profile_id.value;
+    fs::path run_path = directory / (status.run_id.value + ".json");
     fs::path last_path = directory / "last.json";
 
     prepare_private_history_directory(history_root, directory);

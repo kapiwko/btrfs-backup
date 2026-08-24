@@ -94,9 +94,9 @@ std::vector<std::string> required_status_api_fields() {
 
 btrfsbackup::RunStatus watch_sample_record() {
     return {
-        .profile_id = "default",
+        .profile_id = btrfsbackup::ProfileId{"default"},
         .profile_name = "Default backup",
-        .run_id = "20260823T024407Z-4298-30158",
+        .run_id = btrfsbackup::RunId{"20260823T024407Z-4298-30158"},
         .state = btrfsbackup::RunState::Running,
         .phase = btrfsbackup::RunPhase::Transferring,
         .message = "Backup transfer is running.",

@@ -80,8 +80,8 @@ btrfsbackup::BackupRequest normalize_request(btrfsbackup::BackupRequest request)
     if (request.today.empty()) {
         request.today = current_local_date();
     }
-    if (request.run_id.empty()) {
-        request.run_id = compact_timestamp(request.timestamp) + "-shadow";
+    if (request.run_id.value.empty()) {
+        request.run_id = btrfsbackup::RunId{compact_timestamp(request.timestamp) + "-shadow"};
     }
     return request;
 }
@@ -272,7 +272,7 @@ void write_skipped_status(
     std::size_t source_count
 ) {
     btrfsbackup::RunStatus status{
-        .profile_id = profile.id,
+        .profile_id = btrfsbackup::ProfileId{profile.id},
         .profile_name = profile.name,
         .run_id = request.run_id,
         .state = btrfsbackup::RunState::Skipped,
@@ -306,7 +306,7 @@ void write_success_state_for_run(
         btrfsbackup::SuccessState{
             .date = request.today,
             .timestamp = current_local_iso_timestamp(),
-            .run_id = request.run_id,
+            .run_id = request.run_id.value,
             .profile_id = profile.id,
             .profile_name = profile.name,
             .source_count = static_cast<int>(source_count),
@@ -344,7 +344,7 @@ namespace btrfsbackup {
 
 BackupRunPlan plan_backup(const BackupRequest& input, BackupServiceDependencies* dependencies) {
     BackupRequest request = normalize_request(input);
-    Profile profile = load_profile_by_id(request.profile_config_dir, request.profile_id);
+    Profile profile = load_profile_by_id(request.profile_config_dir, request.profile_id.value);
     ApplicationConfig config = application_config(request, dependencies);
     return build_plan(
         request,
@@ -361,13 +361,13 @@ BackupExecutionResult start_backup(
     CancellationToken* external_cancellation
 ) {
     BackupRequest request = normalize_request(input);
-    Profile profile = load_profile_by_id(request.profile_config_dir, request.profile_id);
+    Profile profile = load_profile_by_id(request.profile_config_dir, request.profile_id.value);
     ApplicationConfig config = application_config(request, dependencies);
     const ApplicationPaths& application_paths = config.paths();
     const fs::path state_dir = profile_state_dir(application_paths, profile.id);
 
     BackupExecutionResult service_result;
-    service_result.plan.profile_id = profile.id;
+    service_result.plan.profile_id = ProfileId{profile.id};
     service_result.plan.run_id = request.run_id;
 
     std::optional<FileLock> profile_lock;
@@ -376,14 +376,14 @@ BackupExecutionResult start_backup(
     profile_lock.emplace(profile_lock_path(locks, profile.id));
     if (!profile_lock->try_acquire()) {
         service_result.outcome = BackupExecutionOutcome::Busy;
-        service_result.error_code = "runner.profile_busy";
+        service_result.error_code = ErrorCode::RunnerProfileBusy;
         service_result.error_message = "Another runner is already active for profile " + profile.id + ".";
         return service_result;
     }
     target_lock.emplace(target_lock_path(locks, profile.target.luks_uuid));
     if (!target_lock->try_acquire()) {
         service_result.outcome = BackupExecutionOutcome::Busy;
-        service_result.error_code = "runner.target_busy";
+        service_result.error_code = ErrorCode::RunnerTargetBusy;
         service_result.error_message =
             "Another operation is already active for target LUKS UUID " + profile.target.luks_uuid + ".";
         return service_result;
@@ -478,16 +478,16 @@ BackupExecutionResult start_backup(
 
 CancelBackupResult cancel_backup(
     const fs::path& profile_config_dir,
-    const std::string& profile_id,
+    const ProfileId& profile_id,
     BackupServiceDependencies* dependencies
 ) {
-    Profile profile = load_profile_by_id(profile_config_dir, profile_id);
+    Profile profile = load_profile_by_id(profile_config_dir, profile_id.value);
     BackupRequest request;
     request.profile_config_dir = profile_config_dir;
     ApplicationConfig config = application_config(request, dependencies);
     write_cancel_request(profile_state_dir(config.paths(), profile.id));
     return {
-        .profile_id = profile.id,
+        .profile_id = ProfileId{profile.id},
         .cancel_requested = true,
     };
 }

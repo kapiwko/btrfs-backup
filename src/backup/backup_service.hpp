@@ -2,6 +2,7 @@
 
 #include <filesystem>
 #include <map>
+#include <optional>
 #include <string>
 
 #include <backup/backup_run_executor.hpp>
@@ -9,6 +10,8 @@
 #include <backup/transfer_pipeline.hpp>
 #include <backup/snapshot_inventory.hpp>
 #include <config/application_config.hpp>
+#include <config/identifiers.hpp>
+#include <state/run_status.hpp>
 
 namespace btrfsbackup {
 
@@ -22,10 +25,10 @@ struct BackupServiceDependencies {
 
 struct BackupRequest {
     std::filesystem::path profile_config_dir;
-    std::string profile_id = "default";
+    ProfileId profile_id{"default"};
     std::filesystem::path mountinfo = "/proc/self/mountinfo";
     std::string timestamp;
-    std::string run_id;
+    RunId run_id;
     std::map<std::string, std::string> mount_uuid_overrides;
     std::string today;
     bool force = false;
@@ -33,7 +36,7 @@ struct BackupRequest {
 };
 
 struct CancelBackupResult {
-    std::string profile_id;
+    ProfileId profile_id;
     bool cancel_requested = false;
 };
 
@@ -50,7 +53,7 @@ struct BackupExecutionResult {
     BackupRunPlan plan;
     BackupExecutionOutcome outcome = BackupExecutionOutcome::Completed;
     std::size_t actions_completed = 0;
-    std::string error_code;
+    std::optional<ErrorCode> error_code;
     std::string error_message;
 };
 
@@ -67,7 +70,7 @@ BackupExecutionResult start_backup(
 
 CancelBackupResult cancel_backup(
     const std::filesystem::path& profile_config_dir,
-    const std::string& profile_id,
+    const ProfileId& profile_id,
     BackupServiceDependencies* dependencies = nullptr
 );
 

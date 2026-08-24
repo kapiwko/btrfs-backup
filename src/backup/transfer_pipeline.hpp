@@ -4,8 +4,11 @@
 #include <chrono>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
+
+#include <state/run_status.hpp>
 
 #include <platform/linux/safe_directory_root.hpp>
 
@@ -156,7 +159,7 @@ private:
 };
 
 bool transfer_succeeded(const TransferResult& result);
-std::string transfer_failure_error_code(const TransferResult& result);
+std::optional<ErrorCode> transfer_failure_error_code(const TransferResult& result);
 void require_transfer_success(const TransferResult& result);
 
 } // namespace btrfsbackup

@@ -1,9 +1,12 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <string>
 
 #include <backup/backup_run_action.hpp>
+#include <config/identifiers.hpp>
+#include <state/run_status.hpp>
 
 namespace btrfsbackup {
 
@@ -22,9 +25,9 @@ enum class BackupRunEventKind {
 
 struct BackupRunEvent {
     BackupRunEventKind kind = BackupRunEventKind::RunStarted;
-    std::string profile_id;
-    std::string run_id;
-    std::string source_id;
+    ProfileId profile_id;
+    RunId run_id;
+    SourceId source_id;
     int source_index = 0;
     BackupRunActionKind action_kind = BackupRunActionKind::CleanupSource;
     std::uint64_t bytes_transferred = 0;
@@ -34,7 +37,7 @@ struct BackupRunEvent {
     std::uint64_t delta_bytes = 0;
     std::uint64_t elapsed_ms = 0;
     std::uint64_t speed_bps = 0;
-    std::string error_code;
+    std::optional<ErrorCode> error_code;
     std::string message;
 };
 
@@ -50,9 +53,9 @@ public:
 };
 
 struct BackupRunCheckpoint {
-    std::string profile_id;
-    std::string run_id;
-    std::string source_id;
+    ProfileId profile_id;
+    RunId run_id;
+    SourceId source_id;
     BackupRunActionKind action_kind = BackupRunActionKind::CleanupSource;
 };
 

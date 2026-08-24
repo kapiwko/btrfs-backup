@@ -7,6 +7,7 @@
 
 #include <platform/linux/command_runner.hpp>
 #include <platform/linux/mount_info.hpp>
+#include <config/identifiers.hpp>
 
 namespace btrfsbackup {
 
@@ -18,12 +19,12 @@ struct TargetServiceDependencies {
 
 struct MountTargetRequest {
     std::filesystem::path profile_config_dir;
-    std::string profile_id = "default";
+    ProfileId profile_id{"default"};
 };
 
 struct EjectTargetRequest {
     std::filesystem::path profile_config_dir;
-    std::string profile_id = "default";
+    ProfileId profile_id{"default"};
     bool force = false;
     bool automatic = false;
     bool service_succeeded = true;
