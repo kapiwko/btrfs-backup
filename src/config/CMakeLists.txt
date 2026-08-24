@@ -23,6 +23,7 @@ add_library(btrfsbackup-config STATIC
     installation_validate.cpp
     profile_loader.cpp
     profile_render.cpp
+    render_directory.cpp
     profile_service.cpp
     profile_store.cpp
     wizard/profile_wizard.cpp

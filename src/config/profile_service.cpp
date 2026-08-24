@@ -15,6 +15,7 @@
 #include <config/json_io.hpp>
 #include <config/profile_loader.hpp>
 #include <config/profile.hpp>
+#include <config/render_directory.hpp>
 #include <platform/linux/file_io.hpp>
 #include <platform/linux/process.hpp>
 
@@ -31,13 +32,18 @@ void write_profile_file(const Profile& profile, const fs::path& output) {
 }
 
 void render_profile(const fs::path& file, const fs::path& output_dir, const fs::path& target_mount_root) {
-    fs::path normalized = fs::absolute(output_dir).lexically_normal();
-    if (normalized == "/" || normalized == "/etc" || normalized == "/usr" || normalized == "/var") {
-        throw ValidationError("refusing unsafe output directory: " + normalized.string());
-    }
-    std::error_code ec;
-    fs::remove_all(normalized, ec);
-    render_tree(validate_profile_file(file, target_mount_root), normalized);
+    const Profile profile = validate_profile_file(file, target_mount_root);
+    replace_render_directory(
+        output_dir,
+        [&](const fs::path& staging) { render_tree(profile, staging); },
+        [&](const fs::path& staging) {
+            const fs::path rendered = staging / "etc" / "btrfs-backup" / "profiles" / profile.id / "profile.json";
+            const Profile validated = validate_profile_file(rendered, target_mount_root);
+            if (validated.id != profile.id) {
+                throw ValidationError("rendered profile identity mismatch");
+            }
+        }
+    );
 }
 
 Profile save_profile(const fs::path& file, const ProfileInstallationRoots& roots) {

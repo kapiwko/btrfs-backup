@@ -268,4 +268,21 @@ set it back to `true`.
 
 ## Output Directory Safety
 
-Render commands remove the previous contents of `--output-dir`, so they reject the repository root, template root, system directories, and any path containing active project configuration. The default root output directory, `/etc/btrfs-backup/generated`, is separate from active files.
+Render commands validate the profile before touching `--output-dir`. A target
+directory is accepted only when it does not exist, is empty, or contains the
+root marker `.btrfs-backup-render-root` created by an earlier successful render.
+The directory and marker must belong to the current user, and the marker must
+not be writable by group or others. A non-empty unmarked directory is never
+removed, including a home directory or active configuration below `/etc` or
+`/var`. Every parent component must be a real directory owned by root or the
+current user. Group/other-writable parents are accepted only with the sticky
+bit, which permits normal rendering below `/tmp` without exposing a root-run
+staging directory to pathname replacement by another user.
+
+Rendering takes place in a sibling `.OUTPUT.stage-XXXXXX` directory. The staged
+tree is validated and receives its marker before `renameat2(RENAME_EXCHANGE)`
+publishes it. Therefore an invalid profile or generated tree leaves the previous
+valid render intact. A render directory created by an older version without the
+marker must be moved or removed explicitly once; it is not adopted
+automatically. The default root output directory,
+`/etc/btrfs-backup/generated`, remains separate from active files.

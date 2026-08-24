@@ -4,9 +4,9 @@
 #include <string>
 #include <vector>
 
+#include <config/render_directory.hpp>
 #include <config/wizard/profile_wizard_install.hpp>
 #include <config/wizard/profile_wizard_model.hpp>
-#include <config/wizard/profile_wizard_paths.hpp>
 #include <config/wizard/profile_wizard_prompt.hpp>
 #include <config/wizard/profile_wizard_sources.hpp>
 
@@ -71,16 +71,6 @@ void test_source_selection() {
     test_helpers::expect_validation_error("source selection range", [&] {
         (void)btrfsbackup::wizard::selected_sources_from_input(candidates, "4");
     }, "out of range");
-}
-
-void test_output_dir_validation() {
-    test_helpers::expect_validation_error("unsafe root", [] {
-        btrfsbackup::wizard::assert_safe_output_dir("/");
-    }, "refusing unsafe output directory");
-    test_helpers::expect_validation_error("unsafe etc", [] {
-        btrfsbackup::wizard::assert_safe_output_dir("/etc/../etc");
-    }, "refusing unsafe output directory");
-    btrfsbackup::wizard::assert_safe_output_dir("/tmp/btrfs-backup-generated");
 }
 
 btrfsbackup::ProfileWizardAnswers sample_answers() {
@@ -161,6 +151,12 @@ void test_render_wizard_tree() {
 
     btrfsbackup::render_wizard_tree(profile, answers.keyfile, root / "rendered");
 
+    test_helpers::expect_true(
+        "wizard render marker",
+        fs::is_regular_file(root / "rendered" / btrfsbackup::render_root_marker),
+        "render root marker was not created"
+    );
+
     test_helpers::expect_contains(
         "wizard render profile",
         read_file(root / "rendered" / "config" / "profile.json"),
@@ -192,6 +188,39 @@ void test_render_wizard_tree() {
         "RequiresMountsFor=\"/mnt/btrfs-backup/laptop\""
     );
 
+    test_helpers::write_file(root / "rendered" / "stale.txt", "old");
+    btrfsbackup::render_wizard_tree(profile, answers.keyfile, root / "rendered");
+    test_helpers::expect_true(
+        "wizard rerender removes owned stale file",
+        !fs::exists(root / "rendered" / "stale.txt"),
+        "stale file survived rerender"
+    );
+
+    test_helpers::write_file(root / "unmarked" / "important.txt", "keep me");
+    test_helpers::expect_validation_error(
+        "wizard refuses unmarked directory",
+        [&] { btrfsbackup::render_wizard_tree(profile, answers.keyfile, root / "unmarked"); },
+        "without .btrfs-backup-render-root"
+    );
+    test_helpers::expect_eq(
+        "wizard preserves unmarked file",
+        read_file(root / "unmarked" / "important.txt"),
+        "keep me"
+    );
+
+    btrfsbackup::Profile invalid = profile;
+    invalid.id = "../invalid";
+    test_helpers::expect_validation_error(
+        "wizard validates before output access",
+        [&] { btrfsbackup::render_wizard_tree(invalid, answers.keyfile, root / "unmarked"); },
+        "profileId"
+    );
+    test_helpers::expect_eq(
+        "wizard invalid profile preserves unmarked file",
+        read_file(root / "unmarked" / "important.txt"),
+        "keep me"
+    );
+
     fs::remove_all(root);
 }
 
@@ -202,7 +231,6 @@ int main() {
     test_prompt_defaults_and_retry();
     test_source_names();
     test_source_selection();
-    test_output_dir_validation();
     test_profile_from_wizard_answers();
     test_profile_from_wizard_answers_validation();
     test_render_wizard_tree();
