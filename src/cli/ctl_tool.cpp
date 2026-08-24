@@ -2,9 +2,9 @@
 
 #include <algorithm>
 #include <cstdlib>
+#include <exception>
 #include <filesystem>
 #include <iostream>
-#include <stdexcept>
 #include <string>
 #include <vector>
 
