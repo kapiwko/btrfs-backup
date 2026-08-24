@@ -10,6 +10,7 @@
 #include <cli/profile_command.hpp>
 #include <cli/profile_wizard_command.hpp>
 #include <config/errors.hpp>
+#include <config/application_config.hpp>
 #include <config/json_io.hpp>
 #include <config/profile.hpp>
 #include <cli/profile_list_command.hpp>
@@ -122,12 +123,14 @@ int profile(const std::vector<std::string>& args, const fs::path& profile_config
 
         if (command == "validate") {
             if (file.empty()) fail("validate requires --file");
-            std::cout << dump_json(profile_to_json(validate_profile_file(file)));
+            ApplicationConfig config = ApplicationConfig::load(etc_root);
+            std::cout << dump_json(profile_to_json(validate_profile_file(file, config.paths().target_mount_root)));
         } else if (command == "render") {
             if (file.empty()) fail("render requires --file");
             if (output_dir.empty()) fail("render requires --output-dir");
-            Profile profile = validate_profile_file(file);
-            render_profile(file, output_dir);
+            ApplicationConfig config = ApplicationConfig::load(etc_root);
+            Profile profile = validate_profile_file(file, config.paths().target_mount_root);
+            render_profile(file, output_dir, config.paths().target_mount_root);
             std::cout << "Rendered profile " << profile.id << " to " << output_dir << "\n";
         } else if (command == "save") {
             if (file.empty()) fail("save requires --file");

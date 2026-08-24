@@ -15,9 +15,16 @@ struct ProfileInstallationRoots {
     std::filesystem::path public_root;
 };
 
-Profile validate_profile_file(const std::filesystem::path& file);
+Profile validate_profile_file(
+    const std::filesystem::path& file,
+    const std::filesystem::path& target_mount_root = "/mnt/btrfs-backup"
+);
 void write_profile_file(const Profile& profile, const std::filesystem::path& output);
-void render_profile(const std::filesystem::path& file, const std::filesystem::path& output_dir);
+void render_profile(
+    const std::filesystem::path& file,
+    const std::filesystem::path& output_dir,
+    const std::filesystem::path& target_mount_root = "/mnt/btrfs-backup"
+);
 Profile save_profile(const std::filesystem::path& file, const ProfileInstallationRoots& roots);
 Profile get_profile(const std::filesystem::path& etc_root, const std::string& profile_id);
 Profile export_profile(

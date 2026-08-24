@@ -35,8 +35,6 @@ void test_profile_create_writes_json() {
         "66666666-7777-8888-9999-aaaaaaaaaaaa",
         "--mapper-name",
         "backupdisk",
-        "--mount-point",
-        "/mnt/backup",
         "--remote-retention",
         "2",
         "--local-retention",
@@ -53,10 +51,11 @@ void test_profile_create_writes_json() {
 
     test_helpers::expect_eq("profile create result", std::to_string(result), "0");
     btrfsbackup::Json profile = btrfsbackup::load_json_file(profile_json);
-    test_helpers::expect_true("profile create schema", profile.at("schemaVersion") == 2, "wrong profile schema version");
+    test_helpers::expect_true("profile create schema", profile.at("schemaVersion") == 3, "wrong profile schema version");
     test_helpers::expect_eq("profile create id", profile.at("profileId").get<std::string>(), "default");
     test_helpers::expect_eq("profile create source id", profile.at("sources").at(0).at("id").get<std::string>(), "home");
-    test_helpers::expect_eq("profile create remote root", profile.at("paths").at("remoteRoot").get<std::string>(), "/mnt/backup/snapshots");
+    test_helpers::expect_eq("profile create remote root", profile.at("paths").at("remoteRoot").get<std::string>(), "/mnt/btrfs-backup/default/snapshots");
+    test_helpers::expect_true("profile create hides mount point", !profile.at("target").contains("mountPoint"), "mount point leaked into profile");
     for (const std::string& key : {"sourcesDir", "stateDir", "statusRoot", "historyRoot"}) {
         test_helpers::expect_true("profile create hides " + key, !profile.at("paths").contains(key), "system path leaked into profile");
     }

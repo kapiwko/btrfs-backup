@@ -11,6 +11,7 @@
 #include <vector>
 
 #include <config/errors.hpp>
+#include <config/application_config.hpp>
 #include <config/json_io.hpp>
 #include <platform/linux/process.hpp>
 #include <config/profile.hpp>
@@ -102,7 +103,7 @@ void require_exact_text(const fs::path& path, const std::string& expected, const
 
 namespace btrfsbackup {
 
-void validate_rendered_installation(const fs::path& root) {
+void validate_rendered_installation(const fs::path& root, const fs::path& target_mount_root) {
     fs::path profile_json = root / "config" / "profile.json";
     fs::path service_file = root / "systemd" / "btrfs-backup.service";
     fs::path profile_service_file = root / "systemd" / "btrfs-backup@.service";
@@ -116,7 +117,7 @@ void validate_rendered_installation(const fs::path& root) {
         throw ValidationError("unresolved placeholders remain in rendered files");
     }
 
-    Profile profile = profile_from_json(load_json_file(profile_json));
+    Profile profile = profile_from_json(load_json_file(profile_json), target_mount_root);
     fs::path mount_dependency = root / "systemd" / ("btrfs-backup@" + profile.id + ".service.d") / "target-mount.conf";
     require_exact_text(
         mount_dependency,
@@ -149,7 +150,8 @@ void validate_active_installation(const std::string& profile_id) {
     }
     require_file(eject_service_file, "missing eject systemd template unit");
 
-    Profile profile = profile_from_json(load_json_file(profile_json));
+    ApplicationConfig config = ApplicationConfig::load();
+    Profile profile = profile_from_json(load_json_file(profile_json), config.paths().target_mount_root);
     fs::path mount_dependency = fs::path("/etc/systemd/system")
         / ("btrfs-backup@" + profile.id + ".service.d") / "target-mount.conf";
     require_exact_text(mount_dependency, render_mount_dependency(profile), "missing target mount dependency");

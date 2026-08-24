@@ -10,6 +10,7 @@
 #include <config/installation_validate.hpp>
 #include <config/json_io.hpp>
 #include <platform/linux/process.hpp>
+#include <platform/linux/trusted_directory.hpp>
 #include <config/profile_store.hpp>
 #include <config/wizard/profile_wizard_paths.hpp>
 
@@ -43,7 +44,7 @@ void render_wizard_tree(const Profile& profile, const std::string& keyfile, cons
             keyfile
         }
     );
-    validate_rendered_installation(output_dir);
+    validate_rendered_installation(output_dir, fs::path(profile.target.mount_point).parent_path());
 }
 
 void apply_rendered_wizard_tree(const Profile& profile, const fs::path& output_dir) {
@@ -54,7 +55,7 @@ void apply_rendered_wizard_tree(const Profile& profile, const fs::path& output_d
     fs::create_directories("/etc/systemd/system");
     fs::create_directories("/etc/udev/rules.d");
     fs::create_directories("/var/lib/btrfs-backup/public/profiles");
-    fs::create_directories(profile.target.mount_point);
+    ensure_trusted_directory(profile.target.mount_point, 0755);
 
     save_tree(
         profile,

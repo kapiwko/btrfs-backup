@@ -15,6 +15,7 @@ struct TargetServiceDependencies {
     ICommandRunner& commands;
     std::function<std::vector<MountEntry>()> read_mounts;
     std::filesystem::path lock_root;
+    std::filesystem::path mount_point_trust_root;
 };
 
 struct MountTargetRequest {

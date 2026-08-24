@@ -51,7 +51,7 @@ void test_schema_requires_cpp_required_fields() {
     Json root = schema();
 
     expect_no_additional_properties("schema top additional", root);
-    test_helpers::expect_true("schema version", root.at("properties").at("schemaVersion").at("const") == 2, "profile schema must be version 2");
+    test_helpers::expect_true("schema version", root.at("properties").at("schemaVersion").at("const") == 3, "profile schema must be version 3");
     expect_required("schema top schemaVersion", root, "schemaVersion");
     expect_required("schema top profileId", root, "profileId");
     expect_required("schema top target", root, "target");
@@ -64,8 +64,8 @@ void test_schema_requires_cpp_required_fields() {
     expect_required("schema target luks uuid", target, "luksUuid");
     expect_required("schema target btrfs uuid", target, "btrfsUuid");
     expect_required("schema target mapper", target, "mapperName");
-    expect_required("schema target mount point", target, "mountPoint");
-    test_helpers::expect_true("schema target mount unit property", target.at("properties").contains("mountUnit"), "schema should document normalized mountUnit");
+    test_helpers::expect_true("schema hides target mount point", !target.at("properties").contains("mountPoint"), "mount point must be application-controlled");
+    test_helpers::expect_true("schema hides target mount unit", !target.at("properties").contains("mountUnit"), "mount unit must be application-controlled");
 
     const Json& paths = root.at("properties").at("paths");
     expect_no_additional_properties("schema paths additional", paths);
@@ -127,9 +127,11 @@ void test_schema_requires_cpp_required_fields() {
 
 void test_example_profile_matches_cpp_validator() {
     Json normalized = btrfsbackup::normalize_profile(example_profile());
+    btrfsbackup::Profile profile = btrfsbackup::profile_from_json(normalized);
 
     test_helpers::expect_true("example profile id", normalized.at("profileId") == "default", "wrong example profile id");
-    test_helpers::expect_true("example mount unit", normalized.at("target").at("mountUnit") == "mnt-backup.mount", "wrong normalized mount unit");
+    test_helpers::expect_true("example mount point", profile.target.mount_point == "/mnt/btrfs-backup/default", "wrong derived mount point");
+    test_helpers::expect_true("example mount unit", profile.target.mount_unit == "mnt-btrfs\\x2dbackup-default.mount", "wrong derived mount unit");
     test_helpers::expect_true("example source count", normalized.at("sources").size() == 1, "wrong example source count");
 }
 

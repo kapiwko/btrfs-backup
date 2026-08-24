@@ -75,8 +75,7 @@ btrfsbackup::Json profile_json(const std::string& mount_point, bool auto_eject =
             {"device", "/dev/disk/by-uuid/target-luks"},
             {"luksUuid", luks_uuid},
             {"btrfsUuid", btrfs_uuid},
-            {"mapperName", mapper_name},
-            {"mountPoint", mount_point}
+            {"mapperName", mapper_name}
         }},
         {"paths", {
             {"remoteRoot", mount_point + "/snapshots"},
@@ -103,6 +102,11 @@ btrfsbackup::Json profile_json(const std::string& mount_point, bool auto_eject =
 }
 
 fs::path write_profile(const fs::path& root, const std::string& mount_point, bool auto_eject = true) {
+    test_helpers::write_file(
+        root / "btrfs-backup.conf",
+        "CONFIG_VERSION=1\nTARGET_MOUNT_ROOT=" + fs::path(mount_point).parent_path().string() + "\n"
+    );
+    chmod((root / "btrfs-backup.conf").c_str(), 0600);
     fs::path profile_path = root / "profiles" / "default" / "profile.json";
     test_helpers::write_file(profile_path, btrfsbackup::dump_json(profile_json(mount_point, auto_eject)));
     chmod(profile_path.c_str(), 0600);
@@ -146,13 +150,14 @@ bool contains_call_prefix(const RecordingCommandRunner& commands, const std::str
 
 void test_mount_starts_unit_and_validates_target() {
     fs::path root = test_helpers::test_root("target-command", "mount");
-    std::string mount_point = (root / "mnt" / "backup").string();
+    std::string mount_point = (root / "mnt" / "default").string();
     write_profile(root, mount_point);
     RecordingCommandRunner commands;
     btrfsbackup::command::TargetExecutionServices services{
         commands,
         [&commands, mount_point] { return mounts_for(commands.mounted, mount_point); },
-        root / "locks"
+        root / "locks",
+        root
     };
     std::ostringstream output;
 
@@ -171,14 +176,15 @@ void test_mount_starts_unit_and_validates_target() {
 
 void test_eject_unmounts_and_stops_crypt_unit() {
     fs::path root = test_helpers::test_root("target-command", "eject");
-    std::string mount_point = (root / "mnt" / "backup").string();
+    std::string mount_point = (root / "mnt" / "default").string();
     write_profile(root, mount_point);
     RecordingCommandRunner commands;
     commands.mounted = true;
     btrfsbackup::command::TargetExecutionServices services{
         commands,
         [&commands, mount_point] { return mounts_for(commands.mounted, mount_point); },
-        root / "locks"
+        root / "locks",
+        root
     };
     std::ostringstream output;
 
@@ -198,14 +204,15 @@ void test_eject_unmounts_and_stops_crypt_unit() {
 
 void test_internal_eject_honors_auto_eject_setting() {
     fs::path root = test_helpers::test_root("target-command", "auto-eject-disabled");
-    std::string mount_point = (root / "mnt" / "backup").string();
+    std::string mount_point = (root / "mnt" / "default").string();
     write_profile(root, mount_point, false);
     RecordingCommandRunner commands;
     commands.mounted = true;
     btrfsbackup::command::TargetExecutionServices services{
         commands,
         [&commands, mount_point] { return mounts_for(commands.mounted, mount_point); },
-        root / "locks"
+        root / "locks",
+        root
     };
     std::ostringstream output;
 
@@ -220,7 +227,7 @@ void test_internal_eject_honors_auto_eject_setting() {
 
 void test_eject_refuses_busy_target_without_running_commands() {
     fs::path root = test_helpers::test_root("target-command", "eject-busy");
-    std::string mount_point = (root / "mnt" / "backup").string();
+    std::string mount_point = (root / "mnt" / "default").string();
     write_profile(root, mount_point);
     RecordingCommandRunner commands;
     commands.mounted = true;
@@ -228,7 +235,8 @@ void test_eject_refuses_busy_target_without_running_commands() {
     btrfsbackup::command::TargetExecutionServices services{
         commands,
         [&commands, mount_point] { return mounts_for(commands.mounted, mount_point); },
-        lock_root
+        lock_root,
+        root
     };
     btrfsbackup::FileLock active_target_lock(btrfsbackup::target_lock_path(lock_root, luks_uuid));
     test_helpers::expect_true(
@@ -248,6 +256,43 @@ void test_eject_refuses_busy_target_without_running_commands() {
     fs::remove_all(root);
 }
 
+void test_mount_rejects_symlinked_mount_point_without_chmod() {
+    fs::path root = test_helpers::test_root("target-command", "mount-symlink");
+    chmod(root.c_str(), 0755);
+    fs::path mount_root = root / "mnt";
+    fs::path mount_point = mount_root / "default";
+    fs::path victim = root / "victim";
+    fs::create_directories(mount_root);
+    fs::create_directories(victim);
+    chmod(victim.c_str(), 0700);
+    fs::create_directory_symlink(victim, mount_point);
+    write_profile(root, mount_point.string());
+
+    RecordingCommandRunner commands;
+    btrfsbackup::command::TargetExecutionServices services{
+        commands,
+        [&commands, mount_point] { return mounts_for(commands.mounted, mount_point.string()); },
+        root / "locks",
+        root
+    };
+    std::ostringstream output;
+
+    setenv("BTRFS_BACKUP_ALLOW_ROOTLESS_TESTS", "true", 1);
+    test_helpers::expect_validation_error("symlinked target mount rejected", [&] {
+        (void)btrfsbackup::command::target(root, {"mount", "--profile", "default"}, output, &services);
+    }, "without symlinks");
+
+    struct stat victim_status {};
+    stat(victim.c_str(), &victim_status);
+    test_helpers::expect_true("symlink victim mode unchanged", (victim_status.st_mode & 0777) == 0700, "mount changed victim permissions");
+    test_helpers::expect_true(
+        "mount unit not started for symlink",
+        !contains_call_prefix(commands, "systemctl start "),
+        "mount unit started for an untrusted path"
+    );
+    fs::remove_all(root);
+}
+
 } // namespace
 
 int main() {
@@ -255,5 +300,6 @@ int main() {
     test_eject_unmounts_and_stops_crypt_unit();
     test_internal_eject_honors_auto_eject_setting();
     test_eject_refuses_busy_target_without_running_commands();
+    test_mount_rejects_symlinked_mount_point_without_chmod();
     return test_helpers::finish("target command tests passed");
 }

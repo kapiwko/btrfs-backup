@@ -72,7 +72,9 @@ flowchart TB
 The udev rule is only responsible for starting the service on an `add` event. There is no removal handler because after physical device removal it is too late to safely flush buffers and unmount.
 
 Each saved profile installs a service drop-in with
-`RequiresMountsFor=<target.mountPoint>`. PID 1 therefore starts the fstab mount,
+`RequiresMountsFor=<TARGET_MOUNT_ROOT>/<profileId>`. The mount root defaults to
+`/mnt/btrfs-backup` and is controlled only by the global application
+configuration. PID 1 therefore starts the fstab mount,
 including its cryptsetup dependency, before it creates the service's private
 mount namespace. The mount unit does not start the backup service, so there is
 no `service -> mount -> service` dependency cycle. A runner started directly

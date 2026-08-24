@@ -226,10 +226,10 @@ btrfsbackup::Profile test_profile(const fs::path& root) {
     profile.target.partition_uuid = "";
     profile.target.serial = "";
     profile.target.mapper_name = "backup";
-    profile.target.mount_point = (root / "target").string();
+    profile.target.mount_point = (root / "target" / "default").string();
     profile.target.mount_unit = "";
-    profile.paths.remote_root = (root / "target" / "snapshots").string();
-    profile.paths.incoming_root = (root / "target" / ".incoming").string();
+    profile.paths.remote_root = (root / "target" / "default" / "snapshots").string();
+    profile.paths.incoming_root = (root / "target" / "default" / ".incoming").string();
     profile.settings.incremental_required = false;
     profile.settings.keep_failed_local_snapshot = false;
     profile.settings.remote_retention = 2;
@@ -255,6 +255,7 @@ btrfsbackup::ApplicationPaths test_application_paths(const fs::path& root) {
         .state_root = root / "state",
         .status_root = root / "status",
         .history_root = root / "history",
+        .target_mount_root = root / "target",
     };
 }
 
@@ -272,6 +273,14 @@ void add_home_source(btrfsbackup::Profile& profile, const fs::path& root) {
 }
 
 void write_profile(const fs::path& config_root, const btrfsbackup::Profile& profile) {
+    fs::path config_path = config_root / "btrfs-backup.conf";
+    if (!fs::exists(config_path)) {
+        test_helpers::write_file(
+            config_path,
+            "CONFIG_VERSION=1\nTARGET_MOUNT_ROOT=" + fs::path(profile.target.mount_point).parent_path().string() + "\n"
+        );
+        chmod(config_path.c_str(), 0600);
+    }
     fs::path profile_path = config_root / "profiles" / profile.id / "profile.json";
     test_helpers::write_file(profile_path, btrfsbackup::profile_to_json(profile).dump(2));
     chmod(profile_path.c_str(), 0600);
@@ -286,6 +295,7 @@ void write_application_config(const fs::path& config_root, const fs::path& root)
         "STATE_ROOT=" + (root / "state").string() + "\n"
         "STATUS_ROOT=" + (root / "status").string() + "\n"
         "HISTORY_ROOT=" + (root / "history").string() + "\n"
+        "TARGET_MOUNT_ROOT=" + (root / "target").string() + "\n"
     );
     chmod(config_path.c_str(), 0600);
 }
@@ -329,8 +339,8 @@ void test_runner_plan_outputs_shadow_json() {
     fs::path root = test_helpers::test_root("runner-command", "plan");
     fs::create_directories(root / "source" / "root");
     fs::create_directories(root / "source" / ".snapshots" / "root");
-    fs::create_directories(root / "target" / "snapshots" / "root");
-    fs::create_directories(root / "target" / ".incoming");
+    fs::create_directories(root / "target" / "default" / "snapshots" / "root");
+    fs::create_directories(root / "target" / "default" / ".incoming");
 
     btrfsbackup::Profile profile = test_profile(root);
     fs::path config_root = root / "config";
@@ -384,8 +394,8 @@ void test_runner_plan_validates_target_mount() {
     fs::path root = test_helpers::test_root("runner-command", "target-validation");
     fs::create_directories(root / "source" / "root");
     fs::create_directories(root / "source" / ".snapshots" / "root");
-    fs::create_directories(root / "target" / "snapshots" / "root");
-    fs::create_directories(root / "target" / ".incoming");
+    fs::create_directories(root / "target" / "default" / "snapshots" / "root");
+    fs::create_directories(root / "target" / "default" / ".incoming");
 
     btrfsbackup::Profile profile = test_profile(root);
     fs::path config_root = root / "config";
@@ -425,8 +435,8 @@ void test_runner_execute_rejects_busy_profile_before_target_access() {
     fs::path root = test_helpers::test_root("runner-command", "execute-profile-busy");
     fs::create_directories(root / "source" / "root");
     fs::create_directories(root / "source" / ".snapshots" / "root");
-    fs::create_directories(root / "target" / "snapshots" / "root");
-    fs::create_directories(root / "target" / ".incoming");
+    fs::create_directories(root / "target" / "default" / "snapshots" / "root");
+    fs::create_directories(root / "target" / "default" / ".incoming");
 
     btrfsbackup::Profile profile = test_profile(root);
     fs::path config_root = root / "config";
@@ -488,23 +498,28 @@ void test_runner_execute_serializes_shared_target_but_allows_another_target() {
     fs::path root = test_helpers::test_root("runner-command", "execute-target-locks");
     fs::create_directories(root / "source" / "root");
     fs::create_directories(root / "source" / ".snapshots" / "root");
-    fs::create_directories(root / "target" / "snapshots" / "root");
-    fs::create_directories(root / "target" / ".incoming");
+    fs::create_directories(root / "target" / "default" / "snapshots" / "root");
+    fs::create_directories(root / "target" / "default" / ".incoming");
 
     btrfsbackup::Profile active_profile = test_profile(root);
     btrfsbackup::Profile shared_target_profile = test_profile(root);
     shared_target_profile.id = "shared";
     shared_target_profile.name = "Shared target";
+    shared_target_profile.target.mount_point = (root / "target" / "shared").string();
+    shared_target_profile.paths.remote_root = (root / "target" / "shared" / "snapshots").string();
+    shared_target_profile.paths.incoming_root = (root / "target" / "shared" / ".incoming").string();
     btrfsbackup::Profile other_target_profile = test_profile(root);
     other_target_profile.id = "other";
     other_target_profile.name = "Other target";
     other_target_profile.target.luks_uuid = "33333333-4444-5555-6666-777777777777";
     other_target_profile.target.btrfs_uuid = "44444444-5555-6666-7777-888888888888";
-    other_target_profile.target.mount_point = (root / "other-target").string();
-    other_target_profile.paths.remote_root = (root / "other-target" / "snapshots").string();
-    other_target_profile.paths.incoming_root = (root / "other-target" / ".incoming").string();
-    fs::create_directories(root / "other-target" / "snapshots" / "root");
-    fs::create_directories(root / "other-target" / ".incoming");
+    other_target_profile.target.mount_point = (root / "target" / "other").string();
+    other_target_profile.paths.remote_root = (root / "target" / "other" / "snapshots").string();
+    other_target_profile.paths.incoming_root = (root / "target" / "other" / ".incoming").string();
+    fs::create_directories(root / "target" / "shared" / "snapshots" / "root");
+    fs::create_directories(root / "target" / "shared" / ".incoming");
+    fs::create_directories(root / "target" / "other" / "snapshots" / "root");
+    fs::create_directories(root / "target" / "other" / ".incoming");
 
     fs::path config_root = root / "config";
     fs::path active_mountinfo = root / "active-mountinfo";
@@ -688,8 +703,8 @@ void test_runner_execute_uses_injected_services_and_writes_state() {
     fs::path root = test_helpers::test_root("runner-command", "execute-injected");
     fs::create_directories(root / "source" / "root");
     fs::create_directories(root / "source" / ".snapshots" / "root");
-    fs::create_directories(root / "target" / "snapshots" / "root");
-    fs::create_directories(root / "target" / ".incoming");
+    fs::create_directories(root / "target" / "default" / "snapshots" / "root");
+    fs::create_directories(root / "target" / "default" / ".incoming");
 
     btrfsbackup::Profile profile = test_profile(root);
     fs::path config_root = root / "config";
@@ -771,8 +786,8 @@ void test_runner_execute_daily_limit_skips_matching_success() {
     fs::path root = test_helpers::test_root("runner-command", "execute-daily-limit-skip");
     fs::create_directories(root / "source" / "root");
     fs::create_directories(root / "source" / ".snapshots" / "root");
-    fs::create_directories(root / "target" / "snapshots" / "root");
-    fs::create_directories(root / "target" / ".incoming");
+    fs::create_directories(root / "target" / "default" / "snapshots" / "root");
+    fs::create_directories(root / "target" / "default" / ".incoming");
 
     btrfsbackup::Profile profile = test_profile(root);
     fs::path config_root = root / "config";
@@ -845,8 +860,8 @@ void test_runner_execute_force_ignores_daily_limit() {
     fs::path root = test_helpers::test_root("runner-command", "execute-daily-limit-force");
     fs::create_directories(root / "source" / "root");
     fs::create_directories(root / "source" / ".snapshots" / "root");
-    fs::create_directories(root / "target" / "snapshots" / "root");
-    fs::create_directories(root / "target" / ".incoming");
+    fs::create_directories(root / "target" / "default" / "snapshots" / "root");
+    fs::create_directories(root / "target" / "default" / ".incoming");
 
     btrfsbackup::Profile profile = test_profile(root);
     fs::path config_root = root / "config";
@@ -905,8 +920,8 @@ void test_runner_execute_validate_builds_plan_without_effects() {
     fs::path root = test_helpers::test_root("runner-command", "execute-validate");
     fs::create_directories(root / "source" / "root");
     fs::create_directories(root / "source" / ".snapshots" / "root");
-    fs::create_directories(root / "target" / "snapshots" / "root");
-    fs::create_directories(root / "target" / ".incoming");
+    fs::create_directories(root / "target" / "default" / "snapshots" / "root");
+    fs::create_directories(root / "target" / "default" / ".incoming");
 
     btrfsbackup::Profile profile = test_profile(root);
     fs::path config_root = root / "config";
@@ -963,8 +978,8 @@ void test_runner_execute_transfer_failure_writes_failed_status() {
     fs::path root = test_helpers::test_root("runner-command", "execute-transfer-failure");
     fs::create_directories(root / "source" / "root");
     fs::create_directories(root / "source" / ".snapshots" / "root");
-    fs::create_directories(root / "target" / "snapshots" / "root");
-    fs::create_directories(root / "target" / ".incoming");
+    fs::create_directories(root / "target" / "default" / "snapshots" / "root");
+    fs::create_directories(root / "target" / "default" / ".incoming");
 
     btrfsbackup::Profile profile = test_profile(root);
     fs::path config_root = root / "config";
@@ -1043,8 +1058,8 @@ void test_runner_execute_commit_failure_writes_failed_status() {
     fs::path root = test_helpers::test_root("runner-command", "execute-commit-failure");
     fs::create_directories(root / "source" / "root");
     fs::create_directories(root / "source" / ".snapshots" / "root");
-    fs::create_directories(root / "target" / "snapshots" / "root");
-    fs::create_directories(root / "target" / ".incoming");
+    fs::create_directories(root / "target" / "default" / "snapshots" / "root");
+    fs::create_directories(root / "target" / "default" / ".incoming");
 
     btrfsbackup::Profile profile = test_profile(root);
     fs::path config_root = root / "config";
@@ -1115,8 +1130,8 @@ void test_runner_execute_verify_failure_writes_failed_status() {
     fs::path root = test_helpers::test_root("runner-command", "execute-verify-failure");
     fs::create_directories(root / "source" / "root");
     fs::create_directories(root / "source" / ".snapshots" / "root");
-    fs::create_directories(root / "target" / "snapshots" / "root");
-    fs::create_directories(root / "target" / ".incoming");
+    fs::create_directories(root / "target" / "default" / "snapshots" / "root");
+    fs::create_directories(root / "target" / "default" / ".incoming");
 
     btrfsbackup::Profile profile = test_profile(root);
     fs::path config_root = root / "config";
@@ -1189,9 +1204,9 @@ void test_runner_execute_multi_source_success() {
     fs::create_directories(root / "source" / "home");
     fs::create_directories(root / "source" / ".snapshots" / "root");
     fs::create_directories(root / "source" / ".snapshots" / "home");
-    fs::create_directories(root / "target" / "snapshots" / "root");
-    fs::create_directories(root / "target" / "snapshots" / "home");
-    fs::create_directories(root / "target" / ".incoming");
+    fs::create_directories(root / "target" / "default" / "snapshots" / "root");
+    fs::create_directories(root / "target" / "default" / "snapshots" / "home");
+    fs::create_directories(root / "target" / "default" / ".incoming");
 
     btrfsbackup::Profile profile = test_profile(root);
     add_home_source(profile, root);
@@ -1259,12 +1274,12 @@ void test_runner_execute_incremental_uses_selected_parent() {
     fs::path root = test_helpers::test_root("runner-command", "execute-incremental");
     fs::create_directories(root / "source" / "root");
     fs::create_directories(root / "source" / ".snapshots" / "root");
-    fs::create_directories(root / "target" / "snapshots" / "root");
-    fs::create_directories(root / "target" / ".incoming");
+    fs::create_directories(root / "target" / "default" / "snapshots" / "root");
+    fs::create_directories(root / "target" / "default" / ".incoming");
 
     btrfsbackup::Profile profile = test_profile(root);
     fs::path local_parent = root / "source" / ".snapshots" / "root" / "root-2026-08-22T080000Z";
-    fs::path remote_parent = root / "target" / "snapshots" / "root" / "root-2026-08-22T080000Z";
+    fs::path remote_parent = root / "target" / "default" / "snapshots" / "root" / "root-2026-08-22T080000Z";
     fs::create_directories(local_parent);
     fs::create_directories(remote_parent);
 
@@ -1332,16 +1347,16 @@ void test_runner_execute_retention_plans_local_and_remote_deletes() {
     fs::path root = test_helpers::test_root("runner-command", "execute-retention");
     fs::create_directories(root / "source" / "root");
     fs::create_directories(root / "source" / ".snapshots" / "root");
-    fs::create_directories(root / "target" / "snapshots" / "root");
-    fs::create_directories(root / "target" / ".incoming");
+    fs::create_directories(root / "target" / "default" / "snapshots" / "root");
+    fs::create_directories(root / "target" / "default" / ".incoming");
 
     btrfsbackup::Profile profile = test_profile(root);
     profile.sources.at(0).local_retention = 2;
     profile.sources.at(0).remote_retention = 2;
     fs::path local_old = root / "source" / ".snapshots" / "root" / "root-2026-08-20T080000Z";
     fs::path local_keep = root / "source" / ".snapshots" / "root" / "root-2026-08-22T080000Z";
-    fs::path remote_old = root / "target" / "snapshots" / "root" / "root-2026-08-20T080000Z";
-    fs::path remote_keep = root / "target" / "snapshots" / "root" / "root-2026-08-22T080000Z";
+    fs::path remote_old = root / "target" / "default" / "snapshots" / "root" / "root-2026-08-20T080000Z";
+    fs::path remote_keep = root / "target" / "default" / "snapshots" / "root" / "root-2026-08-22T080000Z";
     fs::create_directories(local_old);
     fs::create_directories(local_keep);
     fs::create_directories(remote_old);
@@ -1417,8 +1432,8 @@ void test_runner_execute_pending_recovery_deletes_orphan() {
     fs::path root = test_helpers::test_root("runner-command", "execute-pending-recovery");
     fs::create_directories(root / "source" / "root");
     fs::create_directories(root / "source" / ".snapshots" / "root");
-    fs::create_directories(root / "target" / "snapshots" / "root");
-    fs::create_directories(root / "target" / ".incoming");
+    fs::create_directories(root / "target" / "default" / "snapshots" / "root");
+    fs::create_directories(root / "target" / "default" / ".incoming");
 
     btrfsbackup::Profile profile = test_profile(root);
     fs::path pending = root / "source" / ".snapshots" / "root" / "root-2026-08-22T080000Z";
@@ -1433,7 +1448,7 @@ void test_runner_execute_pending_recovery_deletes_orphan() {
         btrfsbackup::PendingMarker{
             .source_name = "root",
             .local_snapshot_path = pending.string(),
-            .final_snapshot_path = (root / "target" / "snapshots" / "root" / pending.filename()).string(),
+            .final_snapshot_path = (root / "target" / "default" / "snapshots" / "root" / pending.filename()).string(),
             .run_id = "20260822T080000Z-123-456",
             .timestamp = "2026-08-22T08:00:00Z",
         }
@@ -1527,8 +1542,8 @@ void test_runner_execute_honors_cancel_request_during_transfer() {
     fs::path root = test_helpers::test_root("runner-command", "execute-cancel");
     fs::create_directories(root / "source" / "root");
     fs::create_directories(root / "source" / ".snapshots" / "root");
-    fs::create_directories(root / "target" / "snapshots" / "root");
-    fs::create_directories(root / "target" / ".incoming");
+    fs::create_directories(root / "target" / "default" / "snapshots" / "root");
+    fs::create_directories(root / "target" / "default" / ".incoming");
 
     btrfsbackup::Profile profile = test_profile(root);
     fs::path config_root = root / "config";
@@ -1593,8 +1608,8 @@ void test_runner_execute_handles_sigint_as_cancelled_with_recovery_marker() {
     fs::path root = test_helpers::test_root("runner-command", "execute-sigint");
     fs::create_directories(root / "source" / "root");
     fs::create_directories(root / "source" / ".snapshots" / "root");
-    fs::create_directories(root / "target" / "snapshots" / "root");
-    fs::create_directories(root / "target" / ".incoming");
+    fs::create_directories(root / "target" / "default" / "snapshots" / "root");
+    fs::create_directories(root / "target" / "default" / ".incoming");
 
     btrfsbackup::Profile profile = test_profile(root);
     fs::path config_root = root / "config";

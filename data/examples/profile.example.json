@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "profileId": "default",
   "name": "Default backup",
   "enabled": true,
@@ -9,12 +9,11 @@
     "btrfsUuid": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
     "partitionUuid": "",
     "serial": "",
-    "mapperName": "backupdisk",
-    "mountPoint": "/mnt/backup"
+    "mapperName": "backupdisk"
   },
   "paths": {
-    "remoteRoot": "/mnt/backup/snapshots",
-    "incomingRoot": "/mnt/backup/.incoming"
+    "remoteRoot": "/mnt/btrfs-backup/default/snapshots",
+    "incomingRoot": "/mnt/btrfs-backup/default/.incoming"
   },
   "settings": {
     "dailyLimit": true,

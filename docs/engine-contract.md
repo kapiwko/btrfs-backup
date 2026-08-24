@@ -207,9 +207,10 @@ not change the selected program.
 
 ## Compatibility
 
-Public current status uses `schemaVersion: 3`; private diagnostic history uses
-`schemaVersion: 2`; checkpoint and internal event documents retain their own
-version 1 contracts. Run status intentionally does not contain target
+Profile configuration uses `schemaVersion: 3`. Public current status uses
+`schemaVersion: 3`; private diagnostic history uses `schemaVersion: 2`;
+checkpoint and internal event documents retain their own version 1 contracts.
+Run status intentionally does not contain target
 safe-removal state. Consumers must ignore unknown fields and treat missing
 optional fields as unavailable.
 

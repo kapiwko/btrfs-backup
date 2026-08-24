@@ -10,14 +10,14 @@ Manual example:
 
 ```bash
 sudo cryptsetup open /dev/disk/by-uuid/<LUKS-UUID> backupdisk
-sudo mount -o ro /dev/mapper/backupdisk /mnt/backup
+sudo mount -o ro /dev/mapper/backupdisk /mnt/btrfs-backup/default
 ```
 
 List snapshots:
 
 ```bash
-sudo btrfs subvolume list -r /mnt/backup
-sudo btrfs subvolume show /mnt/backup/snapshots/home/<snapshot>
+sudo btrfs subvolume list -r /mnt/btrfs-backup/default
+sudo btrfs subvolume show /mnt/btrfs-backup/default/snapshots/home/<snapshot>
 ```
 
 ## Restore Individual Files
@@ -26,7 +26,7 @@ A read-only snapshot is available like a normal directory:
 
 ```bash
 sudo rsync -aHAX --numeric-ids \
-  /mnt/backup/snapshots/home/<snapshot>/Documents/ \
+  /mnt/btrfs-backup/default/snapshots/home/<snapshot>/Documents/ \
   /mnt/restore/Documents/
 ```
 
@@ -39,7 +39,7 @@ Assume the new Btrfs filesystem is mounted at `/mnt/new-btrfs`:
 ```bash
 sudo mkdir -p /mnt/new-btrfs/receive
 sudo btrfs send \
-  /mnt/backup/snapshots/home/<snapshot> \
+  /mnt/btrfs-backup/default/snapshots/home/<snapshot> \
   | sudo btrfs receive /mnt/new-btrfs/receive
 ```
 

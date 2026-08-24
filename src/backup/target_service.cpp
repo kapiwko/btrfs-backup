@@ -1,6 +1,5 @@
 #include <backup/target_service.hpp>
 
-#include <sys/stat.h>
 #include <unistd.h>
 
 #include <algorithm>
@@ -17,6 +16,7 @@
 #include <config/validation.hpp>
 #include <platform/linux/device_info.hpp>
 #include <platform/linux/file_lock.hpp>
+#include <platform/linux/trusted_directory.hpp>
 #include <config/profile_loader.hpp>
 #include <backup/target_mount_validation.hpp>
 
@@ -126,6 +126,7 @@ struct ResolvedDependencies {
     btrfsbackup::ICommandRunner* commands = nullptr;
     std::function<std::vector<btrfsbackup::MountEntry>()> read_mounts;
     fs::path lock_root;
+    fs::path mount_point_trust_root;
 };
 
 ResolvedDependencies resolve_dependencies(btrfsbackup::TargetServiceDependencies* dependencies) {
@@ -142,6 +143,9 @@ ResolvedDependencies resolve_dependencies(btrfsbackup::TargetServiceDependencies
     resolved.lock_root = dependencies == nullptr || dependencies->lock_root.empty()
         ? btrfsbackup::default_lock_root()
         : dependencies->lock_root;
+    resolved.mount_point_trust_root = dependencies == nullptr || dependencies->mount_point_trust_root.empty()
+        ? fs::path("/")
+        : dependencies->mount_point_trust_root;
     return resolved;
 }
 
@@ -182,10 +186,11 @@ TargetOperationResult mount_target(
     }
 
     validate_luks_uuid(*resolved.commands, profile);
-    fs::create_directories(profile.target.mount_point);
-    chmod(profile.target.mount_point.c_str(), 0755);
-
-    if (!mount_at(resolved.read_mounts(), profile.target.mount_point).has_value()) {
+    std::vector<MountEntry> mounts = resolved.read_mounts();
+    if (mount_at(mounts, profile.target.mount_point).has_value()) {
+        validate_trusted_directory(profile.target.mount_point, resolved.mount_point_trust_root, geteuid());
+    } else {
+        ensure_trusted_directory(profile.target.mount_point, 0755, resolved.mount_point_trust_root, geteuid());
         result.events.push_back({.kind = TargetEventKind::Mounting, .detail = {}});
         run_checked(
             *resolved.commands,

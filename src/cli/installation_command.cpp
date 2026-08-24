@@ -7,11 +7,18 @@
 #include <vector>
 
 #include <cli/installation_command.hpp>
+#include <config/application_config.hpp>
 #include <config/installation_service.hpp>
 
 namespace fs = std::filesystem;
 
 namespace {
+
+fs::path application_config_root() {
+    return std::getenv("BTRFS_BACKUP_PROFILE_CONFIG_DIR")
+        ? fs::path(std::getenv("BTRFS_BACKUP_PROFILE_CONFIG_DIR"))
+        : fs::path("/etc/btrfs-backup");
+}
 
 [[noreturn]] void fail(const std::string& message, int code = 2) {
     std::cerr << "btrfs-backupctl: " << message << '\n';
@@ -55,7 +62,8 @@ int render_installation(const std::vector<std::string>& args) {
     if (file.empty()) fail("installation render requires --file");
     if (output_dir.empty()) fail("installation render requires --output-dir");
 
-    btrfsbackup::render_installation({file, output_dir, options});
+    btrfsbackup::ApplicationConfig config = btrfsbackup::ApplicationConfig::load(application_config_root());
+    btrfsbackup::render_installation({file, output_dir, options, config.paths().target_mount_root});
     return 0;
 }
 
@@ -87,7 +95,8 @@ int validate_installation(const std::vector<std::string>& args) {
         }
         btrfsbackup::validate_active_installation_for(profile_id);
     } else {
-        btrfsbackup::validate_rendered_installation_at(rendered_root);
+        btrfsbackup::ApplicationConfig config = btrfsbackup::ApplicationConfig::load(application_config_root());
+        btrfsbackup::validate_rendered_installation_at(rendered_root, config.paths().target_mount_root);
     }
     return 0;
 }

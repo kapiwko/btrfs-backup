@@ -18,7 +18,7 @@ fs::path test_root(const std::string& name) {
 
 btrfsbackup::Profile sample_profile() {
     return btrfsbackup::profile_from_json({
-        {"schemaVersion", 2},
+        {"schemaVersion", 3},
         {"profileId", "laptop"},
         {"name", "Laptop backup"},
         {"enabled", true},
@@ -26,8 +26,7 @@ btrfsbackup::Profile sample_profile() {
             {"device", "/dev/disk/by-uuid/11111111-2222-3333-4444-555555555555"},
             {"luksUuid", "11111111-2222-3333-4444-555555555555"},
             {"btrfsUuid", "66666666-7777-8888-9999-aaaaaaaaaaaa"},
-            {"mapperName", "backupdisk"},
-            {"mountPoint", "/mnt/backup"}
+            {"mapperName", "backupdisk"}
         }},
         {"sources", btrfsbackup::Json::array({{
             {"id", "home"},

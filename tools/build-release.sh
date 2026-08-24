@@ -929,7 +929,6 @@ if [[ "$TARGET" == all || "$TARGET" == arch ]]; then
         --luks-uuid 11111111-2222-3333-4444-555555555555 \
         --btrfs-uuid 66666666-7777-8888-9999-aaaaaaaaaaaa \
         --mapper-name backupdisk \
-        --mount-point /mnt/backup \
         --source root root / /.snapshots/btrfs-backup/root root 30 30 \
         --source home home /home /.snapshots/btrfs-backup/home home 30 30 >/dev/null
     "$PACKAGE_AUDIT_ROOT/usr/bin/btrfs-backupctl" \
