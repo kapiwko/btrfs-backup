@@ -1,3 +1,6 @@
+#include <fcntl.h>
+#include <sys/stat.h>
+
 #include <algorithm>
 #include <filesystem>
 #include <map>
@@ -112,6 +115,7 @@ public:
     int exit_code = 0;
     bool cancelled = false;
     bool timed_out = false;
+    bool inherited_fds_were_open = false;
     std::optional<btrfsbackup::ControlledCommandOptions> controlled_options;
 
     btrfsbackup::CommandResult run(const std::vector<std::string>& argv) override {
@@ -127,6 +131,10 @@ public:
         const btrfsbackup::ControlledCommandOptions& options
     ) override {
         controlled_options = options;
+        inherited_fds_were_open = !options.inherited_fds.empty()
+            && std::all_of(options.inherited_fds.begin(), options.inherited_fds.end(), [](int fd) {
+                return fcntl(fd, F_GETFD) >= 0;
+            });
         btrfsbackup::CommandResult result = run(argv);
         result.cancelled = cancelled;
         result.timed_out = timed_out;
@@ -168,7 +176,7 @@ btrfsbackup::BackupRunAction hook_action(btrfsbackup::BackupRunActionKind kind) 
         .kind = kind,
         .source_id = "root",
         .hook = btrfsbackup::ProfileHookCommand{
-            .program = "/usr/local/bin/prepare-backup",
+            .program = "/etc/btrfs-backup/hooks.d/prepare-backup",
             .arguments = {"--source", "root"},
             .timeout_seconds = 300,
         },
@@ -416,7 +424,7 @@ void test_hook_actions_use_command_runner_argv() {
     execute_action(effects, hook_action(btrfsbackup::BackupRunActionKind::BeforeSnapshotHook), source);
 
     test_helpers::expect_eq("hook call count", std::to_string(hooks.calls.size()), "1");
-    test_helpers::expect_eq("hook program", hooks.calls.at(0).at(0), "/usr/local/bin/prepare-backup");
+    test_helpers::expect_eq("hook program", hooks.calls.at(0).at(0), "/etc/btrfs-backup/hooks.d/prepare-backup");
     test_helpers::expect_eq("hook arg 1", hooks.calls.at(0).at(1), "--source");
     test_helpers::expect_eq("hook arg 2", hooks.calls.at(0).at(2), "root");
     test_helpers::expect_eq(
@@ -424,6 +432,48 @@ void test_hook_actions_use_command_runner_argv() {
         std::to_string(hooks.controlled_options->timeout.count()),
         std::to_string(std::chrono::minutes(5).count() * 60 * 1000)
     );
+}
+
+void test_production_hook_uses_pinned_trusted_descriptor() {
+    fs::path root = test_helpers::test_root("backup-run-action-effects", "trusted-hook");
+    fs::path hook_root = root / "hooks.d";
+    fs::create_directories(hook_root);
+    fs::path program = hook_root / "prepare-backup";
+    test_helpers::write_file(program, "#!/bin/sh\nexit 0\n");
+    chmod(program.c_str(), 0700);
+
+    btrfsbackup::BackupSourceRunPlan source = source_plan(root);
+    FakeBtrfsOperations btrfs;
+    FakeFileSystemEffects fs_effects;
+    FakeCommandRunner hooks;
+    btrfsbackup::BackupRunActionEffects effects(
+        btrfs,
+        fs_effects,
+        hooks,
+        root,
+        hook_root,
+        {.allow_current_user_owner = true, .verify_parent_directories = false}
+    );
+    btrfsbackup::BackupRunAction trusted_hook = hook_action(
+        btrfsbackup::BackupRunActionKind::BeforeSnapshotHook
+    );
+    trusted_hook.hook.program = program.string();
+
+    execute_action(effects, trusted_hook, source);
+
+    test_helpers::expect_contains("pinned hook argv", hooks.calls.at(0).at(0), "/proc/self/fd/");
+    test_helpers::expect_true(
+        "pinned hook descriptor inherited",
+        hooks.inherited_fds_were_open,
+        "hook descriptor was not open while invoking the command runner"
+    );
+    test_helpers::expect_eq(
+        "pinned hook inherited descriptor count",
+        std::to_string(hooks.controlled_options->inherited_fds.size()),
+        "1"
+    );
+
+    fs::remove_all(root);
 }
 
 void test_hook_failure_is_reported_as_validation_error() {
@@ -489,6 +539,7 @@ int main() {
     test_pending_recovery_deletes_invalid_remote_snapshot_first();
     test_failed_remote_recovery_keeps_local_snapshot_and_marker();
     test_hook_actions_use_command_runner_argv();
+    test_production_hook_uses_pinned_trusted_descriptor();
     test_hook_failure_is_reported_as_validation_error();
     test_hook_timeout_has_stable_error_code();
     test_hook_cancellation_is_not_reported_as_hook_failure();

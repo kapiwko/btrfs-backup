@@ -249,6 +249,9 @@
     instead of making the plasmoid own long-running progress;
   - add a KCM with QML/Kirigami views and C++ models for profile browsing,
     validation, freshness policy and controlled writes through the system API;
+  - require a separate high-risk polkit authorization for profile changes that
+    add, remove or modify hooks; never auto-authorize those changes solely for
+    the active desktop user;
   - keep QML free of shell command strings, private state parsing and direct
     writes to `/etc/btrfs-backup`;
   - add Plasma/KCM smoke tests for loading, status rendering and restart

@@ -113,6 +113,11 @@ void test_schema_requires_cpp_required_fields() {
     expect_required("schema hook arguments", hook, "arguments");
     expect_required("schema hook timeout", hook, "timeoutSeconds");
     test_helpers::expect_true("schema hook type const", hook.at("properties").at("type").at("const") == "program", "only program hooks should be supported");
+    test_helpers::expect_eq(
+        "schema hook program pattern",
+        hook.at("properties").at("program").at("pattern").get<std::string>(),
+        "^/etc/btrfs-backup/hooks\\.d/[^/]+$"
+    );
     test_helpers::expect_true("schema hook arg max", hook.at("properties").at("arguments").at("maxItems") == 128, "hook argument max should match C++ validator");
     test_helpers::expect_true("schema hook timeout min", hook.at("properties").at("timeoutSeconds").at("minimum") == 1, "hook timeout minimum should match C++ validator");
     test_helpers::expect_true("schema hook timeout max", hook.at("properties").at("timeoutSeconds").at("maximum") == 86400, "hook timeout maximum should match C++ validator");

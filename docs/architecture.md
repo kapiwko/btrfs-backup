@@ -117,7 +117,11 @@ Application hooks use the same cancellation token. Each hook runs in a separate
 process group with its required configured timeout. Cancellation or timeout
 sends SIGTERM to the group; process RAII escalates to SIGKILL and performs
 bounded reaping when the group does not exit. Hook stdout and stderr are drained
-while captured diagnostics are limited to 64 KiB.
+while captured diagnostics are limited to 64 KiB. Production hooks are opened
+without symlinks below `/etc/btrfs-backup/hooks.d`, checked for root ownership
+and non-writable trusted parents, then spawned through an inherited
+`/proc/self/fd/<fd>` path. Keeping that descriptor alive through `posix_spawnp()`
+prevents a path replacement race between validation and execution.
 
 ## Commit Model
 

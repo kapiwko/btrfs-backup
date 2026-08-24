@@ -178,9 +178,23 @@ Json normalize_hook_commands(const Json& hooks, const std::string& key, const st
             throw ValidationError(item_name + ".timeoutSeconds is outside the supported range");
         }
 
+        std::string program = absolute_path(
+            required_value(item, "program", item_name + ".program"),
+            item_name + ".program"
+        );
+        fs::path normalized_program = fs::path(program).lexically_normal();
+        if (normalized_program.parent_path() != fs::path(trusted_hook_directory)
+            || normalized_program.filename().empty()
+            || normalized_program.filename() == "."
+            || normalized_program.filename() == "..") {
+            throw ValidationError(
+                item_name + ".program must be a direct child of " + trusted_hook_directory
+            );
+        }
+
         normalized.push_back({
             {"type", type},
-            {"program", absolute_path(required_value(item, "program", item_name + ".program"), item_name + ".program")},
+            {"program", normalized_program.string()},
             {"arguments", normalized_arguments},
             {"timeoutSeconds", timeout_seconds}
         });

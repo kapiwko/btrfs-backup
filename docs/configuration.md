@@ -110,7 +110,7 @@ profile may define controlled hook phases around snapshot creation:
     "beforeSnapshot": [
       {
         "type": "program",
-        "program": "/usr/local/bin/prepare-postgresql-backup",
+        "program": "/etc/btrfs-backup/hooks.d/prepare-postgresql-backup",
         "arguments": [],
         "timeoutSeconds": 60
       }
@@ -120,8 +120,20 @@ profile may define controlled hook phases around snapshot creation:
 }
 ```
 
-Hook commands must be modeled as an explicit executable path and an argument
-array. The runtime does not execute arbitrary command text through a shell.
+Hook commands must name a direct child of `/etc/btrfs-backup/hooks.d` and pass
+an explicit argument array. The runtime does not execute arbitrary command text
+through a shell. Install each hook as a regular, non-symlink file owned by root,
+for example:
+
+```bash
+sudo install -o root -g root -m 0755 ./prepare-postgresql-backup \
+  /etc/btrfs-backup/hooks.d/prepare-postgresql-backup
+```
+
+The hook file and every parent directory must be owned by root and must not be
+writable by group or other users. The runtime checks this chain immediately
+before execution, opens the hook without following symlinks, and executes the
+pinned descriptor rather than resolving the configured path again.
 `timeoutSeconds` is required and accepts values from 1 through 86400. Hook
 failures and timeouts stop the run. Cancellation terminates the
 hook's complete process group and finishes the run through the normal cancelled

@@ -116,7 +116,11 @@
         "required": ["type", "program", "arguments", "timeoutSeconds"],
         "properties": {
           "type": { "const": "program" },
-          "program": { "$ref": "#/$defs/absolutePath" },
+          "program": {
+            "type": "string",
+            "pattern": "^/etc/btrfs-backup/hooks\\.d/[^/]+$",
+            "maxLength": 4096
+          },
           "arguments": {
             "type": "array",
             "maxItems": 128,

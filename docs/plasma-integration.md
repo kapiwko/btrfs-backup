@@ -60,6 +60,12 @@ The target architecture remains:
 4. plasmoid for status and controls routed through the shared D-Bus client;
 5. KCM for profile inspection, validation and controlled configuration writes.
 
+A profile write that adds or changes a hook can schedule an arbitrary trusted
+program to run as root during the next backup. The system API must expose that
+as a distinct high-risk authorization path. Its polkit action must require an
+explicit administrator decision and must not be implicitly granted to the
+active desktop user.
+
 The plasmoid must not own long-running backup progress. After the desktop
 monitor exists, progress and notifications belong there so they survive
 plasmoid removal and shell restarts.

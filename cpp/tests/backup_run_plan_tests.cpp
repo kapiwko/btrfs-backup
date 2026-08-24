@@ -155,14 +155,14 @@ void test_inserts_snapshot_hooks_around_snapshot_creation() {
     test_profile.settings.incremental_required = false;
     test_profile.hooks.before_snapshot = {
         btrfsbackup::ProfileHookCommand{
-            .program = "/usr/local/bin/before",
+            .program = "/etc/btrfs-backup/hooks.d/before",
             .arguments = {"root"},
             .timeout_seconds = 30,
         },
     };
     test_profile.hooks.after_snapshot = {
         btrfsbackup::ProfileHookCommand{
-            .program = "/usr/local/bin/after",
+            .program = "/etc/btrfs-backup/hooks.d/after",
             .arguments = {"root"},
             .timeout_seconds = 60,
         },
@@ -182,7 +182,7 @@ void test_inserts_snapshot_hooks_around_snapshot_creation() {
     const std::vector<btrfsbackup::BackupRunAction>& actions = plan.sources.at(0).actions;
     test_helpers::expect_eq("hook action count", std::to_string(actions.size()), "11");
     test_helpers::expect_eq("before hook action", std::to_string(static_cast<int>(actions.at(1).kind)), std::to_string(static_cast<int>(btrfsbackup::BackupRunActionKind::BeforeSnapshotHook)));
-    test_helpers::expect_eq("before hook program", actions.at(1).hook.program, "/usr/local/bin/before");
+    test_helpers::expect_eq("before hook program", actions.at(1).hook.program, "/etc/btrfs-backup/hooks.d/before");
     test_helpers::expect_eq("before hook timeout", std::to_string(actions.at(1).hook.timeout_seconds), "30");
     test_helpers::expect_eq("snapshot after before hook", std::to_string(static_cast<int>(actions.at(2).kind)), std::to_string(static_cast<int>(btrfsbackup::BackupRunActionKind::CreateSnapshot)));
     test_helpers::expect_eq("after hook action", std::to_string(static_cast<int>(actions.at(3).kind)), std::to_string(static_cast<int>(btrfsbackup::BackupRunActionKind::AfterSnapshotHook)));

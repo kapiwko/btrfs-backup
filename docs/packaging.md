@@ -74,7 +74,9 @@ Qt, Kirigami or Plasma dependencies to the base package.
 
 Native commands are installed directly under `/usr/bin`, the profile systemd unit under
 `/usr/lib/systemd/system`, examples under `/usr/share/btrfs-backup/examples`,
-and documentation under `/usr/share/doc/btrfs-backup`.
+and documentation under `/usr/share/doc/btrfs-backup`. The base package creates
+the trusted hook directory `/etc/btrfs-backup/hooks.d` as `root:root 0755` but
+does not install or enable any hook programs.
 
 The public command surface is `btrfs-backup` and `btrfs-backupctl`. Target
 mount and eject operations are `btrfs-backupctl target mount` and
