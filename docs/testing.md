@@ -141,6 +141,8 @@ The test covers:
     interruption;
 16. a full restore send/receive from the latest repository snapshot followed by
     content comparison.
+17. rejection of a per-source `.incoming` symlink escape with verification that
+    data outside the target repository remains unchanged.
 
 The current Plasma test target validates its status-only process model and
 read-only API surface. Cancellation authorization and target safe-removal

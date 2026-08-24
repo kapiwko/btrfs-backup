@@ -168,6 +168,11 @@ ProcessSpawnResult spawn_program(const std::vector<std::string>& argv, const Pro
     if (error == 0) {
         error = add_dup2(actions, options.stderr_fd, STDERR_FILENO);
     }
+    for (int inherited_fd : options.inherited_fds) {
+        if (error == 0 && inherited_fd >= 0) {
+            error = posix_spawn_file_actions_adddup2(&actions, inherited_fd, inherited_fd);
+        }
+    }
     if (error != 0) {
         posix_spawn_file_actions_destroy(&actions);
         return {.error = error};

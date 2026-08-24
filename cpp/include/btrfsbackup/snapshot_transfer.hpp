@@ -35,4 +35,12 @@ void commit_received_snapshot(
     const std::string& expected_received_uuid
 );
 
+void commit_received_snapshot_beneath(
+    IBtrfsOperations& btrfs,
+    const SafeDirectoryRoot& root,
+    const std::filesystem::path& received_path,
+    const std::filesystem::path& final_path,
+    const std::string& expected_received_uuid
+);
+
 } // namespace btrfsbackup

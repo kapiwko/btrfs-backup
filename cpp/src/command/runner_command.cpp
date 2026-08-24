@@ -29,6 +29,7 @@
 #include <btrfsbackup/process.hpp>
 #include <btrfsbackup/run_state.hpp>
 #include <btrfsbackup/runtime_adapters.hpp>
+#include <btrfsbackup/safe_directory_root.hpp>
 #include <btrfsbackup/snapshot_inventory.hpp>
 #include <btrfsbackup/status_writer.hpp>
 #include <btrfsbackup/target_mount_validation.hpp>
@@ -299,7 +300,8 @@ void ensure_target_mounted(const btrfsbackup::Profile& profile, const RunnerOpti
 btrfsbackup::BackupRunPlan build_runner_plan(
     const RunnerOptions& options,
     const btrfsbackup::Profile& profile,
-    const btrfsbackup::SnapshotMetadataReader& metadata_reader
+    const btrfsbackup::SnapshotMetadataReader& metadata_reader,
+    bool secure_paths
 ) {
     std::vector<btrfsbackup::MountEntry> mounts = read_mounts(options);
     btrfsbackup::validate_target_mount(profile, mounts);
@@ -309,29 +311,71 @@ btrfsbackup::BackupRunPlan build_runner_plan(
     btrfsbackup::PendingMarkerBySource pending_markers;
     btrfsbackup::PendingSnapshotBySource pending_snapshots;
     const fs::path profile_state_dir = fs::path(profile.paths.state_dir) / "profiles" / profile.id;
+    std::optional<btrfsbackup::SafeDirectoryRoot> local_root;
+    std::optional<btrfsbackup::SafeDirectoryRoot> target_root;
+    if (secure_paths) {
+        local_root.emplace("/");
+        target_root.emplace(profile.target.mount_point);
+    }
 
     for (const btrfsbackup::ProfileSource& source : profile.sources) {
         if (!source.enabled) {
             continue;
         }
         fs::path remote_dir = fs::path(profile.paths.remote_root) / source.remote_subdir;
-        local_inventory[source.id] = btrfsbackup::list_snapshot_inventory(
-            source.local_snapshot_dir,
-            source.id,
-            btrfsbackup::SnapshotSide::Local,
-            metadata_reader
-        );
-        remote_inventory[source.id] = btrfsbackup::list_snapshot_inventory(
-            remote_dir,
-            source.id,
-            btrfsbackup::SnapshotSide::Remote,
-            metadata_reader
-        );
+        if (secure_paths) {
+            if (local_root->exists(source.local_snapshot_dir)) {
+                btrfsbackup::SafeDirectoryHandle local = local_root->open_directory(source.local_snapshot_dir);
+                local_inventory[source.id] = btrfsbackup::list_snapshot_inventory_at(
+                    local.proc_path(),
+                    source.local_snapshot_dir,
+                    source.id,
+                    btrfsbackup::SnapshotSide::Local,
+                    [&](const fs::path& scan_path) {
+                        btrfsbackup::SafeDirectoryHandle snapshot = local_root->open_directory(
+                            fs::path(source.local_snapshot_dir) / scan_path.filename()
+                        );
+                        return metadata_reader(snapshot.proc_path());
+                    }
+                );
+            }
+            if (target_root->exists(remote_dir)) {
+                btrfsbackup::SafeDirectoryHandle remote = target_root->open_directory(remote_dir);
+                remote_inventory[source.id] = btrfsbackup::list_snapshot_inventory_at(
+                    remote.proc_path(),
+                    remote_dir,
+                    source.id,
+                    btrfsbackup::SnapshotSide::Remote,
+                    [&](const fs::path& scan_path) {
+                        btrfsbackup::SafeDirectoryHandle snapshot = target_root->open_directory(
+                            remote_dir / scan_path.filename()
+                        );
+                        return metadata_reader(snapshot.proc_path());
+                    }
+                );
+            }
+        } else {
+            local_inventory[source.id] = btrfsbackup::list_snapshot_inventory(
+                source.local_snapshot_dir, source.id, btrfsbackup::SnapshotSide::Local, metadata_reader
+            );
+            remote_inventory[source.id] = btrfsbackup::list_snapshot_inventory(
+                remote_dir, source.id, btrfsbackup::SnapshotSide::Remote, metadata_reader
+            );
+        }
 
         std::optional<btrfsbackup::PendingMarker> marker = btrfsbackup::read_pending_marker_if_exists(profile_state_dir, source.id);
         pending_markers[source.id] = marker;
         if (marker.has_value()) {
-            pending_snapshots[source.id] = metadata_reader(marker->local_snapshot_path);
+            if (secure_paths) {
+                if (local_root->exists(marker->local_snapshot_path)) {
+                    btrfsbackup::SafeDirectoryHandle pending = local_root->open_directory(marker->local_snapshot_path);
+                    pending_snapshots[source.id] = metadata_reader(pending.proc_path());
+                } else {
+                    pending_snapshots[source.id] = std::nullopt;
+                }
+            } else {
+                pending_snapshots[source.id] = metadata_reader(marker->local_snapshot_path);
+            }
         }
     }
 
@@ -497,7 +541,7 @@ int runner(
         }
         ensure_target_mounted(profile, options);
     }
-    BackupRunPlan plan = build_runner_plan(options, profile, metadata_reader);
+    BackupRunPlan plan = build_runner_plan(options, profile, metadata_reader, execution_services == nullptr);
     const std::string config_fingerprint = config_fingerprint_for_profile(profile_config_dir, profile);
 
     if (command == "execute") {
@@ -557,7 +601,7 @@ int runner(
         LibBtrfsOperations btrfs;
         StdFileSystemEffects fs_effects;
         SystemCommandRunner command_runner;
-        BackupRunActionEffects real_action_effects(btrfs, fs_effects, command_runner);
+        BackupRunActionEffects real_action_effects(btrfs, fs_effects, command_runner, profile.target.mount_point);
         PosixTransferPipeline real_transfer_pipeline;
         IBackupRunActionEffects& action_effects = execution_services == nullptr
             ? static_cast<IBackupRunActionEffects&>(real_action_effects)
@@ -565,6 +609,9 @@ int runner(
         ITransferPipeline& transfer_pipeline = execution_services == nullptr
             ? static_cast<ITransferPipeline&>(real_transfer_pipeline)
             : execution_services->transfer_pipeline;
+        if (execution_services != nullptr) {
+            plan.target_mount_point.clear();
+        }
         ThreadedAsyncTransferPipeline async_transfer_pipeline(transfer_pipeline);
 
         BackupRunExecutor executor(action_effects, async_transfer_pipeline, checkpoints);

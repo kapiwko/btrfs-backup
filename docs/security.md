@@ -55,6 +55,16 @@ Target validation includes:
 6. remote and incoming paths staying inside the target mount point;
 7. source filesystem being different from the target filesystem.
 
+The executing runner pins the target mount point and the filesystem root with
+directory descriptors. Storage paths are resolved with `openat2()` and
+`RESOLVE_BENEATH | RESOLVE_NO_SYMLINKS | RESOLVE_NO_MAGICLINKS`. Destructive
+cleanup, recovery and retention walk directories through dirfds and reject
+symbolic links instead of following them. Snapshot targets are created relative
+to a securely opened parent descriptor, and subvolumes are deleted with the
+Btrfs destroy ioctl on that descriptor. Snapshot inventory and the external
+`btrfs send/receive` processes use pinned, explicitly inherited descriptors, so
+the checked paths are not resolved again after validation.
+
 ## Operation Locks
 
 An executing runner acquires a profile lock and a target lock before mounting or

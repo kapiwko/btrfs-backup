@@ -59,6 +59,7 @@ struct BackupSourceRunPlan {
 struct BackupRunPlan {
     std::string profile_id;
     std::string run_id;
+    std::filesystem::path target_mount_point;
     std::vector<BackupSourceRunPlan> sources;
 };
 

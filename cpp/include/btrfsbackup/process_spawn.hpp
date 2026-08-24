@@ -13,6 +13,7 @@ struct ProcessSpawnOptions {
     int stdout_fd = -1;
     int stderr_fd = -1;
     bool create_process_group = false;
+    std::vector<int> inherited_fds;
 };
 
 struct ProcessSpawnResult {
