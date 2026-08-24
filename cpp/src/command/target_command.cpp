@@ -15,6 +15,7 @@
 
 #include <btrfsbackup/device_info.hpp>
 #include <btrfsbackup/errors.hpp>
+#include <btrfsbackup/file_lock.hpp>
 #include <btrfsbackup/profile_loader.hpp>
 #include <btrfsbackup/target_mount_validation.hpp>
 #include <btrfsbackup/validation.hpp>
@@ -278,11 +279,26 @@ int target(
 
     TargetOptions options = parse_options(args);
     Profile profile = load_profile_by_id(profile_config_dir, options.profile_id);
+    require_root();
     SystemCommandRunner real_commands;
     ICommandRunner& commands = services == nullptr ? static_cast<ICommandRunner&>(real_commands) : services->commands;
     auto read_mounts = services == nullptr || !services->read_mounts
         ? std::function<std::vector<MountEntry>()>([] { return read_mount_table(); })
         : services->read_mounts;
+
+    if (command == "eject" && (options.from_service || options.from_runner) && !profile.settings.auto_eject) {
+        info(output, "Automatic eject is disabled by configuration.");
+        return 0;
+    }
+
+    const fs::path lock_root = services != nullptr && !services->lock_root.empty()
+        ? services->lock_root
+        : default_lock_root();
+    FileLock target_lock(target_lock_path(lock_root, profile.target.luks_uuid));
+    if (!target_lock.try_acquire()) {
+        info(output, "Backup target is busy; refusing to " + command + ".");
+        return 1;
+    }
 
     if (command == "mount") {
         mount_target(profile, options, commands, read_mounts, output);

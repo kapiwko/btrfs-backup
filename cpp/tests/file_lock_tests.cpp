@@ -39,11 +39,42 @@ void test_lock_released_by_destructor() {
     fs::remove_all(root);
 }
 
+void test_lock_paths_use_separate_profile_and_target_namespaces() {
+    fs::path root = test_helpers::test_root("file-lock", "paths");
+    test_helpers::expect_eq(
+        "profile lock path",
+        btrfsbackup::profile_lock_path(root, "default").string(),
+        (root / "profiles" / "default.lock").string()
+    );
+    test_helpers::expect_eq(
+        "target lock path",
+        btrfsbackup::target_lock_path(root, "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE").string(),
+        (root / "targets" / "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee.lock").string()
+    );
+}
+
+void test_lock_rejects_symbolic_link() {
+    fs::path root = test_helpers::test_root("file-lock", "symlink");
+    fs::create_directories(root / "run");
+    test_helpers::write_file(root / "unexpected", "not a lock\n");
+    fs::create_symlink(root / "unexpected", root / "run" / "backup.lock");
+
+    btrfsbackup::FileLock lock(root / "run" / "backup.lock");
+    test_helpers::expect_validation_error(
+        "lock symlink",
+        [&] { (void)lock.try_acquire(); },
+        "cannot open lock file"
+    );
+    fs::remove_all(root);
+}
+
 } // namespace
 
 int main() {
     test_lock_lifecycle();
     test_lock_released_by_destructor();
+    test_lock_paths_use_separate_profile_and_target_namespaces();
+    test_lock_rejects_symbolic_link();
 
     return test_helpers::finish("file lock tests");
 }

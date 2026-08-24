@@ -43,7 +43,7 @@ Every operation is scoped to one profile id. The profile id selects:
 ```text
 profile JSON
 derived runtime settings
-lock file
+profile and target lock files
 state directory
 status directory
 history directory
@@ -52,6 +52,12 @@ systemd unit instance
 
 An operation must fail if the selected profile file declares a different
 `PROFILE_ID`.
+
+An executing runner must acquire both the selected profile lock and the target
+lock keyed by normalized LUKS UUID before mounting the target. Lock contention
+is a runtime failure reported as `runner.profile_busy` or `runner.target_busy`.
+The rejected process must not replace current status or history owned by the
+active runner.
 
 ## Required Phases
 

@@ -10,7 +10,7 @@ Unattended backup of Btrfs subvolumes to an encrypted removable disk. The projec
 4. `pending` markers so the next run can resolve interrupted transfers or power loss;
 5. at most one successful backup per local day for the same target UUID and configuration fingerprint;
 6. independent local and remote retention, globally configured or overridden per source;
-7. `flock` locking, target LUKS validation, mapper validation, source/target separation, symlink escape checks, and free-space checks;
+7. per-profile and per-target `flock` locking, target LUKS validation, mapper validation, source/target separation, symlink escape checks, and free-space checks;
 8. automatic startup only when the exact configured LUKS partition appears;
 9. automatic `sync`, unmount, and LUKS closure after the service finishes;
 10. native CLI tooling for profile wizards, rendering, installation files, and validation.
