@@ -8,8 +8,10 @@
 
 #include <cerrno>
 #include <chrono>
+#include <cmath>
 #include <cstring>
 #include <future>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <string>
@@ -300,11 +302,15 @@ std::uint64_t elapsed_ms_since(SteadyClock::time_point started_at) {
     );
 }
 
-std::uint64_t speed_bps(std::uint64_t bytes, std::uint64_t elapsed_ms) {
+std::uint64_t average_speed_bps(std::uint64_t bytes, std::uint64_t elapsed_ms) {
     if (elapsed_ms == 0) {
         return 0;
     }
-    return bytes * 1000 / elapsed_ms;
+    const long double rate = static_cast<long double>(bytes) * 1000.0L
+        / static_cast<long double>(elapsed_ms);
+    return rate >= static_cast<long double>(std::numeric_limits<std::uint64_t>::max())
+        ? std::numeric_limits<std::uint64_t>::max()
+        : static_cast<std::uint64_t>(rate);
 }
 
 void emit_event(
@@ -313,7 +319,8 @@ void emit_event(
     const TransferResult& result,
     SteadyClock::time_point started_at,
     std::uint64_t delta_bytes = 0,
-    const std::string& message = ""
+    const std::string& message = "",
+    std::optional<std::uint64_t> reported_speed_bps = std::nullopt
 ) {
     std::uint64_t elapsed = elapsed_ms_since(started_at);
     events.on_transfer_event({
@@ -323,10 +330,62 @@ void emit_event(
         .bytes_total_estimated = result.bytes_total_estimated,
         .delta_bytes = delta_bytes,
         .elapsed_ms = elapsed,
-        .speed_bps = speed_bps(result.bytes_transferred, elapsed),
+        .speed_bps = reported_speed_bps.value_or(average_speed_bps(result.bytes_transferred, elapsed)),
         .message = message,
     });
 }
+
+class TransferProgressReporter {
+public:
+    explicit TransferProgressReporter(SteadyClock::time_point started_at)
+        : started_at_(started_at), last_report_at_(started_at) {
+    }
+
+    void maybe_report(ITransferEventSink& events, const TransferResult& result) {
+        const SteadyClock::time_point now = SteadyClock::now();
+        if (now - last_report_at_ < report_interval_) {
+            return;
+        }
+        report(events, result, now);
+    }
+
+    void flush(ITransferEventSink& events, const TransferResult& result) {
+        if (reported_ && result.bytes_transferred == last_reported_bytes_) {
+            return;
+        }
+        report(events, result, SteadyClock::now());
+    }
+
+private:
+    void report(ITransferEventSink& events, const TransferResult& result, SteadyClock::time_point now) {
+        const std::uint64_t elapsed_ms = static_cast<std::uint64_t>(
+            std::chrono::duration_cast<std::chrono::milliseconds>(now - started_at_).count()
+        );
+        const std::uint64_t delta_bytes = result.bytes_transferred >= last_reported_bytes_
+            ? result.bytes_transferred - last_reported_bytes_
+            : 0;
+        const std::uint64_t smoothed_speed = speed_.sample(result.bytes_transferred, elapsed_ms);
+        emit_event(
+            events,
+            TransferEventKind::Progress,
+            result,
+            started_at_,
+            delta_bytes,
+            "",
+            smoothed_speed
+        );
+        last_report_at_ = now;
+        last_reported_bytes_ = result.bytes_transferred;
+        reported_ = true;
+    }
+
+    static constexpr std::chrono::milliseconds report_interval_{500};
+    SteadyClock::time_point started_at_;
+    SteadyClock::time_point last_report_at_;
+    TransferSpeedEstimator speed_;
+    std::uint64_t last_reported_bytes_ = 0;
+    bool reported_ = false;
+};
 
 std::string side_failure(const char* side, const TransferSideResult& result) {
     std::string message = std::string(side) + " failed";
@@ -397,6 +456,43 @@ private:
 
 } // namespace
 
+std::uint64_t TransferSpeedEstimator::sample(
+    std::uint64_t bytes_transferred,
+    std::uint64_t elapsed_ms
+) {
+    const auto bounded_speed = [](double speed) {
+        if (speed <= 0) {
+            return std::uint64_t{0};
+        }
+        if (speed >= static_cast<double>(std::numeric_limits<std::uint64_t>::max())) {
+            return std::numeric_limits<std::uint64_t>::max();
+        }
+        return static_cast<std::uint64_t>(speed);
+    };
+    if (elapsed_ms <= previous_elapsed_ms_) {
+        return bounded_speed(smoothed_speed_bps_);
+    }
+
+    const std::uint64_t delta_bytes = bytes_transferred >= previous_bytes_
+        ? bytes_transferred - previous_bytes_
+        : bytes_transferred;
+    const std::uint64_t delta_ms = elapsed_ms - previous_elapsed_ms_;
+    const double instantaneous_speed = static_cast<double>(delta_bytes) * 1000.0
+        / static_cast<double>(delta_ms);
+    if (!initialized_) {
+        smoothed_speed_bps_ = instantaneous_speed;
+        initialized_ = true;
+    } else {
+        constexpr double smoothing_period_ms = 3000.0;
+        const double alpha = -std::expm1(-static_cast<double>(delta_ms) / smoothing_period_ms);
+        smoothed_speed_bps_ += alpha * (instantaneous_speed - smoothed_speed_bps_);
+    }
+
+    previous_bytes_ = bytes_transferred;
+    previous_elapsed_ms_ = elapsed_ms;
+    return bounded_speed(smoothed_speed_bps_);
+}
+
 ThreadedAsyncTransferPipeline::ThreadedAsyncTransferPipeline(ITransferPipeline& pipeline)
     : pipeline_(pipeline) {
 }
@@ -447,6 +543,7 @@ TransferResult PosixTransferPipeline::run(
     CancellationToken& cancellation
 ) {
     const auto started_at = SteadyClock::now();
+    TransferProgressReporter progress_reporter(started_at);
     ScopedIgnoredSigpipe ignored_sigpipe;
     Pipe data_pipe = create_pipe();
     Pipe consumer_input_pipe = create_pipe();
@@ -766,7 +863,6 @@ TransferResult PosixTransferPipeline::run(
                 result.bytes_produced += transferred;
                 result.bytes_transferred += transferred;
                 cycle_bytes += static_cast<std::size_t>(count);
-                emit_event(events, TransferEventKind::Progress, result, started_at, transferred);
                 if (cycle_bytes >= splice_cycle_budget_bytes) {
                     producer_stdout_ready = false;
                     consumer_stdin_ready = false;
@@ -803,6 +899,8 @@ TransferResult PosixTransferPipeline::run(
             break;
         }
 
+        progress_reporter.maybe_report(events, result);
+
         if (!producer_done && reap_child(producer_pid, result.producer)) {
             producer_done = true;
             producer_process.mark_reaped();
@@ -815,10 +913,11 @@ TransferResult PosixTransferPipeline::run(
         }
     }
 
+    progress_reporter.flush(events, result);
     trim_diagnostics(result.producer.diagnostics);
     trim_diagnostics(result.consumer.diagnostics);
     result.duration_ms = elapsed_ms_since(started_at);
-    result.average_speed_bps = speed_bps(result.bytes_transferred, result.duration_ms);
+    result.average_speed_bps = average_speed_bps(result.bytes_transferred, result.duration_ms);
     emit_event(events, TransferEventKind::Completed, result, started_at);
     return result;
 }
