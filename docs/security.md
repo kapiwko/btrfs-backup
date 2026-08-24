@@ -8,8 +8,8 @@ updates root-owned state. User-facing tools must treat the privileged runtime
 as the only component allowed to mutate system configuration or backup state.
 
 Current runtime commands may run as root. Ordinary status readers can inspect
-public status and history JSON, but they must not read private profile state,
-key material, or trusted runtime configuration directly.
+only the reduced public current-status JSON. Run history, profile state, key
+material, and trusted runtime configuration are private to root.
 
 ## Configuration
 
@@ -46,11 +46,11 @@ save operations must reject output paths that point at the repository root,
 system directories, or active project configuration.
 
 The shared atomic writer applies the same durable-write contract to private
-runtime state and public status/history: checked temporary-file permissions,
-EINTR-safe writes, checked file `fsync` and close, checked rename, and checked
-parent-directory `fsync`. A persistence error such as `EIO` or `ENOSPC` is a
-failed operation even if the new directory entry became visible before the
-failure was reported.
+runtime state and history, and to public current status: checked temporary-file
+permissions, EINTR-safe writes, checked file `fsync` and close, checked rename,
+and checked parent-directory `fsync`. A persistence error such as `EIO` or
+`ENOSPC` is a failed operation even if the new directory entry became visible
+before the failure was reported.
 
 ## Target Identity
 
@@ -92,13 +92,15 @@ history, pending markers, checkpoints, or `last-success`.
 
 ## Public Data
 
-Public status and history files may expose profile id, profile name, run id,
-source name, target state, phase, timing, byte counters, and structured error
-codes. They must not expose key contents, passphrases, or private recovery
-markers.
+Public current status exposes only presentation labels for the current source
+and target, run state, percentage progress, speed, ETA, progress accuracy, and
+a generic error code. Labels must come from sanitized profile fields, never
+from paths or UUIDs. Status must not expose run ids, timestamps, paths, UUIDs,
+diagnostic messages, details, suggested actions, or specific failure codes.
 
-If public metadata contains administrative paths, clients should treat them as
-locally visible operational metadata rather than secrets.
+History directories use mode `0700` and history files use mode `0600`. Full
+messages, specific error codes, paths, UUIDs, timestamps, and structured
+diagnostics belong only in that private history.
 
 ## Privileged Actions
 

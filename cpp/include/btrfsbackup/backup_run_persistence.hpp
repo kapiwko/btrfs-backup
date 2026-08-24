@@ -1,6 +1,7 @@
 #pragma once
 
 #include <filesystem>
+#include <map>
 #include <string>
 
 #include <btrfsbackup/backup_run_executor.hpp>
@@ -31,6 +32,8 @@ struct BackupRunStatusContext {
     std::string profile_name;
     int source_count = 0;
     std::string started_at;
+    std::map<std::string, std::string> source_names;
+    std::string target_name;
 };
 
 class StatusBackupRunEventSink final : public IBackupRunEventSink {

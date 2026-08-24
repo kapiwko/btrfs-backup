@@ -74,37 +74,19 @@ void validate_status_api_json(const std::string& content) {
     if (!data.is_object()) {
         throw btrfsbackup::ValidationError("status JSON must be an object");
     }
-    if (!data.contains("schemaVersion") || data.at("schemaVersion") != 2) {
+    if (!data.contains("schemaVersion") || data.at("schemaVersion") != 3) {
         throw btrfsbackup::ValidationError("status JSON has unsupported schemaVersion");
     }
     const std::vector<std::string> required_fields = {
-        "profileId",
-        "profileName",
-        "runId",
         "state",
-        "phase",
-        "message",
-        "currentSourceName",
-        "sourceIndex",
-        "sourceCount",
-        "startedAt",
-        "updatedAt",
-        "finishedAt",
         "errorCode",
-        "errorMessage",
-        "details",
-        "recoverable",
-        "suggestedAction",
-        "canCancel",
-        "bytesProcessed",
-        "bytesTotalEstimated",
-        "runBytesProcessed",
+        "sourceName",
+        "targetName",
         "speedBps",
         "etaSeconds",
         "sourceProgress",
         "overallProgress",
         "progressAccuracy",
-        "exitCode",
     };
     for (const std::string& field : required_fields) {
         if (!data.contains(field)) {
