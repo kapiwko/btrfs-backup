@@ -52,13 +52,18 @@ void print_human_status(const fs::path& path, std::ostream& output) {
     if (profile.empty()) {
         profile = string_or_empty(data, "profileId");
     }
+    if (profile.empty()) {
+        profile = path.parent_path().filename().string();
+    }
     std::string state = string_or_empty(data, "state");
     output << (profile.empty() ? "unknown" : profile) << ": " << (state.empty() ? "unknown" : state) << '\n';
 
     const std::vector<std::pair<const char*, const char*>> fields = {
         {"phase", "  phase: "},
         {"message", "  "},
+        {"sourceName", "  source: "},
         {"currentSourceName", "  source: "},
+        {"targetName", "  target: "},
         {"updatedAt", "  updated: "},
         {"errorCode", "  error code: "},
         {"errorMessage", "  error: "},

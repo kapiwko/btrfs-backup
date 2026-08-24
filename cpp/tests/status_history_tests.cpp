@@ -80,33 +80,15 @@ void test_status_human_format() {
 std::vector<std::string> required_status_api_fields() {
     return {
         "schemaVersion",
-        "profileId",
-        "profileName",
-        "runId",
         "state",
-        "phase",
-        "message",
-        "currentSourceName",
-        "sourceIndex",
-        "sourceCount",
-        "startedAt",
-        "updatedAt",
-        "finishedAt",
         "errorCode",
-        "errorMessage",
-        "details",
-        "recoverable",
-        "suggestedAction",
-        "canCancel",
-        "bytesProcessed",
-        "bytesTotalEstimated",
-        "runBytesProcessed",
+        "sourceName",
+        "targetName",
         "speedBps",
         "etaSeconds",
         "sourceProgress",
         "overallProgress",
         "progressAccuracy",
-        "exitCode",
     };
 }
 
@@ -153,8 +135,9 @@ void test_status_watch_json_emits_status_api_shape_once() {
     for (const std::string& field : required_status_api_fields()) {
         test_helpers::expect_true("watch field " + field, data.contains(field), "missing field " + field);
     }
-    test_helpers::expect_true("watch schema", data.at("schemaVersion") == 2, "wrong schema");
-    test_helpers::expect_true("watch profile", data.at("profileId") == "default", "wrong profile");
+    test_helpers::expect_true("watch schema", data.at("schemaVersion") == 3, "wrong schema");
+    test_helpers::expect_true("watch profile hidden", !data.contains("profileId"), "public status exposes profile id");
+    test_helpers::expect_true("watch details hidden", !data.contains("details"), "public status exposes details");
     test_helpers::expect_true("watch progress", data.at("sourceProgress") == 50, "wrong source progress");
 
     std::ostringstream duplicate_output;

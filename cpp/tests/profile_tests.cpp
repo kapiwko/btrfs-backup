@@ -263,6 +263,16 @@ void test_typed_store_renders_tree() {
         fs::is_regular_file(root / "rendered" / "var" / "lib" / "btrfs-backup" / "public" / "profiles" / "default.json"),
         "missing rendered public profile"
     );
+    Json public_profile = btrfsbackup::load_json_file(
+        root / "rendered" / "var" / "lib" / "btrfs-backup" / "public" / "profiles" / "default.json"
+    );
+    expect_true("public target label", public_profile.at("target").at("name") == "backupdisk", "missing target label");
+    expect_true("public source label", public_profile.at("sources").at(0).at("name") == "Home", "missing source label");
+    expect_true("public subvolume hidden", !public_profile.at("sources").at(0).contains("subvolume"), "public profile exposes subvolume path");
+    expect_true("public target device hidden", !public_profile.at("target").contains("device"), "public profile exposes device");
+    expect_true("public UUID hidden", !public_profile.at("target").contains("luksUuid"), "public profile exposes UUID");
+    expect_true("public paths hidden", !public_profile.contains("paths"), "public profile exposes paths");
+    expect_true("public hooks hidden", !public_profile.contains("hooks"), "public profile exposes hooks");
     expect_true(
         "typed tree mount dependency",
         fs::is_regular_file(root / "rendered" / "etc" / "systemd" / "system" / "btrfs-backup@default.service.d" / "target-mount.conf"),

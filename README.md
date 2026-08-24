@@ -60,9 +60,10 @@ sudo pacman -U btrfs-backup-kde-2.1.1-1-x86_64.pkg.tar.zst
 ```
 
 That package installs the plasmoid and the compiled QML backend only. The base
-backup runtime does not depend on a graphical session. Core reports durable
-status/history and service diagnostics through journald; desktop notifications
-belong to the KDE session monitor rather than the privileged backup process.
+backup runtime does not depend on a graphical session. Core reports reduced
+current status, private history, and service diagnostics through journald;
+desktop notifications belong to the KDE session monitor rather than the
+privileged backup process.
 
 ## First Configuration
 

@@ -16,6 +16,7 @@ struct RunStatusRecord {
     std::string phase;
     std::string message;
     std::string current_source_name;
+    std::string target_name;
     int source_index = 0;
     int source_count = 0;
     std::string started_at;
@@ -40,6 +41,8 @@ struct RunStatusRecord {
 
 Json build_status_json(const RunStatusRecord& record);
 std::string dump_status_json(const RunStatusRecord& record);
+Json build_public_status_json(const RunStatusRecord& record);
+std::string dump_public_status_json(const RunStatusRecord& record);
 
 void write_current_status(
     const std::filesystem::path& status_root,
@@ -49,8 +52,7 @@ void write_current_status(
 
 void write_history_entry(
     const std::filesystem::path& history_root,
-    const RunStatusRecord& record,
-    mode_t mode = 0644
+    const RunStatusRecord& record
 );
 
 } // namespace btrfsbackup

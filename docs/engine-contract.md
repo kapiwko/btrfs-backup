@@ -88,7 +88,7 @@ cancelled
 Status consumers must ignore unknown phases. Engines should prefer adding a new
 phase over changing the meaning of an existing one.
 
-## Status Output
+## Public Status Output
 
 The engine writes current status atomically:
 
@@ -96,37 +96,25 @@ The engine writes current status atomically:
 <STATUS_ROOT>/<PROFILE_ID>/current.json
 ```
 
-Schema version 1 currently requires these fields:
+Schema version 3 contains only presentation-safe fields:
 
 ```json
 {
-  "schemaVersion": 2,
-  "profileId": "default",
-  "profileName": "Default backup",
-  "runId": "20260823T024407Z-4298-30158",
+  "schemaVersion": 3,
   "state": "running",
-  "phase": "transferring",
-  "message": "Transferring snapshot for home.",
-  "currentSourceName": "home",
-  "sourceIndex": 1,
-  "sourceCount": 1,
-  "startedAt": "2026-08-23T02:44:07+00:00",
-  "updatedAt": "2026-08-23T02:44:07+00:00",
-  "finishedAt": "",
   "errorCode": "",
-  "errorMessage": "",
-  "details": {},
-  "recoverable": false,
-  "suggestedAction": "",
-  "canCancel": false,
-  "exitCode": 0
+  "sourceName": "@home",
+  "targetName": "backupdisk",
+  "speedBps": 104857600,
+  "etaSeconds": 42,
+  "sourceProgress": 50,
+  "overallProgress": 25,
+  "progressAccuracy": "estimated"
 }
 ```
 
-Consumers must ignore additional fields. Future compatible status writers may
-add fields such as `currentSourceId`, `sourceProgress`, `overallProgress`,
-`progressAccuracy`, byte counters, speed, ETA, target mount state, and other
-diagnostic details without changing `schemaVersion`.
+Consumers must ignore additional fields. Identifying and diagnostic data must
+not be added to the public schema.
 
 Known `state` values are:
 
@@ -145,7 +133,7 @@ exited
 Status writes must be atomic: write a temporary file, flush it, rename it into
 place, and avoid exposing partially written JSON.
 
-## History Output
+## Private History Output
 
 Finished runs are written atomically:
 
@@ -154,8 +142,8 @@ Finished runs are written atomically:
 <HISTORY_ROOT>/<PROFILE_ID>/last.json
 ```
 
-History entries use the same schema as `current.json` and must include final
-`state`, `phase`, `message`, `finishedAt`, and `exitCode`.
+History uses diagnostic schema version 2 and includes the complete record.
+Directories must use mode `0700` and JSON entries mode `0600`.
 
 ## Exit Codes
 
@@ -168,7 +156,7 @@ The command exit code remains the primary process result:
 130 cancelled by interrupt
 ```
 
-More specific failures should be represented in status/history JSON through
+More specific failures should be represented in private history JSON through
 `phase`, `message`, `errorCode`, `errorMessage`, `details`, `recoverable`, and
 `suggestedAction` rather than by inventing many process exit codes.
 
@@ -219,11 +207,11 @@ not change the selected program.
 
 ## Compatibility
 
-Backup-run status uses `schemaVersion: 2`; checkpoint and internal event
-documents retain their own version 1 contracts. Run status intentionally does
-not contain target safe-removal state. Compatible changes may add fields to JSON
-documents. Consumers must ignore unknown fields and treat missing optional
-fields as unavailable.
+Public current status uses `schemaVersion: 3`; private diagnostic history uses
+`schemaVersion: 2`; checkpoint and internal event documents retain their own
+version 1 contracts. Run status intentionally does not contain target
+safe-removal state. Consumers must ignore unknown fields and treat missing
+optional fields as unavailable.
 
 Any future engine implementation must pass the C++ runtime tests and the real
 Btrfs integration test before becoming the default.

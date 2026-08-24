@@ -408,6 +408,7 @@ void write_skipped_status(const btrfsbackup::Profile& profile, const RunnerOptio
         .phase = "skipped",
         .message = "A successful backup already exists for today; no new snapshot was created.",
         .current_source_name = "",
+        .target_name = profile.target.mapper_name,
         .source_count = static_cast<int>(source_count),
         .started_at = options.timestamp,
         .updated_at = current_local_iso_timestamp(),
@@ -583,12 +584,18 @@ int runner(
 
         btrfsbackup::clear_cancel_request(profile_state_dir);
         JsonFileBackupRunCheckpointStore checkpoints(profile_state_dir);
+        std::map<std::string, std::string> source_names;
+        for (const auto& source : profile.sources) {
+            source_names.emplace(source.id, source.name);
+        }
         StatusBackupRunEventSink status_events({
             .status_root = profile.paths.status_root,
             .history_root = profile.paths.history_root,
             .profile_name = profile.name,
             .source_count = static_cast<int>(plan.sources.size()),
             .started_at = options.timestamp,
+            .source_names = std::move(source_names),
+            .target_name = profile.target.mapper_name,
         });
         std::optional<CancellationToken> owned_cancellation;
         if (external_cancellation == nullptr) {
