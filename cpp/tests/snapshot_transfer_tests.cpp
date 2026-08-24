@@ -87,8 +87,11 @@ void test_builds_send_receive_commands() {
         {},
         "/incoming/run"
     );
-    test_helpers::expect_eq("full send argc", std::to_string(full.send_argv.size()), "3");
-    test_helpers::expect_eq("full send path", full.send_argv.at(2), "/snap/current");
+    test_helpers::expect_eq("full send argc", std::to_string(full.send_argv.size()), "6");
+    test_helpers::expect_eq("full send protocol flag", full.send_argv.at(2), "--proto");
+    test_helpers::expect_eq("full send protocol", full.send_argv.at(3), "2");
+    test_helpers::expect_eq("full send compressed data", full.send_argv.at(4), "--compressed-data");
+    test_helpers::expect_eq("full send path", full.send_argv.at(5), "/snap/current");
     test_helpers::expect_eq("receive dir", full.receive_argv.at(2), "/incoming/run");
 
     btrfsbackup::SendReceiveCommandPlan incremental = btrfsbackup::build_send_receive_command_plan(
@@ -96,9 +99,13 @@ void test_builds_send_receive_commands() {
         "/snap/parent",
         "/incoming/run"
     );
-    test_helpers::expect_eq("incremental send argc", std::to_string(incremental.send_argv.size()), "5");
-    test_helpers::expect_eq("incremental parent flag", incremental.send_argv.at(2), "-p");
-    test_helpers::expect_eq("incremental parent path", incremental.send_argv.at(3), "/snap/parent");
+    test_helpers::expect_eq("incremental send argc", std::to_string(incremental.send_argv.size()), "8");
+    test_helpers::expect_eq("incremental protocol flag", incremental.send_argv.at(2), "--proto");
+    test_helpers::expect_eq("incremental protocol", incremental.send_argv.at(3), "2");
+    test_helpers::expect_eq("incremental compressed data", incremental.send_argv.at(4), "--compressed-data");
+    test_helpers::expect_eq("incremental parent flag", incremental.send_argv.at(5), "-p");
+    test_helpers::expect_eq("incremental parent path", incremental.send_argv.at(6), "/snap/parent");
+    test_helpers::expect_eq("incremental send path", incremental.send_argv.at(7), "/snap/current");
 }
 
 void test_verifies_received_snapshot() {
