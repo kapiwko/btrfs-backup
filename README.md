@@ -168,6 +168,11 @@ Backups should be checked regularly with a restore test. A successful transfer e
 8. [security model](docs/security.md);
 9. [release and packaging](docs/packaging.md).
 
+Native code is organized by responsibility under `src/backup`, `src/config`,
+`src/state`, `src/platform/linux`, and `src/cli`. Executable entry points live
+in `apps/`, tests mirror those domains under `tests/`, and optional desktop
+code is isolated under `integrations/kde`.
+
 ## Security and Limits
 
 The project verifies the target device at several levels, but it is not a replacement for a 3-2-1 backup strategy. A disk connected only during backups reduces exposure, but it does not protect against every hardware failure, theft, administrator mistake, or corruption of both copies.

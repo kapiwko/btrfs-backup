@@ -16,4 +16,4 @@ jobs:
         run: pacman -Syu --noconfirm --needed git systemd
       - uses: actions/checkout@v4
       - name: Analyze service sandbox
-        run: tests/systemd/check-security.sh systemd/btrfs-backup@.service.example
+        run: tests/systemd/check-security.sh data/systemd/btrfs-backup@.service.example

@@ -1,0 +1,13 @@
+function(add_btrfsbackup_test target source test_name)
+    add_executable(${target} ${source})
+    target_include_directories(${target} PRIVATE ${PROJECT_SOURCE_DIR}/tests)
+    target_link_libraries(${target} PRIVATE ${ARGN})
+    add_test(NAME ${test_name} COMMAND ${target})
+endfunction()
+
+add_subdirectory(unit/backup)
+add_subdirectory(unit/config)
+add_subdirectory(unit/state)
+add_subdirectory(unit/platform)
+add_subdirectory(unit/cli)
+add_subdirectory(integration)

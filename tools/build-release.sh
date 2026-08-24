@@ -238,10 +238,10 @@ copy_source_tree() {
     local destination="$1"
     install -d -m0755 "$destination"
     local entry
-    for entry in bin config cpp docs integrations systemd tests tools udev; do
+    for entry in apps data docs integrations packaging src tests tools; do
         cp -a -- "$ROOT/$entry" "$destination/"
     done
-    for entry in VERSION README.md CHANGELOG.md TODO.md LICENSE .gitignore CMakeLists.txt Makefile btrfs-backup.install btrfs-backup-kde.install; do
+    for entry in VERSION README.md CHANGELOG.md TODO.md LICENSE .gitignore CMakeLists.txt Makefile; do
         cp -a -- "$ROOT/$entry" "$destination/"
     done
 
@@ -286,32 +286,32 @@ stage_package_payload() {
     install -Dm755 "$root/build/btrfs-backupctl" "$pkgdir/usr/bin/btrfs-backupctl"
     install -d -m0755 "$pkgdir/etc/btrfs-backup/hooks.d"
 
-    install -Dm644 "$root/config/profile.example.json" \
+    install -Dm644 "$root/data/examples/profile.example.json" \
         "$pkgdir/usr/share/btrfs-backup/examples/config/profile.example.json"
-    install -Dm644 "$root/config/btrfs-backup.conf.example" \
+    install -Dm644 "$root/data/examples/btrfs-backup.conf.example" \
         "$pkgdir/usr/share/btrfs-backup/examples/config/btrfs-backup.conf.example"
-    install -Dm644 "$root/config/profile.schema.json" \
+    install -Dm644 "$root/data/schemas/profile.schema.json" \
         "$pkgdir/usr/share/btrfs-backup/examples/config/profile.schema.json"
-    install -Dm644 "$root/config/crypttab.fragment.example" \
+    install -Dm644 "$root/data/examples/crypttab.fragment.example" \
         "$pkgdir/usr/share/btrfs-backup/examples/config/crypttab.fragment.example"
-    install -Dm644 "$root/config/fstab.fragment.example" \
+    install -Dm644 "$root/data/examples/fstab.fragment.example" \
         "$pkgdir/usr/share/btrfs-backup/examples/config/fstab.fragment.example"
-    install -Dm644 "$root/systemd/btrfs-backup.service.example" \
+    install -Dm644 "$root/data/systemd/btrfs-backup.service.example" \
         "$pkgdir/usr/share/btrfs-backup/examples/systemd/btrfs-backup.service.example"
-    install -Dm644 "$root/systemd/btrfs-backup@.service.example" \
+    install -Dm644 "$root/data/systemd/btrfs-backup@.service.example" \
         "$pkgdir/usr/share/btrfs-backup/examples/systemd/btrfs-backup@.service.example"
-    install -Dm644 "$root/systemd/btrfs-backup-eject@.service.example" \
+    install -Dm644 "$root/data/systemd/btrfs-backup-eject@.service.example" \
         "$pkgdir/usr/share/btrfs-backup/examples/systemd/btrfs-backup-eject@.service.example"
     install -d -m0755 "$pkgdir/usr/lib/systemd/system"
     sed \
         -e 's#{{BACKUP_COMMAND}}#/usr/bin/btrfs-backupctl runner execute#g' \
         -e 's#{{EJECT_SCRIPT_PATH}}#/usr/bin/btrfs-backupctl target eject#g' \
-        "$root/systemd/btrfs-backup@.service.example" \
+        "$root/data/systemd/btrfs-backup@.service.example" \
         > "$pkgdir/usr/lib/systemd/system/btrfs-backup@.service"
     chmod 0644 "$pkgdir/usr/lib/systemd/system/btrfs-backup@.service"
     sed \
         -e 's#{{EJECT_SCRIPT_PATH}}#/usr/bin/btrfs-backupctl target eject#g' \
-        "$root/systemd/btrfs-backup-eject@.service.example" \
+        "$root/data/systemd/btrfs-backup-eject@.service.example" \
         > "$pkgdir/usr/lib/systemd/system/btrfs-backup-eject@.service"
     chmod 0644 "$pkgdir/usr/lib/systemd/system/btrfs-backup-eject@.service"
 
@@ -330,14 +330,14 @@ stage_kde_package_payload() {
     local build_dir="$TMP_ROOT/plasma-build"
 
     rm -rf -- "$build_dir"
-    cmake -S "$root/integrations/plasma" -B "$build_dir" -DCMAKE_BUILD_TYPE=Release >/dev/null
+    cmake -S "$root/integrations/kde" -B "$build_dir" -DCMAKE_BUILD_TYPE=Release >/dev/null
     cmake --build "$build_dir" -j"$(nproc)" >/dev/null
     ctest --test-dir "$build_dir" --output-on-failure >/dev/null
     cmake --install "$build_dir" --prefix "$pkgdir/usr" >/dev/null
 
     install -Dm644 "$root/docs/plasma-integration.md" \
         "$pkgdir/usr/share/doc/btrfs-backup-kde/plasma-integration.md"
-    install -Dm644 "$root/integrations/plasma/README.md" \
+    install -Dm644 "$root/integrations/kde/README.md" \
         "$pkgdir/usr/share/doc/btrfs-backup-kde/README.md"
     install -Dm644 "$root/LICENSE" "$pkgdir/usr/share/licenses/$KDE_PKGNAME/LICENSE"
 }
@@ -406,7 +406,7 @@ build_install_tarball() {
 
     install -d -m0755 "$payload"
     stage_package_payload "$root" "$payload"
-    install -Dm0644 "$root/btrfs-backup.install" "$payload/usr/share/doc/btrfs-backup/btrfs-backup.install"
+    install -Dm0644 "$root/packaging/arch/btrfs-backup.install" "$payload/usr/share/doc/btrfs-backup/btrfs-backup.install"
     find "$payload" -exec touch -h -d "@$SOURCE_DATE_EPOCH" {} +
     create_deterministic_tar_gz "$payload" "$INSTALL_TARBALL" "$(basename -- "$payload")"
 }
@@ -457,13 +457,15 @@ install -d -m0755 %{buildroot}/etc/btrfs-backup/hooks.d
 install -d %{buildroot}/usr/lib/systemd/system
 sed -e 's#{{BACKUP_COMMAND}}#/usr/bin/btrfs-backupctl runner execute#g' \
     -e 's#{{EJECT_SCRIPT_PATH}}#/usr/bin/btrfs-backupctl target eject#g' \
-    systemd/btrfs-backup@.service.example \
+    data/systemd/btrfs-backup@.service.example \
     > %{buildroot}/usr/lib/systemd/system/btrfs-backup@.service
 sed -e 's#{{EJECT_SCRIPT_PATH}}#/usr/bin/btrfs-backupctl target eject#g' \
-    systemd/btrfs-backup-eject@.service.example \
+    data/systemd/btrfs-backup-eject@.service.example \
     > %{buildroot}/usr/lib/systemd/system/btrfs-backup-eject@.service
-install -d %{buildroot}%{_datadir}/btrfs-backup/examples
-cp -a config systemd udev %{buildroot}%{_datadir}/btrfs-backup/examples/
+install -d %{buildroot}%{_datadir}/btrfs-backup/examples/config
+install -d %{buildroot}%{_datadir}/btrfs-backup/examples/systemd
+cp -a data/examples/. data/schemas/. %{buildroot}%{_datadir}/btrfs-backup/examples/config/
+cp -a data/systemd/. %{buildroot}%{_datadir}/btrfs-backup/examples/systemd/
 install -Dm644 README.md %{buildroot}%{_docdir}/btrfs-backup/README.md
 install -Dm644 CHANGELOG.md %{buildroot}%{_docdir}/btrfs-backup/CHANGELOG.md
 install -Dm644 TODO.md %{buildroot}%{_docdir}/btrfs-backup/TODO.md
@@ -527,13 +529,15 @@ stdenvNoCC.mkDerivation {
     mkdir -p $out/lib/systemd/system
     sed -e 's#{{BACKUP_COMMAND}}#/usr/bin/btrfs-backupctl runner execute#g' \
         -e 's#{{EJECT_SCRIPT_PATH}}#/usr/bin/btrfs-backupctl target eject#g' \
-        systemd/btrfs-backup@.service.example \
+        data/systemd/btrfs-backup@.service.example \
         > $out/lib/systemd/system/btrfs-backup@.service
     sed -e 's#{{EJECT_SCRIPT_PATH}}#/usr/bin/btrfs-backupctl target eject#g' \
-        systemd/btrfs-backup-eject@.service.example \
+        data/systemd/btrfs-backup-eject@.service.example \
         > $out/lib/systemd/system/btrfs-backup-eject@.service
-    mkdir -p $out/share/btrfs-backup/examples
-    cp -a config systemd udev $out/share/btrfs-backup/examples/
+    mkdir -p $out/share/btrfs-backup/examples/config
+    mkdir -p $out/share/btrfs-backup/examples/systemd
+    cp -a data/examples/. data/schemas/. $out/share/btrfs-backup/examples/config/
+    cp -a data/systemd/. $out/share/btrfs-backup/examples/systemd/
     install -Dm644 README.md $out/share/doc/btrfs-backup/README.md
     install -Dm644 CHANGELOG.md $out/share/doc/btrfs-backup/CHANGELOG.md
     install -Dm644 TODO.md $out/share/doc/btrfs-backup/TODO.md
@@ -600,13 +604,15 @@ src_install() {
 	dodir /etc/btrfs-backup/hooks.d
 	sed -e 's#{{BACKUP_COMMAND}}#/usr/bin/btrfs-backupctl runner execute#g' \
 		-e 's#{{EJECT_SCRIPT_PATH}}#/usr/bin/btrfs-backupctl target eject#g' \
-		systemd/btrfs-backup@.service.example > "${T}/btrfs-backup@.service"
+		data/systemd/btrfs-backup@.service.example > "${T}/btrfs-backup@.service"
 	sed -e 's#{{EJECT_SCRIPT_PATH}}#/usr/bin/btrfs-backupctl target eject#g' \
-		systemd/btrfs-backup-eject@.service.example > "${T}/btrfs-backup-eject@.service"
+		data/systemd/btrfs-backup-eject@.service.example > "${T}/btrfs-backup-eject@.service"
 	insinto /usr/lib/systemd/system
 	doins "${T}/btrfs-backup@.service" "${T}/btrfs-backup-eject@.service"
-	insinto /usr/share/btrfs-backup/examples
-	doins -r config systemd udev
+	insinto /usr/share/btrfs-backup/examples/config
+	doins data/examples/* data/schemas/*
+	insinto /usr/share/btrfs-backup/examples/systemd
+	doins data/systemd/*
 	dodoc README.md CHANGELOG.md TODO.md docs/*.md
 }
 EOF_EBUILD
@@ -651,13 +657,15 @@ package_btrfs-backup() {
   install -d "\$pkgdir/usr/lib/systemd/system"
   sed -e 's#{{BACKUP_COMMAND}}#/usr/bin/btrfs-backupctl runner execute#g' \\
       -e 's#{{EJECT_SCRIPT_PATH}}#/usr/bin/btrfs-backupctl target eject#g' \\
-      "\$root/systemd/btrfs-backup@.service.example" \\
+      "\$root/data/systemd/btrfs-backup@.service.example" \\
       > "\$pkgdir/usr/lib/systemd/system/btrfs-backup@.service"
   sed -e 's#{{EJECT_SCRIPT_PATH}}#/usr/bin/btrfs-backupctl target eject#g' \\
-      "\$root/systemd/btrfs-backup-eject@.service.example" \\
+      "\$root/data/systemd/btrfs-backup-eject@.service.example" \\
       > "\$pkgdir/usr/lib/systemd/system/btrfs-backup-eject@.service"
-  install -d "\$pkgdir/usr/share/btrfs-backup/examples"
-  cp -a "\$root/config" "\$root/systemd" "\$root/udev" "\$pkgdir/usr/share/btrfs-backup/examples/"
+  install -d "\$pkgdir/usr/share/btrfs-backup/examples/config"
+  install -d "\$pkgdir/usr/share/btrfs-backup/examples/systemd"
+  cp -a "\$root/data/examples/." "\$root/data/schemas/." "\$pkgdir/usr/share/btrfs-backup/examples/config/"
+  cp -a "\$root/data/systemd/." "\$pkgdir/usr/share/btrfs-backup/examples/systemd/"
   install -Dm644 "\$root/README.md" "\$pkgdir/usr/share/doc/btrfs-backup/README.md"
   install -Dm644 "\$root/CHANGELOG.md" "\$pkgdir/usr/share/doc/btrfs-backup/CHANGELOG.md"
   install -Dm644 "\$root/TODO.md" "\$pkgdir/usr/share/doc/btrfs-backup/TODO.md"
@@ -673,18 +681,18 @@ package_btrfs-backup-kde() {
   local root="\$srcdir/\$pkgbase-\$pkgver"
   local build_dir="\$srcdir/plasma-build"
 
-  cmake -S "\$root/integrations/plasma" -B "\$build_dir" -DCMAKE_BUILD_TYPE=Release
+  cmake -S "\$root/integrations/kde" -B "\$build_dir" -DCMAKE_BUILD_TYPE=Release
   cmake --build "\$build_dir" -j"\$(nproc)"
   ctest --test-dir "\$build_dir" --output-on-failure
   cmake --install "\$build_dir" --prefix "\$pkgdir/usr"
 
   install -Dm644 "\$root/docs/plasma-integration.md" "\$pkgdir/usr/share/doc/btrfs-backup-kde/plasma-integration.md"
-  install -Dm644 "\$root/integrations/plasma/README.md" "\$pkgdir/usr/share/doc/btrfs-backup-kde/README.md"
+  install -Dm644 "\$root/integrations/kde/README.md" "\$pkgdir/usr/share/doc/btrfs-backup-kde/README.md"
   install -Dm644 "\$root/LICENSE" "\$pkgdir/usr/share/licenses/\$pkgname/LICENSE"
 }
 EOF_PKGBUILD
-    cp -a -- "$ROOT/btrfs-backup.install" "$package_dir/btrfs-backup.install"
-    cp -a -- "$ROOT/btrfs-backup-kde.install" "$package_dir/btrfs-backup-kde.install"
+    cp -a -- "$ROOT/packaging/arch/btrfs-backup.install" "$package_dir/btrfs-backup.install"
+    cp -a -- "$ROOT/packaging/arch/btrfs-backup-kde.install" "$package_dir/btrfs-backup-kde.install"
     cat > "$package_dir/.SRCINFO" <<EOF_SRCINFO
 pkgbase = btrfs-backup
 	pkgdesc = Verified Btrfs send/receive backups to an encrypted removable target
@@ -736,7 +744,7 @@ EOF_SRCINFO
 if [[ "$TARGET" == all || "$TARGET" == arch ]]; then
     install -d -m0755 "$PACKAGE_STAGE"
     stage_package_payload "$SOURCE_STAGE" "$PACKAGE_STAGE"
-    install -m0644 "$SOURCE_STAGE/btrfs-backup.install" "$PACKAGE_STAGE/.INSTALL"
+    install -m0644 "$SOURCE_STAGE/packaging/arch/btrfs-backup.install" "$PACKAGE_STAGE/.INSTALL"
 
     INSTALLED_SIZE="$(find "$PACKAGE_STAGE/usr" -type f -printf '%s\n' | awk '{sum += $1} END {print sum + 0}')"
     BUILD_DATE="$SOURCE_DATE_EPOCH"
@@ -777,7 +785,7 @@ EOF_PKGINFO
     KDE_PACKAGE_STAGE="$TMP_ROOT/package-kde"
     install -d -m0755 "$KDE_PACKAGE_STAGE"
     stage_kde_package_payload "$SOURCE_STAGE" "$KDE_PACKAGE_STAGE"
-    install -m0644 "$SOURCE_STAGE/btrfs-backup-kde.install" "$KDE_PACKAGE_STAGE/.INSTALL"
+    install -m0644 "$SOURCE_STAGE/packaging/arch/btrfs-backup-kde.install" "$KDE_PACKAGE_STAGE/.INSTALL"
 
     INSTALLED_SIZE="$(find "$KDE_PACKAGE_STAGE/usr" -type f -printf '%s\n' | awk '{sum += $1} END {print sum + 0}')"
     cat > "$KDE_PACKAGE_STAGE/.PKGINFO" <<EOF_KDE_PKGINFO
@@ -969,7 +977,7 @@ if [[ "$TARGET" == all || "$TARGET" == arch ]]; then
         "$KDE_PACKAGE_AUDIT_ROOT/usr/share/plasma/plasmoids/org.btrfsbackup.plasmoid/contents/ui/main.qml" >/dev/null
     QT_QPA_PLATFORM=offscreen /usr/lib/qt6/bin/qmlscene \
         -I "$KDE_PACKAGE_AUDIT_ROOT/usr/lib/qt6/qml" \
-        "$SOURCE_STAGE/integrations/plasma/tests/backend-smoke.qml" >/dev/null
+        "$SOURCE_STAGE/integrations/kde/plasmoid/tests/backend-smoke.qml" >/dev/null
     tar --zstd -xOf "$KDE_PACKAGE_ARCHIVE" .PKGINFO | grep -qx "pkgname = $KDE_PKGNAME"
     tar --zstd -xOf "$KDE_PACKAGE_ARCHIVE" .PKGINFO | grep -qx "pkgver = $VERSION-$PKGREL"
 fi

@@ -4,6 +4,14 @@
 
 The project backs up one or more Btrfs subvolumes to a removable Btrfs disk placed inside LUKS. The disk can stay unmounted and closed most of the time.
 
+The source tree follows runtime responsibilities rather than abstract layers:
+configuration, state, backup orchestration, Linux adapters, and CLI presentation
+are separate CMake components. Their ownership and dependency direction are
+defined in [C++ source layout](cpp-layout.md). A future daemon must be an outer
+adapter over the same backup and configuration use cases as the CLI; it must not
+duplicate command parsing or backup logic, and no empty daemon target or source
+directory is reserved before that implementation exists.
+
 ## Runtime Flow
 
 ```text
