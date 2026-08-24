@@ -38,6 +38,7 @@ void expect_service_hardening(const std::string& name, const std::string& unit) 
         "MemoryDenyWriteExecute=yes",
         "SystemCallArchitectures=native",
         "RestrictAddressFamilies=AF_UNIX AF_NETLINK",
+        "Environment=PATH=/usr/bin",
     };
     for (const std::string& directive : directives) {
         test_helpers::expect_contains(name + " " + directive, unit, directive + "\n");

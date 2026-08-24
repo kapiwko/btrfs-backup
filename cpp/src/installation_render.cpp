@@ -99,6 +99,7 @@ std::string render_backup_service(const btrfsbackup::Profile& profile, const std
         "RuntimeDirectoryMode=0755\n"
         "StateDirectory=btrfs-backup\n"
         "StateDirectoryMode=0755\n"
+        "Environment=PATH=/usr/bin\n"
         + service_hardening +
         "Nice=10\n"
         "IOSchedulingClass=best-effort\n"
@@ -132,6 +133,7 @@ std::string render_profile_service(const std::string& backup_command) {
         "RuntimeDirectoryMode=0755\n"
         "StateDirectory=btrfs-backup\n"
         "StateDirectoryMode=0755\n"
+        "Environment=PATH=/usr/bin\n"
         + service_hardening +
         "Nice=10\n"
         "IOSchedulingClass=best-effort\n"
@@ -162,6 +164,7 @@ std::string render_eject_service(const std::string& eject_script) {
         "RuntimeDirectoryMode=0755\n"
         "StateDirectory=btrfs-backup\n"
         "StateDirectoryMode=0755\n"
+        "Environment=PATH=/usr/bin\n"
         + eject_service_hardening +
         "TimeoutStartSec=90s\n"
         "SyslogIdentifier=btrfs-backup-eject\n";

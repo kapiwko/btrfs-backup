@@ -7,6 +7,7 @@
 
 #include <cerrno>
 #include <chrono>
+#include <string>
 #include <thread>
 #include <vector>
 
@@ -25,6 +26,31 @@ std::vector<char*> argv_for_spawn(const std::vector<std::string>& argv) {
         result.push_back(const_cast<char*>(item.c_str()));
     }
     result.push_back(nullptr);
+    return result;
+}
+
+std::string trusted_program_path(const std::string& program) {
+    if (program.empty()) {
+        throw ValidationError("command program must not be empty");
+    }
+    if (program.front() == '/') {
+        return program;
+    }
+    if (program.find('/') != std::string::npos) {
+        throw ValidationError("command path must be absolute: " + program);
+    }
+    return "/usr/bin/" + program;
+}
+
+std::vector<std::string> child_environment() {
+    std::vector<std::string> result;
+    for (char** entry = environ; *entry != nullptr; ++entry) {
+        std::string value = *entry;
+        if (value.rfind("PATH=", 0) != 0) {
+            result.push_back(std::move(value));
+        }
+    }
+    result.emplace_back("PATH=/usr/bin");
     return result;
 }
 
@@ -154,7 +180,10 @@ ProcessSpawnResult spawn_program(const std::vector<std::string>& argv, const Pro
         throw ValidationError("empty command");
     }
 
+    const std::string executable = trusted_program_path(argv.front());
     std::vector<char*> arguments = argv_for_spawn(argv);
+    std::vector<std::string> environment = child_environment();
+    std::vector<char*> environment_entries = argv_for_spawn(environment);
     posix_spawn_file_actions_t actions;
     int error = posix_spawn_file_actions_init(&actions);
     if (error != 0) {
@@ -215,13 +244,13 @@ ProcessSpawnResult spawn_program(const std::vector<std::string>& argv, const Pro
     }
 
     pid_t pid = -1;
-    error = posix_spawnp(
+    error = posix_spawn(
         &pid,
-        arguments.front(),
+        executable.c_str(),
         &actions,
         &attributes,
         arguments.data(),
-        environ
+        environment_entries.data()
     );
 
     posix_spawnattr_destroy(&attributes);

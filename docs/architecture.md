@@ -108,8 +108,10 @@ state.
 
 The runner has active cancellation and transfer worker threads. Both synchronous
 administrative commands and asynchronous transfer processes are therefore
-created through a shared `posix_spawnp()` adapter. Transfer file descriptors are
-wired with `posix_spawn_file_actions`, and each producer and consumer starts in
+created through a shared `posix_spawn()` adapter. Bare program names are mapped
+to `/usr/bin`, relative program paths are rejected, and child processes receive
+`PATH=/usr/bin`. Transfer file descriptors are wired with
+`posix_spawn_file_actions`, and each producer and consumer starts in
 its own process group through `POSIX_SPAWN_SETPGROUP`. The existing poll-based
 transfer loop retains ownership of streaming, diagnostics, cancellation, and
 child reaping without running allocator or other C++ code in a post-fork child.
@@ -142,7 +144,7 @@ bounded reaping when the group does not exit. Hook stdout and stderr are drained
 while captured diagnostics are limited to 64 KiB. Production hooks are opened
 without symlinks below `/etc/btrfs-backup/hooks.d`, checked for root ownership
 and non-writable trusted parents, then spawned through an inherited
-`/proc/self/fd/<fd>` path. Keeping that descriptor alive through `posix_spawnp()`
+`/proc/self/fd/<fd>` path. Keeping that descriptor alive through `posix_spawn()`
 prevents a path replacement race between validation and execution.
 
 ## Commit Model

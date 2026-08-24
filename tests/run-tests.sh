@@ -153,6 +153,7 @@ render_test() {
     assert_contains "$output/systemd/btrfs-backup.service" 'ProtectSystem=full'
     assert_contains "$output/systemd/btrfs-backup.service" 'ProtectProc=invisible'
     assert_contains "$output/systemd/btrfs-backup.service" 'RestrictAddressFamilies=AF_UNIX AF_NETLINK'
+    assert_contains "$output/systemd/btrfs-backup.service" 'Environment=PATH=/usr/bin'
     assert_contains "$output/systemd/btrfs-backup@laptop.service.d/target-mount.conf" 'RequiresMountsFor="/mnt/backup"'
     assert_contains "$output/systemd/btrfs-backup.service" 'RequiresMountsFor="/mnt/backup"'
     assert_contains "$output/config/fstab.fragment" 'noauto'

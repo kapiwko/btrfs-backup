@@ -163,3 +163,8 @@ privileges through setuid binaries or file capabilities, create writable and
 executable mappings, use Internet sockets, or access another process's `/tmp`.
 Integrations requiring those facilities must be redesigned around a separately
 managed service rather than weakening the backup unit globally.
+
+Installed units and the shared process adapter restrict `PATH` to `/usr/bin`.
+The adapter resolves bare executable names directly below `/usr/bin` and uses
+`posix_spawn()` without path searching. This also applies to manually started
+root commands and to subprocesses launched by trusted hooks.

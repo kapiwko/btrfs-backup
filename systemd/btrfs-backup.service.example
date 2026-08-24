@@ -18,6 +18,7 @@ RuntimeDirectory=btrfs-backup
 RuntimeDirectoryMode=0755
 StateDirectory=btrfs-backup
 StateDirectoryMode=0755
+Environment=PATH=/usr/bin
 NoNewPrivileges=yes
 PrivateTmp=yes
 ProtectSystem=full
