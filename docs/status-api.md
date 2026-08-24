@@ -1,8 +1,13 @@
-# Status API
+# Run Status API
 
-The runtime writes machine-readable JSON state for each configured profile.
+The runtime writes machine-readable backup-run state for each configured profile.
 This file-based interface is intended for tools and integrations that need
 status without parsing journal text.
+
+This document describes `RunStatus`, not target lifecycle state. A successful
+backup and a target that has been unmounted and closed are independent facts.
+The current runtime does not persist a `TargetStatus` after eject, so clients
+must not infer that a successful run means the device is safe to disconnect.
 
 The broader engine boundary is described in
 [engine-contract.md](engine-contract.md).
@@ -25,7 +30,7 @@ Example:
 
 ```json
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "profileId": "default",
   "profileName": "Default backup",
   "runId": "20260823T024407Z-4298-30158",
@@ -44,7 +49,6 @@ Example:
   "recoverable": false,
   "suggestedAction": "",
   "canCancel": false,
-  "safeToRemove": false,
   "exitCode": 0
 }
 ```
@@ -100,7 +104,6 @@ fields use `0` or `-1` as documented below:
 | `speedBps` | current transfer speed in bytes per second |
 | `etaSeconds` | estimated seconds remaining, or `-1` when unknown |
 | `canCancel` | whether the active run accepts cancellation; not proof that the current caller is authorized |
-| `safeToRemove` | whether the target was logically unmounted and closed |
 
 The status `details` object for `transferring` includes lower-level diagnostics:
 `bytesProduced`, `bytesTransferred`, `deltaBytes`, `elapsedMs`, and `speedBps`.
@@ -183,7 +186,7 @@ btrfs-backupctl status watch --profile default --json --interval 1
 ```
 
 `status watch --json` emits the full status JSON object whenever
-`current.json` changes. It validates that the object uses `schemaVersion: 1`
+`current.json` changes. It validates that the object uses `schemaVersion: 2`
 and contains the status API fields documented above before writing it to
 stdout.
 
@@ -198,6 +201,8 @@ btrfs-backupctl \
 
 ## Compatibility
 
-The JSON schema starts at `schemaVersion: 1`. Future compatible changes may add
-fields. Clients should ignore unknown fields and treat missing optional fields
-as unavailable.
+The run-status JSON uses `schemaVersion: 2`. Version 2 removes the former
+`safeToRemove` field because eject state does not belong to a backup-run record.
+Future compatible changes may add fields. Clients should ignore unknown fields
+and treat missing optional fields as unavailable. A future `TargetStatus` will
+use a separate document or system API contract backed by the eject operation.

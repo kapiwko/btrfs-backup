@@ -98,7 +98,6 @@ std::vector<std::string> required_status_api_fields() {
         "recoverable",
         "suggestedAction",
         "canCancel",
-        "safeToRemove",
         "bytesProcessed",
         "bytesTotalEstimated",
         "runBytesProcessed",
@@ -111,7 +110,7 @@ std::vector<std::string> required_status_api_fields() {
     };
 }
 
-btrfsbackup::StatusRecord watch_sample_record() {
+btrfsbackup::RunStatusRecord watch_sample_record() {
     return {
         .profile_id = "default",
         .profile_name = "Default backup",
@@ -154,7 +153,7 @@ void test_status_watch_json_emits_status_api_shape_once() {
     for (const std::string& field : required_status_api_fields()) {
         test_helpers::expect_true("watch field " + field, data.contains(field), "missing field " + field);
     }
-    test_helpers::expect_true("watch schema", data.at("schemaVersion") == 1, "wrong schema");
+    test_helpers::expect_true("watch schema", data.at("schemaVersion") == 2, "wrong schema");
     test_helpers::expect_true("watch profile", data.at("profileId") == "default", "wrong profile");
     test_helpers::expect_true("watch progress", data.at("sourceProgress") == 50, "wrong source progress");
 

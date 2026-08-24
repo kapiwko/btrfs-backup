@@ -78,7 +78,7 @@ void validate_status_api_json(const std::string& content) {
     if (!data.is_object()) {
         throw btrfsbackup::ValidationError("status JSON must be an object");
     }
-    if (!data.contains("schemaVersion") || data.at("schemaVersion") != 1) {
+    if (!data.contains("schemaVersion") || data.at("schemaVersion") != 2) {
         throw btrfsbackup::ValidationError("status JSON has unsupported schemaVersion");
     }
     const std::vector<std::string> required_fields = {
@@ -100,7 +100,6 @@ void validate_status_api_json(const std::string& content) {
         "recoverable",
         "suggestedAction",
         "canCancel",
-        "safeToRemove",
         "bytesProcessed",
         "bytesTotalEstimated",
         "runBytesProcessed",

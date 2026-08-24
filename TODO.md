@@ -257,8 +257,10 @@
     recovery, then cancellation routing after the system D-Bus API exists.
 
 - Add a stable system API for status and control:
-  - expose profile status, history, freshness, progress, cancellation,
-    safe-removal state and suggested recovery actions;
+  - expose `RunStatus` with history, freshness, progress, cancellation and
+    suggested recovery actions;
+  - expose `TargetStatus` separately, including mounted, ejecting and
+    safe-to-remove state backed by the actual target lifecycle;
   - avoid making desktop tools parse journal text or private state files;
   - keep status messages translatable by relying on stable codes and structured
     details.
@@ -274,7 +276,7 @@
     as the primary live communication channel when the daemon is active;
   - recover visible run state after daemon restart by reading current status and
     history files;
-  - expose safe-removal state after eject so clients can distinguish a finished
+  - publish `TargetStatus` after eject so clients can distinguish a finished
     backup from a target that is safe to disconnect;
   - use polkit for daemon authorization rather than a short-lived privileged
     helper model;

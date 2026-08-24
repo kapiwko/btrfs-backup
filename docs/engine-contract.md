@@ -100,7 +100,7 @@ Schema version 1 currently requires these fields:
 
 ```json
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "profileId": "default",
   "profileName": "Default backup",
   "runId": "20260823T024407Z-4298-30158",
@@ -119,7 +119,6 @@ Schema version 1 currently requires these fields:
   "recoverable": false,
   "suggestedAction": "",
   "canCancel": false,
-  "safeToRemove": false,
   "exitCode": 0
 }
 ```
@@ -198,8 +197,10 @@ local snapshot and pending marker so that a later run can complete recovery.
 
 ## Compatibility
 
-The contract starts at `schemaVersion: 1`. Compatible changes may add fields to
-JSON documents. Consumers must ignore unknown fields and treat missing optional
+Backup-run status uses `schemaVersion: 2`; checkpoint and internal event
+documents retain their own version 1 contracts. Run status intentionally does
+not contain target safe-removal state. Compatible changes may add fields to JSON
+documents. Consumers must ignore unknown fields and treat missing optional
 fields as unavailable.
 
 Any future engine implementation must pass the C++ runtime tests and the real
