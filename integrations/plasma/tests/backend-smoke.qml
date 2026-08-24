@@ -20,7 +20,9 @@ Window {
             if (status.profile !== "default") {
                 Qt.exit(2)
             }
-            if (typeof status.cancel !== "undefined" || typeof status.canCancel !== "undefined") {
+            if (typeof status.cancel !== "undefined"
+                    || typeof status.canCancel !== "undefined"
+                    || typeof status.safeToRemove !== "undefined") {
                 Qt.exit(3)
             }
             Qt.exit(0)

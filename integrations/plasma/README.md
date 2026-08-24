@@ -18,6 +18,9 @@ The current plasmoid is status-only. Privileged controls such as cancellation
 are intentionally absent until they can use the planned system D-Bus API and
 polkit authorization.
 
+It also does not infer safe-removal state from backup completion. Target state
+will be displayed only after a separate system API reports a successful eject.
+
 ## Build
 
 ```bash

@@ -28,7 +28,6 @@ class BackupStatusModel : public QObject {
     Q_PROPERTY(int sourceProgress READ sourceProgress NOTIFY statusChanged)
     Q_PROPERTY(int overallProgress READ overallProgress NOTIFY statusChanged)
     Q_PROPERTY(QString progressAccuracy READ progressAccuracy NOTIFY statusChanged)
-    Q_PROPERTY(bool safeToRemove READ safeToRemove NOTIFY statusChanged)
     Q_PROPERTY(QString errorCode READ errorCode NOTIFY statusChanged)
     Q_PROPERTY(QString errorMessage READ errorMessage NOTIFY statusChanged)
     Q_PROPERTY(QString suggestedAction READ suggestedAction NOTIFY statusChanged)
@@ -61,7 +60,6 @@ public:
     int sourceProgress() const;
     int overallProgress() const;
     QString progressAccuracy() const;
-    bool safeToRemove() const;
     QString errorCode() const;
     QString errorMessage() const;
     QString suggestedAction() const;
@@ -106,7 +104,6 @@ private:
     int source_progress_ = -1;
     int overall_progress_ = -1;
     QString progress_accuracy_ = QStringLiteral("indeterminate");
-    bool safe_to_remove_ = false;
     QString error_code_;
     QString error_message_;
     QString suggested_action_;

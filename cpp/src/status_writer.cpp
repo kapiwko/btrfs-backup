@@ -28,7 +28,7 @@ void prepare_public_parent(const fs::path& path) {
 
 namespace btrfsbackup {
 
-Json build_status_json(const StatusRecord& record) {
+Json build_status_json(const RunStatusRecord& record) {
     validate_profile_id(record.profile_id);
     require_non_empty(record.profile_name, "profileName");
     require_non_empty(record.run_id, "runId");
@@ -39,7 +39,7 @@ Json build_status_json(const StatusRecord& record) {
     require_non_empty(record.updated_at, "updatedAt");
 
     return {
-        {"schemaVersion", 1},
+        {"schemaVersion", 2},
         {"profileId", record.profile_id},
         {"profileName", record.profile_name},
         {"runId", record.run_id},
@@ -58,7 +58,6 @@ Json build_status_json(const StatusRecord& record) {
         {"recoverable", record.recoverable},
         {"suggestedAction", record.suggested_action},
         {"canCancel", record.can_cancel},
-        {"safeToRemove", record.safe_to_remove},
         {"bytesProcessed", record.bytes_processed},
         {"bytesTotalEstimated", record.bytes_total_estimated},
         {"runBytesProcessed", record.run_bytes_processed},
@@ -71,18 +70,18 @@ Json build_status_json(const StatusRecord& record) {
     };
 }
 
-std::string dump_status_json(const StatusRecord& record) {
+std::string dump_status_json(const RunStatusRecord& record) {
     return dump_json(build_status_json(record));
 }
 
-void write_current_status(const fs::path& status_root, const StatusRecord& record, mode_t mode) {
+void write_current_status(const fs::path& status_root, const RunStatusRecord& record, mode_t mode) {
     std::string content = dump_status_json(record);
     fs::path path = status_root / record.profile_id / "current.json";
     prepare_public_parent(path);
     atomic_write(path, content, mode);
 }
 
-void write_history_entry(const fs::path& history_root, const StatusRecord& record, mode_t mode) {
+void write_history_entry(const fs::path& history_root, const RunStatusRecord& record, mode_t mode) {
     std::string content = dump_status_json(record);
     fs::path directory = history_root / record.profile_id;
     fs::path run_path = directory / (record.run_id + ".json");

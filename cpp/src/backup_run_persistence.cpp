@@ -138,7 +138,7 @@ std::string message_for_event(const BackupRunEvent& event) {
     return "Backup event.";
 }
 
-StatusRecord status_record_for_event(
+RunStatusRecord status_record_for_event(
     const BackupRunStatusContext& context,
     const BackupRunEvent& event,
     int minimum_overall_progress
@@ -233,7 +233,7 @@ StatusRecord status_record_for_event(
         suggested_action = "run-backup-again";
     }
 
-    return StatusRecord{
+    return RunStatusRecord{
         .profile_id = event.profile_id,
         .profile_name = context.profile_name,
         .run_id = event.run_id,
@@ -403,7 +403,7 @@ void StatusBackupRunEventSink::on_backup_run_event(const BackupRunEvent& event) 
         run_id_ = event.run_id;
         last_overall_progress_ = -1;
     }
-    StatusRecord record = status_record_for_event(context_, event, last_overall_progress_);
+    RunStatusRecord record = status_record_for_event(context_, event, last_overall_progress_);
     if (record.overall_progress >= 0) {
         last_overall_progress_ = record.overall_progress;
     }

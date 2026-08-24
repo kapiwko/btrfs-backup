@@ -18,6 +18,11 @@ API. Desktop controls will be added only through the system D-Bus manager with
 polkit authorization; the plasmoid must not use `sudo`, `pkexec`, or detached
 CLI processes as a substitute.
 
+The plasmoid displays `RunStatus` only. It does not show an eject icon or a
+safe-to-disconnect message because the current runtime has no separate,
+authoritative `TargetStatus`. That indication will be added only after the
+system API reports the result of the actual eject operation.
+
 ## Package
 
 The Plasma integration is shipped separately as `btrfs-backup-kde`. Install it
