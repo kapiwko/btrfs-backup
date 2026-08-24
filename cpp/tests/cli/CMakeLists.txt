@@ -1,0 +1,6 @@
+add_btrfsbackup_test(btrfsbackup-backup-tool-tests backup_tool_tests.cpp backup-tool-tests btrfsbackup-cli)
+add_btrfsbackup_test(btrfsbackup-installation-tests installation_tests.cpp installation-tests btrfsbackup-cli)
+add_btrfsbackup_test(btrfsbackup-profile-command-tests profile_command_tests.cpp profile-command-tests btrfsbackup-cli)
+add_btrfsbackup_test(btrfsbackup-runner-command-tests runner_command_tests.cpp runner-command-tests btrfsbackup-cli)
+add_btrfsbackup_test(btrfsbackup-status-history-tests status_history_tests.cpp status-history-tests btrfsbackup-cli)
+add_btrfsbackup_test(btrfsbackup-target-command-tests target_command_tests.cpp target-command-tests btrfsbackup-cli)
