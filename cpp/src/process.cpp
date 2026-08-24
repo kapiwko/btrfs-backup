@@ -52,6 +52,7 @@ CommandResult run_command(const std::vector<std::string>& argv) {
     ProcessSpawnResult spawned = spawn_program(argv, {
         .stdout_fd = pipefd[1],
         .stderr_fd = pipefd[1],
+        .inherited_fds = {},
     });
     close(pipefd[1]);
     CommandResult result;
@@ -128,6 +129,7 @@ CommandResult run_controlled_command(
         .stdout_fd = pipefd[1],
         .stderr_fd = pipefd[1],
         .create_process_group = true,
+        .inherited_fds = {},
     });
     close(pipefd[1]);
     if (!spawned.started()) {

@@ -242,6 +242,35 @@ void test_cleanup_incoming_deletes_subvolumes_and_plain_paths() {
     ) != btrfs.calls.end(), "subvolume should be deleted with btrfs");
 }
 
+void test_production_cleanup_rejects_incoming_symlink_escape() {
+    fs::path root = test_helpers::test_root("backup-run-action-effects", "cleanup-symlink");
+    fs::path target = root / "target";
+    fs::path outside = root / "outside";
+    fs::create_directories(target / ".incoming");
+    fs::create_directories(outside);
+    test_helpers::write_file(outside / "sentinel", "keep\n");
+    fs::create_directory_symlink(outside, target / ".incoming" / "root");
+
+    btrfsbackup::BackupSourceRunPlan source = source_plan(root);
+    source.incoming_source_root = target / ".incoming" / "root";
+    source.incoming_run_dir = source.incoming_source_root / "run-1";
+    FakeBtrfsOperations btrfs;
+    FakeFileSystemEffects fs_effects;
+    FakeCommandRunner hooks;
+    btrfsbackup::BackupRunActionEffects effects(btrfs, fs_effects, hooks, target);
+
+    test_helpers::expect_validation_error("production cleanup symlink", [&] {
+        execute_action(effects, action(btrfsbackup::BackupRunActionKind::CleanupIncoming), source);
+    }, "Too many levels of symbolic links");
+    test_helpers::expect_true(
+        "production cleanup outside preserved",
+        fs::is_regular_file(outside / "sentinel"),
+        "cleanup followed incoming symlink outside target"
+    );
+
+    fs::remove_all(root);
+}
+
 void test_verify_commit_retention_and_cleanup_use_existing_helpers() {
     fs::path root = test_helpers::test_root("backup-run-action-effects", "commit-cleanup");
     btrfsbackup::BackupSourceRunPlan source = source_plan(root);
@@ -454,6 +483,7 @@ void test_hook_cancellation_is_not_reported_as_hook_failure() {
 int main() {
     test_create_snapshot_writes_pending_marker_and_verifies_readonly_snapshot();
     test_cleanup_incoming_deletes_subvolumes_and_plain_paths();
+    test_production_cleanup_rejects_incoming_symlink_escape();
     test_verify_commit_retention_and_cleanup_use_existing_helpers();
     test_send_receive_prepares_remote_and_incoming_directories();
     test_pending_recovery_deletes_invalid_remote_snapshot_first();

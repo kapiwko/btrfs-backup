@@ -10,7 +10,10 @@
 #include <string>
 
 #include <btrfsbackup/errors.hpp>
+#include <btrfsbackup/safe_directory_root.hpp>
 #include <btrfsbackup/snapshot_transfer.hpp>
+
+namespace fs = std::filesystem;
 
 namespace btrfsbackup {
 
@@ -118,7 +121,40 @@ std::filesystem::path selected_parent_path(const BackupSourceRunPlan& source_pla
     return {};
 }
 
-TransferPipelinePlan transfer_plan_for_source(const BackupSourceRunPlan& source_plan) {
+TransferPipelinePlan transfer_plan_for_source(const BackupRunPlan& plan, const BackupSourceRunPlan& source_plan) {
+    if (!plan.target_mount_point.empty()) {
+        SafeDirectoryRoot local_root("/");
+        SafeDirectoryRoot target_root(plan.target_mount_point);
+        auto snapshot = std::make_shared<SafeDirectoryHandle>(local_root.open_directory(source_plan.local_snapshot_path));
+        auto receive = std::make_shared<SafeDirectoryHandle>(target_root.open_directory(source_plan.incoming_run_dir));
+        std::shared_ptr<SafeDirectoryHandle> parent;
+        fs::path parent_path;
+        if (source_plan.parent.local_parent.has_value()) {
+            parent = std::make_shared<SafeDirectoryHandle>(
+                local_root.open_directory(source_plan.parent.local_parent->path)
+            );
+            parent_path = parent->proc_path();
+        }
+        SendReceiveCommandPlan command_plan = build_send_receive_command_plan(
+            snapshot->proc_path(),
+            parent_path,
+            receive->proc_path()
+        );
+        TransferPipelinePlan transfer_plan{
+            .producer_argv = command_plan.send_argv,
+            .consumer_argv = command_plan.receive_argv,
+            .inherited_fds = {},
+            .retained_handles = {},
+        };
+        transfer_plan.inherited_fds = {snapshot->fd(), receive->fd()};
+        transfer_plan.retained_handles = {snapshot, receive};
+        if (parent) {
+            transfer_plan.inherited_fds.push_back(parent->fd());
+            transfer_plan.retained_handles.push_back(parent);
+        }
+        return transfer_plan;
+    }
+
     SendReceiveCommandPlan command_plan = build_send_receive_command_plan(
         source_plan.local_snapshot_path,
         selected_parent_path(source_plan),
@@ -129,6 +165,8 @@ TransferPipelinePlan transfer_plan_for_source(const BackupSourceRunPlan& source_
         .producer_argv = command_plan.send_argv,
         .consumer_argv = command_plan.receive_argv,
         .bytes_total_estimated = 0,
+        .inherited_fds = {},
+        .retained_handles = {},
     };
 }
 
@@ -246,8 +284,10 @@ BackupRunExecutionResult BackupRunExecutor::execute(
                 if (action.kind == BackupRunActionKind::SendReceive) {
                     action_effects_.execute_action(action, source, plan, cancellation);
                     BackupTransferEventAdapter transfer_events(events, plan, source, action.kind, completed_run_bytes);
-                    TransferPipelinePlan transfer_plan = transfer_plan_for_source(source);
-                    transfer_plan.bytes_total_estimated = estimate_regular_file_bytes(source.local_snapshot_path);
+                    TransferPipelinePlan transfer_plan = transfer_plan_for_source(plan, source);
+                    transfer_plan.bytes_total_estimated = estimate_regular_file_bytes(
+                        fs::path(transfer_plan.producer_argv.back())
+                    );
                     std::unique_ptr<IAsyncTransferHandle> transfer = transfer_pipeline_.start(
                         transfer_plan,
                         transfer_events

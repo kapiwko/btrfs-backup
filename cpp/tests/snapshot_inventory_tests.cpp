@@ -122,6 +122,48 @@ void test_empty_and_missing_directories() {
     fs::remove_all(root);
 }
 
+void test_inventory_separates_scan_and_reported_paths() {
+    fs::path root = test_helpers::test_root("snapshot-inventory", "reported-path");
+    fs::path scan = root / "fd-view";
+    fs::path reported = "/mnt/backup/snapshots/home";
+    fs::create_directories(scan / "home-2026-08-23T082504Z");
+    fs::path metadata_path;
+
+    std::vector<btrfsbackup::SnapshotInfo> inventory = btrfsbackup::list_snapshot_inventory_at(
+        scan,
+        reported,
+        "home",
+        btrfsbackup::SnapshotSide::Remote,
+        [&](const fs::path& path) -> std::optional<btrfsbackup::SnapshotMetadata> {
+            metadata_path = path;
+            return btrfsbackup::SnapshotMetadata{.is_subvolume = true, .readonly = true, .uuid = "uuid"};
+        }
+    );
+
+    test_helpers::expect_eq("inventory metadata scan path", metadata_path.string(), (scan / "home-2026-08-23T082504Z").string());
+    test_helpers::expect_eq("inventory reported path", inventory.at(0).path.string(), (reported / "home-2026-08-23T082504Z").string());
+    fs::remove_all(root);
+}
+
+void test_inventory_rejects_symlink_entries() {
+    fs::path root = test_helpers::test_root("snapshot-inventory", "symlink");
+    fs::create_directories(root / "outside");
+    fs::create_directories(root / "snapshots");
+    fs::create_directory_symlink(root / "outside", root / "snapshots" / "home-2026-08-23T082504Z");
+
+    test_helpers::expect_validation_error("inventory symlink rejected", [&] {
+        (void)btrfsbackup::list_snapshot_inventory(
+            root / "snapshots",
+            "home",
+            btrfsbackup::SnapshotSide::Remote,
+            [](const fs::path&) -> std::optional<btrfsbackup::SnapshotMetadata> {
+                return btrfsbackup::SnapshotMetadata{.is_subvolume = true};
+            }
+        );
+    }, "symbolic link is forbidden in snapshot inventory");
+    fs::remove_all(root);
+}
+
 void test_invalid_inputs() {
     test_helpers::expect_validation_error("invalid source id", [] {
         (void)btrfsbackup::parse_snapshot_name("bad source-2026-08-23T082504Z", "bad source");
@@ -143,6 +185,8 @@ int main() {
     test_parse_snapshot_name();
     test_list_snapshot_inventory();
     test_empty_and_missing_directories();
+    test_inventory_separates_scan_and_reported_paths();
+    test_inventory_rejects_symlink_entries();
     test_invalid_inputs();
 
     return test_helpers::finish("snapshot inventory tests");

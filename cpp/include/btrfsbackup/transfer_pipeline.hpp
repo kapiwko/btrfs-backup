@@ -7,12 +7,16 @@
 #include <string>
 #include <vector>
 
+#include <btrfsbackup/safe_directory_root.hpp>
+
 namespace btrfsbackup {
 
 struct TransferPipelinePlan {
     std::vector<std::string> producer_argv;
     std::vector<std::string> consumer_argv;
     std::uint64_t bytes_total_estimated = 0;
+    std::vector<int> inherited_fds;
+    std::vector<std::shared_ptr<SafeDirectoryHandle>> retained_handles;
 };
 
 enum class TransferEventKind {

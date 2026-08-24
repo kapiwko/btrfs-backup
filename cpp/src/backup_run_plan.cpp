@@ -150,6 +150,7 @@ BackupRunPlan build_backup_run_plan(
     BackupRunPlan run_plan{
         .profile_id = profile.id,
         .run_id = run_id,
+        .target_mount_point = profile.target.mount_point,
         .sources = {},
     };
 
@@ -168,10 +169,10 @@ BackupRunPlan build_backup_run_plan(
         const fs::path incoming_run_dir = incoming_source_root / run_id;
 
         if (!path_is_within(remote_snapshot_dir, profile.paths.remote_root)) {
-            throw ValidationError("Remote source directory escapes REMOTE_ROOT, possibly through a symlink: " + remote_snapshot_dir.string());
+            throw ValidationError("Remote source directory escapes REMOTE_ROOT: " + remote_snapshot_dir.string());
         }
         if (!path_is_within(incoming_source_root, profile.paths.incoming_root)) {
-            throw ValidationError("Incoming source directory escapes INCOMING_ROOT, possibly through a symlink: " + incoming_source_root.string());
+            throw ValidationError("Incoming source directory escapes INCOMING_ROOT: " + incoming_source_root.string());
         }
         require_source_mount_constraints(source, profile, mounts);
 

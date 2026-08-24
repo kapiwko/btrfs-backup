@@ -126,21 +126,39 @@ std::vector<SnapshotInfo> list_snapshot_inventory(
     SnapshotSide side,
     const SnapshotMetadataReader& metadata_reader
 ) {
+    return list_snapshot_inventory_at(directory, directory, source_id, side, metadata_reader);
+}
+
+std::vector<SnapshotInfo> list_snapshot_inventory_at(
+    const fs::path& scan_directory,
+    const fs::path& reported_directory,
+    const std::string& source_id,
+    SnapshotSide side,
+    const SnapshotMetadataReader& metadata_reader
+) {
     validate_identifier(source_id, "sourceId");
     if (!metadata_reader) {
         throw ValidationError("snapshot metadata reader is required");
     }
 
     std::vector<SnapshotInfo> snapshots;
-    if (!fs::exists(directory)) {
+    if (!fs::exists(scan_directory)) {
         return snapshots;
     }
-    if (!fs::is_directory(directory)) {
-        throw ValidationError("snapshot inventory path is not a directory: " + directory.string());
+    if (!fs::is_directory(scan_directory)) {
+        throw ValidationError("snapshot inventory path is not a directory: " + reported_directory.string());
     }
 
-    for (const fs::directory_entry& entry : fs::directory_iterator(directory)) {
-        if (!entry.is_directory()) {
+    for (const fs::directory_entry& entry : fs::directory_iterator(scan_directory)) {
+        std::error_code status_error;
+        fs::file_status status = entry.symlink_status(status_error);
+        if (status_error) {
+            throw ValidationError("could not inspect snapshot inventory entry: " + entry.path().string());
+        }
+        if (fs::is_symlink(status)) {
+            throw ValidationError("symbolic link is forbidden in snapshot inventory: " + (reported_directory / entry.path().filename()).string());
+        }
+        if (!fs::is_directory(status)) {
             continue;
         }
 
@@ -161,7 +179,7 @@ std::vector<SnapshotInfo> list_snapshot_inventory(
             .name = parsed->name,
             .timestamp = parsed->timestamp,
             .sequence = parsed->sequence,
-            .path = entry.path(),
+            .path = reported_directory / entry.path().filename(),
             .readonly = metadata->readonly,
             .uuid = metadata->uuid,
             .received_uuid = metadata->received_uuid,
