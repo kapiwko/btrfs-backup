@@ -10,6 +10,9 @@
 
 namespace btrfsbackup {
 
+inline constexpr std::chrono::seconds default_command_timeout{30};
+inline constexpr std::size_t default_command_max_output_bytes = 1024 * 1024;
+
 struct CommandResult {
     int exit_code = 0;
     std::string output;

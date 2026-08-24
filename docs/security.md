@@ -62,6 +62,12 @@ not inherited. Hooks additionally receive only the validated
 `BTRFS_BACKUP_PROFILE_ID` and `BTRFS_BACKUP_SOURCE_ID` values for their current
 action.
 
+There is no unbounded synchronous process runner. Administrative commands use
+the controlled nonblocking executor with a 30-second timeout, a 1 MiB output
+limit, process-group termination, and bounded child reaping. Longer operations
+must opt into an explicit finite timeout; target synchronization uses five
+minutes.
+
 Profile writes must use same-directory temporary files, strict permissions,
 `fsync`, atomic rename, and parent-directory `fsync` where practical. Render and
 save operations must reject output paths that point at the repository root,

@@ -142,8 +142,11 @@ to `/usr/bin` and relative program paths are rejected. Child environments are
 built from an allowlist containing only `PATH=/usr/bin`, `LANG=C.UTF-8`,
 `LC_ALL=C.UTF-8`, and `HOME=/root`. Hooks additionally receive the explicit
 `BTRFS_BACKUP_PROFILE_ID` and `BTRFS_BACKUP_SOURCE_ID` context for their current
-action. Transfer file descriptors are wired with
-`posix_spawn_file_actions`, and each producer and consumer starts in
+action. All synchronous commands use the same nonblocking controlled executor;
+the default policy is a 30-second timeout and at most 1 MiB of captured output.
+Operations with a justified longer bound specify it explicitly, such as the
+five-minute target synchronization during eject. Transfer file descriptors are
+wired with `posix_spawn_file_actions`, and each producer and consumer starts in
 its own process group through `POSIX_SPAWN_SETPGROUP`. The existing poll-based
 transfer loop retains ownership of streaming, diagnostics, cancellation, and
 child reaping without running allocator or other C++ code in a post-fork child.
