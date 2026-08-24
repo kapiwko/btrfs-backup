@@ -174,11 +174,7 @@
   - show per-source contribution to a run;
   - warn when a full transfer is unexpectedly required or unusually large.
 
-- Add automatic send protocol selection:
-  - detect kernel and `btrfs-progs` support before enabling send v2;
-  - support `btrfs send --proto 2 --compressed-data` when compatible;
-  - keep `auto` as the default policy and fall back safely;
-  - add optional transfer rate limiting.
+- Add optional transfer rate limiting.
 
 - Add a transport abstraction after the local runner is stable:
   - keep local encrypted removable targets as the first implementation;

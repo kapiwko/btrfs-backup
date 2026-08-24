@@ -362,7 +362,7 @@ Section: admin
 Priority: optional
 Architecture: $DEB_ARCH
 Maintainer: local reproducible build <root@localhost>
-Depends: btrfs-progs, coreutils, cryptsetup, libmount1, libstdc++6, libudev1, systemd, util-linux
+Depends: btrfs-progs (>= 6.0), coreutils, cryptsetup, libmount1, libstdc++6, libudev1, systemd, util-linux
 Description: Verified Btrfs send/receive backups to an encrypted removable target
  systemd and udev driven Btrfs send/receive backups with LUKS target validation,
  interrupted-run recovery, retention, and controlled eject.
@@ -433,7 +433,7 @@ BuildRequires:  pkgconfig(libmount)
 BuildRequires:  pkgconfig(libudev)
 BuildRequires:  pkgconfig(libbtrfsutil)
 
-Requires:       btrfs-progs
+Requires:       btrfs-progs >= 6.0
 Requires:       coreutils
 Requires:       cryptsetup
 Requires:       libstdc++
@@ -581,13 +581,13 @@ BDEPEND="
 
 DEPEND="
 	dev-cpp/nlohmann_json
-	sys-fs/btrfs-progs
+	>=sys-fs/btrfs-progs-6.0
 	sys-apps/systemd
 	sys-apps/util-linux
 "
 
 RDEPEND="
-	sys-fs/btrfs-progs
+	>=sys-fs/btrfs-progs-6.0
 	sys-fs/cryptsetup
 	sys-apps/coreutils
 	sys-apps/systemd
@@ -639,7 +639,7 @@ check() {
 }
 
 package_btrfs-backup() {
-  depends=('btrfs-progs' 'coreutils' 'cryptsetup' 'gcc-libs' 'systemd' 'systemd-libs' 'util-linux' 'util-linux-libs')
+  depends=('btrfs-progs>=6.0' 'coreutils' 'cryptsetup' 'gcc-libs' 'systemd' 'systemd-libs' 'util-linux' 'util-linux-libs')
   optdepends=('btrfs-backup-kde: Plasma status widget')
   install='btrfs-backup.install'
 
@@ -708,7 +708,7 @@ pkgbase = btrfs-backup
 	sha256sums = $SOURCE_SHA256
 
 pkgname = btrfs-backup
-	depends = btrfs-progs
+	depends = btrfs-progs>=6.0
 	depends = coreutils
 	depends = cryptsetup
 	depends = gcc-libs
@@ -752,7 +752,7 @@ packager = local reproducible build
 size = $INSTALLED_SIZE
 arch = $ARCH
 license = GPL-3.0-or-later
-depend = btrfs-progs
+depend = btrfs-progs>=6.0
 depend = coreutils
 depend = cryptsetup
 depend = gcc-libs

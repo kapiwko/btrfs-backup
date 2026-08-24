@@ -186,10 +186,13 @@ void test_full_backup_flow_without_parent() {
     test_helpers::expect_eq("full flow actions", std::to_string(result.actions_completed), "9");
     test_helpers::expect_eq("full flow transfer count", std::to_string(transfers.plans.size()), "1");
     const std::vector<std::string>& send_argv = transfers.plans.at(0).producer_argv;
-    test_helpers::expect_eq("full send argc", std::to_string(send_argv.size()), "3");
+    test_helpers::expect_eq("full send argc", std::to_string(send_argv.size()), "6");
     test_helpers::expect_eq("full send binary", send_argv.at(0), "btrfs");
     test_helpers::expect_eq("full send subcommand", send_argv.at(1), "send");
-    test_helpers::expect_eq("full send snapshot", send_argv.at(2), "/.snapshots/root/root-2026-08-23T080000Z");
+    test_helpers::expect_eq("full send protocol flag", send_argv.at(2), "--proto");
+    test_helpers::expect_eq("full send protocol", send_argv.at(3), "2");
+    test_helpers::expect_eq("full send compressed data", send_argv.at(4), "--compressed-data");
+    test_helpers::expect_eq("full send snapshot", send_argv.at(5), "/.snapshots/root/root-2026-08-23T080000Z");
     test_helpers::expect_eq("full effect count", std::to_string(effects.calls.size()), "8");
     test_helpers::expect_eq("full checkpoint count", std::to_string(checkpoints.checkpoints.size()), "8");
     test_helpers::expect_eq("full last checkpoint", action_name(checkpoints.checkpoints.back().action_kind), action_name(btrfsbackup::BackupRunActionKind::CleanupSource));
@@ -274,8 +277,11 @@ void test_send_receive_delegates_to_transfer_pipeline() {
     const btrfsbackup::TransferPipelinePlan& transfer_plan = transfers.plans.at(0);
     test_helpers::expect_eq("send binary", transfer_plan.producer_argv.at(0), "btrfs");
     test_helpers::expect_eq("send subcommand", transfer_plan.producer_argv.at(1), "send");
-    test_helpers::expect_eq("send parent flag", transfer_plan.producer_argv.at(2), "-p");
-    test_helpers::expect_eq("send parent", transfer_plan.producer_argv.at(3), "/.snapshots/root/root-2026-08-22T080000Z");
+    test_helpers::expect_eq("send protocol flag", transfer_plan.producer_argv.at(2), "--proto");
+    test_helpers::expect_eq("send protocol", transfer_plan.producer_argv.at(3), "2");
+    test_helpers::expect_eq("send compressed data", transfer_plan.producer_argv.at(4), "--compressed-data");
+    test_helpers::expect_eq("send parent flag", transfer_plan.producer_argv.at(5), "-p");
+    test_helpers::expect_eq("send parent", transfer_plan.producer_argv.at(6), "/.snapshots/root/root-2026-08-22T080000Z");
     test_helpers::expect_eq("receive dir", transfer_plan.consumer_argv.at(2), "/mnt/backup/.incoming/root/run-1");
     test_helpers::expect_eq("transfer checkpoint count", std::to_string(checkpoints.checkpoints.size()), "1");
 
