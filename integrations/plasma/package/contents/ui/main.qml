@@ -60,7 +60,7 @@ PlasmoidItem {
             anchors.fill: parent
             anchors.margins: Math.max(1, parent.width * 0.13)
             source: root.failed ? "dialog-error" : "drive-harddisk"
-            opacity: backupStatus.connected ? 1 : 0.65
+            opacity: backupStatus.watcherConnected ? 1 : 0.65
         }
 
         Canvas {

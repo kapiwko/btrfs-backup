@@ -12,7 +12,7 @@ class BackupStatusModel : public QObject {
     Q_PROPERTY(QString command READ command WRITE setCommand NOTIFY commandChanged)
     Q_PROPERTY(QString profile READ profile WRITE setProfile NOTIFY profileChanged)
     Q_PROPERTY(QString profileName READ profileName NOTIFY statusChanged)
-    Q_PROPERTY(bool connected READ connected NOTIFY connectedChanged)
+    Q_PROPERTY(bool watcherConnected READ watcherConnected NOTIFY watcherConnectedChanged)
     Q_PROPERTY(QString state READ state NOTIFY statusChanged)
     Q_PROPERTY(QString phase READ phase NOTIFY statusChanged)
     Q_PROPERTY(QString message READ message NOTIFY statusChanged)
@@ -43,7 +43,7 @@ public:
     QString profile() const;
     void setProfile(const QString& profile);
 
-    bool connected() const;
+    bool watcherConnected() const;
     QString profileName() const;
     QString state() const;
     QString phase() const;
@@ -71,7 +71,7 @@ public:
 signals:
     void commandChanged();
     void profileChanged();
-    void connectedChanged();
+    void watcherConnectedChanged();
     void statusChanged();
     void errorChanged();
 
@@ -80,14 +80,14 @@ private:
     void processWatchBuffer();
     bool takeJsonObject(QByteArray& object);
     void applyStatusObject(const QByteArray& object);
-    void setConnected(bool connected);
+    void setWatcherConnected(bool connected);
     void setLastError(const QString& message);
 
     QString command_ = QStringLiteral("btrfs-backupctl");
     QString profile_ = QStringLiteral("default");
     QProcess watch_;
     QByteArray watch_buffer_;
-    bool connected_ = false;
+    bool watcher_connected_ = false;
     QString profile_name_;
     QString state_ = QStringLiteral("unknown");
     QString phase_;
