@@ -291,6 +291,18 @@
   - document read-only operations separately from operations that require
     authorization.
 
+- Implement the authorization contract from `docs/system-dbus-api.md`:
+  - default-deny the system bus interface and expose only `GetStatus`,
+    `GetHistorySanitized`, `ListProfiles`, and `GetDeviceState` without polkit;
+  - use separate operational actions for start, cancel, eject, and target
+    validation;
+  - require fresh `auth_admin` actions for save, delete, device preparation,
+    and hook changes, without active-session or `auth_self` defaults;
+  - require both save-profile and change-hooks authorization whenever
+    `SaveProfile` changes the hook set;
+  - bind authorization to the D-Bus caller and revalidate mutable inputs
+    immediately before committing the operation.
+
 - Add privileged action safety tests:
   - verify that start, force, validate, cancel and eject actions re-check the
     profile id and active unit state server-side;
