@@ -14,6 +14,10 @@ btrfs-backupctl status watch --profile default --json
 QML only binds to C++ properties. It does not execute shell command strings and
 does not parse textual CLI output.
 
+The current plasmoid is status-only. Privileged controls such as cancellation
+are intentionally absent until they can use the planned system D-Bus API and
+polkit authorization.
+
 ## Build
 
 ```bash
@@ -50,7 +54,7 @@ This package is a stepping stone toward the planned native desktop layer:
    backup progress;
 3. KCM for profile browsing, validation and controlled writes through the
    system service;
-4. removal of direct CLI use from the Plasma backend once the D-Bus manager is
-   available.
+4. replacement of the direct status CLI watcher once the D-Bus manager is
+   available; mutating controls are introduced only through that manager.
 
 The base backup package must keep working without this integration installed.

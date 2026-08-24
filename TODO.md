@@ -251,8 +251,8 @@
     validation, freshness policy and controlled writes through the system API;
   - keep QML free of shell command strings, private state parsing and direct
     writes to `/etc/btrfs-backup`;
-  - add Plasma/KCM smoke tests for loading, status rendering, cancellation
-    routing and restart recovery.
+  - add Plasma/KCM smoke tests for loading, status rendering and restart
+    recovery, then cancellation routing after the system D-Bus API exists.
 
 - Add a stable system API for status and control:
   - expose profile status, history, freshness, progress, cancellation,
