@@ -26,8 +26,20 @@ Tests cover:
 
 C++ unit tests cover the native backup entrypoint, target mount/eject commands,
 planning, transfer orchestration, recovery, retention, status writing and
-validation logic. Production use also needs a test on a real or disposable
-environment:
+validation logic. Focused regression coverage includes:
+
+1. concurrent runners for one profile, one shared LUKS UUID, and independent
+   targets;
+2. a 1 GiB producer/consumer stream under kernel-pipe backpressure;
+3. bounded SIGTERM-to-SIGKILL escalation and child reaping after partial spawn
+   or exception unwind;
+4. durable-write failures for ENOSPC, EIO, file and directory `fsync`, close,
+   rename, and EINTR;
+5. file-request and SIGINT/SIGTERM cancellation through terminal `cancelled`
+   status while recovery state remains available;
+6. fractional aggregate progress during both the first and later sources.
+
+Production use also needs a test on a real or disposable environment:
 
 ```text
 source Btrfs -> snapshot -> send/receive -> disconnect -> reconnect -> restore
@@ -124,6 +136,16 @@ The test covers:
 11. local and remote retention after a third backup;
 12. cleanup of per-source `.incoming` content after successful receives;
 13. per-profile `current.json` and history JSON after a real backup.
+14. recovery of an orphaned local snapshot left before receive;
+15. preservation and marker cleanup for a snapshot committed before an
+    interruption;
+16. a full restore send/receive from the latest repository snapshot followed by
+    content comparison.
+
+The current Plasma test target validates its status-only process model and
+read-only API surface. Cancellation authorization and target safe-removal
+behavior belong to the future system D-Bus/polkit and target-status test targets
+described in `TODO.md`.
 
 ## Release Checks
 

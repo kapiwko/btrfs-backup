@@ -202,8 +202,18 @@ BackupRunPlan build_backup_run_plan(
         );
 
         std::vector<SnapshotInfo> projected_local = current_local_snapshots;
+        if (recovery.delete_local_snapshot) {
+            std::erase_if(projected_local, [&](const SnapshotInfo& snapshot) {
+                return snapshot.path == recovery.local_snapshot_path;
+            });
+        }
         projected_local.push_back(projected_snapshot(SnapshotSide::Local, source.id, snapshot_name, snapshot_timestamp, local_snapshot_path));
         std::vector<SnapshotInfo> projected_remote = current_remote_snapshots;
+        if (recovery.delete_remote_snapshot) {
+            std::erase_if(projected_remote, [&](const SnapshotInfo& snapshot) {
+                return snapshot.path == recovery.remote_snapshot_path;
+            });
+        }
         projected_remote.push_back(projected_snapshot(SnapshotSide::Remote, source.id, snapshot_name, snapshot_timestamp, final_remote_snapshot_path));
 
         RetentionPlan local_retention = plan_count_retention(source.id, projected_local, source.local_retention);
