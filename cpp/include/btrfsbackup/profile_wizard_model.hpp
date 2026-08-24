@@ -39,9 +39,6 @@ struct ProfileWizardAnswers {
 
     std::string keyfile = "none";
 
-    bool notifications_enabled = true;
-    std::string notifications_user;
-    std::string notifications_method = "auto";
 };
 
 Profile profile_from_wizard_answers(const ProfileWizardAnswers& answers);

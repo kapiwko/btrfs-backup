@@ -6,7 +6,6 @@
 
 namespace btrfsbackup {
 
-std::string render_profile_env(const Profile& profile);
 std::string render_udev(const Profile& profile);
 
 } // namespace btrfsbackup

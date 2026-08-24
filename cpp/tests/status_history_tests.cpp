@@ -143,7 +143,7 @@ void test_status_watch_json_emits_status_api_shape_once() {
     std::string previous;
     bool emitted = btrfsbackup::command::status_watch_once(
         root / "status",
-        {"--profile", "default", "--json"},
+        {"--profile", "default"},
         previous,
         output
     );
@@ -160,7 +160,7 @@ void test_status_watch_json_emits_status_api_shape_once() {
     std::ostringstream duplicate_output;
     bool duplicate = btrfsbackup::command::status_watch_once(
         root / "status",
-        {"--profile", "default", "--json"},
+        {"--profile", "default"},
         previous,
         duplicate_output
     );

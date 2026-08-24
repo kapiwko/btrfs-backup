@@ -26,6 +26,17 @@
 10. application hooks now have configurable finite timeouts, observe runner
     cancellation, terminate their complete process group with bounded cleanup,
     cap captured diagnostics, and emit phase-specific stable error codes.
+11. release packages now install native ELF commands directly in `/usr/bin` and
+    remove stale Bash, `pv`, `libnotify`, text-processing, and wrapper runtime
+    dependencies;
+12. canonical profiles and the native parser no longer contain a notification
+    policy: core owns status/history and journal diagnostics, while desktop
+    notification delivery belongs to the KDE session monitor;
+13. removed unused shell-oriented `profile sources`, `state`, `status write`,
+    and environment-rendering command adapters; unknown profile commands now
+    fail consistently even when followed by `--help`;
+14. `status watch` now exposes its JSON stream directly, with profile and
+    interval as its only options.
 
 ## 2.1.0 - 2026-08-23
 

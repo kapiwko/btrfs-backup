@@ -40,12 +40,6 @@ struct ProfileSettings {
     long long minimum_local_free_bytes = 0;
 };
 
-struct ProfileNotifications {
-    bool enabled = true;
-    std::string user;
-    std::string method;
-};
-
 struct ProfileHookCommand {
     std::string program;
     std::vector<std::string> arguments;
@@ -76,7 +70,6 @@ struct Profile {
     ProfileTarget target;
     ProfilePaths paths;
     ProfileSettings settings;
-    ProfileNotifications notifications;
     ProfileHooks hooks;
     std::vector<ProfileSource> sources;
 };

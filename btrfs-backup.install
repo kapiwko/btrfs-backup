@@ -1,19 +1,3 @@
-_btrfs_backup_profile_hint() {
-    if [[ -f /etc/btrfs-backup/backup.env && ! -f /etc/btrfs-backup/profiles/default/profile.json ]]; then
-        cat <<'MSG'
-==> Legacy configuration detected:
-==>   /etc/btrfs-backup/backup.env
-==>
-==> Create the default profile from the existing configuration:
-==>   sudo btrfs-backupctl profile migrate --profile default
-==>
-==> After validating the migrated profile, the legacy file can be moved aside:
-==>   sudo btrfs-backupctl profile migrate --profile default --force --remove-legacy
-
-MSG
-    fi
-}
-
 _btrfs_backup_reload_managers() {
     if command -v systemctl >/dev/null 2>&1; then
         systemctl daemon-reload || true
@@ -65,7 +49,6 @@ post_install() {
 MSG
     _btrfs_backup_reload_managers
     _btrfs_backup_fix_public_state_permissions
-    _btrfs_backup_profile_hint
 }
 
 post_upgrade() {
@@ -79,7 +62,6 @@ post_upgrade() {
 MSG
     _btrfs_backup_reload_managers
     _btrfs_backup_fix_public_state_permissions
-    _btrfs_backup_profile_hint
 }
 
 pre_remove() {

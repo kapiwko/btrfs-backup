@@ -17,9 +17,9 @@ Unattended backup of Btrfs subvolumes to an encrypted removable disk. The projec
 
 ## Requirements
 
-The project primarily targets Arch Linux and derivatives. It requires Bash,
-Btrfs, systemd, udev, cryptsetup, and tools from `coreutils`, `findutils`, and
-`util-linux`. `pv` and `libnotify` are optional runtime integrations.
+The project primarily targets Arch Linux and derivatives. The native runtime
+requires Btrfs userspace tools, systemd/udev, cryptsetup, `coreutils` (for
+`sync`), and `util-linux`. Repository build, release, and test scripts use Bash.
 
 Source builds require:
 
@@ -59,7 +59,9 @@ sudo pacman -U btrfs-backup-kde-2.1.1-1-x86_64.pkg.tar.zst
 ```
 
 That package installs the plasmoid and the compiled QML backend only. The base
-backup runtime does not depend on a graphical session.
+backup runtime does not depend on a graphical session. Core reports durable
+status/history and service diagnostics through journald; desktop notifications
+belong to the KDE session monitor rather than the privileged backup process.
 
 ## First Configuration
 

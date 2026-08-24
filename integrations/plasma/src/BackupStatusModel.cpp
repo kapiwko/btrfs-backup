@@ -220,7 +220,6 @@ void BackupStatusModel::start()
         QStringLiteral("watch"),
         QStringLiteral("--profile"),
         profile_,
-        QStringLiteral("--json"),
         QStringLiteral("--interval"),
         QStringLiteral("1"),
     });

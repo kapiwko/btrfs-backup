@@ -72,8 +72,10 @@ readers. Private recovery markers remain in
 `config/profile.example.json` and `config/profile.schema.json` define a
 versioned, machine-readable profile model for tooling.
 
-The profile model mirrors the shell configuration: encrypted target identity,
-state paths, retention settings, notification policy, and source definitions.
+The profile model defines encrypted target identity, state paths, retention
+settings, application-consistency hooks, and source definitions. Core publishes
+status/history and logs through the system service, while desktop presentation
+belongs to the KDE integration.
 It is intended for generators, validators, and future migration tooling.
 
 ## Source Definitions
