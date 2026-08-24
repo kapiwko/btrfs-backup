@@ -7,7 +7,11 @@ ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 PKGBASE=btrfs-backup
 PKGNAME=btrfs-backup
 KDE_PKGNAME=btrfs-backup-kde
-VERSION=2.1.0
+VERSION="$(<"$ROOT/VERSION")"
+if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    printf '%s\n' 'VERSION must contain a semantic version in MAJOR.MINOR.PATCH format.' >&2
+    exit 1
+fi
 PKGREL=1
 SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-1787356800}"
 DIST_DIR="$ROOT/dist"
@@ -237,7 +241,7 @@ copy_source_tree() {
     for entry in bin config cpp docs integrations systemd tests tools udev; do
         cp -a -- "$ROOT/$entry" "$destination/"
     done
-    for entry in README.md CHANGELOG.md TODO.md LICENSE .gitignore CMakeLists.txt Makefile btrfs-backup.install btrfs-backup-kde.install; do
+    for entry in VERSION README.md CHANGELOG.md TODO.md LICENSE .gitignore CMakeLists.txt Makefile btrfs-backup.install btrfs-backup-kde.install; do
         cp -a -- "$ROOT/$entry" "$destination/"
     done
 

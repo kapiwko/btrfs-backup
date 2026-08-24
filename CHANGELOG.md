@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.1.1 - 2026-08-24
+
+1. native runner execution now uses separate non-blocking profile and target
+   locks, preventing concurrent profiles from manipulating the same LUKS backup
+   repository and preventing mount/eject races;
+2. synchronous commands and asynchronous transfer processes now use a shared
+   `posix_spawnp()` adapter instead of running C++ allocation and setup code
+   between `fork()` and `exec()` in a multithreaded runner;
+3. added concurrency, partial process-start, missing executable, lock symlink,
+   and worker-thread process-spawn regression coverage;
+4. the root `VERSION` file is now the single version source for native and
+   Plasma builds, generated package metadata, and release artifacts.
+
 ## 2.1.0 - 2026-08-23
 
 1. transfer status now includes byte counters, speed, ETA, current-source

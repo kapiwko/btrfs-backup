@@ -45,7 +45,7 @@ Each source must be a Btrfs subvolume. The local snapshot directory must be on t
 ## Arch Package Installation
 
 ```bash
-sudo pacman -U btrfs-backup-2.1.0-1-x86_64.pkg.tar.zst
+sudo pacman -U btrfs-backup-2.1.1-1-x86_64.pkg.tar.zst
 ```
 
 The package installs the systemd template unit used by udev, but it does not
@@ -55,7 +55,7 @@ an explicit user action.
 The optional Plasma status widget is packaged separately:
 
 ```bash
-sudo pacman -U btrfs-backup-kde-2.1.0-1-x86_64.pkg.tar.zst
+sudo pacman -U btrfs-backup-kde-2.1.1-1-x86_64.pkg.tar.zst
 ```
 
 That package installs the plasmoid and the compiled QML backend only. The base
