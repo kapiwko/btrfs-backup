@@ -8,10 +8,7 @@
 
 #include <btrfsbackup/cli/command/installation_command.hpp>
 #include <btrfsbackup/model/errors.hpp>
-#include <btrfsbackup/application/installation_render.hpp>
-#include <btrfsbackup/application/installation_validate.hpp>
-#include <btrfsbackup/model/json_io.hpp>
-#include <btrfsbackup/model/profile.hpp>
+#include <btrfsbackup/application/installation_service.hpp>
 
 namespace fs = std::filesystem;
 
@@ -59,8 +56,7 @@ int render_installation(const std::vector<std::string>& args) {
     if (file.empty()) fail("installation render requires --file");
     if (output_dir.empty()) fail("installation render requires --output-dir");
 
-    Profile profile = profile_from_json(load_json_file(file));
-    render_installation_files(profile, output_dir, options);
+    btrfsbackup::render_installation({file, output_dir, options});
     return 0;
 }
 
@@ -90,9 +86,9 @@ int validate_installation(const std::vector<std::string>& args) {
         if (geteuid() != 0) {
             fail("active installation validation must be run as root", 1);
         }
-        btrfsbackup::validate_active_installation(profile_id);
+        btrfsbackup::validate_active_installation_for(profile_id);
     } else {
-        btrfsbackup::validate_rendered_installation(rendered_root);
+        btrfsbackup::validate_rendered_installation_at(rendered_root);
     }
     return 0;
 }

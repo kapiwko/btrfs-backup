@@ -10,25 +10,16 @@
 #include <btrfsbackup/cli/command/profile_command.hpp>
 #include <btrfsbackup/cli/command/profile_wizard_command.hpp>
 #include <btrfsbackup/model/errors.hpp>
-#include <btrfsbackup/system/file_io.hpp>
 #include <btrfsbackup/model/json_io.hpp>
 #include <btrfsbackup/model/profile.hpp>
 #include <btrfsbackup/cli/command/profile_list_command.hpp>
-#include <btrfsbackup/system/profile_loader.hpp>
-#include <btrfsbackup/application/profile_render.hpp>
-#include <btrfsbackup/application/profile_store.hpp>
+#include <btrfsbackup/application/profile_service.hpp>
 
 namespace fs = std::filesystem;
 using btrfsbackup::ValidationError;
-using btrfsbackup::atomic_write;
 using btrfsbackup::dump_json;
-using btrfsbackup::load_json_file;
-using btrfsbackup::load_profile_by_id;
 using btrfsbackup::Profile;
-using btrfsbackup::profile_from_json;
 using btrfsbackup::profile_to_json;
-using btrfsbackup::render_tree;
-using btrfsbackup::save_tree;
 
 namespace {
 
@@ -131,33 +122,25 @@ int profile(const std::vector<std::string>& args, const fs::path& profile_config
 
         if (command == "validate") {
             if (file.empty()) fail("validate requires --file");
-            std::cout << dump_json(profile_to_json(profile_from_json(load_json_file(file))));
+            std::cout << dump_json(profile_to_json(validate_profile_file(file)));
         } else if (command == "render") {
             if (file.empty()) fail("render requires --file");
             if (output_dir.empty()) fail("render requires --output-dir");
-            output_dir = fs::absolute(output_dir).lexically_normal();
-            if (output_dir == "/" || output_dir == "/etc" || output_dir == "/usr" || output_dir == "/var") {
-                throw ValidationError("refusing unsafe output directory: " + output_dir.string());
-            }
-            std::error_code ec;
-            fs::remove_all(output_dir, ec);
-            Profile profile = profile_from_json(load_json_file(file));
-            render_tree(profile, output_dir);
+            Profile profile = validate_profile_file(file);
+            render_profile(file, output_dir);
             std::cout << "Rendered profile " << profile.id << " to " << output_dir << "\n";
         } else if (command == "save") {
             if (file.empty()) fail("save requires --file");
             if (geteuid() != 0 && etc_root == "/etc/btrfs-backup") {
                 fail("save to system configuration must be run as root", 1);
             }
-            Profile profile = profile_from_json(load_json_file(file));
-            save_tree(profile, etc_root, udev_root, systemd_root, public_root);
+            Profile profile = save_profile(file, {etc_root, udev_root, systemd_root, public_root});
             std::cout << "Saved profile " << profile.id << "\n";
         } else if (command == "show") {
-            std::cout << dump_json(profile_to_json(load_profile_by_id(etc_root, profile_id)));
+            std::cout << dump_json(profile_to_json(get_profile(etc_root, profile_id)));
         } else if (command == "export") {
             if (output_dir.empty()) fail("export requires --output");
-            Profile profile = load_profile_by_id(etc_root, profile_id);
-            atomic_write(output_dir, dump_json(profile_to_json(profile)), 0600);
+            Profile profile = export_profile(etc_root, profile_id, output_dir);
             std::cout << "Exported profile " << profile.id << " to " << output_dir << "\n";
         } else {
             fail("unknown command: " + command);
