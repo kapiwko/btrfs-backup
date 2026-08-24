@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 shopt -s nullglob
-export LC_ALL=C
+export LC_ALL=C.UTF-8
 
 MODE=full
 case "${1:-}" in
