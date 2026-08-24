@@ -30,7 +30,7 @@ Rules for new C++ code:
 2. Profile, status, history, validation, filesystem, and command-runner logic
    belong in reusable code under `cpp/include/btrfsbackup/` and `cpp/src/`.
 3. External commands must be invoked without a shell; pass executable and
-   arguments separately. Process creation must use the shared `posix_spawnp`
+   arguments separately. Process creation must use the shared `posix_spawn`
    adapter rather than `fork()` followed by C++ work before `exec`.
 4. File writes that affect runtime state or configuration must use same-directory
    temporary files, `fsync`, atomic rename, and directory `fsync` where practical.

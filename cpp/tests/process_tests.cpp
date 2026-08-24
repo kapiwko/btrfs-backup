@@ -4,6 +4,7 @@
 
 #include <chrono>
 #include <cerrno>
+#include <cstdlib>
 #include <stdexcept>
 #include <string>
 #include <thread>
@@ -39,6 +40,37 @@ void test_run_command_reports_missing_executable() {
         result.output,
         "/definitely-missing-btrfsbackup-command"
     );
+}
+
+void test_run_command_ignores_untrusted_path() {
+    const char* original_path = std::getenv("PATH");
+    const std::string saved_path = original_path == nullptr ? "" : original_path;
+    setenv("PATH", "/definitely-untrusted", 1);
+    btrfsbackup::CommandResult result = btrfsbackup::run_command({
+        "sh",
+        "-c",
+        "printf '%s' \"$PATH\"",
+    });
+    if (original_path == nullptr) {
+        unsetenv("PATH");
+    } else {
+        setenv("PATH", saved_path.c_str(), 1);
+    }
+
+    test_helpers::expect_eq("trusted command exit", std::to_string(result.exit_code), "0");
+    test_helpers::expect_eq("trusted child path", result.output, "/usr/bin");
+}
+
+void test_run_command_rejects_relative_program_path() {
+    test_helpers::expect_validation_error("relative program path", [] {
+        (void)btrfsbackup::run_command({"./command"});
+    }, "command path must be absolute");
+}
+
+void test_run_command_rejects_empty_program() {
+    test_helpers::expect_validation_error("empty program", [] {
+        (void)btrfsbackup::run_command({""});
+    }, "command program must not be empty");
 }
 
 void test_controlled_command_times_out_and_reaps_process() {
@@ -163,6 +195,9 @@ void test_child_process_reaps_group_during_exception_unwind() {
 int main() {
     test_run_command_captures_stdout_and_stderr();
     test_run_command_reports_missing_executable();
+    test_run_command_ignores_untrusted_path();
+    test_run_command_rejects_relative_program_path();
+    test_run_command_rejects_empty_program();
     test_controlled_command_times_out_and_reaps_process();
     test_controlled_command_observes_cancellation_fd();
     test_controlled_command_bounds_captured_output();
