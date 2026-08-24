@@ -24,20 +24,29 @@ public:
     std::vector<std::string> calls;
     bool should_throw = false;
     bool recovery_required = false;
+    bool operation_cancelled = false;
+    std::string coded_error_code;
     btrfsbackup::BackupRunActionKind throw_on = btrfsbackup::BackupRunActionKind::CleanupSource;
 
     void execute_action(
         const btrfsbackup::BackupRunAction& action,
         const btrfsbackup::BackupSourceRunPlan& source_plan,
-        const btrfsbackup::BackupRunPlan&
+        const btrfsbackup::BackupRunPlan&,
+        btrfsbackup::CancellationToken&
     ) override {
         calls.push_back(source_plan.source_id + ":" + action_name(action.kind));
         if (should_throw && action.kind == throw_on) {
+            if (operation_cancelled) {
+                throw btrfsbackup::OperationCancelledError("hook cancelled");
+            }
             if (recovery_required) {
                 throw btrfsbackup::RecoveryRequiredError(
                     "repository.recovery_required",
                     "commit verification failed; cleanup failed; repository requires recovery"
                 );
+            }
+            if (!coded_error_code.empty()) {
+                throw btrfsbackup::CodedValidationError(coded_error_code, "coded action failure");
             }
             throw btrfsbackup::ValidationError("injected action failure: " + action_name(action.kind));
         }
@@ -512,6 +521,54 @@ void test_commit_cleanup_failure_emits_recovery_required_code() {
     test_helpers::expect_eq("commit cleanup error code", failed->error_code, "repository.recovery_required");
 }
 
+void test_hook_timeout_emits_stable_error_code() {
+    RecordingEffects effects;
+    effects.should_throw = true;
+    effects.throw_on = btrfsbackup::BackupRunActionKind::BeforeSnapshotHook;
+    effects.coded_error_code = "hook.before_snapshot_timeout";
+    RecordingTransferPipeline transfers;
+    RecordingCheckpoints checkpoints;
+    RecordingEvents events;
+    btrfsbackup::CancellationToken cancellation;
+    btrfsbackup::ThreadedAsyncTransferPipeline async_transfers(transfers);
+    btrfsbackup::BackupRunExecutor executor(effects, async_transfers, checkpoints);
+
+    btrfsbackup::BackupRunPlan plan = plan_with_actions({
+        action(btrfsbackup::BackupRunActionKind::BeforeSnapshotHook),
+    });
+
+    test_helpers::expect_validation_error("hook timeout", [&] {
+        (void)executor.execute(plan, events, cancellation);
+    }, "coded action failure");
+    auto failed = std::find_if(events.events.begin(), events.events.end(), [](const btrfsbackup::BackupRunEvent& event) {
+        return event.kind == btrfsbackup::BackupRunEventKind::ActionFailed;
+    });
+    test_helpers::expect_true("hook timeout failed event", failed != events.events.end(), "missing failed action event");
+    test_helpers::expect_eq("hook timeout event code", failed->error_code, "hook.before_snapshot_timeout");
+}
+
+void test_hook_cancellation_finishes_run_as_cancelled() {
+    RecordingEffects effects;
+    effects.should_throw = true;
+    effects.operation_cancelled = true;
+    effects.throw_on = btrfsbackup::BackupRunActionKind::AfterSnapshotHook;
+    RecordingTransferPipeline transfers;
+    RecordingCheckpoints checkpoints;
+    RecordingEvents events;
+    btrfsbackup::CancellationToken cancellation;
+    btrfsbackup::ThreadedAsyncTransferPipeline async_transfers(transfers);
+    btrfsbackup::BackupRunExecutor executor(effects, async_transfers, checkpoints);
+
+    btrfsbackup::BackupRunPlan plan = plan_with_actions({
+        action(btrfsbackup::BackupRunActionKind::AfterSnapshotHook),
+    });
+
+    btrfsbackup::BackupRunExecutionResult result = executor.execute(plan, events, cancellation);
+    test_helpers::expect_true("hook cancellation result", result.cancelled, "run should be cancelled");
+    test_helpers::expect_true("hook cancellation event", events.has_event(btrfsbackup::BackupRunEventKind::RunCancelled), "missing cancellation event");
+    test_helpers::expect_true("hook cancellation no failure", !events.has_event(btrfsbackup::BackupRunEventKind::ActionFailed), "cancelled hook must not be reported as failed");
+}
+
 void test_remote_retention_failure_keeps_commit_checkpoint() {
     RecordingEffects effects;
     effects.should_throw = true;
@@ -583,6 +640,8 @@ int main() {
     test_receive_failure_is_reported_separately();
     test_commit_failure_after_successful_transfer_keeps_verify_checkpoint();
     test_commit_cleanup_failure_emits_recovery_required_code();
+    test_hook_timeout_emits_stable_error_code();
+    test_hook_cancellation_finishes_run_as_cancelled();
     test_remote_retention_failure_keeps_commit_checkpoint();
     test_local_retention_failure_keeps_remote_retention_checkpoint();
 

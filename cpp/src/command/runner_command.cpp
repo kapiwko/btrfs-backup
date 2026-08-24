@@ -131,7 +131,8 @@ btrfsbackup::Json action_to_json(const btrfsbackup::BackupRunAction& action) {
         result["hook"] = {
             {"type", "program"},
             {"program", action.hook.program},
-            {"arguments", action.hook.arguments}
+            {"arguments", action.hook.arguments},
+            {"timeoutSeconds", action.hook.timeout_seconds}
         };
     }
     return result;

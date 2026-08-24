@@ -45,6 +45,13 @@ public:
         return {};
     }
 
+    btrfsbackup::CommandResult run_controlled(
+        const std::vector<std::string>& argv,
+        const btrfsbackup::ControlledCommandOptions&
+    ) override {
+        return run(argv);
+    }
+
 private:
     static std::string join(const std::vector<std::string>& argv) {
         std::string out;

@@ -16,6 +16,13 @@ CommandResult SystemCommandRunner::run(const std::vector<std::string>& argv) {
     return run_command(argv);
 }
 
+CommandResult SystemCommandRunner::run_controlled(
+    const std::vector<std::string>& argv,
+    const ControlledCommandOptions& options
+) {
+    return run_controlled_command(argv, options);
+}
+
 std::string capture_command(ICommandRunner& runner, const std::vector<std::string>& argv) {
     if (argv.empty()) {
         throw ValidationError("empty command");

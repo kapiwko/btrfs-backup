@@ -19,6 +19,13 @@ public:
         calls.push_back(argv);
         return next_result;
     }
+
+    btrfsbackup::CommandResult run_controlled(
+        const std::vector<std::string>& argv,
+        const btrfsbackup::ControlledCommandOptions&
+    ) override {
+        return run(argv);
+    }
 };
 
 void test_capture_command_uses_argv_without_shell() {
