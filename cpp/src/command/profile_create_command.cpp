@@ -78,9 +78,6 @@ int profile_create(const std::vector<std::string>& args) {
     std::string mount_point;
     std::string remote_root;
     std::string incoming_root;
-    std::string state_dir = "/var/lib/btrfs-backup";
-    std::string status_root = "/run/btrfs-backup/profiles";
-    std::string history_root = "/var/lib/btrfs-backup/history";
     bool daily_limit = true;
     bool incremental_required = true;
     bool keep_failed_local_snapshot = false;
@@ -117,12 +114,6 @@ int profile_create(const std::vector<std::string>& args) {
             remote_root = arg_value(i, args, arg);
         } else if (arg == "--incoming-root") {
             incoming_root = arg_value(i, args, arg);
-        } else if (arg == "--state-dir") {
-            state_dir = arg_value(i, args, arg);
-        } else if (arg == "--status-root") {
-            status_root = arg_value(i, args, arg);
-        } else if (arg == "--history-root") {
-            history_root = arg_value(i, args, arg);
         } else if (arg == "--daily-limit") {
             daily_limit = arg_bool(arg_value(i, args, arg), arg);
         } else if (arg == "--incremental-required") {
@@ -171,7 +162,7 @@ int profile_create(const std::vector<std::string>& args) {
     if (sources.empty()) fail("create requires at least one --source");
 
     Profile profile = profile_from_json({
-        {"schemaVersion", 1},
+        {"schemaVersion", current_profile_schema_version},
         {"profileId", profile_id},
         {"name", profile_name},
         {"enabled", true},
@@ -186,10 +177,7 @@ int profile_create(const std::vector<std::string>& args) {
         }},
         {"paths", {
             {"remoteRoot", remote_root},
-            {"incomingRoot", incoming_root},
-            {"stateDir", state_dir},
-            {"statusRoot", status_root},
-            {"historyRoot", history_root}
+            {"incomingRoot", incoming_root}
         }},
         {"settings", {
             {"dailyLimit", daily_limit},

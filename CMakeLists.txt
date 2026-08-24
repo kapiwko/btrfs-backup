@@ -43,6 +43,7 @@ target_link_libraries(btrfsbackup-model
 )
 
 add_library(btrfsbackup-system STATIC
+    cpp/src/application_paths.cpp
     cpp/src/btrfs_operations.cpp
     cpp/src/device_info.cpp
     cpp/src/file_io.cpp
@@ -173,6 +174,7 @@ if(BUILD_TESTING)
         add_test(NAME ${test_name} COMMAND ${target})
     endfunction()
 
+    add_btrfsbackup_test(btrfsbackup-application-config-tests cpp/tests/application_config_tests.cpp application-config-tests)
     add_btrfsbackup_test(btrfsbackup-backup-run-plan-tests cpp/tests/backup_run_plan_tests.cpp backup-run-plan-tests)
     add_btrfsbackup_test(btrfsbackup-backup-tool-tests cpp/tests/backup_tool_tests.cpp backup-tool-tests)
     add_btrfsbackup_test(btrfsbackup-backup-run-executor-tests cpp/tests/backup_run_executor_tests.cpp backup-run-executor-tests)

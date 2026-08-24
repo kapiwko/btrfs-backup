@@ -20,7 +20,7 @@ std::string lower(std::string value) {
 
 Profile profile_from_wizard_answers(const ProfileWizardAnswers& answers) {
     Profile profile;
-    profile.schema_version = 1;
+    profile.schema_version = current_profile_schema_version;
     profile.id = answers.profile_id;
     validate_identifier(profile.id, "profileId");
     profile.name = answers.profile_name;
@@ -37,10 +37,6 @@ Profile profile_from_wizard_answers(const ProfileWizardAnswers& answers) {
 
     profile.paths.remote_root = profile.target.mount_point + "/snapshots";
     profile.paths.incoming_root = profile.target.mount_point + "/.incoming";
-    profile.paths.sources_dir = "/etc/btrfs-backup/profiles/" + profile.id + "/sources.d";
-    profile.paths.state_dir = "/var/lib/btrfs-backup";
-    profile.paths.status_root = "/run/btrfs-backup/profiles";
-    profile.paths.history_root = "/var/lib/btrfs-backup/history";
 
     std::set<std::string> used_names;
     for (const ProfileWizardSourceAnswers& source_answer : answers.sources) {

@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "profileId": "default",
   "name": "Default backup",
   "enabled": true,
@@ -13,12 +13,8 @@
     "mountPoint": "/mnt/backup"
   },
   "paths": {
-    "sourcesDir": "/etc/btrfs-backup/profiles/default/sources.d",
     "remoteRoot": "/mnt/backup/snapshots",
-    "incomingRoot": "/mnt/backup/.incoming",
-    "stateDir": "/var/lib/btrfs-backup",
-    "statusRoot": "/run/btrfs-backup/profiles",
-    "historyRoot": "/var/lib/btrfs-backup/history"
+    "incomingRoot": "/mnt/backup/.incoming"
   },
   "settings": {
     "dailyLimit": true,
