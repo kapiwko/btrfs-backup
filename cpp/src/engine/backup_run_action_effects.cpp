@@ -35,14 +35,14 @@ fs::path profile_state_dir_for_source(const BackupSourceRunPlan& source_plan) {
 
 void cleanup_directory_contents(
     IBtrfsOperations& btrfs,
-    IFileSystemEffects& fs_effects,
+    IFileSystem& fs_effects,
     const fs::path& directory,
     const SafeDirectoryRoot* safe_root
 );
 
 void cleanup_path(
     IBtrfsOperations& btrfs,
-    IFileSystemEffects& fs_effects,
+    IFileSystem& fs_effects,
     const fs::path& path,
     const SafeDirectoryRoot* safe_root
 ) {
@@ -67,7 +67,7 @@ void cleanup_path(
 
 void cleanup_directory_contents(
     IBtrfsOperations& btrfs,
-    IFileSystemEffects& fs_effects,
+    IFileSystem& fs_effects,
     const fs::path& directory,
     const SafeDirectoryRoot* safe_root
 ) {
@@ -85,7 +85,7 @@ void cleanup_directory_contents(
 
 void cleanup_incoming_run_dir(
     IBtrfsOperations& btrfs,
-    IFileSystemEffects& fs_effects,
+    IFileSystem& fs_effects,
     const fs::path& run_dir,
     const SafeDirectoryRoot* safe_root
 ) {
@@ -152,7 +152,7 @@ void recover_pending(
 
 void create_local_snapshot(
     IBtrfsOperations& btrfs,
-    IFileSystemEffects& fs_effects,
+    IFileSystem& fs_effects,
     const BackupSourceRunPlan& source_plan,
     const BackupRunPlan& run_plan,
     const SafeDirectoryRoot* local_root
@@ -217,7 +217,7 @@ void verify_received(
 
 void commit_received(
     IBtrfsOperations& btrfs,
-    IFileSystemEffects& fs_effects,
+    IFileSystem& fs_effects,
     const BackupSourceRunPlan& source_plan,
     const SafeDirectoryRoot* local_root,
     const SafeDirectoryRoot* target_root
@@ -248,7 +248,7 @@ void commit_received(
 }
 
 void prepare_send_receive(
-    IFileSystemEffects& fs_effects,
+    IFileSystem& fs_effects,
     const BackupSourceRunPlan& source_plan,
     const SafeDirectoryRoot* target_root
 ) {
@@ -263,7 +263,7 @@ void prepare_send_receive(
 
 void cleanup_source(
     IBtrfsOperations& btrfs,
-    IFileSystemEffects& fs_effects,
+    IFileSystem& fs_effects,
     const BackupSourceRunPlan& source_plan,
     const SafeDirectoryRoot* target_root
 ) {
@@ -343,12 +343,12 @@ void run_hook(
 
 } // namespace
 
-BackupRunActionEffects::BackupRunActionEffects(IBtrfsOperations& btrfs, IFileSystemEffects& fs_effects)
+BackupRunActionEffects::BackupRunActionEffects(IBtrfsOperations& btrfs, IFileSystem& fs_effects)
     : btrfs_(btrfs),
       fs_effects_(fs_effects) {
 }
 
-BackupRunActionEffects::BackupRunActionEffects(IBtrfsOperations& btrfs, IFileSystemEffects& fs_effects, ICommandRunner& hooks)
+BackupRunActionEffects::BackupRunActionEffects(IBtrfsOperations& btrfs, IFileSystem& fs_effects, ICommandRunner& hooks)
     : btrfs_(btrfs),
       fs_effects_(fs_effects),
       hooks_(&hooks) {
@@ -356,7 +356,7 @@ BackupRunActionEffects::BackupRunActionEffects(IBtrfsOperations& btrfs, IFileSys
 
 BackupRunActionEffects::BackupRunActionEffects(
     IBtrfsOperations& btrfs,
-    IFileSystemEffects& fs_effects,
+    IFileSystem& fs_effects,
     ICommandRunner& hooks,
     const fs::path& target_mount_point
 )
@@ -372,7 +372,7 @@ BackupRunActionEffects::BackupRunActionEffects(
 
 BackupRunActionEffects::BackupRunActionEffects(
     IBtrfsOperations& btrfs,
-    IFileSystemEffects& fs_effects,
+    IFileSystem& fs_effects,
     ICommandRunner& hooks,
     const fs::path& target_mount_point,
     const fs::path& hook_root,

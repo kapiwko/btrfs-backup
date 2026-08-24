@@ -42,7 +42,7 @@ The current CMake targets are layered this way:
 
 ```text
 btrfsbackup-model        # JSON model, validation, identifiers, status/catalog shapes
-btrfsbackup-system       # POSIX, trusted files, process runner, mount/device/Btrfs inspection
+btrfsbackup-system       # POSIX command/filesystem adapters, trusted files, mount/device/Btrfs inspection
 btrfsbackup-engine       # backup planning, execution, persistence, and transfer pipeline
 btrfsbackup-application  # typed backup, target, profile, status, and installation use cases
 btrfsbackup-cli          # argv parsing, output formatting, and exit-code mapping
@@ -82,14 +82,19 @@ Rules for new C++ code:
 10. Use Linux system libraries in system-facing code when they replace command
     output parsing: `libbtrfsutil` for subvolumes, `libmount` for mount-table
     inspection, and `libblkid` for filesystem identity.
-11. Keep long-running transfer process orchestration separate from short
+11. Keep infrastructure ports concrete and narrowly named. Command execution is
+    exposed through `system/command_runner.hpp`, while filesystem effects use
+    `system/filesystem.hpp`. Their production implementations belong to
+    `btrfsbackup-system`; `engine` may depend on the interfaces but never on an
+    `application` adapter header.
+12. Keep long-running transfer process orchestration separate from short
     synchronous administrative commands. The backup executor uses an
     asynchronous transfer handle around the POSIX pump. Cancellation and
     transfer completion are exposed as pollable file descriptors, and the POSIX
     pump polls process pipes and cancellation together. A future event-loop
     runner can replace the threaded adapter, while simple tested POSIX execution
     remains available for small operations and unit tests.
-12. Do not make the base package depend on a graphical session. Any future
+13. Do not make the base package depend on a graphical session. Any future
     desktop integration must communicate with the system backend instead of
     becoming part of the backup application layer.
 

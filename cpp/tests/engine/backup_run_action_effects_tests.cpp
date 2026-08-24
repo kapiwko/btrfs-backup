@@ -58,7 +58,7 @@ public:
     }
 };
 
-class FakeFileSystemEffects final : public btrfsbackup::IFileSystemEffects {
+class FakeFileSystem final : public btrfsbackup::IFileSystem {
 public:
     std::vector<fs::path> directories;
     std::map<std::string, std::vector<fs::path>> directory_entries;
@@ -201,7 +201,7 @@ void test_create_snapshot_writes_pending_marker_and_verifies_readonly_snapshot()
         .readonly = true,
         .uuid = "local-uuid",
     };
-    FakeFileSystemEffects fs_effects;
+    FakeFileSystem fs_effects;
     btrfsbackup::BackupRunActionEffects effects(btrfs, fs_effects);
 
     execute_action(effects, action(btrfsbackup::BackupRunActionKind::CreateSnapshot), source);
@@ -220,7 +220,7 @@ void test_cleanup_incoming_deletes_subvolumes_and_plain_paths() {
     fs::path nested_subvolume = directory / "received-subvol";
     FakeBtrfsOperations btrfs;
     btrfs.subvolumes = {subvolume.string(), nested_subvolume.string()};
-    FakeFileSystemEffects fs_effects;
+    FakeFileSystem fs_effects;
     fs_effects.directories = {directory, subvolume, nested_subvolume};
     fs_effects.directory_entries[source.incoming_source_root.string()] = {directory, subvolume};
     fs_effects.directory_entries[directory.string()] = {nested_subvolume};
@@ -263,7 +263,7 @@ void test_production_cleanup_rejects_incoming_symlink_escape() {
     source.incoming_source_root = target / ".incoming" / "root";
     source.incoming_run_dir = source.incoming_source_root / "run-1";
     FakeBtrfsOperations btrfs;
-    FakeFileSystemEffects fs_effects;
+    FakeFileSystem fs_effects;
     FakeCommandRunner hooks;
     btrfsbackup::BackupRunActionEffects effects(btrfs, fs_effects, hooks, target);
 
@@ -307,7 +307,7 @@ void test_verify_commit_retention_and_cleanup_use_existing_helpers() {
         .received_uuid = "local-uuid",
     };
 
-    FakeFileSystemEffects fs_effects;
+    FakeFileSystem fs_effects;
     fs_effects.directories = {source.received_snapshot_path, source.incoming_run_dir};
     fs_effects.directory_entries[source.incoming_run_dir.string()] = {};
     btrfsbackup::BackupRunActionEffects effects(btrfs, fs_effects);
@@ -344,7 +344,7 @@ void test_send_receive_prepares_remote_and_incoming_directories() {
     fs::path root = test_helpers::test_root("backup-run-action-effects", "send-receive");
     btrfsbackup::BackupSourceRunPlan source = source_plan(root);
     FakeBtrfsOperations btrfs;
-    FakeFileSystemEffects fs_effects;
+    FakeFileSystem fs_effects;
     btrfsbackup::BackupRunActionEffects effects(btrfs, fs_effects);
 
     execute_action(effects, action(btrfsbackup::BackupRunActionKind::SendReceive), source);
@@ -369,7 +369,7 @@ void test_pending_recovery_deletes_invalid_remote_snapshot_first() {
     source.recovery.delete_local_snapshot = true;
     source.recovery.local_snapshot_path = source.local_snapshot_path;
     FakeBtrfsOperations btrfs;
-    FakeFileSystemEffects fs_effects;
+    FakeFileSystem fs_effects;
     btrfsbackup::BackupRunActionEffects effects(btrfs, fs_effects);
 
     execute_action(effects, action(btrfsbackup::BackupRunActionKind::RecoverPending), source);
@@ -400,7 +400,7 @@ void test_failed_remote_recovery_keeps_local_snapshot_and_marker() {
 
     FakeBtrfsOperations btrfs;
     btrfs.delete_failure_path = source.final_remote_snapshot_path;
-    FakeFileSystemEffects fs_effects;
+    FakeFileSystem fs_effects;
     btrfsbackup::BackupRunActionEffects effects(btrfs, fs_effects);
 
     test_helpers::expect_validation_error("failed recovery delete", [&] {
@@ -417,7 +417,7 @@ void test_hook_actions_use_command_runner_argv() {
     fs::path root = test_helpers::test_root("backup-run-action-effects", "hooks");
     btrfsbackup::BackupSourceRunPlan source = source_plan(root);
     FakeBtrfsOperations btrfs;
-    FakeFileSystemEffects fs_effects;
+    FakeFileSystem fs_effects;
     FakeCommandRunner hooks;
     btrfsbackup::BackupRunActionEffects effects(btrfs, fs_effects, hooks);
 
@@ -444,7 +444,7 @@ void test_production_hook_uses_pinned_trusted_descriptor() {
 
     btrfsbackup::BackupSourceRunPlan source = source_plan(root);
     FakeBtrfsOperations btrfs;
-    FakeFileSystemEffects fs_effects;
+    FakeFileSystem fs_effects;
     FakeCommandRunner hooks;
     btrfsbackup::BackupRunActionEffects effects(
         btrfs,
@@ -480,7 +480,7 @@ void test_hook_failure_is_reported_as_validation_error() {
     fs::path root = test_helpers::test_root("backup-run-action-effects", "hook-failure");
     btrfsbackup::BackupSourceRunPlan source = source_plan(root);
     FakeBtrfsOperations btrfs;
-    FakeFileSystemEffects fs_effects;
+    FakeFileSystem fs_effects;
     FakeCommandRunner hooks;
     hooks.exit_code = 42;
     btrfsbackup::BackupRunActionEffects effects(btrfs, fs_effects, hooks);
@@ -494,7 +494,7 @@ void test_hook_timeout_has_stable_error_code() {
     fs::path root = test_helpers::test_root("backup-run-action-effects", "hook-timeout");
     btrfsbackup::BackupSourceRunPlan source = source_plan(root);
     FakeBtrfsOperations btrfs;
-    FakeFileSystemEffects fs_effects;
+    FakeFileSystem fs_effects;
     FakeCommandRunner hooks;
     hooks.timed_out = true;
     btrfsbackup::BackupRunActionEffects effects(btrfs, fs_effects, hooks);
@@ -514,7 +514,7 @@ void test_hook_cancellation_is_not_reported_as_hook_failure() {
     fs::path root = test_helpers::test_root("backup-run-action-effects", "hook-cancel");
     btrfsbackup::BackupSourceRunPlan source = source_plan(root);
     FakeBtrfsOperations btrfs;
-    FakeFileSystemEffects fs_effects;
+    FakeFileSystem fs_effects;
     FakeCommandRunner hooks;
     hooks.cancelled = true;
     btrfsbackup::BackupRunActionEffects effects(btrfs, fs_effects, hooks);

@@ -1,7 +1,9 @@
 add_btrfsbackup_test(btrfsbackup-application-config-tests application_config_tests.cpp application-config-tests btrfsbackup-system)
 add_btrfsbackup_test(btrfsbackup-btrfs-operations-tests btrfs_operations_tests.cpp btrfs-operations-tests btrfsbackup-system)
+add_btrfsbackup_test(btrfsbackup-command-runner-tests command_runner_tests.cpp command-runner-tests btrfsbackup-system)
 add_btrfsbackup_test(btrfsbackup-device-info-tests device_info_tests.cpp device-info-tests btrfsbackup-system)
 add_btrfsbackup_test(btrfsbackup-file-lock-tests file_lock_tests.cpp file-lock-tests btrfsbackup-system)
+add_btrfsbackup_test(btrfsbackup-filesystem-tests filesystem_tests.cpp filesystem-tests btrfsbackup-system)
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     add_btrfsbackup_test(btrfsbackup-file-io-tests file_io_tests.cpp file-io-tests btrfsbackup-system)

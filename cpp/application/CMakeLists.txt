@@ -12,7 +12,6 @@ add_library(btrfsbackup-application STATIC
     ../src/application/profile_wizard_paths.cpp
     ../src/application/profile_wizard_prompt.cpp
     ../src/application/profile_wizard_sources.cpp
-    ../src/application/runtime_adapters.cpp
     ../src/application/status_service.cpp
     ../src/application/target_service.cpp
 )

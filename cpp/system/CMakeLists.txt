@@ -1,9 +1,11 @@
 add_library(btrfsbackup-system STATIC
     ../src/system/application_paths.cpp
     ../src/system/btrfs_operations.cpp
+    ../src/system/command_runner.cpp
     ../src/system/device_info.cpp
     ../src/system/file_io.cpp
     ../src/system/file_lock.cpp
+    ../src/system/filesystem.cpp
     ../src/system/mount_info.cpp
     ../src/system/process.cpp
     ../src/system/process_spawn.cpp

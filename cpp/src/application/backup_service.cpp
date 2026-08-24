@@ -11,7 +11,8 @@
 #include <thread>
 #include <vector>
 
-#include <btrfsbackup/application/runtime_adapters.hpp>
+#include <btrfsbackup/system/command_runner.hpp>
+#include <btrfsbackup/system/filesystem.hpp>
 #include <btrfsbackup/engine/backup_run_action_effects.hpp>
 #include <btrfsbackup/engine/backup_run_persistence.hpp>
 #include <btrfsbackup/engine/pending_recovery_plan.hpp>
@@ -435,8 +436,8 @@ BackupExecutionResult start_backup(
     CancelRequestMonitor cancellation_monitor(state_dir, cancellation);
 
     LibBtrfsOperations btrfs;
-    StdFileSystemEffects filesystem_effects;
-    SystemCommandRunner command_runner;
+    PosixFileSystem filesystem_effects;
+    PosixCommandRunner command_runner;
     BackupRunActionEffects real_action_effects(
         btrfs,
         filesystem_effects,
