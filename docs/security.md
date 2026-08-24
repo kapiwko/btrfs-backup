@@ -68,10 +68,17 @@ limit, process-group termination, and bounded child reaping. Longer operations
 must opt into an explicit finite timeout; target synchronization uses five
 minutes.
 
-Profile writes must use same-directory temporary files, strict permissions,
-`fsync`, atomic rename, and parent-directory `fsync` where practical. Render and
-save operations must reject output paths that point at the repository root,
-system directories, or active project configuration.
+Profile saves stage and validate every private and public JSON, udev, and
+systemd artifact before acquiring the profile lock. Publication uses
+same-directory temporary and rollback files, strict permissions, `fsync`,
+atomic rename, and parent-directory `fsync`; the reduced public profile is the
+last commit marker after systemd and udev reload. All artifacts carry the same
+random `configurationGeneration`, and the service-provided generation must
+match the private profile before runtime work starts. This generation check is
+the crash-consistency guard for a transaction whose destinations span multiple
+directories and potentially multiple filesystems. Render and save operations
+must reject output paths that point at the repository root, system directories,
+or active project configuration.
 
 Target mount points are not profile-controlled. The runtime derives each one as
 `TARGET_MOUNT_ROOT/profileId`, using `/mnt/btrfs-backup` as the default mount

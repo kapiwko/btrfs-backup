@@ -1,15 +1,19 @@
 #include <config/profile.hpp>
 
 #include <algorithm>
+#include <cctype>
+#include <cstddef>
 #include <filesystem>
 #include <map>
 #include <regex>
 #include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <config/errors.hpp>
 #include <config/identifiers.hpp>
+#include <config/json.hpp>
 #include <config/validation.hpp>
 
 namespace fs = std::filesystem;
@@ -20,6 +24,7 @@ namespace {
 
 const std::regex uuid_re{"^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$"};
 const std::regex serial_re{"^(|[A-Za-z0-9][A-Za-z0-9._:+-]{0,255})$"};
+const std::regex configuration_generation_re{"^[0-9a-f]{32}$"};
 bool starts_with(const std::string& value, const std::string& prefix) {
     return value.rfind(prefix, 0) == 0;
 }
@@ -301,7 +306,18 @@ Json normalize_profile(const Json& raw, const fs::path& target_mount_root) {
     }
     reject_unknown_properties(
         raw,
-        {"schemaVersion", "profileId", "name", "enabled", "target", "paths", "settings", "hooks", "sources"},
+        {
+            "schemaVersion",
+            "configurationGeneration",
+            "profileId",
+            "name",
+            "enabled",
+            "target",
+            "paths",
+            "settings",
+            "hooks",
+            "sources"
+        },
         "profile"
     );
     if (!raw.contains("schemaVersion") || !raw.at("schemaVersion").is_number_integer()) {
@@ -312,6 +328,15 @@ Json normalize_profile(const Json& raw, const fs::path& target_mount_root) {
         throw ValidationError("schemaVersion must be 1, 2, or 3");
     }
     std::string profile_id = identifier(raw.at("profileId"), "profileId");
+    std::string configuration_generation = text(
+        raw.value("configurationGeneration", ""),
+        "configurationGeneration",
+        true,
+        32
+    );
+    if (!configuration_generation.empty() && !std::regex_match(configuration_generation, configuration_generation_re)) {
+        throw ValidationError("configurationGeneration must contain 32 lowercase hexadecimal characters");
+    }
     std::string profile_name = text(raw.value("name", profile_id), "name", false, 160);
     bool enabled = boolean_value(raw, "enabled", "enabled", true);
 
@@ -457,7 +482,7 @@ Json normalize_profile(const Json& raw, const fs::path& target_mount_root) {
         throw ValidationError("at least one source must be enabled");
     }
 
-    return {
+    Json result = {
         {"schemaVersion", current_profile_schema_version},
         {"profileId", profile_id},
         {"name", profile_name},
@@ -490,12 +515,17 @@ Json normalize_profile(const Json& raw, const fs::path& target_mount_root) {
         }},
         {"sources", sources}
     };
+    if (!configuration_generation.empty()) {
+        result["configurationGeneration"] = configuration_generation;
+    }
+    return result;
 }
 
 Profile profile_from_json(const Json& raw, const fs::path& target_mount_root) {
     Json normalized = normalize_profile(raw, target_mount_root);
     Profile profile;
     profile.schema_version = normalized.at("schemaVersion").get<int>();
+    profile.configuration_generation = normalized.value("configurationGeneration", "");
     profile.id = normalized.at("profileId").get<std::string>();
     profile.name = normalized.at("name").get<std::string>();
     profile.enabled = normalized.at("enabled").get<bool>();
@@ -592,7 +622,7 @@ Json profile_to_json(const Profile& profile) {
         return result;
     };
 
-    return {
+    Json result = {
         {"schemaVersion", current_profile_schema_version},
         {"profileId", profile.id},
         {"name", profile.name},
@@ -618,6 +648,10 @@ Json profile_to_json(const Profile& profile) {
         }},
         {"sources", sources}
     };
+    if (!profile.configuration_generation.empty()) {
+        result["configurationGeneration"] = profile.configuration_generation;
+    }
+    return result;
 }
 
 } // namespace btrfsbackup

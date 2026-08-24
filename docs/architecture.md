@@ -115,6 +115,17 @@ Locks are acquired in profile-then-target order and are held through validation,
 daily-limit handling, execution, status/history writes, and `last-success`.
 Contention fails immediately and does not overwrite the active runner's status.
 
+Profile installation uses the same per-profile lock. It first writes all
+derived artifacts to same-directory staging files and validates both JSON
+documents. Under the lock it publishes the udev rule and systemd drop-in, then
+the private profile, reloads systemd and udev, and finally publishes the reduced
+public profile as the commit marker. A failure rolls every replaced file back
+and attempts to reload the previous rules. All four artifacts carry one random
+`configurationGeneration`; the service drop-in passes that generation to the
+runner, which rejects a private profile from another generation. This makes a
+process or host failure between individual filesystem renames fail closed even
+though Linux cannot atomically rename files across these separate directories.
+
 ## Runner And Manager Boundary
 
 The backup runner must remain executable directly by the system service that is
