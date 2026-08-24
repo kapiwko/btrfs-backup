@@ -17,7 +17,7 @@ PlasmoidItem {
     property bool estimated: backupStatus.progressAccuracy === "estimated"
     property int progress: backupStatus.overallProgress
 
-    Plasmoid.status: root.running || root.failed || backupStatus.safeToRemove ? PlasmaCore.Types.ActiveStatus : PlasmaCore.Types.PassiveStatus
+    Plasmoid.status: root.running || root.failed ? PlasmaCore.Types.ActiveStatus : PlasmaCore.Types.PassiveStatus
     toolTipMainText: backupStatus.profileName || qsTr("Kopie zapasowe Btrfs")
     toolTipSubText: backupStatus.message || backupStatus.lastError || qsTr("Brak aktywnej kopii")
 
@@ -59,7 +59,7 @@ PlasmoidItem {
         Kirigami.Icon {
             anchors.fill: parent
             anchors.margins: Math.max(1, parent.width * 0.13)
-            source: root.failed ? "dialog-error" : backupStatus.safeToRemove ? "media-eject" : "drive-harddisk"
+            source: root.failed ? "dialog-error" : "drive-harddisk"
             opacity: backupStatus.connected ? 1 : 0.65
         }
 
@@ -100,7 +100,7 @@ PlasmoidItem {
                 Layout.fillWidth: true
 
                 Kirigami.Icon {
-                    source: root.failed ? "dialog-error" : backupStatus.safeToRemove ? "media-eject" : "drive-harddisk"
+                    source: root.failed ? "dialog-error" : "drive-harddisk"
                     implicitWidth: Kirigami.Units.iconSizes.large
                     implicitHeight: implicitWidth
                 }
@@ -178,13 +178,6 @@ PlasmoidItem {
 
                 QQC2.Label { text: qsTr("Pozostało:"); opacity: 0.7 }
                 QQC2.Label { text: root.formatEta(backupStatus.etaSeconds) }
-            }
-
-            Kirigami.InlineMessage {
-                Layout.fillWidth: true
-                visible: backupStatus.safeToRemove
-                type: Kirigami.MessageType.Positive
-                text: qsTr("Nośnik można bezpiecznie odłączyć.")
             }
 
             Kirigami.InlineMessage {

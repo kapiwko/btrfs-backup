@@ -8,7 +8,7 @@
 
 namespace btrfsbackup {
 
-struct StatusRecord {
+struct RunStatusRecord {
     std::string profile_id;
     std::string profile_name;
     std::string run_id;
@@ -27,7 +27,6 @@ struct StatusRecord {
     bool recoverable = false;
     std::string suggested_action;
     bool can_cancel = false;
-    bool safe_to_remove = false;
     std::uint64_t bytes_processed = 0;
     std::uint64_t bytes_total_estimated = 0;
     std::uint64_t run_bytes_processed = 0;
@@ -39,18 +38,18 @@ struct StatusRecord {
     int exit_code = 0;
 };
 
-Json build_status_json(const StatusRecord& record);
-std::string dump_status_json(const StatusRecord& record);
+Json build_status_json(const RunStatusRecord& record);
+std::string dump_status_json(const RunStatusRecord& record);
 
 void write_current_status(
     const std::filesystem::path& status_root,
-    const StatusRecord& record,
+    const RunStatusRecord& record,
     mode_t mode = 0644
 );
 
 void write_history_entry(
     const std::filesystem::path& history_root,
-    const StatusRecord& record,
+    const RunStatusRecord& record,
     mode_t mode = 0644
 );
 

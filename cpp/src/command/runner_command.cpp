@@ -355,7 +355,7 @@ std::string config_fingerprint_for_profile(const fs::path& profile_config_dir, c
 }
 
 void write_skipped_status(const btrfsbackup::Profile& profile, const RunnerOptions& options, std::size_t source_count) {
-    btrfsbackup::StatusRecord record{
+    btrfsbackup::RunStatusRecord record{
         .profile_id = profile.id,
         .profile_name = profile.name,
         .run_id = options.run_id,

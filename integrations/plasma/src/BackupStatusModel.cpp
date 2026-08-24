@@ -188,11 +188,6 @@ QString BackupStatusModel::progressAccuracy() const
     return progress_accuracy_;
 }
 
-bool BackupStatusModel::safeToRemove() const
-{
-    return safe_to_remove_;
-}
-
 QString BackupStatusModel::errorCode() const
 {
     return error_code_;
@@ -350,7 +345,6 @@ void BackupStatusModel::applyStatusObject(const QByteArray& object)
     if (progress_accuracy_.isEmpty()) {
         progress_accuracy_ = QStringLiteral("indeterminate");
     }
-    safe_to_remove_ = status.value(QLatin1String("safeToRemove")).toBool(false);
     error_code_ = json_string(status, "errorCode");
     error_message_ = json_string(status, "errorMessage");
     suggested_action_ = json_string(status, "suggestedAction");

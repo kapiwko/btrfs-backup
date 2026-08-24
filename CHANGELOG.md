@@ -15,7 +15,9 @@
 5. aggregate progress now includes the fractional progress of the active source
    and remains monotonic through its post-transfer actions;
 6. live transfer speed now uses a three-second EWMA and status updates are
-   interval-limited instead of requiring one durable write per splice.
+   interval-limited instead of requiring one durable write per splice;
+7. run-status schema version 2 removes `safeToRemove`; the Plasma widget no
+   longer presents backup completion as target eject state.
 
 ## 0.2.1 - 2026-08-23
 

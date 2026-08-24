@@ -17,7 +17,7 @@ namespace fs = std::filesystem;
 namespace {
 
 using btrfsbackup::Json;
-using btrfsbackup::StatusRecord;
+using btrfsbackup::RunStatusRecord;
 using btrfsbackup::ValidationError;
 
 int failures = 0;
@@ -60,7 +60,7 @@ fs::path test_root(const std::string& name) {
     return root;
 }
 
-StatusRecord sample_record() {
+RunStatusRecord sample_record() {
     return {
         .profile_id = "default",
         .profile_name = "Default backup",
@@ -90,7 +90,7 @@ int mode_of(const fs::path& path) {
 void test_build_status_json_matches_contract_shape() {
     Json data = btrfsbackup::build_status_json(sample_record());
 
-    expect_true("schema", data.at("schemaVersion") == 1, "wrong schemaVersion");
+    expect_true("schema", data.at("schemaVersion") == 2, "wrong schemaVersion");
     expect_true("profile id", data.at("profileId") == "default", "wrong profileId");
     expect_true("profile name", data.at("profileName") == "Default backup", "wrong profileName");
     expect_true("run id", data.at("runId") == "20260823T024407Z-4298-30158", "wrong runId");
@@ -109,7 +109,7 @@ void test_build_status_json_matches_contract_shape() {
     expect_true("recoverable", data.at("recoverable") == false, "wrong recoverable");
     expect_true("suggested action", data.at("suggestedAction") == "", "wrong suggestedAction");
     expect_true("can cancel", data.at("canCancel") == false, "wrong canCancel");
-    expect_true("safe to remove", data.at("safeToRemove") == false, "wrong safeToRemove");
+    expect_true("target state absent", !data.contains("safeToRemove"), "run status must not expose target removal state");
     expect_true("bytes processed", data.at("bytesProcessed") == 0, "wrong bytesProcessed");
     expect_true("bytes total estimated", data.at("bytesTotalEstimated") == 0, "wrong bytesTotalEstimated");
     expect_true("run bytes processed", data.at("runBytesProcessed") == 0, "wrong runBytesProcessed");
@@ -122,7 +122,7 @@ void test_build_status_json_matches_contract_shape() {
 }
 
 void test_build_status_json_includes_structured_error() {
-    StatusRecord record = sample_record();
+    RunStatusRecord record = sample_record();
     record.state = "failed";
     record.phase = "validating-target";
     record.message = "Validation failed.";
@@ -135,7 +135,6 @@ void test_build_status_json_includes_structured_error() {
     record.recoverable = false;
     record.suggested_action = "connect-correct-target";
     record.can_cancel = true;
-    record.safe_to_remove = false;
     record.exit_code = 2;
 
     Json data = btrfsbackup::build_status_json(record);
@@ -147,7 +146,6 @@ void test_build_status_json_includes_structured_error() {
     expect_true("structured recoverable", data.at("recoverable") == false, "wrong recoverable");
     expect_true("structured action", data.at("suggestedAction") == "connect-correct-target", "wrong suggested action");
     expect_true("structured can cancel", data.at("canCancel") == true, "wrong canCancel");
-    expect_true("structured safe to remove", data.at("safeToRemove") == false, "wrong safeToRemove");
 }
 
 void test_dump_status_json_uses_stable_order_and_newline() {
@@ -157,7 +155,7 @@ void test_dump_status_json_uses_stable_order_and_newline() {
         "dump",
         dumped,
         "{\n"
-        "  \"schemaVersion\": 1,\n"
+        "  \"schemaVersion\": 2,\n"
         "  \"profileId\": \"default\",\n"
         "  \"profileName\": \"Default backup\",\n"
         "  \"runId\": \"20260823T024407Z-4298-30158\",\n"
@@ -176,7 +174,6 @@ void test_dump_status_json_uses_stable_order_and_newline() {
         "  \"recoverable\": false,\n"
         "  \"suggestedAction\": \"\",\n"
         "  \"canCancel\": false,\n"
-        "  \"safeToRemove\": false,\n"
         "  \"bytesProcessed\": 0,\n"
         "  \"bytesTotalEstimated\": 0,\n"
         "  \"runBytesProcessed\": 0,\n"
@@ -228,18 +225,18 @@ void test_rejects_unsafe_identifiers() {
     expect_eq("profile id wrapper", profile_id.value, "default");
     expect_eq("run id wrapper", run_id.value, "20260823T024407Z-4298-30158");
 
-    StatusRecord bad_profile = sample_record();
+    RunStatusRecord bad_profile = sample_record();
     bad_profile.profile_id = "../default";
     expect_validation_error("bad profile", [&] { btrfsbackup::build_status_json(bad_profile); }, "invalid profile id");
 
-    StatusRecord bad_run = sample_record();
+    RunStatusRecord bad_run = sample_record();
     bad_run.run_id = "../run";
     expect_validation_error("bad run", [&] { btrfsbackup::build_status_json(bad_run); }, "invalid run id");
 }
 
 void test_invalid_profile_does_not_create_status_directory() {
     fs::path root = test_root("bad-write");
-    StatusRecord bad_profile = sample_record();
+    RunStatusRecord bad_profile = sample_record();
     bad_profile.profile_id = "../default";
 
     expect_validation_error(
