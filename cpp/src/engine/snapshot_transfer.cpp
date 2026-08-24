@@ -61,7 +61,7 @@ void verify_received_snapshot(
 
 void commit_received_snapshot(
     IBtrfsOperations& btrfs,
-    IFileSystemEffects& fs_effects,
+    IFileSystem& fs_effects,
     const fs::path& received_path,
     const fs::path& final_path,
     const std::string& expected_received_uuid

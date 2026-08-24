@@ -40,7 +40,7 @@ public:
     }
 };
 
-class FakeFileSystemEffects final : public btrfsbackup::IFileSystemEffects {
+class FakeFileSystem final : public btrfsbackup::IFileSystem {
 public:
     bool final_exists = false;
     std::vector<std::string> calls;
@@ -135,7 +135,7 @@ void test_commit_received_snapshot() {
         .readonly = true,
         .received_uuid = "local-uuid",
     };
-    FakeFileSystemEffects fs_effects;
+    FakeFileSystem fs_effects;
 
     btrfsbackup::commit_received_snapshot(
         btrfs,
@@ -157,7 +157,7 @@ void test_commit_deletes_invalid_final_snapshot() {
         .readonly = true,
         .received_uuid = "wrong-uuid",
     };
-    FakeFileSystemEffects fs_effects;
+    FakeFileSystem fs_effects;
 
     test_helpers::expect_validation_error("commit uuid mismatch", [&] {
         btrfsbackup::commit_received_snapshot(
@@ -173,7 +173,7 @@ void test_commit_deletes_invalid_final_snapshot() {
 
 void test_commit_rejects_existing_destination() {
     FakeBtrfsOperations btrfs;
-    FakeFileSystemEffects fs_effects;
+    FakeFileSystem fs_effects;
     fs_effects.final_exists = true;
 
     test_helpers::expect_validation_error("commit destination exists", [&] {
@@ -195,7 +195,7 @@ void test_commit_reports_verification_and_cleanup_failure() {
         .received_uuid = "wrong-uuid",
     };
     btrfs.delete_throws = true;
-    FakeFileSystemEffects fs_effects;
+    FakeFileSystem fs_effects;
 
     try {
         btrfsbackup::commit_received_snapshot(
