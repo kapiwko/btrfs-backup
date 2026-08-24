@@ -11,6 +11,7 @@ void save_tree(
     const Profile& profile,
     const std::filesystem::path& etc_root,
     const std::filesystem::path& udev_root,
+    const std::filesystem::path& systemd_root,
     const std::filesystem::path& public_root
 );
 

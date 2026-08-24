@@ -18,8 +18,12 @@ btrfs-backupctl profile export --profile default --output profile.json
 ```text
 /etc/btrfs-backup/profiles/<profile>/profile.json
 /etc/udev/rules.d/99-btrfs-backup-<profile>.rules
+/etc/systemd/system/btrfs-backup@<profile>.service.d/target-mount.conf
 /var/lib/btrfs-backup/public/profiles/<profile>.json
 ```
+
+The systemd drop-in orders the profile's target mount before the sandboxed
+service starts. Run `systemctl daemon-reload` after saving a profile.
 
 `btrfs-backupctl profile wizard` follows the same model: it renders
 `profile.json` first and then materializes derived files from that JSON.
@@ -138,6 +142,12 @@ pinned descriptor rather than resolving the configured path again.
 failures and timeouts stop the run. Cancellation terminates the
 hook's complete process group and finishes the run through the normal cancelled
 state.
+
+Hooks inherit the systemd service sandbox. In automatic runs they have a private
+`/tmp`, can use only Unix and netlink sockets, cannot gain privileges through
+setuid/file capabilities, and cannot create writable-executable memory. A hook
+that needs a network connection or a JIT runtime should call a separately
+managed, narrowly authorized local service over a Unix socket.
 
 This model can cover PostgreSQL, MariaDB, libvirt, containers, virtual
 machines, and administrator-provided programs without hard-coding those

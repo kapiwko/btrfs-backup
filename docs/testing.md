@@ -22,6 +22,16 @@ Tests cover:
 4. canonical profile JSON validation, rendering, save, show, and export;
 5. per-profile status and history JSON.
 
+The focused systemd security contract can also be run directly:
+
+```bash
+tests/systemd/check-security.sh systemd/btrfs-backup@.service.example
+```
+
+It asserts the required directives and runs offline `systemd-analyze security`
+with a maximum accepted exposure level of 8. The GitHub Actions security job
+runs this check for every push and pull request.
+
 ## Mock Boundaries
 
 C++ unit tests cover the native backup entrypoint, target mount/eject commands,
@@ -146,7 +156,11 @@ The test covers:
 17. rejection of a per-source `.incoming` symlink escape with verification that
     data outside the target repository remains unchanged;
 18. execution of a trusted root-owned hook and rejection after unsafe owner,
-    file mode, parent mode, or symlink changes.
+    file mode, parent mode, or symlink changes;
+19. offline `systemd-analyze security` against the installed unit;
+20. a complete real Btrfs backup started through the sandboxed systemd profile
+    service, including the pre-sandbox target mount dependency;
+21. automatic host unmount and LUKS closure through the post-run eject unit.
 
 The current Plasma test target validates its status-only process model and
 read-only API surface. Cancellation authorization and target safe-removal

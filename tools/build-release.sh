@@ -298,6 +298,8 @@ stage_package_payload() {
         "$pkgdir/usr/share/btrfs-backup/examples/systemd/btrfs-backup.service.example"
     install -Dm644 "$root/systemd/btrfs-backup@.service.example" \
         "$pkgdir/usr/share/btrfs-backup/examples/systemd/btrfs-backup@.service.example"
+    install -Dm644 "$root/systemd/btrfs-backup-eject@.service.example" \
+        "$pkgdir/usr/share/btrfs-backup/examples/systemd/btrfs-backup-eject@.service.example"
     install -d -m0755 "$pkgdir/usr/lib/systemd/system"
     sed \
         -e 's#{{BACKUP_COMMAND}}#/usr/bin/btrfs-backupctl runner execute#g' \
@@ -305,6 +307,11 @@ stage_package_payload() {
         "$root/systemd/btrfs-backup@.service.example" \
         > "$pkgdir/usr/lib/systemd/system/btrfs-backup@.service"
     chmod 0644 "$pkgdir/usr/lib/systemd/system/btrfs-backup@.service"
+    sed \
+        -e 's#{{EJECT_SCRIPT_PATH}}#/usr/bin/btrfs-backupctl target eject#g' \
+        "$root/systemd/btrfs-backup-eject@.service.example" \
+        > "$pkgdir/usr/lib/systemd/system/btrfs-backup-eject@.service"
+    chmod 0644 "$pkgdir/usr/lib/systemd/system/btrfs-backup-eject@.service"
 
     install -Dm644 "$root/README.md" "$pkgdir/usr/share/doc/btrfs-backup/README.md"
     install -Dm644 "$root/CHANGELOG.md" "$pkgdir/usr/share/doc/btrfs-backup/CHANGELOG.md"
@@ -450,6 +457,9 @@ sed -e 's#{{BACKUP_COMMAND}}#/usr/bin/btrfs-backupctl runner execute#g' \
     -e 's#{{EJECT_SCRIPT_PATH}}#/usr/bin/btrfs-backupctl target eject#g' \
     systemd/btrfs-backup@.service.example \
     > %{buildroot}/usr/lib/systemd/system/btrfs-backup@.service
+sed -e 's#{{EJECT_SCRIPT_PATH}}#/usr/bin/btrfs-backupctl target eject#g' \
+    systemd/btrfs-backup-eject@.service.example \
+    > %{buildroot}/usr/lib/systemd/system/btrfs-backup-eject@.service
 install -d %{buildroot}%{_datadir}/btrfs-backup/examples
 cp -a config systemd udev %{buildroot}%{_datadir}/btrfs-backup/examples/
 install -Dm644 README.md %{buildroot}%{_docdir}/btrfs-backup/README.md
@@ -464,6 +474,7 @@ install -Dm644 LICENSE %{buildroot}%{_licensedir}/btrfs-backup/LICENSE
 %dir /etc/btrfs-backup
 %dir /etc/btrfs-backup/hooks.d
 /usr/lib/systemd/system/btrfs-backup@.service
+/usr/lib/systemd/system/btrfs-backup-eject@.service
 %{_datadir}/btrfs-backup/
 %{_docdir}/btrfs-backup/
 %{_licensedir}/btrfs-backup/
@@ -516,6 +527,9 @@ stdenvNoCC.mkDerivation {
         -e 's#{{EJECT_SCRIPT_PATH}}#/usr/bin/btrfs-backupctl target eject#g' \
         systemd/btrfs-backup@.service.example \
         > $out/lib/systemd/system/btrfs-backup@.service
+    sed -e 's#{{EJECT_SCRIPT_PATH}}#/usr/bin/btrfs-backupctl target eject#g' \
+        systemd/btrfs-backup-eject@.service.example \
+        > $out/lib/systemd/system/btrfs-backup-eject@.service
     mkdir -p $out/share/btrfs-backup/examples
     cp -a config systemd udev $out/share/btrfs-backup/examples/
     install -Dm644 README.md $out/share/doc/btrfs-backup/README.md
@@ -585,8 +599,10 @@ src_install() {
 	sed -e 's#{{BACKUP_COMMAND}}#/usr/bin/btrfs-backupctl runner execute#g' \
 		-e 's#{{EJECT_SCRIPT_PATH}}#/usr/bin/btrfs-backupctl target eject#g' \
 		systemd/btrfs-backup@.service.example > "${T}/btrfs-backup@.service"
+	sed -e 's#{{EJECT_SCRIPT_PATH}}#/usr/bin/btrfs-backupctl target eject#g' \
+		systemd/btrfs-backup-eject@.service.example > "${T}/btrfs-backup-eject@.service"
 	insinto /usr/lib/systemd/system
-	doins "${T}/btrfs-backup@.service"
+	doins "${T}/btrfs-backup@.service" "${T}/btrfs-backup-eject@.service"
 	insinto /usr/share/btrfs-backup/examples
 	doins -r config systemd udev
 	dodoc README.md CHANGELOG.md TODO.md docs/*.md
@@ -635,6 +651,9 @@ package_btrfs-backup() {
       -e 's#{{EJECT_SCRIPT_PATH}}#/usr/bin/btrfs-backupctl target eject#g' \\
       "\$root/systemd/btrfs-backup@.service.example" \\
       > "\$pkgdir/usr/lib/systemd/system/btrfs-backup@.service"
+  sed -e 's#{{EJECT_SCRIPT_PATH}}#/usr/bin/btrfs-backupctl target eject#g' \\
+      "\$root/systemd/btrfs-backup-eject@.service.example" \\
+      > "\$pkgdir/usr/lib/systemd/system/btrfs-backup-eject@.service"
   install -d "\$pkgdir/usr/share/btrfs-backup/examples"
   cp -a "\$root/config" "\$root/systemd" "\$root/udev" "\$pkgdir/usr/share/btrfs-backup/examples/"
   install -Dm644 "\$root/README.md" "\$pkgdir/usr/share/doc/btrfs-backup/README.md"
@@ -861,6 +880,7 @@ if [[ "$TARGET" == all || "$TARGET" == arch ]]; then
     grep -qx 'usr/bin/btrfs-backupctl' "$TMP_ROOT/package-files.txt"
     grep -qx 'etc/btrfs-backup/hooks.d/' "$TMP_ROOT/package-files.txt"
     grep -qx 'usr/lib/systemd/system/btrfs-backup@.service' "$TMP_ROOT/package-files.txt"
+    grep -qx 'usr/lib/systemd/system/btrfs-backup-eject@.service' "$TMP_ROOT/package-files.txt"
     grep -qx 'usr/share/btrfs-backup/examples/config/profile.schema.json' "$TMP_ROOT/package-files.txt"
     if grep -q '^usr/lib/btrfs-backup/' "$TMP_ROOT/package-files.txt"; then
         printf '%s\n' 'Base package must not contain private command copies or wrappers.' >&2

@@ -7,6 +7,14 @@ ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../.." && pwd)"
 IMAGE_NAME="${IMAGE_NAME:-btrfs-backup-real-test:local}"
 BUILD_JOBS="${BUILD_JOBS:-$(nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)}"
 CONTAINER_WORKDIR=/work
+CONTAINER_ID=""
+
+cleanup() {
+    if [[ -n "$CONTAINER_ID" ]]; then
+        docker rm -f "$CONTAINER_ID" >/dev/null 2>&1 || true
+    fi
+}
+trap cleanup EXIT
 
 usage() {
     cat <<'USAGE'
@@ -35,11 +43,18 @@ docker build \
     -f "$ROOT/tests/integration/docker/Dockerfile" \
     "$ROOT"
 
-docker run --rm --privileged \
+CONTAINER_ID="$(docker run -d --rm --privileged \
+    --cgroupns=host \
     -e BUILD_JOBS="$BUILD_JOBS" \
     --tmpfs /run \
     --tmpfs /tmp:exec,mode=1777 \
     -v "$ROOT:$CONTAINER_WORKDIR:ro" \
     -w "$CONTAINER_WORKDIR" \
     "$IMAGE_NAME" \
+    /sbin/init)"
+
+docker exec \
+    -e BUILD_JOBS="$BUILD_JOBS" \
+    -w "$CONTAINER_WORKDIR" \
+    "$CONTAINER_ID" \
     "$CONTAINER_WORKDIR/tests/integration/docker/real-btrfs-test.sh"

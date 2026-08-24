@@ -116,6 +116,7 @@ render_test() {
         profile \
         --etc-root "$output/config" \
         --udev-root "$output/udev" \
+        --systemd-root "$output/systemd" \
         --public-root "$output/public/profiles" \
         save --file "$profile" >/dev/null
     "$ROOT/build/btrfs-backupctl" installation render \
@@ -131,6 +132,8 @@ render_test() {
     assert_contains "$output/config/profile.json" '"profileId": "laptop"'
     assert_file "$output/systemd/btrfs-backup.service"
     assert_file "$output/systemd/btrfs-backup@.service"
+    assert_file "$output/systemd/btrfs-backup-eject@.service"
+    assert_file "$output/systemd/btrfs-backup@laptop.service.d/target-mount.conf"
     assert_file "$output/udev/99-btrfs-backup-laptop.rules"
     assert_not_exists "$output/udev/99-btrfs-backup.rules"
     assert_not_contains "$output/udev/99-btrfs-backup-laptop.rules" 'ACTION=="remove"'
@@ -139,9 +142,19 @@ render_test() {
     assert_not_contains "$output/systemd/btrfs-backup.service" 'Requires=mnt-backup.mount'
     assert_contains "$output/systemd/btrfs-backup.service" 'ExecStart='
     assert_contains "$output/systemd/btrfs-backup.service" '--profile laptop'
+    assert_contains "$output/systemd/btrfs-backup.service" 'ExecStopPost=/usr/bin/systemctl --no-block start btrfs-backup-eject@laptop.service'
+    assert_contains "$output/systemd/btrfs-backup@.service" 'ExecStopPost=/usr/bin/systemctl --no-block start btrfs-backup-eject@%i.service'
+    assert_contains "$output/systemd/btrfs-backup-eject@.service" '--from-service --profile %i'
     assert_contains "$output/systemd/btrfs-backup.service" 'TimeoutStopSec=90s'
     assert_contains "$output/systemd/btrfs-backup.service" 'KillMode=mixed'
     assert_contains "$output/systemd/btrfs-backup.service" 'SendSIGKILL=yes'
+    assert_contains "$output/systemd/btrfs-backup.service" 'NoNewPrivileges=yes'
+    assert_contains "$output/systemd/btrfs-backup.service" 'PrivateTmp=yes'
+    assert_contains "$output/systemd/btrfs-backup.service" 'ProtectSystem=full'
+    assert_contains "$output/systemd/btrfs-backup.service" 'ProtectProc=invisible'
+    assert_contains "$output/systemd/btrfs-backup.service" 'RestrictAddressFamilies=AF_UNIX AF_NETLINK'
+    assert_contains "$output/systemd/btrfs-backup@laptop.service.d/target-mount.conf" 'RequiresMountsFor="/mnt/backup"'
+    assert_contains "$output/systemd/btrfs-backup.service" 'RequiresMountsFor="/mnt/backup"'
     assert_contains "$output/config/fstab.fragment" 'noauto'
     assert_contains "$output/config/fstab.fragment" 'x-systemd.requires=systemd-cryptsetup@backupdisk.service'
     if grep -R -q '{{' "$output"; then
@@ -162,6 +175,7 @@ profile_json_test() {
     assert_not_exists "$rendered/etc/btrfs-backup/profiles.d/default.env"
     assert_file "$rendered/etc/btrfs-backup/profiles/default/profile.json"
     assert_file "$rendered/etc/udev/rules.d/99-btrfs-backup-default.rules"
+    assert_file "$rendered/etc/systemd/system/btrfs-backup@default.service.d/target-mount.conf"
     assert_file "$rendered/var/lib/btrfs-backup/public/profiles/default.json"
     assert_contains "$rendered/etc/btrfs-backup/profiles/default/profile.json" '"id": "home"'
     assert_contains "$rendered/etc/udev/rules.d/99-btrfs-backup-default.rules" 'btrfs-backup@default.service'
@@ -169,12 +183,14 @@ profile_json_test() {
     "$ROOT/build/btrfs-backupctl" profile \
         --etc-root "$saved/etc/btrfs-backup" \
         --udev-root "$saved/etc/udev/rules.d" \
+        --systemd-root "$saved/etc/systemd/system" \
         --public-root "$saved/var/lib/btrfs-backup/public/profiles" \
         save --file "$ROOT/config/profile.example.json" >/dev/null
 
     assert_not_exists "$saved/etc/btrfs-backup/profiles.d/default.env"
     assert_file "$saved/etc/btrfs-backup/profiles/default/profile.json"
     assert_file "$saved/etc/udev/rules.d/99-btrfs-backup-default.rules"
+    assert_file "$saved/etc/systemd/system/btrfs-backup@default.service.d/target-mount.conf"
     assert_file "$saved/var/lib/btrfs-backup/public/profiles/default.json"
     "$ROOT/build/btrfs-backupctl" profile \
         --etc-root "$saved/etc/btrfs-backup" \

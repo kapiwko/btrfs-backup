@@ -14,6 +14,7 @@
 #include <btrfsbackup/json_io.hpp>
 #include <btrfsbackup/process.hpp>
 #include <btrfsbackup/profile.hpp>
+#include <btrfsbackup/profile_render.hpp>
 
 namespace fs = std::filesystem;
 
@@ -80,6 +81,15 @@ void require_file(const fs::path& path, const std::string& label) {
     }
 }
 
+void require_exact_text(const fs::path& path, const std::string& expected, const std::string& label) {
+    require_file(path, label);
+    std::ifstream stream(path);
+    std::string content{std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()};
+    if (content != expected) {
+        throw btrfsbackup::ValidationError(label + " has unexpected content: " + path.string());
+    }
+}
+
 } // namespace
 
 namespace btrfsbackup {
@@ -88,18 +98,26 @@ void validate_rendered_installation(const fs::path& root) {
     fs::path profile_json = root / "config" / "profile.json";
     fs::path service_file = root / "systemd" / "btrfs-backup.service";
     fs::path profile_service_file = root / "systemd" / "btrfs-backup@.service";
+    fs::path eject_service_file = root / "systemd" / "btrfs-backup-eject@.service";
 
     require_file(profile_json, "missing rendered canonical profile JSON");
     require_file(service_file, "missing rendered systemd unit");
     require_file(profile_service_file, "missing rendered systemd template unit");
+    require_file(eject_service_file, "missing rendered eject systemd template unit");
     if (contains_unresolved_placeholder(root)) {
         throw ValidationError("unresolved placeholders remain in rendered files");
     }
 
     Profile profile = profile_from_json(load_json_file(profile_json));
+    fs::path mount_dependency = root / "systemd" / ("btrfs-backup@" + profile.id + ".service.d") / "target-mount.conf";
+    require_exact_text(
+        mount_dependency,
+        render_mount_dependency(profile),
+        "missing rendered target mount dependency"
+    );
     fs::path udev_file = root / "udev" / ("99-btrfs-backup-" + profile.id + ".rules");
     require_file(udev_file, "missing rendered profile udev rule");
-    run_checked({"systemd-analyze", "verify", service_file.string(), profile_service_file.string()}, true);
+    run_checked({"systemd-analyze", "verify", service_file.string(), profile_service_file.string(), eject_service_file.string()}, true);
     run_checked({"udevadm", "verify", udev_file.string()});
     std::cerr << "Rendered configuration passed syntax, systemd, and udev validation: " << root << '\n';
 }
@@ -111,13 +129,18 @@ void validate_active_installation(const std::string& profile_id) {
     fs::path profile_json = fs::path("/etc/btrfs-backup/profiles") / profile_id / "profile.json";
     fs::path service_file = "/etc/systemd/system/btrfs-backup.service";
     fs::path profile_service_file = "/etc/systemd/system/btrfs-backup@.service";
+    fs::path eject_service_file = "/etc/systemd/system/btrfs-backup-eject@.service";
 
     require_file(profile_json, "missing profile JSON");
     if (!fs::is_regular_file(service_file)) {
         throw ValidationError("missing " + service_file.string());
     }
+    require_file(eject_service_file, "missing eject systemd template unit");
 
     Profile profile = profile_from_json(load_json_file(profile_json));
+    fs::path mount_dependency = fs::path("/etc/systemd/system")
+        / ("btrfs-backup@" + profile.id + ".service.d") / "target-mount.conf";
+    require_exact_text(mount_dependency, render_mount_dependency(profile), "missing target mount dependency");
     fs::path udev_file = fs::path("/etc/udev/rules.d") / ("99-btrfs-backup-" + profile.id + ".rules");
     if (!fs::is_regular_file(udev_file)) {
         throw ValidationError("missing " + udev_file.string());
@@ -126,6 +149,7 @@ void validate_active_installation(const std::string& profile_id) {
     if (fs::is_regular_file(profile_service_file)) {
         verify_units.push_back(profile_service_file.string());
     }
+    verify_units.push_back(eject_service_file.string());
     run_checked(verify_units, true);
     run_checked({"udevadm", "verify", udev_file.string()});
 

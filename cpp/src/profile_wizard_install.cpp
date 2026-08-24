@@ -26,7 +26,13 @@ void render_wizard_tree(const Profile& profile, const std::string& keyfile, cons
     fs::create_directories(output_dir / "udev");
 
     atomic_write(output_dir / "config" / "profile.json", dump_json(profile_to_json(profile)), 0600);
-    save_tree(profile, output_dir / "config", output_dir / "udev", output_dir / "public" / "profiles");
+    save_tree(
+        profile,
+        output_dir / "config",
+        output_dir / "udev",
+        output_dir / "systemd",
+        output_dir / "public" / "profiles"
+    );
 
     render_installation_files(
         profile,
@@ -50,9 +56,16 @@ void apply_rendered_wizard_tree(const Profile& profile, const fs::path& output_d
     fs::create_directories("/var/lib/btrfs-backup/public/profiles");
     fs::create_directories(profile.target.mount_point);
 
-    save_tree(profile, "/etc/btrfs-backup", "/etc/udev/rules.d", "/var/lib/btrfs-backup/public/profiles");
+    save_tree(
+        profile,
+        "/etc/btrfs-backup",
+        "/etc/udev/rules.d",
+        "/etc/systemd/system",
+        "/var/lib/btrfs-backup/public/profiles"
+    );
     fs::copy_file(output_dir / "systemd" / "btrfs-backup.service", "/etc/systemd/system/btrfs-backup.service", fs::copy_options::overwrite_existing);
     fs::copy_file(output_dir / "systemd" / "btrfs-backup@.service", "/etc/systemd/system/btrfs-backup@.service", fs::copy_options::overwrite_existing);
+    fs::copy_file(output_dir / "systemd" / "btrfs-backup-eject@.service", "/etc/systemd/system/btrfs-backup-eject@.service", fs::copy_options::overwrite_existing);
     std::error_code ec;
     fs::remove("/etc/udev/rules.d/99-btrfs-backup.rules", ec);
 

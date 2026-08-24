@@ -1,6 +1,7 @@
 #include <filesystem>
 #include <fstream>
 #include <string>
+#include <vector>
 
 #include <btrfsbackup/command/installation_command.hpp>
 #include <btrfsbackup/json.hpp>
@@ -19,6 +20,28 @@ fs::path test_root(const std::string& name) {
 std::string read_file(const fs::path& path) {
     std::ifstream stream(path);
     return {std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()};
+}
+
+void expect_service_hardening(const std::string& name, const std::string& unit) {
+    const std::vector<std::string> directives = {
+        "NoNewPrivileges=yes",
+        "PrivateTmp=yes",
+        "ProtectSystem=full",
+        "ProtectKernelTunables=yes",
+        "ProtectKernelModules=yes",
+        "ProtectControlGroups=yes",
+        "ProtectHostname=yes",
+        "ProtectClock=yes",
+        "ProtectProc=invisible",
+        "LockPersonality=yes",
+        "RestrictRealtime=yes",
+        "MemoryDenyWriteExecute=yes",
+        "SystemCallArchitectures=native",
+        "RestrictAddressFamilies=AF_UNIX AF_NETLINK",
+    };
+    for (const std::string& directive : directives) {
+        test_helpers::expect_contains(name + " " + directive, unit, directive + "\n");
+    }
 }
 
 void test_installation_render_writes_static_files() {
@@ -85,6 +108,16 @@ void test_installation_render_writes_static_files() {
         "ExecStart=/usr/bin/btrfs-backupctl runner execute --profile %i"
     );
     test_helpers::expect_contains(
+        "installation asynchronous eject",
+        read_file(root / "rendered" / "systemd" / "btrfs-backup@.service"),
+        "ExecStopPost=/usr/bin/systemctl --no-block start btrfs-backup-eject@%i.service"
+    );
+    test_helpers::expect_contains(
+        "installation eject command",
+        read_file(root / "rendered" / "systemd" / "btrfs-backup-eject@.service"),
+        "ExecStart=/usr/bin/btrfs-backupctl target eject --from-service --profile %i"
+    );
+    test_helpers::expect_contains(
         "installation stop timeout",
         read_file(root / "rendered" / "systemd" / "btrfs-backup@.service"),
         "TimeoutStopSec=90s"
@@ -93,6 +126,24 @@ void test_installation_render_writes_static_files() {
         "installation kill mode",
         read_file(root / "rendered" / "systemd" / "btrfs-backup@.service"),
         "KillMode=mixed"
+    );
+    expect_service_hardening(
+        "installation service hardening",
+        read_file(root / "rendered" / "systemd" / "btrfs-backup.service")
+    );
+    expect_service_hardening(
+        "installation profile service hardening",
+        read_file(root / "rendered" / "systemd" / "btrfs-backup@.service")
+    );
+    test_helpers::expect_contains(
+        "installation profile mount dependency",
+        read_file(root / "rendered" / "systemd" / "btrfs-backup@laptop.service.d" / "target-mount.conf"),
+        "RequiresMountsFor=\"/mnt/backup\""
+    );
+    test_helpers::expect_contains(
+        "installation static service mount dependency",
+        read_file(root / "rendered" / "systemd" / "btrfs-backup.service"),
+        "RequiresMountsFor=\"/mnt/backup\""
     );
     fs::remove_all(root);
 }

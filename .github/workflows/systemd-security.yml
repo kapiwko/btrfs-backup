@@ -1,0 +1,16 @@
+name: systemd security
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  analyze-service:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Analyze service sandbox
+        run: tests/systemd/check-security.sh systemd/btrfs-backup@.service.example

@@ -120,3 +120,45 @@ SIGTERM grace period followed by SIGKILL. Installed systemd units use
 `KillMode=mixed`: the initial SIGINT is delivered only to the runner, while the
 90-second stop timeout and final cgroup SIGKILL remain an external bound for
 processes stuck in kernel I/O.
+
+## Service Sandbox
+
+The systemd service remains root because it must inspect block devices and
+perform Btrfs snapshot, send, receive, retention, and target lifecycle work.
+The unit limits unrelated authority with:
+
+```text
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=full
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ProtectHostname=yes
+ProtectClock=yes
+ProtectProc=invisible
+LockPersonality=yes
+RestrictRealtime=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_UNIX AF_NETLINK
+```
+
+`AF_UNIX` remains available for communication with systemd and local services;
+`AF_NETLINK` remains available for device information. A profile-specific
+`RequiresMountsFor` drop-in makes PID 1 mount the configured target before the
+filesystem sandbox is created; the runner then validates that mount normally.
+
+The runner's `ExecStopPost` queues `btrfs-backup-eject@<profile>` for successful
+and failed runs. Unit ordering delays it until the runner has left its private
+mount namespace. The eject unit therefore operates on the host mount and can
+close the mapper. It retains
+`NoNewPrivileges`, socket-family restrictions, executable-memory protection,
+personality locking, and realtime restrictions, but does not create a private
+mount namespace.
+
+These restrictions are inherited by application hooks. Hooks cannot gain
+privileges through setuid binaries or file capabilities, create writable and
+executable mappings, use Internet sockets, or access another process's `/tmp`.
+Integrations requiring those facilities must be redesigned around a separately
+managed service rather than weakening the backup unit globally.

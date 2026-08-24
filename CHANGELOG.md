@@ -40,6 +40,13 @@
 15. application hook programs are restricted to `/etc/btrfs-backup/hooks.d`,
     require a root-owned non-writable file and parent chain, reject symlinks,
     and execute through a pinned descriptor to prevent path replacement races.
+16. systemd services now isolate temporary files, protect system and kernel
+    state, hide unrelated processes, block privilege gains and executable
+    writable memory, and limit socket families; profile-specific mount
+    dependencies make the target visible before the filesystem sandbox is
+    created, and a separately ordered eject unit preserves host unmount and
+    LUKS closure after the sandbox exits. Offline security analysis and real
+    sandboxed Btrfs service tests cover the result.
 
 ## 0.2.1 - 2026-08-23
 

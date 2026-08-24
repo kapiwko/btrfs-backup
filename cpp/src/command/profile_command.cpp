@@ -45,7 +45,7 @@ std::string arg_value(std::size_t& index, const std::vector<std::string>& args, 
 }
 
 void usage() {
-    std::cout << "Usage: btrfs-backupctl profile [--etc-root PATH] [--udev-root PATH] [--public-root PATH] COMMAND\n"
+    std::cout << "Usage: btrfs-backupctl profile [--etc-root PATH] [--udev-root PATH] [--systemd-root PATH] [--public-root PATH] COMMAND\n"
               << "\nCommands:\n"
               << "  list\n"
               << "  wizard [OPTIONS]\n"
@@ -64,6 +64,7 @@ namespace btrfsbackup::command {
 int profile(const std::vector<std::string>& args, const fs::path& profile_config_dir) {
     fs::path etc_root = std::getenv("BTRFS_BACKUP_ETC_ROOT") ? std::getenv("BTRFS_BACKUP_ETC_ROOT") : "/etc/btrfs-backup";
     fs::path udev_root = std::getenv("BTRFS_BACKUP_UDEV_ROOT") ? std::getenv("BTRFS_BACKUP_UDEV_ROOT") : "/etc/udev/rules.d";
+    fs::path systemd_root = std::getenv("BTRFS_BACKUP_SYSTEMD_ROOT") ? std::getenv("BTRFS_BACKUP_SYSTEMD_ROOT") : "/etc/systemd/system";
     fs::path public_root = std::getenv("BTRFS_BACKUP_PUBLIC_ROOT") ? std::getenv("BTRFS_BACKUP_PUBLIC_ROOT") : "/var/lib/btrfs-backup/public/profiles";
     std::vector<std::string> rest;
 
@@ -74,6 +75,8 @@ int profile(const std::vector<std::string>& args, const fs::path& profile_config
                 etc_root = arg_value(i, args, arg);
             } else if (arg == "--udev-root") {
                 udev_root = arg_value(i, args, arg);
+            } else if (arg == "--systemd-root") {
+                systemd_root = arg_value(i, args, arg);
             } else if (arg == "--public-root") {
                 public_root = arg_value(i, args, arg);
             } else if (arg == "-h" || arg == "--help") {
@@ -147,7 +150,7 @@ int profile(const std::vector<std::string>& args, const fs::path& profile_config
                 fail("save to system configuration must be run as root", 1);
             }
             Profile profile = profile_from_json(load_json_file(file));
-            save_tree(profile, etc_root, udev_root, public_root);
+            save_tree(profile, etc_root, udev_root, systemd_root, public_root);
             std::cout << "Saved profile " << profile.id << "\n";
         } else if (command == "show") {
             std::cout << dump_json(profile_to_json(load_profile_by_id(etc_root, profile_id)));

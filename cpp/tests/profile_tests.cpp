@@ -263,6 +263,11 @@ void test_typed_store_renders_tree() {
         fs::is_regular_file(root / "rendered" / "var" / "lib" / "btrfs-backup" / "public" / "profiles" / "default.json"),
         "missing rendered public profile"
     );
+    expect_true(
+        "typed tree mount dependency",
+        fs::is_regular_file(root / "rendered" / "etc" / "systemd" / "system" / "btrfs-backup@default.service.d" / "target-mount.conf"),
+        "missing rendered mount dependency"
+    );
     fs::remove_all(root);
 }
 
@@ -275,6 +280,7 @@ void test_typed_store_saves_tree() {
         profile,
         root / "etc" / "btrfs-backup",
         root / "etc" / "udev" / "rules.d",
+        root / "etc" / "systemd" / "system",
         root / "public"
     );
 
@@ -288,6 +294,11 @@ void test_typed_store_saves_tree() {
         "typed save public",
         fs::is_regular_file(root / "public" / "default.json"),
         "missing saved public profile"
+    );
+    expect_true(
+        "typed save mount dependency",
+        fs::is_regular_file(root / "etc" / "systemd" / "system" / "btrfs-backup@default.service.d" / "target-mount.conf"),
+        "missing saved mount dependency"
     );
     fs::remove_all(root);
 }

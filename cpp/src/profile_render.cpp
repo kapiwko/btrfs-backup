@@ -5,6 +5,22 @@
 
 namespace btrfsbackup {
 
+namespace {
+
+std::string systemd_quote(const std::string& value) {
+    std::string result = "\"";
+    for (char ch : value) {
+        if (ch == '\\' || ch == '"') {
+            result.push_back('\\');
+        }
+        result.push_back(ch);
+    }
+    result.push_back('"');
+    return result;
+}
+
+} // namespace
+
 std::string render_udev(const Profile& profile) {
     if (!profile.enabled) {
         return "# Profile disabled; no automatic activation rule.\n";
@@ -33,6 +49,14 @@ std::string render_udev(const Profile& profile) {
     }
     out << "\n";
     return out.str();
+}
+
+std::string render_mount_requirement(const Profile& profile) {
+    return "RequiresMountsFor=" + systemd_quote(profile.target.mount_point) + "\n";
+}
+
+std::string render_mount_dependency(const Profile& profile) {
+    return "[Unit]\n" + render_mount_requirement(profile);
 }
 
 } // namespace btrfsbackup
