@@ -14,6 +14,7 @@
 #include <platform/linux/command_runner.hpp>
 #include <platform/linux/filesystem.hpp>
 #include <backup/backup_run_action_effects.hpp>
+#include <backup/backup_run.hpp>
 #include <state/backup_run_persistence.hpp>
 #include <backup/pending_recovery_plan.hpp>
 #include <state/status_writer.hpp>
@@ -457,8 +458,8 @@ BackupExecutionResult start_backup(
     }
     ThreadedAsyncTransferPipeline async_transfer_pipeline(transfer_pipeline);
 
-    BackupRunExecutor executor(action_effects, async_transfer_pipeline, checkpoints);
-    BackupRunExecutionResult execution = executor.execute(service_result.plan, status_events, cancellation);
+    BackupRun run(service_result.plan, action_effects, async_transfer_pipeline, checkpoints);
+    BackupRunExecutionResult execution = run.execute(status_events, cancellation);
     clear_cancel_request(state_dir);
     service_result.actions_completed = execution.actions_completed;
     service_result.outcome = execution.completed
