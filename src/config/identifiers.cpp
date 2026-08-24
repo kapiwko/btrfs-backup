@@ -23,6 +23,10 @@ RunId::RunId(std::string input) : value(std::move(input)) {
     validate_run_id(value);
 }
 
+SourceId::SourceId(std::string input) : value(std::move(input)) {
+    validate_identifier(value, "sourceId");
+}
+
 void validate_identifier(const std::string& value, const std::string& field_name) {
     if (!std::regex_match(value, identifier_re)) {
         throw ValidationError(field_name + " contains unsupported characters");

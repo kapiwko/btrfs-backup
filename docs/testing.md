@@ -53,8 +53,16 @@ validation logic. Focused regression coverage includes:
 
 Production use also needs a test on a real or disposable environment:
 
-```text
-source Btrfs -> snapshot -> send/receive -> disconnect -> reconnect -> restore
+```mermaid
+flowchart LR
+    source[Source Btrfs]
+    snapshot[Read-only snapshot]
+    transfer[Btrfs send / receive]
+    disconnect[Disconnect target]
+    reconnect[Reconnect target]
+    restore[Restore verification]
+
+    source --> snapshot --> transfer --> disconnect --> reconnect --> restore
 ```
 
 The test should also cover process interruption, low disk space, and device loss.

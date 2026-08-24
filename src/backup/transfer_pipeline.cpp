@@ -89,26 +89,26 @@ bool transfer_succeeded(const TransferResult& result) {
         && result.consumer.exit_code == 0;
 }
 
-std::string transfer_failure_error_code(const TransferResult& result) {
+std::optional<ErrorCode> transfer_failure_error_code(const TransferResult& result) {
     if (transfer_succeeded(result)) {
-        return {};
+        return std::nullopt;
     }
     if (result.cancelled) {
-        return "runner.cancelled";
+        return ErrorCode::RunnerCancelled;
     }
 
     const bool producer_failed = !result.producer.started || result.producer.exit_code != 0;
     const bool consumer_failed = !result.consumer.started || result.consumer.exit_code != 0;
     if (producer_failed && consumer_failed) {
-        return "transfer.producer_consumer_failed";
+        return ErrorCode::TransferProducerConsumerFailed;
     }
     if (producer_failed) {
-        return "transfer.producer_failed";
+        return ErrorCode::TransferProducerFailed;
     }
     if (consumer_failed) {
-        return "transfer.consumer_failed";
+        return ErrorCode::TransferConsumerFailed;
     }
-    return "transfer.failed";
+    return ErrorCode::TransferFailed;
 }
 
 namespace {

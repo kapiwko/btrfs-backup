@@ -25,21 +25,54 @@ integrations/kde/             # optional desktop integration
 Directories describe what code does. Architectural boundaries are enforced by
 CMake targets and their declared dependencies:
 
-```text
-btrfsbackup-config-model ───────> btrfsbackup-config ─────────┐
-             │                                                │
-             └──> btrfsbackup-platform-linux ───────┐         │
-btrfsbackup-backup-model ───────────────────────────┼─────────┼──> btrfsbackup-backup
-btrfsbackup-state-model ──> btrfsbackup-state <─────┘         │             │
-                                      └───────────────────────┘             v
-                                                                     btrfsbackup-cli
-                                                                            │
-                                                             btrfs-backup, btrfs-backupctl
+```mermaid
+flowchart TB
+    subgraph contracts[Dependency-light contracts]
+        direction LR
+        identifiers[identifier-model]
+        config_model[config-model]
+        state_model[state-model]
+        backup_model[backup-model]
+
+        identifiers --> config_model
+        identifiers --> state_model
+        config_model --> backup_model
+    end
+
+    subgraph support[Supporting runtime components]
+        direction LR
+        platform[platform-linux]
+        config[config]
+        state[state]
+    end
+
+    backup[backup orchestration]
+    cli[CLI adapter]
+
+    config_model --> platform
+    backup_model --> platform
+    config_model --> config
+    platform --> config
+    config_model --> state
+    state_model --> state
+    platform --> state
+    backup_model --> backup
+    platform --> backup
+    config --> backup
+    state --> backup
+    backup --> cli
+    config --> cli
+    state --> cli
+
+    cli --> executables[btrfs-backup<br/>btrfs-backupctl]
 ```
 
 The `*-model` targets contain dependency-light contracts needed to avoid
 cycles between configuration, backup concepts, and Linux implementations. They
 are implementation details of the domain layout, not separate source trees.
+`btrfsbackup-identifier-model` contains the validated `ProfileId`, `RunId`, and
+`SourceId` value types shared by those contracts without pulling in JSON or
+filesystem adapters.
 
 ## Ownership
 
@@ -88,3 +121,9 @@ Application-facing functions such as `plan_backup`, `start_backup`,
 and `render_installation` accept typed requests and results. They do not depend
 on command-line arguments, output streams, presentation rules, or process exit
 codes, so future D-Bus and KDE adapters can use the same behavior.
+
+New backup and state contracts use `ProfileId`, `RunId`, and `SourceId` rather
+than interchangeable strings. Run lifecycle, phase, and error codes are enums.
+CLI and JSON adapters perform the explicit conversion to their stable textual
+representations; older persistence and configuration structures can migrate
+incrementally when their owning boundary changes.
