@@ -1,10 +1,13 @@
 #include <filesystem>
+#include <fstream>
 #include <string>
 
 #include <config/installation_service.hpp>
-#include <config/profile_service.hpp>
-#include <state/status_service.hpp>
 #include <config/json_io.hpp>
+#include <config/profile_service.hpp>
+#include <config/render_directory.hpp>
+#include <platform/linux/file_io.hpp>
+#include <state/status_service.hpp>
 
 #include "support/test_helpers.hpp"
 
@@ -14,6 +17,11 @@ namespace {
 
 fs::path test_root(const std::string& name) {
     return test_helpers::test_root("application-services", name);
+}
+
+std::string read_text(const fs::path& path) {
+    std::ifstream input(path, std::ios::binary);
+    return {std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()};
 }
 
 btrfsbackup::Profile sample_profile() {
@@ -78,10 +86,100 @@ void test_status_use_cases() {
     fs::remove_all(root);
 }
 
+void test_profile_render_replaces_only_owned_render_directories() {
+    fs::path root = test_root("profile-render-safety");
+    fs::path profile_file = root / "profile.json";
+    btrfsbackup::write_profile_file(sample_profile(), profile_file);
+
+    fs::path unmarked = root / "home-like";
+    test_helpers::write_file(unmarked / "important.txt", "keep me");
+    test_helpers::expect_validation_error(
+        "render refuses unmarked directory",
+        [&] { btrfsbackup::render_profile(profile_file, unmarked); },
+        "without .btrfs-backup-render-root"
+    );
+    test_helpers::expect_eq(
+        "render preserves unmarked file",
+        read_text(unmarked / "important.txt"),
+        "keep me"
+    );
+
+    fs::create_directories(root / "real-parent");
+    fs::create_directory_symlink(root / "real-parent", root / "linked-parent");
+    test_helpers::expect_validation_error(
+        "render rejects symlink parent",
+        [&] { btrfsbackup::render_profile(profile_file, root / "linked-parent" / "rendered"); },
+        "parent is not a directory"
+    );
+    test_helpers::expect_true(
+        "render does not follow symlink parent",
+        !fs::exists(root / "real-parent" / "rendered"),
+        "render followed a symlink parent"
+    );
+
+    fs::path rendered = root / "rendered";
+    fs::create_directories(rendered);
+    btrfsbackup::render_profile(profile_file, rendered);
+    test_helpers::expect_true(
+        "render marker",
+        fs::is_regular_file(rendered / btrfsbackup::render_root_marker),
+        "render root marker was not created"
+    );
+    test_helpers::write_file(rendered / "stale.txt", "old");
+    btrfsbackup::render_profile(profile_file, rendered);
+    test_helpers::expect_true(
+        "render removes owned stale file",
+        !fs::exists(rendered / "stale.txt"),
+        "stale file survived"
+    );
+
+    const fs::path rendered_profile = rendered / "etc" / "btrfs-backup" / "profiles" / "laptop" / "profile.json";
+    const std::string before_failure = read_text(rendered_profile);
+    test_helpers::expect_validation_error(
+        "render validation failure",
+        [&] {
+            btrfsbackup::replace_render_directory(
+                rendered,
+                [](const fs::path& staging) {
+                    btrfsbackup::atomic_write(staging / "candidate.txt", "candidate", 0600);
+                },
+                [](const fs::path&) {
+                    throw btrfsbackup::ValidationError("injected rendered tree validation failure");
+                }
+            );
+        },
+        "injected rendered tree validation failure"
+    );
+    test_helpers::expect_eq(
+        "render validation preserves previous result",
+        read_text(rendered_profile),
+        before_failure
+    );
+    test_helpers::expect_true(
+        "render validation hides candidate",
+        !fs::exists(rendered / "candidate.txt"),
+        "invalid staged render was published"
+    );
+
+    test_helpers::write_file(root / "invalid.json", "{}\n");
+    test_helpers::expect_validation_error(
+        "render validates before replacement",
+        [&] { btrfsbackup::render_profile(root / "invalid.json", rendered); },
+        "schemaVersion"
+    );
+    test_helpers::expect_eq(
+        "render preserves previous result",
+        read_text(rendered_profile),
+        before_failure
+    );
+    fs::remove_all(root);
+}
+
 } // namespace
 
 int main() {
     test_profile_and_installation_use_cases();
+    test_profile_render_replaces_only_owned_render_directories();
     test_status_use_cases();
     return test_helpers::finish("application services tests");
 }

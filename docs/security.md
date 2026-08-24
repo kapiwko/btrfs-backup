@@ -76,9 +76,21 @@ last commit marker after systemd and udev reload. All artifacts carry the same
 random `configurationGeneration`, and the service-provided generation must
 match the private profile before runtime work starts. This generation check is
 the crash-consistency guard for a transaction whose destinations span multiple
-directories and potentially multiple filesystems. Render and save operations
-must reject output paths that point at the repository root, system directories,
-or active project configuration.
+directories and potentially multiple filesystems. Save operations must reject
+paths that redirect active configuration outside its fixed installation roots.
+
+Offline profile and wizard rendering never calls `remove_all()` on the supplied
+output path. Profiles are validated first, then rendered and validated in a
+new sibling staging directory. An existing output is replaceable only when it
+is empty or contains the strict `.btrfs-backup-render-root` ownership marker;
+both the directory and marker must belong to the effective user. Publication
+uses an atomic directory exchange, rechecks the old directory identity and
+marker after the exchange, and only then removes that known render tree. Thus a
+home directory, repository, or active configuration tree without the marker is
+preserved rather than inferred from a path blacklist. The complete parent chain
+must contain only real directories owned by root or the effective user;
+group/other-writable parents require the sticky bit. This prevents a root-run
+renderer's staging path from being replaced below another user's directory.
 
 Target mount points are not profile-controlled. The runtime derives each one as
 `TARGET_MOUNT_ROOT/profileId`, using `/mnt/btrfs-backup` as the default mount
