@@ -1319,8 +1319,11 @@ void test_runner_execute_incremental_uses_selected_parent() {
     test_helpers::expect_eq("incremental output parent", json.at("sources").at(0).at("parentPath").get<std::string>(), local_parent.string());
     test_helpers::expect_eq("incremental transfers", std::to_string(transfer_pipeline.plans.size()), "1");
     const std::vector<std::string>& send_argv = transfer_pipeline.plans.at(0).producer_argv;
-    test_helpers::expect_eq("incremental parent flag", send_argv.at(2), "-p");
-    test_helpers::expect_eq("incremental parent path", send_argv.at(3), local_parent.string());
+    test_helpers::expect_eq("incremental protocol flag", send_argv.at(2), "--proto");
+    test_helpers::expect_eq("incremental protocol", send_argv.at(3), "2");
+    test_helpers::expect_eq("incremental compressed data", send_argv.at(4), "--compressed-data");
+    test_helpers::expect_eq("incremental parent flag", send_argv.at(5), "-p");
+    test_helpers::expect_eq("incremental parent path", send_argv.at(6), local_parent.string());
 
     fs::remove_all(root);
 }

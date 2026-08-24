@@ -33,7 +33,7 @@ SendReceiveCommandPlan build_send_receive_command_plan(
     const fs::path& receive_directory
 ) {
     SendReceiveCommandPlan plan;
-    plan.send_argv = {"btrfs", "send"};
+    plan.send_argv = {"btrfs", "send", "--proto", "2", "--compressed-data"};
     if (!parent_path.empty()) {
         plan.send_argv.push_back("-p");
         plan.send_argv.push_back(parent_path.string());

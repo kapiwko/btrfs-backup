@@ -18,8 +18,11 @@ Unattended backup of Btrfs subvolumes to an encrypted removable disk. The projec
 ## Requirements
 
 The project primarily targets Arch Linux and derivatives. The native runtime
-requires Linux 5.10 or newer for `openat2` and `nosymfollow`, Btrfs userspace
-tools, systemd/udev, cryptsetup, `coreutils` (for `sync`), and `util-linux`.
+requires Linux 6.0 or newer and `btrfs-progs` 6.0 or newer. Transfers always use
+send protocol v2 with `btrfs send --proto 2 --compressed-data`; Linux 6.0 also
+provides the encoded-write ioctl used by `btrfs receive` to write compressed
+extents directly. The runtime additionally requires systemd/udev, cryptsetup,
+`coreutils` (for `sync`), and `util-linux`.
 Repository build, release, and test scripts use Bash.
 
 Source builds require:
