@@ -38,6 +38,7 @@ for directive in \
     RestrictRealtime=yes \
     MemoryDenyWriteExecute=yes \
     SystemCallArchitectures=native \
+    Environment=PATH=/usr/bin \
     'RestrictAddressFamilies=AF_UNIX AF_NETLINK'; do
     grep -Fxq -- "$directive" "$STAGED_UNIT" || {
         printf 'Missing systemd hardening directive: %s\n' "$directive" >&2

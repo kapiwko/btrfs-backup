@@ -6,7 +6,7 @@
    locks, preventing concurrent profiles from manipulating the same LUKS backup
    repository and preventing mount/eject races;
 2. synchronous commands and asynchronous transfer processes now use a shared
-   `posix_spawnp()` adapter instead of running C++ allocation and setup code
+   `posix_spawn()` adapter instead of running C++ allocation and setup code
    between `fork()` and `exec()` in a multithreaded runner;
 3. added concurrency, partial process-start, missing executable, lock symlink,
    and worker-thread process-spawn regression coverage;
@@ -50,6 +50,9 @@
 17. the minimum supported kernel is now Linux 5.10; generated target mounts use
     `nodev`, `nosuid`, `noexec`, and `nosymfollow`, and runtime validation
     rejects a target mounted without any of these restrictions.
+18. privileged process execution now resolves bare commands only below
+    `/usr/bin`, passes `PATH=/usr/bin` to children, and applies the same PATH to
+    runner and eject systemd units.
 
 ## 2.1.0 - 2026-08-23
 

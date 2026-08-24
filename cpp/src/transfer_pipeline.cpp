@@ -588,11 +588,11 @@ TransferResult PosixTransferPipeline::run(
     result.producer.started = producer_spawn.started();
     result.consumer.started = consumer_spawn.started();
     if (!result.producer.started) {
-        result.producer.diagnostics = "posix_spawnp failed for " + plan.producer_argv.front()
+        result.producer.diagnostics = "posix_spawn failed for " + plan.producer_argv.front()
             + ": " + std::strerror(producer_spawn.error);
     }
     if (!result.consumer.started) {
-        result.consumer.diagnostics = "posix_spawnp failed for " + plan.consumer_argv.front()
+        result.consumer.diagnostics = "posix_spawn failed for " + plan.consumer_argv.front()
             + ": " + std::strerror(consumer_spawn.error);
     }
     result.bytes_total_estimated = plan.bytes_total_estimated;
