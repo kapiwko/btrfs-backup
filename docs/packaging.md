@@ -4,6 +4,9 @@
 
 The upstream repository includes a release script with separate build targets:
 
+The root `VERSION` file is the authoritative version source for the native
+build, Plasma metadata, and all release artifact names.
+
 ```bash
 ./tools/build-release.sh --target source --static-tests
 ./tools/build-release.sh --target deb --static-tests
@@ -30,16 +33,16 @@ The script runs the selected test suite, creates deterministic source archives, 
 Outputs are written to `dist/`:
 
 ```text
-btrfs-backup-0.2.1.tar.gz
-btrfs-backup-0.2.1-1-x86_64.pkg.tar.zst
-btrfs-backup-kde-0.2.1-1-x86_64.pkg.tar.zst
-btrfs-backup_0.2.1-1_amd64.deb
-btrfs-backup-0.2.1-install.tar.gz
-btrfs-backup-0.2.1-rpm-packaging.tar.gz
-btrfs-backup-0.2.1-nix-packaging.tar.gz
-btrfs-backup-0.2.1-ebuild.tar.gz
-btrfs-backup-0.2.1-pkgbuild.tar.gz
-btrfs-backup-0.2.1-source.zip
+btrfs-backup-0.2.2.tar.gz
+btrfs-backup-0.2.2-1-x86_64.pkg.tar.zst
+btrfs-backup-kde-0.2.2-1-x86_64.pkg.tar.zst
+btrfs-backup_0.2.2-1_amd64.deb
+btrfs-backup-0.2.2-install.tar.gz
+btrfs-backup-0.2.2-rpm-packaging.tar.gz
+btrfs-backup-0.2.2-nix-packaging.tar.gz
+btrfs-backup-0.2.2-ebuild.tar.gz
+btrfs-backup-0.2.2-pkgbuild.tar.gz
+btrfs-backup-0.2.2-source.zip
 SHA256SUMS
 BUILD-REPORT.txt
 ```

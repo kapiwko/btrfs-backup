@@ -1,8 +1,14 @@
 cmake_minimum_required(VERSION 3.20)
 
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/VERSION" BTRFS_BACKUP_VERSION)
+string(STRIP "${BTRFS_BACKUP_VERSION}" BTRFS_BACKUP_VERSION)
+if(NOT BTRFS_BACKUP_VERSION MATCHES "^[0-9]+\\.[0-9]+\\.[0-9]+$")
+    message(FATAL_ERROR "VERSION must contain a semantic version in MAJOR.MINOR.PATCH format")
+endif()
+
 project(
     btrfs-backup
-    VERSION 0.2.1
+    VERSION "${BTRFS_BACKUP_VERSION}"
     LANGUAGES CXX
 )
 
