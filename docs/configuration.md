@@ -23,11 +23,22 @@ btrfs-backupctl profile export --profile default --output profile.json
 ```
 
 The systemd drop-in orders the profile's target mount before the sandboxed
-service starts. Run `systemctl daemon-reload` after saving a profile.
+service starts. A save stages and validates all four files, holds the profile
+lock while publishing them, reloads systemd and udev, and publishes the public
+profile last. A failure restores the previous files and attempts to reload
+their rules.
 
 The public profile contains only `profileId`, the profile display name, the
-target label derived from `target.mapperName`, and source ids/display names.
-It excludes devices, UUIDs, mount points, paths, retention settings, and hooks.
+target label derived from `target.mapperName`, source ids/display names, and the
+non-secret `configurationGeneration` commit marker. It excludes devices, UUIDs,
+mount points, paths, retention settings, and hooks.
+
+Installed private profiles also contain `configurationGeneration`. The udev
+rule records it in a comment and the systemd drop-in passes it to the runner as
+`BTRFS_BACKUP_CONFIGURATION_GENERATION`. A runner started by a mismatched
+drop-in rejects the profile before performing backup work. Older profiles
+without this installation metadata remain loadable when no generation is
+provided by the service.
 
 `btrfs-backupctl profile wizard` follows the same model: it renders
 `profile.json` first and then materializes derived files from that JSON.

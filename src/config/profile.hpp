@@ -63,6 +63,7 @@ struct ProfileSource {
 
 struct Profile {
     int schema_version = current_profile_schema_version;
+    std::string configuration_generation;
     std::string id;
     std::string name;
     bool enabled = true;
