@@ -2,6 +2,7 @@
 import QtQuick
 import QtQuick.Controls as QQC2
 import QtQuick.Layouts
+import org.kde.ki18n as KI18n
 import org.kde.kirigami as Kirigami
 import org.kde.plasma.core as PlasmaCore
 import org.kde.plasma.plasmoid
@@ -12,13 +13,18 @@ pragma ComponentBehavior: Bound
 PlasmoidItem {
     id: root
 
+    KI18n.KI18nContext {
+        id: translations
+        translationDomain: "plasma_applet_org.btrfsbackup.plasmoid"
+    }
+
     property bool running: backupStatus.state === "running" || backupStatus.state === "starting" || backupStatus.state === "validating"
     property bool failed: backupStatus.state === "failed"
     property bool estimated: backupStatus.progressAccuracy === "estimated"
     property int progress: backupStatus.overallProgress
 
     Plasmoid.status: root.running || root.failed ? PlasmaCore.Types.ActiveStatus : PlasmaCore.Types.PassiveStatus
-    toolTipMainText: i18n("Btrfs Backups")
+    toolTipMainText: translations.i18n("Btrfs Backups")
     toolTipSubText: backupStatus.lastError || root.statusText(backupStatus.state)
 
     BackupStatusModel {
@@ -41,31 +47,31 @@ PlasmoidItem {
     function formatEta(value) {
         var seconds = Number(value || -1)
         if (seconds < 0)
-            return i18n("Unknown")
+            return translations.i18n("Unknown")
         var minutes = Math.floor(seconds / 60)
         seconds = Math.floor(seconds % 60)
         if (minutes > 0)
-            return i18n("%1 min %2 sec", minutes, seconds)
-        return i18n("%1 sec", seconds)
+            return translations.i18n("%1 min %2 sec", minutes, seconds)
+        return translations.i18n("%1 sec", seconds)
     }
 
     function statusText(state) {
         switch (state) {
         case "starting":
         case "running":
-            return i18n("Backup is in progress")
+            return translations.i18n("Backup is in progress")
         case "validated":
-            return i18n("Validation completed successfully")
+            return translations.i18n("Validation completed successfully")
         case "succeeded":
-            return i18n("Backup completed successfully")
+            return translations.i18n("Backup completed successfully")
         case "failed":
-            return i18n("Backup failed")
+            return translations.i18n("Backup failed")
         case "cancelled":
-            return i18n("Backup cancelled")
+            return translations.i18n("Backup cancelled")
         case "skipped":
-            return i18n("Backup skipped")
+            return translations.i18n("Backup skipped")
         default:
-            return i18n("No active backup")
+            return translations.i18n("No active backup")
         }
     }
 
@@ -129,7 +135,7 @@ PlasmoidItem {
                     Layout.fillWidth: true
 
                     Kirigami.Heading {
-                        text: i18n("Btrfs Backups")
+                        text: translations.i18n("Btrfs Backups")
                         level: 2
                         Layout.fillWidth: true
                     }
@@ -162,47 +168,47 @@ PlasmoidItem {
                 rowSpacing: Kirigami.Units.smallSpacing
                 columnSpacing: Kirigami.Units.largeSpacing
 
-                QQC2.Label { text: i18n("Profile:"); opacity: 0.7 }
+                QQC2.Label { text: translations.i18n("Profile:"); opacity: 0.7 }
                 QQC2.Label {
                     text: backupStatus.profile
                     Layout.fillWidth: true
                     elide: Text.ElideMiddle
                 }
 
-                QQC2.Label { text: i18n("Status:"); opacity: 0.7 }
+                QQC2.Label { text: translations.i18n("Status:"); opacity: 0.7 }
                 QQC2.Label {
                     text: root.statusText(backupStatus.state)
                     Layout.fillWidth: true
                     elide: Text.ElideRight
                 }
 
-                QQC2.Label { text: i18n("Source:"); opacity: 0.7 }
+                QQC2.Label { text: translations.i18n("Source:"); opacity: 0.7 }
                 QQC2.Label {
-                    text: backupStatus.currentSourceName || i18n("Unknown")
+                    text: backupStatus.currentSourceName || translations.i18n("Unknown")
                     Layout.fillWidth: true
                     elide: Text.ElideMiddle
                 }
 
-                QQC2.Label { text: i18n("Destination:"); opacity: 0.7 }
+                QQC2.Label { text: translations.i18n("Destination:"); opacity: 0.7 }
                 QQC2.Label {
-                    text: backupStatus.targetName || i18n("Unknown")
+                    text: backupStatus.targetName || translations.i18n("Unknown")
                     Layout.fillWidth: true
                     elide: Text.ElideMiddle
                 }
 
-                QQC2.Label { text: i18n("Progress:"); opacity: 0.7 }
+                QQC2.Label { text: translations.i18n("Progress:"); opacity: 0.7 }
                 QQC2.Label {
-                    text: root.progress >= 0 ? (root.estimated ? "≈ " : "") + root.progress + "%" : i18n("Unknown")
+                    text: root.progress >= 0 ? (root.estimated ? "≈ " : "") + root.progress + "%" : translations.i18n("Unknown")
                 }
 
-                QQC2.Label { text: i18n("Speed:"); opacity: 0.7 }
+                QQC2.Label { text: translations.i18n("Speed:"); opacity: 0.7 }
                 QQC2.Label {
                     text: Number(backupStatus.speedBps) > 0
-                        ? i18n("%1/s", root.formatBytes(backupStatus.speedBps))
-                        : i18n("Unknown")
+                        ? translations.i18n("%1/s", root.formatBytes(backupStatus.speedBps))
+                        : translations.i18n("Unknown")
                 }
 
-                QQC2.Label { text: i18n("Time remaining:"); opacity: 0.7 }
+                QQC2.Label { text: translations.i18n("Time remaining:"); opacity: 0.7 }
                 QQC2.Label { text: root.formatEta(backupStatus.etaSeconds) }
             }
 
@@ -219,7 +225,7 @@ PlasmoidItem {
                 Layout.fillWidth: true
 
                 QQC2.Button {
-                    text: i18n("Refresh")
+                    text: translations.i18n("Refresh")
                     icon.name: "view-refresh"
                     onClicked: backupStatus.start()
                 }

@@ -974,7 +974,7 @@ if [[ "$TARGET" == all || "$TARGET" == arch ]]; then
         -I "$KDE_PACKAGE_AUDIT_ROOT/usr/lib/qt6/qml" \
         -I /usr/lib/qt6/qml \
         "$KDE_PACKAGE_AUDIT_ROOT/usr/share/plasma/plasmoids/org.btrfsbackup.plasmoid/contents/ui/main.qml" >/dev/null
-    QT_QPA_PLATFORM=offscreen /usr/lib/qt6/bin/qmlscene \
+    QT_QPA_PLATFORM=offscreen /usr/lib/qt6/bin/qml \
         -I "$KDE_PACKAGE_AUDIT_ROOT/usr/lib/qt6/qml" \
         "$SOURCE_STAGE/integrations/kde/plasmoid/tests/backend-smoke.qml" >/dev/null
     tar --zstd -xOf "$KDE_PACKAGE_ARCHIVE" .PKGINFO | grep -qx "pkgname = $KDE_PKGNAME"
