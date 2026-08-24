@@ -84,10 +84,11 @@ unrelated processes or targets.
 ## Real Btrfs Docker Test
 
 The repository also includes a heavier Docker integration test that builds and
-installs the Arch package, then uses real loop-backed filesystems inside a
-privileged container. It creates:
+installs the Arch base and KDE packages, then uses real loop-backed filesystems
+inside a privileged container. It creates:
 
-1. an installable `btrfs-backup` package from the current source tree;
+1. installable `btrfs-backup` and `btrfs-backup-kde` packages from the current
+   source tree;
 2. a source Btrfs filesystem with a `home` subvolume;
 3. a LUKS2 target image with a Btrfs filesystem inside `/dev/mapper`;
 4. rendered configuration from the installed `btrfs-backupctl`;
@@ -107,7 +108,7 @@ the container.
 
 The test covers:
 
-1. package build and installation through `pacman -U`;
+1. base and KDE package build and installation through `pacman -U`;
 2. configuration rendering and validation through the installed CLI;
 3. runtime validation of the mounted target;
 4. rejection of a mismatched target Btrfs UUID;
