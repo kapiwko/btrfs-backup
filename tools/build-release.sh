@@ -928,6 +928,7 @@ if [[ "$TARGET" == all || "$TARGET" == arch ]]; then
         profile \
         --etc-root "$PACKAGE_RENDERED/config" \
         --udev-root "$PACKAGE_RENDERED/udev" \
+        --systemd-root "$PACKAGE_RENDERED/systemd" \
         --public-root "$PACKAGE_RENDERED/public/profiles" \
         save --file "$PACKAGE_PROFILE" >/dev/null
     "$PACKAGE_AUDIT_ROOT/usr/bin/btrfs-backupctl" installation render \
