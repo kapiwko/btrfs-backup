@@ -1,0 +1,27 @@
+#pragma once
+
+#include <filesystem>
+#include <optional>
+#include <string>
+#include <vector>
+
+#include <backup/snapshot_inventory.hpp>
+
+namespace btrfsbackup {
+
+struct IncrementalParentSelection {
+    bool incremental = false;
+    bool remote_snapshots_exist = false;
+    std::optional<SnapshotInfo> local_parent;
+    std::optional<SnapshotInfo> remote_parent;
+};
+
+IncrementalParentSelection select_incremental_parent(
+    const std::string& source_id,
+    const std::vector<SnapshotInfo>& local_snapshots,
+    const std::vector<SnapshotInfo>& remote_snapshots,
+    const std::optional<std::filesystem::path>& current_snapshot_path,
+    bool incremental_required
+);
+
+} // namespace btrfsbackup

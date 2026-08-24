@@ -169,9 +169,9 @@ profile_json_test() {
     local rendered="$TEST_ROOT/profile-json-rendered"
     local saved="$TEST_ROOT/profile-json-saved"
 
-    "$ROOT/build/btrfs-backupctl" profile validate --file "$ROOT/config/profile.example.json" >/dev/null
+    "$ROOT/build/btrfs-backupctl" profile validate --file "$ROOT/data/examples/profile.example.json" >/dev/null
     "$ROOT/build/btrfs-backupctl" profile render \
-        --file "$ROOT/config/profile.example.json" \
+        --file "$ROOT/data/examples/profile.example.json" \
         --output-dir "$rendered" >/dev/null
 
     assert_not_exists "$rendered/etc/btrfs-backup/profiles.d/default.env"
@@ -187,7 +187,7 @@ profile_json_test() {
         --udev-root "$saved/etc/udev/rules.d" \
         --systemd-root "$saved/etc/systemd/system" \
         --public-root "$saved/var/lib/btrfs-backup/public/profiles" \
-        save --file "$ROOT/config/profile.example.json" >/dev/null
+        save --file "$ROOT/data/examples/profile.example.json" >/dev/null
 
     assert_not_exists "$saved/etc/btrfs-backup/profiles.d/default.env"
     assert_file "$saved/etc/btrfs-backup/profiles/default/profile.json"

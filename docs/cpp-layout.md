@@ -1,111 +1,85 @@
 # C++ Source Layout
 
-The C++ code lives under `cpp/` and is split by responsibility:
+The native code is organized by domain and responsibility. Headers live beside
+their implementations because this repository builds an application, not a
+public C++ SDK.
 
 ```text
-cpp/
-├── apps/                         # command-line entry points
-├── model/CMakeLists.txt          # model target ownership
-├── system/CMakeLists.txt         # system target ownership
-├── engine/CMakeLists.txt         # engine target ownership
-├── application/CMakeLists.txt    # application target ownership
-├── cli/CMakeLists.txt            # CLI library and executable targets
-├── include/btrfsbackup/
-│   ├── model/                    # data model and validation contracts
-│   ├── system/                   # operating-system integration
-│   ├── engine/                   # backup planning and execution
-│   ├── application/              # application services and adapters
-│   └── cli/                      # reusable command-line surface
-├── src/                           # matching layer directories
-│   ├── model/
-│   ├── system/
-│   ├── engine/
-│   ├── application/
-│   └── cli/
-└── tests/
-    ├── CMakeLists.txt            # shared test helper and subdirectories
-    ├── model/                    # tests and CMake for each owning layer
-    ├── system/
-    ├── engine/
-    ├── application/
-    ├── cli/
-    ├── integration/              # cross-layer and contract tests with CMake
-    └── support/                  # shared test helpers
+apps/                         # small executable entry points
+src/
+├── backup/                   # planning, execution, snapshots, transfer, recovery
+├── config/                   # profile model, validation, storage, rendering
+│   └── wizard/               # interactive profile construction
+├── state/                    # status, checkpoints, fingerprints, history reads
+├── platform/linux/           # explicitly Linux-specific system integration
+└── cli/                      # argv parsing, presentation, exit-code mapping
+tests/
+├── unit/{backup,config,state,platform,cli}/
+├── integration/
+├── support/
+└── systemd/
+data/{examples,schemas,systemd}/
+integrations/kde/             # optional desktop integration
 ```
 
-The root `CMakeLists.txt` owns project setup and external package discovery.
-Each C++ layer owns its source list, target settings, and direct dependencies in
-`cpp/<layer>/CMakeLists.txt`. Test registration follows the same pattern under
-`cpp/tests/`; layer tests link only the target they exercise.
-
-The current CMake targets are layered this way:
+Directories describe what code does. Architectural boundaries are enforced by
+CMake targets and their declared dependencies:
 
 ```text
-btrfsbackup-model        # JSON model, validation, identifiers, status/catalog shapes
-btrfsbackup-system       # POSIX command/filesystem adapters, trusted files, mount/device/Btrfs inspection
-btrfsbackup-engine       # backup planning, execution, persistence, and transfer pipeline
-btrfsbackup-application  # typed backup, target, profile, status, and installation use cases
-btrfsbackup-cli          # argv parsing, output formatting, and exit-code mapping
-btrfs-backup             # native backup runtime entry point
-btrfs-backupctl          # command-line executable
+btrfsbackup-config-model ─────┬──> btrfsbackup-config ───────┐
+btrfsbackup-backup-model ─┐   │                              │
+                          ├──> btrfsbackup-platform-linux ───┼──> btrfsbackup-backup
+                          │                                  │             │
+                          └────────> btrfsbackup-state ──────┘             v
+                                                                    btrfsbackup-cli
+                                                                           │
+                                                            btrfs-backup, btrfs-backupctl
 ```
 
-The dependency direction is `model` ← `system` ← `engine` ← `application`
-← `cli` ← CLI executables. Layer tests link their owning target directly;
-integration tests declare the narrowest target set required by their contract.
+The two `*-model` targets contain dependency-light contracts needed to avoid
+cycles between configuration, backup concepts, and Linux implementations. They
+are implementation details of the domain layout, not separate source trees.
 
-Rules for new C++ code:
+## Ownership
 
-1. Tiny CLI `main` functions belong in `cpp/apps/`; reusable command parsing
-   and behavior belong under `cpp/include/btrfsbackup/cli/` and `cpp/src/cli/`.
-   CLI code may translate `argv` into typed application requests and format
-   results, but must not own backup, target, profile, status, or installation
-   orchestration.
-2. Profile, status, history, validation, filesystem, and command-runner logic
-   belong in reusable code under the matching layer directories in
-   `cpp/include/btrfsbackup/` and `cpp/src/`.
-   Tests belong in the corresponding `cpp/tests/<layer>/` directory; reserve
-   `cpp/tests/integration/` for behavior that crosses a layer or file contract.
-3. External commands must be invoked without a shell; pass executable and
-   arguments separately. Process creation must use the shared `posix_spawn`
-   adapter rather than `fork()` followed by C++ work before `exec`.
-4. File writes that affect runtime state or configuration must use same-directory
-   temporary files, `fsync`, atomic rename, and directory `fsync` where practical.
-5. Keep root-only state and history separate from reduced public current status.
-6. Do not introduce UI or session dependencies into the base package.
-7. Prefer small types with explicit validation over passing raw JSON through the
-   codebase.
-8. Keep compatibility coverage for real Btrfs runner behavior after the legacy
-   Bash backup runtime and standalone target wrappers have been removed.
-9. Keep model code independent from systemd, D-Bus, Qt, desktop libraries,
-   block-device libraries, mount libraries, and LUKS libraries.
-10. Use Linux system libraries in system-facing code when they replace command
-    output parsing: `libbtrfsutil` for subvolumes, `libmount` for mount-table
-    inspection, and `libblkid` for filesystem identity.
-11. Keep infrastructure ports concrete and narrowly named. Command execution is
-    exposed through `system/command_runner.hpp`, while filesystem effects use
-    `system/filesystem.hpp`. Their production implementations belong to
-    `btrfsbackup-system`; `engine` may depend on the interfaces but never on an
-    `application` adapter header.
-12. Keep long-running transfer process orchestration separate from short
-    synchronous administrative commands. The backup executor uses an
-    asynchronous transfer handle around the POSIX pump. Cancellation and
-    transfer completion are exposed as pollable file descriptors, and the POSIX
-    pump polls process pipes and cancellation together. A future event-loop
-    runner can replace the threaded adapter, while simple tested POSIX execution
-    remains available for small operations and unit tests.
-13. Do not make the base package depend on a graphical session. Any future
-    desktop integration must communicate with the system backend instead of
-    becoming part of the backup application layer.
+- `backup` owns run planning and execution, incremental-parent selection,
+  transfer orchestration, snapshot commit, retention, recovery, cancellation,
+  target operations, and backup use cases.
+- `config` owns the canonical profile JSON model, validation, profile loading
+  and storage, installation rendering and validation, and the profile wizard.
+- `state` owns configuration fingerprints, run checkpoints, current status,
+  status history reads, and the public status contract.
+- `platform/linux` owns POSIX processes, Btrfs and block-device integration,
+  mount inspection, trusted files, locks, durable filesystem operations, and
+  other Linux-specific effects.
+- `cli` owns command-line parsing, output formatting, interactive streams, and
+  exit-code mapping. Reusable orchestration must remain outside this target.
+- `apps` owns only process entry points and dependency composition.
 
-Application entry points such as `plan_backup`, `start_backup`, `cancel_backup`,
-`mount_target`, `eject_target`, `save_profile`, `get_statuses`, and
-`render_installation` accept typed requests and return typed results. They do
-not depend on command-line arguments, output streams, presentation rules, or
-process exit codes, so CLI and future D-Bus adapters can call the same use cases.
+## Rules
 
-The migrated native runtime currently lives in `btrfs-backup` and
-`btrfs-backupctl`. Their CLI entry points stay in `cpp/apps/`, while reusable
-implementation is built from `cpp/src/`. New shared logic should go through
-headers under the matching `cpp/include/btrfsbackup/<layer>/` directory before
-it is used by another command.
+1. Put a component's `.hpp` and `.cpp` files together in the owning domain.
+   Include internal headers through paths such as `<backup/backup_service.hpp>`
+   or `<platform/linux/process.hpp>`.
+2. Reserve a future top-level `include/` directory for an intentionally public,
+   versioned SDK. Do not mirror internal headers there.
+3. Each unit test belongs to the domain it exercises and links the narrowest
+   target that provides the tested contract. Cross-domain file contracts belong
+   under `tests/integration/`.
+4. Keep Linux-specific effects under `src/platform/linux/`. Pure configuration,
+   state, and planning code must not acquire UI or desktop dependencies.
+5. Invoke external programs without a shell. Pass executable and arguments
+   separately through the shared command/process abstractions.
+6. Keep long-running transfer orchestration separate from short administrative
+   commands. Cancellation and completion remain pollable runtime events.
+7. Keep root-only state and history separate from sanitized public status.
+8. Do not add empty directories for planned daemon, QEMU, or KDE components.
+   Add them only with the first implementation they own.
+9. Optional KDE code remains under `integrations/kde` and outside the base
+   runtime dependency graph.
+
+Application-facing functions such as `plan_backup`, `start_backup`,
+`cancel_backup`, `mount_target`, `eject_target`, `save_profile`, `get_statuses`,
+and `render_installation` accept typed requests and results. They do not depend
+on command-line arguments, output streams, presentation rules, or process exit
+codes, so future D-Bus and KDE adapters can use the same behavior.

@@ -3,7 +3,7 @@
 ## Canonical Profile JSON
 
 The canonical format for tooling and runtime is a JSON profile document matching
-`config/profile.schema.json`.
+`data/schemas/profile.schema.json`.
 
 ```bash
 btrfs-backupctl profile validate --file profile.json
@@ -95,12 +95,12 @@ source-definition migration and storage managed by the application.
 
 ## JSON Schema
 
-`config/profile.example.json` and `config/profile.schema.json` define a
+`data/examples/profile.example.json` and `data/schemas/profile.schema.json` define a
 versioned, machine-readable profile model for tooling.
 
 The profile model defines encrypted target identity, target-relative paths, retention
 settings, application-consistency hooks, and source definitions. Core publishes
-reduced current status and writes private history and logs, while desktop
+The state domain publishes reduced current status and writes private history and logs, while desktop
 presentation belongs to the KDE integration.
 It is intended for generators, validators, and future migration tooling.
 

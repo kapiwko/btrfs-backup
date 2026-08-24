@@ -54,7 +54,7 @@ additionally uses `zstd`; other package backends may have their own tool
 requirements.
 Building from source requires CMake, a C++20 compiler, `pkg-config`,
 `nlohmann-json`, `libmount`, `libblkid`, `libudev`, and `libbtrfsutil`
-development files for the native code under `cpp/`.
+development files for the native code under `src/`.
 Building the optional Plasma package also requires Extra CMake Modules, Qt 6
 QML/Quick, Kirigami, KPackage, KI18n and libplasma development files.
 
@@ -69,6 +69,10 @@ source=("btrfs-backup-${pkgver}.tar.gz")
 The base package name and package base should both be `btrfs-backup`. Optional
 desktop integration should be packaged as `btrfs-backup-kde` and must not add
 Qt, Kirigami or Plasma dependencies to the base package.
+
+The maintained package install hooks live under `packaging/arch/`. The release
+tool generates `PKGBUILD` and `.SRCINFO` from the current source tree so version
+and source checksums remain tied to the release artifacts.
 
 ## Package Contents
 
