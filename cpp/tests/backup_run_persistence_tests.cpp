@@ -178,6 +178,32 @@ void test_hook_failure_status_uses_stable_error_code() {
     fs::remove_all(root);
 }
 
+void test_repository_recovery_required_status_is_actionable() {
+    fs::path root = test_helpers::test_root("backup-run-persistence", "repository-recovery");
+    btrfsbackup::StatusBackupRunEventSink sink({
+        .status_root = root / "status",
+        .history_root = root / "history",
+        .profile_name = "Default backup",
+        .source_count = 1,
+        .started_at = "2026-08-23T12:00:00Z",
+    });
+
+    btrfsbackup::BackupRunEvent failed = event(btrfsbackup::BackupRunEventKind::ActionFailed);
+    failed.action_kind = btrfsbackup::BackupRunActionKind::CommitReceived;
+    failed.error_code = "repository.recovery_required";
+    failed.message = "commit verification failed; cleanup failed; repository requires recovery";
+
+    sink.on_backup_run_event(failed);
+
+    btrfsbackup::Json current = btrfsbackup::load_json_file(root / "status" / "default" / "current.json");
+    test_helpers::expect_true("recovery state", current.at("state") == "failed", "wrong state");
+    test_helpers::expect_true("recovery error code", current.at("errorCode") == "repository.recovery_required", "wrong error code");
+    test_helpers::expect_true("recovery recoverable", current.at("recoverable") == true, "repository recovery should be recoverable");
+    test_helpers::expect_true("recovery suggested action", current.at("suggestedAction") == "run-backup-recovery", "wrong suggested action");
+
+    fs::remove_all(root);
+}
+
 } // namespace
 
 int main() {
@@ -187,6 +213,7 @@ int main() {
     test_status_sink_writes_current_and_terminal_history();
     test_transfer_progress_status_uses_source_index_and_run_bytes();
     test_hook_failure_status_uses_stable_error_code();
+    test_repository_recovery_required_status_is_actionable();
 
     return test_helpers::finish("backup run persistence tests");
 }

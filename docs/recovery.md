@@ -79,7 +79,12 @@ After reconnecting the correct target, run:
 sudo btrfs-backup --force
 ```
 
-The runtime checks `Received UUID`, preserves a committed local parent, or removes an orphaned snapshot according to configuration.
+The runtime checks `Received UUID`, preserves a committed local parent, or removes an orphaned snapshot according to configuration. A pending marker also records the planned final target path. If an earlier commit left an unverified snapshot at that canonical path, recovery removes it before clearing the marker; a failed removal leaves the marker in place for another recovery attempt.
+
+Status code `repository.recovery_required` means final-snapshot verification
+failed and the runtime could not remove the unverified snapshot immediately.
+Keep the target connected and run the forced backup above to retry the normal
+recovery path. Inspect the reported final path if recovery fails again.
 
 Remaining data under `.incoming` is uncommitted and is cleaned during the next real run. Do not treat it as a valid backup.
 

@@ -38,10 +38,15 @@ bool remote_contains_received_uuid(
     return false;
 }
 
+bool uuid_equals(const std::string& left, const std::string& right) {
+    return !left.empty() && !right.empty() && lowercase(left) == lowercase(right);
+}
+
 bool marker_path_is_valid(
     const btrfsbackup::PendingMarker& marker,
     const std::string& source_id,
-    const fs::path& local_snapshot_dir
+    const fs::path& local_snapshot_dir,
+    const fs::path& remote_snapshot_dir
 ) {
     if (marker.source_name != source_id || marker.local_snapshot_path.empty()) {
         return false;
@@ -53,7 +58,32 @@ bool marker_path_is_valid(
     }
 
     const std::string base = snapshot_path.filename().string();
-    return base.rfind(source_id + "-", 0) == 0;
+    if (base.rfind(source_id + "-", 0) != 0) {
+        return false;
+    }
+
+    // Markers written before final_snapshot_path was introduced retain the
+    // previous UUID-based recovery behavior.
+    if (marker.final_snapshot_path.empty()) {
+        return true;
+    }
+
+    const fs::path final_path = fs::path(marker.final_snapshot_path).lexically_normal();
+    return btrfsbackup::path_is_within(final_path, remote_snapshot_dir)
+        && final_path.filename() == snapshot_path.filename();
+}
+
+const btrfsbackup::SnapshotInfo* remote_snapshot_at_path(
+    const std::vector<btrfsbackup::SnapshotInfo>& remote_snapshots,
+    const fs::path& path
+) {
+    const fs::path wanted = path.lexically_normal();
+    for (const btrfsbackup::SnapshotInfo& remote : remote_snapshots) {
+        if (remote.path.lexically_normal() == wanted) {
+            return &remote;
+        }
+    }
+    return nullptr;
 }
 
 } // namespace
@@ -75,6 +105,7 @@ std::optional<PendingMarker> read_pending_marker_if_exists(
     PendingMarker marker{
         .source_name = read_pending_marker_field(marker_path, "source_name"),
         .local_snapshot_path = read_pending_marker_field(marker_path, "local_snapshot_path"),
+        .final_snapshot_path = read_pending_marker_field(marker_path, "final_snapshot_path"),
         .run_id = read_pending_marker_field(marker_path, "run_id"),
         .timestamp = read_pending_marker_field(marker_path, "timestamp"),
     };
@@ -85,6 +116,7 @@ PendingRecoveryPlan plan_pending_recovery(
     const std::string& source_id,
     const fs::path& profile_state_dir,
     const fs::path& local_snapshot_dir,
+    const fs::path& remote_snapshot_dir,
     const std::optional<PendingMarker>& marker,
     const std::optional<SnapshotMetadata>& pending_snapshot,
     const std::vector<SnapshotInfo>& remote_snapshots,
@@ -96,8 +128,10 @@ PendingRecoveryPlan plan_pending_recovery(
         .action = PendingRecoveryAction::NoMarker,
         .clear_marker = false,
         .delete_local_snapshot = false,
+        .delete_remote_snapshot = false,
         .marker_path = pending_marker_path(profile_state_dir, source_id),
         .local_snapshot_path = {},
+        .remote_snapshot_path = {},
         .message = {},
     };
 
@@ -107,8 +141,9 @@ PendingRecoveryPlan plan_pending_recovery(
 
     plan.clear_marker = true;
     plan.local_snapshot_path = marker->local_snapshot_path;
+    plan.remote_snapshot_path = marker->final_snapshot_path;
 
-    if (!marker_path_is_valid(*marker, source_id, local_snapshot_dir)) {
+    if (!marker_path_is_valid(*marker, source_id, local_snapshot_dir, remote_snapshot_dir)) {
         plan.action = PendingRecoveryAction::ClearInvalidMarker;
         plan.message = "Ignoring invalid pending marker for " + source_id + ": " + plan.marker_path.string();
         return plan;
@@ -117,6 +152,19 @@ PendingRecoveryPlan plan_pending_recovery(
     if (!pending_snapshot.has_value() || !pending_snapshot->is_subvolume) {
         plan.action = PendingRecoveryAction::ClearMissingSnapshot;
         plan.message = "Clearing pending marker for missing local snapshot: " + marker->local_snapshot_path;
+        return plan;
+    }
+
+    const SnapshotInfo* final_snapshot = remote_snapshot_at_path(remote_snapshots, plan.remote_snapshot_path);
+    if (final_snapshot != nullptr
+        && !pending_snapshot->uuid.empty()
+        && !uuid_equals(final_snapshot->received_uuid, pending_snapshot->uuid)) {
+        plan.action = PendingRecoveryAction::DeleteInvalidCommittedSnapshot;
+        plan.delete_remote_snapshot = true;
+        plan.delete_local_snapshot = !keep_failed_local_snapshot
+            && !remote_contains_received_uuid(remote_snapshots, source_id, pending_snapshot->uuid);
+        plan.message = "Removing unverified committed snapshot left by an interrupted run: "
+            + plan.remote_snapshot_path.string();
         return plan;
     }
 

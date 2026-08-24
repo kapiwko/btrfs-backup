@@ -23,6 +23,7 @@ class RecordingEffects final : public btrfsbackup::IBackupRunActionEffects {
 public:
     std::vector<std::string> calls;
     bool should_throw = false;
+    bool recovery_required = false;
     btrfsbackup::BackupRunActionKind throw_on = btrfsbackup::BackupRunActionKind::CleanupSource;
 
     void execute_action(
@@ -32,6 +33,12 @@ public:
     ) override {
         calls.push_back(source_plan.source_id + ":" + action_name(action.kind));
         if (should_throw && action.kind == throw_on) {
+            if (recovery_required) {
+                throw btrfsbackup::RecoveryRequiredError(
+                    "repository.recovery_required",
+                    "commit verification failed; cleanup failed; repository requires recovery"
+                );
+            }
             throw btrfsbackup::ValidationError("injected action failure: " + action_name(action.kind));
         }
     }
@@ -479,6 +486,32 @@ void test_commit_failure_after_successful_transfer_keeps_verify_checkpoint() {
     test_helpers::expect_true("commit failed action event", events.has_event(btrfsbackup::BackupRunEventKind::ActionFailed), "missing failed action event");
 }
 
+void test_commit_cleanup_failure_emits_recovery_required_code() {
+    RecordingEffects effects;
+    effects.should_throw = true;
+    effects.recovery_required = true;
+    effects.throw_on = btrfsbackup::BackupRunActionKind::CommitReceived;
+    RecordingTransferPipeline transfers;
+    RecordingCheckpoints checkpoints;
+    RecordingEvents events;
+    btrfsbackup::CancellationToken cancellation;
+    btrfsbackup::ThreadedAsyncTransferPipeline async_transfers(transfers);
+    btrfsbackup::BackupRunExecutor executor(effects, async_transfers, checkpoints);
+
+    btrfsbackup::BackupRunPlan plan = plan_with_actions({
+        action(btrfsbackup::BackupRunActionKind::CommitReceived),
+    });
+
+    test_helpers::expect_validation_error("commit cleanup failure", [&] {
+        (void)executor.execute(plan, events, cancellation);
+    }, "repository requires recovery");
+    auto failed = std::find_if(events.events.begin(), events.events.end(), [](const btrfsbackup::BackupRunEvent& event) {
+        return event.kind == btrfsbackup::BackupRunEventKind::ActionFailed;
+    });
+    test_helpers::expect_true("commit cleanup failed event", failed != events.events.end(), "missing failed action event");
+    test_helpers::expect_eq("commit cleanup error code", failed->error_code, "repository.recovery_required");
+}
+
 void test_remote_retention_failure_keeps_commit_checkpoint() {
     RecordingEffects effects;
     effects.should_throw = true;
@@ -549,6 +582,7 @@ int main() {
     test_transfer_failure_emits_failed_action();
     test_receive_failure_is_reported_separately();
     test_commit_failure_after_successful_transfer_keeps_verify_checkpoint();
+    test_commit_cleanup_failure_emits_recovery_required_code();
     test_remote_retention_failure_keeps_commit_checkpoint();
     test_local_retention_failure_keeps_remote_retention_checkpoint();
 

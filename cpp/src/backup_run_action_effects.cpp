@@ -86,6 +86,9 @@ void recover_pending(
     IBtrfsOperations& btrfs,
     const BackupSourceRunPlan& source_plan
 ) {
+    if (source_plan.recovery.delete_remote_snapshot) {
+        btrfs.delete_subvolume(source_plan.recovery.remote_snapshot_path);
+    }
     if (source_plan.recovery.delete_local_snapshot) {
         btrfs.delete_subvolume(source_plan.recovery.local_snapshot_path);
     }
@@ -106,6 +109,7 @@ void create_local_snapshot(
         PendingMarker{
             .source_name = source_plan.source_id,
             .local_snapshot_path = source_plan.local_snapshot_path.string(),
+            .final_snapshot_path = source_plan.final_remote_snapshot_path.string(),
             .run_id = run_plan.run_id,
             .timestamp = current_utc_iso_timestamp(),
         }

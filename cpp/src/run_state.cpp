@@ -141,6 +141,7 @@ void write_pending_marker(const fs::path& profile_state_dir, const PendingMarker
     validate_identifier(marker.source_name, "source_name");
     validate_run_id(marker.run_id);
     require_absolute_path(marker.local_snapshot_path, "local_snapshot_path");
+    require_absolute_path(marker.final_snapshot_path, "final_snapshot_path");
     require_non_empty(marker.timestamp, "timestamp");
 
     fs::create_directories(profile_state_dir);
@@ -149,6 +150,7 @@ void write_pending_marker(const fs::path& profile_state_dir, const PendingMarker
     std::ostringstream content;
     content << "source_name=" << marker.source_name << '\n'
             << "local_snapshot_path=" << marker.local_snapshot_path << '\n'
+            << "final_snapshot_path=" << marker.final_snapshot_path << '\n'
             << "run_id=" << marker.run_id << '\n'
             << "timestamp=" << marker.timestamp << '\n';
 

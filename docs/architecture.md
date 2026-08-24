@@ -131,15 +131,19 @@ Only then is the subvolume moved into the final snapshot directory. The move hap
 
 ## Interrupted Runs
 
-Before creating a local snapshot, the runtime writes a private `pending-<source>` file in the profile state directory under `STATE_DIR/profiles/<PROFILE_ID>`. On the next run, it:
+Before creating a local snapshot, the runtime writes a private `pending-<source>` file in the profile state directory under `STATE_DIR/profiles/<PROFILE_ID>`. The marker records both the local snapshot path and its planned final target path. On the next run, it:
 
 1. checks whether the local snapshot still exists;
-2. searches the target for a subvolume with a matching `Received UUID`;
-3. preserves the local snapshot if the remote commit already happened;
-4. removes an orphaned snapshot or keeps it according to `KEEP_FAILED_LOCAL_SNAPSHOT`;
-5. cleans stale `.incoming` data.
+2. removes a snapshot left at that exact final path if its `Received UUID` does not match the pending local snapshot;
+3. searches the target for a subvolume with a matching `Received UUID`;
+4. preserves the local snapshot if the remote commit already happened;
+5. removes an orphaned snapshot or keeps it according to `KEEP_FAILED_LOCAL_SNAPSHOT`;
+6. cleans stale `.incoming` data.
 
 If the target becomes unavailable while handling an error, the local snapshot and pending marker are preserved. The next successful target connection resolves them.
+If final-snapshot verification and its immediate cleanup both fail, the run
+reports `repository.recovery_required`; recovery keeps the marker until the
+invalid final snapshot and any configured local cleanup have succeeded.
 
 ## Incremental Parent
 
