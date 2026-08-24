@@ -32,12 +32,23 @@ void render_tree(const Profile& profile, const fs::path& output_dir) {
     fs::path root = output_dir / "etc" / "btrfs-backup";
     atomic_write(root / "profiles" / profile.id / "profile.json", dump_json(profile_to_json(profile)), 0600);
     atomic_write(output_dir / "etc" / "udev" / "rules.d" / ("99-btrfs-backup-" + profile.id + ".rules"), render_udev(profile), 0644);
+    atomic_write(
+        output_dir / "etc" / "systemd" / "system" / ("btrfs-backup@" + profile.id + ".service.d") / "target-mount.conf",
+        render_mount_dependency(profile),
+        0644
+    );
     Json public_profile = profile_to_json(profile);
     public_profile["generatedAt"] = iso_now();
     atomic_write(output_dir / "var" / "lib" / "btrfs-backup" / "public" / "profiles" / (profile.id + ".json"), dump_json(public_profile), 0644);
 }
 
-void save_tree(const Profile& profile, const fs::path& etc_root, const fs::path& udev_root, const fs::path& public_root) {
+void save_tree(
+    const Profile& profile,
+    const fs::path& etc_root,
+    const fs::path& udev_root,
+    const fs::path& systemd_root,
+    const fs::path& public_root
+) {
     fs::path source_root = map_etc_path(profile.paths.sources_dir, etc_root);
     atomic_write(etc_root / "profiles" / profile.id / "profile.json", dump_json(profile_to_json(profile)), 0600);
     if (fs::exists(source_root)) {
@@ -50,6 +61,11 @@ void save_tree(const Profile& profile, const fs::path& etc_root, const fs::path&
         fs::rename(source_root, source_root.parent_path() / (source_root.filename().string() + ".backup-" + stamp));
     }
     atomic_write(udev_root / ("99-btrfs-backup-" + profile.id + ".rules"), render_udev(profile), 0644);
+    atomic_write(
+        systemd_root / ("btrfs-backup@" + profile.id + ".service.d") / "target-mount.conf",
+        render_mount_dependency(profile),
+        0644
+    );
     Json public_profile = profile_to_json(profile);
     public_profile["generatedAt"] = iso_now();
     atomic_write(public_root / (profile.id + ".json"), dump_json(public_profile), 0644);

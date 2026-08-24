@@ -11,6 +11,7 @@ SOURCE_LOOP=""
 TARGET_LOOP=""
 SOURCE_MOUNT=/mnt/bb-real-source
 TARGET_MOUNT=/mnt/bb-real-target
+TARGET_STAGING_MOUNT=/mnt/bb-real-target-staging
 MAPPER_NAME=bb-real-target
 MAPPER_PATH="/dev/mapper/$MAPPER_NAME"
 PASSPHRASE_FILE="$TEST_ROOT/luks.pass"
@@ -19,15 +20,17 @@ RENDERED_CONFIG="$TEST_ROOT/rendered"
 LOG_DIR="$TEST_ROOT/logs"
 RUN_LOG="$LOG_DIR/btrfs-backup.log"
 PROFILE_JSON=/etc/btrfs-backup/profiles/default/profile.json
+EJECT_COMPLETION_COUNT=0
 
 cleanup() {
     set +e
     umount -R "$TARGET_MOUNT" 2>/dev/null
+    umount -R "$TARGET_STAGING_MOUNT" 2>/dev/null
     cryptsetup close "$MAPPER_NAME" 2>/dev/null
     umount -R "$SOURCE_MOUNT" 2>/dev/null
     [[ -n "$TARGET_LOOP" ]] && losetup -d "$TARGET_LOOP" 2>/dev/null
     [[ -n "$SOURCE_LOOP" ]] && losetup -d "$SOURCE_LOOP" 2>/dev/null
-    rm -rf -- "$TEST_ROOT" "$SOURCE_MOUNT" "$TARGET_MOUNT"
+    rm -rf -- "$TEST_ROOT" "$SOURCE_MOUNT" "$TARGET_MOUNT" "$TARGET_STAGING_MOUNT"
 }
 trap cleanup EXIT
 
@@ -105,6 +108,7 @@ configure_backup_with_cli() {
         profile \
         --etc-root "$RENDERED_CONFIG/config" \
         --udev-root "$RENDERED_CONFIG/udev" \
+        --systemd-root "$RENDERED_CONFIG/systemd" \
         --public-root "$RENDERED_CONFIG/public/profiles" \
         save --file "$RENDERED_CONFIG/config/profile.json" >/dev/null
     btrfs-backupctl installation render \
@@ -119,7 +123,12 @@ configure_backup_with_cli() {
     install -m0600 "$RENDERED_CONFIG/config/profile.json" /etc/btrfs-backup/profiles/default/profile.json
     install -Dm0644 "$RENDERED_CONFIG/systemd/btrfs-backup.service" /etc/systemd/system/btrfs-backup.service
     install -Dm0644 "$RENDERED_CONFIG/systemd/btrfs-backup@.service" /etc/systemd/system/btrfs-backup@.service
+    install -Dm0644 "$RENDERED_CONFIG/systemd/btrfs-backup-eject@.service" /etc/systemd/system/btrfs-backup-eject@.service
+    install -Dm0644 \
+        "$RENDERED_CONFIG/systemd/btrfs-backup@default.service.d/target-mount.conf" \
+        /etc/systemd/system/btrfs-backup@default.service.d/target-mount.conf
     install -Dm0644 "$RENDERED_CONFIG/udev/99-btrfs-backup-default.rules" /etc/udev/rules.d/99-btrfs-backup-default.rules
+    systemctl daemon-reload
     btrfs-backupctl installation validate --active --profile default >/dev/null
     PROFILE_JSON=/etc/btrfs-backup/profiles/default/profile.json
     [[ -f "$PROFILE_JSON" ]] || fail 'configuration did not create default profile JSON'
@@ -311,6 +320,107 @@ trusted_hook_security_test() {
     pass 'runtime executes only pinned root-owned hooks from trusted directories'
 }
 
+systemd_security_audit() {
+    local security_log="$LOG_DIR/systemd-security.log"
+
+    if ! "$ROOT/tests/systemd/check-security.sh" \
+        /etc/systemd/system/btrfs-backup@.service > "$security_log" 2>&1; then
+        cat -- "$security_log" >&2
+        fail 'systemd security exposure exceeds the accepted threshold'
+    fi
+    grep -Fq 'Overall exposure level' "$security_log" \
+        || fail 'systemd security audit did not report an exposure level'
+    pass 'systemd security audit accepts the installed profile service'
+}
+
+wait_for_eject_service() {
+    local completion_count
+    local state
+
+    for _ in $(seq 1 100); do
+        completion_count="$(journalctl --no-pager -u btrfs-backup-eject@default.service -o cat \
+            | grep -Fc 'Finished Safely eject Btrfs backup target for profile default.' || true)"
+        state="$(systemctl show -P ActiveState btrfs-backup-eject@default.service)"
+        if (( completion_count > EJECT_COMPLETION_COUNT )) && [[ "$state" == 'inactive' ]]; then
+            EJECT_COMPLETION_COUNT="$completion_count"
+            return
+        fi
+        sleep 0.1
+    done
+    systemctl status --no-pager btrfs-backup-eject@default.service >&2 || true
+    fail 'timed out waiting for the target eject service'
+}
+
+sandboxed_systemd_service_test() {
+    local mount_unit
+    local mount_unit_path
+    mount_unit="$(systemd-escape -p --suffix=mount "$TARGET_MOUNT")"
+    mount_unit_path="/etc/systemd/system/$mount_unit"
+    printf 'systemd sandbox\n' >> "$SOURCE_MOUNT/home/file-a.txt"
+    sync
+    install -d -m0755 "$TARGET_STAGING_MOUNT"
+    mount --move "$TARGET_MOUNT" "$TARGET_STAGING_MOUNT"
+    if findmnt -n -M "$TARGET_MOUNT" >/dev/null 2>&1; then
+        fail 'target remained mounted before sandboxed service test'
+    fi
+    {
+        printf '[Unit]\nDescription=Disposable bind mount for sandbox test\n\n'
+        printf '[Mount]\nWhat=%s\nWhere=%s\nType=none\nOptions=bind\n' \
+            "$TARGET_STAGING_MOUNT" "$TARGET_MOUNT"
+    } > "$mount_unit_path"
+    systemctl daemon-reload
+    [[ "$(systemctl show -P NoNewPrivileges btrfs-backup@default.service)" == 'yes' ]] \
+        || fail 'systemd did not apply NoNewPrivileges'
+    [[ "$(systemctl show -P ProtectSystem btrfs-backup@default.service)" == 'full' ]] \
+        || fail 'systemd did not apply ProtectSystem=full'
+    [[ "$(systemctl show -P MemoryDenyWriteExecute btrfs-backup@default.service)" == 'yes' ]] \
+        || fail 'systemd did not apply MemoryDenyWriteExecute'
+    if ! systemctl start btrfs-backup@default.service; then
+        systemctl status --no-pager btrfs-backup@default.service >&2 || true
+        systemctl status --no-pager "$mount_unit" >&2 || true
+        journalctl --no-pager -u btrfs-backup@default.service -n 100 >&2 || true
+        fail 'sandboxed systemd service failed'
+    fi
+    wait_for_eject_service
+
+    [[ "$(systemctl show -P Result btrfs-backup@default.service)" == 'success' ]] \
+        || fail 'sandboxed systemd service did not finish successfully'
+    findmnt -n -M "$TARGET_MOUNT" >/dev/null \
+        || fail 'sandboxed runner did not start or observe the target mount unit'
+    grep -q '"state": "succeeded"' /var/lib/btrfs-backup/history/default/last.json \
+        || fail 'sandboxed service did not publish successful history'
+    assert_remote_matches_latest_local
+    assert_no_incoming_children
+    pass 'sandboxed systemd service completes a real Btrfs backup'
+}
+
+sandboxed_auto_eject_test() {
+    local mount_unit
+    mount_unit="$(systemd-escape -p --suffix=mount "$TARGET_MOUNT")"
+
+    systemctl stop "$mount_unit"
+    rm -f -- "/etc/systemd/system/$mount_unit"
+    printf '[Unit]\n' > /etc/systemd/system/btrfs-backup@default.service.d/target-mount.conf
+    systemctl daemon-reload
+    mount --move "$TARGET_STAGING_MOUNT" "$TARGET_MOUNT"
+    sed -i 's/"autoEject": false/"autoEject": true/' "$PROFILE_JSON"
+    printf 'automatic eject\n' >> "$SOURCE_MOUNT/home/file-a.txt"
+    sync
+    if ! systemctl start btrfs-backup@default.service; then
+        systemctl status --no-pager btrfs-backup@default.service >&2 || true
+        journalctl --no-pager -u btrfs-backup@default.service -n 100 >&2 || true
+        fail 'sandboxed service failed before automatic eject'
+    fi
+    wait_for_eject_service
+    [[ "$(systemctl show -P Result btrfs-backup-eject@default.service)" == 'success' ]] \
+        || fail 'target eject service did not finish successfully'
+    if findmnt -n -M "$TARGET_MOUNT" >/dev/null 2>&1; then
+        fail 'target remained mounted after the eject service'
+    fi
+    [[ ! -e "$MAPPER_PATH" ]] || fail 'LUKS mapper remained open after the eject service'
+    pass 'automatic eject runs outside the backup mount namespace'
+}
+
 validate_runtime_preflight() {
     INVOCATION_ID=real-docker-test btrfs-backup --validate --no-eject >/dev/null
 }
@@ -370,7 +480,7 @@ missing_incremental_parent_test() {
 }
 
 require_root
-require_commands btrfs cryptsetup dd diff find findmnt losetup mkfs.btrfs mknod mount pacman perl seq sha256sum stat systemd-escape tee truncate
+require_commands btrfs cryptsetup dd diff dmsetup find findmnt losetup mkfs.btrfs mknod mount pacman perl seq sha256sum stat systemd-escape tee truncate
 ensure_loop_devices
 
 install -d -m0755 "$SOURCE_MOUNT" "$TARGET_MOUNT"
@@ -389,6 +499,9 @@ TARGET_LOOP="$(losetup --find --show "$TARGET_IMAGE")"
 mkfs.btrfs -q -f "$SOURCE_LOOP"
 cryptsetup luksFormat --batch-mode --type luks2 --key-file "$PASSPHRASE_FILE" "$TARGET_LOOP"
 cryptsetup open --key-file "$PASSPHRASE_FILE" "$TARGET_LOOP" "$MAPPER_NAME"
+udevadm settle --timeout=10
+dmsetup mknodes "$MAPPER_NAME"
+[[ -b "$MAPPER_PATH" ]] || fail "cryptsetup mapper was not created: $MAPPER_PATH"
 mkfs.btrfs -q -f "$MAPPER_PATH"
 
 mount -o noatime,compress=zstd:3 "$SOURCE_LOOP" "$SOURCE_MOUNT"
@@ -470,5 +583,8 @@ recover_interrupted_before_receive
 recover_interrupted_after_commit
 restore_latest_snapshot
 trusted_hook_security_test
+systemd_security_audit
+sandboxed_systemd_service_test
+sandboxed_auto_eject_test
 
 printf 'Real Btrfs integration test completed in %s\n' "$TEST_ROOT"
