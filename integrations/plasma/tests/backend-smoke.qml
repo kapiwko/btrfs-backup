@@ -22,8 +22,12 @@ Window {
             }
             if (typeof status.cancel !== "undefined"
                     || typeof status.canCancel !== "undefined"
-                    || typeof status.safeToRemove !== "undefined") {
+                    || typeof status.safeToRemove !== "undefined"
+                    || typeof status.connected !== "undefined") {
                 Qt.exit(3)
+            }
+            if (typeof status.watcherConnected !== "boolean") {
+                Qt.exit(4)
             }
             Qt.exit(0)
         }

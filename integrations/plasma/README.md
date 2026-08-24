@@ -14,6 +14,10 @@ btrfs-backupctl status watch --profile default --json
 QML only binds to C++ properties. It does not execute shell command strings and
 does not parse textual CLI output.
 
+`watcherConnected` reports whether the temporary status-watcher process is
+running. It must not be interpreted as target-device connectivity; that will
+come from the future system backend.
+
 The current plasmoid is status-only. Privileged controls such as cancellation
 are intentionally absent until they can use the planned system D-Bus API and
 polkit authorization.

@@ -17,7 +17,9 @@
 6. live transfer speed now uses a three-second EWMA and status updates are
    interval-limited instead of requiring one durable write per splice;
 7. run-status schema version 2 removes `safeToRemove`; the Plasma widget no
-   longer presents backup completion as target eject state.
+   longer presents backup completion as target eject state;
+8. the Plasma backend now names its CLI process state `watcherConnected`,
+   reserving target connectivity for the future system backend.
 
 ## 0.2.1 - 2026-08-23
 
