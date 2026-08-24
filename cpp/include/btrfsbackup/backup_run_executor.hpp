@@ -34,7 +34,6 @@ struct BackupRunEvent {
     std::uint64_t bytes_total_estimated = 0;
     std::uint64_t run_bytes_transferred = 0;
     std::uint64_t delta_bytes = 0;
-    std::uint64_t pending_bytes = 0;
     std::uint64_t elapsed_ms = 0;
     std::uint64_t speed_bps = 0;
     std::string error_code;

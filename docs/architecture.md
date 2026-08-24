@@ -91,6 +91,13 @@ wired with `posix_spawn_file_actions`, and each producer and consumer starts in
 its own process group through `POSIX_SPAWN_SETPGROUP`. The existing poll-based
 transfer loop retains ownership of streaming, diagnostics, cancellation, and
 child reaping without running allocator or other C++ code in a post-fork child.
+The producer stream is moved directly between the producer stdout pipe and the
+consumer stdin pipe with nonblocking `splice(2)`. Payload bytes do not enter the
+runner's userspace memory, while each successful splice still supplies an exact
+byte count for progress reporting. Kernel pipe capacity provides bounded
+backpressure when the consumer is slower. Readiness latches prevent a busy loop
+when only one side can make progress, and the poll loop retains ownership of
+diagnostics, cancellation, and child reaping.
 
 ## Commit Model
 

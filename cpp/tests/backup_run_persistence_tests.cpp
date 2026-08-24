@@ -33,7 +33,6 @@ btrfsbackup::BackupRunEvent event(btrfsbackup::BackupRunEventKind kind) {
         .bytes_total_estimated = 8192,
         .run_bytes_transferred = 12288,
         .delta_bytes = 1024,
-        .pending_bytes = 4096,
         .elapsed_ms = 2000,
         .speed_bps = 2048,
         .message = "test message",
@@ -65,7 +64,6 @@ void test_build_event_json() {
     test_helpers::expect_true("estimated bytes", data.at("bytesTotalEstimated") == 8192, "wrong estimated bytes");
     test_helpers::expect_true("run bytes", data.at("runBytesTransferred") == 12288, "wrong run bytes");
     test_helpers::expect_true("delta bytes", data.at("deltaBytes") == 1024, "wrong delta bytes");
-    test_helpers::expect_true("pending bytes", data.at("pendingBytes") == 4096, "wrong pending bytes");
     test_helpers::expect_true("elapsed", data.at("elapsedMs") == 2000, "wrong elapsed");
     test_helpers::expect_true("speed", data.at("speedBps") == 2048, "wrong speed");
 }

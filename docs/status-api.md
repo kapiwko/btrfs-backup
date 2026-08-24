@@ -103,8 +103,8 @@ fields use `0` or `-1` as documented below:
 | `safeToRemove` | whether the target was logically unmounted and closed |
 
 The status `details` object for `transferring` includes lower-level diagnostics:
-`bytesProduced`, `bytesTransferred`, `deltaBytes`, `pendingBytes`, `elapsedMs`,
-and `speedBps`. Clients must treat progress as advisory. Unknown or estimated
+`bytesProduced`, `bytesTransferred`, `deltaBytes`, `elapsedMs`, and `speedBps`.
+Clients must treat progress as advisory. Unknown or estimated
 progress must not be displayed as a precise guarantee.
 
 When a source byte total is unknown, `sourceProgress` remains `-1`.
