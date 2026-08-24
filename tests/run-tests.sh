@@ -156,6 +156,7 @@ render_test() {
     assert_contains "$output/systemd/btrfs-backup@laptop.service.d/target-mount.conf" 'RequiresMountsFor="/mnt/backup"'
     assert_contains "$output/systemd/btrfs-backup.service" 'RequiresMountsFor="/mnt/backup"'
     assert_contains "$output/config/fstab.fragment" 'noauto'
+    assert_contains "$output/config/fstab.fragment" 'nodev,nosuid,noexec,nosymfollow'
     assert_contains "$output/config/fstab.fragment" 'x-systemd.requires=systemd-cryptsetup@backupdisk.service'
     if grep -R -q '{{' "$output"; then
         fail 'rendered output contains unresolved placeholders'

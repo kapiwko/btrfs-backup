@@ -18,9 +18,9 @@ Unattended backup of Btrfs subvolumes to an encrypted removable disk. The projec
 ## Requirements
 
 The project primarily targets Arch Linux and derivatives. The native runtime
-requires Linux 5.6 or newer for `openat2`, Btrfs userspace tools, systemd/udev,
-cryptsetup, `coreutils` (for `sync`), and `util-linux`. Repository build,
-release, and test scripts use Bash.
+requires Linux 5.10 or newer for `openat2` and `nosymfollow`, Btrfs userspace
+tools, systemd/udev, cryptsetup, `coreutils` (for `sync`), and `util-linux`.
+Repository build, release, and test scripts use Bash.
 
 Source builds require:
 

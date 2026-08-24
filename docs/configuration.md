@@ -192,7 +192,10 @@ The keyfile should be owned by root and use mode `0600`. Using `none` may requir
 
 ## fstab
 
-The generated entry uses `/dev/mapper/<name>`, `noauto`, and a dependency on the cryptsetup unit. After manually merging the fragments, run:
+The generated entry uses `/dev/mapper/<name>`, `noauto`, `nodev`, `nosuid`,
+`noexec`, `nosymfollow`, and a dependency on the cryptsetup unit. The runtime
+rejects a target mount missing any of these security flags. After manually
+merging the fragments, run:
 
 ```bash
 sudo systemctl daemon-reload

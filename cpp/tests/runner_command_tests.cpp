@@ -279,7 +279,7 @@ void write_mountinfo(const fs::path& path, const btrfsbackup::Profile& profile) 
         content += std::to_string(mount_id++) + " 31 0:20 / " + fs::path(source.subvolume).string() + " rw,relatime - btrfs /dev/source rw\n";
         content += std::to_string(mount_id++) + " 31 0:20 / " + fs::path(source.local_snapshot_dir).string() + " rw,relatime - btrfs /dev/source rw\n";
     }
-    content += std::to_string(mount_id) + " 31 0:21 / " + fs::path(profile.target.mount_point).string() + " rw,relatime - btrfs /dev/mapper/backup rw\n";
+    content += std::to_string(mount_id) + " 31 0:21 / " + fs::path(profile.target.mount_point).string() + " rw,relatime,nodev,nosuid,noexec,nosymfollow - btrfs /dev/mapper/backup rw\n";
     test_helpers::write_file(path, content);
 }
 

@@ -508,7 +508,7 @@ mount -o noatime,compress=zstd:3 "$SOURCE_LOOP" "$SOURCE_MOUNT"
 btrfs subvolume create "$SOURCE_MOUNT/home" >/dev/null
 install -d -m0700 "$SOURCE_MOUNT/.snapshots/home"
 
-mount -o noatime,compress=zstd:3 "$MAPPER_PATH" "$TARGET_MOUNT"
+mount -o noatime,nodev,nosuid,noexec,nosymfollow,compress=zstd:3 "$MAPPER_PATH" "$TARGET_MOUNT"
 install -d -m0700 "$TARGET_MOUNT/snapshots" "$TARGET_MOUNT/.incoming"
 
 printf 'alpha\n' > "$SOURCE_MOUNT/home/file-a.txt"
