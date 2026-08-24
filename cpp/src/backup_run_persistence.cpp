@@ -143,6 +143,7 @@ RunStatusRecord status_record_for_event(
     const BackupRunEvent& event,
     int minimum_overall_progress
 ) {
+    auto source_name = context.source_names.find(event.source_id);
     std::string state = "running";
     std::string phase = backup_run_event_kind_name(event.kind);
     std::string finished_at;
@@ -245,7 +246,8 @@ RunStatusRecord status_record_for_event(
         .state = state,
         .phase = phase,
         .message = message_for_event(event),
-        .current_source_name = event.source_id,
+        .current_source_name = source_name == context.source_names.end() ? event.source_id : source_name->second,
+        .target_name = context.target_name,
         .source_index = event.source_index,
         .source_count = context.source_count,
         .started_at = context.started_at,

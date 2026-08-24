@@ -88,7 +88,7 @@ void test_checkpoint_store_writes_private_json_in_state_dir() {
     fs::remove_all(root);
 }
 
-void test_transfer_progress_status_uses_source_index_and_run_bytes() {
+void test_public_transfer_progress_excludes_run_details() {
     fs::path root = test_helpers::test_root("backup-run-persistence", "transfer-progress");
     btrfsbackup::StatusBackupRunEventSink sink({
         .status_root = root / "status",
@@ -96,15 +96,16 @@ void test_transfer_progress_status_uses_source_index_and_run_bytes() {
         .profile_name = "Default backup",
         .source_count = 2,
         .started_at = "2026-08-23T12:00:00Z",
+        .source_names = {{"root", "@home"}, {"home", "@archive"}},
+        .target_name = "backupdisk",
     });
 
     sink.on_backup_run_event(event(btrfsbackup::BackupRunEventKind::TransferProgress));
     btrfsbackup::Json current = btrfsbackup::load_json_file(root / "status" / "default" / "current.json");
-    test_helpers::expect_true("progress source index", current.at("sourceIndex") == 1, "wrong source index");
-    test_helpers::expect_true("progress source count", current.at("sourceCount") == 2, "wrong source count");
-    test_helpers::expect_true("progress bytes", current.at("bytesProcessed") == 4096, "wrong source bytes");
-    test_helpers::expect_true("progress total", current.at("bytesTotalEstimated") == 8192, "wrong estimated total");
-    test_helpers::expect_true("progress run bytes", current.at("runBytesProcessed") == 12288, "wrong run bytes");
+    test_helpers::expect_true("progress source hidden", !current.contains("currentSourceName"), "public status exposes source");
+    test_helpers::expect_true("progress bytes hidden", !current.contains("bytesProcessed"), "public status exposes byte count");
+    test_helpers::expect_true("progress source label", current.at("sourceName") == "@home", "wrong source label");
+    test_helpers::expect_true("progress target label", current.at("targetName") == "backupdisk", "wrong target label");
     test_helpers::expect_true("progress source progress", current.at("sourceProgress") == 50, "wrong source progress");
     test_helpers::expect_true("progress eta", current.at("etaSeconds") == 2, "wrong ETA");
     test_helpers::expect_true("progress overall", current.at("overallProgress") == 25, "wrong overall progress");
@@ -139,7 +140,7 @@ void test_status_sink_writes_current_and_terminal_history() {
     fs::path current = root / "status" / "default" / "current.json";
     btrfsbackup::Json current_data = btrfsbackup::load_json_file(current);
     test_helpers::expect_true("current state", current_data.at("state") == "running", "wrong current state");
-    test_helpers::expect_true("current phase", current_data.at("phase") == "send-receive", "wrong current phase");
+    test_helpers::expect_true("current phase hidden", !current_data.contains("phase"), "public status exposes phase");
     test_helpers::expect_true("history absent before terminal", !fs::exists(root / "history" / "default"), "history should wait for terminal event");
 
     sink.on_backup_run_event(event(btrfsbackup::BackupRunEventKind::RunCompleted));
@@ -168,12 +169,14 @@ void test_hook_failure_status_uses_stable_error_code() {
     sink.on_backup_run_event(failed);
 
     btrfsbackup::Json current = btrfsbackup::load_json_file(root / "status" / "default" / "current.json");
+    btrfsbackup::Json history = btrfsbackup::load_json_file(root / "history" / "default" / "20260823T120000Z-123-456.json");
     test_helpers::expect_true("hook state", current.at("state") == "failed", "wrong state");
-    test_helpers::expect_true("hook phase", current.at("phase") == "before-snapshot-hook", "wrong phase");
-    test_helpers::expect_true("hook error code", current.at("errorCode") == "hook.before_snapshot_failed", "wrong error code");
-    test_helpers::expect_true("hook recoverable", current.at("recoverable") == true, "hook failures should be recoverable");
-    test_helpers::expect_true("hook action", current.at("details").at("action") == "before-snapshot-hook", "wrong action detail");
-    test_helpers::expect_true("hook suggested action", current.at("suggestedAction") == "inspect-hook-program", "wrong suggested action");
+    test_helpers::expect_true("hook public error code", current.at("errorCode") == "backup.failed", "wrong public error code");
+    test_helpers::expect_true("hook phase", history.at("phase") == "before-snapshot-hook", "wrong phase");
+    test_helpers::expect_true("hook error code", history.at("errorCode") == "hook.before_snapshot_failed", "wrong error code");
+    test_helpers::expect_true("hook recoverable", history.at("recoverable") == true, "hook failures should be recoverable");
+    test_helpers::expect_true("hook action", history.at("details").at("action") == "before-snapshot-hook", "wrong action detail");
+    test_helpers::expect_true("hook suggested action", history.at("suggestedAction") == "inspect-hook-program", "wrong suggested action");
 
     fs::remove_all(root);
 }
@@ -196,10 +199,12 @@ void test_repository_recovery_required_status_is_actionable() {
     sink.on_backup_run_event(failed);
 
     btrfsbackup::Json current = btrfsbackup::load_json_file(root / "status" / "default" / "current.json");
+    btrfsbackup::Json history = btrfsbackup::load_json_file(root / "history" / "default" / "20260823T120000Z-123-456.json");
     test_helpers::expect_true("recovery state", current.at("state") == "failed", "wrong state");
-    test_helpers::expect_true("recovery error code", current.at("errorCode") == "repository.recovery_required", "wrong error code");
-    test_helpers::expect_true("recovery recoverable", current.at("recoverable") == true, "repository recovery should be recoverable");
-    test_helpers::expect_true("recovery suggested action", current.at("suggestedAction") == "run-backup-recovery", "wrong suggested action");
+    test_helpers::expect_true("recovery public error code", current.at("errorCode") == "backup.failed", "wrong public error code");
+    test_helpers::expect_true("recovery error code", history.at("errorCode") == "repository.recovery_required", "wrong error code");
+    test_helpers::expect_true("recovery recoverable", history.at("recoverable") == true, "repository recovery should be recoverable");
+    test_helpers::expect_true("recovery suggested action", history.at("suggestedAction") == "run-backup-recovery", "wrong suggested action");
 
     fs::remove_all(root);
 }
@@ -211,7 +216,7 @@ int main() {
     test_build_event_json();
     test_checkpoint_store_writes_private_json_in_state_dir();
     test_status_sink_writes_current_and_terminal_history();
-    test_transfer_progress_status_uses_source_index_and_run_bytes();
+    test_public_transfer_progress_excludes_run_details();
     test_hook_failure_status_uses_stable_error_code();
     test_repository_recovery_required_status_is_actionable();
 

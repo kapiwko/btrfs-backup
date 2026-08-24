@@ -1,9 +1,8 @@
 #include <btrfsbackup/profile_store.hpp>
 
-#include <chrono>
-#include <ctime>
 #include <filesystem>
 #include <string>
+#include <utility>
 
 #include <btrfsbackup/file_io.hpp>
 #include <btrfsbackup/json_io.hpp>
@@ -16,14 +15,18 @@ namespace btrfsbackup {
 
 namespace {
 
-std::string iso_now() {
-    auto now = std::chrono::system_clock::now();
-    std::time_t t = std::chrono::system_clock::to_time_t(now);
-    std::tm tm{};
-    gmtime_r(&t, &tm);
-    char buffer[32];
-    std::strftime(buffer, sizeof(buffer), "%Y-%m-%dT%H:%M:%S+00:00", &tm);
-    return buffer;
+Json public_profile_json(const Profile& profile) {
+    Json sources = Json::array();
+    for (const auto& source : profile.sources) {
+        sources.push_back({{"id", source.id}, {"name", source.name}});
+    }
+    return {
+        {"schemaVersion", 1},
+        {"profileId", profile.id},
+        {"name", profile.name},
+        {"target", {{"name", profile.target.mapper_name}}},
+        {"sources", std::move(sources)},
+    };
 }
 
 } // namespace
@@ -37,9 +40,11 @@ void render_tree(const Profile& profile, const fs::path& output_dir) {
         render_mount_dependency(profile),
         0644
     );
-    Json public_profile = profile_to_json(profile);
-    public_profile["generatedAt"] = iso_now();
-    atomic_write(output_dir / "var" / "lib" / "btrfs-backup" / "public" / "profiles" / (profile.id + ".json"), dump_json(public_profile), 0644);
+    atomic_write(
+        output_dir / "var" / "lib" / "btrfs-backup" / "public" / "profiles" / (profile.id + ".json"),
+        dump_json(public_profile_json(profile)),
+        0644
+    );
 }
 
 void save_tree(
@@ -66,9 +71,7 @@ void save_tree(
         render_mount_dependency(profile),
         0644
     );
-    Json public_profile = profile_to_json(profile);
-    public_profile["generatedAt"] = iso_now();
-    atomic_write(public_root / (profile.id + ".json"), dump_json(public_profile), 0644);
+    atomic_write(public_root / (profile.id + ".json"), dump_json(public_profile_json(profile)), 0644);
 }
 
 } // namespace btrfsbackup

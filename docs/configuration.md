@@ -25,6 +25,10 @@ btrfs-backupctl profile export --profile default --output profile.json
 The systemd drop-in orders the profile's target mount before the sandboxed
 service starts. Run `systemctl daemon-reload` after saving a profile.
 
+The public profile contains only `profileId`, the profile display name, the
+target label derived from `target.mapperName`, and source ids/display names.
+It excludes devices, UUIDs, mount points, paths, retention settings, and hooks.
+
 `btrfs-backupctl profile wizard` follows the same model: it renders
 `profile.json` first and then materializes derived files from that JSON.
 
@@ -67,9 +71,10 @@ Important fields:
 | `sources[].localRetention` | source-specific local retention override |
 
 A retention value of `0` disables automatic pruning for that scope.
-`paths.statusRoot` and `paths.historyRoot` are intended for unprivileged status
-readers. Private recovery markers remain in
-`paths.stateDir/profiles/<profileId>`.
+`paths.statusRoot` contains reduced current status for unprivileged readers.
+`paths.historyRoot` contains root-only diagnostic history; its directories use
+mode `0700` and its JSON files use mode `0600`. Private recovery markers remain
+in `paths.stateDir/profiles/<profileId>`.
 
 ## JSON Schema
 
@@ -78,8 +83,8 @@ versioned, machine-readable profile model for tooling.
 
 The profile model defines encrypted target identity, state paths, retention
 settings, application-consistency hooks, and source definitions. Core publishes
-status/history and logs through the system service, while desktop presentation
-belongs to the KDE integration.
+reduced current status and writes private history and logs, while desktop
+presentation belongs to the KDE integration.
 It is intended for generators, validators, and future migration tooling.
 
 ## Source Definitions

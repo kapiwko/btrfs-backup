@@ -12,7 +12,7 @@ must not infer that a successful run means the device is safe to disconnect.
 The broader engine boundary is described in
 [engine-contract.md](engine-contract.md).
 
-## Current Status
+## Public Current Status
 
 Current status is written atomically to:
 
@@ -20,153 +20,42 @@ Current status is written atomically to:
 /run/btrfs-backup/profiles/<PROFILE_ID>/current.json
 ```
 
-The root directory can be overridden with `paths.statusRoot` in the runtime profile JSON.
-The status directory is intended to be readable by unprivileged local users.
-After a oneshot service exits, systemd may remove the runtime directory. In
-that case, `btrfs-backupctl status show --profile <profile>` falls back to
-`/var/lib/btrfs-backup/history/<PROFILE_ID>/last.json` when it exists.
-
-Example:
+The root can be overridden with `paths.statusRoot`. This file is readable by
+unprivileged local users, so schema version 3 contains only presentation-safe
+state and progress:
 
 ```json
 {
-  "schemaVersion": 2,
-  "profileId": "default",
-  "profileName": "Default backup",
-  "runId": "20260823T024407Z-4298-30158",
+  "schemaVersion": 3,
   "state": "running",
-  "phase": "transferring",
-  "message": "Transferring snapshot for home.",
-  "currentSourceName": "home",
-  "sourceIndex": 1,
-  "sourceCount": 1,
-  "startedAt": "2026-08-23T02:44:07+00:00",
-  "updatedAt": "2026-08-23T02:44:07+00:00",
-  "finishedAt": "",
   "errorCode": "",
-  "errorMessage": "",
-  "details": {},
-  "recoverable": false,
-  "suggestedAction": "",
-  "canCancel": false,
-  "exitCode": 0
+  "sourceName": "@home",
+  "targetName": "backupdisk",
+  "speedBps": 104857600,
+  "etaSeconds": 42,
+  "sourceProgress": 50,
+  "overallProgress": 25,
+  "progressAccuracy": "estimated"
 }
 ```
 
-`state` is one of:
+`state` reports lifecycle values such as `starting`, `running`, `validated`,
+`skipped`, `succeeded`, `failed`, `cancelled`, and `exited`. `errorCode` is
+empty for normal states, `backup.failed` for failures, and `backup.cancelled`
+for cancellation. Specific errors are private.
 
-```text
-starting
-running
-validated
-skipped
-succeeded
-failed
-exited
-```
+Progress values use `-1` when unknown. `progressAccuracy` is `exact`,
+`estimated`, or `indeterminate`. `speedBps` uses a three-second exponentially
+weighted moving average, while `etaSeconds` is an estimate. Clients must not
+present estimated progress as an exact guarantee.
 
-`phase` is a stable, machine-readable step name such as:
+`sourceName` and `targetName` are presentation labels from the sanitized public
+profile. They must never be populated from device paths, mount points, UUIDs,
+or snapshot paths. The public document deliberately excludes run ids, phases,
+messages, timestamps, paths, UUIDs, byte totals, detailed error codes,
+diagnostic details, recovery guidance, and exit codes.
 
-```text
-starting
-mounting-target
-validating-target
-validating-source
-creating-snapshot
-selecting-parent
-transferring
-committing
-pruning
-succeeded
-failed
-validated
-skipped
-```
-
-Transfer progress fields are present in every status document. During a live
-transfer, byte and speed fields are updated from the native transfer pipeline.
-The backup executor starts transfers through an asynchronous handle and forwards
-progress events from that running transfer into the status writer. Transfer
-completion and cancellation are handled through pollable file descriptors rather
-than sleep-based polling in the executor.
-When no transfer is active or a value cannot be estimated, numeric progress
-fields use `0` or `-1` as documented below:
-
-| Field | Meaning |
-|---|---|
-| `currentSourceId` | stable id of the currently processed source |
-| `sourceProgress` | percentage for the current source, or `-1` when unknown |
-| `overallProgress` | percentage for the whole run, or `-1` when unknown |
-| `progressAccuracy` | `exact`, `estimated`, or `indeterminate` |
-| `bytesProcessed` | bytes delivered to the receive process in the current stream |
-| `bytesTotalEstimated` | estimated total bytes for the current stream, or `0` when unknown |
-| `runBytesProcessed` | cumulative bytes delivered in the current run, including prior sources |
-| `speedBps` | current transfer speed in bytes per second |
-| `etaSeconds` | estimated seconds remaining, or `-1` when unknown |
-| `canCancel` | whether the active run accepts cancellation; not proof that the current caller is authorized |
-
-The status `details` object for `transferring` includes lower-level diagnostics:
-`bytesProduced`, `bytesTransferred`, `deltaBytes`, `elapsedMs`, and `speedBps`.
-Clients must treat progress as advisory. Unknown or estimated
-progress must not be displayed as a precise guarantee.
-
-Live `speedBps` uses a three-second exponentially weighted moving average of
-recent transfer samples. Periodic progress is published every 500 milliseconds,
-plus a final sample when needed to account for bytes since the last interval.
-This makes the UI responsive to changing throughput without reflecting every
-short pipe burst. The completed transfer result retains the full-transfer
-average.
-
-When a source byte total is unknown, `sourceProgress` remains `-1`.
-`overallProgress` gives each source an equal share of the run and includes the
-fractional progress of the current source. It remains monotonic through actions
-after the transfer and does not reset between sources. Byte-oriented clients
-should prefer `runBytesProcessed` for a monotonic run-level counter.
-When the runtime can walk the local snapshot, `bytesTotalEstimated` is populated
-from the apparent size of regular files in that snapshot. This is an estimate,
-not the exact Btrfs send stream size, especially for incremental sends, reflinks
-and compression. In that case `sourceProgress` and `etaSeconds` are useful for
-orientation but must remain labelled as estimated.
-
-When `canCancel` is `true`, an authorized administrative client may request
-cancellation with:
-
-```bash
-btrfs-backupctl runner cancel --profile <PROFILE_ID>
-```
-
-The command writes a private cancellation request in the profile state
-directory. The active runner observes that request, asks the transfer pipeline
-to stop, and then removes the handled request. A cancelled run finishes with
-`state` set to `cancelled` and stable `errorCode` `runner.cancelled`.
-SIGINT and SIGTERM delivered to an executing runner request the same controlled
-cancellation path.
-
-The public flag does not grant access to the root-owned active profile or its
-private state directory. Unprivileged desktop clients must not offer this CLI
-operation based only on `canCancel`; Plasma control will use the planned system
-D-Bus API and polkit authorization.
-
-Runtime failures use stable error codes instead of requiring clients to parse
-the diagnostic text:
-
-| Code | Meaning |
-|---|---|
-| `transfer.producer_failed` | the send side failed |
-| `transfer.consumer_failed` | the receive side failed |
-| `transfer.producer_consumer_failed` | both transfer processes failed |
-| `transfer.failed` | the pipeline failed without a side-specific cause |
-| `repository.recovery_required` | final snapshot verification and its immediate cleanup both failed; pending recovery is required |
-| `hook.before_snapshot_failed` | a pre-snapshot hook failed or could not be started |
-| `hook.after_snapshot_failed` | a post-snapshot hook failed or could not be started |
-| `hook.before_snapshot_timeout` | a pre-snapshot hook exceeded `timeoutSeconds` |
-| `hook.after_snapshot_timeout` | a post-snapshot hook exceeded `timeoutSeconds` |
-
-`repository.recovery_required` is recoverable and uses suggested action
-`run-backup-recovery`. The private pending marker remains authoritative; status
-clients must not infer that the canonical snapshot is usable.
-
-## History
+## Private History
 
 Finished runs are written atomically to:
 
@@ -175,43 +64,34 @@ Finished runs are written atomically to:
 /var/lib/btrfs-backup/history/<PROFILE_ID>/last.json
 ```
 
-The root directory can be overridden with `paths.historyRoot` in the runtime profile JSON.
-History entries use the same schema as `current.json`, with `finishedAt` and
-the final `exitCode` populated.
-History is intended to be readable by unprivileged local users; private recovery
-state remains under `STATE_DIR/profiles/<PROFILE_ID>`.
-`btrfs-backupctl status history` returns an empty JSON array when no history exists yet.
+The root and per-profile directories use mode `0700`; JSON entries use mode
+`0600`. History retains diagnostic schema version 2 with the complete record,
+including names, run id, phase, messages, timestamps, detailed error code,
+`details`, recovery guidance, byte counters, and exit code. Reading history
+requires root or a future authorized system API.
 
 ## CLI
 
-Use `btrfs-backupctl` to inspect the file-based status API:
+Unprivileged clients can inspect and watch current status:
 
 ```bash
 btrfs-backupctl status show --profile default
-btrfs-backupctl status show --profile default --human
-btrfs-backupctl status show --all --human
-btrfs-backupctl status history --profile default --limit 10
 btrfs-backupctl status watch --profile default --interval 1
 ```
 
-`status watch` emits the full status JSON object whenever
-`current.json` changes. It validates that the object uses `schemaVersion: 2`
-and contains the status API fields documented above before writing it to
-stdout.
-
-For tests or chrooted environments, the roots can be overridden:
+History commands require root:
 
 ```bash
-btrfs-backupctl \
-  --status-root /tmp/run/profiles \
-  --history-root /tmp/history \
-  status show --profile default
+sudo btrfs-backupctl status history --profile default --limit 10
 ```
+
+`status watch` validates schema version 3 before emitting a changed public
+document. A root `status show` invocation may fall back to private `last.json`
+after systemd removes the runtime directory.
 
 ## Compatibility
 
-The run-status JSON uses `schemaVersion: 2`. Version 2 removes the former
-`safeToRemove` field because eject state does not belong to a backup-run record.
-Future compatible changes may add fields. Clients should ignore unknown fields
-and treat missing optional fields as unavailable. A future `TargetStatus` will
-use a separate document or system API contract backed by the eject operation.
+Public current status uses schema version 3. Private history retains schema
+version 2. These are separate contracts; consumers must not expect diagnostic
+history fields in public current status. A future `TargetStatus` will use a
+separate document or authorized system API.

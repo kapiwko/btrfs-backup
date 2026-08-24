@@ -69,6 +69,7 @@ RunStatusRecord sample_record() {
         .phase = "succeeded",
         .message = "Backup completed.",
         .current_source_name = "Home",
+        .target_name = "backupdisk",
         .source_index = 1,
         .source_count = 2,
         .started_at = "2026-08-23T02:44:07+00:00",
@@ -98,6 +99,7 @@ void test_build_status_json_matches_contract_shape() {
     expect_true("phase", data.at("phase") == "succeeded", "wrong phase");
     expect_true("message", data.at("message") == "Backup completed.", "wrong message");
     expect_true("source", data.at("currentSourceName") == "Home", "wrong currentSourceName");
+    expect_true("target", data.at("targetName") == "backupdisk", "wrong targetName");
     expect_true("source index", data.at("sourceIndex") == 1, "wrong sourceIndex");
     expect_true("source count", data.at("sourceCount") == 2, "wrong sourceCount");
     expect_true("started", data.at("startedAt") == "2026-08-23T02:44:07+00:00", "wrong startedAt");
@@ -148,6 +150,37 @@ void test_build_status_json_includes_structured_error() {
     expect_true("structured can cancel", data.at("canCancel") == true, "wrong canCancel");
 }
 
+void test_build_public_status_json_excludes_diagnostics() {
+    RunStatusRecord record = sample_record();
+    record.state = "failed";
+    record.error_code = "target.btrfs_uuid_mismatch";
+    record.error_message = "Target Btrfs UUID does not match.";
+    record.details = {{"expected", "expected-uuid"}, {"actual", "actual-uuid"}};
+    record.speed_bps = 2048;
+    record.eta_seconds = 12;
+    record.source_progress = 50;
+    record.overall_progress = 25;
+    record.progress_accuracy = "estimated";
+
+    Json data = btrfsbackup::build_public_status_json(record);
+
+    expect_true("public schema", data.at("schemaVersion") == 3, "wrong public schemaVersion");
+    expect_true("public state", data.at("state") == "failed", "wrong public state");
+    expect_true("public generic error", data.at("errorCode") == "backup.failed", "error code is not generic");
+    expect_true("public source", data.at("sourceName") == "Home", "wrong public source name");
+    expect_true("public target", data.at("targetName") == "backupdisk", "wrong public target name");
+    expect_true("public speed", data.at("speedBps") == 2048, "wrong public speed");
+    expect_true("public eta", data.at("etaSeconds") == 12, "wrong public ETA");
+    expect_true("public source progress", data.at("sourceProgress") == 50, "wrong public source progress");
+    expect_true("public overall progress", data.at("overallProgress") == 25, "wrong public overall progress");
+    expect_true("public accuracy", data.at("progressAccuracy") == "estimated", "wrong public progress accuracy");
+    for (const char* field : {"profileId", "profileName", "runId", "phase", "message", "currentSourceName",
+                              "startedAt", "updatedAt", "finishedAt", "errorMessage", "details",
+                              "recoverable", "suggestedAction", "exitCode"}) {
+        expect_true(std::string("public excludes ") + field, !data.contains(field), std::string("public status exposes ") + field);
+    }
+}
+
 void test_dump_status_json_uses_stable_order_and_newline() {
     std::string dumped = btrfsbackup::dump_status_json(sample_record());
 
@@ -163,6 +196,7 @@ void test_dump_status_json_uses_stable_order_and_newline() {
         "  \"phase\": \"succeeded\",\n"
         "  \"message\": \"Backup completed.\",\n"
         "  \"currentSourceName\": \"Home\",\n"
+        "  \"targetName\": \"backupdisk\",\n"
         "  \"sourceIndex\": 1,\n"
         "  \"sourceCount\": 2,\n"
         "  \"startedAt\": \"2026-08-23T02:44:07+00:00\",\n"
@@ -197,6 +231,8 @@ void test_write_current_status() {
     Json data = btrfsbackup::load_json_file(current);
     expect_true("current exists", fs::is_regular_file(current), "missing current.json");
     expect_true("current state", data.at("state") == "succeeded", "wrong current state");
+    expect_true("current public schema", data.at("schemaVersion") == 3, "wrong current schema");
+    expect_true("current diagnostics absent", !data.contains("runId") && !data.contains("details"), "current status exposes diagnostics");
     expect_true("current mode", mode_of(current) == 0644, "current.json should be 0644");
     expect_true("current dir mode", mode_of(current.parent_path()) == 0755, "status profile dir should be 0755");
     fs::remove_all(root);
@@ -212,9 +248,10 @@ void test_write_history_entry() {
     fs::path last_entry = history_root / "default" / "last.json";
     expect_true("run history exists", fs::is_regular_file(run_entry), "missing run history");
     expect_true("last history exists", fs::is_regular_file(last_entry), "missing last history");
-    expect_true("run mode", mode_of(run_entry) == 0644, "run history should be 0644");
-    expect_true("last mode", mode_of(last_entry) == 0644, "last history should be 0644");
-    expect_true("history dir mode", mode_of(run_entry.parent_path()) == 0755, "history profile dir should be 0755");
+    expect_true("run mode", mode_of(run_entry) == 0600, "run history should be 0600");
+    expect_true("last mode", mode_of(last_entry) == 0600, "last history should be 0600");
+    expect_true("history root mode", mode_of(history_root) == 0700, "history root should be 0700");
+    expect_true("history dir mode", mode_of(run_entry.parent_path()) == 0700, "history profile dir should be 0700");
     expect_eq("history content", btrfsbackup::dump_json(btrfsbackup::load_json_file(run_entry)), btrfsbackup::dump_json(btrfsbackup::load_json_file(last_entry)));
     fs::remove_all(root);
 }
@@ -254,6 +291,7 @@ void test_invalid_profile_does_not_create_status_directory() {
 int main() {
     test_build_status_json_matches_contract_shape();
     test_build_status_json_includes_structured_error();
+    test_build_public_status_json_excludes_diagnostics();
     test_dump_status_json_uses_stable_order_and_newline();
     test_write_current_status();
     test_write_history_entry();

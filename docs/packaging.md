@@ -95,9 +95,9 @@ The optional `btrfs-backup-kde` package installs the Plasma applet under
 
 The base package installs native ELF commands directly in `/usr/bin` and uses
 Btrfs userspace tools, cryptsetup, systemd/udev, `coreutils`, and `util-linux` at
-runtime. The base service exposes status/history and writes operational
-diagnostics to the system journal. Desktop notifications are owned by
-`btrfs-backup-kde`.
+runtime. The base service exposes reduced current status and writes private
+operational diagnostics to the system journal. Desktop notifications are owned
+by `btrfs-backup-kde`.
 
 ## Reproducibility
 

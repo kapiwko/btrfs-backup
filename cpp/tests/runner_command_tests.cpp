@@ -574,8 +574,8 @@ void test_runner_execute_serializes_shared_target_but_allows_another_target() {
     btrfsbackup::Json active_status = btrfsbackup::load_json_file(root / "status" / active_profile.id / "current.json");
     test_helpers::expect_eq(
         "active status preserved",
-        active_status.at("runId").get<std::string>(),
-        "20260823T080000Z-active"
+        active_status.at("state").get<std::string>(),
+        "running"
     );
 
     RecordingActionEffects shared_action_effects;
@@ -996,7 +996,12 @@ void test_runner_execute_transfer_failure_writes_failed_status() {
         current_json.at("state") == "failed",
         "current status should fail"
     );
-    test_helpers::expect_eq("failed transfer error code", current_json.at("errorCode").get<std::string>(), "transfer.producer_failed");
+    test_helpers::expect_eq("failed transfer public error code", current_json.at("errorCode").get<std::string>(), "backup.failed");
+    test_helpers::expect_eq(
+        "failed transfer private error code",
+        btrfsbackup::load_json_file(history).at("errorCode").get<std::string>(),
+        "transfer.producer_failed"
+    );
     test_helpers::expect_true(
         "failed history",
         btrfsbackup::load_json_file(history).at("state") == "failed",
@@ -1214,7 +1219,7 @@ void test_runner_execute_multi_source_success() {
 
     btrfsbackup::Json current = btrfsbackup::load_json_file(root / "status" / "default" / "current.json");
     test_helpers::expect_true("multi status", current.at("state") == "succeeded", "status should succeed");
-    test_helpers::expect_true("multi source count", current.at("sourceCount") == 2, "status should include both sources");
+    test_helpers::expect_true("multi source hidden", !current.contains("sourceCount"), "public status exposes source count");
 
     fs::remove_all(root);
 }
@@ -1535,7 +1540,7 @@ void test_runner_execute_honors_cancel_request_during_transfer() {
     fs::path current = root / "status" / "default" / "current.json";
     btrfsbackup::Json current_json = btrfsbackup::load_json_file(current);
     test_helpers::expect_eq("execute cancel status state", current_json.at("state").get<std::string>(), "cancelled");
-    test_helpers::expect_eq("execute cancel code", current_json.at("errorCode").get<std::string>(), "runner.cancelled");
+    test_helpers::expect_eq("execute cancel code", current_json.at("errorCode").get<std::string>(), "backup.cancelled");
     test_helpers::expect_true(
         "execute cancel request cleaned",
         !btrfsbackup::cancel_requested(profile_state_dir),
@@ -1615,7 +1620,7 @@ void test_runner_execute_handles_sigint_as_cancelled_with_recovery_marker() {
     test_helpers::expect_eq("SIGINT runner result", std::to_string(result), "1");
     test_helpers::expect_true("SIGINT cancelled result", run.at("cancelled").get<bool>(), "run should report cancellation");
     test_helpers::expect_eq("SIGINT status state", current.at("state").get<std::string>(), "cancelled");
-    test_helpers::expect_eq("SIGINT status code", current.at("errorCode").get<std::string>(), "runner.cancelled");
+    test_helpers::expect_eq("SIGINT status code", current.at("errorCode").get<std::string>(), "backup.cancelled");
     test_helpers::expect_true(
         "SIGINT recovery marker",
         fs::is_regular_file(profile_state_dir / "pending-root"),
