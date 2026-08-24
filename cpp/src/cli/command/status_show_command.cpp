@@ -1,8 +1,6 @@
 #include <btrfsbackup/cli/command/status_show_command.hpp>
 
-#include <algorithm>
 #include <filesystem>
-#include <fstream>
 #include <ostream>
 #include <string>
 #include <vector>
@@ -11,24 +9,12 @@
 #include <btrfsbackup/model/identifiers.hpp>
 #include <btrfsbackup/model/json.hpp>
 #include <btrfsbackup/model/json_io.hpp>
+#include <btrfsbackup/application/status_service.hpp>
 
 namespace fs = std::filesystem;
 using json = btrfsbackup::Json;
 
 namespace {
-
-std::string read_text_file(const fs::path& path) {
-    std::ifstream stream(path);
-    if (!stream) {
-        throw btrfsbackup::ValidationError("cannot read " + path.string());
-    }
-    return std::string(std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>());
-}
-
-bool readable_file(const fs::path& path) {
-    std::error_code ec;
-    return fs::is_regular_file(path, ec) && !ec && std::ifstream(path).good();
-}
 
 std::string string_or_empty(const json& data, const char* key) {
     auto it = data.find(key);
@@ -38,22 +24,21 @@ std::string string_or_empty(const json& data, const char* key) {
     return it->get<std::string>();
 }
 
-void print_json_file(const fs::path& path, std::ostream& output) {
-    std::string content = read_text_file(path);
-    output << content;
-    if (content.empty() || content.back() != '\n') {
+void print_json_document(const btrfsbackup::StatusDocument& document, std::ostream& output) {
+    output << document.content;
+    if (document.content.empty() || document.content.back() != '\n') {
         output << '\n';
     }
 }
 
-void print_human_status(const fs::path& path, std::ostream& output) {
-    json data = btrfsbackup::load_json_file(path);
+void print_human_status(const btrfsbackup::StatusDocument& document, std::ostream& output) {
+    const json& data = document.data;
     std::string profile = string_or_empty(data, "profileName");
     if (profile.empty()) {
         profile = string_or_empty(data, "profileId");
     }
     if (profile.empty()) {
-        profile = path.parent_path().filename().string();
+        profile = document.source.parent_path().filename().string();
     }
     std::string state = string_or_empty(data, "state");
     output << (profile.empty() ? "unknown" : profile) << ": " << (state.empty() ? "unknown" : state) << '\n';
@@ -103,46 +88,9 @@ void status_show(
         }
     }
 
-    if (all) {
-        std::vector<fs::path> files;
-        std::error_code ec;
-        if (fs::is_directory(status_root, ec) && !ec) {
-            for (const auto& profile_entry : fs::directory_iterator(status_root, ec)) {
-                if (ec) {
-                    break;
-                }
-                fs::path current = profile_entry.path() / "current.json";
-                if (readable_file(current)) {
-                    files.push_back(current);
-                }
-            }
-        }
-        std::sort(files.begin(), files.end());
-        if (files.empty()) {
-            throw ValidationError("no status files found under " + status_root.string());
-        }
-        for (const auto& path : files) {
-            if (human) {
-                print_human_status(path, output);
-            } else {
-                print_json_file(path, output);
-            }
-        }
-        return;
-    }
-
-    validate_profile_id(profile);
-    fs::path path = status_root / profile / "current.json";
-    if (!readable_file(path) && readable_file(history_root / profile / "last.json")) {
-        path = history_root / profile / "last.json";
-    }
-    if (human) {
-        if (!readable_file(path)) {
-            throw ValidationError("cannot read " + path.string());
-        }
-        print_human_status(path, output);
-    } else {
-        print_json_file(path, output);
+    for (const StatusDocument& document : get_statuses(status_root, history_root, profile, all)) {
+        if (human) print_human_status(document, output);
+        else print_json_document(document, output);
     }
 }
 
