@@ -12,7 +12,6 @@
 #include <cli/status_history_command.hpp>
 #include <cli/status_show_command.hpp>
 #include <config/identifiers.hpp>
-#include <config/json.hpp>
 #include <state/status_service.hpp>
 
 namespace fs = std::filesystem;

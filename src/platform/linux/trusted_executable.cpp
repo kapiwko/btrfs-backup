@@ -4,7 +4,6 @@
 #include <unistd.h>
 
 #include <filesystem>
-#include <string>
 
 #include <config/errors.hpp>
 #include <config/validation.hpp>

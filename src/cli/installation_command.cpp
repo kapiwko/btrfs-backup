@@ -7,7 +7,6 @@
 #include <vector>
 
 #include <cli/installation_command.hpp>
-#include <config/errors.hpp>
 #include <config/installation_service.hpp>
 
 namespace fs = std::filesystem;
