@@ -10,7 +10,7 @@
 namespace btrfsbackup {
 
 inline constexpr const char* trusted_hook_directory = "/etc/btrfs-backup/hooks.d";
-inline constexpr int current_profile_schema_version = 2;
+inline constexpr int current_profile_schema_version = 3;
 
 struct ProfileTarget {
     std::string device;
@@ -79,8 +79,8 @@ std::string env_required(const std::map<std::string, std::string>& env, const st
 bool env_bool(const std::map<std::string, std::string>& env, const std::string& name, bool default_value);
 long long env_int(const std::map<std::string, std::string>& env, const std::string& name, long long default_value);
 
-Json normalize_profile(const Json& raw);
-Profile profile_from_json(const Json& raw);
+Json normalize_profile(const Json& raw, const std::filesystem::path& target_mount_root = "/mnt/btrfs-backup");
+Profile profile_from_json(const Json& raw, const std::filesystem::path& target_mount_root = "/mnt/btrfs-backup");
 Json profile_to_json(const Profile& profile);
 
 } // namespace btrfsbackup

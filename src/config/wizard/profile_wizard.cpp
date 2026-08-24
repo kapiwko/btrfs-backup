@@ -7,6 +7,7 @@
 #include <vector>
 
 #include <config/installation_validate.hpp>
+#include <config/application_config.hpp>
 #include <config/profile.hpp>
 #include <config/wizard/profile_wizard_device.hpp>
 #include <config/wizard/profile_wizard_install.hpp>
@@ -25,6 +26,7 @@ ProfileWizardAnswers collect_answers(std::istream& input, std::ostream& output) 
     wizard::DeviceCandidate device = wizard::select_device(input, output);
 
     ProfileWizardAnswers answers;
+    answers.target_mount_root = ApplicationConfig::load().paths().target_mount_root.string();
     answers.profile_id = wizard::prompt_value(input, output, "Profile identifier", "default");
     answers.profile_name = wizard::prompt_value(input, output, "Profile display name", answers.profile_id);
 
@@ -33,7 +35,6 @@ ProfileWizardAnswers collect_answers(std::istream& input, std::ostream& output) 
     answers.target_partition_uuid = wizard::udev_property_for_device(device.path, "ID_PART_ENTRY_UUID");
     answers.target_serial = wizard::udev_property_for_device(device.path, "ID_SERIAL_SHORT");
     answers.target_mapper_name = wizard::prompt_value(input, output, "LUKS mapper name", "backupdisk");
-    answers.target_mount_point = wizard::prompt_value(input, output, "Backup mountpoint", "/mnt/backup");
     answers.target_btrfs_uuid = wizard::prompt_value(
         input,
         output,
@@ -78,7 +79,10 @@ int run_profile_wizard(const ProfileWizardOptions& options, std::istream& input,
         return 0;
     }
     if (options.action == ProfileWizardAction::validate_rendered) {
-        validate_rendered_installation(options.validate_dir);
+        validate_rendered_installation(
+            options.validate_dir,
+            ApplicationConfig::load().paths().target_mount_root
+        );
         return 0;
     }
 

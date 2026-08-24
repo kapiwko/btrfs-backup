@@ -59,6 +59,16 @@ Profile writes must use same-directory temporary files, strict permissions,
 save operations must reject output paths that point at the repository root,
 system directories, or active project configuration.
 
+Target mount points are not profile-controlled. The runtime derives each one as
+`TARGET_MOUNT_ROOT/profileId`, using `/mnt/btrfs-backup` as the default mount
+root. Before starting a mount unit it walks the complete directory chain with
+`openat2()` no-symlink resolution, requires every component to be owned by root
+and not writable by group or others, creates missing components with `mkdirat()`,
+and applies permissions with `fchmod()` on the opened mount-point descriptor.
+It never calls path-based `chmod()` for the mount point. An already mounted
+target is subjected to the same chain and ownership validation without changing
+its permissions.
+
 The shared atomic writer applies the same durable-write contract to private
 runtime state and history, and to public current status: checked temporary-file
 permissions, EINTR-safe writes, checked file `fsync` and close, checked rename,

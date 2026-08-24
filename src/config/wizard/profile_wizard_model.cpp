@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <filesystem>
 #include <set>
 
 #include <config/errors.hpp>
@@ -33,7 +34,7 @@ Profile profile_from_wizard_answers(const ProfileWizardAnswers& answers) {
     profile.target.serial = answers.target_serial;
     profile.target.mapper_name = answers.target_mapper_name;
     validate_identifier(profile.target.mapper_name, "target.mapperName");
-    profile.target.mount_point = answers.target_mount_point;
+    profile.target.mount_point = (std::filesystem::path(answers.target_mount_root) / profile.id).string();
 
     profile.paths.remote_root = profile.target.mount_point + "/snapshots";
     profile.paths.incoming_root = profile.target.mount_point + "/.incoming";
@@ -65,7 +66,7 @@ Profile profile_from_wizard_answers(const ProfileWizardAnswers& answers) {
     profile.settings.minimum_target_free_bytes = answers.minimum_target_free_bytes;
     profile.settings.minimum_local_free_bytes = answers.minimum_local_free_bytes;
 
-    return profile_from_json(profile_to_json(profile));
+    return profile_from_json(profile_to_json(profile), answers.target_mount_root);
 }
 
 } // namespace btrfsbackup

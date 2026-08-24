@@ -10,7 +10,7 @@ TARGET_IMAGE="$TEST_ROOT/target.img"
 SOURCE_LOOP=""
 TARGET_LOOP=""
 SOURCE_MOUNT=/mnt/bb-real-source
-TARGET_MOUNT=/mnt/bb-real-target
+TARGET_MOUNT=/mnt/btrfs-backup/default
 TARGET_STAGING_MOUNT=/mnt/bb-real-target-staging
 MAPPER_NAME=bb-real-target
 MAPPER_PATH="/dev/mapper/$MAPPER_NAME"
@@ -94,7 +94,6 @@ configure_backup_with_cli() {
         --luks-uuid "$luks_uuid" \
         --btrfs-uuid "$btrfs_uuid" \
         --mapper-name "$MAPPER_NAME" \
-        --mount-point "$TARGET_MOUNT" \
         --remote-retention 2 \
         --local-retention 2 \
         --daily-limit false \

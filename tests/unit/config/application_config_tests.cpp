@@ -25,6 +25,7 @@ void test_defaults_when_config_is_absent() {
     test_helpers::expect_eq("default state root", config.paths().state_root.string(), "/var/lib/btrfs-backup");
     test_helpers::expect_eq("default status root", config.paths().status_root.string(), "/run/btrfs-backup/profiles");
     test_helpers::expect_eq("default history root", config.paths().history_root.string(), "/var/lib/btrfs-backup/history");
+    test_helpers::expect_eq("default target mount root", config.paths().target_mount_root.string(), "/mnt/btrfs-backup");
     fs::remove_all(root);
 }
 
@@ -37,7 +38,8 @@ void test_loads_trusted_global_paths() {
         "SOURCES_ROOT=/srv/btrfs-backup/profiles\n"
         "STATE_ROOT=/srv/btrfs-backup/state\n"
         "STATUS_ROOT=/run/custom-btrfs-backup\n"
-        "HISTORY_ROOT=/srv/btrfs-backup/history\n",
+        "HISTORY_ROOT=/srv/btrfs-backup/history\n"
+        "TARGET_MOUNT_ROOT=/srv/btrfs-backup/mounts\n",
         0644
     );
 
@@ -46,6 +48,7 @@ void test_loads_trusted_global_paths() {
     test_helpers::expect_eq("custom state root", config.paths().state_root.string(), "/srv/btrfs-backup/state");
     test_helpers::expect_eq("custom status root", config.paths().status_root.string(), "/run/custom-btrfs-backup");
     test_helpers::expect_eq("custom history root", config.paths().history_root.string(), "/srv/btrfs-backup/history");
+    test_helpers::expect_eq("custom target mount root", config.paths().target_mount_root.string(), "/srv/btrfs-backup/mounts");
     fs::remove_all(root);
 }
 

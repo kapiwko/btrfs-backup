@@ -49,7 +49,7 @@ void test_installation_render_writes_static_files() {
     fs::path root = test_root("render");
     fs::path profile_json = root / "profile.json";
     btrfsbackup::Json profile = {
-        {"schemaVersion", 1},
+        {"schemaVersion", 3},
         {"profileId", "laptop"},
         {"name", "Laptop backup"},
         {"enabled", true},
@@ -57,8 +57,7 @@ void test_installation_render_writes_static_files() {
             {"device", "/dev/disk/by-uuid/11111111-2222-3333-4444-555555555555"},
             {"luksUuid", "11111111-2222-3333-4444-555555555555"},
             {"btrfsUuid", "66666666-7777-8888-9999-aaaaaaaaaaaa"},
-            {"mapperName", "backupdisk"},
-            {"mountPoint", "/mnt/backup"}
+            {"mapperName", "backupdisk"}
         }},
         {"sources", btrfsbackup::Json::array({
             {
@@ -91,7 +90,7 @@ void test_installation_render_writes_static_files() {
     test_helpers::expect_contains(
         "installation fstab",
         read_file(root / "rendered" / "config" / "fstab.fragment"),
-        "/dev/mapper/backupdisk  /mnt/backup  btrfs"
+        "/dev/mapper/backupdisk  /mnt/btrfs-backup/laptop  btrfs"
     );
     test_helpers::expect_contains(
         "installation fstab security options",
@@ -144,12 +143,12 @@ void test_installation_render_writes_static_files() {
     test_helpers::expect_contains(
         "installation profile mount dependency",
         read_file(root / "rendered" / "systemd" / "btrfs-backup@laptop.service.d" / "target-mount.conf"),
-        "RequiresMountsFor=\"/mnt/backup\""
+        "RequiresMountsFor=\"/mnt/btrfs-backup/laptop\""
     );
     test_helpers::expect_contains(
         "installation static service mount dependency",
         read_file(root / "rendered" / "systemd" / "btrfs-backup.service"),
-        "RequiresMountsFor=\"/mnt/backup\""
+        "RequiresMountsFor=\"/mnt/btrfs-backup/laptop\""
     );
     fs::remove_all(root);
 }
@@ -158,7 +157,7 @@ void test_installation_render_allows_explicit_backup_command_override() {
     fs::path root = test_root("render-backup-command");
     fs::path profile_json = root / "profile.json";
     btrfsbackup::Json profile = {
-        {"schemaVersion", 1},
+        {"schemaVersion", 3},
         {"profileId", "laptop"},
         {"name", "Laptop backup"},
         {"enabled", true},
@@ -166,8 +165,7 @@ void test_installation_render_allows_explicit_backup_command_override() {
             {"device", "/dev/disk/by-uuid/11111111-2222-3333-4444-555555555555"},
             {"luksUuid", "11111111-2222-3333-4444-555555555555"},
             {"btrfsUuid", "66666666-7777-8888-9999-aaaaaaaaaaaa"},
-            {"mapperName", "backupdisk"},
-            {"mountPoint", "/mnt/backup"}
+            {"mapperName", "backupdisk"}
         }},
         {"sources", btrfsbackup::Json::array({
             {

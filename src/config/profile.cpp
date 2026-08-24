@@ -20,8 +20,6 @@ namespace {
 
 const std::regex uuid_re{"^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$"};
 const std::regex serial_re{"^(|[A-Za-z0-9][A-Za-z0-9._:+-]{0,255})$"};
-const std::set<std::string> forbidden_mount_points{"/", "/boot", "/dev", "/etc", "/home", "/proc", "/root", "/run", "/sys", "/usr", "/var"};
-
 bool starts_with(const std::string& value, const std::string& prefix) {
     return value.rfind(prefix, 0) == 0;
 }
@@ -297,7 +295,7 @@ long long env_int(const std::map<std::string, std::string>& env, const std::stri
     return std::stoll(it->second);
 }
 
-Json normalize_profile(const Json& raw) {
+Json normalize_profile(const Json& raw, const fs::path& target_mount_root) {
     if (!raw.is_object()) {
         throw ValidationError("profile must be an object");
     }
@@ -310,8 +308,8 @@ Json normalize_profile(const Json& raw) {
         throw ValidationError("schemaVersion must be an integer");
     }
     int input_schema_version = raw.at("schemaVersion").get<int>();
-    if (input_schema_version != 1 && input_schema_version != current_profile_schema_version) {
-        throw ValidationError("schemaVersion must be 1 or 2");
+    if (input_schema_version < 1 || input_schema_version > current_profile_schema_version) {
+        throw ValidationError("schemaVersion must be 1, 2, or 3");
     }
     std::string profile_id = identifier(raw.at("profileId"), "profileId");
     std::string profile_name = text(raw.value("name", profile_id), "name", false, 160);
@@ -335,11 +333,18 @@ Json normalize_profile(const Json& raw) {
         throw ValidationError("target.serial contains unsupported characters");
     }
     std::string mapper_name = identifier(target.at("mapperName"), "target.mapperName");
-    std::string mount_point = absolute_path(target.at("mountPoint"), "target.mountPoint");
-    if (forbidden_mount_points.count(mount_point) > 0) {
-        throw ValidationError("target.mountPoint is unsafe: " + mount_point);
+    fs::path normalized_mount_root = normalized_absolute_path(target_mount_root, "TARGET_MOUNT_ROOT");
+    std::string mount_point = (normalized_mount_root / profile_id).string();
+    if (input_schema_version == current_profile_schema_version && target.contains("mountPoint")) {
+        throw ValidationError("target.mountPoint is application-controlled and cannot be changed");
+    }
+    if (target.contains("mountPoint") && absolute_path(target.at("mountPoint"), "target.mountPoint") != mount_point) {
+        throw ValidationError("legacy target.mountPoint does not match TARGET_MOUNT_ROOT/profileId");
     }
     std::string mount_unit = systemd_mount_unit(mount_point);
+    if (input_schema_version == current_profile_schema_version && target.contains("mountUnit")) {
+        throw ValidationError("target.mountUnit is application-controlled and cannot be changed");
+    }
     if (target.contains("mountUnit") && !target.at("mountUnit").is_null() && target.at("mountUnit") != "") {
         std::string configured_mount_unit = text(target.at("mountUnit"), "target.mountUnit", false, 256);
         if (configured_mount_unit != mount_unit) {
@@ -463,9 +468,7 @@ Json normalize_profile(const Json& raw) {
             {"btrfsUuid", btrfs_uuid},
             {"partitionUuid", partition_uuid},
             {"serial", serial},
-            {"mapperName", mapper_name},
-            {"mountPoint", mount_point},
-            {"mountUnit", mount_unit}
+            {"mapperName", mapper_name}
         }},
         {"paths", {
             {"remoteRoot", remote_root},
@@ -489,8 +492,8 @@ Json normalize_profile(const Json& raw) {
     };
 }
 
-Profile profile_from_json(const Json& raw) {
-    Json normalized = normalize_profile(raw);
+Profile profile_from_json(const Json& raw, const fs::path& target_mount_root) {
+    Json normalized = normalize_profile(raw, target_mount_root);
     Profile profile;
     profile.schema_version = normalized.at("schemaVersion").get<int>();
     profile.id = normalized.at("profileId").get<std::string>();
@@ -504,8 +507,8 @@ Profile profile_from_json(const Json& raw) {
     profile.target.partition_uuid = target.at("partitionUuid").get<std::string>();
     profile.target.serial = target.at("serial").get<std::string>();
     profile.target.mapper_name = target.at("mapperName").get<std::string>();
-    profile.target.mount_point = target.at("mountPoint").get<std::string>();
-    profile.target.mount_unit = target.at("mountUnit").get<std::string>();
+    profile.target.mount_point = (normalized_absolute_path(target_mount_root, "TARGET_MOUNT_ROOT") / profile.id).string();
+    profile.target.mount_unit = systemd_mount_unit(profile.target.mount_point);
 
     const Json& paths = normalized.at("paths");
     profile.paths.remote_root = paths.at("remoteRoot").get<std::string>();
@@ -573,12 +576,8 @@ Json profile_to_json(const Profile& profile) {
         {"btrfsUuid", profile.target.btrfs_uuid},
         {"partitionUuid", profile.target.partition_uuid},
         {"serial", profile.target.serial},
-        {"mapperName", profile.target.mapper_name},
-        {"mountPoint", profile.target.mount_point}
+        {"mapperName", profile.target.mapper_name}
     };
-    if (!profile.target.mount_unit.empty()) {
-        target["mountUnit"] = profile.target.mount_unit;
-    }
 
     auto hooks_to_json = [](const std::vector<ProfileHookCommand>& hooks) {
         Json result = Json::array();
