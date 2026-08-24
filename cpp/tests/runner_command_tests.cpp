@@ -228,12 +228,8 @@ btrfsbackup::Profile test_profile(const fs::path& root) {
     profile.target.mapper_name = "backup";
     profile.target.mount_point = (root / "target").string();
     profile.target.mount_unit = "";
-    profile.paths.sources_dir = (root / "config" / "sources.d").string();
     profile.paths.remote_root = (root / "target" / "snapshots").string();
     profile.paths.incoming_root = (root / "target" / ".incoming").string();
-    profile.paths.state_dir = (root / "state").string();
-    profile.paths.status_root = (root / "status").string();
-    profile.paths.history_root = (root / "history").string();
     profile.settings.incremental_required = false;
     profile.settings.keep_failed_local_snapshot = false;
     profile.settings.remote_retention = 2;
@@ -253,6 +249,15 @@ btrfsbackup::Profile test_profile(const fs::path& root) {
     return profile;
 }
 
+btrfsbackup::ApplicationPaths test_application_paths(const fs::path& root) {
+    return {
+        .sources_root = root / "config" / "profiles",
+        .state_root = root / "state",
+        .status_root = root / "status",
+        .history_root = root / "history",
+    };
+}
+
 void add_home_source(btrfsbackup::Profile& profile, const fs::path& root) {
     profile.sources.push_back({
         .id = "home",
@@ -270,6 +275,19 @@ void write_profile(const fs::path& config_root, const btrfsbackup::Profile& prof
     fs::path profile_path = config_root / "profiles" / profile.id / "profile.json";
     test_helpers::write_file(profile_path, btrfsbackup::profile_to_json(profile).dump(2));
     chmod(profile_path.c_str(), 0600);
+}
+
+void write_application_config(const fs::path& config_root, const fs::path& root) {
+    fs::path config_path = config_root / "btrfs-backup.conf";
+    test_helpers::write_file(
+        config_path,
+        "CONFIG_VERSION=1\n"
+        "SOURCES_ROOT=" + (root / "config" / "profiles").string() + "\n"
+        "STATE_ROOT=" + (root / "state").string() + "\n"
+        "STATUS_ROOT=" + (root / "status").string() + "\n"
+        "HISTORY_ROOT=" + (root / "history").string() + "\n"
+    );
+    chmod(config_path.c_str(), 0600);
 }
 
 void write_mountinfo(const fs::path& path, const btrfsbackup::Profile& profile) {
@@ -293,7 +311,7 @@ std::string profile_fingerprint(const fs::path& config_root, const btrfsbackup::
 
 void write_matching_last_success(const fs::path& config_root, const btrfsbackup::Profile& profile) {
     btrfsbackup::write_success_state(
-        fs::path(profile.paths.state_dir) / "profiles" / profile.id,
+        config_root.parent_path() / "state" / "profiles" / profile.id,
         btrfsbackup::SuccessState{
             .date = "2026-08-23",
             .timestamp = "2026-08-23T08:00:00+02:00",
@@ -430,6 +448,7 @@ void test_runner_execute_rejects_busy_profile_before_target_access() {
         .action_effects = action_effects,
         .transfer_pipeline = transfer_pipeline,
         .lock_root = lock_root,
+        .application_config = btrfsbackup::ApplicationConfig(test_application_paths(root)),
     };
     std::ostringstream output;
     int result = btrfsbackup::command::runner(
@@ -505,6 +524,7 @@ void test_runner_execute_serializes_shared_target_but_allows_another_target() {
         .action_effects = active_action_effects,
         .transfer_pipeline = active_transfer_pipeline,
         .lock_root = lock_root,
+        .application_config = btrfsbackup::ApplicationConfig(test_application_paths(root)),
     };
     std::ostringstream active_output;
     int active_result = -1;
@@ -547,6 +567,7 @@ void test_runner_execute_serializes_shared_target_but_allows_another_target() {
         .action_effects = same_profile_action_effects,
         .transfer_pipeline = same_profile_transfer_pipeline,
         .lock_root = lock_root,
+        .application_config = btrfsbackup::ApplicationConfig(test_application_paths(root)),
     };
     std::ostringstream same_profile_output;
     int same_profile_result = btrfsbackup::command::runner(
@@ -584,6 +605,7 @@ void test_runner_execute_serializes_shared_target_but_allows_another_target() {
         .action_effects = shared_action_effects,
         .transfer_pipeline = shared_transfer_pipeline,
         .lock_root = lock_root,
+        .application_config = btrfsbackup::ApplicationConfig(test_application_paths(root)),
     };
     std::ostringstream shared_output;
     int shared_result = btrfsbackup::command::runner(
@@ -619,6 +641,7 @@ void test_runner_execute_serializes_shared_target_but_allows_another_target() {
         .action_effects = other_action_effects,
         .transfer_pipeline = other_transfer_pipeline,
         .lock_root = lock_root,
+        .application_config = btrfsbackup::ApplicationConfig(test_application_paths(root)),
     };
     std::ostringstream other_output;
     int other_result = btrfsbackup::command::runner(
@@ -680,6 +703,7 @@ void test_runner_execute_uses_injected_services_and_writes_state() {
         .action_effects = action_effects,
         .transfer_pipeline = transfer_pipeline,
         .lock_root = root / "locks",
+        .application_config = btrfsbackup::ApplicationConfig(test_application_paths(root)),
     };
 
     std::ostringstream output;
@@ -763,6 +787,7 @@ void test_runner_execute_daily_limit_skips_matching_success() {
         .action_effects = action_effects,
         .transfer_pipeline = transfer_pipeline,
         .lock_root = root / "locks",
+        .application_config = btrfsbackup::ApplicationConfig(test_application_paths(root)),
     };
 
     std::ostringstream output;
@@ -836,6 +861,7 @@ void test_runner_execute_force_ignores_daily_limit() {
         .action_effects = action_effects,
         .transfer_pipeline = transfer_pipeline,
         .lock_root = root / "locks",
+        .application_config = btrfsbackup::ApplicationConfig(test_application_paths(root)),
     };
 
     std::ostringstream output;
@@ -894,6 +920,7 @@ void test_runner_execute_validate_builds_plan_without_effects() {
         .action_effects = action_effects,
         .transfer_pipeline = transfer_pipeline,
         .lock_root = root / "locks",
+        .application_config = btrfsbackup::ApplicationConfig(test_application_paths(root)),
     };
 
     std::ostringstream output;
@@ -953,6 +980,7 @@ void test_runner_execute_transfer_failure_writes_failed_status() {
         .action_effects = action_effects,
         .transfer_pipeline = transfer_pipeline,
         .lock_root = root / "locks",
+        .application_config = btrfsbackup::ApplicationConfig(test_application_paths(root)),
     };
 
     std::ostringstream output;
@@ -1032,6 +1060,7 @@ void test_runner_execute_commit_failure_writes_failed_status() {
         .action_effects = action_effects,
         .transfer_pipeline = transfer_pipeline,
         .lock_root = root / "locks",
+        .application_config = btrfsbackup::ApplicationConfig(test_application_paths(root)),
     };
 
     std::ostringstream output;
@@ -1103,6 +1132,7 @@ void test_runner_execute_verify_failure_writes_failed_status() {
         .action_effects = action_effects,
         .transfer_pipeline = transfer_pipeline,
         .lock_root = root / "locks",
+        .application_config = btrfsbackup::ApplicationConfig(test_application_paths(root)),
     };
 
     std::ostringstream output;
@@ -1176,6 +1206,7 @@ void test_runner_execute_multi_source_success() {
         .action_effects = action_effects,
         .transfer_pipeline = transfer_pipeline,
         .lock_root = root / "locks",
+        .application_config = btrfsbackup::ApplicationConfig(test_application_paths(root)),
     };
 
     std::ostringstream output;
@@ -1252,6 +1283,7 @@ void test_runner_execute_incremental_uses_selected_parent() {
         .action_effects = action_effects,
         .transfer_pipeline = transfer_pipeline,
         .lock_root = root / "locks",
+        .application_config = btrfsbackup::ApplicationConfig(test_application_paths(root)),
         .snapshot_metadata_reader = [&metadata](const fs::path& path) {
             return metadata.read(path);
         },
@@ -1329,6 +1361,7 @@ void test_runner_execute_retention_plans_local_and_remote_deletes() {
         .action_effects = action_effects,
         .transfer_pipeline = transfer_pipeline,
         .lock_root = root / "locks",
+        .application_config = btrfsbackup::ApplicationConfig(test_application_paths(root)),
         .snapshot_metadata_reader = [&metadata](const fs::path& path) {
             return metadata.read(path);
         },
@@ -1412,6 +1445,7 @@ void test_runner_execute_pending_recovery_deletes_orphan() {
         .action_effects = action_effects,
         .transfer_pipeline = transfer_pipeline,
         .lock_root = root / "locks",
+        .application_config = btrfsbackup::ApplicationConfig(test_application_paths(root)),
         .snapshot_metadata_reader = [&metadata](const fs::path& path) {
             return metadata.read(path);
         },
@@ -1459,6 +1493,7 @@ void test_runner_cancel_writes_cancel_request_without_target_mount() {
     btrfsbackup::Profile profile = test_profile(root);
     fs::path config_root = root / "config";
     write_profile(config_root, profile);
+    write_application_config(config_root, root);
 
     std::ostringstream output;
     int result = btrfsbackup::command::runner(
@@ -1506,6 +1541,7 @@ void test_runner_execute_honors_cancel_request_during_transfer() {
         .action_effects = action_effects,
         .transfer_pipeline = transfer_pipeline,
         .lock_root = root / "locks",
+        .application_config = btrfsbackup::ApplicationConfig(test_application_paths(root)),
     };
 
     std::ostringstream output;
@@ -1572,6 +1608,7 @@ void test_runner_execute_handles_sigint_as_cancelled_with_recovery_marker() {
         .action_effects = action_effects,
         .transfer_pipeline = transfer_pipeline,
         .lock_root = root / "locks",
+        .application_config = btrfsbackup::ApplicationConfig(test_application_paths(root)),
     };
     btrfsbackup::CancellationToken cancellation;
     btrfsbackup::TerminationSignalMonitor termination_signals(cancellation);

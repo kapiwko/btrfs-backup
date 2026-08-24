@@ -6,7 +6,7 @@
   "additionalProperties": false,
   "required": ["schemaVersion", "profileId", "name", "enabled", "target", "paths", "settings", "sources"],
   "properties": {
-    "schemaVersion": { "const": 1 },
+    "schemaVersion": { "const": 2 },
     "profileId": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$" },
     "name": { "type": "string", "minLength": 1, "maxLength": 160 },
     "enabled": { "type": "boolean" },
@@ -28,14 +28,10 @@
     "paths": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["sourcesDir", "remoteRoot", "incomingRoot", "stateDir", "statusRoot", "historyRoot"],
+      "required": ["remoteRoot", "incomingRoot"],
       "properties": {
-        "sourcesDir": { "$ref": "#/$defs/absolutePath" },
         "remoteRoot": { "$ref": "#/$defs/absolutePath" },
-        "incomingRoot": { "$ref": "#/$defs/absolutePath" },
-        "stateDir": { "$ref": "#/$defs/absolutePath" },
-        "statusRoot": { "$ref": "#/$defs/absolutePath" },
-        "historyRoot": { "$ref": "#/$defs/absolutePath" }
+        "incomingRoot": { "$ref": "#/$defs/absolutePath" }
       }
     },
     "settings": {

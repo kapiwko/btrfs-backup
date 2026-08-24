@@ -10,6 +10,7 @@
 namespace btrfsbackup {
 
 inline constexpr const char* trusted_hook_directory = "/etc/btrfs-backup/hooks.d";
+inline constexpr int current_profile_schema_version = 2;
 
 struct ProfileTarget {
     std::string device;
@@ -23,12 +24,8 @@ struct ProfileTarget {
 };
 
 struct ProfilePaths {
-    std::string sources_dir;
     std::string remote_root;
     std::string incoming_root;
-    std::string state_dir;
-    std::string status_root;
-    std::string history_root;
 };
 
 struct ProfileSettings {
@@ -65,7 +62,7 @@ struct ProfileSource {
 };
 
 struct Profile {
-    int schema_version = 1;
+    int schema_version = current_profile_schema_version;
     std::string id;
     std::string name;
     bool enabled = true;
@@ -82,7 +79,6 @@ std::string env_required(const std::map<std::string, std::string>& env, const st
 bool env_bool(const std::map<std::string, std::string>& env, const std::string& name, bool default_value);
 long long env_int(const std::map<std::string, std::string>& env, const std::string& name, long long default_value);
 
-std::filesystem::path map_etc_path(const std::string& path, const std::filesystem::path& etc_root);
 Json normalize_profile(const Json& raw);
 Profile profile_from_json(const Json& raw);
 Json profile_to_json(const Profile& profile);

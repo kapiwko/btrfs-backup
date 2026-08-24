@@ -20,9 +20,10 @@ Current status is written atomically to:
 /run/btrfs-backup/profiles/<PROFILE_ID>/current.json
 ```
 
-The root can be overridden with `paths.statusRoot`. This file is readable by
-unprivileged local users, so schema version 3 contains only presentation-safe
-state and progress:
+The runtime writer root can be overridden only by the trusted global
+`STATUS_ROOT` setting in `/etc/btrfs-backup.conf`, never by a profile. This file
+is readable by unprivileged local users, so schema version 3 contains only
+presentation-safe state and progress:
 
 ```json
 {

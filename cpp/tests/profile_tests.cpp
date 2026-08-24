@@ -49,7 +49,7 @@ void expect_validation_error(const std::string& name, const std::function<void()
 
 Json valid_profile() {
     return {
-        {"schemaVersion", 1},
+        {"schemaVersion", 2},
         {"profileId", "default"},
         {"name", "Default backup"},
         {"enabled", true},
@@ -63,12 +63,8 @@ Json valid_profile() {
             {"mountPoint", "/mnt/backup"}
         }},
         {"paths", {
-            {"sourcesDir", "/etc/btrfs-backup/profiles/default/sources.d"},
             {"remoteRoot", "/mnt/backup/snapshots"},
-            {"incomingRoot", "/mnt/backup/.incoming"},
-            {"stateDir", "/var/lib/btrfs-backup"},
-            {"statusRoot", "/run/btrfs-backup/profiles"},
-            {"historyRoot", "/var/lib/btrfs-backup/history"}
+            {"incomingRoot", "/mnt/backup/.incoming"}
         }},
         {"settings", {
             {"dailyLimit", true},
@@ -134,6 +130,41 @@ void test_profile_round_trips_normalized_json() {
     expect_true("profile model id", profile.id == "default", "wrong profile id");
     expect_true("profile model source", profile.sources.size() == 1 && profile.sources.at(0).id == "home", "wrong profile source");
     expect_true("profile model round trip", round_trip == normalized, "typed profile did not preserve normalized JSON");
+}
+
+void test_profile_migrates_safe_legacy_system_paths() {
+    Json legacy = valid_profile();
+    legacy["schemaVersion"] = 1;
+    legacy["paths"]["sourcesDir"] = "/etc/btrfs-backup/profiles/default/sources.d";
+    legacy["paths"]["stateDir"] = "/var/lib/btrfs-backup";
+    legacy["paths"]["statusRoot"] = "/run/btrfs-backup/profiles";
+    legacy["paths"]["historyRoot"] = "/var/lib/btrfs-backup/history";
+
+    Json normalized = btrfsbackup::normalize_profile(legacy);
+    expect_true("legacy migrated schema", normalized.at("schemaVersion") == 2, "legacy profile was not migrated");
+    expect_true("legacy sourcesDir removed", !normalized.at("paths").contains("sourcesDir"), "sourcesDir remains public");
+    expect_true("legacy stateDir removed", !normalized.at("paths").contains("stateDir"), "stateDir remains public");
+    expect_true("legacy statusRoot removed", !normalized.at("paths").contains("statusRoot"), "statusRoot remains public");
+    expect_true("legacy historyRoot removed", !normalized.at("paths").contains("historyRoot"), "historyRoot remains public");
+}
+
+void test_profile_rejects_system_path_overrides() {
+    Json current = valid_profile();
+    current["paths"]["statusRoot"] = "/etc";
+    expect_validation_error(
+        "current system path",
+        [&] { btrfsbackup::normalize_profile(current); },
+        "paths.statusRoot is not supported"
+    );
+
+    Json legacy = valid_profile();
+    legacy["schemaVersion"] = 1;
+    legacy["paths"]["statusRoot"] = "/etc";
+    expect_validation_error(
+        "legacy system path",
+        [&] { btrfsbackup::normalize_profile(legacy); },
+        "paths.statusRoot is application-controlled"
+    );
 }
 
 void test_profile_rejects_removed_notifications() {
@@ -284,7 +315,6 @@ void test_typed_store_renders_tree() {
 void test_typed_store_saves_tree() {
     fs::path root = test_root();
     btrfsbackup::Profile profile = btrfsbackup::profile_from_json(valid_profile());
-    profile.paths.sources_dir = "/etc/btrfs-backup/profiles/default/sources.d";
 
     btrfsbackup::save_tree(
         profile,
@@ -328,6 +358,8 @@ int main() {
     test_rejects_non_dev_target();
     test_rejects_nested_roots();
     test_profile_round_trips_normalized_json();
+    test_profile_migrates_safe_legacy_system_paths();
+    test_profile_rejects_system_path_overrides();
     test_profile_rejects_removed_notifications();
     test_profile_hooks_round_trip_as_explicit_program_arguments();
     test_profile_rejects_unsafe_hook_shape();

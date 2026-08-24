@@ -1,0 +1,6 @@
+# Global paths used by privileged btrfs-backup processes.
+CONFIG_VERSION=1
+SOURCES_ROOT=/etc/btrfs-backup/profiles
+STATE_ROOT=/var/lib/btrfs-backup
+STATUS_ROOT=/run/btrfs-backup/profiles
+HISTORY_ROOT=/var/lib/btrfs-backup/history

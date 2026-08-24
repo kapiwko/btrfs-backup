@@ -63,6 +63,7 @@ void test_schema_requires_cpp_required_fields() {
     Json root = schema();
 
     expect_no_additional_properties("schema top additional", root);
+    test_helpers::expect_true("schema version", root.at("properties").at("schemaVersion").at("const") == 2, "profile schema must be version 2");
     expect_required("schema top schemaVersion", root, "schemaVersion");
     expect_required("schema top profileId", root, "profileId");
     expect_required("schema top target", root, "target");
@@ -82,8 +83,13 @@ void test_schema_requires_cpp_required_fields() {
     expect_no_additional_properties("schema paths additional", paths);
     expect_required("schema paths remote", paths, "remoteRoot");
     expect_required("schema paths incoming", paths, "incomingRoot");
-    expect_required("schema paths status", paths, "statusRoot");
-    expect_required("schema paths history", paths, "historyRoot");
+    for (const std::string& key : {"sourcesDir", "stateDir", "statusRoot", "historyRoot"}) {
+        test_helpers::expect_true(
+            "schema hides system path " + key,
+            !paths.at("properties").contains(key),
+            "system paths must not be configurable profile properties"
+        );
+    }
 
     const Json& settings = root.at("properties").at("settings");
     expect_no_additional_properties("schema settings additional", settings);

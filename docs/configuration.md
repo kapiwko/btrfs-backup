@@ -53,9 +53,6 @@ Important fields:
 | `target.mountUnit` | `.mount` unit matching the mount point |
 | `paths.remoteRoot` | directory for committed snapshots on the target |
 | `paths.incomingRoot` | directory for uncommitted receives |
-| `paths.stateDir` | base state directory; per-profile state lives under `profiles/<profileId>` |
-| `paths.statusRoot` | root directory for per-profile `current.json` runtime status |
-| `paths.historyRoot` | root directory for per-profile run history JSON |
 | `settings.remoteRetention` | default number of remote snapshots; `0` means unlimited |
 | `settings.localRetention` | default number of local snapshots |
 | `settings.dailyLimit` | at most one successful backup per local day for unchanged configuration |
@@ -71,17 +68,37 @@ Important fields:
 | `sources[].localRetention` | source-specific local retention override |
 
 A retention value of `0` disables automatic pruning for that scope.
-`paths.statusRoot` contains reduced current status for unprivileged readers.
-`paths.historyRoot` contains root-only diagnostic history; its directories use
-mode `0700` and its JSON files use mode `0600`. Private recovery markers remain
-in `paths.stateDir/profiles/<profileId>`.
+
+## Global Application Configuration
+
+Privileged filesystem roots are not profile properties. They are loaded from
+the optional root-owned file `/etc/btrfs-backup.conf`:
+
+```ini
+CONFIG_VERSION=1
+SOURCES_ROOT=/etc/btrfs-backup/profiles
+STATE_ROOT=/var/lib/btrfs-backup
+STATUS_ROOT=/run/btrfs-backup/profiles
+HISTORY_ROOT=/var/lib/btrfs-backup/history
+```
+
+The parser accepts only these `KEY=VALUE` entries and comments beginning with
+`#`; it never executes the file as shell code. The file must be owned by root,
+must not be a symbolic link, and must not be writable by group or other users
+(`0644` is accepted). If it is absent, the values shown above are used.
+
+`STATUS_ROOT` contains reduced current status for unprivileged readers.
+`HISTORY_ROOT` contains root-only diagnostic history; its directories use mode
+`0700` and its JSON files use mode `0600`. Private recovery markers remain in
+`STATE_ROOT/profiles/<profileId>`. `SOURCES_ROOT` is reserved for per-profile
+source-definition migration and storage managed by the application.
 
 ## JSON Schema
 
 `config/profile.example.json` and `config/profile.schema.json` define a
 versioned, machine-readable profile model for tooling.
 
-The profile model defines encrypted target identity, state paths, retention
+The profile model defines encrypted target identity, target-relative paths, retention
 settings, application-consistency hooks, and source definitions. Core publishes
 reduced current status and writes private history and logs, while desktop
 presentation belongs to the KDE integration.

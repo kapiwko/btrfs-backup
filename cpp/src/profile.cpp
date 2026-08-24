@@ -18,7 +18,6 @@ namespace btrfsbackup {
 
 namespace {
 
-constexpr int schema_version = 1;
 const std::regex uuid_re{"^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$"};
 const std::regex serial_re{"^(|[A-Za-z0-9][A-Za-z0-9._:+-]{0,255})$"};
 const std::set<std::string> forbidden_mount_points{"/", "/boot", "/dev", "/etc", "/home", "/proc", "/root", "/run", "/sys", "/usr", "/var"};
@@ -298,28 +297,6 @@ long long env_int(const std::map<std::string, std::string>& env, const std::stri
     return std::stoll(it->second);
 }
 
-fs::path map_etc_path(const std::string& path, const fs::path& etc_root) {
-    fs::path configured(path);
-    fs::path default_root("/etc/btrfs-backup");
-    auto normalized = configured.lexically_normal();
-    auto root_normalized = default_root.lexically_normal();
-    auto root_it = root_normalized.begin();
-    auto path_it = normalized.begin();
-    for (; root_it != root_normalized.end() && path_it != normalized.end(); ++root_it, ++path_it) {
-        if (*root_it != *path_it) {
-            return configured;
-        }
-    }
-    if (root_it == root_normalized.end()) {
-        fs::path suffix;
-        for (; path_it != normalized.end(); ++path_it) {
-            suffix /= *path_it;
-        }
-        return etc_root / suffix;
-    }
-    return configured;
-}
-
 Json normalize_profile(const Json& raw) {
     if (!raw.is_object()) {
         throw ValidationError("profile must be an object");
@@ -329,8 +306,12 @@ Json normalize_profile(const Json& raw) {
         {"schemaVersion", "profileId", "name", "enabled", "target", "paths", "settings", "hooks", "sources"},
         "profile"
     );
-    if (!raw.contains("schemaVersion") || raw.at("schemaVersion") != schema_version) {
-        throw ValidationError("schemaVersion must be 1");
+    if (!raw.contains("schemaVersion") || !raw.at("schemaVersion").is_number_integer()) {
+        throw ValidationError("schemaVersion must be an integer");
+    }
+    int input_schema_version = raw.at("schemaVersion").get<int>();
+    if (input_schema_version != 1 && input_schema_version != current_profile_schema_version) {
+        throw ValidationError("schemaVersion must be 1 or 2");
     }
     std::string profile_id = identifier(raw.at("profileId"), "profileId");
     std::string profile_name = text(raw.value("name", profile_id), "name", false, 160);
@@ -367,17 +348,28 @@ Json normalize_profile(const Json& raw) {
     }
 
     Json paths = object_or_empty(raw, "paths", "paths");
-    reject_unknown_properties(
-        paths,
-        {"sourcesDir", "remoteRoot", "incomingRoot", "stateDir", "statusRoot", "historyRoot"},
-        "paths"
-    );
-    std::string sources_dir = absolute_path(paths.value("sourcesDir", "/etc/btrfs-backup/profiles/" + profile_id + "/sources.d"), "paths.sourcesDir");
+    if (input_schema_version == 1) {
+        reject_unknown_properties(
+            paths,
+            {"sourcesDir", "remoteRoot", "incomingRoot", "stateDir", "statusRoot", "historyRoot"},
+            "paths"
+        );
+        const std::vector<std::pair<std::string, std::string>> legacy_system_paths{
+            {"sourcesDir", "/etc/btrfs-backup/profiles/" + profile_id + "/sources.d"},
+            {"stateDir", "/var/lib/btrfs-backup"},
+            {"statusRoot", "/run/btrfs-backup/profiles"},
+            {"historyRoot", "/var/lib/btrfs-backup/history"},
+        };
+        for (const auto& [key, fixed_value] : legacy_system_paths) {
+            if (paths.contains(key) && absolute_path(paths.at(key), "paths." + key) != fixed_value) {
+                throw ValidationError("paths." + key + " is application-controlled and cannot be changed");
+            }
+        }
+    } else {
+        reject_unknown_properties(paths, {"remoteRoot", "incomingRoot"}, "paths");
+    }
     std::string remote_root = absolute_path(paths.value("remoteRoot", mount_point + "/snapshots"), "paths.remoteRoot");
     std::string incoming_root = absolute_path(paths.value("incomingRoot", mount_point + "/.incoming"), "paths.incomingRoot");
-    std::string state_dir = absolute_path(paths.value("stateDir", "/var/lib/btrfs-backup"), "paths.stateDir");
-    std::string status_root = absolute_path(paths.value("statusRoot", "/run/btrfs-backup/profiles"), "paths.statusRoot");
-    std::string history_root = absolute_path(paths.value("historyRoot", "/var/lib/btrfs-backup/history"), "paths.historyRoot");
     if (remote_root == incoming_root || starts_with(remote_root, incoming_root + "/") || starts_with(incoming_root, remote_root + "/")) {
         throw ValidationError("paths.remoteRoot and paths.incomingRoot must be separate non-nested paths");
     }
@@ -461,7 +453,7 @@ Json normalize_profile(const Json& raw) {
     }
 
     return {
-        {"schemaVersion", schema_version},
+        {"schemaVersion", current_profile_schema_version},
         {"profileId", profile_id},
         {"name", profile_name},
         {"enabled", enabled},
@@ -476,12 +468,8 @@ Json normalize_profile(const Json& raw) {
             {"mountUnit", mount_unit}
         }},
         {"paths", {
-            {"sourcesDir", sources_dir},
             {"remoteRoot", remote_root},
-            {"incomingRoot", incoming_root},
-            {"stateDir", state_dir},
-            {"statusRoot", status_root},
-            {"historyRoot", history_root}
+            {"incomingRoot", incoming_root}
         }},
         {"settings", {
             {"dailyLimit", boolean_value(settings, "dailyLimit", "settings.dailyLimit", true)},
@@ -520,12 +508,8 @@ Profile profile_from_json(const Json& raw) {
     profile.target.mount_unit = target.at("mountUnit").get<std::string>();
 
     const Json& paths = normalized.at("paths");
-    profile.paths.sources_dir = paths.at("sourcesDir").get<std::string>();
     profile.paths.remote_root = paths.at("remoteRoot").get<std::string>();
     profile.paths.incoming_root = paths.at("incomingRoot").get<std::string>();
-    profile.paths.state_dir = paths.at("stateDir").get<std::string>();
-    profile.paths.status_root = paths.at("statusRoot").get<std::string>();
-    profile.paths.history_root = paths.at("historyRoot").get<std::string>();
 
     const Json& settings = normalized.at("settings");
     profile.settings.daily_limit = settings.at("dailyLimit").get<bool>();
@@ -610,18 +594,14 @@ Json profile_to_json(const Profile& profile) {
     };
 
     return {
-        {"schemaVersion", profile.schema_version},
+        {"schemaVersion", current_profile_schema_version},
         {"profileId", profile.id},
         {"name", profile.name},
         {"enabled", profile.enabled},
         {"target", target},
         {"paths", {
-            {"sourcesDir", profile.paths.sources_dir},
             {"remoteRoot", profile.paths.remote_root},
-            {"incomingRoot", profile.paths.incoming_root},
-            {"stateDir", profile.paths.state_dir},
-            {"statusRoot", profile.paths.status_root},
-            {"historyRoot", profile.paths.history_root}
+            {"incomingRoot", profile.paths.incoming_root}
         }},
         {"settings", {
             {"dailyLimit", profile.settings.daily_limit},

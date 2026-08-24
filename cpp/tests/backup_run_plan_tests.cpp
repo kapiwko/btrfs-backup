@@ -19,7 +19,6 @@ btrfsbackup::Profile profile() {
     result.target.btrfs_uuid = "target-fs";
     result.paths.remote_root = "/mnt/backup/snapshots";
     result.paths.incoming_root = "/mnt/backup/.incoming";
-    result.paths.state_dir = "/var/lib/btrfs-backup";
     result.settings.incremental_required = true;
     result.settings.keep_failed_local_snapshot = false;
     result.sources = {
@@ -135,6 +134,7 @@ void test_builds_ordered_source_plan() {
         remote,
         {},
         {},
+        "/var/lib/btrfs-backup/profiles/default",
         "20260823T080000Z-123-456",
         "2026-08-23T080000Z"
     );
@@ -175,6 +175,7 @@ void test_inserts_snapshot_hooks_around_snapshot_creation() {
         {},
         {},
         {},
+        "/var/lib/btrfs-backup/profiles/default",
         "20260823T080000Z-123-456",
         "2026-08-23T080000Z"
     );
@@ -213,6 +214,7 @@ void test_plans_collision_suffix_and_retention() {
         {},
         {},
         {},
+        "/var/lib/btrfs-backup/profiles/default",
         "20260823T080000Z-123-456",
         "2026-08-23T080000Z"
     );
@@ -257,6 +259,7 @@ void test_includes_pending_recovery_action() {
         {},
         markers,
         pending_snapshots,
+        "/var/lib/btrfs-backup/profiles/default",
         "20260823T080000Z-123-456",
         "2026-08-23T080000Z"
     );
@@ -317,6 +320,7 @@ void test_excludes_recovery_deletions_from_retention() {
         {},
         markers,
         pending_snapshots,
+        "/var/lib/btrfs-backup/profiles/default",
         "20260823T080000Z-123-456",
         "2026-08-23T080000Z"
     );
@@ -343,6 +347,7 @@ void test_rejects_invalid_mount_layout() {
             {},
             {},
             {},
+            "/var/lib/btrfs-backup/profiles/default",
             "20260823T080000Z-123-456",
             "2026-08-23T080000Z"
         );

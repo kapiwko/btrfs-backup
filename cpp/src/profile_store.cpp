@@ -5,6 +5,7 @@
 #include <utility>
 
 #include <btrfsbackup/file_io.hpp>
+#include <btrfsbackup/application_config.hpp>
 #include <btrfsbackup/json_io.hpp>
 #include <btrfsbackup/profile.hpp>
 #include <btrfsbackup/profile_render.hpp>
@@ -54,7 +55,8 @@ void save_tree(
     const fs::path& systemd_root,
     const fs::path& public_root
 ) {
-    fs::path source_root = map_etc_path(profile.paths.sources_dir, etc_root);
+    ApplicationConfig application_config = ApplicationConfig::load(etc_root);
+    fs::path source_root = profile_sources_dir(application_config.paths(), profile.id);
     atomic_write(etc_root / "profiles" / profile.id / "profile.json", dump_json(profile_to_json(profile)), 0600);
     if (fs::exists(source_root)) {
         auto now = std::chrono::system_clock::now();

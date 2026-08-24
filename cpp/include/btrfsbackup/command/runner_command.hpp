@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 
+#include <btrfsbackup/application_config.hpp>
 #include <btrfsbackup/backup_run_executor.hpp>
 #include <btrfsbackup/snapshot_inventory.hpp>
 
@@ -14,6 +15,7 @@ struct RunnerExecutionServices {
     IBackupRunActionEffects& action_effects;
     ITransferPipeline& transfer_pipeline;
     std::filesystem::path lock_root;
+    ApplicationConfig application_config;
     SnapshotMetadataReader snapshot_metadata_reader = nullptr;
 };
 

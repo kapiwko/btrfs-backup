@@ -130,7 +130,6 @@ void test_profile_from_wizard_answers() {
     test_helpers::expect_eq("wizard target mount unit", profile.target.mount_unit, "mnt-backup.mount");
     test_helpers::expect_eq("wizard remote root", profile.paths.remote_root, "/mnt/backup/snapshots");
     test_helpers::expect_eq("wizard incoming root", profile.paths.incoming_root, "/mnt/backup/.incoming");
-    test_helpers::expect_eq("wizard sources dir", profile.paths.sources_dir, "/etc/btrfs-backup/profiles/laptop/sources.d");
     test_helpers::expect_eq("wizard source count", std::to_string(profile.sources.size()), "2");
     test_helpers::expect_eq("wizard first source id", profile.sources.at(0).id, "root");
     test_helpers::expect_eq("wizard second source subvolume", profile.sources.at(1).subvolume, "/home");

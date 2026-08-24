@@ -74,6 +74,7 @@ BackupRunPlan build_backup_run_plan(
     const SnapshotInventoryBySource& remote_inventory,
     const PendingMarkerBySource& pending_markers,
     const PendingSnapshotBySource& pending_snapshots,
+    const std::filesystem::path& profile_state_dir,
     const std::string& run_id,
     const std::string& snapshot_timestamp
 );

@@ -1,5 +1,6 @@
 #include <btrfsbackup/ctl_tool.hpp>
 
+#include <algorithm>
 #include <cstdlib>
 #include <filesystem>
 #include <iostream>
@@ -7,6 +8,7 @@
 #include <string>
 #include <vector>
 
+#include <btrfsbackup/application_config.hpp>
 #include <btrfsbackup/backup_tool.hpp>
 #include <btrfsbackup/command/installation_command.hpp>
 #include <btrfsbackup/command/profile_command.hpp>
@@ -52,8 +54,10 @@ void usage() {
 namespace btrfsbackup {
 
 int ctl_tool_main(int argc, char** argv) {
-    fs::path status_root = std::getenv("BTRFS_BACKUP_STATUS_ROOT") ? std::getenv("BTRFS_BACKUP_STATUS_ROOT") : "/run/btrfs-backup/profiles";
-    fs::path history_root = std::getenv("BTRFS_BACKUP_HISTORY_ROOT") ? std::getenv("BTRFS_BACKUP_HISTORY_ROOT") : "/var/lib/btrfs-backup/history";
+    bool status_root_overridden = std::getenv("BTRFS_BACKUP_STATUS_ROOT") != nullptr;
+    bool history_root_overridden = std::getenv("BTRFS_BACKUP_HISTORY_ROOT") != nullptr;
+    fs::path status_root = status_root_overridden ? std::getenv("BTRFS_BACKUP_STATUS_ROOT") : "/run/btrfs-backup/profiles";
+    fs::path history_root = history_root_overridden ? std::getenv("BTRFS_BACKUP_HISTORY_ROOT") : "/var/lib/btrfs-backup/history";
     fs::path profile_config_dir = std::getenv("BTRFS_BACKUP_PROFILE_CONFIG_DIR") ? std::getenv("BTRFS_BACKUP_PROFILE_CONFIG_DIR") : "/etc/btrfs-backup";
     std::vector<std::string> rest;
 
@@ -62,8 +66,10 @@ int ctl_tool_main(int argc, char** argv) {
             std::string arg = argv[i];
             if (arg == "--status-root") {
                 status_root = arg_value(i, argc, argv, arg);
+                status_root_overridden = true;
             } else if (arg == "--history-root") {
                 history_root = arg_value(i, argc, argv, arg);
+                history_root_overridden = true;
             } else if (arg == "--profile-dir") {
                 profile_config_dir = arg_value(i, argc, argv, arg);
             } else if (arg == "-h" || arg == "--help") {
@@ -87,6 +93,13 @@ int ctl_tool_main(int argc, char** argv) {
         if (command == "profile") {
             return command::profile(args, profile_config_dir);
         } else if (command == "status") {
+            bool help_requested = std::find(args.begin(), args.end(), "-h") != args.end()
+                || std::find(args.begin(), args.end(), "--help") != args.end();
+            if (!help_requested) {
+                ApplicationConfig application_config = ApplicationConfig::load(profile_config_dir);
+                if (!status_root_overridden) status_root = application_config.paths().status_root;
+                if (!history_root_overridden) history_root = application_config.paths().history_root;
+            }
             return command::status(status_root, history_root, args);
         } else if (command == "installation") {
             return command::installation(args);

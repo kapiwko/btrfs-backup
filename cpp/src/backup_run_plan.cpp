@@ -138,6 +138,7 @@ BackupRunPlan build_backup_run_plan(
     const SnapshotInventoryBySource& remote_inventory,
     const PendingMarkerBySource& pending_markers,
     const PendingSnapshotBySource& pending_snapshots,
+    const fs::path& profile_state_dir,
     const std::string& run_id,
     const std::string& snapshot_timestamp
 ) {
@@ -193,7 +194,7 @@ BackupRunPlan build_backup_run_plan(
 
         PendingRecoveryPlan recovery = plan_pending_recovery(
             source.id,
-            fs::path(profile.paths.state_dir) / "profiles" / profile.id,
+            profile_state_dir,
             source.local_snapshot_dir,
             remote_snapshot_dir,
             pending_marker_for(pending_markers, source.id),
