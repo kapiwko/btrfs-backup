@@ -104,6 +104,12 @@ manager reconstructs visible state from `/run/btrfs-backup` status files and
 history under `/var/lib/btrfs-backup` instead of owning the only copy of runtime
 state.
 
+The manager's authorization boundary is specified in
+[system-dbus-api.md](system-dbus-api.md). Read-only methods expose sanitized
+data; every privileged operation has a distinct polkit action. Profile saves
+that change hooks additionally require the dedicated hook-change action because
+they can schedule code to run as root.
+
 ## Process Creation
 
 The runner has active cancellation and transfer worker threads. Both synchronous
