@@ -45,15 +45,15 @@ BackupStatusModel::BackupStatusModel(QObject* parent)
         }
     });
     connect(&watch_, &QProcess::stateChanged, this, [this](QProcess::ProcessState state) {
-        setConnected(state != QProcess::NotRunning);
+        setWatcherConnected(state != QProcess::NotRunning);
     });
     connect(&watch_, &QProcess::errorOccurred, this, [this](QProcess::ProcessError) {
         setLastError(watch_.errorString());
-        setConnected(false);
+        setWatcherConnected(false);
     });
     connect(&watch_, qOverload<int, QProcess::ExitStatus>(&QProcess::finished), this,
             [this](int exit_code, QProcess::ExitStatus exit_status) {
-                setConnected(false);
+                setWatcherConnected(false);
                 if (exit_status != QProcess::NormalExit || exit_code != 0) {
                     setLastError(tr("Status watcher exited with code %1.").arg(exit_code));
                 }
@@ -103,9 +103,9 @@ void BackupStatusModel::setProfile(const QString& profile)
     }
 }
 
-bool BackupStatusModel::connected() const
+bool BackupStatusModel::watcherConnected() const
 {
-    return connected_;
+    return watcher_connected_;
 }
 
 QString BackupStatusModel::profileName() const
@@ -230,7 +230,7 @@ void BackupStatusModel::start()
 void BackupStatusModel::stop()
 {
     if (watch_.state() == QProcess::NotRunning) {
-        setConnected(false);
+        setWatcherConnected(false);
         return;
     }
 
@@ -239,7 +239,7 @@ void BackupStatusModel::stop()
         watch_.kill();
         watch_.waitForFinished(1000);
     }
-    setConnected(false);
+    setWatcherConnected(false);
 }
 
 void BackupStatusModel::readWatchOutput()
@@ -349,17 +349,17 @@ void BackupStatusModel::applyStatusObject(const QByteArray& object)
     error_message_ = json_string(status, "errorMessage");
     suggested_action_ = json_string(status, "suggestedAction");
 
-    setConnected(true);
+    setWatcherConnected(true);
     emit statusChanged();
 }
 
-void BackupStatusModel::setConnected(bool connected)
+void BackupStatusModel::setWatcherConnected(bool connected)
 {
-    if (connected_ == connected) {
+    if (watcher_connected_ == connected) {
         return;
     }
-    connected_ = connected;
-    emit connectedChanged();
+    watcher_connected_ = connected;
+    emit watcherConnectedChanged();
 }
 
 void BackupStatusModel::setLastError(const QString& message)

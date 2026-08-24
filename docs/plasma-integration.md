@@ -10,6 +10,11 @@ QML UI talks to a C++ `BackupStatusModel`, and that model reads the public
 commands and private state files while the versioned system D-Bus manager is not
 ready yet.
 
+The model exposes `watcherConnected` only as the lifecycle state of that
+temporary `status watch` process. It is not target connectivity. A future
+`targetConnected` property must come from authoritative `TargetStatus` supplied
+by the system backend.
+
 This initial plasmoid is status-only. It does not expose cancellation or other
 mutating actions, even when the runtime status advertises `canCancel`. The CLI
 cancellation path requires access to root-owned configuration and private state,
