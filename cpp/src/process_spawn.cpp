@@ -1,6 +1,7 @@
 #include <btrfsbackup/process_spawn.hpp>
 
 #include <spawn.h>
+#include <signal.h>
 #include <unistd.h>
 
 #include <cerrno>
@@ -58,25 +59,39 @@ ProcessSpawnResult spawn_program(const std::vector<std::string>& argv, const Pro
     }
 
     posix_spawnattr_t attributes;
-    posix_spawnattr_t* attributes_ptr = nullptr;
-    bool attributes_initialized = false;
+    error = posix_spawnattr_init(&attributes);
+    if (error != 0) {
+        posix_spawn_file_actions_destroy(&actions);
+        return {.error = error};
+    }
+
+    sigset_t child_mask;
+    sigemptyset(&child_mask);
+    error = posix_spawnattr_setsigmask(&attributes, &child_mask);
+
+    sigset_t child_defaults;
+    sigemptyset(&child_defaults);
+    sigaddset(&child_defaults, SIGINT);
+    sigaddset(&child_defaults, SIGTERM);
+    sigaddset(&child_defaults, SIGPIPE);
+    if (error == 0) {
+        error = posix_spawnattr_setsigdefault(&attributes, &child_defaults);
+    }
+
+    short flags = POSIX_SPAWN_SETSIGMASK | POSIX_SPAWN_SETSIGDEF;
     if (options.create_process_group) {
-        error = posix_spawnattr_init(&attributes);
-        attributes_initialized = error == 0;
         if (error == 0) {
             error = posix_spawnattr_setpgroup(&attributes, 0);
         }
-        if (error == 0) {
-            error = posix_spawnattr_setflags(&attributes, POSIX_SPAWN_SETPGROUP);
-        }
-        if (error != 0) {
-            if (attributes_initialized) {
-                posix_spawnattr_destroy(&attributes);
-            }
-            posix_spawn_file_actions_destroy(&actions);
-            return {.error = error};
-        }
-        attributes_ptr = &attributes;
+        flags |= POSIX_SPAWN_SETPGROUP;
+    }
+    if (error == 0) {
+        error = posix_spawnattr_setflags(&attributes, flags);
+    }
+    if (error != 0) {
+        posix_spawnattr_destroy(&attributes);
+        posix_spawn_file_actions_destroy(&actions);
+        return {.error = error};
     }
 
     pid_t pid = -1;
@@ -84,14 +99,12 @@ ProcessSpawnResult spawn_program(const std::vector<std::string>& argv, const Pro
         &pid,
         arguments.front(),
         &actions,
-        attributes_ptr,
+        &attributes,
         arguments.data(),
         environ
     );
 
-    if (attributes_ptr != nullptr) {
-        posix_spawnattr_destroy(&attributes);
-    }
+    posix_spawnattr_destroy(&attributes);
     posix_spawn_file_actions_destroy(&actions);
     if (error != 0) {
         return {.error = error};

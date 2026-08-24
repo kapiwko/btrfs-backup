@@ -227,7 +227,10 @@ int status_to_exit_code(int status) {
 
 bool reap_child(pid_t pid, TransferSideResult& result) {
     int status = 0;
-    pid_t waited = waitpid(pid, &status, WNOHANG);
+    pid_t waited;
+    do {
+        waited = waitpid(pid, &status, WNOHANG);
+    } while (waited < 0 && errno == EINTR);
     if (waited == 0) {
         return false;
     }
@@ -240,13 +243,36 @@ bool reap_child(pid_t pid, TransferSideResult& result) {
     return true;
 }
 
-void terminate_child(pid_t pid) {
+void signal_child_group(pid_t pid, int signal) {
     if (pid > 0) {
-        if (kill(-pid, SIGTERM) != 0 && errno == ESRCH) {
-            kill(pid, SIGTERM);
+        if (kill(-pid, signal) != 0 && errno == ESRCH) {
+            kill(pid, signal);
         }
     }
 }
+
+bool child_group_exists(pid_t pid) {
+    if (pid <= 0) {
+        return false;
+    }
+    if (kill(-pid, 0) == 0) {
+        return true;
+    }
+    return errno != ESRCH;
+}
+
+struct ChildTerminationState {
+    pid_t pid = -1;
+    bool terminate_sent = false;
+    bool kill_sent = false;
+    std::optional<std::chrono::steady_clock::time_point> deadline;
+};
+
+enum class ChildTerminationProgress {
+    None,
+    Reaped,
+    Abandoned,
+};
 
 void read_available(int fd, std::string& output) {
     char buffer[4096];
@@ -425,6 +451,14 @@ std::unique_ptr<IAsyncTransferHandle> ThreadedAsyncTransferPipeline::start(
     );
 }
 
+PosixTransferPipeline::PosixTransferPipeline(TransferTerminationPolicy termination_policy)
+    : termination_policy_(termination_policy) {
+    if (termination_policy_.terminate_grace_period.count() <= 0
+        || termination_policy_.kill_reap_period.count() <= 0) {
+        throw ValidationError("transfer termination periods must be positive");
+    }
+}
+
 TransferResult PosixTransferPipeline::run(
     const TransferPipelinePlan& plan,
     ITransferEventSink& events,
@@ -495,6 +529,62 @@ TransferResult PosixTransferPipeline::run(
     bool consumer_done = !result.consumer.started;
     const pid_t producer_pid = producer_spawn.pid;
     const pid_t consumer_pid = consumer_spawn.pid;
+    ChildTerminationState producer_termination{
+        .pid = producer_pid,
+        .terminate_sent = false,
+        .kill_sent = false,
+        .deadline = std::nullopt,
+    };
+    ChildTerminationState consumer_termination{
+        .pid = consumer_pid,
+        .terminate_sent = false,
+        .kill_sent = false,
+        .deadline = std::nullopt,
+    };
+    auto request_termination = [&](ChildTerminationState& state, bool done) {
+        if (state.terminate_sent || state.pid <= 0 || (done && !child_group_exists(state.pid))) {
+            return;
+        }
+        signal_child_group(state.pid, SIGTERM);
+        state.terminate_sent = true;
+        state.deadline = SteadyClock::now() + termination_policy_.terminate_grace_period;
+    };
+    auto advance_termination = [&] (
+        ChildTerminationState& state,
+        bool& done,
+        TransferSideResult& side
+    ) {
+        if (!state.terminate_sent || !state.deadline.has_value()) {
+            return ChildTerminationProgress::None;
+        }
+        if (done && !child_group_exists(state.pid)) {
+            state.deadline.reset();
+            return ChildTerminationProgress::None;
+        }
+        if (SteadyClock::now() < *state.deadline) {
+            return ChildTerminationProgress::None;
+        }
+        if (!state.kill_sent) {
+            signal_child_group(state.pid, SIGKILL);
+            state.kill_sent = true;
+            state.deadline = SteadyClock::now() + termination_policy_.kill_reap_period;
+            append_diagnostic(side.diagnostics, "did not exit after SIGTERM; sent SIGKILL");
+            return ChildTerminationProgress::None;
+        }
+
+        state.deadline.reset();
+        if (done) {
+            return ChildTerminationProgress::Abandoned;
+        }
+        if (reap_child(state.pid, side)) {
+            done = true;
+            return ChildTerminationProgress::Reaped;
+        }
+        side.exit_code = 128 + SIGKILL;
+        append_diagnostic(side.diagnostics, "did not become waitable after SIGKILL");
+        done = true;
+        return ChildTerminationProgress::Abandoned;
+    };
     if (!producer_stdout_open && consumer_stdin_open) {
         consumer_input_pipe.write_end.reset();
         consumer_stdin_open = false;
@@ -502,7 +592,7 @@ TransferResult PosixTransferPipeline::run(
     if (!consumer_stdin_open && producer_stdout_open) {
         data_pipe.read_end.reset();
         producer_stdout_open = false;
-        terminate_child(producer_pid);
+        request_termination(producer_termination, producer_done);
     }
     bool cancellation_sent = false;
     auto cancel_transfer = [&] {
@@ -510,8 +600,8 @@ TransferResult PosixTransferPipeline::run(
             return;
         }
         result.cancelled = true;
-        terminate_child(producer_pid);
-        terminate_child(consumer_pid);
+        request_termination(producer_termination, producer_done);
+        request_termination(consumer_termination, consumer_done);
         if (consumer_stdin_open) {
             consumer_input_pipe.write_end.reset();
             consumer_stdin_open = false;
@@ -524,9 +614,37 @@ TransferResult PosixTransferPipeline::run(
         cancellation_sent = true;
     };
 
-    while (!producer_done || !consumer_done || producer_stdout_open || producer_stderr_open || consumer_stderr_open) {
+    auto termination_pending = [](const ChildTerminationState& state) {
+        return state.terminate_sent && state.deadline.has_value();
+    };
+    while (!producer_done || !consumer_done || producer_stdout_open || producer_stderr_open || consumer_stderr_open
+        || termination_pending(producer_termination) || termination_pending(consumer_termination)) {
         if (cancellation.cancellation_requested()) {
             cancel_transfer();
+        }
+        ChildTerminationProgress producer_progress = advance_termination(
+            producer_termination,
+            producer_done,
+            result.producer
+        );
+        if (producer_progress == ChildTerminationProgress::Reaped) {
+            emit_event(events, TransferEventKind::ProducerFinished, result, started_at);
+        }
+        if (producer_progress != ChildTerminationProgress::None) {
+            producer_error_pipe.read_end.reset();
+            producer_stderr_open = false;
+        }
+        ChildTerminationProgress consumer_progress = advance_termination(
+            consumer_termination,
+            consumer_done,
+            result.consumer
+        );
+        if (consumer_progress == ChildTerminationProgress::Reaped) {
+            emit_event(events, TransferEventKind::ConsumerFinished, result, started_at);
+        }
+        if (consumer_progress != ChildTerminationProgress::None) {
+            consumer_error_pipe.read_end.reset();
+            consumer_stderr_open = false;
         }
 
         std::vector<pollfd> fds;
@@ -561,9 +679,22 @@ TransferResult PosixTransferPipeline::run(
         if (!fds.empty()) {
             int ready = poll(fds.data(), fds.size(), 100);
             if (ready < 0 && errno != EINTR) {
-                terminate_child(producer_pid);
-                terminate_child(consumer_pid);
-                throw ValidationError(std::string("transfer poll failed: ") + std::strerror(errno));
+                const std::string message = std::string("transfer poll failed: ") + std::strerror(errno);
+                append_diagnostic(result.producer.diagnostics, message);
+                append_diagnostic(result.consumer.diagnostics, message);
+                data_pipe.read_end.reset();
+                producer_stdout_open = false;
+                consumer_input_pipe.write_end.reset();
+                consumer_stdin_open = false;
+                producer_error_pipe.read_end.reset();
+                producer_stderr_open = false;
+                consumer_error_pipe.read_end.reset();
+                consumer_stderr_open = false;
+                request_termination(producer_termination, producer_done);
+                request_termination(consumer_termination, consumer_done);
+                for (pollfd& fd : fds) {
+                    fd.revents = 0;
+                }
             }
         }
 
@@ -582,8 +713,8 @@ TransferResult PosixTransferPipeline::run(
                     consumer_stdin_open = false;
                     consumer_stdin_ready = false;
                 }
-                terminate_child(producer_pid);
-                terminate_child(consumer_pid);
+                request_termination(producer_termination, producer_done);
+                request_termination(consumer_termination, consumer_done);
             } else if (tag == producer_stdout_tag && (fds[i].revents & (POLLIN | POLLHUP)) != 0) {
                 producer_stdout_ready = true;
             } else if (tag == consumer_stdin_tag && (fds[i].revents & (POLLHUP | POLLERR | POLLNVAL)) != 0) {
@@ -596,7 +727,7 @@ TransferResult PosixTransferPipeline::run(
                     producer_stdout_open = false;
                     producer_stdout_ready = false;
                 }
-                terminate_child(producer_pid);
+                request_termination(producer_termination, producer_done);
             } else if (tag == consumer_stdin_tag && (fds[i].revents & POLLOUT) != 0) {
                 consumer_stdin_ready = true;
             } else if (tag == producer_stderr_tag && (fds[i].revents & (POLLIN | POLLHUP)) != 0) {
@@ -666,8 +797,8 @@ TransferResult PosixTransferPipeline::run(
             data_pipe.read_end.reset();
             producer_stdout_open = false;
             producer_stdout_ready = false;
-            terminate_child(producer_pid);
-            terminate_child(consumer_pid);
+            request_termination(producer_termination, producer_done);
+            request_termination(consumer_termination, consumer_done);
             break;
         }
 

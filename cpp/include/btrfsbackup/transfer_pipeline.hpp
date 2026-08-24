@@ -1,6 +1,7 @@
 #pragma once
 
 #include <atomic>
+#include <chrono>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -89,13 +90,23 @@ public:
     ) = 0;
 };
 
+struct TransferTerminationPolicy {
+    std::chrono::milliseconds terminate_grace_period{5000};
+    std::chrono::milliseconds kill_reap_period{5000};
+};
+
 class PosixTransferPipeline final : public ITransferPipeline {
 public:
+    explicit PosixTransferPipeline(TransferTerminationPolicy termination_policy = {});
+
     TransferResult run(
         const TransferPipelinePlan& plan,
         ITransferEventSink& events,
         CancellationToken& cancellation
     ) override;
+
+private:
+    TransferTerminationPolicy termination_policy_;
 };
 
 class IAsyncTransferHandle {

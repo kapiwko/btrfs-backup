@@ -127,6 +127,8 @@ The command writes a private cancellation request in the profile state
 directory. The active runner observes that request, asks the transfer pipeline
 to stop, and then removes the handled request. A cancelled run finishes with
 `state` set to `cancelled` and stable `errorCode` `runner.cancelled`.
+SIGINT and SIGTERM delivered to an executing runner request the same controlled
+cancellation path.
 
 Transfer failures use stable error codes instead of requiring clients to parse
 the diagnostic text:

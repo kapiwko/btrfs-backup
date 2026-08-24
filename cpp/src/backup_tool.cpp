@@ -1,16 +1,28 @@
 #include <btrfsbackup/backup_tool.hpp>
 
+#include <poll.h>
+#include <pthread.h>
+#include <signal.h>
+#include <sys/eventfd.h>
+#include <sys/signalfd.h>
+#include <unistd.h>
+
+#include <cerrno>
+#include <cstdint>
 #include <cstdlib>
+#include <cstring>
 #include <filesystem>
 #include <iostream>
 #include <stdexcept>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include <btrfsbackup/command/runner_command.hpp>
 #include <btrfsbackup/command/target_command.hpp>
 #include <btrfsbackup/errors.hpp>
 #include <btrfsbackup/profile_loader.hpp>
+#include <btrfsbackup/transfer_pipeline.hpp>
 
 namespace fs = std::filesystem;
 
@@ -77,11 +89,118 @@ bool default_is_service_invocation() {
 
 namespace btrfsbackup {
 
+class TerminationSignalMonitor::Impl {
+public:
+    explicit Impl(CancellationToken& cancellation)
+        : cancellation_(cancellation) {
+        sigemptyset(&signals_);
+        sigaddset(&signals_, SIGINT);
+        sigaddset(&signals_, SIGTERM);
+
+        int mask_error = pthread_sigmask(SIG_BLOCK, &signals_, &previous_mask_);
+        if (mask_error != 0) {
+            throw ValidationError(std::string("cannot block termination signals: ") + std::strerror(mask_error));
+        }
+        mask_installed_ = true;
+
+        signal_fd_ = signalfd(-1, &signals_, SFD_CLOEXEC | SFD_NONBLOCK);
+        if (signal_fd_ < 0) {
+            int signal_fd_error = errno;
+            cleanup();
+            throw ValidationError(std::string("cannot create termination signal fd: ") + std::strerror(signal_fd_error));
+        }
+        stop_fd_ = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
+        if (stop_fd_ < 0) {
+            int stop_fd_error = errno;
+            cleanup();
+            throw ValidationError(std::string("cannot create signal monitor stop fd: ") + std::strerror(stop_fd_error));
+        }
+
+        try {
+            worker_ = std::thread([this] { run(); });
+        } catch (...) {
+            cleanup();
+            throw;
+        }
+    }
+
+    ~Impl() {
+        std::uint64_t value = 1;
+        ssize_t ignored = write(stop_fd_, &value, sizeof(value));
+        (void)ignored;
+        if (worker_.joinable()) {
+            worker_.join();
+        }
+        cleanup();
+    }
+
+private:
+    void run() {
+        pollfd fds[2]{
+            {.fd = signal_fd_, .events = POLLIN, .revents = 0},
+            {.fd = stop_fd_, .events = POLLIN, .revents = 0},
+        };
+        while (true) {
+            int ready = poll(fds, 2, -1);
+            if (ready < 0) {
+                if (errno == EINTR) {
+                    continue;
+                }
+                cancellation_.request_cancel();
+                return;
+            }
+            if ((fds[1].revents & POLLIN) != 0) {
+                return;
+            }
+            if ((fds[0].revents & POLLIN) == 0) {
+                continue;
+            }
+
+            signalfd_siginfo signal_info {};
+            while (read(signal_fd_, &signal_info, sizeof(signal_info)) == sizeof(signal_info)) {
+                if (signal_info.ssi_signo == SIGINT || signal_info.ssi_signo == SIGTERM) {
+                    cancellation_.request_cancel();
+                }
+            }
+        }
+    }
+
+    void cleanup() {
+        if (stop_fd_ >= 0) {
+            close(stop_fd_);
+            stop_fd_ = -1;
+        }
+        if (signal_fd_ >= 0) {
+            close(signal_fd_);
+            signal_fd_ = -1;
+        }
+        if (mask_installed_) {
+            pthread_sigmask(SIG_SETMASK, &previous_mask_, nullptr);
+            mask_installed_ = false;
+        }
+    }
+
+    CancellationToken& cancellation_;
+    sigset_t signals_ {};
+    sigset_t previous_mask_ {};
+    bool mask_installed_ = false;
+    int signal_fd_ = -1;
+    int stop_fd_ = -1;
+    std::thread worker_;
+};
+
+TerminationSignalMonitor::TerminationSignalMonitor(CancellationToken& cancellation)
+    : impl_(std::make_unique<Impl>(cancellation)) {
+}
+
+TerminationSignalMonitor::~TerminationSignalMonitor() = default;
+
 int backup_tool(
     const fs::path& profile_config_dir,
     const std::vector<std::string>& args,
     std::ostream& output,
-    BackupToolServices* services
+    BackupToolServices* services,
+    CancellationToken* cancellation
 ) {
     if (args.size() == 1 && (args.at(0) == "-h" || args.at(0) == "--help")) {
         usage(output);
@@ -93,7 +212,7 @@ int backup_tool(
     auto runner = services != nullptr && services->runner
         ? services->runner
         : [&](const std::vector<std::string>& runner_args, std::ostream& runner_output) {
-              return command::runner(profile_config_dir, runner_args, runner_output);
+              return command::runner(profile_config_dir, runner_args, runner_output, nullptr, cancellation);
           };
     auto target = services != nullptr && services->target
         ? services->target
@@ -141,7 +260,9 @@ int backup_tool_main(int argc, char** argv) {
     }
 
     try {
-        return backup_tool(profile_config_dir, args, std::cout);
+        CancellationToken cancellation;
+        TerminationSignalMonitor termination_signals(cancellation);
+        return backup_tool(profile_config_dir, args, std::cout, nullptr, &cancellation);
     } catch (const ValidationError& exc) {
         fail(exc.what());
     } catch (const std::exception& exc) {

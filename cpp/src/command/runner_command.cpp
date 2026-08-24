@@ -435,7 +435,8 @@ int runner(
     const fs::path& profile_config_dir,
     const std::vector<std::string>& args,
     std::ostream& output,
-    RunnerExecutionServices* execution_services
+    RunnerExecutionServices* execution_services,
+    CancellationToken* external_cancellation
 ) {
     if (args.empty()) {
         usage();
@@ -544,7 +545,12 @@ int runner(
             .source_count = static_cast<int>(plan.sources.size()),
             .started_at = options.timestamp,
         });
-        CancellationToken cancellation;
+        std::optional<CancellationToken> owned_cancellation;
+        if (external_cancellation == nullptr) {
+            owned_cancellation.emplace();
+            external_cancellation = &*owned_cancellation;
+        }
+        CancellationToken& cancellation = *external_cancellation;
         CancelRequestMonitor cancellation_monitor(profile_state_dir, cancellation);
 
         LibBtrfsOperations btrfs;

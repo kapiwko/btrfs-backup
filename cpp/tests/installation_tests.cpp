@@ -84,6 +84,16 @@ void test_installation_render_writes_static_files() {
         read_file(root / "rendered" / "systemd" / "btrfs-backup@.service"),
         "ExecStart=/usr/bin/btrfs-backupctl runner execute --profile %i"
     );
+    test_helpers::expect_contains(
+        "installation stop timeout",
+        read_file(root / "rendered" / "systemd" / "btrfs-backup@.service"),
+        "TimeoutStopSec=90s"
+    );
+    test_helpers::expect_contains(
+        "installation kill mode",
+        read_file(root / "rendered" / "systemd" / "btrfs-backup@.service"),
+        "KillMode=mixed"
+    );
     fs::remove_all(root);
 }
 
