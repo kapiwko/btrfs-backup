@@ -78,6 +78,14 @@ match the private profile before runtime work starts. This generation check is
 the crash-consistency guard for a transaction whose destinations span multiple
 directories and potentially multiple filesystems. Save operations must reject
 paths that redirect active configuration outside its fixed installation roots.
+Save failures use the stable diagnostic code `configuration.save_failed`. The
+rollback remains best-effort so that it cannot replace the primary failure, but
+every failed removal, previous-version restore, directory `fsync`, legacy-source
+restore, or rules reactivation is collected. An incomplete rollback is reported
+as `configuration.rollback_incomplete`, includes both the primary failure and
+the rollback diagnostics, and preserves any `.previous-*` artifact that could
+not be restored for operator recovery. The generation check keeps such a mixed
+installation fail-closed.
 
 Offline profile and wizard rendering never calls `remove_all()` on the supplied
 output path. Profiles are validated first, then rendered and validated in a
