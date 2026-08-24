@@ -10,7 +10,6 @@ target_link_libraries(btrfsbackup-backup-model PUBLIC btrfsbackup-config-model)
 add_library(btrfsbackup-backup STATIC
     backup_run_action_effects.cpp
     backup_run_executor.cpp
-    backup_run_persistence.cpp
     backup_run_plan.cpp
     backup_service.cpp
     incremental_parent.cpp

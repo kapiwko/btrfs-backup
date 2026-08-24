@@ -47,8 +47,10 @@ are implementation details of the domain layout, not separate source trees.
   target operations, and backup use cases.
 - `config` owns the canonical profile JSON model, validation, profile loading
   and storage, installation rendering and validation, and the profile wizard.
-- `state` owns configuration fingerprints, run checkpoints, current status,
-  status history reads, and the public status contract.
+- `state` owns configuration fingerprints, JSON checkpoint persistence,
+  file-backed current status and history, status history reads, and the public
+  status contract. It implements the event and checkpoint interfaces declared
+  by `backup`; the executor never writes those files directly.
 - `platform/linux` owns POSIX processes, Btrfs and block-device integration,
   mount inspection, trusted files, locks, durable filesystem operations, and
   other Linux-specific effects.

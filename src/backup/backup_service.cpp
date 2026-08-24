@@ -14,7 +14,7 @@
 #include <platform/linux/command_runner.hpp>
 #include <platform/linux/filesystem.hpp>
 #include <backup/backup_run_action_effects.hpp>
-#include <backup/backup_run_persistence.hpp>
+#include <state/backup_run_persistence.hpp>
 #include <backup/pending_recovery_plan.hpp>
 #include <state/status_writer.hpp>
 #include <state/config_fingerprint.hpp>

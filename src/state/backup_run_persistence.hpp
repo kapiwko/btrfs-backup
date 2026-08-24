@@ -4,7 +4,7 @@
 #include <map>
 #include <string>
 
-#include <backup/backup_run_executor.hpp>
+#include <backup/backup_run_event.hpp>
 #include <config/json.hpp>
 #include <state/status_writer.hpp>
 

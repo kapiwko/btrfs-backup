@@ -1,4 +1,5 @@
 add_library(btrfsbackup-state STATIC
+    backup_run_persistence.cpp
     config_fingerprint.cpp
     run_state.cpp
     status_service.cpp
