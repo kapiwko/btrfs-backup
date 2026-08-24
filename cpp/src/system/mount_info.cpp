@@ -1,0 +1,143 @@
+#include <btrfsbackup/system/mount_info.hpp>
+
+#include <blkid/blkid.h>
+#include <libmount/libmount.h>
+
+#include <cstdlib>
+#include <memory>
+#include <set>
+#include <sstream>
+#include <sys/sysmacros.h>
+
+#include <btrfsbackup/system/device_info.hpp>
+#include <btrfsbackup/model/errors.hpp>
+#include <btrfsbackup/model/validation.hpp>
+
+namespace btrfsbackup {
+
+namespace {
+
+std::string c_string(const char* value) {
+    return value == nullptr ? "" : value;
+}
+
+std::string device_id(dev_t device) {
+    if (device == 0) {
+        return "";
+    }
+    std::ostringstream output;
+    output << major(device) << ":" << minor(device);
+    return output.str();
+}
+
+} // namespace
+
+std::vector<MountEntry> read_mount_table(const std::filesystem::path& mountinfo_path) {
+    return read_mount_table(mountinfo_path, blkid_filesystem_uuid);
+}
+
+std::string blkid_filesystem_uuid(const std::string& source) {
+    if (source.empty() || source.front() != '/') {
+        return "";
+    }
+    char* value = blkid_get_tag_value(nullptr, "UUID", source.c_str());
+    if (value == nullptr) {
+        return "";
+    }
+    std::string uuid = value;
+    std::free(value);
+    return uuid;
+}
+
+std::vector<MountEntry> read_mount_table(const std::filesystem::path& mountinfo_path, const FilesystemUuidResolver& filesystem_uuid_resolver) {
+    std::unique_ptr<libmnt_table, decltype(&mnt_unref_table)> table(mnt_new_table(), mnt_unref_table);
+    if (!table || mnt_table_parse_file(table.get(), mountinfo_path.c_str()) != 0) {
+        throw ValidationError("could not read mount table");
+    }
+    std::unique_ptr<libmnt_iter, decltype(&mnt_free_iter)> iter(mnt_new_iter(MNT_ITER_FORWARD), mnt_free_iter);
+    if (!iter) {
+        throw ValidationError("could not iterate mount table");
+    }
+
+    std::vector<MountEntry> entries;
+    libmnt_fs* mount = nullptr;
+    while (mnt_table_next_fs(table.get(), iter.get(), &mount) == 0) {
+        std::string source = c_string(mnt_fs_get_source(mount));
+        std::string fstype = c_string(mnt_fs_get_fstype(mount));
+        entries.push_back({
+            .source = source,
+            .target = c_string(mnt_fs_get_target(mount)),
+            .fstype = fstype,
+            .root = c_string(mnt_fs_get_root(mount)),
+            .options = c_string(mnt_fs_get_options(mount)),
+            .device_id = device_id(mnt_fs_get_devno(mount)),
+            .filesystem_uuid = fstype == "btrfs" ? filesystem_uuid_resolver(strip_subvolume_suffix(source)) : "",
+        });
+    }
+    return entries;
+}
+
+std::vector<std::string> btrfs_mount_targets(const std::filesystem::path& mountinfo_path) {
+    std::set<std::string> unique;
+    for (const MountEntry& entry : read_mount_table(mountinfo_path)) {
+        if (entry.fstype == "btrfs" && !entry.target.empty()) {
+            unique.insert(entry.target);
+        }
+    }
+    return {unique.begin(), unique.end()};
+}
+
+std::optional<MountEntry> mount_at(const std::vector<MountEntry>& entries, const std::filesystem::path& target) {
+    std::filesystem::path normalized_target = normalized_path(target);
+    for (const MountEntry& entry : entries) {
+        if (normalized_path(entry.target) == normalized_target) {
+            return entry;
+        }
+    }
+    return std::nullopt;
+}
+
+std::optional<MountEntry> mount_for_path(const std::vector<MountEntry>& entries, const std::filesystem::path& path) {
+    std::filesystem::path normalized = normalized_path(path);
+    const MountEntry* best = nullptr;
+    std::size_t best_size = 0;
+    for (const MountEntry& entry : entries) {
+        if (entry.target.empty()) {
+            continue;
+        }
+        std::filesystem::path target = normalized_path(entry.target);
+        if (path_is_within(normalized, target)) {
+            std::size_t size = target.string().size();
+            if (best == nullptr || size > best_size) {
+                best = &entry;
+                best_size = size;
+            }
+        }
+    }
+    if (best == nullptr) {
+        return std::nullopt;
+    }
+    return *best;
+}
+
+bool paths_are_same_filesystem(const std::vector<MountEntry>& entries, const std::filesystem::path& path_a, const std::filesystem::path& path_b) {
+    std::optional<MountEntry> mount_a = mount_for_path(entries, path_a);
+    std::optional<MountEntry> mount_b = mount_for_path(entries, path_b);
+    if (!mount_a || !mount_b) {
+        return false;
+    }
+    if (!mount_a->filesystem_uuid.empty() && !mount_b->filesystem_uuid.empty()) {
+        return mount_a->filesystem_uuid == mount_b->filesystem_uuid;
+    }
+    return !mount_a->device_id.empty() && mount_a->device_id == mount_b->device_id;
+}
+
+bool mount_uses_mapper(const std::vector<MountEntry>& entries, const std::filesystem::path& mountpoint, const std::filesystem::path& mapper_path) {
+    std::optional<MountEntry> mount = mount_at(entries, mountpoint);
+    if (!mount) {
+        return false;
+    }
+    return normalized_path(strip_subvolume_suffix(mount->source)) == normalized_path(mapper_path);
+}
+
+} // namespace btrfsbackup
