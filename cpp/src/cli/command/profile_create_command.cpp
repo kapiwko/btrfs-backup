@@ -7,13 +7,12 @@
 #include <string>
 #include <vector>
 
-#include <btrfsbackup/system/file_io.hpp>
+#include <btrfsbackup/application/profile_service.hpp>
 #include <btrfsbackup/model/json.hpp>
 #include <btrfsbackup/model/json_io.hpp>
 #include <btrfsbackup/model/profile.hpp>
 
 namespace fs = std::filesystem;
-using btrfsbackup::atomic_write;
 using btrfsbackup::dump_json;
 using btrfsbackup::Json;
 using btrfsbackup::Profile;
@@ -191,7 +190,7 @@ int profile_create(const std::vector<std::string>& args) {
         }},
         {"sources", sources}
     });
-    atomic_write(output, dump_json(profile_to_json(profile)), 0600);
+    write_profile_file(profile, output);
     return 0;
 }
 

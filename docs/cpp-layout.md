@@ -44,8 +44,8 @@ The current CMake targets are layered this way:
 btrfsbackup-model        # JSON model, validation, identifiers, status/catalog shapes
 btrfsbackup-system       # POSIX, trusted files, process runner, mount/device/Btrfs inspection
 btrfsbackup-engine       # backup planning, execution, persistence, and transfer pipeline
-btrfsbackup-application  # profile rendering/store/wizard and runtime adapters
-btrfsbackup-cli          # commands and CLI orchestration
+btrfsbackup-application  # typed backup, target, profile, status, and installation use cases
+btrfsbackup-cli          # argv parsing, output formatting, and exit-code mapping
 btrfs-backup             # native backup runtime entry point
 btrfs-backupctl          # command-line executable
 ```
@@ -58,6 +58,9 @@ Rules for new C++ code:
 
 1. Tiny CLI `main` functions belong in `cpp/apps/`; reusable command parsing
    and behavior belong under `cpp/include/btrfsbackup/cli/` and `cpp/src/cli/`.
+   CLI code may translate `argv` into typed application requests and format
+   results, but must not own backup, target, profile, status, or installation
+   orchestration.
 2. Profile, status, history, validation, filesystem, and command-runner logic
    belong in reusable code under the matching layer directories in
    `cpp/include/btrfsbackup/` and `cpp/src/`.
@@ -89,6 +92,12 @@ Rules for new C++ code:
 12. Do not make the base package depend on a graphical session. Any future
     desktop integration must communicate with the system backend instead of
     becoming part of the backup application layer.
+
+Application entry points such as `plan_backup`, `start_backup`, `cancel_backup`,
+`mount_target`, `eject_target`, `save_profile`, `get_statuses`, and
+`render_installation` accept typed requests and return typed results. They do
+not depend on command-line arguments, output streams, presentation rules, or
+process exit codes, so CLI and future D-Bus adapters can call the same use cases.
 
 The migrated native runtime currently lives in `btrfs-backup` and
 `btrfs-backupctl`. Their CLI entry points stay in `cpp/apps/`, while reusable

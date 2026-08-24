@@ -1,21 +1,15 @@
 #pragma once
 
 #include <filesystem>
-#include <functional>
 #include <iosfwd>
 #include <string>
 #include <vector>
 
-#include <btrfsbackup/system/mount_info.hpp>
-#include <btrfsbackup/application/runtime_adapters.hpp>
+#include <btrfsbackup/application/target_service.hpp>
 
 namespace btrfsbackup::command {
 
-struct TargetExecutionServices {
-    ICommandRunner& commands;
-    std::function<std::vector<MountEntry>()> read_mounts;
-    std::filesystem::path lock_root;
-};
+using TargetExecutionServices = TargetServiceDependencies;
 
 int target(
     const std::filesystem::path& profile_config_dir,
