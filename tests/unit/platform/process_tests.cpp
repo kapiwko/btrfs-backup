@@ -5,6 +5,9 @@
 #include <chrono>
 #include <cerrno>
 #include <cstdlib>
+#include <optional>
+#include <set>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <thread>
@@ -15,6 +18,37 @@
 #include "support/test_helpers.hpp"
 
 namespace {
+
+class EnvironmentGuard {
+public:
+    explicit EnvironmentGuard(std::string name) : name_(std::move(name)) {
+        if (const char* value = std::getenv(name_.c_str())) {
+            value_ = value;
+        }
+    }
+
+    ~EnvironmentGuard() {
+        if (value_.has_value()) {
+            setenv(name_.c_str(), value_->c_str(), 1);
+        } else {
+            unsetenv(name_.c_str());
+        }
+    }
+
+private:
+    std::string name_;
+    std::optional<std::string> value_;
+};
+
+std::set<std::string> environment_lines(const std::string& output) {
+    std::set<std::string> environment;
+    std::istringstream lines(output);
+    std::string line;
+    while (std::getline(lines, line)) {
+        environment.insert(std::move(line));
+    }
+    return environment;
+}
 
 void test_run_command_captures_stdout_and_stderr() {
     btrfsbackup::CommandResult result = btrfsbackup::run_command({
@@ -59,6 +93,60 @@ void test_run_command_ignores_untrusted_path() {
 
     test_helpers::expect_eq("trusted command exit", std::to_string(result.exit_code), "0");
     test_helpers::expect_eq("trusted child path", result.output, "/usr/bin");
+}
+
+void test_run_command_uses_environment_allowlist() {
+    EnvironmentGuard python_path("PYTHONPATH");
+    EnvironmentGuard bash_env("BASH_ENV");
+    EnvironmentGuard xdg_runtime_dir("XDG_RUNTIME_DIR");
+    EnvironmentGuard home("HOME");
+    setenv("PYTHONPATH", "/tmp/untrusted-python", 1);
+    setenv("BASH_ENV", "/tmp/untrusted-bash-env", 1);
+    setenv("XDG_RUNTIME_DIR", "/tmp/untrusted-runtime", 1);
+    setenv("HOME", "/tmp/untrusted-home", 1);
+
+    btrfsbackup::CommandResult result = btrfsbackup::run_command({"env"});
+
+    std::set<std::string> environment = environment_lines(result.output);
+    const std::set<std::string> expected{
+        "HOME=/root",
+        "LANG=C.UTF-8",
+        "LC_ALL=C.UTF-8",
+        "PATH=/usr/bin",
+    };
+
+    test_helpers::expect_eq("allowlisted environment exit", std::to_string(result.exit_code), "0");
+    test_helpers::expect_true(
+        "allowlisted environment",
+        environment == expected,
+        "child inherited variables outside the environment allowlist"
+    );
+}
+
+void test_controlled_command_adds_explicit_backup_context() {
+    btrfsbackup::CommandResult result = btrfsbackup::run_controlled_command(
+        {"env"},
+        {
+            .timeout = std::chrono::seconds(1),
+            .profile_id = btrfsbackup::ProfileId{"laptop"},
+            .source_id = btrfsbackup::SourceId{"home"},
+        }
+    );
+    const std::set<std::string> expected{
+        "BTRFS_BACKUP_PROFILE_ID=laptop",
+        "BTRFS_BACKUP_SOURCE_ID=home",
+        "HOME=/root",
+        "LANG=C.UTF-8",
+        "LC_ALL=C.UTF-8",
+        "PATH=/usr/bin",
+    };
+
+    test_helpers::expect_eq("context environment exit", std::to_string(result.exit_code), "0");
+    test_helpers::expect_true(
+        "context environment",
+        environment_lines(result.output) == expected,
+        "controlled child received an unexpected environment"
+    );
 }
 
 void test_run_command_rejects_relative_program_path() {
@@ -196,6 +284,8 @@ int main() {
     test_run_command_captures_stdout_and_stderr();
     test_run_command_reports_missing_executable();
     test_run_command_ignores_untrusted_path();
+    test_run_command_uses_environment_allowlist();
+    test_controlled_command_adds_explicit_backup_context();
     test_run_command_rejects_relative_program_path();
     test_run_command_rejects_empty_program();
     test_controlled_command_times_out_and_reaps_process();

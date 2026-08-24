@@ -217,6 +217,8 @@ ProcessSpawnResult spawn_transfer_process(
         .stderr_fd = stderr_fd,
         .create_process_group = true,
         .inherited_fds = inherited_fds,
+        .profile_id = {},
+        .source_id = {},
     });
 }
 
