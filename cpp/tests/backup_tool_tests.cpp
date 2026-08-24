@@ -1,9 +1,15 @@
+#include <poll.h>
+#include <signal.h>
+#include <unistd.h>
+
 #include <filesystem>
 #include <sstream>
 #include <string>
 #include <vector>
 
 #include <btrfsbackup/backup_tool.hpp>
+#include <btrfsbackup/process.hpp>
+#include <btrfsbackup/transfer_pipeline.hpp>
 
 #include "test_helpers.hpp"
 
@@ -151,6 +157,43 @@ void test_runner_failure_skips_target_command() {
     test_helpers::expect_true("backup runner failure target", fixture.target_calls.empty(), "target eject should not run");
 }
 
+void test_termination_signals_request_cancellation() {
+    for (int signal : {SIGINT, SIGTERM}) {
+        btrfsbackup::CancellationToken cancellation;
+        btrfsbackup::TerminationSignalMonitor monitor(cancellation);
+        test_helpers::expect_eq("send termination signal", std::to_string(kill(getpid(), signal)), "0");
+
+        pollfd cancellation_fd{
+            .fd = cancellation.cancellation_fd(),
+            .events = POLLIN,
+            .revents = 0,
+        };
+        test_helpers::expect_eq(
+            "termination signal wakes cancellation",
+            std::to_string(poll(&cancellation_fd, 1, 1000)),
+            "1"
+        );
+        test_helpers::expect_true(
+            "termination signal requests cancellation",
+            cancellation.cancellation_requested(),
+            "signal monitor did not request cancellation"
+        );
+    }
+}
+
+void test_spawned_children_do_not_inherit_blocked_termination_signals() {
+    btrfsbackup::CancellationToken cancellation;
+    btrfsbackup::TerminationSignalMonitor monitor(cancellation);
+    btrfsbackup::CommandResult result = btrfsbackup::run_command({
+        "sh",
+        "-c",
+        "kill -TERM $$; printf survived",
+    });
+
+    test_helpers::expect_eq("spawned child termination", std::to_string(result.exit_code), "128");
+    test_helpers::expect_true("spawned child did not survive", result.output.find("survived") == std::string::npos, "child inherited blocked SIGTERM");
+}
+
 } // namespace
 
 int main() {
@@ -160,5 +203,7 @@ int main() {
     test_service_invocation_skips_runner_eject();
     test_profile_auto_eject_false_skips_target_command();
     test_runner_failure_skips_target_command();
+    test_termination_signals_request_cancellation();
+    test_spawned_children_do_not_inherit_blocked_termination_signals();
     return test_helpers::finish("backup tool tests passed");
 }

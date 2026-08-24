@@ -140,6 +140,9 @@ render_test() {
     assert_not_contains "$output/systemd/btrfs-backup.service" 'Requires=mnt-backup.mount'
     assert_contains "$output/systemd/btrfs-backup.service" 'ExecStart='
     assert_contains "$output/systemd/btrfs-backup.service" '--profile laptop'
+    assert_contains "$output/systemd/btrfs-backup.service" 'TimeoutStopSec=90s'
+    assert_contains "$output/systemd/btrfs-backup.service" 'KillMode=mixed'
+    assert_contains "$output/systemd/btrfs-backup.service" 'SendSIGKILL=yes'
     assert_contains "$output/config/fstab.fragment" 'noauto'
     assert_contains "$output/config/fstab.fragment" 'x-systemd.requires=systemd-cryptsetup@backupdisk.service'
     if grep -R -q '{{' "$output"; then

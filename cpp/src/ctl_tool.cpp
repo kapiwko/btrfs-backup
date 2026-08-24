@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 
+#include <btrfsbackup/backup_tool.hpp>
 #include <btrfsbackup/command/installation_command.hpp>
 #include <btrfsbackup/command/profile_command.hpp>
 #include <btrfsbackup/command/runner_command.hpp>
@@ -14,6 +15,7 @@
 #include <btrfsbackup/command/status_command.hpp>
 #include <btrfsbackup/command/target_command.hpp>
 #include <btrfsbackup/errors.hpp>
+#include <btrfsbackup/transfer_pipeline.hpp>
 
 namespace fs = std::filesystem;
 
@@ -93,7 +95,9 @@ int ctl_tool_main(int argc, char** argv) {
         } else if (command == "installation") {
             return command::installation(args);
         } else if (command == "runner") {
-            return command::runner(profile_config_dir, args, std::cout);
+            CancellationToken cancellation;
+            TerminationSignalMonitor termination_signals(cancellation);
+            return command::runner(profile_config_dir, args, std::cout, nullptr, &cancellation);
         } else if (command == "target") {
             return command::target(profile_config_dir, args, std::cout);
         } else if (command == "-h" || command == "--help") {

@@ -149,6 +149,21 @@ void test_event_sink_contract() {
     test_helpers::expect_eq("event message", sink.events.at(0).message, "chunk");
 }
 
+void test_posix_pipeline_validates_termination_policy() {
+    test_helpers::expect_validation_error("zero terminate period", [] {
+        btrfsbackup::PosixTransferPipeline pipeline({
+            .terminate_grace_period = std::chrono::milliseconds(0),
+            .kill_reap_period = std::chrono::milliseconds(100),
+        });
+    }, "termination periods must be positive");
+    test_helpers::expect_validation_error("zero kill reap period", [] {
+        btrfsbackup::PosixTransferPipeline pipeline({
+            .terminate_grace_period = std::chrono::milliseconds(100),
+            .kill_reap_period = std::chrono::milliseconds(0),
+        });
+    }, "termination periods must be positive");
+}
+
 void test_posix_pipeline_preserves_stream_integrity() {
     constexpr std::uint64_t transfer_bytes = 8ULL * 1024ULL * 1024ULL;
     btrfsbackup::PosixTransferPipeline pipeline;
@@ -439,6 +454,70 @@ void test_posix_pipeline_cancels_while_backpressured() {
     test_helpers::expect_true("backpressured cancellation latency", elapsed_ms < 2000, "cancellation should not wait for the consumer");
 }
 
+void test_posix_pipeline_kills_children_that_ignore_sigterm() {
+    btrfsbackup::PosixTransferPipeline pipeline({
+        .terminate_grace_period = std::chrono::milliseconds(100),
+        .kill_reap_period = std::chrono::milliseconds(500),
+    });
+    btrfsbackup::NullTransferEventSink sink;
+    btrfsbackup::CancellationToken cancellation;
+
+    auto started_at = std::chrono::steady_clock::now();
+    std::future<btrfsbackup::TransferResult> future = std::async(
+        std::launch::async,
+        [&] {
+            return pipeline.run(
+                {
+                    .producer_argv = {"sh", "-c", "trap '' TERM; while :; do sleep 1; done"},
+                    .consumer_argv = {"sh", "-c", "trap '' TERM; while :; do sleep 1; done"},
+                },
+                sink,
+                cancellation
+            );
+        }
+    );
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    cancellation.request_cancel();
+    btrfsbackup::TransferResult result = future.get();
+    auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - started_at
+    ).count();
+
+    test_helpers::expect_true("stubborn transfer cancelled", result.cancelled, "transfer should report cancellation");
+    test_helpers::expect_true("stubborn cancellation bounded", elapsed_ms < 2000, "SIGKILL escalation should bound cancellation");
+    test_helpers::expect_eq("stubborn producer killed", std::to_string(result.producer.exit_code), "137");
+    test_helpers::expect_eq("stubborn consumer killed", std::to_string(result.consumer.exit_code), "137");
+    test_helpers::expect_contains("producer escalation diagnostic", result.producer.diagnostics, "sent SIGKILL");
+    test_helpers::expect_contains("consumer escalation diagnostic", result.consumer.diagnostics, "sent SIGKILL");
+}
+
+void test_async_handle_destructor_kills_stubborn_children() {
+    btrfsbackup::PosixTransferPipeline pipeline({
+        .terminate_grace_period = std::chrono::milliseconds(100),
+        .kill_reap_period = std::chrono::milliseconds(500),
+    });
+    btrfsbackup::ThreadedAsyncTransferPipeline async(pipeline);
+    btrfsbackup::NullTransferEventSink sink;
+    auto started_at = std::chrono::steady_clock::now();
+
+    {
+        std::unique_ptr<btrfsbackup::IAsyncTransferHandle> handle = async.start(
+            {
+                .producer_argv = {"sh", "-c", "trap '' TERM; while :; do sleep 1; done"},
+                .consumer_argv = {"sh", "-c", "trap '' TERM; while :; do sleep 1; done"},
+            },
+            sink
+        );
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    }
+
+    auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - started_at
+    ).count();
+    test_helpers::expect_true("async destructor cancellation bounded", elapsed_ms < 2000, "handle destruction should not wait indefinitely");
+}
+
 void test_threaded_async_pipeline_runs_in_background() {
     BlockingTransferPipeline blocking;
     btrfsbackup::ThreadedAsyncTransferPipeline async(blocking);
@@ -520,6 +599,7 @@ int main() {
     test_both_sides_failure_keeps_both_diagnostics();
     test_cancelled_transfer_is_reported();
     test_event_sink_contract();
+    test_posix_pipeline_validates_termination_policy();
     test_posix_pipeline_preserves_stream_integrity();
     test_posix_pipeline_transfers_bytes();
     test_posix_pipeline_transfers_gibibyte_under_backpressure();
@@ -531,6 +611,8 @@ int main() {
     test_posix_pipeline_honors_cancellation();
     test_posix_pipeline_cancellation_wakes_event_loop();
     test_posix_pipeline_cancels_while_backpressured();
+    test_posix_pipeline_kills_children_that_ignore_sigterm();
+    test_async_handle_destructor_kills_stubborn_children();
     test_threaded_async_pipeline_runs_in_background();
     test_threaded_posix_pipeline_spawns_commands_in_worker_thread();
     test_threaded_async_pipeline_requests_cancellation();
