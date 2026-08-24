@@ -27,8 +27,6 @@
     coverage after cancellation.
 
 - Add application-consistency hooks to the C++ run plan:
-  - add hook timeout and cancellation handling with stable structured error
-    codes;
   - make hook effects checkpoint-aware so pending recovery can distinguish
     failure before snapshot creation from failure after snapshot creation;
   - leave integration-specific helpers, such as PostgreSQL, MariaDB, libvirt,

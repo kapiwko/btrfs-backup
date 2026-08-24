@@ -6,6 +6,7 @@
 #include <cerrno>
 #include <stdexcept>
 #include <string>
+#include <thread>
 
 #include <btrfsbackup/process.hpp>
 #include <btrfsbackup/process_spawn.hpp>
@@ -38,6 +39,77 @@ void test_run_command_reports_missing_executable() {
         result.output,
         "/definitely-missing-btrfsbackup-command"
     );
+}
+
+void test_controlled_command_times_out_and_reaps_process() {
+    const auto started_at = std::chrono::steady_clock::now();
+    btrfsbackup::CommandResult result = btrfsbackup::run_controlled_command(
+        {"/bin/sh", "-c", "trap '' TERM; while :; do sleep 1; done"},
+        {
+            .timeout = std::chrono::milliseconds(100),
+            .terminate_grace_period = std::chrono::milliseconds(50),
+            .kill_reap_period = std::chrono::milliseconds(500),
+        }
+    );
+    const auto elapsed = std::chrono::steady_clock::now() - started_at;
+
+    test_helpers::expect_true("controlled command timed out", result.timed_out, "missing timeout result");
+    test_helpers::expect_true("controlled timeout bounded", elapsed < std::chrono::seconds(2), "timeout cleanup took too long");
+}
+
+void test_controlled_command_observes_cancellation_fd() {
+    int cancellation_pipe[2];
+    test_helpers::expect_eq("create cancellation pipe", std::to_string(pipe2(cancellation_pipe, O_CLOEXEC)), "0");
+    std::thread cancel([write_fd = cancellation_pipe[1]] {
+        std::this_thread::sleep_for(std::chrono::milliseconds(30));
+        const char signal = 1;
+        (void)write(write_fd, &signal, 1);
+    });
+
+    btrfsbackup::CommandResult result = btrfsbackup::run_controlled_command(
+        {"/bin/sleep", "30"},
+        {
+            .cancellation_fd = cancellation_pipe[0],
+            .timeout = std::chrono::seconds(5),
+        }
+    );
+    cancel.join();
+    close(cancellation_pipe[0]);
+    close(cancellation_pipe[1]);
+
+    test_helpers::expect_true("controlled command cancelled", result.cancelled, "missing cancellation result");
+    test_helpers::expect_true("cancel is not timeout", !result.timed_out, "cancellation was reported as timeout");
+}
+
+void test_controlled_command_bounds_captured_output() {
+    btrfsbackup::CommandResult result = btrfsbackup::run_controlled_command(
+        {"/usr/bin/seq", "1", "100000"},
+        {
+            .timeout = std::chrono::seconds(5),
+            .max_output_bytes = 1024,
+        }
+    );
+
+    test_helpers::expect_eq("bounded output exit", std::to_string(result.exit_code), "0");
+    test_helpers::expect_eq("bounded output size", std::to_string(result.output.size()), "1024");
+}
+
+void test_noisy_controlled_command_still_observes_timeout() {
+    const auto started_at = std::chrono::steady_clock::now();
+    btrfsbackup::CommandResult result = btrfsbackup::run_controlled_command(
+        {"/usr/bin/yes"},
+        {
+            .timeout = std::chrono::milliseconds(50),
+            .max_output_bytes = 1024,
+            .terminate_grace_period = std::chrono::milliseconds(50),
+            .kill_reap_period = std::chrono::milliseconds(500),
+        }
+    );
+    const auto elapsed = std::chrono::steady_clock::now() - started_at;
+
+    test_helpers::expect_true("noisy command timed out", result.timed_out, "continuous output hid the timeout");
+    test_helpers::expect_eq("noisy output bounded", std::to_string(result.output.size()), "1024");
+    test_helpers::expect_true("noisy timeout bounded", elapsed < std::chrono::seconds(2), "noisy command cleanup took too long");
 }
 
 void test_child_process_reaps_group_during_exception_unwind() {
@@ -91,6 +163,10 @@ void test_child_process_reaps_group_during_exception_unwind() {
 int main() {
     test_run_command_captures_stdout_and_stderr();
     test_run_command_reports_missing_executable();
+    test_controlled_command_times_out_and_reaps_process();
+    test_controlled_command_observes_cancellation_fd();
+    test_controlled_command_bounds_captured_output();
+    test_noisy_controlled_command_still_observes_timeout();
     test_child_process_reaps_group_during_exception_unwind();
 
     return test_helpers::finish("process tests");

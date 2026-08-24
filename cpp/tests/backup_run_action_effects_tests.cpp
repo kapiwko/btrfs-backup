@@ -110,6 +110,9 @@ class FakeCommandRunner final : public btrfsbackup::ICommandRunner {
 public:
     std::vector<std::vector<std::string>> calls;
     int exit_code = 0;
+    bool cancelled = false;
+    bool timed_out = false;
+    std::optional<btrfsbackup::ControlledCommandOptions> controlled_options;
 
     btrfsbackup::CommandResult run(const std::vector<std::string>& argv) override {
         calls.push_back(argv);
@@ -117,6 +120,17 @@ public:
             .exit_code = exit_code,
             .output = {},
         };
+    }
+
+    btrfsbackup::CommandResult run_controlled(
+        const std::vector<std::string>& argv,
+        const btrfsbackup::ControlledCommandOptions& options
+    ) override {
+        controlled_options = options;
+        btrfsbackup::CommandResult result = run(argv);
+        result.cancelled = cancelled;
+        result.timed_out = timed_out;
+        return result;
     }
 };
 
@@ -156,8 +170,18 @@ btrfsbackup::BackupRunAction hook_action(btrfsbackup::BackupRunActionKind kind) 
         .hook = btrfsbackup::ProfileHookCommand{
             .program = "/usr/local/bin/prepare-backup",
             .arguments = {"--source", "root"},
+            .timeout_seconds = 300,
         },
     };
+}
+
+void execute_action(
+    btrfsbackup::BackupRunActionEffects& effects,
+    const btrfsbackup::BackupRunAction& action,
+    const btrfsbackup::BackupSourceRunPlan& source
+) {
+    btrfsbackup::CancellationToken cancellation;
+    effects.execute_action(action, source, run_plan(), cancellation);
 }
 
 void test_create_snapshot_writes_pending_marker_and_verifies_readonly_snapshot() {
@@ -172,7 +196,7 @@ void test_create_snapshot_writes_pending_marker_and_verifies_readonly_snapshot()
     FakeFileSystemEffects fs_effects;
     btrfsbackup::BackupRunActionEffects effects(btrfs, fs_effects);
 
-    effects.execute_action(action(btrfsbackup::BackupRunActionKind::CreateSnapshot), source, run_plan());
+    execute_action(effects, action(btrfsbackup::BackupRunActionKind::CreateSnapshot), source);
 
     test_helpers::expect_eq("mkdir local snapshot dir", fs_effects.calls.at(0), action_path("mkdir", source.local_snapshot_dir));
     test_helpers::expect_eq("snapshot call", btrfs.calls.at(0), "snapshot:" + source.source_subvolume.string() + "->" + source.local_snapshot_path.string());
@@ -194,7 +218,7 @@ void test_cleanup_incoming_deletes_subvolumes_and_plain_paths() {
     fs_effects.directory_entries[directory.string()] = {nested_subvolume};
     btrfsbackup::BackupRunActionEffects effects(btrfs, fs_effects);
 
-    effects.execute_action(action(btrfsbackup::BackupRunActionKind::CleanupIncoming), source, run_plan());
+    execute_action(effects, action(btrfsbackup::BackupRunActionKind::CleanupIncoming), source);
 
     test_helpers::expect_true("list incoming", std::find(
         fs_effects.calls.begin(),
@@ -251,11 +275,11 @@ void test_verify_commit_retention_and_cleanup_use_existing_helpers() {
     fs_effects.directory_entries[source.incoming_run_dir.string()] = {};
     btrfsbackup::BackupRunActionEffects effects(btrfs, fs_effects);
 
-    effects.execute_action(action(btrfsbackup::BackupRunActionKind::VerifyReceived), source, run_plan());
-    effects.execute_action(action(btrfsbackup::BackupRunActionKind::CommitReceived), source, run_plan());
-    effects.execute_action(action(btrfsbackup::BackupRunActionKind::ApplyRemoteRetention), source, run_plan());
-    effects.execute_action(action(btrfsbackup::BackupRunActionKind::ApplyLocalRetention), source, run_plan());
-    effects.execute_action(action(btrfsbackup::BackupRunActionKind::CleanupSource), source, run_plan());
+    execute_action(effects, action(btrfsbackup::BackupRunActionKind::VerifyReceived), source);
+    execute_action(effects, action(btrfsbackup::BackupRunActionKind::CommitReceived), source);
+    execute_action(effects, action(btrfsbackup::BackupRunActionKind::ApplyRemoteRetention), source);
+    execute_action(effects, action(btrfsbackup::BackupRunActionKind::ApplyLocalRetention), source);
+    execute_action(effects, action(btrfsbackup::BackupRunActionKind::CleanupSource), source);
 
     test_helpers::expect_true("commit snapshot", std::find(
         btrfs.calls.begin(),
@@ -286,7 +310,7 @@ void test_send_receive_prepares_remote_and_incoming_directories() {
     FakeFileSystemEffects fs_effects;
     btrfsbackup::BackupRunActionEffects effects(btrfs, fs_effects);
 
-    effects.execute_action(action(btrfsbackup::BackupRunActionKind::SendReceive), source, run_plan());
+    execute_action(effects, action(btrfsbackup::BackupRunActionKind::SendReceive), source);
 
     test_helpers::expect_true("remote dir", std::find(
         fs_effects.calls.begin(),
@@ -311,7 +335,7 @@ void test_pending_recovery_deletes_invalid_remote_snapshot_first() {
     FakeFileSystemEffects fs_effects;
     btrfsbackup::BackupRunActionEffects effects(btrfs, fs_effects);
 
-    effects.execute_action(action(btrfsbackup::BackupRunActionKind::RecoverPending), source, run_plan());
+    execute_action(effects, action(btrfsbackup::BackupRunActionKind::RecoverPending), source);
 
     test_helpers::expect_eq("recovery delete count", std::to_string(btrfs.calls.size()), "2");
     test_helpers::expect_eq("recovery remote first", btrfs.calls.at(0), action_path("delete", source.final_remote_snapshot_path));
@@ -343,7 +367,7 @@ void test_failed_remote_recovery_keeps_local_snapshot_and_marker() {
     btrfsbackup::BackupRunActionEffects effects(btrfs, fs_effects);
 
     test_helpers::expect_validation_error("failed recovery delete", [&] {
-        effects.execute_action(action(btrfsbackup::BackupRunActionKind::RecoverPending), source, run_plan());
+        execute_action(effects, action(btrfsbackup::BackupRunActionKind::RecoverPending), source);
     }, "injected subvolume delete failure");
 
     test_helpers::expect_eq("failed recovery delete count", std::to_string(btrfs.calls.size()), "1");
@@ -360,12 +384,17 @@ void test_hook_actions_use_command_runner_argv() {
     FakeCommandRunner hooks;
     btrfsbackup::BackupRunActionEffects effects(btrfs, fs_effects, hooks);
 
-    effects.execute_action(hook_action(btrfsbackup::BackupRunActionKind::BeforeSnapshotHook), source, run_plan());
+    execute_action(effects, hook_action(btrfsbackup::BackupRunActionKind::BeforeSnapshotHook), source);
 
     test_helpers::expect_eq("hook call count", std::to_string(hooks.calls.size()), "1");
     test_helpers::expect_eq("hook program", hooks.calls.at(0).at(0), "/usr/local/bin/prepare-backup");
     test_helpers::expect_eq("hook arg 1", hooks.calls.at(0).at(1), "--source");
     test_helpers::expect_eq("hook arg 2", hooks.calls.at(0).at(2), "root");
+    test_helpers::expect_eq(
+        "hook timeout forwarded",
+        std::to_string(hooks.controlled_options->timeout.count()),
+        std::to_string(std::chrono::minutes(5).count() * 60 * 1000)
+    );
 }
 
 void test_hook_failure_is_reported_as_validation_error() {
@@ -378,8 +407,46 @@ void test_hook_failure_is_reported_as_validation_error() {
     btrfsbackup::BackupRunActionEffects effects(btrfs, fs_effects, hooks);
 
     test_helpers::expect_validation_error("hook failure", [&] {
-        effects.execute_action(hook_action(btrfsbackup::BackupRunActionKind::AfterSnapshotHook), source, run_plan());
+        execute_action(effects, hook_action(btrfsbackup::BackupRunActionKind::AfterSnapshotHook), source);
     }, "hook failed");
+}
+
+void test_hook_timeout_has_stable_error_code() {
+    fs::path root = test_helpers::test_root("backup-run-action-effects", "hook-timeout");
+    btrfsbackup::BackupSourceRunPlan source = source_plan(root);
+    FakeBtrfsOperations btrfs;
+    FakeFileSystemEffects fs_effects;
+    FakeCommandRunner hooks;
+    hooks.timed_out = true;
+    btrfsbackup::BackupRunActionEffects effects(btrfs, fs_effects, hooks);
+    btrfsbackup::BackupRunAction timed_hook = hook_action(btrfsbackup::BackupRunActionKind::BeforeSnapshotHook);
+    timed_hook.hook.timeout_seconds = 17;
+
+    try {
+        execute_action(effects, timed_hook, source);
+        test_helpers::expect_true("hook timeout throws", false, "timeout should fail the action");
+    } catch (const btrfsbackup::CodedValidationError& error) {
+        test_helpers::expect_eq("hook timeout code", error.error_code, "hook.before_snapshot_timeout");
+        test_helpers::expect_contains("hook timeout message", error.what(), "17 seconds");
+    }
+}
+
+void test_hook_cancellation_is_not_reported_as_hook_failure() {
+    fs::path root = test_helpers::test_root("backup-run-action-effects", "hook-cancel");
+    btrfsbackup::BackupSourceRunPlan source = source_plan(root);
+    FakeBtrfsOperations btrfs;
+    FakeFileSystemEffects fs_effects;
+    FakeCommandRunner hooks;
+    hooks.cancelled = true;
+    btrfsbackup::BackupRunActionEffects effects(btrfs, fs_effects, hooks);
+
+    bool cancelled = false;
+    try {
+        execute_action(effects, hook_action(btrfsbackup::BackupRunActionKind::AfterSnapshotHook), source);
+    } catch (const btrfsbackup::OperationCancelledError&) {
+        cancelled = true;
+    }
+    test_helpers::expect_true("hook cancellation type", cancelled, "hook cancellation should have a distinct result");
 }
 
 } // namespace
@@ -393,6 +460,8 @@ int main() {
     test_failed_remote_recovery_keeps_local_snapshot_and_marker();
     test_hook_actions_use_command_runner_argv();
     test_hook_failure_is_reported_as_validation_error();
+    test_hook_timeout_has_stable_error_code();
+    test_hook_cancellation_is_not_reported_as_hook_failure();
 
     return test_helpers::finish("backup run action effects tests");
 }

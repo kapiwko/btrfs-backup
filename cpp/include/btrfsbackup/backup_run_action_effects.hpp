@@ -14,7 +14,8 @@ public:
     void execute_action(
         const BackupRunAction& action,
         const BackupSourceRunPlan& source_plan,
-        const BackupRunPlan& run_plan
+        const BackupRunPlan& run_plan,
+        CancellationToken& cancellation
     ) override;
 
 private:

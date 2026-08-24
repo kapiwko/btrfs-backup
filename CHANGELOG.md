@@ -23,6 +23,9 @@
 9. failed verification of a committed snapshot now reports cleanup failures as
    `repository.recovery_required`; the pending marker retains the exact final
    path so the next run removes the unverified canonical snapshot explicitly.
+10. application hooks now have configurable finite timeouts, observe runner
+    cancellation, terminate their complete process group with bounded cleanup,
+    cap captured diagnostics, and emit phase-specific stable error codes.
 
 ## 0.2.1 - 2026-08-23
 

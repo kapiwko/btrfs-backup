@@ -113,6 +113,12 @@ guard. Normal wait paths disarm the guard after `waitpid`; exception unwinding
 uses the same bounded SIGTERM, SIGKILL, and reap policy, including failures
 between producer and consumer startup or while configuring transfer pipes.
 
+Application hooks use the same cancellation token. Each hook runs in a separate
+process group with its required configured timeout. Cancellation or timeout
+sends SIGTERM to the group; process RAII escalates to SIGKILL and performs
+bounded reaping when the group does not exit. Hook stdout and stderr are drained
+while captured diagnostics are limited to 64 KiB.
+
 ## Commit Model
 
 Each receive first lands under:

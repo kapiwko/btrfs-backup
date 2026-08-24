@@ -109,7 +109,8 @@ profile may define controlled hook phases around snapshot creation:
       {
         "type": "program",
         "program": "/usr/local/bin/prepare-postgresql-backup",
-        "arguments": []
+        "arguments": [],
+        "timeoutSeconds": 60
       }
     ],
     "afterSnapshot": []
@@ -119,8 +120,10 @@ profile may define controlled hook phases around snapshot creation:
 
 Hook commands must be modeled as an explicit executable path and an argument
 array. The runtime does not execute arbitrary command text through a shell.
-Hook failures stop the run; structured hook-specific error codes are tracked as
-future hardening work.
+`timeoutSeconds` is required and accepts values from 1 through 86400. Hook
+failures and timeouts stop the run. Cancellation terminates the
+hook's complete process group and finishes the run through the normal cancelled
+state.
 
 This model can cover PostgreSQL, MariaDB, libvirt, containers, virtual
 machines, and administrator-provided programs without hard-coding those

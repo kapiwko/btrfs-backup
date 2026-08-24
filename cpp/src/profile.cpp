@@ -152,7 +152,7 @@ Json normalize_hook_commands(const Json& hooks, const std::string& key, const st
         if (!item.is_object()) {
             throw ValidationError(item_name + " must be an object");
         }
-        reject_unknown_properties(item, {"type", "program", "arguments"}, item_name);
+        reject_unknown_properties(item, {"type", "program", "arguments", "timeoutSeconds"}, item_name);
         std::string type = text(required_value(item, "type", item_name + ".type"), item_name + ".type", false, 32);
         if (type != "program") {
             throw ValidationError(item_name + ".type must be program");
@@ -172,10 +172,17 @@ Json normalize_hook_commands(const Json& hooks, const std::string& key, const st
             ));
         }
 
+        (void)required_value(item, "timeoutSeconds", item_name + ".timeoutSeconds");
+        const long long timeout_seconds = integer_value(item, "timeoutSeconds", item_name + ".timeoutSeconds", 0, 86400);
+        if (timeout_seconds == 0) {
+            throw ValidationError(item_name + ".timeoutSeconds is outside the supported range");
+        }
+
         normalized.push_back({
             {"type", type},
             {"program", absolute_path(required_value(item, "program", item_name + ".program"), item_name + ".program")},
-            {"arguments", normalized_arguments}
+            {"arguments", normalized_arguments},
+            {"timeoutSeconds", timeout_seconds}
         });
     }
     return normalized;
@@ -541,12 +548,14 @@ Profile profile_from_json(const Json& raw) {
         profile.hooks.before_snapshot.push_back({
             .program = item.at("program").get<std::string>(),
             .arguments = item.at("arguments").get<std::vector<std::string>>(),
+            .timeout_seconds = item.at("timeoutSeconds").get<long long>(),
         });
     }
     for (const Json& item : hooks.at("afterSnapshot")) {
         profile.hooks.after_snapshot.push_back({
             .program = item.at("program").get<std::string>(),
             .arguments = item.at("arguments").get<std::vector<std::string>>(),
+            .timeout_seconds = item.at("timeoutSeconds").get<long long>(),
         });
     }
 
@@ -599,7 +608,8 @@ Json profile_to_json(const Profile& profile) {
             result.push_back({
                 {"type", "program"},
                 {"program", hook.program},
-                {"arguments", hook.arguments}
+                {"arguments", hook.arguments},
+                {"timeoutSeconds", hook.timeout_seconds}
             });
         }
         return result;
