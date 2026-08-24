@@ -491,7 +491,10 @@ void test_posix_pipeline_honors_cancellation() {
 }
 
 void test_posix_pipeline_cancellation_wakes_event_loop() {
-    btrfsbackup::PosixTransferPipeline pipeline;
+    btrfsbackup::PosixTransferPipeline pipeline({
+        .terminate_grace_period = std::chrono::milliseconds(100),
+        .kill_reap_period = std::chrono::milliseconds(500),
+    });
     RecordingEventSink sink;
     btrfsbackup::CancellationToken cancellation;
 
@@ -529,7 +532,10 @@ void test_posix_pipeline_cancellation_wakes_event_loop() {
 }
 
 void test_posix_pipeline_cancels_while_backpressured() {
-    btrfsbackup::PosixTransferPipeline pipeline;
+    btrfsbackup::PosixTransferPipeline pipeline({
+        .terminate_grace_period = std::chrono::milliseconds(100),
+        .kill_reap_period = std::chrono::milliseconds(500),
+    });
     btrfsbackup::NullTransferEventSink sink;
     btrfsbackup::CancellationToken cancellation;
 

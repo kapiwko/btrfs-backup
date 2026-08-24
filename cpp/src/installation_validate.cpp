@@ -40,7 +40,7 @@ bool contains_unresolved_placeholder(const fs::path& root) {
     return false;
 }
 
-bool allowed_systemd_verify_failure(const std::string& output) {
+bool allowed_systemd_verify_failure(const std::string& output, bool allow_missing_executables) {
     bool saw_output = false;
     std::istringstream stream(output);
     std::string line;
@@ -49,15 +49,23 @@ bool allowed_systemd_verify_failure(const std::string& output) {
             continue;
         }
         saw_output = true;
-        if (line != "Failed to turn off SO_PASSRIGHTS on user lookup socket, ignoring: Operation not permitted" &&
-            line != "Failed to enable SO_PASSCRED on handoff timestamp socket: Operation not permitted") {
+        bool missing_executable = allow_missing_executables
+            && line.find(".service: Command ") != std::string::npos
+            && line.ends_with(" is not executable: No such file or directory");
+        if (line != "Failed to turn off SO_PASSRIGHTS on user lookup socket, ignoring: Operation not permitted"
+            && line != "Failed to enable SO_PASSCRED on handoff timestamp socket: Operation not permitted"
+            && !missing_executable) {
             return false;
         }
     }
     return saw_output;
 }
 
-void run_checked(const std::vector<std::string>& argv, bool allow_systemd_warnings = false) {
+void run_checked(
+    const std::vector<std::string>& argv,
+    bool allow_systemd_warnings = false,
+    bool allow_missing_executables = false
+) {
     btrfsbackup::CommandResult result = btrfsbackup::run_command(argv);
     if (result.exit_code == 0) {
         if (!result.output.empty()) {
@@ -65,7 +73,7 @@ void run_checked(const std::vector<std::string>& argv, bool allow_systemd_warnin
         }
         return;
     }
-    if (allow_systemd_warnings && allowed_systemd_verify_failure(result.output)) {
+    if (allow_systemd_warnings && allowed_systemd_verify_failure(result.output, allow_missing_executables)) {
         std::cerr << result.output;
         return;
     }
@@ -117,7 +125,11 @@ void validate_rendered_installation(const fs::path& root) {
     );
     fs::path udev_file = root / "udev" / ("99-btrfs-backup-" + profile.id + ".rules");
     require_file(udev_file, "missing rendered profile udev rule");
-    run_checked({"systemd-analyze", "verify", service_file.string(), profile_service_file.string(), eject_service_file.string()}, true);
+    run_checked(
+        {"systemd-analyze", "verify", service_file.string(), profile_service_file.string(), eject_service_file.string()},
+        true,
+        true
+    );
     run_checked({"udevadm", "verify", udev_file.string()});
     std::cerr << "Rendered configuration passed syntax, systemd, and udev validation: " << root << '\n';
 }
