@@ -162,6 +162,21 @@ void test_event_sink_contract() {
     test_helpers::expect_eq("event message", sink.events.at(0).message, "chunk");
 }
 
+void test_transfer_speed_uses_recent_samples() {
+    btrfsbackup::TransferSpeedEstimator speed;
+    const std::uint64_t one_mib = 1024ULL * 1024ULL;
+
+    test_helpers::expect_eq("initial speed", std::to_string(speed.sample(one_mib, 1000)), std::to_string(one_mib));
+    const std::uint64_t accelerated = speed.sample(5 * one_mib, 2000);
+    test_helpers::expect_true(
+        "EWMA responds to acceleration",
+        accelerated > one_mib && accelerated < 4 * one_mib,
+        "smoothed speed should move toward the recent sample without jumping to it"
+    );
+    const std::uint64_t after_stall = speed.sample(5 * one_mib, 3000);
+    test_helpers::expect_true("EWMA decays after stall", after_stall < accelerated, "smoothed speed should decay without new bytes");
+}
+
 void test_posix_pipeline_validates_termination_policy() {
     test_helpers::expect_validation_error("zero terminate period", [] {
         btrfsbackup::PosixTransferPipeline pipeline({
@@ -248,6 +263,10 @@ void test_posix_pipeline_preserves_stream_integrity() {
 
     test_helpers::expect_true("splice integrity transfer success", btrfsbackup::transfer_succeeded(result), "splice transfer should succeed");
     test_helpers::expect_eq("splice integrity transfer bytes", std::to_string(result.bytes_transferred), std::to_string(transfer_bytes));
+    const auto progress_events = std::count_if(sink.events.begin(), sink.events.end(), [](const btrfsbackup::TransferEvent& event) {
+        return event.kind == btrfsbackup::TransferEventKind::Progress;
+    });
+    test_helpers::expect_true("progress events throttled", progress_events < 100, "progress should not be emitted for every splice chunk");
     std::filesystem::remove_all(root);
 }
 
@@ -654,6 +673,7 @@ int main() {
     test_both_sides_failure_keeps_both_diagnostics();
     test_cancelled_transfer_is_reported();
     test_event_sink_contract();
+    test_transfer_speed_uses_recent_samples();
     test_posix_pipeline_validates_termination_policy();
     test_posix_pipeline_reaps_children_when_setup_unwinds();
     test_posix_pipeline_preserves_stream_integrity();

@@ -107,8 +107,21 @@ void test_transfer_progress_status_uses_source_index_and_run_bytes() {
     test_helpers::expect_true("progress run bytes", current.at("runBytesProcessed") == 12288, "wrong run bytes");
     test_helpers::expect_true("progress source progress", current.at("sourceProgress") == 50, "wrong source progress");
     test_helpers::expect_true("progress eta", current.at("etaSeconds") == 2, "wrong ETA");
-    test_helpers::expect_true("progress overall", current.at("overallProgress") == 0, "wrong overall progress");
+    test_helpers::expect_true("progress overall", current.at("overallProgress") == 25, "wrong overall progress");
     test_helpers::expect_true("progress accuracy", current.at("progressAccuracy") == "estimated", "wrong progress accuracy");
+
+    btrfsbackup::BackupRunEvent second = event(btrfsbackup::BackupRunEventKind::TransferProgress);
+    second.source_id = "home";
+    second.source_index = 2;
+    sink.on_backup_run_event(second);
+    current = btrfsbackup::load_json_file(root / "status" / "default" / "current.json");
+    test_helpers::expect_true("second source overall", current.at("overallProgress") == 75, "wrong second-source overall progress");
+
+    btrfsbackup::BackupRunEvent action_completed = second;
+    action_completed.kind = btrfsbackup::BackupRunEventKind::ActionCompleted;
+    sink.on_backup_run_event(action_completed);
+    current = btrfsbackup::load_json_file(root / "status" / "default" / "current.json");
+    test_helpers::expect_true("overall remains monotonic", current.at("overallProgress") == 75, "overall progress regressed after transfer");
     fs::remove_all(root);
 }
 

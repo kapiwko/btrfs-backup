@@ -107,10 +107,18 @@ The status `details` object for `transferring` includes lower-level diagnostics:
 Clients must treat progress as advisory. Unknown or estimated
 progress must not be displayed as a precise guarantee.
 
+Live `speedBps` uses a three-second exponentially weighted moving average of
+recent transfer samples. Periodic progress is published every 500 milliseconds,
+plus a final sample when needed to account for bytes since the last interval.
+This makes the UI responsive to changing throughput without reflecting every
+short pipe burst. The completed transfer result retains the full-transfer
+average.
+
 When a source byte total is unknown, `sourceProgress` remains `-1`.
-`overallProgress` is still estimated from the current one-based `sourceIndex`
-and `sourceCount`, so it does not reset to zero between sources. Byte-oriented
-clients should prefer `runBytesProcessed` for a monotonic run-level counter.
+`overallProgress` gives each source an equal share of the run and includes the
+fractional progress of the current source. It remains monotonic through actions
+after the transfer and does not reset between sources. Byte-oriented clients
+should prefer `runBytesProcessed` for a monotonic run-level counter.
 When the runtime can walk the local snapshot, `bytesTotalEstimated` is populated
 from the apparent size of regular files in that snapshot. This is an estimate,
 not the exact Btrfs send stream size, especially for incremental sends, reflinks

@@ -41,6 +41,8 @@ public:
 
 private:
     BackupRunStatusContext context_;
+    std::string run_id_;
+    int last_overall_progress_ = -1;
 };
 
 } // namespace btrfsbackup
