@@ -83,7 +83,7 @@ syntax_test() {
         cat "$ctest_log" >&2
         fail 'CTest suite failed'
     fi
-    mapfile -t scripts < <(find "$ROOT" -type f \( -name '*.sh' -o -name '*.install' -o \( -path "$ROOT/bin/*" ! -path "$ROOT/bin/__pycache__/*" \) \) | sort)
+    mapfile -t scripts < <(find "$ROOT" -type f \( -name '*.sh' -o -name '*.install' \) | sort)
     local script
     for script in "${scripts[@]}"; do
         bash -n "$script"
@@ -96,7 +96,7 @@ render_test() {
     local profile="$output/config/profile.json"
 
     install -d -m0750 "$output/config" "$output/systemd" "$output/udev"
-    "$ROOT/bin/btrfs-backupctl" profile create \
+    "$ROOT/build/btrfs-backupctl" profile create \
         --output "$profile" \
         --profile laptop \
         --name 'Laptop backup' \
@@ -110,22 +110,21 @@ render_test() {
         --local-retention 30 \
         --minimum-target-free-bytes 5368709120 \
         --minimum-local-free-bytes 1073741824 \
-        --notify-user tester \
         --source root root / /.snapshots/btrfs-backup/root root 30 30 \
         --source home home /home /.snapshots/btrfs-backup/home home 45 20 >/dev/null
-    "$ROOT/bin/btrfs-backupctl" \
+    "$ROOT/build/btrfs-backupctl" \
         profile \
         --etc-root "$output/config" \
         --udev-root "$output/udev" \
         --public-root "$output/public/profiles" \
         save --file "$profile" >/dev/null
-    "$ROOT/bin/btrfs-backupctl" installation render \
+    "$ROOT/build/btrfs-backupctl" installation render \
         --file "$profile" \
         --output-dir "$output" \
-        --backup-command "$ROOT/bin/btrfs-backupctl runner execute" \
-        --eject-script "$ROOT/bin/btrfs-backupctl target eject" \
+        --backup-command "$ROOT/build/btrfs-backupctl runner execute" \
+        --eject-script "$ROOT/build/btrfs-backupctl target eject" \
         --keyfile /root/keys/backupdisk.key
-    "$ROOT/bin/btrfs-backupctl" installation validate --rendered-root "$output" >/dev/null
+    "$ROOT/build/btrfs-backupctl" installation validate --rendered-root "$output" >/dev/null
 
     assert_file "$output/config/profile.json"
     assert_file "$output/config/profiles/laptop/profile.json"
@@ -155,8 +154,8 @@ profile_json_test() {
     local rendered="$TEST_ROOT/profile-json-rendered"
     local saved="$TEST_ROOT/profile-json-saved"
 
-    "$ROOT/bin/btrfs-backupctl" profile validate --file "$ROOT/config/profile.example.json" >/dev/null
-    "$ROOT/bin/btrfs-backupctl" profile render \
+    "$ROOT/build/btrfs-backupctl" profile validate --file "$ROOT/config/profile.example.json" >/dev/null
+    "$ROOT/build/btrfs-backupctl" profile render \
         --file "$ROOT/config/profile.example.json" \
         --output-dir "$rendered" >/dev/null
 
@@ -167,7 +166,7 @@ profile_json_test() {
     assert_contains "$rendered/etc/btrfs-backup/profiles/default/profile.json" '"id": "home"'
     assert_contains "$rendered/etc/udev/rules.d/99-btrfs-backup-default.rules" 'btrfs-backup@default.service'
 
-    "$ROOT/bin/btrfs-backupctl" profile \
+    "$ROOT/build/btrfs-backupctl" profile \
         --etc-root "$saved/etc/btrfs-backup" \
         --udev-root "$saved/etc/udev/rules.d" \
         --public-root "$saved/var/lib/btrfs-backup/public/profiles" \
@@ -177,11 +176,11 @@ profile_json_test() {
     assert_file "$saved/etc/btrfs-backup/profiles/default/profile.json"
     assert_file "$saved/etc/udev/rules.d/99-btrfs-backup-default.rules"
     assert_file "$saved/var/lib/btrfs-backup/public/profiles/default.json"
-    "$ROOT/bin/btrfs-backupctl" profile \
+    "$ROOT/build/btrfs-backupctl" profile \
         --etc-root "$saved/etc/btrfs-backup" \
         show --profile default > "$saved/show.json"
     assert_contains "$saved/show.json" '"profileId": "default"'
-    "$ROOT/bin/btrfs-backupctl" profile \
+    "$ROOT/build/btrfs-backupctl" profile \
         --etc-root "$saved/etc/btrfs-backup" \
         export --profile default --output "$saved/exported.json" >/dev/null
     assert_file "$saved/exported.json"
@@ -189,67 +188,34 @@ profile_json_test() {
     pass 'profile JSON validates, renders, and saves generated runtime files'
 }
 
-status_writer_cli_test() {
-    local status_root="$TEST_ROOT/status-writer-cli/status"
-    local history_root="$TEST_ROOT/status-writer-cli/history"
-    local run_id="20260823T082504Z-123-456"
-    local current="$status_root/default/current.json"
-    local history="$history_root/default/$run_id.json"
-    local last="$history_root/default/last.json"
-    local message=$'Backup "done"\nLine'
+command_surface_test() {
+    local output="$TEST_ROOT/command-surface"
+    local ctl="$ROOT/build/btrfs-backupctl"
 
-    "$ROOT/bin/btrfs-backupctl" \
-        --status-root "$status_root" \
-        --history-root "$history_root" \
-        status write \
-        --current \
-        --history \
-        --profile-id default \
-        --profile-name 'Default backup' \
-        --run-id "$run_id" \
-        --state succeeded \
-        --phase complete \
-        --message "$message" \
-        --current-source-name home \
-        --source-index 2 \
-        --source-count 2 \
-        --started-at '2026-08-23T08:24:00+02:00' \
-        --updated-at '2026-08-23T08:25:04+02:00' \
-        --finished-at '2026-08-23T08:25:04+02:00' \
-        --error-code '' \
-        --error-message '' \
-        --recoverable false \
-        --suggested-action '' \
-        --can-cancel false \
-        --exit-code 0
+    install -d -m0750 "$output"
+    "$ctl" --help > "$output/root.txt"
+    "$ctl" profile --help > "$output/profile.txt"
+    "$ctl" status --help > "$output/status.txt"
 
-    assert_file "$current"
-    assert_file "$history"
-    assert_file "$last"
-    cmp -s "$history" "$last" \
-        || fail 'last history status does not match run history status'
-    assert_contains "$current" '"schemaVersion": 2'
-    assert_contains "$current" '"state": "succeeded"'
-    assert_contains "$current" '"message": "Backup \"done\"\nLine"'
-    assert_contains "$current" '"errorCode": ""'
-    assert_contains "$current" '"errorMessage": ""'
-    assert_contains "$current" '"canCancel": false'
-    assert_contains "$history" '"currentSourceName": "home"'
+    assert_not_contains "$output/root.txt" 'state COMMAND'
+    assert_not_contains "$output/profile.txt" 'sources --file'
+    assert_not_contains "$output/status.txt" 'write [OPTIONS]'
+    assert_not_contains "$output/status.txt" '--json'
 
-    "$ROOT/bin/btrfs-backupctl" \
-        --status-root "$status_root" \
-        --history-root "$history_root" \
-        status show --profile default --human \
-        | grep -q 'Default backup: succeeded' \
-        || fail 'btrfs-backupctl did not render written status'
+    if "$ctl" state --help >/dev/null 2>&1; then
+        fail 'removed state command is still accepted'
+    fi
+    if "$ctl" profile sources --help >/dev/null 2>&1; then
+        fail 'removed profile sources command is still accepted'
+    fi
+    if "$ctl" profile migrate --help >/dev/null 2>&1; then
+        fail 'unknown profile command with --help is accepted'
+    fi
+    if "$ctl" status write --help >/dev/null 2>&1; then
+        fail 'removed status write command is still accepted'
+    fi
 
-    "$ROOT/bin/btrfs-backupctl" \
-        --history-root "$history_root" \
-        status history --profile default --limit 1 \
-        | grep -q '"runId": "20260823T082504Z-123-456"' \
-        || fail 'btrfs-backupctl did not render written history'
-
-    pass 'backupctl writes runtime status and history through the CLI'
+    pass 'backupctl exposes only supported command groups'
 }
 
 if [[ "$MODE" == static ]]; then
@@ -257,7 +223,7 @@ if [[ "$MODE" == static ]]; then
     syntax_test
     render_test
     profile_json_test
-    status_writer_cli_test
+    command_surface_test
     exit 0
 fi
 
@@ -265,4 +231,4 @@ printf '1..4\n'
 syntax_test
 render_test
 profile_json_test
-status_writer_cli_test
+command_surface_test

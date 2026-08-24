@@ -28,7 +28,9 @@ Targets:
 | `pkgbuild` | source tarball, Arch/AUR `PKGBUILD` packaging archive, source ZIP, checksums, build report |
 | `all` | all targets above except unsupported package ecosystems |
 
-The script runs the selected test suite, creates deterministic source archives, optionally builds native package archives where practical, and writes SHA-256 reports. It does not require an upstream `PKGBUILD`.
+The script runs the selected test suite, creates deterministic source archives,
+builds native package archives where practical, and writes SHA-256 reports from
+its own packaging generators.
 
 Outputs are written to `dist/`:
 
@@ -47,7 +49,9 @@ SHA256SUMS
 BUILD-REPORT.txt
 ```
 
-The `source` target avoids package construction and does not require `zstd`. Package-specific backends may have additional tool requirements.
+The `source` target uses the source archive toolchain. Arch package construction
+additionally uses `zstd`; other package backends may have their own tool
+requirements.
 Building from source requires CMake, a C++20 compiler, `pkg-config`,
 `nlohmann-json`, `libmount`, `libblkid`, `libudev`, and `libbtrfsutil`
 development files for the native code under `cpp/`.
@@ -68,8 +72,7 @@ Qt, Kirigami or Plasma dependencies to the base package.
 
 ## Package Contents
 
-Native private binaries are installed under `/usr/lib/btrfs-backup`, public
-commands under `/usr/bin`, the profile systemd unit under
+Native commands are installed directly under `/usr/bin`, the profile systemd unit under
 `/usr/lib/systemd/system`, examples under `/usr/share/btrfs-backup/examples`,
 and documentation under `/usr/share/doc/btrfs-backup`.
 
@@ -86,6 +89,12 @@ The optional `btrfs-backup-kde` package installs the Plasma applet under
 `/usr/share/plasma/plasmoids` and the compiled QML module under
 `/usr/lib/qt6/qml`. Its install hook refreshes the desktop service cache with
 `kbuildsycoca6` when that command is available.
+
+The base package installs native ELF commands directly in `/usr/bin` and uses
+Btrfs userspace tools, cryptsetup, systemd/udev, `coreutils`, and `util-linux` at
+runtime. The base service exposes status/history and writes operational
+diagnostics to the system journal. Desktop notifications are owned by
+`btrfs-backup-kde`.
 
 ## Reproducibility
 

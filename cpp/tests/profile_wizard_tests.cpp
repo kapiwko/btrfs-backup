@@ -117,9 +117,6 @@ btrfsbackup::ProfileWizardAnswers sample_answers() {
     answers.minimum_target_free_bytes = 1000;
     answers.minimum_local_free_bytes = 2000;
     answers.keyfile = "none";
-    answers.notifications_enabled = true;
-    answers.notifications_user = "backup-user";
-    answers.notifications_method = "journal";
     return answers;
 }
 
@@ -142,8 +139,6 @@ void test_profile_from_wizard_answers() {
     test_helpers::expect_true("wizard daily limit", !profile.settings.daily_limit, "daily limit should follow answers");
     test_helpers::expect_true("wizard keep failed snapshot", profile.settings.keep_failed_local_snapshot, "keep failed snapshot should follow answers");
     test_helpers::expect_true("wizard auto eject", !profile.settings.auto_eject, "auto eject should follow answers");
-    test_helpers::expect_eq("wizard notification user", profile.notifications.user, "backup-user");
-    test_helpers::expect_eq("wizard notification method", profile.notifications.method, "journal");
 }
 
 void test_profile_from_wizard_answers_validation() {

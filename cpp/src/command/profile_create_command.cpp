@@ -89,9 +89,6 @@ int profile_create(const std::vector<std::string>& args) {
     long long local_retention = 30;
     long long minimum_target_free_bytes = 5368709120LL;
     long long minimum_local_free_bytes = 1073741824LL;
-    bool notify_enabled = true;
-    std::string notify_user;
-    std::string notify_method = "auto";
     Json sources = Json::array();
 
     for (std::size_t i = 0; i < args.size(); ++i) {
@@ -142,12 +139,6 @@ int profile_create(const std::vector<std::string>& args) {
             minimum_target_free_bytes = arg_int(arg_value(i, args, arg), arg);
         } else if (arg == "--minimum-local-free-bytes") {
             minimum_local_free_bytes = arg_int(arg_value(i, args, arg), arg);
-        } else if (arg == "--notify-enable") {
-            notify_enabled = arg_bool(arg_value(i, args, arg), arg);
-        } else if (arg == "--notify-user") {
-            notify_user = arg_value(i, args, arg);
-        } else if (arg == "--notify-method") {
-            notify_method = arg_value(i, args, arg);
         } else if (arg == "--source") {
             if (i + 7 >= args.size()) {
                 fail("--source requires ID NAME SUBVOLUME LOCAL_SNAPSHOT_DIR REMOTE_SUBDIR REMOTE_RETENTION LOCAL_RETENTION");
@@ -209,11 +200,6 @@ int profile_create(const std::vector<std::string>& args) {
             {"localRetention", local_retention},
             {"minimumTargetFreeBytes", minimum_target_free_bytes},
             {"minimumLocalFreeBytes", minimum_local_free_bytes}
-        }},
-        {"notifications", {
-            {"enabled", notify_enabled},
-            {"user", notify_user},
-            {"method", notify_method}
         }},
         {"sources", sources}
     });

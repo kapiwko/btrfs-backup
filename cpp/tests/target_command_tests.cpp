@@ -87,11 +87,6 @@ btrfsbackup::Json profile_json(const std::string& mount_point, bool auto_eject =
             {"remoteRetention", 2},
             {"localRetention", 2}
         }},
-        {"notifications", {
-            {"enabled", false},
-            {"user", "root"},
-            {"method", "none"}
-        }},
         {"sources", btrfsbackup::Json::array({
             {
                 {"id", "home"},

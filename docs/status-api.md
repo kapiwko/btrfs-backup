@@ -191,10 +191,10 @@ btrfs-backupctl status show --profile default
 btrfs-backupctl status show --profile default --human
 btrfs-backupctl status show --all --human
 btrfs-backupctl status history --profile default --limit 10
-btrfs-backupctl status watch --profile default --json --interval 1
+btrfs-backupctl status watch --profile default --interval 1
 ```
 
-`status watch --json` emits the full status JSON object whenever
+`status watch` emits the full status JSON object whenever
 `current.json` changes. It validates that the object uses `schemaVersion: 2`
 and contains the status API fields documented above before writing it to
 stdout.

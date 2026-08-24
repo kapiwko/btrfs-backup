@@ -26,7 +26,6 @@ add_library(btrfsbackup-model STATIC
     cpp/src/identifiers.cpp
     cpp/src/json_io.cpp
     cpp/src/profile.cpp
-    cpp/src/profile_sources.cpp
     cpp/src/profile_wizard_model.cpp
     cpp/src/retention_plan.cpp
     cpp/src/snapshot_inventory.cpp
@@ -53,7 +52,6 @@ add_library(btrfsbackup-system STATIC
     cpp/src/profile_loader.cpp
     cpp/src/process_spawn.cpp
     cpp/src/run_state.cpp
-    cpp/src/shell_env.cpp
     cpp/src/space_check.cpp
     cpp/src/target_mount_validation.cpp
     cpp/src/trusted_file.cpp
@@ -102,16 +100,11 @@ add_library(btrfsbackup-core STATIC
     cpp/src/command/profile_create_command.cpp
     cpp/src/command/profile_command.cpp
     cpp/src/command/profile_list_command.cpp
-    cpp/src/command/profile_sources_command.cpp
     cpp/src/command/profile_wizard_command.cpp
     cpp/src/command/runner_command.cpp
-    cpp/src/command/state_command.cpp
-    cpp/src/command/state_fingerprint_command.cpp
-    cpp/src/command/state_run_command.cpp
     cpp/src/command/status_command.cpp
     cpp/src/command/status_history_command.cpp
     cpp/src/command/status_show_command.cpp
-    cpp/src/command/status_write_command.cpp
     cpp/src/command/target_command.cpp
     cpp/src/ctl_tool.cpp
     cpp/src/installation_render.cpp

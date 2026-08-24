@@ -6,7 +6,7 @@ installed.
 
 The current integration starts with a plasmoid in `integrations/plasma`. Its
 QML UI talks to a C++ `BackupStatusModel`, and that model reads the public
-`btrfs-backupctl status watch --json` stream. This keeps QML away from shell
+`btrfs-backupctl status watch` stream. This keeps QML away from shell
 commands and private state files while the versioned system D-Bus manager is not
 ready yet.
 
@@ -67,3 +67,7 @@ The target architecture remains:
 The plasmoid must not own long-running backup progress. After the desktop
 monitor exists, progress and notifications belong there so they survive
 plasmoid removal and shell restarts.
+
+The privileged core publishes status/history and service diagnostics.
+KNotifications belongs to the future per-session KDE monitor, which owns the
+user session and desktop delivery context.

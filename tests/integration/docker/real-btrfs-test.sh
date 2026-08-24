@@ -100,9 +100,6 @@ configure_backup_with_cli() {
         --auto-eject false \
         --minimum-target-free-bytes 0 \
         --minimum-local-free-bytes 0 \
-        --notify-enable false \
-        --notify-user root \
-        --notify-method none \
         --source home home "$SOURCE_MOUNT/home" "$SOURCE_MOUNT/.snapshots/home" home 2 2 >/dev/null
     btrfs-backupctl \
         profile \

@@ -4,7 +4,7 @@
   "title": "btrfs-backup profile",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "profileId", "name", "enabled", "target", "paths", "settings", "notifications", "sources"],
+  "required": ["schemaVersion", "profileId", "name", "enabled", "target", "paths", "settings", "sources"],
   "properties": {
     "schemaVersion": { "const": 1 },
     "profileId": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$" },
@@ -60,16 +60,6 @@
         "localRetention": { "$ref": "#/$defs/retentionCount" },
         "minimumTargetFreeBytes": { "$ref": "#/$defs/byteCount" },
         "minimumLocalFreeBytes": { "$ref": "#/$defs/byteCount" }
-      }
-    },
-    "notifications": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["enabled", "user", "method"],
-      "properties": {
-        "enabled": { "type": "boolean" },
-        "user": { "type": "string", "maxLength": 256 },
-        "method": { "enum": ["auto", "desktop", "journal", "none"] }
       }
     },
     "hooks": {

@@ -17,7 +17,6 @@
 #include <btrfsbackup/profile_loader.hpp>
 #include <btrfsbackup/profile_render.hpp>
 #include <btrfsbackup/profile_store.hpp>
-#include <btrfsbackup/command/profile_sources_command.hpp>
 
 namespace fs = std::filesystem;
 using btrfsbackup::ValidationError;
@@ -28,7 +27,6 @@ using btrfsbackup::load_profile_by_id;
 using btrfsbackup::Profile;
 using btrfsbackup::profile_from_json;
 using btrfsbackup::profile_to_json;
-using btrfsbackup::render_profile_env;
 using btrfsbackup::render_tree;
 using btrfsbackup::save_tree;
 
@@ -50,7 +48,6 @@ void usage() {
     std::cout << "Usage: btrfs-backupctl profile [--etc-root PATH] [--udev-root PATH] [--public-root PATH] COMMAND\n"
               << "\nCommands:\n"
               << "  list\n"
-              << "  sources --file PATH\n"
               << "  wizard [OPTIONS]\n"
               << "  create --output PATH [OPTIONS]\n"
               << "  validate --file PATH\n"
@@ -101,12 +98,12 @@ int profile(const std::vector<std::string>& args, const fs::path& profile_config
             profile_list(profile_config_dir, profile_config_dir.parent_path() / "profiles", std::cout);
             return 0;
         }
-        if (command == "sources") {
-            profile_sources(std::vector<std::string>(rest.begin() + 1, rest.end()), std::cout);
-            return 0;
-        }
         if (command == "wizard") {
             return profile_wizard(std::vector<std::string>(rest.begin() + 1, rest.end()));
+        }
+        if (command != "validate" && command != "render" && command != "save"
+            && command != "show" && command != "export") {
+            fail("unknown command: " + command);
         }
         fs::path file;
         fs::path output_dir;
@@ -129,10 +126,7 @@ int profile(const std::vector<std::string>& args, const fs::path& profile_config
             }
         }
 
-        if (command == "emit-runtime-env") {
-            if (file.empty()) fail("emit-runtime-env requires --file");
-            std::cout << render_profile_env(profile_from_json(load_json_file(file)));
-        } else if (command == "validate") {
+        if (command == "validate") {
             if (file.empty()) fail("validate requires --file");
             std::cout << dump_json(profile_to_json(profile_from_json(load_json_file(file))));
         } else if (command == "render") {

@@ -192,8 +192,6 @@ btrfsbackup::Profile test_profile(const fs::path& root) {
     profile.settings.keep_failed_local_snapshot = false;
     profile.settings.remote_retention = 2;
     profile.settings.local_retention = 2;
-    profile.notifications.enabled = false;
-    profile.notifications.method = "none";
     profile.sources = {
         {
             .id = "root",

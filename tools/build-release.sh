@@ -282,13 +282,8 @@ stage_package_payload() {
     local document
 
     make -C "$root" >/dev/null
-    install -Dm755 "$root/build/btrfs-backupctl" \
-        "$pkgdir/usr/lib/btrfs-backup/btrfs-backupctl"
-    install -Dm755 "$root/build/btrfs-backup" \
-        "$pkgdir/usr/lib/btrfs-backup/btrfs-backup"
-
-    install -Dm755 "$root/bin/btrfs-backup" "$pkgdir/usr/bin/btrfs-backup"
-    install -Dm755 "$root/bin/btrfs-backupctl" "$pkgdir/usr/bin/btrfs-backupctl"
+    install -Dm755 "$root/build/btrfs-backup" "$pkgdir/usr/bin/btrfs-backup"
+    install -Dm755 "$root/build/btrfs-backupctl" "$pkgdir/usr/bin/btrfs-backupctl"
 
     install -Dm644 "$root/config/profile.example.json" \
         "$pkgdir/usr/share/btrfs-backup/examples/config/profile.example.json"
@@ -357,8 +352,7 @@ Section: admin
 Priority: optional
 Architecture: $DEB_ARCH
 Maintainer: local reproducible build <root@localhost>
-Depends: bash, btrfs-progs, coreutils, cryptsetup, findutils, gawk, grep, libmount1, libstdc++6, libudev1, sed, systemd, util-linux
-Recommends: pv, libnotify-bin
+Depends: btrfs-progs, coreutils, cryptsetup, libmount1, libstdc++6, libudev1, systemd, util-linux
 Description: Verified Btrfs send/receive backups to an encrypted removable target
  systemd and udev driven Btrfs send/receive backups with LUKS target validation,
  interrupted-run recovery, retention, and controlled eject.
@@ -418,18 +412,21 @@ Version:        $VERSION
 Release:        $PKGREL%{?dist}
 Summary:        Verified Btrfs send/receive backups to an encrypted removable target
 License:        GPL-3.0-or-later
-BuildArch:      noarch
 Source0:        %{name}-%{version}.tar.gz
 
-Requires:       bash
+BuildRequires:  cmake
+BuildRequires:  cmake(nlohmann_json)
+BuildRequires:  gcc-c++
+BuildRequires:  make
+BuildRequires:  pkgconfig(blkid)
+BuildRequires:  pkgconfig(libmount)
+BuildRequires:  pkgconfig(libudev)
+BuildRequires:  pkgconfig(libbtrfsutil)
+
 Requires:       btrfs-progs
 Requires:       coreutils
 Requires:       cryptsetup
-Requires:       findutils
-Requires:       gawk
-Requires:       grep
 Requires:       libstdc++
-Requires:       sed
 Requires:       systemd
 Requires:       util-linux
 
@@ -444,10 +441,8 @@ interrupted-run recovery, retention, and controlled eject.
 %{__make}
 
 %install
-install -Dm755 build/btrfs-backupctl %{buildroot}%{_libdir}/btrfs-backup/btrfs-backupctl
-install -Dm755 build/btrfs-backup %{buildroot}%{_libdir}/btrfs-backup/btrfs-backup
-install -Dm755 bin/btrfs-backup %{buildroot}%{_bindir}/btrfs-backup
-install -Dm755 bin/btrfs-backupctl %{buildroot}%{_bindir}/btrfs-backupctl
+install -Dm755 build/btrfs-backup %{buildroot}%{_bindir}/btrfs-backup
+install -Dm755 build/btrfs-backupctl %{buildroot}%{_bindir}/btrfs-backupctl
 install -d %{buildroot}/usr/lib/systemd/system
 sed -e 's#{{BACKUP_COMMAND}}#/usr/bin/btrfs-backupctl runner execute#g' \
     -e 's#{{EJECT_SCRIPT_PATH}}#/usr/bin/btrfs-backupctl target eject#g' \
@@ -464,9 +459,6 @@ install -Dm644 LICENSE %{buildroot}%{_licensedir}/btrfs-backup/LICENSE
 %files
 %{_bindir}/btrfs-backup
 %{_bindir}/btrfs-backupctl
-%{_libdir}/btrfs-backup/btrfs-backup
-%{_libdir}/btrfs-backup/btrfs-backupctl
-%{_libdir}/btrfs-backup/
 /usr/lib/systemd/system/btrfs-backup@.service
 %{_datadir}/btrfs-backup/
 %{_docdir}/btrfs-backup/
@@ -488,18 +480,13 @@ build_nix_packaging() {
     cat > "$package_dir/package.nix" <<'EOF_NIX'
 { lib
 , stdenvNoCC
-, bash
 , btrfs-progs
 , coreutils
 , cryptsetup
-, findutils
-, gawk
-, gnugrep
 , cmake
 , gcc
 , nlohmann_json
 , pkg-config
-, gnused
 , systemd
 , util-linux
 }:
@@ -512,15 +499,13 @@ stdenvNoCC.mkDerivation {
 
   dontBuild = true;
   nativeBuildInputs = [ cmake gcc nlohmann_json pkg-config ];
-  buildInputs = [ systemd util-linux ];
+  buildInputs = [ btrfs-progs coreutils cryptsetup systemd util-linux ];
 
   installPhase = ''
     runHook preInstall
     make
-    install -Dm755 build/btrfs-backupctl $out/lib/btrfs-backup/btrfs-backupctl
-    install -Dm755 build/btrfs-backup $out/lib/btrfs-backup/btrfs-backup
-    install -Dm755 bin/btrfs-backup $out/bin/btrfs-backup
-    install -Dm755 bin/btrfs-backupctl $out/bin/btrfs-backupctl
+    install -Dm755 build/btrfs-backup $out/bin/btrfs-backup
+    install -Dm755 build/btrfs-backupctl $out/bin/btrfs-backupctl
     mkdir -p $out/lib/systemd/system
     sed -e 's#{{BACKUP_COMMAND}}#/usr/bin/btrfs-backupctl runner execute#g' \
         -e 's#{{EJECT_SCRIPT_PATH}}#/usr/bin/btrfs-backupctl target eject#g' \
@@ -568,29 +553,29 @@ LICENSE="GPL-3+"
 SLOT="0"
 KEYWORDS="~amd64"
 
+BDEPEND="
+	dev-build/cmake
+	dev-build/pkgconf
+"
+
+DEPEND="
+	dev-cpp/nlohmann_json
+	sys-fs/btrfs-progs
+	sys-apps/systemd
+	sys-apps/util-linux
+"
+
 RDEPEND="
-	app-shells/bash
 	sys-fs/btrfs-progs
 	sys-fs/cryptsetup
 	sys-apps/coreutils
-	sys-apps/findutils
-	sys-apps/gawk
-	sys-apps/grep
-	dev-cpp/nlohmann_json
-	dev-build/cmake
-	dev-build/pkgconf
-	sys-devel/gcc
-	sys-apps/sed
 	sys-apps/systemd
 	sys-apps/util-linux
 "
 
 src_install() {
 	emake
-	dobin bin/btrfs-backup bin/btrfs-backupctl
-	exeinto /usr/lib/btrfs-backup
-	doexe build/btrfs-backupctl
-	doexe build/btrfs-backup
+	dobin build/btrfs-backup build/btrfs-backupctl
 	sed -e 's#{{BACKUP_COMMAND}}#/usr/bin/btrfs-backupctl runner execute#g' \
 		-e 's#{{EJECT_SCRIPT_PATH}}#/usr/bin/btrfs-backupctl target eject#g' \
 		systemd/btrfs-backup@.service.example > "${T}/btrfs-backup@.service"
@@ -630,16 +615,14 @@ check() {
 }
 
 package_btrfs-backup() {
-  depends=('bash' 'btrfs-progs' 'coreutils' 'cryptsetup' 'findutils' 'gawk' 'gcc-libs' 'grep' 'sed' 'systemd' 'systemd-libs' 'util-linux' 'util-linux-libs')
-  optdepends=('btrfs-backup-kde: Plasma status widget' 'libnotify: desktop notifications via notify-send' 'pv: live progress during btrfs send')
+  depends=('btrfs-progs' 'coreutils' 'cryptsetup' 'gcc-libs' 'systemd' 'systemd-libs' 'util-linux' 'util-linux-libs')
+  optdepends=('btrfs-backup-kde: Plasma status widget')
   install='btrfs-backup.install'
 
   local root="\$srcdir/\$pkgbase-\$pkgver"
   make -C "\$root"
-  install -Dm755 "\$root/build/btrfs-backupctl" "\$pkgdir/usr/lib/btrfs-backup/btrfs-backupctl"
-  install -Dm755 "\$root/build/btrfs-backup" "\$pkgdir/usr/lib/btrfs-backup/btrfs-backup"
-  install -Dm755 "\$root/bin/btrfs-backup" "\$pkgdir/usr/bin/btrfs-backup"
-  install -Dm755 "\$root/bin/btrfs-backupctl" "\$pkgdir/usr/bin/btrfs-backupctl"
+  install -Dm755 "\$root/build/btrfs-backup" "\$pkgdir/usr/bin/btrfs-backup"
+  install -Dm755 "\$root/build/btrfs-backupctl" "\$pkgdir/usr/bin/btrfs-backupctl"
   install -d "\$pkgdir/usr/lib/systemd/system"
   sed -e 's#{{BACKUP_COMMAND}}#/usr/bin/btrfs-backupctl runner execute#g' \\
       -e 's#{{EJECT_SCRIPT_PATH}}#/usr/bin/btrfs-backupctl target eject#g' \\
@@ -697,22 +680,15 @@ pkgbase = btrfs-backup
 	sha256sums = $SOURCE_SHA256
 
 pkgname = btrfs-backup
-	depends = bash
 	depends = btrfs-progs
 	depends = coreutils
 	depends = cryptsetup
-	depends = findutils
-	depends = gawk
 	depends = gcc-libs
-	depends = grep
-	depends = sed
 	depends = systemd
 	depends = systemd-libs
 	depends = util-linux
 	depends = util-linux-libs
 	optdepends = btrfs-backup-kde: Plasma status widget
-	optdepends = libnotify: desktop notifications via notify-send
-	optdepends = pv: live progress during btrfs send
 	install = btrfs-backup.install
 
 pkgname = btrfs-backup-kde
@@ -748,19 +724,13 @@ packager = local reproducible build
 size = $INSTALLED_SIZE
 arch = $ARCH
 license = GPL-3.0-or-later
-depend = bash
 depend = btrfs-progs
 depend = coreutils
 depend = cryptsetup
-depend = findutils
-depend = gawk
 depend = gcc-libs
-depend = grep
-depend = sed
 depend = systemd
 depend = util-linux
-optdepend = libnotify: desktop notifications via notify-send
-optdepend = pv: live progress during btrfs send
+optdepend = btrfs-backup-kde: Plasma status widget
 EOF_PKGINFO
     chmod 0644 "$PACKAGE_STAGE/.PKGINFO" "$PACKAGE_STAGE/.INSTALL"
     find "$PACKAGE_STAGE" -exec touch -h -d "@$SOURCE_DATE_EPOCH" {} +
@@ -882,10 +852,12 @@ if [[ "$TARGET" == all || "$TARGET" == arch ]]; then
     grep -qx '.MTREE' "$TMP_ROOT/package-files.txt"
     grep -qx 'usr/bin/btrfs-backup' "$TMP_ROOT/package-files.txt"
     grep -qx 'usr/bin/btrfs-backupctl' "$TMP_ROOT/package-files.txt"
-    grep -qx 'usr/lib/btrfs-backup/btrfs-backup' "$TMP_ROOT/package-files.txt"
-    grep -qx 'usr/lib/btrfs-backup/btrfs-backupctl' "$TMP_ROOT/package-files.txt"
     grep -qx 'usr/lib/systemd/system/btrfs-backup@.service' "$TMP_ROOT/package-files.txt"
     grep -qx 'usr/share/btrfs-backup/examples/config/profile.schema.json' "$TMP_ROOT/package-files.txt"
+    if grep -q '^usr/lib/btrfs-backup/' "$TMP_ROOT/package-files.txt"; then
+        printf '%s\n' 'Base package must not contain private command copies or wrappers.' >&2
+        exit 1
+    fi
     if command -v pacman >/dev/null 2>&1; then
         pacman -Qip "$PACKAGE_ARCHIVE" >/dev/null
     fi
@@ -899,14 +871,13 @@ if [[ "$TARGET" == all || "$TARGET" == arch ]]; then
             continue
         fi
         bash -n "$packaged_script"
-    done < <(find "$PACKAGE_AUDIT_ROOT/usr/bin" "$PACKAGE_AUDIT_ROOT/usr/lib/btrfs-backup" -type f -print0)
+    done < <(find "$PACKAGE_AUDIT_ROOT/usr/bin" -type f -print0)
     bash -n "$PACKAGE_AUDIT_ROOT/.INSTALL"
     "$PACKAGE_AUDIT_ROOT/usr/bin/btrfs-backup" --help >/dev/null
     "$PACKAGE_AUDIT_ROOT/usr/bin/btrfs-backupctl" --help >/dev/null
     "$PACKAGE_AUDIT_ROOT/usr/bin/btrfs-backupctl" target --help >/dev/null
     "$PACKAGE_AUDIT_ROOT/usr/bin/btrfs-backupctl" profile --help >/dev/null
     "$PACKAGE_AUDIT_ROOT/usr/bin/btrfs-backupctl" profile wizard --help >/dev/null
-    "$PACKAGE_AUDIT_ROOT/usr/bin/btrfs-backupctl" profile migrate --help >/dev/null
 
     PACKAGE_RENDERED="$TMP_ROOT/package-rendered"
     PACKAGE_PROFILE="$PACKAGE_RENDERED/config/profile.json"
@@ -920,9 +891,6 @@ if [[ "$TARGET" == all || "$TARGET" == arch ]]; then
         --btrfs-uuid 66666666-7777-8888-9999-aaaaaaaaaaaa \
         --mapper-name backupdisk \
         --mount-point /mnt/backup \
-        --notify-enable false \
-        --notify-user root \
-        --notify-method none \
         --source root root / /.snapshots/btrfs-backup/root root 30 30 \
         --source home home /home /.snapshots/btrfs-backup/home home 30 30 >/dev/null
     "$PACKAGE_AUDIT_ROOT/usr/bin/btrfs-backupctl" \
@@ -939,7 +907,12 @@ if [[ "$TARGET" == all || "$TARGET" == arch ]]; then
         --keyfile none
     "$PACKAGE_AUDIT_ROOT/usr/bin/btrfs-backupctl" installation validate --rendered-root "$PACKAGE_RENDERED" >/dev/null
 
-    tar --zstd -xOf "$PACKAGE_ARCHIVE" .PKGINFO | grep -qx "arch = $ARCH"
+    tar --zstd -xOf "$PACKAGE_ARCHIVE" .PKGINFO > "$TMP_ROOT/base.PKGINFO"
+    grep -qx "arch = $ARCH" "$TMP_ROOT/base.PKGINFO"
+    if grep -Eq '^(depend = bash|optdepend = (pv|libnotify)(:|$))' "$TMP_ROOT/base.PKGINFO"; then
+        printf '%s\n' 'Base package contains a removed runtime dependency.' >&2
+        exit 1
+    fi
 
     tar --zstd -tf "$KDE_PACKAGE_ARCHIVE" > "$TMP_ROOT/package-kde-files.txt"
     grep -qx '.PKGINFO' "$TMP_ROOT/package-kde-files.txt"
@@ -958,7 +931,9 @@ if [[ "$TARGET" == all || "$TARGET" == arch ]]; then
     tar --zstd -xf "$KDE_PACKAGE_ARCHIVE" -C "$KDE_PACKAGE_AUDIT_ROOT"
     bash -n "$KDE_PACKAGE_AUDIT_ROOT/.INSTALL"
     /usr/lib/qt6/bin/qmllint \
+        --bare \
         -I "$KDE_PACKAGE_AUDIT_ROOT/usr/lib/qt6/qml" \
+        -I /usr/lib/qt6/qml \
         "$KDE_PACKAGE_AUDIT_ROOT/usr/share/plasma/plasmoids/org.btrfsbackup.plasmoid/contents/ui/main.qml" >/dev/null
     QT_QPA_PLATFORM=offscreen /usr/lib/qt6/bin/qmlscene \
         -I "$KDE_PACKAGE_AUDIT_ROOT/usr/lib/qt6/qml" \
