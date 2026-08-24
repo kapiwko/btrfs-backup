@@ -47,6 +47,9 @@
     created, and a separately ordered eject unit preserves host unmount and
     LUKS closure after the sandbox exits. Offline security analysis and real
     sandboxed Btrfs service tests cover the result.
+17. the minimum supported kernel is now Linux 5.10; generated target mounts use
+    `nodev`, `nosuid`, `noexec`, and `nosymfollow`, and runtime validation
+    rejects a target mounted without any of these restrictions.
 
 ## 2.1.0 - 2026-08-23
 

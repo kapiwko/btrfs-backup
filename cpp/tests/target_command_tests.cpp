@@ -119,7 +119,7 @@ std::vector<btrfsbackup::MountEntry> mounts_for(bool mounted, const std::string&
             .target = mount_point,
             .fstype = "btrfs",
             .root = "/",
-            .options = "rw,noatime",
+            .options = "rw,noatime,nodev,nosuid,noexec,nosymfollow",
             .device_id = "253:9",
             .filesystem_uuid = btrfs_uuid,
         }

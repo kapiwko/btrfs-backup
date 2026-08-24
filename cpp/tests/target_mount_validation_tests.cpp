@@ -27,7 +27,7 @@ std::vector<btrfsbackup::MountEntry> mounts(const fs::path& mount_point = "/mnt/
             .source = "/dev/mapper/backup",
             .target = mount_point.string(),
             .fstype = "btrfs",
-            .options = "rw,relatime",
+            .options = "rw,relatime,nodev,nosuid,noexec,nosymfollow",
             .device_id = "0:21",
             .filesystem_uuid = "target-fs",
         },
@@ -69,6 +69,22 @@ void test_rejects_read_only_mount() {
     test_helpers::expect_validation_error("read-only target", [&] {
         btrfsbackup::validate_target_mount(profile(), entries);
     }, "not mounted read-write");
+}
+
+void test_rejects_missing_security_mount_options() {
+    for (const std::string missing : {"nodev", "nosuid", "noexec", "nosymfollow"}) {
+        std::vector<btrfsbackup::MountEntry> entries = mounts();
+        entries.at(0).options = "rw,relatime";
+        for (const std::string option : {"nodev", "nosuid", "noexec", "nosymfollow"}) {
+            if (option != missing) {
+                entries.at(0).options += "," + option;
+            }
+        }
+
+        test_helpers::expect_validation_error("missing " + missing, [&] {
+            btrfsbackup::validate_target_mount(profile(), entries);
+        }, "missing required mount option " + missing);
+    }
 }
 
 void test_rejects_uuid_mismatch() {
@@ -134,6 +150,7 @@ int main() {
     test_rejects_wrong_filesystem_type();
     test_rejects_wrong_mapper();
     test_rejects_read_only_mount();
+    test_rejects_missing_security_mount_options();
     test_rejects_uuid_mismatch();
     test_rejects_empty_configured_uuid();
     test_rejects_remote_root_symlink_escape();

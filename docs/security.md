@@ -64,8 +64,9 @@ Target validation includes:
 3. expected Btrfs filesystem UUID;
 4. expected filesystem type;
 5. read-write mount state when a backup will modify the target;
-6. remote and incoming paths staying inside the target mount point;
-7. source filesystem being different from the target filesystem.
+6. `nodev`, `nosuid`, `noexec`, and `nosymfollow` mount restrictions;
+7. remote and incoming paths staying inside the target mount point;
+8. source filesystem being different from the target filesystem.
 
 The executing runner pins the target mount point and the filesystem root with
 directory descriptors. Storage paths are resolved with `openat2()` and

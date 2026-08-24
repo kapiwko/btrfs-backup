@@ -60,6 +60,14 @@ void validate_target_mount(const Profile& profile, const std::vector<MountEntry>
         throw ValidationError("Backup target is not mounted read-write: " + profile.target.mount_point);
     }
 
+    for (const char* option : {"nodev", "nosuid", "noexec", "nosymfollow"}) {
+        if (!has_mount_option(target_mount->options, option)) {
+            throw ValidationError(
+                std::string("Backup target is missing required mount option ") + option + ": " + profile.target.mount_point
+            );
+        }
+    }
+
     if (profile.target.btrfs_uuid.empty()) {
         throw ValidationError("target.btrfsUuid is required for target mount validation");
     }
