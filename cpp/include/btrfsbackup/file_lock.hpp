@@ -1,8 +1,13 @@
 #pragma once
 
 #include <filesystem>
+#include <string>
 
 namespace btrfsbackup {
+
+std::filesystem::path default_lock_root();
+std::filesystem::path profile_lock_path(const std::filesystem::path& lock_root, const std::string& profile_id);
+std::filesystem::path target_lock_path(const std::filesystem::path& lock_root, const std::string& luks_uuid);
 
 class FileLock {
 public:

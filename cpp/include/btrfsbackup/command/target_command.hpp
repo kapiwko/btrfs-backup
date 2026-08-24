@@ -14,6 +14,7 @@ namespace btrfsbackup::command {
 struct TargetExecutionServices {
     ICommandRunner& commands;
     std::function<std::vector<MountEntry>()> read_mounts;
+    std::filesystem::path lock_root;
 };
 
 int target(

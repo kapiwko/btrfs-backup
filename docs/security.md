@@ -48,6 +48,18 @@ Target validation includes:
 6. remote and incoming paths staying inside the target mount point;
 7. source filesystem being different from the target filesystem.
 
+## Operation Locks
+
+An executing runner acquires a profile lock and a target lock before mounting or
+inspecting backup storage. The target key is the normalized LUKS UUID, so two
+profiles cannot concurrently operate on the same encrypted repository. Mount
+and eject commands participate in the same target lock namespace.
+
+Lock files live below the root-owned `/run/btrfs-backup/locks` directory, are
+opened without following a final symbolic link, and use non-blocking `flock`.
+A rejected contender must not update the active runner's current status,
+history, pending markers, checkpoints, or `last-success`.
+
 ## Public Data
 
 Public status and history files may expose profile id, profile name, run id,

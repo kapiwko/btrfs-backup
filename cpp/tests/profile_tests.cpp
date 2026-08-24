@@ -205,6 +205,16 @@ void test_render_profile_env_quotes_values() {
         rendered.find("EJECT_SCRIPT_PATH='/usr/bin/btrfs-backupctl target eject'\n") != std::string::npos,
         "eject script path was not rendered as a string"
     );
+    expect_true(
+        "profile env profile lock",
+        rendered.find("LOCK_FILE=/run/btrfs-backup/locks/profiles/default.lock\n") != std::string::npos,
+        "profile lock path was not rendered"
+    );
+    expect_true(
+        "profile env target lock",
+        rendered.find("TARGET_LOCK_FILE=/run/btrfs-backup/locks/targets/11111111-2222-3333-4444-555555555555.lock\n") != std::string::npos,
+        "target lock path was not rendered"
+    );
 }
 
 void test_typed_store_renders_tree() {

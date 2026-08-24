@@ -13,6 +13,7 @@ namespace btrfsbackup::command {
 struct RunnerExecutionServices {
     IBackupRunActionEffects& action_effects;
     ITransferPipeline& transfer_pipeline;
+    std::filesystem::path lock_root;
     SnapshotMetadataReader snapshot_metadata_reader = nullptr;
 };
 

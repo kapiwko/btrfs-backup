@@ -6,6 +6,7 @@
 #include <vector>
 
 #include <btrfsbackup/command/target_command.hpp>
+#include <btrfsbackup/file_lock.hpp>
 #include <btrfsbackup/json.hpp>
 #include <btrfsbackup/json_io.hpp>
 
@@ -148,7 +149,8 @@ void test_mount_starts_unit_and_validates_target() {
     RecordingCommandRunner commands;
     btrfsbackup::command::TargetExecutionServices services{
         commands,
-        [&commands, mount_point] { return mounts_for(commands.mounted, mount_point); }
+        [&commands, mount_point] { return mounts_for(commands.mounted, mount_point); },
+        root / "locks"
     };
     std::ostringstream output;
 
@@ -173,7 +175,8 @@ void test_eject_unmounts_and_stops_crypt_unit() {
     commands.mounted = true;
     btrfsbackup::command::TargetExecutionServices services{
         commands,
-        [&commands, mount_point] { return mounts_for(commands.mounted, mount_point); }
+        [&commands, mount_point] { return mounts_for(commands.mounted, mount_point); },
+        root / "locks"
     };
     std::ostringstream output;
 
@@ -199,7 +202,8 @@ void test_internal_eject_honors_auto_eject_setting() {
     commands.mounted = true;
     btrfsbackup::command::TargetExecutionServices services{
         commands,
-        [&commands, mount_point] { return mounts_for(commands.mounted, mount_point); }
+        [&commands, mount_point] { return mounts_for(commands.mounted, mount_point); },
+        root / "locks"
     };
     std::ostringstream output;
 
@@ -212,11 +216,42 @@ void test_internal_eject_honors_auto_eject_setting() {
     fs::remove_all(root);
 }
 
+void test_eject_refuses_busy_target_without_running_commands() {
+    fs::path root = test_helpers::test_root("target-command", "eject-busy");
+    std::string mount_point = (root / "mnt" / "backup").string();
+    write_profile(root, mount_point);
+    RecordingCommandRunner commands;
+    commands.mounted = true;
+    fs::path lock_root = root / "locks";
+    btrfsbackup::command::TargetExecutionServices services{
+        commands,
+        [&commands, mount_point] { return mounts_for(commands.mounted, mount_point); },
+        lock_root
+    };
+    btrfsbackup::FileLock active_target_lock(btrfsbackup::target_lock_path(lock_root, luks_uuid));
+    test_helpers::expect_true(
+        "target busy lock acquired",
+        active_target_lock.try_acquire(),
+        "test setup should acquire target lock"
+    );
+    std::ostringstream output;
+
+    setenv("BTRFS_BACKUP_ALLOW_ROOTLESS_TESTS", "true", 1);
+    int result = btrfsbackup::command::target(root, {"eject", "--profile", "default"}, output, &services);
+
+    test_helpers::expect_eq("target busy result", std::to_string(result), "1");
+    test_helpers::expect_true("target busy commands", commands.calls.empty(), "busy eject must not run commands");
+    test_helpers::expect_contains("target busy output", output.str(), "Backup target is busy");
+    active_target_lock.release();
+    fs::remove_all(root);
+}
+
 } // namespace
 
 int main() {
     test_mount_starts_unit_and_validates_target();
     test_eject_unmounts_and_stops_crypt_unit();
     test_internal_eject_honors_auto_eject_setting();
+    test_eject_refuses_busy_target_without_running_commands();
     return test_helpers::finish("target command tests passed");
 }

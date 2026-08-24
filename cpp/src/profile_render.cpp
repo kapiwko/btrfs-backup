@@ -4,6 +4,8 @@
 #include <string>
 #include <vector>
 
+#include <btrfsbackup/file_lock.hpp>
+
 namespace btrfsbackup {
 
 namespace {
@@ -67,7 +69,8 @@ std::string render_profile_env(const Profile& profile) {
     out += assignment("AUTO_EJECT", profile.settings.auto_eject);
     out += assignment("MIN_TARGET_FREE_BYTES", profile.settings.minimum_target_free_bytes);
     out += assignment("MIN_LOCAL_FREE_BYTES", profile.settings.minimum_local_free_bytes);
-    out += assignment("LOCK_FILE", "/run/btrfs-backup/" + profile.id + ".lock");
+    out += assignment("LOCK_FILE", profile_lock_path(default_lock_root(), profile.id).string());
+    out += assignment("TARGET_LOCK_FILE", target_lock_path(default_lock_root(), profile.target.luks_uuid).string());
     out += assignment("STATE_DIR", profile.paths.state_dir);
     out += assignment("STATUS_ROOT", profile.paths.status_root);
     out += assignment("HISTORY_ROOT", profile.paths.history_root);
