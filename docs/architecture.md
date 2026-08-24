@@ -51,6 +51,25 @@ The mount unit does not start the backup service. The service starts the mount u
 
 The service templates have no `[Install]` section and are not intended to be enabled with `systemctl enable`.
 
+## Runner And Target Locks
+
+Every executing runner holds two non-blocking `flock` locks before mounting or
+inspecting the target:
+
+```text
+/run/btrfs-backup/locks/profiles/<PROFILE_ID>.lock
+/run/btrfs-backup/locks/targets/<LUKS_UUID>.lock
+```
+
+The profile lock rejects concurrent service and CLI runs for one profile. The
+target lock serializes different profiles that reference the same encrypted
+backup repository. Target mount and eject commands use the same target lock, so
+an automatic eject cannot unmount a target after another runner has started.
+
+Locks are acquired in profile-then-target order and are held through validation,
+daily-limit handling, execution, status/history writes, and `last-success`.
+Contention fails immediately and does not overwrite the active runner's status.
+
 ## Runner And Manager Boundary
 
 The backup runner must remain executable directly by the system service that is

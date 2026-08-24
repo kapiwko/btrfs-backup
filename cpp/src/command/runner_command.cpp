@@ -20,6 +20,7 @@
 #include <btrfsbackup/btrfs_operations.hpp>
 #include <btrfsbackup/config_fingerprint.hpp>
 #include <btrfsbackup/errors.hpp>
+#include <btrfsbackup/file_lock.hpp>
 #include <btrfsbackup/json.hpp>
 #include <btrfsbackup/mount_info.hpp>
 #include <btrfsbackup/pending_recovery_plan.hpp>
@@ -295,12 +296,10 @@ void ensure_target_mounted(const btrfsbackup::Profile& profile, const RunnerOpti
 }
 
 btrfsbackup::BackupRunPlan build_runner_plan(
-    const fs::path& profile_config_dir,
     const RunnerOptions& options,
-    btrfsbackup::Profile& profile,
+    const btrfsbackup::Profile& profile,
     const btrfsbackup::SnapshotMetadataReader& metadata_reader
 ) {
-    profile = btrfsbackup::load_profile_by_id(profile_config_dir, options.profile_id);
     std::vector<btrfsbackup::MountEntry> mounts = read_mounts(options);
     btrfsbackup::validate_target_mount(profile, mounts);
 
@@ -398,6 +397,36 @@ void write_success_state_for_run(
     );
 }
 
+fs::path runner_lock_root(const btrfsbackup::command::RunnerExecutionServices* execution_services) {
+    if (execution_services != nullptr && !execution_services->lock_root.empty()) {
+        return execution_services->lock_root;
+    }
+    return btrfsbackup::default_lock_root();
+}
+
+int write_busy_result(
+    std::ostream& output,
+    const btrfsbackup::Profile& profile,
+    const RunnerOptions& options,
+    const std::string& error_code,
+    const std::string& error_message
+) {
+    output << btrfsbackup::Json{
+        {"schemaVersion", 1},
+        {"mode", "cpp-execute"},
+        {"profileId", profile.id},
+        {"runId", options.run_id},
+        {"completed", false},
+        {"skipped", false},
+        {"cancelled", false},
+        {"busy", true},
+        {"actionsCompleted", 0},
+        {"errorCode", error_code},
+        {"errorMessage", error_message}
+    }.dump(2) << '\n';
+    return 1;
+}
+
 } // namespace
 
 namespace btrfsbackup::command {
@@ -439,10 +468,34 @@ int runner(
         }.dump(2) << '\n';
         return 0;
     }
+
+    std::optional<FileLock> profile_lock;
+    std::optional<FileLock> target_lock;
     if (command == "execute") {
+        const fs::path lock_root = runner_lock_root(execution_services);
+        profile_lock.emplace(profile_lock_path(lock_root, profile.id));
+        if (!profile_lock->try_acquire()) {
+            return write_busy_result(
+                output,
+                profile,
+                options,
+                "runner.profile_busy",
+                "Another runner is already active for profile " + profile.id + "."
+            );
+        }
+        target_lock.emplace(target_lock_path(lock_root, profile.target.luks_uuid));
+        if (!target_lock->try_acquire()) {
+            return write_busy_result(
+                output,
+                profile,
+                options,
+                "runner.target_busy",
+                "Another operation is already active for target LUKS UUID " + profile.target.luks_uuid + "."
+            );
+        }
         ensure_target_mounted(profile, options);
     }
-    BackupRunPlan plan = build_runner_plan(profile_config_dir, options, profile, metadata_reader);
+    BackupRunPlan plan = build_runner_plan(options, profile, metadata_reader);
     const std::string config_fingerprint = config_fingerprint_for_profile(profile_config_dir, profile);
 
     if (command == "execute") {
