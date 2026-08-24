@@ -87,6 +87,19 @@ mount and eject operations are `btrfs-backupctl target mount` and
 `btrfs-backupctl target eject`; standalone mount/eject wrapper commands are no
 longer packaged.
 
+The base project also provides a native CMake installation contract. Packaging
+backends can stage the same base filesystem layout with:
+
+```bash
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr
+cmake --build build --parallel
+DESTDIR="$pkgdir" cmake --install build
+```
+
+This installs the two commands, rendered profile/eject service templates,
+configuration examples, schema, documentation, and the trusted hook directory.
+It does not install an active profile or a profile-specific udev rule.
+
 The package provides fstab and crypttab fragments for administrator-managed
 configuration. `btrfs-backupctl profile wizard --apply` and `profile save`
 write active profiles, udev rules, and profile-specific systemd mount-dependency

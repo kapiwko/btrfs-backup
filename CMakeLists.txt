@@ -13,6 +13,7 @@ project(
 )
 
 include(CTest)
+include(GNUInstallDirs)
 option(BUILD_KDE_INTEGRATION "Build the optional KDE integration" OFF)
 
 find_package(nlohmann_json REQUIRED)
@@ -36,3 +37,63 @@ endif()
 if(BUILD_TESTING)
     add_subdirectory(tests)
 endif()
+
+function(configure_systemd_unit template output)
+    file(READ "${CMAKE_CURRENT_SOURCE_DIR}/${template}" unit_content)
+    string(
+        REPLACE
+        "{{BACKUP_COMMAND}}"
+        "${CMAKE_INSTALL_FULL_BINDIR}/btrfs-backupctl runner execute"
+        unit_content
+        "${unit_content}"
+    )
+    string(
+        REPLACE
+        "{{EJECT_SCRIPT_PATH}}"
+        "${CMAKE_INSTALL_FULL_BINDIR}/btrfs-backupctl target eject"
+        unit_content
+        "${unit_content}"
+    )
+    file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/${output}" "${unit_content}")
+endfunction()
+
+configure_systemd_unit(
+    data/systemd/btrfs-backup@.service.example
+    btrfs-backup@.service
+)
+configure_systemd_unit(
+    data/systemd/btrfs-backup-eject@.service.example
+    btrfs-backup-eject@.service
+)
+
+install(
+    FILES
+        "${CMAKE_CURRENT_BINARY_DIR}/btrfs-backup@.service"
+        "${CMAKE_CURRENT_BINARY_DIR}/btrfs-backup-eject@.service"
+    DESTINATION "${CMAKE_INSTALL_LIBDIR}/systemd/system"
+)
+install(
+    DIRECTORY data/examples/
+    DESTINATION "${CMAKE_INSTALL_DATADIR}/btrfs-backup/examples/config"
+)
+install(
+    FILES data/schemas/profile.schema.json
+    DESTINATION "${CMAKE_INSTALL_DATADIR}/btrfs-backup/examples/config"
+)
+install(
+    DIRECTORY data/systemd/
+    DESTINATION "${CMAKE_INSTALL_DATADIR}/btrfs-backup/examples/systemd"
+)
+install(
+    FILES README.md CHANGELOG.md LICENSE
+    DESTINATION "${CMAKE_INSTALL_DOCDIR}"
+)
+install(
+    DIRECTORY docs/
+    DESTINATION "${CMAKE_INSTALL_DOCDIR}"
+    FILES_MATCHING PATTERN "*.md"
+)
+install(CODE
+    "file(MAKE_DIRECTORY \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_SYSCONFDIR}/btrfs-backup/hooks.d\")\n"
+    "file(CHMOD \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_SYSCONFDIR}/btrfs-backup/hooks.d\" PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)"
+)
