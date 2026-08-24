@@ -1,8 +1,14 @@
 cmake_minimum_required(VERSION 3.20)
 
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/../../VERSION" BTRFS_BACKUP_VERSION)
+string(STRIP "${BTRFS_BACKUP_VERSION}" BTRFS_BACKUP_VERSION)
+if(NOT BTRFS_BACKUP_VERSION MATCHES "^[0-9]+\\.[0-9]+\\.[0-9]+$")
+    message(FATAL_ERROR "VERSION must contain a semantic version in MAJOR.MINOR.PATCH format")
+endif()
+
 project(
     btrfs-backup-plasma
-    VERSION 0.2.1
+    VERSION "${BTRFS_BACKUP_VERSION}"
     LANGUAGES CXX
 )
 
@@ -73,7 +79,24 @@ install(
     DESTINATION ${BTRFSBACKUP_PLASMA_QMLDIR}
 )
 
-plasma_install_package(package org.btrfsbackup.plasmoid)
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/package/metadata.json.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/metadata.json"
+    @ONLY
+)
+set(
+    BTRFSBACKUP_PLASMA_PACKAGE_INSTALL_DIR
+    "${KDE_INSTALL_DATADIR}/plasma/plasmoids/org.btrfsbackup.plasmoid"
+)
+install(
+    DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/package/"
+    DESTINATION "${BTRFSBACKUP_PLASMA_PACKAGE_INSTALL_DIR}"
+    PATTERN "metadata.json.in" EXCLUDE
+)
+install(
+    FILES "${CMAKE_CURRENT_BINARY_DIR}/metadata.json"
+    DESTINATION "${BTRFSBACKUP_PLASMA_PACKAGE_INSTALL_DIR}"
+)
 
 if(BUILD_TESTING)
     find_program(
