@@ -244,7 +244,7 @@ BackupRunExecutionResult BackupRunExecutor::execute(
             std::string error_code;
             try {
                 if (action.kind == BackupRunActionKind::SendReceive) {
-                    action_effects_.execute_action(action, source, plan);
+                    action_effects_.execute_action(action, source, plan, cancellation);
                     BackupTransferEventAdapter transfer_events(events, plan, source, action.kind, completed_run_bytes);
                     TransferPipelinePlan transfer_plan = transfer_plan_for_source(source);
                     transfer_plan.bytes_total_estimated = estimate_regular_file_bytes(source.local_snapshot_path);
@@ -263,11 +263,15 @@ BackupRunExecutionResult BackupRunExecutor::execute(
                     require_transfer_success(transfer_result);
                     completed_run_bytes += transfer_result.bytes_transferred;
                 } else if (action_has_external_effect(action.kind)) {
-                    action_effects_.execute_action(action, source, plan);
+                    action_effects_.execute_action(action, source, plan, cancellation);
                 }
+            } catch (const OperationCancelledError& error) {
+                result.cancelled = true;
+                emit_event(events, BackupRunEventKind::RunCancelled, plan, &source, action.kind, 0, 0, 0, 0, 0, 0, 0, "runner.cancelled", error.what());
+                return result;
             } catch (const std::exception& error) {
-                if (const auto* recovery_error = dynamic_cast<const RecoveryRequiredError*>(&error)) {
-                    error_code = recovery_error->error_code;
+                if (const auto* coded_error = dynamic_cast<const CodedValidationError*>(&error)) {
+                    error_code = coded_error->error_code;
                 }
                 emit_event(events, BackupRunEventKind::ActionFailed, plan, &source, action.kind, 0, 0, 0, 0, 0, 0, 0, error_code, error.what());
                 throw;

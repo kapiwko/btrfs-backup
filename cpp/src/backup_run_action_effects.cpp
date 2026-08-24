@@ -166,12 +166,25 @@ void cleanup_source(IBtrfsOperations& btrfs, IFileSystemEffects& fs_effects, con
     clear_pending_marker(source_plan.recovery.marker_path, profile_state_dir_for_source(source_plan));
 }
 
-void run_hook(ICommandRunner* hooks, const BackupRunAction& action) {
+std::string hook_error_code(const BackupRunAction& action, const std::string& suffix) {
+    const std::string phase = action.kind == BackupRunActionKind::BeforeSnapshotHook
+        ? "before_snapshot"
+        : "after_snapshot";
+    return "hook." + phase + "_" + suffix;
+}
+
+void run_hook(ICommandRunner* hooks, const BackupRunAction& action, CancellationToken& cancellation) {
     if (hooks == nullptr) {
         throw ValidationError("hook execution is not configured");
     }
     if (action.hook.program.empty()) {
         throw ValidationError("hook program is required");
+    }
+    if (action.hook.timeout_seconds < 1 || action.hook.timeout_seconds > 86400) {
+        throw CodedValidationError(
+            hook_error_code(action, "failed"),
+            "hook timeout is outside the supported range: " + action.hook.program
+        );
     }
 
     std::vector<std::string> argv;
@@ -179,9 +192,32 @@ void run_hook(ICommandRunner* hooks, const BackupRunAction& action) {
     argv.push_back(action.hook.program);
     argv.insert(argv.end(), action.hook.arguments.begin(), action.hook.arguments.end());
 
-    CommandResult result = hooks->run(argv);
+    CommandResult result;
+    try {
+        result = hooks->run_controlled(argv, {
+            .cancellation_fd = cancellation.cancellation_fd(),
+            .timeout = std::chrono::seconds(action.hook.timeout_seconds),
+        });
+    } catch (const std::exception& error) {
+        throw CodedValidationError(
+            hook_error_code(action, "failed"),
+            "hook execution failed: " + action.hook.program + ": " + error.what()
+        );
+    }
+    if (result.cancelled) {
+        throw OperationCancelledError("hook cancelled: " + action.hook.program);
+    }
+    if (result.timed_out) {
+        throw CodedValidationError(
+            hook_error_code(action, "timeout"),
+            "hook timed out after " + std::to_string(action.hook.timeout_seconds)
+                + " seconds: " + action.hook.program
+        );
+    }
     if (result.exit_code != 0) {
-        throw ValidationError("hook failed: " + action.hook.program);
+        std::string message = "hook failed with exit code " + std::to_string(result.exit_code)
+            + ": " + action.hook.program;
+        throw CodedValidationError(hook_error_code(action, "failed"), message);
     }
 }
 
@@ -201,7 +237,8 @@ BackupRunActionEffects::BackupRunActionEffects(IBtrfsOperations& btrfs, IFileSys
 void BackupRunActionEffects::execute_action(
     const BackupRunAction& action,
     const BackupSourceRunPlan& source_plan,
-    const BackupRunPlan& run_plan
+    const BackupRunPlan& run_plan,
+    CancellationToken& cancellation
 ) {
     switch (action.kind) {
         case BackupRunActionKind::RecoverPending:
@@ -212,7 +249,7 @@ void BackupRunActionEffects::execute_action(
             return;
         case BackupRunActionKind::BeforeSnapshotHook:
         case BackupRunActionKind::AfterSnapshotHook:
-            run_hook(hooks_, action);
+            run_hook(hooks_, action, cancellation);
             return;
         case BackupRunActionKind::CreateSnapshot:
             create_local_snapshot(btrfs_, fs_effects_, source_plan, run_plan);

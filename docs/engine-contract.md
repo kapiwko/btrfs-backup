@@ -201,6 +201,15 @@ before clearing the marker or starting a new snapshot for that source.
 If target access is lost while handling an error, the engine must preserve the
 local snapshot and pending marker so that a later run can complete recovery.
 
+## Application Hooks
+
+Hooks are executable paths plus argument arrays and must never be interpreted as
+shell command text. Every hook has an explicit finite timeout, runs in its own
+process group, and observes the run cancellation token. Timeout uses
+phase-specific `hook.*_timeout` error codes; non-zero exit and process-start
+failures use phase-specific `hook.*_failed` codes. User cancellation remains
+`runner.cancelled`, not a hook failure.
+
 ## Compatibility
 
 Backup-run status uses `schemaVersion: 2`; checkpoint and internal event

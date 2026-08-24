@@ -42,7 +42,8 @@ public:
     void execute_action(
         const btrfsbackup::BackupRunAction& action,
         const btrfsbackup::BackupSourceRunPlan& source_plan,
-        const btrfsbackup::BackupRunPlan&
+        const btrfsbackup::BackupRunPlan&,
+        btrfsbackup::CancellationToken&
     ) override {
         calls.push_back(source_plan.source_id + ":" + action_name(action.kind));
         if (action.kind == btrfsbackup::BackupRunActionKind::ApplyLocalRetention) {

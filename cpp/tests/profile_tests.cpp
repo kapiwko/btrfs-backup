@@ -148,14 +148,16 @@ void test_profile_hooks_round_trip_as_explicit_program_arguments() {
             {
                 {"type", "program"},
                 {"program", "/usr/local/bin/prepare-postgresql-backup"},
-                {"arguments", Json::array({"--mode", "snapshot"})}
+                {"arguments", Json::array({"--mode", "snapshot"})},
+                {"timeoutSeconds", 45}
             }
         })},
         {"afterSnapshot", Json::array({
             {
                 {"type", "program"},
                 {"program", "/usr/local/bin/resume-postgresql"},
-                {"arguments", Json::array()}
+                {"arguments", Json::array()},
+                {"timeoutSeconds", 30}
             }
         })}
     };
@@ -166,12 +168,26 @@ void test_profile_hooks_round_trip_as_explicit_program_arguments() {
     expect_true("before hook count", profile.hooks.before_snapshot.size() == 1, "wrong before hook count");
     expect_true("before hook program", profile.hooks.before_snapshot.at(0).program == "/usr/local/bin/prepare-postgresql-backup", "wrong hook program");
     expect_true("before hook arg", profile.hooks.before_snapshot.at(0).arguments.at(1) == "snapshot", "wrong hook argument");
+    expect_true("before hook timeout", profile.hooks.before_snapshot.at(0).timeout_seconds == 45, "wrong hook timeout");
     expect_true("after hook count", profile.hooks.after_snapshot.size() == 1, "wrong after hook count");
+    expect_true("after hook timeout", profile.hooks.after_snapshot.at(0).timeout_seconds == 30, "wrong after hook timeout");
     expect_true("hook round trip", round_trip == btrfsbackup::normalize_profile(raw), "hook JSON did not round trip");
 }
 
 void test_profile_rejects_unsafe_hook_shape() {
     Json raw = valid_profile();
+    raw["hooks"] = {
+        {"beforeSnapshot", Json::array({
+            {
+                {"type", "program"},
+                {"program", "/usr/local/bin/prepare"},
+                {"arguments", Json::array()}
+            }
+        })}
+    };
+    expect_validation_error("hook timeout required", [&] { btrfsbackup::normalize_profile(raw); }, "timeoutSeconds is required");
+
+    raw = valid_profile();
     raw["hooks"] = {
         {"beforeSnapshot", Json::array({
             {
@@ -189,11 +205,25 @@ void test_profile_rejects_unsafe_hook_shape() {
             {
                 {"type", "program"},
                 {"program", "prepare"},
-                {"arguments", Json::array()}
+                {"arguments", Json::array()},
+                {"timeoutSeconds", 30}
             }
         })}
     };
     expect_validation_error("hook program absolute", [&] { btrfsbackup::normalize_profile(raw); }, "absolute path");
+
+    raw = valid_profile();
+    raw["hooks"] = {
+        {"beforeSnapshot", Json::array({
+            {
+                {"type", "program"},
+                {"program", "/usr/local/bin/prepare"},
+                {"arguments", Json::array()},
+                {"timeoutSeconds", 0}
+            }
+        })}
+    };
+    expect_validation_error("hook timeout positive", [&] { btrfsbackup::normalize_profile(raw); }, "outside the supported range");
 }
 
 void test_render_profile_env_quotes_values() {

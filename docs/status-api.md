@@ -147,7 +147,7 @@ private state directory. Unprivileged desktop clients must not offer this CLI
 operation based only on `canCancel`; Plasma control will use the planned system
 D-Bus API and polkit authorization.
 
-Transfer failures use stable error codes instead of requiring clients to parse
+Runtime failures use stable error codes instead of requiring clients to parse
 the diagnostic text:
 
 | Code | Meaning |
@@ -157,6 +157,10 @@ the diagnostic text:
 | `transfer.producer_consumer_failed` | both transfer processes failed |
 | `transfer.failed` | the pipeline failed without a side-specific cause |
 | `repository.recovery_required` | final snapshot verification and its immediate cleanup both failed; pending recovery is required |
+| `hook.before_snapshot_failed` | a pre-snapshot hook failed or could not be started |
+| `hook.after_snapshot_failed` | a post-snapshot hook failed or could not be started |
+| `hook.before_snapshot_timeout` | a pre-snapshot hook exceeded `timeoutSeconds` |
+| `hook.after_snapshot_timeout` | a post-snapshot hook exceeded `timeoutSeconds` |
 
 `repository.recovery_required` is recoverable and uses suggested action
 `run-backup-recovery`. The private pending marker remains authoritative; status

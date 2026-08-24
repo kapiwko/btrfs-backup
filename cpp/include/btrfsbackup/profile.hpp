@@ -49,6 +49,7 @@ struct ProfileNotifications {
 struct ProfileHookCommand {
     std::string program;
     std::vector<std::string> arguments;
+    long long timeout_seconds;
 };
 
 struct ProfileHooks {
