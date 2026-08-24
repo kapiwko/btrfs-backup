@@ -75,6 +75,14 @@ the same validation, trusted hook directory restrictions, atomic persistence,
 and audit event generation. Authorization is checked immediately before the
 commit and is bound to the calling D-Bus connection.
 
+`SaveProfile` exposes `configuration.save_failed` when the transaction fails
+and the previous configuration is restored. If any rollback operation fails,
+it exposes `configuration.rollback_incomplete` together with the primary save
+failure and per-artifact rollback diagnostics. Clients must present the latter
+as an operator-actionable failure; they must not retry automatically or infer
+success from any individual file because generation validation deliberately
+keeps a mixed installation inactive.
+
 ## Operation Rules
 
 - `GetHistorySanitized` uses bounded pagination and returns stable codes plus

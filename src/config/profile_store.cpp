@@ -6,9 +6,12 @@
 #include <array>
 #include <cerrno>
 #include <cstddef>
+#include <exception>
 #include <filesystem>
 #include <functional>
+#include <sstream>
 #include <string>
+#include <string_view>
 #include <system_error>
 #include <utility>
 #include <vector>
@@ -97,6 +100,105 @@ void remove_if_present(const fs::path& path) noexcept {
     fs::remove(path, error);
 }
 
+void record_rollback_error(
+    RollbackResult& result,
+    std::string_view operation,
+    const fs::path& path,
+    std::string_view message,
+    const fs::path* destination = nullptr
+) noexcept {
+    result.complete = false;
+    try {
+        std::string detail{message};
+        if (destination != nullptr) {
+            detail += "; destination: " + destination->string();
+        }
+        result.errors.push_back({std::string(operation), path, std::move(detail)});
+    } catch (...) {
+        // The rollback itself must remain noexcept even if diagnostics cannot be allocated.
+    }
+}
+
+void record_rollback_error(
+    RollbackResult& result,
+    std::string_view operation,
+    const fs::path& path,
+    const std::error_code& error,
+    const fs::path* destination = nullptr
+) noexcept {
+    result.complete = false;
+    try {
+        record_rollback_error(result, operation, path, error.message(), destination);
+    } catch (...) {
+    }
+}
+
+bool remove_for_rollback(const fs::path& path, RollbackResult& result, std::string_view operation) noexcept {
+    std::error_code error;
+    const bool removed = fs::remove(path, error);
+    if (error) {
+        record_rollback_error(result, operation, path, error);
+        return false;
+    }
+    if (!removed) {
+        record_rollback_error(result, operation, path, "path does not exist");
+        return false;
+    }
+    return true;
+}
+
+bool rename_for_rollback(
+    const fs::path& from,
+    const fs::path& to,
+    RollbackResult& result,
+    std::string_view operation
+) noexcept {
+    std::error_code error;
+    fs::rename(from, to, error);
+    if (error) {
+        record_rollback_error(result, operation, from, error, &to);
+        return false;
+    }
+    return true;
+}
+
+void remove_cleanup_for_rollback(
+    const fs::path& path,
+    RollbackResult& result,
+    std::string_view operation
+) noexcept {
+    std::error_code error;
+    fs::remove(path, error);
+    if (error) {
+        record_rollback_error(result, operation, path, error);
+    }
+}
+
+std::string current_exception_message() noexcept {
+    try {
+        throw;
+    } catch (const std::exception& error) {
+        return error.what();
+    } catch (...) {
+        return "unknown configuration save failure";
+    }
+}
+
+std::string configuration_save_message(const std::string& cause, const RollbackResult& rollback) {
+    std::ostringstream message;
+    message << "configuration.save_failed: " << cause;
+    if (!rollback.complete) {
+        message << "; configuration.rollback_incomplete";
+        for (const RollbackError& error : rollback.errors) {
+            message << "; " << error.operation << " " << error.path.string() << ": " << error.message;
+        }
+        if (rollback.errors.empty()) {
+            message << "; rollback diagnostics could not be recorded";
+        }
+    }
+    return message.str();
+}
+
 void rename_checked(const fs::path& from, const fs::path& to) {
     std::error_code error;
     fs::rename(from, to, error);
@@ -151,23 +253,39 @@ void publish_artifact(ConfigurationArtifact& artifact) {
     }
 }
 
-void rollback_artifacts(std::vector<ConfigurationArtifact>& artifacts) noexcept {
+RollbackResult rollback_artifacts(std::vector<ConfigurationArtifact>& artifacts) noexcept {
+    RollbackResult result;
     for (auto it = artifacts.rbegin(); it != artifacts.rend(); ++it) {
-        std::error_code error;
+        bool restored_previous = false;
         if (it->published) {
-            fs::remove(it->destination, error);
-            error.clear();
+            remove_for_rollback(it->destination, result, "remove published artifact");
         }
         if (it->had_previous) {
-            fs::rename(it->previous, it->destination, error);
+            restored_previous = rename_for_rollback(
+                it->previous,
+                it->destination,
+                result,
+                "restore previous artifact"
+            );
         }
         try {
             fsync_dir(it->destination.parent_path());
+        } catch (const std::exception& error) {
+            record_rollback_error(result, "fsync artifact directory", it->destination.parent_path(), error.what());
         } catch (...) {
+            record_rollback_error(
+                result,
+                "fsync artifact directory",
+                it->destination.parent_path(),
+                "unknown error"
+            );
         }
-        remove_if_present(it->staged);
-        remove_if_present(it->previous);
+        remove_cleanup_for_rollback(it->staged, result, "remove staged artifact");
+        if (!it->had_previous || restored_previous) {
+            remove_cleanup_for_rollback(it->previous, result, "remove rollback artifact");
+        }
     }
+    return result;
 }
 
 void finish_artifacts(std::vector<ConfigurationArtifact>& artifacts) noexcept {
@@ -185,6 +303,14 @@ fs::path configuration_lock_path(const fs::path& etc_root, const std::string& pr
 }
 
 } // namespace
+
+ConfigurationSaveError::ConfigurationSaveError(std::string message, RollbackResult rollback)
+    : CodedValidationError(
+          rollback.complete ? "configuration.save_failed" : "configuration.rollback_incomplete",
+          configuration_save_message(message, rollback)
+      ),
+      rollback_result(std::move(rollback)) {
+}
 
 void render_tree(const Profile& profile, const fs::path& output_dir) {
     const Profile rendered = installed_profile(profile);
@@ -293,23 +419,44 @@ void save_tree(
             }
             publish_artifact(artifacts.back());
         } catch (...) {
-            rollback_artifacts(artifacts);
+            const std::string cause = current_exception_message();
+            RollbackResult rollback = rollback_artifacts(artifacts);
             if (source_backed_up) {
                 std::error_code restore_error;
                 fs::rename(source_backup, source_root, restore_error);
+                if (restore_error) {
+                    record_rollback_error(
+                        rollback,
+                        "restore legacy source configuration",
+                        source_backup,
+                        restore_error,
+                        &source_root
+                    );
+                }
             }
             if (activation_attempted) {
                 try {
                     activate();
+                } catch (const std::exception& error) {
+                    record_rollback_error(rollback, "reactivate previous configuration", systemd_root, error.what());
                 } catch (...) {
+                    record_rollback_error(
+                        rollback,
+                        "reactivate previous configuration",
+                        systemd_root,
+                        "unknown error"
+                    );
                 }
             }
-            throw;
+            throw ConfigurationSaveError(cause, std::move(rollback));
         }
         finish_artifacts(artifacts);
-    } catch (...) {
-        finish_artifacts(artifacts);
+    } catch (const ConfigurationSaveError&) {
         throw;
+    } catch (...) {
+        const std::string cause = current_exception_message();
+        finish_artifacts(artifacts);
+        throw ConfigurationSaveError(cause, {});
     }
 }
 

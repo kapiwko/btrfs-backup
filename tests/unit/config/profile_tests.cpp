@@ -457,8 +457,20 @@ void test_save_tree_staging_failure_preserves_installed_artifacts() {
     bool rejected = false;
     try {
         btrfsbackup::save_tree(changed, etc_root, udev_root, systemd_root, blocked_public_root);
-    } catch (const std::exception&) {
+    } catch (const btrfsbackup::ConfigurationSaveError& error) {
         rejected = true;
+        expect_true(
+            "transaction staging failure code",
+            error.error_code == "configuration.save_failed",
+            "unexpected error code: " + error.error_code
+        );
+        expect_true(
+            "transaction staging rollback complete",
+            error.rollback_result.complete && error.rollback_result.errors.empty(),
+            "staging failure unexpectedly required rollback"
+        );
+    } catch (const std::exception& error) {
+        fail("transaction staging failure", std::string("unexpected exception: ") + error.what());
     }
     expect_true("transaction staging failure", rejected, "save unexpectedly succeeded");
     expect_true(
@@ -507,7 +519,9 @@ void test_save_tree_activation_failure_rolls_back_all_artifacts() {
                 [&] {
                     ++activation_calls;
                     public_marker_was_old_during_activation = read_text(public_path) == before[3];
-                    throw ValidationError("injected activation failure");
+                    if (activation_calls == 1) {
+                        throw ValidationError("injected activation failure");
+                    }
                 }
             );
         },
@@ -524,6 +538,93 @@ void test_save_tree_activation_failure_rolls_back_all_artifacts() {
     expect_true("transaction restores udev rule", read_text(udev_path) == before[1], "udev rule changed");
     expect_true("transaction restores systemd drop-in", read_text(systemd_path) == before[2], "systemd drop-in changed");
     expect_true("transaction preserves public marker", read_text(public_path) == before[3], "public profile changed");
+    fs::remove_all(root);
+}
+
+void test_save_tree_reports_incomplete_rollback() {
+    fs::path root = test_root();
+    btrfsbackup::Profile original = btrfsbackup::profile_from_json(valid_profile());
+    const fs::path etc_root = root / "etc" / "btrfs-backup";
+    const fs::path udev_root = root / "etc" / "udev" / "rules.d";
+    const fs::path systemd_root = root / "etc" / "systemd" / "system";
+    const fs::path public_root = root / "public";
+    const fs::path udev_path = udev_root / "99-btrfs-backup-default.rules";
+    btrfsbackup::save_tree(original, etc_root, udev_root, systemd_root, public_root);
+
+    btrfsbackup::Profile changed = original;
+    changed.name = "Changed profile";
+    int activation_calls = 0;
+    try {
+        btrfsbackup::save_tree(
+            changed,
+            etc_root,
+            udev_root,
+            systemd_root,
+            public_root,
+            [&] {
+                ++activation_calls;
+                if (activation_calls != 1) {
+                    return;
+                }
+                fs::remove(udev_path);
+                fs::create_directory(udev_path);
+                btrfsbackup::atomic_write(udev_path / "blocker", "injected rollback failure", 0600);
+                throw ValidationError("injected save failure");
+            }
+        );
+        fail("transaction incomplete rollback", "save unexpectedly succeeded");
+    } catch (const btrfsbackup::ConfigurationSaveError& error) {
+        expect_true(
+            "transaction rollback error code",
+            error.error_code == "configuration.rollback_incomplete",
+            "unexpected error code: " + error.error_code
+        );
+        expect_true(
+            "transaction rollback retains primary error",
+            std::string(error.what()).find("configuration.save_failed: injected save failure") != std::string::npos,
+            "primary save failure was lost"
+        );
+        expect_true(
+            "transaction rollback reports secondary error",
+            std::string(error.what()).find("configuration.rollback_incomplete") != std::string::npos,
+            "rollback failure was not reported"
+        );
+        expect_true(
+            "transaction rollback result incomplete",
+            !error.rollback_result.complete && !error.rollback_result.errors.empty(),
+            "rollback result contains no diagnostics"
+        );
+        bool reported_restore_failure = false;
+        for (const btrfsbackup::RollbackError& rollback_error : error.rollback_result.errors) {
+            if (rollback_error.operation == "restore previous artifact"
+                && rollback_error.path.filename().string().starts_with(
+                    ".99-btrfs-backup-default.rules.previous-"
+                )) {
+                reported_restore_failure = true;
+            }
+        }
+        expect_true(
+            "transaction rollback identifies failed artifact",
+            reported_restore_failure,
+            "rollback diagnostics do not identify the unrestored udev rule"
+        );
+    } catch (const std::exception& error) {
+        fail("transaction incomplete rollback", std::string("unexpected exception: ") + error.what());
+    }
+
+    bool previous_preserved = false;
+    std::error_code scan_error;
+    for (const fs::directory_entry& entry : fs::directory_iterator(udev_root, scan_error)) {
+        const std::string filename = entry.path().filename().string();
+        if (filename.starts_with(".99-btrfs-backup-default.rules.previous-")) {
+            previous_preserved = fs::is_regular_file(entry.path());
+        }
+    }
+    expect_true(
+        "transaction preserves failed rollback artifact",
+        previous_preserved,
+        "recoverable previous artifact was removed"
+    );
     fs::remove_all(root);
 }
 
@@ -579,6 +680,7 @@ int main() {
     test_typed_store_saves_tree();
     test_save_tree_staging_failure_preserves_installed_artifacts();
     test_save_tree_activation_failure_rolls_back_all_artifacts();
+    test_save_tree_reports_incomplete_rollback();
     test_save_tree_refuses_active_profile_lock();
     test_render_udev_optional_matches();
 

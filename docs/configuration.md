@@ -40,6 +40,14 @@ drop-in rejects the profile before performing backup work. Older profiles
 without this installation metadata remain loadable when no generation is
 provided by the service.
 
+A failed transactional save reports `configuration.save_failed`. If restoring
+the previous artifacts, synchronizing their directories, restoring legacy
+source configuration, or reactivating the old rules also fails, the diagnostic
+code is `configuration.rollback_incomplete`. Its message retains the original
+save failure and lists the rollback errors. Unrestored `.previous-*` files are
+left in place for recovery; `configurationGeneration` prevents a partially
+restored installation from being accepted by the automatic runner.
+
 `btrfs-backupctl profile wizard` follows the same model: it renders
 `profile.json` first and then materializes derived files from that JSON.
 
