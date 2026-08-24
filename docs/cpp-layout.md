@@ -18,7 +18,7 @@ tests/
 ├── integration/
 ├── support/
 └── systemd/
-data/{examples,schemas,systemd}/
+data/{examples,schemas,systemd,udev}/
 integrations/kde/             # optional desktop integration
 ```
 
