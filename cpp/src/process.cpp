@@ -32,6 +32,7 @@ CommandResult run_command(const std::vector<std::string>& argv) {
         result.output = "cannot spawn " + argv.front() + ": " + std::strerror(spawned.error);
         return result;
     }
+    ChildProcess child(spawned.pid, false);
     char buffer[4096];
     while (true) {
         ssize_t count = read(pipefd[0], buffer, sizeof(buffer));
@@ -57,6 +58,7 @@ CommandResult run_command(const std::vector<std::string>& argv) {
     if (waited < 0) {
         throw ValidationError(std::string("cannot wait for command: ") + std::strerror(errno));
     }
+    child.mark_reaped();
     if (WIFEXITED(status)) {
         result.exit_code = WEXITSTATUS(status);
     } else {

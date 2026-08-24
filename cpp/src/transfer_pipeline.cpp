@@ -243,26 +243,8 @@ bool reap_child(pid_t pid, TransferSideResult& result) {
     return true;
 }
 
-void signal_child_group(pid_t pid, int signal) {
-    if (pid > 0) {
-        if (kill(-pid, signal) != 0 && errno == ESRCH) {
-            kill(pid, signal);
-        }
-    }
-}
-
-bool child_group_exists(pid_t pid) {
-    if (pid <= 0) {
-        return false;
-    }
-    if (kill(-pid, 0) == 0) {
-        return true;
-    }
-    return errno != ESRCH;
-}
-
 struct ChildTerminationState {
-    pid_t pid = -1;
+    ChildProcess* process = nullptr;
     bool terminate_sent = false;
     bool kill_sent = false;
     std::optional<std::chrono::steady_clock::time_point> deadline;
@@ -478,11 +460,27 @@ TransferResult PosixTransferPipeline::run(
         data_pipe.write_end.get(),
         producer_error_pipe.write_end.get()
     );
+    ChildProcess producer_process(
+        producer_spawn.started() ? producer_spawn.pid : -1,
+        true,
+        {
+            .terminate_grace_period = termination_policy_.terminate_grace_period,
+            .kill_reap_period = termination_policy_.kill_reap_period,
+        }
+    );
     ProcessSpawnResult consumer_spawn = spawn_transfer_process(
         plan.consumer_argv,
         consumer_input_pipe.read_end.get(),
         dev_null.get(),
         consumer_error_pipe.write_end.get()
+    );
+    ChildProcess consumer_process(
+        consumer_spawn.started() ? consumer_spawn.pid : -1,
+        true,
+        {
+            .terminate_grace_period = termination_policy_.terminate_grace_period,
+            .kill_reap_period = termination_policy_.kill_reap_period,
+        }
     );
 
     TransferResult result;
@@ -530,22 +528,23 @@ TransferResult PosixTransferPipeline::run(
     const pid_t producer_pid = producer_spawn.pid;
     const pid_t consumer_pid = consumer_spawn.pid;
     ChildTerminationState producer_termination{
-        .pid = producer_pid,
+        .process = &producer_process,
         .terminate_sent = false,
         .kill_sent = false,
         .deadline = std::nullopt,
     };
     ChildTerminationState consumer_termination{
-        .pid = consumer_pid,
+        .process = &consumer_process,
         .terminate_sent = false,
         .kill_sent = false,
         .deadline = std::nullopt,
     };
     auto request_termination = [&](ChildTerminationState& state, bool done) {
-        if (state.terminate_sent || state.pid <= 0 || (done && !child_group_exists(state.pid))) {
+        if (state.terminate_sent || state.process == nullptr || state.process->pid() <= 0
+            || (done && !state.process->process_group_exists())) {
             return;
         }
-        signal_child_group(state.pid, SIGTERM);
+        state.process->send_signal(SIGTERM);
         state.terminate_sent = true;
         state.deadline = SteadyClock::now() + termination_policy_.terminate_grace_period;
     };
@@ -557,7 +556,7 @@ TransferResult PosixTransferPipeline::run(
         if (!state.terminate_sent || !state.deadline.has_value()) {
             return ChildTerminationProgress::None;
         }
-        if (done && !child_group_exists(state.pid)) {
+        if (done && !state.process->process_group_exists()) {
             state.deadline.reset();
             return ChildTerminationProgress::None;
         }
@@ -565,7 +564,7 @@ TransferResult PosixTransferPipeline::run(
             return ChildTerminationProgress::None;
         }
         if (!state.kill_sent) {
-            signal_child_group(state.pid, SIGKILL);
+            state.process->send_signal(SIGKILL);
             state.kill_sent = true;
             state.deadline = SteadyClock::now() + termination_policy_.kill_reap_period;
             append_diagnostic(side.diagnostics, "did not exit after SIGTERM; sent SIGKILL");
@@ -576,13 +575,15 @@ TransferResult PosixTransferPipeline::run(
         if (done) {
             return ChildTerminationProgress::Abandoned;
         }
-        if (reap_child(state.pid, side)) {
+        if (reap_child(state.process->pid(), side)) {
             done = true;
+            state.process->mark_reaped();
             return ChildTerminationProgress::Reaped;
         }
         side.exit_code = 128 + SIGKILL;
         append_diagnostic(side.diagnostics, "did not become waitable after SIGKILL");
         done = true;
+        state.process->release();
         return ChildTerminationProgress::Abandoned;
     };
     if (!producer_stdout_open && consumer_stdin_open) {
@@ -804,10 +805,12 @@ TransferResult PosixTransferPipeline::run(
 
         if (!producer_done && reap_child(producer_pid, result.producer)) {
             producer_done = true;
+            producer_process.mark_reaped();
             emit_event(events, TransferEventKind::ProducerFinished, result, started_at);
         }
         if (!consumer_done && reap_child(consumer_pid, result.consumer)) {
             consumer_done = true;
+            consumer_process.mark_reaped();
             emit_event(events, TransferEventKind::ConsumerFinished, result, started_at);
         }
     }

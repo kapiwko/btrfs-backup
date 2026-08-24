@@ -108,6 +108,10 @@ seconds for `waitpid` before it stops waiting for an uninterruptible child. This
 bounds asynchronous handle destruction while preserving normal child reaping.
 Spawned commands receive an empty signal mask and default SIGINT, SIGTERM, and
 SIGPIPE dispositions rather than inheriting the runner's signal integration.
+Every successful spawn is immediately owned by a move-only `ChildProcess` RAII
+guard. Normal wait paths disarm the guard after `waitpid`; exception unwinding
+uses the same bounded SIGTERM, SIGKILL, and reap policy, including failures
+between producer and consumer startup or while configuring transfer pipes.
 
 ## Commit Model
 
