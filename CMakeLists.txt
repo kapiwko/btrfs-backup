@@ -200,6 +200,17 @@ if(BUILD_TESTING)
     add_btrfsbackup_test(btrfsbackup-mount-info-tests cpp/tests/mount_info_tests.cpp mount-info-tests)
     add_btrfsbackup_test(btrfsbackup-process-tests cpp/tests/process_tests.cpp process-tests)
     add_btrfsbackup_test(btrfsbackup-file-lock-tests cpp/tests/file_lock_tests.cpp file-lock-tests)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        add_btrfsbackup_test(btrfsbackup-file-io-tests cpp/tests/file_io_tests.cpp file-io-tests)
+        target_link_options(btrfsbackup-file-io-tests PRIVATE
+            -Wl,--wrap=close
+            -Wl,--wrap=fchmod
+            -Wl,--wrap=fsync
+            -Wl,--wrap=mkstemp
+            -Wl,--wrap=rename
+            -Wl,--wrap=write
+        )
+    endif()
     add_btrfsbackup_test(btrfsbackup-status-writer-tests cpp/tests/status_writer_tests.cpp status-writer-tests)
     add_btrfsbackup_test(btrfsbackup-space-check-tests cpp/tests/space_check_tests.cpp space-check-tests)
     add_btrfsbackup_test(btrfsbackup-snapshot-inventory-tests cpp/tests/snapshot_inventory_tests.cpp snapshot-inventory-tests)

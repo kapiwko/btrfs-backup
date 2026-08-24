@@ -361,7 +361,6 @@ void JsonFileBackupRunCheckpointStore::write_checkpoint(const BackupRunCheckpoin
     fs::create_directories(profile_state_dir_);
     chmod(profile_state_dir_.c_str(), 0700);
     atomic_write(profile_state_dir_ / "checkpoint.json", dump_json(build_backup_run_checkpoint_json(checkpoint)), 0600);
-    fsync_dir(profile_state_dir_);
 }
 
 StatusBackupRunEventSink::StatusBackupRunEventSink(BackupRunStatusContext context)

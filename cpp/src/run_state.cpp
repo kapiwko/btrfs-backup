@@ -104,7 +104,6 @@ void write_success_state(const fs::path& profile_state_dir, const SuccessState& 
             << "config_fingerprint=" << state.config_fingerprint << '\n';
 
     atomic_write(profile_state_dir / "last-success", content.str(), 0600);
-    fsync_dir(profile_state_dir);
 }
 
 fs::path cancel_request_path(const fs::path& profile_state_dir) {
@@ -115,7 +114,6 @@ void write_cancel_request(const fs::path& profile_state_dir) {
     fs::create_directories(profile_state_dir);
     chmod(profile_state_dir.c_str(), 0700);
     atomic_write(cancel_request_path(profile_state_dir), "requested=1\n", 0600);
-    fsync_dir(profile_state_dir);
 }
 
 bool cancel_requested(const fs::path& profile_state_dir) {
@@ -125,8 +123,13 @@ bool cancel_requested(const fs::path& profile_state_dir) {
 
 void clear_cancel_request(const fs::path& profile_state_dir) {
     std::error_code ec;
-    fs::remove(cancel_request_path(profile_state_dir), ec);
-    fsync_dir(profile_state_dir);
+    const bool removed = fs::remove(cancel_request_path(profile_state_dir), ec);
+    if (ec) {
+        throw ValidationError("cannot remove cancellation request: " + ec.message());
+    }
+    if (removed) {
+        fsync_dir(profile_state_dir);
+    }
 }
 
 fs::path pending_marker_path(const fs::path& profile_state_dir, const std::string& source_name) {
@@ -150,7 +153,6 @@ void write_pending_marker(const fs::path& profile_state_dir, const PendingMarker
             << "timestamp=" << marker.timestamp << '\n';
 
     atomic_write(pending_marker_path(profile_state_dir, marker.source_name), content.str(), 0600);
-    fsync_dir(profile_state_dir);
 }
 
 std::string read_pending_marker_field(const fs::path& marker_path, const std::string& field) {
@@ -160,8 +162,13 @@ std::string read_pending_marker_field(const fs::path& marker_path, const std::st
 
 void clear_pending_marker(const fs::path& marker_path, const fs::path& profile_state_dir) {
     std::error_code ec;
-    fs::remove(marker_path, ec);
-    fsync_dir(profile_state_dir);
+    const bool removed = fs::remove(marker_path, ec);
+    if (ec) {
+        throw ValidationError("cannot remove pending marker " + marker_path.string() + ": " + ec.message());
+    }
+    if (removed) {
+        fsync_dir(profile_state_dir);
+    }
 }
 
 } // namespace btrfsbackup
