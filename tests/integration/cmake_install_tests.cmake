@@ -20,6 +20,7 @@ set(required_paths
     "usr/${INSTALL_LIBDIR}/systemd/system/btrfs-backup-eject@.service"
     "usr/share/btrfs-backup/examples/config/profile.schema.json"
     "usr/share/btrfs-backup/examples/config/profile.example.json"
+    "usr/share/btrfs-backup/examples/udev/README.md"
     "usr/share/doc/btrfs-backup/README.md"
     "usr/share/doc/btrfs-backup/cpp-layout.md"
     "usr/etc/btrfs-backup/hooks.d"
