@@ -1,11 +1,14 @@
 #include <poll.h>
+#include <sys/wait.h>
 
 #include <algorithm>
 #include <atomic>
+#include <cerrno>
 #include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <future>
+#include <stdexcept>
 #include <string>
 #include <thread>
 #include <vector>
@@ -22,6 +25,16 @@ public:
 
     void on_transfer_event(const btrfsbackup::TransferEvent& event) override {
         events.push_back(event);
+    }
+};
+
+class ThrowingStartedEventSink final : public btrfsbackup::ITransferEventSink {
+public:
+    void on_transfer_event(const btrfsbackup::TransferEvent& event) override {
+        if (event.kind == btrfsbackup::TransferEventKind::Started) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            throw std::runtime_error("injected event sink failure");
+        }
     }
 };
 
@@ -162,6 +175,48 @@ void test_posix_pipeline_validates_termination_policy() {
             .kill_reap_period = std::chrono::milliseconds(0),
         });
     }, "termination periods must be positive");
+}
+
+void test_posix_pipeline_reaps_children_when_setup_unwinds() {
+    const std::filesystem::path root = test_helpers::test_root("transfer-pipeline", "setup-unwind");
+    const std::filesystem::path producer_pid_path = root / "producer.pid";
+    const std::filesystem::path consumer_pid_path = root / "consumer.pid";
+    btrfsbackup::PosixTransferPipeline pipeline({
+        .terminate_grace_period = std::chrono::milliseconds(50),
+        .kill_reap_period = std::chrono::milliseconds(500),
+    });
+    ThrowingStartedEventSink sink;
+    btrfsbackup::CancellationToken cancellation;
+    auto started_at = std::chrono::steady_clock::now();
+
+    try {
+        pipeline.run(
+            {
+                .producer_argv = {"sh", "-c", "trap '' TERM; printf %s $$ >\"$1\"; while :; do sleep 1; done", "producer", producer_pid_path.string()},
+                .consumer_argv = {"sh", "-c", "trap '' TERM; printf %s $$ >\"$1\"; while :; do sleep 1; done", "consumer", consumer_pid_path.string()},
+            },
+            sink,
+            cancellation
+        );
+        test_helpers::fail("pipeline setup unwind", "expected event sink failure");
+    } catch (const std::runtime_error&) {
+    }
+
+    auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - started_at
+    ).count();
+    test_helpers::expect_true("pipeline unwind bounded", elapsed_ms < 2000, "process cleanup exceeded its deadline");
+    for (const std::filesystem::path& pid_path : {producer_pid_path, consumer_pid_path}) {
+        std::ifstream pid_file(pid_path);
+        pid_t pid = -1;
+        pid_file >> pid;
+        test_helpers::expect_true("pipeline child pid recorded", pid > 0, "child did not record its pid");
+        int status = 0;
+        errno = 0;
+        test_helpers::expect_eq("pipeline child already reaped", std::to_string(waitpid(pid, &status, WNOHANG)), "-1");
+        test_helpers::expect_eq("pipeline child wait status", std::to_string(errno), std::to_string(ECHILD));
+    }
+    std::filesystem::remove_all(root);
 }
 
 void test_posix_pipeline_preserves_stream_integrity() {
@@ -600,6 +655,7 @@ int main() {
     test_cancelled_transfer_is_reported();
     test_event_sink_contract();
     test_posix_pipeline_validates_termination_policy();
+    test_posix_pipeline_reaps_children_when_setup_unwinds();
     test_posix_pipeline_preserves_stream_integrity();
     test_posix_pipeline_transfers_bytes();
     test_posix_pipeline_transfers_gibibyte_under_backpressure();
