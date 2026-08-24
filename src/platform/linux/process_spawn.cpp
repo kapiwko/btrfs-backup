@@ -13,8 +13,6 @@
 
 #include <config/errors.hpp>
 
-extern char** environ;
-
 namespace btrfsbackup {
 
 namespace {
@@ -42,15 +40,27 @@ std::string trusted_program_path(const std::string& program) {
     return "/usr/bin/" + program;
 }
 
-std::vector<std::string> child_environment() {
-    std::vector<std::string> result;
-    for (char** entry = environ; *entry != nullptr; ++entry) {
-        std::string value = *entry;
-        if (value.rfind("PATH=", 0) != 0) {
-            result.push_back(std::move(value));
-        }
+template<typename Identifier>
+void append_context_variable(
+    std::vector<std::string>& environment,
+    const std::string& name,
+    const std::optional<Identifier>& value
+) {
+    if (!value.has_value()) {
+        return;
     }
-    result.emplace_back("PATH=/usr/bin");
+    environment.push_back(name + "=" + value->value);
+}
+
+std::vector<std::string> child_environment(const ProcessSpawnOptions& options) {
+    std::vector<std::string> result{
+        "PATH=/usr/bin",
+        "LANG=C.UTF-8",
+        "LC_ALL=C.UTF-8",
+        "HOME=/root",
+    };
+    append_context_variable(result, "BTRFS_BACKUP_PROFILE_ID", options.profile_id);
+    append_context_variable(result, "BTRFS_BACKUP_SOURCE_ID", options.source_id);
     return result;
 }
 
@@ -182,7 +192,7 @@ ProcessSpawnResult spawn_program(const std::vector<std::string>& argv, const Pro
 
     const std::string executable = trusted_program_path(argv.front());
     std::vector<char*> arguments = argv_for_spawn(argv);
-    std::vector<std::string> environment = child_environment();
+    std::vector<std::string> environment = child_environment(options);
     std::vector<char*> environment_entries = argv_for_spawn(environment);
     posix_spawn_file_actions_t actions;
     int error = posix_spawn_file_actions_init(&actions);

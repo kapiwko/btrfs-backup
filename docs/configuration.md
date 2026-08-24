@@ -172,6 +172,11 @@ failures and timeouts stop the run. Cancellation terminates the
 hook's complete process group and finishes the run through the normal cancelled
 state.
 
+Hook environments contain only `PATH=/usr/bin`, `LANG=C.UTF-8`,
+`LC_ALL=C.UTF-8`, `HOME=/root`, and the current
+`BTRFS_BACKUP_PROFILE_ID` and `BTRFS_BACKUP_SOURCE_ID`. They do not inherit
+variables from the runner process.
+
 Hooks inherit the systemd service sandbox. In automatic runs they have a private
 `/tmp`, can use only Unix and netlink sockets, cannot gain privileges through
 setuid/file capabilities, and cannot create writable-executable memory. A hook

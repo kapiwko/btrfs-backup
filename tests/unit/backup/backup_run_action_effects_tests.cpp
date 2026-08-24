@@ -432,6 +432,8 @@ void test_hook_actions_use_command_runner_argv() {
         std::to_string(hooks.controlled_options->timeout.count()),
         std::to_string(std::chrono::minutes(5).count() * 60 * 1000)
     );
+    test_helpers::expect_eq("hook profile environment", hooks.controlled_options->profile_id->value, "default");
+    test_helpers::expect_eq("hook source environment", hooks.controlled_options->source_id->value, "root");
 }
 
 void test_production_hook_uses_pinned_trusted_descriptor() {
