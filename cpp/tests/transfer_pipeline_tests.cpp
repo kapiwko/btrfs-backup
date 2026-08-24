@@ -204,6 +204,30 @@ void test_posix_pipeline_reports_producer_failure() {
     }, "producer failed with exit code 7");
 }
 
+void test_posix_pipeline_reports_missing_producer() {
+    btrfsbackup::PosixTransferPipeline pipeline;
+    RecordingEventSink sink;
+    btrfsbackup::CancellationToken cancellation;
+
+    btrfsbackup::TransferResult result = pipeline.run(
+        {
+            .producer_argv = {"/definitely-missing-btrfsbackup-producer"},
+            .consumer_argv = {"cat"},
+        },
+        sink,
+        cancellation
+    );
+
+    test_helpers::expect_true("missing producer not started", !result.producer.started, "producer should not start");
+    test_helpers::expect_true("missing producer consumer started", result.consumer.started, "consumer should start");
+    test_helpers::expect_contains("missing producer diagnostics", result.producer.diagnostics, "posix_spawnp failed");
+    test_helpers::expect_eq(
+        "missing producer error code",
+        btrfsbackup::transfer_failure_error_code(result),
+        "transfer.producer_failed"
+    );
+}
+
 void test_posix_pipeline_reports_consumer_failure() {
     btrfsbackup::PosixTransferPipeline pipeline;
     RecordingEventSink sink;
@@ -224,6 +248,30 @@ void test_posix_pipeline_reports_consumer_failure() {
     test_helpers::expect_validation_error("consumer failure result", [&] {
         btrfsbackup::require_transfer_success(result);
     }, "consumer failed with exit code 9");
+}
+
+void test_posix_pipeline_reports_missing_consumer() {
+    btrfsbackup::PosixTransferPipeline pipeline;
+    RecordingEventSink sink;
+    btrfsbackup::CancellationToken cancellation;
+
+    btrfsbackup::TransferResult result = pipeline.run(
+        {
+            .producer_argv = {"printf", "hello"},
+            .consumer_argv = {"/definitely-missing-btrfsbackup-consumer"},
+        },
+        sink,
+        cancellation
+    );
+
+    test_helpers::expect_true("missing consumer producer started", result.producer.started, "producer should start");
+    test_helpers::expect_true("missing consumer not started", !result.consumer.started, "consumer should not start");
+    test_helpers::expect_contains("missing consumer diagnostics", result.consumer.diagnostics, "posix_spawnp failed");
+    test_helpers::expect_true(
+        "missing consumer transfer failed",
+        !btrfsbackup::transfer_succeeded(result),
+        "missing consumer must fail the transfer"
+    );
 }
 
 void test_posix_pipeline_handles_early_consumer_exit() {
@@ -334,6 +382,28 @@ void test_threaded_async_pipeline_runs_in_background() {
     test_helpers::expect_true("async finished", handle->finished(), "async handle should report completion");
 }
 
+void test_threaded_posix_pipeline_spawns_commands_in_worker_thread() {
+    btrfsbackup::PosixTransferPipeline pipeline;
+    btrfsbackup::ThreadedAsyncTransferPipeline async(pipeline);
+    RecordingEventSink sink;
+
+    std::unique_ptr<btrfsbackup::IAsyncTransferHandle> handle = async.start(
+        {
+            .producer_argv = {"printf", "threaded"},
+            .consumer_argv = {"cat"},
+        },
+        sink
+    );
+
+    btrfsbackup::TransferResult result = handle->wait();
+    test_helpers::expect_true(
+        "threaded posix transfer success",
+        btrfsbackup::transfer_succeeded(result),
+        "worker-thread process spawn should succeed"
+    );
+    test_helpers::expect_eq("threaded posix bytes", std::to_string(result.bytes_transferred), "8");
+}
+
 void test_threaded_async_pipeline_requests_cancellation() {
     BlockingTransferPipeline blocking;
     btrfsbackup::ThreadedAsyncTransferPipeline async(blocking);
@@ -367,11 +437,14 @@ int main() {
     test_event_sink_contract();
     test_posix_pipeline_transfers_bytes();
     test_posix_pipeline_reports_producer_failure();
+    test_posix_pipeline_reports_missing_producer();
     test_posix_pipeline_reports_consumer_failure();
+    test_posix_pipeline_reports_missing_consumer();
     test_posix_pipeline_handles_early_consumer_exit();
     test_posix_pipeline_honors_cancellation();
     test_posix_pipeline_cancellation_wakes_event_loop();
     test_threaded_async_pipeline_runs_in_background();
+    test_threaded_posix_pipeline_spawns_commands_in_worker_thread();
     test_threaded_async_pipeline_requests_cancellation();
 
     return test_helpers::finish("transfer pipeline tests");

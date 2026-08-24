@@ -82,6 +82,16 @@ manager reconstructs visible state from `/run/btrfs-backup` status files and
 history under `/var/lib/btrfs-backup` instead of owning the only copy of runtime
 state.
 
+## Process Creation
+
+The runner has active cancellation and transfer worker threads. Both synchronous
+administrative commands and asynchronous transfer processes are therefore
+created through a shared `posix_spawnp()` adapter. Transfer file descriptors are
+wired with `posix_spawn_file_actions`, and each producer and consumer starts in
+its own process group through `POSIX_SPAWN_SETPGROUP`. The existing poll-based
+transfer loop retains ownership of streaming, diagnostics, cancellation, and
+child reaping without running allocator or other C++ code in a post-fork child.
+
 ## Commit Model
 
 Each receive first lands under:
