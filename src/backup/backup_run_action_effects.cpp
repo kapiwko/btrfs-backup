@@ -282,6 +282,8 @@ std::string hook_error_code(const BackupRunAction& action, const std::string& su
 void run_hook(
     ICommandRunner* hooks,
     const BackupRunAction& action,
+    const ProfileId& profile_id,
+    const SourceId& source_id,
     CancellationToken& cancellation,
     const SafeDirectoryRoot* hook_root,
     const TrustedExecutablePolicy& hook_policy
@@ -317,6 +319,8 @@ void run_hook(
             .cancellation_fd = cancellation.cancellation_fd(),
             .timeout = std::chrono::seconds(action.hook.timeout_seconds),
             .inherited_fds = inherited_fds,
+            .profile_id = profile_id,
+            .source_id = source_id,
         });
     } catch (const std::exception& error) {
         throw CodedValidationError(
@@ -406,7 +410,15 @@ void BackupRunActionEffects::execute_action(
             if (!hook_root_path_.empty()) {
                 hook_root.emplace(hook_root_path_);
             }
-            run_hook(hooks_, action, cancellation, hook_root ? &*hook_root : nullptr, hook_policy_);
+            run_hook(
+                hooks_,
+                action,
+                run_plan.profile_id,
+                source_plan.source_id,
+                cancellation,
+                hook_root ? &*hook_root : nullptr,
+                hook_policy_
+            );
             return;
         }
         case BackupRunActionKind::CreateSnapshot:

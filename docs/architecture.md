@@ -138,8 +138,11 @@ they can schedule code to run as root.
 The runner has active cancellation and transfer worker threads. Both synchronous
 administrative commands and asynchronous transfer processes are therefore
 created through a shared `posix_spawn()` adapter. Bare program names are mapped
-to `/usr/bin`, relative program paths are rejected, and child processes receive
-`PATH=/usr/bin`. Transfer file descriptors are wired with
+to `/usr/bin` and relative program paths are rejected. Child environments are
+built from an allowlist containing only `PATH=/usr/bin`, `LANG=C.UTF-8`,
+`LC_ALL=C.UTF-8`, and `HOME=/root`. Hooks additionally receive the explicit
+`BTRFS_BACKUP_PROFILE_ID` and `BTRFS_BACKUP_SOURCE_ID` context for their current
+action. Transfer file descriptors are wired with
 `posix_spawn_file_actions`, and each producer and consumer starts in
 its own process group through `POSIX_SPAWN_SETPGROUP`. The existing poll-based
 transfer loop retains ownership of streaming, diagnostics, cancellation, and

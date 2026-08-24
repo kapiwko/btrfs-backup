@@ -54,6 +54,14 @@ have distinct actions, and profile, device-preparation, and hook changes require
 fresh administrator authorization. `SaveProfile` cannot be used to smuggle a
 hook change through the lower-risk profile authorization.
 
+Every external command receives a newly built environment containing only
+`PATH=/usr/bin`, `LANG=C.UTF-8`, `LC_ALL=C.UTF-8`, and `HOME=/root`. Variables
+from the privileged parent process, including interpreter search paths, shell
+startup variables, temporary-directory paths, and desktop-session state, are
+not inherited. Hooks additionally receive only the validated
+`BTRFS_BACKUP_PROFILE_ID` and `BTRFS_BACKUP_SOURCE_ID` values for their current
+action.
+
 Profile writes must use same-directory temporary files, strict permissions,
 `fsync`, atomic rename, and parent-directory `fsync` where practical. Render and
 save operations must reject output paths that point at the repository root,

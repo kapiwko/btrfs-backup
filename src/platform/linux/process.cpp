@@ -53,6 +53,8 @@ CommandResult run_command(const std::vector<std::string>& argv) {
         .stdout_fd = pipefd[1],
         .stderr_fd = pipefd[1],
         .inherited_fds = {},
+        .profile_id = {},
+        .source_id = {},
     });
     close(pipefd[1]);
     CommandResult result;
@@ -130,6 +132,8 @@ CommandResult run_controlled_command(
         .stderr_fd = pipefd[1],
         .create_process_group = true,
         .inherited_fds = options.inherited_fds,
+        .profile_id = options.profile_id,
+        .source_id = options.source_id,
     });
     close(pipefd[1]);
     if (!spawned.started()) {
