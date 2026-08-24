@@ -35,6 +35,17 @@ struct TransferEvent {
     std::string message;
 };
 
+class TransferSpeedEstimator {
+public:
+    std::uint64_t sample(std::uint64_t bytes_transferred, std::uint64_t elapsed_ms);
+
+private:
+    std::uint64_t previous_bytes_ = 0;
+    std::uint64_t previous_elapsed_ms_ = 0;
+    double smoothed_speed_bps_ = 0;
+    bool initialized_ = false;
+};
+
 class ITransferEventSink {
 public:
     virtual ~ITransferEventSink() = default;

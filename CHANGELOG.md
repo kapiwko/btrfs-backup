@@ -11,7 +11,11 @@
 3. added concurrency, partial process-start, missing executable, lock symlink,
    and worker-thread process-spawn regression coverage;
 4. the root `VERSION` file is now the single version source for native and
-   Plasma builds, generated package metadata, and release artifacts.
+   Plasma builds, generated package metadata, and release artifacts;
+5. aggregate progress now includes the fractional progress of the active source
+   and remains monotonic through its post-transfer actions;
+6. live transfer speed now uses a three-second EWMA and status updates are
+   interval-limited instead of requiring one durable write per splice.
 
 ## 2.1.0 - 2026-08-23
 

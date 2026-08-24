@@ -1,8 +1,10 @@
 #include <btrfsbackup/backup_run_persistence.hpp>
 
+#include <algorithm>
 #include <chrono>
 #include <filesystem>
 #include <iomanip>
+#include <limits>
 #include <sstream>
 #include <string>
 #include <sys/stat.h>
@@ -56,7 +58,11 @@ std::string suggested_action_for_failed_action(BackupRunActionKind kind) {
     return "inspect-run-history";
 }
 
-int estimated_overall_progress(const BackupRunStatusContext& context, const BackupRunEvent& event) {
+int estimated_overall_progress(
+    const BackupRunStatusContext& context,
+    const BackupRunEvent& event,
+    int source_progress
+) {
     if (context.source_count <= 0) {
         return -1;
     }
@@ -64,10 +70,16 @@ int estimated_overall_progress(const BackupRunStatusContext& context, const Back
         return 100;
     }
     if (event.kind == BackupRunEventKind::SourceCompleted && event.source_index > 0) {
-        return event.source_index * 100 / context.source_count;
+        const std::int64_t completed_sources = std::clamp(event.source_index, 0, context.source_count);
+        return static_cast<int>(completed_sources * 100 / context.source_count);
     }
     if (!event.source_id.empty() && event.source_index > 0) {
-        return (event.source_index - 1) * 100 / context.source_count;
+        const std::int64_t completed_sources = std::clamp(event.source_index - 1, 0, context.source_count);
+        const int current_source_progress = std::clamp(source_progress, 0, 100);
+        return static_cast<int>(
+            (completed_sources * 100 + (source_progress >= 0 ? current_source_progress : 0))
+            / context.source_count
+        );
     }
     return 0;
 }
@@ -79,7 +91,10 @@ int estimated_source_progress(const BackupRunEvent& event) {
     if (event.bytes_transferred >= event.bytes_total_estimated) {
         return 100;
     }
-    return static_cast<int>(event.bytes_transferred * 100 / event.bytes_total_estimated);
+    return static_cast<int>(
+        static_cast<long double>(event.bytes_transferred) * 100.0L
+        / static_cast<long double>(event.bytes_total_estimated)
+    );
 }
 
 int estimated_eta_seconds(const BackupRunEvent& event) {
@@ -87,7 +102,11 @@ int estimated_eta_seconds(const BackupRunEvent& event) {
         return -1;
     }
     std::uint64_t remaining = event.bytes_total_estimated - event.bytes_transferred;
-    return static_cast<int>((remaining + event.speed_bps - 1) / event.speed_bps);
+    const std::uint64_t seconds = remaining / event.speed_bps
+        + (remaining % event.speed_bps == 0 ? 0 : 1);
+    return seconds > static_cast<std::uint64_t>(std::numeric_limits<int>::max())
+        ? std::numeric_limits<int>::max()
+        : static_cast<int>(seconds);
 }
 
 std::string message_for_event(const BackupRunEvent& event) {
@@ -119,7 +138,11 @@ std::string message_for_event(const BackupRunEvent& event) {
     return "Backup event.";
 }
 
-StatusRecord status_record_for_event(const BackupRunStatusContext& context, const BackupRunEvent& event) {
+StatusRecord status_record_for_event(
+    const BackupRunStatusContext& context,
+    const BackupRunEvent& event,
+    int minimum_overall_progress
+) {
     std::string state = "running";
     std::string phase = backup_run_event_kind_name(event.kind);
     std::string finished_at;
@@ -161,8 +184,13 @@ StatusRecord status_record_for_event(const BackupRunStatusContext& context, cons
     std::uint64_t run_bytes_processed = 0;
     std::uint64_t speed_bps = 0;
     int eta_seconds = -1;
-    int source_progress = -1;
-    int overall_progress = estimated_overall_progress(context, event);
+    int source_progress = event.kind == BackupRunEventKind::TransferProgress
+        ? estimated_source_progress(event)
+        : -1;
+    int overall_progress = estimated_overall_progress(context, event, source_progress);
+    if (minimum_overall_progress >= 0 && event.kind != BackupRunEventKind::RunStarted) {
+        overall_progress = std::max(overall_progress, minimum_overall_progress);
+    }
     std::string progress_accuracy = overall_progress >= 0 ? "estimated" : "indeterminate";
     if (event.kind == BackupRunEventKind::TransferProgress) {
         can_cancel = true;
@@ -171,7 +199,6 @@ StatusRecord status_record_for_event(const BackupRunStatusContext& context, cons
         run_bytes_processed = event.run_bytes_transferred;
         speed_bps = event.speed_bps;
         eta_seconds = estimated_eta_seconds(event);
-        source_progress = estimated_source_progress(event);
         progress_accuracy = source_progress >= 0 ? "estimated" : progress_accuracy;
         progress_details = {
             {"bytesProduced", event.bytes_produced},
@@ -372,7 +399,14 @@ void StatusBackupRunEventSink::on_backup_run_event(const BackupRunEvent& event) 
         return;
     }
 
-    StatusRecord record = status_record_for_event(context_, event);
+    if (event.kind == BackupRunEventKind::RunStarted || event.run_id != run_id_) {
+        run_id_ = event.run_id;
+        last_overall_progress_ = -1;
+    }
+    StatusRecord record = status_record_for_event(context_, event, last_overall_progress_);
+    if (record.overall_progress >= 0) {
+        last_overall_progress_ = record.overall_progress;
+    }
     write_current_status(context_.status_root, record);
     if (should_write_history(event.kind)) {
         write_history_entry(context_.history_root, record);

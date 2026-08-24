@@ -20,6 +20,8 @@
 - Improve transfer progress beyond the current native pump:
   - replace apparent-file-size transfer estimates with a better Btrfs-aware
     estimator when an API is available;
+  - weight `overallProgress` by per-source send-size estimates once estimates
+    for the complete run are available;
   - make `sourceProgress` exact when exact send-stream totals are available;
   - add live external-transfer cancellation tests and `.incoming` recovery
     coverage after cancellation.
