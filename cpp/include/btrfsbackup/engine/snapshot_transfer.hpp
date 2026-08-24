@@ -5,7 +5,7 @@
 #include <vector>
 
 #include <btrfsbackup/system/btrfs_operations.hpp>
-#include <btrfsbackup/application/runtime_adapters.hpp>
+#include <btrfsbackup/system/filesystem.hpp>
 #include <btrfsbackup/model/snapshot_inventory.hpp>
 
 namespace btrfsbackup {
@@ -29,7 +29,7 @@ void verify_received_snapshot(
 
 void commit_received_snapshot(
     IBtrfsOperations& btrfs,
-    IFileSystemEffects& fs_effects,
+    IFileSystem& fs_effects,
     const std::filesystem::path& received_path,
     const std::filesystem::path& final_path,
     const std::string& expected_received_uuid

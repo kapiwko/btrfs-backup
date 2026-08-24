@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 
-#include <btrfsbackup/application/runtime_adapters.hpp>
+#include <btrfsbackup/system/command_runner.hpp>
 #include <btrfsbackup/system/mount_info.hpp>
 
 namespace btrfsbackup {

@@ -42,17 +42,6 @@ void require_root() {
     }
 }
 
-std::string capture(btrfsbackup::ICommandRunner& commands, const std::vector<std::string>& argv) {
-    btrfsbackup::CommandResult result = commands.run(argv);
-    if (result.exit_code != 0) {
-        throw btrfsbackup::ValidationError("command failed: " + argv.front());
-    }
-    while (!result.output.empty() && (result.output.back() == '\n' || result.output.back() == '\r')) {
-        result.output.pop_back();
-    }
-    return result.output;
-}
-
 void run_checked(
     btrfsbackup::ICommandRunner& commands,
     const std::vector<std::string>& argv,
@@ -68,18 +57,21 @@ void run_ignored(btrfsbackup::ICommandRunner& commands, const std::vector<std::s
 }
 
 std::string cryptsetup_unit_name(btrfsbackup::ICommandRunner& commands, const std::string& mapper_name) {
-    return capture(commands, {"systemd-escape", "--template=systemd-cryptsetup@.service", mapper_name});
+    return btrfsbackup::capture_command(
+        commands,
+        {"systemd-escape", "--template=systemd-cryptsetup@.service", mapper_name}
+    );
 }
 
 void validate_luks_uuid(btrfsbackup::ICommandRunner& commands, const btrfsbackup::Profile& profile) {
-    std::string actual = capture(commands, {"cryptsetup", "luksUUID", profile.target.device});
+    std::string actual = btrfsbackup::capture_command(commands, {"cryptsetup", "luksUUID", profile.target.device});
     if (actual.empty() || lower(actual) != lower(profile.target.luks_uuid)) {
         throw btrfsbackup::ValidationError("LUKS UUID mismatch for " + profile.target.device);
     }
 }
 
 std::string mapper_underlying_device(btrfsbackup::ICommandRunner& commands, const std::string& mapper_name) {
-    std::string status = capture(commands, {"cryptsetup", "status", mapper_name});
+    std::string status = btrfsbackup::capture_command(commands, {"cryptsetup", "status", mapper_name});
     const std::string marker = "device:";
     std::size_t pos = status.find(marker);
     if (pos == std::string::npos) {
@@ -130,7 +122,7 @@ bool mapper_has_mounts(
 }
 
 struct ResolvedDependencies {
-    std::unique_ptr<btrfsbackup::SystemCommandRunner> system_commands;
+    std::unique_ptr<btrfsbackup::PosixCommandRunner> system_commands;
     btrfsbackup::ICommandRunner* commands = nullptr;
     std::function<std::vector<btrfsbackup::MountEntry>()> read_mounts;
     fs::path lock_root;
@@ -139,7 +131,7 @@ struct ResolvedDependencies {
 ResolvedDependencies resolve_dependencies(btrfsbackup::TargetServiceDependencies* dependencies) {
     ResolvedDependencies resolved;
     if (dependencies == nullptr) {
-        resolved.system_commands = std::make_unique<btrfsbackup::SystemCommandRunner>();
+        resolved.system_commands = std::make_unique<btrfsbackup::PosixCommandRunner>();
         resolved.commands = resolved.system_commands.get();
     } else {
         resolved.commands = &dependencies->commands;
