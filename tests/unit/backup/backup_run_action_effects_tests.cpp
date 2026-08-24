@@ -144,14 +144,14 @@ public:
 
 btrfsbackup::BackupRunPlan run_plan() {
     return btrfsbackup::BackupRunPlan{
-        .profile_id = "default",
-        .run_id = "20260823T120000Z-123-456",
+        .profile_id = btrfsbackup::ProfileId{"default"},
+        .run_id = btrfsbackup::RunId{"20260823T120000Z-123-456"},
     };
 }
 
 btrfsbackup::BackupSourceRunPlan source_plan(const fs::path& root) {
     btrfsbackup::BackupSourceRunPlan source;
-    source.source_id = "root";
+    source.source_id = btrfsbackup::SourceId{"root"};
     source.source_subvolume = root / "source";
     source.local_snapshot_dir = root / "local";
     source.remote_snapshot_dir = root / "remote";
@@ -167,14 +167,14 @@ btrfsbackup::BackupSourceRunPlan source_plan(const fs::path& root) {
 btrfsbackup::BackupRunAction action(btrfsbackup::BackupRunActionKind kind) {
     return btrfsbackup::BackupRunAction{
         .kind = kind,
-        .source_id = "root",
+        .source_id = btrfsbackup::SourceId{"root"},
     };
 }
 
 btrfsbackup::BackupRunAction hook_action(btrfsbackup::BackupRunActionKind kind) {
     return btrfsbackup::BackupRunAction{
         .kind = kind,
-        .source_id = "root",
+        .source_id = btrfsbackup::SourceId{"root"},
         .hook = btrfsbackup::ProfileHookCommand{
             .program = "/etc/btrfs-backup/hooks.d/prepare-backup",
             .arguments = {"--source", "root"},
@@ -390,7 +390,7 @@ void test_failed_remote_recovery_keeps_local_snapshot_and_marker() {
     btrfsbackup::write_pending_marker(
         root / "state",
         btrfsbackup::PendingMarker{
-            .source_name = source.source_id,
+            .source_name = source.source_id.value,
             .local_snapshot_path = source.local_snapshot_path.string(),
             .final_snapshot_path = source.final_remote_snapshot_path.string(),
             .run_id = "run-1",

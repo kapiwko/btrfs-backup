@@ -14,44 +14,57 @@ directory is reserved before that implementation exists.
 
 ## Runtime Flow
 
-```text
-matching LUKS partition appears
-        |
-        v
-udev rule sets SYSTEMD_WANTS=btrfs-backup@<PROFILE_ID>.service
-        |
-        v
-profile drop-in RequiresMountsFor=<TARGET_MOUNT_POINT>
-        |
-        |-- systemd starts the fstab mount and its cryptsetup dependency
-        v
-btrfs-backup@<PROFILE_ID>.service
-        |
-        |-- flock lock
-        |-- daily limit and configuration fingerprint check
-        |-- validate LUKS, mapper, Btrfs, and mount point
-        |-- verify that sources are on a different Btrfs filesystem than the target
-        |
-        |-- for each enabled source:
-        |     |-- validate target paths and symlinks
-        |     |-- recover pending state from a previous interruption
-        |     |-- create a local read-only snapshot
-        |     |-- select the incremental parent by UUID
-        |     |-- btrfs receive into .incoming
-        |     |-- verify read-only state and Received UUID
-        |     |-- commit a read-only target snapshot
-        |     `-- local and remote retention
-        |
-        |-- sync and write last-success
-        |
-        v
-ExecStopPost schedules btrfs-backup-eject@<PROFILE_ID>.service
-        |
-        |-- sync
-        |-- unmount the expected target
-        |-- check for remaining mapper mounts
-        |-- stop the matching systemd-cryptsetup unit
-        `-- report that the media can be disconnected
+```mermaid
+flowchart TB
+    device[Matching LUKS partition appears]
+    udev[udev sets SYSTEMD_WANTS for the profile service]
+    dropin[Profile drop-in declares RequiresMountsFor]
+    mount[systemd starts the fstab mount and cryptsetup dependency]
+
+    device --> udev --> dropin --> mount
+
+    subgraph runner[btrfs-backup profile service]
+        direction TB
+        lock[Acquire profile and target locks]
+        daily[Check daily limit and configuration fingerprint]
+        target[Validate LUKS, mapper, Btrfs, and mount point]
+        filesystems[Verify source and target filesystem separation]
+
+        subgraph source[For each enabled source]
+            direction TB
+            paths[Validate target paths and symlinks]
+            recover[Recover pending state]
+            snapshot[Create local read-only snapshot]
+            parent[Select incremental parent by UUID]
+            receive[Receive into .incoming]
+            verify[Verify read-only state and Received UUID]
+            commit[Commit target snapshot]
+            retention[Apply local and remote retention]
+
+            paths --> recover --> snapshot --> parent --> receive --> verify --> commit --> retention
+        end
+
+        finish[Sync target and write last-success]
+        lock --> daily --> target --> filesystems --> paths
+        retention --> finish
+    end
+
+    mount --> lock
+
+    schedule[ExecStopPost schedules the profile eject service]
+
+    subgraph eject[eject service]
+        direction TB
+        eject_sync[Sync target]
+        unmount[Unmount expected target]
+        mapper_check[Check remaining mapper mounts]
+        crypt_stop[Stop matching systemd-cryptsetup unit]
+        removable[Report that media can be disconnected]
+
+        eject_sync --> unmount --> mapper_check --> crypt_stop --> removable
+    end
+
+    finish --> schedule --> eject_sync
 ```
 
 ## Single Startup Source

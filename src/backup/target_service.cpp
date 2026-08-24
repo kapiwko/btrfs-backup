@@ -173,7 +173,7 @@ TargetOperationResult mount_target(
     TargetServiceDependencies* dependencies
 ) {
     require_root();
-    Profile profile = load_profile_by_id(request.profile_config_dir, request.profile_id);
+    Profile profile = load_profile_by_id(request.profile_config_dir, request.profile_id.value);
     ResolvedDependencies resolved = resolve_dependencies(dependencies);
     TargetOperationResult result;
     std::optional<FileLock> lock = acquire_target_lock(profile, resolved.lock_root, "mount", result);
@@ -207,7 +207,7 @@ TargetOperationResult eject_target(
     TargetServiceDependencies* dependencies
 ) {
     require_root();
-    Profile profile = load_profile_by_id(request.profile_config_dir, request.profile_id);
+    Profile profile = load_profile_by_id(request.profile_config_dir, request.profile_id.value);
     TargetOperationResult result;
     if (request.automatic && !profile.settings.auto_eject) {
         result.skipped = true;

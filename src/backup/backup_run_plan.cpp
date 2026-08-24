@@ -113,7 +113,7 @@ void require_source_mount_constraints(
 void add_action(
     std::vector<btrfsbackup::BackupRunAction>& actions,
     btrfsbackup::BackupRunActionKind kind,
-    const std::string& source_id,
+    const btrfsbackup::SourceId& source_id,
     const fs::path& primary_path = {},
     const fs::path& secondary_path = {},
     const btrfsbackup::ProfileHookCommand& hook = {}
@@ -139,17 +139,17 @@ BackupRunPlan build_backup_run_plan(
     const PendingMarkerBySource& pending_markers,
     const PendingSnapshotBySource& pending_snapshots,
     const fs::path& profile_state_dir,
-    const std::string& run_id,
+    const RunId& run_id,
     const std::string& snapshot_timestamp
 ) {
     validate_profile_id(profile.id);
-    validate_run_id(run_id);
+    validate_run_id(run_id.value);
     if (!parse_snapshot_name(profile.id + "-" + snapshot_timestamp, profile.id).has_value()) {
         throw ValidationError("snapshot timestamp is invalid: " + snapshot_timestamp);
     }
 
     BackupRunPlan run_plan{
-        .profile_id = profile.id,
+        .profile_id = ProfileId{profile.id},
         .run_id = run_id,
         .target_mount_point = profile.target.mount_point,
         .sources = {},
@@ -167,7 +167,7 @@ BackupRunPlan build_backup_run_plan(
 
         const fs::path remote_snapshot_dir = fs::path(profile.paths.remote_root) / source.remote_subdir;
         const fs::path incoming_source_root = fs::path(profile.paths.incoming_root) / source.id;
-        const fs::path incoming_run_dir = incoming_source_root / run_id;
+        const fs::path incoming_run_dir = incoming_source_root / run_id.value;
 
         if (!path_is_within(remote_snapshot_dir, profile.paths.remote_root)) {
             throw ValidationError("Remote source directory escapes REMOTE_ROOT: " + remote_snapshot_dir.string());
@@ -222,7 +222,7 @@ BackupRunPlan build_backup_run_plan(
         RetentionPlan remote_retention = plan_count_retention(source.id, projected_remote, source.remote_retention);
 
         BackupSourceRunPlan source_plan{
-            .source_id = source.id,
+            .source_id = SourceId{source.id},
             .source_subvolume = source.subvolume,
             .local_snapshot_dir = source.local_snapshot_dir,
             .remote_snapshot_dir = remote_snapshot_dir,
@@ -239,23 +239,23 @@ BackupRunPlan build_backup_run_plan(
         };
 
         if (recovery.action != PendingRecoveryAction::NoMarker) {
-            add_action(source_plan.actions, BackupRunActionKind::RecoverPending, source.id, recovery.local_snapshot_path);
+            add_action(source_plan.actions, BackupRunActionKind::RecoverPending, source_plan.source_id, recovery.local_snapshot_path);
         }
-        add_action(source_plan.actions, BackupRunActionKind::CleanupIncoming, source.id, incoming_source_root);
+        add_action(source_plan.actions, BackupRunActionKind::CleanupIncoming, source_plan.source_id, incoming_source_root);
         for (const ProfileHookCommand& hook : profile.hooks.before_snapshot) {
-            add_action(source_plan.actions, BackupRunActionKind::BeforeSnapshotHook, source.id, {}, {}, hook);
+            add_action(source_plan.actions, BackupRunActionKind::BeforeSnapshotHook, source_plan.source_id, {}, {}, hook);
         }
-        add_action(source_plan.actions, BackupRunActionKind::CreateSnapshot, source.id, local_snapshot_path, source.subvolume);
+        add_action(source_plan.actions, BackupRunActionKind::CreateSnapshot, source_plan.source_id, local_snapshot_path, source.subvolume);
         for (const ProfileHookCommand& hook : profile.hooks.after_snapshot) {
-            add_action(source_plan.actions, BackupRunActionKind::AfterSnapshotHook, source.id, {}, {}, hook);
+            add_action(source_plan.actions, BackupRunActionKind::AfterSnapshotHook, source_plan.source_id, {}, {}, hook);
         }
-        add_action(source_plan.actions, BackupRunActionKind::SelectParent, source.id, parent.local_parent.has_value() ? parent.local_parent->path : fs::path{});
-        add_action(source_plan.actions, BackupRunActionKind::SendReceive, source.id, local_snapshot_path, incoming_run_dir);
-        add_action(source_plan.actions, BackupRunActionKind::VerifyReceived, source.id, received_snapshot_path, local_snapshot_path);
-        add_action(source_plan.actions, BackupRunActionKind::CommitReceived, source.id, received_snapshot_path, final_remote_snapshot_path);
-        add_action(source_plan.actions, BackupRunActionKind::ApplyRemoteRetention, source.id, remote_snapshot_dir);
-        add_action(source_plan.actions, BackupRunActionKind::ApplyLocalRetention, source.id, source.local_snapshot_dir);
-        add_action(source_plan.actions, BackupRunActionKind::CleanupSource, source.id);
+        add_action(source_plan.actions, BackupRunActionKind::SelectParent, source_plan.source_id, parent.local_parent.has_value() ? parent.local_parent->path : fs::path{});
+        add_action(source_plan.actions, BackupRunActionKind::SendReceive, source_plan.source_id, local_snapshot_path, incoming_run_dir);
+        add_action(source_plan.actions, BackupRunActionKind::VerifyReceived, source_plan.source_id, received_snapshot_path, local_snapshot_path);
+        add_action(source_plan.actions, BackupRunActionKind::CommitReceived, source_plan.source_id, received_snapshot_path, final_remote_snapshot_path);
+        add_action(source_plan.actions, BackupRunActionKind::ApplyRemoteRetention, source_plan.source_id, remote_snapshot_dir);
+        add_action(source_plan.actions, BackupRunActionKind::ApplyLocalRetention, source_plan.source_id, source.local_snapshot_dir);
+        add_action(source_plan.actions, BackupRunActionKind::CleanupSource, source_plan.source_id);
 
         run_plan.sources.push_back(source_plan);
     }

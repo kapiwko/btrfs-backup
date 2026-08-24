@@ -65,14 +65,14 @@ RunPhase phase_for_event(BackupRunEventKind kind) {
     return RunPhase::RunStarted;
 }
 
-std::string error_code_for_failed_action(BackupRunActionKind kind) {
+ErrorCode error_code_for_failed_action(BackupRunActionKind kind) {
     switch (kind) {
         case BackupRunActionKind::BeforeSnapshotHook:
-            return "hook.before_snapshot_failed";
+            return ErrorCode::HookBeforeSnapshotFailed;
         case BackupRunActionKind::AfterSnapshotHook:
-            return "hook.after_snapshot_failed";
+            return ErrorCode::HookAfterSnapshotFailed;
         default:
-            return "runner.action_failed";
+            return ErrorCode::RunnerActionFailed;
     }
 }
 
@@ -104,7 +104,7 @@ int estimated_overall_progress(
         const std::int64_t completed_sources = std::clamp(event.source_index, 0, context.source_count);
         return static_cast<int>(completed_sources * 100 / context.source_count);
     }
-    if (!event.source_id.empty() && event.source_index > 0) {
+    if (!event.source_id.value.empty() && event.source_index > 0) {
         const std::int64_t completed_sources = std::clamp(event.source_index - 1, 0, context.source_count);
         const int current_source_progress = std::clamp(source_progress, 0, 100);
         return static_cast<int>(
@@ -174,7 +174,7 @@ RunStatus status_for_event(
     const BackupRunEvent& event,
     int minimum_overall_progress
 ) {
-    auto source_name = context.source_names.find(event.source_id);
+    auto source_name = context.source_names.find(event.source_id.value);
     RunState state = RunState::Running;
     RunPhase phase = phase_for_event(event.kind);
     std::string finished_at;
@@ -205,7 +205,7 @@ RunStatus status_for_event(
     }
 
     RunDetails details;
-    std::string error_code;
+    std::optional<ErrorCode> error_code;
     std::string error_message;
     bool recoverable = false;
     std::string suggested_action;
@@ -244,13 +244,13 @@ RunStatus status_for_event(
         run_bytes_processed = bytes_processed;
     }
     if (event.kind == BackupRunEventKind::ActionFailed) {
-        error_code = event.error_code.empty() ? error_code_for_failed_action(event.action_kind) : event.error_code;
+        error_code = event.error_code.value_or(error_code_for_failed_action(event.action_kind));
         error_message = event.message;
         details = {
-            {"sourceId", event.source_id},
+            {"sourceId", event.source_id.value},
             {"action", backup_run_action_kind_name(event.action_kind)}
         };
-        if (error_code == "repository.recovery_required") {
+        if (error_code == ErrorCode::RepositoryRecoveryRequired) {
             recoverable = true;
             suggested_action = "run-backup-recovery";
         } else {
@@ -258,10 +258,10 @@ RunStatus status_for_event(
             suggested_action = suggested_action_for_failed_action(event.action_kind);
         }
     } else if (event.kind == BackupRunEventKind::RunCancelled) {
-        error_code = "runner.cancelled";
+        error_code = ErrorCode::RunnerCancelled;
         error_message = message_for_event(event);
         details = {
-            {"sourceId", event.source_id},
+            {"sourceId", event.source_id.value},
             {"action", backup_run_action_kind_name(event.action_kind)}
         };
         recoverable = true;
@@ -269,9 +269,9 @@ RunStatus status_for_event(
     }
 
     std::optional<RunError> error;
-    if (!error_code.empty()) {
+    if (error_code.has_value()) {
         error = RunError{
-            .code = ErrorCode{error_code},
+            .code = *error_code,
             .message = error_message,
             .recoverable = recoverable,
             .suggested_action = SuggestedAction{suggested_action},
@@ -285,7 +285,7 @@ RunStatus status_for_event(
         .state = state,
         .phase = phase,
         .message = message_for_event(event),
-        .current_source_name = source_name == context.source_names.end() ? event.source_id : source_name->second,
+        .current_source_name = source_name == context.source_names.end() ? event.source_id.value : source_name->second,
         .target_name = context.target_name,
         .source_index = event.source_index,
         .source_count = context.source_count,
@@ -390,31 +390,31 @@ std::string backup_run_event_kind_name(BackupRunEventKind kind) {
 }
 
 Json build_backup_run_checkpoint_json(const BackupRunCheckpoint& checkpoint) {
-    validate_profile_id(checkpoint.profile_id);
-    validate_run_id(checkpoint.run_id);
-    validate_identifier(checkpoint.source_id, "sourceId");
+    validate_profile_id(checkpoint.profile_id.value);
+    validate_run_id(checkpoint.run_id.value);
+    validate_identifier(checkpoint.source_id.value, "sourceId");
     return {
         {"schemaVersion", 1},
-        {"profileId", checkpoint.profile_id},
-        {"runId", checkpoint.run_id},
-        {"sourceId", checkpoint.source_id},
+        {"profileId", checkpoint.profile_id.value},
+        {"runId", checkpoint.run_id.value},
+        {"sourceId", checkpoint.source_id.value},
         {"action", backup_run_action_kind_name(checkpoint.action_kind)},
         {"updatedAt", current_utc_iso_timestamp()},
     };
 }
 
 Json build_backup_run_event_json(const BackupRunEvent& event) {
-    validate_profile_id(event.profile_id);
-    validate_run_id(event.run_id);
-    if (!event.source_id.empty()) {
-        validate_identifier(event.source_id, "sourceId");
+    validate_profile_id(event.profile_id.value);
+    validate_run_id(event.run_id.value);
+    if (!event.source_id.value.empty()) {
+        validate_identifier(event.source_id.value, "sourceId");
     }
     return {
         {"schemaVersion", 1},
         {"event", backup_run_event_kind_name(event.kind)},
-        {"profileId", event.profile_id},
-        {"runId", event.run_id},
-        {"sourceId", event.source_id},
+        {"profileId", event.profile_id.value},
+        {"runId", event.run_id.value},
+        {"sourceId", event.source_id.value},
         {"sourceIndex", event.source_index},
         {"action", backup_run_action_kind_name(event.action_kind)},
         {"bytesTransferred", event.bytes_transferred},
@@ -424,7 +424,7 @@ Json build_backup_run_event_json(const BackupRunEvent& event) {
         {"deltaBytes", event.delta_bytes},
         {"elapsedMs", event.elapsed_ms},
         {"speedBps", event.speed_bps},
-        {"errorCode", event.error_code},
+        {"errorCode", event.error_code.has_value() ? error_code_name(*event.error_code) : ""},
         {"message", event.message},
     };
 }

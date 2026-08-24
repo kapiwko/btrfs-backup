@@ -90,7 +90,7 @@ std::string action_name(btrfsbackup::BackupRunActionKind kind) {
 btrfsbackup::Json action_to_json(const btrfsbackup::BackupRunAction& action) {
     btrfsbackup::Json result = {
         {"kind", action_name(action.kind)},
-        {"sourceId", action.source_id},
+        {"sourceId", action.source_id.value},
         {"primaryPath", action.primary_path.string()},
         {"secondaryPath", action.secondary_path.string()}
     };
@@ -115,7 +115,7 @@ btrfsbackup::Json paths_to_json(const std::vector<btrfsbackup::SnapshotInfo>& sn
 
 btrfsbackup::Json source_plan_to_json(const btrfsbackup::BackupSourceRunPlan& source, bool include_actions) {
     btrfsbackup::Json result = {
-        {"sourceId", source.source_id},
+        {"sourceId", source.source_id.value},
         {"sourceSubvolume", source.source_subvolume.string()},
         {"localSnapshotPath", source.local_snapshot_path.string()},
         {"remoteSnapshotDir", source.remote_snapshot_dir.string()},
@@ -173,11 +173,11 @@ btrfsbackup::BackupRequest parse_request(
     for (std::size_t i = 1; i < args.size(); ++i) {
         const std::string& arg = args.at(i);
         if (arg == "--profile") {
-            request.profile_id = arg_value(args, i, arg);
+            request.profile_id = btrfsbackup::ProfileId{arg_value(args, i, arg)};
         } else if (arg == "--timestamp") {
             request.timestamp = arg_value(args, i, arg);
         } else if (arg == "--run-id") {
-            request.run_id = arg_value(args, i, arg);
+            request.run_id = btrfsbackup::RunId{arg_value(args, i, arg)};
         } else if (arg == "--today") {
             request.today = arg_value(args, i, arg);
         } else if (arg == "--mountinfo") {
@@ -193,8 +193,8 @@ btrfsbackup::BackupRequest parse_request(
             fail("unknown " + command + " option: " + arg);
         }
     }
-    if (request.run_id.empty()) {
-        request.run_id = compact_timestamp(request.timestamp) + "-shadow";
+    if (request.run_id.value.empty()) {
+        request.run_id = btrfsbackup::RunId{compact_timestamp(request.timestamp) + "-shadow"};
     }
     return request;
 }
@@ -205,14 +205,14 @@ int print_execution_result(const btrfsbackup::BackupExecutionResult& result, std
         output << btrfsbackup::Json{
             {"schemaVersion", 1},
             {"mode", "cpp-execute"},
-            {"profileId", result.plan.profile_id},
-            {"runId", result.plan.run_id},
+            {"profileId", result.plan.profile_id.value},
+            {"runId", result.plan.run_id.value},
             {"completed", false},
             {"skipped", false},
             {"cancelled", false},
             {"busy", true},
             {"actionsCompleted", 0},
-            {"errorCode", result.error_code},
+            {"errorCode", result.error_code.has_value() ? error_code_name(*result.error_code) : ""},
             {"errorMessage", result.error_message}
         }.dump(2) << '\n';
         return 1;
@@ -221,8 +221,8 @@ int print_execution_result(const btrfsbackup::BackupExecutionResult& result, std
         output << btrfsbackup::Json{
             {"schemaVersion", 1},
             {"mode", "cpp-validate"},
-            {"profileId", result.plan.profile_id},
-            {"runId", result.plan.run_id},
+            {"profileId", result.plan.profile_id.value},
+            {"runId", result.plan.run_id.value},
             {"completed", true},
             {"cancelled", false},
             {"actionsCompleted", 0}
@@ -237,8 +237,8 @@ int print_execution_result(const btrfsbackup::BackupExecutionResult& result, std
     output << btrfsbackup::Json{
         {"schemaVersion", 1},
         {"mode", "cpp-execute"},
-        {"profileId", result.plan.profile_id},
-        {"runId", result.plan.run_id},
+        {"profileId", result.plan.profile_id.value},
+        {"runId", result.plan.run_id.value},
         {"completed", completed},
         {"skipped", skipped},
         {"cancelled", cancelled},
@@ -282,7 +282,7 @@ int runner(
         output << Json{
             {"schemaVersion", 1},
             {"mode", "cpp-cancel"},
-            {"profileId", result.profile_id},
+            {"profileId", result.profile_id.value},
             {"cancelRequested", result.cancel_requested}
         }.dump(2) << '\n';
         return 0;
@@ -292,8 +292,8 @@ int runner(
         output << Json{
             {"schemaVersion", 1},
             {"mode", "shadow-plan"},
-            {"profileId", plan.profile_id},
-            {"runId", plan.run_id},
+            {"profileId", plan.profile_id.value},
+            {"runId", plan.run_id.value},
             {"sources", sources_to_json(plan.sources, true)}
         }.dump(2) << '\n';
         return 0;

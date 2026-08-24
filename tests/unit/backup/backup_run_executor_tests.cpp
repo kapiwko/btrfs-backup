@@ -34,7 +34,7 @@ public:
         const btrfsbackup::BackupRunPlan&,
         btrfsbackup::CancellationToken&
     ) override {
-        calls.push_back(source_plan.source_id + ":" + action_name(action.kind));
+        calls.push_back(source_plan.source_id.value + ":" + action_name(action.kind));
         if (should_throw && action.kind == throw_on) {
             if (operation_cancelled) {
                 throw btrfsbackup::OperationCancelledError("hook cancelled");
@@ -141,20 +141,20 @@ public:
 btrfsbackup::BackupRunAction action(btrfsbackup::BackupRunActionKind kind) {
     return btrfsbackup::BackupRunAction{
         .kind = kind,
-        .source_id = "root",
+        .source_id = btrfsbackup::SourceId{"root"},
     };
 }
 
 btrfsbackup::BackupRunPlan plan_with_actions(std::vector<btrfsbackup::BackupRunAction> actions) {
     btrfsbackup::BackupSourceRunPlan source;
-    source.source_id = "root";
+    source.source_id = btrfsbackup::SourceId{"root"};
     source.local_snapshot_path = "/.snapshots/root/root-2026-08-23T080000Z";
     source.incoming_run_dir = "/mnt/backup/.incoming/root/run-1";
     source.actions = std::move(actions);
 
     return btrfsbackup::BackupRunPlan{
-        .profile_id = "default",
-        .run_id = "run-1",
+        .profile_id = btrfsbackup::ProfileId{"default"},
+        .run_id = btrfsbackup::RunId{"run-1"},
         .sources = {source},
     };
 }
@@ -330,30 +330,30 @@ void test_multi_source_progress_accumulates_run_bytes() {
     btrfsbackup::BackupRunExecutor executor(effects, async_transfers, checkpoints);
 
     btrfsbackup::BackupSourceRunPlan home;
-    home.source_id = "home";
+    home.source_id = btrfsbackup::SourceId{"home"};
     home.local_snapshot_path = "/.snapshots/home/home-2026-08-23T080000Z";
     home.incoming_run_dir = "/mnt/backup/.incoming/home/run-1";
     home.actions = {
         btrfsbackup::BackupRunAction{
             .kind = btrfsbackup::BackupRunActionKind::SendReceive,
-            .source_id = "home",
+            .source_id = btrfsbackup::SourceId{"home"},
         },
     };
 
     btrfsbackup::BackupSourceRunPlan root;
-    root.source_id = "root";
+    root.source_id = btrfsbackup::SourceId{"root"};
     root.local_snapshot_path = "/.snapshots/root/root-2026-08-23T080000Z";
     root.incoming_run_dir = "/mnt/backup/.incoming/root/run-1";
     root.actions = {
         btrfsbackup::BackupRunAction{
             .kind = btrfsbackup::BackupRunActionKind::SendReceive,
-            .source_id = "root",
+            .source_id = btrfsbackup::SourceId{"root"},
         },
     };
 
     btrfsbackup::BackupRunPlan plan{
-        .profile_id = "default",
-        .run_id = "run-1",
+        .profile_id = btrfsbackup::ProfileId{"default"},
+        .run_id = btrfsbackup::RunId{"run-1"},
         .sources = {home, root},
     };
 
@@ -444,7 +444,7 @@ void test_transfer_failure_emits_failed_action() {
         return event.kind == btrfsbackup::BackupRunEventKind::ActionFailed;
     });
     test_helpers::expect_true("transfer failed action event", failed != events.events.end(), "missing failed action event");
-    test_helpers::expect_eq("transfer failed error code", failed->error_code, "transfer.producer_failed");
+    test_helpers::expect_eq("transfer failed error code", btrfsbackup::error_code_name(*failed->error_code), "transfer.producer_failed");
 }
 
 void test_receive_failure_is_reported_separately() {
@@ -470,7 +470,7 @@ void test_receive_failure_is_reported_separately() {
         return event.kind == btrfsbackup::BackupRunEventKind::ActionFailed;
     });
     test_helpers::expect_true("receive failed action event", failed != events.events.end(), "missing failed action event");
-    test_helpers::expect_eq("receive failed error code", failed->error_code, "transfer.consumer_failed");
+    test_helpers::expect_eq("receive failed error code", btrfsbackup::error_code_name(*failed->error_code), "transfer.consumer_failed");
     test_helpers::expect_contains("receive failed message", failed->message, "consumer failed with exit code 9");
 }
 
@@ -524,7 +524,7 @@ void test_commit_cleanup_failure_emits_recovery_required_code() {
         return event.kind == btrfsbackup::BackupRunEventKind::ActionFailed;
     });
     test_helpers::expect_true("commit cleanup failed event", failed != events.events.end(), "missing failed action event");
-    test_helpers::expect_eq("commit cleanup error code", failed->error_code, "repository.recovery_required");
+    test_helpers::expect_eq("commit cleanup error code", btrfsbackup::error_code_name(*failed->error_code), "repository.recovery_required");
 }
 
 void test_hook_timeout_emits_stable_error_code() {
@@ -550,7 +550,7 @@ void test_hook_timeout_emits_stable_error_code() {
         return event.kind == btrfsbackup::BackupRunEventKind::ActionFailed;
     });
     test_helpers::expect_true("hook timeout failed event", failed != events.events.end(), "missing failed action event");
-    test_helpers::expect_eq("hook timeout event code", failed->error_code, "hook.before_snapshot_timeout");
+    test_helpers::expect_eq("hook timeout event code", btrfsbackup::error_code_name(*failed->error_code), "hook.before_snapshot_timeout");
 }
 
 void test_hook_cancellation_finishes_run_as_cancelled() {

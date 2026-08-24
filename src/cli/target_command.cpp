@@ -131,7 +131,7 @@ int target(
         result = btrfsbackup::mount_target(
             MountTargetRequest{
                 .profile_config_dir = profile_config_dir,
-                .profile_id = options.profile_id,
+                .profile_id = ProfileId{options.profile_id},
             },
             services
         );
@@ -139,7 +139,7 @@ int target(
         result = btrfsbackup::eject_target(
             EjectTargetRequest{
                 .profile_config_dir = profile_config_dir,
-                .profile_id = options.profile_id,
+                .profile_id = ProfileId{options.profile_id},
                 .force = options.force,
                 .automatic = options.from_service || options.from_runner,
                 .service_succeeded = !options.from_service || service_succeeded(),

@@ -11,6 +11,7 @@
 #include <platform/linux/mount_info.hpp>
 #include <backup/pending_recovery_plan.hpp>
 #include <config/profile.hpp>
+#include <config/identifiers.hpp>
 #include <backup/retention_plan.hpp>
 #include <state/run_state.hpp>
 #include <backup/snapshot_inventory.hpp>
@@ -19,14 +20,14 @@ namespace btrfsbackup {
 
 struct BackupRunAction {
     BackupRunActionKind kind = BackupRunActionKind::CleanupSource;
-    std::string source_id;
+    SourceId source_id;
     std::filesystem::path primary_path;
     std::filesystem::path secondary_path;
     ProfileHookCommand hook;
 };
 
 struct BackupSourceRunPlan {
-    std::string source_id;
+    SourceId source_id;
     std::filesystem::path source_subvolume;
     std::filesystem::path local_snapshot_dir;
     std::filesystem::path remote_snapshot_dir;
@@ -43,8 +44,8 @@ struct BackupSourceRunPlan {
 };
 
 struct BackupRunPlan {
-    std::string profile_id;
-    std::string run_id;
+    ProfileId profile_id;
+    RunId run_id;
     std::filesystem::path target_mount_point;
     std::vector<BackupSourceRunPlan> sources;
 };
@@ -61,7 +62,7 @@ BackupRunPlan build_backup_run_plan(
     const PendingMarkerBySource& pending_markers,
     const PendingSnapshotBySource& pending_snapshots,
     const std::filesystem::path& profile_state_dir,
-    const std::string& run_id,
+    const RunId& run_id,
     const std::string& snapshot_timestamp
 );
 

@@ -165,10 +165,10 @@ void create_local_snapshot(
     write_pending_marker(
         profile_state_dir_for_source(source_plan),
         PendingMarker{
-            .source_name = source_plan.source_id,
+            .source_name = source_plan.source_id.value,
             .local_snapshot_path = source_plan.local_snapshot_path.string(),
             .final_snapshot_path = source_plan.final_remote_snapshot_path.string(),
-            .run_id = run_plan.run_id,
+            .run_id = run_plan.run_id.value,
             .timestamp = current_utc_iso_timestamp(),
         }
     );
@@ -212,7 +212,7 @@ void verify_received(
         "Received snapshot metadata is missing",
         target_root
     );
-    verify_received_snapshot(source_plan.source_id, local, received);
+    verify_received_snapshot(source_plan.source_id.value, local, received);
 }
 
 void commit_received(

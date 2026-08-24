@@ -4,6 +4,7 @@ add_library(btrfsbackup-state-model STATIC
 
 target_compile_features(btrfsbackup-state-model PUBLIC cxx_std_20)
 target_include_directories(btrfsbackup-state-model PUBLIC ${PROJECT_SOURCE_DIR}/src)
+target_link_libraries(btrfsbackup-state-model PUBLIC btrfsbackup-identifier-model)
 
 add_library(btrfsbackup-state STATIC
     backup_run_persistence.cpp

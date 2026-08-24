@@ -47,14 +47,14 @@ void emit_event(
     std::uint64_t delta_bytes = 0,
     std::uint64_t elapsed_ms = 0,
     std::uint64_t speed_bps = 0,
-    const std::string& error_code = "",
+    std::optional<ErrorCode> error_code = std::nullopt,
     const std::string& message = ""
 ) {
     events.on_backup_run_event({
         .kind = kind,
         .profile_id = plan.profile_id,
         .run_id = plan.run_id,
-        .source_id = source == nullptr ? std::string{} : source->source_id,
+        .source_id = source == nullptr ? SourceId{} : source->source_id,
         .source_index = source_index_for_event(plan, source),
         .action_kind = action_kind,
         .bytes_transferred = bytes_transferred,
@@ -100,7 +100,7 @@ public:
                 event.delta_bytes,
                 event.elapsed_ms,
                 event.speed_bps,
-                "",
+                std::nullopt,
                 event.message
             );
         }
@@ -279,7 +279,7 @@ BackupRunExecutionResult BackupRunExecutor::execute(
             }
 
             emit_event(events, BackupRunEventKind::ActionStarted, plan, &source, action.kind);
-            std::string error_code;
+            std::optional<ErrorCode> error_code;
             try {
                 if (action.kind == BackupRunActionKind::SendReceive) {
                     action_effects_.execute_action(action, source, plan, cancellation);
@@ -307,11 +307,11 @@ BackupRunExecutionResult BackupRunExecutor::execute(
                 }
             } catch (const OperationCancelledError& error) {
                 result.cancelled = true;
-                emit_event(events, BackupRunEventKind::RunCancelled, plan, &source, action.kind, 0, 0, 0, 0, 0, 0, 0, "runner.cancelled", error.what());
+                emit_event(events, BackupRunEventKind::RunCancelled, plan, &source, action.kind, 0, 0, 0, 0, 0, 0, 0, ErrorCode::RunnerCancelled, error.what());
                 return result;
             } catch (const std::exception& error) {
                 if (const auto* coded_error = dynamic_cast<const CodedValidationError*>(&error)) {
-                    error_code = coded_error->error_code;
+                    error_code = error_code_from_name(coded_error->error_code).value_or(ErrorCode::RunnerActionFailed);
                 }
                 emit_event(events, BackupRunEventKind::ActionFailed, plan, &source, action.kind, 0, 0, 0, 0, 0, 0, 0, error_code, error.what());
                 throw;

@@ -51,7 +51,7 @@ public:
         const btrfsbackup::BackupRunPlan& plan,
         btrfsbackup::CancellationToken&
     ) override {
-        calls.push_back(source_plan.source_id + ":" + action_name(action.kind));
+        calls.push_back(source_plan.source_id.value + ":" + action_name(action.kind));
         if (action.kind == btrfsbackup::BackupRunActionKind::ApplyLocalRetention) {
             for (const btrfsbackup::SnapshotInfo& snapshot : source_plan.local_retention.delete_snapshots) {
                 local_retention_deletes.push_back(snapshot.path.string());
@@ -70,10 +70,10 @@ public:
             btrfsbackup::write_pending_marker(
                 pending_state_dir,
                 {
-                    .source_name = source_plan.source_id,
+                    .source_name = source_plan.source_id.value,
                     .local_snapshot_path = source_plan.local_snapshot_path.string(),
                     .final_snapshot_path = source_plan.final_remote_snapshot_path.string(),
-                    .run_id = plan.run_id,
+                    .run_id = plan.run_id.value,
                     .timestamp = pending_timestamp,
                 }
             );

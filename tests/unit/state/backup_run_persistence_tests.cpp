@@ -23,9 +23,9 @@ int mode_of(const fs::path& path) {
 btrfsbackup::BackupRunEvent event(btrfsbackup::BackupRunEventKind kind) {
     return btrfsbackup::BackupRunEvent{
         .kind = kind,
-        .profile_id = "default",
-        .run_id = "20260823T120000Z-123-456",
-        .source_id = "root",
+        .profile_id = btrfsbackup::ProfileId{"default"},
+        .run_id = btrfsbackup::RunId{"20260823T120000Z-123-456"},
+        .source_id = btrfsbackup::SourceId{"root"},
         .source_index = 1,
         .action_kind = btrfsbackup::BackupRunActionKind::SendReceive,
         .bytes_transferred = 4096,
@@ -73,9 +73,9 @@ void test_checkpoint_store_writes_private_json_in_state_dir() {
     btrfsbackup::JsonFileBackupRunCheckpointStore store(root / "state");
 
     store.write_checkpoint({
-        .profile_id = "default",
-        .run_id = "20260823T120000Z-123-456",
-        .source_id = "root",
+        .profile_id = btrfsbackup::ProfileId{"default"},
+        .run_id = btrfsbackup::RunId{"20260823T120000Z-123-456"},
+        .source_id = btrfsbackup::SourceId{"root"},
         .action_kind = btrfsbackup::BackupRunActionKind::CreateSnapshot,
     });
 
@@ -112,7 +112,7 @@ void test_public_transfer_progress_excludes_run_details() {
     test_helpers::expect_true("progress accuracy", current.at("progressAccuracy") == "estimated", "wrong progress accuracy");
 
     btrfsbackup::BackupRunEvent second = event(btrfsbackup::BackupRunEventKind::TransferProgress);
-    second.source_id = "home";
+    second.source_id = btrfsbackup::SourceId{"home"};
     second.source_index = 2;
     sink.on_backup_run_event(second);
     current = btrfsbackup::load_json_file(root / "status" / "default" / "current.json");
@@ -193,7 +193,7 @@ void test_repository_recovery_required_status_is_actionable() {
 
     btrfsbackup::BackupRunEvent failed = event(btrfsbackup::BackupRunEventKind::ActionFailed);
     failed.action_kind = btrfsbackup::BackupRunActionKind::CommitReceived;
-    failed.error_code = "repository.recovery_required";
+    failed.error_code = btrfsbackup::ErrorCode::RepositoryRecoveryRequired;
     failed.message = "commit verification failed; cleanup failed; repository requires recovery";
 
     sink.on_backup_run_event(failed);

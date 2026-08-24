@@ -68,9 +68,9 @@ fs::path test_root(const std::string& name) {
 
 RunStatus sample_record() {
     return {
-        .profile_id = "default",
+        .profile_id = btrfsbackup::ProfileId{"default"},
         .profile_name = "Default backup",
-        .run_id = "20260823T024407Z-4298-30158",
+        .run_id = btrfsbackup::RunId{"20260823T024407Z-4298-30158"},
         .state = RunState::Succeeded,
         .phase = RunPhase::Succeeded,
         .message = "Backup completed.",
@@ -135,7 +135,7 @@ void test_build_status_json_includes_structured_error() {
     record.phase = RunPhase::ValidatingTarget;
     record.message = "Validation failed.";
     record.error = RunError{
-        .code = ErrorCode{"target.btrfs_uuid_mismatch"},
+        .code = ErrorCode::TargetBtrfsUuidMismatch,
         .message = "Target Btrfs UUID does not match.",
         .recoverable = false,
         .suggested_action = SuggestedAction{"connect-correct-target"},
@@ -162,7 +162,7 @@ void test_build_public_status_json_excludes_diagnostics() {
     RunStatus record = sample_record();
     record.state = RunState::Failed;
     record.error = RunError{
-        .code = ErrorCode{"target.btrfs_uuid_mismatch"},
+        .code = ErrorCode::TargetBtrfsUuidMismatch,
         .message = "Target Btrfs UUID does not match.",
     };
     record.details = {
@@ -276,18 +276,18 @@ void test_rejects_unsafe_identifiers() {
     expect_eq("run id wrapper", run_id.value, "20260823T024407Z-4298-30158");
 
     RunStatus bad_profile = sample_record();
-    bad_profile.profile_id = "../default";
+    bad_profile.profile_id.value = "../default";
     expect_validation_error("bad profile", [&] { btrfsbackup::build_status_json(bad_profile); }, "invalid profile id");
 
     RunStatus bad_run = sample_record();
-    bad_run.run_id = "../run";
+    bad_run.run_id.value = "../run";
     expect_validation_error("bad run", [&] { btrfsbackup::build_status_json(bad_run); }, "invalid run id");
 }
 
 void test_invalid_profile_does_not_create_status_directory() {
     fs::path root = test_root("bad-write");
     RunStatus bad_profile = sample_record();
-    bad_profile.profile_id = "../default";
+    bad_profile.profile_id.value = "../default";
 
     expect_validation_error(
         "bad write",
