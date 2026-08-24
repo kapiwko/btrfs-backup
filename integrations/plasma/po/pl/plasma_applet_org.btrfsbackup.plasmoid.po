@@ -1,0 +1,72 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: btrfs-backup\n"
+"PO-Revision-Date: 2026-08-24 00:00+0200\n"
+"Last-Translator: btrfs-backup contributors\n"
+"Language-Team: Polish\n"
+"Language: pl\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=3; plural=(n==1 ? 0 : n%10>=2 && n%10<=4 && "
+"(n%100<10 || n%100>=20) ? 1 : 2);\n"
+
+msgid "Btrfs Backups"
+msgstr "Kopie zapasowe Btrfs"
+
+msgid "Backup is in progress"
+msgstr "Kopia zapasowa jest wykonywana"
+
+msgid "Validation completed successfully"
+msgstr "Walidacja zakończona pomyślnie"
+
+msgid "Backup completed successfully"
+msgstr "Kopia zapasowa zakończona pomyślnie"
+
+msgid "Backup failed"
+msgstr "Kopia zapasowa nie powiodła się"
+
+msgid "Backup cancelled"
+msgstr "Kopia zapasowa anulowana"
+
+msgid "Backup skipped"
+msgstr "Kopia zapasowa pominięta"
+
+msgid "No active backup"
+msgstr "Brak aktywnej kopii"
+
+msgid "Unknown"
+msgstr "Nieznane"
+
+msgid "%1 min %2 sec"
+msgstr "%1 min %2 s"
+
+msgid "%1 sec"
+msgstr "%1 s"
+
+msgid "Profile:"
+msgstr "Profil:"
+
+msgid "Status:"
+msgstr "Stan:"
+
+msgid "Source:"
+msgstr "Źródło:"
+
+msgid "Destination:"
+msgstr "Cel:"
+
+msgid "Progress:"
+msgstr "Postęp:"
+
+msgid "Speed:"
+msgstr "Prędkość:"
+
+msgid "%1/s"
+msgstr "%1/s"
+
+msgid "Time remaining:"
+msgstr "Pozostały czas:"
+
+msgid "Refresh"
+msgstr "Odśwież"

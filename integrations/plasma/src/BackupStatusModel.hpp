@@ -18,6 +18,7 @@ class BackupStatusModel : public QObject {
     Q_PROPERTY(QString message READ message NOTIFY statusChanged)
     Q_PROPERTY(QString currentSourceId READ currentSourceId NOTIFY statusChanged)
     Q_PROPERTY(QString currentSourceName READ currentSourceName NOTIFY statusChanged)
+    Q_PROPERTY(QString targetName READ targetName NOTIFY statusChanged)
     Q_PROPERTY(int sourceIndex READ sourceIndex NOTIFY statusChanged)
     Q_PROPERTY(int sourceCount READ sourceCount NOTIFY statusChanged)
     Q_PROPERTY(qint64 bytesProcessed READ bytesProcessed NOTIFY statusChanged)
@@ -50,6 +51,7 @@ public:
     QString message() const;
     QString currentSourceId() const;
     QString currentSourceName() const;
+    QString targetName() const;
     int sourceIndex() const;
     int sourceCount() const;
     qint64 bytesProcessed() const;
@@ -94,6 +96,7 @@ private:
     QString message_;
     QString current_source_id_;
     QString current_source_name_;
+    QString target_name_;
     int source_index_ = 0;
     int source_count_ = 0;
     qint64 bytes_processed_ = 0;

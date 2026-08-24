@@ -138,6 +138,11 @@ QString BackupStatusModel::currentSourceName() const
     return current_source_name_;
 }
 
+QString BackupStatusModel::targetName() const
+{
+    return target_name_;
+}
+
 int BackupStatusModel::sourceIndex() const
 {
     return source_index_;
@@ -330,7 +335,8 @@ void BackupStatusModel::applyStatusObject(const QByteArray& object)
     phase_ = json_string(status, "phase");
     message_ = json_string(status, "message");
     current_source_id_ = json_string(status, "currentSourceId");
-    current_source_name_ = json_string(status, "currentSourceName");
+    current_source_name_ = json_string(status, "sourceName");
+    target_name_ = json_string(status, "targetName");
     source_index_ = json_int(status, "sourceIndex");
     source_count_ = json_int(status, "sourceCount");
     bytes_processed_ = json_int64(status, "bytesProcessed");
