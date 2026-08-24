@@ -178,7 +178,6 @@ StatusRecord status_record_for_event(const BackupRunStatusContext& context, cons
             {"bytesTransferred", event.bytes_transferred},
             {"bytesTotalEstimated", event.bytes_total_estimated},
             {"deltaBytes", event.delta_bytes},
-            {"pendingBytes", event.pending_bytes},
             {"elapsedMs", event.elapsed_ms},
             {"speedBps", event.speed_bps}
         };
@@ -347,7 +346,6 @@ Json build_backup_run_event_json(const BackupRunEvent& event) {
         {"bytesTotalEstimated", event.bytes_total_estimated},
         {"runBytesTransferred", event.run_bytes_transferred},
         {"deltaBytes", event.delta_bytes},
-        {"pendingBytes", event.pending_bytes},
         {"elapsedMs", event.elapsed_ms},
         {"speedBps", event.speed_bps},
         {"errorCode", event.error_code},

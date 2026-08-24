@@ -42,7 +42,6 @@ void emit_event(
     std::uint64_t bytes_total_estimated = 0,
     std::uint64_t run_bytes_transferred = 0,
     std::uint64_t delta_bytes = 0,
-    std::uint64_t pending_bytes = 0,
     std::uint64_t elapsed_ms = 0,
     std::uint64_t speed_bps = 0,
     const std::string& error_code = "",
@@ -60,7 +59,6 @@ void emit_event(
         .bytes_total_estimated = bytes_total_estimated,
         .run_bytes_transferred = run_bytes_transferred,
         .delta_bytes = delta_bytes,
-        .pending_bytes = pending_bytes,
         .elapsed_ms = elapsed_ms,
         .speed_bps = speed_bps,
         .error_code = error_code,
@@ -97,7 +95,6 @@ public:
                 event.bytes_total_estimated,
                 run_bytes_base_ + event.bytes_transferred,
                 event.delta_bytes,
-                event.pending_bytes,
                 event.elapsed_ms,
                 event.speed_bps,
                 "",
@@ -269,7 +266,7 @@ BackupRunExecutionResult BackupRunExecutor::execute(
                     action_effects_.execute_action(action, source, plan);
                 }
             } catch (const std::exception& error) {
-                emit_event(events, BackupRunEventKind::ActionFailed, plan, &source, action.kind, 0, 0, 0, 0, 0, 0, 0, 0, error_code, error.what());
+                emit_event(events, BackupRunEventKind::ActionFailed, plan, &source, action.kind, 0, 0, 0, 0, 0, 0, 0, error_code, error.what());
                 throw;
             }
 
