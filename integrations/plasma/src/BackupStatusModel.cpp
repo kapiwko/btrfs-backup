@@ -188,11 +188,6 @@ QString BackupStatusModel::progressAccuracy() const
     return progress_accuracy_;
 }
 
-bool BackupStatusModel::canCancel() const
-{
-    return can_cancel_;
-}
-
 bool BackupStatusModel::safeToRemove() const
 {
     return safe_to_remove_;
@@ -250,19 +245,6 @@ void BackupStatusModel::stop()
         watch_.waitForFinished(1000);
     }
     setConnected(false);
-}
-
-void BackupStatusModel::cancel()
-{
-    const bool started = QProcess::startDetached(command_, QStringList{
-        QStringLiteral("runner"),
-        QStringLiteral("cancel"),
-        QStringLiteral("--profile"),
-        profile_,
-    });
-    if (!started) {
-        setLastError(tr("Could not start cancellation command."));
-    }
 }
 
 void BackupStatusModel::readWatchOutput()
@@ -368,7 +350,6 @@ void BackupStatusModel::applyStatusObject(const QByteArray& object)
     if (progress_accuracy_.isEmpty()) {
         progress_accuracy_ = QStringLiteral("indeterminate");
     }
-    can_cancel_ = status.value(QLatin1String("canCancel")).toBool(false);
     safe_to_remove_ = status.value(QLatin1String("safeToRemove")).toBool(false);
     error_code_ = json_string(status, "errorCode");
     error_message_ = json_string(status, "errorMessage");

@@ -99,7 +99,7 @@ fields use `0` or `-1` as documented below:
 | `runBytesProcessed` | cumulative bytes delivered in the current run, including prior sources |
 | `speedBps` | current transfer speed in bytes per second |
 | `etaSeconds` | estimated seconds remaining, or `-1` when unknown |
-| `canCancel` | whether a client should offer cancellation |
+| `canCancel` | whether the active run accepts cancellation; not proof that the current caller is authorized |
 | `safeToRemove` | whether the target was logically unmounted and closed |
 
 The status `details` object for `transferring` includes lower-level diagnostics:
@@ -117,7 +117,8 @@ not the exact Btrfs send stream size, especially for incremental sends, reflinks
 and compression. In that case `sourceProgress` and `etaSeconds` are useful for
 orientation but must remain labelled as estimated.
 
-When `canCancel` is `true`, a client may request cancellation with:
+When `canCancel` is `true`, an authorized administrative client may request
+cancellation with:
 
 ```bash
 btrfs-backupctl runner cancel --profile <PROFILE_ID>
@@ -129,6 +130,11 @@ to stop, and then removes the handled request. A cancelled run finishes with
 `state` set to `cancelled` and stable `errorCode` `runner.cancelled`.
 SIGINT and SIGTERM delivered to an executing runner request the same controlled
 cancellation path.
+
+The public flag does not grant access to the root-owned active profile or its
+private state directory. Unprivileged desktop clients must not offer this CLI
+operation based only on `canCancel`; Plasma control will use the planned system
+D-Bus API and polkit authorization.
 
 Transfer failures use stable error codes instead of requiring clients to parse
 the diagnostic text:

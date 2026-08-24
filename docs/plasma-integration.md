@@ -10,6 +10,14 @@ QML UI talks to a C++ `BackupStatusModel`, and that model reads the public
 commands and private state files while the versioned system D-Bus manager is not
 ready yet.
 
+This initial plasmoid is status-only. It does not expose cancellation or other
+mutating actions, even when the runtime status advertises `canCancel`. The CLI
+cancellation path requires access to root-owned configuration and private state,
+so launching it from an unprivileged Plasma session would not be a valid control
+API. Desktop controls will be added only through the system D-Bus manager with
+polkit authorization; the plasmoid must not use `sudo`, `pkexec`, or detached
+CLI processes as a substitute.
+
 ## Package
 
 The Plasma integration is shipped separately as `btrfs-backup-kde`. Install it
@@ -43,7 +51,7 @@ The target architecture remains:
 1. system manager with a versioned D-Bus API and polkit for mutating actions;
 2. shared desktop client library translating D-Bus data to Qt/QML models;
 3. monitor process that owns KJob, KUiServer progress and notifications;
-4. plasmoid for status and lightweight controls;
+4. plasmoid for status and controls routed through the shared D-Bus client;
 5. KCM for profile inspection, validation and controlled configuration writes.
 
 The plasmoid must not own long-running backup progress. After the desktop

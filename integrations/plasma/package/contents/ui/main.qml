@@ -204,16 +204,6 @@ PlasmoidItem {
                     icon.name: "view-refresh"
                     onClicked: backupStatus.start()
                 }
-
-                Item { Layout.fillWidth: true }
-
-                QQC2.Button {
-                    text: qsTr("Anuluj")
-                    icon.name: "process-stop"
-                    enabled: backupStatus.canCancel
-                    visible: backupStatus.canCancel
-                    onClicked: backupStatus.cancel()
-                }
             }
         }
     }
