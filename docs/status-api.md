@@ -80,6 +80,11 @@ btrfs-backupctl status show --profile default
 btrfs-backupctl status watch --profile default --interval 1
 ```
 
+Human output for a public current-status document labels the run with its
+profile id because schema version 3 deliberately does not expose the profile
+display name. When `status show` falls back to private `last.json`, it can use
+the stored profile display name and diagnostic fields.
+
 History commands require root:
 
 ```bash
