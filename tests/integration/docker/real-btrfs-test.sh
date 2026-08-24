@@ -541,7 +541,7 @@ CTL_STATUS_CODE=$?
 set -e
 [[ "$CTL_STATUS_CODE" -eq 0 ]] \
     || { printf '%s\n' "$CTL_STATUS_OUTPUT" >&2; fail 'btrfs-backupctl status failed'; }
-grep -q 'Default backup: succeeded' <<< "$CTL_STATUS_OUTPUT" \
+grep -q '^default: succeeded$' <<< "$CTL_STATUS_OUTPUT" \
     || { printf '%s\n' "$CTL_STATUS_OUTPUT" >&2; fail 'btrfs-backupctl did not render human status'; }
 set +e
 CTL_HISTORY_OUTPUT="$(btrfs-backupctl status history --profile default --limit 1 2>&1)"

@@ -52,28 +52,53 @@ void test_list_profiles_from_json_files() {
     fs::remove_all(root);
 }
 
-void test_status_human_format() {
-    fs::path root = test_root("human");
+void test_public_status_human_format() {
+    fs::path root = test_root("public-human");
     test_helpers::write_file(
         root / "status" / "default" / "current.json",
         "{"
-        "\"profileId\":\"default\","
-        "\"profileName\":\"Default backup\","
+        "\"schemaVersion\":3,"
         "\"state\":\"running\","
-        "\"phase\":\"send\","
-        "\"message\":\"copying\","
-        "\"currentSourceName\":\"Home\","
-        "\"updatedAt\":\"2026-08-23T12:00:00Z\""
+        "\"errorCode\":\"\","
+        "\"sourceName\":\"Home\","
+        "\"targetName\":\"backupdisk\","
+        "\"speedBps\":0,"
+        "\"etaSeconds\":-1,"
+        "\"sourceProgress\":50,"
+        "\"overallProgress\":25,"
+        "\"progressAccuracy\":\"estimated\""
         "}\n"
     );
     std::ostringstream output;
 
     btrfsbackup::command::status_show(root / "status", root / "history", {"--human"}, output);
 
-    test_helpers::expect_contains("human status", output.str(), "Default backup: running\n");
-    test_helpers::expect_contains("human phase", output.str(), "  phase: send\n");
-    test_helpers::expect_contains("human message", output.str(), "  copying\n");
-    test_helpers::expect_contains("human source", output.str(), "  source: Home\n");
+    test_helpers::expect_contains("public human status", output.str(), "default: running\n");
+    test_helpers::expect_contains("public human source", output.str(), "  source: Home\n");
+    test_helpers::expect_contains("public human target", output.str(), "  target: backupdisk\n");
+    fs::remove_all(root);
+}
+
+void test_private_history_human_format() {
+    fs::path root = test_root("private-human");
+    test_helpers::write_file(
+        root / "history" / "default" / "last.json",
+        "{"
+        "\"schemaVersion\":2,"
+        "\"profileId\":\"default\","
+        "\"profileName\":\"Default backup\","
+        "\"state\":\"succeeded\","
+        "\"phase\":\"completed\","
+        "\"message\":\"backup completed\""
+        "}\n"
+    );
+    std::ostringstream output;
+
+    btrfsbackup::command::status_show(root / "status", root / "history", {"--human"}, output);
+
+    test_helpers::expect_contains("private human status", output.str(), "Default backup: succeeded\n");
+    test_helpers::expect_contains("private human phase", output.str(), "  phase: completed\n");
+    test_helpers::expect_contains("private human message", output.str(), "  backup completed\n");
     fs::remove_all(root);
 }
 
@@ -189,7 +214,8 @@ int main() {
     test_history_without_directory_returns_empty_array();
     test_status_falls_back_to_last_json();
     test_list_profiles_from_json_files();
-    test_status_human_format();
+    test_public_status_human_format();
+    test_private_history_human_format();
     test_status_watch_json_emits_status_api_shape_once();
     test_list_profiles_rejects_invalid_name();
     test_history_limit();
