@@ -26,17 +26,18 @@ Directories describe what code does. Architectural boundaries are enforced by
 CMake targets and their declared dependencies:
 
 ```text
-btrfsbackup-config-model ─────┬──> btrfsbackup-config ───────┐
-btrfsbackup-backup-model ─┐   │                              │
-                          ├──> btrfsbackup-platform-linux ───┼──> btrfsbackup-backup
-                          │                                  │             │
-                          └────────> btrfsbackup-state ──────┘             v
-                                                                    btrfsbackup-cli
-                                                                           │
-                                                            btrfs-backup, btrfs-backupctl
+btrfsbackup-config-model ───────> btrfsbackup-config ─────────┐
+             │                                                │
+             └──> btrfsbackup-platform-linux ───────┐         │
+btrfsbackup-backup-model ───────────────────────────┼─────────┼──> btrfsbackup-backup
+btrfsbackup-state-model ──> btrfsbackup-state <─────┘         │             │
+                                      └───────────────────────┘             v
+                                                                     btrfsbackup-cli
+                                                                            │
+                                                             btrfs-backup, btrfs-backupctl
 ```
 
-The two `*-model` targets contain dependency-light contracts needed to avoid
+The `*-model` targets contain dependency-light contracts needed to avoid
 cycles between configuration, backup concepts, and Linux implementations. They
 are implementation details of the domain layout, not separate source trees.
 
@@ -51,6 +52,8 @@ are implementation details of the domain layout, not separate source trees.
   file-backed current status and history, status history reads, and the public
   status contract. It implements the event and checkpoint interfaces declared
   by `backup`; the executor never writes those files directly.
+  `btrfsbackup-state-model` exposes the typed `RunStatus`, `RunProgress`, and
+  optional `RunError` contract without depending on JSON or filesystem code.
 - `platform/linux` owns POSIX processes, Btrfs and block-device integration,
   mount inspection, trusted files, locks, durable filesystem operations, and
   other Linux-specific effects.

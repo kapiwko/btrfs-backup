@@ -92,13 +92,13 @@ std::vector<std::string> required_status_api_fields() {
     };
 }
 
-btrfsbackup::RunStatusRecord watch_sample_record() {
+btrfsbackup::RunStatus watch_sample_record() {
     return {
         .profile_id = "default",
         .profile_name = "Default backup",
         .run_id = "20260823T024407Z-4298-30158",
-        .state = "running",
-        .phase = "transferring",
+        .state = btrfsbackup::RunState::Running,
+        .phase = btrfsbackup::RunPhase::Transferring,
         .message = "Backup transfer is running.",
         .current_source_name = "home",
         .source_index = 1,
@@ -106,14 +106,16 @@ btrfsbackup::RunStatusRecord watch_sample_record() {
         .started_at = "2026-08-23T02:44:07Z",
         .updated_at = "2026-08-23T02:45:07Z",
         .can_cancel = true,
-        .bytes_processed = 4096,
-        .bytes_total_estimated = 8192,
-        .run_bytes_processed = 12288,
-        .speed_bps = 2048,
-        .eta_seconds = 2,
-        .source_progress = 50,
-        .overall_progress = 0,
-        .progress_accuracy = "estimated",
+        .progress = btrfsbackup::RunProgress{
+            .processed_bytes = 4096,
+            .estimated_bytes = 8192,
+            .run_processed_bytes = 12288,
+            .speed_bps = 2048,
+            .eta_seconds = 2,
+            .source_percent = 50,
+            .overall_percent = 0,
+            .accuracy = btrfsbackup::ProgressAccuracy::Estimated,
+        },
     };
 }
 

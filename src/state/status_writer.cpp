@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <string>
 #include <sys/stat.h>
+#include <variant>
 
 #include <config/errors.hpp>
 #include <platform/linux/file_io.hpp>
@@ -21,15 +22,13 @@ void require_non_empty(const std::string& value, const char* field) {
     }
 }
 
-void validate_status_record(const btrfsbackup::RunStatusRecord& record) {
-    btrfsbackup::validate_profile_id(record.profile_id);
-    require_non_empty(record.profile_name, "profileName");
-    require_non_empty(record.run_id, "runId");
-    btrfsbackup::validate_run_id(record.run_id);
-    require_non_empty(record.state, "state");
-    require_non_empty(record.phase, "phase");
-    require_non_empty(record.started_at, "startedAt");
-    require_non_empty(record.updated_at, "updatedAt");
+void validate_status(const btrfsbackup::RunStatus& status) {
+    btrfsbackup::validate_profile_id(status.profile_id);
+    require_non_empty(status.profile_name, "profileName");
+    require_non_empty(status.run_id, "runId");
+    btrfsbackup::validate_run_id(status.run_id);
+    require_non_empty(status.started_at, "startedAt");
+    require_non_empty(status.updated_at, "updatedAt");
 }
 
 void set_directory_mode(const fs::path& path, mode_t mode) {
@@ -56,85 +55,95 @@ void prepare_private_history_directory(const fs::path& history_root, const fs::p
     set_directory_mode(directory, 0700);
 }
 
+btrfsbackup::Json build_details_json(const btrfsbackup::RunDetails& details) {
+    btrfsbackup::Json json = btrfsbackup::Json::object();
+    for (const auto& [name, value] : details) {
+        std::visit([&](const auto& item) { json[name] = item; }, value);
+    }
+    return json;
+}
+
 } // namespace
 
 namespace btrfsbackup {
 
-Json build_status_json(const RunStatusRecord& record) {
-    validate_status_record(record);
+Json build_status_json(const RunStatus& status) {
+    validate_status(status);
+
+    const RunError* error = status.error ? &*status.error : nullptr;
 
     return {
         {"schemaVersion", 2},
-        {"profileId", record.profile_id},
-        {"profileName", record.profile_name},
-        {"runId", record.run_id},
-        {"state", record.state},
-        {"phase", record.phase},
-        {"message", record.message},
-        {"currentSourceName", record.current_source_name},
-        {"targetName", record.target_name},
-        {"sourceIndex", record.source_index},
-        {"sourceCount", record.source_count},
-        {"startedAt", record.started_at},
-        {"updatedAt", record.updated_at},
-        {"finishedAt", record.finished_at},
-        {"errorCode", record.error_code},
-        {"errorMessage", record.error_message},
-        {"details", record.details.is_null() ? Json::object() : record.details},
-        {"recoverable", record.recoverable},
-        {"suggestedAction", record.suggested_action},
-        {"canCancel", record.can_cancel},
-        {"bytesProcessed", record.bytes_processed},
-        {"bytesTotalEstimated", record.bytes_total_estimated},
-        {"runBytesProcessed", record.run_bytes_processed},
-        {"speedBps", record.speed_bps},
-        {"etaSeconds", record.eta_seconds},
-        {"sourceProgress", record.source_progress},
-        {"overallProgress", record.overall_progress},
-        {"progressAccuracy", record.progress_accuracy},
-        {"exitCode", record.exit_code},
+        {"profileId", status.profile_id},
+        {"profileName", status.profile_name},
+        {"runId", status.run_id},
+        {"state", run_state_name(status.state)},
+        {"phase", run_phase_name(status.phase)},
+        {"message", status.message},
+        {"currentSourceName", status.current_source_name},
+        {"targetName", status.target_name},
+        {"sourceIndex", status.source_index},
+        {"sourceCount", status.source_count},
+        {"startedAt", status.started_at},
+        {"updatedAt", status.updated_at},
+        {"finishedAt", status.finished_at},
+        {"errorCode", error == nullptr ? "" : error->code.value},
+        {"errorMessage", error == nullptr ? "" : error->message},
+        {"details", build_details_json(status.details)},
+        {"recoverable", error != nullptr && error->recoverable},
+        {"suggestedAction", error == nullptr ? "" : error->suggested_action.value},
+        {"canCancel", status.can_cancel},
+        {"bytesProcessed", status.progress.processed_bytes},
+        {"bytesTotalEstimated", status.progress.estimated_bytes.value_or(0)},
+        {"runBytesProcessed", status.progress.run_processed_bytes},
+        {"speedBps", status.progress.speed_bps},
+        {"etaSeconds", status.progress.eta_seconds.value_or(-1)},
+        {"sourceProgress", status.progress.source_percent.value_or(-1)},
+        {"overallProgress", status.progress.overall_percent.value_or(-1)},
+        {"progressAccuracy", progress_accuracy_name(status.progress.accuracy)},
+        {"exitCode", status.exit_code},
     };
 }
 
-std::string dump_status_json(const RunStatusRecord& record) {
-    return dump_json(build_status_json(record));
+std::string dump_status_json(const RunStatus& status) {
+    return dump_json(build_status_json(status));
 }
 
-Json build_public_status_json(const RunStatusRecord& record) {
-    validate_status_record(record);
-    const std::string public_error_code = record.error_code.empty()
+Json build_public_status_json(const RunStatus& status) {
+    validate_status(status);
+    const std::string public_error_code = !status.error.has_value()
         ? ""
-        : (record.state == "cancelled" ? "backup.cancelled" : "backup.failed");
+        : (status.state == RunState::Cancelled ? "backup.cancelled" : "backup.failed");
 
     return {
         {"schemaVersion", 3},
-        {"state", record.state},
+        {"state", run_state_name(status.state)},
         {"errorCode", public_error_code},
-        {"sourceName", record.current_source_name},
-        {"targetName", record.target_name},
-        {"speedBps", record.speed_bps},
-        {"etaSeconds", record.eta_seconds},
-        {"sourceProgress", record.source_progress},
-        {"overallProgress", record.overall_progress},
-        {"progressAccuracy", record.progress_accuracy},
+        {"sourceName", status.current_source_name},
+        {"targetName", status.target_name},
+        {"speedBps", status.progress.speed_bps},
+        {"etaSeconds", status.progress.eta_seconds.value_or(-1)},
+        {"sourceProgress", status.progress.source_percent.value_or(-1)},
+        {"overallProgress", status.progress.overall_percent.value_or(-1)},
+        {"progressAccuracy", progress_accuracy_name(status.progress.accuracy)},
     };
 }
 
-std::string dump_public_status_json(const RunStatusRecord& record) {
-    return dump_json(build_public_status_json(record));
+std::string dump_public_status_json(const RunStatus& status) {
+    return dump_json(build_public_status_json(status));
 }
 
-void write_current_status(const fs::path& status_root, const RunStatusRecord& record, mode_t mode) {
-    std::string content = dump_public_status_json(record);
-    fs::path path = status_root / record.profile_id / "current.json";
+void write_current_status(const fs::path& status_root, const RunStatus& status, mode_t mode) {
+    std::string content = dump_public_status_json(status);
+    fs::path path = status_root / status.profile_id / "current.json";
     prepare_public_parent(path);
     atomic_write(path, content, mode);
 }
 
-void write_history_entry(const fs::path& history_root, const RunStatusRecord& record) {
-    std::string content = dump_status_json(record);
-    fs::path directory = history_root / record.profile_id;
-    fs::path run_path = directory / (record.run_id + ".json");
+void write_history_entry(const fs::path& history_root, const RunStatus& status) {
+    std::string content = dump_status_json(status);
+    fs::path directory = history_root / status.profile_id;
+    fs::path run_path = directory / (status.run_id + ".json");
     fs::path last_path = directory / "last.json";
 
     prepare_private_history_directory(history_root, directory);

@@ -30,8 +30,39 @@ std::string current_utc_iso_timestamp() {
     return out.str();
 }
 
-std::string phase_for_action(BackupRunActionKind kind) {
-    return backup_run_action_kind_name(kind);
+RunPhase phase_for_action(BackupRunActionKind kind) {
+    switch (kind) {
+        case BackupRunActionKind::RecoverPending: return RunPhase::RecoverPending;
+        case BackupRunActionKind::CleanupIncoming: return RunPhase::CleanupIncoming;
+        case BackupRunActionKind::BeforeSnapshotHook: return RunPhase::BeforeSnapshotHook;
+        case BackupRunActionKind::CreateSnapshot: return RunPhase::CreateSnapshot;
+        case BackupRunActionKind::AfterSnapshotHook: return RunPhase::AfterSnapshotHook;
+        case BackupRunActionKind::SelectParent: return RunPhase::SelectParent;
+        case BackupRunActionKind::SendReceive: return RunPhase::SendReceive;
+        case BackupRunActionKind::VerifyReceived: return RunPhase::VerifyReceived;
+        case BackupRunActionKind::CommitReceived: return RunPhase::CommitReceived;
+        case BackupRunActionKind::ApplyRemoteRetention: return RunPhase::ApplyRemoteRetention;
+        case BackupRunActionKind::ApplyLocalRetention: return RunPhase::ApplyLocalRetention;
+        case BackupRunActionKind::CleanupSource: return RunPhase::CleanupSource;
+    }
+    return RunPhase::RunStarted;
+}
+
+RunPhase phase_for_event(BackupRunEventKind kind) {
+    switch (kind) {
+        case BackupRunEventKind::RunStarted: return RunPhase::RunStarted;
+        case BackupRunEventKind::SourceStarted: return RunPhase::SourceStarted;
+        case BackupRunEventKind::TransferProgress: return RunPhase::Transferring;
+        case BackupRunEventKind::SourceCompleted: return RunPhase::SourceCompleted;
+        case BackupRunEventKind::RunCompleted: return RunPhase::Succeeded;
+        case BackupRunEventKind::RunCancelled: return RunPhase::Cancelled;
+        case BackupRunEventKind::ActionStarted:
+        case BackupRunEventKind::ActionCompleted:
+        case BackupRunEventKind::ActionFailed:
+        case BackupRunEventKind::CheckpointWritten:
+            return RunPhase::RunStarted;
+    }
+    return RunPhase::RunStarted;
 }
 
 std::string error_code_for_failed_action(BackupRunActionKind kind) {
@@ -138,14 +169,14 @@ std::string message_for_event(const BackupRunEvent& event) {
     return "Backup event.";
 }
 
-RunStatusRecord status_record_for_event(
+RunStatus status_for_event(
     const BackupRunStatusContext& context,
     const BackupRunEvent& event,
     int minimum_overall_progress
 ) {
     auto source_name = context.source_names.find(event.source_id);
-    std::string state = "running";
-    std::string phase = backup_run_event_kind_name(event.kind);
+    RunState state = RunState::Running;
+    RunPhase phase = phase_for_event(event.kind);
     std::string finished_at;
     int exit_code = 0;
 
@@ -155,30 +186,29 @@ RunStatusRecord status_record_for_event(
         || event.kind == BackupRunEventKind::CheckpointWritten) {
         phase = phase_for_action(event.action_kind);
     } else if (event.kind == BackupRunEventKind::TransferProgress) {
-        phase = "transferring";
+        phase = RunPhase::Transferring;
     }
 
     if (event.kind == BackupRunEventKind::ActionFailed) {
-        state = "failed";
+        state = RunState::Failed;
         exit_code = 1;
         finished_at = current_utc_iso_timestamp();
     } else if (event.kind == BackupRunEventKind::RunCompleted) {
-        state = "succeeded";
-        phase = "succeeded";
+        state = RunState::Succeeded;
+        phase = RunPhase::Succeeded;
         finished_at = current_utc_iso_timestamp();
     } else if (event.kind == BackupRunEventKind::RunCancelled) {
-        state = "cancelled";
-        phase = "cancelled";
+        state = RunState::Cancelled;
+        phase = RunPhase::Cancelled;
         exit_code = 130;
         finished_at = current_utc_iso_timestamp();
     }
 
-    Json details = Json::object();
+    RunDetails details;
     std::string error_code;
     std::string error_message;
     bool recoverable = false;
     std::string suggested_action;
-    Json progress_details = Json::object();
     bool can_cancel = false;
     std::uint64_t bytes_processed = 0;
     std::uint64_t bytes_total_estimated = 0;
@@ -201,7 +231,7 @@ RunStatusRecord status_record_for_event(
         speed_bps = event.speed_bps;
         eta_seconds = estimated_eta_seconds(event);
         progress_accuracy = source_progress >= 0 ? "estimated" : progress_accuracy;
-        progress_details = {
+        details = {
             {"bytesProduced", event.bytes_produced},
             {"bytesTransferred", event.bytes_transferred},
             {"bytesTotalEstimated", event.bytes_total_estimated},
@@ -209,7 +239,6 @@ RunStatusRecord status_record_for_event(
             {"elapsedMs", event.elapsed_ms},
             {"speedBps", event.speed_bps}
         };
-        details = progress_details;
     }
     if (run_bytes_processed == 0) {
         run_bytes_processed = bytes_processed;
@@ -239,7 +268,17 @@ RunStatusRecord status_record_for_event(
         suggested_action = "run-backup-again";
     }
 
-    return RunStatusRecord{
+    std::optional<RunError> error;
+    if (!error_code.empty()) {
+        error = RunError{
+            .code = ErrorCode{error_code},
+            .message = error_message,
+            .recoverable = recoverable,
+            .suggested_action = SuggestedAction{suggested_action},
+        };
+    }
+
+    return RunStatus{
         .profile_id = event.profile_id,
         .profile_name = context.profile_name,
         .run_id = event.run_id,
@@ -253,20 +292,23 @@ RunStatusRecord status_record_for_event(
         .started_at = context.started_at,
         .updated_at = current_utc_iso_timestamp(),
         .finished_at = finished_at,
-        .error_code = error_code,
-        .error_message = error_message,
+        .error = std::move(error),
         .details = details,
-        .recoverable = recoverable,
-        .suggested_action = suggested_action,
         .can_cancel = can_cancel,
-        .bytes_processed = bytes_processed,
-        .bytes_total_estimated = bytes_total_estimated,
-        .run_bytes_processed = run_bytes_processed,
-        .speed_bps = speed_bps,
-        .eta_seconds = eta_seconds,
-        .source_progress = source_progress,
-        .overall_progress = overall_progress,
-        .progress_accuracy = progress_accuracy,
+        .progress = RunProgress{
+            .processed_bytes = bytes_processed,
+            .estimated_bytes = bytes_total_estimated == 0
+                ? std::nullopt
+                : std::optional<std::uint64_t>{bytes_total_estimated},
+            .run_processed_bytes = run_bytes_processed,
+            .speed_bps = speed_bps,
+            .eta_seconds = eta_seconds < 0 ? std::nullopt : std::optional<int>{eta_seconds},
+            .source_percent = source_progress < 0 ? std::nullopt : std::optional<int>{source_progress},
+            .overall_percent = overall_progress < 0 ? std::nullopt : std::optional<int>{overall_progress},
+            .accuracy = progress_accuracy == "estimated"
+                ? ProgressAccuracy::Estimated
+                : ProgressAccuracy::Indeterminate,
+        },
         .exit_code = exit_code,
     };
 }
@@ -410,13 +452,13 @@ void StatusBackupRunEventSink::on_backup_run_event(const BackupRunEvent& event) 
         run_id_ = event.run_id;
         last_overall_progress_ = -1;
     }
-    RunStatusRecord record = status_record_for_event(context_, event, last_overall_progress_);
-    if (record.overall_progress >= 0) {
-        last_overall_progress_ = record.overall_progress;
+    RunStatus status = status_for_event(context_, event, last_overall_progress_);
+    if (status.progress.overall_percent.has_value()) {
+        last_overall_progress_ = *status.progress.overall_percent;
     }
-    write_current_status(context_.status_root, record);
+    write_current_status(context_.status_root, status);
     if (should_write_history(event.kind)) {
-        write_history_entry(context_.history_root, record);
+        write_history_entry(context_.history_root, status);
     }
 }
 
