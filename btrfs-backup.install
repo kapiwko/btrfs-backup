@@ -58,6 +58,8 @@ post_upgrade() {
 ==> Existing files under /etc are intentionally not overwritten by the package.
 ==> Review the changelog and rerun the wizard to migrate generated units:
 ==>   sudo btrfs-backupctl profile wizard --apply
+==> Merge /etc/btrfs-backup/generated/config/fstab.fragment so the target uses:
+==>   nodev,nosuid,noexec,nosymfollow
 
 MSG
     _btrfs_backup_reload_managers

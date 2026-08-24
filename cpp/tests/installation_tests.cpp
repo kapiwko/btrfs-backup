@@ -93,6 +93,11 @@ void test_installation_render_writes_static_files() {
         "/dev/mapper/backupdisk  /mnt/backup  btrfs"
     );
     test_helpers::expect_contains(
+        "installation fstab security options",
+        read_file(root / "rendered" / "config" / "fstab.fragment"),
+        "noatime,nodev,nosuid,noexec,nosymfollow,compress=zstd"
+    );
+    test_helpers::expect_contains(
         "installation crypttab",
         read_file(root / "rendered" / "config" / "crypttab.fragment"),
         "backupdisk  UUID=11111111-2222-3333-4444-555555555555  /root/keys/backupdisk.key"
