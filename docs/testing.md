@@ -25,7 +25,7 @@ Tests cover:
 The focused systemd security contract can also be run directly:
 
 ```bash
-tests/systemd/check-security.sh systemd/btrfs-backup@.service.example
+tests/systemd/check-security.sh data/systemd/btrfs-backup@.service.example
 ```
 
 It asserts the required directives and runs offline `systemd-analyze security`

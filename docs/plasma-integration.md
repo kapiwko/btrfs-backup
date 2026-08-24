@@ -4,7 +4,8 @@ Plasma support is optional. The backup runner, profile model and systemd units
 must keep working without a graphical session and without any Plasma package
 installed.
 
-The current integration starts with a plasmoid in `integrations/plasma`. Its
+The current integration starts with a plasmoid in
+`integrations/kde/plasmoid`. Its
 QML UI talks to a C++ `BackupStatusModel`, and that model reads the public
 `btrfs-backupctl status watch` stream. This keeps QML away from shell
 commands and private state files while the versioned system D-Bus manager is not
