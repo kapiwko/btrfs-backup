@@ -20,6 +20,7 @@ struct ControlledCommandOptions {
     std::size_t max_output_bytes = 64 * 1024;
     std::chrono::milliseconds terminate_grace_period{5000};
     std::chrono::milliseconds kill_reap_period{5000};
+    std::vector<int> inherited_fds;
 };
 
 CommandResult run_command(const std::vector<std::string>& argv);

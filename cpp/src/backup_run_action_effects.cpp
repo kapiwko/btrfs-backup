@@ -279,7 +279,13 @@ std::string hook_error_code(const BackupRunAction& action, const std::string& su
     return "hook." + phase + "_" + suffix;
 }
 
-void run_hook(ICommandRunner* hooks, const BackupRunAction& action, CancellationToken& cancellation) {
+void run_hook(
+    ICommandRunner* hooks,
+    const BackupRunAction& action,
+    CancellationToken& cancellation,
+    const SafeDirectoryRoot* hook_root,
+    const TrustedExecutablePolicy& hook_policy
+) {
     if (hooks == nullptr) {
         throw ValidationError("hook execution is not configured");
     }
@@ -293,16 +299,24 @@ void run_hook(ICommandRunner* hooks, const BackupRunAction& action, Cancellation
         );
     }
 
-    std::vector<std::string> argv;
-    argv.reserve(action.hook.arguments.size() + 1);
-    argv.push_back(action.hook.program);
-    argv.insert(argv.end(), action.hook.arguments.begin(), action.hook.arguments.end());
-
     CommandResult result;
     try {
+        std::optional<SafeDirectoryHandle> executable;
+        std::vector<int> inherited_fds;
+        std::string executable_path = action.hook.program;
+        if (hook_root != nullptr) {
+            executable.emplace(open_trusted_executable(*hook_root, action.hook.program, hook_policy));
+            executable_path = executable->proc_path().string();
+            inherited_fds.push_back(executable->fd());
+        }
+        std::vector<std::string> argv;
+        argv.reserve(action.hook.arguments.size() + 1);
+        argv.push_back(executable_path);
+        argv.insert(argv.end(), action.hook.arguments.begin(), action.hook.arguments.end());
         result = hooks->run_controlled(argv, {
             .cancellation_fd = cancellation.cancellation_fd(),
             .timeout = std::chrono::seconds(action.hook.timeout_seconds),
+            .inherited_fds = inherited_fds,
         });
     } catch (const std::exception& error) {
         throw CodedValidationError(
@@ -346,11 +360,31 @@ BackupRunActionEffects::BackupRunActionEffects(
     ICommandRunner& hooks,
     const fs::path& target_mount_point
 )
+    : BackupRunActionEffects(
+          btrfs,
+          fs_effects,
+          hooks,
+          target_mount_point,
+          trusted_hook_directory,
+          {}
+      ) {
+}
+
+BackupRunActionEffects::BackupRunActionEffects(
+    IBtrfsOperations& btrfs,
+    IFileSystemEffects& fs_effects,
+    ICommandRunner& hooks,
+    const fs::path& target_mount_point,
+    const fs::path& hook_root,
+    const TrustedExecutablePolicy& hook_policy
+)
     : btrfs_(btrfs),
       fs_effects_(fs_effects),
       hooks_(&hooks),
       local_root_(std::make_unique<SafeDirectoryRoot>("/")),
-      target_root_(std::make_unique<SafeDirectoryRoot>(target_mount_point)) {
+      target_root_(std::make_unique<SafeDirectoryRoot>(target_mount_point)),
+      hook_root_path_(hook_root),
+      hook_policy_(hook_policy) {
 }
 
 void BackupRunActionEffects::execute_action(
@@ -367,9 +401,14 @@ void BackupRunActionEffects::execute_action(
             cleanup_directory_contents(btrfs_, fs_effects_, source_plan.incoming_source_root, target_root_.get());
             return;
         case BackupRunActionKind::BeforeSnapshotHook:
-        case BackupRunActionKind::AfterSnapshotHook:
-            run_hook(hooks_, action, cancellation);
+        case BackupRunActionKind::AfterSnapshotHook: {
+            std::optional<SafeDirectoryRoot> hook_root;
+            if (!hook_root_path_.empty()) {
+                hook_root.emplace(hook_root_path_);
+            }
+            run_hook(hooks_, action, cancellation, hook_root ? &*hook_root : nullptr, hook_policy_);
             return;
+        }
         case BackupRunActionKind::CreateSnapshot:
             create_local_snapshot(btrfs_, fs_effects_, source_plan, run_plan, local_root_.get());
             return;

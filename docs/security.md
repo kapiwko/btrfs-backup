@@ -26,7 +26,19 @@ and symbolic links before loading the profile.
 Configuration is data, not executable code. The runtime must not `source` active
 profile JSON, interpolate shell commands, or execute arbitrary text from the
 profile. Application hooks pass an explicit program path, argument array, and
-finite timeout to the process runner.
+finite timeout to the process runner. Hook programs are restricted to direct
+children of `/etc/btrfs-backup/hooks.d`. Before execution, the runtime rejects
+symlinks, non-regular files, non-root owners, group/other-writable files, and
+any non-root-owned or group/other-writable parent directory. It opens the file
+with `openat2()` no-symlink resolution and executes the pinned descriptor, so a
+path replacement between validation and process creation cannot select a
+different inode.
+
+Changing a profile's hook configuration is equivalent to scheduling code to
+run as root. A future system API must authorize hook-bearing profile writes as
+a separate high-risk operation. Its polkit policy must require an explicit
+administrator decision and must not grant automatic consent merely because the
+caller owns the active graphical session.
 
 Profile writes must use same-directory temporary files, strict permissions,
 `fsync`, atomic rename, and parent-directory `fsync` where practical. Render and

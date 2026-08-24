@@ -153,7 +153,7 @@ void test_profile_hooks_round_trip_as_explicit_program_arguments() {
         {"beforeSnapshot", Json::array({
             {
                 {"type", "program"},
-                {"program", "/usr/local/bin/prepare-postgresql-backup"},
+                {"program", "/etc/btrfs-backup/hooks.d/prepare-postgresql-backup"},
                 {"arguments", Json::array({"--mode", "snapshot"})},
                 {"timeoutSeconds", 45}
             }
@@ -161,7 +161,7 @@ void test_profile_hooks_round_trip_as_explicit_program_arguments() {
         {"afterSnapshot", Json::array({
             {
                 {"type", "program"},
-                {"program", "/usr/local/bin/resume-postgresql"},
+                {"program", "/etc/btrfs-backup/hooks.d/resume-postgresql"},
                 {"arguments", Json::array()},
                 {"timeoutSeconds", 30}
             }
@@ -172,7 +172,7 @@ void test_profile_hooks_round_trip_as_explicit_program_arguments() {
     Json round_trip = btrfsbackup::profile_to_json(profile);
 
     expect_true("before hook count", profile.hooks.before_snapshot.size() == 1, "wrong before hook count");
-    expect_true("before hook program", profile.hooks.before_snapshot.at(0).program == "/usr/local/bin/prepare-postgresql-backup", "wrong hook program");
+    expect_true("before hook program", profile.hooks.before_snapshot.at(0).program == "/etc/btrfs-backup/hooks.d/prepare-postgresql-backup", "wrong hook program");
     expect_true("before hook arg", profile.hooks.before_snapshot.at(0).arguments.at(1) == "snapshot", "wrong hook argument");
     expect_true("before hook timeout", profile.hooks.before_snapshot.at(0).timeout_seconds == 45, "wrong hook timeout");
     expect_true("after hook count", profile.hooks.after_snapshot.size() == 1, "wrong after hook count");
@@ -186,7 +186,7 @@ void test_profile_rejects_unsafe_hook_shape() {
         {"beforeSnapshot", Json::array({
             {
                 {"type", "program"},
-                {"program", "/usr/local/bin/prepare"},
+                {"program", "/etc/btrfs-backup/hooks.d/prepare"},
                 {"arguments", Json::array()}
             }
         })}
@@ -198,7 +198,7 @@ void test_profile_rejects_unsafe_hook_shape() {
         {"beforeSnapshot", Json::array({
             {
                 {"type", "shell"},
-                {"program", "/usr/local/bin/prepare"},
+                {"program", "/etc/btrfs-backup/hooks.d/prepare"},
                 {"arguments", Json::array()}
             }
         })}
@@ -218,12 +218,26 @@ void test_profile_rejects_unsafe_hook_shape() {
     };
     expect_validation_error("hook program absolute", [&] { btrfsbackup::normalize_profile(raw); }, "absolute path");
 
+    raw["hooks"]["beforeSnapshot"][0]["program"] = "/home/kamil/bin/prepare";
+    expect_validation_error(
+        "hook program outside trusted directory",
+        [&] { btrfsbackup::normalize_profile(raw); },
+        "must be a direct child of /etc/btrfs-backup/hooks.d"
+    );
+
+    raw["hooks"]["beforeSnapshot"][0]["program"] = "/etc/btrfs-backup/hooks.d/postgresql/prepare";
+    expect_validation_error(
+        "hook program nested directory",
+        [&] { btrfsbackup::normalize_profile(raw); },
+        "must be a direct child of /etc/btrfs-backup/hooks.d"
+    );
+
     raw = valid_profile();
     raw["hooks"] = {
         {"beforeSnapshot", Json::array({
             {
                 {"type", "program"},
-                {"program", "/usr/local/bin/prepare"},
+                {"program", "/etc/btrfs-backup/hooks.d/prepare"},
                 {"arguments", Json::array()},
                 {"timeoutSeconds", 0}
             }

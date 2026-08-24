@@ -210,6 +210,13 @@ phase-specific `hook.*_timeout` error codes; non-zero exit and process-start
 failures use phase-specific `hook.*_failed` codes. User cancellation remains
 `runner.cancelled`, not a hook failure.
 
+The program must be a direct child of `/etc/btrfs-backup/hooks.d`, a regular
+non-symlink file owned by root, executable, and not writable by group or others.
+Every directory from `/` through `hooks.d` must be root-owned and not writable
+by group or others. The verified file descriptor remains inherited and is the
+object executed by the child, so pathname replacement after verification does
+not change the selected program.
+
 ## Compatibility
 
 Backup-run status uses `schemaVersion: 2`; checkpoint and internal event

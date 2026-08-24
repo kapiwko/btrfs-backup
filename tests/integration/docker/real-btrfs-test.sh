@@ -262,6 +262,55 @@ restore_latest_snapshot() {
     pass 'latest repository snapshot completes a full restore drill'
 }
 
+trusted_hook_security_test() {
+    local hook_dir=/etc/btrfs-backup/hooks.d
+    local hook="$hook_dir/integration-test"
+    local original_hook="$hook_dir/integration-test.original"
+    local outside_hook="$TEST_ROOT/untrusted-hook"
+    local marker="$TEST_ROOT/trusted-hook-ran"
+    local profile_backup="$TEST_ROOT/profile.hook-security.json.bak"
+
+    [[ "$(stat -c '%U:%G:%a' "$hook_dir")" == 'root:root:755' ]] \
+        || fail 'package did not install /etc/btrfs-backup/hooks.d as root:root 0755'
+    cp -a -- "$PROFILE_JSON" "$profile_backup"
+    perl -0pi -e \
+        's#"beforeSnapshot": \[\]#"beforeSnapshot": [{"type":"program","program":"/etc/btrfs-backup/hooks.d/integration-test","arguments":[],"timeoutSeconds":30}]#' \
+        "$PROFILE_JSON"
+    chmod 0600 "$PROFILE_JSON"
+
+    {
+        printf '#!/bin/sh\n'
+        printf "printf 'trusted\\n' > '%s'\n" "$marker"
+    } > "$hook"
+    chmod 0755 "$hook"
+    chown root:root "$hook"
+    run_backup
+    [[ "$(cat -- "$marker")" == 'trusted' ]] || fail 'trusted root-owned hook was not executed'
+
+    chown 1000:1000 "$hook"
+    expect_backup_failure 'hook program must be owned by root'
+    chown root:root "$hook"
+
+    chmod 0775 "$hook"
+    expect_backup_failure 'hook program must not be writable by group or others'
+    chmod 0755 "$hook"
+
+    chmod 0777 "$hook_dir"
+    expect_backup_failure 'trusted hook parent must not be writable by group or others'
+    chmod 0755 "$hook_dir"
+
+    cp -a -- "$hook" "$outside_hook"
+    mv -- "$hook" "$original_hook"
+    ln -s -- "$outside_hook" "$hook"
+    expect_backup_failure 'Too many levels of symbolic links'
+    rm -f -- "$hook"
+    mv -- "$original_hook" "$hook"
+
+    cp -a -- "$profile_backup" "$PROFILE_JSON"
+    rm -f -- "$profile_backup" "$hook" "$outside_hook" "$marker"
+    pass 'runtime executes only pinned root-owned hooks from trusted directories'
+}
+
 validate_runtime_preflight() {
     INVOCATION_ID=real-docker-test btrfs-backup --validate --no-eject >/dev/null
 }
@@ -321,7 +370,7 @@ missing_incremental_parent_test() {
 }
 
 require_root
-require_commands btrfs cryptsetup dd diff find findmnt losetup mkfs.btrfs mknod mount pacman perl seq sha256sum systemd-escape tee truncate
+require_commands btrfs cryptsetup dd diff find findmnt losetup mkfs.btrfs mknod mount pacman perl seq sha256sum stat systemd-escape tee truncate
 ensure_loop_devices
 
 install -d -m0755 "$SOURCE_MOUNT" "$TARGET_MOUNT"
@@ -420,5 +469,6 @@ pass 'retention keeps the latest two local and remote snapshots'
 recover_interrupted_before_receive
 recover_interrupted_after_commit
 restore_latest_snapshot
+trusted_hook_security_test
 
 printf 'Real Btrfs integration test completed in %s\n' "$TEST_ROOT"
