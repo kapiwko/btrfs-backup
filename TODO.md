@@ -6,10 +6,10 @@
   eject are native:
   - keep full, incremental and retention real Btrfs tests passing;
   - add broader failure tests for every backup phase;
-  - expand interrupted-transfer, interruption-during-commit and
-    interruption-after-commit recovery coverage;
+  - expand interrupted-transfer and interruption-during-commit recovery
+    coverage;
   - keep status/history formats and error taxonomy documented;
-  - add restore verification to the real Btrfs suite.
+  - keep the real Btrfs restore drill passing.
 
 - Extend asynchronous transfer execution beyond the current threaded adapter:
   - keep the existing POSIX runner for short administrative operations and

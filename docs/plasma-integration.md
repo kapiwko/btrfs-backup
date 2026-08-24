@@ -15,13 +15,9 @@ temporary `status watch` process. It is not target connectivity. A future
 `targetConnected` property must come from authoritative `TargetStatus` supplied
 by the system backend.
 
-This initial plasmoid is status-only. It does not expose cancellation or other
-mutating actions, even when the runtime status advertises `canCancel`. The CLI
-cancellation path requires access to root-owned configuration and private state,
-so launching it from an unprivileged Plasma session would not be a valid control
-API. Desktop controls will be added only through the system D-Bus manager with
-polkit authorization; the plasmoid must not use `sudo`, `pkexec`, or detached
-CLI processes as a substitute.
+This initial plasmoid exposes read-only status. The future system D-Bus manager
+owns privileged mutation and polkit authorization, including cancellation. The
+Plasma session consumes that authorized API for desktop controls.
 
 The plasmoid displays `RunStatus` only. It does not show an eject icon or a
 safe-to-disconnect message because the current runtime has no separate,

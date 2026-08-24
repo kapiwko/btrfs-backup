@@ -18,12 +18,10 @@ does not parse textual CLI output.
 running. It must not be interpreted as target-device connectivity; that will
 come from the future system backend.
 
-The current plasmoid is status-only. Privileged controls such as cancellation
-are intentionally absent until they can use the planned system D-Bus API and
-polkit authorization.
-
-It also does not infer safe-removal state from backup completion. Target state
-will be displayed only after a separate system API reports a successful eject.
+The current plasmoid presents read-only status. The planned system D-Bus API
+and polkit authorization provide privileged controls such as cancellation.
+Target removal state will be displayed from the separate system API after a
+successful eject.
 
 ## Build
 

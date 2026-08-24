@@ -5,9 +5,11 @@
 #include <atomic>
 #include <cerrno>
 #include <chrono>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <future>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <thread>
@@ -417,6 +419,70 @@ void test_posix_pipeline_reports_missing_consumer() {
     );
 }
 
+void test_posix_pipeline_reaps_live_producer_when_consumer_spawn_fails() {
+    const std::filesystem::path root = test_helpers::test_root("transfer-pipeline", "partial-spawn");
+    const std::filesystem::path producer_pid_path = root / "producer.pid";
+    btrfsbackup::PosixTransferPipeline pipeline({
+        .terminate_grace_period = std::chrono::milliseconds(100),
+        .kill_reap_period = std::chrono::milliseconds(500),
+    });
+    RecordingEventSink sink;
+    btrfsbackup::CancellationToken cancellation;
+    auto started_at = std::chrono::steady_clock::now();
+    const char* original_path_value = std::getenv("PATH");
+    const std::optional<std::string> original_path = original_path_value == nullptr
+        ? std::nullopt
+        : std::optional<std::string>(original_path_value);
+    std::string slow_missing_path;
+    for (int index = 0; index < 4096; ++index) {
+        slow_missing_path += "/definitely-missing-path-" + std::to_string(index) + ':';
+    }
+    setenv("PATH", slow_missing_path.c_str(), 1);
+
+    btrfsbackup::TransferResult result = pipeline.run(
+        {
+            .producer_argv = {
+                "/bin/sh",
+                "-c",
+                "trap '' TERM; printf %s $$ >\"$1\"; while :; do sleep 1; done",
+                "producer",
+                producer_pid_path.string(),
+            },
+            .consumer_argv = {"definitely-missing-btrfsbackup-consumer"},
+        },
+        sink,
+        cancellation
+    );
+    if (original_path.has_value()) {
+        setenv("PATH", original_path->c_str(), 1);
+    } else {
+        unsetenv("PATH");
+    }
+
+    const auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - started_at
+    ).count();
+    test_helpers::expect_true("partial spawn producer started", result.producer.started, "producer should start before consumer failure");
+    test_helpers::expect_true("partial spawn consumer missing", !result.consumer.started, "consumer should fail to start");
+    test_helpers::expect_true("partial spawn cleanup bounded", elapsed_ms < 2000, "producer cleanup exceeded its deadline");
+    test_helpers::expect_contains("partial spawn consumer diagnostics", result.consumer.diagnostics, "posix_spawnp failed");
+
+    for (int attempt = 0; attempt < 100 && !std::filesystem::is_regular_file(producer_pid_path); ++attempt) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
+    test_helpers::expect_true("partial spawn pid recorded", std::filesystem::is_regular_file(producer_pid_path), "producer did not record its pid");
+    if (std::filesystem::is_regular_file(producer_pid_path)) {
+        std::ifstream pid_file(producer_pid_path);
+        pid_t producer_pid = -1;
+        pid_file >> producer_pid;
+        int status = 0;
+        errno = 0;
+        test_helpers::expect_eq("partial spawn producer reaped", std::to_string(waitpid(producer_pid, &status, WNOHANG)), "-1");
+        test_helpers::expect_eq("partial spawn producer wait status", std::to_string(errno), std::to_string(ECHILD));
+    }
+    std::filesystem::remove_all(root);
+}
+
 void test_posix_pipeline_handles_early_consumer_exit() {
     btrfsbackup::PosixTransferPipeline pipeline;
     RecordingEventSink sink;
@@ -683,6 +749,7 @@ int main() {
     test_posix_pipeline_reports_missing_producer();
     test_posix_pipeline_reports_consumer_failure();
     test_posix_pipeline_reports_missing_consumer();
+    test_posix_pipeline_reaps_live_producer_when_consumer_spawn_fails();
     test_posix_pipeline_handles_early_consumer_exit();
     test_posix_pipeline_honors_cancellation();
     test_posix_pipeline_cancellation_wakes_event_loop();

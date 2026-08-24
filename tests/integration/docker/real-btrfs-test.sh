@@ -190,6 +190,78 @@ assert_no_incoming_children() {
     [[ -z "$leftover" ]] || fail 'incoming source directory is not empty after successful backups'
 }
 
+write_pending_marker() {
+    local local_snapshot="$1"
+    local final_snapshot="$2"
+    local run_id="$3"
+    local state_dir=/var/lib/btrfs-backup/profiles/default
+    local marker="$state_dir/pending-home"
+
+    install -d -m0700 "$state_dir"
+    {
+        printf 'source_name=home\n'
+        printf 'local_snapshot_path=%s\n' "$local_snapshot"
+        printf 'final_snapshot_path=%s\n' "$final_snapshot"
+        printf 'run_id=%s\n' "$run_id"
+        printf 'timestamp=2026-08-24T12:00:00Z\n'
+    } > "$marker"
+    chmod 0600 "$marker"
+    sync
+}
+
+recover_interrupted_before_receive() {
+    local interrupted="$SOURCE_MOUNT/.snapshots/home/home-2026-08-20T000000Z"
+    local final="$TARGET_MOUNT/snapshots/home/$(basename -- "$interrupted")"
+    local marker=/var/lib/btrfs-backup/profiles/default/pending-home
+
+    btrfs subvolume snapshot -r "$SOURCE_MOUNT/home" "$interrupted" >/dev/null
+    write_pending_marker "$interrupted" "$final" '20260820T000000Z-interrupted'
+    run_backup
+
+    [[ ! -e "$interrupted" ]] || fail 'orphaned local snapshot survived pending recovery'
+    [[ ! -e "$marker" ]] || fail 'pending marker survived pre-receive recovery'
+    assert_no_incoming_children
+    pass 'pending recovery removes an orphan left before receive'
+}
+
+recover_interrupted_after_commit() {
+    local latest_local latest_remote marker
+
+    latest_local="$(find "$SOURCE_MOUNT/.snapshots/home" -mindepth 1 -maxdepth 1 -type d -name 'home-*' | sort | tail -n1)"
+    latest_remote="$(find "$TARGET_MOUNT/snapshots/home" -mindepth 1 -maxdepth 1 -type d -name 'home-*' | sort | tail -n1)"
+    marker=/var/lib/btrfs-backup/profiles/default/pending-home
+    [[ -n "$latest_local" && -n "$latest_remote" ]] || fail 'committed snapshot recovery setup is incomplete'
+
+    write_pending_marker "$latest_local" "$latest_remote" '20260824T120000Z-committed'
+    run_backup
+
+    [[ ! -e "$marker" ]] || fail 'pending marker survived committed snapshot recovery'
+    [[ -d "$latest_local" ]] || fail 'committed local snapshot was not preserved during recovery'
+    [[ -d "$latest_remote" ]] || fail 'committed remote snapshot was not preserved during recovery'
+    assert_remote_matches_latest_local
+    assert_no_incoming_children
+    pass 'pending recovery preserves a snapshot committed before interruption'
+}
+
+restore_latest_snapshot() {
+    local latest_remote restore_root restored
+
+    latest_remote="$(find "$TARGET_MOUNT/snapshots/home" -mindepth 1 -maxdepth 1 -type d -name 'home-*' | sort | tail -n1)"
+    restore_root="$SOURCE_MOUNT/restore-drill"
+    restored="$restore_root/$(basename -- "$latest_remote")"
+    [[ -n "$latest_remote" ]] || fail 'restore drill has no remote snapshot'
+
+    install -d -m0700 "$restore_root"
+    btrfs send "$latest_remote" | btrfs receive "$restore_root" >/dev/null
+    if ! diff -qr "$latest_remote" "$restored" >/dev/null; then
+        diff -qr "$latest_remote" "$restored" >&2 || true
+        fail 'restored snapshot content differs from the repository snapshot'
+    fi
+    btrfs subvolume delete -- "$restored" >/dev/null
+    rmdir -- "$restore_root"
+    pass 'latest repository snapshot completes a full restore drill'
+}
+
 validate_runtime_preflight() {
     INVOCATION_ID=real-docker-test btrfs-backup --validate --no-eject >/dev/null
 }
@@ -329,5 +401,9 @@ assert_count 2 "$SOURCE_MOUNT/.snapshots/home"
 assert_remote_matches_latest_local
 assert_no_incoming_children
 pass 'retention keeps the latest two local and remote snapshots'
+
+recover_interrupted_before_receive
+recover_interrupted_after_commit
+restore_latest_snapshot
 
 printf 'Real Btrfs integration test completed in %s\n' "$TEST_ROOT"
