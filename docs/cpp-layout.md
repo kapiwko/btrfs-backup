@@ -76,7 +76,8 @@ filesystem adapters.
 
 ## Ownership
 
-- `backup` owns run planning and execution, incremental-parent selection,
+- `backup` owns the single-execution `BackupRun`, run planning and execution,
+  incremental-parent selection,
   transfer orchestration, snapshot commit, retention, recovery, cancellation,
   target operations, and backup use cases.
 - `config` owns the canonical profile JSON model, validation, profile loading
