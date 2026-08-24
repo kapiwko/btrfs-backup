@@ -6,6 +6,7 @@
 #include <btrfsbackup/backup_run_executor.hpp>
 #include <btrfsbackup/btrfs_operations.hpp>
 #include <btrfsbackup/runtime_adapters.hpp>
+#include <btrfsbackup/trusted_executable.hpp>
 
 namespace btrfsbackup {
 
@@ -18,6 +19,14 @@ public:
         IFileSystemEffects& fs_effects,
         ICommandRunner& hooks,
         const std::filesystem::path& target_mount_point
+    );
+    BackupRunActionEffects(
+        IBtrfsOperations& btrfs,
+        IFileSystemEffects& fs_effects,
+        ICommandRunner& hooks,
+        const std::filesystem::path& target_mount_point,
+        const std::filesystem::path& hook_root,
+        const TrustedExecutablePolicy& hook_policy
     );
 
     void execute_action(
@@ -33,6 +42,8 @@ private:
     ICommandRunner* hooks_ = nullptr;
     std::unique_ptr<SafeDirectoryRoot> local_root_;
     std::unique_ptr<SafeDirectoryRoot> target_root_;
+    std::filesystem::path hook_root_path_;
+    TrustedExecutablePolicy hook_policy_;
 };
 
 } // namespace btrfsbackup

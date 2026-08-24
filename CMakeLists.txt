@@ -56,6 +56,7 @@ add_library(btrfsbackup-system STATIC
     cpp/src/space_check.cpp
     cpp/src/target_mount_validation.cpp
     cpp/src/trusted_file.cpp
+    cpp/src/trusted_executable.cpp
 )
 
 target_compile_features(btrfsbackup-system PUBLIC cxx_std_20)
@@ -213,6 +214,7 @@ if(BUILD_TESTING)
     add_btrfsbackup_test(btrfsbackup-target-command-tests cpp/tests/target_command_tests.cpp target-command-tests)
     add_btrfsbackup_test(btrfsbackup-target-mount-validation-tests cpp/tests/target_mount_validation_tests.cpp target-mount-validation-tests)
     add_btrfsbackup_test(btrfsbackup-trusted-file-tests cpp/tests/trusted_file_tests.cpp trusted-file-tests)
+    add_btrfsbackup_test(btrfsbackup-trusted-executable-tests cpp/tests/trusted_executable_tests.cpp trusted-executable-tests)
     add_btrfsbackup_test(btrfsbackup-transfer-pipeline-tests cpp/tests/transfer_pipeline_tests.cpp transfer-pipeline-tests)
     add_btrfsbackup_test(btrfsbackup-validation-tests cpp/tests/validation_tests.cpp validation-tests)
 endif()

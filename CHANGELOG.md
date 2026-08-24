@@ -37,6 +37,9 @@
     fail consistently even when followed by `--help`;
 14. `status watch` now exposes its JSON stream directly, with profile and
     interval as its only options.
+15. application hook programs are restricted to `/etc/btrfs-backup/hooks.d`,
+    require a root-owned non-writable file and parent chain, reject symlinks,
+    and execute through a pinned descriptor to prevent path replacement races.
 
 ## 2.1.0 - 2026-08-23
 

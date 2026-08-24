@@ -9,6 +9,8 @@
 
 namespace btrfsbackup {
 
+inline constexpr const char* trusted_hook_directory = "/etc/btrfs-backup/hooks.d";
+
 struct ProfileTarget {
     std::string device;
     std::string luks_uuid;

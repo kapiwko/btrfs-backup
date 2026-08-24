@@ -37,7 +37,9 @@ validation logic. Focused regression coverage includes:
    rename, and EINTR;
 5. file-request and SIGINT/SIGTERM cancellation through terminal `cancelled`
    status while recovery state remains available;
-6. fractional aggregate progress during both the first and later sources.
+6. fractional aggregate progress during both the first and later sources;
+7. trusted hook file type, ownership/mode policy, symlink rejection, inherited
+   descriptor execution, and resistance to pathname replacement after opening.
 
 Production use also needs a test on a real or disposable environment:
 
@@ -142,7 +144,9 @@ The test covers:
 16. a full restore send/receive from the latest repository snapshot followed by
     content comparison.
 17. rejection of a per-source `.incoming` symlink escape with verification that
-    data outside the target repository remains unchanged.
+    data outside the target repository remains unchanged;
+18. execution of a trusted root-owned hook and rejection after unsafe owner,
+    file mode, parent mode, or symlink changes.
 
 The current Plasma test target validates its status-only process model and
 read-only API surface. Cancellation authorization and target safe-removal

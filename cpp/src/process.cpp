@@ -129,7 +129,7 @@ CommandResult run_controlled_command(
         .stdout_fd = pipefd[1],
         .stderr_fd = pipefd[1],
         .create_process_group = true,
-        .inherited_fds = {},
+        .inherited_fds = options.inherited_fds,
     });
     close(pipefd[1]);
     if (!spawned.started()) {
