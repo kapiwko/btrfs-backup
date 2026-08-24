@@ -10,3 +10,8 @@ set_target_properties(
         RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}
 )
 target_link_libraries(btrfs-backup-native PRIVATE btrfsbackup-cli)
+
+install(
+    TARGETS btrfs-backupctl btrfs-backup-native
+    RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
+)
