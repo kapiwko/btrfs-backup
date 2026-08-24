@@ -305,7 +305,6 @@ void emit_event(
     const TransferResult& result,
     SteadyClock::time_point started_at,
     std::uint64_t delta_bytes = 0,
-    std::uint64_t pending_bytes = 0,
     const std::string& message = ""
 ) {
     std::uint64_t elapsed = elapsed_ms_since(started_at);
@@ -315,7 +314,6 @@ void emit_event(
         .bytes_produced = result.bytes_produced,
         .bytes_total_estimated = result.bytes_total_estimated,
         .delta_bytes = delta_bytes,
-        .pending_bytes = pending_bytes,
         .elapsed_ms = elapsed,
         .speed_bps = speed_bps(result.bytes_transferred, elapsed),
         .message = message,
@@ -487,9 +485,10 @@ TransferResult PosixTransferPipeline::run(
         consumer_error_pipe.read_end.reset();
     }
 
-    std::string pending;
     bool producer_stdout_open = result.producer.started;
     bool consumer_stdin_open = result.consumer.started;
+    bool producer_stdout_ready = false;
+    bool consumer_stdin_ready = false;
     bool producer_stderr_open = result.producer.started;
     bool consumer_stderr_open = result.consumer.started;
     bool producer_done = !result.producer.started;
@@ -517,11 +516,15 @@ TransferResult PosixTransferPipeline::run(
             consumer_input_pipe.write_end.reset();
             consumer_stdin_open = false;
         }
-        emit_event(events, TransferEventKind::Cancelled, result, started_at, 0, pending.size());
+        if (producer_stdout_open) {
+            data_pipe.read_end.reset();
+            producer_stdout_open = false;
+        }
+        emit_event(events, TransferEventKind::Cancelled, result, started_at);
         cancellation_sent = true;
     };
 
-    while (!producer_done || !consumer_done || producer_stdout_open || producer_stderr_open || consumer_stderr_open || !pending.empty()) {
+    while (!producer_done || !consumer_done || producer_stdout_open || producer_stderr_open || consumer_stderr_open) {
         if (cancellation.cancellation_requested()) {
             cancel_transfer();
         }
@@ -534,11 +537,11 @@ TransferResult PosixTransferPipeline::run(
         constexpr int consumer_stderr_tag = 4;
         constexpr int cancellation_tag = 5;
 
-        if (producer_stdout_open) {
-            fds.push_back({.fd = data_pipe.read_end.get(), .events = POLLIN | POLLHUP, .revents = 0});
+        if (producer_stdout_open && !producer_stdout_ready) {
+            fds.push_back({.fd = data_pipe.read_end.get(), .events = POLLIN | POLLHUP | POLLERR, .revents = 0});
             tags.push_back(producer_stdout_tag);
         }
-        if (consumer_stdin_open && !pending.empty()) {
+        if (producer_stdout_open && consumer_stdin_open && !consumer_stdin_ready) {
             fds.push_back({.fd = consumer_input_pipe.write_end.get(), .events = POLLOUT | POLLHUP | POLLERR, .revents = 0});
             tags.push_back(consumer_stdin_tag);
         }
@@ -569,65 +572,33 @@ TransferResult PosixTransferPipeline::run(
                 continue;
             }
             int tag = tags[i];
-            if (tag == producer_stdout_tag && (fds[i].revents & (POLLIN | POLLHUP)) != 0) {
-                char buffer[65536];
-                while (true) {
-                    ssize_t count = read(data_pipe.read_end.get(), buffer, sizeof(buffer));
-                    if (count > 0) {
-                        pending.append(buffer, static_cast<std::size_t>(count));
-                        result.bytes_produced += static_cast<std::uint64_t>(count);
-                        continue;
-                    }
-                    if (count == 0) {
-                        data_pipe.read_end.reset();
-                        producer_stdout_open = false;
-                        break;
-                    }
-                    if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                        break;
-                    }
-                    if (errno == EINTR) {
-                        continue;
-                    }
-                    result.producer.diagnostics = std::string("stdout read failed: ") + std::strerror(errno);
-                    data_pipe.read_end.reset();
-                    producer_stdout_open = false;
-                    break;
+            if (tag == producer_stdout_tag && (fds[i].revents & POLLNVAL) != 0) {
+                append_diagnostic(result.producer.diagnostics, "stdout pipe became invalid");
+                data_pipe.read_end.reset();
+                producer_stdout_open = false;
+                producer_stdout_ready = false;
+                if (consumer_stdin_open) {
+                    consumer_input_pipe.write_end.reset();
+                    consumer_stdin_open = false;
+                    consumer_stdin_ready = false;
                 }
-            } else if (tag == consumer_stdin_tag && (fds[i].revents & (POLLHUP | POLLERR)) != 0) {
+                terminate_child(producer_pid);
+                terminate_child(consumer_pid);
+            } else if (tag == producer_stdout_tag && (fds[i].revents & (POLLIN | POLLHUP)) != 0) {
+                producer_stdout_ready = true;
+            } else if (tag == consumer_stdin_tag && (fds[i].revents & (POLLHUP | POLLERR | POLLNVAL)) != 0) {
                 append_diagnostic(result.consumer.diagnostics, "stdin closed before transfer completed");
                 consumer_input_pipe.write_end.reset();
                 consumer_stdin_open = false;
-                pending.clear();
+                consumer_stdin_ready = false;
                 if (producer_stdout_open) {
                     data_pipe.read_end.reset();
                     producer_stdout_open = false;
+                    producer_stdout_ready = false;
                 }
                 terminate_child(producer_pid);
             } else if (tag == consumer_stdin_tag && (fds[i].revents & POLLOUT) != 0) {
-                ssize_t count = write(consumer_input_pipe.write_end.get(), pending.data(), pending.size());
-                if (count > 0) {
-                    result.bytes_transferred += static_cast<std::uint64_t>(count);
-                    pending.erase(0, static_cast<std::size_t>(count));
-                    emit_event(
-                        events,
-                        TransferEventKind::Progress,
-                        result,
-                        started_at,
-                        static_cast<std::uint64_t>(count),
-                        pending.size()
-                    );
-                } else if (count < 0 && errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR) {
-                    append_diagnostic(result.consumer.diagnostics, std::string("stdin write failed: ") + std::strerror(errno));
-                    consumer_input_pipe.write_end.reset();
-                    consumer_stdin_open = false;
-                    pending.clear();
-                    if (producer_stdout_open) {
-                        data_pipe.read_end.reset();
-                        producer_stdout_open = false;
-                    }
-                    terminate_child(producer_pid);
-                }
+                consumer_stdin_ready = true;
             } else if (tag == producer_stderr_tag && (fds[i].revents & (POLLIN | POLLHUP)) != 0) {
                 read_available(producer_error_pipe.read_end.get(), result.producer.diagnostics);
                 if ((fds[i].revents & POLLHUP) != 0) {
@@ -646,18 +617,67 @@ TransferResult PosixTransferPipeline::run(
             }
         }
 
-        if (!producer_stdout_open && pending.empty() && consumer_stdin_open) {
+        constexpr std::size_t splice_chunk_bytes = 1024U * 1024U;
+        constexpr std::size_t splice_cycle_budget_bytes = 16U * 1024U * 1024U;
+        std::size_t cycle_bytes = 0;
+        while (producer_stdout_open && consumer_stdin_open && producer_stdout_ready && consumer_stdin_ready) {
+            ssize_t count = splice(
+                data_pipe.read_end.get(),
+                nullptr,
+                consumer_input_pipe.write_end.get(),
+                nullptr,
+                splice_chunk_bytes,
+                SPLICE_F_NONBLOCK | SPLICE_F_MORE
+            );
+            if (count > 0) {
+                const auto transferred = static_cast<std::uint64_t>(count);
+                result.bytes_produced += transferred;
+                result.bytes_transferred += transferred;
+                cycle_bytes += static_cast<std::size_t>(count);
+                emit_event(events, TransferEventKind::Progress, result, started_at, transferred);
+                if (cycle_bytes >= splice_cycle_budget_bytes) {
+                    producer_stdout_ready = false;
+                    consumer_stdin_ready = false;
+                }
+                continue;
+            }
+            if (count == 0) {
+                data_pipe.read_end.reset();
+                producer_stdout_open = false;
+                producer_stdout_ready = false;
+                consumer_input_pipe.write_end.reset();
+                consumer_stdin_open = false;
+                consumer_stdin_ready = false;
+                break;
+            }
+            if (errno == EINTR) {
+                continue;
+            }
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                producer_stdout_ready = false;
+                consumer_stdin_ready = false;
+                break;
+            }
+
+            append_diagnostic(result.consumer.diagnostics, std::string("stream splice failed: ") + std::strerror(errno));
             consumer_input_pipe.write_end.reset();
             consumer_stdin_open = false;
+            consumer_stdin_ready = false;
+            data_pipe.read_end.reset();
+            producer_stdout_open = false;
+            producer_stdout_ready = false;
+            terminate_child(producer_pid);
+            terminate_child(consumer_pid);
+            break;
         }
 
         if (!producer_done && reap_child(producer_pid, result.producer)) {
             producer_done = true;
-            emit_event(events, TransferEventKind::ProducerFinished, result, started_at, 0, pending.size());
+            emit_event(events, TransferEventKind::ProducerFinished, result, started_at);
         }
         if (!consumer_done && reap_child(consumer_pid, result.consumer)) {
             consumer_done = true;
-            emit_event(events, TransferEventKind::ConsumerFinished, result, started_at, 0, pending.size());
+            emit_event(events, TransferEventKind::ConsumerFinished, result, started_at);
         }
     }
 

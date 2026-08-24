@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <filesystem>
+#include <fstream>
 #include <future>
 #include <string>
 #include <thread>
@@ -147,6 +149,38 @@ void test_event_sink_contract() {
     test_helpers::expect_eq("event message", sink.events.at(0).message, "chunk");
 }
 
+void test_posix_pipeline_preserves_stream_integrity() {
+    constexpr std::uint64_t transfer_bytes = 8ULL * 1024ULL * 1024ULL;
+    btrfsbackup::PosixTransferPipeline pipeline;
+    RecordingEventSink sink;
+    btrfsbackup::CancellationToken cancellation;
+    const std::filesystem::path root = test_helpers::test_root("transfer-pipeline", "splice-integrity");
+    const std::filesystem::path input_path = root / "input.bin";
+    std::string chunk(64U * 1024U, '\0');
+    for (std::size_t index = 0; index < chunk.size(); ++index) {
+        chunk[index] = static_cast<char>(index % 251U);
+    }
+    {
+        std::ofstream input(input_path, std::ios::binary);
+        for (std::uint64_t written = 0; written < transfer_bytes; written += chunk.size()) {
+            input.write(chunk.data(), static_cast<std::streamsize>(chunk.size()));
+        }
+    }
+
+    btrfsbackup::TransferResult result = pipeline.run(
+        {
+            .producer_argv = {"cat", input_path.string()},
+            .consumer_argv = {"sh", "-c", "sleep 0.1; cmp - \"$1\"", "slow-cmp", input_path.string()},
+        },
+        sink,
+        cancellation
+    );
+
+    test_helpers::expect_true("splice integrity transfer success", btrfsbackup::transfer_succeeded(result), "splice transfer should succeed");
+    test_helpers::expect_eq("splice integrity transfer bytes", std::to_string(result.bytes_transferred), std::to_string(transfer_bytes));
+    std::filesystem::remove_all(root);
+}
+
 void test_posix_pipeline_transfers_bytes() {
     btrfsbackup::PosixTransferPipeline pipeline;
     RecordingEventSink sink;
@@ -180,6 +214,26 @@ void test_posix_pipeline_transfers_bytes() {
         std::to_string(static_cast<int>(sink.events.back().kind)),
         std::to_string(static_cast<int>(btrfsbackup::TransferEventKind::Completed))
     );
+}
+
+void test_posix_pipeline_transfers_gibibyte_under_backpressure() {
+    btrfsbackup::PosixTransferPipeline pipeline;
+    btrfsbackup::NullTransferEventSink sink;
+    btrfsbackup::CancellationToken cancellation;
+    constexpr std::uint64_t transfer_bytes = 1024ULL * 1024ULL * 1024ULL;
+
+    btrfsbackup::TransferResult result = pipeline.run(
+        {
+            .producer_argv = {"head", "-c", std::to_string(transfer_bytes), "/dev/zero"},
+            .consumer_argv = {"sh", "-c", "sleep 0.2; cat >/dev/null"},
+        },
+        sink,
+        cancellation
+    );
+
+    test_helpers::expect_true("backpressured transfer success", btrfsbackup::transfer_succeeded(result), "large transfer should succeed");
+    test_helpers::expect_eq("backpressured transfer bytes", std::to_string(result.bytes_transferred), std::to_string(transfer_bytes));
+    test_helpers::expect_eq("backpressured produced bytes", std::to_string(result.bytes_produced), std::to_string(transfer_bytes));
 }
 
 void test_posix_pipeline_reports_producer_failure() {
@@ -354,6 +408,37 @@ void test_posix_pipeline_cancellation_wakes_event_loop() {
     );
 }
 
+void test_posix_pipeline_cancels_while_backpressured() {
+    btrfsbackup::PosixTransferPipeline pipeline;
+    btrfsbackup::NullTransferEventSink sink;
+    btrfsbackup::CancellationToken cancellation;
+
+    auto started_at = std::chrono::steady_clock::now();
+    std::future<btrfsbackup::TransferResult> future = std::async(
+        std::launch::async,
+        [&] {
+            return pipeline.run(
+                {
+                    .producer_argv = {"yes"},
+                    .consumer_argv = {"sh", "-c", "sleep 5; cat >/dev/null"},
+                },
+                sink,
+                cancellation
+            );
+        }
+    );
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    cancellation.request_cancel();
+    btrfsbackup::TransferResult result = future.get();
+    auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - started_at
+    ).count();
+
+    test_helpers::expect_true("backpressured cancellation", result.cancelled, "backpressured transfer should cancel");
+    test_helpers::expect_true("backpressured cancellation latency", elapsed_ms < 2000, "cancellation should not wait for the consumer");
+}
+
 void test_threaded_async_pipeline_runs_in_background() {
     BlockingTransferPipeline blocking;
     btrfsbackup::ThreadedAsyncTransferPipeline async(blocking);
@@ -435,7 +520,9 @@ int main() {
     test_both_sides_failure_keeps_both_diagnostics();
     test_cancelled_transfer_is_reported();
     test_event_sink_contract();
+    test_posix_pipeline_preserves_stream_integrity();
     test_posix_pipeline_transfers_bytes();
+    test_posix_pipeline_transfers_gibibyte_under_backpressure();
     test_posix_pipeline_reports_producer_failure();
     test_posix_pipeline_reports_missing_producer();
     test_posix_pipeline_reports_consumer_failure();
@@ -443,6 +530,7 @@ int main() {
     test_posix_pipeline_handles_early_consumer_exit();
     test_posix_pipeline_honors_cancellation();
     test_posix_pipeline_cancellation_wakes_event_loop();
+    test_posix_pipeline_cancels_while_backpressured();
     test_threaded_async_pipeline_runs_in_background();
     test_threaded_posix_pipeline_spawns_commands_in_worker_thread();
     test_threaded_async_pipeline_requests_cancellation();

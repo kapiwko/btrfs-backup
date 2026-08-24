@@ -29,7 +29,6 @@ struct TransferEvent {
     std::uint64_t bytes_produced = 0;
     std::uint64_t bytes_total_estimated = 0;
     std::uint64_t delta_bytes = 0;
-    std::uint64_t pending_bytes = 0;
     std::uint64_t elapsed_ms = 0;
     std::uint64_t speed_bps = 0;
     std::string message;
