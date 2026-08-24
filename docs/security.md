@@ -33,6 +33,13 @@ Profile writes must use same-directory temporary files, strict permissions,
 save operations must reject output paths that point at the repository root,
 system directories, or active project configuration.
 
+The shared atomic writer applies the same durable-write contract to private
+runtime state and public status/history: checked temporary-file permissions,
+EINTR-safe writes, checked file `fsync` and close, checked rename, and checked
+parent-directory `fsync`. A persistence error such as `EIO` or `ENOSPC` is a
+failed operation even if the new directory entry became visible before the
+failure was reported.
+
 ## Target Identity
 
 The runtime must re-check the target after mount. A udev match is only a startup
