@@ -1,13 +1,8 @@
 #include <filesystem>
 #include <fstream>
-#include <sstream>
 #include <string>
 #include <vector>
 
-#include <btrfsbackup/command/state_fingerprint_command.hpp>
-#include <btrfsbackup/command/state_run_command.hpp>
-#include <btrfsbackup/command/status_show_command.hpp>
-#include <btrfsbackup/command/status_write_command.hpp>
 #include <btrfsbackup/config_fingerprint.hpp>
 #include <btrfsbackup/run_state.hpp>
 
@@ -26,113 +21,6 @@ std::string read_file(const fs::path& path) {
     return {std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()};
 }
 
-void test_status_write_writes_current_and_history() {
-    fs::path root = test_root("write-status");
-
-    btrfsbackup::command::status_write(
-        root / "status",
-        root / "history",
-        {
-            "--current",
-            "--history",
-            "--profile-id",
-            "default",
-            "--profile-name",
-            "Default backup",
-            "--run-id",
-            "20260823T024407Z-4298-30158",
-            "--state",
-            "succeeded",
-            "--phase",
-            "succeeded",
-            "--message",
-            "Backup completed.",
-            "--current-source-name",
-            "Home",
-            "--source-index",
-            "1",
-            "--source-count",
-            "2",
-            "--started-at",
-            "2026-08-23T02:44:07+00:00",
-            "--updated-at",
-            "2026-08-23T02:45:07+00:00",
-            "--finished-at",
-            "2026-08-23T02:45:07+00:00",
-            "--exit-code",
-            "0",
-        }
-    );
-
-    test_helpers::expect_eq("current exists", fs::is_regular_file(root / "status" / "default" / "current.json") ? "yes" : "no", "yes");
-    test_helpers::expect_eq("history exists", fs::is_regular_file(root / "history" / "default" / "20260823T024407Z-4298-30158.json") ? "yes" : "no", "yes");
-    test_helpers::expect_eq("last exists", fs::is_regular_file(root / "history" / "default" / "last.json") ? "yes" : "no", "yes");
-
-    std::ostringstream output;
-    btrfsbackup::command::status_show(root / "status", root / "history", {"--human"}, output);
-    test_helpers::expect_contains("write human status", output.str(), "Default backup: succeeded\n");
-    fs::remove_all(root);
-}
-
-void test_write_status_requires_target() {
-    test_helpers::expect_validation_error(
-        "write target",
-        [&] {
-            btrfsbackup::command::status_write(
-                "/tmp/status",
-                "/tmp/history",
-                {
-                    "--profile-id",
-                    "default",
-                    "--profile-name",
-                    "Default backup",
-                    "--run-id",
-                    "20260823T024407Z-4298-30158",
-                    "--state",
-                    "running",
-                    "--phase",
-                    "starting",
-                    "--started-at",
-                    "2026-08-23T02:44:07+00:00",
-                    "--updated-at",
-                    "2026-08-23T02:44:07+00:00",
-                }
-            );
-        },
-        "requires --current or --history"
-    );
-}
-
-void test_write_history_requires_finished_at() {
-    test_helpers::expect_validation_error(
-        "write history finished",
-        [&] {
-            btrfsbackup::command::status_write(
-                "/tmp/status",
-                "/tmp/history",
-                {
-                    "--history",
-                    "--profile-id",
-                    "default",
-                    "--profile-name",
-                    "Default backup",
-                    "--run-id",
-                    "20260823T024407Z-4298-30158",
-                    "--state",
-                    "succeeded",
-                    "--phase",
-                    "succeeded",
-                    "--started-at",
-                    "2026-08-23T02:44:07+00:00",
-                    "--updated-at",
-                    "2026-08-23T02:45:07+00:00",
-                }
-            );
-        },
-        "requires --finished-at"
-    );
-}
-
 void test_config_fingerprint_matches_legacy_stream() {
     fs::path root = test_root("fingerprint");
     test_helpers::write_file(root / "main.env", "A=1\n");
@@ -147,21 +35,6 @@ void test_config_fingerprint_matches_legacy_stream() {
 
     test_helpers::expect_eq("config fingerprint", digest, "f125982c7f64868550006c139bdba904248a93b4118afcc2332190e516494c34");
 
-    std::ostringstream output;
-    btrfsbackup::command::state_fingerprint(
-        {
-            "--version",
-            "2.0.0",
-            "--config",
-            (root / "main.env").string(),
-            "--source",
-            (root / "10-root.conf").string(),
-            "--source",
-            (root / "20-home.conf").string(),
-        },
-        output
-    );
-    test_helpers::expect_eq("config fingerprint command", output.str(), digest + "\n");
     fs::remove_all(root);
 }
 
@@ -169,28 +42,16 @@ void test_success_state_write_and_match() {
     fs::path root = test_root("success-state");
     fs::path state_dir = root / "state" / "profiles" / "default";
 
-    btrfsbackup::command::state_write_success(
-        {
-            "--profile-state-dir",
-            state_dir.string(),
-            "--date",
-            "2026-08-23",
-            "--timestamp",
-            "2026-08-23T08:25:04+02:00",
-            "--run-id",
-            "20260823T062504Z-123-456",
-            "--profile-id",
-            "default",
-            "--profile-name",
-            "Default backup",
-            "--source-count",
-            "2",
-            "--target-luks-uuid",
-            "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE",
-            "--config-fingerprint",
-            "630b159cf7939e5baf76ce27d4505a5cf68fe2995d5071c1f22e011e143b7c67",
-        }
-    );
+    btrfsbackup::write_success_state(state_dir, {
+        .date = "2026-08-23",
+        .timestamp = "2026-08-23T08:25:04+02:00",
+        .run_id = "20260823T062504Z-123-456",
+        .profile_id = "default",
+        .profile_name = "Default backup",
+        .source_count = 2,
+        .target_luks_uuid = "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE",
+        .config_fingerprint = "630b159cf7939e5baf76ce27d4505a5cf68fe2995d5071c1f22e011e143b7c67",
+    });
 
     fs::path state_file = state_dir / "last-success";
     test_helpers::expect_eq("success state exists", fs::is_regular_file(state_file) ? "yes" : "no", "yes");
@@ -218,21 +79,6 @@ void test_success_state_write_and_match() {
         "stale date matched"
     );
 
-    std::ostringstream output;
-    btrfsbackup::command::state_check_last_success(
-        {
-            "--profile-state-dir",
-            state_dir.string(),
-            "--today",
-            "2026-08-23",
-            "--target-luks-uuid",
-            "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
-            "--config-fingerprint",
-            "630b159cf7939e5baf76ce27d4505a5cf68fe2995d5071c1f22e011e143b7c67",
-        },
-        output
-    );
-    test_helpers::expect_eq("success state command", output.str(), "yes\n");
     fs::remove_all(root);
 }
 
@@ -242,22 +88,13 @@ void test_pending_marker_write_read_and_clear() {
     fs::path snapshot = root / "local" / "root" / "root-2026-08-23T082504";
     fs::path final_snapshot = root / "remote" / "root" / snapshot.filename();
 
-    btrfsbackup::command::state_pending_write(
-        {
-            "--profile-state-dir",
-            state_dir.string(),
-            "--source-name",
-            "root",
-            "--local-snapshot-path",
-            snapshot.string(),
-            "--final-snapshot-path",
-            final_snapshot.string(),
-            "--run-id",
-            "20260823T062504Z-123-456",
-            "--timestamp",
-            "2026-08-23T08:25:04+02:00",
-        }
-    );
+    btrfsbackup::write_pending_marker(state_dir, {
+        .source_name = "root",
+        .local_snapshot_path = snapshot.string(),
+        .final_snapshot_path = final_snapshot.string(),
+        .run_id = "20260823T062504Z-123-456",
+        .timestamp = "2026-08-23T08:25:04+02:00",
+    });
 
     fs::path marker = state_dir / "pending-root";
     test_helpers::expect_eq("pending marker exists", fs::is_regular_file(marker) ? "yes" : "no", "yes");
@@ -266,26 +103,13 @@ void test_pending_marker_write_read_and_clear() {
     test_helpers::expect_contains("pending final path", content, "final_snapshot_path=" + final_snapshot.string() + "\n");
     test_helpers::expect_contains("pending run", content, "run_id=20260823T062504Z-123-456\n");
 
-    std::ostringstream output;
-    btrfsbackup::command::state_pending_read(
-        {
-            "--marker",
-            marker.string(),
-            "--field",
-            "local_snapshot_path",
-        },
-        output
+    test_helpers::expect_eq(
+        "pending path",
+        btrfsbackup::read_pending_marker_field(marker, "local_snapshot_path"),
+        snapshot.string()
     );
-    test_helpers::expect_eq("pending path", output.str(), snapshot.string() + "\n");
 
-    btrfsbackup::command::state_pending_clear(
-        {
-            "--marker",
-            marker.string(),
-            "--profile-state-dir",
-            state_dir.string(),
-        }
-    );
+    btrfsbackup::clear_pending_marker(marker, state_dir);
     test_helpers::expect_eq("pending marker cleared", fs::exists(marker) ? "yes" : "no", "no");
     fs::remove_all(root);
 }
@@ -320,9 +144,6 @@ void test_cancel_request_write_check_and_clear() {
 } // namespace
 
 int main() {
-    test_status_write_writes_current_and_history();
-    test_write_status_requires_target();
-    test_write_history_requires_finished_at();
     test_config_fingerprint_matches_legacy_stream();
     test_success_state_write_and_match();
     test_pending_marker_write_read_and_clear();

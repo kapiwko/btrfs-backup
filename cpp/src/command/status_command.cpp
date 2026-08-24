@@ -14,7 +14,6 @@
 #include <btrfsbackup/command/status_show_command.hpp>
 #include <btrfsbackup/identifiers.hpp>
 #include <btrfsbackup/json.hpp>
-#include <btrfsbackup/command/status_write_command.hpp>
 
 namespace fs = std::filesystem;
 
@@ -41,7 +40,6 @@ bool readable_file(const fs::path& path) {
 struct WatchOptions {
     std::string profile = "default";
     double interval = 1.0;
-    bool json = true;
 };
 
 std::string require_arg_value(const std::vector<std::string>& args, std::size_t& index, const std::string& option) {
@@ -63,8 +61,6 @@ WatchOptions parse_watch_options(const std::vector<std::string>& args) {
             if (options.interval <= 0) {
                 throw btrfsbackup::ValidationError("--interval must be greater than zero");
             }
-        } else if (arg == "--json") {
-            options.json = true;
         } else {
             throw btrfsbackup::ValidationError("unknown watch option: " + arg);
         }
@@ -131,8 +127,7 @@ void usage() {
               << "\nCommands:\n"
               << "  show [--profile ID|--all] [--human]\n"
               << "  history [--profile ID] [--limit N]\n"
-              << "  watch [--profile ID] [--interval SECONDS] [--json]\n"
-              << "  write [OPTIONS]\n";
+              << "  watch [--profile ID] [--interval SECONDS]\n";
 }
 
 } // namespace
@@ -155,9 +150,7 @@ bool status_watch_once(
     if (current == previous) {
         return false;
     }
-    if (options.json) {
-        validate_status_api_json(current);
-    }
+    validate_status_api_json(current);
     output << current;
     if (current.empty() || current.back() != '\n') {
         output << '\n';
@@ -184,10 +177,6 @@ int status(const fs::path& status_root, const fs::path& history_root, const std:
     }
     if (command == "watch") {
         watch(status_root, rest);
-        return 0;
-    }
-    if (command == "write") {
-        status_write(status_root, history_root, rest);
         return 0;
     }
     if (command == "-h" || command == "--help") {

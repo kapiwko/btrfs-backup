@@ -80,11 +80,6 @@ Json valid_profile() {
             {"minimumTargetFreeBytes", 5368709120LL},
             {"minimumLocalFreeBytes", 1073741824LL}
         }},
-        {"notifications", {
-            {"enabled", true},
-            {"user", "tester"},
-            {"method", "auto"}
-        }},
         {"sources", Json::array({
             {
                 {"id", "home"},
@@ -139,6 +134,17 @@ void test_profile_round_trips_normalized_json() {
     expect_true("profile model id", profile.id == "default", "wrong profile id");
     expect_true("profile model source", profile.sources.size() == 1 && profile.sources.at(0).id == "home", "wrong profile source");
     expect_true("profile model round trip", round_trip == normalized, "typed profile did not preserve normalized JSON");
+}
+
+void test_profile_rejects_removed_notifications() {
+    Json raw = valid_profile();
+    raw["notifications"] = {{"enabled", true}};
+
+    expect_validation_error(
+        "removed notifications",
+        [&] { btrfsbackup::normalize_profile(raw); },
+        "profile.notifications is not supported"
+    );
 }
 
 void test_profile_hooks_round_trip_as_explicit_program_arguments() {
@@ -226,27 +232,6 @@ void test_profile_rejects_unsafe_hook_shape() {
     expect_validation_error("hook timeout positive", [&] { btrfsbackup::normalize_profile(raw); }, "outside the supported range");
 }
 
-void test_render_profile_env_quotes_values() {
-    btrfsbackup::Profile profile = btrfsbackup::profile_from_json(valid_profile());
-    std::string rendered = btrfsbackup::render_profile_env(profile);
-    expect_true("profile env quote", rendered.find("PROFILE_NAME='Default backup'\n") != std::string::npos, "profile name was not shell quoted");
-    expect_true(
-        "profile env eject script",
-        rendered.find("EJECT_SCRIPT_PATH='/usr/bin/btrfs-backupctl target eject'\n") != std::string::npos,
-        "eject script path was not rendered as a string"
-    );
-    expect_true(
-        "profile env profile lock",
-        rendered.find("LOCK_FILE=/run/btrfs-backup/locks/profiles/default.lock\n") != std::string::npos,
-        "profile lock path was not rendered"
-    );
-    expect_true(
-        "profile env target lock",
-        rendered.find("TARGET_LOCK_FILE=/run/btrfs-backup/locks/targets/11111111-2222-3333-4444-555555555555.lock\n") != std::string::npos,
-        "target lock path was not rendered"
-    );
-}
-
 void test_typed_store_renders_tree() {
     fs::path root = test_root();
     btrfsbackup::Profile profile = btrfsbackup::profile_from_json(valid_profile());
@@ -308,9 +293,9 @@ int main() {
     test_rejects_non_dev_target();
     test_rejects_nested_roots();
     test_profile_round_trips_normalized_json();
+    test_profile_rejects_removed_notifications();
     test_profile_hooks_round_trip_as_explicit_program_arguments();
     test_profile_rejects_unsafe_hook_shape();
-    test_render_profile_env_quotes_values();
     test_typed_store_renders_tree();
     test_typed_store_saves_tree();
     test_render_udev_optional_matches();

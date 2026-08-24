@@ -8,7 +8,7 @@ The first component is a plasmoid with a small C++ QML backend. The backend
 reads the public JSON status stream:
 
 ```bash
-btrfs-backupctl status watch --profile default --json
+btrfs-backupctl status watch --profile default
 ```
 
 QML only binds to C++ properties. It does not execute shell command strings and

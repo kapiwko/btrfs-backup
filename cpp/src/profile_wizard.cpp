@@ -1,7 +1,6 @@
 #include <btrfsbackup/profile_wizard.hpp>
 
 #include <algorithm>
-#include <cstdlib>
 #include <filesystem>
 #include <iostream>
 #include <string>
@@ -21,16 +20,6 @@ namespace fs = std::filesystem;
 namespace btrfsbackup {
 
 namespace {
-
-std::string default_user() {
-    if (const char* sudo_user = std::getenv("SUDO_USER"); sudo_user && *sudo_user) {
-        return sudo_user;
-    }
-    if (const char* user = std::getenv("USER"); user && *user) {
-        return user;
-    }
-    return "root";
-}
 
 ProfileWizardAnswers collect_answers(std::istream& input, std::ostream& output) {
     wizard::DeviceCandidate device = wizard::select_device(input, output);
@@ -77,10 +66,6 @@ ProfileWizardAnswers collect_answers(std::istream& input, std::ostream& output) 
     answers.minimum_target_free_bytes = wizard::prompt_uint(input, output, "Minimum free bytes required on the backup target; 0 disables", 5368709120LL);
     answers.minimum_local_free_bytes = wizard::prompt_uint(input, output, "Minimum free bytes required for local snapshots; 0 disables", 1073741824LL);
     answers.keyfile = wizard::prompt_value(input, output, "crypttab keyfile path or none", "/root/keys/" + answers.target_mapper_name + ".key");
-
-    answers.notifications_enabled = wizard::prompt_bool(input, output, "Enable notifications", true);
-    answers.notifications_user = wizard::prompt_value(input, output, "Desktop notification user", default_user());
-    answers.notifications_method = wizard::prompt_value(input, output, "Notification method: auto, desktop, journal, or none", "auto");
 
     return answers;
 }

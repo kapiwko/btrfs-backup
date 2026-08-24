@@ -69,10 +69,6 @@ Profile profile_from_wizard_answers(const ProfileWizardAnswers& answers) {
     profile.settings.minimum_target_free_bytes = answers.minimum_target_free_bytes;
     profile.settings.minimum_local_free_bytes = answers.minimum_local_free_bytes;
 
-    profile.notifications.enabled = answers.notifications_enabled;
-    profile.notifications.user = answers.notifications_user;
-    profile.notifications.method = answers.notifications_method;
-
     return profile_from_json(profile_to_json(profile));
 }
 

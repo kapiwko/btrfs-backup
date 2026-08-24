@@ -30,11 +30,6 @@
     "minimumTargetFreeBytes": 5368709120,
     "minimumLocalFreeBytes": 1073741824
   },
-  "notifications": {
-    "enabled": true,
-    "user": "kamil",
-    "method": "auto"
-  },
   "sources": [
     {
       "id": "home",

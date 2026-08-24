@@ -312,7 +312,7 @@ Json normalize_profile(const Json& raw) {
     }
     reject_unknown_properties(
         raw,
-        {"schemaVersion", "profileId", "name", "enabled", "target", "paths", "settings", "notifications", "hooks", "sources"},
+        {"schemaVersion", "profileId", "name", "enabled", "target", "paths", "settings", "hooks", "sources"},
         "profile"
     );
     if (!raw.contains("schemaVersion") || raw.at("schemaVersion") != schema_version) {
@@ -369,7 +369,6 @@ Json normalize_profile(const Json& raw) {
     }
 
     Json settings = object_or_empty(raw, "settings", "settings");
-    Json notifications = object_or_empty(raw, "notifications", "notifications");
     Json hooks = object_or_empty(raw, "hooks", "hooks");
     reject_unknown_properties(
         settings,
@@ -386,19 +385,10 @@ Json normalize_profile(const Json& raw) {
         "settings"
     );
     reject_unknown_properties(
-        notifications,
-        {"enabled", "user", "method"},
-        "notifications"
-    );
-    reject_unknown_properties(
         hooks,
         {"beforeSnapshot", "afterSnapshot"},
         "hooks"
     );
-    std::string notify_method = text(notifications.value("method", "auto"), "notifications.method");
-    if (notify_method != "auto" && notify_method != "desktop" && notify_method != "journal" && notify_method != "none") {
-        throw ValidationError("notifications.method must be auto, desktop, journal, or none");
-    }
     long long remote_retention = integer_value(settings, "remoteRetention", "settings.remoteRetention", 30, 100000);
     long long local_retention = integer_value(settings, "localRetention", "settings.localRetention", 30, 100000);
 
@@ -489,11 +479,6 @@ Json normalize_profile(const Json& raw) {
             {"minimumTargetFreeBytes", integer_value(settings, "minimumTargetFreeBytes", "settings.minimumTargetFreeBytes", 5LL * 1024 * 1024 * 1024)},
             {"minimumLocalFreeBytes", integer_value(settings, "minimumLocalFreeBytes", "settings.minimumLocalFreeBytes", 1024LL * 1024 * 1024)}
         }},
-        {"notifications", {
-            {"enabled", boolean_value(notifications, "enabled", "notifications.enabled", true)},
-            {"user", text(notifications.value("user", ""), "notifications.user", true, 256)},
-            {"method", notify_method}
-        }},
         {"hooks", {
             {"beforeSnapshot", normalize_hook_commands(hooks, "beforeSnapshot", "hooks.beforeSnapshot")},
             {"afterSnapshot", normalize_hook_commands(hooks, "afterSnapshot", "hooks.afterSnapshot")}
@@ -537,11 +522,6 @@ Profile profile_from_json(const Json& raw) {
     profile.settings.local_retention = settings.at("localRetention").get<long long>();
     profile.settings.minimum_target_free_bytes = settings.at("minimumTargetFreeBytes").get<long long>();
     profile.settings.minimum_local_free_bytes = settings.at("minimumLocalFreeBytes").get<long long>();
-
-    const Json& notifications = normalized.at("notifications");
-    profile.notifications.enabled = notifications.at("enabled").get<bool>();
-    profile.notifications.user = notifications.at("user").get<std::string>();
-    profile.notifications.method = notifications.at("method").get<std::string>();
 
     const Json& hooks = normalized.at("hooks");
     for (const Json& item : hooks.at("beforeSnapshot")) {
@@ -638,11 +618,6 @@ Json profile_to_json(const Profile& profile) {
             {"localRetention", profile.settings.local_retention},
             {"minimumTargetFreeBytes", profile.settings.minimum_target_free_bytes},
             {"minimumLocalFreeBytes", profile.settings.minimum_local_free_bytes}
-        }},
-        {"notifications", {
-            {"enabled", profile.notifications.enabled},
-            {"user", profile.notifications.user},
-            {"method", profile.notifications.method}
         }},
         {"hooks", {
             {"beforeSnapshot", hooks_to_json(profile.hooks.before_snapshot)},

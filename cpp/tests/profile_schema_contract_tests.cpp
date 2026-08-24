@@ -67,6 +67,7 @@ void test_schema_requires_cpp_required_fields() {
     expect_required("schema top profileId", root, "profileId");
     expect_required("schema top target", root, "target");
     expect_required("schema top sources", root, "sources");
+    test_helpers::expect_true("schema no notifications", !root.at("properties").contains("notifications"), "canonical schema must not expose desktop notification policy");
 
     const Json& target = root.at("properties").at("target");
     expect_no_additional_properties("schema target additional", target);
