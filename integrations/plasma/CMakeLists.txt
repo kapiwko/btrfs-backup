@@ -24,6 +24,7 @@ include(CTest)
 find_package(Qt6 REQUIRED COMPONENTS Core Qml Quick)
 find_package(KF6 REQUIRED COMPONENTS I18n Package)
 find_package(Plasma REQUIRED)
+ki18n_install(po)
 
 if(COMMAND qt_policy)
     qt_policy(SET QTP0001 NEW)

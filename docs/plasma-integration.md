@@ -19,7 +19,8 @@ This initial plasmoid exposes read-only status. The future system D-Bus manager
 owns privileged mutation and polkit authorization, including cancellation. The
 Plasma session consumes that authorized API for desktop controls.
 
-The plasmoid displays `RunStatus` only. It does not show an eject icon or a
+The plasmoid displays reduced `RunStatus`, including configured source and
+target labels, progress, speed, and ETA. It does not show an eject icon or a
 safe-to-disconnect message because the current runtime has no separate,
 authoritative `TargetStatus`. That indication will be added only after the
 system API reports the result of the actual eject operation.
@@ -70,6 +71,7 @@ The plasmoid must not own long-running backup progress. After the desktop
 monitor exists, progress and notifications belong there so they survive
 plasmoid removal and shell restarts.
 
-The privileged core publishes status/history and service diagnostics.
+The privileged core publishes reduced current status. Full history and service
+diagnostics remain root-only.
 KNotifications belongs to the future per-session KDE monitor, which owns the
 user session and desktop delivery context.
