@@ -17,7 +17,13 @@ namespace fs = std::filesystem;
 namespace {
 
 using btrfsbackup::Json;
-using btrfsbackup::RunStatusRecord;
+using btrfsbackup::ErrorCode;
+using btrfsbackup::ProgressAccuracy;
+using btrfsbackup::RunError;
+using btrfsbackup::RunPhase;
+using btrfsbackup::RunState;
+using btrfsbackup::RunStatus;
+using btrfsbackup::SuggestedAction;
 using btrfsbackup::ValidationError;
 
 int failures = 0;
@@ -60,13 +66,13 @@ fs::path test_root(const std::string& name) {
     return root;
 }
 
-RunStatusRecord sample_record() {
+RunStatus sample_record() {
     return {
         .profile_id = "default",
         .profile_name = "Default backup",
         .run_id = "20260823T024407Z-4298-30158",
-        .state = "succeeded",
-        .phase = "succeeded",
+        .state = RunState::Succeeded,
+        .phase = RunPhase::Succeeded,
         .message = "Backup completed.",
         .current_source_name = "Home",
         .target_name = "backupdisk",
@@ -124,18 +130,20 @@ void test_build_status_json_matches_contract_shape() {
 }
 
 void test_build_status_json_includes_structured_error() {
-    RunStatusRecord record = sample_record();
-    record.state = "failed";
-    record.phase = "validating-target";
+    RunStatus record = sample_record();
+    record.state = RunState::Failed;
+    record.phase = RunPhase::ValidatingTarget;
     record.message = "Validation failed.";
-    record.error_code = "target.btrfs_uuid_mismatch";
-    record.error_message = "Target Btrfs UUID does not match.";
-    record.details = {
-        {"expected", "expected-uuid"},
-        {"actual", "actual-uuid"},
+    record.error = RunError{
+        .code = ErrorCode{"target.btrfs_uuid_mismatch"},
+        .message = "Target Btrfs UUID does not match.",
+        .recoverable = false,
+        .suggested_action = SuggestedAction{"connect-correct-target"},
     };
-    record.recoverable = false;
-    record.suggested_action = "connect-correct-target";
+    record.details = {
+        {"expected", std::string{"expected-uuid"}},
+        {"actual", std::string{"actual-uuid"}},
+    };
     record.can_cancel = true;
     record.exit_code = 2;
 
@@ -151,16 +159,21 @@ void test_build_status_json_includes_structured_error() {
 }
 
 void test_build_public_status_json_excludes_diagnostics() {
-    RunStatusRecord record = sample_record();
-    record.state = "failed";
-    record.error_code = "target.btrfs_uuid_mismatch";
-    record.error_message = "Target Btrfs UUID does not match.";
-    record.details = {{"expected", "expected-uuid"}, {"actual", "actual-uuid"}};
-    record.speed_bps = 2048;
-    record.eta_seconds = 12;
-    record.source_progress = 50;
-    record.overall_progress = 25;
-    record.progress_accuracy = "estimated";
+    RunStatus record = sample_record();
+    record.state = RunState::Failed;
+    record.error = RunError{
+        .code = ErrorCode{"target.btrfs_uuid_mismatch"},
+        .message = "Target Btrfs UUID does not match.",
+    };
+    record.details = {
+        {"expected", std::string{"expected-uuid"}},
+        {"actual", std::string{"actual-uuid"}},
+    };
+    record.progress.speed_bps = 2048;
+    record.progress.eta_seconds = 12;
+    record.progress.source_percent = 50;
+    record.progress.overall_percent = 25;
+    record.progress.accuracy = ProgressAccuracy::Estimated;
 
     Json data = btrfsbackup::build_public_status_json(record);
 
@@ -262,18 +275,18 @@ void test_rejects_unsafe_identifiers() {
     expect_eq("profile id wrapper", profile_id.value, "default");
     expect_eq("run id wrapper", run_id.value, "20260823T024407Z-4298-30158");
 
-    RunStatusRecord bad_profile = sample_record();
+    RunStatus bad_profile = sample_record();
     bad_profile.profile_id = "../default";
     expect_validation_error("bad profile", [&] { btrfsbackup::build_status_json(bad_profile); }, "invalid profile id");
 
-    RunStatusRecord bad_run = sample_record();
+    RunStatus bad_run = sample_record();
     bad_run.run_id = "../run";
     expect_validation_error("bad run", [&] { btrfsbackup::build_status_json(bad_run); }, "invalid run id");
 }
 
 void test_invalid_profile_does_not_create_status_directory() {
     fs::path root = test_root("bad-write");
-    RunStatusRecord bad_profile = sample_record();
+    RunStatus bad_profile = sample_record();
     bad_profile.profile_id = "../default";
 
     expect_validation_error(

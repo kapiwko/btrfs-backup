@@ -271,12 +271,12 @@ void write_skipped_status(
     const btrfsbackup::BackupRequest& request,
     std::size_t source_count
 ) {
-    btrfsbackup::RunStatusRecord record{
+    btrfsbackup::RunStatus status{
         .profile_id = profile.id,
         .profile_name = profile.name,
         .run_id = request.run_id,
-        .state = "skipped",
-        .phase = "skipped",
+        .state = btrfsbackup::RunState::Skipped,
+        .phase = btrfsbackup::RunPhase::Skipped,
         .message = "A successful backup already exists for today; no new snapshot was created.",
         .current_source_name = "",
         .target_name = profile.target.mapper_name,
@@ -284,13 +284,14 @@ void write_skipped_status(
         .started_at = request.timestamp,
         .updated_at = current_local_iso_timestamp(),
         .finished_at = current_local_iso_timestamp(),
-        .error_code = "",
-        .error_message = "",
-        .suggested_action = "",
+        .error = std::nullopt,
+        .details = {},
+        .can_cancel = false,
+        .progress = btrfsbackup::RunProgress{},
         .exit_code = 0,
     };
-    btrfsbackup::write_current_status(application_paths.status_root, record);
-    btrfsbackup::write_history_entry(application_paths.history_root, record);
+    btrfsbackup::write_current_status(application_paths.status_root, status);
+    btrfsbackup::write_history_entry(application_paths.history_root, status);
 }
 
 void write_success_state_for_run(
