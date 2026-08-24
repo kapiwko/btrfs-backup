@@ -105,7 +105,6 @@ render_test() {
         --btrfs-uuid 66666666-7777-8888-9999-aaaaaaaaaaaa \
         --partition-uuid aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee \
         --mapper-name backupdisk \
-        --mount-point /mnt/backup \
         --remote-retention 30 \
         --local-retention 30 \
         --minimum-target-free-bytes 5368709120 \
@@ -139,7 +138,7 @@ render_test() {
     assert_not_contains "$output/udev/99-btrfs-backup-laptop.rules" 'ACTION=="remove"'
     assert_contains "$output/udev/99-btrfs-backup-laptop.rules" 'btrfs-backup@laptop.service'
     assert_not_contains "$output/systemd/btrfs-backup.service" 'WantedBy='
-    assert_not_contains "$output/systemd/btrfs-backup.service" 'Requires=mnt-backup.mount'
+    assert_not_contains "$output/systemd/btrfs-backup.service" 'Requires=mnt-btrfs\x2dbackup-laptop.mount'
     assert_contains "$output/systemd/btrfs-backup.service" 'ExecStart='
     assert_contains "$output/systemd/btrfs-backup.service" '--profile laptop'
     assert_contains "$output/systemd/btrfs-backup.service" 'ExecStopPost=/usr/bin/systemctl --no-block start btrfs-backup-eject@laptop.service'
@@ -154,8 +153,8 @@ render_test() {
     assert_contains "$output/systemd/btrfs-backup.service" 'ProtectProc=invisible'
     assert_contains "$output/systemd/btrfs-backup.service" 'RestrictAddressFamilies=AF_UNIX AF_NETLINK'
     assert_contains "$output/systemd/btrfs-backup.service" 'Environment=PATH=/usr/bin'
-    assert_contains "$output/systemd/btrfs-backup@laptop.service.d/target-mount.conf" 'RequiresMountsFor="/mnt/backup"'
-    assert_contains "$output/systemd/btrfs-backup.service" 'RequiresMountsFor="/mnt/backup"'
+    assert_contains "$output/systemd/btrfs-backup@laptop.service.d/target-mount.conf" 'RequiresMountsFor="/mnt/btrfs-backup/laptop"'
+    assert_contains "$output/systemd/btrfs-backup.service" 'RequiresMountsFor="/mnt/btrfs-backup/laptop"'
     assert_contains "$output/config/fstab.fragment" 'noauto'
     assert_contains "$output/config/fstab.fragment" 'nodev,nosuid,noexec,nosymfollow'
     assert_contains "$output/config/fstab.fragment" 'x-systemd.requires=systemd-cryptsetup@backupdisk.service'

@@ -24,7 +24,7 @@ struct ProfileWizardAnswers {
     std::string target_partition_uuid;
     std::string target_serial;
     std::string target_mapper_name = "backupdisk";
-    std::string target_mount_point = "/mnt/backup";
+    std::string target_mount_root = "/mnt/btrfs-backup";
 
     std::vector<ProfileWizardSourceAnswers> sources;
 

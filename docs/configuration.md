@@ -49,8 +49,6 @@ Important fields:
 | `target.luksUuid` | expected UUID of the LUKS container |
 | `target.btrfsUuid` | expected Btrfs filesystem UUID inside LUKS |
 | `target.mapperName` | mapper name under `/dev/mapper` |
-| `target.mountPoint` | target mount point |
-| `target.mountUnit` | `.mount` unit matching the mount point |
 | `paths.remoteRoot` | directory for committed snapshots on the target |
 | `paths.incomingRoot` | directory for uncommitted receives |
 | `settings.remoteRetention` | default number of remote snapshots; `0` means unlimited |
@@ -80,6 +78,7 @@ SOURCES_ROOT=/etc/btrfs-backup/profiles
 STATE_ROOT=/var/lib/btrfs-backup
 STATUS_ROOT=/run/btrfs-backup/profiles
 HISTORY_ROOT=/var/lib/btrfs-backup/history
+TARGET_MOUNT_ROOT=/mnt/btrfs-backup
 ```
 
 The parser accepts only these `KEY=VALUE` entries and comments beginning with
@@ -92,6 +91,14 @@ must not be a symbolic link, and must not be writable by group or other users
 `0700` and its JSON files use mode `0600`. Private recovery markers remain in
 `STATE_ROOT/profiles/<profileId>`. `SOURCES_ROOT` is reserved for per-profile
 source-definition migration and storage managed by the application.
+`TARGET_MOUNT_ROOT` controls the trusted namespace for target mounts. A profile
+with id `laptop` is always mounted at `TARGET_MOUNT_ROOT/laptop`; neither the
+mount point nor its systemd mount unit is stored in profile JSON.
+
+Profile schema version 3 removes `target.mountPoint` and `target.mountUnit`.
+Legacy profiles are accepted only when their stored mount point already equals
+`TARGET_MOUNT_ROOT/profileId`; other profiles must be migrated deliberately so
+the target cannot silently move to a different path.
 
 ## JSON Schema
 
@@ -187,7 +194,6 @@ btrfs-backupctl profile create \
   --device /dev/disk/by-uuid/<LUKS-UUID> \
   --luks-uuid <LUKS-UUID> \
   --mapper-name backupdisk \
-  --mount-point /mnt/backup \
   --source home home /home /.snapshots/btrfs-backup/home home 30 30
 
 btrfs-backupctl profile render --file ./profile.json --output-dir ./generated-profile

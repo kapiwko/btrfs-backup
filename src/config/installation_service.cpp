@@ -6,11 +6,15 @@
 namespace btrfsbackup {
 
 void render_installation(const RenderInstallationRequest& request) {
-    render_installation_files(validate_profile_file(request.profile_file), request.output_dir, request.options);
+    render_installation_files(
+        validate_profile_file(request.profile_file, request.target_mount_root),
+        request.output_dir,
+        request.options
+    );
 }
 
-void validate_rendered_installation_at(const std::filesystem::path& root) {
-    validate_rendered_installation(root);
+void validate_rendered_installation_at(const std::filesystem::path& root, const std::filesystem::path& target_mount_root) {
+    validate_rendered_installation(root, target_mount_root);
 }
 
 void validate_active_installation_for(const std::string& profile_id) {

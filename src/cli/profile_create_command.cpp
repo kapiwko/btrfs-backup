@@ -74,7 +74,6 @@ int profile_create(const std::vector<std::string>& args) {
     std::string partition_uuid;
     std::string serial;
     std::string mapper_name;
-    std::string mount_point;
     std::string remote_root;
     std::string incoming_root;
     bool daily_limit = true;
@@ -107,8 +106,6 @@ int profile_create(const std::vector<std::string>& args) {
             serial = arg_value(i, args, arg);
         } else if (arg == "--mapper-name") {
             mapper_name = arg_value(i, args, arg);
-        } else if (arg == "--mount-point") {
-            mount_point = arg_value(i, args, arg);
         } else if (arg == "--remote-root") {
             remote_root = arg_value(i, args, arg);
         } else if (arg == "--incoming-root") {
@@ -155,10 +152,11 @@ int profile_create(const std::vector<std::string>& args) {
     if (device.empty()) fail("create requires --device");
     if (luks_uuid.empty()) fail("create requires --luks-uuid");
     if (mapper_name.empty()) fail("create requires --mapper-name");
-    if (mount_point.empty()) fail("create requires --mount-point");
-    if (remote_root.empty()) remote_root = mount_point + "/snapshots";
-    if (incoming_root.empty()) incoming_root = mount_point + "/.incoming";
     if (sources.empty()) fail("create requires at least one --source");
+
+    Json paths = Json::object();
+    if (!remote_root.empty()) paths["remoteRoot"] = remote_root;
+    if (!incoming_root.empty()) paths["incomingRoot"] = incoming_root;
 
     Profile profile = profile_from_json({
         {"schemaVersion", current_profile_schema_version},
@@ -171,13 +169,9 @@ int profile_create(const std::vector<std::string>& args) {
             {"btrfsUuid", btrfs_uuid},
             {"partitionUuid", partition_uuid},
             {"serial", serial},
-            {"mapperName", mapper_name},
-            {"mountPoint", mount_point}
+            {"mapperName", mapper_name}
         }},
-        {"paths", {
-            {"remoteRoot", remote_root},
-            {"incomingRoot", incoming_root}
-        }},
+        {"paths", paths},
         {"settings", {
             {"dailyLimit", daily_limit},
             {"incrementalRequired", incremental_required},

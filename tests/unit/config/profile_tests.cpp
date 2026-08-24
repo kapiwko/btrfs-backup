@@ -49,7 +49,7 @@ void expect_validation_error(const std::string& name, const std::function<void()
 
 Json valid_profile() {
     return {
-        {"schemaVersion", 2},
+        {"schemaVersion", 3},
         {"profileId", "default"},
         {"name", "Default backup"},
         {"enabled", true},
@@ -59,12 +59,11 @@ Json valid_profile() {
             {"btrfsUuid", "66666666-7777-8888-9999-aaaaaaaaaaaa"},
             {"partitionUuid", "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"},
             {"serial", "SERIAL_123"},
-            {"mapperName", "backupdisk"},
-            {"mountPoint", "/mnt/backup"}
+            {"mapperName", "backupdisk"}
         }},
         {"paths", {
-            {"remoteRoot", "/mnt/backup/snapshots"},
-            {"incomingRoot", "/mnt/backup/.incoming"}
+            {"remoteRoot", "/mnt/btrfs-backup/default/snapshots"},
+            {"incomingRoot", "/mnt/btrfs-backup/default/.incoming"}
         }},
         {"settings", {
             {"dailyLimit", true},
@@ -118,7 +117,7 @@ void test_rejects_non_dev_target() {
 
 void test_rejects_nested_roots() {
     Json profile = valid_profile();
-    profile["paths"]["incomingRoot"] = "/mnt/backup/snapshots/.incoming";
+    profile["paths"]["incomingRoot"] = "/mnt/btrfs-backup/default/snapshots/.incoming";
     expect_validation_error("nested roots", [&] { btrfsbackup::normalize_profile(profile); }, "remoteRoot and paths.incomingRoot");
 }
 
@@ -135,13 +134,14 @@ void test_profile_round_trips_normalized_json() {
 void test_profile_migrates_safe_legacy_system_paths() {
     Json legacy = valid_profile();
     legacy["schemaVersion"] = 1;
+    legacy["target"]["mountPoint"] = "/mnt/btrfs-backup/default";
     legacy["paths"]["sourcesDir"] = "/etc/btrfs-backup/profiles/default/sources.d";
     legacy["paths"]["stateDir"] = "/var/lib/btrfs-backup";
     legacy["paths"]["statusRoot"] = "/run/btrfs-backup/profiles";
     legacy["paths"]["historyRoot"] = "/var/lib/btrfs-backup/history";
 
     Json normalized = btrfsbackup::normalize_profile(legacy);
-    expect_true("legacy migrated schema", normalized.at("schemaVersion") == 2, "legacy profile was not migrated");
+    expect_true("legacy migrated schema", normalized.at("schemaVersion") == 3, "legacy profile was not migrated");
     expect_true("legacy sourcesDir removed", !normalized.at("paths").contains("sourcesDir"), "sourcesDir remains public");
     expect_true("legacy stateDir removed", !normalized.at("paths").contains("stateDir"), "stateDir remains public");
     expect_true("legacy statusRoot removed", !normalized.at("paths").contains("statusRoot"), "statusRoot remains public");
@@ -159,11 +159,29 @@ void test_profile_rejects_system_path_overrides() {
 
     Json legacy = valid_profile();
     legacy["schemaVersion"] = 1;
+    legacy["target"]["mountPoint"] = "/mnt/btrfs-backup/default";
     legacy["paths"]["statusRoot"] = "/etc";
     expect_validation_error(
         "legacy system path",
         [&] { btrfsbackup::normalize_profile(legacy); },
         "paths.statusRoot is application-controlled"
+    );
+}
+
+void test_mount_point_is_application_controlled() {
+    Json raw = valid_profile();
+    raw["target"]["mountPoint"] = "/home/alice/backup";
+    expect_validation_error("profile mount point rejected", [&] {
+        (void)btrfsbackup::normalize_profile(raw);
+    }, "application-controlled");
+
+    Json custom = valid_profile();
+    custom["paths"] = Json::object();
+    btrfsbackup::Profile profile = btrfsbackup::profile_from_json(custom, "/srv/backup-targets");
+    expect_true(
+        "custom mount root",
+        profile.target.mount_point == "/srv/backup-targets/default",
+        "profile mount point was not derived from the application root"
     );
 }
 
@@ -360,6 +378,7 @@ int main() {
     test_profile_round_trips_normalized_json();
     test_profile_migrates_safe_legacy_system_paths();
     test_profile_rejects_system_path_overrides();
+    test_mount_point_is_application_controlled();
     test_profile_rejects_removed_notifications();
     test_profile_hooks_round_trip_as_explicit_program_arguments();
     test_profile_rejects_unsafe_hook_shape();

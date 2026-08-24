@@ -4,6 +4,7 @@
 #include <string>
 
 #include <config/errors.hpp>
+#include <config/application_config.hpp>
 #include <config/identifiers.hpp>
 #include <platform/linux/trusted_file.hpp>
 
@@ -22,14 +23,16 @@ Json load_profile_json_by_id(const fs::path& etc_root, const std::string& profil
         .allow_current_user_owner = fs::absolute(etc_root).lexically_normal() != fs::path("/etc/btrfs-backup"),
     };
     try {
-        return normalize_profile(Json::parse(read_trusted_config_file(canonical, policy)));
+        ApplicationConfig config = ApplicationConfig::load(etc_root);
+        return normalize_profile(Json::parse(read_trusted_config_file(canonical, policy)), config.paths().target_mount_root);
     } catch (const Json::exception& exc) {
         throw ValidationError("cannot read JSON profile " + canonical.string() + ": " + exc.what());
     }
 }
 
 Profile load_profile_by_id(const fs::path& etc_root, const std::string& profile_id) {
-    return profile_from_json(load_profile_json_by_id(etc_root, profile_id));
+    ApplicationConfig config = ApplicationConfig::load(etc_root);
+    return profile_from_json(load_profile_json_by_id(etc_root, profile_id), config.paths().target_mount_root);
 }
 
 } // namespace btrfsbackup

@@ -12,6 +12,7 @@ add_library(btrfsbackup-platform-linux STATIC
     space_check.cpp
     splice.cpp
     termination_signal_monitor.cpp
+    trusted_directory.cpp
     trusted_executable.cpp
     trusted_file.cpp
 )

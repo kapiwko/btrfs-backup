@@ -93,7 +93,6 @@ btrfsbackup::ProfileWizardAnswers sample_answers() {
     answers.target_partition_uuid = "99999999-8888-7777-6666-555555555555";
     answers.target_serial = "serial-1";
     answers.target_mapper_name = "backupdisk";
-    answers.target_mount_point = "/mnt/backup";
     answers.sources = {
         {
             .id = "root",
@@ -127,9 +126,9 @@ void test_profile_from_wizard_answers() {
     test_helpers::expect_eq("wizard profile name", profile.name, "Laptop backup");
     test_helpers::expect_eq("wizard target device", profile.target.device, "/dev/disk/by-uuid/AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE");
     test_helpers::expect_eq("wizard target luks uuid lower", profile.target.luks_uuid, "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
-    test_helpers::expect_eq("wizard target mount unit", profile.target.mount_unit, "mnt-backup.mount");
-    test_helpers::expect_eq("wizard remote root", profile.paths.remote_root, "/mnt/backup/snapshots");
-    test_helpers::expect_eq("wizard incoming root", profile.paths.incoming_root, "/mnt/backup/.incoming");
+    test_helpers::expect_eq("wizard target mount unit", profile.target.mount_unit, "mnt-btrfs\\x2dbackup-laptop.mount");
+    test_helpers::expect_eq("wizard remote root", profile.paths.remote_root, "/mnt/btrfs-backup/laptop/snapshots");
+    test_helpers::expect_eq("wizard incoming root", profile.paths.incoming_root, "/mnt/btrfs-backup/laptop/.incoming");
     test_helpers::expect_eq("wizard source count", std::to_string(profile.sources.size()), "2");
     test_helpers::expect_eq("wizard first source id", profile.sources.at(0).id, "root");
     test_helpers::expect_eq("wizard second source subvolume", profile.sources.at(1).subvolume, "/home");
@@ -190,7 +189,7 @@ void test_render_wizard_tree() {
     test_helpers::expect_contains(
         "wizard render mount dependency",
         read_file(root / "rendered" / "systemd" / "btrfs-backup@laptop.service.d" / "target-mount.conf"),
-        "RequiresMountsFor=\"/mnt/backup\""
+        "RequiresMountsFor=\"/mnt/btrfs-backup/laptop\""
     );
 
     fs::remove_all(root);

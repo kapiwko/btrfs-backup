@@ -30,7 +30,7 @@ fs::path absolute_path(const std::string& value, const std::string& name) {
 
 std::map<std::string, std::string> parse_config(const std::string& content) {
     const std::set<std::string> allowed{
-        "CONFIG_VERSION", "SOURCES_ROOT", "STATE_ROOT", "STATUS_ROOT", "HISTORY_ROOT"
+        "CONFIG_VERSION", "SOURCES_ROOT", "STATE_ROOT", "STATUS_ROOT", "HISTORY_ROOT", "TARGET_MOUNT_ROOT"
     };
     std::map<std::string, std::string> result;
     std::istringstream input(content);
@@ -72,6 +72,7 @@ ApplicationConfig ApplicationConfig::defaults(const fs::path& config_root) {
         .state_root = "/var/lib/btrfs-backup",
         .status_root = "/run/btrfs-backup/profiles",
         .history_root = "/var/lib/btrfs-backup/history",
+        .target_mount_root = "/mnt/btrfs-backup",
     });
 }
 
@@ -101,6 +102,7 @@ ApplicationConfig ApplicationConfig::load(const fs::path& config_root) {
     if (auto value = values.find("STATE_ROOT"); value != values.end()) result.state_root = absolute_path(value->second, "STATE_ROOT");
     if (auto value = values.find("STATUS_ROOT"); value != values.end()) result.status_root = absolute_path(value->second, "STATUS_ROOT");
     if (auto value = values.find("HISTORY_ROOT"); value != values.end()) result.history_root = absolute_path(value->second, "HISTORY_ROOT");
+    if (auto value = values.find("TARGET_MOUNT_ROOT"); value != values.end()) result.target_mount_root = absolute_path(value->second, "TARGET_MOUNT_ROOT");
     return ApplicationConfig(std::move(result));
 }
 
