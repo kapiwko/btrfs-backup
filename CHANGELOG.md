@@ -20,6 +20,9 @@
    longer presents backup completion as target eject state;
 8. the Plasma backend now names its CLI process state `watcherConnected`,
    reserving target connectivity for the future system backend.
+9. failed verification of a committed snapshot now reports cleanup failures as
+   `repository.recovery_required`; the pending marker retains the exact final
+   path so the next run removes the unverified canonical snapshot explicitly.
 
 ## 2.1.0 - 2026-08-23
 

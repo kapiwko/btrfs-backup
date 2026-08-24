@@ -73,11 +73,18 @@ void commit_received_snapshot(
     btrfs.create_readonly_snapshot(received_path, final_path);
     std::optional<SnapshotMetadata> committed = btrfs.read_snapshot_metadata(final_path);
     if (!committed.has_value() || !uuid_equals(committed->received_uuid, expected_received_uuid)) {
+        const std::string verification_error =
+            "Committed snapshot Received UUID does not match the local snapshot UUID";
         try {
             btrfs.delete_subvolume(final_path);
-        } catch (const std::exception&) {
+        } catch (const std::exception& cleanup_error) {
+            throw RecoveryRequiredError(
+                "repository.recovery_required",
+                verification_error + "; cleanup failed for " + final_path.string() + ": "
+                    + cleanup_error.what() + "; repository requires recovery"
+            );
         }
-        throw ValidationError("Committed snapshot Received UUID does not match the local snapshot UUID");
+        throw ValidationError(verification_error);
     }
 }
 
