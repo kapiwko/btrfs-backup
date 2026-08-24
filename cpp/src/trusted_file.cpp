@@ -54,8 +54,13 @@ void assert_trusted_config_fd(int fd, const std::filesystem::path& path, const T
         throw ValidationError("Trusted profile JSON must be owned by root: " + path.string());
     }
 
-    if ((info.st_mode & 0077) != 0) {
-        throw ValidationError("Trusted profile JSON must not be accessible by group or others: " + path.string());
+    const mode_t forbidden_mode = policy.allow_group_other_read ? 0022 : 0077;
+    if ((info.st_mode & forbidden_mode) != 0) {
+        throw ValidationError(
+            policy.allow_group_other_read
+                ? "Trusted configuration file must not be writable by group or others: " + path.string()
+                : "Trusted profile JSON must not be accessible by group or others: " + path.string()
+        );
     }
 }
 

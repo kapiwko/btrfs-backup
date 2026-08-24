@@ -288,6 +288,8 @@ stage_package_payload() {
 
     install -Dm644 "$root/config/profile.example.json" \
         "$pkgdir/usr/share/btrfs-backup/examples/config/profile.example.json"
+    install -Dm644 "$root/config/btrfs-backup.conf.example" \
+        "$pkgdir/usr/share/btrfs-backup/examples/config/btrfs-backup.conf.example"
     install -Dm644 "$root/config/profile.schema.json" \
         "$pkgdir/usr/share/btrfs-backup/examples/config/profile.schema.json"
     install -Dm644 "$root/config/crypttab.fragment.example" \
@@ -882,6 +884,7 @@ if [[ "$TARGET" == all || "$TARGET" == arch ]]; then
     grep -qx 'usr/lib/systemd/system/btrfs-backup@.service' "$TMP_ROOT/package-files.txt"
     grep -qx 'usr/lib/systemd/system/btrfs-backup-eject@.service' "$TMP_ROOT/package-files.txt"
     grep -qx 'usr/share/btrfs-backup/examples/config/profile.schema.json' "$TMP_ROOT/package-files.txt"
+    grep -qx 'usr/share/btrfs-backup/examples/config/btrfs-backup.conf.example' "$TMP_ROOT/package-files.txt"
     if grep -q '^usr/lib/btrfs-backup/' "$TMP_ROOT/package-files.txt"; then
         printf '%s\n' 'Base package must not contain private command copies or wrappers.' >&2
         exit 1

@@ -300,6 +300,7 @@ void ensure_target_mounted(const btrfsbackup::Profile& profile, const RunnerOpti
 btrfsbackup::BackupRunPlan build_runner_plan(
     const RunnerOptions& options,
     const btrfsbackup::Profile& profile,
+    const btrfsbackup::ApplicationPaths& application_paths,
     const btrfsbackup::SnapshotMetadataReader& metadata_reader,
     bool secure_paths
 ) {
@@ -310,7 +311,7 @@ btrfsbackup::BackupRunPlan build_runner_plan(
     btrfsbackup::SnapshotInventoryBySource remote_inventory;
     btrfsbackup::PendingMarkerBySource pending_markers;
     btrfsbackup::PendingSnapshotBySource pending_snapshots;
-    const fs::path profile_state_dir = fs::path(profile.paths.state_dir) / "profiles" / profile.id;
+    const fs::path state_dir = btrfsbackup::profile_state_dir(application_paths, profile.id);
     std::optional<btrfsbackup::SafeDirectoryRoot> local_root;
     std::optional<btrfsbackup::SafeDirectoryRoot> target_root;
     if (secure_paths) {
@@ -363,7 +364,7 @@ btrfsbackup::BackupRunPlan build_runner_plan(
             );
         }
 
-        std::optional<btrfsbackup::PendingMarker> marker = btrfsbackup::read_pending_marker_if_exists(profile_state_dir, source.id);
+        std::optional<btrfsbackup::PendingMarker> marker = btrfsbackup::read_pending_marker_if_exists(state_dir, source.id);
         pending_markers[source.id] = marker;
         if (marker.has_value()) {
             if (secure_paths) {
@@ -386,6 +387,7 @@ btrfsbackup::BackupRunPlan build_runner_plan(
         remote_inventory,
         pending_markers,
         pending_snapshots,
+        state_dir,
         options.run_id,
         options.timestamp
     );
@@ -399,7 +401,12 @@ std::string config_fingerprint_for_profile(const fs::path& profile_config_dir, c
     return btrfsbackup::compute_config_fingerprint("2.0.0", profile_json_path(profile_config_dir, profile.id), {});
 }
 
-void write_skipped_status(const btrfsbackup::Profile& profile, const RunnerOptions& options, std::size_t source_count) {
+void write_skipped_status(
+    const btrfsbackup::Profile& profile,
+    const btrfsbackup::ApplicationPaths& application_paths,
+    const RunnerOptions& options,
+    std::size_t source_count
+) {
     btrfsbackup::RunStatusRecord record{
         .profile_id = profile.id,
         .profile_name = profile.name,
@@ -418,18 +425,19 @@ void write_skipped_status(const btrfsbackup::Profile& profile, const RunnerOptio
         .suggested_action = "",
         .exit_code = 0,
     };
-    btrfsbackup::write_current_status(profile.paths.status_root, record);
-    btrfsbackup::write_history_entry(profile.paths.history_root, record);
+    btrfsbackup::write_current_status(application_paths.status_root, record);
+    btrfsbackup::write_history_entry(application_paths.history_root, record);
 }
 
 void write_success_state_for_run(
     const btrfsbackup::Profile& profile,
+    const btrfsbackup::ApplicationPaths& application_paths,
     const RunnerOptions& options,
     const std::string& config_fingerprint,
     std::size_t source_count
 ) {
     btrfsbackup::write_success_state(
-        fs::path(profile.paths.state_dir) / "profiles" / profile.id,
+        btrfsbackup::profile_state_dir(application_paths, profile.id),
         btrfsbackup::SuccessState{
             .date = options.today,
             .timestamp = current_local_iso_timestamp(),
@@ -504,7 +512,11 @@ int runner(
         ? execution_services->snapshot_metadata_reader
         : read_btrfs_snapshot_metadata;
     profile = btrfsbackup::load_profile_by_id(profile_config_dir, options.profile_id);
-    const fs::path profile_state_dir = fs::path(profile.paths.state_dir) / "profiles" / profile.id;
+    const ApplicationConfig application_config = execution_services != nullptr
+        ? execution_services->application_config
+        : ApplicationConfig::load(profile_config_dir);
+    const ApplicationPaths& application_paths = application_config.paths();
+    const fs::path profile_state_dir = btrfsbackup::profile_state_dir(application_paths, profile.id);
     if (command == "cancel") {
         btrfsbackup::write_cancel_request(profile_state_dir);
         output << Json{
@@ -542,7 +554,7 @@ int runner(
         }
         ensure_target_mounted(profile, options);
     }
-    BackupRunPlan plan = build_runner_plan(options, profile, metadata_reader, execution_services == nullptr);
+    BackupRunPlan plan = build_runner_plan(options, profile, application_paths, metadata_reader, execution_services == nullptr);
     const std::string config_fingerprint = config_fingerprint_for_profile(profile_config_dir, profile);
 
     if (command == "execute") {
@@ -562,12 +574,12 @@ int runner(
         if (!options.force
             && profile.settings.daily_limit
             && btrfsbackup::last_success_matches(
-                fs::path(profile.paths.state_dir) / "profiles" / profile.id,
+                profile_state_dir,
                 options.today,
                 profile.target.luks_uuid,
                 config_fingerprint
             )) {
-            write_skipped_status(profile, options, plan.sources.size());
+            write_skipped_status(profile, application_paths, options, plan.sources.size());
             output << Json{
                 {"schemaVersion", 1},
                 {"mode", "cpp-execute"},
@@ -589,8 +601,8 @@ int runner(
             source_names.emplace(source.id, source.name);
         }
         StatusBackupRunEventSink status_events({
-            .status_root = profile.paths.status_root,
-            .history_root = profile.paths.history_root,
+            .status_root = application_paths.status_root,
+            .history_root = application_paths.history_root,
             .profile_name = profile.name,
             .source_count = static_cast<int>(plan.sources.size()),
             .started_at = options.timestamp,
@@ -625,7 +637,7 @@ int runner(
         BackupRunExecutionResult result = executor.execute(plan, status_events, cancellation);
         btrfsbackup::clear_cancel_request(profile_state_dir);
         if (result.completed) {
-            write_success_state_for_run(profile, options, config_fingerprint, plan.sources.size());
+            write_success_state_for_run(profile, application_paths, options, config_fingerprint, plan.sources.size());
         }
 
         output << Json{
