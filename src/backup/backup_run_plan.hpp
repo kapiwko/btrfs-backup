@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 
+#include <backup/backup_run_action.hpp>
 #include <backup/incremental_parent.hpp>
 #include <platform/linux/mount_info.hpp>
 #include <backup/pending_recovery_plan.hpp>
@@ -15,21 +16,6 @@
 #include <backup/snapshot_inventory.hpp>
 
 namespace btrfsbackup {
-
-enum class BackupRunActionKind {
-    RecoverPending,
-    CleanupIncoming,
-    BeforeSnapshotHook,
-    CreateSnapshot,
-    AfterSnapshotHook,
-    SelectParent,
-    SendReceive,
-    VerifyReceived,
-    CommitReceived,
-    ApplyRemoteRetention,
-    ApplyLocalRetention,
-    CleanupSource,
-};
 
 struct BackupRunAction {
     BackupRunActionKind kind = BackupRunActionKind::CleanupSource;

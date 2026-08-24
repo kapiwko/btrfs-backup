@@ -2,7 +2,7 @@
 #include <string>
 #include <sys/stat.h>
 
-#include <backup/backup_run_persistence.hpp>
+#include <state/backup_run_persistence.hpp>
 #include <config/json_io.hpp>
 
 #include "support/test_helpers.hpp"
