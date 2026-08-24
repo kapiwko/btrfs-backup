@@ -123,6 +123,17 @@ void test_run_command_uses_environment_allowlist() {
     );
 }
 
+void test_run_command_limits_captured_output() {
+    btrfsbackup::CommandResult result = btrfsbackup::run_command({"seq", "1", "300000"});
+
+    test_helpers::expect_eq("default bounded command exit", std::to_string(result.exit_code), "0");
+    test_helpers::expect_eq(
+        "default bounded command output",
+        std::to_string(result.output.size()),
+        std::to_string(btrfsbackup::default_command_max_output_bytes)
+    );
+}
+
 void test_controlled_command_adds_explicit_backup_context() {
     btrfsbackup::CommandResult result = btrfsbackup::run_controlled_command(
         {"env"},
@@ -285,6 +296,7 @@ int main() {
     test_run_command_reports_missing_executable();
     test_run_command_ignores_untrusted_path();
     test_run_command_uses_environment_allowlist();
+    test_run_command_limits_captured_output();
     test_controlled_command_adds_explicit_backup_context();
     test_run_command_rejects_relative_program_path();
     test_run_command_rejects_empty_program();

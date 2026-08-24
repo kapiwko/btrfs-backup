@@ -3,22 +3,27 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <chrono>
 #include <cctype>
 #include <cstdlib>
 #include <filesystem>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
 #include <vector>
 
+#include <backup/target_mount_validation.hpp>
 #include <config/errors.hpp>
 #include <config/profile.hpp>
+#include <config/profile_loader.hpp>
 #include <config/validation.hpp>
+#include <platform/linux/command_runner.hpp>
 #include <platform/linux/device_info.hpp>
 #include <platform/linux/file_lock.hpp>
+#include <platform/linux/mount_info.hpp>
+#include <platform/linux/process.hpp>
 #include <platform/linux/trusted_directory.hpp>
-#include <config/profile_loader.hpp>
-#include <backup/target_mount_validation.hpp>
 
 namespace fs = std::filesystem;
 
@@ -48,6 +53,20 @@ void run_checked(
     const std::string& message
 ) {
     if (commands.run(argv).exit_code != 0) {
+        throw btrfsbackup::ValidationError(message);
+    }
+}
+
+void run_checked_controlled(
+    btrfsbackup::ICommandRunner& commands,
+    const std::vector<std::string>& argv,
+    const std::string& message,
+    std::chrono::milliseconds timeout
+) {
+    btrfsbackup::ControlledCommandOptions options;
+    options.timeout = timeout;
+    btrfsbackup::CommandResult result = commands.run_controlled(argv, options);
+    if (result.exit_code != 0 || result.timed_out || result.cancelled) {
         throw btrfsbackup::ValidationError(message);
     }
 }
@@ -227,7 +246,7 @@ TargetOperationResult eject_target(
     }
 
     result.events.push_back({.kind = TargetEventKind::Synchronizing, .detail = {}});
-    run_checked(*resolved.commands, {"sync"}, "sync failed");
+    run_checked_controlled(*resolved.commands, {"sync"}, "sync failed", std::chrono::minutes(5));
 
     std::vector<MountEntry> mounts = resolved.read_mounts();
     if (mount_at(mounts, profile.target.mount_point).has_value()) {
