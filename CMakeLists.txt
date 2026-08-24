@@ -52,6 +52,7 @@ add_library(btrfsbackup-system STATIC
     cpp/src/profile_loader.cpp
     cpp/src/process_spawn.cpp
     cpp/src/run_state.cpp
+    cpp/src/safe_directory_root.cpp
     cpp/src/space_check.cpp
     cpp/src/target_mount_validation.cpp
     cpp/src/trusted_file.cpp
@@ -182,6 +183,7 @@ if(BUILD_TESTING)
     add_btrfsbackup_test(btrfsbackup-device-info-tests cpp/tests/device_info_tests.cpp device-info-tests)
     add_btrfsbackup_test(btrfsbackup-status-history-tests cpp/tests/status_history_tests.cpp status-history-tests)
     add_btrfsbackup_test(btrfsbackup-run-state-tests cpp/tests/run_state_tests.cpp run-state-tests)
+    add_btrfsbackup_test(btrfsbackup-safe-directory-root-tests cpp/tests/safe_directory_root_tests.cpp safe-directory-root-tests)
     add_btrfsbackup_test(btrfsbackup-profile-command-tests cpp/tests/profile_command_tests.cpp profile-command-tests)
     add_btrfsbackup_test(btrfsbackup-installation-tests cpp/tests/installation_tests.cpp installation-tests)
     add_btrfsbackup_test(btrfsbackup-incremental-parent-tests cpp/tests/incremental_parent_tests.cpp incremental-parent-tests)

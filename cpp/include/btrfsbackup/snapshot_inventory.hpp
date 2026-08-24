@@ -50,6 +50,14 @@ std::vector<SnapshotInfo> list_snapshot_inventory(
     const SnapshotMetadataReader& metadata_reader
 );
 
+std::vector<SnapshotInfo> list_snapshot_inventory_at(
+    const std::filesystem::path& scan_directory,
+    const std::filesystem::path& reported_directory,
+    const std::string& source_id,
+    SnapshotSide side,
+    const SnapshotMetadataReader& metadata_reader
+);
+
 std::optional<SnapshotMetadata> read_btrfs_snapshot_metadata(const std::filesystem::path& path);
 
 } // namespace btrfsbackup

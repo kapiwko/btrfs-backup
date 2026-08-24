@@ -88,4 +88,33 @@ void commit_received_snapshot(
     }
 }
 
+void commit_received_snapshot_beneath(
+    IBtrfsOperations& btrfs,
+    const SafeDirectoryRoot& root,
+    const fs::path& received_path,
+    const fs::path& final_path,
+    const std::string& expected_received_uuid
+) {
+    if (root.exists(final_path)) {
+        throw ValidationError("Destination snapshot already exists: " + final_path.string());
+    }
+
+    btrfs.create_readonly_snapshot_beneath(root, received_path, root, final_path);
+    std::optional<SnapshotMetadata> committed = btrfs.read_snapshot_metadata_beneath(root, final_path);
+    if (!committed.has_value() || !uuid_equals(committed->received_uuid, expected_received_uuid)) {
+        const std::string verification_error =
+            "Committed snapshot Received UUID does not match the local snapshot UUID";
+        try {
+            btrfs.delete_subvolume_beneath(root, final_path);
+        } catch (const std::exception& cleanup_error) {
+            throw RecoveryRequiredError(
+                "repository.recovery_required",
+                verification_error + "; cleanup failed for " + final_path.string() + ": "
+                    + cleanup_error.what() + "; repository requires recovery"
+            );
+        }
+        throw ValidationError(verification_error);
+    }
+}
+
 } // namespace btrfsbackup

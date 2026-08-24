@@ -288,6 +288,20 @@ source_on_target_test() {
     pass 'runtime rejects a source on the backup target filesystem'
 }
 
+incoming_symlink_escape_test() {
+    local outside="$TEST_ROOT/incoming-escape-target"
+    local link="$TARGET_MOUNT/.incoming/home"
+
+    install -d -m0700 "$outside"
+    printf 'keep\n' > "$outside/sentinel"
+    ln -s -- "$outside" "$link"
+    expect_backup_failure 'Too many levels of symbolic links'
+    [[ "$(cat -- "$outside/sentinel")" == 'keep' ]] \
+        || fail 'incoming cleanup modified data outside the target repository'
+    rm -f -- "$link"
+    pass 'runtime rejects an incoming symlink escape without touching its target'
+}
+
 missing_incremental_parent_test() {
     local empty_local_dir="$SOURCE_MOUNT/.snapshots/empty-parent-check"
     local profile_backup="$TEST_ROOT/profile.parent-check.json.bak"
@@ -350,6 +364,7 @@ btrfs-backupctl target mount --profile default >/dev/null
 pass 'installed mount command validates the mounted target'
 with_restored_file "$PROFILE_JSON" target_uuid_mismatch_test
 source_on_target_test
+incoming_symlink_escape_test
 
 run_backup
 grep -q '"incremental": false' "$RUN_LOG" || fail 'full stream was not used for first backup'

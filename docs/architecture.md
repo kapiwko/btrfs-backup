@@ -163,4 +163,14 @@ Snapshot names are used for sorting and display. A parent is considered common o
 
 For each source, the runtime compares the Btrfs filesystem UUID and falls back to the device number if the UUID is unavailable. The source and local snapshot directory must belong to the same Btrfs filesystem, while the source and target must belong to different filesystems.
 
-`REMOTE_ROOT`, `INCOMING_ROOT`, and per-source target directories are canonicalized before writes. An existing symlink that escapes the expected target directory aborts the operation instead of writing outside the backup repository.
+Production filesystem effects are anchored by `SafeDirectoryRoot` descriptors.
+Each path component is opened with `openat2()` using `RESOLVE_BENEATH`,
+`RESOLVE_NO_SYMLINKS`, and `RESOLVE_NO_MAGICLINKS`. Directory creation,
+recursive incoming cleanup, recovery, retention, snapshot creation, metadata
+verification, and commit therefore operate beneath an already opened root
+rather than resolving an absolute pathname again. Btrfs subvolume deletion uses
+`BTRFS_IOC_SNAP_DESTROY` on the securely opened parent dirfd. A symbolic link in
+any repository or local-snapshot path component aborts the run. Snapshot
+inventory is scanned through pinned directory descriptors. `btrfs send` and
+`btrfs receive` inherit pinned descriptors for the snapshot, incremental parent,
+and receive directory and address them through `/proc/self/fd`.

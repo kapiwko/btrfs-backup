@@ -204,7 +204,8 @@ ProcessSpawnResult spawn_transfer_process(
     const std::vector<std::string>& argv,
     int stdin_fd,
     int stdout_fd,
-    int stderr_fd
+    int stderr_fd,
+    const std::vector<int>& inherited_fds
 ) {
     if (argv.empty()) {
         throw ValidationError("empty transfer command");
@@ -214,6 +215,7 @@ ProcessSpawnResult spawn_transfer_process(
         .stdout_fd = stdout_fd,
         .stderr_fd = stderr_fd,
         .create_process_group = true,
+        .inherited_fds = inherited_fds,
     });
 }
 
@@ -555,7 +557,8 @@ TransferResult PosixTransferPipeline::run(
         plan.producer_argv,
         dev_null.get(),
         data_pipe.write_end.get(),
-        producer_error_pipe.write_end.get()
+        producer_error_pipe.write_end.get(),
+        plan.inherited_fds
     );
     ChildProcess producer_process(
         producer_spawn.started() ? producer_spawn.pid : -1,
@@ -569,7 +572,8 @@ TransferResult PosixTransferPipeline::run(
         plan.consumer_argv,
         consumer_input_pipe.read_end.get(),
         dev_null.get(),
-        consumer_error_pipe.write_end.get()
+        consumer_error_pipe.write_end.get(),
+        plan.inherited_fds
     );
     ChildProcess consumer_process(
         consumer_spawn.started() ? consumer_spawn.pid : -1,
