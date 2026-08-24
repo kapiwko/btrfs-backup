@@ -101,19 +101,19 @@ install(
 
 if(BUILD_TESTING)
     find_program(
-        QMLSCENE_EXECUTABLE
-        NAMES qmlscene
+        QML_EXECUTABLE
+        NAMES qml
         PATHS /usr/lib/qt6/bin
         NO_DEFAULT_PATH
     )
-    find_program(QMLSCENE_EXECUTABLE NAMES qmlscene)
-    if(QMLSCENE_EXECUTABLE)
+    find_program(QML_EXECUTABLE NAMES qml)
+    if(QML_EXECUTABLE)
         add_test(
             NAME plasma-backend-qml-smoke
             COMMAND
                 ${CMAKE_COMMAND} -E env
                 QT_QPA_PLATFORM=offscreen
-                ${QMLSCENE_EXECUTABLE}
+                ${QML_EXECUTABLE}
                 -I ${CMAKE_BINARY_DIR}
                 ${CMAKE_CURRENT_SOURCE_DIR}/plasmoid/tests/backend-smoke.qml
         )
