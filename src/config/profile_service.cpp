@@ -1,6 +1,5 @@
 #include <config/profile_service.hpp>
 
-#include <algorithm>
 #include <set>
 
 #include <config/profile_store.hpp>

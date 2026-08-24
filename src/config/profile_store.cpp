@@ -1,7 +1,6 @@
 #include <config/profile_store.hpp>
 
 #include <filesystem>
-#include <string>
 #include <utility>
 
 #include <platform/linux/file_io.hpp>

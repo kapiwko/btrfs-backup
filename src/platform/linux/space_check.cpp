@@ -1,6 +1,5 @@
 #include <platform/linux/space_check.hpp>
 
-#include <limits>
 #include <system_error>
 
 #include <config/errors.hpp>
