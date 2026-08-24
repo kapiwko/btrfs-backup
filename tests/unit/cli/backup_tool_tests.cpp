@@ -190,7 +190,11 @@ void test_spawned_children_do_not_inherit_blocked_termination_signals() {
         "kill -TERM $$; printf survived",
     });
 
-    test_helpers::expect_eq("spawned child termination", std::to_string(result.exit_code), "128");
+    test_helpers::expect_eq(
+        "spawned child termination",
+        std::to_string(result.exit_code),
+        std::to_string(128 + SIGTERM)
+    );
     test_helpers::expect_true("spawned child did not survive", result.output.find("survived") == std::string::npos, "child inherited blocked SIGTERM");
 }
 
