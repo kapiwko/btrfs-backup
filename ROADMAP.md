@@ -139,8 +139,15 @@ retention, scheduling, power and transport failures. Add:
 Continue focused refactoring without another directory migration or behavioral
 rewrite:
 
-- reduce `BackupService` to orchestration over explicit ports and smaller use
-  cases;
+Completed foundation: `BackupService` is now a pure application service over
+explicit profile, mount, target, planner, run-factory, lock, state,
+cancellation-monitor, clock and run-id ports. Production and tests use the same
+constructor, while concrete
+Linux and file-backed adapters are assembled at the runner composition
+boundary.
+
+Continue with:
+
 - separate transfer supervision, progress, cancellation and process plumbing;
 - split broad effect and persistence components by owned responsibility;
 - preserve the `backup -> platform/linux` dependency direction through

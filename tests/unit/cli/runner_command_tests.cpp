@@ -20,11 +20,13 @@
 
 #include <cli/runner_command.hpp>
 #include <cli/backup_tool.hpp>
+#include <backup/backup_service_adapters.hpp>
 #include <state/config_fingerprint.hpp>
 #include <platform/linux/file_lock.hpp>
 #include <config/json.hpp>
 #include <config/json_io.hpp>
 #include <config/profile.hpp>
+#include <config/profile_loader.hpp>
 #include <state/run_state.hpp>
 
 #include "support/test_helpers.hpp"
@@ -315,6 +317,125 @@ void write_mountinfo(const fs::path& path, const btrfsbackup::Profile& profile) 
     test_helpers::write_file(path, content);
 }
 
+class FixedClock final : public btrfsbackup::IClock {
+  public:
+    std::string timestamp = "2026-08-23T080000Z";
+    std::string today = "2026-08-23";
+
+    std::string snapshot_timestamp() const override {
+        return timestamp;
+    }
+    std::string local_date() const override {
+        return today;
+    }
+    std::string local_timestamp() const override {
+        return "2026-08-23T08:00:00+02:00";
+    }
+};
+
+class FixedRunIdGenerator final : public btrfsbackup::IRunIdGenerator {
+  public:
+    btrfsbackup::RunId run_id{"20260823T080000Z-shadow"};
+    btrfsbackup::RunId generate(const std::string&) override {
+        return run_id;
+    }
+};
+
+struct ServiceFixture {
+    btrfsbackup::IBackupRunActionEffects& action_effects;
+    btrfsbackup::ITransferPipeline& transfer_pipeline;
+    fs::path lock_root;
+    btrfsbackup::ApplicationConfig application_config;
+    btrfsbackup::SnapshotMetadataReader snapshot_metadata_reader = nullptr;
+};
+
+std::string option_value(const std::vector<std::string>& args, const std::string& option, std::string fallback = {}) {
+    for (std::size_t index = 0; index + 1 < args.size(); ++index) {
+        if (args[index] == option) {
+            return args[index + 1];
+        }
+    }
+    return fallback;
+}
+
+std::string compact_test_timestamp(const std::string& timestamp) {
+    std::string result;
+    for (const char character : timestamp) {
+        if (character != '-' && character != ':') {
+            result.push_back(character);
+        }
+    }
+    return result;
+}
+
+int run_runner(
+    const fs::path& config_root,
+    const std::vector<std::string>& args,
+    std::ostream& output,
+    ServiceFixture* fixture,
+    btrfsbackup::CancellationToken* external_cancellation = nullptr
+) {
+    if (fixture == nullptr) {
+        return btrfsbackup::command::runner(config_root, args, output);
+    }
+    const btrfsbackup::ProfileId profile_id{option_value(args, "--profile", "default")};
+    const btrfsbackup::Profile profile = btrfsbackup::load_profile_by_id(config_root, profile_id.value);
+    const fs::path mountinfo = option_value(args, "--mountinfo", "/proc/self/mountinfo");
+    btrfsbackup::FileProfileRepository profiles(config_root, fixture->application_config);
+    btrfsbackup::MountTableInspector mounts(mountinfo, [target_uuid = profile.target.btrfs_uuid](const std::string& source) {
+        return source.find("/dev/mapper/") == 0 ? target_uuid : "source-btrfs-uuid";
+    });
+    btrfsbackup::PosixCommandRunner commands;
+    btrfsbackup::SystemdTargetManager target_manager(mounts, commands);
+    btrfsbackup::DefaultBackupPlanner planner(
+        fixture->snapshot_metadata_reader
+            ? fixture->snapshot_metadata_reader
+            : btrfsbackup::SnapshotMetadataReader{[](const fs::path&) {
+                  return std::optional<btrfsbackup::SnapshotMetadata>{};
+              }},
+        false
+    );
+    btrfsbackup::DefaultBackupRunFactory run_factory(
+        fixture->action_effects,
+        fixture->transfer_pipeline,
+        false
+    );
+    btrfsbackup::FileBackupLockManager locks(fixture->lock_root);
+    btrfsbackup::FileRunStateRepository state(fixture->application_config.paths());
+    btrfsbackup::FileCancellationMonitor cancellation_monitor(state);
+    FixedClock clock;
+    clock.timestamp = option_value(args, "--timestamp", clock.timestamp);
+    clock.today = option_value(args, "--today", clock.today);
+    FixedRunIdGenerator run_ids;
+    run_ids.run_id = btrfsbackup::RunId{option_value(
+        args,
+        "--run-id",
+        compact_test_timestamp(clock.timestamp) + "-shadow"
+    )};
+    btrfsbackup::CancellationToken owned_cancellation;
+    btrfsbackup::CancellationToken& cancellation = external_cancellation == nullptr
+        ? owned_cancellation
+        : *external_cancellation;
+    btrfsbackup::BackupService service(
+        profiles,
+        mounts,
+        target_manager,
+        planner,
+        run_factory,
+        locks,
+        state,
+        cancellation_monitor,
+        clock,
+        run_ids,
+        cancellation
+    );
+    return btrfsbackup::command::runner(args, output, service);
+}
+
+int run_runner(const fs::path& config_root, const std::vector<std::string>& args, std::ostream& output) {
+    return btrfsbackup::command::runner(config_root, args, output);
+}
+
 std::string profile_fingerprint(const fs::path& config_root, const btrfsbackup::Profile& profile) {
     return btrfsbackup::compute_config_fingerprint(
         "2.0.0",
@@ -353,7 +474,7 @@ void test_runner_plan_outputs_shadow_json() {
     write_mountinfo(mountinfo, profile);
 
     std::ostringstream output;
-    int result = btrfsbackup::command::runner(
+    int result = run_runner(
         config_root,
         {
             "plan",
@@ -408,29 +529,27 @@ void test_runner_plan_validates_target_mount() {
     write_mountinfo(mountinfo, profile);
 
     std::ostringstream output;
-    test_helpers::expect_validation_error("runner target uuid", [&] {
-        (void)btrfsbackup::command::runner(
-            config_root,
-            {
-                "plan",
-                "--profile",
-                "default",
-                "--timestamp",
-                "2026-08-23T080000Z",
-                "--run-id",
-                "20260823T080000Z-123-456",
-                "--mountinfo",
-                mountinfo.string(),
-                "--mount-uuid",
-                "/dev/source",
-                "source-fs",
-                "--mount-uuid",
-                "/dev/mapper/backup",
-                "99999999-9999-9999-9999-999999999999",
-            },
-            output
-        );
-    }, "Btrfs UUID mismatch");
+    test_helpers::expect_validation_error("runner target uuid", [&] { (void)run_runner(
+                                                                          config_root,
+                                                                          {
+                                                                              "plan",
+                                                                              "--profile",
+                                                                              "default",
+                                                                              "--timestamp",
+                                                                              "2026-08-23T080000Z",
+                                                                              "--run-id",
+                                                                              "20260823T080000Z-123-456",
+                                                                              "--mountinfo",
+                                                                              mountinfo.string(),
+                                                                              "--mount-uuid",
+                                                                              "/dev/source",
+                                                                              "source-fs",
+                                                                              "--mount-uuid",
+                                                                              "/dev/mapper/backup",
+                                                                              "99999999-9999-9999-9999-999999999999",
+                                                                          },
+                                                                          output
+                                                                      ); }, "Btrfs UUID mismatch");
 
     fs::remove_all(root);
 }
@@ -458,14 +577,14 @@ void test_runner_execute_rejects_busy_profile_before_target_access() {
 
     RecordingActionEffects action_effects;
     ConfigurableTransferPipeline transfer_pipeline;
-    btrfsbackup::command::RunnerExecutionServices services{
+    ServiceFixture services{
         .action_effects = action_effects,
         .transfer_pipeline = transfer_pipeline,
         .lock_root = lock_root,
         .application_config = btrfsbackup::ApplicationConfig(test_application_paths(root)),
     };
     std::ostringstream output;
-    int result = btrfsbackup::command::runner(
+    int result = run_runner(
         config_root,
         {
             "execute",
@@ -539,7 +658,7 @@ void test_runner_execute_serializes_shared_target_but_allows_another_target() {
 
     RecordingActionEffects active_action_effects;
     BlockingTransferPipeline active_transfer_pipeline;
-    btrfsbackup::command::RunnerExecutionServices active_services{
+    ServiceFixture active_services{
         .action_effects = active_action_effects,
         .transfer_pipeline = active_transfer_pipeline,
         .lock_root = lock_root,
@@ -550,7 +669,7 @@ void test_runner_execute_serializes_shared_target_but_allows_another_target() {
     std::exception_ptr active_error;
     std::thread active_runner([&] {
         try {
-            active_result = btrfsbackup::command::runner(
+            active_result = run_runner(
                 config_root,
                 {
                     "execute",
@@ -582,14 +701,14 @@ void test_runner_execute_serializes_shared_target_but_allows_another_target() {
 
     RecordingActionEffects same_profile_action_effects;
     ConfigurableTransferPipeline same_profile_transfer_pipeline;
-    btrfsbackup::command::RunnerExecutionServices same_profile_services{
+    ServiceFixture same_profile_services{
         .action_effects = same_profile_action_effects,
         .transfer_pipeline = same_profile_transfer_pipeline,
         .lock_root = lock_root,
         .application_config = btrfsbackup::ApplicationConfig(test_application_paths(root)),
     };
     std::ostringstream same_profile_output;
-    int same_profile_result = btrfsbackup::command::runner(
+    int same_profile_result = run_runner(
         config_root,
         {
             "execute",
@@ -620,14 +739,14 @@ void test_runner_execute_serializes_shared_target_but_allows_another_target() {
 
     RecordingActionEffects shared_action_effects;
     ConfigurableTransferPipeline shared_transfer_pipeline;
-    btrfsbackup::command::RunnerExecutionServices shared_services{
+    ServiceFixture shared_services{
         .action_effects = shared_action_effects,
         .transfer_pipeline = shared_transfer_pipeline,
         .lock_root = lock_root,
         .application_config = btrfsbackup::ApplicationConfig(test_application_paths(root)),
     };
     std::ostringstream shared_output;
-    int shared_result = btrfsbackup::command::runner(
+    int shared_result = run_runner(
         config_root,
         {
             "execute",
@@ -656,14 +775,14 @@ void test_runner_execute_serializes_shared_target_but_allows_another_target() {
 
     RecordingActionEffects other_action_effects;
     ConfigurableTransferPipeline other_transfer_pipeline;
-    btrfsbackup::command::RunnerExecutionServices other_services{
+    ServiceFixture other_services{
         .action_effects = other_action_effects,
         .transfer_pipeline = other_transfer_pipeline,
         .lock_root = lock_root,
         .application_config = btrfsbackup::ApplicationConfig(test_application_paths(root)),
     };
     std::ostringstream other_output;
-    int other_result = btrfsbackup::command::runner(
+    int other_result = run_runner(
         config_root,
         {
             "execute",
@@ -718,7 +837,7 @@ void test_runner_execute_uses_injected_services_and_writes_state() {
 
     RecordingActionEffects action_effects;
     ConfigurableTransferPipeline transfer_pipeline;
-    btrfsbackup::command::RunnerExecutionServices services{
+    ServiceFixture services{
         .action_effects = action_effects,
         .transfer_pipeline = transfer_pipeline,
         .lock_root = root / "locks",
@@ -726,7 +845,7 @@ void test_runner_execute_uses_injected_services_and_writes_state() {
     };
 
     std::ostringstream output;
-    int result = btrfsbackup::command::runner(
+    int result = run_runner(
         config_root,
         {
             "execute",
@@ -802,7 +921,7 @@ void test_runner_execute_daily_limit_skips_matching_success() {
 
     RecordingActionEffects action_effects;
     ConfigurableTransferPipeline transfer_pipeline;
-    btrfsbackup::command::RunnerExecutionServices services{
+    ServiceFixture services{
         .action_effects = action_effects,
         .transfer_pipeline = transfer_pipeline,
         .lock_root = root / "locks",
@@ -810,7 +929,7 @@ void test_runner_execute_daily_limit_skips_matching_success() {
     };
 
     std::ostringstream output;
-    int result = btrfsbackup::command::runner(
+    int result = run_runner(
         config_root,
         {
             "execute",
@@ -876,7 +995,7 @@ void test_runner_execute_force_ignores_daily_limit() {
 
     RecordingActionEffects action_effects;
     ConfigurableTransferPipeline transfer_pipeline;
-    btrfsbackup::command::RunnerExecutionServices services{
+    ServiceFixture services{
         .action_effects = action_effects,
         .transfer_pipeline = transfer_pipeline,
         .lock_root = root / "locks",
@@ -884,7 +1003,7 @@ void test_runner_execute_force_ignores_daily_limit() {
     };
 
     std::ostringstream output;
-    int result = btrfsbackup::command::runner(
+    int result = run_runner(
         config_root,
         {
             "execute",
@@ -935,7 +1054,7 @@ void test_runner_execute_validate_builds_plan_without_effects() {
 
     RecordingActionEffects action_effects;
     ConfigurableTransferPipeline transfer_pipeline;
-    btrfsbackup::command::RunnerExecutionServices services{
+    ServiceFixture services{
         .action_effects = action_effects,
         .transfer_pipeline = transfer_pipeline,
         .lock_root = root / "locks",
@@ -943,7 +1062,7 @@ void test_runner_execute_validate_builds_plan_without_effects() {
     };
 
     std::ostringstream output;
-    int result = btrfsbackup::command::runner(
+    int result = run_runner(
         config_root,
         {
             "execute",
@@ -995,7 +1114,7 @@ void test_runner_execute_transfer_failure_writes_failed_status() {
     ConfigurableTransferPipeline transfer_pipeline;
     transfer_pipeline.next_result.producer.exit_code = 7;
     transfer_pipeline.next_result.producer.diagnostics = "send failed";
-    btrfsbackup::command::RunnerExecutionServices services{
+    ServiceFixture services{
         .action_effects = action_effects,
         .transfer_pipeline = transfer_pipeline,
         .lock_root = root / "locks",
@@ -1003,30 +1122,28 @@ void test_runner_execute_transfer_failure_writes_failed_status() {
     };
 
     std::ostringstream output;
-    test_helpers::expect_validation_error("execute transfer failure", [&] {
-        (void)btrfsbackup::command::runner(
-            config_root,
-            {
-                "execute",
-                "--profile",
-                "default",
-                "--timestamp",
-                "2026-08-23T080000Z",
-                "--run-id",
-                "20260823T080000Z-123-456",
-                "--mountinfo",
-                mountinfo.string(),
-                "--mount-uuid",
-                "/dev/source",
-                "source-fs",
-                "--mount-uuid",
-                "/dev/mapper/backup",
-                profile.target.btrfs_uuid,
-            },
-            output,
-            &services
-        );
-    }, "producer failed with exit code 7");
+    test_helpers::expect_validation_error("execute transfer failure", [&] { (void)run_runner(
+                                                                                config_root,
+                                                                                {
+                                                                                    "execute",
+                                                                                    "--profile",
+                                                                                    "default",
+                                                                                    "--timestamp",
+                                                                                    "2026-08-23T080000Z",
+                                                                                    "--run-id",
+                                                                                    "20260823T080000Z-123-456",
+                                                                                    "--mountinfo",
+                                                                                    mountinfo.string(),
+                                                                                    "--mount-uuid",
+                                                                                    "/dev/source",
+                                                                                    "source-fs",
+                                                                                    "--mount-uuid",
+                                                                                    "/dev/mapper/backup",
+                                                                                    profile.target.btrfs_uuid,
+                                                                                },
+                                                                                output,
+                                                                                &services
+                                                                            ); }, "producer failed with exit code 7");
 
     fs::path checkpoint = root / "state" / "profiles" / "default" / "checkpoint.json";
     fs::path current = root / "status" / "default" / "current.json";
@@ -1075,7 +1192,7 @@ void test_runner_execute_commit_failure_writes_failed_status() {
     action_effects.should_throw = true;
     action_effects.throw_on = btrfsbackup::BackupRunActionKind::CommitReceived;
     ConfigurableTransferPipeline transfer_pipeline;
-    btrfsbackup::command::RunnerExecutionServices services{
+    ServiceFixture services{
         .action_effects = action_effects,
         .transfer_pipeline = transfer_pipeline,
         .lock_root = root / "locks",
@@ -1083,30 +1200,28 @@ void test_runner_execute_commit_failure_writes_failed_status() {
     };
 
     std::ostringstream output;
-    test_helpers::expect_validation_error("execute commit failure", [&] {
-        (void)btrfsbackup::command::runner(
-            config_root,
-            {
-                "execute",
-                "--profile",
-                "default",
-                "--timestamp",
-                "2026-08-23T080000Z",
-                "--run-id",
-                "20260823T080000Z-123-456",
-                "--mountinfo",
-                mountinfo.string(),
-                "--mount-uuid",
-                "/dev/source",
-                "source-fs",
-                "--mount-uuid",
-                "/dev/mapper/backup",
-                profile.target.btrfs_uuid,
-            },
-            output,
-            &services
-        );
-    }, "injected action failure");
+    test_helpers::expect_validation_error("execute commit failure", [&] { (void)run_runner(
+                                                                              config_root,
+                                                                              {
+                                                                                  "execute",
+                                                                                  "--profile",
+                                                                                  "default",
+                                                                                  "--timestamp",
+                                                                                  "2026-08-23T080000Z",
+                                                                                  "--run-id",
+                                                                                  "20260823T080000Z-123-456",
+                                                                                  "--mountinfo",
+                                                                                  mountinfo.string(),
+                                                                                  "--mount-uuid",
+                                                                                  "/dev/source",
+                                                                                  "source-fs",
+                                                                                  "--mount-uuid",
+                                                                                  "/dev/mapper/backup",
+                                                                                  profile.target.btrfs_uuid,
+                                                                              },
+                                                                              output,
+                                                                              &services
+                                                                          ); }, "injected action failure");
 
     fs::path checkpoint = root / "state" / "profiles" / "default" / "checkpoint.json";
     fs::path current = root / "status" / "default" / "current.json";
@@ -1147,7 +1262,7 @@ void test_runner_execute_verify_failure_writes_failed_status() {
     action_effects.should_throw = true;
     action_effects.throw_on = btrfsbackup::BackupRunActionKind::VerifyReceived;
     ConfigurableTransferPipeline transfer_pipeline;
-    btrfsbackup::command::RunnerExecutionServices services{
+    ServiceFixture services{
         .action_effects = action_effects,
         .transfer_pipeline = transfer_pipeline,
         .lock_root = root / "locks",
@@ -1155,30 +1270,28 @@ void test_runner_execute_verify_failure_writes_failed_status() {
     };
 
     std::ostringstream output;
-    test_helpers::expect_validation_error("execute verify failure", [&] {
-        (void)btrfsbackup::command::runner(
-            config_root,
-            {
-                "execute",
-                "--profile",
-                "default",
-                "--timestamp",
-                "2026-08-23T080000Z",
-                "--run-id",
-                "20260823T080000Z-123-456",
-                "--mountinfo",
-                mountinfo.string(),
-                "--mount-uuid",
-                "/dev/source",
-                "source-fs",
-                "--mount-uuid",
-                "/dev/mapper/backup",
-                profile.target.btrfs_uuid,
-            },
-            output,
-            &services
-        );
-    }, "injected action failure");
+    test_helpers::expect_validation_error("execute verify failure", [&] { (void)run_runner(
+                                                                              config_root,
+                                                                              {
+                                                                                  "execute",
+                                                                                  "--profile",
+                                                                                  "default",
+                                                                                  "--timestamp",
+                                                                                  "2026-08-23T080000Z",
+                                                                                  "--run-id",
+                                                                                  "20260823T080000Z-123-456",
+                                                                                  "--mountinfo",
+                                                                                  mountinfo.string(),
+                                                                                  "--mount-uuid",
+                                                                                  "/dev/source",
+                                                                                  "source-fs",
+                                                                                  "--mount-uuid",
+                                                                                  "/dev/mapper/backup",
+                                                                                  profile.target.btrfs_uuid,
+                                                                              },
+                                                                              output,
+                                                                              &services
+                                                                          ); }, "injected action failure");
 
     fs::path checkpoint = root / "state" / "profiles" / "default" / "checkpoint.json";
     fs::path current = root / "status" / "default" / "current.json";
@@ -1221,7 +1334,7 @@ void test_runner_execute_multi_source_success() {
 
     RecordingActionEffects action_effects;
     ConfigurableTransferPipeline transfer_pipeline;
-    btrfsbackup::command::RunnerExecutionServices services{
+    ServiceFixture services{
         .action_effects = action_effects,
         .transfer_pipeline = transfer_pipeline,
         .lock_root = root / "locks",
@@ -1229,7 +1342,7 @@ void test_runner_execute_multi_source_success() {
     };
 
     std::ostringstream output;
-    int result = btrfsbackup::command::runner(
+    int result = run_runner(
         config_root,
         {
             "execute",
@@ -1298,7 +1411,7 @@ void test_runner_execute_incremental_uses_selected_parent() {
 
     RecordingActionEffects action_effects;
     ConfigurableTransferPipeline transfer_pipeline;
-    btrfsbackup::command::RunnerExecutionServices services{
+    ServiceFixture services{
         .action_effects = action_effects,
         .transfer_pipeline = transfer_pipeline,
         .lock_root = root / "locks",
@@ -1309,7 +1422,7 @@ void test_runner_execute_incremental_uses_selected_parent() {
     };
 
     std::ostringstream output;
-    int result = btrfsbackup::command::runner(
+    int result = run_runner(
         config_root,
         {
             "execute",
@@ -1379,7 +1492,7 @@ void test_runner_execute_retention_plans_local_and_remote_deletes() {
 
     RecordingActionEffects action_effects;
     ConfigurableTransferPipeline transfer_pipeline;
-    btrfsbackup::command::RunnerExecutionServices services{
+    ServiceFixture services{
         .action_effects = action_effects,
         .transfer_pipeline = transfer_pipeline,
         .lock_root = root / "locks",
@@ -1390,7 +1503,7 @@ void test_runner_execute_retention_plans_local_and_remote_deletes() {
     };
 
     std::ostringstream output;
-    int result = btrfsbackup::command::runner(
+    int result = run_runner(
         config_root,
         {
             "execute",
@@ -1463,7 +1576,7 @@ void test_runner_execute_pending_recovery_deletes_orphan() {
 
     RecordingActionEffects action_effects;
     ConfigurableTransferPipeline transfer_pipeline;
-    btrfsbackup::command::RunnerExecutionServices services{
+    ServiceFixture services{
         .action_effects = action_effects,
         .transfer_pipeline = transfer_pipeline,
         .lock_root = root / "locks",
@@ -1474,7 +1587,7 @@ void test_runner_execute_pending_recovery_deletes_orphan() {
     };
 
     std::ostringstream output;
-    int result = btrfsbackup::command::runner(
+    int result = run_runner(
         config_root,
         {
             "execute",
@@ -1518,7 +1631,7 @@ void test_runner_cancel_writes_cancel_request_without_target_mount() {
     write_application_config(config_root, root);
 
     std::ostringstream output;
-    int result = btrfsbackup::command::runner(
+    int result = run_runner(
         config_root,
         {
             "cancel",
@@ -1559,7 +1672,7 @@ void test_runner_execute_honors_cancel_request_during_transfer() {
     ConfigurableTransferPipeline transfer_pipeline;
     fs::path profile_state_dir = root / "state" / "profiles" / "default";
     transfer_pipeline.request_cancel_path = profile_state_dir;
-    btrfsbackup::command::RunnerExecutionServices services{
+    ServiceFixture services{
         .action_effects = action_effects,
         .transfer_pipeline = transfer_pipeline,
         .lock_root = root / "locks",
@@ -1567,7 +1680,7 @@ void test_runner_execute_honors_cancel_request_during_transfer() {
     };
 
     std::ostringstream output;
-    int result = btrfsbackup::command::runner(
+    int result = run_runner(
         config_root,
         {
             "execute",
@@ -1626,7 +1739,7 @@ void test_runner_execute_handles_sigint_as_cancelled_with_recovery_marker() {
     action_effects.write_pending_on_snapshot = true;
     action_effects.pending_state_dir = profile_state_dir;
     CancellationAwareTransferPipeline transfer_pipeline;
-    btrfsbackup::command::RunnerExecutionServices services{
+    ServiceFixture services{
         .action_effects = action_effects,
         .transfer_pipeline = transfer_pipeline,
         .lock_root = root / "locks",
@@ -1639,7 +1752,7 @@ void test_runner_execute_handles_sigint_as_cancelled_with_recovery_marker() {
     std::exception_ptr runner_error;
     std::thread runner([&] {
         try {
-            result = btrfsbackup::command::runner(
+            result = run_runner(
                 config_root,
                 {
                     "execute",
