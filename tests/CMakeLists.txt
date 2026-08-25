@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Kamil Piwowarski <kapiwko@gmail.com>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 function(add_btrfsbackup_test target source test_name)
     add_executable(${target} ${source})
     target_include_directories(${target} PRIVATE ${PROJECT_SOURCE_DIR}/tests)

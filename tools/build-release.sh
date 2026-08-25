@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 Kamil Piwowarski <kapiwko@gmail.com>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 set -Eeuo pipefail
 shopt -s nullglob
 export LC_ALL=C.UTF-8
@@ -238,10 +243,10 @@ copy_source_tree() {
     local destination="$1"
     install -d -m0755 "$destination"
     local entry
-    for entry in apps data docs integrations packaging src tests tools; do
+    for entry in LICENSES apps data docs integrations packaging src tests tools; do
         cp -a -- "$ROOT/$entry" "$destination/"
     done
-    for entry in VERSION README.md CHANGELOG.md TODO.md LICENSE .gitignore CMakeLists.txt Makefile; do
+    for entry in VERSION README.md CHANGELOG.md TODO.md LICENSE REUSE.toml .gitignore CMakeLists.txt Makefile; do
         cp -a -- "$ROOT/$entry" "$destination/"
     done
 
