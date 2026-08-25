@@ -152,8 +152,7 @@ rewrite:
   domain outcomes where failure is expected;
 - enforce minimal CMake link interfaces and keep model targets free of Linux,
   JSON and UI dependencies;
-- add clang-format, clang-tidy, ASan, UBSan and compiler-matrix gates after
-  establishing repository-wide baselines.
+- add ASan, UBSan and compiler-matrix gates after establishing clean baselines.
 
 Refactors must preserve public CLI, profile, status, history, recovery and
 package contracts and pass the real-Btrfs regression suite when storage
@@ -185,18 +184,17 @@ coverage.
 
 Bring contributor and release governance up to the level of the runtime:
 
-- add `CONTRIBUTING.md`, issue forms and a pull-request template with explicit
-  security/recovery test prompts;
-- add a root `SECURITY.md` vulnerability-reporting policy and supported-version
-  table, separate from the technical security model;
 - publish a tested platform support matrix and distinguish native packages from
   best-effort packaging templates;
-- run GCC, Clang, format, static analysis, sanitizers and CodeQL as appropriate
-  pull-request gates;
+- add CodeQL as an appropriate pull-request gate;
+- validate pull-request titles against the documented Conventional Commits
+  types and scopes, without adding a runtime dependency;
 - pin GitHub Actions by commit, enable Dependabot for Actions and review
   workflow permissions;
 - automate tagged releases only after verifying `VERSION`, changelog, tests,
   reproducibility, checksums and artifact inventory;
+- derive changelog, release-note and SemVer automation from Conventional
+  Commits only after the title policy has remained stable in normal use;
 - add signed checksums or artifact attestations/provenance;
 - provide man pages and Bash, Zsh and Fish completions;
 - document development versus stable versions clearly;

@@ -1,0 +1,36 @@
+name: Documentation issue
+description: Report missing, incorrect, or unclear project documentation.
+title: "[Docs]: "
+labels:
+  - documentation
+body:
+  - type: input
+    id: location
+    attributes:
+      label: Document or section
+      description: Link the file, heading, command help, or package documentation.
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What is incorrect or unclear?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed
+    attributes:
+      label: Suggested correction
+      description: Include the expected behavior or wording when known.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I checked the current README and focused documents under docs/.
+          required: true
+        - label: This report contains no secrets or private backup data.
+          required: true

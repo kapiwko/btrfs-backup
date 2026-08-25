@@ -1,0 +1,19 @@
+---
+Checks: >
+  -*,
+  clang-analyzer-core.*,
+  clang-analyzer-cplusplus.*,
+  clang-analyzer-deadcode.DeadStores,
+  clang-analyzer-security.*,
+  clang-analyzer-unix.*,
+  bugprone-infinite-loop,
+  bugprone-posix-return,
+  bugprone-string-integer-assignment,
+  bugprone-suspicious-memset-usage,
+  bugprone-unused-raii,
+  bugprone-use-after-move,
+  performance-move-const-arg
+WarningsAsErrors: '*'
+HeaderFilterRegex: '.*/(apps|src)/.*'
+FormatStyle: file
+...
