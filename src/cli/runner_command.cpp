@@ -13,6 +13,13 @@
 #include <string>
 #include <vector>
 
+#include <backup/backup_run_action_effects.hpp>
+#include <backup/backup_run.hpp>
+#include <backup/backup_service_adapters.hpp>
+#include <platform/linux/btrfs_operations.hpp>
+#include <platform/linux/command_runner.hpp>
+#include <platform/linux/file_lock.hpp>
+#include <platform/linux/filesystem.hpp>
 #include <config/json.hpp>
 
 namespace fs = std::filesystem;
@@ -48,6 +55,16 @@ std::string current_local_date() {
     localtime_r(&time, &tm);
     std::ostringstream out;
     out << std::put_time(&tm, "%Y-%m-%d");
+    return out.str();
+}
+
+std::string current_local_iso_timestamp() {
+    auto now = std::chrono::system_clock::now();
+    std::time_t time = std::chrono::system_clock::to_time_t(now);
+    std::tm tm{};
+    localtime_r(&time, &tm);
+    std::ostringstream out;
+    out << std::put_time(&tm, "%Y-%m-%dT%H:%M:%S%z");
     return out.str();
 }
 
@@ -165,43 +182,159 @@ void usage() {
               << "  cancel --profile ID\n";
 }
 
-btrfsbackup::BackupRequest parse_request(
+struct ParsedRunnerCommand {
+    btrfsbackup::BackupRequest request;
+    fs::path mountinfo = "/proc/self/mountinfo";
+    std::map<std::string, std::string> mount_uuid_overrides;
+    std::string timestamp = current_utc_timestamp();
+    std::string today = current_local_date();
+    btrfsbackup::RunId run_id;
+};
+
+ParsedRunnerCommand parse_request(
     const fs::path& profile_config_dir,
     const std::string& command,
     const std::vector<std::string>& args
 ) {
-    btrfsbackup::BackupRequest request;
-    request.profile_config_dir = profile_config_dir;
-    request.timestamp = current_utc_timestamp();
-    request.today = current_local_date();
+    (void)profile_config_dir;
+    ParsedRunnerCommand parsed;
     for (std::size_t i = 1; i < args.size(); ++i) {
         const std::string& arg = args.at(i);
         if (arg == "--profile") {
-            request.profile_id = btrfsbackup::ProfileId{arg_value(args, i, arg)};
+            parsed.request.profile_id = btrfsbackup::ProfileId{arg_value(args, i, arg)};
         } else if (arg == "--timestamp") {
-            request.timestamp = arg_value(args, i, arg);
+            parsed.timestamp = arg_value(args, i, arg);
         } else if (arg == "--run-id") {
-            request.run_id = btrfsbackup::RunId{arg_value(args, i, arg)};
+            parsed.run_id = btrfsbackup::RunId{arg_value(args, i, arg)};
         } else if (arg == "--today") {
-            request.today = arg_value(args, i, arg);
+            parsed.today = arg_value(args, i, arg);
         } else if (arg == "--mountinfo") {
-            request.mountinfo = arg_value(args, i, arg);
+            parsed.mountinfo = arg_value(args, i, arg);
         } else if (arg == "--mount-uuid") {
             std::string source = arg_value(args, i, arg);
-            request.mount_uuid_overrides[source] = arg_value(args, i, arg);
+            parsed.mount_uuid_overrides[source] = arg_value(args, i, arg);
         } else if (arg == "--force") {
-            request.force = true;
+            parsed.request.force = true;
         } else if (arg == "--validate") {
-            request.validate_only = true;
+            parsed.request.validate_only = true;
         } else {
             fail("unknown " + command + " option: " + arg);
         }
     }
-    if (request.run_id.value.empty()) {
-        request.run_id = btrfsbackup::RunId{compact_timestamp(request.timestamp) + "-shadow"};
+    if (parsed.run_id.value.empty()) {
+        parsed.run_id = btrfsbackup::RunId{compact_timestamp(parsed.timestamp) + "-shadow"};
     }
-    return request;
+    return parsed;
 }
+
+class CommandClock final : public btrfsbackup::IClock {
+  public:
+    CommandClock(std::string timestamp, std::string today)
+        : timestamp_(std::move(timestamp)), today_(std::move(today)) {
+    }
+
+    std::string snapshot_timestamp() const override {
+        return timestamp_;
+    }
+    std::string local_date() const override {
+        return today_;
+    }
+    std::string local_timestamp() const override {
+        return current_local_iso_timestamp();
+    }
+
+  private:
+    std::string timestamp_;
+    std::string today_;
+};
+
+class CommandRunIdGenerator final : public btrfsbackup::IRunIdGenerator {
+  public:
+    explicit CommandRunIdGenerator(btrfsbackup::RunId run_id) : run_id_(std::move(run_id)) {
+    }
+
+    btrfsbackup::RunId generate(const std::string&) override {
+        return run_id_;
+    }
+
+  private:
+    btrfsbackup::RunId run_id_;
+};
+
+class PosixBackupRunFactory final : public btrfsbackup::IBackupRunFactory {
+  public:
+    PosixBackupRunFactory(
+        btrfsbackup::IBtrfsOperations& btrfs,
+        btrfsbackup::IFileSystem& filesystem,
+        btrfsbackup::ICommandRunner& commands,
+        btrfsbackup::ITransferPipeline& transfers
+    ) : btrfs_(btrfs), filesystem_(filesystem), commands_(commands), transfers_(transfers) {
+    }
+
+    btrfsbackup::BackupRunExecutionResult execute(
+        btrfsbackup::BackupRunPlan plan,
+        btrfsbackup::IBackupRunEventSink& events,
+        btrfsbackup::IBackupRunCheckpointStore& checkpoints,
+        btrfsbackup::CancellationToken& cancellation
+    ) override {
+        btrfsbackup::BackupRunActionEffects effects(
+            btrfs_,
+            filesystem_,
+            commands_,
+            plan.target_mount_point
+        );
+        btrfsbackup::ThreadedAsyncTransferPipeline async_transfers(transfers_);
+        btrfsbackup::BackupRun run(std::move(plan), effects, async_transfers, checkpoints);
+        return run.execute(events, cancellation);
+    }
+
+  private:
+    btrfsbackup::IBtrfsOperations& btrfs_;
+    btrfsbackup::IFileSystem& filesystem_;
+    btrfsbackup::ICommandRunner& commands_;
+    btrfsbackup::ITransferPipeline& transfers_;
+};
+
+class ProductionBackupComposition {
+  public:
+    ProductionBackupComposition(
+        const fs::path& config_root,
+        const ParsedRunnerCommand& parsed,
+        btrfsbackup::CancellationToken& cancellation
+    )
+        : config_(btrfsbackup::ApplicationConfig::load(config_root)),
+          profiles_(config_root, config_),
+          mounts_(parsed.mountinfo, [&parsed](const std::string& source) {
+              const auto found = parsed.mount_uuid_overrides.find(source);
+              return found == parsed.mount_uuid_overrides.end()
+                  ? btrfsbackup::blkid_filesystem_uuid(source)
+                  : found->second;
+          }),
+          target_manager_(mounts_, commands_), planner_(btrfsbackup::read_btrfs_snapshot_metadata), run_factory_(btrfs_, filesystem_, commands_, transfers_), locks_(btrfsbackup::default_lock_root()), state_(config_.paths()), cancellation_monitor_(state_), clock_(parsed.timestamp, parsed.today), run_ids_(parsed.run_id), service_(profiles_, mounts_, target_manager_, planner_, run_factory_, locks_, state_, cancellation_monitor_, clock_, run_ids_, cancellation) {
+    }
+
+    btrfsbackup::BackupService& service() {
+        return service_;
+    }
+
+  private:
+    btrfsbackup::ApplicationConfig config_;
+    btrfsbackup::FileProfileRepository profiles_;
+    btrfsbackup::MountTableInspector mounts_;
+    btrfsbackup::PosixCommandRunner commands_;
+    btrfsbackup::SystemdTargetManager target_manager_;
+    btrfsbackup::DefaultBackupPlanner planner_;
+    btrfsbackup::LibBtrfsOperations btrfs_;
+    btrfsbackup::PosixFileSystem filesystem_;
+    btrfsbackup::PosixTransferPipeline transfers_;
+    PosixBackupRunFactory run_factory_;
+    btrfsbackup::FileBackupLockManager locks_;
+    btrfsbackup::FileRunStateRepository state_;
+    btrfsbackup::FileCancellationMonitor cancellation_monitor_;
+    CommandClock clock_;
+    CommandRunIdGenerator run_ids_;
+    btrfsbackup::BackupService service_;
+};
 
 int print_execution_result(const btrfsbackup::BackupExecutionResult& result, std::ostream& output) {
     using btrfsbackup::BackupExecutionOutcome;
@@ -257,11 +390,9 @@ int print_execution_result(const btrfsbackup::BackupExecutionResult& result, std
 namespace btrfsbackup::command {
 
 int runner(
-    const fs::path& profile_config_dir,
     const std::vector<std::string>& args,
     std::ostream& output,
-    RunnerExecutionServices* execution_services,
-    CancellationToken* external_cancellation
+    BackupService& service
 ) {
     if (args.empty()) {
         usage();
@@ -276,13 +407,9 @@ int runner(
         fail("unknown command: " + command);
     }
 
-    BackupRequest request = parse_request(profile_config_dir, command, args);
+    const BackupRequest request = parse_request({}, command, args).request;
     if (command == "cancel") {
-        CancelBackupResult result = cancel_backup(
-            profile_config_dir,
-            request.profile_id,
-            execution_services
-        );
+        CancelBackupResult result = service.cancel(request.profile_id);
         output << Json{
             {"schemaVersion", 1},
             {"mode", "cpp-cancel"},
@@ -292,7 +419,7 @@ int runner(
         return 0;
     }
     if (command == "plan") {
-        BackupRunPlan plan = plan_backup(request, execution_services);
+        BackupRunPlan plan = service.plan(request);
         output << Json{
             {"schemaVersion", 1},
             {"mode", "shadow-plan"},
@@ -302,14 +429,34 @@ int runner(
         }.dump(2) << '\n';
         return 0;
     }
-    return print_execution_result(
-        start_backup(request, execution_services, external_cancellation),
-        output
-    );
+    return print_execution_result(service.start(request), output);
 }
 
 int runner(const fs::path& profile_config_dir, const std::vector<std::string>& args, std::ostream& output) {
-    return runner(profile_config_dir, args, output, nullptr);
+    CancellationToken cancellation;
+    return runner(profile_config_dir, args, output, cancellation);
+}
+
+int runner(
+    const fs::path& profile_config_dir,
+    const std::vector<std::string>& args,
+    std::ostream& output,
+    CancellationToken& cancellation
+) {
+    if (args.empty()) {
+        usage();
+        return 2;
+    }
+    if (args.front() == "-h" || args.front() == "--help") {
+        usage();
+        return 0;
+    }
+    if (args.front() != "plan" && args.front() != "execute" && args.front() != "cancel") {
+        fail("unknown command: " + args.front());
+    }
+    const ParsedRunnerCommand parsed = parse_request(profile_config_dir, args.front(), args);
+    ProductionBackupComposition composition(profile_config_dir, parsed, cancellation);
+    return runner(args, output, composition.service());
 }
 
 } // namespace btrfsbackup::command

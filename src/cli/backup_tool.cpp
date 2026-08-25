@@ -116,7 +116,10 @@ int backup_tool(
     auto runner = services != nullptr && services->runner
         ? services->runner
         : [&](const std::vector<std::string>& runner_args, std::ostream& runner_output) {
-              return command::runner(profile_config_dir, runner_args, runner_output, nullptr, cancellation);
+              if (cancellation != nullptr) {
+                  return command::runner(profile_config_dir, runner_args, runner_output, *cancellation);
+              }
+              return command::runner(profile_config_dir, runner_args, runner_output);
           };
     auto target = services != nullptr && services->target
         ? services->target

@@ -100,7 +100,26 @@ filesystem adapters.
   exit-code mapping. Reusable orchestration must remain outside this target.
 - `daemon` owns the versioned read-only D-Bus adapter and sanitization boundary.
   It observes file-backed state and never owns runner execution.
-- `apps` owns only process entry points and dependency composition.
+- `apps` owns only process entry points. The CLI runner adapter performs
+  dependency composition after resolving its configuration and diagnostic
+  options.
+
+## Backup Application Service
+
+`BackupService` is an application service over explicit ports. Profile loading,
+mount inspection and activation, planning, run construction, locking, runtime
+state, cancellation monitoring, clocks, and run-id generation are constructor
+dependencies. Its public
+`BackupRequest` carries only operation intent (`profileId`, `force`, and
+`validateOnly`); filesystem paths, mount-table overrides, timestamps, and test
+fixtures are adapter configuration rather than domain input.
+
+The runner CLI is the composition boundary for the backup use case because it
+resolves the selected configuration root and the diagnostic `plan` overrides.
+It constructs the Linux and file-backed adapters and then invokes the same
+`BackupService` constructor used by tests. The service itself does not select
+between production and test behavior and does not instantiate `Posix*`,
+`LibBtrfsOperations`, or JSON persistence implementations.
 
 ## Rules
 

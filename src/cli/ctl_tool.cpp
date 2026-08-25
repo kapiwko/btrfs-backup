@@ -110,7 +110,7 @@ int ctl_tool_main(int argc, char** argv) {
         } else if (command == "runner") {
             CancellationToken cancellation;
             TerminationSignalMonitor termination_signals(cancellation);
-            return command::runner(profile_config_dir, args, std::cout, nullptr, &cancellation);
+            return command::runner(profile_config_dir, args, std::cout, cancellation);
         } else if (command == "target") {
             return command::target(profile_config_dir, args, std::cout);
         } else if (command == "-h" || command == "--help") {
