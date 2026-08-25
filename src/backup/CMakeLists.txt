@@ -17,6 +17,7 @@ add_library(btrfsbackup-backup STATIC
     backup_run_executor.cpp
     backup_run_plan.cpp
     backup_service.cpp
+    backup_service_adapters.cpp
     incremental_parent.cpp
     pending_recovery_plan.cpp
     snapshot_transfer.cpp
