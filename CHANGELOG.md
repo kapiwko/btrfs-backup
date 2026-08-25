@@ -19,8 +19,9 @@
 7. public run-status schema version 3 removes `safeToRemove`, while private
    diagnostic history uses schema version 2; the Plasma widget no longer
    presents backup completion as target eject state;
-8. the Plasma backend now names its CLI process state `watcherConnected`,
-   reserving target connectivity for the future system backend.
+8. the Plasma backend now consumes the read-only system D-Bus manager
+   asynchronously, validates its API capabilities, and reports service state as
+   `managerConnected` without spawning a CLI status watcher.
 9. failed verification of a committed snapshot now reports cleanup failures as
    `repository.recovery_required`; the pending marker retains the exact final
    path so the next run removes the unverified canonical snapshot explicitly.
@@ -75,6 +76,9 @@
     guest and proves that real udev starts the system runner without a graphical
     session; regular users can run it without host-side `sudo` through an
     isolated privileged Docker worker.
+27. the Plasma D-Bus client is covered against the real manager on an isolated
+    bus, including capability negotiation, public profile labels and sanitized
+    progress fields.
 
 ## 0.2.1 - 2026-08-23
 

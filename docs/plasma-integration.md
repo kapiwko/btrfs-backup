@@ -5,20 +5,19 @@ must keep working without a graphical session and without any Plasma package
 installed.
 
 The current integration starts with a plasmoid in
-`integrations/kde/plasmoid`. Its
-QML UI talks to a C++ `BackupStatusModel`, and that model reads the public
-`btrfs-backupctl status watch` stream. This keeps QML away from shell
-commands and private state files while the versioned system D-Bus manager is not
-ready yet.
+`integrations/kde/plasmoid`. Its QML UI talks to a C++ `BackupStatusModel`, and
+that model uses the read-only `io.github.btrfsbackup.Manager1` system D-Bus
+interface. Calls are asynchronous and status is polled because the first
+manager interface does not publish change signals.
 
-The model exposes `watcherConnected` only as the lifecycle state of that
-temporary `status watch` process. It is not target connectivity. A future
-`targetConnected` property must come from authoritative `TargetStatus` supplied
-by the system backend.
+The model validates `apiMajor` and public status schema capabilities before it
+accepts data. `managerConnected` reports manager availability, not target
+connectivity. A future `targetConnected` property must come from authoritative
+`GetDeviceState` data supplied by the system backend.
 
-This initial plasmoid exposes read-only status. The future system D-Bus manager
-owns privileged mutation and polkit authorization, including cancellation. The
-Plasma session consumes that authorized API for desktop controls.
+This initial plasmoid exposes read-only status. The system manager owns future
+privileged mutation and polkit authorization, including cancellation. The
+Plasma session will consume that authorized API for desktop controls.
 
 The plasmoid displays reduced `RunStatus`, including configured source and
 target labels, progress, speed, and ETA. It does not show an eject icon or a
@@ -57,7 +56,7 @@ restarting the shell through the desktop session tools.
 The target architecture remains:
 
 1. system manager with a versioned D-Bus API and polkit for mutating actions;
-2. shared desktop client library translating D-Bus data to Qt/QML models;
+2. shared desktop client library extracted from the current Qt D-Bus model;
 3. monitor process that owns KJob, KUiServer progress and notifications;
 4. plasmoid for status and controls routed through the shared D-Bus client;
 5. KCM for profile inspection, validation and controlled configuration writes.

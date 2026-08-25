@@ -27,10 +27,13 @@ Window {
             if (typeof status.cancel !== "undefined"
                     || typeof status.canCancel !== "undefined"
                     || typeof status.safeToRemove !== "undefined"
-                    || typeof status.connected !== "undefined") {
+                    || typeof status.connected !== "undefined"
+                    || typeof status.command !== "undefined"
+                    || typeof status.errorMessage !== "undefined") {
                 Qt.exit(3)
             }
-            if (typeof status.watcherConnected !== "boolean") {
+            if (typeof status.managerConnected !== "boolean"
+                    || typeof status.watcherConnected !== "undefined") {
                 Qt.exit(4)
             }
             Qt.exit(0)
