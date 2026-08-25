@@ -183,7 +183,7 @@ void usage() {
 }
 
 struct ParsedRunnerCommand {
-    btrfsbackup::BackupRequest request;
+    btrfsbackup::BackupRequest request{.profile_id = btrfsbackup::ProfileId{"default"}};
     fs::path mountinfo = "/proc/self/mountinfo";
     std::map<std::string, std::string> mount_uuid_overrides;
     std::string timestamp = current_utc_timestamp();

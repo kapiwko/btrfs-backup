@@ -112,7 +112,9 @@ state, cancellation monitoring, clocks, and run-id generation are constructor
 dependencies. Its public
 `BackupRequest` carries only operation intent (`profileId`, `force`, and
 `validateOnly`); filesystem paths, mount-table overrides, timestamps, and test
-fixtures are adapter configuration rather than domain input.
+fixtures are adapter configuration rather than domain input. The CLI adapter
+also owns selection of the default profile id; the request model does not
+silently choose one.
 
 The runner CLI is the composition boundary for the backup use case because it
 resolves the selected configuration root and the diagnostic `plan` overrides.
