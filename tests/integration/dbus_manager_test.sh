@@ -10,6 +10,9 @@ DAEMON="${1:?daemon path is required}"
 DBUS_DAEMON="${2:?dbus-daemon path is required}"
 BUSCTL="${3:?busctl path is required}"
 POLICY_FILE="${4:?D-Bus policy path is required}"
+QML_EXECUTABLE="${5:-}"
+QML_IMPORT_PATH="${6:-}"
+QML_DBUS_TEST="${7:-}"
 TEST_ROOT="$(mktemp -d /tmp/btrfs-backup-dbus.XXXXXX)"
 BUS_ADDRESS="unix:path=$TEST_ROOT/bus"
 BUS_PID=""
@@ -117,6 +120,12 @@ grep -Fq 'Default backup' <<<"$profiles" || fail 'public profile was not returne
 status_before="$(call GetStatus s default)"
 grep -Fq 'state' <<<"$status_before" || fail 'current status omits state'
 grep -Fq 'running' <<<"$status_before" || fail 'current state was not returned'
+if [[ -n "$QML_EXECUTABLE" ]]; then
+    DBUS_SYSTEM_BUS_ADDRESS="$BUS_ADDRESS" \
+        QT_QPA_PLATFORM=offscreen \
+        "$QML_EXECUTABLE" -I "$QML_IMPORT_PATH" "$QML_DBUS_TEST" \
+        || fail 'Plasma backend did not consume the manager API'
+fi
 history="$(call GetHistorySanitized suu default 0 1)"
 grep -Fq 'backup.failed' <<<"$history" || fail 'history error was not sanitized'
 if grep -Fq '/dev/private' <<<"$history"; then fail 'private history details crossed the bus'; fi

@@ -88,7 +88,7 @@ PlasmoidItem {
             anchors.fill: parent
             anchors.margins: Math.max(1, parent.width * 0.13)
             source: root.failed ? "dialog-error" : "drive-harddisk"
-            opacity: backupStatus.watcherConnected ? 1 : 0.65
+            opacity: backupStatus.managerConnected ? 1 : 0.65
         }
 
         Canvas {
@@ -172,7 +172,7 @@ PlasmoidItem {
 
                 QQC2.Label { text: translations.i18n("Profile:"); opacity: 0.7 }
                 QQC2.Label {
-                    text: backupStatus.profile
+                    text: backupStatus.profileName || backupStatus.profile
                     Layout.fillWidth: true
                     elide: Text.ElideMiddle
                 }
@@ -216,7 +216,7 @@ PlasmoidItem {
 
             Kirigami.InlineMessage {
                 Layout.fillWidth: true
-                visible: backupStatus.errorCode.length > 0 || backupStatus.errorMessage.length > 0
+                visible: backupStatus.errorCode.length > 0
                 type: Kirigami.MessageType.Error
                 text: root.statusText(backupStatus.state)
             }
