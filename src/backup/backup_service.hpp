@@ -21,7 +21,7 @@
 namespace btrfsbackup {
 
 struct BackupRequest {
-    ProfileId profile_id{"default"};
+    ProfileId profile_id;
     bool force = false;
     bool validate_only = false;
 };

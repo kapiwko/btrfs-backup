@@ -44,14 +44,16 @@ struct FakeTargetManager final : btrfsbackup::ITargetManager {
 
 struct FakePlanner final : btrfsbackup::IBackupPlanner {
     mutable int calls = 0;
+    mutable std::string received_timestamp;
     btrfsbackup::BackupRunPlan build(
         const btrfsbackup::Profile& profile,
         const std::vector<btrfsbackup::MountEntry>&,
         const btrfsbackup::ApplicationPaths&,
         const btrfsbackup::RunId& run_id,
-        const std::string&
+        const std::string& snapshot_timestamp
     ) const override {
         ++calls;
+        received_timestamp = snapshot_timestamp;
         return {.profile_id = btrfsbackup::ProfileId{profile.id}, .run_id = run_id};
     }
 };
@@ -105,6 +107,8 @@ struct FakeState final : btrfsbackup::IRunStateRepository {
     int skipped_writes = 0;
     int success_writes = 0;
     int cancel_writes = 0;
+    std::string success_date;
+    std::string success_timestamp;
 
     bool last_success_matches(
         const btrfsbackup::Profile&,
@@ -127,12 +131,14 @@ struct FakeState final : btrfsbackup::IRunStateRepository {
     void write_success(
         const btrfsbackup::Profile&,
         const btrfsbackup::RunId&,
-        const std::string&,
-        const std::string&,
+        const std::string& date,
+        const std::string& timestamp,
         const std::string&,
         std::size_t
     ) override {
         ++success_writes;
+        success_date = date;
+        success_timestamp = timestamp;
     }
 
     std::unique_ptr<btrfsbackup::IBackupRunCheckpointStore> checkpoints(
@@ -212,7 +218,9 @@ struct Fixture {
 
 void test_success_uses_ports_and_persists_success() {
     Fixture fixture;
-    const btrfsbackup::BackupExecutionResult result = fixture.service.start({});
+    const btrfsbackup::BackupExecutionResult result = fixture.service.start({
+        .profile_id = btrfsbackup::ProfileId{"default"},
+    });
 
     test_helpers::expect_true("completed", result.outcome == btrfsbackup::BackupExecutionOutcome::Completed, "run did not complete");
     test_helpers::expect_eq("run id", result.plan.run_id.value, "run-1");
@@ -221,12 +229,17 @@ void test_success_uses_ports_and_persists_success() {
     test_helpers::expect_true("planner calls", fixture.planner.calls == 1, "unexpected call count");
     test_helpers::expect_true("run factory calls", fixture.runs.calls == 1, "unexpected call count");
     test_helpers::expect_true("success writes", fixture.state.success_writes == 1, "unexpected write count");
+    test_helpers::expect_eq("planner timestamp", fixture.planner.received_timestamp, "2026-08-26T120000Z");
+    test_helpers::expect_eq("success date", fixture.state.success_date, "2026-08-26");
+    test_helpers::expect_eq("success timestamp", fixture.state.success_timestamp, "2026-08-26T14:00:00+0200");
 }
 
 void test_busy_stops_before_target_access() {
     Fixture fixture;
     fixture.locks.busy = true;
-    const btrfsbackup::BackupExecutionResult result = fixture.service.start({});
+    const btrfsbackup::BackupExecutionResult result = fixture.service.start({
+        .profile_id = btrfsbackup::ProfileId{"default"},
+    });
 
     test_helpers::expect_true("busy", result.outcome == btrfsbackup::BackupExecutionOutcome::Busy, "busy outcome missing");
     test_helpers::expect_true("target not called", fixture.target.calls == 0, "target manager was called");
@@ -236,7 +249,9 @@ void test_busy_stops_before_target_access() {
 void test_daily_match_skips_execution() {
     Fixture fixture;
     fixture.state.daily_match = true;
-    const btrfsbackup::BackupExecutionResult result = fixture.service.start({});
+    const btrfsbackup::BackupExecutionResult result = fixture.service.start({
+        .profile_id = btrfsbackup::ProfileId{"default"},
+    });
 
     test_helpers::expect_true("skipped", result.outcome == btrfsbackup::BackupExecutionOutcome::Skipped, "daily run not skipped");
     test_helpers::expect_true("run not called", fixture.runs.calls == 0, "run factory was called");
