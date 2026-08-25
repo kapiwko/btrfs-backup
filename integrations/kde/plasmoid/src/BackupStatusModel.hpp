@@ -4,115 +4,88 @@
 
 #pragma once
 
+#include <QDBusConnection>
+#include <QDBusServiceWatcher>
 #include <QObject>
-#include <QProcess>
 #include <QString>
+#include <QTimer>
 #include <QtQmlIntegration/qqmlintegration.h>
 
 class BackupStatusModel : public QObject {
     Q_OBJECT
     QML_ELEMENT
 
-    Q_PROPERTY(QString command READ command WRITE setCommand NOTIFY commandChanged)
     Q_PROPERTY(QString profile READ profile WRITE setProfile NOTIFY profileChanged)
     Q_PROPERTY(QString profileName READ profileName NOTIFY statusChanged)
-    Q_PROPERTY(bool watcherConnected READ watcherConnected NOTIFY watcherConnectedChanged)
+    Q_PROPERTY(bool managerConnected READ managerConnected NOTIFY managerConnectedChanged)
     Q_PROPERTY(QString state READ state NOTIFY statusChanged)
-    Q_PROPERTY(QString phase READ phase NOTIFY statusChanged)
-    Q_PROPERTY(QString message READ message NOTIFY statusChanged)
-    Q_PROPERTY(QString currentSourceId READ currentSourceId NOTIFY statusChanged)
     Q_PROPERTY(QString currentSourceName READ currentSourceName NOTIFY statusChanged)
     Q_PROPERTY(QString targetName READ targetName NOTIFY statusChanged)
-    Q_PROPERTY(int sourceIndex READ sourceIndex NOTIFY statusChanged)
-    Q_PROPERTY(int sourceCount READ sourceCount NOTIFY statusChanged)
-    Q_PROPERTY(qint64 bytesProcessed READ bytesProcessed NOTIFY statusChanged)
-    Q_PROPERTY(qint64 bytesTotalEstimated READ bytesTotalEstimated NOTIFY statusChanged)
-    Q_PROPERTY(qint64 runBytesProcessed READ runBytesProcessed NOTIFY statusChanged)
     Q_PROPERTY(qint64 speedBps READ speedBps NOTIFY statusChanged)
     Q_PROPERTY(int etaSeconds READ etaSeconds NOTIFY statusChanged)
     Q_PROPERTY(int sourceProgress READ sourceProgress NOTIFY statusChanged)
     Q_PROPERTY(int overallProgress READ overallProgress NOTIFY statusChanged)
     Q_PROPERTY(QString progressAccuracy READ progressAccuracy NOTIFY statusChanged)
     Q_PROPERTY(QString errorCode READ errorCode NOTIFY statusChanged)
-    Q_PROPERTY(QString errorMessage READ errorMessage NOTIFY statusChanged)
-    Q_PROPERTY(QString suggestedAction READ suggestedAction NOTIFY statusChanged)
     Q_PROPERTY(QString lastError READ lastError NOTIFY errorChanged)
 
-public:
+  public:
     explicit BackupStatusModel(QObject* parent = nullptr);
-    ~BackupStatusModel() override;
-
-    QString command() const;
-    void setCommand(const QString& command);
 
     QString profile() const;
     void setProfile(const QString& profile);
 
-    bool watcherConnected() const;
+    bool managerConnected() const;
     QString profileName() const;
     QString state() const;
-    QString phase() const;
-    QString message() const;
-    QString currentSourceId() const;
     QString currentSourceName() const;
     QString targetName() const;
-    int sourceIndex() const;
-    int sourceCount() const;
-    qint64 bytesProcessed() const;
-    qint64 bytesTotalEstimated() const;
-    qint64 runBytesProcessed() const;
     qint64 speedBps() const;
     int etaSeconds() const;
     int sourceProgress() const;
     int overallProgress() const;
     QString progressAccuracy() const;
     QString errorCode() const;
-    QString errorMessage() const;
-    QString suggestedAction() const;
     QString lastError() const;
 
     Q_INVOKABLE void start();
     Q_INVOKABLE void stop();
 
-signals:
-    void commandChanged();
+  signals:
     void profileChanged();
-    void watcherConnectedChanged();
+    void managerConnectedChanged();
     void statusChanged();
     void errorChanged();
 
-private:
-    void readWatchOutput();
-    void processWatchBuffer();
-    bool takeJsonObject(QByteArray& object);
-    void applyStatusObject(const QByteArray& object);
-    void setWatcherConnected(bool connected);
+  private:
+    void connectToManager();
+    void refresh();
+    void requestProfiles();
+    void requestStatus();
+    void applyProfiles(const QString& payload);
+    void applyStatus(const QString& payload);
+    void setManagerConnected(bool connected);
     void setLastError(const QString& message);
+    void managerUnavailable();
 
-    QString command_ = QStringLiteral("btrfs-backupctl");
     QString profile_ = QStringLiteral("default");
-    QProcess watch_;
-    QByteArray watch_buffer_;
-    bool watcher_connected_ = false;
+    QDBusConnection bus_;
+    QDBusServiceWatcher service_watcher_;
+    QTimer poll_timer_;
+    bool active_ = false;
+    bool capabilities_verified_ = false;
+    bool status_request_pending_ = false;
+    bool manager_connected_ = false;
+    quint64 generation_ = 0;
     QString profile_name_;
     QString state_ = QStringLiteral("unknown");
-    QString phase_;
-    QString message_;
-    QString current_source_id_;
     QString current_source_name_;
     QString target_name_;
-    int source_index_ = 0;
-    int source_count_ = 0;
-    qint64 bytes_processed_ = 0;
-    qint64 bytes_total_estimated_ = 0;
-    qint64 run_bytes_processed_ = 0;
     qint64 speed_bps_ = 0;
     int eta_seconds_ = -1;
     int source_progress_ = -1;
     int overall_progress_ = -1;
     QString progress_accuracy_ = QStringLiteral("indeterminate");
     QString error_code_;
-    QString error_message_;
-    QString suggested_action_;
     QString last_error_;
 };

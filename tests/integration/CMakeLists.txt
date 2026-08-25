@@ -28,6 +28,23 @@ if(BUILD_SYSTEM_MANAGER)
     find_program(DBUS_DAEMON_EXECUTABLE dbus-daemon)
     find_program(BUSCTL_EXECUTABLE busctl)
     if(DBUS_DAEMON_EXECUTABLE AND BUSCTL_EXECUTABLE)
+        set(DBUS_MANAGER_TEST_EXTRA_ARGS)
+        if(TARGET btrfsbackup_plasma_backend)
+            find_program(
+                DBUS_TEST_QML_EXECUTABLE
+                NAMES qml
+                PATHS /usr/lib/qt6/bin
+                NO_DEFAULT_PATH
+            )
+            find_program(DBUS_TEST_QML_EXECUTABLE NAMES qml)
+            if(DBUS_TEST_QML_EXECUTABLE)
+                list(APPEND DBUS_MANAGER_TEST_EXTRA_ARGS
+                    ${DBUS_TEST_QML_EXECUTABLE}
+                    ${PROJECT_BINARY_DIR}
+                    ${PROJECT_SOURCE_DIR}/integrations/kde/plasmoid/tests/backend-dbus.qml
+                )
+            endif()
+        endif()
         add_test(
             NAME dbus-manager-tests
             COMMAND
@@ -36,6 +53,7 @@ if(BUILD_SYSTEM_MANAGER)
                 ${DBUS_DAEMON_EXECUTABLE}
                 ${BUSCTL_EXECUTABLE}
                 ${PROJECT_SOURCE_DIR}/data/dbus/io.github.btrfsbackup.Manager1.conf
+                ${DBUS_MANAGER_TEST_EXTRA_ARGS}
         )
         set_tests_properties(dbus-manager-tests PROPERTIES TIMEOUT 20)
     endif()
