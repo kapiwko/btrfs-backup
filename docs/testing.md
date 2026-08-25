@@ -173,7 +173,8 @@ The test covers:
 The current Plasma test target validates its status-only process model and
 read-only API surface. Cancellation authorization and target safe-removal
 behavior belong to the future system D-Bus/polkit and target-status test targets
-described in `TODO.md`.
+described in the [system manager design](design/system-manager.md). The active
+sprint selects the next bounded portion of that work in [`TODO.md`](../TODO.md).
 
 ## Release Checks
 
