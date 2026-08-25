@@ -26,6 +26,7 @@ target_include_directories(btrfsbackup-platform-linux PUBLIC ${PROJECT_SOURCE_DI
 target_link_libraries(btrfsbackup-platform-linux
     PUBLIC
         btrfsbackup-backup-model
+        btrfsbackup-backup-ports
         btrfsbackup-config-model
         PkgConfig::BLKID
         PkgConfig::BTRFSUTIL

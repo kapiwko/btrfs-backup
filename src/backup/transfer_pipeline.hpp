@@ -14,9 +14,9 @@
 
 #include <state/run_status.hpp>
 
-#include <platform/linux/safe_directory_root.hpp>
-
 namespace btrfsbackup {
+
+class SafeDirectoryHandle;
 
 struct TransferPipelinePlan {
     std::vector<std::string> producer_argv;

@@ -90,30 +90,6 @@ std::optional<SnapshotMetadata> read_btrfs_snapshot_metadata(const fs::path& pat
     return metadata;
 }
 
-bool IBtrfsOperations::is_subvolume_beneath(const SafeDirectoryRoot&, const fs::path& path) {
-    return is_subvolume(path);
-}
-
-std::optional<SnapshotMetadata> IBtrfsOperations::read_snapshot_metadata_beneath(
-    const SafeDirectoryRoot&,
-    const fs::path& path
-) {
-    return read_snapshot_metadata(path);
-}
-
-void IBtrfsOperations::create_readonly_snapshot_beneath(
-    const SafeDirectoryRoot&,
-    const fs::path& source,
-    const SafeDirectoryRoot&,
-    const fs::path& target
-) {
-    create_readonly_snapshot(source, target);
-}
-
-void IBtrfsOperations::delete_subvolume_beneath(const SafeDirectoryRoot&, const fs::path& path) {
-    delete_subvolume(path);
-}
-
 bool LibBtrfsOperations::is_subvolume(const fs::path& path) {
     enum btrfs_util_error error = btrfs_util_subvolume_is_valid(path.c_str());
     if (error == BTRFS_UTIL_OK) {

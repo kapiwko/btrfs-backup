@@ -20,6 +20,7 @@
 #include <platform/linux/command_runner.hpp>
 #include <platform/linux/file_lock.hpp>
 #include <platform/linux/filesystem.hpp>
+#include <platform/linux/mount_info.hpp>
 #include <config/json.hpp>
 
 namespace fs = std::filesystem;
@@ -320,7 +321,7 @@ class ProductionBackupComposition {
   private:
     btrfsbackup::ApplicationConfig config_;
     btrfsbackup::FileProfileRepository profiles_;
-    btrfsbackup::MountTableInspector mounts_;
+    btrfsbackup::LinuxMountInspector mounts_;
     btrfsbackup::PosixCommandRunner commands_;
     btrfsbackup::SystemdTargetManager target_manager_;
     btrfsbackup::DefaultBackupPlanner planner_;

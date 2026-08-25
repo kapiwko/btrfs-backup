@@ -4,13 +4,11 @@
 
 #pragma once
 
-#include <vector>
-
-#include <backup/ports/mount_inspector.hpp>
-#include <config/profile.hpp>
-
 namespace btrfsbackup {
 
-void validate_target_mount(const Profile& profile, const std::vector<MountEntry>& mounts);
+struct TrustedExecutablePolicy {
+    bool allow_current_user_owner = false;
+    bool verify_parent_directories = true;
+};
 
 } // namespace btrfsbackup
