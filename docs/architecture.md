@@ -10,7 +10,8 @@ are separate CMake components. Their ownership and dependency direction are
 defined in [C++ source layout](cpp-layout.md). A future daemon must be an outer
 adapter over the same backup and configuration use cases as the CLI; it must not
 duplicate command parsing or backup logic, and no empty daemon target or source
-directory is reserved before that implementation exists.
+directory is reserved before that implementation exists. This invariant is
+recorded in [ADR 0004](adr/0004-runner-independent-of-daemon.md).
 
 ## Runtime Flow
 
@@ -81,6 +82,8 @@ no `service -> mount -> service` dependency cycle. A runner started directly
 from the command line retains the explicit mount-start fallback.
 
 The service templates have no `[Install]` section and are not intended to be enabled with `systemctl enable`.
+The ownership of mount activation and eject ordering is recorded in
+[ADR 0002](adr/0002-systemd-owns-mounts.md).
 
 The runner executes in a systemd filesystem, process and system-call sandbox.
 The service keeps device access and the root capabilities
@@ -145,6 +148,10 @@ that change hooks additionally require the dedicated hook-change action because
 they can schedule code to run as root.
 
 ## Process Creation
+
+The decision to keep Btrfs stream production and consumption in external
+processes is recorded in
+[ADR 0001](adr/0001-btrfs-send-external-process.md).
 
 The runner has active cancellation and transfer worker threads. Both synchronous
 administrative commands and asynchronous transfer processes are therefore
