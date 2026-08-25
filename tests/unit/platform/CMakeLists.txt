@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Kamil Piwowarski <kapiwko@gmail.com>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 add_btrfsbackup_test(btrfsbackup-btrfs-operations-tests btrfs_operations_tests.cpp btrfs-operations-tests btrfsbackup-platform-linux)
 add_btrfsbackup_test(btrfsbackup-command-runner-tests command_runner_tests.cpp command-runner-tests btrfsbackup-platform-linux)
 add_btrfsbackup_test(btrfsbackup-device-info-tests device_info_tests.cpp device-info-tests btrfsbackup-platform-linux)

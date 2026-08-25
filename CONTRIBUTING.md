@@ -245,6 +245,26 @@ not narrate obvious statements. In particular, document non-obvious Btrfs UUID
 semantics, durable-write ordering, signal/process lifetime and recovery
 invariants.
 
+New source, build and script files must carry an SPDX header identifying the
+actual copyright holder:
+
+<!-- REUSE-IgnoreStart -->
+
+```text
+SPDX-FileCopyrightText: YEAR Copyright Holder <contact@example.com>
+SPDX-License-Identifier: GPL-3.0-or-later
+```
+
+<!-- REUSE-IgnoreEnd -->
+
+Use the year in which the contribution was first published and the name and
+contact details of its copyright holder. Preserve existing copyright notices;
+add another `SPDX-FileCopyrightText` line when a contribution has a different
+copyright holder. Use the comment syntax appropriate for the file and keep an
+interpreter shebang on the first line. Files that cannot safely contain
+comments must be covered by `REUSE.toml`. Run `reuse lint` when changing
+licensing metadata or adding a new file.
+
 Test names should state the behavior or safety property under test. Prefer
 names such as `restores_previous_generation_when_activation_fails` over generic
 sequence labels such as `test_case_17`.

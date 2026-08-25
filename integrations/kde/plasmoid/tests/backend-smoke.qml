@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Kamil Piwowarski <kapiwko@gmail.com>
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 import QtQuick 2.15
 import QtQuick.Window 2.15
 import org.btrfsbackup.plasma 1.0
