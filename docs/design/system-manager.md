@@ -1,13 +1,13 @@
 # System Manager
 
-Status: proposed; the read-only foundation is the active sprint.
+Status: read-only foundation implemented; mutating operations remain proposed.
 
 ## Role
 
-`btrfs-backupd` is an optional privileged system-bus adapter over existing
-application use cases. It exposes sanitized state and coordinates authorized
-control requests with systemd. It does not contain backup planning, transfer,
-profile validation or persistence implementations copied from the CLI.
+`btrfs-backupd` is an optional privileged system-bus adapter. Its implemented
+surface exposes sanitized profiles, status, history and device state. It does
+not contain backup planning, transfer or persistence implementations copied
+from the CLI. Authorized control requests remain future work.
 
 The runner remains a separate systemd process. udev starts the runner unit
 without contacting the manager, and an active runner survives manager restart
@@ -35,10 +35,10 @@ major versions and tolerate unknown optional fields.
 
 ## State Ownership
 
-The runner owns execution and writes durable current status and history. While
-active, the manager observes and publishes changes. After restart it reconstructs
-visible state from those files and systemd unit state. It never marks a run
-finished solely because its own observation connection disappeared.
+The runner owns execution and writes durable current status and history. The
+read-only manager loads the current files on each request and falls back to
+durable history after the oneshot runner exits. It never owns or signals the
+running backup process, and stopping the manager cannot stop an active run.
 
 `TargetStatus` is separate from `RunStatus` and represents mounted, ejecting,
 safe-to-remove and error states based on the actual target lifecycle.
@@ -76,8 +76,7 @@ error code without configuration secrets.
 
 ## Open Questions
 
-- Qt D-Bus versus a smaller native bus binding for the base package;
-- activation-only versus a resident manager after first client/run;
+- state-change signals and their coalescing rules;
 - observation mechanism for status changes;
 - ObjectManager adoption if multiple live run objects are introduced;
 - exact boundary between systemd unit control and application orchestration.

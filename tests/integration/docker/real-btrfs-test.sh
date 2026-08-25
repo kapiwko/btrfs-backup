@@ -78,11 +78,47 @@ ensure_loop_devices() {
     done
 }
 
-build_and_install_package() {
+build_and_verify_packages() {
+    local base_packages=()
+    local kde_packages=()
+    local base_metadata
+
     "$ROOT/tools/build-release.sh" --target arch --skip-tests --dist-dir "$PACKAGE_DIR" >/dev/null
-    pacman -U --noconfirm "$PACKAGE_DIR"/btrfs-backup-*.pkg.tar.zst >/dev/null
+    base_packages=("$PACKAGE_DIR"/btrfs-backup-[0-9]*.pkg.tar.zst)
+    kde_packages=("$PACKAGE_DIR"/btrfs-backup-kde-*.pkg.tar.zst)
+    (( ${#base_packages[@]} == 1 )) || fail "expected one base package, found ${#base_packages[@]}"
+    (( ${#kde_packages[@]} == 1 )) || fail "expected one KDE package, found ${#kde_packages[@]}"
+
+    base_metadata="$(tar --zstd -xOf "${base_packages[0]}" .PKGINFO)"
+    if grep -Eq '^depend = (extra-cmake-modules|ki18n|kirigami|kpackage|kservice|libplasma|qt6-[^ <>=]+)' \
+        <<< "$base_metadata"; then
+        fail 'base package has a KDE or Qt runtime dependency'
+    fi
+
+    pacman -U --noconfirm "${base_packages[0]}" >/dev/null
+    if pacman -Q btrfs-backup-kde >/dev/null 2>&1; then
+        fail 'KDE package was installed with the base package'
+    fi
     command -v btrfs-backup >/dev/null
     command -v btrfs-backupctl >/dev/null
+    command -v btrfs-backupd >/dev/null
+    btrfs-backup --help >/dev/null
+    btrfs-backupctl --help >/dev/null
+    btrfs-backupd --help >/dev/null
+    if ldd /usr/bin/btrfs-backup /usr/bin/btrfs-backupctl /usr/bin/btrfs-backupd \
+        | grep -Eq 'lib(Qt6|KF6|Plasma)'; then
+        fail 'base commands link to a KDE or Qt runtime library'
+    fi
+    pass 'base package installs and runs without the KDE package'
+
+    pacman -U --noconfirm "${kde_packages[0]}" >/dev/null
+    pacman -Q btrfs-backup-kde >/dev/null
+    pass 'KDE package installs separately from the base package'
+
+    pacman -R --noconfirm btrfs-backup-kde >/dev/null
+    if pacman -Q btrfs-backup-kde >/dev/null 2>&1; then
+        fail 'KDE package remained installed after removal'
+    fi
 }
 
 configure_backup_with_cli() {
@@ -273,6 +309,67 @@ restore_latest_snapshot() {
     btrfs subvolume delete -- "$restored" >/dev/null
     rmdir -- "$restore_root"
     pass 'latest repository snapshot completes a full restore drill'
+}
+
+manager_independence_test() {
+    local hook_dir=/etc/btrfs-backup/hooks.d
+    local hook="$hook_dir/manager-independence-test"
+    local marker="$TEST_ROOT/manager-independence.marker"
+    local profile_backup="$TEST_ROOT/profile.manager-independence.json.bak"
+    local runner_log="$LOG_DIR/manager-independence.log"
+    local runner_pid
+
+    cp -a -- "$PROFILE_JSON" "$profile_backup"
+    perl -0pi -e \
+        's#"beforeSnapshot": \[\]#"beforeSnapshot": [{"type":"program","program":"/etc/btrfs-backup/hooks.d/manager-independence-test","arguments":[],"timeoutSeconds":30}]#' \
+        "$PROFILE_JSON"
+    chmod 0600 "$PROFILE_JSON"
+    {
+        printf '#!/bin/sh\n'
+        printf "printf 'started\\n' > '%s'\n" "$marker"
+        printf '/usr/bin/sleep 5\n'
+        printf "printf 'finished\\n' > '%s'\n" "$marker"
+    } > "$hook"
+    chmod 0755 "$hook"
+    chown root:root "$hook"
+
+    systemctl reload dbus.service
+    systemctl start btrfs-backupd.service
+    systemctl is-active --quiet btrfs-backupd.service \
+        || fail 'read-only manager did not start'
+
+    (
+        INVOCATION_ID=manager-independence-test \
+            btrfs-backup --force --no-eject >> "$runner_log" 2>&1
+    ) &
+    runner_pid=$!
+    for _ in $(seq 1 50); do
+        [[ -f "$marker" ]] && break
+        kill -0 "$runner_pid" 2>/dev/null || break
+        sleep 0.1
+    done
+    [[ "$(cat -- "$marker" 2>/dev/null || true)" == 'started' ]] \
+        || { cat -- "$runner_log" >&2; fail 'runner did not enter the blocking hook'; }
+
+    systemctl stop btrfs-backupd.service
+    systemctl is-active --quiet btrfs-backupd.service \
+        && fail 'read-only manager remained active after stop'
+    kill -0 "$runner_pid" 2>/dev/null \
+        || { cat -- "$runner_log" >&2; fail 'stopping the manager terminated the active runner'; }
+    if ! wait "$runner_pid"; then
+        cat -- "$runner_log" >&2
+        fail 'runner failed after the manager was stopped'
+    fi
+
+    [[ "$(cat -- "$marker")" == 'finished' ]] \
+        || fail 'runner did not complete the blocking hook'
+    grep -q '"state": "succeeded"' /var/lib/btrfs-backup/history/default/last.json \
+        || fail 'runner did not persist successful history after manager stop'
+    assert_remote_matches_latest_local
+
+    cp -a -- "$profile_backup" "$PROFILE_JSON"
+    rm -f -- "$profile_backup" "$hook" "$marker"
+    pass 'active runner completes after the read-only manager stops'
 }
 
 trusted_hook_security_test() {
@@ -484,13 +581,12 @@ missing_incremental_parent_test() {
 }
 
 require_root
-require_commands btrfs cryptsetup dd diff dmsetup find findmnt losetup mkfs.btrfs mknod mount pacman perl seq sha256sum stat systemd-escape tee truncate
+require_commands btrfs cryptsetup dd diff dmsetup find findmnt grep ldd losetup mkfs.btrfs mknod mount pacman perl seq sha256sum stat systemd-escape tar tee truncate
 ensure_loop_devices
 
 install -d -m0755 "$SOURCE_MOUNT" "$TARGET_MOUNT"
 install -d -m0700 "$LOG_DIR"
-build_and_install_package
-pass 'package builds and installs'
+build_and_verify_packages
 
 printf '%s\n' 'btrfs-backup-real-test-passphrase' > "$PASSPHRASE_FILE"
 chmod 0600 "$PASSPHRASE_FILE"
@@ -586,6 +682,7 @@ pass 'retention keeps the latest two local and remote snapshots'
 recover_interrupted_before_receive
 recover_interrupted_after_commit
 restore_latest_snapshot
+manager_independence_test
 trusted_hook_security_test
 systemd_security_audit
 sandboxed_systemd_service_test

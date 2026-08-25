@@ -29,6 +29,14 @@ set(required_paths
     "usr/share/doc/btrfs-backup/cpp-layout.md"
     "usr/etc/btrfs-backup/hooks.d"
 )
+if(BUILD_SYSTEM_MANAGER)
+    list(APPEND required_paths
+        "usr/bin/btrfs-backupd"
+        "usr/${INSTALL_LIBDIR}/systemd/system/btrfs-backupd.service"
+        "usr/share/dbus-1/system-services/io.github.btrfsbackup.Manager1.service"
+        "usr/share/dbus-1/system.d/io.github.btrfsbackup.Manager1.conf"
+    )
+endif()
 foreach(relative_path IN LISTS required_paths)
     if(NOT EXISTS "${INSTALL_ROOT}/${relative_path}")
         message(FATAL_ERROR "missing installed path: ${relative_path}")
