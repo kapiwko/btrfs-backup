@@ -7,53 +7,52 @@ in `docs/adr/`.
 
 ## Sprint Goal
 
-Deliver the read-only foundation of the system manager without making backup
-execution depend on the daemon, and revalidate the current runtime before the
-new system boundary is introduced.
+Add narrowly authorized operational controls to the system manager while
+keeping runner execution owned by systemd and preserving automatic backup when
+the manager is absent.
 
-## Runtime Baseline
+## Operational API
 
-- [ ] Run `tests/integration/docker/run-real-btrfs.sh` from a clean checkout and
-  record the full, incremental, recovery, restore-drill, systemd and eject
-  results in the release notes.
-- [ ] Build and install both Arch packages in a clean environment; verify that
-  the base package has no KDE runtime dependency and works without the KDE
-  package installed.
-- [ ] Confirm on a real system or QEMU guest that udev starts
-  `btrfs-backup@<profile>.service` without a graphical session.
-- [ ] Fix any baseline regression before adding the manager target.
+- [ ] Specify stable D-Bus request/result schemas for `StartBackup`,
+  `CancelBackup`, `ValidateTarget` and `EjectTarget`.
+- [ ] Add a distinct polkit action for every operation with deny-by-default
+  inactive and active-session policy.
+- [ ] Resolve caller identity only from the D-Bus connection and bind each
+  authorization decision to that connection and request.
+- [ ] Start the existing profile systemd unit without moving execution into
+  `btrfs-backupd` or bypassing profile and target locks.
+- [ ] Route cancellation through the existing run-scoped cancellation request;
+  reject stale or mismatched run identities.
+- [ ] Reuse target validation and eject use cases, including target identity
+  checks, lock conflicts and safe-removal state.
 
-## Read-Only System Manager
+## Races And Failure Handling
 
-- [ ] Add a `btrfs-backupd` executable and daemon target under `src/daemon/`
-  without linking daemon code into `backup`, `config`, `state` or
-  `platform-linux`.
-- [ ] Add system-bus activation, a default-deny bus policy and the versioned
-  `io.github.btrfsbackup.Manager1` interface.
-- [ ] Implement `GetCapabilities`, `ListProfiles`, `GetStatus`,
-  `GetHistorySanitized` and `GetDeviceState` using existing application use
-  cases and presentation-safe state.
-- [ ] Restore visible state after daemon restart from current status and
-  history; do not claim ownership of the running backup process.
-- [ ] Keep the udev/systemd runner path fully operational when the daemon is
-  stopped, crashes or is not installed.
+- [ ] Revalidate profile, run and target identity after authorization and
+  immediately before each operation.
+- [ ] Define stable outcomes for already-running, not-running, busy-target,
+  caller-disconnected and manager-restarted cases.
+- [ ] Ensure caller disconnect or manager failure never terminates an already
+  started runner and never leaves an authorization result reusable.
+- [ ] Emit secret-free audit records containing caller UID, action, profile,
+  result and stable error code.
 
 ## Tests And Documentation
 
-- [ ] Test the read-only API on a private bus, including malformed input,
-  bounded history pagination, caller disconnect and daemon restart.
-- [ ] Prove that no mutating method is exported in this sprint and that the bus
-  policy denies undeclared calls.
-- [ ] Add an integration test that stops the manager during an active run and
-  verifies that the runner completes independently.
-- [ ] Update `docs/system-dbus-api.md`, packaging manifests and installed-file
-  documentation to match the implemented interface.
+- [ ] Test unauthenticated denial, exact-action grants, cross-action denial and
+  inactive-session behavior on an isolated system bus and polkit authority.
+- [ ] Test disconnect, cancellation, restart and conflicting-operation races.
+- [ ] Extend the real-Btrfs test with authorized start, cancellation, validation
+  and eject while retaining the direct udev/systemd path.
+- [ ] Update the D-Bus contract, security model, package contents and client
+  guidance without advertising administrative profile writes.
 
 ## Exit Criteria
 
-- [ ] All default tests, the real Btrfs test and package smoke tests pass.
-- [ ] GCC and Clang builds pass with and without `BUILD_KDE_INTEGRATION`.
-- [ ] The manager can be removed from a running system without disabling
-  automatic backups.
-- [ ] The next sprint is selected from [ROADMAP.md](ROADMAP.md), and this file
-  is replaced rather than appended with long-term ideas.
+- [ ] All default, private-bus, QEMU hotplug, real-Btrfs and package tests pass.
+- [ ] GCC and Clang builds pass with manager enabled and disabled; the base
+  package remains free of Qt/KDE dependencies.
+- [ ] Automatic backup and an active runner work when `btrfs-backupd` is
+  stopped, killed or removed.
+- [ ] No profile, hook or destructive media-preparation mutation is exported in
+  this sprint.

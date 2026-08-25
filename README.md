@@ -186,9 +186,9 @@ Development setup, test expectations and pull-request requirements are in
 privately according to [SECURITY.md](SECURITY.md), not through a public issue.
 
 Native code is organized by responsibility under `src/backup`, `src/config`,
-`src/state`, `src/platform/linux`, and `src/cli`. Executable entry points live
-in `apps/`, tests mirror those domains under `tests/`, and optional desktop
-code is isolated under `integrations/kde`.
+`src/state`, `src/platform/linux`, `src/cli`, and `src/daemon`. Executable entry
+points live in `apps/` or their owning adapter, tests mirror those domains under
+`tests/`, and optional desktop code is isolated under `integrations/kde`.
 
 ## Security and Limits
 

@@ -19,6 +19,7 @@ project(
 include(CTest)
 include(GNUInstallDirs)
 option(BUILD_KDE_INTEGRATION "Build the optional KDE integration" OFF)
+option(BUILD_SYSTEM_MANAGER "Build the optional read-only system D-Bus manager" ON)
 
 find_package(nlohmann_json REQUIRED)
 find_package(PkgConfig REQUIRED)
@@ -26,12 +27,18 @@ pkg_check_modules(BLKID REQUIRED IMPORTED_TARGET blkid)
 pkg_check_modules(MOUNT REQUIRED IMPORTED_TARGET mount)
 pkg_check_modules(UDEV REQUIRED IMPORTED_TARGET libudev)
 pkg_check_modules(BTRFSUTIL REQUIRED IMPORTED_TARGET libbtrfsutil)
+if(BUILD_SYSTEM_MANAGER)
+    pkg_check_modules(SYSTEMD REQUIRED IMPORTED_TARGET libsystemd)
+endif()
 
 add_subdirectory(src/config)
 add_subdirectory(src/backup)
 add_subdirectory(src/platform/linux)
 add_subdirectory(src/state)
 add_subdirectory(src/cli)
+if(BUILD_SYSTEM_MANAGER)
+    add_subdirectory(src/daemon)
+endif()
 add_subdirectory(apps)
 
 if(BUILD_KDE_INTEGRATION)
@@ -76,6 +83,20 @@ install(
         "${CMAKE_CURRENT_BINARY_DIR}/btrfs-backup-eject@.service"
     DESTINATION "${CMAKE_INSTALL_LIBDIR}/systemd/system"
 )
+if(BUILD_SYSTEM_MANAGER)
+    install(
+        FILES data/systemd/btrfs-backupd.service
+        DESTINATION "${CMAKE_INSTALL_LIBDIR}/systemd/system"
+    )
+    install(
+        FILES data/dbus/io.github.btrfsbackup.Manager1.service
+        DESTINATION "${CMAKE_INSTALL_DATADIR}/dbus-1/system-services"
+    )
+    install(
+        FILES data/dbus/io.github.btrfsbackup.Manager1.conf
+        DESTINATION "${CMAKE_INSTALL_DATADIR}/dbus-1/system.d"
+    )
+endif()
 install(
     DIRECTORY data/examples/
     DESTINATION "${CMAKE_INSTALL_DATADIR}/btrfs-backup/examples/config"

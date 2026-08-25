@@ -2,26 +2,54 @@
 
 ## Security Boundary
 
-The future system manager is a privileged service and its system D-Bus API is
-a security boundary. It must use a versioned interface such as
-`io.github.btrfsbackup.Manager1` and default-deny bus policy. The service must
-obtain the caller identity from the D-Bus connection and polkit subject; it
-must never trust a UID, PID, user name, or authorization result supplied as a
-method argument.
+The system manager is a privileged service and its system D-Bus API is a
+security boundary. The implemented read-only interface is
+`io.github.btrfsbackup.Manager1` and is protected by a default-deny bus policy.
+Future mutating methods must obtain the caller identity from the D-Bus
+connection and polkit subject; they must never trust a UID, PID, user name, or
+authorization result supplied as a method argument.
 
 Read methods expose only the same presentation-safe information that is
 currently public. They must not return paths, UUIDs, device nodes, hook
 commands, private diagnostics, or unsanitized history details.
 
+## Implemented Read-Only API
+
+The service owns `io.github.btrfsbackup.Manager1` on the system bus and exports
+`/io/github/btrfsbackup/Manager1`. Every method returns one UTF-8 JSON document
+in a D-Bus string. JSON schema versions are independent from the D-Bus
+interface version.
+
+`profileSchemaVersion` describes canonical profile compatibility,
+`publicStatusSchemaVersion` describes `GetStatus`, `historySchemaVersion`
+describes the sanitized history rows returned over D-Bus, and
+`deviceStateSchemaVersion` describes `GetDeviceState`. Private persistence
+schema versions are not advertised as public API versions.
+
+| Method | Input signature | Output signature | Result |
+|---|---|---|---|
+| `GetCapabilities` | `()` | `(s)` | API/schema versions, features and `readOnly: true` |
+| `ListProfiles` | `()` | `(s)` | sanitized public profile array |
+| `GetStatus` | `(s profileId)` | `(s)` | public status schema 3 or an unavailable status |
+| `GetHistorySanitized` | `(s profileId, u offset, u limit)` | `(s)` | sanitized history array |
+| `GetDeviceState` | `(s profileId)` | `(s)` | labels and lifecycle booleans without storage identifiers |
+
+History `limit` must be between 1 and 100 and `offset` must not exceed 10000.
+Manager input files are regular, non-symlink files no larger than 1 MiB and
+must not be writable by group or others. The daemon reads state for every
+request, so a restart reconstructs the same visible state from current status
+or durable history. No mutating method is exported in this release.
+
 ## Method Classes
 
 | Method | Authorization | Polkit action |
 |---|---|---|
+| `GetCapabilities` | none | none |
 | `GetStatus` | none | none |
 | `GetHistorySanitized` | none | none |
 | `ListProfiles` | none | none |
 | `GetDeviceState` | none | none |
-| `StartBackup` | operational | `io.github.btrfsbackup.start-backup` |
+| `StartBackup` (future) | operational | `io.github.btrfsbackup.start-backup` |
 | `CancelBackup` | operational | `io.github.btrfsbackup.cancel-backup` |
 | `EjectTarget` | operational | `io.github.btrfsbackup.eject-target` |
 | `ValidateTarget` | operational | `io.github.btrfsbackup.validate-target` |
@@ -30,7 +58,7 @@ commands, private diagnostics, or unsanitized history details.
 | `PrepareDevice` | administrative | `io.github.btrfsbackup.prepare-device` |
 | `ChangeHooks` | code-execution risk | `io.github.btrfsbackup.change-hooks` |
 
-The operational actions should use these defaults:
+Future operational actions should use these defaults:
 
 ```xml
 <defaults>

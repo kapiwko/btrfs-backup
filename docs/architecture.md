@@ -7,11 +7,11 @@ The project backs up one or more Btrfs subvolumes to a removable Btrfs disk plac
 The source tree follows runtime responsibilities rather than abstract layers:
 configuration, state, backup orchestration, Linux adapters, and CLI presentation
 are separate CMake components. Their ownership and dependency direction are
-defined in [C++ source layout](cpp-layout.md). A future daemon must be an outer
-adapter over the same backup and configuration use cases as the CLI; it must not
-duplicate command parsing or backup logic, and no empty daemon target or source
-directory is reserved before that implementation exists. This invariant is
-recorded in [ADR 0004](adr/0004-runner-independent-of-daemon.md).
+defined in [C++ source layout](cpp-layout.md). The optional read-only daemon is
+an outer adapter over presentation-safe configuration and state; it does not
+duplicate command parsing or backup logic. Runner execution remains independent
+of the daemon as recorded in
+[ADR 0004](adr/0004-runner-independent-of-daemon.md).
 
 ## Runtime Flow
 

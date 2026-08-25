@@ -106,6 +106,25 @@ Keep this harness opt-in. It needs QEMU, nested privileges, disposable disk
 images, and root-equivalent control inside the guest, so it should not run from
 `make` or the default local test script.
 
+The current boundary smoke test is:
+
+```bash
+tests/qemu/run-hotplug.sh
+```
+
+It boots a disposable Arch/systemd root, installs the current base package,
+attaches a LUKS-formatted virtual USB disk through QMP and verifies on the guest
+serial console that udev starts `btrfs-backup@default.service` while no
+graphical target is active. The broader transfer and failure-injection matrix
+above remains separate follow-up work. For a regular user the script performs
+the mount and loop operations inside a disposable privileged Docker container,
+so host-side `sudo` is not required. Direct execution as root remains available
+for CI environments that already provide an isolated worker. Permission to use
+the Docker daemon and privileged containers is root-equivalent and must not be
+treated as a reduced security boundary. Package compilation runs first in a
+non-privileged build container; the privileged worker receives only the
+finished package through a read-only mount.
+
 Local runner tests cover the file-based cancellation request and verify that an
 active transfer sees the request, reports `runner.cancelled`, and clears the
 handled marker. Future privileged-control tests should still verify that manual

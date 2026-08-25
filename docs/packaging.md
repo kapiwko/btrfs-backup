@@ -53,7 +53,7 @@ The `source` target uses the source archive toolchain. Arch package construction
 additionally uses `zstd`; other package backends may have their own tool
 requirements.
 Building from source requires CMake, a C++20 compiler, `pkg-config`,
-`nlohmann-json`, `libmount`, `libblkid`, `libudev`, and `libbtrfsutil`
+`nlohmann-json`, `libmount`, `libblkid`, `libudev`, `libsystemd`, and `libbtrfsutil`
 development files for the native code under `src/`.
 Building the optional Plasma package also requires Extra CMake Modules, Qt 6
 QML/Quick, Kirigami, KPackage, KI18n and libplasma development files.
@@ -76,13 +76,15 @@ and source checksums remain tied to the release artifacts.
 
 ## Package Contents
 
-Native commands are installed directly under `/usr/bin`, the profile and eject
-systemd units under `/usr/lib/systemd/system`, examples under
+Native commands are installed directly under `/usr/bin`, runner and manager
+systemd units under `/usr/lib/systemd/system`, D-Bus activation and policy
+files under `/usr/share/dbus-1`, examples under
 `/usr/share/btrfs-backup/examples`, and documentation under
 `/usr/share/doc/btrfs-backup`. The base package creates the trusted hook
 directory `/etc/btrfs-backup/hooks.d` as `root:root 0755`.
 
-The public command surface is `btrfs-backup` and `btrfs-backupctl`. Target
+The public command surface is `btrfs-backup` and `btrfs-backupctl`. The optional
+read-only system-bus service executable is `btrfs-backupd`. Target
 mount and eject operations are `btrfs-backupctl target mount` and
 `btrfs-backupctl target eject`; standalone mount/eject wrapper commands are no
 longer packaged.
@@ -96,8 +98,9 @@ cmake --build build --parallel
 DESTDIR="$pkgdir" cmake --install build
 ```
 
-This installs the two commands, rendered profile/eject service templates,
-configuration examples, schema, documentation, and the trusted hook directory.
+This installs the two commands, the manager executable, rendered profile/eject
+service templates, manager activation and policy files, configuration examples,
+schema, documentation, and the trusted hook directory.
 It does not install an active profile or a profile-specific udev rule.
 
 The package provides fstab and crypttab fragments for administrator-managed
@@ -112,9 +115,10 @@ The optional `btrfs-backup-kde` package installs the Plasma applet under
 
 The base package installs native ELF commands directly in `/usr/bin` and uses
 Btrfs userspace tools, cryptsetup, systemd/udev, `coreutils`, and `util-linux` at
-runtime. The base service exposes reduced current status and writes private
-operational diagnostics to the system journal. Desktop notifications are owned
-by `btrfs-backup-kde`.
+runtime. `btrfs-backupd` exposes only presentation-safe read methods through
+`io.github.btrfsbackup.Manager1`; backup execution remains a separate systemd
+runner and works without the daemon. Desktop notifications are owned by
+`btrfs-backup-kde`.
 
 ## Reproducibility
 

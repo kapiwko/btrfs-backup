@@ -289,6 +289,7 @@ stage_package_payload() {
     make -C "$root" >/dev/null
     install -Dm755 "$root/build/btrfs-backup" "$pkgdir/usr/bin/btrfs-backup"
     install -Dm755 "$root/build/btrfs-backupctl" "$pkgdir/usr/bin/btrfs-backupctl"
+    install -Dm755 "$root/build/btrfs-backupd" "$pkgdir/usr/bin/btrfs-backupd"
     install -d -m0755 "$pkgdir/etc/btrfs-backup/hooks.d"
 
     install -Dm644 "$root/data/examples/profile.example.json" \
@@ -319,6 +320,12 @@ stage_package_payload() {
         "$root/data/systemd/btrfs-backup-eject@.service.example" \
         > "$pkgdir/usr/lib/systemd/system/btrfs-backup-eject@.service"
     chmod 0644 "$pkgdir/usr/lib/systemd/system/btrfs-backup-eject@.service"
+    install -Dm644 "$root/data/systemd/btrfs-backupd.service" \
+        "$pkgdir/usr/lib/systemd/system/btrfs-backupd.service"
+    install -Dm644 "$root/data/dbus/io.github.btrfsbackup.Manager1.service" \
+        "$pkgdir/usr/share/dbus-1/system-services/io.github.btrfsbackup.Manager1.service"
+    install -Dm644 "$root/data/dbus/io.github.btrfsbackup.Manager1.conf" \
+        "$pkgdir/usr/share/dbus-1/system.d/io.github.btrfsbackup.Manager1.conf"
 
     install -Dm644 "$root/README.md" "$pkgdir/usr/share/doc/btrfs-backup/README.md"
     install -Dm644 "$root/CHANGELOG.md" "$pkgdir/usr/share/doc/btrfs-backup/CHANGELOG.md"
@@ -367,7 +374,7 @@ Section: admin
 Priority: optional
 Architecture: $DEB_ARCH
 Maintainer: local reproducible build <root@localhost>
-Depends: btrfs-progs (>= 6.0), coreutils, cryptsetup, libmount1, libstdc++6, libudev1, systemd, util-linux
+Depends: btrfs-progs (>= 6.0), coreutils, cryptsetup, libmount1, libstdc++6, libsystemd0, libudev1, systemd, util-linux
 Description: Verified Btrfs send/receive backups to an encrypted removable target
  systemd and udev driven Btrfs send/receive backups with LUKS target validation,
  interrupted-run recovery, retention, and controlled eject.
@@ -435,6 +442,7 @@ BuildRequires:  gcc-c++
 BuildRequires:  make
 BuildRequires:  pkgconfig(blkid)
 BuildRequires:  pkgconfig(libmount)
+BuildRequires:  pkgconfig(libsystemd)
 BuildRequires:  pkgconfig(libudev)
 BuildRequires:  pkgconfig(libbtrfsutil)
 
@@ -443,6 +451,7 @@ Requires:       coreutils
 Requires:       cryptsetup
 Requires:       libstdc++
 Requires:       systemd
+Requires:       systemd-libs
 Requires:       util-linux
 
 %description
@@ -458,6 +467,7 @@ interrupted-run recovery, retention, and controlled eject.
 %install
 install -Dm755 build/btrfs-backup %{buildroot}%{_bindir}/btrfs-backup
 install -Dm755 build/btrfs-backupctl %{buildroot}%{_bindir}/btrfs-backupctl
+install -Dm755 build/btrfs-backupd %{buildroot}%{_bindir}/btrfs-backupd
 install -d -m0755 %{buildroot}/etc/btrfs-backup/hooks.d
 install -d %{buildroot}/usr/lib/systemd/system
 sed -e 's#{{BACKUP_COMMAND}}#/usr/bin/btrfs-backupctl runner execute#g' \
@@ -467,6 +477,9 @@ sed -e 's#{{BACKUP_COMMAND}}#/usr/bin/btrfs-backupctl runner execute#g' \
 sed -e 's#{{EJECT_SCRIPT_PATH}}#/usr/bin/btrfs-backupctl target eject#g' \
     data/systemd/btrfs-backup-eject@.service.example \
     > %{buildroot}/usr/lib/systemd/system/btrfs-backup-eject@.service
+install -Dm644 data/systemd/btrfs-backupd.service %{buildroot}/usr/lib/systemd/system/btrfs-backupd.service
+install -Dm644 data/dbus/io.github.btrfsbackup.Manager1.service %{buildroot}%{_datadir}/dbus-1/system-services/io.github.btrfsbackup.Manager1.service
+install -Dm644 data/dbus/io.github.btrfsbackup.Manager1.conf %{buildroot}%{_datadir}/dbus-1/system.d/io.github.btrfsbackup.Manager1.conf
 install -d %{buildroot}%{_datadir}/btrfs-backup/examples/config
 install -d %{buildroot}%{_datadir}/btrfs-backup/examples/systemd
 cp -a data/examples/. data/schemas/. %{buildroot}%{_datadir}/btrfs-backup/examples/config/
@@ -480,10 +493,13 @@ install -Dm644 LICENSE %{buildroot}%{_licensedir}/btrfs-backup/LICENSE
 %files
 %{_bindir}/btrfs-backup
 %{_bindir}/btrfs-backupctl
+%{_bindir}/btrfs-backupd
 %dir /etc/btrfs-backup
 %dir /etc/btrfs-backup/hooks.d
 /usr/lib/systemd/system/btrfs-backup@.service
 /usr/lib/systemd/system/btrfs-backup-eject@.service
+/usr/lib/systemd/system/btrfs-backupd.service
+%{_datadir}/dbus-1/
 %{_datadir}/btrfs-backup/
 %{_docdir}/btrfs-backup/
 %{_licensedir}/btrfs-backup/
@@ -530,6 +546,7 @@ stdenvNoCC.mkDerivation {
     make
     install -Dm755 build/btrfs-backup $out/bin/btrfs-backup
     install -Dm755 build/btrfs-backupctl $out/bin/btrfs-backupctl
+    install -Dm755 build/btrfs-backupd $out/bin/btrfs-backupd
     mkdir -p $out/etc/btrfs-backup/hooks.d
     mkdir -p $out/lib/systemd/system
     sed -e 's#{{BACKUP_COMMAND}}#/usr/bin/btrfs-backupctl runner execute#g' \
@@ -539,6 +556,9 @@ stdenvNoCC.mkDerivation {
     sed -e 's#{{EJECT_SCRIPT_PATH}}#/usr/bin/btrfs-backupctl target eject#g' \
         data/systemd/btrfs-backup-eject@.service.example \
         > $out/lib/systemd/system/btrfs-backup-eject@.service
+    install -Dm644 data/systemd/btrfs-backupd.service $out/lib/systemd/system/btrfs-backupd.service
+    install -Dm644 data/dbus/io.github.btrfsbackup.Manager1.service $out/share/dbus-1/system-services/io.github.btrfsbackup.Manager1.service
+    install -Dm644 data/dbus/io.github.btrfsbackup.Manager1.conf $out/share/dbus-1/system.d/io.github.btrfsbackup.Manager1.conf
     mkdir -p $out/share/btrfs-backup/examples/config
     mkdir -p $out/share/btrfs-backup/examples/systemd
     cp -a data/examples/. data/schemas/. $out/share/btrfs-backup/examples/config/
@@ -605,7 +625,7 @@ RDEPEND="
 
 src_install() {
 	emake
-	dobin build/btrfs-backup build/btrfs-backupctl
+	dobin build/btrfs-backup build/btrfs-backupctl build/btrfs-backupd
 	dodir /etc/btrfs-backup/hooks.d
 	sed -e 's#{{BACKUP_COMMAND}}#/usr/bin/btrfs-backupctl runner execute#g' \
 		-e 's#{{EJECT_SCRIPT_PATH}}#/usr/bin/btrfs-backupctl target eject#g' \
@@ -613,7 +633,11 @@ src_install() {
 	sed -e 's#{{EJECT_SCRIPT_PATH}}#/usr/bin/btrfs-backupctl target eject#g' \
 		data/systemd/btrfs-backup-eject@.service.example > "${T}/btrfs-backup-eject@.service"
 	insinto /usr/lib/systemd/system
-	doins "${T}/btrfs-backup@.service" "${T}/btrfs-backup-eject@.service"
+	doins "${T}/btrfs-backup@.service" "${T}/btrfs-backup-eject@.service" data/systemd/btrfs-backupd.service
+	insinto /usr/share/dbus-1/system-services
+	doins data/dbus/io.github.btrfsbackup.Manager1.service
+	insinto /usr/share/dbus-1/system.d
+	doins data/dbus/io.github.btrfsbackup.Manager1.conf
 	insinto /usr/share/btrfs-backup/examples/config
 	doins data/examples/* data/schemas/*
 	insinto /usr/share/btrfs-backup/examples/systemd
@@ -640,7 +664,7 @@ pkgrel=$PKGREL
 pkgdesc='Verified Btrfs send/receive backups to an encrypted removable target'
 arch=('$ARCH')
 license=('GPL-3.0-or-later')
-makedepends=('cmake' 'extra-cmake-modules' 'gcc' 'ki18n' 'kirigami' 'kpackage' 'libplasma' 'nlohmann-json' 'pkgconf' 'qt6-base' 'qt6-declarative')
+makedepends=('cmake' 'extra-cmake-modules' 'gcc' 'ki18n' 'kirigami' 'kpackage' 'libplasma' 'nlohmann-json' 'pkgconf' 'qt6-base' 'qt6-declarative' 'systemd')
 source=("\$pkgbase-\$pkgver.tar.gz")
 sha256sums=('$SOURCE_SHA256')
 
@@ -658,6 +682,7 @@ package_btrfs-backup() {
   make -C "\$root"
   install -Dm755 "\$root/build/btrfs-backup" "\$pkgdir/usr/bin/btrfs-backup"
   install -Dm755 "\$root/build/btrfs-backupctl" "\$pkgdir/usr/bin/btrfs-backupctl"
+  install -Dm755 "\$root/build/btrfs-backupd" "\$pkgdir/usr/bin/btrfs-backupd"
   install -d -m0755 "\$pkgdir/etc/btrfs-backup/hooks.d"
   install -d "\$pkgdir/usr/lib/systemd/system"
   sed -e 's#{{BACKUP_COMMAND}}#/usr/bin/btrfs-backupctl runner execute#g' \\
@@ -667,6 +692,9 @@ package_btrfs-backup() {
   sed -e 's#{{EJECT_SCRIPT_PATH}}#/usr/bin/btrfs-backupctl target eject#g' \\
       "\$root/data/systemd/btrfs-backup-eject@.service.example" \\
       > "\$pkgdir/usr/lib/systemd/system/btrfs-backup-eject@.service"
+  install -Dm644 "\$root/data/systemd/btrfs-backupd.service" "\$pkgdir/usr/lib/systemd/system/btrfs-backupd.service"
+  install -Dm644 "\$root/data/dbus/io.github.btrfsbackup.Manager1.service" "\$pkgdir/usr/share/dbus-1/system-services/io.github.btrfsbackup.Manager1.service"
+  install -Dm644 "\$root/data/dbus/io.github.btrfsbackup.Manager1.conf" "\$pkgdir/usr/share/dbus-1/system.d/io.github.btrfsbackup.Manager1.conf"
   install -d "\$pkgdir/usr/share/btrfs-backup/examples/config"
   install -d "\$pkgdir/usr/share/btrfs-backup/examples/systemd"
   cp -a "\$root/data/examples/." "\$root/data/schemas/." "\$pkgdir/usr/share/btrfs-backup/examples/config/"
@@ -717,6 +745,7 @@ pkgbase = btrfs-backup
 	makedepends = pkgconf
 	makedepends = qt6-base
 	makedepends = qt6-declarative
+	makedepends = systemd
 	source = btrfs-backup-$VERSION.tar.gz
 	sha256sums = $SOURCE_SHA256
 
@@ -770,6 +799,7 @@ depend = coreutils
 depend = cryptsetup
 depend = gcc-libs
 depend = systemd
+depend = systemd-libs
 depend = util-linux
 optdepend = btrfs-backup-kde: Plasma status widget
 EOF_PKGINFO
@@ -893,9 +923,13 @@ if [[ "$TARGET" == all || "$TARGET" == arch ]]; then
     grep -qx '.MTREE' "$TMP_ROOT/package-files.txt"
     grep -qx 'usr/bin/btrfs-backup' "$TMP_ROOT/package-files.txt"
     grep -qx 'usr/bin/btrfs-backupctl' "$TMP_ROOT/package-files.txt"
+    grep -qx 'usr/bin/btrfs-backupd' "$TMP_ROOT/package-files.txt"
     grep -qx 'etc/btrfs-backup/hooks.d/' "$TMP_ROOT/package-files.txt"
     grep -qx 'usr/lib/systemd/system/btrfs-backup@.service' "$TMP_ROOT/package-files.txt"
     grep -qx 'usr/lib/systemd/system/btrfs-backup-eject@.service' "$TMP_ROOT/package-files.txt"
+    grep -qx 'usr/lib/systemd/system/btrfs-backupd.service' "$TMP_ROOT/package-files.txt"
+    grep -qx 'usr/share/dbus-1/system-services/io.github.btrfsbackup.Manager1.service' "$TMP_ROOT/package-files.txt"
+    grep -qx 'usr/share/dbus-1/system.d/io.github.btrfsbackup.Manager1.conf' "$TMP_ROOT/package-files.txt"
     grep -qx 'usr/share/btrfs-backup/examples/config/profile.schema.json' "$TMP_ROOT/package-files.txt"
     grep -qx 'usr/share/btrfs-backup/examples/config/btrfs-backup.conf.example' "$TMP_ROOT/package-files.txt"
     if grep -q '^usr/lib/btrfs-backup/' "$TMP_ROOT/package-files.txt"; then
@@ -922,6 +956,7 @@ if [[ "$TARGET" == all || "$TARGET" == arch ]]; then
     "$PACKAGE_AUDIT_ROOT/usr/bin/btrfs-backupctl" target --help >/dev/null
     "$PACKAGE_AUDIT_ROOT/usr/bin/btrfs-backupctl" profile --help >/dev/null
     "$PACKAGE_AUDIT_ROOT/usr/bin/btrfs-backupctl" profile wizard --help >/dev/null
+    "$PACKAGE_AUDIT_ROOT/usr/bin/btrfs-backupd" --help >/dev/null
 
     PACKAGE_RENDERED="$TMP_ROOT/package-rendered"
     PACKAGE_PROFILE="$PACKAGE_RENDERED/config/profile.json"

@@ -79,8 +79,8 @@ install(
 )
 install(
     FILES
-        ${CMAKE_CURRENT_BINARY_DIR}/org/btrfsbackup/plasma/qmldir
-        ${CMAKE_CURRENT_BINARY_DIR}/org/btrfsbackup/plasma/btrfsbackup_plasma_backend.qmltypes
+        ${CMAKE_BINARY_DIR}/org/btrfsbackup/plasma/qmldir
+        ${CMAKE_BINARY_DIR}/org/btrfsbackup/plasma/btrfsbackup_plasma_backend.qmltypes
     DESTINATION ${BTRFSBACKUP_PLASMA_QMLDIR}
 )
 

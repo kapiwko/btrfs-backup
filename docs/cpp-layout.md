@@ -12,9 +12,10 @@ src/
 │   └── wizard/               # interactive profile construction
 ├── state/                    # status, checkpoints, fingerprints, history reads
 ├── platform/linux/           # explicitly Linux-specific system integration
-└── cli/                      # argv parsing, presentation, exit-code mapping
+├── cli/                      # argv parsing, presentation, exit-code mapping
+└── daemon/                   # optional read-only system D-Bus adapter
 tests/
-├── unit/{backup,config,state,platform,cli}/
+├── unit/{backup,config,state,platform,cli,daemon}/
 ├── integration/
 ├── support/
 └── systemd/
@@ -48,6 +49,7 @@ flowchart TB
 
     backup[backup orchestration]
     cli[CLI adapter]
+    daemon[read-only D-Bus adapter]
 
     config_model --> platform
     backup_model --> platform
@@ -63,8 +65,11 @@ flowchart TB
     backup --> cli
     config --> cli
     state --> cli
+    config_model --> daemon
+    platform --> daemon
 
     cli --> executables[btrfs-backup<br/>btrfs-backupctl]
+    daemon --> manager[btrfs-backupd]
 ```
 
 The `*-model` targets contain dependency-light contracts needed to avoid
@@ -93,6 +98,8 @@ filesystem adapters.
   other Linux-specific effects.
 - `cli` owns command-line parsing, output formatting, interactive streams, and
   exit-code mapping. Reusable orchestration must remain outside this target.
+- `daemon` owns the versioned read-only D-Bus adapter and sanitization boundary.
+  It observes file-backed state and never owns runner execution.
 - `apps` owns only process entry points and dependency composition.
 
 ## Rules
@@ -112,7 +119,7 @@ filesystem adapters.
 6. Keep long-running transfer orchestration separate from short administrative
    commands. Cancellation and completion remain pollable runtime events.
 7. Keep root-only state and history separate from sanitized public status.
-8. Do not add empty directories for planned daemon, QEMU, or KDE components.
+8. Do not add empty directories for planned QEMU or KDE components.
    Add them only with the first implementation they own.
 9. Optional KDE code remains under `integrations/kde` and outside the base
    runtime dependency graph.

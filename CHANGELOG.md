@@ -54,6 +54,27 @@
 18. privileged process execution now resolves bare commands only below
     `/usr/bin`, passes `PATH=/usr/bin` to children, and applies the same PATH to
     runner and eject systemd units.
+19. added the optional `btrfs-backupd` system-bus service with the versioned,
+    read-only `io.github.btrfsbackup.Manager1` API for capabilities, sanitized
+    profiles, current status, bounded history and device lifecycle state;
+20. installed D-Bus activation and default-deny policy files; the policy grants
+    only the five declared read methods and exports no mutating operation;
+21. private-bus tests cover malformed identifiers, pagination bounds, caller
+    disconnect, restart recovery and broker-level denial of undeclared calls;
+22. the real-Btrfs baseline passed full and incremental transfer, pending-state
+    recovery, restore drill, sandboxed systemd execution and automatic eject;
+23. clean Arch package testing now installs the base package without KDE first,
+    verifies that all base executables have no Qt/KDE linkage, then installs and
+    removes the KDE package independently.
+24. manager errors returned over D-Bus are presentation-safe and do not expose
+    private paths or parser diagnostics; full details remain in the service
+    journal.
+25. fixed the combined native/KDE CMake installation to read generated QML
+    module metadata from the configured output directory.
+26. added an opt-in QEMU USB-hotplug smoke test that boots a disposable Arch
+    guest and proves that real udev starts the system runner without a graphical
+    session; regular users can run it without host-side `sudo` through an
+    isolated privileged Docker worker.
 
 ## 0.2.1 - 2026-08-23
 
