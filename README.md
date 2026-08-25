@@ -166,7 +166,18 @@ Backups should be checked regularly with a restore test. A successful transfer e
 6. [engine contract](docs/engine-contract.md);
 7. [C++ source layout](docs/cpp-layout.md);
 8. [security model](docs/security.md);
-9. [release and packaging](docs/packaging.md).
+9. [release and packaging](docs/packaging.md);
+10. [active sprint](TODO.md) and [product roadmap](ROADMAP.md);
+11. proposed designs for [consistency groups](docs/design/consistency-groups.md),
+    [repository format](docs/design/repository-format.md),
+    [restore](docs/design/restore-engine.md),
+    [remote transport](docs/design/remote-transport.md),
+    [scheduling](docs/design/scheduling.md), and the
+    [system manager](docs/design/system-manager.md);
+12. accepted decisions for [external Btrfs send/receive](docs/adr/0001-btrfs-send-external-process.md),
+    [systemd-owned mounts](docs/adr/0002-systemd-owns-mounts.md),
+    [canonical JSON configuration](docs/adr/0003-json-canonical-config.md), and
+    [runner independence](docs/adr/0004-runner-independent-of-daemon.md).
 
 Native code is organized by responsibility under `src/backup`, `src/config`,
 `src/state`, `src/platform/linux`, and `src/cli`. Executable entry points live

@@ -1,5 +1,8 @@
 # Configuration
 
+The canonical-format decision and its compatibility consequences are recorded
+in [ADR 0003](adr/0003-json-canonical-config.md).
+
 ## Canonical Profile JSON
 
 The canonical format for tooling and runtime is a JSON profile document matching
