@@ -1,0 +1,10 @@
+# SPDX-FileCopyrightText: 2026 Kamil Piwowarski <kapiwko@gmail.com>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+[D-BUS Service]
+Name=io.github.btrfsbackup.Manager1
+Exec=/usr/bin/btrfs-backupd
+User=root
+SystemdService=btrfs-backupd.service
+
