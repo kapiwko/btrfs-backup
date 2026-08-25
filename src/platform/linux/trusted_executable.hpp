@@ -6,14 +6,10 @@
 
 #include <filesystem>
 
+#include <backup/ports/trusted_executable.hpp>
 #include <platform/linux/safe_directory_root.hpp>
 
 namespace btrfsbackup {
-
-struct TrustedExecutablePolicy {
-    bool allow_current_user_owner = false;
-    bool verify_parent_directories = true;
-};
 
 SafeDirectoryHandle open_trusted_executable(
     const SafeDirectoryRoot& trusted_root,

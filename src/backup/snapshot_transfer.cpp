@@ -11,6 +11,7 @@
 #include <vector>
 
 #include <config/errors.hpp>
+#include <platform/linux/safe_directory_root.hpp>
 
 namespace fs = std::filesystem;
 

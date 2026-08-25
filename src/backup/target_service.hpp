@@ -9,8 +9,8 @@
 #include <string>
 #include <vector>
 
-#include <platform/linux/command_runner.hpp>
-#include <platform/linux/mount_info.hpp>
+#include <backup/ports/command_runner.hpp>
+#include <backup/ports/mount_inspector.hpp>
 #include <config/identifiers.hpp>
 
 namespace btrfsbackup {

@@ -11,6 +11,34 @@ target_compile_features(btrfsbackup-backup-model PUBLIC cxx_std_20)
 target_include_directories(btrfsbackup-backup-model PUBLIC ${PROJECT_SOURCE_DIR}/src)
 target_link_libraries(btrfsbackup-backup-model PUBLIC btrfsbackup-config-model)
 
+add_library(btrfsbackup-backup-ports STATIC
+    ports/btrfs_operations.cpp
+    ports/command_runner.cpp
+    ports/mount_inspector.cpp
+)
+
+target_compile_features(btrfsbackup-backup-ports PUBLIC cxx_std_20)
+target_include_directories(btrfsbackup-backup-ports PUBLIC ${PROJECT_SOURCE_DIR}/src)
+target_link_libraries(btrfsbackup-backup-ports
+    PUBLIC
+        btrfsbackup-backup-model
+        btrfsbackup-config-model
+)
+
+add_library(btrfsbackup-backup-domain STATIC
+    incremental_parent.cpp
+    target_mount_validation.cpp
+)
+
+target_compile_features(btrfsbackup-backup-domain PUBLIC cxx_std_20)
+target_include_directories(btrfsbackup-backup-domain PUBLIC ${PROJECT_SOURCE_DIR}/src)
+target_link_libraries(btrfsbackup-backup-domain
+    PUBLIC
+        btrfsbackup-backup-model
+        btrfsbackup-backup-ports
+        btrfsbackup-config-model
+)
+
 add_library(btrfsbackup-backup STATIC
     backup_run.cpp
     backup_run_action_effects.cpp
@@ -18,10 +46,8 @@ add_library(btrfsbackup-backup STATIC
     backup_run_plan.cpp
     backup_service.cpp
     backup_service_adapters.cpp
-    incremental_parent.cpp
     pending_recovery_plan.cpp
     snapshot_transfer.cpp
-    target_mount_validation.cpp
     target_service.cpp
     transfer_pipeline.cpp
 )
@@ -31,6 +57,8 @@ target_include_directories(btrfsbackup-backup PUBLIC ${PROJECT_SOURCE_DIR}/src)
 target_link_libraries(btrfsbackup-backup
     PUBLIC
         btrfsbackup-backup-model
+        btrfsbackup-backup-domain
+        btrfsbackup-backup-ports
         btrfsbackup-config
         btrfsbackup-platform-linux
         btrfsbackup-state
@@ -38,5 +66,7 @@ target_link_libraries(btrfsbackup-backup
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(btrfsbackup-backup-model PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(btrfsbackup-backup-ports PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(btrfsbackup-backup-domain PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(btrfsbackup-backup PRIVATE -Wall -Wextra -Wpedantic)
 endif()

@@ -8,8 +8,8 @@
 #include <string>
 #include <vector>
 
-#include <platform/linux/btrfs_operations.hpp>
-#include <platform/linux/filesystem.hpp>
+#include <backup/ports/btrfs_operations.hpp>
+#include <backup/ports/filesystem.hpp>
 #include <backup/snapshot_inventory.hpp>
 
 namespace btrfsbackup {

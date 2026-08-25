@@ -13,12 +13,16 @@
 #include <vector>
 
 #include <config/errors.hpp>
+#include <platform/linux/safe_directory_root.hpp>
+#include <platform/linux/trusted_executable.hpp>
 #include <state/run_state.hpp>
 #include <backup/snapshot_transfer.hpp>
 
 namespace fs = std::filesystem;
 
 namespace btrfsbackup {
+
+BackupRunActionEffects::~BackupRunActionEffects() = default;
 
 namespace {
 

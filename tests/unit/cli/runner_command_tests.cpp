@@ -23,6 +23,8 @@
 #include <backup/backup_service_adapters.hpp>
 #include <state/config_fingerprint.hpp>
 #include <platform/linux/file_lock.hpp>
+#include <platform/linux/command_runner.hpp>
+#include <platform/linux/mount_info.hpp>
 #include <config/json.hpp>
 #include <config/json_io.hpp>
 #include <config/profile.hpp>
@@ -382,7 +384,7 @@ int run_runner(
     const btrfsbackup::Profile profile = btrfsbackup::load_profile_by_id(config_root, profile_id.value);
     const fs::path mountinfo = option_value(args, "--mountinfo", "/proc/self/mountinfo");
     btrfsbackup::FileProfileRepository profiles(config_root, fixture->application_config);
-    btrfsbackup::MountTableInspector mounts(mountinfo, [target_uuid = profile.target.btrfs_uuid](const std::string& source) {
+    btrfsbackup::LinuxMountInspector mounts(mountinfo, [target_uuid = profile.target.btrfs_uuid](const std::string& source) {
         return source.find("/dev/mapper/") == 0 ? target_uuid : "source-btrfs-uuid";
     });
     btrfsbackup::PosixCommandRunner commands;

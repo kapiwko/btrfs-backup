@@ -12,10 +12,10 @@
 
 #include <backup/backup_run_executor.hpp>
 #include <backup/backup_run_plan.hpp>
+#include <backup/ports/mount_inspector.hpp>
 #include <config/application_paths.hpp>
 #include <config/identifiers.hpp>
 #include <config/profile.hpp>
-#include <platform/linux/mount_info.hpp>
 #include <state/run_status.hpp>
 
 namespace btrfsbackup {
@@ -52,12 +52,6 @@ class IProfileRepository {
     [[nodiscard]] virtual Profile get(const ProfileId& profile_id) const = 0;
     [[nodiscard]] virtual const ApplicationPaths& application_paths() const = 0;
     [[nodiscard]] virtual std::string fingerprint(const Profile& profile) const = 0;
-};
-
-class IMountInspector {
-  public:
-    virtual ~IMountInspector() = default;
-    [[nodiscard]] virtual std::vector<MountEntry> inspect() const = 0;
 };
 
 class ITargetManager {

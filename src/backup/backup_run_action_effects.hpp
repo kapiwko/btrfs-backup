@@ -8,12 +8,14 @@
 #include <memory>
 
 #include <backup/backup_run_executor.hpp>
-#include <platform/linux/btrfs_operations.hpp>
-#include <platform/linux/command_runner.hpp>
-#include <platform/linux/filesystem.hpp>
-#include <platform/linux/trusted_executable.hpp>
+#include <backup/ports/btrfs_operations.hpp>
+#include <backup/ports/command_runner.hpp>
+#include <backup/ports/filesystem.hpp>
+#include <backup/ports/trusted_executable.hpp>
 
 namespace btrfsbackup {
+
+class SafeDirectoryRoot;
 
 class BackupRunActionEffects final : public IBackupRunActionEffects {
 public:
@@ -33,6 +35,7 @@ public:
         const std::filesystem::path& hook_root,
         const TrustedExecutablePolicy& hook_policy
     );
+    ~BackupRunActionEffects() override;
 
     void execute_action(
         const BackupRunAction& action,
