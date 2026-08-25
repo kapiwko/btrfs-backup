@@ -35,16 +35,16 @@ its own packaging generators.
 Outputs are written to `dist/`:
 
 ```text
-btrfs-backup-0.2.2.tar.gz
-btrfs-backup-0.2.2-1-x86_64.pkg.tar.zst
-btrfs-backup-kde-0.2.2-1-x86_64.pkg.tar.zst
-btrfs-backup_0.2.2-1_amd64.deb
-btrfs-backup-0.2.2-install.tar.gz
-btrfs-backup-0.2.2-rpm-packaging.tar.gz
-btrfs-backup-0.2.2-nix-packaging.tar.gz
-btrfs-backup-0.2.2-ebuild.tar.gz
-btrfs-backup-0.2.2-pkgbuild.tar.gz
-btrfs-backup-0.2.2-source.zip
+btrfs-backup-0.3.0.tar.gz
+btrfs-backup-0.3.0-1-x86_64.pkg.tar.zst
+btrfs-backup-kde-0.3.0-1-x86_64.pkg.tar.zst
+btrfs-backup_0.3.0-1_amd64.deb
+btrfs-backup-0.3.0-install.tar.gz
+btrfs-backup-0.3.0-rpm-packaging.tar.gz
+btrfs-backup-0.3.0-nix-packaging.tar.gz
+btrfs-backup-0.3.0-ebuild.tar.gz
+btrfs-backup-0.3.0-pkgbuild.tar.gz
+btrfs-backup-0.3.0-source.zip
 SHA256SUMS
 BUILD-REPORT.txt
 ```

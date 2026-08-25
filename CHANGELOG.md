@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.2 - 2026-08-24
+## 0.3.0 - 2026-08-25
 
 1. native runner execution now uses separate non-blocking profile and target
    locks, preventing concurrent profiles from manipulating the same LUKS backup
@@ -16,8 +16,9 @@
    and remains monotonic through its post-transfer actions;
 6. live transfer speed now uses a three-second EWMA and status updates are
    interval-limited instead of requiring one durable write per splice;
-7. run-status schema version 2 removes `safeToRemove`; the Plasma widget no
-   longer presents backup completion as target eject state;
+7. public run-status schema version 3 removes `safeToRemove`, while private
+   diagnostic history uses schema version 2; the Plasma widget no longer
+   presents backup completion as target eject state;
 8. the Plasma backend now names its CLI process state `watcherConnected`,
    reserving target connectivity for the future system backend.
 9. failed verification of a committed snapshot now reports cleanup failures as
