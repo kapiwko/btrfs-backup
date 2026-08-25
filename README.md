@@ -179,6 +179,12 @@ Backups should be checked regularly with a restore test. A successful transfer e
     [canonical JSON configuration](docs/adr/0003-json-canonical-config.md), and
     [runner independence](docs/adr/0004-runner-independent-of-daemon.md).
 
+## Contributing And Security
+
+Development setup, test expectations and pull-request requirements are in
+[CONTRIBUTING.md](CONTRIBUTING.md). Suspected vulnerabilities must be reported
+privately according to [SECURITY.md](SECURITY.md), not through a public issue.
+
 Native code is organized by responsibility under `src/backup`, `src/config`,
 `src/state`, `src/platform/linux`, and `src/cli`. Executable entry points live
 in `apps/`, tests mirror those domains under `tests/`, and optional desktop
