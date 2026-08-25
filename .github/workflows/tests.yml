@@ -8,6 +8,31 @@ permissions:
   contents: read
 
 jobs:
+  cpp-quality:
+    runs-on: ubuntu-24.04
+    container: archlinux:base-devel
+    steps:
+      - name: Prepare Arch Linux
+        run: |
+          pacman -Syu --noconfirm --needed \
+            btrfs-progs \
+            clang \
+            cmake \
+            git \
+            nlohmann-json \
+            pkgconf \
+            systemd \
+            util-linux
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check modified C++ formatting
+        run: make check-format
+        env:
+          CPP_FORMAT_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+      - name: Run C++ static analysis
+        run: make clang-tidy
+
   tests:
     runs-on: ubuntu-24.04
     container: archlinux:base-devel

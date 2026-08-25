@@ -1,0 +1,93 @@
+name: Bug report
+description: Report a reproducible defect in backup, restore, configuration, packaging, or KDE integration.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not report vulnerabilities or include passwords, key material, private profile contents, or personal backup data here. Follow SECURITY.md for private security reports.
+
+  - type: input
+    id: version
+    attributes:
+      label: btrfs-backup version
+      description: Provide the release version and commit when building from source.
+      placeholder: "0.2.2 / commit 6ed2c3e"
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include distribution, kernel, btrfs-progs, systemd, cryptsetup, filesystem layout, and package/source installation.
+      placeholder: |
+        Distribution:
+        Kernel:
+        btrfs-progs:
+        systemd:
+        cryptsetup:
+        Installation method:
+    validations:
+      required: true
+
+  - type: dropdown
+    id: operation
+    attributes:
+      label: Affected operation
+      options:
+        - Full backup
+        - Incremental backup
+        - Validation or configuration
+        - Mount or eject
+        - Cancellation or recovery
+        - Restore
+        - Packaging or installation
+        - Plasma integration
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      description: Include the exact command or systemd/udev trigger and the smallest safe sequence that reproduces the problem.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include exit codes and stable error codes where available.
+    validations:
+      required: true
+
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Sanitized diagnostics
+      description: Add relevant journal, status, or history excerpts after removing paths, UUIDs, hook commands, keys, and private data.
+      render: shell
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Safety checklist
+      options:
+        - label: I removed secrets, key material, private profile data, UUIDs, and personal backup contents.
+          required: true
+        - label: I searched existing issues for the same problem.
+          required: true
+        - label: I can reproduce this without operating on another person's or an irreplaceable backup target.
+          required: true
