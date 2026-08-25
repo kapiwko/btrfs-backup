@@ -181,6 +181,6 @@ sprint selects the next bounded portion of that work in [`TODO.md`](../TODO.md).
 `tools/build-release.sh --target all` runs tests, creates the source tarball, builds all supported release targets, and writes SHA-256 reports. Package targets that produce installable archives are also smoke-tested where practical. After building the Arch target, also check:
 
 ```bash
-tar --zstd -tf dist/btrfs-backup-2.1.1-1-x86_64.pkg.tar.zst
+tar --zstd -tf dist/btrfs-backup-3.0.0-1-x86_64.pkg.tar.zst
 sha256sum -c dist/SHA256SUMS
 ```
