@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Kamil Piwowarski <kapiwko@gmail.com>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 add_library(btrfsbackup-cli STATIC
     backup_tool.cpp
     ctl_tool.cpp

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Kamil Piwowarski <kapiwko@gmail.com>
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 #include <cli/status_history_command.hpp>
 
 #include <filesystem>

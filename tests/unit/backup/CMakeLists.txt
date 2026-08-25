@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Kamil Piwowarski <kapiwko@gmail.com>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 add_btrfsbackup_test(btrfsbackup-retention-plan-tests retention_plan_tests.cpp retention-plan-tests btrfsbackup-backup-model)
 add_btrfsbackup_test(btrfsbackup-snapshot-inventory-tests snapshot_inventory_tests.cpp snapshot-inventory-tests btrfsbackup-backup-model)
 add_btrfsbackup_test(btrfsbackup-backup-run-action-effects-tests backup_run_action_effects_tests.cpp backup-run-action-effects-tests btrfsbackup-backup)
