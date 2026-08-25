@@ -15,7 +15,6 @@
 
 #include <platform/linux/device_info.hpp>
 #include <config/errors.hpp>
-#include <config/validation.hpp>
 
 namespace btrfsbackup {
 
@@ -91,57 +90,14 @@ std::vector<std::string> btrfs_mount_targets(const std::filesystem::path& mounti
     return {unique.begin(), unique.end()};
 }
 
-std::optional<MountEntry> mount_at(const std::vector<MountEntry>& entries, const std::filesystem::path& target) {
-    std::filesystem::path normalized_target = normalized_path(target);
-    for (const MountEntry& entry : entries) {
-        if (normalized_path(entry.target) == normalized_target) {
-            return entry;
-        }
-    }
-    return std::nullopt;
-}
+LinuxMountInspector::LinuxMountInspector(
+    std::filesystem::path mountinfo,
+    FilesystemUuidResolver uuid_resolver
+) : mountinfo_(std::move(mountinfo)),
+    uuid_resolver_(std::move(uuid_resolver)) {}
 
-std::optional<MountEntry> mount_for_path(const std::vector<MountEntry>& entries, const std::filesystem::path& path) {
-    std::filesystem::path normalized = normalized_path(path);
-    const MountEntry* best = nullptr;
-    std::size_t best_size = 0;
-    for (const MountEntry& entry : entries) {
-        if (entry.target.empty()) {
-            continue;
-        }
-        std::filesystem::path target = normalized_path(entry.target);
-        if (path_is_within(normalized, target)) {
-            std::size_t size = target.string().size();
-            if (best == nullptr || size > best_size) {
-                best = &entry;
-                best_size = size;
-            }
-        }
-    }
-    if (best == nullptr) {
-        return std::nullopt;
-    }
-    return *best;
-}
-
-bool paths_are_same_filesystem(const std::vector<MountEntry>& entries, const std::filesystem::path& path_a, const std::filesystem::path& path_b) {
-    std::optional<MountEntry> mount_a = mount_for_path(entries, path_a);
-    std::optional<MountEntry> mount_b = mount_for_path(entries, path_b);
-    if (!mount_a || !mount_b) {
-        return false;
-    }
-    if (!mount_a->filesystem_uuid.empty() && !mount_b->filesystem_uuid.empty()) {
-        return mount_a->filesystem_uuid == mount_b->filesystem_uuid;
-    }
-    return !mount_a->device_id.empty() && mount_a->device_id == mount_b->device_id;
-}
-
-bool mount_uses_mapper(const std::vector<MountEntry>& entries, const std::filesystem::path& mountpoint, const std::filesystem::path& mapper_path) {
-    std::optional<MountEntry> mount = mount_at(entries, mountpoint);
-    if (!mount) {
-        return false;
-    }
-    return normalized_path(strip_subvolume_suffix(mount->source)) == normalized_path(mapper_path);
+std::vector<MountEntry> LinuxMountInspector::inspect() const {
+    return read_mount_table(mountinfo_, uuid_resolver_);
 }
 
 } // namespace btrfsbackup

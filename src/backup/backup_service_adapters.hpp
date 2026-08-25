@@ -8,10 +8,10 @@
 
 #include <backup/backup_run_action_effects.hpp>
 #include <backup/backup_service.hpp>
+#include <backup/ports/command_runner.hpp>
 #include <backup/snapshot_inventory.hpp>
 #include <backup/transfer_pipeline.hpp>
 #include <config/application_config.hpp>
-#include <platform/linux/command_runner.hpp>
 
 namespace btrfsbackup {
 
@@ -27,20 +27,6 @@ class FileProfileRepository final : public IProfileRepository {
   private:
     std::filesystem::path config_root_;
     ApplicationConfig application_config_;
-};
-
-class MountTableInspector final : public IMountInspector {
-  public:
-    explicit MountTableInspector(
-        std::filesystem::path mountinfo = "/proc/self/mountinfo",
-        FilesystemUuidResolver uuid_resolver = blkid_filesystem_uuid
-    );
-
-    [[nodiscard]] std::vector<MountEntry> inspect() const override;
-
-  private:
-    std::filesystem::path mountinfo_;
-    FilesystemUuidResolver uuid_resolver_;
 };
 
 class SystemdTargetManager final : public ITargetManager {

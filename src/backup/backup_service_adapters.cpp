@@ -122,14 +122,6 @@ std::string FileProfileRepository::fingerprint(const Profile& profile) const {
     );
 }
 
-MountTableInspector::MountTableInspector(fs::path mountinfo, FilesystemUuidResolver uuid_resolver)
-    : mountinfo_(std::move(mountinfo)), uuid_resolver_(std::move(uuid_resolver)) {
-}
-
-std::vector<MountEntry> MountTableInspector::inspect() const {
-    return read_mount_table(mountinfo_, uuid_resolver_);
-}
-
 SystemdTargetManager::SystemdTargetManager(IMountInspector& mounts, ICommandRunner& commands)
     : mounts_(mounts), commands_(commands) {
 }

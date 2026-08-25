@@ -10,17 +10,9 @@
 #include <string>
 #include <vector>
 
-namespace btrfsbackup {
+#include <backup/ports/mount_inspector.hpp>
 
-struct MountEntry {
-    std::string source;
-    std::string target;
-    std::string fstype;
-    std::string root;
-    std::string options;
-    std::string device_id;
-    std::string filesystem_uuid;
-};
+namespace btrfsbackup {
 
 using FilesystemUuidResolver = std::function<std::string(const std::string&)>;
 
@@ -28,9 +20,18 @@ std::string blkid_filesystem_uuid(const std::string& source);
 std::vector<MountEntry> read_mount_table(const std::filesystem::path& mountinfo_path = "/proc/self/mountinfo");
 std::vector<MountEntry> read_mount_table(const std::filesystem::path& mountinfo_path, const FilesystemUuidResolver& filesystem_uuid_resolver);
 std::vector<std::string> btrfs_mount_targets(const std::filesystem::path& mountinfo_path = "/proc/self/mountinfo");
-std::optional<MountEntry> mount_at(const std::vector<MountEntry>& entries, const std::filesystem::path& target);
-std::optional<MountEntry> mount_for_path(const std::vector<MountEntry>& entries, const std::filesystem::path& path);
-bool paths_are_same_filesystem(const std::vector<MountEntry>& entries, const std::filesystem::path& path_a, const std::filesystem::path& path_b);
-bool mount_uses_mapper(const std::vector<MountEntry>& entries, const std::filesystem::path& mountpoint, const std::filesystem::path& mapper_path);
+class LinuxMountInspector final : public IMountInspector {
+  public:
+    explicit LinuxMountInspector(
+        std::filesystem::path mountinfo = "/proc/self/mountinfo",
+        FilesystemUuidResolver uuid_resolver = blkid_filesystem_uuid
+    );
+
+    [[nodiscard]] std::vector<MountEntry> inspect() const override;
+
+  private:
+    std::filesystem::path mountinfo_;
+    FilesystemUuidResolver uuid_resolver_;
+};
 
 } // namespace btrfsbackup

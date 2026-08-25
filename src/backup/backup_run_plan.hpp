@@ -12,7 +12,7 @@
 
 #include <backup/backup_run_action.hpp>
 #include <backup/incremental_parent.hpp>
-#include <platform/linux/mount_info.hpp>
+#include <backup/ports/mount_inspector.hpp>
 #include <backup/pending_recovery_plan.hpp>
 #include <config/profile.hpp>
 #include <config/identifiers.hpp>
