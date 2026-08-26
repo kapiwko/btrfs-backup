@@ -8,7 +8,7 @@
 #include <optional>
 #include <string>
 
-#include <state/run_status.hpp>
+#include <core/error_code.hpp>
 
 namespace btrfsbackup {
 

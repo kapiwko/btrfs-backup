@@ -11,6 +11,7 @@ endfunction()
 
 add_subdirectory(unit/backup)
 add_subdirectory(unit/config)
+add_subdirectory(unit/core)
 add_subdirectory(unit/state)
 add_subdirectory(unit/platform)
 add_subdirectory(unit/cli)
