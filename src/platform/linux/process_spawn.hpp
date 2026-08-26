@@ -7,11 +7,9 @@
 #include <sys/types.h>
 
 #include <chrono>
-#include <optional>
+#include <map>
 #include <string>
 #include <vector>
-
-#include <config/identifiers.hpp>
 
 namespace btrfsbackup {
 
@@ -21,8 +19,7 @@ struct ProcessSpawnOptions {
     int stderr_fd = -1;
     bool create_process_group = false;
     std::vector<int> inherited_fds;
-    std::optional<ProfileId> profile_id;
-    std::optional<SourceId> source_id;
+    std::map<std::string, std::string> environment;
 };
 
 struct ProcessSpawnResult {

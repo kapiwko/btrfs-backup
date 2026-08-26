@@ -139,13 +139,15 @@ void test_run_command_limits_captured_output() {
     );
 }
 
-void test_controlled_command_adds_explicit_backup_context() {
+void test_controlled_command_adds_explicit_environment() {
     btrfsbackup::CommandResult result = btrfsbackup::run_controlled_command(
         {"env"},
         {
             .timeout = std::chrono::seconds(1),
-            .profile_id = btrfsbackup::ProfileId{"laptop"},
-            .source_id = btrfsbackup::SourceId{"home"},
+            .environment = {
+                {"BTRFS_BACKUP_PROFILE_ID", "laptop"},
+                {"BTRFS_BACKUP_SOURCE_ID", "home"},
+            },
         }
     );
     const std::set<std::string> expected{
@@ -157,9 +159,9 @@ void test_controlled_command_adds_explicit_backup_context() {
         "PATH=/usr/bin",
     };
 
-    test_helpers::expect_eq("context environment exit", std::to_string(result.exit_code), "0");
+    test_helpers::expect_eq("explicit environment exit", std::to_string(result.exit_code), "0");
     test_helpers::expect_true(
-        "context environment",
+        "explicit environment",
         environment_lines(result.output) == expected,
         "controlled child received an unexpected environment"
     );
@@ -298,7 +300,7 @@ int main() {
     test_run_command_ignores_untrusted_path();
     test_run_command_uses_environment_allowlist();
     test_run_command_limits_captured_output();
-    test_controlled_command_adds_explicit_backup_context();
+    test_controlled_command_adds_explicit_environment();
     test_run_command_rejects_relative_program_path();
     test_run_command_rejects_empty_program();
     test_controlled_command_times_out_and_reaps_process();
