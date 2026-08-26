@@ -79,11 +79,11 @@ Profile installed_profile(const Profile& profile) {
 Json public_profile_json(const Profile& profile) {
     Json sources = Json::array();
     for (const auto& source : profile.sources) {
-        sources.push_back({{"id", source.id}, {"name", source.name}});
+        sources.push_back({{"id", std::string(source.id.value())}, {"name", source.name}});
     }
     Json result = {
         {"schemaVersion", 1},
-        {"profileId", profile.id},
+        {"profileId", std::string(profile.id.value())},
         {"name", profile.name},
         {"target", {{"name", profile.target.mapper_name}}},
         {"sources", std::move(sources)},
@@ -318,20 +318,21 @@ ConfigurationSaveError::ConfigurationSaveError(std::string message, RollbackResu
 
 void render_tree(const Profile& profile, const fs::path& output_dir) {
     const Profile rendered = installed_profile(profile);
+    const std::string rendered_id{rendered.id.value()};
     fs::path root = output_dir / "etc" / "btrfs-backup";
-    atomic_write(root / "profiles" / rendered.id / "profile.json", dump_json(profile_to_json(rendered)), 0600);
+    atomic_write(root / "profiles" / rendered_id / "profile.json", dump_json(profile_to_json(rendered)), 0600);
     atomic_write(
-        output_dir / "etc" / "udev" / "rules.d" / ("99-btrfs-backup-" + rendered.id + ".rules"),
+        output_dir / "etc" / "udev" / "rules.d" / ("99-btrfs-backup-" + rendered_id + ".rules"),
         render_udev(rendered),
         0644
     );
     atomic_write(
-        output_dir / "etc" / "systemd" / "system" / ("btrfs-backup@" + rendered.id + ".service.d") / "target-mount.conf",
+        output_dir / "etc" / "systemd" / "system" / ("btrfs-backup@" + rendered_id + ".service.d") / "target-mount.conf",
         render_mount_dependency(rendered),
         0644
     );
     atomic_write(
-        output_dir / "var" / "lib" / "btrfs-backup" / "public" / "profiles" / (rendered.id + ".json"),
+        output_dir / "var" / "lib" / "btrfs-backup" / "public" / "profiles" / (rendered_id + ".json"),
         dump_json(public_profile_json(rendered)),
         0644
     );
@@ -346,36 +347,37 @@ void save_tree(
     const std::function<void()>& activate
 ) {
     const Profile installed = installed_profile(profile);
+    const std::string installed_id{installed.id.value()};
     const std::string& generation = installed.configuration_generation;
     ApplicationConfig application_config = ApplicationConfig::load(etc_root);
-    const fs::path source_root = profile_sources_dir(application_config.paths(), installed.id);
+    const fs::path source_root = profile_sources_dir(application_config.paths(), installed_id);
     const fs::path source_backup = source_root.parent_path()
         / (source_root.filename().string() + ".backup-" + generation);
 
     std::vector<ConfigurationArtifact> artifacts{
         {
-            .destination = udev_root / ("99-btrfs-backup-" + installed.id + ".rules"),
+            .destination = udev_root / ("99-btrfs-backup-" + installed_id + ".rules"),
             .staged = {},
             .previous = {},
             .content = render_udev(installed),
             .mode = 0644,
         },
         {
-            .destination = systemd_root / ("btrfs-backup@" + installed.id + ".service.d") / "target-mount.conf",
+            .destination = systemd_root / ("btrfs-backup@" + installed_id + ".service.d") / "target-mount.conf",
             .staged = {},
             .previous = {},
             .content = render_mount_dependency(installed),
             .mode = 0644,
         },
         {
-            .destination = etc_root / "profiles" / installed.id / "profile.json",
+            .destination = etc_root / "profiles" / installed_id / "profile.json",
             .staged = {},
             .previous = {},
             .content = dump_json(profile_to_json(installed)),
             .mode = 0600,
         },
         {
-            .destination = public_root / (installed.id + ".json"),
+            .destination = public_root / (installed_id + ".json"),
             .staged = {},
             .previous = {},
             .content = dump_json(public_profile_json(installed)),
@@ -398,9 +400,9 @@ void save_tree(
             throw ValidationError("staged configuration generation mismatch");
         }
 
-        FileLock lock(configuration_lock_path(etc_root, installed.id));
+        FileLock lock(configuration_lock_path(etc_root, installed_id));
         if (!lock.try_acquire()) {
-            throw ValidationError("profile is active; configuration save refused: " + installed.id);
+            throw ValidationError("profile is active; configuration save refused: " + installed_id);
         }
 
         bool source_backed_up = false;

@@ -108,7 +108,7 @@ int estimated_overall_progress(
         const std::int64_t completed_sources = std::clamp(event.source_index, 0, context.source_count);
         return static_cast<int>(completed_sources * 100 / context.source_count);
     }
-    if (!event.source_id.value.empty() && event.source_index > 0) {
+    if (event.source_id.has_value() && event.source_index > 0) {
         const std::int64_t completed_sources = std::clamp(event.source_index - 1, 0, context.source_count);
         const int current_source_progress = std::clamp(source_progress, 0, 100);
         return static_cast<int>(
@@ -178,7 +178,10 @@ RunStatus status_for_event(
     const BackupRunEvent& event,
     int minimum_overall_progress
 ) {
-    auto source_name = context.source_names.find(event.source_id.value);
+    const std::string source_id = event.source_id.has_value()
+        ? std::string(event.source_id->value())
+        : std::string{};
+    auto source_name = context.source_names.find(source_id);
     RunState state = RunState::Running;
     RunPhase phase = phase_for_event(event.kind);
     std::string finished_at;
@@ -251,7 +254,7 @@ RunStatus status_for_event(
         error_code = event.error_code.value_or(error_code_for_failed_action(event.action_kind));
         error_message = event.message;
         details = {
-            {"sourceId", event.source_id.value},
+            {"sourceId", source_id},
             {"action", backup_run_action_kind_name(event.action_kind)}
         };
         if (error_code == ErrorCode::RepositoryRecoveryRequired) {
@@ -265,7 +268,7 @@ RunStatus status_for_event(
         error_code = ErrorCode::RunnerCancelled;
         error_message = message_for_event(event);
         details = {
-            {"sourceId", event.source_id.value},
+            {"sourceId", source_id},
             {"action", backup_run_action_kind_name(event.action_kind)}
         };
         recoverable = true;
@@ -289,7 +292,7 @@ RunStatus status_for_event(
         .state = state,
         .phase = phase,
         .message = message_for_event(event),
-        .current_source_name = source_name == context.source_names.end() ? event.source_id.value : source_name->second,
+        .current_source_name = source_name == context.source_names.end() ? source_id : source_name->second,
         .target_name = context.target_name,
         .source_index = event.source_index,
         .source_count = context.source_count,
@@ -394,31 +397,26 @@ std::string backup_run_event_kind_name(BackupRunEventKind kind) {
 }
 
 Json build_backup_run_checkpoint_json(const BackupRunCheckpoint& checkpoint) {
-    validate_profile_id(checkpoint.profile_id.value);
-    validate_run_id(checkpoint.run_id.value);
-    validate_identifier(checkpoint.source_id.value, "sourceId");
     return {
         {"schemaVersion", 1},
-        {"profileId", checkpoint.profile_id.value},
-        {"runId", checkpoint.run_id.value},
-        {"sourceId", checkpoint.source_id.value},
+        {"profileId", std::string(checkpoint.profile_id.value())},
+        {"runId", std::string(checkpoint.run_id.value())},
+        {"sourceId", std::string(checkpoint.source_id.value())},
         {"action", backup_run_action_kind_name(checkpoint.action_kind)},
         {"updatedAt", current_utc_iso_timestamp()},
     };
 }
 
 Json build_backup_run_event_json(const BackupRunEvent& event) {
-    validate_profile_id(event.profile_id.value);
-    validate_run_id(event.run_id.value);
-    if (!event.source_id.value.empty()) {
-        validate_identifier(event.source_id.value, "sourceId");
-    }
+    const std::string source_id = event.source_id.has_value()
+        ? std::string(event.source_id->value())
+        : std::string{};
     return {
         {"schemaVersion", 1},
         {"event", backup_run_event_kind_name(event.kind)},
-        {"profileId", event.profile_id.value},
-        {"runId", event.run_id.value},
-        {"sourceId", event.source_id.value},
+        {"profileId", std::string(event.profile_id.value())},
+        {"runId", std::string(event.run_id.value())},
+        {"sourceId", source_id},
         {"sourceIndex", event.source_index},
         {"action", backup_run_action_kind_name(event.action_kind)},
         {"bytesTransferred", event.bytes_transferred},

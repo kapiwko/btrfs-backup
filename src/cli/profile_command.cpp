@@ -135,20 +135,20 @@ int profile(const std::vector<std::string>& args, const fs::path& profile_config
             ApplicationConfig config = ApplicationConfig::load(etc_root);
             Profile profile = validate_profile_file(file, config.paths().target_mount_root);
             render_profile(file, output_dir, config.paths().target_mount_root);
-            std::cout << "Rendered profile " << profile.id << " to " << output_dir << "\n";
+            std::cout << "Rendered profile " << profile.id.value() << " to " << output_dir << "\n";
         } else if (command == "save") {
             if (file.empty()) fail("save requires --file");
             if (geteuid() != 0 && etc_root == "/etc/btrfs-backup") {
                 fail("save to system configuration must be run as root", 1);
             }
             Profile profile = save_profile(file, {etc_root, udev_root, systemd_root, public_root});
-            std::cout << "Saved profile " << profile.id << "\n";
+            std::cout << "Saved profile " << profile.id.value() << "\n";
         } else if (command == "show") {
             std::cout << dump_json(profile_to_json(get_profile(etc_root, profile_id)));
         } else if (command == "export") {
             if (output_dir.empty()) fail("export requires --output");
             Profile profile = export_profile(etc_root, profile_id, output_dir);
-            std::cout << "Exported profile " << profile.id << " to " << output_dir << "\n";
+            std::cout << "Exported profile " << profile.id.value() << " to " << output_dir << "\n";
         } else {
             fail("unknown command: " + command);
         }

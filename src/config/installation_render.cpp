@@ -82,29 +82,30 @@ std::string render_crypttab_fragment(const btrfsbackup::Profile& profile, const 
 }
 
 std::string render_backup_service(const btrfsbackup::Profile& profile, const std::string& backup_command) {
-    return
-        "[Unit]\n"
-        "Description=Verified Btrfs backup to an encrypted removable target\n"
-        "Documentation=file:/usr/share/doc/btrfs-backup/README.md\n"
-        "ConditionPathExists=/etc/btrfs-backup\n"
-        + render_mount_requirement(profile) +
+    return "[Unit]\n"
+           "Description=Verified Btrfs backup to an encrypted removable target\n"
+           "Documentation=file:/usr/share/doc/btrfs-backup/README.md\n"
+           "ConditionPathExists=/etc/btrfs-backup\n" +
+        render_mount_requirement(profile) +
         "After=local-fs.target systemd-udevd.service\n"
         "StartLimitIntervalSec=5min\n"
         "StartLimitBurst=3\n"
         "\n"
         "[Service]\n"
         "Type=oneshot\n"
-        "ExecStart=" + backup_command + " --profile " + profile.id + "\n"
-        "ExecStopPost=/usr/bin/systemctl --no-block start btrfs-backup-eject@" + profile.id + ".service\n"
-        "User=root\n"
-        "Group=root\n"
-        "UMask=0077\n"
-        "RuntimeDirectory=btrfs-backup\n"
-        "RuntimeDirectoryMode=0755\n"
-        "StateDirectory=btrfs-backup\n"
-        "StateDirectoryMode=0755\n"
-        "Environment=PATH=/usr/bin\n"
-        + service_hardening +
+        "ExecStart=" +
+        backup_command + " --profile " + std::string(profile.id.value()) + "\n"
+                                                                           "ExecStopPost=/usr/bin/systemctl --no-block start btrfs-backup-eject@" +
+        std::string(profile.id.value()) + ".service\n"
+                                          "User=root\n"
+                                          "Group=root\n"
+                                          "UMask=0077\n"
+                                          "RuntimeDirectory=btrfs-backup\n"
+                                          "RuntimeDirectoryMode=0755\n"
+                                          "StateDirectory=btrfs-backup\n"
+                                          "StateDirectoryMode=0755\n"
+                                          "Environment=PATH=/usr/bin\n" +
+        service_hardening +
         "Nice=10\n"
         "IOSchedulingClass=best-effort\n"
         "IOSchedulingPriority=7\n"
@@ -191,7 +192,7 @@ void render_installation_files(
     atomic_write(output_dir / "systemd" / "btrfs-backup@.service", render_profile_service(options.backup_command), 0644);
     atomic_write(output_dir / "systemd" / "btrfs-backup-eject@.service", render_eject_service(options.eject_script), 0644);
     atomic_write(
-        output_dir / "systemd" / ("btrfs-backup@" + profile.id + ".service.d") / "target-mount.conf",
+        output_dir / "systemd" / ("btrfs-backup@" + std::string(profile.id.value()) + ".service.d") / "target-mount.conf",
         render_mount_dependency(profile),
         0644
     );

@@ -527,10 +527,9 @@ Json normalize_profile(const Json& raw, const fs::path& target_mount_root) {
 
 Profile profile_from_json(const Json& raw, const fs::path& target_mount_root) {
     Json normalized = normalize_profile(raw, target_mount_root);
-    Profile profile;
+    Profile profile{ProfileId{normalized.at("profileId").get<std::string>()}};
     profile.schema_version = normalized.at("schemaVersion").get<int>();
     profile.configuration_generation = normalized.value("configurationGeneration", "");
-    profile.id = normalized.at("profileId").get<std::string>();
     profile.name = normalized.at("name").get<std::string>();
     profile.enabled = normalized.at("enabled").get<bool>();
 
@@ -541,7 +540,7 @@ Profile profile_from_json(const Json& raw, const fs::path& target_mount_root) {
     profile.target.partition_uuid = target.at("partitionUuid").get<std::string>();
     profile.target.serial = target.at("serial").get<std::string>();
     profile.target.mapper_name = target.at("mapperName").get<std::string>();
-    profile.target.mount_point = (normalized_absolute_path(target_mount_root, "TARGET_MOUNT_ROOT") / profile.id).string();
+    profile.target.mount_point = (normalized_absolute_path(target_mount_root, "TARGET_MOUNT_ROOT") / profile.id.value()).string();
     profile.target.mount_unit = systemd_mount_unit(profile.target.mount_point);
 
     const Json& paths = normalized.at("paths");
@@ -575,16 +574,15 @@ Profile profile_from_json(const Json& raw, const fs::path& target_mount_root) {
     }
 
     for (const Json& item : normalized.at("sources")) {
-        profile.sources.push_back({
-            .id = item.at("id").get<std::string>(),
-            .name = item.at("name").get<std::string>(),
-            .enabled = item.at("enabled").get<bool>(),
-            .subvolume = item.at("subvolume").get<std::string>(),
-            .local_snapshot_dir = item.at("localSnapshotDir").get<std::string>(),
-            .remote_subdir = item.at("remoteSubdir").get<std::string>(),
-            .remote_retention = item.at("remoteRetention").get<long long>(),
-            .local_retention = item.at("localRetention").get<long long>(),
-        });
+        ProfileSource source{SourceId{item.at("id").get<std::string>()}};
+        source.name = item.at("name").get<std::string>();
+        source.enabled = item.at("enabled").get<bool>();
+        source.subvolume = item.at("subvolume").get<std::string>();
+        source.local_snapshot_dir = item.at("localSnapshotDir").get<std::string>();
+        source.remote_subdir = item.at("remoteSubdir").get<std::string>();
+        source.remote_retention = item.at("remoteRetention").get<long long>();
+        source.local_retention = item.at("localRetention").get<long long>();
+        profile.sources.push_back(std::move(source));
     }
     return profile;
 }
@@ -592,16 +590,7 @@ Profile profile_from_json(const Json& raw, const fs::path& target_mount_root) {
 Json profile_to_json(const Profile& profile) {
     Json sources = Json::array();
     for (const ProfileSource& source : profile.sources) {
-        sources.push_back({
-            {"id", source.id},
-            {"name", source.name},
-            {"enabled", source.enabled},
-            {"subvolume", source.subvolume},
-            {"localSnapshotDir", source.local_snapshot_dir},
-            {"remoteSubdir", source.remote_subdir},
-            {"remoteRetention", source.remote_retention},
-            {"localRetention", source.local_retention}
-        });
+        sources.push_back({{"id", source.id.value()}, {"name", source.name}, {"enabled", source.enabled}, {"subvolume", source.subvolume}, {"localSnapshotDir", source.local_snapshot_dir}, {"remoteSubdir", source.remote_subdir}, {"remoteRetention", source.remote_retention}, {"localRetention", source.local_retention}});
     }
 
     Json target = {
@@ -628,28 +617,13 @@ Json profile_to_json(const Profile& profile) {
 
     Json result = {
         {"schemaVersion", current_profile_schema_version},
-        {"profileId", profile.id},
+        {"profileId", profile.id.value()},
         {"name", profile.name},
         {"enabled", profile.enabled},
         {"target", target},
-        {"paths", {
-            {"remoteRoot", profile.paths.remote_root},
-            {"incomingRoot", profile.paths.incoming_root}
-        }},
-        {"settings", {
-            {"dailyLimit", profile.settings.daily_limit},
-            {"incrementalRequired", profile.settings.incremental_required},
-            {"keepFailedLocalSnapshot", profile.settings.keep_failed_local_snapshot},
-            {"autoEject", profile.settings.auto_eject},
-            {"remoteRetention", profile.settings.remote_retention},
-            {"localRetention", profile.settings.local_retention},
-            {"minimumTargetFreeBytes", profile.settings.minimum_target_free_bytes},
-            {"minimumLocalFreeBytes", profile.settings.minimum_local_free_bytes}
-        }},
-        {"hooks", {
-            {"beforeSnapshot", hooks_to_json(profile.hooks.before_snapshot)},
-            {"afterSnapshot", hooks_to_json(profile.hooks.after_snapshot)}
-        }},
+        {"paths", {{"remoteRoot", profile.paths.remote_root}, {"incomingRoot", profile.paths.incoming_root}}},
+        {"settings", {{"dailyLimit", profile.settings.daily_limit}, {"incrementalRequired", profile.settings.incremental_required}, {"keepFailedLocalSnapshot", profile.settings.keep_failed_local_snapshot}, {"autoEject", profile.settings.auto_eject}, {"remoteRetention", profile.settings.remote_retention}, {"localRetention", profile.settings.local_retention}, {"minimumTargetFreeBytes", profile.settings.minimum_target_free_bytes}, {"minimumLocalFreeBytes", profile.settings.minimum_local_free_bytes}}},
+        {"hooks", {{"beforeSnapshot", hooks_to_json(profile.hooks.before_snapshot)}, {"afterSnapshot", hooks_to_json(profile.hooks.after_snapshot)}}},
         {"sources", sources}
     };
     if (!profile.configuration_generation.empty()) {

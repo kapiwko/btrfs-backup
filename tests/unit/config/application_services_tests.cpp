@@ -59,7 +59,7 @@ void test_profile_and_installation_use_cases() {
     btrfsbackup::write_profile_file(sample_profile(), profile_file);
 
     btrfsbackup::Profile loaded = btrfsbackup::validate_profile_file(profile_file);
-    test_helpers::expect_eq("validated profile", loaded.id, "laptop");
+    test_helpers::expect_eq("validated profile", std::string(loaded.id.value()), "laptop");
     auto profiles = btrfsbackup::list_profiles(root / "profiles");
     test_helpers::expect_eq("listed profile", profiles.at(0), "laptop");
 

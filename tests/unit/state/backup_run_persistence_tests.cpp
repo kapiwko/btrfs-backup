@@ -72,6 +72,15 @@ void test_build_event_json() {
     test_helpers::expect_true("speed", data.at("speedBps") == 2048, "wrong speed");
 }
 
+void test_build_run_event_json_without_source() {
+    btrfsbackup::BackupRunEvent run_completed = event(btrfsbackup::BackupRunEventKind::RunCompleted);
+    run_completed.source_id = std::nullopt;
+    run_completed.source_index = 0;
+
+    const btrfsbackup::Json data = btrfsbackup::build_backup_run_event_json(run_completed);
+    test_helpers::expect_true("run event source", data.at("sourceId") == "", "run-level event has a source");
+}
+
 void test_checkpoint_store_writes_private_json_in_state_dir() {
     fs::path root = test_helpers::test_root("backup-run-persistence", "checkpoint");
     btrfsbackup::JsonFileBackupRunCheckpointStore store(root / "state");
@@ -147,7 +156,10 @@ void test_status_sink_writes_current_and_terminal_history() {
     test_helpers::expect_true("current phase hidden", !current_data.contains("phase"), "public status exposes phase");
     test_helpers::expect_true("history absent before terminal", !fs::exists(root / "history" / "default"), "history should wait for terminal event");
 
-    sink.on_backup_run_event(event(btrfsbackup::BackupRunEventKind::RunCompleted));
+    btrfsbackup::BackupRunEvent completed = event(btrfsbackup::BackupRunEventKind::RunCompleted);
+    completed.source_id = std::nullopt;
+    completed.source_index = 0;
+    sink.on_backup_run_event(completed);
     fs::path history = root / "history" / "default" / "20260823T120000Z-123-456.json";
     btrfsbackup::Json history_data = btrfsbackup::load_json_file(history);
     test_helpers::expect_true("history state", history_data.at("state") == "succeeded", "wrong history state");
@@ -218,6 +230,7 @@ void test_repository_recovery_required_status_is_actionable() {
 int main() {
     test_names_are_stable();
     test_build_event_json();
+    test_build_run_event_json_without_source();
     test_checkpoint_store_writes_private_json_in_state_dir();
     test_status_sink_writes_current_and_terminal_history();
     test_public_transfer_progress_excludes_run_details();

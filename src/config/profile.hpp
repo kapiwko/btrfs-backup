@@ -7,8 +7,10 @@
 #include <filesystem>
 #include <map>
 #include <string>
+#include <utility>
 #include <vector>
 
+#include <config/identifiers.hpp>
 #include <config/json.hpp>
 
 namespace btrfsbackup {
@@ -55,7 +57,10 @@ struct ProfileHooks {
 };
 
 struct ProfileSource {
-    std::string id;
+    explicit ProfileSource(SourceId identifier) : id(std::move(identifier)) {
+    }
+
+    SourceId id;
     std::string name;
     bool enabled = true;
     std::string subvolume;
@@ -66,9 +71,12 @@ struct ProfileSource {
 };
 
 struct Profile {
+    explicit Profile(ProfileId identifier) : id(std::move(identifier)) {
+    }
+
     int schema_version = current_profile_schema_version;
     std::string configuration_generation;
-    std::string id;
+    ProfileId id;
     std::string name;
     bool enabled = true;
     ProfileTarget target;

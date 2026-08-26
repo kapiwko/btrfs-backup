@@ -41,7 +41,7 @@ void render_profile(const fs::path& file, const fs::path& output_dir, const fs::
         output_dir,
         [&](const fs::path& staging) { render_tree(profile, staging); },
         [&](const fs::path& staging) {
-            const fs::path rendered = staging / "etc" / "btrfs-backup" / "profiles" / profile.id / "profile.json";
+            const fs::path rendered = staging / "etc" / "btrfs-backup" / "profiles" / profile.id.value() / "profile.json";
             const Profile validated = validate_profile_file(rendered, target_mount_root);
             if (validated.id != profile.id) {
                 throw ValidationError("rendered profile identity mismatch");
