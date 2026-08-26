@@ -6,7 +6,7 @@
 
 #include <filesystem>
 
-#include <backup/backup_run_event.hpp>
+#include <backup/model/backup_run_event.hpp>
 
 namespace btrfsbackup {
 

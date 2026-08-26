@@ -10,15 +10,15 @@
 #include <string>
 #include <vector>
 
-#include <backup/backup_run_actions.hpp>
+#include <backup/model/backup_run_actions.hpp>
 #include <backup/incremental_parent.hpp>
 #include <backup/ports/mount_inspector.hpp>
 #include <backup/pending_recovery_plan.hpp>
 #include <config/profile.hpp>
 #include <core/identifiers.hpp>
-#include <backup/retention_plan.hpp>
+#include <backup/model/retention_plan.hpp>
 #include <state/run_state.hpp>
-#include <backup/snapshot_inventory.hpp>
+#include <backup/model/snapshot_inventory.hpp>
 
 namespace btrfsbackup {
 

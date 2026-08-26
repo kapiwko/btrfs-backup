@@ -7,33 +7,30 @@
 #include <filesystem>
 #include <memory>
 
-#include <backup/backup_run_actions.hpp>
+#include <backup/model/backup_run_actions.hpp>
 
 namespace btrfsbackup {
 
 class IBtrfsOperations;
-class IFileSystem;
 class SafeDirectoryRoot;
 
-class RepositoryActionHandler {
+class RetentionActionHandler {
   public:
-    RepositoryActionHandler(IBtrfsOperations& btrfs, IFileSystem& filesystem);
-    RepositoryActionHandler(
+    explicit RetentionActionHandler(IBtrfsOperations& btrfs);
+    RetentionActionHandler(
         IBtrfsOperations& btrfs,
-        IFileSystem& filesystem,
         const std::filesystem::path& local_root,
         const std::filesystem::path& target_root
     );
-    ~RepositoryActionHandler();
+    ~RetentionActionHandler();
 
-    void handle(const CleanupIncomingAction& action);
-    void handle(const VerifyReceivedAction& action);
-    void handle(const CommitReceivedAction& action);
-    void handle(const CleanupSourceAction& action);
+    void handle(const ApplyRemoteRetentionAction& action);
+    void handle(const ApplyLocalRetentionAction& action);
 
   private:
+    void apply(const RetentionPlan& plan, const SafeDirectoryRoot* root);
+
     IBtrfsOperations& btrfs_;
-    IFileSystem& filesystem_;
     std::unique_ptr<SafeDirectoryRoot> local_root_;
     std::unique_ptr<SafeDirectoryRoot> target_root_;
 };

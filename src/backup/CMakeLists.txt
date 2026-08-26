@@ -3,15 +3,15 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 add_library(btrfsbackup-backup-model STATIC
-    retention_plan.cpp
-    snapshot_inventory.cpp
+    model/retention_plan.cpp
+    model/snapshot_inventory.cpp
 )
 
 target_compile_features(btrfsbackup-backup-model PUBLIC cxx_std_20)
 target_restricted_include_directories(btrfsbackup-backup-model
     PUBLIC_HEADERS
-        backup/retention_plan.hpp
-        backup/snapshot_inventory.hpp
+        backup/model/retention_plan.hpp
+        backup/model/snapshot_inventory.hpp
 )
 target_link_libraries(btrfsbackup-backup-model PUBLIC btrfsbackup-config-model)
 
@@ -60,21 +60,21 @@ target_link_libraries(btrfsbackup-backup-domain
 
 add_library(btrfsbackup-backup STATIC
     backup_run.cpp
-    backup_run_action_handler.cpp
-    backup_run_actions.cpp
     backup_run_executor.cpp
-    backup_run_plan.cpp
     backup_service.cpp
     backup_service_adapters.cpp
-    hook_action_handler.cpp
+    action_handlers/backup_run_action_handler.cpp
+    action_handlers/hook_action_handler.cpp
+    action_handlers/recovery_action_handler.cpp
+    action_handlers/repository_action_handler.cpp
+    action_handlers/retention_action_handler.cpp
+    action_handlers/snapshot_action_handler.cpp
+    action_handlers/transfer_action_handler.cpp
+    model/backup_run_actions.cpp
+    model/backup_run_plan.cpp
     pending_recovery_plan.cpp
-    recovery_action_handler.cpp
-    repository_action_handler.cpp
-    retention_action_handler.cpp
-    snapshot_action_handler.cpp
     snapshot_transfer.cpp
     target_service.cpp
-    transfer_action_handler.cpp
 )
 
 target_compile_features(btrfsbackup-backup PUBLIC cxx_std_20)

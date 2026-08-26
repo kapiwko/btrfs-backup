@@ -8,7 +8,7 @@
 #include <utility>
 #include <vector>
 
-#include <backup/backup_run_plan.hpp>
+#include <backup/model/backup_run_plan.hpp>
 
 #include "support/validation_test_helpers.hpp"
 

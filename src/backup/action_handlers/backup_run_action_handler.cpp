@@ -2,14 +2,14 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <backup/backup_run_action_handler.hpp>
+#include <backup/action_handlers/backup_run_action_handler.hpp>
 
-#include <backup/hook_action_handler.hpp>
-#include <backup/recovery_action_handler.hpp>
-#include <backup/repository_action_handler.hpp>
-#include <backup/retention_action_handler.hpp>
-#include <backup/snapshot_action_handler.hpp>
-#include <backup/transfer_action_handler.hpp>
+#include <backup/action_handlers/hook_action_handler.hpp>
+#include <backup/action_handlers/recovery_action_handler.hpp>
+#include <backup/action_handlers/repository_action_handler.hpp>
+#include <backup/action_handlers/retention_action_handler.hpp>
+#include <backup/action_handlers/snapshot_action_handler.hpp>
+#include <backup/action_handlers/transfer_action_handler.hpp>
 
 namespace btrfsbackup {
 

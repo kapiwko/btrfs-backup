@@ -8,7 +8,7 @@
 #include <optional>
 #include <string>
 
-#include <backup/backup_run_action.hpp>
+#include <backup/model/backup_run_action.hpp>
 #include <core/identifiers.hpp>
 #include <core/error_code.hpp>
 
@@ -46,13 +46,13 @@ struct BackupRunEvent {
 };
 
 class IBackupRunEventSink {
-public:
+  public:
     virtual ~IBackupRunEventSink() = default;
     virtual void on_backup_run_event(const BackupRunEvent& event) = 0;
 };
 
 class NullBackupRunEventSink final : public IBackupRunEventSink {
-public:
+  public:
     void on_backup_run_event(const BackupRunEvent& event) override;
 };
 
@@ -64,7 +64,7 @@ struct BackupRunCheckpoint {
 };
 
 class IBackupRunCheckpointStore {
-public:
+  public:
     virtual ~IBackupRunCheckpointStore() = default;
     virtual void write_checkpoint(const BackupRunCheckpoint& checkpoint) = 0;
 };

@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <backup/retention_plan.hpp>
+#include <backup/model/retention_plan.hpp>
 
 #include <algorithm>
 #include <string>

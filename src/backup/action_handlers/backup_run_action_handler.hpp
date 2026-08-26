@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include <backup/backup_run_plan.hpp>
+#include <backup/model/backup_run_plan.hpp>
 
 namespace btrfsbackup {
 

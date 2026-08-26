@@ -7,7 +7,7 @@
 #include <filesystem>
 #include <memory>
 
-#include <backup/backup_run_actions.hpp>
+#include <backup/model/backup_run_actions.hpp>
 
 namespace btrfsbackup {
 

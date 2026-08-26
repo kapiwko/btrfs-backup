@@ -9,9 +9,9 @@
 #include <utility>
 #include <variant>
 
-#include <backup/backup_run_action.hpp>
+#include <backup/model/backup_run_action.hpp>
 #include <backup/pending_recovery_plan.hpp>
-#include <backup/retention_plan.hpp>
+#include <backup/model/retention_plan.hpp>
 #include <core/identifiers.hpp>
 #include <config/profile.hpp>
 

@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <backup/snapshot_inventory.hpp>
+#include <backup/model/snapshot_inventory.hpp>
 
 #include <algorithm>
 #include <cctype>
@@ -24,15 +24,7 @@ bool all_digits(const std::string& value) {
 }
 
 bool valid_snapshot_timestamp(const std::string& value) {
-    return value.size() == 18
-        && all_digits(value.substr(0, 4))
-        && value[4] == '-'
-        && all_digits(value.substr(5, 2))
-        && value[7] == '-'
-        && all_digits(value.substr(8, 2))
-        && value[10] == 'T'
-        && all_digits(value.substr(11, 6))
-        && value[17] == 'Z';
+    return value.size() == 18 && all_digits(value.substr(0, 4)) && value[4] == '-' && all_digits(value.substr(5, 2)) && value[7] == '-' && all_digits(value.substr(8, 2)) && value[10] == 'T' && all_digits(value.substr(11, 6)) && value[17] == 'Z';
 }
 
 bool metadata_sort_key_less(const btrfsbackup::SnapshotInfo& left, const btrfsbackup::SnapshotInfo& right) {

@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <backup/repository_action_handler.hpp>
+#include <backup/action_handlers/repository_action_handler.hpp>
 
 #include <optional>
 #include <string>

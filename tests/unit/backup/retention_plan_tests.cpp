@@ -7,7 +7,7 @@
 #include <type_traits>
 #include <vector>
 
-#include <backup/retention_plan.hpp>
+#include <backup/model/retention_plan.hpp>
 
 #include "support/test_helpers.hpp"
 

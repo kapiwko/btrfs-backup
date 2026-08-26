@@ -11,7 +11,7 @@
 #include <vector>
 
 #include <backup/backup_run_executor.hpp>
-#include <backup/backup_run_plan.hpp>
+#include <backup/model/backup_run_plan.hpp>
 #include <backup/ports/mount_inspector.hpp>
 #include <config/application_paths.hpp>
 #include <core/identifiers.hpp>
