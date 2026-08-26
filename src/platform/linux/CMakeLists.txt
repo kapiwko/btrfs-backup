@@ -3,15 +3,14 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 add_library(btrfsbackup-platform-linux STATIC
-    btrfs_operations.cpp
-    command_runner.cpp
+    btrfs_util_operations.cpp
     device_info.cpp
     file_io.cpp
     file_lock.cpp
-    filesystem.cpp
-    linux_system_configuration_activator.cpp
     mount_info.cpp
     posix_cancellation_signal.cpp
+    posix_command_runner.cpp
+    posix_filesystem.cpp
     posix_transfer_pipeline.cpp
     posix_transfer_process.cpp
     posix_transfer_pump.cpp
@@ -20,6 +19,7 @@ add_library(btrfsbackup-platform-linux STATIC
     safe_directory_root.cpp
     space_check.cpp
     splice.cpp
+    system_configuration_activator.cpp
     termination_signal_monitor.cpp
     trusted_directory.cpp
     trusted_executable.cpp

@@ -25,10 +25,10 @@
 #include <backup/action_handlers/snapshot_action_handler.hpp>
 #include <backup/transfer/async_transfer.hpp>
 #include <backup/action_handlers/transfer_action_handler.hpp>
-#include <platform/linux/btrfs_operations.hpp>
-#include <platform/linux/command_runner.hpp>
+#include <platform/linux/btrfs_util_operations.hpp>
+#include <platform/linux/posix_command_runner.hpp>
 #include <platform/linux/file_lock.hpp>
-#include <platform/linux/filesystem.hpp>
+#include <platform/linux/posix_filesystem.hpp>
 #include <platform/linux/mount_info.hpp>
 #include <platform/linux/posix_transfer_pipeline.hpp>
 #include <config/model/json.hpp>

@@ -20,7 +20,7 @@
 #include <config/profile_artifact_renderer.hpp>
 #include <config/profile_installer.hpp>
 #include <config/render_directory.hpp>
-#include <platform/linux/linux_system_configuration_activator.hpp>
+#include <platform/linux/system_configuration_activator.hpp>
 #include <platform/linux/process.hpp>
 #include <platform/linux/trusted_directory.hpp>
 

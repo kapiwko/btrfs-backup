@@ -15,7 +15,7 @@ namespace btrfsbackup {
 std::optional<SnapshotMetadata> read_btrfs_snapshot_metadata(const std::filesystem::path& path);
 
 class LibBtrfsOperations final : public IBtrfsOperations {
-public:
+  public:
     bool is_subvolume(const std::filesystem::path& path) override;
     std::optional<SnapshotMetadata> read_snapshot_metadata(const std::filesystem::path& path) override;
     void create_readonly_snapshot(const std::filesystem::path& source, const std::filesystem::path& target) override;

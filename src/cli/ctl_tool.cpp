@@ -21,7 +21,7 @@
 #include <cli/target_command.hpp>
 #include <core/errors.hpp>
 #include <core/cancellation.hpp>
-#include <platform/linux/linux_system_configuration_activator.hpp>
+#include <platform/linux/system_configuration_activator.hpp>
 
 namespace fs = std::filesystem;
 

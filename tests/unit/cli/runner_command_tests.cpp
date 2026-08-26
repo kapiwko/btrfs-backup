@@ -23,7 +23,7 @@
 #include <backup/backup_service_adapters.hpp>
 #include <state/config_fingerprint.hpp>
 #include <platform/linux/file_lock.hpp>
-#include <platform/linux/command_runner.hpp>
+#include <platform/linux/posix_command_runner.hpp>
 #include <platform/linux/mount_info.hpp>
 #include <config/model/json.hpp>
 #include <config/model/json_io.hpp>
