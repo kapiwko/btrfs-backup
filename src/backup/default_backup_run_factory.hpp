@@ -4,39 +4,32 @@
 
 #pragma once
 
-#include <string>
-
 #include <backup/action_handlers/backup_run_action_handler.hpp>
-#include <backup/model/backup_run_event.hpp>
-#include <backup/model/backup_run_execution.hpp>
-#include <backup/model/backup_run_plan.hpp>
+#include <backup/ports/backup_run_factory.hpp>
 #include <backup/ports/safe_directory.hpp>
-#include <backup/transfer/async_transfer.hpp>
+#include <backup/transfer/transfer_pipeline.hpp>
 
 namespace btrfsbackup {
 
-class BackupRunExecutor {
+class DefaultBackupRunFactory final : public IBackupRunFactory {
   public:
-    BackupRunExecutor(
+    DefaultBackupRunFactory(
         IBackupRunActionHandler& action_handler,
-        IAsyncTransferPipeline& transfer_pipeline,
-        IBackupRunCheckpointStore& checkpoints,
+        ITransferPipeline& transfers,
         const ISafeDirectoryRootFactory& safe_directories
     );
 
     [[nodiscard]] BackupRunExecutionResult execute(
-        const BackupRunPlan& plan,
+        BackupRunPlan plan,
         IBackupRunEventSink& events,
+        IBackupRunCheckpointStore& checkpoints,
         CancellationToken& cancellation
-    );
+    ) override;
 
   private:
     IBackupRunActionHandler& action_handler_;
-    IAsyncTransferPipeline& transfer_pipeline_;
-    IBackupRunCheckpointStore& checkpoints_;
+    ITransferPipeline& transfers_;
     const ISafeDirectoryRootFactory& safe_directories_;
 };
-
-[[nodiscard]] bool backup_run_action_writes_checkpoint(const BackupRunAction& action);
 
 } // namespace btrfsbackup
