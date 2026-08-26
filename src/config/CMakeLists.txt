@@ -7,7 +7,12 @@ add_library(btrfsbackup-identifier-model STATIC
 )
 
 target_compile_features(btrfsbackup-identifier-model PUBLIC cxx_std_20)
-target_include_directories(btrfsbackup-identifier-model PUBLIC ${PROJECT_SOURCE_DIR}/src)
+target_restricted_include_directories(btrfsbackup-identifier-model
+    PUBLIC_HEADERS
+        config/identifiers.hpp
+    PRIVATE_HEADERS
+        config/errors.hpp
+)
 
 add_library(btrfsbackup-config-model STATIC
     json_io.cpp
@@ -17,7 +22,15 @@ add_library(btrfsbackup-config-model STATIC
 )
 
 target_compile_features(btrfsbackup-config-model PUBLIC cxx_std_20)
-target_include_directories(btrfsbackup-config-model PUBLIC ${PROJECT_SOURCE_DIR}/src)
+target_restricted_include_directories(btrfsbackup-config-model
+    PUBLIC_HEADERS
+        config/errors.hpp
+        config/json.hpp
+        config/json_io.hpp
+        config/profile.hpp
+        config/validation.hpp
+        config/wizard/profile_wizard_model.hpp
+)
 target_link_libraries(btrfsbackup-config-model PUBLIC btrfsbackup-identifier-model nlohmann_json::nlohmann_json)
 
 add_library(btrfsbackup-config STATIC

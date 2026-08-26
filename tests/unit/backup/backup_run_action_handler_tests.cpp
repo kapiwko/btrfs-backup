@@ -23,7 +23,7 @@
 #include <backup/snapshot_action_handler.hpp>
 #include <backup/transfer_action_handler.hpp>
 
-#include "support/test_helpers.hpp"
+#include "support/validation_test_helpers.hpp"
 
 namespace fs = std::filesystem;
 

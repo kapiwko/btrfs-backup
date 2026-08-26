@@ -16,8 +16,13 @@ project(
     LANGUAGES CXX
 )
 
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
 include(CTest)
 include(GNUInstallDirs)
+include(cmake/TargetRestrictedIncludes.cmake)
 option(BUILD_KDE_INTEGRATION "Build the optional KDE integration" OFF)
 option(BUILD_SYSTEM_MANAGER "Build the optional read-only system D-Bus manager" ON)
 

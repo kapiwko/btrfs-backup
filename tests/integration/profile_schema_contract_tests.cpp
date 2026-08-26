@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include "support/test_helpers.hpp"
+#include "support/validation_test_helpers.hpp"
 
 #include <filesystem>
 #include <iostream>

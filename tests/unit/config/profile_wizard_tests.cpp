@@ -14,7 +14,7 @@
 #include <config/wizard/profile_wizard_prompt.hpp>
 #include <config/wizard/profile_wizard_sources.hpp>
 
-#include "support/test_helpers.hpp"
+#include "support/validation_test_helpers.hpp"
 
 namespace {
 

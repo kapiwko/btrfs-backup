@@ -13,7 +13,7 @@
 #include <config/json_io.hpp>
 #include <state/status_writer.hpp>
 
-#include "support/test_helpers.hpp"
+#include "support/validation_test_helpers.hpp"
 
 namespace fs = std::filesystem;
 

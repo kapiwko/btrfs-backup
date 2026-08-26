@@ -15,7 +15,7 @@
 #include <config/profile.hpp>
 #include <config/validation.hpp>
 
-#include "support/test_helpers.hpp"
+#include "support/validation_test_helpers.hpp"
 
 namespace {
 
