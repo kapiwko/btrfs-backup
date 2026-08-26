@@ -10,6 +10,8 @@
 
 namespace btrfsbackup {
 
+// Publishes rendered artifacts using Linux locking and activation semantics.
+
 class ProfileInstaller {
   public:
     ProfileInstaller(ProfileArtifactRenderer& renderer, IConfigurationActivator& activator);

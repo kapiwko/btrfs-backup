@@ -4,8 +4,6 @@
 
 #pragma once
 
-#include <filesystem>
-
 #include <config/application_paths.hpp>
 
 namespace btrfsbackup {
@@ -16,8 +14,6 @@ public:
     explicit ApplicationConfig(ApplicationPaths paths);
 
     static ApplicationConfig defaults();
-    static ApplicationConfig load(const std::filesystem::path& config_root = "/etc/btrfs-backup");
-
     const ApplicationPaths& paths() const;
 
 private:

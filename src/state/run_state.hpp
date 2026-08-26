@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <string>
 
+#include <backup/model/pending_recovery.hpp>
 #include <core/durable_file_operations.hpp>
 
 namespace btrfsbackup {
@@ -20,14 +21,6 @@ struct SuccessState {
     int source_count = 0;
     std::string target_luks_uuid;
     std::string config_fingerprint;
-};
-
-struct PendingMarker {
-    std::string source_name;
-    std::string local_snapshot_path;
-    std::string final_snapshot_path;
-    std::string run_id;
-    std::string timestamp;
 };
 
 bool last_success_matches(

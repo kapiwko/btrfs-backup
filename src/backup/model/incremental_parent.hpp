@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-#include <backup/model/snapshot_inventory.hpp>
+#include <backup/model/snapshot.hpp>
 
 namespace btrfsbackup {
 

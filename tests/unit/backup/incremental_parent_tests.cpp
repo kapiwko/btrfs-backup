@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-#include <backup/incremental_parent.hpp>
+#include <backup/model/incremental_parent.hpp>
 
 #include "support/validation_test_helpers.hpp"
 

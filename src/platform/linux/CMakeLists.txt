@@ -21,7 +21,7 @@ add_library(btrfsbackup-platform-linux STATIC
     space_check.cpp
     splice.cpp
     system_configuration_activator.cpp
-    systemd_target_mounter.cpp
+    systemd_target_manager.cpp
     termination_signal_monitor.cpp
     trusted_directory.cpp
     trusted_executable.cpp
@@ -29,7 +29,32 @@ add_library(btrfsbackup-platform-linux STATIC
 )
 
 target_compile_features(btrfsbackup-platform-linux PUBLIC cxx_std_20)
-target_include_directories(btrfsbackup-platform-linux PUBLIC ${PROJECT_SOURCE_DIR}/src)
+target_restricted_include_directories(btrfsbackup-platform-linux
+    PUBLIC_HEADERS
+        platform/linux/btrfs_util_operations.hpp
+        platform/linux/device_info.hpp
+        platform/linux/file_backup_run_lease_provider.hpp
+        platform/linux/file_io.hpp
+        platform/linux/file_lock.hpp
+        platform/linux/mount_info.hpp
+        platform/linux/posix_cancellation_signal.hpp
+        platform/linux/posix_command_runner.hpp
+        platform/linux/posix_filesystem.hpp
+        platform/linux/posix_transfer_pipeline.hpp
+        platform/linux/posix_transfer_process.hpp
+        platform/linux/posix_transfer_pump.hpp
+        platform/linux/process.hpp
+        platform/linux/process_spawn.hpp
+        platform/linux/safe_directory_root.hpp
+        platform/linux/space_check.hpp
+        platform/linux/splice.hpp
+        platform/linux/system_configuration_activator.hpp
+        platform/linux/systemd_target_manager.hpp
+        platform/linux/termination_signal_monitor.hpp
+        platform/linux/trusted_directory.hpp
+        platform/linux/trusted_executable.hpp
+        platform/linux/trusted_file.hpp
+)
 target_link_libraries(btrfsbackup-platform-linux
     PUBLIC
         btrfsbackup-backup-model
@@ -37,6 +62,7 @@ target_link_libraries(btrfsbackup-platform-linux
         btrfsbackup-core
         btrfsbackup-transfer
         btrfsbackup-config-model
+        btrfsbackup-config-ports
         PkgConfig::BLKID
         PkgConfig::BTRFSUTIL
         PkgConfig::MOUNT

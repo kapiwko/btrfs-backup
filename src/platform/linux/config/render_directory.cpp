@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <config/render_directory.hpp>
+#include <platform/linux/config/render_directory.hpp>
 
 #include <fcntl.h>
 #include <linux/fs.h>

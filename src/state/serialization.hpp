@@ -11,6 +11,8 @@
 
 namespace btrfsbackup {
 
+// Serialization boundary for persisted backup events and checkpoints.
+
 std::string backup_run_action_kind_name(BackupRunActionKind kind);
 std::string backup_run_event_kind_name(BackupRunEventKind kind);
 

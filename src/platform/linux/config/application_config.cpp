@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <config/application_config.hpp>
+#include <platform/linux/config/application_config.hpp>
 
 #include <filesystem>
 #include <map>
@@ -70,23 +70,8 @@ std::map<std::string, std::string> parse_config(const std::string& content) {
 
 } // namespace
 
-ApplicationConfig::ApplicationConfig() : ApplicationConfig(defaults().paths()) {
-}
-
-ApplicationConfig::ApplicationConfig(ApplicationPaths paths) : paths_(std::move(paths)) {
-}
-
-ApplicationConfig ApplicationConfig::defaults() {
-    return ApplicationConfig({
-        .state_root = "/var/lib/btrfs-backup",
-        .status_root = "/run/btrfs-backup/profiles",
-        .history_root = "/var/lib/btrfs-backup/history",
-        .target_mount_root = "/mnt/btrfs-backup",
-    });
-}
-
-ApplicationConfig ApplicationConfig::load(const fs::path& config_root) {
-    ApplicationPaths result = defaults().paths();
+ApplicationConfig load_application_config(const fs::path& config_root) {
+    ApplicationPaths result = ApplicationConfig::defaults().paths();
     const bool system_config = fs::absolute(config_root).lexically_normal() == fs::path("/etc/btrfs-backup");
     const fs::path config_path = system_config ? fs::path("/etc/btrfs-backup.conf") : config_root / "btrfs-backup.conf";
     std::error_code error;
@@ -116,10 +101,6 @@ ApplicationConfig ApplicationConfig::load(const fs::path& config_root) {
     if (auto value = values.find("TARGET_MOUNT_ROOT"); value != values.end())
         result.target_mount_root = absolute_path(value->second, "TARGET_MOUNT_ROOT");
     return ApplicationConfig(std::move(result));
-}
-
-const ApplicationPaths& ApplicationConfig::paths() const {
-    return paths_;
 }
 
 } // namespace btrfsbackup

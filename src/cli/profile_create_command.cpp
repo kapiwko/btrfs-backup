@@ -12,7 +12,7 @@
 #include <string>
 #include <vector>
 
-#include <config/profile_service.hpp>
+#include <platform/linux/config/profile_service.hpp>
 #include <config/model/json.hpp>
 #include <config/model/json_io.hpp>
 #include <config/model/profile.hpp>

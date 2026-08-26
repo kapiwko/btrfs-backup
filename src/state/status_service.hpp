@@ -25,11 +25,6 @@ std::vector<StatusDocument> get_statuses(
     const std::string& profile_id,
     bool all
 );
-std::vector<StatusDocument> get_status_history(
-    const std::filesystem::path& history_root,
-    const std::string& profile_id,
-    std::size_t limit
-);
 std::optional<StatusDocument> poll_status(
     const std::filesystem::path& status_root,
     const std::string& profile_id,

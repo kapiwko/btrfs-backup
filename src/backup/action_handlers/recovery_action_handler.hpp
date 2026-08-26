@@ -12,15 +12,15 @@
 namespace btrfsbackup {
 
 class IBtrfsOperations;
-class IDurableFileOperations;
+class IPendingMarkerStore;
 class ISafeDirectoryRoot;
 
 class RecoveryActionHandler {
   public:
-    RecoveryActionHandler(IBtrfsOperations& btrfs, IDurableFileOperations& durable_files);
+    RecoveryActionHandler(IBtrfsOperations& btrfs, IPendingMarkerStore& pending_markers);
     RecoveryActionHandler(
         IBtrfsOperations& btrfs,
-        IDurableFileOperations& durable_files,
+        IPendingMarkerStore& pending_markers,
         std::unique_ptr<ISafeDirectoryRoot> local_root,
         std::unique_ptr<ISafeDirectoryRoot> target_root
     );
@@ -30,7 +30,7 @@ class RecoveryActionHandler {
 
   private:
     IBtrfsOperations& btrfs_;
-    IDurableFileOperations& durable_files_;
+    IPendingMarkerStore& pending_markers_;
     std::unique_ptr<ISafeDirectoryRoot> local_root_;
     std::unique_ptr<ISafeDirectoryRoot> target_root_;
 };

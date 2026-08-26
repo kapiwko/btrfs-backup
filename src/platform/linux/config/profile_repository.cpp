@@ -2,14 +2,14 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <config/profile_repository.hpp>
+#include <platform/linux/config/profile_repository.hpp>
 
 #include <cstdlib>
 #include <filesystem>
 #include <string>
 
 #include <core/errors.hpp>
-#include <config/application_config.hpp>
+#include <platform/linux/config/application_config.hpp>
 #include <config/profile_fingerprint.hpp>
 #include <core/identifiers.hpp>
 #include <config/model/json.hpp>
@@ -31,7 +31,7 @@ Json load_profile_json_by_id(const fs::path& etc_root, const std::string& profil
         .allow_current_user_owner = fs::absolute(etc_root).lexically_normal() != fs::path("/etc/btrfs-backup"),
     };
     try {
-        ApplicationConfig config = ApplicationConfig::load(etc_root);
+        ApplicationConfig config = load_application_config(etc_root);
         return normalize_profile(Json::parse(read_trusted_config_file(canonical, policy)), config.paths().target_mount_root);
     } catch (const Json::exception& exc) {
         throw ValidationError("cannot read JSON profile " + canonical.string() + ": " + exc.what());
@@ -39,7 +39,7 @@ Json load_profile_json_by_id(const fs::path& etc_root, const std::string& profil
 }
 
 Profile load_profile_by_id(const fs::path& etc_root, const std::string& profile_id) {
-    ApplicationConfig config = ApplicationConfig::load(etc_root);
+    ApplicationConfig config = load_application_config(etc_root);
     Profile profile = profile_from_json(load_profile_json_by_id(etc_root, profile_id), config.paths().target_mount_root);
     const char* expected_generation = std::getenv("BTRFS_BACKUP_CONFIGURATION_GENERATION");
     if (expected_generation != nullptr && profile.configuration_generation != expected_generation) {
@@ -49,7 +49,7 @@ Profile load_profile_by_id(const fs::path& etc_root, const std::string& profile_
 }
 
 FileProfileRepository::FileProfileRepository(fs::path config_root)
-    : FileProfileRepository(config_root, ApplicationConfig::load(config_root)) {
+    : FileProfileRepository(config_root, load_application_config(config_root)) {
 }
 
 FileProfileRepository::FileProfileRepository(fs::path config_root, ApplicationConfig application_config)

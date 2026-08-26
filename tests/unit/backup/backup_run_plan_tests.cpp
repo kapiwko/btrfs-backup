@@ -48,32 +48,6 @@ btrfsbackup::Profile profile() {
     return result;
 }
 
-std::vector<btrfsbackup::MountEntry> mounts() {
-    return {
-        {
-            .source = "/dev/source",
-            .target = "/",
-            .fstype = "btrfs",
-            .device_id = "0:20",
-            .filesystem_uuid = "source-fs",
-        },
-        {
-            .source = "/dev/source",
-            .target = "/.snapshots",
-            .fstype = "btrfs",
-            .device_id = "0:20",
-            .filesystem_uuid = "source-fs",
-        },
-        {
-            .source = "/dev/mapper/backup",
-            .target = "/mnt/backup",
-            .fstype = "btrfs",
-            .device_id = "0:21",
-            .filesystem_uuid = "target-fs",
-        },
-    };
-}
-
 btrfsbackup::SnapshotInfo snapshot(
     btrfsbackup::SnapshotSide side,
     const std::string& source_id,
@@ -131,7 +105,6 @@ void test_builds_ordered_source_plan() {
 
     btrfsbackup::BackupRunPlan plan = btrfsbackup::build_backup_run_plan(
         profile(),
-        mounts(),
         local,
         remote,
         {},
@@ -182,7 +155,6 @@ void test_inserts_snapshot_hooks_around_snapshot_creation() {
 
     btrfsbackup::BackupRunPlan plan = btrfsbackup::build_backup_run_plan(
         test_profile,
-        mounts(),
         {},
         {},
         {},
@@ -223,7 +195,6 @@ void test_plans_collision_suffix_and_retention() {
 
     btrfsbackup::BackupRunPlan plan = btrfsbackup::build_backup_run_plan(
         test_profile,
-        mounts(),
         local,
         {},
         {},
@@ -268,7 +239,6 @@ void test_includes_pending_recovery_action() {
 
     btrfsbackup::BackupRunPlan plan = btrfsbackup::build_backup_run_plan(
         test_profile,
-        mounts(),
         {},
         {},
         markers,
@@ -329,7 +299,6 @@ void test_excludes_recovery_deletions_from_retention() {
     test_profile.settings.incremental_required = false;
     btrfsbackup::BackupRunPlan plan = btrfsbackup::build_backup_run_plan(
         test_profile,
-        mounts(),
         local,
         {},
         markers,
@@ -353,19 +322,16 @@ void test_rejects_invalid_mount_layout() {
     btrfsbackup::Profile test_profile = profile();
     test_profile.sources.at(0).local_snapshot_dir = "/mnt/backup/local";
 
-    test_helpers::expect_validation_error("target local dir", [&] {
-        (void)btrfsbackup::build_backup_run_plan(
-            test_profile,
-            mounts(),
-            {},
-            {},
-            {},
-            {},
-            "/var/lib/btrfs-backup/profiles/default",
-            btrfsbackup::RunId{"20260823T080000Z-123-456"},
-            "2026-08-23T080000Z"
-        );
-    }, "LOCAL_SNAPSHOT_DIR must be on the same Btrfs filesystem as /");
+    test_helpers::expect_validation_error("target local dir", [&] { (void)btrfsbackup::build_backup_run_plan(
+                                                                        test_profile,
+                                                                        {},
+                                                                        {},
+                                                                        {},
+                                                                        {},
+                                                                        "/var/lib/btrfs-backup/profiles/default",
+                                                                        btrfsbackup::RunId{"20260823T080000Z-123-456"},
+                                                                        "2026-08-23T080000Z"
+                                                                    ); }, "LOCAL_SNAPSHOT_DIR must not be inside the backup target");
 }
 
 } // namespace

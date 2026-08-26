@@ -12,6 +12,7 @@
 
 #include <core/errors.hpp>
 #include <state/status_service.hpp>
+#include <state/run_history.hpp>
 
 namespace fs = std::filesystem;
 

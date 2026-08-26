@@ -7,7 +7,7 @@
 #include <filesystem>
 #include <string>
 
-#include <config/application_config.hpp>
+#include <platform/linux/config/application_config.hpp>
 
 #include "support/validation_test_helpers.hpp"
 
@@ -23,7 +23,7 @@ void write_config(const fs::path& root, const std::string& content, mode_t mode 
 
 void test_defaults_when_config_is_absent() {
     fs::path root = test_helpers::test_root("application-config", "defaults");
-    btrfsbackup::ApplicationConfig config = btrfsbackup::ApplicationConfig::load(root);
+    btrfsbackup::ApplicationConfig config = btrfsbackup::load_application_config(root);
 
     test_helpers::expect_eq("default state root", config.paths().state_root.string(), "/var/lib/btrfs-backup");
     test_helpers::expect_eq("default status root", config.paths().status_root.string(), "/run/btrfs-backup/profiles");
@@ -45,7 +45,7 @@ void test_loads_trusted_global_paths() {
         0644
     );
 
-    btrfsbackup::ApplicationConfig config = btrfsbackup::ApplicationConfig::load(root);
+    btrfsbackup::ApplicationConfig config = btrfsbackup::load_application_config(root);
     test_helpers::expect_eq("custom state root", config.paths().state_root.string(), "/srv/btrfs-backup/state");
     test_helpers::expect_eq("custom status root", config.paths().status_root.string(), "/run/custom-btrfs-backup");
     test_helpers::expect_eq("custom history root", config.paths().history_root.string(), "/srv/btrfs-backup/history");
@@ -56,17 +56,13 @@ void test_loads_trusted_global_paths() {
 void test_rejects_untrusted_or_unknown_configuration() {
     fs::path root = test_helpers::test_root("application-config", "permissions");
     write_config(root, "CONFIG_VERSION=1\n", 0664);
-    test_helpers::expect_validation_error("writable application config", [&] {
-        (void)btrfsbackup::ApplicationConfig::load(root);
-    }, "must not be writable by group or others");
+    test_helpers::expect_validation_error("writable application config", [&] { (void)btrfsbackup::load_application_config(root); }, "must not be writable by group or others");
 
     write_config(root, "CONFIG_VERSION=1\nSOURCES_ROOT=/etc/btrfs-backup/profiles\n");
-    test_helpers::expect_validation_error("retired sources root", [&] { (void)btrfsbackup::ApplicationConfig::load(root); }, "SOURCES_ROOT is not supported");
+    test_helpers::expect_validation_error("retired sources root", [&] { (void)btrfsbackup::load_application_config(root); }, "SOURCES_ROOT is not supported");
 
     write_config(root, "CONFIG_VERSION=1\nPROFILE_STATUS_ROOT=/etc\n");
-    test_helpers::expect_validation_error("unknown application key", [&] {
-        (void)btrfsbackup::ApplicationConfig::load(root);
-    }, "PROFILE_STATUS_ROOT is not supported");
+    test_helpers::expect_validation_error("unknown application key", [&] { (void)btrfsbackup::load_application_config(root); }, "PROFILE_STATUS_ROOT is not supported");
     fs::remove_all(root);
 }
 
@@ -77,9 +73,7 @@ void test_rejects_config_symlink() {
     chmod(target.c_str(), 0644);
     fs::create_symlink(target, root / "btrfs-backup.conf");
 
-    test_helpers::expect_validation_error("application config symlink", [&] {
-        (void)btrfsbackup::ApplicationConfig::load(root);
-    }, "not a regular file");
+    test_helpers::expect_validation_error("application config symlink", [&] { (void)btrfsbackup::load_application_config(root); }, "not a regular file");
     fs::remove_all(root);
 }
 

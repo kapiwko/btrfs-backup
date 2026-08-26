@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <config/profile_service.hpp>
+#include <platform/linux/config/profile_service.hpp>
 
 #include <filesystem>
 #include <set>
@@ -11,16 +11,17 @@
 #include <utility>
 #include <vector>
 
-#include <config/application_config.hpp>
+#include <platform/linux/config/application_config.hpp>
 #include <core/errors.hpp>
 #include <core/identifiers.hpp>
 #include <config/model/json_io.hpp>
 #include <config/profile_artifact_renderer.hpp>
-#include <config/profile_installer.hpp>
-#include <config/profile_repository.hpp>
+#include <platform/linux/config/profile_installer.hpp>
+#include <platform/linux/config/profile_repository.hpp>
 #include <config/model/profile.hpp>
-#include <config/render_directory.hpp>
+#include <platform/linux/config/render_directory.hpp>
 #include <platform/linux/file_io.hpp>
+#include <platform/linux/config/profile_artifact_io.hpp>
 
 namespace fs = std::filesystem;
 
@@ -57,7 +58,7 @@ Profile save_profile(
     const ProfileInstallationRoots& roots,
     IConfigurationActivator& activator
 ) {
-    ApplicationConfig config = ApplicationConfig::load(roots.etc_root);
+    ApplicationConfig config = load_application_config(roots.etc_root);
     Profile profile = validate_profile_file(file, config.paths().target_mount_root);
     ProfileArtifactRenderer renderer(generate_configuration_generation);
     const ProfileArtifactRoots artifact_roots{

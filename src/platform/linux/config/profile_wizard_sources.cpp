@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <config/wizard/profile_wizard_sources.hpp>
+#include <platform/linux/config/profile_wizard_sources.hpp>
 
 #include <algorithm>
 #include <cctype>

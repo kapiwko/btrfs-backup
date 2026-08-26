@@ -6,14 +6,16 @@
 
 #include <backup/model/snapshot_inventory.hpp>
 #include <backup/ports/backup_planner.hpp>
+#include <backup/ports/pending_marker_store.hpp>
 #include <backup/ports/safe_directory.hpp>
 
 namespace btrfsbackup {
 
-class DefaultBackupPlanner final : public IBackupPlanner {
+class BackupPlanner final : public IBackupPlanner {
   public:
-    explicit DefaultBackupPlanner(
+    explicit BackupPlanner(
         SnapshotMetadataReader metadata_reader,
+        const IPendingMarkerStore& pending_markers,
         const ISafeDirectoryRootFactory& safe_directories
     );
 
@@ -27,6 +29,7 @@ class DefaultBackupPlanner final : public IBackupPlanner {
 
   private:
     SnapshotMetadataReader metadata_reader_;
+    const IPendingMarkerStore& pending_markers_;
     const ISafeDirectoryRootFactory& safe_directories_;
 };
 

@@ -28,11 +28,13 @@ add_library(btrfsbackup-config-ports STATIC
 target_compile_features(btrfsbackup-config-ports PUBLIC cxx_std_20)
 target_restricted_include_directories(btrfsbackup-config-ports
     PUBLIC_HEADERS
+        config/ports/configuration_activator.hpp
         config/ports/profile_repository.hpp
 )
 target_link_libraries(btrfsbackup-config-ports PUBLIC btrfsbackup-config-model btrfsbackup-core)
 
 add_library(btrfsbackup-config STATIC
+    application_config.cpp
     profile_fingerprint.cpp
     profile_artifact_renderer.cpp
     profile_render.cpp
@@ -45,24 +47,11 @@ target_restricted_include_directories(btrfsbackup-config
     PUBLIC_HEADERS
         config/application_config.hpp
         config/application_paths.hpp
-        config/installation_render.hpp
-        config/installation_service.hpp
-        config/installation_validate.hpp
         config/profile_artifact_renderer.hpp
-        config/profile_configuration_transaction.hpp
         config/profile_fingerprint.hpp
-        config/profile_installer.hpp
         config/profile_render.hpp
-        config/profile_repository.hpp
-        config/profile_service.hpp
-        config/render_directory.hpp
-        config/ports/configuration_activator.hpp
-        config/wizard/profile_wizard.hpp
-        config/wizard/profile_wizard_device.hpp
-        config/wizard/profile_wizard_install.hpp
         config/wizard/profile_wizard_paths.hpp
         config/wizard/profile_wizard_prompt.hpp
-        config/wizard/profile_wizard_sources.hpp
 )
 target_link_libraries(btrfsbackup-config PUBLIC btrfsbackup-config-model btrfsbackup-config-ports)
 
@@ -84,6 +73,23 @@ add_library(btrfsbackup-config-linux STATIC
 )
 
 target_compile_features(btrfsbackup-config-linux PUBLIC cxx_std_20)
+target_restricted_include_directories(btrfsbackup-config-linux
+    PUBLIC_HEADERS
+        platform/linux/config/application_config.hpp
+        platform/linux/config/installation_render.hpp
+        platform/linux/config/installation_service.hpp
+        platform/linux/config/installation_validate.hpp
+        platform/linux/config/profile_artifact_io.hpp
+        platform/linux/config/profile_configuration_transaction.hpp
+        platform/linux/config/profile_installer.hpp
+        platform/linux/config/profile_repository.hpp
+        platform/linux/config/profile_service.hpp
+        platform/linux/config/profile_wizard.hpp
+        platform/linux/config/profile_wizard_device.hpp
+        platform/linux/config/profile_wizard_install.hpp
+        platform/linux/config/profile_wizard_sources.hpp
+        platform/linux/config/render_directory.hpp
+)
 target_link_libraries(btrfsbackup-config-linux
     PUBLIC
         btrfsbackup-config

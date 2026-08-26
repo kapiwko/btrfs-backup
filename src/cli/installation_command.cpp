@@ -11,8 +11,8 @@
 #include <vector>
 
 #include <cli/installation_command.hpp>
-#include <config/application_config.hpp>
-#include <config/installation_service.hpp>
+#include <platform/linux/config/application_config.hpp>
+#include <platform/linux/config/installation_service.hpp>
 
 namespace fs = std::filesystem;
 
@@ -66,7 +66,7 @@ int render_installation(const std::vector<std::string>& args) {
     if (file.empty()) fail("installation render requires --file");
     if (output_dir.empty()) fail("installation render requires --output-dir");
 
-    btrfsbackup::ApplicationConfig config = btrfsbackup::ApplicationConfig::load(application_config_root());
+    btrfsbackup::ApplicationConfig config = btrfsbackup::load_application_config(application_config_root());
     btrfsbackup::render_installation({file, output_dir, options, config.paths().target_mount_root});
     return 0;
 }
@@ -99,7 +99,7 @@ int validate_installation(const std::vector<std::string>& args) {
         }
         btrfsbackup::validate_active_installation_for(profile_id);
     } else {
-        btrfsbackup::ApplicationConfig config = btrfsbackup::ApplicationConfig::load(application_config_root());
+        btrfsbackup::ApplicationConfig config = btrfsbackup::load_application_config(application_config_root());
         btrfsbackup::validate_rendered_installation_at(rendered_root, config.paths().target_mount_root);
     }
     return 0;

@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <config/profile_configuration_transaction.hpp>
+#include <platform/linux/config/profile_configuration_transaction.hpp>
 
 #include <exception>
 #include <sstream>

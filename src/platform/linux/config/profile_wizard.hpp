@@ -9,6 +9,8 @@
 
 namespace btrfsbackup {
 
+// Linux profile wizard composition entry point.
+
 enum class ProfileWizardAction {
     render,
     apply,

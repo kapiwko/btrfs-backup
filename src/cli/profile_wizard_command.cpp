@@ -10,7 +10,7 @@
 #include <string>
 #include <vector>
 
-#include <config/wizard/profile_wizard.hpp>
+#include <platform/linux/config/profile_wizard.hpp>
 
 namespace fs = std::filesystem;
 

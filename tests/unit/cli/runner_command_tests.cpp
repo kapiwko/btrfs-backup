@@ -20,20 +20,21 @@
 
 #include <cli/runner_command.hpp>
 #include <cli/backup_tool.hpp>
-#include <backup/default_backup_planner.hpp>
+#include <backup/backup_planner.hpp>
 #include <backup/default_backup_run_factory.hpp>
 #include <state/file_run_state_repository.hpp>
+#include <state/file_pending_marker_store.hpp>
 #include <config/profile_fingerprint.hpp>
 #include <platform/linux/file_lock.hpp>
 #include <platform/linux/file_backup_run_lease_provider.hpp>
 #include <platform/linux/file_io.hpp>
 #include <platform/linux/posix_command_runner.hpp>
-#include <platform/linux/systemd_target_mounter.hpp>
+#include <platform/linux/systemd_target_manager.hpp>
 #include <platform/linux/mount_info.hpp>
 #include <config/model/json.hpp>
 #include <config/model/json_io.hpp>
 #include <config/model/profile.hpp>
-#include <config/profile_repository.hpp>
+#include <platform/linux/config/profile_repository.hpp>
 #include <state/run_state.hpp>
 
 #include "support/fake_safe_directory.hpp"
@@ -392,14 +393,17 @@ int run_runner(
         return source.find("/dev/mapper/") == 0 ? target_uuid : "source-btrfs-uuid";
     });
     btrfsbackup::PosixCommandRunner commands;
-    btrfsbackup::SystemdTargetMounter target_mounter(mounts, commands);
+    btrfsbackup::SystemdTargetManager target_mounter(mounts, commands);
     test_support::FakeSafeDirectoryRootFactory safe_directories;
-    btrfsbackup::DefaultBackupPlanner planner(
+    btrfsbackup::PosixDurableFileOperations durable_files;
+    btrfsbackup::FilePendingMarkerStore pending_markers(durable_files);
+    btrfsbackup::BackupPlanner planner(
         fixture->snapshot_metadata_reader
             ? fixture->snapshot_metadata_reader
             : btrfsbackup::SnapshotMetadataReader{[](const fs::path&) {
                   return std::optional<btrfsbackup::SnapshotMetadata>{};
               }},
+        pending_markers,
         safe_directories
     );
     btrfsbackup::DefaultBackupRunFactory run_factory(
@@ -408,7 +412,6 @@ int run_runner(
         safe_directories
     );
     btrfsbackup::FileBackupRunLeaseProvider leases(fixture->lock_root);
-    btrfsbackup::PosixDurableFileOperations durable_files;
     btrfsbackup::FileRunStateRepository state(fixture->application_config.paths(), durable_files);
     btrfsbackup::FileCancellationMonitor cancellation_monitor(state);
     FixedClock clock;

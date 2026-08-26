@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <config/profile_artifact_renderer.hpp>
+#include <platform/linux/config/profile_artifact_io.hpp>
 
 #include <sys/random.h>
 

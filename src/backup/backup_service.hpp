@@ -15,7 +15,7 @@
 #include <backup/ports/run_context.hpp>
 #include <backup/ports/run_lease.hpp>
 #include <backup/ports/run_state_repository.hpp>
-#include <backup/ports/target_mounter.hpp>
+#include <backup/ports/target_manager.hpp>
 #include <config/application_paths.hpp>
 #include <config/ports/profile_repository.hpp>
 #include <config/model/profile.hpp>
@@ -29,7 +29,7 @@ class BackupService {
     BackupService(
         IProfileRepository& profiles,
         IMountInspector& mounts,
-        ITargetMounter& target_mounter,
+        ITargetManager& target_mounter,
         IBackupPlanner& planner,
         IBackupRunFactory& run_factory,
         IBackupRunLeaseProvider& leases,
@@ -49,7 +49,7 @@ class BackupService {
 
     IProfileRepository& profiles_;
     IMountInspector& mounts_;
-    ITargetMounter& target_mounter_;
+    ITargetManager& target_mounter_;
     IBackupPlanner& planner_;
     IBackupRunFactory& run_factory_;
     IBackupRunLeaseProvider& leases_;

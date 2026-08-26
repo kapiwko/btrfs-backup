@@ -6,13 +6,13 @@
 
 #include <backup/ports/command_runner.hpp>
 #include <backup/ports/mount_inspector.hpp>
-#include <backup/ports/target_mounter.hpp>
+#include <backup/ports/target_manager.hpp>
 
 namespace btrfsbackup {
 
-class SystemdTargetMounter final : public ITargetMounter {
+class SystemdTargetManager final : public ITargetManager {
   public:
-    SystemdTargetMounter(IMountInspector& mounts, ICommandRunner& commands);
+    SystemdTargetManager(IMountInspector& mounts, ICommandRunner& commands);
     void ensure_mounted(const Profile& profile) override;
 
   private:

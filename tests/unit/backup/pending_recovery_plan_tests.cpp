@@ -7,9 +7,9 @@
 #include <string>
 #include <vector>
 
-#include <backup/pending_recovery_plan.hpp>
-#include <state/run_state.hpp>
+#include <backup/model/pending_recovery.hpp>
 #include <platform/linux/file_io.hpp>
+#include <state/file_pending_marker_store.hpp>
 
 #include "support/test_helpers.hpp"
 
@@ -55,21 +55,18 @@ void test_reads_pending_marker() {
     fs::path state_dir = root / "state" / "profiles" / "default";
 
     btrfsbackup::PosixDurableFileOperations durable_files;
-    btrfsbackup::write_pending_marker(
-        durable_files,
-        state_dir,
-        marker("root", "/local/root/root-2026-08-23T080000Z")
-    );
+    btrfsbackup::FilePendingMarkerStore markers(durable_files);
+    markers.write(state_dir, marker("root", "/local/root/root-2026-08-23T080000Z"));
 
     std::optional<btrfsbackup::PendingMarker> read =
-        btrfsbackup::read_pending_marker_if_exists(state_dir, "root");
+        markers.read(state_dir, "root");
 
     test_helpers::expect_true("read pending marker", read.has_value(), "expected pending marker");
     test_helpers::expect_eq("read pending source", read->source_name, "root");
     test_helpers::expect_eq("read pending path", read->local_snapshot_path, "/local/root/root-2026-08-23T080000Z");
 
     std::optional<btrfsbackup::PendingMarker> missing =
-        btrfsbackup::read_pending_marker_if_exists(state_dir, "home");
+        markers.read(state_dir, "home");
     test_helpers::expect_true("missing pending marker", !missing.has_value(), "missing marker should return nullopt");
 
     fs::remove_all(root);

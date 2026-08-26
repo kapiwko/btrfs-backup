@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <config/installation_render.hpp>
+#include <platform/linux/config/installation_render.hpp>
 
 #include <filesystem>
 #include <string>

@@ -11,13 +11,11 @@
 #include <vector>
 
 #include <backup/model/backup_run_actions.hpp>
-#include <backup/incremental_parent.hpp>
-#include <backup/ports/mount_inspector.hpp>
-#include <backup/pending_recovery_plan.hpp>
+#include <backup/model/incremental_parent.hpp>
+#include <backup/model/pending_recovery.hpp>
 #include <config/model/profile.hpp>
 #include <core/identifiers.hpp>
 #include <backup/model/retention_plan.hpp>
-#include <state/run_state.hpp>
 #include <backup/model/snapshot_inventory.hpp>
 
 namespace btrfsbackup {
@@ -52,7 +50,6 @@ using PendingSnapshotBySource = std::map<std::string, std::optional<SnapshotMeta
 
 [[nodiscard]] BackupRunPlan build_backup_run_plan(
     const Profile& profile,
-    const std::vector<MountEntry>& mounts,
     const SnapshotInventoryBySource& local_inventory,
     const SnapshotInventoryBySource& remote_inventory,
     const PendingMarkerBySource& pending_markers,

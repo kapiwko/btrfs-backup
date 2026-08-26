@@ -33,7 +33,7 @@ BackupRunStatusDescription status_description(
 BackupService::BackupService(
     IProfileRepository& profiles,
     IMountInspector& mounts,
-    ITargetMounter& target_mounter,
+    ITargetManager& target_mounter,
     IBackupPlanner& planner,
     IBackupRunFactory& run_factory,
     IBackupRunLeaseProvider& leases,

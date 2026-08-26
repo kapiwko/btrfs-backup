@@ -6,7 +6,10 @@ add_library(btrfsbackup-daemon-core STATIC
     manager_service.cpp
 )
 target_compile_features(btrfsbackup-daemon-core PUBLIC cxx_std_20)
-target_include_directories(btrfsbackup-daemon-core PUBLIC ${PROJECT_SOURCE_DIR}/src)
+target_restricted_include_directories(btrfsbackup-daemon-core
+    PUBLIC_HEADERS
+        daemon/manager_service.hpp
+)
 target_link_libraries(btrfsbackup-daemon-core
     PUBLIC
         btrfsbackup-config-model
@@ -16,6 +19,10 @@ target_link_libraries(btrfsbackup-daemon-core
 add_executable(btrfs-backupd
     dbus_server.cpp
     main.cpp
+)
+target_restricted_include_directories(btrfs-backupd
+    PRIVATE_HEADERS
+        daemon/dbus_server.hpp
 )
 set_target_properties(btrfs-backupd PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR})
 target_link_libraries(btrfs-backupd

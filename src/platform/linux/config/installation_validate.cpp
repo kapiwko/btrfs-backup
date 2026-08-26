@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <config/installation_validate.hpp>
+#include <platform/linux/config/installation_validate.hpp>
 
 #include <unistd.h>
 
@@ -15,7 +15,7 @@
 #include <vector>
 
 #include <core/errors.hpp>
-#include <config/application_config.hpp>
+#include <platform/linux/config/application_config.hpp>
 #include <config/model/json_io.hpp>
 #include <platform/linux/process.hpp>
 #include <config/model/profile.hpp>
@@ -154,7 +154,7 @@ void validate_active_installation(const std::string& profile_id) {
     }
     require_file(eject_service_file, "missing eject systemd template unit");
 
-    ApplicationConfig config = ApplicationConfig::load();
+    ApplicationConfig config = load_application_config();
     Profile profile = profile_from_json(load_json_file(profile_json), config.paths().target_mount_root);
     fs::path mount_dependency = fs::path("/etc/systemd/system") / ("btrfs-backup@" + std::string(profile.id.value()) + ".service.d") / "target-mount.conf";
     require_exact_text(mount_dependency, render_mount_dependency(profile), "missing target mount dependency");

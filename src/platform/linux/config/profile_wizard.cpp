@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <config/wizard/profile_wizard.hpp>
+#include <platform/linux/config/profile_wizard.hpp>
 
 #include <algorithm>
 #include <filesystem>
@@ -10,15 +10,15 @@
 #include <string>
 #include <vector>
 
-#include <config/installation_validate.hpp>
-#include <config/application_config.hpp>
+#include <platform/linux/config/installation_validate.hpp>
+#include <platform/linux/config/application_config.hpp>
 #include <config/model/profile.hpp>
-#include <config/wizard/profile_wizard_device.hpp>
-#include <config/wizard/profile_wizard_install.hpp>
+#include <platform/linux/config/profile_wizard_device.hpp>
+#include <platform/linux/config/profile_wizard_install.hpp>
 #include <config/wizard/profile_wizard_model.hpp>
 #include <config/wizard/profile_wizard_paths.hpp>
 #include <config/wizard/profile_wizard_prompt.hpp>
-#include <config/wizard/profile_wizard_sources.hpp>
+#include <platform/linux/config/profile_wizard_sources.hpp>
 
 namespace fs = std::filesystem;
 
@@ -30,7 +30,7 @@ ProfileWizardAnswers collect_answers(std::istream& input, std::ostream& output) 
     wizard::DeviceCandidate device = wizard::select_device(input, output);
 
     ProfileWizardAnswers answers;
-    answers.target_mount_root = ApplicationConfig::load().paths().target_mount_root.string();
+    answers.target_mount_root = load_application_config().paths().target_mount_root.string();
     answers.profile_id = wizard::prompt_value(input, output, "Profile identifier", "default");
     answers.profile_name = wizard::prompt_value(input, output, "Profile display name", answers.profile_id);
 
@@ -89,7 +89,7 @@ int run_profile_wizard(const ProfileWizardOptions& options, std::istream& input,
     if (options.action == ProfileWizardAction::validate_rendered) {
         validate_rendered_installation(
             options.validate_dir,
-            ApplicationConfig::load().paths().target_mount_root
+            load_application_config().paths().target_mount_root
         );
         return 0;
     }

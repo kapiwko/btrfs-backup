@@ -10,6 +10,8 @@
 
 namespace btrfsbackup::wizard {
 
+// Linux block-device discovery for the profile wizard.
+
 struct DeviceCandidate {
     std::string path;
     std::string type;

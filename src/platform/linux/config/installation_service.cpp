@@ -2,10 +2,10 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <config/installation_service.hpp>
+#include <platform/linux/config/installation_service.hpp>
 
-#include <config/installation_validate.hpp>
-#include <config/profile_service.hpp>
+#include <platform/linux/config/installation_validate.hpp>
+#include <platform/linux/config/profile_service.hpp>
 
 namespace btrfsbackup {
 

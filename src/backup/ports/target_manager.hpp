@@ -8,9 +8,9 @@
 
 namespace btrfsbackup {
 
-class ITargetMounter {
+class ITargetManager {
   public:
-    virtual ~ITargetMounter() = default;
+    virtual ~ITargetManager() = default;
     virtual void ensure_mounted(const Profile& profile) = 0;
 };
 

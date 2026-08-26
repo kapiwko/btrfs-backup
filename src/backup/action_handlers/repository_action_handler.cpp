@@ -10,11 +10,10 @@
 
 #include <backup/ports/btrfs_operations.hpp>
 #include <backup/ports/filesystem.hpp>
+#include <backup/ports/pending_marker_store.hpp>
 #include <backup/ports/safe_directory.hpp>
-#include <core/durable_file_operations.hpp>
 #include <backup/snapshot_transfer.hpp>
 #include <core/errors.hpp>
-#include <state/run_state.hpp>
 
 namespace btrfsbackup {
 
@@ -107,21 +106,21 @@ SnapshotMetadata require_snapshot_metadata(
 RepositoryActionHandler::RepositoryActionHandler(
     IBtrfsOperations& btrfs,
     IFileSystem& filesystem,
-    IDurableFileOperations& durable_files
+    IPendingMarkerStore& pending_markers
 )
-    : btrfs_(btrfs), filesystem_(filesystem), durable_files_(durable_files) {
+    : btrfs_(btrfs), filesystem_(filesystem), pending_markers_(pending_markers) {
 }
 
 RepositoryActionHandler::RepositoryActionHandler(
     IBtrfsOperations& btrfs,
     IFileSystem& filesystem,
-    IDurableFileOperations& durable_files,
+    IPendingMarkerStore& pending_markers,
     std::unique_ptr<ISafeDirectoryRoot> local_root,
     std::unique_ptr<ISafeDirectoryRoot> target_root
 )
     : btrfs_(btrfs),
       filesystem_(filesystem),
-      durable_files_(durable_files),
+      pending_markers_(pending_markers),
       local_root_(std::move(local_root)),
       target_root_(std::move(target_root)) {
 }
@@ -182,7 +181,7 @@ void RepositoryActionHandler::handle(const CleanupSourceAction& action) {
         action.incoming_run_directory,
         target_root_.get()
     );
-    clear_pending_marker(durable_files_, action.pending_marker);
+    pending_markers_.clear(action.pending_marker);
 }
 
 } // namespace btrfsbackup

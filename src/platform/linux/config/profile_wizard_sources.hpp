@@ -10,6 +10,8 @@
 
 namespace btrfsbackup::wizard {
 
+// Linux Btrfs source discovery for the profile wizard.
+
 std::string source_name_from_path(const std::string& path);
 std::vector<std::string> detect_btrfs_sources();
 std::string default_source_selection(const std::vector<std::string>& candidates);

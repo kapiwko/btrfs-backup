@@ -9,6 +9,7 @@
 #include <utility>
 
 #include <state/run_checkpoint_store.hpp>
+#include <state/run_history.hpp>
 #include <state/run_state.hpp>
 #include <state/run_status_projection.hpp>
 #include <state/status_writer.hpp>

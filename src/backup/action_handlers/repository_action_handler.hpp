@@ -12,8 +12,8 @@
 namespace btrfsbackup {
 
 class IBtrfsOperations;
-class IDurableFileOperations;
 class IFileSystem;
+class IPendingMarkerStore;
 class ISafeDirectoryRoot;
 
 class RepositoryActionHandler {
@@ -21,12 +21,12 @@ class RepositoryActionHandler {
     RepositoryActionHandler(
         IBtrfsOperations& btrfs,
         IFileSystem& filesystem,
-        IDurableFileOperations& durable_files
+        IPendingMarkerStore& pending_markers
     );
     RepositoryActionHandler(
         IBtrfsOperations& btrfs,
         IFileSystem& filesystem,
-        IDurableFileOperations& durable_files,
+        IPendingMarkerStore& pending_markers,
         std::unique_ptr<ISafeDirectoryRoot> local_root,
         std::unique_ptr<ISafeDirectoryRoot> target_root
     );
@@ -40,7 +40,7 @@ class RepositoryActionHandler {
   private:
     IBtrfsOperations& btrfs_;
     IFileSystem& filesystem_;
-    IDurableFileOperations& durable_files_;
+    IPendingMarkerStore& pending_markers_;
     std::unique_ptr<ISafeDirectoryRoot> local_root_;
     std::unique_ptr<ISafeDirectoryRoot> target_root_;
 };
