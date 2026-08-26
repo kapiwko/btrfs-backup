@@ -11,12 +11,12 @@ namespace btrfsbackup {
 
 BackupRun::BackupRun(
     BackupRunPlan plan,
-    IBackupRunActionEffects& action_effects,
+    IBackupRunActionHandler& action_handler,
     IAsyncTransferPipeline& transfer_pipeline,
     IBackupRunCheckpointStore& checkpoints
 )
     : plan_(std::move(plan)),
-      executor_(action_effects, transfer_pipeline, checkpoints) {
+      executor_(action_handler, transfer_pipeline, checkpoints) {
 }
 
 const BackupRunPlan& BackupRun::plan() const noexcept {
