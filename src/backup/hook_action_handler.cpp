@@ -75,8 +75,10 @@ void HookActionHandler::handle(
                                                     .cancellation = &cancellation,
                                                     .timeout = action.hook.timeout,
                                                     .inherited_fds = inherited_fds,
-                                                    .profile_id = profile_id,
-                                                    .source_id = action.source_id,
+                                                    .environment = {
+                                                        {"BTRFS_BACKUP_PROFILE_ID", std::string(profile_id.value())},
+                                                        {"BTRFS_BACKUP_SOURCE_ID", std::string(action.source_id.value())},
+                                                    },
                                                 });
     } catch (const std::exception& error) {
         throw CodedOperationError(

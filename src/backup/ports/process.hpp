@@ -6,11 +6,9 @@
 
 #include <chrono>
 #include <cstddef>
-#include <optional>
+#include <map>
 #include <string>
 #include <vector>
-
-#include <config/identifiers.hpp>
 
 namespace btrfsbackup {
 
@@ -33,8 +31,7 @@ struct ControlledCommandOptions {
     std::chrono::milliseconds terminate_grace_period{5000};
     std::chrono::milliseconds kill_reap_period{5000};
     std::vector<int> inherited_fds;
-    std::optional<ProfileId> profile_id;
-    std::optional<SourceId> source_id;
+    std::map<std::string, std::string> environment;
 };
 
 } // namespace btrfsbackup

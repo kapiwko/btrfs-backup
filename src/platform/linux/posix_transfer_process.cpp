@@ -52,14 +52,13 @@ ProcessSpawnResult spawn_posix_transfer_process(
         throw ValidationError("empty transfer command");
     }
     return spawn_program(argv, {
-        .stdin_fd = stdin_fd,
-        .stdout_fd = stdout_fd,
-        .stderr_fd = stderr_fd,
-        .create_process_group = true,
-        .inherited_fds = inherited_fds(resources),
-        .profile_id = {},
-        .source_id = {},
-    });
+                                   .stdin_fd = stdin_fd,
+                                   .stdout_fd = stdout_fd,
+                                   .stderr_fd = stderr_fd,
+                                   .create_process_group = true,
+                                   .inherited_fds = inherited_fds(resources),
+                                   .environment = {},
+                               });
 }
 
 bool reap_posix_transfer_process(pid_t pid, TransferSideResult& result) {

@@ -92,13 +92,12 @@ CommandResult run_controlled_command(
         throw ValidationError(std::string("cannot configure command pipe: ") + std::strerror(error));
     }
     ProcessSpawnResult spawned = spawn_program(argv, {
-        .stdout_fd = pipefd[1],
-        .stderr_fd = pipefd[1],
-        .create_process_group = true,
-        .inherited_fds = options.inherited_fds,
-        .profile_id = options.profile_id,
-        .source_id = options.source_id,
-    });
+                                                         .stdout_fd = pipefd[1],
+                                                         .stderr_fd = pipefd[1],
+                                                         .create_process_group = true,
+                                                         .inherited_fds = options.inherited_fds,
+                                                         .environment = options.environment,
+                                                     });
     close(pipefd[1]);
     if (!spawned.started()) {
         close(pipefd[0]);

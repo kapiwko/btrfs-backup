@@ -564,12 +564,12 @@ void test_hook_actions_use_command_runner_argv() {
     );
     test_helpers::expect_eq(
         "hook profile environment",
-        std::string(hooks.controlled_options->profile_id->value()),
+        hooks.controlled_options->environment.at("BTRFS_BACKUP_PROFILE_ID"),
         "default"
     );
     test_helpers::expect_eq(
         "hook source environment",
-        std::string(hooks.controlled_options->source_id->value()),
+        hooks.controlled_options->environment.at("BTRFS_BACKUP_SOURCE_ID"),
         "root"
     );
 }
