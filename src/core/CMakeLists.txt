@@ -8,7 +8,11 @@ add_library(btrfsbackup-core STATIC
 )
 
 target_compile_features(btrfsbackup-core PUBLIC cxx_std_20)
-target_include_directories(btrfsbackup-core PUBLIC ${PROJECT_SOURCE_DIR}/src)
+target_restricted_include_directories(btrfsbackup-core
+    PUBLIC_HEADERS
+        core/cancellation.hpp
+        core/error_code.hpp
+)
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(btrfsbackup-core PRIVATE -Wall -Wextra -Wpedantic)

@@ -7,7 +7,7 @@
 
 #include <platform/linux/command_runner.hpp>
 
-#include "support/test_helpers.hpp"
+#include "support/validation_test_helpers.hpp"
 
 namespace {
 

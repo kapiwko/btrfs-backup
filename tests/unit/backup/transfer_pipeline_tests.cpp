@@ -22,7 +22,7 @@
 #include <platform/linux/posix_cancellation_signal.hpp>
 #include <platform/linux/posix_transfer_pipeline.hpp>
 
-#include "support/test_helpers.hpp"
+#include "support/validation_test_helpers.hpp"
 
 namespace {
 

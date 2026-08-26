@@ -8,7 +8,7 @@
 #include <config/errors.hpp>
 #include <platform/linux/safe_directory_root.hpp>
 
-#include "support/test_helpers.hpp"
+#include "support/validation_test_helpers.hpp"
 
 namespace fs = std::filesystem;
 

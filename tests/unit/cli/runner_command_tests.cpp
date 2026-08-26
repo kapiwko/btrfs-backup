@@ -31,7 +31,7 @@
 #include <config/profile_loader.hpp>
 #include <state/run_state.hpp>
 
-#include "support/test_helpers.hpp"
+#include "support/validation_test_helpers.hpp"
 
 namespace fs = std::filesystem;
 

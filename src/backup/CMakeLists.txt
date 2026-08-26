@@ -8,7 +8,11 @@ add_library(btrfsbackup-backup-model STATIC
 )
 
 target_compile_features(btrfsbackup-backup-model PUBLIC cxx_std_20)
-target_include_directories(btrfsbackup-backup-model PUBLIC ${PROJECT_SOURCE_DIR}/src)
+target_restricted_include_directories(btrfsbackup-backup-model
+    PUBLIC_HEADERS
+        backup/retention_plan.hpp
+        backup/snapshot_inventory.hpp
+)
 target_link_libraries(btrfsbackup-backup-model PUBLIC btrfsbackup-config-model)
 
 add_library(btrfsbackup-transfer STATIC

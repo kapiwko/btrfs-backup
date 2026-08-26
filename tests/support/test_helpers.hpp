@@ -6,13 +6,9 @@
 
 #include <filesystem>
 #include <fstream>
-#include <functional>
 #include <iostream>
-#include <stdexcept>
 #include <string>
 #include <unistd.h>
-
-#include <config/errors.hpp>
 
 namespace test_helpers {
 
@@ -38,20 +34,6 @@ inline void expect_contains(const std::string& name, const std::string& actual, 
 inline void expect_true(const std::string& name, bool condition, const std::string& message) {
     if (!condition) {
         fail(name, message);
-    }
-}
-
-inline void expect_validation_error(const std::string& name, const std::function<void()>& fn, const std::string& expected) {
-    try {
-        fn();
-        fail(name, "expected ValidationError");
-    } catch (const btrfsbackup::ValidationError& exc) {
-        std::string message = exc.what();
-        if (message.find(expected) == std::string::npos) {
-            fail(name, "unexpected error: " + message);
-        }
-    } catch (const std::exception& exc) {
-        fail(name, std::string("unexpected exception: ") + exc.what());
     }
 }
 
