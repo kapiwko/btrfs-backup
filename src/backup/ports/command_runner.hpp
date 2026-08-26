@@ -14,13 +14,13 @@ namespace btrfsbackup {
 class ICommandRunner {
   public:
     virtual ~ICommandRunner() = default;
-    virtual CommandResult run(const std::vector<std::string>& argv) = 0;
-    virtual CommandResult run_controlled(
+    [[nodiscard]] virtual CommandResult run(const std::vector<std::string>& argv) = 0;
+    [[nodiscard]] virtual CommandResult run_controlled(
         const std::vector<std::string>& argv,
         const ControlledCommandOptions& options
     ) = 0;
 };
 
-std::string capture_command(ICommandRunner& runner, const std::vector<std::string>& argv);
+[[nodiscard]] std::string capture_command(ICommandRunner& runner, const std::vector<std::string>& argv);
 
 } // namespace btrfsbackup

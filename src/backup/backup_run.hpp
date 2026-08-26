@@ -17,10 +17,10 @@ public:
       IBackupRunCheckpointStore& checkpoints
   );
 
-  const BackupRunPlan& plan() const noexcept;
-  bool started() const noexcept;
+  [[nodiscard]] const BackupRunPlan& plan() const noexcept;
+  [[nodiscard]] bool started() const noexcept;
 
-  BackupRunExecutionResult execute(
+  [[nodiscard]] BackupRunExecutionResult execute(
       IBackupRunEventSink& events,
       CancellationToken& cancellation
   );

@@ -54,7 +54,7 @@ class WizardConfigurationActivator final : public IConfigurationActivator {
         );
         std::error_code error;
         fs::remove("/etc/udev/rules.d/99-btrfs-backup.rules", error);
-        run_command({"systemctl", "disable", "btrfs-backup.service"});
+        (void)run_command({"systemctl", "disable", "btrfs-backup.service"});
         system_configuration_.activate();
     }
 
