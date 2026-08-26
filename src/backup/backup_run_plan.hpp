@@ -15,7 +15,7 @@
 #include <backup/ports/mount_inspector.hpp>
 #include <backup/pending_recovery_plan.hpp>
 #include <config/profile.hpp>
-#include <config/identifiers.hpp>
+#include <core/identifiers.hpp>
 #include <backup/retention_plan.hpp>
 #include <state/run_state.hpp>
 #include <backup/snapshot_inventory.hpp>

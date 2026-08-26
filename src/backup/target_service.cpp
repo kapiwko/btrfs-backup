@@ -18,7 +18,7 @@
 #include <vector>
 
 #include <backup/target_mount_validation.hpp>
-#include <config/errors.hpp>
+#include <core/errors.hpp>
 #include <config/profile.hpp>
 #include <config/profile_loader.hpp>
 #include <config/validation.hpp>

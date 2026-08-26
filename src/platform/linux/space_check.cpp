@@ -6,7 +6,7 @@
 
 #include <system_error>
 
-#include <config/errors.hpp>
+#include <core/errors.hpp>
 
 namespace fs = std::filesystem;
 

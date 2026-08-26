@@ -4,7 +4,7 @@
 
 #include <type_traits>
 
-#include <config/errors.hpp>
+#include <core/errors.hpp>
 
 static_assert(std::is_base_of_v<btrfsbackup::BtrfsBackupError, btrfsbackup::ConfigurationError>);
 static_assert(std::is_base_of_v<btrfsbackup::ConfigurationError, btrfsbackup::ValidationError>);

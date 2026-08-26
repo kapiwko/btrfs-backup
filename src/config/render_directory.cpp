@@ -23,7 +23,7 @@
 #include <system_error>
 #include <vector>
 
-#include <config/errors.hpp>
+#include <core/errors.hpp>
 #include <platform/linux/file_io.hpp>
 
 namespace fs = std::filesystem;

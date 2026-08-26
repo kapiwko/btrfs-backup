@@ -11,7 +11,7 @@
 
 #include <backup/ports/command_runner.hpp>
 #include <backup/ports/mount_inspector.hpp>
-#include <config/identifiers.hpp>
+#include <core/identifiers.hpp>
 
 namespace btrfsbackup {
 

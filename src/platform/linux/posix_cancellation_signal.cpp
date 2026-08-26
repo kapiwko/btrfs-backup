@@ -11,7 +11,7 @@
 #include <cstring>
 #include <string>
 
-#include <config/errors.hpp>
+#include <core/errors.hpp>
 
 namespace btrfsbackup::platform_linux {
 

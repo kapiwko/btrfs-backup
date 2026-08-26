@@ -12,7 +12,7 @@
 #include <ostream>
 #include <string>
 
-#include <config/errors.hpp>
+#include <core/errors.hpp>
 
 namespace btrfsbackup::wizard {
 

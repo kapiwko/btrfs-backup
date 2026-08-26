@@ -10,7 +10,7 @@
 #include <backup/ports/btrfs_operations.hpp>
 #include <backup/ports/filesystem.hpp>
 #include <backup/snapshot_transfer.hpp>
-#include <config/errors.hpp>
+#include <core/errors.hpp>
 #include <platform/linux/safe_directory_root.hpp>
 #include <state/run_state.hpp>
 

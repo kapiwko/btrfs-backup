@@ -11,7 +11,7 @@
 #include <system_error>
 #include <utility>
 
-#include <config/errors.hpp>
+#include <core/errors.hpp>
 #include <platform/linux/file_io.hpp>
 #include <config/installation_render.hpp>
 #include <config/installation_validate.hpp>

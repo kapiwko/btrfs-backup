@@ -13,7 +13,7 @@
 #include <cli/profile_create_command.hpp>
 #include <cli/profile_command.hpp>
 #include <cli/profile_wizard_command.hpp>
-#include <config/errors.hpp>
+#include <core/errors.hpp>
 #include <config/application_config.hpp>
 #include <config/json_io.hpp>
 #include <config/profile.hpp>

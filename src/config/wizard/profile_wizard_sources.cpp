@@ -12,7 +12,7 @@
 #include <sstream>
 #include <string>
 
-#include <config/errors.hpp>
+#include <core/errors.hpp>
 #include <platform/linux/mount_info.hpp>
 #include <config/wizard/profile_wizard_prompt.hpp>
 

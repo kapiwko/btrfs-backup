@@ -14,9 +14,9 @@
 #include <sstream>
 #include <string>
 
-#include <config/errors.hpp>
+#include <core/errors.hpp>
 #include <platform/linux/file_io.hpp>
-#include <config/identifiers.hpp>
+#include <core/identifiers.hpp>
 
 namespace fs = std::filesystem;
 

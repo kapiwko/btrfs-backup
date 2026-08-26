@@ -11,7 +11,7 @@
 #include <vector>
 
 #include <backup/backup_run_executor.hpp>
-#include <config/errors.hpp>
+#include <core/errors.hpp>
 
 #include "support/validation_test_helpers.hpp"
 

@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-#include <config/errors.hpp>
+#include <core/errors.hpp>
 #include <config/json.hpp>
 #include <state/status_service.hpp>
 

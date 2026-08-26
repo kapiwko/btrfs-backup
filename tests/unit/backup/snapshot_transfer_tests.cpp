@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-#include <config/errors.hpp>
+#include <core/errors.hpp>
 #include <backup/snapshot_transfer.hpp>
 
 #include "support/validation_test_helpers.hpp"

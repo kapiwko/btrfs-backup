@@ -9,7 +9,7 @@
 #include <cerrno>
 #include <cstring>
 
-#include <config/errors.hpp>
+#include <core/errors.hpp>
 #include <platform/linux/safe_directory_root.hpp>
 
 namespace btrfsbackup::platform_linux {

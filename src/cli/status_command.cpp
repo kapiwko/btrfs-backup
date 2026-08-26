@@ -12,10 +12,10 @@
 #include <thread>
 #include <vector>
 
-#include <config/errors.hpp>
+#include <core/errors.hpp>
 #include <cli/status_history_command.hpp>
 #include <cli/status_show_command.hpp>
-#include <config/identifiers.hpp>
+#include <core/identifiers.hpp>
 #include <state/status_service.hpp>
 
 namespace fs = std::filesystem;

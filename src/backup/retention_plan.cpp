@@ -8,8 +8,8 @@
 #include <string>
 #include <vector>
 
-#include <config/errors.hpp>
-#include <config/identifiers.hpp>
+#include <core/errors.hpp>
+#include <core/identifiers.hpp>
 
 namespace {
 

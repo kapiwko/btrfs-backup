@@ -15,7 +15,7 @@
 #include <string>
 #include <utility>
 
-#include <config/errors.hpp>
+#include <core/errors.hpp>
 #include <config/validation.hpp>
 #include <platform/linux/safe_directory_root.hpp>
 

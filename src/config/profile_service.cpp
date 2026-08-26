@@ -12,8 +12,8 @@
 #include <vector>
 
 #include <config/application_config.hpp>
-#include <config/errors.hpp>
-#include <config/identifiers.hpp>
+#include <core/errors.hpp>
+#include <core/identifiers.hpp>
 #include <config/json_io.hpp>
 #include <config/profile_artifact_renderer.hpp>
 #include <config/profile_installer.hpp>

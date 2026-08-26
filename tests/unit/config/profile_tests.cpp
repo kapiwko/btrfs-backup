@@ -14,7 +14,7 @@
 #include <utility>
 #include <unistd.h>
 
-#include <config/errors.hpp>
+#include <core/errors.hpp>
 #include <config/json.hpp>
 #include <config/json_io.hpp>
 #include <config/profile.hpp>
