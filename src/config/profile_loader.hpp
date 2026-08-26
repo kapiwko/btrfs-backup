@@ -7,8 +7,8 @@
 #include <filesystem>
 #include <string>
 
-#include <config/json.hpp>
-#include <config/profile.hpp>
+#include <config/model/json.hpp>
+#include <config/model/profile.hpp>
 
 namespace btrfsbackup {
 

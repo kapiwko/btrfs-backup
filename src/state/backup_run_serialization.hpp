@@ -7,7 +7,7 @@
 #include <string>
 
 #include <backup/model/backup_run_event.hpp>
-#include <config/json.hpp>
+#include <config/model/json.hpp>
 
 namespace btrfsbackup {
 

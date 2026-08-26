@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-#include <config/json.hpp>
+#include <config/model/json.hpp>
 
 namespace btrfsbackup {
 

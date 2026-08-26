@@ -7,7 +7,7 @@
 #include <filesystem>
 #include <sys/types.h>
 
-#include <config/json.hpp>
+#include <config/model/json.hpp>
 #include <state/run_status.hpp>
 
 namespace btrfsbackup {

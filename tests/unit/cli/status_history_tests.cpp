@@ -10,7 +10,7 @@
 #include <cli/status_history_command.hpp>
 #include <cli/status_command.hpp>
 #include <cli/status_show_command.hpp>
-#include <config/json_io.hpp>
+#include <config/model/json_io.hpp>
 #include <state/status_writer.hpp>
 
 #include "support/validation_test_helpers.hpp"

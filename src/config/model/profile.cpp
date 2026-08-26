@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <config/profile.hpp>
+#include <config/model/profile.hpp>
 
 #include <algorithm>
 #include <cctype>
@@ -17,8 +17,8 @@
 
 #include <core/errors.hpp>
 #include <core/identifiers.hpp>
-#include <config/json.hpp>
-#include <config/validation.hpp>
+#include <config/model/json.hpp>
+#include <config/model/validation.hpp>
 
 namespace fs = std::filesystem;
 
@@ -202,21 +202,13 @@ Json normalize_hook_commands(const Json& hooks, const std::string& key, const st
             item_name + ".program"
         );
         fs::path normalized_program = fs::path(program).lexically_normal();
-        if (normalized_program.parent_path() != fs::path(trusted_hook_directory)
-            || normalized_program.filename().empty()
-            || normalized_program.filename() == "."
-            || normalized_program.filename() == "..") {
+        if (normalized_program.parent_path() != fs::path(trusted_hook_directory) || normalized_program.filename().empty() || normalized_program.filename() == "." || normalized_program.filename() == "..") {
             throw ValidationError(
                 item_name + ".program must be a direct child of " + trusted_hook_directory
             );
         }
 
-        normalized.push_back({
-            {"type", type},
-            {"program", normalized_program.string()},
-            {"arguments", normalized_arguments},
-            {"timeoutSeconds", timeout_seconds}
-        });
+        normalized.push_back({{"type", type}, {"program", normalized_program.string()}, {"arguments", normalized_arguments}, {"timeoutSeconds", timeout_seconds}});
     }
     return normalized;
 }
@@ -313,18 +305,16 @@ Json normalize_profile(const Json& raw, const fs::path& target_mount_root) {
     }
     reject_unknown_properties(
         raw,
-        {
-            "schemaVersion",
-            "configurationGeneration",
-            "profileId",
-            "name",
-            "enabled",
-            "target",
-            "paths",
-            "settings",
-            "hooks",
-            "sources"
-        },
+        {"schemaVersion",
+         "configurationGeneration",
+         "profileId",
+         "name",
+         "enabled",
+         "target",
+         "paths",
+         "settings",
+         "hooks",
+         "sources"},
         "profile"
     );
     if (!raw.contains("schemaVersion") || !raw.at("schemaVersion").is_number_integer()) {
@@ -414,16 +404,14 @@ Json normalize_profile(const Json& raw, const fs::path& target_mount_root) {
     Json hooks = object_or_empty(raw, "hooks", "hooks");
     reject_unknown_properties(
         settings,
-        {
-            "dailyLimit",
-            "incrementalRequired",
-            "keepFailedLocalSnapshot",
-            "autoEject",
-            "remoteRetention",
-            "localRetention",
-            "minimumTargetFreeBytes",
-            "minimumLocalFreeBytes"
-        },
+        {"dailyLimit",
+         "incrementalRequired",
+         "keepFailedLocalSnapshot",
+         "autoEject",
+         "remoteRetention",
+         "localRetention",
+         "minimumTargetFreeBytes",
+         "minimumLocalFreeBytes"},
         "settings"
     );
     reject_unknown_properties(
@@ -473,16 +461,7 @@ Json normalize_profile(const Json& raw, const fs::path& target_mount_root) {
         }
         bool source_enabled = boolean_value(item, "enabled", "sources[" + std::to_string(index) + "].enabled", true);
         any_enabled = any_enabled || source_enabled;
-        sources.push_back({
-            {"id", source_id},
-            {"name", text(item.value("name", source_id), "sources[" + std::to_string(index) + "].name", false, 160)},
-            {"enabled", source_enabled},
-            {"subvolume", absolute_path(item.at("subvolume"), "sources[" + std::to_string(index) + "].subvolume")},
-            {"localSnapshotDir", local},
-            {"remoteSubdir", remote},
-            {"remoteRetention", integer_value(item, "remoteRetention", "sources[" + std::to_string(index) + "].remoteRetention", remote_retention, 100000)},
-            {"localRetention", integer_value(item, "localRetention", "sources[" + std::to_string(index) + "].localRetention", local_retention, 100000)}
-        });
+        sources.push_back({{"id", source_id}, {"name", text(item.value("name", source_id), "sources[" + std::to_string(index) + "].name", false, 160)}, {"enabled", source_enabled}, {"subvolume", absolute_path(item.at("subvolume"), "sources[" + std::to_string(index) + "].subvolume")}, {"localSnapshotDir", local}, {"remoteSubdir", remote}, {"remoteRetention", integer_value(item, "remoteRetention", "sources[" + std::to_string(index) + "].remoteRetention", remote_retention, 100000)}, {"localRetention", integer_value(item, "localRetention", "sources[" + std::to_string(index) + "].localRetention", local_retention, 100000)}});
     }
     if (!any_enabled) {
         throw ValidationError("at least one source must be enabled");
@@ -493,32 +472,10 @@ Json normalize_profile(const Json& raw, const fs::path& target_mount_root) {
         {"profileId", profile_id},
         {"name", profile_name},
         {"enabled", enabled},
-        {"target", {
-            {"device", device},
-            {"luksUuid", luks_uuid},
-            {"btrfsUuid", btrfs_uuid},
-            {"partitionUuid", partition_uuid},
-            {"serial", serial},
-            {"mapperName", mapper_name}
-        }},
-        {"paths", {
-            {"remoteRoot", remote_root},
-            {"incomingRoot", incoming_root}
-        }},
-        {"settings", {
-            {"dailyLimit", boolean_value(settings, "dailyLimit", "settings.dailyLimit", true)},
-            {"incrementalRequired", boolean_value(settings, "incrementalRequired", "settings.incrementalRequired", true)},
-            {"keepFailedLocalSnapshot", boolean_value(settings, "keepFailedLocalSnapshot", "settings.keepFailedLocalSnapshot", false)},
-            {"autoEject", boolean_value(settings, "autoEject", "settings.autoEject", true)},
-            {"remoteRetention", remote_retention},
-            {"localRetention", local_retention},
-            {"minimumTargetFreeBytes", integer_value(settings, "minimumTargetFreeBytes", "settings.minimumTargetFreeBytes", 5LL * 1024 * 1024 * 1024)},
-            {"minimumLocalFreeBytes", integer_value(settings, "minimumLocalFreeBytes", "settings.minimumLocalFreeBytes", 1024LL * 1024 * 1024)}
-        }},
-        {"hooks", {
-            {"beforeSnapshot", normalize_hook_commands(hooks, "beforeSnapshot", "hooks.beforeSnapshot")},
-            {"afterSnapshot", normalize_hook_commands(hooks, "afterSnapshot", "hooks.afterSnapshot")}
-        }},
+        {"target", {{"device", device}, {"luksUuid", luks_uuid}, {"btrfsUuid", btrfs_uuid}, {"partitionUuid", partition_uuid}, {"serial", serial}, {"mapperName", mapper_name}}},
+        {"paths", {{"remoteRoot", remote_root}, {"incomingRoot", incoming_root}}},
+        {"settings", {{"dailyLimit", boolean_value(settings, "dailyLimit", "settings.dailyLimit", true)}, {"incrementalRequired", boolean_value(settings, "incrementalRequired", "settings.incrementalRequired", true)}, {"keepFailedLocalSnapshot", boolean_value(settings, "keepFailedLocalSnapshot", "settings.keepFailedLocalSnapshot", false)}, {"autoEject", boolean_value(settings, "autoEject", "settings.autoEject", true)}, {"remoteRetention", remote_retention}, {"localRetention", local_retention}, {"minimumTargetFreeBytes", integer_value(settings, "minimumTargetFreeBytes", "settings.minimumTargetFreeBytes", 5LL * 1024 * 1024 * 1024)}, {"minimumLocalFreeBytes", integer_value(settings, "minimumLocalFreeBytes", "settings.minimumLocalFreeBytes", 1024LL * 1024 * 1024)}}},
+        {"hooks", {{"beforeSnapshot", normalize_hook_commands(hooks, "beforeSnapshot", "hooks.beforeSnapshot")}, {"afterSnapshot", normalize_hook_commands(hooks, "afterSnapshot", "hooks.afterSnapshot")}}},
         {"sources", sources}
     };
     if (!configuration_generation.empty()) {

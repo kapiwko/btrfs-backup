@@ -10,7 +10,7 @@
 #include <vector>
 
 #include <core/errors.hpp>
-#include <config/json.hpp>
+#include <config/model/json.hpp>
 #include <state/status_service.hpp>
 
 namespace fs = std::filesystem;

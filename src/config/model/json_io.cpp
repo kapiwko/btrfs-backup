@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <config/json_io.hpp>
+#include <config/model/json_io.hpp>
 
 #include <fstream>
 

@@ -12,8 +12,8 @@
 
 #include <core/errors.hpp>
 #include <core/identifiers.hpp>
-#include <config/json.hpp>
-#include <config/json_io.hpp>
+#include <config/model/json.hpp>
+#include <config/model/json_io.hpp>
 #include <state/status_writer.hpp>
 
 namespace fs = std::filesystem;

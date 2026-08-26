@@ -5,7 +5,7 @@
 #include <filesystem>
 #include <sys/stat.h>
 
-#include <config/json_io.hpp>
+#include <config/model/json_io.hpp>
 #include <state/run_checkpoint_store.hpp>
 
 #include "support/test_helpers.hpp"

@@ -8,8 +8,8 @@
 #include <vector>
 
 #include <cli/installation_command.hpp>
-#include <config/json.hpp>
-#include <config/json_io.hpp>
+#include <config/model/json.hpp>
+#include <config/model/json_io.hpp>
 
 #include "support/test_helpers.hpp"
 

@@ -4,7 +4,7 @@
 
 #include <backup/ports/mount_inspector.hpp>
 
-#include <config/validation.hpp>
+#include <config/model/validation.hpp>
 
 namespace btrfsbackup {
 
