@@ -6,6 +6,8 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdint>
+#include <exception>
 
 #include <config/errors.hpp>
 
@@ -13,25 +15,25 @@ namespace fs = std::filesystem;
 
 namespace btrfsbackup {
 
-long long parse_uint(const std::string& value, const std::string& name, long long maximum) {
+std::uint64_t parse_uint(const std::string& value, const std::string& name, std::uint64_t maximum) {
     if (value.empty() || !std::all_of(value.begin(), value.end(), [](unsigned char c) { return std::isdigit(c); })) {
         throw ValidationError(name + " must be a non-negative base-10 integer");
     }
     std::size_t consumed = 0;
-    long long result = 0;
+    std::uint64_t result = 0;
     try {
-        result = std::stoll(value, &consumed, 10);
+        result = std::stoull(value, &consumed, 10);
     } catch (const std::exception&) {
         throw ValidationError(name + " is outside the supported range");
     }
-    if (consumed != value.size() || result < 0 || result > maximum) {
+    if (consumed != value.size() || result > maximum) {
         throw ValidationError(name + " is outside the supported range");
     }
     return result;
 }
 
-long long parse_positive_uint(const std::string& value, const std::string& name, long long maximum) {
-    long long result = parse_uint(value, name, maximum);
+std::uint64_t parse_positive_uint(const std::string& value, const std::string& name, std::uint64_t maximum) {
+    const std::uint64_t result = parse_uint(value, name, maximum);
     if (result == 0) {
         throw ValidationError(name + " must be greater than zero");
     }

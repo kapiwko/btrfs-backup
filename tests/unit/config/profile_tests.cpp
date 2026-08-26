@@ -248,9 +248,9 @@ void test_profile_hooks_round_trip_as_explicit_program_arguments() {
     expect_true("before hook count", profile.hooks.before_snapshot.size() == 1, "wrong before hook count");
     expect_true("before hook program", profile.hooks.before_snapshot.at(0).program == "/etc/btrfs-backup/hooks.d/prepare-postgresql-backup", "wrong hook program");
     expect_true("before hook arg", profile.hooks.before_snapshot.at(0).arguments.at(1) == "snapshot", "wrong hook argument");
-    expect_true("before hook timeout", profile.hooks.before_snapshot.at(0).timeout_seconds == 45, "wrong hook timeout");
+    expect_true("before hook timeout", profile.hooks.before_snapshot.at(0).timeout == std::chrono::seconds{45}, "wrong hook timeout");
     expect_true("after hook count", profile.hooks.after_snapshot.size() == 1, "wrong after hook count");
-    expect_true("after hook timeout", profile.hooks.after_snapshot.at(0).timeout_seconds == 30, "wrong after hook timeout");
+    expect_true("after hook timeout", profile.hooks.after_snapshot.at(0).timeout == std::chrono::seconds{30}, "wrong after hook timeout");
     expect_true("hook round trip", round_trip == btrfsbackup::normalize_profile(raw), "hook JSON did not round trip");
 }
 

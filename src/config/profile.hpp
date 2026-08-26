@@ -4,6 +4,9 @@
 
 #pragma once
 
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <map>
 #include <string>
@@ -39,16 +42,16 @@ struct ProfileSettings {
     bool incremental_required = true;
     bool keep_failed_local_snapshot = false;
     bool auto_eject = true;
-    long long remote_retention = 30;
-    long long local_retention = 30;
-    long long minimum_target_free_bytes = 0;
-    long long minimum_local_free_bytes = 0;
+    std::size_t remote_retention = 30;
+    std::size_t local_retention = 30;
+    std::uint64_t minimum_target_free_bytes = 0;
+    std::uint64_t minimum_local_free_bytes = 0;
 };
 
 struct ProfileHookCommand {
     std::string program;
     std::vector<std::string> arguments;
-    long long timeout_seconds;
+    std::chrono::seconds timeout{30};
 };
 
 struct ProfileHooks {
@@ -66,8 +69,8 @@ struct ProfileSource {
     std::string subvolume;
     std::string local_snapshot_dir;
     std::string remote_subdir;
-    long long remote_retention = 30;
-    long long local_retention = 30;
+    std::size_t remote_retention = 30;
+    std::size_t local_retention = 30;
 };
 
 struct Profile {
@@ -90,8 +93,6 @@ std::string identifier(const Json& value, const std::string& name);
 std::string env_get(const std::map<std::string, std::string>& env, const std::string& name, const std::string& default_value = "");
 std::string env_required(const std::map<std::string, std::string>& env, const std::string& name);
 bool env_bool(const std::map<std::string, std::string>& env, const std::string& name, bool default_value);
-long long env_int(const std::map<std::string, std::string>& env, const std::string& name, long long default_value);
-
 Json normalize_profile(const Json& raw, const std::filesystem::path& target_mount_root = "/mnt/btrfs-backup");
 Profile profile_from_json(const Json& raw, const std::filesystem::path& target_mount_root = "/mnt/btrfs-backup");
 Json profile_to_json(const Profile& profile);

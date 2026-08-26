@@ -2,6 +2,9 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <string>
 #include <string_view>
@@ -22,6 +25,15 @@ static_assert(!std::is_default_constructible_v<btrfsbackup::RunId>);
 static_assert(std::is_same_v<decltype(std::declval<const btrfsbackup::ProfileId&>().value()), std::string_view>);
 static_assert(std::is_same_v<decltype(btrfsbackup::Profile::id), btrfsbackup::ProfileId>);
 static_assert(std::is_same_v<decltype(btrfsbackup::ProfileSource::id), btrfsbackup::SourceId>);
+static_assert(std::is_same_v<decltype(btrfsbackup::ProfileSettings::remote_retention), std::size_t>);
+static_assert(std::is_same_v<decltype(btrfsbackup::ProfileSource::local_retention), std::size_t>);
+static_assert(std::is_same_v<decltype(btrfsbackup::ProfileSettings::minimum_target_free_bytes), std::uint64_t>);
+static_assert(std::is_same_v<decltype(btrfsbackup::ProfileHookCommand::timeout), std::chrono::seconds>);
+
+void test_configuration_defaults() {
+    const btrfsbackup::ProfileHookCommand hook;
+    test_helpers::expect_eq("default hook timeout", std::to_string(hook.timeout.count()), "30");
+}
 
 void test_identifier_validation() {
     test_helpers::expect_eq(
@@ -87,6 +99,7 @@ void test_path_is_within() {
 } // namespace
 
 int main() {
+    test_configuration_defaults();
     test_identifier_validation();
     test_uint_validation();
     test_path_validation();

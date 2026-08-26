@@ -86,18 +86,31 @@ bool boolean_value(const Json& object, const std::string& key, const std::string
     return object.at(key).get<bool>();
 }
 
-long long integer_value(const Json& object, const std::string& key, const std::string& name, long long default_value, long long maximum = 1000000000000000LL) {
+std::uint64_t integer_value(
+    const Json& object,
+    const std::string& key,
+    const std::string& name,
+    std::uint64_t default_value,
+    std::uint64_t maximum = 1000000000000000ULL
+) {
     if (!object.contains(key) || object.at(key).is_null()) {
         return default_value;
     }
     if (!object.at(key).is_number_integer()) {
         throw ValidationError(name + " must be an integer");
     }
-    long long result = object.at(key).get<long long>();
-    if (result < 0) {
+    if (object.at(key).is_number_unsigned()) {
+        const std::uint64_t result = object.at(key).get<std::uint64_t>();
+        if (result > maximum) {
+            throw ValidationError(name + " is outside the supported range");
+        }
+        return result;
+    }
+    const std::int64_t result = object.at(key).get<std::int64_t>();
+    if (result < 0 || static_cast<std::uint64_t>(result) > maximum) {
         throw ValidationError(name + " is outside the supported range");
     }
-    return parse_uint(std::to_string(result), name, maximum);
+    return static_cast<std::uint64_t>(result);
 }
 
 Json object_or_empty(const Json& root, const std::string& key, const std::string& name) {
@@ -179,7 +192,7 @@ Json normalize_hook_commands(const Json& hooks, const std::string& key, const st
         }
 
         (void)required_value(item, "timeoutSeconds", item_name + ".timeoutSeconds");
-        const long long timeout_seconds = integer_value(item, "timeoutSeconds", item_name + ".timeoutSeconds", 0, 86400);
+        const std::uint64_t timeout_seconds = integer_value(item, "timeoutSeconds", item_name + ".timeoutSeconds", 0, 86400);
         if (timeout_seconds == 0) {
             throw ValidationError(item_name + ".timeoutSeconds is outside the supported range");
         }
@@ -291,17 +304,6 @@ bool env_bool(const std::map<std::string, std::string>& env, const std::string& 
         return false;
     }
     throw ValidationError(name + " must be true or false");
-}
-
-long long env_int(const std::map<std::string, std::string>& env, const std::string& name, long long default_value) {
-    auto it = env.find(name);
-    if (it == env.end() || it->second.empty()) {
-        return default_value;
-    }
-    if (!std::all_of(it->second.begin(), it->second.end(), [](unsigned char c) { return std::isdigit(c); })) {
-        throw ValidationError(name + " must be an integer");
-    }
-    return std::stoll(it->second);
 }
 
 Json normalize_profile(const Json& raw, const fs::path& target_mount_root) {
@@ -429,8 +431,8 @@ Json normalize_profile(const Json& raw, const fs::path& target_mount_root) {
         {"beforeSnapshot", "afterSnapshot"},
         "hooks"
     );
-    long long remote_retention = integer_value(settings, "remoteRetention", "settings.remoteRetention", 30, 100000);
-    long long local_retention = integer_value(settings, "localRetention", "settings.localRetention", 30, 100000);
+    const std::uint64_t remote_retention = integer_value(settings, "remoteRetention", "settings.remoteRetention", 30, 100000);
+    const std::uint64_t local_retention = integer_value(settings, "localRetention", "settings.localRetention", 30, 100000);
 
     if (!raw.contains("sources") || !raw.at("sources").is_array()) {
         throw ValidationError("sources must be an array");
@@ -552,24 +554,24 @@ Profile profile_from_json(const Json& raw, const fs::path& target_mount_root) {
     profile.settings.incremental_required = settings.at("incrementalRequired").get<bool>();
     profile.settings.keep_failed_local_snapshot = settings.at("keepFailedLocalSnapshot").get<bool>();
     profile.settings.auto_eject = settings.at("autoEject").get<bool>();
-    profile.settings.remote_retention = settings.at("remoteRetention").get<long long>();
-    profile.settings.local_retention = settings.at("localRetention").get<long long>();
-    profile.settings.minimum_target_free_bytes = settings.at("minimumTargetFreeBytes").get<long long>();
-    profile.settings.minimum_local_free_bytes = settings.at("minimumLocalFreeBytes").get<long long>();
+    profile.settings.remote_retention = settings.at("remoteRetention").get<std::size_t>();
+    profile.settings.local_retention = settings.at("localRetention").get<std::size_t>();
+    profile.settings.minimum_target_free_bytes = settings.at("minimumTargetFreeBytes").get<std::uint64_t>();
+    profile.settings.minimum_local_free_bytes = settings.at("minimumLocalFreeBytes").get<std::uint64_t>();
 
     const Json& hooks = normalized.at("hooks");
     for (const Json& item : hooks.at("beforeSnapshot")) {
         profile.hooks.before_snapshot.push_back({
             .program = item.at("program").get<std::string>(),
             .arguments = item.at("arguments").get<std::vector<std::string>>(),
-            .timeout_seconds = item.at("timeoutSeconds").get<long long>(),
+            .timeout = std::chrono::seconds{item.at("timeoutSeconds").get<std::chrono::seconds::rep>()},
         });
     }
     for (const Json& item : hooks.at("afterSnapshot")) {
         profile.hooks.after_snapshot.push_back({
             .program = item.at("program").get<std::string>(),
             .arguments = item.at("arguments").get<std::vector<std::string>>(),
-            .timeout_seconds = item.at("timeoutSeconds").get<long long>(),
+            .timeout = std::chrono::seconds{item.at("timeoutSeconds").get<std::chrono::seconds::rep>()},
         });
     }
 
@@ -580,8 +582,8 @@ Profile profile_from_json(const Json& raw, const fs::path& target_mount_root) {
         source.subvolume = item.at("subvolume").get<std::string>();
         source.local_snapshot_dir = item.at("localSnapshotDir").get<std::string>();
         source.remote_subdir = item.at("remoteSubdir").get<std::string>();
-        source.remote_retention = item.at("remoteRetention").get<long long>();
-        source.local_retention = item.at("localRetention").get<long long>();
+        source.remote_retention = item.at("remoteRetention").get<std::size_t>();
+        source.local_retention = item.at("localRetention").get<std::size_t>();
         profile.sources.push_back(std::move(source));
     }
     return profile;
@@ -605,12 +607,7 @@ Json profile_to_json(const Profile& profile) {
     auto hooks_to_json = [](const std::vector<ProfileHookCommand>& hooks) {
         Json result = Json::array();
         for (const ProfileHookCommand& hook : hooks) {
-            result.push_back({
-                {"type", "program"},
-                {"program", hook.program},
-                {"arguments", hook.arguments},
-                {"timeoutSeconds", hook.timeout_seconds}
-            });
+            result.push_back({{"type", "program"}, {"program", hook.program}, {"arguments", hook.arguments}, {"timeoutSeconds", hook.timeout.count()}});
         }
         return result;
     };

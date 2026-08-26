@@ -48,7 +48,7 @@ void HookActionHandler::handle(
     if (action.hook.program.empty()) {
         throw ValidationError("hook program is required");
     }
-    if (action.hook.timeout_seconds < 1 || action.hook.timeout_seconds > 86400) {
+    if (action.hook.timeout < std::chrono::seconds{1} || action.hook.timeout > std::chrono::hours{24}) {
         throw CodedValidationError(
             hook_error_code(action, "failed"),
             "hook timeout is outside the supported range: " + action.hook.program
@@ -73,7 +73,7 @@ void HookActionHandler::handle(
         argv.insert(argv.end(), action.hook.arguments.begin(), action.hook.arguments.end());
         result = commands_.run_controlled(argv, {
                                                     .cancellation = &cancellation,
-                                                    .timeout = std::chrono::seconds(action.hook.timeout_seconds),
+                                                    .timeout = action.hook.timeout,
                                                     .inherited_fds = inherited_fds,
                                                     .profile_id = profile_id,
                                                     .source_id = action.source_id,
@@ -90,7 +90,7 @@ void HookActionHandler::handle(
     if (result.timed_out) {
         throw CodedValidationError(
             hook_error_code(action, "timeout"),
-            "hook timed out after " + std::to_string(action.hook.timeout_seconds) + " seconds: " + action.hook.program
+            "hook timed out after " + std::to_string(action.hook.timeout.count()) + " seconds: " + action.hook.program
         );
     }
     if (result.exit_code != 0) {
