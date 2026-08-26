@@ -11,14 +11,14 @@
 
 namespace {
 
-class NoopEffects final : public btrfsbackup::IBackupRunActionEffects {
-public:
-  void execute_action(
-      const btrfsbackup::BackupRunAction&,
-      const btrfsbackup::BackupRunPlan&,
-      btrfsbackup::CancellationToken&
-  ) override {
-  }
+class NoopActionHandler final : public btrfsbackup::IBackupRunActionHandler {
+  public:
+    void handle(
+        const btrfsbackup::BackupRunAction&,
+        const btrfsbackup::BackupRunPlan&,
+        btrfsbackup::CancellationToken&
+    ) override {
+    }
 };
 
 class UnusedTransferPipeline final : public btrfsbackup::IAsyncTransferPipeline {
@@ -38,7 +38,7 @@ public:
 };
 
 void test_backup_run_owns_plan_and_executes_once() {
-    NoopEffects effects;
+    NoopActionHandler handler;
     UnusedTransferPipeline transfers;
     NoopCheckpointStore checkpoints;
     btrfsbackup::BackupRun run(
@@ -46,7 +46,7 @@ void test_backup_run_owns_plan_and_executes_once() {
             .profile_id = btrfsbackup::ProfileId{"default"},
             .run_id = btrfsbackup::RunId{"run-1"},
         },
-        effects,
+        handler,
         transfers,
         checkpoints
     );

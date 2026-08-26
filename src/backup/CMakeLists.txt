@@ -57,15 +57,21 @@ target_link_libraries(btrfsbackup-backup-domain
 
 add_library(btrfsbackup-backup STATIC
     backup_run.cpp
+    backup_run_action_handler.cpp
     backup_run_actions.cpp
-    backup_run_action_effects.cpp
     backup_run_executor.cpp
     backup_run_plan.cpp
     backup_service.cpp
     backup_service_adapters.cpp
+    hook_action_handler.cpp
     pending_recovery_plan.cpp
+    recovery_action_handler.cpp
+    repository_action_handler.cpp
+    retention_action_handler.cpp
+    snapshot_action_handler.cpp
     snapshot_transfer.cpp
     target_service.cpp
+    transfer_action_handler.cpp
 )
 
 target_compile_features(btrfsbackup-backup PUBLIC cxx_std_20)

@@ -15,10 +15,16 @@
 #include <utility>
 #include <vector>
 
-#include <backup/backup_run_action_effects.hpp>
+#include <backup/backup_run_action_handler.hpp>
 #include <backup/backup_run.hpp>
 #include <backup/backup_service_adapters.hpp>
+#include <backup/hook_action_handler.hpp>
+#include <backup/recovery_action_handler.hpp>
+#include <backup/repository_action_handler.hpp>
+#include <backup/retention_action_handler.hpp>
+#include <backup/snapshot_action_handler.hpp>
 #include <backup/transfer/async_transfer.hpp>
+#include <backup/transfer_action_handler.hpp>
 #include <platform/linux/btrfs_operations.hpp>
 #include <platform/linux/command_runner.hpp>
 #include <platform/linux/file_lock.hpp>
@@ -306,14 +312,31 @@ class PosixBackupRunFactory final : public btrfsbackup::IBackupRunFactory {
         btrfsbackup::IBackupRunCheckpointStore& checkpoints,
         btrfsbackup::CancellationToken& cancellation
     ) override {
-        btrfsbackup::BackupRunActionEffects effects(
+        btrfsbackup::SnapshotActionHandler snapshots(btrfs_, filesystem_, "/");
+        btrfsbackup::RecoveryActionHandler recovery(btrfs_, "/", plan.target_mount_point);
+        btrfsbackup::RetentionActionHandler retention(btrfs_, "/", plan.target_mount_point);
+        btrfsbackup::HookActionHandler hooks(
+            commands_,
+            btrfsbackup::trusted_hook_directory,
+            {}
+        );
+        btrfsbackup::RepositoryActionHandler repository(
             btrfs_,
             filesystem_,
-            commands_,
+            "/",
             plan.target_mount_point
         );
+        btrfsbackup::TransferActionHandler transfer(filesystem_, plan.target_mount_point);
+        btrfsbackup::BackupRunActionHandler action_handler(
+            snapshots,
+            recovery,
+            retention,
+            hooks,
+            repository,
+            transfer
+        );
         btrfsbackup::ThreadedAsyncTransferPipeline async_transfers(transfers_);
-        btrfsbackup::BackupRun run(std::move(plan), effects, async_transfers, checkpoints);
+        btrfsbackup::BackupRun run(std::move(plan), action_handler, async_transfers, checkpoints);
         return run.execute(events, cancellation);
     }
 

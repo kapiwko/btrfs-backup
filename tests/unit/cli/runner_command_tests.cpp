@@ -41,8 +41,8 @@ std::string action_name(btrfsbackup::BackupRunActionKind kind) {
     return std::to_string(static_cast<int>(kind));
 }
 
-class RecordingActionEffects final : public btrfsbackup::IBackupRunActionEffects {
-public:
+class RecordingActionHandler final : public btrfsbackup::IBackupRunActionHandler {
+  public:
     std::vector<std::string> calls;
     std::vector<std::string> local_retention_deletes;
     std::vector<std::string> remote_retention_deletes;
@@ -53,7 +53,7 @@ public:
     fs::path pending_state_dir;
     std::string pending_timestamp = "2026-08-23T08:00:00Z";
 
-    void execute_action(
+    void handle(
         const btrfsbackup::BackupRunAction& action,
         const btrfsbackup::BackupRunPlan& plan,
         btrfsbackup::CancellationToken&
@@ -345,7 +345,7 @@ class FixedRunIdGenerator final : public btrfsbackup::IRunIdGenerator {
 };
 
 struct ServiceFixture {
-    btrfsbackup::IBackupRunActionEffects& action_effects;
+    btrfsbackup::IBackupRunActionHandler& action_handler;
     btrfsbackup::ITransferPipeline& transfer_pipeline;
     fs::path lock_root;
     btrfsbackup::ApplicationConfig application_config;
@@ -399,7 +399,7 @@ int run_runner(
         false
     );
     btrfsbackup::DefaultBackupRunFactory run_factory(
-        fixture->action_effects,
+        fixture->action_handler,
         fixture->transfer_pipeline,
         false
     );
@@ -578,10 +578,10 @@ void test_runner_execute_rejects_busy_profile_before_target_access() {
         "test setup should acquire profile lock"
     );
 
-    RecordingActionEffects action_effects;
+    RecordingActionHandler action_handler;
     ConfigurableTransferPipeline transfer_pipeline;
     ServiceFixture services{
-        .action_effects = action_effects,
+        .action_handler = action_handler,
         .transfer_pipeline = transfer_pipeline,
         .lock_root = lock_root,
         .application_config = btrfsbackup::ApplicationConfig(test_application_paths(root)),
@@ -608,7 +608,7 @@ void test_runner_execute_rejects_busy_profile_before_target_access() {
         json.at("errorCode").get<std::string>(),
         "runner.profile_busy"
     );
-    test_helpers::expect_true("profile busy effects", action_effects.calls.empty(), "busy runner must not execute actions");
+    test_helpers::expect_true("profile busy effects", action_handler.calls.empty(), "busy runner must not execute actions");
     test_helpers::expect_true("profile busy transfers", transfer_pipeline.plans.empty(), "busy runner must not transfer");
     test_helpers::expect_true(
         "profile busy status absent",
@@ -659,10 +659,10 @@ void test_runner_execute_serializes_shared_target_but_allows_another_target() {
     write_mountinfo(shared_mountinfo, shared_target_profile);
     write_mountinfo(other_mountinfo, other_target_profile);
 
-    RecordingActionEffects active_action_effects;
+    RecordingActionHandler active_action_handler;
     BlockingTransferPipeline active_transfer_pipeline;
     ServiceFixture active_services{
-        .action_effects = active_action_effects,
+        .action_handler = active_action_handler,
         .transfer_pipeline = active_transfer_pipeline,
         .lock_root = lock_root,
         .application_config = btrfsbackup::ApplicationConfig(test_application_paths(root)),
@@ -702,10 +702,10 @@ void test_runner_execute_serializes_shared_target_but_allows_another_target() {
     });
     wait_until_entered(active_transfer_pipeline);
 
-    RecordingActionEffects same_profile_action_effects;
+    RecordingActionHandler same_profile_action_handler;
     ConfigurableTransferPipeline same_profile_transfer_pipeline;
     ServiceFixture same_profile_services{
-        .action_effects = same_profile_action_effects,
+        .action_handler = same_profile_action_handler,
         .transfer_pipeline = same_profile_transfer_pipeline,
         .lock_root = lock_root,
         .application_config = btrfsbackup::ApplicationConfig(test_application_paths(root)),
@@ -731,7 +731,7 @@ void test_runner_execute_serializes_shared_target_but_allows_another_target() {
         same_profile_json.at("errorCode").get<std::string>(),
         "runner.profile_busy"
     );
-    test_helpers::expect_true("concurrent profile effects", same_profile_action_effects.calls.empty(), "second runner must not execute actions");
+    test_helpers::expect_true("concurrent profile effects", same_profile_action_handler.calls.empty(), "second runner must not execute actions");
     test_helpers::expect_true("concurrent profile transfers", same_profile_transfer_pipeline.plans.empty(), "second runner must not transfer");
     btrfsbackup::Json active_status = btrfsbackup::load_json_file(root / "status" / active_profile.id / "current.json");
     test_helpers::expect_eq(
@@ -740,10 +740,10 @@ void test_runner_execute_serializes_shared_target_but_allows_another_target() {
         "running"
     );
 
-    RecordingActionEffects shared_action_effects;
+    RecordingActionHandler shared_action_handler;
     ConfigurableTransferPipeline shared_transfer_pipeline;
     ServiceFixture shared_services{
-        .action_effects = shared_action_effects,
+        .action_handler = shared_action_handler,
         .transfer_pipeline = shared_transfer_pipeline,
         .lock_root = lock_root,
         .application_config = btrfsbackup::ApplicationConfig(test_application_paths(root)),
@@ -769,17 +769,17 @@ void test_runner_execute_serializes_shared_target_but_allows_another_target() {
         shared_json.at("errorCode").get<std::string>(),
         "runner.target_busy"
     );
-    test_helpers::expect_true("target busy effects", shared_action_effects.calls.empty(), "busy target must not execute actions");
+    test_helpers::expect_true("target busy effects", shared_action_handler.calls.empty(), "busy target must not execute actions");
     test_helpers::expect_true(
         "target busy status absent",
         !fs::exists(root / "status" / shared_target_profile.id / "current.json"),
         "busy runner must not write status for the rejected profile"
     );
 
-    RecordingActionEffects other_action_effects;
+    RecordingActionHandler other_action_handler;
     ConfigurableTransferPipeline other_transfer_pipeline;
     ServiceFixture other_services{
-        .action_effects = other_action_effects,
+        .action_handler = other_action_handler,
         .transfer_pipeline = other_transfer_pipeline,
         .lock_root = lock_root,
         .application_config = btrfsbackup::ApplicationConfig(test_application_paths(root)),
@@ -809,7 +809,7 @@ void test_runner_execute_serializes_shared_target_but_allows_another_target() {
     );
 
     test_helpers::expect_eq("other target result", std::to_string(other_result), "0");
-    test_helpers::expect_true("other target effects", !other_action_effects.calls.empty(), "other target should execute");
+    test_helpers::expect_true("other target effects", !other_action_handler.calls.empty(), "other target should execute");
     test_helpers::expect_eq(
         "other target transfers",
         std::to_string(other_transfer_pipeline.plans.size()),
@@ -838,10 +838,10 @@ void test_runner_execute_uses_injected_services_and_writes_state() {
     write_profile(config_root, profile);
     write_mountinfo(mountinfo, profile);
 
-    RecordingActionEffects action_effects;
+    RecordingActionHandler action_handler;
     ConfigurableTransferPipeline transfer_pipeline;
     ServiceFixture services{
-        .action_effects = action_effects,
+        .action_handler = action_handler,
         .transfer_pipeline = transfer_pipeline,
         .lock_root = root / "locks",
         .application_config = btrfsbackup::ApplicationConfig(test_application_paths(root)),
@@ -881,7 +881,7 @@ void test_runner_execute_uses_injected_services_and_writes_state() {
     test_helpers::expect_eq("execute source count", std::to_string(json.at("sources").size()), "1");
     test_helpers::expect_true("execute full stream", !json.at("sources").at(0).at("incremental").get<bool>(), "first run should be full");
     test_helpers::expect_eq("execute transfer count", std::to_string(transfer_pipeline.plans.size()), "1");
-    test_helpers::expect_true("execute effects", !action_effects.calls.empty(), "expected non-transfer effects");
+    test_helpers::expect_true("execute effects", !action_handler.calls.empty(), "expected non-transfer effects");
 
     fs::path checkpoint = root / "state" / "profiles" / "default" / "checkpoint.json";
     fs::path current = root / "status" / "default" / "current.json";
@@ -922,10 +922,10 @@ void test_runner_execute_daily_limit_skips_matching_success() {
     write_matching_last_success(config_root, profile);
     write_mountinfo(mountinfo, profile);
 
-    RecordingActionEffects action_effects;
+    RecordingActionHandler action_handler;
     ConfigurableTransferPipeline transfer_pipeline;
     ServiceFixture services{
-        .action_effects = action_effects,
+        .action_handler = action_handler,
         .transfer_pipeline = transfer_pipeline,
         .lock_root = root / "locks",
         .application_config = btrfsbackup::ApplicationConfig(test_application_paths(root)),
@@ -961,7 +961,7 @@ void test_runner_execute_daily_limit_skips_matching_success() {
     test_helpers::expect_eq("daily skip result", std::to_string(result), "0");
     test_helpers::expect_true("daily skip completed", json.at("completed").get<bool>(), "skip should be successful");
     test_helpers::expect_true("daily skip flag", json.at("skipped").get<bool>(), "matching success should skip");
-    test_helpers::expect_eq("daily skip actions", std::to_string(action_effects.calls.size()), "0");
+    test_helpers::expect_eq("daily skip actions", std::to_string(action_handler.calls.size()), "0");
     test_helpers::expect_eq("daily skip transfers", std::to_string(transfer_pipeline.plans.size()), "0");
 
     fs::path current = root / "status" / "default" / "current.json";
@@ -996,10 +996,10 @@ void test_runner_execute_force_ignores_daily_limit() {
     write_matching_last_success(config_root, profile);
     write_mountinfo(mountinfo, profile);
 
-    RecordingActionEffects action_effects;
+    RecordingActionHandler action_handler;
     ConfigurableTransferPipeline transfer_pipeline;
     ServiceFixture services{
-        .action_effects = action_effects,
+        .action_handler = action_handler,
         .transfer_pipeline = transfer_pipeline,
         .lock_root = root / "locks",
         .application_config = btrfsbackup::ApplicationConfig(test_application_paths(root)),
@@ -1037,7 +1037,7 @@ void test_runner_execute_force_ignores_daily_limit() {
     test_helpers::expect_true("force completed", json.at("completed").get<bool>(), "forced run should complete");
     test_helpers::expect_true("force not skipped", !json.at("skipped").get<bool>(), "forced run should bypass daily limit");
     test_helpers::expect_eq("force transfers", std::to_string(transfer_pipeline.plans.size()), "1");
-    test_helpers::expect_true("force actions", !action_effects.calls.empty(), "forced run should execute actions");
+    test_helpers::expect_true("force actions", !action_handler.calls.empty(), "forced run should execute actions");
 
     fs::remove_all(root);
 }
@@ -1055,10 +1055,10 @@ void test_runner_execute_validate_builds_plan_without_effects() {
     write_profile(config_root, profile);
     write_mountinfo(mountinfo, profile);
 
-    RecordingActionEffects action_effects;
+    RecordingActionHandler action_handler;
     ConfigurableTransferPipeline transfer_pipeline;
     ServiceFixture services{
-        .action_effects = action_effects,
+        .action_handler = action_handler,
         .transfer_pipeline = transfer_pipeline,
         .lock_root = root / "locks",
         .application_config = btrfsbackup::ApplicationConfig(test_application_paths(root)),
@@ -1094,7 +1094,7 @@ void test_runner_execute_validate_builds_plan_without_effects() {
     test_helpers::expect_eq("validate mode", json.at("mode").get<std::string>(), "cpp-validate");
     test_helpers::expect_true("validate completed", json.at("completed").get<bool>(), "validation should complete");
     test_helpers::expect_eq("validate transfer count", std::to_string(transfer_pipeline.plans.size()), "0");
-    test_helpers::expect_true("validate effects", action_effects.calls.empty(), "validation should not execute actions");
+    test_helpers::expect_true("validate effects", action_handler.calls.empty(), "validation should not execute actions");
     test_helpers::expect_true("validate checkpoint absent", !fs::exists(root / "state" / "profiles" / "default" / "checkpoint.json"), "validation should not write checkpoint");
 
     fs::remove_all(root);
@@ -1113,12 +1113,12 @@ void test_runner_execute_transfer_failure_writes_failed_status() {
     write_profile(config_root, profile);
     write_mountinfo(mountinfo, profile);
 
-    RecordingActionEffects action_effects;
+    RecordingActionHandler action_handler;
     ConfigurableTransferPipeline transfer_pipeline;
     transfer_pipeline.next_result.producer.exit_code = 7;
     transfer_pipeline.next_result.producer.diagnostics = "send failed";
     ServiceFixture services{
-        .action_effects = action_effects,
+        .action_handler = action_handler,
         .transfer_pipeline = transfer_pipeline,
         .lock_root = root / "locks",
         .application_config = btrfsbackup::ApplicationConfig(test_application_paths(root)),
@@ -1191,12 +1191,12 @@ void test_runner_execute_commit_failure_writes_failed_status() {
     write_profile(config_root, profile);
     write_mountinfo(mountinfo, profile);
 
-    RecordingActionEffects action_effects;
-    action_effects.should_throw = true;
-    action_effects.throw_on = btrfsbackup::BackupRunActionKind::CommitReceived;
+    RecordingActionHandler action_handler;
+    action_handler.should_throw = true;
+    action_handler.throw_on = btrfsbackup::BackupRunActionKind::CommitReceived;
     ConfigurableTransferPipeline transfer_pipeline;
     ServiceFixture services{
-        .action_effects = action_effects,
+        .action_handler = action_handler,
         .transfer_pipeline = transfer_pipeline,
         .lock_root = root / "locks",
         .application_config = btrfsbackup::ApplicationConfig(test_application_paths(root)),
@@ -1261,12 +1261,12 @@ void test_runner_execute_verify_failure_writes_failed_status() {
     write_profile(config_root, profile);
     write_mountinfo(mountinfo, profile);
 
-    RecordingActionEffects action_effects;
-    action_effects.should_throw = true;
-    action_effects.throw_on = btrfsbackup::BackupRunActionKind::VerifyReceived;
+    RecordingActionHandler action_handler;
+    action_handler.should_throw = true;
+    action_handler.throw_on = btrfsbackup::BackupRunActionKind::VerifyReceived;
     ConfigurableTransferPipeline transfer_pipeline;
     ServiceFixture services{
-        .action_effects = action_effects,
+        .action_handler = action_handler,
         .transfer_pipeline = transfer_pipeline,
         .lock_root = root / "locks",
         .application_config = btrfsbackup::ApplicationConfig(test_application_paths(root)),
@@ -1335,10 +1335,10 @@ void test_runner_execute_multi_source_success() {
     write_profile(config_root, profile);
     write_mountinfo(mountinfo, profile);
 
-    RecordingActionEffects action_effects;
+    RecordingActionHandler action_handler;
     ConfigurableTransferPipeline transfer_pipeline;
     ServiceFixture services{
-        .action_effects = action_effects,
+        .action_handler = action_handler,
         .transfer_pipeline = transfer_pipeline,
         .lock_root = root / "locks",
         .application_config = btrfsbackup::ApplicationConfig(test_application_paths(root)),
@@ -1372,16 +1372,8 @@ void test_runner_execute_multi_source_success() {
     test_helpers::expect_eq("multi execute result", std::to_string(result), "0");
     test_helpers::expect_true("multi completed", json.at("completed").get<bool>(), "run should complete");
     test_helpers::expect_eq("multi transfers", std::to_string(transfer_pipeline.plans.size()), "2");
-    test_helpers::expect_true("root actions", std::find(
-        action_effects.calls.begin(),
-        action_effects.calls.end(),
-        "root:" + action_name(btrfsbackup::BackupRunActionKind::CreateSnapshot)
-    ) != action_effects.calls.end(), "missing root create action");
-    test_helpers::expect_true("home actions", std::find(
-        action_effects.calls.begin(),
-        action_effects.calls.end(),
-        "home:" + action_name(btrfsbackup::BackupRunActionKind::CreateSnapshot)
-    ) != action_effects.calls.end(), "missing home create action");
+    test_helpers::expect_true("root actions", std::find(action_handler.calls.begin(), action_handler.calls.end(), "root:" + action_name(btrfsbackup::BackupRunActionKind::CreateSnapshot)) != action_handler.calls.end(), "missing root create action");
+    test_helpers::expect_true("home actions", std::find(action_handler.calls.begin(), action_handler.calls.end(), "home:" + action_name(btrfsbackup::BackupRunActionKind::CreateSnapshot)) != action_handler.calls.end(), "missing home create action");
 
     btrfsbackup::Json current = btrfsbackup::load_json_file(root / "status" / "default" / "current.json");
     test_helpers::expect_true("multi status", current.at("state") == "succeeded", "status should succeed");
@@ -1412,10 +1404,10 @@ void test_runner_execute_incremental_uses_selected_parent() {
     add_snapshot_metadata(metadata, local_parent, "parent-uuid");
     add_snapshot_metadata(metadata, remote_parent, "remote-parent-uuid", "parent-uuid");
 
-    RecordingActionEffects action_effects;
+    RecordingActionHandler action_handler;
     ConfigurableTransferPipeline transfer_pipeline;
     ServiceFixture services{
-        .action_effects = action_effects,
+        .action_handler = action_handler,
         .transfer_pipeline = transfer_pipeline,
         .lock_root = root / "locks",
         .application_config = btrfsbackup::ApplicationConfig(test_application_paths(root)),
@@ -1493,10 +1485,10 @@ void test_runner_execute_retention_plans_local_and_remote_deletes() {
     add_snapshot_metadata(metadata, remote_old, "remote-old-uuid", "local-old-uuid");
     add_snapshot_metadata(metadata, remote_keep, "remote-keep-uuid", "local-keep-uuid");
 
-    RecordingActionEffects action_effects;
+    RecordingActionHandler action_handler;
     ConfigurableTransferPipeline transfer_pipeline;
     ServiceFixture services{
-        .action_effects = action_effects,
+        .action_handler = action_handler,
         .transfer_pipeline = transfer_pipeline,
         .lock_root = root / "locks",
         .application_config = btrfsbackup::ApplicationConfig(test_application_paths(root)),
@@ -1530,20 +1522,12 @@ void test_runner_execute_retention_plans_local_and_remote_deletes() {
     );
 
     test_helpers::expect_eq("retention result", std::to_string(result), "0");
-    test_helpers::expect_true("remote retention action", std::find(
-        action_effects.calls.begin(),
-        action_effects.calls.end(),
-        "root:" + action_name(btrfsbackup::BackupRunActionKind::ApplyRemoteRetention)
-    ) != action_effects.calls.end(), "missing remote retention action");
-    test_helpers::expect_true("local retention action", std::find(
-        action_effects.calls.begin(),
-        action_effects.calls.end(),
-        "root:" + action_name(btrfsbackup::BackupRunActionKind::ApplyLocalRetention)
-    ) != action_effects.calls.end(), "missing local retention action");
-    test_helpers::expect_eq("remote retention delete count", std::to_string(action_effects.remote_retention_deletes.size()), "1");
-    test_helpers::expect_eq("remote retention delete", action_effects.remote_retention_deletes.at(0), remote_old.string());
-    test_helpers::expect_eq("local retention delete count", std::to_string(action_effects.local_retention_deletes.size()), "1");
-    test_helpers::expect_eq("local retention delete", action_effects.local_retention_deletes.at(0), local_old.string());
+    test_helpers::expect_true("remote retention action", std::find(action_handler.calls.begin(), action_handler.calls.end(), "root:" + action_name(btrfsbackup::BackupRunActionKind::ApplyRemoteRetention)) != action_handler.calls.end(), "missing remote retention action");
+    test_helpers::expect_true("local retention action", std::find(action_handler.calls.begin(), action_handler.calls.end(), "root:" + action_name(btrfsbackup::BackupRunActionKind::ApplyLocalRetention)) != action_handler.calls.end(), "missing local retention action");
+    test_helpers::expect_eq("remote retention delete count", std::to_string(action_handler.remote_retention_deletes.size()), "1");
+    test_helpers::expect_eq("remote retention delete", action_handler.remote_retention_deletes.at(0), remote_old.string());
+    test_helpers::expect_eq("local retention delete count", std::to_string(action_handler.local_retention_deletes.size()), "1");
+    test_helpers::expect_eq("local retention delete", action_handler.local_retention_deletes.at(0), local_old.string());
 
     fs::remove_all(root);
 }
@@ -1577,10 +1561,10 @@ void test_runner_execute_pending_recovery_deletes_orphan() {
     MetadataMap metadata;
     add_snapshot_metadata(metadata, pending, "orphan-uuid");
 
-    RecordingActionEffects action_effects;
+    RecordingActionHandler action_handler;
     ConfigurableTransferPipeline transfer_pipeline;
     ServiceFixture services{
-        .action_effects = action_effects,
+        .action_handler = action_handler,
         .transfer_pipeline = transfer_pipeline,
         .lock_root = root / "locks",
         .application_config = btrfsbackup::ApplicationConfig(test_application_paths(root)),
@@ -1614,14 +1598,14 @@ void test_runner_execute_pending_recovery_deletes_orphan() {
     );
 
     test_helpers::expect_eq("pending recovery result", std::to_string(result), "0");
-    test_helpers::expect_true("recover action first", !action_effects.calls.empty(), "expected action calls");
+    test_helpers::expect_true("recover action first", !action_handler.calls.empty(), "expected action calls");
     test_helpers::expect_eq(
         "recover first action",
-        action_effects.calls.at(0),
+        action_handler.calls.at(0),
         "root:" + action_name(btrfsbackup::BackupRunActionKind::RecoverPending)
     );
-    test_helpers::expect_eq("pending delete count", std::to_string(action_effects.recovered_pending_paths.size()), "1");
-    test_helpers::expect_eq("pending delete path", action_effects.recovered_pending_paths.at(0), pending.string());
+    test_helpers::expect_eq("pending delete count", std::to_string(action_handler.recovered_pending_paths.size()), "1");
+    test_helpers::expect_eq("pending delete path", action_handler.recovered_pending_paths.at(0), pending.string());
 
     fs::remove_all(root);
 }
@@ -1671,12 +1655,12 @@ void test_runner_execute_honors_cancel_request_during_transfer() {
     write_profile(config_root, profile);
     write_mountinfo(mountinfo, profile);
 
-    RecordingActionEffects action_effects;
+    RecordingActionHandler action_handler;
     ConfigurableTransferPipeline transfer_pipeline;
     fs::path profile_state_dir = root / "state" / "profiles" / "default";
     transfer_pipeline.request_cancel_path = profile_state_dir;
     ServiceFixture services{
-        .action_effects = action_effects,
+        .action_handler = action_handler,
         .transfer_pipeline = transfer_pipeline,
         .lock_root = root / "locks",
         .application_config = btrfsbackup::ApplicationConfig(test_application_paths(root)),
@@ -1738,12 +1722,12 @@ void test_runner_execute_handles_sigint_as_cancelled_with_recovery_marker() {
     write_profile(config_root, profile);
     write_mountinfo(mountinfo, profile);
 
-    RecordingActionEffects action_effects;
-    action_effects.write_pending_on_snapshot = true;
-    action_effects.pending_state_dir = profile_state_dir;
+    RecordingActionHandler action_handler;
+    action_handler.write_pending_on_snapshot = true;
+    action_handler.pending_state_dir = profile_state_dir;
     CancellationAwareTransferPipeline transfer_pipeline;
     ServiceFixture services{
-        .action_effects = action_effects,
+        .action_handler = action_handler,
         .transfer_pipeline = transfer_pipeline,
         .lock_root = root / "locks",
         .application_config = btrfsbackup::ApplicationConfig(test_application_paths(root)),

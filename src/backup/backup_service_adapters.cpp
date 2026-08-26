@@ -240,11 +240,11 @@ BackupRunPlan DefaultBackupPlanner::build(
 }
 
 DefaultBackupRunFactory::DefaultBackupRunFactory(
-    IBackupRunActionEffects& effects,
+    IBackupRunActionHandler& action_handler,
     ITransferPipeline& transfers,
     bool pin_transfer_paths
 )
-    : effects_(effects), transfers_(transfers), pin_transfer_paths_(pin_transfer_paths) {
+    : action_handler_(action_handler), transfers_(transfers), pin_transfer_paths_(pin_transfer_paths) {
 }
 
 BackupRunExecutionResult DefaultBackupRunFactory::execute(
@@ -257,7 +257,7 @@ BackupRunExecutionResult DefaultBackupRunFactory::execute(
         plan.target_mount_point.clear();
     }
     ThreadedAsyncTransferPipeline async_transfers(transfers_);
-    BackupRun run(std::move(plan), effects_, async_transfers, checkpoints);
+    BackupRun run(std::move(plan), action_handler_, async_transfers, checkpoints);
     return run.execute(events, cancellation);
 }
 

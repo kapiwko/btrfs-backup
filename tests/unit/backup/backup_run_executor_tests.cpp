@@ -23,8 +23,8 @@ std::string action_name(btrfsbackup::BackupRunActionKind kind) {
     return std::to_string(static_cast<int>(kind));
 }
 
-class RecordingEffects final : public btrfsbackup::IBackupRunActionEffects {
-public:
+class RecordingActionHandler final : public btrfsbackup::IBackupRunActionHandler {
+  public:
     std::vector<std::string> calls;
     bool should_throw = false;
     bool recovery_required = false;
@@ -32,7 +32,7 @@ public:
     std::string coded_error_code;
     btrfsbackup::BackupRunActionKind throw_on = btrfsbackup::BackupRunActionKind::CleanupSource;
 
-    void execute_action(
+    void handle(
         const btrfsbackup::BackupRunAction& action,
         const btrfsbackup::BackupRunPlan&,
         btrfsbackup::CancellationToken&
@@ -204,13 +204,13 @@ btrfsbackup::BackupRunPlan plan_with_actions(std::vector<btrfsbackup::BackupRunA
 }
 
 void test_full_backup_flow_without_parent() {
-    RecordingEffects effects;
+    RecordingActionHandler handler;
     RecordingTransferPipeline transfers;
     RecordingCheckpoints checkpoints;
     RecordingEvents events;
     btrfsbackup::CancellationToken cancellation;
     btrfsbackup::ThreadedAsyncTransferPipeline async_transfers(transfers);
-    btrfsbackup::BackupRunExecutor executor(effects, async_transfers, checkpoints);
+    btrfsbackup::BackupRunExecutor executor(handler, async_transfers, checkpoints);
 
     btrfsbackup::BackupRunPlan plan = plan_with_actions({
         action(btrfsbackup::BackupRunActionKind::CleanupIncoming),
@@ -237,19 +237,19 @@ void test_full_backup_flow_without_parent() {
     test_helpers::expect_eq("full send protocol", send_argv.at(3), "2");
     test_helpers::expect_eq("full send compressed data", send_argv.at(4), "--compressed-data");
     test_helpers::expect_eq("full send snapshot", send_argv.at(5), "/.snapshots/root/root-2026-08-23T080000Z");
-    test_helpers::expect_eq("full effect count", std::to_string(effects.calls.size()), "8");
+    test_helpers::expect_eq("full effect count", std::to_string(handler.calls.size()), "8");
     test_helpers::expect_eq("full checkpoint count", std::to_string(checkpoints.checkpoints.size()), "8");
     test_helpers::expect_eq("full last checkpoint", action_name(checkpoints.checkpoints.back().action_kind), action_name(btrfsbackup::BackupRunActionKind::CleanupSource));
 }
 
 void test_executes_actions_and_writes_durable_checkpoints() {
-    RecordingEffects effects;
+    RecordingActionHandler handler;
     RecordingTransferPipeline transfers;
     RecordingCheckpoints checkpoints;
     RecordingEvents events;
     btrfsbackup::CancellationToken cancellation;
     btrfsbackup::ThreadedAsyncTransferPipeline async_transfers(transfers);
-    btrfsbackup::BackupRunExecutor executor(effects, async_transfers, checkpoints);
+    btrfsbackup::BackupRunExecutor executor(handler, async_transfers, checkpoints);
 
     btrfsbackup::BackupRunPlan plan = plan_with_actions({
         action(btrfsbackup::BackupRunActionKind::CleanupIncoming),
@@ -261,9 +261,9 @@ void test_executes_actions_and_writes_durable_checkpoints() {
 
     test_helpers::expect_true("executor completed", result.completed, "run should complete");
     test_helpers::expect_eq("actions completed", std::to_string(result.actions_completed), "3");
-    test_helpers::expect_eq("effect count", std::to_string(effects.calls.size()), "2");
-    test_helpers::expect_eq("first effect", effects.calls.at(0), "root:" + action_name(btrfsbackup::BackupRunActionKind::CleanupIncoming));
-    test_helpers::expect_eq("second effect", effects.calls.at(1), "root:" + action_name(btrfsbackup::BackupRunActionKind::CreateSnapshot));
+    test_helpers::expect_eq("effect count", std::to_string(handler.calls.size()), "2");
+    test_helpers::expect_eq("first effect", handler.calls.at(0), "root:" + action_name(btrfsbackup::BackupRunActionKind::CleanupIncoming));
+    test_helpers::expect_eq("second effect", handler.calls.at(1), "root:" + action_name(btrfsbackup::BackupRunActionKind::CreateSnapshot));
     test_helpers::expect_eq("checkpoint count", std::to_string(checkpoints.checkpoints.size()), "2");
     test_helpers::expect_eq("first checkpoint", action_name(checkpoints.checkpoints.at(0).action_kind), action_name(btrfsbackup::BackupRunActionKind::CleanupIncoming));
     test_helpers::expect_eq("second checkpoint", action_name(checkpoints.checkpoints.at(1).action_kind), action_name(btrfsbackup::BackupRunActionKind::CreateSnapshot));
@@ -271,13 +271,13 @@ void test_executes_actions_and_writes_durable_checkpoints() {
 }
 
 void test_pending_recovery_runs_before_source_cleanup() {
-    RecordingEffects effects;
+    RecordingActionHandler handler;
     RecordingTransferPipeline transfers;
     RecordingCheckpoints checkpoints;
     RecordingEvents events;
     btrfsbackup::CancellationToken cancellation;
     btrfsbackup::ThreadedAsyncTransferPipeline async_transfers(transfers);
-    btrfsbackup::BackupRunExecutor executor(effects, async_transfers, checkpoints);
+    btrfsbackup::BackupRunExecutor executor(handler, async_transfers, checkpoints);
 
     btrfsbackup::BackupRunPlan plan = plan_with_actions({
         action(btrfsbackup::BackupRunActionKind::RecoverPending),
@@ -288,21 +288,21 @@ void test_pending_recovery_runs_before_source_cleanup() {
     btrfsbackup::BackupRunExecutionResult result = executor.execute(plan, events, cancellation);
 
     test_helpers::expect_true("pending recovery completed", result.completed, "run should complete");
-    test_helpers::expect_eq("pending recovery first effect", effects.calls.at(0), "root:" + action_name(btrfsbackup::BackupRunActionKind::RecoverPending));
-    test_helpers::expect_eq("pending recovery second effect", effects.calls.at(1), "root:" + action_name(btrfsbackup::BackupRunActionKind::CleanupIncoming));
+    test_helpers::expect_eq("pending recovery first effect", handler.calls.at(0), "root:" + action_name(btrfsbackup::BackupRunActionKind::RecoverPending));
+    test_helpers::expect_eq("pending recovery second effect", handler.calls.at(1), "root:" + action_name(btrfsbackup::BackupRunActionKind::CleanupIncoming));
     test_helpers::expect_eq("pending recovery checkpoint count", std::to_string(checkpoints.checkpoints.size()), "3");
     test_helpers::expect_eq("pending recovery first checkpoint", action_name(checkpoints.checkpoints.at(0).action_kind), action_name(btrfsbackup::BackupRunActionKind::RecoverPending));
 }
 
 void test_send_receive_delegates_to_transfer_pipeline() {
-    RecordingEffects effects;
+    RecordingActionHandler handler;
     RecordingTransferPipeline transfers;
     transfers.progress_bytes = 8192;
     RecordingCheckpoints checkpoints;
     RecordingEvents events;
     btrfsbackup::CancellationToken cancellation;
     btrfsbackup::ThreadedAsyncTransferPipeline async_transfers(transfers);
-    btrfsbackup::BackupRunExecutor executor(effects, async_transfers, checkpoints);
+    btrfsbackup::BackupRunExecutor executor(handler, async_transfers, checkpoints);
 
     btrfsbackup::BackupRunPlan plan = plan_with_actions({
         btrfsbackup::SendReceiveAction{
@@ -317,8 +317,8 @@ void test_send_receive_delegates_to_transfer_pipeline() {
     btrfsbackup::BackupRunExecutionResult result = executor.execute(plan, events, cancellation);
 
     test_helpers::expect_true("transfer completed", result.completed, "run should complete");
-    test_helpers::expect_eq("effect count", std::to_string(effects.calls.size()), "1");
-    test_helpers::expect_eq("prepare receive effect", effects.calls.at(0), "root:" + action_name(btrfsbackup::BackupRunActionKind::SendReceive));
+    test_helpers::expect_eq("effect count", std::to_string(handler.calls.size()), "1");
+    test_helpers::expect_eq("prepare receive effect", handler.calls.at(0), "root:" + action_name(btrfsbackup::BackupRunActionKind::SendReceive));
     test_helpers::expect_eq("transfer count", std::to_string(transfers.plans.size()), "1");
     const btrfsbackup::TransferPipelinePlan& transfer_plan = transfers.plans.at(0);
     test_helpers::expect_eq("send binary", transfer_plan.producer_argv.at(0), "btrfs");
@@ -345,13 +345,13 @@ void test_transfer_plan_estimates_snapshot_bytes() {
     test_helpers::write_file(root / ".snapshots" / "root" / "file-a", "12345");
     test_helpers::write_file(root / ".snapshots" / "root" / "dir" / "file-b", "1234567");
 
-    RecordingEffects effects;
+    RecordingActionHandler handler;
     RecordingTransferPipeline transfers;
     RecordingCheckpoints checkpoints;
     RecordingEvents events;
     btrfsbackup::CancellationToken cancellation;
     btrfsbackup::ThreadedAsyncTransferPipeline async_transfers(transfers);
-    btrfsbackup::BackupRunExecutor executor(effects, async_transfers, checkpoints);
+    btrfsbackup::BackupRunExecutor executor(handler, async_transfers, checkpoints);
 
     btrfsbackup::BackupRunPlan plan = plan_with_actions({
         btrfsbackup::SendReceiveAction{
@@ -371,14 +371,14 @@ void test_transfer_plan_estimates_snapshot_bytes() {
 }
 
 void test_multi_source_progress_accumulates_run_bytes() {
-    RecordingEffects effects;
+    RecordingActionHandler handler;
     RecordingTransferPipeline transfers;
     transfers.progress_bytes_by_run = {1000, 2500};
     RecordingCheckpoints checkpoints;
     RecordingEvents events;
     btrfsbackup::CancellationToken cancellation;
     btrfsbackup::ThreadedAsyncTransferPipeline async_transfers(transfers);
-    btrfsbackup::BackupRunExecutor executor(effects, async_transfers, checkpoints);
+    btrfsbackup::BackupRunExecutor executor(handler, async_transfers, checkpoints);
 
     btrfsbackup::BackupSourceRunPlan home;
     home.source_id = btrfsbackup::SourceId{"home"};
@@ -429,14 +429,14 @@ void test_multi_source_progress_accumulates_run_bytes() {
 }
 
 void test_cancels_between_actions() {
-    RecordingEffects effects;
+    RecordingActionHandler handler;
     RecordingTransferPipeline transfers;
     RecordingCheckpoints checkpoints;
     RecordingEvents events;
     btrfsbackup::CancellationToken cancellation;
     events.cancel_after_first_completed = &cancellation;
     btrfsbackup::ThreadedAsyncTransferPipeline async_transfers(transfers);
-    btrfsbackup::BackupRunExecutor executor(effects, async_transfers, checkpoints);
+    btrfsbackup::BackupRunExecutor executor(handler, async_transfers, checkpoints);
 
     btrfsbackup::BackupRunPlan plan = plan_with_actions({
         action(btrfsbackup::BackupRunActionKind::CleanupIncoming),
@@ -447,20 +447,20 @@ void test_cancels_between_actions() {
 
     test_helpers::expect_true("run cancelled", result.cancelled, "run should be cancelled");
     test_helpers::expect_eq("actions completed before cancel", std::to_string(result.actions_completed), "1");
-    test_helpers::expect_eq("effect count before cancel", std::to_string(effects.calls.size()), "1");
+    test_helpers::expect_eq("effect count before cancel", std::to_string(handler.calls.size()), "1");
     test_helpers::expect_eq("checkpoint count before cancel", std::to_string(checkpoints.checkpoints.size()), "1");
     test_helpers::expect_true("cancel event", events.has_event(btrfsbackup::BackupRunEventKind::RunCancelled), "missing cancel event");
 }
 
 void test_cancels_during_transfer_without_checkpointing_transfer() {
-    RecordingEffects effects;
+    RecordingActionHandler handler;
     RecordingTransferPipeline transfers;
     transfers.cancel_during_run = true;
     RecordingCheckpoints checkpoints;
     RecordingEvents events;
     btrfsbackup::CancellationToken cancellation;
     btrfsbackup::ThreadedAsyncTransferPipeline async_transfers(transfers);
-    btrfsbackup::BackupRunExecutor executor(effects, async_transfers, checkpoints);
+    btrfsbackup::BackupRunExecutor executor(handler, async_transfers, checkpoints);
 
     btrfsbackup::BackupRunPlan plan = plan_with_actions({
         action(btrfsbackup::BackupRunActionKind::CreateSnapshot),
@@ -478,7 +478,7 @@ void test_cancels_during_transfer_without_checkpointing_transfer() {
 }
 
 void test_transfer_failure_emits_failed_action() {
-    RecordingEffects effects;
+    RecordingActionHandler handler;
     RecordingTransferPipeline transfers;
     transfers.next_result.producer.exit_code = 7;
     transfers.next_result.producer.diagnostics = "send failed";
@@ -486,7 +486,7 @@ void test_transfer_failure_emits_failed_action() {
     RecordingEvents events;
     btrfsbackup::CancellationToken cancellation;
     btrfsbackup::ThreadedAsyncTransferPipeline async_transfers(transfers);
-    btrfsbackup::BackupRunExecutor executor(effects, async_transfers, checkpoints);
+    btrfsbackup::BackupRunExecutor executor(handler, async_transfers, checkpoints);
 
     btrfsbackup::BackupRunPlan plan = plan_with_actions({
         action(btrfsbackup::BackupRunActionKind::SendReceive),
@@ -505,7 +505,7 @@ void test_transfer_failure_emits_failed_action() {
 }
 
 void test_receive_failure_is_reported_separately() {
-    RecordingEffects effects;
+    RecordingActionHandler handler;
     RecordingTransferPipeline transfers;
     transfers.next_result.consumer.exit_code = 9;
     transfers.next_result.consumer.diagnostics = "receive failed";
@@ -513,7 +513,7 @@ void test_receive_failure_is_reported_separately() {
     RecordingEvents events;
     btrfsbackup::CancellationToken cancellation;
     btrfsbackup::ThreadedAsyncTransferPipeline async_transfers(transfers);
-    btrfsbackup::BackupRunExecutor executor(effects, async_transfers, checkpoints);
+    btrfsbackup::BackupRunExecutor executor(handler, async_transfers, checkpoints);
 
     btrfsbackup::BackupRunPlan plan = plan_with_actions({
         action(btrfsbackup::BackupRunActionKind::SendReceive),
@@ -532,15 +532,15 @@ void test_receive_failure_is_reported_separately() {
 }
 
 void test_commit_failure_after_successful_transfer_keeps_verify_checkpoint() {
-    RecordingEffects effects;
-    effects.should_throw = true;
-    effects.throw_on = btrfsbackup::BackupRunActionKind::CommitReceived;
+    RecordingActionHandler handler;
+    handler.should_throw = true;
+    handler.throw_on = btrfsbackup::BackupRunActionKind::CommitReceived;
     RecordingTransferPipeline transfers;
     RecordingCheckpoints checkpoints;
     RecordingEvents events;
     btrfsbackup::CancellationToken cancellation;
     btrfsbackup::ThreadedAsyncTransferPipeline async_transfers(transfers);
-    btrfsbackup::BackupRunExecutor executor(effects, async_transfers, checkpoints);
+    btrfsbackup::BackupRunExecutor executor(handler, async_transfers, checkpoints);
 
     btrfsbackup::BackupRunPlan plan = plan_with_actions({
         action(btrfsbackup::BackupRunActionKind::CreateSnapshot),
@@ -559,16 +559,16 @@ void test_commit_failure_after_successful_transfer_keeps_verify_checkpoint() {
 }
 
 void test_commit_cleanup_failure_emits_recovery_required_code() {
-    RecordingEffects effects;
-    effects.should_throw = true;
-    effects.recovery_required = true;
-    effects.throw_on = btrfsbackup::BackupRunActionKind::CommitReceived;
+    RecordingActionHandler handler;
+    handler.should_throw = true;
+    handler.recovery_required = true;
+    handler.throw_on = btrfsbackup::BackupRunActionKind::CommitReceived;
     RecordingTransferPipeline transfers;
     RecordingCheckpoints checkpoints;
     RecordingEvents events;
     btrfsbackup::CancellationToken cancellation;
     btrfsbackup::ThreadedAsyncTransferPipeline async_transfers(transfers);
-    btrfsbackup::BackupRunExecutor executor(effects, async_transfers, checkpoints);
+    btrfsbackup::BackupRunExecutor executor(handler, async_transfers, checkpoints);
 
     btrfsbackup::BackupRunPlan plan = plan_with_actions({
         action(btrfsbackup::BackupRunActionKind::CommitReceived),
@@ -585,16 +585,16 @@ void test_commit_cleanup_failure_emits_recovery_required_code() {
 }
 
 void test_hook_timeout_emits_stable_error_code() {
-    RecordingEffects effects;
-    effects.should_throw = true;
-    effects.throw_on = btrfsbackup::BackupRunActionKind::BeforeSnapshotHook;
-    effects.coded_error_code = "hook.before_snapshot_timeout";
+    RecordingActionHandler handler;
+    handler.should_throw = true;
+    handler.throw_on = btrfsbackup::BackupRunActionKind::BeforeSnapshotHook;
+    handler.coded_error_code = "hook.before_snapshot_timeout";
     RecordingTransferPipeline transfers;
     RecordingCheckpoints checkpoints;
     RecordingEvents events;
     btrfsbackup::CancellationToken cancellation;
     btrfsbackup::ThreadedAsyncTransferPipeline async_transfers(transfers);
-    btrfsbackup::BackupRunExecutor executor(effects, async_transfers, checkpoints);
+    btrfsbackup::BackupRunExecutor executor(handler, async_transfers, checkpoints);
 
     btrfsbackup::BackupRunPlan plan = plan_with_actions({
         action(btrfsbackup::BackupRunActionKind::BeforeSnapshotHook),
@@ -611,16 +611,16 @@ void test_hook_timeout_emits_stable_error_code() {
 }
 
 void test_hook_cancellation_finishes_run_as_cancelled() {
-    RecordingEffects effects;
-    effects.should_throw = true;
-    effects.operation_cancelled = true;
-    effects.throw_on = btrfsbackup::BackupRunActionKind::AfterSnapshotHook;
+    RecordingActionHandler handler;
+    handler.should_throw = true;
+    handler.operation_cancelled = true;
+    handler.throw_on = btrfsbackup::BackupRunActionKind::AfterSnapshotHook;
     RecordingTransferPipeline transfers;
     RecordingCheckpoints checkpoints;
     RecordingEvents events;
     btrfsbackup::CancellationToken cancellation;
     btrfsbackup::ThreadedAsyncTransferPipeline async_transfers(transfers);
-    btrfsbackup::BackupRunExecutor executor(effects, async_transfers, checkpoints);
+    btrfsbackup::BackupRunExecutor executor(handler, async_transfers, checkpoints);
 
     btrfsbackup::BackupRunPlan plan = plan_with_actions({
         action(btrfsbackup::BackupRunActionKind::AfterSnapshotHook),
@@ -633,15 +633,15 @@ void test_hook_cancellation_finishes_run_as_cancelled() {
 }
 
 void test_remote_retention_failure_keeps_commit_checkpoint() {
-    RecordingEffects effects;
-    effects.should_throw = true;
-    effects.throw_on = btrfsbackup::BackupRunActionKind::ApplyRemoteRetention;
+    RecordingActionHandler handler;
+    handler.should_throw = true;
+    handler.throw_on = btrfsbackup::BackupRunActionKind::ApplyRemoteRetention;
     RecordingTransferPipeline transfers;
     RecordingCheckpoints checkpoints;
     RecordingEvents events;
     btrfsbackup::CancellationToken cancellation;
     btrfsbackup::ThreadedAsyncTransferPipeline async_transfers(transfers);
-    btrfsbackup::BackupRunExecutor executor(effects, async_transfers, checkpoints);
+    btrfsbackup::BackupRunExecutor executor(handler, async_transfers, checkpoints);
 
     btrfsbackup::BackupRunPlan plan = plan_with_actions({
         action(btrfsbackup::BackupRunActionKind::CreateSnapshot),
@@ -661,15 +661,15 @@ void test_remote_retention_failure_keeps_commit_checkpoint() {
 }
 
 void test_local_retention_failure_keeps_remote_retention_checkpoint() {
-    RecordingEffects effects;
-    effects.should_throw = true;
-    effects.throw_on = btrfsbackup::BackupRunActionKind::ApplyLocalRetention;
+    RecordingActionHandler handler;
+    handler.should_throw = true;
+    handler.throw_on = btrfsbackup::BackupRunActionKind::ApplyLocalRetention;
     RecordingTransferPipeline transfers;
     RecordingCheckpoints checkpoints;
     RecordingEvents events;
     btrfsbackup::CancellationToken cancellation;
     btrfsbackup::ThreadedAsyncTransferPipeline async_transfers(transfers);
-    btrfsbackup::BackupRunExecutor executor(effects, async_transfers, checkpoints);
+    btrfsbackup::BackupRunExecutor executor(handler, async_transfers, checkpoints);
 
     btrfsbackup::BackupRunPlan plan = plan_with_actions({
         action(btrfsbackup::BackupRunActionKind::CreateSnapshot),

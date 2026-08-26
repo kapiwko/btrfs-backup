@@ -219,11 +219,11 @@ void wait_for_transfer_or_cancellation(IAsyncTransferHandle& transfer, Cancellat
 } // namespace
 
 BackupRunExecutor::BackupRunExecutor(
-    IBackupRunActionEffects& action_effects,
+    IBackupRunActionHandler& action_handler,
     IAsyncTransferPipeline& transfer_pipeline,
     IBackupRunCheckpointStore& checkpoints
 )
-    : action_effects_(action_effects),
+    : action_handler_(action_handler),
       transfer_pipeline_(transfer_pipeline),
       checkpoints_(checkpoints) {
 }
@@ -261,7 +261,7 @@ BackupRunExecutionResult BackupRunExecutor::execute(
                 std::visit([&](const auto& typed_action) {
                     using Action = std::decay_t<decltype(typed_action)>;
                     if constexpr (std::is_same_v<Action, SendReceiveAction>) {
-                        action_effects_.execute_action(action, plan, cancellation);
+                        action_handler_.handle(action, plan, cancellation);
                         BackupTransferEventAdapter transfer_events(
                             events,
                             plan,
@@ -285,7 +285,7 @@ BackupRunExecutionResult BackupRunExecutor::execute(
                         require_transfer_success(transfer_result);
                         completed_run_bytes += transfer_result.bytes_transferred;
                     } else if constexpr (!std::is_same_v<Action, SelectParentAction>) {
-                        action_effects_.execute_action(action, plan, cancellation);
+                        action_handler_.handle(action, plan, cancellation);
                     }
                 },
                            action);
