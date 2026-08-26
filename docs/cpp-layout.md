@@ -100,8 +100,9 @@ JSON or filesystem implementations.
   incremental-parent selection,
   transfer model and orchestration, snapshot commit, retention and recovery,
   target operations, and backup use cases.
-- `config` owns the canonical profile JSON model, validation, profile loading
-  and storage, installation rendering and validation, and the profile wizard.
+- `config` owns the canonical profile JSON model, validation, the profile
+  repository and configuration fingerprinting, installation rendering and
+  validation, and the profile wizard.
 - `state` owns configuration fingerprints, JSON checkpoint persistence,
   file-backed current status and history, status history reads, and the public
   status contract. It implements the event and checkpoint interfaces declared

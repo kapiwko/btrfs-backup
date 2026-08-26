@@ -15,7 +15,6 @@ target_link_libraries(btrfsbackup-state-model PUBLIC btrfsbackup-core)
 
 add_library(btrfsbackup-state STATIC
     backup_run_serialization.cpp
-    config_fingerprint.cpp
     run_checkpoint_store.cpp
     run_state.cpp
     run_status_projection.cpp
