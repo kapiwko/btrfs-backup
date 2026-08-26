@@ -134,6 +134,11 @@ It constructs the Linux and file-backed adapters and then invokes the same
 between production and test behavior and does not instantiate `Posix*`,
 `LibBtrfsOperations`, or JSON persistence implementations.
 
+Run plans store actions as a `std::variant` of operation-specific types. Each
+alternative owns exactly the inputs needed by that operation, and executors use
+`std::visit` instead of interpreting shared path slots. `BackupRunActionKind`
+remains only the stable action label used by events, checkpoints, and CLI JSON.
+
 ## Rules
 
 1. Put a component's `.hpp` and `.cpp` files together in the owning domain.

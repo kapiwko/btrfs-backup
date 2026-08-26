@@ -13,13 +13,12 @@ namespace {
 
 class NoopEffects final : public btrfsbackup::IBackupRunActionEffects {
 public:
-    void execute_action(
-        const btrfsbackup::BackupRunAction&,
-        const btrfsbackup::BackupSourceRunPlan&,
-        const btrfsbackup::BackupRunPlan&,
-        btrfsbackup::CancellationToken&
-    ) override {
-    }
+  void execute_action(
+      const btrfsbackup::BackupRunAction&,
+      const btrfsbackup::BackupRunPlan&,
+      btrfsbackup::CancellationToken&
+  ) override {
+  }
 };
 
 class UnusedTransferPipeline final : public btrfsbackup::IAsyncTransferPipeline {

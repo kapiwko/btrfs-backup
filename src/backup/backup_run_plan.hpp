@@ -10,7 +10,7 @@
 #include <string>
 #include <vector>
 
-#include <backup/backup_run_action.hpp>
+#include <backup/backup_run_actions.hpp>
 #include <backup/incremental_parent.hpp>
 #include <backup/ports/mount_inspector.hpp>
 #include <backup/pending_recovery_plan.hpp>
@@ -21,14 +21,6 @@
 #include <backup/snapshot_inventory.hpp>
 
 namespace btrfsbackup {
-
-struct BackupRunAction {
-    BackupRunActionKind kind = BackupRunActionKind::CleanupSource;
-    SourceId source_id;
-    std::filesystem::path primary_path;
-    std::filesystem::path secondary_path;
-    ProfileHookCommand hook;
-};
 
 struct BackupSourceRunPlan {
     SourceId source_id;

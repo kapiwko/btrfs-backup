@@ -4,6 +4,7 @@
 
 #include <filesystem>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 #include <backup/backup_run_plan.hpp>
@@ -13,6 +14,9 @@
 namespace fs = std::filesystem;
 
 namespace {
+
+static_assert(!std::is_default_constructible_v<btrfsbackup::CreateSnapshotAction>);
+static_assert(!std::is_default_constructible_v<btrfsbackup::BackupRunAction>);
 
 btrfsbackup::Profile profile() {
     btrfsbackup::Profile result;
@@ -150,8 +154,18 @@ void test_builds_ordered_source_plan() {
     test_helpers::expect_true("plan incremental", source.parent.incremental, "expected incremental parent");
     test_helpers::expect_eq("plan parent", source.parent.local_parent->path.string(), "/.snapshots/root/root-2026-08-22T080000Z");
     test_helpers::expect_eq("plan actions", std::to_string(source.actions.size()), "9");
-    test_helpers::expect_eq("first action", std::to_string(static_cast<int>(source.actions.at(0).kind)), std::to_string(static_cast<int>(btrfsbackup::BackupRunActionKind::CleanupIncoming)));
-    test_helpers::expect_eq("last action", std::to_string(static_cast<int>(source.actions.back().kind)), std::to_string(static_cast<int>(btrfsbackup::BackupRunActionKind::CleanupSource)));
+    test_helpers::expect_eq("first action", std::to_string(static_cast<int>(btrfsbackup::backup_run_action_kind(source.actions.at(0)))), std::to_string(static_cast<int>(btrfsbackup::BackupRunActionKind::CleanupIncoming)));
+    test_helpers::expect_eq("last action", std::to_string(static_cast<int>(btrfsbackup::backup_run_action_kind(source.actions.back()))), std::to_string(static_cast<int>(btrfsbackup::BackupRunActionKind::CleanupSource)));
+
+    const auto& create_snapshot = std::get<btrfsbackup::CreateSnapshotAction>(source.actions.at(1));
+    test_helpers::expect_eq("create source", create_snapshot.source.string(), "/");
+    test_helpers::expect_eq("create snapshot", create_snapshot.snapshot.string(), "/.snapshots/root/root-2026-08-23T080000Z");
+    test_helpers::expect_eq("create run id", create_snapshot.run_id.value, "20260823T080000Z-123-456");
+
+    const auto& send_receive = std::get<btrfsbackup::SendReceiveAction>(source.actions.at(3));
+    test_helpers::expect_eq("send snapshot", send_receive.snapshot.string(), create_snapshot.snapshot.string());
+    test_helpers::expect_eq("send parent", send_receive.parent->string(), "/.snapshots/root/root-2026-08-22T080000Z");
+    test_helpers::expect_eq("receive directory", send_receive.incoming_run_directory.string(), "/mnt/backup/.incoming/root/20260823T080000Z-123-456");
 }
 
 void test_inserts_snapshot_hooks_around_snapshot_creation() {
@@ -185,14 +199,16 @@ void test_inserts_snapshot_hooks_around_snapshot_creation() {
     );
 
     const std::vector<btrfsbackup::BackupRunAction>& actions = plan.sources.at(0).actions;
+    const auto& before_hook = std::get<btrfsbackup::RunHookAction>(actions.at(1));
+    const auto& after_hook = std::get<btrfsbackup::RunHookAction>(actions.at(3));
     test_helpers::expect_eq("hook action count", std::to_string(actions.size()), "11");
-    test_helpers::expect_eq("before hook action", std::to_string(static_cast<int>(actions.at(1).kind)), std::to_string(static_cast<int>(btrfsbackup::BackupRunActionKind::BeforeSnapshotHook)));
-    test_helpers::expect_eq("before hook program", actions.at(1).hook.program, "/etc/btrfs-backup/hooks.d/before");
-    test_helpers::expect_eq("before hook timeout", std::to_string(actions.at(1).hook.timeout_seconds), "30");
-    test_helpers::expect_eq("snapshot after before hook", std::to_string(static_cast<int>(actions.at(2).kind)), std::to_string(static_cast<int>(btrfsbackup::BackupRunActionKind::CreateSnapshot)));
-    test_helpers::expect_eq("after hook action", std::to_string(static_cast<int>(actions.at(3).kind)), std::to_string(static_cast<int>(btrfsbackup::BackupRunActionKind::AfterSnapshotHook)));
-    test_helpers::expect_eq("after hook argument", actions.at(3).hook.arguments.at(0), "root");
-    test_helpers::expect_eq("after hook timeout", std::to_string(actions.at(3).hook.timeout_seconds), "60");
+    test_helpers::expect_eq("before hook action", std::to_string(static_cast<int>(btrfsbackup::backup_run_action_kind(actions.at(1)))), std::to_string(static_cast<int>(btrfsbackup::BackupRunActionKind::BeforeSnapshotHook)));
+    test_helpers::expect_eq("before hook program", before_hook.hook.program, "/etc/btrfs-backup/hooks.d/before");
+    test_helpers::expect_eq("before hook timeout", std::to_string(before_hook.hook.timeout_seconds), "30");
+    test_helpers::expect_eq("snapshot after before hook", std::to_string(static_cast<int>(btrfsbackup::backup_run_action_kind(actions.at(2)))), std::to_string(static_cast<int>(btrfsbackup::BackupRunActionKind::CreateSnapshot)));
+    test_helpers::expect_eq("after hook action", std::to_string(static_cast<int>(btrfsbackup::backup_run_action_kind(actions.at(3)))), std::to_string(static_cast<int>(btrfsbackup::BackupRunActionKind::AfterSnapshotHook)));
+    test_helpers::expect_eq("after hook argument", after_hook.hook.arguments.at(0), "root");
+    test_helpers::expect_eq("after hook timeout", std::to_string(after_hook.hook.timeout_seconds), "60");
 }
 
 void test_plans_collision_suffix_and_retention() {
@@ -269,7 +285,7 @@ void test_includes_pending_recovery_action() {
     );
 
     const btrfsbackup::BackupSourceRunPlan& source = plan.sources.at(0);
-    test_helpers::expect_eq("recovery action", std::to_string(static_cast<int>(source.actions.at(0).kind)), std::to_string(static_cast<int>(btrfsbackup::BackupRunActionKind::RecoverPending)));
+    test_helpers::expect_eq("recovery action", std::to_string(static_cast<int>(btrfsbackup::backup_run_action_kind(source.actions.at(0)))), std::to_string(static_cast<int>(btrfsbackup::BackupRunActionKind::RecoverPending)));
     test_helpers::expect_true("recovery delete", source.recovery.delete_local_snapshot, "orphan should be scheduled for deletion");
 }
 
