@@ -35,7 +35,7 @@ struct FakeMounts final : btrfsbackup::IMountInspector {
     }
 };
 
-struct FakeTargetMounter final : btrfsbackup::ITargetMounter {
+struct FakeTargetMounter final : btrfsbackup::ITargetManager {
     int calls = 0;
     void ensure_mounted(const btrfsbackup::Profile&) override {
         ++calls;

@@ -15,6 +15,7 @@
 #include <config/model/json.hpp>
 #include <config/model/json_io.hpp>
 #include <state/status_writer.hpp>
+#include <state/run_history.hpp>
 #include <platform/linux/file_io.hpp>
 
 namespace fs = std::filesystem;

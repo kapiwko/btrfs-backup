@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <config/wizard/profile_wizard_install.hpp>
+#include <platform/linux/config/profile_wizard_install.hpp>
 
 #include <unistd.h>
 
@@ -13,13 +13,14 @@
 
 #include <core/errors.hpp>
 #include <platform/linux/file_io.hpp>
-#include <config/installation_render.hpp>
-#include <config/installation_validate.hpp>
+#include <platform/linux/config/installation_render.hpp>
+#include <platform/linux/config/installation_validate.hpp>
 #include <config/model/json_io.hpp>
 #include <config/model/profile.hpp>
 #include <config/profile_artifact_renderer.hpp>
-#include <config/profile_installer.hpp>
-#include <config/render_directory.hpp>
+#include <platform/linux/config/profile_artifact_io.hpp>
+#include <platform/linux/config/profile_installer.hpp>
+#include <platform/linux/config/render_directory.hpp>
 #include <platform/linux/system_configuration_activator.hpp>
 #include <platform/linux/process.hpp>
 #include <platform/linux/trusted_directory.hpp>

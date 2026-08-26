@@ -97,29 +97,12 @@ btrfsbackup::SnapshotInfo projected_snapshot(
     };
 }
 
-void require_source_mount_constraints(
-    const btrfsbackup::ProfileSource& source,
-    const btrfsbackup::Profile& profile,
-    const std::vector<btrfsbackup::MountEntry>& mounts
-) {
-    if (!btrfsbackup::paths_are_same_filesystem(mounts, source.subvolume, source.local_snapshot_dir)) {
-        throw btrfsbackup::ValidationError("LOCAL_SNAPSHOT_DIR must be on the same Btrfs filesystem as " + source.subvolume);
-    }
-    if (btrfsbackup::paths_are_same_filesystem(mounts, source.subvolume, profile.target.mount_point)) {
-        throw btrfsbackup::ValidationError("SOURCE_SUBVOLUME must not be on the backup target filesystem: " + source.subvolume);
-    }
-    if (btrfsbackup::path_is_within(source.local_snapshot_dir, profile.target.mount_point)) {
-        throw btrfsbackup::ValidationError("LOCAL_SNAPSHOT_DIR must not be inside the backup target: " + source.local_snapshot_dir);
-    }
-}
-
 } // namespace
 
 namespace btrfsbackup {
 
 BackupRunPlan build_backup_run_plan(
     const Profile& profile,
-    const std::vector<MountEntry>& mounts,
     const SnapshotInventoryBySource& local_inventory,
     const SnapshotInventoryBySource& remote_inventory,
     const PendingMarkerBySource& pending_markers,
@@ -161,7 +144,11 @@ BackupRunPlan build_backup_run_plan(
         if (!path_is_within(incoming_source_root, profile.paths.incoming_root)) {
             throw ValidationError("Incoming source directory escapes INCOMING_ROOT: " + incoming_source_root.string());
         }
-        require_source_mount_constraints(source, profile, mounts);
+        if (path_is_within(source.local_snapshot_dir, profile.target.mount_point)) {
+            throw ValidationError(
+                "LOCAL_SNAPSHOT_DIR must not be inside the backup target: " + source.local_snapshot_dir
+            );
+        }
 
         const std::vector<SnapshotInfo>& current_local_snapshots = snapshots_for(local_inventory, source_id);
         const std::vector<SnapshotInfo>& current_remote_snapshots = snapshots_for(remote_inventory, source_id);

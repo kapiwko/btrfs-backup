@@ -9,8 +9,7 @@
 #include <string>
 #include <vector>
 
-#include <state/run_state.hpp>
-#include <backup/model/snapshot_inventory.hpp>
+#include <backup/model/snapshot.hpp>
 
 namespace btrfsbackup {
 
@@ -24,6 +23,14 @@ enum class PendingRecoveryAction {
     DeleteOrphanSnapshot,
 };
 
+struct PendingMarker {
+    std::string source_name;
+    std::string local_snapshot_path;
+    std::string final_snapshot_path;
+    std::string run_id;
+    std::string timestamp;
+};
+
 struct PendingRecoveryPlan {
     PendingRecoveryAction action = PendingRecoveryAction::NoMarker;
     bool clear_marker = false;
@@ -34,11 +41,6 @@ struct PendingRecoveryPlan {
     std::filesystem::path remote_snapshot_path;
     std::string message;
 };
-
-std::optional<PendingMarker> read_pending_marker_if_exists(
-    const std::filesystem::path& profile_state_dir,
-    const std::string& source_id
-);
 
 PendingRecoveryPlan plan_pending_recovery(
     const std::string& source_id,

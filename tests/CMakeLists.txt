@@ -9,6 +9,13 @@ function(add_btrfsbackup_test target source test_name)
     add_test(NAME ${test_name} COMMAND ${target})
 endfunction()
 
+add_test(
+    NAME dependency-direction
+    COMMAND ${CMAKE_COMMAND}
+        -DPROJECT_SOURCE_DIR=${PROJECT_SOURCE_DIR}
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/architecture/dependency_direction_tests.cmake
+)
+
 add_subdirectory(unit/backup)
 add_subdirectory(unit/config)
 add_subdirectory(unit/core)

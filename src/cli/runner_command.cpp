@@ -18,8 +18,9 @@
 
 #include <backup/action_handlers/backup_run_action_handler.hpp>
 #include <backup/backup_run.hpp>
-#include <backup/default_backup_planner.hpp>
+#include <backup/backup_planner.hpp>
 #include <state/file_run_state_repository.hpp>
+#include <state/file_pending_marker_store.hpp>
 #include <backup/system_run_context.hpp>
 #include <backup/action_handlers/hook_action_handler.hpp>
 #include <backup/action_handlers/recovery_action_handler.hpp>
@@ -29,6 +30,7 @@
 #include <backup/transfer/async_transfer.hpp>
 #include <backup/action_handlers/transfer_action_handler.hpp>
 #include <platform/linux/btrfs_util_operations.hpp>
+#include <platform/linux/config/application_config.hpp>
 #include <platform/linux/posix_command_runner.hpp>
 #include <platform/linux/file_lock.hpp>
 #include <platform/linux/file_backup_run_lease_provider.hpp>
@@ -37,10 +39,10 @@
 #include <platform/linux/mount_info.hpp>
 #include <platform/linux/posix_transfer_pipeline.hpp>
 #include <platform/linux/safe_directory_root.hpp>
-#include <platform/linux/systemd_target_mounter.hpp>
+#include <platform/linux/systemd_target_manager.hpp>
 #include <platform/linux/trusted_executable.hpp>
 #include <config/model/json.hpp>
-#include <config/profile_repository.hpp>
+#include <platform/linux/config/profile_repository.hpp>
 
 namespace fs = std::filesystem;
 
@@ -313,6 +315,7 @@ class PosixBackupRunFactory final : public btrfsbackup::IBackupRunFactory {
         btrfsbackup::ICommandRunner& commands,
         btrfsbackup::ITransferPipeline& transfers,
         btrfsbackup::IDurableFileOperations& durable_files,
+        btrfsbackup::IPendingMarkerStore& pending_markers,
         const btrfsbackup::ISafeDirectoryRootFactory& safe_directories
     )
         : btrfs_(btrfs),
@@ -320,6 +323,7 @@ class PosixBackupRunFactory final : public btrfsbackup::IBackupRunFactory {
           commands_(commands),
           transfers_(transfers),
           durable_files_(durable_files),
+          pending_markers_(pending_markers),
           safe_directories_(safe_directories) {
     }
 
@@ -332,12 +336,12 @@ class PosixBackupRunFactory final : public btrfsbackup::IBackupRunFactory {
         btrfsbackup::SnapshotActionHandler snapshots(
             btrfs_,
             filesystem_,
-            durable_files_,
+            pending_markers_,
             std::make_unique<btrfsbackup::SafeDirectoryRoot>("/")
         );
         btrfsbackup::RecoveryActionHandler recovery(
             btrfs_,
-            durable_files_,
+            pending_markers_,
             std::make_unique<btrfsbackup::SafeDirectoryRoot>("/"),
             std::make_unique<btrfsbackup::SafeDirectoryRoot>(plan.target_mount_point)
         );
@@ -353,7 +357,7 @@ class PosixBackupRunFactory final : public btrfsbackup::IBackupRunFactory {
         btrfsbackup::RepositoryActionHandler repository(
             btrfs_,
             filesystem_,
-            durable_files_,
+            pending_markers_,
             std::make_unique<btrfsbackup::SafeDirectoryRoot>("/"),
             std::make_unique<btrfsbackup::SafeDirectoryRoot>(plan.target_mount_point)
         );
@@ -386,6 +390,7 @@ class PosixBackupRunFactory final : public btrfsbackup::IBackupRunFactory {
     btrfsbackup::ICommandRunner& commands_;
     btrfsbackup::ITransferPipeline& transfers_;
     btrfsbackup::IDurableFileOperations& durable_files_;
+    btrfsbackup::IPendingMarkerStore& pending_markers_;
     const btrfsbackup::ISafeDirectoryRootFactory& safe_directories_;
 };
 
@@ -396,7 +401,7 @@ class ProductionBackupComposition {
         const ParsedRunnerCommand& parsed,
         btrfsbackup::CancellationToken& cancellation
     )
-        : config_(btrfsbackup::ApplicationConfig::load(config_root)),
+        : config_(btrfsbackup::load_application_config(config_root)),
           profiles_(config_root, config_),
           mounts_(parsed.mountinfo, [&parsed](const std::string& source) {
               const auto found = parsed.mount_uuid_overrides.find(source);
@@ -404,7 +409,7 @@ class ProductionBackupComposition {
                   ? btrfsbackup::blkid_filesystem_uuid(source)
                   : found->second;
           }),
-          target_mounter_(mounts_, commands_), planner_(btrfsbackup::read_btrfs_snapshot_metadata, safe_directories_), run_factory_(btrfs_, filesystem_, commands_, transfers_, durable_files_, safe_directories_), leases_(btrfsbackup::default_lock_root()), state_(config_.paths(), durable_files_), cancellation_monitor_(state_), clock_(parsed.timestamp, parsed.today), run_ids_(*parsed.run_id), service_(profiles_, mounts_, target_mounter_, planner_, run_factory_, leases_, state_, cancellation_monitor_, clock_, run_ids_, cancellation) {
+          target_mounter_(mounts_, commands_), pending_markers_(durable_files_), planner_(btrfsbackup::read_btrfs_snapshot_metadata, pending_markers_, safe_directories_), run_factory_(btrfs_, filesystem_, commands_, transfers_, durable_files_, pending_markers_, safe_directories_), leases_(btrfsbackup::default_lock_root()), state_(config_.paths(), durable_files_), cancellation_monitor_(state_), clock_(parsed.timestamp, parsed.today), run_ids_(*parsed.run_id), service_(profiles_, mounts_, target_mounter_, planner_, run_factory_, leases_, state_, cancellation_monitor_, clock_, run_ids_, cancellation) {
     }
 
     btrfsbackup::BackupService& service() {
@@ -416,13 +421,14 @@ class ProductionBackupComposition {
     btrfsbackup::FileProfileRepository profiles_;
     btrfsbackup::LinuxMountInspector mounts_;
     btrfsbackup::PosixCommandRunner commands_;
-    btrfsbackup::SystemdTargetMounter target_mounter_;
+    btrfsbackup::SystemdTargetManager target_mounter_;
     btrfsbackup::SafeDirectoryRootFactory safe_directories_;
-    btrfsbackup::DefaultBackupPlanner planner_;
     btrfsbackup::LibBtrfsOperations btrfs_;
     btrfsbackup::PosixFileSystem filesystem_;
     btrfsbackup::PosixTransferPipeline transfers_;
     btrfsbackup::PosixDurableFileOperations durable_files_;
+    btrfsbackup::FilePendingMarkerStore pending_markers_;
+    btrfsbackup::BackupPlanner planner_;
     PosixBackupRunFactory run_factory_;
     btrfsbackup::FileBackupRunLeaseProvider leases_;
     btrfsbackup::FileRunStateRepository state_;

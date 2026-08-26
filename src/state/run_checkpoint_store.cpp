@@ -7,7 +7,7 @@
 #include <utility>
 
 #include <config/model/json_io.hpp>
-#include <state/backup_run_serialization.hpp>
+#include <state/serialization.hpp>
 
 namespace fs = std::filesystem;
 

@@ -19,7 +19,22 @@ add_library(btrfsbackup-cli STATIC
 )
 
 target_compile_features(btrfsbackup-cli PUBLIC cxx_std_20)
-target_include_directories(btrfsbackup-cli PUBLIC ${PROJECT_SOURCE_DIR}/src)
+target_restricted_include_directories(btrfsbackup-cli
+    PUBLIC_HEADERS
+        cli/backup_tool.hpp
+        cli/ctl_tool.hpp
+        cli/installation_command.hpp
+        cli/profile_command.hpp
+        cli/profile_create_command.hpp
+        cli/profile_list_command.hpp
+        cli/profile_wizard_command.hpp
+        cli/runner_command.hpp
+        cli/status_command.hpp
+        cli/status_history_command.hpp
+        cli/status_show_command.hpp
+        cli/target_command.hpp
+        cli/target_service.hpp
+)
 target_link_libraries(btrfsbackup-cli
     PUBLIC
         btrfsbackup-backup

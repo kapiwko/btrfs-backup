@@ -6,12 +6,13 @@
 #include <fstream>
 #include <string>
 
-#include <config/installation_service.hpp>
+#include <platform/linux/config/installation_service.hpp>
 #include <config/model/json_io.hpp>
-#include <config/profile_service.hpp>
-#include <config/render_directory.hpp>
+#include <platform/linux/config/profile_service.hpp>
+#include <platform/linux/config/render_directory.hpp>
 #include <platform/linux/file_io.hpp>
 #include <state/status_service.hpp>
+#include <state/run_history.hpp>
 
 #include "support/validation_test_helpers.hpp"
 

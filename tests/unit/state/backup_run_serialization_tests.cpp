@@ -4,7 +4,7 @@
 
 #include <optional>
 
-#include <state/backup_run_serialization.hpp>
+#include <state/serialization.hpp>
 
 #include "support/test_helpers.hpp"
 

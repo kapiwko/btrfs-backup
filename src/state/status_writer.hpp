@@ -24,10 +24,4 @@ void write_current_status(
     std::filesystem::perms permissions = public_read_file_permissions
 );
 
-void write_history_entry(
-    IDurableFileOperations& files,
-    const std::filesystem::path& history_root,
-    const RunStatus& status
-);
-
 } // namespace btrfsbackup

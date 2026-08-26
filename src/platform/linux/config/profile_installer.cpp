@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <config/profile_installer.hpp>
+#include <platform/linux/config/profile_installer.hpp>
 
 #include <exception>
 #include <filesystem>
@@ -10,10 +10,10 @@
 #include <string_view>
 #include <utility>
 
-#include <config/application_config.hpp>
+#include <platform/linux/config/application_config.hpp>
 #include <core/errors.hpp>
 #include <config/model/json_io.hpp>
-#include <config/profile_configuration_transaction.hpp>
+#include <platform/linux/config/profile_configuration_transaction.hpp>
 #include <platform/linux/file_lock.hpp>
 
 namespace fs = std::filesystem;
@@ -62,7 +62,7 @@ void ProfileInstaller::install_profile_transactionally(const Profile& profile, c
     const RenderedProfileArtifacts rendered = renderer_.render_profile_artifacts(profile, roots);
     const std::string installed_id{rendered.profile.id.value()};
     const std::string& generation = rendered.profile.configuration_generation;
-    ApplicationConfig application_config = ApplicationConfig::load(roots.etc_root);
+    ApplicationConfig application_config = load_application_config(roots.etc_root);
     ProfileConfigurationTransaction transaction(rendered);
 
     try {

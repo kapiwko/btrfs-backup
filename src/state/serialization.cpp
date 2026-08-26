@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <state/backup_run_serialization.hpp>
+#include <state/serialization.hpp>
 
 #include <chrono>
 #include <ctime>

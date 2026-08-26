@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <config/wizard/profile_wizard_device.hpp>
+#include <platform/linux/config/profile_wizard_device.hpp>
 
 #include <libudev.h>
 #include <sys/stat.h>

@@ -8,7 +8,7 @@
 #include <ostream>
 #include <string>
 
-#include <config/profile_service.hpp>
+#include <platform/linux/config/profile_service.hpp>
 
 namespace fs = std::filesystem;
 

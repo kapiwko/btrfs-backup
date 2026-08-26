@@ -13,6 +13,8 @@
 
 namespace btrfsbackup {
 
+// File-oriented profile operations exposed to Linux frontends.
+
 struct ProfileInstallationRoots {
     std::filesystem::path etc_root;
     std::filesystem::path udev_root;

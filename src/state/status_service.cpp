@@ -73,27 +73,6 @@ std::vector<StatusDocument> get_statuses(
     return documents;
 }
 
-std::vector<StatusDocument> get_status_history(const fs::path& history_root, const std::string& profile_id, std::size_t limit) {
-    validate_profile_id(profile_id);
-    fs::path directory = history_root / profile_id;
-    std::error_code ec;
-    if (!fs::is_directory(directory, ec) || ec) return {};
-    std::vector<fs::path> paths;
-    for (const auto& entry : fs::directory_iterator(directory, ec)) {
-        if (ec) break;
-        std::string name = entry.path().filename().string();
-        if (entry.is_regular_file(ec) && !ec && name != "last.json" && entry.path().extension() == ".json") {
-            paths.push_back(entry.path());
-        }
-        ec.clear();
-    }
-    std::sort(paths.rbegin(), paths.rend());
-    if (paths.size() > limit) paths.resize(limit);
-    std::vector<StatusDocument> documents;
-    for (const auto& path : paths) documents.push_back(read_document(path));
-    return documents;
-}
-
 std::optional<StatusDocument> poll_status(const fs::path& status_root, const std::string& profile_id, const std::string& previous) {
     validate_profile_id(profile_id);
     fs::path path = status_root / profile_id / "current.json";
