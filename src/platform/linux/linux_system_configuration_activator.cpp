@@ -9,8 +9,8 @@
 namespace btrfsbackup {
 
 void LinuxSystemConfigurationActivator::activate() {
-    run_capture({"systemctl", "daemon-reload"});
-    run_capture({"udevadm", "control", "--reload-rules"});
+    (void)run_capture({"systemctl", "daemon-reload"});
+    (void)run_capture({"udevadm", "control", "--reload-rules"});
 }
 
 } // namespace btrfsbackup

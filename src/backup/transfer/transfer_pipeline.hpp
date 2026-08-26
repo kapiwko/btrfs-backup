@@ -14,7 +14,7 @@ namespace btrfsbackup {
 class ITransferPipeline {
   public:
     virtual ~ITransferPipeline() = default;
-    virtual TransferResult run(
+    [[nodiscard]] virtual TransferResult run(
         const TransferPipelinePlan& plan,
         ITransferEventSink& events,
         CancellationToken& cancellation

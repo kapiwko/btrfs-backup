@@ -29,7 +29,7 @@ namespace {
 
 struct WatchOptions {
     std::string profile = "default";
-    double interval = 1.0;
+    std::chrono::duration<double> interval{1.0};
 };
 
 std::string require_arg_value(const std::vector<std::string>& args, std::size_t& index, const std::string& option) {
@@ -47,8 +47,8 @@ WatchOptions parse_watch_options(const std::vector<std::string>& args) {
         if (arg == "--profile") {
             options.profile = require_arg_value(args, i, arg);
         } else if (arg == "--interval") {
-            options.interval = std::stod(require_arg_value(args, i, arg));
-            if (options.interval <= 0) {
+            options.interval = std::chrono::duration<double>{std::stod(require_arg_value(args, i, arg))};
+            if (options.interval <= std::chrono::duration<double>::zero()) {
                 throw btrfsbackup::ValidationError("--interval must be greater than zero");
             }
         } else {
@@ -64,7 +64,7 @@ void watch(const fs::path& status_root, const std::vector<std::string>& args) {
     std::string previous;
     while (true) {
         (void)btrfsbackup::command::status_watch_once(status_root, args, previous, std::cout);
-        std::this_thread::sleep_for(std::chrono::duration<double>(options.interval));
+        std::this_thread::sleep_for(options.interval);
     }
 }
 
