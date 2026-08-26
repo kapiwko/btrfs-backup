@@ -65,7 +65,10 @@ struct NoopCheckpoints final : btrfsbackup::IBackupRunCheckpointStore {
 
 struct FakeRunFactory final : btrfsbackup::IBackupRunFactory {
     int calls = 0;
-    btrfsbackup::BackupRunExecutionResult result{.completed = true, .actions_completed = 3};
+    btrfsbackup::BackupRunExecutionResult result{
+        .outcome = btrfsbackup::BackupRunExecutionOutcome::Completed,
+        .actions_completed = 3,
+    };
 
     btrfsbackup::BackupRunExecutionResult execute(
         btrfsbackup::BackupRunPlan,
@@ -233,6 +236,22 @@ void test_success_uses_ports_and_persists_success() {
     test_helpers::expect_eq("success timestamp", fixture.state.success_timestamp, "2026-08-26T14:00:00+0200");
 }
 
+void test_cancelled_run_does_not_persist_success() {
+    Fixture fixture;
+    fixture.runs.result = {
+        .outcome = btrfsbackup::BackupRunExecutionOutcome::Cancelled,
+        .actions_completed = 2,
+    };
+
+    const btrfsbackup::BackupExecutionResult result = fixture.service.start({
+        .profile_id = btrfsbackup::ProfileId{"default"},
+    });
+
+    test_helpers::expect_true("cancelled", result.outcome == btrfsbackup::BackupExecutionOutcome::Cancelled, "cancelled outcome missing");
+    test_helpers::expect_true("cancelled actions", result.actions_completed == 2, "completed action count was not preserved");
+    test_helpers::expect_true("cancelled success writes", fixture.state.success_writes == 0, "cancelled run persisted success");
+}
+
 void test_busy_stops_before_target_access() {
     Fixture fixture;
     fixture.locks.busy = true;
@@ -269,6 +288,7 @@ void test_cancel_validates_profile_and_writes_request() {
 
 int main() {
     test_success_uses_ports_and_persists_success();
+    test_cancelled_run_does_not_persist_success();
     test_busy_stops_before_target_access();
     test_daily_match_skips_execution();
     test_cancel_validates_profile_and_writes_request();

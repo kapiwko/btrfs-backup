@@ -235,7 +235,7 @@ void test_full_backup_flow_without_parent() {
 
     btrfsbackup::BackupRunExecutionResult result = executor.execute(plan, events, cancellation);
 
-    test_helpers::expect_true("full flow completed", result.completed, "run should complete");
+    test_helpers::expect_true("full flow completed", result.outcome == btrfsbackup::BackupRunExecutionOutcome::Completed, "run should complete");
     test_helpers::expect_eq("full flow actions", std::to_string(result.actions_completed), "9");
     test_helpers::expect_eq("full flow transfer count", std::to_string(transfers.plans.size()), "1");
     const std::vector<std::string>& send_argv = transfers.plans.at(0).producer_argv;
@@ -268,7 +268,7 @@ void test_executes_actions_and_writes_durable_checkpoints() {
 
     btrfsbackup::BackupRunExecutionResult result = executor.execute(plan, events, cancellation);
 
-    test_helpers::expect_true("executor completed", result.completed, "run should complete");
+    test_helpers::expect_true("executor completed", result.outcome == btrfsbackup::BackupRunExecutionOutcome::Completed, "run should complete");
     test_helpers::expect_eq("actions completed", std::to_string(result.actions_completed), "3");
     test_helpers::expect_eq("effect count", std::to_string(handler.calls.size()), "2");
     test_helpers::expect_eq("first effect", handler.calls.at(0), "root:" + action_name(btrfsbackup::BackupRunActionKind::CleanupIncoming));
@@ -296,7 +296,7 @@ void test_pending_recovery_runs_before_source_cleanup() {
 
     btrfsbackup::BackupRunExecutionResult result = executor.execute(plan, events, cancellation);
 
-    test_helpers::expect_true("pending recovery completed", result.completed, "run should complete");
+    test_helpers::expect_true("pending recovery completed", result.outcome == btrfsbackup::BackupRunExecutionOutcome::Completed, "run should complete");
     test_helpers::expect_eq("pending recovery first effect", handler.calls.at(0), "root:" + action_name(btrfsbackup::BackupRunActionKind::RecoverPending));
     test_helpers::expect_eq("pending recovery second effect", handler.calls.at(1), "root:" + action_name(btrfsbackup::BackupRunActionKind::CleanupIncoming));
     test_helpers::expect_eq("pending recovery checkpoint count", std::to_string(checkpoints.checkpoints.size()), "3");
@@ -325,7 +325,7 @@ void test_send_receive_delegates_to_transfer_pipeline() {
 
     btrfsbackup::BackupRunExecutionResult result = executor.execute(plan, events, cancellation);
 
-    test_helpers::expect_true("transfer completed", result.completed, "run should complete");
+    test_helpers::expect_true("transfer completed", result.outcome == btrfsbackup::BackupRunExecutionOutcome::Completed, "run should complete");
     test_helpers::expect_eq("effect count", std::to_string(handler.calls.size()), "1");
     test_helpers::expect_eq("prepare receive effect", handler.calls.at(0), "root:" + action_name(btrfsbackup::BackupRunActionKind::SendReceive));
     test_helpers::expect_eq("transfer count", std::to_string(transfers.plans.size()), "1");
@@ -374,7 +374,7 @@ void test_transfer_plan_estimates_snapshot_bytes() {
 
     btrfsbackup::BackupRunExecutionResult result = executor.execute(plan, events, cancellation);
 
-    test_helpers::expect_true("estimate run completed", result.completed, "run should complete");
+    test_helpers::expect_true("estimate run completed", result.outcome == btrfsbackup::BackupRunExecutionOutcome::Completed, "run should complete");
     test_helpers::expect_eq("estimated bytes", std::to_string(transfers.plans.at(0).bytes_total_estimated), "12");
     fs::remove_all(root);
 }
@@ -423,7 +423,7 @@ void test_multi_source_progress_accumulates_run_bytes() {
 
     btrfsbackup::BackupRunExecutionResult result = executor.execute(plan, events, cancellation);
 
-    test_helpers::expect_true("multi progress completed", result.completed, "run should complete");
+    test_helpers::expect_true("multi progress completed", result.outcome == btrfsbackup::BackupRunExecutionOutcome::Completed, "run should complete");
     std::vector<btrfsbackup::BackupRunEvent> progress_events;
     std::copy_if(events.events.begin(), events.events.end(), std::back_inserter(progress_events), [](const btrfsbackup::BackupRunEvent& event) {
         return event.kind == btrfsbackup::BackupRunEventKind::TransferProgress;
@@ -452,7 +452,7 @@ void test_cancels_between_actions() {
 
     btrfsbackup::BackupRunExecutionResult result = executor.execute(plan, events, cancellation);
 
-    test_helpers::expect_true("run cancelled", result.cancelled, "run should be cancelled");
+    test_helpers::expect_true("run cancelled", result.outcome == btrfsbackup::BackupRunExecutionOutcome::Cancelled, "run should be cancelled");
     test_helpers::expect_eq("actions completed before cancel", std::to_string(result.actions_completed), "1");
     test_helpers::expect_eq("effect count before cancel", std::to_string(handler.calls.size()), "1");
     test_helpers::expect_eq("checkpoint count before cancel", std::to_string(checkpoints.checkpoints.size()), "1");
@@ -477,7 +477,7 @@ void test_cancels_during_transfer_without_checkpointing_transfer() {
 
     btrfsbackup::BackupRunExecutionResult result = executor.execute(plan, events, cancellation);
 
-    test_helpers::expect_true("transfer cancellation result", result.cancelled, "run should be cancelled");
+    test_helpers::expect_true("transfer cancellation result", result.outcome == btrfsbackup::BackupRunExecutionOutcome::Cancelled, "run should be cancelled");
     test_helpers::expect_eq("transfer cancellation completed actions", std::to_string(result.actions_completed), "1");
     test_helpers::expect_eq("transfer cancellation checkpoint count", std::to_string(checkpoints.checkpoints.size()), "1");
     test_helpers::expect_eq("transfer cancellation last checkpoint", action_name(checkpoints.checkpoints.back().action_kind), action_name(btrfsbackup::BackupRunActionKind::CreateSnapshot));
@@ -640,7 +640,7 @@ void test_hook_cancellation_finishes_run_as_cancelled() {
     });
 
     btrfsbackup::BackupRunExecutionResult result = executor.execute(plan, events, cancellation);
-    test_helpers::expect_true("hook cancellation result", result.cancelled, "run should be cancelled");
+    test_helpers::expect_true("hook cancellation result", result.outcome == btrfsbackup::BackupRunExecutionOutcome::Cancelled, "run should be cancelled");
     test_helpers::expect_true("hook cancellation event", events.has_event(btrfsbackup::BackupRunEventKind::RunCancelled), "missing cancellation event");
     test_helpers::expect_true("hook cancellation no failure", !events.has_event(btrfsbackup::BackupRunEventKind::ActionFailed), "cancelled hook must not be reported as failed");
 }
