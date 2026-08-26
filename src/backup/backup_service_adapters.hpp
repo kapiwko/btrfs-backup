@@ -6,7 +6,7 @@
 
 #include <filesystem>
 
-#include <backup/backup_run_action_effects.hpp>
+#include <backup/backup_run_action_handler.hpp>
 #include <backup/backup_service.hpp>
 #include <backup/ports/command_runner.hpp>
 #include <backup/snapshot_inventory.hpp>
@@ -59,7 +59,7 @@ class DefaultBackupPlanner final : public IBackupPlanner {
 class DefaultBackupRunFactory final : public IBackupRunFactory {
   public:
     DefaultBackupRunFactory(
-        IBackupRunActionEffects& effects,
+        IBackupRunActionHandler& action_handler,
         ITransferPipeline& transfers,
         bool pin_transfer_paths = true
     );
@@ -72,7 +72,7 @@ class DefaultBackupRunFactory final : public IBackupRunFactory {
     ) override;
 
   private:
-    IBackupRunActionEffects& effects_;
+    IBackupRunActionHandler& action_handler_;
     ITransferPipeline& transfers_;
     bool pin_transfer_paths_;
 };

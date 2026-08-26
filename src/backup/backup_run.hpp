@@ -10,20 +10,20 @@ namespace btrfsbackup {
 
 class BackupRun {
 public:
-    BackupRun(
-        BackupRunPlan plan,
-        IBackupRunActionEffects& action_effects,
-        IAsyncTransferPipeline& transfer_pipeline,
-        IBackupRunCheckpointStore& checkpoints
-    );
+  BackupRun(
+      BackupRunPlan plan,
+      IBackupRunActionHandler& action_handler,
+      IAsyncTransferPipeline& transfer_pipeline,
+      IBackupRunCheckpointStore& checkpoints
+  );
 
-    const BackupRunPlan& plan() const noexcept;
-    bool started() const noexcept;
+  const BackupRunPlan& plan() const noexcept;
+  bool started() const noexcept;
 
-    BackupRunExecutionResult execute(
-        IBackupRunEventSink& events,
-        CancellationToken& cancellation
-    );
+  BackupRunExecutionResult execute(
+      IBackupRunEventSink& events,
+      CancellationToken& cancellation
+  );
 
 private:
     BackupRunPlan plan_;

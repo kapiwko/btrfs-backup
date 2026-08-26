@@ -139,6 +139,12 @@ alternative owns exactly the inputs needed by that operation, and executors use
 `std::visit` instead of interpreting shared path slots. `BackupRunActionKind`
 remains only the stable action label used by events, checkpoints, and CLI JSON.
 
+`BackupRunExecutor` sees one `IBackupRunActionHandler` port. Its production
+implementation is a small `BackupRunActionHandler` dispatcher composed from
+snapshot, recovery, retention, hook, repository, and transfer handlers. Each
+specialized handler accepts only the action types and dependencies belonging to
+its own effect group; the runner CLI assembles them at the composition boundary.
+
 ## Rules
 
 1. Put a component's `.hpp` and `.cpp` files together in the owning domain.
