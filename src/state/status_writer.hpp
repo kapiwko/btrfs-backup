@@ -5,9 +5,9 @@
 #pragma once
 
 #include <filesystem>
-#include <sys/types.h>
 
 #include <config/model/json.hpp>
+#include <core/durable_file_operations.hpp>
 #include <state/run_status.hpp>
 
 namespace btrfsbackup {
@@ -18,12 +18,14 @@ Json build_public_status_json(const RunStatus& status);
 std::string dump_public_status_json(const RunStatus& status);
 
 void write_current_status(
+    IDurableFileOperations& files,
     const std::filesystem::path& status_root,
     const RunStatus& status,
-    mode_t mode = 0644
+    std::filesystem::perms permissions = public_read_file_permissions
 );
 
 void write_history_entry(
+    IDurableFileOperations& files,
     const std::filesystem::path& history_root,
     const RunStatus& status
 );

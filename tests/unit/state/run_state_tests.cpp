@@ -7,12 +7,18 @@
 #include <string>
 
 #include <state/run_state.hpp>
+#include <platform/linux/file_io.hpp>
 
 #include "support/test_helpers.hpp"
 
 namespace fs = std::filesystem;
 
 namespace {
+
+btrfsbackup::PosixDurableFileOperations& durable_files() {
+    static btrfsbackup::PosixDurableFileOperations files;
+    return files;
+}
 
 fs::path test_root(const std::string& name) {
     return test_helpers::test_root("run-state", name);
@@ -27,16 +33,16 @@ void test_success_state_write_and_match() {
     fs::path root = test_root("success-state");
     fs::path state_dir = root / "state" / "profiles" / "default";
 
-    btrfsbackup::write_success_state(state_dir, {
-                                                    .date = "2026-08-23",
-                                                    .timestamp = "2026-08-23T08:25:04+02:00",
-                                                    .run_id = "20260823T062504Z-123-456",
-                                                    .profile_id = "default",
-                                                    .profile_name = "Default backup",
-                                                    .source_count = 2,
-                                                    .target_luks_uuid = "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE",
-                                                    .config_fingerprint = "630b159cf7939e5baf76ce27d4505a5cf68fe2995d5071c1f22e011e143b7c67",
-                                                });
+    btrfsbackup::write_success_state(durable_files(), state_dir, {
+                                                                     .date = "2026-08-23",
+                                                                     .timestamp = "2026-08-23T08:25:04+02:00",
+                                                                     .run_id = "20260823T062504Z-123-456",
+                                                                     .profile_id = "default",
+                                                                     .profile_name = "Default backup",
+                                                                     .source_count = 2,
+                                                                     .target_luks_uuid = "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE",
+                                                                     .config_fingerprint = "630b159cf7939e5baf76ce27d4505a5cf68fe2995d5071c1f22e011e143b7c67",
+                                                                 });
 
     fs::path state_file = state_dir / "last-success";
     test_helpers::expect_eq("success state exists", fs::is_regular_file(state_file) ? "yes" : "no", "yes");
@@ -73,13 +79,13 @@ void test_pending_marker_write_read_and_clear() {
     fs::path snapshot = root / "local" / "root" / "root-2026-08-23T082504";
     fs::path final_snapshot = root / "remote" / "root" / snapshot.filename();
 
-    btrfsbackup::write_pending_marker(state_dir, {
-                                                     .source_name = "root",
-                                                     .local_snapshot_path = snapshot.string(),
-                                                     .final_snapshot_path = final_snapshot.string(),
-                                                     .run_id = "20260823T062504Z-123-456",
-                                                     .timestamp = "2026-08-23T08:25:04+02:00",
-                                                 });
+    btrfsbackup::write_pending_marker(durable_files(), state_dir, {
+                                                                      .source_name = "root",
+                                                                      .local_snapshot_path = snapshot.string(),
+                                                                      .final_snapshot_path = final_snapshot.string(),
+                                                                      .run_id = "20260823T062504Z-123-456",
+                                                                      .timestamp = "2026-08-23T08:25:04+02:00",
+                                                                  });
 
     fs::path marker = state_dir / "pending-root";
     test_helpers::expect_eq("pending marker exists", fs::is_regular_file(marker) ? "yes" : "no", "yes");
@@ -94,7 +100,7 @@ void test_pending_marker_write_read_and_clear() {
         snapshot.string()
     );
 
-    btrfsbackup::clear_pending_marker(marker, state_dir);
+    btrfsbackup::clear_pending_marker(durable_files(), marker);
     test_helpers::expect_eq("pending marker cleared", fs::exists(marker) ? "yes" : "no", "no");
     fs::remove_all(root);
 }
@@ -109,7 +115,7 @@ void test_cancel_request_write_check_and_clear() {
         "cancel request should not exist"
     );
 
-    btrfsbackup::write_cancel_request(state_dir);
+    btrfsbackup::write_cancel_request(durable_files(), state_dir);
     test_helpers::expect_true("cancel requested", btrfsbackup::cancel_requested(state_dir), "cancel request missing");
     test_helpers::expect_eq(
         "cancel path",
@@ -117,7 +123,7 @@ void test_cancel_request_write_check_and_clear() {
         (state_dir / "cancel-request").string()
     );
 
-    btrfsbackup::clear_cancel_request(state_dir);
+    btrfsbackup::clear_cancel_request(durable_files(), state_dir);
     test_helpers::expect_true(
         "cancel cleared",
         !btrfsbackup::cancel_requested(state_dir),

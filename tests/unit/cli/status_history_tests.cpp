@@ -12,6 +12,7 @@
 #include <cli/status_show_command.hpp>
 #include <config/model/json_io.hpp>
 #include <state/status_writer.hpp>
+#include <platform/linux/file_io.hpp>
 
 #include "support/validation_test_helpers.hpp"
 
@@ -150,7 +151,8 @@ btrfsbackup::RunStatus watch_sample_record() {
 
 void test_status_watch_json_emits_status_api_shape_once() {
     fs::path root = test_root("watch-json");
-    btrfsbackup::write_current_status(root / "status", watch_sample_record());
+    btrfsbackup::PosixDurableFileOperations durable_files;
+    btrfsbackup::write_current_status(durable_files, root / "status", watch_sample_record());
 
     std::ostringstream output;
     std::string previous;

@@ -6,12 +6,18 @@
 #include <string>
 #include <state/run_status_projection.hpp>
 #include <config/model/json_io.hpp>
+#include <platform/linux/file_io.hpp>
 
 #include "support/test_helpers.hpp"
 
 namespace fs = std::filesystem;
 
 namespace {
+
+btrfsbackup::PosixDurableFileOperations& durable_files() {
+    static btrfsbackup::PosixDurableFileOperations files;
+    return files;
+}
 
 btrfsbackup::BackupRunEvent event(btrfsbackup::BackupRunEventKind kind) {
     return btrfsbackup::BackupRunEvent{
@@ -34,15 +40,15 @@ btrfsbackup::BackupRunEvent event(btrfsbackup::BackupRunEventKind kind) {
 
 void test_public_transfer_progress_excludes_run_details() {
     fs::path root = test_helpers::test_root("backup-run-persistence", "transfer-progress");
-    btrfsbackup::RunStatusProjection sink({
-        .status_root = root / "status",
-        .history_root = root / "history",
-        .profile_name = "Default backup",
-        .source_count = 2,
-        .started_at = "2026-08-23T12:00:00Z",
-        .source_names = {{"root", "@home"}, {"home", "@archive"}},
-        .target_name = "backupdisk",
-    });
+    btrfsbackup::RunStatusProjection sink(durable_files(), {
+                                                               .status_root = root / "status",
+                                                               .history_root = root / "history",
+                                                               .profile_name = "Default backup",
+                                                               .source_count = 2,
+                                                               .started_at = "2026-08-23T12:00:00Z",
+                                                               .source_names = {{"root", "@home"}, {"home", "@archive"}},
+                                                               .target_name = "backupdisk",
+                                                           });
 
     sink.on_backup_run_event(event(btrfsbackup::BackupRunEventKind::TransferProgress));
     btrfsbackup::Json current = btrfsbackup::load_json_file(root / "status" / "default" / "current.json");
@@ -72,13 +78,13 @@ void test_public_transfer_progress_excludes_run_details() {
 
 void test_status_sink_writes_current_and_terminal_history() {
     fs::path root = test_helpers::test_root("backup-run-persistence", "status");
-    btrfsbackup::RunStatusProjection sink({
-        .status_root = root / "status",
-        .history_root = root / "history",
-        .profile_name = "Default backup",
-        .source_count = 2,
-        .started_at = "2026-08-23T12:00:00Z",
-    });
+    btrfsbackup::RunStatusProjection sink(durable_files(), {
+                                                               .status_root = root / "status",
+                                                               .history_root = root / "history",
+                                                               .profile_name = "Default backup",
+                                                               .source_count = 2,
+                                                               .started_at = "2026-08-23T12:00:00Z",
+                                                           });
 
     sink.on_backup_run_event(event(btrfsbackup::BackupRunEventKind::ActionStarted));
     fs::path current = root / "status" / "default" / "current.json";
@@ -101,13 +107,13 @@ void test_status_sink_writes_current_and_terminal_history() {
 
 void test_hook_failure_status_uses_stable_error_code() {
     fs::path root = test_helpers::test_root("backup-run-persistence", "hook-failure");
-    btrfsbackup::RunStatusProjection sink({
-        .status_root = root / "status",
-        .history_root = root / "history",
-        .profile_name = "Default backup",
-        .source_count = 1,
-        .started_at = "2026-08-23T12:00:00Z",
-    });
+    btrfsbackup::RunStatusProjection sink(durable_files(), {
+                                                               .status_root = root / "status",
+                                                               .history_root = root / "history",
+                                                               .profile_name = "Default backup",
+                                                               .source_count = 1,
+                                                               .started_at = "2026-08-23T12:00:00Z",
+                                                           });
 
     btrfsbackup::BackupRunEvent failed = event(btrfsbackup::BackupRunEventKind::ActionFailed);
     failed.action_kind = btrfsbackup::BackupRunActionKind::BeforeSnapshotHook;
@@ -130,13 +136,13 @@ void test_hook_failure_status_uses_stable_error_code() {
 
 void test_repository_recovery_required_status_is_actionable() {
     fs::path root = test_helpers::test_root("backup-run-persistence", "repository-recovery");
-    btrfsbackup::RunStatusProjection sink({
-        .status_root = root / "status",
-        .history_root = root / "history",
-        .profile_name = "Default backup",
-        .source_count = 1,
-        .started_at = "2026-08-23T12:00:00Z",
-    });
+    btrfsbackup::RunStatusProjection sink(durable_files(), {
+                                                               .status_root = root / "status",
+                                                               .history_root = root / "history",
+                                                               .profile_name = "Default backup",
+                                                               .source_count = 1,
+                                                               .started_at = "2026-08-23T12:00:00Z",
+                                                           });
 
     btrfsbackup::BackupRunEvent failed = event(btrfsbackup::BackupRunEventKind::ActionFailed);
     failed.action_kind = btrfsbackup::BackupRunActionKind::CommitReceived;
