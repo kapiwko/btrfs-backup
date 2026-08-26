@@ -20,8 +20,9 @@
 #include <config/model/profile.hpp>
 #include <config/profile_artifact_renderer.hpp>
 #include <config/profile_configuration_transaction.hpp>
+#include <config/profile_fingerprint.hpp>
 #include <config/profile_installer.hpp>
-#include <config/profile_loader.hpp>
+#include <config/profile_repository.hpp>
 #include <config/profile_render.hpp>
 #include <platform/linux/file_io.hpp>
 #include <platform/linux/file_lock.hpp>
@@ -106,40 +107,10 @@ Json valid_profile() {
         {"profileId", "default"},
         {"name", "Default backup"},
         {"enabled", true},
-        {"target", {
-            {"device", "/dev/disk/by-uuid/11111111-2222-3333-4444-555555555555"},
-            {"luksUuid", "11111111-2222-3333-4444-555555555555"},
-            {"btrfsUuid", "66666666-7777-8888-9999-aaaaaaaaaaaa"},
-            {"partitionUuid", "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"},
-            {"serial", "SERIAL_123"},
-            {"mapperName", "backupdisk"}
-        }},
-        {"paths", {
-            {"remoteRoot", "/mnt/btrfs-backup/default/snapshots"},
-            {"incomingRoot", "/mnt/btrfs-backup/default/.incoming"}
-        }},
-        {"settings", {
-            {"dailyLimit", true},
-            {"incrementalRequired", true},
-            {"keepFailedLocalSnapshot", false},
-            {"autoEject", true},
-            {"remoteRetention", 30},
-            {"localRetention", 20},
-            {"minimumTargetFreeBytes", 5368709120LL},
-            {"minimumLocalFreeBytes", 1073741824LL}
-        }},
-        {"sources", Json::array({
-            {
-                {"id", "home"},
-                {"name", "Home"},
-                {"enabled", true},
-                {"subvolume", "/home"},
-                {"localSnapshotDir", "/.snapshots/btrfs-backup/home"},
-                {"remoteSubdir", "home"},
-                {"remoteRetention", 30},
-                {"localRetention", 20}
-            }
-        })}
+        {"target", {{"device", "/dev/disk/by-uuid/11111111-2222-3333-4444-555555555555"}, {"luksUuid", "11111111-2222-3333-4444-555555555555"}, {"btrfsUuid", "66666666-7777-8888-9999-aaaaaaaaaaaa"}, {"partitionUuid", "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"}, {"serial", "SERIAL_123"}, {"mapperName", "backupdisk"}}},
+        {"paths", {{"remoteRoot", "/mnt/btrfs-backup/default/snapshots"}, {"incomingRoot", "/mnt/btrfs-backup/default/.incoming"}}},
+        {"settings", {{"dailyLimit", true}, {"incrementalRequired", true}, {"keepFailedLocalSnapshot", false}, {"autoEject", true}, {"remoteRetention", 30}, {"localRetention", 20}, {"minimumTargetFreeBytes", 5368709120LL}, {"minimumLocalFreeBytes", 1073741824LL}}},
+        {"sources", Json::array({{{"id", "home"}, {"name", "Home"}, {"enabled", true}, {"subvolume", "/home"}, {"localSnapshotDir", "/.snapshots/btrfs-backup/home"}, {"remoteSubdir", "home"}, {"remoteRetention", 30}, {"localRetention", 20}}})}
     };
 }
 
@@ -153,6 +124,27 @@ fs::path test_root() {
 std::string read_text(const fs::path& path) {
     std::ifstream stream(path);
     return {std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()};
+}
+
+void test_profile_fingerprint_matches_legacy_stream() {
+    const fs::path root = test_root();
+    {
+        std::ofstream(root / "main.env") << "A=1\n";
+        std::ofstream(root / "10-root.conf") << "SOURCE_NAME=root\n";
+        std::ofstream(root / "20-home.conf") << "SOURCE_NAME=home\n";
+    }
+
+    const std::string digest = btrfsbackup::compute_config_fingerprint(
+        "2.0.0",
+        root / "main.env",
+        {root / "10-root.conf", root / "20-home.conf"}
+    );
+    expect_true(
+        "profile fingerprint",
+        digest == "f125982c7f64868550006c139bdba904248a93b4118afcc2332190e516494c34",
+        "fingerprint changed"
+    );
+    fs::remove_all(root);
 }
 
 void test_rejects_bad_uuid() {
@@ -250,9 +242,7 @@ void test_profile_rejects_system_path_overrides() {
 void test_mount_point_is_application_controlled() {
     Json raw = valid_profile();
     raw["target"]["mountPoint"] = "/home/alice/backup";
-    expect_validation_error("profile mount point rejected", [&] {
-        (void)btrfsbackup::normalize_profile(raw);
-    }, "application-controlled");
+    expect_validation_error("profile mount point rejected", [&] { (void)btrfsbackup::normalize_profile(raw); }, "application-controlled");
 
     Json custom = valid_profile();
     custom["paths"] = Json::object();
@@ -278,22 +268,8 @@ void test_profile_rejects_removed_notifications() {
 void test_profile_hooks_round_trip_as_explicit_program_arguments() {
     Json raw = valid_profile();
     raw["hooks"] = {
-        {"beforeSnapshot", Json::array({
-            {
-                {"type", "program"},
-                {"program", "/etc/btrfs-backup/hooks.d/prepare-postgresql-backup"},
-                {"arguments", Json::array({"--mode", "snapshot"})},
-                {"timeoutSeconds", 45}
-            }
-        })},
-        {"afterSnapshot", Json::array({
-            {
-                {"type", "program"},
-                {"program", "/etc/btrfs-backup/hooks.d/resume-postgresql"},
-                {"arguments", Json::array()},
-                {"timeoutSeconds", 30}
-            }
-        })}
+        {"beforeSnapshot", Json::array({{{"type", "program"}, {"program", "/etc/btrfs-backup/hooks.d/prepare-postgresql-backup"}, {"arguments", Json::array({"--mode", "snapshot"})}, {"timeoutSeconds", 45}}})},
+        {"afterSnapshot", Json::array({{{"type", "program"}, {"program", "/etc/btrfs-backup/hooks.d/resume-postgresql"}, {"arguments", Json::array()}, {"timeoutSeconds", 30}}})}
     };
 
     btrfsbackup::Profile profile = btrfsbackup::profile_from_json(raw);
@@ -311,38 +287,19 @@ void test_profile_hooks_round_trip_as_explicit_program_arguments() {
 void test_profile_rejects_unsafe_hook_shape() {
     Json raw = valid_profile();
     raw["hooks"] = {
-        {"beforeSnapshot", Json::array({
-            {
-                {"type", "program"},
-                {"program", "/etc/btrfs-backup/hooks.d/prepare"},
-                {"arguments", Json::array()}
-            }
-        })}
+        {"beforeSnapshot", Json::array({{{"type", "program"}, {"program", "/etc/btrfs-backup/hooks.d/prepare"}, {"arguments", Json::array()}}})}
     };
     expect_validation_error("hook timeout required", [&] { btrfsbackup::normalize_profile(raw); }, "timeoutSeconds is required");
 
     raw = valid_profile();
     raw["hooks"] = {
-        {"beforeSnapshot", Json::array({
-            {
-                {"type", "shell"},
-                {"program", "/etc/btrfs-backup/hooks.d/prepare"},
-                {"arguments", Json::array()}
-            }
-        })}
+        {"beforeSnapshot", Json::array({{{"type", "shell"}, {"program", "/etc/btrfs-backup/hooks.d/prepare"}, {"arguments", Json::array()}}})}
     };
     expect_validation_error("hook type", [&] { btrfsbackup::normalize_profile(raw); }, "type must be program");
 
     raw = valid_profile();
     raw["hooks"] = {
-        {"beforeSnapshot", Json::array({
-            {
-                {"type", "program"},
-                {"program", "prepare"},
-                {"arguments", Json::array()},
-                {"timeoutSeconds", 30}
-            }
-        })}
+        {"beforeSnapshot", Json::array({{{"type", "program"}, {"program", "prepare"}, {"arguments", Json::array()}, {"timeoutSeconds", 30}}})}
     };
     expect_validation_error("hook program absolute", [&] { btrfsbackup::normalize_profile(raw); }, "absolute path");
 
@@ -362,14 +319,7 @@ void test_profile_rejects_unsafe_hook_shape() {
 
     raw = valid_profile();
     raw["hooks"] = {
-        {"beforeSnapshot", Json::array({
-            {
-                {"type", "program"},
-                {"program", "/etc/btrfs-backup/hooks.d/prepare"},
-                {"arguments", Json::array()},
-                {"timeoutSeconds", 0}
-            }
-        })}
+        {"beforeSnapshot", Json::array({{{"type", "program"}, {"program", "/etc/btrfs-backup/hooks.d/prepare"}, {"arguments", Json::array()}, {"timeoutSeconds", 0}}})}
     };
     expect_validation_error("hook timeout positive", [&] { btrfsbackup::normalize_profile(raw); }, "outside the supported range");
 }
@@ -711,10 +661,7 @@ void test_profile_installation_reports_incomplete_rollback() {
         );
         bool reported_restore_failure = false;
         for (const btrfsbackup::RollbackError& rollback_error : error.rollback_result.errors) {
-            if (rollback_error.operation == "restore previous artifact"
-                && rollback_error.path.filename().string().starts_with(
-                    ".99-btrfs-backup-default.rules.previous-"
-                )) {
+            if (rollback_error.operation == "restore previous artifact" && rollback_error.path.filename().string().starts_with(".99-btrfs-backup-default.rules.previous-")) {
                 reported_restore_failure = true;
             }
         }
@@ -779,6 +726,7 @@ void test_render_udev_optional_matches() {
 } // namespace
 
 int main() {
+    test_profile_fingerprint_matches_legacy_stream();
     test_rejects_bad_uuid();
     test_rejects_bad_configuration_generation();
     test_rejects_missing_btrfs_uuid();

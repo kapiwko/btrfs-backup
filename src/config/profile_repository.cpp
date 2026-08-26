@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <config/profile_loader.hpp>
+#include <config/profile_repository.hpp>
 
 #include <cstdlib>
 #include <filesystem>
@@ -10,6 +10,7 @@
 
 #include <core/errors.hpp>
 #include <config/application_config.hpp>
+#include <config/profile_fingerprint.hpp>
 #include <core/identifiers.hpp>
 #include <config/model/json.hpp>
 #include <config/model/profile.hpp>
@@ -45,6 +46,30 @@ Profile load_profile_by_id(const fs::path& etc_root, const std::string& profile_
         throw ValidationError("profile configuration generation does not match the active systemd unit");
     }
     return profile;
+}
+
+FileProfileRepository::FileProfileRepository(fs::path config_root)
+    : FileProfileRepository(config_root, ApplicationConfig::load(config_root)) {
+}
+
+FileProfileRepository::FileProfileRepository(fs::path config_root, ApplicationConfig application_config)
+    : config_root_(std::move(config_root)), application_config_(std::move(application_config)) {
+}
+
+Profile FileProfileRepository::get(const ProfileId& profile_id) const {
+    return load_profile_by_id(config_root_, std::string(profile_id.value()));
+}
+
+const ApplicationPaths& FileProfileRepository::application_paths() const {
+    return application_config_.paths();
+}
+
+std::string FileProfileRepository::fingerprint(const Profile& profile) const {
+    return compute_config_fingerprint(
+        "2.0.0",
+        config_root_ / "profiles" / profile.id.value() / "profile.json",
+        {}
+    );
 }
 
 } // namespace btrfsbackup
