@@ -9,6 +9,7 @@
 #include <vector>
 
 #include <config/profile.hpp>
+#include <config/ports/configuration_activator.hpp>
 
 namespace btrfsbackup {
 
@@ -29,7 +30,11 @@ void render_profile(
     const std::filesystem::path& output_dir,
     const std::filesystem::path& target_mount_root = "/mnt/btrfs-backup"
 );
-Profile save_profile(const std::filesystem::path& file, const ProfileInstallationRoots& roots);
+Profile save_profile(
+    const std::filesystem::path& file,
+    const ProfileInstallationRoots& roots,
+    IConfigurationActivator& activator
+);
 Profile get_profile(const std::filesystem::path& etc_root, const std::string& profile_id);
 Profile export_profile(
     const std::filesystem::path& etc_root,

@@ -57,7 +57,11 @@ void usage() {
 
 namespace btrfsbackup::command {
 
-int profile(const std::vector<std::string>& args, const fs::path& profile_config_dir) {
+int profile(
+    const std::vector<std::string>& args,
+    const fs::path& profile_config_dir,
+    IConfigurationActivator& system_activator
+) {
     fs::path etc_root = std::getenv("BTRFS_BACKUP_ETC_ROOT") ? std::getenv("BTRFS_BACKUP_ETC_ROOT") : "/etc/btrfs-backup";
     fs::path udev_root = std::getenv("BTRFS_BACKUP_UDEV_ROOT") ? std::getenv("BTRFS_BACKUP_UDEV_ROOT") : "/etc/udev/rules.d";
     fs::path systemd_root = std::getenv("BTRFS_BACKUP_SYSTEMD_ROOT") ? std::getenv("BTRFS_BACKUP_SYSTEMD_ROOT") : "/etc/systemd/system";
@@ -141,7 +145,12 @@ int profile(const std::vector<std::string>& args, const fs::path& profile_config
             if (geteuid() != 0 && etc_root == "/etc/btrfs-backup") {
                 fail("save to system configuration must be run as root", 1);
             }
-            Profile profile = save_profile(file, {etc_root, udev_root, systemd_root, public_root});
+            const bool installs_system_configuration = fs::absolute(etc_root).lexically_normal() == fs::path("/etc/btrfs-backup") && fs::absolute(udev_root).lexically_normal() == fs::path("/etc/udev/rules.d") && fs::absolute(systemd_root).lexically_normal() == fs::path("/etc/systemd/system") && fs::absolute(public_root).lexically_normal() == fs::path("/var/lib/btrfs-backup/public/profiles");
+            NullConfigurationActivator null_activator;
+            IConfigurationActivator& activator = installs_system_configuration
+                ? system_activator
+                : static_cast<IConfigurationActivator&>(null_activator);
+            Profile profile = save_profile(file, {etc_root, udev_root, systemd_root, public_root}, activator);
             std::cout << "Saved profile " << profile.id.value() << "\n";
         } else if (command == "show") {
             std::cout << dump_json(profile_to_json(get_profile(etc_root, profile_id)));

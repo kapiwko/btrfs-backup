@@ -69,22 +69,8 @@ void record_rollback_error(
 
 } // namespace
 
-void NullProfileActivation::activate() {
-}
-
-FunctionProfileActivation::FunctionProfileActivation(std::function<void()> activate)
-    : activate_(std::move(activate)) {
-    if (!activate_) {
-        throw ValidationError("profile activation function is required");
-    }
-}
-
-void FunctionProfileActivation::activate() {
-    activate_();
-}
-
-ProfileInstaller::ProfileInstaller(ProfileArtifactRenderer& renderer, IProfileActivation& activation)
-    : renderer_(renderer), activation_(activation) {
+ProfileInstaller::ProfileInstaller(ProfileArtifactRenderer& renderer, IConfigurationActivator& activator)
+    : renderer_(renderer), activator_(activator) {
 }
 
 void ProfileInstaller::install_profile_transactionally(const Profile& profile, const ProfileArtifactRoots& roots) {
@@ -128,7 +114,7 @@ void ProfileInstaller::install_profile_transactionally(const Profile& profile, c
 
             transaction.publish_configuration();
             activation_attempted = true;
-            activation_.activate();
+            activator_.activate();
             transaction.publish_public_marker();
         } catch (...) {
             const std::string cause = current_exception_message();
@@ -148,7 +134,7 @@ void ProfileInstaller::install_profile_transactionally(const Profile& profile, c
             }
             if (activation_attempted) {
                 try {
-                    activation_.activate();
+                    activator_.activate();
                 } catch (const std::exception& error) {
                     record_rollback_error(rollback, "reactivate previous configuration", roots.systemd_root, error.what());
                 } catch (...) {

@@ -11,6 +11,7 @@
 #include <optional>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <unistd.h>
 
 #include <config/errors.hpp>
@@ -33,6 +34,20 @@ using btrfsbackup::Json;
 using btrfsbackup::ValidationError;
 
 int failures = 0;
+
+class FakeConfigurationActivator final : public btrfsbackup::IConfigurationActivator {
+  public:
+    explicit FakeConfigurationActivator(std::function<void()> activate)
+        : activate_(std::move(activate)) {
+    }
+
+    void activate() override {
+        activate_();
+    }
+
+  private:
+    std::function<void()> activate_;
+};
 
 void fail(const std::string& name, const std::string& message) {
     ++failures;
@@ -75,12 +90,12 @@ void install_test_profile_transactionally(
         .public_root = public_root,
     };
     if (activate) {
-        btrfsbackup::FunctionProfileActivation activation(activate);
-        btrfsbackup::ProfileInstaller installer(renderer, activation);
+        FakeConfigurationActivator activator(activate);
+        btrfsbackup::ProfileInstaller installer(renderer, activator);
         installer.install_profile_transactionally(profile, roots);
     } else {
-        btrfsbackup::NullProfileActivation activation;
-        btrfsbackup::ProfileInstaller installer(renderer, activation);
+        btrfsbackup::NullConfigurationActivator activator;
+        btrfsbackup::ProfileInstaller installer(renderer, activator);
         installer.install_profile_transactionally(profile, roots);
     }
 }
