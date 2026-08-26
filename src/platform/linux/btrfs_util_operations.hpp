@@ -8,7 +8,6 @@
 #include <optional>
 
 #include <backup/ports/btrfs_operations.hpp>
-#include <platform/linux/safe_directory_root.hpp>
 
 namespace btrfsbackup {
 
@@ -20,18 +19,18 @@ class LibBtrfsOperations final : public IBtrfsOperations {
     std::optional<SnapshotMetadata> read_snapshot_metadata(const std::filesystem::path& path) override;
     void create_readonly_snapshot(const std::filesystem::path& source, const std::filesystem::path& target) override;
     void delete_subvolume(const std::filesystem::path& path) override;
-    bool is_subvolume_beneath(const SafeDirectoryRoot& root, const std::filesystem::path& path) override;
+    bool is_subvolume_beneath(const ISafeDirectoryRoot& root, const std::filesystem::path& path) override;
     std::optional<SnapshotMetadata> read_snapshot_metadata_beneath(
-        const SafeDirectoryRoot& root,
+        const ISafeDirectoryRoot& root,
         const std::filesystem::path& path
     ) override;
     void create_readonly_snapshot_beneath(
-        const SafeDirectoryRoot& source_root,
+        const ISafeDirectoryRoot& source_root,
         const std::filesystem::path& source,
-        const SafeDirectoryRoot& target_root,
+        const ISafeDirectoryRoot& target_root,
         const std::filesystem::path& target
     ) override;
-    void delete_subvolume_beneath(const SafeDirectoryRoot& root, const std::filesystem::path& path) override;
+    void delete_subvolume_beneath(const ISafeDirectoryRoot& root, const std::filesystem::path& path) override;
 };
 
 } // namespace btrfsbackup

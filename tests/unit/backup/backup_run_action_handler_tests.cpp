@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <filesystem>
 #include <map>
+#include <memory>
 #include <optional>
 #include <string>
 #include <vector>
@@ -22,6 +23,7 @@
 #include <backup/action_handlers/retention_action_handler.hpp>
 #include <backup/action_handlers/snapshot_action_handler.hpp>
 #include <backup/action_handlers/transfer_action_handler.hpp>
+#include <platform/linux/safe_directory_root.hpp>
 
 #include "support/validation_test_helpers.hpp"
 
@@ -218,12 +220,25 @@ class ActionHandlerFixture final : public btrfsbackup::IBackupRunActionHandler {
         FakeCommandRunner& commands,
         const fs::path& target_root
     )
-        : snapshots_(btrfs, filesystem, "/"),
-          recovery_(btrfs, "/", target_root),
-          retention_(btrfs, "/", target_root),
+        : snapshots_(btrfs, filesystem, std::make_unique<btrfsbackup::SafeDirectoryRoot>("/")),
+          recovery_(
+              btrfs,
+              std::make_unique<btrfsbackup::SafeDirectoryRoot>("/"),
+              std::make_unique<btrfsbackup::SafeDirectoryRoot>(target_root)
+          ),
+          retention_(
+              btrfs,
+              std::make_unique<btrfsbackup::SafeDirectoryRoot>("/"),
+              std::make_unique<btrfsbackup::SafeDirectoryRoot>(target_root)
+          ),
           hooks_(commands, btrfsbackup::trusted_hook_directory, {}),
-          repository_(btrfs, filesystem, "/", target_root),
-          transfers_(filesystem, target_root),
+          repository_(
+              btrfs,
+              filesystem,
+              std::make_unique<btrfsbackup::SafeDirectoryRoot>("/"),
+              std::make_unique<btrfsbackup::SafeDirectoryRoot>(target_root)
+          ),
+          transfers_(filesystem, std::make_unique<btrfsbackup::SafeDirectoryRoot>(target_root)),
           dispatcher_(snapshots_, recovery_, retention_, hooks_, repository_, transfers_) {
     }
 
@@ -235,12 +250,25 @@ class ActionHandlerFixture final : public btrfsbackup::IBackupRunActionHandler {
         const fs::path& hook_root,
         const btrfsbackup::TrustedExecutablePolicy& hook_policy
     )
-        : snapshots_(btrfs, filesystem, "/"),
-          recovery_(btrfs, "/", target_root),
-          retention_(btrfs, "/", target_root),
+        : snapshots_(btrfs, filesystem, std::make_unique<btrfsbackup::SafeDirectoryRoot>("/")),
+          recovery_(
+              btrfs,
+              std::make_unique<btrfsbackup::SafeDirectoryRoot>("/"),
+              std::make_unique<btrfsbackup::SafeDirectoryRoot>(target_root)
+          ),
+          retention_(
+              btrfs,
+              std::make_unique<btrfsbackup::SafeDirectoryRoot>("/"),
+              std::make_unique<btrfsbackup::SafeDirectoryRoot>(target_root)
+          ),
           hooks_(commands, hook_root, hook_policy),
-          repository_(btrfs, filesystem, "/", target_root),
-          transfers_(filesystem, target_root),
+          repository_(
+              btrfs,
+              filesystem,
+              std::make_unique<btrfsbackup::SafeDirectoryRoot>("/"),
+              std::make_unique<btrfsbackup::SafeDirectoryRoot>(target_root)
+          ),
+          transfers_(filesystem, std::make_unique<btrfsbackup::SafeDirectoryRoot>(target_root)),
           dispatcher_(snapshots_, recovery_, retention_, hooks_, repository_, transfers_) {
     }
 

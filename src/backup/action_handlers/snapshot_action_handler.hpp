@@ -13,7 +13,7 @@ namespace btrfsbackup {
 
 class IBtrfsOperations;
 class IFileSystem;
-class SafeDirectoryRoot;
+class ISafeDirectoryRoot;
 
 class SnapshotActionHandler {
   public:
@@ -21,7 +21,7 @@ class SnapshotActionHandler {
     SnapshotActionHandler(
         IBtrfsOperations& btrfs,
         IFileSystem& filesystem,
-        const std::filesystem::path& local_root
+        std::unique_ptr<ISafeDirectoryRoot> local_root
     );
     ~SnapshotActionHandler();
 
@@ -30,7 +30,7 @@ class SnapshotActionHandler {
   private:
     IBtrfsOperations& btrfs_;
     IFileSystem& filesystem_;
-    std::unique_ptr<SafeDirectoryRoot> local_root_;
+    std::unique_ptr<ISafeDirectoryRoot> local_root_;
 };
 
 } // namespace btrfsbackup

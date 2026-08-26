@@ -4,8 +4,10 @@
 
 #include <backup/action_handlers/retention_action_handler.hpp>
 
+#include <utility>
+
 #include <backup/ports/btrfs_operations.hpp>
-#include <platform/linux/safe_directory_root.hpp>
+#include <backup/ports/safe_directory.hpp>
 
 namespace btrfsbackup {
 
@@ -14,12 +16,12 @@ RetentionActionHandler::RetentionActionHandler(IBtrfsOperations& btrfs) : btrfs_
 
 RetentionActionHandler::RetentionActionHandler(
     IBtrfsOperations& btrfs,
-    const std::filesystem::path& local_root,
-    const std::filesystem::path& target_root
+    std::unique_ptr<ISafeDirectoryRoot> local_root,
+    std::unique_ptr<ISafeDirectoryRoot> target_root
 )
     : btrfs_(btrfs),
-      local_root_(std::make_unique<SafeDirectoryRoot>(local_root)),
-      target_root_(std::make_unique<SafeDirectoryRoot>(target_root)) {
+      local_root_(std::move(local_root)),
+      target_root_(std::move(target_root)) {
 }
 
 RetentionActionHandler::~RetentionActionHandler() = default;
@@ -32,7 +34,7 @@ void RetentionActionHandler::handle(const ApplyLocalRetentionAction& action) {
     apply(action.plan, local_root_.get());
 }
 
-void RetentionActionHandler::apply(const RetentionPlan& plan, const SafeDirectoryRoot* root) {
+void RetentionActionHandler::apply(const RetentionPlan& plan, const ISafeDirectoryRoot* root) {
     for (const SnapshotInfo& snapshot : plan.delete_snapshots) {
         if (root == nullptr) {
             btrfs_.delete_subvolume(snapshot.path);

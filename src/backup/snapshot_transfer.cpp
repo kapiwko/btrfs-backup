@@ -11,7 +11,6 @@
 #include <vector>
 
 #include <core/errors.hpp>
-#include <platform/linux/safe_directory_root.hpp>
 
 namespace fs = std::filesystem;
 
@@ -85,8 +84,7 @@ void commit_received_snapshot(
         } catch (const std::exception& cleanup_error) {
             throw RecoveryRequiredError(
                 "repository.recovery_required",
-                verification_error + "; cleanup failed for " + final_path.string() + ": "
-                    + cleanup_error.what() + "; repository requires recovery"
+                verification_error + "; cleanup failed for " + final_path.string() + ": " + cleanup_error.what() + "; repository requires recovery"
             );
         }
         throw ValidationError(verification_error);
@@ -95,7 +93,7 @@ void commit_received_snapshot(
 
 void commit_received_snapshot_beneath(
     IBtrfsOperations& btrfs,
-    const SafeDirectoryRoot& root,
+    const ISafeDirectoryRoot& root,
     const fs::path& received_path,
     const fs::path& final_path,
     const std::string& expected_received_uuid
@@ -114,8 +112,7 @@ void commit_received_snapshot_beneath(
         } catch (const std::exception& cleanup_error) {
             throw RecoveryRequiredError(
                 "repository.recovery_required",
-                verification_error + "; cleanup failed for " + final_path.string() + ": "
-                    + cleanup_error.what() + "; repository requires recovery"
+                verification_error + "; cleanup failed for " + final_path.string() + ": " + cleanup_error.what() + "; repository requires recovery"
             );
         }
         throw ValidationError(verification_error);

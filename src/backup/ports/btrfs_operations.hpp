@@ -8,10 +8,9 @@
 #include <optional>
 
 #include <backup/model/snapshot_inventory.hpp>
+#include <backup/ports/safe_directory.hpp>
 
 namespace btrfsbackup {
-
-class SafeDirectoryRoot;
 
 class IBtrfsOperations {
   public:
@@ -20,18 +19,18 @@ class IBtrfsOperations {
     virtual std::optional<SnapshotMetadata> read_snapshot_metadata(const std::filesystem::path& path) = 0;
     virtual void create_readonly_snapshot(const std::filesystem::path& source, const std::filesystem::path& target) = 0;
     virtual void delete_subvolume(const std::filesystem::path& path) = 0;
-    virtual bool is_subvolume_beneath(const SafeDirectoryRoot& root, const std::filesystem::path& path);
+    virtual bool is_subvolume_beneath(const ISafeDirectoryRoot& root, const std::filesystem::path& path);
     virtual std::optional<SnapshotMetadata> read_snapshot_metadata_beneath(
-        const SafeDirectoryRoot& root,
+        const ISafeDirectoryRoot& root,
         const std::filesystem::path& path
     );
     virtual void create_readonly_snapshot_beneath(
-        const SafeDirectoryRoot& source_root,
+        const ISafeDirectoryRoot& source_root,
         const std::filesystem::path& source,
-        const SafeDirectoryRoot& target_root,
+        const ISafeDirectoryRoot& target_root,
         const std::filesystem::path& target
     );
-    virtual void delete_subvolume_beneath(const SafeDirectoryRoot& root, const std::filesystem::path& path);
+    virtual void delete_subvolume_beneath(const ISafeDirectoryRoot& root, const std::filesystem::path& path);
 };
 
 } // namespace btrfsbackup

@@ -4,8 +4,10 @@
 
 #include <backup/action_handlers/recovery_action_handler.hpp>
 
+#include <utility>
+
 #include <backup/ports/btrfs_operations.hpp>
-#include <platform/linux/safe_directory_root.hpp>
+#include <backup/ports/safe_directory.hpp>
 #include <state/run_state.hpp>
 
 namespace btrfsbackup {
@@ -15,12 +17,12 @@ RecoveryActionHandler::RecoveryActionHandler(IBtrfsOperations& btrfs) : btrfs_(b
 
 RecoveryActionHandler::RecoveryActionHandler(
     IBtrfsOperations& btrfs,
-    const std::filesystem::path& local_root,
-    const std::filesystem::path& target_root
+    std::unique_ptr<ISafeDirectoryRoot> local_root,
+    std::unique_ptr<ISafeDirectoryRoot> target_root
 )
     : btrfs_(btrfs),
-      local_root_(std::make_unique<SafeDirectoryRoot>(local_root)),
-      target_root_(std::make_unique<SafeDirectoryRoot>(target_root)) {
+      local_root_(std::move(local_root)),
+      target_root_(std::move(target_root)) {
 }
 
 RecoveryActionHandler::~RecoveryActionHandler() = default;
