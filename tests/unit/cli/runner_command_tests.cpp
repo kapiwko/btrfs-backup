@@ -21,8 +21,10 @@
 #include <cli/runner_command.hpp>
 #include <cli/backup_tool.hpp>
 #include <backup/backup_service_adapters.hpp>
+#include <backup/file_run_state_repository.hpp>
 #include <config/profile_fingerprint.hpp>
 #include <platform/linux/file_lock.hpp>
+#include <platform/linux/file_backup_run_lease_provider.hpp>
 #include <platform/linux/posix_command_runner.hpp>
 #include <platform/linux/mount_info.hpp>
 #include <config/model/json.hpp>

@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <backup/target_service.hpp>
+#include <cli/target_service.hpp>
 
 #include <unistd.h>
 
@@ -132,8 +132,7 @@ bool mapper_has_mounts(
 ) {
     fs::path mapper = fs::path("/dev/mapper") / profile.target.mapper_name;
     for (const btrfsbackup::MountEntry& mount : mounts) {
-        if (btrfsbackup::normalized_path(btrfsbackup::strip_subvolume_suffix(mount.source))
-            == btrfsbackup::normalized_path(mapper)) {
+        if (btrfsbackup::normalized_path(btrfsbackup::strip_subvolume_suffix(mount.source)) == btrfsbackup::normalized_path(mapper)) {
             result.events.push_back({
                 .kind = btrfsbackup::TargetEventKind::MapperStillMounted,
                 .detail = mount.target,
@@ -254,15 +253,9 @@ TargetOperationResult eject_target(
 
     std::vector<MountEntry> mounts = resolved.read_mounts();
     if (mount_at(mounts, profile.target.mount_point).has_value()) {
-        if (!request.force
-            && !mount_uses_mapper(
-                mounts,
-                profile.target.mount_point,
-                fs::path("/dev/mapper") / profile.target.mapper_name
-            )) {
+        if (!request.force && !mount_uses_mapper(mounts, profile.target.mount_point, fs::path("/dev/mapper") / profile.target.mapper_name)) {
             throw ValidationError(
-                "Refusing to unmount " + profile.target.mount_point
-                + " because it is not backed by /dev/mapper/" + profile.target.mapper_name
+                "Refusing to unmount " + profile.target.mount_point + " because it is not backed by /dev/mapper/" + profile.target.mapper_name
             );
         }
         result.events.push_back({
@@ -287,14 +280,12 @@ TargetOperationResult eject_target(
     if (fs::exists(mapper)) {
         if (!request.force && !mapper_identity_matches(*resolved.commands, profile)) {
             throw ValidationError(
-                "Refusing to close mapper " + profile.target.mapper_name
-                + " because its underlying device does not match configuration."
+                "Refusing to close mapper " + profile.target.mapper_name + " because its underlying device does not match configuration."
             );
         }
         if (mapper_has_mounts(profile, resolved.read_mounts(), result)) {
             throw ValidationError(
-                "Refusing to close mapper " + profile.target.mapper_name
-                + " while it still has mounted filesystems."
+                "Refusing to close mapper " + profile.target.mapper_name + " while it still has mounted filesystems."
             );
         }
         result.events.push_back({

@@ -17,4 +17,20 @@ SafeDirectoryHandle open_trusted_executable(
     const TrustedExecutablePolicy& policy = {}
 );
 
+class PosixTrustedExecutableResolver final : public ITrustedExecutableResolver {
+  public:
+    PosixTrustedExecutableResolver(
+        std::filesystem::path trusted_root,
+        TrustedExecutablePolicy policy = {}
+    );
+
+    [[nodiscard]] std::unique_ptr<ITrustedExecutable> resolve(
+        const std::filesystem::path& program
+    ) const override;
+
+  private:
+    std::filesystem::path trusted_root_;
+    TrustedExecutablePolicy policy_;
+};
+
 } // namespace btrfsbackup
