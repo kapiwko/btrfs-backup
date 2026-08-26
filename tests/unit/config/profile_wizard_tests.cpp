@@ -116,7 +116,7 @@ btrfsbackup::ProfileWizardAnswers sample_answers() {
 void test_profile_from_wizard_answers() {
     btrfsbackup::Profile profile = btrfsbackup::profile_from_wizard_answers(sample_answers());
 
-    test_helpers::expect_eq("wizard profile id", profile.id, "laptop");
+    test_helpers::expect_eq("wizard profile id", std::string(profile.id.value()), "laptop");
     test_helpers::expect_eq("wizard profile name", profile.name, "Laptop backup");
     test_helpers::expect_eq("wizard target device", profile.target.device, "/dev/disk/by-uuid/AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE");
     test_helpers::expect_eq("wizard target luks uuid lower", profile.target.luks_uuid, "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
@@ -124,7 +124,7 @@ void test_profile_from_wizard_answers() {
     test_helpers::expect_eq("wizard remote root", profile.paths.remote_root, "/mnt/btrfs-backup/laptop/snapshots");
     test_helpers::expect_eq("wizard incoming root", profile.paths.incoming_root, "/mnt/btrfs-backup/laptop/.incoming");
     test_helpers::expect_eq("wizard source count", std::to_string(profile.sources.size()), "2");
-    test_helpers::expect_eq("wizard first source id", profile.sources.at(0).id, "root");
+    test_helpers::expect_eq("wizard first source id", std::string(profile.sources.at(0).id.value()), "root");
     test_helpers::expect_eq("wizard second source subvolume", profile.sources.at(1).subvolume, "/home");
     test_helpers::expect_eq("wizard source remote retention", std::to_string(profile.sources.at(0).remote_retention), "45");
     test_helpers::expect_eq("wizard source local retention", std::to_string(profile.sources.at(1).local_retention), "12");
@@ -137,8 +137,7 @@ void test_profile_from_wizard_answers_validation() {
     test_helpers::expect_validation_error("wizard invalid profile id", [] {
         auto answers = sample_answers();
         answers.profile_id = "../bad";
-        (void)btrfsbackup::profile_from_wizard_answers(answers);
-    }, "profileId");
+        (void)btrfsbackup::profile_from_wizard_answers(answers); }, "invalid profile id");
 
     test_helpers::expect_validation_error("wizard duplicate sources", [] {
         auto answers = sample_answers();
@@ -208,19 +207,6 @@ void test_render_wizard_tree() {
     );
     test_helpers::expect_eq(
         "wizard preserves unmarked file",
-        read_file(root / "unmarked" / "important.txt"),
-        "keep me"
-    );
-
-    btrfsbackup::Profile invalid = profile;
-    invalid.id = "../invalid";
-    test_helpers::expect_validation_error(
-        "wizard validates before output access",
-        [&] { btrfsbackup::render_wizard_tree(invalid, answers.keyfile, root / "unmarked"); },
-        "profileId"
-    );
-    test_helpers::expect_eq(
-        "wizard invalid profile preserves unmarked file",
         read_file(root / "unmarked" / "important.txt"),
         "keep me"
     );

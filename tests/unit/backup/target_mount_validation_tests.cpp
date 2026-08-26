@@ -15,8 +15,7 @@ namespace fs = std::filesystem;
 namespace {
 
 btrfsbackup::Profile profile(const fs::path& mount_point = "/mnt/backup") {
-    btrfsbackup::Profile result;
-    result.id = "default";
+    btrfsbackup::Profile result{btrfsbackup::ProfileId{"default"}};
     result.target.mapper_name = "backup";
     result.target.mount_point = mount_point.string();
     result.target.btrfs_uuid = "target-fs";

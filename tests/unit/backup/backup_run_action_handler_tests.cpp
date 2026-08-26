@@ -271,8 +271,7 @@ btrfsbackup::BackupRunPlan run_plan() {
 }
 
 btrfsbackup::BackupSourceRunPlan source_plan(const fs::path& root) {
-    btrfsbackup::BackupSourceRunPlan source;
-    source.source_id = btrfsbackup::SourceId{"root"};
+    btrfsbackup::BackupSourceRunPlan source{.source_id = btrfsbackup::SourceId{"root"}};
     source.source_subvolume = root / "source";
     source.local_snapshot_dir = root / "local";
     source.remote_snapshot_dir = root / "remote";
@@ -523,7 +522,7 @@ void test_failed_remote_recovery_keeps_local_snapshot_and_marker() {
     btrfsbackup::write_pending_marker(
         root / "state",
         btrfsbackup::PendingMarker{
-            .source_name = source.source_id.value,
+            .source_name = std::string(source.source_id.value()),
             .local_snapshot_path = source.local_snapshot_path.string(),
             .final_snapshot_path = source.final_remote_snapshot_path.string(),
             .run_id = "run-1",
@@ -563,8 +562,16 @@ void test_hook_actions_use_command_runner_argv() {
         std::to_string(hooks.controlled_options->timeout.count()),
         std::to_string(std::chrono::minutes(5).count() * 60 * 1000)
     );
-    test_helpers::expect_eq("hook profile environment", hooks.controlled_options->profile_id->value, "default");
-    test_helpers::expect_eq("hook source environment", hooks.controlled_options->source_id->value, "root");
+    test_helpers::expect_eq(
+        "hook profile environment",
+        std::string(hooks.controlled_options->profile_id->value()),
+        "default"
+    );
+    test_helpers::expect_eq(
+        "hook source environment",
+        std::string(hooks.controlled_options->source_id->value()),
+        "root"
+    );
 }
 
 void test_production_hook_uses_pinned_trusted_descriptor() {

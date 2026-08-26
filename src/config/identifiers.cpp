@@ -19,16 +19,28 @@ const std::regex run_id_re{"^[A-Za-z0-9][A-Za-z0-9._:-]*$"};
 
 namespace btrfsbackup {
 
-ProfileId::ProfileId(std::string input) : value(std::move(input)) {
-    validate_profile_id(value);
+ProfileId::ProfileId(std::string value) : value_(std::move(value)) {
+    validate_profile_id(value_);
 }
 
-RunId::RunId(std::string input) : value(std::move(input)) {
-    validate_run_id(value);
+std::string_view ProfileId::value() const noexcept {
+    return value_;
 }
 
-SourceId::SourceId(std::string input) : value(std::move(input)) {
-    validate_identifier(value, "sourceId");
+RunId::RunId(std::string value) : value_(std::move(value)) {
+    validate_run_id(value_);
+}
+
+std::string_view RunId::value() const noexcept {
+    return value_;
+}
+
+SourceId::SourceId(std::string value) : value_(std::move(value)) {
+    validate_identifier(value_, "sourceId");
+}
+
+std::string_view SourceId::value() const noexcept {
+    return value_;
 }
 
 void validate_identifier(const std::string& value, const std::string& field_name) {

@@ -38,7 +38,9 @@ class RecordingActionHandler final : public btrfsbackup::IBackupRunActionHandler
         btrfsbackup::CancellationToken&
     ) override {
         const btrfsbackup::BackupRunActionKind kind = btrfsbackup::backup_run_action_kind(action);
-        calls.push_back(btrfsbackup::backup_run_action_source_id(action).value + ":" + action_name(kind));
+        calls.push_back(
+            std::string(btrfsbackup::backup_run_action_source_id(action).value()) + ":" + action_name(kind)
+        );
         if (should_throw && kind == throw_on) {
             if (operation_cancelled) {
                 throw btrfsbackup::OperationCancelledError("hook cancelled");
@@ -190,8 +192,7 @@ btrfsbackup::BackupRunAction action(btrfsbackup::BackupRunActionKind kind) {
 }
 
 btrfsbackup::BackupRunPlan plan_with_actions(std::vector<btrfsbackup::BackupRunAction> actions) {
-    btrfsbackup::BackupSourceRunPlan source;
-    source.source_id = btrfsbackup::SourceId{"root"};
+    btrfsbackup::BackupSourceRunPlan source{.source_id = btrfsbackup::SourceId{"root"}};
     source.local_snapshot_path = "/.snapshots/root/root-2026-08-23T080000Z";
     source.incoming_run_dir = "/mnt/backup/.incoming/root/run-1";
     source.actions = std::move(actions);
@@ -380,8 +381,7 @@ void test_multi_source_progress_accumulates_run_bytes() {
     btrfsbackup::ThreadedAsyncTransferPipeline async_transfers(transfers);
     btrfsbackup::BackupRunExecutor executor(handler, async_transfers, checkpoints);
 
-    btrfsbackup::BackupSourceRunPlan home;
-    home.source_id = btrfsbackup::SourceId{"home"};
+    btrfsbackup::BackupSourceRunPlan home{.source_id = btrfsbackup::SourceId{"home"}};
     home.local_snapshot_path = "/.snapshots/home/home-2026-08-23T080000Z";
     home.incoming_run_dir = "/mnt/backup/.incoming/home/run-1";
     home.actions = {
@@ -394,8 +394,7 @@ void test_multi_source_progress_accumulates_run_bytes() {
         },
     };
 
-    btrfsbackup::BackupSourceRunPlan root;
-    root.source_id = btrfsbackup::SourceId{"root"};
+    btrfsbackup::BackupSourceRunPlan root{.source_id = btrfsbackup::SourceId{"root"}};
     root.local_snapshot_path = "/.snapshots/root/root-2026-08-23T080000Z";
     root.incoming_run_dir = "/mnt/backup/.incoming/root/run-1";
     root.actions = {

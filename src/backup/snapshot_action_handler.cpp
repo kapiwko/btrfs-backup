@@ -72,10 +72,10 @@ void SnapshotActionHandler::handle(const CreateSnapshotAction& action) {
     write_pending_marker(
         action.profile_state_directory,
         PendingMarker{
-            .source_name = action.source_id.value,
+            .source_name = std::string(action.source_id.value()),
             .local_snapshot_path = action.snapshot.string(),
             .final_snapshot_path = action.final_remote_snapshot.string(),
-            .run_id = action.run_id.value,
+            .run_id = std::string(action.run_id.value()),
             .timestamp = current_utc_iso_timestamp(),
         }
     );
