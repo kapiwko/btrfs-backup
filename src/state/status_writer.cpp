@@ -11,9 +11,9 @@
 #include <sys/stat.h>
 #include <variant>
 
-#include <config/errors.hpp>
+#include <core/errors.hpp>
 #include <platform/linux/file_io.hpp>
-#include <config/identifiers.hpp>
+#include <core/identifiers.hpp>
 #include <config/json_io.hpp>
 
 namespace fs = std::filesystem;

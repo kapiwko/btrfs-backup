@@ -10,7 +10,7 @@
 #include <string>
 #include <vector>
 
-#include <config/errors.hpp>
+#include <core/errors.hpp>
 #include <platform/linux/safe_directory_root.hpp>
 
 namespace fs = std::filesystem;

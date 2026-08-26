@@ -16,8 +16,8 @@
 #include <utility>
 #include <vector>
 
-#include <config/errors.hpp>
-#include <config/identifiers.hpp>
+#include <core/errors.hpp>
+#include <core/identifiers.hpp>
 #include <config/profile.hpp>
 #include <platform/linux/device_info.hpp>
 #include <platform/linux/mount_info.hpp>

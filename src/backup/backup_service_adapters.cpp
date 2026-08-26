@@ -14,7 +14,7 @@
 #include <backup/backup_run.hpp>
 #include <backup/pending_recovery_plan.hpp>
 #include <backup/target_mount_validation.hpp>
-#include <config/errors.hpp>
+#include <core/errors.hpp>
 #include <config/profile_loader.hpp>
 #include <platform/linux/file_lock.hpp>
 #include <platform/linux/safe_directory_root.hpp>

@@ -11,7 +11,7 @@
 
 #include <btrfsutil.h>
 
-#include <config/errors.hpp>
+#include <core/errors.hpp>
 #include <backup/snapshot_inventory.hpp>
 
 namespace fs = std::filesystem;

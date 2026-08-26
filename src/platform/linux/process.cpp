@@ -14,7 +14,7 @@
 #include <chrono>
 #include <cstring>
 
-#include <config/errors.hpp>
+#include <core/errors.hpp>
 #include <platform/linux/process_spawn.hpp>
 #include <platform/linux/posix_cancellation_signal.hpp>
 

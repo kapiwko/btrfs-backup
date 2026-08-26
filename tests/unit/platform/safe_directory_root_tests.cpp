@@ -5,7 +5,7 @@
 #include <filesystem>
 #include <fstream>
 
-#include <config/errors.hpp>
+#include <core/errors.hpp>
 #include <platform/linux/safe_directory_root.hpp>
 
 #include "support/validation_test_helpers.hpp"

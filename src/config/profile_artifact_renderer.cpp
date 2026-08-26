@@ -12,7 +12,7 @@
 #include <string>
 #include <utility>
 
-#include <config/errors.hpp>
+#include <core/errors.hpp>
 #include <config/json.hpp>
 #include <config/json_io.hpp>
 #include <config/profile_render.hpp>

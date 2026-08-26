@@ -11,7 +11,7 @@
 #include <utility>
 
 #include <config/application_config.hpp>
-#include <config/errors.hpp>
+#include <core/errors.hpp>
 #include <config/json_io.hpp>
 #include <config/profile_configuration_transaction.hpp>
 #include <platform/linux/file_lock.hpp>

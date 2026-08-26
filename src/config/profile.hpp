@@ -13,7 +13,7 @@
 #include <utility>
 #include <vector>
 
-#include <config/identifiers.hpp>
+#include <core/identifiers.hpp>
 #include <config/json.hpp>
 
 namespace btrfsbackup {

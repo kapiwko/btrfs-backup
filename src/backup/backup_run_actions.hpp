@@ -12,7 +12,7 @@
 #include <backup/backup_run_action.hpp>
 #include <backup/pending_recovery_plan.hpp>
 #include <backup/retention_plan.hpp>
-#include <config/identifiers.hpp>
+#include <core/identifiers.hpp>
 #include <config/profile.hpp>
 
 namespace btrfsbackup {

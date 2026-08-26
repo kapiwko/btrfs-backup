@@ -12,7 +12,7 @@
 #include <string>
 #include <type_traits>
 
-#include <config/errors.hpp>
+#include <core/errors.hpp>
 #include <platform/linux/safe_directory_root.hpp>
 #include <backup/snapshot_transfer.hpp>
 

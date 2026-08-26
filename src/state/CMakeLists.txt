@@ -11,7 +11,7 @@ target_restricted_include_directories(btrfsbackup-state-model
     PUBLIC_HEADERS
         state/run_status.hpp
 )
-target_link_libraries(btrfsbackup-state-model PUBLIC btrfsbackup-core btrfsbackup-identifier-model)
+target_link_libraries(btrfsbackup-state-model PUBLIC btrfsbackup-core)
 
 add_library(btrfsbackup-state STATIC
     backup_run_serialization.cpp

@@ -8,7 +8,7 @@
 #include <functional>
 #include <string>
 
-#include <config/errors.hpp>
+#include <core/errors.hpp>
 
 #include "support/test_helpers.hpp"
 

@@ -10,7 +10,7 @@
 #include <string>
 #include <variant>
 
-#include <config/identifiers.hpp>
+#include <core/identifiers.hpp>
 #include <core/error_code.hpp>
 
 namespace btrfsbackup {

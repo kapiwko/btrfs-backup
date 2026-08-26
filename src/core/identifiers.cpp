@@ -2,13 +2,13 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <config/identifiers.hpp>
+#include <core/identifiers.hpp>
 
 #include <regex>
 #include <string>
 #include <utility>
 
-#include <config/errors.hpp>
+#include <core/errors.hpp>
 
 namespace {
 

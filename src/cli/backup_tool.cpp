@@ -13,7 +13,7 @@
 
 #include <cli/runner_command.hpp>
 #include <cli/target_command.hpp>
-#include <config/errors.hpp>
+#include <core/errors.hpp>
 #include <config/profile_loader.hpp>
 #include <core/cancellation.hpp>
 #include <platform/linux/termination_signal_monitor.hpp>
