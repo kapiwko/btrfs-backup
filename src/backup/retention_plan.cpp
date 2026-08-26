@@ -30,12 +30,9 @@ namespace btrfsbackup {
 RetentionPlan plan_count_retention(
     const std::string& source_id,
     const std::vector<SnapshotInfo>& snapshots,
-    long long keep_count
+    std::size_t keep_count
 ) {
     validate_identifier(source_id, "sourceId");
-    if (keep_count < 0) {
-        throw ValidationError("retention keep count must be non-negative");
-    }
 
     std::vector<SnapshotInfo> matching;
     for (const SnapshotInfo& snapshot : snapshots) {
@@ -52,14 +49,12 @@ RetentionPlan plan_count_retention(
         .delete_snapshots = {},
     };
 
-    if (keep_count == 0 || static_cast<long long>(matching.size()) <= keep_count) {
+    if (keep_count == 0 || matching.size() <= keep_count) {
         plan.keep = matching;
         return plan;
     }
 
-    const auto delete_count = static_cast<std::vector<SnapshotInfo>::difference_type>(
-        static_cast<long long>(matching.size()) - keep_count
-    );
+    const auto delete_count = static_cast<std::vector<SnapshotInfo>::difference_type>(matching.size() - keep_count);
     plan.delete_snapshots.assign(matching.begin(), matching.begin() + delete_count);
     plan.keep.assign(matching.begin() + delete_count, matching.end());
     return plan;

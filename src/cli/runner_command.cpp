@@ -159,7 +159,7 @@ btrfsbackup::Json action_to_json(
             {"type", "program"},
             {"program", hook_action->hook.program},
             {"arguments", hook_action->hook.arguments},
-            {"timeoutSeconds", hook_action->hook.timeout_seconds}
+            {"timeoutSeconds", hook_action->hook.timeout.count()}
         };
     }
     return result;

@@ -12,7 +12,7 @@ namespace fs = std::filesystem;
 
 namespace btrfsbackup {
 
-unsigned long long available_bytes(const fs::path& path) {
+std::uint64_t available_bytes(const fs::path& path) {
     std::error_code ec;
     fs::space_info info = fs::space(path, ec);
     if (ec) {
@@ -21,11 +21,11 @@ unsigned long long available_bytes(const fs::path& path) {
     return info.available;
 }
 
-void check_minimum_free_space(const fs::path& path, unsigned long long minimum_bytes, const std::string& label) {
+void check_minimum_free_space(const fs::path& path, std::uint64_t minimum_bytes, const std::string& label) {
     if (minimum_bytes == 0) {
         return;
     }
-    unsigned long long available = available_bytes(path);
+    const std::uint64_t available = available_bytes(path);
     if (available < minimum_bytes) {
         throw ValidationError(
             "Insufficient free space for " + label + " at " + path.string()
