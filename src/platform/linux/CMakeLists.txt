@@ -9,6 +9,7 @@ add_library(btrfsbackup-platform-linux STATIC
     file_io.cpp
     file_lock.cpp
     filesystem.cpp
+    linux_system_configuration_activator.cpp
     mount_info.cpp
     posix_cancellation_signal.cpp
     posix_transfer_pipeline.cpp

@@ -9,6 +9,7 @@
 #include <filesystem>
 #include <string>
 #include <system_error>
+#include <utility>
 
 #include <config/errors.hpp>
 #include <platform/linux/file_io.hpp>
@@ -19,12 +20,50 @@
 #include <config/profile_artifact_renderer.hpp>
 #include <config/profile_installer.hpp>
 #include <config/render_directory.hpp>
+#include <platform/linux/linux_system_configuration_activator.hpp>
 #include <platform/linux/process.hpp>
 #include <platform/linux/trusted_directory.hpp>
 
 namespace fs = std::filesystem;
 
 namespace btrfsbackup {
+
+namespace {
+
+class WizardConfigurationActivator final : public IConfigurationActivator {
+  public:
+    explicit WizardConfigurationActivator(fs::path rendered_root)
+        : rendered_root_(std::move(rendered_root)) {
+    }
+
+    void activate() override {
+        fs::copy_file(
+            rendered_root_ / "systemd" / "btrfs-backup.service",
+            "/etc/systemd/system/btrfs-backup.service",
+            fs::copy_options::overwrite_existing
+        );
+        fs::copy_file(
+            rendered_root_ / "systemd" / "btrfs-backup@.service",
+            "/etc/systemd/system/btrfs-backup@.service",
+            fs::copy_options::overwrite_existing
+        );
+        fs::copy_file(
+            rendered_root_ / "systemd" / "btrfs-backup-eject@.service",
+            "/etc/systemd/system/btrfs-backup-eject@.service",
+            fs::copy_options::overwrite_existing
+        );
+        std::error_code error;
+        fs::remove("/etc/udev/rules.d/99-btrfs-backup.rules", error);
+        run_command({"systemctl", "disable", "btrfs-backup.service"});
+        system_configuration_.activate();
+    }
+
+  private:
+    fs::path rendered_root_;
+    LinuxSystemConfigurationActivator system_configuration_;
+};
+
+} // namespace
 
 void render_wizard_tree(const Profile& profile, const std::string& keyfile, const fs::path& output_dir) {
     const fs::path target_mount_root = fs::path(profile.target.mount_point).parent_path();
@@ -38,8 +77,8 @@ void render_wizard_tree(const Profile& profile, const std::string& keyfile, cons
 
             atomic_write(staging / "config" / "profile.json", dump_json(profile_to_json(validated_profile)), 0600);
             ProfileArtifactRenderer renderer(generate_configuration_generation);
-            NullProfileActivation activation;
-            ProfileInstaller installer(renderer, activation);
+            NullConfigurationActivator activator;
+            ProfileInstaller installer(renderer, activator);
             installer.install_profile_transactionally(
                 validated_profile,
                 {
@@ -76,30 +115,9 @@ void apply_rendered_wizard_tree(const Profile& profile, const fs::path& output_d
     fs::create_directories("/var/lib/btrfs-backup/public/profiles");
     ensure_trusted_directory(profile.target.mount_point, 0755);
 
-    FunctionProfileActivation activation([&] {
-        fs::copy_file(
-            output_dir / "systemd" / "btrfs-backup.service",
-            "/etc/systemd/system/btrfs-backup.service",
-            fs::copy_options::overwrite_existing
-        );
-        fs::copy_file(
-            output_dir / "systemd" / "btrfs-backup@.service",
-            "/etc/systemd/system/btrfs-backup@.service",
-            fs::copy_options::overwrite_existing
-        );
-        fs::copy_file(
-            output_dir / "systemd" / "btrfs-backup-eject@.service",
-            "/etc/systemd/system/btrfs-backup-eject@.service",
-            fs::copy_options::overwrite_existing
-        );
-        std::error_code error;
-        fs::remove("/etc/udev/rules.d/99-btrfs-backup.rules", error);
-        run_command({"systemctl", "disable", "btrfs-backup.service"});
-        run_capture({"systemctl", "daemon-reload"});
-        run_capture({"udevadm", "control", "--reload-rules"});
-    });
+    WizardConfigurationActivator activator(output_dir);
     ProfileArtifactRenderer renderer(generate_configuration_generation);
-    ProfileInstaller installer(renderer, activation);
+    ProfileInstaller installer(renderer, activator);
     installer.install_profile_transactionally(
         profile,
         {

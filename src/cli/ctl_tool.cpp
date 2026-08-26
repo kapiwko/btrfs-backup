@@ -21,6 +21,7 @@
 #include <cli/target_command.hpp>
 #include <config/errors.hpp>
 #include <core/cancellation.hpp>
+#include <platform/linux/linux_system_configuration_activator.hpp>
 
 namespace fs = std::filesystem;
 
@@ -95,7 +96,8 @@ int ctl_tool_main(int argc, char** argv) {
         std::vector<std::string> args(rest.begin() + 1, rest.end());
 
         if (command == "profile") {
-            return command::profile(args, profile_config_dir);
+            LinuxSystemConfigurationActivator activator;
+            return command::profile(args, profile_config_dir, activator);
         } else if (command == "status") {
             bool help_requested = std::find(args.begin(), args.end(), "-h") != args.end()
                 || std::find(args.begin(), args.end(), "--help") != args.end();
