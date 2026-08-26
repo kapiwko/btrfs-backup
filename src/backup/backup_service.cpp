@@ -125,10 +125,10 @@ BackupExecutionResult BackupService::start(const BackupRequest& request) {
     state_.clear_cancel_request(request.profile_id);
 
     result.actions_completed = execution.actions_completed;
-    result.outcome = execution.completed
+    result.outcome = execution.outcome == BackupRunExecutionOutcome::Completed
         ? BackupExecutionOutcome::Completed
-        : (execution.cancelled ? BackupExecutionOutcome::Cancelled : BackupExecutionOutcome::Failed);
-    if (execution.completed) {
+        : BackupExecutionOutcome::Cancelled;
+    if (execution.outcome == BackupRunExecutionOutcome::Completed) {
         state_.write_success(
             profile,
             run_id,

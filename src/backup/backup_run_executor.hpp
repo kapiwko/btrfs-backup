@@ -14,9 +14,11 @@
 
 namespace btrfsbackup {
 
+enum class BackupRunExecutionOutcome { Completed,
+                                       Cancelled };
+
 struct BackupRunExecutionResult {
-    bool completed = false;
-    bool cancelled = false;
+    BackupRunExecutionOutcome outcome = BackupRunExecutionOutcome::Completed;
     std::size_t actions_completed = 0;
 };
 

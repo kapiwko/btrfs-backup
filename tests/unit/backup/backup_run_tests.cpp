@@ -57,7 +57,11 @@ void test_backup_run_owns_plan_and_executes_once() {
     btrfsbackup::NullBackupRunEventSink events;
     btrfsbackup::CancellationToken cancellation;
     btrfsbackup::BackupRunExecutionResult result = run.execute(events, cancellation);
-    test_helpers::expect_true("completed", result.completed, "empty run did not complete");
+    test_helpers::expect_true(
+        "completed",
+        result.outcome == btrfsbackup::BackupRunExecutionOutcome::Completed,
+        "empty run did not complete"
+    );
     test_helpers::expect_true("started", run.started(), "executed run is not marked as started");
 
     try {

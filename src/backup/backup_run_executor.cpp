@@ -241,7 +241,7 @@ BackupRunExecutionResult BackupRunExecutor::execute(
 
     for (const BackupSourceRunPlan& source : plan.sources) {
         if (cancellation.cancellation_requested()) {
-            result.cancelled = true;
+            result.outcome = BackupRunExecutionOutcome::Cancelled;
             emit_event(events, BackupRunEventKind::RunCancelled, plan, &source, BackupRunActionKind::CleanupSource);
             return result;
         }
@@ -251,7 +251,7 @@ BackupRunExecutionResult BackupRunExecutor::execute(
         for (const BackupRunAction& action : source.actions) {
             const BackupRunActionKind action_kind = backup_run_action_kind(action);
             if (cancellation.cancellation_requested()) {
-                result.cancelled = true;
+                result.outcome = BackupRunExecutionOutcome::Cancelled;
                 emit_event(events, BackupRunEventKind::RunCancelled, plan, &source, action_kind);
                 return result;
             }
@@ -292,12 +292,12 @@ BackupRunExecutionResult BackupRunExecutor::execute(
                 },
                            action);
                 if (transfer_cancelled) {
-                    result.cancelled = true;
+                    result.outcome = BackupRunExecutionOutcome::Cancelled;
                     emit_event(events, BackupRunEventKind::RunCancelled, plan, &source, action_kind);
                     return result;
                 }
             } catch (const OperationCancelledError& error) {
-                result.cancelled = true;
+                result.outcome = BackupRunExecutionOutcome::Cancelled;
                 emit_event(events, BackupRunEventKind::RunCancelled, plan, &source, action_kind, 0, 0, 0, 0, 0, 0, 0, ErrorCode::RunnerCancelled, error.what());
                 return result;
             } catch (const std::exception& error) {
@@ -319,7 +319,6 @@ BackupRunExecutionResult BackupRunExecutor::execute(
         emit_event(events, BackupRunEventKind::SourceCompleted, plan, &source, BackupRunActionKind::CleanupSource);
     }
 
-    result.completed = true;
     emit_event(events, BackupRunEventKind::RunCompleted, plan, nullptr, BackupRunActionKind::CleanupSource);
     return result;
 }
