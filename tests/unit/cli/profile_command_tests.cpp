@@ -4,10 +4,12 @@
 
 #include <filesystem>
 #include <string>
+#include <vector>
 
 #include <config/json.hpp>
 #include <config/json_io.hpp>
 #include <cli/profile_command.hpp>
+#include <config/ports/configuration_activator.hpp>
 
 #include "support/test_helpers.hpp"
 
@@ -23,7 +25,8 @@ void test_profile_create_writes_json() {
     fs::path root = test_root("profile-create");
     fs::path profile_json = root / "profile.json";
 
-    int result = btrfsbackup::command::profile({
+    btrfsbackup::NullConfigurationActivator activator;
+    const std::vector<std::string> args{
         "create",
         "--output",
         profile_json.string(),
@@ -51,7 +54,8 @@ void test_profile_create_writes_json() {
         "home",
         "2",
         "2",
-    });
+    };
+    int result = btrfsbackup::command::profile(args, "/etc/btrfs-backup/profiles.d", activator);
 
     test_helpers::expect_eq("profile create result", std::to_string(result), "0");
     btrfsbackup::Json profile = btrfsbackup::load_json_file(profile_json);
