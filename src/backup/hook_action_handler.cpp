@@ -79,7 +79,7 @@ void HookActionHandler::handle(
                                                     .source_id = action.source_id,
                                                 });
     } catch (const std::exception& error) {
-        throw CodedValidationError(
+        throw CodedOperationError(
             hook_error_code(action, "failed"),
             "hook execution failed: " + action.hook.program + ": " + error.what()
         );
@@ -88,14 +88,14 @@ void HookActionHandler::handle(
         throw OperationCancelledError("hook cancelled: " + action.hook.program);
     }
     if (result.timed_out) {
-        throw CodedValidationError(
+        throw CodedOperationError(
             hook_error_code(action, "timeout"),
             "hook timed out after " + std::to_string(action.hook.timeout.count()) + " seconds: " + action.hook.program
         );
     }
     if (result.exit_code != 0) {
         std::string message = "hook failed with exit code " + std::to_string(result.exit_code) + ": " + action.hook.program;
-        throw CodedValidationError(hook_error_code(action, "failed"), message);
+        throw CodedOperationError(hook_error_code(action, "failed"), message);
     }
 }
 

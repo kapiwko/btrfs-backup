@@ -614,7 +614,7 @@ void test_production_hook_uses_pinned_trusted_descriptor() {
     fs::remove_all(root);
 }
 
-void test_hook_failure_is_reported_as_validation_error() {
+void test_hook_failure_is_reported_as_system_operation_error() {
     fs::path root = test_helpers::test_root("backup-run-action-handler", "hook-failure");
     btrfsbackup::BackupSourceRunPlan source = source_plan(root);
     FakeBtrfsOperations btrfs;
@@ -623,7 +623,12 @@ void test_hook_failure_is_reported_as_validation_error() {
     hooks.exit_code = 42;
     ActionHandlerFixture handler(btrfs, fs_effects, hooks);
 
-    test_helpers::expect_validation_error("hook failure", [&] { handle_action(handler, hook_action(btrfsbackup::HookPhase::AfterSnapshot)); }, "hook failed");
+    try {
+        handle_action(handler, hook_action(btrfsbackup::HookPhase::AfterSnapshot));
+        test_helpers::expect_true("hook failure type", false, "hook failure should fail the action");
+    } catch (const btrfsbackup::SystemOperationError& error) {
+        test_helpers::expect_contains("hook failure message", error.what(), "hook failed");
+    }
 }
 
 void test_hook_timeout_has_stable_error_code() {
@@ -640,7 +645,7 @@ void test_hook_timeout_has_stable_error_code() {
     try {
         handle_action(handler, timed_hook);
         test_helpers::expect_true("hook timeout throws", false, "timeout should fail the action");
-    } catch (const btrfsbackup::CodedValidationError& error) {
+    } catch (const btrfsbackup::CodedOperationError& error) {
         test_helpers::expect_eq("hook timeout code", error.error_code, "hook.before_snapshot_timeout");
         test_helpers::expect_contains("hook timeout message", error.what(), "17 seconds");
     }
@@ -676,7 +681,7 @@ int main() {
     test_failed_remote_recovery_keeps_local_snapshot_and_marker();
     test_hook_actions_use_command_runner_argv();
     test_production_hook_uses_pinned_trusted_descriptor();
-    test_hook_failure_is_reported_as_validation_error();
+    test_hook_failure_is_reported_as_system_operation_error();
     test_hook_timeout_has_stable_error_code();
     test_hook_cancellation_is_not_reported_as_hook_failure();
 
