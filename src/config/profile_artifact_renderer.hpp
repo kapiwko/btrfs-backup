@@ -7,7 +7,6 @@
 #include <filesystem>
 #include <functional>
 #include <string>
-#include <sys/types.h>
 #include <vector>
 
 #include <config/model/profile.hpp>
@@ -32,7 +31,7 @@ struct ProfileArtifact {
     ProfileArtifactKind kind;
     std::filesystem::path destination;
     std::string content;
-    mode_t mode;
+    std::filesystem::perms permissions;
 };
 
 struct RenderedProfileArtifacts {

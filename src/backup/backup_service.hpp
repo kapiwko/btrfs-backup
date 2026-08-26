@@ -17,7 +17,7 @@
 #include <backup/ports/run_state_repository.hpp>
 #include <backup/ports/target_mounter.hpp>
 #include <config/application_paths.hpp>
-#include <config/profile_repository.hpp>
+#include <config/ports/profile_repository.hpp>
 #include <config/model/profile.hpp>
 #include <core/cancellation.hpp>
 #include <core/identifiers.hpp>

@@ -19,8 +19,7 @@ namespace btrfsbackup {
 namespace {
 
 fs::path transaction_path(const fs::path& destination, std::string_view kind, const std::string& generation) {
-    return destination.parent_path()
-        / ("." + destination.filename().string() + "." + std::string(kind) + "-" + generation);
+    return destination.parent_path() / ("." + destination.filename().string() + "." + std::string(kind) + "-" + generation);
 }
 
 void remove_if_present(const fs::path& path) noexcept {
@@ -154,7 +153,7 @@ ProfileConfigurationTransaction::ProfileConfigurationTransaction(const RenderedP
             .staged = {},
             .previous = {},
             .content = artifact.content,
-            .mode = artifact.mode,
+            .permissions = artifact.permissions,
         });
     }
 }
@@ -166,7 +165,7 @@ void ProfileConfigurationTransaction::stage() {
         item.previous = transaction_path(item.destination, "previous", generation_);
         remove_if_present(item.staged);
         remove_if_present(item.previous);
-        atomic_write(item.staged, item.content, item.mode);
+        atomic_write(item.staged, item.content, static_cast<mode_t>(item.permissions));
     }
 }
 
