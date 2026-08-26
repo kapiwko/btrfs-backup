@@ -13,6 +13,7 @@
 #include <backup/backup_run_executor.hpp>
 #include <backup/model/backup_run_plan.hpp>
 #include <backup/ports/mount_inspector.hpp>
+#include <backup/ports/run_lease.hpp>
 #include <config/application_paths.hpp>
 #include <config/profile_repository.hpp>
 #include <core/identifiers.hpp>
@@ -74,23 +75,6 @@ class IBackupRunFactory {
         IBackupRunCheckpointStore& checkpoints,
         CancellationToken& cancellation
     ) = 0;
-};
-
-class IBackupRunLease {
-  public:
-    virtual ~IBackupRunLease() = default;
-};
-
-struct BackupRunLeaseResult {
-    std::unique_ptr<IBackupRunLease> lease;
-    std::optional<ErrorCode> error_code;
-    std::string error_message;
-};
-
-class IBackupRunLeaseProvider {
-  public:
-    virtual ~IBackupRunLeaseProvider() = default;
-    [[nodiscard]] virtual BackupRunLeaseResult try_acquire(const Profile& profile) = 0;
 };
 
 struct BackupRunStatusDescription {

@@ -4,8 +4,6 @@
 
 #pragma once
 
-#include <filesystem>
-
 #include <backup/model/backup_run_actions.hpp>
 #include <backup/ports/trusted_executable.hpp>
 #include <core/identifiers.hpp>
@@ -17,12 +15,7 @@ class ICommandRunner;
 
 class HookActionHandler {
   public:
-    explicit HookActionHandler(ICommandRunner& commands);
-    HookActionHandler(
-        ICommandRunner& commands,
-        std::filesystem::path hook_root,
-        TrustedExecutablePolicy hook_policy
-    );
+    HookActionHandler(ICommandRunner& commands, const ITrustedExecutableResolver& executables);
 
     void handle(
         const RunHookAction& action,
@@ -32,8 +25,7 @@ class HookActionHandler {
 
   private:
     ICommandRunner& commands_;
-    std::filesystem::path hook_root_;
-    TrustedExecutablePolicy hook_policy_;
+    const ITrustedExecutableResolver& executables_;
 };
 
 } // namespace btrfsbackup

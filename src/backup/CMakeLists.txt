@@ -64,6 +64,8 @@ add_library(btrfsbackup-backup STATIC
     backup_run_executor.cpp
     backup_service.cpp
     backup_service_adapters.cpp
+    file_run_state_repository.cpp
+    system_run_context.cpp
     action_handlers/backup_run_action_handler.cpp
     action_handlers/hook_action_handler.cpp
     action_handlers/recovery_action_handler.cpp
@@ -75,7 +77,6 @@ add_library(btrfsbackup-backup STATIC
     model/backup_run_plan.cpp
     pending_recovery_plan.cpp
     snapshot_transfer.cpp
-    target_service.cpp
 )
 
 target_compile_features(btrfsbackup-backup PUBLIC cxx_std_20)
@@ -87,7 +88,6 @@ target_link_libraries(btrfsbackup-backup
         btrfsbackup-backup-ports
         btrfsbackup-transfer
         btrfsbackup-config
-        btrfsbackup-platform-linux
         btrfsbackup-state
 )
 

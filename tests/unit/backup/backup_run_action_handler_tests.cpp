@@ -25,7 +25,9 @@
 #include <backup/action_handlers/transfer_action_handler.hpp>
 
 #include <platform/linux/safe_directory_root.hpp>
+#include <platform/linux/trusted_executable.hpp>
 
+#include "support/fake_trusted_executable.hpp"
 #include "support/validation_test_helpers.hpp"
 
 namespace fs = std::filesystem;
@@ -195,7 +197,8 @@ class ActionHandlerFixture final : public btrfsbackup::IBackupRunActionHandler {
         : snapshots_(btrfs, filesystem),
           recovery_(btrfs),
           retention_(btrfs),
-          hooks_(fallback_commands_),
+          hook_executables_(std::make_unique<test_support::FakeTrustedExecutableResolver>()),
+          hooks_(fallback_commands_, *hook_executables_),
           repository_(btrfs, filesystem),
           transfers_(filesystem),
           dispatcher_(snapshots_, recovery_, retention_, hooks_, repository_, transfers_) {
@@ -209,7 +212,8 @@ class ActionHandlerFixture final : public btrfsbackup::IBackupRunActionHandler {
         : snapshots_(btrfs, filesystem),
           recovery_(btrfs),
           retention_(btrfs),
-          hooks_(commands),
+          hook_executables_(std::make_unique<test_support::FakeTrustedExecutableResolver>()),
+          hooks_(commands, *hook_executables_),
           repository_(btrfs, filesystem),
           transfers_(filesystem),
           dispatcher_(snapshots_, recovery_, retention_, hooks_, repository_, transfers_) {
@@ -232,7 +236,8 @@ class ActionHandlerFixture final : public btrfsbackup::IBackupRunActionHandler {
               std::make_unique<btrfsbackup::SafeDirectoryRoot>("/"),
               std::make_unique<btrfsbackup::SafeDirectoryRoot>(target_root)
           ),
-          hooks_(commands, btrfsbackup::trusted_hook_directory, {}),
+          hook_executables_(std::make_unique<test_support::FakeTrustedExecutableResolver>()),
+          hooks_(commands, *hook_executables_),
           repository_(
               btrfs,
               filesystem,
@@ -262,7 +267,8 @@ class ActionHandlerFixture final : public btrfsbackup::IBackupRunActionHandler {
               std::make_unique<btrfsbackup::SafeDirectoryRoot>("/"),
               std::make_unique<btrfsbackup::SafeDirectoryRoot>(target_root)
           ),
-          hooks_(commands, hook_root, hook_policy),
+          hook_executables_(std::make_unique<btrfsbackup::PosixTrustedExecutableResolver>(hook_root, hook_policy)),
+          hooks_(commands, *hook_executables_),
           repository_(
               btrfs,
               filesystem,
@@ -286,6 +292,7 @@ class ActionHandlerFixture final : public btrfsbackup::IBackupRunActionHandler {
     btrfsbackup::SnapshotActionHandler snapshots_;
     btrfsbackup::RecoveryActionHandler recovery_;
     btrfsbackup::RetentionActionHandler retention_;
+    std::unique_ptr<btrfsbackup::ITrustedExecutableResolver> hook_executables_;
     btrfsbackup::HookActionHandler hooks_;
     btrfsbackup::RepositoryActionHandler repository_;
     btrfsbackup::TransferActionHandler transfers_;
