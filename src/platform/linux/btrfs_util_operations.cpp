@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <platform/linux/btrfs_operations.hpp>
+#include <platform/linux/btrfs_util_operations.hpp>
 
 #include <array>
 #include <cstdio>
@@ -64,9 +64,7 @@ namespace btrfsbackup {
 std::optional<SnapshotMetadata> read_btrfs_snapshot_metadata(const fs::path& path) {
     struct btrfs_util_subvolume_info info{};
     enum btrfs_util_error info_error = btrfs_util_subvolume_get_info(path.c_str(), 0, &info);
-    if (info_error == BTRFS_UTIL_ERROR_NOT_BTRFS
-        || info_error == BTRFS_UTIL_ERROR_NOT_SUBVOLUME
-        || info_error == BTRFS_UTIL_ERROR_SUBVOLUME_NOT_FOUND) {
+    if (info_error == BTRFS_UTIL_ERROR_NOT_BTRFS || info_error == BTRFS_UTIL_ERROR_NOT_SUBVOLUME || info_error == BTRFS_UTIL_ERROR_SUBVOLUME_NOT_FOUND) {
         return std::nullopt;
     }
     if (info_error != BTRFS_UTIL_OK) {
@@ -95,9 +93,7 @@ bool LibBtrfsOperations::is_subvolume(const fs::path& path) {
     if (error == BTRFS_UTIL_OK) {
         return true;
     }
-    if (error == BTRFS_UTIL_ERROR_NOT_BTRFS
-        || error == BTRFS_UTIL_ERROR_NOT_SUBVOLUME
-        || error == BTRFS_UTIL_ERROR_SUBVOLUME_NOT_FOUND) {
+    if (error == BTRFS_UTIL_ERROR_NOT_BTRFS || error == BTRFS_UTIL_ERROR_NOT_SUBVOLUME || error == BTRFS_UTIL_ERROR_SUBVOLUME_NOT_FOUND) {
         return false;
     }
     throw_btrfs_error("Btrfs subvolume check", path, error);

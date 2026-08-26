@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-#include <platform/linux/btrfs_operations.hpp>
+#include <platform/linux/btrfs_util_operations.hpp>
 
 #include "support/test_helpers.hpp"
 
