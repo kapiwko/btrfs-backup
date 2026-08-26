@@ -14,7 +14,7 @@
 #include <core/errors.hpp>
 #include <platform/linux/file_io.hpp>
 #include <core/identifiers.hpp>
-#include <config/json_io.hpp>
+#include <config/model/json_io.hpp>
 
 namespace fs = std::filesystem;
 

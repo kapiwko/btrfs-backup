@@ -14,6 +14,7 @@ src/
 │   ├── action_handlers/      # action dispatcher and focused effect handlers
 │   └── transfer/             # transfer model, events, results and async orchestration
 ├── config/                   # profile model, validation, storage, rendering
+│   ├── model/                # profile data, JSON conversion and validation
 │   └── wizard/               # interactive profile construction
 ├── state/                    # status, checkpoints, fingerprints, history reads
 ├── platform/linux/           # explicitly Linux-specific system integration

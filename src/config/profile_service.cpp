@@ -14,11 +14,11 @@
 #include <config/application_config.hpp>
 #include <core/errors.hpp>
 #include <core/identifiers.hpp>
-#include <config/json_io.hpp>
+#include <config/model/json_io.hpp>
 #include <config/profile_artifact_renderer.hpp>
 #include <config/profile_installer.hpp>
 #include <config/profile_loader.hpp>
-#include <config/profile.hpp>
+#include <config/model/profile.hpp>
 #include <config/render_directory.hpp>
 #include <platform/linux/file_io.hpp>
 

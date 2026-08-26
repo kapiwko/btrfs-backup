@@ -7,7 +7,7 @@
 #include <vector>
 
 #include <backup/ports/mount_inspector.hpp>
-#include <config/profile.hpp>
+#include <config/model/profile.hpp>
 
 namespace btrfsbackup {
 

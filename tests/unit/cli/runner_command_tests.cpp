@@ -25,9 +25,9 @@
 #include <platform/linux/file_lock.hpp>
 #include <platform/linux/command_runner.hpp>
 #include <platform/linux/mount_info.hpp>
-#include <config/json.hpp>
-#include <config/json_io.hpp>
-#include <config/profile.hpp>
+#include <config/model/json.hpp>
+#include <config/model/json_io.hpp>
+#include <config/model/profile.hpp>
 #include <config/profile_loader.hpp>
 #include <state/run_state.hpp>
 

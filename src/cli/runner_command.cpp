@@ -31,7 +31,7 @@
 #include <platform/linux/filesystem.hpp>
 #include <platform/linux/mount_info.hpp>
 #include <platform/linux/posix_transfer_pipeline.hpp>
-#include <config/json.hpp>
+#include <config/model/json.hpp>
 
 namespace fs = std::filesystem;
 

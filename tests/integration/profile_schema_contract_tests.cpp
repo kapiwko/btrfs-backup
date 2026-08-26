@@ -8,9 +8,9 @@
 #include <iostream>
 #include <string>
 
-#include <config/json.hpp>
-#include <config/json_io.hpp>
-#include <config/profile.hpp>
+#include <config/model/json.hpp>
+#include <config/model/json_io.hpp>
+#include <config/model/profile.hpp>
 
 namespace fs = std::filesystem;
 

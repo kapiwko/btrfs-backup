@@ -13,8 +13,8 @@
 #include <utility>
 
 #include <core/errors.hpp>
-#include <config/json.hpp>
-#include <config/json_io.hpp>
+#include <config/model/json.hpp>
+#include <config/model/json_io.hpp>
 #include <config/profile_render.hpp>
 #include <platform/linux/file_io.hpp>
 

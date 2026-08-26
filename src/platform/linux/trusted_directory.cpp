@@ -16,7 +16,7 @@
 #include <utility>
 
 #include <core/errors.hpp>
-#include <config/validation.hpp>
+#include <config/model/validation.hpp>
 #include <platform/linux/safe_directory_root.hpp>
 
 namespace fs = std::filesystem;

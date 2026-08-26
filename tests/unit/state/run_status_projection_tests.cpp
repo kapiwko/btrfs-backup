@@ -5,7 +5,7 @@
 #include <filesystem>
 #include <string>
 #include <state/run_status_projection.hpp>
-#include <config/json_io.hpp>
+#include <config/model/json_io.hpp>
 
 #include "support/test_helpers.hpp"
 

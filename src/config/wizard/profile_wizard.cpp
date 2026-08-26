@@ -12,7 +12,7 @@
 
 #include <config/installation_validate.hpp>
 #include <config/application_config.hpp>
-#include <config/profile.hpp>
+#include <config/model/profile.hpp>
 #include <config/wizard/profile_wizard_device.hpp>
 #include <config/wizard/profile_wizard_install.hpp>
 #include <config/wizard/profile_wizard_model.hpp>

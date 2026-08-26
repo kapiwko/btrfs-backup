@@ -11,7 +11,7 @@
 
 #include <core/errors.hpp>
 #include <core/identifiers.hpp>
-#include <config/validation.hpp>
+#include <config/model/validation.hpp>
 
 namespace fs = std::filesystem;
 

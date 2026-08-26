@@ -8,7 +8,7 @@
 
 #include <utility>
 
-#include <config/json_io.hpp>
+#include <config/model/json_io.hpp>
 #include <platform/linux/file_io.hpp>
 #include <state/backup_run_serialization.hpp>
 

@@ -19,9 +19,9 @@
 
 #include <backup/target_mount_validation.hpp>
 #include <core/errors.hpp>
-#include <config/profile.hpp>
+#include <config/model/profile.hpp>
 #include <config/profile_loader.hpp>
-#include <config/validation.hpp>
+#include <config/model/validation.hpp>
 #include <platform/linux/command_runner.hpp>
 #include <platform/linux/device_info.hpp>
 #include <platform/linux/file_lock.hpp>

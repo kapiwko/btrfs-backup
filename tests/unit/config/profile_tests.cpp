@@ -15,9 +15,9 @@
 #include <unistd.h>
 
 #include <core/errors.hpp>
-#include <config/json.hpp>
-#include <config/json_io.hpp>
-#include <config/profile.hpp>
+#include <config/model/json.hpp>
+#include <config/model/json_io.hpp>
+#include <config/model/profile.hpp>
 #include <config/profile_artifact_renderer.hpp>
 #include <config/profile_configuration_transaction.hpp>
 #include <config/profile_installer.hpp>

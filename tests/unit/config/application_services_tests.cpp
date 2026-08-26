@@ -7,7 +7,7 @@
 #include <string>
 
 #include <config/installation_service.hpp>
-#include <config/json_io.hpp>
+#include <config/model/json_io.hpp>
 #include <config/profile_service.hpp>
 #include <config/render_directory.hpp>
 #include <platform/linux/file_io.hpp>
