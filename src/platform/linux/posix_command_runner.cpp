@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <platform/linux/command_runner.hpp>
+#include <platform/linux/posix_command_runner.hpp>
 
 namespace btrfsbackup {
 

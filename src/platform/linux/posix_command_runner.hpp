@@ -10,12 +10,12 @@
 namespace btrfsbackup {
 
 class PosixCommandRunner final : public ICommandRunner {
-public:
-  [[nodiscard]] CommandResult run(const std::vector<std::string>& argv) override;
-  [[nodiscard]] CommandResult run_controlled(
-      const std::vector<std::string>& argv,
-      const ControlledCommandOptions& options
-  ) override;
+  public:
+    [[nodiscard]] CommandResult run(const std::vector<std::string>& argv) override;
+    [[nodiscard]] CommandResult run_controlled(
+        const std::vector<std::string>& argv,
+        const ControlledCommandOptions& options
+    ) override;
 };
 
 } // namespace btrfsbackup

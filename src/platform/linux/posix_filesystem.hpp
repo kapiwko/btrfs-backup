@@ -9,7 +9,7 @@
 namespace btrfsbackup {
 
 class PosixFileSystem final : public IFileSystem {
-public:
+  public:
     bool exists(const std::filesystem::path& path) override;
     bool is_directory(const std::filesystem::path& path) override;
     void create_directories(const std::filesystem::path& path) override;

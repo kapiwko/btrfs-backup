@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <platform/linux/linux_system_configuration_activator.hpp>
+#include <platform/linux/system_configuration_activator.hpp>
 
 #include <platform/linux/process.hpp>
 
