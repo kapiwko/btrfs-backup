@@ -29,9 +29,9 @@ class FileProfileRepository final : public IProfileRepository {
     ApplicationConfig application_config_;
 };
 
-class SystemdTargetManager final : public ITargetManager {
+class SystemdTargetMounter final : public ITargetMounter {
   public:
-    SystemdTargetManager(IMountInspector& mounts, ICommandRunner& commands);
+    SystemdTargetMounter(IMountInspector& mounts, ICommandRunner& commands);
     void ensure_mounted(const Profile& profile) override;
 
   private:
@@ -77,9 +77,9 @@ class DefaultBackupRunFactory final : public IBackupRunFactory {
     bool pin_transfer_paths_;
 };
 
-class FileBackupLockManager final : public IBackupLockManager {
+class FileBackupRunLeaseProvider final : public IBackupRunLeaseProvider {
   public:
-    explicit FileBackupLockManager(std::filesystem::path lock_root);
+    explicit FileBackupRunLeaseProvider(std::filesystem::path lock_root);
     [[nodiscard]] BackupRunLeaseResult try_acquire(const Profile& profile) override;
 
   private:

@@ -54,9 +54,9 @@ class IProfileRepository {
     [[nodiscard]] virtual std::string fingerprint(const Profile& profile) const = 0;
 };
 
-class ITargetManager {
+class ITargetMounter {
   public:
-    virtual ~ITargetManager() = default;
+    virtual ~ITargetMounter() = default;
     virtual void ensure_mounted(const Profile& profile) = 0;
 };
 
@@ -94,9 +94,9 @@ struct BackupRunLeaseResult {
     std::string error_message;
 };
 
-class IBackupLockManager {
+class IBackupRunLeaseProvider {
   public:
-    virtual ~IBackupLockManager() = default;
+    virtual ~IBackupRunLeaseProvider() = default;
     [[nodiscard]] virtual BackupRunLeaseResult try_acquire(const Profile& profile) = 0;
 };
 
@@ -171,10 +171,10 @@ class BackupService {
     BackupService(
         IProfileRepository& profiles,
         IMountInspector& mounts,
-        ITargetManager& target_manager,
+        ITargetMounter& target_mounter,
         IBackupPlanner& planner,
         IBackupRunFactory& run_factory,
-        IBackupLockManager& locks,
+        IBackupRunLeaseProvider& leases,
         IRunStateRepository& state,
         ICancellationMonitor& cancellation_monitor,
         IClock& clock,
@@ -191,10 +191,10 @@ class BackupService {
 
     IProfileRepository& profiles_;
     IMountInspector& mounts_;
-    ITargetManager& target_manager_;
+    ITargetMounter& target_mounter_;
     IBackupPlanner& planner_;
     IBackupRunFactory& run_factory_;
-    IBackupLockManager& locks_;
+    IBackupRunLeaseProvider& leases_;
     IRunStateRepository& state_;
     ICancellationMonitor& cancellation_monitor_;
     IClock& clock_;
