@@ -19,7 +19,8 @@
 #include <config/profile_loader.hpp>
 #include <platform/linux/file_lock.hpp>
 #include <platform/linux/safe_directory_root.hpp>
-#include <state/backup_run_persistence.hpp>
+#include <state/run_checkpoint_store.hpp>
+#include <state/run_status_projection.hpp>
 #include <state/config_fingerprint.hpp>
 #include <state/run_state.hpp>
 #include <state/status_writer.hpp>
@@ -367,7 +368,7 @@ std::unique_ptr<IBackupRunCheckpointStore> FileRunStateRepository::checkpoints(c
 }
 
 std::unique_ptr<IBackupRunEventSink> FileRunStateRepository::events(BackupRunStatusDescription description) {
-    return std::make_unique<StatusBackupRunEventSink>(BackupRunStatusContext{
+    return std::make_unique<RunStatusProjection>(BackupRunStatusContext{
         .status_root = paths_.status_root,
         .history_root = paths_.history_root,
         .profile_name = std::move(description.profile_name),
