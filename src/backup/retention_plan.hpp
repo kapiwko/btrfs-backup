@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <cstddef>
 #include <string>
 #include <vector>
 
@@ -13,7 +14,7 @@ namespace btrfsbackup {
 
 struct RetentionPlan {
     std::string source_id;
-    long long keep_count = 0;
+    std::size_t keep_count = 0;
     std::vector<SnapshotInfo> keep;
     std::vector<SnapshotInfo> delete_snapshots;
 };
@@ -21,7 +22,7 @@ struct RetentionPlan {
 RetentionPlan plan_count_retention(
     const std::string& source_id,
     const std::vector<SnapshotInfo>& snapshots,
-    long long keep_count
+    std::size_t keep_count
 );
 
 } // namespace btrfsbackup

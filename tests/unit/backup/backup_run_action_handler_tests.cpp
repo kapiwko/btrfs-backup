@@ -353,7 +353,7 @@ btrfsbackup::BackupRunAction hook_action(btrfsbackup::HookPhase phase) {
         btrfsbackup::ProfileHookCommand{
             .program = "/etc/btrfs-backup/hooks.d/prepare-backup",
             .arguments = {"--source", "root"},
-            .timeout_seconds = 300,
+            .timeout = std::chrono::seconds{300},
         },
     };
 }
@@ -635,7 +635,7 @@ void test_hook_timeout_has_stable_error_code() {
     hooks.timed_out = true;
     ActionHandlerFixture handler(btrfs, fs_effects, hooks);
     btrfsbackup::BackupRunAction timed_hook = hook_action(btrfsbackup::HookPhase::BeforeSnapshot);
-    std::get<btrfsbackup::RunHookAction>(timed_hook).hook.timeout_seconds = 17;
+    std::get<btrfsbackup::RunHookAction>(timed_hook).hook.timeout = std::chrono::seconds{17};
 
     try {
         handle_action(handler, timed_hook);

@@ -6,6 +6,8 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdint>
+#include <exception>
 #include <istream>
 #include <ostream>
 #include <string>
@@ -43,12 +45,16 @@ bool parse_bool(const std::string& value) {
     throw ValidationError("enter true or false");
 }
 
-long long parse_uint(const std::string& value) {
+std::uint64_t parse_uint(const std::string& value) {
     std::string normalized = trim_text(value);
     if (normalized.empty() || !std::all_of(normalized.begin(), normalized.end(), [](unsigned char c) { return std::isdigit(c); })) {
         throw ValidationError("enter a non-negative integer");
     }
-    return std::stoll(normalized);
+    try {
+        return std::stoull(normalized);
+    } catch (const std::exception&) {
+        throw ValidationError("enter a non-negative integer");
+    }
 }
 
 std::string prompt_value(std::istream& input, std::ostream& output, const std::string& label, const std::string& default_value) {
@@ -72,7 +78,12 @@ bool prompt_bool(std::istream& input, std::ostream& output, const std::string& l
     }
 }
 
-long long prompt_uint(std::istream& input, std::ostream& output, const std::string& label, long long default_value) {
+std::uint64_t prompt_uint(
+    std::istream& input,
+    std::ostream& output,
+    const std::string& label,
+    std::uint64_t default_value
+) {
     while (true) {
         try {
             return parse_uint(prompt_value(input, output, label, std::to_string(default_value)));

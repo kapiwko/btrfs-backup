@@ -155,7 +155,11 @@ btrfsbackup::BackupRunAction action(btrfsbackup::BackupRunActionKind kind) {
     case BackupRunActionKind::CleanupIncoming:
         return CleanupIncomingAction{source_id, incoming.parent_path()};
     case BackupRunActionKind::BeforeSnapshotHook:
-        return RunHookAction{source_id, HookPhase::BeforeSnapshot, ProfileHookCommand{"hook", {}, 30}};
+        return RunHookAction{
+            source_id,
+            HookPhase::BeforeSnapshot,
+            ProfileHookCommand{"hook", {}, std::chrono::seconds{30}}
+        };
     case BackupRunActionKind::CreateSnapshot:
         return CreateSnapshotAction{
             source_id,
@@ -167,7 +171,11 @@ btrfsbackup::BackupRunAction action(btrfsbackup::BackupRunActionKind kind) {
             RunId{"run-1"},
         };
     case BackupRunActionKind::AfterSnapshotHook:
-        return RunHookAction{source_id, HookPhase::AfterSnapshot, ProfileHookCommand{"hook", {}, 30}};
+        return RunHookAction{
+            source_id,
+            HookPhase::AfterSnapshot,
+            ProfileHookCommand{"hook", {}, std::chrono::seconds{30}}
+        };
     case BackupRunActionKind::SelectParent:
         return SelectParentAction{source_id, std::nullopt};
     case BackupRunActionKind::SendReceive:

@@ -4,6 +4,7 @@
 
 #include <filesystem>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 #include <backup/retention_plan.hpp>
@@ -13,6 +14,8 @@
 namespace fs = std::filesystem;
 
 namespace {
+
+static_assert(std::is_same_v<decltype(btrfsbackup::RetentionPlan::keep_count), std::size_t>);
 
 btrfsbackup::SnapshotInfo snapshot(
     const std::string& source_id,
@@ -80,19 +83,12 @@ void test_unlimited_and_under_limit_keep_everything() {
     test_helpers::expect_eq("under limit keeps all", std::to_string(under_limit.keep.size()), "2");
 }
 
-void test_invalid_keep_count() {
-    test_helpers::expect_validation_error("negative retention", [] {
-        (void)btrfsbackup::plan_count_retention("home", {}, -1);
-    }, "retention keep count must be non-negative");
-}
-
 } // namespace
 
 int main() {
     test_deletes_oldest_snapshots();
     test_sequence_ordering();
     test_unlimited_and_under_limit_keep_everything();
-    test_invalid_keep_count();
 
     return test_helpers::finish("retention plan tests");
 }

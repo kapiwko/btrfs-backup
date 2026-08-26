@@ -16,7 +16,7 @@ namespace {
 
 void test_available_bytes() {
     fs::path root = test_helpers::test_root("space-check", "available");
-    unsigned long long available = btrfsbackup::available_bytes(root);
+    const std::uint64_t available = btrfsbackup::available_bytes(root);
     test_helpers::expect_true("space available", available > 0, "temporary directory should report available bytes");
     fs::remove_all(root);
 }
@@ -25,9 +25,7 @@ void test_minimum_free_space() {
     fs::path root = test_helpers::test_root("space-check", "minimum");
     btrfsbackup::check_minimum_free_space(root, 0, "test");
     btrfsbackup::check_minimum_free_space(root, 1, "test");
-    test_helpers::expect_validation_error("space too low", [&] {
-        btrfsbackup::check_minimum_free_space(root, std::numeric_limits<unsigned long long>::max(), "test");
-    }, "Insufficient free space");
+    test_helpers::expect_validation_error("space too low", [&] { btrfsbackup::check_minimum_free_space(root, std::numeric_limits<std::uint64_t>::max(), "test"); }, "Insufficient free space");
     fs::remove_all(root);
 }
 

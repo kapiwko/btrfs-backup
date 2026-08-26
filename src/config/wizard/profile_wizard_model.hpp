@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <cstddef>
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -32,14 +34,14 @@ struct ProfileWizardAnswers {
 
     std::vector<ProfileWizardSourceAnswers> sources;
 
-    long long remote_retention = 30;
-    long long local_retention = 30;
+    std::size_t remote_retention = 30;
+    std::size_t local_retention = 30;
     bool daily_limit = true;
     bool incremental_required = true;
     bool keep_failed_local_snapshot = false;
     bool auto_eject = true;
-    long long minimum_target_free_bytes = 5LL * 1024 * 1024 * 1024;
-    long long minimum_local_free_bytes = 1024LL * 1024 * 1024;
+    std::uint64_t minimum_target_free_bytes = 5ULL * 1024 * 1024 * 1024;
+    std::uint64_t minimum_local_free_bytes = 1024ULL * 1024 * 1024;
 
     std::string keyfile = "none";
 

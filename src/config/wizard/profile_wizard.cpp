@@ -62,14 +62,18 @@ ProfileWizardAnswers collect_answers(std::istream& input, std::ostream& output) 
         answers.sources.push_back(source);
     }
 
-    answers.remote_retention = wizard::prompt_uint(input, output, "Remote retention count; 0 means unlimited", 30);
-    answers.local_retention = wizard::prompt_uint(input, output, "Local retention count; 0 means unlimited", 30);
+    answers.remote_retention = static_cast<std::size_t>(
+        wizard::prompt_uint(input, output, "Remote retention count; 0 means unlimited", 30)
+    );
+    answers.local_retention = static_cast<std::size_t>(
+        wizard::prompt_uint(input, output, "Local retention count; 0 means unlimited", 30)
+    );
     answers.daily_limit = wizard::prompt_bool(input, output, "Run at most once per local calendar day", true);
     answers.incremental_required = wizard::prompt_bool(input, output, "Fail instead of silently starting a new full chain when remote snapshots exist", true);
     answers.keep_failed_local_snapshot = wizard::prompt_bool(input, output, "Keep a new local snapshot after a failed transfer", false);
     answers.auto_eject = wizard::prompt_bool(input, output, "Unmount and close LUKS automatically after the service finishes", true);
-    answers.minimum_target_free_bytes = wizard::prompt_uint(input, output, "Minimum free bytes required on the backup target; 0 disables", 5368709120LL);
-    answers.minimum_local_free_bytes = wizard::prompt_uint(input, output, "Minimum free bytes required for local snapshots; 0 disables", 1073741824LL);
+    answers.minimum_target_free_bytes = wizard::prompt_uint(input, output, "Minimum free bytes required on the backup target; 0 disables", 5368709120ULL);
+    answers.minimum_local_free_bytes = wizard::prompt_uint(input, output, "Minimum free bytes required for local snapshots; 0 disables", 1073741824ULL);
     answers.keyfile = wizard::prompt_value(input, output, "crypttab keyfile path or none", "/root/keys/" + answers.target_mapper_name + ".key");
 
     return answers;

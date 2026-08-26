@@ -169,14 +169,14 @@ void test_inserts_snapshot_hooks_around_snapshot_creation() {
         btrfsbackup::ProfileHookCommand{
             .program = "/etc/btrfs-backup/hooks.d/before",
             .arguments = {"root"},
-            .timeout_seconds = 30,
+            .timeout = std::chrono::seconds{30},
         },
     };
     test_profile.hooks.after_snapshot = {
         btrfsbackup::ProfileHookCommand{
             .program = "/etc/btrfs-backup/hooks.d/after",
             .arguments = {"root"},
-            .timeout_seconds = 60,
+            .timeout = std::chrono::seconds{60},
         },
     };
 
@@ -198,11 +198,11 @@ void test_inserts_snapshot_hooks_around_snapshot_creation() {
     test_helpers::expect_eq("hook action count", std::to_string(actions.size()), "11");
     test_helpers::expect_eq("before hook action", std::to_string(static_cast<int>(btrfsbackup::backup_run_action_kind(actions.at(1)))), std::to_string(static_cast<int>(btrfsbackup::BackupRunActionKind::BeforeSnapshotHook)));
     test_helpers::expect_eq("before hook program", before_hook.hook.program, "/etc/btrfs-backup/hooks.d/before");
-    test_helpers::expect_eq("before hook timeout", std::to_string(before_hook.hook.timeout_seconds), "30");
+    test_helpers::expect_eq("before hook timeout", std::to_string(before_hook.hook.timeout.count()), "30");
     test_helpers::expect_eq("snapshot after before hook", std::to_string(static_cast<int>(btrfsbackup::backup_run_action_kind(actions.at(2)))), std::to_string(static_cast<int>(btrfsbackup::BackupRunActionKind::CreateSnapshot)));
     test_helpers::expect_eq("after hook action", std::to_string(static_cast<int>(btrfsbackup::backup_run_action_kind(actions.at(3)))), std::to_string(static_cast<int>(btrfsbackup::BackupRunActionKind::AfterSnapshotHook)));
     test_helpers::expect_eq("after hook argument", after_hook.hook.arguments.at(0), "root");
-    test_helpers::expect_eq("after hook timeout", std::to_string(after_hook.hook.timeout_seconds), "60");
+    test_helpers::expect_eq("after hook timeout", std::to_string(after_hook.hook.timeout.count()), "60");
 }
 
 void test_plans_collision_suffix_and_retention() {

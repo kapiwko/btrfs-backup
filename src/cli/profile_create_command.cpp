@@ -4,6 +4,7 @@
 
 #include <cli/profile_create_command.hpp>
 
+#include <cstdint>
 #include <cstdlib>
 #include <exception>
 #include <filesystem>
@@ -37,11 +38,11 @@ std::string arg_value(std::size_t& index, const std::vector<std::string>& args, 
     return args[++index];
 }
 
-long long arg_int(const std::string& value, const std::string& option) {
+std::uint64_t arg_uint(const std::string& value, const std::string& option) {
     try {
         std::size_t pos = 0;
-        long long result = std::stoll(value, &pos);
-        if (pos != value.size() || result < 0) {
+        const std::uint64_t result = std::stoull(value, &pos);
+        if (pos != value.size() || value.starts_with('-')) {
             fail(option + " must be a non-negative integer");
         }
         return result;
@@ -84,10 +85,10 @@ int profile_create(const std::vector<std::string>& args) {
     bool incremental_required = true;
     bool keep_failed_local_snapshot = false;
     bool auto_eject = true;
-    long long remote_retention = 30;
-    long long local_retention = 30;
-    long long minimum_target_free_bytes = 5368709120LL;
-    long long minimum_local_free_bytes = 1073741824LL;
+    std::uint64_t remote_retention = 30;
+    std::uint64_t local_retention = 30;
+    std::uint64_t minimum_target_free_bytes = 5368709120ULL;
+    std::uint64_t minimum_local_free_bytes = 1073741824ULL;
     Json sources = Json::array();
 
     for (std::size_t i = 0; i < args.size(); ++i) {
@@ -123,27 +124,18 @@ int profile_create(const std::vector<std::string>& args) {
         } else if (arg == "--auto-eject") {
             auto_eject = arg_bool(arg_value(i, args, arg), arg);
         } else if (arg == "--remote-retention") {
-            remote_retention = arg_int(arg_value(i, args, arg), arg);
+            remote_retention = arg_uint(arg_value(i, args, arg), arg);
         } else if (arg == "--local-retention") {
-            local_retention = arg_int(arg_value(i, args, arg), arg);
+            local_retention = arg_uint(arg_value(i, args, arg), arg);
         } else if (arg == "--minimum-target-free-bytes") {
-            minimum_target_free_bytes = arg_int(arg_value(i, args, arg), arg);
+            minimum_target_free_bytes = arg_uint(arg_value(i, args, arg), arg);
         } else if (arg == "--minimum-local-free-bytes") {
-            minimum_local_free_bytes = arg_int(arg_value(i, args, arg), arg);
+            minimum_local_free_bytes = arg_uint(arg_value(i, args, arg), arg);
         } else if (arg == "--source") {
             if (i + 7 >= args.size()) {
                 fail("--source requires ID NAME SUBVOLUME LOCAL_SNAPSHOT_DIR REMOTE_SUBDIR REMOTE_RETENTION LOCAL_RETENTION");
             }
-            sources.push_back({
-                {"id", args[++i]},
-                {"name", args[++i]},
-                {"enabled", true},
-                {"subvolume", args[++i]},
-                {"localSnapshotDir", args[++i]},
-                {"remoteSubdir", args[++i]},
-                {"remoteRetention", arg_int(args[++i], "--source remote retention")},
-                {"localRetention", arg_int(args[++i], "--source local retention")}
-            });
+            sources.push_back({{"id", args[++i]}, {"name", args[++i]}, {"enabled", true}, {"subvolume", args[++i]}, {"localSnapshotDir", args[++i]}, {"remoteSubdir", args[++i]}, {"remoteRetention", arg_uint(args[++i], "--source remote retention")}, {"localRetention", arg_uint(args[++i], "--source local retention")}});
         } else if (arg == "-h" || arg == "--help") {
             usage();
             return 0;
