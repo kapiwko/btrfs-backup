@@ -52,7 +52,7 @@ class RecordingActionHandler final : public btrfsbackup::IBackupRunActionHandler
                 );
             }
             if (!coded_error_code.empty()) {
-                throw btrfsbackup::CodedValidationError(coded_error_code, "coded action failure");
+                throw btrfsbackup::CodedOperationError(coded_error_code, "coded action failure");
             }
             throw btrfsbackup::ValidationError("injected action failure: " + action_name(kind));
         }
@@ -581,9 +581,12 @@ void test_commit_cleanup_failure_emits_recovery_required_code() {
         action(btrfsbackup::BackupRunActionKind::CommitReceived),
     });
 
-    test_helpers::expect_validation_error("commit cleanup failure", [&] {
+    try {
         (void)executor.execute(plan, events, cancellation);
-    }, "repository requires recovery");
+        test_helpers::expect_true("commit cleanup failure type", false, "recovery requirement should fail the action");
+    } catch (const btrfsbackup::RecoveryRequiredError& error) {
+        test_helpers::expect_contains("commit cleanup failure message", error.what(), "repository requires recovery");
+    }
     auto failed = std::find_if(events.events.begin(), events.events.end(), [](const btrfsbackup::BackupRunEvent& event) {
         return event.kind == btrfsbackup::BackupRunEventKind::ActionFailed;
     });
@@ -607,9 +610,12 @@ void test_hook_timeout_emits_stable_error_code() {
         action(btrfsbackup::BackupRunActionKind::BeforeSnapshotHook),
     });
 
-    test_helpers::expect_validation_error("hook timeout", [&] {
+    try {
         (void)executor.execute(plan, events, cancellation);
-    }, "coded action failure");
+        test_helpers::expect_true("hook timeout type", false, "hook timeout should fail the action");
+    } catch (const btrfsbackup::CodedOperationError& error) {
+        test_helpers::expect_contains("hook timeout message", error.what(), "coded action failure");
+    }
     auto failed = std::find_if(events.events.begin(), events.events.end(), [](const btrfsbackup::BackupRunEvent& event) {
         return event.kind == btrfsbackup::BackupRunEventKind::ActionFailed;
     });

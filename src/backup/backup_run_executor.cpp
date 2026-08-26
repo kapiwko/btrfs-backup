@@ -301,7 +301,7 @@ BackupRunExecutionResult BackupRunExecutor::execute(
                 emit_event(events, BackupRunEventKind::RunCancelled, plan, &source, action_kind, 0, 0, 0, 0, 0, 0, 0, ErrorCode::RunnerCancelled, error.what());
                 return result;
             } catch (const std::exception& error) {
-                if (const auto* coded_error = dynamic_cast<const CodedValidationError*>(&error)) {
+                if (const auto* coded_error = dynamic_cast<const CodedError*>(&error)) {
                     error_code = error_code_from_name(coded_error->error_code).value_or(ErrorCode::RunnerActionFailed);
                 }
                 emit_event(events, BackupRunEventKind::ActionFailed, plan, &source, action_kind, 0, 0, 0, 0, 0, 0, 0, error_code, error.what());
