@@ -276,31 +276,11 @@ void test_write_history_entry() {
 void test_rejects_unsafe_identifiers() {
     btrfsbackup::ProfileId profile_id("default");
     btrfsbackup::RunId run_id("20260823T024407Z-4298-30158");
-    expect_eq("profile id wrapper", profile_id.value, "default");
-    expect_eq("run id wrapper", run_id.value, "20260823T024407Z-4298-30158");
+    expect_eq("profile id wrapper", std::string(profile_id.value()), "default");
+    expect_eq("run id wrapper", std::string(run_id.value()), "20260823T024407Z-4298-30158");
 
-    RunStatus bad_profile = sample_record();
-    bad_profile.profile_id.value = "../default";
-    expect_validation_error("bad profile", [&] { btrfsbackup::build_status_json(bad_profile); }, "invalid profile id");
-
-    RunStatus bad_run = sample_record();
-    bad_run.run_id.value = "../run";
-    expect_validation_error("bad run", [&] { btrfsbackup::build_status_json(bad_run); }, "invalid run id");
-}
-
-void test_invalid_profile_does_not_create_status_directory() {
-    fs::path root = test_root("bad-write");
-    RunStatus bad_profile = sample_record();
-    bad_profile.profile_id.value = "../default";
-
-    expect_validation_error(
-        "bad write",
-        [&] { btrfsbackup::write_current_status(root / "status", bad_profile); },
-        "invalid profile id"
-    );
-    expect_true("bad write side effect", !fs::exists(root / "default"), "invalid profile created escaped directory");
-    expect_true("bad write status dir", !fs::exists(root / "status"), "invalid profile created status directory");
-    fs::remove_all(root);
+    expect_validation_error("bad profile", [] { (void)btrfsbackup::ProfileId{"../default"}; }, "invalid profile id");
+    expect_validation_error("bad run", [] { (void)btrfsbackup::RunId{"../run"}; }, "invalid run id");
 }
 
 } // namespace
@@ -313,7 +293,6 @@ int main() {
     test_write_current_status();
     test_write_history_entry();
     test_rejects_unsafe_identifiers();
-    test_invalid_profile_does_not_create_status_directory();
 
     if (failures > 0) {
         return 1;

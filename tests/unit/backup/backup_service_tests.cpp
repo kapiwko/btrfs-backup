@@ -13,7 +13,7 @@
 namespace {
 
 struct FakeProfiles final : btrfsbackup::IProfileRepository {
-    btrfsbackup::Profile profile;
+    btrfsbackup::Profile profile{btrfsbackup::ProfileId{"default"}};
     btrfsbackup::ApplicationPaths paths;
 
     btrfsbackup::Profile get(const btrfsbackup::ProfileId&) const override {
@@ -209,7 +209,6 @@ struct Fixture {
 
     Fixture()
         : service(profiles, mounts, target, planner, runs, locks, state, cancellation_monitor, clock, run_ids, cancellation) {
-        profiles.profile.id = "default";
         profiles.profile.name = "Default";
         profiles.profile.target.luks_uuid = "target-uuid";
         profiles.profile.settings.daily_limit = true;
@@ -223,7 +222,7 @@ void test_success_uses_ports_and_persists_success() {
     });
 
     test_helpers::expect_true("completed", result.outcome == btrfsbackup::BackupExecutionOutcome::Completed, "run did not complete");
-    test_helpers::expect_eq("run id", result.plan.run_id.value, "run-1");
+    test_helpers::expect_eq("run id", std::string(result.plan.run_id.value()), "run-1");
     test_helpers::expect_true("target manager calls", fixture.target.calls == 1, "unexpected call count");
     test_helpers::expect_true("mount inspector calls", fixture.mounts.calls == 1, "unexpected call count");
     test_helpers::expect_true("planner calls", fixture.planner.calls == 1, "unexpected call count");

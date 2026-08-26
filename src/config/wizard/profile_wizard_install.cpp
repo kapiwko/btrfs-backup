@@ -100,7 +100,7 @@ void apply_rendered_wizard_tree(const Profile& profile, const fs::path& output_d
         "/var/lib/btrfs-backup/public/profiles",
         activate
     );
-    validate_active_installation(profile.id);
+    validate_active_installation(std::string(profile.id.value()));
 }
 
 } // namespace btrfsbackup

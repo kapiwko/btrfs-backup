@@ -151,8 +151,8 @@ void test_profile_round_trips_normalized_json() {
     btrfsbackup::Profile profile = btrfsbackup::profile_from_json(normalized);
     Json round_trip = btrfsbackup::profile_to_json(profile);
 
-    expect_true("profile model id", profile.id == "default", "wrong profile id");
-    expect_true("profile model source", profile.sources.size() == 1 && profile.sources.at(0).id == "home", "wrong profile source");
+    expect_true("profile model id", profile.id == btrfsbackup::ProfileId{"default"}, "wrong profile id");
+    expect_true("profile model source", profile.sources.size() == 1 && profile.sources.at(0).id == btrfsbackup::SourceId{"home"}, "wrong profile source");
     expect_true("profile model round trip", round_trip == normalized, "typed profile did not preserve normalized JSON");
 }
 
@@ -417,7 +417,7 @@ void test_typed_store_saves_tree() {
     setenv("BTRFS_BACKUP_CONFIGURATION_GENERATION", generation.c_str(), 1);
     expect_true(
         "typed load matching generation",
-        btrfsbackup::load_profile_by_id(root / "etc" / "btrfs-backup", "default").id == "default",
+        btrfsbackup::load_profile_by_id(root / "etc" / "btrfs-backup", "default").id == btrfsbackup::ProfileId{"default"},
         "matching generation was rejected"
     );
     setenv("BTRFS_BACKUP_CONFIGURATION_GENERATION", "00000000000000000000000000000000", 1);

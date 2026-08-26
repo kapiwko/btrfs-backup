@@ -59,7 +59,9 @@ class RecordingActionHandler final : public btrfsbackup::IBackupRunActionHandler
         btrfsbackup::CancellationToken&
     ) override {
         const btrfsbackup::BackupRunActionKind kind = btrfsbackup::backup_run_action_kind(action);
-        calls.push_back(btrfsbackup::backup_run_action_source_id(action).value + ":" + action_name(kind));
+        calls.push_back(
+            std::string(btrfsbackup::backup_run_action_source_id(action).value()) + ":" + action_name(kind)
+        );
         if (const auto* retention = std::get_if<btrfsbackup::ApplyLocalRetentionAction>(&action)) {
             for (const btrfsbackup::SnapshotInfo& snapshot : retention->plan.delete_snapshots) {
                 local_retention_deletes.push_back(snapshot.path.string());
@@ -79,10 +81,10 @@ class RecordingActionHandler final : public btrfsbackup::IBackupRunActionHandler
             btrfsbackup::write_pending_marker(
                 pending_state_dir,
                 {
-                    .source_name = snapshot->source_id.value,
+                    .source_name = std::string(snapshot->source_id.value()),
                     .local_snapshot_path = snapshot->snapshot.string(),
                     .final_snapshot_path = snapshot->final_remote_snapshot.string(),
-                    .run_id = plan.run_id.value,
+                    .run_id = std::string(plan.run_id.value()),
                     .timestamp = pending_timestamp,
                 }
             );
@@ -225,8 +227,7 @@ void add_snapshot_metadata(
 }
 
 btrfsbackup::Profile test_profile(const fs::path& root) {
-    btrfsbackup::Profile profile;
-    profile.id = "default";
+    btrfsbackup::Profile profile{btrfsbackup::ProfileId{"default"}};
     profile.name = "Default backup";
     profile.enabled = true;
     profile.target.device = "/dev/disk/by-uuid/11111111-2222-3333-4444-555555555555";
@@ -243,18 +244,14 @@ btrfsbackup::Profile test_profile(const fs::path& root) {
     profile.settings.keep_failed_local_snapshot = false;
     profile.settings.remote_retention = 2;
     profile.settings.local_retention = 2;
-    profile.sources = {
-        {
-            .id = "root",
-            .name = "System",
-            .enabled = true,
-            .subvolume = (root / "source" / "root").string(),
-            .local_snapshot_dir = (root / "source" / ".snapshots" / "root").string(),
-            .remote_subdir = "root",
-            .remote_retention = 2,
-            .local_retention = 2,
-        },
-    };
+    btrfsbackup::ProfileSource source{btrfsbackup::SourceId{"root"}};
+    source.name = "System";
+    source.subvolume = (root / "source" / "root").string();
+    source.local_snapshot_dir = (root / "source" / ".snapshots" / "root").string();
+    source.remote_subdir = "root";
+    source.remote_retention = 2;
+    source.local_retention = 2;
+    profile.sources = {std::move(source)};
     return profile;
 }
 
@@ -269,16 +266,14 @@ btrfsbackup::ApplicationPaths test_application_paths(const fs::path& root) {
 }
 
 void add_home_source(btrfsbackup::Profile& profile, const fs::path& root) {
-    profile.sources.push_back({
-        .id = "home",
-        .name = "Home",
-        .enabled = true,
-        .subvolume = (root / "source" / "home").string(),
-        .local_snapshot_dir = (root / "source" / ".snapshots" / "home").string(),
-        .remote_subdir = "home",
-        .remote_retention = 2,
-        .local_retention = 2,
-    });
+    btrfsbackup::ProfileSource source{btrfsbackup::SourceId{"home"}};
+    source.name = "Home";
+    source.subvolume = (root / "source" / "home").string();
+    source.local_snapshot_dir = (root / "source" / ".snapshots" / "home").string();
+    source.remote_subdir = "home";
+    source.remote_retention = 2;
+    source.local_retention = 2;
+    profile.sources.push_back(std::move(source));
 }
 
 void write_profile(const fs::path& config_root, const btrfsbackup::Profile& profile) {
@@ -290,7 +285,7 @@ void write_profile(const fs::path& config_root, const btrfsbackup::Profile& prof
         );
         chmod(config_path.c_str(), 0600);
     }
-    fs::path profile_path = config_root / "profiles" / profile.id / "profile.json";
+    fs::path profile_path = config_root / "profiles" / profile.id.value() / "profile.json";
     test_helpers::write_file(profile_path, btrfsbackup::profile_to_json(profile).dump(2));
     chmod(profile_path.c_str(), 0600);
 }
@@ -382,7 +377,10 @@ int run_runner(
         return btrfsbackup::command::runner(config_root, args, output);
     }
     const btrfsbackup::ProfileId profile_id{option_value(args, "--profile", "default")};
-    const btrfsbackup::Profile profile = btrfsbackup::load_profile_by_id(config_root, profile_id.value);
+    const btrfsbackup::Profile profile = btrfsbackup::load_profile_by_id(
+        config_root,
+        std::string(profile_id.value())
+    );
     const fs::path mountinfo = option_value(args, "--mountinfo", "/proc/self/mountinfo");
     btrfsbackup::FileProfileRepository profiles(config_root, fixture->application_config);
     btrfsbackup::LinuxMountInspector mounts(mountinfo, [target_uuid = profile.target.btrfs_uuid](const std::string& source) {
@@ -442,19 +440,19 @@ int run_runner(const fs::path& config_root, const std::vector<std::string>& args
 std::string profile_fingerprint(const fs::path& config_root, const btrfsbackup::Profile& profile) {
     return btrfsbackup::compute_config_fingerprint(
         "2.0.0",
-        config_root / "profiles" / profile.id / "profile.json",
+        config_root / "profiles" / profile.id.value() / "profile.json",
         {}
     );
 }
 
 void write_matching_last_success(const fs::path& config_root, const btrfsbackup::Profile& profile) {
     btrfsbackup::write_success_state(
-        config_root.parent_path() / "state" / "profiles" / profile.id,
+        config_root.parent_path() / "state" / "profiles" / profile.id.value(),
         btrfsbackup::SuccessState{
             .date = "2026-08-23",
             .timestamp = "2026-08-23T08:00:00+02:00",
             .run_id = "20260823T080000Z-previous",
-            .profile_id = profile.id,
+            .profile_id = std::string(profile.id.value()),
             .profile_name = profile.name,
             .source_count = 1,
             .target_luks_uuid = profile.target.luks_uuid,
@@ -571,7 +569,9 @@ void test_runner_execute_rejects_busy_profile_before_target_access() {
     write_profile(config_root, profile);
     write_mountinfo(mountinfo, profile);
 
-    btrfsbackup::FileLock active_profile_lock(btrfsbackup::profile_lock_path(lock_root, profile.id));
+    btrfsbackup::FileLock active_profile_lock(
+        btrfsbackup::profile_lock_path(lock_root, std::string(profile.id.value()))
+    );
     test_helpers::expect_true(
         "active profile lock acquired",
         active_profile_lock.try_acquire(),
@@ -592,7 +592,7 @@ void test_runner_execute_rejects_busy_profile_before_target_access() {
         {
             "execute",
             "--profile",
-            profile.id,
+            std::string(profile.id.value()),
             "--mountinfo",
             mountinfo.string(),
         },
@@ -612,7 +612,7 @@ void test_runner_execute_rejects_busy_profile_before_target_access() {
     test_helpers::expect_true("profile busy transfers", transfer_pipeline.plans.empty(), "busy runner must not transfer");
     test_helpers::expect_true(
         "profile busy status absent",
-        !fs::exists(root / "status" / profile.id / "current.json"),
+        !fs::exists(root / "status" / profile.id.value() / "current.json"),
         "busy runner must not replace current status"
     );
 
@@ -629,13 +629,13 @@ void test_runner_execute_serializes_shared_target_but_allows_another_target() {
 
     btrfsbackup::Profile active_profile = test_profile(root);
     btrfsbackup::Profile shared_target_profile = test_profile(root);
-    shared_target_profile.id = "shared";
+    shared_target_profile.id = btrfsbackup::ProfileId{"shared"};
     shared_target_profile.name = "Shared target";
     shared_target_profile.target.mount_point = (root / "target" / "shared").string();
     shared_target_profile.paths.remote_root = (root / "target" / "shared" / "snapshots").string();
     shared_target_profile.paths.incoming_root = (root / "target" / "shared" / ".incoming").string();
     btrfsbackup::Profile other_target_profile = test_profile(root);
-    other_target_profile.id = "other";
+    other_target_profile.id = btrfsbackup::ProfileId{"other"};
     other_target_profile.name = "Other target";
     other_target_profile.target.luks_uuid = "33333333-4444-5555-6666-777777777777";
     other_target_profile.target.btrfs_uuid = "44444444-5555-6666-7777-888888888888";
@@ -677,7 +677,7 @@ void test_runner_execute_serializes_shared_target_but_allows_another_target() {
                 {
                     "execute",
                     "--profile",
-                    active_profile.id,
+                    std::string(active_profile.id.value()),
                     "--timestamp",
                     "2026-08-23T080000Z",
                     "--run-id",
@@ -716,7 +716,7 @@ void test_runner_execute_serializes_shared_target_but_allows_another_target() {
         {
             "execute",
             "--profile",
-            active_profile.id,
+            std::string(active_profile.id.value()),
             "--mountinfo",
             active_mountinfo.string(),
         },
@@ -733,7 +733,9 @@ void test_runner_execute_serializes_shared_target_but_allows_another_target() {
     );
     test_helpers::expect_true("concurrent profile effects", same_profile_action_handler.calls.empty(), "second runner must not execute actions");
     test_helpers::expect_true("concurrent profile transfers", same_profile_transfer_pipeline.plans.empty(), "second runner must not transfer");
-    btrfsbackup::Json active_status = btrfsbackup::load_json_file(root / "status" / active_profile.id / "current.json");
+    btrfsbackup::Json active_status = btrfsbackup::load_json_file(
+        root / "status" / active_profile.id.value() / "current.json"
+    );
     test_helpers::expect_eq(
         "active status preserved",
         active_status.at("state").get<std::string>(),
@@ -754,7 +756,7 @@ void test_runner_execute_serializes_shared_target_but_allows_another_target() {
         {
             "execute",
             "--profile",
-            shared_target_profile.id,
+            std::string(shared_target_profile.id.value()),
             "--mountinfo",
             shared_mountinfo.string(),
         },
@@ -772,7 +774,7 @@ void test_runner_execute_serializes_shared_target_but_allows_another_target() {
     test_helpers::expect_true("target busy effects", shared_action_handler.calls.empty(), "busy target must not execute actions");
     test_helpers::expect_true(
         "target busy status absent",
-        !fs::exists(root / "status" / shared_target_profile.id / "current.json"),
+        !fs::exists(root / "status" / shared_target_profile.id.value() / "current.json"),
         "busy runner must not write status for the rejected profile"
     );
 
@@ -790,7 +792,7 @@ void test_runner_execute_serializes_shared_target_but_allows_another_target() {
         {
             "execute",
             "--profile",
-            other_target_profile.id,
+            std::string(other_target_profile.id.value()),
             "--timestamp",
             "2026-08-23T080000Z",
             "--run-id",

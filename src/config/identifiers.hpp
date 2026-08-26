@@ -6,34 +6,44 @@
 
 #include <compare>
 #include <string>
+#include <string_view>
 
 namespace btrfsbackup {
 
-struct ProfileId {
-    std::string value;
+class ProfileId {
+  public:
+    explicit ProfileId(std::string value);
 
-    ProfileId() = default;
-    explicit ProfileId(std::string input);
+    [[nodiscard]] std::string_view value() const noexcept;
 
     auto operator<=>(const ProfileId&) const = default;
+
+  private:
+    std::string value_;
 };
 
-struct RunId {
-    std::string value;
+class RunId {
+  public:
+    explicit RunId(std::string value);
 
-    RunId() = default;
-    explicit RunId(std::string input);
+    [[nodiscard]] std::string_view value() const noexcept;
 
     auto operator<=>(const RunId&) const = default;
+
+  private:
+    std::string value_;
 };
 
-struct SourceId {
-    std::string value;
+class SourceId {
+  public:
+    explicit SourceId(std::string value);
 
-    SourceId() = default;
-    explicit SourceId(std::string input);
+    [[nodiscard]] std::string_view value() const noexcept;
 
     auto operator<=>(const SourceId&) const = default;
+
+  private:
+    std::string value_;
 };
 
 void validate_identifier(const std::string& value, const std::string& field_name);

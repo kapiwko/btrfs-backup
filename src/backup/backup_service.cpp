@@ -17,7 +17,7 @@ BackupRunStatusDescription status_description(
 ) {
     std::map<std::string, std::string> source_names;
     for (const ProfileSource& source : profile.sources) {
-        source_names.emplace(source.id, source.name);
+        source_names.emplace(source.id.value(), source.name);
     }
     return {
         .profile_name = profile.name,
@@ -77,9 +77,18 @@ BackupExecutionResult BackupService::start(const BackupRequest& request) {
     const RunId run_id = run_ids_.generate(timestamp);
     const Profile profile = profiles_.get(request.profile_id);
 
-    BackupExecutionResult result;
-    result.plan.profile_id = ProfileId{profile.id};
-    result.plan.run_id = run_id;
+    BackupExecutionResult result{
+        .plan = BackupRunPlan{
+            .profile_id = profile.id,
+            .run_id = run_id,
+            .target_mount_point = {},
+            .sources = {},
+        },
+        .outcome = BackupExecutionOutcome::Completed,
+        .actions_completed = 0,
+        .error_code = std::nullopt,
+        .error_message = {},
+    };
 
     BackupRunLeaseResult lease = locks_.try_acquire(profile);
     if (!lease.lease) {
@@ -134,8 +143,8 @@ BackupExecutionResult BackupService::start(const BackupRequest& request) {
 
 CancelBackupResult BackupService::cancel(const ProfileId& profile_id) {
     const Profile profile = profiles_.get(profile_id);
-    state_.request_cancel(ProfileId{profile.id});
-    return {.profile_id = ProfileId{profile.id}, .cancel_requested = true};
+    state_.request_cancel(profile.id);
+    return {.profile_id = profile.id, .cancel_requested = true};
 }
 
 } // namespace btrfsbackup

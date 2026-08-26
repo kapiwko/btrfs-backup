@@ -128,14 +128,14 @@ BackupRunPlan build_backup_run_plan(
     const RunId& run_id,
     const std::string& snapshot_timestamp
 ) {
-    validate_profile_id(profile.id);
-    validate_run_id(run_id.value);
-    if (!parse_snapshot_name(profile.id + "-" + snapshot_timestamp, profile.id).has_value()) {
+    const std::string profile_id{profile.id.value()};
+    const std::string run_id_value{run_id.value()};
+    if (!parse_snapshot_name(profile_id + "-" + snapshot_timestamp, profile_id).has_value()) {
         throw ValidationError("snapshot timestamp is invalid: " + snapshot_timestamp);
     }
 
     BackupRunPlan run_plan{
-        .profile_id = ProfileId{profile.id},
+        .profile_id = profile.id,
         .run_id = run_id,
         .target_mount_point = profile.target.mount_point,
         .sources = {},
@@ -146,14 +146,14 @@ BackupRunPlan build_backup_run_plan(
         if (!source.enabled) {
             continue;
         }
-        validate_identifier(source.id, "sourceId");
-        if (!seen_sources.insert(source.id).second) {
-            throw ValidationError("duplicate source id in backup run plan: " + source.id);
+        const std::string source_id{source.id.value()};
+        if (!seen_sources.insert(source_id).second) {
+            throw ValidationError("duplicate source id in backup run plan: " + source_id);
         }
 
         const fs::path remote_snapshot_dir = fs::path(profile.paths.remote_root) / source.remote_subdir;
-        const fs::path incoming_source_root = fs::path(profile.paths.incoming_root) / source.id;
-        const fs::path incoming_run_dir = incoming_source_root / run_id.value;
+        const fs::path incoming_source_root = fs::path(profile.paths.incoming_root) / source_id;
+        const fs::path incoming_run_dir = incoming_source_root / run_id_value;
 
         if (!path_is_within(remote_snapshot_dir, profile.paths.remote_root)) {
             throw ValidationError("Remote source directory escapes REMOTE_ROOT: " + remote_snapshot_dir.string());
@@ -163,15 +163,15 @@ BackupRunPlan build_backup_run_plan(
         }
         require_source_mount_constraints(source, profile, mounts);
 
-        const std::vector<SnapshotInfo>& current_local_snapshots = snapshots_for(local_inventory, source.id);
-        const std::vector<SnapshotInfo>& current_remote_snapshots = snapshots_for(remote_inventory, source.id);
-        const std::string snapshot_name = planned_snapshot_name(source.id, snapshot_timestamp, current_local_snapshots);
+        const std::vector<SnapshotInfo>& current_local_snapshots = snapshots_for(local_inventory, source_id);
+        const std::vector<SnapshotInfo>& current_remote_snapshots = snapshots_for(remote_inventory, source_id);
+        const std::string snapshot_name = planned_snapshot_name(source_id, snapshot_timestamp, current_local_snapshots);
         const fs::path local_snapshot_path = fs::path(source.local_snapshot_dir) / snapshot_name;
         const fs::path received_snapshot_path = incoming_run_dir / snapshot_name;
         const fs::path final_remote_snapshot_path = remote_snapshot_dir / snapshot_name;
 
         IncrementalParentSelection parent = select_incremental_parent(
-            source.id,
+            source_id,
             current_local_snapshots,
             current_remote_snapshots,
             local_snapshot_path,
@@ -179,12 +179,12 @@ BackupRunPlan build_backup_run_plan(
         );
 
         PendingRecoveryPlan recovery = plan_pending_recovery(
-            source.id,
+            source_id,
             profile_state_dir,
             source.local_snapshot_dir,
             remote_snapshot_dir,
-            pending_marker_for(pending_markers, source.id),
-            pending_snapshot_for(pending_snapshots, source.id),
+            pending_marker_for(pending_markers, source_id),
+            pending_snapshot_for(pending_snapshots, source_id),
             current_remote_snapshots,
             profile.settings.keep_failed_local_snapshot
         );
@@ -195,20 +195,20 @@ BackupRunPlan build_backup_run_plan(
                 return snapshot.path == recovery.local_snapshot_path;
             });
         }
-        projected_local.push_back(projected_snapshot(SnapshotSide::Local, source.id, snapshot_name, snapshot_timestamp, local_snapshot_path));
+        projected_local.push_back(projected_snapshot(SnapshotSide::Local, source_id, snapshot_name, snapshot_timestamp, local_snapshot_path));
         std::vector<SnapshotInfo> projected_remote = current_remote_snapshots;
         if (recovery.delete_remote_snapshot) {
             std::erase_if(projected_remote, [&](const SnapshotInfo& snapshot) {
                 return snapshot.path == recovery.remote_snapshot_path;
             });
         }
-        projected_remote.push_back(projected_snapshot(SnapshotSide::Remote, source.id, snapshot_name, snapshot_timestamp, final_remote_snapshot_path));
+        projected_remote.push_back(projected_snapshot(SnapshotSide::Remote, source_id, snapshot_name, snapshot_timestamp, final_remote_snapshot_path));
 
-        RetentionPlan local_retention = plan_count_retention(source.id, projected_local, source.local_retention);
-        RetentionPlan remote_retention = plan_count_retention(source.id, projected_remote, source.remote_retention);
+        RetentionPlan local_retention = plan_count_retention(source_id, projected_local, source.local_retention);
+        RetentionPlan remote_retention = plan_count_retention(source_id, projected_remote, source.remote_retention);
 
         BackupSourceRunPlan source_plan{
-            .source_id = SourceId{source.id},
+            .source_id = source.id,
             .source_subvolume = source.subvolume,
             .local_snapshot_dir = source.local_snapshot_dir,
             .remote_snapshot_dir = remote_snapshot_dir,

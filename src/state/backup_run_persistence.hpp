@@ -6,6 +6,7 @@
 
 #include <filesystem>
 #include <map>
+#include <optional>
 #include <string>
 
 #include <backup/backup_run_event.hpp>
@@ -48,7 +49,7 @@ public:
 
 private:
     BackupRunStatusContext context_;
-    RunId run_id_;
+    std::optional<RunId> run_id_;
     int last_overall_progress_ = -1;
 };
 

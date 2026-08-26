@@ -122,13 +122,13 @@ void validate_rendered_installation(const fs::path& root, const fs::path& target
     }
 
     Profile profile = profile_from_json(load_json_file(profile_json), target_mount_root);
-    fs::path mount_dependency = root / "systemd" / ("btrfs-backup@" + profile.id + ".service.d") / "target-mount.conf";
+    fs::path mount_dependency = root / "systemd" / ("btrfs-backup@" + std::string(profile.id.value()) + ".service.d") / "target-mount.conf";
     require_exact_text(
         mount_dependency,
         render_mount_dependency(profile),
         "missing rendered target mount dependency"
     );
-    fs::path udev_file = root / "udev" / ("99-btrfs-backup-" + profile.id + ".rules");
+    fs::path udev_file = root / "udev" / ("99-btrfs-backup-" + std::string(profile.id.value()) + ".rules");
     require_file(udev_file, "missing rendered profile udev rule");
     run_checked(
         {"systemd-analyze", "verify", service_file.string(), profile_service_file.string(), eject_service_file.string()},
@@ -156,10 +156,9 @@ void validate_active_installation(const std::string& profile_id) {
 
     ApplicationConfig config = ApplicationConfig::load();
     Profile profile = profile_from_json(load_json_file(profile_json), config.paths().target_mount_root);
-    fs::path mount_dependency = fs::path("/etc/systemd/system")
-        / ("btrfs-backup@" + profile.id + ".service.d") / "target-mount.conf";
+    fs::path mount_dependency = fs::path("/etc/systemd/system") / ("btrfs-backup@" + std::string(profile.id.value()) + ".service.d") / "target-mount.conf";
     require_exact_text(mount_dependency, render_mount_dependency(profile), "missing target mount dependency");
-    fs::path udev_file = fs::path("/etc/udev/rules.d") / ("99-btrfs-backup-" + profile.id + ".rules");
+    fs::path udev_file = fs::path("/etc/udev/rules.d") / ("99-btrfs-backup-" + std::string(profile.id.value()) + ".rules");
     if (!fs::is_regular_file(udev_file)) {
         throw ValidationError("missing " + udev_file.string());
     }

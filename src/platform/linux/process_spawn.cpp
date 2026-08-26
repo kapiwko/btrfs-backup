@@ -53,7 +53,7 @@ void append_context_variable(
     if (!value.has_value()) {
         return;
     }
-    environment.push_back(name + "=" + value->value);
+    environment.push_back(name + "=" + std::string(value->value()));
 }
 
 std::vector<std::string> child_environment(const ProcessSpawnOptions& options) {

@@ -57,7 +57,9 @@ void emit_event(
         .kind = kind,
         .profile_id = plan.profile_id,
         .run_id = plan.run_id,
-        .source_id = source == nullptr ? SourceId{} : source->source_id,
+        .source_id = source == nullptr
+            ? std::nullopt
+            : std::optional<SourceId>{source->source_id},
         .source_index = source_index_for_event(plan, source),
         .action_kind = action_kind,
         .bytes_transferred = bytes_transferred,

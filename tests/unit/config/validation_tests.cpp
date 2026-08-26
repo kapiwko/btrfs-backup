@@ -4,12 +4,35 @@
 
 #include <filesystem>
 #include <string>
+#include <string_view>
+#include <type_traits>
+#include <utility>
 
+#include <config/identifiers.hpp>
+#include <config/profile.hpp>
 #include <config/validation.hpp>
 
 #include "support/test_helpers.hpp"
 
 namespace {
+
+static_assert(!std::is_default_constructible_v<btrfsbackup::ProfileId>);
+static_assert(!std::is_default_constructible_v<btrfsbackup::SourceId>);
+static_assert(!std::is_default_constructible_v<btrfsbackup::RunId>);
+static_assert(std::is_same_v<decltype(std::declval<const btrfsbackup::ProfileId&>().value()), std::string_view>);
+static_assert(std::is_same_v<decltype(btrfsbackup::Profile::id), btrfsbackup::ProfileId>);
+static_assert(std::is_same_v<decltype(btrfsbackup::ProfileSource::id), btrfsbackup::SourceId>);
+
+void test_identifier_validation() {
+    test_helpers::expect_eq(
+        "profile identifier",
+        std::string(btrfsbackup::ProfileId{"default"}.value()),
+        "default"
+    );
+    test_helpers::expect_validation_error("empty profile identifier", [] { (void)btrfsbackup::ProfileId{""}; }, "invalid profile id");
+    test_helpers::expect_validation_error("invalid source identifier", [] { (void)btrfsbackup::SourceId{"../root"}; }, "sourceId contains unsupported characters");
+    test_helpers::expect_validation_error("invalid run identifier", [] { (void)btrfsbackup::RunId{"../run"}; }, "invalid run id");
+}
 
 void test_uint_validation() {
     test_helpers::expect_eq("uint zero", std::to_string(btrfsbackup::parse_uint("0", "value")), "0");
@@ -64,6 +87,7 @@ void test_path_is_within() {
 } // namespace
 
 int main() {
+    test_identifier_validation();
     test_uint_validation();
     test_path_validation();
     test_path_is_within();

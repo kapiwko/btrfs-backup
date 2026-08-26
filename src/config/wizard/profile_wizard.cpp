@@ -98,7 +98,7 @@ int run_profile_wizard(const ProfileWizardOptions& options, std::istream& input,
 
     if (options.action == ProfileWizardAction::apply) {
         apply_rendered_wizard_tree(profile, output_dir);
-        output << "Installed active configuration for profile " << profile.id << "\n";
+        output << "Installed active configuration for profile " << profile.id.value() << "\n";
     } else {
         output << "Rendered and validated files in:\n  " << output_dir << "\n";
         output << "\nReview them, merge the fstab/crypttab fragments manually, or rerun with --apply as root.\n";

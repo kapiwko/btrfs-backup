@@ -150,7 +150,7 @@ btrfsbackup::Json action_to_json(
                                                            action);
     btrfsbackup::Json result = {
         {"kind", action_name(btrfsbackup::backup_run_action_kind(action))},
-        {"sourceId", btrfsbackup::backup_run_action_source_id(action).value},
+        {"sourceId", std::string(btrfsbackup::backup_run_action_source_id(action).value())},
         {"primaryPath", primary_path.string()},
         {"secondaryPath", secondary_path.string()}
     };
@@ -175,7 +175,7 @@ btrfsbackup::Json paths_to_json(const std::vector<btrfsbackup::SnapshotInfo>& sn
 
 btrfsbackup::Json source_plan_to_json(const btrfsbackup::BackupSourceRunPlan& source, bool include_actions) {
     btrfsbackup::Json result = {
-        {"sourceId", source.source_id.value},
+        {"sourceId", std::string(source.source_id.value())},
         {"sourceSubvolume", source.source_subvolume.string()},
         {"localSnapshotPath", source.local_snapshot_path.string()},
         {"remoteSnapshotDir", source.remote_snapshot_dir.string()},
@@ -223,7 +223,7 @@ struct ParsedRunnerCommand {
     std::map<std::string, std::string> mount_uuid_overrides;
     std::string timestamp = current_utc_timestamp();
     std::string today = current_local_date();
-    btrfsbackup::RunId run_id;
+    std::optional<btrfsbackup::RunId> run_id;
 };
 
 ParsedRunnerCommand parse_request(
@@ -256,7 +256,7 @@ ParsedRunnerCommand parse_request(
             fail("unknown " + command + " option: " + arg);
         }
     }
-    if (parsed.run_id.value.empty()) {
+    if (!parsed.run_id.has_value()) {
         parsed.run_id = btrfsbackup::RunId{compact_timestamp(parsed.timestamp) + "-shadow"};
     }
     return parsed;
@@ -362,7 +362,7 @@ class ProductionBackupComposition {
                   ? btrfsbackup::blkid_filesystem_uuid(source)
                   : found->second;
           }),
-          target_manager_(mounts_, commands_), planner_(btrfsbackup::read_btrfs_snapshot_metadata), run_factory_(btrfs_, filesystem_, commands_, transfers_), locks_(btrfsbackup::default_lock_root()), state_(config_.paths()), cancellation_monitor_(state_), clock_(parsed.timestamp, parsed.today), run_ids_(parsed.run_id), service_(profiles_, mounts_, target_manager_, planner_, run_factory_, locks_, state_, cancellation_monitor_, clock_, run_ids_, cancellation) {
+          target_manager_(mounts_, commands_), planner_(btrfsbackup::read_btrfs_snapshot_metadata), run_factory_(btrfs_, filesystem_, commands_, transfers_), locks_(btrfsbackup::default_lock_root()), state_(config_.paths()), cancellation_monitor_(state_), clock_(parsed.timestamp, parsed.today), run_ids_(*parsed.run_id), service_(profiles_, mounts_, target_manager_, planner_, run_factory_, locks_, state_, cancellation_monitor_, clock_, run_ids_, cancellation) {
     }
 
     btrfsbackup::BackupService& service() {
@@ -392,30 +392,33 @@ int print_execution_result(const btrfsbackup::BackupExecutionResult& result, std
     using btrfsbackup::BackupExecutionOutcome;
     if (result.outcome == BackupExecutionOutcome::Busy) {
         output << btrfsbackup::Json{
-            {"schemaVersion", 1},
-            {"mode", "cpp-execute"},
-            {"profileId", result.plan.profile_id.value},
-            {"runId", result.plan.run_id.value},
-            {"completed", false},
-            {"skipped", false},
-            {"cancelled", false},
-            {"busy", true},
-            {"actionsCompleted", 0},
-            {"errorCode", result.error_code.has_value() ? error_code_name(*result.error_code) : ""},
-            {"errorMessage", result.error_message}
-        }.dump(2) << '\n';
+                      {"schemaVersion", 1},
+                      {"mode", "cpp-execute"},
+                      {"profileId", std::string(result.plan.profile_id.value())},
+                      {"runId", std::string(result.plan.run_id.value())},
+                      {"completed", false},
+                      {"skipped", false},
+                      {"cancelled", false},
+                      {"busy", true},
+                      {"actionsCompleted", 0},
+                      {"errorCode", result.error_code.has_value() ? error_code_name(*result.error_code) : ""},
+                      {"errorMessage", result.error_message}
+                  }.dump(2)
+               << '\n';
         return 1;
     }
     if (result.outcome == BackupExecutionOutcome::Validated) {
         output << btrfsbackup::Json{
-            {"schemaVersion", 1},
-            {"mode", "cpp-validate"},
-            {"profileId", result.plan.profile_id.value},
-            {"runId", result.plan.run_id.value},
-            {"completed", true},
-            {"cancelled", false},
-            {"actionsCompleted", 0}
-        }.dump(2) << '\n';
+                      {"schemaVersion", 1},
+                      {"mode", "cpp-validate"},
+                      {"profileId", std::string(result.plan.profile_id.value())},
+                      {"runId", std::string(result.plan.run_id.value())},
+                      {"completed", true},
+                      {"cancelled", false},
+                      {"actionsCompleted", 0}
+                  }
+                      .dump(2)
+               << '\n';
         return 0;
     }
 
@@ -424,16 +427,17 @@ int print_execution_result(const btrfsbackup::BackupExecutionResult& result, std
     const bool skipped = result.outcome == BackupExecutionOutcome::Skipped;
     const bool cancelled = result.outcome == BackupExecutionOutcome::Cancelled;
     output << btrfsbackup::Json{
-        {"schemaVersion", 1},
-        {"mode", "cpp-execute"},
-        {"profileId", result.plan.profile_id.value},
-        {"runId", result.plan.run_id.value},
-        {"completed", completed},
-        {"skipped", skipped},
-        {"cancelled", cancelled},
-        {"actionsCompleted", result.actions_completed},
-        {"sources", sources_to_json(result.plan.sources, false)}
-    }.dump(2) << '\n';
+                  {"schemaVersion", 1},
+                  {"mode", "cpp-execute"},
+                  {"profileId", std::string(result.plan.profile_id.value())},
+                  {"runId", std::string(result.plan.run_id.value())},
+                  {"completed", completed},
+                  {"skipped", skipped},
+                  {"cancelled", cancelled},
+                  {"actionsCompleted", result.actions_completed},
+                  {"sources", sources_to_json(result.plan.sources, false)}
+              }.dump(2)
+           << '\n';
     return completed ? 0 : 1;
 }
 
@@ -463,22 +467,24 @@ int runner(
     if (command == "cancel") {
         CancelBackupResult result = service.cancel(request.profile_id);
         output << Json{
-            {"schemaVersion", 1},
-            {"mode", "cpp-cancel"},
-            {"profileId", result.profile_id.value},
-            {"cancelRequested", result.cancel_requested}
-        }.dump(2) << '\n';
+                      {"schemaVersion", 1},
+                      {"mode", "cpp-cancel"},
+                      {"profileId", std::string(result.profile_id.value())},
+                      {"cancelRequested", result.cancel_requested}
+                  }.dump(2)
+               << '\n';
         return 0;
     }
     if (command == "plan") {
         BackupRunPlan plan = service.plan(request);
         output << Json{
-            {"schemaVersion", 1},
-            {"mode", "shadow-plan"},
-            {"profileId", plan.profile_id.value},
-            {"runId", plan.run_id.value},
-            {"sources", sources_to_json(plan.sources, true)}
-        }.dump(2) << '\n';
+                      {"schemaVersion", 1},
+                      {"mode", "shadow-plan"},
+                      {"profileId", std::string(plan.profile_id.value())},
+                      {"runId", std::string(plan.run_id.value())},
+                      {"sources", sources_to_json(plan.sources, true)}
+                  }.dump(2)
+               << '\n';
         return 0;
     }
     return print_execution_result(service.start(request), output);

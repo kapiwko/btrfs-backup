@@ -31,7 +31,7 @@ struct BackupRunEvent {
     BackupRunEventKind kind = BackupRunEventKind::RunStarted;
     ProfileId profile_id;
     RunId run_id;
-    SourceId source_id;
+    std::optional<SourceId> source_id;
     int source_index = 0;
     BackupRunActionKind action_kind = BackupRunActionKind::CleanupSource;
     std::uint64_t bytes_transferred = 0;

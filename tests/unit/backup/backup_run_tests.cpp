@@ -51,7 +51,7 @@ void test_backup_run_owns_plan_and_executes_once() {
         checkpoints
     );
 
-    test_helpers::expect_eq("owned profile", run.plan().profile_id.value, "default");
+    test_helpers::expect_eq("owned profile", std::string(run.plan().profile_id.value()), "default");
     test_helpers::expect_true("not started", !run.started(), "new run is already marked as started");
 
     btrfsbackup::NullBackupRunEventSink events;

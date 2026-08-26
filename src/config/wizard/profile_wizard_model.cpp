@@ -24,10 +24,8 @@ std::string lower(std::string value) {
 } // namespace
 
 Profile profile_from_wizard_answers(const ProfileWizardAnswers& answers) {
-    Profile profile;
+    Profile profile{ProfileId{answers.profile_id}};
     profile.schema_version = current_profile_schema_version;
-    profile.id = answers.profile_id;
-    validate_identifier(profile.id, "profileId");
     profile.name = answers.profile_name;
     profile.enabled = true;
 
@@ -38,20 +36,19 @@ Profile profile_from_wizard_answers(const ProfileWizardAnswers& answers) {
     profile.target.serial = answers.target_serial;
     profile.target.mapper_name = answers.target_mapper_name;
     validate_identifier(profile.target.mapper_name, "target.mapperName");
-    profile.target.mount_point = (std::filesystem::path(answers.target_mount_root) / profile.id).string();
+    profile.target.mount_point = (std::filesystem::path(answers.target_mount_root) / profile.id.value()).string();
 
     profile.paths.remote_root = profile.target.mount_point + "/snapshots";
     profile.paths.incoming_root = profile.target.mount_point + "/.incoming";
 
     std::set<std::string> used_names;
     for (const ProfileWizardSourceAnswers& source_answer : answers.sources) {
-        ProfileSource source;
-        source.id = source_answer.id;
-        validate_identifier(source.id, "source.id");
-        if (!used_names.insert(source.id).second) {
-            throw ValidationError("duplicate source name: " + source.id);
+        ProfileSource source{SourceId{source_answer.id}};
+        const std::string source_id{source.id.value()};
+        if (!used_names.insert(source_id).second) {
+            throw ValidationError("duplicate source name: " + source_id);
         }
-        source.name = source.id;
+        source.name = source_id;
         source.enabled = true;
         source.subvolume = source_answer.subvolume;
         source.local_snapshot_dir = source_answer.local_snapshot_dir;

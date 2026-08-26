@@ -34,8 +34,7 @@ std::string join(const std::vector<std::string>& args) {
 }
 
 btrfsbackup::Profile profile_with_auto_eject(bool auto_eject) {
-    btrfsbackup::Profile profile;
-    profile.id = "default";
+    btrfsbackup::Profile profile{btrfsbackup::ProfileId{"default"}};
     profile.name = "Default backup";
     profile.settings.auto_eject = auto_eject;
     return profile;

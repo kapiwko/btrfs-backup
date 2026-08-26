@@ -107,7 +107,7 @@ FileProfileRepository::FileProfileRepository(fs::path config_root, ApplicationCo
 }
 
 Profile FileProfileRepository::get(const ProfileId& profile_id) const {
-    return load_profile_by_id(config_root_, profile_id.value);
+    return load_profile_by_id(config_root_, std::string(profile_id.value()));
 }
 
 const ApplicationPaths& FileProfileRepository::application_paths() const {
@@ -117,7 +117,7 @@ const ApplicationPaths& FileProfileRepository::application_paths() const {
 std::string FileProfileRepository::fingerprint(const Profile& profile) const {
     return compute_config_fingerprint(
         "2.0.0",
-        config_root_ / "profiles" / profile.id / "profile.json",
+        config_root_ / "profiles" / profile.id.value() / "profile.json",
         {}
     );
 }
@@ -155,7 +155,7 @@ BackupRunPlan DefaultBackupPlanner::build(
     SnapshotInventoryBySource remote_inventory;
     PendingMarkerBySource pending_markers;
     PendingSnapshotBySource pending_snapshots;
-    const fs::path profile_state = profile_state_dir(paths, profile.id);
+    const fs::path profile_state = profile_state_dir(paths, std::string(profile.id.value()));
     std::optional<SafeDirectoryRoot> local_root;
     std::optional<SafeDirectoryRoot> target_root;
     if (secure_paths_) {
@@ -167,14 +167,15 @@ BackupRunPlan DefaultBackupPlanner::build(
         if (!source.enabled) {
             continue;
         }
+        const std::string source_id{source.id.value()};
         const fs::path remote_dir = fs::path(profile.paths.remote_root) / source.remote_subdir;
         if (secure_paths_) {
             if (local_root->exists(source.local_snapshot_dir)) {
                 SafeDirectoryHandle local = local_root->open_directory(source.local_snapshot_dir);
-                local_inventory[source.id] = list_snapshot_inventory_at(
+                local_inventory[source_id] = list_snapshot_inventory_at(
                     local.proc_path(),
                     source.local_snapshot_dir,
-                    source.id,
+                    source_id,
                     SnapshotSide::Local,
                     [&](const fs::path& path) {
                         return metadata_reader_(local_root->open_directory(
@@ -186,10 +187,10 @@ BackupRunPlan DefaultBackupPlanner::build(
             }
             if (target_root->exists(remote_dir)) {
                 SafeDirectoryHandle remote = target_root->open_directory(remote_dir);
-                remote_inventory[source.id] = list_snapshot_inventory_at(
+                remote_inventory[source_id] = list_snapshot_inventory_at(
                     remote.proc_path(),
                     remote_dir,
-                    source.id,
+                    source_id,
                     SnapshotSide::Remote,
                     [&](const fs::path& path) {
                         return metadata_reader_(target_root->open_directory(remote_dir / path.filename()).proc_path());
@@ -197,31 +198,31 @@ BackupRunPlan DefaultBackupPlanner::build(
                 );
             }
         } else {
-            local_inventory[source.id] = list_snapshot_inventory(
+            local_inventory[source_id] = list_snapshot_inventory(
                 source.local_snapshot_dir,
-                source.id,
+                source_id,
                 SnapshotSide::Local,
                 metadata_reader_
             );
-            remote_inventory[source.id] = list_snapshot_inventory(
+            remote_inventory[source_id] = list_snapshot_inventory(
                 remote_dir,
-                source.id,
+                source_id,
                 SnapshotSide::Remote,
                 metadata_reader_
             );
         }
 
-        const std::optional<PendingMarker> marker = read_pending_marker_if_exists(profile_state, source.id);
-        pending_markers[source.id] = marker;
+        const std::optional<PendingMarker> marker = read_pending_marker_if_exists(profile_state, source_id);
+        pending_markers[source_id] = marker;
         if (marker.has_value()) {
             if (secure_paths_ && local_root->exists(marker->local_snapshot_path)) {
-                pending_snapshots[source.id] = metadata_reader_(
+                pending_snapshots[source_id] = metadata_reader_(
                     local_root->open_directory(marker->local_snapshot_path).proc_path()
                 );
             } else if (secure_paths_) {
-                pending_snapshots[source.id] = std::nullopt;
+                pending_snapshots[source_id] = std::nullopt;
             } else {
-                pending_snapshots[source.id] = metadata_reader_(marker->local_snapshot_path);
+                pending_snapshots[source_id] = metadata_reader_(marker->local_snapshot_path);
             }
         }
     }
@@ -265,12 +266,12 @@ FileBackupLockManager::FileBackupLockManager(fs::path lock_root) : lock_root_(st
 }
 
 BackupRunLeaseResult FileBackupLockManager::try_acquire(const Profile& profile) {
-    FileLock profile_lock(profile_lock_path(lock_root_, profile.id));
+    FileLock profile_lock(profile_lock_path(lock_root_, std::string(profile.id.value())));
     if (!profile_lock.try_acquire()) {
         return {
             .lease = nullptr,
             .error_code = ErrorCode::RunnerProfileBusy,
-            .error_message = "Another runner is already active for profile " + profile.id + ".",
+            .error_message = "Another runner is already active for profile " + std::string(profile.id.value()) + ".",
         };
     }
     FileLock target_lock(target_lock_path(lock_root_, profile.target.luks_uuid));
@@ -292,7 +293,7 @@ FileRunStateRepository::FileRunStateRepository(ApplicationPaths paths) : paths_(
 }
 
 fs::path FileRunStateRepository::state_dir(const ProfileId& profile_id) const {
-    return profile_state_dir(paths_, profile_id.value);
+    return profile_state_dir(paths_, std::string(profile_id.value()));
 }
 
 bool FileRunStateRepository::last_success_matches(
@@ -301,7 +302,7 @@ bool FileRunStateRepository::last_success_matches(
     const std::string& fingerprint
 ) const {
     return btrfsbackup::last_success_matches(
-        state_dir(ProfileId{profile.id}),
+        state_dir(profile.id),
         date,
         profile.target.luks_uuid,
         fingerprint
@@ -316,7 +317,7 @@ void FileRunStateRepository::write_skipped(
     std::size_t source_count
 ) {
     RunStatus status{
-        .profile_id = ProfileId{profile.id},
+        .profile_id = profile.id,
         .profile_name = profile.name,
         .run_id = run_id,
         .state = RunState::Skipped,
@@ -347,12 +348,12 @@ void FileRunStateRepository::write_success(
     std::size_t source_count
 ) {
     write_success_state(
-        state_dir(ProfileId{profile.id}),
+        state_dir(profile.id),
         SuccessState{
             .date = date,
             .timestamp = timestamp,
-            .run_id = run_id.value,
-            .profile_id = profile.id,
+            .run_id = std::string(run_id.value()),
+            .profile_id = std::string(profile.id.value()),
             .profile_name = profile.name,
             .source_count = static_cast<int>(source_count),
             .target_luks_uuid = profile.target.luks_uuid,

@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <string>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 #include <backup/backup_run_plan.hpp>
@@ -19,8 +20,7 @@ static_assert(!std::is_default_constructible_v<btrfsbackup::CreateSnapshotAction
 static_assert(!std::is_default_constructible_v<btrfsbackup::BackupRunAction>);
 
 btrfsbackup::Profile profile() {
-    btrfsbackup::Profile result;
-    result.id = "default";
+    btrfsbackup::Profile result{btrfsbackup::ProfileId{"default"}};
     result.name = "Default backup";
     result.target.mapper_name = "backup";
     result.target.mount_point = "/mnt/backup";
@@ -29,28 +29,22 @@ btrfsbackup::Profile profile() {
     result.paths.incoming_root = "/mnt/backup/.incoming";
     result.settings.incremental_required = true;
     result.settings.keep_failed_local_snapshot = false;
-    result.sources = {
-        {
-            .id = "root",
-            .name = "System",
-            .enabled = true,
-            .subvolume = "/",
-            .local_snapshot_dir = "/.snapshots/root",
-            .remote_subdir = "root",
-            .remote_retention = 2,
-            .local_retention = 2,
-        },
-        {
-            .id = "home",
-            .name = "Home",
-            .enabled = false,
-            .subvolume = "/home",
-            .local_snapshot_dir = "/.snapshots/home",
-            .remote_subdir = "home",
-            .remote_retention = 2,
-            .local_retention = 2,
-        },
-    };
+    btrfsbackup::ProfileSource root{btrfsbackup::SourceId{"root"}};
+    root.name = "System";
+    root.subvolume = "/";
+    root.local_snapshot_dir = "/.snapshots/root";
+    root.remote_subdir = "root";
+    root.remote_retention = 2;
+    root.local_retention = 2;
+    btrfsbackup::ProfileSource home{btrfsbackup::SourceId{"home"}};
+    home.name = "Home";
+    home.enabled = false;
+    home.subvolume = "/home";
+    home.local_snapshot_dir = "/.snapshots/home";
+    home.remote_subdir = "home";
+    home.remote_retention = 2;
+    home.local_retention = 2;
+    result.sources = {std::move(root), std::move(home)};
     return result;
 }
 
@@ -149,7 +143,7 @@ void test_builds_ordered_source_plan() {
 
     test_helpers::expect_eq("plan source count", std::to_string(plan.sources.size()), "1");
     const btrfsbackup::BackupSourceRunPlan& source = plan.sources.at(0);
-    test_helpers::expect_eq("plan source id", source.source_id.value, "root");
+    test_helpers::expect_eq("plan source id", std::string(source.source_id.value()), "root");
     test_helpers::expect_eq("plan snapshot path", source.local_snapshot_path.string(), "/.snapshots/root/root-2026-08-23T080000Z");
     test_helpers::expect_true("plan incremental", source.parent.incremental, "expected incremental parent");
     test_helpers::expect_eq("plan parent", source.parent.local_parent->path.string(), "/.snapshots/root/root-2026-08-22T080000Z");
@@ -160,7 +154,7 @@ void test_builds_ordered_source_plan() {
     const auto& create_snapshot = std::get<btrfsbackup::CreateSnapshotAction>(source.actions.at(1));
     test_helpers::expect_eq("create source", create_snapshot.source.string(), "/");
     test_helpers::expect_eq("create snapshot", create_snapshot.snapshot.string(), "/.snapshots/root/root-2026-08-23T080000Z");
-    test_helpers::expect_eq("create run id", create_snapshot.run_id.value, "20260823T080000Z-123-456");
+    test_helpers::expect_eq("create run id", std::string(create_snapshot.run_id.value()), "20260823T080000Z-123-456");
 
     const auto& send_receive = std::get<btrfsbackup::SendReceiveAction>(source.actions.at(3));
     test_helpers::expect_eq("send snapshot", send_receive.snapshot.string(), create_snapshot.snapshot.string());
