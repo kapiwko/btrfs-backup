@@ -4,9 +4,7 @@
 
 #include <filesystem>
 #include <string>
-#include <sys/stat.h>
-
-#include <state/backup_run_persistence.hpp>
+#include <state/run_status_projection.hpp>
 #include <config/json_io.hpp>
 
 #include "support/test_helpers.hpp"
@@ -14,15 +12,6 @@
 namespace fs = std::filesystem;
 
 namespace {
-
-int mode_of(const fs::path& path) {
-    struct stat info {};
-    if (stat(path.c_str(), &info) != 0) {
-        test_helpers::fail("stat", "cannot stat " + path.string());
-        return 0;
-    }
-    return info.st_mode & 0777;
-}
 
 btrfsbackup::BackupRunEvent event(btrfsbackup::BackupRunEventKind kind) {
     return btrfsbackup::BackupRunEvent{
@@ -43,67 +32,9 @@ btrfsbackup::BackupRunEvent event(btrfsbackup::BackupRunEventKind kind) {
     };
 }
 
-void test_names_are_stable() {
-    test_helpers::expect_eq(
-        "action name",
-        btrfsbackup::backup_run_action_kind_name(btrfsbackup::BackupRunActionKind::CommitReceived),
-        "commit-received"
-    );
-    test_helpers::expect_eq(
-        "event name",
-        btrfsbackup::backup_run_event_kind_name(btrfsbackup::BackupRunEventKind::TransferProgress),
-        "transfer-progress"
-    );
-}
-
-void test_build_event_json() {
-    btrfsbackup::Json data = btrfsbackup::build_backup_run_event_json(event(btrfsbackup::BackupRunEventKind::TransferProgress));
-
-    test_helpers::expect_true("schema", data.at("schemaVersion") == 1, "wrong schema");
-    test_helpers::expect_true("event", data.at("event") == "transfer-progress", "wrong event");
-    test_helpers::expect_true("action", data.at("action") == "send-receive", "wrong action");
-    test_helpers::expect_true("source index", data.at("sourceIndex") == 1, "wrong source index");
-    test_helpers::expect_true("bytes", data.at("bytesTransferred") == 4096, "wrong bytes");
-    test_helpers::expect_true("produced bytes", data.at("bytesProduced") == 8192, "wrong produced bytes");
-    test_helpers::expect_true("estimated bytes", data.at("bytesTotalEstimated") == 8192, "wrong estimated bytes");
-    test_helpers::expect_true("run bytes", data.at("runBytesTransferred") == 12288, "wrong run bytes");
-    test_helpers::expect_true("delta bytes", data.at("deltaBytes") == 1024, "wrong delta bytes");
-    test_helpers::expect_true("elapsed", data.at("elapsedMs") == 2000, "wrong elapsed");
-    test_helpers::expect_true("speed", data.at("speedBps") == 2048, "wrong speed");
-}
-
-void test_build_run_event_json_without_source() {
-    btrfsbackup::BackupRunEvent run_completed = event(btrfsbackup::BackupRunEventKind::RunCompleted);
-    run_completed.source_id = std::nullopt;
-    run_completed.source_index = 0;
-
-    const btrfsbackup::Json data = btrfsbackup::build_backup_run_event_json(run_completed);
-    test_helpers::expect_true("run event source", data.at("sourceId") == "", "run-level event has a source");
-}
-
-void test_checkpoint_store_writes_private_json_in_state_dir() {
-    fs::path root = test_helpers::test_root("backup-run-persistence", "checkpoint");
-    btrfsbackup::JsonFileBackupRunCheckpointStore store(root / "state");
-
-    store.write_checkpoint({
-        .profile_id = btrfsbackup::ProfileId{"default"},
-        .run_id = btrfsbackup::RunId{"20260823T120000Z-123-456"},
-        .source_id = btrfsbackup::SourceId{"root"},
-        .action_kind = btrfsbackup::BackupRunActionKind::CreateSnapshot,
-    });
-
-    fs::path checkpoint = root / "state" / "checkpoint.json";
-    btrfsbackup::Json data = btrfsbackup::load_json_file(checkpoint);
-    test_helpers::expect_true("checkpoint exists", fs::is_regular_file(checkpoint), "missing checkpoint");
-    test_helpers::expect_true("checkpoint action", data.at("action") == "create-snapshot", "wrong action");
-    test_helpers::expect_true("state dir mode", mode_of(root / "state") == 0700, "state dir should be private");
-    test_helpers::expect_true("checkpoint mode", mode_of(checkpoint) == 0600, "checkpoint should be private");
-    fs::remove_all(root);
-}
-
 void test_public_transfer_progress_excludes_run_details() {
     fs::path root = test_helpers::test_root("backup-run-persistence", "transfer-progress");
-    btrfsbackup::StatusBackupRunEventSink sink({
+    btrfsbackup::RunStatusProjection sink({
         .status_root = root / "status",
         .history_root = root / "history",
         .profile_name = "Default backup",
@@ -141,7 +72,7 @@ void test_public_transfer_progress_excludes_run_details() {
 
 void test_status_sink_writes_current_and_terminal_history() {
     fs::path root = test_helpers::test_root("backup-run-persistence", "status");
-    btrfsbackup::StatusBackupRunEventSink sink({
+    btrfsbackup::RunStatusProjection sink({
         .status_root = root / "status",
         .history_root = root / "history",
         .profile_name = "Default backup",
@@ -170,7 +101,7 @@ void test_status_sink_writes_current_and_terminal_history() {
 
 void test_hook_failure_status_uses_stable_error_code() {
     fs::path root = test_helpers::test_root("backup-run-persistence", "hook-failure");
-    btrfsbackup::StatusBackupRunEventSink sink({
+    btrfsbackup::RunStatusProjection sink({
         .status_root = root / "status",
         .history_root = root / "history",
         .profile_name = "Default backup",
@@ -199,7 +130,7 @@ void test_hook_failure_status_uses_stable_error_code() {
 
 void test_repository_recovery_required_status_is_actionable() {
     fs::path root = test_helpers::test_root("backup-run-persistence", "repository-recovery");
-    btrfsbackup::StatusBackupRunEventSink sink({
+    btrfsbackup::RunStatusProjection sink({
         .status_root = root / "status",
         .history_root = root / "history",
         .profile_name = "Default backup",
@@ -228,14 +159,10 @@ void test_repository_recovery_required_status_is_actionable() {
 } // namespace
 
 int main() {
-    test_names_are_stable();
-    test_build_event_json();
-    test_build_run_event_json_without_source();
-    test_checkpoint_store_writes_private_json_in_state_dir();
     test_status_sink_writes_current_and_terminal_history();
     test_public_transfer_progress_excludes_run_details();
     test_hook_failure_status_uses_stable_error_code();
     test_repository_recovery_required_status_is_actionable();
 
-    return test_helpers::finish("backup run persistence tests");
+    return test_helpers::finish("run status projection tests");
 }

@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <state/backup_run_persistence.hpp>
+#include <state/run_status_projection.hpp>
 
 #include <algorithm>
 #include <chrono>
@@ -11,11 +11,7 @@
 #include <limits>
 #include <sstream>
 #include <string>
-#include <sys/stat.h>
-
-#include <platform/linux/file_io.hpp>
-#include <config/identifiers.hpp>
-#include <config/json_io.hpp>
+#include <state/backup_run_serialization.hpp>
 
 namespace fs = std::filesystem;
 
@@ -36,58 +32,74 @@ std::string current_utc_iso_timestamp() {
 
 RunPhase phase_for_action(BackupRunActionKind kind) {
     switch (kind) {
-        case BackupRunActionKind::RecoverPending: return RunPhase::RecoverPending;
-        case BackupRunActionKind::CleanupIncoming: return RunPhase::CleanupIncoming;
-        case BackupRunActionKind::BeforeSnapshotHook: return RunPhase::BeforeSnapshotHook;
-        case BackupRunActionKind::CreateSnapshot: return RunPhase::CreateSnapshot;
-        case BackupRunActionKind::AfterSnapshotHook: return RunPhase::AfterSnapshotHook;
-        case BackupRunActionKind::SelectParent: return RunPhase::SelectParent;
-        case BackupRunActionKind::SendReceive: return RunPhase::SendReceive;
-        case BackupRunActionKind::VerifyReceived: return RunPhase::VerifyReceived;
-        case BackupRunActionKind::CommitReceived: return RunPhase::CommitReceived;
-        case BackupRunActionKind::ApplyRemoteRetention: return RunPhase::ApplyRemoteRetention;
-        case BackupRunActionKind::ApplyLocalRetention: return RunPhase::ApplyLocalRetention;
-        case BackupRunActionKind::CleanupSource: return RunPhase::CleanupSource;
+    case BackupRunActionKind::RecoverPending:
+        return RunPhase::RecoverPending;
+    case BackupRunActionKind::CleanupIncoming:
+        return RunPhase::CleanupIncoming;
+    case BackupRunActionKind::BeforeSnapshotHook:
+        return RunPhase::BeforeSnapshotHook;
+    case BackupRunActionKind::CreateSnapshot:
+        return RunPhase::CreateSnapshot;
+    case BackupRunActionKind::AfterSnapshotHook:
+        return RunPhase::AfterSnapshotHook;
+    case BackupRunActionKind::SelectParent:
+        return RunPhase::SelectParent;
+    case BackupRunActionKind::SendReceive:
+        return RunPhase::SendReceive;
+    case BackupRunActionKind::VerifyReceived:
+        return RunPhase::VerifyReceived;
+    case BackupRunActionKind::CommitReceived:
+        return RunPhase::CommitReceived;
+    case BackupRunActionKind::ApplyRemoteRetention:
+        return RunPhase::ApplyRemoteRetention;
+    case BackupRunActionKind::ApplyLocalRetention:
+        return RunPhase::ApplyLocalRetention;
+    case BackupRunActionKind::CleanupSource:
+        return RunPhase::CleanupSource;
     }
     return RunPhase::RunStarted;
 }
 
 RunPhase phase_for_event(BackupRunEventKind kind) {
     switch (kind) {
-        case BackupRunEventKind::RunStarted: return RunPhase::RunStarted;
-        case BackupRunEventKind::SourceStarted: return RunPhase::SourceStarted;
-        case BackupRunEventKind::TransferProgress: return RunPhase::Transferring;
-        case BackupRunEventKind::SourceCompleted: return RunPhase::SourceCompleted;
-        case BackupRunEventKind::RunCompleted: return RunPhase::Succeeded;
-        case BackupRunEventKind::RunCancelled: return RunPhase::Cancelled;
-        case BackupRunEventKind::ActionStarted:
-        case BackupRunEventKind::ActionCompleted:
-        case BackupRunEventKind::ActionFailed:
-        case BackupRunEventKind::CheckpointWritten:
-            return RunPhase::RunStarted;
+    case BackupRunEventKind::RunStarted:
+        return RunPhase::RunStarted;
+    case BackupRunEventKind::SourceStarted:
+        return RunPhase::SourceStarted;
+    case BackupRunEventKind::TransferProgress:
+        return RunPhase::Transferring;
+    case BackupRunEventKind::SourceCompleted:
+        return RunPhase::SourceCompleted;
+    case BackupRunEventKind::RunCompleted:
+        return RunPhase::Succeeded;
+    case BackupRunEventKind::RunCancelled:
+        return RunPhase::Cancelled;
+    case BackupRunEventKind::ActionStarted:
+    case BackupRunEventKind::ActionCompleted:
+    case BackupRunEventKind::ActionFailed:
+    case BackupRunEventKind::CheckpointWritten:
+        return RunPhase::RunStarted;
     }
     return RunPhase::RunStarted;
 }
 
 ErrorCode error_code_for_failed_action(BackupRunActionKind kind) {
     switch (kind) {
-        case BackupRunActionKind::BeforeSnapshotHook:
-            return ErrorCode::HookBeforeSnapshotFailed;
-        case BackupRunActionKind::AfterSnapshotHook:
-            return ErrorCode::HookAfterSnapshotFailed;
-        default:
-            return ErrorCode::RunnerActionFailed;
+    case BackupRunActionKind::BeforeSnapshotHook:
+        return ErrorCode::HookBeforeSnapshotFailed;
+    case BackupRunActionKind::AfterSnapshotHook:
+        return ErrorCode::HookAfterSnapshotFailed;
+    default:
+        return ErrorCode::RunnerActionFailed;
     }
 }
 
 bool failed_action_is_recoverable(BackupRunActionKind kind) {
-    return kind == BackupRunActionKind::BeforeSnapshotHook
-        || kind == BackupRunActionKind::AfterSnapshotHook;
+    return kind == BackupRunActionKind::BeforeSnapshotHook || kind == BackupRunActionKind::AfterSnapshotHook;
 }
 
 std::string suggested_action_for_failed_action(BackupRunActionKind kind) {
-    if (kind == BackupRunActionKind::BeforeSnapshotHook
-        || kind == BackupRunActionKind::AfterSnapshotHook) {
+    if (kind == BackupRunActionKind::BeforeSnapshotHook || kind == BackupRunActionKind::AfterSnapshotHook) {
         return "inspect-hook-program";
     }
     return "inspect-run-history";
@@ -112,8 +124,7 @@ int estimated_overall_progress(
         const std::int64_t completed_sources = std::clamp(event.source_index - 1, 0, context.source_count);
         const int current_source_progress = std::clamp(source_progress, 0, 100);
         return static_cast<int>(
-            (completed_sources * 100 + (source_progress >= 0 ? current_source_progress : 0))
-            / context.source_count
+            (completed_sources * 100 + (source_progress >= 0 ? current_source_progress : 0)) / context.source_count
         );
     }
     return 0;
@@ -127,8 +138,7 @@ int estimated_source_progress(const BackupRunEvent& event) {
         return 100;
     }
     return static_cast<int>(
-        static_cast<long double>(event.bytes_transferred) * 100.0L
-        / static_cast<long double>(event.bytes_total_estimated)
+        static_cast<long double>(event.bytes_transferred) * 100.0L / static_cast<long double>(event.bytes_total_estimated)
     );
 }
 
@@ -137,8 +147,7 @@ int estimated_eta_seconds(const BackupRunEvent& event) {
         return -1;
     }
     std::uint64_t remaining = event.bytes_total_estimated - event.bytes_transferred;
-    const std::uint64_t seconds = remaining / event.speed_bps
-        + (remaining % event.speed_bps == 0 ? 0 : 1);
+    const std::uint64_t seconds = remaining / event.speed_bps + (remaining % event.speed_bps == 0 ? 0 : 1);
     return seconds > static_cast<std::uint64_t>(std::numeric_limits<int>::max())
         ? std::numeric_limits<int>::max()
         : static_cast<int>(seconds);
@@ -149,26 +158,26 @@ std::string message_for_event(const BackupRunEvent& event) {
         return event.message;
     }
     switch (event.kind) {
-        case BackupRunEventKind::RunStarted:
-            return "Backup run started.";
-        case BackupRunEventKind::SourceStarted:
-            return "Backup source started.";
-        case BackupRunEventKind::ActionStarted:
-            return "Backup action started: " + backup_run_action_kind_name(event.action_kind) + ".";
-        case BackupRunEventKind::TransferProgress:
-            return "Backup transfer is running.";
-        case BackupRunEventKind::ActionCompleted:
-            return "Backup action completed: " + backup_run_action_kind_name(event.action_kind) + ".";
-        case BackupRunEventKind::ActionFailed:
-            return "Backup action failed: " + backup_run_action_kind_name(event.action_kind) + ".";
-        case BackupRunEventKind::CheckpointWritten:
-            return "Backup checkpoint written.";
-        case BackupRunEventKind::SourceCompleted:
-            return "Backup source completed.";
-        case BackupRunEventKind::RunCompleted:
-            return "Backup completed.";
-        case BackupRunEventKind::RunCancelled:
-            return "Backup cancelled.";
+    case BackupRunEventKind::RunStarted:
+        return "Backup run started.";
+    case BackupRunEventKind::SourceStarted:
+        return "Backup source started.";
+    case BackupRunEventKind::ActionStarted:
+        return "Backup action started: " + backup_run_action_kind_name(event.action_kind) + ".";
+    case BackupRunEventKind::TransferProgress:
+        return "Backup transfer is running.";
+    case BackupRunEventKind::ActionCompleted:
+        return "Backup action completed: " + backup_run_action_kind_name(event.action_kind) + ".";
+    case BackupRunEventKind::ActionFailed:
+        return "Backup action failed: " + backup_run_action_kind_name(event.action_kind) + ".";
+    case BackupRunEventKind::CheckpointWritten:
+        return "Backup checkpoint written.";
+    case BackupRunEventKind::SourceCompleted:
+        return "Backup source completed.";
+    case BackupRunEventKind::RunCompleted:
+        return "Backup completed.";
+    case BackupRunEventKind::RunCancelled:
+        return "Backup cancelled.";
     }
     return "Backup event.";
 }
@@ -187,10 +196,7 @@ RunStatus status_for_event(
     std::string finished_at;
     int exit_code = 0;
 
-    if (event.kind == BackupRunEventKind::ActionStarted
-        || event.kind == BackupRunEventKind::ActionCompleted
-        || event.kind == BackupRunEventKind::ActionFailed
-        || event.kind == BackupRunEventKind::CheckpointWritten) {
+    if (event.kind == BackupRunEventKind::ActionStarted || event.kind == BackupRunEventKind::ActionCompleted || event.kind == BackupRunEventKind::ActionFailed || event.kind == BackupRunEventKind::CheckpointWritten) {
         phase = phase_for_action(event.action_kind);
     } else if (event.kind == BackupRunEventKind::TransferProgress) {
         phase = RunPhase::Transferring;
@@ -321,131 +327,20 @@ RunStatus status_for_event(
 }
 
 bool should_write_status(BackupRunEventKind kind) {
-    return kind == BackupRunEventKind::RunStarted
-        || kind == BackupRunEventKind::SourceStarted
-        || kind == BackupRunEventKind::ActionStarted
-        || kind == BackupRunEventKind::TransferProgress
-        || kind == BackupRunEventKind::ActionCompleted
-        || kind == BackupRunEventKind::ActionFailed
-        || kind == BackupRunEventKind::SourceCompleted
-        || kind == BackupRunEventKind::RunCompleted
-        || kind == BackupRunEventKind::RunCancelled;
+    return kind == BackupRunEventKind::RunStarted || kind == BackupRunEventKind::SourceStarted || kind == BackupRunEventKind::ActionStarted || kind == BackupRunEventKind::TransferProgress || kind == BackupRunEventKind::ActionCompleted || kind == BackupRunEventKind::ActionFailed || kind == BackupRunEventKind::SourceCompleted || kind == BackupRunEventKind::RunCompleted || kind == BackupRunEventKind::RunCancelled;
 }
 
 bool should_write_history(BackupRunEventKind kind) {
-    return kind == BackupRunEventKind::ActionFailed
-        || kind == BackupRunEventKind::RunCompleted
-        || kind == BackupRunEventKind::RunCancelled;
+    return kind == BackupRunEventKind::ActionFailed || kind == BackupRunEventKind::RunCompleted || kind == BackupRunEventKind::RunCancelled;
 }
 
 } // namespace
 
-std::string backup_run_action_kind_name(BackupRunActionKind kind) {
-    switch (kind) {
-        case BackupRunActionKind::RecoverPending:
-            return "recover-pending";
-        case BackupRunActionKind::CleanupIncoming:
-            return "cleanup-incoming";
-        case BackupRunActionKind::BeforeSnapshotHook:
-            return "before-snapshot-hook";
-        case BackupRunActionKind::CreateSnapshot:
-            return "create-snapshot";
-        case BackupRunActionKind::AfterSnapshotHook:
-            return "after-snapshot-hook";
-        case BackupRunActionKind::SelectParent:
-            return "select-parent";
-        case BackupRunActionKind::SendReceive:
-            return "send-receive";
-        case BackupRunActionKind::VerifyReceived:
-            return "verify-received";
-        case BackupRunActionKind::CommitReceived:
-            return "commit-received";
-        case BackupRunActionKind::ApplyRemoteRetention:
-            return "apply-remote-retention";
-        case BackupRunActionKind::ApplyLocalRetention:
-            return "apply-local-retention";
-        case BackupRunActionKind::CleanupSource:
-            return "cleanup-source";
-    }
-    return "unknown";
-}
-
-std::string backup_run_event_kind_name(BackupRunEventKind kind) {
-    switch (kind) {
-        case BackupRunEventKind::RunStarted:
-            return "run-started";
-        case BackupRunEventKind::SourceStarted:
-            return "source-started";
-        case BackupRunEventKind::ActionStarted:
-            return "action-started";
-        case BackupRunEventKind::TransferProgress:
-            return "transfer-progress";
-        case BackupRunEventKind::ActionCompleted:
-            return "action-completed";
-        case BackupRunEventKind::ActionFailed:
-            return "action-failed";
-        case BackupRunEventKind::CheckpointWritten:
-            return "checkpoint-written";
-        case BackupRunEventKind::SourceCompleted:
-            return "source-completed";
-        case BackupRunEventKind::RunCompleted:
-            return "run-completed";
-        case BackupRunEventKind::RunCancelled:
-            return "run-cancelled";
-    }
-    return "unknown";
-}
-
-Json build_backup_run_checkpoint_json(const BackupRunCheckpoint& checkpoint) {
-    return {
-        {"schemaVersion", 1},
-        {"profileId", std::string(checkpoint.profile_id.value())},
-        {"runId", std::string(checkpoint.run_id.value())},
-        {"sourceId", std::string(checkpoint.source_id.value())},
-        {"action", backup_run_action_kind_name(checkpoint.action_kind)},
-        {"updatedAt", current_utc_iso_timestamp()},
-    };
-}
-
-Json build_backup_run_event_json(const BackupRunEvent& event) {
-    const std::string source_id = event.source_id.has_value()
-        ? std::string(event.source_id->value())
-        : std::string{};
-    return {
-        {"schemaVersion", 1},
-        {"event", backup_run_event_kind_name(event.kind)},
-        {"profileId", std::string(event.profile_id.value())},
-        {"runId", std::string(event.run_id.value())},
-        {"sourceId", source_id},
-        {"sourceIndex", event.source_index},
-        {"action", backup_run_action_kind_name(event.action_kind)},
-        {"bytesTransferred", event.bytes_transferred},
-        {"bytesProduced", event.bytes_produced},
-        {"bytesTotalEstimated", event.bytes_total_estimated},
-        {"runBytesTransferred", event.run_bytes_transferred},
-        {"deltaBytes", event.delta_bytes},
-        {"elapsedMs", event.elapsed_ms},
-        {"speedBps", event.speed_bps},
-        {"errorCode", event.error_code.has_value() ? error_code_name(*event.error_code) : ""},
-        {"message", event.message},
-    };
-}
-
-JsonFileBackupRunCheckpointStore::JsonFileBackupRunCheckpointStore(fs::path profile_state_dir)
-    : profile_state_dir_(std::move(profile_state_dir)) {
-}
-
-void JsonFileBackupRunCheckpointStore::write_checkpoint(const BackupRunCheckpoint& checkpoint) {
-    fs::create_directories(profile_state_dir_);
-    chmod(profile_state_dir_.c_str(), 0700);
-    atomic_write(profile_state_dir_ / "checkpoint.json", dump_json(build_backup_run_checkpoint_json(checkpoint)), 0600);
-}
-
-StatusBackupRunEventSink::StatusBackupRunEventSink(BackupRunStatusContext context)
+RunStatusProjection::RunStatusProjection(BackupRunStatusContext context)
     : context_(std::move(context)) {
 }
 
-void StatusBackupRunEventSink::on_backup_run_event(const BackupRunEvent& event) {
+void RunStatusProjection::on_backup_run_event(const BackupRunEvent& event) {
     if (!should_write_status(event.kind)) {
         return;
     }
