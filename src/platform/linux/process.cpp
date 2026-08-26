@@ -16,6 +16,7 @@
 
 #include <config/errors.hpp>
 #include <platform/linux/process_spawn.hpp>
+#include <platform/linux/posix_cancellation_signal.hpp>
 
 namespace btrfsbackup {
 
@@ -67,8 +68,14 @@ CommandResult run_controlled_command(
         throw ValidationError("command timeout must be positive");
     }
 
+    std::optional<platform_linux::PosixCancellationSignal> cancellation_signal;
+    if (options.cancellation != nullptr) {
+        cancellation_signal.emplace(*options.cancellation);
+    }
+    const int cancellation_fd = cancellation_signal.has_value() ? cancellation_signal->fd() : -1;
+
     CommandResult result;
-    if (fd_is_ready(options.cancellation_fd)) {
+    if (fd_is_ready(cancellation_fd)) {
         result.cancelled = true;
         return result;
     }
@@ -126,8 +133,8 @@ CommandResult run_controlled_command(
         if (output_open) {
             descriptors[count++] = {.fd = pipefd[0], .events = POLLIN, .revents = 0};
         }
-        if (options.cancellation_fd >= 0) {
-            descriptors[count++] = {.fd = options.cancellation_fd, .events = POLLIN, .revents = 0};
+        if (cancellation_fd >= 0) {
+            descriptors[count++] = {.fd = cancellation_fd, .events = POLLIN, .revents = 0};
         }
         const auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now);
         const int poll_timeout = static_cast<int>(std::min(remaining, std::chrono::milliseconds(100)).count());
@@ -168,7 +175,7 @@ CommandResult run_controlled_command(
                 }
             }
         }
-        if (options.cancellation_fd >= 0) {
+        if (cancellation_fd >= 0) {
             const short events = descriptors[index].revents;
             if ((events & POLLNVAL) != 0) {
                 if (output_open) {

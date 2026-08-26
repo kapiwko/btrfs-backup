@@ -10,6 +10,10 @@ add_library(btrfsbackup-platform-linux STATIC
     file_lock.cpp
     filesystem.cpp
     mount_info.cpp
+    posix_cancellation_signal.cpp
+    posix_transfer_pipeline.cpp
+    posix_transfer_process.cpp
+    posix_transfer_pump.cpp
     process.cpp
     process_spawn.cpp
     safe_directory_root.cpp
@@ -27,6 +31,8 @@ target_link_libraries(btrfsbackup-platform-linux
     PUBLIC
         btrfsbackup-backup-model
         btrfsbackup-backup-ports
+        btrfsbackup-core
+        btrfsbackup-transfer
         btrfsbackup-config-model
         PkgConfig::BLKID
         PkgConfig::BTRFSUTIL

@@ -7,7 +7,9 @@ public C++ SDK.
 ```text
 apps/                         # small executable entry points
 src/
+├── core/                     # platform-neutral cancellation and shared runtime primitives
 ├── backup/                   # planning, execution, snapshots, transfer, recovery
+│   └── transfer/             # transfer model, events, results and async orchestration
 ├── config/                   # profile model, validation, storage, rendering
 │   └── wizard/               # interactive profile construction
 ├── state/                    # status, checkpoints, fingerprints, history reads
@@ -31,13 +33,18 @@ flowchart TB
     subgraph contracts[Dependency-light contracts]
         direction LR
         identifiers[identifier-model]
+        core[core]
         config_model[config-model]
         state_model[state-model]
         backup_model[backup-model]
+        transfer[transfer]
 
         identifiers --> config_model
         identifiers --> state_model
         config_model --> backup_model
+        core --> transfer
+        config_model --> transfer
+        state_model --> transfer
     end
 
     subgraph support[Supporting runtime components]
@@ -53,12 +60,14 @@ flowchart TB
 
     config_model --> platform
     backup_model --> platform
+    transfer --> platform
     config_model --> config
     platform --> config
     config_model --> state
     state_model --> state
     platform --> state
     backup_model --> backup
+    transfer --> backup
     platform --> backup
     config --> backup
     state --> backup
@@ -81,9 +90,10 @@ filesystem adapters.
 
 ## Ownership
 
+- `core` owns platform-neutral cancellation state and shared runtime primitives.
 - `backup` owns the single-execution `BackupRun`, run planning and execution,
   incremental-parent selection,
-  transfer orchestration, snapshot commit, retention, recovery, cancellation,
+  transfer model and orchestration, snapshot commit, retention and recovery,
   target operations, and backup use cases.
 - `config` owns the canonical profile JSON model, validation, profile loading
   and storage, installation rendering and validation, and the profile wizard.
@@ -94,7 +104,8 @@ filesystem adapters.
   `btrfsbackup-state-model` exposes the typed `RunStatus`, `RunProgress`, and
   optional `RunError` contract without depending on JSON or filesystem code.
 - `platform/linux` owns POSIX processes, Btrfs and block-device integration,
-  mount inspection, trusted files, locks, durable filesystem operations, and
+  mount inspection, trusted files, locks, durable filesystem operations,
+  transfer processes and `splice` pumping, poll wakeups for cancellation, and
   other Linux-specific effects.
 - `cli` owns command-line parsing, output formatting, interactive streams, and
   exit-code mapping. Reusable orchestration must remain outside this target.
@@ -138,7 +149,8 @@ between production and test behavior and does not instantiate `Posix*`,
 5. Invoke external programs without a shell. Pass executable and arguments
    separately through the shared command/process abstractions.
 6. Keep long-running transfer orchestration separate from short administrative
-   commands. Cancellation and completion remain pollable runtime events.
+   commands. Cancellation state and async completion remain platform-neutral;
+   Linux adapters translate cancellation into pollable runtime events.
 7. Keep root-only state and history separate from sanitized public status.
 8. Do not add empty directories for planned QEMU or KDE components.
    Add them only with the first implementation they own.

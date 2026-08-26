@@ -4,9 +4,7 @@
 
 #include <backup/backup_run_executor.hpp>
 
-#include <poll.h>
-
-#include <cerrno>
+#include <chrono>
 #include <cstdint>
 #include <exception>
 #include <filesystem>
@@ -147,14 +145,11 @@ TransferPipelinePlan transfer_plan_for_source(const BackupRunPlan& plan, const B
         TransferPipelinePlan transfer_plan{
             .producer_argv = command_plan.send_argv,
             .consumer_argv = command_plan.receive_argv,
-            .inherited_fds = {},
-            .retained_handles = {},
+            .retained_resources = {},
         };
-        transfer_plan.inherited_fds = {snapshot->fd(), receive->fd()};
-        transfer_plan.retained_handles = {snapshot, receive};
+        transfer_plan.retained_resources = {snapshot, receive};
         if (parent) {
-            transfer_plan.inherited_fds.push_back(parent->fd());
-            transfer_plan.retained_handles.push_back(parent);
+            transfer_plan.retained_resources.push_back(parent);
         }
         return transfer_plan;
     }
@@ -169,8 +164,7 @@ TransferPipelinePlan transfer_plan_for_source(const BackupRunPlan& plan, const B
         .producer_argv = command_plan.send_argv,
         .consumer_argv = command_plan.receive_argv,
         .bytes_total_estimated = 0,
-        .inherited_fds = {},
-        .retained_handles = {},
+        .retained_resources = {},
     };
 }
 
@@ -226,20 +220,8 @@ void write_checkpoint(
 }
 
 void wait_for_transfer_or_cancellation(IAsyncTransferHandle& transfer, CancellationToken& cancellation) {
-    while (!transfer.finished()) {
-        pollfd fds[2]{
-            {.fd = transfer.completion_fd(), .events = POLLIN | POLLHUP, .revents = 0},
-            {.fd = cancellation.cancellation_fd(), .events = POLLIN, .revents = 0},
-        };
-        int ready = poll(fds, 2, -1);
-        if (ready < 0) {
-            if (errno == EINTR) {
-                continue;
-            }
-            throw ValidationError("transfer wait failed");
-        }
-        if ((fds[1].revents & POLLIN) != 0 || cancellation.cancellation_requested()) {
-            cancellation.drain_cancellation_signal();
+    while (!transfer.wait_for(std::chrono::milliseconds(100))) {
+        if (cancellation.cancellation_requested()) {
             transfer.request_cancel();
         }
     }

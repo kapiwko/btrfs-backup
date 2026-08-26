@@ -17,7 +17,10 @@
 #include <thread>
 #include <vector>
 
-#include <backup/transfer_pipeline.hpp>
+#include <backup/transfer/async_transfer.hpp>
+#include <backup/transfer/transfer_speed_estimator.hpp>
+#include <platform/linux/posix_cancellation_signal.hpp>
+#include <platform/linux/posix_transfer_pipeline.hpp>
 
 #include "support/test_helpers.hpp"
 
@@ -78,10 +81,11 @@ void test_cancellation_token() {
     test_helpers::expect_true("requested cancellation", cancellation.cancellation_requested(), "token should report cancellation");
 }
 
-void test_cancellation_token_signals_fd() {
+void test_posix_cancellation_signal_wakes_poll() {
     btrfsbackup::CancellationToken cancellation;
+    btrfsbackup::platform_linux::PosixCancellationSignal signal(cancellation);
     pollfd fd{
-        .fd = cancellation.cancellation_fd(),
+        .fd = signal.fd(),
         .events = POLLIN,
         .revents = 0,
     };
@@ -89,9 +93,13 @@ void test_cancellation_token_signals_fd() {
     test_helpers::expect_eq("initial cancellation poll", std::to_string(poll(&fd, 1, 0)), "0");
     cancellation.request_cancel();
     test_helpers::expect_eq("requested cancellation poll", std::to_string(poll(&fd, 1, 100)), "1");
-    cancellation.drain_cancellation_signal();
+    signal.drain();
     fd.revents = 0;
     test_helpers::expect_eq("drained cancellation poll", std::to_string(poll(&fd, 1, 0)), "0");
+
+    btrfsbackup::platform_linux::PosixCancellationSignal late_signal(cancellation);
+    pollfd late_fd{.fd = late_signal.fd(), .events = POLLIN, .revents = 0};
+    test_helpers::expect_eq("late cancellation adapter poll", std::to_string(poll(&late_fd, 1, 0)), "1");
 }
 
 void test_success_result() {
@@ -648,14 +656,17 @@ void test_threaded_async_pipeline_runs_in_background() {
 
     wait_until_entered(blocking);
     test_helpers::expect_true("async not finished", !handle->finished(), "async handle should not finish before release");
-    pollfd completion{
-        .fd = handle->completion_fd(),
-        .events = POLLIN | POLLHUP,
-        .revents = 0,
-    };
-    test_helpers::expect_eq("async completion initially quiet", std::to_string(poll(&completion, 1, 0)), "0");
+    test_helpers::expect_true(
+        "async completion initially quiet",
+        !handle->wait_for(std::chrono::milliseconds(0)),
+        "async handle unexpectedly completed"
+    );
     blocking.allow_finish.store(true);
-    test_helpers::expect_eq("async completion signalled", std::to_string(poll(&completion, 1, 1000)), "1");
+    test_helpers::expect_true(
+        "async completion signalled",
+        handle->wait_for(std::chrono::milliseconds(1000)),
+        "async handle did not complete"
+    );
     btrfsbackup::TransferResult result = handle->wait();
     test_helpers::expect_true("async transfer success", btrfsbackup::transfer_succeeded(result), "async transfer should succeed");
     test_helpers::expect_true("async finished", handle->finished(), "async handle should report completion");
@@ -707,7 +718,7 @@ void test_threaded_async_pipeline_requests_cancellation() {
 
 int main() {
     test_cancellation_token();
-    test_cancellation_token_signals_fd();
+    test_posix_cancellation_signal_wakes_poll();
     test_success_result();
     test_producer_failure_is_reported_separately();
     test_consumer_failure_is_reported_separately();

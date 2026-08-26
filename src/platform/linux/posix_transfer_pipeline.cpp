@@ -2,118 +2,28 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <backup/transfer_pipeline.hpp>
+#include <platform/linux/posix_transfer_pipeline.hpp>
 
 #include <fcntl.h>
 #include <poll.h>
 #include <signal.h>
-#include <sys/wait.h>
 #include <unistd.h>
 
 #include <cerrno>
 #include <chrono>
-#include <cmath>
 #include <cstring>
-#include <future>
 #include <limits>
-#include <memory>
 #include <optional>
 #include <string>
 #include <vector>
 
 #include <config/errors.hpp>
-#include <platform/linux/process_spawn.hpp>
-#include <platform/linux/splice.hpp>
+#include <backup/transfer/transfer_speed_estimator.hpp>
+#include <platform/linux/posix_cancellation_signal.hpp>
+#include <platform/linux/posix_transfer_process.hpp>
+#include <platform/linux/posix_transfer_pump.hpp>
 
 namespace btrfsbackup {
-
-void NullTransferEventSink::on_transfer_event(const TransferEvent&) {
-}
-
-CancellationToken::CancellationToken() {
-    if (pipe2(cancellation_pipe_, O_CLOEXEC | O_NONBLOCK) != 0) {
-        throw ValidationError(std::string("cannot create cancellation pipe: ") + std::strerror(errno));
-    }
-}
-
-CancellationToken::~CancellationToken() {
-    if (cancellation_pipe_[0] >= 0) {
-        close(cancellation_pipe_[0]);
-    }
-    if (cancellation_pipe_[1] >= 0) {
-        close(cancellation_pipe_[1]);
-    }
-}
-
-void CancellationToken::request_cancel() {
-    bool already_requested = cancellation_requested_.exchange(true);
-    if (already_requested || cancellation_pipe_[1] < 0) {
-        return;
-    }
-
-    char byte = 1;
-    ssize_t ignored = write(cancellation_pipe_[1], &byte, sizeof(byte));
-    (void)ignored;
-}
-
-bool CancellationToken::cancellation_requested() const {
-    return cancellation_requested_.load();
-}
-
-int CancellationToken::cancellation_fd() const {
-    return cancellation_pipe_[0];
-}
-
-void CancellationToken::drain_cancellation_signal() const {
-    if (cancellation_pipe_[0] < 0) {
-        return;
-    }
-
-    char buffer[32];
-    while (true) {
-        ssize_t count = read(cancellation_pipe_[0], buffer, sizeof(buffer));
-        if (count > 0) {
-            continue;
-        }
-        if (count == 0 || errno == EAGAIN || errno == EWOULDBLOCK) {
-            return;
-        }
-        if (errno == EINTR) {
-            continue;
-        }
-        return;
-    }
-}
-
-bool transfer_succeeded(const TransferResult& result) {
-    return !result.cancelled
-        && result.producer.started
-        && result.consumer.started
-        && result.producer.exit_code == 0
-        && result.consumer.exit_code == 0;
-}
-
-std::optional<ErrorCode> transfer_failure_error_code(const TransferResult& result) {
-    if (transfer_succeeded(result)) {
-        return std::nullopt;
-    }
-    if (result.cancelled) {
-        return ErrorCode::RunnerCancelled;
-    }
-
-    const bool producer_failed = !result.producer.started || result.producer.exit_code != 0;
-    const bool consumer_failed = !result.consumer.started || result.consumer.exit_code != 0;
-    if (producer_failed && consumer_failed) {
-        return ErrorCode::TransferProducerConsumerFailed;
-    }
-    if (producer_failed) {
-        return ErrorCode::TransferProducerFailed;
-    }
-    if (consumer_failed) {
-        return ErrorCode::TransferConsumerFailed;
-    }
-    return ErrorCode::TransferFailed;
-}
 
 namespace {
 
@@ -203,55 +113,6 @@ UniqueFd open_dev_null() {
         throw ValidationError(std::string("cannot open /dev/null: ") + std::strerror(errno));
     }
     return UniqueFd(fd);
-}
-
-ProcessSpawnResult spawn_transfer_process(
-    const std::vector<std::string>& argv,
-    int stdin_fd,
-    int stdout_fd,
-    int stderr_fd,
-    const std::vector<int>& inherited_fds
-) {
-    if (argv.empty()) {
-        throw ValidationError("empty transfer command");
-    }
-    return spawn_program(argv, {
-        .stdin_fd = stdin_fd,
-        .stdout_fd = stdout_fd,
-        .stderr_fd = stderr_fd,
-        .create_process_group = true,
-        .inherited_fds = inherited_fds,
-        .profile_id = {},
-        .source_id = {},
-    });
-}
-
-int status_to_exit_code(int status) {
-    if (WIFEXITED(status)) {
-        return WEXITSTATUS(status);
-    }
-    if (WIFSIGNALED(status)) {
-        return 128 + WTERMSIG(status);
-    }
-    return 128;
-}
-
-bool reap_child(pid_t pid, TransferSideResult& result) {
-    int status = 0;
-    pid_t waited;
-    do {
-        waited = waitpid(pid, &status, WNOHANG);
-    } while (waited < 0 && errno == EINTR);
-    if (waited == 0) {
-        return false;
-    }
-    if (waited < 0) {
-        result.exit_code = 128;
-        result.diagnostics = std::string("waitpid failed: ") + std::strerror(errno);
-        return true;
-    }
-    result.exit_code = status_to_exit_code(status);
-    return true;
 }
 
 struct ChildTerminationState {
@@ -396,147 +257,7 @@ private:
     bool reported_ = false;
 };
 
-std::string side_failure(const char* side, const TransferSideResult& result) {
-    std::string message = std::string(side) + " failed";
-    if (!result.started) {
-        message += " before start";
-    } else {
-        message += " with exit code " + std::to_string(result.exit_code);
-    }
-    if (!result.diagnostics.empty()) {
-        message += ": " + result.diagnostics;
-    }
-    return message;
-}
-
-class ThreadedAsyncTransferHandle final : public IAsyncTransferHandle {
-public:
-    ThreadedAsyncTransferHandle(
-        std::shared_ptr<CancellationToken> cancellation,
-        UniqueFd completion_read,
-        std::future<TransferResult> future
-    )
-        : cancellation_(std::move(cancellation)),
-          completion_read_(std::move(completion_read)),
-          future_(std::move(future)) {
-    }
-
-    ThreadedAsyncTransferHandle(const ThreadedAsyncTransferHandle&) = delete;
-    ThreadedAsyncTransferHandle& operator=(const ThreadedAsyncTransferHandle&) = delete;
-
-    ~ThreadedAsyncTransferHandle() override {
-        if (future_.valid() && !result_.has_value()) {
-            request_cancel();
-            try {
-                result_ = future_.get();
-            } catch (...) {
-            }
-        }
-    }
-
-    bool finished() const override {
-        if (result_.has_value()) {
-            return true;
-        }
-        return future_.wait_for(std::chrono::milliseconds(0)) == std::future_status::ready;
-    }
-
-    int completion_fd() const override {
-        return completion_read_.get();
-    }
-
-    void request_cancel() override {
-        cancellation_->request_cancel();
-    }
-
-    TransferResult wait() override {
-        if (!result_.has_value()) {
-            result_ = future_.get();
-        }
-        return *result_;
-    }
-
-private:
-    std::shared_ptr<CancellationToken> cancellation_;
-    UniqueFd completion_read_;
-    mutable std::future<TransferResult> future_;
-    std::optional<TransferResult> result_;
-};
-
 } // namespace
-
-std::uint64_t TransferSpeedEstimator::sample(
-    std::uint64_t bytes_transferred,
-    std::uint64_t elapsed_ms
-) {
-    const auto bounded_speed = [](double speed) {
-        if (speed <= 0) {
-            return std::uint64_t{0};
-        }
-        if (speed >= static_cast<double>(std::numeric_limits<std::uint64_t>::max())) {
-            return std::numeric_limits<std::uint64_t>::max();
-        }
-        return static_cast<std::uint64_t>(speed);
-    };
-    if (elapsed_ms <= previous_elapsed_ms_) {
-        return bounded_speed(smoothed_speed_bps_);
-    }
-
-    const std::uint64_t delta_bytes = bytes_transferred >= previous_bytes_
-        ? bytes_transferred - previous_bytes_
-        : bytes_transferred;
-    const std::uint64_t delta_ms = elapsed_ms - previous_elapsed_ms_;
-    const double instantaneous_speed = static_cast<double>(delta_bytes) * 1000.0
-        / static_cast<double>(delta_ms);
-    if (!initialized_) {
-        smoothed_speed_bps_ = instantaneous_speed;
-        initialized_ = true;
-    } else {
-        constexpr double smoothing_period_ms = 3000.0;
-        const double alpha = -std::expm1(-static_cast<double>(delta_ms) / smoothing_period_ms);
-        smoothed_speed_bps_ += alpha * (instantaneous_speed - smoothed_speed_bps_);
-    }
-
-    previous_bytes_ = bytes_transferred;
-    previous_elapsed_ms_ = elapsed_ms;
-    return bounded_speed(smoothed_speed_bps_);
-}
-
-ThreadedAsyncTransferPipeline::ThreadedAsyncTransferPipeline(ITransferPipeline& pipeline)
-    : pipeline_(pipeline) {
-}
-
-std::unique_ptr<IAsyncTransferHandle> ThreadedAsyncTransferPipeline::start(
-    const TransferPipelinePlan& plan,
-    ITransferEventSink& events
-) {
-    auto cancellation = std::make_shared<CancellationToken>();
-    Pipe completion_pipe = create_pipe();
-    std::future<TransferResult> future = std::async(
-        std::launch::async,
-        [this, plan, &events, cancellation, completion_write = std::move(completion_pipe.write_end)]() mutable {
-            try {
-                TransferResult result = pipeline_.run(plan, events, *cancellation);
-                char byte = 1;
-                ssize_t ignored = write(completion_write.get(), &byte, sizeof(byte));
-                (void)ignored;
-                return result;
-            } catch (...) {
-                char byte = 1;
-                ssize_t ignored = write(completion_write.get(), &byte, sizeof(byte));
-                (void)ignored;
-                throw;
-            }
-        }
-    );
-    completion_pipe.write_end.reset();
-    set_nonblocking(completion_pipe.read_end.get());
-    return std::make_unique<ThreadedAsyncTransferHandle>(
-        std::move(cancellation),
-        std::move(completion_pipe.read_end),
-        std::move(future)
-    );
-}
 
 PosixTransferPipeline::PosixTransferPipeline(TransferTerminationPolicy termination_policy)
     : termination_policy_(termination_policy) {
@@ -554,18 +275,19 @@ TransferResult PosixTransferPipeline::run(
     const auto started_at = SteadyClock::now();
     TransferProgressReporter progress_reporter(started_at);
     ScopedIgnoredSigpipe ignored_sigpipe;
+    platform_linux::PosixCancellationSignal cancellation_signal(cancellation);
     Pipe data_pipe = create_pipe();
     Pipe consumer_input_pipe = create_pipe();
     Pipe producer_error_pipe = create_pipe();
     Pipe consumer_error_pipe = create_pipe();
     UniqueFd dev_null = open_dev_null();
 
-    ProcessSpawnResult producer_spawn = spawn_transfer_process(
+    ProcessSpawnResult producer_spawn = platform_linux::spawn_posix_transfer_process(
         plan.producer_argv,
         dev_null.get(),
         data_pipe.write_end.get(),
         producer_error_pipe.write_end.get(),
-        plan.inherited_fds
+        plan.retained_resources
     );
     ChildProcess producer_process(
         producer_spawn.started() ? producer_spawn.pid : -1,
@@ -575,12 +297,12 @@ TransferResult PosixTransferPipeline::run(
             .kill_reap_period = termination_policy_.kill_reap_period,
         }
     );
-    ProcessSpawnResult consumer_spawn = spawn_transfer_process(
+    ProcessSpawnResult consumer_spawn = platform_linux::spawn_posix_transfer_process(
         plan.consumer_argv,
         consumer_input_pipe.read_end.get(),
         dev_null.get(),
         consumer_error_pipe.write_end.get(),
-        plan.inherited_fds
+        plan.retained_resources
     );
     ChildProcess consumer_process(
         consumer_spawn.started() ? consumer_spawn.pid : -1,
@@ -683,7 +405,7 @@ TransferResult PosixTransferPipeline::run(
         if (done) {
             return ChildTerminationProgress::Abandoned;
         }
-        if (reap_child(state.process->pid(), side)) {
+        if (platform_linux::reap_posix_transfer_process(state.process->pid(), side)) {
             done = true;
             state.process->mark_reaped();
             return ChildTerminationProgress::Reaped;
@@ -780,8 +502,8 @@ TransferResult PosixTransferPipeline::run(
             fds.push_back({.fd = consumer_error_pipe.read_end.get(), .events = POLLIN | POLLHUP, .revents = 0});
             tags.push_back(consumer_stderr_tag);
         }
-        if (!cancellation_sent && cancellation.cancellation_fd() >= 0) {
-            fds.push_back({.fd = cancellation.cancellation_fd(), .events = POLLIN, .revents = 0});
+        if (!cancellation_sent) {
+            fds.push_back({.fd = cancellation_signal.fd(), .events = POLLIN, .revents = 0});
             tags.push_back(cancellation_tag);
         }
 
@@ -852,69 +574,51 @@ TransferResult PosixTransferPipeline::run(
                     consumer_stderr_open = false;
                 }
             } else if (tag == cancellation_tag && (fds[i].revents & POLLIN) != 0) {
-                cancellation.drain_cancellation_signal();
+                cancellation_signal.drain();
                 cancel_transfer();
             }
         }
 
-        constexpr std::size_t splice_chunk_bytes = 1024U * 1024U;
         constexpr std::size_t splice_cycle_budget_bytes = 16U * 1024U * 1024U;
-        std::size_t cycle_bytes = 0;
-        while (producer_stdout_open && consumer_stdin_open && producer_stdout_ready && consumer_stdin_ready) {
-            ssize_t count = platform_linux::splice_pipe(
+        if (producer_stdout_open && consumer_stdin_open && producer_stdout_ready && consumer_stdin_ready) {
+            const platform_linux::PosixTransferPumpResult pump = platform_linux::pump_posix_transfer(
                 data_pipe.read_end.get(),
                 consumer_input_pipe.write_end.get(),
-                splice_chunk_bytes
+                splice_cycle_budget_bytes
             );
-            if (count > 0) {
-                const auto transferred = static_cast<std::uint64_t>(count);
-                result.bytes_produced += transferred;
-                result.bytes_transferred += transferred;
-                cycle_bytes += static_cast<std::size_t>(count);
-                if (cycle_bytes >= splice_cycle_budget_bytes) {
-                    producer_stdout_ready = false;
-                    consumer_stdin_ready = false;
-                }
-                continue;
-            }
-            if (count == 0) {
+            result.bytes_produced += pump.bytes_transferred;
+            result.bytes_transferred += pump.bytes_transferred;
+            if (pump.end_of_stream) {
                 data_pipe.read_end.reset();
                 producer_stdout_open = false;
                 producer_stdout_ready = false;
                 consumer_input_pipe.write_end.reset();
                 consumer_stdin_open = false;
                 consumer_stdin_ready = false;
-                break;
-            }
-            if (errno == EINTR) {
-                continue;
-            }
-            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            } else if (pump.would_block) {
                 producer_stdout_ready = false;
                 consumer_stdin_ready = false;
-                break;
+            } else if (!pump.error.empty()) {
+                append_diagnostic(result.consumer.diagnostics, pump.error);
+                consumer_input_pipe.write_end.reset();
+                consumer_stdin_open = false;
+                consumer_stdin_ready = false;
+                data_pipe.read_end.reset();
+                producer_stdout_open = false;
+                producer_stdout_ready = false;
+                request_termination(producer_termination, producer_done);
+                request_termination(consumer_termination, consumer_done);
             }
-
-            append_diagnostic(result.consumer.diagnostics, std::string("stream splice failed: ") + std::strerror(errno));
-            consumer_input_pipe.write_end.reset();
-            consumer_stdin_open = false;
-            consumer_stdin_ready = false;
-            data_pipe.read_end.reset();
-            producer_stdout_open = false;
-            producer_stdout_ready = false;
-            request_termination(producer_termination, producer_done);
-            request_termination(consumer_termination, consumer_done);
-            break;
         }
 
         progress_reporter.maybe_report(events, result);
 
-        if (!producer_done && reap_child(producer_pid, result.producer)) {
+        if (!producer_done && platform_linux::reap_posix_transfer_process(producer_pid, result.producer)) {
             producer_done = true;
             producer_process.mark_reaped();
             emit_event(events, TransferEventKind::ProducerFinished, result, started_at);
         }
-        if (!consumer_done && reap_child(consumer_pid, result.consumer)) {
+        if (!consumer_done && platform_linux::reap_posix_transfer_process(consumer_pid, result.consumer)) {
             consumer_done = true;
             consumer_process.mark_reaped();
             emit_event(events, TransferEventKind::ConsumerFinished, result, started_at);
@@ -928,33 +632,6 @@ TransferResult PosixTransferPipeline::run(
     result.average_speed_bps = average_speed_bps(result.bytes_transferred, result.duration_ms);
     emit_event(events, TransferEventKind::Completed, result, started_at);
     return result;
-}
-
-void require_transfer_success(const TransferResult& result) {
-    if (transfer_succeeded(result)) {
-        return;
-    }
-    if (result.cancelled) {
-        throw ValidationError("Transfer was cancelled");
-    }
-
-    const bool producer_failed = !result.producer.started || result.producer.exit_code != 0;
-    const bool consumer_failed = !result.consumer.started || result.consumer.exit_code != 0;
-    if (producer_failed && consumer_failed) {
-        throw ValidationError(
-            "Transfer failed: "
-            + side_failure("producer", result.producer)
-            + "; "
-            + side_failure("consumer", result.consumer)
-        );
-    }
-    if (producer_failed) {
-        throw ValidationError(side_failure("producer", result.producer));
-    }
-    if (consumer_failed) {
-        throw ValidationError(side_failure("consumer", result.consumer));
-    }
-    throw ValidationError("Transfer failed");
 }
 
 } // namespace btrfsbackup

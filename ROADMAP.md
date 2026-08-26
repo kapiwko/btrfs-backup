@@ -139,20 +139,6 @@ retention, scheduling, power and transport failures. Add:
 Continue focused refactoring without another directory migration or behavioral
 rewrite:
 
-Completed foundation: `BackupService` is now a pure application service over
-explicit profile, mount, target, planner, run-factory, lock, state,
-cancellation-monitor, clock and run-id ports. Production and tests use the same
-constructor, while concrete
-Linux and file-backed adapters are assembled at the runner composition
-boundary.
-
-Platform-neutral Btrfs, command runner, filesystem, mount inspection and
-process contracts now live under `backup/ports`. Linux adapters implement those
-ports, and dependency-light backup domain tests link without `platform/linux`.
-
-Continue with:
-
-- separate transfer supervision, progress, cancellation and process plumbing;
 - split broad effect and persistence components by owned responsibility;
 - replace weakly typed action payloads and configuration values with value
   objects, enums, `std::variant`, `std::chrono` and `[[nodiscard]]` where they

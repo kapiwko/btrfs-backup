@@ -15,7 +15,7 @@
 #include <cli/target_command.hpp>
 #include <config/errors.hpp>
 #include <config/profile_loader.hpp>
-#include <backup/transfer_pipeline.hpp>
+#include <core/cancellation.hpp>
 #include <platform/linux/termination_signal_monitor.hpp>
 
 namespace fs = std::filesystem;
