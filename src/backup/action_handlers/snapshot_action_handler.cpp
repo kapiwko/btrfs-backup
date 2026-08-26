@@ -9,11 +9,12 @@
 #include <optional>
 #include <sstream>
 #include <string>
+#include <utility>
 
 #include <backup/ports/btrfs_operations.hpp>
 #include <backup/ports/filesystem.hpp>
+#include <backup/ports/safe_directory.hpp>
 #include <core/errors.hpp>
-#include <platform/linux/safe_directory_root.hpp>
 #include <state/run_state.hpp>
 
 namespace btrfsbackup {
@@ -34,7 +35,7 @@ std::string current_utc_iso_timestamp() {
 SnapshotMetadata require_snapshot_metadata(
     IBtrfsOperations& btrfs,
     const std::filesystem::path& path,
-    const SafeDirectoryRoot* safe_root
+    const ISafeDirectoryRoot* safe_root
 ) {
     std::optional<SnapshotMetadata> metadata = safe_root == nullptr
         ? btrfs.read_snapshot_metadata(path)
@@ -54,11 +55,11 @@ SnapshotActionHandler::SnapshotActionHandler(IBtrfsOperations& btrfs, IFileSyste
 SnapshotActionHandler::SnapshotActionHandler(
     IBtrfsOperations& btrfs,
     IFileSystem& filesystem,
-    const std::filesystem::path& local_root
+    std::unique_ptr<ISafeDirectoryRoot> local_root
 )
     : btrfs_(btrfs),
       filesystem_(filesystem),
-      local_root_(std::make_unique<SafeDirectoryRoot>(local_root)) {
+      local_root_(std::move(local_root)) {
 }
 
 SnapshotActionHandler::~SnapshotActionHandler() = default;

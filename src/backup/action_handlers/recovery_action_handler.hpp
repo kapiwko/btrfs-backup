@@ -12,15 +12,15 @@
 namespace btrfsbackup {
 
 class IBtrfsOperations;
-class SafeDirectoryRoot;
+class ISafeDirectoryRoot;
 
 class RecoveryActionHandler {
   public:
     explicit RecoveryActionHandler(IBtrfsOperations& btrfs);
     RecoveryActionHandler(
         IBtrfsOperations& btrfs,
-        const std::filesystem::path& local_root,
-        const std::filesystem::path& target_root
+        std::unique_ptr<ISafeDirectoryRoot> local_root,
+        std::unique_ptr<ISafeDirectoryRoot> target_root
     );
     ~RecoveryActionHandler();
 
@@ -28,8 +28,8 @@ class RecoveryActionHandler {
 
   private:
     IBtrfsOperations& btrfs_;
-    std::unique_ptr<SafeDirectoryRoot> local_root_;
-    std::unique_ptr<SafeDirectoryRoot> target_root_;
+    std::unique_ptr<ISafeDirectoryRoot> local_root_;
+    std::unique_ptr<ISafeDirectoryRoot> target_root_;
 };
 
 } // namespace btrfsbackup

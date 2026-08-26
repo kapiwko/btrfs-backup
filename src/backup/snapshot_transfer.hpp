@@ -41,7 +41,7 @@ void commit_received_snapshot(
 
 void commit_received_snapshot_beneath(
     IBtrfsOperations& btrfs,
-    const SafeDirectoryRoot& root,
+    const ISafeDirectoryRoot& root,
     const std::filesystem::path& received_path,
     const std::filesystem::path& final_path,
     const std::string& expected_received_uuid
