@@ -9,7 +9,7 @@
 
 #include <platform/linux/trusted_file.hpp>
 
-#include "support/test_helpers.hpp"
+#include "support/validation_test_helpers.hpp"
 
 namespace fs = std::filesystem;
 

@@ -7,7 +7,7 @@
 
 #include <platform/linux/mount_info.hpp>
 
-#include "support/test_helpers.hpp"
+#include "support/validation_test_helpers.hpp"
 
 namespace fs = std::filesystem;
 
