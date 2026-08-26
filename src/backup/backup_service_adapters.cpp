@@ -123,11 +123,11 @@ std::string FileProfileRepository::fingerprint(const Profile& profile) const {
     );
 }
 
-SystemdTargetManager::SystemdTargetManager(IMountInspector& mounts, ICommandRunner& commands)
+SystemdTargetMounter::SystemdTargetMounter(IMountInspector& mounts, ICommandRunner& commands)
     : mounts_(mounts), commands_(commands) {
 }
 
-void SystemdTargetManager::ensure_mounted(const Profile& profile) {
+void SystemdTargetMounter::ensure_mounted(const Profile& profile) {
     if (mount_at(mounts_.inspect(), profile.target.mount_point).has_value()) {
         return;
     }
@@ -263,10 +263,10 @@ BackupRunExecutionResult DefaultBackupRunFactory::execute(
     return run.execute(events, cancellation);
 }
 
-FileBackupLockManager::FileBackupLockManager(fs::path lock_root) : lock_root_(std::move(lock_root)) {
+FileBackupRunLeaseProvider::FileBackupRunLeaseProvider(fs::path lock_root) : lock_root_(std::move(lock_root)) {
 }
 
-BackupRunLeaseResult FileBackupLockManager::try_acquire(const Profile& profile) {
+BackupRunLeaseResult FileBackupRunLeaseProvider::try_acquire(const Profile& profile) {
     FileLock profile_lock(profile_lock_path(lock_root_, std::string(profile.id.value())));
     if (!profile_lock.try_acquire()) {
         return {

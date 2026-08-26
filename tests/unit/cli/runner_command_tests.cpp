@@ -257,7 +257,6 @@ btrfsbackup::Profile test_profile(const fs::path& root) {
 
 btrfsbackup::ApplicationPaths test_application_paths(const fs::path& root) {
     return {
-        .sources_root = root / "config" / "profiles",
         .state_root = root / "state",
         .status_root = root / "status",
         .history_root = root / "history",
@@ -292,15 +291,12 @@ void write_profile(const fs::path& config_root, const btrfsbackup::Profile& prof
 
 void write_application_config(const fs::path& config_root, const fs::path& root) {
     fs::path config_path = config_root / "btrfs-backup.conf";
-    test_helpers::write_file(
-        config_path,
-        "CONFIG_VERSION=1\n"
-        "SOURCES_ROOT=" + (root / "config" / "profiles").string() + "\n"
-        "STATE_ROOT=" + (root / "state").string() + "\n"
-        "STATUS_ROOT=" + (root / "status").string() + "\n"
-        "HISTORY_ROOT=" + (root / "history").string() + "\n"
-        "TARGET_MOUNT_ROOT=" + (root / "target").string() + "\n"
-    );
+    std::string content = "CONFIG_VERSION=1\n";
+    content += "STATE_ROOT=" + (root / "state").string() + "\n";
+    content += "STATUS_ROOT=" + (root / "status").string() + "\n";
+    content += "HISTORY_ROOT=" + (root / "history").string() + "\n";
+    content += "TARGET_MOUNT_ROOT=" + (root / "target").string() + "\n";
+    test_helpers::write_file(config_path, content);
     chmod(config_path.c_str(), 0600);
 }
 
@@ -387,7 +383,7 @@ int run_runner(
         return source.find("/dev/mapper/") == 0 ? target_uuid : "source-btrfs-uuid";
     });
     btrfsbackup::PosixCommandRunner commands;
-    btrfsbackup::SystemdTargetManager target_manager(mounts, commands);
+    btrfsbackup::SystemdTargetMounter target_mounter(mounts, commands);
     btrfsbackup::DefaultBackupPlanner planner(
         fixture->snapshot_metadata_reader
             ? fixture->snapshot_metadata_reader
@@ -401,7 +397,7 @@ int run_runner(
         fixture->transfer_pipeline,
         false
     );
-    btrfsbackup::FileBackupLockManager locks(fixture->lock_root);
+    btrfsbackup::FileBackupRunLeaseProvider leases(fixture->lock_root);
     btrfsbackup::FileRunStateRepository state(fixture->application_config.paths());
     btrfsbackup::FileCancellationMonitor cancellation_monitor(state);
     FixedClock clock;
@@ -420,10 +416,10 @@ int run_runner(
     btrfsbackup::BackupService service(
         profiles,
         mounts,
-        target_manager,
+        target_mounter,
         planner,
         run_factory,
-        locks,
+        leases,
         state,
         cancellation_monitor,
         clock,

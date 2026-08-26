@@ -387,11 +387,10 @@ Json normalize_profile(const Json& raw, const fs::path& target_mount_root) {
     if (input_schema_version == 1) {
         reject_unknown_properties(
             paths,
-            {"sourcesDir", "remoteRoot", "incomingRoot", "stateDir", "statusRoot", "historyRoot"},
+            {"remoteRoot", "incomingRoot", "stateDir", "statusRoot", "historyRoot"},
             "paths"
         );
         const std::vector<std::pair<std::string, std::string>> legacy_system_paths{
-            {"sourcesDir", "/etc/btrfs-backup/profiles/" + profile_id + "/sources.d"},
             {"stateDir", "/var/lib/btrfs-backup"},
             {"statusRoot", "/run/btrfs-backup/profiles"},
             {"historyRoot", "/var/lib/btrfs-backup/history"},

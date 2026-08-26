@@ -25,7 +25,6 @@ void test_defaults_when_config_is_absent() {
     fs::path root = test_helpers::test_root("application-config", "defaults");
     btrfsbackup::ApplicationConfig config = btrfsbackup::ApplicationConfig::load(root);
 
-    test_helpers::expect_eq("default sources root", config.paths().sources_root.string(), (root / "profiles").string());
     test_helpers::expect_eq("default state root", config.paths().state_root.string(), "/var/lib/btrfs-backup");
     test_helpers::expect_eq("default status root", config.paths().status_root.string(), "/run/btrfs-backup/profiles");
     test_helpers::expect_eq("default history root", config.paths().history_root.string(), "/var/lib/btrfs-backup/history");
@@ -39,7 +38,6 @@ void test_loads_trusted_global_paths() {
         root,
         "# trusted administrator configuration\n"
         "CONFIG_VERSION=1\n"
-        "SOURCES_ROOT=/srv/btrfs-backup/profiles\n"
         "STATE_ROOT=/srv/btrfs-backup/state\n"
         "STATUS_ROOT=/run/custom-btrfs-backup\n"
         "HISTORY_ROOT=/srv/btrfs-backup/history\n"
@@ -48,7 +46,6 @@ void test_loads_trusted_global_paths() {
     );
 
     btrfsbackup::ApplicationConfig config = btrfsbackup::ApplicationConfig::load(root);
-    test_helpers::expect_eq("custom sources root", config.paths().sources_root.string(), "/srv/btrfs-backup/profiles");
     test_helpers::expect_eq("custom state root", config.paths().state_root.string(), "/srv/btrfs-backup/state");
     test_helpers::expect_eq("custom status root", config.paths().status_root.string(), "/run/custom-btrfs-backup");
     test_helpers::expect_eq("custom history root", config.paths().history_root.string(), "/srv/btrfs-backup/history");
@@ -62,6 +59,9 @@ void test_rejects_untrusted_or_unknown_configuration() {
     test_helpers::expect_validation_error("writable application config", [&] {
         (void)btrfsbackup::ApplicationConfig::load(root);
     }, "must not be writable by group or others");
+
+    write_config(root, "CONFIG_VERSION=1\nSOURCES_ROOT=/etc/btrfs-backup/profiles\n");
+    test_helpers::expect_validation_error("retired sources root", [&] { (void)btrfsbackup::ApplicationConfig::load(root); }, "SOURCES_ROOT is not supported");
 
     write_config(root, "CONFIG_VERSION=1\nPROFILE_STATUS_ROOT=/etc\n");
     test_helpers::expect_validation_error("unknown application key", [&] {

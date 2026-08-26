@@ -15,7 +15,7 @@ public:
     ApplicationConfig();
     explicit ApplicationConfig(ApplicationPaths paths);
 
-    static ApplicationConfig defaults(const std::filesystem::path& config_root = "/etc/btrfs-backup");
+    static ApplicationConfig defaults();
     static ApplicationConfig load(const std::filesystem::path& config_root = "/etc/btrfs-backup");
 
     const ApplicationPaths& paths() const;

@@ -33,10 +33,10 @@ BackupRunStatusDescription status_description(
 BackupService::BackupService(
     IProfileRepository& profiles,
     IMountInspector& mounts,
-    ITargetManager& target_manager,
+    ITargetMounter& target_mounter,
     IBackupPlanner& planner,
     IBackupRunFactory& run_factory,
-    IBackupLockManager& locks,
+    IBackupRunLeaseProvider& leases,
     IRunStateRepository& state,
     ICancellationMonitor& cancellation_monitor,
     IClock& clock,
@@ -45,10 +45,10 @@ BackupService::BackupService(
 )
     : profiles_(profiles),
       mounts_(mounts),
-      target_manager_(target_manager),
+      target_mounter_(target_mounter),
       planner_(planner),
       run_factory_(run_factory),
-      locks_(locks),
+      leases_(leases),
       state_(state),
       cancellation_monitor_(cancellation_monitor),
       clock_(clock),
@@ -61,7 +61,7 @@ BackupRunPlan BackupService::prepare_plan(
     const RunId& run_id,
     const std::string& timestamp
 ) {
-    target_manager_.ensure_mounted(profile);
+    target_mounter_.ensure_mounted(profile);
     return planner_.build(profile, mounts_.inspect(), profiles_.application_paths(), run_id, timestamp);
 }
 
@@ -90,7 +90,7 @@ BackupExecutionResult BackupService::start(const BackupRequest& request) {
         .error_message = {},
     };
 
-    BackupRunLeaseResult lease = locks_.try_acquire(profile);
+    BackupRunLeaseResult lease = leases_.try_acquire(profile);
     if (!lease.lease) {
         result.outcome = BackupExecutionOutcome::Busy;
         result.error_code = lease.error_code;

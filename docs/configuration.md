@@ -96,7 +96,6 @@ the optional root-owned file `/etc/btrfs-backup.conf`:
 
 ```ini
 CONFIG_VERSION=1
-SOURCES_ROOT=/etc/btrfs-backup/profiles
 STATE_ROOT=/var/lib/btrfs-backup
 STATUS_ROOT=/run/btrfs-backup/profiles
 HISTORY_ROOT=/var/lib/btrfs-backup/history
@@ -111,8 +110,7 @@ must not be a symbolic link, and must not be writable by group or other users
 `STATUS_ROOT` contains reduced current status for unprivileged readers.
 `HISTORY_ROOT` contains root-only diagnostic history; its directories use mode
 `0700` and its JSON files use mode `0600`. Private recovery markers remain in
-`STATE_ROOT/profiles/<profileId>`. `SOURCES_ROOT` is reserved for per-profile
-source-definition migration and storage managed by the application.
+`STATE_ROOT/profiles/<profileId>`.
 `TARGET_MOUNT_ROOT` controls the trusted namespace for target mounts. A profile
 with id `laptop` is always mounted at `TARGET_MOUNT_ROOT/laptop`; neither the
 mount point nor its systemd mount unit is stored in profile JSON.

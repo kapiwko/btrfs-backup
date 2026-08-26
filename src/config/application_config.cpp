@@ -34,7 +34,11 @@ fs::path absolute_path(const std::string& value, const std::string& name) {
 
 std::map<std::string, std::string> parse_config(const std::string& content) {
     const std::set<std::string> allowed{
-        "CONFIG_VERSION", "SOURCES_ROOT", "STATE_ROOT", "STATUS_ROOT", "HISTORY_ROOT", "TARGET_MOUNT_ROOT"
+        "CONFIG_VERSION",
+        "STATE_ROOT",
+        "STATUS_ROOT",
+        "HISTORY_ROOT",
+        "TARGET_MOUNT_ROOT"
     };
     std::map<std::string, std::string> result;
     std::istringstream input(content);
@@ -66,13 +70,14 @@ std::map<std::string, std::string> parse_config(const std::string& content) {
 
 } // namespace
 
-ApplicationConfig::ApplicationConfig() : ApplicationConfig(defaults().paths()) {}
+ApplicationConfig::ApplicationConfig() : ApplicationConfig(defaults().paths()) {
+}
 
-ApplicationConfig::ApplicationConfig(ApplicationPaths paths) : paths_(std::move(paths)) {}
+ApplicationConfig::ApplicationConfig(ApplicationPaths paths) : paths_(std::move(paths)) {
+}
 
-ApplicationConfig ApplicationConfig::defaults(const fs::path& config_root) {
+ApplicationConfig ApplicationConfig::defaults() {
     return ApplicationConfig({
-        .sources_root = config_root / "profiles",
         .state_root = "/var/lib/btrfs-backup",
         .status_root = "/run/btrfs-backup/profiles",
         .history_root = "/var/lib/btrfs-backup/history",
@@ -81,7 +86,7 @@ ApplicationConfig ApplicationConfig::defaults(const fs::path& config_root) {
 }
 
 ApplicationConfig ApplicationConfig::load(const fs::path& config_root) {
-    ApplicationPaths result = defaults(config_root).paths();
+    ApplicationPaths result = defaults().paths();
     const bool system_config = fs::absolute(config_root).lexically_normal() == fs::path("/etc/btrfs-backup");
     const fs::path config_path = system_config ? fs::path("/etc/btrfs-backup.conf") : config_root / "btrfs-backup.conf";
     std::error_code error;
@@ -102,11 +107,14 @@ ApplicationConfig ApplicationConfig::load(const fs::path& config_root) {
     if (version == values.end() || version->second != "1") {
         throw ValidationError("application configuration CONFIG_VERSION must be 1");
     }
-    if (auto value = values.find("SOURCES_ROOT"); value != values.end()) result.sources_root = absolute_path(value->second, "SOURCES_ROOT");
-    if (auto value = values.find("STATE_ROOT"); value != values.end()) result.state_root = absolute_path(value->second, "STATE_ROOT");
-    if (auto value = values.find("STATUS_ROOT"); value != values.end()) result.status_root = absolute_path(value->second, "STATUS_ROOT");
-    if (auto value = values.find("HISTORY_ROOT"); value != values.end()) result.history_root = absolute_path(value->second, "HISTORY_ROOT");
-    if (auto value = values.find("TARGET_MOUNT_ROOT"); value != values.end()) result.target_mount_root = absolute_path(value->second, "TARGET_MOUNT_ROOT");
+    if (auto value = values.find("STATE_ROOT"); value != values.end())
+        result.state_root = absolute_path(value->second, "STATE_ROOT");
+    if (auto value = values.find("STATUS_ROOT"); value != values.end())
+        result.status_root = absolute_path(value->second, "STATUS_ROOT");
+    if (auto value = values.find("HISTORY_ROOT"); value != values.end())
+        result.history_root = absolute_path(value->second, "HISTORY_ROOT");
+    if (auto value = values.find("TARGET_MOUNT_ROOT"); value != values.end())
+        result.target_mount_root = absolute_path(value->second, "TARGET_MOUNT_ROOT");
     return ApplicationConfig(std::move(result));
 }
 

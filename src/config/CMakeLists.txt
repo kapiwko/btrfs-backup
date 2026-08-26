@@ -21,7 +21,7 @@ target_include_directories(btrfsbackup-config-model PUBLIC ${PROJECT_SOURCE_DIR}
 target_link_libraries(btrfsbackup-config-model PUBLIC btrfsbackup-identifier-model nlohmann_json::nlohmann_json)
 
 add_library(btrfsbackup-config STATIC
-    application_paths.cpp
+    application_config.cpp
     installation_render.cpp
     installation_service.cpp
     installation_validate.cpp

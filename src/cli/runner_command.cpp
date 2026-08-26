@@ -362,7 +362,7 @@ class ProductionBackupComposition {
                   ? btrfsbackup::blkid_filesystem_uuid(source)
                   : found->second;
           }),
-          target_manager_(mounts_, commands_), planner_(btrfsbackup::read_btrfs_snapshot_metadata), run_factory_(btrfs_, filesystem_, commands_, transfers_), locks_(btrfsbackup::default_lock_root()), state_(config_.paths()), cancellation_monitor_(state_), clock_(parsed.timestamp, parsed.today), run_ids_(*parsed.run_id), service_(profiles_, mounts_, target_manager_, planner_, run_factory_, locks_, state_, cancellation_monitor_, clock_, run_ids_, cancellation) {
+          target_mounter_(mounts_, commands_), planner_(btrfsbackup::read_btrfs_snapshot_metadata), run_factory_(btrfs_, filesystem_, commands_, transfers_), leases_(btrfsbackup::default_lock_root()), state_(config_.paths()), cancellation_monitor_(state_), clock_(parsed.timestamp, parsed.today), run_ids_(*parsed.run_id), service_(profiles_, mounts_, target_mounter_, planner_, run_factory_, leases_, state_, cancellation_monitor_, clock_, run_ids_, cancellation) {
     }
 
     btrfsbackup::BackupService& service() {
@@ -374,13 +374,13 @@ class ProductionBackupComposition {
     btrfsbackup::FileProfileRepository profiles_;
     btrfsbackup::LinuxMountInspector mounts_;
     btrfsbackup::PosixCommandRunner commands_;
-    btrfsbackup::SystemdTargetManager target_manager_;
+    btrfsbackup::SystemdTargetMounter target_mounter_;
     btrfsbackup::DefaultBackupPlanner planner_;
     btrfsbackup::LibBtrfsOperations btrfs_;
     btrfsbackup::PosixFileSystem filesystem_;
     btrfsbackup::PosixTransferPipeline transfers_;
     PosixBackupRunFactory run_factory_;
-    btrfsbackup::FileBackupLockManager locks_;
+    btrfsbackup::FileBackupRunLeaseProvider leases_;
     btrfsbackup::FileRunStateRepository state_;
     btrfsbackup::FileCancellationMonitor cancellation_monitor_;
     CommandClock clock_;
