@@ -103,7 +103,7 @@ int status(const fs::path& status_root, const fs::path& history_root, const std:
         usage();
         return 2;
     }
-    std::string command = args[0];
+    const std::string& command = args[0];
     std::vector<std::string> rest(args.begin() + 1, args.end());
     if (command == "show") {
         status_show(status_root, history_root, rest, std::cout);

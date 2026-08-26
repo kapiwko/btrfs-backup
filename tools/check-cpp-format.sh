@@ -41,6 +41,19 @@ fi
 FORMAT_DIFF="$(mktemp)"
 trap 'rm -f "${FORMAT_DIFF}"' EXIT
 
+ADDED_FILES=()
+while IFS= read -r -d '' path; do
+    case "${path}" in
+        *.c|*.cc|*.cpp|*.cxx|*.h|*.hh|*.hpp|*.hxx)
+            ADDED_FILES+=("${path}")
+            ;;
+    esac
+done < <(git diff --name-only --diff-filter=A -z "${BASE_REF}" -- apps src tests integrations/kde)
+
+if (( ${#ADDED_FILES[@]} > 0 )); then
+    "${CLANG_FORMAT_BIN}" --dry-run --Werror --style=file "${ADDED_FILES[@]}"
+fi
+
 git clang-format \
     --binary "${CLANG_FORMAT_BIN}" \
     --extensions c,cc,cpp,cxx,h,hh,hpp,hxx \

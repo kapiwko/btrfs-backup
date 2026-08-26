@@ -19,7 +19,7 @@ public:
     SafeDirectoryHandle& operator=(const SafeDirectoryHandle&) = delete;
     SafeDirectoryHandle(SafeDirectoryHandle&& other) noexcept;
     SafeDirectoryHandle& operator=(SafeDirectoryHandle&& other) noexcept;
-    ~SafeDirectoryHandle();
+    ~SafeDirectoryHandle() override;
 
     int fd() const noexcept;
     std::filesystem::path proc_path() const;
