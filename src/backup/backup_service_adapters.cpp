@@ -4,7 +4,6 @@
 
 #include <backup/backup_service_adapters.hpp>
 
-#include <atomic>
 #include <chrono>
 #include <filesystem>
 #include <iomanip>
@@ -66,22 +65,17 @@ class PollingCancellationWatch final : public ICancellationWatch {
         : state_(state),
           profile_id_(std::move(profile_id)),
           cancellation_(cancellation),
-          worker_([this] { run(); }) {
+          worker_([this](std::stop_token stop) { run(stop); }) {
     }
 
     PollingCancellationWatch(const PollingCancellationWatch&) = delete;
     PollingCancellationWatch& operator=(const PollingCancellationWatch&) = delete;
 
-    ~PollingCancellationWatch() override {
-        stop_.store(true);
-        if (worker_.joinable()) {
-            worker_.join();
-        }
-    }
+    ~PollingCancellationWatch() override = default;
 
   private:
-    void run() {
-        while (!stop_.load()) {
+    void run(std::stop_token stop) {
+        while (!stop.stop_requested()) {
             if (state_.cancel_requested(profile_id_)) {
                 cancellation_.request_cancel();
                 return;
@@ -93,8 +87,7 @@ class PollingCancellationWatch final : public ICancellationWatch {
     IRunStateRepository& state_;
     ProfileId profile_id_;
     CancellationToken& cancellation_;
-    std::atomic_bool stop_ = false;
-    std::thread worker_;
+    std::jthread worker_;
 };
 
 } // namespace

@@ -50,7 +50,7 @@ using SnapshotInventoryBySource = std::map<std::string, std::vector<SnapshotInfo
 using PendingMarkerBySource = std::map<std::string, std::optional<PendingMarker>>;
 using PendingSnapshotBySource = std::map<std::string, std::optional<SnapshotMetadata>>;
 
-BackupRunPlan build_backup_run_plan(
+[[nodiscard]] BackupRunPlan build_backup_run_plan(
     const Profile& profile,
     const std::vector<MountEntry>& mounts,
     const SnapshotInventoryBySource& local_inventory,

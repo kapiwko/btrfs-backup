@@ -65,7 +65,7 @@ void test_backup_run_owns_plan_and_executes_once() {
     test_helpers::expect_true("started", run.started(), "executed run is not marked as started");
 
     try {
-        run.execute(events, cancellation);
+        (void)run.execute(events, cancellation);
         test_helpers::fail("execute once", "second execution did not fail");
     } catch (const std::logic_error&) {
     }

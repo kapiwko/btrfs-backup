@@ -30,7 +30,7 @@ public:
       IBackupRunCheckpointStore& checkpoints
   );
 
-  BackupRunExecutionResult execute(
+  [[nodiscard]] BackupRunExecutionResult execute(
       const BackupRunPlan& plan,
       IBackupRunEventSink& events,
       CancellationToken& cancellation
@@ -42,6 +42,6 @@ private:
   IBackupRunCheckpointStore& checkpoints_;
 };
 
-bool backup_run_action_writes_checkpoint(const BackupRunAction& action);
+[[nodiscard]] bool backup_run_action_writes_checkpoint(const BackupRunAction& action);
 
 } // namespace btrfsbackup

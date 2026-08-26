@@ -11,11 +11,11 @@
 
 namespace btrfsbackup {
 
-CommandResult run_command(const std::vector<std::string>& argv);
-CommandResult run_controlled_command(
+[[nodiscard]] CommandResult run_command(const std::vector<std::string>& argv);
+[[nodiscard]] CommandResult run_controlled_command(
     const std::vector<std::string>& argv,
     const ControlledCommandOptions& options
 );
-std::string run_capture(const std::vector<std::string>& argv);
+[[nodiscard]] std::string run_capture(const std::vector<std::string>& argv);
 
 } // namespace btrfsbackup

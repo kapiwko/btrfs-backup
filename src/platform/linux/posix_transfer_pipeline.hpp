@@ -19,7 +19,7 @@ class PosixTransferPipeline final : public ITransferPipeline {
   public:
     explicit PosixTransferPipeline(TransferTerminationPolicy termination_policy = {});
 
-    TransferResult run(
+    [[nodiscard]] TransferResult run(
         const TransferPipelinePlan& plan,
         ITransferEventSink& events,
         CancellationToken& cancellation

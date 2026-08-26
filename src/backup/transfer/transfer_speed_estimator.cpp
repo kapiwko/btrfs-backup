@@ -11,7 +11,7 @@ namespace btrfsbackup {
 
 std::uint64_t TransferSpeedEstimator::sample(
     std::uint64_t bytes_transferred,
-    std::uint64_t elapsed_ms
+    std::chrono::milliseconds elapsed
 ) {
     const auto bounded_speed = [](double speed) {
         if (speed <= 0) {
@@ -22,27 +22,28 @@ std::uint64_t TransferSpeedEstimator::sample(
         }
         return static_cast<std::uint64_t>(speed);
     };
-    if (elapsed_ms <= previous_elapsed_ms_) {
+    if (elapsed <= previous_elapsed_) {
         return bounded_speed(smoothed_speed_bps_);
     }
 
     const std::uint64_t delta_bytes = bytes_transferred >= previous_bytes_
         ? bytes_transferred - previous_bytes_
         : bytes_transferred;
-    const std::uint64_t delta_ms = elapsed_ms - previous_elapsed_ms_;
-    const double instantaneous_speed = static_cast<double>(delta_bytes) * 1000.0
-        / static_cast<double>(delta_ms);
+    const std::chrono::milliseconds delta = elapsed - previous_elapsed_;
+    const double delta_seconds = std::chrono::duration<double>(delta).count();
+    const double instantaneous_speed = static_cast<double>(delta_bytes) / delta_seconds;
     if (!initialized_) {
         smoothed_speed_bps_ = instantaneous_speed;
         initialized_ = true;
     } else {
-        constexpr double smoothing_period_ms = 3000.0;
-        const double alpha = -std::expm1(-static_cast<double>(delta_ms) / smoothing_period_ms);
+        constexpr std::chrono::seconds smoothing_period{3};
+        const double smoothing_seconds = std::chrono::duration<double>(smoothing_period).count();
+        const double alpha = -std::expm1(-delta_seconds / smoothing_seconds);
         smoothed_speed_bps_ += alpha * (instantaneous_speed - smoothed_speed_bps_);
     }
 
     previous_bytes_ = bytes_transferred;
-    previous_elapsed_ms_ = elapsed_ms;
+    previous_elapsed_ = elapsed;
     return bounded_speed(smoothed_speed_bps_);
 }
 

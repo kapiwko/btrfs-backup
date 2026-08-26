@@ -22,7 +22,7 @@ public:
     FileLock& operator=(FileLock&& other) noexcept;
     ~FileLock();
 
-    bool try_acquire();
+    [[nodiscard]] bool try_acquire();
     void release();
     bool acquired() const;
 

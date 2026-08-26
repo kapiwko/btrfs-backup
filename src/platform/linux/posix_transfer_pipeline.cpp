@@ -228,13 +228,13 @@ public:
 
 private:
     void report(ITransferEventSink& events, const TransferResult& result, SteadyClock::time_point now) {
-        const std::uint64_t elapsed_ms = static_cast<std::uint64_t>(
-            std::chrono::duration_cast<std::chrono::milliseconds>(now - started_at_).count()
+        const std::chrono::milliseconds elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+            now - started_at_
         );
         const std::uint64_t delta_bytes = result.bytes_transferred >= last_reported_bytes_
             ? result.bytes_transferred - last_reported_bytes_
             : 0;
-        const std::uint64_t smoothed_speed = speed_.sample(result.bytes_transferred, elapsed_ms);
+        const std::uint64_t smoothed_speed = speed_.sample(result.bytes_transferred, elapsed);
         emit_event(
             events,
             TransferEventKind::Progress,

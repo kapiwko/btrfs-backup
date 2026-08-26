@@ -17,13 +17,13 @@ class IAsyncTransferHandle {
     [[nodiscard]] virtual bool finished() const = 0;
     [[nodiscard]] virtual bool wait_for(std::chrono::milliseconds timeout) const = 0;
     virtual void request_cancel() = 0;
-    virtual TransferResult wait() = 0;
+    [[nodiscard]] virtual TransferResult wait() = 0;
 };
 
 class IAsyncTransferPipeline {
   public:
     virtual ~IAsyncTransferPipeline() = default;
-    virtual std::unique_ptr<IAsyncTransferHandle> start(
+    [[nodiscard]] virtual std::unique_ptr<IAsyncTransferHandle> start(
         const TransferPipelinePlan& plan,
         ITransferEventSink& events
     ) = 0;
@@ -33,7 +33,7 @@ class ThreadedAsyncTransferPipeline final : public IAsyncTransferPipeline {
   public:
     explicit ThreadedAsyncTransferPipeline(ITransferPipeline& pipeline);
 
-    std::unique_ptr<IAsyncTransferHandle> start(
+    [[nodiscard]] std::unique_ptr<IAsyncTransferHandle> start(
         const TransferPipelinePlan& plan,
         ITransferEventSink& events
     ) override;

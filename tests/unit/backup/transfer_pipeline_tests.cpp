@@ -178,14 +178,18 @@ void test_transfer_speed_uses_recent_samples() {
     btrfsbackup::TransferSpeedEstimator speed;
     const std::uint64_t one_mib = 1024ULL * 1024ULL;
 
-    test_helpers::expect_eq("initial speed", std::to_string(speed.sample(one_mib, 1000)), std::to_string(one_mib));
-    const std::uint64_t accelerated = speed.sample(5 * one_mib, 2000);
+    test_helpers::expect_eq(
+        "initial speed",
+        std::to_string(speed.sample(one_mib, std::chrono::milliseconds{1000})),
+        std::to_string(one_mib)
+    );
+    const std::uint64_t accelerated = speed.sample(5 * one_mib, std::chrono::milliseconds{2000});
     test_helpers::expect_true(
         "EWMA responds to acceleration",
         accelerated > one_mib && accelerated < 4 * one_mib,
         "smoothed speed should move toward the recent sample without jumping to it"
     );
-    const std::uint64_t after_stall = speed.sample(5 * one_mib, 3000);
+    const std::uint64_t after_stall = speed.sample(5 * one_mib, std::chrono::milliseconds{3000});
     test_helpers::expect_true("EWMA decays after stall", after_stall < accelerated, "smoothed speed should decay without new bytes");
 }
 
@@ -217,7 +221,7 @@ void test_posix_pipeline_reaps_children_when_setup_unwinds() {
     auto started_at = std::chrono::steady_clock::now();
 
     try {
-        pipeline.run(
+        (void)pipeline.run(
             {
                 .producer_argv = {"sh", "-c", "trap '' TERM; printf %s $$ >\"$1\"; while :; do sleep 1; done", "producer", producer_pid_path.string()},
                 .consumer_argv = {"sh", "-c", "trap '' TERM; printf %s $$ >\"$1\"; while :; do sleep 1; done", "consumer", consumer_pid_path.string()},
