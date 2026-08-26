@@ -9,7 +9,7 @@
 #include <optional>
 #include <string>
 
-#include <backup/backup_run_event.hpp>
+#include <backup/model/backup_run_event.hpp>
 #include <state/status_writer.hpp>
 
 namespace btrfsbackup {

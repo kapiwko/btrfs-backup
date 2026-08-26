@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <backup/backup_run_actions.hpp>
+#include <backup/model/backup_run_actions.hpp>
 
 #include <type_traits>
 

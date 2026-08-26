@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <backup/hook_action_handler.hpp>
+#include <backup/action_handlers/hook_action_handler.hpp>
 
 #include <chrono>
 #include <optional>

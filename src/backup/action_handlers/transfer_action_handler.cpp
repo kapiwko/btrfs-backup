@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <backup/transfer_action_handler.hpp>
+#include <backup/action_handlers/transfer_action_handler.hpp>
 
 #include <backup/ports/filesystem.hpp>
 #include <platform/linux/safe_directory_root.hpp>

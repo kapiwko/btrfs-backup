@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 
-#include <backup/snapshot_inventory.hpp>
+#include <backup/model/snapshot_inventory.hpp>
 
 namespace btrfsbackup {
 
