@@ -6,7 +6,7 @@
 
 #include <fstream>
 
-#include <config/errors.hpp>
+#include <core/errors.hpp>
 
 namespace btrfsbackup {
 

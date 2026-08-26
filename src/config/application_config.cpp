@@ -12,7 +12,7 @@
 #include <system_error>
 #include <utility>
 
-#include <config/errors.hpp>
+#include <core/errors.hpp>
 #include <platform/linux/trusted_file.hpp>
 
 namespace fs = std::filesystem;

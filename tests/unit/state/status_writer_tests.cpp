@@ -10,8 +10,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include <config/errors.hpp>
-#include <config/identifiers.hpp>
+#include <core/errors.hpp>
+#include <core/identifiers.hpp>
 #include <config/json.hpp>
 #include <config/json_io.hpp>
 #include <state/status_writer.hpp>

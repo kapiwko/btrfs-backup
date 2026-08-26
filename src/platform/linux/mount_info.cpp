@@ -14,7 +14,7 @@
 #include <sys/sysmacros.h>
 
 #include <platform/linux/device_info.hpp>
-#include <config/errors.hpp>
+#include <core/errors.hpp>
 
 namespace btrfsbackup {
 

@@ -4,7 +4,7 @@
 
 #include <backup/transfer/transfer_result.hpp>
 
-#include <config/errors.hpp>
+#include <core/errors.hpp>
 
 namespace btrfsbackup {
 

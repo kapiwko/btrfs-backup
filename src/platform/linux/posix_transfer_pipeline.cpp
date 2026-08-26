@@ -17,7 +17,7 @@
 #include <string>
 #include <vector>
 
-#include <config/errors.hpp>
+#include <core/errors.hpp>
 #include <backup/transfer/transfer_speed_estimator.hpp>
 #include <platform/linux/posix_cancellation_signal.hpp>
 #include <platform/linux/posix_transfer_process.hpp>

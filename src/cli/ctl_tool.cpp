@@ -19,7 +19,7 @@
 #include <cli/runner_command.hpp>
 #include <cli/status_command.hpp>
 #include <cli/target_command.hpp>
-#include <config/errors.hpp>
+#include <core/errors.hpp>
 #include <core/cancellation.hpp>
 #include <platform/linux/linux_system_configuration_activator.hpp>
 

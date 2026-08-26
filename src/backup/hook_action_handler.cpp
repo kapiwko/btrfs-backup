@@ -10,7 +10,7 @@
 #include <vector>
 
 #include <backup/ports/command_runner.hpp>
-#include <config/errors.hpp>
+#include <core/errors.hpp>
 #include <platform/linux/safe_directory_root.hpp>
 #include <platform/linux/trusted_executable.hpp>
 

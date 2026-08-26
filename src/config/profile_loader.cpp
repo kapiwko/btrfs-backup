@@ -8,9 +8,9 @@
 #include <filesystem>
 #include <string>
 
-#include <config/errors.hpp>
+#include <core/errors.hpp>
 #include <config/application_config.hpp>
-#include <config/identifiers.hpp>
+#include <core/identifiers.hpp>
 #include <config/json.hpp>
 #include <config/profile.hpp>
 #include <platform/linux/trusted_file.hpp>

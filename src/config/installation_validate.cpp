@@ -14,7 +14,7 @@
 #include <string>
 #include <vector>
 
-#include <config/errors.hpp>
+#include <core/errors.hpp>
 #include <config/application_config.hpp>
 #include <config/json_io.hpp>
 #include <platform/linux/process.hpp>

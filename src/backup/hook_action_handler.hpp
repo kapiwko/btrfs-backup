@@ -8,7 +8,7 @@
 
 #include <backup/backup_run_actions.hpp>
 #include <backup/ports/trusted_executable.hpp>
-#include <config/identifiers.hpp>
+#include <core/identifiers.hpp>
 #include <core/cancellation.hpp>
 
 namespace btrfsbackup {

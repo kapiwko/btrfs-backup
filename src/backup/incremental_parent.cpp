@@ -10,8 +10,8 @@
 #include <map>
 #include <string>
 
-#include <config/errors.hpp>
-#include <config/identifiers.hpp>
+#include <core/errors.hpp>
+#include <core/identifiers.hpp>
 
 namespace fs = std::filesystem;
 

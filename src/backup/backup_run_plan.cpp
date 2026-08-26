@@ -9,8 +9,8 @@
 #include <string>
 #include <vector>
 
-#include <config/errors.hpp>
-#include <config/identifiers.hpp>
+#include <core/errors.hpp>
+#include <core/identifiers.hpp>
 #include <config/validation.hpp>
 
 namespace fs = std::filesystem;

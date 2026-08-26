@@ -7,7 +7,7 @@ public C++ SDK.
 ```text
 apps/                         # small executable entry points
 src/
-├── core/                     # platform-neutral cancellation and shared runtime primitives
+├── core/                     # identifiers, errors, cancellation and shared runtime primitives
 ├── backup/                   # planning, execution, snapshots, transfer, recovery
 │   └── transfer/             # transfer model, events, results and async orchestration
 ├── config/                   # profile model, validation, storage, rendering
@@ -32,15 +32,14 @@ CMake targets and their declared dependencies:
 flowchart TB
     subgraph contracts[Dependency-light contracts]
         direction LR
-        identifiers[identifier-model]
         core[core]
         config_model[config-model]
         state_model[state-model]
         backup_model[backup-model]
         transfer[transfer]
 
-        identifiers --> config_model
-        identifiers --> state_model
+        core --> config_model
+        core --> state_model
         config_model --> backup_model
         core --> transfer
         config_model --> transfer
@@ -84,13 +83,15 @@ flowchart TB
 The `*-model` targets contain dependency-light contracts needed to avoid
 cycles between configuration, backup concepts, and Linux implementations. They
 are implementation details of the domain layout, not separate source trees.
-`btrfsbackup-identifier-model` contains the validated `ProfileId`, `RunId`, and
-`SourceId` value types shared by those contracts without pulling in JSON or
-filesystem adapters.
+The `btrfsbackup-core` target contains the validated `ProfileId`, `RunId`, and
+`SourceId` value types and the shared error hierarchy. Those contracts can be
+used by configuration, backup, state, and platform adapters without pulling in
+JSON or filesystem implementations.
 
 ## Ownership
 
-- `core` owns platform-neutral cancellation state and shared runtime primitives.
+- `core` owns identifiers, the shared error hierarchy, platform-neutral
+  cancellation state, and other shared runtime primitives.
 - `backup` owns the single-execution `BackupRun`, run planning and execution,
   incremental-parent selection,
   transfer model and orchestration, snapshot commit, retention and recovery,
