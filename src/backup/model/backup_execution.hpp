@@ -1,0 +1,43 @@
+// SPDX-FileCopyrightText: 2026 Kamil Piwowarski <kapiwko@gmail.com>
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+#pragma once
+
+#include <cstddef>
+#include <optional>
+#include <string>
+
+#include <backup/model/backup_run_plan.hpp>
+#include <core/error_code.hpp>
+#include <core/identifiers.hpp>
+
+namespace btrfsbackup {
+
+struct BackupRequest {
+    ProfileId profile_id;
+    bool force = false;
+    bool validate_only = false;
+};
+
+struct CancelBackupResult {
+    ProfileId profile_id;
+    bool cancel_requested = false;
+};
+
+enum class BackupExecutionOutcome { Completed,
+                                    Skipped,
+                                    Cancelled,
+                                    Failed,
+                                    Busy,
+                                    Validated };
+
+struct BackupExecutionResult {
+    BackupRunPlan plan;
+    BackupExecutionOutcome outcome = BackupExecutionOutcome::Completed;
+    std::size_t actions_completed = 0;
+    std::optional<ErrorCode> error_code;
+    std::string error_message;
+};
+
+} // namespace btrfsbackup

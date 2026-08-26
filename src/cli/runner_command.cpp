@@ -18,7 +18,7 @@
 
 #include <backup/action_handlers/backup_run_action_handler.hpp>
 #include <backup/backup_run.hpp>
-#include <backup/backup_service_adapters.hpp>
+#include <backup/default_backup_planner.hpp>
 #include <backup/file_run_state_repository.hpp>
 #include <backup/system_run_context.hpp>
 #include <backup/action_handlers/hook_action_handler.hpp>
@@ -36,6 +36,7 @@
 #include <platform/linux/mount_info.hpp>
 #include <platform/linux/posix_transfer_pipeline.hpp>
 #include <platform/linux/safe_directory_root.hpp>
+#include <platform/linux/systemd_target_mounter.hpp>
 #include <platform/linux/trusted_executable.hpp>
 #include <config/model/json.hpp>
 #include <config/profile_repository.hpp>

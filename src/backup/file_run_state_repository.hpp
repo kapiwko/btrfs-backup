@@ -8,7 +8,8 @@
 #include <memory>
 #include <string>
 
-#include <backup/backup_service.hpp>
+#include <backup/ports/cancellation_monitor.hpp>
+#include <backup/ports/run_state_repository.hpp>
 #include <config/application_config.hpp>
 
 namespace btrfsbackup {
