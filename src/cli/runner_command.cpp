@@ -11,6 +11,8 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <type_traits>
+#include <utility>
 #include <vector>
 
 #include <backup/backup_run_action_effects.hpp>
@@ -111,19 +113,47 @@ std::string action_name(btrfsbackup::BackupRunActionKind kind) {
     return "unknown";
 }
 
-btrfsbackup::Json action_to_json(const btrfsbackup::BackupRunAction& action) {
+btrfsbackup::Json action_to_json(
+    const btrfsbackup::BackupRunAction& action,
+    const btrfsbackup::BackupSourceRunPlan& source
+) {
+    const auto [primary_path, secondary_path] = std::visit([&](const auto& typed_action) {
+        using Action = std::decay_t<decltype(typed_action)>;
+        if constexpr (std::is_same_v<Action, btrfsbackup::RecoverPendingAction>) {
+            return std::pair{typed_action.recovery.local_snapshot_path, fs::path{}};
+        } else if constexpr (std::is_same_v<Action, btrfsbackup::CleanupIncomingAction>) {
+            return std::pair{typed_action.incoming_directory, fs::path{}};
+        } else if constexpr (std::is_same_v<Action, btrfsbackup::CreateSnapshotAction>) {
+            return std::pair{typed_action.snapshot, typed_action.source};
+        } else if constexpr (std::is_same_v<Action, btrfsbackup::SelectParentAction>) {
+            return std::pair{typed_action.parent.value_or(fs::path{}), fs::path{}};
+        } else if constexpr (std::is_same_v<Action, btrfsbackup::SendReceiveAction>) {
+            return std::pair{typed_action.snapshot, typed_action.incoming_run_directory};
+        } else if constexpr (std::is_same_v<Action, btrfsbackup::VerifyReceivedAction>) {
+            return std::pair{typed_action.received_snapshot, typed_action.local_snapshot};
+        } else if constexpr (std::is_same_v<Action, btrfsbackup::CommitReceivedAction>) {
+            return std::pair{typed_action.received_snapshot, typed_action.final_snapshot};
+        } else if constexpr (std::is_same_v<Action, btrfsbackup::ApplyRemoteRetentionAction>) {
+            return std::pair{source.remote_snapshot_dir, fs::path{}};
+        } else if constexpr (std::is_same_v<Action, btrfsbackup::ApplyLocalRetentionAction>) {
+            return std::pair{source.local_snapshot_dir, fs::path{}};
+        } else {
+            return std::pair{fs::path{}, fs::path{}};
+        }
+    },
+                                                           action);
     btrfsbackup::Json result = {
-        {"kind", action_name(action.kind)},
-        {"sourceId", action.source_id.value},
-        {"primaryPath", action.primary_path.string()},
-        {"secondaryPath", action.secondary_path.string()}
+        {"kind", action_name(btrfsbackup::backup_run_action_kind(action))},
+        {"sourceId", btrfsbackup::backup_run_action_source_id(action).value},
+        {"primaryPath", primary_path.string()},
+        {"secondaryPath", secondary_path.string()}
     };
-    if (!action.hook.program.empty()) {
+    if (const auto* hook_action = std::get_if<btrfsbackup::RunHookAction>(&action)) {
         result["hook"] = {
             {"type", "program"},
-            {"program", action.hook.program},
-            {"arguments", action.hook.arguments},
-            {"timeoutSeconds", action.hook.timeout_seconds}
+            {"program", hook_action->hook.program},
+            {"arguments", hook_action->hook.arguments},
+            {"timeoutSeconds", hook_action->hook.timeout_seconds}
         };
     }
     return result;
@@ -147,19 +177,15 @@ btrfsbackup::Json source_plan_to_json(const btrfsbackup::BackupSourceRunPlan& so
         {"receivedSnapshotPath", source.received_snapshot_path.string()},
         {"finalRemoteSnapshotPath", source.final_remote_snapshot_path.string()},
         {"incremental", source.parent.incremental},
-        {"parentPath", source.parent.local_parent.has_value()
-            ? btrfsbackup::Json(source.parent.local_parent->path.string())
-            : btrfsbackup::Json(nullptr)},
-        {"pendingRecoveryAction", action_name(source.actions.front().kind) == "recover-pending"
-            ? "recover-pending"
-            : "none"},
+        {"parentPath", source.parent.local_parent.has_value() ? btrfsbackup::Json(source.parent.local_parent->path.string()) : btrfsbackup::Json(nullptr)},
+        {"pendingRecoveryAction", std::holds_alternative<btrfsbackup::RecoverPendingAction>(source.actions.front()) ? "recover-pending" : "none"},
         {"localRetentionDelete", paths_to_json(source.local_retention.delete_snapshots)},
         {"remoteRetentionDelete", paths_to_json(source.remote_retention.delete_snapshots)}
     };
     if (include_actions) {
         btrfsbackup::Json actions = btrfsbackup::Json::array();
         for (const btrfsbackup::BackupRunAction& action : source.actions) {
-            actions.push_back(action_to_json(action));
+            actions.push_back(action_to_json(action, source));
         }
         result["actions"] = actions;
     }

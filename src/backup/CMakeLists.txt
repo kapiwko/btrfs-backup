@@ -57,6 +57,7 @@ target_link_libraries(btrfsbackup-backup-domain
 
 add_library(btrfsbackup-backup STATIC
     backup_run.cpp
+    backup_run_actions.cpp
     backup_run_action_effects.cpp
     backup_run_executor.cpp
     backup_run_plan.cpp

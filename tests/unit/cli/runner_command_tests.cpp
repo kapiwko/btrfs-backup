@@ -55,39 +55,40 @@ public:
 
     void execute_action(
         const btrfsbackup::BackupRunAction& action,
-        const btrfsbackup::BackupSourceRunPlan& source_plan,
         const btrfsbackup::BackupRunPlan& plan,
         btrfsbackup::CancellationToken&
     ) override {
-        calls.push_back(source_plan.source_id.value + ":" + action_name(action.kind));
-        if (action.kind == btrfsbackup::BackupRunActionKind::ApplyLocalRetention) {
-            for (const btrfsbackup::SnapshotInfo& snapshot : source_plan.local_retention.delete_snapshots) {
+        const btrfsbackup::BackupRunActionKind kind = btrfsbackup::backup_run_action_kind(action);
+        calls.push_back(btrfsbackup::backup_run_action_source_id(action).value + ":" + action_name(kind));
+        if (const auto* retention = std::get_if<btrfsbackup::ApplyLocalRetentionAction>(&action)) {
+            for (const btrfsbackup::SnapshotInfo& snapshot : retention->plan.delete_snapshots) {
                 local_retention_deletes.push_back(snapshot.path.string());
             }
         }
-        if (action.kind == btrfsbackup::BackupRunActionKind::ApplyRemoteRetention) {
-            for (const btrfsbackup::SnapshotInfo& snapshot : source_plan.remote_retention.delete_snapshots) {
+        if (const auto* retention = std::get_if<btrfsbackup::ApplyRemoteRetentionAction>(&action)) {
+            for (const btrfsbackup::SnapshotInfo& snapshot : retention->plan.delete_snapshots) {
                 remote_retention_deletes.push_back(snapshot.path.string());
             }
         }
-        if (action.kind == btrfsbackup::BackupRunActionKind::RecoverPending
-            && source_plan.recovery.delete_local_snapshot) {
-            recovered_pending_paths.push_back(source_plan.recovery.local_snapshot_path.string());
+        if (const auto* recovery = std::get_if<btrfsbackup::RecoverPendingAction>(&action);
+            recovery != nullptr && recovery->recovery.delete_local_snapshot) {
+            recovered_pending_paths.push_back(recovery->recovery.local_snapshot_path.string());
         }
-        if (write_pending_on_snapshot && action.kind == btrfsbackup::BackupRunActionKind::CreateSnapshot) {
+        if (const auto* snapshot = std::get_if<btrfsbackup::CreateSnapshotAction>(&action);
+            write_pending_on_snapshot && snapshot != nullptr) {
             btrfsbackup::write_pending_marker(
                 pending_state_dir,
                 {
-                    .source_name = source_plan.source_id.value,
-                    .local_snapshot_path = source_plan.local_snapshot_path.string(),
-                    .final_snapshot_path = source_plan.final_remote_snapshot_path.string(),
+                    .source_name = snapshot->source_id.value,
+                    .local_snapshot_path = snapshot->snapshot.string(),
+                    .final_snapshot_path = snapshot->final_remote_snapshot.string(),
                     .run_id = plan.run_id.value,
                     .timestamp = pending_timestamp,
                 }
             );
         }
-        if (should_throw && action.kind == throw_on) {
-            throw btrfsbackup::ValidationError("injected action failure: " + action_name(action.kind));
+        if (should_throw && kind == throw_on) {
+            throw btrfsbackup::ValidationError("injected action failure: " + action_name(kind));
         }
     }
 };

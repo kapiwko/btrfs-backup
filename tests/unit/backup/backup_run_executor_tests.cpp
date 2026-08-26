@@ -34,12 +34,12 @@ public:
 
     void execute_action(
         const btrfsbackup::BackupRunAction& action,
-        const btrfsbackup::BackupSourceRunPlan& source_plan,
         const btrfsbackup::BackupRunPlan&,
         btrfsbackup::CancellationToken&
     ) override {
-        calls.push_back(source_plan.source_id.value + ":" + action_name(action.kind));
-        if (should_throw && action.kind == throw_on) {
+        const btrfsbackup::BackupRunActionKind kind = btrfsbackup::backup_run_action_kind(action);
+        calls.push_back(btrfsbackup::backup_run_action_source_id(action).value + ":" + action_name(kind));
+        if (should_throw && kind == throw_on) {
             if (operation_cancelled) {
                 throw btrfsbackup::OperationCancelledError("hook cancelled");
             }
@@ -52,7 +52,7 @@ public:
             if (!coded_error_code.empty()) {
                 throw btrfsbackup::CodedValidationError(coded_error_code, "coded action failure");
             }
-            throw btrfsbackup::ValidationError("injected action failure: " + action_name(action.kind));
+            throw btrfsbackup::ValidationError("injected action failure: " + action_name(kind));
         }
     }
 };
@@ -143,10 +143,50 @@ public:
 };
 
 btrfsbackup::BackupRunAction action(btrfsbackup::BackupRunActionKind kind) {
-    return btrfsbackup::BackupRunAction{
-        .kind = kind,
-        .source_id = btrfsbackup::SourceId{"root"},
-    };
+    using namespace btrfsbackup;
+    const SourceId source_id{"root"};
+    const fs::path local_snapshot = "/.snapshots/root/root-2026-08-23T080000Z";
+    const fs::path incoming = "/mnt/backup/.incoming/root/run-1";
+    switch (kind) {
+    case BackupRunActionKind::RecoverPending:
+        return RecoverPendingAction{source_id, PendingRecoveryPlan{}};
+    case BackupRunActionKind::CleanupIncoming:
+        return CleanupIncomingAction{source_id, incoming.parent_path()};
+    case BackupRunActionKind::BeforeSnapshotHook:
+        return RunHookAction{source_id, HookPhase::BeforeSnapshot, ProfileHookCommand{"hook", {}, 30}};
+    case BackupRunActionKind::CreateSnapshot:
+        return CreateSnapshotAction{
+            source_id,
+            "/source",
+            local_snapshot.parent_path(),
+            local_snapshot,
+            "/mnt/backup/root/snapshot",
+            "/state",
+            RunId{"run-1"},
+        };
+    case BackupRunActionKind::AfterSnapshotHook:
+        return RunHookAction{source_id, HookPhase::AfterSnapshot, ProfileHookCommand{"hook", {}, 30}};
+    case BackupRunActionKind::SelectParent:
+        return SelectParentAction{source_id, std::nullopt};
+    case BackupRunActionKind::SendReceive:
+        return SendReceiveAction{source_id, local_snapshot, std::nullopt, "/mnt/backup/root", incoming};
+    case BackupRunActionKind::VerifyReceived:
+        return VerifyReceivedAction{source_id, local_snapshot, incoming / local_snapshot.filename()};
+    case BackupRunActionKind::CommitReceived:
+        return CommitReceivedAction{
+            source_id,
+            local_snapshot,
+            incoming / local_snapshot.filename(),
+            "/mnt/backup/root/snapshot",
+        };
+    case BackupRunActionKind::ApplyRemoteRetention:
+        return ApplyRemoteRetentionAction{source_id, RetentionPlan{}};
+    case BackupRunActionKind::ApplyLocalRetention:
+        return ApplyLocalRetentionAction{source_id, RetentionPlan{}};
+    case BackupRunActionKind::CleanupSource:
+        return CleanupSourceAction{source_id, incoming / local_snapshot.filename(), incoming, "/state/pending", "/state"};
+    }
+    throw std::logic_error("unsupported action kind");
 }
 
 btrfsbackup::BackupRunPlan plan_with_actions(std::vector<btrfsbackup::BackupRunAction> actions) {
@@ -265,12 +305,14 @@ void test_send_receive_delegates_to_transfer_pipeline() {
     btrfsbackup::BackupRunExecutor executor(effects, async_transfers, checkpoints);
 
     btrfsbackup::BackupRunPlan plan = plan_with_actions({
-        action(btrfsbackup::BackupRunActionKind::SendReceive),
+        btrfsbackup::SendReceiveAction{
+            btrfsbackup::SourceId{"root"},
+            "/.snapshots/root/root-2026-08-23T080000Z",
+            fs::path{"/.snapshots/root/root-2026-08-22T080000Z"},
+            "/mnt/backup/root",
+            "/mnt/backup/.incoming/root/run-1",
+        },
     });
-    plan.sources.at(0).parent.incremental = true;
-    plan.sources.at(0).parent.local_parent = btrfsbackup::SnapshotInfo{
-        .path = "/.snapshots/root/root-2026-08-22T080000Z",
-    };
 
     btrfsbackup::BackupRunExecutionResult result = executor.execute(plan, events, cancellation);
 
@@ -312,9 +354,14 @@ void test_transfer_plan_estimates_snapshot_bytes() {
     btrfsbackup::BackupRunExecutor executor(effects, async_transfers, checkpoints);
 
     btrfsbackup::BackupRunPlan plan = plan_with_actions({
-        action(btrfsbackup::BackupRunActionKind::SendReceive),
+        btrfsbackup::SendReceiveAction{
+            btrfsbackup::SourceId{"root"},
+            root / ".snapshots" / "root",
+            std::nullopt,
+            "/mnt/backup/root",
+            "/mnt/backup/.incoming/root/run-1",
+        },
     });
-    plan.sources.at(0).local_snapshot_path = root / ".snapshots" / "root";
 
     btrfsbackup::BackupRunExecutionResult result = executor.execute(plan, events, cancellation);
 
@@ -338,9 +385,12 @@ void test_multi_source_progress_accumulates_run_bytes() {
     home.local_snapshot_path = "/.snapshots/home/home-2026-08-23T080000Z";
     home.incoming_run_dir = "/mnt/backup/.incoming/home/run-1";
     home.actions = {
-        btrfsbackup::BackupRunAction{
-            .kind = btrfsbackup::BackupRunActionKind::SendReceive,
-            .source_id = btrfsbackup::SourceId{"home"},
+        btrfsbackup::SendReceiveAction{
+            home.source_id,
+            home.local_snapshot_path,
+            std::nullopt,
+            "/mnt/backup/home",
+            home.incoming_run_dir,
         },
     };
 
@@ -349,9 +399,12 @@ void test_multi_source_progress_accumulates_run_bytes() {
     root.local_snapshot_path = "/.snapshots/root/root-2026-08-23T080000Z";
     root.incoming_run_dir = "/mnt/backup/.incoming/root/run-1";
     root.actions = {
-        btrfsbackup::BackupRunAction{
-            .kind = btrfsbackup::BackupRunActionKind::SendReceive,
-            .source_id = btrfsbackup::SourceId{"root"},
+        btrfsbackup::SendReceiveAction{
+            root.source_id,
+            root.local_snapshot_path,
+            std::nullopt,
+            "/mnt/backup/root",
+            root.incoming_run_dir,
         },
     };
 

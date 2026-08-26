@@ -18,7 +18,6 @@ public:
     virtual ~IBackupRunActionEffects() = default;
     virtual void execute_action(
         const BackupRunAction& action,
-        const BackupSourceRunPlan& source_plan,
         const BackupRunPlan& run_plan,
         CancellationToken& cancellation
     ) = 0;
@@ -50,6 +49,6 @@ private:
     IBackupRunCheckpointStore& checkpoints_;
 };
 
-bool backup_run_action_writes_checkpoint(BackupRunActionKind kind);
+bool backup_run_action_writes_checkpoint(const BackupRunAction& action);
 
 } // namespace btrfsbackup

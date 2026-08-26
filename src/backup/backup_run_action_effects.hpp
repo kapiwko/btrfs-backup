@@ -39,12 +39,11 @@ public:
 
     void execute_action(
         const BackupRunAction& action,
-        const BackupSourceRunPlan& source_plan,
         const BackupRunPlan& run_plan,
         CancellationToken& cancellation
     ) override;
 
-private:
+  private:
     IBtrfsOperations& btrfs_;
     IFileSystem& fs_effects_;
     ICommandRunner* hooks_ = nullptr;
