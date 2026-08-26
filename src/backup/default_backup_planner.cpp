@@ -2,37 +2,21 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <backup/backup_service_adapters.hpp>
+#include <backup/default_backup_planner.hpp>
 
 #include <filesystem>
+#include <memory>
+#include <optional>
+#include <string>
 #include <utility>
 
-#include <backup/backup_run.hpp>
 #include <backup/pending_recovery_plan.hpp>
 #include <backup/target_mount_validation.hpp>
-#include <core/errors.hpp>
 #include <state/run_state.hpp>
 
 namespace fs = std::filesystem;
 
 namespace btrfsbackup {
-
-SystemdTargetMounter::SystemdTargetMounter(IMountInspector& mounts, ICommandRunner& commands)
-    : mounts_(mounts), commands_(commands) {
-}
-
-void SystemdTargetMounter::ensure_mounted(const Profile& profile) {
-    if (mount_at(mounts_.inspect(), profile.target.mount_point).has_value()) {
-        return;
-    }
-    if (profile.target.mount_unit.empty()) {
-        throw ValidationError("target.mountUnit is required to mount backup target");
-    }
-    const CommandResult result = commands_.run({"systemctl", "start", profile.target.mount_unit});
-    if (result.exit_code != 0) {
-        throw ValidationError("could not start target mount unit " + profile.target.mount_unit);
-    }
-}
 
 DefaultBackupPlanner::DefaultBackupPlanner(
     SnapshotMetadataReader metadata_reader,
@@ -119,25 +103,6 @@ BackupRunPlan DefaultBackupPlanner::build(
         run_id,
         snapshot_timestamp
     );
-}
-
-DefaultBackupRunFactory::DefaultBackupRunFactory(
-    IBackupRunActionHandler& action_handler,
-    ITransferPipeline& transfers,
-    const ISafeDirectoryRootFactory& safe_directories
-)
-    : action_handler_(action_handler), transfers_(transfers), safe_directories_(safe_directories) {
-}
-
-BackupRunExecutionResult DefaultBackupRunFactory::execute(
-    BackupRunPlan plan,
-    IBackupRunEventSink& events,
-    IBackupRunCheckpointStore& checkpoints,
-    CancellationToken& cancellation
-) {
-    ThreadedAsyncTransferPipeline async_transfers(transfers_);
-    BackupRun run(std::move(plan), action_handler_, async_transfers, checkpoints, safe_directories_);
-    return run.execute(events, cancellation);
 }
 
 } // namespace btrfsbackup
