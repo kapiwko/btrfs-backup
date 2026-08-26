@@ -7,11 +7,13 @@
 #include <filesystem>
 #include <memory>
 
+#include <backup/transfer/transfer_plan.hpp>
+
 namespace btrfsbackup {
 
-class ISafeDirectoryHandle {
+class ISafeDirectoryHandle : public ITransferResource {
   public:
-    virtual ~ISafeDirectoryHandle() = default;
+    ~ISafeDirectoryHandle() override = default;
 
     [[nodiscard]] virtual std::filesystem::path stable_path() const = 0;
 };
@@ -32,6 +34,15 @@ class ISafeDirectoryRoot {
     virtual void remove_contents(const std::filesystem::path& directory) const = 0;
     virtual void remove_tree(const std::filesystem::path& path) const = 0;
     virtual void delete_subvolume(const std::filesystem::path& path) const = 0;
+};
+
+class ISafeDirectoryRootFactory {
+  public:
+    virtual ~ISafeDirectoryRootFactory() = default;
+
+    [[nodiscard]] virtual std::unique_ptr<ISafeDirectoryRoot> open(
+        const std::filesystem::path& root
+    ) const = 0;
 };
 
 } // namespace btrfsbackup

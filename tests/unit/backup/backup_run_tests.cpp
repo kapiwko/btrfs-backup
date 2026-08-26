@@ -7,6 +7,7 @@
 #include <memory>
 #include <stdexcept>
 
+#include "support/fake_safe_directory.hpp"
 #include "support/test_helpers.hpp"
 
 namespace {
@@ -22,7 +23,7 @@ class NoopActionHandler final : public btrfsbackup::IBackupRunActionHandler {
 };
 
 class UnusedTransferPipeline final : public btrfsbackup::IAsyncTransferPipeline {
-public:
+  public:
     std::unique_ptr<btrfsbackup::IAsyncTransferHandle> start(
         const btrfsbackup::TransferPipelinePlan&,
         btrfsbackup::ITransferEventSink&
@@ -32,7 +33,7 @@ public:
 };
 
 class NoopCheckpointStore final : public btrfsbackup::IBackupRunCheckpointStore {
-public:
+  public:
     void write_checkpoint(const btrfsbackup::BackupRunCheckpoint&) override {
     }
 };
@@ -41,6 +42,7 @@ void test_backup_run_owns_plan_and_executes_once() {
     NoopActionHandler handler;
     UnusedTransferPipeline transfers;
     NoopCheckpointStore checkpoints;
+    test_support::FakeSafeDirectoryRootFactory safe_directories;
     btrfsbackup::BackupRun run(
         btrfsbackup::BackupRunPlan{
             .profile_id = btrfsbackup::ProfileId{"default"},
@@ -48,7 +50,8 @@ void test_backup_run_owns_plan_and_executes_once() {
         },
         handler,
         transfers,
-        checkpoints
+        checkpoints,
+        safe_directories
     );
 
     test_helpers::expect_eq("owned profile", std::string(run.plan().profile_id.value()), "default");

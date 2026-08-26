@@ -13,7 +13,6 @@
 #include <type_traits>
 
 #include <core/errors.hpp>
-#include <platform/linux/safe_directory_root.hpp>
 #include <backup/snapshot_transfer.hpp>
 
 namespace fs = std::filesystem;
@@ -75,7 +74,7 @@ void emit_event(
 }
 
 class BackupTransferEventAdapter final : public ITransferEventSink {
-public:
+  public:
     BackupTransferEventAdapter(
         IBackupRunEventSink& events,
         const BackupRunPlan& plan,
@@ -111,7 +110,7 @@ public:
         }
     }
 
-private:
+  private:
     IBackupRunEventSink& events_;
     const BackupRunPlan& plan_;
     const BackupSourceRunPlan& source_;
@@ -119,49 +118,36 @@ private:
     std::uint64_t run_bytes_base_ = 0;
 };
 
-TransferPipelinePlan transfer_plan_for_action(const BackupRunPlan& plan, const SendReceiveAction& action) {
-    if (!plan.target_mount_point.empty()) {
-        SafeDirectoryRoot local_root("/");
-        SafeDirectoryRoot target_root(plan.target_mount_point);
-        auto snapshot = std::make_shared<SafeDirectoryHandle>(local_root.open_directory(action.snapshot));
-        auto receive = std::make_shared<SafeDirectoryHandle>(target_root.open_directory(action.incoming_run_directory));
-        std::shared_ptr<SafeDirectoryHandle> parent;
-        fs::path parent_path;
-        if (action.parent.has_value()) {
-            parent = std::make_shared<SafeDirectoryHandle>(
-                local_root.open_directory(*action.parent)
-            );
-            parent_path = parent->proc_path();
-        }
-        SendReceiveCommandPlan command_plan = build_send_receive_command_plan(
-            snapshot->proc_path(),
-            parent_path,
-            receive->proc_path()
-        );
-        TransferPipelinePlan transfer_plan{
-            .producer_argv = command_plan.send_argv,
-            .consumer_argv = command_plan.receive_argv,
-            .retained_resources = {},
-        };
-        transfer_plan.retained_resources = {snapshot, receive};
-        if (parent) {
-            transfer_plan.retained_resources.push_back(parent);
-        }
-        return transfer_plan;
+TransferPipelinePlan transfer_plan_for_action(
+    const BackupRunPlan& plan,
+    const SendReceiveAction& action,
+    const ISafeDirectoryRootFactory& safe_directories
+) {
+    std::unique_ptr<ISafeDirectoryRoot> local_root = safe_directories.open("/");
+    std::unique_ptr<ISafeDirectoryRoot> target_root = safe_directories.open(plan.target_mount_point);
+    std::shared_ptr<ISafeDirectoryHandle> snapshot = local_root->pin_directory(action.snapshot);
+    std::shared_ptr<ISafeDirectoryHandle> receive = target_root->pin_directory(action.incoming_run_directory);
+    std::shared_ptr<ISafeDirectoryHandle> parent;
+    fs::path parent_path;
+    if (action.parent.has_value()) {
+        parent = local_root->pin_directory(*action.parent);
+        parent_path = parent->stable_path();
     }
-
     SendReceiveCommandPlan command_plan = build_send_receive_command_plan(
-        action.snapshot,
-        action.parent.value_or(fs::path{}),
-        action.incoming_run_directory
+        snapshot->stable_path(),
+        parent_path,
+        receive->stable_path()
     );
-
-    return TransferPipelinePlan{
+    TransferPipelinePlan transfer_plan{
         .producer_argv = command_plan.send_argv,
         .consumer_argv = command_plan.receive_argv,
-        .bytes_total_estimated = 0,
         .retained_resources = {},
     };
+    transfer_plan.retained_resources = {snapshot, receive};
+    if (parent) {
+        transfer_plan.retained_resources.push_back(parent);
+    }
+    return transfer_plan;
 }
 
 std::uint64_t estimate_regular_file_bytes(const std::filesystem::path& root) {
@@ -223,11 +209,13 @@ void wait_for_transfer_or_cancellation(IAsyncTransferHandle& transfer, Cancellat
 BackupRunExecutor::BackupRunExecutor(
     IBackupRunActionHandler& action_handler,
     IAsyncTransferPipeline& transfer_pipeline,
-    IBackupRunCheckpointStore& checkpoints
+    IBackupRunCheckpointStore& checkpoints,
+    const ISafeDirectoryRootFactory& safe_directories
 )
     : action_handler_(action_handler),
       transfer_pipeline_(transfer_pipeline),
-      checkpoints_(checkpoints) {
+      checkpoints_(checkpoints),
+      safe_directories_(safe_directories) {
 }
 
 BackupRunExecutionResult BackupRunExecutor::execute(
@@ -271,7 +259,11 @@ BackupRunExecutionResult BackupRunExecutor::execute(
                             action_kind,
                             completed_run_bytes
                         );
-                        TransferPipelinePlan transfer_plan = transfer_plan_for_action(plan, typed_action);
+                        TransferPipelinePlan transfer_plan = transfer_plan_for_action(
+                            plan,
+                            typed_action,
+                            safe_directories_
+                        );
                         transfer_plan.bytes_total_estimated = estimate_regular_file_bytes(typed_action.snapshot);
                         std::unique_ptr<IAsyncTransferHandle> transfer = transfer_pipeline_.start(
                             transfer_plan,

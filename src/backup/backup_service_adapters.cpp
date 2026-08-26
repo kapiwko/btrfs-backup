@@ -16,7 +16,6 @@
 #include <backup/target_mount_validation.hpp>
 #include <core/errors.hpp>
 #include <platform/linux/file_lock.hpp>
-#include <platform/linux/safe_directory_root.hpp>
 #include <state/run_checkpoint_store.hpp>
 #include <state/run_status_projection.hpp>
 #include <state/run_state.hpp>
@@ -107,8 +106,11 @@ void SystemdTargetMounter::ensure_mounted(const Profile& profile) {
     }
 }
 
-DefaultBackupPlanner::DefaultBackupPlanner(SnapshotMetadataReader metadata_reader, bool secure_paths)
-    : metadata_reader_(std::move(metadata_reader)), secure_paths_(secure_paths) {
+DefaultBackupPlanner::DefaultBackupPlanner(
+    SnapshotMetadataReader metadata_reader,
+    const ISafeDirectoryRootFactory& safe_directories
+)
+    : metadata_reader_(std::move(metadata_reader)), safe_directories_(safe_directories) {
 }
 
 BackupRunPlan DefaultBackupPlanner::build(
@@ -124,12 +126,8 @@ BackupRunPlan DefaultBackupPlanner::build(
     PendingMarkerBySource pending_markers;
     PendingSnapshotBySource pending_snapshots;
     const fs::path profile_state = profile_state_dir(paths, std::string(profile.id.value()));
-    std::optional<SafeDirectoryRoot> local_root;
-    std::optional<SafeDirectoryRoot> target_root;
-    if (secure_paths_) {
-        local_root.emplace("/");
-        target_root.emplace(profile.target.mount_point);
-    }
+    std::unique_ptr<ISafeDirectoryRoot> local_root = safe_directories_.open("/");
+    std::unique_ptr<ISafeDirectoryRoot> target_root = safe_directories_.open(profile.target.mount_point);
 
     for (const ProfileSource& source : profile.sources) {
         if (!source.enabled) {
@@ -137,60 +135,47 @@ BackupRunPlan DefaultBackupPlanner::build(
         }
         const std::string source_id{source.id.value()};
         const fs::path remote_dir = fs::path(profile.paths.remote_root) / source.remote_subdir;
-        if (secure_paths_) {
-            if (local_root->exists(source.local_snapshot_dir)) {
-                SafeDirectoryHandle local = local_root->open_directory(source.local_snapshot_dir);
-                local_inventory[source_id] = list_snapshot_inventory_at(
-                    local.proc_path(),
-                    source.local_snapshot_dir,
-                    source_id,
-                    SnapshotSide::Local,
-                    [&](const fs::path& path) {
-                        return metadata_reader_(local_root->open_directory(
-                                                              fs::path(source.local_snapshot_dir) / path.filename()
-                        )
-                                                    .proc_path());
-                    }
-                );
-            }
-            if (target_root->exists(remote_dir)) {
-                SafeDirectoryHandle remote = target_root->open_directory(remote_dir);
-                remote_inventory[source_id] = list_snapshot_inventory_at(
-                    remote.proc_path(),
-                    remote_dir,
-                    source_id,
-                    SnapshotSide::Remote,
-                    [&](const fs::path& path) {
-                        return metadata_reader_(target_root->open_directory(remote_dir / path.filename()).proc_path());
-                    }
-                );
-            }
-        } else {
-            local_inventory[source_id] = list_snapshot_inventory(
+        if (local_root->exists(source.local_snapshot_dir)) {
+            std::unique_ptr<ISafeDirectoryHandle> local = local_root->pin_directory(source.local_snapshot_dir);
+            local_inventory[source_id] = list_snapshot_inventory_at(
+                local->stable_path(),
                 source.local_snapshot_dir,
                 source_id,
                 SnapshotSide::Local,
-                metadata_reader_
+                [&](const fs::path& path) {
+                    std::unique_ptr<ISafeDirectoryHandle> snapshot = local_root->pin_directory(
+                        fs::path(source.local_snapshot_dir) / path.filename()
+                    );
+                    return metadata_reader_(snapshot->stable_path());
+                }
             );
-            remote_inventory[source_id] = list_snapshot_inventory(
+        }
+        if (target_root->exists(remote_dir)) {
+            std::unique_ptr<ISafeDirectoryHandle> remote = target_root->pin_directory(remote_dir);
+            remote_inventory[source_id] = list_snapshot_inventory_at(
+                remote->stable_path(),
                 remote_dir,
                 source_id,
                 SnapshotSide::Remote,
-                metadata_reader_
+                [&](const fs::path& path) {
+                    std::unique_ptr<ISafeDirectoryHandle> snapshot = target_root->pin_directory(
+                        remote_dir / path.filename()
+                    );
+                    return metadata_reader_(snapshot->stable_path());
+                }
             );
         }
 
         const std::optional<PendingMarker> marker = read_pending_marker_if_exists(profile_state, source_id);
         pending_markers[source_id] = marker;
         if (marker.has_value()) {
-            if (secure_paths_ && local_root->exists(marker->local_snapshot_path)) {
-                pending_snapshots[source_id] = metadata_reader_(
-                    local_root->open_directory(marker->local_snapshot_path).proc_path()
+            if (local_root->exists(marker->local_snapshot_path)) {
+                std::unique_ptr<ISafeDirectoryHandle> snapshot = local_root->pin_directory(
+                    marker->local_snapshot_path
                 );
-            } else if (secure_paths_) {
-                pending_snapshots[source_id] = std::nullopt;
+                pending_snapshots[source_id] = metadata_reader_(snapshot->stable_path());
             } else {
-                pending_snapshots[source_id] = metadata_reader_(marker->local_snapshot_path);
+                pending_snapshots[source_id] = std::nullopt;
             }
         }
     }
@@ -211,9 +196,9 @@ BackupRunPlan DefaultBackupPlanner::build(
 DefaultBackupRunFactory::DefaultBackupRunFactory(
     IBackupRunActionHandler& action_handler,
     ITransferPipeline& transfers,
-    bool pin_transfer_paths
+    const ISafeDirectoryRootFactory& safe_directories
 )
-    : action_handler_(action_handler), transfers_(transfers), pin_transfer_paths_(pin_transfer_paths) {
+    : action_handler_(action_handler), transfers_(transfers), safe_directories_(safe_directories) {
 }
 
 BackupRunExecutionResult DefaultBackupRunFactory::execute(
@@ -222,11 +207,8 @@ BackupRunExecutionResult DefaultBackupRunFactory::execute(
     IBackupRunCheckpointStore& checkpoints,
     CancellationToken& cancellation
 ) {
-    if (!pin_transfer_paths_) {
-        plan.target_mount_point.clear();
-    }
     ThreadedAsyncTransferPipeline async_transfers(transfers_);
-    BackupRun run(std::move(plan), action_handler_, async_transfers, checkpoints);
+    BackupRun run(std::move(plan), action_handler_, async_transfers, checkpoints, safe_directories_);
     return run.execute(events, cancellation);
 }
 

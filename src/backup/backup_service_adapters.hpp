@@ -9,6 +9,7 @@
 #include <backup/action_handlers/backup_run_action_handler.hpp>
 #include <backup/backup_service.hpp>
 #include <backup/ports/command_runner.hpp>
+#include <backup/ports/safe_directory.hpp>
 #include <backup/model/snapshot_inventory.hpp>
 #include <backup/transfer/transfer_pipeline.hpp>
 #include <config/application_config.hpp>
@@ -27,7 +28,10 @@ class SystemdTargetMounter final : public ITargetMounter {
 
 class DefaultBackupPlanner final : public IBackupPlanner {
   public:
-    explicit DefaultBackupPlanner(SnapshotMetadataReader metadata_reader, bool secure_paths = true);
+    explicit DefaultBackupPlanner(
+        SnapshotMetadataReader metadata_reader,
+        const ISafeDirectoryRootFactory& safe_directories
+    );
 
     [[nodiscard]] BackupRunPlan build(
         const Profile& profile,
@@ -39,7 +43,7 @@ class DefaultBackupPlanner final : public IBackupPlanner {
 
   private:
     SnapshotMetadataReader metadata_reader_;
-    bool secure_paths_;
+    const ISafeDirectoryRootFactory& safe_directories_;
 };
 
 class DefaultBackupRunFactory final : public IBackupRunFactory {
@@ -47,7 +51,7 @@ class DefaultBackupRunFactory final : public IBackupRunFactory {
     DefaultBackupRunFactory(
         IBackupRunActionHandler& action_handler,
         ITransferPipeline& transfers,
-        bool pin_transfer_paths = true
+        const ISafeDirectoryRootFactory& safe_directories
     );
 
     [[nodiscard]] BackupRunExecutionResult execute(
@@ -60,7 +64,7 @@ class DefaultBackupRunFactory final : public IBackupRunFactory {
   private:
     IBackupRunActionHandler& action_handler_;
     ITransferPipeline& transfers_;
-    bool pin_transfer_paths_;
+    const ISafeDirectoryRootFactory& safe_directories_;
 };
 
 class FileBackupRunLeaseProvider final : public IBackupRunLeaseProvider {

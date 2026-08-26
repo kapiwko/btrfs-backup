@@ -305,8 +305,14 @@ class PosixBackupRunFactory final : public btrfsbackup::IBackupRunFactory {
         btrfsbackup::IBtrfsOperations& btrfs,
         btrfsbackup::IFileSystem& filesystem,
         btrfsbackup::ICommandRunner& commands,
-        btrfsbackup::ITransferPipeline& transfers
-    ) : btrfs_(btrfs), filesystem_(filesystem), commands_(commands), transfers_(transfers) {
+        btrfsbackup::ITransferPipeline& transfers,
+        const btrfsbackup::ISafeDirectoryRootFactory& safe_directories
+    )
+        : btrfs_(btrfs),
+          filesystem_(filesystem),
+          commands_(commands),
+          transfers_(transfers),
+          safe_directories_(safe_directories) {
     }
 
     btrfsbackup::BackupRunExecutionResult execute(
@@ -354,7 +360,13 @@ class PosixBackupRunFactory final : public btrfsbackup::IBackupRunFactory {
             transfer
         );
         btrfsbackup::ThreadedAsyncTransferPipeline async_transfers(transfers_);
-        btrfsbackup::BackupRun run(std::move(plan), action_handler, async_transfers, checkpoints);
+        btrfsbackup::BackupRun run(
+            std::move(plan),
+            action_handler,
+            async_transfers,
+            checkpoints,
+            safe_directories_
+        );
         return run.execute(events, cancellation);
     }
 
@@ -363,6 +375,7 @@ class PosixBackupRunFactory final : public btrfsbackup::IBackupRunFactory {
     btrfsbackup::IFileSystem& filesystem_;
     btrfsbackup::ICommandRunner& commands_;
     btrfsbackup::ITransferPipeline& transfers_;
+    const btrfsbackup::ISafeDirectoryRootFactory& safe_directories_;
 };
 
 class ProductionBackupComposition {
@@ -380,7 +393,7 @@ class ProductionBackupComposition {
                   ? btrfsbackup::blkid_filesystem_uuid(source)
                   : found->second;
           }),
-          target_mounter_(mounts_, commands_), planner_(btrfsbackup::read_btrfs_snapshot_metadata), run_factory_(btrfs_, filesystem_, commands_, transfers_), leases_(btrfsbackup::default_lock_root()), state_(config_.paths()), cancellation_monitor_(state_), clock_(parsed.timestamp, parsed.today), run_ids_(*parsed.run_id), service_(profiles_, mounts_, target_mounter_, planner_, run_factory_, leases_, state_, cancellation_monitor_, clock_, run_ids_, cancellation) {
+          target_mounter_(mounts_, commands_), planner_(btrfsbackup::read_btrfs_snapshot_metadata, safe_directories_), run_factory_(btrfs_, filesystem_, commands_, transfers_, safe_directories_), leases_(btrfsbackup::default_lock_root()), state_(config_.paths()), cancellation_monitor_(state_), clock_(parsed.timestamp, parsed.today), run_ids_(*parsed.run_id), service_(profiles_, mounts_, target_mounter_, planner_, run_factory_, leases_, state_, cancellation_monitor_, clock_, run_ids_, cancellation) {
     }
 
     btrfsbackup::BackupService& service() {
@@ -393,6 +406,7 @@ class ProductionBackupComposition {
     btrfsbackup::LinuxMountInspector mounts_;
     btrfsbackup::PosixCommandRunner commands_;
     btrfsbackup::SystemdTargetMounter target_mounter_;
+    btrfsbackup::SafeDirectoryRootFactory safe_directories_;
     btrfsbackup::DefaultBackupPlanner planner_;
     btrfsbackup::LibBtrfsOperations btrfs_;
     btrfsbackup::PosixFileSystem filesystem_;

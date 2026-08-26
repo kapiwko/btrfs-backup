@@ -12,7 +12,7 @@
 
 namespace btrfsbackup {
 
-class SafeDirectoryHandle final : public ITransferResource, public ISafeDirectoryHandle {
+class SafeDirectoryHandle final : public ISafeDirectoryHandle {
   public:
     SafeDirectoryHandle() = default;
     explicit SafeDirectoryHandle(int fd);
@@ -59,6 +59,13 @@ class SafeDirectoryRoot final : public ISafeDirectoryRoot {
 
     std::filesystem::path root_path_;
     SafeDirectoryHandle root_;
+};
+
+class SafeDirectoryRootFactory final : public ISafeDirectoryRootFactory {
+  public:
+    [[nodiscard]] std::unique_ptr<ISafeDirectoryRoot> open(
+        const std::filesystem::path& root
+    ) const override;
 };
 
 } // namespace btrfsbackup
