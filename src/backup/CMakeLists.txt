@@ -87,7 +87,7 @@ target_link_libraries(btrfsbackup-backup
         btrfsbackup-backup-domain
         btrfsbackup-backup-ports
         btrfsbackup-transfer
-        btrfsbackup-config
+        btrfsbackup-config-ports
         btrfsbackup-state
 )
 

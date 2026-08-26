@@ -48,7 +48,7 @@ class ProfileConfigurationTransaction {
         std::filesystem::path staged;
         std::filesystem::path previous;
         std::string content;
-        mode_t mode;
+        std::filesystem::perms permissions;
         bool had_previous = false;
         bool published = false;
     };

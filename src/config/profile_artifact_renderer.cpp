@@ -4,21 +4,14 @@
 
 #include <config/profile_artifact_renderer.hpp>
 
-#include <sys/random.h>
-
-#include <array>
-#include <cerrno>
-#include <cstddef>
 #include <string>
 #include <utility>
 
-#include <core/errors.hpp>
 #include <config/model/json.hpp>
 #include <config/model/json_io.hpp>
 #include <config/profile_render.hpp>
-#include <platform/linux/file_io.hpp>
-
-namespace fs = std::filesystem;
+#include <core/durable_file_operations.hpp>
+#include <core/errors.hpp>
 
 namespace btrfsbackup {
 
@@ -68,68 +61,37 @@ RenderedProfileArtifacts ProfileArtifactRenderer::render_profile_artifacts(
                 .kind = ProfileArtifactKind::UdevRule,
                 .destination = roots.udev_root / ("99-btrfs-backup-" + profile_id + ".rules"),
                 .content = render_udev(rendered),
-                .mode = 0644,
+                .permissions = public_read_file_permissions,
             },
             {
                 .kind = ProfileArtifactKind::SystemdMountDependency,
-                .destination = roots.systemd_root / ("btrfs-backup@" + profile_id + ".service.d")
-                    / "target-mount.conf",
+                .destination = roots.systemd_root / ("btrfs-backup@" + profile_id + ".service.d") / "target-mount.conf",
                 .content = render_mount_dependency(rendered),
-                .mode = 0644,
+                .permissions = public_read_file_permissions,
             },
             {
                 .kind = ProfileArtifactKind::PrivateProfile,
                 .destination = roots.etc_root / "profiles" / profile_id / "profile.json",
                 .content = dump_json(profile_to_json(rendered)),
-                .mode = 0600,
+                .permissions = private_file_permissions,
             },
             {
                 .kind = ProfileArtifactKind::PublicProfile,
                 .destination = roots.public_root / (profile_id + ".json"),
                 .content = dump_json(public_profile_json(rendered)),
-                .mode = 0644,
+                .permissions = public_read_file_permissions,
             },
         },
     };
 }
 
-std::string generate_configuration_generation() {
-    std::array<unsigned char, 16> bytes{};
-    std::size_t offset = 0;
-    while (offset < bytes.size()) {
-        const ssize_t count = getrandom(bytes.data() + offset, bytes.size() - offset, 0);
-        if (count < 0) {
-            if (errno == EINTR) {
-                continue;
-            }
-            throw ValidationError("cannot generate configuration generation");
-        }
-        offset += static_cast<std::size_t>(count);
-    }
-
-    static constexpr char hex[] = "0123456789abcdef";
-    std::string result;
-    result.reserve(bytes.size() * 2);
-    for (unsigned char byte : bytes) {
-        result.push_back(hex[byte >> 4]);
-        result.push_back(hex[byte & 0x0f]);
-    }
-    return result;
-}
-
-ProfileArtifactRoots profile_artifact_roots(const fs::path& output_dir) {
+ProfileArtifactRoots profile_artifact_roots(const std::filesystem::path& output_dir) {
     return {
         .etc_root = output_dir / "etc" / "btrfs-backup",
         .udev_root = output_dir / "etc" / "udev" / "rules.d",
         .systemd_root = output_dir / "etc" / "systemd" / "system",
         .public_root = output_dir / "var" / "lib" / "btrfs-backup" / "public" / "profiles",
     };
-}
-
-void write_profile_artifacts(const RenderedProfileArtifacts& rendered) {
-    for (const ProfileArtifact& artifact : rendered.artifacts) {
-        atomic_write(artifact.destination, artifact.content, artifact.mode);
-    }
 }
 
 } // namespace btrfsbackup

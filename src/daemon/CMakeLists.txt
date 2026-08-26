@@ -21,7 +21,7 @@ set_target_properties(btrfs-backupd PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${PROJEC
 target_link_libraries(btrfs-backupd
     PRIVATE
         btrfsbackup-daemon-core
-        btrfsbackup-config
+        btrfsbackup-config-linux
         PkgConfig::SYSTEMD
 )
 

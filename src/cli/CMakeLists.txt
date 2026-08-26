@@ -23,7 +23,7 @@ target_include_directories(btrfsbackup-cli PUBLIC ${PROJECT_SOURCE_DIR}/src)
 target_link_libraries(btrfsbackup-cli
     PUBLIC
         btrfsbackup-backup
-        btrfsbackup-config
+        btrfsbackup-config-linux
         btrfsbackup-platform-linux
         btrfsbackup-state
 )
