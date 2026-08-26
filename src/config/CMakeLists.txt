@@ -26,10 +26,12 @@ add_library(btrfsbackup-config STATIC
     installation_service.cpp
     installation_validate.cpp
     profile_loader.cpp
+    profile_artifact_renderer.cpp
+    profile_configuration_transaction.cpp
+    profile_installer.cpp
     profile_render.cpp
     render_directory.cpp
     profile_service.cpp
-    profile_store.cpp
     wizard/profile_wizard.cpp
     wizard/profile_wizard_device.cpp
     wizard/profile_wizard_install.cpp
