@@ -10,6 +10,7 @@
 #include <filesystem>
 #include <limits>
 #include <string>
+#include <type_traits>
 
 #include <config/errors.hpp>
 #include <platform/linux/safe_directory_root.hpp>
@@ -116,24 +117,17 @@ private:
     std::uint64_t run_bytes_base_ = 0;
 };
 
-std::filesystem::path selected_parent_path(const BackupSourceRunPlan& source_plan) {
-    if (source_plan.parent.local_parent.has_value()) {
-        return source_plan.parent.local_parent->path;
-    }
-    return {};
-}
-
-TransferPipelinePlan transfer_plan_for_source(const BackupRunPlan& plan, const BackupSourceRunPlan& source_plan) {
+TransferPipelinePlan transfer_plan_for_action(const BackupRunPlan& plan, const SendReceiveAction& action) {
     if (!plan.target_mount_point.empty()) {
         SafeDirectoryRoot local_root("/");
         SafeDirectoryRoot target_root(plan.target_mount_point);
-        auto snapshot = std::make_shared<SafeDirectoryHandle>(local_root.open_directory(source_plan.local_snapshot_path));
-        auto receive = std::make_shared<SafeDirectoryHandle>(target_root.open_directory(source_plan.incoming_run_dir));
+        auto snapshot = std::make_shared<SafeDirectoryHandle>(local_root.open_directory(action.snapshot));
+        auto receive = std::make_shared<SafeDirectoryHandle>(target_root.open_directory(action.incoming_run_directory));
         std::shared_ptr<SafeDirectoryHandle> parent;
         fs::path parent_path;
-        if (source_plan.parent.local_parent.has_value()) {
+        if (action.parent.has_value()) {
             parent = std::make_shared<SafeDirectoryHandle>(
-                local_root.open_directory(source_plan.parent.local_parent->path)
+                local_root.open_directory(*action.parent)
             );
             parent_path = parent->proc_path();
         }
@@ -155,9 +149,9 @@ TransferPipelinePlan transfer_plan_for_source(const BackupRunPlan& plan, const B
     }
 
     SendReceiveCommandPlan command_plan = build_send_receive_command_plan(
-        source_plan.local_snapshot_path,
-        selected_parent_path(source_plan),
-        source_plan.incoming_run_dir
+        action.snapshot,
+        action.parent.value_or(fs::path{}),
+        action.incoming_run_directory
     );
 
     return TransferPipelinePlan{
@@ -196,11 +190,6 @@ std::uint64_t estimate_regular_file_bytes(const std::filesystem::path& root) {
     }
 
     return ec ? 0 : total;
-}
-
-bool action_has_external_effect(BackupRunActionKind kind) {
-    return kind != BackupRunActionKind::SelectParent
-        && kind != BackupRunActionKind::SendReceive;
 }
 
 void write_checkpoint(
@@ -258,56 +247,70 @@ BackupRunExecutionResult BackupRunExecutor::execute(
         emit_event(events, BackupRunEventKind::SourceStarted, plan, &source, BackupRunActionKind::CleanupSource);
 
         for (const BackupRunAction& action : source.actions) {
+            const BackupRunActionKind action_kind = backup_run_action_kind(action);
             if (cancellation.cancellation_requested()) {
                 result.cancelled = true;
-                emit_event(events, BackupRunEventKind::RunCancelled, plan, &source, action.kind);
+                emit_event(events, BackupRunEventKind::RunCancelled, plan, &source, action_kind);
                 return result;
             }
 
-            emit_event(events, BackupRunEventKind::ActionStarted, plan, &source, action.kind);
+            emit_event(events, BackupRunEventKind::ActionStarted, plan, &source, action_kind);
             std::optional<ErrorCode> error_code;
+            bool transfer_cancelled = false;
             try {
-                if (action.kind == BackupRunActionKind::SendReceive) {
-                    action_effects_.execute_action(action, source, plan, cancellation);
-                    BackupTransferEventAdapter transfer_events(events, plan, source, action.kind, completed_run_bytes);
-                    TransferPipelinePlan transfer_plan = transfer_plan_for_source(plan, source);
-                    transfer_plan.bytes_total_estimated = estimate_regular_file_bytes(
-                        fs::path(transfer_plan.producer_argv.back())
-                    );
-                    std::unique_ptr<IAsyncTransferHandle> transfer = transfer_pipeline_.start(
-                        transfer_plan,
-                        transfer_events
-                    );
-                    wait_for_transfer_or_cancellation(*transfer, cancellation);
-                    TransferResult transfer_result = transfer->wait();
-                    if (transfer_result.cancelled) {
-                        result.cancelled = true;
-                        emit_event(events, BackupRunEventKind::RunCancelled, plan, &source, action.kind);
-                        return result;
+                std::visit([&](const auto& typed_action) {
+                    using Action = std::decay_t<decltype(typed_action)>;
+                    if constexpr (std::is_same_v<Action, SendReceiveAction>) {
+                        action_effects_.execute_action(action, plan, cancellation);
+                        BackupTransferEventAdapter transfer_events(
+                            events,
+                            plan,
+                            source,
+                            action_kind,
+                            completed_run_bytes
+                        );
+                        TransferPipelinePlan transfer_plan = transfer_plan_for_action(plan, typed_action);
+                        transfer_plan.bytes_total_estimated = estimate_regular_file_bytes(typed_action.snapshot);
+                        std::unique_ptr<IAsyncTransferHandle> transfer = transfer_pipeline_.start(
+                            transfer_plan,
+                            transfer_events
+                        );
+                        wait_for_transfer_or_cancellation(*transfer, cancellation);
+                        TransferResult transfer_result = transfer->wait();
+                        if (transfer_result.cancelled) {
+                            transfer_cancelled = true;
+                            return;
+                        }
+                        error_code = transfer_failure_error_code(transfer_result);
+                        require_transfer_success(transfer_result);
+                        completed_run_bytes += transfer_result.bytes_transferred;
+                    } else if constexpr (!std::is_same_v<Action, SelectParentAction>) {
+                        action_effects_.execute_action(action, plan, cancellation);
                     }
-                    error_code = transfer_failure_error_code(transfer_result);
-                    require_transfer_success(transfer_result);
-                    completed_run_bytes += transfer_result.bytes_transferred;
-                } else if (action_has_external_effect(action.kind)) {
-                    action_effects_.execute_action(action, source, plan, cancellation);
+                },
+                           action);
+                if (transfer_cancelled) {
+                    result.cancelled = true;
+                    emit_event(events, BackupRunEventKind::RunCancelled, plan, &source, action_kind);
+                    return result;
                 }
             } catch (const OperationCancelledError& error) {
                 result.cancelled = true;
-                emit_event(events, BackupRunEventKind::RunCancelled, plan, &source, action.kind, 0, 0, 0, 0, 0, 0, 0, ErrorCode::RunnerCancelled, error.what());
+                emit_event(events, BackupRunEventKind::RunCancelled, plan, &source, action_kind, 0, 0, 0, 0, 0, 0, 0, ErrorCode::RunnerCancelled, error.what());
                 return result;
             } catch (const std::exception& error) {
                 if (const auto* coded_error = dynamic_cast<const CodedValidationError*>(&error)) {
                     error_code = error_code_from_name(coded_error->error_code).value_or(ErrorCode::RunnerActionFailed);
                 }
-                emit_event(events, BackupRunEventKind::ActionFailed, plan, &source, action.kind, 0, 0, 0, 0, 0, 0, 0, error_code, error.what());
+                emit_event(events, BackupRunEventKind::ActionFailed, plan, &source, action_kind, 0, 0, 0, 0, 0, 0, 0, error_code, error.what());
                 throw;
             }
 
             ++result.actions_completed;
-            emit_event(events, BackupRunEventKind::ActionCompleted, plan, &source, action.kind);
+            emit_event(events, BackupRunEventKind::ActionCompleted, plan, &source, action_kind);
 
-            if (backup_run_action_writes_checkpoint(action.kind)) {
-                write_checkpoint(checkpoints_, events, plan, source, action.kind);
+            if (backup_run_action_writes_checkpoint(action)) {
+                write_checkpoint(checkpoints_, events, plan, source, action_kind);
             }
         }
 
@@ -319,8 +322,8 @@ BackupRunExecutionResult BackupRunExecutor::execute(
     return result;
 }
 
-bool backup_run_action_writes_checkpoint(BackupRunActionKind kind) {
-    return kind != BackupRunActionKind::SelectParent;
+bool backup_run_action_writes_checkpoint(const BackupRunAction& action) {
+    return !std::holds_alternative<SelectParentAction>(action);
 }
 
 } // namespace btrfsbackup

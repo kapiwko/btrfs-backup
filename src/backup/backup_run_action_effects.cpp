@@ -37,10 +37,6 @@ std::string current_utc_iso_timestamp() {
     return out.str();
 }
 
-fs::path profile_state_dir_for_source(const BackupSourceRunPlan& source_plan) {
-    return source_plan.recovery.marker_path.parent_path();
-}
-
 void cleanup_directory_contents(
     IBtrfsOperations& btrfs,
     IFileSystem& fs_effects,
@@ -135,104 +131,103 @@ void apply_retention(IBtrfsOperations& btrfs, const RetentionPlan& plan, const S
 
 void recover_pending(
     IBtrfsOperations& btrfs,
-    const BackupSourceRunPlan& source_plan,
+    const RecoverPendingAction& action,
     const SafeDirectoryRoot* local_root,
     const SafeDirectoryRoot* target_root
 ) {
-    if (source_plan.recovery.delete_remote_snapshot) {
+    if (action.recovery.delete_remote_snapshot) {
         if (target_root == nullptr) {
-            btrfs.delete_subvolume(source_plan.recovery.remote_snapshot_path);
+            btrfs.delete_subvolume(action.recovery.remote_snapshot_path);
         } else {
-            btrfs.delete_subvolume_beneath(*target_root, source_plan.recovery.remote_snapshot_path);
+            btrfs.delete_subvolume_beneath(*target_root, action.recovery.remote_snapshot_path);
         }
     }
-    if (source_plan.recovery.delete_local_snapshot) {
+    if (action.recovery.delete_local_snapshot) {
         if (local_root == nullptr) {
-            btrfs.delete_subvolume(source_plan.recovery.local_snapshot_path);
+            btrfs.delete_subvolume(action.recovery.local_snapshot_path);
         } else {
-            btrfs.delete_subvolume_beneath(*local_root, source_plan.recovery.local_snapshot_path);
+            btrfs.delete_subvolume_beneath(*local_root, action.recovery.local_snapshot_path);
         }
     }
-    if (source_plan.recovery.clear_marker) {
-        clear_pending_marker(source_plan.recovery.marker_path, profile_state_dir_for_source(source_plan));
+    if (action.recovery.clear_marker) {
+        clear_pending_marker(action.recovery.marker_path, action.recovery.marker_path.parent_path());
     }
 }
 
 void create_local_snapshot(
     IBtrfsOperations& btrfs,
     IFileSystem& fs_effects,
-    const BackupSourceRunPlan& source_plan,
-    const BackupRunPlan& run_plan,
+    const CreateSnapshotAction& action,
     const SafeDirectoryRoot* local_root
 ) {
     if (local_root == nullptr) {
-        fs_effects.create_directories(source_plan.local_snapshot_dir);
+        fs_effects.create_directories(action.snapshot_directory);
     } else {
-        local_root->ensure_directory(source_plan.local_snapshot_dir);
+        local_root->ensure_directory(action.snapshot_directory);
     }
     write_pending_marker(
-        profile_state_dir_for_source(source_plan),
+        action.profile_state_directory,
         PendingMarker{
-            .source_name = source_plan.source_id.value,
-            .local_snapshot_path = source_plan.local_snapshot_path.string(),
-            .final_snapshot_path = source_plan.final_remote_snapshot_path.string(),
-            .run_id = run_plan.run_id.value,
+            .source_name = action.source_id.value,
+            .local_snapshot_path = action.snapshot.string(),
+            .final_snapshot_path = action.final_remote_snapshot.string(),
+            .run_id = action.run_id.value,
             .timestamp = current_utc_iso_timestamp(),
         }
     );
 
     if (local_root == nullptr) {
-        btrfs.create_readonly_snapshot(source_plan.source_subvolume, source_plan.local_snapshot_path);
+        btrfs.create_readonly_snapshot(action.source, action.snapshot);
     } else {
         btrfs.create_readonly_snapshot_beneath(
             *local_root,
-            source_plan.source_subvolume,
+            action.source,
             *local_root,
-            source_plan.local_snapshot_path
+            action.snapshot
         );
     }
     SnapshotMetadata metadata = require_snapshot_metadata(
         btrfs,
-        source_plan.local_snapshot_path,
+        action.snapshot,
         "New local snapshot metadata is missing",
         local_root
     );
     if (!metadata.is_subvolume || !metadata.readonly) {
-        throw ValidationError("New local snapshot is not readonly: " + source_plan.local_snapshot_path.string());
+        throw ValidationError("New local snapshot is not readonly: " + action.snapshot.string());
     }
 }
 
 void verify_received(
     IBtrfsOperations& btrfs,
-    const BackupSourceRunPlan& source_plan,
+    const VerifyReceivedAction& action,
     const SafeDirectoryRoot* local_root,
     const SafeDirectoryRoot* target_root
 ) {
     SnapshotMetadata local = require_snapshot_metadata(
         btrfs,
-        source_plan.local_snapshot_path,
+        action.local_snapshot,
         "Local snapshot metadata is missing",
         local_root
     );
     SnapshotMetadata received = require_snapshot_metadata(
         btrfs,
-        source_plan.received_snapshot_path,
+        action.received_snapshot,
         "Received snapshot metadata is missing",
         target_root
     );
-    verify_received_snapshot(source_plan.source_id.value, local, received);
+    verify_received_snapshot(action.source_id.value, local, received);
 }
 
 void commit_received(
     IBtrfsOperations& btrfs,
     IFileSystem& fs_effects,
-    const BackupSourceRunPlan& source_plan,
+    const CommitReceivedAction& action,
     const SafeDirectoryRoot* local_root,
     const SafeDirectoryRoot* target_root
 ) {
     SnapshotMetadata local = require_snapshot_metadata(
         btrfs,
-        source_plan.local_snapshot_path,
+        action.local_snapshot,
         "Local snapshot metadata is missing",
         local_root
     );
@@ -240,16 +235,16 @@ void commit_received(
         commit_received_snapshot(
             btrfs,
             fs_effects,
-            source_plan.received_snapshot_path,
-            source_plan.final_remote_snapshot_path,
+            action.received_snapshot,
+            action.final_snapshot,
             local.uuid
         );
     } else {
         commit_received_snapshot_beneath(
             btrfs,
             *target_root,
-            source_plan.received_snapshot_path,
-            source_plan.final_remote_snapshot_path,
+            action.received_snapshot,
+            action.final_snapshot,
             local.uuid
         );
     }
@@ -257,31 +252,31 @@ void commit_received(
 
 void prepare_send_receive(
     IFileSystem& fs_effects,
-    const BackupSourceRunPlan& source_plan,
+    const SendReceiveAction& action,
     const SafeDirectoryRoot* target_root
 ) {
     if (target_root == nullptr) {
-        fs_effects.create_directories(source_plan.remote_snapshot_dir);
-        fs_effects.create_directories(source_plan.incoming_run_dir);
+        fs_effects.create_directories(action.remote_snapshot_directory);
+        fs_effects.create_directories(action.incoming_run_directory);
     } else {
-        target_root->ensure_directory(source_plan.remote_snapshot_dir);
-        target_root->ensure_directory(source_plan.incoming_run_dir);
+        target_root->ensure_directory(action.remote_snapshot_directory);
+        target_root->ensure_directory(action.incoming_run_directory);
     }
 }
 
 void cleanup_source(
     IBtrfsOperations& btrfs,
     IFileSystem& fs_effects,
-    const BackupSourceRunPlan& source_plan,
+    const CleanupSourceAction& action,
     const SafeDirectoryRoot* target_root
 ) {
-    cleanup_path(btrfs, fs_effects, source_plan.received_snapshot_path, target_root);
-    cleanup_incoming_run_dir(btrfs, fs_effects, source_plan.incoming_run_dir, target_root);
-    clear_pending_marker(source_plan.recovery.marker_path, profile_state_dir_for_source(source_plan));
+    cleanup_path(btrfs, fs_effects, action.received_snapshot, target_root);
+    cleanup_incoming_run_dir(btrfs, fs_effects, action.incoming_run_directory, target_root);
+    clear_pending_marker(action.pending_marker, action.profile_state_directory);
 }
 
-std::string hook_error_code(const BackupRunAction& action, const std::string& suffix) {
-    const std::string phase = action.kind == BackupRunActionKind::BeforeSnapshotHook
+std::string hook_error_code(const RunHookAction& action, const std::string& suffix) {
+    const std::string phase = action.phase == HookPhase::BeforeSnapshot
         ? "before_snapshot"
         : "after_snapshot";
     return "hook." + phase + "_" + suffix;
@@ -289,9 +284,8 @@ std::string hook_error_code(const BackupRunAction& action, const std::string& su
 
 void run_hook(
     ICommandRunner* hooks,
-    const BackupRunAction& action,
+    const RunHookAction& action,
     const ProfileId& profile_id,
-    const SourceId& source_id,
     CancellationToken& cancellation,
     const SafeDirectoryRoot* hook_root,
     const TrustedExecutablePolicy& hook_policy
@@ -324,12 +318,12 @@ void run_hook(
         argv.push_back(executable_path);
         argv.insert(argv.end(), action.hook.arguments.begin(), action.hook.arguments.end());
         result = hooks->run_controlled(argv, {
-            .cancellation = &cancellation,
-            .timeout = std::chrono::seconds(action.hook.timeout_seconds),
-            .inherited_fds = inherited_fds,
-            .profile_id = profile_id,
-            .source_id = source_id,
-        });
+                                                 .cancellation = &cancellation,
+                                                 .timeout = std::chrono::seconds(action.hook.timeout_seconds),
+                                                 .inherited_fds = inherited_fds,
+                                                 .profile_id = profile_id,
+                                                 .source_id = action.source_id,
+                                             });
     } catch (const std::exception& error) {
         throw CodedValidationError(
             hook_error_code(action, "failed"),
@@ -352,6 +346,11 @@ void run_hook(
         throw CodedValidationError(hook_error_code(action, "failed"), message);
     }
 }
+
+template <class... Visitors>
+struct Overloaded : Visitors... {
+    using Visitors::operator()...;
+};
 
 } // namespace
 
@@ -401,58 +400,54 @@ BackupRunActionEffects::BackupRunActionEffects(
 
 void BackupRunActionEffects::execute_action(
     const BackupRunAction& action,
-    const BackupSourceRunPlan& source_plan,
     const BackupRunPlan& run_plan,
     CancellationToken& cancellation
 ) {
-    switch (action.kind) {
-        case BackupRunActionKind::RecoverPending:
-            recover_pending(btrfs_, source_plan, local_root_.get(), target_root_.get());
-            return;
-        case BackupRunActionKind::CleanupIncoming:
-            cleanup_directory_contents(btrfs_, fs_effects_, source_plan.incoming_source_root, target_root_.get());
-            return;
-        case BackupRunActionKind::BeforeSnapshotHook:
-        case BackupRunActionKind::AfterSnapshotHook: {
-            std::optional<SafeDirectoryRoot> hook_root;
-            if (!hook_root_path_.empty()) {
-                hook_root.emplace(hook_root_path_);
-            }
-            run_hook(
-                hooks_,
-                action,
-                run_plan.profile_id,
-                source_plan.source_id,
-                cancellation,
-                hook_root ? &*hook_root : nullptr,
-                hook_policy_
-            );
-            return;
-        }
-        case BackupRunActionKind::CreateSnapshot:
-            create_local_snapshot(btrfs_, fs_effects_, source_plan, run_plan, local_root_.get());
-            return;
-        case BackupRunActionKind::VerifyReceived:
-            verify_received(btrfs_, source_plan, local_root_.get(), target_root_.get());
-            return;
-        case BackupRunActionKind::CommitReceived:
-            commit_received(btrfs_, fs_effects_, source_plan, local_root_.get(), target_root_.get());
-            return;
-        case BackupRunActionKind::ApplyRemoteRetention:
-            apply_retention(btrfs_, source_plan.remote_retention, target_root_.get());
-            return;
-        case BackupRunActionKind::ApplyLocalRetention:
-            apply_retention(btrfs_, source_plan.local_retention, local_root_.get());
-            return;
-        case BackupRunActionKind::CleanupSource:
-            cleanup_source(btrfs_, fs_effects_, source_plan, target_root_.get());
-            return;
-        case BackupRunActionKind::SendReceive:
-            prepare_send_receive(fs_effects_, source_plan, target_root_.get());
-            return;
-        case BackupRunActionKind::SelectParent:
-            return;
-    }
+    std::visit(Overloaded{
+                   [&](const RecoverPendingAction& typed_action) {
+                       recover_pending(btrfs_, typed_action, local_root_.get(), target_root_.get());
+                   },
+                   [&](const CleanupIncomingAction& typed_action) {
+                       cleanup_directory_contents(btrfs_, fs_effects_, typed_action.incoming_directory, target_root_.get());
+                   },
+                   [&](const RunHookAction& typed_action) {
+                       std::optional<SafeDirectoryRoot> hook_root;
+                       if (!hook_root_path_.empty()) {
+                           hook_root.emplace(hook_root_path_);
+                       }
+                       run_hook(
+                           hooks_,
+                           typed_action,
+                           run_plan.profile_id,
+                           cancellation,
+                           hook_root ? &*hook_root : nullptr,
+                           hook_policy_
+                       );
+                   },
+                   [&](const CreateSnapshotAction& typed_action) {
+                       create_local_snapshot(btrfs_, fs_effects_, typed_action, local_root_.get());
+                   },
+                   [](const SelectParentAction&) {},
+                   [&](const SendReceiveAction& typed_action) {
+                       prepare_send_receive(fs_effects_, typed_action, target_root_.get());
+                   },
+                   [&](const VerifyReceivedAction& typed_action) {
+                       verify_received(btrfs_, typed_action, local_root_.get(), target_root_.get());
+                   },
+                   [&](const CommitReceivedAction& typed_action) {
+                       commit_received(btrfs_, fs_effects_, typed_action, local_root_.get(), target_root_.get());
+                   },
+                   [&](const ApplyRemoteRetentionAction& typed_action) {
+                       apply_retention(btrfs_, typed_action.plan, target_root_.get());
+                   },
+                   [&](const ApplyLocalRetentionAction& typed_action) {
+                       apply_retention(btrfs_, typed_action.plan, local_root_.get());
+                   },
+                   [&](const CleanupSourceAction& typed_action) {
+                       cleanup_source(btrfs_, fs_effects_, typed_action, target_root_.get());
+                   },
+               },
+               action);
 }
 
 } // namespace btrfsbackup

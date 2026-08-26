@@ -113,23 +113,6 @@ void require_source_mount_constraints(
     }
 }
 
-void add_action(
-    std::vector<btrfsbackup::BackupRunAction>& actions,
-    btrfsbackup::BackupRunActionKind kind,
-    const btrfsbackup::SourceId& source_id,
-    const fs::path& primary_path = {},
-    const fs::path& secondary_path = {},
-    const btrfsbackup::ProfileHookCommand& hook = {}
-) {
-    actions.push_back({
-        .kind = kind,
-        .source_id = source_id,
-        .primary_path = primary_path,
-        .secondary_path = secondary_path,
-        .hook = hook,
-    });
-}
-
 } // namespace
 
 namespace btrfsbackup {
@@ -241,24 +224,62 @@ BackupRunPlan build_backup_run_plan(
             .actions = {},
         };
 
+        const std::optional<fs::path> parent_path = parent.local_parent.has_value()
+            ? std::optional<fs::path>(parent.local_parent->path)
+            : std::nullopt;
         if (recovery.action != PendingRecoveryAction::NoMarker) {
-            add_action(source_plan.actions, BackupRunActionKind::RecoverPending, source_plan.source_id, recovery.local_snapshot_path);
+            source_plan.actions.emplace_back(RecoverPendingAction{source_plan.source_id, recovery});
         }
-        add_action(source_plan.actions, BackupRunActionKind::CleanupIncoming, source_plan.source_id, incoming_source_root);
+        source_plan.actions.emplace_back(CleanupIncomingAction{source_plan.source_id, incoming_source_root});
         for (const ProfileHookCommand& hook : profile.hooks.before_snapshot) {
-            add_action(source_plan.actions, BackupRunActionKind::BeforeSnapshotHook, source_plan.source_id, {}, {}, hook);
+            source_plan.actions.emplace_back(RunHookAction{source_plan.source_id, HookPhase::BeforeSnapshot, hook});
         }
-        add_action(source_plan.actions, BackupRunActionKind::CreateSnapshot, source_plan.source_id, local_snapshot_path, source.subvolume);
+        source_plan.actions.emplace_back(CreateSnapshotAction{
+            source_plan.source_id,
+            source.subvolume,
+            source.local_snapshot_dir,
+            local_snapshot_path,
+            final_remote_snapshot_path,
+            profile_state_dir,
+            run_id,
+        });
         for (const ProfileHookCommand& hook : profile.hooks.after_snapshot) {
-            add_action(source_plan.actions, BackupRunActionKind::AfterSnapshotHook, source_plan.source_id, {}, {}, hook);
+            source_plan.actions.emplace_back(RunHookAction{source_plan.source_id, HookPhase::AfterSnapshot, hook});
         }
-        add_action(source_plan.actions, BackupRunActionKind::SelectParent, source_plan.source_id, parent.local_parent.has_value() ? parent.local_parent->path : fs::path{});
-        add_action(source_plan.actions, BackupRunActionKind::SendReceive, source_plan.source_id, local_snapshot_path, incoming_run_dir);
-        add_action(source_plan.actions, BackupRunActionKind::VerifyReceived, source_plan.source_id, received_snapshot_path, local_snapshot_path);
-        add_action(source_plan.actions, BackupRunActionKind::CommitReceived, source_plan.source_id, received_snapshot_path, final_remote_snapshot_path);
-        add_action(source_plan.actions, BackupRunActionKind::ApplyRemoteRetention, source_plan.source_id, remote_snapshot_dir);
-        add_action(source_plan.actions, BackupRunActionKind::ApplyLocalRetention, source_plan.source_id, source.local_snapshot_dir);
-        add_action(source_plan.actions, BackupRunActionKind::CleanupSource, source_plan.source_id);
+        source_plan.actions.emplace_back(SelectParentAction{source_plan.source_id, parent_path});
+        source_plan.actions.emplace_back(SendReceiveAction{
+            source_plan.source_id,
+            local_snapshot_path,
+            parent_path,
+            remote_snapshot_dir,
+            incoming_run_dir,
+        });
+        source_plan.actions.emplace_back(VerifyReceivedAction{
+            source_plan.source_id,
+            local_snapshot_path,
+            received_snapshot_path,
+        });
+        source_plan.actions.emplace_back(CommitReceivedAction{
+            source_plan.source_id,
+            local_snapshot_path,
+            received_snapshot_path,
+            final_remote_snapshot_path,
+        });
+        source_plan.actions.emplace_back(ApplyRemoteRetentionAction{
+            source_plan.source_id,
+            remote_retention,
+        });
+        source_plan.actions.emplace_back(ApplyLocalRetentionAction{
+            source_plan.source_id,
+            local_retention,
+        });
+        source_plan.actions.emplace_back(CleanupSourceAction{
+            source_plan.source_id,
+            received_snapshot_path,
+            incoming_run_dir,
+            recovery.marker_path,
+            profile_state_dir,
+        });
 
         run_plan.sources.push_back(source_plan);
     }
