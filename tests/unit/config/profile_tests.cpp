@@ -17,9 +17,11 @@
 #include <config/json.hpp>
 #include <config/json_io.hpp>
 #include <config/profile.hpp>
+#include <config/profile_artifact_renderer.hpp>
+#include <config/profile_configuration_transaction.hpp>
+#include <config/profile_installer.hpp>
 #include <config/profile_loader.hpp>
 #include <config/profile_render.hpp>
-#include <config/profile_store.hpp>
 #include <platform/linux/file_io.hpp>
 #include <platform/linux/file_lock.hpp>
 
@@ -54,6 +56,32 @@ void expect_validation_error(const std::string& name, const std::function<void()
         }
     } catch (const std::exception& exc) {
         fail(name, std::string("unexpected exception: ") + exc.what());
+    }
+}
+
+void install_test_profile_transactionally(
+    const btrfsbackup::Profile& profile,
+    const fs::path& etc_root,
+    const fs::path& udev_root,
+    const fs::path& systemd_root,
+    const fs::path& public_root,
+    const std::function<void()>& activate = {}
+) {
+    btrfsbackup::ProfileArtifactRenderer renderer(btrfsbackup::generate_configuration_generation);
+    const btrfsbackup::ProfileArtifactRoots roots{
+        .etc_root = etc_root,
+        .udev_root = udev_root,
+        .systemd_root = systemd_root,
+        .public_root = public_root,
+    };
+    if (activate) {
+        btrfsbackup::FunctionProfileActivation activation(activate);
+        btrfsbackup::ProfileInstaller installer(renderer, activation);
+        installer.install_profile_transactionally(profile, roots);
+    } else {
+        btrfsbackup::NullProfileActivation activation;
+        btrfsbackup::ProfileInstaller installer(renderer, activation);
+        installer.install_profile_transactionally(profile, roots);
     }
 }
 
@@ -320,11 +348,29 @@ void test_profile_rejects_unsafe_hook_shape() {
     expect_validation_error("hook timeout positive", [&] { btrfsbackup::normalize_profile(raw); }, "outside the supported range");
 }
 
-void test_typed_store_renders_tree() {
+void test_profile_artifact_renderer() {
     fs::path root = test_root();
     btrfsbackup::Profile profile = btrfsbackup::profile_from_json(valid_profile());
+    const std::string generation = "0123456789abcdef0123456789abcdef";
+    btrfsbackup::ProfileArtifactRenderer renderer([&] { return generation; });
+    const fs::path rendered_root = root / "rendered";
+    const btrfsbackup::RenderedProfileArtifacts rendered = renderer.render_profile_artifacts(
+        profile,
+        btrfsbackup::profile_artifact_roots(rendered_root)
+    );
 
-    btrfsbackup::render_tree(profile, root / "rendered");
+    expect_true(
+        "renderer has no filesystem side effects",
+        !fs::exists(rendered_root),
+        "rendering wrote artifacts to disk"
+    );
+    expect_true("renderer artifact count", rendered.artifacts.size() == 4, "unexpected artifact count");
+    expect_true(
+        "renderer deterministic generation",
+        rendered.profile.configuration_generation == generation,
+        "injected generation was not used"
+    );
+    btrfsbackup::write_profile_artifacts(rendered);
 
     expect_true("typed tree profile env", !fs::exists(root / "rendered" / "etc" / "btrfs-backup" / "profiles.d" / "default.env"), "profile env should not be rendered");
     expect_true(
@@ -355,11 +401,50 @@ void test_typed_store_renders_tree() {
     fs::remove_all(root);
 }
 
-void test_typed_store_saves_tree() {
+void test_profile_configuration_transaction_publishes_temp_artifacts() {
+    const fs::path root = test_root();
+    const btrfsbackup::Profile profile = btrfsbackup::profile_from_json(valid_profile());
+    btrfsbackup::ProfileArtifactRenderer renderer([] {
+        return "fedcba9876543210fedcba9876543210";
+    });
+    const btrfsbackup::RenderedProfileArtifacts rendered = renderer.render_profile_artifacts(
+        profile,
+        {
+            .etc_root = root / "etc",
+            .udev_root = root / "udev",
+            .systemd_root = root / "systemd",
+            .public_root = root / "public",
+        }
+    );
+    btrfsbackup::ProfileConfigurationTransaction transaction(rendered);
+
+    transaction.stage();
+    expect_true(
+        "transaction stages private profile",
+        fs::is_regular_file(transaction.staged_path(btrfsbackup::ProfileArtifactKind::PrivateProfile)),
+        "private profile was not staged"
+    );
+    transaction.publish_configuration();
+    expect_true(
+        "transaction defers public marker",
+        !fs::exists(root / "public" / "default.json"),
+        "public marker was published with configuration"
+    );
+    transaction.publish_public_marker();
+    transaction.finish();
+    expect_true(
+        "transaction publishes public marker",
+        fs::is_regular_file(root / "public" / "default.json"),
+        "public marker was not published"
+    );
+    fs::remove_all(root);
+}
+
+void test_profile_installer() {
     fs::path root = test_root();
     btrfsbackup::Profile profile = btrfsbackup::profile_from_json(valid_profile());
 
-    btrfsbackup::save_tree(
+    install_test_profile_transactionally(
         profile,
         root / "etc" / "btrfs-backup",
         root / "etc" / "udev" / "rules.d",
@@ -434,14 +519,14 @@ void test_typed_store_saves_tree() {
     fs::remove_all(root);
 }
 
-void test_save_tree_staging_failure_preserves_installed_artifacts() {
+void test_profile_installation_staging_failure_preserves_installed_artifacts() {
     fs::path root = test_root();
     btrfsbackup::Profile original = btrfsbackup::profile_from_json(valid_profile());
     const fs::path etc_root = root / "etc" / "btrfs-backup";
     const fs::path udev_root = root / "etc" / "udev" / "rules.d";
     const fs::path systemd_root = root / "etc" / "systemd" / "system";
     const fs::path public_root = root / "public";
-    btrfsbackup::save_tree(original, etc_root, udev_root, systemd_root, public_root);
+    install_test_profile_transactionally(original, etc_root, udev_root, systemd_root, public_root);
 
     const fs::path profile_path = etc_root / "profiles" / "default" / "profile.json";
     const fs::path udev_path = udev_root / "99-btrfs-backup-default.rules";
@@ -460,7 +545,7 @@ void test_save_tree_staging_failure_preserves_installed_artifacts() {
 
     bool rejected = false;
     try {
-        btrfsbackup::save_tree(changed, etc_root, udev_root, systemd_root, blocked_public_root);
+        install_test_profile_transactionally(changed, etc_root, udev_root, systemd_root, blocked_public_root);
     } catch (const btrfsbackup::ConfigurationSaveError& error) {
         rejected = true;
         expect_true(
@@ -488,7 +573,7 @@ void test_save_tree_staging_failure_preserves_installed_artifacts() {
     fs::remove_all(root);
 }
 
-void test_save_tree_activation_failure_rolls_back_all_artifacts() {
+void test_profile_installation_activation_failure_rolls_back_all_artifacts() {
     fs::path root = test_root();
     btrfsbackup::Profile original = btrfsbackup::profile_from_json(valid_profile());
     const fs::path etc_root = root / "etc" / "btrfs-backup";
@@ -499,7 +584,7 @@ void test_save_tree_activation_failure_rolls_back_all_artifacts() {
     const fs::path udev_path = udev_root / "99-btrfs-backup-default.rules";
     const fs::path systemd_path = systemd_root / "btrfs-backup@default.service.d" / "target-mount.conf";
     const fs::path public_path = public_root / "default.json";
-    btrfsbackup::save_tree(original, etc_root, udev_root, systemd_root, public_root);
+    install_test_profile_transactionally(original, etc_root, udev_root, systemd_root, public_root);
 
     const std::array<std::string, 4> before{
         read_text(profile_path),
@@ -514,7 +599,7 @@ void test_save_tree_activation_failure_rolls_back_all_artifacts() {
     expect_validation_error(
         "transaction activation failure",
         [&] {
-            btrfsbackup::save_tree(
+            install_test_profile_transactionally(
                 changed,
                 etc_root,
                 udev_root,
@@ -545,7 +630,7 @@ void test_save_tree_activation_failure_rolls_back_all_artifacts() {
     fs::remove_all(root);
 }
 
-void test_save_tree_reports_incomplete_rollback() {
+void test_profile_installation_reports_incomplete_rollback() {
     fs::path root = test_root();
     btrfsbackup::Profile original = btrfsbackup::profile_from_json(valid_profile());
     const fs::path etc_root = root / "etc" / "btrfs-backup";
@@ -553,13 +638,13 @@ void test_save_tree_reports_incomplete_rollback() {
     const fs::path systemd_root = root / "etc" / "systemd" / "system";
     const fs::path public_root = root / "public";
     const fs::path udev_path = udev_root / "99-btrfs-backup-default.rules";
-    btrfsbackup::save_tree(original, etc_root, udev_root, systemd_root, public_root);
+    install_test_profile_transactionally(original, etc_root, udev_root, systemd_root, public_root);
 
     btrfsbackup::Profile changed = original;
     changed.name = "Changed profile";
     int activation_calls = 0;
     try {
-        btrfsbackup::save_tree(
+        install_test_profile_transactionally(
             changed,
             etc_root,
             udev_root,
@@ -632,7 +717,7 @@ void test_save_tree_reports_incomplete_rollback() {
     fs::remove_all(root);
 }
 
-void test_save_tree_refuses_active_profile_lock() {
+void test_profile_installation_refuses_active_profile_lock() {
     fs::path root = test_root();
     btrfsbackup::Profile original = btrfsbackup::profile_from_json(valid_profile());
     const fs::path etc_root = root / "etc" / "btrfs-backup";
@@ -640,7 +725,7 @@ void test_save_tree_refuses_active_profile_lock() {
     const fs::path systemd_root = root / "etc" / "systemd" / "system";
     const fs::path public_root = root / "public";
     const fs::path profile_path = etc_root / "profiles" / "default" / "profile.json";
-    btrfsbackup::save_tree(original, etc_root, udev_root, systemd_root, public_root);
+    install_test_profile_transactionally(original, etc_root, udev_root, systemd_root, public_root);
     const std::string before = read_text(profile_path);
 
     btrfsbackup::FileLock lock(
@@ -651,7 +736,7 @@ void test_save_tree_refuses_active_profile_lock() {
     changed.name = "Changed profile";
     expect_validation_error(
         "transaction active profile lock",
-        [&] { btrfsbackup::save_tree(changed, etc_root, udev_root, systemd_root, public_root); },
+        [&] { install_test_profile_transactionally(changed, etc_root, udev_root, systemd_root, public_root); },
         "profile is active"
     );
     expect_true("transaction lock preserves profile", read_text(profile_path) == before, "profile changed while active");
@@ -680,12 +765,13 @@ int main() {
     test_profile_rejects_removed_notifications();
     test_profile_hooks_round_trip_as_explicit_program_arguments();
     test_profile_rejects_unsafe_hook_shape();
-    test_typed_store_renders_tree();
-    test_typed_store_saves_tree();
-    test_save_tree_staging_failure_preserves_installed_artifacts();
-    test_save_tree_activation_failure_rolls_back_all_artifacts();
-    test_save_tree_reports_incomplete_rollback();
-    test_save_tree_refuses_active_profile_lock();
+    test_profile_artifact_renderer();
+    test_profile_configuration_transaction_publishes_temp_artifacts();
+    test_profile_installer();
+    test_profile_installation_staging_failure_preserves_installed_artifacts();
+    test_profile_installation_activation_failure_rolls_back_all_artifacts();
+    test_profile_installation_reports_incomplete_rollback();
+    test_profile_installation_refuses_active_profile_lock();
     test_render_udev_optional_matches();
 
     if (failures > 0) {
