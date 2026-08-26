@@ -11,6 +11,7 @@
 #include <variant>
 
 #include <config/identifiers.hpp>
+#include <core/error_code.hpp>
 
 namespace btrfsbackup {
 
@@ -48,25 +49,6 @@ enum class RunPhase {
 enum class ProgressAccuracy {
     Indeterminate,
     Estimated,
-};
-
-enum class ErrorCode {
-    BackupFailed,
-    BackupCancelled,
-    RunnerActionFailed,
-    RunnerCancelled,
-    RunnerProfileBusy,
-    RunnerTargetBusy,
-    TransferFailed,
-    TransferProducerFailed,
-    TransferConsumerFailed,
-    TransferProducerConsumerFailed,
-    HookBeforeSnapshotFailed,
-    HookBeforeSnapshotTimeout,
-    HookAfterSnapshotFailed,
-    HookAfterSnapshotTimeout,
-    TargetBtrfsUuidMismatch,
-    RepositoryRecoveryRequired,
 };
 
 struct SuggestedAction {
@@ -118,7 +100,4 @@ struct RunStatus {
 std::string run_state_name(RunState state);
 std::string run_phase_name(RunPhase phase);
 std::string progress_accuracy_name(ProgressAccuracy accuracy);
-std::string error_code_name(ErrorCode code);
-std::optional<ErrorCode> error_code_from_name(const std::string& name);
-
 } // namespace btrfsbackup
