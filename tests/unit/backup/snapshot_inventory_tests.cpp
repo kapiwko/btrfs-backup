@@ -8,7 +8,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include <backup/snapshot_inventory.hpp>
+#include <backup/model/snapshot_inventory.hpp>
 
 #include "support/validation_test_helpers.hpp"
 

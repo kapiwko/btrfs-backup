@@ -7,30 +7,29 @@
 #include <filesystem>
 #include <memory>
 
-#include <backup/backup_run_actions.hpp>
+#include <backup/model/backup_run_actions.hpp>
 
 namespace btrfsbackup {
 
 class IBtrfsOperations;
-class IFileSystem;
 class SafeDirectoryRoot;
 
-class SnapshotActionHandler {
+class RecoveryActionHandler {
   public:
-    SnapshotActionHandler(IBtrfsOperations& btrfs, IFileSystem& filesystem);
-    SnapshotActionHandler(
+    explicit RecoveryActionHandler(IBtrfsOperations& btrfs);
+    RecoveryActionHandler(
         IBtrfsOperations& btrfs,
-        IFileSystem& filesystem,
-        const std::filesystem::path& local_root
+        const std::filesystem::path& local_root,
+        const std::filesystem::path& target_root
     );
-    ~SnapshotActionHandler();
+    ~RecoveryActionHandler();
 
-    void handle(const CreateSnapshotAction& action);
+    void handle(const RecoverPendingAction& action);
 
   private:
     IBtrfsOperations& btrfs_;
-    IFileSystem& filesystem_;
     std::unique_ptr<SafeDirectoryRoot> local_root_;
+    std::unique_ptr<SafeDirectoryRoot> target_root_;
 };
 
 } // namespace btrfsbackup

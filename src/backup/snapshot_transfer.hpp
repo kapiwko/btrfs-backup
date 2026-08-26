@@ -10,7 +10,7 @@
 
 #include <backup/ports/btrfs_operations.hpp>
 #include <backup/ports/filesystem.hpp>
-#include <backup/snapshot_inventory.hpp>
+#include <backup/model/snapshot_inventory.hpp>
 
 namespace btrfsbackup {
 

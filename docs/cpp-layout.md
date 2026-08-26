@@ -9,6 +9,9 @@ apps/                         # small executable entry points
 src/
 ├── core/                     # identifiers, errors, cancellation and shared runtime primitives
 ├── backup/                   # planning, execution, snapshots, transfer, recovery
+│   ├── model/                # run plans, typed actions, events, snapshots and retention
+│   ├── ports/                # platform-neutral application contracts
+│   ├── action_handlers/      # action dispatcher and focused effect handlers
 │   └── transfer/             # transfer model, events, results and async orchestration
 ├── config/                   # profile model, validation, storage, rendering
 │   └── wizard/               # interactive profile construction

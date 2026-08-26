@@ -168,6 +168,19 @@ refactor from a behavioral fix when practical. Tests and documentation directly
 required by a feature or fix belong in the same commit. A test-only expansion
 may use `test`, and a documentation-only change may use `docs`.
 
+For a commit dominated by file moves, first verify that the worktree contains
+only the intended logical change, then stage the complete change and inspect
+rename detection explicitly:
+
+```bash
+git add -A
+git diff --cached --find-renames=20% --name-status
+```
+
+Review unexpected additions or deletions before committing. The staged diff is
+the authoritative view because Git can detect a rename only when both the old
+path deletion and the new path addition are present in the compared snapshots.
+
 Use a commit body when the subject cannot explain why the change is safe. Bodies
 are particularly useful for security boundaries, recovery ordering,
 concurrency, schema changes and transactional persistence. Explain the reason

@@ -12,16 +12,16 @@
 #include <string>
 #include <vector>
 
-#include <backup/backup_run_action_handler.hpp>
-#include <backup/hook_action_handler.hpp>
+#include <backup/action_handlers/backup_run_action_handler.hpp>
+#include <backup/action_handlers/hook_action_handler.hpp>
 #include <backup/ports/btrfs_operations.hpp>
 #include <backup/ports/command_runner.hpp>
 #include <backup/ports/filesystem.hpp>
-#include <backup/recovery_action_handler.hpp>
-#include <backup/repository_action_handler.hpp>
-#include <backup/retention_action_handler.hpp>
-#include <backup/snapshot_action_handler.hpp>
-#include <backup/transfer_action_handler.hpp>
+#include <backup/action_handlers/recovery_action_handler.hpp>
+#include <backup/action_handlers/repository_action_handler.hpp>
+#include <backup/action_handlers/retention_action_handler.hpp>
+#include <backup/action_handlers/snapshot_action_handler.hpp>
+#include <backup/action_handlers/transfer_action_handler.hpp>
 
 #include "support/validation_test_helpers.hpp"
 
