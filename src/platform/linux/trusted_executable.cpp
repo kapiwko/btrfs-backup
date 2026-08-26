@@ -8,6 +8,10 @@
 #include <unistd.h>
 
 #include <filesystem>
+#include <memory>
+#include <string>
+#include <utility>
+#include <vector>
 
 #include <core/errors.hpp>
 #include <config/model/validation.hpp>
@@ -18,12 +22,30 @@ namespace btrfsbackup {
 
 namespace {
 
+class PosixTrustedExecutable final : public btrfsbackup::ITrustedExecutable {
+  public:
+    explicit PosixTrustedExecutable(btrfsbackup::SafeDirectoryHandle handle)
+        : handle_(std::move(handle)) {
+    }
+
+    std::string execution_path() const override {
+        return handle_.proc_path().string();
+    }
+
+    std::vector<int> inherited_fds() const override {
+        return {handle_.fd()};
+    }
+
+  private:
+    btrfsbackup::SafeDirectoryHandle handle_;
+};
+
 bool trusted_owner(uid_t owner, const TrustedExecutablePolicy& policy) {
     return owner == 0 || (policy.allow_current_user_owner && owner == geteuid());
 }
 
 struct stat descriptor_status(int fd, const fs::path& path) {
-    struct stat status {};
+    struct stat status{};
     if (fstat(fd, &status) != 0) {
         throw ValidationError("cannot inspect trusted hook path: " + path.string());
     }
@@ -71,9 +93,7 @@ SafeDirectoryHandle open_trusted_executable(
     const TrustedExecutablePolicy& policy
 ) {
     fs::path normalized = normalized_path(program);
-    if (!normalized.is_absolute()
-        || normalized.parent_path() != trusted_root.path()
-        || normalized.filename().empty()) {
+    if (!normalized.is_absolute() || normalized.parent_path() != trusted_root.path() || normalized.filename().empty()) {
         throw ValidationError("hook program must be a direct child of " + trusted_root.path().string());
     }
     if (policy.verify_parent_directories) {
@@ -95,6 +115,20 @@ SafeDirectoryHandle open_trusted_executable(
         throw ValidationError("hook program is not executable: " + normalized.string());
     }
     return executable;
+}
+
+PosixTrustedExecutableResolver::PosixTrustedExecutableResolver(
+    fs::path trusted_root,
+    TrustedExecutablePolicy policy
+)
+    : trusted_root_(std::move(trusted_root)), policy_(policy) {
+}
+
+std::unique_ptr<ITrustedExecutable> PosixTrustedExecutableResolver::resolve(const fs::path& program) const {
+    SafeDirectoryRoot trusted_root(trusted_root_);
+    return std::make_unique<PosixTrustedExecutable>(
+        open_trusted_executable(trusted_root, program, policy_)
+    );
 }
 
 } // namespace btrfsbackup

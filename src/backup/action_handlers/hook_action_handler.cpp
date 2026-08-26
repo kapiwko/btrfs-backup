@@ -5,14 +5,12 @@
 #include <backup/action_handlers/hook_action_handler.hpp>
 
 #include <chrono>
-#include <optional>
+#include <memory>
 #include <string>
 #include <vector>
 
 #include <backup/ports/command_runner.hpp>
 #include <core/errors.hpp>
-#include <platform/linux/safe_directory_root.hpp>
-#include <platform/linux/trusted_executable.hpp>
 
 namespace btrfsbackup {
 
@@ -27,17 +25,12 @@ std::string hook_error_code(const RunHookAction& action, const std::string& suff
 
 } // namespace
 
-HookActionHandler::HookActionHandler(ICommandRunner& commands) : commands_(commands) {
-}
-
 HookActionHandler::HookActionHandler(
     ICommandRunner& commands,
-    std::filesystem::path hook_root,
-    TrustedExecutablePolicy hook_policy
+    const ITrustedExecutableResolver& executables
 )
     : commands_(commands),
-      hook_root_(std::move(hook_root)),
-      hook_policy_(hook_policy) {
+      executables_(executables) {
 }
 
 void HookActionHandler::handle(
@@ -57,24 +50,15 @@ void HookActionHandler::handle(
 
     CommandResult result;
     try {
-        std::optional<SafeDirectoryRoot> hook_root;
-        std::optional<SafeDirectoryHandle> executable;
-        std::vector<int> inherited_fds;
-        std::string executable_path = action.hook.program;
-        if (!hook_root_.empty()) {
-            hook_root.emplace(hook_root_);
-            executable.emplace(open_trusted_executable(*hook_root, action.hook.program, hook_policy_));
-            executable_path = executable->proc_path().string();
-            inherited_fds.push_back(executable->fd());
-        }
+        std::unique_ptr<ITrustedExecutable> executable = executables_.resolve(action.hook.program);
         std::vector<std::string> argv;
         argv.reserve(action.hook.arguments.size() + 1);
-        argv.push_back(executable_path);
+        argv.push_back(executable->execution_path());
         argv.insert(argv.end(), action.hook.arguments.begin(), action.hook.arguments.end());
         result = commands_.run_controlled(argv, {
                                                     .cancellation = &cancellation,
                                                     .timeout = action.hook.timeout,
-                                                    .inherited_fds = inherited_fds,
+                                                    .inherited_fds = executable->inherited_fds(),
                                                     .environment = {
                                                         {"BTRFS_BACKUP_PROFILE_ID", std::string(profile_id.value())},
                                                         {"BTRFS_BACKUP_SOURCE_ID", std::string(action.source_id.value())},

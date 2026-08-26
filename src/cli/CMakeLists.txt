@@ -15,6 +15,7 @@ add_library(btrfsbackup-cli STATIC
     status_history_command.cpp
     status_show_command.cpp
     target_command.cpp
+    target_service.cpp
 )
 
 target_compile_features(btrfsbackup-cli PUBLIC cxx_std_20)
@@ -23,6 +24,7 @@ target_link_libraries(btrfsbackup-cli
     PUBLIC
         btrfsbackup-backup
         btrfsbackup-config
+        btrfsbackup-platform-linux
         btrfsbackup-state
 )
 

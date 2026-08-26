@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-#include <backup/target_service.hpp>
+#include <cli/target_service.hpp>
 
 namespace btrfsbackup::command {
 

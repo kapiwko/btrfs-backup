@@ -6,6 +6,7 @@ add_library(btrfsbackup-platform-linux STATIC
     btrfs_util_operations.cpp
     device_info.cpp
     file_io.cpp
+    file_backup_run_lease_provider.cpp
     file_lock.cpp
     mount_info.cpp
     posix_cancellation_signal.cpp
