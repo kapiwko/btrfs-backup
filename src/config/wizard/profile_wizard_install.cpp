@@ -15,8 +15,8 @@
 #include <platform/linux/file_io.hpp>
 #include <config/installation_render.hpp>
 #include <config/installation_validate.hpp>
-#include <config/json_io.hpp>
-#include <config/profile.hpp>
+#include <config/model/json_io.hpp>
+#include <config/model/profile.hpp>
 #include <config/profile_artifact_renderer.hpp>
 #include <config/profile_installer.hpp>
 #include <config/render_directory.hpp>

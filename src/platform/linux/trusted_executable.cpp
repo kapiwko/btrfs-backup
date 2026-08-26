@@ -10,7 +10,7 @@
 #include <filesystem>
 
 #include <core/errors.hpp>
-#include <config/validation.hpp>
+#include <config/model/validation.hpp>
 
 namespace fs = std::filesystem;
 

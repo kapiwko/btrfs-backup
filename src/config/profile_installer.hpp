@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include <config/profile.hpp>
+#include <config/model/profile.hpp>
 #include <config/profile_artifact_renderer.hpp>
 #include <config/ports/configuration_activator.hpp>
 

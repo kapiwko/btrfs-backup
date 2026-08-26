@@ -11,8 +11,8 @@
 
 #include <cli/target_command.hpp>
 #include <platform/linux/file_lock.hpp>
-#include <config/json.hpp>
-#include <config/json_io.hpp>
+#include <config/model/json.hpp>
+#include <config/model/json_io.hpp>
 
 #include "support/validation_test_helpers.hpp"
 

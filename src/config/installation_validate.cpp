@@ -16,9 +16,9 @@
 
 #include <core/errors.hpp>
 #include <config/application_config.hpp>
-#include <config/json_io.hpp>
+#include <config/model/json_io.hpp>
 #include <platform/linux/process.hpp>
-#include <config/profile.hpp>
+#include <config/model/profile.hpp>
 #include <config/profile_render.hpp>
 
 namespace fs = std::filesystem;

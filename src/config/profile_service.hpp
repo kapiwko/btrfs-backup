@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 
-#include <config/profile.hpp>
+#include <config/model/profile.hpp>
 #include <config/ports/configuration_activator.hpp>
 
 namespace btrfsbackup {

@@ -6,7 +6,7 @@
 
 #include <string>
 
-#include <config/profile.hpp>
+#include <config/model/profile.hpp>
 
 namespace btrfsbackup {
 

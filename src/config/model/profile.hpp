@@ -14,7 +14,7 @@
 #include <vector>
 
 #include <core/identifiers.hpp>
-#include <config/json.hpp>
+#include <config/model/json.hpp>
 
 namespace btrfsbackup {
 

@@ -10,7 +10,7 @@
 #include <sys/types.h>
 #include <vector>
 
-#include <config/profile.hpp>
+#include <config/model/profile.hpp>
 
 namespace btrfsbackup {
 

@@ -6,8 +6,8 @@
 #include <string>
 #include <vector>
 
-#include <config/json.hpp>
-#include <config/json_io.hpp>
+#include <config/model/json.hpp>
+#include <config/model/json_io.hpp>
 #include <cli/profile_command.hpp>
 #include <config/ports/configuration_activator.hpp>
 

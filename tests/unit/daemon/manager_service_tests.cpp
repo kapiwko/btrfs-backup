@@ -5,8 +5,8 @@
 #include <filesystem>
 #include <string>
 
-#include <config/json_io.hpp>
-#include <config/profile.hpp>
+#include <config/model/json_io.hpp>
+#include <config/model/profile.hpp>
 #include <daemon/manager_service.hpp>
 
 #include "support/validation_test_helpers.hpp"

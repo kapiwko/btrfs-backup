@@ -18,7 +18,7 @@
 
 #include <core/errors.hpp>
 #include <core/identifiers.hpp>
-#include <config/profile.hpp>
+#include <config/model/profile.hpp>
 #include <platform/linux/device_info.hpp>
 #include <platform/linux/mount_info.hpp>
 

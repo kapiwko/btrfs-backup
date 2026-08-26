@@ -15,7 +15,7 @@
 #include <memory>
 #include <stdexcept>
 
-#include <config/json_io.hpp>
+#include <config/model/json_io.hpp>
 
 namespace {
 

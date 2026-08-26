@@ -3,19 +3,19 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 add_library(btrfsbackup-config-model STATIC
-    json_io.cpp
-    profile.cpp
-    validation.cpp
+    model/json_io.cpp
+    model/profile.cpp
+    model/validation.cpp
     wizard/profile_wizard_model.cpp
 )
 
 target_compile_features(btrfsbackup-config-model PUBLIC cxx_std_20)
 target_restricted_include_directories(btrfsbackup-config-model
     PUBLIC_HEADERS
-        config/json.hpp
-        config/json_io.hpp
-        config/profile.hpp
-        config/validation.hpp
+        config/model/json.hpp
+        config/model/json_io.hpp
+        config/model/profile.hpp
+        config/model/validation.hpp
         config/wizard/profile_wizard_model.hpp
 )
 target_link_libraries(btrfsbackup-config-model PUBLIC btrfsbackup-core nlohmann_json::nlohmann_json)

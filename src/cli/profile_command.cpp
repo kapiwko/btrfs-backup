@@ -15,8 +15,8 @@
 #include <cli/profile_wizard_command.hpp>
 #include <core/errors.hpp>
 #include <config/application_config.hpp>
-#include <config/json_io.hpp>
-#include <config/profile.hpp>
+#include <config/model/json_io.hpp>
+#include <config/model/profile.hpp>
 #include <cli/profile_list_command.hpp>
 #include <config/profile_service.hpp>
 

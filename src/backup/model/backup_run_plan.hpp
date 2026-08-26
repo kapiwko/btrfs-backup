@@ -14,7 +14,7 @@
 #include <backup/incremental_parent.hpp>
 #include <backup/ports/mount_inspector.hpp>
 #include <backup/pending_recovery_plan.hpp>
-#include <config/profile.hpp>
+#include <config/model/profile.hpp>
 #include <core/identifiers.hpp>
 #include <backup/model/retention_plan.hpp>
 #include <state/run_state.hpp>

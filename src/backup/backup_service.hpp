@@ -15,7 +15,7 @@
 #include <backup/ports/mount_inspector.hpp>
 #include <config/application_paths.hpp>
 #include <core/identifiers.hpp>
-#include <config/profile.hpp>
+#include <config/model/profile.hpp>
 #include <core/error_code.hpp>
 
 namespace btrfsbackup {
