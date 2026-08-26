@@ -16,10 +16,11 @@
 #include <config/installation_validate.hpp>
 #include <config/json_io.hpp>
 #include <config/profile.hpp>
+#include <config/profile_artifact_renderer.hpp>
+#include <config/profile_installer.hpp>
 #include <config/render_directory.hpp>
 #include <platform/linux/process.hpp>
 #include <platform/linux/trusted_directory.hpp>
-#include <config/profile_store.hpp>
 
 namespace fs = std::filesystem;
 
@@ -36,12 +37,17 @@ void render_wizard_tree(const Profile& profile, const std::string& keyfile, cons
             fs::create_directories(staging / "udev");
 
             atomic_write(staging / "config" / "profile.json", dump_json(profile_to_json(validated_profile)), 0600);
-            save_tree(
+            ProfileArtifactRenderer renderer(generate_configuration_generation);
+            NullProfileActivation activation;
+            ProfileInstaller installer(renderer, activation);
+            installer.install_profile_transactionally(
                 validated_profile,
-                staging / "config",
-                staging / "udev",
-                staging / "systemd",
-                staging / "public" / "profiles"
+                {
+                    .etc_root = staging / "config",
+                    .udev_root = staging / "udev",
+                    .systemd_root = staging / "systemd",
+                    .public_root = staging / "public" / "profiles",
+                }
             );
 
             render_installation_files(
@@ -70,7 +76,7 @@ void apply_rendered_wizard_tree(const Profile& profile, const fs::path& output_d
     fs::create_directories("/var/lib/btrfs-backup/public/profiles");
     ensure_trusted_directory(profile.target.mount_point, 0755);
 
-    auto activate = [&] {
+    FunctionProfileActivation activation([&] {
         fs::copy_file(
             output_dir / "systemd" / "btrfs-backup.service",
             "/etc/systemd/system/btrfs-backup.service",
@@ -91,14 +97,17 @@ void apply_rendered_wizard_tree(const Profile& profile, const fs::path& output_d
         run_command({"systemctl", "disable", "btrfs-backup.service"});
         run_capture({"systemctl", "daemon-reload"});
         run_capture({"udevadm", "control", "--reload-rules"});
-    };
-    save_tree(
+    });
+    ProfileArtifactRenderer renderer(generate_configuration_generation);
+    ProfileInstaller installer(renderer, activation);
+    installer.install_profile_transactionally(
         profile,
-        "/etc/btrfs-backup",
-        "/etc/udev/rules.d",
-        "/etc/systemd/system",
-        "/var/lib/btrfs-backup/public/profiles",
-        activate
+        {
+            .etc_root = "/etc/btrfs-backup",
+            .udev_root = "/etc/udev/rules.d",
+            .systemd_root = "/etc/systemd/system",
+            .public_root = "/var/lib/btrfs-backup/public/profiles",
+        }
     );
     validate_active_installation(std::string(profile.id.value()));
 }

@@ -12,11 +12,12 @@
 #include <utility>
 #include <vector>
 
-#include <config/profile_store.hpp>
 #include <config/application_config.hpp>
 #include <config/errors.hpp>
 #include <config/identifiers.hpp>
 #include <config/json_io.hpp>
+#include <config/profile_artifact_renderer.hpp>
+#include <config/profile_installer.hpp>
 #include <config/profile_loader.hpp>
 #include <config/profile.hpp>
 #include <config/render_directory.hpp>
@@ -37,9 +38,12 @@ void write_profile_file(const Profile& profile, const fs::path& output) {
 
 void render_profile(const fs::path& file, const fs::path& output_dir, const fs::path& target_mount_root) {
     const Profile profile = validate_profile_file(file, target_mount_root);
+    ProfileArtifactRenderer renderer(generate_configuration_generation);
     replace_render_directory(
         output_dir,
-        [&](const fs::path& staging) { render_tree(profile, staging); },
+        [&](const fs::path& staging) {
+            write_profile_artifacts(renderer.render_profile_artifacts(profile, profile_artifact_roots(staging)));
+        },
         [&](const fs::path& staging) {
             const fs::path rendered = staging / "etc" / "btrfs-backup" / "profiles" / profile.id.value() / "profile.json";
             const Profile validated = validate_profile_file(rendered, target_mount_root);
@@ -53,18 +57,29 @@ void render_profile(const fs::path& file, const fs::path& output_dir, const fs::
 Profile save_profile(const fs::path& file, const ProfileInstallationRoots& roots) {
     ApplicationConfig config = ApplicationConfig::load(roots.etc_root);
     Profile profile = validate_profile_file(file, config.paths().target_mount_root);
-    std::function<void()> activate;
+    ProfileArtifactRenderer renderer(generate_configuration_generation);
+    const ProfileArtifactRoots artifact_roots{
+        .etc_root = roots.etc_root,
+        .udev_root = roots.udev_root,
+        .systemd_root = roots.systemd_root,
+        .public_root = roots.public_root,
+    };
     if (fs::absolute(roots.etc_root).lexically_normal() == fs::path("/etc/btrfs-backup")
         && fs::absolute(roots.udev_root).lexically_normal() == fs::path("/etc/udev/rules.d")
         && fs::absolute(roots.systemd_root).lexically_normal() == fs::path("/etc/systemd/system")
         && fs::absolute(roots.public_root).lexically_normal()
             == fs::path("/var/lib/btrfs-backup/public/profiles")) {
-        activate = [] {
+        FunctionProfileActivation activation([] {
             run_capture({"systemctl", "daemon-reload"});
             run_capture({"udevadm", "control", "--reload-rules"});
-        };
+        });
+        ProfileInstaller installer(renderer, activation);
+        installer.install_profile_transactionally(profile, artifact_roots);
+    } else {
+        NullProfileActivation activation;
+        ProfileInstaller installer(renderer, activation);
+        installer.install_profile_transactionally(profile, artifact_roots);
     }
-    save_tree(profile, roots.etc_root, roots.udev_root, roots.systemd_root, roots.public_root, activate);
     return profile;
 }
 
