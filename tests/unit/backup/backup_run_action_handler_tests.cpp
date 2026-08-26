@@ -23,6 +23,7 @@
 #include <backup/action_handlers/retention_action_handler.hpp>
 #include <backup/action_handlers/snapshot_action_handler.hpp>
 #include <backup/action_handlers/transfer_action_handler.hpp>
+
 #include <platform/linux/safe_directory_root.hpp>
 
 #include "support/validation_test_helpers.hpp"
