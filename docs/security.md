@@ -17,7 +17,7 @@ Privileged filesystem roots belong to the global application configuration,
 not to profiles. `/etc/btrfs-backup.conf` is an optional strict
 `KEY=VALUE` file read without following symlinks. In production it must be
 owned by root and not writable by group or other users. A profile cannot
-redirect state, status, history, or source-definition writes; legacy schema v1
+redirect state, status, or history writes; legacy schema v1
 profiles are accepted only when those fields equal the historical defaults.
 
 The active profile is trusted root-owned JSON:

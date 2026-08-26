@@ -203,17 +203,28 @@ void test_profile_migrates_safe_legacy_system_paths() {
     Json legacy = valid_profile();
     legacy["schemaVersion"] = 1;
     legacy["target"]["mountPoint"] = "/mnt/btrfs-backup/default";
-    legacy["paths"]["sourcesDir"] = "/etc/btrfs-backup/profiles/default/sources.d";
     legacy["paths"]["stateDir"] = "/var/lib/btrfs-backup";
     legacy["paths"]["statusRoot"] = "/run/btrfs-backup/profiles";
     legacy["paths"]["historyRoot"] = "/var/lib/btrfs-backup/history";
 
     Json normalized = btrfsbackup::normalize_profile(legacy);
     expect_true("legacy migrated schema", normalized.at("schemaVersion") == 3, "legacy profile was not migrated");
-    expect_true("legacy sourcesDir removed", !normalized.at("paths").contains("sourcesDir"), "sourcesDir remains public");
     expect_true("legacy stateDir removed", !normalized.at("paths").contains("stateDir"), "stateDir remains public");
     expect_true("legacy statusRoot removed", !normalized.at("paths").contains("statusRoot"), "statusRoot remains public");
     expect_true("legacy historyRoot removed", !normalized.at("paths").contains("historyRoot"), "historyRoot remains public");
+}
+
+void test_profile_rejects_retired_legacy_sources_directory() {
+    Json legacy = valid_profile();
+    legacy["schemaVersion"] = 1;
+    legacy["target"]["mountPoint"] = "/mnt/btrfs-backup/default";
+    legacy["paths"]["sourcesDir"] = "/etc/btrfs-backup/profiles/default/sources.d";
+
+    expect_validation_error(
+        "retired legacy sources directory",
+        [&] { (void)btrfsbackup::normalize_profile(legacy); },
+        "paths.sourcesDir is not supported"
+    );
 }
 
 void test_profile_rejects_system_path_overrides() {
@@ -775,6 +786,7 @@ int main() {
     test_rejects_nested_roots();
     test_profile_round_trips_normalized_json();
     test_profile_migrates_safe_legacy_system_paths();
+    test_profile_rejects_retired_legacy_sources_directory();
     test_profile_rejects_system_path_overrides();
     test_mount_point_is_application_controlled();
     test_profile_rejects_removed_notifications();
