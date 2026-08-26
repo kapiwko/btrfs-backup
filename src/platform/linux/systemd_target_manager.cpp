@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <platform/linux/systemd_target_mounter.hpp>
+#include <platform/linux/systemd_target_manager.hpp>
 
 #include <string>
 
@@ -10,11 +10,11 @@
 
 namespace btrfsbackup {
 
-SystemdTargetMounter::SystemdTargetMounter(IMountInspector& mounts, ICommandRunner& commands)
+SystemdTargetManager::SystemdTargetManager(IMountInspector& mounts, ICommandRunner& commands)
     : mounts_(mounts), commands_(commands) {
 }
 
-void SystemdTargetMounter::ensure_mounted(const Profile& profile) {
+void SystemdTargetManager::ensure_mounted(const Profile& profile) {
     if (mount_at(mounts_.inspect(), profile.target.mount_point).has_value()) {
         return;
     }

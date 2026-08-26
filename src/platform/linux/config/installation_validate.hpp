@@ -9,6 +9,8 @@
 
 namespace btrfsbackup {
 
+// Validation of rendered and active Linux installations.
+
 void validate_rendered_installation(
     const std::filesystem::path& root,
     const std::filesystem::path& target_mount_root = "/mnt/btrfs-backup"

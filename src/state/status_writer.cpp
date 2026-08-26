@@ -32,15 +32,6 @@ void prepare_public_parent(btrfsbackup::IDurableFileOperations& files, const fs:
     files.ensure_directory(path.parent_path(), btrfsbackup::public_directory_permissions);
 }
 
-void prepare_private_history_directory(
-    btrfsbackup::IDurableFileOperations& files,
-    const fs::path& history_root,
-    const fs::path& directory
-) {
-    files.ensure_directory(history_root, btrfsbackup::private_directory_permissions);
-    files.ensure_directory(directory, btrfsbackup::private_directory_permissions);
-}
-
 btrfsbackup::Json build_details_json(const btrfsbackup::RunDetails& details) {
     btrfsbackup::Json json = btrfsbackup::Json::object();
     for (const auto& [name, value] : details) {
@@ -129,17 +120,6 @@ void write_current_status(
     fs::path path = status_root / status.profile_id.value() / "current.json";
     prepare_public_parent(files, path);
     files.write_atomically(path, content, permissions);
-}
-
-void write_history_entry(IDurableFileOperations& files, const fs::path& history_root, const RunStatus& status) {
-    std::string content = dump_status_json(status);
-    fs::path directory = history_root / status.profile_id.value();
-    fs::path run_path = directory / (std::string(status.run_id.value()) + ".json");
-    fs::path last_path = directory / "last.json";
-
-    prepare_private_history_directory(files, history_root, directory);
-    files.write_atomically(run_path, content, private_file_permissions);
-    files.write_atomically(last_path, content, private_file_permissions);
 }
 
 } // namespace btrfsbackup

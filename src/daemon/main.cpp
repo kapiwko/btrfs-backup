@@ -9,7 +9,7 @@
 #include <stdexcept>
 #include <string>
 
-#include <config/application_config.hpp>
+#include <platform/linux/config/application_config.hpp>
 
 namespace fs = std::filesystem;
 
@@ -39,7 +39,7 @@ int main(int argc, char** argv) {
             }
         }
 
-        const btrfsbackup::ApplicationPaths configured = btrfsbackup::ApplicationConfig::load(config_root).paths();
+        const btrfsbackup::ApplicationPaths configured = btrfsbackup::load_application_config(config_root).paths();
         btrfsbackup::ManagerPaths paths{
             .config_root = config_root,
             .public_profile_root = "/var/lib/btrfs-backup/public/profiles",

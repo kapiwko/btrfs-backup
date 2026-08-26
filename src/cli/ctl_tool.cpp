@@ -12,7 +12,7 @@
 #include <string>
 #include <vector>
 
-#include <config/application_config.hpp>
+#include <platform/linux/config/application_config.hpp>
 #include <cli/backup_tool.hpp>
 #include <cli/installation_command.hpp>
 #include <cli/profile_command.hpp>
@@ -102,7 +102,7 @@ int ctl_tool_main(int argc, char** argv) {
             bool help_requested = std::find(args.begin(), args.end(), "-h") != args.end()
                 || std::find(args.begin(), args.end(), "--help") != args.end();
             if (!help_requested) {
-                ApplicationConfig application_config = ApplicationConfig::load(profile_config_dir);
+                ApplicationConfig application_config = load_application_config(profile_config_dir);
                 if (!status_root_overridden) status_root = application_config.paths().status_root;
                 if (!history_root_overridden) history_root = application_config.paths().history_root;
             }

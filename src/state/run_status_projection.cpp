@@ -11,7 +11,8 @@
 #include <limits>
 #include <sstream>
 #include <string>
-#include <state/backup_run_serialization.hpp>
+#include <state/serialization.hpp>
+#include <state/run_history.hpp>
 
 namespace fs = std::filesystem;
 

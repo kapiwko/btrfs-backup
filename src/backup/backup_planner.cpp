@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <backup/default_backup_planner.hpp>
+#include <backup/backup_planner.hpp>
 
 #include <filesystem>
 #include <memory>
@@ -10,22 +10,26 @@
 #include <string>
 #include <utility>
 
-#include <backup/pending_recovery_plan.hpp>
+#include <backup/model/pending_recovery.hpp>
 #include <backup/target_mount_validation.hpp>
-#include <state/run_state.hpp>
+#include <config/model/validation.hpp>
+#include <core/errors.hpp>
 
 namespace fs = std::filesystem;
 
 namespace btrfsbackup {
 
-DefaultBackupPlanner::DefaultBackupPlanner(
+BackupPlanner::BackupPlanner(
     SnapshotMetadataReader metadata_reader,
+    const IPendingMarkerStore& pending_markers,
     const ISafeDirectoryRootFactory& safe_directories
 )
-    : metadata_reader_(std::move(metadata_reader)), safe_directories_(safe_directories) {
+    : metadata_reader_(std::move(metadata_reader)),
+      pending_markers_(pending_markers),
+      safe_directories_(safe_directories) {
 }
 
-BackupRunPlan DefaultBackupPlanner::build(
+BackupRunPlan BackupPlanner::build(
     const Profile& profile,
     const std::vector<MountEntry>& mounts,
     const ApplicationPaths& paths,
@@ -33,6 +37,20 @@ BackupRunPlan DefaultBackupPlanner::build(
     const std::string& snapshot_timestamp
 ) const {
     validate_target_mount(profile, mounts);
+    for (const ProfileSource& source : profile.sources) {
+        if (!source.enabled) {
+            continue;
+        }
+        if (!paths_are_same_filesystem(mounts, source.subvolume, source.local_snapshot_dir)) {
+            throw ValidationError("LOCAL_SNAPSHOT_DIR must be on the same Btrfs filesystem as " + source.subvolume);
+        }
+        if (paths_are_same_filesystem(mounts, source.subvolume, profile.target.mount_point)) {
+            throw ValidationError("SOURCE_SUBVOLUME must not be on the backup target filesystem: " + source.subvolume);
+        }
+        if (path_is_within(source.local_snapshot_dir, profile.target.mount_point)) {
+            throw ValidationError("LOCAL_SNAPSHOT_DIR must not be inside the backup target: " + source.local_snapshot_dir);
+        }
+    }
     SnapshotInventoryBySource local_inventory;
     SnapshotInventoryBySource remote_inventory;
     PendingMarkerBySource pending_markers;
@@ -78,7 +96,7 @@ BackupRunPlan DefaultBackupPlanner::build(
             );
         }
 
-        const std::optional<PendingMarker> marker = read_pending_marker_if_exists(profile_state, source_id);
+        const std::optional<PendingMarker> marker = pending_markers_.read(profile_state, source_id);
         pending_markers[source_id] = marker;
         if (marker.has_value()) {
             if (local_root->exists(marker->local_snapshot_path)) {
@@ -94,7 +112,6 @@ BackupRunPlan DefaultBackupPlanner::build(
 
     return build_backup_run_plan(
         profile,
-        mounts,
         local_inventory,
         remote_inventory,
         pending_markers,

@@ -10,7 +10,7 @@
 #include <variant>
 
 #include <backup/model/backup_run_action.hpp>
-#include <backup/pending_recovery_plan.hpp>
+#include <backup/model/pending_recovery.hpp>
 #include <backup/model/retention_plan.hpp>
 #include <core/identifiers.hpp>
 #include <config/model/profile.hpp>

@@ -8,11 +8,11 @@
 #include <string>
 #include <vector>
 
-#include <config/render_directory.hpp>
-#include <config/wizard/profile_wizard_install.hpp>
+#include <platform/linux/config/render_directory.hpp>
+#include <platform/linux/config/profile_wizard_install.hpp>
 #include <config/wizard/profile_wizard_model.hpp>
 #include <config/wizard/profile_wizard_prompt.hpp>
-#include <config/wizard/profile_wizard_sources.hpp>
+#include <platform/linux/config/profile_wizard_sources.hpp>
 
 #include "support/validation_test_helpers.hpp"
 

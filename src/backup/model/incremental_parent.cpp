@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <backup/incremental_parent.hpp>
+#include <backup/model/incremental_parent.hpp>
 
 #include <algorithm>
 #include <cctype>

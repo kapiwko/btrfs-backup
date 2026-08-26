@@ -14,7 +14,7 @@
 #include <cli/runner_command.hpp>
 #include <cli/target_command.hpp>
 #include <core/errors.hpp>
-#include <config/profile_repository.hpp>
+#include <platform/linux/config/profile_repository.hpp>
 #include <core/cancellation.hpp>
 #include <platform/linux/termination_signal_monitor.hpp>
 

@@ -7,9 +7,11 @@
 #include <filesystem>
 #include <string>
 
-#include <config/installation_render.hpp>
+#include <platform/linux/config/installation_render.hpp>
 
 namespace btrfsbackup {
+
+// Linux installation workflow exposed to frontends.
 
 struct RenderInstallationRequest {
     std::filesystem::path profile_file;

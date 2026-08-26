@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <backup/pending_recovery_plan.hpp>
+#include <backup/model/pending_recovery.hpp>
 
 #include <algorithm>
 #include <cctype>
@@ -12,7 +12,6 @@
 #include <vector>
 
 #include <core/identifiers.hpp>
-#include <state/run_state.hpp>
 #include <config/model/validation.hpp>
 
 namespace fs = std::filesystem;
@@ -33,9 +32,7 @@ bool remote_contains_received_uuid(
 ) {
     const std::string wanted = lowercase(uuid);
     for (const btrfsbackup::SnapshotInfo& remote : remote_snapshots) {
-        if (remote.source_id == source_id
-            && !remote.received_uuid.empty()
-            && lowercase(remote.received_uuid) == wanted) {
+        if (remote.source_id == source_id && !remote.received_uuid.empty() && lowercase(remote.received_uuid) == wanted) {
             return true;
         }
     }
@@ -73,8 +70,7 @@ bool marker_path_is_valid(
     }
 
     const fs::path final_path = fs::path(marker.final_snapshot_path).lexically_normal();
-    return btrfsbackup::path_is_within(final_path, remote_snapshot_dir)
-        && final_path.filename() == snapshot_path.filename();
+    return btrfsbackup::path_is_within(final_path, remote_snapshot_dir) && final_path.filename() == snapshot_path.filename();
 }
 
 const btrfsbackup::SnapshotInfo* remote_snapshot_at_path(
@@ -94,28 +90,6 @@ const btrfsbackup::SnapshotInfo* remote_snapshot_at_path(
 
 namespace btrfsbackup {
 
-std::optional<PendingMarker> read_pending_marker_if_exists(
-    const fs::path& profile_state_dir,
-    const std::string& source_id
-) {
-    validate_identifier(source_id, "sourceId");
-    const fs::path marker_path = pending_marker_path(profile_state_dir, source_id);
-
-    std::error_code ec;
-    if (!fs::is_regular_file(marker_path, ec) || ec) {
-        return std::nullopt;
-    }
-
-    PendingMarker marker{
-        .source_name = read_pending_marker_field(marker_path, "source_name"),
-        .local_snapshot_path = read_pending_marker_field(marker_path, "local_snapshot_path"),
-        .final_snapshot_path = read_pending_marker_field(marker_path, "final_snapshot_path"),
-        .run_id = read_pending_marker_field(marker_path, "run_id"),
-        .timestamp = read_pending_marker_field(marker_path, "timestamp"),
-    };
-    return marker;
-}
-
 PendingRecoveryPlan plan_pending_recovery(
     const std::string& source_id,
     const fs::path& profile_state_dir,
@@ -133,7 +107,7 @@ PendingRecoveryPlan plan_pending_recovery(
         .clear_marker = false,
         .delete_local_snapshot = false,
         .delete_remote_snapshot = false,
-        .marker_path = pending_marker_path(profile_state_dir, source_id),
+        .marker_path = profile_state_dir / ("pending-" + source_id),
         .local_snapshot_path = {},
         .remote_snapshot_path = {},
         .message = {},
@@ -160,20 +134,15 @@ PendingRecoveryPlan plan_pending_recovery(
     }
 
     const SnapshotInfo* final_snapshot = remote_snapshot_at_path(remote_snapshots, plan.remote_snapshot_path);
-    if (final_snapshot != nullptr
-        && !pending_snapshot->uuid.empty()
-        && !uuid_equals(final_snapshot->received_uuid, pending_snapshot->uuid)) {
+    if (final_snapshot != nullptr && !pending_snapshot->uuid.empty() && !uuid_equals(final_snapshot->received_uuid, pending_snapshot->uuid)) {
         plan.action = PendingRecoveryAction::DeleteInvalidCommittedSnapshot;
         plan.delete_remote_snapshot = true;
-        plan.delete_local_snapshot = !keep_failed_local_snapshot
-            && !remote_contains_received_uuid(remote_snapshots, source_id, pending_snapshot->uuid);
-        plan.message = "Removing unverified committed snapshot left by an interrupted run: "
-            + plan.remote_snapshot_path.string();
+        plan.delete_local_snapshot = !keep_failed_local_snapshot && !remote_contains_received_uuid(remote_snapshots, source_id, pending_snapshot->uuid);
+        plan.message = "Removing unverified committed snapshot left by an interrupted run: " + plan.remote_snapshot_path.string();
         return plan;
     }
 
-    if (!pending_snapshot->uuid.empty()
-        && remote_contains_received_uuid(remote_snapshots, source_id, pending_snapshot->uuid)) {
+    if (!pending_snapshot->uuid.empty() && remote_contains_received_uuid(remote_snapshots, source_id, pending_snapshot->uuid)) {
         plan.action = PendingRecoveryAction::PreserveCommittedSnapshot;
         plan.message = "Recovered committed snapshot from an interrupted run: " + marker->local_snapshot_path;
         return plan;

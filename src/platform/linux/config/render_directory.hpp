@@ -9,6 +9,8 @@
 
 namespace btrfsbackup {
 
+// Atomic replacement of a rendered Linux directory tree.
+
 inline constexpr const char* render_root_marker = ".btrfs-backup-render-root";
 
 void replace_render_directory(

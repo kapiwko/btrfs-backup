@@ -12,8 +12,8 @@
 namespace btrfsbackup {
 
 class IBtrfsOperations;
-class IDurableFileOperations;
 class IFileSystem;
+class IPendingMarkerStore;
 class ISafeDirectoryRoot;
 
 class SnapshotActionHandler {
@@ -21,12 +21,12 @@ class SnapshotActionHandler {
     SnapshotActionHandler(
         IBtrfsOperations& btrfs,
         IFileSystem& filesystem,
-        IDurableFileOperations& durable_files
+        IPendingMarkerStore& pending_markers
     );
     SnapshotActionHandler(
         IBtrfsOperations& btrfs,
         IFileSystem& filesystem,
-        IDurableFileOperations& durable_files,
+        IPendingMarkerStore& pending_markers,
         std::unique_ptr<ISafeDirectoryRoot> local_root
     );
     ~SnapshotActionHandler();
@@ -36,7 +36,7 @@ class SnapshotActionHandler {
   private:
     IBtrfsOperations& btrfs_;
     IFileSystem& filesystem_;
-    IDurableFileOperations& durable_files_;
+    IPendingMarkerStore& pending_markers_;
     std::unique_ptr<ISafeDirectoryRoot> local_root_;
 };
 

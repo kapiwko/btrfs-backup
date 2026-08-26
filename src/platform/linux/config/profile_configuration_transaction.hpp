@@ -13,6 +13,8 @@
 
 namespace btrfsbackup {
 
+// Filesystem transaction used by the Linux profile installer.
+
 struct RollbackError {
     std::string operation;
     std::filesystem::path path;

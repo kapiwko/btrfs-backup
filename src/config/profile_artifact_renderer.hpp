@@ -54,8 +54,6 @@ class ProfileArtifactRenderer {
     ConfigurationGenerationGenerator generations_;
 };
 
-std::string generate_configuration_generation();
 ProfileArtifactRoots profile_artifact_roots(const std::filesystem::path& output_dir);
-void write_profile_artifacts(const RenderedProfileArtifacts& rendered);
 
 } // namespace btrfsbackup
