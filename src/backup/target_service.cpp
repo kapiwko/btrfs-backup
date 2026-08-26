@@ -20,7 +20,7 @@
 #include <backup/target_mount_validation.hpp>
 #include <core/errors.hpp>
 #include <config/model/profile.hpp>
-#include <config/profile_loader.hpp>
+#include <config/profile_repository.hpp>
 #include <config/model/validation.hpp>
 #include <platform/linux/posix_command_runner.hpp>
 #include <platform/linux/device_info.hpp>

@@ -21,14 +21,14 @@
 #include <cli/runner_command.hpp>
 #include <cli/backup_tool.hpp>
 #include <backup/backup_service_adapters.hpp>
-#include <state/config_fingerprint.hpp>
+#include <config/profile_fingerprint.hpp>
 #include <platform/linux/file_lock.hpp>
 #include <platform/linux/posix_command_runner.hpp>
 #include <platform/linux/mount_info.hpp>
 #include <config/model/json.hpp>
 #include <config/model/json_io.hpp>
 #include <config/model/profile.hpp>
-#include <config/profile_loader.hpp>
+#include <config/profile_repository.hpp>
 #include <state/run_state.hpp>
 
 #include "support/validation_test_helpers.hpp"

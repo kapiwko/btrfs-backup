@@ -15,20 +15,6 @@
 
 namespace btrfsbackup {
 
-class FileProfileRepository final : public IProfileRepository {
-  public:
-    explicit FileProfileRepository(std::filesystem::path config_root);
-    FileProfileRepository(std::filesystem::path config_root, ApplicationConfig application_config);
-
-    [[nodiscard]] Profile get(const ProfileId& profile_id) const override;
-    [[nodiscard]] const ApplicationPaths& application_paths() const override;
-    [[nodiscard]] std::string fingerprint(const Profile& profile) const override;
-
-  private:
-    std::filesystem::path config_root_;
-    ApplicationConfig application_config_;
-};
-
 class SystemdTargetMounter final : public ITargetMounter {
   public:
     SystemdTargetMounter(IMountInspector& mounts, ICommandRunner& commands);

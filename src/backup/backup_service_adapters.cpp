@@ -15,12 +15,10 @@
 #include <backup/pending_recovery_plan.hpp>
 #include <backup/target_mount_validation.hpp>
 #include <core/errors.hpp>
-#include <config/profile_loader.hpp>
 #include <platform/linux/file_lock.hpp>
 #include <platform/linux/safe_directory_root.hpp>
 #include <state/run_checkpoint_store.hpp>
 #include <state/run_status_projection.hpp>
-#include <state/config_fingerprint.hpp>
 #include <state/run_state.hpp>
 #include <state/status_writer.hpp>
 
@@ -91,30 +89,6 @@ class PollingCancellationWatch final : public ICancellationWatch {
 };
 
 } // namespace
-
-FileProfileRepository::FileProfileRepository(fs::path config_root)
-    : FileProfileRepository(config_root, ApplicationConfig::load(config_root)) {
-}
-
-FileProfileRepository::FileProfileRepository(fs::path config_root, ApplicationConfig application_config)
-    : config_root_(std::move(config_root)), application_config_(std::move(application_config)) {
-}
-
-Profile FileProfileRepository::get(const ProfileId& profile_id) const {
-    return load_profile_by_id(config_root_, std::string(profile_id.value()));
-}
-
-const ApplicationPaths& FileProfileRepository::application_paths() const {
-    return application_config_.paths();
-}
-
-std::string FileProfileRepository::fingerprint(const Profile& profile) const {
-    return compute_config_fingerprint(
-        "2.0.0",
-        config_root_ / "profiles" / profile.id.value() / "profile.json",
-        {}
-    );
-}
 
 SystemdTargetMounter::SystemdTargetMounter(IMountInspector& mounts, ICommandRunner& commands)
     : mounts_(mounts), commands_(commands) {

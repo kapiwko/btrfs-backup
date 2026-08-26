@@ -32,6 +32,7 @@
 #include <platform/linux/mount_info.hpp>
 #include <platform/linux/posix_transfer_pipeline.hpp>
 #include <config/model/json.hpp>
+#include <config/profile_repository.hpp>
 
 namespace fs = std::filesystem;
 
@@ -91,30 +92,30 @@ std::string compact_timestamp(const std::string& timestamp) {
 
 std::string action_name(btrfsbackup::BackupRunActionKind kind) {
     switch (kind) {
-        case btrfsbackup::BackupRunActionKind::RecoverPending:
-            return "recover-pending";
-        case btrfsbackup::BackupRunActionKind::CleanupIncoming:
-            return "cleanup-incoming";
-        case btrfsbackup::BackupRunActionKind::BeforeSnapshotHook:
-            return "before-snapshot-hook";
-        case btrfsbackup::BackupRunActionKind::CreateSnapshot:
-            return "create-snapshot";
-        case btrfsbackup::BackupRunActionKind::AfterSnapshotHook:
-            return "after-snapshot-hook";
-        case btrfsbackup::BackupRunActionKind::SelectParent:
-            return "select-parent";
-        case btrfsbackup::BackupRunActionKind::SendReceive:
-            return "send-receive";
-        case btrfsbackup::BackupRunActionKind::VerifyReceived:
-            return "verify-received";
-        case btrfsbackup::BackupRunActionKind::CommitReceived:
-            return "commit-received";
-        case btrfsbackup::BackupRunActionKind::ApplyRemoteRetention:
-            return "apply-remote-retention";
-        case btrfsbackup::BackupRunActionKind::ApplyLocalRetention:
-            return "apply-local-retention";
-        case btrfsbackup::BackupRunActionKind::CleanupSource:
-            return "cleanup-source";
+    case btrfsbackup::BackupRunActionKind::RecoverPending:
+        return "recover-pending";
+    case btrfsbackup::BackupRunActionKind::CleanupIncoming:
+        return "cleanup-incoming";
+    case btrfsbackup::BackupRunActionKind::BeforeSnapshotHook:
+        return "before-snapshot-hook";
+    case btrfsbackup::BackupRunActionKind::CreateSnapshot:
+        return "create-snapshot";
+    case btrfsbackup::BackupRunActionKind::AfterSnapshotHook:
+        return "after-snapshot-hook";
+    case btrfsbackup::BackupRunActionKind::SelectParent:
+        return "select-parent";
+    case btrfsbackup::BackupRunActionKind::SendReceive:
+        return "send-receive";
+    case btrfsbackup::BackupRunActionKind::VerifyReceived:
+        return "verify-received";
+    case btrfsbackup::BackupRunActionKind::CommitReceived:
+        return "commit-received";
+    case btrfsbackup::BackupRunActionKind::ApplyRemoteRetention:
+        return "apply-remote-retention";
+    case btrfsbackup::BackupRunActionKind::ApplyLocalRetention:
+        return "apply-local-retention";
+    case btrfsbackup::BackupRunActionKind::CleanupSource:
+        return "cleanup-source";
     }
     return "unknown";
 }
@@ -422,8 +423,7 @@ int print_execution_result(const btrfsbackup::BackupExecutionResult& result, std
         return 0;
     }
 
-    const bool completed = result.outcome == BackupExecutionOutcome::Completed
-        || result.outcome == BackupExecutionOutcome::Skipped;
+    const bool completed = result.outcome == BackupExecutionOutcome::Completed || result.outcome == BackupExecutionOutcome::Skipped;
     const bool skipped = result.outcome == BackupExecutionOutcome::Skipped;
     const bool cancelled = result.outcome == BackupExecutionOutcome::Cancelled;
     output << btrfsbackup::Json{

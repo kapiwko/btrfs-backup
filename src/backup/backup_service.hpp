@@ -14,6 +14,7 @@
 #include <backup/model/backup_run_plan.hpp>
 #include <backup/ports/mount_inspector.hpp>
 #include <config/application_paths.hpp>
+#include <config/profile_repository.hpp>
 #include <core/identifiers.hpp>
 #include <config/model/profile.hpp>
 #include <core/error_code.hpp>
@@ -44,14 +45,6 @@ struct BackupExecutionResult {
     std::size_t actions_completed = 0;
     std::optional<ErrorCode> error_code;
     std::string error_message;
-};
-
-class IProfileRepository {
-  public:
-    virtual ~IProfileRepository() = default;
-    [[nodiscard]] virtual Profile get(const ProfileId& profile_id) const = 0;
-    [[nodiscard]] virtual const ApplicationPaths& application_paths() const = 0;
-    [[nodiscard]] virtual std::string fingerprint(const Profile& profile) const = 0;
 };
 
 class ITargetMounter {

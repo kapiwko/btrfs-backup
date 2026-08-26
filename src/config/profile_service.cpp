@@ -17,7 +17,7 @@
 #include <config/model/json_io.hpp>
 #include <config/profile_artifact_renderer.hpp>
 #include <config/profile_installer.hpp>
-#include <config/profile_loader.hpp>
+#include <config/profile_repository.hpp>
 #include <config/model/profile.hpp>
 #include <config/render_directory.hpp>
 #include <platform/linux/file_io.hpp>
