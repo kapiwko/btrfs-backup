@@ -18,6 +18,7 @@
 
 #include <platform/linux/process.hpp>
 #include <platform/linux/process_spawn.hpp>
+#include <core/cancellation.hpp>
 
 #include "support/test_helpers.hpp"
 
@@ -192,25 +193,21 @@ void test_controlled_command_times_out_and_reaps_process() {
     test_helpers::expect_true("controlled timeout bounded", elapsed < std::chrono::seconds(2), "timeout cleanup took too long");
 }
 
-void test_controlled_command_observes_cancellation_fd() {
-    int cancellation_pipe[2];
-    test_helpers::expect_eq("create cancellation pipe", std::to_string(pipe2(cancellation_pipe, O_CLOEXEC)), "0");
-    std::thread cancel([write_fd = cancellation_pipe[1]] {
+void test_controlled_command_observes_cancellation() {
+    btrfsbackup::CancellationToken cancellation;
+    std::thread cancel([&cancellation] {
         std::this_thread::sleep_for(std::chrono::milliseconds(30));
-        const char signal = 1;
-        (void)write(write_fd, &signal, 1);
+        cancellation.request_cancel();
     });
 
     btrfsbackup::CommandResult result = btrfsbackup::run_controlled_command(
         {"/bin/sleep", "30"},
         {
-            .cancellation_fd = cancellation_pipe[0],
+            .cancellation = &cancellation,
             .timeout = std::chrono::seconds(5),
         }
     );
     cancel.join();
-    close(cancellation_pipe[0]);
-    close(cancellation_pipe[1]);
 
     test_helpers::expect_true("controlled command cancelled", result.cancelled, "missing cancellation result");
     test_helpers::expect_true("cancel is not timeout", !result.timed_out, "cancellation was reported as timeout");
@@ -305,7 +302,7 @@ int main() {
     test_run_command_rejects_relative_program_path();
     test_run_command_rejects_empty_program();
     test_controlled_command_times_out_and_reaps_process();
-    test_controlled_command_observes_cancellation_fd();
+    test_controlled_command_observes_cancellation();
     test_controlled_command_bounds_captured_output();
     test_noisy_controlled_command_still_observes_timeout();
     test_child_process_reaps_group_during_exception_unwind();

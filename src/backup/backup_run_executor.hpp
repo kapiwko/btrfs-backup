@@ -9,7 +9,7 @@
 
 #include <backup/backup_run_event.hpp>
 #include <backup/backup_run_plan.hpp>
-#include <backup/transfer_pipeline.hpp>
+#include <backup/transfer/async_transfer.hpp>
 
 namespace btrfsbackup {
 

@@ -324,7 +324,7 @@ void run_hook(
         argv.push_back(executable_path);
         argv.insert(argv.end(), action.hook.arguments.begin(), action.hook.arguments.end());
         result = hooks->run_controlled(argv, {
-            .cancellation_fd = cancellation.cancellation_fd(),
+            .cancellation = &cancellation,
             .timeout = std::chrono::seconds(action.hook.timeout_seconds),
             .inherited_fds = inherited_fds,
             .profile_id = profile_id,

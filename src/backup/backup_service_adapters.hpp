@@ -10,7 +10,7 @@
 #include <backup/backup_service.hpp>
 #include <backup/ports/command_runner.hpp>
 #include <backup/snapshot_inventory.hpp>
-#include <backup/transfer_pipeline.hpp>
+#include <backup/transfer/transfer_pipeline.hpp>
 #include <config/application_config.hpp>
 
 namespace btrfsbackup {

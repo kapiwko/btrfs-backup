@@ -31,6 +31,7 @@ if(BUILD_SYSTEM_MANAGER)
     pkg_check_modules(SYSTEMD REQUIRED IMPORTED_TARGET libsystemd)
 endif()
 
+add_subdirectory(src/core)
 add_subdirectory(src/config)
 add_subdirectory(src/backup)
 add_subdirectory(src/platform/linux)

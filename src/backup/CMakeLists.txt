@@ -11,6 +11,22 @@ target_compile_features(btrfsbackup-backup-model PUBLIC cxx_std_20)
 target_include_directories(btrfsbackup-backup-model PUBLIC ${PROJECT_SOURCE_DIR}/src)
 target_link_libraries(btrfsbackup-backup-model PUBLIC btrfsbackup-config-model)
 
+add_library(btrfsbackup-transfer STATIC
+    transfer/async_transfer.cpp
+    transfer/transfer_event.cpp
+    transfer/transfer_result.cpp
+    transfer/transfer_speed_estimator.cpp
+)
+
+target_compile_features(btrfsbackup-transfer PUBLIC cxx_std_20)
+target_include_directories(btrfsbackup-transfer PUBLIC ${PROJECT_SOURCE_DIR}/src)
+target_link_libraries(btrfsbackup-transfer
+    PUBLIC
+        btrfsbackup-core
+        btrfsbackup-config-model
+        btrfsbackup-state-model
+)
+
 add_library(btrfsbackup-backup-ports STATIC
     ports/btrfs_operations.cpp
     ports/command_runner.cpp
@@ -49,7 +65,6 @@ add_library(btrfsbackup-backup STATIC
     pending_recovery_plan.cpp
     snapshot_transfer.cpp
     target_service.cpp
-    transfer_pipeline.cpp
 )
 
 target_compile_features(btrfsbackup-backup PUBLIC cxx_std_20)
@@ -59,6 +74,7 @@ target_link_libraries(btrfsbackup-backup
         btrfsbackup-backup-model
         btrfsbackup-backup-domain
         btrfsbackup-backup-ports
+        btrfsbackup-transfer
         btrfsbackup-config
         btrfsbackup-platform-linux
         btrfsbackup-state
@@ -66,6 +82,7 @@ target_link_libraries(btrfsbackup-backup
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(btrfsbackup-backup-model PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(btrfsbackup-transfer PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(btrfsbackup-backup-ports PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(btrfsbackup-backup-domain PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(btrfsbackup-backup PRIVATE -Wall -Wextra -Wpedantic)

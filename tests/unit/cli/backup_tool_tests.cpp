@@ -13,7 +13,8 @@
 
 #include <cli/backup_tool.hpp>
 #include <platform/linux/process.hpp>
-#include <backup/transfer_pipeline.hpp>
+#include <core/cancellation.hpp>
+#include <platform/linux/posix_cancellation_signal.hpp>
 
 #include "support/test_helpers.hpp"
 
@@ -164,11 +165,12 @@ void test_runner_failure_skips_target_command() {
 void test_termination_signals_request_cancellation() {
     for (int signal : {SIGINT, SIGTERM}) {
         btrfsbackup::CancellationToken cancellation;
+        btrfsbackup::platform_linux::PosixCancellationSignal cancellation_signal(cancellation);
         btrfsbackup::TerminationSignalMonitor monitor(cancellation);
         test_helpers::expect_eq("send termination signal", std::to_string(kill(getpid(), signal)), "0");
 
         pollfd cancellation_fd{
-            .fd = cancellation.cancellation_fd(),
+            .fd = cancellation_signal.fd(),
             .events = POLLIN,
             .revents = 0,
         };

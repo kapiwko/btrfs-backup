@@ -20,7 +20,7 @@
 #include <cli/status_command.hpp>
 #include <cli/target_command.hpp>
 #include <config/errors.hpp>
-#include <backup/transfer_pipeline.hpp>
+#include <core/cancellation.hpp>
 
 namespace fs = std::filesystem;
 

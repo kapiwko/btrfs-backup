@@ -16,11 +16,13 @@
 #include <backup/backup_run_action_effects.hpp>
 #include <backup/backup_run.hpp>
 #include <backup/backup_service_adapters.hpp>
+#include <backup/transfer/async_transfer.hpp>
 #include <platform/linux/btrfs_operations.hpp>
 #include <platform/linux/command_runner.hpp>
 #include <platform/linux/file_lock.hpp>
 #include <platform/linux/filesystem.hpp>
 #include <platform/linux/mount_info.hpp>
+#include <platform/linux/posix_transfer_pipeline.hpp>
 #include <config/json.hpp>
 
 namespace fs = std::filesystem;
