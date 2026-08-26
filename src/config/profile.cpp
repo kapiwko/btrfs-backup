@@ -248,7 +248,8 @@ std::string systemd_path_unit_stem(const std::string& mount_point) {
 
     std::string escaped;
     bool previous_slash = false;
-    for (unsigned char c : path) {
+    for (char character : path) {
+        const auto c = static_cast<unsigned char>(character);
         if (c == '/') {
             if (!escaped.empty() && !previous_slash) {
                 escaped.push_back('-');

@@ -26,7 +26,7 @@ void status_history(const fs::path& history_root, const std::vector<std::string>
         if (arg == "--profile" && i + 1 < args.size()) {
             profile = args[++i];
         } else if (arg == "--limit" && i + 1 < args.size()) {
-            std::string value = args[++i];
+            const std::string& value = args[++i];
             if (!std::regex_match(value, std::regex("^[0-9]+$"))) {
                 throw ValidationError("--limit must be a number");
             }
