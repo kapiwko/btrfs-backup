@@ -13,4 +13,10 @@ add_btrfsbackup_test(btrfsbackup-incremental-parent-tests incremental_parent_tes
 add_btrfsbackup_test(btrfsbackup-pending-recovery-plan-tests pending_recovery_plan_tests.cpp pending-recovery-plan-tests btrfsbackup-backup)
 add_btrfsbackup_test(btrfsbackup-snapshot-transfer-tests snapshot_transfer_tests.cpp snapshot-transfer-tests btrfsbackup-backup)
 add_btrfsbackup_test(btrfsbackup-target-mount-validation-tests target_mount_validation_tests.cpp target-mount-validation-tests btrfsbackup-backup-domain)
-add_btrfsbackup_test(btrfsbackup-transfer-pipeline-tests transfer_pipeline_tests.cpp transfer-pipeline-tests btrfsbackup-backup)
+add_btrfsbackup_test(
+    btrfsbackup-transfer-pipeline-tests
+    transfer_pipeline_tests.cpp
+    transfer-pipeline-tests
+    btrfsbackup-transfer
+    btrfsbackup-platform-linux
+)

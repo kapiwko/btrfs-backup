@@ -7,9 +7,11 @@
 #include <filesystem>
 #include <string>
 
+#include <backup/transfer/transfer_plan.hpp>
+
 namespace btrfsbackup {
 
-class SafeDirectoryHandle {
+class SafeDirectoryHandle final : public ITransferResource {
 public:
     SafeDirectoryHandle() = default;
     explicit SafeDirectoryHandle(int fd);

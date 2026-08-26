@@ -14,6 +14,8 @@
 
 namespace btrfsbackup {
 
+class CancellationToken;
+
 inline constexpr std::chrono::seconds default_command_timeout{30};
 inline constexpr std::size_t default_command_max_output_bytes = 1024 * 1024;
 
@@ -25,7 +27,7 @@ struct CommandResult {
 };
 
 struct ControlledCommandOptions {
-    int cancellation_fd = -1;
+    CancellationToken* cancellation = nullptr;
     std::chrono::milliseconds timeout{300000};
     std::size_t max_output_bytes = 64 * 1024;
     std::chrono::milliseconds terminate_grace_period{5000};
