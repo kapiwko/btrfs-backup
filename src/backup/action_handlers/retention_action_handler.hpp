@@ -12,15 +12,15 @@
 namespace btrfsbackup {
 
 class IBtrfsOperations;
-class SafeDirectoryRoot;
+class ISafeDirectoryRoot;
 
 class RetentionActionHandler {
   public:
     explicit RetentionActionHandler(IBtrfsOperations& btrfs);
     RetentionActionHandler(
         IBtrfsOperations& btrfs,
-        const std::filesystem::path& local_root,
-        const std::filesystem::path& target_root
+        std::unique_ptr<ISafeDirectoryRoot> local_root,
+        std::unique_ptr<ISafeDirectoryRoot> target_root
     );
     ~RetentionActionHandler();
 
@@ -28,11 +28,11 @@ class RetentionActionHandler {
     void handle(const ApplyLocalRetentionAction& action);
 
   private:
-    void apply(const RetentionPlan& plan, const SafeDirectoryRoot* root);
+    void apply(const RetentionPlan& plan, const ISafeDirectoryRoot* root);
 
     IBtrfsOperations& btrfs_;
-    std::unique_ptr<SafeDirectoryRoot> local_root_;
-    std::unique_ptr<SafeDirectoryRoot> target_root_;
+    std::unique_ptr<ISafeDirectoryRoot> local_root_;
+    std::unique_ptr<ISafeDirectoryRoot> target_root_;
 };
 
 } // namespace btrfsbackup

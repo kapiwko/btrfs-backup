@@ -34,7 +34,7 @@ namespace {
 }
 
 int openat2_no_symlinks(int directory_fd, const fs::path& path, int flags) {
-    struct open_how how {};
+    struct open_how how{};
     how.flags = static_cast<unsigned long long>(flags | O_CLOEXEC);
     how.resolve = RESOLVE_BENEATH | RESOLVE_NO_SYMLINKS | RESOLVE_NO_MAGICLINKS;
     return static_cast<int>(syscall(SYS_openat2, directory_fd, path.c_str(), &how, sizeof(how)));
@@ -82,7 +82,7 @@ void destroy_subvolume_at(int parent_fd, const std::string& name, const fs::path
     if (name.size() >= BTRFS_PATH_NAME_MAX) {
         throw ValidationError("subvolume name is too long: " + display_path.string());
     }
-    struct btrfs_ioctl_vol_args arguments {};
+    struct btrfs_ioctl_vol_args arguments{};
     std::memcpy(arguments.name, name.c_str(), name.size() + 1);
     if (ioctl(parent_fd, BTRFS_IOC_SNAP_DESTROY, &arguments) != 0) {
         throw_path_error("cannot delete Btrfs subvolume", display_path, errno);
@@ -90,7 +90,7 @@ void destroy_subvolume_at(int parent_fd, const std::string& name, const fs::path
 }
 
 void remove_entry(int parent_fd, const std::string& name, const fs::path& display_path) {
-    struct stat status {};
+    struct stat status{};
     if (fstatat(parent_fd, name.c_str(), &status, AT_SYMLINK_NOFOLLOW) != 0) {
         if (errno == ENOENT) {
             return;
@@ -170,6 +170,10 @@ fs::path SafeDirectoryHandle::proc_path() const {
     return fs::path("/proc/self/fd") / std::to_string(fd_);
 }
 
+fs::path SafeDirectoryHandle::stable_path() const {
+    return proc_path();
+}
+
 SafeDirectoryRoot::SafeDirectoryRoot(const fs::path& root)
     : root_path_(normalized_path(root)) {
     if (!root_path_.is_absolute()) {
@@ -193,6 +197,14 @@ SafeDirectoryRoot::SafeDirectoryRoot(const fs::path& root)
 
 const fs::path& SafeDirectoryRoot::path() const noexcept {
     return root_path_;
+}
+
+std::unique_ptr<ISafeDirectoryHandle> SafeDirectoryRoot::pin_directory(const fs::path& path) const {
+    return std::make_unique<SafeDirectoryHandle>(open_directory(path));
+}
+
+std::unique_ptr<ISafeDirectoryHandle> SafeDirectoryRoot::pin_path(const fs::path& path) const {
+    return std::make_unique<SafeDirectoryHandle>(open_path(path));
 }
 
 fs::path SafeDirectoryRoot::relative_path(const fs::path& path) const {
@@ -284,7 +296,7 @@ void SafeDirectoryRoot::delete_subvolume(const fs::path& path) const {
     fs::path parent_relative = relative.parent_path();
     SafeDirectoryHandle parent = open_relative(parent_relative.empty() ? fs::path(".") : parent_relative, O_RDONLY | O_DIRECTORY);
     const std::string name = relative.filename().string();
-    struct stat status {};
+    struct stat status{};
     if (fstatat(parent.fd(), name.c_str(), &status, AT_SYMLINK_NOFOLLOW) != 0) {
         throw_path_error("cannot inspect Btrfs subvolume", path, errno);
     }

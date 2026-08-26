@@ -6,12 +6,13 @@
 
 #include <optional>
 #include <string>
+#include <utility>
 
 #include <backup/ports/btrfs_operations.hpp>
 #include <backup/ports/filesystem.hpp>
+#include <backup/ports/safe_directory.hpp>
 #include <backup/snapshot_transfer.hpp>
 #include <core/errors.hpp>
-#include <platform/linux/safe_directory_root.hpp>
 #include <state/run_state.hpp>
 
 namespace btrfsbackup {
@@ -22,14 +23,14 @@ void cleanup_directory_contents(
     IBtrfsOperations& btrfs,
     IFileSystem& filesystem,
     const std::filesystem::path& directory,
-    const SafeDirectoryRoot* safe_root
+    const ISafeDirectoryRoot* safe_root
 );
 
 void cleanup_path(
     IBtrfsOperations& btrfs,
     IFileSystem& filesystem,
     const std::filesystem::path& path,
-    const SafeDirectoryRoot* safe_root
+    const ISafeDirectoryRoot* safe_root
 ) {
     if (safe_root != nullptr) {
         safe_root->remove_tree(path);
@@ -54,7 +55,7 @@ void cleanup_directory_contents(
     IBtrfsOperations& btrfs,
     IFileSystem& filesystem,
     const std::filesystem::path& directory,
-    const SafeDirectoryRoot* safe_root
+    const ISafeDirectoryRoot* safe_root
 ) {
     if (safe_root != nullptr) {
         safe_root->remove_contents(directory);
@@ -72,7 +73,7 @@ void cleanup_incoming_run_directory(
     IBtrfsOperations& btrfs,
     IFileSystem& filesystem,
     const std::filesystem::path& directory,
-    const SafeDirectoryRoot* safe_root
+    const ISafeDirectoryRoot* safe_root
 ) {
     if (safe_root != nullptr) {
         safe_root->remove_tree(directory);
@@ -89,7 +90,7 @@ SnapshotMetadata require_snapshot_metadata(
     IBtrfsOperations& btrfs,
     const std::filesystem::path& path,
     const std::string& message,
-    const SafeDirectoryRoot* safe_root
+    const ISafeDirectoryRoot* safe_root
 ) {
     std::optional<SnapshotMetadata> metadata = safe_root == nullptr
         ? btrfs.read_snapshot_metadata(path)
@@ -109,13 +110,13 @@ RepositoryActionHandler::RepositoryActionHandler(IBtrfsOperations& btrfs, IFileS
 RepositoryActionHandler::RepositoryActionHandler(
     IBtrfsOperations& btrfs,
     IFileSystem& filesystem,
-    const std::filesystem::path& local_root,
-    const std::filesystem::path& target_root
+    std::unique_ptr<ISafeDirectoryRoot> local_root,
+    std::unique_ptr<ISafeDirectoryRoot> target_root
 )
     : btrfs_(btrfs),
       filesystem_(filesystem),
-      local_root_(std::make_unique<SafeDirectoryRoot>(local_root)),
-      target_root_(std::make_unique<SafeDirectoryRoot>(target_root)) {
+      local_root_(std::move(local_root)),
+      target_root_(std::move(target_root)) {
 }
 
 RepositoryActionHandler::~RepositoryActionHandler() = default;

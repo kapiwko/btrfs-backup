@@ -4,8 +4,10 @@
 
 #include <backup/action_handlers/transfer_action_handler.hpp>
 
+#include <utility>
+
 #include <backup/ports/filesystem.hpp>
-#include <platform/linux/safe_directory_root.hpp>
+#include <backup/ports/safe_directory.hpp>
 
 namespace btrfsbackup {
 
@@ -14,10 +16,10 @@ TransferActionHandler::TransferActionHandler(IFileSystem& filesystem) : filesyst
 
 TransferActionHandler::TransferActionHandler(
     IFileSystem& filesystem,
-    const std::filesystem::path& target_root
+    std::unique_ptr<ISafeDirectoryRoot> target_root
 )
     : filesystem_(filesystem),
-      target_root_(std::make_unique<SafeDirectoryRoot>(target_root)) {
+      target_root_(std::move(target_root)) {
 }
 
 TransferActionHandler::~TransferActionHandler() = default;

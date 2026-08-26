@@ -9,6 +9,7 @@
 #include <filesystem>
 #include <iomanip>
 #include <iostream>
+#include <memory>
 #include <sstream>
 #include <string>
 #include <type_traits>
@@ -31,6 +32,7 @@
 #include <platform/linux/posix_filesystem.hpp>
 #include <platform/linux/mount_info.hpp>
 #include <platform/linux/posix_transfer_pipeline.hpp>
+#include <platform/linux/safe_directory_root.hpp>
 #include <config/model/json.hpp>
 #include <config/profile_repository.hpp>
 
@@ -313,9 +315,21 @@ class PosixBackupRunFactory final : public btrfsbackup::IBackupRunFactory {
         btrfsbackup::IBackupRunCheckpointStore& checkpoints,
         btrfsbackup::CancellationToken& cancellation
     ) override {
-        btrfsbackup::SnapshotActionHandler snapshots(btrfs_, filesystem_, "/");
-        btrfsbackup::RecoveryActionHandler recovery(btrfs_, "/", plan.target_mount_point);
-        btrfsbackup::RetentionActionHandler retention(btrfs_, "/", plan.target_mount_point);
+        btrfsbackup::SnapshotActionHandler snapshots(
+            btrfs_,
+            filesystem_,
+            std::make_unique<btrfsbackup::SafeDirectoryRoot>("/")
+        );
+        btrfsbackup::RecoveryActionHandler recovery(
+            btrfs_,
+            std::make_unique<btrfsbackup::SafeDirectoryRoot>("/"),
+            std::make_unique<btrfsbackup::SafeDirectoryRoot>(plan.target_mount_point)
+        );
+        btrfsbackup::RetentionActionHandler retention(
+            btrfs_,
+            std::make_unique<btrfsbackup::SafeDirectoryRoot>("/"),
+            std::make_unique<btrfsbackup::SafeDirectoryRoot>(plan.target_mount_point)
+        );
         btrfsbackup::HookActionHandler hooks(
             commands_,
             btrfsbackup::trusted_hook_directory,
@@ -324,10 +338,13 @@ class PosixBackupRunFactory final : public btrfsbackup::IBackupRunFactory {
         btrfsbackup::RepositoryActionHandler repository(
             btrfs_,
             filesystem_,
-            "/",
-            plan.target_mount_point
+            std::make_unique<btrfsbackup::SafeDirectoryRoot>("/"),
+            std::make_unique<btrfsbackup::SafeDirectoryRoot>(plan.target_mount_point)
         );
-        btrfsbackup::TransferActionHandler transfer(filesystem_, plan.target_mount_point);
+        btrfsbackup::TransferActionHandler transfer(
+            filesystem_,
+            std::make_unique<btrfsbackup::SafeDirectoryRoot>(plan.target_mount_point)
+        );
         btrfsbackup::BackupRunActionHandler action_handler(
             snapshots,
             recovery,

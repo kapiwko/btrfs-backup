@@ -12,19 +12,19 @@
 namespace btrfsbackup {
 
 class IFileSystem;
-class SafeDirectoryRoot;
+class ISafeDirectoryRoot;
 
 class TransferActionHandler {
   public:
     explicit TransferActionHandler(IFileSystem& filesystem);
-    TransferActionHandler(IFileSystem& filesystem, const std::filesystem::path& target_root);
+    TransferActionHandler(IFileSystem& filesystem, std::unique_ptr<ISafeDirectoryRoot> target_root);
     ~TransferActionHandler();
 
     void handle(const SendReceiveAction& action);
 
   private:
     IFileSystem& filesystem_;
-    std::unique_ptr<SafeDirectoryRoot> target_root_;
+    std::unique_ptr<ISafeDirectoryRoot> target_root_;
 };
 
 } // namespace btrfsbackup
