@@ -308,4 +308,8 @@ void SafeDirectoryRoot::delete_subvolume(const fs::path& path) const {
     destroy_subvolume_at(parent.fd(), name, path);
 }
 
+std::unique_ptr<ISafeDirectoryRoot> SafeDirectoryRootFactory::open(const fs::path& root) const {
+    return std::make_unique<SafeDirectoryRoot>(root);
+}
+
 } // namespace btrfsbackup

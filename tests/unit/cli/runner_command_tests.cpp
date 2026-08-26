@@ -31,6 +31,7 @@
 #include <config/profile_repository.hpp>
 #include <state/run_state.hpp>
 
+#include "support/fake_safe_directory.hpp"
 #include "support/validation_test_helpers.hpp"
 
 namespace fs = std::filesystem;
@@ -96,7 +97,7 @@ class RecordingActionHandler final : public btrfsbackup::IBackupRunActionHandler
 };
 
 class ConfigurableTransferPipeline final : public btrfsbackup::ITransferPipeline {
-public:
+  public:
     std::vector<btrfsbackup::TransferPipelinePlan> plans;
     btrfsbackup::TransferResult next_result{
         .producer = {
@@ -137,7 +138,7 @@ public:
 };
 
 class BlockingTransferPipeline final : public btrfsbackup::ITransferPipeline {
-public:
+  public:
     std::atomic_bool entered = false;
     std::atomic_bool allow_finish = false;
 
@@ -165,7 +166,7 @@ public:
 };
 
 class CancellationAwareTransferPipeline final : public btrfsbackup::ITransferPipeline {
-public:
+  public:
     std::atomic_bool entered = false;
 
     btrfsbackup::TransferResult run(
@@ -200,7 +201,7 @@ void wait_until_entered(BlockingTransferPipeline& pipeline) {
 }
 
 class MetadataMap {
-public:
+  public:
     std::map<std::string, btrfsbackup::SnapshotMetadata> values;
 
     std::optional<btrfsbackup::SnapshotMetadata> read(const fs::path& path) const {
@@ -384,18 +385,19 @@ int run_runner(
     });
     btrfsbackup::PosixCommandRunner commands;
     btrfsbackup::SystemdTargetMounter target_mounter(mounts, commands);
+    test_support::FakeSafeDirectoryRootFactory safe_directories;
     btrfsbackup::DefaultBackupPlanner planner(
         fixture->snapshot_metadata_reader
             ? fixture->snapshot_metadata_reader
             : btrfsbackup::SnapshotMetadataReader{[](const fs::path&) {
                   return std::optional<btrfsbackup::SnapshotMetadata>{};
               }},
-        false
+        safe_directories
     );
     btrfsbackup::DefaultBackupRunFactory run_factory(
         fixture->action_handler,
         fixture->transfer_pipeline,
-        false
+        safe_directories
     );
     btrfsbackup::FileBackupRunLeaseProvider leases(fixture->lock_root);
     btrfsbackup::FileRunStateRepository state(fixture->application_config.paths());

@@ -9,23 +9,24 @@
 namespace btrfsbackup {
 
 class BackupRun {
-public:
-  BackupRun(
-      BackupRunPlan plan,
-      IBackupRunActionHandler& action_handler,
-      IAsyncTransferPipeline& transfer_pipeline,
-      IBackupRunCheckpointStore& checkpoints
-  );
+  public:
+    BackupRun(
+        BackupRunPlan plan,
+        IBackupRunActionHandler& action_handler,
+        IAsyncTransferPipeline& transfer_pipeline,
+        IBackupRunCheckpointStore& checkpoints,
+        const ISafeDirectoryRootFactory& safe_directories
+    );
 
-  [[nodiscard]] const BackupRunPlan& plan() const noexcept;
-  [[nodiscard]] bool started() const noexcept;
+    [[nodiscard]] const BackupRunPlan& plan() const noexcept;
+    [[nodiscard]] bool started() const noexcept;
 
-  [[nodiscard]] BackupRunExecutionResult execute(
-      IBackupRunEventSink& events,
-      CancellationToken& cancellation
-  );
+    [[nodiscard]] BackupRunExecutionResult execute(
+        IBackupRunEventSink& events,
+        CancellationToken& cancellation
+    );
 
-private:
+  private:
     BackupRunPlan plan_;
     BackupRunExecutor executor_;
     bool started_ = false;

@@ -42,6 +42,7 @@ target_link_libraries(btrfsbackup-backup-ports
     PUBLIC
         btrfsbackup-backup-model
         btrfsbackup-config-model
+        btrfsbackup-transfer
 )
 
 add_library(btrfsbackup-backup-domain STATIC

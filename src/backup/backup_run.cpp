@@ -13,10 +13,11 @@ BackupRun::BackupRun(
     BackupRunPlan plan,
     IBackupRunActionHandler& action_handler,
     IAsyncTransferPipeline& transfer_pipeline,
-    IBackupRunCheckpointStore& checkpoints
+    IBackupRunCheckpointStore& checkpoints,
+    const ISafeDirectoryRootFactory& safe_directories
 )
     : plan_(std::move(plan)),
-      executor_(action_handler, transfer_pipeline, checkpoints) {
+      executor_(action_handler, transfer_pipeline, checkpoints, safe_directories) {
 }
 
 const BackupRunPlan& BackupRun::plan() const noexcept {
