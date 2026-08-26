@@ -22,10 +22,11 @@
 #include <cli/backup_tool.hpp>
 #include <backup/default_backup_planner.hpp>
 #include <backup/default_backup_run_factory.hpp>
-#include <backup/file_run_state_repository.hpp>
+#include <state/file_run_state_repository.hpp>
 #include <config/profile_fingerprint.hpp>
 #include <platform/linux/file_lock.hpp>
 #include <platform/linux/file_backup_run_lease_provider.hpp>
+#include <platform/linux/file_io.hpp>
 #include <platform/linux/posix_command_runner.hpp>
 #include <platform/linux/systemd_target_mounter.hpp>
 #include <platform/linux/mount_info.hpp>
@@ -48,6 +49,7 @@ std::string action_name(btrfsbackup::BackupRunActionKind kind) {
 
 class RecordingActionHandler final : public btrfsbackup::IBackupRunActionHandler {
   public:
+    btrfsbackup::PosixDurableFileOperations durable_files;
     std::vector<std::string> calls;
     std::vector<std::string> local_retention_deletes;
     std::vector<std::string> remote_retention_deletes;
@@ -84,6 +86,7 @@ class RecordingActionHandler final : public btrfsbackup::IBackupRunActionHandler
         if (const auto* snapshot = std::get_if<btrfsbackup::CreateSnapshotAction>(&action);
             write_pending_on_snapshot && snapshot != nullptr) {
             btrfsbackup::write_pending_marker(
+                durable_files,
                 pending_state_dir,
                 {
                     .source_name = std::string(snapshot->source_id.value()),
@@ -102,6 +105,7 @@ class RecordingActionHandler final : public btrfsbackup::IBackupRunActionHandler
 
 class ConfigurableTransferPipeline final : public btrfsbackup::ITransferPipeline {
   public:
+    btrfsbackup::PosixDurableFileOperations durable_files;
     std::vector<btrfsbackup::TransferPipelinePlan> plans;
     btrfsbackup::TransferResult next_result{
         .producer = {
@@ -131,7 +135,7 @@ class ConfigurableTransferPipeline final : public btrfsbackup::ITransferPipeline
             .speed_bps = 1024,
         });
         if (request_cancel_path.has_value()) {
-            btrfsbackup::write_cancel_request(*request_cancel_path);
+            btrfsbackup::write_cancel_request(durable_files, *request_cancel_path);
             for (int i = 0; i < 20 && !cancellation.cancellation_requested(); ++i) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(50));
             }
@@ -404,7 +408,8 @@ int run_runner(
         safe_directories
     );
     btrfsbackup::FileBackupRunLeaseProvider leases(fixture->lock_root);
-    btrfsbackup::FileRunStateRepository state(fixture->application_config.paths());
+    btrfsbackup::PosixDurableFileOperations durable_files;
+    btrfsbackup::FileRunStateRepository state(fixture->application_config.paths(), durable_files);
     btrfsbackup::FileCancellationMonitor cancellation_monitor(state);
     FixedClock clock;
     clock.timestamp = option_value(args, "--timestamp", clock.timestamp);
@@ -448,7 +453,9 @@ std::string profile_fingerprint(const fs::path& config_root, const btrfsbackup::
 }
 
 void write_matching_last_success(const fs::path& config_root, const btrfsbackup::Profile& profile) {
+    btrfsbackup::PosixDurableFileOperations durable_files;
     btrfsbackup::write_success_state(
+        durable_files,
         config_root.parent_path() / "state" / "profiles" / profile.id.value(),
         btrfsbackup::SuccessState{
             .date = "2026-08-23",
@@ -1551,7 +1558,9 @@ void test_runner_execute_pending_recovery_deletes_orphan() {
     fs::path mountinfo = root / "mountinfo";
     write_profile(config_root, profile);
     write_mountinfo(mountinfo, profile);
+    btrfsbackup::PosixDurableFileOperations durable_files;
     btrfsbackup::write_pending_marker(
+        durable_files,
         root / "state" / "profiles" / "default",
         btrfsbackup::PendingMarker{
             .source_name = "root",

@@ -19,7 +19,7 @@
 #include <backup/action_handlers/backup_run_action_handler.hpp>
 #include <backup/backup_run.hpp>
 #include <backup/default_backup_planner.hpp>
-#include <backup/file_run_state_repository.hpp>
+#include <state/file_run_state_repository.hpp>
 #include <backup/system_run_context.hpp>
 #include <backup/action_handlers/hook_action_handler.hpp>
 #include <backup/action_handlers/recovery_action_handler.hpp>
@@ -32,6 +32,7 @@
 #include <platform/linux/posix_command_runner.hpp>
 #include <platform/linux/file_lock.hpp>
 #include <platform/linux/file_backup_run_lease_provider.hpp>
+#include <platform/linux/file_io.hpp>
 #include <platform/linux/posix_filesystem.hpp>
 #include <platform/linux/mount_info.hpp>
 #include <platform/linux/posix_transfer_pipeline.hpp>
@@ -311,12 +312,14 @@ class PosixBackupRunFactory final : public btrfsbackup::IBackupRunFactory {
         btrfsbackup::IFileSystem& filesystem,
         btrfsbackup::ICommandRunner& commands,
         btrfsbackup::ITransferPipeline& transfers,
+        btrfsbackup::IDurableFileOperations& durable_files,
         const btrfsbackup::ISafeDirectoryRootFactory& safe_directories
     )
         : btrfs_(btrfs),
           filesystem_(filesystem),
           commands_(commands),
           transfers_(transfers),
+          durable_files_(durable_files),
           safe_directories_(safe_directories) {
     }
 
@@ -329,10 +332,12 @@ class PosixBackupRunFactory final : public btrfsbackup::IBackupRunFactory {
         btrfsbackup::SnapshotActionHandler snapshots(
             btrfs_,
             filesystem_,
+            durable_files_,
             std::make_unique<btrfsbackup::SafeDirectoryRoot>("/")
         );
         btrfsbackup::RecoveryActionHandler recovery(
             btrfs_,
+            durable_files_,
             std::make_unique<btrfsbackup::SafeDirectoryRoot>("/"),
             std::make_unique<btrfsbackup::SafeDirectoryRoot>(plan.target_mount_point)
         );
@@ -348,6 +353,7 @@ class PosixBackupRunFactory final : public btrfsbackup::IBackupRunFactory {
         btrfsbackup::RepositoryActionHandler repository(
             btrfs_,
             filesystem_,
+            durable_files_,
             std::make_unique<btrfsbackup::SafeDirectoryRoot>("/"),
             std::make_unique<btrfsbackup::SafeDirectoryRoot>(plan.target_mount_point)
         );
@@ -379,6 +385,7 @@ class PosixBackupRunFactory final : public btrfsbackup::IBackupRunFactory {
     btrfsbackup::IFileSystem& filesystem_;
     btrfsbackup::ICommandRunner& commands_;
     btrfsbackup::ITransferPipeline& transfers_;
+    btrfsbackup::IDurableFileOperations& durable_files_;
     const btrfsbackup::ISafeDirectoryRootFactory& safe_directories_;
 };
 
@@ -397,7 +404,7 @@ class ProductionBackupComposition {
                   ? btrfsbackup::blkid_filesystem_uuid(source)
                   : found->second;
           }),
-          target_mounter_(mounts_, commands_), planner_(btrfsbackup::read_btrfs_snapshot_metadata, safe_directories_), run_factory_(btrfs_, filesystem_, commands_, transfers_, safe_directories_), leases_(btrfsbackup::default_lock_root()), state_(config_.paths()), cancellation_monitor_(state_), clock_(parsed.timestamp, parsed.today), run_ids_(*parsed.run_id), service_(profiles_, mounts_, target_mounter_, planner_, run_factory_, leases_, state_, cancellation_monitor_, clock_, run_ids_, cancellation) {
+          target_mounter_(mounts_, commands_), planner_(btrfsbackup::read_btrfs_snapshot_metadata, safe_directories_), run_factory_(btrfs_, filesystem_, commands_, transfers_, durable_files_, safe_directories_), leases_(btrfsbackup::default_lock_root()), state_(config_.paths(), durable_files_), cancellation_monitor_(state_), clock_(parsed.timestamp, parsed.today), run_ids_(*parsed.run_id), service_(profiles_, mounts_, target_mounter_, planner_, run_factory_, leases_, state_, cancellation_monitor_, clock_, run_ids_, cancellation) {
     }
 
     btrfsbackup::BackupService& service() {
@@ -415,6 +422,7 @@ class ProductionBackupComposition {
     btrfsbackup::LibBtrfsOperations btrfs_;
     btrfsbackup::PosixFileSystem filesystem_;
     btrfsbackup::PosixTransferPipeline transfers_;
+    btrfsbackup::PosixDurableFileOperations durable_files_;
     PosixBackupRunFactory run_factory_;
     btrfsbackup::FileBackupRunLeaseProvider leases_;
     btrfsbackup::FileRunStateRepository state_;

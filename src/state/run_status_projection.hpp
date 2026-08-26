@@ -10,6 +10,7 @@
 #include <string>
 
 #include <backup/model/backup_run_event.hpp>
+#include <core/durable_file_operations.hpp>
 #include <state/status_writer.hpp>
 
 namespace btrfsbackup {
@@ -26,11 +27,12 @@ struct BackupRunStatusContext {
 
 class RunStatusProjection final : public IBackupRunEventSink {
   public:
-    explicit RunStatusProjection(BackupRunStatusContext context);
+    RunStatusProjection(IDurableFileOperations& files, BackupRunStatusContext context);
 
     void on_backup_run_event(const BackupRunEvent& event) override;
 
   private:
+    IDurableFileOperations& files_;
     BackupRunStatusContext context_;
     std::optional<RunId> run_id_;
     int last_overall_progress_ = -1;

@@ -7,6 +7,8 @@
 #include <filesystem>
 #include <string>
 
+#include <core/durable_file_operations.hpp>
+
 namespace btrfsbackup {
 
 struct SuccessState {
@@ -35,14 +37,22 @@ bool last_success_matches(
     const std::string& config_fingerprint
 );
 
-void write_success_state(const std::filesystem::path& profile_state_dir, const SuccessState& state);
+void write_success_state(
+    IDurableFileOperations& files,
+    const std::filesystem::path& profile_state_dir,
+    const SuccessState& state
+);
 std::filesystem::path cancel_request_path(const std::filesystem::path& profile_state_dir);
-void write_cancel_request(const std::filesystem::path& profile_state_dir);
+void write_cancel_request(IDurableFileOperations& files, const std::filesystem::path& profile_state_dir);
 bool cancel_requested(const std::filesystem::path& profile_state_dir);
-void clear_cancel_request(const std::filesystem::path& profile_state_dir);
+void clear_cancel_request(IDurableFileOperations& files, const std::filesystem::path& profile_state_dir);
 std::filesystem::path pending_marker_path(const std::filesystem::path& profile_state_dir, const std::string& source_name);
-void write_pending_marker(const std::filesystem::path& profile_state_dir, const PendingMarker& marker);
+void write_pending_marker(
+    IDurableFileOperations& files,
+    const std::filesystem::path& profile_state_dir,
+    const PendingMarker& marker
+);
 std::string read_pending_marker_field(const std::filesystem::path& marker_path, const std::string& field);
-void clear_pending_marker(const std::filesystem::path& marker_path, const std::filesystem::path& profile_state_dir);
+void clear_pending_marker(IDurableFileOperations& files, const std::filesystem::path& marker_path);
 
 } // namespace btrfsbackup

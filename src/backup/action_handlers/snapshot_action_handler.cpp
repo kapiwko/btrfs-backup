@@ -15,6 +15,7 @@
 #include <backup/ports/filesystem.hpp>
 #include <backup/ports/safe_directory.hpp>
 #include <core/errors.hpp>
+#include <core/durable_file_operations.hpp>
 #include <state/run_state.hpp>
 
 namespace btrfsbackup {
@@ -48,17 +49,23 @@ SnapshotMetadata require_snapshot_metadata(
 
 } // namespace
 
-SnapshotActionHandler::SnapshotActionHandler(IBtrfsOperations& btrfs, IFileSystem& filesystem)
-    : btrfs_(btrfs), filesystem_(filesystem) {
+SnapshotActionHandler::SnapshotActionHandler(
+    IBtrfsOperations& btrfs,
+    IFileSystem& filesystem,
+    IDurableFileOperations& durable_files
+)
+    : btrfs_(btrfs), filesystem_(filesystem), durable_files_(durable_files) {
 }
 
 SnapshotActionHandler::SnapshotActionHandler(
     IBtrfsOperations& btrfs,
     IFileSystem& filesystem,
+    IDurableFileOperations& durable_files,
     std::unique_ptr<ISafeDirectoryRoot> local_root
 )
     : btrfs_(btrfs),
       filesystem_(filesystem),
+      durable_files_(durable_files),
       local_root_(std::move(local_root)) {
 }
 
@@ -71,6 +78,7 @@ void SnapshotActionHandler::handle(const CreateSnapshotAction& action) {
         local_root_->ensure_directory(action.snapshot_directory);
     }
     write_pending_marker(
+        durable_files_,
         action.profile_state_directory,
         PendingMarker{
             .source_name = std::string(action.source_id.value()),

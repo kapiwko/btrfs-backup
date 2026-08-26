@@ -4,8 +4,6 @@
 
 #include <state/run_state.hpp>
 
-#include <sys/stat.h>
-
 #include <algorithm>
 #include <cctype>
 #include <filesystem>
@@ -15,7 +13,6 @@
 #include <string>
 
 #include <core/errors.hpp>
-#include <platform/linux/file_io.hpp>
 #include <core/identifiers.hpp>
 
 namespace fs = std::filesystem;
@@ -77,12 +74,14 @@ bool last_success_matches(
     }
 
     std::map<std::string, std::string> values = read_state_file(state_file);
-    return get_value(values, "date") == today
-        && lower(get_value(values, "target_luks_uuid")) == lower(target_luks_uuid)
-        && get_value(values, "config_fingerprint") == config_fingerprint;
+    return get_value(values, "date") == today && lower(get_value(values, "target_luks_uuid")) == lower(target_luks_uuid) && get_value(values, "config_fingerprint") == config_fingerprint;
 }
 
-void write_success_state(const fs::path& profile_state_dir, const SuccessState& state) {
+void write_success_state(
+    IDurableFileOperations& files,
+    const fs::path& profile_state_dir,
+    const SuccessState& state
+) {
     validate_profile_id(state.profile_id);
     validate_run_id(state.run_id);
     require_non_empty(state.date, "date");
@@ -94,8 +93,7 @@ void write_success_state(const fs::path& profile_state_dir, const SuccessState& 
         throw ValidationError("source_count must be non-negative");
     }
 
-    fs::create_directories(profile_state_dir);
-    chmod(profile_state_dir.c_str(), 0700);
+    files.ensure_directory(profile_state_dir, private_directory_permissions);
 
     std::ostringstream content;
     content << "date=" << state.date << '\n'
@@ -107,17 +105,16 @@ void write_success_state(const fs::path& profile_state_dir, const SuccessState& 
             << "target_luks_uuid=" << state.target_luks_uuid << '\n'
             << "config_fingerprint=" << state.config_fingerprint << '\n';
 
-    atomic_write(profile_state_dir / "last-success", content.str(), 0600);
+    files.write_atomically(profile_state_dir / "last-success", content.str(), private_file_permissions);
 }
 
 fs::path cancel_request_path(const fs::path& profile_state_dir) {
     return profile_state_dir / "cancel-request";
 }
 
-void write_cancel_request(const fs::path& profile_state_dir) {
-    fs::create_directories(profile_state_dir);
-    chmod(profile_state_dir.c_str(), 0700);
-    atomic_write(cancel_request_path(profile_state_dir), "requested=1\n", 0600);
+void write_cancel_request(IDurableFileOperations& files, const fs::path& profile_state_dir) {
+    files.ensure_directory(profile_state_dir, private_directory_permissions);
+    files.write_atomically(cancel_request_path(profile_state_dir), "requested=1\n", private_file_permissions);
 }
 
 bool cancel_requested(const fs::path& profile_state_dir) {
@@ -125,15 +122,8 @@ bool cancel_requested(const fs::path& profile_state_dir) {
     return fs::is_regular_file(cancel_request_path(profile_state_dir), ec) && !ec;
 }
 
-void clear_cancel_request(const fs::path& profile_state_dir) {
-    std::error_code ec;
-    const bool removed = fs::remove(cancel_request_path(profile_state_dir), ec);
-    if (ec) {
-        throw ValidationError("cannot remove cancellation request: " + ec.message());
-    }
-    if (removed) {
-        fsync_dir(profile_state_dir);
-    }
+void clear_cancel_request(IDurableFileOperations& files, const fs::path& profile_state_dir) {
+    files.remove_durably(cancel_request_path(profile_state_dir));
 }
 
 fs::path pending_marker_path(const fs::path& profile_state_dir, const std::string& source_name) {
@@ -141,15 +131,18 @@ fs::path pending_marker_path(const fs::path& profile_state_dir, const std::strin
     return profile_state_dir / ("pending-" + source_name);
 }
 
-void write_pending_marker(const fs::path& profile_state_dir, const PendingMarker& marker) {
+void write_pending_marker(
+    IDurableFileOperations& files,
+    const fs::path& profile_state_dir,
+    const PendingMarker& marker
+) {
     validate_identifier(marker.source_name, "source_name");
     validate_run_id(marker.run_id);
     require_absolute_path(marker.local_snapshot_path, "local_snapshot_path");
     require_absolute_path(marker.final_snapshot_path, "final_snapshot_path");
     require_non_empty(marker.timestamp, "timestamp");
 
-    fs::create_directories(profile_state_dir);
-    chmod(profile_state_dir.c_str(), 0700);
+    files.ensure_directory(profile_state_dir, private_directory_permissions);
 
     std::ostringstream content;
     content << "source_name=" << marker.source_name << '\n'
@@ -158,7 +151,11 @@ void write_pending_marker(const fs::path& profile_state_dir, const PendingMarker
             << "run_id=" << marker.run_id << '\n'
             << "timestamp=" << marker.timestamp << '\n';
 
-    atomic_write(pending_marker_path(profile_state_dir, marker.source_name), content.str(), 0600);
+    files.write_atomically(
+        pending_marker_path(profile_state_dir, marker.source_name),
+        content.str(),
+        private_file_permissions
+    );
 }
 
 std::string read_pending_marker_field(const fs::path& marker_path, const std::string& field) {
@@ -166,15 +163,8 @@ std::string read_pending_marker_field(const fs::path& marker_path, const std::st
     return get_value(values, field);
 }
 
-void clear_pending_marker(const fs::path& marker_path, const fs::path& profile_state_dir) {
-    std::error_code ec;
-    const bool removed = fs::remove(marker_path, ec);
-    if (ec) {
-        throw ValidationError("cannot remove pending marker " + marker_path.string() + ": " + ec.message());
-    }
-    if (removed) {
-        fsync_dir(profile_state_dir);
-    }
+void clear_pending_marker(IDurableFileOperations& files, const fs::path& marker_path) {
+    files.remove_durably(marker_path);
 }
 
 } // namespace btrfsbackup

@@ -4,15 +4,11 @@
 
 #include <state/status_writer.hpp>
 
-#include <cerrno>
-#include <cstring>
 #include <filesystem>
 #include <string>
-#include <sys/stat.h>
 #include <variant>
 
 #include <core/errors.hpp>
-#include <platform/linux/file_io.hpp>
 #include <core/identifiers.hpp>
 #include <config/model/json_io.hpp>
 
@@ -32,28 +28,17 @@ void validate_status(const btrfsbackup::RunStatus& status) {
     require_non_empty(status.updated_at, "updatedAt");
 }
 
-void set_directory_mode(const fs::path& path, mode_t mode) {
-    int result;
-    do {
-        result = chmod(path.c_str(), mode);
-    } while (result != 0 && errno == EINTR);
-    if (result != 0) {
-        throw btrfsbackup::ValidationError(
-            "cannot set permissions on " + path.string() + ": " + std::strerror(errno)
-        );
-    }
+void prepare_public_parent(btrfsbackup::IDurableFileOperations& files, const fs::path& path) {
+    files.ensure_directory(path.parent_path(), btrfsbackup::public_directory_permissions);
 }
 
-void prepare_public_parent(const fs::path& path) {
-    fs::create_directories(path.parent_path());
-    set_directory_mode(path.parent_path(), 0755);
-}
-
-void prepare_private_history_directory(const fs::path& history_root, const fs::path& directory) {
-    fs::create_directories(history_root);
-    set_directory_mode(history_root, 0700);
-    fs::create_directories(directory);
-    set_directory_mode(directory, 0700);
+void prepare_private_history_directory(
+    btrfsbackup::IDurableFileOperations& files,
+    const fs::path& history_root,
+    const fs::path& directory
+) {
+    files.ensure_directory(history_root, btrfsbackup::private_directory_permissions);
+    files.ensure_directory(directory, btrfsbackup::private_directory_permissions);
 }
 
 btrfsbackup::Json build_details_json(const btrfsbackup::RunDetails& details) {
@@ -134,22 +119,27 @@ std::string dump_public_status_json(const RunStatus& status) {
     return dump_json(build_public_status_json(status));
 }
 
-void write_current_status(const fs::path& status_root, const RunStatus& status, mode_t mode) {
+void write_current_status(
+    IDurableFileOperations& files,
+    const fs::path& status_root,
+    const RunStatus& status,
+    fs::perms permissions
+) {
     std::string content = dump_public_status_json(status);
     fs::path path = status_root / status.profile_id.value() / "current.json";
-    prepare_public_parent(path);
-    atomic_write(path, content, mode);
+    prepare_public_parent(files, path);
+    files.write_atomically(path, content, permissions);
 }
 
-void write_history_entry(const fs::path& history_root, const RunStatus& status) {
+void write_history_entry(IDurableFileOperations& files, const fs::path& history_root, const RunStatus& status) {
     std::string content = dump_status_json(status);
     fs::path directory = history_root / status.profile_id.value();
     fs::path run_path = directory / (std::string(status.run_id.value()) + ".json");
     fs::path last_path = directory / "last.json";
 
-    prepare_private_history_directory(history_root, directory);
-    atomic_write(run_path, content, 0600);
-    atomic_write(last_path, content, 0600);
+    prepare_private_history_directory(files, history_root, directory);
+    files.write_atomically(run_path, content, private_file_permissions);
+    files.write_atomically(last_path, content, private_file_permissions);
 }
 
 } // namespace btrfsbackup

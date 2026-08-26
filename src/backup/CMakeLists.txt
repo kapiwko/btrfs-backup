@@ -65,7 +65,6 @@ add_library(btrfsbackup-backup STATIC
     backup_service.cpp
     default_backup_planner.cpp
     default_backup_run_factory.cpp
-    file_run_state_repository.cpp
     system_run_context.cpp
     action_handlers/backup_run_action_handler.cpp
     action_handlers/hook_action_handler.cpp

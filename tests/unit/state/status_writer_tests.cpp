@@ -15,10 +15,16 @@
 #include <config/model/json.hpp>
 #include <config/model/json_io.hpp>
 #include <state/status_writer.hpp>
+#include <platform/linux/file_io.hpp>
 
 namespace fs = std::filesystem;
 
 namespace {
+
+btrfsbackup::PosixDurableFileOperations& durable_files() {
+    static btrfsbackup::PosixDurableFileOperations files;
+    return files;
+}
 
 using btrfsbackup::Json;
 using btrfsbackup::ErrorCode;
@@ -90,7 +96,7 @@ RunStatus sample_record() {
 }
 
 int mode_of(const fs::path& path) {
-    struct stat info {};
+    struct stat info{};
     if (stat(path.c_str(), &info) != 0) {
         fail("stat", "cannot stat " + path.string());
         return 0;
@@ -191,9 +197,7 @@ void test_build_public_status_json_excludes_diagnostics() {
     expect_true("public source progress", data.at("sourceProgress") == 50, "wrong public source progress");
     expect_true("public overall progress", data.at("overallProgress") == 25, "wrong public overall progress");
     expect_true("public accuracy", data.at("progressAccuracy") == "estimated", "wrong public progress accuracy");
-    for (const char* field : {"profileId", "profileName", "runId", "phase", "message", "currentSourceName",
-                              "startedAt", "updatedAt", "finishedAt", "errorMessage", "details",
-                              "recoverable", "suggestedAction", "exitCode"}) {
+    for (const char* field : {"profileId", "profileName", "runId", "phase", "message", "currentSourceName", "startedAt", "updatedAt", "finishedAt", "errorMessage", "details", "recoverable", "suggestedAction", "exitCode"}) {
         expect_true(std::string("public excludes ") + field, !data.contains(field), std::string("public status exposes ") + field);
     }
 }
@@ -242,7 +246,7 @@ void test_write_current_status() {
     fs::path root = test_root("current");
     fs::path status_root = root / "run" / "profiles";
 
-    btrfsbackup::write_current_status(status_root, sample_record());
+    btrfsbackup::write_current_status(durable_files(), status_root, sample_record());
 
     fs::path current = status_root / "default" / "current.json";
     Json data = btrfsbackup::load_json_file(current);
@@ -259,7 +263,7 @@ void test_write_history_entry() {
     fs::path root = test_root("history");
     fs::path history_root = root / "history";
 
-    btrfsbackup::write_history_entry(history_root, sample_record());
+    btrfsbackup::write_history_entry(durable_files(), history_root, sample_record());
 
     fs::path run_entry = history_root / "default" / "20260823T024407Z-4298-30158.json";
     fs::path last_entry = history_root / "default" / "last.json";
