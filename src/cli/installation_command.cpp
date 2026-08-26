@@ -117,7 +117,7 @@ int installation(const std::vector<std::string>& args) {
         installation_usage();
         return 2;
     }
-    std::string command = args[0];
+    const std::string& command = args[0];
     std::vector<std::string> rest(args.begin() + 1, args.end());
     if (command == "render") {
         return render_installation(rest);
