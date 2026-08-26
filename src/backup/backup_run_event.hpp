@@ -10,7 +10,7 @@
 
 #include <backup/backup_run_action.hpp>
 #include <config/identifiers.hpp>
-#include <state/run_status.hpp>
+#include <core/error_code.hpp>
 
 namespace btrfsbackup {
 

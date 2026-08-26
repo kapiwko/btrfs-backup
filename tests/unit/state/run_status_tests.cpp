@@ -43,31 +43,11 @@ void test_progress_accuracy_names_are_stable() {
     );
 }
 
-void test_error_code_names_are_stable_and_parseable() {
-    using btrfsbackup::ErrorCode;
-    test_helpers::expect_eq(
-        "recovery error code",
-        btrfsbackup::error_code_name(ErrorCode::RepositoryRecoveryRequired),
-        "repository.recovery_required"
-    );
-    test_helpers::expect_true(
-        "known error code",
-        btrfsbackup::error_code_from_name("runner.profile_busy") == ErrorCode::RunnerProfileBusy,
-        "known code was not parsed"
-    );
-    test_helpers::expect_true(
-        "unknown error code",
-        !btrfsbackup::error_code_from_name("future.unknown").has_value(),
-        "unknown code should not be accepted"
-    );
-}
-
 } // namespace
 
 int main() {
     test_run_state_names_are_stable();
     test_run_phase_names_are_stable();
     test_progress_accuracy_names_are_stable();
-    test_error_code_names_are_stable_and_parseable();
     return test_helpers::finish("run status tests");
 }

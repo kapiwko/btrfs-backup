@@ -16,7 +16,7 @@
 #include <config/application_paths.hpp>
 #include <config/identifiers.hpp>
 #include <config/profile.hpp>
-#include <state/run_status.hpp>
+#include <core/error_code.hpp>
 
 namespace btrfsbackup {
 
