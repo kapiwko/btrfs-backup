@@ -21,32 +21,78 @@ target_restricted_include_directories(btrfsbackup-config-model
 )
 target_link_libraries(btrfsbackup-config-model PUBLIC btrfsbackup-core nlohmann_json::nlohmann_json)
 
+add_library(btrfsbackup-config-ports STATIC
+    ports/profile_repository.cpp
+)
+
+target_compile_features(btrfsbackup-config-ports PUBLIC cxx_std_20)
+target_restricted_include_directories(btrfsbackup-config-ports
+    PUBLIC_HEADERS
+        config/ports/profile_repository.hpp
+)
+target_link_libraries(btrfsbackup-config-ports PUBLIC btrfsbackup-config-model btrfsbackup-core)
+
 add_library(btrfsbackup-config STATIC
-    application_config.cpp
-    installation_render.cpp
-    installation_service.cpp
-    installation_validate.cpp
-    profile_artifact_renderer.cpp
-    profile_configuration_transaction.cpp
     profile_fingerprint.cpp
-    profile_installer.cpp
-    profile_repository.cpp
+    profile_artifact_renderer.cpp
     profile_render.cpp
-    render_directory.cpp
-    profile_service.cpp
-    wizard/profile_wizard.cpp
-    wizard/profile_wizard_device.cpp
-    wizard/profile_wizard_install.cpp
     wizard/profile_wizard_paths.cpp
     wizard/profile_wizard_prompt.cpp
-    wizard/profile_wizard_sources.cpp
 )
 
 target_compile_features(btrfsbackup-config PUBLIC cxx_std_20)
-target_include_directories(btrfsbackup-config PUBLIC ${PROJECT_SOURCE_DIR}/src)
-target_link_libraries(btrfsbackup-config PUBLIC btrfsbackup-config-model btrfsbackup-platform-linux)
+target_restricted_include_directories(btrfsbackup-config
+    PUBLIC_HEADERS
+        config/application_config.hpp
+        config/application_paths.hpp
+        config/installation_render.hpp
+        config/installation_service.hpp
+        config/installation_validate.hpp
+        config/profile_artifact_renderer.hpp
+        config/profile_configuration_transaction.hpp
+        config/profile_fingerprint.hpp
+        config/profile_installer.hpp
+        config/profile_render.hpp
+        config/profile_repository.hpp
+        config/profile_service.hpp
+        config/render_directory.hpp
+        config/ports/configuration_activator.hpp
+        config/wizard/profile_wizard.hpp
+        config/wizard/profile_wizard_device.hpp
+        config/wizard/profile_wizard_install.hpp
+        config/wizard/profile_wizard_paths.hpp
+        config/wizard/profile_wizard_prompt.hpp
+        config/wizard/profile_wizard_sources.hpp
+)
+target_link_libraries(btrfsbackup-config PUBLIC btrfsbackup-config-model btrfsbackup-config-ports)
+
+add_library(btrfsbackup-config-linux STATIC
+    ../platform/linux/config/application_config.cpp
+    ../platform/linux/config/installation_render.cpp
+    ../platform/linux/config/installation_service.cpp
+    ../platform/linux/config/installation_validate.cpp
+    ../platform/linux/config/profile_artifact_io.cpp
+    ../platform/linux/config/profile_configuration_transaction.cpp
+    ../platform/linux/config/profile_installer.cpp
+    ../platform/linux/config/profile_repository.cpp
+    ../platform/linux/config/profile_service.cpp
+    ../platform/linux/config/profile_wizard_install.cpp
+    ../platform/linux/config/profile_wizard.cpp
+    ../platform/linux/config/profile_wizard_device.cpp
+    ../platform/linux/config/profile_wizard_sources.cpp
+    ../platform/linux/config/render_directory.cpp
+)
+
+target_compile_features(btrfsbackup-config-linux PUBLIC cxx_std_20)
+target_link_libraries(btrfsbackup-config-linux
+    PUBLIC
+        btrfsbackup-config
+        btrfsbackup-platform-linux
+)
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(btrfsbackup-config-model PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(btrfsbackup-config-ports PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(btrfsbackup-config PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(btrfsbackup-config-linux PRIVATE -Wall -Wextra -Wpedantic)
 endif()

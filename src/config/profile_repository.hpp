@@ -10,6 +10,7 @@
 #include <config/application_config.hpp>
 #include <config/model/json.hpp>
 #include <config/model/profile.hpp>
+#include <config/ports/profile_repository.hpp>
 #include <core/identifiers.hpp>
 
 namespace btrfsbackup {
@@ -17,14 +18,6 @@ namespace btrfsbackup {
 std::filesystem::path profile_json_path(const std::filesystem::path& etc_root, const std::string& profile_id);
 Json load_profile_json_by_id(const std::filesystem::path& etc_root, const std::string& profile_id);
 Profile load_profile_by_id(const std::filesystem::path& etc_root, const std::string& profile_id);
-
-class IProfileRepository {
-  public:
-    virtual ~IProfileRepository() = default;
-    [[nodiscard]] virtual Profile get(const ProfileId& profile_id) const = 0;
-    [[nodiscard]] virtual const ApplicationPaths& application_paths() const = 0;
-    [[nodiscard]] virtual std::string fingerprint(const Profile& profile) const = 0;
-};
 
 class FileProfileRepository final : public IProfileRepository {
   public:
