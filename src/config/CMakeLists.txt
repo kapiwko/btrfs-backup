@@ -16,6 +16,7 @@ target_restricted_include_directories(btrfsbackup-config-model
         config/model/json_io.hpp
         config/model/profile.hpp
         config/model/validation.hpp
+        config/application_paths.hpp
         config/wizard/profile_wizard_model.hpp
 )
 target_link_libraries(btrfsbackup-config-model PUBLIC btrfsbackup-core nlohmann_json::nlohmann_json)

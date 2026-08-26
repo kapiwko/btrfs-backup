@@ -336,8 +336,8 @@ bool should_write_history(BackupRunEventKind kind) {
 
 } // namespace
 
-RunStatusProjection::RunStatusProjection(BackupRunStatusContext context)
-    : context_(std::move(context)) {
+RunStatusProjection::RunStatusProjection(IDurableFileOperations& files, BackupRunStatusContext context)
+    : files_(files), context_(std::move(context)) {
 }
 
 void RunStatusProjection::on_backup_run_event(const BackupRunEvent& event) {
@@ -353,9 +353,9 @@ void RunStatusProjection::on_backup_run_event(const BackupRunEvent& event) {
     if (status.progress.overall_percent.has_value()) {
         last_overall_progress_ = *status.progress.overall_percent;
     }
-    write_current_status(context_.status_root, status);
+    write_current_status(files_, context_.status_root, status);
     if (should_write_history(event.kind)) {
-        write_history_entry(context_.history_root, status);
+        write_history_entry(files_, context_.history_root, status);
     }
 }
 

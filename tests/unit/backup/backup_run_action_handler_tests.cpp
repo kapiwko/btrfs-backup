@@ -25,6 +25,7 @@
 #include <backup/action_handlers/transfer_action_handler.hpp>
 
 #include <platform/linux/safe_directory_root.hpp>
+#include <platform/linux/file_io.hpp>
 #include <platform/linux/trusted_executable.hpp>
 
 #include "support/fake_trusted_executable.hpp"
@@ -194,12 +195,12 @@ class FakeCommandRunner final : public btrfsbackup::ICommandRunner {
 class ActionHandlerFixture final : public btrfsbackup::IBackupRunActionHandler {
   public:
     ActionHandlerFixture(FakeBtrfsOperations& btrfs, FakeFileSystem& filesystem)
-        : snapshots_(btrfs, filesystem),
-          recovery_(btrfs),
+        : snapshots_(btrfs, filesystem, durable_files_),
+          recovery_(btrfs, durable_files_),
           retention_(btrfs),
           hook_executables_(std::make_unique<test_support::FakeTrustedExecutableResolver>()),
           hooks_(fallback_commands_, *hook_executables_),
-          repository_(btrfs, filesystem),
+          repository_(btrfs, filesystem, durable_files_),
           transfers_(filesystem),
           dispatcher_(snapshots_, recovery_, retention_, hooks_, repository_, transfers_) {
     }
@@ -209,12 +210,12 @@ class ActionHandlerFixture final : public btrfsbackup::IBackupRunActionHandler {
         FakeFileSystem& filesystem,
         FakeCommandRunner& commands
     )
-        : snapshots_(btrfs, filesystem),
-          recovery_(btrfs),
+        : snapshots_(btrfs, filesystem, durable_files_),
+          recovery_(btrfs, durable_files_),
           retention_(btrfs),
           hook_executables_(std::make_unique<test_support::FakeTrustedExecutableResolver>()),
           hooks_(commands, *hook_executables_),
-          repository_(btrfs, filesystem),
+          repository_(btrfs, filesystem, durable_files_),
           transfers_(filesystem),
           dispatcher_(snapshots_, recovery_, retention_, hooks_, repository_, transfers_) {
     }
@@ -225,9 +226,10 @@ class ActionHandlerFixture final : public btrfsbackup::IBackupRunActionHandler {
         FakeCommandRunner& commands,
         const fs::path& target_root
     )
-        : snapshots_(btrfs, filesystem, std::make_unique<btrfsbackup::SafeDirectoryRoot>("/")),
+        : snapshots_(btrfs, filesystem, durable_files_, std::make_unique<btrfsbackup::SafeDirectoryRoot>("/")),
           recovery_(
               btrfs,
+              durable_files_,
               std::make_unique<btrfsbackup::SafeDirectoryRoot>("/"),
               std::make_unique<btrfsbackup::SafeDirectoryRoot>(target_root)
           ),
@@ -241,6 +243,7 @@ class ActionHandlerFixture final : public btrfsbackup::IBackupRunActionHandler {
           repository_(
               btrfs,
               filesystem,
+              durable_files_,
               std::make_unique<btrfsbackup::SafeDirectoryRoot>("/"),
               std::make_unique<btrfsbackup::SafeDirectoryRoot>(target_root)
           ),
@@ -256,9 +259,10 @@ class ActionHandlerFixture final : public btrfsbackup::IBackupRunActionHandler {
         const fs::path& hook_root,
         const btrfsbackup::TrustedExecutablePolicy& hook_policy
     )
-        : snapshots_(btrfs, filesystem, std::make_unique<btrfsbackup::SafeDirectoryRoot>("/")),
+        : snapshots_(btrfs, filesystem, durable_files_, std::make_unique<btrfsbackup::SafeDirectoryRoot>("/")),
           recovery_(
               btrfs,
+              durable_files_,
               std::make_unique<btrfsbackup::SafeDirectoryRoot>("/"),
               std::make_unique<btrfsbackup::SafeDirectoryRoot>(target_root)
           ),
@@ -272,6 +276,7 @@ class ActionHandlerFixture final : public btrfsbackup::IBackupRunActionHandler {
           repository_(
               btrfs,
               filesystem,
+              durable_files_,
               std::make_unique<btrfsbackup::SafeDirectoryRoot>("/"),
               std::make_unique<btrfsbackup::SafeDirectoryRoot>(target_root)
           ),
@@ -289,6 +294,7 @@ class ActionHandlerFixture final : public btrfsbackup::IBackupRunActionHandler {
 
   private:
     FakeCommandRunner fallback_commands_;
+    btrfsbackup::PosixDurableFileOperations durable_files_;
     btrfsbackup::SnapshotActionHandler snapshots_;
     btrfsbackup::RecoveryActionHandler recovery_;
     btrfsbackup::RetentionActionHandler retention_;
@@ -555,7 +561,9 @@ void test_failed_remote_recovery_keeps_local_snapshot_and_marker() {
     source.recovery.delete_local_snapshot = true;
     source.recovery.local_snapshot_path = source.local_snapshot_path;
     source.recovery.clear_marker = true;
+    btrfsbackup::PosixDurableFileOperations durable_files;
     btrfsbackup::write_pending_marker(
+        durable_files,
         root / "state",
         btrfsbackup::PendingMarker{
             .source_name = std::string(source.source_id.value()),

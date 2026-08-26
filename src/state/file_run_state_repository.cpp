@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <backup/file_run_state_repository.hpp>
+#include <state/file_run_state_repository.hpp>
 
 #include <chrono>
 #include <thread>
@@ -56,7 +56,8 @@ class PollingCancellationWatch final : public ICancellationWatch {
 
 } // namespace
 
-FileRunStateRepository::FileRunStateRepository(ApplicationPaths paths) : paths_(std::move(paths)) {
+FileRunStateRepository::FileRunStateRepository(ApplicationPaths paths, IDurableFileOperations& files)
+    : paths_(std::move(paths)), files_(files) {
 }
 
 fs::path FileRunStateRepository::state_dir(const ProfileId& profile_id) const {
@@ -102,8 +103,8 @@ void FileRunStateRepository::write_skipped(
         .progress = {},
         .exit_code = 0,
     };
-    write_current_status(paths_.status_root, status);
-    write_history_entry(paths_.history_root, status);
+    write_current_status(files_, paths_.status_root, status);
+    write_history_entry(files_, paths_.history_root, status);
 }
 
 void FileRunStateRepository::write_success(
@@ -115,6 +116,7 @@ void FileRunStateRepository::write_success(
     std::size_t source_count
 ) {
     write_success_state(
+        files_,
         state_dir(profile.id),
         SuccessState{
             .date = date,
@@ -130,23 +132,23 @@ void FileRunStateRepository::write_success(
 }
 
 std::unique_ptr<IBackupRunCheckpointStore> FileRunStateRepository::checkpoints(const ProfileId& profile_id) {
-    return std::make_unique<JsonFileBackupRunCheckpointStore>(state_dir(profile_id));
+    return std::make_unique<JsonFileBackupRunCheckpointStore>(files_, state_dir(profile_id));
 }
 
 std::unique_ptr<IBackupRunEventSink> FileRunStateRepository::events(BackupRunStatusDescription description) {
-    return std::make_unique<RunStatusProjection>(BackupRunStatusContext{
-        .status_root = paths_.status_root,
-        .history_root = paths_.history_root,
-        .profile_name = std::move(description.profile_name),
-        .source_count = description.source_count,
-        .started_at = std::move(description.started_at),
-        .source_names = std::move(description.source_names),
-        .target_name = std::move(description.target_name),
-    });
+    return std::make_unique<RunStatusProjection>(files_, BackupRunStatusContext{
+                                                             .status_root = paths_.status_root,
+                                                             .history_root = paths_.history_root,
+                                                             .profile_name = std::move(description.profile_name),
+                                                             .source_count = description.source_count,
+                                                             .started_at = std::move(description.started_at),
+                                                             .source_names = std::move(description.source_names),
+                                                             .target_name = std::move(description.target_name),
+                                                         });
 }
 
 void FileRunStateRepository::request_cancel(const ProfileId& profile_id) {
-    write_cancel_request(state_dir(profile_id));
+    write_cancel_request(files_, state_dir(profile_id));
 }
 
 bool FileRunStateRepository::cancel_requested(const ProfileId& profile_id) const {
@@ -154,7 +156,7 @@ bool FileRunStateRepository::cancel_requested(const ProfileId& profile_id) const
 }
 
 void FileRunStateRepository::clear_cancel_request(const ProfileId& profile_id) {
-    btrfsbackup::clear_cancel_request(state_dir(profile_id));
+    btrfsbackup::clear_cancel_request(files_, state_dir(profile_id));
 }
 
 FileCancellationMonitor::FileCancellationMonitor(IRunStateRepository& state) : state_(state) {

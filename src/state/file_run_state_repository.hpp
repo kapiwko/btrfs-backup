@@ -10,13 +10,14 @@
 
 #include <backup/ports/cancellation_monitor.hpp>
 #include <backup/ports/run_state_repository.hpp>
-#include <config/application_config.hpp>
+#include <config/application_paths.hpp>
+#include <core/durable_file_operations.hpp>
 
 namespace btrfsbackup {
 
 class FileRunStateRepository final : public IRunStateRepository {
   public:
-    explicit FileRunStateRepository(ApplicationPaths paths);
+    FileRunStateRepository(ApplicationPaths paths, IDurableFileOperations& files);
 
     [[nodiscard]] bool last_success_matches(
         const Profile& profile,
@@ -47,6 +48,7 @@ class FileRunStateRepository final : public IRunStateRepository {
   private:
     [[nodiscard]] std::filesystem::path state_dir(const ProfileId& profile_id) const;
     ApplicationPaths paths_;
+    IDurableFileOperations& files_;
 };
 
 class FileCancellationMonitor final : public ICancellationMonitor {

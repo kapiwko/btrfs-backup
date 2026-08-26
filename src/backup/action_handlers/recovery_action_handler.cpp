@@ -8,19 +8,23 @@
 
 #include <backup/ports/btrfs_operations.hpp>
 #include <backup/ports/safe_directory.hpp>
+#include <core/durable_file_operations.hpp>
 #include <state/run_state.hpp>
 
 namespace btrfsbackup {
 
-RecoveryActionHandler::RecoveryActionHandler(IBtrfsOperations& btrfs) : btrfs_(btrfs) {
+RecoveryActionHandler::RecoveryActionHandler(IBtrfsOperations& btrfs, IDurableFileOperations& durable_files)
+    : btrfs_(btrfs), durable_files_(durable_files) {
 }
 
 RecoveryActionHandler::RecoveryActionHandler(
     IBtrfsOperations& btrfs,
+    IDurableFileOperations& durable_files,
     std::unique_ptr<ISafeDirectoryRoot> local_root,
     std::unique_ptr<ISafeDirectoryRoot> target_root
 )
     : btrfs_(btrfs),
+      durable_files_(durable_files),
       local_root_(std::move(local_root)),
       target_root_(std::move(target_root)) {
 }
@@ -43,7 +47,7 @@ void RecoveryActionHandler::handle(const RecoverPendingAction& action) {
         }
     }
     if (action.recovery.clear_marker) {
-        clear_pending_marker(action.recovery.marker_path, action.recovery.marker_path.parent_path());
+        clear_pending_marker(durable_files_, action.recovery.marker_path);
     }
 }
 

@@ -4,26 +4,29 @@
 
 #include <state/run_checkpoint_store.hpp>
 
-#include <sys/stat.h>
-
 #include <utility>
 
 #include <config/model/json_io.hpp>
-#include <platform/linux/file_io.hpp>
 #include <state/backup_run_serialization.hpp>
 
 namespace fs = std::filesystem;
 
 namespace btrfsbackup {
 
-JsonFileBackupRunCheckpointStore::JsonFileBackupRunCheckpointStore(fs::path profile_state_dir)
-    : profile_state_dir_(std::move(profile_state_dir)) {
+JsonFileBackupRunCheckpointStore::JsonFileBackupRunCheckpointStore(
+    IDurableFileOperations& files,
+    fs::path profile_state_dir
+)
+    : files_(files), profile_state_dir_(std::move(profile_state_dir)) {
 }
 
 void JsonFileBackupRunCheckpointStore::write_checkpoint(const BackupRunCheckpoint& checkpoint) {
-    fs::create_directories(profile_state_dir_);
-    chmod(profile_state_dir_.c_str(), 0700);
-    atomic_write(profile_state_dir_ / "checkpoint.json", dump_json(build_backup_run_checkpoint_json(checkpoint)), 0600);
+    files_.ensure_directory(profile_state_dir_, private_directory_permissions);
+    files_.write_atomically(
+        profile_state_dir_ / "checkpoint.json",
+        dump_json(build_backup_run_checkpoint_json(checkpoint)),
+        private_file_permissions
+    );
 }
 
 } // namespace btrfsbackup

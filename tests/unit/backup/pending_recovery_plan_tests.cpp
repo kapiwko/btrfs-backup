@@ -9,6 +9,7 @@
 
 #include <backup/pending_recovery_plan.hpp>
 #include <state/run_state.hpp>
+#include <platform/linux/file_io.hpp>
 
 #include "support/test_helpers.hpp"
 
@@ -53,7 +54,9 @@ void test_reads_pending_marker() {
     fs::path root = test_helpers::test_root("pending-recovery", "read");
     fs::path state_dir = root / "state" / "profiles" / "default";
 
+    btrfsbackup::PosixDurableFileOperations durable_files;
     btrfsbackup::write_pending_marker(
+        durable_files,
         state_dir,
         marker("root", "/local/root/root-2026-08-23T080000Z")
     );

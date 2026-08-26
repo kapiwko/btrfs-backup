@@ -15,6 +15,7 @@ target_link_libraries(btrfsbackup-state-model PUBLIC btrfsbackup-core)
 
 add_library(btrfsbackup-state STATIC
     backup_run_serialization.cpp
+    file_run_state_repository.cpp
     run_checkpoint_store.cpp
     run_state.cpp
     run_status_projection.cpp
@@ -23,11 +24,21 @@ add_library(btrfsbackup-state STATIC
 )
 
 target_compile_features(btrfsbackup-state PUBLIC cxx_std_20)
-target_include_directories(btrfsbackup-state PUBLIC ${PROJECT_SOURCE_DIR}/src)
+target_restricted_include_directories(btrfsbackup-state
+    PUBLIC_HEADERS
+        state/backup_run_serialization.hpp
+        state/file_run_state_repository.hpp
+        state/run_checkpoint_store.hpp
+        state/run_state.hpp
+        state/run_status_projection.hpp
+        state/status_service.hpp
+        state/status_writer.hpp
+)
 target_link_libraries(btrfsbackup-state
     PUBLIC
         btrfsbackup-config-model
-        btrfsbackup-platform-linux
+        btrfsbackup-backup-ports
+        btrfsbackup-core
         btrfsbackup-state-model
 )
 
