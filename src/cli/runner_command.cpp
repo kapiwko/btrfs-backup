@@ -288,7 +288,6 @@ class PosixBackupRunFactory final : public btrfsbackup::backup::IBackupRunFactor
         btrfsbackup::backup::IFileSystem& filesystem,
         btrfsbackup::backup::ICommandRunner& commands,
         btrfsbackup::backup::transfer::ITransferPipeline& transfers,
-        btrfsbackup::IDurableFileOperations& durable_files,
         btrfsbackup::backup::IPendingMarkerStore& pending_markers,
         const btrfsbackup::backup::ISafeDirectoryRootFactory& safe_directories
     )
@@ -296,7 +295,6 @@ class PosixBackupRunFactory final : public btrfsbackup::backup::IBackupRunFactor
           filesystem_(filesystem),
           commands_(commands),
           transfers_(transfers),
-          durable_files_(durable_files),
           pending_markers_(pending_markers),
           safe_directories_(safe_directories) {
     }
@@ -361,7 +359,6 @@ class PosixBackupRunFactory final : public btrfsbackup::backup::IBackupRunFactor
     btrfsbackup::backup::IFileSystem& filesystem_;
     btrfsbackup::backup::ICommandRunner& commands_;
     btrfsbackup::backup::transfer::ITransferPipeline& transfers_;
-    btrfsbackup::IDurableFileOperations& durable_files_;
     btrfsbackup::backup::IPendingMarkerStore& pending_markers_;
     const btrfsbackup::backup::ISafeDirectoryRootFactory& safe_directories_;
 };
@@ -381,7 +378,7 @@ class ProductionBackupComposition {
                   ? btrfsbackup::platform::linux::blkid_filesystem_uuid(source)
                   : found->second;
           }),
-          target_mounter_(mounts_, commands_), preflight_(mounts_, target_mounter_), pending_markers_(durable_files_), discovery_(btrfsbackup::platform::linux::read_btrfs_snapshot_metadata, pending_markers_, safe_directories_), run_factory_(btrfs_, filesystem_, commands_, transfers_, durable_files_, pending_markers_, safe_directories_), leases_(btrfsbackup::platform::linux::default_lock_root()), state_(config_.paths(), durable_files_), file_cancellation_monitor_(state_), cancellation_monitor_(file_cancellation_monitor_, cancellation), clock_(parsed.timestamp, parsed.today), run_ids_(*parsed.run_id), service_(profiles_, config_.paths(), preflight_, discovery_, plan_builder_, run_factory_, leases_, state_, state_, state_, state_, cancellation_monitor_, clock_, run_ids_) {
+          target_mounter_(mounts_, commands_), preflight_(mounts_, target_mounter_), pending_markers_(durable_files_), discovery_(btrfsbackup::platform::linux::read_btrfs_snapshot_metadata, pending_markers_, safe_directories_), run_factory_(btrfs_, filesystem_, commands_, transfers_, pending_markers_, safe_directories_), leases_(btrfsbackup::platform::linux::default_lock_root()), state_(config_.paths(), durable_files_), file_cancellation_monitor_(state_), cancellation_monitor_(file_cancellation_monitor_, cancellation), clock_(parsed.timestamp, parsed.today), run_ids_(*parsed.run_id), service_(profiles_, config_.paths(), preflight_, discovery_, plan_builder_, run_factory_, leases_, state_, state_, state_, state_, cancellation_monitor_, clock_, run_ids_) {
     }
 
     btrfsbackup::backup::BackupService& service() {

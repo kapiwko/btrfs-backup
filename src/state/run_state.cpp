@@ -13,6 +13,7 @@
 #include <string>
 
 #include <core/errors.hpp>
+#include <core/file_permissions.hpp>
 #include <core/identifiers.hpp>
 
 namespace fs = std::filesystem;
@@ -78,7 +79,7 @@ bool last_success_matches(
 }
 
 void write_success_state(
-    IDurableFileOperations& files,
+    IAtomicDocumentWriter& files,
     const fs::path& profile_state_dir,
     const SuccessState& state
 ) {
@@ -117,7 +118,7 @@ fs::path active_run_path(const fs::path& profile_state_dir) {
 }
 
 void write_active_run(
-    IDurableFileOperations& files,
+    IAtomicDocumentWriter& files,
     const fs::path& profile_state_dir,
     const RunId& run_id
 ) {
@@ -140,7 +141,7 @@ std::optional<RunId> active_run(const fs::path& profile_state_dir) {
 }
 
 void clear_active_run(
-    IDurableFileOperations& files,
+    IDurableDocumentRemover& files,
     const fs::path& profile_state_dir,
     const RunId& run_id
 ) {
@@ -151,7 +152,7 @@ void clear_active_run(
 }
 
 void write_cancel_request(
-    IDurableFileOperations& files,
+    IAtomicDocumentWriter& files,
     const fs::path& profile_state_dir,
     const RunId& run_id
 ) {
@@ -177,12 +178,12 @@ bool cancel_requested(const fs::path& profile_state_dir, const RunId& run_id) {
     return get_value(read_state_file(path), "run_id") == run_id.value();
 }
 
-void clear_cancel_request(IDurableFileOperations& files, const fs::path& profile_state_dir) {
+void clear_cancel_request(IDurableDocumentRemover& files, const fs::path& profile_state_dir) {
     files.remove_durably(cancel_request_path(profile_state_dir));
 }
 
 void clear_cancel_request(
-    IDurableFileOperations& files,
+    IDurableDocumentRemover& files,
     const fs::path& profile_state_dir,
     const RunId& run_id
 ) {
@@ -197,7 +198,7 @@ fs::path pending_marker_path(const fs::path& profile_state_dir, const std::strin
 }
 
 void write_pending_marker(
-    IDurableFileOperations& files,
+    IAtomicDocumentWriter& files,
     const fs::path& profile_state_dir,
     const btrfsbackup::backup::PendingMarker& marker
 ) {
@@ -228,7 +229,7 @@ std::string read_pending_marker_field(const fs::path& marker_path, const std::st
     return get_value(values, field);
 }
 
-void clear_pending_marker(IDurableFileOperations& files, const fs::path& marker_path) {
+void clear_pending_marker(IDurableDocumentRemover& files, const fs::path& marker_path) {
     files.remove_durably(marker_path);
 }
 

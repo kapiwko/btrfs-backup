@@ -14,7 +14,7 @@
 #include <backup/ports/run_event_sink_factory.hpp>
 #include <backup/ports/run_ledger.hpp>
 #include <config/application_paths.hpp>
-#include <core/durable_file_operations.hpp>
+#include <state/persistent_document_operations.hpp>
 
 namespace btrfsbackup::state {
 
@@ -23,7 +23,10 @@ class FileRunStateRepository final : public btrfsbackup::backup::IRunLedger,
                                      public btrfsbackup::backup::ICheckpointStoreFactory,
                                      public btrfsbackup::backup::ICancellationRequestStore {
   public:
-    FileRunStateRepository(btrfsbackup::config::ApplicationPaths paths, IDurableFileOperations& files);
+    FileRunStateRepository(
+        btrfsbackup::config::ApplicationPaths paths,
+        IPersistentDocumentOperations& files
+    );
 
     [[nodiscard]] bool last_success_matches(
         const btrfsbackup::config::Profile& profile,
@@ -61,7 +64,7 @@ class FileRunStateRepository final : public btrfsbackup::backup::IRunLedger,
   private:
     [[nodiscard]] std::filesystem::path state_dir(const ProfileId& profile_id) const;
     btrfsbackup::config::ApplicationPaths paths_;
-    IDurableFileOperations& files_;
+    IPersistentDocumentOperations& files_;
 };
 
 class FileCancellationMonitor final : public btrfsbackup::backup::ICancellationMonitor {

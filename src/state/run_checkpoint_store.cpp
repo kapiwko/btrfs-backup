@@ -7,6 +7,7 @@
 #include <utility>
 
 #include <config/model/json_io.hpp>
+#include <core/file_permissions.hpp>
 #include <state/serialization.hpp>
 
 namespace fs = std::filesystem;
@@ -14,7 +15,7 @@ namespace fs = std::filesystem;
 namespace btrfsbackup::state {
 
 JsonFileBackupRunCheckpointStore::JsonFileBackupRunCheckpointStore(
-    IDurableFileOperations& files,
+    IAtomicDocumentWriter& files,
     fs::path profile_state_dir
 )
     : files_(files), profile_state_dir_(std::move(profile_state_dir)) {

@@ -2,6 +2,13 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
+add_library(btrfsbackup-state-persistence-ports INTERFACE)
+target_compile_features(btrfsbackup-state-persistence-ports INTERFACE cxx_std_20)
+target_restricted_include_directories(btrfsbackup-state-persistence-ports
+    INTERFACE_HEADERS
+        state/persistent_document_operations.hpp
+)
+
 add_library(btrfsbackup-state-model STATIC
     run_status.cpp
 )
@@ -45,6 +52,7 @@ target_link_libraries(btrfsbackup-state
         btrfsbackup-backup-ports
         btrfsbackup-core
         btrfsbackup-state-model
+        btrfsbackup-state-persistence-ports
 )
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
