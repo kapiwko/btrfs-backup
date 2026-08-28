@@ -137,7 +137,7 @@ void validate_destination(const fs::path& path) {
 
 ConfigurationSaveError::ConfigurationSaveError(std::string message, RollbackResult rollback)
     : CodedValidationError(
-          rollback.complete ? "configuration.save_failed" : "configuration.rollback_incomplete",
+          rollback.complete ? ErrorCode::ConfigurationSaveFailed : ErrorCode::ConfigurationRollbackIncomplete,
           configuration_save_message(message, rollback)
       ),
       rollback_result(std::move(rollback)) {

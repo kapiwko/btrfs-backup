@@ -96,7 +96,7 @@ void require_success_with_error_code(const TransferResult& result) {
         require_transfer_success(result);
     } catch (const ValidationError& error) {
         const ErrorCode code = transfer_failure_error_code(result).value_or(ErrorCode::TransferFailed);
-        throw CodedValidationError(error_code_name(code), error.what());
+        throw CodedValidationError(code, error.what());
     }
 }
 

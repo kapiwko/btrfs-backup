@@ -599,8 +599,8 @@ void test_profile_installation_staging_failure_preserves_installed_artifacts() {
         rejected = true;
         expect_true(
             "transaction staging failure code",
-            error.error_code == "configuration.save_failed",
-            "unexpected error code: " + error.error_code
+            error.error_code == btrfsbackup::ErrorCode::ConfigurationSaveFailed,
+            "unexpected error code: " + btrfsbackup::error_code_name(error.error_code)
         );
         expect_true(
             "transaction staging rollback complete",
@@ -714,8 +714,8 @@ void test_profile_installation_reports_incomplete_rollback() {
     } catch (const btrfsbackup::platform::linux::ConfigurationSaveError& error) {
         expect_true(
             "transaction rollback error code",
-            error.error_code == "configuration.rollback_incomplete",
-            "unexpected error code: " + error.error_code
+            error.error_code == btrfsbackup::ErrorCode::ConfigurationRollbackIncomplete,
+            "unexpected error code: " + btrfsbackup::error_code_name(error.error_code)
         );
         expect_true(
             "transaction rollback retains primary error",
