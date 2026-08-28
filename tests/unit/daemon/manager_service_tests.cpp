@@ -7,7 +7,11 @@
 
 #include <config/model/json_io.hpp>
 #include <config/model/profile.hpp>
+#include <daemon/device_state_query_service.hpp>
+#include <daemon/history_query_service.hpp>
 #include <daemon/manager_service.hpp>
+#include <daemon/profile_query_service.hpp>
+#include <daemon/status_query_service.hpp>
 
 #include "support/validation_test_helpers.hpp"
 
@@ -104,7 +108,8 @@ void test_capabilities_and_profiles() {
         capabilities.at("deviceStateSchemaVersion") == 1,
         "manager omits the device-state schema"
     );
-    const btrfsbackup::config::Json profiles = service.list_profiles();
+    const btrfsbackup::daemon::ProfileQueryService profiles_service(root / "public");
+    const btrfsbackup::config::Json profiles = profiles_service.list_profiles();
     test_helpers::expect_eq("one public profile", std::to_string(profiles.size()), "1");
     test_helpers::expect_true("private profile field absent", !profiles.at(0).contains("private"), "private field leaked");
     test_helpers::expect_true(
@@ -131,10 +136,11 @@ void test_status_and_history_sanitization() {
         private_history("failed", "2026-08-25T11:00:00Z")
     );
 
-    btrfsbackup::daemon::ManagerService service(manager_paths(root));
-    const btrfsbackup::config::Json status = service.get_status("default");
+    const btrfsbackup::daemon::HistoryQueryService history_service(root / "history");
+    const btrfsbackup::daemon::StatusQueryService status_service(root / "status", history_service);
+    const btrfsbackup::config::Json status = status_service.get_status("default");
     test_helpers::expect_true("status private field absent", !status.contains("privateField"), "status field leaked");
-    const btrfsbackup::config::Json history = service.get_history_sanitized("default", 0, 1);
+    const btrfsbackup::config::Json history = history_service.get_history_sanitized("default", 0, 1);
     test_helpers::expect_eq("bounded history", std::to_string(history.size()), "1");
     test_helpers::expect_eq("newest history first", history.at(0).at("state"), "failed");
     test_helpers::expect_eq("generalized history error", history.at(0).at("errorCode"), "backup.failed");
@@ -142,21 +148,22 @@ void test_status_and_history_sanitization() {
     test_helpers::expect_true("history run id absent", !history.at(0).contains("runId"), "run id leaked");
     test_helpers::expect_validation_error(
         "history limit",
-        [&] { (void)service.get_history_sanitized("default", 0, 101); },
+        [&] { (void)history_service.get_history_sanitized("default", 0, 101); },
         "between 1 and 100"
     );
     fs::remove(root / "status" / "default" / "current.json");
-    test_helpers::expect_eq("restart fallback state", service.get_status("default").at("state"), "failed");
+    test_helpers::expect_eq("restart fallback state", status_service.get_status("default").at("state"), "failed");
     fs::remove_all(root);
 }
 
 void test_malformed_and_oversized_documents() {
     fs::path root = test_helpers::test_root("manager-service", "invalid-documents");
-    btrfsbackup::daemon::ManagerService service(manager_paths(root));
+    const btrfsbackup::daemon::HistoryQueryService history_service(root / "history");
+    const btrfsbackup::daemon::StatusQueryService status_service(root / "status", history_service);
     test_helpers::write_file(root / "status" / "default" / "current.json", "{invalid");
     test_helpers::expect_validation_error(
         "malformed status",
-        [&] { (void)service.get_status("default"); },
+        [&] { (void)status_service.get_status("default"); },
         "invalid manager JSON"
     );
     test_helpers::write_file(
@@ -165,7 +172,7 @@ void test_malformed_and_oversized_documents() {
     );
     test_helpers::expect_validation_error(
         "oversized status",
-        [&] { (void)service.get_status("default"); },
+        [&] { (void)status_service.get_status("default"); },
         "exceeds the size limit"
     );
     fs::remove_all(root);
@@ -177,7 +184,7 @@ void test_device_state_is_presentation_safe() {
         root / "etc" / "profiles" / "default" / "profile.json",
         btrfsbackup::config::dump_json(private_profile(root))
     );
-    btrfsbackup::daemon::ManagerService service(manager_paths(root));
+    const btrfsbackup::daemon::DeviceStateQueryService service(manager_paths(root));
     const btrfsbackup::config::Json state = service.get_device_state("default");
     test_helpers::expect_eq("connected target state", state.at("state"), "connected");
     test_helpers::expect_true("safe closed target", state.at("safeToRemove") == true, "target is not safe");
