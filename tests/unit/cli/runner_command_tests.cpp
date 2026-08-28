@@ -22,6 +22,7 @@
 #include <cli/backup_tool.hpp>
 #include <backup/backup_planner.hpp>
 #include <backup/default_backup_run_factory.hpp>
+#include <backup/linked_cancellation_monitor.hpp>
 #include <state/file_run_state_repository.hpp>
 #include <state/file_pending_marker_store.hpp>
 #include <config/profile_fingerprint.hpp>
@@ -413,7 +414,7 @@ int run_runner(
     );
     btrfsbackup::platform::linux::FileBackupRunLeaseProvider leases(fixture->lock_root);
     btrfsbackup::state::FileRunStateRepository state(fixture->application_config.paths(), durable_files);
-    btrfsbackup::state::FileCancellationMonitor cancellation_monitor(state);
+    btrfsbackup::state::FileCancellationMonitor file_cancellation_monitor(state);
     FixedClock clock;
     clock.timestamp = option_value(args, "--timestamp", clock.timestamp);
     clock.today = option_value(args, "--today", clock.today);
@@ -427,6 +428,10 @@ int run_runner(
     btrfsbackup::CancellationToken& cancellation = external_cancellation == nullptr
         ? owned_cancellation
         : *external_cancellation;
+    btrfsbackup::backup::LinkedCancellationMonitor cancellation_monitor(
+        file_cancellation_monitor,
+        cancellation
+    );
     btrfsbackup::backup::BackupService service(
         profiles,
         fixture->application_config.paths(),
@@ -438,8 +443,7 @@ int run_runner(
         state,
         cancellation_monitor,
         clock,
-        run_ids,
-        cancellation
+        run_ids
     );
     return btrfsbackup::cli::runner(args, output, service);
 }
