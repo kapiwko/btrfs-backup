@@ -6,8 +6,8 @@
 
 #include <nlohmann/json.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::config {
 
 using Json = nlohmann::ordered_json;
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::config

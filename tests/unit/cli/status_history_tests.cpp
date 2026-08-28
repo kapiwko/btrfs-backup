@@ -28,7 +28,7 @@ void test_history_without_directory_returns_empty_array() {
     fs::path root = test_root("history-empty");
     std::ostringstream output;
 
-    btrfsbackup::command::status_history(root / "history", {}, output);
+    btrfsbackup::cli::status_history(root / "history", {}, output);
 
     test_helpers::expect_eq("history without directory", output.str(), "[]\n");
     fs::remove_all(root);
@@ -39,7 +39,7 @@ void test_status_falls_back_to_last_json() {
     test_helpers::write_file(root / "history" / "default" / "last.json", "{\"profileId\":\"default\",\"state\":\"ok\"}\n");
     std::ostringstream output;
 
-    btrfsbackup::command::status_show(root / "status", root / "history", {}, output);
+    btrfsbackup::cli::status_show(root / "status", root / "history", {}, output);
 
     test_helpers::expect_eq("status fallback", output.str(), "{\"profileId\":\"default\",\"state\":\"ok\"}\n");
     fs::remove_all(root);
@@ -51,7 +51,7 @@ void test_list_profiles_from_json_files() {
     test_helpers::write_file(root / "profiles" / "default" / "profile.json", "{}\n");
     std::ostringstream output;
 
-    btrfsbackup::command::profile_list(root / "profiles.d", root / "profiles", output);
+    btrfsbackup::cli::profile_list(root / "profiles.d", root / "profiles", output);
 
     test_helpers::expect_eq("list profiles", output.str(), "beta\ndefault\n");
     fs::remove_all(root);
@@ -76,7 +76,7 @@ void test_public_status_human_format() {
     );
     std::ostringstream output;
 
-    btrfsbackup::command::status_show(root / "status", root / "history", {"--human"}, output);
+    btrfsbackup::cli::status_show(root / "status", root / "history", {"--human"}, output);
 
     test_helpers::expect_contains("public human status", output.str(), "default: running\n");
     test_helpers::expect_contains("public human source", output.str(), "  source: Home\n");
@@ -99,7 +99,7 @@ void test_private_history_human_format() {
     );
     std::ostringstream output;
 
-    btrfsbackup::command::status_show(root / "status", root / "history", {"--human"}, output);
+    btrfsbackup::cli::status_show(root / "status", root / "history", {"--human"}, output);
 
     test_helpers::expect_contains("private human status", output.str(), "Default backup: succeeded\n");
     test_helpers::expect_contains("private human phase", output.str(), "  phase: completed\n");
@@ -122,13 +122,13 @@ std::vector<std::string> required_status_api_fields() {
     };
 }
 
-btrfsbackup::RunStatus watch_sample_record() {
+btrfsbackup::state::RunStatus watch_sample_record() {
     return {
         .profile_id = btrfsbackup::ProfileId{"default"},
         .profile_name = "Default backup",
         .run_id = btrfsbackup::RunId{"20260823T024407Z-4298-30158"},
-        .state = btrfsbackup::RunState::Running,
-        .phase = btrfsbackup::RunPhase::Transferring,
+        .state = btrfsbackup::state::RunState::Running,
+        .phase = btrfsbackup::state::RunPhase::Transferring,
         .message = "Backup transfer is running.",
         .current_source_name = "home",
         .source_index = 1,
@@ -136,7 +136,7 @@ btrfsbackup::RunStatus watch_sample_record() {
         .started_at = "2026-08-23T02:44:07Z",
         .updated_at = "2026-08-23T02:45:07Z",
         .can_cancel = true,
-        .progress = btrfsbackup::RunProgress{
+        .progress = btrfsbackup::state::RunProgress{
             .processed_bytes = 4096,
             .estimated_bytes = 8192,
             .run_processed_bytes = 12288,
@@ -144,19 +144,19 @@ btrfsbackup::RunStatus watch_sample_record() {
             .eta_seconds = 2,
             .source_percent = 50,
             .overall_percent = 0,
-            .accuracy = btrfsbackup::ProgressAccuracy::Estimated,
+            .accuracy = btrfsbackup::state::ProgressAccuracy::Estimated,
         },
     };
 }
 
 void test_status_watch_json_emits_status_api_shape_once() {
     fs::path root = test_root("watch-json");
-    btrfsbackup::PosixDurableFileOperations durable_files;
-    btrfsbackup::write_current_status(durable_files, root / "status", watch_sample_record());
+    btrfsbackup::platform::linux::PosixDurableFileOperations durable_files;
+    btrfsbackup::state::write_current_status(durable_files, root / "status", watch_sample_record());
 
     std::ostringstream output;
     std::string previous;
-    bool emitted = btrfsbackup::command::status_watch_once(
+    bool emitted = btrfsbackup::cli::status_watch_once(
         root / "status",
         {"--profile", "default"},
         previous,
@@ -164,7 +164,7 @@ void test_status_watch_json_emits_status_api_shape_once() {
     );
 
     test_helpers::expect_true("watch emitted", emitted, "watch should emit current status");
-    btrfsbackup::Json data = btrfsbackup::Json::parse(output.str());
+    btrfsbackup::config::Json data = btrfsbackup::config::Json::parse(output.str());
     for (const std::string& field : required_status_api_fields()) {
         test_helpers::expect_true("watch field " + field, data.contains(field), "missing field " + field);
     }
@@ -174,7 +174,7 @@ void test_status_watch_json_emits_status_api_shape_once() {
     test_helpers::expect_true("watch progress", data.at("sourceProgress") == 50, "wrong source progress");
 
     std::ostringstream duplicate_output;
-    bool duplicate = btrfsbackup::command::status_watch_once(
+    bool duplicate = btrfsbackup::cli::status_watch_once(
         root / "status",
         {"--profile", "default"},
         previous,
@@ -194,7 +194,7 @@ void test_list_profiles_rejects_invalid_name() {
         "invalid profile",
         [&] {
             std::ostringstream output;
-            btrfsbackup::command::profile_list(root / "profiles.d", root / "profiles", output);
+            btrfsbackup::cli::profile_list(root / "profiles.d", root / "profiles", output);
         },
         "invalid profile id"
     );
@@ -208,7 +208,7 @@ void test_history_limit() {
     test_helpers::write_file(root / "history" / "default" / "last.json", "{\"id\":3}");
     std::ostringstream output;
 
-    btrfsbackup::command::status_history(root / "history", {"--limit", "1"}, output);
+    btrfsbackup::cli::status_history(root / "history", {"--limit", "1"}, output);
 
     test_helpers::expect_eq("history limit", output.str(), "[\n{\"id\":2}\n]\n");
     fs::remove_all(root);

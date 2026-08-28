@@ -32,7 +32,7 @@ bool same_path_text(const fs::path& left, const fs::path& right) {
     return normalized_path_string(left) == normalized_path_string(right);
 }
 
-bool newest_first(const btrfsbackup::SnapshotInfo& left, const btrfsbackup::SnapshotInfo& right) {
+bool newest_first(const btrfsbackup::backup::SnapshotInfo& left, const btrfsbackup::backup::SnapshotInfo& right) {
     if (left.timestamp != right.timestamp) {
         return left.timestamp > right.timestamp;
     }
@@ -44,7 +44,7 @@ bool newest_first(const btrfsbackup::SnapshotInfo& left, const btrfsbackup::Snap
 
 } // namespace
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup {
 
 IncrementalParentSelection select_incremental_parent(
     const std::string& source_id,
@@ -104,4 +104,4 @@ IncrementalParentSelection select_incremental_parent(
     return selection;
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup

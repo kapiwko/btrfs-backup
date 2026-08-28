@@ -10,7 +10,7 @@
 #include <config/model/profile.hpp>
 #include <core/identifiers.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::config {
 
 class IProfileRepository {
   public:
@@ -21,4 +21,4 @@ class IProfileRepository {
     [[nodiscard]] virtual std::string fingerprint(const Profile& profile) const = 0;
 };
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::config

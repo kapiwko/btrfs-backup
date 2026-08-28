@@ -17,7 +17,7 @@
 
 namespace fs = std::filesystem;
 
-namespace btrfsbackup {
+namespace btrfsbackup::platform::linux {
 
 namespace {
 
@@ -70,14 +70,14 @@ std::map<std::string, std::string> parse_config(const std::string& content) {
 
 } // namespace
 
-ApplicationConfig load_application_config(const fs::path& config_root) {
-    ApplicationPaths result = ApplicationConfig::defaults().paths();
+btrfsbackup::config::ApplicationConfig load_application_config(const fs::path& config_root) {
+    btrfsbackup::config::ApplicationPaths result = btrfsbackup::config::ApplicationConfig::defaults().paths();
     const bool system_config = fs::absolute(config_root).lexically_normal() == fs::path("/etc/btrfs-backup");
     const fs::path config_path = system_config ? fs::path("/etc/btrfs-backup.conf") : config_root / "btrfs-backup.conf";
     std::error_code error;
     fs::file_status status = fs::symlink_status(config_path, error);
     if (error == std::errc::no_such_file_or_directory || (!error && !fs::exists(status))) {
-        return ApplicationConfig(std::move(result));
+        return btrfsbackup::config::ApplicationConfig(std::move(result));
     }
     if (error) {
         throw ValidationError("cannot inspect application configuration " + config_path.string() + ": " + error.message());
@@ -100,7 +100,7 @@ ApplicationConfig load_application_config(const fs::path& config_root) {
         result.history_root = absolute_path(value->second, "HISTORY_ROOT");
     if (auto value = values.find("TARGET_MOUNT_ROOT"); value != values.end())
         result.target_mount_root = absolute_path(value->second, "TARGET_MOUNT_ROOT");
-    return ApplicationConfig(std::move(result));
+    return btrfsbackup::config::ApplicationConfig(std::move(result));
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::platform::linux

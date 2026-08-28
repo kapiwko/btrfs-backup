@@ -44,49 +44,49 @@ namespace fs = std::filesystem;
 
 namespace {
 
-std::string action_name(btrfsbackup::BackupRunActionKind kind) {
+std::string action_name(btrfsbackup::backup::BackupRunActionKind kind) {
     return std::to_string(static_cast<int>(kind));
 }
 
-class RecordingActionHandler final : public btrfsbackup::IBackupRunActionHandler {
+class RecordingActionHandler final : public btrfsbackup::backup::IBackupRunActionHandler {
   public:
-    btrfsbackup::PosixDurableFileOperations durable_files;
+    btrfsbackup::platform::linux::PosixDurableFileOperations durable_files;
     std::vector<std::string> calls;
     std::vector<std::string> local_retention_deletes;
     std::vector<std::string> remote_retention_deletes;
     std::vector<std::string> recovered_pending_paths;
-    btrfsbackup::BackupRunActionKind throw_on = btrfsbackup::BackupRunActionKind::SelectParent;
+    btrfsbackup::backup::BackupRunActionKind throw_on = btrfsbackup::backup::BackupRunActionKind::SelectParent;
     bool should_throw = false;
     bool write_pending_on_snapshot = false;
     fs::path pending_state_dir;
     std::string pending_timestamp = "2026-08-23T08:00:00Z";
 
     void handle(
-        const btrfsbackup::BackupRunAction& action,
-        const btrfsbackup::BackupRunPlan& plan,
+        const btrfsbackup::backup::BackupRunAction& action,
+        const btrfsbackup::backup::BackupRunPlan& plan,
         btrfsbackup::CancellationToken&
     ) override {
-        const btrfsbackup::BackupRunActionKind kind = btrfsbackup::backup_run_action_kind(action);
+        const btrfsbackup::backup::BackupRunActionKind kind = btrfsbackup::backup::backup_run_action_kind(action);
         calls.push_back(
-            std::string(btrfsbackup::backup_run_action_source_id(action).value()) + ":" + action_name(kind)
+            std::string(btrfsbackup::backup::backup_run_action_source_id(action).value()) + ":" + action_name(kind)
         );
-        if (const auto* retention = std::get_if<btrfsbackup::ApplyLocalRetentionAction>(&action)) {
-            for (const btrfsbackup::SnapshotInfo& snapshot : retention->plan.delete_snapshots) {
+        if (const auto* retention = std::get_if<btrfsbackup::backup::ApplyLocalRetentionAction>(&action)) {
+            for (const btrfsbackup::backup::SnapshotInfo& snapshot : retention->plan.delete_snapshots) {
                 local_retention_deletes.push_back(snapshot.path.string());
             }
         }
-        if (const auto* retention = std::get_if<btrfsbackup::ApplyRemoteRetentionAction>(&action)) {
-            for (const btrfsbackup::SnapshotInfo& snapshot : retention->plan.delete_snapshots) {
+        if (const auto* retention = std::get_if<btrfsbackup::backup::ApplyRemoteRetentionAction>(&action)) {
+            for (const btrfsbackup::backup::SnapshotInfo& snapshot : retention->plan.delete_snapshots) {
                 remote_retention_deletes.push_back(snapshot.path.string());
             }
         }
-        if (const auto* recovery = std::get_if<btrfsbackup::RecoverPendingAction>(&action);
+        if (const auto* recovery = std::get_if<btrfsbackup::backup::RecoverPendingAction>(&action);
             recovery != nullptr && recovery->recovery.delete_local_snapshot) {
             recovered_pending_paths.push_back(recovery->recovery.local_snapshot_path.string());
         }
-        if (const auto* snapshot = std::get_if<btrfsbackup::CreateSnapshotAction>(&action);
+        if (const auto* snapshot = std::get_if<btrfsbackup::backup::CreateSnapshotAction>(&action);
             write_pending_on_snapshot && snapshot != nullptr) {
-            btrfsbackup::write_pending_marker(
+            btrfsbackup::state::write_pending_marker(
                 durable_files,
                 pending_state_dir,
                 {
@@ -104,11 +104,11 @@ class RecordingActionHandler final : public btrfsbackup::IBackupRunActionHandler
     }
 };
 
-class ConfigurableTransferPipeline final : public btrfsbackup::ITransferPipeline {
+class ConfigurableTransferPipeline final : public btrfsbackup::backup::transfer::ITransferPipeline {
   public:
-    btrfsbackup::PosixDurableFileOperations durable_files;
-    std::vector<btrfsbackup::TransferPipelinePlan> plans;
-    btrfsbackup::TransferResult next_result{
+    btrfsbackup::platform::linux::PosixDurableFileOperations durable_files;
+    std::vector<btrfsbackup::backup::transfer::TransferPipelinePlan> plans;
+    btrfsbackup::backup::transfer::TransferResult next_result{
         .producer = {
             .started = true,
             .exit_code = 0,
@@ -121,14 +121,14 @@ class ConfigurableTransferPipeline final : public btrfsbackup::ITransferPipeline
     };
     std::optional<fs::path> request_cancel_path;
 
-    btrfsbackup::TransferResult run(
-        const btrfsbackup::TransferPipelinePlan& plan,
-        btrfsbackup::ITransferEventSink& events,
+    btrfsbackup::backup::transfer::TransferResult run(
+        const btrfsbackup::backup::transfer::TransferPipelinePlan& plan,
+        btrfsbackup::backup::transfer::ITransferEventSink& events,
         btrfsbackup::CancellationToken& cancellation
     ) override {
         plans.push_back(plan);
         events.on_transfer_event({
-            .kind = btrfsbackup::TransferEventKind::Progress,
+            .kind = btrfsbackup::backup::transfer::TransferEventKind::Progress,
             .bytes_transferred = 1024,
             .bytes_produced = 1024,
             .delta_bytes = 1024,
@@ -136,7 +136,7 @@ class ConfigurableTransferPipeline final : public btrfsbackup::ITransferPipeline
             .speed_bps = 1024,
         });
         if (request_cancel_path.has_value()) {
-            btrfsbackup::write_cancel_request(durable_files, *request_cancel_path);
+            btrfsbackup::state::write_cancel_request(durable_files, *request_cancel_path);
             for (int i = 0; i < 20 && !cancellation.cancellation_requested(); ++i) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(50));
             }
@@ -146,14 +146,14 @@ class ConfigurableTransferPipeline final : public btrfsbackup::ITransferPipeline
     }
 };
 
-class BlockingTransferPipeline final : public btrfsbackup::ITransferPipeline {
+class BlockingTransferPipeline final : public btrfsbackup::backup::transfer::ITransferPipeline {
   public:
     std::atomic_bool entered = false;
     std::atomic_bool allow_finish = false;
 
-    btrfsbackup::TransferResult run(
-        const btrfsbackup::TransferPipelinePlan&,
-        btrfsbackup::ITransferEventSink&,
+    btrfsbackup::backup::transfer::TransferResult run(
+        const btrfsbackup::backup::transfer::TransferPipelinePlan&,
+        btrfsbackup::backup::transfer::ITransferEventSink&,
         btrfsbackup::CancellationToken&
     ) override {
         entered.store(true);
@@ -174,13 +174,13 @@ class BlockingTransferPipeline final : public btrfsbackup::ITransferPipeline {
     }
 };
 
-class CancellationAwareTransferPipeline final : public btrfsbackup::ITransferPipeline {
+class CancellationAwareTransferPipeline final : public btrfsbackup::backup::transfer::ITransferPipeline {
   public:
     std::atomic_bool entered = false;
 
-    btrfsbackup::TransferResult run(
-        const btrfsbackup::TransferPipelinePlan&,
-        btrfsbackup::ITransferEventSink&,
+    btrfsbackup::backup::transfer::TransferResult run(
+        const btrfsbackup::backup::transfer::TransferPipelinePlan&,
+        btrfsbackup::backup::transfer::ITransferEventSink&,
         btrfsbackup::CancellationToken& cancellation
     ) override {
         entered.store(true);
@@ -211,9 +211,9 @@ void wait_until_entered(BlockingTransferPipeline& pipeline) {
 
 class MetadataMap {
   public:
-    std::map<std::string, btrfsbackup::SnapshotMetadata> values;
+    std::map<std::string, btrfsbackup::backup::SnapshotMetadata> values;
 
-    std::optional<btrfsbackup::SnapshotMetadata> read(const fs::path& path) const {
+    std::optional<btrfsbackup::backup::SnapshotMetadata> read(const fs::path& path) const {
         auto found = values.find(path.string());
         if (found == values.end()) {
             return std::nullopt;
@@ -228,7 +228,7 @@ void add_snapshot_metadata(
     const std::string& uuid,
     const std::string& received_uuid = ""
 ) {
-    metadata.values[path.string()] = btrfsbackup::SnapshotMetadata{
+    metadata.values[path.string()] = btrfsbackup::backup::SnapshotMetadata{
         .is_subvolume = true,
         .readonly = true,
         .uuid = uuid,
@@ -236,8 +236,8 @@ void add_snapshot_metadata(
     };
 }
 
-btrfsbackup::Profile test_profile(const fs::path& root) {
-    btrfsbackup::Profile profile{btrfsbackup::ProfileId{"default"}};
+btrfsbackup::config::Profile test_profile(const fs::path& root) {
+    btrfsbackup::config::Profile profile{btrfsbackup::ProfileId{"default"}};
     profile.name = "Default backup";
     profile.enabled = true;
     profile.target.device = "/dev/disk/by-uuid/11111111-2222-3333-4444-555555555555";
@@ -254,7 +254,7 @@ btrfsbackup::Profile test_profile(const fs::path& root) {
     profile.settings.keep_failed_local_snapshot = false;
     profile.settings.remote_retention = 2;
     profile.settings.local_retention = 2;
-    btrfsbackup::ProfileSource source{btrfsbackup::SourceId{"root"}};
+    btrfsbackup::config::ProfileSource source{btrfsbackup::SourceId{"root"}};
     source.name = "System";
     source.subvolume = (root / "source" / "root").string();
     source.local_snapshot_dir = (root / "source" / ".snapshots" / "root").string();
@@ -265,7 +265,7 @@ btrfsbackup::Profile test_profile(const fs::path& root) {
     return profile;
 }
 
-btrfsbackup::ApplicationPaths test_application_paths(const fs::path& root) {
+btrfsbackup::config::ApplicationPaths test_application_paths(const fs::path& root) {
     return {
         .state_root = root / "state",
         .status_root = root / "status",
@@ -274,8 +274,8 @@ btrfsbackup::ApplicationPaths test_application_paths(const fs::path& root) {
     };
 }
 
-void add_home_source(btrfsbackup::Profile& profile, const fs::path& root) {
-    btrfsbackup::ProfileSource source{btrfsbackup::SourceId{"home"}};
+void add_home_source(btrfsbackup::config::Profile& profile, const fs::path& root) {
+    btrfsbackup::config::ProfileSource source{btrfsbackup::SourceId{"home"}};
     source.name = "Home";
     source.subvolume = (root / "source" / "home").string();
     source.local_snapshot_dir = (root / "source" / ".snapshots" / "home").string();
@@ -285,7 +285,7 @@ void add_home_source(btrfsbackup::Profile& profile, const fs::path& root) {
     profile.sources.push_back(std::move(source));
 }
 
-void write_profile(const fs::path& config_root, const btrfsbackup::Profile& profile) {
+void write_profile(const fs::path& config_root, const btrfsbackup::config::Profile& profile) {
     fs::path config_path = config_root / "btrfs-backup.conf";
     if (!fs::exists(config_path)) {
         test_helpers::write_file(
@@ -295,7 +295,7 @@ void write_profile(const fs::path& config_root, const btrfsbackup::Profile& prof
         chmod(config_path.c_str(), 0600);
     }
     fs::path profile_path = config_root / "profiles" / profile.id.value() / "profile.json";
-    test_helpers::write_file(profile_path, btrfsbackup::profile_to_json(profile).dump(2));
+    test_helpers::write_file(profile_path, btrfsbackup::config::profile_to_json(profile).dump(2));
     chmod(profile_path.c_str(), 0600);
 }
 
@@ -310,10 +310,10 @@ void write_application_config(const fs::path& config_root, const fs::path& root)
     chmod(config_path.c_str(), 0600);
 }
 
-void write_mountinfo(const fs::path& path, const btrfsbackup::Profile& profile) {
+void write_mountinfo(const fs::path& path, const btrfsbackup::config::Profile& profile) {
     std::string content;
     int mount_id = 21;
-    for (const btrfsbackup::ProfileSource& source : profile.sources) {
+    for (const btrfsbackup::config::ProfileSource& source : profile.sources) {
         content += std::to_string(mount_id++) + " 31 0:20 / " + fs::path(source.subvolume).string() + " rw,relatime - btrfs /dev/source rw\n";
         content += std::to_string(mount_id++) + " 31 0:20 / " + fs::path(source.local_snapshot_dir).string() + " rw,relatime - btrfs /dev/source rw\n";
     }
@@ -321,7 +321,7 @@ void write_mountinfo(const fs::path& path, const btrfsbackup::Profile& profile) 
     test_helpers::write_file(path, content);
 }
 
-class FixedClock final : public btrfsbackup::IClock {
+class FixedClock final : public btrfsbackup::backup::IClock {
   public:
     std::string timestamp = "2026-08-23T080000Z";
     std::string today = "2026-08-23";
@@ -337,7 +337,7 @@ class FixedClock final : public btrfsbackup::IClock {
     }
 };
 
-class FixedRunIdGenerator final : public btrfsbackup::IRunIdGenerator {
+class FixedRunIdGenerator final : public btrfsbackup::backup::IRunIdGenerator {
   public:
     btrfsbackup::RunId run_id{"20260823T080000Z-shadow"};
     btrfsbackup::RunId generate(const std::string&) override {
@@ -346,11 +346,11 @@ class FixedRunIdGenerator final : public btrfsbackup::IRunIdGenerator {
 };
 
 struct ServiceFixture {
-    btrfsbackup::IBackupRunActionHandler& action_handler;
-    btrfsbackup::ITransferPipeline& transfer_pipeline;
+    btrfsbackup::backup::IBackupRunActionHandler& action_handler;
+    btrfsbackup::backup::transfer::ITransferPipeline& transfer_pipeline;
     fs::path lock_root;
-    btrfsbackup::ApplicationConfig application_config;
-    btrfsbackup::SnapshotMetadataReader snapshot_metadata_reader = nullptr;
+    btrfsbackup::config::ApplicationConfig application_config;
+    btrfsbackup::backup::SnapshotMetadataReader snapshot_metadata_reader = nullptr;
 };
 
 std::string option_value(const std::vector<std::string>& args, const std::string& option, std::string fallback = {}) {
@@ -380,40 +380,40 @@ int run_runner(
     btrfsbackup::CancellationToken* external_cancellation = nullptr
 ) {
     if (fixture == nullptr) {
-        return btrfsbackup::command::runner(config_root, args, output);
+        return btrfsbackup::cli::runner(config_root, args, output);
     }
     const btrfsbackup::ProfileId profile_id{option_value(args, "--profile", "default")};
-    const btrfsbackup::Profile profile = btrfsbackup::load_profile_by_id(
+    const btrfsbackup::config::Profile profile = btrfsbackup::platform::linux::load_profile_by_id(
         config_root,
         std::string(profile_id.value())
     );
     const fs::path mountinfo = option_value(args, "--mountinfo", "/proc/self/mountinfo");
-    btrfsbackup::FileProfileRepository profiles(config_root, fixture->application_config);
-    btrfsbackup::LinuxMountInspector mounts(mountinfo, [target_uuid = profile.target.btrfs_uuid](const std::string& source) {
+    btrfsbackup::platform::linux::FileProfileRepository profiles(config_root, fixture->application_config);
+    btrfsbackup::platform::linux::LinuxMountInspector mounts(mountinfo, [target_uuid = profile.target.btrfs_uuid](const std::string& source) {
         return source.find("/dev/mapper/") == 0 ? target_uuid : "source-btrfs-uuid";
     });
-    btrfsbackup::PosixCommandRunner commands;
-    btrfsbackup::SystemdTargetManager target_mounter(mounts, commands);
+    btrfsbackup::platform::linux::PosixCommandRunner commands;
+    btrfsbackup::platform::linux::SystemdTargetManager target_mounter(mounts, commands);
     test_support::FakeSafeDirectoryRootFactory safe_directories;
-    btrfsbackup::PosixDurableFileOperations durable_files;
-    btrfsbackup::FilePendingMarkerStore pending_markers(durable_files);
-    btrfsbackup::BackupPlanner planner(
+    btrfsbackup::platform::linux::PosixDurableFileOperations durable_files;
+    btrfsbackup::state::FilePendingMarkerStore pending_markers(durable_files);
+    btrfsbackup::backup::BackupPlanner planner(
         fixture->snapshot_metadata_reader
             ? fixture->snapshot_metadata_reader
-            : btrfsbackup::SnapshotMetadataReader{[](const fs::path&) {
-                  return std::optional<btrfsbackup::SnapshotMetadata>{};
+            : btrfsbackup::backup::SnapshotMetadataReader{[](const fs::path&) {
+                  return std::optional<btrfsbackup::backup::SnapshotMetadata>{};
               }},
         pending_markers,
         safe_directories
     );
-    btrfsbackup::DefaultBackupRunFactory run_factory(
+    btrfsbackup::backup::DefaultBackupRunFactory run_factory(
         fixture->action_handler,
         fixture->transfer_pipeline,
         safe_directories
     );
-    btrfsbackup::FileBackupRunLeaseProvider leases(fixture->lock_root);
-    btrfsbackup::FileRunStateRepository state(fixture->application_config.paths(), durable_files);
-    btrfsbackup::FileCancellationMonitor cancellation_monitor(state);
+    btrfsbackup::platform::linux::FileBackupRunLeaseProvider leases(fixture->lock_root);
+    btrfsbackup::state::FileRunStateRepository state(fixture->application_config.paths(), durable_files);
+    btrfsbackup::state::FileCancellationMonitor cancellation_monitor(state);
     FixedClock clock;
     clock.timestamp = option_value(args, "--timestamp", clock.timestamp);
     clock.today = option_value(args, "--today", clock.today);
@@ -427,7 +427,7 @@ int run_runner(
     btrfsbackup::CancellationToken& cancellation = external_cancellation == nullptr
         ? owned_cancellation
         : *external_cancellation;
-    btrfsbackup::BackupService service(
+    btrfsbackup::backup::BackupService service(
         profiles,
         mounts,
         target_mounter,
@@ -440,27 +440,27 @@ int run_runner(
         run_ids,
         cancellation
     );
-    return btrfsbackup::command::runner(args, output, service);
+    return btrfsbackup::cli::runner(args, output, service);
 }
 
 int run_runner(const fs::path& config_root, const std::vector<std::string>& args, std::ostream& output) {
-    return btrfsbackup::command::runner(config_root, args, output);
+    return btrfsbackup::cli::runner(config_root, args, output);
 }
 
-std::string profile_fingerprint(const fs::path& config_root, const btrfsbackup::Profile& profile) {
-    return btrfsbackup::compute_config_fingerprint(
+std::string profile_fingerprint(const fs::path& config_root, const btrfsbackup::config::Profile& profile) {
+    return btrfsbackup::config::compute_config_fingerprint(
         "2.0.0",
         config_root / "profiles" / profile.id.value() / "profile.json",
         {}
     );
 }
 
-void write_matching_last_success(const fs::path& config_root, const btrfsbackup::Profile& profile) {
-    btrfsbackup::PosixDurableFileOperations durable_files;
-    btrfsbackup::write_success_state(
+void write_matching_last_success(const fs::path& config_root, const btrfsbackup::config::Profile& profile) {
+    btrfsbackup::platform::linux::PosixDurableFileOperations durable_files;
+    btrfsbackup::state::write_success_state(
         durable_files,
         config_root.parent_path() / "state" / "profiles" / profile.id.value(),
-        btrfsbackup::SuccessState{
+        btrfsbackup::state::SuccessState{
             .date = "2026-08-23",
             .timestamp = "2026-08-23T08:00:00+02:00",
             .run_id = "20260823T080000Z-previous",
@@ -480,7 +480,7 @@ void test_runner_plan_outputs_shadow_json() {
     fs::create_directories(root / "target" / "default" / "snapshots" / "root");
     fs::create_directories(root / "target" / "default" / ".incoming");
 
-    btrfsbackup::Profile profile = test_profile(root);
+    btrfsbackup::config::Profile profile = test_profile(root);
     fs::path config_root = root / "config";
     fs::path mountinfo = root / "mountinfo";
     write_profile(config_root, profile);
@@ -509,7 +509,7 @@ void test_runner_plan_outputs_shadow_json() {
         output
     );
 
-    btrfsbackup::Json json = btrfsbackup::Json::parse(output.str());
+    btrfsbackup::config::Json json = btrfsbackup::config::Json::parse(output.str());
     test_helpers::expect_eq("runner result", std::to_string(result), "0");
     test_helpers::expect_eq("runner mode", json.at("mode").get<std::string>(), "shadow-plan");
     test_helpers::expect_eq("runner profile", json.at("profileId").get<std::string>(), "default");
@@ -535,7 +535,7 @@ void test_runner_plan_validates_target_mount() {
     fs::create_directories(root / "target" / "default" / "snapshots" / "root");
     fs::create_directories(root / "target" / "default" / ".incoming");
 
-    btrfsbackup::Profile profile = test_profile(root);
+    btrfsbackup::config::Profile profile = test_profile(root);
     fs::path config_root = root / "config";
     fs::path mountinfo = root / "mountinfo";
     write_profile(config_root, profile);
@@ -574,15 +574,15 @@ void test_runner_execute_rejects_busy_profile_before_target_access() {
     fs::create_directories(root / "target" / "default" / "snapshots" / "root");
     fs::create_directories(root / "target" / "default" / ".incoming");
 
-    btrfsbackup::Profile profile = test_profile(root);
+    btrfsbackup::config::Profile profile = test_profile(root);
     fs::path config_root = root / "config";
     fs::path mountinfo = root / "mountinfo";
     fs::path lock_root = root / "locks";
     write_profile(config_root, profile);
     write_mountinfo(mountinfo, profile);
 
-    btrfsbackup::FileLock active_profile_lock(
-        btrfsbackup::profile_lock_path(lock_root, std::string(profile.id.value()))
+    btrfsbackup::platform::linux::FileLock active_profile_lock(
+        btrfsbackup::platform::linux::profile_lock_path(lock_root, std::string(profile.id.value()))
     );
     test_helpers::expect_true(
         "active profile lock acquired",
@@ -596,7 +596,7 @@ void test_runner_execute_rejects_busy_profile_before_target_access() {
         .action_handler = action_handler,
         .transfer_pipeline = transfer_pipeline,
         .lock_root = lock_root,
-        .application_config = btrfsbackup::ApplicationConfig(test_application_paths(root)),
+        .application_config = btrfsbackup::config::ApplicationConfig(test_application_paths(root)),
     };
     std::ostringstream output;
     int result = run_runner(
@@ -612,7 +612,7 @@ void test_runner_execute_rejects_busy_profile_before_target_access() {
         &services
     );
 
-    btrfsbackup::Json json = btrfsbackup::Json::parse(output.str());
+    btrfsbackup::config::Json json = btrfsbackup::config::Json::parse(output.str());
     test_helpers::expect_eq("profile busy result", std::to_string(result), "1");
     test_helpers::expect_true("profile busy flag", json.at("busy").get<bool>(), "runner should report busy");
     test_helpers::expect_eq(
@@ -639,14 +639,14 @@ void test_runner_execute_serializes_shared_target_but_allows_another_target() {
     fs::create_directories(root / "target" / "default" / "snapshots" / "root");
     fs::create_directories(root / "target" / "default" / ".incoming");
 
-    btrfsbackup::Profile active_profile = test_profile(root);
-    btrfsbackup::Profile shared_target_profile = test_profile(root);
+    btrfsbackup::config::Profile active_profile = test_profile(root);
+    btrfsbackup::config::Profile shared_target_profile = test_profile(root);
     shared_target_profile.id = btrfsbackup::ProfileId{"shared"};
     shared_target_profile.name = "Shared target";
     shared_target_profile.target.mount_point = (root / "target" / "shared").string();
     shared_target_profile.paths.remote_root = (root / "target" / "shared" / "snapshots").string();
     shared_target_profile.paths.incoming_root = (root / "target" / "shared" / ".incoming").string();
-    btrfsbackup::Profile other_target_profile = test_profile(root);
+    btrfsbackup::config::Profile other_target_profile = test_profile(root);
     other_target_profile.id = btrfsbackup::ProfileId{"other"};
     other_target_profile.name = "Other target";
     other_target_profile.target.luks_uuid = "33333333-4444-5555-6666-777777777777";
@@ -677,7 +677,7 @@ void test_runner_execute_serializes_shared_target_but_allows_another_target() {
         .action_handler = active_action_handler,
         .transfer_pipeline = active_transfer_pipeline,
         .lock_root = lock_root,
-        .application_config = btrfsbackup::ApplicationConfig(test_application_paths(root)),
+        .application_config = btrfsbackup::config::ApplicationConfig(test_application_paths(root)),
     };
     std::ostringstream active_output;
     int active_result = -1;
@@ -720,7 +720,7 @@ void test_runner_execute_serializes_shared_target_but_allows_another_target() {
         .action_handler = same_profile_action_handler,
         .transfer_pipeline = same_profile_transfer_pipeline,
         .lock_root = lock_root,
-        .application_config = btrfsbackup::ApplicationConfig(test_application_paths(root)),
+        .application_config = btrfsbackup::config::ApplicationConfig(test_application_paths(root)),
     };
     std::ostringstream same_profile_output;
     int same_profile_result = run_runner(
@@ -736,7 +736,7 @@ void test_runner_execute_serializes_shared_target_but_allows_another_target() {
         &same_profile_services
     );
 
-    btrfsbackup::Json same_profile_json = btrfsbackup::Json::parse(same_profile_output.str());
+    btrfsbackup::config::Json same_profile_json = btrfsbackup::config::Json::parse(same_profile_output.str());
     test_helpers::expect_eq("concurrent profile result", std::to_string(same_profile_result), "1");
     test_helpers::expect_eq(
         "concurrent profile error",
@@ -745,7 +745,7 @@ void test_runner_execute_serializes_shared_target_but_allows_another_target() {
     );
     test_helpers::expect_true("concurrent profile effects", same_profile_action_handler.calls.empty(), "second runner must not execute actions");
     test_helpers::expect_true("concurrent profile transfers", same_profile_transfer_pipeline.plans.empty(), "second runner must not transfer");
-    btrfsbackup::Json active_status = btrfsbackup::load_json_file(
+    btrfsbackup::config::Json active_status = btrfsbackup::config::load_json_file(
         root / "status" / active_profile.id.value() / "current.json"
     );
     test_helpers::expect_eq(
@@ -760,7 +760,7 @@ void test_runner_execute_serializes_shared_target_but_allows_another_target() {
         .action_handler = shared_action_handler,
         .transfer_pipeline = shared_transfer_pipeline,
         .lock_root = lock_root,
-        .application_config = btrfsbackup::ApplicationConfig(test_application_paths(root)),
+        .application_config = btrfsbackup::config::ApplicationConfig(test_application_paths(root)),
     };
     std::ostringstream shared_output;
     int shared_result = run_runner(
@@ -776,7 +776,7 @@ void test_runner_execute_serializes_shared_target_but_allows_another_target() {
         &shared_services
     );
 
-    btrfsbackup::Json shared_json = btrfsbackup::Json::parse(shared_output.str());
+    btrfsbackup::config::Json shared_json = btrfsbackup::config::Json::parse(shared_output.str());
     test_helpers::expect_eq("target busy result", std::to_string(shared_result), "1");
     test_helpers::expect_eq(
         "target busy error",
@@ -796,7 +796,7 @@ void test_runner_execute_serializes_shared_target_but_allows_another_target() {
         .action_handler = other_action_handler,
         .transfer_pipeline = other_transfer_pipeline,
         .lock_root = lock_root,
-        .application_config = btrfsbackup::ApplicationConfig(test_application_paths(root)),
+        .application_config = btrfsbackup::config::ApplicationConfig(test_application_paths(root)),
     };
     std::ostringstream other_output;
     int other_result = run_runner(
@@ -846,7 +846,7 @@ void test_runner_execute_uses_injected_services_and_writes_state() {
     fs::create_directories(root / "target" / "default" / "snapshots" / "root");
     fs::create_directories(root / "target" / "default" / ".incoming");
 
-    btrfsbackup::Profile profile = test_profile(root);
+    btrfsbackup::config::Profile profile = test_profile(root);
     fs::path config_root = root / "config";
     fs::path mountinfo = root / "mountinfo";
     write_profile(config_root, profile);
@@ -858,7 +858,7 @@ void test_runner_execute_uses_injected_services_and_writes_state() {
         .action_handler = action_handler,
         .transfer_pipeline = transfer_pipeline,
         .lock_root = root / "locks",
-        .application_config = btrfsbackup::ApplicationConfig(test_application_paths(root)),
+        .application_config = btrfsbackup::config::ApplicationConfig(test_application_paths(root)),
     };
 
     std::ostringstream output;
@@ -887,7 +887,7 @@ void test_runner_execute_uses_injected_services_and_writes_state() {
         &services
     );
 
-    btrfsbackup::Json json = btrfsbackup::Json::parse(output.str());
+    btrfsbackup::config::Json json = btrfsbackup::config::Json::parse(output.str());
     test_helpers::expect_eq("execute result", std::to_string(result), "0");
     test_helpers::expect_eq("execute mode", json.at("mode").get<std::string>(), "cpp-execute");
     test_helpers::expect_true("execute completed", json.at("completed").get<bool>(), "run should complete");
@@ -905,12 +905,12 @@ void test_runner_execute_uses_injected_services_and_writes_state() {
     test_helpers::expect_true("history exists", fs::is_regular_file(history), "missing history");
     test_helpers::expect_true(
         "current succeeded",
-        btrfsbackup::load_json_file(current).at("state") == "succeeded",
+        btrfsbackup::config::load_json_file(current).at("state") == "succeeded",
         "current status should be succeeded"
     );
     test_helpers::expect_true(
         "last success matches",
-        btrfsbackup::last_success_matches(
+        btrfsbackup::state::last_success_matches(
             root / "state" / "profiles" / "default",
             "2026-08-23",
             profile.target.luks_uuid,
@@ -929,7 +929,7 @@ void test_runner_execute_daily_limit_skips_matching_success() {
     fs::create_directories(root / "target" / "default" / "snapshots" / "root");
     fs::create_directories(root / "target" / "default" / ".incoming");
 
-    btrfsbackup::Profile profile = test_profile(root);
+    btrfsbackup::config::Profile profile = test_profile(root);
     fs::path config_root = root / "config";
     fs::path mountinfo = root / "mountinfo";
     write_profile(config_root, profile);
@@ -942,7 +942,7 @@ void test_runner_execute_daily_limit_skips_matching_success() {
         .action_handler = action_handler,
         .transfer_pipeline = transfer_pipeline,
         .lock_root = root / "locks",
-        .application_config = btrfsbackup::ApplicationConfig(test_application_paths(root)),
+        .application_config = btrfsbackup::config::ApplicationConfig(test_application_paths(root)),
     };
 
     std::ostringstream output;
@@ -971,7 +971,7 @@ void test_runner_execute_daily_limit_skips_matching_success() {
         &services
     );
 
-    btrfsbackup::Json json = btrfsbackup::Json::parse(output.str());
+    btrfsbackup::config::Json json = btrfsbackup::config::Json::parse(output.str());
     test_helpers::expect_eq("daily skip result", std::to_string(result), "0");
     test_helpers::expect_true("daily skip completed", json.at("completed").get<bool>(), "skip should be successful");
     test_helpers::expect_true("daily skip flag", json.at("skipped").get<bool>(), "matching success should skip");
@@ -984,12 +984,12 @@ void test_runner_execute_daily_limit_skips_matching_success() {
     test_helpers::expect_true("daily skip history exists", fs::is_regular_file(history), "missing skipped history");
     test_helpers::expect_true(
         "daily skip current",
-        btrfsbackup::load_json_file(current).at("state") == "skipped",
+        btrfsbackup::config::load_json_file(current).at("state") == "skipped",
         "current status should be skipped"
     );
     test_helpers::expect_true(
         "daily skip history",
-        btrfsbackup::load_json_file(history).at("state") == "skipped",
+        btrfsbackup::config::load_json_file(history).at("state") == "skipped",
         "history should be skipped"
     );
 
@@ -1003,7 +1003,7 @@ void test_runner_execute_force_ignores_daily_limit() {
     fs::create_directories(root / "target" / "default" / "snapshots" / "root");
     fs::create_directories(root / "target" / "default" / ".incoming");
 
-    btrfsbackup::Profile profile = test_profile(root);
+    btrfsbackup::config::Profile profile = test_profile(root);
     fs::path config_root = root / "config";
     fs::path mountinfo = root / "mountinfo";
     write_profile(config_root, profile);
@@ -1016,7 +1016,7 @@ void test_runner_execute_force_ignores_daily_limit() {
         .action_handler = action_handler,
         .transfer_pipeline = transfer_pipeline,
         .lock_root = root / "locks",
-        .application_config = btrfsbackup::ApplicationConfig(test_application_paths(root)),
+        .application_config = btrfsbackup::config::ApplicationConfig(test_application_paths(root)),
     };
 
     std::ostringstream output;
@@ -1046,7 +1046,7 @@ void test_runner_execute_force_ignores_daily_limit() {
         &services
     );
 
-    btrfsbackup::Json json = btrfsbackup::Json::parse(output.str());
+    btrfsbackup::config::Json json = btrfsbackup::config::Json::parse(output.str());
     test_helpers::expect_eq("force result", std::to_string(result), "0");
     test_helpers::expect_true("force completed", json.at("completed").get<bool>(), "forced run should complete");
     test_helpers::expect_true("force not skipped", !json.at("skipped").get<bool>(), "forced run should bypass daily limit");
@@ -1063,7 +1063,7 @@ void test_runner_execute_validate_builds_plan_without_effects() {
     fs::create_directories(root / "target" / "default" / "snapshots" / "root");
     fs::create_directories(root / "target" / "default" / ".incoming");
 
-    btrfsbackup::Profile profile = test_profile(root);
+    btrfsbackup::config::Profile profile = test_profile(root);
     fs::path config_root = root / "config";
     fs::path mountinfo = root / "mountinfo";
     write_profile(config_root, profile);
@@ -1075,7 +1075,7 @@ void test_runner_execute_validate_builds_plan_without_effects() {
         .action_handler = action_handler,
         .transfer_pipeline = transfer_pipeline,
         .lock_root = root / "locks",
-        .application_config = btrfsbackup::ApplicationConfig(test_application_paths(root)),
+        .application_config = btrfsbackup::config::ApplicationConfig(test_application_paths(root)),
     };
 
     std::ostringstream output;
@@ -1103,7 +1103,7 @@ void test_runner_execute_validate_builds_plan_without_effects() {
         &services
     );
 
-    btrfsbackup::Json json = btrfsbackup::Json::parse(output.str());
+    btrfsbackup::config::Json json = btrfsbackup::config::Json::parse(output.str());
     test_helpers::expect_eq("validate result", std::to_string(result), "0");
     test_helpers::expect_eq("validate mode", json.at("mode").get<std::string>(), "cpp-validate");
     test_helpers::expect_true("validate completed", json.at("completed").get<bool>(), "validation should complete");
@@ -1121,7 +1121,7 @@ void test_runner_execute_transfer_failure_writes_failed_status() {
     fs::create_directories(root / "target" / "default" / "snapshots" / "root");
     fs::create_directories(root / "target" / "default" / ".incoming");
 
-    btrfsbackup::Profile profile = test_profile(root);
+    btrfsbackup::config::Profile profile = test_profile(root);
     fs::path config_root = root / "config";
     fs::path mountinfo = root / "mountinfo";
     write_profile(config_root, profile);
@@ -1135,7 +1135,7 @@ void test_runner_execute_transfer_failure_writes_failed_status() {
         .action_handler = action_handler,
         .transfer_pipeline = transfer_pipeline,
         .lock_root = root / "locks",
-        .application_config = btrfsbackup::ApplicationConfig(test_application_paths(root)),
+        .application_config = btrfsbackup::config::ApplicationConfig(test_application_paths(root)),
     };
 
     std::ostringstream output;
@@ -1165,11 +1165,11 @@ void test_runner_execute_transfer_failure_writes_failed_status() {
     fs::path checkpoint = root / "state" / "profiles" / "default" / "checkpoint.json";
     fs::path current = root / "status" / "default" / "current.json";
     fs::path history = root / "history" / "default" / "20260823T080000Z-123-456.json";
-    btrfsbackup::Json current_json = btrfsbackup::load_json_file(current);
+    btrfsbackup::config::Json current_json = btrfsbackup::config::load_json_file(current);
     test_helpers::expect_true("failed checkpoint exists", fs::is_regular_file(checkpoint), "missing checkpoint before failure");
     test_helpers::expect_true(
         "failed checkpoint action",
-        btrfsbackup::load_json_file(checkpoint).at("action") == "create-snapshot",
+        btrfsbackup::config::load_json_file(checkpoint).at("action") == "create-snapshot",
         "failed send-receive should not be checkpointed"
     );
     test_helpers::expect_true(
@@ -1180,12 +1180,12 @@ void test_runner_execute_transfer_failure_writes_failed_status() {
     test_helpers::expect_eq("failed transfer public error code", current_json.at("errorCode").get<std::string>(), "backup.failed");
     test_helpers::expect_eq(
         "failed transfer private error code",
-        btrfsbackup::load_json_file(history).at("errorCode").get<std::string>(),
+        btrfsbackup::config::load_json_file(history).at("errorCode").get<std::string>(),
         "transfer.producer_failed"
     );
     test_helpers::expect_true(
         "failed history",
-        btrfsbackup::load_json_file(history).at("state") == "failed",
+        btrfsbackup::config::load_json_file(history).at("state") == "failed",
         "history should fail"
     );
 
@@ -1199,7 +1199,7 @@ void test_runner_execute_commit_failure_writes_failed_status() {
     fs::create_directories(root / "target" / "default" / "snapshots" / "root");
     fs::create_directories(root / "target" / "default" / ".incoming");
 
-    btrfsbackup::Profile profile = test_profile(root);
+    btrfsbackup::config::Profile profile = test_profile(root);
     fs::path config_root = root / "config";
     fs::path mountinfo = root / "mountinfo";
     write_profile(config_root, profile);
@@ -1207,13 +1207,13 @@ void test_runner_execute_commit_failure_writes_failed_status() {
 
     RecordingActionHandler action_handler;
     action_handler.should_throw = true;
-    action_handler.throw_on = btrfsbackup::BackupRunActionKind::CommitReceived;
+    action_handler.throw_on = btrfsbackup::backup::BackupRunActionKind::CommitReceived;
     ConfigurableTransferPipeline transfer_pipeline;
     ServiceFixture services{
         .action_handler = action_handler,
         .transfer_pipeline = transfer_pipeline,
         .lock_root = root / "locks",
-        .application_config = btrfsbackup::ApplicationConfig(test_application_paths(root)),
+        .application_config = btrfsbackup::config::ApplicationConfig(test_application_paths(root)),
     };
 
     std::ostringstream output;
@@ -1245,17 +1245,17 @@ void test_runner_execute_commit_failure_writes_failed_status() {
     fs::path history = root / "history" / "default" / "20260823T080000Z-123-456.json";
     test_helpers::expect_true(
         "commit failure checkpoint action",
-        btrfsbackup::load_json_file(checkpoint).at("action") == "verify-received",
+        btrfsbackup::config::load_json_file(checkpoint).at("action") == "verify-received",
         "failed commit should not be checkpointed"
     );
     test_helpers::expect_true(
         "commit failure current",
-        btrfsbackup::load_json_file(current).at("state") == "failed",
+        btrfsbackup::config::load_json_file(current).at("state") == "failed",
         "current status should fail"
     );
     test_helpers::expect_true(
         "commit failure phase",
-        btrfsbackup::load_json_file(history).at("phase") == "commit-received",
+        btrfsbackup::config::load_json_file(history).at("phase") == "commit-received",
         "history should identify commit phase"
     );
 
@@ -1269,7 +1269,7 @@ void test_runner_execute_verify_failure_writes_failed_status() {
     fs::create_directories(root / "target" / "default" / "snapshots" / "root");
     fs::create_directories(root / "target" / "default" / ".incoming");
 
-    btrfsbackup::Profile profile = test_profile(root);
+    btrfsbackup::config::Profile profile = test_profile(root);
     fs::path config_root = root / "config";
     fs::path mountinfo = root / "mountinfo";
     write_profile(config_root, profile);
@@ -1277,13 +1277,13 @@ void test_runner_execute_verify_failure_writes_failed_status() {
 
     RecordingActionHandler action_handler;
     action_handler.should_throw = true;
-    action_handler.throw_on = btrfsbackup::BackupRunActionKind::VerifyReceived;
+    action_handler.throw_on = btrfsbackup::backup::BackupRunActionKind::VerifyReceived;
     ConfigurableTransferPipeline transfer_pipeline;
     ServiceFixture services{
         .action_handler = action_handler,
         .transfer_pipeline = transfer_pipeline,
         .lock_root = root / "locks",
-        .application_config = btrfsbackup::ApplicationConfig(test_application_paths(root)),
+        .application_config = btrfsbackup::config::ApplicationConfig(test_application_paths(root)),
     };
 
     std::ostringstream output;
@@ -1315,17 +1315,17 @@ void test_runner_execute_verify_failure_writes_failed_status() {
     fs::path history = root / "history" / "default" / "20260823T080000Z-123-456.json";
     test_helpers::expect_true(
         "verify failure checkpoint action",
-        btrfsbackup::load_json_file(checkpoint).at("action") == "send-receive",
+        btrfsbackup::config::load_json_file(checkpoint).at("action") == "send-receive",
         "failed verify should not be checkpointed"
     );
     test_helpers::expect_true(
         "verify failure current",
-        btrfsbackup::load_json_file(current).at("state") == "failed",
+        btrfsbackup::config::load_json_file(current).at("state") == "failed",
         "current status should fail"
     );
     test_helpers::expect_true(
         "verify failure phase",
-        btrfsbackup::load_json_file(history).at("phase") == "verify-received",
+        btrfsbackup::config::load_json_file(history).at("phase") == "verify-received",
         "history should identify verify phase"
     );
 
@@ -1342,7 +1342,7 @@ void test_runner_execute_multi_source_success() {
     fs::create_directories(root / "target" / "default" / "snapshots" / "home");
     fs::create_directories(root / "target" / "default" / ".incoming");
 
-    btrfsbackup::Profile profile = test_profile(root);
+    btrfsbackup::config::Profile profile = test_profile(root);
     add_home_source(profile, root);
     fs::path config_root = root / "config";
     fs::path mountinfo = root / "mountinfo";
@@ -1355,7 +1355,7 @@ void test_runner_execute_multi_source_success() {
         .action_handler = action_handler,
         .transfer_pipeline = transfer_pipeline,
         .lock_root = root / "locks",
-        .application_config = btrfsbackup::ApplicationConfig(test_application_paths(root)),
+        .application_config = btrfsbackup::config::ApplicationConfig(test_application_paths(root)),
     };
 
     std::ostringstream output;
@@ -1382,14 +1382,14 @@ void test_runner_execute_multi_source_success() {
         &services
     );
 
-    btrfsbackup::Json json = btrfsbackup::Json::parse(output.str());
+    btrfsbackup::config::Json json = btrfsbackup::config::Json::parse(output.str());
     test_helpers::expect_eq("multi execute result", std::to_string(result), "0");
     test_helpers::expect_true("multi completed", json.at("completed").get<bool>(), "run should complete");
     test_helpers::expect_eq("multi transfers", std::to_string(transfer_pipeline.plans.size()), "2");
-    test_helpers::expect_true("root actions", std::find(action_handler.calls.begin(), action_handler.calls.end(), "root:" + action_name(btrfsbackup::BackupRunActionKind::CreateSnapshot)) != action_handler.calls.end(), "missing root create action");
-    test_helpers::expect_true("home actions", std::find(action_handler.calls.begin(), action_handler.calls.end(), "home:" + action_name(btrfsbackup::BackupRunActionKind::CreateSnapshot)) != action_handler.calls.end(), "missing home create action");
+    test_helpers::expect_true("root actions", std::find(action_handler.calls.begin(), action_handler.calls.end(), "root:" + action_name(btrfsbackup::backup::BackupRunActionKind::CreateSnapshot)) != action_handler.calls.end(), "missing root create action");
+    test_helpers::expect_true("home actions", std::find(action_handler.calls.begin(), action_handler.calls.end(), "home:" + action_name(btrfsbackup::backup::BackupRunActionKind::CreateSnapshot)) != action_handler.calls.end(), "missing home create action");
 
-    btrfsbackup::Json current = btrfsbackup::load_json_file(root / "status" / "default" / "current.json");
+    btrfsbackup::config::Json current = btrfsbackup::config::load_json_file(root / "status" / "default" / "current.json");
     test_helpers::expect_true("multi status", current.at("state") == "succeeded", "status should succeed");
     test_helpers::expect_true("multi source hidden", !current.contains("sourceCount"), "public status exposes source count");
 
@@ -1403,7 +1403,7 @@ void test_runner_execute_incremental_uses_selected_parent() {
     fs::create_directories(root / "target" / "default" / "snapshots" / "root");
     fs::create_directories(root / "target" / "default" / ".incoming");
 
-    btrfsbackup::Profile profile = test_profile(root);
+    btrfsbackup::config::Profile profile = test_profile(root);
     fs::path local_parent = root / "source" / ".snapshots" / "root" / "root-2026-08-22T080000Z";
     fs::path remote_parent = root / "target" / "default" / "snapshots" / "root" / "root-2026-08-22T080000Z";
     fs::create_directories(local_parent);
@@ -1424,7 +1424,7 @@ void test_runner_execute_incremental_uses_selected_parent() {
         .action_handler = action_handler,
         .transfer_pipeline = transfer_pipeline,
         .lock_root = root / "locks",
-        .application_config = btrfsbackup::ApplicationConfig(test_application_paths(root)),
+        .application_config = btrfsbackup::config::ApplicationConfig(test_application_paths(root)),
         .snapshot_metadata_reader = [&metadata](const fs::path& path) {
             return metadata.read(path);
         },
@@ -1455,7 +1455,7 @@ void test_runner_execute_incremental_uses_selected_parent() {
     );
 
     test_helpers::expect_eq("incremental result", std::to_string(result), "0");
-    btrfsbackup::Json json = btrfsbackup::Json::parse(output.str());
+    btrfsbackup::config::Json json = btrfsbackup::config::Json::parse(output.str());
     test_helpers::expect_true("incremental output", json.at("sources").at(0).at("incremental").get<bool>(), "runner output should identify incremental transfer");
     test_helpers::expect_eq("incremental output parent", json.at("sources").at(0).at("parentPath").get<std::string>(), local_parent.string());
     test_helpers::expect_eq("incremental transfers", std::to_string(transfer_pipeline.plans.size()), "1");
@@ -1476,7 +1476,7 @@ void test_runner_execute_retention_plans_local_and_remote_deletes() {
     fs::create_directories(root / "target" / "default" / "snapshots" / "root");
     fs::create_directories(root / "target" / "default" / ".incoming");
 
-    btrfsbackup::Profile profile = test_profile(root);
+    btrfsbackup::config::Profile profile = test_profile(root);
     profile.sources.at(0).local_retention = 2;
     profile.sources.at(0).remote_retention = 2;
     fs::path local_old = root / "source" / ".snapshots" / "root" / "root-2026-08-20T080000Z";
@@ -1505,7 +1505,7 @@ void test_runner_execute_retention_plans_local_and_remote_deletes() {
         .action_handler = action_handler,
         .transfer_pipeline = transfer_pipeline,
         .lock_root = root / "locks",
-        .application_config = btrfsbackup::ApplicationConfig(test_application_paths(root)),
+        .application_config = btrfsbackup::config::ApplicationConfig(test_application_paths(root)),
         .snapshot_metadata_reader = [&metadata](const fs::path& path) {
             return metadata.read(path);
         },
@@ -1536,8 +1536,8 @@ void test_runner_execute_retention_plans_local_and_remote_deletes() {
     );
 
     test_helpers::expect_eq("retention result", std::to_string(result), "0");
-    test_helpers::expect_true("remote retention action", std::find(action_handler.calls.begin(), action_handler.calls.end(), "root:" + action_name(btrfsbackup::BackupRunActionKind::ApplyRemoteRetention)) != action_handler.calls.end(), "missing remote retention action");
-    test_helpers::expect_true("local retention action", std::find(action_handler.calls.begin(), action_handler.calls.end(), "root:" + action_name(btrfsbackup::BackupRunActionKind::ApplyLocalRetention)) != action_handler.calls.end(), "missing local retention action");
+    test_helpers::expect_true("remote retention action", std::find(action_handler.calls.begin(), action_handler.calls.end(), "root:" + action_name(btrfsbackup::backup::BackupRunActionKind::ApplyRemoteRetention)) != action_handler.calls.end(), "missing remote retention action");
+    test_helpers::expect_true("local retention action", std::find(action_handler.calls.begin(), action_handler.calls.end(), "root:" + action_name(btrfsbackup::backup::BackupRunActionKind::ApplyLocalRetention)) != action_handler.calls.end(), "missing local retention action");
     test_helpers::expect_eq("remote retention delete count", std::to_string(action_handler.remote_retention_deletes.size()), "1");
     test_helpers::expect_eq("remote retention delete", action_handler.remote_retention_deletes.at(0), remote_old.string());
     test_helpers::expect_eq("local retention delete count", std::to_string(action_handler.local_retention_deletes.size()), "1");
@@ -1553,7 +1553,7 @@ void test_runner_execute_pending_recovery_deletes_orphan() {
     fs::create_directories(root / "target" / "default" / "snapshots" / "root");
     fs::create_directories(root / "target" / "default" / ".incoming");
 
-    btrfsbackup::Profile profile = test_profile(root);
+    btrfsbackup::config::Profile profile = test_profile(root);
     fs::path pending = root / "source" / ".snapshots" / "root" / "root-2026-08-22T080000Z";
     fs::create_directories(pending);
 
@@ -1561,11 +1561,11 @@ void test_runner_execute_pending_recovery_deletes_orphan() {
     fs::path mountinfo = root / "mountinfo";
     write_profile(config_root, profile);
     write_mountinfo(mountinfo, profile);
-    btrfsbackup::PosixDurableFileOperations durable_files;
-    btrfsbackup::write_pending_marker(
+    btrfsbackup::platform::linux::PosixDurableFileOperations durable_files;
+    btrfsbackup::state::write_pending_marker(
         durable_files,
         root / "state" / "profiles" / "default",
-        btrfsbackup::PendingMarker{
+        btrfsbackup::backup::PendingMarker{
             .source_name = "root",
             .local_snapshot_path = pending.string(),
             .final_snapshot_path = (root / "target" / "default" / "snapshots" / "root" / pending.filename()).string(),
@@ -1583,7 +1583,7 @@ void test_runner_execute_pending_recovery_deletes_orphan() {
         .action_handler = action_handler,
         .transfer_pipeline = transfer_pipeline,
         .lock_root = root / "locks",
-        .application_config = btrfsbackup::ApplicationConfig(test_application_paths(root)),
+        .application_config = btrfsbackup::config::ApplicationConfig(test_application_paths(root)),
         .snapshot_metadata_reader = [&metadata](const fs::path& path) {
             return metadata.read(path);
         },
@@ -1618,7 +1618,7 @@ void test_runner_execute_pending_recovery_deletes_orphan() {
     test_helpers::expect_eq(
         "recover first action",
         action_handler.calls.at(0),
-        "root:" + action_name(btrfsbackup::BackupRunActionKind::RecoverPending)
+        "root:" + action_name(btrfsbackup::backup::BackupRunActionKind::RecoverPending)
     );
     test_helpers::expect_eq("pending delete count", std::to_string(action_handler.recovered_pending_paths.size()), "1");
     test_helpers::expect_eq("pending delete path", action_handler.recovered_pending_paths.at(0), pending.string());
@@ -1628,7 +1628,7 @@ void test_runner_execute_pending_recovery_deletes_orphan() {
 
 void test_runner_cancel_writes_cancel_request_without_target_mount() {
     fs::path root = test_helpers::test_root("runner-command", "cancel");
-    btrfsbackup::Profile profile = test_profile(root);
+    btrfsbackup::config::Profile profile = test_profile(root);
     fs::path config_root = root / "config";
     write_profile(config_root, profile);
     write_application_config(config_root, root);
@@ -1644,14 +1644,14 @@ void test_runner_cancel_writes_cancel_request_without_target_mount() {
         output
     );
 
-    btrfsbackup::Json json = btrfsbackup::Json::parse(output.str());
+    btrfsbackup::config::Json json = btrfsbackup::config::Json::parse(output.str());
     fs::path profile_state_dir = root / "state" / "profiles" / "default";
     test_helpers::expect_eq("cancel result", std::to_string(result), "0");
     test_helpers::expect_eq("cancel mode", json.at("mode").get<std::string>(), "cpp-cancel");
     test_helpers::expect_true("cancel requested json", json.at("cancelRequested").get<bool>(), "cancel should be requested");
     test_helpers::expect_true(
         "cancel request exists",
-        btrfsbackup::cancel_requested(profile_state_dir),
+        btrfsbackup::state::cancel_requested(profile_state_dir),
         "cancel request file missing"
     );
 
@@ -1665,7 +1665,7 @@ void test_runner_execute_honors_cancel_request_during_transfer() {
     fs::create_directories(root / "target" / "default" / "snapshots" / "root");
     fs::create_directories(root / "target" / "default" / ".incoming");
 
-    btrfsbackup::Profile profile = test_profile(root);
+    btrfsbackup::config::Profile profile = test_profile(root);
     fs::path config_root = root / "config";
     fs::path mountinfo = root / "mountinfo";
     write_profile(config_root, profile);
@@ -1679,7 +1679,7 @@ void test_runner_execute_honors_cancel_request_during_transfer() {
         .action_handler = action_handler,
         .transfer_pipeline = transfer_pipeline,
         .lock_root = root / "locks",
-        .application_config = btrfsbackup::ApplicationConfig(test_application_paths(root)),
+        .application_config = btrfsbackup::config::ApplicationConfig(test_application_paths(root)),
     };
 
     std::ostringstream output;
@@ -1706,18 +1706,18 @@ void test_runner_execute_honors_cancel_request_during_transfer() {
         &services
     );
 
-    btrfsbackup::Json json = btrfsbackup::Json::parse(output.str());
+    btrfsbackup::config::Json json = btrfsbackup::config::Json::parse(output.str());
     test_helpers::expect_eq("execute cancel result", std::to_string(result), "1");
     test_helpers::expect_true("execute cancel incomplete", !json.at("completed").get<bool>(), "cancelled run should not complete");
     test_helpers::expect_true("execute cancel flag", json.at("cancelled").get<bool>(), "cancelled flag should be true");
 
     fs::path current = root / "status" / "default" / "current.json";
-    btrfsbackup::Json current_json = btrfsbackup::load_json_file(current);
+    btrfsbackup::config::Json current_json = btrfsbackup::config::load_json_file(current);
     test_helpers::expect_eq("execute cancel status state", current_json.at("state").get<std::string>(), "cancelled");
     test_helpers::expect_eq("execute cancel code", current_json.at("errorCode").get<std::string>(), "backup.cancelled");
     test_helpers::expect_true(
         "execute cancel request cleaned",
-        !btrfsbackup::cancel_requested(profile_state_dir),
+        !btrfsbackup::state::cancel_requested(profile_state_dir),
         "handled cancellation request should be removed"
     );
 
@@ -1731,7 +1731,7 @@ void test_runner_execute_handles_sigint_as_cancelled_with_recovery_marker() {
     fs::create_directories(root / "target" / "default" / "snapshots" / "root");
     fs::create_directories(root / "target" / "default" / ".incoming");
 
-    btrfsbackup::Profile profile = test_profile(root);
+    btrfsbackup::config::Profile profile = test_profile(root);
     fs::path config_root = root / "config";
     fs::path mountinfo = root / "mountinfo";
     fs::path profile_state_dir = root / "state" / "profiles" / "default";
@@ -1746,14 +1746,14 @@ void test_runner_execute_handles_sigint_as_cancelled_with_recovery_marker() {
         .action_handler = action_handler,
         .transfer_pipeline = transfer_pipeline,
         .lock_root = root / "locks",
-        .application_config = btrfsbackup::ApplicationConfig(test_application_paths(root)),
+        .application_config = btrfsbackup::config::ApplicationConfig(test_application_paths(root)),
     };
     btrfsbackup::CancellationToken cancellation;
-    btrfsbackup::TerminationSignalMonitor termination_signals(cancellation);
+    btrfsbackup::cli::TerminationSignalMonitor termination_signals(cancellation);
     std::ostringstream output;
     int result = -1;
     std::exception_ptr runner_error;
-    std::thread runner([&] {
+    std::thread runner_thread([&] {
         try {
             result = run_runner(
                 config_root,
@@ -1785,13 +1785,13 @@ void test_runner_execute_handles_sigint_as_cancelled_with_recovery_marker() {
 
     wait_until_entered(transfer_pipeline);
     test_helpers::expect_eq("send runner SIGINT", std::to_string(kill(getpid(), SIGINT)), "0");
-    runner.join();
+    runner_thread.join();
     if (runner_error != nullptr) {
         std::rethrow_exception(runner_error);
     }
 
-    btrfsbackup::Json run = btrfsbackup::Json::parse(output.str());
-    btrfsbackup::Json current = btrfsbackup::load_json_file(root / "status" / "default" / "current.json");
+    btrfsbackup::config::Json run = btrfsbackup::config::Json::parse(output.str());
+    btrfsbackup::config::Json current = btrfsbackup::config::load_json_file(root / "status" / "default" / "current.json");
     test_helpers::expect_eq("SIGINT runner result", std::to_string(result), "1");
     test_helpers::expect_true("SIGINT cancelled result", run.at("cancelled").get<bool>(), "run should report cancellation");
     test_helpers::expect_eq("SIGINT status state", current.at("state").get<std::string>(), "cancelled");

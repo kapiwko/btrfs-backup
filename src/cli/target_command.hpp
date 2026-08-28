@@ -11,7 +11,7 @@
 
 #include <cli/target_service.hpp>
 
-namespace btrfsbackup::command {
+namespace btrfsbackup::cli {
 
 using TargetExecutionServices = TargetServiceDependencies;
 
@@ -28,4 +28,4 @@ int target(
     TargetExecutionServices* services
 );
 
-} // namespace btrfsbackup::command
+} // namespace btrfsbackup::cli

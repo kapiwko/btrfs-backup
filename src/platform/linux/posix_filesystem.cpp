@@ -10,7 +10,7 @@
 
 namespace fs = std::filesystem;
 
-namespace btrfsbackup {
+namespace btrfsbackup::platform::linux {
 
 bool PosixFileSystem::exists(const fs::path& path) {
     std::error_code ec;
@@ -73,4 +73,4 @@ std::vector<fs::path> PosixFileSystem::list_directory(const fs::path& path) {
     return entries;
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::platform::linux

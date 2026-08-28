@@ -16,7 +16,7 @@
 
 namespace fs = std::filesystem;
 
-namespace btrfsbackup::command {
+namespace btrfsbackup::cli {
 
 void status_history(const fs::path& history_root, const std::vector<std::string>& args, std::ostream& output) {
     std::string profile = "default";
@@ -37,7 +37,7 @@ void status_history(const fs::path& history_root, const std::vector<std::string>
         }
     }
 
-    std::vector<StatusDocument> documents = get_status_history(history_root, profile, static_cast<std::size_t>(limit));
+    std::vector<btrfsbackup::state::StatusDocument> documents = btrfsbackup::state::get_status_history(history_root, profile, static_cast<std::size_t>(limit));
     if (documents.empty()) {
         output << "[]\n";
         return;
@@ -52,4 +52,4 @@ void status_history(const fs::path& history_root, const std::vector<std::string>
     output << "\n]\n";
 }
 
-} // namespace btrfsbackup::command
+} // namespace btrfsbackup::cli

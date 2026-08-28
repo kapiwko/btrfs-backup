@@ -13,7 +13,7 @@
 
 namespace fs = std::filesystem;
 
-namespace btrfsbackup {
+namespace btrfsbackup::config {
 
 std::uint64_t parse_uint(const std::string& value, const std::string& name, std::uint64_t maximum) {
     if (value.empty() || !std::all_of(value.begin(), value.end(), [](unsigned char c) { return std::isdigit(c); })) {
@@ -91,4 +91,4 @@ bool path_is_within(const fs::path& candidate, const fs::path& base) {
     return true;
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::config

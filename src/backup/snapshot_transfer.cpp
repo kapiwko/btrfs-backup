@@ -29,7 +29,7 @@ bool uuid_equals(const std::string& left, const std::string& right) {
 
 } // namespace
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup {
 
 SendReceiveCommandPlan build_send_receive_command_plan(
     const fs::path& snapshot_path,
@@ -119,4 +119,4 @@ void commit_received_snapshot_beneath(
     }
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup

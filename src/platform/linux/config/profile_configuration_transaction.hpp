@@ -11,7 +11,7 @@
 #include <core/errors.hpp>
 #include <config/profile_artifact_renderer.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::platform::linux {
 
 // Filesystem transaction used by the Linux profile installer.
 
@@ -34,10 +34,10 @@ struct ConfigurationSaveError : CodedValidationError {
 
 class ProfileConfigurationTransaction {
   public:
-    explicit ProfileConfigurationTransaction(const RenderedProfileArtifacts& rendered);
+    explicit ProfileConfigurationTransaction(const btrfsbackup::config::RenderedProfileArtifacts& rendered);
 
     void stage();
-    [[nodiscard]] std::filesystem::path staged_path(ProfileArtifactKind kind) const;
+    [[nodiscard]] std::filesystem::path staged_path(btrfsbackup::config::ProfileArtifactKind kind) const;
     void publish_configuration();
     void publish_public_marker();
     [[nodiscard]] RollbackResult rollback() noexcept;
@@ -45,7 +45,7 @@ class ProfileConfigurationTransaction {
 
   private:
     struct TransactionArtifact {
-        ProfileArtifactKind kind;
+        btrfsbackup::config::ProfileArtifactKind kind;
         std::filesystem::path destination;
         std::filesystem::path staged;
         std::filesystem::path previous;
@@ -56,11 +56,11 @@ class ProfileConfigurationTransaction {
     };
 
     void publish(TransactionArtifact& artifact);
-    [[nodiscard]] TransactionArtifact& artifact(ProfileArtifactKind kind);
-    [[nodiscard]] const TransactionArtifact& artifact(ProfileArtifactKind kind) const;
+    [[nodiscard]] TransactionArtifact& artifact(btrfsbackup::config::ProfileArtifactKind kind);
+    [[nodiscard]] const TransactionArtifact& artifact(btrfsbackup::config::ProfileArtifactKind kind) const;
 
     std::string generation_;
     std::vector<TransactionArtifact> artifacts_;
 };
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::platform::linux

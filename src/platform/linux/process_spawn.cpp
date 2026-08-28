@@ -18,7 +18,7 @@
 
 #include <core/errors.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::platform::linux {
 
 namespace {
 
@@ -281,4 +281,4 @@ ProcessSpawnResult spawn_program(const std::vector<std::string>& argv, const Pro
     return {.pid = pid};
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::platform::linux

@@ -12,8 +12,10 @@
 #include <state/status_service.hpp>
 
 namespace btrfsbackup {
-
 class IDurableFileOperations;
+}
+
+namespace btrfsbackup::state {
 
 void write_history_entry(
     IDurableFileOperations& files,
@@ -27,4 +29,4 @@ void write_history_entry(
     std::size_t limit
 );
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::state

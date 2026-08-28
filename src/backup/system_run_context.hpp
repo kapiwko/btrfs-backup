@@ -8,7 +8,7 @@
 
 #include <backup/ports/run_context.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup {
 
 class SystemClock final : public IClock {
   public:
@@ -22,4 +22,4 @@ class TimestampRunIdGenerator final : public IRunIdGenerator {
     [[nodiscard]] RunId generate(const std::string& snapshot_timestamp) override;
 };
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup

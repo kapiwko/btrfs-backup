@@ -10,7 +10,7 @@
 
 #include <backup/model/pending_recovery.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup {
 
 class IPendingMarkerStore {
   public:
@@ -27,4 +27,4 @@ class IPendingMarkerStore {
     virtual void clear(const std::filesystem::path& marker_path) = 0;
 };
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup

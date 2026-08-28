@@ -14,7 +14,7 @@
 
 namespace fs = std::filesystem;
 
-namespace btrfsbackup {
+namespace btrfsbackup::platform::linux {
 
 namespace {
 
@@ -143,10 +143,10 @@ ConfigurationSaveError::ConfigurationSaveError(std::string message, RollbackResu
       rollback_result(std::move(rollback)) {
 }
 
-ProfileConfigurationTransaction::ProfileConfigurationTransaction(const RenderedProfileArtifacts& rendered)
+ProfileConfigurationTransaction::ProfileConfigurationTransaction(const btrfsbackup::config::RenderedProfileArtifacts& rendered)
     : generation_(rendered.profile.configuration_generation) {
     artifacts_.reserve(rendered.artifacts.size());
-    for (const ProfileArtifact& artifact : rendered.artifacts) {
+    for (const btrfsbackup::config::ProfileArtifact& artifact : rendered.artifacts) {
         artifacts_.push_back({
             .kind = artifact.kind,
             .destination = artifact.destination,
@@ -169,20 +169,20 @@ void ProfileConfigurationTransaction::stage() {
     }
 }
 
-fs::path ProfileConfigurationTransaction::staged_path(ProfileArtifactKind kind) const {
+fs::path ProfileConfigurationTransaction::staged_path(btrfsbackup::config::ProfileArtifactKind kind) const {
     return artifact(kind).staged;
 }
 
 void ProfileConfigurationTransaction::publish_configuration() {
     for (TransactionArtifact& item : artifacts_) {
-        if (item.kind != ProfileArtifactKind::PublicProfile) {
+        if (item.kind != btrfsbackup::config::ProfileArtifactKind::PublicProfile) {
             publish(item);
         }
     }
 }
 
 void ProfileConfigurationTransaction::publish_public_marker() {
-    publish(artifact(ProfileArtifactKind::PublicProfile));
+    publish(artifact(btrfsbackup::config::ProfileArtifactKind::PublicProfile));
 }
 
 RollbackResult ProfileConfigurationTransaction::rollback() noexcept {
@@ -246,7 +246,7 @@ void ProfileConfigurationTransaction::publish(TransactionArtifact& item) {
 }
 
 ProfileConfigurationTransaction::TransactionArtifact& ProfileConfigurationTransaction::artifact(
-    ProfileArtifactKind kind
+    btrfsbackup::config::ProfileArtifactKind kind
 ) {
     for (TransactionArtifact& item : artifacts_) {
         if (item.kind == kind) {
@@ -257,7 +257,7 @@ ProfileConfigurationTransaction::TransactionArtifact& ProfileConfigurationTransa
 }
 
 const ProfileConfigurationTransaction::TransactionArtifact& ProfileConfigurationTransaction::artifact(
-    ProfileArtifactKind kind
+    btrfsbackup::config::ProfileArtifactKind kind
 ) const {
     for (const TransactionArtifact& item : artifacts_) {
         if (item.kind == kind) {
@@ -267,4 +267,4 @@ const ProfileConfigurationTransaction::TransactionArtifact& ProfileConfiguration
     throw ValidationError("required profile artifact is missing");
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::platform::linux

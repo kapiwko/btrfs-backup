@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup {
 
 struct MountEntry {
     std::string source;
@@ -40,4 +40,4 @@ bool mount_uses_mapper(
     const std::filesystem::path& mapper_path
 );
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup

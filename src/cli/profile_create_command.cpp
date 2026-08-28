@@ -18,11 +18,11 @@
 #include <config/model/profile.hpp>
 
 namespace fs = std::filesystem;
-using btrfsbackup::dump_json;
-using btrfsbackup::Json;
-using btrfsbackup::Profile;
-using btrfsbackup::profile_from_json;
-using btrfsbackup::profile_to_json;
+using btrfsbackup::config::dump_json;
+using btrfsbackup::config::Json;
+using btrfsbackup::config::Profile;
+using btrfsbackup::config::profile_from_json;
+using btrfsbackup::config::profile_to_json;
 
 namespace {
 
@@ -67,7 +67,7 @@ void usage() {
 
 } // namespace
 
-namespace btrfsbackup::command {
+namespace btrfsbackup::cli {
 
 int profile_create(const std::vector<std::string>& args) {
     fs::path output;
@@ -89,7 +89,7 @@ int profile_create(const std::vector<std::string>& args) {
     std::uint64_t local_retention = 30;
     std::uint64_t minimum_target_free_bytes = 5368709120ULL;
     std::uint64_t minimum_local_free_bytes = 1073741824ULL;
-    Json sources = Json::array();
+    btrfsbackup::config::Json sources = btrfsbackup::config::Json::array();
 
     for (std::size_t i = 0; i < args.size(); ++i) {
         const std::string& arg = args[i];
@@ -144,44 +144,26 @@ int profile_create(const std::vector<std::string>& args) {
         }
     }
 
-    if (output.empty()) fail("create requires --output");
-    if (device.empty()) fail("create requires --device");
-    if (luks_uuid.empty()) fail("create requires --luks-uuid");
-    if (mapper_name.empty()) fail("create requires --mapper-name");
-    if (sources.empty()) fail("create requires at least one --source");
+    if (output.empty())
+        fail("create requires --output");
+    if (device.empty())
+        fail("create requires --device");
+    if (luks_uuid.empty())
+        fail("create requires --luks-uuid");
+    if (mapper_name.empty())
+        fail("create requires --mapper-name");
+    if (sources.empty())
+        fail("create requires at least one --source");
 
-    Json paths = Json::object();
-    if (!remote_root.empty()) paths["remoteRoot"] = remote_root;
-    if (!incoming_root.empty()) paths["incomingRoot"] = incoming_root;
+    btrfsbackup::config::Json paths = btrfsbackup::config::Json::object();
+    if (!remote_root.empty())
+        paths["remoteRoot"] = remote_root;
+    if (!incoming_root.empty())
+        paths["incomingRoot"] = incoming_root;
 
-    Profile profile = profile_from_json({
-        {"schemaVersion", current_profile_schema_version},
-        {"profileId", profile_id},
-        {"name", profile_name},
-        {"enabled", true},
-        {"target", {
-            {"device", device},
-            {"luksUuid", luks_uuid},
-            {"btrfsUuid", btrfs_uuid},
-            {"partitionUuid", partition_uuid},
-            {"serial", serial},
-            {"mapperName", mapper_name}
-        }},
-        {"paths", paths},
-        {"settings", {
-            {"dailyLimit", daily_limit},
-            {"incrementalRequired", incremental_required},
-            {"keepFailedLocalSnapshot", keep_failed_local_snapshot},
-            {"autoEject", auto_eject},
-            {"remoteRetention", remote_retention},
-            {"localRetention", local_retention},
-            {"minimumTargetFreeBytes", minimum_target_free_bytes},
-            {"minimumLocalFreeBytes", minimum_local_free_bytes}
-        }},
-        {"sources", sources}
-    });
-    write_profile_file(profile, output);
+    btrfsbackup::config::Profile profile = btrfsbackup::config::profile_from_json({{"schemaVersion", btrfsbackup::config::current_profile_schema_version}, {"profileId", profile_id}, {"name", profile_name}, {"enabled", true}, {"target", {{"device", device}, {"luksUuid", luks_uuid}, {"btrfsUuid", btrfs_uuid}, {"partitionUuid", partition_uuid}, {"serial", serial}, {"mapperName", mapper_name}}}, {"paths", paths}, {"settings", {{"dailyLimit", daily_limit}, {"incrementalRequired", incremental_required}, {"keepFailedLocalSnapshot", keep_failed_local_snapshot}, {"autoEject", auto_eject}, {"remoteRetention", remote_retention}, {"localRetention", local_retention}, {"minimumTargetFreeBytes", minimum_target_free_bytes}, {"minimumLocalFreeBytes", minimum_local_free_bytes}}}, {"sources", sources}});
+    btrfsbackup::platform::linux::write_profile_file(profile, output);
     return 0;
 }
 
-} // namespace btrfsbackup::command
+} // namespace btrfsbackup::cli

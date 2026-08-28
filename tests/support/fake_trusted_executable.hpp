@@ -14,7 +14,7 @@
 
 namespace test_support {
 
-class FakeTrustedExecutable final : public btrfsbackup::ITrustedExecutable {
+class FakeTrustedExecutable final : public btrfsbackup::backup::ITrustedExecutable {
   public:
     explicit FakeTrustedExecutable(std::string path) : path_(std::move(path)) {
     }
@@ -31,9 +31,9 @@ class FakeTrustedExecutable final : public btrfsbackup::ITrustedExecutable {
     std::string path_;
 };
 
-class FakeTrustedExecutableResolver final : public btrfsbackup::ITrustedExecutableResolver {
+class FakeTrustedExecutableResolver final : public btrfsbackup::backup::ITrustedExecutableResolver {
   public:
-    [[nodiscard]] std::unique_ptr<btrfsbackup::ITrustedExecutable> resolve(
+    [[nodiscard]] std::unique_ptr<btrfsbackup::backup::ITrustedExecutable> resolve(
         const std::filesystem::path& program
     ) const override {
         return std::make_unique<FakeTrustedExecutable>(program.string());

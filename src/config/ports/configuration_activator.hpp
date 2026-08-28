@@ -4,7 +4,7 @@
 
 #pragma once
 
-namespace btrfsbackup {
+namespace btrfsbackup::config {
 
 class IConfigurationActivator {
   public:
@@ -18,4 +18,4 @@ class NullConfigurationActivator final : public IConfigurationActivator {
     }
 };
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::config

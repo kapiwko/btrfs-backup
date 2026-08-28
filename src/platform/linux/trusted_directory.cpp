@@ -21,7 +21,7 @@
 
 namespace fs = std::filesystem;
 
-namespace btrfsbackup {
+namespace btrfsbackup::platform::linux {
 
 namespace {
 
@@ -30,14 +30,14 @@ namespace {
 }
 
 int open_directory_at(int parent_fd, const fs::path& path) {
-    struct open_how how {};
+    struct open_how how{};
     how.flags = O_RDONLY | O_DIRECTORY | O_CLOEXEC;
     how.resolve = RESOLVE_BENEATH | RESOLVE_NO_SYMLINKS | RESOLVE_NO_MAGICLINKS;
     return static_cast<int>(syscall(SYS_openat2, parent_fd, path.c_str(), &how, sizeof(how)));
 }
 
 void validate_directory_descriptor(int fd, const fs::path& path, uid_t trusted_owner) {
-    struct stat status {};
+    struct stat status{};
     if (fstat(fd, &status) != 0) {
         throw_directory_error("cannot inspect trusted directory", path, errno);
     }
@@ -78,9 +78,9 @@ SafeDirectoryHandle traverse_trusted_directory(
     bool create,
     mode_t mode
 ) {
-    fs::path normalized_root = normalized_path(trusted_root);
-    fs::path normalized = normalized_path(path);
-    if (!normalized_root.is_absolute() || !normalized.is_absolute() || !path_is_within(normalized, normalized_root)) {
+    fs::path normalized_root = btrfsbackup::config::normalized_path(trusted_root);
+    fs::path normalized = btrfsbackup::config::normalized_path(path);
+    if (!normalized_root.is_absolute() || !normalized.is_absolute() || !btrfsbackup::config::path_is_within(normalized, normalized_root)) {
         throw ValidationError("trusted directory path escapes " + normalized_root.string() + ": " + path.string());
     }
 
@@ -133,4 +133,4 @@ void ensure_trusted_directory(
     }
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::platform::linux

@@ -14,7 +14,7 @@
 
 #include <core/errors.hpp>
 
-namespace btrfsbackup::wizard {
+namespace btrfsbackup::config {
 
 std::string trim_text(const std::string& value) {
     auto begin = std::find_if_not(value.begin(), value.end(), [](unsigned char c) { return std::isspace(c); });
@@ -93,4 +93,4 @@ std::uint64_t prompt_uint(
     }
 }
 
-} // namespace btrfsbackup::wizard
+} // namespace btrfsbackup::config

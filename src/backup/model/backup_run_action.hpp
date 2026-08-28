@@ -4,7 +4,7 @@
 
 #pragma once
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup {
 
 enum class BackupRunActionKind {
     RecoverPending,
@@ -21,4 +21,4 @@ enum class BackupRunActionKind {
     CleanupSource,
 };
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup

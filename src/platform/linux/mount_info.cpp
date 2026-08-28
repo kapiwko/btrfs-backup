@@ -16,7 +16,7 @@
 #include <platform/linux/device_info.hpp>
 #include <core/errors.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::platform::linux {
 
 namespace {
 
@@ -35,7 +35,7 @@ std::string device_id(dev_t device) {
 
 } // namespace
 
-std::vector<MountEntry> read_mount_table(const std::filesystem::path& mountinfo_path) {
+std::vector<btrfsbackup::backup::MountEntry> read_mount_table(const std::filesystem::path& mountinfo_path) {
     return read_mount_table(mountinfo_path, blkid_filesystem_uuid);
 }
 
@@ -52,7 +52,7 @@ std::string blkid_filesystem_uuid(const std::string& source) {
     return uuid;
 }
 
-std::vector<MountEntry> read_mount_table(const std::filesystem::path& mountinfo_path, const FilesystemUuidResolver& filesystem_uuid_resolver) {
+std::vector<btrfsbackup::backup::MountEntry> read_mount_table(const std::filesystem::path& mountinfo_path, const FilesystemUuidResolver& filesystem_uuid_resolver) {
     std::unique_ptr<libmnt_table, decltype(&mnt_unref_table)> table(mnt_new_table(), mnt_unref_table);
     if (!table || mnt_table_parse_file(table.get(), mountinfo_path.c_str()) != 0) {
         throw ValidationError("could not read mount table");
@@ -62,7 +62,7 @@ std::vector<MountEntry> read_mount_table(const std::filesystem::path& mountinfo_
         throw ValidationError("could not iterate mount table");
     }
 
-    std::vector<MountEntry> entries;
+    std::vector<btrfsbackup::backup::MountEntry> entries;
     libmnt_fs* mount = nullptr;
     while (mnt_table_next_fs(table.get(), iter.get(), &mount) == 0) {
         std::string source = c_string(mnt_fs_get_source(mount));
@@ -82,7 +82,7 @@ std::vector<MountEntry> read_mount_table(const std::filesystem::path& mountinfo_
 
 std::vector<std::string> btrfs_mount_targets(const std::filesystem::path& mountinfo_path) {
     std::set<std::string> unique;
-    for (const MountEntry& entry : read_mount_table(mountinfo_path)) {
+    for (const btrfsbackup::backup::MountEntry& entry : read_mount_table(mountinfo_path)) {
         if (entry.fstype == "btrfs" && !entry.target.empty()) {
             unique.insert(entry.target);
         }
@@ -94,10 +94,11 @@ LinuxMountInspector::LinuxMountInspector(
     std::filesystem::path mountinfo,
     FilesystemUuidResolver uuid_resolver
 ) : mountinfo_(std::move(mountinfo)),
-    uuid_resolver_(std::move(uuid_resolver)) {}
+    uuid_resolver_(std::move(uuid_resolver)) {
+}
 
-std::vector<MountEntry> LinuxMountInspector::inspect() const {
+std::vector<btrfsbackup::backup::MountEntry> LinuxMountInspector::inspect() const {
     return read_mount_table(mountinfo_, uuid_resolver_);
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::platform::linux

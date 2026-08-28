@@ -4,8 +4,8 @@
 
 #include <config/ports/profile_repository.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::config {
 
 IProfileRepository::~IProfileRepository() = default;
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::config

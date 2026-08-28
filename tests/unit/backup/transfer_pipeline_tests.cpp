@@ -26,33 +26,33 @@
 
 namespace {
 
-class RecordingEventSink final : public btrfsbackup::ITransferEventSink {
-public:
-    std::vector<btrfsbackup::TransferEvent> events;
+class RecordingEventSink final : public btrfsbackup::backup::transfer::ITransferEventSink {
+  public:
+    std::vector<btrfsbackup::backup::transfer::TransferEvent> events;
 
-    void on_transfer_event(const btrfsbackup::TransferEvent& event) override {
+    void on_transfer_event(const btrfsbackup::backup::transfer::TransferEvent& event) override {
         events.push_back(event);
     }
 };
 
-class ThrowingStartedEventSink final : public btrfsbackup::ITransferEventSink {
-public:
-    void on_transfer_event(const btrfsbackup::TransferEvent& event) override {
-        if (event.kind == btrfsbackup::TransferEventKind::Started) {
+class ThrowingStartedEventSink final : public btrfsbackup::backup::transfer::ITransferEventSink {
+  public:
+    void on_transfer_event(const btrfsbackup::backup::transfer::TransferEvent& event) override {
+        if (event.kind == btrfsbackup::backup::transfer::TransferEventKind::Started) {
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
             throw std::runtime_error("injected event sink failure");
         }
     }
 };
 
-class BlockingTransferPipeline final : public btrfsbackup::ITransferPipeline {
-public:
+class BlockingTransferPipeline final : public btrfsbackup::backup::transfer::ITransferPipeline {
+  public:
     std::atomic_bool entered = false;
     std::atomic_bool allow_finish = false;
 
-    btrfsbackup::TransferResult run(
-        const btrfsbackup::TransferPipelinePlan&,
-        btrfsbackup::ITransferEventSink&,
+    btrfsbackup::backup::transfer::TransferResult run(
+        const btrfsbackup::backup::transfer::TransferPipelinePlan&,
+        btrfsbackup::backup::transfer::ITransferEventSink&,
         btrfsbackup::CancellationToken& cancellation
     ) override {
         entered.store(true);
@@ -83,7 +83,7 @@ void test_cancellation_token() {
 
 void test_posix_cancellation_signal_wakes_poll() {
     btrfsbackup::CancellationToken cancellation;
-    btrfsbackup::platform_linux::PosixCancellationSignal signal(cancellation);
+    btrfsbackup::platform::linux::PosixCancellationSignal signal(cancellation);
     pollfd fd{
         .fd = signal.fd(),
         .events = POLLIN,
@@ -97,74 +97,66 @@ void test_posix_cancellation_signal_wakes_poll() {
     fd.revents = 0;
     test_helpers::expect_eq("drained cancellation poll", std::to_string(poll(&fd, 1, 0)), "0");
 
-    btrfsbackup::platform_linux::PosixCancellationSignal late_signal(cancellation);
+    btrfsbackup::platform::linux::PosixCancellationSignal late_signal(cancellation);
     pollfd late_fd{.fd = late_signal.fd(), .events = POLLIN, .revents = 0};
     test_helpers::expect_eq("late cancellation adapter poll", std::to_string(poll(&late_fd, 1, 0)), "1");
 }
 
 void test_success_result() {
-    btrfsbackup::TransferResult result{
+    btrfsbackup::backup::transfer::TransferResult result{
         .producer = {.started = true, .exit_code = 0},
         .consumer = {.started = true, .exit_code = 0},
         .bytes_transferred = 123,
     };
 
-    test_helpers::expect_true("transfer success", btrfsbackup::transfer_succeeded(result), "successful sides should succeed");
-    btrfsbackup::require_transfer_success(result);
+    test_helpers::expect_true("transfer success", btrfsbackup::backup::transfer::transfer_succeeded(result), "successful sides should succeed");
+    btrfsbackup::backup::transfer::require_transfer_success(result);
 }
 
 void test_producer_failure_is_reported_separately() {
-    btrfsbackup::TransferResult result{
+    btrfsbackup::backup::transfer::TransferResult result{
         .producer = {.started = true, .exit_code = 1, .diagnostics = "send failed"},
         .consumer = {.started = true, .exit_code = 0},
     };
 
-    test_helpers::expect_eq("producer error code", btrfsbackup::error_code_name(btrfsbackup::transfer_failure_error_code(result).value()), "transfer.producer_failed");
-    test_helpers::expect_validation_error("producer failure", [&] {
-        btrfsbackup::require_transfer_success(result);
-    }, "producer failed with exit code 1: send failed");
+    test_helpers::expect_eq("producer error code", btrfsbackup::error_code_name(btrfsbackup::backup::transfer::transfer_failure_error_code(result).value()), "transfer.producer_failed");
+    test_helpers::expect_validation_error("producer failure", [&] { btrfsbackup::backup::transfer::require_transfer_success(result); }, "producer failed with exit code 1: send failed");
 }
 
 void test_consumer_failure_is_reported_separately() {
-    btrfsbackup::TransferResult result{
+    btrfsbackup::backup::transfer::TransferResult result{
         .producer = {.started = true, .exit_code = 0},
         .consumer = {.started = true, .exit_code = 1, .diagnostics = "receive failed"},
     };
 
-    test_helpers::expect_eq("consumer error code", btrfsbackup::error_code_name(btrfsbackup::transfer_failure_error_code(result).value()), "transfer.consumer_failed");
-    test_helpers::expect_validation_error("consumer failure", [&] {
-        btrfsbackup::require_transfer_success(result);
-    }, "consumer failed with exit code 1: receive failed");
+    test_helpers::expect_eq("consumer error code", btrfsbackup::error_code_name(btrfsbackup::backup::transfer::transfer_failure_error_code(result).value()), "transfer.consumer_failed");
+    test_helpers::expect_validation_error("consumer failure", [&] { btrfsbackup::backup::transfer::require_transfer_success(result); }, "consumer failed with exit code 1: receive failed");
 }
 
 void test_both_sides_failure_keeps_both_diagnostics() {
-    btrfsbackup::TransferResult result{
+    btrfsbackup::backup::transfer::TransferResult result{
         .producer = {.started = true, .exit_code = 1, .diagnostics = "send failed"},
         .consumer = {.started = true, .exit_code = 2, .diagnostics = "receive failed"},
     };
 
-    test_helpers::expect_eq("both sides error code", btrfsbackup::error_code_name(btrfsbackup::transfer_failure_error_code(result).value()), "transfer.producer_consumer_failed");
-    test_helpers::expect_validation_error("both sides failure", [&] {
-        btrfsbackup::require_transfer_success(result);
-    }, "producer failed with exit code 1: send failed; consumer failed with exit code 2: receive failed");
+    test_helpers::expect_eq("both sides error code", btrfsbackup::error_code_name(btrfsbackup::backup::transfer::transfer_failure_error_code(result).value()), "transfer.producer_consumer_failed");
+    test_helpers::expect_validation_error("both sides failure", [&] { btrfsbackup::backup::transfer::require_transfer_success(result); }, "producer failed with exit code 1: send failed; consumer failed with exit code 2: receive failed");
 }
 
 void test_cancelled_transfer_is_reported() {
-    btrfsbackup::TransferResult result{
+    btrfsbackup::backup::transfer::TransferResult result{
         .producer = {.started = true, .exit_code = 0},
         .consumer = {.started = true, .exit_code = 0},
         .cancelled = true,
     };
 
-    test_helpers::expect_validation_error("cancelled transfer", [&] {
-        btrfsbackup::require_transfer_success(result);
-    }, "Transfer was cancelled");
+    test_helpers::expect_validation_error("cancelled transfer", [&] { btrfsbackup::backup::transfer::require_transfer_success(result); }, "Transfer was cancelled");
 }
 
 void test_event_sink_contract() {
     RecordingEventSink sink;
     sink.on_transfer_event({
-        .kind = btrfsbackup::TransferEventKind::Progress,
+        .kind = btrfsbackup::backup::transfer::TransferEventKind::Progress,
         .bytes_transferred = 4096,
         .message = "chunk",
     });
@@ -175,7 +167,7 @@ void test_event_sink_contract() {
 }
 
 void test_transfer_speed_uses_recent_samples() {
-    btrfsbackup::TransferSpeedEstimator speed;
+    btrfsbackup::backup::transfer::TransferSpeedEstimator speed;
     const std::uint64_t one_mib = 1024ULL * 1024ULL;
 
     test_helpers::expect_eq(
@@ -194,25 +186,21 @@ void test_transfer_speed_uses_recent_samples() {
 }
 
 void test_posix_pipeline_validates_termination_policy() {
-    test_helpers::expect_validation_error("zero terminate period", [] {
-        btrfsbackup::PosixTransferPipeline pipeline({
-            .terminate_grace_period = std::chrono::milliseconds(0),
-            .kill_reap_period = std::chrono::milliseconds(100),
-        });
-    }, "termination periods must be positive");
-    test_helpers::expect_validation_error("zero kill reap period", [] {
-        btrfsbackup::PosixTransferPipeline pipeline({
-            .terminate_grace_period = std::chrono::milliseconds(100),
-            .kill_reap_period = std::chrono::milliseconds(0),
-        });
-    }, "termination periods must be positive");
+    test_helpers::expect_validation_error("zero terminate period", [] { btrfsbackup::platform::linux::PosixTransferPipeline pipeline({
+                                                                            .terminate_grace_period = std::chrono::milliseconds(0),
+                                                                            .kill_reap_period = std::chrono::milliseconds(100),
+                                                                        }); }, "termination periods must be positive");
+    test_helpers::expect_validation_error("zero kill reap period", [] { btrfsbackup::platform::linux::PosixTransferPipeline pipeline({
+                                                                            .terminate_grace_period = std::chrono::milliseconds(100),
+                                                                            .kill_reap_period = std::chrono::milliseconds(0),
+                                                                        }); }, "termination periods must be positive");
 }
 
 void test_posix_pipeline_reaps_children_when_setup_unwinds() {
     const std::filesystem::path root = test_helpers::test_root("transfer-pipeline", "setup-unwind");
     const std::filesystem::path producer_pid_path = root / "producer.pid";
     const std::filesystem::path consumer_pid_path = root / "consumer.pid";
-    btrfsbackup::PosixTransferPipeline pipeline({
+    btrfsbackup::platform::linux::PosixTransferPipeline pipeline({
         .terminate_grace_period = std::chrono::milliseconds(50),
         .kill_reap_period = std::chrono::milliseconds(500),
     });
@@ -234,8 +222,9 @@ void test_posix_pipeline_reaps_children_when_setup_unwinds() {
     }
 
     auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-        std::chrono::steady_clock::now() - started_at
-    ).count();
+                          std::chrono::steady_clock::now() - started_at
+    )
+                          .count();
     test_helpers::expect_true("pipeline unwind bounded", elapsed_ms < 2000, "process cleanup exceeded its deadline");
     for (const std::filesystem::path& pid_path : {producer_pid_path, consumer_pid_path}) {
         std::ifstream pid_file(pid_path);
@@ -252,7 +241,7 @@ void test_posix_pipeline_reaps_children_when_setup_unwinds() {
 
 void test_posix_pipeline_preserves_stream_integrity() {
     constexpr std::uint64_t transfer_bytes = 8ULL * 1024ULL * 1024ULL;
-    btrfsbackup::PosixTransferPipeline pipeline;
+    btrfsbackup::platform::linux::PosixTransferPipeline pipeline;
     RecordingEventSink sink;
     btrfsbackup::CancellationToken cancellation;
     const std::filesystem::path root = test_helpers::test_root("transfer-pipeline", "splice-integrity");
@@ -268,7 +257,7 @@ void test_posix_pipeline_preserves_stream_integrity() {
         }
     }
 
-    btrfsbackup::TransferResult result = pipeline.run(
+    btrfsbackup::backup::transfer::TransferResult result = pipeline.run(
         {
             .producer_argv = {"cat", input_path.string()},
             .consumer_argv = {"sh", "-c", "sleep 0.1; cmp - \"$1\"", "slow-cmp", input_path.string()},
@@ -277,21 +266,21 @@ void test_posix_pipeline_preserves_stream_integrity() {
         cancellation
     );
 
-    test_helpers::expect_true("splice integrity transfer success", btrfsbackup::transfer_succeeded(result), "splice transfer should succeed");
+    test_helpers::expect_true("splice integrity transfer success", btrfsbackup::backup::transfer::transfer_succeeded(result), "splice transfer should succeed");
     test_helpers::expect_eq("splice integrity transfer bytes", std::to_string(result.bytes_transferred), std::to_string(transfer_bytes));
-    const auto progress_events = std::count_if(sink.events.begin(), sink.events.end(), [](const btrfsbackup::TransferEvent& event) {
-        return event.kind == btrfsbackup::TransferEventKind::Progress;
+    const auto progress_events = std::count_if(sink.events.begin(), sink.events.end(), [](const btrfsbackup::backup::transfer::TransferEvent& event) {
+        return event.kind == btrfsbackup::backup::transfer::TransferEventKind::Progress;
     });
     test_helpers::expect_true("progress events throttled", progress_events < 100, "progress should not be emitted for every splice chunk");
     std::filesystem::remove_all(root);
 }
 
 void test_posix_pipeline_transfers_bytes() {
-    btrfsbackup::PosixTransferPipeline pipeline;
+    btrfsbackup::platform::linux::PosixTransferPipeline pipeline;
     RecordingEventSink sink;
     btrfsbackup::CancellationToken cancellation;
 
-    btrfsbackup::TransferResult result = pipeline.run(
+    btrfsbackup::backup::transfer::TransferResult result = pipeline.run(
         {
             .producer_argv = {"printf", "hello"},
             .consumer_argv = {"cat"},
@@ -300,13 +289,13 @@ void test_posix_pipeline_transfers_bytes() {
         cancellation
     );
 
-    test_helpers::expect_true("posix transfer success", btrfsbackup::transfer_succeeded(result), "pipeline should succeed");
+    test_helpers::expect_true("posix transfer success", btrfsbackup::backup::transfer::transfer_succeeded(result), "pipeline should succeed");
     test_helpers::expect_eq("posix transfer bytes", std::to_string(result.bytes_transferred), "5");
     test_helpers::expect_eq("posix produced bytes", std::to_string(result.bytes_produced), "5");
     test_helpers::expect_true("posix duration", result.duration_ms >= 0, "pipeline should report duration");
     test_helpers::expect_true("posix transfer events", sink.events.size() >= 3, "pipeline should emit lifecycle events");
-    auto progress = std::find_if(sink.events.begin(), sink.events.end(), [](const btrfsbackup::TransferEvent& event) {
-        return event.kind == btrfsbackup::TransferEventKind::Progress;
+    auto progress = std::find_if(sink.events.begin(), sink.events.end(), [](const btrfsbackup::backup::transfer::TransferEvent& event) {
+        return event.kind == btrfsbackup::backup::transfer::TransferEventKind::Progress;
     });
     test_helpers::expect_true("posix progress event", progress != sink.events.end(), "pipeline should emit progress");
     if (progress != sink.events.end()) {
@@ -317,17 +306,17 @@ void test_posix_pipeline_transfers_bytes() {
     test_helpers::expect_eq(
         "posix final event",
         std::to_string(static_cast<int>(sink.events.back().kind)),
-        std::to_string(static_cast<int>(btrfsbackup::TransferEventKind::Completed))
+        std::to_string(static_cast<int>(btrfsbackup::backup::transfer::TransferEventKind::Completed))
     );
 }
 
 void test_posix_pipeline_transfers_gibibyte_under_backpressure() {
-    btrfsbackup::PosixTransferPipeline pipeline;
-    btrfsbackup::NullTransferEventSink sink;
+    btrfsbackup::platform::linux::PosixTransferPipeline pipeline;
+    btrfsbackup::backup::transfer::NullTransferEventSink sink;
     btrfsbackup::CancellationToken cancellation;
     constexpr std::uint64_t transfer_bytes = 1024ULL * 1024ULL * 1024ULL;
 
-    btrfsbackup::TransferResult result = pipeline.run(
+    btrfsbackup::backup::transfer::TransferResult result = pipeline.run(
         {
             .producer_argv = {"head", "-c", std::to_string(transfer_bytes), "/dev/zero"},
             .consumer_argv = {"sh", "-c", "sleep 0.2; cat >/dev/null"},
@@ -336,17 +325,17 @@ void test_posix_pipeline_transfers_gibibyte_under_backpressure() {
         cancellation
     );
 
-    test_helpers::expect_true("backpressured transfer success", btrfsbackup::transfer_succeeded(result), "large transfer should succeed");
+    test_helpers::expect_true("backpressured transfer success", btrfsbackup::backup::transfer::transfer_succeeded(result), "large transfer should succeed");
     test_helpers::expect_eq("backpressured transfer bytes", std::to_string(result.bytes_transferred), std::to_string(transfer_bytes));
     test_helpers::expect_eq("backpressured produced bytes", std::to_string(result.bytes_produced), std::to_string(transfer_bytes));
 }
 
 void test_posix_pipeline_reports_producer_failure() {
-    btrfsbackup::PosixTransferPipeline pipeline;
+    btrfsbackup::platform::linux::PosixTransferPipeline pipeline;
     RecordingEventSink sink;
     btrfsbackup::CancellationToken cancellation;
 
-    btrfsbackup::TransferResult result = pipeline.run(
+    btrfsbackup::backup::transfer::TransferResult result = pipeline.run(
         {
             .producer_argv = {"sh", "-c", "echo producer-error >&2; exit 7"},
             .consumer_argv = {"cat"},
@@ -358,17 +347,15 @@ void test_posix_pipeline_reports_producer_failure() {
     test_helpers::expect_eq("producer exit", std::to_string(result.producer.exit_code), "7");
     test_helpers::expect_eq("consumer exit", std::to_string(result.consumer.exit_code), "0");
     test_helpers::expect_contains("producer diagnostics", result.producer.diagnostics, "producer-error");
-    test_helpers::expect_validation_error("producer failure result", [&] {
-        btrfsbackup::require_transfer_success(result);
-    }, "producer failed with exit code 7");
+    test_helpers::expect_validation_error("producer failure result", [&] { btrfsbackup::backup::transfer::require_transfer_success(result); }, "producer failed with exit code 7");
 }
 
 void test_posix_pipeline_reports_missing_producer() {
-    btrfsbackup::PosixTransferPipeline pipeline;
+    btrfsbackup::platform::linux::PosixTransferPipeline pipeline;
     RecordingEventSink sink;
     btrfsbackup::CancellationToken cancellation;
 
-    btrfsbackup::TransferResult result = pipeline.run(
+    btrfsbackup::backup::transfer::TransferResult result = pipeline.run(
         {
             .producer_argv = {"/definitely-missing-btrfsbackup-producer"},
             .consumer_argv = {"cat"},
@@ -382,17 +369,17 @@ void test_posix_pipeline_reports_missing_producer() {
     test_helpers::expect_contains("missing producer diagnostics", result.producer.diagnostics, "posix_spawn failed");
     test_helpers::expect_eq(
         "missing producer error code",
-        btrfsbackup::error_code_name(btrfsbackup::transfer_failure_error_code(result).value()),
+        btrfsbackup::error_code_name(btrfsbackup::backup::transfer::transfer_failure_error_code(result).value()),
         "transfer.producer_failed"
     );
 }
 
 void test_posix_pipeline_reports_consumer_failure() {
-    btrfsbackup::PosixTransferPipeline pipeline;
+    btrfsbackup::platform::linux::PosixTransferPipeline pipeline;
     RecordingEventSink sink;
     btrfsbackup::CancellationToken cancellation;
 
-    btrfsbackup::TransferResult result = pipeline.run(
+    btrfsbackup::backup::transfer::TransferResult result = pipeline.run(
         {
             .producer_argv = {"printf", "hello"},
             .consumer_argv = {"sh", "-c", "cat >/dev/null; echo consumer-error >&2; exit 9"},
@@ -404,17 +391,15 @@ void test_posix_pipeline_reports_consumer_failure() {
     test_helpers::expect_eq("producer exit for consumer failure", std::to_string(result.producer.exit_code), "0");
     test_helpers::expect_eq("consumer exit", std::to_string(result.consumer.exit_code), "9");
     test_helpers::expect_contains("consumer diagnostics", result.consumer.diagnostics, "consumer-error");
-    test_helpers::expect_validation_error("consumer failure result", [&] {
-        btrfsbackup::require_transfer_success(result);
-    }, "consumer failed with exit code 9");
+    test_helpers::expect_validation_error("consumer failure result", [&] { btrfsbackup::backup::transfer::require_transfer_success(result); }, "consumer failed with exit code 9");
 }
 
 void test_posix_pipeline_reports_missing_consumer() {
-    btrfsbackup::PosixTransferPipeline pipeline;
+    btrfsbackup::platform::linux::PosixTransferPipeline pipeline;
     RecordingEventSink sink;
     btrfsbackup::CancellationToken cancellation;
 
-    btrfsbackup::TransferResult result = pipeline.run(
+    btrfsbackup::backup::transfer::TransferResult result = pipeline.run(
         {
             .producer_argv = {"printf", "hello"},
             .consumer_argv = {"/definitely-missing-btrfsbackup-consumer"},
@@ -428,13 +413,13 @@ void test_posix_pipeline_reports_missing_consumer() {
     test_helpers::expect_contains("missing consumer diagnostics", result.consumer.diagnostics, "posix_spawn failed");
     test_helpers::expect_true(
         "missing consumer transfer failed",
-        !btrfsbackup::transfer_succeeded(result),
+        !btrfsbackup::backup::transfer::transfer_succeeded(result),
         "missing consumer must fail the transfer"
     );
 }
 
 void test_posix_pipeline_reaps_live_producer_when_consumer_spawn_fails() {
-    btrfsbackup::PosixTransferPipeline pipeline({
+    btrfsbackup::platform::linux::PosixTransferPipeline pipeline({
         .terminate_grace_period = std::chrono::milliseconds(100),
         .kill_reap_period = std::chrono::milliseconds(500),
     });
@@ -442,7 +427,7 @@ void test_posix_pipeline_reaps_live_producer_when_consumer_spawn_fails() {
     btrfsbackup::CancellationToken cancellation;
     auto started_at = std::chrono::steady_clock::now();
 
-    btrfsbackup::TransferResult result = pipeline.run(
+    btrfsbackup::backup::transfer::TransferResult result = pipeline.run(
         {
             .producer_argv = {
                 "/bin/sh",
@@ -456,8 +441,9 @@ void test_posix_pipeline_reaps_live_producer_when_consumer_spawn_fails() {
     );
 
     const auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-        std::chrono::steady_clock::now() - started_at
-    ).count();
+                                std::chrono::steady_clock::now() - started_at
+    )
+                                .count();
     test_helpers::expect_true("partial spawn producer started", result.producer.started, "producer should start before consumer failure");
     test_helpers::expect_true("partial spawn consumer missing", !result.consumer.started, "consumer should fail to start");
     test_helpers::expect_true("partial spawn cleanup bounded", elapsed_ms < 2000, "producer cleanup exceeded its deadline");
@@ -465,11 +451,11 @@ void test_posix_pipeline_reaps_live_producer_when_consumer_spawn_fails() {
 }
 
 void test_posix_pipeline_handles_early_consumer_exit() {
-    btrfsbackup::PosixTransferPipeline pipeline;
+    btrfsbackup::platform::linux::PosixTransferPipeline pipeline;
     RecordingEventSink sink;
     btrfsbackup::CancellationToken cancellation;
 
-    btrfsbackup::TransferResult result = pipeline.run(
+    btrfsbackup::backup::transfer::TransferResult result = pipeline.run(
         {
             .producer_argv = {"yes"},
             .consumer_argv = {"sh", "-c", "echo closed >&2; exit 9"},
@@ -480,18 +466,16 @@ void test_posix_pipeline_handles_early_consumer_exit() {
 
     test_helpers::expect_eq("early consumer exit", std::to_string(result.consumer.exit_code), "9");
     test_helpers::expect_contains("early consumer diagnostics", result.consumer.diagnostics, "closed");
-    test_helpers::expect_validation_error("early consumer failure result", [&] {
-        btrfsbackup::require_transfer_success(result);
-    }, "consumer failed with exit code 9");
+    test_helpers::expect_validation_error("early consumer failure result", [&] { btrfsbackup::backup::transfer::require_transfer_success(result); }, "consumer failed with exit code 9");
 }
 
 void test_posix_pipeline_honors_cancellation() {
-    btrfsbackup::PosixTransferPipeline pipeline;
+    btrfsbackup::platform::linux::PosixTransferPipeline pipeline;
     RecordingEventSink sink;
     btrfsbackup::CancellationToken cancellation;
     cancellation.request_cancel();
 
-    btrfsbackup::TransferResult result = pipeline.run(
+    btrfsbackup::backup::transfer::TransferResult result = pipeline.run(
         {
             .producer_argv = {"yes"},
             .consumer_argv = {"cat"},
@@ -501,13 +485,11 @@ void test_posix_pipeline_honors_cancellation() {
     );
 
     test_helpers::expect_true("posix cancelled", result.cancelled, "pipeline should report cancellation");
-    test_helpers::expect_validation_error("cancelled pipeline result", [&] {
-        btrfsbackup::require_transfer_success(result);
-    }, "Transfer was cancelled");
+    test_helpers::expect_validation_error("cancelled pipeline result", [&] { btrfsbackup::backup::transfer::require_transfer_success(result); }, "Transfer was cancelled");
 }
 
 void test_posix_pipeline_cancellation_wakes_event_loop() {
-    btrfsbackup::PosixTransferPipeline pipeline({
+    btrfsbackup::platform::linux::PosixTransferPipeline pipeline({
         .terminate_grace_period = std::chrono::milliseconds(100),
         .kill_reap_period = std::chrono::milliseconds(500),
     });
@@ -515,7 +497,7 @@ void test_posix_pipeline_cancellation_wakes_event_loop() {
     btrfsbackup::CancellationToken cancellation;
 
     auto started_at = std::chrono::steady_clock::now();
-    std::future<btrfsbackup::TransferResult> future = std::async(
+    std::future<btrfsbackup::backup::transfer::TransferResult> future = std::async(
         std::launch::async,
         [&] {
             return pipeline.run(
@@ -531,32 +513,33 @@ void test_posix_pipeline_cancellation_wakes_event_loop() {
 
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
     cancellation.request_cancel();
-    btrfsbackup::TransferResult result = future.get();
+    btrfsbackup::backup::transfer::TransferResult result = future.get();
     auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-        std::chrono::steady_clock::now() - started_at
-    ).count();
+                          std::chrono::steady_clock::now() - started_at
+    )
+                          .count();
 
     test_helpers::expect_true("event loop cancellation", result.cancelled, "pipeline should cancel after start");
     test_helpers::expect_true("event loop cancellation latency", elapsed_ms < 2000, "cancellation should not wait for producer sleep");
     test_helpers::expect_true(
         "event loop cancelled event",
-        std::any_of(sink.events.begin(), sink.events.end(), [](const btrfsbackup::TransferEvent& event) {
-            return event.kind == btrfsbackup::TransferEventKind::Cancelled;
+        std::any_of(sink.events.begin(), sink.events.end(), [](const btrfsbackup::backup::transfer::TransferEvent& event) {
+            return event.kind == btrfsbackup::backup::transfer::TransferEventKind::Cancelled;
         }),
         "cancelled event missing"
     );
 }
 
 void test_posix_pipeline_cancels_while_backpressured() {
-    btrfsbackup::PosixTransferPipeline pipeline({
+    btrfsbackup::platform::linux::PosixTransferPipeline pipeline({
         .terminate_grace_period = std::chrono::milliseconds(100),
         .kill_reap_period = std::chrono::milliseconds(500),
     });
-    btrfsbackup::NullTransferEventSink sink;
+    btrfsbackup::backup::transfer::NullTransferEventSink sink;
     btrfsbackup::CancellationToken cancellation;
 
     auto started_at = std::chrono::steady_clock::now();
-    std::future<btrfsbackup::TransferResult> future = std::async(
+    std::future<btrfsbackup::backup::transfer::TransferResult> future = std::async(
         std::launch::async,
         [&] {
             return pipeline.run(
@@ -572,25 +555,26 @@ void test_posix_pipeline_cancels_while_backpressured() {
 
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
     cancellation.request_cancel();
-    btrfsbackup::TransferResult result = future.get();
+    btrfsbackup::backup::transfer::TransferResult result = future.get();
     auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-        std::chrono::steady_clock::now() - started_at
-    ).count();
+                          std::chrono::steady_clock::now() - started_at
+    )
+                          .count();
 
     test_helpers::expect_true("backpressured cancellation", result.cancelled, "backpressured transfer should cancel");
     test_helpers::expect_true("backpressured cancellation latency", elapsed_ms < 2000, "cancellation should not wait for the consumer");
 }
 
 void test_posix_pipeline_kills_children_that_ignore_sigterm() {
-    btrfsbackup::PosixTransferPipeline pipeline({
+    btrfsbackup::platform::linux::PosixTransferPipeline pipeline({
         .terminate_grace_period = std::chrono::milliseconds(100),
         .kill_reap_period = std::chrono::milliseconds(500),
     });
-    btrfsbackup::NullTransferEventSink sink;
+    btrfsbackup::backup::transfer::NullTransferEventSink sink;
     btrfsbackup::CancellationToken cancellation;
 
     auto started_at = std::chrono::steady_clock::now();
-    std::future<btrfsbackup::TransferResult> future = std::async(
+    std::future<btrfsbackup::backup::transfer::TransferResult> future = std::async(
         std::launch::async,
         [&] {
             return pipeline.run(
@@ -606,10 +590,11 @@ void test_posix_pipeline_kills_children_that_ignore_sigterm() {
 
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
     cancellation.request_cancel();
-    btrfsbackup::TransferResult result = future.get();
+    btrfsbackup::backup::transfer::TransferResult result = future.get();
     auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-        std::chrono::steady_clock::now() - started_at
-    ).count();
+                          std::chrono::steady_clock::now() - started_at
+    )
+                          .count();
 
     test_helpers::expect_true("stubborn transfer cancelled", result.cancelled, "transfer should report cancellation");
     test_helpers::expect_true("stubborn cancellation bounded", elapsed_ms < 2000, "SIGKILL escalation should bound cancellation");
@@ -620,16 +605,16 @@ void test_posix_pipeline_kills_children_that_ignore_sigterm() {
 }
 
 void test_async_handle_destructor_kills_stubborn_children() {
-    btrfsbackup::PosixTransferPipeline pipeline({
+    btrfsbackup::platform::linux::PosixTransferPipeline pipeline({
         .terminate_grace_period = std::chrono::milliseconds(100),
         .kill_reap_period = std::chrono::milliseconds(500),
     });
-    btrfsbackup::ThreadedAsyncTransferPipeline async(pipeline);
-    btrfsbackup::NullTransferEventSink sink;
+    btrfsbackup::backup::transfer::ThreadedAsyncTransferPipeline async(pipeline);
+    btrfsbackup::backup::transfer::NullTransferEventSink sink;
     auto started_at = std::chrono::steady_clock::now();
 
     {
-        std::unique_ptr<btrfsbackup::IAsyncTransferHandle> handle = async.start(
+        std::unique_ptr<btrfsbackup::backup::transfer::IAsyncTransferHandle> handle = async.start(
             {
                 .producer_argv = {"sh", "-c", "trap '' TERM; while :; do sleep 1; done"},
                 .consumer_argv = {"sh", "-c", "trap '' TERM; while :; do sleep 1; done"},
@@ -640,17 +625,18 @@ void test_async_handle_destructor_kills_stubborn_children() {
     }
 
     auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-        std::chrono::steady_clock::now() - started_at
-    ).count();
+                          std::chrono::steady_clock::now() - started_at
+    )
+                          .count();
     test_helpers::expect_true("async destructor cancellation bounded", elapsed_ms < 2000, "handle destruction should not wait indefinitely");
 }
 
 void test_threaded_async_pipeline_runs_in_background() {
     BlockingTransferPipeline blocking;
-    btrfsbackup::ThreadedAsyncTransferPipeline async(blocking);
+    btrfsbackup::backup::transfer::ThreadedAsyncTransferPipeline async(blocking);
     RecordingEventSink sink;
 
-    std::unique_ptr<btrfsbackup::IAsyncTransferHandle> handle = async.start(
+    std::unique_ptr<btrfsbackup::backup::transfer::IAsyncTransferHandle> handle = async.start(
         {
             .producer_argv = {"producer"},
             .consumer_argv = {"consumer"},
@@ -671,17 +657,17 @@ void test_threaded_async_pipeline_runs_in_background() {
         handle->wait_for(std::chrono::milliseconds(1000)),
         "async handle did not complete"
     );
-    btrfsbackup::TransferResult result = handle->wait();
-    test_helpers::expect_true("async transfer success", btrfsbackup::transfer_succeeded(result), "async transfer should succeed");
+    btrfsbackup::backup::transfer::TransferResult result = handle->wait();
+    test_helpers::expect_true("async transfer success", btrfsbackup::backup::transfer::transfer_succeeded(result), "async transfer should succeed");
     test_helpers::expect_true("async finished", handle->finished(), "async handle should report completion");
 }
 
 void test_threaded_posix_pipeline_spawns_commands_in_worker_thread() {
-    btrfsbackup::PosixTransferPipeline pipeline;
-    btrfsbackup::ThreadedAsyncTransferPipeline async(pipeline);
+    btrfsbackup::platform::linux::PosixTransferPipeline pipeline;
+    btrfsbackup::backup::transfer::ThreadedAsyncTransferPipeline async(pipeline);
     RecordingEventSink sink;
 
-    std::unique_ptr<btrfsbackup::IAsyncTransferHandle> handle = async.start(
+    std::unique_ptr<btrfsbackup::backup::transfer::IAsyncTransferHandle> handle = async.start(
         {
             .producer_argv = {"printf", "threaded"},
             .consumer_argv = {"cat"},
@@ -689,10 +675,10 @@ void test_threaded_posix_pipeline_spawns_commands_in_worker_thread() {
         sink
     );
 
-    btrfsbackup::TransferResult result = handle->wait();
+    btrfsbackup::backup::transfer::TransferResult result = handle->wait();
     test_helpers::expect_true(
         "threaded posix transfer success",
-        btrfsbackup::transfer_succeeded(result),
+        btrfsbackup::backup::transfer::transfer_succeeded(result),
         "worker-thread process spawn should succeed"
     );
     test_helpers::expect_eq("threaded posix bytes", std::to_string(result.bytes_transferred), "8");
@@ -700,10 +686,10 @@ void test_threaded_posix_pipeline_spawns_commands_in_worker_thread() {
 
 void test_threaded_async_pipeline_requests_cancellation() {
     BlockingTransferPipeline blocking;
-    btrfsbackup::ThreadedAsyncTransferPipeline async(blocking);
+    btrfsbackup::backup::transfer::ThreadedAsyncTransferPipeline async(blocking);
     RecordingEventSink sink;
 
-    std::unique_ptr<btrfsbackup::IAsyncTransferHandle> handle = async.start(
+    std::unique_ptr<btrfsbackup::backup::transfer::IAsyncTransferHandle> handle = async.start(
         {
             .producer_argv = {"producer"},
             .consumer_argv = {"consumer"},
@@ -713,9 +699,9 @@ void test_threaded_async_pipeline_requests_cancellation() {
 
     wait_until_entered(blocking);
     handle->request_cancel();
-    btrfsbackup::TransferResult result = handle->wait();
+    btrfsbackup::backup::transfer::TransferResult result = handle->wait();
     test_helpers::expect_true("async cancelled", result.cancelled, "async cancellation should reach pipeline");
-    test_helpers::expect_eq("async cancel error code", btrfsbackup::error_code_name(btrfsbackup::transfer_failure_error_code(result).value()), "runner.cancelled");
+    test_helpers::expect_eq("async cancel error code", btrfsbackup::error_code_name(btrfsbackup::backup::transfer::transfer_failure_error_code(result).value()), "runner.cancelled");
 }
 
 } // namespace

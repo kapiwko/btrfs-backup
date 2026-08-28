@@ -81,16 +81,16 @@ bool default_is_service_invocation() {
 
 } // namespace
 
-namespace btrfsbackup {
+namespace btrfsbackup::cli {
 
 class TerminationSignalMonitor::Impl {
-public:
+  public:
     explicit Impl(CancellationToken& cancellation)
         : monitor_([&cancellation] { cancellation.request_cancel(); }) {
     }
 
-private:
-    platform_linux::TerminationSignalMonitor monitor_;
+  private:
+    platform::linux::TerminationSignalMonitor monitor_;
 };
 
 TerminationSignalMonitor::TerminationSignalMonitor(CancellationToken& cancellation)
@@ -117,19 +117,19 @@ int backup_tool(
         ? services->runner
         : [&](const std::vector<std::string>& runner_args, std::ostream& runner_output) {
               if (cancellation != nullptr) {
-                  return command::runner(profile_config_dir, runner_args, runner_output, *cancellation);
+                  return btrfsbackup::cli::runner(profile_config_dir, runner_args, runner_output, *cancellation);
               }
-              return command::runner(profile_config_dir, runner_args, runner_output);
+              return btrfsbackup::cli::runner(profile_config_dir, runner_args, runner_output);
           };
     auto target = services != nullptr && services->target
         ? services->target
         : [&](const std::vector<std::string>& target_args, std::ostream& target_output) {
-              return command::target(profile_config_dir, target_args, target_output);
+              return btrfsbackup::cli::target(profile_config_dir, target_args, target_output);
           };
     auto load_profile = services != nullptr && services->load_profile
         ? services->load_profile
         : [&](const std::string& profile_id) {
-              return load_profile_by_id(profile_config_dir, profile_id);
+              return btrfsbackup::platform::linux::load_profile_by_id(profile_config_dir, profile_id);
           };
     auto is_service_invocation = services != nullptr && services->is_service_invocation
         ? services->is_service_invocation
@@ -148,7 +148,7 @@ int backup_tool(
         return status;
     }
 
-    Profile profile = load_profile(options.profile_id);
+    btrfsbackup::config::Profile profile = load_profile(options.profile_id);
     if (!profile.settings.auto_eject) {
         return status;
     }
@@ -177,4 +177,4 @@ int backup_tool_main(int argc, char** argv) {
     }
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::cli

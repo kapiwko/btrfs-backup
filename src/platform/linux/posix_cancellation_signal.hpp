@@ -9,7 +9,7 @@
 
 #include <core/cancellation.hpp>
 
-namespace btrfsbackup::platform_linux {
+namespace btrfsbackup::platform::linux {
 
 class PosixCancellationSignal {
   public:
@@ -32,4 +32,4 @@ class PosixCancellationSignal {
     std::optional<std::stop_callback<WriteSignal>> callback_;
 };
 
-} // namespace btrfsbackup::platform_linux
+} // namespace btrfsbackup::platform::linux

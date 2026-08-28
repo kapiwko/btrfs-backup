@@ -18,7 +18,7 @@
 #include <platform/linux/process_spawn.hpp>
 #include <platform/linux/posix_cancellation_signal.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::platform::linux {
 
 namespace {
 
@@ -46,20 +46,20 @@ bool fd_is_ready(int fd) {
 
 } // namespace
 
-CommandResult run_command(const std::vector<std::string>& argv) {
-    ControlledCommandOptions options;
-    options.timeout = default_command_timeout;
-    options.max_output_bytes = default_command_max_output_bytes;
-    CommandResult result = run_controlled_command(argv, options);
+btrfsbackup::backup::CommandResult run_command(const std::vector<std::string>& argv) {
+    btrfsbackup::backup::ControlledCommandOptions options;
+    options.timeout = btrfsbackup::backup::default_command_timeout;
+    options.max_output_bytes = btrfsbackup::backup::default_command_max_output_bytes;
+    btrfsbackup::backup::CommandResult result = run_controlled_command(argv, options);
     if (result.timed_out) {
         result.exit_code = 124;
     }
     return result;
 }
 
-CommandResult run_controlled_command(
+btrfsbackup::backup::CommandResult run_controlled_command(
     const std::vector<std::string>& argv,
-    const ControlledCommandOptions& options
+    const btrfsbackup::backup::ControlledCommandOptions& options
 ) {
     if (argv.empty()) {
         throw ValidationError("empty command");
@@ -68,13 +68,13 @@ CommandResult run_controlled_command(
         throw ValidationError("command timeout must be positive");
     }
 
-    std::optional<platform_linux::PosixCancellationSignal> cancellation_signal;
+    std::optional<btrfsbackup::platform::linux::PosixCancellationSignal> cancellation_signal;
     if (options.cancellation != nullptr) {
         cancellation_signal.emplace(*options.cancellation);
     }
     const int cancellation_fd = cancellation_signal.has_value() ? cancellation_signal->fd() : -1;
 
-    CommandResult result;
+    btrfsbackup::backup::CommandResult result;
     if (fd_is_ready(cancellation_fd)) {
         result.cancelled = true;
         return result;
@@ -221,7 +221,7 @@ CommandResult run_controlled_command(
 }
 
 std::string run_capture(const std::vector<std::string>& argv) {
-    CommandResult result = run_command(argv);
+    btrfsbackup::backup::CommandResult result = run_command(argv);
     if (result.exit_code != 0) {
         throw ValidationError("command failed: " + argv.front());
     }
@@ -231,4 +231,4 @@ std::string run_capture(const std::vector<std::string>& argv) {
     return result.output;
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::platform::linux

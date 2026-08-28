@@ -10,12 +10,12 @@
 
 #include <config/ports/configuration_activator.hpp>
 
-namespace btrfsbackup::command {
+namespace btrfsbackup::cli {
 
 int profile(
     const std::vector<std::string>& args,
     const std::filesystem::path& profile_config_dir,
-    IConfigurationActivator& system_activator
+    btrfsbackup::config::IConfigurationActivator& system_activator
 );
 
-} // namespace btrfsbackup::command
+} // namespace btrfsbackup::cli

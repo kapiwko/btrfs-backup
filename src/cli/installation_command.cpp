@@ -38,12 +38,12 @@ std::string arg_value(std::size_t& index, const std::vector<std::string>& args, 
 
 } // namespace
 
-namespace btrfsbackup::command {
+namespace btrfsbackup::cli {
 
 int render_installation(const std::vector<std::string>& args) {
     fs::path file;
     fs::path output_dir;
-    btrfsbackup::InstallationRenderOptions options;
+    btrfsbackup::platform::linux::InstallationRenderOptions options;
     for (std::size_t i = 0; i < args.size(); ++i) {
         const std::string& arg = args[i];
         if (arg == "--file") {
@@ -63,11 +63,13 @@ int render_installation(const std::vector<std::string>& args) {
             fail("unknown installation render option: " + arg);
         }
     }
-    if (file.empty()) fail("installation render requires --file");
-    if (output_dir.empty()) fail("installation render requires --output-dir");
+    if (file.empty())
+        fail("installation render requires --file");
+    if (output_dir.empty())
+        fail("installation render requires --output-dir");
 
-    btrfsbackup::ApplicationConfig config = btrfsbackup::load_application_config(application_config_root());
-    btrfsbackup::render_installation({file, output_dir, options, config.paths().target_mount_root});
+    btrfsbackup::config::ApplicationConfig config = btrfsbackup::platform::linux::load_application_config(application_config_root());
+    btrfsbackup::platform::linux::render_installation({file, output_dir, options, config.paths().target_mount_root});
     return 0;
 }
 
@@ -97,10 +99,10 @@ int validate_installation(const std::vector<std::string>& args) {
         if (geteuid() != 0) {
             fail("active installation validation must be run as root", 1);
         }
-        btrfsbackup::validate_active_installation_for(profile_id);
+        btrfsbackup::platform::linux::validate_active_installation_for(profile_id);
     } else {
-        btrfsbackup::ApplicationConfig config = btrfsbackup::load_application_config(application_config_root());
-        btrfsbackup::validate_rendered_installation_at(rendered_root, config.paths().target_mount_root);
+        btrfsbackup::config::ApplicationConfig config = btrfsbackup::platform::linux::load_application_config(application_config_root());
+        btrfsbackup::platform::linux::validate_rendered_installation_at(rendered_root, config.paths().target_mount_root);
     }
     return 0;
 }
@@ -132,4 +134,4 @@ int installation(const std::vector<std::string>& args) {
     fail("unknown installation command: " + command);
 }
 
-} // namespace btrfsbackup::command
+} // namespace btrfsbackup::cli

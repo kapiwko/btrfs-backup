@@ -6,11 +6,11 @@
 
 #include <platform/linux/process.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::platform::linux {
 
 void LinuxSystemConfigurationActivator::activate() {
     (void)run_capture({"systemctl", "daemon-reload"});
     (void)run_capture({"udevadm", "control", "--reload-rules"});
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::platform::linux

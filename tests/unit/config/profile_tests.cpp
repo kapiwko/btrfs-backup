@@ -32,12 +32,12 @@ namespace fs = std::filesystem;
 
 namespace {
 
-using btrfsbackup::Json;
+using btrfsbackup::config::Json;
 using btrfsbackup::ValidationError;
 
 int failures = 0;
 
-class FakeConfigurationActivator final : public btrfsbackup::IConfigurationActivator {
+class FakeConfigurationActivator final : public btrfsbackup::config::IConfigurationActivator {
   public:
     explicit FakeConfigurationActivator(std::function<void()> activate)
         : activate_(std::move(activate)) {
@@ -77,15 +77,15 @@ void expect_validation_error(const std::string& name, const std::function<void()
 }
 
 void install_test_profile_transactionally(
-    const btrfsbackup::Profile& profile,
+    const btrfsbackup::config::Profile& profile,
     const fs::path& etc_root,
     const fs::path& udev_root,
     const fs::path& systemd_root,
     const fs::path& public_root,
     const std::function<void()>& activate = {}
 ) {
-    btrfsbackup::ProfileArtifactRenderer renderer(btrfsbackup::generate_configuration_generation);
-    const btrfsbackup::ProfileArtifactRoots roots{
+    btrfsbackup::config::ProfileArtifactRenderer renderer(btrfsbackup::platform::linux::generate_configuration_generation);
+    const btrfsbackup::config::ProfileArtifactRoots roots{
         .etc_root = etc_root,
         .udev_root = udev_root,
         .systemd_root = systemd_root,
@@ -93,16 +93,16 @@ void install_test_profile_transactionally(
     };
     if (activate) {
         FakeConfigurationActivator activator(activate);
-        btrfsbackup::ProfileInstaller installer(renderer, activator);
+        btrfsbackup::platform::linux::ProfileInstaller installer(renderer, activator);
         installer.install_profile_transactionally(profile, roots);
     } else {
-        btrfsbackup::NullConfigurationActivator activator;
-        btrfsbackup::ProfileInstaller installer(renderer, activator);
+        btrfsbackup::config::NullConfigurationActivator activator;
+        btrfsbackup::platform::linux::ProfileInstaller installer(renderer, activator);
         installer.install_profile_transactionally(profile, roots);
     }
 }
 
-Json valid_profile() {
+btrfsbackup::config::Json valid_profile() {
     return {
         {"schemaVersion", 3},
         {"profileId", "default"},
@@ -111,7 +111,7 @@ Json valid_profile() {
         {"target", {{"device", "/dev/disk/by-uuid/11111111-2222-3333-4444-555555555555"}, {"luksUuid", "11111111-2222-3333-4444-555555555555"}, {"btrfsUuid", "66666666-7777-8888-9999-aaaaaaaaaaaa"}, {"partitionUuid", "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"}, {"serial", "SERIAL_123"}, {"mapperName", "backupdisk"}}},
         {"paths", {{"remoteRoot", "/mnt/btrfs-backup/default/snapshots"}, {"incomingRoot", "/mnt/btrfs-backup/default/.incoming"}}},
         {"settings", {{"dailyLimit", true}, {"incrementalRequired", true}, {"keepFailedLocalSnapshot", false}, {"autoEject", true}, {"remoteRetention", 30}, {"localRetention", 20}, {"minimumTargetFreeBytes", 5368709120LL}, {"minimumLocalFreeBytes", 1073741824LL}}},
-        {"sources", Json::array({{{"id", "home"}, {"name", "Home"}, {"enabled", true}, {"subvolume", "/home"}, {"localSnapshotDir", "/.snapshots/btrfs-backup/home"}, {"remoteSubdir", "home"}, {"remoteRetention", 30}, {"localRetention", 20}}})}
+        {"sources", btrfsbackup::config::Json::array({{{"id", "home"}, {"name", "Home"}, {"enabled", true}, {"subvolume", "/home"}, {"localSnapshotDir", "/.snapshots/btrfs-backup/home"}, {"remoteSubdir", "home"}, {"remoteRetention", 30}, {"localRetention", 20}}})}
     };
 }
 
@@ -135,7 +135,7 @@ void test_profile_fingerprint_matches_legacy_stream() {
         std::ofstream(root / "20-home.conf") << "SOURCE_NAME=home\n";
     }
 
-    const std::string digest = btrfsbackup::compute_config_fingerprint(
+    const std::string digest = btrfsbackup::config::compute_config_fingerprint(
         "2.0.0",
         root / "main.env",
         {root / "10-root.conf", root / "20-home.conf"}
@@ -149,43 +149,43 @@ void test_profile_fingerprint_matches_legacy_stream() {
 }
 
 void test_rejects_bad_uuid() {
-    Json profile = valid_profile();
+    btrfsbackup::config::Json profile = valid_profile();
     profile["target"]["luksUuid"] = "bad";
-    expect_validation_error("bad uuid", [&] { btrfsbackup::normalize_profile(profile); }, "target.luksUuid");
+    expect_validation_error("bad uuid", [&] { btrfsbackup::config::normalize_profile(profile); }, "target.luksUuid");
 }
 
 void test_rejects_bad_configuration_generation() {
-    Json profile = valid_profile();
+    btrfsbackup::config::Json profile = valid_profile();
     profile["configurationGeneration"] = "NOT-A-GENERATION";
     expect_validation_error(
         "bad configuration generation",
-        [&] { (void)btrfsbackup::normalize_profile(profile); },
+        [&] { (void)btrfsbackup::config::normalize_profile(profile); },
         "configurationGeneration"
     );
 }
 
 void test_rejects_missing_btrfs_uuid() {
-    Json profile = valid_profile();
+    btrfsbackup::config::Json profile = valid_profile();
     profile["target"].erase("btrfsUuid");
-    expect_validation_error("missing btrfs uuid", [&] { btrfsbackup::normalize_profile(profile); }, "btrfsUuid");
+    expect_validation_error("missing btrfs uuid", [&] { btrfsbackup::config::normalize_profile(profile); }, "btrfsUuid");
 }
 
 void test_rejects_non_dev_target() {
-    Json profile = valid_profile();
+    btrfsbackup::config::Json profile = valid_profile();
     profile["target"]["device"] = "/tmp/not-a-device";
-    expect_validation_error("non-dev target", [&] { btrfsbackup::normalize_profile(profile); }, "target.device");
+    expect_validation_error("non-dev target", [&] { btrfsbackup::config::normalize_profile(profile); }, "target.device");
 }
 
 void test_rejects_nested_roots() {
-    Json profile = valid_profile();
+    btrfsbackup::config::Json profile = valid_profile();
     profile["paths"]["incomingRoot"] = "/mnt/btrfs-backup/default/snapshots/.incoming";
-    expect_validation_error("nested roots", [&] { btrfsbackup::normalize_profile(profile); }, "remoteRoot and paths.incomingRoot");
+    expect_validation_error("nested roots", [&] { btrfsbackup::config::normalize_profile(profile); }, "remoteRoot and paths.incomingRoot");
 }
 
 void test_profile_round_trips_normalized_json() {
-    Json normalized = btrfsbackup::normalize_profile(valid_profile());
-    btrfsbackup::Profile profile = btrfsbackup::profile_from_json(normalized);
-    Json round_trip = btrfsbackup::profile_to_json(profile);
+    btrfsbackup::config::Json normalized = btrfsbackup::config::normalize_profile(valid_profile());
+    btrfsbackup::config::Profile profile = btrfsbackup::config::profile_from_json(normalized);
+    btrfsbackup::config::Json round_trip = btrfsbackup::config::profile_to_json(profile);
 
     expect_true("profile model id", profile.id == btrfsbackup::ProfileId{"default"}, "wrong profile id");
     expect_true("profile model source", profile.sources.size() == 1 && profile.sources.at(0).id == btrfsbackup::SourceId{"home"}, "wrong profile source");
@@ -193,14 +193,14 @@ void test_profile_round_trips_normalized_json() {
 }
 
 void test_profile_migrates_safe_legacy_system_paths() {
-    Json legacy = valid_profile();
+    btrfsbackup::config::Json legacy = valid_profile();
     legacy["schemaVersion"] = 1;
     legacy["target"]["mountPoint"] = "/mnt/btrfs-backup/default";
     legacy["paths"]["stateDir"] = "/var/lib/btrfs-backup";
     legacy["paths"]["statusRoot"] = "/run/btrfs-backup/profiles";
     legacy["paths"]["historyRoot"] = "/var/lib/btrfs-backup/history";
 
-    Json normalized = btrfsbackup::normalize_profile(legacy);
+    btrfsbackup::config::Json normalized = btrfsbackup::config::normalize_profile(legacy);
     expect_true("legacy migrated schema", normalized.at("schemaVersion") == 3, "legacy profile was not migrated");
     expect_true("legacy stateDir removed", !normalized.at("paths").contains("stateDir"), "stateDir remains public");
     expect_true("legacy statusRoot removed", !normalized.at("paths").contains("statusRoot"), "statusRoot remains public");
@@ -208,46 +208,46 @@ void test_profile_migrates_safe_legacy_system_paths() {
 }
 
 void test_profile_rejects_retired_legacy_sources_directory() {
-    Json legacy = valid_profile();
+    btrfsbackup::config::Json legacy = valid_profile();
     legacy["schemaVersion"] = 1;
     legacy["target"]["mountPoint"] = "/mnt/btrfs-backup/default";
     legacy["paths"]["sourcesDir"] = "/etc/btrfs-backup/profiles/default/sources.d";
 
     expect_validation_error(
         "retired legacy sources directory",
-        [&] { (void)btrfsbackup::normalize_profile(legacy); },
+        [&] { (void)btrfsbackup::config::normalize_profile(legacy); },
         "paths.sourcesDir is not supported"
     );
 }
 
 void test_profile_rejects_system_path_overrides() {
-    Json current = valid_profile();
+    btrfsbackup::config::Json current = valid_profile();
     current["paths"]["statusRoot"] = "/etc";
     expect_validation_error(
         "current system path",
-        [&] { btrfsbackup::normalize_profile(current); },
+        [&] { btrfsbackup::config::normalize_profile(current); },
         "paths.statusRoot is not supported"
     );
 
-    Json legacy = valid_profile();
+    btrfsbackup::config::Json legacy = valid_profile();
     legacy["schemaVersion"] = 1;
     legacy["target"]["mountPoint"] = "/mnt/btrfs-backup/default";
     legacy["paths"]["statusRoot"] = "/etc";
     expect_validation_error(
         "legacy system path",
-        [&] { btrfsbackup::normalize_profile(legacy); },
+        [&] { btrfsbackup::config::normalize_profile(legacy); },
         "paths.statusRoot is application-controlled"
     );
 }
 
 void test_mount_point_is_application_controlled() {
-    Json raw = valid_profile();
+    btrfsbackup::config::Json raw = valid_profile();
     raw["target"]["mountPoint"] = "/home/alice/backup";
-    expect_validation_error("profile mount point rejected", [&] { (void)btrfsbackup::normalize_profile(raw); }, "application-controlled");
+    expect_validation_error("profile mount point rejected", [&] { (void)btrfsbackup::config::normalize_profile(raw); }, "application-controlled");
 
-    Json custom = valid_profile();
-    custom["paths"] = Json::object();
-    btrfsbackup::Profile profile = btrfsbackup::profile_from_json(custom, "/srv/backup-targets");
+    btrfsbackup::config::Json custom = valid_profile();
+    custom["paths"] = btrfsbackup::config::Json::object();
+    btrfsbackup::config::Profile profile = btrfsbackup::config::profile_from_json(custom, "/srv/backup-targets");
     expect_true(
         "custom mount root",
         profile.target.mount_point == "/srv/backup-targets/default",
@@ -256,25 +256,25 @@ void test_mount_point_is_application_controlled() {
 }
 
 void test_profile_rejects_removed_notifications() {
-    Json raw = valid_profile();
+    btrfsbackup::config::Json raw = valid_profile();
     raw["notifications"] = {{"enabled", true}};
 
     expect_validation_error(
         "removed notifications",
-        [&] { btrfsbackup::normalize_profile(raw); },
+        [&] { btrfsbackup::config::normalize_profile(raw); },
         "profile.notifications is not supported"
     );
 }
 
 void test_profile_hooks_round_trip_as_explicit_program_arguments() {
-    Json raw = valid_profile();
+    btrfsbackup::config::Json raw = valid_profile();
     raw["hooks"] = {
-        {"beforeSnapshot", Json::array({{{"type", "program"}, {"program", "/etc/btrfs-backup/hooks.d/prepare-postgresql-backup"}, {"arguments", Json::array({"--mode", "snapshot"})}, {"timeoutSeconds", 45}}})},
-        {"afterSnapshot", Json::array({{{"type", "program"}, {"program", "/etc/btrfs-backup/hooks.d/resume-postgresql"}, {"arguments", Json::array()}, {"timeoutSeconds", 30}}})}
+        {"beforeSnapshot", btrfsbackup::config::Json::array({{{"type", "program"}, {"program", "/etc/btrfs-backup/hooks.d/prepare-postgresql-backup"}, {"arguments", btrfsbackup::config::Json::array({"--mode", "snapshot"})}, {"timeoutSeconds", 45}}})},
+        {"afterSnapshot", btrfsbackup::config::Json::array({{{"type", "program"}, {"program", "/etc/btrfs-backup/hooks.d/resume-postgresql"}, {"arguments", btrfsbackup::config::Json::array()}, {"timeoutSeconds", 30}}})}
     };
 
-    btrfsbackup::Profile profile = btrfsbackup::profile_from_json(raw);
-    Json round_trip = btrfsbackup::profile_to_json(profile);
+    btrfsbackup::config::Profile profile = btrfsbackup::config::profile_from_json(raw);
+    btrfsbackup::config::Json round_trip = btrfsbackup::config::profile_to_json(profile);
 
     expect_true("before hook count", profile.hooks.before_snapshot.size() == 1, "wrong before hook count");
     expect_true("before hook program", profile.hooks.before_snapshot.at(0).program == "/etc/btrfs-backup/hooks.d/prepare-postgresql-backup", "wrong hook program");
@@ -282,58 +282,58 @@ void test_profile_hooks_round_trip_as_explicit_program_arguments() {
     expect_true("before hook timeout", profile.hooks.before_snapshot.at(0).timeout == std::chrono::seconds{45}, "wrong hook timeout");
     expect_true("after hook count", profile.hooks.after_snapshot.size() == 1, "wrong after hook count");
     expect_true("after hook timeout", profile.hooks.after_snapshot.at(0).timeout == std::chrono::seconds{30}, "wrong after hook timeout");
-    expect_true("hook round trip", round_trip == btrfsbackup::normalize_profile(raw), "hook JSON did not round trip");
+    expect_true("hook round trip", round_trip == btrfsbackup::config::normalize_profile(raw), "hook JSON did not round trip");
 }
 
 void test_profile_rejects_unsafe_hook_shape() {
-    Json raw = valid_profile();
+    btrfsbackup::config::Json raw = valid_profile();
     raw["hooks"] = {
-        {"beforeSnapshot", Json::array({{{"type", "program"}, {"program", "/etc/btrfs-backup/hooks.d/prepare"}, {"arguments", Json::array()}}})}
+        {"beforeSnapshot", btrfsbackup::config::Json::array({{{"type", "program"}, {"program", "/etc/btrfs-backup/hooks.d/prepare"}, {"arguments", btrfsbackup::config::Json::array()}}})}
     };
-    expect_validation_error("hook timeout required", [&] { btrfsbackup::normalize_profile(raw); }, "timeoutSeconds is required");
+    expect_validation_error("hook timeout required", [&] { btrfsbackup::config::normalize_profile(raw); }, "timeoutSeconds is required");
 
     raw = valid_profile();
     raw["hooks"] = {
-        {"beforeSnapshot", Json::array({{{"type", "shell"}, {"program", "/etc/btrfs-backup/hooks.d/prepare"}, {"arguments", Json::array()}}})}
+        {"beforeSnapshot", btrfsbackup::config::Json::array({{{"type", "shell"}, {"program", "/etc/btrfs-backup/hooks.d/prepare"}, {"arguments", btrfsbackup::config::Json::array()}}})}
     };
-    expect_validation_error("hook type", [&] { btrfsbackup::normalize_profile(raw); }, "type must be program");
+    expect_validation_error("hook type", [&] { btrfsbackup::config::normalize_profile(raw); }, "type must be program");
 
     raw = valid_profile();
     raw["hooks"] = {
-        {"beforeSnapshot", Json::array({{{"type", "program"}, {"program", "prepare"}, {"arguments", Json::array()}, {"timeoutSeconds", 30}}})}
+        {"beforeSnapshot", btrfsbackup::config::Json::array({{{"type", "program"}, {"program", "prepare"}, {"arguments", btrfsbackup::config::Json::array()}, {"timeoutSeconds", 30}}})}
     };
-    expect_validation_error("hook program absolute", [&] { btrfsbackup::normalize_profile(raw); }, "absolute path");
+    expect_validation_error("hook program absolute", [&] { btrfsbackup::config::normalize_profile(raw); }, "absolute path");
 
     raw["hooks"]["beforeSnapshot"][0]["program"] = "/home/kamil/bin/prepare";
     expect_validation_error(
         "hook program outside trusted directory",
-        [&] { btrfsbackup::normalize_profile(raw); },
+        [&] { btrfsbackup::config::normalize_profile(raw); },
         "must be a direct child of /etc/btrfs-backup/hooks.d"
     );
 
     raw["hooks"]["beforeSnapshot"][0]["program"] = "/etc/btrfs-backup/hooks.d/postgresql/prepare";
     expect_validation_error(
         "hook program nested directory",
-        [&] { btrfsbackup::normalize_profile(raw); },
+        [&] { btrfsbackup::config::normalize_profile(raw); },
         "must be a direct child of /etc/btrfs-backup/hooks.d"
     );
 
     raw = valid_profile();
     raw["hooks"] = {
-        {"beforeSnapshot", Json::array({{{"type", "program"}, {"program", "/etc/btrfs-backup/hooks.d/prepare"}, {"arguments", Json::array()}, {"timeoutSeconds", 0}}})}
+        {"beforeSnapshot", btrfsbackup::config::Json::array({{{"type", "program"}, {"program", "/etc/btrfs-backup/hooks.d/prepare"}, {"arguments", btrfsbackup::config::Json::array()}, {"timeoutSeconds", 0}}})}
     };
-    expect_validation_error("hook timeout positive", [&] { btrfsbackup::normalize_profile(raw); }, "outside the supported range");
+    expect_validation_error("hook timeout positive", [&] { btrfsbackup::config::normalize_profile(raw); }, "outside the supported range");
 }
 
 void test_profile_artifact_renderer() {
     fs::path root = test_root();
-    btrfsbackup::Profile profile = btrfsbackup::profile_from_json(valid_profile());
+    btrfsbackup::config::Profile profile = btrfsbackup::config::profile_from_json(valid_profile());
     const std::string generation = "0123456789abcdef0123456789abcdef";
-    btrfsbackup::ProfileArtifactRenderer renderer([&] { return generation; });
+    btrfsbackup::config::ProfileArtifactRenderer renderer([&] { return generation; });
     const fs::path rendered_root = root / "rendered";
-    const btrfsbackup::RenderedProfileArtifacts rendered = renderer.render_profile_artifacts(
+    const btrfsbackup::config::RenderedProfileArtifacts rendered = renderer.render_profile_artifacts(
         profile,
-        btrfsbackup::profile_artifact_roots(rendered_root)
+        btrfsbackup::config::profile_artifact_roots(rendered_root)
     );
 
     expect_true(
@@ -347,7 +347,7 @@ void test_profile_artifact_renderer() {
         rendered.profile.configuration_generation == generation,
         "injected generation was not used"
     );
-    btrfsbackup::write_profile_artifacts(rendered);
+    btrfsbackup::platform::linux::write_profile_artifacts(rendered);
 
     expect_true("typed tree profile env", !fs::exists(root / "rendered" / "etc" / "btrfs-backup" / "profiles.d" / "default.env"), "profile env should not be rendered");
     expect_true(
@@ -360,7 +360,7 @@ void test_profile_artifact_renderer() {
         fs::is_regular_file(root / "rendered" / "var" / "lib" / "btrfs-backup" / "public" / "profiles" / "default.json"),
         "missing rendered public profile"
     );
-    Json public_profile = btrfsbackup::load_json_file(
+    btrfsbackup::config::Json public_profile = btrfsbackup::config::load_json_file(
         root / "rendered" / "var" / "lib" / "btrfs-backup" / "public" / "profiles" / "default.json"
     );
     expect_true("public target label", public_profile.at("target").at("name") == "backupdisk", "missing target label");
@@ -380,11 +380,11 @@ void test_profile_artifact_renderer() {
 
 void test_profile_configuration_transaction_publishes_temp_artifacts() {
     const fs::path root = test_root();
-    const btrfsbackup::Profile profile = btrfsbackup::profile_from_json(valid_profile());
-    btrfsbackup::ProfileArtifactRenderer renderer([] {
+    const btrfsbackup::config::Profile profile = btrfsbackup::config::profile_from_json(valid_profile());
+    btrfsbackup::config::ProfileArtifactRenderer renderer([] {
         return "fedcba9876543210fedcba9876543210";
     });
-    const btrfsbackup::RenderedProfileArtifacts rendered = renderer.render_profile_artifacts(
+    const btrfsbackup::config::RenderedProfileArtifacts rendered = renderer.render_profile_artifacts(
         profile,
         {
             .etc_root = root / "etc",
@@ -393,12 +393,12 @@ void test_profile_configuration_transaction_publishes_temp_artifacts() {
             .public_root = root / "public",
         }
     );
-    btrfsbackup::ProfileConfigurationTransaction transaction(rendered);
+    btrfsbackup::platform::linux::ProfileConfigurationTransaction transaction(rendered);
 
     transaction.stage();
     expect_true(
         "transaction stages private profile",
-        fs::is_regular_file(transaction.staged_path(btrfsbackup::ProfileArtifactKind::PrivateProfile)),
+        fs::is_regular_file(transaction.staged_path(btrfsbackup::config::ProfileArtifactKind::PrivateProfile)),
         "private profile was not staged"
     );
     transaction.publish_configuration();
@@ -419,7 +419,7 @@ void test_profile_configuration_transaction_publishes_temp_artifacts() {
 
 void test_profile_installer() {
     fs::path root = test_root();
-    btrfsbackup::Profile profile = btrfsbackup::profile_from_json(valid_profile());
+    btrfsbackup::config::Profile profile = btrfsbackup::config::profile_from_json(valid_profile());
 
     install_test_profile_transactionally(
         profile,
@@ -448,8 +448,8 @@ void test_profile_installer() {
 
     const fs::path profile_path = root / "etc" / "btrfs-backup" / "profiles" / "default" / "profile.json";
     const fs::path public_path = root / "public" / "default.json";
-    Json saved_profile = btrfsbackup::load_json_file(profile_path);
-    Json public_profile = btrfsbackup::load_json_file(public_path);
+    btrfsbackup::config::Json saved_profile = btrfsbackup::config::load_json_file(profile_path);
+    btrfsbackup::config::Json public_profile = btrfsbackup::config::load_json_file(public_path);
     const std::string generation = saved_profile.at("configurationGeneration").get<std::string>();
     expect_true("typed save generation length", generation.size() == 32, "invalid configuration generation");
     expect_true(
@@ -479,13 +479,13 @@ void test_profile_installer() {
     setenv("BTRFS_BACKUP_CONFIGURATION_GENERATION", generation.c_str(), 1);
     expect_true(
         "typed load matching generation",
-        btrfsbackup::load_profile_by_id(root / "etc" / "btrfs-backup", "default").id == btrfsbackup::ProfileId{"default"},
+        btrfsbackup::platform::linux::load_profile_by_id(root / "etc" / "btrfs-backup", "default").id == btrfsbackup::ProfileId{"default"},
         "matching generation was rejected"
     );
     setenv("BTRFS_BACKUP_CONFIGURATION_GENERATION", "00000000000000000000000000000000", 1);
     expect_validation_error(
         "typed load mismatched generation",
-        [&] { (void)btrfsbackup::load_profile_by_id(root / "etc" / "btrfs-backup", "default"); },
+        [&] { (void)btrfsbackup::platform::linux::load_profile_by_id(root / "etc" / "btrfs-backup", "default"); },
         "generation does not match"
     );
     if (previous_generation.has_value()) {
@@ -498,7 +498,7 @@ void test_profile_installer() {
 
 void test_profile_installation_staging_failure_preserves_installed_artifacts() {
     fs::path root = test_root();
-    btrfsbackup::Profile original = btrfsbackup::profile_from_json(valid_profile());
+    btrfsbackup::config::Profile original = btrfsbackup::config::profile_from_json(valid_profile());
     const fs::path etc_root = root / "etc" / "btrfs-backup";
     const fs::path udev_root = root / "etc" / "udev" / "rules.d";
     const fs::path systemd_root = root / "etc" / "systemd" / "system";
@@ -515,15 +515,15 @@ void test_profile_installation_staging_failure_preserves_installed_artifacts() {
         read_text(systemd_path),
         read_text(public_path),
     };
-    btrfsbackup::Profile changed = original;
+    btrfsbackup::config::Profile changed = original;
     changed.name = "Changed profile";
     const fs::path blocked_public_root = root / "blocked-public";
-    btrfsbackup::atomic_write(blocked_public_root, "not a directory", 0600);
+    btrfsbackup::platform::linux::atomic_write(blocked_public_root, "not a directory", 0600);
 
     bool rejected = false;
     try {
         install_test_profile_transactionally(changed, etc_root, udev_root, systemd_root, blocked_public_root);
-    } catch (const btrfsbackup::ConfigurationSaveError& error) {
+    } catch (const btrfsbackup::platform::linux::ConfigurationSaveError& error) {
         rejected = true;
         expect_true(
             "transaction staging failure code",
@@ -552,7 +552,7 @@ void test_profile_installation_staging_failure_preserves_installed_artifacts() {
 
 void test_profile_installation_activation_failure_rolls_back_all_artifacts() {
     fs::path root = test_root();
-    btrfsbackup::Profile original = btrfsbackup::profile_from_json(valid_profile());
+    btrfsbackup::config::Profile original = btrfsbackup::config::profile_from_json(valid_profile());
     const fs::path etc_root = root / "etc" / "btrfs-backup";
     const fs::path udev_root = root / "etc" / "udev" / "rules.d";
     const fs::path systemd_root = root / "etc" / "systemd" / "system";
@@ -569,7 +569,7 @@ void test_profile_installation_activation_failure_rolls_back_all_artifacts() {
         read_text(systemd_path),
         read_text(public_path),
     };
-    btrfsbackup::Profile changed = original;
+    btrfsbackup::config::Profile changed = original;
     changed.name = "Changed profile";
     int activation_calls = 0;
     bool public_marker_was_old_during_activation = false;
@@ -609,7 +609,7 @@ void test_profile_installation_activation_failure_rolls_back_all_artifacts() {
 
 void test_profile_installation_reports_incomplete_rollback() {
     fs::path root = test_root();
-    btrfsbackup::Profile original = btrfsbackup::profile_from_json(valid_profile());
+    btrfsbackup::config::Profile original = btrfsbackup::config::profile_from_json(valid_profile());
     const fs::path etc_root = root / "etc" / "btrfs-backup";
     const fs::path udev_root = root / "etc" / "udev" / "rules.d";
     const fs::path systemd_root = root / "etc" / "systemd" / "system";
@@ -617,7 +617,7 @@ void test_profile_installation_reports_incomplete_rollback() {
     const fs::path udev_path = udev_root / "99-btrfs-backup-default.rules";
     install_test_profile_transactionally(original, etc_root, udev_root, systemd_root, public_root);
 
-    btrfsbackup::Profile changed = original;
+    btrfsbackup::config::Profile changed = original;
     changed.name = "Changed profile";
     int activation_calls = 0;
     try {
@@ -634,12 +634,12 @@ void test_profile_installation_reports_incomplete_rollback() {
                 }
                 fs::remove(udev_path);
                 fs::create_directory(udev_path);
-                btrfsbackup::atomic_write(udev_path / "blocker", "injected rollback failure", 0600);
+                btrfsbackup::platform::linux::atomic_write(udev_path / "blocker", "injected rollback failure", 0600);
                 throw ValidationError("injected save failure");
             }
         );
         fail("transaction incomplete rollback", "save unexpectedly succeeded");
-    } catch (const btrfsbackup::ConfigurationSaveError& error) {
+    } catch (const btrfsbackup::platform::linux::ConfigurationSaveError& error) {
         expect_true(
             "transaction rollback error code",
             error.error_code == "configuration.rollback_incomplete",
@@ -661,7 +661,7 @@ void test_profile_installation_reports_incomplete_rollback() {
             "rollback result contains no diagnostics"
         );
         bool reported_restore_failure = false;
-        for (const btrfsbackup::RollbackError& rollback_error : error.rollback_result.errors) {
+        for (const btrfsbackup::platform::linux::RollbackError& rollback_error : error.rollback_result.errors) {
             if (rollback_error.operation == "restore previous artifact" && rollback_error.path.filename().string().starts_with(".99-btrfs-backup-default.rules.previous-")) {
                 reported_restore_failure = true;
             }
@@ -693,7 +693,7 @@ void test_profile_installation_reports_incomplete_rollback() {
 
 void test_profile_installation_refuses_active_profile_lock() {
     fs::path root = test_root();
-    btrfsbackup::Profile original = btrfsbackup::profile_from_json(valid_profile());
+    btrfsbackup::config::Profile original = btrfsbackup::config::profile_from_json(valid_profile());
     const fs::path etc_root = root / "etc" / "btrfs-backup";
     const fs::path udev_root = root / "etc" / "udev" / "rules.d";
     const fs::path systemd_root = root / "etc" / "systemd" / "system";
@@ -702,11 +702,11 @@ void test_profile_installation_refuses_active_profile_lock() {
     install_test_profile_transactionally(original, etc_root, udev_root, systemd_root, public_root);
     const std::string before = read_text(profile_path);
 
-    btrfsbackup::FileLock lock(
-        btrfsbackup::profile_lock_path(etc_root / ".locks", "default")
+    btrfsbackup::platform::linux::FileLock lock(
+        btrfsbackup::platform::linux::profile_lock_path(etc_root / ".locks", "default")
     );
     expect_true("transaction test lock acquired", lock.try_acquire(), "cannot acquire test profile lock");
-    btrfsbackup::Profile changed = original;
+    btrfsbackup::config::Profile changed = original;
     changed.name = "Changed profile";
     expect_validation_error(
         "transaction active profile lock",
@@ -718,8 +718,8 @@ void test_profile_installation_refuses_active_profile_lock() {
 }
 
 void test_render_udev_optional_matches() {
-    btrfsbackup::Profile profile = btrfsbackup::profile_from_json(valid_profile());
-    std::string rendered = btrfsbackup::render_udev(profile);
+    btrfsbackup::config::Profile profile = btrfsbackup::config::profile_from_json(valid_profile());
+    std::string rendered = btrfsbackup::config::render_udev(profile);
     expect_true("udev partition", rendered.find("ENV{ID_PART_ENTRY_UUID}==\"aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee\"") != std::string::npos, "missing partition UUID match");
     expect_true("udev serial", rendered.find("ENV{ID_SERIAL_SHORT}==\"SERIAL_123\"") != std::string::npos, "missing serial match");
 }

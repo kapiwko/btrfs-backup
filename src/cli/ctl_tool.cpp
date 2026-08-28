@@ -56,7 +56,7 @@ void usage() {
 
 } // namespace
 
-namespace btrfsbackup {
+namespace btrfsbackup::cli {
 
 int ctl_tool_main(int argc, char** argv) {
     bool status_root_overridden = std::getenv("BTRFS_BACKUP_STATUS_ROOT") != nullptr;
@@ -96,25 +96,26 @@ int ctl_tool_main(int argc, char** argv) {
         std::vector<std::string> args(rest.begin() + 1, rest.end());
 
         if (command == "profile") {
-            LinuxSystemConfigurationActivator activator;
-            return command::profile(args, profile_config_dir, activator);
+            btrfsbackup::platform::linux::LinuxSystemConfigurationActivator activator;
+            return profile(args, profile_config_dir, activator);
         } else if (command == "status") {
-            bool help_requested = std::find(args.begin(), args.end(), "-h") != args.end()
-                || std::find(args.begin(), args.end(), "--help") != args.end();
+            bool help_requested = std::find(args.begin(), args.end(), "-h") != args.end() || std::find(args.begin(), args.end(), "--help") != args.end();
             if (!help_requested) {
-                ApplicationConfig application_config = load_application_config(profile_config_dir);
-                if (!status_root_overridden) status_root = application_config.paths().status_root;
-                if (!history_root_overridden) history_root = application_config.paths().history_root;
+                btrfsbackup::config::ApplicationConfig application_config = btrfsbackup::platform::linux::load_application_config(profile_config_dir);
+                if (!status_root_overridden)
+                    status_root = application_config.paths().status_root;
+                if (!history_root_overridden)
+                    history_root = application_config.paths().history_root;
             }
-            return command::status(status_root, history_root, args);
+            return status(status_root, history_root, args);
         } else if (command == "installation") {
-            return command::installation(args);
+            return installation(args);
         } else if (command == "runner") {
             CancellationToken cancellation;
             TerminationSignalMonitor termination_signals(cancellation);
-            return command::runner(profile_config_dir, args, std::cout, cancellation);
+            return runner(profile_config_dir, args, std::cout, cancellation);
         } else if (command == "target") {
-            return command::target(profile_config_dir, args, std::cout);
+            return target(profile_config_dir, args, std::cout);
         } else if (command == "-h" || command == "--help") {
             usage();
         } else {
@@ -128,4 +129,4 @@ int ctl_tool_main(int argc, char** argv) {
     return 0;
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::cli

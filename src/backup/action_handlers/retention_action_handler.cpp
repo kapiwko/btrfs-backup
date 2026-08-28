@@ -9,7 +9,7 @@
 #include <backup/ports/btrfs_operations.hpp>
 #include <backup/ports/safe_directory.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup {
 
 RetentionActionHandler::RetentionActionHandler(IBtrfsOperations& btrfs) : btrfs_(btrfs) {
 }
@@ -44,4 +44,4 @@ void RetentionActionHandler::apply(const RetentionPlan& plan, const ISafeDirecto
     }
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup

@@ -24,7 +24,7 @@ void test_reads_mount_table() {
         "24 21 0:21 / /mnt/backup rw,relatime - btrfs /dev/mapper/backupdisk[/snapshots] rw,subvolid=5\n"
     );
 
-    std::vector<btrfsbackup::MountEntry> entries = btrfsbackup::read_mount_table(mountinfo, [](const std::string& source) {
+    std::vector<btrfsbackup::backup::MountEntry> entries = btrfsbackup::platform::linux::read_mount_table(mountinfo, [](const std::string& source) {
         if (source == "/dev/sda2") {
             return std::string{"source-uuid"};
         }
@@ -44,7 +44,7 @@ void test_reads_mount_table() {
     test_helpers::expect_eq("mount tmpfs filesystem uuid", entries.at(2).filesystem_uuid, "");
     test_helpers::expect_eq("mount backup filesystem uuid", entries.at(3).filesystem_uuid, "target-uuid");
 
-    std::vector<std::string> targets = btrfsbackup::btrfs_mount_targets(mountinfo);
+    std::vector<std::string> targets = btrfsbackup::platform::linux::btrfs_mount_targets(mountinfo);
     test_helpers::expect_eq("btrfs target count", std::to_string(targets.size()), "3");
     test_helpers::expect_eq("btrfs target root", targets.at(0), "/");
     test_helpers::expect_eq("btrfs target home", targets.at(1), "/home");
@@ -54,7 +54,7 @@ void test_reads_mount_table() {
 }
 
 void test_mount_lookup_and_matching() {
-    std::vector<btrfsbackup::MountEntry> entries{
+    std::vector<btrfsbackup::backup::MountEntry> entries{
         {
             .source = "/dev/sda2",
             .target = "/",
@@ -78,38 +78,38 @@ void test_mount_lookup_and_matching() {
         },
     };
 
-    auto home_mount = btrfsbackup::mount_for_path(entries, "/home/user/file");
+    auto home_mount = btrfsbackup::backup::mount_for_path(entries, "/home/user/file");
     test_helpers::expect_true("mount for path exists", home_mount.has_value(), "missing mount for /home/user/file");
     test_helpers::expect_eq("mount for path target", home_mount->target, "/home");
 
-    auto backup_mount = btrfsbackup::mount_at(entries, "/mnt/backup");
+    auto backup_mount = btrfsbackup::backup::mount_at(entries, "/mnt/backup");
     test_helpers::expect_true("mount at exists", backup_mount.has_value(), "missing mount at /mnt/backup");
     test_helpers::expect_eq("mount at source", backup_mount->source, "/dev/mapper/backupdisk[/snapshots]");
 
     test_helpers::expect_true(
         "same filesystem uuid",
-        btrfsbackup::paths_are_same_filesystem(entries, "/home/user", "/"),
+        btrfsbackup::backup::paths_are_same_filesystem(entries, "/home/user", "/"),
         "source paths should share filesystem UUID"
     );
     test_helpers::expect_true(
         "different filesystem uuid",
-        !btrfsbackup::paths_are_same_filesystem(entries, "/home/user", "/mnt/backup"),
+        !btrfsbackup::backup::paths_are_same_filesystem(entries, "/home/user", "/mnt/backup"),
         "source and target should not share filesystem UUID"
     );
     test_helpers::expect_true(
         "mount uses mapper",
-        btrfsbackup::mount_uses_mapper(entries, "/mnt/backup", "/dev/mapper/backupdisk"),
+        btrfsbackup::backup::mount_uses_mapper(entries, "/mnt/backup", "/dev/mapper/backupdisk"),
         "backup mount should use expected mapper"
     );
     test_helpers::expect_true(
         "mount rejects mapper",
-        !btrfsbackup::mount_uses_mapper(entries, "/home", "/dev/mapper/backupdisk"),
+        !btrfsbackup::backup::mount_uses_mapper(entries, "/home", "/dev/mapper/backupdisk"),
         "home mount should not use backup mapper"
     );
 }
 
 void test_same_filesystem_device_fallback() {
-    std::vector<btrfsbackup::MountEntry> entries{
+    std::vector<btrfsbackup::backup::MountEntry> entries{
         {
             .source = "/dev/sda2",
             .target = "/",
@@ -126,15 +126,13 @@ void test_same_filesystem_device_fallback() {
 
     test_helpers::expect_true(
         "same filesystem fallback",
-        btrfsbackup::paths_are_same_filesystem(entries, "/srv/data", "/etc"),
+        btrfsbackup::backup::paths_are_same_filesystem(entries, "/srv/data", "/etc"),
         "paths should share device id when UUID is unavailable"
     );
 }
 
 void test_missing_mount_table_is_error() {
-    test_helpers::expect_validation_error("missing mount table", [] {
-        (void)btrfsbackup::read_mount_table("/tmp/does-not-exist-btrfs-backup-mountinfo");
-    }, "could not read mount table");
+    test_helpers::expect_validation_error("missing mount table", [] { (void)btrfsbackup::platform::linux::read_mount_table("/tmp/does-not-exist-btrfs-backup-mountinfo"); }, "could not read mount table");
 }
 
 } // namespace

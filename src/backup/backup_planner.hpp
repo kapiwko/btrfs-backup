@@ -9,7 +9,7 @@
 #include <backup/ports/pending_marker_store.hpp>
 #include <backup/ports/safe_directory.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup {
 
 class BackupPlanner final : public IBackupPlanner {
   public:
@@ -20,9 +20,9 @@ class BackupPlanner final : public IBackupPlanner {
     );
 
     [[nodiscard]] BackupRunPlan build(
-        const Profile& profile,
+        const btrfsbackup::config::Profile& profile,
         const std::vector<MountEntry>& mounts,
-        const ApplicationPaths& paths,
+        const btrfsbackup::config::ApplicationPaths& paths,
         const RunId& run_id,
         const std::string& snapshot_timestamp
     ) const override;
@@ -33,4 +33,4 @@ class BackupPlanner final : public IBackupPlanner {
     const ISafeDirectoryRootFactory& safe_directories_;
 };
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup

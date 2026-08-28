@@ -23,14 +23,15 @@
 #include <platform/linux/posix_transfer_process.hpp>
 #include <platform/linux/posix_transfer_pump.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::platform::linux {
 
 namespace {
 
 class UniqueFd {
-public:
+  public:
     UniqueFd() = default;
-    explicit UniqueFd(int fd) : fd_(fd) {}
+    explicit UniqueFd(int fd) : fd_(fd) {
+    }
     UniqueFd(const UniqueFd&) = delete;
     UniqueFd& operator=(const UniqueFd&) = delete;
     UniqueFd(UniqueFd&& other) noexcept : fd_(other.fd_) {
@@ -65,14 +66,14 @@ public:
         fd_ = fd;
     }
 
-private:
+  private:
     int fd_ = -1;
 };
 
 class ScopedIgnoredSigpipe {
-public:
+  public:
     ScopedIgnoredSigpipe() {
-        struct sigaction action {};
+        struct sigaction action{};
         action.sa_handler = SIG_IGN;
         sigemptyset(&action.sa_mask);
         sigaction(SIGPIPE, &action, &previous_);
@@ -83,8 +84,8 @@ public:
         sigaction(SIGPIPE, &previous_, nullptr);
     }
 
-private:
-    struct sigaction previous_ {};
+  private:
+    struct sigaction previous_{};
 };
 
 struct Pipe {
@@ -176,17 +177,16 @@ std::uint64_t average_speed_bps(std::uint64_t bytes, std::uint64_t elapsed_ms) {
     if (elapsed_ms == 0) {
         return 0;
     }
-    const long double rate = static_cast<long double>(bytes) * 1000.0L
-        / static_cast<long double>(elapsed_ms);
+    const long double rate = static_cast<long double>(bytes) * 1000.0L / static_cast<long double>(elapsed_ms);
     return rate >= static_cast<long double>(std::numeric_limits<std::uint64_t>::max())
         ? std::numeric_limits<std::uint64_t>::max()
         : static_cast<std::uint64_t>(rate);
 }
 
 void emit_event(
-    ITransferEventSink& events,
-    TransferEventKind kind,
-    const TransferResult& result,
+    btrfsbackup::backup::transfer::ITransferEventSink& events,
+    btrfsbackup::backup::transfer::TransferEventKind kind,
+    const btrfsbackup::backup::transfer::TransferResult& result,
     SteadyClock::time_point started_at,
     std::uint64_t delta_bytes = 0,
     const std::string& message = "",
@@ -206,12 +206,12 @@ void emit_event(
 }
 
 class TransferProgressReporter {
-public:
+  public:
     explicit TransferProgressReporter(SteadyClock::time_point started_at)
         : started_at_(started_at), last_report_at_(started_at) {
     }
 
-    void maybe_report(ITransferEventSink& events, const TransferResult& result) {
+    void maybe_report(btrfsbackup::backup::transfer::ITransferEventSink& events, const btrfsbackup::backup::transfer::TransferResult& result) {
         const SteadyClock::time_point now = SteadyClock::now();
         if (now - last_report_at_ < report_interval_) {
             return;
@@ -219,15 +219,15 @@ public:
         report(events, result, now);
     }
 
-    void flush(ITransferEventSink& events, const TransferResult& result) {
+    void flush(btrfsbackup::backup::transfer::ITransferEventSink& events, const btrfsbackup::backup::transfer::TransferResult& result) {
         if (reported_ && result.bytes_transferred == last_reported_bytes_) {
             return;
         }
         report(events, result, SteadyClock::now());
     }
 
-private:
-    void report(ITransferEventSink& events, const TransferResult& result, SteadyClock::time_point now) {
+  private:
+    void report(btrfsbackup::backup::transfer::ITransferEventSink& events, const btrfsbackup::backup::transfer::TransferResult& result, SteadyClock::time_point now) {
         const std::chrono::milliseconds elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
             now - started_at_
         );
@@ -237,7 +237,7 @@ private:
         const std::uint64_t smoothed_speed = speed_.sample(result.bytes_transferred, elapsed);
         emit_event(
             events,
-            TransferEventKind::Progress,
+            btrfsbackup::backup::transfer::TransferEventKind::Progress,
             result,
             started_at_,
             delta_bytes,
@@ -252,7 +252,7 @@ private:
     static constexpr std::chrono::milliseconds report_interval_{500};
     SteadyClock::time_point started_at_;
     SteadyClock::time_point last_report_at_;
-    TransferSpeedEstimator speed_;
+    btrfsbackup::backup::transfer::TransferSpeedEstimator speed_;
     std::uint64_t last_reported_bytes_ = 0;
     bool reported_ = false;
 };
@@ -261,28 +261,27 @@ private:
 
 PosixTransferPipeline::PosixTransferPipeline(TransferTerminationPolicy termination_policy)
     : termination_policy_(termination_policy) {
-    if (termination_policy_.terminate_grace_period.count() <= 0
-        || termination_policy_.kill_reap_period.count() <= 0) {
+    if (termination_policy_.terminate_grace_period.count() <= 0 || termination_policy_.kill_reap_period.count() <= 0) {
         throw ValidationError("transfer termination periods must be positive");
     }
 }
 
-TransferResult PosixTransferPipeline::run(
-    const TransferPipelinePlan& plan,
-    ITransferEventSink& events,
+btrfsbackup::backup::transfer::TransferResult PosixTransferPipeline::run(
+    const btrfsbackup::backup::transfer::TransferPipelinePlan& plan,
+    btrfsbackup::backup::transfer::ITransferEventSink& events,
     CancellationToken& cancellation
 ) {
     const auto started_at = SteadyClock::now();
     TransferProgressReporter progress_reporter(started_at);
     ScopedIgnoredSigpipe ignored_sigpipe;
-    platform_linux::PosixCancellationSignal cancellation_signal(cancellation);
+    btrfsbackup::platform::linux::PosixCancellationSignal cancellation_signal(cancellation);
     Pipe data_pipe = create_pipe();
     Pipe consumer_input_pipe = create_pipe();
     Pipe producer_error_pipe = create_pipe();
     Pipe consumer_error_pipe = create_pipe();
     UniqueFd dev_null = open_dev_null();
 
-    ProcessSpawnResult producer_spawn = platform_linux::spawn_posix_transfer_process(
+    ProcessSpawnResult producer_spawn = btrfsbackup::platform::linux::spawn_posix_transfer_process(
         plan.producer_argv,
         dev_null.get(),
         data_pipe.write_end.get(),
@@ -297,7 +296,7 @@ TransferResult PosixTransferPipeline::run(
             .kill_reap_period = termination_policy_.kill_reap_period,
         }
     );
-    ProcessSpawnResult consumer_spawn = platform_linux::spawn_posix_transfer_process(
+    ProcessSpawnResult consumer_spawn = btrfsbackup::platform::linux::spawn_posix_transfer_process(
         plan.consumer_argv,
         consumer_input_pipe.read_end.get(),
         dev_null.get(),
@@ -313,19 +312,17 @@ TransferResult PosixTransferPipeline::run(
         }
     );
 
-    TransferResult result;
+    btrfsbackup::backup::transfer::TransferResult result;
     result.producer.started = producer_spawn.started();
     result.consumer.started = consumer_spawn.started();
     if (!result.producer.started) {
-        result.producer.diagnostics = "posix_spawn failed for " + plan.producer_argv.front()
-            + ": " + std::strerror(producer_spawn.error);
+        result.producer.diagnostics = "posix_spawn failed for " + plan.producer_argv.front() + ": " + std::strerror(producer_spawn.error);
     }
     if (!result.consumer.started) {
-        result.consumer.diagnostics = "posix_spawn failed for " + plan.consumer_argv.front()
-            + ": " + std::strerror(consumer_spawn.error);
+        result.consumer.diagnostics = "posix_spawn failed for " + plan.consumer_argv.front() + ": " + std::strerror(consumer_spawn.error);
     }
     result.bytes_total_estimated = plan.bytes_total_estimated;
-    emit_event(events, TransferEventKind::Started, result, started_at);
+    emit_event(events, btrfsbackup::backup::transfer::TransferEventKind::Started, result, started_at);
 
     data_pipe.write_end.reset();
     consumer_input_pipe.read_end.reset();
@@ -370,19 +367,18 @@ TransferResult PosixTransferPipeline::run(
         .deadline = std::nullopt,
     };
     auto request_termination = [&](ChildTerminationState& state, bool done) {
-        if (state.terminate_sent || state.process == nullptr || state.process->pid() <= 0
-            || (done && !state.process->process_group_exists())) {
+        if (state.terminate_sent || state.process == nullptr || state.process->pid() <= 0 || (done && !state.process->process_group_exists())) {
             return;
         }
         state.process->send_signal(SIGTERM);
         state.terminate_sent = true;
         state.deadline = SteadyClock::now() + termination_policy_.terminate_grace_period;
     };
-    auto advance_termination = [&] (
-        ChildTerminationState& state,
-        bool& done,
-        TransferSideResult& side
-    ) {
+    auto advance_termination = [&](
+                                   ChildTerminationState& state,
+                                   bool& done,
+                                   btrfsbackup::backup::transfer::TransferSideResult& side
+                               ) {
         if (!state.terminate_sent || !state.deadline.has_value()) {
             return ChildTerminationProgress::None;
         }
@@ -405,7 +401,7 @@ TransferResult PosixTransferPipeline::run(
         if (done) {
             return ChildTerminationProgress::Abandoned;
         }
-        if (platform_linux::reap_posix_transfer_process(state.process->pid(), side)) {
+        if (btrfsbackup::platform::linux::reap_posix_transfer_process(state.process->pid(), side)) {
             done = true;
             state.process->mark_reaped();
             return ChildTerminationProgress::Reaped;
@@ -441,15 +437,14 @@ TransferResult PosixTransferPipeline::run(
             data_pipe.read_end.reset();
             producer_stdout_open = false;
         }
-        emit_event(events, TransferEventKind::Cancelled, result, started_at);
+        emit_event(events, btrfsbackup::backup::transfer::TransferEventKind::Cancelled, result, started_at);
         cancellation_sent = true;
     };
 
     auto termination_pending = [](const ChildTerminationState& state) {
         return state.terminate_sent && state.deadline.has_value();
     };
-    while (!producer_done || !consumer_done || producer_stdout_open || producer_stderr_open || consumer_stderr_open
-        || termination_pending(producer_termination) || termination_pending(consumer_termination)) {
+    while (!producer_done || !consumer_done || producer_stdout_open || producer_stderr_open || consumer_stderr_open || termination_pending(producer_termination) || termination_pending(consumer_termination)) {
         if (cancellation.cancellation_requested()) {
             cancel_transfer();
         }
@@ -459,7 +454,7 @@ TransferResult PosixTransferPipeline::run(
             result.producer
         );
         if (producer_progress == ChildTerminationProgress::Reaped) {
-            emit_event(events, TransferEventKind::ProducerFinished, result, started_at);
+            emit_event(events, btrfsbackup::backup::transfer::TransferEventKind::ProducerFinished, result, started_at);
         }
         if (producer_progress != ChildTerminationProgress::None) {
             producer_error_pipe.read_end.reset();
@@ -471,7 +466,7 @@ TransferResult PosixTransferPipeline::run(
             result.consumer
         );
         if (consumer_progress == ChildTerminationProgress::Reaped) {
-            emit_event(events, TransferEventKind::ConsumerFinished, result, started_at);
+            emit_event(events, btrfsbackup::backup::transfer::TransferEventKind::ConsumerFinished, result, started_at);
         }
         if (consumer_progress != ChildTerminationProgress::None) {
             consumer_error_pipe.read_end.reset();
@@ -581,7 +576,7 @@ TransferResult PosixTransferPipeline::run(
 
         constexpr std::size_t splice_cycle_budget_bytes = 16U * 1024U * 1024U;
         if (producer_stdout_open && consumer_stdin_open && producer_stdout_ready && consumer_stdin_ready) {
-            const platform_linux::PosixTransferPumpResult pump = platform_linux::pump_posix_transfer(
+            const btrfsbackup::platform::linux::PosixTransferPumpResult pump = btrfsbackup::platform::linux::pump_posix_transfer(
                 data_pipe.read_end.get(),
                 consumer_input_pipe.write_end.get(),
                 splice_cycle_budget_bytes
@@ -613,15 +608,15 @@ TransferResult PosixTransferPipeline::run(
 
         progress_reporter.maybe_report(events, result);
 
-        if (!producer_done && platform_linux::reap_posix_transfer_process(producer_pid, result.producer)) {
+        if (!producer_done && btrfsbackup::platform::linux::reap_posix_transfer_process(producer_pid, result.producer)) {
             producer_done = true;
             producer_process.mark_reaped();
-            emit_event(events, TransferEventKind::ProducerFinished, result, started_at);
+            emit_event(events, btrfsbackup::backup::transfer::TransferEventKind::ProducerFinished, result, started_at);
         }
-        if (!consumer_done && platform_linux::reap_posix_transfer_process(consumer_pid, result.consumer)) {
+        if (!consumer_done && btrfsbackup::platform::linux::reap_posix_transfer_process(consumer_pid, result.consumer)) {
             consumer_done = true;
             consumer_process.mark_reaped();
-            emit_event(events, TransferEventKind::ConsumerFinished, result, started_at);
+            emit_event(events, btrfsbackup::backup::transfer::TransferEventKind::ConsumerFinished, result, started_at);
         }
     }
 
@@ -630,8 +625,8 @@ TransferResult PosixTransferPipeline::run(
     trim_diagnostics(result.consumer.diagnostics);
     result.duration_ms = elapsed_ms_since(started_at);
     result.average_speed_bps = average_speed_bps(result.bytes_transferred, result.duration_ms);
-    emit_event(events, TransferEventKind::Completed, result, started_at);
+    emit_event(events, btrfsbackup::backup::transfer::TransferEventKind::Completed, result, started_at);
     return result;
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::platform::linux

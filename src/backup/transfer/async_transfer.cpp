@@ -8,7 +8,7 @@
 #include <optional>
 #include <utility>
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup::transfer {
 
 namespace {
 
@@ -18,7 +18,8 @@ class ThreadedAsyncTransferHandle final : public IAsyncTransferHandle {
         std::shared_ptr<CancellationToken> cancellation,
         std::future<TransferResult> future
     ) : cancellation_(std::move(cancellation)),
-        future_(std::move(future)) {}
+        future_(std::move(future)) {
+    }
 
     ~ThreadedAsyncTransferHandle() override {
         if (future_.valid() && !result_.has_value()) {
@@ -58,7 +59,8 @@ class ThreadedAsyncTransferHandle final : public IAsyncTransferHandle {
 } // namespace
 
 ThreadedAsyncTransferPipeline::ThreadedAsyncTransferPipeline(ITransferPipeline& pipeline)
-    : pipeline_(pipeline) {}
+    : pipeline_(pipeline) {
+}
 
 std::unique_ptr<IAsyncTransferHandle> ThreadedAsyncTransferPipeline::start(
     const TransferPipelinePlan& plan,
@@ -74,4 +76,4 @@ std::unique_ptr<IAsyncTransferHandle> ThreadedAsyncTransferPipeline::start(
     return std::make_unique<ThreadedAsyncTransferHandle>(std::move(cancellation), std::move(future));
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup::transfer

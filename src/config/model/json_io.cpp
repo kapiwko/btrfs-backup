@@ -8,7 +8,7 @@
 
 #include <core/errors.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::config {
 
 Json load_json_file(const std::filesystem::path& path) {
     std::ifstream stream(path);
@@ -28,4 +28,4 @@ std::string dump_json(const Json& data) {
     return data.dump(2) + "\n";
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::config

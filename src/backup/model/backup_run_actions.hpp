@@ -15,7 +15,7 @@
 #include <core/identifiers.hpp>
 #include <config/model/profile.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup {
 
 struct RecoverPendingAction {
     SourceId source_id;
@@ -41,9 +41,9 @@ enum class HookPhase { BeforeSnapshot,
 struct RunHookAction {
     SourceId source_id;
     HookPhase phase;
-    ProfileHookCommand hook;
+    btrfsbackup::config::ProfileHookCommand hook;
 
-    RunHookAction(SourceId source_id, HookPhase phase, ProfileHookCommand hook)
+    RunHookAction(SourceId source_id, HookPhase phase, btrfsbackup::config::ProfileHookCommand hook)
         : source_id(std::move(source_id)), phase(phase), hook(std::move(hook)) {
     }
 };
@@ -193,4 +193,4 @@ using BackupRunAction = std::variant<
 [[nodiscard]] BackupRunActionKind backup_run_action_kind(const BackupRunAction& action);
 [[nodiscard]] const SourceId& backup_run_action_source_id(const BackupRunAction& action);
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup

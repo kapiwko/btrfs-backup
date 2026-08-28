@@ -4,9 +4,9 @@
 
 #include <backup/transfer/transfer_event.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup::transfer {
 
 void NullTransferEventSink::on_transfer_event(const TransferEvent&) {
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup::transfer

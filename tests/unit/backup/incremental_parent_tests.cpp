@@ -15,8 +15,8 @@ namespace fs = std::filesystem;
 
 namespace {
 
-btrfsbackup::SnapshotInfo snapshot(
-    btrfsbackup::SnapshotSide side,
+btrfsbackup::backup::SnapshotInfo snapshot(
+    btrfsbackup::backup::SnapshotSide side,
     const std::string& source_id,
     const std::string& name,
     const std::string& timestamp,
@@ -26,7 +26,7 @@ btrfsbackup::SnapshotInfo snapshot(
     const std::string& uuid,
     const std::string& received_uuid = ""
 ) {
-    return btrfsbackup::SnapshotInfo{
+    return btrfsbackup::backup::SnapshotInfo{
         .side = side,
         .source_id = source_id,
         .name = name,
@@ -40,9 +40,9 @@ btrfsbackup::SnapshotInfo snapshot(
 }
 
 void test_selects_newest_uuid_matching_parent() {
-    std::vector<btrfsbackup::SnapshotInfo> local{
+    std::vector<btrfsbackup::backup::SnapshotInfo> local{
         snapshot(
-            btrfsbackup::SnapshotSide::Local,
+            btrfsbackup::backup::SnapshotSide::Local,
             "home",
             "home-2026-08-22T080000Z",
             "2026-08-22T080000Z",
@@ -52,7 +52,7 @@ void test_selects_newest_uuid_matching_parent() {
             "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
         ),
         snapshot(
-            btrfsbackup::SnapshotSide::Local,
+            btrfsbackup::backup::SnapshotSide::Local,
             "home",
             "home-2026-08-23T080000Z",
             "2026-08-23T080000Z",
@@ -62,9 +62,9 @@ void test_selects_newest_uuid_matching_parent() {
             "BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB"
         ),
     };
-    std::vector<btrfsbackup::SnapshotInfo> remote{
+    std::vector<btrfsbackup::backup::SnapshotInfo> remote{
         snapshot(
-            btrfsbackup::SnapshotSide::Remote,
+            btrfsbackup::backup::SnapshotSide::Remote,
             "home",
             "home-2026-08-22T080000Z",
             "2026-08-22T080000Z",
@@ -75,7 +75,7 @@ void test_selects_newest_uuid_matching_parent() {
             "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
         ),
         snapshot(
-            btrfsbackup::SnapshotSide::Remote,
+            btrfsbackup::backup::SnapshotSide::Remote,
             "home",
             "home-2026-08-23T080000Z",
             "2026-08-23T080000Z",
@@ -87,8 +87,8 @@ void test_selects_newest_uuid_matching_parent() {
         ),
     };
 
-    btrfsbackup::IncrementalParentSelection selection =
-        btrfsbackup::select_incremental_parent("home", local, remote, std::nullopt, true);
+    btrfsbackup::backup::IncrementalParentSelection selection =
+        btrfsbackup::backup::select_incremental_parent("home", local, remote, std::nullopt, true);
 
     test_helpers::expect_true("select incremental", selection.incremental, "expected incremental parent");
     test_helpers::expect_true("select local parent", selection.local_parent.has_value(), "missing local parent");
@@ -98,9 +98,9 @@ void test_selects_newest_uuid_matching_parent() {
 }
 
 void test_skips_current_snapshot() {
-    std::vector<btrfsbackup::SnapshotInfo> local{
+    std::vector<btrfsbackup::backup::SnapshotInfo> local{
         snapshot(
-            btrfsbackup::SnapshotSide::Local,
+            btrfsbackup::backup::SnapshotSide::Local,
             "root",
             "root-2026-08-23T080000Z",
             "2026-08-23T080000Z",
@@ -110,7 +110,7 @@ void test_skips_current_snapshot() {
             "current-uuid"
         ),
         snapshot(
-            btrfsbackup::SnapshotSide::Local,
+            btrfsbackup::backup::SnapshotSide::Local,
             "root",
             "root-2026-08-22T080000Z",
             "2026-08-22T080000Z",
@@ -120,9 +120,9 @@ void test_skips_current_snapshot() {
             "parent-uuid"
         ),
     };
-    std::vector<btrfsbackup::SnapshotInfo> remote{
+    std::vector<btrfsbackup::backup::SnapshotInfo> remote{
         snapshot(
-            btrfsbackup::SnapshotSide::Remote,
+            btrfsbackup::backup::SnapshotSide::Remote,
             "root",
             "root-2026-08-23T080000Z",
             "2026-08-23T080000Z",
@@ -133,7 +133,7 @@ void test_skips_current_snapshot() {
             "current-uuid"
         ),
         snapshot(
-            btrfsbackup::SnapshotSide::Remote,
+            btrfsbackup::backup::SnapshotSide::Remote,
             "root",
             "root-2026-08-22T080000Z",
             "2026-08-22T080000Z",
@@ -145,17 +145,17 @@ void test_skips_current_snapshot() {
         ),
     };
 
-    btrfsbackup::IncrementalParentSelection selection =
-        btrfsbackup::select_incremental_parent("root", local, remote, fs::path("/local/root/root-2026-08-23T080000Z"), true);
+    btrfsbackup::backup::IncrementalParentSelection selection =
+        btrfsbackup::backup::select_incremental_parent("root", local, remote, fs::path("/local/root/root-2026-08-23T080000Z"), true);
 
     test_helpers::expect_true("skip current incremental", selection.incremental, "expected older parent");
     test_helpers::expect_eq("skip current local", selection.local_parent->path.string(), "/local/root/root-2026-08-22T080000Z");
 }
 
 void test_missing_parent_rules() {
-    std::vector<btrfsbackup::SnapshotInfo> local{
+    std::vector<btrfsbackup::backup::SnapshotInfo> local{
         snapshot(
-            btrfsbackup::SnapshotSide::Local,
+            btrfsbackup::backup::SnapshotSide::Local,
             "home",
             "home-2026-08-23T080000Z",
             "2026-08-23T080000Z",
@@ -165,9 +165,9 @@ void test_missing_parent_rules() {
             "local-only"
         ),
     };
-    std::vector<btrfsbackup::SnapshotInfo> remote{
+    std::vector<btrfsbackup::backup::SnapshotInfo> remote{
         snapshot(
-            btrfsbackup::SnapshotSide::Remote,
+            btrfsbackup::backup::SnapshotSide::Remote,
             "home",
             "home-2026-08-22T080000Z",
             "2026-08-22T080000Z",
@@ -179,20 +179,18 @@ void test_missing_parent_rules() {
         ),
     };
 
-    btrfsbackup::IncrementalParentSelection full =
-        btrfsbackup::select_incremental_parent("home", local, remote, std::nullopt, false);
+    btrfsbackup::backup::IncrementalParentSelection full =
+        btrfsbackup::backup::select_incremental_parent("home", local, remote, std::nullopt, false);
     test_helpers::expect_true("missing parent full", !full.incremental, "optional incremental should fall back to full");
     test_helpers::expect_true("remote snapshots exist", full.remote_snapshots_exist, "remote inventory should be noted");
 
-    test_helpers::expect_validation_error("missing required parent", [&] {
-        (void)btrfsbackup::select_incremental_parent("home", local, remote, std::nullopt, true);
-    }, "Remote snapshots exist for home, but no UUID-matching local parent was found.");
+    test_helpers::expect_validation_error("missing required parent", [&] { (void)btrfsbackup::backup::select_incremental_parent("home", local, remote, std::nullopt, true); }, "Remote snapshots exist for home, but no UUID-matching local parent was found.");
 }
 
 void test_ignores_unusable_snapshots() {
-    std::vector<btrfsbackup::SnapshotInfo> local{
+    std::vector<btrfsbackup::backup::SnapshotInfo> local{
         snapshot(
-            btrfsbackup::SnapshotSide::Local,
+            btrfsbackup::backup::SnapshotSide::Local,
             "home",
             "home-2026-08-23T080000Z",
             "2026-08-23T080000Z",
@@ -202,7 +200,7 @@ void test_ignores_unusable_snapshots() {
             "matched"
         ),
         snapshot(
-            btrfsbackup::SnapshotSide::Local,
+            btrfsbackup::backup::SnapshotSide::Local,
             "home",
             "home-2026-08-22T080000Z",
             "2026-08-22T080000Z",
@@ -212,9 +210,9 @@ void test_ignores_unusable_snapshots() {
             ""
         ),
     };
-    std::vector<btrfsbackup::SnapshotInfo> remote{
+    std::vector<btrfsbackup::backup::SnapshotInfo> remote{
         snapshot(
-            btrfsbackup::SnapshotSide::Remote,
+            btrfsbackup::backup::SnapshotSide::Remote,
             "home",
             "home-2026-08-22T080000Z",
             "2026-08-22T080000Z",
@@ -226,15 +224,15 @@ void test_ignores_unusable_snapshots() {
         ),
     };
 
-    btrfsbackup::IncrementalParentSelection selection =
-        btrfsbackup::select_incremental_parent("home", local, remote, std::nullopt, false);
+    btrfsbackup::backup::IncrementalParentSelection selection =
+        btrfsbackup::backup::select_incremental_parent("home", local, remote, std::nullopt, false);
     test_helpers::expect_true("ignore unusable", !selection.incremental, "unusable snapshots should not become parents");
 }
 
 void test_rejects_ambiguous_remote_uuid() {
-    std::vector<btrfsbackup::SnapshotInfo> remote{
+    std::vector<btrfsbackup::backup::SnapshotInfo> remote{
         snapshot(
-            btrfsbackup::SnapshotSide::Remote,
+            btrfsbackup::backup::SnapshotSide::Remote,
             "home",
             "home-2026-08-22T080000Z",
             "2026-08-22T080000Z",
@@ -245,7 +243,7 @@ void test_rejects_ambiguous_remote_uuid() {
             "same-uuid"
         ),
         snapshot(
-            btrfsbackup::SnapshotSide::Remote,
+            btrfsbackup::backup::SnapshotSide::Remote,
             "home",
             "home-2026-08-23T080000Z",
             "2026-08-23T080000Z",
@@ -257,9 +255,7 @@ void test_rejects_ambiguous_remote_uuid() {
         ),
     };
 
-    test_helpers::expect_validation_error("ambiguous remote uuid", [&] {
-        (void)btrfsbackup::select_incremental_parent("home", {}, remote, std::nullopt, false);
-    }, "ambiguous remote parent received UUID for home");
+    test_helpers::expect_validation_error("ambiguous remote uuid", [&] { (void)btrfsbackup::backup::select_incremental_parent("home", {}, remote, std::nullopt, false); }, "ambiguous remote parent received UUID for home");
 }
 
 } // namespace

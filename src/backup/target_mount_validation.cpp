@@ -15,7 +15,7 @@
 
 namespace fs = std::filesystem;
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup {
 
 namespace {
 
@@ -34,18 +34,18 @@ fs::path resolved_path(const fs::path& path) {
     std::error_code ec;
     fs::path resolved = fs::weakly_canonical(path, ec);
     if (ec) {
-        return normalized_path(path);
+        return btrfsbackup::config::normalized_path(path);
     }
-    return normalized_path(resolved);
+    return btrfsbackup::config::normalized_path(resolved);
 }
 
 bool resolved_path_is_within(const fs::path& candidate, const fs::path& base) {
-    return path_is_within(resolved_path(candidate), resolved_path(base));
+    return btrfsbackup::config::path_is_within(resolved_path(candidate), resolved_path(base));
 }
 
 } // namespace
 
-void validate_target_mount(const Profile& profile, const std::vector<MountEntry>& mounts) {
+void validate_target_mount(const btrfsbackup::config::Profile& profile, const std::vector<MountEntry>& mounts) {
     std::optional<MountEntry> target_mount = mount_at(mounts, profile.target.mount_point);
     if (!target_mount.has_value()) {
         throw ValidationError("Backup target is not mounted at " + profile.target.mount_point);
@@ -87,4 +87,4 @@ void validate_target_mount(const Profile& profile, const std::vector<MountEntry>
     }
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup

@@ -199,7 +199,7 @@ std::string sha256_bytes(const std::string& data) {
 
 } // namespace
 
-namespace btrfsbackup {
+namespace btrfsbackup::config {
 
 std::string compute_config_fingerprint(
     const std::string& version,
@@ -221,4 +221,4 @@ std::string compute_config_fingerprint(
     return sha256_bytes(data);
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::config

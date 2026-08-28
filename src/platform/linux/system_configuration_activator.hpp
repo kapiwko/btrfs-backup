@@ -6,11 +6,11 @@
 
 #include <config/ports/configuration_activator.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::platform::linux {
 
-class LinuxSystemConfigurationActivator final : public IConfigurationActivator {
+class LinuxSystemConfigurationActivator final : public btrfsbackup::config::IConfigurationActivator {
   public:
     void activate() override;
 };
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::platform::linux

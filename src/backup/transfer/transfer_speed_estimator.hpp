@@ -7,7 +7,7 @@
 #include <chrono>
 #include <cstdint>
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup::transfer {
 
 class TransferSpeedEstimator {
   public:
@@ -23,4 +23,4 @@ class TransferSpeedEstimator {
     bool initialized_ = false;
 };
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup::transfer

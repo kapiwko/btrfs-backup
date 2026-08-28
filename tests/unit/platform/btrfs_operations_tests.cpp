@@ -15,9 +15,9 @@ namespace fs = std::filesystem;
 
 namespace {
 
-class FakeBtrfsOperations final : public btrfsbackup::IBtrfsOperations {
-public:
-    std::optional<btrfsbackup::SnapshotMetadata> metadata;
+class FakeBtrfsOperations final : public btrfsbackup::backup::IBtrfsOperations {
+  public:
+    std::optional<btrfsbackup::backup::SnapshotMetadata> metadata;
     std::vector<std::string> calls;
 
     bool is_subvolume(const fs::path& path) override {
@@ -25,7 +25,7 @@ public:
         return metadata.has_value() && metadata->is_subvolume;
     }
 
-    std::optional<btrfsbackup::SnapshotMetadata> read_snapshot_metadata(const fs::path& path) override {
+    std::optional<btrfsbackup::backup::SnapshotMetadata> read_snapshot_metadata(const fs::path& path) override {
         calls.push_back("metadata:" + path.string());
         return metadata;
     }
@@ -41,7 +41,7 @@ public:
 
 void test_fake_operations_capture_expected_calls() {
     FakeBtrfsOperations ops;
-    ops.metadata = btrfsbackup::SnapshotMetadata{
+    ops.metadata = btrfsbackup::backup::SnapshotMetadata{
         .is_subvolume = true,
         .readonly = true,
         .uuid = "local-uuid",
@@ -49,7 +49,7 @@ void test_fake_operations_capture_expected_calls() {
     };
 
     test_helpers::expect_true("fake subvolume", ops.is_subvolume("/source"), "fake should report a subvolume");
-    std::optional<btrfsbackup::SnapshotMetadata> metadata = ops.read_snapshot_metadata("/snapshot");
+    std::optional<btrfsbackup::backup::SnapshotMetadata> metadata = ops.read_snapshot_metadata("/snapshot");
     test_helpers::expect_true("fake metadata", metadata.has_value(), "fake metadata should exist");
     test_helpers::expect_eq("fake uuid", metadata->uuid, "local-uuid");
 
@@ -63,14 +63,14 @@ void test_fake_operations_capture_expected_calls() {
 
 void test_lib_operations_treat_regular_directory_as_not_subvolume() {
     fs::path root = test_helpers::test_root("btrfs-operations", "regular-dir");
-    btrfsbackup::LibBtrfsOperations ops;
+    btrfsbackup::platform::linux::LibBtrfsOperations ops;
 
     test_helpers::expect_true(
         "regular dir not subvolume",
         !ops.is_subvolume(root),
         "regular temporary directory should not be a Btrfs subvolume"
     );
-    std::optional<btrfsbackup::SnapshotMetadata> metadata = ops.read_snapshot_metadata(root);
+    std::optional<btrfsbackup::backup::SnapshotMetadata> metadata = ops.read_snapshot_metadata(root);
     test_helpers::expect_true("regular dir no metadata", !metadata.has_value(), "regular directory should not have Btrfs metadata");
 
     fs::remove_all(root);

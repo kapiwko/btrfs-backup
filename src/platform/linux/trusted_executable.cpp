@@ -18,13 +18,13 @@
 
 namespace fs = std::filesystem;
 
-namespace btrfsbackup {
+namespace btrfsbackup::platform::linux {
 
 namespace {
 
-class PosixTrustedExecutable final : public btrfsbackup::ITrustedExecutable {
+class PosixTrustedExecutable final : public btrfsbackup::backup::ITrustedExecutable {
   public:
-    explicit PosixTrustedExecutable(btrfsbackup::SafeDirectoryHandle handle)
+    explicit PosixTrustedExecutable(btrfsbackup::platform::linux::SafeDirectoryHandle handle)
         : handle_(std::move(handle)) {
     }
 
@@ -37,10 +37,10 @@ class PosixTrustedExecutable final : public btrfsbackup::ITrustedExecutable {
     }
 
   private:
-    btrfsbackup::SafeDirectoryHandle handle_;
+    btrfsbackup::platform::linux::SafeDirectoryHandle handle_;
 };
 
-bool trusted_owner(uid_t owner, const TrustedExecutablePolicy& policy) {
+bool trusted_owner(uid_t owner, const btrfsbackup::backup::TrustedExecutablePolicy& policy) {
     return owner == 0 || (policy.allow_current_user_owner && owner == geteuid());
 }
 
@@ -55,7 +55,7 @@ struct stat descriptor_status(int fd, const fs::path& path) {
 void verify_directory(
     const SafeDirectoryHandle& handle,
     const fs::path& path,
-    const TrustedExecutablePolicy& policy
+    const btrfsbackup::backup::TrustedExecutablePolicy& policy
 ) {
     struct stat status = descriptor_status(handle.fd(), path);
     if (!S_ISDIR(status.st_mode)) {
@@ -71,7 +71,7 @@ void verify_directory(
 
 void verify_parent_directories(
     const SafeDirectoryRoot& trusted_root,
-    const TrustedExecutablePolicy& policy
+    const btrfsbackup::backup::TrustedExecutablePolicy& policy
 ) {
     SafeDirectoryRoot filesystem_root("/");
     fs::path current = "/";
@@ -90,9 +90,9 @@ void verify_parent_directories(
 SafeDirectoryHandle open_trusted_executable(
     const SafeDirectoryRoot& trusted_root,
     const fs::path& program,
-    const TrustedExecutablePolicy& policy
+    const btrfsbackup::backup::TrustedExecutablePolicy& policy
 ) {
-    fs::path normalized = normalized_path(program);
+    fs::path normalized = btrfsbackup::config::normalized_path(program);
     if (!normalized.is_absolute() || normalized.parent_path() != trusted_root.path() || normalized.filename().empty()) {
         throw ValidationError("hook program must be a direct child of " + trusted_root.path().string());
     }
@@ -119,16 +119,16 @@ SafeDirectoryHandle open_trusted_executable(
 
 PosixTrustedExecutableResolver::PosixTrustedExecutableResolver(
     fs::path trusted_root,
-    TrustedExecutablePolicy policy
+    btrfsbackup::backup::TrustedExecutablePolicy policy
 )
     : trusted_root_(std::move(trusted_root)), policy_(policy) {
 }
 
-std::unique_ptr<ITrustedExecutable> PosixTrustedExecutableResolver::resolve(const fs::path& program) const {
+std::unique_ptr<btrfsbackup::backup::ITrustedExecutable> PosixTrustedExecutableResolver::resolve(const fs::path& program) const {
     SafeDirectoryRoot trusted_root(trusted_root_);
     return std::make_unique<PosixTrustedExecutable>(
         open_trusted_executable(trusted_root, program, policy_)
     );
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::platform::linux

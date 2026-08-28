@@ -16,6 +16,13 @@ add_test(
         -P ${CMAKE_CURRENT_SOURCE_DIR}/architecture/dependency_direction_tests.cmake
 )
 
+add_test(
+    NAME namespace-layout
+    COMMAND ${CMAKE_COMMAND}
+        -DPROJECT_SOURCE_DIR=${PROJECT_SOURCE_DIR}
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/architecture/namespace_layout_tests.cmake
+)
+
 add_subdirectory(unit/backup)
 add_subdirectory(unit/config)
 add_subdirectory(unit/core)

@@ -15,7 +15,7 @@ namespace fs = std::filesystem;
 
 namespace {
 
-btrfsbackup::ManagerPaths manager_paths(const fs::path& root) {
+btrfsbackup::daemon::ManagerPaths manager_paths(const fs::path& root) {
     return {
         .config_root = root / "etc",
         .public_profile_root = root / "public",
@@ -27,7 +27,7 @@ btrfsbackup::ManagerPaths manager_paths(const fs::path& root) {
     };
 }
 
-btrfsbackup::Json private_profile(const fs::path& root) {
+btrfsbackup::config::Json private_profile(const fs::path& root) {
     return {
         {"schemaVersion", 3},
         {"profileId", "default"},
@@ -39,7 +39,7 @@ btrfsbackup::Json private_profile(const fs::path& root) {
                        {"btrfsUuid", "66666666-7777-8888-9999-aaaaaaaaaaaa"},
                        {"mapperName", "backupdisk"},
                    }},
-        {"sources", btrfsbackup::Json::array({{
+        {"sources", btrfsbackup::config::Json::array({{
                         {"id", "home"},
                         {"name", "Home"},
                         {"enabled", true},
@@ -69,17 +69,17 @@ std::string public_status() {
 }
 
 std::string private_history(const std::string& state, const std::string& finished_at) {
-    return btrfsbackup::Json({
-                                 {"schemaVersion", 2},
-                                 {"state", state},
-                                 {"errorCode", state == "succeeded" ? "" : "repository.private_failure"},
-                                 {"currentSourceName", "Home"},
-                                 {"targetName", "Backup disk"},
-                                 {"finishedAt", finished_at},
-                                 {"overallProgress", 100},
-                                 {"details", {{"device", "/dev/private"}}},
-                                 {"runId", "private-run-id"},
-                             })
+    return btrfsbackup::config::Json({
+                                         {"schemaVersion", 2},
+                                         {"state", state},
+                                         {"errorCode", state == "succeeded" ? "" : "repository.private_failure"},
+                                         {"currentSourceName", "Home"},
+                                         {"targetName", "Backup disk"},
+                                         {"finishedAt", finished_at},
+                                         {"overallProgress", 100},
+                                         {"details", {{"device", "/dev/private"}}},
+                                         {"runId", "private-run-id"},
+                                     })
         .dump();
 }
 
@@ -91,8 +91,8 @@ void test_capabilities_and_profiles() {
     );
     fs::create_symlink(root / "public" / "default.json", root / "public" / "linked.json");
 
-    btrfsbackup::ManagerService service(manager_paths(root));
-    const btrfsbackup::Json capabilities = service.get_capabilities();
+    btrfsbackup::daemon::ManagerService service(manager_paths(root));
+    const btrfsbackup::config::Json capabilities = service.get_capabilities();
     test_helpers::expect_true("read-only capability", capabilities.at("readOnly") == true, "manager is not read-only");
     test_helpers::expect_true(
         "sanitized history schema capability",
@@ -104,7 +104,7 @@ void test_capabilities_and_profiles() {
         capabilities.at("deviceStateSchemaVersion") == 1,
         "manager omits the device-state schema"
     );
-    const btrfsbackup::Json profiles = service.list_profiles();
+    const btrfsbackup::config::Json profiles = service.list_profiles();
     test_helpers::expect_eq("one public profile", std::to_string(profiles.size()), "1");
     test_helpers::expect_true("private profile field absent", !profiles.at(0).contains("private"), "private field leaked");
     test_helpers::expect_true(
@@ -131,10 +131,10 @@ void test_status_and_history_sanitization() {
         private_history("failed", "2026-08-25T11:00:00Z")
     );
 
-    btrfsbackup::ManagerService service(manager_paths(root));
-    const btrfsbackup::Json status = service.get_status("default");
+    btrfsbackup::daemon::ManagerService service(manager_paths(root));
+    const btrfsbackup::config::Json status = service.get_status("default");
     test_helpers::expect_true("status private field absent", !status.contains("privateField"), "status field leaked");
-    const btrfsbackup::Json history = service.get_history_sanitized("default", 0, 1);
+    const btrfsbackup::config::Json history = service.get_history_sanitized("default", 0, 1);
     test_helpers::expect_eq("bounded history", std::to_string(history.size()), "1");
     test_helpers::expect_eq("newest history first", history.at(0).at("state"), "failed");
     test_helpers::expect_eq("generalized history error", history.at(0).at("errorCode"), "backup.failed");
@@ -152,7 +152,7 @@ void test_status_and_history_sanitization() {
 
 void test_malformed_and_oversized_documents() {
     fs::path root = test_helpers::test_root("manager-service", "invalid-documents");
-    btrfsbackup::ManagerService service(manager_paths(root));
+    btrfsbackup::daemon::ManagerService service(manager_paths(root));
     test_helpers::write_file(root / "status" / "default" / "current.json", "{invalid");
     test_helpers::expect_validation_error(
         "malformed status",
@@ -175,10 +175,10 @@ void test_device_state_is_presentation_safe() {
     fs::path root = test_helpers::test_root("manager-service", "device");
     test_helpers::write_file(
         root / "etc" / "profiles" / "default" / "profile.json",
-        btrfsbackup::dump_json(private_profile(root))
+        btrfsbackup::config::dump_json(private_profile(root))
     );
-    btrfsbackup::ManagerService service(manager_paths(root));
-    const btrfsbackup::Json state = service.get_device_state("default");
+    btrfsbackup::daemon::ManagerService service(manager_paths(root));
+    const btrfsbackup::config::Json state = service.get_device_state("default");
     test_helpers::expect_eq("connected target state", state.at("state"), "connected");
     test_helpers::expect_true("safe closed target", state.at("safeToRemove") == true, "target is not safe");
     test_helpers::expect_true("device path absent", !state.contains("device"), "device path leaked");

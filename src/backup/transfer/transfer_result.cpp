@@ -6,7 +6,7 @@
 
 #include <core/errors.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup::transfer {
 
 namespace {
 
@@ -26,11 +26,7 @@ std::string side_failure(const char* side, const TransferSideResult& result) {
 } // namespace
 
 bool transfer_succeeded(const TransferResult& result) {
-    return !result.cancelled
-        && result.producer.started
-        && result.consumer.started
-        && result.producer.exit_code == 0
-        && result.consumer.exit_code == 0;
+    return !result.cancelled && result.producer.started && result.consumer.started && result.producer.exit_code == 0 && result.consumer.exit_code == 0;
 }
 
 std::optional<ErrorCode> transfer_failure_error_code(const TransferResult& result) {
@@ -67,10 +63,7 @@ void require_transfer_success(const TransferResult& result) {
     const bool consumer_failed = !result.consumer.started || result.consumer.exit_code != 0;
     if (producer_failed && consumer_failed) {
         throw ValidationError(
-            "Transfer failed: "
-            + side_failure("producer", result.producer)
-            + "; "
-            + side_failure("consumer", result.consumer)
+            "Transfer failed: " + side_failure("producer", result.producer) + "; " + side_failure("consumer", result.consumer)
         );
     }
     if (producer_failed) {
@@ -82,4 +75,4 @@ void require_transfer_success(const TransferResult& result) {
     throw ValidationError("Transfer failed");
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup::transfer

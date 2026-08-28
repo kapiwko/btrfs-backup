@@ -9,7 +9,7 @@
 
 #include <backup/transfer/transfer_pipeline.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup::transfer {
 
 class IAsyncTransferHandle {
   public:
@@ -42,4 +42,4 @@ class ThreadedAsyncTransferPipeline final : public IAsyncTransferPipeline {
     ITransferPipeline& pipeline_;
 };
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup::transfer

@@ -8,16 +8,16 @@
 
 #include <backup/ports/run_lease.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::platform::linux {
 
-class FileBackupRunLeaseProvider final : public IBackupRunLeaseProvider {
+class FileBackupRunLeaseProvider final : public btrfsbackup::backup::IBackupRunLeaseProvider {
   public:
     explicit FileBackupRunLeaseProvider(std::filesystem::path lock_root);
 
-    [[nodiscard]] BackupRunLeaseResult try_acquire(const Profile& profile) override;
+    [[nodiscard]] btrfsbackup::backup::BackupRunLeaseResult try_acquire(const btrfsbackup::config::Profile& profile) override;
 
   private:
     std::filesystem::path lock_root_;
 };
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::platform::linux

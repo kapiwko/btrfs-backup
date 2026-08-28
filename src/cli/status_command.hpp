@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-namespace btrfsbackup::command {
+namespace btrfsbackup::cli {
 
 bool status_watch_once(
     const std::filesystem::path& status_root,
@@ -24,4 +24,4 @@ int status(
     const std::vector<std::string>& args
 );
 
-} // namespace btrfsbackup::command
+} // namespace btrfsbackup::cli

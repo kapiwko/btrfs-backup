@@ -8,10 +8,10 @@
 
 #include <config/application_config.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::platform::linux {
 
-[[nodiscard]] ApplicationConfig load_application_config(
+[[nodiscard]] btrfsbackup::config::ApplicationConfig load_application_config(
     const std::filesystem::path& config_root = "/etc/btrfs-backup"
 );
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::platform::linux

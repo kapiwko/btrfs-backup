@@ -25,7 +25,7 @@ void test_profile_create_writes_json() {
     fs::path root = test_root("profile-create");
     fs::path profile_json = root / "profile.json";
 
-    btrfsbackup::NullConfigurationActivator activator;
+    btrfsbackup::config::NullConfigurationActivator activator;
     const std::vector<std::string> args{
         "create",
         "--output",
@@ -55,10 +55,10 @@ void test_profile_create_writes_json() {
         "2",
         "2",
     };
-    int result = btrfsbackup::command::profile(args, "/etc/btrfs-backup/profiles.d", activator);
+    int result = btrfsbackup::cli::profile(args, "/etc/btrfs-backup/profiles.d", activator);
 
     test_helpers::expect_eq("profile create result", std::to_string(result), "0");
-    btrfsbackup::Json profile = btrfsbackup::load_json_file(profile_json);
+    btrfsbackup::config::Json profile = btrfsbackup::config::load_json_file(profile_json);
     test_helpers::expect_true("profile create schema", profile.at("schemaVersion") == 3, "wrong profile schema version");
     test_helpers::expect_eq("profile create id", profile.at("profileId").get<std::string>(), "default");
     test_helpers::expect_eq("profile create source id", profile.at("sources").at(0).at("id").get<std::string>(), "home");

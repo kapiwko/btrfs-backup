@@ -12,7 +12,7 @@
 #include <core/error_code.hpp>
 #include <core/identifiers.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup {
 
 struct BackupRequest {
     ProfileId profile_id;
@@ -40,4 +40,4 @@ struct BackupExecutionResult {
     std::string error_message;
 };
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup

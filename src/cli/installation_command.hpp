@@ -7,8 +7,8 @@
 #include <string>
 #include <vector>
 
-namespace btrfsbackup::command {
+namespace btrfsbackup::cli {
 
 int installation(const std::vector<std::string>& args);
 
-} // namespace btrfsbackup::command
+} // namespace btrfsbackup::cli

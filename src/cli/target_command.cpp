@@ -67,44 +67,44 @@ bool service_succeeded() {
     return value == nullptr || std::string(value) == "success";
 }
 
-std::string format_event(const btrfsbackup::TargetEvent& event) {
-    using btrfsbackup::TargetEventKind;
+std::string format_event(const btrfsbackup::cli::TargetEvent& event) {
+    using btrfsbackup::cli::TargetEventKind;
     switch (event.kind) {
-        case TargetEventKind::AutomaticEjectDisabled:
-            return "Automatic eject is disabled by configuration.";
-        case TargetEventKind::Busy:
-            return "Backup target is busy; refusing to " + event.detail + ".";
-        case TargetEventKind::Mounting:
-            return "Mounting encrypted backup target.";
-        case TargetEventKind::Mounted:
-            return "Backup target is mounted at " + event.detail + ".";
-        case TargetEventKind::Synchronizing:
-            return "Synchronizing filesystems before eject.";
-        case TargetEventKind::Unmounting:
-            return "Unmounting " + event.detail;
-        case TargetEventKind::StoppingCryptUnit:
-            return "Stopping LUKS systemd unit " + event.detail;
-        case TargetEventKind::MapperStillMounted:
-            return "Mapper is still mounted at: " + event.detail;
-        case TargetEventKind::ClosingMapper:
-            return "Closing LUKS mapper " + event.detail;
-        case TargetEventKind::EjectedAfterFailedBackup:
-            return "Backup did not finish successfully, but the target was unmounted and the LUKS mapper was closed. It can be disconnected.";
-        case TargetEventKind::Ejected:
-            return "Backup target was safely unmounted and the LUKS mapper was closed. It can be disconnected.";
+    case TargetEventKind::AutomaticEjectDisabled:
+        return "Automatic eject is disabled by configuration.";
+    case TargetEventKind::Busy:
+        return "Backup target is busy; refusing to " + event.detail + ".";
+    case TargetEventKind::Mounting:
+        return "Mounting encrypted backup target.";
+    case TargetEventKind::Mounted:
+        return "Backup target is mounted at " + event.detail + ".";
+    case TargetEventKind::Synchronizing:
+        return "Synchronizing filesystems before eject.";
+    case TargetEventKind::Unmounting:
+        return "Unmounting " + event.detail;
+    case TargetEventKind::StoppingCryptUnit:
+        return "Stopping LUKS systemd unit " + event.detail;
+    case TargetEventKind::MapperStillMounted:
+        return "Mapper is still mounted at: " + event.detail;
+    case TargetEventKind::ClosingMapper:
+        return "Closing LUKS mapper " + event.detail;
+    case TargetEventKind::EjectedAfterFailedBackup:
+        return "Backup did not finish successfully, but the target was unmounted and the LUKS mapper was closed. It can be disconnected.";
+    case TargetEventKind::Ejected:
+        return "Backup target was safely unmounted and the LUKS mapper was closed. It can be disconnected.";
     }
     return {};
 }
 
-void print_result(const btrfsbackup::TargetOperationResult& result, std::ostream& output) {
-    for (const btrfsbackup::TargetEvent& event : result.events) {
+void print_result(const btrfsbackup::cli::TargetOperationResult& result, std::ostream& output) {
+    for (const btrfsbackup::cli::TargetEvent& event : result.events) {
         output << format_event(event) << '\n';
     }
 }
 
 } // namespace
 
-namespace btrfsbackup::command {
+namespace btrfsbackup::cli {
 
 int target(
     const fs::path& profile_config_dir,
@@ -132,7 +132,7 @@ int target(
     TargetOptions options = parse_options(args);
     TargetOperationResult result;
     if (command == "mount") {
-        result = btrfsbackup::mount_target(
+        result = btrfsbackup::cli::mount_target(
             MountTargetRequest{
                 .profile_config_dir = profile_config_dir,
                 .profile_id = ProfileId{options.profile_id},
@@ -140,7 +140,7 @@ int target(
             services
         );
     } else {
-        result = btrfsbackup::eject_target(
+        result = btrfsbackup::cli::eject_target(
             EjectTargetRequest{
                 .profile_config_dir = profile_config_dir,
                 .profile_id = ProfileId{options.profile_id},
@@ -159,4 +159,4 @@ int target(const fs::path& profile_config_dir, const std::vector<std::string>& a
     return target(profile_config_dir, args, output, nullptr);
 }
 
-} // namespace btrfsbackup::command
+} // namespace btrfsbackup::cli

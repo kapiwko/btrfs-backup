@@ -7,15 +7,15 @@
 #include <backup/ports/command_runner.hpp>
 #include <platform/linux/process.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::platform::linux {
 
-class PosixCommandRunner final : public ICommandRunner {
+class PosixCommandRunner final : public btrfsbackup::backup::ICommandRunner {
   public:
-    [[nodiscard]] CommandResult run(const std::vector<std::string>& argv) override;
-    [[nodiscard]] CommandResult run_controlled(
+    [[nodiscard]] btrfsbackup::backup::CommandResult run(const std::vector<std::string>& argv) override;
+    [[nodiscard]] btrfsbackup::backup::CommandResult run_controlled(
         const std::vector<std::string>& argv,
-        const ControlledCommandOptions& options
+        const btrfsbackup::backup::ControlledCommandOptions& options
     ) override;
 };
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::platform::linux

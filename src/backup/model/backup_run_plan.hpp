@@ -18,7 +18,7 @@
 #include <backup/model/retention_plan.hpp>
 #include <backup/model/snapshot_inventory.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup {
 
 struct BackupSourceRunPlan {
     SourceId source_id;
@@ -49,7 +49,7 @@ using PendingMarkerBySource = std::map<std::string, std::optional<PendingMarker>
 using PendingSnapshotBySource = std::map<std::string, std::optional<SnapshotMetadata>>;
 
 [[nodiscard]] BackupRunPlan build_backup_run_plan(
-    const Profile& profile,
+    const btrfsbackup::config::Profile& profile,
     const SnapshotInventoryBySource& local_inventory,
     const SnapshotInventoryBySource& remote_inventory,
     const PendingMarkerBySource& pending_markers,
@@ -59,4 +59,4 @@ using PendingSnapshotBySource = std::map<std::string, std::optional<SnapshotMeta
     const std::string& snapshot_timestamp
 );
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup

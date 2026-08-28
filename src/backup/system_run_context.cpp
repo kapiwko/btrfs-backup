@@ -10,7 +10,7 @@
 #include <sstream>
 #include <string>
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup {
 
 namespace {
 
@@ -52,4 +52,4 @@ RunId TimestampRunIdGenerator::generate(const std::string& snapshot_timestamp) {
     return RunId{compact + "-shadow"};
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup

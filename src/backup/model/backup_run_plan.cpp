@@ -17,33 +17,33 @@ namespace fs = std::filesystem;
 
 namespace {
 
-const std::vector<btrfsbackup::SnapshotInfo>& snapshots_for(
-    const btrfsbackup::SnapshotInventoryBySource& inventories,
+const std::vector<btrfsbackup::backup::SnapshotInfo>& snapshots_for(
+    const btrfsbackup::backup::SnapshotInventoryBySource& inventories,
     const std::string& source_id
 ) {
-    static const std::vector<btrfsbackup::SnapshotInfo> empty;
+    static const std::vector<btrfsbackup::backup::SnapshotInfo> empty;
     auto found = inventories.find(source_id);
     return found == inventories.end() ? empty : found->second;
 }
 
-std::optional<btrfsbackup::PendingMarker> pending_marker_for(
-    const btrfsbackup::PendingMarkerBySource& markers,
+std::optional<btrfsbackup::backup::PendingMarker> pending_marker_for(
+    const btrfsbackup::backup::PendingMarkerBySource& markers,
     const std::string& source_id
 ) {
     auto found = markers.find(source_id);
     return found == markers.end() ? std::nullopt : found->second;
 }
 
-std::optional<btrfsbackup::SnapshotMetadata> pending_snapshot_for(
-    const btrfsbackup::PendingSnapshotBySource& snapshots,
+std::optional<btrfsbackup::backup::SnapshotMetadata> pending_snapshot_for(
+    const btrfsbackup::backup::PendingSnapshotBySource& snapshots,
     const std::string& source_id
 ) {
     auto found = snapshots.find(source_id);
     return found == snapshots.end() ? std::nullopt : found->second;
 }
 
-bool name_exists(const std::vector<btrfsbackup::SnapshotInfo>& snapshots, const std::string& name) {
-    for (const btrfsbackup::SnapshotInfo& snapshot : snapshots) {
+bool name_exists(const std::vector<btrfsbackup::backup::SnapshotInfo>& snapshots, const std::string& name) {
+    for (const btrfsbackup::backup::SnapshotInfo& snapshot : snapshots) {
         if (snapshot.name == name) {
             return true;
         }
@@ -54,7 +54,7 @@ bool name_exists(const std::vector<btrfsbackup::SnapshotInfo>& snapshots, const 
 std::string planned_snapshot_name(
     const std::string& source_id,
     const std::string& timestamp,
-    const std::vector<btrfsbackup::SnapshotInfo>& local_snapshots
+    const std::vector<btrfsbackup::backup::SnapshotInfo>& local_snapshots
 ) {
     const std::string base = source_id + "-" + timestamp;
     if (!name_exists(local_snapshots, base)) {
@@ -73,18 +73,18 @@ std::string planned_snapshot_name(
     throw btrfsbackup::ValidationError("could not allocate snapshot name for " + source_id + " at " + timestamp);
 }
 
-btrfsbackup::SnapshotInfo projected_snapshot(
-    btrfsbackup::SnapshotSide side,
+btrfsbackup::backup::SnapshotInfo projected_snapshot(
+    btrfsbackup::backup::SnapshotSide side,
     const std::string& source_id,
     const std::string& name,
     const std::string& timestamp,
     const fs::path& path
 ) {
-    std::optional<btrfsbackup::SnapshotName> parsed = btrfsbackup::parse_snapshot_name(name, source_id);
+    std::optional<btrfsbackup::backup::SnapshotName> parsed = btrfsbackup::backup::parse_snapshot_name(name, source_id);
     if (!parsed.has_value()) {
         throw btrfsbackup::ValidationError("planned snapshot name is invalid: " + name);
     }
-    return btrfsbackup::SnapshotInfo{
+    return btrfsbackup::backup::SnapshotInfo{
         .side = side,
         .source_id = source_id,
         .name = name,
@@ -99,10 +99,10 @@ btrfsbackup::SnapshotInfo projected_snapshot(
 
 } // namespace
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup {
 
 BackupRunPlan build_backup_run_plan(
-    const Profile& profile,
+    const btrfsbackup::config::Profile& profile,
     const SnapshotInventoryBySource& local_inventory,
     const SnapshotInventoryBySource& remote_inventory,
     const PendingMarkerBySource& pending_markers,
@@ -125,7 +125,7 @@ BackupRunPlan build_backup_run_plan(
     };
 
     std::set<std::string> seen_sources;
-    for (const ProfileSource& source : profile.sources) {
+    for (const btrfsbackup::config::ProfileSource& source : profile.sources) {
         if (!source.enabled) {
             continue;
         }
@@ -138,13 +138,13 @@ BackupRunPlan build_backup_run_plan(
         const fs::path incoming_source_root = fs::path(profile.paths.incoming_root) / source_id;
         const fs::path incoming_run_dir = incoming_source_root / run_id_value;
 
-        if (!path_is_within(remote_snapshot_dir, profile.paths.remote_root)) {
+        if (!btrfsbackup::config::path_is_within(remote_snapshot_dir, profile.paths.remote_root)) {
             throw ValidationError("Remote source directory escapes REMOTE_ROOT: " + remote_snapshot_dir.string());
         }
-        if (!path_is_within(incoming_source_root, profile.paths.incoming_root)) {
+        if (!btrfsbackup::config::path_is_within(incoming_source_root, profile.paths.incoming_root)) {
             throw ValidationError("Incoming source directory escapes INCOMING_ROOT: " + incoming_source_root.string());
         }
-        if (path_is_within(source.local_snapshot_dir, profile.target.mount_point)) {
+        if (btrfsbackup::config::path_is_within(source.local_snapshot_dir, profile.target.mount_point)) {
             throw ValidationError(
                 "LOCAL_SNAPSHOT_DIR must not be inside the backup target: " + source.local_snapshot_dir
             );
@@ -218,7 +218,7 @@ BackupRunPlan build_backup_run_plan(
             source_plan.actions.emplace_back(RecoverPendingAction{source_plan.source_id, recovery});
         }
         source_plan.actions.emplace_back(CleanupIncomingAction{source_plan.source_id, incoming_source_root});
-        for (const ProfileHookCommand& hook : profile.hooks.before_snapshot) {
+        for (const btrfsbackup::config::ProfileHookCommand& hook : profile.hooks.before_snapshot) {
             source_plan.actions.emplace_back(RunHookAction{source_plan.source_id, HookPhase::BeforeSnapshot, hook});
         }
         source_plan.actions.emplace_back(CreateSnapshotAction{
@@ -230,7 +230,7 @@ BackupRunPlan build_backup_run_plan(
             profile_state_dir,
             run_id,
         });
-        for (const ProfileHookCommand& hook : profile.hooks.after_snapshot) {
+        for (const btrfsbackup::config::ProfileHookCommand& hook : profile.hooks.after_snapshot) {
             source_plan.actions.emplace_back(RunHookAction{source_plan.source_id, HookPhase::AfterSnapshot, hook});
         }
         source_plan.actions.emplace_back(SelectParentAction{source_plan.source_id, parent_path});
@@ -274,4 +274,4 @@ BackupRunPlan build_backup_run_plan(
     return run_plan;
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup

@@ -13,7 +13,7 @@
 #include <config/model/profile.hpp>
 #include <core/identifiers.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup {
 
 struct BackupRunStatusDescription {
     std::string profile_name;
@@ -28,19 +28,19 @@ class IRunStateRepository {
     virtual ~IRunStateRepository() = default;
 
     [[nodiscard]] virtual bool last_success_matches(
-        const Profile& profile,
+        const btrfsbackup::config::Profile& profile,
         const std::string& date,
         const std::string& fingerprint
     ) const = 0;
     virtual void write_skipped(
-        const Profile& profile,
+        const btrfsbackup::config::Profile& profile,
         const RunId& run_id,
         const std::string& started_at,
         const std::string& finished_at,
         std::size_t source_count
     ) = 0;
     virtual void write_success(
-        const Profile& profile,
+        const btrfsbackup::config::Profile& profile,
         const RunId& run_id,
         const std::string& date,
         const std::string& timestamp,
@@ -54,4 +54,4 @@ class IRunStateRepository {
     virtual void clear_cancel_request(const ProfileId& profile_id) = 0;
 };
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup

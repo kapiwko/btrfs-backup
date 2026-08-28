@@ -14,17 +14,19 @@
 #include <config/model/profile.hpp>
 
 namespace btrfsbackup {
-
 class CancellationToken;
+}
+
+namespace btrfsbackup::cli {
 
 class TerminationSignalMonitor {
-public:
+  public:
     explicit TerminationSignalMonitor(CancellationToken& cancellation);
     TerminationSignalMonitor(const TerminationSignalMonitor&) = delete;
     TerminationSignalMonitor& operator=(const TerminationSignalMonitor&) = delete;
     ~TerminationSignalMonitor();
 
-private:
+  private:
     class Impl;
     std::unique_ptr<Impl> impl_;
 };
@@ -32,7 +34,7 @@ private:
 struct BackupToolServices {
     std::function<int(const std::vector<std::string>&, std::ostream&)> runner;
     std::function<int(const std::vector<std::string>&, std::ostream&)> target;
-    std::function<Profile(const std::string&)> load_profile;
+    std::function<btrfsbackup::config::Profile(const std::string&)> load_profile;
     std::function<bool()> is_service_invocation;
 };
 
@@ -46,4 +48,4 @@ int backup_tool(
 
 int backup_tool_main(int argc, char** argv);
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::cli

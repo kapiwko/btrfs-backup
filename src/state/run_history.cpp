@@ -15,7 +15,7 @@
 
 namespace fs = std::filesystem;
 
-namespace btrfsbackup {
+namespace btrfsbackup::state {
 
 void write_history_entry(IDurableFileOperations& files, const fs::path& history_root, const RunStatus& status) {
     const std::string content = dump_status_json(status);
@@ -64,9 +64,9 @@ std::vector<StatusDocument> get_status_history(
             throw ValidationError("cannot read " + path.string());
         }
         std::string content{std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()};
-        documents.push_back({.data = Json::parse(content), .content = std::move(content), .source = path});
+        documents.push_back({.data = btrfsbackup::config::Json::parse(content), .content = std::move(content), .source = path});
     }
     return documents;
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::state

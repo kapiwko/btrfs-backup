@@ -22,7 +22,7 @@
 
 namespace fs = std::filesystem;
 
-namespace btrfsbackup {
+namespace btrfsbackup::config {
 
 namespace {
 
@@ -586,4 +586,4 @@ Json profile_to_json(const Profile& profile) {
     return result;
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::config

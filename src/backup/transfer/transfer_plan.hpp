@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup::transfer {
 
 class ITransferResource {
   public:
@@ -23,4 +23,4 @@ struct TransferPipelinePlan {
     std::vector<std::shared_ptr<ITransferResource>> retained_resources;
 };
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup::transfer

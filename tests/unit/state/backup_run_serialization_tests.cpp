@@ -10,14 +10,14 @@
 
 namespace {
 
-btrfsbackup::BackupRunEvent event(btrfsbackup::BackupRunEventKind kind) {
-    return btrfsbackup::BackupRunEvent{
+btrfsbackup::backup::BackupRunEvent event(btrfsbackup::backup::BackupRunEventKind kind) {
+    return btrfsbackup::backup::BackupRunEvent{
         .kind = kind,
         .profile_id = btrfsbackup::ProfileId{"default"},
         .run_id = btrfsbackup::RunId{"20260823T120000Z-123-456"},
         .source_id = btrfsbackup::SourceId{"root"},
         .source_index = 1,
-        .action_kind = btrfsbackup::BackupRunActionKind::SendReceive,
+        .action_kind = btrfsbackup::backup::BackupRunActionKind::SendReceive,
         .bytes_transferred = 4096,
         .bytes_produced = 8192,
         .bytes_total_estimated = 8192,
@@ -32,19 +32,19 @@ btrfsbackup::BackupRunEvent event(btrfsbackup::BackupRunEventKind kind) {
 void test_names_are_stable() {
     test_helpers::expect_eq(
         "action name",
-        btrfsbackup::backup_run_action_kind_name(btrfsbackup::BackupRunActionKind::CommitReceived),
+        btrfsbackup::state::backup_run_action_kind_name(btrfsbackup::backup::BackupRunActionKind::CommitReceived),
         "commit-received"
     );
     test_helpers::expect_eq(
         "event name",
-        btrfsbackup::backup_run_event_kind_name(btrfsbackup::BackupRunEventKind::TransferProgress),
+        btrfsbackup::state::backup_run_event_kind_name(btrfsbackup::backup::BackupRunEventKind::TransferProgress),
         "transfer-progress"
     );
 }
 
 void test_build_event_json() {
-    const btrfsbackup::Json data = btrfsbackup::build_backup_run_event_json(
-        event(btrfsbackup::BackupRunEventKind::TransferProgress)
+    const btrfsbackup::config::Json data = btrfsbackup::state::build_backup_run_event_json(
+        event(btrfsbackup::backup::BackupRunEventKind::TransferProgress)
     );
 
     test_helpers::expect_true("schema", data.at("schemaVersion") == 1, "wrong schema");
@@ -61,11 +61,11 @@ void test_build_event_json() {
 }
 
 void test_build_run_event_json_without_source() {
-    btrfsbackup::BackupRunEvent run_completed = event(btrfsbackup::BackupRunEventKind::RunCompleted);
+    btrfsbackup::backup::BackupRunEvent run_completed = event(btrfsbackup::backup::BackupRunEventKind::RunCompleted);
     run_completed.source_id = std::nullopt;
     run_completed.source_index = 0;
 
-    const btrfsbackup::Json data = btrfsbackup::build_backup_run_event_json(run_completed);
+    const btrfsbackup::config::Json data = btrfsbackup::state::build_backup_run_event_json(run_completed);
     test_helpers::expect_true("run event source", data.at("sourceId") == "", "run-level event has a source");
 }
 

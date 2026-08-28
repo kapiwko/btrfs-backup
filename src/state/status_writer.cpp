@@ -22,7 +22,7 @@ void require_non_empty(const std::string& value, const char* field) {
     }
 }
 
-void validate_status(const btrfsbackup::RunStatus& status) {
+void validate_status(const btrfsbackup::state::RunStatus& status) {
     require_non_empty(status.profile_name, "profileName");
     require_non_empty(status.started_at, "startedAt");
     require_non_empty(status.updated_at, "updatedAt");
@@ -32,8 +32,8 @@ void prepare_public_parent(btrfsbackup::IDurableFileOperations& files, const fs:
     files.ensure_directory(path.parent_path(), btrfsbackup::public_directory_permissions);
 }
 
-btrfsbackup::Json build_details_json(const btrfsbackup::RunDetails& details) {
-    btrfsbackup::Json json = btrfsbackup::Json::object();
+btrfsbackup::config::Json build_details_json(const btrfsbackup::state::RunDetails& details) {
+    btrfsbackup::config::Json json = btrfsbackup::config::Json::object();
     for (const auto& [name, value] : details) {
         std::visit([&](const auto& item) { json[name] = item; }, value);
     }
@@ -42,9 +42,9 @@ btrfsbackup::Json build_details_json(const btrfsbackup::RunDetails& details) {
 
 } // namespace
 
-namespace btrfsbackup {
+namespace btrfsbackup::state {
 
-Json build_status_json(const RunStatus& status) {
+btrfsbackup::config::Json build_status_json(const RunStatus& status) {
     validate_status(status);
 
     const RunError* error = status.error ? &*status.error : nullptr;
@@ -83,10 +83,10 @@ Json build_status_json(const RunStatus& status) {
 }
 
 std::string dump_status_json(const RunStatus& status) {
-    return dump_json(build_status_json(status));
+    return btrfsbackup::config::dump_json(build_status_json(status));
 }
 
-Json build_public_status_json(const RunStatus& status) {
+btrfsbackup::config::Json build_public_status_json(const RunStatus& status) {
     validate_status(status);
     const std::string public_error_code = !status.error.has_value()
         ? ""
@@ -107,7 +107,7 @@ Json build_public_status_json(const RunStatus& status) {
 }
 
 std::string dump_public_status_json(const RunStatus& status) {
-    return dump_json(build_public_status_json(status));
+    return btrfsbackup::config::dump_json(build_public_status_json(status));
 }
 
 void write_current_status(
@@ -122,4 +122,4 @@ void write_current_status(
     files.write_atomically(path, content, permissions);
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::state

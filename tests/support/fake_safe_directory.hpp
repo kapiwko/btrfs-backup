@@ -12,7 +12,7 @@
 
 namespace test_support {
 
-class FakeSafeDirectoryHandle final : public btrfsbackup::ISafeDirectoryHandle {
+class FakeSafeDirectoryHandle final : public btrfsbackup::backup::ISafeDirectoryHandle {
   public:
     explicit FakeSafeDirectoryHandle(std::filesystem::path path) : path_(std::move(path)) {
     }
@@ -25,7 +25,7 @@ class FakeSafeDirectoryHandle final : public btrfsbackup::ISafeDirectoryHandle {
     std::filesystem::path path_;
 };
 
-class FakeSafeDirectoryRoot final : public btrfsbackup::ISafeDirectoryRoot {
+class FakeSafeDirectoryRoot final : public btrfsbackup::backup::ISafeDirectoryRoot {
   public:
     FakeSafeDirectoryRoot(std::filesystem::path root, std::filesystem::path stable_prefix)
         : root_(std::move(root)), stable_prefix_(std::move(stable_prefix)) {
@@ -35,13 +35,13 @@ class FakeSafeDirectoryRoot final : public btrfsbackup::ISafeDirectoryRoot {
         return root_;
     }
 
-    [[nodiscard]] std::unique_ptr<btrfsbackup::ISafeDirectoryHandle> pin_directory(
+    [[nodiscard]] std::unique_ptr<btrfsbackup::backup::ISafeDirectoryHandle> pin_directory(
         const std::filesystem::path& path
     ) const override {
         return std::make_unique<FakeSafeDirectoryHandle>(stable_path(path));
     }
 
-    [[nodiscard]] std::unique_ptr<btrfsbackup::ISafeDirectoryHandle> pin_path(
+    [[nodiscard]] std::unique_ptr<btrfsbackup::backup::ISafeDirectoryHandle> pin_path(
         const std::filesystem::path& path
     ) const override {
         return std::make_unique<FakeSafeDirectoryHandle>(stable_path(path));
@@ -81,13 +81,13 @@ class FakeSafeDirectoryRoot final : public btrfsbackup::ISafeDirectoryRoot {
     std::filesystem::path stable_prefix_;
 };
 
-class FakeSafeDirectoryRootFactory final : public btrfsbackup::ISafeDirectoryRootFactory {
+class FakeSafeDirectoryRootFactory final : public btrfsbackup::backup::ISafeDirectoryRootFactory {
   public:
     explicit FakeSafeDirectoryRootFactory(std::filesystem::path stable_prefix = {})
         : stable_prefix_(std::move(stable_prefix)) {
     }
 
-    [[nodiscard]] std::unique_ptr<btrfsbackup::ISafeDirectoryRoot> open(
+    [[nodiscard]] std::unique_ptr<btrfsbackup::backup::ISafeDirectoryRoot> open(
         const std::filesystem::path& root
     ) const override {
         return std::make_unique<FakeSafeDirectoryRoot>(root, stable_prefix_);

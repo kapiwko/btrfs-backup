@@ -9,7 +9,7 @@
 
 #include <platform/linux/config/installation_render.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::platform::linux {
 
 // Linux installation workflow exposed to frontends.
 
@@ -27,4 +27,4 @@ void validate_rendered_installation_at(
 );
 void validate_active_installation_for(const std::string& profile_id);
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::platform::linux

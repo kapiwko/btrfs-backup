@@ -7,7 +7,7 @@
 #include <filesystem>
 #include <string>
 
-namespace btrfsbackup {
+namespace btrfsbackup::config {
 
 struct ApplicationPaths {
     std::filesystem::path state_root;
@@ -24,4 +24,4 @@ inline std::filesystem::path profile_mount_point(const ApplicationPaths& paths, 
     return paths.target_mount_root / profile_id;
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::config

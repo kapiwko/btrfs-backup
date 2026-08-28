@@ -19,19 +19,19 @@ bool readable_file(const fs::path& path) {
     return fs::is_regular_file(path, ec) && !ec && std::ifstream(path).good();
 }
 
-btrfsbackup::StatusDocument read_document(const fs::path& path) {
+btrfsbackup::state::StatusDocument read_document(const fs::path& path) {
     std::ifstream stream(path);
-    if (!stream) throw btrfsbackup::ValidationError("cannot read " + path.string());
+    if (!stream)
+        throw btrfsbackup::ValidationError("cannot read " + path.string());
     std::string content{std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()};
-    return {.data = btrfsbackup::Json::parse(content), .content = std::move(content), .source = path};
+    return {.data = btrfsbackup::config::Json::parse(content), .content = std::move(content), .source = path};
 }
 
-void validate_status_api(const btrfsbackup::Json& data) {
+void validate_status_api(const btrfsbackup::config::Json& data) {
     if (!data.is_object() || !data.contains("schemaVersion") || data.at("schemaVersion") != 3) {
         throw btrfsbackup::ValidationError("status JSON has unsupported schemaVersion");
     }
-    for (const char* field : {"state", "errorCode", "sourceName", "targetName", "speedBps", "etaSeconds",
-                              "sourceProgress", "overallProgress", "progressAccuracy"}) {
+    for (const char* field : {"state", "errorCode", "sourceName", "targetName", "speedBps", "etaSeconds", "sourceProgress", "overallProgress", "progressAccuracy"}) {
         if (!data.contains(field)) {
             throw btrfsbackup::ValidationError(std::string("status JSON is missing required field: ") + field);
         }
@@ -40,7 +40,7 @@ void validate_status_api(const btrfsbackup::Json& data) {
 
 } // namespace
 
-namespace btrfsbackup {
+namespace btrfsbackup::state {
 
 std::vector<StatusDocument> get_statuses(
     const fs::path& status_root,
@@ -53,13 +53,16 @@ std::vector<StatusDocument> get_statuses(
         std::error_code ec;
         if (fs::is_directory(status_root, ec) && !ec) {
             for (const auto& entry : fs::directory_iterator(status_root, ec)) {
-                if (ec) break;
+                if (ec)
+                    break;
                 fs::path current = entry.path() / "current.json";
-                if (readable_file(current)) paths.push_back(std::move(current));
+                if (readable_file(current))
+                    paths.push_back(std::move(current));
             }
         }
         std::sort(paths.begin(), paths.end());
-        if (paths.empty()) throw ValidationError("no status files found under " + status_root.string());
+        if (paths.empty())
+            throw ValidationError("no status files found under " + status_root.string());
     } else {
         validate_profile_id(profile_id);
         fs::path path = status_root / profile_id / "current.json";
@@ -69,18 +72,21 @@ std::vector<StatusDocument> get_statuses(
         paths.push_back(std::move(path));
     }
     std::vector<StatusDocument> documents;
-    for (const auto& path : paths) documents.push_back(read_document(path));
+    for (const auto& path : paths)
+        documents.push_back(read_document(path));
     return documents;
 }
 
 std::optional<StatusDocument> poll_status(const fs::path& status_root, const std::string& profile_id, const std::string& previous) {
     validate_profile_id(profile_id);
     fs::path path = status_root / profile_id / "current.json";
-    if (!readable_file(path)) return std::nullopt;
+    if (!readable_file(path))
+        return std::nullopt;
     StatusDocument document = read_document(path);
-    if (document.content == previous) return std::nullopt;
+    if (document.content == previous)
+        return std::nullopt;
     validate_status_api(document.data);
     return document;
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::state

@@ -9,7 +9,7 @@
 
 #include <backup/model/backup_run_actions.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup {
 
 class IBtrfsOperations;
 class IFileSystem;
@@ -40,4 +40,4 @@ class SnapshotActionHandler {
     std::unique_ptr<ISafeDirectoryRoot> local_root_;
 };
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup

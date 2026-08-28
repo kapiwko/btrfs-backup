@@ -9,7 +9,7 @@
 #include <backup/model/backup_run_plan.hpp>
 #include <core/cancellation.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup {
 
 class IBackupRunFactory {
   public:
@@ -23,4 +23,4 @@ class IBackupRunFactory {
     ) = 0;
 };
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup

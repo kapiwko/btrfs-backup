@@ -8,7 +8,7 @@
 
 namespace fs = std::filesystem;
 
-namespace btrfsbackup {
+namespace btrfsbackup::platform::linux {
 
 fs::path mapper_path(const std::string& mapper_name, const fs::path& mapper_root) {
     return mapper_root / mapper_name;
@@ -31,4 +31,4 @@ std::string strip_subvolume_suffix(const std::string& source) {
     return source.substr(0, bracket);
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::platform::linux

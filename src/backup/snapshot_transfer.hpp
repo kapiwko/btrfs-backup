@@ -12,7 +12,7 @@
 #include <backup/ports/filesystem.hpp>
 #include <backup/model/snapshot_inventory.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup {
 
 struct SendReceiveCommandPlan {
     std::vector<std::string> send_argv;
@@ -47,4 +47,4 @@ void commit_received_snapshot_beneath(
     const std::string& expected_received_uuid
 );
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup

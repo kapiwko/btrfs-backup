@@ -9,7 +9,7 @@
 
 #include <backup/ports/process.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup {
 
 class ICommandRunner {
   public:
@@ -23,4 +23,4 @@ class ICommandRunner {
 
 [[nodiscard]] std::string capture_command(ICommandRunner& runner, const std::vector<std::string>& argv);
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup

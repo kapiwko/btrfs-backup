@@ -27,7 +27,7 @@ bool valid_snapshot_timestamp(const std::string& value) {
     return value.size() == 18 && all_digits(value.substr(0, 4)) && value[4] == '-' && all_digits(value.substr(5, 2)) && value[7] == '-' && all_digits(value.substr(8, 2)) && value[10] == 'T' && all_digits(value.substr(11, 6)) && value[17] == 'Z';
 }
 
-bool metadata_sort_key_less(const btrfsbackup::SnapshotInfo& left, const btrfsbackup::SnapshotInfo& right) {
+bool metadata_sort_key_less(const btrfsbackup::backup::SnapshotInfo& left, const btrfsbackup::backup::SnapshotInfo& right) {
     if (left.timestamp != right.timestamp) {
         return left.timestamp < right.timestamp;
     }
@@ -39,7 +39,7 @@ bool metadata_sort_key_less(const btrfsbackup::SnapshotInfo& left, const btrfsba
 
 } // namespace
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup {
 
 std::optional<SnapshotName> parse_snapshot_name(const std::string& name, const std::string& source_id) {
     validate_identifier(source_id, "sourceId");
@@ -147,4 +147,4 @@ std::vector<SnapshotInfo> list_snapshot_inventory_at(
     return snapshots;
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup

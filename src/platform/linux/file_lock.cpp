@@ -19,7 +19,7 @@
 
 namespace fs = std::filesystem;
 
-namespace btrfsbackup {
+namespace btrfsbackup::platform::linux {
 
 fs::path default_lock_root() {
     return "/run/btrfs-backup/locks";
@@ -37,7 +37,8 @@ fs::path target_lock_path(const fs::path& lock_root, const std::string& luks_uui
     return lock_root / "targets" / (normalized_uuid + ".lock");
 }
 
-FileLock::FileLock(fs::path path) : path_(std::move(path)) {}
+FileLock::FileLock(fs::path path) : path_(std::move(path)) {
+}
 
 FileLock::FileLock(FileLock&& other) noexcept
     : path_(std::move(other.path_)), fd_(other.fd_), acquired_(other.acquired_) {
@@ -100,4 +101,4 @@ bool FileLock::acquired() const {
     return acquired_;
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::platform::linux

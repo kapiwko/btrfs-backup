@@ -59,7 +59,7 @@ void require_absolute_path(const std::string& value, const char* field) {
 
 } // namespace
 
-namespace btrfsbackup {
+namespace btrfsbackup::state {
 
 bool last_success_matches(
     const fs::path& profile_state_dir,
@@ -134,7 +134,7 @@ fs::path pending_marker_path(const fs::path& profile_state_dir, const std::strin
 void write_pending_marker(
     IDurableFileOperations& files,
     const fs::path& profile_state_dir,
-    const PendingMarker& marker
+    const btrfsbackup::backup::PendingMarker& marker
 ) {
     validate_identifier(marker.source_name, "source_name");
     validate_run_id(marker.run_id);
@@ -167,4 +167,4 @@ void clear_pending_marker(IDurableFileOperations& files, const fs::path& marker_
     files.remove_durably(marker_path);
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::state

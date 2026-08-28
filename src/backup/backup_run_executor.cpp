@@ -17,7 +17,7 @@
 
 namespace fs = std::filesystem;
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup {
 
 void NullBackupRunEventSink::on_backup_run_event(const BackupRunEvent&) {
 }
@@ -73,7 +73,7 @@ void emit_event(
     });
 }
 
-class BackupTransferEventAdapter final : public ITransferEventSink {
+class BackupTransferEventAdapter final : public btrfsbackup::backup::transfer::ITransferEventSink {
   public:
     BackupTransferEventAdapter(
         IBackupRunEventSink& events,
@@ -89,8 +89,8 @@ class BackupTransferEventAdapter final : public ITransferEventSink {
           run_bytes_base_(run_bytes_base) {
     }
 
-    void on_transfer_event(const TransferEvent& event) override {
-        if (event.kind == TransferEventKind::Progress) {
+    void on_transfer_event(const btrfsbackup::backup::transfer::TransferEvent& event) override {
+        if (event.kind == btrfsbackup::backup::transfer::TransferEventKind::Progress) {
             emit_event(
                 events_,
                 BackupRunEventKind::TransferProgress,
@@ -118,7 +118,7 @@ class BackupTransferEventAdapter final : public ITransferEventSink {
     std::uint64_t run_bytes_base_ = 0;
 };
 
-TransferPipelinePlan transfer_plan_for_action(
+btrfsbackup::backup::transfer::TransferPipelinePlan transfer_plan_for_action(
     const BackupRunPlan& plan,
     const SendReceiveAction& action,
     const ISafeDirectoryRootFactory& safe_directories
@@ -138,7 +138,7 @@ TransferPipelinePlan transfer_plan_for_action(
         parent_path,
         receive->stable_path()
     );
-    TransferPipelinePlan transfer_plan{
+    btrfsbackup::backup::transfer::TransferPipelinePlan transfer_plan{
         .producer_argv = command_plan.send_argv,
         .consumer_argv = command_plan.receive_argv,
         .retained_resources = {},
@@ -196,7 +196,7 @@ void write_checkpoint(
     emit_event(events, BackupRunEventKind::CheckpointWritten, plan, &source, action_kind);
 }
 
-void wait_for_transfer_or_cancellation(IAsyncTransferHandle& transfer, CancellationToken& cancellation) {
+void wait_for_transfer_or_cancellation(btrfsbackup::backup::transfer::IAsyncTransferHandle& transfer, CancellationToken& cancellation) {
     while (!transfer.wait_for(std::chrono::milliseconds(100))) {
         if (cancellation.cancellation_requested()) {
             transfer.request_cancel();
@@ -208,7 +208,7 @@ void wait_for_transfer_or_cancellation(IAsyncTransferHandle& transfer, Cancellat
 
 BackupRunExecutor::BackupRunExecutor(
     IBackupRunActionHandler& action_handler,
-    IAsyncTransferPipeline& transfer_pipeline,
+    btrfsbackup::backup::transfer::IAsyncTransferPipeline& transfer_pipeline,
     IBackupRunCheckpointStore& checkpoints,
     const ISafeDirectoryRootFactory& safe_directories
 )
@@ -259,24 +259,24 @@ BackupRunExecutionResult BackupRunExecutor::execute(
                             action_kind,
                             completed_run_bytes
                         );
-                        TransferPipelinePlan transfer_plan = transfer_plan_for_action(
+                        btrfsbackup::backup::transfer::TransferPipelinePlan transfer_plan = transfer_plan_for_action(
                             plan,
                             typed_action,
                             safe_directories_
                         );
                         transfer_plan.bytes_total_estimated = estimate_regular_file_bytes(typed_action.snapshot);
-                        std::unique_ptr<IAsyncTransferHandle> transfer = transfer_pipeline_.start(
+                        std::unique_ptr<btrfsbackup::backup::transfer::IAsyncTransferHandle> transfer = transfer_pipeline_.start(
                             transfer_plan,
                             transfer_events
                         );
                         wait_for_transfer_or_cancellation(*transfer, cancellation);
-                        TransferResult transfer_result = transfer->wait();
+                        btrfsbackup::backup::transfer::TransferResult transfer_result = transfer->wait();
                         if (transfer_result.cancelled) {
                             transfer_cancelled = true;
                             return;
                         }
-                        error_code = transfer_failure_error_code(transfer_result);
-                        require_transfer_success(transfer_result);
+                        error_code = btrfsbackup::backup::transfer::transfer_failure_error_code(transfer_result);
+                        btrfsbackup::backup::transfer::require_transfer_success(transfer_result);
                         completed_run_bytes += transfer_result.bytes_transferred;
                     } else if constexpr (!std::is_same_v<Action, SelectParentAction>) {
                         action_handler_.handle(action, plan, cancellation);
@@ -319,4 +319,4 @@ bool backup_run_action_writes_checkpoint(const BackupRunAction& action) {
     return !std::holds_alternative<SelectParentAction>(action);
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup

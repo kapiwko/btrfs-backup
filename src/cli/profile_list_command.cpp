@@ -12,16 +12,16 @@
 
 namespace fs = std::filesystem;
 
-namespace btrfsbackup::command {
+namespace btrfsbackup::cli {
 
 void profile_list(
     const fs::path&,
     const fs::path& profile_root_dir,
     std::ostream& output
 ) {
-    for (const std::string& profile : list_profiles(profile_root_dir)) {
+    for (const std::string& profile : btrfsbackup::platform::linux::list_profiles(profile_root_dir)) {
         output << profile << '\n';
     }
 }
 
-} // namespace btrfsbackup::command
+} // namespace btrfsbackup::cli

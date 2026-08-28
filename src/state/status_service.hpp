@@ -11,10 +11,10 @@
 
 #include <config/model/json.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::state {
 
 struct StatusDocument {
-    Json data;
+    btrfsbackup::config::Json data;
     std::string content;
     std::filesystem::path source;
 };
@@ -31,4 +31,4 @@ std::optional<StatusDocument> poll_status(
     const std::string& previous
 );
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::state

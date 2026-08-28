@@ -6,7 +6,7 @@
 
 #include <config/model/validation.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup {
 
 namespace {
 
@@ -18,9 +18,9 @@ std::string strip_subvolume_suffix(const std::string& source) {
 } // namespace
 
 std::optional<MountEntry> mount_at(const std::vector<MountEntry>& entries, const std::filesystem::path& target) {
-    const std::filesystem::path normalized_target = normalized_path(target);
+    const std::filesystem::path normalized_target = btrfsbackup::config::normalized_path(target);
     for (const MountEntry& entry : entries) {
-        if (normalized_path(entry.target) == normalized_target) {
+        if (btrfsbackup::config::normalized_path(entry.target) == normalized_target) {
             return entry;
         }
     }
@@ -28,15 +28,15 @@ std::optional<MountEntry> mount_at(const std::vector<MountEntry>& entries, const
 }
 
 std::optional<MountEntry> mount_for_path(const std::vector<MountEntry>& entries, const std::filesystem::path& path) {
-    const std::filesystem::path normalized = normalized_path(path);
+    const std::filesystem::path normalized = btrfsbackup::config::normalized_path(path);
     const MountEntry* best = nullptr;
     std::size_t best_size = 0;
     for (const MountEntry& entry : entries) {
         if (entry.target.empty()) {
             continue;
         }
-        const std::filesystem::path target = normalized_path(entry.target);
-        if (path_is_within(normalized, target)) {
+        const std::filesystem::path target = btrfsbackup::config::normalized_path(entry.target);
+        if (btrfsbackup::config::path_is_within(normalized, target)) {
             const std::size_t size = target.string().size();
             if (best == nullptr || size > best_size) {
                 best = &entry;
@@ -69,8 +69,7 @@ bool mount_uses_mapper(
     const std::filesystem::path& mapper_path
 ) {
     const std::optional<MountEntry> mount = mount_at(entries, mountpoint);
-    return mount.has_value()
-        && normalized_path(strip_subvolume_suffix(mount->source)) == normalized_path(mapper_path);
+    return mount.has_value() && btrfsbackup::config::normalized_path(strip_subvolume_suffix(mount->source)) == btrfsbackup::config::normalized_path(mapper_path);
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup

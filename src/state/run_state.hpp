@@ -10,7 +10,7 @@
 #include <backup/model/pending_recovery.hpp>
 #include <core/durable_file_operations.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::state {
 
 struct SuccessState {
     std::string date;
@@ -43,9 +43,9 @@ std::filesystem::path pending_marker_path(const std::filesystem::path& profile_s
 void write_pending_marker(
     IDurableFileOperations& files,
     const std::filesystem::path& profile_state_dir,
-    const PendingMarker& marker
+    const btrfsbackup::backup::PendingMarker& marker
 );
 std::string read_pending_marker_field(const std::filesystem::path& marker_path, const std::string& field);
 void clear_pending_marker(IDurableFileOperations& files, const std::filesystem::path& marker_path);
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::state

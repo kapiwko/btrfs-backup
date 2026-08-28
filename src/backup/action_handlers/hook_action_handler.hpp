@@ -9,7 +9,7 @@
 #include <core/identifiers.hpp>
 #include <core/cancellation.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup {
 
 class ICommandRunner;
 
@@ -28,4 +28,4 @@ class HookActionHandler {
     const ITrustedExecutableResolver& executables_;
 };
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup

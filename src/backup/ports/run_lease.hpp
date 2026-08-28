@@ -11,7 +11,7 @@
 #include <config/model/profile.hpp>
 #include <core/error_code.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup {
 
 class IBackupRunLease {
   public:
@@ -28,7 +28,7 @@ class IBackupRunLeaseProvider {
   public:
     virtual ~IBackupRunLeaseProvider() = default;
 
-    [[nodiscard]] virtual BackupRunLeaseResult try_acquire(const Profile& profile) = 0;
+    [[nodiscard]] virtual BackupRunLeaseResult try_acquire(const btrfsbackup::config::Profile& profile) = 0;
 };
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup

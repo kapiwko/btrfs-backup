@@ -11,7 +11,7 @@
 
 namespace fs = std::filesystem;
 
-namespace btrfsbackup {
+namespace btrfsbackup::state {
 
 JsonFileBackupRunCheckpointStore::JsonFileBackupRunCheckpointStore(
     IDurableFileOperations& files,
@@ -20,13 +20,13 @@ JsonFileBackupRunCheckpointStore::JsonFileBackupRunCheckpointStore(
     : files_(files), profile_state_dir_(std::move(profile_state_dir)) {
 }
 
-void JsonFileBackupRunCheckpointStore::write_checkpoint(const BackupRunCheckpoint& checkpoint) {
+void JsonFileBackupRunCheckpointStore::write_checkpoint(const btrfsbackup::backup::BackupRunCheckpoint& checkpoint) {
     files_.ensure_directory(profile_state_dir_, private_directory_permissions);
     files_.write_atomically(
         profile_state_dir_ / "checkpoint.json",
-        dump_json(build_backup_run_checkpoint_json(checkpoint)),
+        btrfsbackup::config::dump_json(build_backup_run_checkpoint_json(checkpoint)),
         private_file_permissions
     );
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::state

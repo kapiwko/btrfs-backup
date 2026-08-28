@@ -9,7 +9,7 @@
 #include <iomanip>
 #include <sstream>
 
-namespace btrfsbackup {
+namespace btrfsbackup::state {
 
 namespace {
 
@@ -26,63 +26,63 @@ std::string current_utc_iso_timestamp() {
 
 } // namespace
 
-std::string backup_run_action_kind_name(BackupRunActionKind kind) {
+std::string backup_run_action_kind_name(btrfsbackup::backup::BackupRunActionKind kind) {
     switch (kind) {
-    case BackupRunActionKind::RecoverPending:
+    case btrfsbackup::backup::BackupRunActionKind::RecoverPending:
         return "recover-pending";
-    case BackupRunActionKind::CleanupIncoming:
+    case btrfsbackup::backup::BackupRunActionKind::CleanupIncoming:
         return "cleanup-incoming";
-    case BackupRunActionKind::BeforeSnapshotHook:
+    case btrfsbackup::backup::BackupRunActionKind::BeforeSnapshotHook:
         return "before-snapshot-hook";
-    case BackupRunActionKind::CreateSnapshot:
+    case btrfsbackup::backup::BackupRunActionKind::CreateSnapshot:
         return "create-snapshot";
-    case BackupRunActionKind::AfterSnapshotHook:
+    case btrfsbackup::backup::BackupRunActionKind::AfterSnapshotHook:
         return "after-snapshot-hook";
-    case BackupRunActionKind::SelectParent:
+    case btrfsbackup::backup::BackupRunActionKind::SelectParent:
         return "select-parent";
-    case BackupRunActionKind::SendReceive:
+    case btrfsbackup::backup::BackupRunActionKind::SendReceive:
         return "send-receive";
-    case BackupRunActionKind::VerifyReceived:
+    case btrfsbackup::backup::BackupRunActionKind::VerifyReceived:
         return "verify-received";
-    case BackupRunActionKind::CommitReceived:
+    case btrfsbackup::backup::BackupRunActionKind::CommitReceived:
         return "commit-received";
-    case BackupRunActionKind::ApplyRemoteRetention:
+    case btrfsbackup::backup::BackupRunActionKind::ApplyRemoteRetention:
         return "apply-remote-retention";
-    case BackupRunActionKind::ApplyLocalRetention:
+    case btrfsbackup::backup::BackupRunActionKind::ApplyLocalRetention:
         return "apply-local-retention";
-    case BackupRunActionKind::CleanupSource:
+    case btrfsbackup::backup::BackupRunActionKind::CleanupSource:
         return "cleanup-source";
     }
     return "unknown";
 }
 
-std::string backup_run_event_kind_name(BackupRunEventKind kind) {
+std::string backup_run_event_kind_name(btrfsbackup::backup::BackupRunEventKind kind) {
     switch (kind) {
-    case BackupRunEventKind::RunStarted:
+    case btrfsbackup::backup::BackupRunEventKind::RunStarted:
         return "run-started";
-    case BackupRunEventKind::SourceStarted:
+    case btrfsbackup::backup::BackupRunEventKind::SourceStarted:
         return "source-started";
-    case BackupRunEventKind::ActionStarted:
+    case btrfsbackup::backup::BackupRunEventKind::ActionStarted:
         return "action-started";
-    case BackupRunEventKind::TransferProgress:
+    case btrfsbackup::backup::BackupRunEventKind::TransferProgress:
         return "transfer-progress";
-    case BackupRunEventKind::ActionCompleted:
+    case btrfsbackup::backup::BackupRunEventKind::ActionCompleted:
         return "action-completed";
-    case BackupRunEventKind::ActionFailed:
+    case btrfsbackup::backup::BackupRunEventKind::ActionFailed:
         return "action-failed";
-    case BackupRunEventKind::CheckpointWritten:
+    case btrfsbackup::backup::BackupRunEventKind::CheckpointWritten:
         return "checkpoint-written";
-    case BackupRunEventKind::SourceCompleted:
+    case btrfsbackup::backup::BackupRunEventKind::SourceCompleted:
         return "source-completed";
-    case BackupRunEventKind::RunCompleted:
+    case btrfsbackup::backup::BackupRunEventKind::RunCompleted:
         return "run-completed";
-    case BackupRunEventKind::RunCancelled:
+    case btrfsbackup::backup::BackupRunEventKind::RunCancelled:
         return "run-cancelled";
     }
     return "unknown";
 }
 
-Json build_backup_run_checkpoint_json(const BackupRunCheckpoint& checkpoint) {
+btrfsbackup::config::Json build_backup_run_checkpoint_json(const btrfsbackup::backup::BackupRunCheckpoint& checkpoint) {
     return {
         {"schemaVersion", 1},
         {"profileId", std::string(checkpoint.profile_id.value())},
@@ -93,7 +93,7 @@ Json build_backup_run_checkpoint_json(const BackupRunCheckpoint& checkpoint) {
     };
 }
 
-Json build_backup_run_event_json(const BackupRunEvent& event) {
+btrfsbackup::config::Json build_backup_run_event_json(const btrfsbackup::backup::BackupRunEvent& event) {
     const std::string source_id = event.source_id.has_value()
         ? std::string(event.source_id->value())
         : std::string{};
@@ -117,4 +117,4 @@ Json build_backup_run_event_json(const BackupRunEvent& event) {
     };
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::state

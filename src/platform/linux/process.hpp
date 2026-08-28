@@ -9,13 +9,13 @@
 
 #include <backup/ports/process.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::platform::linux {
 
-[[nodiscard]] CommandResult run_command(const std::vector<std::string>& argv);
-[[nodiscard]] CommandResult run_controlled_command(
+[[nodiscard]] btrfsbackup::backup::CommandResult run_command(const std::vector<std::string>& argv);
+[[nodiscard]] btrfsbackup::backup::CommandResult run_controlled_command(
     const std::vector<std::string>& argv,
-    const ControlledCommandOptions& options
+    const btrfsbackup::backup::ControlledCommandOptions& options
 );
 [[nodiscard]] std::string run_capture(const std::vector<std::string>& argv);
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::platform::linux

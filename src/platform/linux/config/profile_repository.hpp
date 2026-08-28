@@ -13,26 +13,26 @@
 #include <config/ports/profile_repository.hpp>
 #include <core/identifiers.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::platform::linux {
 
 // Filesystem-backed Linux adapter for profile configuration.
 
 std::filesystem::path profile_json_path(const std::filesystem::path& etc_root, const std::string& profile_id);
-Json load_profile_json_by_id(const std::filesystem::path& etc_root, const std::string& profile_id);
-Profile load_profile_by_id(const std::filesystem::path& etc_root, const std::string& profile_id);
+btrfsbackup::config::Json load_profile_json_by_id(const std::filesystem::path& etc_root, const std::string& profile_id);
+btrfsbackup::config::Profile load_profile_by_id(const std::filesystem::path& etc_root, const std::string& profile_id);
 
-class FileProfileRepository final : public IProfileRepository {
+class FileProfileRepository final : public btrfsbackup::config::IProfileRepository {
   public:
     explicit FileProfileRepository(std::filesystem::path config_root);
-    FileProfileRepository(std::filesystem::path config_root, ApplicationConfig application_config);
+    FileProfileRepository(std::filesystem::path config_root, btrfsbackup::config::ApplicationConfig application_config);
 
-    [[nodiscard]] Profile get(const ProfileId& profile_id) const override;
-    [[nodiscard]] const ApplicationPaths& application_paths() const override;
-    [[nodiscard]] std::string fingerprint(const Profile& profile) const override;
+    [[nodiscard]] btrfsbackup::config::Profile get(const ProfileId& profile_id) const override;
+    [[nodiscard]] const btrfsbackup::config::ApplicationPaths& application_paths() const override;
+    [[nodiscard]] std::string fingerprint(const btrfsbackup::config::Profile& profile) const override;
 
   private:
     std::filesystem::path config_root_;
-    ApplicationConfig application_config_;
+    btrfsbackup::config::ApplicationConfig application_config_;
 };
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::platform::linux

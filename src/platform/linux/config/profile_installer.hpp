@@ -8,19 +8,19 @@
 #include <config/profile_artifact_renderer.hpp>
 #include <config/ports/configuration_activator.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::platform::linux {
 
 // Publishes rendered artifacts using Linux locking and activation semantics.
 
 class ProfileInstaller {
   public:
-    ProfileInstaller(ProfileArtifactRenderer& renderer, IConfigurationActivator& activator);
+    ProfileInstaller(btrfsbackup::config::ProfileArtifactRenderer& renderer, btrfsbackup::config::IConfigurationActivator& activator);
 
-    void install_profile_transactionally(const Profile& profile, const ProfileArtifactRoots& roots);
+    void install_profile_transactionally(const btrfsbackup::config::Profile& profile, const btrfsbackup::config::ProfileArtifactRoots& roots);
 
   private:
-    ProfileArtifactRenderer& renderer_;
-    IConfigurationActivator& activator_;
+    btrfsbackup::config::ProfileArtifactRenderer& renderer_;
+    btrfsbackup::config::IConfigurationActivator& activator_;
 };
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::platform::linux

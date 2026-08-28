@@ -9,20 +9,20 @@
 #include <backup/model/backup_run_event.hpp>
 #include <core/durable_file_operations.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::state {
 
-class JsonFileBackupRunCheckpointStore final : public IBackupRunCheckpointStore {
+class JsonFileBackupRunCheckpointStore final : public btrfsbackup::backup::IBackupRunCheckpointStore {
   public:
     JsonFileBackupRunCheckpointStore(
         IDurableFileOperations& files,
         std::filesystem::path profile_state_dir
     );
 
-    void write_checkpoint(const BackupRunCheckpoint& checkpoint) override;
+    void write_checkpoint(const btrfsbackup::backup::BackupRunCheckpoint& checkpoint) override;
 
   private:
     IDurableFileOperations& files_;
     std::filesystem::path profile_state_dir_;
 };
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::state

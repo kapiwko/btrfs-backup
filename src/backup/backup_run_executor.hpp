@@ -13,13 +13,13 @@
 #include <backup/ports/safe_directory.hpp>
 #include <backup/transfer/async_transfer.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup {
 
 class BackupRunExecutor {
   public:
     BackupRunExecutor(
         IBackupRunActionHandler& action_handler,
-        IAsyncTransferPipeline& transfer_pipeline,
+        btrfsbackup::backup::transfer::IAsyncTransferPipeline& transfer_pipeline,
         IBackupRunCheckpointStore& checkpoints,
         const ISafeDirectoryRootFactory& safe_directories
     );
@@ -32,11 +32,11 @@ class BackupRunExecutor {
 
   private:
     IBackupRunActionHandler& action_handler_;
-    IAsyncTransferPipeline& transfer_pipeline_;
+    btrfsbackup::backup::transfer::IAsyncTransferPipeline& transfer_pipeline_;
     IBackupRunCheckpointStore& checkpoints_;
     const ISafeDirectoryRootFactory& safe_directories_;
 };
 
 [[nodiscard]] bool backup_run_action_writes_checkpoint(const BackupRunAction& action);
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup
