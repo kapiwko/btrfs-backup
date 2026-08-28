@@ -241,7 +241,16 @@ void test_profile_migrates_safe_legacy_system_paths() {
     legacy["paths"]["statusRoot"] = "/run/btrfs-backup/profiles";
     legacy["paths"]["historyRoot"] = "/var/lib/btrfs-backup/history";
 
-    btrfsbackup::platform::linux::validate_legacy_profile_runtime_fields(legacy, "/mnt/btrfs-backup");
+    const auto load_legacy = [](const btrfsbackup::config::Json& document) {
+        btrfsbackup::platform::linux::FileProfileRepository repository(
+            "/unused/test/config",
+            btrfsbackup::config::ApplicationConfig::defaults(),
+            [&](const fs::path&) { return btrfsbackup::config::dump_json(document); }
+        );
+        return repository.get(btrfsbackup::ProfileId{"default"}).profile;
+    };
+
+    (void)load_legacy(legacy);
     btrfsbackup::config::Json normalized = btrfsbackup::config::normalize_profile(legacy);
     expect_true("legacy migrated schema", normalized.at("schemaVersion") == 3, "legacy profile was not migrated");
     expect_true("legacy stateDir removed", !normalized.at("paths").contains("stateDir"), "stateDir remains public");
@@ -251,7 +260,7 @@ void test_profile_migrates_safe_legacy_system_paths() {
     legacy["target"]["mountPoint"] = "/mnt/btrfs-backup/other";
     expect_validation_error(
         "legacy mount point mismatch",
-        [&] { btrfsbackup::platform::linux::validate_legacy_profile_runtime_fields(legacy, "/mnt/btrfs-backup"); },
+        [&] { (void)load_legacy(legacy); },
         "mountPoint does not match"
     );
 
@@ -259,7 +268,7 @@ void test_profile_migrates_safe_legacy_system_paths() {
     legacy["target"]["mountUnit"] = "wrong.mount";
     expect_validation_error(
         "legacy mount unit mismatch",
-        [&] { btrfsbackup::platform::linux::validate_legacy_profile_runtime_fields(legacy, "/mnt/btrfs-backup"); },
+        [&] { (void)load_legacy(legacy); },
         "mountUnit does not match"
     );
 }

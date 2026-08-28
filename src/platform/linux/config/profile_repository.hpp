@@ -10,7 +10,6 @@
 
 #include <config/application_config.hpp>
 #include <config/model/profile.hpp>
-#include <config/model/profile_document.hpp>
 #include <config/ports/profile_repository.hpp>
 #include <core/identifiers.hpp>
 

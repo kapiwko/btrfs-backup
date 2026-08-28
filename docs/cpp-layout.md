@@ -81,6 +81,7 @@ flowchart TB
         direction LR
         platform[platform-linux]
         config[config]
+        linux_config[platform-linux-config]
         state[state]
     end
 
@@ -93,8 +94,10 @@ flowchart TB
     transfer --> platform
     config_domain --> config
     config_json --> config
-    config_wizard --> config
-    platform --> config
+    config --> linux_config
+    config_json --> linux_config
+    config_wizard --> linux_config
+    platform --> linux_config
     config_domain --> state
     config_json --> state
     state_model --> state
@@ -102,14 +105,14 @@ flowchart TB
     backup_model --> backup
     transfer --> backup
     platform --> backup
-    config --> backup
     state --> backup
     backup --> cli
-    config --> cli
+    linux_config --> cli
     state --> cli
     config_domain --> daemon
     config_json --> daemon
     platform --> daemon
+    linux_config --> daemon
 
     cli --> executables[btrfs-backup<br/>btrfs-backupctl]
     daemon --> manager[btrfs-backupd]

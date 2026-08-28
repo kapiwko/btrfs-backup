@@ -12,10 +12,10 @@ target_restricted_include_directories(btrfsbackup-daemon-core
 )
 target_link_libraries(btrfsbackup-daemon-core
     PUBLIC
+        btrfsbackup-config-json
+    PRIVATE
         btrfsbackup-config-domain
         btrfsbackup-platform-linux
-    PRIVATE
-        btrfsbackup-config-json
 )
 
 add_executable(btrfs-backupd
@@ -30,7 +30,7 @@ set_target_properties(btrfs-backupd PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${PROJEC
 target_link_libraries(btrfs-backupd
     PRIVATE
         btrfsbackup-daemon-core
-        btrfsbackup-config-linux
+        btrfsbackup-platform-linux-config
         PkgConfig::SYSTEMD
 )
 
