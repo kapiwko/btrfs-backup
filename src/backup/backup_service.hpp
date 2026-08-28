@@ -10,11 +10,14 @@
 #include <backup/model/backup_run_plan.hpp>
 #include <backup/ports/backup_planner.hpp>
 #include <backup/ports/backup_run_factory.hpp>
+#include <backup/ports/cancellation_request_store.hpp>
 #include <backup/ports/cancellation_monitor.hpp>
+#include <backup/ports/checkpoint_store_factory.hpp>
 #include <backup/ports/mount_inspector.hpp>
 #include <backup/ports/run_context.hpp>
+#include <backup/ports/run_event_sink_factory.hpp>
+#include <backup/ports/run_ledger.hpp>
 #include <backup/ports/run_lease.hpp>
-#include <backup/ports/run_state_repository.hpp>
 #include <backup/ports/target_manager.hpp>
 #include <config/application_paths.hpp>
 #include <config/ports/profile_repository.hpp>
@@ -33,7 +36,10 @@ class BackupService {
         IBackupPlanner& planner,
         IBackupRunFactory& run_factory,
         IBackupRunLeaseProvider& leases,
-        IRunStateRepository& state,
+        IRunLedger& ledger,
+        IRunEventSinkFactory& event_sinks,
+        ICheckpointStoreFactory& checkpoints,
+        ICancellationRequestStore& cancellation_requests,
         ICancellationMonitor& cancellation_monitor,
         IClock& clock,
         IRunIdGenerator& run_ids
@@ -53,7 +59,10 @@ class BackupService {
     IBackupPlanner& planner_;
     IBackupRunFactory& run_factory_;
     IBackupRunLeaseProvider& leases_;
-    IRunStateRepository& state_;
+    IRunLedger& ledger_;
+    IRunEventSinkFactory& event_sinks_;
+    ICheckpointStoreFactory& checkpoints_;
+    ICancellationRequestStore& cancellation_requests_;
     ICancellationMonitor& cancellation_monitor_;
     IClock& clock_;
     IRunIdGenerator& run_ids_;
