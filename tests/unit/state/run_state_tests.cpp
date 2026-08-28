@@ -5,10 +5,10 @@
 #include <filesystem>
 #include <fstream>
 #include <string>
+#include <sys/stat.h>
 
 #include <state/run_state.hpp>
 #include <platform/linux/posix_durable_file_operations.hpp>
-#include <core/file_permissions.hpp>
 
 #include "support/test_helpers.hpp"
 
@@ -30,6 +30,11 @@ std::string read_file(const fs::path& path) {
     return {std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()};
 }
 
+int mode_of(const fs::path& path) {
+    struct stat info{};
+    return stat(path.c_str(), &info) == 0 ? info.st_mode & 0777 : -1;
+}
+
 void test_success_state_write_and_match() {
     fs::path root = test_root("success-state");
     fs::path state_dir = root / "state" / "profiles" / "default";
@@ -47,6 +52,8 @@ void test_success_state_write_and_match() {
 
     fs::path state_file = state_dir / "last-success";
     test_helpers::expect_eq("success state exists", fs::is_regular_file(state_file) ? "yes" : "no", "yes");
+    test_helpers::expect_true("success state mode", mode_of(state_file) == 0600, "last-success should be 0600");
+    test_helpers::expect_true("state directory mode", mode_of(state_dir) == 0700, "state directory should be 0700");
     std::string content = read_file(state_file);
     test_helpers::expect_contains("success state date", content, "date=2026-08-23\n");
     test_helpers::expect_contains("success state source count", content, "source_count=2\n");
@@ -90,6 +97,7 @@ void test_pending_marker_write_read_and_clear() {
 
     fs::path marker = state_dir / "pending-root";
     test_helpers::expect_eq("pending marker exists", fs::is_regular_file(marker) ? "yes" : "no", "yes");
+    test_helpers::expect_true("pending marker mode", mode_of(marker) == 0600, "pending marker should be 0600");
     std::string content = read_file(marker);
     test_helpers::expect_contains("pending source", content, "source_name=root\n");
     test_helpers::expect_contains("pending final path", content, "final_snapshot_path=" + final_snapshot.string() + "\n");
@@ -155,11 +163,16 @@ void test_cancel_request_write_check_and_clear() {
 void test_legacy_cancel_marker_does_not_match_a_run() {
     fs::path root = test_root("legacy-cancel-request");
     fs::path state_dir = root / "state" / "profiles" / "default";
-    durable_files().ensure_directory(state_dir, btrfsbackup::private_directory_permissions);
+    constexpr fs::perms private_file_permissions =
+        fs::perms::owner_read | fs::perms::owner_write;
+    durable_files().ensure_directory(
+        state_dir,
+        private_file_permissions | fs::perms::owner_exec
+    );
     durable_files().write_atomically(
         btrfsbackup::state::cancel_request_path(state_dir),
         "requested=1\n",
-        btrfsbackup::private_file_permissions
+        private_file_permissions
     );
 
     test_helpers::expect_true(
