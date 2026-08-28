@@ -26,7 +26,18 @@ std::string action_name(btrfsbackup::backup::BackupRunActionKind kind) {
 }
 
 std::string event_action_name(const btrfsbackup::backup::BackupRunEvent& event) {
-    return event.action_kind.has_value() ? action_name(*event.action_kind) : "none";
+    const auto action_kind = btrfsbackup::backup::backup_run_event_action_kind(event);
+    return action_kind.has_value() ? action_name(*action_kind) : "none";
+}
+
+template <typename Event>
+const Event* find_event(const std::vector<btrfsbackup::backup::BackupRunEvent>& events) {
+    for (const auto& event : events) {
+        if (const auto* typed_event = std::get_if<Event>(&event)) {
+            return typed_event;
+        }
+    }
+    return nullptr;
 }
 
 class RecordingActionHandler final : public btrfsbackup::backup::IBackupRunActionHandler {
@@ -91,16 +102,17 @@ class RecordingEvents final : public btrfsbackup::backup::IBackupRunEventSink {
 
     void on_backup_run_event(const btrfsbackup::backup::BackupRunEvent& event) override {
         events.push_back(event);
+        const auto kind = btrfsbackup::backup::backup_run_event_kind(event);
         if (execution_trace != nullptr) {
-            if (event.kind == btrfsbackup::backup::BackupRunEventKind::ActionStarted) {
+            if (kind == btrfsbackup::backup::BackupRunEventKind::ActionStarted) {
                 execution_trace->push_back("action-started:" + event_action_name(event));
-            } else if (event.kind == btrfsbackup::backup::BackupRunEventKind::ActionCompleted) {
+            } else if (kind == btrfsbackup::backup::BackupRunEventKind::ActionCompleted) {
                 execution_trace->push_back("action-completed:" + event_action_name(event));
-            } else if (event.kind == btrfsbackup::backup::BackupRunEventKind::CheckpointWritten) {
+            } else if (kind == btrfsbackup::backup::BackupRunEventKind::CheckpointWritten) {
                 execution_trace->push_back("checkpoint-written:" + event_action_name(event));
             }
         }
-        if (!cancelled && cancel_after_first_completed != nullptr && event.kind == btrfsbackup::backup::BackupRunEventKind::ActionCompleted) {
+        if (!cancelled && cancel_after_first_completed != nullptr && kind == btrfsbackup::backup::BackupRunEventKind::ActionCompleted) {
             cancelled = true;
             cancel_after_first_completed->request_cancel();
         }
@@ -108,7 +120,7 @@ class RecordingEvents final : public btrfsbackup::backup::IBackupRunEventSink {
 
     bool has_event(btrfsbackup::backup::BackupRunEventKind kind) const {
         return std::any_of(events.begin(), events.end(), [kind](const btrfsbackup::backup::BackupRunEvent& event) {
-            return event.kind == kind;
+            return btrfsbackup::backup::backup_run_event_kind(event) == kind;
         });
     }
 };
@@ -267,7 +279,7 @@ void test_lifecycle_events_do_not_have_synthetic_actions() {
             events.events.begin(),
             events.events.end(),
             [kind](const btrfsbackup::backup::BackupRunEvent& event) {
-                return event.kind == kind;
+                return btrfsbackup::backup::backup_run_event_kind(event) == kind;
             }
         );
         test_helpers::expect_true(
@@ -280,7 +292,7 @@ void test_lifecycle_events_do_not_have_synthetic_actions() {
         }
         test_helpers::expect_true(
             "lifecycle action absent " + std::to_string(static_cast<int>(kind)),
-            !found->action_kind.has_value(),
+            !btrfsbackup::backup::backup_run_event_action_kind(*found).has_value(),
             "lifecycle event contains a synthetic action"
         );
     }
@@ -504,11 +516,14 @@ void test_send_receive_delegates_to_transfer_pipeline() {
     test_helpers::expect_eq("transfer checkpoint count", std::to_string(checkpoints.checkpoints.size()), "1");
 
     auto progress = std::find_if(events.events.begin(), events.events.end(), [](const btrfsbackup::backup::BackupRunEvent& event) {
-        return event.kind == btrfsbackup::backup::BackupRunEventKind::TransferProgress;
+        return std::holds_alternative<btrfsbackup::backup::TransferProgress>(event);
     });
     test_helpers::expect_true("progress event", progress != events.events.end(), "missing transfer progress event");
-    test_helpers::expect_eq("progress bytes", std::to_string(progress->bytes_transferred), "8192");
-    test_helpers::expect_eq("progress delta", std::to_string(progress->delta_bytes), "8192");
+    if (progress != events.events.end()) {
+        const auto& transfer_progress = std::get<btrfsbackup::backup::TransferProgress>(*progress);
+        test_helpers::expect_eq("progress bytes", std::to_string(transfer_progress.bytes_transferred), "8192");
+        test_helpers::expect_eq("progress delta", std::to_string(transfer_progress.delta_bytes), "8192");
+    }
 }
 
 void test_transfer_paths_are_pinned_through_injected_factory() {
@@ -622,10 +637,12 @@ void test_multi_source_progress_accumulates_run_bytes() {
     btrfsbackup::backup::BackupRunExecutionResult result = executor.execute(plan, events, cancellation);
 
     test_helpers::expect_true("multi progress completed", result.outcome == btrfsbackup::backup::BackupRunExecutionOutcome::Completed, "run should complete");
-    std::vector<btrfsbackup::backup::BackupRunEvent> progress_events;
-    std::copy_if(events.events.begin(), events.events.end(), std::back_inserter(progress_events), [](const btrfsbackup::backup::BackupRunEvent& event) {
-        return event.kind == btrfsbackup::backup::BackupRunEventKind::TransferProgress;
-    });
+    std::vector<btrfsbackup::backup::TransferProgress> progress_events;
+    for (const auto& event : events.events) {
+        if (const auto* progress = std::get_if<btrfsbackup::backup::TransferProgress>(&event)) {
+            progress_events.push_back(*progress);
+        }
+    }
     test_helpers::expect_eq("multi progress count", std::to_string(progress_events.size()), "2");
     test_helpers::expect_eq("first source index", std::to_string(progress_events.at(0).source_index), "1");
     test_helpers::expect_eq("first run bytes", std::to_string(progress_events.at(0).run_bytes_transferred), "1000");
@@ -656,11 +673,11 @@ void test_cancels_between_actions() {
     test_helpers::expect_eq("checkpoint count before cancel", std::to_string(checkpoints.checkpoints.size()), "1");
     test_helpers::expect_true("cancel event", events.has_event(btrfsbackup::backup::BackupRunEventKind::RunCancelled), "missing cancel event");
     const auto cancelled = std::find_if(events.events.begin(), events.events.end(), [](const btrfsbackup::backup::BackupRunEvent& event) {
-        return event.kind == btrfsbackup::backup::BackupRunEventKind::RunCancelled;
+        return std::holds_alternative<btrfsbackup::backup::RunCancelled>(event);
     });
     test_helpers::expect_true(
         "cancel between actions has no action",
-        cancelled != events.events.end() && !cancelled->action_kind.has_value(),
+        cancelled != events.events.end() && !std::get<btrfsbackup::backup::RunCancelled>(*cancelled).action_kind.has_value(),
         "cancellation between actions contains a synthetic action"
     );
 }
@@ -689,11 +706,11 @@ void test_cancels_during_transfer_without_checkpointing_transfer() {
     test_helpers::expect_eq("transfer cancellation last checkpoint", action_name(checkpoints.checkpoints.back().action_kind), action_name(btrfsbackup::backup::BackupRunActionKind::CreateSnapshot));
     test_helpers::expect_true("transfer cancellation event", events.has_event(btrfsbackup::backup::BackupRunEventKind::RunCancelled), "missing cancel event");
     const auto cancelled = std::find_if(events.events.begin(), events.events.end(), [](const btrfsbackup::backup::BackupRunEvent& event) {
-        return event.kind == btrfsbackup::backup::BackupRunEventKind::RunCancelled;
+        return std::holds_alternative<btrfsbackup::backup::RunCancelled>(event);
     });
     test_helpers::expect_true(
         "transfer cancellation action",
-        cancelled != events.events.end() && cancelled->action_kind == btrfsbackup::backup::BackupRunActionKind::SendReceive,
+        cancelled != events.events.end() && std::get<btrfsbackup::backup::RunCancelled>(*cancelled).action_kind == btrfsbackup::backup::BackupRunActionKind::SendReceive,
         "transfer cancellation lost its active action"
     );
 }
@@ -716,11 +733,11 @@ void test_transfer_failure_emits_failed_action() {
     test_helpers::expect_validation_error("transfer failure", [&] { (void)executor.execute(plan, events, cancellation); }, "producer failed with exit code 7");
     test_helpers::expect_eq("failed checkpoint count", std::to_string(checkpoints.checkpoints.size()), "0");
     test_helpers::expect_true("failed action event", events.has_event(btrfsbackup::backup::BackupRunEventKind::ActionFailed), "missing failed action event");
-    auto failed = std::find_if(events.events.begin(), events.events.end(), [](const btrfsbackup::backup::BackupRunEvent& event) {
-        return event.kind == btrfsbackup::backup::BackupRunEventKind::ActionFailed;
-    });
-    test_helpers::expect_true("transfer failed action event", failed != events.events.end(), "missing failed action event");
-    test_helpers::expect_eq("transfer failed error code", btrfsbackup::error_code_name(*failed->error_code), "transfer.producer_failed");
+    const auto* failed = find_event<btrfsbackup::backup::ActionFailed>(events.events);
+    test_helpers::expect_true("transfer failed action event", failed != nullptr, "missing failed action event");
+    if (failed != nullptr) {
+        test_helpers::expect_eq("transfer failed error code", btrfsbackup::error_code_name(*failed->error_code), "transfer.producer_failed");
+    }
 }
 
 void test_receive_failure_is_reported_separately() {
@@ -740,12 +757,12 @@ void test_receive_failure_is_reported_separately() {
 
     test_helpers::expect_validation_error("receive failure", [&] { (void)executor.execute(plan, events, cancellation); }, "consumer failed with exit code 9");
     test_helpers::expect_eq("receive failure checkpoint count", std::to_string(checkpoints.checkpoints.size()), "0");
-    auto failed = std::find_if(events.events.begin(), events.events.end(), [](const btrfsbackup::backup::BackupRunEvent& event) {
-        return event.kind == btrfsbackup::backup::BackupRunEventKind::ActionFailed;
-    });
-    test_helpers::expect_true("receive failed action event", failed != events.events.end(), "missing failed action event");
-    test_helpers::expect_eq("receive failed error code", btrfsbackup::error_code_name(*failed->error_code), "transfer.consumer_failed");
-    test_helpers::expect_contains("receive failed message", failed->message, "consumer failed with exit code 9");
+    const auto* failed = find_event<btrfsbackup::backup::ActionFailed>(events.events);
+    test_helpers::expect_true("receive failed action event", failed != nullptr, "missing failed action event");
+    if (failed != nullptr) {
+        test_helpers::expect_eq("receive failed error code", btrfsbackup::error_code_name(*failed->error_code), "transfer.consumer_failed");
+        test_helpers::expect_contains("receive failed message", failed->message, "consumer failed with exit code 9");
+    }
 }
 
 void test_commit_failure_after_successful_transfer_keeps_verify_checkpoint() {
@@ -795,11 +812,11 @@ void test_commit_cleanup_failure_emits_recovery_required_code() {
     } catch (const btrfsbackup::RecoveryRequiredError& error) {
         test_helpers::expect_contains("commit cleanup failure message", error.what(), "repository requires recovery");
     }
-    auto failed = std::find_if(events.events.begin(), events.events.end(), [](const btrfsbackup::backup::BackupRunEvent& event) {
-        return event.kind == btrfsbackup::backup::BackupRunEventKind::ActionFailed;
-    });
-    test_helpers::expect_true("commit cleanup failed event", failed != events.events.end(), "missing failed action event");
-    test_helpers::expect_eq("commit cleanup error code", btrfsbackup::error_code_name(*failed->error_code), "repository.recovery_required");
+    const auto* failed = find_event<btrfsbackup::backup::ActionFailed>(events.events);
+    test_helpers::expect_true("commit cleanup failed event", failed != nullptr, "missing failed action event");
+    if (failed != nullptr) {
+        test_helpers::expect_eq("commit cleanup error code", btrfsbackup::error_code_name(*failed->error_code), "repository.recovery_required");
+    }
 }
 
 void test_hook_timeout_emits_stable_error_code() {
@@ -824,11 +841,11 @@ void test_hook_timeout_emits_stable_error_code() {
     } catch (const btrfsbackup::CodedOperationError& error) {
         test_helpers::expect_contains("hook timeout message", error.what(), "coded action failure");
     }
-    auto failed = std::find_if(events.events.begin(), events.events.end(), [](const btrfsbackup::backup::BackupRunEvent& event) {
-        return event.kind == btrfsbackup::backup::BackupRunEventKind::ActionFailed;
-    });
-    test_helpers::expect_true("hook timeout failed event", failed != events.events.end(), "missing failed action event");
-    test_helpers::expect_eq("hook timeout event code", btrfsbackup::error_code_name(*failed->error_code), "hook.before_snapshot_timeout");
+    const auto* failed = find_event<btrfsbackup::backup::ActionFailed>(events.events);
+    test_helpers::expect_true("hook timeout failed event", failed != nullptr, "missing failed action event");
+    if (failed != nullptr) {
+        test_helpers::expect_eq("hook timeout event code", btrfsbackup::error_code_name(*failed->error_code), "hook.before_snapshot_timeout");
+    }
 }
 
 void test_hook_cancellation_finishes_run_as_cancelled() {
