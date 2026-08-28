@@ -5,8 +5,8 @@
 #pragma once
 
 #include <memory>
-#include <optional>
 #include <string>
+#include <variant>
 
 #include <config/model/profile.hpp>
 #include <core/error_code.hpp>
@@ -18,11 +18,16 @@ class IBackupRunLease {
     virtual ~IBackupRunLease() = default;
 };
 
-struct BackupRunLeaseResult {
+struct BackupRunLeaseAcquired {
     std::unique_ptr<IBackupRunLease> lease;
-    std::optional<ErrorCode> error_code;
+};
+
+struct BackupRunLeaseBusy {
+    ErrorCode error_code;
     std::string error_message;
 };
+
+using BackupRunLeaseResult = std::variant<BackupRunLeaseAcquired, BackupRunLeaseBusy>;
 
 class IBackupRunLeaseProvider {
   public:
