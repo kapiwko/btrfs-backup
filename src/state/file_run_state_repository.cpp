@@ -67,11 +67,11 @@ class FileActiveRunRegistration final : public btrfsbackup::backup::IActiveRunRe
 
     ~FileActiveRunRegistration() override {
         try {
-            btrfsbackup::state::clear_cancel_request(files_, profile_state_dir_, run_id_);
+            btrfsbackup::state::clear_active_run(files_, profile_state_dir_, run_id_);
         } catch (...) {
         }
         try {
-            btrfsbackup::state::clear_active_run(files_, profile_state_dir_, run_id_);
+            btrfsbackup::state::clear_cancel_request(files_, profile_state_dir_, run_id_);
         } catch (...) {
         }
     }

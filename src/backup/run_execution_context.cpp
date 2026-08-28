@@ -20,11 +20,16 @@ RunExecutionContext::RunExecutionContext(
 )
     : profile_id(std::move(profile_id_value)),
       run_id(std::move(run_id_value)),
-      active_run(cancellation_requests.register_active_run({profile_id, run_id})),
-      cancellation_watch(cancellation_monitor.watch({profile_id, run_id}, cancellation)),
       checkpoints(checkpoint_factory.checkpoints(profile_id)),
       events(event_sink_factory.events(std::move(status))),
       lease(std::move(lease_value)) {
+    active_run = cancellation_requests.register_active_run({profile_id, run_id});
+    cancellation_watch = cancellation_monitor.watch({profile_id, run_id}, cancellation);
+}
+
+RunExecutionContext::~RunExecutionContext() {
+    active_run.reset();
+    cancellation_watch.reset();
 }
 
 } // namespace btrfsbackup::backup
