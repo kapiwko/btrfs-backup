@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+1. reorganized the native architecture around domain namespaces, dependency-light
+   model targets, explicit ports, narrow CMake link interfaces, and automated
+   namespace, model-boundary, and public-header ownership checks;
+2. split backup planning, discovery, run-scoped state, typed events, error codes,
+   runtime time, transfer coordination, persistence responsibilities, manager
+   query services, CLI parsing/presentation, and dependency composition without
+   changing the external profile, status, history, recovery, or CLI contracts;
+3. added polkit-authorized `StartBackup`, `CancelBackup`, `ValidateTarget`, and
+   `EjectTarget` methods to the optional system manager while keeping runner
+   execution owned by systemd and independent of the daemon;
+4. centralized run-scoped action-handler and `BackupRun` assembly in the backup
+   component so CLI and future adapters supply ports instead of duplicating
+   orchestration.
+
 ## 0.3.0 - 2026-08-25
 
 1. native runner execution now uses separate non-blocking profile and target

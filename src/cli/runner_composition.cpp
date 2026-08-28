@@ -39,9 +39,10 @@
 namespace btrfsbackup::cli {
 namespace {
 
-class CommandClock final : public backup::IClock {
+class ConfiguredRunnerClock final : public backup::IClock {
   public:
-    CommandClock(RuntimeTimePoint timestamp, LocalDate today) : timestamp_(timestamp), today_(today) {
+    ConfiguredRunnerClock(RuntimeTimePoint timestamp, LocalDate today)
+        : timestamp_(timestamp), today_(today) {
     }
 
     RuntimeTimePoint now() const override {
@@ -56,9 +57,9 @@ class CommandClock final : public backup::IClock {
     LocalDate today_;
 };
 
-class CommandRunIdGenerator final : public backup::IRunIdGenerator {
+class ConfiguredRunnerRunIdGenerator final : public backup::IRunIdGenerator {
   public:
-    explicit CommandRunIdGenerator(RunId run_id) : run_id_(std::move(run_id)) {
+    explicit ConfiguredRunnerRunIdGenerator(RunId run_id) : run_id_(std::move(run_id)) {
     }
 
     RunId generate(RuntimeTimePoint) override {
@@ -105,8 +106,8 @@ struct RunnerComposition::Impl {
     state::FileRunStateRepository state;
     state::FileCancellationMonitor file_cancellation_monitor;
     backup::LinkedCancellationMonitor cancellation_monitor;
-    CommandClock clock;
-    CommandRunIdGenerator run_ids;
+    ConfiguredRunnerClock clock;
+    ConfiguredRunnerRunIdGenerator run_ids;
     backup::BackupService backup_service;
 };
 

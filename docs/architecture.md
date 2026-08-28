@@ -131,9 +131,9 @@ though Linux cannot atomically rename files across these separate directories.
 
 ## Runner And Manager Boundary
 
-The backup runner must remain executable directly by the system service that is
-started from the device event. A future long-lived manager may expose a control
-API, start or stop units, and publish live progress, but it must not become a
+The backup runner remains executable directly by the system service started
+from the device event. The optional long-lived manager exposes sanitized query
+APIs and authorized start, cancel, validate, and eject controls, but it is not a
 required process for an already configured automatic backup to run.
 
 If the manager is unavailable or restarts, an active runner continues. The
