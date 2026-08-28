@@ -38,11 +38,16 @@ target_restricted_include_directories(btrfsbackup-cli
 target_link_libraries(btrfsbackup-cli
     PUBLIC
         btrfsbackup-backup
+        btrfsbackup-backup-ports
+        btrfsbackup-config-domain
+        btrfsbackup-config-ports
+        btrfsbackup-core
         btrfsbackup-platform-linux-config
         btrfsbackup-platform-linux
         btrfsbackup-state
     PRIVATE
         btrfsbackup-config-json
+        btrfsbackup-transfer
 )
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")

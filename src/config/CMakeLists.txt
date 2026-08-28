@@ -34,7 +34,13 @@ target_restricted_include_directories(btrfsbackup-config-json
         config/model/json_io.hpp
         config/model/profile_document.hpp
 )
-target_link_libraries(btrfsbackup-config-json PUBLIC btrfsbackup-config-domain nlohmann_json::nlohmann_json)
+target_link_libraries(btrfsbackup-config-json
+    PUBLIC
+        btrfsbackup-config-domain
+        nlohmann_json::nlohmann_json
+    PRIVATE
+        btrfsbackup-core
+)
 
 add_library(btrfsbackup-config-wizard STATIC
     wizard/profile_wizard_model.cpp
@@ -45,7 +51,13 @@ target_restricted_include_directories(btrfsbackup-config-wizard
     PUBLIC_HEADERS
         config/wizard/profile_wizard_model.hpp
 )
-target_link_libraries(btrfsbackup-config-wizard PUBLIC btrfsbackup-config-domain PRIVATE btrfsbackup-config-json)
+target_link_libraries(btrfsbackup-config-wizard
+    PUBLIC
+        btrfsbackup-config-domain
+    PRIVATE
+        btrfsbackup-config-json
+        btrfsbackup-core
+)
 
 add_library(btrfsbackup-config-ports STATIC
     ports/profile_repository.cpp
@@ -84,6 +96,7 @@ target_link_libraries(btrfsbackup-config
         btrfsbackup-config-domain
     PRIVATE
         btrfsbackup-config-json
+        btrfsbackup-core
 )
 
 add_library(btrfsbackup-platform-linux-config STATIC
@@ -128,9 +141,11 @@ target_restricted_include_directories(btrfsbackup-platform-linux-config
 target_link_libraries(btrfsbackup-platform-linux-config
     PUBLIC
         btrfsbackup-config
-        btrfsbackup-config-ports
-    PRIVATE
+        btrfsbackup-config-domain
         btrfsbackup-config-json
+        btrfsbackup-config-ports
+        btrfsbackup-core
+    PRIVATE
         btrfsbackup-config-wizard
         btrfsbackup-platform-linux
 )
