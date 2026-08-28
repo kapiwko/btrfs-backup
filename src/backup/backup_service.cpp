@@ -32,6 +32,7 @@ BackupRunStatusDescription status_description(
 
 BackupService::BackupService(
     btrfsbackup::config::IProfileRepository& profiles,
+    btrfsbackup::config::ApplicationPaths application_paths,
     IMountInspector& mounts,
     ITargetManager& target_mounter,
     IBackupPlanner& planner,
@@ -44,6 +45,7 @@ BackupService::BackupService(
     CancellationToken& cancellation
 )
     : profiles_(profiles),
+      application_paths_(std::move(application_paths)),
       mounts_(mounts),
       target_mounter_(target_mounter),
       planner_(planner),
@@ -62,20 +64,21 @@ BackupRunPlan BackupService::prepare_plan(
     const std::string& timestamp
 ) {
     target_mounter_.ensure_mounted(profile);
-    return planner_.build(profile, mounts_.inspect(), profiles_.application_paths(), run_id, timestamp);
+    return planner_.build(profile, mounts_.inspect(), application_paths_, run_id, timestamp);
 }
 
 BackupRunPlan BackupService::plan(const BackupRequest& request) {
     const std::string timestamp = clock_.snapshot_timestamp();
     const RunId run_id = run_ids_.generate(timestamp);
-    const btrfsbackup::config::Profile profile = profiles_.get(request.profile_id);
-    return prepare_plan(profile, run_id, timestamp);
+    const btrfsbackup::config::LoadedProfile loaded = profiles_.get(request.profile_id);
+    return prepare_plan(loaded.profile, run_id, timestamp);
 }
 
 BackupExecutionResult BackupService::start(const BackupRequest& request) {
     const std::string timestamp = clock_.snapshot_timestamp();
     const RunId run_id = run_ids_.generate(timestamp);
-    const btrfsbackup::config::Profile profile = profiles_.get(request.profile_id);
+    const btrfsbackup::config::LoadedProfile loaded = profiles_.get(request.profile_id);
+    const btrfsbackup::config::Profile& profile = loaded.profile;
 
     BackupExecutionResult result{
         .plan = BackupRunPlan{
@@ -99,7 +102,7 @@ BackupExecutionResult BackupService::start(const BackupRequest& request) {
     }
 
     result.plan = prepare_plan(profile, run_id, timestamp);
-    const std::string fingerprint = profiles_.fingerprint(profile);
+    const std::string& fingerprint = loaded.fingerprint.value();
     if (request.validate_only) {
         result.outcome = BackupExecutionOutcome::Validated;
         return result;
@@ -142,9 +145,9 @@ BackupExecutionResult BackupService::start(const BackupRequest& request) {
 }
 
 CancelBackupResult BackupService::cancel(const ProfileId& profile_id) {
-    const btrfsbackup::config::Profile profile = profiles_.get(profile_id);
-    state_.request_cancel(profile.id);
-    return {.profile_id = profile.id, .cancel_requested = true};
+    const btrfsbackup::config::LoadedProfile loaded = profiles_.get(profile_id);
+    state_.request_cancel(loaded.profile.id);
+    return {.profile_id = loaded.profile.id, .cancel_requested = true};
 }
 
 } // namespace btrfsbackup::backup

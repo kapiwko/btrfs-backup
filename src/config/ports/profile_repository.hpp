@@ -4,10 +4,7 @@
 
 #pragma once
 
-#include <string>
-
-#include <config/application_paths.hpp>
-#include <config/model/profile.hpp>
+#include <config/configuration_identity.hpp>
 #include <core/identifiers.hpp>
 
 namespace btrfsbackup::config {
@@ -16,9 +13,7 @@ class IProfileRepository {
   public:
     virtual ~IProfileRepository();
 
-    [[nodiscard]] virtual Profile get(const ProfileId& profile_id) const = 0;
-    [[nodiscard]] virtual const ApplicationPaths& application_paths() const = 0;
-    [[nodiscard]] virtual std::string fingerprint(const Profile& profile) const = 0;
+    [[nodiscard]] virtual LoadedProfile get(const ProfileId& profile_id) const = 0;
 };
 
 } // namespace btrfsbackup::config
