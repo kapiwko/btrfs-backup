@@ -7,21 +7,21 @@
 #include <filesystem>
 
 #include <backup/model/backup_run_event.hpp>
-#include <core/durable_file_operations.hpp>
+#include <state/persistent_document_operations.hpp>
 
 namespace btrfsbackup::state {
 
 class JsonFileBackupRunCheckpointStore final : public btrfsbackup::backup::IBackupRunCheckpointStore {
   public:
     JsonFileBackupRunCheckpointStore(
-        IDurableFileOperations& files,
+        IAtomicDocumentWriter& files,
         std::filesystem::path profile_state_dir
     );
 
     void write_checkpoint(const btrfsbackup::backup::BackupRunCheckpoint& checkpoint) override;
 
   private:
-    IDurableFileOperations& files_;
+    IAtomicDocumentWriter& files_;
     std::filesystem::path profile_state_dir_;
 };
 

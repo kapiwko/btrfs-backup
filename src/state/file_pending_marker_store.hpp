@@ -5,16 +5,13 @@
 #pragma once
 
 #include <backup/ports/pending_marker_store.hpp>
-
-namespace btrfsbackup {
-class IDurableFileOperations;
-}
+#include <state/persistent_document_operations.hpp>
 
 namespace btrfsbackup::state {
 
 class FilePendingMarkerStore final : public btrfsbackup::backup::IPendingMarkerStore {
   public:
-    explicit FilePendingMarkerStore(IDurableFileOperations& files);
+    explicit FilePendingMarkerStore(IPersistentDocumentOperations& files);
 
     [[nodiscard]] std::optional<btrfsbackup::backup::PendingMarker> read(
         const std::filesystem::path& profile_state_dir,
@@ -27,7 +24,7 @@ class FilePendingMarkerStore final : public btrfsbackup::backup::IPendingMarkerS
     void clear(const std::filesystem::path& marker_path) override;
 
   private:
-    IDurableFileOperations& files_;
+    IPersistentDocumentOperations& files_;
 };
 
 } // namespace btrfsbackup::state

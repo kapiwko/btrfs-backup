@@ -27,7 +27,7 @@ void validate_status(const btrfsbackup::state::RunStatus& status) {
     require_non_empty(status.profile_name, "profileName");
 }
 
-void prepare_public_parent(btrfsbackup::IDurableFileOperations& files, const fs::path& path) {
+void prepare_public_parent(btrfsbackup::state::IAtomicDocumentWriter& files, const fs::path& path) {
     files.ensure_directory(path.parent_path(), btrfsbackup::public_directory_permissions);
 }
 
@@ -110,7 +110,7 @@ std::string dump_public_status_json(const RunStatus& status) {
 }
 
 void write_current_status(
-    IDurableFileOperations& files,
+    IAtomicDocumentWriter& files,
     const fs::path& status_root,
     const RunStatus& status,
     fs::perms permissions

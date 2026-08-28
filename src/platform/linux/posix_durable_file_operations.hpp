@@ -7,11 +7,11 @@
 #include <filesystem>
 #include <string_view>
 
-#include <core/durable_file_operations.hpp>
+#include <state/persistent_document_operations.hpp>
 
 namespace btrfsbackup::platform::linux {
 
-class PosixDurableFileOperations final : public IDurableFileOperations {
+class PosixDurableFileOperations final : public btrfsbackup::state::IPersistentDocumentOperations {
   public:
     void ensure_directory(
         const std::filesystem::path& path,
