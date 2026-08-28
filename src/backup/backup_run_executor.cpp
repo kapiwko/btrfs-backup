@@ -18,50 +18,29 @@ void NullBackupRunEventSink::on_backup_run_event(const BackupRunEvent&) {
 
 namespace {
 
-int source_index_for_event(const BackupRunPlan& plan, const BackupSourceRunPlan* source) {
-    if (source == nullptr) {
-        return 0;
-    }
+int source_index_for_event(const BackupRunPlan& plan, const BackupSourceRunPlan& source) {
     for (std::size_t i = 0; i < plan.sources.size(); ++i) {
-        if (plan.sources.at(i).source_id == source->source_id) {
+        if (plan.sources.at(i).source_id == source.source_id) {
             return static_cast<int>(i + 1);
         }
     }
     return 0;
 }
 
-void emit_event(
+void emit_cancelled(
     IBackupRunEventSink& events,
-    BackupRunEventKind kind,
     const BackupRunPlan& plan,
     const BackupSourceRunPlan* source,
     std::optional<BackupRunActionKind> action_kind,
-    std::uint64_t bytes_transferred = 0,
-    std::uint64_t bytes_produced = 0,
-    std::uint64_t bytes_total_estimated = 0,
-    std::uint64_t run_bytes_transferred = 0,
-    std::uint64_t delta_bytes = 0,
-    std::uint64_t elapsed_ms = 0,
-    std::uint64_t speed_bps = 0,
     std::optional<ErrorCode> error_code = std::nullopt,
     const std::string& message = ""
 ) {
-    events.on_backup_run_event({
-        .kind = kind,
+    events.on_backup_run_event(RunCancelled{
         .profile_id = plan.profile_id,
         .run_id = plan.run_id,
-        .source_id = source == nullptr
-            ? std::nullopt
-            : std::optional<SourceId>{source->source_id},
-        .source_index = source_index_for_event(plan, source),
+        .source_id = source == nullptr ? std::nullopt : std::optional<SourceId>{source->source_id},
+        .source_index = source == nullptr ? 0 : source_index_for_event(plan, *source),
         .action_kind = action_kind,
-        .bytes_transferred = bytes_transferred,
-        .bytes_produced = bytes_produced,
-        .bytes_total_estimated = bytes_total_estimated,
-        .run_bytes_transferred = run_bytes_transferred,
-        .delta_bytes = delta_bytes,
-        .elapsed_ms = elapsed_ms,
-        .speed_bps = speed_bps,
         .error_code = error_code,
         .message = message,
     });
@@ -73,34 +52,30 @@ class BackupTransferEventAdapter final : public btrfsbackup::backup::transfer::I
         IBackupRunEventSink& events,
         const BackupRunPlan& plan,
         const BackupSourceRunPlan& source,
-        BackupRunActionKind action_kind,
         std::uint64_t run_bytes_base
     )
         : events_(events),
           plan_(plan),
           source_(source),
-          action_kind_(action_kind),
           run_bytes_base_(run_bytes_base) {
     }
 
     void on_transfer_event(const btrfsbackup::backup::transfer::TransferEvent& event) override {
         if (event.kind == btrfsbackup::backup::transfer::TransferEventKind::Progress) {
-            emit_event(
-                events_,
-                BackupRunEventKind::TransferProgress,
-                plan_,
-                &source_,
-                action_kind_,
-                event.bytes_transferred,
-                event.bytes_produced,
-                event.bytes_total_estimated,
-                run_bytes_base_ + event.bytes_transferred,
-                event.delta_bytes,
-                event.elapsed_ms,
-                event.speed_bps,
-                std::nullopt,
-                event.message
-            );
+            events_.on_backup_run_event(TransferProgress{
+                .profile_id = plan_.profile_id,
+                .run_id = plan_.run_id,
+                .source_id = source_.source_id,
+                .source_index = source_index_for_event(plan_, source_),
+                .bytes_transferred = event.bytes_transferred,
+                .bytes_produced = event.bytes_produced,
+                .bytes_total_estimated = event.bytes_total_estimated,
+                .run_bytes_transferred = run_bytes_base_ + event.bytes_transferred,
+                .delta_bytes = event.delta_bytes,
+                .elapsed_ms = event.elapsed_ms,
+                .speed_bps = event.speed_bps,
+                .message = event.message,
+            });
         }
     }
 
@@ -108,7 +83,6 @@ class BackupTransferEventAdapter final : public btrfsbackup::backup::transfer::I
     IBackupRunEventSink& events_;
     const BackupRunPlan& plan_;
     const BackupSourceRunPlan& source_;
-    BackupRunActionKind action_kind_;
     std::uint64_t run_bytes_base_ = 0;
 };
 
@@ -132,26 +106,33 @@ BackupRunExecutionResult BackupRunExecutor::execute(
 ) {
     BackupRunExecutionResult result;
     std::uint64_t completed_run_bytes = 0;
-    emit_event(events, BackupRunEventKind::RunStarted, plan, nullptr, std::nullopt);
+    events.on_backup_run_event(RunStarted{plan.profile_id, plan.run_id});
 
     for (const BackupSourceRunPlan& source : plan.sources) {
         if (cancellation.cancellation_requested()) {
             result.outcome = BackupRunExecutionOutcome::Cancelled;
-            emit_event(events, BackupRunEventKind::RunCancelled, plan, &source, std::nullopt);
+            emit_cancelled(events, plan, &source, std::nullopt);
             return result;
         }
 
-        emit_event(events, BackupRunEventKind::SourceStarted, plan, &source, std::nullopt);
+        const int source_index = source_index_for_event(plan, source);
+        events.on_backup_run_event(SourceStarted{plan.profile_id, plan.run_id, source.source_id, source_index});
 
         for (const BackupRunAction& action : source.actions) {
             const BackupRunActionKind action_kind = backup_run_action_kind(action);
             if (cancellation.cancellation_requested()) {
                 result.outcome = BackupRunExecutionOutcome::Cancelled;
-                emit_event(events, BackupRunEventKind::RunCancelled, plan, &source, std::nullopt);
+                emit_cancelled(events, plan, &source, std::nullopt);
                 return result;
             }
 
-            emit_event(events, BackupRunEventKind::ActionStarted, plan, &source, action_kind);
+            events.on_backup_run_event(ActionStarted{
+                plan.profile_id,
+                plan.run_id,
+                source.source_id,
+                source_index,
+                action_kind,
+            });
             bool transfer_cancelled = false;
             try {
                 std::visit([&](const auto& typed_action) {
@@ -161,7 +142,6 @@ BackupRunExecutionResult BackupRunExecutor::execute(
                             events,
                             plan,
                             source,
-                            action_kind,
                             completed_run_bytes
                         );
                         btrfsbackup::backup::transfer::TransferResult transfer_result = transfer_coordinator_.execute(
@@ -182,32 +162,58 @@ BackupRunExecutionResult BackupRunExecutor::execute(
                            action);
                 if (transfer_cancelled) {
                     result.outcome = BackupRunExecutionOutcome::Cancelled;
-                    emit_event(events, BackupRunEventKind::RunCancelled, plan, &source, action_kind);
+                    emit_cancelled(events, plan, &source, action_kind);
                     return result;
                 }
             } catch (const OperationCancelledError& error) {
                 result.outcome = BackupRunExecutionOutcome::Cancelled;
-                emit_event(events, BackupRunEventKind::RunCancelled, plan, &source, action_kind, 0, 0, 0, 0, 0, 0, 0, ErrorCode::RunnerCancelled, error.what());
+                emit_cancelled(
+                    events,
+                    plan,
+                    &source,
+                    action_kind,
+                    ErrorCode::RunnerCancelled,
+                    error.what()
+                );
                 return result;
             } catch (const std::exception& error) {
                 std::optional<ErrorCode> error_code;
                 if (const auto* coded_error = dynamic_cast<const CodedError*>(&error)) {
                     error_code = error_code_from_name(coded_error->error_code).value_or(ErrorCode::RunnerActionFailed);
                 }
-                emit_event(events, BackupRunEventKind::ActionFailed, plan, &source, action_kind, 0, 0, 0, 0, 0, 0, 0, error_code, error.what());
+                events.on_backup_run_event(ActionFailed{
+                    .profile_id = plan.profile_id,
+                    .run_id = plan.run_id,
+                    .source_id = source.source_id,
+                    .source_index = source_index,
+                    .action_kind = action_kind,
+                    .error_code = error_code,
+                    .message = error.what(),
+                });
                 throw;
             }
 
             ++result.actions_completed;
-            emit_event(events, BackupRunEventKind::ActionCompleted, plan, &source, action_kind);
+            events.on_backup_run_event(ActionCompleted{
+                plan.profile_id,
+                plan.run_id,
+                source.source_id,
+                source_index,
+                action_kind,
+            });
 
             checkpoint_policy_.after_success(action, plan, source, events);
         }
 
-        emit_event(events, BackupRunEventKind::SourceCompleted, plan, &source, std::nullopt);
+        events.on_backup_run_event(SourceCompleted{
+            plan.profile_id,
+            plan.run_id,
+            source.source_id,
+            source_index,
+        });
     }
 
-    emit_event(events, BackupRunEventKind::RunCompleted, plan, nullptr, std::nullopt);
+    events.on_backup_run_event(RunCompleted{plan.profile_id, plan.run_id});
     return result;
 }
 

@@ -19,14 +19,15 @@ btrfsbackup::platform::linux::PosixDurableFileOperations& durable_files() {
     return files;
 }
 
-btrfsbackup::backup::BackupRunEvent event(btrfsbackup::backup::BackupRunEventKind kind) {
-    return btrfsbackup::backup::BackupRunEvent{
-        .kind = kind,
+btrfsbackup::backup::TransferProgress transfer_progress(
+    btrfsbackup::SourceId source_id = btrfsbackup::SourceId{"root"},
+    int source_index = 1
+) {
+    return btrfsbackup::backup::TransferProgress{
         .profile_id = btrfsbackup::ProfileId{"default"},
         .run_id = btrfsbackup::RunId{"20260823T120000Z-123-456"},
-        .source_id = btrfsbackup::SourceId{"root"},
-        .source_index = 1,
-        .action_kind = btrfsbackup::backup::BackupRunActionKind::SendReceive,
+        .source_id = std::move(source_id),
+        .source_index = source_index,
         .bytes_transferred = 4096,
         .bytes_produced = 8192,
         .bytes_total_estimated = 8192,
@@ -35,6 +36,32 @@ btrfsbackup::backup::BackupRunEvent event(btrfsbackup::backup::BackupRunEventKin
         .elapsed_ms = 2000,
         .speed_bps = 2048,
         .message = "test message",
+    };
+}
+
+btrfsbackup::backup::ActionStarted action_started() {
+    return btrfsbackup::backup::ActionStarted{
+        .profile_id = btrfsbackup::ProfileId{"default"},
+        .run_id = btrfsbackup::RunId{"20260823T120000Z-123-456"},
+        .source_id = btrfsbackup::SourceId{"root"},
+        .source_index = 1,
+        .action_kind = btrfsbackup::backup::BackupRunActionKind::SendReceive,
+    };
+}
+
+btrfsbackup::backup::ActionFailed action_failed(
+    btrfsbackup::backup::BackupRunActionKind action_kind,
+    std::optional<btrfsbackup::ErrorCode> error_code,
+    std::string message
+) {
+    return btrfsbackup::backup::ActionFailed{
+        .profile_id = btrfsbackup::ProfileId{"default"},
+        .run_id = btrfsbackup::RunId{"20260823T120000Z-123-456"},
+        .source_id = btrfsbackup::SourceId{"root"},
+        .source_index = 1,
+        .action_kind = action_kind,
+        .error_code = error_code,
+        .message = std::move(message),
     };
 }
 
@@ -50,7 +77,7 @@ void test_public_transfer_progress_excludes_run_details() {
                                                                       .target_name = "backupdisk",
                                                                   });
 
-    sink.on_backup_run_event(event(btrfsbackup::backup::BackupRunEventKind::TransferProgress));
+    sink.on_backup_run_event(transfer_progress());
     btrfsbackup::config::Json current = btrfsbackup::config::load_json_file(root / "status" / "default" / "current.json");
     test_helpers::expect_true("progress source hidden", !current.contains("currentSourceName"), "public status exposes source");
     test_helpers::expect_true("progress bytes hidden", !current.contains("bytesProcessed"), "public status exposes byte count");
@@ -61,15 +88,18 @@ void test_public_transfer_progress_excludes_run_details() {
     test_helpers::expect_true("progress overall", current.at("overallProgress") == 25, "wrong overall progress");
     test_helpers::expect_true("progress accuracy", current.at("progressAccuracy") == "estimated", "wrong progress accuracy");
 
-    btrfsbackup::backup::BackupRunEvent second = event(btrfsbackup::backup::BackupRunEventKind::TransferProgress);
-    second.source_id = btrfsbackup::SourceId{"home"};
-    second.source_index = 2;
+    const btrfsbackup::backup::TransferProgress second = transfer_progress(btrfsbackup::SourceId{"home"}, 2);
     sink.on_backup_run_event(second);
     current = btrfsbackup::config::load_json_file(root / "status" / "default" / "current.json");
     test_helpers::expect_true("second source overall", current.at("overallProgress") == 75, "wrong second-source overall progress");
 
-    btrfsbackup::backup::BackupRunEvent action_completed = second;
-    action_completed.kind = btrfsbackup::backup::BackupRunEventKind::ActionCompleted;
+    const btrfsbackup::backup::ActionCompleted action_completed{
+        .profile_id = second.profile_id,
+        .run_id = second.run_id,
+        .source_id = second.source_id,
+        .source_index = second.source_index,
+        .action_kind = btrfsbackup::backup::BackupRunActionKind::SendReceive,
+    };
     sink.on_backup_run_event(action_completed);
     current = btrfsbackup::config::load_json_file(root / "status" / "default" / "current.json");
     test_helpers::expect_true("overall remains monotonic", current.at("overallProgress") == 75, "overall progress regressed after transfer");
@@ -86,16 +116,17 @@ void test_status_sink_writes_current_and_terminal_history() {
                                                                       .started_at = "2026-08-23T12:00:00Z",
                                                                   });
 
-    sink.on_backup_run_event(event(btrfsbackup::backup::BackupRunEventKind::ActionStarted));
+    sink.on_backup_run_event(action_started());
     fs::path current = root / "status" / "default" / "current.json";
     btrfsbackup::config::Json current_data = btrfsbackup::config::load_json_file(current);
     test_helpers::expect_true("current state", current_data.at("state") == "running", "wrong current state");
     test_helpers::expect_true("current phase hidden", !current_data.contains("phase"), "public status exposes phase");
     test_helpers::expect_true("history absent before terminal", !fs::exists(root / "history" / "default"), "history should wait for terminal event");
 
-    btrfsbackup::backup::BackupRunEvent completed = event(btrfsbackup::backup::BackupRunEventKind::RunCompleted);
-    completed.source_id = std::nullopt;
-    completed.source_index = 0;
+    const btrfsbackup::backup::RunCompleted completed{
+        .profile_id = btrfsbackup::ProfileId{"default"},
+        .run_id = btrfsbackup::RunId{"20260823T120000Z-123-456"},
+    };
     sink.on_backup_run_event(completed);
     fs::path history = root / "history" / "default" / "20260823T120000Z-123-456.json";
     btrfsbackup::config::Json history_data = btrfsbackup::config::load_json_file(history);
@@ -115,9 +146,11 @@ void test_hook_failure_status_uses_stable_error_code() {
                                                                       .started_at = "2026-08-23T12:00:00Z",
                                                                   });
 
-    btrfsbackup::backup::BackupRunEvent failed = event(btrfsbackup::backup::BackupRunEventKind::ActionFailed);
-    failed.action_kind = btrfsbackup::backup::BackupRunActionKind::BeforeSnapshotHook;
-    failed.message = "hook failed: /usr/local/bin/prepare";
+    const btrfsbackup::backup::ActionFailed failed = action_failed(
+        btrfsbackup::backup::BackupRunActionKind::BeforeSnapshotHook,
+        std::nullopt,
+        "hook failed: /usr/local/bin/prepare"
+    );
 
     sink.on_backup_run_event(failed);
 
@@ -144,10 +177,11 @@ void test_repository_recovery_required_status_is_actionable() {
                                                                       .started_at = "2026-08-23T12:00:00Z",
                                                                   });
 
-    btrfsbackup::backup::BackupRunEvent failed = event(btrfsbackup::backup::BackupRunEventKind::ActionFailed);
-    failed.action_kind = btrfsbackup::backup::BackupRunActionKind::CommitReceived;
-    failed.error_code = btrfsbackup::ErrorCode::RepositoryRecoveryRequired;
-    failed.message = "commit verification failed; cleanup failed; repository requires recovery";
+    const btrfsbackup::backup::ActionFailed failed = action_failed(
+        btrfsbackup::backup::BackupRunActionKind::CommitReceived,
+        btrfsbackup::ErrorCode::RepositoryRecoveryRequired,
+        "commit verification failed; cleanup failed; repository requires recovery"
+    );
 
     sink.on_backup_run_event(failed);
 

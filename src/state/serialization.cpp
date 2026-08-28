@@ -13,6 +13,24 @@ namespace btrfsbackup::state {
 
 namespace {
 
+struct SerializedEventData {
+    btrfsbackup::backup::BackupRunEventKind kind;
+    ProfileId profile_id;
+    RunId run_id;
+    std::optional<SourceId> source_id;
+    int source_index = 0;
+    std::optional<btrfsbackup::backup::BackupRunActionKind> action_kind;
+    std::uint64_t bytes_transferred = 0;
+    std::uint64_t bytes_produced = 0;
+    std::uint64_t bytes_total_estimated = 0;
+    std::uint64_t run_bytes_transferred = 0;
+    std::uint64_t delta_bytes = 0;
+    std::uint64_t elapsed_ms = 0;
+    std::uint64_t speed_bps = 0;
+    std::optional<ErrorCode> error_code;
+    std::string message;
+};
+
 std::string current_utc_iso_timestamp() {
     const auto now = std::chrono::system_clock::now();
     const std::time_t time = std::chrono::system_clock::to_time_t(now);
@@ -22,6 +40,43 @@ std::string current_utc_iso_timestamp() {
     std::ostringstream out;
     out << std::put_time(&tm, "%Y-%m-%dT%H:%M:%SZ");
     return out.str();
+}
+
+SerializedEventData serialized_event_data(const btrfsbackup::backup::BackupRunEvent& event) {
+    SerializedEventData data{
+        .kind = btrfsbackup::backup::backup_run_event_kind(event),
+        .profile_id = btrfsbackup::backup::backup_run_event_profile_id(event),
+        .run_id = btrfsbackup::backup::backup_run_event_run_id(event),
+        .source_id = btrfsbackup::backup::backup_run_event_source_id(event),
+        .source_index = btrfsbackup::backup::backup_run_event_source_index(event),
+        .action_kind = btrfsbackup::backup::backup_run_event_action_kind(event),
+        .bytes_transferred = 0,
+        .bytes_produced = 0,
+        .bytes_total_estimated = 0,
+        .run_bytes_transferred = 0,
+        .delta_bytes = 0,
+        .elapsed_ms = 0,
+        .speed_bps = 0,
+        .error_code = std::nullopt,
+        .message = {},
+    };
+    if (const auto* progress = std::get_if<btrfsbackup::backup::TransferProgress>(&event)) {
+        data.bytes_transferred = progress->bytes_transferred;
+        data.bytes_produced = progress->bytes_produced;
+        data.bytes_total_estimated = progress->bytes_total_estimated;
+        data.run_bytes_transferred = progress->run_bytes_transferred;
+        data.delta_bytes = progress->delta_bytes;
+        data.elapsed_ms = progress->elapsed_ms;
+        data.speed_bps = progress->speed_bps;
+        data.message = progress->message;
+    } else if (const auto* failed = std::get_if<btrfsbackup::backup::ActionFailed>(&event)) {
+        data.error_code = failed->error_code;
+        data.message = failed->message;
+    } else if (const auto* cancelled = std::get_if<btrfsbackup::backup::RunCancelled>(&event)) {
+        data.error_code = cancelled->error_code;
+        data.message = cancelled->message;
+    }
+    return data;
 }
 
 } // namespace
@@ -92,29 +147,30 @@ btrfsbackup::config::Json build_backup_run_checkpoint_json(const btrfsbackup::ba
 }
 
 btrfsbackup::config::Json build_backup_run_event_json(const btrfsbackup::backup::BackupRunEvent& event) {
-    const std::string source_id = event.source_id.has_value()
-        ? std::string(event.source_id->value())
+    const SerializedEventData data = serialized_event_data(event);
+    const std::string source_id = data.source_id.has_value()
+        ? std::string(data.source_id->value())
         : std::string{};
-    const std::string action = event.action_kind.has_value()
-        ? backup_run_action_kind_name(*event.action_kind)
+    const std::string action = data.action_kind.has_value()
+        ? backup_run_action_kind_name(*data.action_kind)
         : std::string{};
     return {
         {"schemaVersion", 1},
-        {"event", backup_run_event_kind_name(event.kind)},
-        {"profileId", std::string(event.profile_id.value())},
-        {"runId", std::string(event.run_id.value())},
+        {"event", backup_run_event_kind_name(data.kind)},
+        {"profileId", std::string(data.profile_id.value())},
+        {"runId", std::string(data.run_id.value())},
         {"sourceId", source_id},
-        {"sourceIndex", event.source_index},
+        {"sourceIndex", data.source_index},
         {"action", action},
-        {"bytesTransferred", event.bytes_transferred},
-        {"bytesProduced", event.bytes_produced},
-        {"bytesTotalEstimated", event.bytes_total_estimated},
-        {"runBytesTransferred", event.run_bytes_transferred},
-        {"deltaBytes", event.delta_bytes},
-        {"elapsedMs", event.elapsed_ms},
-        {"speedBps", event.speed_bps},
-        {"errorCode", event.error_code.has_value() ? error_code_name(*event.error_code) : ""},
-        {"message", event.message},
+        {"bytesTransferred", data.bytes_transferred},
+        {"bytesProduced", data.bytes_produced},
+        {"bytesTotalEstimated", data.bytes_total_estimated},
+        {"runBytesTransferred", data.run_bytes_transferred},
+        {"deltaBytes", data.delta_bytes},
+        {"elapsedMs", data.elapsed_ms},
+        {"speedBps", data.speed_bps},
+        {"errorCode", data.error_code.has_value() ? error_code_name(*data.error_code) : ""},
+        {"message", data.message},
     };
 }
 

@@ -2,22 +2,18 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <optional>
-
 #include <state/serialization.hpp>
 
 #include "support/test_helpers.hpp"
 
 namespace {
 
-btrfsbackup::backup::BackupRunEvent event(btrfsbackup::backup::BackupRunEventKind kind) {
-    return btrfsbackup::backup::BackupRunEvent{
-        .kind = kind,
+btrfsbackup::backup::TransferProgress transfer_progress() {
+    return btrfsbackup::backup::TransferProgress{
         .profile_id = btrfsbackup::ProfileId{"default"},
         .run_id = btrfsbackup::RunId{"20260823T120000Z-123-456"},
         .source_id = btrfsbackup::SourceId{"root"},
         .source_index = 1,
-        .action_kind = btrfsbackup::backup::BackupRunActionKind::SendReceive,
         .bytes_transferred = 4096,
         .bytes_produced = 8192,
         .bytes_total_estimated = 8192,
@@ -44,7 +40,7 @@ void test_names_are_stable() {
 
 void test_build_event_json() {
     const btrfsbackup::config::Json data = btrfsbackup::state::build_backup_run_event_json(
-        event(btrfsbackup::backup::BackupRunEventKind::TransferProgress)
+        transfer_progress()
     );
 
     test_helpers::expect_true("schema", data.at("schemaVersion") == 1, "wrong schema");
@@ -61,10 +57,10 @@ void test_build_event_json() {
 }
 
 void test_build_run_event_json_without_source() {
-    btrfsbackup::backup::BackupRunEvent run_completed = event(btrfsbackup::backup::BackupRunEventKind::RunCompleted);
-    run_completed.source_id = std::nullopt;
-    run_completed.source_index = 0;
-    run_completed.action_kind = std::nullopt;
+    const btrfsbackup::backup::RunCompleted run_completed{
+        .profile_id = btrfsbackup::ProfileId{"default"},
+        .run_id = btrfsbackup::RunId{"20260823T120000Z-123-456"},
+    };
 
     const btrfsbackup::config::Json data = btrfsbackup::state::build_backup_run_event_json(run_completed);
     test_helpers::expect_true("run event source", data.at("sourceId") == "", "run-level event has a source");

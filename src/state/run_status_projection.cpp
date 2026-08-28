@@ -20,6 +20,24 @@ namespace btrfsbackup::state {
 
 namespace {
 
+struct EventProjectionData {
+    btrfsbackup::backup::BackupRunEventKind kind;
+    ProfileId profile_id;
+    RunId run_id;
+    std::optional<SourceId> source_id;
+    int source_index = 0;
+    std::optional<btrfsbackup::backup::BackupRunActionKind> action_kind;
+    std::uint64_t bytes_transferred = 0;
+    std::uint64_t bytes_produced = 0;
+    std::uint64_t bytes_total_estimated = 0;
+    std::uint64_t run_bytes_transferred = 0;
+    std::uint64_t delta_bytes = 0;
+    std::uint64_t elapsed_ms = 0;
+    std::uint64_t speed_bps = 0;
+    std::optional<ErrorCode> error_code;
+    std::string message;
+};
+
 std::string current_utc_iso_timestamp() {
     auto now = std::chrono::system_clock::now();
     std::time_t time = std::chrono::system_clock::to_time_t(now);
@@ -29,6 +47,43 @@ std::string current_utc_iso_timestamp() {
     std::ostringstream out;
     out << std::put_time(&tm, "%Y-%m-%dT%H:%M:%SZ");
     return out.str();
+}
+
+EventProjectionData event_projection_data(const btrfsbackup::backup::BackupRunEvent& event) {
+    EventProjectionData data{
+        .kind = btrfsbackup::backup::backup_run_event_kind(event),
+        .profile_id = btrfsbackup::backup::backup_run_event_profile_id(event),
+        .run_id = btrfsbackup::backup::backup_run_event_run_id(event),
+        .source_id = btrfsbackup::backup::backup_run_event_source_id(event),
+        .source_index = btrfsbackup::backup::backup_run_event_source_index(event),
+        .action_kind = btrfsbackup::backup::backup_run_event_action_kind(event),
+        .bytes_transferred = 0,
+        .bytes_produced = 0,
+        .bytes_total_estimated = 0,
+        .run_bytes_transferred = 0,
+        .delta_bytes = 0,
+        .elapsed_ms = 0,
+        .speed_bps = 0,
+        .error_code = std::nullopt,
+        .message = {},
+    };
+    if (const auto* progress = std::get_if<btrfsbackup::backup::TransferProgress>(&event)) {
+        data.bytes_transferred = progress->bytes_transferred;
+        data.bytes_produced = progress->bytes_produced;
+        data.bytes_total_estimated = progress->bytes_total_estimated;
+        data.run_bytes_transferred = progress->run_bytes_transferred;
+        data.delta_bytes = progress->delta_bytes;
+        data.elapsed_ms = progress->elapsed_ms;
+        data.speed_bps = progress->speed_bps;
+        data.message = progress->message;
+    } else if (const auto* failed = std::get_if<btrfsbackup::backup::ActionFailed>(&event)) {
+        data.error_code = failed->error_code;
+        data.message = failed->message;
+    } else if (const auto* cancelled = std::get_if<btrfsbackup::backup::RunCancelled>(&event)) {
+        data.error_code = cancelled->error_code;
+        data.message = cancelled->message;
+    }
+    return data;
 }
 
 RunPhase phase_for_action(btrfsbackup::backup::BackupRunActionKind kind) {
@@ -106,7 +161,7 @@ std::string suggested_action_for_failed_action(btrfsbackup::backup::BackupRunAct
 
 int estimated_overall_progress(
     const BackupRunStatusContext& context,
-    const btrfsbackup::backup::BackupRunEvent& event,
+    const EventProjectionData& event,
     int source_progress
 ) {
     if (context.source_count <= 0) {
@@ -129,7 +184,7 @@ int estimated_overall_progress(
     return 0;
 }
 
-int estimated_source_progress(const btrfsbackup::backup::BackupRunEvent& event) {
+int estimated_source_progress(const EventProjectionData& event) {
     if (event.bytes_total_estimated == 0) {
         return -1;
     }
@@ -141,7 +196,7 @@ int estimated_source_progress(const btrfsbackup::backup::BackupRunEvent& event) 
     );
 }
 
-int estimated_eta_seconds(const btrfsbackup::backup::BackupRunEvent& event) {
+int estimated_eta_seconds(const EventProjectionData& event) {
     if (event.bytes_total_estimated == 0 || event.speed_bps == 0 || event.bytes_transferred >= event.bytes_total_estimated) {
         return -1;
     }
@@ -152,13 +207,13 @@ int estimated_eta_seconds(const btrfsbackup::backup::BackupRunEvent& event) {
         : static_cast<int>(seconds);
 }
 
-std::string action_name_for_event(const btrfsbackup::backup::BackupRunEvent& event) {
+std::string action_name_for_event(const EventProjectionData& event) {
     return event.action_kind.has_value()
         ? backup_run_action_kind_name(*event.action_kind)
         : "unknown";
 }
 
-std::string message_for_event(const btrfsbackup::backup::BackupRunEvent& event) {
+std::string message_for_event(const EventProjectionData& event) {
     if (!event.message.empty()) {
         return event.message;
     }
@@ -189,7 +244,7 @@ std::string message_for_event(const btrfsbackup::backup::BackupRunEvent& event) 
 
 RunStatus status_for_event(
     const BackupRunStatusContext& context,
-    const btrfsbackup::backup::BackupRunEvent& event,
+    const EventProjectionData& event,
     int minimum_overall_progress
 ) {
     const std::string source_id = event.source_id.has_value()
@@ -352,20 +407,21 @@ RunStatusProjection::RunStatusProjection(IDurableFileOperations& files, BackupRu
 }
 
 void RunStatusProjection::on_backup_run_event(const btrfsbackup::backup::BackupRunEvent& event) {
-    if (!should_write_status(event.kind)) {
+    const EventProjectionData data = event_projection_data(event);
+    if (!should_write_status(data.kind)) {
         return;
     }
 
-    if (event.kind == btrfsbackup::backup::BackupRunEventKind::RunStarted || event.run_id != run_id_) {
-        run_id_ = event.run_id;
+    if (data.kind == btrfsbackup::backup::BackupRunEventKind::RunStarted || data.run_id != run_id_) {
+        run_id_ = data.run_id;
         last_overall_progress_ = -1;
     }
-    RunStatus status = status_for_event(context_, event, last_overall_progress_);
+    RunStatus status = status_for_event(context_, data, last_overall_progress_);
     if (status.progress.overall_percent.has_value()) {
         last_overall_progress_ = *status.progress.overall_percent;
     }
     write_current_status(files_, context_.status_root, status);
-    if (should_write_history(event.kind)) {
+    if (should_write_history(data.kind)) {
         write_history_entry(files_, context_.history_root, status);
     }
 }

@@ -38,22 +38,12 @@ void BackupRunCheckpointPolicy::after_success(
         .source_id = source.source_id,
         .action_kind = action_kind,
     });
-    events.on_backup_run_event({
-        .kind = BackupRunEventKind::CheckpointWritten,
+    events.on_backup_run_event(CheckpointWritten{
         .profile_id = plan.profile_id,
         .run_id = plan.run_id,
         .source_id = source.source_id,
         .source_index = source_index(plan, source.source_id),
         .action_kind = action_kind,
-        .bytes_transferred = 0,
-        .bytes_produced = 0,
-        .bytes_total_estimated = 0,
-        .run_bytes_transferred = 0,
-        .delta_bytes = 0,
-        .elapsed_ms = 0,
-        .speed_bps = 0,
-        .error_code = std::nullopt,
-        .message = {},
     });
 }
 

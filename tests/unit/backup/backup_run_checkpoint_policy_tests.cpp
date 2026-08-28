@@ -76,17 +76,20 @@ void test_writes_checkpoint_before_emitting_success_event() {
         "wrong checkpoint action"
     );
     test_helpers::expect_eq("event count", std::to_string(events.events.size()), "1");
+    const auto* checkpoint_written = std::get_if<btrfsbackup::backup::CheckpointWritten>(&events.events.at(0));
     test_helpers::expect_true(
         "checkpoint event",
-        events.events.at(0).kind == btrfsbackup::backup::BackupRunEventKind::CheckpointWritten,
+        checkpoint_written != nullptr,
         "wrong event kind"
     );
-    test_helpers::expect_eq("source index", std::to_string(events.events.at(0).source_index), "2");
-    test_helpers::expect_true(
-        "checkpoint event action",
-        events.events.at(0).action_kind == btrfsbackup::backup::BackupRunActionKind::CleanupIncoming,
-        "checkpoint event lost its action"
-    );
+    if (checkpoint_written != nullptr) {
+        test_helpers::expect_eq("source index", std::to_string(checkpoint_written->source_index), "2");
+        test_helpers::expect_true(
+            "checkpoint event action",
+            checkpoint_written->action_kind == btrfsbackup::backup::BackupRunActionKind::CleanupIncoming,
+            "checkpoint event lost its action"
+        );
+    }
 }
 
 } // namespace
