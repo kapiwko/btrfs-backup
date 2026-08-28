@@ -11,6 +11,7 @@
 #include <exception>
 #include <filesystem>
 #include <map>
+#include <memory>
 #include <optional>
 #include <sstream>
 #include <stdexcept>
@@ -20,6 +21,7 @@
 
 #include <cli/runner_command.hpp>
 #include <cli/backup_tool.hpp>
+#include <backup/action_handlers/backup_run_action_handler.hpp>
 #include <backup/backup_discovery.hpp>
 #include <backup/backup_plan_builder.hpp>
 #include <backup/backup_preflight.hpp>
@@ -106,6 +108,41 @@ class RecordingActionHandler final : public btrfsbackup::backup::IBackupRunActio
             throw btrfsbackup::ValidationError("injected action failure: " + action_name(kind));
         }
     }
+};
+
+class DelegatingActionHandler final : public btrfsbackup::backup::IBackupRunActionHandler {
+  public:
+    explicit DelegatingActionHandler(btrfsbackup::backup::IBackupRunActionHandler& delegate)
+        : delegate_(delegate) {
+    }
+
+    void handle(
+        const btrfsbackup::backup::BackupRunAction& action,
+        const btrfsbackup::backup::BackupRunPlan& plan,
+        btrfsbackup::CancellationToken& cancellation
+    ) override {
+        delegate_.handle(action, plan, cancellation);
+    }
+
+  private:
+    btrfsbackup::backup::IBackupRunActionHandler& delegate_;
+};
+
+class DelegatingActionHandlerFactory final
+    : public btrfsbackup::backup::IBackupRunActionHandlerFactory {
+  public:
+    explicit DelegatingActionHandlerFactory(btrfsbackup::backup::IBackupRunActionHandler& delegate)
+        : delegate_(delegate) {
+    }
+
+    std::unique_ptr<btrfsbackup::backup::IBackupRunActionHandler> create(
+        const btrfsbackup::backup::BackupRunPlan&
+    ) override {
+        return std::make_unique<DelegatingActionHandler>(delegate_);
+    }
+
+  private:
+    btrfsbackup::backup::IBackupRunActionHandler& delegate_;
 };
 
 class ConfigurableTransferPipeline final : public btrfsbackup::backup::transfer::ITransferPipeline {
@@ -417,8 +454,9 @@ int run_runner(
         safe_directories
     );
     btrfsbackup::backup::BackupPlanBuilder plan_builder;
+    DelegatingActionHandlerFactory action_handlers(fixture->action_handler);
     btrfsbackup::backup::DefaultBackupRunFactory run_factory(
-        fixture->action_handler,
+        action_handlers,
         fixture->transfer_pipeline,
         safe_directories
     );

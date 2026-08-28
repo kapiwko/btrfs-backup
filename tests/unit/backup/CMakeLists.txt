@@ -10,6 +10,7 @@ add_btrfsbackup_test(btrfsbackup-backup-run-tests backup_run_tests.cpp backup-ru
 add_btrfsbackup_test(btrfsbackup-backup-planning-snapshot-tests backup_planning_snapshot_tests.cpp backup-planning-snapshot-tests btrfsbackup-backup-model)
 add_btrfsbackup_test(btrfsbackup-backup-plan-builder-tests backup_plan_builder_tests.cpp backup-plan-builder-tests btrfsbackup-backup)
 add_btrfsbackup_test(btrfsbackup-backup-service-tests backup_service_tests.cpp backup-service-tests btrfsbackup-backup)
+add_btrfsbackup_test(btrfsbackup-default-backup-run-factory-tests default_backup_run_factory_tests.cpp default-backup-run-factory-tests btrfsbackup-backup)
 add_btrfsbackup_test(btrfsbackup-backup-run-executor-tests backup_run_executor_tests.cpp backup-run-executor-tests btrfsbackup-backup)
 add_btrfsbackup_test(btrfsbackup-backup-run-plan-tests backup_run_plan_tests.cpp backup-run-plan-tests btrfsbackup-backup-model)
 add_btrfsbackup_test(btrfsbackup-incremental-parent-tests incremental_parent_tests.cpp incremental-parent-tests btrfsbackup-backup-model)
