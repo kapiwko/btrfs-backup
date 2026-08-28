@@ -17,6 +17,11 @@ namespace fs = std::filesystem;
 
 namespace {
 
+constexpr fs::perms public_status_file_permissions =
+    fs::perms::owner_read | fs::perms::owner_write | fs::perms::group_read | fs::perms::others_read;
+constexpr fs::perms public_status_directory_permissions =
+    public_status_file_permissions | fs::perms::owner_exec | fs::perms::group_exec | fs::perms::others_exec;
+
 void require_non_empty(const std::string& value, const char* field) {
     if (value.empty()) {
         throw btrfsbackup::ValidationError(std::string(field) + " is required");
@@ -28,7 +33,7 @@ void validate_status(const btrfsbackup::state::RunStatus& status) {
 }
 
 void prepare_public_parent(btrfsbackup::state::IAtomicDocumentWriter& files, const fs::path& path) {
-    files.ensure_directory(path.parent_path(), btrfsbackup::public_directory_permissions);
+    files.ensure_directory(path.parent_path(), public_status_directory_permissions);
 }
 
 btrfsbackup::config::Json build_details_json(const btrfsbackup::state::RunDetails& details) {
@@ -112,13 +117,12 @@ std::string dump_public_status_json(const RunStatus& status) {
 void write_current_status(
     IAtomicDocumentWriter& files,
     const fs::path& status_root,
-    const RunStatus& status,
-    fs::perms permissions
+    const RunStatus& status
 ) {
     std::string content = dump_public_status_json(status);
     fs::path path = status_root / status.profile_id.value() / "current.json";
     prepare_public_parent(files, path);
-    files.write_atomically(path, content, permissions);
+    files.write_atomically(path, content, public_status_file_permissions);
 }
 
 } // namespace btrfsbackup::state

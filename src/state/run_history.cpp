@@ -9,11 +9,19 @@
 
 #include <config/model/json.hpp>
 #include <core/errors.hpp>
-#include <core/file_permissions.hpp>
 #include <core/identifiers.hpp>
 #include <state/status_writer.hpp>
 
 namespace fs = std::filesystem;
+
+namespace {
+
+constexpr fs::perms private_history_file_permissions =
+    fs::perms::owner_read | fs::perms::owner_write;
+constexpr fs::perms private_history_directory_permissions =
+    private_history_file_permissions | fs::perms::owner_exec;
+
+} // namespace
 
 namespace btrfsbackup::state {
 
@@ -23,10 +31,10 @@ void write_history_entry(IAtomicDocumentWriter& files, const fs::path& history_r
     const fs::path run_path = directory / (std::string(status.run_id.value()) + ".json");
     const fs::path last_path = directory / "last.json";
 
-    files.ensure_directory(history_root, private_directory_permissions);
-    files.ensure_directory(directory, private_directory_permissions);
-    files.write_atomically(run_path, content, private_file_permissions);
-    files.write_atomically(last_path, content, private_file_permissions);
+    files.ensure_directory(history_root, private_history_directory_permissions);
+    files.ensure_directory(directory, private_history_directory_permissions);
+    files.write_atomically(run_path, content, private_history_file_permissions);
+    files.write_atomically(last_path, content, private_history_file_permissions);
 }
 
 std::vector<StatusDocument> get_status_history(

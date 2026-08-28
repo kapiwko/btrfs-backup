@@ -13,12 +13,16 @@
 #include <string>
 
 #include <core/errors.hpp>
-#include <core/file_permissions.hpp>
 #include <core/identifiers.hpp>
 
 namespace fs = std::filesystem;
 
 namespace {
+
+constexpr fs::perms private_state_file_permissions =
+    fs::perms::owner_read | fs::perms::owner_write;
+constexpr fs::perms private_state_directory_permissions =
+    private_state_file_permissions | fs::perms::owner_exec;
 
 std::string lower(std::string value) {
     std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c) {
@@ -94,7 +98,7 @@ void write_success_state(
         throw ValidationError("source_count must be non-negative");
     }
 
-    files.ensure_directory(profile_state_dir, private_directory_permissions);
+    files.ensure_directory(profile_state_dir, private_state_directory_permissions);
 
     std::ostringstream content;
     content << "date=" << state.date << '\n'
@@ -106,7 +110,11 @@ void write_success_state(
             << "target_luks_uuid=" << state.target_luks_uuid << '\n'
             << "config_fingerprint=" << state.config_fingerprint << '\n';
 
-    files.write_atomically(profile_state_dir / "last-success", content.str(), private_file_permissions);
+    files.write_atomically(
+        profile_state_dir / "last-success",
+        content.str(),
+        private_state_file_permissions
+    );
 }
 
 fs::path cancel_request_path(const fs::path& profile_state_dir) {
@@ -122,11 +130,11 @@ void write_active_run(
     const fs::path& profile_state_dir,
     const RunId& run_id
 ) {
-    files.ensure_directory(profile_state_dir, private_directory_permissions);
+    files.ensure_directory(profile_state_dir, private_state_directory_permissions);
     files.write_atomically(
         active_run_path(profile_state_dir),
         "run_id=" + std::string(run_id.value()) + "\n",
-        private_file_permissions
+        private_state_file_permissions
     );
 }
 
@@ -156,11 +164,11 @@ void write_cancel_request(
     const fs::path& profile_state_dir,
     const RunId& run_id
 ) {
-    files.ensure_directory(profile_state_dir, private_directory_permissions);
+    files.ensure_directory(profile_state_dir, private_state_directory_permissions);
     files.write_atomically(
         cancel_request_path(profile_state_dir),
         "run_id=" + std::string(run_id.value()) + "\n",
-        private_file_permissions
+        private_state_file_permissions
     );
 }
 
@@ -208,7 +216,7 @@ void write_pending_marker(
     require_absolute_path(marker.final_snapshot_path, "final_snapshot_path");
     require_non_empty(marker.timestamp, "timestamp");
 
-    files.ensure_directory(profile_state_dir, private_directory_permissions);
+    files.ensure_directory(profile_state_dir, private_state_directory_permissions);
 
     std::ostringstream content;
     content << "source_name=" << marker.source_name << '\n'
@@ -220,7 +228,7 @@ void write_pending_marker(
     files.write_atomically(
         pending_marker_path(profile_state_dir, marker.source_name),
         content.str(),
-        private_file_permissions
+        private_state_file_permissions
     );
 }
 
