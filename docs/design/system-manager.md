@@ -53,7 +53,9 @@ The system bus policy is default-deny. Presentation-safe reads are available
 without polkit. Every mutating method authorizes the D-Bus caller through the
 specific action defined in [the authorization contract](../system-dbus-api.md).
 Inputs are validated before prompting and revalidated immediately before the
-commit. Hook changes require both profile-save and change-hooks permission.
+effect. The revalidation compares configuration generation and fingerprint,
+and the caller's unique bus name must still have an owner after polkit returns.
+Hook changes require both profile-save and change-hooks permission.
 
 Administrative events record caller UID, action, profile, result and stable
 error code without configuration secrets.

@@ -28,6 +28,8 @@ if(BUILD_SYSTEM_MANAGER)
     find_program(DBUS_DAEMON_EXECUTABLE dbus-daemon)
     find_program(BUSCTL_EXECUTABLE busctl)
     if(DBUS_DAEMON_EXECUTABLE AND BUSCTL_EXECUTABLE)
+        add_executable(btrfsbackup-fake-polkit-authority fake_polkit_authority.cpp)
+        target_link_libraries(btrfsbackup-fake-polkit-authority PRIVATE PkgConfig::SYSTEMD)
         set(DBUS_MANAGER_TEST_EXTRA_ARGS)
         if(TARGET btrfsbackup_plasma_backend)
             find_program(
@@ -53,6 +55,7 @@ if(BUILD_SYSTEM_MANAGER)
                 ${DBUS_DAEMON_EXECUTABLE}
                 ${BUSCTL_EXECUTABLE}
                 ${PROJECT_SOURCE_DIR}/data/dbus/io.github.btrfsbackup.Manager1.conf
+                $<TARGET_FILE:btrfsbackup-fake-polkit-authority>
                 ${DBUS_MANAGER_TEST_EXTRA_ARGS}
         )
         set_tests_properties(dbus-manager-tests PROPERTIES TIMEOUT 20)

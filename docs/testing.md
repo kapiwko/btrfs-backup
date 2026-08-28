@@ -190,10 +190,9 @@ The test covers:
 21. automatic host unmount and LUKS closure through the post-run eject unit.
 
 The current Plasma test target validates its status-only process model and the
-read side of the manager API. Operational authorization is covered by the
-manager service and D-Bus tests; caller-disconnect and authorization race cases
-remain in the next system manager test increment described in
-[the system manager design](design/system-manager.md).
+read side of the manager API. Operational manager tests cover distinct polkit
+actions and caller subjects, repeated authorization, caller disconnect during
+the decision, profile generation/fingerprint races, and run mismatch handling.
 
 ## Release Checks
 
