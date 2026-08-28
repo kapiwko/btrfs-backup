@@ -19,6 +19,7 @@
 #include <backup/action_handlers/backup_run_action_handler.hpp>
 #include <backup/backup_run.hpp>
 #include <backup/backup_planner.hpp>
+#include <backup/linked_cancellation_monitor.hpp>
 #include <state/file_run_state_repository.hpp>
 #include <state/file_pending_marker_store.hpp>
 #include <backup/system_run_context.hpp>
@@ -411,7 +412,7 @@ class ProductionBackupComposition {
                   ? btrfsbackup::platform::linux::blkid_filesystem_uuid(source)
                   : found->second;
           }),
-          target_mounter_(mounts_, commands_), pending_markers_(durable_files_), planner_(btrfsbackup::platform::linux::read_btrfs_snapshot_metadata, pending_markers_, safe_directories_), run_factory_(btrfs_, filesystem_, commands_, transfers_, durable_files_, pending_markers_, safe_directories_), leases_(btrfsbackup::platform::linux::default_lock_root()), state_(config_.paths(), durable_files_), cancellation_monitor_(state_), clock_(parsed.timestamp, parsed.today), run_ids_(*parsed.run_id), service_(profiles_, config_.paths(), mounts_, target_mounter_, planner_, run_factory_, leases_, state_, cancellation_monitor_, clock_, run_ids_, cancellation) {
+          target_mounter_(mounts_, commands_), pending_markers_(durable_files_), planner_(btrfsbackup::platform::linux::read_btrfs_snapshot_metadata, pending_markers_, safe_directories_), run_factory_(btrfs_, filesystem_, commands_, transfers_, durable_files_, pending_markers_, safe_directories_), leases_(btrfsbackup::platform::linux::default_lock_root()), state_(config_.paths(), durable_files_), file_cancellation_monitor_(state_), cancellation_monitor_(file_cancellation_monitor_, cancellation), clock_(parsed.timestamp, parsed.today), run_ids_(*parsed.run_id), service_(profiles_, config_.paths(), mounts_, target_mounter_, planner_, run_factory_, leases_, state_, cancellation_monitor_, clock_, run_ids_) {
     }
 
     btrfsbackup::backup::BackupService& service() {
@@ -434,7 +435,8 @@ class ProductionBackupComposition {
     PosixBackupRunFactory run_factory_;
     btrfsbackup::platform::linux::FileBackupRunLeaseProvider leases_;
     btrfsbackup::state::FileRunStateRepository state_;
-    btrfsbackup::state::FileCancellationMonitor cancellation_monitor_;
+    btrfsbackup::state::FileCancellationMonitor file_cancellation_monitor_;
+    btrfsbackup::backup::LinkedCancellationMonitor cancellation_monitor_;
     CommandClock clock_;
     CommandRunIdGenerator run_ids_;
     btrfsbackup::backup::BackupService service_;

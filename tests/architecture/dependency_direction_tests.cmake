@@ -21,3 +21,13 @@ assert_no_layer_includes("config" "backup|state|platform|cli|daemon")
 assert_no_layer_includes("backup" "state|platform|cli|daemon")
 assert_no_layer_includes("backup/model" "backup/ports|state|platform|cli|daemon")
 assert_no_layer_includes("state" "platform|cli|daemon")
+
+file(READ "${PROJECT_SOURCE_DIR}/src/backup/backup_service.hpp" backup_service_header)
+if(backup_service_header MATCHES "CancellationToken[ \t]*&")
+    message(FATAL_ERROR "BackupService must not retain a cross-run cancellation token")
+endif()
+
+file(READ "${PROJECT_SOURCE_DIR}/src/backup/run_execution_context.hpp" run_execution_context_header)
+if(NOT run_execution_context_header MATCHES "CancellationToken[ \t\r\n]+cancellation")
+    message(FATAL_ERROR "RunExecutionContext must own the run cancellation token")
+endif()
