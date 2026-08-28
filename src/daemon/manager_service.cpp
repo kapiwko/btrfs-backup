@@ -15,30 +15,22 @@ ManagerService::ManagerService(ManagerPaths paths)
       device_state_(std::move(paths)) {
 }
 
-btrfsbackup::config::Json ManagerService::get_capabilities() const {
+ManagerCapabilities ManagerService::get_capabilities() const {
     return {
-        {"schemaVersion", 1},
-        {"interface", "io.github.btrfsbackup.Manager1"},
-        {"apiMajor", 1},
-        {"apiMinor", 0},
-        {"profileSchemaVersion", 3},
-        {"publicStatusSchemaVersion", 3},
-        {"historySchemaVersion", 1},
-        {"deviceStateSchemaVersion", 1},
-        {"readOnly", true},
-        {"features", btrfsbackup::config::Json::array({"profiles", "status", "sanitized-history", "device-state"})},
+        .interface_name = "io.github.btrfsbackup.Manager1",
+        .features = {"profiles", "status", "sanitized-history", "device-state"},
     };
 }
 
-btrfsbackup::config::Json ManagerService::list_profiles() const {
+std::vector<ProfileSummary> ManagerService::list_profiles() const {
     return profiles_.list_profiles();
 }
 
-btrfsbackup::config::Json ManagerService::get_status(const std::string& profile_id) const {
+PublicRunStatus ManagerService::get_status(const std::string& profile_id) const {
     return status_.get_status(profile_id);
 }
 
-btrfsbackup::config::Json ManagerService::get_history_sanitized(
+SanitizedHistoryPage ManagerService::get_history_sanitized(
     const std::string& profile_id,
     std::size_t offset,
     std::size_t limit
@@ -46,7 +38,7 @@ btrfsbackup::config::Json ManagerService::get_history_sanitized(
     return history_.get_history_sanitized(profile_id, offset, limit);
 }
 
-btrfsbackup::config::Json ManagerService::get_device_state(const std::string& profile_id) const {
+TargetStatus ManagerService::get_device_state(const std::string& profile_id) const {
     return device_state_.get_device_state(profile_id);
 }
 
