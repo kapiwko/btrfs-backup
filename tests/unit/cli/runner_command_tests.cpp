@@ -20,7 +20,8 @@
 
 #include <cli/runner_command.hpp>
 #include <cli/backup_tool.hpp>
-#include <backup/backup_planner.hpp>
+#include <backup/backup_discovery.hpp>
+#include <backup/backup_plan_builder.hpp>
 #include <backup/default_backup_run_factory.hpp>
 #include <backup/linked_cancellation_monitor.hpp>
 #include <state/file_run_state_repository.hpp>
@@ -400,7 +401,7 @@ int run_runner(
     test_support::FakeSafeDirectoryRootFactory safe_directories;
     btrfsbackup::platform::linux::PosixDurableFileOperations durable_files;
     btrfsbackup::state::FilePendingMarkerStore pending_markers(durable_files);
-    btrfsbackup::backup::BackupPlanner planner(
+    btrfsbackup::backup::BackupDiscovery discovery(
         fixture->snapshot_metadata_reader
             ? fixture->snapshot_metadata_reader
             : btrfsbackup::backup::SnapshotMetadataReader{[](const fs::path&) {
@@ -409,6 +410,7 @@ int run_runner(
         pending_markers,
         safe_directories
     );
+    btrfsbackup::backup::BackupPlanBuilder plan_builder;
     btrfsbackup::backup::DefaultBackupRunFactory run_factory(
         fixture->action_handler,
         fixture->transfer_pipeline,
@@ -441,7 +443,8 @@ int run_runner(
         fixture->application_config.paths(),
         mounts,
         target_mounter,
-        planner,
+        discovery,
+        plan_builder,
         run_factory,
         leases,
         state,

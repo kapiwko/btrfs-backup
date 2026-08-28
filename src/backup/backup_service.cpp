@@ -39,7 +39,8 @@ BackupService::BackupService(
     btrfsbackup::config::ApplicationPaths application_paths,
     IMountInspector& mounts,
     ITargetManager& target_mounter,
-    IBackupPlanner& planner,
+    IBackupDiscovery& discovery,
+    IBackupPlanBuilder& plan_builder,
     IBackupRunFactory& run_factory,
     IBackupRunLeaseProvider& leases,
     IRunLedger& ledger,
@@ -54,7 +55,8 @@ BackupService::BackupService(
       application_paths_(std::move(application_paths)),
       mounts_(mounts),
       target_mounter_(target_mounter),
-      planner_(planner),
+      discovery_(discovery),
+      plan_builder_(plan_builder),
       run_factory_(run_factory),
       leases_(leases),
       ledger_(ledger),
@@ -72,7 +74,8 @@ BackupRunPlan BackupService::prepare_plan(
     const std::string& timestamp
 ) {
     target_mounter_.ensure_mounted(profile);
-    return planner_.build(profile, mounts_.inspect(), application_paths_, run_id, timestamp);
+    BackupDiscoveryResult discovery = discovery_.discover(profile, mounts_.inspect(), application_paths_);
+    return plan_builder_.build(profile, discovery, run_id, timestamp);
 }
 
 BackupRunPlan BackupService::plan(const BackupRequest& request) {

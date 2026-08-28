@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <backup/backup_planner.hpp>
+#include <backup/backup_discovery.hpp>
 
 #include <filesystem>
 #include <memory>
@@ -19,7 +19,7 @@ namespace fs = std::filesystem;
 
 namespace btrfsbackup::backup {
 
-BackupPlanner::BackupPlanner(
+BackupDiscovery::BackupDiscovery(
     SnapshotMetadataReader metadata_reader,
     const IPendingMarkerStore& pending_markers,
     const ISafeDirectoryRootFactory& safe_directories
@@ -29,12 +29,10 @@ BackupPlanner::BackupPlanner(
       safe_directories_(safe_directories) {
 }
 
-BackupRunPlan BackupPlanner::build(
+BackupDiscoveryResult BackupDiscovery::discover(
     const btrfsbackup::config::Profile& profile,
     const std::vector<MountEntry>& mounts,
-    const btrfsbackup::config::ApplicationPaths& paths,
-    const RunId& run_id,
-    const std::string& snapshot_timestamp
+    const btrfsbackup::config::ApplicationPaths& paths
 ) const {
     validate_target_mount(profile, mounts);
     for (const btrfsbackup::config::ProfileSource& source : profile.sources) {
@@ -110,16 +108,13 @@ BackupRunPlan BackupPlanner::build(
         }
     }
 
-    return build_backup_run_plan(
-        profile,
-        local_inventory,
-        remote_inventory,
-        pending_markers,
-        pending_snapshots,
-        profile_state,
-        run_id,
-        snapshot_timestamp
-    );
+    return {
+        .local_inventory = std::move(local_inventory),
+        .remote_inventory = std::move(remote_inventory),
+        .pending_markers = std::move(pending_markers),
+        .pending_snapshots = std::move(pending_snapshots),
+        .profile_state_dir = profile_state,
+    };
 }
 
 } // namespace btrfsbackup::backup
