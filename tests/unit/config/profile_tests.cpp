@@ -137,7 +137,7 @@ void test_profile_fingerprint_matches_legacy_stream() {
     }
 
     const std::string digest = btrfsbackup::config::compute_config_fingerprint(
-        "2.0.0",
+        std::string(btrfsbackup::config::current_configuration_fingerprint_version),
         root / "main.env",
         {root / "10-root.conf", root / "20-home.conf"}
     );
@@ -147,6 +147,34 @@ void test_profile_fingerprint_matches_legacy_stream() {
         "fingerprint changed"
     );
     fs::remove_all(root);
+}
+
+void test_profile_repository_loads_profile_and_fingerprint_from_one_read() {
+    const fs::path config_root = "/unused/test/config";
+    const fs::path profile_path = config_root / "profiles" / "default" / "profile.json";
+    const std::string bytes = btrfsbackup::config::dump_json(valid_profile());
+    int reads = 0;
+    btrfsbackup::platform::linux::FileProfileRepository repository(
+        config_root,
+        btrfsbackup::config::ApplicationConfig::defaults(),
+        [&](const fs::path& requested_path) {
+            ++reads;
+            expect_true("atomic profile path", requested_path == profile_path, "repository read wrong profile path");
+            return bytes;
+        }
+    );
+
+    const btrfsbackup::config::LoadedProfile loaded = repository.get(btrfsbackup::ProfileId{"default"});
+    const std::string expected_fingerprint = btrfsbackup::config::compute_config_fingerprint_from_bytes(
+        btrfsbackup::config::current_configuration_fingerprint_version,
+        profile_path,
+        bytes
+    );
+
+    expect_true("atomic profile read count", reads == 1, "profile was read more than once");
+    expect_true("atomic profile id", loaded.profile.id == btrfsbackup::ProfileId{"default"}, "wrong profile loaded");
+    expect_true("atomic profile fingerprint", loaded.fingerprint.value() == expected_fingerprint, "fingerprint did not use loaded bytes");
+    expect_true("atomic profile generation", loaded.generation.value().empty(), "unexpected profile generation");
 }
 
 void test_rejects_bad_uuid() {
@@ -739,6 +767,7 @@ void test_render_udev_optional_matches() {
 
 int main() {
     test_profile_fingerprint_matches_legacy_stream();
+    test_profile_repository_loads_profile_and_fingerprint_from_one_read();
     test_rejects_bad_uuid();
     test_rejects_bad_configuration_generation();
     test_rejects_missing_btrfs_uuid();

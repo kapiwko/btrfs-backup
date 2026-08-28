@@ -430,6 +430,7 @@ int run_runner(
         : *external_cancellation;
     btrfsbackup::backup::BackupService service(
         profiles,
+        fixture->application_config.paths(),
         mounts,
         target_mounter,
         planner,
@@ -450,7 +451,7 @@ int run_runner(const fs::path& config_root, const std::vector<std::string>& args
 
 std::string profile_fingerprint(const fs::path& config_root, const btrfsbackup::config::Profile& profile) {
     return btrfsbackup::config::compute_config_fingerprint(
-        "2.0.0",
+        std::string(btrfsbackup::config::current_configuration_fingerprint_version),
         config_root / "profiles" / profile.id.value() / "profile.json",
         {}
     );
