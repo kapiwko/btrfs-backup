@@ -9,6 +9,84 @@ function(add_btrfsbackup_test target source test_name)
     add_test(NAME ${test_name} COMMAND ${target})
 endfunction()
 
+include(architecture/public_link_interface_tests.cmake)
+
+assert_public_link_interface(btrfsbackup-core)
+assert_public_link_interface(btrfsbackup-config-domain btrfsbackup-core)
+assert_public_link_interface(
+    btrfsbackup-config-json
+    btrfsbackup-config-domain
+    nlohmann_json::nlohmann_json
+)
+assert_public_link_interface(btrfsbackup-config-wizard btrfsbackup-config-domain)
+assert_public_link_interface(
+    btrfsbackup-config-ports
+    btrfsbackup-config-domain
+    btrfsbackup-core
+)
+assert_public_link_interface(btrfsbackup-config btrfsbackup-config-domain)
+assert_public_link_interface(
+    btrfsbackup-platform-linux-config
+    btrfsbackup-config
+    btrfsbackup-config-domain
+    btrfsbackup-config-json
+    btrfsbackup-config-ports
+    btrfsbackup-core
+)
+assert_public_link_interface(
+    btrfsbackup-backup-model
+    btrfsbackup-config-domain
+    btrfsbackup-core
+)
+assert_public_link_interface(btrfsbackup-transfer btrfsbackup-core)
+assert_public_link_interface(
+    btrfsbackup-backup-ports
+    btrfsbackup-backup-model
+    btrfsbackup-config-domain
+    btrfsbackup-core
+    btrfsbackup-transfer
+)
+assert_public_link_interface(
+    btrfsbackup-backup
+    btrfsbackup-backup-model
+    btrfsbackup-backup-ports
+    btrfsbackup-config-domain
+    btrfsbackup-config-ports
+    btrfsbackup-core
+    btrfsbackup-transfer
+)
+assert_public_link_interface(btrfsbackup-state-persistence-ports)
+assert_public_link_interface(btrfsbackup-state-model btrfsbackup-core)
+assert_public_link_interface(
+    btrfsbackup-state
+    btrfsbackup-backup-model
+    btrfsbackup-backup-ports
+    btrfsbackup-config-domain
+    btrfsbackup-config-json
+    btrfsbackup-core
+    btrfsbackup-state-model
+    btrfsbackup-state-persistence-ports
+)
+assert_public_link_interface(
+    btrfsbackup-platform-linux
+    btrfsbackup-backup-ports
+    btrfsbackup-config-ports
+    btrfsbackup-core
+    btrfsbackup-state-persistence-ports
+    btrfsbackup-transfer
+)
+assert_public_link_interface(
+    btrfsbackup-cli
+    btrfsbackup-backup
+    btrfsbackup-backup-ports
+    btrfsbackup-config-domain
+    btrfsbackup-config-ports
+    btrfsbackup-core
+)
+if(BUILD_SYSTEM_MANAGER)
+    assert_public_link_interface(btrfsbackup-daemon-core btrfsbackup-core)
+endif()
+
 add_test(
     NAME dependency-direction
     COMMAND ${CMAKE_COMMAND}

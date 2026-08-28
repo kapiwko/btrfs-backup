@@ -42,11 +42,11 @@ target_link_libraries(btrfsbackup-cli
         btrfsbackup-config-domain
         btrfsbackup-config-ports
         btrfsbackup-core
-        btrfsbackup-platform-linux-config
-        btrfsbackup-platform-linux
-        btrfsbackup-state
     PRIVATE
         btrfsbackup-config-json
+        btrfsbackup-platform-linux
+        btrfsbackup-platform-linux-config
+        btrfsbackup-state
         btrfsbackup-transfer
 )
 
