@@ -329,8 +329,8 @@ Json normalize_profile(const Json& raw, const fs::path& target_mount_root) {
         {"beforeSnapshot", "afterSnapshot"},
         "hooks"
     );
-    const std::uint64_t remote_retention = integer_value(settings, "remoteRetention", "settings.remoteRetention", 30, 100000);
-    const std::uint64_t local_retention = integer_value(settings, "localRetention", "settings.localRetention", 30, 100000);
+    const std::uint64_t remote_retention = integer_value(settings, "remoteRetention", "settings.remoteRetention", 30, RetentionCount::maximum);
+    const std::uint64_t local_retention = integer_value(settings, "localRetention", "settings.localRetention", 30, RetentionCount::maximum);
 
     if (!raw.contains("sources") || !raw.at("sources").is_array()) {
         throw ValidationError("sources must be an array");
@@ -371,7 +371,7 @@ Json normalize_profile(const Json& raw, const fs::path& target_mount_root) {
         }
         bool source_enabled = boolean_value(item, "enabled", "sources[" + std::to_string(index) + "].enabled", true);
         any_enabled = any_enabled || source_enabled;
-        sources.push_back({{"id", source_id}, {"name", text(item.value("name", source_id), "sources[" + std::to_string(index) + "].name", false, 160)}, {"enabled", source_enabled}, {"subvolume", absolute_path(item.at("subvolume"), "sources[" + std::to_string(index) + "].subvolume")}, {"localSnapshotDir", local}, {"remoteSubdir", remote}, {"remoteRetention", integer_value(item, "remoteRetention", "sources[" + std::to_string(index) + "].remoteRetention", remote_retention, 100000)}, {"localRetention", integer_value(item, "localRetention", "sources[" + std::to_string(index) + "].localRetention", local_retention, 100000)}});
+        sources.push_back({{"id", source_id}, {"name", text(item.value("name", source_id), "sources[" + std::to_string(index) + "].name", false, 160)}, {"enabled", source_enabled}, {"subvolume", absolute_path(item.at("subvolume"), "sources[" + std::to_string(index) + "].subvolume")}, {"localSnapshotDir", local}, {"remoteSubdir", remote}, {"remoteRetention", integer_value(item, "remoteRetention", "sources[" + std::to_string(index) + "].remoteRetention", remote_retention, RetentionCount::maximum)}, {"localRetention", integer_value(item, "localRetention", "sources[" + std::to_string(index) + "].localRetention", local_retention, RetentionCount::maximum)}});
     }
     if (!any_enabled) {
         throw ValidationError("at least one source must be enabled");
@@ -384,7 +384,7 @@ Json normalize_profile(const Json& raw, const fs::path& target_mount_root) {
         {"enabled", enabled},
         {"target", {{"device", device}, {"luksUuid", luks_uuid}, {"btrfsUuid", btrfs_uuid}, {"partitionUuid", partition_uuid}, {"serial", serial}, {"mapperName", mapper_name}}},
         {"paths", {{"remoteRoot", remote_root}, {"incomingRoot", incoming_root}}},
-        {"settings", {{"dailyLimit", boolean_value(settings, "dailyLimit", "settings.dailyLimit", true)}, {"incrementalRequired", boolean_value(settings, "incrementalRequired", "settings.incrementalRequired", true)}, {"keepFailedLocalSnapshot", boolean_value(settings, "keepFailedLocalSnapshot", "settings.keepFailedLocalSnapshot", false)}, {"autoEject", boolean_value(settings, "autoEject", "settings.autoEject", true)}, {"remoteRetention", remote_retention}, {"localRetention", local_retention}, {"minimumTargetFreeBytes", integer_value(settings, "minimumTargetFreeBytes", "settings.minimumTargetFreeBytes", 5LL * 1024 * 1024 * 1024)}, {"minimumLocalFreeBytes", integer_value(settings, "minimumLocalFreeBytes", "settings.minimumLocalFreeBytes", 1024LL * 1024 * 1024)}}},
+        {"settings", {{"dailyLimit", boolean_value(settings, "dailyLimit", "settings.dailyLimit", true)}, {"incrementalRequired", boolean_value(settings, "incrementalRequired", "settings.incrementalRequired", true)}, {"keepFailedLocalSnapshot", boolean_value(settings, "keepFailedLocalSnapshot", "settings.keepFailedLocalSnapshot", false)}, {"autoEject", boolean_value(settings, "autoEject", "settings.autoEject", true)}, {"remoteRetention", remote_retention}, {"localRetention", local_retention}, {"minimumTargetFreeBytes", integer_value(settings, "minimumTargetFreeBytes", "settings.minimumTargetFreeBytes", 5LL * 1024 * 1024 * 1024, ByteThreshold::maximum)}, {"minimumLocalFreeBytes", integer_value(settings, "minimumLocalFreeBytes", "settings.minimumLocalFreeBytes", 1024LL * 1024 * 1024, ByteThreshold::maximum)}}},
         {"hooks", {{"beforeSnapshot", normalize_hook_commands(hooks, "beforeSnapshot", "hooks.beforeSnapshot")}, {"afterSnapshot", normalize_hook_commands(hooks, "afterSnapshot", "hooks.afterSnapshot")}}},
         {"sources", sources}
     };
@@ -427,10 +427,10 @@ Profile profile_from_document(const ProfileDocument& document, const fs::path& t
     profile.settings.incremental_required = settings.at("incrementalRequired").get<bool>();
     profile.settings.keep_failed_local_snapshot = settings.at("keepFailedLocalSnapshot").get<bool>();
     profile.settings.auto_eject = settings.at("autoEject").get<bool>();
-    profile.settings.remote_retention = settings.at("remoteRetention").get<std::size_t>();
-    profile.settings.local_retention = settings.at("localRetention").get<std::size_t>();
-    profile.settings.minimum_target_free_bytes = settings.at("minimumTargetFreeBytes").get<std::uint64_t>();
-    profile.settings.minimum_local_free_bytes = settings.at("minimumLocalFreeBytes").get<std::uint64_t>();
+    profile.settings.remote_retention = RetentionCount{settings.at("remoteRetention").get<std::uint64_t>()};
+    profile.settings.local_retention = RetentionCount{settings.at("localRetention").get<std::uint64_t>()};
+    profile.settings.minimum_target_free_bytes = ByteThreshold{settings.at("minimumTargetFreeBytes").get<std::uint64_t>()};
+    profile.settings.minimum_local_free_bytes = ByteThreshold{settings.at("minimumLocalFreeBytes").get<std::uint64_t>()};
 
     const Json& hooks = normalized.at("hooks");
     for (const Json& item : hooks.at("beforeSnapshot")) {
@@ -455,8 +455,8 @@ Profile profile_from_document(const ProfileDocument& document, const fs::path& t
         source.subvolume = item.at("subvolume").get<std::string>();
         source.local_snapshot_dir = item.at("localSnapshotDir").get<std::string>();
         source.remote_subdir = item.at("remoteSubdir").get<std::string>();
-        source.remote_retention = item.at("remoteRetention").get<std::size_t>();
-        source.local_retention = item.at("localRetention").get<std::size_t>();
+        source.remote_retention = RetentionCount{item.at("remoteRetention").get<std::uint64_t>()};
+        source.local_retention = RetentionCount{item.at("localRetention").get<std::uint64_t>()};
         profile.sources.push_back(std::move(source));
     }
     return profile;
@@ -469,7 +469,7 @@ Profile profile_from_json(const Json& raw, const fs::path& target_mount_root) {
 Json profile_to_json(const Profile& profile) {
     Json sources = Json::array();
     for (const ProfileSource& source : profile.sources) {
-        sources.push_back({{"id", source.id.value()}, {"name", source.name}, {"enabled", source.enabled}, {"subvolume", source.subvolume}, {"localSnapshotDir", source.local_snapshot_dir}, {"remoteSubdir", source.remote_subdir}, {"remoteRetention", source.remote_retention}, {"localRetention", source.local_retention}});
+        sources.push_back({{"id", source.id.value()}, {"name", source.name}, {"enabled", source.enabled}, {"subvolume", source.subvolume}, {"localSnapshotDir", source.local_snapshot_dir}, {"remoteSubdir", source.remote_subdir}, {"remoteRetention", source.remote_retention.value()}, {"localRetention", source.local_retention.value()}});
     }
 
     Json target = {
@@ -496,7 +496,7 @@ Json profile_to_json(const Profile& profile) {
         {"enabled", profile.enabled},
         {"target", target},
         {"paths", {{"remoteRoot", profile.paths.remote_root}, {"incomingRoot", profile.paths.incoming_root}}},
-        {"settings", {{"dailyLimit", profile.settings.daily_limit}, {"incrementalRequired", profile.settings.incremental_required}, {"keepFailedLocalSnapshot", profile.settings.keep_failed_local_snapshot}, {"autoEject", profile.settings.auto_eject}, {"remoteRetention", profile.settings.remote_retention}, {"localRetention", profile.settings.local_retention}, {"minimumTargetFreeBytes", profile.settings.minimum_target_free_bytes}, {"minimumLocalFreeBytes", profile.settings.minimum_local_free_bytes}}},
+        {"settings", {{"dailyLimit", profile.settings.daily_limit}, {"incrementalRequired", profile.settings.incremental_required}, {"keepFailedLocalSnapshot", profile.settings.keep_failed_local_snapshot}, {"autoEject", profile.settings.auto_eject}, {"remoteRetention", profile.settings.remote_retention.value()}, {"localRetention", profile.settings.local_retention.value()}, {"minimumTargetFreeBytes", profile.settings.minimum_target_free_bytes.value()}, {"minimumLocalFreeBytes", profile.settings.minimum_local_free_bytes.value()}}},
         {"hooks", {{"beforeSnapshot", hooks_to_json(profile.hooks.before_snapshot)}, {"afterSnapshot", hooks_to_json(profile.hooks.after_snapshot)}}},
         {"sources", sources}
     };

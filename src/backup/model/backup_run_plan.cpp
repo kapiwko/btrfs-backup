@@ -193,8 +193,8 @@ BackupRunPlan build_backup_run_plan(
         }
         projected_remote.push_back(projected_snapshot(SnapshotSide::Remote, source_id, snapshot_name, snapshot_timestamp, final_remote_snapshot_path));
 
-        RetentionPlan local_retention = plan_count_retention(source_id, projected_local, source.local_retention);
-        RetentionPlan remote_retention = plan_count_retention(source_id, projected_remote, source.remote_retention);
+        RetentionPlan local_retention = plan_count_retention(source_id, projected_local, source.local_retention.value());
+        RetentionPlan remote_retention = plan_count_retention(source_id, projected_remote, source.remote_retention.value());
 
         BackupSourceRunPlan source_plan{
             .source_id = source.id,

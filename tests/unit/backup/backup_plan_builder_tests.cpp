@@ -30,8 +30,8 @@ btrfsbackup::config::Profile profile() {
     source.subvolume = "/";
     source.local_snapshot_dir = "/.snapshots/root";
     source.remote_subdir = "root";
-    source.local_retention = 2;
-    source.remote_retention = 2;
+    source.local_retention = btrfsbackup::config::RetentionCount{2};
+    source.remote_retention = btrfsbackup::config::RetentionCount{2};
     result.sources.push_back(std::move(source));
     return result;
 }
