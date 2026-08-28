@@ -19,7 +19,6 @@
 #include <config/application_paths.hpp>
 #include <config/ports/profile_repository.hpp>
 #include <config/model/profile.hpp>
-#include <core/cancellation.hpp>
 #include <core/identifiers.hpp>
 
 namespace btrfsbackup::backup {
@@ -37,8 +36,7 @@ class BackupService {
         IRunStateRepository& state,
         ICancellationMonitor& cancellation_monitor,
         IClock& clock,
-        IRunIdGenerator& run_ids,
-        CancellationToken& cancellation
+        IRunIdGenerator& run_ids
     );
 
     [[nodiscard]] BackupExecutionResult start(const BackupRequest& request);
@@ -59,7 +57,6 @@ class BackupService {
     ICancellationMonitor& cancellation_monitor_;
     IClock& clock_;
     IRunIdGenerator& run_ids_;
-    CancellationToken& cancellation_;
 };
 
 } // namespace btrfsbackup::backup

@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include <backup/backup_service.hpp>
+#include <backup/run_execution_context.hpp>
 
 #include <utility>
 
@@ -41,8 +42,7 @@ BackupService::BackupService(
     IRunStateRepository& state,
     ICancellationMonitor& cancellation_monitor,
     IClock& clock,
-    IRunIdGenerator& run_ids,
-    CancellationToken& cancellation
+    IRunIdGenerator& run_ids
 )
     : profiles_(profiles),
       application_paths_(std::move(application_paths)),
@@ -54,8 +54,7 @@ BackupService::BackupService(
       state_(state),
       cancellation_monitor_(cancellation_monitor),
       clock_(clock),
-      run_ids_(run_ids),
-      cancellation_(cancellation) {
+      run_ids_(run_ids) {
 }
 
 BackupRunPlan BackupService::prepare_plan(
@@ -116,14 +115,19 @@ BackupExecutionResult BackupService::start(const BackupRequest& request) {
     }
 
     state_.clear_cancel_request(request.profile_id);
-    auto checkpoints = state_.checkpoints(request.profile_id);
-    auto events = state_.events(status_description(profile, result.plan, timestamp));
-    auto cancel_monitor = cancellation_monitor_.watch(request.profile_id, cancellation_);
+    RunExecutionContext context(
+        profile.id,
+        run_id,
+        std::move(lease.lease),
+        state_,
+        cancellation_monitor_,
+        status_description(profile, result.plan, timestamp)
+    );
     BackupRunExecutionResult execution = run_factory_.execute(
         result.plan,
-        *events,
-        *checkpoints,
-        cancellation_
+        *context.events,
+        *context.checkpoints,
+        context.cancellation
     );
     state_.clear_cancel_request(request.profile_id);
 

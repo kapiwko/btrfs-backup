@@ -56,12 +56,38 @@ struct FakePlanner final : btrfsbackup::backup::IBackupPlanner {
 };
 
 struct NoopCheckpoints final : btrfsbackup::backup::IBackupRunCheckpointStore {
+    explicit NoopCheckpoints(int* destructions = nullptr) : destructions_(destructions) {
+    }
+    ~NoopCheckpoints() override {
+        if (destructions_ != nullptr) {
+            ++*destructions_;
+        }
+    }
     void write_checkpoint(const btrfsbackup::backup::BackupRunCheckpoint&) override {
     }
+
+  private:
+    int* destructions_;
+};
+
+struct TrackingEvents final : btrfsbackup::backup::IBackupRunEventSink {
+    explicit TrackingEvents(int& destructions) : destructions_(destructions) {
+    }
+    ~TrackingEvents() override {
+        ++destructions_;
+    }
+    void on_backup_run_event(const btrfsbackup::backup::BackupRunEvent&) override {
+    }
+
+  private:
+    int& destructions_;
 };
 
 struct FakeRunFactory final : btrfsbackup::backup::IBackupRunFactory {
     int calls = 0;
+    bool cancel_next = false;
+    bool throw_next = false;
+    std::vector<bool> cancellation_at_start;
     btrfsbackup::backup::BackupRunExecutionResult result{
         .outcome = btrfsbackup::backup::BackupRunExecutionOutcome::Completed,
         .actions_completed = 3,
@@ -71,18 +97,41 @@ struct FakeRunFactory final : btrfsbackup::backup::IBackupRunFactory {
         btrfsbackup::backup::BackupRunPlan,
         btrfsbackup::backup::IBackupRunEventSink&,
         btrfsbackup::backup::IBackupRunCheckpointStore&,
-        btrfsbackup::CancellationToken&
+        btrfsbackup::CancellationToken& cancellation
     ) override {
         ++calls;
+        cancellation_at_start.push_back(cancellation.cancellation_requested());
+        if (cancel_next) {
+            cancel_next = false;
+            cancellation.request_cancel();
+            return {
+                .outcome = btrfsbackup::backup::BackupRunExecutionOutcome::Cancelled,
+                .actions_completed = 0,
+            };
+        }
+        if (throw_next) {
+            throw_next = false;
+            throw std::runtime_error("run failed");
+        }
         return result;
     }
 };
 
-struct FakeLease final : btrfsbackup::backup::IBackupRunLease {};
+struct FakeLease final : btrfsbackup::backup::IBackupRunLease {
+    explicit FakeLease(int& destructions) : destructions_(destructions) {
+    }
+    ~FakeLease() override {
+        ++destructions_;
+    }
+
+  private:
+    int& destructions_;
+};
 
 struct FakeLeases final : btrfsbackup::backup::IBackupRunLeaseProvider {
     bool busy = false;
     int calls = 0;
+    int destructions = 0;
 
     btrfsbackup::backup::BackupRunLeaseResult try_acquire(const btrfsbackup::config::Profile&) override {
         ++calls;
@@ -94,7 +143,7 @@ struct FakeLeases final : btrfsbackup::backup::IBackupRunLeaseProvider {
             };
         }
         return {
-            .lease = std::make_unique<FakeLease>(),
+            .lease = std::make_unique<FakeLease>(destructions),
             .error_code = std::nullopt,
             .error_message = {},
         };
@@ -107,6 +156,8 @@ struct FakeState final : btrfsbackup::backup::IRunStateRepository {
     int skipped_writes = 0;
     int success_writes = 0;
     int cancel_writes = 0;
+    int checkpoint_destructions = 0;
+    int event_destructions = 0;
     std::string success_date;
     std::string success_timestamp;
     mutable std::string matched_fingerprint;
@@ -148,13 +199,13 @@ struct FakeState final : btrfsbackup::backup::IRunStateRepository {
     std::unique_ptr<btrfsbackup::backup::IBackupRunCheckpointStore> checkpoints(
         const btrfsbackup::ProfileId&
     ) override {
-        return std::make_unique<NoopCheckpoints>();
+        return std::make_unique<NoopCheckpoints>(&checkpoint_destructions);
     }
 
     std::unique_ptr<btrfsbackup::backup::IBackupRunEventSink> events(
         btrfsbackup::backup::BackupRunStatusDescription
     ) override {
-        return std::make_unique<btrfsbackup::backup::NullBackupRunEventSink>();
+        return std::make_unique<TrackingEvents>(event_destructions);
     }
 
     void request_cancel(const btrfsbackup::ProfileId&) override {
@@ -180,14 +231,25 @@ struct FakeClock final : btrfsbackup::backup::IClock {
     }
 };
 
-struct FakeCancellationWatch final : btrfsbackup::backup::ICancellationWatch {};
+struct FakeCancellationWatch final : btrfsbackup::backup::ICancellationWatch {
+    explicit FakeCancellationWatch(int& destructions) : destructions_(destructions) {
+    }
+    ~FakeCancellationWatch() override {
+        ++destructions_;
+    }
+
+  private:
+    int& destructions_;
+};
 
 struct FakeCancellationMonitor final : btrfsbackup::backup::ICancellationMonitor {
+    int watch_destructions = 0;
+
     std::unique_ptr<btrfsbackup::backup::ICancellationWatch> watch(
         const btrfsbackup::ProfileId&,
         btrfsbackup::CancellationToken&
     ) override {
-        return std::make_unique<FakeCancellationWatch>();
+        return std::make_unique<FakeCancellationWatch>(watch_destructions);
     }
 };
 
@@ -208,12 +270,11 @@ struct Fixture {
     FakeCancellationMonitor cancellation_monitor;
     FakeClock clock;
     FakeRunIds run_ids;
-    btrfsbackup::CancellationToken cancellation;
     btrfsbackup::config::ApplicationPaths paths;
     btrfsbackup::backup::BackupService service;
 
     Fixture()
-        : service(profiles, paths, mounts, target, planner, runs, leases, state, cancellation_monitor, clock, run_ids, cancellation) {
+        : service(profiles, paths, mounts, target, planner, runs, leases, state, cancellation_monitor, clock, run_ids) {
         profiles.profile.name = "Default";
         profiles.profile.target.luks_uuid = "target-uuid";
         profiles.profile.settings.daily_limit = true;
@@ -255,6 +316,50 @@ void test_cancelled_run_does_not_persist_success() {
     test_helpers::expect_true("cancelled success writes", fixture.state.success_writes == 0, "cancelled run persisted success");
 }
 
+void test_each_run_gets_a_fresh_cancellation_token() {
+    Fixture fixture;
+    fixture.runs.cancel_next = true;
+
+    const btrfsbackup::backup::BackupExecutionResult first = fixture.service.start({
+        .profile_id = btrfsbackup::ProfileId{"default"},
+    });
+    const btrfsbackup::backup::BackupExecutionResult second = fixture.service.start({
+        .profile_id = btrfsbackup::ProfileId{"default"},
+    });
+
+    test_helpers::expect_true("first run cancelled", first.outcome == btrfsbackup::backup::BackupExecutionOutcome::Cancelled, "first run did not cancel");
+    test_helpers::expect_true("second run completed", second.outcome == btrfsbackup::backup::BackupExecutionOutcome::Completed, "second run inherited cancellation");
+    test_helpers::expect_true(
+        "fresh cancellation tokens",
+        fixture.runs.cancellation_at_start == std::vector<bool>{false, false},
+        "a run started with cancellation already requested"
+    );
+}
+
+void expect_run_resources_released(const std::string& prefix, const Fixture& fixture) {
+    test_helpers::expect_true(prefix + " lease", fixture.leases.destructions == 1, "lease was not released");
+    test_helpers::expect_true(prefix + " watcher", fixture.cancellation_monitor.watch_destructions == 1, "watcher was not released");
+    test_helpers::expect_true(prefix + " checkpoints", fixture.state.checkpoint_destructions == 1, "checkpoint store was not released");
+    test_helpers::expect_true(prefix + " events", fixture.state.event_destructions == 1, "event sink was not released");
+}
+
+void test_run_context_releases_resources_after_success() {
+    Fixture fixture;
+    (void)fixture.service.start({.profile_id = btrfsbackup::ProfileId{"default"}});
+    expect_run_resources_released("successful run", fixture);
+}
+
+void test_run_context_releases_resources_after_exception() {
+    Fixture fixture;
+    fixture.runs.throw_next = true;
+    try {
+        (void)fixture.service.start({.profile_id = btrfsbackup::ProfileId{"default"}});
+        test_helpers::expect_true("run exception", false, "expected execution failure");
+    } catch (const std::runtime_error&) {
+    }
+    expect_run_resources_released("failed run", fixture);
+}
+
 void test_busy_stops_before_target_access() {
     Fixture fixture;
     fixture.leases.busy = true;
@@ -292,6 +397,9 @@ void test_cancel_validates_profile_and_writes_request() {
 int main() {
     test_success_uses_ports_and_persists_success();
     test_cancelled_run_does_not_persist_success();
+    test_each_run_gets_a_fresh_cancellation_token();
+    test_run_context_releases_resources_after_success();
+    test_run_context_releases_resources_after_exception();
     test_busy_stops_before_target_access();
     test_daily_match_skips_execution();
     test_cancel_validates_profile_and_writes_request();
