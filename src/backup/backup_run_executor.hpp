@@ -10,8 +10,7 @@
 #include <backup/model/backup_run_event.hpp>
 #include <backup/model/backup_run_execution.hpp>
 #include <backup/model/backup_run_plan.hpp>
-#include <backup/ports/safe_directory.hpp>
-#include <backup/transfer/async_transfer.hpp>
+#include <backup/transfer/transfer_coordinator.hpp>
 
 namespace btrfsbackup::backup {
 
@@ -32,9 +31,8 @@ class BackupRunExecutor {
 
   private:
     IBackupRunActionHandler& action_handler_;
-    btrfsbackup::backup::transfer::IAsyncTransferPipeline& transfer_pipeline_;
+    btrfsbackup::backup::transfer::TransferCoordinator transfer_coordinator_;
     IBackupRunCheckpointStore& checkpoints_;
-    const ISafeDirectoryRootFactory& safe_directories_;
 };
 
 } // namespace btrfsbackup::backup

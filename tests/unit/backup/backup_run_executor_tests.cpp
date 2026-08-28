@@ -245,7 +245,7 @@ void test_full_backup_flow_without_parent() {
     test_helpers::expect_eq("full send protocol", send_argv.at(3), "2");
     test_helpers::expect_eq("full send compressed data", send_argv.at(4), "--compressed-data");
     test_helpers::expect_eq("full send snapshot", send_argv.at(5), "/.snapshots/root/root-2026-08-23T080000Z");
-    test_helpers::expect_eq("full effect count", std::to_string(handler.calls.size()), "8");
+    test_helpers::expect_eq("full effect count", std::to_string(handler.calls.size()), "7");
     test_helpers::expect_eq("full checkpoint count", std::to_string(checkpoints.checkpoints.size()), "8");
     test_helpers::expect_eq("full last checkpoint", action_name(checkpoints.checkpoints.back().action_kind), action_name(btrfsbackup::backup::BackupRunActionKind::CleanupSource));
 }
@@ -324,8 +324,7 @@ void test_send_receive_delegates_to_transfer_pipeline() {
     btrfsbackup::backup::BackupRunExecutionResult result = executor.execute(plan, events, cancellation);
 
     test_helpers::expect_true("transfer completed", result.outcome == btrfsbackup::backup::BackupRunExecutionOutcome::Completed, "run should complete");
-    test_helpers::expect_eq("effect count", std::to_string(handler.calls.size()), "1");
-    test_helpers::expect_eq("prepare receive effect", handler.calls.at(0), "root:" + action_name(btrfsbackup::backup::BackupRunActionKind::SendReceive));
+    test_helpers::expect_true("transfer bypasses effect handler", handler.calls.empty(), "transfer must be coordinated as one operation");
     test_helpers::expect_eq("transfer count", std::to_string(transfers.plans.size()), "1");
     const btrfsbackup::backup::transfer::TransferPipelinePlan& transfer_plan = transfers.plans.at(0);
     test_helpers::expect_eq("send binary", transfer_plan.producer_argv.at(0), "btrfs");

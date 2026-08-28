@@ -22,7 +22,6 @@
 #include <backup/action_handlers/repository_action_handler.hpp>
 #include <backup/action_handlers/retention_action_handler.hpp>
 #include <backup/action_handlers/snapshot_action_handler.hpp>
-#include <backup/action_handlers/transfer_action_handler.hpp>
 
 #include <platform/linux/safe_directory_root.hpp>
 #include <platform/linux/file_io.hpp>
@@ -64,8 +63,6 @@ static_assert(HandlesAction<btrfsbackup::backup::RepositoryActionHandler, btrfsb
 static_assert(HandlesAction<btrfsbackup::backup::RepositoryActionHandler, btrfsbackup::backup::CommitReceivedAction>);
 static_assert(HandlesAction<btrfsbackup::backup::RepositoryActionHandler, btrfsbackup::backup::CleanupSourceAction>);
 static_assert(!HandlesAction<btrfsbackup::backup::RepositoryActionHandler, btrfsbackup::backup::SendReceiveAction>);
-static_assert(HandlesAction<btrfsbackup::backup::TransferActionHandler, btrfsbackup::backup::SendReceiveAction>);
-static_assert(!HandlesAction<btrfsbackup::backup::TransferActionHandler, btrfsbackup::backup::CommitReceivedAction>);
 static_assert(HandlesHookAction<btrfsbackup::backup::HookActionHandler>);
 static_assert(!HandlesAction<btrfsbackup::backup::HookActionHandler, btrfsbackup::backup::RunHookAction>);
 
@@ -204,8 +201,7 @@ class ActionHandlerFixture final : public btrfsbackup::backup::IBackupRunActionH
           hook_executables_(std::make_unique<test_support::FakeTrustedExecutableResolver>()),
           hooks_(fallback_commands_, *hook_executables_),
           repository_(btrfs, filesystem, pending_markers_),
-          transfers_(filesystem),
-          dispatcher_(snapshots_, recovery_, retention_, hooks_, repository_, transfers_) {
+          dispatcher_(snapshots_, recovery_, retention_, hooks_, repository_) {
     }
 
     ActionHandlerFixture(
@@ -220,8 +216,7 @@ class ActionHandlerFixture final : public btrfsbackup::backup::IBackupRunActionH
           hook_executables_(std::make_unique<test_support::FakeTrustedExecutableResolver>()),
           hooks_(commands, *hook_executables_),
           repository_(btrfs, filesystem, pending_markers_),
-          transfers_(filesystem),
-          dispatcher_(snapshots_, recovery_, retention_, hooks_, repository_, transfers_) {
+          dispatcher_(snapshots_, recovery_, retention_, hooks_, repository_) {
     }
 
     ActionHandlerFixture(
@@ -252,8 +247,7 @@ class ActionHandlerFixture final : public btrfsbackup::backup::IBackupRunActionH
               std::make_unique<btrfsbackup::platform::linux::SafeDirectoryRoot>("/"),
               std::make_unique<btrfsbackup::platform::linux::SafeDirectoryRoot>(target_root)
           ),
-          transfers_(filesystem, std::make_unique<btrfsbackup::platform::linux::SafeDirectoryRoot>(target_root)),
-          dispatcher_(snapshots_, recovery_, retention_, hooks_, repository_, transfers_) {
+          dispatcher_(snapshots_, recovery_, retention_, hooks_, repository_) {
     }
 
     ActionHandlerFixture(
@@ -286,8 +280,7 @@ class ActionHandlerFixture final : public btrfsbackup::backup::IBackupRunActionH
               std::make_unique<btrfsbackup::platform::linux::SafeDirectoryRoot>("/"),
               std::make_unique<btrfsbackup::platform::linux::SafeDirectoryRoot>(target_root)
           ),
-          transfers_(filesystem, std::make_unique<btrfsbackup::platform::linux::SafeDirectoryRoot>(target_root)),
-          dispatcher_(snapshots_, recovery_, retention_, hooks_, repository_, transfers_) {
+          dispatcher_(snapshots_, recovery_, retention_, hooks_, repository_) {
     }
 
     void handle(
@@ -308,7 +301,6 @@ class ActionHandlerFixture final : public btrfsbackup::backup::IBackupRunActionH
     std::unique_ptr<btrfsbackup::backup::ITrustedExecutableResolver> hook_executables_;
     btrfsbackup::backup::HookActionHandler hooks_;
     btrfsbackup::backup::RepositoryActionHandler repository_;
-    btrfsbackup::backup::TransferActionHandler transfers_;
     btrfsbackup::backup::BackupRunActionHandler dispatcher_;
 };
 
@@ -526,19 +518,6 @@ void test_verify_commit_retention_and_cleanup_use_existing_helpers() {
     test_helpers::expect_true("cleanup received", std::find(btrfs.calls.begin(), btrfs.calls.end(), action_path("delete", source.received_snapshot_path)) != btrfs.calls.end(), "cleanup should delete received subvolume");
 }
 
-void test_send_receive_prepares_remote_and_incoming_directories() {
-    fs::path root = test_helpers::test_root("backup-run-action-handler", "send-receive");
-    btrfsbackup::backup::BackupSourceRunPlan source = source_plan(root);
-    FakeBtrfsOperations btrfs;
-    FakeFileSystem fs_effects;
-    ActionHandlerFixture handler(btrfs, fs_effects);
-
-    handle_action(handler, action(btrfsbackup::backup::BackupRunActionKind::SendReceive, source));
-
-    test_helpers::expect_true("remote dir", std::find(fs_effects.calls.begin(), fs_effects.calls.end(), action_path("mkdir", source.remote_snapshot_dir)) != fs_effects.calls.end(), "remote snapshot directory should be created");
-    test_helpers::expect_true("incoming run dir", std::find(fs_effects.calls.begin(), fs_effects.calls.end(), action_path("mkdir", source.incoming_run_dir)) != fs_effects.calls.end(), "incoming run directory should be created before receive");
-}
-
 void test_pending_recovery_deletes_invalid_remote_snapshot_first() {
     fs::path root = test_helpers::test_root("backup-run-action-handler", "recover-invalid-commit");
     btrfsbackup::backup::BackupSourceRunPlan source = source_plan(root);
@@ -724,7 +703,6 @@ int main() {
     test_cleanup_incoming_deletes_subvolumes_and_plain_paths();
     test_production_cleanup_rejects_incoming_symlink_escape();
     test_verify_commit_retention_and_cleanup_use_existing_helpers();
-    test_send_receive_prepares_remote_and_incoming_directories();
     test_pending_recovery_deletes_invalid_remote_snapshot_first();
     test_failed_remote_recovery_keeps_local_snapshot_and_marker();
     test_hook_actions_use_command_runner_argv();

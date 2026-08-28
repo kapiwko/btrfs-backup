@@ -4,18 +4,12 @@
 
 #include <backup/backup_run_executor.hpp>
 
-#include <chrono>
 #include <cstdint>
 #include <exception>
-#include <filesystem>
-#include <limits>
 #include <string>
 #include <type_traits>
 
 #include <core/errors.hpp>
-#include <backup/snapshot_transfer.hpp>
-
-namespace fs = std::filesystem;
 
 namespace btrfsbackup::backup {
 
@@ -118,68 +112,6 @@ class BackupTransferEventAdapter final : public btrfsbackup::backup::transfer::I
     std::uint64_t run_bytes_base_ = 0;
 };
 
-btrfsbackup::backup::transfer::TransferPipelinePlan transfer_plan_for_action(
-    const BackupRunPlan& plan,
-    const SendReceiveAction& action,
-    const ISafeDirectoryRootFactory& safe_directories
-) {
-    std::unique_ptr<ISafeDirectoryRoot> local_root = safe_directories.open("/");
-    std::unique_ptr<ISafeDirectoryRoot> target_root = safe_directories.open(plan.target_mount_point);
-    std::shared_ptr<ISafeDirectoryHandle> snapshot = local_root->pin_directory(action.snapshot);
-    std::shared_ptr<ISafeDirectoryHandle> receive = target_root->pin_directory(action.incoming_run_directory);
-    std::shared_ptr<ISafeDirectoryHandle> parent;
-    fs::path parent_path;
-    if (action.parent.has_value()) {
-        parent = local_root->pin_directory(*action.parent);
-        parent_path = parent->stable_path();
-    }
-    SendReceiveCommandPlan command_plan = build_send_receive_command_plan(
-        snapshot->stable_path(),
-        parent_path,
-        receive->stable_path()
-    );
-    btrfsbackup::backup::transfer::TransferPipelinePlan transfer_plan{
-        .producer_argv = command_plan.send_argv,
-        .consumer_argv = command_plan.receive_argv,
-        .retained_resources = {},
-    };
-    transfer_plan.retained_resources = {snapshot, receive};
-    if (parent) {
-        transfer_plan.retained_resources.push_back(parent);
-    }
-    return transfer_plan;
-}
-
-std::uint64_t estimate_regular_file_bytes(const std::filesystem::path& root) {
-    std::error_code ec;
-    if (!std::filesystem::exists(root, ec) || ec) {
-        return 0;
-    }
-
-    std::uint64_t total = 0;
-    std::filesystem::recursive_directory_iterator iterator(
-        root,
-        std::filesystem::directory_options::skip_permission_denied,
-        ec
-    );
-    std::filesystem::recursive_directory_iterator end;
-    while (!ec && iterator != end) {
-        std::error_code entry_ec;
-        if (iterator->is_regular_file(entry_ec) && !entry_ec) {
-            std::uintmax_t size = iterator->file_size(entry_ec);
-            if (!entry_ec) {
-                if (size > std::numeric_limits<std::uint64_t>::max() - total) {
-                    return 0;
-                }
-                total += static_cast<std::uint64_t>(size);
-            }
-        }
-        iterator.increment(ec);
-    }
-
-    return ec ? 0 : total;
-}
-
 void write_checkpoint(
     IBackupRunCheckpointStore& checkpoints,
     IBackupRunEventSink& events,
@@ -196,14 +128,6 @@ void write_checkpoint(
     emit_event(events, BackupRunEventKind::CheckpointWritten, plan, &source, action_kind);
 }
 
-void wait_for_transfer_or_cancellation(btrfsbackup::backup::transfer::IAsyncTransferHandle& transfer, CancellationToken& cancellation) {
-    while (!transfer.wait_for(std::chrono::milliseconds(100))) {
-        if (cancellation.cancellation_requested()) {
-            transfer.request_cancel();
-        }
-    }
-}
-
 } // namespace
 
 BackupRunExecutor::BackupRunExecutor(
@@ -213,9 +137,8 @@ BackupRunExecutor::BackupRunExecutor(
     const ISafeDirectoryRootFactory& safe_directories
 )
     : action_handler_(action_handler),
-      transfer_pipeline_(transfer_pipeline),
-      checkpoints_(checkpoints),
-      safe_directories_(safe_directories) {
+      transfer_coordinator_(transfer_pipeline, safe_directories),
+      checkpoints_(checkpoints) {
 }
 
 BackupRunExecutionResult BackupRunExecutor::execute(
@@ -245,13 +168,11 @@ BackupRunExecutionResult BackupRunExecutor::execute(
             }
 
             emit_event(events, BackupRunEventKind::ActionStarted, plan, &source, action_kind);
-            std::optional<ErrorCode> error_code;
             bool transfer_cancelled = false;
             try {
                 std::visit([&](const auto& typed_action) {
                     using Action = std::decay_t<decltype(typed_action)>;
                     if constexpr (std::is_same_v<Action, SendReceiveAction>) {
-                        action_handler_.handle(action, plan, cancellation);
                         BackupTransferEventAdapter transfer_events(
                             events,
                             plan,
@@ -259,24 +180,16 @@ BackupRunExecutionResult BackupRunExecutor::execute(
                             action_kind,
                             completed_run_bytes
                         );
-                        btrfsbackup::backup::transfer::TransferPipelinePlan transfer_plan = transfer_plan_for_action(
-                            plan,
+                        btrfsbackup::backup::transfer::TransferResult transfer_result = transfer_coordinator_.execute(
                             typed_action,
-                            safe_directories_
+                            plan.target_mount_point,
+                            transfer_events,
+                            cancellation
                         );
-                        transfer_plan.bytes_total_estimated = estimate_regular_file_bytes(typed_action.snapshot);
-                        std::unique_ptr<btrfsbackup::backup::transfer::IAsyncTransferHandle> transfer = transfer_pipeline_.start(
-                            transfer_plan,
-                            transfer_events
-                        );
-                        wait_for_transfer_or_cancellation(*transfer, cancellation);
-                        btrfsbackup::backup::transfer::TransferResult transfer_result = transfer->wait();
                         if (transfer_result.cancelled) {
                             transfer_cancelled = true;
                             return;
                         }
-                        error_code = btrfsbackup::backup::transfer::transfer_failure_error_code(transfer_result);
-                        btrfsbackup::backup::transfer::require_transfer_success(transfer_result);
                         completed_run_bytes += transfer_result.bytes_transferred;
                     } else {
                         action_handler_.handle(action, plan, cancellation);
@@ -293,6 +206,7 @@ BackupRunExecutionResult BackupRunExecutor::execute(
                 emit_event(events, BackupRunEventKind::RunCancelled, plan, &source, action_kind, 0, 0, 0, 0, 0, 0, 0, ErrorCode::RunnerCancelled, error.what());
                 return result;
             } catch (const std::exception& error) {
+                std::optional<ErrorCode> error_code;
                 if (const auto* coded_error = dynamic_cast<const CodedError*>(&error)) {
                     error_code = error_code_from_name(coded_error->error_code).value_or(ErrorCode::RunnerActionFailed);
                 }

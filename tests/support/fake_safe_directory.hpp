@@ -27,8 +27,14 @@ class FakeSafeDirectoryHandle final : public btrfsbackup::backup::ISafeDirectory
 
 class FakeSafeDirectoryRoot final : public btrfsbackup::backup::ISafeDirectoryRoot {
   public:
-    FakeSafeDirectoryRoot(std::filesystem::path root, std::filesystem::path stable_prefix)
-        : root_(std::move(root)), stable_prefix_(std::move(stable_prefix)) {
+    FakeSafeDirectoryRoot(
+        std::filesystem::path root,
+        std::filesystem::path stable_prefix,
+        bool create_directories
+    )
+        : root_(std::move(root)),
+          stable_prefix_(std::move(stable_prefix)),
+          create_directories_(create_directories) {
     }
 
     [[nodiscard]] const std::filesystem::path& path() const noexcept override {
@@ -48,7 +54,9 @@ class FakeSafeDirectoryRoot final : public btrfsbackup::backup::ISafeDirectoryRo
     }
 
     void ensure_directory(const std::filesystem::path& path, unsigned int) const override {
-        std::filesystem::create_directories(path);
+        if (create_directories_) {
+            std::filesystem::create_directories(path);
+        }
     }
 
     [[nodiscard]] bool exists(const std::filesystem::path& path) const override {
@@ -79,22 +87,28 @@ class FakeSafeDirectoryRoot final : public btrfsbackup::backup::ISafeDirectoryRo
 
     std::filesystem::path root_;
     std::filesystem::path stable_prefix_;
+    bool create_directories_ = false;
 };
 
 class FakeSafeDirectoryRootFactory final : public btrfsbackup::backup::ISafeDirectoryRootFactory {
   public:
-    explicit FakeSafeDirectoryRootFactory(std::filesystem::path stable_prefix = {})
-        : stable_prefix_(std::move(stable_prefix)) {
+    explicit FakeSafeDirectoryRootFactory(
+        std::filesystem::path stable_prefix = {},
+        bool create_directories = false
+    )
+        : stable_prefix_(std::move(stable_prefix)),
+          create_directories_(create_directories) {
     }
 
     [[nodiscard]] std::unique_ptr<btrfsbackup::backup::ISafeDirectoryRoot> open(
         const std::filesystem::path& root
     ) const override {
-        return std::make_unique<FakeSafeDirectoryRoot>(root, stable_prefix_);
+        return std::make_unique<FakeSafeDirectoryRoot>(root, stable_prefix_, create_directories_);
     }
 
   private:
     std::filesystem::path stable_prefix_;
+    bool create_directories_ = false;
 };
 
 } // namespace test_support
