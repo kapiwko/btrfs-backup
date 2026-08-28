@@ -47,14 +47,13 @@ bool newest_first(const btrfsbackup::backup::SnapshotInfo& left, const btrfsback
 namespace btrfsbackup::backup {
 
 IncrementalParentSelection select_incremental_parent(
-    const std::string& source_id,
+    const SourceId& source_id,
     const std::vector<SnapshotInfo>& local_snapshots,
     const std::vector<SnapshotInfo>& remote_snapshots,
     const std::optional<fs::path>& current_snapshot_path,
     bool incremental_required
 ) {
-    validate_identifier(source_id, "sourceId");
-
+    const std::string source_id_value{source_id.value()};
     IncrementalParentSelection selection;
     std::map<std::string, SnapshotInfo> remote_by_received_uuid;
 
@@ -70,7 +69,7 @@ IncrementalParentSelection select_incremental_parent(
         const std::string received_uuid = lowercase(remote.received_uuid);
         auto [it, inserted] = remote_by_received_uuid.emplace(received_uuid, remote);
         if (!inserted && it->second.path != remote.path) {
-            throw ValidationError("ambiguous remote parent received UUID for " + source_id + ": " + received_uuid);
+            throw ValidationError("ambiguous remote parent received UUID for " + source_id_value + ": " + received_uuid);
         }
     }
 
@@ -98,7 +97,7 @@ IncrementalParentSelection select_incremental_parent(
     }
 
     if (selection.remote_snapshots_exist && incremental_required) {
-        throw ValidationError("Remote snapshots exist for " + source_id + ", but no UUID-matching local parent was found.");
+        throw ValidationError("Remote snapshots exist for " + source_id_value + ", but no UUID-matching local parent was found.");
     }
 
     return selection;

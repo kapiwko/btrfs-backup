@@ -26,7 +26,7 @@ btrfsbackup::backup::SnapshotInfo snapshot(
 ) {
     return btrfsbackup::backup::SnapshotInfo{
         .side = btrfsbackup::backup::SnapshotSide::Local,
-        .source_id = source_id,
+        .source_id = btrfsbackup::SourceId{source_id},
         .name = name,
         .timestamp = timestamp,
         .sequence = sequence,
@@ -44,7 +44,7 @@ void test_deletes_oldest_snapshots() {
         snapshot("home", "home-2026-08-22T080000Z", "2026-08-22T080000Z", 0, "/snap/home-2"),
     };
 
-    btrfsbackup::backup::RetentionPlan plan = btrfsbackup::backup::plan_count_retention("home", snapshots, 2);
+    btrfsbackup::backup::RetentionPlan plan = btrfsbackup::backup::plan_count_retention(btrfsbackup::SourceId{"home"}, snapshots, 2);
 
     test_helpers::expect_eq("delete count", std::to_string(plan.delete_snapshots.size()), "1");
     test_helpers::expect_eq("keep count", std::to_string(plan.keep.size()), "2");
@@ -60,7 +60,7 @@ void test_sequence_ordering() {
         snapshot("home", "home-2026-08-23T080000Z-01", "2026-08-23T080000Z", 1, "/snap/home-2"),
     };
 
-    btrfsbackup::backup::RetentionPlan plan = btrfsbackup::backup::plan_count_retention("home", snapshots, 1);
+    btrfsbackup::backup::RetentionPlan plan = btrfsbackup::backup::plan_count_retention(btrfsbackup::SourceId{"home"}, snapshots, 1);
 
     test_helpers::expect_eq("sequence delete count", std::to_string(plan.delete_snapshots.size()), "2");
     test_helpers::expect_eq("sequence delete base", plan.delete_snapshots.at(0).path.string(), "/snap/home-1");
@@ -74,11 +74,11 @@ void test_unlimited_and_under_limit_keep_everything() {
         snapshot("home", "home-2026-08-22T080000Z", "2026-08-22T080000Z", 0, "/snap/home-2"),
     };
 
-    btrfsbackup::backup::RetentionPlan unlimited = btrfsbackup::backup::plan_count_retention("home", snapshots, 0);
+    btrfsbackup::backup::RetentionPlan unlimited = btrfsbackup::backup::plan_count_retention(btrfsbackup::SourceId{"home"}, snapshots, 0);
     test_helpers::expect_eq("unlimited deletes none", std::to_string(unlimited.delete_snapshots.size()), "0");
     test_helpers::expect_eq("unlimited keeps all", std::to_string(unlimited.keep.size()), "2");
 
-    btrfsbackup::backup::RetentionPlan under_limit = btrfsbackup::backup::plan_count_retention("home", snapshots, 3);
+    btrfsbackup::backup::RetentionPlan under_limit = btrfsbackup::backup::plan_count_retention(btrfsbackup::SourceId{"home"}, snapshots, 3);
     test_helpers::expect_eq("under limit deletes none", std::to_string(under_limit.delete_snapshots.size()), "0");
     test_helpers::expect_eq("under limit keeps all", std::to_string(under_limit.keep.size()), "2");
 }

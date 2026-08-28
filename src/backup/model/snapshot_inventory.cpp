@@ -41,9 +41,9 @@ bool metadata_sort_key_less(const btrfsbackup::backup::SnapshotInfo& left, const
 
 namespace btrfsbackup::backup {
 
-std::optional<SnapshotName> parse_snapshot_name(const std::string& name, const std::string& source_id) {
-    validate_identifier(source_id, "sourceId");
-    const std::string prefix = source_id + "-";
+std::optional<SnapshotName> parse_snapshot_name(const std::string& name, const SourceId& source_id) {
+    const std::string source_id_value{source_id.value()};
+    const std::string prefix = source_id_value + "-";
     if (name.rfind(prefix, 0) != 0) {
         return std::nullopt;
     }
@@ -79,7 +79,7 @@ std::optional<SnapshotName> parse_snapshot_name(const std::string& name, const s
 
 std::vector<SnapshotInfo> list_snapshot_inventory(
     const fs::path& directory,
-    const std::string& source_id,
+    const SourceId& source_id,
     SnapshotSide side,
     const SnapshotMetadataReader& metadata_reader
 ) {
@@ -89,11 +89,10 @@ std::vector<SnapshotInfo> list_snapshot_inventory(
 std::vector<SnapshotInfo> list_snapshot_inventory_at(
     const fs::path& scan_directory,
     const fs::path& reported_directory,
-    const std::string& source_id,
+    const SourceId& source_id,
     SnapshotSide side,
     const SnapshotMetadataReader& metadata_reader
 ) {
-    validate_identifier(source_id, "sourceId");
     if (!metadata_reader) {
         throw ValidationError("snapshot metadata reader is required");
     }

@@ -61,7 +61,8 @@ BackupPlanningSnapshot BackupDiscovery::discover(
         if (!source.enabled) {
             continue;
         }
-        const std::string source_id{source.id.value()};
+        const SourceId& source_id = source.id;
+        const std::string source_id_value{source_id.value()};
         const fs::path remote_dir = fs::path(profile.paths.remote_root) / source.remote_subdir;
         if (local_root->exists(source.local_snapshot_dir)) {
             std::unique_ptr<ISafeDirectoryHandle> local = local_root->pin_directory(source.local_snapshot_dir);
@@ -94,7 +95,7 @@ BackupPlanningSnapshot BackupDiscovery::discover(
             );
         }
 
-        const std::optional<PendingMarker> marker = pending_markers_.read(profile_state, source_id);
+        const std::optional<PendingMarker> marker = pending_markers_.read(profile_state, source_id_value);
         pending_markers[source_id] = marker;
         if (marker.has_value()) {
             if (local_root->exists(marker->local_snapshot_path)) {
