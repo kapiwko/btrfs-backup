@@ -24,10 +24,12 @@ btrfsbackup::config::Profile profile(const fs::path& mount_point = "/mnt/backup"
             btrfsbackup::config::PartitionUuid{""},
             btrfsbackup::config::MapperName{"backup"},
         },
+        {
+            btrfsbackup::config::RemoteSnapshotRoot{(mount_point / "snapshots").string()},
+            btrfsbackup::config::IncomingRoot{(mount_point / ".incoming").string()},
+        },
     };
     result.target.mount_point = mount_point.string();
-    result.paths.remote_root = (mount_point / "snapshots").string();
-    result.paths.incoming_root = (mount_point / ".incoming").string();
     return result;
 }
 
@@ -125,7 +127,7 @@ void test_rejects_remote_root_symlink_escape() {
     fs::create_directory_symlink(outside, mount_point / "escape");
 
     btrfsbackup::config::Profile test_profile = profile(mount_point);
-    test_profile.paths.remote_root = (mount_point / "escape" / "snapshots").string();
+    test_profile.paths.remote_root = btrfsbackup::config::RemoteSnapshotRoot{(mount_point / "escape" / "snapshots").string()};
 
     test_helpers::expect_validation_error("remote root escape", [&] { btrfsbackup::backup::validate_backup_mounts(test_profile, mounts(mount_point)); }, "REMOTE_ROOT escapes");
 
@@ -141,7 +143,7 @@ void test_rejects_incoming_root_symlink_escape() {
     fs::create_directory_symlink(outside, mount_point / "escape");
 
     btrfsbackup::config::Profile test_profile = profile(mount_point);
-    test_profile.paths.incoming_root = (mount_point / "escape" / ".incoming").string();
+    test_profile.paths.incoming_root = btrfsbackup::config::IncomingRoot{(mount_point / "escape" / ".incoming").string()};
 
     test_helpers::expect_validation_error("incoming root escape", [&] { btrfsbackup::backup::validate_backup_mounts(test_profile, mounts(mount_point)); }, "INCOMING_ROOT escapes");
 

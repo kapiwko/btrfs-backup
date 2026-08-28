@@ -42,6 +42,10 @@ btrfsbackup::config::Profile profile_with_auto_eject(bool auto_eject) {
             btrfsbackup::config::PartitionUuid{""},
             btrfsbackup::config::MapperName{"backup"},
         },
+        {
+            btrfsbackup::config::RemoteSnapshotRoot{"/mnt/backup/snapshots"},
+            btrfsbackup::config::IncomingRoot{"/mnt/backup/.incoming"},
+        },
     };
     profile.name = "Default backup";
     profile.settings.auto_eject = auto_eject;

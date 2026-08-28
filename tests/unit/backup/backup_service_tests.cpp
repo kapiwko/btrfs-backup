@@ -22,6 +22,10 @@ struct FakeProfiles final : btrfsbackup::config::IProfileRepository {
             btrfsbackup::config::PartitionUuid{""},
             btrfsbackup::config::MapperName{"backup"},
         },
+        {
+            btrfsbackup::config::RemoteSnapshotRoot{"/mnt/backup/snapshots"},
+            btrfsbackup::config::IncomingRoot{"/mnt/backup/.incoming"},
+        },
     };
 
     btrfsbackup::config::LoadedProfile get(const btrfsbackup::ProfileId&) const override {
