@@ -154,12 +154,18 @@ struct FakeLeases final : btrfsbackup::backup::IBackupRunLeaseProvider {
 struct FakeActiveRunRegistration final : btrfsbackup::backup::IActiveRunRegistration {
     FakeActiveRunRegistration(
         std::optional<btrfsbackup::RunId>& active_run,
-        bool& cancellation_requested
+        bool& cancellation_requested,
+        std::vector<std::string>* lifecycle
     )
-        : active_run_(active_run), cancellation_requested_(cancellation_requested) {
+        : active_run_(active_run),
+          cancellation_requested_(cancellation_requested),
+          lifecycle_(lifecycle) {
     }
 
     ~FakeActiveRunRegistration() override {
+        if (lifecycle_ != nullptr) {
+            lifecycle_->push_back("active-run");
+        }
         active_run_.reset();
         cancellation_requested_ = false;
     }
@@ -167,6 +173,7 @@ struct FakeActiveRunRegistration final : btrfsbackup::backup::IActiveRunRegistra
   private:
     std::optional<btrfsbackup::RunId>& active_run_;
     bool& cancellation_requested_;
+    std::vector<std::string>* lifecycle_;
 };
 
 struct FakeState final : btrfsbackup::backup::IRunLedger,
@@ -176,6 +183,7 @@ struct FakeState final : btrfsbackup::backup::IRunLedger,
     bool daily_match = false;
     bool cancellation_requested = false;
     std::optional<btrfsbackup::RunId> active_run;
+    std::vector<std::string>* lifecycle = nullptr;
     int skipped_writes = 0;
     int success_writes = 0;
     int cancel_writes = 0;
@@ -236,7 +244,11 @@ struct FakeState final : btrfsbackup::backup::IRunLedger,
     ) override {
         active_run = request.run_id;
         cancellation_requested = false;
-        return std::make_unique<FakeActiveRunRegistration>(active_run, cancellation_requested);
+        return std::make_unique<FakeActiveRunRegistration>(
+            active_run,
+            cancellation_requested,
+            lifecycle
+        );
     }
 
     btrfsbackup::backup::CancellationRequestOutcome request_cancel(
@@ -275,24 +287,30 @@ struct FakeClock final : btrfsbackup::backup::IClock {
 };
 
 struct FakeCancellationWatch final : btrfsbackup::backup::ICancellationWatch {
-    explicit FakeCancellationWatch(int& destructions) : destructions_(destructions) {
+    FakeCancellationWatch(int& destructions, std::vector<std::string>* lifecycle)
+        : destructions_(destructions), lifecycle_(lifecycle) {
     }
     ~FakeCancellationWatch() override {
+        if (lifecycle_ != nullptr) {
+            lifecycle_->push_back("watcher");
+        }
         ++destructions_;
     }
 
   private:
     int& destructions_;
+    std::vector<std::string>* lifecycle_;
 };
 
 struct FakeCancellationMonitor final : btrfsbackup::backup::ICancellationMonitor {
     int watch_destructions = 0;
+    std::vector<std::string>* lifecycle = nullptr;
 
     std::unique_ptr<btrfsbackup::backup::ICancellationWatch> watch(
         const btrfsbackup::backup::CancellationRequest&,
         btrfsbackup::CancellationToken&
     ) override {
-        return std::make_unique<FakeCancellationWatch>(watch_destructions);
+        return std::make_unique<FakeCancellationWatch>(watch_destructions, lifecycle);
     }
 };
 
@@ -313,6 +331,7 @@ struct Fixture {
     FakeCancellationMonitor cancellation_monitor;
     FakeClock clock;
     FakeRunIds run_ids;
+    std::vector<std::string> cancellation_lifecycle;
     btrfsbackup::config::ApplicationPaths paths;
     btrfsbackup::backup::BackupService service;
 
@@ -333,6 +352,8 @@ struct Fixture {
               clock,
               run_ids
           ) {
+        state.lifecycle = &cancellation_lifecycle;
+        cancellation_monitor.lifecycle = &cancellation_lifecycle;
         profiles.profile.name = "Default";
         profiles.profile.target.luks_uuid = "target-uuid";
         profiles.profile.settings.daily_limit = true;
@@ -400,6 +421,11 @@ void expect_run_resources_released(const std::string& prefix, const Fixture& fix
     test_helpers::expect_true(prefix + " checkpoints", fixture.state.checkpoint_destructions == 1, "checkpoint store was not released");
     test_helpers::expect_true(prefix + " events", fixture.state.event_destructions == 1, "event sink was not released");
     test_helpers::expect_true(prefix + " active run", !fixture.state.active_run.has_value(), "active run was not released");
+    test_helpers::expect_true(
+        prefix + " cancellation lifecycle",
+        fixture.cancellation_lifecycle == std::vector<std::string>{"active-run", "watcher"},
+        "watcher stopped before cancellation admission was closed"
+    );
 }
 
 void test_run_context_releases_resources_after_success() {
@@ -454,6 +480,44 @@ void test_cancel_validates_profile_and_writes_request() {
 
     test_helpers::expect_true("cancel requested", result.cancel_requested, "cancel request missing");
     test_helpers::expect_true("cancel writes", fixture.state.cancel_writes == 1, "cancel request missing");
+    test_helpers::expect_true("cancel error absent", !result.error_code.has_value(), "accepted cancel has an error");
+}
+
+void test_cancel_rejects_stale_run_when_lease_is_available() {
+    Fixture fixture;
+    fixture.state.active_run = btrfsbackup::RunId{"stale-run"};
+
+    const btrfsbackup::backup::CancelBackupResult result = fixture.service.cancel({
+        .profile_id = btrfsbackup::ProfileId{"default"},
+        .run_id = btrfsbackup::RunId{"stale-run"},
+    });
+
+    test_helpers::expect_true("stale cancel rejected", !result.cancel_requested, "stale run was cancelled");
+    test_helpers::expect_true(
+        "stale cancel code",
+        result.error_code == btrfsbackup::ErrorCode::RunnerStaleRun,
+        "stale run error code missing"
+    );
+    test_helpers::expect_true("stale cancel writes", fixture.state.cancel_writes == 0, "stale request was written");
+}
+
+void test_cancel_rejects_mismatched_run() {
+    Fixture fixture;
+    fixture.leases.busy = true;
+    fixture.state.active_run = btrfsbackup::RunId{"active-run"};
+
+    const btrfsbackup::backup::CancelBackupResult result = fixture.service.cancel({
+        .profile_id = btrfsbackup::ProfileId{"default"},
+        .run_id = btrfsbackup::RunId{"other-run"},
+    });
+
+    test_helpers::expect_true("mismatched cancel rejected", !result.cancel_requested, "mismatched run was cancelled");
+    test_helpers::expect_true(
+        "mismatched cancel code",
+        result.error_code == btrfsbackup::ErrorCode::RunnerRunMismatch,
+        "run mismatch error code missing"
+    );
+    test_helpers::expect_true("mismatched cancel writes", fixture.state.cancel_writes == 0, "mismatched request was written");
 }
 
 } // namespace
@@ -467,5 +531,7 @@ int main() {
     test_busy_stops_before_target_access();
     test_daily_match_skips_execution();
     test_cancel_validates_profile_and_writes_request();
+    test_cancel_rejects_stale_run_when_lease_is_available();
+    test_cancel_rejects_mismatched_run();
     return test_helpers::finish("backup service tests");
 }

@@ -1639,7 +1639,7 @@ void test_runner_execute_pending_recovery_deletes_orphan() {
     fs::remove_all(root);
 }
 
-void test_runner_cancel_writes_cancel_request_without_target_mount() {
+void test_runner_cancel_validates_active_run_identity_without_target_mount() {
     fs::path root = test_helpers::test_root("runner-command", "cancel");
     btrfsbackup::config::Profile profile = test_profile(root);
     fs::path config_root = root / "config";
@@ -1696,6 +1696,64 @@ void test_runner_cancel_writes_cancel_request_without_target_mount() {
         "cancel request file missing"
     );
     test_helpers::expect_eq("cancel run id", json.at("runId").get<std::string>(), "active-run");
+
+    std::ostringstream mismatch_output;
+    int mismatch_result = run_runner(
+        config_root,
+        {
+            "cancel",
+            "--profile",
+            "default",
+            "--run-id",
+            "other-run",
+        },
+        mismatch_output,
+        &services
+    );
+    btrfsbackup::config::Json mismatch_json = btrfsbackup::config::Json::parse(mismatch_output.str());
+    test_helpers::expect_eq("mismatch result", std::to_string(mismatch_result), "1");
+    test_helpers::expect_true(
+        "mismatch rejected",
+        !mismatch_json.at("cancelRequested").get<bool>(),
+        "mismatched run was cancelled"
+    );
+    test_helpers::expect_eq(
+        "mismatch error code",
+        mismatch_json.at("errorCode").get<std::string>(),
+        "runner.run_mismatch"
+    );
+    test_helpers::expect_true(
+        "accepted marker preserved",
+        btrfsbackup::state::cancel_requested(profile_state_dir, btrfsbackup::RunId{"active-run"}),
+        "mismatched request replaced the accepted marker"
+    );
+
+    active_profile_lock.release();
+    std::ostringstream stale_output;
+    int stale_result = run_runner(
+        config_root,
+        {
+            "cancel",
+            "--profile",
+            "default",
+            "--run-id",
+            "active-run",
+        },
+        stale_output,
+        &services
+    );
+    btrfsbackup::config::Json stale_json = btrfsbackup::config::Json::parse(stale_output.str());
+    test_helpers::expect_eq("stale result", std::to_string(stale_result), "1");
+    test_helpers::expect_true(
+        "stale rejected",
+        !stale_json.at("cancelRequested").get<bool>(),
+        "completed run was cancelled"
+    );
+    test_helpers::expect_eq(
+        "stale error code",
+        stale_json.at("errorCode").get<std::string>(),
+        "runner.stale_run"
+    );
 
     fs::remove_all(root);
 }
@@ -1871,7 +1929,7 @@ int main() {
     test_runner_execute_incremental_uses_selected_parent();
     test_runner_execute_retention_plans_local_and_remote_deletes();
     test_runner_execute_pending_recovery_deletes_orphan();
-    test_runner_cancel_writes_cancel_request_without_target_mount();
+    test_runner_cancel_validates_active_run_identity_without_target_mount();
     test_runner_execute_honors_cancel_request_during_transfer();
     test_runner_execute_handles_sigint_as_cancelled_with_recovery_marker();
 

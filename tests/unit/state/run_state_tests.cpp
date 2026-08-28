@@ -151,12 +151,53 @@ void test_cancel_request_write_check_and_clear() {
     fs::remove_all(root);
 }
 
+void test_legacy_cancel_marker_does_not_match_a_run() {
+    fs::path root = test_root("legacy-cancel-request");
+    fs::path state_dir = root / "state" / "profiles" / "default";
+    durable_files().ensure_directory(state_dir, btrfsbackup::private_directory_permissions);
+    durable_files().write_atomically(
+        btrfsbackup::state::cancel_request_path(state_dir),
+        "requested=1\n",
+        btrfsbackup::private_file_permissions
+    );
+
+    test_helpers::expect_true(
+        "legacy marker ignored",
+        !btrfsbackup::state::cancel_requested(state_dir, btrfsbackup::RunId{"new-run"}),
+        "legacy marker matched a new run"
+    );
+    fs::remove_all(root);
+}
+
+void test_mismatched_cancel_marker_is_not_consumed_or_cleared() {
+    fs::path root = test_root("mismatched-cancel-request");
+    fs::path state_dir = root / "state" / "profiles" / "default";
+    const btrfsbackup::RunId active_run{"active-run"};
+    const btrfsbackup::RunId other_run{"other-run"};
+    btrfsbackup::state::write_cancel_request(durable_files(), state_dir, other_run);
+
+    test_helpers::expect_true(
+        "mismatched marker ignored",
+        !btrfsbackup::state::cancel_requested(state_dir, active_run),
+        "mismatched marker was consumed"
+    );
+    btrfsbackup::state::clear_cancel_request(durable_files(), state_dir, active_run);
+    test_helpers::expect_true(
+        "mismatched marker preserved",
+        btrfsbackup::state::cancel_requested(state_dir, other_run),
+        "one run cleared another run's marker"
+    );
+    fs::remove_all(root);
+}
+
 } // namespace
 
 int main() {
     test_success_state_write_and_match();
     test_pending_marker_write_read_and_clear();
     test_cancel_request_write_check_and_clear();
+    test_legacy_cancel_marker_does_not_match_a_run();
+    test_mismatched_cancel_marker_is_not_consumed_or_cleared();
 
     return test_helpers::finish("run state tests");
 }

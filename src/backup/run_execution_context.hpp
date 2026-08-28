@@ -30,6 +30,7 @@ struct RunExecutionContext {
 
     RunExecutionContext(const RunExecutionContext&) = delete;
     RunExecutionContext& operator=(const RunExecutionContext&) = delete;
+    ~RunExecutionContext();
 
     ProfileId profile_id;
     RunId run_id;
