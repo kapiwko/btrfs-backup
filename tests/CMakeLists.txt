@@ -10,6 +10,16 @@ function(add_btrfsbackup_test target source test_name)
 endfunction()
 
 include(architecture/public_link_interface_tests.cmake)
+include(architecture/model_dependency_tests.cmake)
+
+assert_model_dependencies(btrfsbackup-config-domain btrfsbackup-core)
+assert_model_dependencies(
+    btrfsbackup-backup-model
+    btrfsbackup-config-domain
+    btrfsbackup-core
+)
+assert_model_dependencies(btrfsbackup-state-model btrfsbackup-core)
+assert_model_dependencies(btrfsbackup-transfer btrfsbackup-core)
 
 assert_public_link_interface(btrfsbackup-core)
 assert_public_link_interface(btrfsbackup-config-domain btrfsbackup-core)
