@@ -18,7 +18,7 @@
 
 namespace fs = std::filesystem;
 
-namespace btrfsbackup {
+namespace btrfsbackup::platform::linux {
 
 namespace {
 
@@ -54,25 +54,25 @@ void record_rollback_error(
 
 } // namespace
 
-ProfileInstaller::ProfileInstaller(ProfileArtifactRenderer& renderer, IConfigurationActivator& activator)
+ProfileInstaller::ProfileInstaller(btrfsbackup::config::ProfileArtifactRenderer& renderer, btrfsbackup::config::IConfigurationActivator& activator)
     : renderer_(renderer), activator_(activator) {
 }
 
-void ProfileInstaller::install_profile_transactionally(const Profile& profile, const ProfileArtifactRoots& roots) {
-    const RenderedProfileArtifacts rendered = renderer_.render_profile_artifacts(profile, roots);
+void ProfileInstaller::install_profile_transactionally(const btrfsbackup::config::Profile& profile, const btrfsbackup::config::ProfileArtifactRoots& roots) {
+    const btrfsbackup::config::RenderedProfileArtifacts rendered = renderer_.render_profile_artifacts(profile, roots);
     const std::string installed_id{rendered.profile.id.value()};
     const std::string& generation = rendered.profile.configuration_generation;
-    ApplicationConfig application_config = load_application_config(roots.etc_root);
+    btrfsbackup::config::ApplicationConfig application_config = load_application_config(roots.etc_root);
     ProfileConfigurationTransaction transaction(rendered);
 
     try {
         transaction.stage();
 
-        const Profile staged_profile = profile_from_json(
-            load_json_file(transaction.staged_path(ProfileArtifactKind::PrivateProfile)),
+        const btrfsbackup::config::Profile staged_profile = btrfsbackup::config::profile_from_json(
+            btrfsbackup::config::load_json_file(transaction.staged_path(btrfsbackup::config::ProfileArtifactKind::PrivateProfile)),
             application_config.paths().target_mount_root
         );
-        const Json staged_public = load_json_file(transaction.staged_path(ProfileArtifactKind::PublicProfile));
+        const btrfsbackup::config::Json staged_public = btrfsbackup::config::load_json_file(transaction.staged_path(btrfsbackup::config::ProfileArtifactKind::PublicProfile));
         if (staged_profile.configuration_generation != generation || staged_public.value("configurationGeneration", "") != generation) {
             throw ValidationError("staged configuration generation mismatch");
         }
@@ -117,4 +117,4 @@ void ProfileInstaller::install_profile_transactionally(const Profile& profile, c
     }
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::platform::linux

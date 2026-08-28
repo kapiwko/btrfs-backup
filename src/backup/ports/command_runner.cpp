@@ -6,7 +6,7 @@
 
 #include <core/errors.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup {
 
 std::string capture_command(ICommandRunner& runner, const std::vector<std::string>& argv) {
     if (argv.empty()) {
@@ -22,4 +22,4 @@ std::string capture_command(ICommandRunner& runner, const std::vector<std::strin
     return result.output;
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup

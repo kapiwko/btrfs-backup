@@ -7,7 +7,7 @@
 #include <filesystem>
 #include <string>
 
-namespace btrfsbackup {
+namespace btrfsbackup::platform::linux {
 
 // Validation of rendered and active Linux installations.
 
@@ -17,4 +17,4 @@ void validate_rendered_installation(
 );
 void validate_active_installation(const std::string& profile_id);
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::platform::linux

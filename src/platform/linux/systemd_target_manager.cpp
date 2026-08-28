@@ -8,23 +8,23 @@
 
 #include <core/errors.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::platform::linux {
 
-SystemdTargetManager::SystemdTargetManager(IMountInspector& mounts, ICommandRunner& commands)
+SystemdTargetManager::SystemdTargetManager(btrfsbackup::backup::IMountInspector& mounts, btrfsbackup::backup::ICommandRunner& commands)
     : mounts_(mounts), commands_(commands) {
 }
 
-void SystemdTargetManager::ensure_mounted(const Profile& profile) {
-    if (mount_at(mounts_.inspect(), profile.target.mount_point).has_value()) {
+void SystemdTargetManager::ensure_mounted(const btrfsbackup::config::Profile& profile) {
+    if (btrfsbackup::backup::mount_at(mounts_.inspect(), profile.target.mount_point).has_value()) {
         return;
     }
     if (profile.target.mount_unit.empty()) {
         throw ValidationError("target.mountUnit is required to mount backup target");
     }
-    const CommandResult result = commands_.run({"systemctl", "start", profile.target.mount_unit});
+    const btrfsbackup::backup::CommandResult result = commands_.run({"systemctl", "start", profile.target.mount_unit});
     if (result.exit_code != 0) {
         throw ValidationError("could not start target mount unit " + profile.target.mount_unit);
     }
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::platform::linux

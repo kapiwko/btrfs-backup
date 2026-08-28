@@ -16,9 +16,9 @@ namespace fs = std::filesystem;
 
 namespace {
 
-class FakeBtrfsOperations final : public btrfsbackup::IBtrfsOperations {
-public:
-    std::optional<btrfsbackup::SnapshotMetadata> metadata;
+class FakeBtrfsOperations final : public btrfsbackup::backup::IBtrfsOperations {
+  public:
+    std::optional<btrfsbackup::backup::SnapshotMetadata> metadata;
     std::vector<std::string> calls;
     bool delete_throws = false;
 
@@ -27,7 +27,7 @@ public:
         return metadata.has_value() && metadata->is_subvolume;
     }
 
-    std::optional<btrfsbackup::SnapshotMetadata> read_snapshot_metadata(const fs::path& path) override {
+    std::optional<btrfsbackup::backup::SnapshotMetadata> read_snapshot_metadata(const fs::path& path) override {
         calls.push_back("metadata:" + path.string());
         return metadata;
     }
@@ -44,8 +44,8 @@ public:
     }
 };
 
-class FakeFileSystem final : public btrfsbackup::IFileSystem {
-public:
+class FakeFileSystem final : public btrfsbackup::backup::IFileSystem {
+  public:
     bool final_exists = false;
     std::vector<std::string> calls;
 
@@ -86,7 +86,7 @@ public:
 };
 
 void test_builds_send_receive_commands() {
-    btrfsbackup::SendReceiveCommandPlan full = btrfsbackup::build_send_receive_command_plan(
+    btrfsbackup::backup::SendReceiveCommandPlan full = btrfsbackup::backup::build_send_receive_command_plan(
         "/snap/current",
         {},
         "/incoming/run"
@@ -98,7 +98,7 @@ void test_builds_send_receive_commands() {
     test_helpers::expect_eq("full send path", full.send_argv.at(5), "/snap/current");
     test_helpers::expect_eq("receive dir", full.receive_argv.at(2), "/incoming/run");
 
-    btrfsbackup::SendReceiveCommandPlan incremental = btrfsbackup::build_send_receive_command_plan(
+    btrfsbackup::backup::SendReceiveCommandPlan incremental = btrfsbackup::backup::build_send_receive_command_plan(
         "/snap/current",
         "/snap/parent",
         "/incoming/run"
@@ -113,35 +113,33 @@ void test_builds_send_receive_commands() {
 }
 
 void test_verifies_received_snapshot() {
-    btrfsbackup::SnapshotMetadata local{
+    btrfsbackup::backup::SnapshotMetadata local{
         .is_subvolume = true,
         .readonly = true,
         .uuid = "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA",
     };
-    btrfsbackup::SnapshotMetadata received{
+    btrfsbackup::backup::SnapshotMetadata received{
         .is_subvolume = true,
         .readonly = true,
         .received_uuid = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
     };
 
-    btrfsbackup::verify_received_snapshot("home", local, received);
+    btrfsbackup::backup::verify_received_snapshot("home", local, received);
 
     received.readonly = false;
-    test_helpers::expect_validation_error("received readonly", [&] {
-        btrfsbackup::verify_received_snapshot("home", local, received);
-    }, "Received subvolume is not readonly");
+    test_helpers::expect_validation_error("received readonly", [&] { btrfsbackup::backup::verify_received_snapshot("home", local, received); }, "Received subvolume is not readonly");
 }
 
 void test_commit_received_snapshot() {
     FakeBtrfsOperations btrfs;
-    btrfs.metadata = btrfsbackup::SnapshotMetadata{
+    btrfs.metadata = btrfsbackup::backup::SnapshotMetadata{
         .is_subvolume = true,
         .readonly = true,
         .received_uuid = "local-uuid",
     };
     FakeFileSystem fs_effects;
 
-    btrfsbackup::commit_received_snapshot(
+    btrfsbackup::backup::commit_received_snapshot(
         btrfs,
         fs_effects,
         "/incoming/run/home",
@@ -156,22 +154,20 @@ void test_commit_received_snapshot() {
 
 void test_commit_deletes_invalid_final_snapshot() {
     FakeBtrfsOperations btrfs;
-    btrfs.metadata = btrfsbackup::SnapshotMetadata{
+    btrfs.metadata = btrfsbackup::backup::SnapshotMetadata{
         .is_subvolume = true,
         .readonly = true,
         .received_uuid = "wrong-uuid",
     };
     FakeFileSystem fs_effects;
 
-    test_helpers::expect_validation_error("commit uuid mismatch", [&] {
-        btrfsbackup::commit_received_snapshot(
-            btrfs,
-            fs_effects,
-            "/incoming/run/home",
-            "/remote/home/home-2026-08-23T080000Z",
-            "expected-uuid"
-        );
-    }, "Committed snapshot Received UUID does not match the local snapshot UUID");
+    test_helpers::expect_validation_error("commit uuid mismatch", [&] { btrfsbackup::backup::commit_received_snapshot(
+                                                                            btrfs,
+                                                                            fs_effects,
+                                                                            "/incoming/run/home",
+                                                                            "/remote/home/home-2026-08-23T080000Z",
+                                                                            "expected-uuid"
+                                                                        ); }, "Committed snapshot Received UUID does not match the local snapshot UUID");
     test_helpers::expect_eq("commit cleanup call", btrfs.calls.back(), "delete:/remote/home/home-2026-08-23T080000Z");
 }
 
@@ -180,20 +176,18 @@ void test_commit_rejects_existing_destination() {
     FakeFileSystem fs_effects;
     fs_effects.final_exists = true;
 
-    test_helpers::expect_validation_error("commit destination exists", [&] {
-        btrfsbackup::commit_received_snapshot(
-            btrfs,
-            fs_effects,
-            "/incoming/run/home",
-            "/remote/home/home-2026-08-23T080000Z",
-            "expected-uuid"
-        );
-    }, "Destination snapshot already exists");
+    test_helpers::expect_validation_error("commit destination exists", [&] { btrfsbackup::backup::commit_received_snapshot(
+                                                                                 btrfs,
+                                                                                 fs_effects,
+                                                                                 "/incoming/run/home",
+                                                                                 "/remote/home/home-2026-08-23T080000Z",
+                                                                                 "expected-uuid"
+                                                                             ); }, "Destination snapshot already exists");
 }
 
 void test_commit_reports_verification_and_cleanup_failure() {
     FakeBtrfsOperations btrfs;
-    btrfs.metadata = btrfsbackup::SnapshotMetadata{
+    btrfs.metadata = btrfsbackup::backup::SnapshotMetadata{
         .is_subvolume = true,
         .readonly = true,
         .received_uuid = "wrong-uuid",
@@ -202,7 +196,7 @@ void test_commit_reports_verification_and_cleanup_failure() {
     FakeFileSystem fs_effects;
 
     try {
-        btrfsbackup::commit_received_snapshot(
+        btrfsbackup::backup::commit_received_snapshot(
             btrfs,
             fs_effects,
             "/incoming/run/home",

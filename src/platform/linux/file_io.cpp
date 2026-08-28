@@ -45,7 +45,7 @@ void close_checked(int& fd, const fs::path& path, const std::string& operation) 
 
 } // namespace
 
-namespace btrfsbackup {
+namespace btrfsbackup::platform::linux {
 
 void atomic_write(const fs::path& path, const std::string& data, mode_t mode) {
     const fs::path parent = path.has_parent_path() ? path.parent_path() : fs::path(".");
@@ -155,4 +155,4 @@ void PosixDurableFileOperations::remove_durably(const fs::path& path) {
     }
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::platform::linux

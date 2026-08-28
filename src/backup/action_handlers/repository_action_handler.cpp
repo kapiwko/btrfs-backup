@@ -15,7 +15,7 @@
 #include <backup/snapshot_transfer.hpp>
 #include <core/errors.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup {
 
 namespace {
 
@@ -184,4 +184,4 @@ void RepositoryActionHandler::handle(const CleanupSourceAction& action) {
     pending_markers_.clear(action.pending_marker);
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup

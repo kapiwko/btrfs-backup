@@ -25,9 +25,9 @@ void request_stop(int) {
     stop_requested = 1;
 }
 
-int reply_json(sd_bus_message* message, sd_bus_error* error, const std::function<btrfsbackup::Json()>& operation) {
+int reply_json(sd_bus_message* message, sd_bus_error* error, const std::function<btrfsbackup::config::Json()>& operation) {
     try {
-        const std::string payload = btrfsbackup::dump_json(operation());
+        const std::string payload = btrfsbackup::config::dump_json(operation());
         return sd_bus_reply_method_return(message, "s", payload.c_str());
     } catch (const std::exception& exception) {
         std::cerr << "btrfs-backupd: request failed: " << exception.what() << '\n';
@@ -40,12 +40,12 @@ int reply_json(sd_bus_message* message, sd_bus_error* error, const std::function
 }
 
 int get_capabilities(sd_bus_message* message, void* userdata, sd_bus_error* error) {
-    auto& service = *static_cast<btrfsbackup::ManagerService*>(userdata);
+    auto& service = *static_cast<btrfsbackup::daemon::ManagerService*>(userdata);
     return reply_json(message, error, [&] { return service.get_capabilities(); });
 }
 
 int list_profiles(sd_bus_message* message, void* userdata, sd_bus_error* error) {
-    auto& service = *static_cast<btrfsbackup::ManagerService*>(userdata);
+    auto& service = *static_cast<btrfsbackup::daemon::ManagerService*>(userdata);
     return reply_json(message, error, [&] { return service.list_profiles(); });
 }
 
@@ -54,7 +54,7 @@ int get_status(sd_bus_message* message, void* userdata, sd_bus_error* error) {
     const int read_result = sd_bus_message_read(message, "s", &profile_id);
     if (read_result < 0)
         return read_result;
-    auto& service = *static_cast<btrfsbackup::ManagerService*>(userdata);
+    auto& service = *static_cast<btrfsbackup::daemon::ManagerService*>(userdata);
     return reply_json(message, error, [&] { return service.get_status(profile_id == nullptr ? "" : profile_id); });
 }
 
@@ -65,7 +65,7 @@ int get_history_sanitized(sd_bus_message* message, void* userdata, sd_bus_error*
     const int read_result = sd_bus_message_read(message, "suu", &profile_id, &offset, &limit);
     if (read_result < 0)
         return read_result;
-    auto& service = *static_cast<btrfsbackup::ManagerService*>(userdata);
+    auto& service = *static_cast<btrfsbackup::daemon::ManagerService*>(userdata);
     return reply_json(message, error, [&] {
         return service.get_history_sanitized(profile_id == nullptr ? "" : profile_id, offset, limit);
     });
@@ -76,7 +76,7 @@ int get_device_state(sd_bus_message* message, void* userdata, sd_bus_error* erro
     const int read_result = sd_bus_message_read(message, "s", &profile_id);
     if (read_result < 0)
         return read_result;
-    auto& service = *static_cast<btrfsbackup::ManagerService*>(userdata);
+    auto& service = *static_cast<btrfsbackup::daemon::ManagerService*>(userdata);
     return reply_json(message, error, [&] {
         return service.get_device_state(profile_id == nullptr ? "" : profile_id);
     });
@@ -99,7 +99,7 @@ void require_success(int result, const char* operation) {
 
 } // namespace
 
-namespace btrfsbackup {
+namespace btrfsbackup::daemon {
 
 int run_dbus_server(ManagerService& service, const std::string& bus_address) {
     std::unique_ptr<sd_bus, decltype(&sd_bus_unref)> bus(nullptr, sd_bus_unref);
@@ -149,4 +149,4 @@ int run_dbus_server(ManagerService& service, const std::string& bus_address) {
     return 0;
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::daemon

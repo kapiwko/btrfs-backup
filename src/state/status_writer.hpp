@@ -10,11 +10,11 @@
 #include <core/durable_file_operations.hpp>
 #include <state/run_status.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::state {
 
-Json build_status_json(const RunStatus& status);
+btrfsbackup::config::Json build_status_json(const RunStatus& status);
 std::string dump_status_json(const RunStatus& status);
-Json build_public_status_json(const RunStatus& status);
+btrfsbackup::config::Json build_public_status_json(const RunStatus& status);
 std::string dump_public_status_json(const RunStatus& status);
 
 void write_current_status(
@@ -24,4 +24,4 @@ void write_current_status(
     std::filesystem::perms permissions = public_read_file_permissions
 );
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::state

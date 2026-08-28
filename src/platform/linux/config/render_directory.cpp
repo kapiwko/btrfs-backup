@@ -28,7 +28,7 @@
 
 namespace fs = std::filesystem;
 
-namespace btrfsbackup {
+namespace btrfsbackup::platform::linux {
 
 namespace {
 
@@ -59,11 +59,7 @@ DirectoryIdentity directory_identity(const fs::path& path) {
 
 bool same_directory(const fs::path& path, const DirectoryIdentity& expected) {
     struct stat status{};
-    return lstat(path.c_str(), &status) == 0
-        && S_ISDIR(status.st_mode)
-        && status.st_uid == geteuid()
-        && status.st_dev == expected.device
-        && status.st_ino == expected.inode;
+    return lstat(path.c_str(), &status) == 0 && S_ISDIR(status.st_mode) && status.st_uid == geteuid() && status.st_dev == expected.device && status.st_ino == expected.inode;
 }
 
 uid_t filesystem_root_owner() {
@@ -99,9 +95,7 @@ bool valid_marker(const fs::path& directory) {
         }
         throw_path_error("cannot inspect render root marker", marker, errno);
     }
-    if (!S_ISREG(status.st_mode)
-        || status.st_uid != geteuid()
-        || (status.st_mode & (S_IWGRP | S_IWOTH)) != 0) {
+    if (!S_ISREG(status.st_mode) || status.st_uid != geteuid() || (status.st_mode & (S_IWGRP | S_IWOTH)) != 0) {
         return false;
     }
     std::ifstream input(marker, std::ios::binary);
@@ -116,8 +110,7 @@ DirectoryIdentity require_replaceable_directory(const fs::path& path) {
     const DirectoryIdentity identity = directory_identity(path);
     if (!directory_empty(path) && !valid_marker(path)) {
         throw ValidationError(
-            "refusing to replace non-empty output directory without "
-            + std::string(render_root_marker) + ": " + path.string()
+            "refusing to replace non-empty output directory without " + std::string(render_root_marker) + ": " + path.string()
         );
     }
     return identity;
@@ -242,8 +235,7 @@ void replace_render_directory(
         exchange_directories(staging, output);
         staging_contains_previous = true;
         try {
-            if (!same_directory(staging, previous)
-                || (!directory_empty(staging) && !valid_marker(staging))) {
+            if (!same_directory(staging, previous) || (!directory_empty(staging) && !valid_marker(staging))) {
                 throw ValidationError("render output changed during replacement: " + output.string());
             }
             fsync_dir(output.parent_path());
@@ -265,4 +257,4 @@ void replace_render_directory(
     }
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::platform::linux

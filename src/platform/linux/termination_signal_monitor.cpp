@@ -18,10 +18,10 @@
 #include <thread>
 #include <utility>
 
-namespace btrfsbackup::platform_linux {
+namespace btrfsbackup::platform::linux {
 
 class TerminationSignalMonitor::Impl {
-public:
+  public:
     explicit Impl(std::function<void()> on_termination)
         : on_termination_(std::move(on_termination)) {
         sigemptyset(&signals_);
@@ -65,7 +65,7 @@ public:
         cleanup();
     }
 
-private:
+  private:
     void run() {
         pollfd fds[2]{
             {.fd = signal_fd_, .events = POLLIN, .revents = 0},
@@ -87,7 +87,7 @@ private:
                 continue;
             }
 
-            signalfd_siginfo signal_info {};
+            signalfd_siginfo signal_info{};
             while (read(signal_fd_, &signal_info, sizeof(signal_info)) == sizeof(signal_info)) {
                 if (signal_info.ssi_signo == SIGINT || signal_info.ssi_signo == SIGTERM) {
                     on_termination_();
@@ -112,8 +112,8 @@ private:
     }
 
     std::function<void()> on_termination_;
-    sigset_t signals_ {};
-    sigset_t previous_mask_ {};
+    sigset_t signals_{};
+    sigset_t previous_mask_{};
     bool mask_installed_ = false;
     int signal_fd_ = -1;
     int stop_fd_ = -1;
@@ -126,4 +126,4 @@ TerminationSignalMonitor::TerminationSignalMonitor(std::function<void()> on_term
 
 TerminationSignalMonitor::~TerminationSignalMonitor() = default;
 
-} // namespace btrfsbackup::platform_linux
+} // namespace btrfsbackup::platform::linux

@@ -6,17 +6,17 @@
 
 #include <utility>
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup {
 
 namespace {
 
 BackupRunStatusDescription status_description(
-    const Profile& profile,
+    const btrfsbackup::config::Profile& profile,
     const BackupRunPlan& plan,
     const std::string& started_at
 ) {
     std::map<std::string, std::string> source_names;
-    for (const ProfileSource& source : profile.sources) {
+    for (const btrfsbackup::config::ProfileSource& source : profile.sources) {
         source_names.emplace(source.id.value(), source.name);
     }
     return {
@@ -31,7 +31,7 @@ BackupRunStatusDescription status_description(
 } // namespace
 
 BackupService::BackupService(
-    IProfileRepository& profiles,
+    btrfsbackup::config::IProfileRepository& profiles,
     IMountInspector& mounts,
     ITargetManager& target_mounter,
     IBackupPlanner& planner,
@@ -57,7 +57,7 @@ BackupService::BackupService(
 }
 
 BackupRunPlan BackupService::prepare_plan(
-    const Profile& profile,
+    const btrfsbackup::config::Profile& profile,
     const RunId& run_id,
     const std::string& timestamp
 ) {
@@ -68,14 +68,14 @@ BackupRunPlan BackupService::prepare_plan(
 BackupRunPlan BackupService::plan(const BackupRequest& request) {
     const std::string timestamp = clock_.snapshot_timestamp();
     const RunId run_id = run_ids_.generate(timestamp);
-    const Profile profile = profiles_.get(request.profile_id);
+    const btrfsbackup::config::Profile profile = profiles_.get(request.profile_id);
     return prepare_plan(profile, run_id, timestamp);
 }
 
 BackupExecutionResult BackupService::start(const BackupRequest& request) {
     const std::string timestamp = clock_.snapshot_timestamp();
     const RunId run_id = run_ids_.generate(timestamp);
-    const Profile profile = profiles_.get(request.profile_id);
+    const btrfsbackup::config::Profile profile = profiles_.get(request.profile_id);
 
     BackupExecutionResult result{
         .plan = BackupRunPlan{
@@ -142,9 +142,9 @@ BackupExecutionResult BackupService::start(const BackupRequest& request) {
 }
 
 CancelBackupResult BackupService::cancel(const ProfileId& profile_id) {
-    const Profile profile = profiles_.get(profile_id);
+    const btrfsbackup::config::Profile profile = profiles_.get(profile_id);
     state_.request_cancel(profile.id);
     return {.profile_id = profile.id, .cancel_requested = true};
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup

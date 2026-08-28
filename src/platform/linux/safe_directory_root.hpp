@@ -10,9 +10,9 @@
 #include <backup/ports/safe_directory.hpp>
 #include <backup/transfer/transfer_plan.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::platform::linux {
 
-class SafeDirectoryHandle final : public ISafeDirectoryHandle {
+class SafeDirectoryHandle final : public btrfsbackup::backup::ISafeDirectoryHandle {
   public:
     SafeDirectoryHandle() = default;
     explicit SafeDirectoryHandle(int fd);
@@ -30,7 +30,7 @@ class SafeDirectoryHandle final : public ISafeDirectoryHandle {
     int fd_ = -1;
 };
 
-class SafeDirectoryRoot final : public ISafeDirectoryRoot {
+class SafeDirectoryRoot final : public btrfsbackup::backup::ISafeDirectoryRoot {
   public:
     explicit SafeDirectoryRoot(const std::filesystem::path& root);
     SafeDirectoryRoot(const SafeDirectoryRoot&) = delete;
@@ -39,10 +39,10 @@ class SafeDirectoryRoot final : public ISafeDirectoryRoot {
     SafeDirectoryRoot& operator=(SafeDirectoryRoot&&) noexcept = default;
 
     const std::filesystem::path& path() const noexcept override;
-    [[nodiscard]] std::unique_ptr<ISafeDirectoryHandle> pin_directory(
+    [[nodiscard]] std::unique_ptr<btrfsbackup::backup::ISafeDirectoryHandle> pin_directory(
         const std::filesystem::path& path
     ) const override;
-    [[nodiscard]] std::unique_ptr<ISafeDirectoryHandle> pin_path(
+    [[nodiscard]] std::unique_ptr<btrfsbackup::backup::ISafeDirectoryHandle> pin_path(
         const std::filesystem::path& path
     ) const override;
     SafeDirectoryHandle open_directory(const std::filesystem::path& path) const;
@@ -61,11 +61,11 @@ class SafeDirectoryRoot final : public ISafeDirectoryRoot {
     SafeDirectoryHandle root_;
 };
 
-class SafeDirectoryRootFactory final : public ISafeDirectoryRootFactory {
+class SafeDirectoryRootFactory final : public btrfsbackup::backup::ISafeDirectoryRootFactory {
   public:
-    [[nodiscard]] std::unique_ptr<ISafeDirectoryRoot> open(
+    [[nodiscard]] std::unique_ptr<btrfsbackup::backup::ISafeDirectoryRoot> open(
         const std::filesystem::path& root
     ) const override;
 };
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::platform::linux

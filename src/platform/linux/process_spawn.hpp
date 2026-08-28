@@ -11,7 +11,7 @@
 #include <string>
 #include <vector>
 
-namespace btrfsbackup {
+namespace btrfsbackup::platform::linux {
 
 struct ProcessSpawnOptions {
     int stdin_fd = -1;
@@ -37,7 +37,7 @@ struct ChildProcessCleanupPolicy {
 };
 
 class ChildProcess {
-public:
+  public:
     ChildProcess() = default;
     ChildProcess(pid_t pid, bool process_group, ChildProcessCleanupPolicy cleanup_policy = {}) noexcept;
     ChildProcess(const ChildProcess&) = delete;
@@ -52,7 +52,7 @@ public:
     void mark_reaped();
     void release();
 
-private:
+  private:
     void cleanup() noexcept;
     bool wait_until(std::chrono::steady_clock::time_point deadline) noexcept;
 
@@ -68,4 +68,4 @@ ProcessSpawnResult spawn_program(
     const ProcessSpawnOptions& options = {}
 );
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::platform::linux

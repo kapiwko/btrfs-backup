@@ -26,12 +26,12 @@ std::string lowercase(std::string value) {
 }
 
 bool remote_contains_received_uuid(
-    const std::vector<btrfsbackup::SnapshotInfo>& remote_snapshots,
+    const std::vector<btrfsbackup::backup::SnapshotInfo>& remote_snapshots,
     const std::string& source_id,
     const std::string& uuid
 ) {
     const std::string wanted = lowercase(uuid);
-    for (const btrfsbackup::SnapshotInfo& remote : remote_snapshots) {
+    for (const btrfsbackup::backup::SnapshotInfo& remote : remote_snapshots) {
         if (remote.source_id == source_id && !remote.received_uuid.empty() && lowercase(remote.received_uuid) == wanted) {
             return true;
         }
@@ -44,7 +44,7 @@ bool uuid_equals(const std::string& left, const std::string& right) {
 }
 
 bool marker_path_is_valid(
-    const btrfsbackup::PendingMarker& marker,
+    const btrfsbackup::backup::PendingMarker& marker,
     const std::string& source_id,
     const fs::path& local_snapshot_dir,
     const fs::path& remote_snapshot_dir
@@ -54,7 +54,7 @@ bool marker_path_is_valid(
     }
 
     const fs::path snapshot_path = fs::path(marker.local_snapshot_path).lexically_normal();
-    if (!btrfsbackup::path_is_within(snapshot_path, local_snapshot_dir)) {
+    if (!btrfsbackup::config::path_is_within(snapshot_path, local_snapshot_dir)) {
         return false;
     }
 
@@ -70,15 +70,15 @@ bool marker_path_is_valid(
     }
 
     const fs::path final_path = fs::path(marker.final_snapshot_path).lexically_normal();
-    return btrfsbackup::path_is_within(final_path, remote_snapshot_dir) && final_path.filename() == snapshot_path.filename();
+    return btrfsbackup::config::path_is_within(final_path, remote_snapshot_dir) && final_path.filename() == snapshot_path.filename();
 }
 
-const btrfsbackup::SnapshotInfo* remote_snapshot_at_path(
-    const std::vector<btrfsbackup::SnapshotInfo>& remote_snapshots,
+const btrfsbackup::backup::SnapshotInfo* remote_snapshot_at_path(
+    const std::vector<btrfsbackup::backup::SnapshotInfo>& remote_snapshots,
     const fs::path& path
 ) {
     const fs::path wanted = path.lexically_normal();
-    for (const btrfsbackup::SnapshotInfo& remote : remote_snapshots) {
+    for (const btrfsbackup::backup::SnapshotInfo& remote : remote_snapshots) {
         if (remote.path.lexically_normal() == wanted) {
             return &remote;
         }
@@ -88,7 +88,7 @@ const btrfsbackup::SnapshotInfo* remote_snapshot_at_path(
 
 } // namespace
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup {
 
 PendingRecoveryPlan plan_pending_recovery(
     const std::string& source_id,
@@ -160,4 +160,4 @@ PendingRecoveryPlan plan_pending_recovery(
     return plan;
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup

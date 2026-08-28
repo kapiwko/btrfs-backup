@@ -9,12 +9,12 @@
 #include <core/identifiers.hpp>
 #include <state/run_state.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::state {
 
 FilePendingMarkerStore::FilePendingMarkerStore(IDurableFileOperations& files) : files_(files) {
 }
 
-std::optional<PendingMarker> FilePendingMarkerStore::read(
+std::optional<btrfsbackup::backup::PendingMarker> FilePendingMarkerStore::read(
     const std::filesystem::path& profile_state_dir,
     const std::string& source_id
 ) const {
@@ -24,7 +24,7 @@ std::optional<PendingMarker> FilePendingMarkerStore::read(
     if (!std::filesystem::is_regular_file(path, error) || error) {
         return std::nullopt;
     }
-    return PendingMarker{
+    return btrfsbackup::backup::PendingMarker{
         .source_name = read_pending_marker_field(path, "source_name"),
         .local_snapshot_path = read_pending_marker_field(path, "local_snapshot_path"),
         .final_snapshot_path = read_pending_marker_field(path, "final_snapshot_path"),
@@ -35,7 +35,7 @@ std::optional<PendingMarker> FilePendingMarkerStore::read(
 
 void FilePendingMarkerStore::write(
     const std::filesystem::path& profile_state_dir,
-    const PendingMarker& marker
+    const btrfsbackup::backup::PendingMarker& marker
 ) {
     write_pending_marker(files_, profile_state_dir, marker);
 }
@@ -44,4 +44,4 @@ void FilePendingMarkerStore::clear(const std::filesystem::path& marker_path) {
     clear_pending_marker(files_, marker_path);
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::state

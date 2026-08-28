@@ -26,18 +26,18 @@ int mode_of(const fs::path& path) {
 
 void test_checkpoint_store_writes_private_json_in_state_dir() {
     const fs::path root = test_helpers::test_root("run-checkpoint-store", "checkpoint");
-    btrfsbackup::PosixDurableFileOperations durable_files;
-    btrfsbackup::JsonFileBackupRunCheckpointStore store(durable_files, root / "state");
+    btrfsbackup::platform::linux::PosixDurableFileOperations durable_files;
+    btrfsbackup::state::JsonFileBackupRunCheckpointStore store(durable_files, root / "state");
 
     store.write_checkpoint({
         .profile_id = btrfsbackup::ProfileId{"default"},
         .run_id = btrfsbackup::RunId{"20260823T120000Z-123-456"},
         .source_id = btrfsbackup::SourceId{"root"},
-        .action_kind = btrfsbackup::BackupRunActionKind::CreateSnapshot,
+        .action_kind = btrfsbackup::backup::BackupRunActionKind::CreateSnapshot,
     });
 
     const fs::path checkpoint = root / "state" / "checkpoint.json";
-    const btrfsbackup::Json data = btrfsbackup::load_json_file(checkpoint);
+    const btrfsbackup::config::Json data = btrfsbackup::config::load_json_file(checkpoint);
     test_helpers::expect_true("checkpoint exists", fs::is_regular_file(checkpoint), "missing checkpoint");
     test_helpers::expect_true("checkpoint action", data.at("action") == "create-snapshot", "wrong action");
     test_helpers::expect_true("state dir mode", mode_of(root / "state") == 0700, "state dir should be private");

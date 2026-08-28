@@ -39,8 +39,8 @@ int main(int argc, char** argv) {
             }
         }
 
-        const btrfsbackup::ApplicationPaths configured = btrfsbackup::load_application_config(config_root).paths();
-        btrfsbackup::ManagerPaths paths{
+        const btrfsbackup::config::ApplicationPaths configured = btrfsbackup::platform::linux::load_application_config(config_root).paths();
+        btrfsbackup::daemon::ManagerPaths paths{
             .config_root = config_root,
             .public_profile_root = "/var/lib/btrfs-backup/public/profiles",
             .status_root = configured.status_root,
@@ -80,8 +80,8 @@ int main(int argc, char** argv) {
             }
         }
 
-        btrfsbackup::ManagerService service(std::move(paths));
-        return btrfsbackup::run_dbus_server(service, bus_address);
+        btrfsbackup::daemon::ManagerService service(std::move(paths));
+        return btrfsbackup::daemon::run_dbus_server(service, bus_address);
     } catch (const std::exception& exception) {
         std::cerr << "btrfs-backupd: " << exception.what() << '\n';
         return 1;

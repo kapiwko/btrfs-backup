@@ -7,7 +7,7 @@
 #include <filesystem>
 #include <functional>
 
-namespace btrfsbackup {
+namespace btrfsbackup::platform::linux {
 
 // Atomic replacement of a rendered Linux directory tree.
 
@@ -19,4 +19,4 @@ void replace_render_directory(
     const std::function<void(const std::filesystem::path&)>& validate
 );
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::platform::linux

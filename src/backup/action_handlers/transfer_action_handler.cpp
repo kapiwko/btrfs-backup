@@ -9,7 +9,7 @@
 #include <backup/ports/filesystem.hpp>
 #include <backup/ports/safe_directory.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup {
 
 TransferActionHandler::TransferActionHandler(IFileSystem& filesystem) : filesystem_(filesystem) {
 }
@@ -34,4 +34,4 @@ void TransferActionHandler::handle(const SendReceiveAction& action) {
     }
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup

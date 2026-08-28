@@ -8,20 +8,20 @@
 
 #include <backup/transfer/transfer_pipeline.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::platform::linux {
 
 struct TransferTerminationPolicy {
     std::chrono::milliseconds terminate_grace_period{5000};
     std::chrono::milliseconds kill_reap_period{5000};
 };
 
-class PosixTransferPipeline final : public ITransferPipeline {
+class PosixTransferPipeline final : public btrfsbackup::backup::transfer::ITransferPipeline {
   public:
     explicit PosixTransferPipeline(TransferTerminationPolicy termination_policy = {});
 
-    [[nodiscard]] TransferResult run(
-        const TransferPipelinePlan& plan,
-        ITransferEventSink& events,
+    [[nodiscard]] btrfsbackup::backup::transfer::TransferResult run(
+        const btrfsbackup::backup::transfer::TransferPipelinePlan& plan,
+        btrfsbackup::backup::transfer::ITransferEventSink& events,
         CancellationToken& cancellation
     ) override;
 
@@ -29,4 +29,4 @@ class PosixTransferPipeline final : public ITransferPipeline {
     TransferTerminationPolicy termination_policy_;
 };
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::platform::linux

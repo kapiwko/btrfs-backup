@@ -7,8 +7,10 @@
 #include <backup/model/backup_run_plan.hpp>
 
 namespace btrfsbackup {
-
 class CancellationToken;
+}
+
+namespace btrfsbackup::backup {
 class HookActionHandler;
 class RecoveryActionHandler;
 class RepositoryActionHandler;
@@ -53,4 +55,4 @@ class BackupRunActionHandler final : public IBackupRunActionHandler {
     TransferActionHandler& transfers_;
 };
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup

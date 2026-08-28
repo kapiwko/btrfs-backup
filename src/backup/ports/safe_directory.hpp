@@ -9,9 +9,9 @@
 
 #include <backup/transfer/transfer_plan.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup {
 
-class ISafeDirectoryHandle : public ITransferResource {
+class ISafeDirectoryHandle : public btrfsbackup::backup::transfer::ITransferResource {
   public:
     ~ISafeDirectoryHandle() override = default;
 
@@ -45,4 +45,4 @@ class ISafeDirectoryRootFactory {
     ) const = 0;
 };
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup

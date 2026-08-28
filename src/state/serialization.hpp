@@ -9,14 +9,14 @@
 #include <backup/model/backup_run_event.hpp>
 #include <config/model/json.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::state {
 
 // Serialization boundary for persisted backup events and checkpoints.
 
-std::string backup_run_action_kind_name(BackupRunActionKind kind);
-std::string backup_run_event_kind_name(BackupRunEventKind kind);
+std::string backup_run_action_kind_name(btrfsbackup::backup::BackupRunActionKind kind);
+std::string backup_run_event_kind_name(btrfsbackup::backup::BackupRunEventKind kind);
 
-Json build_backup_run_checkpoint_json(const BackupRunCheckpoint& checkpoint);
-Json build_backup_run_event_json(const BackupRunEvent& event);
+btrfsbackup::config::Json build_backup_run_checkpoint_json(const btrfsbackup::backup::BackupRunCheckpoint& checkpoint);
+btrfsbackup::config::Json build_backup_run_event_json(const btrfsbackup::backup::BackupRunEvent& event);
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::state

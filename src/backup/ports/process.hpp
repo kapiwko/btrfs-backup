@@ -11,8 +11,10 @@
 #include <vector>
 
 namespace btrfsbackup {
-
 class CancellationToken;
+}
+
+namespace btrfsbackup::backup {
 
 inline constexpr std::chrono::seconds default_command_timeout{30};
 inline constexpr std::size_t default_command_max_output_bytes = 1024 * 1024;
@@ -34,4 +36,4 @@ struct ControlledCommandOptions {
     std::map<std::string, std::string> environment;
 };
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup

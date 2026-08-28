@@ -12,7 +12,7 @@
 #include <core/identifiers.hpp>
 #include <core/error_code.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup {
 
 enum class BackupRunEventKind {
     RunStarted,
@@ -69,4 +69,4 @@ class IBackupRunCheckpointStore {
     virtual void write_checkpoint(const BackupRunCheckpoint& checkpoint) = 0;
 };
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup

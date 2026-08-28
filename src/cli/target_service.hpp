@@ -13,11 +13,11 @@
 #include <backup/ports/mount_inspector.hpp>
 #include <core/identifiers.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::cli {
 
 struct TargetServiceDependencies {
-    ICommandRunner& commands;
-    std::function<std::vector<MountEntry>()> read_mounts;
+    btrfsbackup::backup::ICommandRunner& commands;
+    std::function<std::vector<btrfsbackup::backup::MountEntry>()> read_mounts;
     std::filesystem::path lock_root;
     std::filesystem::path mount_point_trust_root;
 };
@@ -70,4 +70,4 @@ TargetOperationResult eject_target(
     TargetServiceDependencies* dependencies = nullptr
 );
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::cli

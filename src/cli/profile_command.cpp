@@ -22,9 +22,9 @@
 
 namespace fs = std::filesystem;
 using btrfsbackup::ValidationError;
-using btrfsbackup::dump_json;
-using btrfsbackup::Profile;
-using btrfsbackup::profile_to_json;
+using btrfsbackup::config::dump_json;
+using btrfsbackup::config::Profile;
+using btrfsbackup::config::profile_to_json;
 
 namespace {
 
@@ -55,12 +55,12 @@ void usage() {
 
 } // namespace
 
-namespace btrfsbackup::command {
+namespace btrfsbackup::cli {
 
 int profile(
     const std::vector<std::string>& args,
     const fs::path& profile_config_dir,
-    IConfigurationActivator& system_activator
+    btrfsbackup::config::IConfigurationActivator& system_activator
 ) {
     fs::path etc_root = std::getenv("BTRFS_BACKUP_ETC_ROOT") ? std::getenv("BTRFS_BACKUP_ETC_ROOT") : "/etc/btrfs-backup";
     fs::path udev_root = std::getenv("BTRFS_BACKUP_UDEV_ROOT") ? std::getenv("BTRFS_BACKUP_UDEV_ROOT") : "/etc/udev/rules.d";
@@ -104,8 +104,7 @@ int profile(
         if (command == "wizard") {
             return profile_wizard(std::vector<std::string>(rest.begin() + 1, rest.end()));
         }
-        if (command != "validate" && command != "render" && command != "save"
-            && command != "show" && command != "export") {
+        if (command != "validate" && command != "render" && command != "save" && command != "show" && command != "export") {
             fail("unknown command: " + command);
         }
         fs::path file;
@@ -130,33 +129,38 @@ int profile(
         }
 
         if (command == "validate") {
-            if (file.empty()) fail("validate requires --file");
-            ApplicationConfig config = load_application_config(etc_root);
-            std::cout << dump_json(profile_to_json(validate_profile_file(file, config.paths().target_mount_root)));
+            if (file.empty())
+                fail("validate requires --file");
+            btrfsbackup::config::ApplicationConfig config = btrfsbackup::platform::linux::load_application_config(etc_root);
+            std::cout << btrfsbackup::config::dump_json(btrfsbackup::config::profile_to_json(btrfsbackup::platform::linux::validate_profile_file(file, config.paths().target_mount_root)));
         } else if (command == "render") {
-            if (file.empty()) fail("render requires --file");
-            if (output_dir.empty()) fail("render requires --output-dir");
-            ApplicationConfig config = load_application_config(etc_root);
-            Profile profile = validate_profile_file(file, config.paths().target_mount_root);
-            render_profile(file, output_dir, config.paths().target_mount_root);
+            if (file.empty())
+                fail("render requires --file");
+            if (output_dir.empty())
+                fail("render requires --output-dir");
+            btrfsbackup::config::ApplicationConfig config = btrfsbackup::platform::linux::load_application_config(etc_root);
+            btrfsbackup::config::Profile profile = btrfsbackup::platform::linux::validate_profile_file(file, config.paths().target_mount_root);
+            btrfsbackup::platform::linux::render_profile(file, output_dir, config.paths().target_mount_root);
             std::cout << "Rendered profile " << profile.id.value() << " to " << output_dir << "\n";
         } else if (command == "save") {
-            if (file.empty()) fail("save requires --file");
+            if (file.empty())
+                fail("save requires --file");
             if (geteuid() != 0 && etc_root == "/etc/btrfs-backup") {
                 fail("save to system configuration must be run as root", 1);
             }
             const bool installs_system_configuration = fs::absolute(etc_root).lexically_normal() == fs::path("/etc/btrfs-backup") && fs::absolute(udev_root).lexically_normal() == fs::path("/etc/udev/rules.d") && fs::absolute(systemd_root).lexically_normal() == fs::path("/etc/systemd/system") && fs::absolute(public_root).lexically_normal() == fs::path("/var/lib/btrfs-backup/public/profiles");
-            NullConfigurationActivator null_activator;
-            IConfigurationActivator& activator = installs_system_configuration
+            btrfsbackup::config::NullConfigurationActivator null_activator;
+            btrfsbackup::config::IConfigurationActivator& activator = installs_system_configuration
                 ? system_activator
-                : static_cast<IConfigurationActivator&>(null_activator);
-            Profile profile = save_profile(file, {etc_root, udev_root, systemd_root, public_root}, activator);
+                : static_cast<btrfsbackup::config::IConfigurationActivator&>(null_activator);
+            btrfsbackup::config::Profile profile = btrfsbackup::platform::linux::save_profile(file, {etc_root, udev_root, systemd_root, public_root}, activator);
             std::cout << "Saved profile " << profile.id.value() << "\n";
         } else if (command == "show") {
-            std::cout << dump_json(profile_to_json(get_profile(etc_root, profile_id)));
+            std::cout << btrfsbackup::config::dump_json(btrfsbackup::config::profile_to_json(btrfsbackup::platform::linux::get_profile(etc_root, profile_id)));
         } else if (command == "export") {
-            if (output_dir.empty()) fail("export requires --output");
-            Profile profile = export_profile(etc_root, profile_id, output_dir);
+            if (output_dir.empty())
+                fail("export requires --output");
+            btrfsbackup::config::Profile profile = btrfsbackup::platform::linux::export_profile(etc_root, profile_id, output_dir);
             std::cout << "Exported profile " << profile.id.value() << " to " << output_dir << "\n";
         } else {
             fail("unknown command: " + command);
@@ -169,4 +173,4 @@ int profile(
     return 0;
 }
 
-} // namespace btrfsbackup::command
+} // namespace btrfsbackup::cli

@@ -54,12 +54,8 @@ bool allowed_systemd_verify_failure(const std::string& output, bool allow_missin
             continue;
         }
         saw_output = true;
-        bool missing_executable = allow_missing_executables
-            && line.find(".service: Command ") != std::string::npos
-            && line.ends_with(" is not executable: No such file or directory");
-        if (line != "Failed to turn off SO_PASSRIGHTS on user lookup socket, ignoring: Operation not permitted"
-            && line != "Failed to enable SO_PASSCRED on handoff timestamp socket: Operation not permitted"
-            && !missing_executable) {
+        bool missing_executable = allow_missing_executables && line.find(".service: Command ") != std::string::npos && line.ends_with(" is not executable: No such file or directory");
+        if (line != "Failed to turn off SO_PASSRIGHTS on user lookup socket, ignoring: Operation not permitted" && line != "Failed to enable SO_PASSCRED on handoff timestamp socket: Operation not permitted" && !missing_executable) {
             return false;
         }
     }
@@ -71,7 +67,7 @@ void run_checked(
     bool allow_systemd_warnings = false,
     bool allow_missing_executables = false
 ) {
-    btrfsbackup::CommandResult result = btrfsbackup::run_command(argv);
+    btrfsbackup::backup::CommandResult result = btrfsbackup::platform::linux::run_command(argv);
     if (result.exit_code == 0) {
         if (!result.output.empty()) {
             std::cerr << result.output;
@@ -105,7 +101,7 @@ void require_exact_text(const fs::path& path, const std::string& expected, const
 
 } // namespace
 
-namespace btrfsbackup {
+namespace btrfsbackup::platform::linux {
 
 void validate_rendered_installation(const fs::path& root, const fs::path& target_mount_root) {
     fs::path profile_json = root / "config" / "profile.json";
@@ -121,11 +117,11 @@ void validate_rendered_installation(const fs::path& root, const fs::path& target
         throw ValidationError("unresolved placeholders remain in rendered files");
     }
 
-    Profile profile = profile_from_json(load_json_file(profile_json), target_mount_root);
+    btrfsbackup::config::Profile profile = btrfsbackup::config::profile_from_json(btrfsbackup::config::load_json_file(profile_json), target_mount_root);
     fs::path mount_dependency = root / "systemd" / ("btrfs-backup@" + std::string(profile.id.value()) + ".service.d") / "target-mount.conf";
     require_exact_text(
         mount_dependency,
-        render_mount_dependency(profile),
+        btrfsbackup::config::render_mount_dependency(profile),
         "missing rendered target mount dependency"
     );
     fs::path udev_file = root / "udev" / ("99-btrfs-backup-" + std::string(profile.id.value()) + ".rules");
@@ -154,10 +150,10 @@ void validate_active_installation(const std::string& profile_id) {
     }
     require_file(eject_service_file, "missing eject systemd template unit");
 
-    ApplicationConfig config = load_application_config();
-    Profile profile = profile_from_json(load_json_file(profile_json), config.paths().target_mount_root);
+    btrfsbackup::config::ApplicationConfig config = load_application_config();
+    btrfsbackup::config::Profile profile = btrfsbackup::config::profile_from_json(btrfsbackup::config::load_json_file(profile_json), config.paths().target_mount_root);
     fs::path mount_dependency = fs::path("/etc/systemd/system") / ("btrfs-backup@" + std::string(profile.id.value()) + ".service.d") / "target-mount.conf";
-    require_exact_text(mount_dependency, render_mount_dependency(profile), "missing target mount dependency");
+    require_exact_text(mount_dependency, btrfsbackup::config::render_mount_dependency(profile), "missing target mount dependency");
     fs::path udev_file = fs::path("/etc/udev/rules.d") / ("99-btrfs-backup-" + std::string(profile.id.value()) + ".rules");
     if (!fs::is_regular_file(udev_file)) {
         throw ValidationError("missing " + udev_file.string());
@@ -184,4 +180,4 @@ void validate_active_installation(const std::string& profile_id) {
     std::cerr << "Active static configuration is valid. Run 'sudo btrfs-backup --validate' with the target connected for runtime validation.\n";
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::platform::linux

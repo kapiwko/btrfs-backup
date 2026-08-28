@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 
-namespace btrfsbackup::wizard {
+namespace btrfsbackup::platform::linux {
 
 // Linux block-device discovery for the profile wizard.
 
@@ -29,4 +29,4 @@ std::string udev_property_for_device(const std::string& device_path, const char*
 std::string detect_btrfs_uuid(const std::string& mapper_name);
 DeviceCandidate select_device(std::istream& input, std::ostream& output);
 
-} // namespace btrfsbackup::wizard
+} // namespace btrfsbackup::platform::linux

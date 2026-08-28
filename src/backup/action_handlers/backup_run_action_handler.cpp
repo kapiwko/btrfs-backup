@@ -11,7 +11,7 @@
 #include <backup/action_handlers/snapshot_action_handler.hpp>
 #include <backup/action_handlers/transfer_action_handler.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup {
 
 namespace {
 
@@ -79,4 +79,4 @@ void BackupRunActionHandler::handle(
                action);
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup

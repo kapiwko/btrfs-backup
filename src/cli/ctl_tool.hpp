@@ -4,8 +4,8 @@
 
 #pragma once
 
-namespace btrfsbackup {
+namespace btrfsbackup::cli {
 
 int ctl_tool_main(int argc, char** argv);
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::cli

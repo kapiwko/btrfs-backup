@@ -25,7 +25,7 @@
 
 namespace fs = std::filesystem;
 
-namespace btrfsbackup {
+namespace btrfsbackup::platform::linux {
 
 namespace {
 
@@ -175,7 +175,7 @@ fs::path SafeDirectoryHandle::stable_path() const {
 }
 
 SafeDirectoryRoot::SafeDirectoryRoot(const fs::path& root)
-    : root_path_(normalized_path(root)) {
+    : root_path_(btrfsbackup::config::normalized_path(root)) {
     if (!root_path_.is_absolute()) {
         throw ValidationError("safe directory root must be absolute: " + root.string());
     }
@@ -199,17 +199,17 @@ const fs::path& SafeDirectoryRoot::path() const noexcept {
     return root_path_;
 }
 
-std::unique_ptr<ISafeDirectoryHandle> SafeDirectoryRoot::pin_directory(const fs::path& path) const {
+std::unique_ptr<btrfsbackup::backup::ISafeDirectoryHandle> SafeDirectoryRoot::pin_directory(const fs::path& path) const {
     return std::make_unique<SafeDirectoryHandle>(open_directory(path));
 }
 
-std::unique_ptr<ISafeDirectoryHandle> SafeDirectoryRoot::pin_path(const fs::path& path) const {
+std::unique_ptr<btrfsbackup::backup::ISafeDirectoryHandle> SafeDirectoryRoot::pin_path(const fs::path& path) const {
     return std::make_unique<SafeDirectoryHandle>(open_path(path));
 }
 
 fs::path SafeDirectoryRoot::relative_path(const fs::path& path) const {
-    fs::path normalized = normalized_path(path);
-    if (!normalized.is_absolute() || !path_is_within(normalized, root_path_)) {
+    fs::path normalized = btrfsbackup::config::normalized_path(path);
+    if (!normalized.is_absolute() || !btrfsbackup::config::path_is_within(normalized, root_path_)) {
         throw ValidationError("path escapes safe directory root " + root_path_.string() + ": " + path.string());
     }
     fs::path relative = normalized.lexically_relative(root_path_);
@@ -308,8 +308,8 @@ void SafeDirectoryRoot::delete_subvolume(const fs::path& path) const {
     destroy_subvolume_at(parent.fd(), name, path);
 }
 
-std::unique_ptr<ISafeDirectoryRoot> SafeDirectoryRootFactory::open(const fs::path& root) const {
+std::unique_ptr<btrfsbackup::backup::ISafeDirectoryRoot> SafeDirectoryRootFactory::open(const fs::path& root) const {
     return std::make_unique<SafeDirectoryRoot>(root);
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::platform::linux

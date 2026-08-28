@@ -27,11 +27,11 @@
 
 namespace fs = std::filesystem;
 
-namespace btrfsbackup {
+namespace btrfsbackup::platform::linux {
 
 namespace {
 
-class WizardConfigurationActivator final : public IConfigurationActivator {
+class WizardConfigurationActivator final : public btrfsbackup::config::IConfigurationActivator {
   public:
     explicit WizardConfigurationActivator(fs::path rendered_root)
         : rendered_root_(std::move(rendered_root)) {
@@ -66,9 +66,9 @@ class WizardConfigurationActivator final : public IConfigurationActivator {
 
 } // namespace
 
-void render_wizard_tree(const Profile& profile, const std::string& keyfile, const fs::path& output_dir) {
+void render_wizard_tree(const btrfsbackup::config::Profile& profile, const std::string& keyfile, const fs::path& output_dir) {
     const fs::path target_mount_root = fs::path(profile.target.mount_point).parent_path();
-    const Profile validated_profile = profile_from_json(profile_to_json(profile), target_mount_root);
+    const btrfsbackup::config::Profile validated_profile = btrfsbackup::config::profile_from_json(btrfsbackup::config::profile_to_json(profile), target_mount_root);
     replace_render_directory(
         output_dir,
         [&](const fs::path& staging) {
@@ -76,9 +76,9 @@ void render_wizard_tree(const Profile& profile, const std::string& keyfile, cons
             fs::create_directories(staging / "systemd");
             fs::create_directories(staging / "udev");
 
-            atomic_write(staging / "config" / "profile.json", dump_json(profile_to_json(validated_profile)), 0600);
-            ProfileArtifactRenderer renderer(generate_configuration_generation);
-            NullConfigurationActivator activator;
+            atomic_write(staging / "config" / "profile.json", btrfsbackup::config::dump_json(btrfsbackup::config::profile_to_json(validated_profile)), 0600);
+            btrfsbackup::config::ProfileArtifactRenderer renderer(generate_configuration_generation);
+            btrfsbackup::config::NullConfigurationActivator activator;
             ProfileInstaller installer(renderer, activator);
             installer.install_profile_transactionally(
                 validated_profile,
@@ -93,11 +93,9 @@ void render_wizard_tree(const Profile& profile, const std::string& keyfile, cons
             render_installation_files(
                 validated_profile,
                 staging,
-                {
-                    "/usr/bin/btrfs-backupctl runner execute",
-                    "/usr/bin/btrfs-backupctl target eject",
-                    keyfile
-                }
+                {"/usr/bin/btrfs-backupctl runner execute",
+                 "/usr/bin/btrfs-backupctl target eject",
+                 keyfile}
             );
         },
         [&](const fs::path& staging) {
@@ -106,7 +104,7 @@ void render_wizard_tree(const Profile& profile, const std::string& keyfile, cons
     );
 }
 
-void apply_rendered_wizard_tree(const Profile& profile, const fs::path& output_dir) {
+void apply_rendered_wizard_tree(const btrfsbackup::config::Profile& profile, const fs::path& output_dir) {
     if (geteuid() != 0) {
         throw ValidationError("apply must be run as root");
     }
@@ -117,7 +115,7 @@ void apply_rendered_wizard_tree(const Profile& profile, const fs::path& output_d
     ensure_trusted_directory(profile.target.mount_point, 0755);
 
     WizardConfigurationActivator activator(output_dir);
-    ProfileArtifactRenderer renderer(generate_configuration_generation);
+    btrfsbackup::config::ProfileArtifactRenderer renderer(generate_configuration_generation);
     ProfileInstaller installer(renderer, activator);
     installer.install_profile_transactionally(
         profile,
@@ -131,4 +129,4 @@ void apply_rendered_wizard_tree(const Profile& profile, const fs::path& output_d
     validate_active_installation(std::string(profile.id.value()));
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::platform::linux

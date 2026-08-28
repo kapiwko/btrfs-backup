@@ -10,7 +10,7 @@
 
 #include <backup/model/snapshot_inventory.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup {
 
 struct RetentionPlan {
     std::string source_id;
@@ -25,4 +25,4 @@ RetentionPlan plan_count_retention(
     std::size_t keep_count
 );
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup

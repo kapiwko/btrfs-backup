@@ -10,7 +10,7 @@
 
 namespace fs = std::filesystem;
 
-namespace btrfsbackup::wizard {
+namespace btrfsbackup::config {
 
 std::filesystem::path default_output_dir() {
     if (geteuid() == 0) {
@@ -19,4 +19,4 @@ std::filesystem::path default_output_dir() {
     return fs::current_path() / "generated";
 }
 
-} // namespace btrfsbackup::wizard
+} // namespace btrfsbackup::config

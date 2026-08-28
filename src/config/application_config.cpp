@@ -6,7 +6,7 @@
 
 #include <utility>
 
-namespace btrfsbackup {
+namespace btrfsbackup::config {
 
 ApplicationConfig::ApplicationConfig() : ApplicationConfig(defaults().paths()) {
 }
@@ -27,4 +27,4 @@ const ApplicationPaths& ApplicationConfig::paths() const {
     return paths_;
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::config

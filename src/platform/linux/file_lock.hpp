@@ -7,14 +7,14 @@
 #include <filesystem>
 #include <string>
 
-namespace btrfsbackup {
+namespace btrfsbackup::platform::linux {
 
 std::filesystem::path default_lock_root();
 std::filesystem::path profile_lock_path(const std::filesystem::path& lock_root, const std::string& profile_id);
 std::filesystem::path target_lock_path(const std::filesystem::path& lock_root, const std::string& luks_uuid);
 
 class FileLock {
-public:
+  public:
     explicit FileLock(std::filesystem::path path);
     FileLock(const FileLock&) = delete;
     FileLock& operator=(const FileLock&) = delete;
@@ -26,10 +26,10 @@ public:
     void release();
     bool acquired() const;
 
-private:
+  private:
     std::filesystem::path path_;
     int fd_ = -1;
     bool acquired_ = false;
 };
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::platform::linux

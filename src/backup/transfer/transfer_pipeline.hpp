@@ -9,7 +9,7 @@
 #include <backup/transfer/transfer_result.hpp>
 #include <core/cancellation.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup::transfer {
 
 class ITransferPipeline {
   public:
@@ -21,4 +21,4 @@ class ITransferPipeline {
     ) = 0;
 };
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup::transfer

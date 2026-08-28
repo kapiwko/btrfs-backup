@@ -9,7 +9,7 @@
 
 #include <platform/linux/splice.hpp>
 
-namespace btrfsbackup::platform_linux {
+namespace btrfsbackup::platform::linux {
 
 PosixTransferPumpResult pump_posix_transfer(
     int producer_fd,
@@ -42,4 +42,4 @@ PosixTransferPumpResult pump_posix_transfer(
     return result;
 }
 
-} // namespace btrfsbackup::platform_linux
+} // namespace btrfsbackup::platform::linux

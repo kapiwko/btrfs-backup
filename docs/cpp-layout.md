@@ -29,6 +29,28 @@ data/{examples,schemas,systemd,udev}/
 integrations/kde/             # optional desktop integration
 ```
 
+## Namespaces
+
+The source directory and C++ namespace describe the same owner. Shared core
+types remain directly in `btrfsbackup`; domain code uses the following map:
+
+| Source directory | Namespace |
+|---|---|
+| `src/core/` | `btrfsbackup` |
+| `src/config/` | `btrfsbackup::config` |
+| `src/state/` | `btrfsbackup::state` |
+| `src/backup/` | `btrfsbackup::backup` |
+| `src/backup/transfer/` | `btrfsbackup::backup::transfer` |
+| `src/platform/linux/` | `btrfsbackup::platform::linux` |
+| `src/cli/` | `btrfsbackup::cli` |
+| `src/daemon/` | `btrfsbackup::daemon` |
+
+Technical subdirectories such as `model`, `ports`, `action_handlers`, and
+`wizard` do not create additional namespaces. Global entry points delegate
+immediately to their qualified adapter function. The `namespace-layout`
+architecture test enforces this mapping and rejects namespace-wide using
+directives.
+
 Directories describe what code does. Architectural boundaries are enforced by
 CMake targets and their declared dependencies:
 

@@ -6,18 +6,18 @@
 
 #include <config/application_paths.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::config {
 
 class ApplicationConfig {
-public:
+  public:
     ApplicationConfig();
     explicit ApplicationConfig(ApplicationPaths paths);
 
     static ApplicationConfig defaults();
     const ApplicationPaths& paths() const;
 
-private:
+  private:
     ApplicationPaths paths_;
 };
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::config

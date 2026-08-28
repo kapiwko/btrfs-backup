@@ -9,8 +9,8 @@
 #include <backup/ports/mount_inspector.hpp>
 #include <config/model/profile.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup {
 
-void validate_target_mount(const Profile& profile, const std::vector<MountEntry>& mounts);
+void validate_target_mount(const btrfsbackup::config::Profile& profile, const std::vector<MountEntry>& mounts);
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup

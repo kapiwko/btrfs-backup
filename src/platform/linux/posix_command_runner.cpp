@@ -4,17 +4,17 @@
 
 #include <platform/linux/posix_command_runner.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::platform::linux {
 
-CommandResult PosixCommandRunner::run(const std::vector<std::string>& argv) {
+btrfsbackup::backup::CommandResult PosixCommandRunner::run(const std::vector<std::string>& argv) {
     return run_command(argv);
 }
 
-CommandResult PosixCommandRunner::run_controlled(
+btrfsbackup::backup::CommandResult PosixCommandRunner::run_controlled(
     const std::vector<std::string>& argv,
-    const ControlledCommandOptions& options
+    const btrfsbackup::backup::ControlledCommandOptions& options
 ) {
     return run_controlled_command(argv, options);
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::platform::linux

@@ -13,7 +13,7 @@
 
 namespace {
 
-bool oldest_first(const btrfsbackup::SnapshotInfo& left, const btrfsbackup::SnapshotInfo& right) {
+bool oldest_first(const btrfsbackup::backup::SnapshotInfo& left, const btrfsbackup::backup::SnapshotInfo& right) {
     if (left.timestamp != right.timestamp) {
         return left.timestamp < right.timestamp;
     }
@@ -25,7 +25,7 @@ bool oldest_first(const btrfsbackup::SnapshotInfo& left, const btrfsbackup::Snap
 
 } // namespace
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup {
 
 RetentionPlan plan_count_retention(
     const std::string& source_id,
@@ -60,4 +60,4 @@ RetentionPlan plan_count_retention(
     return plan;
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup

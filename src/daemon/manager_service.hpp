@@ -10,7 +10,7 @@
 
 #include <config/model/json.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::daemon {
 
 struct ManagerPaths {
     std::filesystem::path config_root = "/etc/btrfs-backup";
@@ -26,18 +26,18 @@ class ManagerService {
   public:
     explicit ManagerService(ManagerPaths paths);
 
-    [[nodiscard]] Json get_capabilities() const;
-    [[nodiscard]] Json list_profiles() const;
-    [[nodiscard]] Json get_status(const std::string& profile_id) const;
-    [[nodiscard]] Json get_history_sanitized(
+    [[nodiscard]] btrfsbackup::config::Json get_capabilities() const;
+    [[nodiscard]] btrfsbackup::config::Json list_profiles() const;
+    [[nodiscard]] btrfsbackup::config::Json get_status(const std::string& profile_id) const;
+    [[nodiscard]] btrfsbackup::config::Json get_history_sanitized(
         const std::string& profile_id,
         std::size_t offset,
         std::size_t limit
     ) const;
-    [[nodiscard]] Json get_device_state(const std::string& profile_id) const;
+    [[nodiscard]] btrfsbackup::config::Json get_device_state(const std::string& profile_id) const;
 
   private:
     ManagerPaths paths_;
 };
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::daemon

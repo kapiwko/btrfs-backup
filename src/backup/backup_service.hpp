@@ -22,12 +22,12 @@
 #include <core/cancellation.hpp>
 #include <core/identifiers.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup {
 
 class BackupService {
   public:
     BackupService(
-        IProfileRepository& profiles,
+        btrfsbackup::config::IProfileRepository& profiles,
         IMountInspector& mounts,
         ITargetManager& target_mounter,
         IBackupPlanner& planner,
@@ -45,9 +45,9 @@ class BackupService {
     [[nodiscard]] CancelBackupResult cancel(const ProfileId& profile_id);
 
   private:
-    [[nodiscard]] BackupRunPlan prepare_plan(const Profile& profile, const RunId& run_id, const std::string& timestamp);
+    [[nodiscard]] BackupRunPlan prepare_plan(const btrfsbackup::config::Profile& profile, const RunId& run_id, const std::string& timestamp);
 
-    IProfileRepository& profiles_;
+    btrfsbackup::config::IProfileRepository& profiles_;
     IMountInspector& mounts_;
     ITargetManager& target_mounter_;
     IBackupPlanner& planner_;
@@ -60,4 +60,4 @@ class BackupService {
     CancellationToken& cancellation_;
 };
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup

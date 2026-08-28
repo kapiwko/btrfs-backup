@@ -17,7 +17,7 @@
 
 namespace fs = std::filesystem;
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup {
 
 BackupPlanner::BackupPlanner(
     SnapshotMetadataReader metadata_reader,
@@ -30,14 +30,14 @@ BackupPlanner::BackupPlanner(
 }
 
 BackupRunPlan BackupPlanner::build(
-    const Profile& profile,
+    const btrfsbackup::config::Profile& profile,
     const std::vector<MountEntry>& mounts,
-    const ApplicationPaths& paths,
+    const btrfsbackup::config::ApplicationPaths& paths,
     const RunId& run_id,
     const std::string& snapshot_timestamp
 ) const {
     validate_target_mount(profile, mounts);
-    for (const ProfileSource& source : profile.sources) {
+    for (const btrfsbackup::config::ProfileSource& source : profile.sources) {
         if (!source.enabled) {
             continue;
         }
@@ -47,7 +47,7 @@ BackupRunPlan BackupPlanner::build(
         if (paths_are_same_filesystem(mounts, source.subvolume, profile.target.mount_point)) {
             throw ValidationError("SOURCE_SUBVOLUME must not be on the backup target filesystem: " + source.subvolume);
         }
-        if (path_is_within(source.local_snapshot_dir, profile.target.mount_point)) {
+        if (btrfsbackup::config::path_is_within(source.local_snapshot_dir, profile.target.mount_point)) {
             throw ValidationError("LOCAL_SNAPSHOT_DIR must not be inside the backup target: " + source.local_snapshot_dir);
         }
     }
@@ -55,11 +55,11 @@ BackupRunPlan BackupPlanner::build(
     SnapshotInventoryBySource remote_inventory;
     PendingMarkerBySource pending_markers;
     PendingSnapshotBySource pending_snapshots;
-    const fs::path profile_state = profile_state_dir(paths, std::string(profile.id.value()));
+    const fs::path profile_state = btrfsbackup::config::profile_state_dir(paths, std::string(profile.id.value()));
     std::unique_ptr<ISafeDirectoryRoot> local_root = safe_directories_.open("/");
     std::unique_ptr<ISafeDirectoryRoot> target_root = safe_directories_.open(profile.target.mount_point);
 
-    for (const ProfileSource& source : profile.sources) {
+    for (const btrfsbackup::config::ProfileSource& source : profile.sources) {
         if (!source.enabled) {
             continue;
         }
@@ -122,4 +122,4 @@ BackupRunPlan BackupPlanner::build(
     );
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup

@@ -8,7 +8,7 @@
 
 #include <core/identifiers.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup {
 
 class IClock {
   public:
@@ -24,4 +24,4 @@ class IRunIdGenerator {
     [[nodiscard]] virtual RunId generate(const std::string& snapshot_timestamp) = 0;
 };
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup

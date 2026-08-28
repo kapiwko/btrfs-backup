@@ -12,7 +12,7 @@
 #include <backup/ports/command_runner.hpp>
 #include <core/errors.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup {
 
 namespace {
 
@@ -85,4 +85,4 @@ void HookActionHandler::handle(
     }
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup

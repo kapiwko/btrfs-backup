@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-namespace btrfsbackup::command {
+namespace btrfsbackup::cli {
 
 void status_show(
     const std::filesystem::path& status_root,
@@ -18,4 +18,4 @@ void status_show(
     std::ostream& output
 );
 
-} // namespace btrfsbackup::command
+} // namespace btrfsbackup::cli

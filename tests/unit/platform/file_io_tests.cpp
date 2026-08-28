@@ -63,8 +63,9 @@ void expect_atomic_failure(const std::string& name, FailurePoint point, const st
     failure_point = point;
     test_helpers::expect_validation_error(
         name,
-        [&] { btrfsbackup::atomic_write(path, "new", 0600); },
-        expected_error);
+        [&] { btrfsbackup::platform::linux::atomic_write(path, "new", 0600); },
+        expected_error
+    );
     reset_faults();
 
     if (point == FailurePoint::DirectoryFsync || point == FailurePoint::DirectoryClose) {
@@ -75,7 +76,8 @@ void expect_atomic_failure(const std::string& name, FailurePoint point, const st
     test_helpers::expect_true(
         name + " temporary cleanup",
         !has_temporary_file(root, path.filename().string()),
-        "temporary file should be removed");
+        "temporary file should be removed"
+    );
 }
 
 void test_atomic_write_replaces_file_with_requested_mode() {
@@ -83,7 +85,7 @@ void test_atomic_write_replaces_file_with_requested_mode() {
     const fs::path path = root / "state";
     test_helpers::write_file(path, "old");
 
-    btrfsbackup::atomic_write(path, "new content", 0640);
+    btrfsbackup::platform::linux::atomic_write(path, "new content", 0640);
 
     struct stat metadata{};
     test_helpers::expect_eq("atomic content", read_file(path), "new content");
@@ -92,7 +94,8 @@ void test_atomic_write_replaces_file_with_requested_mode() {
     test_helpers::expect_true(
         "atomic no temporary",
         !has_temporary_file(root, path.filename().string()),
-        "temporary file should not remain");
+        "temporary file should not remain"
+    );
 }
 
 void test_write_retries_eintr() {
@@ -100,7 +103,7 @@ void test_write_retries_eintr() {
     const fs::path path = root / "state";
     interrupt_next_write = true;
 
-    btrfsbackup::atomic_write(path, "written after interruption", 0600);
+    btrfsbackup::platform::linux::atomic_write(path, "written after interruption", 0600);
     reset_faults();
 
     test_helpers::expect_eq("write EINTR retry", read_file(path), "written after interruption");
@@ -120,8 +123,9 @@ void test_fsync_dir_reports_open_failure() {
     const fs::path root = test_helpers::test_root("file-io", "directory-open");
     test_helpers::expect_validation_error(
         "directory open failure",
-        [&] { btrfsbackup::fsync_dir(root / "missing"); },
-        "cannot open directory");
+        [&] { btrfsbackup::platform::linux::fsync_dir(root / "missing"); },
+        "cannot open directory"
+    );
 }
 
 } // namespace
@@ -163,8 +167,7 @@ ssize_t __wrap_write(int fd, const void* buffer, size_t count) {
 
 int __wrap_fsync(int fd) {
     const bool file_sync = fd == temporary_fd;
-    if ((file_sync && failure_point == FailurePoint::FileFsync)
-        || (!file_sync && failure_point == FailurePoint::DirectoryFsync)) {
+    if ((file_sync && failure_point == FailurePoint::FileFsync) || (!file_sync && failure_point == FailurePoint::DirectoryFsync)) {
         errno = EIO;
         return -1;
     }
@@ -177,8 +180,7 @@ int __wrap_close(int fd) {
     if (temporary_close) {
         temporary_fd = -1;
     }
-    if ((temporary_close && failure_point == FailurePoint::FileClose)
-        || (!temporary_close && failure_point == FailurePoint::DirectoryClose)) {
+    if ((temporary_close && failure_point == FailurePoint::FileClose) || (!temporary_close && failure_point == FailurePoint::DirectoryClose)) {
         errno = EIO;
         return -1;
     }

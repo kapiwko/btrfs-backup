@@ -11,19 +11,19 @@
 
 namespace {
 
-class FakeCommandRunner final : public btrfsbackup::ICommandRunner {
-public:
-    btrfsbackup::CommandResult next_result;
+class FakeCommandRunner final : public btrfsbackup::backup::ICommandRunner {
+  public:
+    btrfsbackup::backup::CommandResult next_result;
     std::vector<std::vector<std::string>> calls;
 
-    btrfsbackup::CommandResult run(const std::vector<std::string>& argv) override {
+    btrfsbackup::backup::CommandResult run(const std::vector<std::string>& argv) override {
         calls.push_back(argv);
         return next_result;
     }
 
-    btrfsbackup::CommandResult run_controlled(
+    btrfsbackup::backup::CommandResult run_controlled(
         const std::vector<std::string>& argv,
-        const btrfsbackup::ControlledCommandOptions&
+        const btrfsbackup::backup::ControlledCommandOptions&
     ) override {
         return run(argv);
     }
@@ -32,7 +32,7 @@ public:
 void test_capture_command_uses_argv_without_shell() {
     FakeCommandRunner runner;
     runner.next_result = {.exit_code = 0, .output = "value\n"};
-    std::string output = btrfsbackup::capture_command(runner, {"printf", "%s", "a; rm -rf /"});
+    std::string output = btrfsbackup::backup::capture_command(runner, {"printf", "%s", "a; rm -rf /"});
 
     test_helpers::expect_eq("capture output trims newline", output, "value");
     test_helpers::expect_eq("capture call count", std::to_string(runner.calls.size()), "1");
@@ -43,9 +43,7 @@ void test_capture_command_uses_argv_without_shell() {
 void test_capture_command_failure() {
     FakeCommandRunner runner;
     runner.next_result = {.exit_code = 2, .output = "bad\n"};
-    test_helpers::expect_validation_error("capture failure", [&] {
-        (void)btrfsbackup::capture_command(runner, {"false"});
-    }, "command failed: false");
+    test_helpers::expect_validation_error("capture failure", [&] { (void)btrfsbackup::backup::capture_command(runner, {"false"}); }, "command failed: false");
 }
 
 } // namespace

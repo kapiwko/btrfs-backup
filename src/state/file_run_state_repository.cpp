@@ -16,14 +16,14 @@
 
 namespace fs = std::filesystem;
 
-namespace btrfsbackup {
+namespace btrfsbackup::state {
 
 namespace {
 
-class PollingCancellationWatch final : public ICancellationWatch {
+class PollingCancellationWatch final : public btrfsbackup::backup::ICancellationWatch {
   public:
     PollingCancellationWatch(
-        IRunStateRepository& state,
+        btrfsbackup::backup::IRunStateRepository& state,
         ProfileId profile_id,
         CancellationToken& cancellation
     )
@@ -49,7 +49,7 @@ class PollingCancellationWatch final : public ICancellationWatch {
         }
     }
 
-    IRunStateRepository& state_;
+    btrfsbackup::backup::IRunStateRepository& state_;
     ProfileId profile_id_;
     CancellationToken& cancellation_;
     std::jthread worker_;
@@ -57,20 +57,20 @@ class PollingCancellationWatch final : public ICancellationWatch {
 
 } // namespace
 
-FileRunStateRepository::FileRunStateRepository(ApplicationPaths paths, IDurableFileOperations& files)
+FileRunStateRepository::FileRunStateRepository(btrfsbackup::config::ApplicationPaths paths, IDurableFileOperations& files)
     : paths_(std::move(paths)), files_(files) {
 }
 
 fs::path FileRunStateRepository::state_dir(const ProfileId& profile_id) const {
-    return profile_state_dir(paths_, std::string(profile_id.value()));
+    return btrfsbackup::config::profile_state_dir(paths_, std::string(profile_id.value()));
 }
 
 bool FileRunStateRepository::last_success_matches(
-    const Profile& profile,
+    const btrfsbackup::config::Profile& profile,
     const std::string& date,
     const std::string& fingerprint
 ) const {
-    return btrfsbackup::last_success_matches(
+    return btrfsbackup::state::last_success_matches(
         state_dir(profile.id),
         date,
         profile.target.luks_uuid,
@@ -79,7 +79,7 @@ bool FileRunStateRepository::last_success_matches(
 }
 
 void FileRunStateRepository::write_skipped(
-    const Profile& profile,
+    const btrfsbackup::config::Profile& profile,
     const RunId& run_id,
     const std::string& started_at,
     const std::string& finished_at,
@@ -109,7 +109,7 @@ void FileRunStateRepository::write_skipped(
 }
 
 void FileRunStateRepository::write_success(
-    const Profile& profile,
+    const btrfsbackup::config::Profile& profile,
     const RunId& run_id,
     const std::string& date,
     const std::string& timestamp,
@@ -132,11 +132,11 @@ void FileRunStateRepository::write_success(
     );
 }
 
-std::unique_ptr<IBackupRunCheckpointStore> FileRunStateRepository::checkpoints(const ProfileId& profile_id) {
+std::unique_ptr<btrfsbackup::backup::IBackupRunCheckpointStore> FileRunStateRepository::checkpoints(const ProfileId& profile_id) {
     return std::make_unique<JsonFileBackupRunCheckpointStore>(files_, state_dir(profile_id));
 }
 
-std::unique_ptr<IBackupRunEventSink> FileRunStateRepository::events(BackupRunStatusDescription description) {
+std::unique_ptr<btrfsbackup::backup::IBackupRunEventSink> FileRunStateRepository::events(btrfsbackup::backup::BackupRunStatusDescription description) {
     return std::make_unique<RunStatusProjection>(files_, BackupRunStatusContext{
                                                              .status_root = paths_.status_root,
                                                              .history_root = paths_.history_root,
@@ -153,21 +153,21 @@ void FileRunStateRepository::request_cancel(const ProfileId& profile_id) {
 }
 
 bool FileRunStateRepository::cancel_requested(const ProfileId& profile_id) const {
-    return btrfsbackup::cancel_requested(state_dir(profile_id));
+    return btrfsbackup::state::cancel_requested(state_dir(profile_id));
 }
 
 void FileRunStateRepository::clear_cancel_request(const ProfileId& profile_id) {
-    btrfsbackup::clear_cancel_request(files_, state_dir(profile_id));
+    btrfsbackup::state::clear_cancel_request(files_, state_dir(profile_id));
 }
 
-FileCancellationMonitor::FileCancellationMonitor(IRunStateRepository& state) : state_(state) {
+FileCancellationMonitor::FileCancellationMonitor(btrfsbackup::backup::IRunStateRepository& state) : state_(state) {
 }
 
-std::unique_ptr<ICancellationWatch> FileCancellationMonitor::watch(
+std::unique_ptr<btrfsbackup::backup::ICancellationWatch> FileCancellationMonitor::watch(
     const ProfileId& profile_id,
     CancellationToken& cancellation
 ) {
     return std::make_unique<PollingCancellationWatch>(state_, profile_id, cancellation);
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::state

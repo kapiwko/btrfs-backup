@@ -25,7 +25,7 @@
 namespace {
 
 class EnvironmentGuard {
-public:
+  public:
     explicit EnvironmentGuard(std::string name) : name_(std::move(name)) {
         if (const char* value = std::getenv(name_.c_str())) {
             value_ = value;
@@ -40,7 +40,7 @@ public:
         }
     }
 
-private:
+  private:
     std::string name_;
     std::optional<std::string> value_;
 };
@@ -56,7 +56,7 @@ std::set<std::string> environment_lines(const std::string& output) {
 }
 
 void test_run_command_captures_stdout_and_stderr() {
-    btrfsbackup::CommandResult result = btrfsbackup::run_command({
+    btrfsbackup::backup::CommandResult result = btrfsbackup::platform::linux::run_command({
         "sh",
         "-c",
         "printf output; printf error >&2; exit 7",
@@ -68,7 +68,7 @@ void test_run_command_captures_stdout_and_stderr() {
 }
 
 void test_run_command_reports_missing_executable() {
-    btrfsbackup::CommandResult result = btrfsbackup::run_command({
+    btrfsbackup::backup::CommandResult result = btrfsbackup::platform::linux::run_command({
         "/definitely-missing-btrfsbackup-command",
     });
 
@@ -85,7 +85,7 @@ void test_run_command_ignores_untrusted_path() {
     const char* original_path = std::getenv("PATH");
     const std::string saved_path = original_path == nullptr ? "" : original_path;
     setenv("PATH", "/definitely-untrusted", 1);
-    btrfsbackup::CommandResult result = btrfsbackup::run_command({
+    btrfsbackup::backup::CommandResult result = btrfsbackup::platform::linux::run_command({
         "sh",
         "-c",
         "printf '%s' \"$PATH\"",
@@ -110,7 +110,7 @@ void test_run_command_uses_environment_allowlist() {
     setenv("XDG_RUNTIME_DIR", "/tmp/untrusted-runtime", 1);
     setenv("HOME", "/tmp/untrusted-home", 1);
 
-    btrfsbackup::CommandResult result = btrfsbackup::run_command({"env"});
+    btrfsbackup::backup::CommandResult result = btrfsbackup::platform::linux::run_command({"env"});
 
     std::set<std::string> environment = environment_lines(result.output);
     const std::set<std::string> expected{
@@ -129,18 +129,18 @@ void test_run_command_uses_environment_allowlist() {
 }
 
 void test_run_command_limits_captured_output() {
-    btrfsbackup::CommandResult result = btrfsbackup::run_command({"seq", "1", "300000"});
+    btrfsbackup::backup::CommandResult result = btrfsbackup::platform::linux::run_command({"seq", "1", "300000"});
 
     test_helpers::expect_eq("default bounded command exit", std::to_string(result.exit_code), "0");
     test_helpers::expect_eq(
         "default bounded command output",
         std::to_string(result.output.size()),
-        std::to_string(btrfsbackup::default_command_max_output_bytes)
+        std::to_string(btrfsbackup::backup::default_command_max_output_bytes)
     );
 }
 
 void test_controlled_command_adds_explicit_environment() {
-    btrfsbackup::CommandResult result = btrfsbackup::run_controlled_command(
+    btrfsbackup::backup::CommandResult result = btrfsbackup::platform::linux::run_controlled_command(
         {"env"},
         {
             .timeout = std::chrono::seconds(1),
@@ -168,20 +168,16 @@ void test_controlled_command_adds_explicit_environment() {
 }
 
 void test_run_command_rejects_relative_program_path() {
-    test_helpers::expect_validation_error("relative program path", [] {
-        (void)btrfsbackup::run_command({"./command"});
-    }, "command path must be absolute");
+    test_helpers::expect_validation_error("relative program path", [] { (void)btrfsbackup::platform::linux::run_command({"./command"}); }, "command path must be absolute");
 }
 
 void test_run_command_rejects_empty_program() {
-    test_helpers::expect_validation_error("empty program", [] {
-        (void)btrfsbackup::run_command({""});
-    }, "command program must not be empty");
+    test_helpers::expect_validation_error("empty program", [] { (void)btrfsbackup::platform::linux::run_command({""}); }, "command program must not be empty");
 }
 
 void test_controlled_command_times_out_and_reaps_process() {
     const auto started_at = std::chrono::steady_clock::now();
-    btrfsbackup::CommandResult result = btrfsbackup::run_controlled_command(
+    btrfsbackup::backup::CommandResult result = btrfsbackup::platform::linux::run_controlled_command(
         {"/bin/sh", "-c", "trap '' TERM; while :; do sleep 1; done"},
         {
             .timeout = std::chrono::milliseconds(100),
@@ -202,7 +198,7 @@ void test_controlled_command_observes_cancellation() {
         cancellation.request_cancel();
     });
 
-    btrfsbackup::CommandResult result = btrfsbackup::run_controlled_command(
+    btrfsbackup::backup::CommandResult result = btrfsbackup::platform::linux::run_controlled_command(
         {"/bin/sleep", "30"},
         {
             .cancellation = &cancellation,
@@ -216,7 +212,7 @@ void test_controlled_command_observes_cancellation() {
 }
 
 void test_controlled_command_bounds_captured_output() {
-    btrfsbackup::CommandResult result = btrfsbackup::run_controlled_command(
+    btrfsbackup::backup::CommandResult result = btrfsbackup::platform::linux::run_controlled_command(
         {"/usr/bin/seq", "1", "100000"},
         {
             .timeout = std::chrono::seconds(5),
@@ -230,7 +226,7 @@ void test_controlled_command_bounds_captured_output() {
 
 void test_noisy_controlled_command_still_observes_timeout() {
     const auto started_at = std::chrono::steady_clock::now();
-    btrfsbackup::CommandResult result = btrfsbackup::run_controlled_command(
+    btrfsbackup::backup::CommandResult result = btrfsbackup::platform::linux::run_controlled_command(
         {"/usr/bin/yes"},
         {
             .timeout = std::chrono::milliseconds(50),
@@ -253,7 +249,7 @@ void test_child_process_reaps_group_during_exception_unwind() {
         std::to_string(pipe2(ready_pipe, O_CLOEXEC)),
         "0"
     );
-    btrfsbackup::ProcessSpawnResult spawned = btrfsbackup::spawn_program(
+    btrfsbackup::platform::linux::ProcessSpawnResult spawned = btrfsbackup::platform::linux::spawn_program(
         {"sh", "-c", "trap '' TERM; printf r; while :; do sleep 1; done"},
         {
             .stdout_fd = ready_pipe[1],
@@ -266,7 +262,7 @@ void test_child_process_reaps_group_during_exception_unwind() {
     auto started_at = std::chrono::steady_clock::now();
 
     try {
-        btrfsbackup::ChildProcess child(
+        btrfsbackup::platform::linux::ChildProcess child(
             child_pid,
             true,
             {
@@ -285,8 +281,9 @@ void test_child_process_reaps_group_during_exception_unwind() {
     errno = 0;
     pid_t waited = waitpid(child_pid, &status, WNOHANG);
     auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-        std::chrono::steady_clock::now() - started_at
-    ).count();
+                          std::chrono::steady_clock::now() - started_at
+    )
+                          .count();
     test_helpers::expect_eq("RAII child already reaped", std::to_string(waited), "-1");
     test_helpers::expect_eq("RAII child wait status", std::to_string(errno), std::to_string(ECHILD));
     test_helpers::expect_true("RAII cleanup bounded", elapsed_ms < 1500, "child cleanup exceeded its deadline");

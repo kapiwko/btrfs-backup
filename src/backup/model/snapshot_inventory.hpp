@@ -10,7 +10,7 @@
 #include <string>
 #include <vector>
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup {
 
 enum class SnapshotSide {
     Local,
@@ -62,4 +62,4 @@ std::vector<SnapshotInfo> list_snapshot_inventory_at(
     const SnapshotMetadataReader& metadata_reader
 );
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup

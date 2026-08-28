@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup {
 
 struct TrustedExecutablePolicy {
     bool allow_current_user_owner = false;
@@ -33,4 +33,4 @@ class ITrustedExecutableResolver {
     ) const = 0;
 };
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup

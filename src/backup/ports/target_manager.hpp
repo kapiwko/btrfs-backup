@@ -6,12 +6,12 @@
 
 #include <config/model/profile.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup {
 
 class ITargetManager {
   public:
     virtual ~ITargetManager() = default;
-    virtual void ensure_mounted(const Profile& profile) = 0;
+    virtual void ensure_mounted(const btrfsbackup::config::Profile& profile) = 0;
 };
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup

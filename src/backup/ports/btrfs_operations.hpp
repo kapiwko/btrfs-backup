@@ -10,7 +10,7 @@
 #include <backup/model/snapshot_inventory.hpp>
 #include <backup/ports/safe_directory.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup {
 
 class IBtrfsOperations {
   public:
@@ -33,4 +33,4 @@ class IBtrfsOperations {
     virtual void delete_subvolume_beneath(const ISafeDirectoryRoot& root, const std::filesystem::path& path);
 };
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup
