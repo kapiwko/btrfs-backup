@@ -25,17 +25,9 @@ struct FakeProfiles final : btrfsbackup::config::IProfileRepository {
     }
 };
 
-struct FakeMounts final : btrfsbackup::backup::IMountInspector {
-    mutable int calls = 0;
-    std::vector<btrfsbackup::backup::MountEntry> inspect() const override {
-        ++calls;
-        return {};
-    }
-};
-
-struct FakeTargetMounter final : btrfsbackup::backup::ITargetManager {
+struct FakePreflight final : btrfsbackup::backup::IBackupPreflight {
     int calls = 0;
-    void ensure_mounted(const btrfsbackup::config::Profile&) override {
+    void run(const btrfsbackup::config::Profile&) override {
         ++calls;
     }
 };
@@ -45,7 +37,6 @@ struct FakeDiscovery final : btrfsbackup::backup::IBackupDiscovery {
 
     btrfsbackup::backup::BackupPlanningSnapshot discover(
         const btrfsbackup::config::Profile&,
-        const std::vector<btrfsbackup::backup::MountEntry>&,
         const btrfsbackup::config::ApplicationPaths&
     ) const override {
         ++calls;
@@ -325,8 +316,7 @@ struct FakeRunIds final : btrfsbackup::backup::IRunIdGenerator {
 
 struct Fixture {
     FakeProfiles profiles;
-    FakeMounts mounts;
-    FakeTargetMounter target;
+    FakePreflight preflight;
     FakeDiscovery discovery;
     FakePlanBuilder plan_builder;
     FakeRunFactory runs;
@@ -343,8 +333,7 @@ struct Fixture {
         : service(
               profiles,
               paths,
-              mounts,
-              target,
+              preflight,
               discovery,
               plan_builder,
               runs,
@@ -376,8 +365,7 @@ void test_success_uses_ports_and_persists_success() {
     if (completed != nullptr) {
         test_helpers::expect_eq("run id", std::string(completed->plan.run_id.value()), "run-1");
     }
-    test_helpers::expect_true("target mounter calls", fixture.target.calls == 1, "unexpected call count");
-    test_helpers::expect_true("mount inspector calls", fixture.mounts.calls == 1, "unexpected call count");
+    test_helpers::expect_true("preflight calls", fixture.preflight.calls == 1, "unexpected call count");
     test_helpers::expect_true("discovery calls", fixture.discovery.calls == 1, "unexpected call count");
     test_helpers::expect_true("plan builder calls", fixture.plan_builder.calls == 1, "unexpected call count");
     test_helpers::expect_true("run factory calls", fixture.runs.calls == 1, "unexpected call count");
@@ -469,7 +457,7 @@ void test_busy_stops_before_target_access() {
     });
 
     test_helpers::expect_true("busy", std::holds_alternative<btrfsbackup::backup::BackupExecutionBusy>(result), "busy outcome missing");
-    test_helpers::expect_true("target not called", fixture.target.calls == 0, "target mounter was called");
+    test_helpers::expect_true("preflight not called", fixture.preflight.calls == 0, "preflight was called");
     test_helpers::expect_true("discovery not called", fixture.discovery.calls == 0, "discovery was called");
     test_helpers::expect_true("plan builder not called", fixture.plan_builder.calls == 0, "plan builder was called");
 }

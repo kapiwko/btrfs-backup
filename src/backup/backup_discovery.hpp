@@ -21,7 +21,6 @@ class BackupDiscovery final : public IBackupDiscovery {
 
     [[nodiscard]] BackupPlanningSnapshot discover(
         const btrfsbackup::config::Profile& profile,
-        const std::vector<MountEntry>& mounts,
         const btrfsbackup::config::ApplicationPaths& paths
     ) const override;
 

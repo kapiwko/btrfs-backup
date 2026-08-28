@@ -17,7 +17,7 @@
 #include <string>
 #include <vector>
 
-#include <backup/target_mount_validation.hpp>
+#include <backup/backup_preflight_validation.hpp>
 #include <core/errors.hpp>
 #include <config/model/profile.hpp>
 #include <platform/linux/config/profile_repository.hpp>
@@ -223,7 +223,7 @@ TargetOperationResult mount_target(
         );
     }
 
-    btrfsbackup::backup::validate_target_mount(profile, resolved.read_mounts());
+    btrfsbackup::backup::validate_backup_target_mount(profile, resolved.read_mounts());
     result.events.push_back({
         .kind = TargetEventKind::Mounted,
         .detail = profile.target.mount_point,

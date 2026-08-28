@@ -9,17 +9,16 @@
 #include <backup/model/backup_execution.hpp>
 #include <backup/model/backup_run_plan.hpp>
 #include <backup/ports/backup_discovery.hpp>
+#include <backup/ports/backup_preflight.hpp>
 #include <backup/ports/backup_plan_builder.hpp>
 #include <backup/ports/backup_run_factory.hpp>
 #include <backup/ports/cancellation_request_store.hpp>
 #include <backup/ports/cancellation_monitor.hpp>
 #include <backup/ports/checkpoint_store_factory.hpp>
-#include <backup/ports/mount_inspector.hpp>
 #include <backup/ports/run_context.hpp>
 #include <backup/ports/run_event_sink_factory.hpp>
 #include <backup/ports/run_ledger.hpp>
 #include <backup/ports/run_lease.hpp>
-#include <backup/ports/target_manager.hpp>
 #include <config/application_paths.hpp>
 #include <config/ports/profile_repository.hpp>
 #include <config/model/profile.hpp>
@@ -32,8 +31,7 @@ class BackupService {
     BackupService(
         btrfsbackup::config::IProfileRepository& profiles,
         btrfsbackup::config::ApplicationPaths application_paths,
-        IMountInspector& mounts,
-        ITargetManager& target_mounter,
+        IBackupPreflight& preflight,
         IBackupDiscovery& discovery,
         IBackupPlanBuilder& plan_builder,
         IBackupRunFactory& run_factory,
@@ -56,8 +54,7 @@ class BackupService {
 
     btrfsbackup::config::IProfileRepository& profiles_;
     btrfsbackup::config::ApplicationPaths application_paths_;
-    IMountInspector& mounts_;
-    ITargetManager& target_mounter_;
+    IBackupPreflight& preflight_;
     IBackupDiscovery& discovery_;
     IBackupPlanBuilder& plan_builder_;
     IBackupRunFactory& run_factory_;

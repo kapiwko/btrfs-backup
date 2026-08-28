@@ -37,8 +37,7 @@ BackupRunStatusDescription status_description(
 BackupService::BackupService(
     btrfsbackup::config::IProfileRepository& profiles,
     btrfsbackup::config::ApplicationPaths application_paths,
-    IMountInspector& mounts,
-    ITargetManager& target_mounter,
+    IBackupPreflight& preflight,
     IBackupDiscovery& discovery,
     IBackupPlanBuilder& plan_builder,
     IBackupRunFactory& run_factory,
@@ -53,8 +52,7 @@ BackupService::BackupService(
 )
     : profiles_(profiles),
       application_paths_(std::move(application_paths)),
-      mounts_(mounts),
-      target_mounter_(target_mounter),
+      preflight_(preflight),
       discovery_(discovery),
       plan_builder_(plan_builder),
       run_factory_(run_factory),
@@ -73,8 +71,8 @@ BackupRunPlan BackupService::prepare_plan(
     const RunId& run_id,
     const std::string& timestamp
 ) {
-    target_mounter_.ensure_mounted(profile);
-    const BackupPlanningSnapshot snapshot = discovery_.discover(profile, mounts_.inspect(), application_paths_);
+    preflight_.run(profile);
+    const BackupPlanningSnapshot snapshot = discovery_.discover(profile, application_paths_);
     return plan_builder_.build(profile, snapshot, run_id, timestamp);
 }
 

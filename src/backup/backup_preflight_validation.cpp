@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <backup/target_mount_validation.hpp>
+#include <backup/backup_preflight_validation.hpp>
 
 #include <algorithm>
 #include <cctype>
@@ -45,7 +45,7 @@ bool resolved_path_is_within(const fs::path& candidate, const fs::path& base) {
 
 } // namespace
 
-void validate_target_mount(const btrfsbackup::config::Profile& profile, const std::vector<MountEntry>& mounts) {
+void validate_backup_target_mount(const btrfsbackup::config::Profile& profile, const std::vector<MountEntry>& mounts) {
     std::optional<MountEntry> target_mount = mount_at(mounts, profile.target.mount_point);
     if (!target_mount.has_value()) {
         throw ValidationError("Backup target is not mounted at " + profile.target.mount_point);
@@ -84,6 +84,24 @@ void validate_target_mount(const btrfsbackup::config::Profile& profile, const st
     }
     if (!resolved_path_is_within(profile.paths.incoming_root, profile.target.mount_point)) {
         throw ValidationError("INCOMING_ROOT escapes the backup mountpoint: " + profile.paths.incoming_root);
+    }
+}
+
+void validate_backup_mounts(const btrfsbackup::config::Profile& profile, const std::vector<MountEntry>& mounts) {
+    validate_backup_target_mount(profile, mounts);
+    for (const btrfsbackup::config::ProfileSource& source : profile.sources) {
+        if (!source.enabled) {
+            continue;
+        }
+        if (!paths_are_same_filesystem(mounts, source.subvolume, source.local_snapshot_dir)) {
+            throw ValidationError("LOCAL_SNAPSHOT_DIR must be on the same Btrfs filesystem as " + source.subvolume);
+        }
+        if (paths_are_same_filesystem(mounts, source.subvolume, profile.target.mount_point)) {
+            throw ValidationError("SOURCE_SUBVOLUME must not be on the backup target filesystem: " + source.subvolume);
+        }
+        if (btrfsbackup::config::path_is_within(source.local_snapshot_dir, profile.target.mount_point)) {
+            throw ValidationError("LOCAL_SNAPSHOT_DIR must not be inside the backup target: " + source.local_snapshot_dir);
+        }
     }
 }
 
