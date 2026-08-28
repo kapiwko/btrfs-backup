@@ -7,7 +7,7 @@
 #include <string>
 
 #include <state/run_state.hpp>
-#include <platform/linux/file_io.hpp>
+#include <platform/linux/posix_durable_file_operations.hpp>
 
 #include "support/test_helpers.hpp"
 
