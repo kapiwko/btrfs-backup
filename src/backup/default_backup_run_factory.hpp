@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include <backup/action_handlers/backup_run_action_handler.hpp>
+#include <backup/ports/backup_run_action_handler_factory.hpp>
 #include <backup/ports/backup_run_factory.hpp>
 #include <backup/ports/safe_directory.hpp>
 #include <backup/transfer/transfer_pipeline.hpp>
@@ -14,7 +14,7 @@ namespace btrfsbackup::backup {
 class DefaultBackupRunFactory final : public IBackupRunFactory {
   public:
     DefaultBackupRunFactory(
-        IBackupRunActionHandler& action_handler,
+        IBackupRunActionHandlerFactory& action_handlers,
         btrfsbackup::backup::transfer::ITransferPipeline& transfers,
         const ISafeDirectoryRootFactory& safe_directories
     );
@@ -27,7 +27,7 @@ class DefaultBackupRunFactory final : public IBackupRunFactory {
     ) override;
 
   private:
-    IBackupRunActionHandler& action_handler_;
+    IBackupRunActionHandlerFactory& action_handlers_;
     btrfsbackup::backup::transfer::ITransferPipeline& transfers_;
     const ISafeDirectoryRootFactory& safe_directories_;
 };

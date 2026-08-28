@@ -23,6 +23,7 @@
 #include <backup/action_handlers/repository_action_handler.hpp>
 #include <backup/action_handlers/retention_action_handler.hpp>
 #include <backup/action_handlers/snapshot_action_handler.hpp>
+#include <backup/default_backup_run_action_handler_factory.hpp>
 
 #include <platform/linux/safe_directory_root.hpp>
 #include <platform/linux/posix_durable_file_operations.hpp>
@@ -718,6 +719,40 @@ void test_hook_cancellation_is_not_reported_as_hook_failure() {
     test_helpers::expect_true("hook cancellation type", cancelled, "hook cancellation should have a distinct result");
 }
 
+void test_default_factory_builds_run_scoped_dispatcher() {
+    FakeBtrfsOperations btrfs;
+    FakeFileSystem filesystem;
+    FakeCommandRunner commands;
+    btrfsbackup::platform::linux::PosixDurableFileOperations durable_files;
+    btrfsbackup::state::FilePendingMarkerStore pending_markers(durable_files);
+    test_support::FakeSafeDirectoryRootFactory safe_directories;
+    test_support::FakeTrustedExecutableResolver hook_executables;
+    btrfsbackup::backup::DefaultBackupRunActionHandlerFactory factory(
+        btrfs,
+        filesystem,
+        commands,
+        pending_markers,
+        safe_directories,
+        hook_executables
+    );
+    btrfsbackup::backup::BackupRunPlan plan = run_plan();
+    plan.target_mount_point = "/mnt/backup/default";
+    std::unique_ptr<btrfsbackup::backup::IBackupRunActionHandler> handler = factory.create(plan);
+    btrfsbackup::CancellationToken cancellation;
+
+    handler->handle(
+        hook_action(btrfsbackup::backup::HookPhase::BeforeSnapshot),
+        plan,
+        cancellation
+    );
+
+    test_helpers::expect_true(
+        "default factory hook",
+        commands.calls.size() == 1,
+        "run-scoped dispatcher did not route the hook action"
+    );
+}
+
 } // namespace
 
 int main() {
@@ -732,6 +767,7 @@ int main() {
     test_hook_failure_is_reported_as_system_operation_error();
     test_hook_timeout_has_stable_error_code();
     test_hook_cancellation_is_not_reported_as_hook_failure();
+    test_default_factory_builds_run_scoped_dispatcher();
 
     return test_helpers::finish("backup run action handler tests");
 }

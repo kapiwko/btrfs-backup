@@ -8,20 +8,14 @@
 #include <string>
 #include <utility>
 
-#include <backup/action_handlers/backup_run_action_handler.hpp>
-#include <backup/action_handlers/hook_action_handler.hpp>
-#include <backup/action_handlers/recovery_action_handler.hpp>
-#include <backup/action_handlers/repository_action_handler.hpp>
-#include <backup/action_handlers/retention_action_handler.hpp>
-#include <backup/action_handlers/snapshot_action_handler.hpp>
 #include <backup/backup_discovery.hpp>
 #include <backup/backup_plan_builder.hpp>
 #include <backup/backup_preflight.hpp>
-#include <backup/backup_run.hpp>
 #include <backup/backup_service.hpp>
+#include <backup/default_backup_run_action_handler_factory.hpp>
+#include <backup/default_backup_run_factory.hpp>
 #include <backup/linked_cancellation_monitor.hpp>
 #include <backup/system_run_context.hpp>
-#include <backup/transfer/async_transfer.hpp>
 #include <cli/runner_options.hpp>
 #include <core/cancellation.hpp>
 #include <core/runtime_time.hpp>
@@ -75,80 +69,6 @@ class CommandRunIdGenerator final : public backup::IRunIdGenerator {
     RunId run_id_;
 };
 
-class PosixBackupRunFactory final : public backup::IBackupRunFactory {
-  public:
-    PosixBackupRunFactory(
-        backup::IBtrfsOperations& btrfs,
-        backup::IFileSystem& filesystem,
-        backup::ICommandRunner& commands,
-        backup::transfer::ITransferPipeline& transfers,
-        backup::IPendingMarkerStore& pending_markers,
-        const backup::ISafeDirectoryRootFactory& safe_directories
-    )
-        : btrfs_(btrfs),
-          filesystem_(filesystem),
-          commands_(commands),
-          transfers_(transfers),
-          pending_markers_(pending_markers),
-          safe_directories_(safe_directories) {
-    }
-
-    backup::BackupRunExecutionResult execute(
-        backup::BackupRunPlan plan,
-        backup::IBackupRunEventSink& events,
-        backup::IBackupRunCheckpointStore& checkpoints,
-        CancellationToken& cancellation
-    ) override {
-        backup::SnapshotActionHandler snapshots(
-            btrfs_,
-            filesystem_,
-            pending_markers_,
-            std::make_unique<platform::linux::SafeDirectoryRoot>("/")
-        );
-        backup::RecoveryActionHandler recovery(
-            btrfs_,
-            pending_markers_,
-            std::make_unique<platform::linux::SafeDirectoryRoot>("/"),
-            std::make_unique<platform::linux::SafeDirectoryRoot>(plan.target_mount_point)
-        );
-        backup::RetentionActionHandler retention(
-            btrfs_,
-            std::make_unique<platform::linux::SafeDirectoryRoot>("/"),
-            std::make_unique<platform::linux::SafeDirectoryRoot>(plan.target_mount_point)
-        );
-        platform::linux::PosixTrustedExecutableResolver hook_executables(
-            platform::linux::trusted_hook_directory
-        );
-        backup::HookActionHandler hooks(commands_, hook_executables);
-        platform::linux::SafeDirectoryRoot local_repository_root("/");
-        platform::linux::SafeDirectoryRoot target_repository_root(plan.target_mount_point);
-        backup::RepositoryActionHandler repository(
-            btrfs_,
-            pending_markers_,
-            local_repository_root,
-            target_repository_root
-        );
-        backup::BackupRunActionHandler action_handler(snapshots, recovery, retention, hooks, repository);
-        backup::transfer::ThreadedAsyncTransferPipeline async_transfers(transfers_);
-        backup::BackupRun run(
-            std::move(plan),
-            action_handler,
-            async_transfers,
-            checkpoints,
-            safe_directories_
-        );
-        return run.execute(events, cancellation);
-    }
-
-  private:
-    backup::IBtrfsOperations& btrfs_;
-    backup::IFileSystem& filesystem_;
-    backup::ICommandRunner& commands_;
-    backup::transfer::ITransferPipeline& transfers_;
-    backup::IPendingMarkerStore& pending_markers_;
-    const backup::ISafeDirectoryRootFactory& safe_directories_;
-};
-
 } // namespace
 
 struct RunnerComposition::Impl {
@@ -161,7 +81,7 @@ struct RunnerComposition::Impl {
                   ? platform::linux::blkid_filesystem_uuid(source)
                   : found->second;
           }),
-          target_mounter(mounts, commands), preflight(mounts, target_mounter), pending_markers(durable_files), discovery(platform::linux::read_btrfs_snapshot_metadata, pending_markers, safe_directories), run_factory(btrfs, filesystem, commands, transfers, pending_markers, safe_directories), leases(platform::linux::default_lock_root()), state(config.paths(), durable_files), file_cancellation_monitor(state), cancellation_monitor(file_cancellation_monitor, cancellation), clock(options.timestamp, options.today), run_ids(options.run_id), backup_service(profiles, config.paths(), preflight, discovery, plan_builder, run_factory, leases, state, state, state, state, cancellation_monitor, clock, run_ids) {
+          target_mounter(mounts, commands), preflight(mounts, target_mounter), pending_markers(durable_files), discovery(platform::linux::read_btrfs_snapshot_metadata, pending_markers, safe_directories), hook_executables(platform::linux::trusted_hook_directory), action_handlers(btrfs, filesystem, commands, pending_markers, safe_directories, hook_executables), run_factory(action_handlers, transfers, safe_directories), leases(platform::linux::default_lock_root()), state(config.paths(), durable_files), file_cancellation_monitor(state), cancellation_monitor(file_cancellation_monitor, cancellation), clock(options.timestamp, options.today), run_ids(options.run_id), backup_service(profiles, config.paths(), preflight, discovery, plan_builder, run_factory, leases, state, state, state, state, cancellation_monitor, clock, run_ids) {
     }
 
     config::ApplicationConfig config;
@@ -178,7 +98,9 @@ struct RunnerComposition::Impl {
     state::FilePendingMarkerStore pending_markers;
     backup::BackupDiscovery discovery;
     backup::BackupPlanBuilder plan_builder;
-    PosixBackupRunFactory run_factory;
+    platform::linux::PosixTrustedExecutableResolver hook_executables;
+    backup::DefaultBackupRunActionHandlerFactory action_handlers;
+    backup::DefaultBackupRunFactory run_factory;
     platform::linux::FileBackupRunLeaseProvider leases;
     state::FileRunStateRepository state;
     state::FileCancellationMonitor file_cancellation_monitor;

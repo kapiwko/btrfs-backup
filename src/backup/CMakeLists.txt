@@ -68,6 +68,7 @@ target_restricted_include_directories(btrfsbackup-backup-ports
         backup/ports/backup_discovery.hpp
         backup/ports/backup_plan_builder.hpp
         backup/ports/backup_preflight.hpp
+        backup/ports/backup_run_action_handler_factory.hpp
         backup/ports/backup_run_factory.hpp
         backup/ports/btrfs_operations.hpp
         backup/ports/cancellation_request_store.hpp
@@ -103,6 +104,7 @@ add_library(btrfsbackup-backup STATIC
     backup_service.cpp
     backup_discovery.cpp
     backup_plan_builder.cpp
+    default_backup_run_action_handler_factory.cpp
     default_backup_run_factory.cpp
     linked_cancellation_monitor.cpp
     run_execution_context.cpp
@@ -134,6 +136,7 @@ target_restricted_include_directories(btrfsbackup-backup
         backup/backup_run_checkpoint_policy.hpp
         backup/backup_run_executor.hpp
         backup/backup_service.hpp
+        backup/default_backup_run_action_handler_factory.hpp
         backup/default_backup_run_factory.hpp
         backup/linked_cancellation_monitor.hpp
         backup/run_execution_context.hpp
