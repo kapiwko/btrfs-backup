@@ -7,44 +7,45 @@ in `docs/adr/`.
 
 ## Sprint Goal
 
-Add narrowly authorized operational controls to the system manager while
-keeping runner execution owned by systemd and preserving automatic backup when
-the manager is absent.
+Finish system-level verification and auditability for the implemented,
+narrowly authorized operational controls while keeping runner execution owned
+by systemd and preserving automatic backup when the manager is absent.
 
 ## Operational API
 
-- [ ] Specify stable D-Bus request/result schemas for `StartBackup`,
+- [x] Specify stable D-Bus request/result schemas for `StartBackup`,
   `CancelBackup`, `ValidateTarget` and `EjectTarget`.
-- [ ] Add a distinct polkit action for every operation with deny-by-default
+- [x] Add a distinct polkit action for every operation with deny-by-default
   inactive and active-session policy.
-- [ ] Resolve caller identity only from the D-Bus connection and bind each
+- [x] Resolve caller identity only from the D-Bus connection and bind each
   authorization decision to that connection and request.
-- [ ] Start the existing profile systemd unit without moving execution into
+- [x] Start the existing profile systemd unit without moving execution into
   `btrfs-backupd` or bypassing profile and target locks.
-- [ ] Route cancellation through the existing run-scoped cancellation request;
+- [x] Route cancellation through the existing run-scoped cancellation request;
   reject stale or mismatched run identities.
-- [ ] Reuse target validation and eject use cases, including target identity
+- [x] Reuse target validation and eject entry points, including target identity
   checks, lock conflicts and safe-removal state.
 
 ## Races And Failure Handling
 
-- [ ] Revalidate profile, run and target identity after authorization and
-  immediately before each operation.
-- [ ] Define stable outcomes for already-running, not-running, busy-target,
+- [x] Revalidate profile and run identity after authorization and perform target
+  validation inside the authorized operation immediately before its effect.
+- [x] Define stable outcomes for already-running, not-running, busy-target,
   caller-disconnected and manager-restarted cases.
-- [ ] Ensure caller disconnect or manager failure never terminates an already
+- [x] Ensure caller disconnect or manager failure never terminates an already
   started runner and never leaves an authorization result reusable.
 - [ ] Emit secret-free audit records containing caller UID, action, profile,
   result and stable error code.
 
 ## Tests And Documentation
 
-- [ ] Test unauthenticated denial, exact-action grants, cross-action denial and
-  inactive-session behavior on an isolated system bus and polkit authority.
-- [ ] Test disconnect, cancellation, restart and conflicting-operation races.
+- [x] Test unauthenticated denial, exact-action grants and caller-bound
+  authorization on an isolated system bus and polkit authority.
+- [ ] Add packaging-level cross-action delegation and inactive-session policy tests.
+- [x] Test disconnect, cancellation, restart and conflicting-operation races.
 - [ ] Extend the real-Btrfs test with authorized start, cancellation, validation
   and eject while retaining the direct udev/systemd path.
-- [ ] Update the D-Bus contract, security model, package contents and client
+- [x] Update the D-Bus contract, security model, package contents and client
   guidance without advertising administrative profile writes.
 
 ## Exit Criteria

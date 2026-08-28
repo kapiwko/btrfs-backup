@@ -135,8 +135,10 @@ keeps a mixed installation inactive.
 - Operational effects compare the profile generation and fingerprint captured
   before authorization with a fresh profile read immediately before the effect.
   A change during the authorization prompt returns `Conflict`.
-- Mutating methods are serialized with the existing profile and target locks
-  and emit structured audit records without secrets or private diagnostics.
+- Mutating methods retain the existing profile and target lock boundaries.
+  Structured, secret-free audit records remain an explicit delivery item in
+  `TODO.md`; normal service diagnostics in journald are not yet the stable audit
+  contract.
 
 ## Required Tests
 

@@ -57,64 +57,103 @@ CMake targets and their declared dependencies:
 ```mermaid
 flowchart TB
     subgraph contracts[Dependency-light contracts]
-        direction LR
         core[core]
         config_domain[config-domain]
         config_json[config-json]
         config_wizard[config-wizard]
+        config_ports[config-ports]
         state_model[state-model]
+        state_persistence[state-persistence-ports]
         backup_model[backup-model]
         transfer[transfer]
+        backup_ports[backup-ports]
 
         core --> config_domain
         config_domain --> config_json
         config_domain --> config_wizard
         config_json --> config_wizard
+        config_domain --> config_ports
+        core --> config_ports
         core --> state_model
         config_domain --> backup_model
+        core --> backup_model
         core --> transfer
+        backup_model --> backup_ports
+        config_domain --> backup_ports
+        core --> backup_ports
+        transfer --> backup_ports
     end
 
     subgraph support[Supporting runtime components]
-        direction LR
         platform[platform-linux]
         config[config]
         linux_config[platform-linux-config]
         state[state]
+        backup[backup orchestration]
+        daemon_core[daemon-core]
     end
 
-    backup[backup orchestration]
     cli[CLI adapter]
-    daemon[authorized D-Bus adapter]
+    manager[authorized D-Bus executable]
 
-    config_domain --> platform
+    backup_ports --> platform
     backup_model --> platform
+    config_domain --> platform
+    config_ports --> platform
+    core --> platform
+    state_persistence --> platform
     transfer --> platform
     config_domain --> config
     config_json --> config
+    core --> config
     config --> linux_config
+    config_domain --> linux_config
     config_json --> linux_config
     config_wizard --> linux_config
+    config_ports --> linux_config
+    core --> linux_config
     platform --> linux_config
     config_domain --> state
     config_json --> state
+    backup_model --> state
+    backup_ports --> state
+    core --> state
     state_model --> state
-    platform --> state
+    state_persistence --> state
     backup_model --> backup
+    backup_ports --> backup
     transfer --> backup
-    platform --> backup
-    state --> backup
+    config_domain --> backup
+    config_ports --> backup
+    core --> backup
     backup --> cli
+    backup_model --> cli
+    backup_ports --> cli
+    config_domain --> cli
+    config_ports --> cli
+    core --> cli
+    config_json --> cli
+    platform --> cli
     linux_config --> cli
     state --> cli
-    config_domain --> daemon
-    config_json --> daemon
-    platform --> daemon
-    linux_config --> daemon
+    transfer --> cli
+    core --> daemon_core
+    config_domain --> daemon_core
+    config_json --> daemon_core
+    platform --> daemon_core
+    backup_ports --> manager
+    config_ports --> manager
+    daemon_core --> manager
+    platform --> manager
+    linux_config --> manager
+    state --> manager
 
     cli --> executables[btrfs-backup<br/>btrfs-backupctl]
-    daemon --> manager[btrfs-backupd]
 ```
+
+Arrows point from a dependency provider to its direct consumer. Third-party
+libraries are omitted. In particular, `btrfsbackup-backup` is platform-neutral:
+Linux and file-backed adapters meet it only in the CLI composition root.
 
 The `*-model` targets contain dependency-light contracts needed to avoid
 cycles between configuration, backup concepts, and Linux implementations. They
@@ -182,9 +221,12 @@ remains only the stable action label used by events, checkpoints, and CLI JSON.
 
 `BackupRunExecutor` sees one `IBackupRunActionHandler` port. Its production
 implementation is a small `BackupRunActionHandler` dispatcher composed from
-snapshot, recovery, retention, hook, repository, and transfer handlers. Each
-specialized handler accepts only the action types and dependencies belonging to
-its own effect group; the runner CLI assembles them at the composition boundary.
+snapshot, recovery, retention, hook, and repository handlers. Each specialized
+handler accepts only the action types and dependencies belonging to its own
+effect group. `DefaultBackupRunActionHandlerFactory` owns this reusable,
+run-scoped assembly in `backup`; the runner composition root supplies the Linux
+and file-backed port implementations. Transfer execution remains a separate
+coordinator owned by `backup`.
 
 ## Rules
 
