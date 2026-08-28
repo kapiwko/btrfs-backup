@@ -125,12 +125,12 @@ treated as a reduced security boundary. Package compilation runs first in a
 non-privileged build container; the privileged worker receives only the
 finished package through a read-only mount.
 
-Local runner tests cover the file-based cancellation request and verify that an
-active transfer sees the request, reports `runner.cancelled`, and clears the
-handled marker. Future privileged-control tests should still verify that manual
-start, force, validate, cancel and eject operations cannot conflict with an
-active backup unit, cannot operate on a mismatched profile id, and cannot affect
-unrelated processes or targets.
+Local runner tests cover the run-bound file cancellation request and verify that
+an active transfer sees a matching request, reports `runner.cancelled`, and
+clears the handled marker. Future privileged-control tests should still verify
+that manual start, force, validate, cancel and eject operations cannot conflict
+with an active backup unit, cannot operate on a mismatched profile id, and
+cannot affect unrelated processes or targets.
 
 ## Real Btrfs Docker Test
 

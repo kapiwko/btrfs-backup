@@ -177,9 +177,10 @@ validation as the final decision.
 Eject must not run while a backup is active unless the privileged component can
 prove that the target is idle and that the operation applies to the expected
 mapper. Cancellation must target the matching backup unit or runner transaction,
-not arbitrary processes. The current runner cancellation command writes a
-root-owned request file under the selected profile state directory; the active
-runner consumes that request and clears it after handling.
+not arbitrary processes. The runner cancellation command requires both the
+profile and run identifiers. It writes a root-owned request file under the
+selected profile state directory only while that exact run is registered as
+active; the active runner consumes that request and clears it after handling.
 
 Service and terminal termination signals follow the same cancellation path.
 The runner consumes SIGINT and SIGTERM through a file descriptor, requests its

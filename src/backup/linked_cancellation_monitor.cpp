@@ -39,11 +39,11 @@ LinkedCancellationMonitor::LinkedCancellationMonitor(
 }
 
 std::unique_ptr<ICancellationWatch> LinkedCancellationMonitor::watch(
-    const ProfileId& profile_id,
+    const CancellationRequest& request,
     CancellationToken& cancellation
 ) {
     return std::make_unique<LinkedCancellationWatch>(
-        primary_.watch(profile_id, cancellation),
+        primary_.watch(request, cancellation),
         upstream_,
         cancellation
     );

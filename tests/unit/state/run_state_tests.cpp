@@ -108,6 +108,7 @@ void test_pending_marker_write_read_and_clear() {
 void test_cancel_request_write_check_and_clear() {
     fs::path root = test_root("cancel-request");
     fs::path state_dir = root / "state" / "profiles" / "default";
+    const btrfsbackup::RunId run_id{"run-1"};
 
     test_helpers::expect_true(
         "cancel initially absent",
@@ -115,19 +116,37 @@ void test_cancel_request_write_check_and_clear() {
         "cancel request should not exist"
     );
 
-    btrfsbackup::state::write_cancel_request(durable_files(), state_dir);
+    btrfsbackup::state::write_active_run(durable_files(), state_dir, run_id);
+    test_helpers::expect_true(
+        "active run recorded",
+        btrfsbackup::state::active_run(state_dir) == run_id,
+        "active run identity missing"
+    );
+
+    btrfsbackup::state::write_cancel_request(durable_files(), state_dir, run_id);
     test_helpers::expect_true("cancel requested", btrfsbackup::state::cancel_requested(state_dir), "cancel request missing");
+    test_helpers::expect_true(
+        "cancel matches run",
+        btrfsbackup::state::cancel_requested(state_dir, run_id),
+        "cancel request run identity missing"
+    );
     test_helpers::expect_eq(
         "cancel path",
         btrfsbackup::state::cancel_request_path(state_dir).string(),
         (state_dir / "cancel-request").string()
     );
 
-    btrfsbackup::state::clear_cancel_request(durable_files(), state_dir);
+    btrfsbackup::state::clear_cancel_request(durable_files(), state_dir, run_id);
     test_helpers::expect_true(
         "cancel cleared",
         !btrfsbackup::state::cancel_requested(state_dir),
         "cancel request should be cleared"
+    );
+    btrfsbackup::state::clear_active_run(durable_files(), state_dir, run_id);
+    test_helpers::expect_true(
+        "active run cleared",
+        !btrfsbackup::state::active_run(state_dir).has_value(),
+        "active run identity should be cleared"
     );
     fs::remove_all(root);
 }

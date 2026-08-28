@@ -29,6 +29,18 @@ BackupRunStatusDescription status_description(
     };
 }
 
+std::optional<ErrorCode> cancellation_error(CancellationRequestOutcome outcome) {
+    switch (outcome) {
+    case CancellationRequestOutcome::Accepted:
+        return std::nullopt;
+    case CancellationRequestOutcome::StaleRun:
+        return ErrorCode::RunnerStaleRun;
+    case CancellationRequestOutcome::RunMismatch:
+        return ErrorCode::RunnerRunMismatch;
+    }
+    return ErrorCode::BackupFailed;
+}
+
 } // namespace
 
 BackupService::BackupService(
@@ -120,13 +132,13 @@ BackupExecutionResult BackupService::start(const BackupRequest& request) {
         return result;
     }
 
-    cancellation_requests_.clear_cancel_request(request.profile_id);
     RunExecutionContext context(
         profile.id,
         run_id,
         std::move(lease.lease),
         checkpoints_,
         event_sinks_,
+        cancellation_requests_,
         cancellation_monitor_,
         status_description(profile, result.plan, timestamp)
     );
@@ -136,7 +148,7 @@ BackupExecutionResult BackupService::start(const BackupRequest& request) {
         *context.checkpoints,
         context.cancellation
     );
-    cancellation_requests_.clear_cancel_request(request.profile_id);
+    cancellation_requests_.clear_cancel_request({profile.id, run_id});
 
     result.actions_completed = execution.actions_completed;
     result.outcome = execution.outcome == BackupRunExecutionOutcome::Completed
@@ -155,10 +167,19 @@ BackupExecutionResult BackupService::start(const BackupRequest& request) {
     return result;
 }
 
-CancelBackupResult BackupService::cancel(const ProfileId& profile_id) {
-    const btrfsbackup::config::LoadedProfile loaded = profiles_.get(profile_id);
-    cancellation_requests_.request_cancel(loaded.profile.id);
-    return {.profile_id = loaded.profile.id, .cancel_requested = true};
+CancelBackupResult BackupService::cancel(const CancellationRequest& request) {
+    const btrfsbackup::config::LoadedProfile loaded = profiles_.get(request.profile_id);
+    const CancellationRequest validated_request{loaded.profile.id, request.run_id};
+    BackupRunLeaseResult lease = leases_.try_acquire(loaded.profile);
+    const CancellationRequestOutcome outcome = lease.lease
+        ? CancellationRequestOutcome::StaleRun
+        : cancellation_requests_.request_cancel(validated_request);
+    return {
+        .profile_id = loaded.profile.id,
+        .run_id = request.run_id,
+        .cancel_requested = outcome == CancellationRequestOutcome::Accepted,
+        .error_code = cancellation_error(outcome),
+    };
 }
 
 } // namespace btrfsbackup::backup

@@ -20,6 +20,10 @@ std::string error_code_name(ErrorCode code) {
         return "runner.profile_busy";
     case ErrorCode::RunnerTargetBusy:
         return "runner.target_busy";
+    case ErrorCode::RunnerStaleRun:
+        return "runner.stale_run";
+    case ErrorCode::RunnerRunMismatch:
+        return "runner.run_mismatch";
     case ErrorCode::TransferFailed:
         return "transfer.failed";
     case ErrorCode::TransferProducerFailed:
@@ -57,6 +61,10 @@ std::optional<ErrorCode> error_code_from_name(const std::string& name) {
         return ErrorCode::RunnerProfileBusy;
     if (name == "runner.target_busy")
         return ErrorCode::RunnerTargetBusy;
+    if (name == "runner.stale_run")
+        return ErrorCode::RunnerStaleRun;
+    if (name == "runner.run_mismatch")
+        return ErrorCode::RunnerRunMismatch;
     if (name == "transfer.failed")
         return ErrorCode::TransferFailed;
     if (name == "transfer.producer_failed")

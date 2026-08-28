@@ -24,11 +24,11 @@ class PollingCancellationWatch final : public btrfsbackup::backup::ICancellation
   public:
     PollingCancellationWatch(
         btrfsbackup::backup::ICancellationRequestStore& requests,
-        ProfileId profile_id,
+        btrfsbackup::backup::CancellationRequest request,
         CancellationToken& cancellation
     )
         : requests_(requests),
-          profile_id_(std::move(profile_id)),
+          request_(std::move(request)),
           cancellation_(cancellation),
           worker_([this](std::stop_token stop) { run(stop); }) {
     }
@@ -41,7 +41,7 @@ class PollingCancellationWatch final : public btrfsbackup::backup::ICancellation
   private:
     void run(std::stop_token stop) {
         while (!stop.stop_requested()) {
-            if (requests_.cancel_requested(profile_id_)) {
+            if (requests_.cancel_requested(request_)) {
                 cancellation_.request_cancel();
                 return;
             }
@@ -50,9 +50,36 @@ class PollingCancellationWatch final : public btrfsbackup::backup::ICancellation
     }
 
     btrfsbackup::backup::ICancellationRequestStore& requests_;
-    ProfileId profile_id_;
+    btrfsbackup::backup::CancellationRequest request_;
     CancellationToken& cancellation_;
     std::jthread worker_;
+};
+
+class FileActiveRunRegistration final : public btrfsbackup::backup::IActiveRunRegistration {
+  public:
+    FileActiveRunRegistration(
+        IDurableFileOperations& files,
+        fs::path profile_state_dir,
+        RunId run_id
+    )
+        : files_(files), profile_state_dir_(std::move(profile_state_dir)), run_id_(std::move(run_id)) {
+    }
+
+    ~FileActiveRunRegistration() override {
+        try {
+            btrfsbackup::state::clear_cancel_request(files_, profile_state_dir_, run_id_);
+        } catch (...) {
+        }
+        try {
+            btrfsbackup::state::clear_active_run(files_, profile_state_dir_, run_id_);
+        } catch (...) {
+        }
+    }
+
+  private:
+    IDurableFileOperations& files_;
+    fs::path profile_state_dir_;
+    RunId run_id_;
 };
 
 } // namespace
@@ -148,16 +175,51 @@ std::unique_ptr<btrfsbackup::backup::IBackupRunEventSink> FileRunStateRepository
                                                          });
 }
 
-void FileRunStateRepository::request_cancel(const ProfileId& profile_id) {
-    write_cancel_request(files_, state_dir(profile_id));
+std::unique_ptr<btrfsbackup::backup::IActiveRunRegistration> FileRunStateRepository::register_active_run(
+    const btrfsbackup::backup::CancellationRequest& request
+) {
+    const fs::path directory = state_dir(request.profile_id);
+    auto registration = std::make_unique<FileActiveRunRegistration>(files_, directory, request.run_id);
+    btrfsbackup::state::clear_cancel_request(files_, directory);
+    write_active_run(files_, directory, request.run_id);
+    return registration;
 }
 
-bool FileRunStateRepository::cancel_requested(const ProfileId& profile_id) const {
-    return btrfsbackup::state::cancel_requested(state_dir(profile_id));
+btrfsbackup::backup::CancellationRequestOutcome FileRunStateRepository::request_cancel(
+    const btrfsbackup::backup::CancellationRequest& request
+) {
+    const fs::path directory = state_dir(request.profile_id);
+    const std::optional<RunId> active = active_run(directory);
+    if (!active.has_value()) {
+        return btrfsbackup::backup::CancellationRequestOutcome::StaleRun;
+    }
+    if (*active != request.run_id) {
+        return btrfsbackup::backup::CancellationRequestOutcome::RunMismatch;
+    }
+
+    write_cancel_request(files_, directory, request.run_id);
+    const std::optional<RunId> confirmed = active_run(directory);
+    if (!confirmed.has_value()) {
+        clear_cancel_request(request);
+        return btrfsbackup::backup::CancellationRequestOutcome::StaleRun;
+    }
+    if (*confirmed != request.run_id) {
+        clear_cancel_request(request);
+        return btrfsbackup::backup::CancellationRequestOutcome::RunMismatch;
+    }
+    return btrfsbackup::backup::CancellationRequestOutcome::Accepted;
 }
 
-void FileRunStateRepository::clear_cancel_request(const ProfileId& profile_id) {
-    btrfsbackup::state::clear_cancel_request(files_, state_dir(profile_id));
+bool FileRunStateRepository::cancel_requested(
+    const btrfsbackup::backup::CancellationRequest& request
+) const {
+    return btrfsbackup::state::cancel_requested(state_dir(request.profile_id), request.run_id);
+}
+
+void FileRunStateRepository::clear_cancel_request(
+    const btrfsbackup::backup::CancellationRequest& request
+) {
+    btrfsbackup::state::clear_cancel_request(files_, state_dir(request.profile_id), request.run_id);
 }
 
 FileCancellationMonitor::FileCancellationMonitor(
@@ -167,10 +229,10 @@ FileCancellationMonitor::FileCancellationMonitor(
 }
 
 std::unique_ptr<btrfsbackup::backup::ICancellationWatch> FileCancellationMonitor::watch(
-    const ProfileId& profile_id,
+    const btrfsbackup::backup::CancellationRequest& request,
     CancellationToken& cancellation
 ) {
-    return std::make_unique<PollingCancellationWatch>(requests_, profile_id, cancellation);
+    return std::make_unique<PollingCancellationWatch>(requests_, request, cancellation);
 }
 
 } // namespace btrfsbackup::state

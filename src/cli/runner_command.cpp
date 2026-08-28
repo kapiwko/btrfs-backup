@@ -228,7 +228,7 @@ void usage() {
               << "\nCommands:\n"
               << "  plan --profile ID [--timestamp TS] [--run-id ID] [--mountinfo PATH]\n"
               << "  execute --profile ID [--timestamp TS] [--run-id ID] [--force] [--validate]\n"
-              << "  cancel --profile ID\n";
+              << "  cancel --profile ID --run-id ID\n";
 }
 
 struct ParsedRunnerCommand {
@@ -269,6 +269,9 @@ ParsedRunnerCommand parse_request(
         } else {
             fail("unknown " + command + " option: " + arg);
         }
+    }
+    if (command == "cancel" && !parsed.run_id.has_value()) {
+        fail("--run-id is required for cancel");
     }
     if (!parsed.run_id.has_value()) {
         parsed.run_id = btrfsbackup::RunId{compact_timestamp(parsed.timestamp) + "-shadow"};
@@ -516,17 +519,21 @@ int runner(
         fail("unknown command: " + command);
     }
 
-    const btrfsbackup::backup::BackupRequest request = parse_request({}, command, args).request;
+    const ParsedRunnerCommand parsed = parse_request({}, command, args);
+    const btrfsbackup::backup::BackupRequest& request = parsed.request;
     if (command == "cancel") {
-        btrfsbackup::backup::CancelBackupResult result = service.cancel(request.profile_id);
+        btrfsbackup::backup::CancelBackupResult result = service.cancel({request.profile_id, *parsed.run_id});
         output << btrfsbackup::config::Json{
                       {"schemaVersion", 1},
                       {"mode", "cpp-cancel"},
                       {"profileId", std::string(result.profile_id.value())},
-                      {"cancelRequested", result.cancel_requested}
-                  }.dump(2)
+                      {"runId", std::string(result.run_id.value())},
+                      {"cancelRequested", result.cancel_requested},
+                      {"errorCode", result.error_code.has_value() ? error_code_name(*result.error_code) : ""}
+                  }
+                      .dump(2)
                << '\n';
-        return 0;
+        return result.cancel_requested ? 0 : 1;
     }
     if (command == "plan") {
         btrfsbackup::backup::BackupRunPlan plan = service.plan(request);

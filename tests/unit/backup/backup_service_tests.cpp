@@ -5,6 +5,7 @@
 #include <backup/backup_service.hpp>
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -150,12 +151,31 @@ struct FakeLeases final : btrfsbackup::backup::IBackupRunLeaseProvider {
     }
 };
 
+struct FakeActiveRunRegistration final : btrfsbackup::backup::IActiveRunRegistration {
+    FakeActiveRunRegistration(
+        std::optional<btrfsbackup::RunId>& active_run,
+        bool& cancellation_requested
+    )
+        : active_run_(active_run), cancellation_requested_(cancellation_requested) {
+    }
+
+    ~FakeActiveRunRegistration() override {
+        active_run_.reset();
+        cancellation_requested_ = false;
+    }
+
+  private:
+    std::optional<btrfsbackup::RunId>& active_run_;
+    bool& cancellation_requested_;
+};
+
 struct FakeState final : btrfsbackup::backup::IRunLedger,
                          btrfsbackup::backup::IRunEventSinkFactory,
                          btrfsbackup::backup::ICheckpointStoreFactory,
                          btrfsbackup::backup::ICancellationRequestStore {
     bool daily_match = false;
     bool cancellation_requested = false;
+    std::optional<btrfsbackup::RunId> active_run;
     int skipped_writes = 0;
     int success_writes = 0;
     int cancel_writes = 0;
@@ -211,14 +231,34 @@ struct FakeState final : btrfsbackup::backup::IRunLedger,
         return std::make_unique<TrackingEvents>(event_destructions);
     }
 
-    void request_cancel(const btrfsbackup::ProfileId&) override {
-        ++cancel_writes;
-    }
-    bool cancel_requested(const btrfsbackup::ProfileId&) const override {
-        return cancellation_requested;
-    }
-    void clear_cancel_request(const btrfsbackup::ProfileId&) override {
+    std::unique_ptr<btrfsbackup::backup::IActiveRunRegistration> register_active_run(
+        const btrfsbackup::backup::CancellationRequest& request
+    ) override {
+        active_run = request.run_id;
         cancellation_requested = false;
+        return std::make_unique<FakeActiveRunRegistration>(active_run, cancellation_requested);
+    }
+
+    btrfsbackup::backup::CancellationRequestOutcome request_cancel(
+        const btrfsbackup::backup::CancellationRequest& request
+    ) override {
+        if (!active_run.has_value()) {
+            return btrfsbackup::backup::CancellationRequestOutcome::StaleRun;
+        }
+        if (*active_run != request.run_id) {
+            return btrfsbackup::backup::CancellationRequestOutcome::RunMismatch;
+        }
+        ++cancel_writes;
+        cancellation_requested = true;
+        return btrfsbackup::backup::CancellationRequestOutcome::Accepted;
+    }
+    bool cancel_requested(const btrfsbackup::backup::CancellationRequest& request) const override {
+        return cancellation_requested && active_run.has_value() && *active_run == request.run_id;
+    }
+    void clear_cancel_request(const btrfsbackup::backup::CancellationRequest& request) override {
+        if (active_run.has_value() && *active_run == request.run_id) {
+            cancellation_requested = false;
+        }
     }
 };
 
@@ -249,7 +289,7 @@ struct FakeCancellationMonitor final : btrfsbackup::backup::ICancellationMonitor
     int watch_destructions = 0;
 
     std::unique_ptr<btrfsbackup::backup::ICancellationWatch> watch(
-        const btrfsbackup::ProfileId&,
+        const btrfsbackup::backup::CancellationRequest&,
         btrfsbackup::CancellationToken&
     ) override {
         return std::make_unique<FakeCancellationWatch>(watch_destructions);
@@ -359,6 +399,7 @@ void expect_run_resources_released(const std::string& prefix, const Fixture& fix
     test_helpers::expect_true(prefix + " watcher", fixture.cancellation_monitor.watch_destructions == 1, "watcher was not released");
     test_helpers::expect_true(prefix + " checkpoints", fixture.state.checkpoint_destructions == 1, "checkpoint store was not released");
     test_helpers::expect_true(prefix + " events", fixture.state.event_destructions == 1, "event sink was not released");
+    test_helpers::expect_true(prefix + " active run", !fixture.state.active_run.has_value(), "active run was not released");
 }
 
 void test_run_context_releases_resources_after_success() {
@@ -404,7 +445,12 @@ void test_daily_match_skips_execution() {
 
 void test_cancel_validates_profile_and_writes_request() {
     Fixture fixture;
-    const btrfsbackup::backup::CancelBackupResult result = fixture.service.cancel(btrfsbackup::ProfileId{"default"});
+    fixture.leases.busy = true;
+    fixture.state.active_run = btrfsbackup::RunId{"run-1"};
+    const btrfsbackup::backup::CancelBackupResult result = fixture.service.cancel({
+        .profile_id = btrfsbackup::ProfileId{"default"},
+        .run_id = btrfsbackup::RunId{"run-1"},
+    });
 
     test_helpers::expect_true("cancel requested", result.cancel_requested, "cancel request missing");
     test_helpers::expect_true("cancel writes", fixture.state.cancel_writes == 1, "cancel request missing");

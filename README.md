@@ -120,7 +120,7 @@ sudo btrfs-backup --no-eject
 sudo btrfs-backup --profile default --validate
 btrfs-backupctl target mount --profile default
 btrfs-backupctl target eject --profile default
-btrfs-backupctl runner cancel --profile default
+btrfs-backupctl runner cancel --profile default --run-id RUN_ID
 btrfs-backupctl profile validate --file profile.json
 btrfs-backupctl profile render --file profile.json --output-dir ./generated-profile
 btrfs-backupctl profile show --profile default

@@ -47,9 +47,16 @@ class FileRunStateRepository final : public btrfsbackup::backup::IRunLedger,
     ) override;
     [[nodiscard]] std::unique_ptr<btrfsbackup::backup::IBackupRunCheckpointStore> checkpoints(const ProfileId& profile_id) override;
     [[nodiscard]] std::unique_ptr<btrfsbackup::backup::IBackupRunEventSink> events(btrfsbackup::backup::BackupRunStatusDescription description) override;
-    void request_cancel(const ProfileId& profile_id) override;
-    [[nodiscard]] bool cancel_requested(const ProfileId& profile_id) const override;
-    void clear_cancel_request(const ProfileId& profile_id) override;
+    [[nodiscard]] std::unique_ptr<btrfsbackup::backup::IActiveRunRegistration> register_active_run(
+        const btrfsbackup::backup::CancellationRequest& request
+    ) override;
+    [[nodiscard]] btrfsbackup::backup::CancellationRequestOutcome request_cancel(
+        const btrfsbackup::backup::CancellationRequest& request
+    ) override;
+    [[nodiscard]] bool cancel_requested(
+        const btrfsbackup::backup::CancellationRequest& request
+    ) const override;
+    void clear_cancel_request(const btrfsbackup::backup::CancellationRequest& request) override;
 
   private:
     [[nodiscard]] std::filesystem::path state_dir(const ProfileId& profile_id) const;
@@ -62,7 +69,7 @@ class FileCancellationMonitor final : public btrfsbackup::backup::ICancellationM
     explicit FileCancellationMonitor(btrfsbackup::backup::ICancellationRequestStore& requests);
 
     [[nodiscard]] std::unique_ptr<btrfsbackup::backup::ICancellationWatch> watch(
-        const ProfileId& profile_id,
+        const btrfsbackup::backup::CancellationRequest& request,
         CancellationToken& cancellation
     ) override;
 

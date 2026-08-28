@@ -6,8 +6,8 @@
 
 #include <memory>
 
+#include <backup/model/backup_execution.hpp>
 #include <core/cancellation.hpp>
-#include <core/identifiers.hpp>
 
 namespace btrfsbackup::backup {
 
@@ -21,7 +21,7 @@ class ICancellationMonitor {
     virtual ~ICancellationMonitor() = default;
 
     [[nodiscard]] virtual std::unique_ptr<ICancellationWatch> watch(
-        const ProfileId& profile_id,
+        const CancellationRequest& request,
         CancellationToken& cancellation
     ) = 0;
 };

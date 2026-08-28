@@ -20,6 +20,16 @@ void test_error_code_names_are_stable_and_parseable() {
         btrfsbackup::error_code_from_name("runner.profile_busy") == ErrorCode::RunnerProfileBusy,
         "known code was not parsed"
     );
+    test_helpers::expect_eq(
+        "stale run error code",
+        btrfsbackup::error_code_name(ErrorCode::RunnerStaleRun),
+        "runner.stale_run"
+    );
+    test_helpers::expect_true(
+        "run mismatch error code",
+        btrfsbackup::error_code_from_name("runner.run_mismatch") == ErrorCode::RunnerRunMismatch,
+        "run mismatch code was not parsed"
+    );
     test_helpers::expect_true(
         "unknown error code",
         !btrfsbackup::error_code_from_name("future.unknown").has_value(),
