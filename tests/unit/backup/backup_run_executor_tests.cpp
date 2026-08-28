@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include <algorithm>
+#include <array>
 #include <cstdint>
 #include <filesystem>
 #include <iterator>
@@ -27,6 +28,7 @@ std::string action_name(btrfsbackup::backup::BackupRunActionKind kind) {
 class RecordingActionHandler final : public btrfsbackup::backup::IBackupRunActionHandler {
   public:
     std::vector<std::string> calls;
+    std::vector<std::string>* execution_trace = nullptr;
     bool should_throw = false;
     bool recovery_required = false;
     bool operation_cancelled = false;
@@ -42,6 +44,9 @@ class RecordingActionHandler final : public btrfsbackup::backup::IBackupRunActio
         calls.push_back(
             std::string(btrfsbackup::backup::backup_run_action_source_id(action).value()) + ":" + action_name(kind)
         );
+        if (execution_trace != nullptr) {
+            execution_trace->push_back("effect:" + action_name(kind));
+        }
         if (should_throw && kind == throw_on) {
             if (operation_cancelled) {
                 throw btrfsbackup::OperationCancelledError("hook cancelled");
@@ -63,20 +68,34 @@ class RecordingActionHandler final : public btrfsbackup::backup::IBackupRunActio
 class RecordingCheckpoints final : public btrfsbackup::backup::IBackupRunCheckpointStore {
   public:
     std::vector<btrfsbackup::backup::BackupRunCheckpoint> checkpoints;
+    std::vector<std::string>* execution_trace = nullptr;
 
     void write_checkpoint(const btrfsbackup::backup::BackupRunCheckpoint& checkpoint) override {
         checkpoints.push_back(checkpoint);
+        if (execution_trace != nullptr) {
+            execution_trace->push_back("checkpoint-store:" + action_name(checkpoint.action_kind));
+        }
     }
 };
 
 class RecordingEvents final : public btrfsbackup::backup::IBackupRunEventSink {
   public:
     std::vector<btrfsbackup::backup::BackupRunEvent> events;
+    std::vector<std::string>* execution_trace = nullptr;
     btrfsbackup::CancellationToken* cancel_after_first_completed = nullptr;
     bool cancelled = false;
 
     void on_backup_run_event(const btrfsbackup::backup::BackupRunEvent& event) override {
         events.push_back(event);
+        if (execution_trace != nullptr) {
+            if (event.kind == btrfsbackup::backup::BackupRunEventKind::ActionStarted) {
+                execution_trace->push_back("action-started:" + action_name(event.action_kind));
+            } else if (event.kind == btrfsbackup::backup::BackupRunEventKind::ActionCompleted) {
+                execution_trace->push_back("action-completed:" + action_name(event.action_kind));
+            } else if (event.kind == btrfsbackup::backup::BackupRunEventKind::CheckpointWritten) {
+                execution_trace->push_back("checkpoint-written:" + action_name(event.action_kind));
+            }
+        }
         if (!cancelled && cancel_after_first_completed != nullptr && event.kind == btrfsbackup::backup::BackupRunEventKind::ActionCompleted) {
             cancelled = true;
             cancel_after_first_completed->request_cancel();
@@ -93,6 +112,7 @@ class RecordingEvents final : public btrfsbackup::backup::IBackupRunEventSink {
 class RecordingTransferPipeline final : public btrfsbackup::backup::transfer::ITransferPipeline {
   public:
     std::vector<btrfsbackup::backup::transfer::TransferPipelinePlan> plans;
+    std::vector<std::string>* execution_trace = nullptr;
     btrfsbackup::backup::transfer::TransferResult next_result{
         .producer = {
             .started = true,
@@ -113,6 +133,11 @@ class RecordingTransferPipeline final : public btrfsbackup::backup::transfer::IT
         btrfsbackup::CancellationToken&
     ) override {
         plans.push_back(plan);
+        if (execution_trace != nullptr) {
+            execution_trace->push_back(
+                "effect:" + action_name(btrfsbackup::backup::BackupRunActionKind::SendReceive)
+            );
+        }
         std::uint64_t reported_progress_bytes = progress_bytes;
         if (!progress_bytes_by_run.empty() && plans.size() <= progress_bytes_by_run.size()) {
             reported_progress_bytes = progress_bytes_by_run.at(plans.size() - 1);
@@ -210,6 +235,98 @@ btrfsbackup::backup::BackupRunPlan plan_with_actions(std::vector<btrfsbackup::ba
         .run_id = btrfsbackup::RunId{"run-1"},
         .sources = {source},
     };
+}
+
+void test_every_action_uses_uniform_execution_semantics() {
+    constexpr std::array action_kinds{
+        btrfsbackup::backup::BackupRunActionKind::RecoverPending,
+        btrfsbackup::backup::BackupRunActionKind::CleanupIncoming,
+        btrfsbackup::backup::BackupRunActionKind::BeforeSnapshotHook,
+        btrfsbackup::backup::BackupRunActionKind::CreateSnapshot,
+        btrfsbackup::backup::BackupRunActionKind::AfterSnapshotHook,
+        btrfsbackup::backup::BackupRunActionKind::SendReceive,
+        btrfsbackup::backup::BackupRunActionKind::VerifyReceived,
+        btrfsbackup::backup::BackupRunActionKind::CommitReceived,
+        btrfsbackup::backup::BackupRunActionKind::ApplyRemoteRetention,
+        btrfsbackup::backup::BackupRunActionKind::ApplyLocalRetention,
+        btrfsbackup::backup::BackupRunActionKind::CleanupSource,
+    };
+    static_assert(
+        action_kinds.size() == static_cast<std::size_t>(btrfsbackup::backup::BackupRunActionKind::CleanupSource) + 1
+    );
+
+    for (const btrfsbackup::backup::BackupRunActionKind kind : action_kinds) {
+        std::vector<std::string> execution_trace;
+        RecordingActionHandler handler;
+        handler.execution_trace = &execution_trace;
+        RecordingTransferPipeline transfers;
+        transfers.execution_trace = &execution_trace;
+        RecordingCheckpoints checkpoints;
+        checkpoints.execution_trace = &execution_trace;
+        RecordingEvents events;
+        events.execution_trace = &execution_trace;
+        btrfsbackup::CancellationToken cancellation;
+        btrfsbackup::backup::transfer::ThreadedAsyncTransferPipeline async_transfers(transfers);
+        btrfsbackup::backup::BackupRunExecutor executor(
+            handler,
+            async_transfers,
+            checkpoints,
+            safe_directories
+        );
+
+        btrfsbackup::backup::BackupRunExecutionResult result = executor.execute(
+            plan_with_actions({action(kind)}),
+            events,
+            cancellation
+        );
+
+        const std::string kind_name = action_name(kind);
+        test_helpers::expect_true(
+            "uniform action outcome " + kind_name,
+            result.outcome == btrfsbackup::backup::BackupRunExecutionOutcome::Completed,
+            "action did not complete"
+        );
+        test_helpers::expect_eq(
+            "uniform action count " + kind_name,
+            std::to_string(result.actions_completed),
+            "1"
+        );
+        test_helpers::expect_eq(
+            "uniform handler count " + kind_name,
+            std::to_string(handler.calls.size()),
+            kind == btrfsbackup::backup::BackupRunActionKind::SendReceive ? "0" : "1"
+        );
+        test_helpers::expect_eq(
+            "uniform transfer count " + kind_name,
+            std::to_string(transfers.plans.size()),
+            kind == btrfsbackup::backup::BackupRunActionKind::SendReceive ? "1" : "0"
+        );
+        test_helpers::expect_eq(
+            "uniform checkpoint count " + kind_name,
+            std::to_string(checkpoints.checkpoints.size()),
+            "1"
+        );
+
+        const std::array expected_trace{
+            "action-started:" + kind_name,
+            "effect:" + kind_name,
+            "action-completed:" + kind_name,
+            "checkpoint-store:" + kind_name,
+            "checkpoint-written:" + kind_name,
+        };
+        test_helpers::expect_eq(
+            "uniform trace size " + kind_name,
+            std::to_string(execution_trace.size()),
+            std::to_string(expected_trace.size())
+        );
+        for (std::size_t index = 0; index < expected_trace.size(); ++index) {
+            test_helpers::expect_eq(
+                "uniform trace entry " + kind_name + ":" + std::to_string(index),
+                execution_trace.at(index),
+                expected_trace.at(index)
+            );
+        }
+    }
 }
 
 void test_full_backup_flow_without_parent() {
@@ -726,6 +843,7 @@ void test_local_retention_failure_keeps_remote_retention_checkpoint() {
 } // namespace
 
 int main() {
+    test_every_action_uses_uniform_execution_semantics();
     test_full_backup_flow_without_parent();
     test_executes_actions_and_writes_durable_checkpoints();
     test_pending_recovery_runs_before_source_cleanup();
