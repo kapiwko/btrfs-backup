@@ -6,6 +6,7 @@
 
 #include <memory>
 
+#include <backup/ports/cancellation_request_store.hpp>
 #include <backup/ports/cancellation_monitor.hpp>
 #include <backup/ports/checkpoint_store_factory.hpp>
 #include <backup/ports/run_event_sink_factory.hpp>
@@ -22,6 +23,7 @@ struct RunExecutionContext {
         std::unique_ptr<IBackupRunLease> lease,
         ICheckpointStoreFactory& checkpoints,
         IRunEventSinkFactory& event_sinks,
+        ICancellationRequestStore& cancellation_requests,
         ICancellationMonitor& cancellation_monitor,
         BackupRunStatusDescription status
     );
@@ -32,6 +34,7 @@ struct RunExecutionContext {
     ProfileId profile_id;
     RunId run_id;
     CancellationToken cancellation;
+    std::unique_ptr<IActiveRunRegistration> active_run;
     std::unique_ptr<ICancellationWatch> cancellation_watch;
     std::unique_ptr<IBackupRunCheckpointStore> checkpoints;
     std::unique_ptr<IBackupRunEventSink> events;

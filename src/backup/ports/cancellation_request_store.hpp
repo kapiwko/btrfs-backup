@@ -4,17 +4,29 @@
 
 #pragma once
 
-#include <core/identifiers.hpp>
+#include <memory>
+
+#include <backup/model/backup_execution.hpp>
 
 namespace btrfsbackup::backup {
+
+class IActiveRunRegistration {
+  public:
+    virtual ~IActiveRunRegistration() = default;
+};
 
 class ICancellationRequestStore {
   public:
     virtual ~ICancellationRequestStore() = default;
 
-    virtual void request_cancel(const ProfileId& profile_id) = 0;
-    [[nodiscard]] virtual bool cancel_requested(const ProfileId& profile_id) const = 0;
-    virtual void clear_cancel_request(const ProfileId& profile_id) = 0;
+    [[nodiscard]] virtual std::unique_ptr<IActiveRunRegistration> register_active_run(
+        const CancellationRequest& request
+    ) = 0;
+    [[nodiscard]] virtual CancellationRequestOutcome request_cancel(
+        const CancellationRequest& request
+    ) = 0;
+    [[nodiscard]] virtual bool cancel_requested(const CancellationRequest& request) const = 0;
+    virtual void clear_cancel_request(const CancellationRequest& request) = 0;
 };
 
 } // namespace btrfsbackup::backup

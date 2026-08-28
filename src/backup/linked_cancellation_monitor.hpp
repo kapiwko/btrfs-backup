@@ -14,7 +14,7 @@ class LinkedCancellationMonitor final : public ICancellationMonitor {
     LinkedCancellationMonitor(ICancellationMonitor& primary, CancellationToken& upstream);
 
     [[nodiscard]] std::unique_ptr<ICancellationWatch> watch(
-        const ProfileId& profile_id,
+        const CancellationRequest& request,
         CancellationToken& cancellation
     ) override;
 

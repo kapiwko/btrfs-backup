@@ -112,9 +112,55 @@ fs::path cancel_request_path(const fs::path& profile_state_dir) {
     return profile_state_dir / "cancel-request";
 }
 
-void write_cancel_request(IDurableFileOperations& files, const fs::path& profile_state_dir) {
+fs::path active_run_path(const fs::path& profile_state_dir) {
+    return profile_state_dir / "active-run";
+}
+
+void write_active_run(
+    IDurableFileOperations& files,
+    const fs::path& profile_state_dir,
+    const RunId& run_id
+) {
     files.ensure_directory(profile_state_dir, private_directory_permissions);
-    files.write_atomically(cancel_request_path(profile_state_dir), "requested=1\n", private_file_permissions);
+    files.write_atomically(
+        active_run_path(profile_state_dir),
+        "run_id=" + std::string(run_id.value()) + "\n",
+        private_file_permissions
+    );
+}
+
+std::optional<RunId> active_run(const fs::path& profile_state_dir) {
+    const fs::path path = active_run_path(profile_state_dir);
+    std::error_code ec;
+    if (!fs::is_regular_file(path, ec) || ec) {
+        return std::nullopt;
+    }
+    const std::string run_id = get_value(read_state_file(path), "run_id");
+    return run_id.empty() ? std::nullopt : std::optional<RunId>{RunId{run_id}};
+}
+
+void clear_active_run(
+    IDurableFileOperations& files,
+    const fs::path& profile_state_dir,
+    const RunId& run_id
+) {
+    const std::optional<RunId> current = active_run(profile_state_dir);
+    if (current.has_value() && *current == run_id) {
+        files.remove_durably(active_run_path(profile_state_dir));
+    }
+}
+
+void write_cancel_request(
+    IDurableFileOperations& files,
+    const fs::path& profile_state_dir,
+    const RunId& run_id
+) {
+    files.ensure_directory(profile_state_dir, private_directory_permissions);
+    files.write_atomically(
+        cancel_request_path(profile_state_dir),
+        "run_id=" + std::string(run_id.value()) + "\n",
+        private_file_permissions
+    );
 }
 
 bool cancel_requested(const fs::path& profile_state_dir) {
@@ -122,8 +168,27 @@ bool cancel_requested(const fs::path& profile_state_dir) {
     return fs::is_regular_file(cancel_request_path(profile_state_dir), ec) && !ec;
 }
 
+bool cancel_requested(const fs::path& profile_state_dir, const RunId& run_id) {
+    const fs::path path = cancel_request_path(profile_state_dir);
+    std::error_code ec;
+    if (!fs::is_regular_file(path, ec) || ec) {
+        return false;
+    }
+    return get_value(read_state_file(path), "run_id") == run_id.value();
+}
+
 void clear_cancel_request(IDurableFileOperations& files, const fs::path& profile_state_dir) {
     files.remove_durably(cancel_request_path(profile_state_dir));
+}
+
+void clear_cancel_request(
+    IDurableFileOperations& files,
+    const fs::path& profile_state_dir,
+    const RunId& run_id
+) {
+    if (cancel_requested(profile_state_dir, run_id)) {
+        clear_cancel_request(files, profile_state_dir);
+    }
 }
 
 fs::path pending_marker_path(const fs::path& profile_state_dir, const std::string& source_name) {
