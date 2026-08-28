@@ -59,7 +59,7 @@ class PollingCancellationWatch final : public btrfsbackup::backup::ICancellation
 class FileActiveRunRegistration final : public btrfsbackup::backup::IActiveRunRegistration {
   public:
     FileActiveRunRegistration(
-        IDurableFileOperations& files,
+        IDurableDocumentRemover& files,
         fs::path profile_state_dir,
         RunId run_id
     )
@@ -78,14 +78,17 @@ class FileActiveRunRegistration final : public btrfsbackup::backup::IActiveRunRe
     }
 
   private:
-    IDurableFileOperations& files_;
+    IDurableDocumentRemover& files_;
     fs::path profile_state_dir_;
     RunId run_id_;
 };
 
 } // namespace
 
-FileRunStateRepository::FileRunStateRepository(btrfsbackup::config::ApplicationPaths paths, IDurableFileOperations& files)
+FileRunStateRepository::FileRunStateRepository(
+    btrfsbackup::config::ApplicationPaths paths,
+    IPersistentDocumentOperations& files
+)
     : paths_(std::move(paths)), files_(files) {
 }
 

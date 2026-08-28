@@ -3,12 +3,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 function(target_restricted_include_directories target)
-    cmake_parse_arguments(ARG "" "" "PUBLIC_HEADERS;PRIVATE_HEADERS" ${ARGN})
+    cmake_parse_arguments(ARG "" "" "PUBLIC_HEADERS;PRIVATE_HEADERS;INTERFACE_HEADERS" ${ARGN})
     if(ARG_UNPARSED_ARGUMENTS)
         message(FATAL_ERROR "Unexpected arguments for ${target}: ${ARG_UNPARSED_ARGUMENTS}")
     endif()
 
-    foreach(visibility PUBLIC PRIVATE)
+    foreach(visibility PUBLIC PRIVATE INTERFACE)
         set(headers "${ARG_${visibility}_HEADERS}")
         if(NOT headers)
             continue()

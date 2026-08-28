@@ -390,7 +390,7 @@ bool should_write_history(btrfsbackup::backup::BackupRunEventKind kind) {
 
 } // namespace
 
-RunStatusProjection::RunStatusProjection(IDurableFileOperations& files, BackupRunStatusContext context)
+RunStatusProjection::RunStatusProjection(IAtomicDocumentWriter& files, BackupRunStatusContext context)
     : files_(files), context_(std::move(context)) {
 }
 

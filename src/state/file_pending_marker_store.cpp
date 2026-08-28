@@ -11,7 +11,7 @@
 
 namespace btrfsbackup::state {
 
-FilePendingMarkerStore::FilePendingMarkerStore(IDurableFileOperations& files) : files_(files) {
+FilePendingMarkerStore::FilePendingMarkerStore(IPersistentDocumentOperations& files) : files_(files) {
 }
 
 std::optional<btrfsbackup::backup::PendingMarker> FilePendingMarkerStore::read(

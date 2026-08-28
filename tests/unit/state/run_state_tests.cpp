@@ -8,6 +8,7 @@
 
 #include <state/run_state.hpp>
 #include <platform/linux/posix_durable_file_operations.hpp>
+#include <core/file_permissions.hpp>
 
 #include "support/test_helpers.hpp"
 

@@ -11,7 +11,7 @@
 #include <config/model/json_io.hpp>
 #include <config/model/profile_document.hpp>
 #include <config/profile_render.hpp>
-#include <core/durable_file_operations.hpp>
+#include <core/file_permissions.hpp>
 #include <core/errors.hpp>
 
 namespace btrfsbackup::config {

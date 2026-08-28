@@ -10,15 +10,12 @@
 
 #include <state/run_status.hpp>
 #include <state/status_service.hpp>
-
-namespace btrfsbackup {
-class IDurableFileOperations;
-}
+#include <state/persistent_document_operations.hpp>
 
 namespace btrfsbackup::state {
 
 void write_history_entry(
-    IDurableFileOperations& files,
+    IAtomicDocumentWriter& files,
     const std::filesystem::path& history_root,
     const RunStatus& status
 );

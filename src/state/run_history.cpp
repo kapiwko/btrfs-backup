@@ -8,8 +8,8 @@
 #include <fstream>
 
 #include <config/model/json.hpp>
-#include <core/durable_file_operations.hpp>
 #include <core/errors.hpp>
+#include <core/file_permissions.hpp>
 #include <core/identifiers.hpp>
 #include <state/status_writer.hpp>
 
@@ -17,7 +17,7 @@ namespace fs = std::filesystem;
 
 namespace btrfsbackup::state {
 
-void write_history_entry(IDurableFileOperations& files, const fs::path& history_root, const RunStatus& status) {
+void write_history_entry(IAtomicDocumentWriter& files, const fs::path& history_root, const RunStatus& status) {
     const std::string content = dump_status_json(status);
     const fs::path directory = history_root / status.profile_id.value();
     const fs::path run_path = directory / (std::string(status.run_id.value()) + ".json");
