@@ -4,10 +4,7 @@
 
 #pragma once
 
-#include <vector>
-
 #include <backup/model/backup_planning_snapshot.hpp>
-#include <backup/ports/mount_inspector.hpp>
 #include <config/application_paths.hpp>
 #include <config/model/profile.hpp>
 
@@ -19,7 +16,6 @@ class IBackupDiscovery {
 
     [[nodiscard]] virtual BackupPlanningSnapshot discover(
         const btrfsbackup::config::Profile& profile,
-        const std::vector<MountEntry>& mounts,
         const btrfsbackup::config::ApplicationPaths& paths
     ) const = 0;
 };
