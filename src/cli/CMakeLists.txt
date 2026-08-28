@@ -11,6 +11,7 @@ add_library(btrfsbackup-cli STATIC
     profile_list_command.cpp
     profile_wizard_command.cpp
     runner_command.cpp
+    runner_composition.cpp
     runner_options.cpp
     runner_presenter.cpp
     status_command.cpp
@@ -38,6 +39,8 @@ target_restricted_include_directories(btrfsbackup-cli
         cli/status_show_command.hpp
         cli/target_command.hpp
         cli/target_service.hpp
+    PRIVATE_HEADERS
+        cli/runner_composition.hpp
 )
 target_link_libraries(btrfsbackup-cli
     PUBLIC
