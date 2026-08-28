@@ -82,6 +82,11 @@ void test_writes_checkpoint_before_emitting_success_event() {
         "wrong event kind"
     );
     test_helpers::expect_eq("source index", std::to_string(events.events.at(0).source_index), "2");
+    test_helpers::expect_true(
+        "checkpoint event action",
+        events.events.at(0).action_kind == btrfsbackup::backup::BackupRunActionKind::CleanupIncoming,
+        "checkpoint event lost its action"
+    );
 }
 
 } // namespace
