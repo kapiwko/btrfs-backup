@@ -4,24 +4,22 @@
 
 #pragma once
 
-#include <string>
-
 #include <core/identifiers.hpp>
+#include <core/runtime_time.hpp>
 
 namespace btrfsbackup::backup {
 
 class IClock {
   public:
     virtual ~IClock() = default;
-    [[nodiscard]] virtual std::string snapshot_timestamp() const = 0;
-    [[nodiscard]] virtual std::string local_date() const = 0;
-    [[nodiscard]] virtual std::string local_timestamp() const = 0;
+    [[nodiscard]] virtual RuntimeTimePoint now() const = 0;
+    [[nodiscard]] virtual LocalDate local_date() const = 0;
 };
 
 class IRunIdGenerator {
   public:
     virtual ~IRunIdGenerator() = default;
-    [[nodiscard]] virtual RunId generate(const std::string& snapshot_timestamp) = 0;
+    [[nodiscard]] virtual RunId generate(RuntimeTimePoint time) = 0;
 };
 
 } // namespace btrfsbackup::backup

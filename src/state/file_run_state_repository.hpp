@@ -27,21 +27,21 @@ class FileRunStateRepository final : public btrfsbackup::backup::IRunLedger,
 
     [[nodiscard]] bool last_success_matches(
         const btrfsbackup::config::Profile& profile,
-        const std::string& date,
+        LocalDate date,
         const std::string& fingerprint
     ) const override;
     void write_skipped(
         const btrfsbackup::config::Profile& profile,
         const RunId& run_id,
-        const std::string& started_at,
-        const std::string& finished_at,
+        RuntimeTimePoint started_at,
+        RuntimeTimePoint finished_at,
         std::size_t source_count
     ) override;
     void write_success(
         const btrfsbackup::config::Profile& profile,
         const RunId& run_id,
-        const std::string& date,
-        const std::string& timestamp,
+        LocalDate date,
+        RuntimeTimePoint timestamp,
         const std::string& fingerprint,
         std::size_t source_count
     ) override;

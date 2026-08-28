@@ -5,9 +5,7 @@
 #include <backup/action_handlers/snapshot_action_handler.hpp>
 
 #include <chrono>
-#include <iomanip>
 #include <optional>
-#include <sstream>
 #include <string>
 #include <utility>
 
@@ -16,21 +14,11 @@
 #include <backup/ports/pending_marker_store.hpp>
 #include <backup/ports/safe_directory.hpp>
 #include <core/errors.hpp>
+#include <core/runtime_time.hpp>
 
 namespace btrfsbackup::backup {
 
 namespace {
-
-std::string current_utc_iso_timestamp() {
-    auto now = std::chrono::system_clock::now();
-    std::time_t time = std::chrono::system_clock::to_time_t(now);
-    std::tm tm{};
-    gmtime_r(&time, &tm);
-
-    std::ostringstream out;
-    out << std::put_time(&tm, "%Y-%m-%dT%H:%M:%SZ");
-    return out.str();
-}
 
 SnapshotMetadata require_snapshot_metadata(
     IBtrfsOperations& btrfs,
@@ -83,7 +71,7 @@ void SnapshotActionHandler::handle(const CreateSnapshotAction& action) {
             .local_snapshot_path = action.snapshot.string(),
             .final_snapshot_path = action.final_remote_snapshot.string(),
             .run_id = std::string(action.run_id.value()),
-            .timestamp = current_utc_iso_timestamp(),
+            .timestamp = format_utc_iso_timestamp(std::chrono::system_clock::now()),
         }
     );
 

@@ -13,6 +13,7 @@
 #include <state/run_state.hpp>
 #include <state/run_status_projection.hpp>
 #include <state/status_writer.hpp>
+#include <core/runtime_time.hpp>
 
 namespace fs = std::filesystem;
 
@@ -94,12 +95,12 @@ fs::path FileRunStateRepository::state_dir(const ProfileId& profile_id) const {
 
 bool FileRunStateRepository::last_success_matches(
     const btrfsbackup::config::Profile& profile,
-    const std::string& date,
+    LocalDate date,
     const std::string& fingerprint
 ) const {
     return btrfsbackup::state::last_success_matches(
         state_dir(profile.id),
-        date,
+        format_local_date(date),
         profile.target.luks_uuid,
         fingerprint
     );
@@ -108,8 +109,8 @@ bool FileRunStateRepository::last_success_matches(
 void FileRunStateRepository::write_skipped(
     const btrfsbackup::config::Profile& profile,
     const RunId& run_id,
-    const std::string& started_at,
-    const std::string& finished_at,
+    RuntimeTimePoint started_at,
+    RuntimeTimePoint finished_at,
     std::size_t source_count
 ) {
     RunStatus status{
@@ -138,8 +139,8 @@ void FileRunStateRepository::write_skipped(
 void FileRunStateRepository::write_success(
     const btrfsbackup::config::Profile& profile,
     const RunId& run_id,
-    const std::string& date,
-    const std::string& timestamp,
+    LocalDate date,
+    RuntimeTimePoint timestamp,
     const std::string& fingerprint,
     std::size_t source_count
 ) {
@@ -147,8 +148,8 @@ void FileRunStateRepository::write_success(
         files_,
         state_dir(profile.id),
         SuccessState{
-            .date = date,
-            .timestamp = timestamp,
+            .date = format_local_date(date),
+            .timestamp = format_local_timestamp(timestamp),
             .run_id = std::string(run_id.value()),
             .profile_id = std::string(profile.id.value()),
             .profile_name = profile.name,
@@ -169,7 +170,7 @@ std::unique_ptr<btrfsbackup::backup::IBackupRunEventSink> FileRunStateRepository
                                                              .history_root = paths_.history_root,
                                                              .profile_name = std::move(description.profile_name),
                                                              .source_count = description.source_count,
-                                                             .started_at = std::move(description.started_at),
+                                                             .started_at = description.started_at,
                                                              .source_names = std::move(description.source_names),
                                                              .target_name = std::move(description.target_name),
                                                          });
