@@ -355,12 +355,15 @@ class PosixBackupRunFactory final : public btrfsbackup::backup::IBackupRunFactor
             btrfsbackup::platform::linux::trusted_hook_directory
         );
         btrfsbackup::backup::HookActionHandler hooks(commands_, hook_executables);
+        btrfsbackup::platform::linux::SafeDirectoryRoot local_repository_root("/");
+        btrfsbackup::platform::linux::SafeDirectoryRoot target_repository_root(
+            plan.target_mount_point
+        );
         btrfsbackup::backup::RepositoryActionHandler repository(
             btrfs_,
-            filesystem_,
             pending_markers_,
-            std::make_unique<btrfsbackup::platform::linux::SafeDirectoryRoot>("/"),
-            std::make_unique<btrfsbackup::platform::linux::SafeDirectoryRoot>(plan.target_mount_point)
+            local_repository_root,
+            target_repository_root
         );
         btrfsbackup::backup::BackupRunActionHandler action_handler(
             snapshots,
