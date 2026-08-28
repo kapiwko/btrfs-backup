@@ -86,4 +86,16 @@ std::string ManagerJsonCodec::encode(const TargetStatus& status) const {
     });
 }
 
+std::string ManagerJsonCodec::encode(const OperationResult& result) const {
+    config::Json document{
+        {"schemaVersion", 1},
+        {"operation", result.operation},
+        {"profileId", result.profile_id},
+        {"accepted", result.accepted},
+    };
+    if (!result.run_id.empty())
+        document["runId"] = result.run_id;
+    return config::dump_json(document);
+}
+
 } // namespace btrfsbackup::daemon

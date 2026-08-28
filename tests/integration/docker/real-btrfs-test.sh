@@ -336,7 +336,7 @@ manager_independence_test() {
     systemctl reload dbus.service
     systemctl start btrfs-backupd.service
     systemctl is-active --quiet btrfs-backupd.service \
-        || fail 'read-only manager did not start'
+        || fail 'system manager did not start'
 
     (
         INVOCATION_ID=manager-independence-test \
@@ -353,7 +353,7 @@ manager_independence_test() {
 
     systemctl stop btrfs-backupd.service
     systemctl is-active --quiet btrfs-backupd.service \
-        && fail 'read-only manager remained active after stop'
+        && fail 'system manager remained active after stop'
     kill -0 "$runner_pid" 2>/dev/null \
         || { cat -- "$runner_log" >&2; fail 'stopping the manager terminated the active runner'; }
     if ! wait "$runner_pid"; then
@@ -369,7 +369,7 @@ manager_independence_test() {
 
     cp -a -- "$profile_backup" "$PROFILE_JSON"
     rm -f -- "$profile_backup" "$hook" "$marker"
-    pass 'active runner completes after the read-only manager stops'
+    pass 'active runner completes after the system manager stops'
 }
 
 trusted_hook_security_test() {

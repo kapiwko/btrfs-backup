@@ -25,3 +25,11 @@ add_btrfsbackup_test(
     btrfsbackup-daemon-core
     btrfsbackup-core
 )
+
+add_btrfsbackup_test(
+    btrfsbackup-operational-control-service-tests
+    operational_control_service_tests.cpp
+    operational-control-service-tests
+    btrfsbackup-daemon-core
+    btrfsbackup-core
+)
