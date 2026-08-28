@@ -10,6 +10,7 @@
 
 #include <core/errors.hpp>
 #include <core/identifiers.hpp>
+#include <core/runtime_time.hpp>
 #include <config/model/json_io.hpp>
 
 namespace fs = std::filesystem;
@@ -24,8 +25,6 @@ void require_non_empty(const std::string& value, const char* field) {
 
 void validate_status(const btrfsbackup::state::RunStatus& status) {
     require_non_empty(status.profile_name, "profileName");
-    require_non_empty(status.started_at, "startedAt");
-    require_non_empty(status.updated_at, "updatedAt");
 }
 
 void prepare_public_parent(btrfsbackup::IDurableFileOperations& files, const fs::path& path) {
@@ -61,9 +60,9 @@ btrfsbackup::config::Json build_status_json(const RunStatus& status) {
         {"targetName", status.target_name},
         {"sourceIndex", status.source_index},
         {"sourceCount", status.source_count},
-        {"startedAt", status.started_at},
-        {"updatedAt", status.updated_at},
-        {"finishedAt", status.finished_at},
+        {"startedAt", format_utc_iso_timestamp(status.started_at)},
+        {"updatedAt", format_utc_iso_timestamp(status.updated_at)},
+        {"finishedAt", status.finished_at.has_value() ? format_utc_iso_timestamp(*status.finished_at) : ""},
         {"errorCode", error == nullptr ? "" : error_code_name(error->code)},
         {"errorMessage", error == nullptr ? "" : error->message},
         {"details", build_details_json(status.details)},

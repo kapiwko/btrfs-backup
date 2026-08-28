@@ -188,7 +188,7 @@ struct FakeState final : btrfsbackup::backup::IRunLedger,
 
     bool last_success_matches(
         const btrfsbackup::config::Profile&,
-        const std::string&,
+        btrfsbackup::LocalDate,
         const std::string& fingerprint
     ) const override {
         matched_fingerprint = fingerprint;
@@ -198,8 +198,8 @@ struct FakeState final : btrfsbackup::backup::IRunLedger,
     void write_skipped(
         const btrfsbackup::config::Profile&,
         const btrfsbackup::RunId&,
-        const std::string&,
-        const std::string&,
+        btrfsbackup::RuntimeTimePoint,
+        btrfsbackup::RuntimeTimePoint,
         std::size_t
     ) override {
         ++skipped_writes;
@@ -208,14 +208,14 @@ struct FakeState final : btrfsbackup::backup::IRunLedger,
     void write_success(
         const btrfsbackup::config::Profile&,
         const btrfsbackup::RunId&,
-        const std::string& date,
-        const std::string& timestamp,
+        btrfsbackup::LocalDate date,
+        btrfsbackup::RuntimeTimePoint timestamp,
         const std::string& fingerprint,
         std::size_t
     ) override {
         ++success_writes;
-        success_date = date;
-        success_timestamp = timestamp;
+        success_date = btrfsbackup::format_local_date(date);
+        success_timestamp = btrfsbackup::format_local_timestamp(timestamp);
         success_fingerprint = fingerprint;
     }
 
@@ -267,14 +267,11 @@ struct FakeState final : btrfsbackup::backup::IRunLedger,
 };
 
 struct FakeClock final : btrfsbackup::backup::IClock {
-    std::string snapshot_timestamp() const override {
-        return "2026-08-26T120000Z";
+    btrfsbackup::RuntimeTimePoint now() const override {
+        return *btrfsbackup::parse_utc_timestamp("2026-08-26T12:00:00Z");
     }
-    std::string local_date() const override {
-        return "2026-08-26";
-    }
-    std::string local_timestamp() const override {
-        return "2026-08-26T14:00:00+0200";
+    btrfsbackup::LocalDate local_date() const override {
+        return *btrfsbackup::parse_local_date("2026-08-26");
     }
 };
 
@@ -307,7 +304,7 @@ struct FakeCancellationMonitor final : btrfsbackup::backup::ICancellationMonitor
 };
 
 struct FakeRunIds final : btrfsbackup::backup::IRunIdGenerator {
-    btrfsbackup::RunId generate(const std::string&) override {
+    btrfsbackup::RunId generate(btrfsbackup::RuntimeTimePoint) override {
         return btrfsbackup::RunId{"run-1"};
     }
 };

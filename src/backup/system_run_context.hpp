@@ -4,22 +4,19 @@
 
 #pragma once
 
-#include <string>
-
 #include <backup/ports/run_context.hpp>
 
 namespace btrfsbackup::backup {
 
 class SystemClock final : public IClock {
   public:
-    [[nodiscard]] std::string snapshot_timestamp() const override;
-    [[nodiscard]] std::string local_date() const override;
-    [[nodiscard]] std::string local_timestamp() const override;
+    [[nodiscard]] RuntimeTimePoint now() const override;
+    [[nodiscard]] LocalDate local_date() const override;
 };
 
 class TimestampRunIdGenerator final : public IRunIdGenerator {
   public:
-    [[nodiscard]] RunId generate(const std::string& snapshot_timestamp) override;
+    [[nodiscard]] RunId generate(RuntimeTimePoint time) override;
 };
 
 } // namespace btrfsbackup::backup

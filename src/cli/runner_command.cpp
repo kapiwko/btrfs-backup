@@ -43,6 +43,7 @@
 #include <platform/linux/trusted_executable.hpp>
 #include <config/model/json.hpp>
 #include <config/model/profile_document.hpp>
+#include <core/runtime_time.hpp>
 #include <platform/linux/config/profile_repository.hpp>
 #include <platform/linux/config/profile_runtime_policy.hpp>
 
@@ -60,46 +61,6 @@ std::string arg_value(const std::vector<std::string>& args, std::size_t& index, 
         fail(option + " requires a value");
     }
     return args[++index];
-}
-
-std::string current_utc_timestamp() {
-    auto now = std::chrono::system_clock::now();
-    std::time_t time = std::chrono::system_clock::to_time_t(now);
-    std::tm tm{};
-    gmtime_r(&time, &tm);
-    std::ostringstream out;
-    out << std::put_time(&tm, "%Y-%m-%dT%H%M%SZ");
-    return out.str();
-}
-
-std::string current_local_date() {
-    auto now = std::chrono::system_clock::now();
-    std::time_t time = std::chrono::system_clock::to_time_t(now);
-    std::tm tm{};
-    localtime_r(&time, &tm);
-    std::ostringstream out;
-    out << std::put_time(&tm, "%Y-%m-%d");
-    return out.str();
-}
-
-std::string current_local_iso_timestamp() {
-    auto now = std::chrono::system_clock::now();
-    std::time_t time = std::chrono::system_clock::to_time_t(now);
-    std::tm tm{};
-    localtime_r(&time, &tm);
-    std::ostringstream out;
-    out << std::put_time(&tm, "%Y-%m-%dT%H:%M:%S%z");
-    return out.str();
-}
-
-std::string compact_timestamp(const std::string& timestamp) {
-    std::string result;
-    for (char ch : timestamp) {
-        if (ch != '-' && ch != ':') {
-            result.push_back(ch);
-        }
-    }
-    return result;
 }
 
 std::string action_name(btrfsbackup::backup::BackupRunActionKind kind) {
@@ -230,8 +191,8 @@ struct ParsedRunnerCommand {
     btrfsbackup::backup::BackupRequest request{.profile_id = btrfsbackup::ProfileId{"default"}};
     fs::path mountinfo = "/proc/self/mountinfo";
     std::map<std::string, std::string> mount_uuid_overrides;
-    std::string timestamp = current_utc_timestamp();
-    std::string today = current_local_date();
+    btrfsbackup::RuntimeTimePoint timestamp = std::chrono::system_clock::now();
+    btrfsbackup::LocalDate today = btrfsbackup::local_date_at(timestamp);
     std::optional<btrfsbackup::RunId> run_id;
 };
 
@@ -247,11 +208,21 @@ ParsedRunnerCommand parse_request(
         if (arg == "--profile") {
             parsed.request.profile_id = btrfsbackup::ProfileId{arg_value(args, i, arg)};
         } else if (arg == "--timestamp") {
-            parsed.timestamp = arg_value(args, i, arg);
+            const std::string value = arg_value(args, i, arg);
+            const auto timestamp = btrfsbackup::parse_utc_timestamp(value);
+            if (!timestamp.has_value()) {
+                fail("--timestamp must be a valid UTC timestamp");
+            }
+            parsed.timestamp = *timestamp;
         } else if (arg == "--run-id") {
             parsed.run_id = btrfsbackup::RunId{arg_value(args, i, arg)};
         } else if (arg == "--today") {
-            parsed.today = arg_value(args, i, arg);
+            const std::string value = arg_value(args, i, arg);
+            const auto date = btrfsbackup::parse_local_date(value);
+            if (!date.has_value()) {
+                fail("--today must be a valid local date");
+            }
+            parsed.today = *date;
         } else if (arg == "--mountinfo") {
             parsed.mountinfo = arg_value(args, i, arg);
         } else if (arg == "--mount-uuid") {
@@ -269,30 +240,30 @@ ParsedRunnerCommand parse_request(
         fail("--run-id is required for cancel");
     }
     if (!parsed.run_id.has_value()) {
-        parsed.run_id = btrfsbackup::RunId{compact_timestamp(parsed.timestamp) + "-shadow"};
+        std::string compact = btrfsbackup::format_utc_snapshot_timestamp(parsed.timestamp);
+        compact.erase(4, 1);
+        compact.erase(6, 1);
+        parsed.run_id = btrfsbackup::RunId{compact + "-shadow"};
     }
     return parsed;
 }
 
 class CommandClock final : public btrfsbackup::backup::IClock {
   public:
-    CommandClock(std::string timestamp, std::string today)
-        : timestamp_(std::move(timestamp)), today_(std::move(today)) {
+    CommandClock(btrfsbackup::RuntimeTimePoint timestamp, btrfsbackup::LocalDate today)
+        : timestamp_(timestamp), today_(today) {
     }
 
-    std::string snapshot_timestamp() const override {
+    btrfsbackup::RuntimeTimePoint now() const override {
         return timestamp_;
     }
-    std::string local_date() const override {
+    btrfsbackup::LocalDate local_date() const override {
         return today_;
-    }
-    std::string local_timestamp() const override {
-        return current_local_iso_timestamp();
     }
 
   private:
-    std::string timestamp_;
-    std::string today_;
+    btrfsbackup::RuntimeTimePoint timestamp_;
+    btrfsbackup::LocalDate today_;
 };
 
 class CommandRunIdGenerator final : public btrfsbackup::backup::IRunIdGenerator {
@@ -300,7 +271,7 @@ class CommandRunIdGenerator final : public btrfsbackup::backup::IRunIdGenerator 
     explicit CommandRunIdGenerator(btrfsbackup::RunId run_id) : run_id_(std::move(run_id)) {
     }
 
-    btrfsbackup::RunId generate(const std::string&) override {
+    btrfsbackup::RunId generate(btrfsbackup::RuntimeTimePoint) override {
         return run_id_;
     }
 
