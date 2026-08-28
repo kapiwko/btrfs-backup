@@ -20,6 +20,7 @@ class PolkitAuthorizer final : public IManagerAuthorizer {
         const std::string& caller_bus_name,
         ManagerAuthorizationAction action
     ) override;
+    [[nodiscard]] bool caller_is_active(const std::string& caller_bus_name) override;
 
   private:
     sd_bus* bus_;

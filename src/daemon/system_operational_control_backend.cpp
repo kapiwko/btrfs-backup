@@ -19,8 +19,20 @@ SystemOperationalControlBackend::SystemOperationalControlBackend(
 ) : profiles_(profiles), cancellation_requests_(cancellation_requests), commands_(commands) {
 }
 
-void SystemOperationalControlBackend::require_profile(const ProfileId& profile_id) const {
-    (void)profiles_.get(profile_id);
+OperationalResourceVersion SystemOperationalControlBackend::inspect_profile(const ProfileId& profile_id) const {
+    const btrfsbackup::config::LoadedProfile loaded = profiles_.get(profile_id);
+    return {
+        .configuration_generation = loaded.generation.value(),
+        .configuration_fingerprint = loaded.fingerprint.value(),
+    };
+}
+
+void SystemOperationalControlBackend::require_profile_version(
+    const ProfileId& profile_id,
+    const OperationalResourceVersion& expected_version
+) const {
+    if (inspect_profile(profile_id) != expected_version)
+        throw ManagerOperationError(ManagerErrorCode::Conflict, "profile changed during authorization");
 }
 
 void SystemOperationalControlBackend::run_effect(
@@ -34,8 +46,11 @@ void SystemOperationalControlBackend::run_effect(
         throw ManagerOperationError(ManagerErrorCode::TargetUnavailable, std::string(operation) + " failed");
 }
 
-void SystemOperationalControlBackend::start_backup(const ProfileId& profile_id) {
-    require_profile(profile_id);
+void SystemOperationalControlBackend::start_backup(
+    const ProfileId& profile_id,
+    const OperationalResourceVersion& expected_version
+) {
+    require_profile_version(profile_id, expected_version);
     run_effect(
         {"systemctl", "--no-block", "start", "btrfs-backup@" + std::string(profile_id.value()) + ".service"},
         "starting backup"
@@ -44,9 +59,10 @@ void SystemOperationalControlBackend::start_backup(const ProfileId& profile_id) 
 
 ManagerCancellationOutcome SystemOperationalControlBackend::cancel_backup(
     const ProfileId& profile_id,
-    const RunId& run_id
+    const RunId& run_id,
+    const OperationalResourceVersion& expected_version
 ) {
-    require_profile(profile_id);
+    require_profile_version(profile_id, expected_version);
     const auto outcome = cancellation_requests_.request_cancel({profile_id, run_id});
     switch (outcome) {
     case btrfsbackup::backup::CancellationRequestOutcome::Accepted:
@@ -59,8 +75,11 @@ ManagerCancellationOutcome SystemOperationalControlBackend::cancel_backup(
     throw ManagerOperationError(ManagerErrorCode::InternalError, "unknown cancellation outcome");
 }
 
-void SystemOperationalControlBackend::validate_target(const ProfileId& profile_id) {
-    require_profile(profile_id);
+void SystemOperationalControlBackend::validate_target(
+    const ProfileId& profile_id,
+    const OperationalResourceVersion& expected_version
+) {
+    require_profile_version(profile_id, expected_version);
     const std::string id(profile_id.value());
     run_effect(
         {
@@ -79,8 +98,11 @@ void SystemOperationalControlBackend::validate_target(const ProfileId& profile_i
     );
 }
 
-void SystemOperationalControlBackend::eject_target(const ProfileId& profile_id) {
-    require_profile(profile_id);
+void SystemOperationalControlBackend::eject_target(
+    const ProfileId& profile_id,
+    const OperationalResourceVersion& expected_version
+) {
+    require_profile_version(profile_id, expected_version);
     run_effect(
         {"systemctl", "start", "btrfs-backup-eject@" + std::string(profile_id.value()) + ".service"},
         "ejecting target"

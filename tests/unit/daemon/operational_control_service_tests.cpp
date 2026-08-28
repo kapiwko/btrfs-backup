@@ -23,40 +23,68 @@ using btrfsbackup::daemon::ManagerCancellationOutcome;
 using btrfsbackup::daemon::ManagerErrorCode;
 using btrfsbackup::daemon::ManagerOperationError;
 using btrfsbackup::daemon::OperationResult;
+using btrfsbackup::daemon::OperationalResourceVersion;
 using btrfsbackup::daemon::OperationalControlService;
 
 class RecordingAuthorizer final : public IManagerAuthorizer {
   public:
     bool allowed = true;
+    bool active = true;
+    std::string allowed_caller;
+    std::function<void()> during_authorization;
     std::vector<std::string> callers;
     std::vector<ManagerAuthorizationAction> actions;
 
     bool authorize(const std::string& caller, ManagerAuthorizationAction action) override {
         callers.push_back(caller);
         actions.push_back(action);
-        return allowed;
+        if (during_authorization)
+            during_authorization();
+        return allowed && (allowed_caller.empty() || allowed_caller == caller);
+    }
+
+    bool caller_is_active(const std::string& caller) override {
+        return active && !callers.empty() && callers.back() == caller;
     }
 };
 
 class RecordingBackend final : public IOperationalControlBackend {
   public:
     ManagerCancellationOutcome cancellation = ManagerCancellationOutcome::Accepted;
+    OperationalResourceVersion version{"generation-1", "fingerprint-1"};
     std::vector<std::string> effects;
 
-    void start_backup(const ProfileId& profile_id) override {
+    OperationalResourceVersion inspect_profile(const ProfileId&) const override {
+        return version;
+    }
+
+    void require_version(const OperationalResourceVersion& expected) const {
+        if (version != expected)
+            throw ManagerOperationError(ManagerErrorCode::Conflict, "profile changed");
+    }
+
+    void start_backup(const ProfileId& profile_id, const OperationalResourceVersion& expected) override {
+        require_version(expected);
         effects.push_back("start:" + std::string(profile_id.value()));
     }
 
-    ManagerCancellationOutcome cancel_backup(const ProfileId& profile_id, const RunId& run_id) override {
+    ManagerCancellationOutcome cancel_backup(
+        const ProfileId& profile_id,
+        const RunId& run_id,
+        const OperationalResourceVersion& expected
+    ) override {
+        require_version(expected);
         effects.push_back("cancel:" + std::string(profile_id.value()) + ":" + std::string(run_id.value()));
         return cancellation;
     }
 
-    void validate_target(const ProfileId& profile_id) override {
+    void validate_target(const ProfileId& profile_id, const OperationalResourceVersion& expected) override {
+        require_version(expected);
         effects.push_back("validate:" + std::string(profile_id.value()));
     }
 
-    void eject_target(const ProfileId& profile_id) override {
+    void eject_target(const ProfileId& profile_id, const OperationalResourceVersion& expected) override {
+        require_version(expected);
         effects.push_back("eject:" + std::string(profile_id.value()));
     }
 };
@@ -129,11 +157,65 @@ void test_cancellation_outcomes() {
     );
 }
 
+void test_authorization_is_caller_bound_and_not_cached() {
+    RecordingAuthorizer authorizer;
+    authorizer.allowed_caller = ":1.40";
+    RecordingBackend backend;
+    OperationalControlService service(authorizer, backend);
+
+    (void)service.start_backup(":1.40", "default");
+    expect_manager_error(
+        "different caller",
+        ManagerErrorCode::NotAuthorized,
+        [&] { (void)service.start_backup(":1.41", "default"); }
+    );
+    authorizer.allowed_caller.clear();
+    authorizer.allowed = false;
+    expect_manager_error(
+        "authorization is repeated",
+        ManagerErrorCode::NotAuthorized,
+        [&] { (void)service.start_backup(":1.40", "default"); }
+    );
+    test_helpers::expect_true("caller-bound effects", backend.effects.size() == 1, "authorization leaked to a request");
+    test_helpers::expect_true("caller-bound checks", authorizer.callers.size() == 3, "request skipped authorization");
+}
+
+void test_caller_disconnect_during_authorization() {
+    RecordingAuthorizer authorizer;
+    RecordingBackend backend;
+    authorizer.during_authorization = [&] { authorizer.active = false; };
+    OperationalControlService service(authorizer, backend);
+    expect_manager_error(
+        "caller disconnected",
+        ManagerErrorCode::NotAuthorized,
+        [&] { (void)service.eject_target(":1.50", "default"); }
+    );
+    test_helpers::expect_true("disconnected caller effect", backend.effects.empty(), "disconnected caller reached backend");
+}
+
+void test_profile_change_during_authorization() {
+    RecordingAuthorizer authorizer;
+    RecordingBackend backend;
+    authorizer.during_authorization = [&] {
+        backend.version = {"generation-2", "fingerprint-2"};
+    };
+    OperationalControlService service(authorizer, backend);
+    expect_manager_error(
+        "profile authorization race",
+        ManagerErrorCode::Conflict,
+        [&] { (void)service.validate_target(":1.60", "default"); }
+    );
+    test_helpers::expect_true("changed profile effect", backend.effects.empty(), "changed profile reached effect");
+}
+
 } // namespace
 
 int main() {
     test_authorized_operations();
     test_denied_operation_has_no_effect();
     test_cancellation_outcomes();
+    test_authorization_is_caller_bound_and_not_cached();
+    test_caller_disconnect_during_authorization();
+    test_profile_change_during_authorization();
     return test_helpers::finish("operational control service tests");
 }

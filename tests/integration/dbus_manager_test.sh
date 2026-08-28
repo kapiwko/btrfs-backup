@@ -10,13 +10,15 @@ DAEMON="${1:?daemon path is required}"
 DBUS_DAEMON="${2:?dbus-daemon path is required}"
 BUSCTL="${3:?busctl path is required}"
 POLICY_FILE="${4:?D-Bus policy path is required}"
-QML_EXECUTABLE="${5:-}"
-QML_IMPORT_PATH="${6:-}"
-QML_DBUS_TEST="${7:-}"
+POLKIT_AUTHORITY="${5:?fake polkit authority path is required}"
+QML_EXECUTABLE="${6:-}"
+QML_IMPORT_PATH="${7:-}"
+QML_DBUS_TEST="${8:-}"
 TEST_ROOT="$(mktemp -d /tmp/btrfs-backup-dbus.XXXXXX)"
 BUS_ADDRESS="unix:path=$TEST_ROOT/bus"
 BUS_PID=""
 DAEMON_PID=""
+POLKIT_PID=""
 SERVICE=io.github.btrfsbackup.Manager1
 OBJECT=/io/github/btrfsbackup/Manager1
 INTERFACE=io.github.btrfsbackup.Manager1
@@ -25,8 +27,31 @@ cleanup() {
     set +e
     [[ -n "$DAEMON_PID" ]] && kill "$DAEMON_PID" 2>/dev/null
     [[ -n "$DAEMON_PID" ]] && wait "$DAEMON_PID" 2>/dev/null
+    [[ -n "$POLKIT_PID" ]] && kill "$POLKIT_PID" 2>/dev/null
+    [[ -n "$POLKIT_PID" ]] && wait "$POLKIT_PID" 2>/dev/null
     [[ -n "$BUS_PID" ]] && kill "$BUS_PID" 2>/dev/null
     rm -rf -- "$TEST_ROOT"
+}
+
+start_polkit() {
+    "$POLKIT_AUTHORITY" "$BUS_ADDRESS" "$TEST_ROOT/polkit.log" 500 &
+    POLKIT_PID=$!
+    for _ in {1..50}; do
+        if "$BUSCTL" --address="$BUS_ADDRESS" --timeout=1 list 2>/dev/null \
+            | grep -Fq 'org.freedesktop.PolicyKit1'; then
+            return
+        fi
+        sleep 0.05
+    done
+    fail 'fake polkit authority did not acquire its bus name'
+}
+
+stop_polkit() {
+    if [[ -n "$POLKIT_PID" ]]; then
+        kill "$POLKIT_PID" 2>/dev/null || true
+        wait "$POLKIT_PID" 2>/dev/null || true
+        POLKIT_PID=""
+    fi
 }
 trap cleanup EXIT
 
@@ -109,7 +134,24 @@ EOF_PROFILE
 chmod 0644 "$TEST_ROOT/public/default.json" "$TEST_ROOT/status/default/current.json"
 chmod 0600 "$TEST_ROOT/history/default/"*.json "$TEST_ROOT/etc/profiles/default/profile.json"
 
-BUS_PID="$($DBUS_DAEMON --session --fork --address="$BUS_ADDRESS" --print-pid=1)"
+cat >"$TEST_ROOT/test-bus.conf" <<EOF_TEST_BUS
+<busconfig>
+  <type>system</type>
+  <listen>$BUS_ADDRESS</listen>
+  <auth>EXTERNAL</auth>
+  <policy context="default">
+    <allow user="*"/>
+    <allow send_destination="*"/>
+    <allow receive_sender="*"/>
+  </policy>
+  <policy user="$(id -un)">
+    <allow own="$SERVICE"/>
+    <allow own="org.freedesktop.PolicyKit1"/>
+  </policy>
+</busconfig>
+EOF_TEST_BUS
+BUS_PID="$($DBUS_DAEMON --config-file="$TEST_ROOT/test-bus.conf" --fork --print-pid=1)"
+start_polkit
 start_daemon
 
 capabilities="$(call GetCapabilities)"
@@ -142,6 +184,40 @@ if grep -Eq 'SaveProfile|DeleteProfile' <<<"$introspection"; then
 fi
 
 set +e
+call StartBackup s default >/dev/null 2>&1
+call ValidateTarget s default >/dev/null 2>&1
+set -e
+grep -Fq 'io.github.btrfsbackup.start-backup' "$TEST_ROOT/polkit.log" \
+    || fail 'start request used the wrong polkit action'
+grep -Fq 'io.github.btrfsbackup.validate-target' "$TEST_ROOT/polkit.log" \
+    || fail 'validate request used the wrong polkit action'
+unique_callers="$(awk '{print $1}' "$TEST_ROOT/polkit.log" | sort -u | wc -l)"
+[[ "$unique_callers" -ge 2 ]] || fail 'authorization was not bound to each caller connection'
+
+authorization_count="$(wc -l < "$TEST_ROOT/polkit.log")"
+daemon_log_lines="$(wc -l < "$TEST_ROOT/daemon.log")"
+touch "$TEST_ROOT/polkit.log.allow"
+call StartBackup s default >/dev/null 2>&1 &
+disconnected_caller_pid=$!
+for _ in {1..50}; do
+    [[ "$(wc -l < "$TEST_ROOT/polkit.log")" -gt "$authorization_count" ]] && break
+    sleep 0.02
+done
+kill "$disconnected_caller_pid" 2>/dev/null || true
+wait "$disconnected_caller_pid" 2>/dev/null || true
+rm -f -- "$TEST_ROOT/polkit.log.allow"
+for _ in {1..50}; do
+    if tail -n "+$((daemon_log_lines + 1))" "$TEST_ROOT/daemon.log" \
+        | grep -Fq 'manager operation was not authorized'; then
+        break
+    fi
+    sleep 0.02
+done
+tail -n "+$((daemon_log_lines + 1))" "$TEST_ROOT/daemon.log" \
+    | grep -Fq 'manager operation was not authorized' \
+    || fail 'caller disconnect during authorization reached the operational backend'
+
+set +e
 invalid_request_output="$(call GetStatus s '../invalid' 2>&1)"
 invalid_request_status=$?
 set -e
@@ -172,6 +248,7 @@ status_after="$(call GetStatus s default)"
 [[ "$status_before" == "$status_after" ]] || fail 'daemon crash recovery did not restore visible state'
 
 stop_daemon
+stop_polkit
 stop_bus
 rm -f -- "$TEST_ROOT/bus"
 cat >"$TEST_ROOT/policy-bus.conf" <<EOF_POLICY
@@ -188,19 +265,21 @@ cat >"$TEST_ROOT/policy-bus.conf" <<EOF_POLICY
   </policy>
   <policy user="$(id -un)">
     <allow own="$SERVICE"/>
+    <allow own="org.freedesktop.PolicyKit1"/>
   </policy>
   <include>$POLICY_FILE</include>
 </busconfig>
 EOF_POLICY
 BUS_PID="$($DBUS_DAEMON --config-file="$TEST_ROOT/policy-bus.conf" --fork --print-pid=1)"
+start_polkit
 start_daemon
 call GetCapabilities >/dev/null || fail 'policy denied an allowed read method'
 set +e
 polkit_output="$(call StartBackup s default 2>&1)"
 polkit_status=$?
 set -e
-[[ "$polkit_status" -ne 0 ]] || fail 'operation bypassed unavailable polkit authority'
-grep -Fq 'manager request failed' <<<"$polkit_output" \
-    || fail "operational call did not reach the polkit gate: $polkit_output"
+[[ "$polkit_status" -ne 0 ]] || fail 'test start unexpectedly succeeded'
+grep -Fq 'operation is not authorized' <<<"$polkit_output" \
+    || fail "operational call did not pass through bus policy and polkit: $polkit_output"
 
 printf '%s\n' 'ok - private D-Bus manager API'

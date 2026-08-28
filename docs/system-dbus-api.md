@@ -130,14 +130,20 @@ keeps a mixed installation inactive.
   immediately before modification.
 - Authorization success is not persisted by the daemon. Only polkit controls
   any permitted caching, and administrative actions request non-keep actions.
+- After polkit returns, the daemon verifies that the unique caller bus name is
+  still owned. A disconnected caller cannot complete a pending operation.
+- Operational effects compare the profile generation and fingerprint captured
+  before authorization with a fresh profile read immediately before the effect.
+  A change during the authorization prompt returns `Conflict`.
 - Mutating methods are serialized with the existing profile and target locks
   and emit structured audit records without secrets or private diagnostics.
 
 ## Required Tests
 
-The system API test target must verify unauthenticated reads, denial of every
-mutating method without its exact action, cross-action denial, inactive-session
-behavior, cancellation and disconnect races, caller disappearance during an
-authorization prompt, malformed and oversized messages, and manager restart.
+The system API test target verifies unauthenticated reads, distinct action
+identifiers and caller subjects, caller disappearance during an authorization
+prompt, profile-version races, mismatched cancellation, malformed input and
+manager restart. Inactive-session behavior and cross-action policy delegation
+remain packaging/system integration concerns.
 It must also prove that `SaveProfile` cannot add or alter hooks with only the
 profile-save authorization.

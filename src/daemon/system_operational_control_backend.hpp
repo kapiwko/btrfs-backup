@@ -21,16 +21,30 @@ class SystemOperationalControlBackend final : public IOperationalControlBackend 
         btrfsbackup::backup::ICommandRunner& commands
     );
 
-    void start_backup(const ProfileId& profile_id) override;
+    [[nodiscard]] OperationalResourceVersion inspect_profile(const ProfileId& profile_id) const override;
+    void start_backup(
+        const ProfileId& profile_id,
+        const OperationalResourceVersion& expected_version
+    ) override;
     [[nodiscard]] ManagerCancellationOutcome cancel_backup(
         const ProfileId& profile_id,
-        const RunId& run_id
+        const RunId& run_id,
+        const OperationalResourceVersion& expected_version
     ) override;
-    void validate_target(const ProfileId& profile_id) override;
-    void eject_target(const ProfileId& profile_id) override;
+    void validate_target(
+        const ProfileId& profile_id,
+        const OperationalResourceVersion& expected_version
+    ) override;
+    void eject_target(
+        const ProfileId& profile_id,
+        const OperationalResourceVersion& expected_version
+    ) override;
 
   private:
-    void require_profile(const ProfileId& profile_id) const;
+    void require_profile_version(
+        const ProfileId& profile_id,
+        const OperationalResourceVersion& expected_version
+    ) const;
     void run_effect(const std::vector<std::string>& command, const char* operation);
 
     btrfsbackup::config::IProfileRepository& profiles_;
