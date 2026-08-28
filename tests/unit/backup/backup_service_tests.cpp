@@ -40,18 +40,32 @@ struct FakeTargetMounter final : btrfsbackup::backup::ITargetManager {
     }
 };
 
-struct FakePlanner final : btrfsbackup::backup::IBackupPlanner {
+struct FakeDiscovery final : btrfsbackup::backup::IBackupDiscovery {
+    mutable int calls = 0;
+
+    btrfsbackup::backup::BackupDiscoveryResult discover(
+        const btrfsbackup::config::Profile&,
+        const std::vector<btrfsbackup::backup::MountEntry>&,
+        const btrfsbackup::config::ApplicationPaths&
+    ) const override {
+        ++calls;
+        return {.profile_state_dir = "/state/from-discovery"};
+    }
+};
+
+struct FakePlanBuilder final : btrfsbackup::backup::IBackupPlanBuilder {
     mutable int calls = 0;
     mutable std::string received_timestamp;
+    mutable std::filesystem::path received_profile_state_dir;
     btrfsbackup::backup::BackupRunPlan build(
         const btrfsbackup::config::Profile& profile,
-        const std::vector<btrfsbackup::backup::MountEntry>&,
-        const btrfsbackup::config::ApplicationPaths&,
+        const btrfsbackup::backup::BackupDiscoveryResult& discovery,
         const btrfsbackup::RunId& run_id,
         const std::string& snapshot_timestamp
     ) const override {
         ++calls;
         received_timestamp = snapshot_timestamp;
+        received_profile_state_dir = discovery.profile_state_dir;
         return {.profile_id = btrfsbackup::ProfileId{profile.id}, .run_id = run_id};
     }
 };
@@ -313,7 +327,8 @@ struct Fixture {
     FakeProfiles profiles;
     FakeMounts mounts;
     FakeTargetMounter target;
-    FakePlanner planner;
+    FakeDiscovery discovery;
+    FakePlanBuilder plan_builder;
     FakeRunFactory runs;
     FakeLeases leases;
     FakeState state;
@@ -330,7 +345,8 @@ struct Fixture {
               paths,
               mounts,
               target,
-              planner,
+              discovery,
+              plan_builder,
               runs,
               leases,
               state,
@@ -362,10 +378,16 @@ void test_success_uses_ports_and_persists_success() {
     }
     test_helpers::expect_true("target mounter calls", fixture.target.calls == 1, "unexpected call count");
     test_helpers::expect_true("mount inspector calls", fixture.mounts.calls == 1, "unexpected call count");
-    test_helpers::expect_true("planner calls", fixture.planner.calls == 1, "unexpected call count");
+    test_helpers::expect_true("discovery calls", fixture.discovery.calls == 1, "unexpected call count");
+    test_helpers::expect_true("plan builder calls", fixture.plan_builder.calls == 1, "unexpected call count");
     test_helpers::expect_true("run factory calls", fixture.runs.calls == 1, "unexpected call count");
     test_helpers::expect_true("success writes", fixture.state.success_writes == 1, "unexpected write count");
-    test_helpers::expect_eq("planner timestamp", fixture.planner.received_timestamp, "2026-08-26T120000Z");
+    test_helpers::expect_eq("planner timestamp", fixture.plan_builder.received_timestamp, "2026-08-26T120000Z");
+    test_helpers::expect_eq(
+        "discovery passed to builder",
+        fixture.plan_builder.received_profile_state_dir.string(),
+        "/state/from-discovery"
+    );
     test_helpers::expect_eq("success date", fixture.state.success_date, "2026-08-26");
     test_helpers::expect_eq("success timestamp", fixture.state.success_timestamp, "2026-08-26T14:00:00+0200");
     test_helpers::expect_eq("success fingerprint", fixture.state.success_fingerprint, "fingerprint");
@@ -448,7 +470,8 @@ void test_busy_stops_before_target_access() {
 
     test_helpers::expect_true("busy", std::holds_alternative<btrfsbackup::backup::BackupExecutionBusy>(result), "busy outcome missing");
     test_helpers::expect_true("target not called", fixture.target.calls == 0, "target mounter was called");
-    test_helpers::expect_true("planner not called", fixture.planner.calls == 0, "planner was called");
+    test_helpers::expect_true("discovery not called", fixture.discovery.calls == 0, "discovery was called");
+    test_helpers::expect_true("plan builder not called", fixture.plan_builder.calls == 0, "plan builder was called");
 }
 
 void test_daily_match_skips_execution() {
