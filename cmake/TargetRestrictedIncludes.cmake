@@ -24,6 +24,25 @@ function(target_restricted_include_directories target)
             if(NOT EXISTS "${source}")
                 message(FATAL_ERROR "Header declared by ${target} does not exist: ${source}")
             endif()
+
+            string(MD5 header_key "${header}")
+            get_property(
+                existing_owner
+                GLOBAL
+                PROPERTY BTRFSBACKUP_HEADER_OWNER_${header_key}
+            )
+            if(existing_owner)
+                message(
+                    FATAL_ERROR
+                    "Header ${header} is owned by both ${existing_owner} and ${target}"
+                )
+            endif()
+            set_property(
+                GLOBAL
+                PROPERTY BTRFSBACKUP_HEADER_OWNER_${header_key} ${target}
+            )
+            set_property(GLOBAL APPEND PROPERTY BTRFSBACKUP_OWNED_HEADERS ${header})
+
             get_filename_component(destination_directory "${destination}" DIRECTORY)
             file(MAKE_DIRECTORY "${destination_directory}")
             file(CREATE_LINK "${source}" "${destination}" SYMBOLIC RESULT link_result)

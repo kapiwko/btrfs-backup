@@ -120,7 +120,8 @@ The `*-model` targets contain dependency-light contracts needed to avoid
 cycles between configuration, backup concepts, and Linux implementations. They
 are implementation details of the domain layout, not separate source trees.
 Configure-time architecture checks reject unexpected target dependencies and
-JSON, Linux, D-Bus, or UI includes in the model and transfer targets.
+JSON, Linux, D-Bus, or UI includes in the model and transfer targets. The same
+checks require every source header to have exactly one owning CMake target.
 The `btrfsbackup-core` target contains the validated `ProfileId`, `RunId`, and
 `SourceId` value types and the shared error hierarchy. Those contracts can be
 used by configuration, backup, state, and platform adapters without pulling in

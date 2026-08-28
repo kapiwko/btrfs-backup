@@ -84,7 +84,6 @@ target_compile_features(btrfsbackup-config PUBLIC cxx_std_20)
 target_restricted_include_directories(btrfsbackup-config
     PUBLIC_HEADERS
         config/application_config.hpp
-        config/application_paths.hpp
         config/profile_artifact_renderer.hpp
         config/profile_fingerprint.hpp
         config/profile_render.hpp
