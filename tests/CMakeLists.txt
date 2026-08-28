@@ -91,6 +91,7 @@ assert_public_link_interface(
 assert_public_link_interface(
     btrfsbackup-cli
     btrfsbackup-backup
+    btrfsbackup-backup-model
     btrfsbackup-backup-ports
     btrfsbackup-config-domain
     btrfsbackup-config-ports
