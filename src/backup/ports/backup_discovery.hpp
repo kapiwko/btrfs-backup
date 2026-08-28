@@ -4,29 +4,20 @@
 
 #pragma once
 
-#include <filesystem>
 #include <vector>
 
-#include <backup/model/backup_run_plan.hpp>
+#include <backup/model/backup_planning_snapshot.hpp>
 #include <backup/ports/mount_inspector.hpp>
 #include <config/application_paths.hpp>
 #include <config/model/profile.hpp>
 
 namespace btrfsbackup::backup {
 
-struct BackupDiscoveryResult {
-    SnapshotInventoryBySource local_inventory;
-    SnapshotInventoryBySource remote_inventory;
-    PendingMarkerBySource pending_markers;
-    PendingSnapshotBySource pending_snapshots;
-    std::filesystem::path profile_state_dir;
-};
-
 class IBackupDiscovery {
   public:
     virtual ~IBackupDiscovery() = default;
 
-    [[nodiscard]] virtual BackupDiscoveryResult discover(
+    [[nodiscard]] virtual BackupPlanningSnapshot discover(
         const btrfsbackup::config::Profile& profile,
         const std::vector<MountEntry>& mounts,
         const btrfsbackup::config::ApplicationPaths& paths

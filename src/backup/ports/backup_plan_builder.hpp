@@ -19,7 +19,7 @@ class IBackupPlanBuilder {
 
     [[nodiscard]] virtual BackupRunPlan build(
         const btrfsbackup::config::Profile& profile,
-        const BackupDiscoveryResult& discovery,
+        const BackupPlanningSnapshot& snapshot,
         const RunId& run_id,
         const std::string& snapshot_timestamp
     ) const = 0;
