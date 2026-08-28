@@ -33,7 +33,7 @@ struct BackupRunEvent {
     RunId run_id;
     std::optional<SourceId> source_id;
     int source_index = 0;
-    BackupRunActionKind action_kind = BackupRunActionKind::CleanupSource;
+    std::optional<BackupRunActionKind> action_kind;
     std::uint64_t bytes_transferred = 0;
     std::uint64_t bytes_produced = 0;
     std::uint64_t bytes_total_estimated = 0;

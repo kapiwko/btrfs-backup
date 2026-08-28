@@ -95,6 +95,9 @@ btrfsbackup::config::Json build_backup_run_event_json(const btrfsbackup::backup:
     const std::string source_id = event.source_id.has_value()
         ? std::string(event.source_id->value())
         : std::string{};
+    const std::string action = event.action_kind.has_value()
+        ? backup_run_action_kind_name(*event.action_kind)
+        : std::string{};
     return {
         {"schemaVersion", 1},
         {"event", backup_run_event_kind_name(event.kind)},
@@ -102,7 +105,7 @@ btrfsbackup::config::Json build_backup_run_event_json(const btrfsbackup::backup:
         {"runId", std::string(event.run_id.value())},
         {"sourceId", source_id},
         {"sourceIndex", event.source_index},
-        {"action", backup_run_action_kind_name(event.action_kind)},
+        {"action", action},
         {"bytesTransferred", event.bytes_transferred},
         {"bytesProduced", event.bytes_produced},
         {"bytesTotalEstimated", event.bytes_total_estimated},
