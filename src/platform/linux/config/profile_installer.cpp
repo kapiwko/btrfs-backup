@@ -15,6 +15,7 @@
 #include <config/model/json_io.hpp>
 #include <config/model/profile_document.hpp>
 #include <platform/linux/config/profile_configuration_transaction.hpp>
+#include <platform/linux/config/profile_service.hpp>
 #include <platform/linux/file_lock.hpp>
 
 namespace fs = std::filesystem;
@@ -69,8 +70,8 @@ void ProfileInstaller::install_profile_transactionally(const btrfsbackup::config
     try {
         transaction.stage();
 
-        const btrfsbackup::config::Profile staged_profile = btrfsbackup::config::profile_from_json(
-            btrfsbackup::config::load_json_file(transaction.staged_path(btrfsbackup::config::ProfileArtifactKind::PrivateProfile)),
+        const btrfsbackup::config::Profile staged_profile = validate_profile_file(
+            transaction.staged_path(btrfsbackup::config::ProfileArtifactKind::PrivateProfile),
             application_config.paths().target_mount_root
         );
         const btrfsbackup::config::Json staged_public = btrfsbackup::config::load_json_file(transaction.staged_path(btrfsbackup::config::ProfileArtifactKind::PublicProfile));

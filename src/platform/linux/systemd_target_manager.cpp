@@ -7,6 +7,7 @@
 #include <string>
 
 #include <core/errors.hpp>
+#include <platform/linux/systemd_unit.hpp>
 
 namespace btrfsbackup::platform::linux {
 
@@ -18,12 +19,10 @@ void SystemdTargetManager::ensure_mounted(const btrfsbackup::config::Profile& pr
     if (btrfsbackup::backup::mount_at(mounts_.inspect(), profile.target.mount_point).has_value()) {
         return;
     }
-    if (profile.target.mount_unit.empty()) {
-        throw ValidationError("target.mountUnit is required to mount backup target");
-    }
-    const btrfsbackup::backup::CommandResult result = commands_.run({"systemctl", "start", profile.target.mount_unit});
+    const std::string mount_unit = systemd_mount_unit_name(profile.target.mount_point);
+    const btrfsbackup::backup::CommandResult result = commands_.run({"systemctl", "start", mount_unit});
     if (result.exit_code != 0) {
-        throw ValidationError("could not start target mount unit " + profile.target.mount_unit);
+        throw ValidationError("could not start target mount unit " + mount_unit);
     }
 }
 

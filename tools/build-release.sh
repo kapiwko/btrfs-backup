@@ -243,7 +243,7 @@ copy_source_tree() {
     local destination="$1"
     install -d -m0755 "$destination"
     local entry
-    for entry in LICENSES apps data docs integrations packaging src tests tools; do
+    for entry in LICENSES apps cmake data docs integrations packaging src tests tools; do
         cp -a -- "$ROOT/$entry" "$destination/"
     done
     for entry in VERSION README.md CHANGELOG.md TODO.md LICENSE REUSE.toml .gitignore CMakeLists.txt Makefile; do
