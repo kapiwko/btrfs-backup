@@ -31,7 +31,6 @@ enum class RunPhase {
     BeforeSnapshotHook,
     CreateSnapshot,
     AfterSnapshotHook,
-    SelectParent,
     SendReceive,
     Transferring,
     VerifyReceived,

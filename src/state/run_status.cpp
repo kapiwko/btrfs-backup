@@ -38,8 +38,6 @@ std::string run_phase_name(RunPhase phase) {
         return "create-snapshot";
     case RunPhase::AfterSnapshotHook:
         return "after-snapshot-hook";
-    case RunPhase::SelectParent:
-        return "select-parent";
     case RunPhase::SendReceive:
         return "send-receive";
     case RunPhase::Transferring:

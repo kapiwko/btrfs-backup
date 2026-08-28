@@ -120,7 +120,7 @@ void test_builds_ordered_source_plan() {
     test_helpers::expect_eq("plan snapshot path", source.local_snapshot_path.string(), "/.snapshots/root/root-2026-08-23T080000Z");
     test_helpers::expect_true("plan incremental", source.parent.incremental, "expected incremental parent");
     test_helpers::expect_eq("plan parent", source.parent.local_parent->path.string(), "/.snapshots/root/root-2026-08-22T080000Z");
-    test_helpers::expect_eq("plan actions", std::to_string(source.actions.size()), "9");
+    test_helpers::expect_eq("plan actions", std::to_string(source.actions.size()), "8");
     test_helpers::expect_eq("first action", std::to_string(static_cast<int>(btrfsbackup::backup::backup_run_action_kind(source.actions.at(0)))), std::to_string(static_cast<int>(btrfsbackup::backup::BackupRunActionKind::CleanupIncoming)));
     test_helpers::expect_eq("last action", std::to_string(static_cast<int>(btrfsbackup::backup::backup_run_action_kind(source.actions.back()))), std::to_string(static_cast<int>(btrfsbackup::backup::BackupRunActionKind::CleanupSource)));
 
@@ -129,7 +129,7 @@ void test_builds_ordered_source_plan() {
     test_helpers::expect_eq("create snapshot", create_snapshot.snapshot.string(), "/.snapshots/root/root-2026-08-23T080000Z");
     test_helpers::expect_eq("create run id", std::string(create_snapshot.run_id.value()), "20260823T080000Z-123-456");
 
-    const auto& send_receive = std::get<btrfsbackup::backup::SendReceiveAction>(source.actions.at(3));
+    const auto& send_receive = std::get<btrfsbackup::backup::SendReceiveAction>(source.actions.at(2));
     test_helpers::expect_eq("send snapshot", send_receive.snapshot.string(), create_snapshot.snapshot.string());
     test_helpers::expect_eq("send parent", send_receive.parent->string(), "/.snapshots/root/root-2026-08-22T080000Z");
     test_helpers::expect_eq("receive directory", send_receive.incoming_run_directory.string(), "/mnt/backup/.incoming/root/20260823T080000Z-123-456");
@@ -167,7 +167,7 @@ void test_inserts_snapshot_hooks_around_snapshot_creation() {
     const std::vector<btrfsbackup::backup::BackupRunAction>& actions = plan.sources.at(0).actions;
     const auto& before_hook = std::get<btrfsbackup::backup::RunHookAction>(actions.at(1));
     const auto& after_hook = std::get<btrfsbackup::backup::RunHookAction>(actions.at(3));
-    test_helpers::expect_eq("hook action count", std::to_string(actions.size()), "11");
+    test_helpers::expect_eq("hook action count", std::to_string(actions.size()), "10");
     test_helpers::expect_eq("before hook action", std::to_string(static_cast<int>(btrfsbackup::backup::backup_run_action_kind(actions.at(1)))), std::to_string(static_cast<int>(btrfsbackup::backup::BackupRunActionKind::BeforeSnapshotHook)));
     test_helpers::expect_eq("before hook program", before_hook.hook.program, "/etc/btrfs-backup/hooks.d/before");
     test_helpers::expect_eq("before hook timeout", std::to_string(before_hook.hook.timeout.count()), "30");

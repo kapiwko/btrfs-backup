@@ -352,8 +352,6 @@ btrfsbackup::backup::BackupRunAction action(
             source.recovery.marker_path.parent_path(),
             run_plan().run_id,
         };
-    case btrfsbackup::backup::BackupRunActionKind::SelectParent:
-        return btrfsbackup::backup::SelectParentAction{source.source_id, std::nullopt};
     case btrfsbackup::backup::BackupRunActionKind::SendReceive:
         return btrfsbackup::backup::SendReceiveAction{
             source.source_id,

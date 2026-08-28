@@ -56,7 +56,6 @@ void BackupRunActionHandler::handle(
                    [&](const CreateSnapshotAction& typed_action) {
                        snapshots_.handle(typed_action);
                    },
-                   [](const SelectParentAction&) {},
                    [&](const SendReceiveAction& typed_action) {
                        transfers_.handle(typed_action);
                    },

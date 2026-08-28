@@ -37,6 +37,4 @@ class BackupRunExecutor {
     const ISafeDirectoryRootFactory& safe_directories_;
 };
 
-[[nodiscard]] bool backup_run_action_writes_checkpoint(const BackupRunAction& action);
-
 } // namespace btrfsbackup::backup

@@ -57,7 +57,7 @@ class RecordingActionHandler final : public btrfsbackup::backup::IBackupRunActio
     std::vector<std::string> local_retention_deletes;
     std::vector<std::string> remote_retention_deletes;
     std::vector<std::string> recovered_pending_paths;
-    btrfsbackup::backup::BackupRunActionKind throw_on = btrfsbackup::backup::BackupRunActionKind::SelectParent;
+    btrfsbackup::backup::BackupRunActionKind throw_on = btrfsbackup::backup::BackupRunActionKind::CleanupSource;
     bool should_throw = false;
     bool write_pending_on_snapshot = false;
     fs::path pending_state_dir;

@@ -278,7 +278,7 @@ BackupRunExecutionResult BackupRunExecutor::execute(
                         error_code = btrfsbackup::backup::transfer::transfer_failure_error_code(transfer_result);
                         btrfsbackup::backup::transfer::require_transfer_success(transfer_result);
                         completed_run_bytes += transfer_result.bytes_transferred;
-                    } else if constexpr (!std::is_same_v<Action, SelectParentAction>) {
+                    } else {
                         action_handler_.handle(action, plan, cancellation);
                     }
                 },
@@ -303,9 +303,7 @@ BackupRunExecutionResult BackupRunExecutor::execute(
             ++result.actions_completed;
             emit_event(events, BackupRunEventKind::ActionCompleted, plan, &source, action_kind);
 
-            if (backup_run_action_writes_checkpoint(action)) {
-                write_checkpoint(checkpoints_, events, plan, source, action_kind);
-            }
+            write_checkpoint(checkpoints_, events, plan, source, action_kind);
         }
 
         emit_event(events, BackupRunEventKind::SourceCompleted, plan, &source, BackupRunActionKind::CleanupSource);
@@ -313,10 +311,6 @@ BackupRunExecutionResult BackupRunExecutor::execute(
 
     emit_event(events, BackupRunEventKind::RunCompleted, plan, nullptr, BackupRunActionKind::CleanupSource);
     return result;
-}
-
-bool backup_run_action_writes_checkpoint(const BackupRunAction& action) {
-    return !std::holds_alternative<SelectParentAction>(action);
 }
 
 } // namespace btrfsbackup::backup
