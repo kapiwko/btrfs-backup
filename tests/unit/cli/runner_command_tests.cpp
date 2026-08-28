@@ -22,6 +22,7 @@
 #include <cli/backup_tool.hpp>
 #include <backup/backup_discovery.hpp>
 #include <backup/backup_plan_builder.hpp>
+#include <backup/backup_preflight.hpp>
 #include <backup/default_backup_run_factory.hpp>
 #include <backup/linked_cancellation_monitor.hpp>
 #include <state/file_run_state_repository.hpp>
@@ -398,6 +399,7 @@ int run_runner(
     });
     btrfsbackup::platform::linux::PosixCommandRunner commands;
     btrfsbackup::platform::linux::SystemdTargetManager target_mounter(mounts, commands);
+    btrfsbackup::backup::BackupPreflight preflight(mounts, target_mounter);
     test_support::FakeSafeDirectoryRootFactory safe_directories;
     btrfsbackup::platform::linux::PosixDurableFileOperations durable_files;
     btrfsbackup::state::FilePendingMarkerStore pending_markers(durable_files);
@@ -441,8 +443,7 @@ int run_runner(
     btrfsbackup::backup::BackupService service(
         profiles,
         fixture->application_config.paths(),
-        mounts,
-        target_mounter,
+        preflight,
         discovery,
         plan_builder,
         run_factory,

@@ -11,9 +11,6 @@
 #include <utility>
 
 #include <backup/model/pending_recovery.hpp>
-#include <backup/target_mount_validation.hpp>
-#include <config/model/validation.hpp>
-#include <core/errors.hpp>
 
 namespace fs = std::filesystem;
 
@@ -31,24 +28,8 @@ BackupDiscovery::BackupDiscovery(
 
 BackupPlanningSnapshot BackupDiscovery::discover(
     const btrfsbackup::config::Profile& profile,
-    const std::vector<MountEntry>& mounts,
     const btrfsbackup::config::ApplicationPaths& paths
 ) const {
-    validate_target_mount(profile, mounts);
-    for (const btrfsbackup::config::ProfileSource& source : profile.sources) {
-        if (!source.enabled) {
-            continue;
-        }
-        if (!paths_are_same_filesystem(mounts, source.subvolume, source.local_snapshot_dir)) {
-            throw ValidationError("LOCAL_SNAPSHOT_DIR must be on the same Btrfs filesystem as " + source.subvolume);
-        }
-        if (paths_are_same_filesystem(mounts, source.subvolume, profile.target.mount_point)) {
-            throw ValidationError("SOURCE_SUBVOLUME must not be on the backup target filesystem: " + source.subvolume);
-        }
-        if (btrfsbackup::config::path_is_within(source.local_snapshot_dir, profile.target.mount_point)) {
-            throw ValidationError("LOCAL_SNAPSHOT_DIR must not be inside the backup target: " + source.local_snapshot_dir);
-        }
-    }
     SnapshotInventoryBySource local_inventory;
     SnapshotInventoryBySource remote_inventory;
     PendingMarkerBySource pending_markers;
