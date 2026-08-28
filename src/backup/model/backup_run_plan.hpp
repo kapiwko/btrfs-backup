@@ -5,11 +5,10 @@
 #pragma once
 
 #include <filesystem>
-#include <map>
-#include <optional>
 #include <string>
 #include <vector>
 
+#include <backup/model/backup_planning_snapshot.hpp>
 #include <backup/model/backup_run_actions.hpp>
 #include <backup/model/incremental_parent.hpp>
 #include <backup/model/pending_recovery.hpp>
@@ -43,10 +42,6 @@ struct BackupRunPlan {
     std::filesystem::path target_mount_point;
     std::vector<BackupSourceRunPlan> sources;
 };
-
-using SnapshotInventoryBySource = std::map<std::string, std::vector<SnapshotInfo>>;
-using PendingMarkerBySource = std::map<std::string, std::optional<PendingMarker>>;
-using PendingSnapshotBySource = std::map<std::string, std::optional<SnapshotMetadata>>;
 
 [[nodiscard]] BackupRunPlan build_backup_run_plan(
     const btrfsbackup::config::Profile& profile,

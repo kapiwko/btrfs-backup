@@ -74,8 +74,8 @@ BackupRunPlan BackupService::prepare_plan(
     const std::string& timestamp
 ) {
     target_mounter_.ensure_mounted(profile);
-    BackupDiscoveryResult discovery = discovery_.discover(profile, mounts_.inspect(), application_paths_);
-    return plan_builder_.build(profile, discovery, run_id, timestamp);
+    const BackupPlanningSnapshot snapshot = discovery_.discover(profile, mounts_.inspect(), application_paths_);
+    return plan_builder_.build(profile, snapshot, run_id, timestamp);
 }
 
 BackupRunPlan BackupService::plan(const BackupRequest& request) {

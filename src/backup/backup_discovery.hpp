@@ -19,7 +19,7 @@ class BackupDiscovery final : public IBackupDiscovery {
         const ISafeDirectoryRootFactory& safe_directories
     );
 
-    [[nodiscard]] BackupDiscoveryResult discover(
+    [[nodiscard]] BackupPlanningSnapshot discover(
         const btrfsbackup::config::Profile& profile,
         const std::vector<MountEntry>& mounts,
         const btrfsbackup::config::ApplicationPaths& paths
