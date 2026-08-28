@@ -5,8 +5,8 @@
 #pragma once
 
 #include <cstddef>
-#include <optional>
 #include <string>
+#include <variant>
 
 #include <backup/model/backup_run_plan.hpp>
 #include <core/error_code.hpp>
@@ -31,26 +31,53 @@ enum class CancellationRequestOutcome {
     RunMismatch,
 };
 
-struct CancelBackupResult {
+struct CancellationAccepted {
     ProfileId profile_id;
     RunId run_id;
-    bool cancel_requested = false;
-    std::optional<ErrorCode> error_code;
 };
 
-enum class BackupExecutionOutcome { Completed,
-                                    Skipped,
-                                    Cancelled,
-                                    Failed,
-                                    Busy,
-                                    Validated };
+struct CancellationStaleRun {
+    ProfileId profile_id;
+    RunId run_id;
+};
 
-struct BackupExecutionResult {
+struct CancellationRunMismatch {
+    ProfileId profile_id;
+    RunId run_id;
+};
+
+using CancelBackupResult = std::variant<CancellationAccepted, CancellationStaleRun, CancellationRunMismatch>;
+
+struct BackupExecutionCompleted {
     BackupRunPlan plan;
-    BackupExecutionOutcome outcome = BackupExecutionOutcome::Completed;
     std::size_t actions_completed = 0;
-    std::optional<ErrorCode> error_code;
+};
+
+struct BackupExecutionSkipped {
+    BackupRunPlan plan;
+};
+
+struct BackupExecutionCancelled {
+    BackupRunPlan plan;
+    std::size_t actions_completed = 0;
+};
+
+struct BackupExecutionBusy {
+    ProfileId profile_id;
+    RunId run_id;
+    ErrorCode error_code;
     std::string error_message;
 };
+
+struct BackupExecutionValidated {
+    BackupRunPlan plan;
+};
+
+using BackupExecutionResult = std::variant<
+    BackupExecutionCompleted,
+    BackupExecutionSkipped,
+    BackupExecutionCancelled,
+    BackupExecutionBusy,
+    BackupExecutionValidated>;
 
 } // namespace btrfsbackup::backup

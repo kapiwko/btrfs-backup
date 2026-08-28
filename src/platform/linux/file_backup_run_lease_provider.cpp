@@ -5,7 +5,6 @@
 #include <platform/linux/file_backup_run_lease_provider.hpp>
 
 #include <memory>
-#include <optional>
 #include <string>
 #include <utility>
 
@@ -37,24 +36,20 @@ FileBackupRunLeaseProvider::FileBackupRunLeaseProvider(fs::path lock_root) : loc
 btrfsbackup::backup::BackupRunLeaseResult FileBackupRunLeaseProvider::try_acquire(const btrfsbackup::config::Profile& profile) {
     FileLock profile_lock(profile_lock_path(lock_root_, std::string(profile.id.value())));
     if (!profile_lock.try_acquire()) {
-        return {
-            .lease = nullptr,
+        return btrfsbackup::backup::BackupRunLeaseBusy{
             .error_code = ErrorCode::RunnerProfileBusy,
             .error_message = "Another runner is already active for profile " + std::string(profile.id.value()) + ".",
         };
     }
     FileLock target_lock(target_lock_path(lock_root_, profile.target.luks_uuid));
     if (!target_lock.try_acquire()) {
-        return {
-            .lease = nullptr,
+        return btrfsbackup::backup::BackupRunLeaseBusy{
             .error_code = ErrorCode::RunnerTargetBusy,
             .error_message = "Another operation is already active for target LUKS UUID " + profile.target.luks_uuid + ".",
         };
     }
-    return {
+    return btrfsbackup::backup::BackupRunLeaseAcquired{
         .lease = std::make_unique<FileBackupRunLease>(std::move(profile_lock), std::move(target_lock)),
-        .error_code = std::nullopt,
-        .error_message = {},
     };
 }
 

@@ -5,15 +5,18 @@
 #pragma once
 
 #include <cstddef>
+#include <variant>
 
 namespace btrfsbackup::backup {
 
-enum class BackupRunExecutionOutcome { Completed,
-                                       Cancelled };
-
-struct BackupRunExecutionResult {
-    BackupRunExecutionOutcome outcome = BackupRunExecutionOutcome::Completed;
+struct BackupRunExecutionCompleted {
     std::size_t actions_completed = 0;
 };
+
+struct BackupRunExecutionCancelled {
+    std::size_t actions_completed = 0;
+};
+
+using BackupRunExecutionResult = std::variant<BackupRunExecutionCompleted, BackupRunExecutionCancelled>;
 
 } // namespace btrfsbackup::backup

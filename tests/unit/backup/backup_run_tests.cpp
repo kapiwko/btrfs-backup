@@ -62,7 +62,7 @@ void test_backup_run_owns_plan_and_executes_once() {
     btrfsbackup::backup::BackupRunExecutionResult result = run.execute(events, cancellation);
     test_helpers::expect_true(
         "completed",
-        result.outcome == btrfsbackup::backup::BackupRunExecutionOutcome::Completed,
+        std::holds_alternative<btrfsbackup::backup::BackupRunExecutionCompleted>(result),
         "empty run did not complete"
     );
     test_helpers::expect_true("started", run.started(), "executed run is not marked as started");
