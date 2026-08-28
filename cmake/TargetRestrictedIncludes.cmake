@@ -32,6 +32,12 @@ function(target_restricted_include_directories target)
             endif()
         endforeach()
 
+        set_property(
+            TARGET ${target}
+            APPEND
+            PROPERTY BTRFSBACKUP_${visibility}_HEADERS ${headers}
+        )
+
         target_include_directories(${target} ${visibility} "${include_root}")
     endforeach()
 endfunction()
