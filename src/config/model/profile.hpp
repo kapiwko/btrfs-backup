@@ -11,6 +11,7 @@
 #include <utility>
 #include <vector>
 
+#include <config/model/storage_policy.hpp>
 #include <config/model/target_identity.hpp>
 #include <core/identifiers.hpp>
 namespace btrfsbackup::config {
@@ -47,10 +48,10 @@ struct ProfileSettings {
     bool incremental_required = true;
     bool keep_failed_local_snapshot = false;
     bool auto_eject = true;
-    std::size_t remote_retention = 30;
-    std::size_t local_retention = 30;
-    std::uint64_t minimum_target_free_bytes = 0;
-    std::uint64_t minimum_local_free_bytes = 0;
+    RetentionCount remote_retention{30};
+    RetentionCount local_retention{30};
+    ByteThreshold minimum_target_free_bytes{0};
+    ByteThreshold minimum_local_free_bytes{0};
 };
 
 struct ProfileHookCommand {
@@ -74,8 +75,8 @@ struct ProfileSource {
     std::string subvolume;
     std::string local_snapshot_dir;
     std::string remote_subdir;
-    std::size_t remote_retention = 30;
-    std::size_t local_retention = 30;
+    RetentionCount remote_retention{30};
+    RetentionCount local_retention{30};
 };
 
 struct Profile {

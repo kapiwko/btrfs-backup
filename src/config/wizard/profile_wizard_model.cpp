@@ -46,19 +46,19 @@ Profile profile_from_wizard_answers(const ProfileWizardAnswers& answers) {
         source.subvolume = source_answer.subvolume;
         source.local_snapshot_dir = source_answer.local_snapshot_dir;
         source.remote_subdir = source_answer.remote_subdir;
-        source.remote_retention = answers.remote_retention;
-        source.local_retention = answers.local_retention;
+        source.remote_retention = RetentionCount{answers.remote_retention};
+        source.local_retention = RetentionCount{answers.local_retention};
         profile.sources.push_back(source);
     }
 
-    profile.settings.remote_retention = answers.remote_retention;
-    profile.settings.local_retention = answers.local_retention;
+    profile.settings.remote_retention = RetentionCount{answers.remote_retention};
+    profile.settings.local_retention = RetentionCount{answers.local_retention};
     profile.settings.daily_limit = answers.daily_limit;
     profile.settings.incremental_required = answers.incremental_required;
     profile.settings.keep_failed_local_snapshot = answers.keep_failed_local_snapshot;
     profile.settings.auto_eject = answers.auto_eject;
-    profile.settings.minimum_target_free_bytes = answers.minimum_target_free_bytes;
-    profile.settings.minimum_local_free_bytes = answers.minimum_local_free_bytes;
+    profile.settings.minimum_target_free_bytes = ByteThreshold{answers.minimum_target_free_bytes};
+    profile.settings.minimum_local_free_bytes = ByteThreshold{answers.minimum_local_free_bytes};
 
     return profile_from_json(profile_to_json(profile), answers.target_mount_root);
 }

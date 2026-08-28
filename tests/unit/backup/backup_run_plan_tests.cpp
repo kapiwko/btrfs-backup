@@ -40,16 +40,16 @@ btrfsbackup::config::Profile profile() {
     root.subvolume = "/";
     root.local_snapshot_dir = "/.snapshots/root";
     root.remote_subdir = "root";
-    root.remote_retention = 2;
-    root.local_retention = 2;
+    root.remote_retention = btrfsbackup::config::RetentionCount{2};
+    root.local_retention = btrfsbackup::config::RetentionCount{2};
     btrfsbackup::config::ProfileSource home{btrfsbackup::SourceId{"home"}};
     home.name = "Home";
     home.enabled = false;
     home.subvolume = "/home";
     home.local_snapshot_dir = "/.snapshots/home";
     home.remote_subdir = "home";
-    home.remote_retention = 2;
-    home.local_retention = 2;
+    home.remote_retention = btrfsbackup::config::RetentionCount{2};
+    home.local_retention = btrfsbackup::config::RetentionCount{2};
     result.sources = {std::move(root), std::move(home)};
     return result;
 }
@@ -185,8 +185,8 @@ void test_inserts_snapshot_hooks_around_snapshot_creation() {
 
 void test_plans_collision_suffix_and_retention() {
     btrfsbackup::config::Profile test_profile = profile();
-    test_profile.sources.at(0).local_retention = 2;
-    test_profile.sources.at(0).remote_retention = 2;
+    test_profile.sources.at(0).local_retention = btrfsbackup::config::RetentionCount{2};
+    test_profile.sources.at(0).remote_retention = btrfsbackup::config::RetentionCount{2};
     test_profile.settings.incremental_required = false;
 
     btrfsbackup::backup::SnapshotInventoryBySource local{

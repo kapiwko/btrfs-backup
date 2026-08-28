@@ -264,15 +264,15 @@ btrfsbackup::config::Profile test_profile(const fs::path& root) {
     profile.paths.incoming_root = (root / "target" / "default" / ".incoming").string();
     profile.settings.incremental_required = false;
     profile.settings.keep_failed_local_snapshot = false;
-    profile.settings.remote_retention = 2;
-    profile.settings.local_retention = 2;
+    profile.settings.remote_retention = btrfsbackup::config::RetentionCount{2};
+    profile.settings.local_retention = btrfsbackup::config::RetentionCount{2};
     btrfsbackup::config::ProfileSource source{btrfsbackup::SourceId{"root"}};
     source.name = "System";
     source.subvolume = (root / "source" / "root").string();
     source.local_snapshot_dir = (root / "source" / ".snapshots" / "root").string();
     source.remote_subdir = "root";
-    source.remote_retention = 2;
-    source.local_retention = 2;
+    source.remote_retention = btrfsbackup::config::RetentionCount{2};
+    source.local_retention = btrfsbackup::config::RetentionCount{2};
     profile.sources = {std::move(source)};
     return profile;
 }
@@ -292,8 +292,8 @@ void add_home_source(btrfsbackup::config::Profile& profile, const fs::path& root
     source.subvolume = (root / "source" / "home").string();
     source.local_snapshot_dir = (root / "source" / ".snapshots" / "home").string();
     source.remote_subdir = "home";
-    source.remote_retention = 2;
-    source.local_retention = 2;
+    source.remote_retention = btrfsbackup::config::RetentionCount{2};
+    source.local_retention = btrfsbackup::config::RetentionCount{2};
     profile.sources.push_back(std::move(source));
 }
 
@@ -1499,8 +1499,8 @@ void test_runner_execute_retention_plans_local_and_remote_deletes() {
     fs::create_directories(root / "target" / "default" / ".incoming");
 
     btrfsbackup::config::Profile profile = test_profile(root);
-    profile.sources.at(0).local_retention = 2;
-    profile.sources.at(0).remote_retention = 2;
+    profile.sources.at(0).local_retention = btrfsbackup::config::RetentionCount{2};
+    profile.sources.at(0).remote_retention = btrfsbackup::config::RetentionCount{2};
     fs::path local_old = root / "source" / ".snapshots" / "root" / "root-2026-08-20T080000Z";
     fs::path local_keep = root / "source" / ".snapshots" / "root" / "root-2026-08-22T080000Z";
     fs::path remote_old = root / "target" / "default" / "snapshots" / "root" / "root-2026-08-20T080000Z";
