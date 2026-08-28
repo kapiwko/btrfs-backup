@@ -11,12 +11,16 @@
 #include <config/model/json_io.hpp>
 #include <config/model/profile_document.hpp>
 #include <config/profile_render.hpp>
-#include <core/file_permissions.hpp>
 #include <core/errors.hpp>
 
 namespace btrfsbackup::config {
 
 namespace {
+
+constexpr std::filesystem::perms private_profile_permissions =
+    std::filesystem::perms::owner_read | std::filesystem::perms::owner_write;
+constexpr std::filesystem::perms public_artifact_permissions =
+    private_profile_permissions | std::filesystem::perms::group_read | std::filesystem::perms::others_read;
 
 Json public_profile_json(const Profile& profile) {
     Json sources = Json::array();
@@ -62,25 +66,25 @@ RenderedProfileArtifacts ProfileArtifactRenderer::render_profile_artifacts(
                 .kind = ProfileArtifactKind::UdevRule,
                 .destination = roots.udev_root / ("99-btrfs-backup-" + profile_id + ".rules"),
                 .content = render_udev(rendered),
-                .permissions = public_read_file_permissions,
+                .permissions = public_artifact_permissions,
             },
             {
                 .kind = ProfileArtifactKind::SystemdMountDependency,
                 .destination = roots.systemd_root / ("btrfs-backup@" + profile_id + ".service.d") / "target-mount.conf",
                 .content = render_mount_dependency(rendered),
-                .permissions = public_read_file_permissions,
+                .permissions = public_artifact_permissions,
             },
             {
                 .kind = ProfileArtifactKind::PrivateProfile,
                 .destination = roots.etc_root / "profiles" / profile_id / "profile.json",
                 .content = dump_json(profile_to_json(rendered)),
-                .permissions = private_file_permissions,
+                .permissions = private_profile_permissions,
             },
             {
                 .kind = ProfileArtifactKind::PublicProfile,
                 .destination = roots.public_root / (profile_id + ".json"),
                 .content = dump_json(public_profile_json(rendered)),
-                .permissions = public_read_file_permissions,
+                .permissions = public_artifact_permissions,
             },
         },
     };

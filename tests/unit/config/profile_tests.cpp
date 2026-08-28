@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#include <algorithm>
 #include <array>
 #include <cstdlib>
 #include <filesystem>
@@ -11,6 +12,7 @@
 #include <optional>
 #include <stdexcept>
 #include <string>
+#include <sys/stat.h>
 #include <utility>
 #include <unistd.h>
 
@@ -127,6 +129,11 @@ fs::path test_root() {
 std::string read_text(const fs::path& path) {
     std::ifstream stream(path);
     return {std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()};
+}
+
+int mode_of(const fs::path& path) {
+    struct stat info{};
+    return stat(path.c_str(), &info) == 0 ? info.st_mode & 0777 : -1;
 }
 
 void test_profile_fingerprint_matches_legacy_stream() {
@@ -419,6 +426,37 @@ void test_profile_artifact_renderer() {
         rendered.profile.configuration_generation == generation,
         "injected generation was not used"
     );
+    const auto artifact = [&rendered](btrfsbackup::config::ProfileArtifactKind kind) -> const btrfsbackup::config::ProfileArtifact& {
+        const auto found = std::find_if(
+            rendered.artifacts.begin(),
+            rendered.artifacts.end(),
+            [kind](const btrfsbackup::config::ProfileArtifact& candidate) {
+                return candidate.kind == kind;
+            }
+        );
+        if (found == rendered.artifacts.end()) {
+            throw std::runtime_error("missing rendered profile artifact");
+        }
+        return *found;
+    };
+    expect_true(
+        "private profile permissions",
+        artifact(btrfsbackup::config::ProfileArtifactKind::PrivateProfile).permissions ==
+            (fs::perms::owner_read | fs::perms::owner_write),
+        "private profile should be 0600"
+    );
+    for (const auto kind : {
+             btrfsbackup::config::ProfileArtifactKind::UdevRule,
+             btrfsbackup::config::ProfileArtifactKind::SystemdMountDependency,
+             btrfsbackup::config::ProfileArtifactKind::PublicProfile,
+         }) {
+        expect_true(
+            "public artifact permissions",
+            artifact(kind).permissions ==
+                (fs::perms::owner_read | fs::perms::owner_write | fs::perms::group_read | fs::perms::others_read),
+            "public artifact should be 0644"
+        );
+    }
     btrfsbackup::platform::linux::write_profile_artifacts(rendered);
 
     expect_true("typed tree profile env", !fs::exists(root / "rendered" / "etc" / "btrfs-backup" / "profiles.d" / "default.env"), "profile env should not be rendered");
@@ -428,9 +466,19 @@ void test_profile_artifact_renderer() {
         "missing rendered profile JSON"
     );
     expect_true(
+        "typed tree profile mode",
+        mode_of(root / "rendered" / "etc" / "btrfs-backup" / "profiles" / "default" / "profile.json") == 0600,
+        "private profile should be written as 0600"
+    );
+    expect_true(
         "typed tree public",
         fs::is_regular_file(root / "rendered" / "var" / "lib" / "btrfs-backup" / "public" / "profiles" / "default.json"),
         "missing rendered public profile"
+    );
+    expect_true(
+        "typed tree public mode",
+        mode_of(root / "rendered" / "var" / "lib" / "btrfs-backup" / "public" / "profiles" / "default.json") == 0644,
+        "public profile should be written as 0644"
     );
     btrfsbackup::config::Json public_profile = btrfsbackup::config::load_json_file(
         root / "rendered" / "var" / "lib" / "btrfs-backup" / "public" / "profiles" / "default.json"
