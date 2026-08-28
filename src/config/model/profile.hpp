@@ -22,7 +22,6 @@ struct ProfileTarget {
     std::string serial;
     std::string mapper_name;
     std::string mount_point;
-    std::string mount_unit;
 };
 
 struct ProfilePaths {

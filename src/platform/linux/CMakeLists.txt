@@ -22,6 +22,7 @@ add_library(btrfsbackup-platform-linux STATIC
     splice.cpp
     system_configuration_activator.cpp
     systemd_target_manager.cpp
+    systemd_unit.cpp
     termination_signal_monitor.cpp
     trusted_directory.cpp
     trusted_executable.cpp
@@ -50,6 +51,7 @@ target_restricted_include_directories(btrfsbackup-platform-linux
         platform/linux/splice.hpp
         platform/linux/system_configuration_activator.hpp
         platform/linux/systemd_target_manager.hpp
+        platform/linux/systemd_unit.hpp
         platform/linux/termination_signal_monitor.hpp
         platform/linux/trusted_directory.hpp
         platform/linux/trusted_executable.hpp

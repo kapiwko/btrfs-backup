@@ -91,6 +91,7 @@ add_library(btrfsbackup-config-linux STATIC
     ../platform/linux/config/profile_configuration_transaction.cpp
     ../platform/linux/config/profile_installer.cpp
     ../platform/linux/config/profile_repository.cpp
+    ../platform/linux/config/profile_runtime_policy.cpp
     ../platform/linux/config/profile_service.cpp
     ../platform/linux/config/profile_wizard_install.cpp
     ../platform/linux/config/profile_wizard.cpp
@@ -110,6 +111,7 @@ target_restricted_include_directories(btrfsbackup-config-linux
         platform/linux/config/profile_configuration_transaction.hpp
         platform/linux/config/profile_installer.hpp
         platform/linux/config/profile_repository.hpp
+        platform/linux/config/profile_runtime_policy.hpp
         platform/linux/config/profile_service.hpp
         platform/linux/config/profile_wizard.hpp
         platform/linux/config/profile_wizard_device.hpp
