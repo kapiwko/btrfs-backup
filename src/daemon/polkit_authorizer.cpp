@@ -67,7 +67,7 @@ bool PolkitAuthorizer::authorize(
     require_bus_success(sd_bus_message_close_container(request.get()), "cannot close polkit details");
     require_bus_success(sd_bus_message_append(request.get(), "us", 1U, ""), "cannot append polkit flags");
 
-    sd_bus_error error = SD_BUS_ERROR_NULL;
+    sd_bus_error error{};
     sd_bus_message* raw_reply = nullptr;
     const int result = sd_bus_call(bus_, request.get(), 0, &error, &raw_reply);
     std::unique_ptr<sd_bus_message, decltype(&sd_bus_message_unref)> reply(raw_reply, sd_bus_message_unref);
@@ -85,7 +85,7 @@ bool PolkitAuthorizer::authorize(
 }
 
 bool PolkitAuthorizer::caller_is_active(const std::string& caller_bus_name) {
-    sd_bus_error error = SD_BUS_ERROR_NULL;
+    sd_bus_error error{};
     sd_bus_message* raw_reply = nullptr;
     const int result = sd_bus_call_method(
         bus_,

@@ -127,10 +127,11 @@ finished package through a read-only mount.
 
 Local runner tests cover the run-bound file cancellation request and verify that
 an active transfer sees a matching request, reports `runner.cancelled`, and
-clears the handled marker. Future privileged-control tests should still verify
-that manual start, force, validate, cancel and eject operations cannot conflict
-with an active backup unit, cannot operate on a mismatched profile id, and
-cannot affect unrelated processes or targets.
+clears the handled marker. Unit and private-bus manager tests cover authorized
+start, validate, cancel and eject requests, caller disconnect, profile-version
+races, and mismatched run identities. Real-Btrfs and packaging-level policy
+tests still need to prove cross-action delegation, inactive-session behavior,
+and conflicts with active units and unrelated targets.
 
 ## Real Btrfs Docker Test
 

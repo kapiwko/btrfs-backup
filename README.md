@@ -13,7 +13,9 @@ Unattended backup of Btrfs subvolumes to an encrypted removable disk. The projec
 7. per-profile and per-target `flock` locking, target LUKS validation, mapper validation, source/target separation, symlink escape checks, and free-space checks;
 8. automatic startup only when the exact configured LUKS partition appears;
 9. automatic `sync`, unmount, and LUKS closure after the service finishes;
-10. native CLI tooling for profile wizards, rendering, installation files, and validation.
+10. native CLI tooling for profile wizards, rendering, installation files, and validation;
+11. an optional system D-Bus manager with sanitized reads and separately
+    authorized start, cancel, validate, and eject controls.
 
 ## Requirements
 

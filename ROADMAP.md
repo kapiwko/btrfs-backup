@@ -17,15 +17,19 @@ Every roadmap item must preserve these properties:
 6. restore and administrative workflows remain usable without a desktop;
 7. formats and APIs are versioned before external clients depend on them.
 
-## Near Term: System Control Boundary
+## Near Term: Complete The System Control Boundary
 
-Build the optional system manager described in
-[system-manager.md](docs/design/system-manager.md):
+The optional system manager described in
+[system-manager.md](docs/design/system-manager.md) now provides versioned,
+sanitized read APIs and polkit-protected start, cancel, validate and eject
+operations. Runner execution remains independent and owned by systemd.
 
-- versioned read-only D-Bus status, history and capabilities;
-- polkit-protected start, cancel, eject and configuration operations;
+The next increments are:
+
+- state-change signals and recovery of presentation state after manager restart;
+- administrative profile save/delete with separate hook-change authorization;
+- destructive device preparation only after repeated device-identity checks;
 - explicit `TargetStatus` and safe-removal state;
-- recovery of presentation state after manager restart;
 - a shared C++ client, KDE session monitor, KJob integration and KCM;
 - privileged-operation audit records without secrets.
 
