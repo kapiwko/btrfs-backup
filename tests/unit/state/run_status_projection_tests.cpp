@@ -7,7 +7,7 @@
 #include <state/run_status_projection.hpp>
 #include <config/model/json_io.hpp>
 #include <core/runtime_time.hpp>
-#include <platform/linux/file_io.hpp>
+#include <platform/linux/posix_durable_file_operations.hpp>
 
 #include "support/test_helpers.hpp"
 

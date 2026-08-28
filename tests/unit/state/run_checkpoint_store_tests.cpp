@@ -7,7 +7,7 @@
 
 #include <config/model/json_io.hpp>
 #include <state/run_checkpoint_store.hpp>
-#include <platform/linux/file_io.hpp>
+#include <platform/linux/posix_durable_file_operations.hpp>
 
 #include "support/test_helpers.hpp"
 

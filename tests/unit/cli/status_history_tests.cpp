@@ -13,7 +13,7 @@
 #include <config/model/json_io.hpp>
 #include <core/runtime_time.hpp>
 #include <state/status_writer.hpp>
-#include <platform/linux/file_io.hpp>
+#include <platform/linux/posix_durable_file_operations.hpp>
 
 #include "support/validation_test_helpers.hpp"
 

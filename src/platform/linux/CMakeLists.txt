@@ -11,6 +11,7 @@ add_library(btrfsbackup-platform-linux STATIC
     mount_info.cpp
     posix_cancellation_signal.cpp
     posix_command_runner.cpp
+    posix_durable_file_operations.cpp
     posix_filesystem.cpp
     posix_transfer_pipeline.cpp
     posix_transfer_process.cpp
@@ -40,6 +41,7 @@ target_restricted_include_directories(btrfsbackup-platform-linux
         platform/linux/mount_info.hpp
         platform/linux/posix_cancellation_signal.hpp
         platform/linux/posix_command_runner.hpp
+        platform/linux/posix_durable_file_operations.hpp
         platform/linux/posix_filesystem.hpp
         platform/linux/posix_transfer_pipeline.hpp
         platform/linux/posix_transfer_process.hpp

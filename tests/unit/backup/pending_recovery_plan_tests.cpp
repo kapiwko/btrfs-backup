@@ -8,7 +8,7 @@
 #include <vector>
 
 #include <backup/model/pending_recovery.hpp>
-#include <platform/linux/file_io.hpp>
+#include <platform/linux/posix_durable_file_operations.hpp>
 #include <state/file_pending_marker_store.hpp>
 
 #include "support/test_helpers.hpp"
