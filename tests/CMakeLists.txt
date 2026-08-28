@@ -11,6 +11,9 @@ endfunction()
 
 include(architecture/public_link_interface_tests.cmake)
 include(architecture/model_dependency_tests.cmake)
+include(architecture/unique_public_header_owner_tests.cmake)
+
+assert_unique_header_ownership()
 
 assert_model_dependencies(btrfsbackup-config-domain btrfsbackup-core)
 assert_model_dependencies(
