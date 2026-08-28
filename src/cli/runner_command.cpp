@@ -42,6 +42,7 @@
 #include <platform/linux/systemd_target_manager.hpp>
 #include <platform/linux/trusted_executable.hpp>
 #include <config/model/json.hpp>
+#include <config/model/profile_document.hpp>
 #include <platform/linux/config/profile_repository.hpp>
 
 namespace fs = std::filesystem;

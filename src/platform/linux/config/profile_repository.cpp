@@ -14,6 +14,7 @@
 #include <core/identifiers.hpp>
 #include <config/model/json.hpp>
 #include <config/model/profile.hpp>
+#include <config/model/profile_document.hpp>
 #include <platform/linux/trusted_file.hpp>
 
 namespace fs = std::filesystem;
@@ -25,14 +26,17 @@ fs::path profile_json_path(const fs::path& etc_root, const std::string& profile_
     return etc_root / "profiles" / profile_id / "profile.json";
 }
 
-btrfsbackup::config::Json load_profile_json_by_id(const fs::path& etc_root, const std::string& profile_id) {
+btrfsbackup::config::ProfileDocument load_profile_document_by_id(const fs::path& etc_root, const std::string& profile_id) {
     fs::path canonical = profile_json_path(etc_root, profile_id);
     TrustedFilePolicy policy{
         .allow_current_user_owner = fs::absolute(etc_root).lexically_normal() != fs::path("/etc/btrfs-backup"),
     };
     try {
         btrfsbackup::config::ApplicationConfig config = load_application_config(etc_root);
-        return btrfsbackup::config::normalize_profile(btrfsbackup::config::Json::parse(read_trusted_config_file(canonical, policy)), config.paths().target_mount_root);
+        return btrfsbackup::config::normalize_profile_document(
+            btrfsbackup::config::Json::parse(read_trusted_config_file(canonical, policy)),
+            config.paths().target_mount_root
+        );
     } catch (const btrfsbackup::config::Json::exception& exc) {
         throw ValidationError("cannot read JSON profile " + canonical.string() + ": " + exc.what());
     }
@@ -40,7 +44,10 @@ btrfsbackup::config::Json load_profile_json_by_id(const fs::path& etc_root, cons
 
 btrfsbackup::config::Profile load_profile_by_id(const fs::path& etc_root, const std::string& profile_id) {
     btrfsbackup::config::ApplicationConfig config = load_application_config(etc_root);
-    btrfsbackup::config::Profile profile = btrfsbackup::config::profile_from_json(load_profile_json_by_id(etc_root, profile_id), config.paths().target_mount_root);
+    btrfsbackup::config::Profile profile = btrfsbackup::config::profile_from_document(
+        load_profile_document_by_id(etc_root, profile_id),
+        config.paths().target_mount_root
+    );
     const char* expected_generation = std::getenv("BTRFS_BACKUP_CONFIGURATION_GENERATION");
     if (expected_generation != nullptr && profile.configuration_generation != expected_generation) {
         throw ValidationError("profile configuration generation does not match the active systemd unit");

@@ -34,6 +34,7 @@
 #include <config/model/json.hpp>
 #include <config/model/json_io.hpp>
 #include <config/model/profile.hpp>
+#include <config/model/profile_document.hpp>
 #include <platform/linux/config/profile_repository.hpp>
 #include <state/run_state.hpp>
 

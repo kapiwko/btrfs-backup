@@ -23,6 +23,14 @@ add_test(
         -P ${CMAKE_CURRENT_SOURCE_DIR}/architecture/namespace_layout_tests.cmake
 )
 
+add_test(
+    NAME config-domain-boundary
+    COMMAND
+        ${CMAKE_COMMAND}
+        -DPROJECT_SOURCE_DIR=${PROJECT_SOURCE_DIR}
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/architecture/config_domain_tests.cmake
+)
+
 add_subdirectory(unit/backup)
 add_subdirectory(unit/config)
 add_subdirectory(unit/core)

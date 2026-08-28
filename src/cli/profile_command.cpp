@@ -17,6 +17,7 @@
 #include <platform/linux/config/application_config.hpp>
 #include <config/model/json_io.hpp>
 #include <config/model/profile.hpp>
+#include <config/model/profile_document.hpp>
 #include <cli/profile_list_command.hpp>
 #include <platform/linux/config/profile_service.hpp>
 

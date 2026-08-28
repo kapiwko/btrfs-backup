@@ -61,7 +61,7 @@ target_link_libraries(btrfsbackup-platform-linux
         btrfsbackup-backup-ports
         btrfsbackup-core
         btrfsbackup-transfer
-        btrfsbackup-config-model
+        btrfsbackup-config-domain
         btrfsbackup-config-ports
         PkgConfig::BLKID
         PkgConfig::BTRFSUTIL

@@ -19,6 +19,7 @@
 #include <config/model/json_io.hpp>
 #include <platform/linux/process.hpp>
 #include <config/model/profile.hpp>
+#include <config/model/profile_document.hpp>
 #include <config/profile_render.hpp>
 
 namespace fs = std::filesystem;
