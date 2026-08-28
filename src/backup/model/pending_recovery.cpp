@@ -27,7 +27,7 @@ std::string lowercase(std::string value) {
 
 bool remote_contains_received_uuid(
     const std::vector<btrfsbackup::backup::SnapshotInfo>& remote_snapshots,
-    const std::string& source_id,
+    const btrfsbackup::SourceId& source_id,
     const std::string& uuid
 ) {
     const std::string wanted = lowercase(uuid);
@@ -45,11 +45,12 @@ bool uuid_equals(const std::string& left, const std::string& right) {
 
 bool marker_path_is_valid(
     const btrfsbackup::backup::PendingMarker& marker,
-    const std::string& source_id,
+    const btrfsbackup::SourceId& source_id,
     const fs::path& local_snapshot_dir,
     const fs::path& remote_snapshot_dir
 ) {
-    if (marker.source_name != source_id || marker.local_snapshot_path.empty()) {
+    const std::string source_id_value{source_id.value()};
+    if (marker.source_name != source_id_value || marker.local_snapshot_path.empty()) {
         return false;
     }
 
@@ -59,7 +60,7 @@ bool marker_path_is_valid(
     }
 
     const std::string base = snapshot_path.filename().string();
-    if (base.rfind(source_id + "-", 0) != 0) {
+    if (base.rfind(source_id_value + "-", 0) != 0) {
         return false;
     }
 
@@ -91,7 +92,7 @@ const btrfsbackup::backup::SnapshotInfo* remote_snapshot_at_path(
 namespace btrfsbackup::backup {
 
 PendingRecoveryPlan plan_pending_recovery(
-    const std::string& source_id,
+    const SourceId& source_id,
     const fs::path& profile_state_dir,
     const fs::path& local_snapshot_dir,
     const fs::path& remote_snapshot_dir,
@@ -100,14 +101,13 @@ PendingRecoveryPlan plan_pending_recovery(
     const std::vector<SnapshotInfo>& remote_snapshots,
     bool keep_failed_local_snapshot
 ) {
-    validate_identifier(source_id, "sourceId");
-
+    const std::string source_id_value{source_id.value()};
     PendingRecoveryPlan plan{
         .action = PendingRecoveryAction::NoMarker,
         .clear_marker = false,
         .delete_local_snapshot = false,
         .delete_remote_snapshot = false,
-        .marker_path = profile_state_dir / ("pending-" + source_id),
+        .marker_path = profile_state_dir / ("pending-" + source_id_value),
         .local_snapshot_path = {},
         .remote_snapshot_path = {},
         .message = {},
@@ -123,7 +123,7 @@ PendingRecoveryPlan plan_pending_recovery(
 
     if (!marker_path_is_valid(*marker, source_id, local_snapshot_dir, remote_snapshot_dir)) {
         plan.action = PendingRecoveryAction::ClearInvalidMarker;
-        plan.message = "Ignoring invalid pending marker for " + source_id + ": " + plan.marker_path.string();
+        plan.message = "Ignoring invalid pending marker for " + source_id_value + ": " + plan.marker_path.string();
         return plan;
     }
 

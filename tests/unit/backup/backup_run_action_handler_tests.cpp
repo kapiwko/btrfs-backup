@@ -333,7 +333,11 @@ btrfsbackup::backup::BackupRunPlan run_plan() {
 }
 
 btrfsbackup::backup::BackupSourceRunPlan source_plan(const fs::path& root) {
-    btrfsbackup::backup::BackupSourceRunPlan source{.source_id = btrfsbackup::SourceId{"root"}};
+    btrfsbackup::backup::BackupSourceRunPlan source{
+        .source_id = btrfsbackup::SourceId{"root"},
+        .local_retention = {.source_id = btrfsbackup::SourceId{"root"}},
+        .remote_retention = {.source_id = btrfsbackup::SourceId{"root"}},
+    };
     source.source_subvolume = root / "source";
     source.local_snapshot_dir = root / "local";
     source.remote_snapshot_dir = root / "remote";
@@ -492,10 +496,10 @@ void test_verify_commit_retention_and_cleanup_use_existing_helpers() {
     fs::path root = test_helpers::test_root("backup-run-action-handler", "commit-cleanup");
     btrfsbackup::backup::BackupSourceRunPlan source = source_plan(root);
     source.local_retention.delete_snapshots = {
-        btrfsbackup::backup::SnapshotInfo{.path = root / "local" / "old"},
+        btrfsbackup::backup::SnapshotInfo{.source_id = btrfsbackup::SourceId{"root"}, .path = root / "local" / "old"},
     };
     source.remote_retention.delete_snapshots = {
-        btrfsbackup::backup::SnapshotInfo{.path = root / "remote" / "old"},
+        btrfsbackup::backup::SnapshotInfo{.source_id = btrfsbackup::SourceId{"root"}, .path = root / "remote" / "old"},
     };
 
     FakeBtrfsOperations btrfs;

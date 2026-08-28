@@ -15,9 +15,9 @@
 
 namespace btrfsbackup::backup {
 
-using SnapshotInventoryBySource = std::map<std::string, std::vector<SnapshotInfo>>;
-using PendingMarkerBySource = std::map<std::string, std::optional<PendingMarker>>;
-using PendingSnapshotBySource = std::map<std::string, std::optional<SnapshotMetadata>>;
+using SnapshotInventoryBySource = std::map<SourceId, std::vector<SnapshotInfo>>;
+using PendingMarkerBySource = std::map<SourceId, std::optional<PendingMarker>>;
+using PendingSnapshotBySource = std::map<SourceId, std::optional<SnapshotMetadata>>;
 
 class BackupPlanningSnapshot {
   public:

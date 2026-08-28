@@ -10,6 +10,8 @@
 #include <string>
 #include <vector>
 
+#include <core/identifiers.hpp>
+
 namespace btrfsbackup::backup {
 
 enum class SnapshotSide {
@@ -18,7 +20,7 @@ enum class SnapshotSide {
 };
 
 struct SnapshotName {
-    std::string source_id;
+    SourceId source_id;
     std::string timestamp;
     int sequence = 0;
     std::string name;
@@ -33,7 +35,7 @@ struct SnapshotMetadata {
 
 struct SnapshotInfo {
     SnapshotSide side = SnapshotSide::Local;
-    std::string source_id;
+    SourceId source_id;
     std::string name;
     std::string timestamp;
     int sequence = 0;
@@ -45,11 +47,11 @@ struct SnapshotInfo {
 
 using SnapshotMetadataReader = std::function<std::optional<SnapshotMetadata>(const std::filesystem::path&)>;
 
-std::optional<SnapshotName> parse_snapshot_name(const std::string& name, const std::string& source_id);
+std::optional<SnapshotName> parse_snapshot_name(const std::string& name, const SourceId& source_id);
 
 std::vector<SnapshotInfo> list_snapshot_inventory(
     const std::filesystem::path& directory,
-    const std::string& source_id,
+    const SourceId& source_id,
     SnapshotSide side,
     const SnapshotMetadataReader& metadata_reader
 );
@@ -57,7 +59,7 @@ std::vector<SnapshotInfo> list_snapshot_inventory(
 std::vector<SnapshotInfo> list_snapshot_inventory_at(
     const std::filesystem::path& scan_directory,
     const std::filesystem::path& reported_directory,
-    const std::string& source_id,
+    const SourceId& source_id,
     SnapshotSide side,
     const SnapshotMetadataReader& metadata_reader
 );

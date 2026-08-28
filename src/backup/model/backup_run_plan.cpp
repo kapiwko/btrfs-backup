@@ -19,7 +19,7 @@ namespace {
 
 const std::vector<btrfsbackup::backup::SnapshotInfo>& snapshots_for(
     const btrfsbackup::backup::SnapshotInventoryBySource& inventories,
-    const std::string& source_id
+    const btrfsbackup::SourceId& source_id
 ) {
     static const std::vector<btrfsbackup::backup::SnapshotInfo> empty;
     auto found = inventories.find(source_id);
@@ -28,7 +28,7 @@ const std::vector<btrfsbackup::backup::SnapshotInfo>& snapshots_for(
 
 std::optional<btrfsbackup::backup::PendingMarker> pending_marker_for(
     const btrfsbackup::backup::PendingMarkerBySource& markers,
-    const std::string& source_id
+    const btrfsbackup::SourceId& source_id
 ) {
     auto found = markers.find(source_id);
     return found == markers.end() ? std::nullopt : found->second;
@@ -36,7 +36,7 @@ std::optional<btrfsbackup::backup::PendingMarker> pending_marker_for(
 
 std::optional<btrfsbackup::backup::SnapshotMetadata> pending_snapshot_for(
     const btrfsbackup::backup::PendingSnapshotBySource& snapshots,
-    const std::string& source_id
+    const btrfsbackup::SourceId& source_id
 ) {
     auto found = snapshots.find(source_id);
     return found == snapshots.end() ? std::nullopt : found->second;
@@ -52,11 +52,12 @@ bool name_exists(const std::vector<btrfsbackup::backup::SnapshotInfo>& snapshots
 }
 
 std::string planned_snapshot_name(
-    const std::string& source_id,
+    const btrfsbackup::SourceId& source_id,
     const std::string& timestamp,
     const std::vector<btrfsbackup::backup::SnapshotInfo>& local_snapshots
 ) {
-    const std::string base = source_id + "-" + timestamp;
+    const std::string source_id_value{source_id.value()};
+    const std::string base = source_id_value + "-" + timestamp;
     if (!name_exists(local_snapshots, base)) {
         return base;
     }
@@ -70,12 +71,12 @@ std::string planned_snapshot_name(
         }
     }
 
-    throw btrfsbackup::ValidationError("could not allocate snapshot name for " + source_id + " at " + timestamp);
+    throw btrfsbackup::ValidationError("could not allocate snapshot name for " + source_id_value + " at " + timestamp);
 }
 
 btrfsbackup::backup::SnapshotInfo projected_snapshot(
     btrfsbackup::backup::SnapshotSide side,
-    const std::string& source_id,
+    const btrfsbackup::SourceId& source_id,
     const std::string& name,
     const std::string& timestamp,
     const fs::path& path
@@ -111,9 +112,9 @@ BackupRunPlan build_backup_run_plan(
     const RunId& run_id,
     const std::string& snapshot_timestamp
 ) {
-    const std::string profile_id{profile.id.value()};
+    const SourceId timestamp_validation_source{std::string(profile.id.value())};
     const std::string run_id_value{run_id.value()};
-    if (!parse_snapshot_name(profile_id + "-" + snapshot_timestamp, profile_id).has_value()) {
+    if (!parse_snapshot_name(std::string(profile.id.value()) + "-" + snapshot_timestamp, timestamp_validation_source).has_value()) {
         throw ValidationError("snapshot timestamp is invalid: " + snapshot_timestamp);
     }
 
@@ -124,18 +125,19 @@ BackupRunPlan build_backup_run_plan(
         .sources = {},
     };
 
-    std::set<std::string> seen_sources;
+    std::set<SourceId> seen_sources;
     for (const btrfsbackup::config::ProfileSource& source : profile.sources) {
         if (!source.enabled) {
             continue;
         }
-        const std::string source_id{source.id.value()};
+        const SourceId& source_id = source.id;
+        const std::string source_id_value{source_id.value()};
         if (!seen_sources.insert(source_id).second) {
-            throw ValidationError("duplicate source id in backup run plan: " + source_id);
+            throw ValidationError("duplicate source id in backup run plan: " + source_id_value);
         }
 
         const fs::path remote_snapshot_dir = fs::path(profile.paths.remote_root) / source.remote_subdir;
-        const fs::path incoming_source_root = fs::path(profile.paths.incoming_root) / source_id;
+        const fs::path incoming_source_root = fs::path(profile.paths.incoming_root) / source_id_value;
         const fs::path incoming_run_dir = incoming_source_root / run_id_value;
 
         if (!btrfsbackup::config::path_is_within(remote_snapshot_dir, profile.paths.remote_root)) {
