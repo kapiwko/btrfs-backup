@@ -2,24 +2,43 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-add_library(btrfsbackup-config-model STATIC
-    model/json_io.cpp
-    model/profile.cpp
+add_library(btrfsbackup-config-domain STATIC
     model/validation.cpp
-    wizard/profile_wizard_model.cpp
 )
 
-target_compile_features(btrfsbackup-config-model PUBLIC cxx_std_20)
-target_restricted_include_directories(btrfsbackup-config-model
+target_compile_features(btrfsbackup-config-domain PUBLIC cxx_std_20)
+target_restricted_include_directories(btrfsbackup-config-domain
     PUBLIC_HEADERS
-        config/model/json.hpp
-        config/model/json_io.hpp
         config/model/profile.hpp
         config/model/validation.hpp
         config/application_paths.hpp
+)
+target_link_libraries(btrfsbackup-config-domain PUBLIC btrfsbackup-core)
+
+add_library(btrfsbackup-config-json STATIC
+    model/json_io.cpp
+    model/profile_document.cpp
+)
+
+target_compile_features(btrfsbackup-config-json PUBLIC cxx_std_20)
+target_restricted_include_directories(btrfsbackup-config-json
+    PUBLIC_HEADERS
+        config/model/json.hpp
+        config/model/json_io.hpp
+        config/model/profile_document.hpp
+)
+target_link_libraries(btrfsbackup-config-json PUBLIC btrfsbackup-config-domain nlohmann_json::nlohmann_json)
+
+add_library(btrfsbackup-config-wizard STATIC
+    wizard/profile_wizard_model.cpp
+)
+
+target_compile_features(btrfsbackup-config-wizard PUBLIC cxx_std_20)
+target_restricted_include_directories(btrfsbackup-config-wizard
+    PUBLIC_HEADERS
         config/wizard/profile_wizard_model.hpp
 )
-target_link_libraries(btrfsbackup-config-model PUBLIC btrfsbackup-core nlohmann_json::nlohmann_json)
+target_link_libraries(btrfsbackup-config-wizard PUBLIC btrfsbackup-config-domain PRIVATE btrfsbackup-config-json)
 
 add_library(btrfsbackup-config-ports STATIC
     ports/profile_repository.cpp
@@ -31,7 +50,7 @@ target_restricted_include_directories(btrfsbackup-config-ports
         config/ports/configuration_activator.hpp
         config/ports/profile_repository.hpp
 )
-target_link_libraries(btrfsbackup-config-ports PUBLIC btrfsbackup-config-model btrfsbackup-core)
+target_link_libraries(btrfsbackup-config-ports PUBLIC btrfsbackup-config-domain btrfsbackup-core)
 
 add_library(btrfsbackup-config STATIC
     application_config.cpp
@@ -53,7 +72,14 @@ target_restricted_include_directories(btrfsbackup-config
         config/wizard/profile_wizard_paths.hpp
         config/wizard/profile_wizard_prompt.hpp
 )
-target_link_libraries(btrfsbackup-config PUBLIC btrfsbackup-config-model btrfsbackup-config-ports)
+target_link_libraries(btrfsbackup-config
+    PUBLIC
+        btrfsbackup-config-domain
+        btrfsbackup-config-ports
+        btrfsbackup-config-wizard
+    PRIVATE
+        btrfsbackup-config-json
+)
 
 add_library(btrfsbackup-config-linux STATIC
     ../platform/linux/config/application_config.cpp
@@ -93,11 +119,14 @@ target_restricted_include_directories(btrfsbackup-config-linux
 target_link_libraries(btrfsbackup-config-linux
     PUBLIC
         btrfsbackup-config
+        btrfsbackup-config-json
         btrfsbackup-platform-linux
 )
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-    target_compile_options(btrfsbackup-config-model PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(btrfsbackup-config-domain PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(btrfsbackup-config-json PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(btrfsbackup-config-wizard PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(btrfsbackup-config-ports PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(btrfsbackup-config PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(btrfsbackup-config-linux PRIVATE -Wall -Wextra -Wpedantic)

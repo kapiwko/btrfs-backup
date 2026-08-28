@@ -7,19 +7,12 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
-#include <filesystem>
-#include <map>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include <core/identifiers.hpp>
-#include <config/model/json.hpp>
-
 namespace btrfsbackup::config {
-
-inline constexpr const char* trusted_hook_directory = "/etc/btrfs-backup/hooks.d";
-inline constexpr int current_profile_schema_version = 3;
 
 struct ProfileTarget {
     std::string device;
@@ -77,7 +70,6 @@ struct Profile {
     explicit Profile(ProfileId identifier) : id(std::move(identifier)) {
     }
 
-    int schema_version = current_profile_schema_version;
     std::string configuration_generation;
     ProfileId id;
     std::string name;
@@ -88,13 +80,5 @@ struct Profile {
     ProfileHooks hooks;
     std::vector<ProfileSource> sources;
 };
-
-std::string identifier(const Json& value, const std::string& name);
-std::string env_get(const std::map<std::string, std::string>& env, const std::string& name, const std::string& default_value = "");
-std::string env_required(const std::map<std::string, std::string>& env, const std::string& name);
-bool env_bool(const std::map<std::string, std::string>& env, const std::string& name, bool default_value);
-Json normalize_profile(const Json& raw, const std::filesystem::path& target_mount_root = "/mnt/btrfs-backup");
-Profile profile_from_json(const Json& raw, const std::filesystem::path& target_mount_root = "/mnt/btrfs-backup");
-Json profile_to_json(const Profile& profile);
 
 } // namespace btrfsbackup::config

@@ -40,7 +40,8 @@ target_restricted_include_directories(btrfsbackup-state
 )
 target_link_libraries(btrfsbackup-state
     PUBLIC
-        btrfsbackup-config-model
+        btrfsbackup-config-domain
+        btrfsbackup-config-json
         btrfsbackup-backup-ports
         btrfsbackup-core
         btrfsbackup-state-model

@@ -4,6 +4,8 @@
 
 #include <config/wizard/profile_wizard_model.hpp>
 
+#include <config/model/profile_document.hpp>
+
 #include <algorithm>
 #include <cctype>
 #include <filesystem>
@@ -25,7 +27,6 @@ std::string lower(std::string value) {
 
 Profile profile_from_wizard_answers(const ProfileWizardAnswers& answers) {
     Profile profile{ProfileId{answers.profile_id}};
-    profile.schema_version = current_profile_schema_version;
     profile.name = answers.profile_name;
     profile.enabled = true;
 

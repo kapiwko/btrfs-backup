@@ -18,6 +18,7 @@
 #include <config/model/json.hpp>
 #include <config/model/json_io.hpp>
 #include <config/model/profile.hpp>
+#include <config/model/profile_document.hpp>
 #include <config/profile_artifact_renderer.hpp>
 #include <platform/linux/config/profile_artifact_io.hpp>
 #include <platform/linux/config/profile_configuration_transaction.hpp>
@@ -183,13 +184,23 @@ void test_rejects_nested_roots() {
 }
 
 void test_profile_round_trips_normalized_json() {
-    btrfsbackup::config::Json normalized = btrfsbackup::config::normalize_profile(valid_profile());
-    btrfsbackup::config::Profile profile = btrfsbackup::config::profile_from_json(normalized);
-    btrfsbackup::config::Json round_trip = btrfsbackup::config::profile_to_json(profile);
+    const btrfsbackup::config::ProfileDocument document =
+        btrfsbackup::config::normalize_profile_document(valid_profile());
+    const btrfsbackup::config::Profile profile = btrfsbackup::config::profile_from_document(document);
+    const btrfsbackup::config::ProfileDocument round_trip = btrfsbackup::config::profile_to_document(profile);
 
     expect_true("profile model id", profile.id == btrfsbackup::ProfileId{"default"}, "wrong profile id");
     expect_true("profile model source", profile.sources.size() == 1 && profile.sources.at(0).id == btrfsbackup::SourceId{"home"}, "wrong profile source");
-    expect_true("profile model round trip", round_trip == normalized, "typed profile did not preserve normalized JSON");
+    expect_true("profile model round trip", round_trip.value == document.value, "typed profile did not preserve normalized document");
+}
+
+void test_invalid_profile_document_does_not_create_profile() {
+    const btrfsbackup::config::ProfileDocument invalid{btrfsbackup::config::Json::object()};
+    expect_validation_error(
+        "invalid profile document",
+        [&] { (void)btrfsbackup::config::profile_from_document(invalid); },
+        "schemaVersion"
+    );
 }
 
 void test_profile_migrates_safe_legacy_system_paths() {
@@ -734,6 +745,7 @@ int main() {
     test_rejects_non_dev_target();
     test_rejects_nested_roots();
     test_profile_round_trips_normalized_json();
+    test_invalid_profile_document_does_not_create_profile();
     test_profile_migrates_safe_legacy_system_paths();
     test_profile_rejects_retired_legacy_sources_directory();
     test_profile_rejects_system_path_overrides();

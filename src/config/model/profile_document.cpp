@@ -2,13 +2,12 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <config/model/profile.hpp>
+#include <config/model/profile_document.hpp>
 
 #include <algorithm>
 #include <cctype>
 #include <cstddef>
 #include <filesystem>
-#include <map>
 #include <regex>
 #include <set>
 #include <string>
@@ -271,34 +270,6 @@ std::string identifier(const Json& value, const std::string& name) {
     return result;
 }
 
-std::string env_get(const std::map<std::string, std::string>& env, const std::string& name, const std::string& default_value) {
-    auto it = env.find(name);
-    return it == env.end() ? default_value : it->second;
-}
-
-std::string env_required(const std::map<std::string, std::string>& env, const std::string& name) {
-    std::string value = env_get(env, name);
-    if (value.empty()) {
-        throw ValidationError("missing required configuration variable: " + name);
-    }
-    return value;
-}
-
-bool env_bool(const std::map<std::string, std::string>& env, const std::string& name, bool default_value) {
-    auto it = env.find(name);
-    if (it == env.end() || it->second.empty()) {
-        return default_value;
-    }
-    std::string value = lower(it->second);
-    if (value == "1" || value == "yes" || value == "true" || value == "on") {
-        return true;
-    }
-    if (value == "0" || value == "no" || value == "false" || value == "off") {
-        return false;
-    }
-    throw ValidationError(name + " must be true or false");
-}
-
 Json normalize_profile(const Json& raw, const fs::path& target_mount_root) {
     if (!raw.is_object()) {
         throw ValidationError("profile must be an object");
@@ -484,10 +455,13 @@ Json normalize_profile(const Json& raw, const fs::path& target_mount_root) {
     return result;
 }
 
-Profile profile_from_json(const Json& raw, const fs::path& target_mount_root) {
-    Json normalized = normalize_profile(raw, target_mount_root);
+ProfileDocument normalize_profile_document(const Json& raw, const fs::path& target_mount_root) {
+    return ProfileDocument{normalize_profile(raw, target_mount_root)};
+}
+
+Profile profile_from_document(const ProfileDocument& document, const fs::path& target_mount_root) {
+    const Json normalized = normalize_profile(document.value, target_mount_root);
     Profile profile{ProfileId{normalized.at("profileId").get<std::string>()}};
-    profile.schema_version = normalized.at("schemaVersion").get<int>();
     profile.configuration_generation = normalized.value("configurationGeneration", "");
     profile.name = normalized.at("name").get<std::string>();
     profile.enabled = normalized.at("enabled").get<bool>();
@@ -546,6 +520,10 @@ Profile profile_from_json(const Json& raw, const fs::path& target_mount_root) {
     return profile;
 }
 
+Profile profile_from_json(const Json& raw, const fs::path& target_mount_root) {
+    return profile_from_document(normalize_profile_document(raw, target_mount_root), target_mount_root);
+}
+
 Json profile_to_json(const Profile& profile) {
     Json sources = Json::array();
     for (const ProfileSource& source : profile.sources) {
@@ -584,6 +562,10 @@ Json profile_to_json(const Profile& profile) {
         result["configurationGeneration"] = profile.configuration_generation;
     }
     return result;
+}
+
+ProfileDocument profile_to_document(const Profile& profile) {
+    return ProfileDocument{profile_to_json(profile)};
 }
 
 } // namespace btrfsbackup::config

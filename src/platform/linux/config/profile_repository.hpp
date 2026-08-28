@@ -8,8 +8,8 @@
 #include <string>
 
 #include <config/application_config.hpp>
-#include <config/model/json.hpp>
 #include <config/model/profile.hpp>
+#include <config/model/profile_document.hpp>
 #include <config/ports/profile_repository.hpp>
 #include <core/identifiers.hpp>
 
@@ -18,7 +18,10 @@ namespace btrfsbackup::platform::linux {
 // Filesystem-backed Linux adapter for profile configuration.
 
 std::filesystem::path profile_json_path(const std::filesystem::path& etc_root, const std::string& profile_id);
-btrfsbackup::config::Json load_profile_json_by_id(const std::filesystem::path& etc_root, const std::string& profile_id);
+btrfsbackup::config::ProfileDocument load_profile_document_by_id(
+    const std::filesystem::path& etc_root,
+    const std::string& profile_id
+);
 btrfsbackup::config::Profile load_profile_by_id(const std::filesystem::path& etc_root, const std::string& profile_id);
 
 class FileProfileRepository final : public btrfsbackup::config::IProfileRepository {
