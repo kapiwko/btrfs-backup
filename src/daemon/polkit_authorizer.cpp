@@ -84,4 +84,26 @@ bool PolkitAuthorizer::authorize(
     return authorized != 0;
 }
 
+bool PolkitAuthorizer::caller_is_active(const std::string& caller_bus_name) {
+    sd_bus_error error = SD_BUS_ERROR_NULL;
+    sd_bus_message* raw_reply = nullptr;
+    const int result = sd_bus_call_method(
+        bus_,
+        "org.freedesktop.DBus",
+        "/org/freedesktop/DBus",
+        "org.freedesktop.DBus",
+        "NameHasOwner",
+        &error,
+        &raw_reply,
+        "s",
+        caller_bus_name.c_str()
+    );
+    std::unique_ptr<sd_bus_message, decltype(&sd_bus_message_unref)> reply(raw_reply, sd_bus_message_unref);
+    sd_bus_error_free(&error);
+    if (result < 0)
+        return false;
+    int has_owner = 0;
+    return sd_bus_message_read(reply.get(), "b", &has_owner) >= 0 && has_owner != 0;
+}
+
 } // namespace btrfsbackup::daemon

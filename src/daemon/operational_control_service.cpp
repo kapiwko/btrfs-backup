@@ -34,7 +34,8 @@ void OperationalControlService::require_authorized(
     const std::string& caller_bus_name,
     ManagerAuthorizationAction action
 ) {
-    if (caller_bus_name.empty() || !authorizer_.authorize(caller_bus_name, action))
+    if (caller_bus_name.empty() || !authorizer_.authorize(caller_bus_name, action) ||
+        !authorizer_.caller_is_active(caller_bus_name))
         throw ManagerOperationError(ManagerErrorCode::NotAuthorized, "manager operation was not authorized");
 }
 
@@ -43,8 +44,9 @@ OperationResult OperationalControlService::start_backup(
     const std::string& profile_id
 ) {
     const ProfileId validated_profile(profile_id);
+    const OperationalResourceVersion version = backend_.inspect_profile(validated_profile);
     require_authorized(caller_bus_name, ManagerAuthorizationAction::StartBackup);
-    backend_.start_backup(validated_profile);
+    backend_.start_backup(validated_profile, version);
     return {.operation = "start-backup", .profile_id = profile_id, .run_id = {}, .accepted = true};
 }
 
@@ -55,8 +57,9 @@ OperationResult OperationalControlService::cancel_backup(
 ) {
     const ProfileId validated_profile(profile_id);
     const RunId validated_run(run_id);
+    const OperationalResourceVersion version = backend_.inspect_profile(validated_profile);
     require_authorized(caller_bus_name, ManagerAuthorizationAction::CancelBackup);
-    switch (backend_.cancel_backup(validated_profile, validated_run)) {
+    switch (backend_.cancel_backup(validated_profile, validated_run, version)) {
     case ManagerCancellationOutcome::Accepted:
         return {.operation = "cancel-backup", .profile_id = profile_id, .run_id = run_id};
     case ManagerCancellationOutcome::StaleRun:
@@ -72,8 +75,9 @@ OperationResult OperationalControlService::validate_target(
     const std::string& profile_id
 ) {
     const ProfileId validated_profile(profile_id);
+    const OperationalResourceVersion version = backend_.inspect_profile(validated_profile);
     require_authorized(caller_bus_name, ManagerAuthorizationAction::ValidateTarget);
-    backend_.validate_target(validated_profile);
+    backend_.validate_target(validated_profile, version);
     return {.operation = "validate-target", .profile_id = profile_id, .run_id = {}, .accepted = true};
 }
 
@@ -82,8 +86,9 @@ OperationResult OperationalControlService::eject_target(
     const std::string& profile_id
 ) {
     const ProfileId validated_profile(profile_id);
+    const OperationalResourceVersion version = backend_.inspect_profile(validated_profile);
     require_authorized(caller_bus_name, ManagerAuthorizationAction::EjectTarget);
-    backend_.eject_target(validated_profile);
+    backend_.eject_target(validated_profile, version);
     return {.operation = "eject-target", .profile_id = profile_id, .run_id = {}, .accepted = true};
 }
 
