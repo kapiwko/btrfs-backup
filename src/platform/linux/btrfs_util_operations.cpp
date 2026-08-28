@@ -59,9 +59,9 @@ std::string uuid_to_string(const uint8_t uuid[16]) {
 
 } // namespace
 
-namespace btrfsbackup {
+namespace btrfsbackup::platform::linux {
 
-std::optional<SnapshotMetadata> read_btrfs_snapshot_metadata(const fs::path& path) {
+std::optional<btrfsbackup::backup::SnapshotMetadata> read_btrfs_snapshot_metadata(const fs::path& path) {
     struct btrfs_util_subvolume_info info{};
     enum btrfs_util_error info_error = btrfs_util_subvolume_get_info(path.c_str(), 0, &info);
     if (info_error == BTRFS_UTIL_ERROR_NOT_BTRFS || info_error == BTRFS_UTIL_ERROR_NOT_SUBVOLUME || info_error == BTRFS_UTIL_ERROR_SUBVOLUME_NOT_FOUND) {
@@ -71,7 +71,7 @@ std::optional<SnapshotMetadata> read_btrfs_snapshot_metadata(const fs::path& pat
         throw ValidationError("could not read Btrfs subvolume info for " + path.string() + ": " + btrfs_util_strerror(info_error));
     }
 
-    SnapshotMetadata metadata;
+    btrfsbackup::backup::SnapshotMetadata metadata;
     metadata.is_subvolume = true;
     metadata.uuid = uuid_to_string(info.uuid);
     if (!is_zero_uuid(info.received_uuid)) {
@@ -99,7 +99,7 @@ bool LibBtrfsOperations::is_subvolume(const fs::path& path) {
     throw_btrfs_error("Btrfs subvolume check", path, error);
 }
 
-std::optional<SnapshotMetadata> LibBtrfsOperations::read_snapshot_metadata(const fs::path& path) {
+std::optional<btrfsbackup::backup::SnapshotMetadata> LibBtrfsOperations::read_snapshot_metadata(const fs::path& path) {
     return read_btrfs_snapshot_metadata(path);
 }
 
@@ -123,36 +123,36 @@ void LibBtrfsOperations::delete_subvolume(const fs::path& path) {
     }
 }
 
-bool LibBtrfsOperations::is_subvolume_beneath(const ISafeDirectoryRoot& root, const fs::path& path) {
-    std::unique_ptr<ISafeDirectoryHandle> handle = root.pin_directory(path);
+bool LibBtrfsOperations::is_subvolume_beneath(const btrfsbackup::backup::ISafeDirectoryRoot& root, const fs::path& path) {
+    std::unique_ptr<btrfsbackup::backup::ISafeDirectoryHandle> handle = root.pin_directory(path);
     return is_subvolume(handle->stable_path());
 }
 
-std::optional<SnapshotMetadata> LibBtrfsOperations::read_snapshot_metadata_beneath(
-    const ISafeDirectoryRoot& root,
+std::optional<btrfsbackup::backup::SnapshotMetadata> LibBtrfsOperations::read_snapshot_metadata_beneath(
+    const btrfsbackup::backup::ISafeDirectoryRoot& root,
     const fs::path& path
 ) {
-    std::unique_ptr<ISafeDirectoryHandle> handle = root.pin_directory(path);
+    std::unique_ptr<btrfsbackup::backup::ISafeDirectoryHandle> handle = root.pin_directory(path);
     return read_snapshot_metadata(handle->stable_path());
 }
 
 void LibBtrfsOperations::create_readonly_snapshot_beneath(
-    const ISafeDirectoryRoot& source_root,
+    const btrfsbackup::backup::ISafeDirectoryRoot& source_root,
     const fs::path& source,
-    const ISafeDirectoryRoot& target_root,
+    const btrfsbackup::backup::ISafeDirectoryRoot& target_root,
     const fs::path& target
 ) {
-    std::unique_ptr<ISafeDirectoryHandle> source_handle = source_root.pin_directory(source);
+    std::unique_ptr<btrfsbackup::backup::ISafeDirectoryHandle> source_handle = source_root.pin_directory(source);
     target_root.ensure_directory(target.parent_path());
     if (target_root.exists(target)) {
         throw ValidationError("snapshot target already exists: " + target.string());
     }
-    std::unique_ptr<ISafeDirectoryHandle> target_parent = target_root.pin_directory(target.parent_path());
+    std::unique_ptr<btrfsbackup::backup::ISafeDirectoryHandle> target_parent = target_root.pin_directory(target.parent_path());
     create_readonly_snapshot(source_handle->stable_path(), target_parent->stable_path() / target.filename());
 }
 
-void LibBtrfsOperations::delete_subvolume_beneath(const ISafeDirectoryRoot& root, const fs::path& path) {
+void LibBtrfsOperations::delete_subvolume_beneath(const btrfsbackup::backup::ISafeDirectoryRoot& root, const fs::path& path) {
     root.delete_subvolume(path);
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::platform::linux

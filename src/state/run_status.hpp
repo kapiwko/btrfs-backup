@@ -13,7 +13,7 @@
 #include <core/identifiers.hpp>
 #include <core/error_code.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::state {
 
 enum class RunState {
     Running,
@@ -100,4 +100,4 @@ struct RunStatus {
 std::string run_state_name(RunState state);
 std::string run_phase_name(RunPhase phase);
 std::string progress_accuracy_name(ProgressAccuracy accuracy);
-} // namespace btrfsbackup
+} // namespace btrfsbackup::state

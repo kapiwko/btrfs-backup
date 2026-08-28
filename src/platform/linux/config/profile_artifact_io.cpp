@@ -16,7 +16,7 @@
 
 namespace fs = std::filesystem;
 
-namespace btrfsbackup {
+namespace btrfsbackup::platform::linux {
 
 std::string generate_configuration_generation() {
     std::array<unsigned char, 16> bytes{};
@@ -42,8 +42,8 @@ std::string generate_configuration_generation() {
     return result;
 }
 
-void write_profile_artifacts(const RenderedProfileArtifacts& rendered) {
-    for (const ProfileArtifact& artifact : rendered.artifacts) {
+void write_profile_artifacts(const btrfsbackup::config::RenderedProfileArtifacts& rendered) {
+    for (const btrfsbackup::config::ProfileArtifact& artifact : rendered.artifacts) {
         atomic_write(
             artifact.destination,
             artifact.content,
@@ -52,4 +52,4 @@ void write_profile_artifacts(const RenderedProfileArtifacts& rendered) {
     }
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::platform::linux

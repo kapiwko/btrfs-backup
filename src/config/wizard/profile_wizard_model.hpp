@@ -11,7 +11,7 @@
 
 #include <config/model/profile.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::config {
 
 struct ProfileWizardSourceAnswers {
     std::string id;
@@ -44,9 +44,8 @@ struct ProfileWizardAnswers {
     std::uint64_t minimum_local_free_bytes = 1024ULL * 1024 * 1024;
 
     std::string keyfile = "none";
-
 };
 
 Profile profile_from_wizard_answers(const ProfileWizardAnswers& answers);
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::config

@@ -17,7 +17,7 @@
 #include <backup/ports/safe_directory.hpp>
 #include <core/errors.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup {
 
 namespace {
 
@@ -103,4 +103,4 @@ void SnapshotActionHandler::handle(const CreateSnapshotAction& action) {
     }
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup

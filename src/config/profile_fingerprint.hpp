@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 
-namespace btrfsbackup {
+namespace btrfsbackup::config {
 
 std::string compute_config_fingerprint(
     const std::string& version,
@@ -16,4 +16,4 @@ std::string compute_config_fingerprint(
     const std::vector<std::filesystem::path>& source_files
 );
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::config

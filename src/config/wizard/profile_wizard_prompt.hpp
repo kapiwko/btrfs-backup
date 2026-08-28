@@ -8,7 +8,7 @@
 #include <iosfwd>
 #include <string>
 
-namespace btrfsbackup::wizard {
+namespace btrfsbackup::config {
 
 std::string trim_text(const std::string& value);
 bool parse_bool(const std::string& value);
@@ -18,4 +18,4 @@ std::string prompt_value(std::istream& input, std::ostream& output, const std::s
 bool prompt_bool(std::istream& input, std::ostream& output, const std::string& label, bool default_value);
 std::uint64_t prompt_uint(std::istream& input, std::ostream& output, const std::string& label, std::uint64_t default_value);
 
-} // namespace btrfsbackup::wizard
+} // namespace btrfsbackup::config

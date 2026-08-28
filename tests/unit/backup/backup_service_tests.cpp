@@ -12,43 +12,43 @@
 
 namespace {
 
-struct FakeProfiles final : btrfsbackup::IProfileRepository {
-    btrfsbackup::Profile profile{btrfsbackup::ProfileId{"default"}};
-    btrfsbackup::ApplicationPaths paths;
+struct FakeProfiles final : btrfsbackup::config::IProfileRepository {
+    btrfsbackup::config::Profile profile{btrfsbackup::ProfileId{"default"}};
+    btrfsbackup::config::ApplicationPaths paths;
 
-    btrfsbackup::Profile get(const btrfsbackup::ProfileId&) const override {
+    btrfsbackup::config::Profile get(const btrfsbackup::ProfileId&) const override {
         return profile;
     }
-    const btrfsbackup::ApplicationPaths& application_paths() const override {
+    const btrfsbackup::config::ApplicationPaths& application_paths() const override {
         return paths;
     }
-    std::string fingerprint(const btrfsbackup::Profile&) const override {
+    std::string fingerprint(const btrfsbackup::config::Profile&) const override {
         return "fingerprint";
     }
 };
 
-struct FakeMounts final : btrfsbackup::IMountInspector {
+struct FakeMounts final : btrfsbackup::backup::IMountInspector {
     mutable int calls = 0;
-    std::vector<btrfsbackup::MountEntry> inspect() const override {
+    std::vector<btrfsbackup::backup::MountEntry> inspect() const override {
         ++calls;
         return {};
     }
 };
 
-struct FakeTargetMounter final : btrfsbackup::ITargetManager {
+struct FakeTargetMounter final : btrfsbackup::backup::ITargetManager {
     int calls = 0;
-    void ensure_mounted(const btrfsbackup::Profile&) override {
+    void ensure_mounted(const btrfsbackup::config::Profile&) override {
         ++calls;
     }
 };
 
-struct FakePlanner final : btrfsbackup::IBackupPlanner {
+struct FakePlanner final : btrfsbackup::backup::IBackupPlanner {
     mutable int calls = 0;
     mutable std::string received_timestamp;
-    btrfsbackup::BackupRunPlan build(
-        const btrfsbackup::Profile& profile,
-        const std::vector<btrfsbackup::MountEntry>&,
-        const btrfsbackup::ApplicationPaths&,
+    btrfsbackup::backup::BackupRunPlan build(
+        const btrfsbackup::config::Profile& profile,
+        const std::vector<btrfsbackup::backup::MountEntry>&,
+        const btrfsbackup::config::ApplicationPaths&,
         const btrfsbackup::RunId& run_id,
         const std::string& snapshot_timestamp
     ) const override {
@@ -58,22 +58,22 @@ struct FakePlanner final : btrfsbackup::IBackupPlanner {
     }
 };
 
-struct NoopCheckpoints final : btrfsbackup::IBackupRunCheckpointStore {
-    void write_checkpoint(const btrfsbackup::BackupRunCheckpoint&) override {
+struct NoopCheckpoints final : btrfsbackup::backup::IBackupRunCheckpointStore {
+    void write_checkpoint(const btrfsbackup::backup::BackupRunCheckpoint&) override {
     }
 };
 
-struct FakeRunFactory final : btrfsbackup::IBackupRunFactory {
+struct FakeRunFactory final : btrfsbackup::backup::IBackupRunFactory {
     int calls = 0;
-    btrfsbackup::BackupRunExecutionResult result{
-        .outcome = btrfsbackup::BackupRunExecutionOutcome::Completed,
+    btrfsbackup::backup::BackupRunExecutionResult result{
+        .outcome = btrfsbackup::backup::BackupRunExecutionOutcome::Completed,
         .actions_completed = 3,
     };
 
-    btrfsbackup::BackupRunExecutionResult execute(
-        btrfsbackup::BackupRunPlan,
-        btrfsbackup::IBackupRunEventSink&,
-        btrfsbackup::IBackupRunCheckpointStore&,
+    btrfsbackup::backup::BackupRunExecutionResult execute(
+        btrfsbackup::backup::BackupRunPlan,
+        btrfsbackup::backup::IBackupRunEventSink&,
+        btrfsbackup::backup::IBackupRunCheckpointStore&,
         btrfsbackup::CancellationToken&
     ) override {
         ++calls;
@@ -81,13 +81,13 @@ struct FakeRunFactory final : btrfsbackup::IBackupRunFactory {
     }
 };
 
-struct FakeLease final : btrfsbackup::IBackupRunLease {};
+struct FakeLease final : btrfsbackup::backup::IBackupRunLease {};
 
-struct FakeLeases final : btrfsbackup::IBackupRunLeaseProvider {
+struct FakeLeases final : btrfsbackup::backup::IBackupRunLeaseProvider {
     bool busy = false;
     int calls = 0;
 
-    btrfsbackup::BackupRunLeaseResult try_acquire(const btrfsbackup::Profile&) override {
+    btrfsbackup::backup::BackupRunLeaseResult try_acquire(const btrfsbackup::config::Profile&) override {
         ++calls;
         if (busy) {
             return {
@@ -104,7 +104,7 @@ struct FakeLeases final : btrfsbackup::IBackupRunLeaseProvider {
     }
 };
 
-struct FakeState final : btrfsbackup::IRunStateRepository {
+struct FakeState final : btrfsbackup::backup::IRunStateRepository {
     bool daily_match = false;
     bool cancellation_requested = false;
     int skipped_writes = 0;
@@ -114,7 +114,7 @@ struct FakeState final : btrfsbackup::IRunStateRepository {
     std::string success_timestamp;
 
     bool last_success_matches(
-        const btrfsbackup::Profile&,
+        const btrfsbackup::config::Profile&,
         const std::string&,
         const std::string&
     ) const override {
@@ -122,7 +122,7 @@ struct FakeState final : btrfsbackup::IRunStateRepository {
     }
 
     void write_skipped(
-        const btrfsbackup::Profile&,
+        const btrfsbackup::config::Profile&,
         const btrfsbackup::RunId&,
         const std::string&,
         const std::string&,
@@ -132,7 +132,7 @@ struct FakeState final : btrfsbackup::IRunStateRepository {
     }
 
     void write_success(
-        const btrfsbackup::Profile&,
+        const btrfsbackup::config::Profile&,
         const btrfsbackup::RunId&,
         const std::string& date,
         const std::string& timestamp,
@@ -144,16 +144,16 @@ struct FakeState final : btrfsbackup::IRunStateRepository {
         success_timestamp = timestamp;
     }
 
-    std::unique_ptr<btrfsbackup::IBackupRunCheckpointStore> checkpoints(
+    std::unique_ptr<btrfsbackup::backup::IBackupRunCheckpointStore> checkpoints(
         const btrfsbackup::ProfileId&
     ) override {
         return std::make_unique<NoopCheckpoints>();
     }
 
-    std::unique_ptr<btrfsbackup::IBackupRunEventSink> events(
-        btrfsbackup::BackupRunStatusDescription
+    std::unique_ptr<btrfsbackup::backup::IBackupRunEventSink> events(
+        btrfsbackup::backup::BackupRunStatusDescription
     ) override {
-        return std::make_unique<btrfsbackup::NullBackupRunEventSink>();
+        return std::make_unique<btrfsbackup::backup::NullBackupRunEventSink>();
     }
 
     void request_cancel(const btrfsbackup::ProfileId&) override {
@@ -167,7 +167,7 @@ struct FakeState final : btrfsbackup::IRunStateRepository {
     }
 };
 
-struct FakeClock final : btrfsbackup::IClock {
+struct FakeClock final : btrfsbackup::backup::IClock {
     std::string snapshot_timestamp() const override {
         return "2026-08-26T120000Z";
     }
@@ -179,10 +179,10 @@ struct FakeClock final : btrfsbackup::IClock {
     }
 };
 
-struct FakeCancellationWatch final : btrfsbackup::ICancellationWatch {};
+struct FakeCancellationWatch final : btrfsbackup::backup::ICancellationWatch {};
 
-struct FakeCancellationMonitor final : btrfsbackup::ICancellationMonitor {
-    std::unique_ptr<btrfsbackup::ICancellationWatch> watch(
+struct FakeCancellationMonitor final : btrfsbackup::backup::ICancellationMonitor {
+    std::unique_ptr<btrfsbackup::backup::ICancellationWatch> watch(
         const btrfsbackup::ProfileId&,
         btrfsbackup::CancellationToken&
     ) override {
@@ -190,7 +190,7 @@ struct FakeCancellationMonitor final : btrfsbackup::ICancellationMonitor {
     }
 };
 
-struct FakeRunIds final : btrfsbackup::IRunIdGenerator {
+struct FakeRunIds final : btrfsbackup::backup::IRunIdGenerator {
     btrfsbackup::RunId generate(const std::string&) override {
         return btrfsbackup::RunId{"run-1"};
     }
@@ -208,7 +208,7 @@ struct Fixture {
     FakeClock clock;
     FakeRunIds run_ids;
     btrfsbackup::CancellationToken cancellation;
-    btrfsbackup::BackupService service;
+    btrfsbackup::backup::BackupService service;
 
     Fixture()
         : service(profiles, mounts, target, planner, runs, leases, state, cancellation_monitor, clock, run_ids, cancellation) {
@@ -220,11 +220,11 @@ struct Fixture {
 
 void test_success_uses_ports_and_persists_success() {
     Fixture fixture;
-    const btrfsbackup::BackupExecutionResult result = fixture.service.start({
+    const btrfsbackup::backup::BackupExecutionResult result = fixture.service.start({
         .profile_id = btrfsbackup::ProfileId{"default"},
     });
 
-    test_helpers::expect_true("completed", result.outcome == btrfsbackup::BackupExecutionOutcome::Completed, "run did not complete");
+    test_helpers::expect_true("completed", result.outcome == btrfsbackup::backup::BackupExecutionOutcome::Completed, "run did not complete");
     test_helpers::expect_eq("run id", std::string(result.plan.run_id.value()), "run-1");
     test_helpers::expect_true("target mounter calls", fixture.target.calls == 1, "unexpected call count");
     test_helpers::expect_true("mount inspector calls", fixture.mounts.calls == 1, "unexpected call count");
@@ -239,15 +239,15 @@ void test_success_uses_ports_and_persists_success() {
 void test_cancelled_run_does_not_persist_success() {
     Fixture fixture;
     fixture.runs.result = {
-        .outcome = btrfsbackup::BackupRunExecutionOutcome::Cancelled,
+        .outcome = btrfsbackup::backup::BackupRunExecutionOutcome::Cancelled,
         .actions_completed = 2,
     };
 
-    const btrfsbackup::BackupExecutionResult result = fixture.service.start({
+    const btrfsbackup::backup::BackupExecutionResult result = fixture.service.start({
         .profile_id = btrfsbackup::ProfileId{"default"},
     });
 
-    test_helpers::expect_true("cancelled", result.outcome == btrfsbackup::BackupExecutionOutcome::Cancelled, "cancelled outcome missing");
+    test_helpers::expect_true("cancelled", result.outcome == btrfsbackup::backup::BackupExecutionOutcome::Cancelled, "cancelled outcome missing");
     test_helpers::expect_true("cancelled actions", result.actions_completed == 2, "completed action count was not preserved");
     test_helpers::expect_true("cancelled success writes", fixture.state.success_writes == 0, "cancelled run persisted success");
 }
@@ -255,11 +255,11 @@ void test_cancelled_run_does_not_persist_success() {
 void test_busy_stops_before_target_access() {
     Fixture fixture;
     fixture.leases.busy = true;
-    const btrfsbackup::BackupExecutionResult result = fixture.service.start({
+    const btrfsbackup::backup::BackupExecutionResult result = fixture.service.start({
         .profile_id = btrfsbackup::ProfileId{"default"},
     });
 
-    test_helpers::expect_true("busy", result.outcome == btrfsbackup::BackupExecutionOutcome::Busy, "busy outcome missing");
+    test_helpers::expect_true("busy", result.outcome == btrfsbackup::backup::BackupExecutionOutcome::Busy, "busy outcome missing");
     test_helpers::expect_true("target not called", fixture.target.calls == 0, "target mounter was called");
     test_helpers::expect_true("planner not called", fixture.planner.calls == 0, "planner was called");
 }
@@ -267,18 +267,18 @@ void test_busy_stops_before_target_access() {
 void test_daily_match_skips_execution() {
     Fixture fixture;
     fixture.state.daily_match = true;
-    const btrfsbackup::BackupExecutionResult result = fixture.service.start({
+    const btrfsbackup::backup::BackupExecutionResult result = fixture.service.start({
         .profile_id = btrfsbackup::ProfileId{"default"},
     });
 
-    test_helpers::expect_true("skipped", result.outcome == btrfsbackup::BackupExecutionOutcome::Skipped, "daily run not skipped");
+    test_helpers::expect_true("skipped", result.outcome == btrfsbackup::backup::BackupExecutionOutcome::Skipped, "daily run not skipped");
     test_helpers::expect_true("run not called", fixture.runs.calls == 0, "run factory was called");
     test_helpers::expect_true("skipped status", fixture.state.skipped_writes == 1, "skipped status missing");
 }
 
 void test_cancel_validates_profile_and_writes_request() {
     Fixture fixture;
-    const btrfsbackup::CancelBackupResult result = fixture.service.cancel(btrfsbackup::ProfileId{"default"});
+    const btrfsbackup::backup::CancelBackupResult result = fixture.service.cancel(btrfsbackup::ProfileId{"default"});
 
     test_helpers::expect_true("cancel requested", result.cancel_requested, "cancel request missing");
     test_helpers::expect_true("cancel writes", fixture.state.cancel_writes == 1, "cancel request missing");

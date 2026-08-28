@@ -6,7 +6,7 @@
 
 #include <cstddef>
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup {
 
 enum class BackupRunExecutionOutcome { Completed,
                                        Cancelled };
@@ -16,4 +16,4 @@ struct BackupRunExecutionResult {
     std::size_t actions_completed = 0;
 };
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup

@@ -8,16 +8,16 @@
 #include <backup/ports/mount_inspector.hpp>
 #include <backup/ports/target_manager.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::platform::linux {
 
-class SystemdTargetManager final : public ITargetManager {
+class SystemdTargetManager final : public btrfsbackup::backup::ITargetManager {
   public:
-    SystemdTargetManager(IMountInspector& mounts, ICommandRunner& commands);
-    void ensure_mounted(const Profile& profile) override;
+    SystemdTargetManager(btrfsbackup::backup::IMountInspector& mounts, btrfsbackup::backup::ICommandRunner& commands);
+    void ensure_mounted(const btrfsbackup::config::Profile& profile) override;
 
   private:
-    IMountInspector& mounts_;
-    ICommandRunner& commands_;
+    btrfsbackup::backup::IMountInspector& mounts_;
+    btrfsbackup::backup::ICommandRunner& commands_;
 };
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::platform::linux

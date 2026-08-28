@@ -12,7 +12,7 @@
 #include <core/errors.hpp>
 #include <platform/linux/safe_directory_root.hpp>
 
-namespace btrfsbackup::platform_linux {
+namespace btrfsbackup::platform::linux {
 
 namespace {
 
@@ -26,10 +26,10 @@ int status_to_exit_code(int status) {
     return 128;
 }
 
-std::vector<int> inherited_fds(const std::vector<std::shared_ptr<ITransferResource>>& resources) {
+std::vector<int> inherited_fds(const std::vector<std::shared_ptr<btrfsbackup::backup::transfer::ITransferResource>>& resources) {
     std::vector<int> result;
     result.reserve(resources.size());
-    for (const std::shared_ptr<ITransferResource>& resource : resources) {
+    for (const std::shared_ptr<btrfsbackup::backup::transfer::ITransferResource>& resource : resources) {
         const auto handle = std::dynamic_pointer_cast<SafeDirectoryHandle>(resource);
         if (!handle) {
             throw ValidationError("unsupported POSIX transfer resource");
@@ -46,7 +46,7 @@ ProcessSpawnResult spawn_posix_transfer_process(
     int stdin_fd,
     int stdout_fd,
     int stderr_fd,
-    const std::vector<std::shared_ptr<ITransferResource>>& resources
+    const std::vector<std::shared_ptr<btrfsbackup::backup::transfer::ITransferResource>>& resources
 ) {
     if (argv.empty()) {
         throw ValidationError("empty transfer command");
@@ -61,7 +61,7 @@ ProcessSpawnResult spawn_posix_transfer_process(
                                });
 }
 
-bool reap_posix_transfer_process(pid_t pid, TransferSideResult& result) {
+bool reap_posix_transfer_process(pid_t pid, btrfsbackup::backup::transfer::TransferSideResult& result) {
     int status = 0;
     pid_t waited;
     do {
@@ -79,4 +79,4 @@ bool reap_posix_transfer_process(pid_t pid, TransferSideResult& result) {
     return true;
 }
 
-} // namespace btrfsbackup::platform_linux
+} // namespace btrfsbackup::platform::linux

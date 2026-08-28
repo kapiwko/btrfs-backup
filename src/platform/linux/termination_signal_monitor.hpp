@@ -7,18 +7,18 @@
 #include <functional>
 #include <memory>
 
-namespace btrfsbackup::platform_linux {
+namespace btrfsbackup::platform::linux {
 
 class TerminationSignalMonitor {
-public:
+  public:
     explicit TerminationSignalMonitor(std::function<void()> on_termination);
     TerminationSignalMonitor(const TerminationSignalMonitor&) = delete;
     TerminationSignalMonitor& operator=(const TerminationSignalMonitor&) = delete;
     ~TerminationSignalMonitor();
 
-private:
+  private:
     class Impl;
     std::unique_ptr<Impl> impl_;
 };
 
-} // namespace btrfsbackup::platform_linux
+} // namespace btrfsbackup::platform::linux

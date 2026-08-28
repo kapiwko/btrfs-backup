@@ -14,19 +14,19 @@ namespace fs = std::filesystem;
 
 namespace {
 
-btrfsbackup::PosixDurableFileOperations& durable_files() {
-    static btrfsbackup::PosixDurableFileOperations files;
+btrfsbackup::platform::linux::PosixDurableFileOperations& durable_files() {
+    static btrfsbackup::platform::linux::PosixDurableFileOperations files;
     return files;
 }
 
-btrfsbackup::BackupRunEvent event(btrfsbackup::BackupRunEventKind kind) {
-    return btrfsbackup::BackupRunEvent{
+btrfsbackup::backup::BackupRunEvent event(btrfsbackup::backup::BackupRunEventKind kind) {
+    return btrfsbackup::backup::BackupRunEvent{
         .kind = kind,
         .profile_id = btrfsbackup::ProfileId{"default"},
         .run_id = btrfsbackup::RunId{"20260823T120000Z-123-456"},
         .source_id = btrfsbackup::SourceId{"root"},
         .source_index = 1,
-        .action_kind = btrfsbackup::BackupRunActionKind::SendReceive,
+        .action_kind = btrfsbackup::backup::BackupRunActionKind::SendReceive,
         .bytes_transferred = 4096,
         .bytes_produced = 8192,
         .bytes_total_estimated = 8192,
@@ -40,18 +40,18 @@ btrfsbackup::BackupRunEvent event(btrfsbackup::BackupRunEventKind kind) {
 
 void test_public_transfer_progress_excludes_run_details() {
     fs::path root = test_helpers::test_root("backup-run-persistence", "transfer-progress");
-    btrfsbackup::RunStatusProjection sink(durable_files(), {
-                                                               .status_root = root / "status",
-                                                               .history_root = root / "history",
-                                                               .profile_name = "Default backup",
-                                                               .source_count = 2,
-                                                               .started_at = "2026-08-23T12:00:00Z",
-                                                               .source_names = {{"root", "@home"}, {"home", "@archive"}},
-                                                               .target_name = "backupdisk",
-                                                           });
+    btrfsbackup::state::RunStatusProjection sink(durable_files(), {
+                                                                      .status_root = root / "status",
+                                                                      .history_root = root / "history",
+                                                                      .profile_name = "Default backup",
+                                                                      .source_count = 2,
+                                                                      .started_at = "2026-08-23T12:00:00Z",
+                                                                      .source_names = {{"root", "@home"}, {"home", "@archive"}},
+                                                                      .target_name = "backupdisk",
+                                                                  });
 
-    sink.on_backup_run_event(event(btrfsbackup::BackupRunEventKind::TransferProgress));
-    btrfsbackup::Json current = btrfsbackup::load_json_file(root / "status" / "default" / "current.json");
+    sink.on_backup_run_event(event(btrfsbackup::backup::BackupRunEventKind::TransferProgress));
+    btrfsbackup::config::Json current = btrfsbackup::config::load_json_file(root / "status" / "default" / "current.json");
     test_helpers::expect_true("progress source hidden", !current.contains("currentSourceName"), "public status exposes source");
     test_helpers::expect_true("progress bytes hidden", !current.contains("bytesProcessed"), "public status exposes byte count");
     test_helpers::expect_true("progress source label", current.at("sourceName") == "@home", "wrong source label");
@@ -61,44 +61,44 @@ void test_public_transfer_progress_excludes_run_details() {
     test_helpers::expect_true("progress overall", current.at("overallProgress") == 25, "wrong overall progress");
     test_helpers::expect_true("progress accuracy", current.at("progressAccuracy") == "estimated", "wrong progress accuracy");
 
-    btrfsbackup::BackupRunEvent second = event(btrfsbackup::BackupRunEventKind::TransferProgress);
+    btrfsbackup::backup::BackupRunEvent second = event(btrfsbackup::backup::BackupRunEventKind::TransferProgress);
     second.source_id = btrfsbackup::SourceId{"home"};
     second.source_index = 2;
     sink.on_backup_run_event(second);
-    current = btrfsbackup::load_json_file(root / "status" / "default" / "current.json");
+    current = btrfsbackup::config::load_json_file(root / "status" / "default" / "current.json");
     test_helpers::expect_true("second source overall", current.at("overallProgress") == 75, "wrong second-source overall progress");
 
-    btrfsbackup::BackupRunEvent action_completed = second;
-    action_completed.kind = btrfsbackup::BackupRunEventKind::ActionCompleted;
+    btrfsbackup::backup::BackupRunEvent action_completed = second;
+    action_completed.kind = btrfsbackup::backup::BackupRunEventKind::ActionCompleted;
     sink.on_backup_run_event(action_completed);
-    current = btrfsbackup::load_json_file(root / "status" / "default" / "current.json");
+    current = btrfsbackup::config::load_json_file(root / "status" / "default" / "current.json");
     test_helpers::expect_true("overall remains monotonic", current.at("overallProgress") == 75, "overall progress regressed after transfer");
     fs::remove_all(root);
 }
 
 void test_status_sink_writes_current_and_terminal_history() {
     fs::path root = test_helpers::test_root("backup-run-persistence", "status");
-    btrfsbackup::RunStatusProjection sink(durable_files(), {
-                                                               .status_root = root / "status",
-                                                               .history_root = root / "history",
-                                                               .profile_name = "Default backup",
-                                                               .source_count = 2,
-                                                               .started_at = "2026-08-23T12:00:00Z",
-                                                           });
+    btrfsbackup::state::RunStatusProjection sink(durable_files(), {
+                                                                      .status_root = root / "status",
+                                                                      .history_root = root / "history",
+                                                                      .profile_name = "Default backup",
+                                                                      .source_count = 2,
+                                                                      .started_at = "2026-08-23T12:00:00Z",
+                                                                  });
 
-    sink.on_backup_run_event(event(btrfsbackup::BackupRunEventKind::ActionStarted));
+    sink.on_backup_run_event(event(btrfsbackup::backup::BackupRunEventKind::ActionStarted));
     fs::path current = root / "status" / "default" / "current.json";
-    btrfsbackup::Json current_data = btrfsbackup::load_json_file(current);
+    btrfsbackup::config::Json current_data = btrfsbackup::config::load_json_file(current);
     test_helpers::expect_true("current state", current_data.at("state") == "running", "wrong current state");
     test_helpers::expect_true("current phase hidden", !current_data.contains("phase"), "public status exposes phase");
     test_helpers::expect_true("history absent before terminal", !fs::exists(root / "history" / "default"), "history should wait for terminal event");
 
-    btrfsbackup::BackupRunEvent completed = event(btrfsbackup::BackupRunEventKind::RunCompleted);
+    btrfsbackup::backup::BackupRunEvent completed = event(btrfsbackup::backup::BackupRunEventKind::RunCompleted);
     completed.source_id = std::nullopt;
     completed.source_index = 0;
     sink.on_backup_run_event(completed);
     fs::path history = root / "history" / "default" / "20260823T120000Z-123-456.json";
-    btrfsbackup::Json history_data = btrfsbackup::load_json_file(history);
+    btrfsbackup::config::Json history_data = btrfsbackup::config::load_json_file(history);
     test_helpers::expect_true("history state", history_data.at("state") == "succeeded", "wrong history state");
     test_helpers::expect_true("history phase", history_data.at("phase") == "succeeded", "wrong history phase");
     test_helpers::expect_true("last history exists", fs::is_regular_file(root / "history" / "default" / "last.json"), "missing last history");
@@ -107,22 +107,22 @@ void test_status_sink_writes_current_and_terminal_history() {
 
 void test_hook_failure_status_uses_stable_error_code() {
     fs::path root = test_helpers::test_root("backup-run-persistence", "hook-failure");
-    btrfsbackup::RunStatusProjection sink(durable_files(), {
-                                                               .status_root = root / "status",
-                                                               .history_root = root / "history",
-                                                               .profile_name = "Default backup",
-                                                               .source_count = 1,
-                                                               .started_at = "2026-08-23T12:00:00Z",
-                                                           });
+    btrfsbackup::state::RunStatusProjection sink(durable_files(), {
+                                                                      .status_root = root / "status",
+                                                                      .history_root = root / "history",
+                                                                      .profile_name = "Default backup",
+                                                                      .source_count = 1,
+                                                                      .started_at = "2026-08-23T12:00:00Z",
+                                                                  });
 
-    btrfsbackup::BackupRunEvent failed = event(btrfsbackup::BackupRunEventKind::ActionFailed);
-    failed.action_kind = btrfsbackup::BackupRunActionKind::BeforeSnapshotHook;
+    btrfsbackup::backup::BackupRunEvent failed = event(btrfsbackup::backup::BackupRunEventKind::ActionFailed);
+    failed.action_kind = btrfsbackup::backup::BackupRunActionKind::BeforeSnapshotHook;
     failed.message = "hook failed: /usr/local/bin/prepare";
 
     sink.on_backup_run_event(failed);
 
-    btrfsbackup::Json current = btrfsbackup::load_json_file(root / "status" / "default" / "current.json");
-    btrfsbackup::Json history = btrfsbackup::load_json_file(root / "history" / "default" / "20260823T120000Z-123-456.json");
+    btrfsbackup::config::Json current = btrfsbackup::config::load_json_file(root / "status" / "default" / "current.json");
+    btrfsbackup::config::Json history = btrfsbackup::config::load_json_file(root / "history" / "default" / "20260823T120000Z-123-456.json");
     test_helpers::expect_true("hook state", current.at("state") == "failed", "wrong state");
     test_helpers::expect_true("hook public error code", current.at("errorCode") == "backup.failed", "wrong public error code");
     test_helpers::expect_true("hook phase", history.at("phase") == "before-snapshot-hook", "wrong phase");
@@ -136,23 +136,23 @@ void test_hook_failure_status_uses_stable_error_code() {
 
 void test_repository_recovery_required_status_is_actionable() {
     fs::path root = test_helpers::test_root("backup-run-persistence", "repository-recovery");
-    btrfsbackup::RunStatusProjection sink(durable_files(), {
-                                                               .status_root = root / "status",
-                                                               .history_root = root / "history",
-                                                               .profile_name = "Default backup",
-                                                               .source_count = 1,
-                                                               .started_at = "2026-08-23T12:00:00Z",
-                                                           });
+    btrfsbackup::state::RunStatusProjection sink(durable_files(), {
+                                                                      .status_root = root / "status",
+                                                                      .history_root = root / "history",
+                                                                      .profile_name = "Default backup",
+                                                                      .source_count = 1,
+                                                                      .started_at = "2026-08-23T12:00:00Z",
+                                                                  });
 
-    btrfsbackup::BackupRunEvent failed = event(btrfsbackup::BackupRunEventKind::ActionFailed);
-    failed.action_kind = btrfsbackup::BackupRunActionKind::CommitReceived;
+    btrfsbackup::backup::BackupRunEvent failed = event(btrfsbackup::backup::BackupRunEventKind::ActionFailed);
+    failed.action_kind = btrfsbackup::backup::BackupRunActionKind::CommitReceived;
     failed.error_code = btrfsbackup::ErrorCode::RepositoryRecoveryRequired;
     failed.message = "commit verification failed; cleanup failed; repository requires recovery";
 
     sink.on_backup_run_event(failed);
 
-    btrfsbackup::Json current = btrfsbackup::load_json_file(root / "status" / "default" / "current.json");
-    btrfsbackup::Json history = btrfsbackup::load_json_file(root / "history" / "default" / "20260823T120000Z-123-456.json");
+    btrfsbackup::config::Json current = btrfsbackup::config::load_json_file(root / "status" / "default" / "current.json");
+    btrfsbackup::config::Json history = btrfsbackup::config::load_json_file(root / "history" / "default" / "20260823T120000Z-123-456.json");
     test_helpers::expect_true("recovery state", current.at("state") == "failed", "wrong state");
     test_helpers::expect_true("recovery public error code", current.at("errorCode") == "backup.failed", "wrong public error code");
     test_helpers::expect_true("recovery error code", history.at("errorCode") == "repository.recovery_required", "wrong error code");

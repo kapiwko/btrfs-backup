@@ -13,13 +13,14 @@
 
 #include <core/errors.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::platform::linux {
 
 namespace {
 
 class UniqueFd {
-public:
-    explicit UniqueFd(int fd) : fd_(fd) {}
+  public:
+    explicit UniqueFd(int fd) : fd_(fd) {
+    }
     UniqueFd(const UniqueFd&) = delete;
     UniqueFd& operator=(const UniqueFd&) = delete;
     ~UniqueFd() {
@@ -32,7 +33,7 @@ public:
         return fd_;
     }
 
-private:
+  private:
     int fd_;
 };
 
@@ -48,7 +49,7 @@ int open_trusted_config_file(const std::filesystem::path& path) {
 }
 
 void assert_trusted_config_fd(int fd, const std::filesystem::path& path, const TrustedFilePolicy& policy) {
-    struct stat info {};
+    struct stat info{};
     if (fstat(fd, &info) != 0 || !S_ISREG(info.st_mode)) {
         throw ValidationError("Configuration file does not exist or is not a regular file: " + path.string());
     }
@@ -100,4 +101,4 @@ std::string read_trusted_config_file(const std::filesystem::path& path, const Tr
     return read_all(fd.get(), path);
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::platform::linux

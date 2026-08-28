@@ -9,28 +9,28 @@
 #include <backup/ports/trusted_executable.hpp>
 #include <platform/linux/safe_directory_root.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::platform::linux {
 
 SafeDirectoryHandle open_trusted_executable(
     const SafeDirectoryRoot& trusted_root,
     const std::filesystem::path& program,
-    const TrustedExecutablePolicy& policy = {}
+    const btrfsbackup::backup::TrustedExecutablePolicy& policy = {}
 );
 
-class PosixTrustedExecutableResolver final : public ITrustedExecutableResolver {
+class PosixTrustedExecutableResolver final : public btrfsbackup::backup::ITrustedExecutableResolver {
   public:
     PosixTrustedExecutableResolver(
         std::filesystem::path trusted_root,
-        TrustedExecutablePolicy policy = {}
+        btrfsbackup::backup::TrustedExecutablePolicy policy = {}
     );
 
-    [[nodiscard]] std::unique_ptr<ITrustedExecutable> resolve(
+    [[nodiscard]] std::unique_ptr<btrfsbackup::backup::ITrustedExecutable> resolve(
         const std::filesystem::path& program
     ) const override;
 
   private:
     std::filesystem::path trusted_root_;
-    TrustedExecutablePolicy policy_;
+    btrfsbackup::backup::TrustedExecutablePolicy policy_;
 };
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::platform::linux

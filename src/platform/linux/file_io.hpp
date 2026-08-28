@@ -11,7 +11,7 @@
 
 #include <core/durable_file_operations.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::platform::linux {
 
 void atomic_write(const std::filesystem::path& path, const std::string& data, mode_t mode);
 void fsync_dir(const std::filesystem::path& path);
@@ -30,4 +30,4 @@ class PosixDurableFileOperations final : public IDurableFileOperations {
     void remove_durably(const std::filesystem::path& path) override;
 };
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::platform::linux

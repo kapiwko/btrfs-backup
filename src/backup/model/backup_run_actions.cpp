@@ -6,7 +6,7 @@
 
 #include <type_traits>
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup {
 
 BackupRunActionKind backup_run_action_kind(const BackupRunAction& action) {
     return std::visit([](const auto& typed_action) {
@@ -47,4 +47,4 @@ const SourceId& backup_run_action_source_id(const BackupRunAction& action) {
                       action);
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup

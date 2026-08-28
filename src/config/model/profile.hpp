@@ -16,7 +16,7 @@
 #include <core/identifiers.hpp>
 #include <config/model/json.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::config {
 
 inline constexpr const char* trusted_hook_directory = "/etc/btrfs-backup/hooks.d";
 inline constexpr int current_profile_schema_version = 3;
@@ -97,4 +97,4 @@ Json normalize_profile(const Json& raw, const std::filesystem::path& target_moun
 Profile profile_from_json(const Json& raw, const std::filesystem::path& target_mount_root = "/mnt/btrfs-backup");
 Json profile_to_json(const Profile& profile);
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::config

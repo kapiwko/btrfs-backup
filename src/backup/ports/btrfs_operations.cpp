@@ -6,7 +6,7 @@
 
 namespace fs = std::filesystem;
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup {
 
 bool IBtrfsOperations::is_subvolume_beneath(const ISafeDirectoryRoot&, const fs::path& path) {
     return is_subvolume(path);
@@ -32,4 +32,4 @@ void IBtrfsOperations::delete_subvolume_beneath(const ISafeDirectoryRoot&, const
     delete_subvolume(path);
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup

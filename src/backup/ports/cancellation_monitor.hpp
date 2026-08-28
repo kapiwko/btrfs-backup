@@ -9,7 +9,7 @@
 #include <core/cancellation.hpp>
 #include <core/identifiers.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup {
 
 class ICancellationWatch {
   public:
@@ -26,4 +26,4 @@ class ICancellationMonitor {
     ) = 0;
 };
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup

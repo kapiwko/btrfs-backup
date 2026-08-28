@@ -10,7 +10,7 @@
 
 #include <core/error_code.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup::transfer {
 
 struct TransferSideResult {
     bool started = false;
@@ -33,4 +33,4 @@ struct TransferResult {
 [[nodiscard]] std::optional<ErrorCode> transfer_failure_error_code(const TransferResult& result);
 void require_transfer_success(const TransferResult& result);
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup::transfer

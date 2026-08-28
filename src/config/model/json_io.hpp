@@ -9,9 +9,9 @@
 
 #include <config/model/json.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::config {
 
 Json load_json_file(const std::filesystem::path& path);
 std::string dump_json(const Json& data);
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::config

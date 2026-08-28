@@ -7,7 +7,7 @@
 #include <filesystem>
 #include <vector>
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup {
 
 class IFileSystem {
   public:
@@ -22,4 +22,4 @@ class IFileSystem {
     virtual std::vector<std::filesystem::path> list_directory(const std::filesystem::path& path) = 0;
 };
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup

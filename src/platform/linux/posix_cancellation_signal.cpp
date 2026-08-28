@@ -13,7 +13,7 @@
 
 #include <core/errors.hpp>
 
-namespace btrfsbackup::platform_linux {
+namespace btrfsbackup::platform::linux {
 
 void PosixCancellationSignal::WriteSignal::operator()() const noexcept {
     const char byte = 1;
@@ -63,4 +63,4 @@ void PosixCancellationSignal::drain() const noexcept {
     }
 }
 
-} // namespace btrfsbackup::platform_linux
+} // namespace btrfsbackup::platform::linux

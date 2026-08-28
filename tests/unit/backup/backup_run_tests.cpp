@@ -12,29 +12,29 @@
 
 namespace {
 
-class NoopActionHandler final : public btrfsbackup::IBackupRunActionHandler {
+class NoopActionHandler final : public btrfsbackup::backup::IBackupRunActionHandler {
   public:
     void handle(
-        const btrfsbackup::BackupRunAction&,
-        const btrfsbackup::BackupRunPlan&,
+        const btrfsbackup::backup::BackupRunAction&,
+        const btrfsbackup::backup::BackupRunPlan&,
         btrfsbackup::CancellationToken&
     ) override {
     }
 };
 
-class UnusedTransferPipeline final : public btrfsbackup::IAsyncTransferPipeline {
+class UnusedTransferPipeline final : public btrfsbackup::backup::transfer::IAsyncTransferPipeline {
   public:
-    std::unique_ptr<btrfsbackup::IAsyncTransferHandle> start(
-        const btrfsbackup::TransferPipelinePlan&,
-        btrfsbackup::ITransferEventSink&
+    std::unique_ptr<btrfsbackup::backup::transfer::IAsyncTransferHandle> start(
+        const btrfsbackup::backup::transfer::TransferPipelinePlan&,
+        btrfsbackup::backup::transfer::ITransferEventSink&
     ) override {
         throw std::logic_error("empty backup run must not start a transfer");
     }
 };
 
-class NoopCheckpointStore final : public btrfsbackup::IBackupRunCheckpointStore {
+class NoopCheckpointStore final : public btrfsbackup::backup::IBackupRunCheckpointStore {
   public:
-    void write_checkpoint(const btrfsbackup::BackupRunCheckpoint&) override {
+    void write_checkpoint(const btrfsbackup::backup::BackupRunCheckpoint&) override {
     }
 };
 
@@ -43,8 +43,8 @@ void test_backup_run_owns_plan_and_executes_once() {
     UnusedTransferPipeline transfers;
     NoopCheckpointStore checkpoints;
     test_support::FakeSafeDirectoryRootFactory safe_directories;
-    btrfsbackup::BackupRun run(
-        btrfsbackup::BackupRunPlan{
+    btrfsbackup::backup::BackupRun run(
+        btrfsbackup::backup::BackupRunPlan{
             .profile_id = btrfsbackup::ProfileId{"default"},
             .run_id = btrfsbackup::RunId{"run-1"},
         },
@@ -57,12 +57,12 @@ void test_backup_run_owns_plan_and_executes_once() {
     test_helpers::expect_eq("owned profile", std::string(run.plan().profile_id.value()), "default");
     test_helpers::expect_true("not started", !run.started(), "new run is already marked as started");
 
-    btrfsbackup::NullBackupRunEventSink events;
+    btrfsbackup::backup::NullBackupRunEventSink events;
     btrfsbackup::CancellationToken cancellation;
-    btrfsbackup::BackupRunExecutionResult result = run.execute(events, cancellation);
+    btrfsbackup::backup::BackupRunExecutionResult result = run.execute(events, cancellation);
     test_helpers::expect_true(
         "completed",
-        result.outcome == btrfsbackup::BackupRunExecutionOutcome::Completed,
+        result.outcome == btrfsbackup::backup::BackupRunExecutionOutcome::Completed,
         "empty run did not complete"
     );
     test_helpers::expect_true("started", run.started(), "executed run is not marked as started");

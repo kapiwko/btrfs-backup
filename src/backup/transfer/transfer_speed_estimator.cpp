@@ -7,7 +7,7 @@
 #include <cmath>
 #include <limits>
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup::transfer {
 
 std::uint64_t TransferSpeedEstimator::sample(
     std::uint64_t bytes_transferred,
@@ -47,4 +47,4 @@ std::uint64_t TransferSpeedEstimator::sample(
     return bounded_speed(smoothed_speed_bps_);
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup::transfer

@@ -13,7 +13,7 @@ namespace fs = std::filesystem;
 
 int main() {
     fs::path root = test_helpers::test_root("filesystem", "posix-filesystem");
-    btrfsbackup::PosixFileSystem filesystem;
+    btrfsbackup::platform::linux::PosixFileSystem filesystem;
     fs::path directory = root / "dir";
     filesystem.create_directories(directory);
     test_helpers::expect_true("fs directory", filesystem.is_directory(directory), "directory should exist");

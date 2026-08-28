@@ -7,7 +7,7 @@
 #include <cstdint>
 #include <string>
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup::transfer {
 
 enum class TransferEventKind {
     Started,
@@ -40,4 +40,4 @@ class NullTransferEventSink final : public ITransferEventSink {
     void on_transfer_event(const TransferEvent& event) override;
 };
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup::transfer

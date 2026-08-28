@@ -11,7 +11,7 @@
 
 #include <config/model/profile.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::config {
 
 enum class ProfileArtifactKind {
     UdevRule,
@@ -56,4 +56,4 @@ class ProfileArtifactRenderer {
 
 ProfileArtifactRoots profile_artifact_roots(const std::filesystem::path& output_dir);
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::config

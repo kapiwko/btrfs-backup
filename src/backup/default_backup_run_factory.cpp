@@ -8,11 +8,11 @@
 
 #include <backup/backup_run.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup {
 
 DefaultBackupRunFactory::DefaultBackupRunFactory(
     IBackupRunActionHandler& action_handler,
-    ITransferPipeline& transfers,
+    btrfsbackup::backup::transfer::ITransferPipeline& transfers,
     const ISafeDirectoryRootFactory& safe_directories
 )
     : action_handler_(action_handler), transfers_(transfers), safe_directories_(safe_directories) {
@@ -24,9 +24,9 @@ BackupRunExecutionResult DefaultBackupRunFactory::execute(
     IBackupRunCheckpointStore& checkpoints,
     CancellationToken& cancellation
 ) {
-    ThreadedAsyncTransferPipeline async_transfers(transfers_);
+    btrfsbackup::backup::transfer::ThreadedAsyncTransferPipeline async_transfers(transfers_);
     BackupRun run(std::move(plan), action_handler_, async_transfers, checkpoints, safe_directories_);
     return run.execute(events, cancellation);
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup

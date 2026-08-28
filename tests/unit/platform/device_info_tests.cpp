@@ -14,8 +14,8 @@ namespace fs = std::filesystem;
 namespace {
 
 void test_mapper_path() {
-    test_helpers::expect_eq("default mapper path", btrfsbackup::mapper_path("backupdisk").string(), "/dev/mapper/backupdisk");
-    test_helpers::expect_eq("custom mapper path", btrfsbackup::mapper_path("backupdisk", "/tmp/dev/mapper").string(), "/tmp/dev/mapper/backupdisk");
+    test_helpers::expect_eq("default mapper path", btrfsbackup::platform::linux::mapper_path("backupdisk").string(), "/dev/mapper/backupdisk");
+    test_helpers::expect_eq("custom mapper path", btrfsbackup::platform::linux::mapper_path("backupdisk", "/tmp/dev/mapper").string(), "/tmp/dev/mapper/backupdisk");
 }
 
 void test_canonical_device() {
@@ -25,15 +25,15 @@ void test_canonical_device() {
     test_helpers::write_file(target, "device\n");
     fs::create_symlink(target, link);
 
-    test_helpers::expect_eq("canonical symlink", btrfsbackup::canonical_device(link).string(), target.string());
-    test_helpers::expect_true("canonical missing", btrfsbackup::canonical_device(root / "missing").empty(), "missing device should produce empty path");
+    test_helpers::expect_eq("canonical symlink", btrfsbackup::platform::linux::canonical_device(link).string(), target.string());
+    test_helpers::expect_true("canonical missing", btrfsbackup::platform::linux::canonical_device(root / "missing").empty(), "missing device should produce empty path");
 
     fs::remove_all(root);
 }
 
 void test_strip_subvolume_suffix() {
-    test_helpers::expect_eq("strip suffix", btrfsbackup::strip_subvolume_suffix("/dev/mapper/backup[/subvol]"), "/dev/mapper/backup");
-    test_helpers::expect_eq("strip no suffix", btrfsbackup::strip_subvolume_suffix("/dev/mapper/backup"), "/dev/mapper/backup");
+    test_helpers::expect_eq("strip suffix", btrfsbackup::platform::linux::strip_subvolume_suffix("/dev/mapper/backup[/subvol]"), "/dev/mapper/backup");
+    test_helpers::expect_eq("strip no suffix", btrfsbackup::platform::linux::strip_subvolume_suffix("/dev/mapper/backup"), "/dev/mapper/backup");
 }
 
 } // namespace

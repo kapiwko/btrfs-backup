@@ -63,7 +63,7 @@ void watch(const fs::path& status_root, const std::vector<std::string>& args) {
     WatchOptions options = parse_watch_options(args);
     std::string previous;
     while (true) {
-        (void)btrfsbackup::command::status_watch_once(status_root, args, previous, std::cout);
+        (void)btrfsbackup::cli::status_watch_once(status_root, args, previous, std::cout);
         std::this_thread::sleep_for(options.interval);
     }
 }
@@ -78,7 +78,7 @@ void usage() {
 
 } // namespace
 
-namespace btrfsbackup::command {
+namespace btrfsbackup::cli {
 
 bool status_watch_once(
     const fs::path& status_root,
@@ -87,8 +87,9 @@ bool status_watch_once(
     std::ostream& output
 ) {
     WatchOptions options = parse_watch_options(args);
-    std::optional<StatusDocument> current = poll_status(status_root, options.profile, previous);
-    if (!current) return false;
+    std::optional<btrfsbackup::state::StatusDocument> current = btrfsbackup::state::poll_status(status_root, options.profile, previous);
+    if (!current)
+        return false;
     output << current->content;
     if (current->content.empty() || current->content.back() != '\n') {
         output << '\n';
@@ -124,4 +125,4 @@ int status(const fs::path& status_root, const fs::path& history_root, const std:
     fail("unknown command: " + command);
 }
 
-} // namespace btrfsbackup::command
+} // namespace btrfsbackup::cli

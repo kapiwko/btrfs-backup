@@ -43,21 +43,21 @@ void usage() {
 
 } // namespace
 
-namespace btrfsbackup::command {
+namespace btrfsbackup::cli {
 
 int profile_wizard(const std::vector<std::string>& args) {
-    ProfileWizardOptions options;
+    btrfsbackup::platform::linux::ProfileWizardOptions options;
 
     for (std::size_t i = 0; i < args.size(); ++i) {
         const std::string& arg = args[i];
         if (arg == "--render-only") {
-            options.action = ProfileWizardAction::render;
+            options.action = btrfsbackup::platform::linux::ProfileWizardAction::render;
         } else if (arg == "--apply") {
-            options.action = ProfileWizardAction::apply;
+            options.action = btrfsbackup::platform::linux::ProfileWizardAction::apply;
         } else if (arg == "--validate") {
-            options.action = ProfileWizardAction::validate_active;
+            options.action = btrfsbackup::platform::linux::ProfileWizardAction::validate_active;
         } else if (arg == "--validate-dir") {
-            options.action = ProfileWizardAction::validate_rendered;
+            options.action = btrfsbackup::platform::linux::ProfileWizardAction::validate_rendered;
             options.validate_dir = arg_value(i, args, arg);
         } else if (arg == "--output-dir") {
             options.output_dir = arg_value(i, args, arg);
@@ -75,10 +75,10 @@ int profile_wizard(const std::vector<std::string>& args) {
         }
     }
 
-    if (options.action == ProfileWizardAction::validate_rendered && options.validate_dir.empty()) {
+    if (options.action == btrfsbackup::platform::linux::ProfileWizardAction::validate_rendered && options.validate_dir.empty()) {
         fail("--validate-dir requires a path");
     }
-    return run_profile_wizard(options, std::cin, std::cout);
+    return btrfsbackup::platform::linux::run_profile_wizard(options, std::cin, std::cout);
 }
 
-} // namespace btrfsbackup::command
+} // namespace btrfsbackup::cli

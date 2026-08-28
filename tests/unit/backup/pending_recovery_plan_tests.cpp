@@ -17,9 +17,9 @@ namespace fs = std::filesystem;
 
 namespace {
 
-btrfsbackup::SnapshotInfo remote_snapshot(const std::string& source_id, const std::string& received_uuid) {
-    return btrfsbackup::SnapshotInfo{
-        .side = btrfsbackup::SnapshotSide::Remote,
+btrfsbackup::backup::SnapshotInfo remote_snapshot(const std::string& source_id, const std::string& received_uuid) {
+    return btrfsbackup::backup::SnapshotInfo{
+        .side = btrfsbackup::backup::SnapshotSide::Remote,
         .source_id = source_id,
         .name = source_id + "-2026-08-23T080000Z",
         .timestamp = "2026-08-23T080000Z",
@@ -31,9 +31,9 @@ btrfsbackup::SnapshotInfo remote_snapshot(const std::string& source_id, const st
     };
 }
 
-btrfsbackup::PendingMarker marker(const std::string& source_id, const std::string& path) {
+btrfsbackup::backup::PendingMarker marker(const std::string& source_id, const std::string& path) {
     const fs::path local_path(path);
-    return btrfsbackup::PendingMarker{
+    return btrfsbackup::backup::PendingMarker{
         .source_name = source_id,
         .local_snapshot_path = path,
         .final_snapshot_path = (fs::path("/remote") / source_id / local_path.filename()).string(),
@@ -42,8 +42,8 @@ btrfsbackup::PendingMarker marker(const std::string& source_id, const std::strin
     };
 }
 
-btrfsbackup::SnapshotMetadata local_snapshot(const std::string& uuid) {
-    return btrfsbackup::SnapshotMetadata{
+btrfsbackup::backup::SnapshotMetadata local_snapshot(const std::string& uuid) {
+    return btrfsbackup::backup::SnapshotMetadata{
         .is_subvolume = true,
         .readonly = true,
         .uuid = uuid,
@@ -54,18 +54,18 @@ void test_reads_pending_marker() {
     fs::path root = test_helpers::test_root("pending-recovery", "read");
     fs::path state_dir = root / "state" / "profiles" / "default";
 
-    btrfsbackup::PosixDurableFileOperations durable_files;
-    btrfsbackup::FilePendingMarkerStore markers(durable_files);
+    btrfsbackup::platform::linux::PosixDurableFileOperations durable_files;
+    btrfsbackup::state::FilePendingMarkerStore markers(durable_files);
     markers.write(state_dir, marker("root", "/local/root/root-2026-08-23T080000Z"));
 
-    std::optional<btrfsbackup::PendingMarker> read =
+    std::optional<btrfsbackup::backup::PendingMarker> read =
         markers.read(state_dir, "root");
 
     test_helpers::expect_true("read pending marker", read.has_value(), "expected pending marker");
     test_helpers::expect_eq("read pending source", read->source_name, "root");
     test_helpers::expect_eq("read pending path", read->local_snapshot_path, "/local/root/root-2026-08-23T080000Z");
 
-    std::optional<btrfsbackup::PendingMarker> missing =
+    std::optional<btrfsbackup::backup::PendingMarker> missing =
         markers.read(state_dir, "home");
     test_helpers::expect_true("missing pending marker", !missing.has_value(), "missing marker should return nullopt");
 
@@ -73,7 +73,7 @@ void test_reads_pending_marker() {
 }
 
 void test_no_marker_does_nothing() {
-    btrfsbackup::PendingRecoveryPlan plan = btrfsbackup::plan_pending_recovery(
+    btrfsbackup::backup::PendingRecoveryPlan plan = btrfsbackup::backup::plan_pending_recovery(
         "root",
         "/state/default",
         "/local/root",
@@ -84,13 +84,13 @@ void test_no_marker_does_nothing() {
         false
     );
 
-    test_helpers::expect_eq("no marker action", std::to_string(static_cast<int>(plan.action)), std::to_string(static_cast<int>(btrfsbackup::PendingRecoveryAction::NoMarker)));
+    test_helpers::expect_eq("no marker action", std::to_string(static_cast<int>(plan.action)), std::to_string(static_cast<int>(btrfsbackup::backup::PendingRecoveryAction::NoMarker)));
     test_helpers::expect_true("no marker clear", !plan.clear_marker, "no marker should not clear anything");
     test_helpers::expect_true("no marker delete", !plan.delete_local_snapshot, "no marker should not delete anything");
 }
 
 void test_invalid_marker_is_cleared() {
-    btrfsbackup::PendingRecoveryPlan plan = btrfsbackup::plan_pending_recovery(
+    btrfsbackup::backup::PendingRecoveryPlan plan = btrfsbackup::backup::plan_pending_recovery(
         "root",
         "/state/default",
         "/local/root",
@@ -101,13 +101,13 @@ void test_invalid_marker_is_cleared() {
         false
     );
 
-    test_helpers::expect_eq("invalid marker action", std::to_string(static_cast<int>(plan.action)), std::to_string(static_cast<int>(btrfsbackup::PendingRecoveryAction::ClearInvalidMarker)));
+    test_helpers::expect_eq("invalid marker action", std::to_string(static_cast<int>(plan.action)), std::to_string(static_cast<int>(btrfsbackup::backup::PendingRecoveryAction::ClearInvalidMarker)));
     test_helpers::expect_true("invalid marker clear", plan.clear_marker, "invalid marker should be cleared");
     test_helpers::expect_true("invalid marker no delete", !plan.delete_local_snapshot, "invalid marker should not delete outside path");
 }
 
 void test_missing_snapshot_clears_marker() {
-    btrfsbackup::PendingRecoveryPlan plan = btrfsbackup::plan_pending_recovery(
+    btrfsbackup::backup::PendingRecoveryPlan plan = btrfsbackup::backup::plan_pending_recovery(
         "root",
         "/state/default",
         "/local/root",
@@ -118,13 +118,13 @@ void test_missing_snapshot_clears_marker() {
         false
     );
 
-    test_helpers::expect_eq("missing snapshot action", std::to_string(static_cast<int>(plan.action)), std::to_string(static_cast<int>(btrfsbackup::PendingRecoveryAction::ClearMissingSnapshot)));
+    test_helpers::expect_eq("missing snapshot action", std::to_string(static_cast<int>(plan.action)), std::to_string(static_cast<int>(btrfsbackup::backup::PendingRecoveryAction::ClearMissingSnapshot)));
     test_helpers::expect_true("missing snapshot clear", plan.clear_marker, "missing snapshot marker should be cleared");
     test_helpers::expect_true("missing snapshot no delete", !plan.delete_local_snapshot, "missing snapshot cannot be deleted");
 }
 
 void test_preserves_committed_snapshot() {
-    btrfsbackup::PendingRecoveryPlan plan = btrfsbackup::plan_pending_recovery(
+    btrfsbackup::backup::PendingRecoveryPlan plan = btrfsbackup::backup::plan_pending_recovery(
         "home",
         "/state/default",
         "/local/home",
@@ -135,13 +135,13 @@ void test_preserves_committed_snapshot() {
         false
     );
 
-    test_helpers::expect_eq("committed action", std::to_string(static_cast<int>(plan.action)), std::to_string(static_cast<int>(btrfsbackup::PendingRecoveryAction::PreserveCommittedSnapshot)));
+    test_helpers::expect_eq("committed action", std::to_string(static_cast<int>(plan.action)), std::to_string(static_cast<int>(btrfsbackup::backup::PendingRecoveryAction::PreserveCommittedSnapshot)));
     test_helpers::expect_true("committed clear", plan.clear_marker, "committed marker should be cleared");
     test_helpers::expect_true("committed no delete", !plan.delete_local_snapshot, "committed parent should be preserved");
 }
 
 void test_removes_invalid_snapshot_left_at_final_path() {
-    btrfsbackup::PendingRecoveryPlan plan = btrfsbackup::plan_pending_recovery(
+    btrfsbackup::backup::PendingRecoveryPlan plan = btrfsbackup::backup::plan_pending_recovery(
         "home",
         "/state/default",
         "/local/home",
@@ -155,7 +155,7 @@ void test_removes_invalid_snapshot_left_at_final_path() {
     test_helpers::expect_eq(
         "invalid committed action",
         std::to_string(static_cast<int>(plan.action)),
-        std::to_string(static_cast<int>(btrfsbackup::PendingRecoveryAction::DeleteInvalidCommittedSnapshot))
+        std::to_string(static_cast<int>(btrfsbackup::backup::PendingRecoveryAction::DeleteInvalidCommittedSnapshot))
     );
     test_helpers::expect_true("invalid committed remote delete", plan.delete_remote_snapshot, "invalid final snapshot should be deleted");
     test_helpers::expect_true("invalid committed local delete", plan.delete_local_snapshot, "orphaned local snapshot should be deleted by policy");
@@ -167,10 +167,10 @@ void test_removes_invalid_snapshot_left_at_final_path() {
 }
 
 void test_legacy_marker_without_final_path_uses_uuid_recovery() {
-    btrfsbackup::PendingMarker legacy = marker("home", "/local/home/home-2026-08-23T080000Z");
+    btrfsbackup::backup::PendingMarker legacy = marker("home", "/local/home/home-2026-08-23T080000Z");
     legacy.final_snapshot_path.clear();
 
-    btrfsbackup::PendingRecoveryPlan plan = btrfsbackup::plan_pending_recovery(
+    btrfsbackup::backup::PendingRecoveryPlan plan = btrfsbackup::backup::plan_pending_recovery(
         "home",
         "/state/default",
         "/local/home",
@@ -184,13 +184,13 @@ void test_legacy_marker_without_final_path_uses_uuid_recovery() {
     test_helpers::expect_eq(
         "legacy marker action",
         std::to_string(static_cast<int>(plan.action)),
-        std::to_string(static_cast<int>(btrfsbackup::PendingRecoveryAction::PreserveCommittedSnapshot))
+        std::to_string(static_cast<int>(btrfsbackup::backup::PendingRecoveryAction::PreserveCommittedSnapshot))
     );
     test_helpers::expect_true("legacy marker no remote delete", !plan.delete_remote_snapshot, "legacy marker has no trusted final path");
 }
 
 void test_keeps_or_deletes_orphan_by_policy() {
-    btrfsbackup::PendingRecoveryPlan keep = btrfsbackup::plan_pending_recovery(
+    btrfsbackup::backup::PendingRecoveryPlan keep = btrfsbackup::backup::plan_pending_recovery(
         "home",
         "/state/default",
         "/local/home",
@@ -200,10 +200,10 @@ void test_keeps_or_deletes_orphan_by_policy() {
         {},
         true
     );
-    test_helpers::expect_eq("keep orphan action", std::to_string(static_cast<int>(keep.action)), std::to_string(static_cast<int>(btrfsbackup::PendingRecoveryAction::KeepFailedLocalSnapshot)));
+    test_helpers::expect_eq("keep orphan action", std::to_string(static_cast<int>(keep.action)), std::to_string(static_cast<int>(btrfsbackup::backup::PendingRecoveryAction::KeepFailedLocalSnapshot)));
     test_helpers::expect_true("keep orphan no delete", !keep.delete_local_snapshot, "configured keep should not delete");
 
-    btrfsbackup::PendingRecoveryPlan remove = btrfsbackup::plan_pending_recovery(
+    btrfsbackup::backup::PendingRecoveryPlan remove = btrfsbackup::backup::plan_pending_recovery(
         "home",
         "/state/default",
         "/local/home",
@@ -213,7 +213,7 @@ void test_keeps_or_deletes_orphan_by_policy() {
         {},
         false
     );
-    test_helpers::expect_eq("delete orphan action", std::to_string(static_cast<int>(remove.action)), std::to_string(static_cast<int>(btrfsbackup::PendingRecoveryAction::DeleteOrphanSnapshot)));
+    test_helpers::expect_eq("delete orphan action", std::to_string(static_cast<int>(remove.action)), std::to_string(static_cast<int>(btrfsbackup::backup::PendingRecoveryAction::DeleteOrphanSnapshot)));
     test_helpers::expect_true("delete orphan", remove.delete_local_snapshot, "orphan should be deleted by default");
 }
 

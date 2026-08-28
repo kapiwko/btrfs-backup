@@ -7,12 +7,12 @@
 #include <stdexcept>
 #include <utility>
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup {
 
 BackupRun::BackupRun(
     BackupRunPlan plan,
     IBackupRunActionHandler& action_handler,
-    IAsyncTransferPipeline& transfer_pipeline,
+    btrfsbackup::backup::transfer::IAsyncTransferPipeline& transfer_pipeline,
     IBackupRunCheckpointStore& checkpoints,
     const ISafeDirectoryRootFactory& safe_directories
 )
@@ -39,4 +39,4 @@ BackupRunExecutionResult BackupRun::execute(
     return executor_.execute(plan_, events, cancellation);
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup

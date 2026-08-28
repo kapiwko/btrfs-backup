@@ -22,19 +22,19 @@ namespace fs = std::filesystem;
 
 namespace {
 
-btrfsbackup::PosixDurableFileOperations& durable_files() {
-    static btrfsbackup::PosixDurableFileOperations files;
+btrfsbackup::platform::linux::PosixDurableFileOperations& durable_files() {
+    static btrfsbackup::platform::linux::PosixDurableFileOperations files;
     return files;
 }
 
-using btrfsbackup::Json;
+using btrfsbackup::config::Json;
 using btrfsbackup::ErrorCode;
-using btrfsbackup::ProgressAccuracy;
-using btrfsbackup::RunError;
-using btrfsbackup::RunPhase;
-using btrfsbackup::RunState;
-using btrfsbackup::RunStatus;
-using btrfsbackup::SuggestedAction;
+using btrfsbackup::state::ProgressAccuracy;
+using btrfsbackup::state::RunError;
+using btrfsbackup::state::RunPhase;
+using btrfsbackup::state::RunState;
+using btrfsbackup::state::RunStatus;
+using btrfsbackup::state::SuggestedAction;
 using btrfsbackup::ValidationError;
 
 int failures = 0;
@@ -77,13 +77,13 @@ fs::path test_root(const std::string& name) {
     return root;
 }
 
-RunStatus sample_record() {
+btrfsbackup::state::RunStatus sample_record() {
     return {
         .profile_id = btrfsbackup::ProfileId{"default"},
         .profile_name = "Default backup",
         .run_id = btrfsbackup::RunId{"20260823T024407Z-4298-30158"},
-        .state = RunState::Succeeded,
-        .phase = RunPhase::Succeeded,
+        .state = btrfsbackup::state::RunState::Succeeded,
+        .phase = btrfsbackup::state::RunPhase::Succeeded,
         .message = "Backup completed.",
         .current_source_name = "Home",
         .target_name = "backupdisk",
@@ -106,7 +106,7 @@ int mode_of(const fs::path& path) {
 }
 
 void test_build_status_json_matches_contract_shape() {
-    Json data = btrfsbackup::build_status_json(sample_record());
+    btrfsbackup::config::Json data = btrfsbackup::state::build_status_json(sample_record());
 
     expect_true("schema", data.at("schemaVersion") == 2, "wrong schemaVersion");
     expect_true("profile id", data.at("profileId") == "default", "wrong profileId");
@@ -141,15 +141,15 @@ void test_build_status_json_matches_contract_shape() {
 }
 
 void test_build_status_json_includes_structured_error() {
-    RunStatus record = sample_record();
-    record.state = RunState::Failed;
-    record.phase = RunPhase::ValidatingTarget;
+    btrfsbackup::state::RunStatus record = sample_record();
+    record.state = btrfsbackup::state::RunState::Failed;
+    record.phase = btrfsbackup::state::RunPhase::ValidatingTarget;
     record.message = "Validation failed.";
-    record.error = RunError{
+    record.error = btrfsbackup::state::RunError{
         .code = ErrorCode::TargetBtrfsUuidMismatch,
         .message = "Target Btrfs UUID does not match.",
         .recoverable = false,
-        .suggested_action = SuggestedAction{"connect-correct-target"},
+        .suggested_action = btrfsbackup::state::SuggestedAction{"connect-correct-target"},
     };
     record.details = {
         {"expected", std::string{"expected-uuid"}},
@@ -158,7 +158,7 @@ void test_build_status_json_includes_structured_error() {
     record.can_cancel = true;
     record.exit_code = 2;
 
-    Json data = btrfsbackup::build_status_json(record);
+    btrfsbackup::config::Json data = btrfsbackup::state::build_status_json(record);
 
     expect_true("structured error code", data.at("errorCode") == "target.btrfs_uuid_mismatch", "wrong error code");
     expect_true("structured error message", data.at("errorMessage") == "Target Btrfs UUID does not match.", "wrong error message");
@@ -170,9 +170,9 @@ void test_build_status_json_includes_structured_error() {
 }
 
 void test_build_public_status_json_excludes_diagnostics() {
-    RunStatus record = sample_record();
-    record.state = RunState::Failed;
-    record.error = RunError{
+    btrfsbackup::state::RunStatus record = sample_record();
+    record.state = btrfsbackup::state::RunState::Failed;
+    record.error = btrfsbackup::state::RunError{
         .code = ErrorCode::TargetBtrfsUuidMismatch,
         .message = "Target Btrfs UUID does not match.",
     };
@@ -184,9 +184,9 @@ void test_build_public_status_json_excludes_diagnostics() {
     record.progress.eta_seconds = 12;
     record.progress.source_percent = 50;
     record.progress.overall_percent = 25;
-    record.progress.accuracy = ProgressAccuracy::Estimated;
+    record.progress.accuracy = btrfsbackup::state::ProgressAccuracy::Estimated;
 
-    Json data = btrfsbackup::build_public_status_json(record);
+    btrfsbackup::config::Json data = btrfsbackup::state::build_public_status_json(record);
 
     expect_true("public schema", data.at("schemaVersion") == 3, "wrong public schemaVersion");
     expect_true("public state", data.at("state") == "failed", "wrong public state");
@@ -204,7 +204,7 @@ void test_build_public_status_json_excludes_diagnostics() {
 }
 
 void test_dump_status_json_uses_stable_order_and_newline() {
-    std::string dumped = btrfsbackup::dump_status_json(sample_record());
+    std::string dumped = btrfsbackup::state::dump_status_json(sample_record());
 
     expect_eq(
         "dump",
@@ -247,10 +247,10 @@ void test_write_current_status() {
     fs::path root = test_root("current");
     fs::path status_root = root / "run" / "profiles";
 
-    btrfsbackup::write_current_status(durable_files(), status_root, sample_record());
+    btrfsbackup::state::write_current_status(durable_files(), status_root, sample_record());
 
     fs::path current = status_root / "default" / "current.json";
-    Json data = btrfsbackup::load_json_file(current);
+    btrfsbackup::config::Json data = btrfsbackup::config::load_json_file(current);
     expect_true("current exists", fs::is_regular_file(current), "missing current.json");
     expect_true("current state", data.at("state") == "succeeded", "wrong current state");
     expect_true("current public schema", data.at("schemaVersion") == 3, "wrong current schema");
@@ -264,7 +264,7 @@ void test_write_history_entry() {
     fs::path root = test_root("history");
     fs::path history_root = root / "history";
 
-    btrfsbackup::write_history_entry(durable_files(), history_root, sample_record());
+    btrfsbackup::state::write_history_entry(durable_files(), history_root, sample_record());
 
     fs::path run_entry = history_root / "default" / "20260823T024407Z-4298-30158.json";
     fs::path last_entry = history_root / "default" / "last.json";
@@ -274,7 +274,7 @@ void test_write_history_entry() {
     expect_true("last mode", mode_of(last_entry) == 0600, "last history should be 0600");
     expect_true("history root mode", mode_of(history_root) == 0700, "history root should be 0700");
     expect_true("history dir mode", mode_of(run_entry.parent_path()) == 0700, "history profile dir should be 0700");
-    expect_eq("history content", btrfsbackup::dump_json(btrfsbackup::load_json_file(run_entry)), btrfsbackup::dump_json(btrfsbackup::load_json_file(last_entry)));
+    expect_eq("history content", btrfsbackup::config::dump_json(btrfsbackup::config::load_json_file(run_entry)), btrfsbackup::config::dump_json(btrfsbackup::config::load_json_file(last_entry)));
     fs::remove_all(root);
 }
 

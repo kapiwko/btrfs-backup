@@ -11,7 +11,7 @@
 
 #include <backup/model/snapshot.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup {
 
 enum class PendingRecoveryAction {
     NoMarker,
@@ -53,4 +53,4 @@ PendingRecoveryPlan plan_pending_recovery(
     bool keep_failed_local_snapshot
 );
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup

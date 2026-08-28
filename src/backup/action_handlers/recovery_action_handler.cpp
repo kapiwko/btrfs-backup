@@ -10,7 +10,7 @@
 #include <backup/ports/pending_marker_store.hpp>
 #include <backup/ports/safe_directory.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup {
 
 RecoveryActionHandler::RecoveryActionHandler(IBtrfsOperations& btrfs, IPendingMarkerStore& pending_markers)
     : btrfs_(btrfs), pending_markers_(pending_markers) {
@@ -50,4 +50,4 @@ void RecoveryActionHandler::handle(const RecoverPendingAction& action) {
     }
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup

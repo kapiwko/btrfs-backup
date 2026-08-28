@@ -10,7 +10,7 @@
 
 namespace fs = std::filesystem;
 
-namespace btrfsbackup {
+namespace btrfsbackup::platform::linux {
 
 std::uint64_t available_bytes(const fs::path& path) {
     std::error_code ec;
@@ -28,11 +28,9 @@ void check_minimum_free_space(const fs::path& path, std::uint64_t minimum_bytes,
     const std::uint64_t available = available_bytes(path);
     if (available < minimum_bytes) {
         throw ValidationError(
-            "Insufficient free space for " + label + " at " + path.string()
-            + ": available=" + std::to_string(available)
-            + ", required=" + std::to_string(minimum_bytes)
+            "Insufficient free space for " + label + " at " + path.string() + ": available=" + std::to_string(available) + ", required=" + std::to_string(minimum_bytes)
         );
     }
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::platform::linux

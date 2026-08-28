@@ -13,19 +13,19 @@
 #include <config/model/profile.hpp>
 #include <core/identifiers.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup {
 
 class IBackupPlanner {
   public:
     virtual ~IBackupPlanner() = default;
 
     [[nodiscard]] virtual BackupRunPlan build(
-        const Profile& profile,
+        const btrfsbackup::config::Profile& profile,
         const std::vector<MountEntry>& mounts,
-        const ApplicationPaths& paths,
+        const btrfsbackup::config::ApplicationPaths& paths,
         const RunId& run_id,
         const std::string& snapshot_timestamp
     ) const = 0;
 };
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup

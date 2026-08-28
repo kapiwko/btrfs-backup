@@ -6,14 +6,14 @@
 
 #include <backup/backup_run_executor.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup {
 
 class BackupRun {
   public:
     BackupRun(
         BackupRunPlan plan,
         IBackupRunActionHandler& action_handler,
-        IAsyncTransferPipeline& transfer_pipeline,
+        btrfsbackup::backup::transfer::IAsyncTransferPipeline& transfer_pipeline,
         IBackupRunCheckpointStore& checkpoints,
         const ISafeDirectoryRootFactory& safe_directories
     );
@@ -32,4 +32,4 @@ class BackupRun {
     bool started_ = false;
 };
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup

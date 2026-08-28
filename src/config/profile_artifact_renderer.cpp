@@ -13,7 +13,7 @@
 #include <core/durable_file_operations.hpp>
 #include <core/errors.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::config {
 
 namespace {
 
@@ -94,4 +94,4 @@ ProfileArtifactRoots profile_artifact_roots(const std::filesystem::path& output_
     };
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::config

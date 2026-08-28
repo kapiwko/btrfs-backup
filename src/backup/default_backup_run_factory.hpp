@@ -9,13 +9,13 @@
 #include <backup/ports/safe_directory.hpp>
 #include <backup/transfer/transfer_pipeline.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup {
 
 class DefaultBackupRunFactory final : public IBackupRunFactory {
   public:
     DefaultBackupRunFactory(
         IBackupRunActionHandler& action_handler,
-        ITransferPipeline& transfers,
+        btrfsbackup::backup::transfer::ITransferPipeline& transfers,
         const ISafeDirectoryRootFactory& safe_directories
     );
 
@@ -28,8 +28,8 @@ class DefaultBackupRunFactory final : public IBackupRunFactory {
 
   private:
     IBackupRunActionHandler& action_handler_;
-    ITransferPipeline& transfers_;
+    btrfsbackup::backup::transfer::ITransferPipeline& transfers_;
     const ISafeDirectoryRootFactory& safe_directories_;
 };
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup

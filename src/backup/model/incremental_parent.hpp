@@ -11,7 +11,7 @@
 
 #include <backup/model/snapshot.hpp>
 
-namespace btrfsbackup {
+namespace btrfsbackup::backup {
 
 struct IncrementalParentSelection {
     bool incremental = false;
@@ -28,4 +28,4 @@ IncrementalParentSelection select_incremental_parent(
     bool incremental_required
 );
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::backup

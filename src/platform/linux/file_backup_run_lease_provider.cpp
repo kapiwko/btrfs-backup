@@ -14,11 +14,11 @@
 
 namespace fs = std::filesystem;
 
-namespace btrfsbackup {
+namespace btrfsbackup::platform::linux {
 
 namespace {
 
-class FileBackupRunLease final : public IBackupRunLease {
+class FileBackupRunLease final : public btrfsbackup::backup::IBackupRunLease {
   public:
     FileBackupRunLease(FileLock profile_lock, FileLock target_lock)
         : profile_lock_(std::move(profile_lock)), target_lock_(std::move(target_lock)) {
@@ -34,7 +34,7 @@ class FileBackupRunLease final : public IBackupRunLease {
 FileBackupRunLeaseProvider::FileBackupRunLeaseProvider(fs::path lock_root) : lock_root_(std::move(lock_root)) {
 }
 
-BackupRunLeaseResult FileBackupRunLeaseProvider::try_acquire(const Profile& profile) {
+btrfsbackup::backup::BackupRunLeaseResult FileBackupRunLeaseProvider::try_acquire(const btrfsbackup::config::Profile& profile) {
     FileLock profile_lock(profile_lock_path(lock_root_, std::string(profile.id.value())));
     if (!profile_lock.try_acquire()) {
         return {
@@ -58,4 +58,4 @@ BackupRunLeaseResult FileBackupRunLeaseProvider::try_acquire(const Profile& prof
     };
 }
 
-} // namespace btrfsbackup
+} // namespace btrfsbackup::platform::linux

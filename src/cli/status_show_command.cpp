@@ -14,7 +14,7 @@
 #include <state/status_service.hpp>
 
 namespace fs = std::filesystem;
-using json = btrfsbackup::Json;
+using json = btrfsbackup::config::Json;
 
 namespace {
 
@@ -26,14 +26,14 @@ std::string string_or_empty(const json& data, const char* key) {
     return it->get<std::string>();
 }
 
-void print_json_document(const btrfsbackup::StatusDocument& document, std::ostream& output) {
+void print_json_document(const btrfsbackup::state::StatusDocument& document, std::ostream& output) {
     output << document.content;
     if (document.content.empty() || document.content.back() != '\n') {
         output << '\n';
     }
 }
 
-void print_human_status(const btrfsbackup::StatusDocument& document, std::ostream& output) {
+void print_human_status(const btrfsbackup::state::StatusDocument& document, std::ostream& output) {
     const json& data = document.data;
     std::string profile = string_or_empty(data, "profileName");
     if (profile.empty()) {
@@ -65,7 +65,7 @@ void print_human_status(const btrfsbackup::StatusDocument& document, std::ostrea
 
 } // namespace
 
-namespace btrfsbackup::command {
+namespace btrfsbackup::cli {
 
 void status_show(
     const fs::path& status_root,
@@ -90,10 +90,12 @@ void status_show(
         }
     }
 
-    for (const StatusDocument& document : get_statuses(status_root, history_root, profile, all)) {
-        if (human) print_human_status(document, output);
-        else print_json_document(document, output);
+    for (const btrfsbackup::state::StatusDocument& document : btrfsbackup::state::get_statuses(status_root, history_root, profile, all)) {
+        if (human)
+            print_human_status(document, output);
+        else
+            print_json_document(document, output);
     }
 }
 
-} // namespace btrfsbackup::command
+} // namespace btrfsbackup::cli
