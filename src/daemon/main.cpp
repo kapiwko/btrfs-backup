@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include <daemon/dbus_server.hpp>
+#include <daemon/system_operational_control_backend.hpp>
 
 #include <filesystem>
 #include <iostream>
@@ -10,6 +11,10 @@
 #include <string>
 
 #include <platform/linux/config/application_config.hpp>
+#include <platform/linux/config/profile_repository.hpp>
+#include <platform/linux/posix_command_runner.hpp>
+#include <platform/linux/posix_durable_file_operations.hpp>
+#include <state/file_run_state_repository.hpp>
 
 namespace fs = std::filesystem;
 
@@ -39,7 +44,9 @@ int main(int argc, char** argv) {
             }
         }
 
-        const btrfsbackup::config::ApplicationPaths configured = btrfsbackup::platform::linux::load_application_config(config_root).paths();
+        const btrfsbackup::config::ApplicationConfig application_config =
+            btrfsbackup::platform::linux::load_application_config(config_root);
+        const btrfsbackup::config::ApplicationPaths& configured = application_config.paths();
         btrfsbackup::daemon::ManagerPaths paths{
             .config_root = config_root,
             .public_profile_root = "/var/lib/btrfs-backup/public/profiles",
@@ -81,7 +88,12 @@ int main(int argc, char** argv) {
         }
 
         btrfsbackup::daemon::ManagerService service(std::move(paths));
-        return btrfsbackup::daemon::run_dbus_server(service, bus_address);
+        btrfsbackup::platform::linux::FileProfileRepository profiles(config_root, application_config);
+        btrfsbackup::platform::linux::PosixDurableFileOperations durable_files;
+        btrfsbackup::state::FileRunStateRepository state(configured, durable_files);
+        btrfsbackup::platform::linux::PosixCommandRunner commands;
+        btrfsbackup::daemon::SystemOperationalControlBackend operational_backend(profiles, state, commands);
+        return btrfsbackup::daemon::run_dbus_server(service, operational_backend, bus_address);
     } catch (const std::exception& exception) {
         std::cerr << "btrfs-backupd: " << exception.what() << '\n';
         return 1;

@@ -69,6 +69,11 @@ void test_exception_mapping() {
         std::string(internal.public_message).find("private internal detail") == std::string::npos,
         "private exception message was exposed"
     );
+    expect_code(
+        "manager authorization error",
+        mapper.map(btrfsbackup::daemon::ManagerOperationError(ManagerErrorCode::NotAuthorized, "private caller")),
+        ManagerErrorCode::NotAuthorized
+    );
 }
 
 } // namespace

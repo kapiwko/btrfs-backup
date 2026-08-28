@@ -5,6 +5,7 @@
 #include <daemon/dbus_server.hpp>
 #include <daemon/manager_error_mapper.hpp>
 #include <daemon/manager_json_codec.hpp>
+#include <daemon/polkit_authorizer.hpp>
 
 #include <systemd/sd-bus.h>
 
@@ -24,6 +25,7 @@ volatile std::sig_atomic_t stop_requested = 0;
 
 struct ManagerRequestContext {
     btrfsbackup::daemon::ManagerService& service;
+    btrfsbackup::daemon::OperationalControlService& operational;
     btrfsbackup::daemon::ManagerJsonCodec codec;
     btrfsbackup::daemon::ManagerErrorMapper error_mapper;
 };
@@ -95,6 +97,66 @@ int get_device_state(sd_bus_message* message, void* userdata, sd_bus_error* erro
     });
 }
 
+std::string caller_bus_name(sd_bus_message* message) {
+    const char* sender = sd_bus_message_get_sender(message);
+    return sender == nullptr ? std::string{} : std::string(sender);
+}
+
+int start_backup(sd_bus_message* message, void* userdata, sd_bus_error* error) {
+    const char* profile_id = nullptr;
+    const int read_result = sd_bus_message_read(message, "s", &profile_id);
+    if (read_result < 0)
+        return read_result;
+    auto& context = *static_cast<ManagerRequestContext*>(userdata);
+    return reply_json(message, error, context, [&] {
+        return context.codec.encode(
+            context.operational.start_backup(caller_bus_name(message), profile_id == nullptr ? "" : profile_id)
+        );
+    });
+}
+
+int cancel_backup(sd_bus_message* message, void* userdata, sd_bus_error* error) {
+    const char* profile_id = nullptr;
+    const char* run_id = nullptr;
+    const int read_result = sd_bus_message_read(message, "ss", &profile_id, &run_id);
+    if (read_result < 0)
+        return read_result;
+    auto& context = *static_cast<ManagerRequestContext*>(userdata);
+    return reply_json(message, error, context, [&] {
+        return context.codec.encode(context.operational.cancel_backup(
+            caller_bus_name(message),
+            profile_id == nullptr ? "" : profile_id,
+            run_id == nullptr ? "" : run_id
+        ));
+    });
+}
+
+int validate_target(sd_bus_message* message, void* userdata, sd_bus_error* error) {
+    const char* profile_id = nullptr;
+    const int read_result = sd_bus_message_read(message, "s", &profile_id);
+    if (read_result < 0)
+        return read_result;
+    auto& context = *static_cast<ManagerRequestContext*>(userdata);
+    return reply_json(message, error, context, [&] {
+        return context.codec.encode(
+            context.operational.validate_target(caller_bus_name(message), profile_id == nullptr ? "" : profile_id)
+        );
+    });
+}
+
+int eject_target(sd_bus_message* message, void* userdata, sd_bus_error* error) {
+    const char* profile_id = nullptr;
+    const int read_result = sd_bus_message_read(message, "s", &profile_id);
+    if (read_result < 0)
+        return read_result;
+    auto& context = *static_cast<ManagerRequestContext*>(userdata);
+    return reply_json(message, error, context, [&] {
+        return context.codec.encode(
+            context.operational.eject_target(caller_bus_name(message), profile_id == nullptr ? "" : profile_id)
+        );
+    });
+}
+
 const sd_bus_vtable manager_vtable[] = {
     SD_BUS_VTABLE_START(0),
     SD_BUS_METHOD("GetCapabilities", "", "s", get_capabilities, SD_BUS_VTABLE_UNPRIVILEGED),
@@ -102,6 +164,10 @@ const sd_bus_vtable manager_vtable[] = {
     SD_BUS_METHOD("GetStatus", "s", "s", get_status, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD("GetHistorySanitized", "suu", "s", get_history_sanitized, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD("GetDeviceState", "s", "s", get_device_state, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD("StartBackup", "s", "s", start_backup, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD("CancelBackup", "ss", "s", cancel_backup, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD("ValidateTarget", "s", "s", validate_target, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD("EjectTarget", "s", "s", eject_target, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_VTABLE_END,
 };
 
@@ -114,8 +180,11 @@ void require_success(int result, const char* operation) {
 
 namespace btrfsbackup::daemon {
 
-int run_dbus_server(ManagerService& service, const std::string& bus_address) {
-    ManagerRequestContext context{service};
+int run_dbus_server(
+    ManagerService& service,
+    IOperationalControlBackend& operational_backend,
+    const std::string& bus_address
+) {
     std::unique_ptr<sd_bus, decltype(&sd_bus_unref)> bus(nullptr, sd_bus_unref);
     sd_bus* raw_bus = nullptr;
     if (bus_address.empty()) {
@@ -130,6 +199,10 @@ int run_dbus_server(ManagerService& service, const std::string& bus_address) {
     }
     if (!bus)
         bus.reset(raw_bus);
+
+    PolkitAuthorizer authorizer(bus.get());
+    OperationalControlService operational(authorizer, operational_backend);
+    ManagerRequestContext context{service, operational};
 
     std::unique_ptr<sd_bus_slot, decltype(&sd_bus_slot_unref)> slot(nullptr, sd_bus_slot_unref);
     sd_bus_slot* raw_slot = nullptr;

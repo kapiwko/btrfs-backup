@@ -78,13 +78,14 @@ and source checksums remain tied to the release artifacts.
 
 Native commands are installed directly under `/usr/bin`, runner and manager
 systemd units under `/usr/lib/systemd/system`, D-Bus activation and policy
-files under `/usr/share/dbus-1`, examples under
+files under `/usr/share/dbus-1`, polkit actions under
+`/usr/share/polkit-1/actions`, examples under
 `/usr/share/btrfs-backup/examples`, and documentation under
 `/usr/share/doc/btrfs-backup`. The base package creates the trusted hook
 directory `/etc/btrfs-backup/hooks.d` as `root:root 0755`.
 
 The public command surface is `btrfs-backup` and `btrfs-backupctl`. The optional
-read-only system-bus service executable is `btrfs-backupd`. Target
+system-bus service executable is `btrfs-backupd`. Target
 mount and eject operations are `btrfs-backupctl target mount` and
 `btrfs-backupctl target eject`; standalone mount/eject wrapper commands are no
 longer packaged.
@@ -102,6 +103,11 @@ This installs the two commands, the manager executable, rendered profile/eject
 service templates, manager activation and policy files, configuration examples,
 schema, documentation, and the trusted hook directory.
 It does not install an active profile or a profile-specific udev rule.
+
+The packaged manager unit grants write access to the default
+`/var/lib/btrfs-backup/state` root for run-scoped cancellation. Installations
+that override `STATE_ROOT` must add the corresponding `ReadWritePaths` entry in
+a `btrfs-backupd.service` drop-in.
 
 The package provides fstab and crypttab fragments for administrator-managed
 configuration. `btrfs-backupctl profile wizard --apply` and `profile save`

@@ -69,4 +69,11 @@ struct TargetStatus {
     bool safe_to_remove = false;
 };
 
+struct OperationResult {
+    std::string operation;
+    std::string profile_id;
+    std::string run_id;
+    bool accepted = true;
+};
+
 } // namespace btrfsbackup::daemon

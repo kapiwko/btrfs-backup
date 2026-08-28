@@ -94,6 +94,17 @@ void test_status_history_and_device() {
     const Json target_document = Json::parse(codec.encode(target));
     expect_field("target", target_document, "safeToRemove", false);
     test_helpers::expect_true("target privacy", !target_document.contains("device"), "private device field was encoded");
+
+    const btrfsbackup::daemon::OperationResult operation{
+        .operation = "cancel-backup",
+        .profile_id = "default",
+        .run_id = "20260828T120000Z-1-1",
+        .accepted = true,
+    };
+    const Json operation_document = Json::parse(codec.encode(operation));
+    expect_field("operation", operation_document, "operation", "cancel-backup");
+    expect_field("operation", operation_document, "runId", operation.run_id);
+    expect_field("operation", operation_document, "accepted", true);
 }
 
 } // namespace
