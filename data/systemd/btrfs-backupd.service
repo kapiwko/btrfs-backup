@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 [Unit]
-Description=btrfs-backup read-only system manager
+Description=btrfs-backup system manager
 Documentation=man:btrfs-backupd(8)
 
 [Service]
@@ -15,6 +15,7 @@ Group=root
 NoNewPrivileges=yes
 PrivateTmp=yes
 ProtectSystem=strict
+ReadWritePaths=-/var/lib/btrfs-backup/state
 ProtectHome=yes
 ProtectKernelTunables=yes
 ProtectKernelModules=yes
@@ -26,4 +27,3 @@ RestrictRealtime=yes
 LockPersonality=yes
 MemoryDenyWriteExecute=yes
 SystemCallArchitectures=native
-

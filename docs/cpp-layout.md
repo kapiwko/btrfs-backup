@@ -19,7 +19,7 @@ src/
 ├── state/                    # status, checkpoints, fingerprints, history reads
 ├── platform/linux/           # explicitly Linux-specific system integration
 ├── cli/                      # argv parsing, presentation, exit-code mapping
-└── daemon/                   # optional read-only system D-Bus adapter
+└── daemon/                   # optional authorized system D-Bus adapter
 tests/
 ├── unit/{backup,config,state,platform,cli,daemon}/
 ├── integration/
@@ -87,7 +87,7 @@ flowchart TB
 
     backup[backup orchestration]
     cli[CLI adapter]
-    daemon[read-only D-Bus adapter]
+    daemon[authorized D-Bus adapter]
 
     config_domain --> platform
     backup_model --> platform
@@ -149,7 +149,7 @@ JSON or filesystem implementations.
   other Linux-specific effects.
 - `cli` owns command-line parsing, output formatting, interactive streams, and
   exit-code mapping. Reusable orchestration must remain outside this target.
-- `daemon` owns the versioned read-only D-Bus adapter and sanitization boundary.
+- `daemon` owns the versioned D-Bus adapter, authorization, and sanitization boundary.
   It observes file-backed state and never owns runner execution.
 - `apps` owns only process entry points. The CLI runner adapter performs
   dependency composition after resolving its configuration and diagnostic

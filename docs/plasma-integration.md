@@ -15,9 +15,9 @@ accepts data. `managerConnected` reports manager availability, not target
 connectivity. A future `targetConnected` property must come from authoritative
 `GetDeviceState` data supplied by the system backend.
 
-This initial plasmoid exposes read-only status. The system manager owns future
-privileged mutation and polkit authorization, including cancellation. The
-Plasma session will consume that authorized API for desktop controls.
+This initial plasmoid exposes read-only status. The system manager already owns
+privileged mutation and polkit authorization, including cancellation. A later
+Plasma control surface will consume that authorized API.
 
 The plasmoid displays reduced `RunStatus`, including configured source and
 target labels, progress, speed, and ETA. It does not show an eject icon or a

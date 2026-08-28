@@ -7,6 +7,7 @@
 #include <string>
 
 #include <daemon/manager_service.hpp>
+#include <daemon/operational_control_service.hpp>
 
 namespace btrfsbackup::daemon {
 
@@ -14,6 +15,10 @@ inline constexpr const char* manager_bus_name = "io.github.btrfsbackup.Manager1"
 inline constexpr const char* manager_object_path = "/io/github/btrfsbackup/Manager1";
 inline constexpr const char* manager_interface = "io.github.btrfsbackup.Manager1";
 
-int run_dbus_server(ManagerService& service, const std::string& bus_address = {});
+int run_dbus_server(
+    ManagerService& service,
+    IOperationalControlBackend& operational_backend,
+    const std::string& bus_address = {}
+);
 
 } // namespace btrfsbackup::daemon

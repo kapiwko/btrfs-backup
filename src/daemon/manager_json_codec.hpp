@@ -18,6 +18,7 @@ class ManagerJsonCodec {
     [[nodiscard]] std::string encode(const PublicRunStatus& status) const;
     [[nodiscard]] std::string encode(const SanitizedHistoryPage& page) const;
     [[nodiscard]] std::string encode(const TargetStatus& status) const;
+    [[nodiscard]] std::string encode(const OperationResult& result) const;
 };
 
 } // namespace btrfsbackup::daemon

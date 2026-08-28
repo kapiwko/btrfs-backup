@@ -5,7 +5,7 @@ outside the main CMake project so the system backup runtime does not depend on
 Qt Quick, Kirigami, Plasma or a graphical session.
 
 The first component is a plasmoid with a small C++ QML backend. The backend
-uses the system manager's read-only D-Bus API:
+uses the read methods of the system manager's D-Bus API:
 
 ```text
 io.github.btrfsbackup.Manager1
@@ -20,8 +20,8 @@ does not spawn `btrfs-backupctl` or block the UI thread on D-Bus calls.
 not be interpreted as target-device connectivity; target lifecycle is a
 separate `GetDeviceState` contract.
 
-The current plasmoid presents read-only status. Future controls such as
-cancellation are added only through manager methods with polkit authorization.
+The current plasmoid presents read-only status. Future UI controls such as
+cancellation will use the existing manager methods with polkit authorization.
 Target removal state will be displayed from the separate system API after a
 successful authorized eject.
 

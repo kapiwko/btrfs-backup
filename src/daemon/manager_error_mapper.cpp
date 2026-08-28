@@ -9,6 +9,8 @@
 namespace btrfsbackup::daemon {
 
 ManagerErrorDescription ManagerErrorMapper::map(const std::exception& error) const noexcept {
+    if (const auto* manager_error = dynamic_cast<const ManagerOperationError*>(&error))
+        return describe(manager_error->code());
     if (const auto* coded = dynamic_cast<const CodedError*>(&error)) {
         switch (coded->error_code) {
         case ErrorCode::RunnerProfileBusy:

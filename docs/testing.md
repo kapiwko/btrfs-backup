@@ -189,11 +189,11 @@ The test covers:
     service, including the pre-sandbox target mount dependency;
 21. automatic host unmount and LUKS closure through the post-run eject unit.
 
-The current Plasma test target validates its status-only process model and
-read-only API surface. Cancellation authorization and target safe-removal
-behavior belong to the future system D-Bus/polkit and target-status test targets
-described in the [system manager design](design/system-manager.md). The active
-sprint selects the next bounded portion of that work in [`TODO.md`](../TODO.md).
+The current Plasma test target validates its status-only process model and the
+read side of the manager API. Operational authorization is covered by the
+manager service and D-Bus tests; caller-disconnect and authorization race cases
+remain in the next system manager test increment described in
+[the system manager design](design/system-manager.md).
 
 ## Release Checks
 

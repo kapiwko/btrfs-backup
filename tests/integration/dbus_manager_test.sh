@@ -114,7 +114,7 @@ start_daemon
 
 capabilities="$(call GetCapabilities)"
 grep -Fq 'readOnly' <<<"$capabilities" || fail 'capabilities omit readOnly'
-grep -Fq 'true' <<<"$capabilities" || fail 'capabilities do not identify a read-only manager'
+grep -Fq 'start-backup' <<<"$capabilities" || fail 'capabilities omit operational control'
 profiles="$(call ListProfiles)"
 grep -Fq 'Default backup' <<<"$profiles" || fail 'public profile was not returned'
 status_before="$(call GetStatus s default)"
@@ -134,11 +134,11 @@ grep -Fq 'connected' <<<"$device" || fail 'device state was not returned'
 if grep -Fq '/dev/null' <<<"$device"; then fail 'device path crossed the bus'; fi
 
 introspection="$($BUSCTL --address="$BUS_ADDRESS" introspect "$SERVICE" "$OBJECT" "$INTERFACE")"
-for method in GetCapabilities ListProfiles GetStatus GetHistorySanitized GetDeviceState; do
+for method in GetCapabilities ListProfiles GetStatus GetHistorySanitized GetDeviceState StartBackup CancelBackup ValidateTarget EjectTarget; do
     grep -Fq "$method" <<<"$introspection" || fail "missing method $method"
 done
-if grep -Eq 'StartBackup|CancelBackup|EjectTarget|SaveProfile|DeleteProfile' <<<"$introspection"; then
-    fail 'a mutating method is exported'
+if grep -Eq 'SaveProfile|DeleteProfile' <<<"$introspection"; then
+    fail 'an unsupported mutating method is exported'
 fi
 
 set +e
@@ -196,12 +196,11 @@ BUS_PID="$($DBUS_DAEMON --config-file="$TEST_ROOT/policy-bus.conf" --fork --prin
 start_daemon
 call GetCapabilities >/dev/null || fail 'policy denied an allowed read method'
 set +e
-denied_output="$(call StartBackup s default 2>&1)"
-denied_status=$?
+polkit_output="$(call StartBackup s default 2>&1)"
+polkit_status=$?
 set -e
-[[ "$denied_status" -ne 0 ]] || fail 'policy allowed an undeclared mutating method'
-if ! grep -Eqi 'denied|rejected|not permitted' <<<"$denied_output"; then
-    fail "undeclared call reached the service instead of being denied by policy: $denied_output"
-fi
+[[ "$polkit_status" -ne 0 ]] || fail 'operation bypassed unavailable polkit authority'
+grep -Fq 'manager request failed' <<<"$polkit_output" \
+    || fail "operational call did not reach the polkit gate: $polkit_output"
 
 printf '%s\n' 'ok - private D-Bus manager API'

@@ -18,7 +18,17 @@ ManagerService::ManagerService(ManagerPaths paths)
 ManagerCapabilities ManagerService::get_capabilities() const {
     return {
         .interface_name = "io.github.btrfsbackup.Manager1",
-        .features = {"profiles", "status", "sanitized-history", "device-state"},
+        .read_only = false,
+        .features = {
+            "profiles",
+            "status",
+            "sanitized-history",
+            "device-state",
+            "start-backup",
+            "cancel-backup",
+            "validate-target",
+            "eject-target",
+        },
     };
 }
 

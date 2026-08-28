@@ -6,18 +6,9 @@
 
 #include <exception>
 
-namespace btrfsbackup::daemon {
+#include <daemon/manager_errors.hpp>
 
-enum class ManagerErrorCode {
-    InvalidRequest,
-    NotFound,
-    NotAuthorized,
-    Busy,
-    RunMismatch,
-    TargetUnavailable,
-    Conflict,
-    InternalError,
-};
+namespace btrfsbackup::daemon {
 
 struct ManagerErrorDescription {
     ManagerErrorCode code;

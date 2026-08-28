@@ -7,7 +7,7 @@ The project backs up one or more Btrfs subvolumes to a removable Btrfs disk plac
 The source tree follows runtime responsibilities rather than abstract layers:
 configuration, state, backup orchestration, Linux adapters, and CLI presentation
 are separate CMake components. Their ownership and dependency direction are
-defined in [C++ source layout](cpp-layout.md). The optional read-only daemon is
+defined in [C++ source layout](cpp-layout.md). The optional system daemon is
 an outer adapter over presentation-safe configuration and state; it does not
 duplicate command parsing or backup logic. Runner execution remains independent
 of the daemon as recorded in

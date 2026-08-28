@@ -35,6 +35,7 @@ if(BUILD_SYSTEM_MANAGER)
         "usr/${INSTALL_LIBDIR}/systemd/system/btrfs-backupd.service"
         "usr/share/dbus-1/system-services/io.github.btrfsbackup.Manager1.service"
         "usr/share/dbus-1/system.d/io.github.btrfsbackup.Manager1.conf"
+        "usr/share/polkit-1/actions/io.github.btrfsbackup.policy"
     )
 endif()
 foreach(relative_path IN LISTS required_paths)

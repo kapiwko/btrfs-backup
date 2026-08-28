@@ -1,13 +1,13 @@
 # System Manager
 
-Status: read-only foundation implemented; mutating operations remain proposed.
+Status: query and authorized operational control implemented.
 
 ## Role
 
 `btrfs-backupd` is an optional privileged system-bus adapter. Its implemented
-surface exposes sanitized profiles, status, history and device state. It does
-not contain backup planning, transfer or persistence implementations copied
-from the CLI. Authorized control requests remain future work.
+surface exposes sanitized profiles, status, history and device state plus
+polkit-authorized start, cancel, validation and eject operations. It does not
+contain backup planning or transfer implementations copied from the CLI.
 
 The runner remains a separate systemd process. udev starts the runner unit
 without contacting the manager, and an active runner survives manager restart
@@ -23,10 +23,14 @@ ListProfiles
 GetStatus
 GetHistorySanitized
 GetDeviceState
+StartBackup
+CancelBackup
+ValidateTarget
+EjectTarget
 ```
 
-Later authorized operations include validation, start, cancel, eject, profile
-save/delete and device preparation. Stable codes and structured details cross
+Later administrative operations include profile save/delete and device
+preparation. Stable codes and structured details cross
 the bus; presentation text remains a client concern.
 
 Capabilities independently advertise D-Bus API, profile schema, public status
@@ -36,7 +40,7 @@ major versions and tolerate unknown optional fields.
 ## State Ownership
 
 The runner owns execution and writes durable current status and history. The
-read-only manager loads the current files on each request and falls back to
+manager loads the current files on each request and falls back to
 durable history after the oneshot runner exits. It never owns or signals the
 running backup process, and stopping the manager cannot stop an active run.
 
@@ -69,7 +73,7 @@ error code without configuration secrets.
 
 1. read-only capabilities, profiles, status, history and device state;
 2. state change signals and restart recovery;
-3. operational start/cancel/eject actions with polkit;
+3. operational start/cancel/validate/eject actions with polkit (implemented);
 4. administrative profile writes and hook-change authorization;
 5. shared C++ client, KDE monitor and KCM;
 6. scheduling and request queue integration.

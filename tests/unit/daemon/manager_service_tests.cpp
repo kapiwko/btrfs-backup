@@ -97,7 +97,7 @@ void test_capabilities_and_profiles() {
 
     btrfsbackup::daemon::ManagerService service(manager_paths(root));
     const btrfsbackup::daemon::ManagerCapabilities capabilities = service.get_capabilities();
-    test_helpers::expect_true("read-only capability", capabilities.read_only, "manager is not read-only");
+    test_helpers::expect_true("operational capability", !capabilities.read_only, "manager is still read-only");
     test_helpers::expect_true(
         "sanitized history schema capability",
         capabilities.history_schema_version == 1,
