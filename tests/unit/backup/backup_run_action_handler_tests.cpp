@@ -687,7 +687,11 @@ void test_hook_timeout_has_stable_error_code() {
         handle_action(handler, timed_hook);
         test_helpers::expect_true("hook timeout throws", false, "timeout should fail the action");
     } catch (const btrfsbackup::CodedOperationError& error) {
-        test_helpers::expect_eq("hook timeout code", error.error_code, "hook.before_snapshot_timeout");
+        test_helpers::expect_true(
+            "hook timeout code",
+            error.error_code == btrfsbackup::ErrorCode::HookBeforeSnapshotTimeout,
+            "unexpected error code"
+        );
         test_helpers::expect_contains("hook timeout message", error.what(), "17 seconds");
     }
 }

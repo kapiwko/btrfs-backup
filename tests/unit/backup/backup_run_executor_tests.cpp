@@ -6,7 +6,7 @@
 #include <array>
 #include <cstdint>
 #include <filesystem>
-#include <iterator>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -47,7 +47,7 @@ class RecordingActionHandler final : public btrfsbackup::backup::IBackupRunActio
     bool should_throw = false;
     bool recovery_required = false;
     bool operation_cancelled = false;
-    std::string coded_error_code;
+    std::optional<btrfsbackup::ErrorCode> coded_error_code;
     btrfsbackup::backup::BackupRunActionKind throw_on = btrfsbackup::backup::BackupRunActionKind::CleanupSource;
 
     void handle(
@@ -68,12 +68,12 @@ class RecordingActionHandler final : public btrfsbackup::backup::IBackupRunActio
             }
             if (recovery_required) {
                 throw btrfsbackup::RecoveryRequiredError(
-                    "repository.recovery_required",
+                    btrfsbackup::ErrorCode::RepositoryRecoveryRequired,
                     "commit verification failed; cleanup failed; repository requires recovery"
                 );
             }
-            if (!coded_error_code.empty()) {
-                throw btrfsbackup::CodedOperationError(coded_error_code, "coded action failure");
+            if (coded_error_code.has_value()) {
+                throw btrfsbackup::CodedOperationError(*coded_error_code, "coded action failure");
             }
             throw btrfsbackup::ValidationError("injected action failure: " + action_name(kind));
         }
@@ -823,7 +823,7 @@ void test_hook_timeout_emits_stable_error_code() {
     RecordingActionHandler handler;
     handler.should_throw = true;
     handler.throw_on = btrfsbackup::backup::BackupRunActionKind::BeforeSnapshotHook;
-    handler.coded_error_code = "hook.before_snapshot_timeout";
+    handler.coded_error_code = btrfsbackup::ErrorCode::HookBeforeSnapshotTimeout;
     RecordingTransferPipeline transfers;
     RecordingCheckpoints checkpoints;
     RecordingEvents events;

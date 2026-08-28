@@ -15,6 +15,7 @@ static_assert(std::is_base_of_v<btrfsbackup::BtrfsBackupError, btrfsbackup::Oper
 static_assert(std::is_base_of_v<btrfsbackup::CodedError, btrfsbackup::CodedValidationError>);
 static_assert(std::is_base_of_v<btrfsbackup::CodedError, btrfsbackup::CodedOperationError>);
 static_assert(std::is_base_of_v<btrfsbackup::CodedError, btrfsbackup::RecoveryRequiredError>);
+static_assert(std::is_same_v<decltype(btrfsbackup::CodedError::error_code), btrfsbackup::ErrorCode>);
 
 static_assert(!std::is_base_of_v<btrfsbackup::ValidationError, btrfsbackup::RecoveryRequiredError>);
 static_assert(!std::is_base_of_v<btrfsbackup::ValidationError, btrfsbackup::OperationCancelledError>);

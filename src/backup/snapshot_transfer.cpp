@@ -83,7 +83,7 @@ void commit_received_snapshot(
             btrfs.delete_subvolume(final_path);
         } catch (const std::exception& cleanup_error) {
             throw RecoveryRequiredError(
-                "repository.recovery_required",
+                ErrorCode::RepositoryRecoveryRequired,
                 verification_error + "; cleanup failed for " + final_path.string() + ": " + cleanup_error.what() + "; repository requires recovery"
             );
         }
@@ -111,7 +111,7 @@ void commit_received_snapshot_beneath(
             btrfs.delete_subvolume_beneath(root, final_path);
         } catch (const std::exception& cleanup_error) {
             throw RecoveryRequiredError(
-                "repository.recovery_required",
+                ErrorCode::RepositoryRecoveryRequired,
                 verification_error + "; cleanup failed for " + final_path.string() + ": " + cleanup_error.what() + "; repository requires recovery"
             );
         }

@@ -205,7 +205,11 @@ void test_commit_reports_verification_and_cleanup_failure() {
         );
         test_helpers::fail("commit cleanup failure", "expected RecoveryRequiredError");
     } catch (const btrfsbackup::RecoveryRequiredError& error) {
-        test_helpers::expect_eq("commit cleanup error code", error.error_code, "repository.recovery_required");
+        test_helpers::expect_true(
+            "commit cleanup error code",
+            error.error_code == btrfsbackup::ErrorCode::RepositoryRecoveryRequired,
+            "unexpected error code"
+        );
         test_helpers::expect_contains("commit verification error", error.what(), "Committed snapshot Received UUID");
         test_helpers::expect_contains("commit cleanup error", error.what(), "cleanup failed");
         test_helpers::expect_contains("commit recovery state", error.what(), "repository requires recovery");

@@ -28,6 +28,8 @@ enum class ErrorCode {
     HookAfterSnapshotTimeout,
     TargetBtrfsUuidMismatch,
     RepositoryRecoveryRequired,
+    ConfigurationSaveFailed,
+    ConfigurationRollbackIncomplete,
 };
 
 std::string error_code_name(ErrorCode code);

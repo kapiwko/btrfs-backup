@@ -179,7 +179,7 @@ BackupRunExecutionResult BackupRunExecutor::execute(
             } catch (const std::exception& error) {
                 std::optional<ErrorCode> error_code;
                 if (const auto* coded_error = dynamic_cast<const CodedError*>(&error)) {
-                    error_code = error_code_from_name(coded_error->error_code).value_or(ErrorCode::RunnerActionFailed);
+                    error_code = coded_error->error_code;
                 }
                 events.on_backup_run_event(ActionFailed{
                     .profile_id = plan.profile_id,
