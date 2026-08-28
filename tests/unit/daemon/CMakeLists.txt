@@ -9,3 +9,19 @@ add_btrfsbackup_test(
     btrfsbackup-daemon-core
     btrfsbackup-config-json
 )
+
+add_btrfsbackup_test(
+    btrfsbackup-manager-json-codec-tests
+    manager_json_codec_tests.cpp
+    manager-json-codec-tests
+    btrfsbackup-daemon-core
+    btrfsbackup-config-json
+)
+
+add_btrfsbackup_test(
+    btrfsbackup-manager-error-mapper-tests
+    manager_error_mapper_tests.cpp
+    manager-error-mapper-tests
+    btrfsbackup-daemon-core
+    btrfsbackup-core
+)
