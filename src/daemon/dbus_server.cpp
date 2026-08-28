@@ -3,6 +3,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include <daemon/dbus_server.hpp>
+#include <daemon/manager_error_mapper.hpp>
+#include <daemon/manager_json_codec.hpp>
 
 #include <systemd/sd-bus.h>
 
@@ -15,117 +17,45 @@
 #include <memory>
 #include <stdexcept>
 #include <utility>
-#include <vector>
-
-#include <config/model/json_io.hpp>
 
 namespace {
 
 volatile std::sig_atomic_t stop_requested = 0;
 
+struct ManagerRequestContext {
+    btrfsbackup::daemon::ManagerService& service;
+    btrfsbackup::daemon::ManagerJsonCodec codec;
+    btrfsbackup::daemon::ManagerErrorMapper error_mapper;
+};
+
 void request_stop(int) {
     stop_requested = 1;
 }
 
-btrfsbackup::config::Json response_json(const btrfsbackup::daemon::ManagerCapabilities& capabilities) {
-    return {
-        {"schemaVersion", 1},
-        {"interface", capabilities.interface_name},
-        {"apiMajor", capabilities.api_major},
-        {"apiMinor", capabilities.api_minor},
-        {"profileSchemaVersion", capabilities.profile_schema_version},
-        {"publicStatusSchemaVersion", capabilities.public_status_schema_version},
-        {"historySchemaVersion", capabilities.history_schema_version},
-        {"deviceStateSchemaVersion", capabilities.device_state_schema_version},
-        {"readOnly", capabilities.read_only},
-        {"features", capabilities.features},
-    };
-}
-
-btrfsbackup::config::Json response_json(const std::vector<btrfsbackup::daemon::ProfileSummary>& profiles) {
-    btrfsbackup::config::Json result = btrfsbackup::config::Json::array();
-    for (const auto& profile : profiles) {
-        btrfsbackup::config::Json sources = btrfsbackup::config::Json::array();
-        for (const auto& source : profile.sources) {
-            sources.push_back({{"id", source.id}, {"name", source.name}});
-        }
-        result.push_back({
-            {"schemaVersion", 1},
-            {"profileId", profile.profile_id},
-            {"name", profile.name},
-            {"targetName", profile.target_name},
-            {"sources", std::move(sources)},
-        });
-    }
-    return result;
-}
-
-btrfsbackup::config::Json response_json(const btrfsbackup::daemon::PublicRunStatus& status) {
-    return {
-        {"schemaVersion", 3},
-        {"state", status.state},
-        {"errorCode", status.error_code},
-        {"sourceName", status.source_name},
-        {"targetName", status.target_name},
-        {"speedBps", status.speed_bps},
-        {"etaSeconds", status.eta_seconds},
-        {"sourceProgress", status.source_progress},
-        {"overallProgress", status.overall_progress},
-        {"progressAccuracy", status.progress_accuracy},
-    };
-}
-
-btrfsbackup::config::Json response_json(const btrfsbackup::daemon::SanitizedHistoryPage& page) {
-    btrfsbackup::config::Json result = btrfsbackup::config::Json::array();
-    for (const auto& entry : page.entries) {
-        result.push_back({
-            {"schemaVersion", 1},
-            {"state", entry.state},
-            {"errorCode", entry.error_code},
-            {"sourceName", entry.source_name},
-            {"targetName", entry.target_name},
-            {"finishedAt", entry.finished_at},
-            {"overallProgress", entry.overall_progress},
-        });
-    }
-    return result;
-}
-
-btrfsbackup::config::Json response_json(const btrfsbackup::daemon::TargetStatus& status) {
-    return {
-        {"schemaVersion", 1},
-        {"profileId", status.profile_id},
-        {"targetName", status.target_name},
-        {"state", status.state},
-        {"connected", status.connected},
-        {"unlocked", status.unlocked},
-        {"mounted", status.mounted},
-        {"safeToRemove", status.safe_to_remove},
-    };
-}
-
-int reply_json(sd_bus_message* message, sd_bus_error* error, const std::function<btrfsbackup::config::Json()>& operation) {
+int reply_json(
+    sd_bus_message* message,
+    sd_bus_error* error,
+    ManagerRequestContext& context,
+    const std::function<std::string()>& operation
+) {
     try {
-        const std::string payload = btrfsbackup::config::dump_json(operation());
+        const std::string payload = operation();
         return sd_bus_reply_method_return(message, "s", payload.c_str());
     } catch (const std::exception& exception) {
         std::cerr << "btrfs-backupd: request failed: " << exception.what() << '\n';
-        return sd_bus_error_set_const(
-            error,
-            SD_BUS_ERROR_INVALID_ARGS,
-            "manager request is invalid or data is unavailable"
-        );
+        const auto mapped = context.error_mapper.map(exception);
+        return sd_bus_error_set_const(error, mapped.dbus_name, mapped.public_message);
     }
 }
 
 int get_capabilities(sd_bus_message* message, void* userdata, sd_bus_error* error) {
-    auto& service = *static_cast<btrfsbackup::daemon::ManagerService*>(userdata);
-    return reply_json(message, error, [&] { return response_json(service.get_capabilities()); });
+    auto& context = *static_cast<ManagerRequestContext*>(userdata);
+    return reply_json(message, error, context, [&] { return context.codec.encode(context.service.get_capabilities()); });
 }
 
 int list_profiles(sd_bus_message* message, void* userdata, sd_bus_error* error) {
-    auto& service = *static_cast<btrfsbackup::daemon::ManagerService*>(userdata);
-    return reply_json(message, error, [&] { return response_json(service.list_profiles()); });
+    auto& context = *static_cast<ManagerRequestContext*>(userdata);
+    return reply_json(message, error, context, [&] { return context.codec.encode(context.service.list_profiles()); });
 }
 
 int get_status(sd_bus_message* message, void* userdata, sd_bus_error* error) {
@@ -133,9 +63,9 @@ int get_status(sd_bus_message* message, void* userdata, sd_bus_error* error) {
     const int read_result = sd_bus_message_read(message, "s", &profile_id);
     if (read_result < 0)
         return read_result;
-    auto& service = *static_cast<btrfsbackup::daemon::ManagerService*>(userdata);
-    return reply_json(message, error, [&] {
-        return response_json(service.get_status(profile_id == nullptr ? "" : profile_id));
+    auto& context = *static_cast<ManagerRequestContext*>(userdata);
+    return reply_json(message, error, context, [&] {
+        return context.codec.encode(context.service.get_status(profile_id == nullptr ? "" : profile_id));
     });
 }
 
@@ -146,9 +76,11 @@ int get_history_sanitized(sd_bus_message* message, void* userdata, sd_bus_error*
     const int read_result = sd_bus_message_read(message, "suu", &profile_id, &offset, &limit);
     if (read_result < 0)
         return read_result;
-    auto& service = *static_cast<btrfsbackup::daemon::ManagerService*>(userdata);
-    return reply_json(message, error, [&] {
-        return response_json(service.get_history_sanitized(profile_id == nullptr ? "" : profile_id, offset, limit));
+    auto& context = *static_cast<ManagerRequestContext*>(userdata);
+    return reply_json(message, error, context, [&] {
+        return context.codec.encode(
+            context.service.get_history_sanitized(profile_id == nullptr ? "" : profile_id, offset, limit)
+        );
     });
 }
 
@@ -157,9 +89,9 @@ int get_device_state(sd_bus_message* message, void* userdata, sd_bus_error* erro
     const int read_result = sd_bus_message_read(message, "s", &profile_id);
     if (read_result < 0)
         return read_result;
-    auto& service = *static_cast<btrfsbackup::daemon::ManagerService*>(userdata);
-    return reply_json(message, error, [&] {
-        return response_json(service.get_device_state(profile_id == nullptr ? "" : profile_id));
+    auto& context = *static_cast<ManagerRequestContext*>(userdata);
+    return reply_json(message, error, context, [&] {
+        return context.codec.encode(context.service.get_device_state(profile_id == nullptr ? "" : profile_id));
     });
 }
 
@@ -183,6 +115,7 @@ void require_success(int result, const char* operation) {
 namespace btrfsbackup::daemon {
 
 int run_dbus_server(ManagerService& service, const std::string& bus_address) {
+    ManagerRequestContext context{service};
     std::unique_ptr<sd_bus, decltype(&sd_bus_unref)> bus(nullptr, sd_bus_unref);
     sd_bus* raw_bus = nullptr;
     if (bus_address.empty()) {
@@ -207,7 +140,7 @@ int run_dbus_server(ManagerService& service, const std::string& bus_address) {
             manager_object_path,
             manager_interface,
             manager_vtable,
-            &service
+            &context
         ),
         "cannot export the manager object"
     );

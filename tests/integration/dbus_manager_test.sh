@@ -141,7 +141,13 @@ if grep -Eq 'StartBackup|CancelBackup|EjectTarget|SaveProfile|DeleteProfile' <<<
     fail 'a mutating method is exported'
 fi
 
-if call GetStatus s '../invalid' >/dev/null 2>&1; then fail 'malformed profile id was accepted'; fi
+set +e
+invalid_request_output="$(call GetStatus s '../invalid' 2>&1)"
+invalid_request_status=$?
+set -e
+[[ "$invalid_request_status" -ne 0 ]] || fail 'malformed profile id was accepted'
+grep -Fq 'manager request is invalid' <<<"$invalid_request_output" \
+    || fail "malformed profile id returned an unsafe error: $invalid_request_output"
 if call GetHistorySanitized suu default 0 101 >/dev/null 2>&1; then fail 'unbounded history limit was accepted'; fi
 cp "$TEST_ROOT/status/default/current.json" "$TEST_ROOT/status/default/current.json.valid"
 printf '%s\n' '{invalid' > "$TEST_ROOT/status/default/current.json"
@@ -151,6 +157,8 @@ malformed_output="$(call GetStatus s default 2>&1)"
 malformed_status=$?
 set -e
 [[ "$malformed_status" -ne 0 ]] || fail 'malformed status document was accepted'
+grep -Fq 'manager request is invalid' <<<"$malformed_output" \
+    || fail "malformed status returned an unsafe error: $malformed_output"
 if grep -Fq "$TEST_ROOT" <<<"$malformed_output"; then
     fail 'private manager path leaked through a D-Bus error'
 fi
