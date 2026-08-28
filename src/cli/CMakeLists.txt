@@ -11,6 +11,8 @@ add_library(btrfsbackup-cli STATIC
     profile_list_command.cpp
     profile_wizard_command.cpp
     runner_command.cpp
+    runner_options.cpp
+    runner_presenter.cpp
     status_command.cpp
     status_history_command.cpp
     status_show_command.cpp
@@ -29,6 +31,8 @@ target_restricted_include_directories(btrfsbackup-cli
         cli/profile_list_command.hpp
         cli/profile_wizard_command.hpp
         cli/runner_command.hpp
+        cli/runner_options.hpp
+        cli/runner_presenter.hpp
         cli/status_command.hpp
         cli/status_history_command.hpp
         cli/status_show_command.hpp
@@ -38,6 +42,7 @@ target_restricted_include_directories(btrfsbackup-cli
 target_link_libraries(btrfsbackup-cli
     PUBLIC
         btrfsbackup-backup
+        btrfsbackup-backup-model
         btrfsbackup-backup-ports
         btrfsbackup-config-domain
         btrfsbackup-config-ports

@@ -4,251 +4,49 @@
 
 #include <cli/runner_command.hpp>
 
-#include <chrono>
-#include <cstdlib>
 #include <filesystem>
-#include <iomanip>
-#include <iostream>
 #include <memory>
-#include <sstream>
+#include <ostream>
 #include <string>
-#include <type_traits>
 #include <utility>
 #include <vector>
 
 #include <backup/action_handlers/backup_run_action_handler.hpp>
-#include <backup/backup_run.hpp>
-#include <backup/backup_discovery.hpp>
-#include <backup/backup_plan_builder.hpp>
-#include <backup/backup_preflight.hpp>
-#include <backup/linked_cancellation_monitor.hpp>
-#include <state/file_run_state_repository.hpp>
-#include <state/file_pending_marker_store.hpp>
-#include <backup/system_run_context.hpp>
 #include <backup/action_handlers/hook_action_handler.hpp>
 #include <backup/action_handlers/recovery_action_handler.hpp>
 #include <backup/action_handlers/repository_action_handler.hpp>
 #include <backup/action_handlers/retention_action_handler.hpp>
 #include <backup/action_handlers/snapshot_action_handler.hpp>
+#include <backup/backup_discovery.hpp>
+#include <backup/backup_plan_builder.hpp>
+#include <backup/backup_preflight.hpp>
+#include <backup/backup_run.hpp>
+#include <backup/linked_cancellation_monitor.hpp>
+#include <backup/system_run_context.hpp>
 #include <backup/transfer/async_transfer.hpp>
+#include <cli/runner_options.hpp>
+#include <cli/runner_presenter.hpp>
+#include <core/runtime_time.hpp>
 #include <platform/linux/btrfs_util_operations.hpp>
 #include <platform/linux/config/application_config.hpp>
-#include <platform/linux/posix_command_runner.hpp>
-#include <platform/linux/file_lock.hpp>
+#include <platform/linux/config/profile_repository.hpp>
+#include <platform/linux/config/profile_runtime_policy.hpp>
 #include <platform/linux/file_backup_run_lease_provider.hpp>
+#include <platform/linux/file_lock.hpp>
+#include <platform/linux/mount_info.hpp>
+#include <platform/linux/posix_command_runner.hpp>
 #include <platform/linux/posix_durable_file_operations.hpp>
 #include <platform/linux/posix_filesystem.hpp>
-#include <platform/linux/mount_info.hpp>
 #include <platform/linux/posix_transfer_pipeline.hpp>
 #include <platform/linux/safe_directory_root.hpp>
 #include <platform/linux/systemd_target_manager.hpp>
 #include <platform/linux/trusted_executable.hpp>
-#include <config/model/json.hpp>
-#include <config/model/profile_document.hpp>
-#include <core/runtime_time.hpp>
-#include <platform/linux/config/profile_repository.hpp>
-#include <platform/linux/config/profile_runtime_policy.hpp>
+#include <state/file_pending_marker_store.hpp>
+#include <state/file_run_state_repository.hpp>
 
 namespace fs = std::filesystem;
 
 namespace {
-
-[[noreturn]] void fail(const std::string& message, int code = 2) {
-    std::cerr << "btrfs-backupctl runner: " << message << '\n';
-    std::exit(code);
-}
-
-std::string arg_value(const std::vector<std::string>& args, std::size_t& index, const std::string& option) {
-    if (index + 1 >= args.size()) {
-        fail(option + " requires a value");
-    }
-    return args[++index];
-}
-
-std::string action_name(btrfsbackup::backup::BackupRunActionKind kind) {
-    switch (kind) {
-    case btrfsbackup::backup::BackupRunActionKind::RecoverPending:
-        return "recover-pending";
-    case btrfsbackup::backup::BackupRunActionKind::CleanupIncoming:
-        return "cleanup-incoming";
-    case btrfsbackup::backup::BackupRunActionKind::BeforeSnapshotHook:
-        return "before-snapshot-hook";
-    case btrfsbackup::backup::BackupRunActionKind::CreateSnapshot:
-        return "create-snapshot";
-    case btrfsbackup::backup::BackupRunActionKind::AfterSnapshotHook:
-        return "after-snapshot-hook";
-    case btrfsbackup::backup::BackupRunActionKind::SendReceive:
-        return "send-receive";
-    case btrfsbackup::backup::BackupRunActionKind::VerifyReceived:
-        return "verify-received";
-    case btrfsbackup::backup::BackupRunActionKind::CommitReceived:
-        return "commit-received";
-    case btrfsbackup::backup::BackupRunActionKind::ApplyRemoteRetention:
-        return "apply-remote-retention";
-    case btrfsbackup::backup::BackupRunActionKind::ApplyLocalRetention:
-        return "apply-local-retention";
-    case btrfsbackup::backup::BackupRunActionKind::CleanupSource:
-        return "cleanup-source";
-    }
-    return "unknown";
-}
-
-btrfsbackup::config::Json action_to_json(
-    const btrfsbackup::backup::BackupRunAction& action,
-    const btrfsbackup::backup::BackupSourceRunPlan& source
-) {
-    const auto [primary_path, secondary_path] = std::visit([&](const auto& typed_action) {
-        using Action = std::decay_t<decltype(typed_action)>;
-        if constexpr (std::is_same_v<Action, btrfsbackup::backup::RecoverPendingAction>) {
-            return std::pair{typed_action.recovery.local_snapshot_path, fs::path{}};
-        } else if constexpr (std::is_same_v<Action, btrfsbackup::backup::CleanupIncomingAction>) {
-            return std::pair{typed_action.incoming_directory, fs::path{}};
-        } else if constexpr (std::is_same_v<Action, btrfsbackup::backup::CreateSnapshotAction>) {
-            return std::pair{typed_action.snapshot, typed_action.source};
-        } else if constexpr (std::is_same_v<Action, btrfsbackup::backup::SendReceiveAction>) {
-            return std::pair{typed_action.snapshot, typed_action.incoming_run_directory};
-        } else if constexpr (std::is_same_v<Action, btrfsbackup::backup::VerifyReceivedAction>) {
-            return std::pair{typed_action.received_snapshot, typed_action.local_snapshot};
-        } else if constexpr (std::is_same_v<Action, btrfsbackup::backup::CommitReceivedAction>) {
-            return std::pair{typed_action.received_snapshot, typed_action.final_snapshot};
-        } else if constexpr (std::is_same_v<Action, btrfsbackup::backup::ApplyRemoteRetentionAction>) {
-            return std::pair{source.remote_snapshot_dir, fs::path{}};
-        } else if constexpr (std::is_same_v<Action, btrfsbackup::backup::ApplyLocalRetentionAction>) {
-            return std::pair{source.local_snapshot_dir, fs::path{}};
-        } else {
-            return std::pair{fs::path{}, fs::path{}};
-        }
-    },
-                                                           action);
-    btrfsbackup::config::Json result = {
-        {"kind", action_name(btrfsbackup::backup::backup_run_action_kind(action))},
-        {"sourceId", std::string(btrfsbackup::backup::backup_run_action_source_id(action).value())},
-        {"primaryPath", primary_path.string()},
-        {"secondaryPath", secondary_path.string()}
-    };
-    if (const auto* hook_action = std::get_if<btrfsbackup::backup::RunHookAction>(&action)) {
-        result["hook"] = {
-            {"type", "program"},
-            {"program", hook_action->hook.program},
-            {"arguments", hook_action->hook.arguments},
-            {"timeoutSeconds", hook_action->hook.timeout.count()}
-        };
-    }
-    return result;
-}
-
-btrfsbackup::config::Json paths_to_json(const std::vector<btrfsbackup::backup::SnapshotInfo>& snapshots) {
-    btrfsbackup::config::Json result = btrfsbackup::config::Json::array();
-    for (const btrfsbackup::backup::SnapshotInfo& snapshot : snapshots) {
-        result.push_back(snapshot.path.string());
-    }
-    return result;
-}
-
-btrfsbackup::config::Json source_plan_to_json(const btrfsbackup::backup::BackupSourceRunPlan& source, bool include_actions) {
-    btrfsbackup::config::Json result = {
-        {"sourceId", std::string(source.source_id.value())},
-        {"sourceSubvolume", source.source_subvolume.string()},
-        {"localSnapshotPath", source.local_snapshot_path.string()},
-        {"remoteSnapshotDir", source.remote_snapshot_dir.string()},
-        {"incomingRunDir", source.incoming_run_dir.string()},
-        {"receivedSnapshotPath", source.received_snapshot_path.string()},
-        {"finalRemoteSnapshotPath", source.final_remote_snapshot_path.string()},
-        {"incremental", source.parent.incremental},
-        {"parentPath", source.parent.local_parent.has_value() ? btrfsbackup::config::Json(source.parent.local_parent->path.string()) : btrfsbackup::config::Json(nullptr)},
-        {"pendingRecoveryAction", std::holds_alternative<btrfsbackup::backup::RecoverPendingAction>(source.actions.front()) ? "recover-pending" : "none"},
-        {"localRetentionDelete", paths_to_json(source.local_retention.delete_snapshots)},
-        {"remoteRetentionDelete", paths_to_json(source.remote_retention.delete_snapshots)}
-    };
-    if (include_actions) {
-        btrfsbackup::config::Json actions = btrfsbackup::config::Json::array();
-        for (const btrfsbackup::backup::BackupRunAction& action : source.actions) {
-            actions.push_back(action_to_json(action, source));
-        }
-        result["actions"] = actions;
-    }
-    return result;
-}
-
-btrfsbackup::config::Json sources_to_json(
-    const std::vector<btrfsbackup::backup::BackupSourceRunPlan>& sources,
-    bool include_actions
-) {
-    btrfsbackup::config::Json result = btrfsbackup::config::Json::array();
-    for (const btrfsbackup::backup::BackupSourceRunPlan& source : sources) {
-        result.push_back(source_plan_to_json(source, include_actions));
-    }
-    return result;
-}
-
-void usage() {
-    std::cout << "Usage: btrfs-backupctl runner COMMAND\n"
-              << "\nCommands:\n"
-              << "  plan --profile ID [--timestamp TS] [--run-id ID] [--mountinfo PATH]\n"
-              << "  execute --profile ID [--timestamp TS] [--run-id ID] [--force] [--validate]\n"
-              << "  cancel --profile ID --run-id ID\n";
-}
-
-struct ParsedRunnerCommand {
-    btrfsbackup::backup::BackupRequest request{.profile_id = btrfsbackup::ProfileId{"default"}};
-    fs::path mountinfo = "/proc/self/mountinfo";
-    std::map<std::string, std::string> mount_uuid_overrides;
-    btrfsbackup::RuntimeTimePoint timestamp = std::chrono::system_clock::now();
-    btrfsbackup::LocalDate today = btrfsbackup::local_date_at(timestamp);
-    std::optional<btrfsbackup::RunId> run_id;
-};
-
-ParsedRunnerCommand parse_request(
-    const fs::path& profile_config_dir,
-    const std::string& command,
-    const std::vector<std::string>& args
-) {
-    (void)profile_config_dir;
-    ParsedRunnerCommand parsed;
-    for (std::size_t i = 1; i < args.size(); ++i) {
-        const std::string& arg = args.at(i);
-        if (arg == "--profile") {
-            parsed.request.profile_id = btrfsbackup::ProfileId{arg_value(args, i, arg)};
-        } else if (arg == "--timestamp") {
-            const std::string value = arg_value(args, i, arg);
-            const auto timestamp = btrfsbackup::parse_utc_timestamp(value);
-            if (!timestamp.has_value()) {
-                fail("--timestamp must be a valid UTC timestamp");
-            }
-            parsed.timestamp = *timestamp;
-        } else if (arg == "--run-id") {
-            parsed.run_id = btrfsbackup::RunId{arg_value(args, i, arg)};
-        } else if (arg == "--today") {
-            const std::string value = arg_value(args, i, arg);
-            const auto date = btrfsbackup::parse_local_date(value);
-            if (!date.has_value()) {
-                fail("--today must be a valid local date");
-            }
-            parsed.today = *date;
-        } else if (arg == "--mountinfo") {
-            parsed.mountinfo = arg_value(args, i, arg);
-        } else if (arg == "--mount-uuid") {
-            std::string source = arg_value(args, i, arg);
-            parsed.mount_uuid_overrides[source] = arg_value(args, i, arg);
-        } else if (arg == "--force") {
-            parsed.request.force = true;
-        } else if (arg == "--validate") {
-            parsed.request.validate_only = true;
-        } else {
-            fail("unknown " + command + " option: " + arg);
-        }
-    }
-    if (command == "cancel" && !parsed.run_id.has_value()) {
-        fail("--run-id is required for cancel");
-    }
-    if (!parsed.run_id.has_value()) {
-        std::string compact = btrfsbackup::format_utc_snapshot_timestamp(parsed.timestamp);
-        compact.erase(4, 1);
-        compact.erase(6, 1);
-        parsed.run_id = btrfsbackup::RunId{compact + "-shadow"};
-    }
-    return parsed;
-}
 
 class CommandClock final : public btrfsbackup::backup::IClock {
   public:
@@ -327,9 +125,7 @@ class PosixBackupRunFactory final : public btrfsbackup::backup::IBackupRunFactor
         );
         btrfsbackup::backup::HookActionHandler hooks(commands_, hook_executables);
         btrfsbackup::platform::linux::SafeDirectoryRoot local_repository_root("/");
-        btrfsbackup::platform::linux::SafeDirectoryRoot target_repository_root(
-            plan.target_mount_point
-        );
+        btrfsbackup::platform::linux::SafeDirectoryRoot target_repository_root(plan.target_mount_point);
         btrfsbackup::backup::RepositoryActionHandler repository(
             btrfs_,
             pending_markers_,
@@ -367,18 +163,18 @@ class ProductionBackupComposition {
   public:
     ProductionBackupComposition(
         const fs::path& config_root,
-        const ParsedRunnerCommand& parsed,
+        const btrfsbackup::cli::RunnerOptions& options,
         btrfsbackup::CancellationToken& cancellation
     )
         : config_(btrfsbackup::platform::linux::load_application_config(config_root)),
           profiles_(config_root, config_),
-          mounts_(parsed.mountinfo, [&parsed](const std::string& source) {
-              const auto found = parsed.mount_uuid_overrides.find(source);
-              return found == parsed.mount_uuid_overrides.end()
+          mounts_(options.mountinfo, [&options](const std::string& source) {
+              const auto found = options.mount_uuid_overrides.find(source);
+              return found == options.mount_uuid_overrides.end()
                   ? btrfsbackup::platform::linux::blkid_filesystem_uuid(source)
                   : found->second;
           }),
-          target_mounter_(mounts_, commands_), preflight_(mounts_, target_mounter_), pending_markers_(durable_files_), discovery_(btrfsbackup::platform::linux::read_btrfs_snapshot_metadata, pending_markers_, safe_directories_), run_factory_(btrfs_, filesystem_, commands_, transfers_, pending_markers_, safe_directories_), leases_(btrfsbackup::platform::linux::default_lock_root()), state_(config_.paths(), durable_files_), file_cancellation_monitor_(state_), cancellation_monitor_(file_cancellation_monitor_, cancellation), clock_(parsed.timestamp, parsed.today), run_ids_(*parsed.run_id), service_(profiles_, config_.paths(), preflight_, discovery_, plan_builder_, run_factory_, leases_, state_, state_, state_, state_, cancellation_monitor_, clock_, run_ids_) {
+          target_mounter_(mounts_, commands_), preflight_(mounts_, target_mounter_), pending_markers_(durable_files_), discovery_(btrfsbackup::platform::linux::read_btrfs_snapshot_metadata, pending_markers_, safe_directories_), run_factory_(btrfs_, filesystem_, commands_, transfers_, pending_markers_, safe_directories_), leases_(btrfsbackup::platform::linux::default_lock_root()), state_(config_.paths(), durable_files_), file_cancellation_monitor_(state_), cancellation_monitor_(file_cancellation_monitor_, cancellation), clock_(options.timestamp, options.today), run_ids_(options.run_id), service_(profiles_, config_.paths(), preflight_, discovery_, plan_builder_, run_factory_, leases_, state_, state_, state_, state_, cancellation_monitor_, clock_, run_ids_) {
     }
 
     btrfsbackup::backup::BackupService& service() {
@@ -410,70 +206,35 @@ class ProductionBackupComposition {
     btrfsbackup::backup::BackupService service_;
 };
 
-int print_run_execution_result(
-    const btrfsbackup::backup::BackupRunPlan& plan,
-    bool skipped,
-    bool cancelled,
-    std::size_t actions_completed,
-    std::ostream& output
+int run_with_service(
+    const btrfsbackup::cli::RunnerOptions& options,
+    std::ostream& output,
+    btrfsbackup::backup::BackupService& service
 ) {
-    const bool completed = !cancelled;
-    output << btrfsbackup::config::Json{
-                  {"schemaVersion", 1},
-                  {"mode", "cpp-execute"},
-                  {"profileId", std::string(plan.profile_id.value())},
-                  {"runId", std::string(plan.run_id.value())},
-                  {"completed", completed},
-                  {"skipped", skipped},
-                  {"cancelled", cancelled},
-                  {"actionsCompleted", actions_completed},
-                  {"sources", sources_to_json(plan.sources, false)}
-              }.dump(2)
-           << '\n';
-    return completed ? 0 : 1;
+    if (options.command == btrfsbackup::cli::RunnerCommandKind::Cancel) {
+        return btrfsbackup::cli::present_runner_cancellation(
+            service.cancel({options.request.profile_id, options.run_id}),
+            output
+        );
+    }
+    if (options.command == btrfsbackup::cli::RunnerCommandKind::Plan) {
+        return btrfsbackup::cli::present_runner_plan(service.plan(options.request), output);
+    }
+    return btrfsbackup::cli::present_runner_execution(service.start(options.request), output);
 }
 
-int print_execution_result(const btrfsbackup::backup::BackupExecutionResult& result, std::ostream& output) {
-    if (const auto* busy = std::get_if<btrfsbackup::backup::BackupExecutionBusy>(&result)) {
-        output << btrfsbackup::config::Json{
-                      {"schemaVersion", 1},
-                      {"mode", "cpp-execute"},
-                      {"profileId", std::string(busy->profile_id.value())},
-                      {"runId", std::string(busy->run_id.value())},
-                      {"completed", false},
-                      {"skipped", false},
-                      {"cancelled", false},
-                      {"busy", true},
-                      {"actionsCompleted", 0},
-                      {"errorCode", error_code_name(busy->error_code)},
-                      {"errorMessage", busy->error_message}
-                  }.dump(2)
-               << '\n';
-        return 1;
+bool present_help(const std::vector<std::string>& args, std::ostream& output, int& result) {
+    if (args.empty()) {
+        btrfsbackup::cli::print_runner_usage(output);
+        result = 2;
+        return true;
     }
-    if (const auto* validated = std::get_if<btrfsbackup::backup::BackupExecutionValidated>(&result)) {
-        output << btrfsbackup::config::Json{
-                      {"schemaVersion", 1},
-                      {"mode", "cpp-validate"},
-                      {"profileId", std::string(validated->plan.profile_id.value())},
-                      {"runId", std::string(validated->plan.run_id.value())},
-                      {"completed", true},
-                      {"cancelled", false},
-                      {"actionsCompleted", 0}
-                  }
-                      .dump(2)
-               << '\n';
-        return 0;
+    if (args.front() == "-h" || args.front() == "--help") {
+        btrfsbackup::cli::print_runner_usage(output);
+        result = 0;
+        return true;
     }
-
-    if (const auto* completed = std::get_if<btrfsbackup::backup::BackupExecutionCompleted>(&result)) {
-        return print_run_execution_result(completed->plan, false, false, completed->actions_completed, output);
-    }
-    if (const auto* skipped = std::get_if<btrfsbackup::backup::BackupExecutionSkipped>(&result)) {
-        return print_run_execution_result(skipped->plan, true, false, 0, output);
-    }
-    const auto& cancelled = std::get<btrfsbackup::backup::BackupExecutionCancelled>(result);
-    return print_run_execution_result(cancelled.plan, false, true, cancelled.actions_completed, output);
+    return false;
 }
 
 } // namespace
@@ -485,58 +246,11 @@ int runner(
     std::ostream& output,
     btrfsbackup::backup::BackupService& service
 ) {
-    if (args.empty()) {
-        usage();
-        return 2;
+    int early_result = 0;
+    if (present_help(args, output, early_result)) {
+        return early_result;
     }
-    const std::string& command = args.at(0);
-    if (command == "-h" || command == "--help") {
-        usage();
-        return 0;
-    }
-    if (command != "plan" && command != "execute" && command != "cancel") {
-        fail("unknown command: " + command);
-    }
-
-    const ParsedRunnerCommand parsed = parse_request({}, command, args);
-    const btrfsbackup::backup::BackupRequest& request = parsed.request;
-    if (command == "cancel") {
-        btrfsbackup::backup::CancelBackupResult result = service.cancel({request.profile_id, *parsed.run_id});
-        return std::visit([&output](const auto& outcome) {
-            using Outcome = std::decay_t<decltype(outcome)>;
-            constexpr bool accepted = std::is_same_v<Outcome, btrfsbackup::backup::CancellationAccepted>;
-            std::string error_code;
-            if constexpr (std::is_same_v<Outcome, btrfsbackup::backup::CancellationStaleRun>) {
-                error_code = error_code_name(btrfsbackup::ErrorCode::RunnerStaleRun);
-            } else if constexpr (std::is_same_v<Outcome, btrfsbackup::backup::CancellationRunMismatch>) {
-                error_code = error_code_name(btrfsbackup::ErrorCode::RunnerRunMismatch);
-            }
-            output << btrfsbackup::config::Json{
-                          {"schemaVersion", 1},
-                          {"mode", "cpp-cancel"},
-                          {"profileId", std::string(outcome.profile_id.value())},
-                          {"runId", std::string(outcome.run_id.value())},
-                          {"cancelRequested", accepted},
-                          {"errorCode", error_code}
-                      }.dump(2)
-                   << '\n';
-            return accepted ? 0 : 1;
-        },
-                          result);
-    }
-    if (command == "plan") {
-        btrfsbackup::backup::BackupRunPlan plan = service.plan(request);
-        output << btrfsbackup::config::Json{
-                      {"schemaVersion", 1},
-                      {"mode", "shadow-plan"},
-                      {"profileId", std::string(plan.profile_id.value())},
-                      {"runId", std::string(plan.run_id.value())},
-                      {"sources", sources_to_json(plan.sources, true)}
-                  }.dump(2)
-               << '\n';
-        return 0;
-    }
-    return print_execution_result(service.start(request), output);
+    return run_with_service(parse_runner_options(args), output, service);
 }
 
 int runner(const fs::path& profile_config_dir, const std::vector<std::string>& args, std::ostream& output) {
@@ -550,20 +264,13 @@ int runner(
     std::ostream& output,
     CancellationToken& cancellation
 ) {
-    if (args.empty()) {
-        usage();
-        return 2;
+    int early_result = 0;
+    if (present_help(args, output, early_result)) {
+        return early_result;
     }
-    if (args.front() == "-h" || args.front() == "--help") {
-        usage();
-        return 0;
-    }
-    if (args.front() != "plan" && args.front() != "execute" && args.front() != "cancel") {
-        fail("unknown command: " + args.front());
-    }
-    const ParsedRunnerCommand parsed = parse_request(profile_config_dir, args.front(), args);
-    ProductionBackupComposition composition(profile_config_dir, parsed, cancellation);
-    return runner(args, output, composition.service());
+    const RunnerOptions options = parse_runner_options(args);
+    ProductionBackupComposition composition(profile_config_dir, options, cancellation);
+    return run_with_service(options, output, composition.service());
 }
 
 } // namespace btrfsbackup::cli

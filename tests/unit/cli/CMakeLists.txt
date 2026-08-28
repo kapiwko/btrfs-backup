@@ -39,6 +39,12 @@ add_btrfsbackup_test(
     btrfsbackup-state
 )
 add_btrfsbackup_test(
+    btrfsbackup-runner-options-tests
+    runner_options_tests.cpp
+    runner-options-tests
+    btrfsbackup-cli
+)
+add_btrfsbackup_test(
     btrfsbackup-status-history-tests
     status_history_tests.cpp
     status-history-tests
