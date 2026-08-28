@@ -112,7 +112,11 @@ void test_profile_from_wizard_answers() {
     test_helpers::expect_eq("wizard profile id", std::string(profile.id.value()), "laptop");
     test_helpers::expect_eq("wizard profile name", profile.name, "Laptop backup");
     test_helpers::expect_eq("wizard target device", profile.target.device, "/dev/disk/by-uuid/AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE");
-    test_helpers::expect_eq("wizard target luks uuid lower", profile.target.luks_uuid, "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
+    test_helpers::expect_eq(
+        "wizard target luks uuid lower",
+        profile.target.luks_uuid.value(),
+        "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+    );
     test_helpers::expect_eq(
         "wizard target mount unit",
         btrfsbackup::platform::linux::systemd_mount_unit_name(profile.target.mount_point),

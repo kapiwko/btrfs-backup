@@ -14,7 +14,15 @@
 namespace {
 
 struct FakeProfiles final : btrfsbackup::config::IProfileRepository {
-    btrfsbackup::config::Profile profile{btrfsbackup::ProfileId{"default"}};
+    btrfsbackup::config::Profile profile{
+        btrfsbackup::ProfileId{"default"},
+        {
+            btrfsbackup::config::LuksUuid{"11111111-2222-3333-4444-555555555555"},
+            btrfsbackup::config::BtrfsUuid{"22222222-3333-4444-5555-666666666666"},
+            btrfsbackup::config::PartitionUuid{""},
+            btrfsbackup::config::MapperName{"backup"},
+        },
+    };
 
     btrfsbackup::config::LoadedProfile get(const btrfsbackup::ProfileId&) const override {
         return {
@@ -349,7 +357,6 @@ struct Fixture {
         state.lifecycle = &cancellation_lifecycle;
         cancellation_monitor.lifecycle = &cancellation_lifecycle;
         profiles.profile.name = "Default";
-        profiles.profile.target.luks_uuid = "target-uuid";
         profiles.profile.settings.daily_limit = true;
     }
 };

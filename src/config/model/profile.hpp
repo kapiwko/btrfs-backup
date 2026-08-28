@@ -11,16 +11,29 @@
 #include <utility>
 #include <vector>
 
+#include <config/model/target_identity.hpp>
 #include <core/identifiers.hpp>
 namespace btrfsbackup::config {
 
 struct ProfileTarget {
+    ProfileTarget(
+        LuksUuid luks_uuid_value,
+        BtrfsUuid btrfs_uuid_value,
+        PartitionUuid partition_uuid_value,
+        MapperName mapper_name_value
+    )
+        : luks_uuid(std::move(luks_uuid_value)),
+          btrfs_uuid(std::move(btrfs_uuid_value)),
+          partition_uuid(std::move(partition_uuid_value)),
+          mapper_name(std::move(mapper_name_value)) {
+    }
+
     std::string device;
-    std::string luks_uuid;
-    std::string btrfs_uuid;
-    std::string partition_uuid;
+    LuksUuid luks_uuid;
+    BtrfsUuid btrfs_uuid;
+    PartitionUuid partition_uuid;
     std::string serial;
-    std::string mapper_name;
+    MapperName mapper_name;
     std::string mount_point;
 };
 
@@ -66,7 +79,8 @@ struct ProfileSource {
 };
 
 struct Profile {
-    explicit Profile(ProfileId identifier) : id(std::move(identifier)) {
+    Profile(ProfileId identifier, ProfileTarget target_value)
+        : id(std::move(identifier)), target(std::move(target_value)) {
     }
 
     std::string configuration_generation;

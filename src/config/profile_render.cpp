@@ -40,10 +40,10 @@ std::string render_udev(const Profile& profile) {
         "ACTION==\"add\"",
         "SUBSYSTEM==\"block\"",
         "ENV{ID_FS_TYPE}==\"crypto_LUKS\"",
-        "ENV{ID_FS_UUID}==\"" + profile.target.luks_uuid + "\""
+        "ENV{ID_FS_UUID}==\"" + profile.target.luks_uuid.value() + "\""
     };
     if (!profile.target.partition_uuid.empty()) {
-        matches.push_back("ENV{ID_PART_ENTRY_UUID}==\"" + profile.target.partition_uuid + "\"");
+        matches.push_back("ENV{ID_PART_ENTRY_UUID}==\"" + profile.target.partition_uuid.value() + "\"");
     }
     if (!profile.target.serial.empty()) {
         matches.push_back("ENV{ID_SERIAL_SHORT}==\"" + profile.target.serial + "\"");

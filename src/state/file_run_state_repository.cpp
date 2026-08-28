@@ -101,7 +101,7 @@ bool FileRunStateRepository::last_success_matches(
     return btrfsbackup::state::last_success_matches(
         state_dir(profile.id),
         format_local_date(date),
-        profile.target.luks_uuid,
+        profile.target.luks_uuid.value(),
         fingerprint
     );
 }
@@ -121,7 +121,7 @@ void FileRunStateRepository::write_skipped(
         .phase = RunPhase::Skipped,
         .message = "A successful backup already exists for today; no new snapshot was created.",
         .current_source_name = {},
-        .target_name = profile.target.mapper_name,
+        .target_name = profile.target.mapper_name.value(),
         .source_count = static_cast<int>(source_count),
         .started_at = started_at,
         .updated_at = finished_at,
@@ -154,7 +154,7 @@ void FileRunStateRepository::write_success(
             .profile_id = std::string(profile.id.value()),
             .profile_name = profile.name,
             .source_count = static_cast<int>(source_count),
-            .target_luks_uuid = profile.target.luks_uuid,
+            .target_luks_uuid = profile.target.luks_uuid.value(),
             .config_fingerprint = fingerprint,
         }
     );
