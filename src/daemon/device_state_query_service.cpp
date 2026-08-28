@@ -24,7 +24,7 @@ DeviceStateQueryService::DeviceStateQueryService(ManagerPaths paths)
     : paths_(std::move(paths)) {
 }
 
-btrfsbackup::config::Json DeviceStateQueryService::get_device_state(
+TargetStatus DeviceStateQueryService::get_device_state(
     const std::string& profile_id
 ) const {
     validate_profile_id(profile_id);
@@ -55,14 +55,13 @@ btrfsbackup::config::Json DeviceStateQueryService::get_device_state(
         safe_to_remove = true;
     }
     return {
-        {"schemaVersion", 1},
-        {"profileId", profile_id},
-        {"targetName", profile.target.mapper_name.value()},
-        {"state", state},
-        {"connected", connected},
-        {"unlocked", unlocked},
-        {"mounted", mounted},
-        {"safeToRemove", safe_to_remove},
+        .profile_id = profile_id,
+        .target_name = std::string(profile.target.mapper_name.value()),
+        .state = state,
+        .connected = connected,
+        .unlocked = unlocked,
+        .mounted = mounted,
+        .safe_to_remove = safe_to_remove,
     };
 }
 

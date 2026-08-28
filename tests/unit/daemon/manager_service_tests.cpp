@@ -96,27 +96,23 @@ void test_capabilities_and_profiles() {
     fs::create_symlink(root / "public" / "default.json", root / "public" / "linked.json");
 
     btrfsbackup::daemon::ManagerService service(manager_paths(root));
-    const btrfsbackup::config::Json capabilities = service.get_capabilities();
-    test_helpers::expect_true("read-only capability", capabilities.at("readOnly") == true, "manager is not read-only");
+    const btrfsbackup::daemon::ManagerCapabilities capabilities = service.get_capabilities();
+    test_helpers::expect_true("read-only capability", capabilities.read_only, "manager is not read-only");
     test_helpers::expect_true(
         "sanitized history schema capability",
-        capabilities.at("historySchemaVersion") == 1,
+        capabilities.history_schema_version == 1,
         "manager advertises the private history schema"
     );
     test_helpers::expect_true(
         "device state schema capability",
-        capabilities.at("deviceStateSchemaVersion") == 1,
+        capabilities.device_state_schema_version == 1,
         "manager omits the device-state schema"
     );
     const btrfsbackup::daemon::ProfileQueryService profiles_service(root / "public");
-    const btrfsbackup::config::Json profiles = profiles_service.list_profiles();
+    const std::vector<btrfsbackup::daemon::ProfileSummary> profiles = profiles_service.list_profiles();
     test_helpers::expect_eq("one public profile", std::to_string(profiles.size()), "1");
-    test_helpers::expect_true("private profile field absent", !profiles.at(0).contains("private"), "private field leaked");
-    test_helpers::expect_true(
-        "private source path absent",
-        !profiles.at(0).at("sources").at(0).contains("path"),
-        "source path leaked"
-    );
+    test_helpers::expect_eq("profile id", profiles.at(0).profile_id, "default");
+    test_helpers::expect_eq("profile source id", profiles.at(0).sources.at(0).id, "home");
     fs::remove_all(root);
 }
 
@@ -138,21 +134,20 @@ void test_status_and_history_sanitization() {
 
     const btrfsbackup::daemon::HistoryQueryService history_service(root / "history");
     const btrfsbackup::daemon::StatusQueryService status_service(root / "status", history_service);
-    const btrfsbackup::config::Json status = status_service.get_status("default");
-    test_helpers::expect_true("status private field absent", !status.contains("privateField"), "status field leaked");
-    const btrfsbackup::config::Json history = history_service.get_history_sanitized("default", 0, 1);
-    test_helpers::expect_eq("bounded history", std::to_string(history.size()), "1");
-    test_helpers::expect_eq("newest history first", history.at(0).at("state"), "failed");
-    test_helpers::expect_eq("generalized history error", history.at(0).at("errorCode"), "backup.failed");
-    test_helpers::expect_true("history details absent", !history.at(0).contains("details"), "details leaked");
-    test_helpers::expect_true("history run id absent", !history.at(0).contains("runId"), "run id leaked");
+    const btrfsbackup::daemon::PublicRunStatus status = status_service.get_status("default");
+    test_helpers::expect_eq("status state", status.state, "running");
+    test_helpers::expect_eq("status source", status.source_name, "Home");
+    const btrfsbackup::daemon::SanitizedHistoryPage history = history_service.get_history_sanitized("default", 0, 1);
+    test_helpers::expect_eq("bounded history", std::to_string(history.entries.size()), "1");
+    test_helpers::expect_eq("newest history first", history.entries.at(0).state, "failed");
+    test_helpers::expect_eq("generalized history error", history.entries.at(0).error_code, "backup.failed");
     test_helpers::expect_validation_error(
         "history limit",
         [&] { (void)history_service.get_history_sanitized("default", 0, 101); },
         "between 1 and 100"
     );
     fs::remove(root / "status" / "default" / "current.json");
-    test_helpers::expect_eq("restart fallback state", status_service.get_status("default").at("state"), "failed");
+    test_helpers::expect_eq("restart fallback state", status_service.get_status("default").state, "failed");
     fs::remove_all(root);
 }
 
@@ -185,11 +180,9 @@ void test_device_state_is_presentation_safe() {
         btrfsbackup::config::dump_json(private_profile(root))
     );
     const btrfsbackup::daemon::DeviceStateQueryService service(manager_paths(root));
-    const btrfsbackup::config::Json state = service.get_device_state("default");
-    test_helpers::expect_eq("connected target state", state.at("state"), "connected");
-    test_helpers::expect_true("safe closed target", state.at("safeToRemove") == true, "target is not safe");
-    test_helpers::expect_true("device path absent", !state.contains("device"), "device path leaked");
-    test_helpers::expect_true("UUID absent", !state.contains("luksUuid"), "UUID leaked");
+    const btrfsbackup::daemon::TargetStatus state = service.get_device_state("default");
+    test_helpers::expect_eq("connected target state", state.state, "connected");
+    test_helpers::expect_true("safe closed target", state.safe_to_remove, "target is not safe");
     fs::remove_all(root);
 }
 

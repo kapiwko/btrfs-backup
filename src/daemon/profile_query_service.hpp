@@ -6,7 +6,7 @@
 
 #include <filesystem>
 
-#include <config/model/json.hpp>
+#include <daemon/manager_response_models.hpp>
 
 namespace btrfsbackup::daemon {
 
@@ -14,7 +14,7 @@ class ProfileQueryService {
   public:
     explicit ProfileQueryService(std::filesystem::path public_profile_root);
 
-    [[nodiscard]] btrfsbackup::config::Json list_profiles() const;
+    [[nodiscard]] std::vector<ProfileSummary> list_profiles() const;
 
   private:
     std::filesystem::path public_profile_root_;

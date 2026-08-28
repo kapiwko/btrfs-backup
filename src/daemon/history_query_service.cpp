@@ -20,20 +20,19 @@ namespace {
 constexpr std::size_t max_history_limit = 100;
 constexpr std::size_t max_history_offset = 10000;
 
-btrfsbackup::config::Json sanitize_private_history(const btrfsbackup::config::Json& input) {
+btrfsbackup::daemon::SanitizedHistoryEntry sanitize_private_history(const btrfsbackup::config::Json& input) {
     if (!input.is_object() || input.value("schemaVersion", 0) != 2) {
         throw btrfsbackup::ValidationError("private history has an unsupported schema");
     }
     const std::string state = input.value("state", "unavailable");
     const std::string detailed_error = input.value("errorCode", "");
     return {
-        {"schemaVersion", 1},
-        {"state", state},
-        {"errorCode", detailed_error.empty() ? "" : (state == "cancelled" ? "backup.cancelled" : "backup.failed")},
-        {"sourceName", input.value("currentSourceName", "")},
-        {"targetName", input.value("targetName", "")},
-        {"finishedAt", input.value("finishedAt", "")},
-        {"overallProgress", input.value("overallProgress", -1)},
+        .state = state,
+        .error_code = detailed_error.empty() ? "" : (state == "cancelled" ? "backup.cancelled" : "backup.failed"),
+        .source_name = input.value("currentSourceName", std::string{}),
+        .target_name = input.value("targetName", std::string{}),
+        .finished_at = input.value("finishedAt", std::string{}),
+        .overall_progress = input.value("overallProgress", -1),
     };
 }
 
@@ -69,7 +68,7 @@ HistoryQueryService::HistoryQueryService(fs::path history_root)
     : history_root_(std::move(history_root)) {
 }
 
-btrfsbackup::config::Json HistoryQueryService::get_history_sanitized(
+SanitizedHistoryPage HistoryQueryService::get_history_sanitized(
     const std::string& profile_id,
     std::size_t offset,
     std::size_t limit
@@ -83,18 +82,18 @@ btrfsbackup::config::Json HistoryQueryService::get_history_sanitized(
     }
 
     const std::vector<fs::path> files = history_paths(history_root_, profile_id);
-    btrfsbackup::config::Json result = btrfsbackup::config::Json::array();
+    SanitizedHistoryPage result;
     if (offset >= files.size()) {
         return result;
     }
     const std::size_t end = std::min(files.size(), offset + limit);
     for (std::size_t index = offset; index < end; ++index) {
-        result.push_back(sanitize_private_history(read_manager_json_document(files[index])));
+        result.entries.push_back(sanitize_private_history(read_manager_json_document(files[index])));
     }
     return result;
 }
 
-std::optional<btrfsbackup::config::Json> HistoryQueryService::get_last_sanitized(
+std::optional<SanitizedHistoryEntry> HistoryQueryService::get_last_sanitized(
     const std::string& profile_id
 ) const {
     validate_profile_id(profile_id);

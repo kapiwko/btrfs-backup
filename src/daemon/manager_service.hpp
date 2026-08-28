@@ -7,7 +7,6 @@
 #include <cstddef>
 #include <string>
 
-#include <config/model/json.hpp>
 #include <daemon/device_state_query_service.hpp>
 #include <daemon/history_query_service.hpp>
 #include <daemon/manager_paths.hpp>
@@ -24,15 +23,15 @@ class ManagerService {
     ManagerService(ManagerService&&) = delete;
     ManagerService& operator=(ManagerService&&) = delete;
 
-    [[nodiscard]] btrfsbackup::config::Json get_capabilities() const;
-    [[nodiscard]] btrfsbackup::config::Json list_profiles() const;
-    [[nodiscard]] btrfsbackup::config::Json get_status(const std::string& profile_id) const;
-    [[nodiscard]] btrfsbackup::config::Json get_history_sanitized(
+    [[nodiscard]] ManagerCapabilities get_capabilities() const;
+    [[nodiscard]] std::vector<ProfileSummary> list_profiles() const;
+    [[nodiscard]] PublicRunStatus get_status(const std::string& profile_id) const;
+    [[nodiscard]] SanitizedHistoryPage get_history_sanitized(
         const std::string& profile_id,
         std::size_t offset,
         std::size_t limit
     ) const;
-    [[nodiscard]] btrfsbackup::config::Json get_device_state(const std::string& profile_id) const;
+    [[nodiscard]] TargetStatus get_device_state(const std::string& profile_id) const;
 
   private:
     ProfileQueryService profiles_;

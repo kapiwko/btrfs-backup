@@ -21,10 +21,10 @@ ProfileQueryService::ProfileQueryService(fs::path public_profile_root)
     : public_profile_root_(std::move(public_profile_root)) {
 }
 
-btrfsbackup::config::Json ProfileQueryService::list_profiles() const {
+std::vector<ProfileSummary> ProfileQueryService::list_profiles() const {
     std::error_code error;
     if (!fs::is_directory(public_profile_root_, error) || error) {
-        return btrfsbackup::config::Json::array();
+        return {};
     }
 
     std::vector<fs::path> files;
@@ -41,7 +41,8 @@ btrfsbackup::config::Json ProfileQueryService::list_profiles() const {
     }
     std::sort(files.begin(), files.end());
 
-    btrfsbackup::config::Json result = btrfsbackup::config::Json::array();
+    std::vector<ProfileSummary> result;
+    result.reserve(files.size());
     for (const fs::path& file : files) {
         btrfsbackup::config::Json profile = read_manager_json_document(file);
         if (!profile.is_object() || profile.value("schemaVersion", 0) != 1) {
@@ -49,19 +50,22 @@ btrfsbackup::config::Json ProfileQueryService::list_profiles() const {
         }
         const std::string profile_id = profile.value("profileId", "");
         validate_profile_id(profile_id);
-        btrfsbackup::config::Json sources = btrfsbackup::config::Json::array();
         if (!profile.contains("sources") || !profile.at("sources").is_array()) {
             throw ValidationError("public profile has invalid sources: " + file.string());
         }
+        std::vector<ProfileSourceSummary> sources;
+        sources.reserve(profile.at("sources").size());
         for (const btrfsbackup::config::Json& source : profile.at("sources")) {
-            sources.push_back({{"id", source.value("id", "")}, {"name", source.value("name", "")}});
+            sources.push_back({
+                .id = source.value("id", std::string{}),
+                .name = source.value("name", std::string{}),
+            });
         }
-        result.push_back({
-            {"schemaVersion", 1},
-            {"profileId", profile_id},
-            {"name", profile.value("name", "")},
-            {"targetName", profile.value("target", btrfsbackup::config::Json::object()).value("name", "")},
-            {"sources", std::move(sources)},
+        result.push_back(ProfileSummary{
+            .profile_id = profile_id,
+            .name = profile.value("name", std::string{}),
+            .target_name = profile.value("target", btrfsbackup::config::Json::object()).value("name", std::string{}),
+            .sources = std::move(sources),
         });
     }
     return result;
