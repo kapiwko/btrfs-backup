@@ -14,6 +14,8 @@
 #include <iostream>
 #include <memory>
 #include <stdexcept>
+#include <utility>
+#include <vector>
 
 #include <config/model/json_io.hpp>
 
@@ -23,6 +25,83 @@ volatile std::sig_atomic_t stop_requested = 0;
 
 void request_stop(int) {
     stop_requested = 1;
+}
+
+btrfsbackup::config::Json response_json(const btrfsbackup::daemon::ManagerCapabilities& capabilities) {
+    return {
+        {"schemaVersion", 1},
+        {"interface", capabilities.interface_name},
+        {"apiMajor", capabilities.api_major},
+        {"apiMinor", capabilities.api_minor},
+        {"profileSchemaVersion", capabilities.profile_schema_version},
+        {"publicStatusSchemaVersion", capabilities.public_status_schema_version},
+        {"historySchemaVersion", capabilities.history_schema_version},
+        {"deviceStateSchemaVersion", capabilities.device_state_schema_version},
+        {"readOnly", capabilities.read_only},
+        {"features", capabilities.features},
+    };
+}
+
+btrfsbackup::config::Json response_json(const std::vector<btrfsbackup::daemon::ProfileSummary>& profiles) {
+    btrfsbackup::config::Json result = btrfsbackup::config::Json::array();
+    for (const auto& profile : profiles) {
+        btrfsbackup::config::Json sources = btrfsbackup::config::Json::array();
+        for (const auto& source : profile.sources) {
+            sources.push_back({{"id", source.id}, {"name", source.name}});
+        }
+        result.push_back({
+            {"schemaVersion", 1},
+            {"profileId", profile.profile_id},
+            {"name", profile.name},
+            {"targetName", profile.target_name},
+            {"sources", std::move(sources)},
+        });
+    }
+    return result;
+}
+
+btrfsbackup::config::Json response_json(const btrfsbackup::daemon::PublicRunStatus& status) {
+    return {
+        {"schemaVersion", 3},
+        {"state", status.state},
+        {"errorCode", status.error_code},
+        {"sourceName", status.source_name},
+        {"targetName", status.target_name},
+        {"speedBps", status.speed_bps},
+        {"etaSeconds", status.eta_seconds},
+        {"sourceProgress", status.source_progress},
+        {"overallProgress", status.overall_progress},
+        {"progressAccuracy", status.progress_accuracy},
+    };
+}
+
+btrfsbackup::config::Json response_json(const btrfsbackup::daemon::SanitizedHistoryPage& page) {
+    btrfsbackup::config::Json result = btrfsbackup::config::Json::array();
+    for (const auto& entry : page.entries) {
+        result.push_back({
+            {"schemaVersion", 1},
+            {"state", entry.state},
+            {"errorCode", entry.error_code},
+            {"sourceName", entry.source_name},
+            {"targetName", entry.target_name},
+            {"finishedAt", entry.finished_at},
+            {"overallProgress", entry.overall_progress},
+        });
+    }
+    return result;
+}
+
+btrfsbackup::config::Json response_json(const btrfsbackup::daemon::TargetStatus& status) {
+    return {
+        {"schemaVersion", 1},
+        {"profileId", status.profile_id},
+        {"targetName", status.target_name},
+        {"state", status.state},
+        {"connected", status.connected},
+        {"unlocked", status.unlocked},
+        {"mounted", status.mounted},
+        {"safeToRemove", status.safe_to_remove},
+    };
 }
 
 int reply_json(sd_bus_message* message, sd_bus_error* error, const std::function<btrfsbackup::config::Json()>& operation) {
@@ -41,12 +120,12 @@ int reply_json(sd_bus_message* message, sd_bus_error* error, const std::function
 
 int get_capabilities(sd_bus_message* message, void* userdata, sd_bus_error* error) {
     auto& service = *static_cast<btrfsbackup::daemon::ManagerService*>(userdata);
-    return reply_json(message, error, [&] { return service.get_capabilities(); });
+    return reply_json(message, error, [&] { return response_json(service.get_capabilities()); });
 }
 
 int list_profiles(sd_bus_message* message, void* userdata, sd_bus_error* error) {
     auto& service = *static_cast<btrfsbackup::daemon::ManagerService*>(userdata);
-    return reply_json(message, error, [&] { return service.list_profiles(); });
+    return reply_json(message, error, [&] { return response_json(service.list_profiles()); });
 }
 
 int get_status(sd_bus_message* message, void* userdata, sd_bus_error* error) {
@@ -55,7 +134,9 @@ int get_status(sd_bus_message* message, void* userdata, sd_bus_error* error) {
     if (read_result < 0)
         return read_result;
     auto& service = *static_cast<btrfsbackup::daemon::ManagerService*>(userdata);
-    return reply_json(message, error, [&] { return service.get_status(profile_id == nullptr ? "" : profile_id); });
+    return reply_json(message, error, [&] {
+        return response_json(service.get_status(profile_id == nullptr ? "" : profile_id));
+    });
 }
 
 int get_history_sanitized(sd_bus_message* message, void* userdata, sd_bus_error* error) {
@@ -67,7 +148,7 @@ int get_history_sanitized(sd_bus_message* message, void* userdata, sd_bus_error*
         return read_result;
     auto& service = *static_cast<btrfsbackup::daemon::ManagerService*>(userdata);
     return reply_json(message, error, [&] {
-        return service.get_history_sanitized(profile_id == nullptr ? "" : profile_id, offset, limit);
+        return response_json(service.get_history_sanitized(profile_id == nullptr ? "" : profile_id, offset, limit));
     });
 }
 
@@ -78,7 +159,7 @@ int get_device_state(sd_bus_message* message, void* userdata, sd_bus_error* erro
         return read_result;
     auto& service = *static_cast<btrfsbackup::daemon::ManagerService*>(userdata);
     return reply_json(message, error, [&] {
-        return service.get_device_state(profile_id == nullptr ? "" : profile_id);
+        return response_json(service.get_device_state(profile_id == nullptr ? "" : profile_id));
     });
 }
 

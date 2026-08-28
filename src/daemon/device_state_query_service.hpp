@@ -6,8 +6,8 @@
 
 #include <string>
 
-#include <config/model/json.hpp>
 #include <daemon/manager_paths.hpp>
+#include <daemon/manager_response_models.hpp>
 
 namespace btrfsbackup::daemon {
 
@@ -15,7 +15,7 @@ class DeviceStateQueryService {
   public:
     explicit DeviceStateQueryService(ManagerPaths paths);
 
-    [[nodiscard]] btrfsbackup::config::Json get_device_state(
+    [[nodiscard]] TargetStatus get_device_state(
         const std::string& profile_id
     ) const;
 

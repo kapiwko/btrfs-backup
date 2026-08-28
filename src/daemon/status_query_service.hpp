@@ -7,7 +7,7 @@
 #include <filesystem>
 #include <string>
 
-#include <config/model/json.hpp>
+#include <daemon/manager_response_models.hpp>
 
 namespace btrfsbackup::daemon {
 
@@ -20,7 +20,7 @@ class StatusQueryService {
         const HistoryQueryService& history
     );
 
-    [[nodiscard]] btrfsbackup::config::Json get_status(const std::string& profile_id) const;
+    [[nodiscard]] PublicRunStatus get_status(const std::string& profile_id) const;
 
   private:
     std::filesystem::path status_root_;

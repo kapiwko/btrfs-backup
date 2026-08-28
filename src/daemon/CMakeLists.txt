@@ -16,6 +16,7 @@ target_restricted_include_directories(btrfsbackup-daemon-core
         daemon/device_state_query_service.hpp
         daemon/history_query_service.hpp
         daemon/manager_paths.hpp
+        daemon/manager_response_models.hpp
         daemon/manager_service.hpp
         daemon/profile_query_service.hpp
         daemon/status_query_service.hpp
@@ -23,9 +24,8 @@ target_restricted_include_directories(btrfsbackup-daemon-core
         daemon/manager_document_reader.hpp
 )
 target_link_libraries(btrfsbackup-daemon-core
-    PUBLIC
-        btrfsbackup-config-json
     PRIVATE
+        btrfsbackup-config-json
         btrfsbackup-config-domain
         btrfsbackup-platform-linux
 )
@@ -41,6 +41,7 @@ target_restricted_include_directories(btrfs-backupd
 set_target_properties(btrfs-backupd PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR})
 target_link_libraries(btrfs-backupd
     PRIVATE
+        btrfsbackup-config-json
         btrfsbackup-daemon-core
         btrfsbackup-platform-linux-config
         PkgConfig::SYSTEMD
