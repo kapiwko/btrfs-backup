@@ -15,7 +15,6 @@ target_restricted_include_directories(btrfsbackup-core
         core/cancellation.hpp
         core/error_code.hpp
         core/errors.hpp
-        core/file_permissions.hpp
         core/identifiers.hpp
         core/runtime_time.hpp
 )
