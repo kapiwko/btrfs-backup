@@ -11,6 +11,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 #include <backup/action_handlers/backup_run_action_handler.hpp>
@@ -30,6 +31,7 @@
 #include <state/run_state.hpp>
 
 #include "support/fake_trusted_executable.hpp"
+#include "support/fake_safe_directory.hpp"
 #include "support/validation_test_helpers.hpp"
 
 namespace fs = std::filesystem;
@@ -63,6 +65,17 @@ static_assert(HandlesAction<btrfsbackup::backup::RepositoryActionHandler, btrfsb
 static_assert(HandlesAction<btrfsbackup::backup::RepositoryActionHandler, btrfsbackup::backup::CommitReceivedAction>);
 static_assert(HandlesAction<btrfsbackup::backup::RepositoryActionHandler, btrfsbackup::backup::CleanupSourceAction>);
 static_assert(!HandlesAction<btrfsbackup::backup::RepositoryActionHandler, btrfsbackup::backup::SendReceiveAction>);
+static_assert(!std::is_constructible_v<
+              btrfsbackup::backup::RepositoryActionHandler,
+              btrfsbackup::backup::IBtrfsOperations&,
+              btrfsbackup::backup::IFileSystem&,
+              btrfsbackup::backup::IPendingMarkerStore&>);
+static_assert(std::is_constructible_v<
+              btrfsbackup::backup::RepositoryActionHandler,
+              btrfsbackup::backup::IBtrfsOperations&,
+              btrfsbackup::backup::IPendingMarkerStore&,
+              btrfsbackup::backup::ISafeDirectoryRoot&,
+              btrfsbackup::backup::ISafeDirectoryRoot&>);
 static_assert(HandlesHookAction<btrfsbackup::backup::HookActionHandler>);
 static_assert(!HandlesAction<btrfsbackup::backup::HookActionHandler, btrfsbackup::backup::RunHookAction>);
 
@@ -200,7 +213,9 @@ class ActionHandlerFixture final : public btrfsbackup::backup::IBackupRunActionH
           retention_(btrfs),
           hook_executables_(std::make_unique<test_support::FakeTrustedExecutableResolver>()),
           hooks_(fallback_commands_, *hook_executables_),
-          repository_(btrfs, filesystem, pending_markers_),
+          local_repository_root_(std::make_unique<test_support::FakeSafeDirectoryRoot>("/", fs::path{}, false)),
+          target_repository_root_(std::make_unique<test_support::FakeSafeDirectoryRoot>("/", fs::path{}, false)),
+          repository_(btrfs, pending_markers_, *local_repository_root_, *target_repository_root_),
           dispatcher_(snapshots_, recovery_, retention_, hooks_, repository_) {
     }
 
@@ -215,7 +230,9 @@ class ActionHandlerFixture final : public btrfsbackup::backup::IBackupRunActionH
           retention_(btrfs),
           hook_executables_(std::make_unique<test_support::FakeTrustedExecutableResolver>()),
           hooks_(commands, *hook_executables_),
-          repository_(btrfs, filesystem, pending_markers_),
+          local_repository_root_(std::make_unique<test_support::FakeSafeDirectoryRoot>("/", fs::path{}, false)),
+          target_repository_root_(std::make_unique<test_support::FakeSafeDirectoryRoot>("/", fs::path{}, false)),
+          repository_(btrfs, pending_markers_, *local_repository_root_, *target_repository_root_),
           dispatcher_(snapshots_, recovery_, retention_, hooks_, repository_) {
     }
 
@@ -240,12 +257,13 @@ class ActionHandlerFixture final : public btrfsbackup::backup::IBackupRunActionH
           ),
           hook_executables_(std::make_unique<test_support::FakeTrustedExecutableResolver>()),
           hooks_(commands, *hook_executables_),
+          local_repository_root_(std::make_unique<btrfsbackup::platform::linux::SafeDirectoryRoot>("/")),
+          target_repository_root_(std::make_unique<btrfsbackup::platform::linux::SafeDirectoryRoot>(target_root)),
           repository_(
               btrfs,
-              filesystem,
               pending_markers_,
-              std::make_unique<btrfsbackup::platform::linux::SafeDirectoryRoot>("/"),
-              std::make_unique<btrfsbackup::platform::linux::SafeDirectoryRoot>(target_root)
+              *local_repository_root_,
+              *target_repository_root_
           ),
           dispatcher_(snapshots_, recovery_, retention_, hooks_, repository_) {
     }
@@ -273,12 +291,13 @@ class ActionHandlerFixture final : public btrfsbackup::backup::IBackupRunActionH
           ),
           hook_executables_(std::make_unique<btrfsbackup::platform::linux::PosixTrustedExecutableResolver>(hook_root, hook_policy)),
           hooks_(commands, *hook_executables_),
+          local_repository_root_(std::make_unique<btrfsbackup::platform::linux::SafeDirectoryRoot>("/")),
+          target_repository_root_(std::make_unique<btrfsbackup::platform::linux::SafeDirectoryRoot>(target_root)),
           repository_(
               btrfs,
-              filesystem,
               pending_markers_,
-              std::make_unique<btrfsbackup::platform::linux::SafeDirectoryRoot>("/"),
-              std::make_unique<btrfsbackup::platform::linux::SafeDirectoryRoot>(target_root)
+              *local_repository_root_,
+              *target_repository_root_
           ),
           dispatcher_(snapshots_, recovery_, retention_, hooks_, repository_) {
     }
@@ -300,6 +319,8 @@ class ActionHandlerFixture final : public btrfsbackup::backup::IBackupRunActionH
     btrfsbackup::backup::RetentionActionHandler retention_;
     std::unique_ptr<btrfsbackup::backup::ITrustedExecutableResolver> hook_executables_;
     btrfsbackup::backup::HookActionHandler hooks_;
+    std::unique_ptr<btrfsbackup::backup::ISafeDirectoryRoot> local_repository_root_;
+    std::unique_ptr<btrfsbackup::backup::ISafeDirectoryRoot> target_repository_root_;
     btrfsbackup::backup::RepositoryActionHandler repository_;
     btrfsbackup::backup::BackupRunActionHandler dispatcher_;
 };
@@ -424,26 +445,20 @@ void test_create_snapshot_writes_pending_marker_and_verifies_readonly_snapshot()
     test_helpers::expect_true("pending marker exists", fs::is_regular_file(source.recovery.marker_path), "pending marker should be written");
 }
 
-void test_cleanup_incoming_deletes_subvolumes_and_plain_paths() {
+void test_cleanup_incoming_uses_safe_root() {
     fs::path root = test_helpers::test_root("backup-run-action-handler", "cleanup-incoming");
     btrfsbackup::backup::BackupSourceRunPlan source = source_plan(root);
-    fs::path subvolume = source.incoming_source_root / "old-subvol";
     fs::path directory = source.incoming_source_root / "old-dir";
-    fs::path nested_subvolume = directory / "received-subvol";
+    fs::create_directories(directory);
+    test_helpers::write_file(directory / "data", "remove\n");
     FakeBtrfsOperations btrfs;
-    btrfs.subvolumes = {subvolume.string(), nested_subvolume.string()};
     FakeFileSystem fs_effects;
-    fs_effects.directories = {directory, subvolume, nested_subvolume};
-    fs_effects.directory_entries[source.incoming_source_root.string()] = {directory, subvolume};
-    fs_effects.directory_entries[directory.string()] = {nested_subvolume};
     ActionHandlerFixture handler(btrfs, fs_effects);
 
     handle_action(handler, action(btrfsbackup::backup::BackupRunActionKind::CleanupIncoming, source));
 
-    test_helpers::expect_true("list incoming", std::find(fs_effects.calls.begin(), fs_effects.calls.end(), action_path("list", source.incoming_source_root)) != fs_effects.calls.end(), "incoming root should be listed");
-    test_helpers::expect_true("delete nested subvolume", std::find(btrfs.calls.begin(), btrfs.calls.end(), action_path("delete", nested_subvolume)) != btrfs.calls.end(), "nested subvolume should be deleted before removing its parent directory");
-    test_helpers::expect_true("delete plain dir", std::find(fs_effects.calls.begin(), fs_effects.calls.end(), action_path("rmdir", directory)) != fs_effects.calls.end(), "plain directory should be removed after its contents");
-    test_helpers::expect_true("delete subvolume", std::find(btrfs.calls.begin(), btrfs.calls.end(), action_path("delete", subvolume)) != btrfs.calls.end(), "subvolume should be deleted with btrfs");
+    test_helpers::expect_true("incoming root preserved", fs::is_directory(source.incoming_source_root), "cleanup should preserve the incoming source root");
+    test_helpers::expect_true("incoming contents removed", fs::is_empty(source.incoming_source_root), "cleanup should remove incoming contents through the safe root");
 }
 
 void test_production_cleanup_rejects_incoming_symlink_escape() {
@@ -502,8 +517,7 @@ void test_verify_commit_retention_and_cleanup_use_existing_helpers() {
     };
 
     FakeFileSystem fs_effects;
-    fs_effects.directories = {source.received_snapshot_path, source.incoming_run_dir};
-    fs_effects.directory_entries[source.incoming_run_dir.string()] = {};
+    fs::create_directories(source.received_snapshot_path);
     ActionHandlerFixture handler(btrfs, fs_effects);
 
     handle_action(handler, action(btrfsbackup::backup::BackupRunActionKind::VerifyReceived, source));
@@ -515,7 +529,7 @@ void test_verify_commit_retention_and_cleanup_use_existing_helpers() {
     test_helpers::expect_true("commit snapshot", std::find(btrfs.calls.begin(), btrfs.calls.end(), "snapshot:" + source.received_snapshot_path.string() + "->" + source.final_remote_snapshot_path.string()) != btrfs.calls.end(), "commit should snapshot received subvolume");
     test_helpers::expect_true("remote retention delete", std::find(btrfs.calls.begin(), btrfs.calls.end(), action_path("delete", root / "remote" / "old")) != btrfs.calls.end(), "remote retention should delete planned snapshot");
     test_helpers::expect_true("local retention delete", std::find(btrfs.calls.begin(), btrfs.calls.end(), action_path("delete", root / "local" / "old")) != btrfs.calls.end(), "local retention should delete planned snapshot");
-    test_helpers::expect_true("cleanup received", std::find(btrfs.calls.begin(), btrfs.calls.end(), action_path("delete", source.received_snapshot_path)) != btrfs.calls.end(), "cleanup should delete received subvolume");
+    test_helpers::expect_true("cleanup received", !fs::exists(source.received_snapshot_path), "cleanup should delete the received snapshot through the safe root");
 }
 
 void test_pending_recovery_deletes_invalid_remote_snapshot_first() {
@@ -700,7 +714,7 @@ void test_hook_cancellation_is_not_reported_as_hook_failure() {
 
 int main() {
     test_create_snapshot_writes_pending_marker_and_verifies_readonly_snapshot();
-    test_cleanup_incoming_deletes_subvolumes_and_plain_paths();
+    test_cleanup_incoming_uses_safe_root();
     test_production_cleanup_rejects_incoming_symlink_escape();
     test_verify_commit_retention_and_cleanup_use_existing_helpers();
     test_pending_recovery_deletes_invalid_remote_snapshot_first();
