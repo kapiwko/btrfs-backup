@@ -122,6 +122,7 @@ class ConfigurableTransferPipeline final : public btrfsbackup::backup::transfer:
         .bytes_transferred = 1024,
     };
     std::optional<fs::path> request_cancel_path;
+    std::optional<btrfsbackup::RunId> request_cancel_run_id;
 
     btrfsbackup::backup::transfer::TransferResult run(
         const btrfsbackup::backup::transfer::TransferPipelinePlan& plan,
@@ -137,8 +138,12 @@ class ConfigurableTransferPipeline final : public btrfsbackup::backup::transfer:
             .elapsed_ms = 1000,
             .speed_bps = 1024,
         });
-        if (request_cancel_path.has_value()) {
-            btrfsbackup::state::write_cancel_request(durable_files, *request_cancel_path);
+        if (request_cancel_path.has_value() && request_cancel_run_id.has_value()) {
+            btrfsbackup::state::write_cancel_request(
+                durable_files,
+                *request_cancel_path,
+                *request_cancel_run_id
+            );
             for (int i = 0; i < 20 && !cancellation.cancellation_requested(); ++i) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(50));
             }
@@ -1641,6 +1646,32 @@ void test_runner_cancel_writes_cancel_request_without_target_mount() {
     write_profile(config_root, profile);
     write_application_config(config_root, root);
 
+    RecordingActionHandler action_handler;
+    ConfigurableTransferPipeline transfer_pipeline;
+    const fs::path lock_root = root / "locks";
+    ServiceFixture services{
+        .action_handler = action_handler,
+        .transfer_pipeline = transfer_pipeline,
+        .lock_root = lock_root,
+        .application_config = btrfsbackup::config::ApplicationConfig(test_application_paths(root)),
+    };
+    btrfsbackup::platform::linux::FileLock active_profile_lock(
+        btrfsbackup::platform::linux::profile_lock_path(lock_root, "default")
+    );
+    test_helpers::expect_true(
+        "active profile lock",
+        active_profile_lock.try_acquire(),
+        "cannot simulate an active run"
+    );
+
+    fs::path profile_state_dir = root / "state" / "profiles" / "default";
+    btrfsbackup::platform::linux::PosixDurableFileOperations durable_files;
+    btrfsbackup::state::write_active_run(
+        durable_files,
+        profile_state_dir,
+        btrfsbackup::RunId{"active-run"}
+    );
+
     std::ostringstream output;
     int result = run_runner(
         config_root,
@@ -1648,12 +1679,14 @@ void test_runner_cancel_writes_cancel_request_without_target_mount() {
             "cancel",
             "--profile",
             "default",
+            "--run-id",
+            "active-run",
         },
-        output
+        output,
+        &services
     );
 
     btrfsbackup::config::Json json = btrfsbackup::config::Json::parse(output.str());
-    fs::path profile_state_dir = root / "state" / "profiles" / "default";
     test_helpers::expect_eq("cancel result", std::to_string(result), "0");
     test_helpers::expect_eq("cancel mode", json.at("mode").get<std::string>(), "cpp-cancel");
     test_helpers::expect_true("cancel requested json", json.at("cancelRequested").get<bool>(), "cancel should be requested");
@@ -1662,6 +1695,7 @@ void test_runner_cancel_writes_cancel_request_without_target_mount() {
         btrfsbackup::state::cancel_requested(profile_state_dir),
         "cancel request file missing"
     );
+    test_helpers::expect_eq("cancel run id", json.at("runId").get<std::string>(), "active-run");
 
     fs::remove_all(root);
 }
@@ -1683,6 +1717,7 @@ void test_runner_execute_honors_cancel_request_during_transfer() {
     ConfigurableTransferPipeline transfer_pipeline;
     fs::path profile_state_dir = root / "state" / "profiles" / "default";
     transfer_pipeline.request_cancel_path = profile_state_dir;
+    transfer_pipeline.request_cancel_run_id = btrfsbackup::RunId{"20260823T080000Z-123-456"};
     ServiceFixture services{
         .action_handler = action_handler,
         .transfer_pipeline = transfer_pipeline,

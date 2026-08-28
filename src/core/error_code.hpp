@@ -16,6 +16,8 @@ enum class ErrorCode {
     RunnerCancelled,
     RunnerProfileBusy,
     RunnerTargetBusy,
+    RunnerStaleRun,
+    RunnerRunMismatch,
     TransferFailed,
     TransferProducerFailed,
     TransferConsumerFailed,

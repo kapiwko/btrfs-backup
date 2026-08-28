@@ -5,10 +5,12 @@
 #pragma once
 
 #include <filesystem>
+#include <optional>
 #include <string>
 
 #include <backup/model/pending_recovery.hpp>
 #include <core/durable_file_operations.hpp>
+#include <core/identifiers.hpp>
 
 namespace btrfsbackup::state {
 
@@ -36,9 +38,31 @@ void write_success_state(
     const SuccessState& state
 );
 std::filesystem::path cancel_request_path(const std::filesystem::path& profile_state_dir);
-void write_cancel_request(IDurableFileOperations& files, const std::filesystem::path& profile_state_dir);
+std::filesystem::path active_run_path(const std::filesystem::path& profile_state_dir);
+void write_active_run(
+    IDurableFileOperations& files,
+    const std::filesystem::path& profile_state_dir,
+    const RunId& run_id
+);
+[[nodiscard]] std::optional<RunId> active_run(const std::filesystem::path& profile_state_dir);
+void clear_active_run(
+    IDurableFileOperations& files,
+    const std::filesystem::path& profile_state_dir,
+    const RunId& run_id
+);
+void write_cancel_request(
+    IDurableFileOperations& files,
+    const std::filesystem::path& profile_state_dir,
+    const RunId& run_id
+);
 bool cancel_requested(const std::filesystem::path& profile_state_dir);
+bool cancel_requested(const std::filesystem::path& profile_state_dir, const RunId& run_id);
 void clear_cancel_request(IDurableFileOperations& files, const std::filesystem::path& profile_state_dir);
+void clear_cancel_request(
+    IDurableFileOperations& files,
+    const std::filesystem::path& profile_state_dir,
+    const RunId& run_id
+);
 std::filesystem::path pending_marker_path(const std::filesystem::path& profile_state_dir, const std::string& source_name);
 void write_pending_marker(
     IDurableFileOperations& files,

@@ -20,9 +20,22 @@ struct BackupRequest {
     bool validate_only = false;
 };
 
+struct CancellationRequest {
+    ProfileId profile_id;
+    RunId run_id;
+};
+
+enum class CancellationRequestOutcome {
+    Accepted,
+    StaleRun,
+    RunMismatch,
+};
+
 struct CancelBackupResult {
     ProfileId profile_id;
+    RunId run_id;
     bool cancel_requested = false;
+    std::optional<ErrorCode> error_code;
 };
 
 enum class BackupExecutionOutcome { Completed,
