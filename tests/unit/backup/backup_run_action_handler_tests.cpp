@@ -25,7 +25,7 @@
 #include <backup/action_handlers/snapshot_action_handler.hpp>
 
 #include <platform/linux/safe_directory_root.hpp>
-#include <platform/linux/file_io.hpp>
+#include <platform/linux/posix_durable_file_operations.hpp>
 #include <platform/linux/trusted_executable.hpp>
 #include <state/file_pending_marker_store.hpp>
 #include <state/run_state.hpp>

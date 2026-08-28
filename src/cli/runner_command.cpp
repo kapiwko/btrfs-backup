@@ -36,7 +36,7 @@
 #include <platform/linux/posix_command_runner.hpp>
 #include <platform/linux/file_lock.hpp>
 #include <platform/linux/file_backup_run_lease_provider.hpp>
-#include <platform/linux/file_io.hpp>
+#include <platform/linux/posix_durable_file_operations.hpp>
 #include <platform/linux/posix_filesystem.hpp>
 #include <platform/linux/mount_info.hpp>
 #include <platform/linux/posix_transfer_pipeline.hpp>
