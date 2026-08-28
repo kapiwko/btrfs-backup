@@ -7,9 +7,7 @@
 #include <algorithm>
 #include <chrono>
 #include <filesystem>
-#include <iomanip>
 #include <limits>
-#include <sstream>
 #include <string>
 #include <state/serialization.hpp>
 #include <state/run_history.hpp>
@@ -37,17 +35,6 @@ struct EventProjectionData {
     std::optional<ErrorCode> error_code;
     std::string message;
 };
-
-std::string current_utc_iso_timestamp() {
-    auto now = std::chrono::system_clock::now();
-    std::time_t time = std::chrono::system_clock::to_time_t(now);
-    std::tm tm{};
-    gmtime_r(&time, &tm);
-
-    std::ostringstream out;
-    out << std::put_time(&tm, "%Y-%m-%dT%H:%M:%SZ");
-    return out.str();
-}
 
 EventProjectionData event_projection_data(const btrfsbackup::backup::BackupRunEvent& event) {
     EventProjectionData data{
@@ -253,7 +240,8 @@ RunStatus status_for_event(
     auto source_name = context.source_names.find(source_id);
     RunState state = RunState::Running;
     RunPhase phase = phase_for_event(event.kind);
-    std::string finished_at;
+    const RuntimeTimePoint updated_at = std::chrono::system_clock::now();
+    std::optional<RuntimeTimePoint> finished_at;
     int exit_code = 0;
 
     if ((event.kind == btrfsbackup::backup::BackupRunEventKind::ActionStarted || event.kind == btrfsbackup::backup::BackupRunEventKind::ActionCompleted || event.kind == btrfsbackup::backup::BackupRunEventKind::ActionFailed || event.kind == btrfsbackup::backup::BackupRunEventKind::CheckpointWritten) && event.action_kind.has_value()) {
@@ -265,16 +253,16 @@ RunStatus status_for_event(
     if (event.kind == btrfsbackup::backup::BackupRunEventKind::ActionFailed) {
         state = RunState::Failed;
         exit_code = 1;
-        finished_at = current_utc_iso_timestamp();
+        finished_at = updated_at;
     } else if (event.kind == btrfsbackup::backup::BackupRunEventKind::RunCompleted) {
         state = RunState::Succeeded;
         phase = RunPhase::Succeeded;
-        finished_at = current_utc_iso_timestamp();
+        finished_at = updated_at;
     } else if (event.kind == btrfsbackup::backup::BackupRunEventKind::RunCancelled) {
         state = RunState::Cancelled;
         phase = RunPhase::Cancelled;
         exit_code = 130;
-        finished_at = current_utc_iso_timestamp();
+        finished_at = updated_at;
     }
 
     RunDetails details;
@@ -369,7 +357,7 @@ RunStatus status_for_event(
         .source_index = event.source_index,
         .source_count = context.source_count,
         .started_at = context.started_at,
-        .updated_at = current_utc_iso_timestamp(),
+        .updated_at = updated_at,
         .finished_at = finished_at,
         .error = std::move(error),
         .details = details,

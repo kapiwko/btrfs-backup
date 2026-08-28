@@ -12,6 +12,7 @@
 
 #include <core/identifiers.hpp>
 #include <core/error_code.hpp>
+#include <core/runtime_time.hpp>
 
 namespace btrfsbackup::state {
 
@@ -86,9 +87,9 @@ struct RunStatus {
     std::string target_name;
     int source_index = 0;
     int source_count = 0;
-    std::string started_at;
-    std::string updated_at;
-    std::string finished_at;
+    RuntimeTimePoint started_at;
+    RuntimeTimePoint updated_at;
+    std::optional<RuntimeTimePoint> finished_at;
     std::optional<RunError> error;
     RunDetails details;
     bool can_cancel = false;

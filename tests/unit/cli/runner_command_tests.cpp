@@ -329,24 +329,21 @@ void write_mountinfo(const fs::path& path, const btrfsbackup::config::Profile& p
 
 class FixedClock final : public btrfsbackup::backup::IClock {
   public:
-    std::string timestamp = "2026-08-23T080000Z";
-    std::string today = "2026-08-23";
+    btrfsbackup::RuntimeTimePoint timestamp = *btrfsbackup::parse_utc_timestamp("2026-08-23T080000Z");
+    btrfsbackup::LocalDate today = *btrfsbackup::parse_local_date("2026-08-23");
 
-    std::string snapshot_timestamp() const override {
+    btrfsbackup::RuntimeTimePoint now() const override {
         return timestamp;
     }
-    std::string local_date() const override {
+    btrfsbackup::LocalDate local_date() const override {
         return today;
-    }
-    std::string local_timestamp() const override {
-        return "2026-08-23T08:00:00+02:00";
     }
 };
 
 class FixedRunIdGenerator final : public btrfsbackup::backup::IRunIdGenerator {
   public:
     btrfsbackup::RunId run_id{"20260823T080000Z-shadow"};
-    btrfsbackup::RunId generate(const std::string&) override {
+    btrfsbackup::RunId generate(btrfsbackup::RuntimeTimePoint) override {
         return run_id;
     }
 };
@@ -421,13 +418,15 @@ int run_runner(
     btrfsbackup::state::FileRunStateRepository state(fixture->application_config.paths(), durable_files);
     btrfsbackup::state::FileCancellationMonitor file_cancellation_monitor(state);
     FixedClock clock;
-    clock.timestamp = option_value(args, "--timestamp", clock.timestamp);
-    clock.today = option_value(args, "--today", clock.today);
+    const std::string timestamp = option_value(args, "--timestamp", btrfsbackup::format_utc_snapshot_timestamp(clock.timestamp));
+    const std::string today = option_value(args, "--today", btrfsbackup::format_local_date(clock.today));
+    clock.timestamp = *btrfsbackup::parse_utc_timestamp(timestamp);
+    clock.today = *btrfsbackup::parse_local_date(today);
     FixedRunIdGenerator run_ids;
     run_ids.run_id = btrfsbackup::RunId{option_value(
         args,
         "--run-id",
-        compact_test_timestamp(clock.timestamp) + "-shadow"
+        compact_test_timestamp(timestamp) + "-shadow"
     )};
     btrfsbackup::CancellationToken owned_cancellation;
     btrfsbackup::CancellationToken& cancellation = external_cancellation == nullptr

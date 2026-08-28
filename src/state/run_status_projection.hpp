@@ -11,6 +11,7 @@
 
 #include <backup/model/backup_run_event.hpp>
 #include <core/durable_file_operations.hpp>
+#include <core/runtime_time.hpp>
 #include <state/status_writer.hpp>
 
 namespace btrfsbackup::state {
@@ -20,7 +21,7 @@ struct BackupRunStatusContext {
     std::filesystem::path history_root;
     std::string profile_name;
     int source_count = 0;
-    std::string started_at;
+    RuntimeTimePoint started_at;
     std::map<std::string, std::string> source_names;
     std::string target_name;
 };

@@ -9,13 +9,14 @@
 #include <string>
 
 #include <backup/model/backup_run_event.hpp>
+#include <core/runtime_time.hpp>
 
 namespace btrfsbackup::backup {
 
 struct BackupRunStatusDescription {
     std::string profile_name;
     int source_count = 0;
-    std::string started_at;
+    RuntimeTimePoint started_at;
     std::map<std::string, std::string> source_names;
     std::string target_name;
 };

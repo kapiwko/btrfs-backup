@@ -5,9 +5,8 @@
 #include <state/serialization.hpp>
 
 #include <chrono>
-#include <ctime>
-#include <iomanip>
-#include <sstream>
+
+#include <core/runtime_time.hpp>
 
 namespace btrfsbackup::state {
 
@@ -30,17 +29,6 @@ struct SerializedEventData {
     std::optional<ErrorCode> error_code;
     std::string message;
 };
-
-std::string current_utc_iso_timestamp() {
-    const auto now = std::chrono::system_clock::now();
-    const std::time_t time = std::chrono::system_clock::to_time_t(now);
-    std::tm tm{};
-    gmtime_r(&time, &tm);
-
-    std::ostringstream out;
-    out << std::put_time(&tm, "%Y-%m-%dT%H:%M:%SZ");
-    return out.str();
-}
 
 SerializedEventData serialized_event_data(const btrfsbackup::backup::BackupRunEvent& event) {
     SerializedEventData data{
@@ -142,7 +130,7 @@ btrfsbackup::config::Json build_backup_run_checkpoint_json(const btrfsbackup::ba
         {"runId", std::string(checkpoint.run_id.value())},
         {"sourceId", std::string(checkpoint.source_id.value())},
         {"action", backup_run_action_kind_name(checkpoint.action_kind)},
-        {"updatedAt", current_utc_iso_timestamp()},
+        {"updatedAt", format_utc_iso_timestamp(std::chrono::system_clock::now())},
     };
 }
 

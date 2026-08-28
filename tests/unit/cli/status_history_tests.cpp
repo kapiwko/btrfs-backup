@@ -11,6 +11,7 @@
 #include <cli/status_command.hpp>
 #include <cli/status_show_command.hpp>
 #include <config/model/json_io.hpp>
+#include <core/runtime_time.hpp>
 #include <state/status_writer.hpp>
 #include <platform/linux/file_io.hpp>
 
@@ -133,8 +134,8 @@ btrfsbackup::state::RunStatus watch_sample_record() {
         .current_source_name = "home",
         .source_index = 1,
         .source_count = 2,
-        .started_at = "2026-08-23T02:44:07Z",
-        .updated_at = "2026-08-23T02:45:07Z",
+        .started_at = *btrfsbackup::parse_utc_timestamp("2026-08-23T02:44:07Z"),
+        .updated_at = *btrfsbackup::parse_utc_timestamp("2026-08-23T02:45:07Z"),
         .can_cancel = true,
         .progress = btrfsbackup::state::RunProgress{
             .processed_bytes = 4096,

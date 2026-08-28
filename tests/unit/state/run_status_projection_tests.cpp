@@ -6,6 +6,7 @@
 #include <string>
 #include <state/run_status_projection.hpp>
 #include <config/model/json_io.hpp>
+#include <core/runtime_time.hpp>
 #include <platform/linux/file_io.hpp>
 
 #include "support/test_helpers.hpp"
@@ -72,7 +73,7 @@ void test_public_transfer_progress_excludes_run_details() {
                                                                       .history_root = root / "history",
                                                                       .profile_name = "Default backup",
                                                                       .source_count = 2,
-                                                                      .started_at = "2026-08-23T12:00:00Z",
+                                                                      .started_at = *btrfsbackup::parse_utc_timestamp("2026-08-23T12:00:00Z"),
                                                                       .source_names = {{"root", "@home"}, {"home", "@archive"}},
                                                                       .target_name = "backupdisk",
                                                                   });
@@ -113,7 +114,7 @@ void test_status_sink_writes_current_and_terminal_history() {
                                                                       .history_root = root / "history",
                                                                       .profile_name = "Default backup",
                                                                       .source_count = 2,
-                                                                      .started_at = "2026-08-23T12:00:00Z",
+                                                                      .started_at = *btrfsbackup::parse_utc_timestamp("2026-08-23T12:00:00Z"),
                                                                   });
 
     sink.on_backup_run_event(action_started());
@@ -143,7 +144,7 @@ void test_hook_failure_status_uses_stable_error_code() {
                                                                       .history_root = root / "history",
                                                                       .profile_name = "Default backup",
                                                                       .source_count = 1,
-                                                                      .started_at = "2026-08-23T12:00:00Z",
+                                                                      .started_at = *btrfsbackup::parse_utc_timestamp("2026-08-23T12:00:00Z"),
                                                                   });
 
     const btrfsbackup::backup::ActionFailed failed = action_failed(
@@ -174,7 +175,7 @@ void test_repository_recovery_required_status_is_actionable() {
                                                                       .history_root = root / "history",
                                                                       .profile_name = "Default backup",
                                                                       .source_count = 1,
-                                                                      .started_at = "2026-08-23T12:00:00Z",
+                                                                      .started_at = *btrfsbackup::parse_utc_timestamp("2026-08-23T12:00:00Z"),
                                                                   });
 
     const btrfsbackup::backup::ActionFailed failed = action_failed(

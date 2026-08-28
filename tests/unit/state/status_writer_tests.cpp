@@ -12,6 +12,7 @@
 
 #include <core/errors.hpp>
 #include <core/identifiers.hpp>
+#include <core/runtime_time.hpp>
 #include <config/model/json.hpp>
 #include <config/model/json_io.hpp>
 #include <state/status_writer.hpp>
@@ -89,9 +90,9 @@ btrfsbackup::state::RunStatus sample_record() {
         .target_name = "backupdisk",
         .source_index = 1,
         .source_count = 2,
-        .started_at = "2026-08-23T02:44:07+00:00",
-        .updated_at = "2026-08-23T02:45:07+00:00",
-        .finished_at = "2026-08-23T02:45:07+00:00",
+        .started_at = *btrfsbackup::parse_utc_timestamp("2026-08-23T02:44:07Z"),
+        .updated_at = *btrfsbackup::parse_utc_timestamp("2026-08-23T02:45:07Z"),
+        .finished_at = *btrfsbackup::parse_utc_timestamp("2026-08-23T02:45:07Z"),
         .exit_code = 0,
     };
 }
@@ -119,9 +120,9 @@ void test_build_status_json_matches_contract_shape() {
     expect_true("target", data.at("targetName") == "backupdisk", "wrong targetName");
     expect_true("source index", data.at("sourceIndex") == 1, "wrong sourceIndex");
     expect_true("source count", data.at("sourceCount") == 2, "wrong sourceCount");
-    expect_true("started", data.at("startedAt") == "2026-08-23T02:44:07+00:00", "wrong startedAt");
-    expect_true("updated", data.at("updatedAt") == "2026-08-23T02:45:07+00:00", "wrong updatedAt");
-    expect_true("finished", data.at("finishedAt") == "2026-08-23T02:45:07+00:00", "wrong finishedAt");
+    expect_true("started", data.at("startedAt") == "2026-08-23T02:44:07Z", "wrong startedAt");
+    expect_true("updated", data.at("updatedAt") == "2026-08-23T02:45:07Z", "wrong updatedAt");
+    expect_true("finished", data.at("finishedAt") == "2026-08-23T02:45:07Z", "wrong finishedAt");
     expect_true("error code", data.at("errorCode") == "", "wrong errorCode");
     expect_true("error message", data.at("errorMessage") == "", "wrong errorMessage");
     expect_true("details", data.at("details").is_object() && data.at("details").empty(), "wrong details");
@@ -221,9 +222,9 @@ void test_dump_status_json_uses_stable_order_and_newline() {
         "  \"targetName\": \"backupdisk\",\n"
         "  \"sourceIndex\": 1,\n"
         "  \"sourceCount\": 2,\n"
-        "  \"startedAt\": \"2026-08-23T02:44:07+00:00\",\n"
-        "  \"updatedAt\": \"2026-08-23T02:45:07+00:00\",\n"
-        "  \"finishedAt\": \"2026-08-23T02:45:07+00:00\",\n"
+        "  \"startedAt\": \"2026-08-23T02:44:07Z\",\n"
+        "  \"updatedAt\": \"2026-08-23T02:45:07Z\",\n"
+        "  \"finishedAt\": \"2026-08-23T02:45:07Z\",\n"
         "  \"errorCode\": \"\",\n"
         "  \"errorMessage\": \"\",\n"
         "  \"details\": {},\n"

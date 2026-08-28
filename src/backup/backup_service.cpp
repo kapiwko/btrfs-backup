@@ -8,6 +8,7 @@
 #include <utility>
 
 #include <core/errors.hpp>
+#include <core/runtime_time.hpp>
 
 namespace btrfsbackup::backup {
 
@@ -16,7 +17,7 @@ namespace {
 BackupRunStatusDescription status_description(
     const btrfsbackup::config::Profile& profile,
     const BackupRunPlan& plan,
-    const std::string& started_at
+    RuntimeTimePoint started_at
 ) {
     std::map<std::string, std::string> source_names;
     for (const btrfsbackup::config::ProfileSource& source : profile.sources) {
@@ -75,15 +76,17 @@ BackupRunPlan BackupService::prepare_plan(
 }
 
 BackupRunPlan BackupService::plan(const BackupRequest& request) {
-    const std::string timestamp = clock_.snapshot_timestamp();
-    const RunId run_id = run_ids_.generate(timestamp);
+    const RuntimeTimePoint time = clock_.now();
+    const std::string timestamp = format_utc_snapshot_timestamp(time);
+    const RunId run_id = run_ids_.generate(time);
     const btrfsbackup::config::LoadedProfile loaded = profiles_.get(request.profile_id);
     return prepare_plan(loaded.profile, run_id, timestamp);
 }
 
 BackupExecutionResult BackupService::start(const BackupRequest& request) {
-    const std::string timestamp = clock_.snapshot_timestamp();
-    const RunId run_id = run_ids_.generate(timestamp);
+    const RuntimeTimePoint started_at = clock_.now();
+    const std::string timestamp = format_utc_snapshot_timestamp(started_at);
+    const RunId run_id = run_ids_.generate(started_at);
     const btrfsbackup::config::LoadedProfile loaded = profiles_.get(request.profile_id);
     const btrfsbackup::config::Profile& profile = loaded.profile;
 
@@ -104,9 +107,9 @@ BackupExecutionResult BackupService::start(const BackupRequest& request) {
         return BackupExecutionValidated{std::move(plan)};
     }
 
-    const std::string today = clock_.local_date();
+    const LocalDate today = clock_.local_date();
     if (!request.force && profile.settings.daily_limit && ledger_.last_success_matches(profile, today, fingerprint)) {
-        ledger_.write_skipped(profile, run_id, timestamp, clock_.local_timestamp(), plan.sources.size());
+        ledger_.write_skipped(profile, run_id, started_at, clock_.now(), plan.sources.size());
         return BackupExecutionSkipped{std::move(plan)};
     }
 
@@ -118,7 +121,7 @@ BackupExecutionResult BackupService::start(const BackupRequest& request) {
         event_sinks_,
         cancellation_requests_,
         cancellation_monitor_,
-        status_description(profile, plan, timestamp)
+        status_description(profile, plan, started_at)
     );
     BackupRunExecutionResult execution = run_factory_.execute(
         plan,
@@ -133,7 +136,7 @@ BackupExecutionResult BackupService::start(const BackupRequest& request) {
             profile,
             run_id,
             today,
-            clock_.local_timestamp(),
+            clock_.now(),
             fingerprint,
             plan.sources.size()
         );
