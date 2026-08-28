@@ -54,7 +54,6 @@ target_restricted_include_directories(btrfsbackup-transfer
 target_link_libraries(btrfsbackup-transfer
     PUBLIC
         btrfsbackup-core
-        btrfsbackup-config-domain
 )
 
 add_library(btrfsbackup-backup-ports STATIC
