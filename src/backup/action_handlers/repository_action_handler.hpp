@@ -4,15 +4,11 @@
 
 #pragma once
 
-#include <filesystem>
-#include <memory>
-
 #include <backup/model/backup_run_actions.hpp>
 
 namespace btrfsbackup::backup {
 
 class IBtrfsOperations;
-class IFileSystem;
 class IPendingMarkerStore;
 class ISafeDirectoryRoot;
 
@@ -20,17 +16,10 @@ class RepositoryActionHandler {
   public:
     RepositoryActionHandler(
         IBtrfsOperations& btrfs,
-        IFileSystem& filesystem,
-        IPendingMarkerStore& pending_markers
-    );
-    RepositoryActionHandler(
-        IBtrfsOperations& btrfs,
-        IFileSystem& filesystem,
         IPendingMarkerStore& pending_markers,
-        std::unique_ptr<ISafeDirectoryRoot> local_root,
-        std::unique_ptr<ISafeDirectoryRoot> target_root
+        ISafeDirectoryRoot& local_root,
+        ISafeDirectoryRoot& target_root
     );
-    ~RepositoryActionHandler();
 
     void handle(const CleanupIncomingAction& action);
     void handle(const VerifyReceivedAction& action);
@@ -39,10 +28,9 @@ class RepositoryActionHandler {
 
   private:
     IBtrfsOperations& btrfs_;
-    IFileSystem& filesystem_;
     IPendingMarkerStore& pending_markers_;
-    std::unique_ptr<ISafeDirectoryRoot> local_root_;
-    std::unique_ptr<ISafeDirectoryRoot> target_root_;
+    ISafeDirectoryRoot& local_root_;
+    ISafeDirectoryRoot& target_root_;
 };
 
 } // namespace btrfsbackup::backup
