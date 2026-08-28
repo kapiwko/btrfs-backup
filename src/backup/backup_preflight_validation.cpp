@@ -55,7 +55,7 @@ void validate_backup_target_mount(const btrfsbackup::config::Profile& profile, c
         throw ValidationError("Backup target is not a Btrfs filesystem: " + profile.target.mount_point);
     }
 
-    fs::path mapper_path = fs::path("/dev/mapper") / profile.target.mapper_name;
+    fs::path mapper_path = fs::path("/dev/mapper") / profile.target.mapper_name.value();
     if (!mount_uses_mapper(mounts, profile.target.mount_point, mapper_path)) {
         throw ValidationError("The filesystem mounted at " + profile.target.mount_point + " is not " + mapper_path.string());
     }
@@ -72,10 +72,8 @@ void validate_backup_target_mount(const btrfsbackup::config::Profile& profile, c
         }
     }
 
-    if (profile.target.btrfs_uuid.empty()) {
-        throw ValidationError("target.btrfsUuid is required for target mount validation");
-    }
-    if (target_mount->filesystem_uuid.empty() || lower(target_mount->filesystem_uuid) != lower(profile.target.btrfs_uuid)) {
+    if (target_mount->filesystem_uuid.empty() ||
+        lower(target_mount->filesystem_uuid) != profile.target.btrfs_uuid.value()) {
         throw ValidationError("Btrfs UUID mismatch at " + profile.target.mount_point);
     }
 

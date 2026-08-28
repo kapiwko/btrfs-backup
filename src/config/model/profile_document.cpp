@@ -400,18 +400,22 @@ ProfileDocument normalize_profile_document(const Json& raw, const fs::path& targ
 
 Profile profile_from_document(const ProfileDocument& document, const fs::path& target_mount_root) {
     const Json normalized = normalize_profile(document.value, target_mount_root);
-    Profile profile{ProfileId{normalized.at("profileId").get<std::string>()}};
+    const Json& target = normalized.at("target");
+    Profile profile{
+        ProfileId{normalized.at("profileId").get<std::string>()},
+        ProfileTarget{
+            LuksUuid{target.at("luksUuid").get<std::string>()},
+            BtrfsUuid{target.at("btrfsUuid").get<std::string>()},
+            PartitionUuid{target.at("partitionUuid").get<std::string>()},
+            MapperName{target.at("mapperName").get<std::string>()},
+        },
+    };
     profile.configuration_generation = normalized.value("configurationGeneration", "");
     profile.name = normalized.at("name").get<std::string>();
     profile.enabled = normalized.at("enabled").get<bool>();
 
-    const Json& target = normalized.at("target");
     profile.target.device = target.at("device").get<std::string>();
-    profile.target.luks_uuid = target.at("luksUuid").get<std::string>();
-    profile.target.btrfs_uuid = target.at("btrfsUuid").get<std::string>();
-    profile.target.partition_uuid = target.at("partitionUuid").get<std::string>();
     profile.target.serial = target.at("serial").get<std::string>();
-    profile.target.mapper_name = target.at("mapperName").get<std::string>();
     profile.target.mount_point = (normalized_absolute_path(target_mount_root, "TARGET_MOUNT_ROOT") / profile.id.value()).string();
 
     const Json& paths = normalized.at("paths");
@@ -470,11 +474,11 @@ Json profile_to_json(const Profile& profile) {
 
     Json target = {
         {"device", profile.target.device},
-        {"luksUuid", profile.target.luks_uuid},
-        {"btrfsUuid", profile.target.btrfs_uuid},
-        {"partitionUuid", profile.target.partition_uuid},
+        {"luksUuid", profile.target.luks_uuid.value()},
+        {"btrfsUuid", profile.target.btrfs_uuid.value()},
+        {"partitionUuid", profile.target.partition_uuid.value()},
         {"serial", profile.target.serial},
-        {"mapperName", profile.target.mapper_name}
+        {"mapperName", profile.target.mapper_name.value()}
     };
 
     auto hooks_to_json = [](const std::vector<ProfileHookCommand>& hooks) {

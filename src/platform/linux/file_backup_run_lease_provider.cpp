@@ -41,11 +41,12 @@ btrfsbackup::backup::BackupRunLeaseResult FileBackupRunLeaseProvider::try_acquir
             .error_message = "Another runner is already active for profile " + std::string(profile.id.value()) + ".",
         };
     }
-    FileLock target_lock(target_lock_path(lock_root_, profile.target.luks_uuid));
+    FileLock target_lock(target_lock_path(lock_root_, profile.target.luks_uuid.value()));
     if (!target_lock.try_acquire()) {
         return btrfsbackup::backup::BackupRunLeaseBusy{
             .error_code = ErrorCode::RunnerTargetBusy,
-            .error_message = "Another operation is already active for target LUKS UUID " + profile.target.luks_uuid + ".",
+            .error_message = "Another operation is already active for target LUKS UUID " +
+                profile.target.luks_uuid.value() + ".",
         };
     }
     return btrfsbackup::backup::BackupRunLeaseAcquired{

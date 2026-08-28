@@ -6,8 +6,6 @@
 
 #include <config/model/profile_document.hpp>
 
-#include <algorithm>
-#include <cctype>
 #include <filesystem>
 #include <set>
 
@@ -16,27 +14,21 @@
 
 namespace btrfsbackup::config {
 
-namespace {
-
-std::string lower(std::string value) {
-    std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-    return value;
-}
-
-} // namespace
-
 Profile profile_from_wizard_answers(const ProfileWizardAnswers& answers) {
-    Profile profile{ProfileId{answers.profile_id}};
+    Profile profile{
+        ProfileId{answers.profile_id},
+        ProfileTarget{
+            LuksUuid{answers.target_luks_uuid},
+            BtrfsUuid{answers.target_btrfs_uuid},
+            PartitionUuid{answers.target_partition_uuid},
+            MapperName{answers.target_mapper_name},
+        },
+    };
     profile.name = answers.profile_name;
     profile.enabled = true;
 
     profile.target.device = answers.target_device;
-    profile.target.luks_uuid = lower(answers.target_luks_uuid);
-    profile.target.btrfs_uuid = answers.target_btrfs_uuid;
-    profile.target.partition_uuid = answers.target_partition_uuid;
     profile.target.serial = answers.target_serial;
-    profile.target.mapper_name = answers.target_mapper_name;
-    validate_identifier(profile.target.mapper_name, "target.mapperName");
     profile.target.mount_point = (std::filesystem::path(answers.target_mount_root) / profile.id.value()).string();
 
     profile.paths.remote_root = profile.target.mount_point + "/snapshots";

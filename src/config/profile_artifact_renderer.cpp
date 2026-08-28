@@ -27,7 +27,7 @@ Json public_profile_json(const Profile& profile) {
         {"schemaVersion", 1},
         {"profileId", std::string(profile.id.value())},
         {"name", profile.name},
-        {"target", {{"name", profile.target.mapper_name}}},
+        {"target", {{"name", profile.target.mapper_name.value()}}},
         {"sources", std::move(sources)},
     };
     if (!profile.configuration_generation.empty()) {

@@ -20,11 +20,17 @@ static_assert(!std::is_default_constructible_v<btrfsbackup::backup::CreateSnapsh
 static_assert(!std::is_default_constructible_v<btrfsbackup::backup::BackupRunAction>);
 
 btrfsbackup::config::Profile profile() {
-    btrfsbackup::config::Profile result{btrfsbackup::ProfileId{"default"}};
+    btrfsbackup::config::Profile result{
+        btrfsbackup::ProfileId{"default"},
+        {
+            btrfsbackup::config::LuksUuid{"11111111-2222-3333-4444-555555555555"},
+            btrfsbackup::config::BtrfsUuid{"22222222-3333-4444-5555-666666666666"},
+            btrfsbackup::config::PartitionUuid{""},
+            btrfsbackup::config::MapperName{"backup"},
+        },
+    };
     result.name = "Default backup";
-    result.target.mapper_name = "backup";
     result.target.mount_point = "/mnt/backup";
-    result.target.btrfs_uuid = "target-fs";
     result.paths.remote_root = "/mnt/backup/snapshots";
     result.paths.incoming_root = "/mnt/backup/.incoming";
     result.settings.incremental_required = true;

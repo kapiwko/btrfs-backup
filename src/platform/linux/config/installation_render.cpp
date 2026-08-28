@@ -65,12 +65,14 @@ std::string fstab_escape(const std::string& value) {
 }
 
 std::string render_fstab_fragment(const btrfsbackup::config::Profile& profile) {
-    std::string cryptsetup_unit = btrfsbackup::platform::linux::run_capture({"systemd-escape", "--template=systemd-cryptsetup@.service", profile.target.mapper_name});
+    std::string cryptsetup_unit = btrfsbackup::platform::linux::run_capture(
+        {"systemd-escape", "--template=systemd-cryptsetup@.service", profile.target.mapper_name.value()}
+    );
     return "# Merge this single line into /etc/fstab.\n"
            "# noauto prevents mounting at boot. The profile service starts this mount unit only after the matching LUKS device appears.\n"
            "\n"
            "/dev/mapper/" +
-        fstab_escape(profile.target.mapper_name) + "  " +
+        fstab_escape(profile.target.mapper_name.value()) + "  " +
         fstab_escape(profile.target.mount_point) +
         "  btrfs  noauto,nofail,noatime,nodev,nosuid,noexec,nosymfollow,compress=zstd,x-systemd.requires=" +
         cryptsetup_unit +
@@ -81,7 +83,7 @@ std::string render_crypttab_fragment(const btrfsbackup::config::Profile& profile
     return "# Merge this single line into /etc/crypttab.\n"
            "# Format: <name> <device> <password> <options>\n"
            "\n" +
-        profile.target.mapper_name + "  UUID=" + profile.target.luks_uuid + "  " +
+        profile.target.mapper_name.value() + "  UUID=" + profile.target.luks_uuid.value() + "  " +
         fstab_escape(keyfile) +
         "  luks,noauto,nofail,x-systemd.device-timeout=30s\n";
 }

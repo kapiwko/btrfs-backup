@@ -246,15 +246,19 @@ void add_snapshot_metadata(
 }
 
 btrfsbackup::config::Profile test_profile(const fs::path& root) {
-    btrfsbackup::config::Profile profile{btrfsbackup::ProfileId{"default"}};
+    btrfsbackup::config::Profile profile{
+        btrfsbackup::ProfileId{"default"},
+        {
+            btrfsbackup::config::LuksUuid{"11111111-2222-3333-4444-555555555555"},
+            btrfsbackup::config::BtrfsUuid{"22222222-3333-4444-5555-666666666666"},
+            btrfsbackup::config::PartitionUuid{""},
+            btrfsbackup::config::MapperName{"backup"},
+        },
+    };
     profile.name = "Default backup";
     profile.enabled = true;
     profile.target.device = "/dev/disk/by-uuid/11111111-2222-3333-4444-555555555555";
-    profile.target.luks_uuid = "11111111-2222-3333-4444-555555555555";
-    profile.target.btrfs_uuid = "22222222-3333-4444-5555-666666666666";
-    profile.target.partition_uuid = "";
     profile.target.serial = "";
-    profile.target.mapper_name = "backup";
     profile.target.mount_point = (root / "target" / "default").string();
     profile.paths.remote_root = (root / "target" / "default" / "snapshots").string();
     profile.paths.incoming_root = (root / "target" / "default" / ".incoming").string();
@@ -394,7 +398,7 @@ int run_runner(
     );
     const fs::path mountinfo = option_value(args, "--mountinfo", "/proc/self/mountinfo");
     btrfsbackup::platform::linux::FileProfileRepository profiles(config_root, fixture->application_config);
-    btrfsbackup::platform::linux::LinuxMountInspector mounts(mountinfo, [target_uuid = profile.target.btrfs_uuid](const std::string& source) {
+    btrfsbackup::platform::linux::LinuxMountInspector mounts(mountinfo, [target_uuid = profile.target.btrfs_uuid.value()](const std::string& source) {
         return source.find("/dev/mapper/") == 0 ? target_uuid : "source-btrfs-uuid";
     });
     btrfsbackup::platform::linux::PosixCommandRunner commands;
@@ -483,7 +487,7 @@ void write_matching_last_success(const fs::path& config_root, const btrfsbackup:
             .profile_id = std::string(profile.id.value()),
             .profile_name = profile.name,
             .source_count = 1,
-            .target_luks_uuid = profile.target.luks_uuid,
+            .target_luks_uuid = profile.target.luks_uuid.value(),
             .config_fingerprint = profile_fingerprint(config_root, profile),
         }
     );
@@ -520,7 +524,7 @@ void test_runner_plan_outputs_shadow_json() {
             "source-fs",
             "--mount-uuid",
             "/dev/mapper/backup",
-            profile.target.btrfs_uuid,
+            profile.target.btrfs_uuid.value(),
         },
         output
     );
@@ -665,8 +669,10 @@ void test_runner_execute_serializes_shared_target_but_allows_another_target() {
     btrfsbackup::config::Profile other_target_profile = test_profile(root);
     other_target_profile.id = btrfsbackup::ProfileId{"other"};
     other_target_profile.name = "Other target";
-    other_target_profile.target.luks_uuid = "33333333-4444-5555-6666-777777777777";
-    other_target_profile.target.btrfs_uuid = "44444444-5555-6666-7777-888888888888";
+    other_target_profile.target.luks_uuid =
+        btrfsbackup::config::LuksUuid{"33333333-4444-5555-6666-777777777777"};
+    other_target_profile.target.btrfs_uuid =
+        btrfsbackup::config::BtrfsUuid{"44444444-5555-6666-7777-888888888888"};
     other_target_profile.target.mount_point = (root / "target" / "other").string();
     other_target_profile.paths.remote_root = (root / "target" / "other" / "snapshots").string();
     other_target_profile.paths.incoming_root = (root / "target" / "other" / ".incoming").string();
@@ -719,7 +725,7 @@ void test_runner_execute_serializes_shared_target_but_allows_another_target() {
                     "source-fs",
                     "--mount-uuid",
                     "/dev/mapper/backup",
-                    active_profile.target.btrfs_uuid,
+                    active_profile.target.btrfs_uuid.value(),
                 },
                 active_output,
                 &active_services
@@ -832,7 +838,7 @@ void test_runner_execute_serializes_shared_target_but_allows_another_target() {
             "source-fs",
             "--mount-uuid",
             "/dev/mapper/backup",
-            other_target_profile.target.btrfs_uuid,
+            other_target_profile.target.btrfs_uuid.value(),
         },
         other_output,
         &other_services
@@ -897,7 +903,7 @@ void test_runner_execute_uses_injected_services_and_writes_state() {
             "source-fs",
             "--mount-uuid",
             "/dev/mapper/backup",
-            profile.target.btrfs_uuid,
+            profile.target.btrfs_uuid.value(),
         },
         output,
         &services
@@ -929,7 +935,7 @@ void test_runner_execute_uses_injected_services_and_writes_state() {
         btrfsbackup::state::last_success_matches(
             root / "state" / "profiles" / "default",
             "2026-08-23",
-            profile.target.luks_uuid,
+            profile.target.luks_uuid.value(),
             profile_fingerprint(config_root, profile)
         ),
         "successful runner should write daily-limit state"
@@ -981,7 +987,7 @@ void test_runner_execute_daily_limit_skips_matching_success() {
             "source-fs",
             "--mount-uuid",
             "/dev/mapper/backup",
-            profile.target.btrfs_uuid,
+            profile.target.btrfs_uuid.value(),
         },
         output,
         &services
@@ -1056,7 +1062,7 @@ void test_runner_execute_force_ignores_daily_limit() {
             "source-fs",
             "--mount-uuid",
             "/dev/mapper/backup",
-            profile.target.btrfs_uuid,
+            profile.target.btrfs_uuid.value(),
         },
         output,
         &services
@@ -1113,7 +1119,7 @@ void test_runner_execute_validate_builds_plan_without_effects() {
             "source-fs",
             "--mount-uuid",
             "/dev/mapper/backup",
-            profile.target.btrfs_uuid,
+            profile.target.btrfs_uuid.value(),
         },
         output,
         &services
@@ -1172,7 +1178,7 @@ void test_runner_execute_transfer_failure_writes_failed_status() {
                                                                                     "source-fs",
                                                                                     "--mount-uuid",
                                                                                     "/dev/mapper/backup",
-                                                                                    profile.target.btrfs_uuid,
+                                                                                    profile.target.btrfs_uuid.value(),
                                                                                 },
                                                                                 output,
                                                                                 &services
@@ -1250,7 +1256,7 @@ void test_runner_execute_commit_failure_writes_failed_status() {
                                                                                   "source-fs",
                                                                                   "--mount-uuid",
                                                                                   "/dev/mapper/backup",
-                                                                                  profile.target.btrfs_uuid,
+                                                                                  profile.target.btrfs_uuid.value(),
                                                                               },
                                                                               output,
                                                                               &services
@@ -1320,7 +1326,7 @@ void test_runner_execute_verify_failure_writes_failed_status() {
                                                                                   "source-fs",
                                                                                   "--mount-uuid",
                                                                                   "/dev/mapper/backup",
-                                                                                  profile.target.btrfs_uuid,
+                                                                                  profile.target.btrfs_uuid.value(),
                                                                               },
                                                                               output,
                                                                               &services
@@ -1392,7 +1398,7 @@ void test_runner_execute_multi_source_success() {
             "source-fs",
             "--mount-uuid",
             "/dev/mapper/backup",
-            profile.target.btrfs_uuid,
+            profile.target.btrfs_uuid.value(),
         },
         output,
         &services
@@ -1464,7 +1470,7 @@ void test_runner_execute_incremental_uses_selected_parent() {
             "source-fs",
             "--mount-uuid",
             "/dev/mapper/backup",
-            profile.target.btrfs_uuid,
+            profile.target.btrfs_uuid.value(),
         },
         output,
         &services
@@ -1545,7 +1551,7 @@ void test_runner_execute_retention_plans_local_and_remote_deletes() {
             "source-fs",
             "--mount-uuid",
             "/dev/mapper/backup",
-            profile.target.btrfs_uuid,
+            profile.target.btrfs_uuid.value(),
         },
         output,
         &services
@@ -1623,7 +1629,7 @@ void test_runner_execute_pending_recovery_deletes_orphan() {
             "source-fs",
             "--mount-uuid",
             "/dev/mapper/backup",
-            profile.target.btrfs_uuid,
+            profile.target.btrfs_uuid.value(),
         },
         output,
         &services
@@ -1804,7 +1810,7 @@ void test_runner_execute_honors_cancel_request_during_transfer() {
             "source-fs",
             "--mount-uuid",
             "/dev/mapper/backup",
-            profile.target.btrfs_uuid,
+            profile.target.btrfs_uuid.value(),
         },
         output,
         &services
@@ -1876,7 +1882,7 @@ void test_runner_execute_handles_sigint_as_cancelled_with_recovery_marker() {
                     "source-fs",
                     "--mount-uuid",
                     "/dev/mapper/backup",
-                    profile.target.btrfs_uuid,
+                    profile.target.btrfs_uuid.value(),
                 },
                 output,
                 &services,
