@@ -77,11 +77,11 @@ void validate_backup_target_mount(const btrfsbackup::config::Profile& profile, c
         throw ValidationError("Btrfs UUID mismatch at " + profile.target.mount_point);
     }
 
-    if (!resolved_path_is_within(profile.paths.remote_root, profile.target.mount_point)) {
-        throw ValidationError("REMOTE_ROOT escapes the backup mountpoint: " + profile.paths.remote_root);
+    if (!resolved_path_is_within(profile.paths.remote_root.value(), profile.target.mount_point)) {
+        throw ValidationError("REMOTE_ROOT escapes the backup mountpoint: " + profile.paths.remote_root.value().string());
     }
-    if (!resolved_path_is_within(profile.paths.incoming_root, profile.target.mount_point)) {
-        throw ValidationError("INCOMING_ROOT escapes the backup mountpoint: " + profile.paths.incoming_root);
+    if (!resolved_path_is_within(profile.paths.incoming_root.value(), profile.target.mount_point)) {
+        throw ValidationError("INCOMING_ROOT escapes the backup mountpoint: " + profile.paths.incoming_root.value().string());
     }
 }
 

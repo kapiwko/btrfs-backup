@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 add_library(btrfsbackup-config-domain STATIC
+    model/repository_path.cpp
     model/storage_policy.cpp
     model/target_identity.cpp
     model/validation.cpp
@@ -12,6 +13,7 @@ target_compile_features(btrfsbackup-config-domain PUBLIC cxx_std_20)
 target_restricted_include_directories(btrfsbackup-config-domain
     PUBLIC_HEADERS
         config/model/profile.hpp
+        config/model/repository_path.hpp
         config/model/storage_policy.hpp
         config/model/target_identity.hpp
         config/model/validation.hpp

@@ -136,14 +136,14 @@ BackupRunPlan build_backup_run_plan(
             throw ValidationError("duplicate source id in backup run plan: " + source_id_value);
         }
 
-        const fs::path remote_snapshot_dir = fs::path(profile.paths.remote_root) / source.remote_subdir;
-        const fs::path incoming_source_root = fs::path(profile.paths.incoming_root) / source_id_value;
+        const fs::path remote_snapshot_dir = profile.paths.remote_root.value() / source.remote_subdir.value();
+        const fs::path incoming_source_root = profile.paths.incoming_root.value() / source_id_value;
         const fs::path incoming_run_dir = incoming_source_root / run_id_value;
 
-        if (!btrfsbackup::config::path_is_within(remote_snapshot_dir, profile.paths.remote_root)) {
+        if (!btrfsbackup::config::path_is_within(remote_snapshot_dir, profile.paths.remote_root.value())) {
             throw ValidationError("Remote source directory escapes REMOTE_ROOT: " + remote_snapshot_dir.string());
         }
-        if (!btrfsbackup::config::path_is_within(incoming_source_root, profile.paths.incoming_root)) {
+        if (!btrfsbackup::config::path_is_within(incoming_source_root, profile.paths.incoming_root.value())) {
             throw ValidationError("Incoming source directory escapes INCOMING_ROOT: " + incoming_source_root.string());
         }
         if (btrfsbackup::config::path_is_within(source.local_snapshot_dir, profile.target.mount_point)) {

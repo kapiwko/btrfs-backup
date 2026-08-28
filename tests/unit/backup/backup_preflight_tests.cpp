@@ -20,10 +20,12 @@ btrfsbackup::config::Profile profile() {
             btrfsbackup::config::PartitionUuid{""},
             btrfsbackup::config::MapperName{"backup"},
         },
+        {
+            btrfsbackup::config::RemoteSnapshotRoot{"/mnt/backup/snapshots"},
+            btrfsbackup::config::IncomingRoot{"/mnt/backup/.incoming"},
+        },
     };
     result.target.mount_point = "/mnt/backup";
-    result.paths.remote_root = "/mnt/backup/snapshots";
-    result.paths.incoming_root = "/mnt/backup/.incoming";
     return result;
 }
 

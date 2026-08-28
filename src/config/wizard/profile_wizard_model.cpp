@@ -23,6 +23,10 @@ Profile profile_from_wizard_answers(const ProfileWizardAnswers& answers) {
             PartitionUuid{answers.target_partition_uuid},
             MapperName{answers.target_mapper_name},
         },
+        ProfilePaths{
+            RemoteSnapshotRoot{(std::filesystem::path(answers.target_mount_root) / answers.profile_id / "snapshots").string()},
+            IncomingRoot{(std::filesystem::path(answers.target_mount_root) / answers.profile_id / ".incoming").string()},
+        },
     };
     profile.name = answers.profile_name;
     profile.enabled = true;
@@ -31,12 +35,9 @@ Profile profile_from_wizard_answers(const ProfileWizardAnswers& answers) {
     profile.target.serial = answers.target_serial;
     profile.target.mount_point = (std::filesystem::path(answers.target_mount_root) / profile.id.value()).string();
 
-    profile.paths.remote_root = profile.target.mount_point + "/snapshots";
-    profile.paths.incoming_root = profile.target.mount_point + "/.incoming";
-
     std::set<std::string> used_names;
     for (const ProfileWizardSourceAnswers& source_answer : answers.sources) {
-        ProfileSource source{SourceId{source_answer.id}};
+        ProfileSource source{SourceId{source_answer.id}, SafeRelativePath{source_answer.remote_subdir}};
         const std::string source_id{source.id.value()};
         if (!used_names.insert(source_id).second) {
             throw ValidationError("duplicate source name: " + source_id);
@@ -45,7 +46,6 @@ Profile profile_from_wizard_answers(const ProfileWizardAnswers& answers) {
         source.enabled = true;
         source.subvolume = source_answer.subvolume;
         source.local_snapshot_dir = source_answer.local_snapshot_dir;
-        source.remote_subdir = source_answer.remote_subdir;
         source.remote_retention = RetentionCount{answers.remote_retention};
         source.local_retention = RetentionCount{answers.local_retention};
         profile.sources.push_back(source);

@@ -44,7 +44,7 @@ BackupPlanningSnapshot BackupDiscovery::discover(
         }
         const SourceId& source_id = source.id;
         const std::string source_id_value{source_id.value()};
-        const fs::path remote_dir = fs::path(profile.paths.remote_root) / source.remote_subdir;
+        const fs::path remote_dir = profile.paths.remote_root.value() / source.remote_subdir.value();
         if (local_root->exists(source.local_snapshot_dir)) {
             std::unique_ptr<ISafeDirectoryHandle> local = local_root->pin_directory(source.local_snapshot_dir);
             local_inventory[source_id] = list_snapshot_inventory_at(

@@ -11,6 +11,7 @@
 #include <utility>
 #include <vector>
 
+#include <config/model/repository_path.hpp>
 #include <config/model/storage_policy.hpp>
 #include <config/model/target_identity.hpp>
 #include <core/identifiers.hpp>
@@ -39,8 +40,12 @@ struct ProfileTarget {
 };
 
 struct ProfilePaths {
-    std::string remote_root;
-    std::string incoming_root;
+    ProfilePaths(RemoteSnapshotRoot remote_root_value, IncomingRoot incoming_root_value)
+        : remote_root(std::move(remote_root_value)), incoming_root(std::move(incoming_root_value)) {
+    }
+
+    RemoteSnapshotRoot remote_root;
+    IncomingRoot incoming_root;
 };
 
 struct ProfileSettings {
@@ -66,7 +71,12 @@ struct ProfileHooks {
 };
 
 struct ProfileSource {
-    explicit ProfileSource(SourceId identifier) : id(std::move(identifier)) {
+    explicit ProfileSource(SourceId identifier)
+        : id(std::move(identifier)), remote_subdir(std::string(id.value())) {
+    }
+
+    ProfileSource(SourceId identifier, SafeRelativePath remote_subdir_value)
+        : id(std::move(identifier)), remote_subdir(std::move(remote_subdir_value)) {
     }
 
     SourceId id;
@@ -74,14 +84,14 @@ struct ProfileSource {
     bool enabled = true;
     std::string subvolume;
     std::string local_snapshot_dir;
-    std::string remote_subdir;
+    SafeRelativePath remote_subdir;
     RetentionCount remote_retention{30};
     RetentionCount local_retention{30};
 };
 
 struct Profile {
-    Profile(ProfileId identifier, ProfileTarget target_value)
-        : id(std::move(identifier)), target(std::move(target_value)) {
+    Profile(ProfileId identifier, ProfileTarget target_value, ProfilePaths paths_value)
+        : id(std::move(identifier)), target(std::move(target_value)), paths(std::move(paths_value)) {
     }
 
     std::string configuration_generation;

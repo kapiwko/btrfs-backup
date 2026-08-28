@@ -28,18 +28,19 @@ btrfsbackup::config::Profile profile() {
             btrfsbackup::config::PartitionUuid{""},
             btrfsbackup::config::MapperName{"backup"},
         },
+        {
+            btrfsbackup::config::RemoteSnapshotRoot{"/mnt/backup/snapshots"},
+            btrfsbackup::config::IncomingRoot{"/mnt/backup/.incoming"},
+        },
     };
     result.name = "Default backup";
     result.target.mount_point = "/mnt/backup";
-    result.paths.remote_root = "/mnt/backup/snapshots";
-    result.paths.incoming_root = "/mnt/backup/.incoming";
     result.settings.incremental_required = true;
     result.settings.keep_failed_local_snapshot = false;
     btrfsbackup::config::ProfileSource root{btrfsbackup::SourceId{"root"}};
     root.name = "System";
     root.subvolume = "/";
     root.local_snapshot_dir = "/.snapshots/root";
-    root.remote_subdir = "root";
     root.remote_retention = btrfsbackup::config::RetentionCount{2};
     root.local_retention = btrfsbackup::config::RetentionCount{2};
     btrfsbackup::config::ProfileSource home{btrfsbackup::SourceId{"home"}};
@@ -47,7 +48,6 @@ btrfsbackup::config::Profile profile() {
     home.enabled = false;
     home.subvolume = "/home";
     home.local_snapshot_dir = "/.snapshots/home";
-    home.remote_subdir = "home";
     home.remote_retention = btrfsbackup::config::RetentionCount{2};
     home.local_retention = btrfsbackup::config::RetentionCount{2};
     result.sources = {std::move(root), std::move(home)};
