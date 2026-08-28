@@ -23,11 +23,11 @@ namespace {
 class PollingCancellationWatch final : public btrfsbackup::backup::ICancellationWatch {
   public:
     PollingCancellationWatch(
-        btrfsbackup::backup::IRunStateRepository& state,
+        btrfsbackup::backup::ICancellationRequestStore& requests,
         ProfileId profile_id,
         CancellationToken& cancellation
     )
-        : state_(state),
+        : requests_(requests),
           profile_id_(std::move(profile_id)),
           cancellation_(cancellation),
           worker_([this](std::stop_token stop) { run(stop); }) {
@@ -41,7 +41,7 @@ class PollingCancellationWatch final : public btrfsbackup::backup::ICancellation
   private:
     void run(std::stop_token stop) {
         while (!stop.stop_requested()) {
-            if (state_.cancel_requested(profile_id_)) {
+            if (requests_.cancel_requested(profile_id_)) {
                 cancellation_.request_cancel();
                 return;
             }
@@ -49,7 +49,7 @@ class PollingCancellationWatch final : public btrfsbackup::backup::ICancellation
         }
     }
 
-    btrfsbackup::backup::IRunStateRepository& state_;
+    btrfsbackup::backup::ICancellationRequestStore& requests_;
     ProfileId profile_id_;
     CancellationToken& cancellation_;
     std::jthread worker_;
@@ -160,14 +160,17 @@ void FileRunStateRepository::clear_cancel_request(const ProfileId& profile_id) {
     btrfsbackup::state::clear_cancel_request(files_, state_dir(profile_id));
 }
 
-FileCancellationMonitor::FileCancellationMonitor(btrfsbackup::backup::IRunStateRepository& state) : state_(state) {
+FileCancellationMonitor::FileCancellationMonitor(
+    btrfsbackup::backup::ICancellationRequestStore& requests
+)
+    : requests_(requests) {
 }
 
 std::unique_ptr<btrfsbackup::backup::ICancellationWatch> FileCancellationMonitor::watch(
     const ProfileId& profile_id,
     CancellationToken& cancellation
 ) {
-    return std::make_unique<PollingCancellationWatch>(state_, profile_id, cancellation);
+    return std::make_unique<PollingCancellationWatch>(requests_, profile_id, cancellation);
 }
 
 } // namespace btrfsbackup::state

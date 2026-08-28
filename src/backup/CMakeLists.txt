@@ -63,15 +63,18 @@ target_restricted_include_directories(btrfsbackup-backup-ports
         backup/ports/backup_planner.hpp
         backup/ports/backup_run_factory.hpp
         backup/ports/btrfs_operations.hpp
+        backup/ports/cancellation_request_store.hpp
         backup/ports/cancellation_monitor.hpp
+        backup/ports/checkpoint_store_factory.hpp
         backup/ports/command_runner.hpp
         backup/ports/filesystem.hpp
         backup/ports/mount_inspector.hpp
         backup/ports/pending_marker_store.hpp
         backup/ports/process.hpp
         backup/ports/run_context.hpp
+        backup/ports/run_event_sink_factory.hpp
+        backup/ports/run_ledger.hpp
         backup/ports/run_lease.hpp
-        backup/ports/run_state_repository.hpp
         backup/ports/safe_directory.hpp
         backup/ports/target_manager.hpp
         backup/ports/trusted_executable.hpp

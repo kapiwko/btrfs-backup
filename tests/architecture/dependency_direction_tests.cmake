@@ -31,3 +31,15 @@ file(READ "${PROJECT_SOURCE_DIR}/src/backup/run_execution_context.hpp" run_execu
 if(NOT run_execution_context_header MATCHES "CancellationToken[ \t\r\n]+cancellation")
     message(FATAL_ERROR "RunExecutionContext must own the run cancellation token")
 endif()
+
+file(GLOB_RECURSE production_sources
+    "${PROJECT_SOURCE_DIR}/src/*.cpp"
+    "${PROJECT_SOURCE_DIR}/src/*.hpp"
+)
+foreach(source IN LISTS production_sources)
+    file(READ "${source}" content)
+    if(content MATCHES "IRunStateRepository")
+        file(RELATIVE_PATH relative "${PROJECT_SOURCE_DIR}" "${source}")
+        message(FATAL_ERROR "Broad run state persistence port reintroduced in ${relative}")
+    endif()
+endforeach()

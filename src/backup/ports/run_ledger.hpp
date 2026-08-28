@@ -5,27 +5,16 @@
 #pragma once
 
 #include <cstddef>
-#include <map>
-#include <memory>
 #include <string>
 
-#include <backup/model/backup_run_event.hpp>
 #include <config/model/profile.hpp>
 #include <core/identifiers.hpp>
 
 namespace btrfsbackup::backup {
 
-struct BackupRunStatusDescription {
-    std::string profile_name;
-    int source_count = 0;
-    std::string started_at;
-    std::map<std::string, std::string> source_names;
-    std::string target_name;
-};
-
-class IRunStateRepository {
+class IRunLedger {
   public:
-    virtual ~IRunStateRepository() = default;
+    virtual ~IRunLedger() = default;
 
     [[nodiscard]] virtual bool last_success_matches(
         const btrfsbackup::config::Profile& profile,
@@ -47,11 +36,6 @@ class IRunStateRepository {
         const std::string& fingerprint,
         std::size_t source_count
     ) = 0;
-    [[nodiscard]] virtual std::unique_ptr<IBackupRunCheckpointStore> checkpoints(const ProfileId& profile_id) = 0;
-    [[nodiscard]] virtual std::unique_ptr<IBackupRunEventSink> events(BackupRunStatusDescription description) = 0;
-    virtual void request_cancel(const ProfileId& profile_id) = 0;
-    [[nodiscard]] virtual bool cancel_requested(const ProfileId& profile_id) const = 0;
-    virtual void clear_cancel_request(const ProfileId& profile_id) = 0;
 };
 
 } // namespace btrfsbackup::backup

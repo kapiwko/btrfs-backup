@@ -8,14 +8,20 @@
 #include <memory>
 #include <string>
 
+#include <backup/ports/cancellation_request_store.hpp>
 #include <backup/ports/cancellation_monitor.hpp>
-#include <backup/ports/run_state_repository.hpp>
+#include <backup/ports/checkpoint_store_factory.hpp>
+#include <backup/ports/run_event_sink_factory.hpp>
+#include <backup/ports/run_ledger.hpp>
 #include <config/application_paths.hpp>
 #include <core/durable_file_operations.hpp>
 
 namespace btrfsbackup::state {
 
-class FileRunStateRepository final : public btrfsbackup::backup::IRunStateRepository {
+class FileRunStateRepository final : public btrfsbackup::backup::IRunLedger,
+                                     public btrfsbackup::backup::IRunEventSinkFactory,
+                                     public btrfsbackup::backup::ICheckpointStoreFactory,
+                                     public btrfsbackup::backup::ICancellationRequestStore {
   public:
     FileRunStateRepository(btrfsbackup::config::ApplicationPaths paths, IDurableFileOperations& files);
 
@@ -53,7 +59,7 @@ class FileRunStateRepository final : public btrfsbackup::backup::IRunStateReposi
 
 class FileCancellationMonitor final : public btrfsbackup::backup::ICancellationMonitor {
   public:
-    explicit FileCancellationMonitor(btrfsbackup::backup::IRunStateRepository& state);
+    explicit FileCancellationMonitor(btrfsbackup::backup::ICancellationRequestStore& requests);
 
     [[nodiscard]] std::unique_ptr<btrfsbackup::backup::ICancellationWatch> watch(
         const ProfileId& profile_id,
@@ -61,7 +67,7 @@ class FileCancellationMonitor final : public btrfsbackup::backup::ICancellationM
     ) override;
 
   private:
-    btrfsbackup::backup::IRunStateRepository& state_;
+    btrfsbackup::backup::ICancellationRequestStore& requests_;
 };
 
 } // namespace btrfsbackup::state
