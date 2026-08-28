@@ -16,11 +16,11 @@ namespace btrfsbackup::backup {
 
 namespace {
 
-std::string hook_error_code(const RunHookAction& action, const std::string& suffix) {
-    const std::string phase = action.phase == HookPhase::BeforeSnapshot
-        ? "before_snapshot"
-        : "after_snapshot";
-    return "hook." + phase + "_" + suffix;
+ErrorCode hook_error_code(const RunHookAction& action, bool timed_out) {
+    if (action.phase == HookPhase::BeforeSnapshot) {
+        return timed_out ? ErrorCode::HookBeforeSnapshotTimeout : ErrorCode::HookBeforeSnapshotFailed;
+    }
+    return timed_out ? ErrorCode::HookAfterSnapshotTimeout : ErrorCode::HookAfterSnapshotFailed;
 }
 
 } // namespace
@@ -43,7 +43,7 @@ void HookActionHandler::handle(
     }
     if (action.hook.timeout < std::chrono::seconds{1} || action.hook.timeout > std::chrono::hours{24}) {
         throw CodedValidationError(
-            hook_error_code(action, "failed"),
+            hook_error_code(action, false),
             "hook timeout is outside the supported range: " + action.hook.program
         );
     }
@@ -66,7 +66,7 @@ void HookActionHandler::handle(
                                                 });
     } catch (const std::exception& error) {
         throw CodedOperationError(
-            hook_error_code(action, "failed"),
+            hook_error_code(action, false),
             "hook execution failed: " + action.hook.program + ": " + error.what()
         );
     }
@@ -75,13 +75,13 @@ void HookActionHandler::handle(
     }
     if (result.timed_out) {
         throw CodedOperationError(
-            hook_error_code(action, "timeout"),
+            hook_error_code(action, true),
             "hook timed out after " + std::to_string(action.hook.timeout.count()) + " seconds: " + action.hook.program
         );
     }
     if (result.exit_code != 0) {
         std::string message = "hook failed with exit code " + std::to_string(result.exit_code) + ": " + action.hook.program;
-        throw CodedOperationError(hook_error_code(action, "failed"), message);
+        throw CodedOperationError(hook_error_code(action, false), message);
     }
 }
 

@@ -6,7 +6,8 @@
 
 #include <stdexcept>
 #include <string>
-#include <utility>
+
+#include <core/error_code.hpp>
 
 namespace btrfsbackup {
 
@@ -27,29 +28,29 @@ struct SystemOperationError : BtrfsBackupError {
 };
 
 struct CodedError {
-    explicit CodedError(std::string error_code) : error_code(std::move(error_code)) {
+    explicit CodedError(ErrorCode error_code) : error_code(error_code) {
     }
 
     virtual ~CodedError() = default;
 
-    std::string error_code;
+    ErrorCode error_code;
 };
 
 struct CodedValidationError : ValidationError, CodedError {
-    CodedValidationError(std::string error_code, const std::string& message)
-        : ValidationError(message), CodedError(std::move(error_code)) {
+    CodedValidationError(ErrorCode error_code, const std::string& message)
+        : ValidationError(message), CodedError(error_code) {
     }
 };
 
 struct CodedOperationError : SystemOperationError, CodedError {
-    CodedOperationError(std::string error_code, const std::string& message)
-        : SystemOperationError(message), CodedError(std::move(error_code)) {
+    CodedOperationError(ErrorCode error_code, const std::string& message)
+        : SystemOperationError(message), CodedError(error_code) {
     }
 };
 
 struct RecoveryRequiredError : BtrfsBackupError, CodedError {
-    RecoveryRequiredError(std::string error_code, const std::string& message)
-        : BtrfsBackupError(message), CodedError(std::move(error_code)) {
+    RecoveryRequiredError(ErrorCode error_code, const std::string& message)
+        : BtrfsBackupError(message), CodedError(error_code) {
     }
 };
 

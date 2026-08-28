@@ -44,6 +44,10 @@ std::string error_code_name(ErrorCode code) {
         return "target.btrfs_uuid_mismatch";
     case ErrorCode::RepositoryRecoveryRequired:
         return "repository.recovery_required";
+    case ErrorCode::ConfigurationSaveFailed:
+        return "configuration.save_failed";
+    case ErrorCode::ConfigurationRollbackIncomplete:
+        return "configuration.rollback_incomplete";
     }
     return "backup.failed";
 }
@@ -85,6 +89,10 @@ std::optional<ErrorCode> error_code_from_name(const std::string& name) {
         return ErrorCode::TargetBtrfsUuidMismatch;
     if (name == "repository.recovery_required")
         return ErrorCode::RepositoryRecoveryRequired;
+    if (name == "configuration.save_failed")
+        return ErrorCode::ConfigurationSaveFailed;
+    if (name == "configuration.rollback_incomplete")
+        return ErrorCode::ConfigurationRollbackIncomplete;
     return std::nullopt;
 }
 
