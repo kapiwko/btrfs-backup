@@ -5,26 +5,24 @@
 #pragma once
 
 #include <cstddef>
-#include <filesystem>
 #include <string>
 
 #include <config/model/json.hpp>
+#include <daemon/device_state_query_service.hpp>
+#include <daemon/history_query_service.hpp>
+#include <daemon/manager_paths.hpp>
+#include <daemon/profile_query_service.hpp>
+#include <daemon/status_query_service.hpp>
 
 namespace btrfsbackup::daemon {
-
-struct ManagerPaths {
-    std::filesystem::path config_root = "/etc/btrfs-backup";
-    std::filesystem::path public_profile_root = "/var/lib/btrfs-backup/public/profiles";
-    std::filesystem::path status_root = "/run/btrfs-backup/profiles";
-    std::filesystem::path history_root = "/var/lib/btrfs-backup/history";
-    std::filesystem::path target_mount_root = "/mnt/btrfs-backup";
-    std::filesystem::path mapper_root = "/dev/mapper";
-    std::filesystem::path mountinfo_path = "/proc/self/mountinfo";
-};
 
 class ManagerService {
   public:
     explicit ManagerService(ManagerPaths paths);
+    ManagerService(const ManagerService&) = delete;
+    ManagerService& operator=(const ManagerService&) = delete;
+    ManagerService(ManagerService&&) = delete;
+    ManagerService& operator=(ManagerService&&) = delete;
 
     [[nodiscard]] btrfsbackup::config::Json get_capabilities() const;
     [[nodiscard]] btrfsbackup::config::Json list_profiles() const;
@@ -37,7 +35,10 @@ class ManagerService {
     [[nodiscard]] btrfsbackup::config::Json get_device_state(const std::string& profile_id) const;
 
   private:
-    ManagerPaths paths_;
+    ProfileQueryService profiles_;
+    HistoryQueryService history_;
+    StatusQueryService status_;
+    DeviceStateQueryService device_state_;
 };
 
 } // namespace btrfsbackup::daemon
