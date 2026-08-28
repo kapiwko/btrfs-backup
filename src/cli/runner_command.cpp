@@ -18,7 +18,8 @@
 
 #include <backup/action_handlers/backup_run_action_handler.hpp>
 #include <backup/backup_run.hpp>
-#include <backup/backup_planner.hpp>
+#include <backup/backup_discovery.hpp>
+#include <backup/backup_plan_builder.hpp>
 #include <backup/linked_cancellation_monitor.hpp>
 #include <state/file_run_state_repository.hpp>
 #include <state/file_pending_marker_store.hpp>
@@ -379,7 +380,7 @@ class ProductionBackupComposition {
                   ? btrfsbackup::platform::linux::blkid_filesystem_uuid(source)
                   : found->second;
           }),
-          target_mounter_(mounts_, commands_), pending_markers_(durable_files_), planner_(btrfsbackup::platform::linux::read_btrfs_snapshot_metadata, pending_markers_, safe_directories_), run_factory_(btrfs_, filesystem_, commands_, transfers_, durable_files_, pending_markers_, safe_directories_), leases_(btrfsbackup::platform::linux::default_lock_root()), state_(config_.paths(), durable_files_), file_cancellation_monitor_(state_), cancellation_monitor_(file_cancellation_monitor_, cancellation), clock_(parsed.timestamp, parsed.today), run_ids_(*parsed.run_id), service_(profiles_, config_.paths(), mounts_, target_mounter_, planner_, run_factory_, leases_, state_, state_, state_, state_, cancellation_monitor_, clock_, run_ids_) {
+          target_mounter_(mounts_, commands_), pending_markers_(durable_files_), discovery_(btrfsbackup::platform::linux::read_btrfs_snapshot_metadata, pending_markers_, safe_directories_), run_factory_(btrfs_, filesystem_, commands_, transfers_, durable_files_, pending_markers_, safe_directories_), leases_(btrfsbackup::platform::linux::default_lock_root()), state_(config_.paths(), durable_files_), file_cancellation_monitor_(state_), cancellation_monitor_(file_cancellation_monitor_, cancellation), clock_(parsed.timestamp, parsed.today), run_ids_(*parsed.run_id), service_(profiles_, config_.paths(), mounts_, target_mounter_, discovery_, plan_builder_, run_factory_, leases_, state_, state_, state_, state_, cancellation_monitor_, clock_, run_ids_) {
     }
 
     btrfsbackup::backup::BackupService& service() {
@@ -398,7 +399,8 @@ class ProductionBackupComposition {
     btrfsbackup::platform::linux::PosixTransferPipeline transfers_;
     btrfsbackup::platform::linux::PosixDurableFileOperations durable_files_;
     btrfsbackup::state::FilePendingMarkerStore pending_markers_;
-    btrfsbackup::backup::BackupPlanner planner_;
+    btrfsbackup::backup::BackupDiscovery discovery_;
+    btrfsbackup::backup::BackupPlanBuilder plan_builder_;
     PosixBackupRunFactory run_factory_;
     btrfsbackup::platform::linux::FileBackupRunLeaseProvider leases_;
     btrfsbackup::state::FileRunStateRepository state_;

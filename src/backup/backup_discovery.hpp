@@ -5,26 +5,24 @@
 #pragma once
 
 #include <backup/model/snapshot_inventory.hpp>
-#include <backup/ports/backup_planner.hpp>
+#include <backup/ports/backup_discovery.hpp>
 #include <backup/ports/pending_marker_store.hpp>
 #include <backup/ports/safe_directory.hpp>
 
 namespace btrfsbackup::backup {
 
-class BackupPlanner final : public IBackupPlanner {
+class BackupDiscovery final : public IBackupDiscovery {
   public:
-    explicit BackupPlanner(
+    explicit BackupDiscovery(
         SnapshotMetadataReader metadata_reader,
         const IPendingMarkerStore& pending_markers,
         const ISafeDirectoryRootFactory& safe_directories
     );
 
-    [[nodiscard]] BackupRunPlan build(
+    [[nodiscard]] BackupDiscoveryResult discover(
         const btrfsbackup::config::Profile& profile,
         const std::vector<MountEntry>& mounts,
-        const btrfsbackup::config::ApplicationPaths& paths,
-        const RunId& run_id,
-        const std::string& snapshot_timestamp
+        const btrfsbackup::config::ApplicationPaths& paths
     ) const override;
 
   private:
