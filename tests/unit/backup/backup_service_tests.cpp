@@ -89,10 +89,8 @@ struct FakeRunFactory final : btrfsbackup::backup::IBackupRunFactory {
     bool cancel_next = false;
     bool throw_next = false;
     std::vector<bool> cancellation_at_start;
-    btrfsbackup::backup::BackupRunExecutionResult result{
-        .outcome = btrfsbackup::backup::BackupRunExecutionOutcome::Completed,
-        .actions_completed = 3,
-    };
+    btrfsbackup::backup::BackupRunExecutionResult result =
+        btrfsbackup::backup::BackupRunExecutionCompleted{3};
 
     btrfsbackup::backup::BackupRunExecutionResult execute(
         btrfsbackup::backup::BackupRunPlan,
@@ -105,10 +103,7 @@ struct FakeRunFactory final : btrfsbackup::backup::IBackupRunFactory {
         if (cancel_next) {
             cancel_next = false;
             cancellation.request_cancel();
-            return {
-                .outcome = btrfsbackup::backup::BackupRunExecutionOutcome::Cancelled,
-                .actions_completed = 0,
-            };
+            return btrfsbackup::backup::BackupRunExecutionCancelled{0};
         }
         if (throw_next) {
             throw_next = false;
@@ -137,16 +132,13 @@ struct FakeLeases final : btrfsbackup::backup::IBackupRunLeaseProvider {
     btrfsbackup::backup::BackupRunLeaseResult try_acquire(const btrfsbackup::config::Profile&) override {
         ++calls;
         if (busy) {
-            return {
-                .lease = nullptr,
+            return btrfsbackup::backup::BackupRunLeaseBusy{
                 .error_code = btrfsbackup::ErrorCode::RunnerProfileBusy,
                 .error_message = "busy",
             };
         }
-        return {
+        return btrfsbackup::backup::BackupRunLeaseAcquired{
             .lease = std::make_unique<FakeLease>(destructions),
-            .error_code = std::nullopt,
-            .error_message = {},
         };
     }
 };
@@ -366,8 +358,11 @@ void test_success_uses_ports_and_persists_success() {
         .profile_id = btrfsbackup::ProfileId{"default"},
     });
 
-    test_helpers::expect_true("completed", result.outcome == btrfsbackup::backup::BackupExecutionOutcome::Completed, "run did not complete");
-    test_helpers::expect_eq("run id", std::string(result.plan.run_id.value()), "run-1");
+    const auto* completed = std::get_if<btrfsbackup::backup::BackupExecutionCompleted>(&result);
+    test_helpers::expect_true("completed", completed != nullptr, "run did not complete");
+    if (completed != nullptr) {
+        test_helpers::expect_eq("run id", std::string(completed->plan.run_id.value()), "run-1");
+    }
     test_helpers::expect_true("target mounter calls", fixture.target.calls == 1, "unexpected call count");
     test_helpers::expect_true("mount inspector calls", fixture.mounts.calls == 1, "unexpected call count");
     test_helpers::expect_true("planner calls", fixture.planner.calls == 1, "unexpected call count");
@@ -381,17 +376,19 @@ void test_success_uses_ports_and_persists_success() {
 
 void test_cancelled_run_does_not_persist_success() {
     Fixture fixture;
-    fixture.runs.result = {
-        .outcome = btrfsbackup::backup::BackupRunExecutionOutcome::Cancelled,
-        .actions_completed = 2,
-    };
+    fixture.runs.result = btrfsbackup::backup::BackupRunExecutionCancelled{2};
 
     const btrfsbackup::backup::BackupExecutionResult result = fixture.service.start({
         .profile_id = btrfsbackup::ProfileId{"default"},
     });
 
-    test_helpers::expect_true("cancelled", result.outcome == btrfsbackup::backup::BackupExecutionOutcome::Cancelled, "cancelled outcome missing");
-    test_helpers::expect_true("cancelled actions", result.actions_completed == 2, "completed action count was not preserved");
+    const auto* cancelled = std::get_if<btrfsbackup::backup::BackupExecutionCancelled>(&result);
+    test_helpers::expect_true("cancelled", cancelled != nullptr, "cancelled outcome missing");
+    test_helpers::expect_true(
+        "cancelled actions",
+        cancelled != nullptr && cancelled->actions_completed == 2,
+        "completed action count was not preserved"
+    );
     test_helpers::expect_true("cancelled success writes", fixture.state.success_writes == 0, "cancelled run persisted success");
 }
 
@@ -406,8 +403,8 @@ void test_each_run_gets_a_fresh_cancellation_token() {
         .profile_id = btrfsbackup::ProfileId{"default"},
     });
 
-    test_helpers::expect_true("first run cancelled", first.outcome == btrfsbackup::backup::BackupExecutionOutcome::Cancelled, "first run did not cancel");
-    test_helpers::expect_true("second run completed", second.outcome == btrfsbackup::backup::BackupExecutionOutcome::Completed, "second run inherited cancellation");
+    test_helpers::expect_true("first run cancelled", std::holds_alternative<btrfsbackup::backup::BackupExecutionCancelled>(first), "first run did not cancel");
+    test_helpers::expect_true("second run completed", std::holds_alternative<btrfsbackup::backup::BackupExecutionCompleted>(second), "second run inherited cancellation");
     test_helpers::expect_true(
         "fresh cancellation tokens",
         fixture.runs.cancellation_at_start == std::vector<bool>{false, false},
@@ -452,7 +449,7 @@ void test_busy_stops_before_target_access() {
         .profile_id = btrfsbackup::ProfileId{"default"},
     });
 
-    test_helpers::expect_true("busy", result.outcome == btrfsbackup::backup::BackupExecutionOutcome::Busy, "busy outcome missing");
+    test_helpers::expect_true("busy", std::holds_alternative<btrfsbackup::backup::BackupExecutionBusy>(result), "busy outcome missing");
     test_helpers::expect_true("target not called", fixture.target.calls == 0, "target mounter was called");
     test_helpers::expect_true("planner not called", fixture.planner.calls == 0, "planner was called");
 }
@@ -464,7 +461,7 @@ void test_daily_match_skips_execution() {
         .profile_id = btrfsbackup::ProfileId{"default"},
     });
 
-    test_helpers::expect_true("skipped", result.outcome == btrfsbackup::backup::BackupExecutionOutcome::Skipped, "daily run not skipped");
+    test_helpers::expect_true("skipped", std::holds_alternative<btrfsbackup::backup::BackupExecutionSkipped>(result), "daily run not skipped");
     test_helpers::expect_true("run not called", fixture.runs.calls == 0, "run factory was called");
     test_helpers::expect_true("skipped status", fixture.state.skipped_writes == 1, "skipped status missing");
 }
@@ -478,9 +475,8 @@ void test_cancel_validates_profile_and_writes_request() {
         .run_id = btrfsbackup::RunId{"run-1"},
     });
 
-    test_helpers::expect_true("cancel requested", result.cancel_requested, "cancel request missing");
+    test_helpers::expect_true("cancel requested", std::holds_alternative<btrfsbackup::backup::CancellationAccepted>(result), "cancel request missing");
     test_helpers::expect_true("cancel writes", fixture.state.cancel_writes == 1, "cancel request missing");
-    test_helpers::expect_true("cancel error absent", !result.error_code.has_value(), "accepted cancel has an error");
 }
 
 void test_cancel_rejects_stale_run_when_lease_is_available() {
@@ -492,12 +488,7 @@ void test_cancel_rejects_stale_run_when_lease_is_available() {
         .run_id = btrfsbackup::RunId{"stale-run"},
     });
 
-    test_helpers::expect_true("stale cancel rejected", !result.cancel_requested, "stale run was cancelled");
-    test_helpers::expect_true(
-        "stale cancel code",
-        result.error_code == btrfsbackup::ErrorCode::RunnerStaleRun,
-        "stale run error code missing"
-    );
+    test_helpers::expect_true("stale cancel rejected", std::holds_alternative<btrfsbackup::backup::CancellationStaleRun>(result), "stale run was cancelled");
     test_helpers::expect_true("stale cancel writes", fixture.state.cancel_writes == 0, "stale request was written");
 }
 
@@ -511,12 +502,7 @@ void test_cancel_rejects_mismatched_run() {
         .run_id = btrfsbackup::RunId{"other-run"},
     });
 
-    test_helpers::expect_true("mismatched cancel rejected", !result.cancel_requested, "mismatched run was cancelled");
-    test_helpers::expect_true(
-        "mismatched cancel code",
-        result.error_code == btrfsbackup::ErrorCode::RunnerRunMismatch,
-        "run mismatch error code missing"
-    );
+    test_helpers::expect_true("mismatched cancel rejected", std::holds_alternative<btrfsbackup::backup::CancellationRunMismatch>(result), "mismatched run was cancelled");
     test_helpers::expect_true("mismatched cancel writes", fixture.state.cancel_writes == 0, "mismatched request was written");
 }
 

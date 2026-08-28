@@ -7,6 +7,8 @@
 
 #include <utility>
 
+#include <core/errors.hpp>
+
 namespace btrfsbackup::backup {
 
 namespace {
@@ -27,18 +29,6 @@ BackupRunStatusDescription status_description(
         .source_names = std::move(source_names),
         .target_name = profile.target.mapper_name,
     };
-}
-
-std::optional<ErrorCode> cancellation_error(CancellationRequestOutcome outcome) {
-    switch (outcome) {
-    case CancellationRequestOutcome::Accepted:
-        return std::nullopt;
-    case CancellationRequestOutcome::StaleRun:
-        return ErrorCode::RunnerStaleRun;
-    case CancellationRequestOutcome::RunMismatch:
-        return ErrorCode::RunnerRunMismatch;
-    }
-    return ErrorCode::BackupFailed;
 }
 
 } // namespace
@@ -97,89 +87,80 @@ BackupExecutionResult BackupService::start(const BackupRequest& request) {
     const btrfsbackup::config::LoadedProfile loaded = profiles_.get(request.profile_id);
     const btrfsbackup::config::Profile& profile = loaded.profile;
 
-    BackupExecutionResult result{
-        .plan = BackupRunPlan{
+    BackupRunLeaseResult lease_result = leases_.try_acquire(profile);
+    if (auto* busy = std::get_if<BackupRunLeaseBusy>(&lease_result)) {
+        return BackupExecutionBusy{
             .profile_id = profile.id,
             .run_id = run_id,
-            .target_mount_point = {},
-            .sources = {},
-        },
-        .outcome = BackupExecutionOutcome::Completed,
-        .actions_completed = 0,
-        .error_code = std::nullopt,
-        .error_message = {},
-    };
-
-    BackupRunLeaseResult lease = leases_.try_acquire(profile);
-    if (!lease.lease) {
-        result.outcome = BackupExecutionOutcome::Busy;
-        result.error_code = lease.error_code;
-        result.error_message = std::move(lease.error_message);
-        return result;
+            .error_code = busy->error_code,
+            .error_message = std::move(busy->error_message),
+        };
     }
+    std::unique_ptr<IBackupRunLease> lease = std::move(std::get<BackupRunLeaseAcquired>(lease_result).lease);
 
-    result.plan = prepare_plan(profile, run_id, timestamp);
+    BackupRunPlan plan = prepare_plan(profile, run_id, timestamp);
     const std::string& fingerprint = loaded.fingerprint.value();
     if (request.validate_only) {
-        result.outcome = BackupExecutionOutcome::Validated;
-        return result;
+        return BackupExecutionValidated{std::move(plan)};
     }
 
     const std::string today = clock_.local_date();
     if (!request.force && profile.settings.daily_limit && ledger_.last_success_matches(profile, today, fingerprint)) {
-        ledger_.write_skipped(profile, run_id, timestamp, clock_.local_timestamp(), result.plan.sources.size());
-        result.outcome = BackupExecutionOutcome::Skipped;
-        return result;
+        ledger_.write_skipped(profile, run_id, timestamp, clock_.local_timestamp(), plan.sources.size());
+        return BackupExecutionSkipped{std::move(plan)};
     }
 
     RunExecutionContext context(
         profile.id,
         run_id,
-        std::move(lease.lease),
+        std::move(lease),
         checkpoints_,
         event_sinks_,
         cancellation_requests_,
         cancellation_monitor_,
-        status_description(profile, result.plan, timestamp)
+        status_description(profile, plan, timestamp)
     );
     BackupRunExecutionResult execution = run_factory_.execute(
-        result.plan,
+        plan,
         *context.events,
         *context.checkpoints,
         context.cancellation
     );
     cancellation_requests_.clear_cancel_request({profile.id, run_id});
 
-    result.actions_completed = execution.actions_completed;
-    result.outcome = execution.outcome == BackupRunExecutionOutcome::Completed
-        ? BackupExecutionOutcome::Completed
-        : BackupExecutionOutcome::Cancelled;
-    if (execution.outcome == BackupRunExecutionOutcome::Completed) {
+    if (const auto* completed = std::get_if<BackupRunExecutionCompleted>(&execution)) {
         ledger_.write_success(
             profile,
             run_id,
             today,
             clock_.local_timestamp(),
             fingerprint,
-            result.plan.sources.size()
+            plan.sources.size()
         );
+        return BackupExecutionCompleted{std::move(plan), completed->actions_completed};
     }
-    return result;
+    return BackupExecutionCancelled{
+        std::move(plan),
+        std::get<BackupRunExecutionCancelled>(execution).actions_completed,
+    };
 }
 
 CancelBackupResult BackupService::cancel(const CancellationRequest& request) {
     const btrfsbackup::config::LoadedProfile loaded = profiles_.get(request.profile_id);
     const CancellationRequest validated_request{loaded.profile.id, request.run_id};
     BackupRunLeaseResult lease = leases_.try_acquire(loaded.profile);
-    const CancellationRequestOutcome outcome = lease.lease
+    const CancellationRequestOutcome outcome = std::holds_alternative<BackupRunLeaseAcquired>(lease)
         ? CancellationRequestOutcome::StaleRun
         : cancellation_requests_.request_cancel(validated_request);
-    return {
-        .profile_id = loaded.profile.id,
-        .run_id = request.run_id,
-        .cancel_requested = outcome == CancellationRequestOutcome::Accepted,
-        .error_code = cancellation_error(outcome),
-    };
+    switch (outcome) {
+    case CancellationRequestOutcome::Accepted:
+        return CancellationAccepted{loaded.profile.id, request.run_id};
+    case CancellationRequestOutcome::StaleRun:
+        return CancellationStaleRun{loaded.profile.id, request.run_id};
+    case CancellationRequestOutcome::RunMismatch:
+        return CancellationRunMismatch{loaded.profile.id, request.run_id};
+    }
+    throw BtrfsBackupError("unknown cancellation request outcome");
 }
 
 } // namespace btrfsbackup::backup
