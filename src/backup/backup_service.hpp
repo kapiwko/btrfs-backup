@@ -28,6 +28,7 @@ class BackupService {
   public:
     BackupService(
         btrfsbackup::config::IProfileRepository& profiles,
+        btrfsbackup::config::ApplicationPaths application_paths,
         IMountInspector& mounts,
         ITargetManager& target_mounter,
         IBackupPlanner& planner,
@@ -48,6 +49,7 @@ class BackupService {
     [[nodiscard]] BackupRunPlan prepare_plan(const btrfsbackup::config::Profile& profile, const RunId& run_id, const std::string& timestamp);
 
     btrfsbackup::config::IProfileRepository& profiles_;
+    btrfsbackup::config::ApplicationPaths application_paths_;
     IMountInspector& mounts_;
     ITargetManager& target_mounter_;
     IBackupPlanner& planner_;

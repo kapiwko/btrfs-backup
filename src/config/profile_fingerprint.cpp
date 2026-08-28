@@ -10,6 +10,7 @@
 #include <fstream>
 #include <iterator>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include <core/errors.hpp>
@@ -200,6 +201,19 @@ std::string sha256_bytes(const std::string& data) {
 } // namespace
 
 namespace btrfsbackup::config {
+
+std::string compute_config_fingerprint_from_bytes(
+    std::string_view version,
+    const fs::path& config_file,
+    std::string_view contents
+) {
+    std::string data;
+    append_record(data, "version", std::string(version));
+    append_record(data, "main", config_file.filename().string());
+    data.append(contents);
+    data.push_back('\0');
+    return sha256_bytes(data);
+}
 
 std::string compute_config_fingerprint(
     const std::string& version,

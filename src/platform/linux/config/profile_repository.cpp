@@ -26,57 +26,86 @@ fs::path profile_json_path(const fs::path& etc_root, const std::string& profile_
     return etc_root / "profiles" / profile_id / "profile.json";
 }
 
-btrfsbackup::config::ProfileDocument load_profile_document_by_id(const fs::path& etc_root, const std::string& profile_id) {
-    fs::path canonical = profile_json_path(etc_root, profile_id);
+namespace {
+
+ProfileFileReader trusted_profile_reader(const fs::path& config_root) {
     TrustedFilePolicy policy{
-        .allow_current_user_owner = fs::absolute(etc_root).lexically_normal() != fs::path("/etc/btrfs-backup"),
+        .allow_current_user_owner = fs::absolute(config_root).lexically_normal() != fs::path("/etc/btrfs-backup"),
     };
+    return [policy](const fs::path& path) { return read_trusted_config_file(path, policy); };
+}
+
+btrfsbackup::config::LoadedProfile loaded_profile_from_bytes(
+    const std::string& bytes,
+    const fs::path& path,
+    const btrfsbackup::config::ApplicationPaths& application_paths
+) {
     try {
-        btrfsbackup::config::ApplicationConfig config = load_application_config(etc_root);
-        return btrfsbackup::config::normalize_profile_document(
-            btrfsbackup::config::Json::parse(read_trusted_config_file(canonical, policy)),
-            config.paths().target_mount_root
+        const btrfsbackup::config::ProfileDocument document = btrfsbackup::config::normalize_profile_document(
+            btrfsbackup::config::Json::parse(bytes),
+            application_paths.target_mount_root
         );
+        btrfsbackup::config::Profile profile = btrfsbackup::config::profile_from_document(
+            document,
+            application_paths.target_mount_root
+        );
+        const btrfsbackup::config::ConfigurationGeneration generation(profile.configuration_generation);
+        return {
+            .profile = std::move(profile),
+            .fingerprint = btrfsbackup::config::ConfigurationFingerprint(
+                btrfsbackup::config::compute_config_fingerprint_from_bytes(
+                    btrfsbackup::config::current_configuration_fingerprint_version,
+                    path,
+                    bytes
+                )
+            ),
+            .generation = generation,
+        };
     } catch (const btrfsbackup::config::Json::exception& exc) {
-        throw ValidationError("cannot read JSON profile " + canonical.string() + ": " + exc.what());
+        throw ValidationError("cannot read JSON profile " + path.string() + ": " + exc.what());
     }
 }
 
-btrfsbackup::config::Profile load_profile_by_id(const fs::path& etc_root, const std::string& profile_id) {
-    btrfsbackup::config::ApplicationConfig config = load_application_config(etc_root);
-    btrfsbackup::config::Profile profile = btrfsbackup::config::profile_from_document(
-        load_profile_document_by_id(etc_root, profile_id),
-        config.paths().target_mount_root
-    );
+void validate_active_generation(const btrfsbackup::config::LoadedProfile& loaded) {
     const char* expected_generation = std::getenv("BTRFS_BACKUP_CONFIGURATION_GENERATION");
-    if (expected_generation != nullptr && profile.configuration_generation != expected_generation) {
+    if (expected_generation != nullptr && loaded.generation.value() != expected_generation) {
         throw ValidationError("profile configuration generation does not match the active systemd unit");
     }
-    return profile;
+}
+
+} // namespace
+
+btrfsbackup::config::Profile load_profile_by_id(const fs::path& etc_root, const std::string& profile_id) {
+    return FileProfileRepository(etc_root).get(ProfileId{profile_id}).profile;
 }
 
 FileProfileRepository::FileProfileRepository(fs::path config_root)
-    : FileProfileRepository(config_root, load_application_config(config_root)) {
+    : FileProfileRepository(config_root, load_application_config(config_root), trusted_profile_reader(config_root)) {
 }
 
 FileProfileRepository::FileProfileRepository(fs::path config_root, btrfsbackup::config::ApplicationConfig application_config)
-    : config_root_(std::move(config_root)), application_config_(std::move(application_config)) {
+    : FileProfileRepository(config_root, std::move(application_config), trusted_profile_reader(config_root)) {
 }
 
-btrfsbackup::config::Profile FileProfileRepository::get(const ProfileId& profile_id) const {
-    return load_profile_by_id(config_root_, std::string(profile_id.value()));
+FileProfileRepository::FileProfileRepository(
+    fs::path config_root,
+    btrfsbackup::config::ApplicationConfig application_config,
+    ProfileFileReader profile_reader
+)
+    : config_root_(std::move(config_root)),
+      application_config_(std::move(application_config)),
+      profile_reader_(std::move(profile_reader)) {
 }
 
-const btrfsbackup::config::ApplicationPaths& FileProfileRepository::application_paths() const {
-    return application_config_.paths();
-}
-
-std::string FileProfileRepository::fingerprint(const btrfsbackup::config::Profile& profile) const {
-    return btrfsbackup::config::compute_config_fingerprint(
-        "2.0.0",
-        config_root_ / "profiles" / profile.id.value() / "profile.json",
-        {}
+btrfsbackup::config::LoadedProfile FileProfileRepository::get(const ProfileId& profile_id) const {
+    const fs::path path = profile_json_path(config_root_, std::string(profile_id.value()));
+    btrfsbackup::config::LoadedProfile loaded = loaded_profile_from_bytes(
+        profile_reader_(path),
+        path,
+        application_config_.paths()
     );
+    validate_active_generation(loaded);
+    return loaded;
 }
 
 } // namespace btrfsbackup::platform::linux

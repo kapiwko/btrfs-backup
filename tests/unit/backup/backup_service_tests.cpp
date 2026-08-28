@@ -14,16 +14,13 @@ namespace {
 
 struct FakeProfiles final : btrfsbackup::config::IProfileRepository {
     btrfsbackup::config::Profile profile{btrfsbackup::ProfileId{"default"}};
-    btrfsbackup::config::ApplicationPaths paths;
 
-    btrfsbackup::config::Profile get(const btrfsbackup::ProfileId&) const override {
-        return profile;
-    }
-    const btrfsbackup::config::ApplicationPaths& application_paths() const override {
-        return paths;
-    }
-    std::string fingerprint(const btrfsbackup::config::Profile&) const override {
-        return "fingerprint";
+    btrfsbackup::config::LoadedProfile get(const btrfsbackup::ProfileId&) const override {
+        return {
+            .profile = profile,
+            .fingerprint = btrfsbackup::config::ConfigurationFingerprint("fingerprint"),
+            .generation = btrfsbackup::config::ConfigurationGeneration(profile.configuration_generation),
+        };
     }
 };
 
@@ -112,12 +109,15 @@ struct FakeState final : btrfsbackup::backup::IRunStateRepository {
     int cancel_writes = 0;
     std::string success_date;
     std::string success_timestamp;
+    mutable std::string matched_fingerprint;
+    std::string success_fingerprint;
 
     bool last_success_matches(
         const btrfsbackup::config::Profile&,
         const std::string&,
-        const std::string&
+        const std::string& fingerprint
     ) const override {
+        matched_fingerprint = fingerprint;
         return daily_match;
     }
 
@@ -136,12 +136,13 @@ struct FakeState final : btrfsbackup::backup::IRunStateRepository {
         const btrfsbackup::RunId&,
         const std::string& date,
         const std::string& timestamp,
-        const std::string&,
+        const std::string& fingerprint,
         std::size_t
     ) override {
         ++success_writes;
         success_date = date;
         success_timestamp = timestamp;
+        success_fingerprint = fingerprint;
     }
 
     std::unique_ptr<btrfsbackup::backup::IBackupRunCheckpointStore> checkpoints(
@@ -208,10 +209,11 @@ struct Fixture {
     FakeClock clock;
     FakeRunIds run_ids;
     btrfsbackup::CancellationToken cancellation;
+    btrfsbackup::config::ApplicationPaths paths;
     btrfsbackup::backup::BackupService service;
 
     Fixture()
-        : service(profiles, mounts, target, planner, runs, leases, state, cancellation_monitor, clock, run_ids, cancellation) {
+        : service(profiles, paths, mounts, target, planner, runs, leases, state, cancellation_monitor, clock, run_ids, cancellation) {
         profiles.profile.name = "Default";
         profiles.profile.target.luks_uuid = "target-uuid";
         profiles.profile.settings.daily_limit = true;
@@ -234,6 +236,7 @@ void test_success_uses_ports_and_persists_success() {
     test_helpers::expect_eq("planner timestamp", fixture.planner.received_timestamp, "2026-08-26T120000Z");
     test_helpers::expect_eq("success date", fixture.state.success_date, "2026-08-26");
     test_helpers::expect_eq("success timestamp", fixture.state.success_timestamp, "2026-08-26T14:00:00+0200");
+    test_helpers::expect_eq("success fingerprint", fixture.state.success_fingerprint, "fingerprint");
 }
 
 void test_cancelled_run_does_not_persist_success() {

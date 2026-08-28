@@ -12,6 +12,7 @@ target_restricted_include_directories(btrfsbackup-config-domain
         config/model/profile.hpp
         config/model/validation.hpp
         config/application_paths.hpp
+        config/configuration_identity.hpp
 )
 target_link_libraries(btrfsbackup-config-domain PUBLIC btrfsbackup-core)
 

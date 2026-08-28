@@ -410,7 +410,7 @@ class ProductionBackupComposition {
                   ? btrfsbackup::platform::linux::blkid_filesystem_uuid(source)
                   : found->second;
           }),
-          target_mounter_(mounts_, commands_), pending_markers_(durable_files_), planner_(btrfsbackup::platform::linux::read_btrfs_snapshot_metadata, pending_markers_, safe_directories_), run_factory_(btrfs_, filesystem_, commands_, transfers_, durable_files_, pending_markers_, safe_directories_), leases_(btrfsbackup::platform::linux::default_lock_root()), state_(config_.paths(), durable_files_), cancellation_monitor_(state_), clock_(parsed.timestamp, parsed.today), run_ids_(*parsed.run_id), service_(profiles_, mounts_, target_mounter_, planner_, run_factory_, leases_, state_, cancellation_monitor_, clock_, run_ids_, cancellation) {
+          target_mounter_(mounts_, commands_), pending_markers_(durable_files_), planner_(btrfsbackup::platform::linux::read_btrfs_snapshot_metadata, pending_markers_, safe_directories_), run_factory_(btrfs_, filesystem_, commands_, transfers_, durable_files_, pending_markers_, safe_directories_), leases_(btrfsbackup::platform::linux::default_lock_root()), state_(config_.paths(), durable_files_), cancellation_monitor_(state_), clock_(parsed.timestamp, parsed.today), run_ids_(*parsed.run_id), service_(profiles_, config_.paths(), mounts_, target_mounter_, planner_, run_factory_, leases_, state_, cancellation_monitor_, clock_, run_ids_, cancellation) {
     }
 
     btrfsbackup::backup::BackupService& service() {
