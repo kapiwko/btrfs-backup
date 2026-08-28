@@ -18,6 +18,9 @@ namespace {
 
 static_assert(std::is_same_v<decltype(btrfsbackup::config::Profile::id), btrfsbackup::ProfileId>);
 static_assert(std::is_same_v<decltype(btrfsbackup::config::ProfileSource::id), btrfsbackup::SourceId>);
+static_assert(std::is_same_v<decltype(btrfsbackup::config::ProfilePaths::remote_root), btrfsbackup::config::RemoteSnapshotRoot>);
+static_assert(std::is_same_v<decltype(btrfsbackup::config::ProfilePaths::incoming_root), btrfsbackup::config::IncomingRoot>);
+static_assert(std::is_same_v<decltype(btrfsbackup::config::ProfileSource::remote_subdir), btrfsbackup::config::SafeRelativePath>);
 static_assert(std::is_same_v<decltype(btrfsbackup::config::ProfileSettings::remote_retention), btrfsbackup::config::RetentionCount>);
 static_assert(std::is_same_v<decltype(btrfsbackup::config::ProfileSource::local_retention), btrfsbackup::config::RetentionCount>);
 static_assert(std::is_same_v<decltype(btrfsbackup::config::ProfileSettings::minimum_target_free_bytes), btrfsbackup::config::ByteThreshold>);

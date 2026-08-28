@@ -254,14 +254,16 @@ btrfsbackup::config::Profile test_profile(const fs::path& root) {
             btrfsbackup::config::PartitionUuid{""},
             btrfsbackup::config::MapperName{"backup"},
         },
+        {
+            btrfsbackup::config::RemoteSnapshotRoot{(root / "target" / "default" / "snapshots").string()},
+            btrfsbackup::config::IncomingRoot{(root / "target" / "default" / ".incoming").string()},
+        },
     };
     profile.name = "Default backup";
     profile.enabled = true;
     profile.target.device = "/dev/disk/by-uuid/11111111-2222-3333-4444-555555555555";
     profile.target.serial = "";
     profile.target.mount_point = (root / "target" / "default").string();
-    profile.paths.remote_root = (root / "target" / "default" / "snapshots").string();
-    profile.paths.incoming_root = (root / "target" / "default" / ".incoming").string();
     profile.settings.incremental_required = false;
     profile.settings.keep_failed_local_snapshot = false;
     profile.settings.remote_retention = btrfsbackup::config::RetentionCount{2};
@@ -270,7 +272,6 @@ btrfsbackup::config::Profile test_profile(const fs::path& root) {
     source.name = "System";
     source.subvolume = (root / "source" / "root").string();
     source.local_snapshot_dir = (root / "source" / ".snapshots" / "root").string();
-    source.remote_subdir = "root";
     source.remote_retention = btrfsbackup::config::RetentionCount{2};
     source.local_retention = btrfsbackup::config::RetentionCount{2};
     profile.sources = {std::move(source)};
@@ -291,7 +292,6 @@ void add_home_source(btrfsbackup::config::Profile& profile, const fs::path& root
     source.name = "Home";
     source.subvolume = (root / "source" / "home").string();
     source.local_snapshot_dir = (root / "source" / ".snapshots" / "home").string();
-    source.remote_subdir = "home";
     source.remote_retention = btrfsbackup::config::RetentionCount{2};
     source.local_retention = btrfsbackup::config::RetentionCount{2};
     profile.sources.push_back(std::move(source));
@@ -664,8 +664,8 @@ void test_runner_execute_serializes_shared_target_but_allows_another_target() {
     shared_target_profile.id = btrfsbackup::ProfileId{"shared"};
     shared_target_profile.name = "Shared target";
     shared_target_profile.target.mount_point = (root / "target" / "shared").string();
-    shared_target_profile.paths.remote_root = (root / "target" / "shared" / "snapshots").string();
-    shared_target_profile.paths.incoming_root = (root / "target" / "shared" / ".incoming").string();
+    shared_target_profile.paths.remote_root = btrfsbackup::config::RemoteSnapshotRoot{(root / "target" / "shared" / "snapshots").string()};
+    shared_target_profile.paths.incoming_root = btrfsbackup::config::IncomingRoot{(root / "target" / "shared" / ".incoming").string()};
     btrfsbackup::config::Profile other_target_profile = test_profile(root);
     other_target_profile.id = btrfsbackup::ProfileId{"other"};
     other_target_profile.name = "Other target";
@@ -674,8 +674,8 @@ void test_runner_execute_serializes_shared_target_but_allows_another_target() {
     other_target_profile.target.btrfs_uuid =
         btrfsbackup::config::BtrfsUuid{"44444444-5555-6666-7777-888888888888"};
     other_target_profile.target.mount_point = (root / "target" / "other").string();
-    other_target_profile.paths.remote_root = (root / "target" / "other" / "snapshots").string();
-    other_target_profile.paths.incoming_root = (root / "target" / "other" / ".incoming").string();
+    other_target_profile.paths.remote_root = btrfsbackup::config::RemoteSnapshotRoot{(root / "target" / "other" / "snapshots").string()};
+    other_target_profile.paths.incoming_root = btrfsbackup::config::IncomingRoot{(root / "target" / "other" / ".incoming").string()};
     fs::create_directories(root / "target" / "shared" / "snapshots" / "root");
     fs::create_directories(root / "target" / "shared" / ".incoming");
     fs::create_directories(root / "target" / "other" / "snapshots" / "root");

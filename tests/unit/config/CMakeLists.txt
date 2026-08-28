@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 add_btrfsbackup_test(btrfsbackup-validation-tests validation_tests.cpp validation-tests btrfsbackup-config-domain)
+add_btrfsbackup_test(btrfsbackup-repository-path-tests repository_path_tests.cpp repository-path-tests btrfsbackup-config-domain)
 add_btrfsbackup_test(btrfsbackup-storage-policy-tests storage_policy_tests.cpp storage-policy-tests btrfsbackup-config-domain)
 add_btrfsbackup_test(btrfsbackup-target-identity-tests target_identity_tests.cpp target-identity-tests btrfsbackup-config-domain)
 add_btrfsbackup_test(btrfsbackup-application-config-tests application_config_tests.cpp application-config-tests btrfsbackup-platform-linux-config)

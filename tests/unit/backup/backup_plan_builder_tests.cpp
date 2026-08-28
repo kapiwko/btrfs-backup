@@ -21,15 +21,16 @@ btrfsbackup::config::Profile profile() {
             btrfsbackup::config::PartitionUuid{""},
             btrfsbackup::config::MapperName{"backup"},
         },
+        {
+            btrfsbackup::config::RemoteSnapshotRoot{"/mnt/backup/default/snapshots"},
+            btrfsbackup::config::IncomingRoot{"/mnt/backup/default/.incoming"},
+        },
     };
     result.target.mount_point = "/mnt/backup";
-    result.paths.remote_root = "/mnt/backup/default/snapshots";
-    result.paths.incoming_root = "/mnt/backup/default/.incoming";
     result.settings.incremental_required = false;
     btrfsbackup::config::ProfileSource source{btrfsbackup::SourceId{"root"}};
     source.subvolume = "/";
     source.local_snapshot_dir = "/.snapshots/root";
-    source.remote_subdir = "root";
     source.local_retention = btrfsbackup::config::RetentionCount{2};
     source.remote_retention = btrfsbackup::config::RetentionCount{2};
     result.sources.push_back(std::move(source));

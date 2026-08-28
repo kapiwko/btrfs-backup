@@ -122,8 +122,8 @@ void test_profile_from_wizard_answers() {
         btrfsbackup::platform::linux::systemd_mount_unit_name(profile.target.mount_point),
         "mnt-btrfs\\x2dbackup-laptop.mount"
     );
-    test_helpers::expect_eq("wizard remote root", profile.paths.remote_root, "/mnt/btrfs-backup/laptop/snapshots");
-    test_helpers::expect_eq("wizard incoming root", profile.paths.incoming_root, "/mnt/btrfs-backup/laptop/.incoming");
+    test_helpers::expect_eq("wizard remote root", profile.paths.remote_root.value().string(), "/mnt/btrfs-backup/laptop/snapshots");
+    test_helpers::expect_eq("wizard incoming root", profile.paths.incoming_root.value().string(), "/mnt/btrfs-backup/laptop/.incoming");
     test_helpers::expect_eq("wizard source count", std::to_string(profile.sources.size()), "2");
     test_helpers::expect_eq("wizard first source id", std::string(profile.sources.at(0).id.value()), "root");
     test_helpers::expect_eq("wizard second source subvolume", profile.sources.at(1).subvolume, "/home");

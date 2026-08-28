@@ -409,6 +409,10 @@ Profile profile_from_document(const ProfileDocument& document, const fs::path& t
             PartitionUuid{target.at("partitionUuid").get<std::string>()},
             MapperName{target.at("mapperName").get<std::string>()},
         },
+        ProfilePaths{
+            RemoteSnapshotRoot{normalized.at("paths").at("remoteRoot").get<std::string>()},
+            IncomingRoot{normalized.at("paths").at("incomingRoot").get<std::string>()},
+        },
     };
     profile.configuration_generation = normalized.value("configurationGeneration", "");
     profile.name = normalized.at("name").get<std::string>();
@@ -417,10 +421,6 @@ Profile profile_from_document(const ProfileDocument& document, const fs::path& t
     profile.target.device = target.at("device").get<std::string>();
     profile.target.serial = target.at("serial").get<std::string>();
     profile.target.mount_point = (normalized_absolute_path(target_mount_root, "TARGET_MOUNT_ROOT") / profile.id.value()).string();
-
-    const Json& paths = normalized.at("paths");
-    profile.paths.remote_root = paths.at("remoteRoot").get<std::string>();
-    profile.paths.incoming_root = paths.at("incomingRoot").get<std::string>();
 
     const Json& settings = normalized.at("settings");
     profile.settings.daily_limit = settings.at("dailyLimit").get<bool>();
@@ -449,12 +449,14 @@ Profile profile_from_document(const ProfileDocument& document, const fs::path& t
     }
 
     for (const Json& item : normalized.at("sources")) {
-        ProfileSource source{SourceId{item.at("id").get<std::string>()}};
+        ProfileSource source{
+            SourceId{item.at("id").get<std::string>()},
+            SafeRelativePath{item.at("remoteSubdir").get<std::string>()},
+        };
         source.name = item.at("name").get<std::string>();
         source.enabled = item.at("enabled").get<bool>();
         source.subvolume = item.at("subvolume").get<std::string>();
         source.local_snapshot_dir = item.at("localSnapshotDir").get<std::string>();
-        source.remote_subdir = item.at("remoteSubdir").get<std::string>();
         source.remote_retention = RetentionCount{item.at("remoteRetention").get<std::uint64_t>()};
         source.local_retention = RetentionCount{item.at("localRetention").get<std::uint64_t>()};
         profile.sources.push_back(std::move(source));
@@ -469,7 +471,7 @@ Profile profile_from_json(const Json& raw, const fs::path& target_mount_root) {
 Json profile_to_json(const Profile& profile) {
     Json sources = Json::array();
     for (const ProfileSource& source : profile.sources) {
-        sources.push_back({{"id", source.id.value()}, {"name", source.name}, {"enabled", source.enabled}, {"subvolume", source.subvolume}, {"localSnapshotDir", source.local_snapshot_dir}, {"remoteSubdir", source.remote_subdir}, {"remoteRetention", source.remote_retention.value()}, {"localRetention", source.local_retention.value()}});
+        sources.push_back({{"id", source.id.value()}, {"name", source.name}, {"enabled", source.enabled}, {"subvolume", source.subvolume}, {"localSnapshotDir", source.local_snapshot_dir}, {"remoteSubdir", source.remote_subdir.value().string()}, {"remoteRetention", source.remote_retention.value()}, {"localRetention", source.local_retention.value()}});
     }
 
     Json target = {
@@ -495,7 +497,7 @@ Json profile_to_json(const Profile& profile) {
         {"name", profile.name},
         {"enabled", profile.enabled},
         {"target", target},
-        {"paths", {{"remoteRoot", profile.paths.remote_root}, {"incomingRoot", profile.paths.incoming_root}}},
+        {"paths", {{"remoteRoot", profile.paths.remote_root.value().string()}, {"incomingRoot", profile.paths.incoming_root.value().string()}}},
         {"settings", {{"dailyLimit", profile.settings.daily_limit}, {"incrementalRequired", profile.settings.incremental_required}, {"keepFailedLocalSnapshot", profile.settings.keep_failed_local_snapshot}, {"autoEject", profile.settings.auto_eject}, {"remoteRetention", profile.settings.remote_retention.value()}, {"localRetention", profile.settings.local_retention.value()}, {"minimumTargetFreeBytes", profile.settings.minimum_target_free_bytes.value()}, {"minimumLocalFreeBytes", profile.settings.minimum_local_free_bytes.value()}}},
         {"hooks", {{"beforeSnapshot", hooks_to_json(profile.hooks.before_snapshot)}, {"afterSnapshot", hooks_to_json(profile.hooks.after_snapshot)}}},
         {"sources", sources}
