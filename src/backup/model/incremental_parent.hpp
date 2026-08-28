@@ -10,6 +10,7 @@
 #include <vector>
 
 #include <backup/model/snapshot.hpp>
+#include <core/identifiers.hpp>
 
 namespace btrfsbackup::backup {
 
@@ -21,7 +22,7 @@ struct IncrementalParentSelection {
 };
 
 IncrementalParentSelection select_incremental_parent(
-    const std::string& source_id,
+    const SourceId& source_id,
     const std::vector<SnapshotInfo>& local_snapshots,
     const std::vector<SnapshotInfo>& remote_snapshots,
     const std::optional<std::filesystem::path>& current_snapshot_path,

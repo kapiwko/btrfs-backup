@@ -18,9 +18,13 @@ static_assert(!std::is_aggregate_v<BackupPlanningSnapshot>);
 static_assert(std::is_same_v<
               decltype(std::declval<const BackupPlanningSnapshot&>().local_inventory()),
               const SnapshotInventoryBySource&>);
+static_assert(std::is_same_v<SnapshotInventoryBySource::key_type, btrfsbackup::SourceId>);
+static_assert(std::is_same_v<
+              decltype(btrfsbackup::backup::SnapshotInfo::source_id),
+              btrfsbackup::SourceId>);
 
 void test_snapshot_owns_discovered_values() {
-    SnapshotInventoryBySource local_inventory{{"root", {}}};
+    SnapshotInventoryBySource local_inventory{{btrfsbackup::SourceId{"root"}, {}}};
     BackupPlanningSnapshot snapshot{
         local_inventory,
         {},
@@ -33,7 +37,7 @@ void test_snapshot_owns_discovered_values() {
 
     test_helpers::expect_true(
         "snapshot owns local inventory",
-        snapshot.local_inventory().contains("root"),
+        snapshot.local_inventory().contains(btrfsbackup::SourceId{"root"}),
         "snapshot changed with discovery working data"
     );
     test_helpers::expect_eq(

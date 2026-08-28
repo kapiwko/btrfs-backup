@@ -20,7 +20,7 @@ namespace {
 btrfsbackup::backup::SnapshotInfo remote_snapshot(const std::string& source_id, const std::string& received_uuid) {
     return btrfsbackup::backup::SnapshotInfo{
         .side = btrfsbackup::backup::SnapshotSide::Remote,
-        .source_id = source_id,
+        .source_id = btrfsbackup::SourceId{source_id},
         .name = source_id + "-2026-08-23T080000Z",
         .timestamp = "2026-08-23T080000Z",
         .sequence = 0,
@@ -74,7 +74,7 @@ void test_reads_pending_marker() {
 
 void test_no_marker_does_nothing() {
     btrfsbackup::backup::PendingRecoveryPlan plan = btrfsbackup::backup::plan_pending_recovery(
-        "root",
+        btrfsbackup::SourceId{"root"},
         "/state/default",
         "/local/root",
         "/remote/root",
@@ -91,7 +91,7 @@ void test_no_marker_does_nothing() {
 
 void test_invalid_marker_is_cleared() {
     btrfsbackup::backup::PendingRecoveryPlan plan = btrfsbackup::backup::plan_pending_recovery(
-        "root",
+        btrfsbackup::SourceId{"root"},
         "/state/default",
         "/local/root",
         "/remote/root",
@@ -108,7 +108,7 @@ void test_invalid_marker_is_cleared() {
 
 void test_missing_snapshot_clears_marker() {
     btrfsbackup::backup::PendingRecoveryPlan plan = btrfsbackup::backup::plan_pending_recovery(
-        "root",
+        btrfsbackup::SourceId{"root"},
         "/state/default",
         "/local/root",
         "/remote/root",
@@ -125,7 +125,7 @@ void test_missing_snapshot_clears_marker() {
 
 void test_preserves_committed_snapshot() {
     btrfsbackup::backup::PendingRecoveryPlan plan = btrfsbackup::backup::plan_pending_recovery(
-        "home",
+        btrfsbackup::SourceId{"home"},
         "/state/default",
         "/local/home",
         "/remote/home",
@@ -142,7 +142,7 @@ void test_preserves_committed_snapshot() {
 
 void test_removes_invalid_snapshot_left_at_final_path() {
     btrfsbackup::backup::PendingRecoveryPlan plan = btrfsbackup::backup::plan_pending_recovery(
-        "home",
+        btrfsbackup::SourceId{"home"},
         "/state/default",
         "/local/home",
         "/remote/home",
@@ -171,7 +171,7 @@ void test_legacy_marker_without_final_path_uses_uuid_recovery() {
     legacy.final_snapshot_path.clear();
 
     btrfsbackup::backup::PendingRecoveryPlan plan = btrfsbackup::backup::plan_pending_recovery(
-        "home",
+        btrfsbackup::SourceId{"home"},
         "/state/default",
         "/local/home",
         "/remote/home",
@@ -191,7 +191,7 @@ void test_legacy_marker_without_final_path_uses_uuid_recovery() {
 
 void test_keeps_or_deletes_orphan_by_policy() {
     btrfsbackup::backup::PendingRecoveryPlan keep = btrfsbackup::backup::plan_pending_recovery(
-        "home",
+        btrfsbackup::SourceId{"home"},
         "/state/default",
         "/local/home",
         "/remote/home",
@@ -204,7 +204,7 @@ void test_keeps_or_deletes_orphan_by_policy() {
     test_helpers::expect_true("keep orphan no delete", !keep.delete_local_snapshot, "configured keep should not delete");
 
     btrfsbackup::backup::PendingRecoveryPlan remove = btrfsbackup::backup::plan_pending_recovery(
-        "home",
+        btrfsbackup::SourceId{"home"},
         "/state/default",
         "/local/home",
         "/remote/home",

@@ -28,12 +28,10 @@ bool oldest_first(const btrfsbackup::backup::SnapshotInfo& left, const btrfsback
 namespace btrfsbackup::backup {
 
 RetentionPlan plan_count_retention(
-    const std::string& source_id,
+    const SourceId& source_id,
     const std::vector<SnapshotInfo>& snapshots,
     std::size_t keep_count
 ) {
-    validate_identifier(source_id, "sourceId");
-
     std::vector<SnapshotInfo> matching;
     for (const SnapshotInfo& snapshot : snapshots) {
         if (snapshot.source_id == source_id) {

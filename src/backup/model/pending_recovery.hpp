@@ -10,6 +10,7 @@
 #include <vector>
 
 #include <backup/model/snapshot.hpp>
+#include <core/identifiers.hpp>
 
 namespace btrfsbackup::backup {
 
@@ -43,7 +44,7 @@ struct PendingRecoveryPlan {
 };
 
 PendingRecoveryPlan plan_pending_recovery(
-    const std::string& source_id,
+    const SourceId& source_id,
     const std::filesystem::path& profile_state_dir,
     const std::filesystem::path& local_snapshot_dir,
     const std::filesystem::path& remote_snapshot_dir,

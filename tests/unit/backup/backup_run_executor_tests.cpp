@@ -242,9 +242,15 @@ btrfsbackup::backup::BackupRunAction action(btrfsbackup::backup::BackupRunAction
             "/mnt/backup/root/snapshot",
         };
     case btrfsbackup::backup::BackupRunActionKind::ApplyRemoteRetention:
-        return btrfsbackup::backup::ApplyRemoteRetentionAction{source_id, btrfsbackup::backup::RetentionPlan{}};
+        return btrfsbackup::backup::ApplyRemoteRetentionAction{
+            source_id,
+            btrfsbackup::backup::RetentionPlan{.source_id = source_id}
+        };
     case btrfsbackup::backup::BackupRunActionKind::ApplyLocalRetention:
-        return btrfsbackup::backup::ApplyLocalRetentionAction{source_id, btrfsbackup::backup::RetentionPlan{}};
+        return btrfsbackup::backup::ApplyLocalRetentionAction{
+            source_id,
+            btrfsbackup::backup::RetentionPlan{.source_id = source_id}
+        };
     case btrfsbackup::backup::BackupRunActionKind::CleanupSource:
         return btrfsbackup::backup::CleanupSourceAction{source_id, incoming / local_snapshot.filename(), incoming, "/state/pending", "/state"};
     }
@@ -252,7 +258,11 @@ btrfsbackup::backup::BackupRunAction action(btrfsbackup::backup::BackupRunAction
 }
 
 btrfsbackup::backup::BackupRunPlan plan_with_actions(std::vector<btrfsbackup::backup::BackupRunAction> actions) {
-    btrfsbackup::backup::BackupSourceRunPlan source{.source_id = btrfsbackup::SourceId{"root"}};
+    btrfsbackup::backup::BackupSourceRunPlan source{
+        .source_id = btrfsbackup::SourceId{"root"},
+        .local_retention = {.source_id = btrfsbackup::SourceId{"root"}},
+        .remote_retention = {.source_id = btrfsbackup::SourceId{"root"}},
+    };
     source.local_snapshot_path = "/.snapshots/root/root-2026-08-23T080000Z";
     source.incoming_run_dir = "/mnt/backup/.incoming/root/run-1";
     source.actions = std::move(actions);
@@ -613,7 +623,11 @@ void test_multi_source_progress_accumulates_run_bytes() {
     btrfsbackup::backup::transfer::ThreadedAsyncTransferPipeline async_transfers(transfers);
     btrfsbackup::backup::BackupRunExecutor executor(handler, async_transfers, checkpoints, safe_directories);
 
-    btrfsbackup::backup::BackupSourceRunPlan home{.source_id = btrfsbackup::SourceId{"home"}};
+    btrfsbackup::backup::BackupSourceRunPlan home{
+        .source_id = btrfsbackup::SourceId{"home"},
+        .local_retention = {.source_id = btrfsbackup::SourceId{"home"}},
+        .remote_retention = {.source_id = btrfsbackup::SourceId{"home"}},
+    };
     home.local_snapshot_path = "/.snapshots/home/home-2026-08-23T080000Z";
     home.incoming_run_dir = "/mnt/backup/.incoming/home/run-1";
     home.actions = {
@@ -626,7 +640,11 @@ void test_multi_source_progress_accumulates_run_bytes() {
         },
     };
 
-    btrfsbackup::backup::BackupSourceRunPlan root{.source_id = btrfsbackup::SourceId{"root"}};
+    btrfsbackup::backup::BackupSourceRunPlan root{
+        .source_id = btrfsbackup::SourceId{"root"},
+        .local_retention = {.source_id = btrfsbackup::SourceId{"root"}},
+        .remote_retention = {.source_id = btrfsbackup::SourceId{"root"}},
+    };
     root.local_snapshot_path = "/.snapshots/root/root-2026-08-23T080000Z";
     root.incoming_run_dir = "/mnt/backup/.incoming/root/run-1";
     root.actions = {

@@ -59,7 +59,7 @@ btrfsbackup::backup::SnapshotInfo snapshot(
 ) {
     return btrfsbackup::backup::SnapshotInfo{
         .side = side,
-        .source_id = source_id,
+        .source_id = btrfsbackup::SourceId{source_id},
         .name = name,
         .timestamp = timestamp,
         .sequence = 0,
@@ -73,7 +73,7 @@ btrfsbackup::backup::SnapshotInfo snapshot(
 void test_builds_ordered_source_plan() {
     btrfsbackup::backup::SnapshotInventoryBySource local{
         {
-            "root",
+            btrfsbackup::SourceId{"root"},
             {
                 snapshot(
                     btrfsbackup::backup::SnapshotSide::Local,
@@ -88,7 +88,7 @@ void test_builds_ordered_source_plan() {
     };
     btrfsbackup::backup::SnapshotInventoryBySource remote{
         {
-            "root",
+            btrfsbackup::SourceId{"root"},
             {
                 snapshot(
                     btrfsbackup::backup::SnapshotSide::Remote,
@@ -185,7 +185,7 @@ void test_plans_collision_suffix_and_retention() {
 
     btrfsbackup::backup::SnapshotInventoryBySource local{
         {
-            "root",
+            btrfsbackup::SourceId{"root"},
             {
                 snapshot(btrfsbackup::backup::SnapshotSide::Local, "root", "root-2026-08-21T080000Z", "2026-08-21T080000Z", "/.snapshots/root/old", "old"),
                 snapshot(btrfsbackup::backup::SnapshotSide::Local, "root", "root-2026-08-23T080000Z", "2026-08-23T080000Z", "/.snapshots/root/current-name", "current-name"),
@@ -213,7 +213,7 @@ void test_plans_collision_suffix_and_retention() {
 void test_includes_pending_recovery_action() {
     btrfsbackup::backup::PendingMarkerBySource markers{
         {
-            "root",
+            btrfsbackup::SourceId{"root"},
             btrfsbackup::backup::PendingMarker{
                 .source_name = "root",
                 .local_snapshot_path = "/.snapshots/root/root-2026-08-22T080000Z",
@@ -225,7 +225,7 @@ void test_includes_pending_recovery_action() {
     };
     btrfsbackup::backup::PendingSnapshotBySource pending_snapshots{
         {
-            "root",
+            btrfsbackup::SourceId{"root"},
             btrfsbackup::backup::SnapshotMetadata{
                 .is_subvolume = true,
                 .readonly = true,
@@ -264,7 +264,7 @@ void test_excludes_recovery_deletions_from_retention() {
     );
     btrfsbackup::backup::SnapshotInventoryBySource local{
         {
-            "root",
+            btrfsbackup::SourceId{"root"},
             {
                 orphan,
                 snapshot(btrfsbackup::backup::SnapshotSide::Local, "root", "root-2026-08-21T080000Z", "2026-08-21T080000Z", "/.snapshots/root/one", "one"),
@@ -274,7 +274,7 @@ void test_excludes_recovery_deletions_from_retention() {
     };
     btrfsbackup::backup::PendingMarkerBySource markers{
         {
-            "root",
+            btrfsbackup::SourceId{"root"},
             btrfsbackup::backup::PendingMarker{
                 .source_name = "root",
                 .local_snapshot_path = orphan.path.string(),
@@ -286,7 +286,7 @@ void test_excludes_recovery_deletions_from_retention() {
     };
     btrfsbackup::backup::PendingSnapshotBySource pending_snapshots{
         {
-            "root",
+            btrfsbackup::SourceId{"root"},
             btrfsbackup::backup::SnapshotMetadata{
                 .is_subvolume = true,
                 .readonly = true,
