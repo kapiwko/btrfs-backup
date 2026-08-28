@@ -34,7 +34,15 @@ std::string join(const std::vector<std::string>& args) {
 }
 
 btrfsbackup::config::Profile profile_with_auto_eject(bool auto_eject) {
-    btrfsbackup::config::Profile profile{btrfsbackup::ProfileId{"default"}};
+    btrfsbackup::config::Profile profile{
+        btrfsbackup::ProfileId{"default"},
+        {
+            btrfsbackup::config::LuksUuid{"11111111-2222-3333-4444-555555555555"},
+            btrfsbackup::config::BtrfsUuid{"22222222-3333-4444-5555-666666666666"},
+            btrfsbackup::config::PartitionUuid{""},
+            btrfsbackup::config::MapperName{"backup"},
+        },
+    };
     profile.name = "Default backup";
     profile.settings.auto_eject = auto_eject;
     return profile;

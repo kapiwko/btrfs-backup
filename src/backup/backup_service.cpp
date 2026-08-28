@@ -28,7 +28,7 @@ BackupRunStatusDescription status_description(
         .source_count = static_cast<int>(plan.sources.size()),
         .started_at = started_at,
         .source_names = std::move(source_names),
-        .target_name = profile.target.mapper_name,
+        .target_name = profile.target.mapper_name.value(),
     };
 }
 

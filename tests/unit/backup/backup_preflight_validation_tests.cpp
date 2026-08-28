@@ -16,10 +16,16 @@ namespace fs = std::filesystem;
 namespace {
 
 btrfsbackup::config::Profile profile(const fs::path& mount_point = "/mnt/backup") {
-    btrfsbackup::config::Profile result{btrfsbackup::ProfileId{"default"}};
-    result.target.mapper_name = "backup";
+    btrfsbackup::config::Profile result{
+        btrfsbackup::ProfileId{"default"},
+        {
+            btrfsbackup::config::LuksUuid{"11111111-2222-3333-4444-555555555555"},
+            btrfsbackup::config::BtrfsUuid{"22222222-3333-4444-5555-666666666666"},
+            btrfsbackup::config::PartitionUuid{""},
+            btrfsbackup::config::MapperName{"backup"},
+        },
+    };
     result.target.mount_point = mount_point.string();
-    result.target.btrfs_uuid = "target-fs";
     result.paths.remote_root = (mount_point / "snapshots").string();
     result.paths.incoming_root = (mount_point / ".incoming").string();
     return result;
@@ -33,7 +39,7 @@ std::vector<btrfsbackup::backup::MountEntry> mounts(const fs::path& mount_point 
             .fstype = "btrfs",
             .options = "rw,relatime,nodev,nosuid,noexec,nosymfollow",
             .device_id = "0:21",
-            .filesystem_uuid = "target-fs",
+            .filesystem_uuid = "22222222-3333-4444-5555-666666666666",
         },
     };
 }
@@ -110,14 +116,6 @@ void test_rejects_uuid_mismatch() {
     test_helpers::expect_validation_error("uuid mismatch", [&] { btrfsbackup::backup::validate_backup_mounts(profile(), entries); }, "Btrfs UUID mismatch");
 }
 
-void test_rejects_empty_configured_uuid() {
-    btrfsbackup::config::Profile test_profile = profile();
-    test_profile.target.btrfs_uuid = "";
-    std::vector<btrfsbackup::backup::MountEntry> entries = mounts();
-
-    test_helpers::expect_validation_error("empty configured uuid", [&] { btrfsbackup::backup::validate_backup_mounts(test_profile, entries); }, "target.btrfsUuid is required");
-}
-
 void test_rejects_remote_root_symlink_escape() {
     fs::path root = test_helpers::test_root("backup-preflight-validation", "remote-escape");
     fs::path mount_point = root / "mnt" / "backup";
@@ -192,7 +190,6 @@ int main() {
     test_rejects_read_only_mount();
     test_rejects_missing_security_mount_options();
     test_rejects_uuid_mismatch();
-    test_rejects_empty_configured_uuid();
     test_rejects_remote_root_symlink_escape();
     test_rejects_incoming_root_symlink_escape();
     test_rejects_local_snapshot_directory_on_another_filesystem();

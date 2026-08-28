@@ -291,7 +291,10 @@ btrfsbackup::config::Json ManagerService::get_device_state(const std::string& pr
     validate_profile_id(profile_id);
     const fs::path profile_path = paths_.config_root / "profiles" / profile_id / "profile.json";
     const btrfsbackup::config::Profile profile = btrfsbackup::config::profile_from_json(read_bounded_json(profile_path), paths_.target_mount_root);
-    const fs::path mapper = btrfsbackup::platform::linux::mapper_path(profile.target.mapper_name, paths_.mapper_root);
+    const fs::path mapper = btrfsbackup::platform::linux::mapper_path(
+        profile.target.mapper_name.value(),
+        paths_.mapper_root
+    );
     const fs::path mountpoint = paths_.target_mount_root / profile_id;
     const std::vector<btrfsbackup::backup::MountEntry> mounts = btrfsbackup::platform::linux::read_mount_table(paths_.mountinfo_path);
     const bool mounted = btrfsbackup::backup::mount_at(mounts, mountpoint).has_value();
@@ -311,7 +314,7 @@ btrfsbackup::config::Json ManagerService::get_device_state(const std::string& pr
     return {
         {"schemaVersion", 1},
         {"profileId", profile_id},
-        {"targetName", profile.target.mapper_name},
+        {"targetName", profile.target.mapper_name.value()},
         {"state", state},
         {"connected", connected},
         {"unlocked", unlocked},

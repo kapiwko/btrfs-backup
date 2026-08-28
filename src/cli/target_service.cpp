@@ -89,7 +89,7 @@ std::string cryptsetup_unit_name(btrfsbackup::backup::ICommandRunner& commands, 
 
 void validate_luks_uuid(btrfsbackup::backup::ICommandRunner& commands, const btrfsbackup::config::Profile& profile) {
     std::string actual = btrfsbackup::backup::capture_command(commands, {"cryptsetup", "luksUUID", profile.target.device});
-    if (actual.empty() || lower(actual) != lower(profile.target.luks_uuid)) {
+    if (actual.empty() || lower(actual) != profile.target.luks_uuid.value()) {
         throw btrfsbackup::ValidationError("LUKS UUID mismatch for " + profile.target.device);
     }
 }
@@ -114,7 +114,9 @@ std::string mapper_underlying_device(btrfsbackup::backup::ICommandRunner& comman
 
 bool mapper_identity_matches(btrfsbackup::backup::ICommandRunner& commands, const btrfsbackup::config::Profile& profile) {
     fs::path configured = btrfsbackup::platform::linux::canonical_device(profile.target.device);
-    fs::path actual = btrfsbackup::platform::linux::canonical_device(mapper_underlying_device(commands, profile.target.mapper_name));
+    fs::path actual = btrfsbackup::platform::linux::canonical_device(
+        mapper_underlying_device(commands, profile.target.mapper_name.value())
+    );
     if (configured.empty() || actual.empty() || configured != actual) {
         return false;
     }
@@ -131,7 +133,7 @@ bool mapper_has_mounts(
     const std::vector<btrfsbackup::backup::MountEntry>& mounts,
     btrfsbackup::cli::TargetOperationResult& result
 ) {
-    fs::path mapper = fs::path("/dev/mapper") / profile.target.mapper_name;
+    fs::path mapper = fs::path("/dev/mapper") / profile.target.mapper_name.value();
     for (const btrfsbackup::backup::MountEntry& mount : mounts) {
         if (btrfsbackup::config::normalized_path(btrfsbackup::platform::linux::strip_subvolume_suffix(mount.source)) == btrfsbackup::config::normalized_path(mapper)) {
             result.events.push_back({
@@ -179,7 +181,7 @@ std::optional<btrfsbackup::platform::linux::FileLock> acquire_target_lock(
     btrfsbackup::cli::TargetOperationResult& result
 ) {
     std::optional<btrfsbackup::platform::linux::FileLock> lock;
-    lock.emplace(btrfsbackup::platform::linux::target_lock_path(lock_root, profile.target.luks_uuid));
+    lock.emplace(btrfsbackup::platform::linux::target_lock_path(lock_root, profile.target.luks_uuid.value()));
     if (!lock->try_acquire()) {
         result.busy = true;
         result.events.push_back({
@@ -255,9 +257,10 @@ TargetOperationResult eject_target(
 
     std::vector<btrfsbackup::backup::MountEntry> mounts = resolved.read_mounts();
     if (btrfsbackup::backup::mount_at(mounts, profile.target.mount_point).has_value()) {
-        if (!request.force && !btrfsbackup::backup::mount_uses_mapper(mounts, profile.target.mount_point, fs::path("/dev/mapper") / profile.target.mapper_name)) {
+        if (!request.force && !btrfsbackup::backup::mount_uses_mapper(mounts, profile.target.mount_point, fs::path("/dev/mapper") / profile.target.mapper_name.value())) {
             throw ValidationError(
-                "Refusing to unmount " + profile.target.mount_point + " because it is not backed by /dev/mapper/" + profile.target.mapper_name
+                "Refusing to unmount " + profile.target.mount_point +
+                " because it is not backed by /dev/mapper/" + profile.target.mapper_name.value()
             );
         }
         result.events.push_back({
@@ -271,33 +274,35 @@ TargetOperationResult eject_target(
         );
     }
 
-    std::string crypt_unit = cryptsetup_unit_name(*resolved.commands, profile.target.mapper_name);
+    std::string crypt_unit = cryptsetup_unit_name(*resolved.commands, profile.target.mapper_name.value());
     result.events.push_back({
         .kind = TargetEventKind::StoppingCryptUnit,
         .detail = crypt_unit,
     });
     run_ignored(*resolved.commands, {"systemctl", "stop", crypt_unit});
 
-    fs::path mapper = fs::path("/dev/mapper") / profile.target.mapper_name;
+    fs::path mapper = fs::path("/dev/mapper") / profile.target.mapper_name.value();
     if (fs::exists(mapper)) {
         if (!request.force && !mapper_identity_matches(*resolved.commands, profile)) {
             throw ValidationError(
-                "Refusing to close mapper " + profile.target.mapper_name + " because its underlying device does not match configuration."
+                "Refusing to close mapper " + profile.target.mapper_name.value() +
+                " because its underlying device does not match configuration."
             );
         }
         if (mapper_has_mounts(profile, resolved.read_mounts(), result)) {
             throw ValidationError(
-                "Refusing to close mapper " + profile.target.mapper_name + " while it still has mounted filesystems."
+                "Refusing to close mapper " + profile.target.mapper_name.value() +
+                " while it still has mounted filesystems."
             );
         }
         result.events.push_back({
             .kind = TargetEventKind::ClosingMapper,
-            .detail = profile.target.mapper_name,
+            .detail = profile.target.mapper_name.value(),
         });
         run_checked(
             *resolved.commands,
-            {"cryptsetup", "close", profile.target.mapper_name},
-            "could not close mapper " + profile.target.mapper_name
+            {"cryptsetup", "close", profile.target.mapper_name.value()},
+            "could not close mapper " + profile.target.mapper_name.value()
         );
     }
 

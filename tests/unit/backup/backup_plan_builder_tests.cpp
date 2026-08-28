@@ -13,7 +13,15 @@
 namespace {
 
 btrfsbackup::config::Profile profile() {
-    btrfsbackup::config::Profile result{btrfsbackup::ProfileId{"default"}};
+    btrfsbackup::config::Profile result{
+        btrfsbackup::ProfileId{"default"},
+        {
+            btrfsbackup::config::LuksUuid{"11111111-2222-3333-4444-555555555555"},
+            btrfsbackup::config::BtrfsUuid{"22222222-3333-4444-5555-666666666666"},
+            btrfsbackup::config::PartitionUuid{""},
+            btrfsbackup::config::MapperName{"backup"},
+        },
+    };
     result.target.mount_point = "/mnt/backup";
     result.paths.remote_root = "/mnt/backup/default/snapshots";
     result.paths.incoming_root = "/mnt/backup/default/.incoming";

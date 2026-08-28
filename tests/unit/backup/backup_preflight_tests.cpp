@@ -12,10 +12,16 @@
 namespace {
 
 btrfsbackup::config::Profile profile() {
-    btrfsbackup::config::Profile result{btrfsbackup::ProfileId{"default"}};
-    result.target.mapper_name = "backup";
+    btrfsbackup::config::Profile result{
+        btrfsbackup::ProfileId{"default"},
+        {
+            btrfsbackup::config::LuksUuid{"11111111-2222-3333-4444-555555555555"},
+            btrfsbackup::config::BtrfsUuid{"22222222-3333-4444-5555-666666666666"},
+            btrfsbackup::config::PartitionUuid{""},
+            btrfsbackup::config::MapperName{"backup"},
+        },
+    };
     result.target.mount_point = "/mnt/backup";
-    result.target.btrfs_uuid = "target-fs";
     result.paths.remote_root = "/mnt/backup/snapshots";
     result.paths.incoming_root = "/mnt/backup/.incoming";
     return result;
@@ -40,7 +46,7 @@ struct FakeMountInspector final : btrfsbackup::backup::IMountInspector {
     }
 
     const bool& mounted;
-    std::string filesystem_uuid = "target-fs";
+    std::string filesystem_uuid = "22222222-3333-4444-5555-666666666666";
     std::vector<std::string>& calls;
 
     std::vector<btrfsbackup::backup::MountEntry> inspect() const override {
