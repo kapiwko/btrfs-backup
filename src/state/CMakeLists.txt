@@ -49,6 +49,7 @@ target_link_libraries(btrfsbackup-state
     PUBLIC
         btrfsbackup-config-domain
         btrfsbackup-config-json
+        btrfsbackup-backup-model
         btrfsbackup-backup-ports
         btrfsbackup-core
         btrfsbackup-state-model
