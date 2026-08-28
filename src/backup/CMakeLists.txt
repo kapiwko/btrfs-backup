@@ -104,6 +104,7 @@ target_link_libraries(btrfsbackup-backup-domain
 
 add_library(btrfsbackup-backup STATIC
     backup_run.cpp
+    backup_run_checkpoint_policy.cpp
     backup_run_executor.cpp
     backup_service.cpp
     backup_planner.cpp
@@ -132,6 +133,7 @@ target_restricted_include_directories(btrfsbackup-backup
         backup/action_handlers/snapshot_action_handler.hpp
         backup/backup_planner.hpp
         backup/backup_run.hpp
+        backup/backup_run_checkpoint_policy.hpp
         backup/backup_run_executor.hpp
         backup/backup_service.hpp
         backup/default_backup_run_factory.hpp

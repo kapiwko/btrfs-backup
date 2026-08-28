@@ -7,6 +7,7 @@
 #include <string>
 
 #include <backup/action_handlers/backup_run_action_handler.hpp>
+#include <backup/backup_run_checkpoint_policy.hpp>
 #include <backup/model/backup_run_event.hpp>
 #include <backup/model/backup_run_execution.hpp>
 #include <backup/model/backup_run_plan.hpp>
@@ -32,7 +33,7 @@ class BackupRunExecutor {
   private:
     IBackupRunActionHandler& action_handler_;
     btrfsbackup::backup::transfer::TransferCoordinator transfer_coordinator_;
-    IBackupRunCheckpointStore& checkpoints_;
+    BackupRunCheckpointPolicy checkpoint_policy_;
 };
 
 } // namespace btrfsbackup::backup

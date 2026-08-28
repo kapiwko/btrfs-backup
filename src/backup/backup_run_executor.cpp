@@ -112,22 +112,6 @@ class BackupTransferEventAdapter final : public btrfsbackup::backup::transfer::I
     std::uint64_t run_bytes_base_ = 0;
 };
 
-void write_checkpoint(
-    IBackupRunCheckpointStore& checkpoints,
-    IBackupRunEventSink& events,
-    const BackupRunPlan& plan,
-    const BackupSourceRunPlan& source,
-    BackupRunActionKind action_kind
-) {
-    checkpoints.write_checkpoint({
-        .profile_id = plan.profile_id,
-        .run_id = plan.run_id,
-        .source_id = source.source_id,
-        .action_kind = action_kind,
-    });
-    emit_event(events, BackupRunEventKind::CheckpointWritten, plan, &source, action_kind);
-}
-
 } // namespace
 
 BackupRunExecutor::BackupRunExecutor(
@@ -138,7 +122,7 @@ BackupRunExecutor::BackupRunExecutor(
 )
     : action_handler_(action_handler),
       transfer_coordinator_(transfer_pipeline, safe_directories),
-      checkpoints_(checkpoints) {
+      checkpoint_policy_(checkpoints) {
 }
 
 BackupRunExecutionResult BackupRunExecutor::execute(
@@ -217,7 +201,7 @@ BackupRunExecutionResult BackupRunExecutor::execute(
             ++result.actions_completed;
             emit_event(events, BackupRunEventKind::ActionCompleted, plan, &source, action_kind);
 
-            write_checkpoint(checkpoints_, events, plan, source, action_kind);
+            checkpoint_policy_.after_success(action, plan, source, events);
         }
 
         emit_event(events, BackupRunEventKind::SourceCompleted, plan, &source, BackupRunActionKind::CleanupSource);
