@@ -13,6 +13,7 @@
 #include <platform/linux/config/application_config.hpp>
 #include <core/errors.hpp>
 #include <config/model/json_io.hpp>
+#include <config/model/profile_document.hpp>
 #include <platform/linux/config/profile_configuration_transaction.hpp>
 #include <platform/linux/file_lock.hpp>
 

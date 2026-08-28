@@ -12,8 +12,10 @@ target_restricted_include_directories(btrfsbackup-daemon-core
 )
 target_link_libraries(btrfsbackup-daemon-core
     PUBLIC
-        btrfsbackup-config-model
+        btrfsbackup-config-domain
         btrfsbackup-platform-linux
+    PRIVATE
+        btrfsbackup-config-json
 )
 
 add_executable(btrfs-backupd

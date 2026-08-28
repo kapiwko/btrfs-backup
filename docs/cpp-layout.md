@@ -59,16 +59,21 @@ flowchart TB
     subgraph contracts[Dependency-light contracts]
         direction LR
         core[core]
-        config_model[config-model]
+        config_domain[config-domain]
+        config_json[config-json]
+        config_wizard[config-wizard]
         state_model[state-model]
         backup_model[backup-model]
         transfer[transfer]
 
-        core --> config_model
+        core --> config_domain
+        config_domain --> config_json
+        config_domain --> config_wizard
+        config_json --> config_wizard
         core --> state_model
-        config_model --> backup_model
+        config_domain --> backup_model
         core --> transfer
-        config_model --> transfer
+        config_domain --> transfer
         state_model --> transfer
     end
 
@@ -83,12 +88,15 @@ flowchart TB
     cli[CLI adapter]
     daemon[read-only D-Bus adapter]
 
-    config_model --> platform
+    config_domain --> platform
     backup_model --> platform
     transfer --> platform
-    config_model --> config
+    config_domain --> config
+    config_json --> config
+    config_wizard --> config
     platform --> config
-    config_model --> state
+    config_domain --> state
+    config_json --> state
     state_model --> state
     platform --> state
     backup_model --> backup
@@ -99,7 +107,8 @@ flowchart TB
     backup --> cli
     config --> cli
     state --> cli
-    config_model --> daemon
+    config_domain --> daemon
+    config_json --> daemon
     platform --> daemon
 
     cli --> executables[btrfs-backup<br/>btrfs-backupctl]

@@ -19,6 +19,7 @@
 #include <platform/linux/config/profile_installer.hpp>
 #include <platform/linux/config/profile_repository.hpp>
 #include <config/model/profile.hpp>
+#include <config/model/profile_document.hpp>
 #include <platform/linux/config/render_directory.hpp>
 #include <platform/linux/file_io.hpp>
 #include <platform/linux/config/profile_artifact_io.hpp>

@@ -6,7 +6,7 @@ add_btrfsbackup_test(
     btrfsbackup-profile-schema-contract-tests
     profile_schema_contract_tests.cpp
     profile-schema-contract-tests
-    btrfsbackup-config-model
+    btrfsbackup-config-json
 )
 
 target_compile_definitions(btrfsbackup-profile-schema-contract-tests

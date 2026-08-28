@@ -8,6 +8,7 @@
 
 #include <platform/linux/config/installation_service.hpp>
 #include <config/model/json_io.hpp>
+#include <config/model/profile_document.hpp>
 #include <platform/linux/config/profile_service.hpp>
 #include <platform/linux/config/render_directory.hpp>
 #include <platform/linux/file_io.hpp>

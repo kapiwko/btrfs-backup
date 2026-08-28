@@ -7,4 +7,5 @@ add_btrfsbackup_test(
     manager_service_tests.cpp
     manager-service-tests
     btrfsbackup-daemon-core
+    btrfsbackup-config-json
 )
