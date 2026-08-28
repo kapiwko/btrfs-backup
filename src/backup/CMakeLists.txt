@@ -28,7 +28,11 @@ target_restricted_include_directories(btrfsbackup-backup-model
         backup/model/snapshot.hpp
         backup/model/snapshot_inventory.hpp
 )
-target_link_libraries(btrfsbackup-backup-model PUBLIC btrfsbackup-config-domain)
+target_link_libraries(btrfsbackup-backup-model
+    PUBLIC
+        btrfsbackup-config-domain
+        btrfsbackup-core
+)
 
 add_library(btrfsbackup-transfer STATIC
     transfer/async_transfer.cpp
@@ -87,6 +91,7 @@ target_link_libraries(btrfsbackup-backup-ports
     PUBLIC
         btrfsbackup-backup-model
         btrfsbackup-config-domain
+        btrfsbackup-core
         btrfsbackup-transfer
 )
 
@@ -142,7 +147,9 @@ target_link_libraries(btrfsbackup-backup
         btrfsbackup-backup-model
         btrfsbackup-backup-ports
         btrfsbackup-transfer
+        btrfsbackup-config-domain
         btrfsbackup-config-ports
+        btrfsbackup-core
 )
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")

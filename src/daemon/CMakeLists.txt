@@ -31,6 +31,8 @@ target_restricted_include_directories(btrfsbackup-daemon-core
         daemon/manager_document_reader.hpp
 )
 target_link_libraries(btrfsbackup-daemon-core
+    PUBLIC
+        btrfsbackup-core
     PRIVATE
         btrfsbackup-config-json
         btrfsbackup-config-domain
@@ -52,6 +54,8 @@ target_restricted_include_directories(btrfs-backupd
 set_target_properties(btrfs-backupd PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR})
 target_link_libraries(btrfs-backupd
     PRIVATE
+        btrfsbackup-backup-ports
+        btrfsbackup-config-ports
         btrfsbackup-daemon-core
         btrfsbackup-platform-linux
         btrfsbackup-platform-linux-config
