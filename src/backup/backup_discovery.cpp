@@ -29,7 +29,7 @@ BackupDiscovery::BackupDiscovery(
       safe_directories_(safe_directories) {
 }
 
-BackupDiscoveryResult BackupDiscovery::discover(
+BackupPlanningSnapshot BackupDiscovery::discover(
     const btrfsbackup::config::Profile& profile,
     const std::vector<MountEntry>& mounts,
     const btrfsbackup::config::ApplicationPaths& paths
@@ -108,12 +108,12 @@ BackupDiscoveryResult BackupDiscovery::discover(
         }
     }
 
-    return {
-        .local_inventory = std::move(local_inventory),
-        .remote_inventory = std::move(remote_inventory),
-        .pending_markers = std::move(pending_markers),
-        .pending_snapshots = std::move(pending_snapshots),
-        .profile_state_dir = profile_state,
+    return BackupPlanningSnapshot{
+        std::move(local_inventory),
+        std::move(remote_inventory),
+        std::move(pending_markers),
+        std::move(pending_snapshots),
+        profile_state,
     };
 }
 

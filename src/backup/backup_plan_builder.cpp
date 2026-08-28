@@ -8,17 +8,17 @@ namespace btrfsbackup::backup {
 
 BackupRunPlan BackupPlanBuilder::build(
     const btrfsbackup::config::Profile& profile,
-    const BackupDiscoveryResult& discovery,
+    const BackupPlanningSnapshot& snapshot,
     const RunId& run_id,
     const std::string& snapshot_timestamp
 ) const {
     return build_backup_run_plan(
         profile,
-        discovery.local_inventory,
-        discovery.remote_inventory,
-        discovery.pending_markers,
-        discovery.pending_snapshots,
-        discovery.profile_state_dir,
+        snapshot.local_inventory(),
+        snapshot.remote_inventory(),
+        snapshot.pending_markers(),
+        snapshot.pending_snapshots(),
+        snapshot.profile_state_dir(),
         run_id,
         snapshot_timestamp
     );

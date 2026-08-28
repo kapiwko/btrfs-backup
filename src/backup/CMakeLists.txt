@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 add_library(btrfsbackup-backup-model STATIC
+    model/backup_planning_snapshot.cpp
     model/backup_run_actions.cpp
     model/backup_run_plan.cpp
     model/incremental_parent.cpp
@@ -14,6 +15,7 @@ add_library(btrfsbackup-backup-model STATIC
 target_compile_features(btrfsbackup-backup-model PUBLIC cxx_std_20)
 target_restricted_include_directories(btrfsbackup-backup-model
     PUBLIC_HEADERS
+        backup/model/backup_planning_snapshot.hpp
         backup/model/backup_execution.hpp
         backup/model/backup_run_action.hpp
         backup/model/backup_run_actions.hpp

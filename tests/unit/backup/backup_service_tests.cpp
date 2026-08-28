@@ -43,13 +43,13 @@ struct FakeTargetMounter final : btrfsbackup::backup::ITargetManager {
 struct FakeDiscovery final : btrfsbackup::backup::IBackupDiscovery {
     mutable int calls = 0;
 
-    btrfsbackup::backup::BackupDiscoveryResult discover(
+    btrfsbackup::backup::BackupPlanningSnapshot discover(
         const btrfsbackup::config::Profile&,
         const std::vector<btrfsbackup::backup::MountEntry>&,
         const btrfsbackup::config::ApplicationPaths&
     ) const override {
         ++calls;
-        return {.profile_state_dir = "/state/from-discovery"};
+        return {{}, {}, {}, {}, "/state/from-discovery"};
     }
 };
 
@@ -59,13 +59,13 @@ struct FakePlanBuilder final : btrfsbackup::backup::IBackupPlanBuilder {
     mutable std::filesystem::path received_profile_state_dir;
     btrfsbackup::backup::BackupRunPlan build(
         const btrfsbackup::config::Profile& profile,
-        const btrfsbackup::backup::BackupDiscoveryResult& discovery,
+        const btrfsbackup::backup::BackupPlanningSnapshot& snapshot,
         const btrfsbackup::RunId& run_id,
         const std::string& snapshot_timestamp
     ) const override {
         ++calls;
         received_timestamp = snapshot_timestamp;
-        received_profile_state_dir = discovery.profile_state_dir;
+        received_profile_state_dir = snapshot.profile_state_dir();
         return {.profile_id = btrfsbackup::ProfileId{profile.id}, .run_id = run_id};
     }
 };
