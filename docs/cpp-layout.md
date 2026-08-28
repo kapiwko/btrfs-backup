@@ -73,8 +73,6 @@ flowchart TB
         core --> state_model
         config_domain --> backup_model
         core --> transfer
-        config_domain --> transfer
-        state_model --> transfer
     end
 
     subgraph support[Supporting runtime components]
@@ -121,6 +119,8 @@ flowchart TB
 The `*-model` targets contain dependency-light contracts needed to avoid
 cycles between configuration, backup concepts, and Linux implementations. They
 are implementation details of the domain layout, not separate source trees.
+Configure-time architecture checks reject unexpected target dependencies and
+JSON, Linux, D-Bus, or UI includes in the model and transfer targets.
 The `btrfsbackup-core` target contains the validated `ProfileId`, `RunId`, and
 `SourceId` value types and the shared error hierarchy. Those contracts can be
 used by configuration, backup, state, and platform adapters without pulling in
