@@ -76,13 +76,11 @@ target_restricted_include_directories(btrfsbackup-config
 target_link_libraries(btrfsbackup-config
     PUBLIC
         btrfsbackup-config-domain
-        btrfsbackup-config-ports
-        btrfsbackup-config-wizard
     PRIVATE
         btrfsbackup-config-json
 )
 
-add_library(btrfsbackup-config-linux STATIC
+add_library(btrfsbackup-platform-linux-config STATIC
     ../platform/linux/config/application_config.cpp
     ../platform/linux/config/installation_render.cpp
     ../platform/linux/config/installation_service.cpp
@@ -100,8 +98,8 @@ add_library(btrfsbackup-config-linux STATIC
     ../platform/linux/config/render_directory.cpp
 )
 
-target_compile_features(btrfsbackup-config-linux PUBLIC cxx_std_20)
-target_restricted_include_directories(btrfsbackup-config-linux
+target_compile_features(btrfsbackup-platform-linux-config PUBLIC cxx_std_20)
+target_restricted_include_directories(btrfsbackup-platform-linux-config
     PUBLIC_HEADERS
         platform/linux/config/application_config.hpp
         platform/linux/config/installation_render.hpp
@@ -118,11 +116,16 @@ target_restricted_include_directories(btrfsbackup-config-linux
         platform/linux/config/profile_wizard_install.hpp
         platform/linux/config/profile_wizard_sources.hpp
         platform/linux/config/render_directory.hpp
+    PRIVATE_HEADERS
+        platform/linux/config/profile_legacy_runtime_policy.hpp
 )
-target_link_libraries(btrfsbackup-config-linux
+target_link_libraries(btrfsbackup-platform-linux-config
     PUBLIC
         btrfsbackup-config
+        btrfsbackup-config-ports
+    PRIVATE
         btrfsbackup-config-json
+        btrfsbackup-config-wizard
         btrfsbackup-platform-linux
 )
 
@@ -132,5 +135,5 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(btrfsbackup-config-wizard PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(btrfsbackup-config-ports PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(btrfsbackup-config PRIVATE -Wall -Wextra -Wpedantic)
-    target_compile_options(btrfsbackup-config-linux PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(btrfsbackup-platform-linux-config PRIVATE -Wall -Wextra -Wpedantic)
 endif()

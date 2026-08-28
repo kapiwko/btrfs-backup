@@ -18,6 +18,7 @@
 #include <config/profile_artifact_renderer.hpp>
 #include <platform/linux/config/profile_installer.hpp>
 #include <platform/linux/config/profile_repository.hpp>
+#include <platform/linux/config/profile_legacy_runtime_policy.hpp>
 #include <platform/linux/config/profile_runtime_policy.hpp>
 #include <config/model/profile.hpp>
 #include <config/model/profile_document.hpp>

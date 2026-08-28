@@ -10,6 +10,7 @@
 
 #include <core/errors.hpp>
 #include <platform/linux/config/application_config.hpp>
+#include <platform/linux/config/profile_legacy_runtime_policy.hpp>
 #include <platform/linux/config/profile_runtime_policy.hpp>
 #include <config/profile_fingerprint.hpp>
 #include <core/identifiers.hpp>

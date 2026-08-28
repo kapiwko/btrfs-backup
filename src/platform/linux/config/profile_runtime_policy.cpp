@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include <platform/linux/config/profile_runtime_policy.hpp>
+#include <platform/linux/config/profile_legacy_runtime_policy.hpp>
 
 #include <string>
 
