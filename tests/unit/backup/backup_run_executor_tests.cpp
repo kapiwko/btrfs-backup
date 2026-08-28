@@ -25,6 +25,10 @@ std::string action_name(btrfsbackup::backup::BackupRunActionKind kind) {
     return std::to_string(static_cast<int>(kind));
 }
 
+std::string event_action_name(const btrfsbackup::backup::BackupRunEvent& event) {
+    return event.action_kind.has_value() ? action_name(*event.action_kind) : "none";
+}
+
 class RecordingActionHandler final : public btrfsbackup::backup::IBackupRunActionHandler {
   public:
     std::vector<std::string> calls;
@@ -89,11 +93,11 @@ class RecordingEvents final : public btrfsbackup::backup::IBackupRunEventSink {
         events.push_back(event);
         if (execution_trace != nullptr) {
             if (event.kind == btrfsbackup::backup::BackupRunEventKind::ActionStarted) {
-                execution_trace->push_back("action-started:" + action_name(event.action_kind));
+                execution_trace->push_back("action-started:" + event_action_name(event));
             } else if (event.kind == btrfsbackup::backup::BackupRunEventKind::ActionCompleted) {
-                execution_trace->push_back("action-completed:" + action_name(event.action_kind));
+                execution_trace->push_back("action-completed:" + event_action_name(event));
             } else if (event.kind == btrfsbackup::backup::BackupRunEventKind::CheckpointWritten) {
-                execution_trace->push_back("checkpoint-written:" + action_name(event.action_kind));
+                execution_trace->push_back("checkpoint-written:" + event_action_name(event));
             }
         }
         if (!cancelled && cancel_after_first_completed != nullptr && event.kind == btrfsbackup::backup::BackupRunEventKind::ActionCompleted) {
@@ -235,6 +239,51 @@ btrfsbackup::backup::BackupRunPlan plan_with_actions(std::vector<btrfsbackup::ba
         .run_id = btrfsbackup::RunId{"run-1"},
         .sources = {source},
     };
+}
+
+void test_lifecycle_events_do_not_have_synthetic_actions() {
+    RecordingActionHandler handler;
+    RecordingTransferPipeline transfers;
+    RecordingCheckpoints checkpoints;
+    RecordingEvents events;
+    btrfsbackup::CancellationToken cancellation;
+    btrfsbackup::backup::transfer::ThreadedAsyncTransferPipeline async_transfers(transfers);
+    btrfsbackup::backup::BackupRunExecutor executor(handler, async_transfers, checkpoints, safe_directories);
+
+    (void)executor.execute(
+        plan_with_actions({action(btrfsbackup::backup::BackupRunActionKind::CleanupIncoming)}),
+        events,
+        cancellation
+    );
+
+    const std::array lifecycle_kinds{
+        btrfsbackup::backup::BackupRunEventKind::RunStarted,
+        btrfsbackup::backup::BackupRunEventKind::SourceStarted,
+        btrfsbackup::backup::BackupRunEventKind::SourceCompleted,
+        btrfsbackup::backup::BackupRunEventKind::RunCompleted,
+    };
+    for (const btrfsbackup::backup::BackupRunEventKind kind : lifecycle_kinds) {
+        const auto found = std::find_if(
+            events.events.begin(),
+            events.events.end(),
+            [kind](const btrfsbackup::backup::BackupRunEvent& event) {
+                return event.kind == kind;
+            }
+        );
+        test_helpers::expect_true(
+            "lifecycle event exists " + std::to_string(static_cast<int>(kind)),
+            found != events.events.end(),
+            "missing lifecycle event"
+        );
+        if (found == events.events.end()) {
+            continue;
+        }
+        test_helpers::expect_true(
+            "lifecycle action absent " + std::to_string(static_cast<int>(kind)),
+            !found->action_kind.has_value(),
+            "lifecycle event contains a synthetic action"
+        );
+    }
 }
 
 void test_every_action_uses_uniform_execution_semantics() {
@@ -606,6 +655,14 @@ void test_cancels_between_actions() {
     test_helpers::expect_eq("effect count before cancel", std::to_string(handler.calls.size()), "1");
     test_helpers::expect_eq("checkpoint count before cancel", std::to_string(checkpoints.checkpoints.size()), "1");
     test_helpers::expect_true("cancel event", events.has_event(btrfsbackup::backup::BackupRunEventKind::RunCancelled), "missing cancel event");
+    const auto cancelled = std::find_if(events.events.begin(), events.events.end(), [](const btrfsbackup::backup::BackupRunEvent& event) {
+        return event.kind == btrfsbackup::backup::BackupRunEventKind::RunCancelled;
+    });
+    test_helpers::expect_true(
+        "cancel between actions has no action",
+        cancelled != events.events.end() && !cancelled->action_kind.has_value(),
+        "cancellation between actions contains a synthetic action"
+    );
 }
 
 void test_cancels_during_transfer_without_checkpointing_transfer() {
@@ -631,6 +688,14 @@ void test_cancels_during_transfer_without_checkpointing_transfer() {
     test_helpers::expect_eq("transfer cancellation checkpoint count", std::to_string(checkpoints.checkpoints.size()), "1");
     test_helpers::expect_eq("transfer cancellation last checkpoint", action_name(checkpoints.checkpoints.back().action_kind), action_name(btrfsbackup::backup::BackupRunActionKind::CreateSnapshot));
     test_helpers::expect_true("transfer cancellation event", events.has_event(btrfsbackup::backup::BackupRunEventKind::RunCancelled), "missing cancel event");
+    const auto cancelled = std::find_if(events.events.begin(), events.events.end(), [](const btrfsbackup::backup::BackupRunEvent& event) {
+        return event.kind == btrfsbackup::backup::BackupRunEventKind::RunCancelled;
+    });
+    test_helpers::expect_true(
+        "transfer cancellation action",
+        cancelled != events.events.end() && cancelled->action_kind == btrfsbackup::backup::BackupRunActionKind::SendReceive,
+        "transfer cancellation lost its active action"
+    );
 }
 
 void test_transfer_failure_emits_failed_action() {
@@ -843,6 +908,7 @@ void test_local_retention_failure_keeps_remote_retention_checkpoint() {
 } // namespace
 
 int main() {
+    test_lifecycle_events_do_not_have_synthetic_actions();
     test_every_action_uses_uniform_execution_semantics();
     test_full_backup_flow_without_parent();
     test_executes_actions_and_writes_durable_checkpoints();

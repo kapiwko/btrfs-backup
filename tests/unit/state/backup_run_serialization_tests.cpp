@@ -64,9 +64,11 @@ void test_build_run_event_json_without_source() {
     btrfsbackup::backup::BackupRunEvent run_completed = event(btrfsbackup::backup::BackupRunEventKind::RunCompleted);
     run_completed.source_id = std::nullopt;
     run_completed.source_index = 0;
+    run_completed.action_kind = std::nullopt;
 
     const btrfsbackup::config::Json data = btrfsbackup::state::build_backup_run_event_json(run_completed);
     test_helpers::expect_true("run event source", data.at("sourceId") == "", "run-level event has a source");
+    test_helpers::expect_true("run event action", data.at("action") == "", "run-level event has an action");
 }
 
 } // namespace

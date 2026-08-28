@@ -35,7 +35,7 @@ void emit_event(
     BackupRunEventKind kind,
     const BackupRunPlan& plan,
     const BackupSourceRunPlan* source,
-    BackupRunActionKind action_kind,
+    std::optional<BackupRunActionKind> action_kind,
     std::uint64_t bytes_transferred = 0,
     std::uint64_t bytes_produced = 0,
     std::uint64_t bytes_total_estimated = 0,
@@ -132,22 +132,22 @@ BackupRunExecutionResult BackupRunExecutor::execute(
 ) {
     BackupRunExecutionResult result;
     std::uint64_t completed_run_bytes = 0;
-    emit_event(events, BackupRunEventKind::RunStarted, plan, nullptr, BackupRunActionKind::CleanupSource);
+    emit_event(events, BackupRunEventKind::RunStarted, plan, nullptr, std::nullopt);
 
     for (const BackupSourceRunPlan& source : plan.sources) {
         if (cancellation.cancellation_requested()) {
             result.outcome = BackupRunExecutionOutcome::Cancelled;
-            emit_event(events, BackupRunEventKind::RunCancelled, plan, &source, BackupRunActionKind::CleanupSource);
+            emit_event(events, BackupRunEventKind::RunCancelled, plan, &source, std::nullopt);
             return result;
         }
 
-        emit_event(events, BackupRunEventKind::SourceStarted, plan, &source, BackupRunActionKind::CleanupSource);
+        emit_event(events, BackupRunEventKind::SourceStarted, plan, &source, std::nullopt);
 
         for (const BackupRunAction& action : source.actions) {
             const BackupRunActionKind action_kind = backup_run_action_kind(action);
             if (cancellation.cancellation_requested()) {
                 result.outcome = BackupRunExecutionOutcome::Cancelled;
-                emit_event(events, BackupRunEventKind::RunCancelled, plan, &source, action_kind);
+                emit_event(events, BackupRunEventKind::RunCancelled, plan, &source, std::nullopt);
                 return result;
             }
 
@@ -204,10 +204,10 @@ BackupRunExecutionResult BackupRunExecutor::execute(
             checkpoint_policy_.after_success(action, plan, source, events);
         }
 
-        emit_event(events, BackupRunEventKind::SourceCompleted, plan, &source, BackupRunActionKind::CleanupSource);
+        emit_event(events, BackupRunEventKind::SourceCompleted, plan, &source, std::nullopt);
     }
 
-    emit_event(events, BackupRunEventKind::RunCompleted, plan, nullptr, BackupRunActionKind::CleanupSource);
+    emit_event(events, BackupRunEventKind::RunCompleted, plan, nullptr, std::nullopt);
     return result;
 }
 
