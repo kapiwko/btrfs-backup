@@ -150,7 +150,10 @@ struct FakeLeases final : btrfsbackup::backup::IBackupRunLeaseProvider {
     }
 };
 
-struct FakeState final : btrfsbackup::backup::IRunStateRepository {
+struct FakeState final : btrfsbackup::backup::IRunLedger,
+                         btrfsbackup::backup::IRunEventSinkFactory,
+                         btrfsbackup::backup::ICheckpointStoreFactory,
+                         btrfsbackup::backup::ICancellationRequestStore {
     bool daily_match = false;
     bool cancellation_requested = false;
     int skipped_writes = 0;
@@ -274,7 +277,22 @@ struct Fixture {
     btrfsbackup::backup::BackupService service;
 
     Fixture()
-        : service(profiles, paths, mounts, target, planner, runs, leases, state, cancellation_monitor, clock, run_ids) {
+        : service(
+              profiles,
+              paths,
+              mounts,
+              target,
+              planner,
+              runs,
+              leases,
+              state,
+              state,
+              state,
+              state,
+              cancellation_monitor,
+              clock,
+              run_ids
+          ) {
         profiles.profile.name = "Default";
         profiles.profile.target.luks_uuid = "target-uuid";
         profiles.profile.settings.daily_limit = true;

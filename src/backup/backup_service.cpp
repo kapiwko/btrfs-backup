@@ -39,7 +39,10 @@ BackupService::BackupService(
     IBackupPlanner& planner,
     IBackupRunFactory& run_factory,
     IBackupRunLeaseProvider& leases,
-    IRunStateRepository& state,
+    IRunLedger& ledger,
+    IRunEventSinkFactory& event_sinks,
+    ICheckpointStoreFactory& checkpoints,
+    ICancellationRequestStore& cancellation_requests,
     ICancellationMonitor& cancellation_monitor,
     IClock& clock,
     IRunIdGenerator& run_ids
@@ -51,7 +54,10 @@ BackupService::BackupService(
       planner_(planner),
       run_factory_(run_factory),
       leases_(leases),
-      state_(state),
+      ledger_(ledger),
+      event_sinks_(event_sinks),
+      checkpoints_(checkpoints),
+      cancellation_requests_(cancellation_requests),
       cancellation_monitor_(cancellation_monitor),
       clock_(clock),
       run_ids_(run_ids) {
@@ -108,18 +114,19 @@ BackupExecutionResult BackupService::start(const BackupRequest& request) {
     }
 
     const std::string today = clock_.local_date();
-    if (!request.force && profile.settings.daily_limit && state_.last_success_matches(profile, today, fingerprint)) {
-        state_.write_skipped(profile, run_id, timestamp, clock_.local_timestamp(), result.plan.sources.size());
+    if (!request.force && profile.settings.daily_limit && ledger_.last_success_matches(profile, today, fingerprint)) {
+        ledger_.write_skipped(profile, run_id, timestamp, clock_.local_timestamp(), result.plan.sources.size());
         result.outcome = BackupExecutionOutcome::Skipped;
         return result;
     }
 
-    state_.clear_cancel_request(request.profile_id);
+    cancellation_requests_.clear_cancel_request(request.profile_id);
     RunExecutionContext context(
         profile.id,
         run_id,
         std::move(lease.lease),
-        state_,
+        checkpoints_,
+        event_sinks_,
         cancellation_monitor_,
         status_description(profile, result.plan, timestamp)
     );
@@ -129,14 +136,14 @@ BackupExecutionResult BackupService::start(const BackupRequest& request) {
         *context.checkpoints,
         context.cancellation
     );
-    state_.clear_cancel_request(request.profile_id);
+    cancellation_requests_.clear_cancel_request(request.profile_id);
 
     result.actions_completed = execution.actions_completed;
     result.outcome = execution.outcome == BackupRunExecutionOutcome::Completed
         ? BackupExecutionOutcome::Completed
         : BackupExecutionOutcome::Cancelled;
     if (execution.outcome == BackupRunExecutionOutcome::Completed) {
-        state_.write_success(
+        ledger_.write_success(
             profile,
             run_id,
             today,
@@ -150,7 +157,7 @@ BackupExecutionResult BackupService::start(const BackupRequest& request) {
 
 CancelBackupResult BackupService::cancel(const ProfileId& profile_id) {
     const btrfsbackup::config::LoadedProfile loaded = profiles_.get(profile_id);
-    state_.request_cancel(loaded.profile.id);
+    cancellation_requests_.request_cancel(loaded.profile.id);
     return {.profile_id = loaded.profile.id, .cancel_requested = true};
 }
 

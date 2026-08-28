@@ -7,8 +7,9 @@
 #include <memory>
 
 #include <backup/ports/cancellation_monitor.hpp>
+#include <backup/ports/checkpoint_store_factory.hpp>
+#include <backup/ports/run_event_sink_factory.hpp>
 #include <backup/ports/run_lease.hpp>
-#include <backup/ports/run_state_repository.hpp>
 #include <core/cancellation.hpp>
 #include <core/identifiers.hpp>
 
@@ -19,7 +20,8 @@ struct RunExecutionContext {
         ProfileId profile_id,
         RunId run_id,
         std::unique_ptr<IBackupRunLease> lease,
-        IRunStateRepository& state,
+        ICheckpointStoreFactory& checkpoints,
+        IRunEventSinkFactory& event_sinks,
         ICancellationMonitor& cancellation_monitor,
         BackupRunStatusDescription status
     );
