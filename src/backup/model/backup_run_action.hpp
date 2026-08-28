@@ -12,7 +12,6 @@ enum class BackupRunActionKind {
     BeforeSnapshotHook,
     CreateSnapshot,
     AfterSnapshotHook,
-    SelectParent,
     SendReceive,
     VerifyReceived,
     CommitReceived,

@@ -115,8 +115,6 @@ std::string action_name(btrfsbackup::backup::BackupRunActionKind kind) {
         return "create-snapshot";
     case btrfsbackup::backup::BackupRunActionKind::AfterSnapshotHook:
         return "after-snapshot-hook";
-    case btrfsbackup::backup::BackupRunActionKind::SelectParent:
-        return "select-parent";
     case btrfsbackup::backup::BackupRunActionKind::SendReceive:
         return "send-receive";
     case btrfsbackup::backup::BackupRunActionKind::VerifyReceived:
@@ -145,8 +143,6 @@ btrfsbackup::config::Json action_to_json(
             return std::pair{typed_action.incoming_directory, fs::path{}};
         } else if constexpr (std::is_same_v<Action, btrfsbackup::backup::CreateSnapshotAction>) {
             return std::pair{typed_action.snapshot, typed_action.source};
-        } else if constexpr (std::is_same_v<Action, btrfsbackup::backup::SelectParentAction>) {
-            return std::pair{typed_action.parent.value_or(fs::path{}), fs::path{}};
         } else if constexpr (std::is_same_v<Action, btrfsbackup::backup::SendReceiveAction>) {
             return std::pair{typed_action.snapshot, typed_action.incoming_run_directory};
         } else if constexpr (std::is_same_v<Action, btrfsbackup::backup::VerifyReceivedAction>) {

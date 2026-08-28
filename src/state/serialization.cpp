@@ -38,8 +38,6 @@ std::string backup_run_action_kind_name(btrfsbackup::backup::BackupRunActionKind
         return "create-snapshot";
     case btrfsbackup::backup::BackupRunActionKind::AfterSnapshotHook:
         return "after-snapshot-hook";
-    case btrfsbackup::backup::BackupRunActionKind::SelectParent:
-        return "select-parent";
     case btrfsbackup::backup::BackupRunActionKind::SendReceive:
         return "send-receive";
     case btrfsbackup::backup::BackupRunActionKind::VerifyReceived:
