@@ -21,6 +21,7 @@
 #include <config/profile_artifact_renderer.hpp>
 #include <platform/linux/config/profile_artifact_io.hpp>
 #include <platform/linux/config/profile_installer.hpp>
+#include <platform/linux/config/profile_runtime_policy.hpp>
 #include <platform/linux/config/render_directory.hpp>
 #include <platform/linux/system_configuration_activator.hpp>
 #include <platform/linux/process.hpp>
@@ -70,6 +71,7 @@ class WizardConfigurationActivator final : public btrfsbackup::config::IConfigur
 void render_wizard_tree(const btrfsbackup::config::Profile& profile, const std::string& keyfile, const fs::path& output_dir) {
     const fs::path target_mount_root = fs::path(profile.target.mount_point).parent_path();
     const btrfsbackup::config::Profile validated_profile = btrfsbackup::config::profile_from_json(btrfsbackup::config::profile_to_json(profile), target_mount_root);
+    validate_profile_runtime_policy(validated_profile);
     replace_render_directory(
         output_dir,
         [&](const fs::path& staging) {

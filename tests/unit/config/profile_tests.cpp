@@ -25,6 +25,7 @@
 #include <config/profile_fingerprint.hpp>
 #include <platform/linux/config/profile_installer.hpp>
 #include <platform/linux/config/profile_repository.hpp>
+#include <platform/linux/config/profile_runtime_policy.hpp>
 #include <config/profile_render.hpp>
 #include <platform/linux/file_io.hpp>
 #include <platform/linux/file_lock.hpp>
@@ -235,15 +236,32 @@ void test_profile_migrates_safe_legacy_system_paths() {
     btrfsbackup::config::Json legacy = valid_profile();
     legacy["schemaVersion"] = 1;
     legacy["target"]["mountPoint"] = "/mnt/btrfs-backup/default";
+    legacy["target"]["mountUnit"] = "mnt-btrfs\\x2dbackup-default.mount";
     legacy["paths"]["stateDir"] = "/var/lib/btrfs-backup";
     legacy["paths"]["statusRoot"] = "/run/btrfs-backup/profiles";
     legacy["paths"]["historyRoot"] = "/var/lib/btrfs-backup/history";
 
+    btrfsbackup::platform::linux::validate_legacy_profile_runtime_fields(legacy, "/mnt/btrfs-backup");
     btrfsbackup::config::Json normalized = btrfsbackup::config::normalize_profile(legacy);
     expect_true("legacy migrated schema", normalized.at("schemaVersion") == 3, "legacy profile was not migrated");
     expect_true("legacy stateDir removed", !normalized.at("paths").contains("stateDir"), "stateDir remains public");
     expect_true("legacy statusRoot removed", !normalized.at("paths").contains("statusRoot"), "statusRoot remains public");
     expect_true("legacy historyRoot removed", !normalized.at("paths").contains("historyRoot"), "historyRoot remains public");
+
+    legacy["target"]["mountPoint"] = "/mnt/btrfs-backup/other";
+    expect_validation_error(
+        "legacy mount point mismatch",
+        [&] { btrfsbackup::platform::linux::validate_legacy_profile_runtime_fields(legacy, "/mnt/btrfs-backup"); },
+        "mountPoint does not match"
+    );
+
+    legacy["target"]["mountPoint"] = "/mnt/btrfs-backup/default";
+    legacy["target"]["mountUnit"] = "wrong.mount";
+    expect_validation_error(
+        "legacy mount unit mismatch",
+        [&] { btrfsbackup::platform::linux::validate_legacy_profile_runtime_fields(legacy, "/mnt/btrfs-backup"); },
+        "mountUnit does not match"
+    );
 }
 
 void test_profile_rejects_retired_legacy_sources_directory() {
@@ -346,14 +364,20 @@ void test_profile_rejects_unsafe_hook_shape() {
     raw["hooks"]["beforeSnapshot"][0]["program"] = "/home/kamil/bin/prepare";
     expect_validation_error(
         "hook program outside trusted directory",
-        [&] { btrfsbackup::config::normalize_profile(raw); },
+        [&] {
+            const btrfsbackup::config::Profile profile = btrfsbackup::config::profile_from_json(raw);
+            btrfsbackup::platform::linux::validate_profile_runtime_policy(profile);
+        },
         "must be a direct child of /etc/btrfs-backup/hooks.d"
     );
 
     raw["hooks"]["beforeSnapshot"][0]["program"] = "/etc/btrfs-backup/hooks.d/postgresql/prepare";
     expect_validation_error(
         "hook program nested directory",
-        [&] { btrfsbackup::config::normalize_profile(raw); },
+        [&] {
+            const btrfsbackup::config::Profile profile = btrfsbackup::config::profile_from_json(raw);
+            btrfsbackup::platform::linux::validate_profile_runtime_policy(profile);
+        },
         "must be a direct child of /etc/btrfs-backup/hooks.d"
     );
 

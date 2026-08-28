@@ -18,6 +18,7 @@
 #include <config/profile_artifact_renderer.hpp>
 #include <platform/linux/config/profile_installer.hpp>
 #include <platform/linux/config/profile_repository.hpp>
+#include <platform/linux/config/profile_runtime_policy.hpp>
 #include <config/model/profile.hpp>
 #include <config/model/profile_document.hpp>
 #include <platform/linux/config/render_directory.hpp>
@@ -29,7 +30,11 @@ namespace fs = std::filesystem;
 namespace btrfsbackup::platform::linux {
 
 btrfsbackup::config::Profile validate_profile_file(const fs::path& file, const fs::path& target_mount_root) {
-    return btrfsbackup::config::profile_from_json(btrfsbackup::config::load_json_file(file), target_mount_root);
+    const btrfsbackup::config::Json raw = btrfsbackup::config::load_json_file(file);
+    validate_legacy_profile_runtime_fields(raw, target_mount_root);
+    btrfsbackup::config::Profile profile = btrfsbackup::config::profile_from_json(raw, target_mount_root);
+    validate_profile_runtime_policy(profile);
+    return profile;
 }
 
 void write_profile_file(const btrfsbackup::config::Profile& profile, const fs::path& output) {

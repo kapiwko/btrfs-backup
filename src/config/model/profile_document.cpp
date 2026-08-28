@@ -200,66 +200,9 @@ Json normalize_hook_commands(const Json& hooks, const std::string& key, const st
             required_value(item, "program", item_name + ".program"),
             item_name + ".program"
         );
-        fs::path normalized_program = fs::path(program).lexically_normal();
-        if (normalized_program.parent_path() != fs::path(trusted_hook_directory) || normalized_program.filename().empty() || normalized_program.filename() == "." || normalized_program.filename() == "..") {
-            throw ValidationError(
-                item_name + ".program must be a direct child of " + trusted_hook_directory
-            );
-        }
-
-        normalized.push_back({{"type", type}, {"program", normalized_program.string()}, {"arguments", normalized_arguments}, {"timeoutSeconds", timeout_seconds}});
+        normalized.push_back({{"type", type}, {"program", fs::path(program).lexically_normal().string()}, {"arguments", normalized_arguments}, {"timeoutSeconds", timeout_seconds}});
     }
     return normalized;
-}
-
-bool systemd_unit_plain_char(unsigned char c) {
-    return std::isalnum(c) || c == ':' || c == '_' || c == '.';
-}
-
-std::string systemd_hex_escape(unsigned char c) {
-    const char* digits = "0123456789abcdef";
-    std::string result = "\\x";
-    result.push_back(digits[(c >> 4) & 0x0f]);
-    result.push_back(digits[c & 0x0f]);
-    return result;
-}
-
-std::string systemd_path_unit_stem(const std::string& mount_point) {
-    fs::path normalized = fs::path(mount_point).lexically_normal();
-    std::string path = normalized.string();
-    while (path.size() > 1 && path.back() == '/') {
-        path.pop_back();
-    }
-    if (path == "/") {
-        return "-";
-    }
-    if (!path.empty() && path.front() == '/') {
-        path.erase(path.begin());
-    }
-
-    std::string escaped;
-    bool previous_slash = false;
-    for (char character : path) {
-        const auto c = static_cast<unsigned char>(character);
-        if (c == '/') {
-            if (!escaped.empty() && !previous_slash) {
-                escaped.push_back('-');
-            }
-            previous_slash = true;
-            continue;
-        }
-        previous_slash = false;
-        if (systemd_unit_plain_char(c)) {
-            escaped.push_back(static_cast<char>(c));
-        } else {
-            escaped += systemd_hex_escape(c);
-        }
-    }
-    return escaped.empty() ? "-" : escaped;
-}
-
-std::string systemd_mount_unit(const std::string& mount_point) {
-    return systemd_path_unit_stem(mount_point) + ".mount";
 }
 
 } // namespace
@@ -331,18 +274,14 @@ Json normalize_profile(const Json& raw, const fs::path& target_mount_root) {
     if (input_schema_version == current_profile_schema_version && target.contains("mountPoint")) {
         throw ValidationError("target.mountPoint is application-controlled and cannot be changed");
     }
-    if (target.contains("mountPoint") && absolute_path(target.at("mountPoint"), "target.mountPoint") != mount_point) {
-        throw ValidationError("legacy target.mountPoint does not match TARGET_MOUNT_ROOT/profileId");
+    if (target.contains("mountPoint")) {
+        (void)absolute_path(target.at("mountPoint"), "target.mountPoint");
     }
-    std::string mount_unit = systemd_mount_unit(mount_point);
     if (input_schema_version == current_profile_schema_version && target.contains("mountUnit")) {
         throw ValidationError("target.mountUnit is application-controlled and cannot be changed");
     }
     if (target.contains("mountUnit") && !target.at("mountUnit").is_null() && target.at("mountUnit") != "") {
-        std::string configured_mount_unit = text(target.at("mountUnit"), "target.mountUnit", false, 256);
-        if (configured_mount_unit != mount_unit) {
-            throw ValidationError("target.mountUnit does not match target.mountPoint");
-        }
+        (void)text(target.at("mountUnit"), "target.mountUnit", false, 256);
     }
 
     Json paths = object_or_empty(raw, "paths", "paths");
@@ -474,7 +413,6 @@ Profile profile_from_document(const ProfileDocument& document, const fs::path& t
     profile.target.serial = target.at("serial").get<std::string>();
     profile.target.mapper_name = target.at("mapperName").get<std::string>();
     profile.target.mount_point = (normalized_absolute_path(target_mount_root, "TARGET_MOUNT_ROOT") / profile.id.value()).string();
-    profile.target.mount_unit = systemd_mount_unit(profile.target.mount_point);
 
     const Json& paths = normalized.at("paths");
     profile.paths.remote_root = paths.at("remoteRoot").get<std::string>();

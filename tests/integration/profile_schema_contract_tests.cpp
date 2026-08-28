@@ -141,7 +141,6 @@ void test_example_profile_matches_cpp_validator() {
 
     test_helpers::expect_true("example profile id", normalized.at("profileId") == "default", "wrong example profile id");
     test_helpers::expect_true("example mount point", profile.target.mount_point == "/mnt/btrfs-backup/default", "wrong derived mount point");
-    test_helpers::expect_true("example mount unit", profile.target.mount_unit == "mnt-btrfs\\x2dbackup-default.mount", "wrong derived mount unit");
     test_helpers::expect_true("example source count", normalized.at("sources").size() == 1, "wrong example source count");
 }
 

@@ -10,6 +10,7 @@
 
 #include <core/errors.hpp>
 #include <platform/linux/config/application_config.hpp>
+#include <platform/linux/config/profile_runtime_policy.hpp>
 #include <config/profile_fingerprint.hpp>
 #include <core/identifiers.hpp>
 #include <config/model/json.hpp>
@@ -41,14 +42,17 @@ btrfsbackup::config::LoadedProfile loaded_profile_from_bytes(
     const btrfsbackup::config::ApplicationPaths& application_paths
 ) {
     try {
+        const btrfsbackup::config::Json raw = btrfsbackup::config::Json::parse(bytes);
+        validate_legacy_profile_runtime_fields(raw, application_paths.target_mount_root);
         const btrfsbackup::config::ProfileDocument document = btrfsbackup::config::normalize_profile_document(
-            btrfsbackup::config::Json::parse(bytes),
+            raw,
             application_paths.target_mount_root
         );
         btrfsbackup::config::Profile profile = btrfsbackup::config::profile_from_document(
             document,
             application_paths.target_mount_root
         );
+        validate_profile_runtime_policy(profile);
         const btrfsbackup::config::ConfigurationGeneration generation(profile.configuration_generation);
         return {
             .profile = std::move(profile),

@@ -44,6 +44,7 @@
 #include <config/model/json.hpp>
 #include <config/model/profile_document.hpp>
 #include <platform/linux/config/profile_repository.hpp>
+#include <platform/linux/config/profile_runtime_policy.hpp>
 
 namespace fs = std::filesystem;
 
@@ -352,7 +353,7 @@ class PosixBackupRunFactory final : public btrfsbackup::backup::IBackupRunFactor
             std::make_unique<btrfsbackup::platform::linux::SafeDirectoryRoot>(plan.target_mount_point)
         );
         btrfsbackup::platform::linux::PosixTrustedExecutableResolver hook_executables(
-            btrfsbackup::config::trusted_hook_directory
+            btrfsbackup::platform::linux::trusted_hook_directory
         );
         btrfsbackup::backup::HookActionHandler hooks(commands_, hook_executables);
         btrfsbackup::backup::RepositoryActionHandler repository(

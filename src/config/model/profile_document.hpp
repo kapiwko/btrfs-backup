@@ -13,7 +13,6 @@
 namespace btrfsbackup::config {
 
 inline constexpr int current_profile_schema_version = 3;
-inline constexpr const char* trusted_hook_directory = "/etc/btrfs-backup/hooks.d";
 
 struct ProfileDocument {
     Json value;

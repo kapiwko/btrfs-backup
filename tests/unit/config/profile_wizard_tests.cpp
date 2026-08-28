@@ -11,6 +11,7 @@
 #include <platform/linux/config/render_directory.hpp>
 #include <platform/linux/config/profile_wizard_install.hpp>
 #include <config/wizard/profile_wizard_model.hpp>
+#include <platform/linux/systemd_unit.hpp>
 #include <config/wizard/profile_wizard_prompt.hpp>
 #include <platform/linux/config/profile_wizard_sources.hpp>
 
@@ -112,7 +113,11 @@ void test_profile_from_wizard_answers() {
     test_helpers::expect_eq("wizard profile name", profile.name, "Laptop backup");
     test_helpers::expect_eq("wizard target device", profile.target.device, "/dev/disk/by-uuid/AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE");
     test_helpers::expect_eq("wizard target luks uuid lower", profile.target.luks_uuid, "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
-    test_helpers::expect_eq("wizard target mount unit", profile.target.mount_unit, "mnt-btrfs\\x2dbackup-laptop.mount");
+    test_helpers::expect_eq(
+        "wizard target mount unit",
+        btrfsbackup::platform::linux::systemd_mount_unit_name(profile.target.mount_point),
+        "mnt-btrfs\\x2dbackup-laptop.mount"
+    );
     test_helpers::expect_eq("wizard remote root", profile.paths.remote_root, "/mnt/btrfs-backup/laptop/snapshots");
     test_helpers::expect_eq("wizard incoming root", profile.paths.incoming_root, "/mnt/btrfs-backup/laptop/.incoming");
     test_helpers::expect_eq("wizard source count", std::to_string(profile.sources.size()), "2");

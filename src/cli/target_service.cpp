@@ -28,6 +28,7 @@
 #include <platform/linux/mount_info.hpp>
 #include <platform/linux/process.hpp>
 #include <platform/linux/trusted_directory.hpp>
+#include <platform/linux/systemd_unit.hpp>
 
 namespace fs = std::filesystem;
 
@@ -214,10 +215,11 @@ TargetOperationResult mount_target(
     } else {
         btrfsbackup::platform::linux::ensure_trusted_directory(profile.target.mount_point, 0755, resolved.mount_point_trust_root, geteuid());
         result.events.push_back({.kind = TargetEventKind::Mounting, .detail = {}});
+        const std::string mount_unit = btrfsbackup::platform::linux::systemd_mount_unit_name(profile.target.mount_point);
         run_checked(
             *resolved.commands,
-            {"systemctl", "start", profile.target.mount_unit},
-            "could not start target mount unit " + profile.target.mount_unit
+            {"systemctl", "start", mount_unit},
+            "could not start target mount unit " + mount_unit
         );
     }
 

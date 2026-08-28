@@ -26,3 +26,8 @@ set(domain_links "${CMAKE_MATCH_0}")
 if(domain_links MATCHES "config-json|nlohmann|platform")
     message(FATAL_ERROR "config domain target links a forbidden JSON or platform dependency")
 endif()
+
+file(READ "${PROJECT_SOURCE_DIR}/src/config/model/profile_document.cpp" document_source)
+if(document_source MATCHES "systemd_|trusted_hook_directory")
+    message(FATAL_ERROR "config JSON target contains Linux runtime policy")
+endif()
