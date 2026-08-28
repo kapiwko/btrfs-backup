@@ -117,8 +117,8 @@ add_library(btrfsbackup-backup STATIC
     action_handlers/repository_action_handler.cpp
     action_handlers/retention_action_handler.cpp
     action_handlers/snapshot_action_handler.cpp
-    action_handlers/transfer_action_handler.cpp
     snapshot_transfer.cpp
+    transfer/transfer_coordinator.cpp
 )
 
 target_compile_features(btrfsbackup-backup PUBLIC cxx_std_20)
@@ -130,7 +130,6 @@ target_restricted_include_directories(btrfsbackup-backup
         backup/action_handlers/repository_action_handler.hpp
         backup/action_handlers/retention_action_handler.hpp
         backup/action_handlers/snapshot_action_handler.hpp
-        backup/action_handlers/transfer_action_handler.hpp
         backup/backup_planner.hpp
         backup/backup_run.hpp
         backup/backup_run_executor.hpp
@@ -140,6 +139,7 @@ target_restricted_include_directories(btrfsbackup-backup
         backup/run_execution_context.hpp
         backup/snapshot_transfer.hpp
         backup/system_run_context.hpp
+        backup/transfer/transfer_coordinator.hpp
 )
 target_link_libraries(btrfsbackup-backup
     PUBLIC

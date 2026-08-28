@@ -4,12 +4,13 @@
 
 #include <backup/action_handlers/backup_run_action_handler.hpp>
 
+#include <stdexcept>
+
 #include <backup/action_handlers/hook_action_handler.hpp>
 #include <backup/action_handlers/recovery_action_handler.hpp>
 #include <backup/action_handlers/repository_action_handler.hpp>
 #include <backup/action_handlers/retention_action_handler.hpp>
 #include <backup/action_handlers/snapshot_action_handler.hpp>
-#include <backup/action_handlers/transfer_action_handler.hpp>
 
 namespace btrfsbackup::backup {
 
@@ -27,15 +28,13 @@ BackupRunActionHandler::BackupRunActionHandler(
     RecoveryActionHandler& recovery,
     RetentionActionHandler& retention,
     HookActionHandler& hooks,
-    RepositoryActionHandler& repository,
-    TransferActionHandler& transfers
+    RepositoryActionHandler& repository
 )
     : snapshots_(snapshots),
       recovery_(recovery),
       retention_(retention),
       hooks_(hooks),
-      repository_(repository),
-      transfers_(transfers) {
+      repository_(repository) {
 }
 
 void BackupRunActionHandler::handle(
@@ -56,8 +55,8 @@ void BackupRunActionHandler::handle(
                    [&](const CreateSnapshotAction& typed_action) {
                        snapshots_.handle(typed_action);
                    },
-                   [&](const SendReceiveAction& typed_action) {
-                       transfers_.handle(typed_action);
+                   [](const SendReceiveAction&) {
+                       throw std::logic_error("send-receive actions are handled by TransferCoordinator");
                    },
                    [&](const VerifyReceivedAction& typed_action) {
                        repository_.handle(typed_action);

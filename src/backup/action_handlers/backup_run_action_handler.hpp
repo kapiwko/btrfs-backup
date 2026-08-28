@@ -16,7 +16,6 @@ class RecoveryActionHandler;
 class RepositoryActionHandler;
 class RetentionActionHandler;
 class SnapshotActionHandler;
-class TransferActionHandler;
 
 class IBackupRunActionHandler {
   public:
@@ -36,8 +35,7 @@ class BackupRunActionHandler final : public IBackupRunActionHandler {
         RecoveryActionHandler& recovery,
         RetentionActionHandler& retention,
         HookActionHandler& hooks,
-        RepositoryActionHandler& repository,
-        TransferActionHandler& transfers
+        RepositoryActionHandler& repository
     );
 
     void handle(
@@ -52,7 +50,6 @@ class BackupRunActionHandler final : public IBackupRunActionHandler {
     RetentionActionHandler& retention_;
     HookActionHandler& hooks_;
     RepositoryActionHandler& repository_;
-    TransferActionHandler& transfers_;
 };
 
 } // namespace btrfsbackup::backup

@@ -29,7 +29,6 @@
 #include <backup/action_handlers/retention_action_handler.hpp>
 #include <backup/action_handlers/snapshot_action_handler.hpp>
 #include <backup/transfer/async_transfer.hpp>
-#include <backup/action_handlers/transfer_action_handler.hpp>
 #include <platform/linux/btrfs_util_operations.hpp>
 #include <platform/linux/config/application_config.hpp>
 #include <platform/linux/posix_command_runner.hpp>
@@ -363,17 +362,12 @@ class PosixBackupRunFactory final : public btrfsbackup::backup::IBackupRunFactor
             std::make_unique<btrfsbackup::platform::linux::SafeDirectoryRoot>("/"),
             std::make_unique<btrfsbackup::platform::linux::SafeDirectoryRoot>(plan.target_mount_point)
         );
-        btrfsbackup::backup::TransferActionHandler transfer(
-            filesystem_,
-            std::make_unique<btrfsbackup::platform::linux::SafeDirectoryRoot>(plan.target_mount_point)
-        );
         btrfsbackup::backup::BackupRunActionHandler action_handler(
             snapshots,
             recovery,
             retention,
             hooks,
-            repository,
-            transfer
+            repository
         );
         btrfsbackup::backup::transfer::ThreadedAsyncTransferPipeline async_transfers(transfers_);
         btrfsbackup::backup::BackupRun run(
