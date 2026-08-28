@@ -43,8 +43,6 @@ RunPhase phase_for_action(btrfsbackup::backup::BackupRunActionKind kind) {
         return RunPhase::CreateSnapshot;
     case btrfsbackup::backup::BackupRunActionKind::AfterSnapshotHook:
         return RunPhase::AfterSnapshotHook;
-    case btrfsbackup::backup::BackupRunActionKind::SelectParent:
-        return RunPhase::SelectParent;
     case btrfsbackup::backup::BackupRunActionKind::SendReceive:
         return RunPhase::SendReceive;
     case btrfsbackup::backup::BackupRunActionKind::VerifyReceived:

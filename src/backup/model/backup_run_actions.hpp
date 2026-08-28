@@ -75,15 +75,6 @@ struct CreateSnapshotAction {
     }
 };
 
-struct SelectParentAction {
-    SourceId source_id;
-    std::optional<std::filesystem::path> parent;
-
-    SelectParentAction(SourceId source_id, std::optional<std::filesystem::path> parent)
-        : source_id(std::move(source_id)), parent(std::move(parent)) {
-    }
-};
-
 struct SendReceiveAction {
     SourceId source_id;
     std::filesystem::path snapshot;
@@ -182,7 +173,6 @@ using BackupRunAction = std::variant<
     CleanupIncomingAction,
     RunHookAction,
     CreateSnapshotAction,
-    SelectParentAction,
     SendReceiveAction,
     VerifyReceivedAction,
     CommitReceivedAction,

@@ -21,8 +21,6 @@ BackupRunActionKind backup_run_action_kind(const BackupRunAction& action) {
                 : BackupRunActionKind::AfterSnapshotHook;
         } else if constexpr (std::is_same_v<Action, CreateSnapshotAction>) {
             return BackupRunActionKind::CreateSnapshot;
-        } else if constexpr (std::is_same_v<Action, SelectParentAction>) {
-            return BackupRunActionKind::SelectParent;
         } else if constexpr (std::is_same_v<Action, SendReceiveAction>) {
             return BackupRunActionKind::SendReceive;
         } else if constexpr (std::is_same_v<Action, VerifyReceivedAction>) {

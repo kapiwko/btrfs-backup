@@ -233,7 +233,6 @@ BackupRunPlan build_backup_run_plan(
         for (const btrfsbackup::config::ProfileHookCommand& hook : profile.hooks.after_snapshot) {
             source_plan.actions.emplace_back(RunHookAction{source_plan.source_id, HookPhase::AfterSnapshot, hook});
         }
-        source_plan.actions.emplace_back(SelectParentAction{source_plan.source_id, parent_path});
         source_plan.actions.emplace_back(SendReceiveAction{
             source_plan.source_id,
             local_snapshot_path,

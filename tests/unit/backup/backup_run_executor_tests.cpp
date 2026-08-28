@@ -178,8 +178,6 @@ btrfsbackup::backup::BackupRunAction action(btrfsbackup::backup::BackupRunAction
             btrfsbackup::backup::HookPhase::AfterSnapshot,
             btrfsbackup::config::ProfileHookCommand{"hook", {}, std::chrono::seconds{30}}
         };
-    case btrfsbackup::backup::BackupRunActionKind::SelectParent:
-        return btrfsbackup::backup::SelectParentAction{source_id, std::nullopt};
     case btrfsbackup::backup::BackupRunActionKind::SendReceive:
         return btrfsbackup::backup::SendReceiveAction{source_id, local_snapshot, std::nullopt, "/mnt/backup/root", incoming};
     case btrfsbackup::backup::BackupRunActionKind::VerifyReceived:
@@ -226,7 +224,6 @@ void test_full_backup_flow_without_parent() {
     btrfsbackup::backup::BackupRunPlan plan = plan_with_actions({
         action(btrfsbackup::backup::BackupRunActionKind::CleanupIncoming),
         action(btrfsbackup::backup::BackupRunActionKind::CreateSnapshot),
-        action(btrfsbackup::backup::BackupRunActionKind::SelectParent),
         action(btrfsbackup::backup::BackupRunActionKind::SendReceive),
         action(btrfsbackup::backup::BackupRunActionKind::VerifyReceived),
         action(btrfsbackup::backup::BackupRunActionKind::CommitReceived),
@@ -238,7 +235,7 @@ void test_full_backup_flow_without_parent() {
     btrfsbackup::backup::BackupRunExecutionResult result = executor.execute(plan, events, cancellation);
 
     test_helpers::expect_true("full flow completed", result.outcome == btrfsbackup::backup::BackupRunExecutionOutcome::Completed, "run should complete");
-    test_helpers::expect_eq("full flow actions", std::to_string(result.actions_completed), "9");
+    test_helpers::expect_eq("full flow actions", std::to_string(result.actions_completed), "8");
     test_helpers::expect_eq("full flow transfer count", std::to_string(transfers.plans.size()), "1");
     const std::vector<std::string>& send_argv = transfers.plans.at(0).producer_argv;
     test_helpers::expect_eq("full send argc", std::to_string(send_argv.size()), "6");
@@ -264,14 +261,13 @@ void test_executes_actions_and_writes_durable_checkpoints() {
 
     btrfsbackup::backup::BackupRunPlan plan = plan_with_actions({
         action(btrfsbackup::backup::BackupRunActionKind::CleanupIncoming),
-        action(btrfsbackup::backup::BackupRunActionKind::SelectParent),
         action(btrfsbackup::backup::BackupRunActionKind::CreateSnapshot),
     });
 
     btrfsbackup::backup::BackupRunExecutionResult result = executor.execute(plan, events, cancellation);
 
     test_helpers::expect_true("executor completed", result.outcome == btrfsbackup::backup::BackupRunExecutionOutcome::Completed, "run should complete");
-    test_helpers::expect_eq("actions completed", std::to_string(result.actions_completed), "3");
+    test_helpers::expect_eq("actions completed", std::to_string(result.actions_completed), "2");
     test_helpers::expect_eq("effect count", std::to_string(handler.calls.size()), "2");
     test_helpers::expect_eq("first effect", handler.calls.at(0), "root:" + action_name(btrfsbackup::backup::BackupRunActionKind::CleanupIncoming));
     test_helpers::expect_eq("second effect", handler.calls.at(1), "root:" + action_name(btrfsbackup::backup::BackupRunActionKind::CreateSnapshot));
