@@ -26,11 +26,19 @@ PlasmoidItem {
     property int progress: backupStatus.overallProgress
     property string badgeIcon: {
         switch (backupStatus.state) {
-        case "succeeded": return "emblem-success"
-        case "failed": return "dialog-error"
-        case "cancelled": return "process-stop"
-        case "skipped": return "media-playback-pause"
+        case "succeeded": return "emblem-ok-symbolic"
+        case "failed": return "dialog-error-symbolic"
+        case "cancelled": return "process-stop-symbolic"
+        case "skipped": return "emblem-pause"
         default: return ""
+        }
+    }
+    property int badgeType: {
+        switch (backupStatus.state) {
+        case "succeeded": return Kirigami.Badge.Type.Positive
+        case "failed": return Kirigami.Badge.Type.Error
+        case "cancelled": return Kirigami.Badge.Type.Warning
+        default: return Kirigami.Badge.Type.Information
         }
     }
 
@@ -208,22 +216,18 @@ PlasmoidItem {
             }
         }
 
-        Rectangle {
+        Kirigami.Badge {
             anchors.right: parent.right
             anchors.bottom: parent.bottom
             width: Math.max(10, parent.width * 0.46)
             height: width
-            radius: width / 2
-            color: Kirigami.Theme.backgroundColor
-            border.width: 1
-            border.color: Kirigami.Theme.backgroundColor
+            z: 2
             visible: backupStatus.managerConnected && root.badgeIcon.length > 0
-
-            Kirigami.Icon {
-                anchors.fill: parent
-                anchors.margins: Math.max(1, parent.width * 0.12)
-                source: root.badgeIcon
-            }
+            type: root.badgeType
+            icon.name: root.badgeIcon
+            icon.width: Math.max(8, width * 0.62)
+            icon.height: icon.width
+            padding: Math.max(1, width * 0.1)
         }
     }
 
