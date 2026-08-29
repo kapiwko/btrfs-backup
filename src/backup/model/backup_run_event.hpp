@@ -26,6 +26,7 @@ enum class BackupRunEventKind {
     CheckpointWritten,
     SourceCompleted,
     RunCompleted,
+    RunFailed,
     RunCancelled,
 };
 
@@ -102,6 +103,13 @@ struct RunCompleted {
     RunId run_id;
 };
 
+struct RunFailed {
+    ProfileId profile_id;
+    RunId run_id;
+    ErrorCode error_code;
+    std::string message;
+};
+
 struct RunCancelled {
     ProfileId profile_id;
     RunId run_id;
@@ -122,6 +130,7 @@ using BackupRunEvent = std::variant<
     CheckpointWritten,
     SourceCompleted,
     RunCompleted,
+    RunFailed,
     RunCancelled>;
 
 [[nodiscard]] inline BackupRunEventKind backup_run_event_kind(const BackupRunEvent& event) {
@@ -145,6 +154,8 @@ using BackupRunEvent = std::variant<
             return BackupRunEventKind::SourceCompleted;
         if constexpr (std::is_same_v<Event, RunCompleted>)
             return BackupRunEventKind::RunCompleted;
+        if constexpr (std::is_same_v<Event, RunFailed>)
+            return BackupRunEventKind::RunFailed;
         return BackupRunEventKind::RunCancelled;
     },
                       event);
@@ -167,7 +178,7 @@ using BackupRunEvent = std::variant<
 [[nodiscard]] inline std::optional<SourceId> backup_run_event_source_id(const BackupRunEvent& event) {
     return std::visit([](const auto& typed_event) -> std::optional<SourceId> {
         using Event = std::decay_t<decltype(typed_event)>;
-        if constexpr (std::is_same_v<Event, RunStarted> || std::is_same_v<Event, RunCompleted>) {
+        if constexpr (std::is_same_v<Event, RunStarted> || std::is_same_v<Event, RunCompleted> || std::is_same_v<Event, RunFailed>) {
             return std::nullopt;
         } else if constexpr (std::is_same_v<Event, RunCancelled>) {
             return typed_event.source_id;
@@ -181,7 +192,7 @@ using BackupRunEvent = std::variant<
 [[nodiscard]] inline int backup_run_event_source_index(const BackupRunEvent& event) {
     return std::visit([](const auto& typed_event) {
         using Event = std::decay_t<decltype(typed_event)>;
-        if constexpr (std::is_same_v<Event, RunStarted> || std::is_same_v<Event, RunCompleted>) {
+        if constexpr (std::is_same_v<Event, RunStarted> || std::is_same_v<Event, RunCompleted> || std::is_same_v<Event, RunFailed>) {
             return 0;
         } else {
             return typed_event.source_index;

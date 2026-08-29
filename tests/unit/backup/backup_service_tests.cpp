@@ -5,6 +5,7 @@
 #include <backup/backup_service.hpp>
 #include <core/errors.hpp>
 
+#include <algorithm>
 #include <memory>
 #include <optional>
 #include <string>
@@ -40,6 +41,7 @@ struct FakeProfiles final : btrfsbackup::config::IProfileRepository {
 
 struct FakePreflight final : btrfsbackup::backup::IBackupPreflight {
     int calls = 0;
+    bool fail = false;
     int session_destructions = 0;
     std::vector<std::string>* lifecycle = nullptr;
     std::vector<btrfsbackup::backup::TargetMountMode> modes;
@@ -67,6 +69,12 @@ struct FakePreflight final : btrfsbackup::backup::IBackupPreflight {
     ) override {
         ++calls;
         modes.push_back(mode);
+        if (fail) {
+            throw btrfsbackup::CodedOperationError(
+                btrfsbackup::ErrorCode::TargetBtrfsUuidMismatch,
+                "target identity mismatch"
+            );
+        }
         return std::make_unique<Session>(session_destructions, lifecycle);
     }
 };
@@ -116,16 +124,22 @@ struct NoopCheckpoints final : btrfsbackup::backup::IBackupRunCheckpointStore {
 };
 
 struct TrackingEvents final : btrfsbackup::backup::IBackupRunEventSink {
-    explicit TrackingEvents(int& destructions) : destructions_(destructions) {
+    TrackingEvents(
+        int& destructions,
+        std::vector<btrfsbackup::backup::BackupRunEvent>& events
+    )
+        : destructions_(destructions), events_(events) {
     }
     ~TrackingEvents() override {
         ++destructions_;
     }
-    void on_backup_run_event(const btrfsbackup::backup::BackupRunEvent&) override {
+    void on_backup_run_event(const btrfsbackup::backup::BackupRunEvent& event) override {
+        events_.push_back(event);
     }
 
   private:
     int& destructions_;
+    std::vector<btrfsbackup::backup::BackupRunEvent>& events_;
 };
 
 struct FakeRunFactory final : btrfsbackup::backup::IBackupRunFactory {
@@ -137,8 +151,8 @@ struct FakeRunFactory final : btrfsbackup::backup::IBackupRunFactory {
         btrfsbackup::backup::BackupRunExecutionCompleted{3};
 
     btrfsbackup::backup::BackupRunExecutionResult execute(
-        btrfsbackup::backup::BackupRunPlan,
-        btrfsbackup::backup::IBackupRunEventSink&,
+        btrfsbackup::backup::BackupRunPlan plan,
+        btrfsbackup::backup::IBackupRunEventSink& events,
         btrfsbackup::backup::IBackupRunCheckpointStore&,
         btrfsbackup::CancellationToken& cancellation
     ) override {
@@ -152,6 +166,14 @@ struct FakeRunFactory final : btrfsbackup::backup::IBackupRunFactory {
         if (throw_next) {
             throw_next = false;
             throw std::runtime_error("run failed");
+        }
+        if (const auto* failed = std::get_if<btrfsbackup::backup::BackupRunExecutionFailed>(&result)) {
+            events.on_backup_run_event(btrfsbackup::backup::RunFailed{
+                .profile_id = plan.profile_id,
+                .run_id = plan.run_id,
+                .error_code = failed->error_code,
+                .message = failed->error_message,
+            });
         }
         return result;
     }
@@ -228,9 +250,11 @@ struct FakeState final : btrfsbackup::backup::IRunLedger,
     std::vector<std::string>* lifecycle = nullptr;
     int skipped_writes = 0;
     int success_writes = 0;
+    bool fail_success_write = false;
     int cancel_writes = 0;
     int checkpoint_destructions = 0;
     int event_destructions = 0;
+    std::vector<btrfsbackup::backup::BackupRunEvent> events_received;
     std::string success_date;
     btrfsbackup::RuntimeTimePoint success_timestamp;
     mutable std::string matched_fingerprint;
@@ -263,6 +287,12 @@ struct FakeState final : btrfsbackup::backup::IRunLedger,
         const std::string& fingerprint,
         std::size_t
     ) override {
+        if (fail_success_write) {
+            throw btrfsbackup::CodedOperationError(
+                btrfsbackup::ErrorCode::BackupFailed,
+                "could not persist success"
+            );
+        }
         ++success_writes;
         success_date = btrfsbackup::format_local_date(date);
         success_timestamp = timestamp;
@@ -278,7 +308,7 @@ struct FakeState final : btrfsbackup::backup::IRunLedger,
     std::unique_ptr<btrfsbackup::backup::IBackupRunEventSink> events(
         btrfsbackup::backup::BackupRunStatusDescription
     ) override {
-        return std::make_unique<TrackingEvents>(event_destructions);
+        return std::make_unique<TrackingEvents>(event_destructions, events_received);
     }
 
     std::unique_ptr<btrfsbackup::backup::IActiveRunRegistration> register_active_run(
@@ -503,6 +533,97 @@ void test_run_context_releases_resources_after_exception() {
     } catch (const std::runtime_error&) {
     }
     expect_run_resources_released("failed run", fixture);
+    test_helpers::expect_true(
+        "unexpected failure lifecycle",
+        fixture.state.events_received.size() == 2 &&
+            btrfsbackup::backup::backup_run_event_kind(fixture.state.events_received.at(0)) ==
+                btrfsbackup::backup::BackupRunEventKind::RunStarted &&
+            btrfsbackup::backup::backup_run_event_kind(fixture.state.events_received.at(1)) ==
+                btrfsbackup::backup::BackupRunEventKind::RunFailed,
+        "unexpected failure was not recorded before rethrow"
+    );
+}
+
+void test_success_persistence_failure_does_not_emit_run_completed() {
+    Fixture fixture;
+    fixture.state.fail_success_write = true;
+
+    const btrfsbackup::backup::BackupExecutionResult result = fixture.service.start({
+        .profile_id = btrfsbackup::ProfileId{"default"},
+    });
+
+    const auto* failed = std::get_if<btrfsbackup::backup::BackupExecutionFailed>(&result);
+    test_helpers::expect_true("success persistence failure result", failed != nullptr, "ledger failure was not typed");
+    test_helpers::expect_true(
+        "success persistence failure lifecycle",
+        fixture.state.events_received.size() == 2 &&
+            btrfsbackup::backup::backup_run_event_kind(fixture.state.events_received.at(0)) ==
+                btrfsbackup::backup::BackupRunEventKind::RunStarted &&
+            btrfsbackup::backup::backup_run_event_kind(fixture.state.events_received.at(1)) ==
+                btrfsbackup::backup::BackupRunEventKind::RunFailed,
+        "ledger failure emitted a premature RunCompleted"
+    );
+}
+
+void test_preflight_failure_has_terminal_run_lifecycle() {
+    Fixture fixture;
+    fixture.preflight.fail = true;
+
+    const btrfsbackup::backup::BackupExecutionResult result = fixture.service.start({
+        .profile_id = btrfsbackup::ProfileId{"default"},
+    });
+
+    const auto* failed = std::get_if<btrfsbackup::backup::BackupExecutionFailed>(&result);
+    test_helpers::expect_true("preflight failure result", failed != nullptr, "preflight failure was not typed");
+    if (failed != nullptr) {
+        test_helpers::expect_eq(
+            "preflight failure code",
+            btrfsbackup::error_code_name(failed->error_code),
+            "target.btrfs_uuid_mismatch"
+        );
+        test_helpers::expect_eq("preflight failure run", std::string(failed->run_id.value()), "run-1");
+    }
+    test_helpers::expect_true(
+        "preflight failure lifecycle",
+        fixture.state.events_received.size() == 2 &&
+            btrfsbackup::backup::backup_run_event_kind(fixture.state.events_received.at(0)) ==
+                btrfsbackup::backup::BackupRunEventKind::RunStarted &&
+            btrfsbackup::backup::backup_run_event_kind(fixture.state.events_received.at(1)) ==
+                btrfsbackup::backup::BackupRunEventKind::RunFailed,
+        "preflight failure did not emit RunStarted followed by RunFailed"
+    );
+    test_helpers::expect_true("preflight failure lease release", fixture.leases.destructions == 1, "lease was not released");
+    test_helpers::expect_true("preflight failure no executor", fixture.runs.calls == 0, "executor was called");
+}
+
+void test_executor_typed_failure_is_not_emitted_twice() {
+    Fixture fixture;
+    fixture.runs.result = btrfsbackup::backup::BackupRunExecutionFailed{
+        .error_code = btrfsbackup::ErrorCode::TransferProducerFailed,
+        .error_message = "send failed",
+        .actions_completed = 1,
+    };
+
+    const btrfsbackup::backup::BackupExecutionResult result = fixture.service.start({
+        .profile_id = btrfsbackup::ProfileId{"default"},
+    });
+
+    const auto* failed = std::get_if<btrfsbackup::backup::BackupExecutionFailed>(&result);
+    test_helpers::expect_true("executor typed failure result", failed != nullptr, "typed executor failure was lost");
+    test_helpers::expect_true(
+        "executor typed failure actions",
+        failed != nullptr && failed->actions_completed == 1,
+        "completed action count was not preserved"
+    );
+    const auto failure_events = std::count_if(
+        fixture.state.events_received.begin(),
+        fixture.state.events_received.end(),
+        [](const btrfsbackup::backup::BackupRunEvent& event) {
+            return btrfsbackup::backup::backup_run_event_kind(event) ==
+                btrfsbackup::backup::BackupRunEventKind::RunFailed;
+        }
+    );
+    test_helpers::expect_true("executor typed failure duplication", failure_events == 1, "service duplicated executor RunFailed");
 }
 
 void test_busy_stops_before_target_access() {
@@ -622,6 +743,9 @@ int main() {
     test_each_run_gets_a_fresh_cancellation_token();
     test_run_context_releases_resources_after_success();
     test_run_context_releases_resources_after_exception();
+    test_success_persistence_failure_does_not_emit_run_completed();
+    test_preflight_failure_has_terminal_run_lifecycle();
+    test_executor_typed_failure_is_not_emitted_twice();
     test_busy_stops_before_target_access();
     test_plan_acquires_lease_and_defaults_to_offline_target();
     test_plan_can_explicitly_mount_target();

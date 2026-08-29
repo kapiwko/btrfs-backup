@@ -66,6 +66,9 @@ EventProjectionData event_projection_data(const btrfsbackup::backup::BackupRunEv
     } else if (const auto* failed = std::get_if<btrfsbackup::backup::ActionFailed>(&event)) {
         data.error_code = failed->error_code;
         data.message = failed->message;
+    } else if (const auto* failed = std::get_if<btrfsbackup::backup::RunFailed>(&event)) {
+        data.error_code = failed->error_code;
+        data.message = failed->message;
     } else if (const auto* cancelled = std::get_if<btrfsbackup::backup::RunCancelled>(&event)) {
         data.error_code = cancelled->error_code;
         data.message = cancelled->message;
@@ -113,6 +116,8 @@ RunPhase phase_for_event(btrfsbackup::backup::BackupRunEventKind kind) {
         return RunPhase::SourceCompleted;
     case btrfsbackup::backup::BackupRunEventKind::RunCompleted:
         return RunPhase::Succeeded;
+    case btrfsbackup::backup::BackupRunEventKind::RunFailed:
+        return RunPhase::Failed;
     case btrfsbackup::backup::BackupRunEventKind::RunCancelled:
         return RunPhase::Cancelled;
     case btrfsbackup::backup::BackupRunEventKind::ActionStarted:
@@ -122,17 +127,6 @@ RunPhase phase_for_event(btrfsbackup::backup::BackupRunEventKind kind) {
         return RunPhase::RunStarted;
     }
     return RunPhase::RunStarted;
-}
-
-ErrorCode error_code_for_failed_action(btrfsbackup::backup::BackupRunActionKind kind) {
-    switch (kind) {
-    case btrfsbackup::backup::BackupRunActionKind::BeforeSnapshotHook:
-        return ErrorCode::HookBeforeSnapshotFailed;
-    case btrfsbackup::backup::BackupRunActionKind::AfterSnapshotHook:
-        return ErrorCode::HookAfterSnapshotFailed;
-    default:
-        return ErrorCode::RunnerActionFailed;
-    }
 }
 
 bool failed_action_is_recoverable(btrfsbackup::backup::BackupRunActionKind kind) {
@@ -223,6 +217,8 @@ std::string message_for_event(const EventProjectionData& event) {
         return "Backup source completed.";
     case btrfsbackup::backup::BackupRunEventKind::RunCompleted:
         return "Backup completed.";
+    case btrfsbackup::backup::BackupRunEventKind::RunFailed:
+        return "Backup failed.";
     case btrfsbackup::backup::BackupRunEventKind::RunCancelled:
         return "Backup cancelled.";
     }
@@ -244,13 +240,13 @@ RunStatus status_for_event(
     std::optional<RuntimeTimePoint> finished_at;
     int exit_code = 0;
 
-    if ((event.kind == btrfsbackup::backup::BackupRunEventKind::ActionStarted || event.kind == btrfsbackup::backup::BackupRunEventKind::ActionCompleted || event.kind == btrfsbackup::backup::BackupRunEventKind::ActionFailed || event.kind == btrfsbackup::backup::BackupRunEventKind::CheckpointWritten) && event.action_kind.has_value()) {
+    if ((event.kind == btrfsbackup::backup::BackupRunEventKind::ActionStarted || event.kind == btrfsbackup::backup::BackupRunEventKind::ActionCompleted || event.kind == btrfsbackup::backup::BackupRunEventKind::ActionFailed || event.kind == btrfsbackup::backup::BackupRunEventKind::RunFailed || event.kind == btrfsbackup::backup::BackupRunEventKind::CheckpointWritten) && event.action_kind.has_value()) {
         phase = phase_for_action(*event.action_kind);
     } else if (event.kind == btrfsbackup::backup::BackupRunEventKind::TransferProgress) {
         phase = RunPhase::Transferring;
     }
 
-    if (event.kind == btrfsbackup::backup::BackupRunEventKind::ActionFailed) {
+    if (event.kind == btrfsbackup::backup::BackupRunEventKind::RunFailed) {
         state = RunState::Failed;
         exit_code = 1;
         finished_at = updated_at;
@@ -305,11 +301,12 @@ RunStatus status_for_event(
         run_bytes_processed = bytes_processed;
     }
     if (event.kind == btrfsbackup::backup::BackupRunEventKind::ActionFailed) {
-        error_code = event.error_code.value_or(
-            event.action_kind.has_value()
-                ? error_code_for_failed_action(*event.action_kind)
-                : ErrorCode::RunnerActionFailed
-        );
+        details = {
+            {"sourceId", source_id},
+            {"action", event.action_kind.has_value() ? backup_run_action_kind_name(*event.action_kind) : ""}
+        };
+    } else if (event.kind == btrfsbackup::backup::BackupRunEventKind::RunFailed) {
+        error_code = event.error_code.value_or(ErrorCode::BackupFailed);
         error_message = event.message;
         details = {
             {"sourceId", source_id},
@@ -318,10 +315,17 @@ RunStatus status_for_event(
         if (error_code == ErrorCode::RepositoryRecoveryRequired) {
             recoverable = true;
             suggested_action = "run-backup-recovery";
-        } else {
-            recoverable = event.action_kind.has_value() && failed_action_is_recoverable(*event.action_kind);
+        } else if (event.action_kind.has_value()) {
+            recoverable = failed_action_is_recoverable(*event.action_kind);
             suggested_action = event.action_kind.has_value()
                 ? suggested_action_for_failed_action(*event.action_kind)
+                : "inspect-run-history";
+        } else {
+            recoverable = true;
+            suggested_action = *error_code == ErrorCode::ConfigurationChanged ||
+                    *error_code == ErrorCode::RunnerProfileBusy ||
+                    *error_code == ErrorCode::RunnerTargetBusy
+                ? "run-backup-again"
                 : "inspect-run-history";
         }
     } else if (event.kind == btrfsbackup::backup::BackupRunEventKind::RunCancelled) {
@@ -381,11 +385,11 @@ RunStatus status_for_event(
 }
 
 bool should_write_status(btrfsbackup::backup::BackupRunEventKind kind) {
-    return kind == btrfsbackup::backup::BackupRunEventKind::RunStarted || kind == btrfsbackup::backup::BackupRunEventKind::SourceStarted || kind == btrfsbackup::backup::BackupRunEventKind::ActionStarted || kind == btrfsbackup::backup::BackupRunEventKind::TransferProgress || kind == btrfsbackup::backup::BackupRunEventKind::ActionCompleted || kind == btrfsbackup::backup::BackupRunEventKind::ActionFailed || kind == btrfsbackup::backup::BackupRunEventKind::SourceCompleted || kind == btrfsbackup::backup::BackupRunEventKind::RunCompleted || kind == btrfsbackup::backup::BackupRunEventKind::RunCancelled;
+    return kind == btrfsbackup::backup::BackupRunEventKind::RunStarted || kind == btrfsbackup::backup::BackupRunEventKind::SourceStarted || kind == btrfsbackup::backup::BackupRunEventKind::ActionStarted || kind == btrfsbackup::backup::BackupRunEventKind::TransferProgress || kind == btrfsbackup::backup::BackupRunEventKind::ActionCompleted || kind == btrfsbackup::backup::BackupRunEventKind::ActionFailed || kind == btrfsbackup::backup::BackupRunEventKind::SourceCompleted || kind == btrfsbackup::backup::BackupRunEventKind::RunCompleted || kind == btrfsbackup::backup::BackupRunEventKind::RunFailed || kind == btrfsbackup::backup::BackupRunEventKind::RunCancelled;
 }
 
 bool should_write_history(btrfsbackup::backup::BackupRunEventKind kind) {
-    return kind == btrfsbackup::backup::BackupRunEventKind::ActionFailed || kind == btrfsbackup::backup::BackupRunEventKind::RunCompleted || kind == btrfsbackup::backup::BackupRunEventKind::RunCancelled;
+    return kind == btrfsbackup::backup::BackupRunEventKind::RunFailed || kind == btrfsbackup::backup::BackupRunEventKind::RunCompleted || kind == btrfsbackup::backup::BackupRunEventKind::RunCancelled;
 }
 
 } // namespace
@@ -395,22 +399,45 @@ RunStatusProjection::RunStatusProjection(IAtomicDocumentWriter& files, BackupRun
 }
 
 void RunStatusProjection::on_backup_run_event(const btrfsbackup::backup::BackupRunEvent& event) {
-    const EventProjectionData data = event_projection_data(event);
+    EventProjectionData data = event_projection_data(event);
     if (!should_write_status(data.kind)) {
         return;
     }
 
-    if (data.kind == btrfsbackup::backup::BackupRunEventKind::RunStarted || data.run_id != run_id_) {
+    if (data.run_id != run_id_) {
         run_id_ = data.run_id;
+        pending_action_failure_.reset();
+        run_started_ = data.kind == btrfsbackup::backup::BackupRunEventKind::RunStarted;
         last_overall_progress_ = -1;
+    } else if (data.kind == btrfsbackup::backup::BackupRunEventKind::RunStarted) {
+        run_started_ = true;
+        pending_action_failure_.reset();
+        last_overall_progress_ = -1;
+    }
+    if (data.kind == btrfsbackup::backup::BackupRunEventKind::ActionFailed &&
+        data.source_id.has_value() && data.action_kind.has_value()) {
+        pending_action_failure_ = PendingActionFailure{
+            .run_id = data.run_id,
+            .source_id = *data.source_id,
+            .source_index = data.source_index,
+            .action_kind = *data.action_kind,
+        };
+    } else if (data.kind == btrfsbackup::backup::BackupRunEventKind::RunFailed && pending_action_failure_.has_value() && pending_action_failure_->run_id == data.run_id) {
+        data.source_id = pending_action_failure_->source_id;
+        data.source_index = pending_action_failure_->source_index;
+        data.action_kind = pending_action_failure_->action_kind;
     }
     RunStatus status = status_for_event(context_, data, last_overall_progress_);
     if (status.progress.overall_percent.has_value()) {
         last_overall_progress_ = *status.progress.overall_percent;
     }
-    write_current_status(files_, context_.status_root, status);
+    if (data.kind != btrfsbackup::backup::BackupRunEventKind::RunFailed || run_started_) {
+        write_current_status(files_, context_.status_root, status);
+    }
     if (should_write_history(data.kind)) {
         write_history_entry(files_, context_.history_root, status);
+        pending_action_failure_.reset();
+        run_started_ = false;
     }
 }
 

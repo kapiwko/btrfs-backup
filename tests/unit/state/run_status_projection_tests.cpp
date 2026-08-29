@@ -153,7 +153,14 @@ void test_hook_failure_status_uses_stable_error_code() {
         "hook failed: /usr/local/bin/prepare"
     );
 
+    sink.on_backup_run_event(btrfsbackup::backup::RunStarted{failed.profile_id, failed.run_id});
     sink.on_backup_run_event(failed);
+    sink.on_backup_run_event(btrfsbackup::backup::RunFailed{
+        .profile_id = failed.profile_id,
+        .run_id = failed.run_id,
+        .error_code = btrfsbackup::ErrorCode::HookBeforeSnapshotFailed,
+        .message = failed.message,
+    });
 
     btrfsbackup::config::Json current = btrfsbackup::config::load_json_file(root / "status" / "default" / "current.json");
     btrfsbackup::config::Json history = btrfsbackup::config::load_json_file(root / "history" / "default" / "20260823T120000Z-123-456.json");
@@ -184,7 +191,14 @@ void test_repository_recovery_required_status_is_actionable() {
         "commit verification failed; cleanup failed; repository requires recovery"
     );
 
+    sink.on_backup_run_event(btrfsbackup::backup::RunStarted{failed.profile_id, failed.run_id});
     sink.on_backup_run_event(failed);
+    sink.on_backup_run_event(btrfsbackup::backup::RunFailed{
+        .profile_id = failed.profile_id,
+        .run_id = failed.run_id,
+        .error_code = btrfsbackup::ErrorCode::RepositoryRecoveryRequired,
+        .message = failed.message,
+    });
 
     btrfsbackup::config::Json current = btrfsbackup::config::load_json_file(root / "status" / "default" / "current.json");
     btrfsbackup::config::Json history = btrfsbackup::config::load_json_file(root / "history" / "default" / "20260823T120000Z-123-456.json");

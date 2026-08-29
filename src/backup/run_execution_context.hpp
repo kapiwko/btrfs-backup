@@ -24,10 +24,8 @@ struct RunExecutionContext {
         std::unique_ptr<IBackupRunLease> lease,
         std::unique_ptr<IMountedTargetSession> target_session,
         ICheckpointStoreFactory& checkpoints,
-        IRunEventSinkFactory& event_sinks,
         ICancellationRequestStore& cancellation_requests,
-        ICancellationMonitor& cancellation_monitor,
-        BackupRunStatusDescription status
+        ICancellationMonitor& cancellation_monitor
     );
 
     RunExecutionContext(const RunExecutionContext&) = delete;
@@ -40,7 +38,6 @@ struct RunExecutionContext {
     std::unique_ptr<IActiveRunRegistration> active_run;
     std::unique_ptr<ICancellationWatch> cancellation_watch;
     std::unique_ptr<IBackupRunCheckpointStore> checkpoints;
-    std::unique_ptr<IBackupRunEventSink> events;
     std::unique_ptr<IBackupRunLease> lease;
     std::unique_ptr<IMountedTargetSession> target_session;
 };
