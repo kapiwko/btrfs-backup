@@ -22,6 +22,10 @@ add_library(btrfsbackup-cli STATIC
 )
 
 target_compile_features(btrfsbackup-cli PUBLIC cxx_std_20)
+target_compile_definitions(
+    btrfsbackup-cli
+    PRIVATE BTRFSBACKUP_SYSTEMD_CRYPTSETUP="${BTRFSBACKUP_SYSTEMD_CRYPTSETUP_EXECUTABLE}"
+)
 target_restricted_include_directories(btrfsbackup-cli
     PUBLIC_HEADERS
         cli/backup_tool.hpp

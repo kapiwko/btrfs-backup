@@ -20,6 +20,21 @@ struct TargetServiceDependencies {
     std::function<std::vector<btrfsbackup::backup::MountEntry>()> read_mounts;
     std::filesystem::path lock_root;
     std::filesystem::path mount_point_trust_root;
+    std::filesystem::path mapper_root = "/dev/mapper";
+    std::filesystem::path activation_state_root = "/run/btrfs-backup/target-activation";
+    std::filesystem::path keyfile_trust_root = "/";
+    std::string systemd_cryptsetup_command;
+    std::function<std::filesystem::path(const std::filesystem::path&)> canonical_device;
+};
+
+struct ActivateTargetRequest {
+    std::filesystem::path profile_config_dir;
+    ProfileId profile_id{"default"};
+};
+
+struct DeactivateTargetRequest {
+    std::filesystem::path profile_config_dir;
+    ProfileId profile_id{"default"};
 };
 
 struct MountTargetRequest {
@@ -42,7 +57,10 @@ enum class TargetEventKind {
     Mounted,
     Synchronizing,
     Unmounting,
-    StoppingCryptUnit,
+    StoppingTargetUnit,
+    Activating,
+    Activated,
+    Deactivated,
     MapperStillMounted,
     ClosingMapper,
     EjectedAfterFailedBackup,
@@ -62,6 +80,16 @@ struct TargetOperationResult {
 
 TargetOperationResult mount_target(
     const MountTargetRequest& request,
+    TargetServiceDependencies* dependencies = nullptr
+);
+
+TargetOperationResult activate_target(
+    const ActivateTargetRequest& request,
+    TargetServiceDependencies* dependencies = nullptr
+);
+
+TargetOperationResult deactivate_target(
+    const DeactivateTargetRequest& request,
     TargetServiceDependencies* dependencies = nullptr
 );
 
