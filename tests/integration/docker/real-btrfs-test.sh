@@ -275,7 +275,7 @@ EOF_POLKIT_RULE
     grep -Fq '\"state\": \"succeeded\"' <<< "$status_response" \
         || fail "manager did not reconstruct terminal status from history: $status_response"
 
-    systemctl stop btrfs-backupd.service
+    systemctl stop btrfs-backupd.service polkit.service
     rm -f -- "$policy_rule"
     userdel "$test_user"
     pass 'unprivileged user starts a real backup through system D-Bus and polkit'
@@ -552,7 +552,38 @@ wait_for_eject_service() {
         sleep 0.1
     done
     systemctl status --no-pager btrfs-backup-eject@default.service >&2 || true
+    if [[ -e "$MAPPER_PATH" ]]; then
+        local mapper_device
+        mapper_device="$(lsblk -dnro MAJ:MIN "$MAPPER_PATH" 2>/dev/null || true)"
+        dmsetup info -c --noheadings -o name,major,minor,open,segments,uuid "$MAPPER_NAME" >&2 \
+            || true
+        dmsetup ls --tree >&2 || true
+        if [[ -n "$mapper_device" ]]; then
+            local mount_info
+            for mount_info in /proc/[0-9]*/mountinfo; do
+                if grep -Fq " $mapper_device " "$mount_info" 2>/dev/null; then
+                    local mount_pid="${mount_info#/proc/}"
+                    mount_pid="${mount_pid%/mountinfo}"
+                    printf '%s\n' "mapper $mapper_device is visible in $mount_info:" >&2
+                    grep -F " $mapper_device " "$mount_info" >&2 || true
+                    ps -o pid,ppid,user,stat,comm,args -p "$mount_pid" 2>/dev/null >&2 || true
+                fi
+            done
+        fi
+    fi
     fail 'timed out waiting for the target eject service'
+}
+
+plain_mapper_lifecycle_test() {
+    umount "$TARGET_MOUNT"
+    cryptsetup close "$MAPPER_NAME"
+    [[ ! -e "$MAPPER_PATH" ]] || fail 'plain unmount did not close the test mapper'
+    cryptsetup open --key-file "$PASSPHRASE_FILE" "$TARGET_LOOP" "$MAPPER_NAME"
+    udevadm settle --timeout=10
+    dmsetup mknodes "$MAPPER_NAME"
+    mount -o noatime,nodev,nosuid,noexec,nosymfollow,compress=zstd:3 \
+        "$MAPPER_PATH" "$TARGET_MOUNT"
+    pass 'plain unmount closes and reopens the test mapper'
 }
 
 sandboxed_systemd_service_test() {
@@ -725,6 +756,8 @@ install -d -m0755 "$SOURCE_MOUNT/home/dir"
 dd if=/dev/urandom of="$SOURCE_MOUNT/home/dir/blob.bin" bs=1M count=2 status=none
 sync -f "$SOURCE_MOUNT"
 
+plain_mapper_lifecycle_test
+
 TARGET_LUKS_UUID="$(cryptsetup luksUUID "$TARGET_LOOP")"
 TARGET_BTRFS_UUID="$(findmnt -n -o UUID -M "$TARGET_MOUNT")"
 configure_backup_with_cli "$TARGET_LOOP" "$TARGET_LUKS_UUID" "$TARGET_BTRFS_UUID"
@@ -792,6 +825,7 @@ restore_latest_snapshot
 manager_independence_test
 trusted_hook_security_test
 systemd_security_audit
+plain_mapper_lifecycle_test
 sandboxed_systemd_service_test
 sandboxed_auto_eject_test
 

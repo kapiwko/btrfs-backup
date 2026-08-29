@@ -71,7 +71,10 @@
     narrow CMake interfaces and compile-checked public headers;
 15. the Arch upgrade hook migrates diagnostic history directories and files to
     root-only `0700/0600` permissions while keeping reduced current status
-    readable by local clients.
+    readable by local clients;
+16. automatic eject is scheduled with systemd `OnSuccess`/`OnFailure` only
+    after the sandboxed runner reaches its final state, preventing its private
+    mount namespace from keeping the LUKS mapper busy.
 
 ### Progress And Status
 
@@ -139,7 +142,10 @@
 7. real-system coverage installs the generated package and exercises systemd,
    system D-Bus, real polkit with an unprivileged caller, full and incremental
    Btrfs transfers, recovery, retention, restore, sandboxing, and USB hotplug in
-   a disposable QEMU guest.
+   a disposable QEMU guest;
+8. the real-Btrfs harness verifies a plain mapper close/reopen lifecycle and
+   stops its auxiliary Polkit service before automatic eject so the test
+   service's private mount namespace cannot pin the target.
 
 ## 0.2.1 - 2026-08-23
 

@@ -280,10 +280,13 @@ ACTION=="add", SUBSYSTEM=="block", ENV{ID_FS_TYPE}=="crypto_LUKS", ENV{ID_FS_UUI
 EOF_RULE
 
 cat > /etc/systemd/system/btrfs-backup@default.service.d/qemu-hotplug-test.conf <<'EOF_OVERRIDE'
+[Unit]
+OnSuccess=
+OnFailure=
+
 [Service]
 ExecStart=
 ExecStart=/usr/bin/sh -c 'if /usr/bin/systemctl is-active --quiet graphical.target; then exit 1; fi; printf "QEMU_HOTPLUG_OK\n" > /dev/ttyS0'
-ExecStopPost=
 EOF_OVERRIDE
 systemctl daemon-reload
 udevadm control --reload

@@ -221,10 +221,10 @@ RestrictAddressFamilies=AF_UNIX AF_NETLINK
 `RequiresMountsFor` drop-in makes PID 1 mount the configured target before the
 filesystem sandbox is created; the runner then validates that mount normally.
 
-The runner's `ExecStopPost` queues `btrfs-backup-eject@<profile>` for successful
-and failed runs. Unit ordering delays it until the runner has left its private
-mount namespace. The eject unit therefore operates on the host mount and can
-close the mapper. It retains
+The runner's `OnSuccess` and `OnFailure` dependencies queue
+`btrfs-backup-eject@<profile>` only after a successful or failed runner has
+reached its final state. The runner's private mount namespace is gone before the
+eject unit operates on the host mount and closes the mapper. It retains
 `NoNewPrivileges`, socket-family restrictions, executable-memory protection,
 personality locking, and realtime restrictions, but does not create a private
 mount namespace.

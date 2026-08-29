@@ -65,13 +65,14 @@ void test_backup_uses_versioned_transient_unit() {
         "backup unit is not operation-specific"
     );
     test_helpers::expect_true(
-        "backup cleanup",
-        contains(
-            unit.properties,
-            "ExecStopPost=" + installed_program("btrfs-backupctl") +
-                " target eject --from-service --profile laptop"
-        ),
-        "backup cleanup did not retain the authorized environment"
+        "backup success cleanup",
+        contains(unit.properties, "OnSuccess=btrfs-backup-eject@laptop.service"),
+        "backup cleanup can start before the successful runner fully exits"
+    );
+    test_helpers::expect_true(
+        "backup failure cleanup",
+        contains(unit.properties, "OnFailure=btrfs-backup-eject@laptop.service"),
+        "failed backup does not schedule target cleanup"
     );
     test_helpers::expect_true(
         "backup executable",

@@ -6,11 +6,12 @@ RequiresMountsFor="{{TARGET_MOUNT_POINT}}"
 After=local-fs.target systemd-udevd.service
 StartLimitIntervalSec=5min
 StartLimitBurst=3
+OnSuccess=btrfs-backup-eject@{{PROFILE_ID}}.service
+OnFailure=btrfs-backup-eject@{{PROFILE_ID}}.service
 
 [Service]
 Type=oneshot
 ExecStart={{BACKUP_COMMAND}} --profile {{PROFILE_ID}}
-ExecStopPost=/usr/bin/systemctl --no-block start btrfs-backup-eject@{{PROFILE_ID}}.service
 User=root
 Group=root
 UMask=0077

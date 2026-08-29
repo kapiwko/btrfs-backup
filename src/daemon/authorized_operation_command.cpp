@@ -94,10 +94,9 @@ TransientUnitRequest transient_unit(
 TransientUnitRequest authorized_backup_unit(const AuthorizedOperationContext& context) {
     const std::string profile_id(context.profile_id.value());
     TransientUnitRequest unit = transient_unit(context, "run", false);
-    unit.properties.push_back(
-        "ExecStopPost=" + installed_program("btrfs-backupctl") +
-        " target eject --from-service --profile " + profile_id
-    );
+    const std::string eject_unit = "btrfs-backup-eject@" + profile_id + ".service";
+    unit.properties.push_back("OnSuccess=" + eject_unit);
+    unit.properties.push_back("OnFailure=" + eject_unit);
     unit.command = {
         installed_program("btrfs-backup"),
         "--profile",
