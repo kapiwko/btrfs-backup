@@ -98,7 +98,11 @@ assert_public_link_interface(
     btrfsbackup-core
 )
 if(BUILD_SYSTEM_MANAGER)
-    assert_public_link_interface(btrfsbackup-daemon-core btrfsbackup-core)
+    assert_public_link_interface(
+        btrfsbackup-daemon-core
+        btrfsbackup-config-domain
+        btrfsbackup-core
+    )
 endif()
 
 add_test(

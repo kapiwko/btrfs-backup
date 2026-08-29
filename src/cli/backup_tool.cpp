@@ -170,6 +170,13 @@ int backup_tool_main(int argc, char** argv) {
         CancellationToken cancellation;
         TerminationSignalMonitor termination_signals(cancellation);
         return backup_tool(profile_config_dir, args, std::cout, nullptr, &cancellation);
+    } catch (const CodedValidationError& exc) {
+        fail(
+            exc.what(),
+            exc.error_code == ErrorCode::ConfigurationChanged
+                ? btrfsbackup::config::configuration_changed_exit_code
+                : 2
+        );
     } catch (const ValidationError& exc) {
         fail(exc.what());
     } catch (const std::exception& exc) {

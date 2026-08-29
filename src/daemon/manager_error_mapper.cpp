@@ -21,6 +21,7 @@ ManagerErrorDescription ManagerErrorMapper::map(const std::exception& error) con
             return describe(ManagerErrorCode::RunMismatch);
         case ErrorCode::TargetBtrfsUuidMismatch:
         case ErrorCode::RepositoryRecoveryRequired:
+        case ErrorCode::ConfigurationChanged:
             return describe(ManagerErrorCode::Conflict);
         default:
             return describe(ManagerErrorCode::InternalError);

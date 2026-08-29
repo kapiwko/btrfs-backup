@@ -30,6 +30,7 @@ enum class ErrorCode {
     RepositoryRecoveryRequired,
     ConfigurationSaveFailed,
     ConfigurationRollbackIncomplete,
+    ConfigurationChanged,
 };
 
 std::string error_code_name(ErrorCode code);
