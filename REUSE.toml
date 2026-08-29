@@ -24,8 +24,6 @@ path = [
     "TODO.md",
     "VERSION",
     "data/examples/btrfs-backup.conf.example",
-    "data/examples/crypttab.fragment.example",
-    "data/examples/fstab.fragment.example",
     "data/examples/profile.example.json",
     "data/schemas/profile.schema.json",
     "data/systemd/btrfs-backup-eject@.service.example",

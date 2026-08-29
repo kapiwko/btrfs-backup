@@ -20,9 +20,10 @@ flowchart TB
     device[Matching LUKS partition appears]
     udev[udev sets SYSTEMD_WANTS for the profile service]
     dropin[Profile drop-in declares RequiresMountsFor]
-    mount[systemd starts the fstab mount and cryptsetup dependency]
+    activation[Managed target service activates LUKS]
+    mount[systemd starts the native profile mount]
 
-    device --> udev --> dropin --> mount
+    device --> udev --> dropin --> activation --> mount
 
     subgraph runner[btrfs-backup profile service]
         direction TB
@@ -59,7 +60,7 @@ flowchart TB
         eject_sync[Sync target]
         unmount[Unmount expected target]
         mapper_check[Check remaining mapper mounts]
-        crypt_stop[Stop matching systemd-cryptsetup unit]
+        crypt_stop[Stop managed target activation unit]
         removable[Report that media can be disconnected]
 
         eject_sync --> unmount --> mapper_check --> crypt_stop --> removable
@@ -75,11 +76,17 @@ The udev rule is only responsible for starting the service on an `add` event. Th
 Each saved profile installs a service drop-in with
 `RequiresMountsFor=<TARGET_MOUNT_ROOT>/<profileId>`. The mount root defaults to
 `/mnt/btrfs-backup` and is controlled only by the global application
-configuration. PID 1 therefore starts the fstab mount,
-including its cryptsetup dependency, before it creates the service's private
-mount namespace. The mount unit does not start the backup service, so there is
-no `service -> mount -> service` dependency cycle. A runner started directly
-from the command line retains the explicit mount-start fallback.
+configuration. Each profile installs a native `.mount` unit requiring
+`btrfs-backup-target@<profile>.service`. PID 1 therefore activates the exact
+LUKS identity and mounts `/dev/mapper/<name>` before it creates the runner's
+private mount namespace. Neither fstab nor crypttab participates in this graph.
+The mount unit does not start the backup service, so there is no
+`service -> mount -> service` dependency cycle. A runner started directly from
+the command line retains the explicit mount-start fallback.
+
+The target service records whether it created the mapper. Its normal stop path
+closes only an owned mapper after verifying identity and absence of remaining
+mounts; a mapper that was already active is preserved.
 
 The service templates have no `[Install]` section and are not intended to be enabled with `systemctl enable`.
 The ownership of mount activation and eject ordering is recorded in

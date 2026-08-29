@@ -50,16 +50,16 @@ generated Arch `PKGBUILD` still defines `check()` for distribution builders.
 Outputs are written to `dist/`:
 
 ```text
-btrfs-backup-0.3.1.tar.gz
-btrfs-backup-0.3.1-1-x86_64.pkg.tar.zst
-btrfs-backup-kde-0.3.1-1-x86_64.pkg.tar.zst
-btrfs-backup_0.3.1-1_amd64.deb
-btrfs-backup-0.3.1-install.tar.gz
-btrfs-backup-0.3.1-rpm-packaging.tar.gz
-btrfs-backup-0.3.1-nix-packaging.tar.gz
-btrfs-backup-0.3.1-ebuild.tar.gz
-btrfs-backup-0.3.1-pkgbuild.tar.gz
-btrfs-backup-0.3.1-source.zip
+btrfs-backup-0.3.2.tar.gz
+btrfs-backup-0.3.2-1-x86_64.pkg.tar.zst
+btrfs-backup-kde-0.3.2-1-x86_64.pkg.tar.zst
+btrfs-backup_0.3.2-1_amd64.deb
+btrfs-backup-0.3.2-install.tar.gz
+btrfs-backup-0.3.2-rpm-packaging.tar.gz
+btrfs-backup-0.3.2-nix-packaging.tar.gz
+btrfs-backup-0.3.2-ebuild.tar.gz
+btrfs-backup-0.3.2-pkgbuild.tar.gz
+btrfs-backup-0.3.2-source.zip
 SHA256SUMS
 BUILD-REPORT.txt
 ```
@@ -114,9 +114,10 @@ cmake --build build --parallel
 DESTDIR="$pkgdir" cmake --install build
 ```
 
-This installs the two commands, the manager executable, rendered profile/eject
-service templates, manager activation and policy files, configuration examples,
-schema, documentation, and the trusted hook directory.
+This installs the two commands, the manager executable, rendered profile,
+eject, validation, and target-activation service templates, manager activation
+and policy files, configuration examples, schema, documentation, and the
+trusted hook directory.
 It does not install an active profile or a profile-specific udev rule.
 
 The packaged manager unit grants write access to the default
@@ -124,10 +125,10 @@ The packaged manager unit grants write access to the default
 that override `STATE_ROOT` must add the corresponding `ReadWritePaths` entry in
 a `btrfs-backupd.service` drop-in.
 
-The package provides fstab and crypttab fragments for administrator-managed
-configuration. `btrfs-backupctl profile wizard --apply` and `profile save`
-write active profiles, udev rules, and profile-specific systemd mount-dependency
-drop-ins after an explicit user command.
+The package does not edit or require fstab or crypttab. `btrfs-backupctl profile
+wizard --apply` and `profile save` write active profiles, udev rules, native
+profile-specific mount units, and mount-dependency drop-ins after an explicit
+user command.
 
 The optional `btrfs-backup-kde` package installs the Plasma applet under
 `/usr/share/plasma/plasmoids` and the compiled QML module under

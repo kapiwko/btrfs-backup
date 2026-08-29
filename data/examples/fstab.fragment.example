@@ -1,4 +1,0 @@
-# Merge this single line into /etc/fstab.
-# noauto prevents mounting at boot. The profile service starts this mount unit only after the matching LUKS device appears.
-
-/dev/mapper/{{BACKUP_MAPPER_NAME_FSTAB}}  {{BACKUP_MOUNTPOINT_FSTAB}}  btrfs  noauto,nofail,noatime,nodev,nosuid,noexec,nosymfollow,compress=zstd,x-systemd.requires={{BACKUP_CRYPTSETUP_UNIT}},x-systemd.device-timeout=30s,x-systemd.mount-timeout=60s  0  0
