@@ -67,6 +67,15 @@ btrfsbackup::config::Profile save_profile(
 ) {
     btrfsbackup::config::ApplicationConfig config = load_application_config(roots.etc_root);
     btrfsbackup::config::Profile profile = validate_profile_file(file, config.paths().target_mount_root);
+    install_profile(profile, roots, activator);
+    return profile;
+}
+
+void install_profile(
+    const btrfsbackup::config::Profile& profile,
+    const ProfileInstallationRoots& roots,
+    btrfsbackup::config::IConfigurationActivator& activator
+) {
     btrfsbackup::config::ProfileArtifactRenderer renderer(generate_configuration_generation);
     const btrfsbackup::config::ProfileArtifactRoots artifact_roots{
         .etc_root = roots.etc_root,
@@ -76,7 +85,6 @@ btrfsbackup::config::Profile save_profile(
     };
     ProfileInstaller installer(renderer, activator);
     installer.install_profile_transactionally(profile, artifact_roots);
-    return profile;
 }
 
 btrfsbackup::config::Profile get_profile(const fs::path& etc_root, const std::string& profile_id) {
