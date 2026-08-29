@@ -223,12 +223,15 @@ The test covers:
 19. offline `systemd-analyze security` against the installed unit;
 20. a complete real Btrfs backup started through the sandboxed systemd profile
     service, including the pre-sandbox target mount dependency;
-21. automatic host unmount and LUKS closure through the post-run eject unit.
+21. automatic host unmount and LUKS closure through the post-run eject unit;
+22. a complete backup requested through the system D-Bus manager by an
+    unprivileged user and authorized by real polkit from the installed package.
 
-The current Plasma test target validates its status-only process model and the
-read side of the manager API. Operational manager tests cover distinct polkit
-actions and caller subjects, repeated authorization, caller disconnect during
-the decision, profile generation/fingerprint races, and run mismatch handling.
+The current Plasma test target validates its full manager-backed control model,
+including capabilities, stages, status, history, device state and asynchronous
+operational calls. Manager tests cover distinct polkit actions and caller
+subjects, repeated authorization, caller disconnect during the decision,
+profile generation/fingerprint races, and run mismatch handling.
 
 ## Release Checks
 

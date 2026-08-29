@@ -39,9 +39,11 @@ The base package does not depend on Plasma. The KDE package installs:
 /usr/lib/qt6/qml/org/btrfsbackup/plasma
 ```
 
-The package install hook runs `kbuildsycoca6` when available. If a widget is
-already present on the desktop or panel, the running shell may still have the
-old QML module loaded. Restart the shell after upgrading the widget:
+The package hook does not run KDE cache tools as root. It prints a reload hint,
+and package timestamps change when the widget sources change so stale QML cache
+entries are not reused. If a widget is already present on the desktop or panel,
+the running shell may still have the old QML module loaded. Restart the shell
+after upgrading the widget:
 
 ```bash
 systemctl --user restart plasma-plasmashell.service

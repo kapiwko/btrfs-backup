@@ -55,7 +55,8 @@ Later improvements include:
 - power, sleep-inhibition, CPU and I/O policies;
 - controlled concurrency across independent targets;
 - calendar retention, pins, notes and reclaimable-space analysis;
-- better Btrfs-aware transfer estimates and exact progress when available;
+- multi-source capacity forecasting and preflight space estimates that include
+  retention and repository cleanup effects;
 - optional transfer-rate limits and an event-driven multi-transfer runner;
 - checkpoint-aware application hooks that distinguish pre-snapshot and
   post-snapshot failure.
@@ -140,17 +141,17 @@ retention, scheduling, power and transport failures. Add:
 
 ## C++ Architecture And Quality
 
-Continue focused refactoring without another directory migration or behavioral
-rewrite:
+Preserve the domain, port, adapter, persistence, CLI and daemon boundaries
+established in 3.0 without another directory migration or behavioral rewrite:
 
-- split broad effect and persistence components by owned responsibility;
-- replace weakly typed action payloads and configuration values with value
-  objects, enums, `std::variant`, `std::chrono` and `[[nodiscard]]` where they
-  improve correctness;
-- keep exceptions at infrastructure/application boundaries and return typed
-  domain outcomes where failure is expected;
-- enforce minimal CMake link interfaces and keep model targets free of Linux,
-  JSON and UI dependencies;
+- split a broad effect or persistence component only when a concrete ownership
+  or lifecycle problem remains;
+- replace remaining security-relevant strings with value objects and enums
+  where they prevent invalid states;
+- keep exceptions at infrastructure/application boundaries and extend typed
+  outcomes where failure is expected;
+- keep CMake interfaces minimal and model targets free of Linux, JSON and UI
+  dependencies;
 - add ASan, UBSan and compiler-matrix gates after establishing clean baselines.
 
 Refactors must preserve public CLI, profile, status, history, recovery and
@@ -173,11 +174,11 @@ No integration may become a required dependency of the base runtime.
 
 ## Verification Investment
 
-Maintain unit and real-Btrfs Docker coverage while adding an opt-in QEMU Arch
-system test for actual hotplug, udev delivery, systemd startup, device loss,
-ENOSPC and interruption at commit boundaries. Add fuzzing for untrusted JSON
-and path inputs, sanitizers, formatting/static-analysis gates and GCC/Clang
-coverage.
+Maintain unit and real-Btrfs Docker coverage and the opt-in QEMU Arch hotplug
+test. Extend QEMU coverage from its current package installation, USB attach,
+udev delivery and systemd startup baseline to device loss, ENOSPC and
+interruption at commit boundaries. Add fuzzing for untrusted JSON and path
+inputs, sanitizers, formatting/static-analysis gates and GCC/Clang coverage.
 
 ## Open Source And Release Maturity
 

@@ -7,9 +7,12 @@ snapshots, opens and closes the configured LUKS target, mounts filesystems, and
 updates root-owned state. User-facing tools must treat the privileged runtime
 as the only component allowed to mutate system configuration or backup state.
 
-Current runtime commands may run as root. Ordinary status readers can inspect
-only the reduced public current-status JSON. Run history, profile state, key
-material, and trusted runtime configuration are private to root.
+Direct runtime commands run as root. Ordinary readers can inspect only reduced,
+sanitized status through the manager. The active local session may invoke the
+already configured operational controls through their separate polkit actions;
+inactive callers still require administrator authentication. Run history,
+profile state, key material, and trusted runtime configuration are private to
+root.
 
 ## Configuration
 
