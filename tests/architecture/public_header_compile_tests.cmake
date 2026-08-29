@@ -31,7 +31,7 @@ function(add_public_header_architecture_tests)
 
         if(probe_sources)
             set(probe_target "${target}-public-header-probe")
-            add_library(${probe_target} OBJECT ${probe_sources})
+            add_library(${probe_target} OBJECT EXCLUDE_FROM_ALL ${probe_sources})
             target_link_libraries(${probe_target} PRIVATE ${target})
             list(APPEND probe_targets ${probe_target})
         endif()
@@ -80,6 +80,11 @@ function(add_public_header_architecture_tests)
             -DMANIFEST=${manifest_path}
             -P ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/cmake_file_api_tests.cmake
     )
+    set_tests_properties(
+        public-header-self-containment
+        cmake-file-api-target-graph
+        PROPERTIES LABELS architecture
+    )
 
     find_program(CLANG_SCAN_DEPS_EXECUTABLE clang-scan-deps)
     if(CLANG_SCAN_DEPS_EXECUTABLE)
@@ -92,6 +97,10 @@ function(add_public_header_architecture_tests)
                 -DPROBE_ROOT=${probe_root}
                 -DMANIFEST=${manifest_path}
                 -P ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/clang_scan_public_headers.cmake
+        )
+        set_tests_properties(
+            public-header-dependency-usage
+            PROPERTIES LABELS architecture
         )
     else()
         message(STATUS "clang-scan-deps not found: public header dependency usage test disabled")

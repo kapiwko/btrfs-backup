@@ -28,6 +28,11 @@ if(BUILD_TESTING)
 endif()
 option(BUILD_KDE_INTEGRATION "Build the optional KDE integration" OFF)
 option(BUILD_SYSTEM_MANAGER "Build the optional read-only system D-Bus manager" ON)
+option(
+    BTRFSBACKUP_ARCHITECTURE_TESTS
+    "Enable compile probes and dependency architecture tests"
+    ON
+)
 
 find_package(nlohmann_json REQUIRED)
 find_package(PkgConfig REQUIRED)

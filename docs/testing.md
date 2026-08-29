@@ -14,6 +14,20 @@ Mode without root-only operations:
 ./tests/run-tests.sh --static-only
 ```
 
+Public-header compile probes and dependency graph checks are enabled by default
+and carry the CTest label `architecture`. CI runs them once in a dedicated
+Clang job; compiler and sanitizer jobs configure with:
+
+```bash
+cmake -S . -B build/fast -DBTRFSBACKUP_ARCHITECTURE_TESTS=OFF
+```
+
+Run only the architecture contract with:
+
+```bash
+ctest --test-dir build -L architecture --parallel "$(nproc)"
+```
+
 Tests cover:
 
 1. syntax of remaining shell launchers and install hooks;
