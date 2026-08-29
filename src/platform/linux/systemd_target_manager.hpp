@@ -13,7 +13,10 @@ namespace btrfsbackup::platform::linux {
 class SystemdTargetManager final : public btrfsbackup::backup::ITargetManager {
   public:
     SystemdTargetManager(btrfsbackup::backup::IMountInspector& mounts, btrfsbackup::backup::ICommandRunner& commands);
-    void ensure_mounted(const btrfsbackup::config::Profile& profile) override;
+    [[nodiscard]] std::unique_ptr<btrfsbackup::backup::IMountedTargetSession> prepare(
+        const btrfsbackup::config::Profile& profile,
+        btrfsbackup::backup::TargetMountMode mode
+    ) override;
 
   private:
     btrfsbackup::backup::IMountInspector& mounts_;

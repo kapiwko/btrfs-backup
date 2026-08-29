@@ -66,22 +66,30 @@ BackupService::BackupService(
       run_ids_(run_ids) {
 }
 
-BackupRunPlan BackupService::prepare_plan(
+BackupRunPlan BackupService::build_plan(
     const btrfsbackup::config::Profile& profile,
     const RunId& run_id,
     const std::string& timestamp
 ) {
-    preflight_.run(profile);
     const BackupPlanningSnapshot snapshot = discovery_.discover(profile, application_paths_);
     return plan_builder_.build(profile, snapshot, run_id, timestamp);
 }
 
-BackupRunPlan BackupService::plan(const BackupRequest& request) {
+BackupRunPlan BackupService::plan(const BackupPlanRequest& request) {
     const RuntimeTimePoint time = clock_.now();
     const std::string timestamp = format_utc_snapshot_timestamp(time);
     const RunId run_id = run_ids_.generate(time);
     const btrfsbackup::config::LoadedProfile loaded = profiles_.get(request.profile_id);
-    return prepare_plan(loaded.profile, run_id, timestamp);
+    BackupRunLeaseResult lease_result = leases_.try_acquire(loaded.profile);
+    if (auto* busy = std::get_if<BackupRunLeaseBusy>(&lease_result)) {
+        throw CodedOperationError(busy->error_code, busy->error_message);
+    }
+    std::unique_ptr<IBackupRunLease> lease = std::move(std::get<BackupRunLeaseAcquired>(lease_result).lease);
+    std::unique_ptr<IMountedTargetSession> target_session = preflight_.run(
+        loaded.profile,
+        request.mount_target ? TargetMountMode::MountIfNeeded : TargetMountMode::RequireMounted
+    );
+    return build_plan(loaded.profile, run_id, timestamp);
 }
 
 BackupExecutionResult BackupService::start(const BackupRequest& request) {
@@ -102,7 +110,11 @@ BackupExecutionResult BackupService::start(const BackupRequest& request) {
     }
     std::unique_ptr<IBackupRunLease> lease = std::move(std::get<BackupRunLeaseAcquired>(lease_result).lease);
 
-    BackupRunPlan plan = prepare_plan(profile, run_id, timestamp);
+    std::unique_ptr<IMountedTargetSession> target_session = preflight_.run(
+        profile,
+        TargetMountMode::MountIfNeeded
+    );
+    BackupRunPlan plan = build_plan(profile, run_id, timestamp);
     const std::string& fingerprint = loaded.fingerprint.value();
     if (request.validate_only) {
         return BackupExecutionValidated{std::move(plan)};
@@ -118,6 +130,7 @@ BackupExecutionResult BackupService::start(const BackupRequest& request) {
         profile.id,
         run_id,
         std::move(lease),
+        std::move(target_session),
         checkpoints_,
         event_sinks_,
         cancellation_requests_,

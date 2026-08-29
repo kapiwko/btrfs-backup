@@ -24,6 +24,7 @@ enum class RunnerCommandKind {
 struct RunnerOptions {
     RunnerCommandKind command;
     btrfsbackup::backup::BackupRequest request;
+    bool mount_target = false;
     std::filesystem::path mountinfo;
     std::map<std::string, std::string> mount_uuid_overrides;
     btrfsbackup::RuntimeTimePoint timestamp;

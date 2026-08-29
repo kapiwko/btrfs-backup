@@ -408,6 +408,19 @@ std::string option_value(const std::vector<std::string>& args, const std::string
     return fallback;
 }
 
+std::string mount_uuid_value(
+    const std::vector<std::string>& args,
+    const std::string& source,
+    std::string fallback
+) {
+    for (std::size_t index = 0; index + 2 < args.size(); ++index) {
+        if (args[index] == "--mount-uuid" && args[index + 1] == source) {
+            return args[index + 2];
+        }
+    }
+    return fallback;
+}
+
 std::string compact_test_timestamp(const std::string& timestamp) {
     std::string result;
     for (const char character : timestamp) {
@@ -435,8 +448,12 @@ int run_runner(
     );
     const fs::path mountinfo = option_value(args, "--mountinfo", "/proc/self/mountinfo");
     btrfsbackup::platform::linux::FileProfileRepository profiles(config_root, fixture->application_config);
-    btrfsbackup::platform::linux::LinuxMountInspector mounts(mountinfo, [target_uuid = profile.target.btrfs_uuid.value()](const std::string& source) {
-        return source.find("/dev/mapper/") == 0 ? target_uuid : "source-btrfs-uuid";
+    btrfsbackup::platform::linux::LinuxMountInspector mounts(mountinfo, [&args, target_uuid = profile.target.btrfs_uuid.value()](const std::string& source) {
+        return mount_uuid_value(
+            args,
+            source,
+            source.find("/dev/mapper/") == 0 ? target_uuid : "source-btrfs-uuid"
+        );
     });
     btrfsbackup::platform::linux::PosixCommandRunner commands;
     btrfsbackup::platform::linux::SystemdTargetManager target_mounter(mounts, commands);
@@ -544,6 +561,15 @@ void test_runner_plan_outputs_shadow_json() {
     write_profile(config_root, profile);
     write_mountinfo(mountinfo, profile);
 
+    RecordingActionHandler action_handler;
+    ConfigurableTransferPipeline transfer_pipeline;
+    ServiceFixture services{
+        .action_handler = action_handler,
+        .transfer_pipeline = transfer_pipeline,
+        .lock_root = root / "locks",
+        .application_config = btrfsbackup::config::ApplicationConfig(test_application_paths(root)),
+    };
+
     std::ostringstream output;
     int result = run_runner(
         config_root,
@@ -564,7 +590,8 @@ void test_runner_plan_outputs_shadow_json() {
             "/dev/mapper/backup",
             profile.target.btrfs_uuid.value(),
         },
-        output
+        output,
+        &services
     );
 
     btrfsbackup::config::Json json = btrfsbackup::config::Json::parse(output.str());
@@ -599,6 +626,15 @@ void test_runner_plan_validates_target_mount() {
     write_profile(config_root, profile);
     write_mountinfo(mountinfo, profile);
 
+    RecordingActionHandler action_handler;
+    ConfigurableTransferPipeline transfer_pipeline;
+    ServiceFixture services{
+        .action_handler = action_handler,
+        .transfer_pipeline = transfer_pipeline,
+        .lock_root = root / "locks",
+        .application_config = btrfsbackup::config::ApplicationConfig(test_application_paths(root)),
+    };
+
     std::ostringstream output;
     test_helpers::expect_validation_error("runner target uuid", [&] { (void)run_runner(
                                                                           config_root,
@@ -619,7 +655,8 @@ void test_runner_plan_validates_target_mount() {
                                                                               "/dev/mapper/backup",
                                                                               "99999999-9999-9999-9999-999999999999",
                                                                           },
-                                                                          output
+                                                                          output,
+                                                                          &services
                                                                       ); }, "Btrfs UUID mismatch");
 
     fs::remove_all(root);

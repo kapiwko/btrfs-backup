@@ -12,6 +12,7 @@ RunExecutionContext::RunExecutionContext(
     ProfileId profile_id_value,
     RunId run_id_value,
     std::unique_ptr<IBackupRunLease> lease_value,
+    std::unique_ptr<IMountedTargetSession> target_session_value,
     ICheckpointStoreFactory& checkpoint_factory,
     IRunEventSinkFactory& event_sink_factory,
     ICancellationRequestStore& cancellation_requests,
@@ -22,7 +23,8 @@ RunExecutionContext::RunExecutionContext(
       run_id(std::move(run_id_value)),
       checkpoints(checkpoint_factory.checkpoints(profile_id)),
       events(event_sink_factory.events(std::move(status))),
-      lease(std::move(lease_value)) {
+      lease(std::move(lease_value)),
+      target_session(std::move(target_session_value)) {
     active_run = cancellation_requests.register_active_run({profile_id, run_id});
     cancellation_watch = cancellation_monitor.watch({profile_id, run_id}, cancellation);
 }

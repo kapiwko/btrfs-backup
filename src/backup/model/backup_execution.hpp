@@ -20,6 +20,11 @@ struct BackupRequest {
     bool validate_only = false;
 };
 
+struct BackupPlanRequest {
+    ProfileId profile_id;
+    bool mount_target = false;
+};
+
 struct CancellationRequest {
     ProfileId profile_id;
     RunId run_id;
