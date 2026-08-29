@@ -122,5 +122,13 @@ if(BUILD_TESTING)
                 -I ${CMAKE_BINARY_DIR}
                 ${CMAKE_CURRENT_SOURCE_DIR}/plasmoid/tests/backend-smoke.qml
         )
+        add_test(
+            NAME plasma-transfer-speed-chart
+            COMMAND
+                ${CMAKE_COMMAND} -E env
+                QT_QPA_PLATFORM=offscreen
+                ${QML_EXECUTABLE}
+                ${CMAKE_CURRENT_SOURCE_DIR}/plasmoid/tests/transfer-speed-chart.qml
+        )
     endif()
 endif()

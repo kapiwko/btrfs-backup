@@ -1146,6 +1146,10 @@ if [[ "$TARGET" == all || "$TARGET" == arch ]]; then
     grep -qx '.MTREE' "$TMP_ROOT/package-kde-files.txt"
     grep -qx 'usr/share/plasma/plasmoids/org.btrfsbackup.plasmoid/metadata.json' "$TMP_ROOT/package-kde-files.txt"
     grep -qx 'usr/share/plasma/plasmoids/org.btrfsbackup.plasmoid/contents/ui/main.qml' "$TMP_ROOT/package-kde-files.txt"
+    for component in ActionToolbar RunDetails TargetOverview TransferSpeedChart; do
+        grep -qx "usr/share/plasma/plasmoids/org.btrfsbackup.plasmoid/contents/ui/$component.qml" \
+            "$TMP_ROOT/package-kde-files.txt"
+    done
     grep -qx 'usr/lib/qt6/qml/org/btrfsbackup/plasma/qmldir' "$TMP_ROOT/package-kde-files.txt"
     grep -qx 'usr/lib/qt6/qml/org/btrfsbackup/plasma/libbtrfsbackup_plasma_backend.so' "$TMP_ROOT/package-kde-files.txt"
     grep -qx 'usr/lib/qt6/qml/org/btrfsbackup/plasma/libbtrfsbackup_plasma_backendplugin.so' "$TMP_ROOT/package-kde-files.txt"

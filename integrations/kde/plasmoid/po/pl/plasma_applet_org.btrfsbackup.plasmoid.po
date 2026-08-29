@@ -150,8 +150,11 @@ msgstr "Można bezpiecznie odłączyć"
 msgid "Progress:"
 msgstr "Postęp:"
 
-msgid "Speed:"
-msgstr "Prędkość:"
+msgid "Transfer rate"
+msgstr "Szybkość transferu"
+
+msgid "Peak: %1"
+msgstr "Maksimum: %1"
 
 msgid "%1/s"
 msgstr "%1/s"
