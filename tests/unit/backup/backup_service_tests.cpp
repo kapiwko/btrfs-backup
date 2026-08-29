@@ -232,7 +232,7 @@ struct FakeState final : btrfsbackup::backup::IRunLedger,
     int checkpoint_destructions = 0;
     int event_destructions = 0;
     std::string success_date;
-    std::string success_timestamp;
+    btrfsbackup::RuntimeTimePoint success_timestamp;
     mutable std::string matched_fingerprint;
     std::string success_fingerprint;
 
@@ -265,7 +265,7 @@ struct FakeState final : btrfsbackup::backup::IRunLedger,
     ) override {
         ++success_writes;
         success_date = btrfsbackup::format_local_date(date);
-        success_timestamp = btrfsbackup::format_local_timestamp(timestamp);
+        success_timestamp = timestamp;
         success_fingerprint = fingerprint;
     }
 
@@ -424,7 +424,11 @@ void test_success_uses_ports_and_persists_success() {
         "/state/from-discovery"
     );
     test_helpers::expect_eq("success date", fixture.state.success_date, "2026-08-26");
-    test_helpers::expect_eq("success timestamp", fixture.state.success_timestamp, "2026-08-26T14:00:00+0200");
+    test_helpers::expect_true(
+        "success timestamp",
+        fixture.state.success_timestamp == fixture.clock.now(),
+        "ledger received a different completion timestamp"
+    );
     test_helpers::expect_eq("success fingerprint", fixture.state.success_fingerprint, "fingerprint");
 }
 
