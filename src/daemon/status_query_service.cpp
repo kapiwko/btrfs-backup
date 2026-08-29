@@ -40,7 +40,11 @@ btrfsbackup::daemon::PublicRunStatus sanitize_public_status(const btrfsbackup::c
         }
     }
     return {
+        .run_id = input.value("runId", std::string{}),
         .state = input.at("state").get<std::string>(),
+        .phase = input.value("phase", std::string{"idle"}),
+        .activity = input.value("activity", std::string{"idle"}),
+        .can_cancel = input.value("canCancel", false),
         .error_code = input.at("errorCode").get<std::string>(),
         .source_name = input.at("sourceName").get<std::string>(),
         .target_name = input.at("targetName").get<std::string>(),
@@ -74,6 +78,8 @@ PublicRunStatus StatusQueryService::get_status(const std::string& profile_id) co
     if (last.has_value()) {
         PublicRunStatus result;
         result.state = last->state;
+        result.phase = "idle";
+        result.activity = "idle";
         result.error_code = last->error_code;
         result.source_name = last->source_name;
         result.target_name = last->target_name;

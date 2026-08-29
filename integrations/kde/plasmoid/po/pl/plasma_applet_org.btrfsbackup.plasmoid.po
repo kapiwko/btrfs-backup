@@ -21,6 +21,63 @@ msgstr "Kopie zapasowe Btrfs"
 msgid "Backup is in progress"
 msgstr "Kopia zapasowa jest wykonywana"
 
+msgid "Target validation is in progress"
+msgstr "Trwa walidacja celu kopii"
+
+msgid "Validating backup target"
+msgstr "Walidowanie celu kopii"
+
+msgid "Starting backup"
+msgstr "Uruchamianie kopii zapasowej"
+
+msgid "Preparing backup"
+msgstr "Przygotowywanie kopii zapasowej"
+
+msgid "Preparing backup source"
+msgstr "Przygotowywanie źródła kopii"
+
+msgid "Recovering interrupted backup"
+msgstr "Odzyskiwanie przerwanej kopii"
+
+msgid "Cleaning temporary data"
+msgstr "Czyszczenie danych tymczasowych"
+
+msgid "Running pre-snapshot hooks"
+msgstr "Uruchamianie hooków przed snapshotem"
+
+msgid "Creating local snapshot"
+msgstr "Tworzenie lokalnego snapshotu"
+
+msgid "Running post-snapshot hooks"
+msgstr "Uruchamianie hooków po snapshocie"
+
+msgid "Preparing data transfer"
+msgstr "Przygotowywanie transferu danych"
+
+msgid "Calculating transfer size"
+msgstr "Obliczanie rozmiaru transferu"
+
+msgid "Transferring backup data"
+msgstr "Przesyłanie danych kopii"
+
+msgid "Verifying received snapshot"
+msgstr "Weryfikowanie odebranego snapshotu"
+
+msgid "Committing received snapshot"
+msgstr "Zatwierdzanie odebranego snapshotu"
+
+msgid "Applying target retention"
+msgstr "Stosowanie retencji na celu"
+
+msgid "Applying local retention"
+msgstr "Stosowanie retencji lokalnej"
+
+msgid "Cleaning backup source"
+msgstr "Czyszczenie źródła kopii"
+
+msgid "Finalizing backup"
+msgstr "Finalizowanie kopii zapasowej"
+
 msgid "Validation completed successfully"
 msgstr "Walidacja zakończona pomyślnie"
 
@@ -60,6 +117,24 @@ msgstr "Źródło:"
 msgid "Destination:"
 msgstr "Cel:"
 
+msgid "Target state:"
+msgstr "Stan celu:"
+
+msgid "Mounted"
+msgstr "Zamontowany"
+
+msgid "Unlocked"
+msgstr "Odblokowany"
+
+msgid "Connected"
+msgstr "Podłączony"
+
+msgid "Disconnected"
+msgstr "Odłączony"
+
+msgid "Safe to remove"
+msgstr "Można bezpiecznie odłączyć"
+
 msgid "Progress:"
 msgstr "Postęp:"
 
@@ -74,3 +149,21 @@ msgstr "Pozostały czas:"
 
 msgid "Refresh"
 msgstr "Odśwież"
+
+msgid "Recent backups"
+msgstr "Ostatnie kopie"
+
+msgid "Operation accepted"
+msgstr "Operacja została przyjęta"
+
+msgid "Start backup"
+msgstr "Uruchom kopię"
+
+msgid "Cancel"
+msgstr "Anuluj"
+
+msgid "Validate"
+msgstr "Waliduj"
+
+msgid "Eject"
+msgstr "Wysuń"

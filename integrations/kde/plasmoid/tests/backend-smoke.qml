@@ -24,15 +24,18 @@ Window {
             if (status.profile !== "default") {
                 Qt.exit(2)
             }
-            if (typeof status.cancel !== "undefined"
-                    || typeof status.canCancel !== "undefined"
-                    || typeof status.safeToRemove !== "undefined"
-                    || typeof status.connected !== "undefined"
-                    || typeof status.command !== "undefined"
+            if (typeof status.command !== "undefined"
                     || typeof status.errorMessage !== "undefined") {
                 Qt.exit(3)
             }
             if (typeof status.managerConnected !== "boolean"
+                    || typeof status.canCancel !== "boolean"
+                    || typeof status.safeToRemove !== "boolean"
+                    || typeof status.targetConnected !== "boolean"
+                    || typeof status.startBackup !== "function"
+                    || typeof status.cancelBackup !== "function"
+                    || typeof status.validateTarget !== "function"
+                    || typeof status.ejectTarget !== "function"
                     || typeof status.watcherConnected !== "undefined") {
                 Qt.exit(4)
             }

@@ -19,6 +19,7 @@ struct SerializedEventData {
     std::optional<SourceId> source_id;
     int source_index = 0;
     std::optional<btrfsbackup::backup::BackupRunActionKind> action_kind;
+    btrfsbackup::backup::BackupTransferStage transfer_stage = btrfsbackup::backup::BackupTransferStage::Transferring;
     std::uint64_t bytes_transferred = 0;
     std::uint64_t bytes_produced = 0;
     std::uint64_t bytes_total_estimated = 0;
@@ -38,6 +39,7 @@ SerializedEventData serialized_event_data(const btrfsbackup::backup::BackupRunEv
         .source_id = btrfsbackup::backup::backup_run_event_source_id(event),
         .source_index = btrfsbackup::backup::backup_run_event_source_index(event),
         .action_kind = btrfsbackup::backup::backup_run_event_action_kind(event),
+        .transfer_stage = btrfsbackup::backup::BackupTransferStage::Transferring,
         .bytes_transferred = 0,
         .bytes_produced = 0,
         .bytes_total_estimated = 0,
@@ -49,6 +51,7 @@ SerializedEventData serialized_event_data(const btrfsbackup::backup::BackupRunEv
         .message = {},
     };
     if (const auto* progress = std::get_if<btrfsbackup::backup::TransferProgress>(&event)) {
+        data.transfer_stage = progress->stage;
         data.bytes_transferred = progress->bytes_transferred;
         data.bytes_produced = progress->bytes_produced;
         data.bytes_total_estimated = progress->bytes_total_estimated;
@@ -155,6 +158,7 @@ btrfsbackup::config::Json build_backup_run_event_json(const btrfsbackup::backup:
         {"sourceId", source_id},
         {"sourceIndex", data.source_index},
         {"action", action},
+        {"transferStage", data.transfer_stage == btrfsbackup::backup::BackupTransferStage::Sizing ? "sizing" : "transferring"},
         {"bytesTransferred", data.bytes_transferred},
         {"bytesProduced", data.bytes_produced},
         {"bytesTotalEstimated", data.bytes_total_estimated},

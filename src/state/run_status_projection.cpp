@@ -25,6 +25,7 @@ struct EventProjectionData {
     std::optional<SourceId> source_id;
     int source_index = 0;
     std::optional<btrfsbackup::backup::BackupRunActionKind> action_kind;
+    btrfsbackup::backup::BackupTransferStage transfer_stage = btrfsbackup::backup::BackupTransferStage::Transferring;
     std::uint64_t bytes_transferred = 0;
     std::uint64_t bytes_produced = 0;
     std::uint64_t bytes_total_estimated = 0;
@@ -44,6 +45,7 @@ EventProjectionData event_projection_data(const btrfsbackup::backup::BackupRunEv
         .source_id = btrfsbackup::backup::backup_run_event_source_id(event),
         .source_index = btrfsbackup::backup::backup_run_event_source_index(event),
         .action_kind = btrfsbackup::backup::backup_run_event_action_kind(event),
+        .transfer_stage = btrfsbackup::backup::BackupTransferStage::Transferring,
         .bytes_transferred = 0,
         .bytes_produced = 0,
         .bytes_total_estimated = 0,
@@ -55,6 +57,7 @@ EventProjectionData event_projection_data(const btrfsbackup::backup::BackupRunEv
         .message = {},
     };
     if (const auto* progress = std::get_if<btrfsbackup::backup::TransferProgress>(&event)) {
+        data.transfer_stage = progress->stage;
         data.bytes_transferred = progress->bytes_transferred;
         data.bytes_produced = progress->bytes_produced;
         data.bytes_total_estimated = progress->bytes_total_estimated;
@@ -256,7 +259,9 @@ RunStatus status_for_event(
     if ((event.kind == btrfsbackup::backup::BackupRunEventKind::ActionStarted || event.kind == btrfsbackup::backup::BackupRunEventKind::ActionCompleted || event.kind == btrfsbackup::backup::BackupRunEventKind::ActionFailed || event.kind == btrfsbackup::backup::BackupRunEventKind::RunFailed || event.kind == btrfsbackup::backup::BackupRunEventKind::CheckpointWritten) && event.action_kind.has_value()) {
         phase = phase_for_action(*event.action_kind);
     } else if (event.kind == btrfsbackup::backup::BackupRunEventKind::TransferProgress) {
-        phase = RunPhase::Transferring;
+        phase = event.transfer_stage == btrfsbackup::backup::BackupTransferStage::Sizing
+            ? RunPhase::Sizing
+            : RunPhase::Transferring;
     }
 
     if (event.kind == btrfsbackup::backup::BackupRunEventKind::RunFailed) {
@@ -279,7 +284,7 @@ RunStatus status_for_event(
     std::string error_message;
     bool recoverable = false;
     std::string suggested_action;
-    bool can_cancel = false;
+    bool can_cancel = state == RunState::Running;
     std::uint64_t bytes_processed = 0;
     std::uint64_t bytes_total_estimated = 0;
     std::uint64_t run_bytes_processed = 0;
@@ -294,7 +299,6 @@ RunStatus status_for_event(
     }
     std::string progress_accuracy = overall_progress >= 0 ? "estimated" : "indeterminate";
     if (event.kind == btrfsbackup::backup::BackupRunEventKind::TransferProgress) {
-        can_cancel = true;
         bytes_processed = event.bytes_transferred;
         bytes_total_estimated = event.bytes_total_estimated;
         run_bytes_processed = event.run_bytes_transferred;

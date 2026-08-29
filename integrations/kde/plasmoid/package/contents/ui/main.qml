@@ -24,10 +24,19 @@ PlasmoidItem {
     property bool failed: backupStatus.state === "failed"
     property bool estimated: backupStatus.progressAccuracy === "estimated"
     property int progress: backupStatus.overallProgress
+    property string badgeIcon: {
+        switch (backupStatus.state) {
+        case "succeeded": return "emblem-success"
+        case "failed": return "dialog-error"
+        case "cancelled": return "process-stop"
+        case "skipped": return "media-playback-pause"
+        default: return ""
+        }
+    }
 
     Plasmoid.status: root.running || root.failed ? PlasmaCore.Types.ActiveStatus : PlasmaCore.Types.PassiveStatus
     toolTipMainText: translations.i18n("Btrfs Backups")
-    toolTipSubText: backupStatus.lastError || root.statusText(backupStatus.state)
+    toolTipSubText: backupStatus.lastError || root.activityText(backupStatus.activity, backupStatus.phase)
 
     BackupStatusModel {
         id: backupStatus
@@ -62,6 +71,8 @@ PlasmoidItem {
         case "starting":
         case "running":
             return translations.i18n("Backup is in progress")
+        case "validating":
+            return translations.i18n("Target validation is in progress")
         case "validated":
             return translations.i18n("Validation completed successfully")
         case "succeeded":
@@ -75,6 +86,60 @@ PlasmoidItem {
         default:
             return translations.i18n("No active backup")
         }
+    }
+
+    function activityText(activity, phase) {
+        if (!root.running)
+            return root.statusText(backupStatus.state)
+        switch (activity) {
+        case "sizing":
+            return translations.i18n("Calculating transfer size")
+        case "transferring":
+            return translations.i18n("Transferring backup data")
+        case "finalizing":
+            return root.phaseText(phase)
+        default:
+            return root.phaseText(phase)
+        }
+    }
+
+    function phaseText(phase) {
+        switch (phase) {
+        case "run-started": return translations.i18n("Starting backup")
+        case "source-started": return translations.i18n("Preparing backup source")
+        case "recover-pending": return translations.i18n("Recovering interrupted backup")
+        case "cleanup-incoming": return translations.i18n("Cleaning temporary data")
+        case "before-snapshot-hook": return translations.i18n("Running pre-snapshot hooks")
+        case "create-snapshot": return translations.i18n("Creating local snapshot")
+        case "after-snapshot-hook": return translations.i18n("Running post-snapshot hooks")
+        case "send-receive": return translations.i18n("Preparing data transfer")
+        case "sizing": return translations.i18n("Calculating transfer size")
+        case "transferring": return translations.i18n("Transferring backup data")
+        case "verify-received": return translations.i18n("Verifying received snapshot")
+        case "commit-received": return translations.i18n("Committing received snapshot")
+        case "apply-remote-retention": return translations.i18n("Applying target retention")
+        case "apply-local-retention": return translations.i18n("Applying local retention")
+        case "cleanup-source": return translations.i18n("Cleaning backup source")
+        case "source-completed": return translations.i18n("Finalizing backup")
+        case "validating-target": return translations.i18n("Validating backup target")
+        default: return translations.i18n("Preparing backup")
+        }
+    }
+
+    function targetStateText(state) {
+        switch (state) {
+        case "mounted": return translations.i18n("Mounted")
+        case "unlocked": return translations.i18n("Unlocked")
+        case "connected": return backupStatus.safeToRemove
+            ? translations.i18n("Safe to remove")
+            : translations.i18n("Connected")
+        case "disconnected": return translations.i18n("Disconnected")
+        default: return translations.i18n("Unknown")
+        }
+    }
+
+    function historyText(state) {
+        return root.statusText(state)
     }
 
     compactRepresentation: MouseArea {
@@ -113,11 +178,58 @@ PlasmoidItem {
                 }
             }
         }
+
+        Item {
+            id: compactIndeterminateProgress
+            anchors.fill: parent
+            visible: root.running && root.progress < 0
+
+            Canvas {
+                anchors.fill: parent
+                onPaint: {
+                    var context = getContext("2d")
+                    context.clearRect(0, 0, width, height)
+                    context.lineWidth = Math.max(2, width * 0.09)
+                    context.lineCap = "round"
+                    context.strokeStyle = Kirigami.Theme.highlightColor
+                    context.beginPath()
+                    context.arc(width / 2, height / 2, Math.min(width, height) / 2 - context.lineWidth / 2,
+                                -Math.PI / 2, Math.PI / 3)
+                    context.stroke()
+                }
+            }
+
+            RotationAnimator on rotation {
+                running: compactIndeterminateProgress.visible
+                from: 0
+                to: 360
+                duration: 900
+                loops: Animation.Infinite
+            }
+        }
+
+        Rectangle {
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            width: Math.max(10, parent.width * 0.46)
+            height: width
+            radius: width / 2
+            color: Kirigami.Theme.backgroundColor
+            border.width: 1
+            border.color: Kirigami.Theme.backgroundColor
+            visible: backupStatus.managerConnected && root.badgeIcon.length > 0
+
+            Kirigami.Icon {
+                anchors.fill: parent
+                anchors.margins: Math.max(1, parent.width * 0.12)
+                source: root.badgeIcon
+            }
+        }
     }
 
     fullRepresentation: Item {
         implicitWidth: Kirigami.Units.gridUnit * 22
-        implicitHeight: Kirigami.Units.gridUnit * 18
+        implicitHeight: Kirigami.Units.gridUnit * 27
 
         ColumnLayout {
             anchors.fill: parent
@@ -143,7 +255,7 @@ PlasmoidItem {
                     }
 
                     QQC2.Label {
-                        text: backupStatus.lastError || root.statusText(backupStatus.state)
+                        text: backupStatus.lastError || root.activityText(backupStatus.activity, backupStatus.phase)
                         wrapMode: Text.WordWrap
                         Layout.fillWidth: true
                     }
@@ -171,15 +283,33 @@ PlasmoidItem {
                 columnSpacing: Kirigami.Units.largeSpacing
 
                 QQC2.Label { text: translations.i18n("Profile:"); opacity: 0.7 }
-                QQC2.Label {
-                    text: backupStatus.profileName || backupStatus.profile
+                QQC2.ComboBox {
+                    id: profileSelector
+                    model: backupStatus.profiles
+                    textRole: "name"
+                    valueRole: "profileId"
                     Layout.fillWidth: true
-                    elide: Text.ElideMiddle
+                    enabled: !backupStatus.operationPending && count > 1
+                    onActivated: backupStatus.profile = currentValue
+                    Component.onCompleted: syncProfile()
+                    function syncProfile() {
+                        for (var index = 0; index < count; ++index) {
+                            if (valueAt(index) === backupStatus.profile) {
+                                currentIndex = index
+                                return
+                            }
+                        }
+                    }
+                    Connections {
+                        target: backupStatus
+                        function onProfilesChanged() { profileSelector.syncProfile() }
+                        function onProfileChanged() { profileSelector.syncProfile() }
+                    }
                 }
 
                 QQC2.Label { text: translations.i18n("Status:"); opacity: 0.7 }
                 QQC2.Label {
-                    text: root.statusText(backupStatus.state)
+                    text: root.activityText(backupStatus.activity, backupStatus.phase)
                     Layout.fillWidth: true
                     elide: Text.ElideRight
                 }
@@ -196,6 +326,12 @@ PlasmoidItem {
                     text: backupStatus.targetName || translations.i18n("Unknown")
                     Layout.fillWidth: true
                     elide: Text.ElideMiddle
+                }
+
+                QQC2.Label { text: translations.i18n("Target state:"); opacity: 0.7 }
+                QQC2.Label {
+                    text: root.targetStateText(backupStatus.targetState)
+                    Layout.fillWidth: true
                 }
 
                 QQC2.Label { text: translations.i18n("Progress:"); opacity: 0.7 }
@@ -221,15 +357,96 @@ PlasmoidItem {
                 text: root.statusText(backupStatus.state)
             }
 
+            Kirigami.InlineMessage {
+                Layout.fillWidth: true
+                visible: backupStatus.lastOperation.length > 0 && !backupStatus.lastError
+                type: Kirigami.MessageType.Positive
+                text: translations.i18n("Operation accepted")
+            }
+
+            Kirigami.Separator { Layout.fillWidth: true }
+
+            Kirigami.Heading {
+                text: translations.i18n("Recent backups")
+                level: 3
+                visible: backupStatus.history.length > 0
+            }
+
+            Repeater {
+                model: backupStatus.history
+                delegate: RowLayout {
+                    id: historyRow
+                    required property var modelData
+                    Layout.fillWidth: true
+
+                    Kirigami.Icon {
+                        source: historyRow.modelData.state === "succeeded" ? "emblem-success"
+                            : historyRow.modelData.state === "failed" ? "dialog-error"
+                            : "dialog-information"
+                        implicitWidth: Kirigami.Units.iconSizes.small
+                        implicitHeight: implicitWidth
+                    }
+                    QQC2.Label {
+                        text: root.historyText(historyRow.modelData.state)
+                        Layout.fillWidth: true
+                        elide: Text.ElideRight
+                    }
+                    QQC2.Label {
+                        text: historyRow.modelData.finishedAt
+                        opacity: 0.7
+                        Layout.maximumWidth: Kirigami.Units.gridUnit * 8
+                        elide: Text.ElideRight
+                    }
+                }
+            }
+
             Item { Layout.fillHeight: true }
 
             RowLayout {
                 Layout.fillWidth: true
 
                 QQC2.Button {
-                    text: translations.i18n("Refresh")
+                    text: translations.i18n("Start backup")
+                    icon.name: "media-playback-start"
+                    enabled: backupStatus.managerConnected && !root.running && !backupStatus.operationPending
+                    onClicked: backupStatus.startBackup()
+                }
+
+                QQC2.ToolButton {
+                    icon.name: "process-stop"
+                    visible: root.running
+                    enabled: backupStatus.canCancel && !backupStatus.operationPending
+                    onClicked: backupStatus.cancelBackup()
+                    QQC2.ToolTip.text: translations.i18n("Cancel")
+                    QQC2.ToolTip.visible: hovered
+                }
+
+                QQC2.ToolButton {
+                    icon.name: "task-complete"
+                    enabled: backupStatus.managerConnected && !root.running && !backupStatus.operationPending
+                    onClicked: backupStatus.validateTarget()
+                    QQC2.ToolTip.text: translations.i18n("Validate")
+                    QQC2.ToolTip.visible: hovered
+                }
+
+                QQC2.ToolButton {
+                    icon.name: "media-eject"
+                    enabled: backupStatus.managerConnected && !root.running
+                        && (backupStatus.targetMounted || backupStatus.targetUnlocked)
+                        && !backupStatus.operationPending
+                    onClicked: backupStatus.ejectTarget()
+                    QQC2.ToolTip.text: translations.i18n("Eject")
+                    QQC2.ToolTip.visible: hovered
+                }
+
+                Item { Layout.fillWidth: true }
+
+                QQC2.ToolButton {
                     icon.name: "view-refresh"
-                    onClicked: backupStatus.start()
+                    enabled: !backupStatus.operationPending
+                    onClicked: backupStatus.refreshNow()
+                    QQC2.ToolTip.text: translations.i18n("Refresh")
+                    QQC2.ToolTip.visible: hovered
                 }
             }
         }
