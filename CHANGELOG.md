@@ -2,99 +2,141 @@
 
 ## Unreleased
 
-1. reorganized the native architecture around domain namespaces, dependency-light
-   model targets, explicit ports, narrow CMake link interfaces, and automated
-   namespace, model-boundary, and public-header ownership checks;
-2. split backup planning, discovery, run-scoped state, typed events, error codes,
-   runtime time, transfer coordination, persistence responsibilities, manager
-   query services, CLI parsing/presentation, and dependency composition without
-   changing the external profile, status, history, recovery, or CLI contracts;
-3. added polkit-authorized `StartBackup`, `CancelBackup`, `ValidateTarget`, and
-   `EjectTarget` methods to the optional system manager while keeping runner
-   execution owned by systemd and independent of the daemon;
-4. centralized run-scoped action-handler and `BackupRun` assembly in the backup
-   component so CLI and future adapters supply ports instead of duplicating
-   orchestration.
+## 0.3.0 - 2026-08-29
 
-## 0.3.0 - 2026-08-25
+### Upgrade Notes
 
-1. native runner execution now uses separate non-blocking profile and target
-   locks, preventing concurrent profiles from manipulating the same LUKS backup
-   repository and preventing mount/eject races;
-2. synchronous commands and asynchronous transfer processes now use a shared
-   `posix_spawn()` adapter instead of running C++ allocation and setup code
-   between `fork()` and `exec()` in a multithreaded runner;
-3. added concurrency, partial process-start, missing executable, lock symlink,
-   and worker-thread process-spawn regression coverage;
-4. the root `VERSION` file is now the single version source for native and
-   Plasma builds, generated package metadata, and release artifacts;
-5. aggregate progress now includes the fractional progress of the active source
-   and remains monotonic through its post-transfer actions;
-6. live transfer speed now uses a three-second EWMA and status updates are
-   interval-limited instead of requiring one durable write per splice;
-7. public run-status schema version 3 removes `safeToRemove`, while private
-   diagnostic history uses schema version 2; the Plasma widget no longer
-   presents backup completion as target eject state;
-8. the Plasma backend now consumes the read-only system D-Bus manager
-   asynchronously, validates its API capabilities, and reports service state as
-   `managerConnected` without spawning a CLI status watcher.
-9. failed verification of a committed snapshot now reports cleanup failures as
-   `repository.recovery_required`; the pending marker retains the exact final
-   path so the next run removes the unverified canonical snapshot explicitly.
-10. application hooks now have configurable finite timeouts, observe runner
-    cancellation, terminate their complete process group with bounded cleanup,
-    cap captured diagnostics, and emit phase-specific stable error codes.
-11. release packages now install native ELF commands directly in `/usr/bin` and
-    remove stale Bash, `pv`, `libnotify`, text-processing, and wrapper runtime
-    dependencies;
-12. canonical profiles and the native parser no longer contain a notification
-    policy: core owns status/history and journal diagnostics, while desktop
-    notification delivery belongs to the KDE session monitor;
-13. removed unused shell-oriented `profile sources`, `state`, `status write`,
-    and environment-rendering command adapters; unknown profile commands now
-    fail consistently even when followed by `--help`;
-14. `status watch` now exposes its JSON stream directly, with profile and
-    interval as its only options.
-15. application hook programs are restricted to `/etc/btrfs-backup/hooks.d`,
-    require a root-owned non-writable file and parent chain, reject symlinks,
-    and execute through a pinned descriptor to prevent path replacement races.
-16. systemd services now isolate temporary files, protect system and kernel
-    state, hide unrelated processes, block privilege gains and executable
-    writable memory, and limit socket families; profile-specific mount
-    dependencies make the target visible before the filesystem sandbox is
-    created, and a separately ordered eject unit preserves host unmount and
-    LUKS closure after the sandbox exits. Offline security analysis and real
-    sandboxed Btrfs service tests cover the result.
-17. the minimum supported kernel is now Linux 5.10; generated target mounts use
-    `nodev`, `nosuid`, `noexec`, and `nosymfollow`, and runtime validation
-    rejects a target mounted without any of these restrictions.
-18. privileged process execution now resolves bare commands only below
-    `/usr/bin`, passes `PATH=/usr/bin` to children, and applies the same PATH to
-    runner and eject systemd units.
-19. added the optional `btrfs-backupd` system-bus service with the versioned,
-    read-only `io.github.btrfsbackup.Manager1` API for capabilities, sanitized
-    profiles, current status, bounded history and device lifecycle state;
-20. installed D-Bus activation and default-deny policy files; the policy grants
-    only the five declared read methods and exports no mutating operation;
-21. private-bus tests cover malformed identifiers, pagination bounds, caller
-    disconnect, restart recovery and broker-level denial of undeclared calls;
-22. the real-Btrfs baseline passed full and incremental transfer, pending-state
-    recovery, restore drill, sandboxed systemd execution and automatic eject;
-23. clean Arch package testing now installs the base package without KDE first,
-    verifies that all base executables have no Qt/KDE linkage, then installs and
-    removes the KDE package independently.
-24. manager errors returned over D-Bus are presentation-safe and do not expose
-    private paths or parser diagnostics; full details remain in the service
-    journal.
-25. fixed the combined native/KDE CMake installation to read generated QML
-    module metadata from the configured output directory.
-26. added an opt-in QEMU USB-hotplug smoke test that boots a disposable Arch
-    guest and proves that real udev starts the system runner without a graphical
-    session; regular users can run it without host-side `sudo` through an
-    isolated privileged Docker worker.
-27. the Plasma D-Bus client is covered against the real manager on an isolated
-    bus, including capability negotiation, public profile labels and sanitized
-    progress fields.
+1. profile schema version 3 removes `target.mountPoint` and `target.mountUnit`;
+   the mount point is now always derived as `TARGET_MOUNT_ROOT/profileId`, with
+   `/mnt/btrfs-backup` as the default root;
+2. legacy profiles are accepted only when their mount point already matches the
+   derived location; migrate other profiles explicitly, then re-render and
+   install their systemd, udev, fstab, and crypttab artifacts;
+3. privileged filesystem roots moved to the optional root-owned
+   `/etc/btrfs-backup.conf`; profile JSON now contains only profile-specific
+   target identity, repository paths, policy, hooks, and sources;
+4. notification settings were removed from canonical profiles; core publishes
+   status and journal diagnostics, while desktop notifications are owned by the
+   KDE session integration;
+5. public run status is schema version 3 and private diagnostic history is
+   schema version 2; `safeToRemove` was removed and detailed `activity`, `phase`,
+   progress accuracy, stage, and terminal-state fields replace it;
+6. native executables are installed directly in the configured bindir. Release
+   packages no longer ship the legacy shell wrappers or require Bash, `pv`,
+   `libnotify`, or text-processing tools at runtime;
+7. Linux 6.0 and `btrfs-progs` 6.0 are now the minimum supported versions;
+   transfers use send protocol v2 and compressed-data support.
+
+### Backup Engine And Safety
+
+1. backup runs use independent non-blocking profile and target leases, preventing
+   concurrent profiles, planning, backup, mount, validation, and eject operations
+   from manipulating the same repository;
+2. `runner plan` is offline by default and no longer mounts or opens a target as
+   a hidden diagnostic side effect; `--mount-target` is explicit and restores
+   the previous target state when planning mounted it;
+3. preflight, discovery, planning, and execution now share one run-level failure
+   boundary, so failures before the first action are persisted as terminal run
+   events and appear in status and history;
+4. interrupted receive recovery retains the exact intended final path, removes
+   an unverified committed snapshot on the next run, and reports incomplete
+   cleanup as `repository.recovery_required`;
+5. cancellation requests are bound to both profile and run identity, rejecting
+   stale or mismatched requests without affecting another run;
+6. run cleanup has an explicit observable close sequence for cancellation
+   monitoring, event/checkpoint persistence, active-run registration, cancellation
+   state, and leases; destructor failures are logged instead of silently ignored;
+7. synchronous commands and transfer children use a shared `posix_spawn()`
+   adapter, avoiding unsafe allocation and setup between `fork()` and `exec()` in
+   the multithreaded runner;
+8. repository operations use trusted directory roots and descriptor-relative
+   access to reject symlink escapes and path replacement races;
+9. generated target mounts require `nodev`, `nosuid`, `noexec`, and `nosymfollow`,
+   and runtime validation rejects a target mounted without those restrictions;
+10. application hooks are restricted to root-owned, non-writable regular files
+    below `/etc/btrfs-backup/hooks.d`, reject symlinks, execute through pinned
+    descriptors, have mandatory finite timeouts, and terminate their process
+    groups on cancellation;
+11. systemd services isolate temporary files, protect system and kernel state,
+    hide unrelated processes, prevent privilege gains and writable executable
+    memory, and restrict address families;
+12. configuration saves are transactional across private profile, public profile,
+    udev rule, and systemd drop-in files, with generation markers preventing a
+    partially published or incompletely rolled-back configuration from running;
+13. plans have one executable source of truth, while a unified action executor
+    applies consistent events and error handling to short actions and long-running
+    transfers;
+14. the native architecture now separates domain models, application ports,
+    Linux adapters, state persistence, CLI presentation, and daemon services with
+    narrow CMake interfaces and compile-checked public headers.
+
+### Progress And Status
+
+1. transfers are pre-measured with `btrfs send --no-data`, including incremental
+   parent selection, so byte totals and progress reflect the send stream rather
+   than the apparent size of snapshot files;
+2. sizing is reported as its own phase before data transfer; clients receive
+   detailed stages for preparation, recovery, cleanup, snapshot creation,
+   sizing, transfer, verification, commit, retention, and finalization;
+3. aggregate progress includes the fractional progress of the active source and
+   remains monotonic through post-transfer actions;
+4. live speed uses a three-second EWMA, ETA derives from measured stream size,
+   and status writes are interval-limited instead of being persisted for every
+   splice operation;
+5. failures retain typed public error codes while private paths and detailed
+   diagnostics remain confined to root-only history and journald.
+
+### System Manager And Plasma
+
+1. the optional `btrfs-backupd` system service exposes the versioned
+   `io.github.btrfsbackup.Manager1` API for capabilities, sanitized profiles,
+   current status, bounded history, device state, start, cancel, validation, and
+   eject;
+2. D-Bus activation uses a default-deny broker policy, and every operational
+   request is authorized through a separately named polkit action;
+3. authorization is bound to an immutable operation id, profile generation, and
+   profile fingerprint; the launched unit revalidates this context before any
+   backup work and reports `ConfigurationChanged` on mismatch;
+4. target validation runs in a dedicated hardened unit, acquires the target
+   lease, tracks whether it mounted the target, and restores the prior state;
+5. operational controls invoked by the active local Plasma session do not prompt
+   for a password; inactive or remote callers still require administrator
+   authentication, and profile/KCM administration remains privileged;
+6. manual `StartBackup` bypasses the daily limit with `--force`; eject remains
+   non-forced and refuses to proceed while the target lease is held;
+7. the Plasma widget now uses the complete manager API for start, cancel,
+   validate, eject, status, history, and device state instead of spawning a CLI
+   watcher;
+8. the widget displays detailed run stages, measured progress, speed, ETA,
+   relative history times, icon progress, and native success/failure badges;
+9. the popup uses Plasma's native header/action layout, compact scrollable
+   history, corrected padding, and package metadata identifying the project
+   author;
+10. KDE package upgrades invalidate QML caches safely and print a session reload
+    hint without attempting to refresh a root user's Plasma cache.
+
+### Packaging, Build, And Tests
+
+1. `VERSION` is the single version source for CMake, native and Plasma metadata,
+   generated packages, source archives, and release reports;
+2. CMake installations and generated systemd/D-Bus files honor custom install
+   prefixes instead of embedding `/usr/bin`; distribution package generators
+   continue to install their policy-controlled `/usr` paths explicitly;
+3. base packages include the manager D-Bus policy, polkit action policy, service
+   units, and required polkit runtime dependency while remaining independent of
+   Qt, Kirigami, and Plasma;
+4. the release pipeline builds locally by default and gives Docker/QEMU tests a
+   finished package, reducing container dependencies and repeated compilation;
+5. Docker contexts and runtime images were reduced, independent checks run in
+   parallel, QEMU guest root filesystems are cached, and expensive release tests
+   are opt-in rather than preceding every artifact build;
+6. architecture tests now inspect the CMake File API target graph, compile every
+   public header against its declared interface, and use `clang-scan-deps` to
+   detect unnecessary public dependencies;
+7. real-system coverage installs the generated package and exercises systemd,
+   system D-Bus, real polkit with an unprivileged caller, full and incremental
+   Btrfs transfers, recovery, retention, restore, sandboxing, and USB hotplug in
+   a disposable QEMU guest.
 
 ## 0.2.1 - 2026-08-23
 

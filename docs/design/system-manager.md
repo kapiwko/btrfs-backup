@@ -46,8 +46,8 @@ major versions and tolerate unknown optional fields.
 
 ## State Ownership
 
-The runner owns execution and writes durable current status and history. The
-manager loads the current files on each request and falls back to
+The runner owns execution and writes runtime current status plus durable
+history. The manager loads the current files on each request and falls back to
 durable history after the oneshot runner exits. It never owns or signals the
 running backup process, and stopping the manager cannot stop an active run.
 

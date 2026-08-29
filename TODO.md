@@ -15,12 +15,13 @@ by systemd and preserving automatic backup when the manager is absent.
 
 - [x] Specify stable D-Bus request/result schemas for `StartBackup`,
   `CancelBackup`, `ValidateTarget` and `EjectTarget`.
-- [x] Add a distinct polkit action for every operation with deny-by-default
-  inactive and active-session policy.
+- [x] Add a distinct polkit action for every operation, require administrator
+  authentication for inactive callers, and grant only the implemented
+  operational controls to the active local session without a password.
 - [x] Resolve caller identity only from the D-Bus connection and bind each
   authorization decision to that connection and request.
-- [x] Start the existing profile systemd unit without moving execution into
-  `btrfs-backupd` or bypassing profile and target locks.
+- [x] Start an operation-specific hardened transient runner without moving
+  execution into `btrfs-backupd` or bypassing profile and target locks.
 - [x] Route cancellation through the existing run-scoped cancellation request;
   reject stale or mismatched run identities.
 - [x] Reuse target validation and eject entry points, including target identity
@@ -41,10 +42,12 @@ by systemd and preserving automatic backup when the manager is absent.
 
 - [x] Test unauthenticated denial, exact-action grants and caller-bound
   authorization on an isolated system bus and polkit authority.
-- [ ] Add packaging-level cross-action delegation and inactive-session policy tests.
+- [ ] Add packaging-level cross-action delegation and inactive-session denial tests.
 - [x] Test disconnect, cancellation, restart and conflicting-operation races.
-- [ ] Extend the real-Btrfs test with authorized start, cancellation, validation
-  and eject while retaining the direct udev/systemd path.
+- [x] Extend the real-Btrfs test with an authorized start by an unprivileged
+  caller while retaining the direct udev/systemd path.
+- [ ] Add real-system manager cancellation, validation, eject, cross-action
+  delegation, and inactive-session denial coverage.
 - [x] Update the D-Bus contract, security model, package contents and client
   guidance without advertising administrative profile writes.
 

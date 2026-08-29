@@ -24,6 +24,9 @@ separate `GetDeviceState` contract.
 The plasmoid offers start, run-scoped cancellation, target validation and eject
 through the manager's polkit-protected methods. Target removal state is read
 from the separate `GetDeviceState` response, never inferred from backup success.
+The installed policy grants these controls without a password to the active
+local session; inactive callers and future profile, hook, or device changes
+remain administrator-authorized operations.
 
 ## Build
 
