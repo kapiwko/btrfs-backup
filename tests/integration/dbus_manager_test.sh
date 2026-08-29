@@ -57,6 +57,7 @@ trap cleanup EXIT
 
 fail() {
     printf 'not ok - %s\n' "$1" >&2
+    [[ -f "$TEST_ROOT/daemon.log" ]] && tail -n 40 "$TEST_ROOT/daemon.log" >&2
     exit 1
 }
 
@@ -68,6 +69,7 @@ start_daemon() {
         --status-root "$TEST_ROOT/status" \
         --history-root "$TEST_ROOT/history" \
         --target-mount-root "$TEST_ROOT/mnt" \
+        --audit-log "$TEST_ROOT/audit/manager.jsonl" \
         >"$TEST_ROOT/daemon.log" 2>&1 &
     DAEMON_PID=$!
     for _ in {1..50}; do
@@ -191,6 +193,18 @@ grep -Fq 'io.github.btrfsbackup.start-backup' "$TEST_ROOT/polkit.log" \
     || fail 'start request used the wrong polkit action'
 grep -Fq 'io.github.btrfsbackup.validate-target' "$TEST_ROOT/polkit.log" \
     || fail 'validate request used the wrong polkit action'
+grep -Fq '"callerUid":'"$(id -u)" "$TEST_ROOT/audit/manager.jsonl" \
+    || fail 'manager audit omitted the D-Bus caller UID'
+grep -Fq '"action":"start-backup"' "$TEST_ROOT/audit/manager.jsonl" \
+    || fail 'manager audit omitted the requested action'
+grep -Fq '"profileId":"default"' "$TEST_ROOT/audit/manager.jsonl" \
+    || fail 'manager audit omitted the profile'
+grep -Fq '"result":"denied"' "$TEST_ROOT/audit/manager.jsonl" \
+    || fail 'manager audit omitted the denied result'
+grep -Fq '"errorCode":"io.github.btrfsbackup.Error.NotAuthorized"' "$TEST_ROOT/audit/manager.jsonl" \
+    || fail 'manager audit omitted the stable denial code'
+[[ "$(stat -c '%a' "$TEST_ROOT/audit/manager.jsonl")" == "600" ]] \
+    || fail 'manager audit is not root-only'
 unique_callers="$(awk '{print $1}' "$TEST_ROOT/polkit.log" | sort -u | wc -l)"
 [[ "$unique_callers" -ge 2 ]] || fail 'authorization was not bound to each caller connection'
 

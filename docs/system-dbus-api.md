@@ -153,9 +153,10 @@ API.
   existed before validation. The unit receives the authorized generation and
   fingerprint through a root-only runtime environment file.
 - Mutating methods retain the existing profile and target lock boundaries.
-- Planned: structured, secret-free audit records remain an explicit delivery
-  item in `TODO.md`; normal service diagnostics in journald are not yet the
-  stable audit contract.
+- Structured, secret-free audit records are appended to the root-only manager
+  audit log for every operational request. Records contain the D-Bus caller UID,
+  action, profile, result and the same stable error code returned to clients.
+  Normal service diagnostics in journald are not the audit contract.
 
 ## Required Tests
 

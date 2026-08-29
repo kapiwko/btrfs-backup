@@ -14,6 +14,14 @@ target_compile_definitions(
 )
 
 add_btrfsbackup_test(
+    btrfsbackup-manager-audit-log-tests
+    manager_audit_log_tests.cpp
+    manager-audit-log-tests
+    btrfsbackup-daemon-core
+    btrfsbackup-config-json
+)
+
+add_btrfsbackup_test(
     btrfsbackup-manager-service-tests
     manager_service_tests.cpp
     manager-service-tests
