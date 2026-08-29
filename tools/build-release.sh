@@ -72,7 +72,7 @@ Options:
   --static-tests     Run only syntax and render validation before packaging.
   --skip-tests       Do not run tests before packaging (default).
   --dist-dir PATH    Write artifacts to a different directory.
-  --build-dir PATH   Reuse a persistent CMake build directory for native binaries.
+  --build-dir PATH   Reuse persistent PATH and PATH-kde CMake build directories.
   -h, --help         Show this help.
 USAGE
 }
@@ -134,6 +134,20 @@ require_commands() {
     fi
 }
 
+cmake_acceleration_args() {
+    local build_dir="$1"
+    local result_name="$2"
+    local -n result="$result_name"
+
+    result=()
+    if [[ ! -f "$build_dir/CMakeCache.txt" ]] && command -v ninja >/dev/null 2>&1; then
+        result+=(-G Ninja)
+    fi
+    if command -v ccache >/dev/null 2>&1; then
+        result+=(-DCMAKE_CXX_COMPILER_LAUNCHER=ccache)
+    fi
+}
+
 make_invoker_owned() {
     local path="$1"
     if [[ -n "${SUDO_UID:-}" && "$SUDO_UID" =~ ^[0-9]+$ ]]; then
@@ -171,9 +185,13 @@ trap cleanup EXIT
 
 if [[ -n "$BUILD_DIR" ]]; then
     BUILD_DIR="$(realpath -m -- "$BUILD_DIR")"
+    CMAKE_ACCELERATION_ARGS=()
+    cmake_acceleration_args "$BUILD_DIR" CMAKE_ACCELERATION_ARGS
+    printf 'Reusing native build directory: %s\n' "$BUILD_DIR" >&2
     cmake \
         -S "$ROOT" \
         -B "$BUILD_DIR" \
+        "${CMAKE_ACCELERATION_ARGS[@]}" \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_PREFIX=/usr \
         -DBUILD_TESTING=OFF
@@ -399,10 +417,23 @@ stage_kde_package_payload() {
     local root="$1"
     local pkgdir="$2"
     local build_dir="$TMP_ROOT/plasma-build"
+    local source_root="$root"
+    local cmake_args=()
 
-    rm -rf -- "$build_dir"
-    cmake -S "$root/integrations/kde" -B "$build_dir" -DCMAKE_BUILD_TYPE=Release >/dev/null
-    cmake --build "$build_dir" -j"$(nproc)" >/dev/null
+    if [[ -n "$BUILD_DIR" ]]; then
+        build_dir="${BUILD_DIR}-kde"
+        source_root="$ROOT"
+        printf 'Reusing KDE build directory: %s\n' "$build_dir" >&2
+    else
+        rm -rf -- "$build_dir"
+    fi
+    cmake_acceleration_args "$build_dir" cmake_args
+    cmake \
+        -S "$source_root/integrations/kde" \
+        -B "$build_dir" \
+        "${cmake_args[@]}" \
+        -DCMAKE_BUILD_TYPE=Release >/dev/null
+    cmake --build "$build_dir" --parallel "$BUILD_JOBS" >/dev/null
     ctest --test-dir "$build_dir" --parallel "${BUILD_JOBS}" --output-on-failure >/dev/null
     cmake --install "$build_dir" --prefix "$pkgdir/usr" >/dev/null
 
