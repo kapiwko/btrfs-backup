@@ -62,4 +62,13 @@ std::string systemd_cryptsetup_unit_name(const std::string& mapper_name) {
     return "systemd-cryptsetup@" + escaped + ".service";
 }
 
+std::string target_activation_unit_name(std::string_view profile_id) {
+    std::string escaped;
+    for (const char character : profile_id) {
+        const auto value = static_cast<unsigned char>(character);
+        escaped += systemd_unit_plain_char(value) ? std::string(1, character) : systemd_hex_escape(value);
+    }
+    return "btrfs-backup-target@" + escaped + ".service";
+}
+
 } // namespace btrfsbackup::platform::linux
