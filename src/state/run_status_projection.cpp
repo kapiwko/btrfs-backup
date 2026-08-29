@@ -191,6 +191,16 @@ int estimated_eta_seconds(const EventProjectionData& event) {
         : static_cast<int>(seconds);
 }
 
+ProgressAccuracy progress_accuracy_from_name(const std::string& name) {
+    if (name == "exact") {
+        return ProgressAccuracy::Exact;
+    }
+    if (name == "estimated") {
+        return ProgressAccuracy::Estimated;
+    }
+    return ProgressAccuracy::Indeterminate;
+}
+
 std::string action_name_for_event(const EventProjectionData& event) {
     return event.action_kind.has_value()
         ? backup_run_action_kind_name(*event.action_kind)
@@ -290,7 +300,7 @@ RunStatus status_for_event(
         run_bytes_processed = event.run_bytes_transferred;
         speed_bps = event.speed_bps;
         eta_seconds = estimated_eta_seconds(event);
-        progress_accuracy = source_progress >= 0 ? "estimated" : "indeterminate";
+        progress_accuracy = source_progress >= 0 ? "exact" : "indeterminate";
         details = {
             {"bytesProduced", event.bytes_produced},
             {"bytesTransferred", event.bytes_transferred},
@@ -379,9 +389,7 @@ RunStatus status_for_event(
             .eta_seconds = eta_seconds < 0 ? std::nullopt : std::optional<int>{eta_seconds},
             .source_percent = source_progress < 0 ? std::nullopt : std::optional<int>{source_progress},
             .overall_percent = overall_progress < 0 ? std::nullopt : std::optional<int>{overall_progress},
-            .accuracy = progress_accuracy == "estimated"
-                ? ProgressAccuracy::Estimated
-                : ProgressAccuracy::Indeterminate,
+            .accuracy = progress_accuracy_from_name(progress_accuracy),
         },
         .exit_code = exit_code,
     };

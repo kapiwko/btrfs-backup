@@ -176,6 +176,13 @@ backpressure when the consumer is slower. Readiness latches prevent a busy loop
 when only one side can make progress, and the poll loop retains ownership of
 diagnostics, cancellation, and child reaping.
 
+Transfer sizing uses the same bounded pipeline before the effectful receive.
+The first pass runs the identical `btrfs send` argument vector into
+`btrfs receive --dump`; its byte count becomes the exact total for the second
+pass.
+Sizing progress remains indeterminate and is excluded from transferred byte
+totals. Both passes use the same cancellation and child-reaping policy.
+
 `SIGINT` and `SIGTERM` are blocked before runner worker threads start and are
 consumed through `signalfd`. Both signals request the same platform-neutral
 `CancellationToken` as the file-based cancellation command. Linux process

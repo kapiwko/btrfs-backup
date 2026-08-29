@@ -50,6 +50,7 @@ enum class RunPhase {
 enum class ProgressAccuracy {
     Indeterminate,
     Estimated,
+    Exact,
 };
 
 struct SuggestedAction {

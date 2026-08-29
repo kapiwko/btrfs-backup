@@ -145,6 +145,7 @@ class RecordingEvents final : public btrfsbackup::backup::IBackupRunEventSink {
 class RecordingTransferPipeline final : public btrfsbackup::backup::transfer::ITransferPipeline {
   public:
     std::vector<btrfsbackup::backup::transfer::TransferPipelinePlan> plans;
+    std::vector<btrfsbackup::backup::transfer::TransferPipelinePlan> sizing_plans;
     std::vector<std::string>* execution_trace = nullptr;
     btrfsbackup::backup::transfer::TransferResult next_result{
         .producer = {
@@ -156,6 +157,7 @@ class RecordingTransferPipeline final : public btrfsbackup::backup::transfer::IT
             .exit_code = 0,
         },
     };
+    std::uint64_t sizing_bytes = 4096;
     std::uint64_t progress_bytes = 0;
     std::vector<std::uint64_t> progress_bytes_by_run;
     bool cancel_during_run = false;
@@ -165,6 +167,30 @@ class RecordingTransferPipeline final : public btrfsbackup::backup::transfer::IT
         btrfsbackup::backup::transfer::ITransferEventSink& events,
         btrfsbackup::CancellationToken&
     ) override {
+        if (plan.consumer_argv == std::vector<std::string>{"btrfs", "receive", "--dump"}) {
+            sizing_plans.push_back(plan);
+            events.on_transfer_event({
+                .kind = btrfsbackup::backup::transfer::TransferEventKind::Progress,
+                .bytes_transferred = sizing_bytes,
+                .bytes_produced = sizing_bytes,
+                .delta_bytes = sizing_bytes,
+                .elapsed_ms = 1000,
+                .speed_bps = sizing_bytes,
+                .message = "sizing progress",
+            });
+            return {
+                .producer = {
+                    .started = true,
+                    .exit_code = 0,
+                },
+                .consumer = {
+                    .started = true,
+                    .exit_code = 0,
+                },
+                .bytes_transferred = sizing_bytes,
+                .bytes_produced = sizing_bytes,
+            };
+        }
         plans.push_back(plan);
         if (execution_trace != nullptr) {
             execution_trace->push_back(
@@ -180,6 +206,7 @@ class RecordingTransferPipeline final : public btrfsbackup::backup::transfer::IT
                 .kind = btrfsbackup::backup::transfer::TransferEventKind::Progress,
                 .bytes_transferred = reported_progress_bytes,
                 .bytes_produced = reported_progress_bytes,
+                .bytes_total_estimated = plan.bytes_total_estimated,
                 .delta_bytes = reported_progress_bytes,
                 .elapsed_ms = 1000,
                 .speed_bps = reported_progress_bytes,
@@ -550,7 +577,8 @@ void test_send_receive_delegates_to_transfer_pipeline() {
     test_helpers::expect_eq("transfer checkpoint count", std::to_string(checkpoints.checkpoints.size()), "1");
 
     auto progress = std::find_if(events.events.begin(), events.events.end(), [](const btrfsbackup::backup::BackupRunEvent& event) {
-        return std::holds_alternative<btrfsbackup::backup::TransferProgress>(event);
+        const auto* transfer_progress = std::get_if<btrfsbackup::backup::TransferProgress>(&event);
+        return transfer_progress != nullptr && transfer_progress->bytes_total_estimated > 0;
     });
     test_helpers::expect_true("progress event", progress != events.events.end(), "missing transfer progress event");
     if (progress != events.events.end()) {
@@ -591,13 +619,14 @@ void test_transfer_paths_are_pinned_through_injected_factory() {
     test_helpers::expect_eq("retained safe handles", std::to_string(transfer_plan.retained_resources.size()), "3");
 }
 
-void test_transfer_plan_does_not_guess_stream_bytes_from_snapshot_size() {
-    fs::path root = test_helpers::test_root("backup-run-executor", "indeterminate-bytes");
+void test_transfer_plan_measures_exact_send_stream_size() {
+    fs::path root = test_helpers::test_root("backup-run-executor", "exact-stream-bytes");
     fs::create_directories(root / ".snapshots" / "root");
     test_helpers::write_file(root / ".snapshots" / "root" / "file", "snapshot contents do not predict a Btrfs send stream");
 
     RecordingActionHandler handler;
     RecordingTransferPipeline transfers;
+    transfers.sizing_bytes = 12345;
     RecordingCheckpoints checkpoints;
     RecordingEvents events;
     btrfsbackup::CancellationToken cancellation;
@@ -617,8 +646,15 @@ void test_transfer_plan_does_not_guess_stream_bytes_from_snapshot_size() {
 
     btrfsbackup::backup::BackupRunExecutionResult result = executor.execute(plan, events, cancellation);
 
-    test_helpers::expect_true("estimate run completed", run_completed(result), "run should complete");
-    test_helpers::expect_eq("indeterminate bytes", std::to_string(transfers.plans.at(0).bytes_total_estimated), "0");
+    test_helpers::expect_true("sized run completed", run_completed(result), "run should complete");
+    test_helpers::expect_eq("sizing pass count", std::to_string(transfers.sizing_plans.size()), "1");
+    test_helpers::expect_eq("transfer pass count", std::to_string(transfers.plans.size()), "1");
+    test_helpers::expect_true(
+        "identical producer",
+        transfers.sizing_plans.at(0).producer_argv == transfers.plans.at(0).producer_argv,
+        "sizing used a different Btrfs send command"
+    );
+    test_helpers::expect_eq("exact stream bytes", std::to_string(transfers.plans.at(0).bytes_total_estimated), "12345");
     fs::remove_all(root);
 }
 
@@ -673,7 +709,9 @@ void test_multi_source_progress_accumulates_run_bytes() {
     std::vector<btrfsbackup::backup::TransferProgress> progress_events;
     for (const auto& event : events.events) {
         if (const auto* progress = std::get_if<btrfsbackup::backup::TransferProgress>(&event)) {
-            progress_events.push_back(*progress);
+            if (progress->bytes_total_estimated > 0) {
+                progress_events.push_back(*progress);
+            }
         }
     }
     test_helpers::expect_eq("multi progress count", std::to_string(progress_events.size()), "2");
@@ -994,7 +1032,7 @@ int main() {
     test_pending_recovery_runs_before_source_cleanup();
     test_send_receive_delegates_to_transfer_pipeline();
     test_transfer_paths_are_pinned_through_injected_factory();
-    test_transfer_plan_does_not_guess_stream_bytes_from_snapshot_size();
+    test_transfer_plan_measures_exact_send_stream_size();
     test_multi_source_progress_accumulates_run_bytes();
     test_cancels_between_actions();
     test_cancels_during_transfer_without_checkpointing_transfer();

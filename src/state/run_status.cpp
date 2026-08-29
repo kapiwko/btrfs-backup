@@ -74,6 +74,8 @@ std::string progress_accuracy_name(ProgressAccuracy accuracy) {
         return "indeterminate";
     case ProgressAccuracy::Estimated:
         return "estimated";
+    case ProgressAccuracy::Exact:
+        return "exact";
     }
     return "indeterminate";
 }
