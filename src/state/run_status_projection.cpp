@@ -155,6 +155,9 @@ int estimated_overall_progress(
         const std::int64_t completed_sources = std::clamp(event.source_index, 0, context.source_count);
         return static_cast<int>(completed_sources * 100 / context.source_count);
     }
+    if (event.kind == btrfsbackup::backup::BackupRunEventKind::TransferProgress && source_progress < 0) {
+        return -1;
+    }
     if (event.source_id.has_value() && event.source_index > 0) {
         const std::int64_t completed_sources = std::clamp(event.source_index - 1, 0, context.source_count);
         const int current_source_progress = std::clamp(source_progress, 0, 100);
@@ -276,7 +279,7 @@ RunStatus status_for_event(
         ? estimated_source_progress(event)
         : -1;
     int overall_progress = estimated_overall_progress(context, event, source_progress);
-    if (minimum_overall_progress >= 0 && event.kind != btrfsbackup::backup::BackupRunEventKind::RunStarted) {
+    if (overall_progress >= 0 && minimum_overall_progress >= 0 && event.kind != btrfsbackup::backup::BackupRunEventKind::RunStarted) {
         overall_progress = std::max(overall_progress, minimum_overall_progress);
     }
     std::string progress_accuracy = overall_progress >= 0 ? "estimated" : "indeterminate";
@@ -287,7 +290,7 @@ RunStatus status_for_event(
         run_bytes_processed = event.run_bytes_transferred;
         speed_bps = event.speed_bps;
         eta_seconds = estimated_eta_seconds(event);
-        progress_accuracy = source_progress >= 0 ? "estimated" : progress_accuracy;
+        progress_accuracy = source_progress >= 0 ? "estimated" : "indeterminate";
         details = {
             {"bytesProduced", event.bytes_produced},
             {"bytesTransferred", event.bytes_transferred},

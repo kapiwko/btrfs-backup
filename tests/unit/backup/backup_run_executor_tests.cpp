@@ -591,11 +591,10 @@ void test_transfer_paths_are_pinned_through_injected_factory() {
     test_helpers::expect_eq("retained safe handles", std::to_string(transfer_plan.retained_resources.size()), "3");
 }
 
-void test_transfer_plan_estimates_snapshot_bytes() {
-    fs::path root = test_helpers::test_root("backup-run-executor", "estimate-bytes");
-    fs::create_directories(root / ".snapshots" / "root" / "dir");
-    test_helpers::write_file(root / ".snapshots" / "root" / "file-a", "12345");
-    test_helpers::write_file(root / ".snapshots" / "root" / "dir" / "file-b", "1234567");
+void test_transfer_plan_does_not_guess_stream_bytes_from_snapshot_size() {
+    fs::path root = test_helpers::test_root("backup-run-executor", "indeterminate-bytes");
+    fs::create_directories(root / ".snapshots" / "root");
+    test_helpers::write_file(root / ".snapshots" / "root" / "file", "snapshot contents do not predict a Btrfs send stream");
 
     RecordingActionHandler handler;
     RecordingTransferPipeline transfers;
@@ -619,7 +618,7 @@ void test_transfer_plan_estimates_snapshot_bytes() {
     btrfsbackup::backup::BackupRunExecutionResult result = executor.execute(plan, events, cancellation);
 
     test_helpers::expect_true("estimate run completed", run_completed(result), "run should complete");
-    test_helpers::expect_eq("estimated bytes", std::to_string(transfers.plans.at(0).bytes_total_estimated), "12");
+    test_helpers::expect_eq("indeterminate bytes", std::to_string(transfers.plans.at(0).bytes_total_estimated), "0");
     fs::remove_all(root);
 }
 
@@ -995,7 +994,7 @@ int main() {
     test_pending_recovery_runs_before_source_cleanup();
     test_send_receive_delegates_to_transfer_pipeline();
     test_transfer_paths_are_pinned_through_injected_factory();
-    test_transfer_plan_estimates_snapshot_bytes();
+    test_transfer_plan_does_not_guess_stream_bytes_from_snapshot_size();
     test_multi_source_progress_accumulates_run_bytes();
     test_cancels_between_actions();
     test_cancels_during_transfer_without_checkpointing_transfer();

@@ -5,9 +5,7 @@
 #include <backup/transfer/transfer_coordinator.hpp>
 
 #include <chrono>
-#include <cstdint>
 #include <filesystem>
-#include <limits>
 #include <memory>
 #include <utility>
 
@@ -58,31 +56,6 @@ TransferPipelinePlan transfer_plan_for_action(
     return plan;
 }
 
-std::uint64_t estimate_regular_file_bytes(const fs::path& root) {
-    std::error_code ec;
-    if (!fs::exists(root, ec) || ec) {
-        return 0;
-    }
-
-    std::uint64_t total = 0;
-    fs::recursive_directory_iterator iterator(root, fs::directory_options::skip_permission_denied, ec);
-    const fs::recursive_directory_iterator end;
-    while (!ec && iterator != end) {
-        std::error_code entry_ec;
-        if (iterator->is_regular_file(entry_ec) && !entry_ec) {
-            const std::uintmax_t size = iterator->file_size(entry_ec);
-            if (!entry_ec) {
-                if (size > std::numeric_limits<std::uint64_t>::max() - total) {
-                    return 0;
-                }
-                total += static_cast<std::uint64_t>(size);
-            }
-        }
-        iterator.increment(ec);
-    }
-    return ec ? 0 : total;
-}
-
 void wait_for_transfer_or_cancellation(IAsyncTransferHandle& transfer, CancellationToken& cancellation) {
     while (!transfer.wait_for(std::chrono::milliseconds(100))) {
         if (cancellation.cancellation_requested()) {
@@ -116,7 +89,6 @@ TransferResult TransferCoordinator::execute(
     CancellationToken& cancellation
 ) {
     TransferPipelinePlan plan = transfer_plan_for_action(action, target_mount_point, safe_directories_);
-    plan.bytes_total_estimated = estimate_regular_file_bytes(action.snapshot);
 
     std::unique_ptr<IAsyncTransferHandle> transfer = pipeline_.start(plan, events);
     wait_for_transfer_or_cancellation(*transfer, cancellation);
