@@ -8,7 +8,6 @@
 #include <string>
 
 #include <platform/linux/file_io.hpp>
-#include <platform/linux/process.hpp>
 #include <platform/linux/systemd_unit.hpp>
 #include <config/profile_render.hpp>
 
@@ -44,54 +43,6 @@ constexpr const char* eject_service_hardening =
     "MemoryDenyWriteExecute=yes\n"
     "SystemCallArchitectures=native\n"
     "RestrictAddressFamilies=AF_UNIX AF_NETLINK\n";
-
-std::string fstab_escape(const std::string& value) {
-    std::string escaped;
-    for (char ch : value) {
-        switch (ch) {
-        case '\\':
-            escaped += "\\134";
-            break;
-        case '\t':
-            escaped += "\\011";
-            break;
-        case ' ':
-            escaped += "\\040";
-            break;
-        case '#':
-            escaped += "\\043";
-            break;
-        default:
-            escaped += ch;
-            break;
-        }
-    }
-    return escaped;
-}
-
-std::string render_fstab_fragment(const btrfsbackup::config::Profile& profile) {
-    std::string cryptsetup_unit = btrfsbackup::platform::linux::run_capture(
-        {"systemd-escape", "--template=systemd-cryptsetup@.service", profile.target.mapper_name.value()}
-    );
-    return "# Merge this single line into /etc/fstab.\n"
-           "# noauto prevents mounting at boot. The profile service starts this mount unit only after the matching LUKS device appears.\n"
-           "\n"
-           "/dev/mapper/" +
-        fstab_escape(profile.target.mapper_name.value()) + "  " +
-        fstab_escape(profile.target.mount_point.value().string()) +
-        "  btrfs  noauto,nofail,noatime,nodev,nosuid,noexec,nosymfollow,compress=zstd,x-systemd.requires=" +
-        cryptsetup_unit +
-        ",x-systemd.device-timeout=30s,x-systemd.mount-timeout=60s  0  0\n";
-}
-
-std::string render_crypttab_fragment(const btrfsbackup::config::Profile& profile, const std::string& keyfile) {
-    return "# Merge this single line into /etc/crypttab.\n"
-           "# Format: <name> <device> <password> <options>\n"
-           "\n" +
-        profile.target.mapper_name.value() + "  UUID=" + profile.target.luks_uuid.value() + "  " +
-        fstab_escape(keyfile) +
-        "  luks,noauto,nofail,x-systemd.device-timeout=30s\n";
-}
 
 std::string render_backup_service(const btrfsbackup::config::Profile& profile, const std::string& backup_command) {
     return "[Unit]\n"
@@ -245,7 +196,6 @@ std::string render_target_service(const std::string& target_command) {
         "UMask=0077\n"
         "Environment=PATH=/usr/bin\n"
         "NoNewPrivileges=yes\n"
-        "PrivateTmp=yes\n"
         "ProtectSystem=full\n"
         "ProtectKernelTunables=yes\n"
         "ProtectKernelModules=yes\n"
@@ -284,10 +234,7 @@ void render_installation_files(
     const fs::path& output_dir,
     const InstallationRenderOptions& options
 ) {
-    fs::create_directories(output_dir / "config");
     fs::create_directories(output_dir / "systemd");
-    atomic_write(output_dir / "config" / "fstab.fragment", render_fstab_fragment(profile), 0644);
-    atomic_write(output_dir / "config" / "crypttab.fragment", render_crypttab_fragment(profile, options.keyfile), 0644);
     atomic_write(output_dir / "systemd" / "btrfs-backup.service", render_backup_service(profile, options.backup_command), 0644);
     atomic_write(output_dir / "systemd" / "btrfs-backup@.service", render_profile_service(options.backup_command), 0644);
     atomic_write(output_dir / "systemd" / "btrfs-backup-eject@.service", render_eject_service(options.eject_script), 0644);

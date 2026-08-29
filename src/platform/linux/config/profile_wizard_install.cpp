@@ -78,7 +78,7 @@ class WizardConfigurationActivator final : public btrfsbackup::config::IConfigur
 
 } // namespace
 
-void render_wizard_tree(const btrfsbackup::config::Profile& profile, const std::string& keyfile, const fs::path& output_dir) {
+void render_wizard_tree(const btrfsbackup::config::Profile& profile, const fs::path& output_dir) {
     const fs::path target_mount_root = fs::path(profile.target.mount_point).parent_path();
     const btrfsbackup::config::Profile validated_profile = btrfsbackup::config::profile_from_json(btrfsbackup::config::profile_to_json(profile), target_mount_root);
     validate_profile_runtime_policy(validated_profile);
@@ -103,11 +103,7 @@ void render_wizard_tree(const btrfsbackup::config::Profile& profile, const std::
                 }
             );
 
-            render_installation_files(
-                validated_profile,
-                staging,
-                {.keyfile = keyfile}
-            );
+            render_installation_files(validated_profile, staging, {});
         },
         [&](const fs::path& staging) {
             validate_rendered_installation(staging, target_mount_root);

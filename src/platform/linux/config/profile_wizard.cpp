@@ -103,14 +103,14 @@ int run_profile_wizard(const ProfileWizardOptions& options, std::istream& input,
     btrfsbackup::config::Profile profile = btrfsbackup::config::profile_from_wizard_answers(answers);
     fs::path output_dir = options.output_dir.empty() ? btrfsbackup::config::default_output_dir() : options.output_dir;
     output_dir = fs::absolute(output_dir).lexically_normal();
-    render_wizard_tree(profile, answers.keyfile, output_dir);
+    render_wizard_tree(profile, output_dir);
 
     if (options.action == ProfileWizardAction::apply) {
         apply_rendered_wizard_tree(profile, output_dir);
         output << "Installed active configuration for profile " << profile.id.value() << "\n";
     } else {
         output << "Rendered and validated files in:\n  " << output_dir << "\n";
-        output << "\nReview them, merge the fstab/crypttab fragments manually, or rerun with --apply as root.\n";
+        output << "\nReview them or rerun with --apply as root. No fstab or crypttab changes are required.\n";
     }
     return 0;
 }
