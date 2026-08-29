@@ -154,6 +154,7 @@ ProfileConfigurationTransaction::ProfileConfigurationTransaction(const btrfsback
             .previous = {},
             .content = artifact.content,
             .permissions = artifact.permissions,
+            .operation = artifact.operation,
         });
     }
 }
@@ -165,7 +166,9 @@ void ProfileConfigurationTransaction::stage() {
         item.previous = transaction_path(item.destination, "previous", generation_.value());
         remove_if_present(item.staged);
         remove_if_present(item.previous);
-        atomic_write(item.staged, item.content, static_cast<mode_t>(item.permissions));
+        if (item.operation == btrfsbackup::config::ProfileArtifactOperation::Write) {
+            atomic_write(item.staged, item.content, static_cast<mode_t>(item.permissions));
+        }
     }
 }
 
@@ -189,7 +192,7 @@ RollbackResult ProfileConfigurationTransaction::rollback() noexcept {
     RollbackResult result;
     for (auto it = artifacts_.rbegin(); it != artifacts_.rend(); ++it) {
         bool restored_previous = false;
-        if (it->published) {
+        if (it->published && it->operation == btrfsbackup::config::ProfileArtifactOperation::Write) {
             remove_for_rollback(it->destination, result, "remove published artifact");
         }
         if (it->had_previous) {
@@ -231,6 +234,11 @@ void ProfileConfigurationTransaction::publish(TransactionArtifact& item) {
     }
     if (item.had_previous) {
         rename_checked(item.destination, item.previous);
+    }
+    if (item.operation == btrfsbackup::config::ProfileArtifactOperation::Remove) {
+        item.published = item.had_previous;
+        fsync_dir(item.destination.parent_path());
+        return;
     }
     try {
         rename_checked(item.staged, item.destination);
