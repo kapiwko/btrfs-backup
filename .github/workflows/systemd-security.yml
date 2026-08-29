@@ -14,6 +14,6 @@ jobs:
     steps:
       - name: Prepare Arch Linux
         run: pacman -Syu --noconfirm --needed git systemd
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Analyze service sandbox
         run: tests/systemd/check-security.sh data/systemd/btrfs-backup@.service.example
