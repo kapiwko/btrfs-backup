@@ -41,6 +41,47 @@ void test_names_are_stable() {
         btrfsbackup::state::backup_run_event_kind_name(btrfsbackup::backup::BackupRunEventKind::RunFailed),
         "run-failed"
     );
+    test_helpers::expect_eq(
+        "validation event name",
+        btrfsbackup::state::backup_run_event_kind_name(btrfsbackup::backup::BackupRunEventKind::TargetValidationCompleted),
+        "target-validation-completed"
+    );
+    test_helpers::expect_eq(
+        "operation name",
+        btrfsbackup::state::operation_kind_name(btrfsbackup::backup::OperationKind::TargetValidation),
+        "target-validation"
+    );
+}
+
+void test_build_validation_event_json() {
+    const btrfsbackup::config::Json started = btrfsbackup::state::build_backup_run_event_json(
+        btrfsbackup::backup::RunStarted{
+            btrfsbackup::ProfileId{"default"},
+            btrfsbackup::RunId{"validation-1"},
+            btrfsbackup::backup::OperationKind::TargetValidation,
+        }
+    );
+    const btrfsbackup::config::Json completed = btrfsbackup::state::build_backup_run_event_json(
+        btrfsbackup::backup::TargetValidationCompleted{
+            btrfsbackup::ProfileId{"default"},
+            btrfsbackup::RunId{"validation-1"},
+        }
+    );
+
+    test_helpers::expect_true("validation start operation", started.at("operationKind") == "target-validation", "wrong operation kind");
+    test_helpers::expect_true("validation completed event", completed.at("event") == "target-validation-completed", "wrong terminal event");
+    test_helpers::expect_true("validation completed operation", completed.at("operationKind") == "target-validation", "wrong terminal operation kind");
+
+    const btrfsbackup::config::Json failed = btrfsbackup::state::build_backup_run_event_json(
+        btrfsbackup::backup::RunFailed{
+            .profile_id = btrfsbackup::ProfileId{"default"},
+            .run_id = btrfsbackup::RunId{"validation-1"},
+            .error_code = btrfsbackup::ErrorCode::BackupFailed,
+            .message = "validation failed",
+            .operation_kind = btrfsbackup::backup::OperationKind::TargetValidation,
+        }
+    );
+    test_helpers::expect_true("validation failure operation", failed.at("operationKind") == "target-validation", "failed validation was serialized as backup");
 }
 
 void test_build_event_json() {
@@ -78,6 +119,7 @@ int main() {
     test_names_are_stable();
     test_build_event_json();
     test_build_run_event_json_without_source();
+    test_build_validation_event_json();
 
     return test_helpers::finish("backup run serialization tests");
 }

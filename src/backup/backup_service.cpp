@@ -29,13 +29,15 @@ BackupExecutionFailed emit_run_failed(
     const RunId& run_id,
     ErrorCode error_code,
     const std::string& message,
-    std::size_t actions_completed = 0
+    std::size_t actions_completed = 0,
+    OperationKind operation_kind = OperationKind::Backup
 ) {
     events.on_backup_run_event(RunFailed{
         .profile_id = profile_id,
         .run_id = run_id,
         .error_code = error_code,
         .message = message,
+        .operation_kind = operation_kind,
     });
     return {
         .profile_id = profile_id,
@@ -51,7 +53,8 @@ std::optional<BackupExecutionFailed> close_target_or_fail(
     IBackupRunEventSink& events,
     const ProfileId& profile_id,
     const RunId& run_id,
-    std::size_t actions_completed = 0
+    std::size_t actions_completed,
+    OperationKind operation_kind
 ) {
     const std::optional<TargetCleanupError> cleanup_error = context.close_target_session();
     if (!cleanup_error.has_value()) {
@@ -63,7 +66,8 @@ std::optional<BackupExecutionFailed> close_target_or_fail(
         run_id,
         ErrorCode::BackupFailed,
         cleanup_error->message,
-        actions_completed
+        actions_completed,
+        operation_kind
     );
 }
 
@@ -133,6 +137,9 @@ BackupExecutionResult BackupService::start(const BackupRequest& request) {
     const std::string timestamp = format_utc_snapshot_timestamp(started_at);
     const RunId run_id = run_ids_.generate(started_at);
     const RunIdentity identity{run_id, started_at};
+    const OperationKind operation_kind = request.validate_only
+        ? OperationKind::TargetValidation
+        : OperationKind::Backup;
 
     std::optional<btrfsbackup::config::LoadedProfile> loaded;
     try {
@@ -144,7 +151,9 @@ BackupExecutionResult BackupService::start(const BackupRequest& request) {
             request.profile_id,
             run_id,
             failure_code(error),
-            error.what()
+            error.what(),
+            0,
+            operation_kind
         );
     }
 
@@ -160,7 +169,9 @@ BackupExecutionResult BackupService::start(const BackupRequest& request) {
                 profile.id,
                 run_id,
                 busy->error_code,
-                busy->error_message
+                busy->error_message,
+                0,
+                operation_kind
             );
             return BackupExecutionBusy{
                 .profile_id = profile.id,
@@ -176,7 +187,11 @@ BackupExecutionResult BackupService::start(const BackupRequest& request) {
             events,
             std::move(lease)
         );
-        events->on_backup_run_event(RunStarted{profile.id, run_id});
+        events->on_backup_run_event(RunStarted{
+            profile.id,
+            run_id,
+            operation_kind,
+        });
 
         std::unique_ptr<IMountedTargetSession> target_session = preflight_.run(
             profile,
@@ -208,7 +223,9 @@ BackupExecutionResult BackupService::start(const BackupRequest& request) {
                     *context,
                     *events,
                     profile.id,
-                    run_id
+                    run_id,
+                    0,
+                    operation_kind
                 )) {
                 (void)context->close();
                 return *failed;
@@ -216,7 +233,7 @@ BackupExecutionResult BackupService::start(const BackupRequest& request) {
             if (context->cancellation.cancellation_requested()) {
                 throw OperationCancelledError("backup cancelled during target cleanup");
             }
-            events->on_backup_run_event(RunCompleted{profile.id, run_id});
+            events->on_backup_run_event(TargetValidationCompleted{profile.id, run_id});
             return BackupExecutionValidated{std::move(plan)};
         }
 
@@ -226,7 +243,9 @@ BackupExecutionResult BackupService::start(const BackupRequest& request) {
                     *context,
                     *events,
                     profile.id,
-                    run_id
+                    run_id,
+                    0,
+                    operation_kind
                 )) {
                 (void)context->close();
                 return *failed;
@@ -251,7 +270,8 @@ BackupExecutionResult BackupService::start(const BackupRequest& request) {
                     *events,
                     profile.id,
                     run_id,
-                    completed->actions_completed
+                    completed->actions_completed,
+                    operation_kind
                 )) {
                 (void)context->close();
                 return *failed;
@@ -298,6 +318,7 @@ BackupExecutionResult BackupService::start(const BackupRequest& request) {
             .action_kind = std::nullopt,
             .error_code = ErrorCode::RunnerCancelled,
             .message = error.what(),
+            .operation_kind = operation_kind,
         });
         BackupExecutionResult result = BackupExecutionCancelled{
             BackupRunPlan{
@@ -318,7 +339,9 @@ BackupExecutionResult BackupService::start(const BackupRequest& request) {
             profile.id,
             run_id,
             failure_code(error),
-            error.what()
+            error.what(),
+            0,
+            operation_kind
         );
         if (context != nullptr) {
             (void)context->close();
@@ -330,7 +353,9 @@ BackupExecutionResult BackupService::start(const BackupRequest& request) {
             profile.id,
             run_id,
             ErrorCode::BackupFailed,
-            error.what()
+            error.what(),
+            0,
+            operation_kind
         );
         if (context != nullptr) {
             (void)context->close();

@@ -18,6 +18,8 @@ namespace btrfsbackup::state {
 
 enum class RunState {
     Running,
+    Validating,
+    Validated,
     Succeeded,
     Failed,
     Cancelled,
@@ -46,6 +48,7 @@ enum class RunPhase {
     Cancelled,
     Skipped,
     ValidatingTarget,
+    Validated,
 };
 
 enum class ProgressAccuracy {

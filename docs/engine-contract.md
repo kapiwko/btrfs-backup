@@ -127,6 +127,7 @@ Known `state` values are:
 idle
 starting
 running
+validating
 validated
 skipped
 succeeded

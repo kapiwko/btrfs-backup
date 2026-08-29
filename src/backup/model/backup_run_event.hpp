@@ -25,14 +25,22 @@ enum class BackupRunEventKind {
     ActionFailed,
     CheckpointWritten,
     SourceCompleted,
+    TargetValidationCompleted,
     RunCompleted,
     RunFailed,
     RunCancelled,
 };
 
+enum class OperationKind {
+    Backup,
+    TargetValidation,
+    Planning,
+};
+
 struct RunStarted {
     ProfileId profile_id;
     RunId run_id;
+    OperationKind operation_kind = OperationKind::Backup;
 };
 
 struct SourceStarted {
@@ -109,11 +117,17 @@ struct RunCompleted {
     RunId run_id;
 };
 
+struct TargetValidationCompleted {
+    ProfileId profile_id;
+    RunId run_id;
+};
+
 struct RunFailed {
     ProfileId profile_id;
     RunId run_id;
     ErrorCode error_code;
     std::string message;
+    OperationKind operation_kind = OperationKind::Backup;
 };
 
 struct RunCancelled {
@@ -124,6 +138,7 @@ struct RunCancelled {
     std::optional<BackupRunActionKind> action_kind;
     std::optional<ErrorCode> error_code;
     std::string message;
+    OperationKind operation_kind = OperationKind::Backup;
 };
 
 using BackupRunEvent = std::variant<
@@ -135,6 +150,7 @@ using BackupRunEvent = std::variant<
     ActionFailed,
     CheckpointWritten,
     SourceCompleted,
+    TargetValidationCompleted,
     RunCompleted,
     RunFailed,
     RunCancelled>;
@@ -158,6 +174,8 @@ using BackupRunEvent = std::variant<
             return BackupRunEventKind::CheckpointWritten;
         if constexpr (std::is_same_v<Event, SourceCompleted>)
             return BackupRunEventKind::SourceCompleted;
+        if constexpr (std::is_same_v<Event, TargetValidationCompleted>)
+            return BackupRunEventKind::TargetValidationCompleted;
         if constexpr (std::is_same_v<Event, RunCompleted>)
             return BackupRunEventKind::RunCompleted;
         if constexpr (std::is_same_v<Event, RunFailed>)
@@ -184,7 +202,7 @@ using BackupRunEvent = std::variant<
 [[nodiscard]] inline std::optional<SourceId> backup_run_event_source_id(const BackupRunEvent& event) {
     return std::visit([](const auto& typed_event) -> std::optional<SourceId> {
         using Event = std::decay_t<decltype(typed_event)>;
-        if constexpr (std::is_same_v<Event, RunStarted> || std::is_same_v<Event, RunCompleted> || std::is_same_v<Event, RunFailed>) {
+        if constexpr (std::is_same_v<Event, RunStarted> || std::is_same_v<Event, TargetValidationCompleted> || std::is_same_v<Event, RunCompleted> || std::is_same_v<Event, RunFailed>) {
             return std::nullopt;
         } else if constexpr (std::is_same_v<Event, RunCancelled>) {
             return typed_event.source_id;
@@ -198,7 +216,7 @@ using BackupRunEvent = std::variant<
 [[nodiscard]] inline int backup_run_event_source_index(const BackupRunEvent& event) {
     return std::visit([](const auto& typed_event) {
         using Event = std::decay_t<decltype(typed_event)>;
-        if constexpr (std::is_same_v<Event, RunStarted> || std::is_same_v<Event, RunCompleted> || std::is_same_v<Event, RunFailed>) {
+        if constexpr (std::is_same_v<Event, RunStarted> || std::is_same_v<Event, TargetValidationCompleted> || std::is_same_v<Event, RunCompleted> || std::is_same_v<Event, RunFailed>) {
             return 0;
         } else {
             return typed_event.source_index;
@@ -220,6 +238,20 @@ using BackupRunEvent = std::variant<
             return typed_event.action_kind;
         } else {
             return std::nullopt;
+        }
+    },
+                      event);
+}
+
+[[nodiscard]] inline OperationKind backup_run_event_operation_kind(const BackupRunEvent& event) {
+    return std::visit([](const auto& typed_event) {
+        using Event = std::decay_t<decltype(typed_event)>;
+        if constexpr (std::is_same_v<Event, RunStarted> || std::is_same_v<Event, RunFailed> || std::is_same_v<Event, RunCancelled>) {
+            return typed_event.operation_kind;
+        } else if constexpr (std::is_same_v<Event, TargetValidationCompleted>) {
+            return OperationKind::TargetValidation;
+        } else {
+            return OperationKind::Backup;
         }
     },
                       event);

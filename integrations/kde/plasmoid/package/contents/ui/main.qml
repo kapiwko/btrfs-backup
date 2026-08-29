@@ -29,7 +29,8 @@ PlasmoidItem {
     property int relativeTimeTick: 0
     property string badgeIcon: {
         switch (backupStatus.state) {
-        case "succeeded": return "emblem-ok-symbolic"
+        case "succeeded":
+        case "validated": return "emblem-ok-symbolic"
         case "failed": return "dialog-error-symbolic"
         case "cancelled": return "process-stop-symbolic"
         case "skipped": return "emblem-pause"
@@ -38,7 +39,8 @@ PlasmoidItem {
     }
     property int badgeType: {
         switch (backupStatus.state) {
-        case "succeeded": return Kirigami.Badge.Type.Positive
+        case "succeeded":
+        case "validated": return Kirigami.Badge.Type.Positive
         case "failed": return Kirigami.Badge.Type.Error
         case "cancelled": return Kirigami.Badge.Type.Warning
         default: return Kirigami.Badge.Type.Information
@@ -140,6 +142,7 @@ PlasmoidItem {
         case "cleanup-source": return translations.i18n("Cleaning backup source")
         case "source-completed": return translations.i18n("Finalizing backup")
         case "validating-target": return translations.i18n("Validating backup target")
+        case "validated": return translations.i18n("Target validation completed")
         default: return translations.i18n("Preparing backup")
         }
     }

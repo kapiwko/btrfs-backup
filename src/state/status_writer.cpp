@@ -47,7 +47,7 @@ btrfsbackup::config::Json build_details_json(const btrfsbackup::state::RunDetail
 std::string public_activity(const btrfsbackup::state::RunStatus& status) {
     using btrfsbackup::state::RunPhase;
     using btrfsbackup::state::RunState;
-    if (status.state != RunState::Running) {
+    if (status.state != RunState::Running && status.state != RunState::Validating) {
         return "idle";
     }
     switch (status.phase) {

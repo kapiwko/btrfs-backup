@@ -172,6 +172,60 @@ void test_status_sink_writes_current_and_terminal_history() {
     fs::remove_all(root);
 }
 
+void test_target_validation_updates_status_without_backup_history() {
+    fs::path root = test_helpers::test_root("backup-run-persistence", "target-validation");
+    btrfsbackup::state::RunStatusProjection sink(durable_files(), {
+                                                                      .status_root = root / "status",
+                                                                      .history_root = root / "history",
+                                                                      .profile_name = "Default backup",
+                                                                      .source_count = 2,
+                                                                      .started_at = *btrfsbackup::parse_utc_timestamp("2026-08-23T12:00:00Z"),
+                                                                  });
+    const btrfsbackup::ProfileId profile_id{"default"};
+    const btrfsbackup::RunId run_id{"validation-1"};
+
+    sink.on_backup_run_event(btrfsbackup::backup::RunStarted{
+        profile_id,
+        run_id,
+        btrfsbackup::backup::OperationKind::TargetValidation,
+    });
+    btrfsbackup::config::Json current = btrfsbackup::config::load_json_file(
+        root / "status" / "default" / "current.json"
+    );
+    test_helpers::expect_true("validation running state", current.at("state") == "validating", "validation looked like a running backup");
+    test_helpers::expect_true("validation running phase", current.at("phase") == "validating-target", "wrong validation phase");
+    test_helpers::expect_true("validation can cancel", current.at("canCancel") == true, "validation cannot be cancelled");
+
+    sink.on_backup_run_event(btrfsbackup::backup::TargetValidationCompleted{profile_id, run_id});
+    current = btrfsbackup::config::load_json_file(root / "status" / "default" / "current.json");
+    test_helpers::expect_true("validation terminal state", current.at("state") == "validated", "validation looked like a successful backup");
+    test_helpers::expect_true("validation terminal phase", current.at("phase") == "validated", "wrong validation terminal phase");
+    test_helpers::expect_true("validation terminal cancel", current.at("canCancel") == false, "completed validation can be cancelled");
+    test_helpers::expect_true("validation history absent", !fs::exists(root / "history" / "default"), "validation entered backup history");
+    fs::remove_all(root);
+}
+
+void test_failed_validation_without_start_does_not_enter_backup_history() {
+    fs::path root = test_helpers::test_root("backup-run-persistence", "failed-target-validation");
+    btrfsbackup::state::RunStatusProjection sink(durable_files(), {
+                                                                      .status_root = root / "status",
+                                                                      .history_root = root / "history",
+                                                                      .profile_name = "Default backup",
+                                                                      .source_count = 0,
+                                                                      .started_at = *btrfsbackup::parse_utc_timestamp("2026-08-23T12:00:00Z"),
+                                                                  });
+    sink.on_backup_run_event(btrfsbackup::backup::RunFailed{
+        .profile_id = btrfsbackup::ProfileId{"default"},
+        .run_id = btrfsbackup::RunId{"validation-failed"},
+        .error_code = btrfsbackup::ErrorCode::BackupFailed,
+        .message = "validation failed",
+        .operation_kind = btrfsbackup::backup::OperationKind::TargetValidation,
+    });
+
+    test_helpers::expect_true("failed validation history absent", !fs::exists(root / "history" / "default"), "failed validation entered backup history");
+    fs::remove_all(root);
+}
+
 void test_hook_failure_status_uses_stable_error_code() {
     fs::path root = test_helpers::test_root("backup-run-persistence", "hook-failure");
     btrfsbackup::state::RunStatusProjection sink(durable_files(), {
@@ -250,6 +304,8 @@ void test_repository_recovery_required_status_is_actionable() {
 
 int main() {
     test_status_sink_writes_current_and_terminal_history();
+    test_target_validation_updates_status_without_backup_history();
+    test_failed_validation_without_start_does_not_enter_backup_history();
     test_public_transfer_progress_excludes_run_details();
     test_unknown_stream_size_produces_indeterminate_progress();
     test_hook_failure_status_uses_stable_error_code();
