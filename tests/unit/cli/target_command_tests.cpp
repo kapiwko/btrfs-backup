@@ -250,6 +250,11 @@ void test_activation_owns_and_restores_mapper() {
         ),
         "systemd-cryptsetup attach was not called"
     );
+    test_helpers::expect_true(
+        "target activate waits for udev",
+        contains_call(commands, "udevadm settle --timeout=10"),
+        "activation did not wait for the mapper device node"
+    );
 
     result = btrfsbackup::cli::target(root, {"deactivate", "--from-service", "--profile", "default"}, output, &services);
     test_helpers::expect_eq("target deactivate result", std::to_string(result), "0");

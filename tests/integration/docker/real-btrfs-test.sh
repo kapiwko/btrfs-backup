@@ -185,7 +185,16 @@ managed_target_lifecycle_test() {
     cryptsetup close "$MAPPER_NAME"
     [[ ! -e "$MAPPER_PATH" ]] || fail 'test mapper remained active before managed activation'
 
-    systemctl start "$mount_unit"
+    if ! systemctl start "$mount_unit"; then
+        systemctl status --no-pager "$mount_unit" >&2 || true
+        systemctl status --no-pager btrfs-backup-target@default.service >&2 || true
+        cat "$PROFILE_JSON" >&2 || true
+        systemctl list-units --all 'systemd-cryptsetup@*' >&2 || true
+        ls -la /dev/mapper >&2 || true
+        dmsetup ls --tree >&2 || true
+        journalctl --no-pager -u "$mount_unit" -u btrfs-backup-target@default.service -n 100 >&2 || true
+        fail 'native mount unit could not activate and mount the backup target'
+    fi
     findmnt -n -M "$TARGET_MOUNT" >/dev/null \
         || fail 'native mount unit did not mount the backup target'
     [[ -b "$MAPPER_PATH" ]] \
