@@ -107,6 +107,33 @@ void test_public_transfer_progress_excludes_run_details() {
     fs::remove_all(root);
 }
 
+void test_unknown_stream_size_produces_indeterminate_progress() {
+    fs::path root = test_helpers::test_root("backup-run-persistence", "indeterminate-progress");
+    btrfsbackup::state::RunStatusProjection sink(durable_files(), {
+                                                                      .status_root = root / "status",
+                                                                      .history_root = root / "history",
+                                                                      .profile_name = "Default backup",
+                                                                      .source_count = 1,
+                                                                      .started_at = *btrfsbackup::parse_utc_timestamp("2026-08-23T12:00:00Z"),
+                                                                      .source_names = {{"root", "@home"}},
+                                                                      .target_name = "backupdisk",
+                                                                  });
+
+    btrfsbackup::backup::TransferProgress progress = transfer_progress();
+    progress.bytes_total_estimated = 0;
+    sink.on_backup_run_event(progress);
+
+    const btrfsbackup::config::Json current = btrfsbackup::config::load_json_file(
+        root / "status" / "default" / "current.json"
+    );
+    test_helpers::expect_true("unknown source progress", current.at("sourceProgress") == -1, "source progress should be unknown");
+    test_helpers::expect_true("unknown overall progress", current.at("overallProgress") == -1, "overall progress should be unknown");
+    test_helpers::expect_true("unknown ETA", current.at("etaSeconds") == -1, "ETA should be unknown");
+    test_helpers::expect_true("indeterminate accuracy", current.at("progressAccuracy") == "indeterminate", "progress should be indeterminate");
+
+    fs::remove_all(root);
+}
+
 void test_status_sink_writes_current_and_terminal_history() {
     fs::path root = test_helpers::test_root("backup-run-persistence", "status");
     btrfsbackup::state::RunStatusProjection sink(durable_files(), {
@@ -216,6 +243,7 @@ void test_repository_recovery_required_status_is_actionable() {
 int main() {
     test_status_sink_writes_current_and_terminal_history();
     test_public_transfer_progress_excludes_run_details();
+    test_unknown_stream_size_produces_indeterminate_progress();
     test_hook_failure_status_uses_stable_error_code();
     test_repository_recovery_required_status_is_actionable();
 
