@@ -60,6 +60,11 @@ class WizardConfigurationActivator final : public btrfsbackup::config::IConfigur
             "/etc/systemd/system/btrfs-backup-validate@.service",
             fs::copy_options::overwrite_existing
         );
+        fs::copy_file(
+            rendered_root_ / "systemd" / "btrfs-backup-target@.service",
+            "/etc/systemd/system/btrfs-backup-target@.service",
+            fs::copy_options::overwrite_existing
+        );
         std::error_code error;
         fs::remove("/etc/udev/rules.d/99-btrfs-backup.rules", error);
         (void)run_command({"systemctl", "disable", "btrfs-backup.service"});

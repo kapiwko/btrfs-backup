@@ -30,6 +30,7 @@ set(generated_files
     "btrfs-backup@.service"
     "btrfs-backup-eject@.service"
     "btrfs-backup-validate@.service"
+    "btrfs-backup-target@.service"
     "btrfs-backupd.service"
     "io.github.btrfsbackup.Manager1.service"
 )

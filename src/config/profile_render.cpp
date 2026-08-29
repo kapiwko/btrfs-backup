@@ -75,4 +75,33 @@ std::string render_mount_dependency(const Profile& profile) {
     return result;
 }
 
+std::string render_target_mount_unit(const Profile& profile) {
+    const std::string profile_id{profile.id.value()};
+    return "[Unit]\n"
+           "Description=Encrypted Btrfs backup target for profile " +
+        profile_id +
+        "\n"
+        "Documentation=file:/usr/share/doc/btrfs-backup/README.md\n"
+        "Requires=btrfs-backup-target@" +
+        profile_id +
+        ".service\n"
+        "After=btrfs-backup-target@" +
+        profile_id +
+        ".service\n"
+        "Before=btrfs-backup@" +
+        profile_id +
+        ".service\n"
+        "\n"
+        "[Mount]\n"
+        "What=/dev/mapper/" +
+        profile.target.mapper_name.value() +
+        "\n"
+        "Where=" +
+        profile.target.mount_point.value().string() +
+        "\n"
+        "Type=btrfs\n"
+        "Options=noatime,nodev,nosuid,noexec,nosymfollow,compress=zstd\n"
+        "TimeoutSec=60s\n";
+}
+
 } // namespace btrfsbackup::config
