@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <filesystem>
+
 #include <backup/ports/command_runner.hpp>
 #include <backup/ports/mount_inspector.hpp>
 #include <backup/ports/target_manager.hpp>
@@ -12,7 +14,11 @@ namespace btrfsbackup::platform::linux {
 
 class SystemdTargetManager final : public btrfsbackup::backup::ITargetManager {
   public:
-    SystemdTargetManager(btrfsbackup::backup::IMountInspector& mounts, btrfsbackup::backup::ICommandRunner& commands);
+    SystemdTargetManager(
+        btrfsbackup::backup::IMountInspector& mounts,
+        btrfsbackup::backup::ICommandRunner& commands,
+        std::filesystem::path mapper_root = "/dev/mapper"
+    );
     [[nodiscard]] std::unique_ptr<btrfsbackup::backup::IMountedTargetSession> prepare(
         const btrfsbackup::config::Profile& profile,
         btrfsbackup::backup::TargetMountMode mode
@@ -21,6 +27,7 @@ class SystemdTargetManager final : public btrfsbackup::backup::ITargetManager {
   private:
     btrfsbackup::backup::IMountInspector& mounts_;
     btrfsbackup::backup::ICommandRunner& commands_;
+    std::filesystem::path mapper_root_;
 };
 
 } // namespace btrfsbackup::platform::linux

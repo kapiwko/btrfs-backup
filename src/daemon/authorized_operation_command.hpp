@@ -17,6 +17,15 @@ namespace btrfsbackup::daemon {
 [[nodiscard]] std::vector<std::string> authorized_target_validation_command(
     const AuthorizedOperationContext& context
 );
+[[nodiscard]] std::vector<std::string> authorized_target_validation_status_command(
+    const AuthorizedOperationContext& context
+);
+[[nodiscard]] std::string authorized_operation_environment(
+    const AuthorizedOperationContext& context
+);
+[[nodiscard]] std::string authorized_target_validation_unit(
+    const AuthorizedOperationContext& context
+);
 [[nodiscard]] std::vector<std::string> authorized_target_eject_command(
     const AuthorizedOperationContext& context
 );

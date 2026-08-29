@@ -19,6 +19,7 @@
 #include <cli/runner_command.hpp>
 #include <cli/status_command.hpp>
 #include <cli/target_command.hpp>
+#include <config/configuration_identity.hpp>
 #include <core/errors.hpp>
 #include <core/cancellation.hpp>
 #include <platform/linux/system_configuration_activator.hpp>
@@ -121,6 +122,13 @@ int ctl_tool_main(int argc, char** argv) {
         } else {
             fail("unknown command: " + command);
         }
+    } catch (const CodedValidationError& exc) {
+        fail(
+            exc.what(),
+            exc.error_code == ErrorCode::ConfigurationChanged
+                ? btrfsbackup::config::configuration_changed_exit_code
+                : 2
+        );
     } catch (const ValidationError& exc) {
         fail(exc.what());
     } catch (const std::exception& exc) {

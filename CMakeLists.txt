@@ -82,11 +82,16 @@ configure_systemd_unit(
     data/systemd/btrfs-backup-eject@.service.example
     btrfs-backup-eject@.service
 )
+configure_systemd_unit(
+    data/systemd/btrfs-backup-validate@.service.example
+    btrfs-backup-validate@.service
+)
 
 install(
     FILES
         "${CMAKE_CURRENT_BINARY_DIR}/btrfs-backup@.service"
         "${CMAKE_CURRENT_BINARY_DIR}/btrfs-backup-eject@.service"
+        "${CMAKE_CURRENT_BINARY_DIR}/btrfs-backup-validate@.service"
     DESTINATION "${CMAKE_INSTALL_LIBDIR}/systemd/system"
 )
 if(BUILD_SYSTEM_MANAGER)

@@ -182,6 +182,38 @@ std::string render_eject_service(const std::string& eject_script) {
         "SyslogIdentifier=btrfs-backup-eject\n";
 }
 
+std::string render_validate_service(const std::string& backup_command) {
+    return "[Unit]\n"
+           "Description=Validate Btrfs backup target for authorized operation %i\n"
+           "Documentation=file:/usr/share/doc/btrfs-backup/README.md\n"
+           "ConditionPathExists=/etc/btrfs-backup\n"
+           "After=local-fs.target systemd-udevd.service\n"
+           "\n"
+           "[Service]\n"
+           "Type=oneshot\n"
+           "EnvironmentFile=/run/btrfs-backup-manager/%i.env\n"
+           "ExecStart=" +
+        backup_command + " --profile ${BTRFS_BACKUP_PROFILE_ID} --validate\n"
+                         "User=root\n"
+                         "Group=root\n"
+                         "UMask=0077\n"
+                         "RuntimeDirectory=btrfs-backup\n"
+                         "RuntimeDirectoryMode=0755\n"
+                         "StateDirectory=btrfs-backup\n"
+                         "StateDirectoryMode=0755\n"
+                         "Environment=PATH=/usr/bin\n" +
+        service_hardening +
+        "Nice=10\n"
+        "IOSchedulingClass=best-effort\n"
+        "IOSchedulingPriority=7\n"
+        "TimeoutStartSec=10min\n"
+        "TimeoutStopSec=90s\n"
+        "KillSignal=SIGINT\n"
+        "KillMode=mixed\n"
+        "SendSIGKILL=yes\n"
+        "SyslogIdentifier=btrfs-backup-validate\n";
+}
+
 } // namespace
 
 namespace btrfsbackup::platform::linux {
@@ -198,6 +230,7 @@ void render_installation_files(
     atomic_write(output_dir / "systemd" / "btrfs-backup.service", render_backup_service(profile, options.backup_command), 0644);
     atomic_write(output_dir / "systemd" / "btrfs-backup@.service", render_profile_service(options.backup_command), 0644);
     atomic_write(output_dir / "systemd" / "btrfs-backup-eject@.service", render_eject_service(options.eject_script), 0644);
+    atomic_write(output_dir / "systemd" / "btrfs-backup-validate@.service", render_validate_service(options.backup_command), 0644);
     atomic_write(
         output_dir / "systemd" / ("btrfs-backup@" + std::string(profile.id.value()) + ".service.d") / "target-mount.conf",
         btrfsbackup::config::render_mount_dependency(profile),
