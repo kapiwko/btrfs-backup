@@ -4,6 +4,7 @@
 
 #include <platform/linux/systemd_unit.hpp>
 
+#include <array>
 #include <cctype>
 
 namespace btrfsbackup::platform::linux {
@@ -69,6 +70,36 @@ std::string target_activation_unit_name(std::string_view profile_id) {
         escaped += systemd_unit_plain_char(value) ? std::string(1, character) : systemd_hex_escape(value);
     }
     return "btrfs-backup-target@" + escaped + ".service";
+}
+
+std::optional<std::filesystem::path> locate_systemd_unit_file(
+    std::string_view unit_name,
+    std::span<const std::filesystem::path> unit_roots
+) {
+    const std::filesystem::path name{unit_name};
+    if (name.empty() || name.is_absolute() || name.filename() != name) {
+        return std::nullopt;
+    }
+    for (const std::filesystem::path& root : unit_roots) {
+        const std::filesystem::path candidate = root / name;
+        if (std::filesystem::is_regular_file(candidate)) {
+            return candidate;
+        }
+    }
+    return std::nullopt;
+}
+
+std::optional<std::filesystem::path> locate_systemd_unit_file(
+    std::string_view unit_name
+) {
+    static const std::array<std::filesystem::path, 5> unit_roots = {
+        "/etc/systemd/system",
+        "/run/systemd/system",
+        "/usr/local/lib/systemd/system",
+        "/usr/lib/systemd/system",
+        "/lib/systemd/system",
+    };
+    return locate_systemd_unit_file(unit_name, unit_roots);
 }
 
 } // namespace btrfsbackup::platform::linux

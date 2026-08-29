@@ -166,7 +166,14 @@ void validate_active_installation(const std::string& profile_id) {
     fs::path profile_service_file = "/etc/systemd/system/btrfs-backup@.service";
     fs::path eject_service_file = "/etc/systemd/system/btrfs-backup-eject@.service";
     fs::path validate_service_file = "/etc/systemd/system/btrfs-backup-validate@.service";
-    fs::path target_service_file = "/etc/systemd/system/btrfs-backup-target@.service";
+    const std::optional<fs::path> target_service_file =
+        locate_systemd_unit_file("btrfs-backup-target@.service");
+    if (!target_service_file.has_value()) {
+        throw ValidationError(
+            "missing target systemd template unit in the systemd unit load path: "
+            "btrfs-backup-target@.service"
+        );
+    }
 
     require_file(profile_json, "missing profile JSON");
     if (!fs::is_regular_file(service_file)) {
@@ -174,7 +181,6 @@ void validate_active_installation(const std::string& profile_id) {
     }
     require_file(eject_service_file, "missing eject systemd template unit");
     require_file(validate_service_file, "missing validation systemd template unit");
-    require_file(target_service_file, "missing target systemd template unit");
 
     btrfsbackup::config::ApplicationConfig config = load_application_config();
     btrfsbackup::config::Profile profile = validate_profile_file(profile_json, config.paths().target_mount_root);
@@ -196,7 +202,7 @@ void validate_active_installation(const std::string& profile_id) {
     }
     verify_units.push_back(eject_service_file.string());
     verify_units.push_back(validate_service_file.string());
-    verify_units.push_back(target_service_file.string());
+    verify_units.push_back(target_service_file->string());
     verify_units.push_back(native_mount_unit.string());
     run_checked(verify_units, true);
     run_checked({"udevadm", "verify", udev_file.string()});
