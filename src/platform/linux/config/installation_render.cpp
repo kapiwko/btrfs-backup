@@ -9,6 +9,7 @@
 
 #include <platform/linux/file_io.hpp>
 #include <platform/linux/process.hpp>
+#include <platform/linux/systemd_unit.hpp>
 #include <config/profile_render.hpp>
 
 namespace fs = std::filesystem;
@@ -221,6 +222,49 @@ std::string render_validate_service(const std::string& backup_command) {
         "SyslogIdentifier=btrfs-backup-validate\n";
 }
 
+std::string render_target_service(const std::string& target_command) {
+    return "[Unit]\n"
+           "Description=Activate encrypted backup target for profile %i\n"
+           "Documentation=file:/usr/share/doc/btrfs-backup/README.md\n"
+           "DefaultDependencies=no\n"
+           "After=systemd-udevd.service\n"
+           "Before=umount.target\n"
+           "Conflicts=umount.target\n"
+           "\n"
+           "[Service]\n"
+           "Type=oneshot\n"
+           "RemainAfterExit=yes\n"
+           "ExecStart=" +
+        target_command +
+        " activate --from-service --profile %i\n"
+        "ExecStop=" +
+        target_command +
+        " deactivate --from-service --profile %i\n"
+        "User=root\n"
+        "Group=root\n"
+        "UMask=0077\n"
+        "RuntimeDirectory=btrfs-backup\n"
+        "RuntimeDirectoryMode=0755\n"
+        "Environment=PATH=/usr/bin\n"
+        "NoNewPrivileges=yes\n"
+        "PrivateTmp=yes\n"
+        "ProtectSystem=full\n"
+        "ProtectKernelTunables=yes\n"
+        "ProtectKernelModules=yes\n"
+        "ProtectControlGroups=yes\n"
+        "ProtectHostname=yes\n"
+        "ProtectClock=yes\n"
+        "ProtectProc=invisible\n"
+        "LockPersonality=yes\n"
+        "RestrictRealtime=yes\n"
+        "MemoryDenyWriteExecute=yes\n"
+        "SystemCallArchitectures=native\n"
+        "RestrictAddressFamilies=AF_UNIX AF_NETLINK\n"
+        "TimeoutStartSec=90s\n"
+        "TimeoutStopSec=90s\n"
+        "SyslogIdentifier=btrfs-backup-target\n";
+}
+
 } // namespace
 
 namespace btrfsbackup::platform::linux {
@@ -231,6 +275,10 @@ std::string default_backup_command() {
 
 std::string default_eject_script() {
     return std::string(BTRFSBACKUP_INSTALL_BINDIR) + "/btrfs-backupctl target eject";
+}
+
+std::string default_target_command() {
+    return std::string(BTRFSBACKUP_INSTALL_BINDIR) + "/btrfs-backupctl target";
 }
 
 void render_installation_files(
@@ -246,6 +294,12 @@ void render_installation_files(
     atomic_write(output_dir / "systemd" / "btrfs-backup@.service", render_profile_service(options.backup_command), 0644);
     atomic_write(output_dir / "systemd" / "btrfs-backup-eject@.service", render_eject_service(options.eject_script), 0644);
     atomic_write(output_dir / "systemd" / "btrfs-backup-validate@.service", render_validate_service(options.backup_command), 0644);
+    atomic_write(output_dir / "systemd" / "btrfs-backup-target@.service", render_target_service(options.target_command), 0644);
+    atomic_write(
+        output_dir / "systemd" / btrfsbackup::platform::linux::systemd_mount_unit_name(profile.target.mount_point),
+        btrfsbackup::config::render_target_mount_unit(profile),
+        0644
+    );
     atomic_write(
         output_dir / "systemd" / ("btrfs-backup@" + std::string(profile.id.value()) + ".service.d") / "target-mount.conf",
         btrfsbackup::config::render_mount_dependency(profile),

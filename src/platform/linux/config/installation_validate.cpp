@@ -19,6 +19,7 @@
 #include <platform/linux/config/profile_service.hpp>
 #include <config/model/json_io.hpp>
 #include <platform/linux/process.hpp>
+#include <platform/linux/systemd_unit.hpp>
 #include <config/model/profile.hpp>
 #include <config/model/profile_document.hpp>
 #include <config/profile_render.hpp>
@@ -111,12 +112,14 @@ void validate_rendered_installation(const fs::path& root, const fs::path& target
     fs::path profile_service_file = root / "systemd" / "btrfs-backup@.service";
     fs::path eject_service_file = root / "systemd" / "btrfs-backup-eject@.service";
     fs::path validate_service_file = root / "systemd" / "btrfs-backup-validate@.service";
+    fs::path target_service_file = root / "systemd" / "btrfs-backup-target@.service";
 
     require_file(profile_json, "missing rendered canonical profile JSON");
     require_file(service_file, "missing rendered systemd unit");
     require_file(profile_service_file, "missing rendered systemd template unit");
     require_file(eject_service_file, "missing rendered eject systemd template unit");
     require_file(validate_service_file, "missing rendered validation systemd template unit");
+    require_file(target_service_file, "missing rendered target systemd template unit");
     if (contains_unresolved_placeholder(root)) {
         throw ValidationError("unresolved placeholders remain in rendered files");
     }
@@ -128,6 +131,12 @@ void validate_rendered_installation(const fs::path& root, const fs::path& target
         btrfsbackup::config::render_mount_dependency(profile),
         "missing rendered target mount dependency"
     );
+    fs::path mount_unit = root / "systemd" / systemd_mount_unit_name(profile.target.mount_point);
+    require_exact_text(
+        mount_unit,
+        btrfsbackup::config::render_target_mount_unit(profile),
+        "missing rendered native target mount"
+    );
     fs::path udev_file = root / "udev" / ("99-btrfs-backup-" + std::string(profile.id.value()) + ".rules");
     require_file(udev_file, "missing rendered profile udev rule");
     run_checked(
@@ -138,6 +147,8 @@ void validate_rendered_installation(const fs::path& root, const fs::path& target
             profile_service_file.string(),
             eject_service_file.string(),
             validate_service_file.string(),
+            target_service_file.string(),
+            mount_unit.string(),
         },
         true,
         true
@@ -155,6 +166,7 @@ void validate_active_installation(const std::string& profile_id) {
     fs::path profile_service_file = "/etc/systemd/system/btrfs-backup@.service";
     fs::path eject_service_file = "/etc/systemd/system/btrfs-backup-eject@.service";
     fs::path validate_service_file = "/etc/systemd/system/btrfs-backup-validate@.service";
+    fs::path target_service_file = "/etc/systemd/system/btrfs-backup-target@.service";
 
     require_file(profile_json, "missing profile JSON");
     if (!fs::is_regular_file(service_file)) {
@@ -162,11 +174,18 @@ void validate_active_installation(const std::string& profile_id) {
     }
     require_file(eject_service_file, "missing eject systemd template unit");
     require_file(validate_service_file, "missing validation systemd template unit");
+    require_file(target_service_file, "missing target systemd template unit");
 
     btrfsbackup::config::ApplicationConfig config = load_application_config();
     btrfsbackup::config::Profile profile = validate_profile_file(profile_json, config.paths().target_mount_root);
     fs::path mount_dependency = fs::path("/etc/systemd/system") / ("btrfs-backup@" + std::string(profile.id.value()) + ".service.d") / "target-mount.conf";
     require_exact_text(mount_dependency, btrfsbackup::config::render_mount_dependency(profile), "missing target mount dependency");
+    fs::path native_mount_unit = fs::path("/etc/systemd/system") / systemd_mount_unit_name(profile.target.mount_point);
+    require_exact_text(
+        native_mount_unit,
+        btrfsbackup::config::render_target_mount_unit(profile),
+        "missing native target mount"
+    );
     fs::path udev_file = fs::path("/etc/udev/rules.d") / ("99-btrfs-backup-" + std::string(profile.id.value()) + ".rules");
     if (!fs::is_regular_file(udev_file)) {
         throw ValidationError("missing " + udev_file.string());
@@ -177,6 +196,8 @@ void validate_active_installation(const std::string& profile_id) {
     }
     verify_units.push_back(eject_service_file.string());
     verify_units.push_back(validate_service_file.string());
+    verify_units.push_back(target_service_file.string());
+    verify_units.push_back(native_mount_unit.string());
     run_checked(verify_units, true);
     run_checked({"udevadm", "verify", udev_file.string()});
 

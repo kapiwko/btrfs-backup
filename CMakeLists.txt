@@ -65,6 +65,7 @@ endif()
 
 set(BTRFSBACKUP_BACKUP_COMMAND "${CMAKE_INSTALL_FULL_BINDIR}/btrfs-backupctl runner execute")
 set(BTRFSBACKUP_EJECT_SCRIPT_PATH "${CMAKE_INSTALL_FULL_BINDIR}/btrfs-backupctl target eject")
+set(BTRFSBACKUP_TARGET_COMMAND "${CMAKE_INSTALL_FULL_BINDIR}/btrfs-backupctl target")
 set(BTRFSBACKUP_MANAGER_EXECUTABLE "${CMAKE_INSTALL_FULL_BINDIR}/btrfs-backupd")
 
 configure_file(
@@ -83,6 +84,11 @@ configure_file(
     @ONLY
 )
 configure_file(
+    data/systemd/btrfs-backup-target@.service.example
+    btrfs-backup-target@.service
+    @ONLY
+)
+configure_file(
     data/systemd/btrfs-backupd.service
     btrfs-backupd.service
     @ONLY
@@ -98,6 +104,7 @@ install(
         "${CMAKE_CURRENT_BINARY_DIR}/btrfs-backup@.service"
         "${CMAKE_CURRENT_BINARY_DIR}/btrfs-backup-eject@.service"
         "${CMAKE_CURRENT_BINARY_DIR}/btrfs-backup-validate@.service"
+        "${CMAKE_CURRENT_BINARY_DIR}/btrfs-backup-target@.service"
     DESTINATION "${CMAKE_INSTALL_LIBDIR}/systemd/system"
 )
 if(BUILD_SYSTEM_MANAGER)

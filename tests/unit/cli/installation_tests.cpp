@@ -97,6 +97,21 @@ void test_installation_render_writes_static_files() {
         "backupdisk  UUID=11111111-2222-3333-4444-555555555555  /root/keys/backupdisk.key"
     );
     test_helpers::expect_contains(
+        "installation native mount",
+        read_file(root / "rendered" / "systemd" / "mnt-btrfs\\x2dbackup-laptop.mount"),
+        "Requires=btrfs-backup-target@laptop.service"
+    );
+    test_helpers::expect_contains(
+        "installation native mount security options",
+        read_file(root / "rendered" / "systemd" / "mnt-btrfs\\x2dbackup-laptop.mount"),
+        "Options=noatime,nodev,nosuid,noexec,nosymfollow,compress=zstd"
+    );
+    test_helpers::expect_contains(
+        "installation target activation command",
+        read_file(root / "rendered" / "systemd" / "btrfs-backup-target@.service"),
+        "btrfs-backupctl target activate --from-service --profile %i"
+    );
+    test_helpers::expect_contains(
         "installation service",
         read_file(root / "rendered" / "systemd" / "btrfs-backup.service"),
         "ExecStart=" + backup_command + " --profile laptop"
