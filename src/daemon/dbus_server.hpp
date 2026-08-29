@@ -6,6 +6,7 @@
 
 #include <string>
 
+#include <daemon/manager_audit_log.hpp>
 #include <daemon/manager_service.hpp>
 #include <daemon/operational_control_service.hpp>
 
@@ -18,6 +19,7 @@ inline constexpr const char* manager_interface = "io.github.btrfsbackup.Manager1
 int run_dbus_server(
     ManagerService& service,
     IOperationalControlBackend& operational_backend,
+    IManagerAuditLog& audit_log,
     const std::string& bus_address = {}
 );
 

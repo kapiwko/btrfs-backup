@@ -35,7 +35,7 @@ by systemd and preserving automatic backup when the manager is absent.
   caller-disconnected and manager-restarted cases.
 - [x] Ensure caller disconnect or manager failure never terminates an already
   started runner and never leaves an authorization result reusable.
-- [ ] Emit secret-free audit records containing caller UID, action, profile,
+- [x] Emit secret-free audit records containing caller UID, action, profile,
   result and stable error code.
 
 ## Tests And Documentation
