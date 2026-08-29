@@ -147,6 +147,22 @@ operational controls; backup execution remains a separate systemd runner and
 works without the daemon. Desktop notifications are owned by
 `btrfs-backup-kde`.
 
+## Fast Local Builds
+
+For faster local package iterations, reuse persistent native and KDE build
+trees:
+
+```bash
+./tools/build-release.sh \
+    --target arch \
+    --skip-tests \
+    --build-dir build/release
+```
+
+The KDE tree is stored in `build/release-kde`. New persistent trees use Ninja
+when available, and both trees use ccache when it is installed. Omit
+`--build-dir` for a clean release build compiled from the staged source tree.
+
 ## Reproducibility
 
 Directories, file modes, owners, entry order, and timestamps are normalized with a fixed `SOURCE_DATE_EPOCH`. Rebuilding from the delivered source ZIP should produce identical SHA-256 sums for the tarball, package, and source ZIP.
