@@ -21,12 +21,13 @@ btrfs-backupctl profile export --profile default --output profile.json
 ```text
 /etc/btrfs-backup/profiles/<profile>/profile.json
 /etc/udev/rules.d/99-btrfs-backup-<profile>.rules
+/etc/systemd/system/<escaped-target-path>.mount
 /etc/systemd/system/btrfs-backup@<profile>.service.d/target-mount.conf
 /var/lib/btrfs-backup/public/profiles/<profile>.json
 ```
 
 The systemd drop-in orders the profile's target mount before the sandboxed
-service starts. A save stages and validates all four files, holds the profile
+service starts. A save stages and validates all managed artifacts, holds the profile
 lock while publishing them, reloads systemd and udev, and publishes the public
 profile last. A failure restores the previous files and attempts to reload
 their rules.
@@ -71,6 +72,8 @@ Important fields:
 | `target.luksUuid` | expected UUID of the LUKS container |
 | `target.btrfsUuid` | expected Btrfs filesystem UUID inside LUKS |
 | `target.mapperName` | mapper name under `/dev/mapper` |
+| `target.activation.mode` | `askPassword` or `keyFile` target activation mode |
+| `target.activation.keyFile` | absolute root-only key path, required only for `keyFile` mode |
 | `paths.remoteRoot` | directory for committed snapshots on the target |
 | `paths.incomingRoot` | directory for uncommitted receives |
 | `settings.remoteRetention` | default number of remote snapshots; `0` means unlimited |
@@ -115,7 +118,8 @@ must not be a symbolic link, and must not be writable by group or other users
 with id `laptop` is always mounted at `TARGET_MOUNT_ROOT/laptop`; neither the
 mount point nor its systemd mount unit is stored in profile JSON.
 
-Profile schema version 3 removes `target.mountPoint` and `target.mountUnit`.
+Profile schema version 4 adds structured target activation and retains the
+version 3 removal of `target.mountPoint` and `target.mountUnit`.
 Legacy profiles are accepted only when their stored mount point already equals
 `TARGET_MOUNT_ROOT/profileId`; other profiles must be migrated deliberately so
 the target cannot silently move to a different path.
@@ -219,41 +223,51 @@ btrfs-backupctl profile create \
   --device /dev/disk/by-uuid/<LUKS-UUID> \
   --luks-uuid <LUKS-UUID> \
   --mapper-name backupdisk \
+  --keyfile /root/keys/backupdisk.key \
   --source home home /home /.snapshots/btrfs-backup/home home 30 30
 
 btrfs-backupctl profile render --file ./profile.json --output-dir ./generated-profile
 btrfs-backupctl installation render \
   --file ./profile.json \
-  --output-dir ./generated \
-  --keyfile none
+  --output-dir ./generated
 ```
 
 For manual setup, use `btrfs-backupctl profile wizard --render-only` and review
 the generated files before applying them.
 
-## crypttab
+## Target Activation
 
-The generated fragment looks like:
+The canonical profile contains one of these mode-specific objects:
 
-```text
-backupdisk UUID=<LUKS-UUID> /root/keys/backupdisk.key luks,noauto,nofail,x-systemd.device-timeout=30s
+```json
+{"mode": "askPassword"}
+{"mode": "keyFile", "keyFile": "/root/keys/backupdisk.key"}
 ```
 
-`noauto` prevents opening the device on every boot. The mount unit requires the corresponding `systemd-cryptsetup@...` unit, so opening happens on demand.
+`btrfs-backup-target@<profile>.service` activates the configured LUKS UUID on
+demand. It records ownership in `/run/btrfs-backup/target-activation` and only
+deactivates a mapper owned by that activation. A compatible mapper that was
+already open is validated and preserved.
 
-The keyfile should be owned by root and use mode `0600`. Using `none` may require interactive passphrase entry through systemd ask-password.
+The key file and its parent path must pass the trusted-file checks; use root
+ownership and mode `0600`. `askPassword` delegates prompting to systemd's
+password agent and is not suitable for unattended operation without an agent.
 
-## fstab
+## Migration From 0.3
 
-The generated entry uses `/dev/mapper/<name>`, `noauto`, `nodev`, `nosuid`,
-`noexec`, `nosymfollow`, and a dependency on the cryptsetup unit. The runtime
-rejects a target mount missing any of these security flags. After manually
-merging the fragments, run:
+Version 3.x can import the password field from the exact mapper and LUKS UUID
+entry in an existing crypttab. The first command is a JSON preview; the second
+publishes the migrated profile and generated units transactionally:
 
 ```bash
-sudo systemctl daemon-reload
-sudo systemctl reset-failed btrfs-backup@default.service
+sudo btrfs-backupctl profile migrate-activation --profile default
+sudo btrfs-backupctl profile migrate-activation --profile default --apply
 ```
+
+The migrator accepts only the legacy options emitted by btrfs-backup 0.3 and
+never changes crypttab. Existing fstab and crypttab lines are not required by
+the new units and may remain unused. The compatibility command is scheduled for
+removal in 1.0.
 
 ## udev Matching
 

@@ -51,7 +51,7 @@ Each source must be a Btrfs subvolume. The local snapshot directory must be on t
 ## Arch Package Installation
 
 ```bash
-sudo pacman -U btrfs-backup-0.3.1-1-x86_64.pkg.tar.zst
+sudo pacman -U btrfs-backup-0.3.2-1-x86_64.pkg.tar.zst
 ```
 
 The package installs the systemd template unit used by udev, but it does not
@@ -61,7 +61,7 @@ an explicit user action.
 The optional Plasma status widget is packaged separately:
 
 ```bash
-sudo pacman -U btrfs-backup-kde-0.3.1-1-x86_64.pkg.tar.zst
+sudo pacman -U btrfs-backup-kde-0.3.2-1-x86_64.pkg.tar.zst
 ```
 
 That package installs the plasmoid and the compiled QML backend only. The base
@@ -95,23 +95,35 @@ sudo btrfs-backupctl profile wizard --apply
 /etc/systemd/system/btrfs-backup@.service
 /etc/systemd/system/btrfs-backup-eject@.service
 /etc/systemd/system/btrfs-backup-validate@.service
+/etc/systemd/system/btrfs-backup-target@.service
+/etc/systemd/system/mnt-btrfs\x2dbackup-default.mount
 /etc/systemd/system/btrfs-backup@default.service.d/target-mount.conf
 /etc/udev/rules.d/99-btrfs-backup-default.rules
 ```
 
-The wizard intentionally does not edit `/etc/crypttab` or `/etc/fstab` automatically. Merge the generated fragments into those files, then run:
+The wizard does not edit `/etc/crypttab` or `/etc/fstab`, and no manual entries
+are required. The profile selects either systemd ask-password or a root-only
+key file; the generated target service activates LUKS on demand and the native
+mount unit mounts it with the required security options.
+
+For a profile upgraded from 0.3, preview and apply the legacy crypttab import:
 
 ```bash
-sudo systemctl daemon-reload
-sudo udevadm control --reload-rules
-sudo btrfs-backup --validate
+sudo btrfs-backupctl profile migrate-activation --profile default
+sudo btrfs-backupctl profile migrate-activation --profile default --apply
 ```
 
-If the configuration does not use a keyfile, systemd may ask for the LUKS passphrase through ask-password. Fully unattended operation requires a properly protected keyfile or another non-interactive mechanism supported by crypttab.
+The command reads but never modifies `/etc/crypttab`; old entries may remain
+unused. This transition command is available only in the 3.x line and will be
+removed in 1.0. Fully unattended operation requires a root-owned key file with
+mode `0600`; `askPassword` uses systemd's password agent.
 
 ## Usage
 
-After installation and after merging the generated fragments, do not run `systemctl enable btrfs-backup.service` or `systemctl enable btrfs-backup@default.service`. The units have no `[Install]` section; udev starts the profile instance when the exact configured device appears.
+After installation, do not run `systemctl enable btrfs-backup.service` or
+`systemctl enable btrfs-backup@default.service`. The units have no `[Install]`
+section; udev starts the profile instance when the exact configured device
+appears.
 
 Manual commands:
 
