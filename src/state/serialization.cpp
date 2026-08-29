@@ -60,6 +60,9 @@ SerializedEventData serialized_event_data(const btrfsbackup::backup::BackupRunEv
     } else if (const auto* failed = std::get_if<btrfsbackup::backup::ActionFailed>(&event)) {
         data.error_code = failed->error_code;
         data.message = failed->message;
+    } else if (const auto* failed = std::get_if<btrfsbackup::backup::RunFailed>(&event)) {
+        data.error_code = failed->error_code;
+        data.message = failed->message;
     } else if (const auto* cancelled = std::get_if<btrfsbackup::backup::RunCancelled>(&event)) {
         data.error_code = cancelled->error_code;
         data.message = cancelled->message;
@@ -117,6 +120,8 @@ std::string backup_run_event_kind_name(btrfsbackup::backup::BackupRunEventKind k
         return "source-completed";
     case btrfsbackup::backup::BackupRunEventKind::RunCompleted:
         return "run-completed";
+    case btrfsbackup::backup::BackupRunEventKind::RunFailed:
+        return "run-failed";
     case btrfsbackup::backup::BackupRunEventKind::RunCancelled:
         return "run-cancelled";
     }

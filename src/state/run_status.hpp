@@ -41,6 +41,7 @@ enum class RunPhase {
     CleanupSource,
     SourceCompleted,
     Succeeded,
+    Failed,
     Cancelled,
     Skipped,
     ValidatingTarget,
