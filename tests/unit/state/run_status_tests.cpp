@@ -16,6 +16,8 @@ namespace {
 
 void test_run_state_names_are_stable() {
     test_helpers::expect_eq("running state", btrfsbackup::state::run_state_name(btrfsbackup::state::RunState::Running), "running");
+    test_helpers::expect_eq("validating state", btrfsbackup::state::run_state_name(btrfsbackup::state::RunState::Validating), "validating");
+    test_helpers::expect_eq("validated state", btrfsbackup::state::run_state_name(btrfsbackup::state::RunState::Validated), "validated");
     test_helpers::expect_eq("succeeded state", btrfsbackup::state::run_state_name(btrfsbackup::state::RunState::Succeeded), "succeeded");
     test_helpers::expect_eq("failed state", btrfsbackup::state::run_state_name(btrfsbackup::state::RunState::Failed), "failed");
     test_helpers::expect_eq("cancelled state", btrfsbackup::state::run_state_name(btrfsbackup::state::RunState::Cancelled), "cancelled");
@@ -28,6 +30,7 @@ void test_run_phase_names_are_stable() {
     test_helpers::expect_eq("recovery phase", btrfsbackup::state::run_phase_name(btrfsbackup::state::RunPhase::RecoverPending), "recover-pending");
     test_helpers::expect_eq("success phase", btrfsbackup::state::run_phase_name(btrfsbackup::state::RunPhase::Succeeded), "succeeded");
     test_helpers::expect_eq("validation phase", btrfsbackup::state::run_phase_name(btrfsbackup::state::RunPhase::ValidatingTarget), "validating-target");
+    test_helpers::expect_eq("validated phase", btrfsbackup::state::run_phase_name(btrfsbackup::state::RunPhase::Validated), "validated");
 }
 
 void test_progress_accuracy_names_are_stable() {

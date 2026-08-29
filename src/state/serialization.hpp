@@ -16,6 +16,7 @@ namespace btrfsbackup::state {
 
 std::string backup_run_action_kind_name(btrfsbackup::backup::BackupRunActionKind kind);
 std::string backup_run_event_kind_name(btrfsbackup::backup::BackupRunEventKind kind);
+std::string operation_kind_name(btrfsbackup::backup::OperationKind kind);
 
 btrfsbackup::config::Json build_backup_run_checkpoint_json(const btrfsbackup::backup::BackupRunCheckpoint& checkpoint);
 btrfsbackup::config::Json build_backup_run_event_json(const btrfsbackup::backup::BackupRunEvent& event);

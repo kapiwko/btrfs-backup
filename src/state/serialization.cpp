@@ -14,6 +14,7 @@ namespace {
 
 struct SerializedEventData {
     btrfsbackup::backup::BackupRunEventKind kind;
+    btrfsbackup::backup::OperationKind operation_kind;
     ProfileId profile_id;
     RunId run_id;
     std::optional<SourceId> source_id;
@@ -34,6 +35,7 @@ struct SerializedEventData {
 SerializedEventData serialized_event_data(const btrfsbackup::backup::BackupRunEvent& event) {
     SerializedEventData data{
         .kind = btrfsbackup::backup::backup_run_event_kind(event),
+        .operation_kind = btrfsbackup::backup::backup_run_event_operation_kind(event),
         .profile_id = btrfsbackup::backup::backup_run_event_profile_id(event),
         .run_id = btrfsbackup::backup::backup_run_event_run_id(event),
         .source_id = btrfsbackup::backup::backup_run_event_source_id(event),
@@ -121,6 +123,8 @@ std::string backup_run_event_kind_name(btrfsbackup::backup::BackupRunEventKind k
         return "checkpoint-written";
     case btrfsbackup::backup::BackupRunEventKind::SourceCompleted:
         return "source-completed";
+    case btrfsbackup::backup::BackupRunEventKind::TargetValidationCompleted:
+        return "target-validation-completed";
     case btrfsbackup::backup::BackupRunEventKind::RunCompleted:
         return "run-completed";
     case btrfsbackup::backup::BackupRunEventKind::RunFailed:
@@ -129,6 +133,18 @@ std::string backup_run_event_kind_name(btrfsbackup::backup::BackupRunEventKind k
         return "run-cancelled";
     }
     return "unknown";
+}
+
+std::string operation_kind_name(btrfsbackup::backup::OperationKind kind) {
+    switch (kind) {
+    case btrfsbackup::backup::OperationKind::Backup:
+        return "backup";
+    case btrfsbackup::backup::OperationKind::TargetValidation:
+        return "target-validation";
+    case btrfsbackup::backup::OperationKind::Planning:
+        return "planning";
+    }
+    return "backup";
 }
 
 btrfsbackup::config::Json build_backup_run_checkpoint_json(const btrfsbackup::backup::BackupRunCheckpoint& checkpoint) {
@@ -153,6 +169,7 @@ btrfsbackup::config::Json build_backup_run_event_json(const btrfsbackup::backup:
     return {
         {"schemaVersion", 1},
         {"event", backup_run_event_kind_name(data.kind)},
+        {"operationKind", operation_kind_name(data.operation_kind)},
         {"profileId", std::string(data.profile_id.value())},
         {"runId", std::string(data.run_id.value())},
         {"sourceId", source_id},

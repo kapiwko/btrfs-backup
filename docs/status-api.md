@@ -44,7 +44,7 @@ presentation-safe state and progress:
 }
 ```
 
-`state` reports lifecycle values such as `starting`, `running`, `validated`,
+`state` reports lifecycle values such as `starting`, `running`, `validating`, `validated`,
 `skipped`, `succeeded`, `failed`, `cancelled`, and `exited`. `errorCode` is
 empty for normal states, `backup.failed` for failures, and `backup.cancelled`
 for cancellation. Specific errors are private.

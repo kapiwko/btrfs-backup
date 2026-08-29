@@ -558,6 +558,40 @@ void test_success_uses_ports_and_persists_success() {
     );
 }
 
+void test_validate_only_emits_validation_lifecycle_without_backup_success() {
+    Fixture fixture;
+    const btrfsbackup::backup::BackupExecutionResult result = fixture.service.start({
+        .profile_id = btrfsbackup::ProfileId{"default"},
+        .validate_only = true,
+    });
+
+    test_helpers::expect_true(
+        "validation result",
+        std::holds_alternative<btrfsbackup::backup::BackupExecutionValidated>(result),
+        "validation did not return its dedicated result"
+    );
+    test_helpers::expect_true("validation executor calls", fixture.runs.calls == 0, "validation executed backup actions");
+    test_helpers::expect_true("validation success writes", fixture.state.success_writes == 0, "validation persisted backup success");
+    test_helpers::expect_true(
+        "validation event count",
+        fixture.state.events_received.size() == 2,
+        "validation emitted an unexpected event sequence"
+    );
+    if (fixture.state.events_received.size() == 2) {
+        const auto* started = std::get_if<btrfsbackup::backup::RunStarted>(&fixture.state.events_received.at(0));
+        test_helpers::expect_true(
+            "validation start event",
+            started != nullptr && started->operation_kind == btrfsbackup::backup::OperationKind::TargetValidation,
+            "validation was reported as a backup run"
+        );
+        test_helpers::expect_true(
+            "validation completion event",
+            std::holds_alternative<btrfsbackup::backup::TargetValidationCompleted>(fixture.state.events_received.at(1)),
+            "validation emitted backup completion"
+        );
+    }
+}
+
 void test_cancelled_run_does_not_persist_success() {
     Fixture fixture;
     fixture.runs.result = btrfsbackup::backup::BackupRunExecutionCancelled{2};
@@ -977,6 +1011,7 @@ void test_cancel_rejects_mismatched_run() {
 
 int main() {
     test_success_uses_ports_and_persists_success();
+    test_validate_only_emits_validation_lifecycle_without_backup_success();
     test_cancelled_run_does_not_persist_success();
     test_each_run_gets_a_fresh_cancellation_token();
     test_run_context_releases_resources_after_success();
