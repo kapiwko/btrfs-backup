@@ -2,6 +2,31 @@
 
 ## Unreleased
 
+## 3.0.1 - 2026-08-29
+
+### Backup Lifecycle And Reliability
+
+1. cancellation is registered immediately after acquiring the run lease, so
+   preflight, discovery, and plan construction can be interrupted consistently;
+2. mounted target sessions now close explicitly and propagate mount and
+   cryptsetup cleanup failures into the run result;
+3. target-only validation has a distinct operation kind and terminal event, so
+   it no longer appears as a successful backup in status history;
+4. a completed data backup remains successful when later ledger or status
+   persistence fails, while the runner reports degraded observability;
+5. send and receive diagnostics retain bounded head and tail excerpts plus the
+   discarded-byte count while continuing to drain child process stderr fully.
+
+### Security And Maintenance
+
+1. privileged manager operations write durable, root-only audit records with
+   caller UID, action, profile, result, and stable error code;
+2. the supported-version policy and post-release backlog now reflect the 3.0
+   release line, and the architecture documentation matches the current action
+   executor interface;
+3. GitHub Actions dependencies are updated and pinned to full commit hashes,
+   with Dependabot configured to track future action updates.
+
 ## 3.0.0 - 2026-08-29
 
 ### Upgrade Notes
