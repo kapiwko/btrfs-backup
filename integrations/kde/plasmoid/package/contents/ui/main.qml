@@ -8,6 +8,7 @@ import org.kde.ki18n as KI18n
 import org.kde.kirigami as Kirigami
 import org.kde.plasma.components as PlasmaComponents3
 import org.kde.plasma.core as PlasmaCore
+import org.kde.plasma.extras as PlasmaExtras
 import org.kde.plasma.plasmoid
 import org.btrfsbackup.plasma
 
@@ -264,73 +265,138 @@ PlasmoidItem {
         }
     }
 
-    fullRepresentation: Item {
+    fullRepresentation: PlasmaExtras.Representation {
         implicitWidth: Kirigami.Units.gridUnit * 22
         implicitHeight: Kirigami.Units.gridUnit * 21
+        collapseMarginsHint: true
 
-        ColumnLayout {
-            anchors.fill: parent
-            anchors.margins: Kirigami.Units.largeSpacing
-            spacing: Kirigami.Units.largeSpacing
+        header: PlasmaExtras.PlasmoidHeading {
+            leftPadding: Kirigami.Units.largeSpacing
+            rightPadding: Kirigami.Units.largeSpacing
+            topPadding: Kirigami.Units.smallSpacing
+            bottomPadding: Kirigami.Units.smallSpacing
 
-            RowLayout {
-                Layout.fillWidth: true
+            contentItem: ColumnLayout {
+                spacing: Kirigami.Units.smallSpacing
 
-                Kirigami.Icon {
-                    source: root.failed ? "dialog-error" : "drive-harddisk"
-                    implicitWidth: Kirigami.Units.iconSizes.large
-                    implicitHeight: implicitWidth
-                }
-
-                ColumnLayout {
+                RowLayout {
                     Layout.fillWidth: true
 
-                    Kirigami.Heading {
-                        text: translations.i18n("Btrfs Backups")
-                        level: 2
-                        Layout.fillWidth: true
+                    Kirigami.Icon {
+                        source: root.failed ? "dialog-error" : "drive-harddisk"
+                        implicitWidth: Kirigami.Units.iconSizes.large
+                        implicitHeight: implicitWidth
                     }
-
-                    QQC2.Label {
-                        text: backupStatus.lastError || root.activityText(backupStatus.activity, backupStatus.phase)
-                        wrapMode: Text.WordWrap
-                        Layout.fillWidth: true
-                    }
-                }
-
-                Kirigami.Heading {
-                    visible: root.progress >= 0
-                    text: (root.estimated ? "≈ " : "") + root.progress + "%"
-                    level: 2
-                }
-            }
-
-            QQC2.ProgressBar {
-                Layout.fillWidth: true
-                from: 0
-                to: 100
-                value: Math.max(0, root.progress)
-                indeterminate: root.running && root.progress < 0
-            }
-
-            PlasmaComponents3.ScrollView {
-                id: detailsScroll
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                Layout.minimumHeight: 0
-                contentWidth: availableWidth
-                PlasmaComponents3.ScrollBar.horizontal.policy: PlasmaComponents3.ScrollBar.AlwaysOff
-
-                contentItem: Flickable {
-                    id: detailsFlickable
-                    contentWidth: width
-                    contentHeight: detailsColumn.implicitHeight
-                    boundsBehavior: Flickable.StopAtBounds
 
                     ColumnLayout {
-                        id: detailsColumn
-                        width: detailsFlickable.width
-                        spacing: Kirigami.Units.largeSpacing
+                        Layout.fillWidth: true
+
+                        Kirigami.Heading {
+                            text: translations.i18n("Btrfs Backups")
+                            level: 2
+                            Layout.fillWidth: true
+                        }
+
+                        QQC2.Label {
+                            text: backupStatus.lastError || root.activityText(backupStatus.activity, backupStatus.phase)
+                            wrapMode: Text.WordWrap
+                            Layout.fillWidth: true
+                        }
+                    }
+
+                    Kirigami.Heading {
+                        visible: root.progress >= 0
+                        text: (root.estimated ? "≈ " : "") + root.progress + "%"
+                        level: 2
+                    }
+                }
+
+                QQC2.ProgressBar {
+                    Layout.fillWidth: true
+                    from: 0
+                    to: 100
+                    value: Math.max(0, root.progress)
+                    indeterminate: root.running && root.progress < 0
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: Kirigami.Units.smallSpacing
+
+                    PlasmaComponents3.ToolButton {
+                        text: translations.i18n("Start backup")
+                        display: PlasmaComponents3.AbstractButton.IconOnly
+                        icon.name: "media-playback-start"
+                        enabled: backupStatus.managerConnected && !root.running && !backupStatus.operationPending
+                        onClicked: backupStatus.startBackup()
+                        QQC2.ToolTip.text: text
+                        QQC2.ToolTip.visible: hovered
+                    }
+
+                    PlasmaComponents3.ToolButton {
+                        text: translations.i18n("Cancel")
+                        display: PlasmaComponents3.AbstractButton.IconOnly
+                        icon.name: "process-stop"
+                        visible: root.running
+                        enabled: backupStatus.canCancel && !backupStatus.operationPending
+                        onClicked: backupStatus.cancelBackup()
+                        QQC2.ToolTip.text: text
+                        QQC2.ToolTip.visible: hovered
+                    }
+
+                    Item { Layout.fillWidth: true }
+
+                    PlasmaComponents3.ToolButton {
+                        text: translations.i18n("Validate")
+                        display: PlasmaComponents3.AbstractButton.IconOnly
+                        icon.name: "task-complete"
+                        enabled: backupStatus.managerConnected && !root.running && !backupStatus.operationPending
+                        onClicked: backupStatus.validateTarget()
+                        QQC2.ToolTip.text: text
+                        QQC2.ToolTip.visible: hovered
+                    }
+
+                    PlasmaComponents3.ToolButton {
+                        text: translations.i18n("Eject")
+                        display: PlasmaComponents3.AbstractButton.IconOnly
+                        icon.name: "media-eject"
+                        enabled: backupStatus.managerConnected && !root.running
+                            && (backupStatus.targetMounted || backupStatus.targetUnlocked)
+                            && !backupStatus.operationPending
+                        onClicked: backupStatus.ejectTarget()
+                        QQC2.ToolTip.text: text
+                        QQC2.ToolTip.visible: hovered
+                    }
+
+                    PlasmaComponents3.ToolButton {
+                        text: translations.i18n("Refresh")
+                        display: PlasmaComponents3.AbstractButton.IconOnly
+                        icon.name: "view-refresh"
+                        enabled: !backupStatus.operationPending
+                        onClicked: backupStatus.refreshNow()
+                        QQC2.ToolTip.text: text
+                        QQC2.ToolTip.visible: hovered
+                    }
+                }
+            }
+        }
+
+        contentItem: PlasmaComponents3.ScrollView {
+            contentWidth: availableWidth
+            PlasmaComponents3.ScrollBar.horizontal.policy: PlasmaComponents3.ScrollBar.AlwaysOff
+
+            contentItem: Flickable {
+                id: detailsFlickable
+                contentWidth: width
+                contentHeight: detailsColumn.implicitHeight + Kirigami.Units.largeSpacing * 2
+                boundsBehavior: Flickable.StopAtBounds
+
+                ColumnLayout {
+                    id: detailsColumn
+                    x: Kirigami.Units.largeSpacing
+                    y: Kirigami.Units.largeSpacing
+                    width: detailsFlickable.width - Kirigami.Units.largeSpacing * 2
+                    spacing: Kirigami.Units.largeSpacing
 
             GridLayout {
                 Layout.fillWidth: true
@@ -458,57 +524,9 @@ PlasmoidItem {
                     }
                     }
                 }
-            }
-                }
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-
-                QQC2.Button {
-                    text: translations.i18n("Start backup")
-                    icon.name: "media-playback-start"
-                    enabled: backupStatus.managerConnected && !root.running && !backupStatus.operationPending
-                    onClicked: backupStatus.startBackup()
-                }
-
-                QQC2.ToolButton {
-                    icon.name: "process-stop"
-                    visible: root.running
-                    enabled: backupStatus.canCancel && !backupStatus.operationPending
-                    onClicked: backupStatus.cancelBackup()
-                    QQC2.ToolTip.text: translations.i18n("Cancel")
-                    QQC2.ToolTip.visible: hovered
-                }
-
-                QQC2.ToolButton {
-                    icon.name: "task-complete"
-                    enabled: backupStatus.managerConnected && !root.running && !backupStatus.operationPending
-                    onClicked: backupStatus.validateTarget()
-                    QQC2.ToolTip.text: translations.i18n("Validate")
-                    QQC2.ToolTip.visible: hovered
-                }
-
-                QQC2.ToolButton {
-                    icon.name: "media-eject"
-                    enabled: backupStatus.managerConnected && !root.running
-                        && (backupStatus.targetMounted || backupStatus.targetUnlocked)
-                        && !backupStatus.operationPending
-                    onClicked: backupStatus.ejectTarget()
-                    QQC2.ToolTip.text: translations.i18n("Eject")
-                    QQC2.ToolTip.visible: hovered
-                }
-
-                Item { Layout.fillWidth: true }
-
-                QQC2.ToolButton {
-                    icon.name: "view-refresh"
-                    enabled: !backupStatus.operationPending
-                    onClicked: backupStatus.refreshNow()
-                    QQC2.ToolTip.text: translations.i18n("Refresh")
-                    QQC2.ToolTip.visible: hovered
                 }
             }
         }
+
     }
 }
