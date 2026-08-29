@@ -1,8 +1,10 @@
 // SPDX-FileCopyrightText: 2026 Kamil Piwowarski <kapiwko@gmail.com>
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
+
+pragma ComponentBehavior: Bound
+
 import QtQuick
-import QtQuick.Controls as QQC2
 import QtQuick.Layouts
 import org.kde.ki18n as KI18n
 import org.kde.kirigami as Kirigami
@@ -12,47 +14,40 @@ import org.kde.plasma.extras as PlasmaExtras
 import org.kde.plasma.plasmoid
 import org.btrfsbackup.plasma
 
-pragma ComponentBehavior: Bound
-
 PlasmoidItem {
     id: root
+
+    property int relativeTimeTick: 0
+    property int refreshRevision: 0
+    property var profileSummaries: ({})
+    readonly property var primarySummary: {
+        let failedSummary = null
+        const summaries = root.profileSummaries
+        for (const profileId in summaries) {
+            if (summaries[profileId].running)
+                return summaries[profileId]
+            if (summaries[profileId].failed)
+                failedSummary = summaries[profileId]
+        }
+        return failedSummary
+    }
+    readonly property bool running: root.primarySummary?.running ?? false
+    readonly property bool failed: root.primarySummary?.failed ?? false
+    readonly property int progress: root.primarySummary?.progress ?? -1
 
     KI18n.KI18nContext {
         id: translations
         translationDomain: "plasma_applet_org.btrfsbackup.plasmoid"
     }
 
-    property bool running: backupStatus.state === "running" || backupStatus.state === "starting" || backupStatus.state === "validating"
-    property bool failed: backupStatus.state === "failed"
-    property bool estimated: backupStatus.progressAccuracy === "estimated"
-    property int progress: backupStatus.overallProgress
-    property int relativeTimeTick: 0
-    property string badgeIcon: {
-        switch (backupStatus.state) {
-        case "succeeded":
-        case "validated": return "emblem-ok-symbolic"
-        case "failed": return "dialog-error-symbolic"
-        case "cancelled": return "process-stop-symbolic"
-        case "skipped": return "emblem-pause"
-        default: return ""
-        }
-    }
-    property int badgeType: {
-        switch (backupStatus.state) {
-        case "succeeded":
-        case "validated": return Kirigami.Badge.Type.Positive
-        case "failed": return Kirigami.Badge.Type.Error
-        case "cancelled": return Kirigami.Badge.Type.Warning
-        default: return Kirigami.Badge.Type.Information
-        }
-    }
-
     Plasmoid.status: root.running || root.failed ? PlasmaCore.Types.ActiveStatus : PlasmaCore.Types.PassiveStatus
     toolTipMainText: translations.i18n("Btrfs Backups")
-    toolTipSubText: backupStatus.lastError || root.activityText(backupStatus.activity, backupStatus.phase)
+    toolTipSubText: root.primarySummary?.subtitle
+        ?? profileDirectory.lastError
+        ?? translations.i18n("No active backup")
 
     BackupStatusModel {
-        id: backupStatus
+        id: profileDirectory
         profile: "default"
         Component.onCompleted: start()
     }
@@ -64,134 +59,26 @@ PlasmoidItem {
         onTriggered: root.relativeTimeTick++
     }
 
-    function formatEta(value) {
-        var seconds = Number(value || -1)
-        if (seconds < 0)
-            return translations.i18n("Unknown")
-        var minutes = Math.floor(seconds / 60)
-        seconds = Math.floor(seconds % 60)
-        if (minutes > 0)
-            return translations.i18n("%1 min %2 sec", minutes, seconds)
-        return translations.i18n("%1 sec", seconds)
-    }
-
-    function statusText(state) {
-        switch (state) {
-        case "starting":
-        case "running":
-            return translations.i18n("Backup is in progress")
-        case "validating":
-            return translations.i18n("Target validation is in progress")
-        case "validated":
-            return translations.i18n("Validation completed successfully")
-        case "succeeded":
-            return translations.i18n("Backup completed successfully")
-        case "failed":
-            return translations.i18n("Backup failed")
-        case "cancelled":
-            return translations.i18n("Backup cancelled")
-        case "skipped":
-            return translations.i18n("Backup skipped")
-        default:
-            return translations.i18n("No active backup")
+    function updateSummary(profileId, isRunning, isFailed, profileProgress, subtitle) {
+        const summaries = Object.assign({}, root.profileSummaries)
+        summaries[profileId] = {
+            running: isRunning,
+            failed: isFailed,
+            progress: profileProgress,
+            subtitle: subtitle
         }
+        root.profileSummaries = summaries
     }
 
-    function activityText(activity, phase) {
-        if (!root.running)
-            return root.statusText(backupStatus.state)
-        switch (activity) {
-        case "sizing":
-            return translations.i18n("Calculating transfer size")
-        case "transferring":
-            return translations.i18n("Transferring backup data")
-        case "finalizing":
-            return root.phaseText(phase)
-        default:
-            return root.phaseText(phase)
-        }
+    function removeSummary(profileId) {
+        const summaries = Object.assign({}, root.profileSummaries)
+        delete summaries[profileId]
+        root.profileSummaries = summaries
     }
 
-    function phaseText(phase) {
-        switch (phase) {
-        case "run-started": return translations.i18n("Starting backup")
-        case "source-started": return translations.i18n("Preparing backup source")
-        case "recover-pending": return translations.i18n("Recovering interrupted backup")
-        case "cleanup-incoming": return translations.i18n("Cleaning temporary data")
-        case "before-snapshot-hook": return translations.i18n("Running pre-snapshot hooks")
-        case "create-snapshot": return translations.i18n("Creating local snapshot")
-        case "after-snapshot-hook": return translations.i18n("Running post-snapshot hooks")
-        case "send-receive": return translations.i18n("Preparing data transfer")
-        case "sizing": return translations.i18n("Calculating transfer size")
-        case "transferring": return translations.i18n("Transferring backup data")
-        case "verify-received": return translations.i18n("Verifying received snapshot")
-        case "commit-received": return translations.i18n("Committing received snapshot")
-        case "apply-remote-retention": return translations.i18n("Applying target retention")
-        case "apply-local-retention": return translations.i18n("Applying local retention")
-        case "cleanup-source": return translations.i18n("Cleaning backup source")
-        case "source-completed": return translations.i18n("Finalizing backup")
-        case "validating-target": return translations.i18n("Validating backup target")
-        case "validated": return translations.i18n("Target validation completed")
-        default: return translations.i18n("Preparing backup")
-        }
-    }
-
-    function targetStateText(state) {
-        switch (state) {
-        case "mounted": return translations.i18n("Mounted")
-        case "unlocked": return translations.i18n("Unlocked")
-        case "connected": return backupStatus.safeToRemove
-            ? translations.i18n("Safe to remove")
-            : translations.i18n("Connected")
-        case "disconnected": return translations.i18n("Disconnected")
-        default: return translations.i18n("Unknown")
-        }
-    }
-
-    function targetConnectionText() {
-        if (!backupStatus.managerConnected || backupStatus.targetState === "unknown")
-            return translations.i18n("Unknown")
-        return backupStatus.targetConnected
-            ? translations.i18n("Connected")
-            : translations.i18n("Disconnected")
-    }
-
-    function historyText(state) {
-        return root.statusText(state)
-    }
-
-    function operationResultText(operation) {
-        switch (operation) {
-        case "start-backup": return translations.i18n("Backup started")
-        case "cancel-backup": return translations.i18n("Cancellation requested")
-        case "validate-target": return translations.i18n("Validation completed successfully")
-        case "eject-target": return translations.i18n("Target ejected safely")
-        default: return translations.i18n("Operation completed")
-        }
-    }
-
-    function relativeTime(value) {
-        root.relativeTimeTick
-        var timestamp = Date.parse(value)
-        if (isNaN(timestamp))
-            return translations.i18n("Unknown")
-        var seconds = Math.max(0, Math.floor((Date.now() - timestamp) / 1000))
-        if (seconds < 60)
-            return translations.i18n("Just now")
-        var minutes = Math.floor(seconds / 60)
-        if (minutes < 60)
-            return translations.i18np("1 minute ago", "%1 minutes ago", minutes)
-        var hours = Math.floor(minutes / 60)
-        if (hours < 24)
-            return translations.i18np("1 hour ago", "%1 hours ago", hours)
-        var days = Math.floor(hours / 24)
-        if (days < 30)
-            return translations.i18np("1 day ago", "%1 days ago", days)
-        var months = Math.floor(days / 30)
-        if (months < 12)
-            return translations.i18np("1 month ago", "%1 months ago", months)
-        var years = Math.floor(days / 365)
-        return translations.i18np("1 year ago", "%1 years ago", years)
+    function refreshAll() {
+        profileDirectory.refreshNow()
+        root.refreshRevision++
     }
 
     compactRepresentation: MouseArea {
@@ -205,7 +92,7 @@ PlasmoidItem {
             anchors.fill: parent
             anchors.margins: Math.max(1, parent.width * 0.13)
             source: root.failed ? "dialog-error" : "drive-harddisk"
-            opacity: backupStatus.managerConnected ? 1 : 0.65
+            opacity: profileDirectory.managerConnected ? 1 : 0.65
         }
 
         Canvas {
@@ -213,7 +100,7 @@ PlasmoidItem {
             anchors.fill: parent
             visible: root.running && root.progress >= 0
             onPaint: {
-                var context = getContext("2d")
+                const context = getContext("2d")
                 context.clearRect(0, 0, width, height)
                 context.lineWidth = Math.max(2, width * 0.09)
                 context.lineCap = "round"
@@ -223,11 +110,10 @@ PlasmoidItem {
                             -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(100, Math.max(0, root.progress)) / 100)
                 context.stroke()
             }
+
             Connections {
-                target: backupStatus
-                function onStatusChanged() {
-                    compactProgress.requestPaint()
-                }
+                target: root
+                function onProgressChanged() { compactProgress.requestPaint() }
             }
         }
 
@@ -239,7 +125,7 @@ PlasmoidItem {
             Canvas {
                 anchors.fill: parent
                 onPaint: {
-                    var context = getContext("2d")
+                    const context = getContext("2d")
                     context.clearRect(0, 0, width, height)
                     context.lineWidth = Math.max(2, width * 0.09)
                     context.lineCap = "round"
@@ -266,9 +152,9 @@ PlasmoidItem {
             width: Math.max(10, parent.width * 0.46)
             height: width
             z: 2
-            visible: backupStatus.managerConnected && root.badgeIcon.length > 0
-            type: root.badgeType
-            icon.name: root.badgeIcon
+            visible: profileDirectory.managerConnected && root.failed
+            type: Kirigami.Badge.Type.Error
+            icon.name: "dialog-error-symbolic"
             icon.width: Math.max(8, width * 0.62)
             icon.height: icon.width
             padding: Math.max(1, width * 0.1)
@@ -276,178 +162,89 @@ PlasmoidItem {
     }
 
     fullRepresentation: PlasmaExtras.Representation {
-        implicitWidth: Kirigami.Units.gridUnit * 22
-        implicitHeight: Kirigami.Units.gridUnit * 21
+        implicitWidth: Kirigami.Units.gridUnit * 24
+        implicitHeight: Kirigami.Units.gridUnit * 24
+        Layout.minimumWidth: Kirigami.Units.gridUnit * 18
+        Layout.minimumHeight: Kirigami.Units.gridUnit * 18
+        Layout.maximumWidth: Kirigami.Units.gridUnit * 80
+        Layout.maximumHeight: Kirigami.Units.gridUnit * 40
+        focus: true
         collapseMarginsHint: true
 
         header: PlasmaExtras.PlasmoidHeading {
-            leftPadding: Kirigami.Units.largeSpacing
-            rightPadding: Kirigami.Units.largeSpacing
-            topPadding: Kirigami.Units.smallSpacing
-            bottomPadding: Kirigami.Units.smallSpacing
+            leftPadding: Kirigami.Units.smallSpacing
+            rightPadding: Kirigami.Units.smallSpacing
 
-            contentItem: ColumnLayout {
+            contentItem: RowLayout {
                 spacing: Kirigami.Units.smallSpacing
 
-                RowLayout {
+                PlasmaComponents3.Label {
+                    text: translations.i18n("Btrfs Backups")
+                    font.weight: Font.DemiBold
                     Layout.fillWidth: true
-
-                    Kirigami.Icon {
-                        source: root.failed ? "dialog-error" : "drive-harddisk"
-                        implicitWidth: Kirigami.Units.iconSizes.large
-                        implicitHeight: implicitWidth
-                    }
-
-                    ColumnLayout {
-                        Layout.fillWidth: true
-
-                        Kirigami.Heading {
-                            text: translations.i18n("Btrfs Backups")
-                            level: 2
-                            Layout.fillWidth: true
-                        }
-
-                        QQC2.Label {
-                            text: backupStatus.lastError || root.activityText(backupStatus.activity, backupStatus.phase)
-                            wrapMode: Text.WordWrap
-                            Layout.fillWidth: true
-                        }
-                    }
-
-                    Kirigami.Heading {
-                        visible: root.running && root.progress >= 0
-                        text: (root.estimated ? "≈ " : "") + root.progress + "%"
-                        level: 2
-                    }
                 }
 
-                QQC2.ProgressBar {
-                    visible: root.running
-                    Layout.fillWidth: true
-                    from: 0
-                    to: 100
-                    value: Math.max(0, root.progress)
-                    indeterminate: root.running && root.progress < 0
-                }
+                PlasmaComponents3.ToolButton {
+                    id: refreshButton
+                    text: translations.i18n("Refresh")
+                    display: PlasmaComponents3.AbstractButton.IconOnly
+                    icon.name: "view-refresh"
+                    enabled: profileDirectory.managerConnected
+                    onClicked: root.refreshAll()
 
-                ActionToolbar {
-                    Layout.fillWidth: true
-                    managerConnected: backupStatus.managerConnected
-                    targetConnected: backupStatus.targetConnected
-                    running: root.running
-                    operationPending: backupStatus.operationPending
-                    canCancel: backupStatus.canCancel
-                    canEject: backupStatus.targetMounted || backupStatus.targetUnlocked
-                    onStartRequested: backupStatus.startBackup()
-                    onCancelRequested: backupStatus.cancelBackup()
-                    onValidationRequested: backupStatus.validateTarget()
-                    onEjectRequested: backupStatus.ejectTarget()
-                    onRefreshRequested: backupStatus.refreshNow()
+                    PlasmaComponents3.ToolTip { text: refreshButton.text }
                 }
             }
         }
 
-        contentItem: PlasmaComponents3.ScrollView {
-            contentWidth: availableWidth
+        PlasmaComponents3.ScrollView {
+            anchors.fill: parent
+            contentWidth: availableWidth - profilesView.leftMargin - profilesView.rightMargin
             PlasmaComponents3.ScrollBar.horizontal.policy: PlasmaComponents3.ScrollBar.AlwaysOff
 
-            contentItem: Flickable {
-                id: detailsFlickable
-                contentWidth: width
-                contentHeight: detailsColumn.implicitHeight + Kirigami.Units.largeSpacing * 2
+            contentItem: ListView {
+                id: profilesView
+                model: profileDirectory.profiles
+                clip: true
+                currentIndex: -1
                 boundsBehavior: Flickable.StopAtBounds
+                spacing: Kirigami.Units.smallSpacing
+                leftMargin: Kirigami.Units.largeSpacing
+                rightMargin: Kirigami.Units.largeSpacing
+                topMargin: Kirigami.Units.largeSpacing
+                bottomMargin: Kirigami.Units.largeSpacing
+                cacheBuffer: 1000
+                highlight: PlasmaExtras.Highlight {}
+                highlightMoveDuration: Kirigami.Units.shortDuration
+                highlightResizeDuration: Kirigami.Units.shortDuration
 
-                ColumnLayout {
-                    id: detailsColumn
-                    x: Kirigami.Units.largeSpacing
-                    y: Kirigami.Units.largeSpacing
-                    width: detailsFlickable.width - Kirigami.Units.largeSpacing * 2
-                    spacing: Kirigami.Units.largeSpacing
-
-            TargetOverview {
-                Layout.fillWidth: true
-                profiles: backupStatus.profiles
-                currentProfile: backupStatus.profile
-                targetName: backupStatus.targetName
-                connectionText: root.targetConnectionText()
-                targetStateText: root.targetStateText(backupStatus.targetState)
-                managerConnected: backupStatus.managerConnected
-                targetStateKnown: backupStatus.targetState !== "unknown"
-                targetConnected: backupStatus.targetConnected
-                operationPending: backupStatus.operationPending
-                onProfileSelected: profileId => backupStatus.profile = profileId
-            }
-
-            RunDetails {
-                Layout.fillWidth: true
-                running: root.running
-                activityText: root.activityText(backupStatus.activity, backupStatus.phase)
-                sourceName: backupStatus.currentSourceName || translations.i18n("Unknown")
-                progressText: root.progress >= 0
-                    ? (root.estimated ? "≈ " : "") + root.progress + "%"
-                    : translations.i18n("Unknown")
-                etaText: root.formatEta(backupStatus.etaSeconds)
-                speedBps: backupStatus.speedBps
-            }
-
-            Kirigami.InlineMessage {
-                Layout.fillWidth: true
-                visible: backupStatus.errorCode.length > 0
-                type: Kirigami.MessageType.Error
-                text: root.statusText(backupStatus.state)
-            }
-
-            Kirigami.InlineMessage {
-                Layout.fillWidth: true
-                visible: backupStatus.lastOperation.length > 0 && !backupStatus.lastError
-                type: Kirigami.MessageType.Positive
-                text: root.operationResultText(backupStatus.lastOperation)
-            }
-
-            Kirigami.Separator {
-                Layout.fillWidth: true
-                visible: backupStatus.history.length > 0
-            }
-
-            Kirigami.Heading {
-                text: translations.i18n("Recent backups")
-                level: 3
-                visible: backupStatus.history.length > 0
-            }
-
-            Repeater {
-                model: backupStatus.history
-                delegate: RowLayout {
-                    id: historyRow
+                delegate: ProfileItem {
                     required property var modelData
-                    Layout.fillWidth: true
 
-                    Kirigami.Icon {
-                        source: historyRow.modelData.state === "succeeded" ? "emblem-ok-symbolic"
-                            : historyRow.modelData.state === "failed" ? "dialog-error"
-                            : "dialog-information"
-                        implicitWidth: Kirigami.Units.iconSizes.small
-                        implicitHeight: implicitWidth
-                    }
-                    QQC2.Label {
-                        text: root.historyText(historyRow.modelData.state)
-                        Layout.fillWidth: true
-                        elide: Text.ElideRight
-                    }
-                    QQC2.Label {
-                        text: root.relativeTime(historyRow.modelData.finishedAt)
-                        opacity: 0.7
-                        Layout.maximumWidth: Kirigami.Units.gridUnit * 8
-                        elide: Text.ElideRight
-                        QQC2.ToolTip.text: historyRow.modelData.finishedAt
-                        QQC2.ToolTip.visible: historyDateHover.hovered
-                        HoverHandler { id: historyDateHover }
-                    }
-                    }
+                    profileId: modelData.profileId
+                    profileName: modelData.name
+                    targetNameHint: modelData.targetName
+                    relativeTimeTick: root.relativeTimeTick
+                    refreshRevision: root.refreshRevision
+                    onSummaryUpdated: (profileId, isRunning, isFailed, profileProgress, subtitle) =>
+                        root.updateSummary(profileId, isRunning, isFailed, profileProgress, subtitle)
+                    onSummaryRemoved: profileId => root.removeSummary(profileId)
                 }
+
+                Loader {
+                    anchors.centerIn: parent
+                    width: parent.width - Kirigami.Units.gridUnit * 4
+                    active: profilesView.count === 0
+                    asynchronous: true
+                    sourceComponent: PlasmaExtras.PlaceholderMessage {
+                        width: parent.width
+                        iconName: profileDirectory.managerConnected ? "drive-harddisk-symbolic" : "network-disconnect-symbolic"
+                        text: profileDirectory.managerConnected
+                            ? translations.i18n("No backup profiles configured")
+                            : translations.i18n("Backup service unavailable")
+                    }
                 }
             }
         }
-
     }
 }
