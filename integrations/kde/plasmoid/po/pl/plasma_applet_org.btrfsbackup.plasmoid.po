@@ -117,6 +117,15 @@ msgstr "Źródło:"
 msgid "Destination:"
 msgstr "Cel:"
 
+msgid "Backup target"
+msgstr "Cel kopii zapasowej"
+
+msgid "Connect the backup target to run or validate a backup."
+msgstr "Podłącz cel kopii zapasowej, aby uruchomić lub zweryfikować kopię."
+
+msgid "Current activity"
+msgstr "Bieżąca aktywność"
+
 msgid "Connection:"
 msgstr "Połączenie:"
 
