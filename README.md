@@ -114,9 +114,11 @@ sudo btrfs-backupctl profile migrate-activation --profile default --apply
 ```
 
 The command reads but never modifies `/etc/crypttab`; old entries may remain
-unused. This transition command is available only in the 3.x line and will be
-removed in 1.0. Fully unattended operation requires a root-owned key file with
-mode `0600`; `askPassword` uses systemd's password agent.
+unused. The migrated profile uses the target service template installed by the
+package in systemd's unit load path; no copy in `/etc/systemd/system` is
+required. This transition command is available only in the 3.x line and will
+be removed in 1.0. Fully unattended operation requires a root-owned key file
+with mode `0600`; `askPassword` uses systemd's password agent.
 
 ## Usage
 
