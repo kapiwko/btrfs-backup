@@ -9,10 +9,26 @@
 #include <vector>
 
 #include <config/configuration_identity.hpp>
+#include <core/errors.hpp>
 
 namespace btrfsbackup::daemon {
 
 namespace {
+
+std::string environment_value(const std::string& value) {
+    std::string quoted{"\""};
+    for (const char character : value) {
+        if (character == '\n' || character == '\r' || character == '\0') {
+            throw ValidationError("authorized operation environment contains a line break");
+        }
+        if (character == '\\' || character == '"') {
+            quoted.push_back('\\');
+        }
+        quoted.push_back(character);
+    }
+    quoted.push_back('"');
+    return quoted;
+}
 
 std::vector<std::string> transient_command(
     const AuthorizedOperationContext& context,
@@ -77,10 +93,34 @@ std::vector<std::string> authorized_backup_command(const AuthorizedOperationCont
 std::vector<std::string> authorized_target_validation_command(
     const AuthorizedOperationContext& context
 ) {
-    const std::string profile_id(context.profile_id.value());
-    std::vector<std::string> command = transient_command(context, "validate", true);
-    command.insert(command.end(), {"/usr/bin/btrfs-backup", "--profile", profile_id, "--validate", "--no-eject"});
-    return command;
+    return {"systemctl", "start", authorized_target_validation_unit(context)};
+}
+
+std::vector<std::string> authorized_target_validation_status_command(
+    const AuthorizedOperationContext& context
+) {
+    return {
+        "systemctl",
+        "show",
+        "--property=ExecMainStatus",
+        "--value",
+        authorized_target_validation_unit(context),
+    };
+}
+
+std::string authorized_operation_environment(const AuthorizedOperationContext& context) {
+    return std::string("BTRFS_BACKUP_PROFILE_ID=") +
+        environment_value(std::string(context.profile_id.value())) + "\n" +
+        btrfsbackup::config::expected_configuration_generation_environment + "=" +
+        environment_value(context.generation.value()) + "\n" +
+        btrfsbackup::config::expected_configuration_fingerprint_environment + "=" +
+        environment_value(context.fingerprint.value()) + "\n" +
+        btrfsbackup::config::authorized_operation_id_environment + "=" +
+        environment_value(std::string(context.operation_id.value())) + "\n";
+}
+
+std::string authorized_target_validation_unit(const AuthorizedOperationContext& context) {
+    return "btrfs-backup-validate@" + std::string(context.operation_id.value()) + ".service";
 }
 
 std::vector<std::string> authorized_target_eject_command(const AuthorizedOperationContext& context) {

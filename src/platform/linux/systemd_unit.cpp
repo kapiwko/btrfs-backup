@@ -53,4 +53,13 @@ std::string systemd_mount_unit_name(const std::filesystem::path& mount_point) {
     return (escaped.empty() ? "-" : escaped) + ".mount";
 }
 
+std::string systemd_cryptsetup_unit_name(const std::string& mapper_name) {
+    std::string escaped;
+    for (const char character : mapper_name) {
+        const auto value = static_cast<unsigned char>(character);
+        escaped += systemd_unit_plain_char(value) ? std::string(1, character) : systemd_hex_escape(value);
+    }
+    return "systemd-cryptsetup@" + escaped + ".service";
+}
+
 } // namespace btrfsbackup::platform::linux

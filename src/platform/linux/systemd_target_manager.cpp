@@ -5,6 +5,7 @@
 #include <platform/linux/systemd_target_manager.hpp>
 
 #include <memory>
+#include <filesystem>
 #include <string>
 #include <utility>
 
@@ -20,11 +21,13 @@ class SystemdMountedTargetSession final : public btrfsbackup::backup::IMountedTa
     SystemdMountedTargetSession(
         btrfsbackup::backup::ICommandRunner& commands,
         std::string mount_unit,
-        bool mounted_by_this_session
+        bool mounted_by_this_session,
+        std::string crypt_unit_to_restore = {}
     )
         : commands_(commands),
           mount_unit_(std::move(mount_unit)),
-          mounted_by_this_session_(mounted_by_this_session) {
+          mounted_by_this_session_(mounted_by_this_session),
+          crypt_unit_to_restore_(std::move(crypt_unit_to_restore)) {
     }
 
     ~SystemdMountedTargetSession() override {
@@ -32,7 +35,12 @@ class SystemdMountedTargetSession final : public btrfsbackup::backup::IMountedTa
             return;
         }
         try {
-            (void)commands_.run({"systemctl", "stop", mount_unit_});
+            const btrfsbackup::backup::CommandResult unmount = commands_.run(
+                {"systemctl", "stop", mount_unit_}
+            );
+            if (unmount.exit_code == 0 && !crypt_unit_to_restore_.empty()) {
+                (void)commands_.run({"systemctl", "stop", crypt_unit_to_restore_});
+            }
         } catch (...) {
         }
     }
@@ -45,12 +53,17 @@ class SystemdMountedTargetSession final : public btrfsbackup::backup::IMountedTa
     btrfsbackup::backup::ICommandRunner& commands_;
     std::string mount_unit_;
     bool mounted_by_this_session_;
+    std::string crypt_unit_to_restore_;
 };
 
 } // namespace
 
-SystemdTargetManager::SystemdTargetManager(btrfsbackup::backup::IMountInspector& mounts, btrfsbackup::backup::ICommandRunner& commands)
-    : mounts_(mounts), commands_(commands) {
+SystemdTargetManager::SystemdTargetManager(
+    btrfsbackup::backup::IMountInspector& mounts,
+    btrfsbackup::backup::ICommandRunner& commands,
+    std::filesystem::path mapper_root
+)
+    : mounts_(mounts), commands_(commands), mapper_root_(std::move(mapper_root)) {
 }
 
 std::unique_ptr<btrfsbackup::backup::IMountedTargetSession> SystemdTargetManager::prepare(
@@ -64,11 +77,29 @@ std::unique_ptr<btrfsbackup::backup::IMountedTargetSession> SystemdTargetManager
     if (mode == btrfsbackup::backup::TargetMountMode::RequireMounted) {
         return std::make_unique<SystemdMountedTargetSession>(commands_, mount_unit, false);
     }
+    const bool mapper_was_active = std::filesystem::exists(
+        mapper_root_ / profile.target.mapper_name.value()
+    );
     const btrfsbackup::backup::CommandResult result = commands_.run({"systemctl", "start", mount_unit});
     if (result.exit_code != 0) {
+        const btrfsbackup::backup::CommandResult unmount = commands_.run(
+            {"systemctl", "stop", mount_unit}
+        );
+        if (unmount.exit_code == 0 && !mapper_was_active) {
+            (void)commands_.run({
+                "systemctl",
+                "stop",
+                systemd_cryptsetup_unit_name(profile.target.mapper_name.value()),
+            });
+        }
         throw ValidationError("could not start target mount unit " + mount_unit);
     }
-    return std::make_unique<SystemdMountedTargetSession>(commands_, mount_unit, true);
+    return std::make_unique<SystemdMountedTargetSession>(
+        commands_,
+        mount_unit,
+        true,
+        mapper_was_active ? std::string{} : systemd_cryptsetup_unit_name(profile.target.mapper_name.value())
+    );
 }
 
 } // namespace btrfsbackup::platform::linux

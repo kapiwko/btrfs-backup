@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#include <filesystem>
 #include <memory>
 #include <string>
 #include <vector>
@@ -9,8 +10,11 @@
 #include <platform/linux/systemd_target_manager.hpp>
 
 #include "support/test_helpers.hpp"
+#include "support/validation_test_helpers.hpp"
 
 namespace {
+
+namespace fs = std::filesystem;
 
 btrfsbackup::config::Profile profile() {
     btrfsbackup::config::Profile result{
@@ -43,9 +47,17 @@ struct FakeMountInspector final : btrfsbackup::backup::IMountInspector {
 
 struct FakeCommandRunner final : btrfsbackup::backup::ICommandRunner {
     std::vector<std::vector<std::string>> calls;
+    int start_exit_code = 0;
+    int stop_mount_exit_code = 0;
 
     btrfsbackup::backup::CommandResult run(const std::vector<std::string>& argv) override {
         calls.push_back(argv);
+        if (argv == std::vector<std::string>{"systemctl", "start", "mnt-backup.mount"}) {
+            return {.exit_code = start_exit_code};
+        }
+        if (argv == std::vector<std::string>{"systemctl", "stop", "mnt-backup.mount"}) {
+            return {.exit_code = stop_mount_exit_code};
+        }
         return {};
     }
 
@@ -86,8 +98,31 @@ void test_mounted_session_restores_target_state() {
     const std::vector<std::vector<std::string>> expected{
         {"systemctl", "start", "mnt-backup.mount"},
         {"systemctl", "stop", "mnt-backup.mount"},
+        {"systemctl", "stop", "systemd-cryptsetup@backup.service"},
     };
-    test_helpers::expect_true("mounted session commands", commands.calls == expected, "session did not restore the mount unit");
+    test_helpers::expect_true("mounted session commands", commands.calls == expected, "session did not restore the target state");
+}
+
+void test_preexisting_mapper_is_not_stopped() {
+    const fs::path mapper_root = test_helpers::test_root("systemd-target-manager", "active-mapper");
+    fs::create_directories(mapper_root);
+    test_helpers::write_file(mapper_root / "backup", "");
+    FakeMountInspector mounts;
+    FakeCommandRunner commands;
+    btrfsbackup::platform::linux::SystemdTargetManager manager(mounts, commands, mapper_root);
+
+    std::unique_ptr<btrfsbackup::backup::IMountedTargetSession> session = manager.prepare(
+        profile(),
+        btrfsbackup::backup::TargetMountMode::MountIfNeeded
+    );
+    session.reset();
+
+    const std::vector<std::vector<std::string>> expected{
+        {"systemctl", "start", "mnt-backup.mount"},
+        {"systemctl", "stop", "mnt-backup.mount"},
+    };
+    test_helpers::expect_true("existing mapper commands", commands.calls == expected, "session stopped a pre-existing mapper");
+    fs::remove_all(mapper_root);
 }
 
 void test_existing_mount_is_not_stopped() {
@@ -105,11 +140,54 @@ void test_existing_mount_is_not_stopped() {
     test_helpers::expect_true("existing mount commands", commands.calls.empty(), "session changed a pre-existing mount");
 }
 
+void test_failed_mount_start_restores_inactive_mapper() {
+    FakeMountInspector mounts;
+    FakeCommandRunner commands;
+    commands.start_exit_code = 1;
+    btrfsbackup::platform::linux::SystemdTargetManager manager(mounts, commands);
+
+    test_helpers::expect_validation_error(
+        "failed mount start",
+        [&] {
+            (void)manager.prepare(profile(), btrfsbackup::backup::TargetMountMode::MountIfNeeded);
+        },
+        "could not start target mount unit"
+    );
+    const std::vector<std::vector<std::string>> expected{
+        {"systemctl", "start", "mnt-backup.mount"},
+        {"systemctl", "stop", "mnt-backup.mount"},
+        {"systemctl", "stop", "systemd-cryptsetup@backup.service"},
+    };
+    test_helpers::expect_true("failed mount cleanup", commands.calls == expected, "failed mount left target state changed");
+}
+
+void test_failed_unmount_does_not_close_mapper() {
+    FakeMountInspector mounts;
+    FakeCommandRunner commands;
+    commands.stop_mount_exit_code = 1;
+    btrfsbackup::platform::linux::SystemdTargetManager manager(mounts, commands);
+
+    std::unique_ptr<btrfsbackup::backup::IMountedTargetSession> session = manager.prepare(
+        profile(),
+        btrfsbackup::backup::TargetMountMode::MountIfNeeded
+    );
+    session.reset();
+
+    const std::vector<std::vector<std::string>> expected{
+        {"systemctl", "start", "mnt-backup.mount"},
+        {"systemctl", "stop", "mnt-backup.mount"},
+    };
+    test_helpers::expect_true("failed unmount cleanup", commands.calls == expected, "session closed mapper while mount remained active");
+}
+
 } // namespace
 
 int main() {
     test_offline_session_does_not_mount_target();
     test_mounted_session_restores_target_state();
+    test_preexisting_mapper_is_not_stopped();
     test_existing_mount_is_not_stopped();
+    test_failed_mount_start_restores_inactive_mapper();
+    test_failed_unmount_does_not_close_mapper();
     return test_helpers::finish("systemd target manager tests");
 }

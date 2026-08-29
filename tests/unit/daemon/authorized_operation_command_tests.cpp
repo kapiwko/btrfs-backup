@@ -62,16 +62,26 @@ void test_backup_uses_versioned_transient_unit() {
 
 void test_synchronous_target_operations_carry_identity() {
     const std::vector<std::string> validation = btrfsbackup::daemon::authorized_target_validation_command(context());
+    const std::vector<std::string> validation_status = btrfsbackup::daemon::authorized_target_validation_status_command(context());
     const std::vector<std::string> eject = btrfsbackup::daemon::authorized_target_eject_command(context());
 
-    expect_authorized_environment("validation", validation);
     expect_authorized_environment("eject", eject);
-    test_helpers::expect_true("validation waits", contains(validation, "--wait"), "validation does not wait for the process");
     test_helpers::expect_true("eject waits", contains(eject, "--wait"), "eject does not wait for the process");
     test_helpers::expect_true(
         "validation unit",
-        contains(validation, "--unit=btrfs-backup-validate@operation-1.service"),
-        "validation unit is not operation-specific"
+        validation == std::vector<std::string>{"systemctl", "start", "btrfs-backup-validate@operation-1.service"},
+        "validation did not use the dedicated operation-specific unit"
+    );
+    test_helpers::expect_true(
+        "validation status",
+        validation_status == std::vector<std::string>{
+                                 "systemctl",
+                                 "show",
+                                 "--property=ExecMainStatus",
+                                 "--value",
+                                 "btrfs-backup-validate@operation-1.service",
+                             },
+        "validation status did not address the operation-specific unit"
     );
     test_helpers::expect_true(
         "eject unit",
@@ -80,10 +90,27 @@ void test_synchronous_target_operations_carry_identity() {
     );
 }
 
+void test_validation_environment_carries_authorized_context() {
+    const std::string environment = btrfsbackup::daemon::authorized_operation_environment(context());
+    test_helpers::expect_contains("validation profile environment", environment, "BTRFS_BACKUP_PROFILE_ID=\"laptop\"\n");
+    test_helpers::expect_contains(
+        "validation generation environment",
+        environment,
+        "BTRFS_BACKUP_CONFIGURATION_GENERATION=\"generation-1\"\n"
+    );
+    test_helpers::expect_contains(
+        "validation fingerprint environment",
+        environment,
+        "BTRFS_BACKUP_CONFIGURATION_FINGERPRINT=\"fingerprint-1\"\n"
+    );
+    test_helpers::expect_contains("validation operation environment", environment, "BTRFS_BACKUP_OPERATION_ID=\"operation-1\"\n");
+}
+
 } // namespace
 
 int main() {
     test_backup_uses_versioned_transient_unit();
     test_synchronous_target_operations_carry_identity();
+    test_validation_environment_carries_authorized_context();
     return test_helpers::finish("authorized operation command tests");
 }

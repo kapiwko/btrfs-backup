@@ -15,7 +15,7 @@ fi
 UNIT_FILE="$1"
 THRESHOLD="${SYSTEMD_SECURITY_THRESHOLD:-8}"
 TEST_ROOT="$(mktemp -d /tmp/btrfs-backup-systemd-security.XXXXXX)"
-UNIT_NAME=btrfs-backup@.service
+UNIT_NAME="$(basename -- "$UNIT_FILE" .example)"
 STAGED_UNIT="$TEST_ROOT/$UNIT_NAME"
 
 cleanup() {
