@@ -20,7 +20,7 @@ fi
 PKGREL=1
 SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-1787356800}"
 DIST_DIR="$ROOT/dist"
-TEST_MODE=auto
+TEST_MODE=skip
 TARGET=all
 BUILD_DIR=""
 BUILD_JOBS="${BUILD_JOBS:-$(nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)}"
@@ -51,9 +51,9 @@ Usage: tools/build-release.sh [options]
 
 Options:
   --target NAME      Build target: all, source, arch, arch-base, deb, rpm, tar-install, nix, ebuild, or pkgbuild (default: all).
-  --full-tests       Run the complete mocked test suite; requires root.
-  --static-tests     Run only syntax and render validation.
-  --skip-tests       Do not run tests before packaging.
+  --full-tests       Run the complete mocked test suite before packaging; requires root.
+  --static-tests     Run only syntax and render validation before packaging.
+  --skip-tests       Do not run tests before packaging (default).
   --dist-dir PATH    Write artifacts to a different directory.
   --build-dir PATH   Reuse a persistent CMake build directory for native binaries.
   -h, --help         Show this help.
@@ -133,9 +133,6 @@ if [[ "$TARGET" == all || "$TARGET" == deb ]]; then
 fi
 
 case "$TEST_MODE" in
-    auto)
-        if (( EUID == 0 )); then TEST_MODE=full; else TEST_MODE=static; fi
-        ;;
     full)
         (( EUID == 0 )) || { printf '%s\n' 'Full tests require root.' >&2; exit 1; }
         ;;
@@ -146,7 +143,7 @@ esac
 case "$TEST_MODE" in
     full) "$ROOT/tests/run-tests.sh" --full ;;
     static) "$ROOT/tests/run-tests.sh" --static-only ;;
-    skip) printf '%s\n' 'WARNING: tests were skipped.' >&2 ;;
+    skip) printf '%s\n' 'Packaging without running the test suite.' >&2 ;;
 esac
 
 TMP_ROOT="$(mktemp -d /tmp/btrfs-backup-release.XXXXXX)"

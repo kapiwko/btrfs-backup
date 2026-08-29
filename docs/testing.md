@@ -232,7 +232,7 @@ the decision, profile generation/fingerprint races, and run mismatch handling.
 
 ## Release Checks
 
-`tools/build-release.sh --target all` runs tests, creates the source tarball, builds all supported release targets, and writes SHA-256 reports. Package targets that produce installable archives are also smoke-tested where practical. After building the Arch target, also check:
+`tools/build-release.sh --target all` creates the source tarball, builds all supported release targets, and writes SHA-256 reports. It does not repeat the repository test suite by default; use `--static-tests` or `--full-tests` for an explicit combined test-and-package run. Package targets that produce installable archives are also smoke-tested where practical. After building the Arch target, also check:
 
 ```bash
 tar --zstd -tf dist/btrfs-backup-3.0.0-1-x86_64.pkg.tar.zst
