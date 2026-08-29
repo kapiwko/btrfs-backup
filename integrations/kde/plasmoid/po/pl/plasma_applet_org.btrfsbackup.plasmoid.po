@@ -189,8 +189,17 @@ msgstr[0] "1 rok temu"
 msgstr[1] "%1 lata temu"
 msgstr[2] "%1 lat temu"
 
-msgid "Operation accepted"
-msgstr "Operacja została przyjęta"
+msgid "Backup started"
+msgstr "Uruchomiono kopię zapasową"
+
+msgid "Cancellation requested"
+msgstr "Zażądano anulowania"
+
+msgid "Target ejected safely"
+msgstr "Cel kopii zapasowej został bezpiecznie odłączony"
+
+msgid "Operation completed"
+msgstr "Operacja została zakończona"
 
 msgid "Start backup"
 msgstr "Uruchom kopię"
