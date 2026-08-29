@@ -64,17 +64,6 @@ PlasmoidItem {
         onTriggered: root.relativeTimeTick++
     }
 
-    function formatBytes(value) {
-        var amount = Number(value || 0)
-        var units = ["B", "KiB", "MiB", "GiB", "TiB", "PiB"]
-        var index = 0
-        while (amount >= 1024 && index < units.length - 1) {
-            amount /= 1024
-            index++
-        }
-        return (index === 0 ? amount.toFixed(0) : amount.toFixed(1)) + " " + units[index]
-    }
-
     function formatEta(value) {
         var seconds = Number(value || -1)
         if (seconds < 0)
@@ -397,10 +386,8 @@ PlasmoidItem {
                 progressText: root.progress >= 0
                     ? (root.estimated ? "≈ " : "") + root.progress + "%"
                     : translations.i18n("Unknown")
-                speedText: Number(backupStatus.speedBps) > 0
-                    ? translations.i18n("%1/s", root.formatBytes(backupStatus.speedBps))
-                    : translations.i18n("Unknown")
                 etaText: root.formatEta(backupStatus.etaSeconds)
+                speedBps: backupStatus.speedBps
             }
 
             Kirigami.InlineMessage {
