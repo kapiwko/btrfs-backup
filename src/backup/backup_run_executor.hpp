@@ -6,22 +6,19 @@
 
 #include <string>
 
-#include <backup/action_handlers/backup_run_action_handler.hpp>
+#include <backup/backup_action_executor.hpp>
 #include <backup/backup_run_checkpoint_policy.hpp>
 #include <backup/model/backup_run_event.hpp>
 #include <backup/model/backup_run_execution.hpp>
 #include <backup/model/backup_run_plan.hpp>
-#include <backup/transfer/transfer_coordinator.hpp>
 
 namespace btrfsbackup::backup {
 
 class BackupRunExecutor {
   public:
     BackupRunExecutor(
-        IBackupRunActionHandler& action_handler,
-        btrfsbackup::backup::transfer::IAsyncTransferPipeline& transfer_pipeline,
-        IBackupRunCheckpointStore& checkpoints,
-        const ISafeDirectoryRootFactory& safe_directories
+        IBackupActionExecutor& action_executor,
+        IBackupRunCheckpointStore& checkpoints
     );
 
     [[nodiscard]] BackupRunExecutionResult execute(
@@ -31,8 +28,7 @@ class BackupRunExecutor {
     );
 
   private:
-    IBackupRunActionHandler& action_handler_;
-    btrfsbackup::backup::transfer::TransferCoordinator transfer_coordinator_;
+    IBackupActionExecutor& action_executor_;
     BackupRunCheckpointPolicy checkpoint_policy_;
 };
 
