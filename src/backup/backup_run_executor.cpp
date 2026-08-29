@@ -12,9 +12,6 @@
 
 namespace btrfsbackup::backup {
 
-void NullBackupRunEventSink::on_backup_run_event(const BackupRunEvent&) {
-}
-
 namespace {
 
 ErrorCode run_error_code(const std::exception& error) {

@@ -4,8 +4,9 @@
 
 #pragma once
 
-#include <backup/model/backup_run_event.hpp>
 #include <backup/model/backup_run_plan.hpp>
+#include <backup/ports/backup_run_checkpoint_store.hpp>
+#include <backup/ports/backup_run_event_sink.hpp>
 
 namespace btrfsbackup::backup {
 

@@ -19,6 +19,7 @@ target_restricted_include_directories(btrfsbackup-backup-model
         backup/model/backup_execution.hpp
         backup/model/backup_run_action.hpp
         backup/model/backup_run_actions.hpp
+        backup/model/backup_run_checkpoint.hpp
         backup/model/backup_run_event.hpp
         backup/model/backup_run_execution.hpp
         backup/model/backup_run_plan.hpp
@@ -68,6 +69,8 @@ target_restricted_include_directories(btrfsbackup-backup-ports
         backup/ports/backup_discovery.hpp
         backup/ports/backup_plan_builder.hpp
         backup/ports/backup_preflight.hpp
+        backup/ports/backup_run_checkpoint_store.hpp
+        backup/ports/backup_run_event_sink.hpp
         backup/ports/backup_run_action_handler_factory.hpp
         backup/ports/backup_run_factory.hpp
         backup/ports/btrfs_operations.hpp
@@ -93,6 +96,20 @@ target_link_libraries(btrfsbackup-backup-ports
         btrfsbackup-config-domain
         btrfsbackup-core
         btrfsbackup-transfer
+)
+
+add_library(btrfsbackup-backup-testing STATIC
+    testing/null_backup_run_event_sink.cpp
+)
+
+target_compile_features(btrfsbackup-backup-testing PUBLIC cxx_std_20)
+target_restricted_include_directories(btrfsbackup-backup-testing
+    PUBLIC_HEADERS
+        backup/testing/null_backup_run_event_sink.hpp
+)
+target_link_libraries(btrfsbackup-backup-testing
+    PUBLIC
+        btrfsbackup-backup-ports
 )
 
 add_library(btrfsbackup-backup STATIC
@@ -160,5 +177,6 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(btrfsbackup-backup-model PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(btrfsbackup-transfer PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(btrfsbackup-backup-ports PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(btrfsbackup-backup-testing PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(btrfsbackup-backup PRIVATE -Wall -Wextra -Wpedantic)
 endif()
