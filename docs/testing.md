@@ -128,9 +128,11 @@ the mount and loop operations inside a disposable privileged Docker container,
 so host-side `sudo` is not required. Direct execution as root remains available
 for CI environments that already provide an isolated worker. Permission to use
 the Docker daemon and privileged containers is root-equivalent and must not be
-treated as a reduced security boundary. Package compilation runs first in a
-non-privileged build container; the privileged worker receives only the
-finished package through a read-only mount.
+treated as a reduced security boundary. By default package compilation reuses
+the host's persistent `build/integration-package` CMake tree;
+`PACKAGE_BUILDER=docker` selects an unprivileged build container for hosts
+without native build dependencies. In both cases the privileged worker receives
+only the finished package through a read-only mount.
 
 Local runner tests cover the run-bound file cancellation request and verify that
 an active transfer sees a matching request, reports `runner.cancelled`, and
@@ -159,13 +161,15 @@ tests/integration/docker/run-real-btrfs.sh
 ```
 
 This runner accepts the same `PACKAGE_DIR=/path/to/dist` override. Without it,
-the base Arch package is built once in an unprivileged container and mounted
-read-only into the privileged test container.
+the base Arch package is built from the persistent local
+`build/integration-package` tree and mounted read-only into the privileged test
+container. Set `PACKAGE_BUILDER=docker` to use the separate toolchain image
+instead.
 
 The Docker run uses `--privileged` because the test needs loop devices, device
 mapper, mounts, and Btrfs ioctls. It does not read or write the host backup
 configuration. The repository is mounted read-only into the container, the
-package is built under `/tmp`, and all test filesystems live under `/tmp` inside
+package is mounted read-only, and all test filesystems live under `/tmp` inside
 the container.
 
 The test covers:
