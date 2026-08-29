@@ -16,8 +16,16 @@ namespace btrfsbackup::config {
 enum class ProfileArtifactKind {
     UdevRule,
     SystemdMountDependency,
+    NativeTargetMount,
+    ManagedArtifactManifest,
     PrivateProfile,
     PublicProfile,
+    ObsoleteSystemdUnit,
+};
+
+enum class ProfileArtifactOperation {
+    Write,
+    Remove,
 };
 
 struct ProfileArtifactRoots {
@@ -32,6 +40,7 @@ struct ProfileArtifact {
     std::filesystem::path destination;
     std::string content;
     std::filesystem::perms permissions;
+    ProfileArtifactOperation operation = ProfileArtifactOperation::Write;
 };
 
 struct RenderedProfileArtifacts {

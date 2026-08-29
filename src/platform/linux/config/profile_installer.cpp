@@ -6,6 +6,7 @@
 
 #include <exception>
 #include <filesystem>
+#include <set>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -14,6 +15,7 @@
 #include <core/errors.hpp>
 #include <config/model/json_io.hpp>
 #include <config/model/profile_document.hpp>
+#include <config/profile_render.hpp>
 #include <platform/linux/config/profile_configuration_transaction.hpp>
 #include <platform/linux/config/profile_service.hpp>
 #include <platform/linux/file_lock.hpp>
@@ -54,6 +56,59 @@ void record_rollback_error(
     }
 }
 
+void append_obsolete_systemd_units(
+    btrfsbackup::config::RenderedProfileArtifacts& rendered,
+    const btrfsbackup::config::ProfileArtifactRoots& roots
+) {
+    const std::string profile_id{rendered.profile.id.value()};
+    const fs::path manifest_path = roots.etc_root / "profiles" / profile_id / "managed-artifacts.json";
+    std::error_code error;
+    const fs::file_status status = fs::symlink_status(manifest_path, error);
+    if (error || status.type() == fs::file_type::not_found) {
+        return;
+    }
+    if (fs::is_symlink(status) || !fs::is_regular_file(status)) {
+        throw ValidationError("managed artifact manifest is not a regular file: " + manifest_path.string());
+    }
+
+    const btrfsbackup::config::Json manifest = btrfsbackup::config::load_json_file(manifest_path);
+    if (!manifest.is_object() || manifest.size() != 3 || manifest.value("schemaVersion", 0) != 1 ||
+        manifest.value("profileId", "") != profile_id || !manifest.contains("mounts") ||
+        !manifest.at("mounts").is_array()) {
+        throw ValidationError("invalid managed artifact manifest: " + manifest_path.string());
+    }
+
+    std::set<std::string> current_units;
+    for (const btrfsbackup::config::ProfileArtifact& artifact : rendered.artifacts) {
+        if (artifact.kind == btrfsbackup::config::ProfileArtifactKind::NativeTargetMount) {
+            current_units.insert(artifact.destination.filename().string());
+        }
+    }
+    for (const btrfsbackup::config::Json& value : manifest.at("mounts")) {
+        if (!value.is_object() || value.size() != 2 || !value.contains("unit") ||
+            !value.at("unit").is_string() || !value.contains("mountPoint") ||
+            !value.at("mountPoint").is_string()) {
+            throw ValidationError("invalid mount in managed artifact manifest");
+        }
+        const std::string unit = value.at("unit").get<std::string>();
+        const fs::path mount_point = value.at("mountPoint").get<std::string>();
+        if (!mount_point.is_absolute() || mount_point.lexically_normal() != mount_point ||
+            mount_point.filename() != profile_id ||
+            btrfsbackup::config::target_mount_unit_name(mount_point) != unit) {
+            throw ValidationError("unsafe mount in managed artifact manifest");
+        }
+        if (!current_units.contains(unit)) {
+            rendered.artifacts.push_back({
+                .kind = btrfsbackup::config::ProfileArtifactKind::ObsoleteSystemdUnit,
+                .destination = roots.systemd_root / unit,
+                .content = {},
+                .permissions = {},
+                .operation = btrfsbackup::config::ProfileArtifactOperation::Remove,
+            });
+        }
+    }
+}
+
 } // namespace
 
 ProfileInstaller::ProfileInstaller(btrfsbackup::config::ProfileArtifactRenderer& renderer, btrfsbackup::config::IConfigurationActivator& activator)
@@ -61,7 +116,8 @@ ProfileInstaller::ProfileInstaller(btrfsbackup::config::ProfileArtifactRenderer&
 }
 
 void ProfileInstaller::install_profile_transactionally(const btrfsbackup::config::Profile& profile, const btrfsbackup::config::ProfileArtifactRoots& roots) {
-    const btrfsbackup::config::RenderedProfileArtifacts rendered = renderer_.render_profile_artifacts(profile, roots);
+    btrfsbackup::config::RenderedProfileArtifacts rendered = renderer_.render_profile_artifacts(profile, roots);
+    append_obsolete_systemd_units(rendered, roots);
     const std::string installed_id{rendered.profile.id.value()};
     const btrfsbackup::config::ConfigurationGeneration& generation = rendered.profile.configuration_generation;
     btrfsbackup::config::ApplicationConfig application_config = load_application_config(roots.etc_root);

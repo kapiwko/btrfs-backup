@@ -51,6 +51,7 @@ class ProfileConfigurationTransaction {
         std::filesystem::path previous;
         std::string content;
         std::filesystem::perms permissions;
+        btrfsbackup::config::ProfileArtifactOperation operation;
         bool had_previous = false;
         bool published = false;
     };
