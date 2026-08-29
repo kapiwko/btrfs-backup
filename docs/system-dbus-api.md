@@ -88,7 +88,10 @@ Each row has a distinct action identifier so an administrator can delegate one
 operation without implicitly delegating the others. The daemon must authorize
 every call, including calls from the active graphical session.
 
-## Profile And Hook Writes
+## Planned Profile And Hook Writes
+
+The methods in this section are an accepted API design, not part of the
+implemented `Manager1` surface. Their implementation remains roadmap work.
 
 `SaveProfile` must parse and fully validate canonical profile data before it
 requests authorization. System paths are application configuration and are not
@@ -101,11 +104,12 @@ or timeout requires both `io.github.btrfsbackup.save-profile` and
 profile containing hooks. An empty or omitted hook list must not erase existing
 hooks unless the hook-change authorization was granted.
 
-`ChangeHooks` is a separate high-risk method for clients that edit hooks
+`ChangeHooks` will be a separate high-risk method for clients that edit hooks
 directly. It is not an alternative path around `SaveProfile`: both methods use
 the same validation, trusted hook directory restrictions, atomic persistence,
-and audit event generation. Authorization is checked immediately before the
-commit and is bound to the calling D-Bus connection.
+and, once delivered, stable audit event generation. Authorization must be
+checked immediately before the commit and bound to the calling D-Bus
+connection.
 
 `SaveProfile` exposes `configuration.save_failed` when the transaction fails
 and the previous configuration is restored. If any rollback operation fails,
@@ -117,6 +121,9 @@ keeps a mixed installation inactive.
 
 ## Operation Rules
 
+Unless a rule is marked as planned, it describes the implemented operational
+API.
+
 - `GetHistorySanitized` uses bounded pagination and returns stable codes plus
   presentation-safe labels, never the private history document.
 - `ListProfiles` returns the sanitized public profile representation only.
@@ -125,8 +132,8 @@ keeps a mixed installation inactive.
 - `StartBackup`, `CancelBackup`, `EjectTarget`, and `ValidateTarget` re-check the
   selected profile and target after authorization; object paths or identifiers
   cannot stand in for authorization.
-- `PrepareDevice` requires explicit destructive-operation confirmation in
-  addition to polkit authorization and revalidates the selected block device
+- Planned: `PrepareDevice` requires explicit destructive-operation confirmation
+  in addition to polkit authorization and revalidates the selected block device
   immediately before modification.
 - Authorization success is not persisted by the daemon. Only polkit controls
   any permitted caching, and administrative actions request non-keep actions.
@@ -140,9 +147,9 @@ keeps a mixed installation inactive.
   existed before validation. The unit receives the authorized generation and
   fingerprint through a root-only runtime environment file.
 - Mutating methods retain the existing profile and target lock boundaries.
-  Structured, secret-free audit records remain an explicit delivery item in
-  `TODO.md`; normal service diagnostics in journald are not yet the stable audit
-  contract.
+- Planned: structured, secret-free audit records remain an explicit delivery
+  item in `TODO.md`; normal service diagnostics in journald are not yet the
+  stable audit contract.
 
 ## Required Tests
 
@@ -151,5 +158,5 @@ identifiers and caller subjects, caller disappearance during an authorization
 prompt, profile-version races, mismatched cancellation, malformed input and
 manager restart. Inactive-session behavior and cross-action policy delegation
 remain packaging/system integration concerns.
-It must also prove that `SaveProfile` cannot add or alter hooks with only the
-profile-save authorization.
+Planned administrative API tests must also prove that `SaveProfile` cannot add
+or alter hooks with only the profile-save authorization.
