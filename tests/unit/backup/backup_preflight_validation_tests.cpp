@@ -29,7 +29,7 @@ btrfsbackup::config::Profile profile(const fs::path& mount_point = "/mnt/backup"
             btrfsbackup::config::IncomingRoot{(mount_point / ".incoming").string()},
         },
     };
-    result.target.mount_point = mount_point.string();
+    result.target.mount_point = btrfsbackup::config::TargetMountPoint{mount_point};
     return result;
 }
 
@@ -49,8 +49,8 @@ std::vector<btrfsbackup::backup::MountEntry> mounts(const fs::path& mount_point 
 btrfsbackup::config::Profile profile_with_source() {
     btrfsbackup::config::Profile result = profile();
     btrfsbackup::config::ProfileSource source{btrfsbackup::SourceId{"home"}};
-    source.subvolume = "/home/live";
-    source.local_snapshot_dir = "/home/snapshots";
+    source.subvolume = btrfsbackup::config::SourceSubvolumePath{"/home/live"};
+    source.local_snapshot_dir = btrfsbackup::config::LocalSnapshotRoot{"/home/snapshots"};
     result.sources.push_back(std::move(source));
     return result;
 }
@@ -152,7 +152,7 @@ void test_rejects_incoming_root_symlink_escape() {
 
 void test_rejects_local_snapshot_directory_on_another_filesystem() {
     btrfsbackup::config::Profile test_profile = profile_with_source();
-    test_profile.sources.front().local_snapshot_dir = "/snapshots/home";
+    test_profile.sources.front().local_snapshot_dir = btrfsbackup::config::LocalSnapshotRoot{"/snapshots/home"};
     std::vector<btrfsbackup::backup::MountEntry> entries = mounts_with_source();
     entries.push_back({
         .source = "/dev/other",
@@ -172,8 +172,8 @@ void test_rejects_local_snapshot_directory_on_another_filesystem() {
 
 void test_rejects_source_on_backup_target_filesystem() {
     btrfsbackup::config::Profile test_profile = profile_with_source();
-    test_profile.sources.front().subvolume = "/mnt/backup/live";
-    test_profile.sources.front().local_snapshot_dir = "/mnt/backup/local";
+    test_profile.sources.front().subvolume = btrfsbackup::config::SourceSubvolumePath{"/mnt/backup/live"};
+    test_profile.sources.front().local_snapshot_dir = btrfsbackup::config::LocalSnapshotRoot{"/mnt/backup/local"};
 
     test_helpers::expect_validation_error(
         "source on target filesystem",

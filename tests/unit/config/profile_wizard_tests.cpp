@@ -111,7 +111,7 @@ void test_profile_from_wizard_answers() {
 
     test_helpers::expect_eq("wizard profile id", std::string(profile.id.value()), "laptop");
     test_helpers::expect_eq("wizard profile name", profile.name, "Laptop backup");
-    test_helpers::expect_eq("wizard target device", profile.target.device, "/dev/disk/by-uuid/AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE");
+    test_helpers::expect_eq("wizard target device", profile.target.device.value().string(), "/dev/disk/by-uuid/AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE");
     test_helpers::expect_eq(
         "wizard target luks uuid lower",
         profile.target.luks_uuid.value(),
@@ -126,7 +126,7 @@ void test_profile_from_wizard_answers() {
     test_helpers::expect_eq("wizard incoming root", profile.paths.incoming_root.value().string(), "/mnt/btrfs-backup/laptop/.incoming");
     test_helpers::expect_eq("wizard source count", std::to_string(profile.sources.size()), "2");
     test_helpers::expect_eq("wizard first source id", std::string(profile.sources.at(0).id.value()), "root");
-    test_helpers::expect_eq("wizard second source subvolume", profile.sources.at(1).subvolume, "/home");
+    test_helpers::expect_eq("wizard second source subvolume", profile.sources.at(1).subvolume.value().string(), "/home");
     test_helpers::expect_eq("wizard source remote retention", std::to_string(profile.sources.at(0).remote_retention.value()), "45");
     test_helpers::expect_eq("wizard source local retention", std::to_string(profile.sources.at(1).local_retention.value()), "12");
     test_helpers::expect_true("wizard daily limit", !profile.settings.daily_limit, "daily limit should follow answers");

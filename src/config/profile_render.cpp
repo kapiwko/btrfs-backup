@@ -32,7 +32,7 @@ std::string systemd_quote(const std::string& value) {
 std::string render_udev(const Profile& profile) {
     const std::string generation = profile.configuration_generation.empty()
         ? ""
-        : "# Configuration generation: " + profile.configuration_generation + "\n";
+        : "# Configuration generation: " + profile.configuration_generation.value() + "\n";
     if (!profile.enabled) {
         return generation + "# Profile disabled; no automatic activation rule.\n";
     }
@@ -64,13 +64,13 @@ std::string render_udev(const Profile& profile) {
 }
 
 std::string render_mount_requirement(const Profile& profile) {
-    return "RequiresMountsFor=" + systemd_quote(profile.target.mount_point) + "\n";
+    return "RequiresMountsFor=" + systemd_quote(profile.target.mount_point.value().string()) + "\n";
 }
 
 std::string render_mount_dependency(const Profile& profile) {
     std::string result = "[Unit]\n" + render_mount_requirement(profile);
     if (!profile.configuration_generation.empty()) {
-        result += "\n[Service]\nEnvironment=BTRFS_BACKUP_CONFIGURATION_GENERATION=" + profile.configuration_generation + "\n";
+        result += "\n[Service]\nEnvironment=BTRFS_BACKUP_CONFIGURATION_GENERATION=" + profile.configuration_generation.value() + "\n";
     }
     return result;
 }

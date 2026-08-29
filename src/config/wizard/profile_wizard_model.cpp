@@ -31,9 +31,11 @@ Profile profile_from_wizard_answers(const ProfileWizardAnswers& answers) {
     profile.name = answers.profile_name;
     profile.enabled = true;
 
-    profile.target.device = answers.target_device;
+    profile.target.device = TargetDevicePath{answers.target_device};
     profile.target.serial = answers.target_serial;
-    profile.target.mount_point = (std::filesystem::path(answers.target_mount_root) / profile.id.value()).string();
+    profile.target.mount_point = TargetMountPoint{
+        std::filesystem::path(answers.target_mount_root) / profile.id.value()
+    };
 
     std::set<std::string> used_names;
     for (const ProfileWizardSourceAnswers& source_answer : answers.sources) {
@@ -44,8 +46,8 @@ Profile profile_from_wizard_answers(const ProfileWizardAnswers& answers) {
         }
         source.name = source_id;
         source.enabled = true;
-        source.subvolume = source_answer.subvolume;
-        source.local_snapshot_dir = source_answer.local_snapshot_dir;
+        source.subvolume = SourceSubvolumePath{source_answer.subvolume};
+        source.local_snapshot_dir = LocalSnapshotRoot{source_answer.local_snapshot_dir};
         source.remote_retention = RetentionCount{answers.remote_retention};
         source.local_retention = RetentionCount{answers.local_retention};
         profile.sources.push_back(source);

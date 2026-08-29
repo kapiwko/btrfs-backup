@@ -60,20 +60,20 @@ btrfsbackup::config::Profile profile() {
         },
     };
     result.name = "Default backup";
-    result.target.mount_point = "/mnt/backup";
+    result.target.mount_point = btrfsbackup::config::TargetMountPoint{"/mnt/backup"};
     result.settings.incremental_required = true;
     result.settings.keep_failed_local_snapshot = false;
     btrfsbackup::config::ProfileSource root{btrfsbackup::SourceId{"root"}};
     root.name = "System";
-    root.subvolume = "/";
-    root.local_snapshot_dir = "/.snapshots/root";
+    root.subvolume = btrfsbackup::config::SourceSubvolumePath{"/"};
+    root.local_snapshot_dir = btrfsbackup::config::LocalSnapshotRoot{"/.snapshots/root"};
     root.remote_retention = btrfsbackup::config::RetentionCount{2};
     root.local_retention = btrfsbackup::config::RetentionCount{2};
     btrfsbackup::config::ProfileSource home{btrfsbackup::SourceId{"home"}};
     home.name = "Home";
     home.enabled = false;
-    home.subvolume = "/home";
-    home.local_snapshot_dir = "/.snapshots/home";
+    home.subvolume = btrfsbackup::config::SourceSubvolumePath{"/home"};
+    home.local_snapshot_dir = btrfsbackup::config::LocalSnapshotRoot{"/.snapshots/home"};
     home.remote_retention = btrfsbackup::config::RetentionCount{2};
     home.local_retention = btrfsbackup::config::RetentionCount{2};
     result.sources = {std::move(root), std::move(home)};
@@ -172,14 +172,14 @@ void test_inserts_snapshot_hooks_around_snapshot_creation() {
     test_profile.settings.incremental_required = false;
     test_profile.hooks.before_snapshot = {
         btrfsbackup::config::ProfileHookCommand{
-            .program = "/etc/btrfs-backup/hooks.d/before",
+            .program = btrfsbackup::config::HookProgramPath{"/etc/btrfs-backup/hooks.d/before"},
             .arguments = {"root"},
             .timeout = std::chrono::seconds{30},
         },
     };
     test_profile.hooks.after_snapshot = {
         btrfsbackup::config::ProfileHookCommand{
-            .program = "/etc/btrfs-backup/hooks.d/after",
+            .program = btrfsbackup::config::HookProgramPath{"/etc/btrfs-backup/hooks.d/after"},
             .arguments = {"root"},
             .timeout = std::chrono::seconds{60},
         },
@@ -201,7 +201,7 @@ void test_inserts_snapshot_hooks_around_snapshot_creation() {
     const auto& after_hook = std::get<btrfsbackup::backup::RunHookAction>(actions.at(3));
     test_helpers::expect_eq("hook action count", std::to_string(actions.size()), "10");
     test_helpers::expect_eq("before hook action", std::to_string(static_cast<int>(btrfsbackup::backup::backup_run_action_kind(actions.at(1)))), std::to_string(static_cast<int>(btrfsbackup::backup::BackupRunActionKind::BeforeSnapshotHook)));
-    test_helpers::expect_eq("before hook program", before_hook.hook.program, "/etc/btrfs-backup/hooks.d/before");
+    test_helpers::expect_eq("before hook program", before_hook.hook.program.value().string(), "/etc/btrfs-backup/hooks.d/before");
     test_helpers::expect_eq("before hook timeout", std::to_string(before_hook.hook.timeout.count()), "30");
     test_helpers::expect_eq("snapshot after before hook", std::to_string(static_cast<int>(btrfsbackup::backup::backup_run_action_kind(actions.at(2)))), std::to_string(static_cast<int>(btrfsbackup::backup::BackupRunActionKind::CreateSnapshot)));
     test_helpers::expect_eq("after hook action", std::to_string(static_cast<int>(btrfsbackup::backup::backup_run_action_kind(actions.at(3)))), std::to_string(static_cast<int>(btrfsbackup::backup::BackupRunActionKind::AfterSnapshotHook)));
@@ -356,7 +356,7 @@ void test_excludes_recovery_deletions_from_retention() {
 
 void test_rejects_invalid_mount_layout() {
     btrfsbackup::config::Profile test_profile = profile();
-    test_profile.sources.at(0).local_snapshot_dir = "/mnt/backup/local";
+    test_profile.sources.at(0).local_snapshot_dir = btrfsbackup::config::LocalSnapshotRoot{"/mnt/backup/local"};
 
     test_helpers::expect_validation_error("target local dir", [&] { (void)btrfsbackup::backup::build_backup_run_plan(
                                                                         test_profile,

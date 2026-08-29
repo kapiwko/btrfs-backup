@@ -35,7 +35,7 @@ struct FakeProfiles final : btrfsbackup::config::IProfileRepository {
         return {
             .profile = profile,
             .fingerprint = btrfsbackup::config::ConfigurationFingerprint("fingerprint"),
-            .generation = btrfsbackup::config::ConfigurationGeneration(profile.configuration_generation),
+            .generation = profile.configuration_generation,
         };
     }
 };

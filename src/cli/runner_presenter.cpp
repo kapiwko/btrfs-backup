@@ -86,7 +86,7 @@ btrfsbackup::config::Json action_to_json(
     if (const auto* hook_action = std::get_if<btrfsbackup::backup::RunHookAction>(&action)) {
         result["hook"] = {
             {"type", "program"},
-            {"program", hook_action->hook.program},
+            {"program", hook_action->hook.program.value().string()},
             {"arguments", hook_action->hook.arguments},
             {"timeoutSeconds", hook_action->hook.timeout.count()}
         };

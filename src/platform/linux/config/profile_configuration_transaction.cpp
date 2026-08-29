@@ -161,8 +161,8 @@ ProfileConfigurationTransaction::ProfileConfigurationTransaction(const btrfsback
 void ProfileConfigurationTransaction::stage() {
     for (TransactionArtifact& item : artifacts_) {
         validate_destination(item.destination);
-        item.staged = transaction_path(item.destination, "stage", generation_);
-        item.previous = transaction_path(item.destination, "previous", generation_);
+        item.staged = transaction_path(item.destination, "stage", generation_.value());
+        item.previous = transaction_path(item.destination, "previous", generation_.value());
         remove_if_present(item.staged);
         remove_if_present(item.previous);
         atomic_write(item.staged, item.content, static_cast<mode_t>(item.permissions));

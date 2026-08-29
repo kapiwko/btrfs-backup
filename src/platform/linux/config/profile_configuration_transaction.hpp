@@ -59,7 +59,7 @@ class ProfileConfigurationTransaction {
     [[nodiscard]] TransactionArtifact& artifact(btrfsbackup::config::ProfileArtifactKind kind);
     [[nodiscard]] const TransactionArtifact& artifact(btrfsbackup::config::ProfileArtifactKind kind) const;
 
-    std::string generation_;
+    btrfsbackup::config::ConfigurationGeneration generation_;
     std::vector<TransactionArtifact> artifacts_;
 };
 

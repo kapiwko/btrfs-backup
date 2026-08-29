@@ -54,7 +54,7 @@ btrfsbackup::config::LoadedProfile loaded_profile_from_bytes(
             application_paths.target_mount_root
         );
         validate_profile_runtime_policy(profile);
-        const btrfsbackup::config::ConfigurationGeneration generation(profile.configuration_generation);
+        const btrfsbackup::config::ConfigurationGeneration generation = profile.configuration_generation;
         return {
             .profile = std::move(profile),
             .fingerprint = btrfsbackup::config::ConfigurationFingerprint(

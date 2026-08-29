@@ -408,7 +408,9 @@ void test_profile_artifact_renderer() {
     fs::path root = test_root();
     btrfsbackup::config::Profile profile = btrfsbackup::config::profile_from_json(valid_profile());
     const std::string generation = "0123456789abcdef0123456789abcdef";
-    btrfsbackup::config::ProfileArtifactRenderer renderer([&] { return generation; });
+    btrfsbackup::config::ProfileArtifactRenderer renderer([&] {
+        return btrfsbackup::config::ConfigurationGeneration{generation};
+    });
     const fs::path rendered_root = root / "rendered";
     const btrfsbackup::config::RenderedProfileArtifacts rendered = renderer.render_profile_artifacts(
         profile,
@@ -423,7 +425,7 @@ void test_profile_artifact_renderer() {
     expect_true("renderer artifact count", rendered.artifacts.size() == 4, "unexpected artifact count");
     expect_true(
         "renderer deterministic generation",
-        rendered.profile.configuration_generation == generation,
+        rendered.profile.configuration_generation.value() == generation,
         "injected generation was not used"
     );
     const auto artifact = [&rendered](btrfsbackup::config::ProfileArtifactKind kind) -> const btrfsbackup::config::ProfileArtifact& {
@@ -502,7 +504,7 @@ void test_profile_configuration_transaction_publishes_temp_artifacts() {
     const fs::path root = test_root();
     const btrfsbackup::config::Profile profile = btrfsbackup::config::profile_from_json(valid_profile());
     btrfsbackup::config::ProfileArtifactRenderer renderer([] {
-        return "fedcba9876543210fedcba9876543210";
+        return btrfsbackup::config::ConfigurationGeneration{"fedcba9876543210fedcba9876543210"};
     });
     const btrfsbackup::config::RenderedProfileArtifacts rendered = renderer.render_profile_artifacts(
         profile,

@@ -38,13 +38,13 @@ void HookActionHandler::handle(
     const ProfileId& profile_id,
     CancellationToken& cancellation
 ) {
-    if (action.hook.program.empty()) {
+    if (action.hook.program.value().empty()) {
         throw ValidationError("hook program is required");
     }
     if (action.hook.timeout < std::chrono::seconds{1} || action.hook.timeout > std::chrono::hours{24}) {
         throw CodedValidationError(
             hook_error_code(action, false),
-            "hook timeout is outside the supported range: " + action.hook.program
+            "hook timeout is outside the supported range: " + action.hook.program.value().string()
         );
     }
 
@@ -67,20 +67,20 @@ void HookActionHandler::handle(
     } catch (const std::exception& error) {
         throw CodedOperationError(
             hook_error_code(action, false),
-            "hook execution failed: " + action.hook.program + ": " + error.what()
+            "hook execution failed: " + action.hook.program.value().string() + ": " + error.what()
         );
     }
     if (result.cancelled) {
-        throw OperationCancelledError("hook cancelled: " + action.hook.program);
+        throw OperationCancelledError("hook cancelled: " + action.hook.program.value().string());
     }
     if (result.timed_out) {
         throw CodedOperationError(
             hook_error_code(action, true),
-            "hook timed out after " + std::to_string(action.hook.timeout.count()) + " seconds: " + action.hook.program
+            "hook timed out after " + std::to_string(action.hook.timeout.count()) + " seconds: " + action.hook.program.value().string()
         );
     }
     if (result.exit_code != 0) {
-        std::string message = "hook failed with exit code " + std::to_string(result.exit_code) + ": " + action.hook.program;
+        std::string message = "hook failed with exit code " + std::to_string(result.exit_code) + ": " + action.hook.program.value().string();
         throw CodedOperationError(hook_error_code(action, false), message);
     }
 }
