@@ -72,7 +72,12 @@ target_restricted_include_directories(btrfsbackup-config-ports
         config/ports/configuration_activator.hpp
         config/ports/profile_repository.hpp
 )
-target_link_libraries(btrfsbackup-config-ports PUBLIC btrfsbackup-config-domain btrfsbackup-core)
+target_link_libraries(btrfsbackup-config-ports
+    PUBLIC
+        btrfsbackup-config-domain
+    PRIVATE
+        btrfsbackup-core
+)
 
 add_library(btrfsbackup-config STATIC
     application_config.cpp
@@ -147,12 +152,12 @@ target_restricted_include_directories(btrfsbackup-platform-linux-config
 target_link_libraries(btrfsbackup-platform-linux-config
     PUBLIC
         btrfsbackup-config
+        btrfsbackup-config-ports
+    PRIVATE
         btrfsbackup-config-domain
         btrfsbackup-config-json
-        btrfsbackup-config-ports
-        btrfsbackup-core
-    PRIVATE
         btrfsbackup-config-wizard
+        btrfsbackup-core
         btrfsbackup-platform-linux
 )
 

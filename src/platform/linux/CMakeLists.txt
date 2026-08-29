@@ -62,13 +62,13 @@ target_restricted_include_directories(btrfsbackup-platform-linux
 target_link_libraries(btrfsbackup-platform-linux
     PUBLIC
         btrfsbackup-backup-ports
-        btrfsbackup-core
         btrfsbackup-state-persistence-ports
-        btrfsbackup-transfer
         btrfsbackup-config-ports
     PRIVATE
         btrfsbackup-backup-model
         btrfsbackup-config-domain
+        btrfsbackup-core
+        btrfsbackup-transfer
         PkgConfig::BLKID
         PkgConfig::BTRFSUTIL
         PkgConfig::MOUNT
