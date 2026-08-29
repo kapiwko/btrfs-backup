@@ -13,8 +13,8 @@ src/
 │   ├── ports/                # platform-neutral application contracts
 │   ├── action_handlers/      # action dispatcher and focused effect handlers
 │   └── transfer/             # transfer model, events, results and async orchestration
-├── config/                   # profile model, validation, storage, rendering
-│   ├── model/                # profile data, JSON conversion and validation
+├── config/                   # profile domain, JSON adapter, validation and rendering
+│   ├── model/                # typed profile data and validation; JSON files build as config-json
 │   └── wizard/               # interactive profile construction
 ├── state/                    # status, checkpoints, fingerprints, history reads
 ├── platform/linux/           # explicitly Linux-specific system integration
@@ -174,8 +174,10 @@ JSON or filesystem implementations.
   incremental-parent selection,
   transfer model and orchestration, snapshot commit, retention and recovery,
   target operations, and backup use cases.
-- `config` owns the canonical profile JSON model, validation, the profile
-  repository and configuration fingerprinting, installation rendering and
+- `config-domain` owns typed profile data and validation without a JSON
+  dependency. The separate `config-json` adapter owns canonical profile parsing,
+  serialization and document conversion. The remaining configuration targets
+  own profile repositories, fingerprinting, installation rendering and
   validation, and the profile wizard.
 - `state` owns configuration fingerprints, JSON checkpoint persistence,
   file-backed current status and history, status history reads, and the public
