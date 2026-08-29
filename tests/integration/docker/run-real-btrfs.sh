@@ -10,6 +10,8 @@ export LC_ALL=C
 
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../.." && pwd)"
 IMAGE_NAME="${IMAGE_NAME:-btrfs-backup-real-test:local}"
+BUILD_IMAGE_NAME="${BUILD_IMAGE_NAME:-btrfs-backup-build-test:local}"
+PACKAGE_BUILDER="${PACKAGE_BUILDER:-local}"
 BUILD_JOBS="${BUILD_JOBS:-$(nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)}"
 CONTAINER_WORKDIR=/work
 CONTAINER_ID=""
@@ -58,19 +60,38 @@ if [[ -n "${PACKAGE_DIR:-}" ]]; then
 else
     PACKAGE_TEMP_ROOT="$(mktemp -d /tmp/btrfs-backup-real-packages.XXXXXX)"
     PACKAGE_ROOT="$PACKAGE_TEMP_ROOT/dist"
-    docker run --rm --network=none \
-        --user "$(id -u):$(id -g)" \
-        --tmpfs "/run:uid=$(id -u),gid=$(id -g),mode=0755" \
-        -e BUILD_JOBS="$BUILD_JOBS" \
-        -e HOME=/tmp \
-        -v "$ROOT:$CONTAINER_WORKDIR:ro" \
-        -v "$PACKAGE_TEMP_ROOT:/artifacts" \
-        -w "$CONTAINER_WORKDIR" \
-        "$IMAGE_NAME" \
-        "$CONTAINER_WORKDIR/tools/build-release.sh" \
-        --target arch-base \
-        --skip-tests \
-        --dist-dir /artifacts/dist
+    case "$PACKAGE_BUILDER" in
+        local)
+            "$ROOT/tools/build-release.sh" \
+                --target arch-base \
+                --skip-tests \
+                --build-dir "$ROOT/build/integration-package" \
+                --dist-dir "$PACKAGE_ROOT"
+            ;;
+        docker)
+            docker build \
+                -t "$BUILD_IMAGE_NAME" \
+                -f "$ROOT/tests/integration/docker/Dockerfile.build" \
+                "$ROOT/tests/integration/docker"
+            docker run --rm --network=none \
+                --user "$(id -u):$(id -g)" \
+                --tmpfs "/run:uid=$(id -u),gid=$(id -g),mode=0755" \
+                -e BUILD_JOBS="$BUILD_JOBS" \
+                -e HOME=/tmp \
+                -v "$ROOT:$CONTAINER_WORKDIR:ro" \
+                -v "$PACKAGE_TEMP_ROOT:/artifacts" \
+                -w "$CONTAINER_WORKDIR" \
+                "$BUILD_IMAGE_NAME" \
+                "$CONTAINER_WORKDIR/tools/build-release.sh" \
+                --target arch-base \
+                --skip-tests \
+                --dist-dir /artifacts/dist
+            ;;
+        *)
+            printf 'Unsupported PACKAGE_BUILDER: %s\n' "$PACKAGE_BUILDER" >&2
+            exit 2
+            ;;
+    esac
 fi
 compgen -G "$PACKAGE_ROOT/btrfs-backup-[0-9]*.pkg.tar.zst" >/dev/null \
     || { printf 'No base Arch package found in %s\n' "$PACKAGE_ROOT" >&2; exit 1; }

@@ -22,6 +22,8 @@ SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-1787356800}"
 DIST_DIR="$ROOT/dist"
 TEST_MODE=auto
 TARGET=all
+BUILD_DIR=""
+BUILD_JOBS="${BUILD_JOBS:-$(nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)}"
 
 HOST_MACHINE="$(uname -m)"
 case "$HOST_MACHINE" in
@@ -53,6 +55,7 @@ Options:
   --static-tests     Run only syntax and render validation.
   --skip-tests       Do not run tests before packaging.
   --dist-dir PATH    Write artifacts to a different directory.
+  --build-dir PATH   Reuse a persistent CMake build directory for native binaries.
   -h, --help         Show this help.
 USAGE
 }
@@ -79,6 +82,11 @@ while (( $# > 0 )); do
         --dist-dir)
             [[ $# -ge 2 ]] || { printf '%s\n' '--dist-dir requires a path.' >&2; exit 2; }
             DIST_DIR="$2"
+            shift 2
+            ;;
+        --build-dir)
+            [[ $# -ge 2 ]] || { printf '%s\n' '--build-dir requires a path.' >&2; exit 2; }
+            BUILD_DIR="$2"
             shift 2
             ;;
         -h|--help)
@@ -146,6 +154,18 @@ cleanup() {
     rm -rf -- "$TMP_ROOT"
 }
 trap cleanup EXIT
+
+if [[ -n "$BUILD_DIR" ]]; then
+    BUILD_DIR="$(realpath -m -- "$BUILD_DIR")"
+    cmake \
+        -S "$ROOT" \
+        -B "$BUILD_DIR" \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DBUILD_TESTING=OFF
+    cmake --build "$BUILD_DIR" \
+        --target btrfs-backup-native btrfs-backupctl btrfs-backupd \
+        --parallel "$BUILD_JOBS"
+fi
 
 DIST_DIR="$(realpath -m -- "$DIST_DIR")"
 case "$DIST_DIR" in
@@ -285,11 +305,16 @@ stage_package_payload() {
     local root="$1"
     local pkgdir="$2"
     local document
+    local binary_dir="$root/build"
 
-    make -C "$root" >/dev/null
-    install -Dm755 "$root/build/btrfs-backup" "$pkgdir/usr/bin/btrfs-backup"
-    install -Dm755 "$root/build/btrfs-backupctl" "$pkgdir/usr/bin/btrfs-backupctl"
-    install -Dm755 "$root/build/btrfs-backupd" "$pkgdir/usr/bin/btrfs-backupd"
+    if [[ -n "$BUILD_DIR" ]]; then
+        binary_dir="$BUILD_DIR"
+    else
+        make -C "$root" >/dev/null
+    fi
+    install -Dm755 "$binary_dir/btrfs-backup" "$pkgdir/usr/bin/btrfs-backup"
+    install -Dm755 "$binary_dir/btrfs-backupctl" "$pkgdir/usr/bin/btrfs-backupctl"
+    install -Dm755 "$binary_dir/btrfs-backupd" "$pkgdir/usr/bin/btrfs-backupd"
     install -d -m0755 "$pkgdir/etc/btrfs-backup/hooks.d"
 
     install -Dm644 "$root/data/examples/profile.example.json" \
@@ -308,22 +333,36 @@ stage_package_payload() {
         "$pkgdir/usr/share/btrfs-backup/examples/systemd/btrfs-backup@.service.example"
     install -Dm644 "$root/data/systemd/btrfs-backup-eject@.service.example" \
         "$pkgdir/usr/share/btrfs-backup/examples/systemd/btrfs-backup-eject@.service.example"
+    install -Dm644 "$root/data/systemd/btrfs-backup-validate@.service.example" \
+        "$pkgdir/usr/share/btrfs-backup/examples/systemd/btrfs-backup-validate@.service.example"
     install -d -m0755 "$pkgdir/usr/lib/systemd/system"
     sed \
-        -e 's#{{BACKUP_COMMAND}}#/usr/bin/btrfs-backupctl runner execute#g' \
-        -e 's#{{EJECT_SCRIPT_PATH}}#/usr/bin/btrfs-backupctl target eject#g' \
+        -e 's#@BTRFSBACKUP_BACKUP_COMMAND@#/usr/bin/btrfs-backupctl runner execute#g' \
+        -e 's#@BTRFSBACKUP_EJECT_SCRIPT_PATH@#/usr/bin/btrfs-backupctl target eject#g' \
         "$root/data/systemd/btrfs-backup@.service.example" \
         > "$pkgdir/usr/lib/systemd/system/btrfs-backup@.service"
     chmod 0644 "$pkgdir/usr/lib/systemd/system/btrfs-backup@.service"
     sed \
-        -e 's#{{EJECT_SCRIPT_PATH}}#/usr/bin/btrfs-backupctl target eject#g' \
+        -e 's#@BTRFSBACKUP_EJECT_SCRIPT_PATH@#/usr/bin/btrfs-backupctl target eject#g' \
         "$root/data/systemd/btrfs-backup-eject@.service.example" \
         > "$pkgdir/usr/lib/systemd/system/btrfs-backup-eject@.service"
     chmod 0644 "$pkgdir/usr/lib/systemd/system/btrfs-backup-eject@.service"
-    install -Dm644 "$root/data/systemd/btrfs-backupd.service" \
-        "$pkgdir/usr/lib/systemd/system/btrfs-backupd.service"
-    install -Dm644 "$root/data/dbus/io.github.btrfsbackup.Manager1.service" \
-        "$pkgdir/usr/share/dbus-1/system-services/io.github.btrfsbackup.Manager1.service"
+    sed \
+        -e 's#@BTRFSBACKUP_BACKUP_COMMAND@#/usr/bin/btrfs-backupctl runner execute#g' \
+        "$root/data/systemd/btrfs-backup-validate@.service.example" \
+        > "$pkgdir/usr/lib/systemd/system/btrfs-backup-validate@.service"
+    chmod 0644 "$pkgdir/usr/lib/systemd/system/btrfs-backup-validate@.service"
+    sed \
+        -e 's#@BTRFSBACKUP_MANAGER_EXECUTABLE@#/usr/bin/btrfs-backupd#g' \
+        "$root/data/systemd/btrfs-backupd.service" \
+        > "$pkgdir/usr/lib/systemd/system/btrfs-backupd.service"
+    chmod 0644 "$pkgdir/usr/lib/systemd/system/btrfs-backupd.service"
+    install -d -m0755 "$pkgdir/usr/share/dbus-1/system-services"
+    sed \
+        -e 's#@BTRFSBACKUP_MANAGER_EXECUTABLE@#/usr/bin/btrfs-backupd#g' \
+        "$root/data/dbus/io.github.btrfsbackup.Manager1.service" \
+        > "$pkgdir/usr/share/dbus-1/system-services/io.github.btrfsbackup.Manager1.service"
+    chmod 0644 "$pkgdir/usr/share/dbus-1/system-services/io.github.btrfsbackup.Manager1.service"
     install -Dm644 "$root/data/dbus/io.github.btrfsbackup.Manager1.conf" \
         "$pkgdir/usr/share/dbus-1/system.d/io.github.btrfsbackup.Manager1.conf"
 
@@ -470,11 +509,11 @@ install -Dm755 build/btrfs-backupctl %{buildroot}%{_bindir}/btrfs-backupctl
 install -Dm755 build/btrfs-backupd %{buildroot}%{_bindir}/btrfs-backupd
 install -d -m0755 %{buildroot}/etc/btrfs-backup/hooks.d
 install -d %{buildroot}/usr/lib/systemd/system
-sed -e 's#{{BACKUP_COMMAND}}#/usr/bin/btrfs-backupctl runner execute#g' \
-    -e 's#{{EJECT_SCRIPT_PATH}}#/usr/bin/btrfs-backupctl target eject#g' \
+  sed -e 's#@BTRFSBACKUP_BACKUP_COMMAND@#/usr/bin/btrfs-backupctl runner execute#g' \
+      -e 's#@BTRFSBACKUP_EJECT_SCRIPT_PATH@#/usr/bin/btrfs-backupctl target eject#g' \
     data/systemd/btrfs-backup@.service.example \
     > %{buildroot}/usr/lib/systemd/system/btrfs-backup@.service
-sed -e 's#{{EJECT_SCRIPT_PATH}}#/usr/bin/btrfs-backupctl target eject#g' \
+  sed -e 's#@BTRFSBACKUP_EJECT_SCRIPT_PATH@#/usr/bin/btrfs-backupctl target eject#g' \
     data/systemd/btrfs-backup-eject@.service.example \
     > %{buildroot}/usr/lib/systemd/system/btrfs-backup-eject@.service
 install -Dm644 data/systemd/btrfs-backupd.service %{buildroot}/usr/lib/systemd/system/btrfs-backupd.service
@@ -685,15 +724,23 @@ package_btrfs-backup() {
   install -Dm755 "\$root/build/btrfs-backupd" "\$pkgdir/usr/bin/btrfs-backupd"
   install -d -m0755 "\$pkgdir/etc/btrfs-backup/hooks.d"
   install -d "\$pkgdir/usr/lib/systemd/system"
-  sed -e 's#{{BACKUP_COMMAND}}#/usr/bin/btrfs-backupctl runner execute#g' \\
-      -e 's#{{EJECT_SCRIPT_PATH}}#/usr/bin/btrfs-backupctl target eject#g' \\
+  sed -e 's#@BTRFSBACKUP_BACKUP_COMMAND@#/usr/bin/btrfs-backupctl runner execute#g' \\
+      -e 's#@BTRFSBACKUP_EJECT_SCRIPT_PATH@#/usr/bin/btrfs-backupctl target eject#g' \\
       "\$root/data/systemd/btrfs-backup@.service.example" \\
       > "\$pkgdir/usr/lib/systemd/system/btrfs-backup@.service"
-  sed -e 's#{{EJECT_SCRIPT_PATH}}#/usr/bin/btrfs-backupctl target eject#g' \\
+  sed -e 's#@BTRFSBACKUP_EJECT_SCRIPT_PATH@#/usr/bin/btrfs-backupctl target eject#g' \\
       "\$root/data/systemd/btrfs-backup-eject@.service.example" \\
       > "\$pkgdir/usr/lib/systemd/system/btrfs-backup-eject@.service"
-  install -Dm644 "\$root/data/systemd/btrfs-backupd.service" "\$pkgdir/usr/lib/systemd/system/btrfs-backupd.service"
-  install -Dm644 "\$root/data/dbus/io.github.btrfsbackup.Manager1.service" "\$pkgdir/usr/share/dbus-1/system-services/io.github.btrfsbackup.Manager1.service"
+  sed -e 's#@BTRFSBACKUP_BACKUP_COMMAND@#/usr/bin/btrfs-backupctl runner execute#g' \\
+      "\$root/data/systemd/btrfs-backup-validate@.service.example" \\
+      > "\$pkgdir/usr/lib/systemd/system/btrfs-backup-validate@.service"
+  sed -e 's#@BTRFSBACKUP_MANAGER_EXECUTABLE@#/usr/bin/btrfs-backupd#g' \\
+      "\$root/data/systemd/btrfs-backupd.service" \\
+      > "\$pkgdir/usr/lib/systemd/system/btrfs-backupd.service"
+  install -d "\$pkgdir/usr/share/dbus-1/system-services"
+  sed -e 's#@BTRFSBACKUP_MANAGER_EXECUTABLE@#/usr/bin/btrfs-backupd#g' \\
+      "\$root/data/dbus/io.github.btrfsbackup.Manager1.service" \\
+      > "\$pkgdir/usr/share/dbus-1/system-services/io.github.btrfsbackup.Manager1.service"
   install -Dm644 "\$root/data/dbus/io.github.btrfsbackup.Manager1.conf" "\$pkgdir/usr/share/dbus-1/system.d/io.github.btrfsbackup.Manager1.conf"
   install -d "\$pkgdir/usr/share/btrfs-backup/examples/config"
   install -d "\$pkgdir/usr/share/btrfs-backup/examples/systemd"
@@ -930,6 +977,7 @@ if [[ "$TARGET" == all || "$TARGET" == arch || "$TARGET" == arch-base ]]; then
     grep -qx 'etc/btrfs-backup/hooks.d/' "$TMP_ROOT/package-files.txt"
     grep -qx 'usr/lib/systemd/system/btrfs-backup@.service' "$TMP_ROOT/package-files.txt"
     grep -qx 'usr/lib/systemd/system/btrfs-backup-eject@.service' "$TMP_ROOT/package-files.txt"
+    grep -qx 'usr/lib/systemd/system/btrfs-backup-validate@.service' "$TMP_ROOT/package-files.txt"
     grep -qx 'usr/lib/systemd/system/btrfs-backupd.service' "$TMP_ROOT/package-files.txt"
     grep -qx 'usr/share/dbus-1/system-services/io.github.btrfsbackup.Manager1.service' "$TMP_ROOT/package-files.txt"
     grep -qx 'usr/share/dbus-1/system.d/io.github.btrfsbackup.Manager1.conf' "$TMP_ROOT/package-files.txt"
@@ -947,6 +995,12 @@ if [[ "$TARGET" == all || "$TARGET" == arch || "$TARGET" == arch-base ]]; then
     PACKAGE_AUDIT_ROOT="$TMP_ROOT/package-audit"
     mkdir -p "$PACKAGE_AUDIT_ROOT"
     tar --zstd -xf "$PACKAGE_ARCHIVE" -C "$PACKAGE_AUDIT_ROOT"
+    if grep -R -n -E '@BTRFSBACKUP_[A-Z_]+@|\{\{[A-Z_]+\}\}' \
+        "$PACKAGE_AUDIT_ROOT/usr/lib/systemd/system" \
+        "$PACKAGE_AUDIT_ROOT/usr/share/dbus-1/system-services"; then
+        printf '%s\n' 'Base package contains an unresolved installation template token.' >&2
+        exit 1
+    fi
     while IFS= read -r -d '' packaged_script; do
         if [[ "$(head -c 4 "$packaged_script")" == $'\177ELF' ]]; then
             continue

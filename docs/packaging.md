@@ -15,12 +15,23 @@ build, Plasma metadata, and all release artifact names.
 sudo ./tools/build-release.sh --target arch
 ```
 
+For repeated local integration runs, reuse a persistent native build tree:
+
+```bash
+./tools/build-release.sh \
+  --target arch-base \
+  --skip-tests \
+  --build-dir build/integration-package \
+  --dist-dir /tmp/btrfs-backup-packages
+```
+
 Targets:
 
 | Target | Output |
 |---|---|
 | `source` | source tarball, source ZIP, checksums, build report |
 | `arch` | source tarball, Arch-compatible base and KDE `pkg.tar.zst` packages, source ZIP, checksums, build report |
+| `arch-base` | source tarball, base `pkg.tar.zst` package, source ZIP, checksums, build report |
 | `deb` | source tarball, Debian-compatible `.deb`, source ZIP, checksums, build report |
 | `tar-install` | source tarball, generic install tree tarball, source ZIP, checksums, build report |
 | `rpm` | source tarball, RPM spec packaging archive, source ZIP, checksums, build report |

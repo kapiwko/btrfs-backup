@@ -154,6 +154,7 @@ configure_backup_with_cli() {
     install -Dm0644 "$RENDERED_CONFIG/systemd/btrfs-backup.service" /etc/systemd/system/btrfs-backup.service
     install -Dm0644 "$RENDERED_CONFIG/systemd/btrfs-backup@.service" /etc/systemd/system/btrfs-backup@.service
     install -Dm0644 "$RENDERED_CONFIG/systemd/btrfs-backup-eject@.service" /etc/systemd/system/btrfs-backup-eject@.service
+    install -Dm0644 "$RENDERED_CONFIG/systemd/btrfs-backup-validate@.service" /etc/systemd/system/btrfs-backup-validate@.service
     install -Dm0644 \
         "$RENDERED_CONFIG/systemd/btrfs-backup@default.service.d/target-mount.conf" \
         /etc/systemd/system/btrfs-backup@default.service.d/target-mount.conf
@@ -245,7 +246,7 @@ write_pending_marker() {
         printf 'timestamp=2026-08-24T12:00:00Z\n'
     } > "$marker"
     chmod 0600 "$marker"
-    sync
+    sync -f "$marker"
 }
 
 recover_interrupted_before_receive() {
@@ -305,6 +306,7 @@ manager_independence_test() {
     local hook_dir=/etc/btrfs-backup/hooks.d
     local hook="$hook_dir/manager-independence-test"
     local marker="$TEST_ROOT/manager-independence.marker"
+    local release_fifo="$TEST_ROOT/manager-independence.release"
     local profile_backup="$TEST_ROOT/profile.manager-independence.json.bak"
     local runner_log="$LOG_DIR/manager-independence.log"
     local runner_pid
@@ -314,10 +316,11 @@ manager_independence_test() {
         's#"beforeSnapshot": \[\]#"beforeSnapshot": [{"type":"program","program":"/etc/btrfs-backup/hooks.d/manager-independence-test","arguments":[],"timeoutSeconds":30}]#' \
         "$PROFILE_JSON"
     chmod 0600 "$PROFILE_JSON"
+    mkfifo -m0600 "$release_fifo"
     {
         printf '#!/bin/sh\n'
         printf "printf 'started\\n' > '%s'\n" "$marker"
-        printf '/usr/bin/sleep 5\n'
+        printf "IFS= read -r release < '%s'\n" "$release_fifo"
         printf "printf 'finished\\n' > '%s'\n" "$marker"
     } > "$hook"
     chmod 0755 "$hook"
@@ -346,6 +349,7 @@ manager_independence_test() {
         && fail 'system manager remained active after stop'
     kill -0 "$runner_pid" 2>/dev/null \
         || { cat -- "$runner_log" >&2; fail 'stopping the manager terminated the active runner'; }
+    printf 'continue\n' > "$release_fifo"
     if ! wait "$runner_pid"; then
         cat -- "$runner_log" >&2
         fail 'runner failed after the manager was stopped'
@@ -358,7 +362,7 @@ manager_independence_test() {
     assert_remote_matches_latest_local
 
     cp -a -- "$profile_backup" "$PROFILE_JSON"
-    rm -f -- "$profile_backup" "$hook" "$marker"
+    rm -f -- "$profile_backup" "$hook" "$marker" "$release_fifo"
     pass 'active runner completes after the system manager stops'
 }
 
@@ -448,7 +452,7 @@ sandboxed_systemd_service_test() {
     mount_unit="$(systemd-escape -p --suffix=mount "$TARGET_MOUNT")"
     mount_unit_path="/etc/systemd/system/$mount_unit"
     printf 'systemd sandbox\n' >> "$SOURCE_MOUNT/home/file-a.txt"
-    sync
+    sync -f "$SOURCE_MOUNT"
     install -d -m0755 "$TARGET_STAGING_MOUNT"
     mount --move "$TARGET_MOUNT" "$TARGET_STAGING_MOUNT"
     if findmnt -n -M "$TARGET_MOUNT" >/dev/null 2>&1; then
@@ -496,7 +500,7 @@ sandboxed_auto_eject_test() {
     mount --move "$TARGET_STAGING_MOUNT" "$TARGET_MOUNT"
     sed -i 's/"autoEject": false/"autoEject": true/' "$PROFILE_JSON"
     printf 'automatic eject\n' >> "$SOURCE_MOUNT/home/file-a.txt"
-    sync
+    sync -f "$SOURCE_MOUNT"
     if ! systemctl start btrfs-backup@default.service; then
         systemctl status --no-pager btrfs-backup@default.service >&2 || true
         journalctl --no-pager -u btrfs-backup@default.service -n 100 >&2 || true
@@ -571,7 +575,7 @@ missing_incremental_parent_test() {
 }
 
 require_root
-require_commands btrfs cryptsetup dd diff dmsetup find findmnt grep ldd losetup mkfs.btrfs mknod mount pacman perl seq sha256sum stat systemd-escape tar tee truncate
+require_commands btrfs cryptsetup dd diff dmsetup find findmnt grep ldd losetup mkfifo mkfs.btrfs mknod mount pacman perl seq sha256sum stat systemd-escape tar tee truncate
 ensure_loop_devices
 
 install -d -m0755 "$SOURCE_MOUNT" "$TARGET_MOUNT"
@@ -587,7 +591,13 @@ SOURCE_LOOP="$(losetup --find --show "$SOURCE_IMAGE")"
 TARGET_LOOP="$(losetup --find --show "$TARGET_IMAGE")"
 
 mkfs.btrfs -q -f "$SOURCE_LOOP"
-cryptsetup luksFormat --batch-mode --type luks2 --key-file "$PASSPHRASE_FILE" "$TARGET_LOOP"
+cryptsetup luksFormat \
+    --batch-mode \
+    --type luks2 \
+    --pbkdf pbkdf2 \
+    --pbkdf-force-iterations 1000 \
+    --key-file "$PASSPHRASE_FILE" \
+    "$TARGET_LOOP"
 cryptsetup open --key-file "$PASSPHRASE_FILE" "$TARGET_LOOP" "$MAPPER_NAME"
 udevadm settle --timeout=10
 dmsetup mknodes "$MAPPER_NAME"
@@ -603,8 +613,8 @@ install -d -m0700 "$TARGET_MOUNT/snapshots" "$TARGET_MOUNT/.incoming"
 
 printf 'alpha\n' > "$SOURCE_MOUNT/home/file-a.txt"
 install -d -m0755 "$SOURCE_MOUNT/home/dir"
-dd if=/dev/urandom of="$SOURCE_MOUNT/home/dir/blob.bin" bs=1M count=8 status=none
-sync
+dd if=/dev/urandom of="$SOURCE_MOUNT/home/dir/blob.bin" bs=1M count=2 status=none
+sync -f "$SOURCE_MOUNT"
 
 TARGET_LUKS_UUID="$(cryptsetup luksUUID "$TARGET_LOOP")"
 TARGET_BTRFS_UUID="$(findmnt -n -o UUID -M "$TARGET_MOUNT")"
@@ -649,8 +659,8 @@ pass 'full backup transfers and verifies real Btrfs data'
 
 printf 'beta\n' >> "$SOURCE_MOUNT/home/file-a.txt"
 rm -f -- "$SOURCE_MOUNT/home/dir/blob.bin"
-dd if=/dev/urandom of="$SOURCE_MOUNT/home/dir/blob-2.bin" bs=1M count=12 status=none
-sync
+dd if=/dev/urandom of="$SOURCE_MOUNT/home/dir/blob-2.bin" bs=1M count=3 status=none
+sync -f "$SOURCE_MOUNT"
 run_backup
 grep -q '"incremental": true' "$RUN_LOG" || fail 'incremental stream was not used for second backup'
 assert_count 2 "$TARGET_MOUNT/snapshots/home"
@@ -660,8 +670,8 @@ pass 'incremental backup transfers and verifies real Btrfs data'
 missing_incremental_parent_test
 
 printf 'gamma\n' > "$SOURCE_MOUNT/home/new-file.txt"
-dd if=/dev/urandom of="$SOURCE_MOUNT/home/dir/blob-3.bin" bs=1M count=4 status=none
-sync
+dd if=/dev/urandom of="$SOURCE_MOUNT/home/dir/blob-3.bin" bs=1M count=1 status=none
+sync -f "$SOURCE_MOUNT"
 run_backup
 assert_count 2 "$TARGET_MOUNT/snapshots/home"
 assert_count 2 "$SOURCE_MOUNT/.snapshots/home"
