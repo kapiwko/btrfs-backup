@@ -5,6 +5,10 @@
 #include <state/file_run_state_repository.hpp>
 
 #include <chrono>
+#include <exception>
+#include <iostream>
+#include <optional>
+#include <string>
 #include <thread>
 #include <utility>
 
@@ -37,7 +41,35 @@ class PollingCancellationWatch final : public btrfsbackup::backup::ICancellation
     PollingCancellationWatch(const PollingCancellationWatch&) = delete;
     PollingCancellationWatch& operator=(const PollingCancellationWatch&) = delete;
 
-    ~PollingCancellationWatch() override = default;
+    ~PollingCancellationWatch() override {
+        try {
+            if (std::optional<std::string> diagnostic = close()) {
+                std::clog << "btrfs-backup: cancellation watch cleanup failed: " << *diagnostic << '\n';
+            }
+        } catch (const std::exception& error) {
+            std::clog << "btrfs-backup: cancellation watch cleanup failed: " << error.what() << '\n';
+        } catch (...) {
+            std::clog << "btrfs-backup: cancellation watch cleanup failed with an unknown error\n";
+        }
+    }
+
+    std::optional<std::string> close() override {
+        if (closed_) {
+            return std::nullopt;
+        }
+        closed_ = true;
+        worker_.request_stop();
+        try {
+            if (worker_.joinable()) {
+                worker_.join();
+            }
+            return std::nullopt;
+        } catch (const std::exception& error) {
+            return error.what();
+        } catch (...) {
+            return "unknown cancellation watch cleanup failure";
+        }
+    }
 
   private:
     void run(std::stop_token stop) {
@@ -54,6 +86,7 @@ class PollingCancellationWatch final : public btrfsbackup::backup::ICancellation
     btrfsbackup::backup::CancellationRequest request_;
     CancellationToken& cancellation_;
     std::jthread worker_;
+    bool closed_ = false;
 };
 
 class FileActiveRunRegistration final : public btrfsbackup::backup::IActiveRunRegistration {
@@ -68,12 +101,28 @@ class FileActiveRunRegistration final : public btrfsbackup::backup::IActiveRunRe
 
     ~FileActiveRunRegistration() override {
         try {
-            btrfsbackup::state::clear_active_run(files_, profile_state_dir_, run_id_);
+            if (std::optional<std::string> diagnostic = close()) {
+                std::clog << "btrfs-backup: active run cleanup failed: " << *diagnostic << '\n';
+            }
+        } catch (const std::exception& error) {
+            std::clog << "btrfs-backup: active run cleanup failed: " << error.what() << '\n';
         } catch (...) {
+            std::clog << "btrfs-backup: active run cleanup failed with an unknown error\n";
         }
+    }
+
+    std::optional<std::string> close() override {
+        if (closed_) {
+            return std::nullopt;
+        }
+        closed_ = true;
         try {
-            btrfsbackup::state::clear_cancel_request(files_, profile_state_dir_, run_id_);
+            btrfsbackup::state::clear_active_run(files_, profile_state_dir_, run_id_);
+            return std::nullopt;
+        } catch (const std::exception& error) {
+            return error.what();
         } catch (...) {
+            return "unknown active run cleanup failure";
         }
     }
 
@@ -81,6 +130,7 @@ class FileActiveRunRegistration final : public btrfsbackup::backup::IActiveRunRe
     IDurableDocumentRemover& files_;
     fs::path profile_state_dir_;
     RunId run_id_;
+    bool closed_ = false;
 };
 
 } // namespace

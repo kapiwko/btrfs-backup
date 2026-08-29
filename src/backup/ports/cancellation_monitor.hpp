@@ -5,6 +5,8 @@
 #pragma once
 
 #include <memory>
+#include <optional>
+#include <string>
 
 #include <backup/model/backup_execution.hpp>
 #include <core/cancellation.hpp>
@@ -14,6 +16,7 @@ namespace btrfsbackup::backup {
 class ICancellationWatch {
   public:
     virtual ~ICancellationWatch() = default;
+    [[nodiscard]] virtual std::optional<std::string> close() = 0;
 };
 
 class ICancellationMonitor {
