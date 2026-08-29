@@ -6,6 +6,7 @@ import QtQuick.Controls as QQC2
 import QtQuick.Layouts
 import org.kde.ki18n as KI18n
 import org.kde.kirigami as Kirigami
+import org.kde.plasma.components as PlasmaComponents3
 import org.kde.plasma.core as PlasmaCore
 import org.kde.plasma.plasmoid
 import org.btrfsbackup.plasma
@@ -312,17 +313,24 @@ PlasmoidItem {
                 indeterminate: root.running && root.progress < 0
             }
 
-            QQC2.ScrollView {
+            PlasmaComponents3.ScrollView {
                 id: detailsScroll
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                clip: true
+                Layout.minimumHeight: 0
                 contentWidth: availableWidth
-                QQC2.ScrollBar.horizontal.policy: QQC2.ScrollBar.AlwaysOff
+                PlasmaComponents3.ScrollBar.horizontal.policy: PlasmaComponents3.ScrollBar.AlwaysOff
 
-                ColumnLayout {
-                    width: detailsScroll.availableWidth
-                    spacing: Kirigami.Units.largeSpacing
+                contentItem: Flickable {
+                    id: detailsFlickable
+                    contentWidth: width
+                    contentHeight: detailsColumn.implicitHeight
+                    boundsBehavior: Flickable.StopAtBounds
+
+                    ColumnLayout {
+                        id: detailsColumn
+                        width: detailsFlickable.width
+                        spacing: Kirigami.Units.largeSpacing
 
             GridLayout {
                 Layout.fillWidth: true
@@ -447,6 +455,7 @@ PlasmoidItem {
                         QQC2.ToolTip.text: historyRow.modelData.finishedAt
                         QQC2.ToolTip.visible: historyDateHover.hovered
                         HoverHandler { id: historyDateHover }
+                    }
                     }
                 }
             }
