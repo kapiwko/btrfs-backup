@@ -163,11 +163,38 @@ btrfsbackup::config::Json sources_to_json(
     return result;
 }
 
+std::string completion_warning_component_name(
+    btrfsbackup::backup::BackupCompletionWarningComponent component
+) {
+    switch (component) {
+    case btrfsbackup::backup::BackupCompletionWarningComponent::SuccessLedger:
+        return "success-ledger";
+    case btrfsbackup::backup::BackupCompletionWarningComponent::TerminalStatus:
+        return "terminal-status";
+    }
+    return "unknown";
+}
+
+btrfsbackup::config::Json completion_warnings_to_json(
+    const std::vector<btrfsbackup::backup::BackupCompletionWarning>& warnings
+) {
+    btrfsbackup::config::Json result = btrfsbackup::config::Json::array();
+    for (const btrfsbackup::backup::BackupCompletionWarning& warning : warnings) {
+        result.push_back({
+            {"component", completion_warning_component_name(warning.component)},
+            {"errorCode", error_code_name(warning.error_code)},
+            {"message", warning.message},
+        });
+    }
+    return result;
+}
+
 int present_run_execution(
     const btrfsbackup::backup::BackupRunPlan& plan,
     bool skipped,
     bool cancelled,
     std::size_t actions_completed,
+    const std::vector<btrfsbackup::backup::BackupCompletionWarning>& warnings,
     std::ostream& output
 ) {
     const bool completed = !cancelled;
@@ -179,7 +206,9 @@ int present_run_execution(
                   {"completed", completed},
                   {"skipped", skipped},
                   {"cancelled", cancelled},
+                  {"degraded", !warnings.empty()},
                   {"actionsCompleted", actions_completed},
+                  {"warnings", completion_warnings_to_json(warnings)},
                   {"sources", sources_to_json(plan.sources, false)}
               }.dump(2)
            << '\n';
@@ -241,10 +270,10 @@ int present_runner_execution(const btrfsbackup::backup::BackupExecutionResult& r
         return 0;
     }
     if (const auto* completed = std::get_if<btrfsbackup::backup::BackupExecutionCompleted>(&result)) {
-        return present_run_execution(completed->plan, false, false, completed->actions_completed, output);
+        return present_run_execution(completed->plan, false, false, completed->actions_completed, completed->warnings, output);
     }
     if (const auto* skipped = std::get_if<btrfsbackup::backup::BackupExecutionSkipped>(&result)) {
-        return present_run_execution(skipped->plan, true, false, 0, output);
+        return present_run_execution(skipped->plan, true, false, 0, {}, output);
     }
     if (const auto* failed = std::get_if<btrfsbackup::backup::BackupExecutionFailed>(&result)) {
         output << btrfsbackup::config::Json{
@@ -264,7 +293,7 @@ int present_runner_execution(const btrfsbackup::backup::BackupExecutionResult& r
         return 1;
     }
     const auto& cancelled = std::get<btrfsbackup::backup::BackupExecutionCancelled>(result);
-    return present_run_execution(cancelled.plan, false, true, cancelled.actions_completed, output);
+    return present_run_execution(cancelled.plan, false, true, cancelled.actions_completed, {}, output);
 }
 
 int present_runner_cancellation(const btrfsbackup::backup::CancelBackupResult& result, std::ostream& output) {

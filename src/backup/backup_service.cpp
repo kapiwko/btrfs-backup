@@ -8,6 +8,7 @@
 #include <memory>
 #include <optional>
 #include <utility>
+#include <vector>
 
 #include <core/errors.hpp>
 #include <core/runtime_time.hpp>
@@ -21,6 +22,21 @@ ErrorCode failure_code(const std::exception& error) {
         return coded_error->error_code;
     }
     return ErrorCode::BackupFailed;
+}
+
+template <typename Operation>
+void capture_completion_warning(
+    std::vector<BackupCompletionWarning>& warnings,
+    BackupCompletionWarningComponent component,
+    Operation&& operation
+) {
+    try {
+        std::forward<Operation>(operation)();
+    } catch (const std::exception& error) {
+        warnings.push_back({component, failure_code(error), error.what()});
+    } catch (...) {
+        warnings.push_back({component, ErrorCode::BackupFailed, "unknown completion metadata error"});
+    }
 }
 
 BackupExecutionFailed emit_run_failed(
@@ -279,16 +295,31 @@ BackupExecutionResult BackupService::start(const BackupRequest& request) {
             if (context->cancellation.cancellation_requested()) {
                 throw OperationCancelledError("backup cancelled during target cleanup");
             }
-            ledger_.write_success(
-                profile,
-                run_id,
-                today,
-                clock_.now(),
-                fingerprint,
-                plan.sources.size()
+            std::vector<BackupCompletionWarning> warnings;
+            capture_completion_warning(
+                warnings,
+                BackupCompletionWarningComponent::SuccessLedger,
+                [&] {
+                    ledger_.write_success(
+                        profile,
+                        run_id,
+                        today,
+                        clock_.now(),
+                        fingerprint,
+                        plan.sources.size()
+                    );
+                }
             );
-            events->on_backup_run_event(RunCompleted{profile.id, run_id});
-            BackupExecutionResult result = BackupExecutionCompleted{std::move(plan), completed->actions_completed};
+            capture_completion_warning(
+                warnings,
+                BackupCompletionWarningComponent::TerminalStatus,
+                [&] { events->on_backup_run_event(RunCompleted{profile.id, run_id}); }
+            );
+            BackupExecutionResult result = BackupExecutionCompleted{
+                std::move(plan),
+                completed->actions_completed,
+                std::move(warnings),
+            };
             (void)context->close();
             return result;
         }

@@ -36,6 +36,14 @@ eject
 daily limit. `validate` must run static and runtime preflight checks without
 creating new snapshots or transferring data.
 
+For backup execution, successful completion of all planned actions followed by
+successful target cleanup is the commit boundary. Failures while recording the
+success ledger or terminal status/history after that boundary must not turn the
+backup into a failed execution. The runner returns success with `degraded` set
+to `true` and identifies each failed completion-metadata component in
+`warnings`. Implementations must attempt the ledger and terminal status writes
+independently so one failure does not suppress the other.
+
 ## Profile Identity
 
 Every operation is scoped to one profile id. The profile id selects:
