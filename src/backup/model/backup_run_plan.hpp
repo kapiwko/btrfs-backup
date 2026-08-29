@@ -10,30 +10,22 @@
 
 #include <backup/model/backup_planning_snapshot.hpp>
 #include <backup/model/backup_run_actions.hpp>
-#include <backup/model/incremental_parent.hpp>
-#include <backup/model/pending_recovery.hpp>
 #include <config/model/profile.hpp>
 #include <core/identifiers.hpp>
-#include <backup/model/retention_plan.hpp>
 #include <backup/model/snapshot_inventory.hpp>
 
 namespace btrfsbackup::backup {
 
-struct BackupSourceRunPlan {
-    SourceId source_id;
-    std::filesystem::path source_subvolume;
-    std::filesystem::path local_snapshot_dir;
-    std::filesystem::path remote_snapshot_dir;
-    std::filesystem::path incoming_source_root;
-    std::filesystem::path incoming_run_dir;
-    std::filesystem::path local_snapshot_path;
-    std::filesystem::path received_snapshot_path;
-    std::filesystem::path final_remote_snapshot_path;
-    IncrementalParentSelection parent;
-    PendingRecoveryPlan recovery;
-    RetentionPlan local_retention;
-    RetentionPlan remote_retention;
-    std::vector<BackupRunAction> actions;
+class BackupSourceRunPlan {
+  public:
+    explicit BackupSourceRunPlan(SourceId source_id, std::vector<BackupRunAction> actions = {});
+
+    [[nodiscard]] const std::vector<BackupRunAction>& actions() const noexcept;
+
+    const SourceId source_id;
+
+  private:
+    std::vector<BackupRunAction> actions_;
 };
 
 struct BackupRunPlan {
