@@ -71,10 +71,24 @@ btrfsbackup::config::LoadedProfile loaded_profile_from_bytes(
     }
 }
 
-void validate_active_generation(const btrfsbackup::config::LoadedProfile& loaded) {
-    const char* expected_generation = std::getenv("BTRFS_BACKUP_CONFIGURATION_GENERATION");
+void validate_expected_identity(const btrfsbackup::config::LoadedProfile& loaded) {
+    const char* expected_generation = std::getenv(
+        btrfsbackup::config::expected_configuration_generation_environment
+    );
     if (expected_generation != nullptr && loaded.generation.value() != expected_generation) {
-        throw ValidationError("profile configuration generation does not match the active systemd unit");
+        throw CodedValidationError(
+            ErrorCode::ConfigurationChanged,
+            "profile configuration generation does not match the authorized operation"
+        );
+    }
+    const char* expected_fingerprint = std::getenv(
+        btrfsbackup::config::expected_configuration_fingerprint_environment
+    );
+    if (expected_fingerprint != nullptr && loaded.fingerprint.value() != expected_fingerprint) {
+        throw CodedValidationError(
+            ErrorCode::ConfigurationChanged,
+            "profile configuration fingerprint does not match the authorized operation"
+        );
     }
 }
 
@@ -109,7 +123,7 @@ btrfsbackup::config::LoadedProfile FileProfileRepository::get(const ProfileId& p
         path,
         application_config_.paths()
     );
-    validate_active_generation(loaded);
+    validate_expected_identity(loaded);
     return loaded;
 }
 

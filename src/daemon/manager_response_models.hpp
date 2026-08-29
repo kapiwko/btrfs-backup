@@ -71,6 +71,7 @@ struct TargetStatus {
 
 struct OperationResult {
     std::string operation;
+    std::string operation_id;
     std::string profile_id;
     std::string run_id;
     bool accepted = true;

@@ -4,8 +4,10 @@
 
 #pragma once
 
+#include <functional>
 #include <string>
 
+#include <config/configuration_identity.hpp>
 #include <core/identifiers.hpp>
 #include <daemon/manager_response_models.hpp>
 
@@ -25,11 +27,20 @@ enum class ManagerCancellationOutcome {
 };
 
 struct OperationalResourceVersion {
-    std::string configuration_generation;
-    std::string configuration_fingerprint;
+    btrfsbackup::config::ConfigurationGeneration generation;
+    btrfsbackup::config::ConfigurationFingerprint fingerprint;
 
     bool operator==(const OperationalResourceVersion&) const = default;
 };
+
+struct AuthorizedOperationContext {
+    ProfileId profile_id;
+    btrfsbackup::config::ConfigurationGeneration generation;
+    btrfsbackup::config::ConfigurationFingerprint fingerprint;
+    OperationId operation_id;
+};
+
+using OperationIdGenerator = std::function<OperationId()>;
 
 [[nodiscard]] const char* manager_authorization_action_id(ManagerAuthorizationAction action) noexcept;
 
@@ -47,28 +58,22 @@ class IOperationalControlBackend {
   public:
     virtual ~IOperationalControlBackend() = default;
     [[nodiscard]] virtual OperationalResourceVersion inspect_profile(const ProfileId& profile_id) const = 0;
-    virtual void start_backup(
-        const ProfileId& profile_id,
-        const OperationalResourceVersion& expected_version
-    ) = 0;
+    virtual void start_backup(const AuthorizedOperationContext& context) = 0;
     [[nodiscard]] virtual ManagerCancellationOutcome cancel_backup(
-        const ProfileId& profile_id,
         const RunId& run_id,
-        const OperationalResourceVersion& expected_version
+        const AuthorizedOperationContext& context
     ) = 0;
-    virtual void validate_target(
-        const ProfileId& profile_id,
-        const OperationalResourceVersion& expected_version
-    ) = 0;
-    virtual void eject_target(
-        const ProfileId& profile_id,
-        const OperationalResourceVersion& expected_version
-    ) = 0;
+    virtual void validate_target(const AuthorizedOperationContext& context) = 0;
+    virtual void eject_target(const AuthorizedOperationContext& context) = 0;
 };
 
 class OperationalControlService {
   public:
-    OperationalControlService(IManagerAuthorizer& authorizer, IOperationalControlBackend& backend);
+    OperationalControlService(
+        IManagerAuthorizer& authorizer,
+        IOperationalControlBackend& backend,
+        OperationIdGenerator operation_ids = {}
+    );
 
     [[nodiscard]] OperationResult start_backup(
         const std::string& caller_bus_name,
@@ -90,9 +95,14 @@ class OperationalControlService {
 
   private:
     void require_authorized(const std::string& caller_bus_name, ManagerAuthorizationAction action);
+    [[nodiscard]] AuthorizedOperationContext authorized_context(
+        const ProfileId& profile_id,
+        const OperationalResourceVersion& version
+    );
 
     IManagerAuthorizer& authorizer_;
     IOperationalControlBackend& backend_;
+    OperationIdGenerator operation_ids_;
 };
 
 } // namespace btrfsbackup::daemon

@@ -22,28 +22,17 @@ class SystemOperationalControlBackend final : public IOperationalControlBackend 
     );
 
     [[nodiscard]] OperationalResourceVersion inspect_profile(const ProfileId& profile_id) const override;
-    void start_backup(
-        const ProfileId& profile_id,
-        const OperationalResourceVersion& expected_version
-    ) override;
+    void start_backup(const AuthorizedOperationContext& context) override;
     [[nodiscard]] ManagerCancellationOutcome cancel_backup(
-        const ProfileId& profile_id,
         const RunId& run_id,
-        const OperationalResourceVersion& expected_version
+        const AuthorizedOperationContext& context
     ) override;
-    void validate_target(
-        const ProfileId& profile_id,
-        const OperationalResourceVersion& expected_version
-    ) override;
-    void eject_target(
-        const ProfileId& profile_id,
-        const OperationalResourceVersion& expected_version
-    ) override;
+    void validate_target(const AuthorizedOperationContext& context) override;
+    void eject_target(const AuthorizedOperationContext& context) override;
 
   private:
     void require_profile_version(
-        const ProfileId& profile_id,
-        const OperationalResourceVersion& expected_version
+        const AuthorizedOperationContext& context
     ) const;
     void run_effect(const std::vector<std::string>& command, const char* operation);
 

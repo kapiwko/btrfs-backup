@@ -31,6 +31,14 @@ RunId::RunId(std::string value) : value_(std::move(value)) {
     validate_run_id(value_);
 }
 
+OperationId::OperationId(std::string value) : value_(std::move(value)) {
+    validate_operation_id(value_);
+}
+
+std::string_view OperationId::value() const noexcept {
+    return value_;
+}
+
 std::string_view RunId::value() const noexcept {
     return value_;
 }
@@ -61,6 +69,10 @@ void validate_run_id(const std::string& run_id) {
     if (!std::regex_match(run_id, run_id_re)) {
         throw ValidationError("invalid run id: " + run_id);
     }
+}
+
+void validate_operation_id(const std::string& operation_id) {
+    validate_identifier(operation_id, "operationId");
 }
 
 } // namespace btrfsbackup

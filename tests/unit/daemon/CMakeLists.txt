@@ -3,6 +3,13 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 add_btrfsbackup_test(
+    btrfsbackup-authorized-operation-command-tests
+    authorized_operation_command_tests.cpp
+    authorized-operation-command-tests
+    btrfsbackup-daemon-core
+)
+
+add_btrfsbackup_test(
     btrfsbackup-manager-service-tests
     manager_service_tests.cpp
     manager-service-tests

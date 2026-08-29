@@ -596,7 +596,18 @@ void test_profile_installer() {
     const std::optional<std::string> previous_generation = previous_generation_env == nullptr
         ? std::nullopt
         : std::optional<std::string>(previous_generation_env);
+    const char* previous_fingerprint_env = std::getenv("BTRFS_BACKUP_CONFIGURATION_FINGERPRINT");
+    const std::optional<std::string> previous_fingerprint = previous_fingerprint_env == nullptr
+        ? std::nullopt
+        : std::optional<std::string>(previous_fingerprint_env);
+    unsetenv("BTRFS_BACKUP_CONFIGURATION_GENERATION");
+    unsetenv("BTRFS_BACKUP_CONFIGURATION_FINGERPRINT");
+    const btrfsbackup::config::LoadedProfile loaded = btrfsbackup::platform::linux::FileProfileRepository(
+                                                          root / "etc" / "btrfs-backup"
+    )
+                                                          .get(btrfsbackup::ProfileId{"default"});
     setenv("BTRFS_BACKUP_CONFIGURATION_GENERATION", generation.c_str(), 1);
+    setenv("BTRFS_BACKUP_CONFIGURATION_FINGERPRINT", loaded.fingerprint.value().c_str(), 1);
     expect_true(
         "typed load matching generation",
         btrfsbackup::platform::linux::load_profile_by_id(root / "etc" / "btrfs-backup", "default").id == btrfsbackup::ProfileId{"default"},
@@ -608,10 +619,32 @@ void test_profile_installer() {
         [&] { (void)btrfsbackup::platform::linux::load_profile_by_id(root / "etc" / "btrfs-backup", "default"); },
         "generation does not match"
     );
+    setenv("BTRFS_BACKUP_CONFIGURATION_GENERATION", generation.c_str(), 1);
+    setenv("BTRFS_BACKUP_CONFIGURATION_FINGERPRINT", "changed-fingerprint", 1);
+    try {
+        (void)btrfsbackup::platform::linux::load_profile_by_id(root / "etc" / "btrfs-backup", "default");
+        fail("typed load mismatched fingerprint", "mismatched fingerprint was accepted");
+    } catch (const btrfsbackup::CodedValidationError& error) {
+        expect_true(
+            "typed load mismatch code",
+            error.error_code == btrfsbackup::ErrorCode::ConfigurationChanged,
+            "mismatched fingerprint did not report ConfigurationChanged"
+        );
+        expect_true(
+            "typed load mismatch message",
+            std::string(error.what()).find("fingerprint does not match") != std::string::npos,
+            "mismatched fingerprint returned the wrong message"
+        );
+    }
     if (previous_generation.has_value()) {
         setenv("BTRFS_BACKUP_CONFIGURATION_GENERATION", previous_generation->c_str(), 1);
     } else {
         unsetenv("BTRFS_BACKUP_CONFIGURATION_GENERATION");
+    }
+    if (previous_fingerprint.has_value()) {
+        setenv("BTRFS_BACKUP_CONFIGURATION_FINGERPRINT", previous_fingerprint->c_str(), 1);
+    } else {
+        unsetenv("BTRFS_BACKUP_CONFIGURATION_FINGERPRINT");
     }
     fs::remove_all(root);
 }
