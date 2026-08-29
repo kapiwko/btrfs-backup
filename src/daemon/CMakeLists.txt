@@ -7,6 +7,7 @@ add_library(btrfsbackup-daemon-core STATIC
     device_state_query_service.cpp
     history_query_service.cpp
     manager_document_reader.cpp
+    manager_audit_log.cpp
     manager_error_mapper.cpp
     manager_json_codec.cpp
     manager_service.cpp
@@ -27,6 +28,7 @@ target_restricted_include_directories(btrfsbackup-daemon-core
         daemon/manager_error_mapper.hpp
         daemon/manager_errors.hpp
         daemon/manager_json_codec.hpp
+        daemon/manager_audit_log.hpp
         daemon/manager_paths.hpp
         daemon/manager_response_models.hpp
         daemon/manager_service.hpp

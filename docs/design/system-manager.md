@@ -1,7 +1,7 @@
 # System Manager
 
-Status: query and authorized operational control implemented; administrative
-mutation, stable audit records and the later delivery stages remain planned.
+Status: query, authorized operational control and stable audit records
+implemented; administrative mutation and the later delivery stages remain planned.
 
 Descriptions of the current query and operational-control surface below are
 implemented unless explicitly marked as planned. The delivery sequence records
@@ -64,9 +64,10 @@ effect. The revalidation compares configuration generation and fingerprint,
 and the caller's unique bus name must still have an owner after polkit returns.
 Planned hook changes will require both profile-save and change-hooks permission.
 
-Planned stable audit records will contain caller UID, action, profile, result
-and stable error code without configuration secrets. They are not implemented
-yet; current journald diagnostics are not the stable audit contract.
+Stable, secret-free audit records contain caller UID, action, profile, result
+and stable error code. The manager appends and synchronizes them to the root-only
+`/var/log/btrfs-backup/manager-audit.jsonl`; ordinary journald diagnostics are
+not the audit contract.
 
 ## Failure Model
 

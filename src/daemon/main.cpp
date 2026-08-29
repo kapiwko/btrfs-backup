@@ -4,6 +4,7 @@
 
 #include <daemon/dbus_server.hpp>
 #include <daemon/command_systemd_unit_controller.hpp>
+#include <daemon/manager_audit_log.hpp>
 #include <daemon/system_operational_control_backend.hpp>
 
 #include <filesystem>
@@ -39,6 +40,7 @@ std::string require_value(int argc, char** argv, int& index) {
 int main(int argc, char** argv) {
     try {
         fs::path config_root = "/etc/btrfs-backup";
+        fs::path audit_log_path = "/var/log/btrfs-backup/manager-audit.jsonl";
         for (int index = 1; index < argc; ++index) {
             if (std::string(argv[index]) == "--config-root") {
                 config_root = absolute_path(require_value(argc, argv, index), "--config-root");
@@ -76,12 +78,15 @@ int main(int argc, char** argv) {
                 paths.mapper_root = absolute_path(require_value(argc, argv, index), argument.c_str());
             } else if (argument == "--mountinfo") {
                 paths.mountinfo_path = absolute_path(require_value(argc, argv, index), argument.c_str());
+            } else if (argument == "--audit-log") {
+                audit_log_path = absolute_path(require_value(argc, argv, index), argument.c_str());
             } else if (argument == "--help") {
                 std::cout
                     << "Usage: btrfs-backupd [--bus-address ADDRESS] [--config-root PATH]\n"
                     << "                         [--public-profile-root PATH] [--status-root PATH]\n"
                     << "                         [--history-root PATH] [--target-mount-root PATH]\n"
-                    << "                         [--mapper-root PATH] [--mountinfo PATH]\n";
+                    << "                         [--mapper-root PATH] [--mountinfo PATH]\n"
+                    << "                         [--audit-log PATH]\n";
                 return 0;
             } else {
                 throw std::runtime_error("unknown option: " + argument);
@@ -95,7 +100,8 @@ int main(int argc, char** argv) {
         btrfsbackup::platform::linux::PosixCommandRunner commands;
         btrfsbackup::daemon::CommandSystemdUnitController units(commands);
         btrfsbackup::daemon::SystemOperationalControlBackend operational_backend(profiles, state, units);
-        return btrfsbackup::daemon::run_dbus_server(service, operational_backend, bus_address);
+        btrfsbackup::daemon::FileManagerAuditLog audit_log(audit_log_path);
+        return btrfsbackup::daemon::run_dbus_server(service, operational_backend, audit_log, bus_address);
     } catch (const std::exception& exception) {
         std::cerr << "btrfs-backupd: " << exception.what() << '\n';
         return 1;
