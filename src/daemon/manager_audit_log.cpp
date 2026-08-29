@@ -25,7 +25,7 @@ namespace {
 }
 
 void require_secure_audit_file(int descriptor, const fs::path& path) {
-    struct stat status {};
+    struct stat status{};
     if (fstat(descriptor, &status) < 0)
         throw_audit_error(path, "cannot inspect manager audit log", errno);
     if (!S_ISREG(status.st_mode))
@@ -100,7 +100,8 @@ std::optional<std::string> FileManagerAuditLog::write(const ManagerAuditRecord& 
             {"profileId", record.profile_id},
             {"result", record.result},
             {"errorCode", record.error_code},
-        }.dump();
+        }
+                               .dump();
         data.push_back('\n');
 
         if (flock(descriptor_, LOCK_EX) < 0)

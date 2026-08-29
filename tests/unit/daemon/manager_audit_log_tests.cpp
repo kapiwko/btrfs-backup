@@ -55,7 +55,7 @@ void test_audit_log_appends_durable_structured_records() {
     );
     test_helpers::expect_true("audit timestamp", !first.at("timestamp").get<std::string>().empty(), "timestamp was omitted");
 
-    struct stat status {};
+    struct stat status{};
     test_helpers::expect_true("audit stat", stat(path.c_str(), &status) == 0, "cannot inspect audit log");
     test_helpers::expect_true("audit permissions", (status.st_mode & 0777) == 0600, "audit log is not root-only");
     fs::remove_all(root);
