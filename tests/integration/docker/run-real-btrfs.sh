@@ -13,10 +13,15 @@ IMAGE_NAME="${IMAGE_NAME:-btrfs-backup-real-test:local}"
 BUILD_JOBS="${BUILD_JOBS:-$(nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)}"
 CONTAINER_WORKDIR=/work
 CONTAINER_ID=""
+PACKAGE_ROOT=""
+PACKAGE_TEMP_ROOT=""
 
 cleanup() {
     if [[ -n "$CONTAINER_ID" ]]; then
         docker rm -f "$CONTAINER_ID" >/dev/null 2>&1 || true
+    fi
+    if [[ -n "$PACKAGE_TEMP_ROOT" ]]; then
+        rm -rf -- "$PACKAGE_TEMP_ROOT"
     fi
 }
 trap cleanup EXIT
@@ -48,18 +53,42 @@ docker build \
     -f "$ROOT/tests/integration/docker/Dockerfile" \
     "$ROOT/tests/integration/docker"
 
+if [[ -n "${PACKAGE_DIR:-}" ]]; then
+    PACKAGE_ROOT="$(realpath -- "$PACKAGE_DIR")"
+else
+    PACKAGE_TEMP_ROOT="$(mktemp -d /tmp/btrfs-backup-real-packages.XXXXXX)"
+    PACKAGE_ROOT="$PACKAGE_TEMP_ROOT/dist"
+    docker run --rm --network=none \
+        --user "$(id -u):$(id -g)" \
+        --tmpfs "/run:uid=$(id -u),gid=$(id -g),mode=0755" \
+        -e BUILD_JOBS="$BUILD_JOBS" \
+        -e HOME=/tmp \
+        -v "$ROOT:$CONTAINER_WORKDIR:ro" \
+        -v "$PACKAGE_TEMP_ROOT:/artifacts" \
+        -w "$CONTAINER_WORKDIR" \
+        "$IMAGE_NAME" \
+        "$CONTAINER_WORKDIR/tools/build-release.sh" \
+        --target arch-base \
+        --skip-tests \
+        --dist-dir /artifacts/dist
+fi
+compgen -G "$PACKAGE_ROOT/btrfs-backup-[0-9]*.pkg.tar.zst" >/dev/null \
+    || { printf 'No base Arch package found in %s\n' "$PACKAGE_ROOT" >&2; exit 1; }
+
 CONTAINER_ID="$(docker run -d --rm --privileged \
     --cgroupns=host \
     -e BUILD_JOBS="$BUILD_JOBS" \
     --tmpfs /run \
     --tmpfs /tmp:exec,mode=1777 \
     -v "$ROOT:$CONTAINER_WORKDIR:ro" \
+    -v "$PACKAGE_ROOT:/packages:ro" \
     -w "$CONTAINER_WORKDIR" \
     "$IMAGE_NAME" \
     /sbin/init)"
 
 docker exec \
     -e BUILD_JOBS="$BUILD_JOBS" \
+    -e BTRFSBACKUP_PACKAGE_DIR=/packages \
     -w "$CONTAINER_WORKDIR" \
     "$CONTAINER_ID" \
     "$CONTAINER_WORKDIR/tests/integration/docker/real-btrfs-test.sh"
