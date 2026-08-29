@@ -1,9 +1,9 @@
-# TODO: Next Sprint
+# TODO: Post-release Work After v0.3.0
 
-This file is intentionally limited to the next implementation sprint. Product
-directions that are not sprint commitments belong in [ROADMAP.md](ROADMAP.md).
-Unresolved architecture belongs in `docs/design/`; accepted decisions belong
-in `docs/adr/`.
+v0.3.0 has been released. Unchecked items in this file are post-release work,
+not retroactive release criteria. Product directions that are not near-term
+commitments belong in [ROADMAP.md](ROADMAP.md). Unresolved architecture belongs
+in `docs/design/`; accepted decisions belong in `docs/adr/`.
 
 ## Sprint Goal
 
@@ -51,7 +51,7 @@ by systemd and preserving automatic backup when the manager is absent.
 - [x] Update the D-Bus contract, security model, package contents and client
   guidance without advertising administrative profile writes.
 
-## Exit Criteria
+## Post-release Verification
 
 - [x] All default, private-bus, QEMU hotplug, real-Btrfs and package tests pass.
 - [ ] GCC and Clang builds pass with manager enabled and disabled; the base
