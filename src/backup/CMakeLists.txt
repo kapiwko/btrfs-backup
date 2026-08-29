@@ -126,6 +126,7 @@ add_library(btrfsbackup-backup STATIC
     default_backup_run_factory.cpp
     linked_cancellation_monitor.cpp
     run_execution_context.cpp
+    run_session_factory.cpp
     system_run_context.cpp
     action_handlers/backup_run_action_handler.cpp
     action_handlers/hook_action_handler.cpp
@@ -159,6 +160,7 @@ target_restricted_include_directories(btrfsbackup-backup
         backup/default_backup_run_factory.hpp
         backup/linked_cancellation_monitor.hpp
         backup/run_execution_context.hpp
+        backup/run_session_factory.hpp
         backup/snapshot_transfer.hpp
         backup/system_run_context.hpp
         backup/transfer/transfer_coordinator.hpp
