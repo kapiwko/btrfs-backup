@@ -275,6 +275,7 @@ struct FakeState final : btrfsbackup::backup::IRunLedger,
     int checkpoint_destructions = 0;
     int event_destructions = 0;
     std::vector<btrfsbackup::backup::BackupRunEvent> events_received;
+    std::vector<btrfsbackup::backup::BackupRunStatusDescription> event_descriptions;
     std::string success_date;
     btrfsbackup::RuntimeTimePoint success_timestamp;
     mutable std::string matched_fingerprint;
@@ -326,8 +327,9 @@ struct FakeState final : btrfsbackup::backup::IRunLedger,
     }
 
     std::unique_ptr<btrfsbackup::backup::IBackupRunEventSink> events(
-        btrfsbackup::backup::BackupRunStatusDescription
+        btrfsbackup::backup::BackupRunStatusDescription description
     ) override {
+        event_descriptions.push_back(std::move(description));
         return std::make_unique<TrackingEvents>(event_destructions, events_received, lifecycle);
     }
 
@@ -439,24 +441,22 @@ struct Fixture {
     FakeCancellationMonitor cancellation_monitor;
     FakeClock clock;
     FakeRunIds run_ids;
+    btrfsbackup::backup::RunSessionFactory sessions;
     std::vector<std::string> cancellation_lifecycle;
     btrfsbackup::config::ApplicationPaths paths;
     btrfsbackup::backup::BackupService service;
 
     Fixture()
-        : service(
+        : sessions(leases, state, state, state, cancellation_monitor),
+          service(
               profiles,
               paths,
               preflight,
               discovery,
               plan_builder,
               runs,
-              leases,
               state,
-              state,
-              state,
-              state,
-              cancellation_monitor,
+              sessions,
               clock,
               run_ids
           ) {
@@ -498,6 +498,14 @@ void test_success_uses_ports_and_persists_success() {
         "ledger received a different completion timestamp"
     );
     test_helpers::expect_eq("success fingerprint", fixture.state.success_fingerprint, "fingerprint");
+    test_helpers::expect_true(
+        "session event description",
+        fixture.state.event_descriptions.size() == 1 &&
+            fixture.state.event_descriptions.front().profile_name == "Default" &&
+            fixture.state.event_descriptions.front().target_name == "backup" &&
+            fixture.state.event_descriptions.front().started_at == fixture.clock.now(),
+        "session factory did not derive event metadata from the loaded profile and run identity"
+    );
 }
 
 void test_cancelled_run_does_not_persist_success() {
