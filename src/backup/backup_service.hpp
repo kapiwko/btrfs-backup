@@ -42,8 +42,6 @@ class BackupService {
     [[nodiscard]] CancelBackupResult cancel(const CancellationRequest& request);
 
   private:
-    [[nodiscard]] BackupRunPlan build_plan(const btrfsbackup::config::Profile& profile, const RunId& run_id, const std::string& timestamp);
-
     btrfsbackup::config::IProfileRepository& profiles_;
     btrfsbackup::config::ApplicationPaths application_paths_;
     IBackupPreflight& preflight_;

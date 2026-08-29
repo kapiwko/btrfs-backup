@@ -4,15 +4,21 @@
 
 #include <backup/backup_plan_builder.hpp>
 
+#include <core/errors.hpp>
+
 namespace btrfsbackup::backup {
 
 BackupRunPlan BackupPlanBuilder::build(
     const btrfsbackup::config::Profile& profile,
     const BackupPlanningSnapshot& snapshot,
     const RunId& run_id,
-    const std::string& snapshot_timestamp
+    const std::string& snapshot_timestamp,
+    CancellationToken& cancellation
 ) const {
-    return build_backup_run_plan(
+    if (cancellation.cancellation_requested()) {
+        throw OperationCancelledError("backup cancelled during planning");
+    }
+    BackupRunPlan plan = build_backup_run_plan(
         profile,
         snapshot.local_inventory(),
         snapshot.remote_inventory(),
@@ -22,6 +28,10 @@ BackupRunPlan BackupPlanBuilder::build(
         run_id,
         snapshot_timestamp
     );
+    if (cancellation.cancellation_requested()) {
+        throw OperationCancelledError("backup cancelled during planning");
+    }
+    return plan;
 }
 
 } // namespace btrfsbackup::backup

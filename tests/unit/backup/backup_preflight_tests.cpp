@@ -97,10 +97,12 @@ void test_activates_target_before_reading_and_validating_mounts() {
     FakeTargetManager target(calls);
     FakeMountInspector mounts(target.mounted, calls);
     btrfsbackup::backup::BackupPreflight preflight(mounts, target);
+    btrfsbackup::CancellationToken cancellation;
 
     std::unique_ptr<btrfsbackup::backup::IMountedTargetSession> session = preflight.run(
         profile(),
-        btrfsbackup::backup::TargetMountMode::MountIfNeeded
+        btrfsbackup::backup::TargetMountMode::MountIfNeeded,
+        cancellation
     );
 
     test_helpers::expect_true(
@@ -121,10 +123,11 @@ void test_offline_preflight_does_not_activate_target() {
     FakeTargetManager target(calls);
     FakeMountInspector mounts(target.mounted, calls);
     btrfsbackup::backup::BackupPreflight preflight(mounts, target);
+    btrfsbackup::CancellationToken cancellation;
 
     test_helpers::expect_validation_error(
         "offline target",
-        [&] { (void)preflight.run(profile(), btrfsbackup::backup::TargetMountMode::RequireMounted); },
+        [&] { (void)preflight.run(profile(), btrfsbackup::backup::TargetMountMode::RequireMounted, cancellation); },
         "not mounted"
     );
     test_helpers::expect_true(
@@ -140,10 +143,11 @@ void test_rejects_identity_seen_after_target_activation() {
     FakeMountInspector mounts(target.mounted, calls);
     mounts.filesystem_uuid = "replacement-fs";
     btrfsbackup::backup::BackupPreflight preflight(mounts, target);
+    btrfsbackup::CancellationToken cancellation;
 
     test_helpers::expect_validation_error(
         "post-activation identity",
-        [&] { (void)preflight.run(profile(), btrfsbackup::backup::TargetMountMode::MountIfNeeded); },
+        [&] { (void)preflight.run(profile(), btrfsbackup::backup::TargetMountMode::MountIfNeeded, cancellation); },
         "Btrfs UUID mismatch"
     );
     test_helpers::expect_true(

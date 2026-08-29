@@ -11,6 +11,7 @@
 #include <utility>
 
 #include <backup/model/pending_recovery.hpp>
+#include <core/errors.hpp>
 
 namespace fs = std::filesystem;
 
@@ -28,8 +29,15 @@ BackupDiscovery::BackupDiscovery(
 
 BackupPlanningSnapshot BackupDiscovery::discover(
     const btrfsbackup::config::Profile& profile,
-    const btrfsbackup::config::ApplicationPaths& paths
+    const btrfsbackup::config::ApplicationPaths& paths,
+    CancellationToken& cancellation
 ) const {
+    const auto throw_if_cancelled = [&cancellation] {
+        if (cancellation.cancellation_requested()) {
+            throw OperationCancelledError("backup cancelled during discovery");
+        }
+    };
+    throw_if_cancelled();
     SnapshotInventoryBySource local_inventory;
     SnapshotInventoryBySource remote_inventory;
     PendingMarkerBySource pending_markers;
@@ -39,6 +47,7 @@ BackupPlanningSnapshot BackupDiscovery::discover(
     std::unique_ptr<ISafeDirectoryRoot> target_root = safe_directories_.open(profile.target.mount_point);
 
     for (const btrfsbackup::config::ProfileSource& source : profile.sources) {
+        throw_if_cancelled();
         if (!source.enabled) {
             continue;
         }
@@ -53,6 +62,7 @@ BackupPlanningSnapshot BackupDiscovery::discover(
                 source_id,
                 SnapshotSide::Local,
                 [&](const fs::path& path) {
+                    throw_if_cancelled();
                     std::unique_ptr<ISafeDirectoryHandle> snapshot = local_root->pin_directory(
                         fs::path(source.local_snapshot_dir) / path.filename()
                     );
@@ -68,6 +78,7 @@ BackupPlanningSnapshot BackupDiscovery::discover(
                 source_id,
                 SnapshotSide::Remote,
                 [&](const fs::path& path) {
+                    throw_if_cancelled();
                     std::unique_ptr<ISafeDirectoryHandle> snapshot = target_root->pin_directory(
                         remote_dir / path.filename()
                     );
@@ -89,6 +100,8 @@ BackupPlanningSnapshot BackupDiscovery::discover(
             }
         }
     }
+
+    throw_if_cancelled();
 
     return BackupPlanningSnapshot{
         std::move(local_inventory),

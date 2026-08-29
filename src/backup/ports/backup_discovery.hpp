@@ -7,6 +7,7 @@
 #include <backup/model/backup_planning_snapshot.hpp>
 #include <config/application_paths.hpp>
 #include <config/model/profile.hpp>
+#include <core/cancellation.hpp>
 
 namespace btrfsbackup::backup {
 
@@ -16,7 +17,8 @@ class IBackupDiscovery {
 
     [[nodiscard]] virtual BackupPlanningSnapshot discover(
         const btrfsbackup::config::Profile& profile,
-        const btrfsbackup::config::ApplicationPaths& paths
+        const btrfsbackup::config::ApplicationPaths& paths,
+        CancellationToken& cancellation
     ) const = 0;
 };
 

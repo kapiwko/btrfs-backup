@@ -48,7 +48,6 @@ struct RunExecutionContext {
         RunId run_id,
         std::unique_ptr<IBackupRunEventSink>& events,
         std::unique_ptr<IBackupRunLease> lease,
-        std::unique_ptr<IMountedTargetSession> target_session,
         ICheckpointStoreFactory& checkpoints,
         ICancellationRequestStore& cancellation_requests,
         ICancellationMonitor& cancellation_monitor
@@ -59,6 +58,7 @@ struct RunExecutionContext {
     ~RunExecutionContext() noexcept;
 
     [[nodiscard]] CloseResult close();
+    void attach_target_session(std::unique_ptr<IMountedTargetSession> session);
 
     ProfileId profile_id;
     RunId run_id;
