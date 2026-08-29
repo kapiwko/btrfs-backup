@@ -221,9 +221,10 @@ alternative owns exactly the inputs needed by that operation, and executors use
 `std::visit` instead of interpreting shared path slots. `BackupRunActionKind`
 remains only the stable action label used by events, checkpoints, and CLI JSON.
 
-`BackupRunExecutor` sees one `IBackupRunActionHandler` port. Its production
-implementation is a small `BackupRunActionHandler` dispatcher composed from
-snapshot, recovery, retention, hook, and repository handlers. Each specialized
+`BackupRunExecutor` sees one `IBackupActionExecutor` port. Its production
+implementation delegates non-transfer effects to a small
+`BackupRunActionHandler` dispatcher composed from snapshot, recovery, retention,
+hook, and repository handlers. Each specialized
 handler accepts only the action types and dependencies belonging to its own
 effect group. `DefaultBackupRunActionHandlerFactory` owns this reusable,
 run-scoped assembly in `backup`; the runner composition root supplies the Linux
