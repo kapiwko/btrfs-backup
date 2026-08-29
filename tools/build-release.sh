@@ -350,6 +350,8 @@ stage_package_payload() {
         "$pkgdir/usr/share/btrfs-backup/examples/systemd/btrfs-backup-eject@.service.example"
     install -Dm644 "$root/data/systemd/btrfs-backup-validate@.service.example" \
         "$pkgdir/usr/share/btrfs-backup/examples/systemd/btrfs-backup-validate@.service.example"
+    install -Dm644 "$root/data/systemd/btrfs-backup-target@.service.example" \
+        "$pkgdir/usr/share/btrfs-backup/examples/systemd/btrfs-backup-target@.service.example"
     install -d -m0755 "$pkgdir/usr/lib/systemd/system"
     sed \
         -e 's#@BTRFSBACKUP_BACKUP_COMMAND@#/usr/bin/btrfs-backupctl runner execute#g' \
@@ -367,6 +369,11 @@ stage_package_payload() {
         "$root/data/systemd/btrfs-backup-validate@.service.example" \
         > "$pkgdir/usr/lib/systemd/system/btrfs-backup-validate@.service"
     chmod 0644 "$pkgdir/usr/lib/systemd/system/btrfs-backup-validate@.service"
+    sed \
+        -e 's#@BTRFSBACKUP_TARGET_COMMAND@#/usr/bin/btrfs-backupctl target#g' \
+        "$root/data/systemd/btrfs-backup-target@.service.example" \
+        > "$pkgdir/usr/lib/systemd/system/btrfs-backup-target@.service"
+    chmod 0644 "$pkgdir/usr/lib/systemd/system/btrfs-backup-target@.service"
     sed \
         -e 's#@BTRFSBACKUP_MANAGER_EXECUTABLE@#/usr/bin/btrfs-backupd#g' \
         "$root/data/systemd/btrfs-backupd.service" \
@@ -1074,8 +1081,7 @@ if [[ "$TARGET" == all || "$TARGET" == arch || "$TARGET" == arch-base ]]; then
         save --file "$PACKAGE_PROFILE" >/dev/null
     "$PACKAGE_AUDIT_ROOT/usr/bin/btrfs-backupctl" installation render \
         --file "$PACKAGE_PROFILE" \
-        --output-dir "$PACKAGE_RENDERED" \
-        --keyfile none
+        --output-dir "$PACKAGE_RENDERED"
     grep -Fqx 'ExecStart=/usr/bin/btrfs-backupctl runner execute --profile %i' \
         "$PACKAGE_RENDERED/systemd/btrfs-backup@.service"
     grep -Fqx 'OnSuccess=btrfs-backup-eject@%i.service' \
@@ -1090,6 +1096,11 @@ if [[ "$TARGET" == all || "$TARGET" == arch || "$TARGET" == arch-base ]]; then
         "$PACKAGE_RENDERED/systemd/btrfs-backup-validate@.service"
     grep -Fqx 'ExecStart=/usr/bin/btrfs-backupctl target eject --from-service --profile %i' \
         "$PACKAGE_RENDERED/systemd/btrfs-backup-eject@.service"
+    grep -Fqx 'ExecStart=/usr/bin/btrfs-backupctl target activate --from-service --profile %i' \
+        "$PACKAGE_RENDERED/systemd/btrfs-backup-target@.service"
+    test -f "$PACKAGE_RENDERED/systemd/mnt-btrfs\\x2dbackup-default.mount"
+    test ! -e "$PACKAGE_RENDERED/config/fstab.fragment"
+    test ! -e "$PACKAGE_RENDERED/config/crypttab.fragment"
     if grep -R -n -F '/usr/local/' "$PACKAGE_RENDERED/systemd"; then
         printf '%s\n' 'Packaged commands rendered an unexpected /usr/local path.' >&2
         exit 1
