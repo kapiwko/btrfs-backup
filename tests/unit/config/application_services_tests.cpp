@@ -7,6 +7,7 @@
 #include <string>
 
 #include <platform/linux/config/installation_service.hpp>
+#include <platform/linux/config/profile_activation_migration.hpp>
 #include <config/model/json_io.hpp>
 #include <config/model/profile_document.hpp>
 #include <platform/linux/config/profile_service.hpp>
@@ -47,8 +48,34 @@ void test_profile_and_installation_use_cases() {
     btrfsbackup::platform::linux::render_installation({profile_file, root / "rendered", {}});
     test_helpers::expect_true(
         "rendered installation",
-        fs::is_regular_file(root / "rendered" / "config" / "fstab.fragment"),
-        "fstab fragment was not rendered"
+        fs::is_regular_file(root / "rendered" / "systemd" / "mnt-btrfs\\x2dbackup-laptop.mount"),
+        "native target mount was not rendered"
+    );
+    test_helpers::expect_true(
+        "rendered installation has no table fragments",
+        !fs::exists(root / "rendered" / "config" / "fstab.fragment") &&
+            !fs::exists(root / "rendered" / "config" / "crypttab.fragment"),
+        "legacy table fragments were rendered"
+    );
+    fs::remove_all(root);
+}
+
+void test_activation_migration_rejects_unsupported_crypttab_semantics() {
+    fs::path root = test_root("activation-migration-options");
+    const fs::path crypttab = root / "crypttab";
+    test_helpers::write_file(
+        crypttab,
+        "backupdisk UUID=11111111-2222-3333-4444-555555555555 none luks,keyscript=/usr/local/bin/key\n"
+    );
+    test_helpers::expect_validation_error(
+        "activation migration unsupported options",
+        [&] {
+            (void)btrfsbackup::platform::linux::migrate_target_activation_from_crypttab(
+                sample_profile(),
+                crypttab
+            );
+        },
+        "keyscript="
     );
     fs::remove_all(root);
 }
@@ -164,6 +191,7 @@ void test_profile_render_replaces_only_owned_render_directories() {
 
 int main() {
     test_profile_and_installation_use_cases();
+    test_activation_migration_rejects_unsupported_crypttab_semantics();
     test_profile_render_replaces_only_owned_render_directories();
     test_status_use_cases();
     return test_helpers::finish("application services tests");

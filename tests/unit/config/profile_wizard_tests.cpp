@@ -168,7 +168,7 @@ void test_render_wizard_tree() {
     answers.keyfile = "/root/keys/backupdisk.key";
     btrfsbackup::config::Profile profile = btrfsbackup::config::profile_from_wizard_answers(answers);
 
-    btrfsbackup::platform::linux::render_wizard_tree(profile, answers.keyfile, root / "rendered");
+    btrfsbackup::platform::linux::render_wizard_tree(profile, root / "rendered");
 
     test_helpers::expect_true(
         "wizard render marker",
@@ -186,9 +186,15 @@ void test_render_wizard_tree() {
         read_file(root / "rendered" / "config" / "profiles" / "laptop" / "profile.json"),
         "\"profileId\": \"laptop\""
     );
+    test_helpers::expect_true(
+        "wizard render no table fragments",
+        !fs::exists(root / "rendered" / "config" / "fstab.fragment") &&
+            !fs::exists(root / "rendered" / "config" / "crypttab.fragment"),
+        "wizard rendered legacy table fragments"
+    );
     test_helpers::expect_contains(
-        "wizard render crypttab keyfile",
-        read_file(root / "rendered" / "config" / "crypttab.fragment"),
+        "wizard render profile keyfile",
+        read_file(root / "rendered" / "config" / "profile.json"),
         "/root/keys/backupdisk.key"
     );
     test_helpers::expect_contains(
@@ -208,7 +214,7 @@ void test_render_wizard_tree() {
     );
 
     test_helpers::write_file(root / "rendered" / "stale.txt", "old");
-    btrfsbackup::platform::linux::render_wizard_tree(profile, answers.keyfile, root / "rendered");
+    btrfsbackup::platform::linux::render_wizard_tree(profile, root / "rendered");
     test_helpers::expect_true(
         "wizard rerender removes owned stale file",
         !fs::exists(root / "rendered" / "stale.txt"),
@@ -218,7 +224,7 @@ void test_render_wizard_tree() {
     test_helpers::write_file(root / "unmarked" / "important.txt", "keep me");
     test_helpers::expect_validation_error(
         "wizard refuses unmarked directory",
-        [&] { btrfsbackup::platform::linux::render_wizard_tree(profile, answers.keyfile, root / "unmarked"); },
+        [&] { btrfsbackup::platform::linux::render_wizard_tree(profile, root / "unmarked"); },
         "without .btrfs-backup-render-root"
     );
     test_helpers::expect_eq(

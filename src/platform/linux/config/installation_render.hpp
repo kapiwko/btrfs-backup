@@ -21,7 +21,6 @@ struct InstallationRenderOptions {
     std::string backup_command = default_backup_command();
     std::string eject_script = default_eject_script();
     std::string target_command = default_target_command();
-    std::string keyfile = "none";
 };
 
 void render_installation_files(

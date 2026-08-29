@@ -16,7 +16,6 @@ Group=root
 UMask=0077
 Environment=PATH=/usr/bin
 NoNewPrivileges=yes
-PrivateTmp=yes
 ProtectSystem=full
 ProtectKernelTunables=yes
 ProtectKernelModules=yes

@@ -74,27 +74,16 @@ void test_installation_render_writes_static_files() {
         (root / "rendered").string(),
         "--eject-script",
         "/usr/bin/btrfs-backupctl target eject",
-        "--keyfile",
-        "/root/keys/backupdisk.key",
     });
     const std::string backup_command =
         std::string(BTRFSBACKUP_TEST_INSTALL_BINDIR) + "/btrfs-backupctl runner execute";
 
     test_helpers::expect_eq("installation render result", std::to_string(result), "0");
-    test_helpers::expect_contains(
-        "installation fstab",
-        read_file(root / "rendered" / "config" / "fstab.fragment"),
-        "/dev/mapper/backupdisk  /mnt/btrfs-backup/laptop  btrfs"
-    );
-    test_helpers::expect_contains(
-        "installation fstab security options",
-        read_file(root / "rendered" / "config" / "fstab.fragment"),
-        "noatime,nodev,nosuid,noexec,nosymfollow,compress=zstd"
-    );
-    test_helpers::expect_contains(
-        "installation crypttab",
-        read_file(root / "rendered" / "config" / "crypttab.fragment"),
-        "backupdisk  UUID=11111111-2222-3333-4444-555555555555  /root/keys/backupdisk.key"
+    test_helpers::expect_true(
+        "installation has no table fragments",
+        !fs::exists(root / "rendered" / "config" / "fstab.fragment") &&
+            !fs::exists(root / "rendered" / "config" / "crypttab.fragment"),
+        "installation render still generated fstab or crypttab fragments"
     );
     test_helpers::expect_contains(
         "installation native mount",

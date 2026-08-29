@@ -54,10 +54,8 @@ int render_installation(const std::vector<std::string>& args) {
             options.backup_command = arg_value(i, args, arg);
         } else if (arg == "--eject-script") {
             options.eject_script = arg_value(i, args, arg);
-        } else if (arg == "--keyfile") {
-            options.keyfile = arg_value(i, args, arg);
         } else if (arg == "-h" || arg == "--help") {
-            std::cout << "Usage: btrfs-backupctl installation render --file PATH --output-dir PATH [--backup-command COMMAND] [--eject-script PATH] [--keyfile PATH]\n";
+            std::cout << "Usage: btrfs-backupctl installation render --file PATH --output-dir PATH [--backup-command COMMAND] [--eject-script PATH]\n";
             return 0;
         } else {
             fail("unknown installation render option: " + arg);

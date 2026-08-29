@@ -112,6 +112,7 @@ add_library(btrfsbackup-platform-linux-config STATIC
     ../platform/linux/config/installation_service.cpp
     ../platform/linux/config/installation_validate.cpp
     ../platform/linux/config/profile_artifact_io.cpp
+    ../platform/linux/config/profile_activation_migration.cpp
     ../platform/linux/config/profile_configuration_transaction.cpp
     ../platform/linux/config/profile_installer.cpp
     ../platform/linux/config/profile_repository.cpp
@@ -136,6 +137,7 @@ target_restricted_include_directories(btrfsbackup-platform-linux-config
         platform/linux/config/installation_service.hpp
         platform/linux/config/installation_validate.hpp
         platform/linux/config/profile_artifact_io.hpp
+        platform/linux/config/profile_activation_migration.hpp
         platform/linux/config/profile_configuration_transaction.hpp
         platform/linux/config/profile_installer.hpp
         platform/linux/config/profile_repository.hpp
