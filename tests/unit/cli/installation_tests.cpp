@@ -17,6 +17,10 @@ namespace fs = std::filesystem;
 
 namespace {
 
+#ifndef BTRFSBACKUP_TEST_INSTALL_BINDIR
+#error "BTRFSBACKUP_TEST_INSTALL_BINDIR must be defined by the build system"
+#endif
+
 fs::path test_root(const std::string& name) {
     return test_helpers::test_root("installation", name);
 }
@@ -73,6 +77,8 @@ void test_installation_render_writes_static_files() {
         "--keyfile",
         "/root/keys/backupdisk.key",
     });
+    const std::string backup_command =
+        std::string(BTRFSBACKUP_TEST_INSTALL_BINDIR) + "/btrfs-backupctl runner execute";
 
     test_helpers::expect_eq("installation render result", std::to_string(result), "0");
     test_helpers::expect_contains(
@@ -93,12 +99,12 @@ void test_installation_render_writes_static_files() {
     test_helpers::expect_contains(
         "installation service",
         read_file(root / "rendered" / "systemd" / "btrfs-backup.service"),
-        "ExecStart=/usr/bin/btrfs-backupctl runner execute --profile laptop"
+        "ExecStart=" + backup_command + " --profile laptop"
     );
     test_helpers::expect_contains(
         "installation profile service",
         read_file(root / "rendered" / "systemd" / "btrfs-backup@.service"),
-        "ExecStart=/usr/bin/btrfs-backupctl runner execute --profile %i"
+        "ExecStart=" + backup_command + " --profile %i"
     );
     test_helpers::expect_contains(
         "installation asynchronous eject",
@@ -113,7 +119,7 @@ void test_installation_render_writes_static_files() {
     test_helpers::expect_contains(
         "installation validation command",
         read_file(root / "rendered" / "systemd" / "btrfs-backup-validate@.service"),
-        "ExecStart=/usr/bin/btrfs-backupctl runner execute --profile ${BTRFS_BACKUP_PROFILE_ID} --validate"
+        "ExecStart=" + backup_command + " --profile ${BTRFS_BACKUP_PROFILE_ID} --validate"
     );
     test_helpers::expect_contains(
         "installation validation context",

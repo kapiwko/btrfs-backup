@@ -55,36 +55,34 @@ if(BUILD_TESTING)
     add_subdirectory(tests)
 endif()
 
-function(configure_systemd_unit template output)
-    file(READ "${CMAKE_CURRENT_SOURCE_DIR}/${template}" unit_content)
-    string(
-        REPLACE
-        "{{BACKUP_COMMAND}}"
-        "${CMAKE_INSTALL_FULL_BINDIR}/btrfs-backupctl runner execute"
-        unit_content
-        "${unit_content}"
-    )
-    string(
-        REPLACE
-        "{{EJECT_SCRIPT_PATH}}"
-        "${CMAKE_INSTALL_FULL_BINDIR}/btrfs-backupctl target eject"
-        unit_content
-        "${unit_content}"
-    )
-    file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/${output}" "${unit_content}")
-endfunction()
+set(BTRFSBACKUP_BACKUP_COMMAND "${CMAKE_INSTALL_FULL_BINDIR}/btrfs-backupctl runner execute")
+set(BTRFSBACKUP_EJECT_SCRIPT_PATH "${CMAKE_INSTALL_FULL_BINDIR}/btrfs-backupctl target eject")
+set(BTRFSBACKUP_MANAGER_EXECUTABLE "${CMAKE_INSTALL_FULL_BINDIR}/btrfs-backupd")
 
-configure_systemd_unit(
+configure_file(
     data/systemd/btrfs-backup@.service.example
     btrfs-backup@.service
+    @ONLY
 )
-configure_systemd_unit(
+configure_file(
     data/systemd/btrfs-backup-eject@.service.example
     btrfs-backup-eject@.service
+    @ONLY
 )
-configure_systemd_unit(
+configure_file(
     data/systemd/btrfs-backup-validate@.service.example
     btrfs-backup-validate@.service
+    @ONLY
+)
+configure_file(
+    data/systemd/btrfs-backupd.service
+    btrfs-backupd.service
+    @ONLY
+)
+configure_file(
+    data/dbus/io.github.btrfsbackup.Manager1.service
+    io.github.btrfsbackup.Manager1.service
+    @ONLY
 )
 
 install(
@@ -96,11 +94,11 @@ install(
 )
 if(BUILD_SYSTEM_MANAGER)
     install(
-        FILES data/systemd/btrfs-backupd.service
+        FILES "${CMAKE_CURRENT_BINARY_DIR}/btrfs-backupd.service"
         DESTINATION "${CMAKE_INSTALL_LIBDIR}/systemd/system"
     )
     install(
-        FILES data/dbus/io.github.btrfsbackup.Manager1.service
+        FILES "${CMAKE_CURRENT_BINARY_DIR}/io.github.btrfsbackup.Manager1.service"
         DESTINATION "${CMAKE_INSTALL_DATADIR}/dbus-1/system-services"
     )
     install(

@@ -4,7 +4,6 @@
 
 [D-BUS Service]
 Name=io.github.btrfsbackup.Manager1
-Exec=/usr/bin/btrfs-backupd
+Exec=@BTRFSBACKUP_MANAGER_EXECUTABLE@
 User=root
 SystemdService=btrfs-backupd.service
-

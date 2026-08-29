@@ -13,9 +13,12 @@ namespace btrfsbackup::platform::linux {
 
 // Linux installation artifact rendering contract.
 
+[[nodiscard]] std::string default_backup_command();
+[[nodiscard]] std::string default_eject_script();
+
 struct InstallationRenderOptions {
-    std::string backup_command = "/usr/bin/btrfs-backupctl runner execute";
-    std::string eject_script = "/usr/bin/btrfs-backupctl target eject";
+    std::string backup_command = default_backup_command();
+    std::string eject_script = default_eject_script();
     std::string keyfile = "none";
 };
 

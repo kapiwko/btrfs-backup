@@ -101,9 +101,7 @@ void render_wizard_tree(const btrfsbackup::config::Profile& profile, const std::
             render_installation_files(
                 validated_profile,
                 staging,
-                {"/usr/bin/btrfs-backupctl runner execute",
-                 "/usr/bin/btrfs-backupctl target eject",
-                 keyfile}
+                {.keyfile = keyfile}
             );
         },
         [&](const fs::path& staging) {

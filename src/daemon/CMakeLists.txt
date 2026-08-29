@@ -15,6 +15,10 @@ add_library(btrfsbackup-daemon-core STATIC
     status_query_service.cpp
 )
 target_compile_features(btrfsbackup-daemon-core PUBLIC cxx_std_20)
+target_compile_definitions(
+    btrfsbackup-daemon-core
+    PRIVATE BTRFSBACKUP_INSTALL_BINDIR="${CMAKE_INSTALL_FULL_BINDIR}"
+)
 target_restricted_include_directories(btrfsbackup-daemon-core
     PUBLIC_HEADERS
         daemon/authorized_operation_command.hpp

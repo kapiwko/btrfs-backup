@@ -15,6 +15,10 @@ namespace fs = std::filesystem;
 
 namespace {
 
+#ifndef BTRFSBACKUP_INSTALL_BINDIR
+#error "BTRFSBACKUP_INSTALL_BINDIR must be defined by the build system"
+#endif
+
 constexpr const char* service_hardening =
     "NoNewPrivileges=yes\n"
     "PrivateTmp=yes\n"
@@ -217,6 +221,14 @@ std::string render_validate_service(const std::string& backup_command) {
 } // namespace
 
 namespace btrfsbackup::platform::linux {
+
+std::string default_backup_command() {
+    return std::string(BTRFSBACKUP_INSTALL_BINDIR) + "/btrfs-backupctl runner execute";
+}
+
+std::string default_eject_script() {
+    return std::string(BTRFSBACKUP_INSTALL_BINDIR) + "/btrfs-backupctl target eject";
+}
 
 void render_installation_files(
     const btrfsbackup::config::Profile& profile,
