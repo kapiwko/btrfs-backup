@@ -20,6 +20,7 @@ constexpr auto manager_service = "io.github.btrfsbackup.Manager1";
 constexpr auto manager_path = "/io/github/btrfsbackup/Manager1";
 constexpr auto manager_interface = "io.github.btrfsbackup.Manager1";
 constexpr int poll_interval_ms = 1000;
+constexpr int operation_message_timeout_ms = 5000;
 
 qint64 json_int64(const QJsonObject& object, const char* key, qint64 fallback = 0) {
     const auto value = object.value(QLatin1String(key));
@@ -54,7 +55,15 @@ QDBusPendingCall managerCall(const QDBusConnection& bus, const QString& method, 
 BackupStatusModel::BackupStatusModel(QObject* parent)
     : QObject(parent), bus_(QDBusConnection::systemBus()), service_watcher_(QLatin1String(manager_service), bus_, QDBusServiceWatcher::WatchForRegistration | QDBusServiceWatcher::WatchForUnregistration, this) {
     poll_timer_.setInterval(poll_interval_ms);
+    operation_message_timer_.setInterval(operation_message_timeout_ms);
+    operation_message_timer_.setSingleShot(true);
     connect(&poll_timer_, &QTimer::timeout, this, &BackupStatusModel::refresh);
+    connect(&operation_message_timer_, &QTimer::timeout, this, [this]() {
+        if (!last_operation_.isEmpty()) {
+            last_operation_.clear();
+            emit operationChanged();
+        }
+    });
     connect(&service_watcher_, &QDBusServiceWatcher::serviceRegistered, this, [this]() {
         if (active_) {
             connectToManager();
@@ -88,6 +97,7 @@ void BackupStatusModel::setProfile(const QString& profile) {
     target_mounted_ = false;
     safe_to_remove_ = false;
     history_.clear();
+    operation_message_timer_.stop();
     last_operation_.clear();
     ++generation_;
     status_request_pending_ = false;
@@ -224,6 +234,8 @@ void BackupStatusModel::stop() {
     history_request_pending_ = false;
     capabilities_verified_ = false;
     operation_pending_ = false;
+    operation_message_timer_.stop();
+    last_operation_.clear();
     emit operationChanged();
     setManagerConnected(false);
 }
@@ -542,6 +554,7 @@ void BackupStatusModel::requestOperation(const QString& method, const QVariantLi
         return;
     }
     operation_pending_ = true;
+    operation_message_timer_.stop();
     last_operation_.clear();
     setLastError(QString());
     emit operationChanged();
@@ -568,6 +581,7 @@ void BackupStatusModel::requestOperation(const QString& method, const QVariantLi
             return;
         }
         last_operation_ = document.object().value(QStringLiteral("operation")).toString();
+        operation_message_timer_.start();
         emit operationChanged();
         requestStatus();
         requestDeviceState();

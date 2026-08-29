@@ -115,6 +115,7 @@ class BackupStatusModel : public QObject {
     QDBusConnection bus_;
     QDBusServiceWatcher service_watcher_;
     QTimer poll_timer_;
+    QTimer operation_message_timer_;
     bool active_ = false;
     bool capabilities_verified_ = false;
     bool status_request_pending_ = false;
