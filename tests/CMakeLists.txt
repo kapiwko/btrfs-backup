@@ -11,6 +11,7 @@ endfunction()
 
 include(architecture/public_link_interface_tests.cmake)
 include(architecture/model_dependency_tests.cmake)
+include(architecture/public_header_compile_tests.cmake)
 include(architecture/unique_public_header_owner_tests.cmake)
 
 assert_unique_header_ownership()
@@ -35,28 +36,21 @@ assert_public_link_interface(btrfsbackup-config-wizard btrfsbackup-config-domain
 assert_public_link_interface(
     btrfsbackup-config-ports
     btrfsbackup-config-domain
-    btrfsbackup-core
 )
 assert_public_link_interface(btrfsbackup-config btrfsbackup-config-domain)
 assert_public_link_interface(
     btrfsbackup-platform-linux-config
     btrfsbackup-config
-    btrfsbackup-config-domain
-    btrfsbackup-config-json
     btrfsbackup-config-ports
-    btrfsbackup-core
 )
 assert_public_link_interface(
     btrfsbackup-backup-model
     btrfsbackup-config-domain
-    btrfsbackup-core
 )
 assert_public_link_interface(btrfsbackup-transfer btrfsbackup-core)
 assert_public_link_interface(
     btrfsbackup-backup-ports
     btrfsbackup-backup-model
-    btrfsbackup-config-domain
-    btrfsbackup-core
     btrfsbackup-transfer
 )
 assert_public_link_interface(
@@ -65,22 +59,15 @@ assert_public_link_interface(
 )
 assert_public_link_interface(
     btrfsbackup-backup
-    btrfsbackup-backup-model
     btrfsbackup-backup-ports
-    btrfsbackup-config-domain
     btrfsbackup-config-ports
-    btrfsbackup-core
-    btrfsbackup-transfer
 )
 assert_public_link_interface(btrfsbackup-state-persistence-ports)
 assert_public_link_interface(btrfsbackup-state-model btrfsbackup-core)
 assert_public_link_interface(
     btrfsbackup-state
-    btrfsbackup-backup-model
     btrfsbackup-backup-ports
-    btrfsbackup-config-domain
     btrfsbackup-config-json
-    btrfsbackup-core
     btrfsbackup-state-model
     btrfsbackup-state-persistence-ports
 )
@@ -88,24 +75,16 @@ assert_public_link_interface(
     btrfsbackup-platform-linux
     btrfsbackup-backup-ports
     btrfsbackup-config-ports
-    btrfsbackup-core
     btrfsbackup-state-persistence-ports
-    btrfsbackup-transfer
 )
 assert_public_link_interface(
     btrfsbackup-cli
     btrfsbackup-backup
-    btrfsbackup-backup-model
-    btrfsbackup-backup-ports
-    btrfsbackup-config-domain
-    btrfsbackup-config-ports
-    btrfsbackup-core
 )
 if(BUILD_SYSTEM_MANAGER)
     assert_public_link_interface(
         btrfsbackup-daemon-core
         btrfsbackup-config-domain
-        btrfsbackup-core
     )
     assert_public_link_interface(
         btrfsbackup-daemon-system-control
@@ -114,6 +93,33 @@ if(BUILD_SYSTEM_MANAGER)
         btrfsbackup-daemon-core
     )
 endif()
+
+set(architecture_targets
+    btrfsbackup-core
+    btrfsbackup-config-domain
+    btrfsbackup-config-json
+    btrfsbackup-config-wizard
+    btrfsbackup-config-ports
+    btrfsbackup-config
+    btrfsbackup-platform-linux-config
+    btrfsbackup-backup-model
+    btrfsbackup-transfer
+    btrfsbackup-backup-ports
+    btrfsbackup-backup-testing
+    btrfsbackup-backup
+    btrfsbackup-state-persistence-ports
+    btrfsbackup-state-model
+    btrfsbackup-state
+    btrfsbackup-platform-linux
+    btrfsbackup-cli
+)
+if(BUILD_SYSTEM_MANAGER)
+    list(APPEND architecture_targets
+        btrfsbackup-daemon-core
+        btrfsbackup-daemon-system-control
+    )
+endif()
+add_public_header_architecture_tests(${architecture_targets})
 
 add_test(
     NAME dependency-direction

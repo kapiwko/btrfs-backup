@@ -45,12 +45,12 @@ target_restricted_include_directories(btrfsbackup-cli
 target_link_libraries(btrfsbackup-cli
     PUBLIC
         btrfsbackup-backup
+    PRIVATE
         btrfsbackup-backup-model
         btrfsbackup-backup-ports
         btrfsbackup-config-domain
         btrfsbackup-config-ports
         btrfsbackup-core
-    PRIVATE
         btrfsbackup-config-json
         btrfsbackup-platform-linux
         btrfsbackup-platform-linux-config
