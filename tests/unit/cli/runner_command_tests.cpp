@@ -21,6 +21,7 @@
 
 #include <cli/runner_command.hpp>
 #include <cli/backup_tool.hpp>
+#include <cli/runner_presenter.hpp>
 #include <backup/action_handlers/backup_run_action_handler.hpp>
 #include <backup/backup_discovery.hpp>
 #include <backup/backup_plan_builder.hpp>
@@ -2021,6 +2022,38 @@ void test_runner_execute_handles_sigint_as_cancelled_with_recovery_marker() {
     fs::remove_all(root);
 }
 
+void test_runner_presents_degraded_completion_as_success_with_warnings() {
+    btrfsbackup::backup::BackupExecutionResult result =
+        btrfsbackup::backup::BackupExecutionCompleted{
+            .plan = {
+                .profile_id = btrfsbackup::ProfileId{"default"},
+                .run_id = btrfsbackup::RunId{"run-1"},
+            },
+            .actions_completed = 3,
+            .warnings = {
+                {
+                    .component = btrfsbackup::backup::BackupCompletionWarningComponent::TerminalStatus,
+                    .error_code = btrfsbackup::ErrorCode::BackupFailed,
+                    .message = "could not persist terminal status",
+                },
+            },
+        };
+    std::ostringstream output;
+
+    const int exit_code = btrfsbackup::cli::present_runner_execution(result, output);
+    const btrfsbackup::config::Json json = btrfsbackup::config::Json::parse(output.str());
+
+    test_helpers::expect_eq("degraded completion exit code", std::to_string(exit_code), "0");
+    test_helpers::expect_true("degraded completion flag", json.at("degraded").get<bool>(), "degraded success was hidden");
+    test_helpers::expect_true(
+        "degraded completion warning",
+        json.at("warnings").size() == 1 &&
+            json.at("warnings").at(0).at("component") == "terminal-status" &&
+            json.at("warnings").at(0).at("errorCode") == "backup.failed",
+        "completion warning was not serialized"
+    );
+}
+
 } // namespace
 
 int main() {
@@ -2042,6 +2075,7 @@ int main() {
     test_runner_cancel_validates_active_run_identity_without_target_mount();
     test_runner_execute_honors_cancel_request_during_transfer();
     test_runner_execute_handles_sigint_as_cancelled_with_recovery_marker();
+    test_runner_presents_degraded_completion_as_success_with_warnings();
 
     return test_helpers::finish("runner command tests");
 }
