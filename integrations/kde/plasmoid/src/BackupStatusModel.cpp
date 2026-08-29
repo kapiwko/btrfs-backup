@@ -353,7 +353,7 @@ void BackupStatusModel::requestHistory() {
     history_request_pending_ = true;
     const quint64 request_generation = generation_;
     const QString requested_profile = profile_;
-    auto* watcher = new QDBusPendingCallWatcher(managerCall(bus_, QStringLiteral("GetHistorySanitized"), {requested_profile, 0U, 5U}), this);
+    auto* watcher = new QDBusPendingCallWatcher(managerCall(bus_, QStringLiteral("GetHistorySanitized"), {requested_profile, 0U, 3U}), this);
     connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, watcher, request_generation, requested_profile](QDBusPendingCallWatcher*) {
         const QDBusPendingReply<QString> reply = *watcher;
         watcher->deleteLater();
