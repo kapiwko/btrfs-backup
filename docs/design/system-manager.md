@@ -1,6 +1,13 @@
 # System Manager
 
-Status: query and authorized operational control implemented.
+Status: query and authorized operational control implemented; administrative
+mutation, stable audit records and the later delivery stages remain planned.
+
+Descriptions of the current query and operational-control surface below are
+implemented unless explicitly marked as planned. The delivery sequence records
+both completed and future stages; the active incomplete work is tracked in
+[`TODO.md`](../../TODO.md), while longer-term features remain in
+[`ROADMAP.md`](../../ROADMAP.md).
 
 ## Role
 
@@ -55,10 +62,11 @@ specific action defined in [the authorization contract](../system-dbus-api.md).
 Inputs are validated before prompting and revalidated immediately before the
 effect. The revalidation compares configuration generation and fingerprint,
 and the caller's unique bus name must still have an owner after polkit returns.
-Hook changes require both profile-save and change-hooks permission.
+Planned hook changes will require both profile-save and change-hooks permission.
 
-Administrative events record caller UID, action, profile, result and stable
-error code without configuration secrets.
+Planned stable audit records will contain caller UID, action, profile, result
+and stable error code without configuration secrets. They are not implemented
+yet; current journald diagnostics are not the stable audit contract.
 
 ## Failure Model
 
@@ -73,12 +81,14 @@ error code without configuration secrets.
 
 ## Delivery Sequence
 
-1. read-only capabilities, profiles, status, history and device state;
-2. state change signals and restart recovery;
+1. read-only capabilities, profiles, status, history and device state
+   (implemented);
+2. state-change signals (planned); file-backed query reconstruction after a
+   manager restart is implemented;
 3. operational start/cancel/validate/eject actions with polkit (implemented);
-4. administrative profile writes and hook-change authorization;
-5. shared C++ client, KDE monitor and KCM;
-6. scheduling and request queue integration.
+4. administrative profile writes and hook-change authorization (planned);
+5. shared C++ client, KDE monitor and KCM (planned);
+6. scheduling and request queue integration (planned).
 
 ## Open Questions
 
