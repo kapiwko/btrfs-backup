@@ -18,7 +18,24 @@ if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
     exit 1
 fi
 PKGREL=1
-SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-1787356800}"
+
+default_source_date_epoch() {
+    local epoch=""
+
+    if command -v git >/dev/null 2>&1; then
+        epoch="$(git -C "$ROOT" log -1 --format=%ct 2>/dev/null || true)"
+    fi
+    if [[ ! "$epoch" =~ ^[0-9]+$ ]]; then
+        epoch="$(stat -c '%Y' "$ROOT/VERSION")"
+    fi
+    printf '%s\n' "$epoch"
+}
+
+SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-$(default_source_date_epoch)}"
+if [[ ! "$SOURCE_DATE_EPOCH" =~ ^[0-9]+$ ]] || (( SOURCE_DATE_EPOCH <= 0 )); then
+    printf '%s\n' 'SOURCE_DATE_EPOCH must be a positive Unix timestamp.' >&2
+    exit 1
+fi
 DIST_DIR="$ROOT/dist"
 TEST_MODE=skip
 TARGET=all
