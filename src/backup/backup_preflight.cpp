@@ -12,9 +12,13 @@ BackupPreflight::BackupPreflight(IMountInspector& mount_inspector, ITargetManage
     : mount_inspector_(mount_inspector), target_manager_(target_manager) {
 }
 
-void BackupPreflight::run(const btrfsbackup::config::Profile& profile) {
-    target_manager_.ensure_mounted(profile);
+std::unique_ptr<IMountedTargetSession> BackupPreflight::run(
+    const btrfsbackup::config::Profile& profile,
+    TargetMountMode mode
+) {
+    std::unique_ptr<IMountedTargetSession> target_session = target_manager_.prepare(profile, mode);
     validate_backup_mounts(profile, mount_inspector_.inspect());
+    return target_session;
 }
 
 } // namespace btrfsbackup::backup

@@ -54,6 +54,8 @@ RunnerOptions parse_runner_options(const std::vector<std::string>& args) {
     RuntimeTimePoint timestamp = initial_timestamp;
     LocalDate today = local_date_at(initial_timestamp);
     std::optional<RunId> run_id;
+    bool target_mode_selected = false;
+    bool mount_target = false;
 
     for (std::size_t i = 1; i < args.size(); ++i) {
         const std::string& arg = args.at(i);
@@ -84,6 +86,15 @@ RunnerOptions parse_runner_options(const std::vector<std::string>& args) {
             request.force = true;
         } else if (arg == "--validate") {
             request.validate_only = true;
+        } else if (arg == "--offline" || arg == "--mount-target") {
+            if (command != RunnerCommandKind::Plan) {
+                fail(arg + " is only valid for plan");
+            }
+            if (target_mode_selected) {
+                fail("--offline and --mount-target are mutually exclusive");
+            }
+            target_mode_selected = true;
+            mount_target = arg == "--mount-target";
         } else {
             fail("unknown " + command_name + " option: " + arg);
         }
@@ -102,6 +113,7 @@ RunnerOptions parse_runner_options(const std::vector<std::string>& args) {
     return {
         .command = command,
         .request = std::move(request),
+        .mount_target = mount_target,
         .mountinfo = std::move(mountinfo),
         .mount_uuid_overrides = std::move(mount_uuid_overrides),
         .timestamp = timestamp,

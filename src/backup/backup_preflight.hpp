@@ -14,7 +14,10 @@ class BackupPreflight final : public IBackupPreflight {
   public:
     BackupPreflight(IMountInspector& mount_inspector, ITargetManager& target_manager);
 
-    void run(const btrfsbackup::config::Profile& profile) override;
+    [[nodiscard]] std::unique_ptr<IMountedTargetSession> run(
+        const btrfsbackup::config::Profile& profile,
+        TargetMountMode mode
+    ) override;
 
   private:
     IMountInspector& mount_inspector_;

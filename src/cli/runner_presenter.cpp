@@ -165,7 +165,7 @@ int present_run_execution(
 void print_runner_usage(std::ostream& output) {
     output << "Usage: btrfs-backupctl runner COMMAND\n"
            << "\nCommands:\n"
-           << "  plan --profile ID [--timestamp TS] [--run-id ID] [--mountinfo PATH]\n"
+           << "  plan --profile ID [--offline | --mount-target] [--timestamp TS] [--run-id ID] [--mountinfo PATH]\n"
            << "  execute --profile ID [--timestamp TS] [--run-id ID] [--force] [--validate]\n"
            << "  cancel --profile ID --run-id ID\n";
 }

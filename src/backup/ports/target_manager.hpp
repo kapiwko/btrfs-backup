@@ -4,14 +4,30 @@
 
 #pragma once
 
+#include <memory>
+
 #include <config/model/profile.hpp>
 
 namespace btrfsbackup::backup {
 
+enum class TargetMountMode {
+    RequireMounted,
+    MountIfNeeded,
+};
+
+class IMountedTargetSession {
+  public:
+    virtual ~IMountedTargetSession() = default;
+    [[nodiscard]] virtual bool mounted_by_this_session() const noexcept = 0;
+};
+
 class ITargetManager {
   public:
     virtual ~ITargetManager() = default;
-    virtual void ensure_mounted(const btrfsbackup::config::Profile& profile) = 0;
+    [[nodiscard]] virtual std::unique_ptr<IMountedTargetSession> prepare(
+        const btrfsbackup::config::Profile& profile,
+        TargetMountMode mode
+    ) = 0;
 };
 
 } // namespace btrfsbackup::backup

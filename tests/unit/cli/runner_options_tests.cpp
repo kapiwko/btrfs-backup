@@ -73,10 +73,19 @@ void test_run_id_defaults_from_timestamp() {
     );
 }
 
+void test_plan_target_mode_is_offline_unless_mount_is_explicit() {
+    const btrfsbackup::cli::RunnerOptions offline = btrfsbackup::cli::parse_runner_options({"plan", "--offline"});
+    const btrfsbackup::cli::RunnerOptions mounted = btrfsbackup::cli::parse_runner_options({"plan", "--mount-target"});
+
+    test_helpers::expect_true("offline plan target", !offline.mount_target, "offline plan enabled mounting");
+    test_helpers::expect_true("mounted plan target", mounted.mount_target, "mounted plan did not enable mounting");
+}
+
 } // namespace
 
 int main() {
     test_execute_options_are_typed();
     test_run_id_defaults_from_timestamp();
+    test_plan_target_mode_is_offline_unless_mount_is_explicit();
     return test_helpers::finish("runner options tests");
 }

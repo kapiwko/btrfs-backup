@@ -24,6 +24,7 @@ add_btrfsbackup_test(btrfsbackup-mount-info-tests mount_info_tests.cpp mount-inf
 add_btrfsbackup_test(btrfsbackup-process-tests process_tests.cpp process-tests btrfsbackup-platform-linux)
 add_btrfsbackup_test(btrfsbackup-safe-directory-root-tests safe_directory_root_tests.cpp safe-directory-root-tests btrfsbackup-platform-linux)
 add_btrfsbackup_test(btrfsbackup-space-check-tests space_check_tests.cpp space-check-tests btrfsbackup-platform-linux)
+add_btrfsbackup_test(btrfsbackup-systemd-target-manager-tests systemd_target_manager_tests.cpp systemd-target-manager-tests btrfsbackup-platform-linux)
 add_btrfsbackup_test(btrfsbackup-trusted-directory-tests trusted_directory_tests.cpp trusted-directory-tests btrfsbackup-platform-linux)
 add_btrfsbackup_test(btrfsbackup-trusted-executable-tests trusted_executable_tests.cpp trusted-executable-tests btrfsbackup-platform-linux)
 add_btrfsbackup_test(btrfsbackup-trusted-file-tests trusted_file_tests.cpp trusted-file-tests btrfsbackup-platform-linux)
