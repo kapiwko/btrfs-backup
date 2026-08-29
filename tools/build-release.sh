@@ -1068,6 +1068,8 @@ if [[ "$TARGET" == all || "$TARGET" == arch || "$TARGET" == arch-base ]]; then
         "$PACKAGE_AUDIT_ROOT/.INSTALL"
     grep -Fq 'find /var/lib/btrfs-backup/history -type f -exec chmod 0600' \
         "$PACKAGE_AUDIT_ROOT/.INSTALL"
+    grep -Fq 'systemctl try-restart btrfs-backupd.service' \
+        "$PACKAGE_AUDIT_ROOT/.INSTALL"
     if grep -F 'history' "$PACKAGE_AUDIT_ROOT/.INSTALL" | grep -Eq 'chmod 0(644|755)'; then
         printf '%s\n' 'Arch install hook makes private history readable by other users.' >&2
         exit 1
