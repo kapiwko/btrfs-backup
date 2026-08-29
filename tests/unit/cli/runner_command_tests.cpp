@@ -501,6 +501,7 @@ int run_runner(
         file_cancellation_monitor,
         cancellation
     );
+    btrfsbackup::backup::RunSessionFactory sessions(leases, state, state, state, cancellation_monitor);
     btrfsbackup::backup::BackupService service(
         profiles,
         fixture->application_config.paths(),
@@ -508,12 +509,8 @@ int run_runner(
         discovery,
         plan_builder,
         run_factory,
-        leases,
         state,
-        state,
-        state,
-        state,
-        cancellation_monitor,
+        sessions,
         clock,
         run_ids
     );

@@ -3,9 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include <backup/backup_service.hpp>
-#include <backup/run_execution_context.hpp>
 
-#include <algorithm>
 #include <exception>
 #include <memory>
 #include <optional>
@@ -17,40 +15,6 @@
 namespace btrfsbackup::backup {
 
 namespace {
-
-BackupRunStatusDescription status_description(
-    const btrfsbackup::config::Profile& profile,
-    RuntimeTimePoint started_at
-) {
-    std::map<std::string, std::string> source_names;
-    for (const btrfsbackup::config::ProfileSource& source : profile.sources) {
-        source_names.emplace(source.id.value(), source.name);
-    }
-    return {
-        .profile_name = profile.name,
-        .source_count = static_cast<int>(std::count_if(
-            profile.sources.begin(),
-            profile.sources.end(),
-            [](const btrfsbackup::config::ProfileSource& source) { return source.enabled; }
-        )),
-        .started_at = started_at,
-        .source_names = std::move(source_names),
-        .target_name = profile.target.mapper_name.value(),
-    };
-}
-
-BackupRunStatusDescription fallback_status_description(
-    const ProfileId& profile_id,
-    RuntimeTimePoint started_at
-) {
-    return {
-        .profile_name = std::string(profile_id.value()),
-        .source_count = 0,
-        .started_at = started_at,
-        .source_names = {},
-        .target_name = {},
-    };
-}
 
 ErrorCode failure_code(const std::exception& error) {
     if (const auto* coded_error = dynamic_cast<const CodedError*>(&error)) {
@@ -91,12 +55,8 @@ BackupService::BackupService(
     IBackupDiscovery& discovery,
     IBackupPlanBuilder& plan_builder,
     IBackupRunFactory& run_factory,
-    IBackupRunLeaseProvider& leases,
     IRunLedger& ledger,
-    IRunEventSinkFactory& event_sinks,
-    ICheckpointStoreFactory& checkpoints,
-    ICancellationRequestStore& cancellation_requests,
-    ICancellationMonitor& cancellation_monitor,
+    RunSessionFactory& sessions,
     IClock& clock,
     IRunIdGenerator& run_ids
 )
@@ -106,12 +66,8 @@ BackupService::BackupService(
       discovery_(discovery),
       plan_builder_(plan_builder),
       run_factory_(run_factory),
-      leases_(leases),
       ledger_(ledger),
-      event_sinks_(event_sinks),
-      checkpoints_(checkpoints),
-      cancellation_requests_(cancellation_requests),
-      cancellation_monitor_(cancellation_monitor),
+      sessions_(sessions),
       clock_(clock),
       run_ids_(run_ids) {
 }
@@ -130,7 +86,7 @@ BackupRunPlan BackupService::plan(const BackupPlanRequest& request) {
     const std::string timestamp = format_utc_snapshot_timestamp(time);
     const RunId run_id = run_ids_.generate(time);
     const btrfsbackup::config::LoadedProfile loaded = profiles_.get(request.profile_id);
-    BackupRunLeaseResult lease_result = leases_.try_acquire(loaded.profile);
+    BackupRunLeaseResult lease_result = sessions_.try_acquire_lease(loaded.profile);
     if (auto* busy = std::get_if<BackupRunLeaseBusy>(&lease_result)) {
         throw CodedOperationError(busy->error_code, busy->error_message);
     }
@@ -146,14 +102,13 @@ BackupExecutionResult BackupService::start(const BackupRequest& request) {
     const RuntimeTimePoint started_at = clock_.now();
     const std::string timestamp = format_utc_snapshot_timestamp(started_at);
     const RunId run_id = run_ids_.generate(started_at);
+    const RunIdentity identity{run_id, started_at};
 
     std::optional<btrfsbackup::config::LoadedProfile> loaded;
     try {
         loaded = profiles_.get(request.profile_id);
     } catch (const BtrfsBackupError& error) {
-        std::unique_ptr<IBackupRunEventSink> events = event_sinks_.events(
-            fallback_status_description(request.profile_id, started_at)
-        );
+        std::unique_ptr<IBackupRunEventSink> events = sessions_.fallback_events(request.profile_id, identity);
         return emit_run_failed(
             *events,
             request.profile_id,
@@ -165,12 +120,10 @@ BackupExecutionResult BackupService::start(const BackupRequest& request) {
 
     const btrfsbackup::config::LoadedProfile& loaded_profile = *loaded;
     const btrfsbackup::config::Profile& profile = loaded_profile.profile;
-    std::unique_ptr<IBackupRunEventSink> events = event_sinks_.events(
-        status_description(profile, started_at)
-    );
-    std::optional<RunExecutionContext> context;
+    std::unique_ptr<IBackupRunEventSink> events = sessions_.events(loaded_profile, identity);
+    std::unique_ptr<RunExecutionContext> context;
     try {
-        BackupRunLeaseResult lease_result = leases_.try_acquire(profile);
+        BackupRunLeaseResult lease_result = sessions_.try_acquire_lease(profile);
         if (auto* busy = std::get_if<BackupRunLeaseBusy>(&lease_result)) {
             (void)emit_run_failed(
                 *events,
@@ -206,15 +159,12 @@ BackupExecutionResult BackupService::start(const BackupRequest& request) {
             return BackupExecutionSkipped{std::move(plan)};
         }
 
-        context.emplace(
-            profile.id,
-            run_id,
+        context = sessions_.create(
+            loaded_profile,
+            identity,
             events,
             std::move(lease),
-            std::move(target_session),
-            checkpoints_,
-            cancellation_requests_,
-            cancellation_monitor_
+            std::move(target_session)
         );
         BackupRunExecutionResult execution = run_factory_.execute(
             plan,
@@ -262,7 +212,7 @@ BackupExecutionResult BackupService::start(const BackupRequest& request) {
             failure_code(error),
             error.what()
         );
-        if (context.has_value()) {
+        if (context != nullptr) {
             (void)context->close();
         }
         return result;
@@ -274,7 +224,7 @@ BackupExecutionResult BackupService::start(const BackupRequest& request) {
             ErrorCode::BackupFailed,
             error.what()
         );
-        if (context.has_value()) {
+        if (context != nullptr) {
             (void)context->close();
         }
         throw;
@@ -284,10 +234,7 @@ BackupExecutionResult BackupService::start(const BackupRequest& request) {
 CancelBackupResult BackupService::cancel(const CancellationRequest& request) {
     const btrfsbackup::config::LoadedProfile loaded = profiles_.get(request.profile_id);
     const CancellationRequest validated_request{loaded.profile.id, request.run_id};
-    BackupRunLeaseResult lease = leases_.try_acquire(loaded.profile);
-    const CancellationRequestOutcome outcome = std::holds_alternative<BackupRunLeaseAcquired>(lease)
-        ? CancellationRequestOutcome::StaleRun
-        : cancellation_requests_.request_cancel(validated_request);
+    const CancellationRequestOutcome outcome = sessions_.request_cancel(loaded.profile, validated_request);
     switch (outcome) {
     case CancellationRequestOutcome::Accepted:
         return CancellationAccepted{loaded.profile.id, request.run_id};
