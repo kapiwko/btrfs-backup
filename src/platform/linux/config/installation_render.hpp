@@ -15,10 +15,12 @@ namespace btrfsbackup::platform::linux {
 
 [[nodiscard]] std::string default_backup_command();
 [[nodiscard]] std::string default_eject_script();
+[[nodiscard]] std::string default_target_command();
 
 struct InstallationRenderOptions {
     std::string backup_command = default_backup_command();
     std::string eject_script = default_eject_script();
+    std::string target_command = default_target_command();
     std::string keyfile = "none";
 };
 

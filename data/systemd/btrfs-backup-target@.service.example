@@ -1,0 +1,36 @@
+[Unit]
+Description=Activate encrypted backup target for profile %i
+Documentation=file:/usr/share/doc/btrfs-backup/README.md
+DefaultDependencies=no
+After=systemd-udevd.service
+Before=umount.target
+Conflicts=umount.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=@BTRFSBACKUP_TARGET_COMMAND@ activate --from-service --profile %i
+ExecStop=@BTRFSBACKUP_TARGET_COMMAND@ deactivate --from-service --profile %i
+User=root
+Group=root
+UMask=0077
+RuntimeDirectory=btrfs-backup
+RuntimeDirectoryMode=0755
+Environment=PATH=/usr/bin
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=full
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ProtectHostname=yes
+ProtectClock=yes
+ProtectProc=invisible
+LockPersonality=yes
+RestrictRealtime=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_UNIX AF_NETLINK
+TimeoutStartSec=90s
+TimeoutStopSec=90s
+SyslogIdentifier=btrfs-backup-target
