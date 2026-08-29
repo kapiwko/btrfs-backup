@@ -12,7 +12,7 @@ build, Plasma metadata, and all release artifact names.
 ./tools/build-release.sh --target deb --static-tests
 ./tools/build-release.sh --target arch-base --static-tests
 ./tools/build-release.sh --target all --static-tests
-sudo ./tools/build-release.sh --target arch
+sudo ./tools/build-release.sh --target arch --full-tests
 ```
 
 For repeated local integration runs, reuse a persistent native build tree:
@@ -40,9 +40,12 @@ Targets:
 | `pkgbuild` | source tarball, Arch/AUR `PKGBUILD` packaging archive, source ZIP, checksums, build report |
 | `all` | all targets above except unsupported package ecosystems |
 
-The script runs the selected test suite, creates deterministic source archives,
-builds native package archives where practical, and writes SHA-256 reports from
-its own packaging generators.
+The script creates deterministic source archives, builds native package
+archives where practical, and writes SHA-256 reports from its own packaging
+generators. Packaging does not run the repository test suite unless
+`--static-tests` or `--full-tests` is selected explicitly. Release CI should
+depend on successful test jobs and then package without repeating them. The
+generated Arch `PKGBUILD` still defines `check()` for distribution builders.
 
 Outputs are written to `dist/`:
 
