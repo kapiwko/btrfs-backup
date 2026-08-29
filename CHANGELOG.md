@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+1. Arch upgrades now restart an already running `btrfs-backupd` after replacing
+   the binary, preventing a stale manager process from rejecting newly
+   supported profile schema versions.
+
 ## 0.3.2 - 2026-08-30
 
 ### Table-Free Target Management
