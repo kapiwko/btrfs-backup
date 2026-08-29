@@ -131,8 +131,7 @@ render_test() {
         --file "$profile" \
         --output-dir "$output" \
         --backup-command "$ROOT/build/btrfs-backupctl runner execute" \
-        --eject-script "$ROOT/build/btrfs-backupctl target eject" \
-        --keyfile /root/keys/backupdisk.key
+        --eject-script "$ROOT/build/btrfs-backupctl target eject"
     "$ROOT/build/btrfs-backupctl" installation validate --rendered-root "$output" >/dev/null
 
     assert_file "$output/config/profile.json"
@@ -141,6 +140,8 @@ render_test() {
     assert_file "$output/systemd/btrfs-backup.service"
     assert_file "$output/systemd/btrfs-backup@.service"
     assert_file "$output/systemd/btrfs-backup-eject@.service"
+    assert_file "$output/systemd/btrfs-backup-target@.service"
+    assert_file "$output/systemd/mnt-btrfs\\x2dbackup-laptop.mount"
     assert_file "$output/systemd/btrfs-backup@laptop.service.d/target-mount.conf"
     assert_file "$output/udev/99-btrfs-backup-laptop.rules"
     assert_not_exists "$output/udev/99-btrfs-backup.rules"
@@ -166,9 +167,11 @@ render_test() {
     assert_contains "$output/systemd/btrfs-backup.service" 'Environment=PATH=/usr/bin'
     assert_contains "$output/systemd/btrfs-backup@laptop.service.d/target-mount.conf" 'RequiresMountsFor="/mnt/btrfs-backup/laptop"'
     assert_contains "$output/systemd/btrfs-backup.service" 'RequiresMountsFor="/mnt/btrfs-backup/laptop"'
-    assert_contains "$output/config/fstab.fragment" 'noauto'
-    assert_contains "$output/config/fstab.fragment" 'nodev,nosuid,noexec,nosymfollow'
-    assert_contains "$output/config/fstab.fragment" 'x-systemd.requires=systemd-cryptsetup@backupdisk.service'
+    assert_contains "$output/systemd/mnt-btrfs\\x2dbackup-laptop.mount" 'Requires=btrfs-backup-target@laptop.service'
+    assert_contains "$output/systemd/mnt-btrfs\\x2dbackup-laptop.mount" 'Options=noatime,nodev,nosuid,noexec,nosymfollow,compress=zstd'
+    assert_contains "$output/systemd/btrfs-backup-target@.service" 'target activate --from-service --profile %i'
+    assert_not_exists "$output/config/fstab.fragment"
+    assert_not_exists "$output/config/crypttab.fragment"
     if grep -R -q '{{' "$output"; then
         fail 'rendered output contains unresolved placeholders'
     fi
