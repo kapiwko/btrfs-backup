@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include <backup/backup_service.hpp>
+#include <backup/run_execution_context.hpp>
 #include <core/errors.hpp>
 
 #include <algorithm>
@@ -109,9 +110,13 @@ struct FakePlanBuilder final : btrfsbackup::backup::IBackupPlanBuilder {
 };
 
 struct NoopCheckpoints final : btrfsbackup::backup::IBackupRunCheckpointStore {
-    explicit NoopCheckpoints(int* destructions = nullptr) : destructions_(destructions) {
+    NoopCheckpoints(int* destructions = nullptr, std::vector<std::string>* lifecycle = nullptr)
+        : destructions_(destructions), lifecycle_(lifecycle) {
     }
     ~NoopCheckpoints() override {
+        if (lifecycle_ != nullptr) {
+            lifecycle_->push_back("checkpoints");
+        }
         if (destructions_ != nullptr) {
             ++*destructions_;
         }
@@ -121,16 +126,21 @@ struct NoopCheckpoints final : btrfsbackup::backup::IBackupRunCheckpointStore {
 
   private:
     int* destructions_;
+    std::vector<std::string>* lifecycle_;
 };
 
 struct TrackingEvents final : btrfsbackup::backup::IBackupRunEventSink {
     TrackingEvents(
         int& destructions,
-        std::vector<btrfsbackup::backup::BackupRunEvent>& events
+        std::vector<btrfsbackup::backup::BackupRunEvent>& events,
+        std::vector<std::string>* lifecycle
     )
-        : destructions_(destructions), events_(events) {
+        : destructions_(destructions), events_(events), lifecycle_(lifecycle) {
     }
     ~TrackingEvents() override {
+        if (lifecycle_ != nullptr) {
+            lifecycle_->push_back("events");
+        }
         ++destructions_;
     }
     void on_backup_run_event(const btrfsbackup::backup::BackupRunEvent& event) override {
@@ -140,6 +150,7 @@ struct TrackingEvents final : btrfsbackup::backup::IBackupRunEventSink {
   private:
     int& destructions_;
     std::vector<btrfsbackup::backup::BackupRunEvent>& events_;
+    std::vector<std::string>* lifecycle_;
 };
 
 struct FakeRunFactory final : btrfsbackup::backup::IBackupRunFactory {
@@ -218,26 +229,33 @@ struct FakeLeases final : btrfsbackup::backup::IBackupRunLeaseProvider {
 struct FakeActiveRunRegistration final : btrfsbackup::backup::IActiveRunRegistration {
     FakeActiveRunRegistration(
         std::optional<btrfsbackup::RunId>& active_run,
-        bool& cancellation_requested,
-        std::vector<std::string>* lifecycle
+        std::vector<std::string>* lifecycle,
+        std::optional<std::string> diagnostic
     )
         : active_run_(active_run),
-          cancellation_requested_(cancellation_requested),
-          lifecycle_(lifecycle) {
+          lifecycle_(lifecycle),
+          diagnostic_(std::move(diagnostic)) {
     }
 
-    ~FakeActiveRunRegistration() override {
+    ~FakeActiveRunRegistration() override = default;
+
+    std::optional<std::string> close() override {
+        if (closed_) {
+            return std::nullopt;
+        }
+        closed_ = true;
         if (lifecycle_ != nullptr) {
             lifecycle_->push_back("active-run");
         }
         active_run_.reset();
-        cancellation_requested_ = false;
+        return diagnostic_;
     }
 
   private:
     std::optional<btrfsbackup::RunId>& active_run_;
-    bool& cancellation_requested_;
     std::vector<std::string>* lifecycle_;
+    std::optional<std::string> diagnostic_;
+    bool closed_ = false;
 };
 
 struct FakeState final : btrfsbackup::backup::IRunLedger,
@@ -248,6 +266,8 @@ struct FakeState final : btrfsbackup::backup::IRunLedger,
     bool cancellation_requested = false;
     std::optional<btrfsbackup::RunId> active_run;
     std::vector<std::string>* lifecycle = nullptr;
+    std::optional<std::string> active_close_diagnostic;
+    bool fail_clear_cancel_request = false;
     int skipped_writes = 0;
     int success_writes = 0;
     bool fail_success_write = false;
@@ -302,13 +322,13 @@ struct FakeState final : btrfsbackup::backup::IRunLedger,
     std::unique_ptr<btrfsbackup::backup::IBackupRunCheckpointStore> checkpoints(
         const btrfsbackup::ProfileId&
     ) override {
-        return std::make_unique<NoopCheckpoints>(&checkpoint_destructions);
+        return std::make_unique<NoopCheckpoints>(&checkpoint_destructions, lifecycle);
     }
 
     std::unique_ptr<btrfsbackup::backup::IBackupRunEventSink> events(
         btrfsbackup::backup::BackupRunStatusDescription
     ) override {
-        return std::make_unique<TrackingEvents>(event_destructions, events_received);
+        return std::make_unique<TrackingEvents>(event_destructions, events_received, lifecycle);
     }
 
     std::unique_ptr<btrfsbackup::backup::IActiveRunRegistration> register_active_run(
@@ -318,8 +338,8 @@ struct FakeState final : btrfsbackup::backup::IRunLedger,
         cancellation_requested = false;
         return std::make_unique<FakeActiveRunRegistration>(
             active_run,
-            cancellation_requested,
-            lifecycle
+            lifecycle,
+            active_close_diagnostic
         );
     }
 
@@ -340,8 +360,13 @@ struct FakeState final : btrfsbackup::backup::IRunLedger,
         return cancellation_requested && active_run.has_value() && *active_run == request.run_id;
     }
     void clear_cancel_request(const btrfsbackup::backup::CancellationRequest& request) override {
-        if (active_run.has_value() && *active_run == request.run_id) {
-            cancellation_requested = false;
+        (void)request;
+        if (lifecycle != nullptr) {
+            lifecycle->push_back("cancellation-request");
+        }
+        cancellation_requested = false;
+        if (fail_clear_cancel_request) {
+            throw std::runtime_error("cancel cleanup failed");
         }
     }
 };
@@ -356,30 +381,44 @@ struct FakeClock final : btrfsbackup::backup::IClock {
 };
 
 struct FakeCancellationWatch final : btrfsbackup::backup::ICancellationWatch {
-    FakeCancellationWatch(int& destructions, std::vector<std::string>* lifecycle)
-        : destructions_(destructions), lifecycle_(lifecycle) {
+    FakeCancellationWatch(
+        int& destructions,
+        std::vector<std::string>* lifecycle,
+        std::optional<std::string> diagnostic
+    )
+        : destructions_(destructions), lifecycle_(lifecycle), diagnostic_(std::move(diagnostic)) {
     }
-    ~FakeCancellationWatch() override {
+    ~FakeCancellationWatch() override = default;
+
+    std::optional<std::string> close() override {
+        if (closed_) {
+            return std::nullopt;
+        }
+        closed_ = true;
         if (lifecycle_ != nullptr) {
             lifecycle_->push_back("watcher");
         }
         ++destructions_;
+        return diagnostic_;
     }
 
   private:
     int& destructions_;
     std::vector<std::string>* lifecycle_;
+    std::optional<std::string> diagnostic_;
+    bool closed_ = false;
 };
 
 struct FakeCancellationMonitor final : btrfsbackup::backup::ICancellationMonitor {
     int watch_destructions = 0;
     std::vector<std::string>* lifecycle = nullptr;
+    std::optional<std::string> close_diagnostic;
 
     std::unique_ptr<btrfsbackup::backup::ICancellationWatch> watch(
         const btrfsbackup::backup::CancellationRequest&,
         btrfsbackup::CancellationToken&
     ) override {
-        return std::make_unique<FakeCancellationWatch>(watch_destructions, lifecycle);
+        return std::make_unique<FakeCancellationWatch>(watch_destructions, lifecycle, close_diagnostic);
     }
 };
 
@@ -401,7 +440,6 @@ struct Fixture {
     FakeClock clock;
     FakeRunIds run_ids;
     std::vector<std::string> cancellation_lifecycle;
-    std::vector<std::string> target_lifecycle;
     btrfsbackup::config::ApplicationPaths paths;
     btrfsbackup::backup::BackupService service;
 
@@ -424,8 +462,8 @@ struct Fixture {
           ) {
         state.lifecycle = &cancellation_lifecycle;
         cancellation_monitor.lifecycle = &cancellation_lifecycle;
-        preflight.lifecycle = &target_lifecycle;
-        leases.lifecycle = &target_lifecycle;
+        preflight.lifecycle = &cancellation_lifecycle;
+        leases.lifecycle = &cancellation_lifecycle;
         profiles.profile.name = "Default";
         profiles.profile.settings.daily_limit = true;
     }
@@ -508,8 +546,16 @@ void expect_run_resources_released(const std::string& prefix, const Fixture& fix
     test_helpers::expect_true(prefix + " active run", !fixture.state.active_run.has_value(), "active run was not released");
     test_helpers::expect_true(
         prefix + " cancellation lifecycle",
-        fixture.cancellation_lifecycle == std::vector<std::string>{"active-run", "watcher"},
-        "watcher stopped before cancellation admission was closed"
+        fixture.cancellation_lifecycle == std::vector<std::string>{
+                                              "watcher",
+                                              "events",
+                                              "checkpoints",
+                                              "active-run",
+                                              "cancellation-request",
+                                              "target-session",
+                                              "lease",
+                                          },
+        "run resources were not released in the safe order"
     );
 }
 
@@ -517,11 +563,53 @@ void test_run_context_releases_resources_after_success() {
     Fixture fixture;
     (void)fixture.service.start({.profile_id = btrfsbackup::ProfileId{"default"}});
     expect_run_resources_released("successful run", fixture);
-    test_helpers::expect_true(
-        "target cleanup under lease",
-        fixture.target_lifecycle == std::vector<std::string>{"target-session", "lease"},
-        "target session was released after the lease"
+}
+
+void test_run_context_close_aggregates_cleanup_diagnostics() {
+    Fixture fixture;
+    fixture.cancellation_monitor.close_diagnostic = "watch cleanup failed";
+    fixture.state.active_close_diagnostic = "active run cleanup failed";
+    fixture.state.fail_clear_cancel_request = true;
+
+    std::unique_ptr<btrfsbackup::backup::IBackupRunEventSink> events = fixture.state.events({});
+    btrfsbackup::backup::BackupRunLeaseResult lease_result = fixture.leases.try_acquire(
+        fixture.profiles.profile
     );
+    std::unique_ptr<btrfsbackup::backup::IBackupRunLease> lease = std::move(
+        std::get<btrfsbackup::backup::BackupRunLeaseAcquired>(lease_result).lease
+    );
+    std::unique_ptr<btrfsbackup::backup::IMountedTargetSession> target_session = fixture.preflight.run(
+        fixture.profiles.profile,
+        btrfsbackup::backup::TargetMountMode::MountIfNeeded
+    );
+    btrfsbackup::backup::RunExecutionContext context(
+        fixture.profiles.profile.id,
+        btrfsbackup::RunId{"run-1"},
+        events,
+        std::move(lease),
+        std::move(target_session),
+        fixture.state,
+        fixture.state,
+        fixture.cancellation_monitor
+    );
+
+    const btrfsbackup::backup::CloseResult result = context.close();
+    test_helpers::expect_true("cleanup result failed", !result.succeeded(), "cleanup failures were lost");
+    test_helpers::expect_true(
+        "cleanup diagnostics",
+        result.failures.size() == 3 &&
+            result.failures.at(0).stage == btrfsbackup::backup::RunExecutionContextCloseStage::CancellationWatch &&
+            result.failures.at(1).stage == btrfsbackup::backup::RunExecutionContextCloseStage::ActiveRun &&
+            result.failures.at(2).stage == btrfsbackup::backup::RunExecutionContextCloseStage::CancellationRequest,
+        "cleanup failures were not aggregated in lifecycle order"
+    );
+    test_helpers::expect_true("event sink closed", events == nullptr, "event sink remained open");
+    test_helpers::expect_true(
+        "idempotent close",
+        context.close().succeeded(),
+        "second close repeated cleanup failures"
+    );
+    expect_run_resources_released("diagnostic cleanup", fixture);
 }
 
 void test_run_context_releases_resources_after_exception() {
@@ -742,6 +830,7 @@ int main() {
     test_cancelled_run_does_not_persist_success();
     test_each_run_gets_a_fresh_cancellation_token();
     test_run_context_releases_resources_after_success();
+    test_run_context_close_aggregates_cleanup_diagnostics();
     test_run_context_releases_resources_after_exception();
     test_success_persistence_failure_does_not_emit_run_completed();
     test_preflight_failure_has_terminal_run_lifecycle();

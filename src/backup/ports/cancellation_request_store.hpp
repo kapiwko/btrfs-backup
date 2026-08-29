@@ -5,6 +5,8 @@
 #pragma once
 
 #include <memory>
+#include <optional>
+#include <string>
 
 #include <backup/model/backup_execution.hpp>
 
@@ -13,6 +15,7 @@ namespace btrfsbackup::backup {
 class IActiveRunRegistration {
   public:
     virtual ~IActiveRunRegistration() = default;
+    [[nodiscard]] virtual std::optional<std::string> close() = 0;
 };
 
 class ICancellationRequestStore {
