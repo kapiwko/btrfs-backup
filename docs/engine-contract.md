@@ -101,7 +101,11 @@ Schema version 3 contains only presentation-safe fields:
 ```json
 {
   "schemaVersion": 3,
+  "runId": "20260829T160000Z-1-1",
   "state": "running",
+  "phase": "transferring",
+  "activity": "transferring",
+  "canCancel": true,
   "errorCode": "",
   "sourceName": "@home",
   "targetName": "backupdisk",
@@ -113,8 +117,9 @@ Schema version 3 contains only presentation-safe fields:
 }
 ```
 
-Consumers must ignore additional fields. Identifying and diagnostic data must
-not be added to the public schema.
+Consumers must ignore additional fields. The presentation-safe run identifier
+exists only to bind cancellation to the active run; private identifying and
+diagnostic data must not be added to the public schema.
 
 Known `state` values are:
 

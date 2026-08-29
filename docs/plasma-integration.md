@@ -6,24 +6,21 @@ installed.
 
 The current integration starts with a plasmoid in
 `integrations/kde/plasmoid`. Its QML UI talks to a C++ `BackupStatusModel`, and
-that model uses the read-only `io.github.btrfsbackup.Manager1` system D-Bus
-interface. Calls are asynchronous and status is polled because the first
-manager interface does not publish change signals.
+that model uses the full implemented `io.github.btrfsbackup.Manager1` system
+D-Bus interface. Calls are asynchronous and status is polled because the first
+manager interface does not publish change signals. Mutating calls remain behind
+the manager's per-operation polkit authorization.
 
 The model validates `apiMajor` and public status schema capabilities before it
-accepts data. `managerConnected` reports manager availability, not target
-connectivity. A future `targetConnected` property must come from authoritative
+accepts data. `managerConnected` reports manager availability, while target
+connectivity, mount state, and safe-removal state come only from authoritative
 `GetDeviceState` data supplied by the system backend.
 
-This initial plasmoid exposes read-only status. The system manager already owns
-privileged mutation and polkit authorization, including cancellation. A later
-Plasma control surface will consume that authorized API.
-
-The plasmoid displays reduced `RunStatus`, including configured source and
-target labels, progress, speed, and ETA. It does not show an eject icon or a
-safe-to-disconnect message because the current runtime has no separate,
-authoritative `TargetStatus`. That indication will be added only after the
-system API reports the result of the actual eject operation.
+The plasmoid consumes profiles, reduced current status, sanitized history and
+target lifecycle state. It exposes start, run-scoped cancellation, validation,
+and eject through the authorized manager methods. Detailed run phases drive
+the visible activity text; compact mode shows determinate or indeterminate
+progress and a terminal-state badge.
 
 ## Package
 
@@ -71,7 +68,7 @@ The plasmoid must not own long-running backup progress. After the desktop
 monitor exists, progress and notifications belong there so they survive
 plasmoid removal and shell restarts.
 
-The privileged core publishes reduced current status. Full history and service
-diagnostics remain root-only.
+The privileged core publishes reduced current status and sanitized history.
+Full diagnostic history and service diagnostics remain root-only.
 KNotifications belongs to the future per-session KDE monitor, which owns the
 user session and desktop delivery context.

@@ -122,7 +122,7 @@ cat >"$TEST_ROOT/public/default.json" <<'EOF_PUBLIC'
 {"schemaVersion":1,"profileId":"default","name":"Default backup","target":{"name":"Backup disk"},"sources":[{"id":"home","name":"Home"}]}
 EOF_PUBLIC
 cat >"$TEST_ROOT/status/default/current.json" <<'EOF_STATUS'
-{"schemaVersion":3,"state":"running","errorCode":"","sourceName":"Home","targetName":"Backup disk","speedBps":10,"etaSeconds":20,"sourceProgress":30,"overallProgress":40,"progressAccuracy":"estimated"}
+{"schemaVersion":3,"runId":"20260829T160000Z-1-1","state":"running","phase":"sizing","activity":"sizing","canCancel":true,"errorCode":"","sourceName":"Home","targetName":"Backup disk","speedBps":10,"etaSeconds":20,"sourceProgress":30,"overallProgress":40,"progressAccuracy":"estimated"}
 EOF_STATUS
 cat >"$TEST_ROOT/history/default/20260825T100000Z-1-1.json" <<'EOF_HISTORY'
 {"schemaVersion":2,"profileId":"default","profileName":"Default backup","runId":"20260825T100000Z-1-1","state":"failed","phase":"failed","message":"private","currentSourceName":"Home","targetName":"Backup disk","finishedAt":"2026-08-25T10:00:00Z","errorCode":"private.failure","details":{"device":"/dev/private"},"overallProgress":40}

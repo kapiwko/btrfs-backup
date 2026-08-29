@@ -5,7 +5,7 @@ outside the main CMake project so the system backup runtime does not depend on
 Qt Quick, Kirigami, Plasma or a graphical session.
 
 The first component is a plasmoid with a small C++ QML backend. The backend
-uses the read methods of the system manager's D-Bus API:
+uses the implemented system manager D-Bus API:
 
 ```text
 io.github.btrfsbackup.Manager1
@@ -13,17 +13,17 @@ io.github.btrfsbackup.Manager1
 ```
 
 QML only binds to C++ properties. The C++ model validates manager capabilities,
-loads the public profile label and polls sanitized status asynchronously. It
-does not spawn `btrfs-backupctl` or block the UI thread on D-Bus calls.
+loads public profiles, status, target state and sanitized history, and invokes
+authorized operations asynchronously. It does not spawn `btrfs-backupctl` or
+block the UI thread on D-Bus calls.
 
 `managerConnected` reports whether a compatible manager has answered. It must
 not be interpreted as target-device connectivity; target lifecycle is a
 separate `GetDeviceState` contract.
 
-The current plasmoid presents read-only status. Future UI controls such as
-cancellation will use the existing manager methods with polkit authorization.
-Target removal state will be displayed from the separate system API after a
-successful authorized eject.
+The plasmoid offers start, run-scoped cancellation, target validation and eject
+through the manager's polkit-protected methods. Target removal state is read
+from the separate `GetDeviceState` response, never inferred from backup success.
 
 ## Build
 
@@ -61,6 +61,6 @@ This package is a stepping stone toward the planned native desktop layer:
    backup progress;
 3. KCM for profile browsing, validation and controlled writes through the
    system service;
-4. mutating controls introduced only through authorized manager methods.
+4. profile editing introduced only through future authorized manager methods.
 
 The base backup package must keep working without this integration installed.

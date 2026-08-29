@@ -18,8 +18,14 @@ enum class TransferEventKind {
     Completed,
 };
 
+enum class TransferActivity {
+    Transferring,
+    Sizing,
+};
+
 struct TransferEvent {
     TransferEventKind kind = TransferEventKind::Started;
+    TransferActivity activity = TransferActivity::Transferring;
     std::uint64_t bytes_transferred = 0;
     std::uint64_t bytes_produced = 0;
     std::uint64_t bytes_total_estimated = 0;

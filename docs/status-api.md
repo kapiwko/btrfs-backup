@@ -28,7 +28,11 @@ presentation-safe state and progress:
 ```json
 {
   "schemaVersion": 3,
+  "runId": "20260829T160000Z-1-1",
   "state": "running",
+  "phase": "sizing",
+  "activity": "sizing",
+  "canCancel": true,
   "errorCode": "",
   "sourceName": "@home",
   "targetName": "backupdisk",
@@ -54,9 +58,16 @@ During Btrfs stream sizing, percentage and ETA remain indeterminate. The
 effectful transfer reports exact percentage progress because its total is
 measured by an identical, non-effectful send pass.
 
+`activity` is a stable presentation category: `preparing`, `sizing`,
+`transferring`, `finalizing`, or `idle`. `phase` provides the detailed stage:
+run/source preparation, pending recovery, incoming cleanup, hooks, snapshot
+creation, sizing, transfer, verification, commit, retention, and source
+cleanup. `runId` and `canCancel` let an authorized client bind
+`CancelBackup(profileId, runId)` to the exact active run.
+
 `sourceName` and `targetName` are presentation labels from the sanitized public
 profile. They must never be populated from device paths, mount points, UUIDs,
-or snapshot paths. The public document deliberately excludes run ids, phases,
+or snapshot paths. The public document deliberately excludes private
 messages, timestamps, paths, UUIDs, byte totals, detailed error codes,
 diagnostic details, recovery guidance, and exit codes.
 

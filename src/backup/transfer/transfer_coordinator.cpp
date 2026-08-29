@@ -32,6 +32,7 @@ class StreamSizingEventSink final : public ITransferEventSink {
         }
         events_.on_transfer_event({
             .kind = TransferEventKind::Progress,
+            .activity = TransferActivity::Sizing,
             .elapsed_ms = event.elapsed_ms,
             .speed_bps = event.speed_bps,
             .message = "Measuring Btrfs send stream.",
