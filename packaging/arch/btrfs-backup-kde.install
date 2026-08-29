@@ -1,23 +1,11 @@
-_btrfs_backup_kde_refresh_cache() {
-    if command -v kbuildsycoca6 >/dev/null 2>&1; then
-        kbuildsycoca6 >/dev/null 2>&1 || true
-    fi
-}
-
 _btrfs_backup_kde_print_reload_hint() {
     printf '%s\n' 'Restart Plasma Shell or log out to load the updated btrfs-backup widget.'
 }
 
 post_install() {
-    _btrfs_backup_kde_refresh_cache
     _btrfs_backup_kde_print_reload_hint
 }
 
 post_upgrade() {
-    _btrfs_backup_kde_refresh_cache
     _btrfs_backup_kde_print_reload_hint
-}
-
-post_remove() {
-    _btrfs_backup_kde_refresh_cache
 }
