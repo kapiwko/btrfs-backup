@@ -56,6 +56,8 @@ std::string run_phase_name(RunPhase phase) {
         return "source-completed";
     case RunPhase::Succeeded:
         return "succeeded";
+    case RunPhase::Failed:
+        return "failed";
     case RunPhase::Cancelled:
         return "cancelled";
     case RunPhase::Skipped:

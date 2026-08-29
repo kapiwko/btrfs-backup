@@ -78,11 +78,20 @@ struct BackupExecutionValidated {
     BackupRunPlan plan;
 };
 
+struct BackupExecutionFailed {
+    ProfileId profile_id;
+    RunId run_id;
+    ErrorCode error_code;
+    std::string error_message;
+    std::size_t actions_completed = 0;
+};
+
 using BackupExecutionResult = std::variant<
     BackupExecutionCompleted,
     BackupExecutionSkipped,
     BackupExecutionCancelled,
     BackupExecutionBusy,
-    BackupExecutionValidated>;
+    BackupExecutionValidated,
+    BackupExecutionFailed>;
 
 } // namespace btrfsbackup::backup

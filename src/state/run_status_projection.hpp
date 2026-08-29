@@ -33,9 +33,18 @@ class RunStatusProjection final : public btrfsbackup::backup::IBackupRunEventSin
     void on_backup_run_event(const btrfsbackup::backup::BackupRunEvent& event) override;
 
   private:
+    struct PendingActionFailure {
+        RunId run_id;
+        SourceId source_id;
+        int source_index = 0;
+        btrfsbackup::backup::BackupRunActionKind action_kind;
+    };
+
     IAtomicDocumentWriter& files_;
     BackupRunStatusContext context_;
     std::optional<RunId> run_id_;
+    std::optional<PendingActionFailure> pending_action_failure_;
+    bool run_started_ = false;
     int last_overall_progress_ = -1;
 };
 

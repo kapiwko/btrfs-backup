@@ -1236,28 +1236,32 @@ void test_runner_execute_transfer_failure_writes_failed_status() {
     };
 
     std::ostringstream output;
-    test_helpers::expect_validation_error("execute transfer failure", [&] { (void)run_runner(
-                                                                                config_root,
-                                                                                {
-                                                                                    "execute",
-                                                                                    "--profile",
-                                                                                    "default",
-                                                                                    "--timestamp",
-                                                                                    "2026-08-23T080000Z",
-                                                                                    "--run-id",
-                                                                                    "20260823T080000Z-123-456",
-                                                                                    "--mountinfo",
-                                                                                    mountinfo.string(),
-                                                                                    "--mount-uuid",
-                                                                                    "/dev/source",
-                                                                                    "source-fs",
-                                                                                    "--mount-uuid",
-                                                                                    "/dev/mapper/backup",
-                                                                                    profile.target.btrfs_uuid.value(),
-                                                                                },
-                                                                                output,
-                                                                                &services
-                                                                            ); }, "producer failed with exit code 7");
+    const int result = run_runner(
+        config_root,
+        {
+            "execute",
+            "--profile",
+            "default",
+            "--timestamp",
+            "2026-08-23T080000Z",
+            "--run-id",
+            "20260823T080000Z-123-456",
+            "--mountinfo",
+            mountinfo.string(),
+            "--mount-uuid",
+            "/dev/source",
+            "source-fs",
+            "--mount-uuid",
+            "/dev/mapper/backup",
+            profile.target.btrfs_uuid.value(),
+        },
+        output,
+        &services
+    );
+    const auto result_json = btrfsbackup::config::Json::parse(output.str());
+    test_helpers::expect_eq("execute transfer failure exit", std::to_string(result), "1");
+    test_helpers::expect_true("execute transfer failure completed", !result_json.at("completed").get<bool>(), "failed run must not complete");
+    test_helpers::expect_contains("execute transfer failure message", result_json.at("errorMessage").get<std::string>(), "producer failed with exit code 7");
 
     fs::path checkpoint = root / "state" / "profiles" / "default" / "checkpoint.json";
     fs::path current = root / "status" / "default" / "current.json";
@@ -1314,28 +1318,31 @@ void test_runner_execute_commit_failure_writes_failed_status() {
     };
 
     std::ostringstream output;
-    test_helpers::expect_validation_error("execute commit failure", [&] { (void)run_runner(
-                                                                              config_root,
-                                                                              {
-                                                                                  "execute",
-                                                                                  "--profile",
-                                                                                  "default",
-                                                                                  "--timestamp",
-                                                                                  "2026-08-23T080000Z",
-                                                                                  "--run-id",
-                                                                                  "20260823T080000Z-123-456",
-                                                                                  "--mountinfo",
-                                                                                  mountinfo.string(),
-                                                                                  "--mount-uuid",
-                                                                                  "/dev/source",
-                                                                                  "source-fs",
-                                                                                  "--mount-uuid",
-                                                                                  "/dev/mapper/backup",
-                                                                                  profile.target.btrfs_uuid.value(),
-                                                                              },
-                                                                              output,
-                                                                              &services
-                                                                          ); }, "injected action failure");
+    const int result = run_runner(
+        config_root,
+        {
+            "execute",
+            "--profile",
+            "default",
+            "--timestamp",
+            "2026-08-23T080000Z",
+            "--run-id",
+            "20260823T080000Z-123-456",
+            "--mountinfo",
+            mountinfo.string(),
+            "--mount-uuid",
+            "/dev/source",
+            "source-fs",
+            "--mount-uuid",
+            "/dev/mapper/backup",
+            profile.target.btrfs_uuid.value(),
+        },
+        output,
+        &services
+    );
+    const auto result_json = btrfsbackup::config::Json::parse(output.str());
+    test_helpers::expect_eq("execute commit failure exit", std::to_string(result), "1");
+    test_helpers::expect_contains("execute commit failure message", result_json.at("errorMessage").get<std::string>(), "injected action failure");
 
     fs::path checkpoint = root / "state" / "profiles" / "default" / "checkpoint.json";
     fs::path current = root / "status" / "default" / "current.json";
@@ -1384,28 +1391,31 @@ void test_runner_execute_verify_failure_writes_failed_status() {
     };
 
     std::ostringstream output;
-    test_helpers::expect_validation_error("execute verify failure", [&] { (void)run_runner(
-                                                                              config_root,
-                                                                              {
-                                                                                  "execute",
-                                                                                  "--profile",
-                                                                                  "default",
-                                                                                  "--timestamp",
-                                                                                  "2026-08-23T080000Z",
-                                                                                  "--run-id",
-                                                                                  "20260823T080000Z-123-456",
-                                                                                  "--mountinfo",
-                                                                                  mountinfo.string(),
-                                                                                  "--mount-uuid",
-                                                                                  "/dev/source",
-                                                                                  "source-fs",
-                                                                                  "--mount-uuid",
-                                                                                  "/dev/mapper/backup",
-                                                                                  profile.target.btrfs_uuid.value(),
-                                                                              },
-                                                                              output,
-                                                                              &services
-                                                                          ); }, "injected action failure");
+    const int result = run_runner(
+        config_root,
+        {
+            "execute",
+            "--profile",
+            "default",
+            "--timestamp",
+            "2026-08-23T080000Z",
+            "--run-id",
+            "20260823T080000Z-123-456",
+            "--mountinfo",
+            mountinfo.string(),
+            "--mount-uuid",
+            "/dev/source",
+            "source-fs",
+            "--mount-uuid",
+            "/dev/mapper/backup",
+            profile.target.btrfs_uuid.value(),
+        },
+        output,
+        &services
+    );
+    const auto result_json = btrfsbackup::config::Json::parse(output.str());
+    test_helpers::expect_eq("execute verify failure exit", std::to_string(result), "1");
+    test_helpers::expect_contains("execute verify failure message", result_json.at("errorMessage").get<std::string>(), "injected action failure");
 
     fs::path checkpoint = root / "state" / "profiles" / "default" / "checkpoint.json";
     fs::path current = root / "status" / "default" / "current.json";

@@ -36,6 +36,11 @@ void test_names_are_stable() {
         btrfsbackup::state::backup_run_event_kind_name(btrfsbackup::backup::BackupRunEventKind::TransferProgress),
         "transfer-progress"
     );
+    test_helpers::expect_eq(
+        "run failure event name",
+        btrfsbackup::state::backup_run_event_kind_name(btrfsbackup::backup::BackupRunEventKind::RunFailed),
+        "run-failed"
+    );
 }
 
 void test_build_event_json() {

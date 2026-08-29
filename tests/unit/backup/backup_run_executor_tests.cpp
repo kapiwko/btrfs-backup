@@ -44,6 +44,12 @@ bool run_completed(const btrfsbackup::backup::BackupRunExecutionResult& result) 
     return std::holds_alternative<btrfsbackup::backup::BackupRunExecutionCompleted>(result);
 }
 
+const btrfsbackup::backup::BackupRunExecutionFailed* failed_run(
+    const btrfsbackup::backup::BackupRunExecutionResult& result
+) {
+    return std::get_if<btrfsbackup::backup::BackupRunExecutionFailed>(&result);
+}
+
 std::size_t actions_completed(const btrfsbackup::backup::BackupRunExecutionResult& result) {
     return std::visit([](const auto& outcome) {
         return outcome.actions_completed;
@@ -290,10 +296,8 @@ void test_lifecycle_events_do_not_have_synthetic_actions() {
     );
 
     const std::array lifecycle_kinds{
-        btrfsbackup::backup::BackupRunEventKind::RunStarted,
         btrfsbackup::backup::BackupRunEventKind::SourceStarted,
         btrfsbackup::backup::BackupRunEventKind::SourceCompleted,
-        btrfsbackup::backup::BackupRunEventKind::RunCompleted,
     };
     for (const btrfsbackup::backup::BackupRunEventKind kind : lifecycle_kinds) {
         const auto found = std::find_if(
@@ -473,7 +477,11 @@ void test_executes_actions_and_writes_durable_checkpoints() {
     test_helpers::expect_eq("checkpoint count", std::to_string(checkpoints.checkpoints.size()), "2");
     test_helpers::expect_eq("first checkpoint", action_name(checkpoints.checkpoints.at(0).action_kind), action_name(btrfsbackup::backup::BackupRunActionKind::CleanupIncoming));
     test_helpers::expect_eq("second checkpoint", action_name(checkpoints.checkpoints.at(1).action_kind), action_name(btrfsbackup::backup::BackupRunActionKind::CreateSnapshot));
-    test_helpers::expect_true("run completed event", events.has_event(btrfsbackup::backup::BackupRunEventKind::RunCompleted), "missing completion event");
+    test_helpers::expect_true(
+        "run completion owned by service",
+        !events.has_event(btrfsbackup::backup::BackupRunEventKind::RunCompleted),
+        "executor emitted a terminal success before service persistence"
+    );
 }
 
 void test_pending_recovery_runs_before_source_cleanup() {
@@ -759,7 +767,12 @@ void test_transfer_failure_emits_failed_action() {
         action(btrfsbackup::backup::BackupRunActionKind::SendReceive),
     });
 
-    test_helpers::expect_validation_error("transfer failure", [&] { (void)executor.execute(plan, events, cancellation); }, "producer failed with exit code 7");
+    const auto result = executor.execute(plan, events, cancellation);
+    const auto* run_failure = failed_run(result);
+    test_helpers::expect_true("transfer failure result", run_failure != nullptr, "run should return a typed failure");
+    if (run_failure != nullptr) {
+        test_helpers::expect_contains("transfer failure message", run_failure->error_message, "producer failed with exit code 7");
+    }
     test_helpers::expect_eq("failed checkpoint count", std::to_string(checkpoints.checkpoints.size()), "0");
     test_helpers::expect_true("failed action event", events.has_event(btrfsbackup::backup::BackupRunEventKind::ActionFailed), "missing failed action event");
     const auto* failed = find_event<btrfsbackup::backup::ActionFailed>(events.events);
@@ -784,7 +797,12 @@ void test_receive_failure_is_reported_separately() {
         action(btrfsbackup::backup::BackupRunActionKind::SendReceive),
     });
 
-    test_helpers::expect_validation_error("receive failure", [&] { (void)executor.execute(plan, events, cancellation); }, "consumer failed with exit code 9");
+    const auto result = executor.execute(plan, events, cancellation);
+    const auto* run_failure = failed_run(result);
+    test_helpers::expect_true("receive failure result", run_failure != nullptr, "run should return a typed failure");
+    if (run_failure != nullptr) {
+        test_helpers::expect_contains("receive failure message", run_failure->error_message, "consumer failed with exit code 9");
+    }
     test_helpers::expect_eq("receive failure checkpoint count", std::to_string(checkpoints.checkpoints.size()), "0");
     const auto* failed = find_event<btrfsbackup::backup::ActionFailed>(events.events);
     test_helpers::expect_true("receive failed action event", failed != nullptr, "missing failed action event");
@@ -812,7 +830,12 @@ void test_commit_failure_after_successful_transfer_keeps_verify_checkpoint() {
         action(btrfsbackup::backup::BackupRunActionKind::CommitReceived),
     });
 
-    test_helpers::expect_validation_error("commit failure", [&] { (void)executor.execute(plan, events, cancellation); }, "injected action failure");
+    const auto result = executor.execute(plan, events, cancellation);
+    const auto* run_failure = failed_run(result);
+    test_helpers::expect_true("commit failure result", run_failure != nullptr, "run should return a typed failure");
+    if (run_failure != nullptr) {
+        test_helpers::expect_contains("commit failure message", run_failure->error_message, "injected action failure");
+    }
     test_helpers::expect_eq("commit failure transfer count", std::to_string(transfers.plans.size()), "1");
     test_helpers::expect_eq("commit failure checkpoint count", std::to_string(checkpoints.checkpoints.size()), "3");
     test_helpers::expect_eq("commit failure last checkpoint", action_name(checkpoints.checkpoints.back().action_kind), action_name(btrfsbackup::backup::BackupRunActionKind::VerifyReceived));
@@ -835,11 +858,12 @@ void test_commit_cleanup_failure_emits_recovery_required_code() {
         action(btrfsbackup::backup::BackupRunActionKind::CommitReceived),
     });
 
-    try {
-        (void)executor.execute(plan, events, cancellation);
-        test_helpers::expect_true("commit cleanup failure type", false, "recovery requirement should fail the action");
-    } catch (const btrfsbackup::RecoveryRequiredError& error) {
-        test_helpers::expect_contains("commit cleanup failure message", error.what(), "repository requires recovery");
+    const auto result = executor.execute(plan, events, cancellation);
+    const auto* run_failure = failed_run(result);
+    test_helpers::expect_true("commit cleanup failure type", run_failure != nullptr, "recovery requirement should fail the run");
+    if (run_failure != nullptr) {
+        test_helpers::expect_eq("commit cleanup result code", btrfsbackup::error_code_name(run_failure->error_code), "repository.recovery_required");
+        test_helpers::expect_contains("commit cleanup failure message", run_failure->error_message, "repository requires recovery");
     }
     const auto* failed = find_event<btrfsbackup::backup::ActionFailed>(events.events);
     test_helpers::expect_true("commit cleanup failed event", failed != nullptr, "missing failed action event");
@@ -864,11 +888,12 @@ void test_hook_timeout_emits_stable_error_code() {
         action(btrfsbackup::backup::BackupRunActionKind::BeforeSnapshotHook),
     });
 
-    try {
-        (void)executor.execute(plan, events, cancellation);
-        test_helpers::expect_true("hook timeout type", false, "hook timeout should fail the action");
-    } catch (const btrfsbackup::CodedOperationError& error) {
-        test_helpers::expect_contains("hook timeout message", error.what(), "coded action failure");
+    const auto result = executor.execute(plan, events, cancellation);
+    const auto* run_failure = failed_run(result);
+    test_helpers::expect_true("hook timeout type", run_failure != nullptr, "hook timeout should fail the run");
+    if (run_failure != nullptr) {
+        test_helpers::expect_eq("hook timeout result code", btrfsbackup::error_code_name(run_failure->error_code), "hook.before_snapshot_timeout");
+        test_helpers::expect_contains("hook timeout message", run_failure->error_message, "coded action failure");
     }
     const auto* failed = find_event<btrfsbackup::backup::ActionFailed>(events.events);
     test_helpers::expect_true("hook timeout failed event", failed != nullptr, "missing failed action event");
@@ -919,7 +944,8 @@ void test_remote_retention_failure_keeps_commit_checkpoint() {
         action(btrfsbackup::backup::BackupRunActionKind::ApplyLocalRetention),
     });
 
-    test_helpers::expect_validation_error("remote retention failure", [&] { (void)executor.execute(plan, events, cancellation); }, "injected action failure");
+    const auto result = executor.execute(plan, events, cancellation);
+    test_helpers::expect_true("remote retention failure result", failed_run(result) != nullptr, "run should return a typed failure");
     test_helpers::expect_eq("remote retention checkpoint count", std::to_string(checkpoints.checkpoints.size()), "4");
     test_helpers::expect_eq("remote retention last checkpoint", action_name(checkpoints.checkpoints.back().action_kind), action_name(btrfsbackup::backup::BackupRunActionKind::CommitReceived));
     test_helpers::expect_true("remote retention failed event", events.has_event(btrfsbackup::backup::BackupRunEventKind::ActionFailed), "missing failed action event");
@@ -945,7 +971,8 @@ void test_local_retention_failure_keeps_remote_retention_checkpoint() {
         action(btrfsbackup::backup::BackupRunActionKind::ApplyLocalRetention),
     });
 
-    test_helpers::expect_validation_error("local retention failure", [&] { (void)executor.execute(plan, events, cancellation); }, "injected action failure");
+    const auto result = executor.execute(plan, events, cancellation);
+    test_helpers::expect_true("local retention failure result", failed_run(result) != nullptr, "run should return a typed failure");
     test_helpers::expect_eq("local retention checkpoint count", std::to_string(checkpoints.checkpoints.size()), "5");
     test_helpers::expect_eq("local retention last checkpoint", action_name(checkpoints.checkpoints.back().action_kind), action_name(btrfsbackup::backup::BackupRunActionKind::ApplyRemoteRetention));
     test_helpers::expect_true("local retention failed event", events.has_event(btrfsbackup::backup::BackupRunEventKind::ActionFailed), "missing failed action event");

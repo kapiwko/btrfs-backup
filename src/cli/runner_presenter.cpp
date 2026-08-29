@@ -220,6 +220,23 @@ int present_runner_execution(const btrfsbackup::backup::BackupExecutionResult& r
     if (const auto* skipped = std::get_if<btrfsbackup::backup::BackupExecutionSkipped>(&result)) {
         return present_run_execution(skipped->plan, true, false, 0, output);
     }
+    if (const auto* failed = std::get_if<btrfsbackup::backup::BackupExecutionFailed>(&result)) {
+        output << btrfsbackup::config::Json{
+                      {"schemaVersion", 1},
+                      {"mode", "cpp-execute"},
+                      {"profileId", std::string(failed->profile_id.value())},
+                      {"runId", std::string(failed->run_id.value())},
+                      {"completed", false},
+                      {"skipped", false},
+                      {"cancelled", false},
+                      {"busy", false},
+                      {"actionsCompleted", failed->actions_completed},
+                      {"errorCode", error_code_name(failed->error_code)},
+                      {"errorMessage", failed->error_message}
+                  }.dump(2)
+               << '\n';
+        return 1;
+    }
     const auto& cancelled = std::get<btrfsbackup::backup::BackupExecutionCancelled>(result);
     return present_run_execution(cancelled.plan, false, true, cancelled.actions_completed, output);
 }
