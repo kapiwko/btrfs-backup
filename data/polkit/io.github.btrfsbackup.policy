@@ -10,21 +10,21 @@
   <action id="io.github.btrfsbackup.start-backup">
     <description>Start a Btrfs backup</description>
     <message>Authentication is required to start a Btrfs backup</message>
-    <defaults><allow_any>no</allow_any><allow_inactive>auth_admin</allow_inactive><allow_active>auth_admin_keep</allow_active></defaults>
+    <defaults><allow_any>no</allow_any><allow_inactive>auth_admin</allow_inactive><allow_active>yes</allow_active></defaults>
   </action>
   <action id="io.github.btrfsbackup.cancel-backup">
     <description>Cancel a Btrfs backup</description>
     <message>Authentication is required to cancel a Btrfs backup</message>
-    <defaults><allow_any>no</allow_any><allow_inactive>auth_admin</allow_inactive><allow_active>auth_admin_keep</allow_active></defaults>
+    <defaults><allow_any>no</allow_any><allow_inactive>auth_admin</allow_inactive><allow_active>yes</allow_active></defaults>
   </action>
   <action id="io.github.btrfsbackup.validate-target">
     <description>Validate a Btrfs backup target</description>
     <message>Authentication is required to validate a Btrfs backup target</message>
-    <defaults><allow_any>no</allow_any><allow_inactive>auth_admin</allow_inactive><allow_active>auth_admin_keep</allow_active></defaults>
+    <defaults><allow_any>no</allow_any><allow_inactive>auth_admin</allow_inactive><allow_active>yes</allow_active></defaults>
   </action>
   <action id="io.github.btrfsbackup.eject-target">
     <description>Eject a Btrfs backup target</description>
     <message>Authentication is required to eject a Btrfs backup target</message>
-    <defaults><allow_any>no</allow_any><allow_inactive>auth_admin</allow_inactive><allow_active>auth_admin_keep</allow_active></defaults>
+    <defaults><allow_any>no</allow_any><allow_inactive>auth_admin</allow_inactive><allow_active>yes</allow_active></defaults>
   </action>
 </policyconfig>
