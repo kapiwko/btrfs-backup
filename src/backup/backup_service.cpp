@@ -46,6 +46,33 @@ BackupExecutionFailed emit_run_failed(
     };
 }
 
+std::optional<BackupExecutionFailed> close_target_or_fail(
+    RunExecutionContext& context,
+    IBackupRunEventSink& events,
+    const ProfileId& profile_id,
+    const RunId& run_id,
+    std::size_t actions_completed = 0
+) {
+    const std::optional<TargetCleanupError> cleanup_error = context.close_target_session();
+    if (!cleanup_error.has_value()) {
+        return std::nullopt;
+    }
+    return emit_run_failed(
+        events,
+        profile_id,
+        run_id,
+        ErrorCode::BackupFailed,
+        cleanup_error->message,
+        actions_completed
+    );
+}
+
+void close_standalone_target_or_throw(IMountedTargetSession& target_session) {
+    if (std::optional<TargetCleanupError> cleanup_error = target_session.close()) {
+        throw CodedOperationError(ErrorCode::BackupFailed, cleanup_error->message);
+    }
+}
+
 } // namespace
 
 BackupService::BackupService(
@@ -88,8 +115,17 @@ BackupRunPlan BackupService::plan(const BackupPlanRequest& request) {
         request.mount_target ? TargetMountMode::MountIfNeeded : TargetMountMode::RequireMounted,
         cancellation
     );
-    const BackupPlanningSnapshot snapshot = discovery_.discover(loaded.profile, application_paths_, cancellation);
-    return plan_builder_.build(loaded.profile, snapshot, run_id, timestamp, cancellation);
+    std::optional<BackupRunPlan> plan;
+    try {
+        const BackupPlanningSnapshot snapshot = discovery_.discover(loaded.profile, application_paths_, cancellation);
+        plan = plan_builder_.build(loaded.profile, snapshot, run_id, timestamp, cancellation);
+    } catch (...) {
+        const std::exception_ptr original_error = std::current_exception();
+        close_standalone_target_or_throw(*target_session);
+        std::rethrow_exception(original_error);
+    }
+    close_standalone_target_or_throw(*target_session);
+    return std::move(*plan);
 }
 
 BackupExecutionResult BackupService::start(const BackupRequest& request) {
@@ -168,12 +204,36 @@ BackupExecutionResult BackupService::start(const BackupRequest& request) {
         }
         const std::string& fingerprint = loaded_profile.fingerprint.value();
         if (request.validate_only) {
+            if (std::optional<BackupExecutionFailed> failed = close_target_or_fail(
+                    *context,
+                    *events,
+                    profile.id,
+                    run_id
+                )) {
+                (void)context->close();
+                return *failed;
+            }
+            if (context->cancellation.cancellation_requested()) {
+                throw OperationCancelledError("backup cancelled during target cleanup");
+            }
             events->on_backup_run_event(RunCompleted{profile.id, run_id});
             return BackupExecutionValidated{std::move(plan)};
         }
 
         const LocalDate today = clock_.local_date();
         if (!request.force && profile.settings.daily_limit && ledger_.last_success_matches(profile, today, fingerprint)) {
+            if (std::optional<BackupExecutionFailed> failed = close_target_or_fail(
+                    *context,
+                    *events,
+                    profile.id,
+                    run_id
+                )) {
+                (void)context->close();
+                return *failed;
+            }
+            if (context->cancellation.cancellation_requested()) {
+                throw OperationCancelledError("backup cancelled during target cleanup");
+            }
             ledger_.write_skipped(profile, run_id, started_at, clock_.now(), plan.sources.size());
             return BackupExecutionSkipped{std::move(plan)};
         }
@@ -186,6 +246,19 @@ BackupExecutionResult BackupService::start(const BackupRequest& request) {
         );
 
         if (const auto* completed = std::get_if<BackupRunExecutionCompleted>(&execution)) {
+            if (std::optional<BackupExecutionFailed> failed = close_target_or_fail(
+                    *context,
+                    *events,
+                    profile.id,
+                    run_id,
+                    completed->actions_completed
+                )) {
+                (void)context->close();
+                return *failed;
+            }
+            if (context->cancellation.cancellation_requested()) {
+                throw OperationCancelledError("backup cancelled during target cleanup");
+            }
             ledger_.write_success(
                 profile,
                 run_id,

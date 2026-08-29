@@ -114,6 +114,18 @@ void RunExecutionContext::attach_target_session(std::unique_ptr<IMountedTargetSe
     target_session = std::move(session);
 }
 
+std::optional<TargetCleanupError> RunExecutionContext::close_target_session() noexcept {
+    if (target_close_attempted_) {
+        return target_close_error_;
+    }
+    target_close_attempted_ = true;
+    if (target_session != nullptr) {
+        target_close_error_ = target_session->close();
+        target_session.reset();
+    }
+    return target_close_error_;
+}
+
 RunExecutionContext::~RunExecutionContext() noexcept {
     try {
         (void)close();
@@ -143,7 +155,9 @@ CloseResult RunExecutionContext::close() {
     } catch (...) {
         record_unknown_exception(result, RunExecutionContextCloseStage::CancellationRequest);
     }
-    reset_resource(target_session, RunExecutionContextCloseStage::TargetSession, result);
+    if (std::optional<TargetCleanupError> error = close_target_session()) {
+        result.failures.push_back({RunExecutionContextCloseStage::TargetSession, error->message});
+    }
     reset_resource(lease, RunExecutionContextCloseStage::Lease, result);
 
     write_diagnostics(profile_id, run_id, result);

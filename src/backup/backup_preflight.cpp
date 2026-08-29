@@ -7,6 +7,8 @@
 #include <backup/backup_preflight_validation.hpp>
 #include <core/errors.hpp>
 
+#include <exception>
+
 namespace btrfsbackup::backup {
 
 BackupPreflight::BackupPreflight(IMountInspector& mount_inspector, ITargetManager& target_manager)
@@ -22,12 +24,20 @@ std::unique_ptr<IMountedTargetSession> BackupPreflight::run(
         throw OperationCancelledError("backup cancelled during preflight");
     }
     std::unique_ptr<IMountedTargetSession> target_session = target_manager_.prepare(profile, mode);
-    if (cancellation.cancellation_requested()) {
-        throw OperationCancelledError("backup cancelled during preflight");
-    }
-    validate_backup_mounts(profile, mount_inspector_.inspect());
-    if (cancellation.cancellation_requested()) {
-        throw OperationCancelledError("backup cancelled during preflight");
+    try {
+        if (cancellation.cancellation_requested()) {
+            throw OperationCancelledError("backup cancelled during preflight");
+        }
+        validate_backup_mounts(profile, mount_inspector_.inspect());
+        if (cancellation.cancellation_requested()) {
+            throw OperationCancelledError("backup cancelled during preflight");
+        }
+    } catch (...) {
+        const std::exception_ptr original_error = std::current_exception();
+        if (std::optional<TargetCleanupError> cleanup_error = target_session->close()) {
+            throw ValidationError(cleanup_error->message);
+        }
+        std::rethrow_exception(original_error);
     }
     return target_session;
 }

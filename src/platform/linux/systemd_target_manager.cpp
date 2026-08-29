@@ -6,6 +6,7 @@
 
 #include <memory>
 #include <filesystem>
+#include <exception>
 #include <string>
 #include <utility>
 
@@ -31,29 +32,77 @@ class SystemdMountedTargetSession final : public btrfsbackup::backup::IMountedTa
     }
 
     ~SystemdMountedTargetSession() override {
-        if (!mounted_by_this_session_) {
-            return;
-        }
-        try {
-            const btrfsbackup::backup::CommandResult unmount = commands_.run(
-                {"systemctl", "stop", mount_unit_}
-            );
-            if (unmount.exit_code == 0 && !crypt_unit_to_restore_.empty()) {
-                (void)commands_.run({"systemctl", "stop", crypt_unit_to_restore_});
-            }
-        } catch (...) {
-        }
+        (void)close();
     }
 
     bool mounted_by_this_session() const noexcept override {
         return mounted_by_this_session_;
     }
 
+    std::optional<btrfsbackup::backup::TargetCleanupError> close() noexcept override {
+        if (closed_) {
+            return close_error_;
+        }
+        closed_ = true;
+        if (!mounted_by_this_session_) {
+            return std::nullopt;
+        }
+
+        close_error_ = stop_unit(
+            mount_unit_,
+            btrfsbackup::backup::TargetCleanupStage::MountUnit,
+            "could not stop target mount unit "
+        );
+        if (close_error_.has_value() || crypt_unit_to_restore_.empty()) {
+            return close_error_;
+        }
+        close_error_ = stop_unit(
+            crypt_unit_to_restore_,
+            btrfsbackup::backup::TargetCleanupStage::CryptsetupUnit,
+            "could not stop target cryptsetup unit "
+        );
+        return close_error_;
+    }
+
   private:
+    std::optional<btrfsbackup::backup::TargetCleanupError> stop_unit(
+        const std::string& unit,
+        btrfsbackup::backup::TargetCleanupStage stage,
+        const std::string& failure_prefix
+    ) noexcept {
+        try {
+            const btrfsbackup::backup::CommandResult result = commands_.run({"systemctl", "stop", unit});
+            if (result.exit_code == 0) {
+                return std::nullopt;
+            }
+            std::string message = failure_prefix + unit + " (exit code " + std::to_string(result.exit_code) + ")";
+            if (!result.output.empty()) {
+                message += ": " + result.output;
+            }
+            return btrfsbackup::backup::TargetCleanupError{stage, unit, result.exit_code, std::move(message)};
+        } catch (const std::exception& error) {
+            return btrfsbackup::backup::TargetCleanupError{
+                stage,
+                unit,
+                -1,
+                failure_prefix + unit + ": " + error.what(),
+            };
+        } catch (...) {
+            return btrfsbackup::backup::TargetCleanupError{
+                stage,
+                unit,
+                -1,
+                failure_prefix + unit + ": unknown error",
+            };
+        }
+    }
+
     btrfsbackup::backup::ICommandRunner& commands_;
     std::string mount_unit_;
     bool mounted_by_this_session_;
     std::string crypt_unit_to_restore_;
+    bool closed_ = false;
+    std::optional<btrfsbackup::backup::TargetCleanupError> close_error_;
 };
 
 } // namespace
@@ -85,12 +134,27 @@ std::unique_ptr<btrfsbackup::backup::IMountedTargetSession> SystemdTargetManager
         const btrfsbackup::backup::CommandResult unmount = commands_.run(
             {"systemctl", "stop", mount_unit}
         );
-        if (unmount.exit_code == 0 && !mapper_was_active) {
-            (void)commands_.run({
+        if (unmount.exit_code != 0) {
+            throw ValidationError(
+                "could not start target mount unit " + mount_unit +
+                "; could not stop target mount unit during rollback (exit code " +
+                std::to_string(unmount.exit_code) + ")"
+            );
+        }
+        if (!mapper_was_active) {
+            const std::string crypt_unit = systemd_cryptsetup_unit_name(profile.target.mapper_name.value());
+            const btrfsbackup::backup::CommandResult crypt_stop = commands_.run({
                 "systemctl",
                 "stop",
-                systemd_cryptsetup_unit_name(profile.target.mapper_name.value()),
+                crypt_unit,
             });
+            if (crypt_stop.exit_code != 0) {
+                throw ValidationError(
+                    "could not start target mount unit " + mount_unit +
+                    "; could not stop target cryptsetup unit during rollback " + crypt_unit +
+                    " (exit code " + std::to_string(crypt_stop.exit_code) + ")"
+                );
+            }
         }
         throw ValidationError("could not start target mount unit " + mount_unit);
     }

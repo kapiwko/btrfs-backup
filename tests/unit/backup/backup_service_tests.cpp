@@ -47,6 +47,7 @@ struct FakePreflight final : btrfsbackup::backup::IBackupPreflight {
     std::vector<std::string>* lifecycle = nullptr;
     std::vector<btrfsbackup::backup::TargetMountMode> modes;
     bool cancel_during_run = false;
+    bool session_close_fail = false;
     bool active_run_registered_at_call = false;
     int cancellation_watches_at_call = 0;
     const std::optional<btrfsbackup::RunId>* active_run = nullptr;
@@ -54,20 +55,39 @@ struct FakePreflight final : btrfsbackup::backup::IBackupPreflight {
     btrfsbackup::CancellationToken* received_cancellation = nullptr;
 
     struct Session final : btrfsbackup::backup::IMountedTargetSession {
-        Session(int& destructions, std::vector<std::string>* lifecycle)
-            : destructions(destructions), lifecycle(lifecycle) {
+        Session(int& destructions, std::vector<std::string>* lifecycle, bool close_fail)
+            : destructions(destructions), lifecycle(lifecycle), close_fail(close_fail) {
         }
         ~Session() override {
+            (void)close();
+            ++destructions;
+        }
+        std::optional<btrfsbackup::backup::TargetCleanupError> close() noexcept override {
+            if (closed) {
+                return close_error;
+            }
+            closed = true;
             if (lifecycle != nullptr) {
                 lifecycle->push_back("target-session");
             }
-            ++destructions;
+            if (close_fail) {
+                close_error = btrfsbackup::backup::TargetCleanupError{
+                    btrfsbackup::backup::TargetCleanupStage::MountUnit,
+                    "mnt-backup.mount",
+                    1,
+                    "could not stop target mount unit mnt-backup.mount (exit code 1)",
+                };
+            }
+            return close_error;
         }
         bool mounted_by_this_session() const noexcept override {
             return false;
         }
         int& destructions;
         std::vector<std::string>* lifecycle;
+        bool close_fail;
+        bool closed = false;
+        std::optional<btrfsbackup::backup::TargetCleanupError> close_error;
     };
 
     std::unique_ptr<btrfsbackup::backup::IMountedTargetSession> run(
@@ -89,7 +109,7 @@ struct FakePreflight final : btrfsbackup::backup::IBackupPreflight {
                 "target identity mismatch"
             );
         }
-        return std::make_unique<Session>(session_destructions, lifecycle);
+        return std::make_unique<Session>(session_destructions, lifecycle, session_close_fail);
     }
 };
 
@@ -576,23 +596,38 @@ void test_each_run_gets_a_fresh_cancellation_token() {
     );
 }
 
-void expect_run_resources_released(const std::string& prefix, const Fixture& fixture) {
+void expect_run_resources_released(
+    const std::string& prefix,
+    const Fixture& fixture,
+    bool target_closed_before_context = false
+) {
     test_helpers::expect_true(prefix + " lease", fixture.leases.destructions == 1, "lease was not released");
     test_helpers::expect_true(prefix + " watcher", fixture.cancellation_monitor.watch_destructions == 1, "watcher was not released");
     test_helpers::expect_true(prefix + " checkpoints", fixture.state.checkpoint_destructions == 1, "checkpoint store was not released");
     test_helpers::expect_true(prefix + " events", fixture.state.event_destructions == 1, "event sink was not released");
     test_helpers::expect_true(prefix + " active run", !fixture.state.active_run.has_value(), "active run was not released");
+    const std::vector<std::string> expected_lifecycle = target_closed_before_context
+        ? std::vector<std::string>{
+              "target-session",
+              "watcher",
+              "events",
+              "checkpoints",
+              "active-run",
+              "cancellation-request",
+              "lease",
+          }
+        : std::vector<std::string>{
+              "watcher",
+              "events",
+              "checkpoints",
+              "active-run",
+              "cancellation-request",
+              "target-session",
+              "lease",
+          };
     test_helpers::expect_true(
         prefix + " cancellation lifecycle",
-        fixture.cancellation_lifecycle == std::vector<std::string>{
-                                              "watcher",
-                                              "events",
-                                              "checkpoints",
-                                              "active-run",
-                                              "cancellation-request",
-                                              "target-session",
-                                              "lease",
-                                          },
+        fixture.cancellation_lifecycle == expected_lifecycle,
         "run resources were not released in the safe order"
     );
 }
@@ -600,7 +635,7 @@ void expect_run_resources_released(const std::string& prefix, const Fixture& fix
 void test_run_context_releases_resources_after_success() {
     Fixture fixture;
     (void)fixture.service.start({.profile_id = btrfsbackup::ProfileId{"default"}});
-    expect_run_resources_released("successful run", fixture);
+    expect_run_resources_released("successful run", fixture, true);
 }
 
 void test_run_context_close_aggregates_cleanup_diagnostics() {
@@ -608,6 +643,7 @@ void test_run_context_close_aggregates_cleanup_diagnostics() {
     fixture.cancellation_monitor.close_diagnostic = "watch cleanup failed";
     fixture.state.active_close_diagnostic = "active run cleanup failed";
     fixture.state.fail_clear_cancel_request = true;
+    fixture.preflight.session_close_fail = true;
 
     std::unique_ptr<btrfsbackup::backup::IBackupRunEventSink> events = fixture.state.events({});
     btrfsbackup::backup::BackupRunLeaseResult lease_result = fixture.leases.try_acquire(
@@ -637,10 +673,11 @@ void test_run_context_close_aggregates_cleanup_diagnostics() {
     test_helpers::expect_true("cleanup result failed", !result.succeeded(), "cleanup failures were lost");
     test_helpers::expect_true(
         "cleanup diagnostics",
-        result.failures.size() == 3 &&
+        result.failures.size() == 4 &&
             result.failures.at(0).stage == btrfsbackup::backup::RunExecutionContextCloseStage::CancellationWatch &&
             result.failures.at(1).stage == btrfsbackup::backup::RunExecutionContextCloseStage::ActiveRun &&
-            result.failures.at(2).stage == btrfsbackup::backup::RunExecutionContextCloseStage::CancellationRequest,
+            result.failures.at(2).stage == btrfsbackup::backup::RunExecutionContextCloseStage::CancellationRequest &&
+            result.failures.at(3).stage == btrfsbackup::backup::RunExecutionContextCloseStage::TargetSession,
         "cleanup failures were not aggregated in lifecycle order"
     );
     test_helpers::expect_true("event sink closed", events == nullptr, "event sink remained open");
@@ -690,6 +727,28 @@ void test_success_persistence_failure_does_not_emit_run_completed() {
             btrfsbackup::backup::backup_run_event_kind(fixture.state.events_received.at(1)) ==
                 btrfsbackup::backup::BackupRunEventKind::RunFailed,
         "ledger failure emitted a premature RunCompleted"
+    );
+}
+
+void test_target_cleanup_failure_prevents_success() {
+    Fixture fixture;
+    fixture.preflight.session_close_fail = true;
+
+    const btrfsbackup::backup::BackupExecutionResult result = fixture.service.start({
+        .profile_id = btrfsbackup::ProfileId{"default"},
+    });
+
+    const auto* failed = std::get_if<btrfsbackup::backup::BackupExecutionFailed>(&result);
+    test_helpers::expect_true("target cleanup failure result", failed != nullptr, "cleanup failure did not fail the run");
+    test_helpers::expect_true("target cleanup no success", fixture.state.success_writes == 0, "cleanup failure persisted success");
+    test_helpers::expect_true(
+        "target cleanup failure lifecycle",
+        fixture.state.events_received.size() == 2 &&
+            btrfsbackup::backup::backup_run_event_kind(fixture.state.events_received.at(0)) ==
+                btrfsbackup::backup::BackupRunEventKind::RunStarted &&
+            btrfsbackup::backup::backup_run_event_kind(fixture.state.events_received.at(1)) ==
+                btrfsbackup::backup::BackupRunEventKind::RunFailed,
+        "cleanup failure emitted RunCompleted"
     );
 }
 
@@ -831,6 +890,21 @@ void test_plan_can_explicitly_mount_target() {
     );
 }
 
+void test_plan_reports_target_cleanup_failure() {
+    Fixture fixture;
+    fixture.preflight.session_close_fail = true;
+
+    try {
+        (void)fixture.service.plan({
+            .profile_id = btrfsbackup::ProfileId{"default"},
+            .mount_target = true,
+        });
+        test_helpers::expect_true("plan cleanup failure", false, "plan succeeded despite cleanup failure");
+    } catch (const btrfsbackup::CodedOperationError& error) {
+        test_helpers::expect_contains("plan cleanup diagnostic", error.what(), "could not stop target mount unit");
+    }
+}
+
 void test_busy_plan_stops_before_target_access() {
     Fixture fixture;
     fixture.leases.busy = true;
@@ -909,12 +983,14 @@ int main() {
     test_run_context_close_aggregates_cleanup_diagnostics();
     test_run_context_releases_resources_after_exception();
     test_success_persistence_failure_does_not_emit_run_completed();
+    test_target_cleanup_failure_prevents_success();
     test_preflight_failure_has_terminal_run_lifecycle();
     test_run_can_be_cancelled_during_preflight();
     test_executor_typed_failure_is_not_emitted_twice();
     test_busy_stops_before_target_access();
     test_plan_acquires_lease_and_defaults_to_offline_target();
     test_plan_can_explicitly_mount_target();
+    test_plan_reports_target_cleanup_failure();
     test_busy_plan_stops_before_target_access();
     test_daily_match_skips_execution();
     test_cancel_validates_profile_and_writes_request();
