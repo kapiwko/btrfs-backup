@@ -3,7 +3,8 @@
   "KPlugin": {
     "Authors": [
       {
-        "Name": "btrfs-backup contributors"
+        "Name": "Kamil Piwowarski",
+        "Email": "kapiwko@gmail.com"
       }
     ],
     "Category": "System Information",
