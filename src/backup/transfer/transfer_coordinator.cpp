@@ -21,6 +21,27 @@ namespace btrfsbackup::backup::transfer {
 
 namespace {
 
+class StreamSizingEventSink final : public ITransferEventSink {
+  public:
+    explicit StreamSizingEventSink(ITransferEventSink& events) : events_(events) {
+    }
+
+    void on_transfer_event(const TransferEvent& event) override {
+        if (event.kind != TransferEventKind::Progress) {
+            return;
+        }
+        events_.on_transfer_event({
+            .kind = TransferEventKind::Progress,
+            .elapsed_ms = event.elapsed_ms,
+            .speed_bps = event.speed_bps,
+            .message = "Measuring Btrfs send stream.",
+        });
+    }
+
+  private:
+    ITransferEventSink& events_;
+};
+
 TransferPipelinePlan transfer_plan_for_action(
     const SendReceiveAction& action,
     const fs::path& target_mount_point,
@@ -73,6 +94,17 @@ void require_success_with_error_code(const TransferResult& result) {
     }
 }
 
+TransferResult run_pipeline(
+    IAsyncTransferPipeline& pipeline,
+    const TransferPipelinePlan& plan,
+    ITransferEventSink& events,
+    CancellationToken& cancellation
+) {
+    std::unique_ptr<IAsyncTransferHandle> transfer = pipeline.start(plan, events);
+    wait_for_transfer_or_cancellation(*transfer, cancellation);
+    return transfer->wait();
+}
+
 } // namespace
 
 TransferCoordinator::TransferCoordinator(
@@ -90,9 +122,17 @@ TransferResult TransferCoordinator::execute(
 ) {
     TransferPipelinePlan plan = transfer_plan_for_action(action, target_mount_point, safe_directories_);
 
-    std::unique_ptr<IAsyncTransferHandle> transfer = pipeline_.start(plan, events);
-    wait_for_transfer_or_cancellation(*transfer, cancellation);
-    TransferResult result = transfer->wait();
+    TransferPipelinePlan sizing_plan = plan;
+    sizing_plan.consumer_argv = {"btrfs", "receive", "--dump"};
+    StreamSizingEventSink sizing_events(events);
+    TransferResult sizing_result = run_pipeline(pipeline_, sizing_plan, sizing_events, cancellation);
+    if (sizing_result.cancelled) {
+        return sizing_result;
+    }
+    require_success_with_error_code(sizing_result);
+    plan.bytes_total_estimated = sizing_result.bytes_transferred;
+
+    TransferResult result = run_pipeline(pipeline_, plan, events, cancellation);
     if (!result.cancelled) {
         require_success_with_error_code(result);
     }

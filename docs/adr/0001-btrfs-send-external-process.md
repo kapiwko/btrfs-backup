@@ -20,6 +20,12 @@ and argument vectors. Connect them through the native bounded pipeline, count
 transferred bytes, and control both process groups through the existing
 cancellation and escalation policy.
 
+Before the effectful receive, run the identical `btrfs send` command into
+`btrfs receive --dump`. Count that stream without publishing its bytes as
+transferred data, then use the exact count as the total for the second,
+effectful pass. The read-only snapshot and parent keep both stream lengths
+stable.
+
 Use `libbtrfsutil` for supported metadata, snapshot and subvolume operations,
 but do not implement the send-stream format in this project.
 
@@ -35,5 +41,6 @@ but do not implement the send-stream format in this project.
 - The project must test argument construction and supported tool versions.
 - There is no shell interpolation surface.
 - Cancellation and error reporting must account for two child processes.
-- Exact total progress is unavailable unless estimated separately or the stream
-  is spooled, but transferred bytes remain exact.
+- Every transfer runs the send producer twice, increasing source I/O and CPU
+  work in exchange for exact total progress without spooling the stream.
+- The sizing consumer parses the stream without creating a received subvolume.

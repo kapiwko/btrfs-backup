@@ -41,6 +41,11 @@ void test_progress_accuracy_names_are_stable() {
         btrfsbackup::state::progress_accuracy_name(btrfsbackup::state::ProgressAccuracy::Estimated),
         "estimated"
     );
+    test_helpers::expect_eq(
+        "exact accuracy",
+        btrfsbackup::state::progress_accuracy_name(btrfsbackup::state::ProgressAccuracy::Exact),
+        "exact"
+    );
 }
 
 } // namespace
