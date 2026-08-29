@@ -127,11 +127,7 @@ bool mapper_identity_matches(
     if (configured.empty() || actual.empty() || configured != actual) {
         return false;
     }
-    try {
-        validate_luks_uuid(commands, profile);
-    } catch (const btrfsbackup::ValidationError&) {
-        return false;
-    }
+    validate_luks_uuid(commands, profile);
     return true;
 }
 
@@ -368,8 +364,23 @@ TargetOperationResult activate_target(
         std::chrono::seconds(80)
     );
     try {
+        run_checked_controlled(
+            *resolved.commands,
+            {"udevadm", "settle", "--timeout=10"},
+            "udev did not publish the activated LUKS mapper",
+            std::chrono::seconds(15)
+        );
         if (!fs::exists(mapper) || !mapper_identity_matches(*resolved.commands, profile, resolved.canonical_device)) {
-            throw ValidationError("activated LUKS mapper identity does not match configuration");
+            const fs::path reported = mapper_underlying_device(
+                *resolved.commands,
+                profile.target.mapper_name.value()
+            );
+            throw ValidationError(
+                "activated LUKS mapper identity does not match configuration: configured=" +
+                profile.target.device.value().string() + " (canonical=" +
+                resolved.canonical_device(profile.target.device).string() + "), reported=" +
+                reported.string() + " (canonical=" + resolved.canonical_device(reported).string() + ")"
+            );
         }
         write_activation_marker(resolved, profile);
     } catch (...) {
