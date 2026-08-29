@@ -14,6 +14,17 @@ Mode without root-only operations:
 ./tests/run-tests.sh --static-only
 ```
 
+For fast feedback while editing tracked C++ implementation files, run:
+
+```bash
+make quality-changed
+```
+
+This checks formatting and runs clang-tidy only on implementation lines changed
+since `HEAD`. Set `CLANG_TIDY_BASE=<commit>` to check a wider diff. Header-only
+changes and the final pre-commit check still require the complete `make quality`
+gate.
+
 Public-header compile probes and dependency graph checks are enabled by default
 and carry the CTest label `architecture`. CI runs them once in a dedicated
 Clang job; compiler and sanitizer jobs configure with:
