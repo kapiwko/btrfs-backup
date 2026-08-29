@@ -12,10 +12,8 @@ class BackupRun {
   public:
     BackupRun(
         BackupRunPlan plan,
-        IBackupRunActionHandler& action_handler,
-        btrfsbackup::backup::transfer::IAsyncTransferPipeline& transfer_pipeline,
-        IBackupRunCheckpointStore& checkpoints,
-        const ISafeDirectoryRootFactory& safe_directories
+        IBackupActionExecutor& action_executor,
+        IBackupRunCheckpointStore& checkpoints
     );
 
     [[nodiscard]] const BackupRunPlan& plan() const noexcept;

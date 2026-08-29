@@ -96,6 +96,7 @@ target_link_libraries(btrfsbackup-backup-ports
 )
 
 add_library(btrfsbackup-backup STATIC
+    backup_action_executor.cpp
     backup_preflight.cpp
     backup_preflight_validation.cpp
     backup_run.cpp
@@ -128,6 +129,7 @@ target_restricted_include_directories(btrfsbackup-backup
         backup/action_handlers/repository_action_handler.hpp
         backup/action_handlers/retention_action_handler.hpp
         backup/action_handlers/snapshot_action_handler.hpp
+        backup/backup_action_executor.hpp
         backup/backup_discovery.hpp
         backup/backup_plan_builder.hpp
         backup/backup_preflight.hpp
