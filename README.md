@@ -94,6 +94,7 @@ sudo btrfs-backupctl profile wizard --apply
 /etc/systemd/system/btrfs-backup.service
 /etc/systemd/system/btrfs-backup@.service
 /etc/systemd/system/btrfs-backup-eject@.service
+/etc/systemd/system/btrfs-backup-validate@.service
 /etc/systemd/system/btrfs-backup@default.service.d/target-mount.conf
 /etc/udev/rules.d/99-btrfs-backup-default.rules
 ```
@@ -120,9 +121,9 @@ sudo btrfs-backup --force
 sudo btrfs-backup --validate
 sudo btrfs-backup --no-eject
 sudo btrfs-backup --profile default --validate
-btrfs-backupctl target mount --profile default
-btrfs-backupctl target eject --profile default
-btrfs-backupctl runner cancel --profile default --run-id RUN_ID
+sudo btrfs-backupctl target mount --profile default
+sudo btrfs-backupctl target eject --profile default
+sudo btrfs-backupctl runner cancel --profile default --run-id RUN_ID
 btrfs-backupctl profile validate --file profile.json
 btrfs-backupctl profile render --file profile.json --output-dir ./generated-profile
 btrfs-backupctl profile show --profile default
@@ -132,11 +133,18 @@ btrfs-backupctl status history --profile default --limit 10
 btrfs-backupctl profile list
 ```
 
+The Plasma widget routes start, cancellation, target validation, and eject
+through the system manager. These already configured operational controls do
+not require a password from the active local desktop session. Direct runtime
+commands and future KCM operations that change profiles, hooks, or devices
+remain administrator operations.
+
 Logs:
 
 ```bash
 journalctl -u btrfs-backup@default.service
 journalctl -u btrfs-backup@default.service -f
+journalctl -u btrfs-backupd.service
 ```
 
 ## Configuration Layout

@@ -131,14 +131,15 @@ drop-ins after an explicit user command.
 
 The optional `btrfs-backup-kde` package installs the Plasma applet under
 `/usr/share/plasma/plasmoids` and the compiled QML module under
-`/usr/lib/qt6/qml`. Its install hook refreshes the desktop service cache with
-`kbuildsycoca6` when that command is available.
+`/usr/lib/qt6/qml`. Its install hook prints a Plasma reload hint and does not
+run user-session cache tools as root.
 
 The base package installs native ELF commands directly in `/usr/bin` and uses
 Btrfs userspace tools, cryptsetup, systemd/udev, `coreutils`, and `util-linux` at
-runtime. `btrfs-backupd` exposes only presentation-safe read methods through
-`io.github.btrfsbackup.Manager1`; backup execution remains a separate systemd
-runner and works without the daemon. Desktop notifications are owned by
+runtime. `btrfs-backupd` exposes presentation-safe read methods through
+`io.github.btrfsbackup.Manager1` alongside separately polkit-authorized
+operational controls; backup execution remains a separate systemd runner and
+works without the daemon. Desktop notifications are owned by
 `btrfs-backup-kde`.
 
 ## Reproducibility
