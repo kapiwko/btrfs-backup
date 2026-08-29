@@ -65,18 +65,66 @@ jobs:
         run: |
           pacman -Syu --noconfirm --needed \
             btrfs-progs \
+            ccache \
             clang \
             cmake \
             git \
+            ninja \
             nlohmann-json \
             pkgconf \
             systemd \
             util-linux
       - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: .ccache
+          key: ccache-${{ runner.os }}-${{ matrix.compiler }}-${{ github.sha }}
+          restore-keys: ccache-${{ runner.os }}-${{ matrix.compiler }}-
       - name: Run test suite
         run: ./tests/run-tests.sh
         env:
+          CCACHE_DIR: ${{ github.workspace }}/.ccache
+          CMAKE_CONFIGURE_ARGS: -G Ninja -DBTRFSBACKUP_ARCHITECTURE_TESTS=OFF -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
           CXX: ${{ matrix.cxx }}
+
+  architecture-tests:
+    runs-on: ubuntu-24.04
+    container: archlinux:base-devel
+    steps:
+      - name: Prepare Arch Linux
+        run: |
+          pacman -Syu --noconfirm --needed \
+            btrfs-progs \
+            ccache \
+            clang \
+            cmake \
+            git \
+            ninja \
+            nlohmann-json \
+            pkgconf \
+            systemd \
+            util-linux
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: .ccache
+          key: ccache-${{ runner.os }}-architecture-${{ github.sha }}
+          restore-keys: ccache-${{ runner.os }}-architecture-
+      - name: Configure architecture tests
+        run: |
+          cmake \
+            -S . \
+            -B build/architecture \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_CXX_COMPILER=clang++ \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+        env:
+          CCACHE_DIR: ${{ github.workspace }}/.ccache
+      - name: Run architecture tests
+        run: ctest --test-dir build/architecture -L architecture --parallel "$(nproc)" --output-on-failure
+        env:
+          CCACHE_DIR: ${{ github.workspace }}/.ccache
 
   sanitizers:
     runs-on: ubuntu-24.04
@@ -86,29 +134,42 @@ jobs:
         run: |
           pacman -Syu --noconfirm --needed \
             btrfs-progs \
+            ccache \
             clang \
             cmake \
             git \
+            ninja \
             nlohmann-json \
             pkgconf \
             systemd \
             util-linux
       - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: .ccache
+          key: ccache-${{ runner.os }}-sanitizers-${{ github.sha }}
+          restore-keys: ccache-${{ runner.os }}-sanitizers-
       - name: Configure ASan and UBSan
         run: |
           cmake \
             -S . \
             -B build/sanitizers \
+            -G Ninja \
+            -DBTRFSBACKUP_ARCHITECTURE_TESTS=OFF \
             -DCMAKE_BUILD_TYPE=Debug \
             -DCMAKE_CXX_COMPILER=clang++ \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
             -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer -fno-sanitize-recover=all" \
             -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined"
       - name: Build with sanitizers
         run: cmake --build build/sanitizers --parallel "$(nproc)"
+        env:
+          CCACHE_DIR: ${{ github.workspace }}/.ccache
       - name: Run tests with sanitizers
         run: ctest --test-dir build/sanitizers --parallel "$(nproc)" --output-on-failure
         env:
           ASAN_OPTIONS: detect_leaks=1:strict_string_checks=1
+          CCACHE_DIR: ${{ github.workspace }}/.ccache
           UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
 
   strict-warnings:
@@ -119,21 +180,33 @@ jobs:
         run: |
           pacman -Syu --noconfirm --needed \
             btrfs-progs \
+            ccache \
             clang \
             cmake \
             git \
+            ninja \
             nlohmann-json \
             pkgconf \
             systemd \
             util-linux
       - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: .ccache
+          key: ccache-${{ runner.os }}-strict-${{ github.sha }}
+          restore-keys: ccache-${{ runner.os }}-strict-
       - name: Configure strict warnings
         run: |
           cmake \
             -S . \
             -B build/strict-warnings \
+            -G Ninja \
+            -DBUILD_TESTING=OFF \
             -DCMAKE_BUILD_TYPE=Debug \
             -DCMAKE_CXX_COMPILER=clang++ \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
             -DCMAKE_CXX_FLAGS="-Werror -Wconversion -Wsign-conversion -Wshadow"
       - name: Build with strict warnings
         run: cmake --build build/strict-warnings --parallel "$(nproc)"
+        env:
+          CCACHE_DIR: ${{ github.workspace }}/.ccache

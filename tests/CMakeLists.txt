@@ -9,6 +9,7 @@ function(add_btrfsbackup_test target source test_name)
     add_test(NAME ${test_name} COMMAND ${target})
 endfunction()
 
+if(BTRFSBACKUP_ARCHITECTURE_TESTS)
 include(architecture/public_link_interface_tests.cmake)
 include(architecture/model_dependency_tests.cmake)
 include(architecture/public_header_compile_tests.cmake)
@@ -142,6 +143,13 @@ add_test(
         -DPROJECT_SOURCE_DIR=${PROJECT_SOURCE_DIR}
         -P ${CMAKE_CURRENT_SOURCE_DIR}/architecture/config_domain_tests.cmake
 )
+set_tests_properties(
+    dependency-direction
+    namespace-layout
+    config-domain-boundary
+    PROPERTIES LABELS architecture
+)
+endif()
 
 add_subdirectory(unit/backup)
 add_subdirectory(unit/config)
