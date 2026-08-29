@@ -1078,6 +1078,14 @@ if [[ "$TARGET" == all || "$TARGET" == arch || "$TARGET" == arch-base ]]; then
         --keyfile none
     grep -Fqx 'ExecStart=/usr/bin/btrfs-backupctl runner execute --profile %i' \
         "$PACKAGE_RENDERED/systemd/btrfs-backup@.service"
+    grep -Fqx 'OnSuccess=btrfs-backup-eject@%i.service' \
+        "$PACKAGE_RENDERED/systemd/btrfs-backup@.service"
+    grep -Fqx 'OnFailure=btrfs-backup-eject@%i.service' \
+        "$PACKAGE_RENDERED/systemd/btrfs-backup@.service"
+    if grep -Fq 'ExecStopPost=' "$PACKAGE_RENDERED/systemd/btrfs-backup@.service"; then
+        printf '%s\n' 'Profile service starts eject before its mount namespace is gone.' >&2
+        exit 1
+    fi
     grep -Fqx 'ExecStart=/usr/bin/btrfs-backupctl runner execute --profile ${BTRFS_BACKUP_PROFILE_ID} --validate' \
         "$PACKAGE_RENDERED/systemd/btrfs-backup-validate@.service"
     grep -Fqx 'ExecStart=/usr/bin/btrfs-backupctl target eject --from-service --profile %i' \

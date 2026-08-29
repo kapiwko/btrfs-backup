@@ -20,10 +20,12 @@ uses `RequiresMountsFor` so systemd activates the fstab mount and its cryptsetup
 dependency before starting the runner. The mount unit does not start the backup
 service.
 
-After the sandboxed runner exits, `ExecStopPost` schedules a separate eject
-unit that synchronizes, unmounts the expected target and closes the matching
-cryptsetup unit. A directly invoked administrative command may request the same
-systemd units as a controlled fallback.
+After the sandboxed runner reaches its final state, `OnSuccess` or `OnFailure`
+schedules a separate eject unit that synchronizes, unmounts the expected target
+and closes the matching cryptsetup unit. These unit-level dependencies run only
+after the runner's processes and private mount namespace are gone. A directly
+invoked administrative command may request the same systemd units as a
+controlled fallback.
 
 ## Alternatives
 

@@ -107,9 +107,14 @@ void test_installation_render_writes_static_files() {
         "ExecStart=" + backup_command + " --profile %i"
     );
     test_helpers::expect_contains(
-        "installation asynchronous eject",
+        "installation successful eject",
         read_file(root / "rendered" / "systemd" / "btrfs-backup@.service"),
-        "ExecStopPost=/usr/bin/systemctl --no-block start btrfs-backup-eject@%i.service"
+        "OnSuccess=btrfs-backup-eject@%i.service"
+    );
+    test_helpers::expect_contains(
+        "installation failed eject",
+        read_file(root / "rendered" / "systemd" / "btrfs-backup@.service"),
+        "OnFailure=btrfs-backup-eject@%i.service"
     );
     test_helpers::expect_contains(
         "installation eject command",
