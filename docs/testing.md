@@ -126,13 +126,19 @@ graphical target is active. The broader transfer and failure-injection matrix
 above remains separate follow-up work. For a regular user the script performs
 the mount and loop operations inside a disposable privileged Docker container,
 so host-side `sudo` is not required. Direct execution as root remains available
-for CI environments that already provide an isolated worker. Permission to use
+for CI environments and hosts that already have QEMU and the filesystem tools;
+that path does not use Docker. Permission to use
 the Docker daemon and privileged containers is root-equivalent and must not be
 treated as a reduced security boundary. By default package compilation reuses
 the host's persistent `build/integration-package` CMake tree;
 `PACKAGE_BUILDER=docker` selects an unprivileged build container for hosts
 without native build dependencies. In both cases the privileged worker receives
-only the finished package through a read-only mount.
+only the finished package through a read-only mount. The prepared Arch root
+filesystem is cached under `build/qemu-cache` using the QEMU image ID as its
+key. Each boot uses QEMU's temporary snapshot layer and receives the current
+package on a separate read-only setup disk, so repeated runs do not copy the
+container filesystem. Set `QEMU_CACHE_DIR` to relocate this cache; removing the
+directory forces a clean root filesystem build.
 
 Local runner tests cover the run-bound file cancellation request and verify that
 an active transfer sees a matching request, reports `runner.cancelled`, and
