@@ -4,9 +4,13 @@
 
 #include <backup/linked_cancellation_monitor.hpp>
 
+#include <exception>
 #include <functional>
+#include <iostream>
 #include <memory>
+#include <optional>
 #include <stop_token>
+#include <string>
 #include <utility>
 
 namespace btrfsbackup::backup {
@@ -21,12 +25,36 @@ class LinkedCancellationWatch final : public ICancellationWatch {
         CancellationToken& cancellation
     )
         : primary_(std::move(primary)),
-          callback_(upstream.stop_token(), [&cancellation] { cancellation.request_cancel(); }) {
+          callback_(std::in_place, upstream.stop_token(), [&cancellation] { cancellation.request_cancel(); }) {
+    }
+
+    ~LinkedCancellationWatch() override {
+        try {
+            if (std::optional<std::string> diagnostic = close()) {
+                std::clog << "btrfs-backup: linked cancellation watch cleanup failed: " << *diagnostic << '\n';
+            }
+        } catch (const std::exception& error) {
+            std::clog << "btrfs-backup: linked cancellation watch cleanup failed: " << error.what() << '\n';
+        } catch (...) {
+            std::clog << "btrfs-backup: linked cancellation watch cleanup failed with an unknown error\n";
+        }
+    }
+
+    std::optional<std::string> close() override {
+        if (closed_) {
+            return std::nullopt;
+        }
+        closed_ = true;
+        callback_.reset();
+        std::optional<std::string> result = primary_->close();
+        primary_.reset();
+        return result;
     }
 
   private:
     std::unique_ptr<ICancellationWatch> primary_;
-    std::stop_callback<std::function<void()>> callback_;
+    std::optional<std::stop_callback<std::function<void()>>> callback_;
+    bool closed_ = false;
 };
 
 } // namespace

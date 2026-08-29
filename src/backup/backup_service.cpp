@@ -168,6 +168,7 @@ BackupExecutionResult BackupService::start(const BackupRequest& request) {
     std::unique_ptr<IBackupRunEventSink> events = event_sinks_.events(
         status_description(profile, started_at)
     );
+    std::optional<RunExecutionContext> context;
     try {
         BackupRunLeaseResult lease_result = leases_.try_acquire(profile);
         if (auto* busy = std::get_if<BackupRunLeaseBusy>(&lease_result)) {
@@ -205,9 +206,10 @@ BackupExecutionResult BackupService::start(const BackupRequest& request) {
             return BackupExecutionSkipped{std::move(plan)};
         }
 
-        RunExecutionContext context(
+        context.emplace(
             profile.id,
             run_id,
+            events,
             std::move(lease),
             std::move(target_session),
             checkpoints_,
@@ -217,10 +219,9 @@ BackupExecutionResult BackupService::start(const BackupRequest& request) {
         BackupRunExecutionResult execution = run_factory_.execute(
             plan,
             *events,
-            *context.checkpoints,
-            context.cancellation
+            *context->checkpoints,
+            context->cancellation
         );
-        cancellation_requests_.clear_cancel_request({profile.id, run_id});
 
         if (const auto* completed = std::get_if<BackupRunExecutionCompleted>(&execution)) {
             ledger_.write_success(
@@ -232,29 +233,39 @@ BackupExecutionResult BackupService::start(const BackupRequest& request) {
                 plan.sources.size()
             );
             events->on_backup_run_event(RunCompleted{profile.id, run_id});
-            return BackupExecutionCompleted{std::move(plan), completed->actions_completed};
+            BackupExecutionResult result = BackupExecutionCompleted{std::move(plan), completed->actions_completed};
+            (void)context->close();
+            return result;
         }
         if (const auto* failed = std::get_if<BackupRunExecutionFailed>(&execution)) {
-            return BackupExecutionFailed{
+            BackupExecutionResult result = BackupExecutionFailed{
                 .profile_id = profile.id,
                 .run_id = run_id,
                 .error_code = failed->error_code,
                 .error_message = failed->error_message,
                 .actions_completed = failed->actions_completed,
             };
+            (void)context->close();
+            return result;
         }
-        return BackupExecutionCancelled{
+        BackupExecutionResult result = BackupExecutionCancelled{
             std::move(plan),
             std::get<BackupRunExecutionCancelled>(execution).actions_completed,
         };
+        (void)context->close();
+        return result;
     } catch (const BtrfsBackupError& error) {
-        return emit_run_failed(
+        BackupExecutionResult result = emit_run_failed(
             *events,
             profile.id,
             run_id,
             failure_code(error),
             error.what()
         );
+        if (context.has_value()) {
+            (void)context->close();
+        }
+        return result;
     } catch (const std::exception& error) {
         (void)emit_run_failed(
             *events,
@@ -263,6 +274,9 @@ BackupExecutionResult BackupService::start(const BackupRequest& request) {
             ErrorCode::BackupFailed,
             error.what()
         );
+        if (context.has_value()) {
+            (void)context->close();
+        }
         throw;
     }
 }
