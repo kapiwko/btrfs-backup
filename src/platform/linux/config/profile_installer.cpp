@@ -63,7 +63,7 @@ ProfileInstaller::ProfileInstaller(btrfsbackup::config::ProfileArtifactRenderer&
 void ProfileInstaller::install_profile_transactionally(const btrfsbackup::config::Profile& profile, const btrfsbackup::config::ProfileArtifactRoots& roots) {
     const btrfsbackup::config::RenderedProfileArtifacts rendered = renderer_.render_profile_artifacts(profile, roots);
     const std::string installed_id{rendered.profile.id.value()};
-    const std::string& generation = rendered.profile.configuration_generation;
+    const btrfsbackup::config::ConfigurationGeneration& generation = rendered.profile.configuration_generation;
     btrfsbackup::config::ApplicationConfig application_config = load_application_config(roots.etc_root);
     ProfileConfigurationTransaction transaction(rendered);
 
@@ -75,7 +75,7 @@ void ProfileInstaller::install_profile_transactionally(const btrfsbackup::config
             application_config.paths().target_mount_root
         );
         const btrfsbackup::config::Json staged_public = btrfsbackup::config::load_json_file(transaction.staged_path(btrfsbackup::config::ProfileArtifactKind::PublicProfile));
-        if (staged_profile.configuration_generation != generation || staged_public.value("configurationGeneration", "") != generation) {
+        if (staged_profile.configuration_generation != generation || staged_public.value("configurationGeneration", "") != generation.value()) {
             throw ValidationError("staged configuration generation mismatch");
         }
 

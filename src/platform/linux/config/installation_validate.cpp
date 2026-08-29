@@ -180,7 +180,7 @@ void validate_active_installation(const std::string& profile_id) {
     run_checked(verify_units, true);
     run_checked({"udevadm", "verify", udev_file.string()});
 
-    std::string mount_unit = run_capture({"systemd-escape", "-p", "--suffix=mount", profile.target.mount_point});
+    std::string mount_unit = run_capture({"systemd-escape", "-p", "--suffix=mount", profile.target.mount_point.value().string()});
     fs::path old_dropin = fs::path("/etc/systemd/system") / (mount_unit + ".d") / "backup.conf";
     if (fs::is_regular_file(old_dropin)) {
         std::ifstream stream(old_dropin);

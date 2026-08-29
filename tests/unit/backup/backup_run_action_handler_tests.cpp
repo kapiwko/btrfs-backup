@@ -348,7 +348,7 @@ struct TestSource {
 TestSource source_plan(const fs::path& root) {
     TestSource source;
     source.source_subvolume = root / "source";
-    source.local_snapshot_dir = root / "local";
+    source.local_snapshot_dir = btrfsbackup::config::LocalSnapshotRoot{root / "local"};
     source.remote_snapshot_dir = root / "remote";
     source.incoming_source_root = root / "incoming" / "root";
     source.incoming_run_dir = source.incoming_source_root / "run-1";
@@ -444,7 +444,7 @@ btrfsbackup::backup::BackupRunAction hook_action(btrfsbackup::backup::HookPhase 
         btrfsbackup::SourceId{"root"},
         phase,
         btrfsbackup::config::ProfileHookCommand{
-            .program = "/etc/btrfs-backup/hooks.d/prepare-backup",
+            .program = btrfsbackup::config::HookProgramPath{"/etc/btrfs-backup/hooks.d/prepare-backup"},
             .arguments = {"--source", "root"},
             .timeout = std::chrono::seconds{300},
         },
@@ -678,7 +678,8 @@ void test_production_hook_uses_pinned_trusted_descriptor() {
         {.allow_current_user_owner = true, .verify_parent_directories = false}
     );
     btrfsbackup::backup::BackupRunAction trusted_hook = hook_action(btrfsbackup::backup::HookPhase::BeforeSnapshot);
-    std::get<btrfsbackup::backup::RunHookAction>(trusted_hook).hook.program = program.string();
+    std::get<btrfsbackup::backup::RunHookAction>(trusted_hook).hook.program =
+        btrfsbackup::config::HookProgramPath{program};
 
     handle_action(handler, trusted_hook);
 

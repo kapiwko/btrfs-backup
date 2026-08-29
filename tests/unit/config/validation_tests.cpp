@@ -25,6 +25,13 @@ static_assert(std::is_same_v<decltype(btrfsbackup::config::ProfileSettings::remo
 static_assert(std::is_same_v<decltype(btrfsbackup::config::ProfileSource::local_retention), btrfsbackup::config::RetentionCount>);
 static_assert(std::is_same_v<decltype(btrfsbackup::config::ProfileSettings::minimum_target_free_bytes), btrfsbackup::config::ByteThreshold>);
 static_assert(std::is_same_v<decltype(btrfsbackup::config::ProfileHookCommand::timeout), std::chrono::seconds>);
+static_assert(std::is_same_v<decltype(btrfsbackup::config::Profile::configuration_generation), btrfsbackup::config::ConfigurationGeneration>);
+static_assert(std::is_same_v<decltype(btrfsbackup::config::ProfileTarget::device), btrfsbackup::config::TargetDevicePath>);
+static_assert(std::is_same_v<decltype(btrfsbackup::config::ProfileTarget::mount_point), btrfsbackup::config::TargetMountPoint>);
+static_assert(std::is_same_v<decltype(btrfsbackup::config::ProfileSource::subvolume), btrfsbackup::config::SourceSubvolumePath>);
+static_assert(std::is_same_v<decltype(btrfsbackup::config::ProfileSource::local_snapshot_dir), btrfsbackup::config::LocalSnapshotRoot>);
+static_assert(std::is_same_v<decltype(btrfsbackup::config::ProfileHookCommand::program), btrfsbackup::config::HookProgramPath>);
+static_assert(!std::is_assignable_v<btrfsbackup::config::TargetMountPoint&, std::string>);
 
 void test_configuration_defaults() {
     const btrfsbackup::config::ProfileHookCommand hook;
@@ -65,6 +72,30 @@ void test_path_is_within() {
     test_helpers::expect_true("path sibling", !btrfsbackup::config::path_is_within("/mnt/backup2", "/mnt/backup"), "sibling path should not be within");
 }
 
+void test_operation_paths() {
+    const btrfsbackup::config::TargetDevicePath device{"/dev/disk/../mapper/backup"};
+    test_helpers::expect_eq("device normalized", device.value().string(), "/dev/mapper/backup");
+
+    const btrfsbackup::config::LocalSnapshotRoot snapshots{"/home/../.snapshots/root"};
+    test_helpers::expect_eq("snapshot root normalized", snapshots.value().string(), "/.snapshots/root");
+
+    test_helpers::expect_validation_error(
+        "device outside dev",
+        [] { (void)btrfsbackup::config::TargetDevicePath{"/tmp/device"}; },
+        "inside /dev"
+    );
+    test_helpers::expect_validation_error(
+        "relative mount point",
+        [] { (void)btrfsbackup::config::TargetMountPoint{"mnt/backup"}; },
+        "absolute"
+    );
+    test_helpers::expect_validation_error(
+        "relative hook program",
+        [] { (void)btrfsbackup::config::HookProgramPath{"hooks/prepare"}; },
+        "absolute"
+    );
+}
+
 } // namespace
 
 int main() {
@@ -72,6 +103,7 @@ int main() {
     test_uint_validation();
     test_path_validation();
     test_path_is_within();
+    test_operation_paths();
 
     return test_helpers::finish("validation tests");
 }

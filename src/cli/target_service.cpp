@@ -88,9 +88,12 @@ std::string cryptsetup_unit_name(btrfsbackup::backup::ICommandRunner& commands, 
 }
 
 void validate_luks_uuid(btrfsbackup::backup::ICommandRunner& commands, const btrfsbackup::config::Profile& profile) {
-    std::string actual = btrfsbackup::backup::capture_command(commands, {"cryptsetup", "luksUUID", profile.target.device});
+    std::string actual = btrfsbackup::backup::capture_command(
+        commands,
+        {"cryptsetup", "luksUUID", profile.target.device.value().string()}
+    );
     if (actual.empty() || lower(actual) != profile.target.luks_uuid.value()) {
-        throw btrfsbackup::ValidationError("LUKS UUID mismatch for " + profile.target.device);
+        throw btrfsbackup::ValidationError("LUKS UUID mismatch for " + profile.target.device.value().string());
     }
 }
 
@@ -228,7 +231,7 @@ TargetOperationResult mount_target(
     btrfsbackup::backup::validate_backup_target_mount(profile, resolved.read_mounts());
     result.events.push_back({
         .kind = TargetEventKind::Mounted,
-        .detail = profile.target.mount_point,
+        .detail = profile.target.mount_point.value().string(),
     });
     return result;
 }
@@ -259,18 +262,18 @@ TargetOperationResult eject_target(
     if (btrfsbackup::backup::mount_at(mounts, profile.target.mount_point).has_value()) {
         if (!request.force && !btrfsbackup::backup::mount_uses_mapper(mounts, profile.target.mount_point, fs::path("/dev/mapper") / profile.target.mapper_name.value())) {
             throw ValidationError(
-                "Refusing to unmount " + profile.target.mount_point +
+                "Refusing to unmount " + profile.target.mount_point.value().string() +
                 " because it is not backed by /dev/mapper/" + profile.target.mapper_name.value()
             );
         }
         result.events.push_back({
             .kind = TargetEventKind::Unmounting,
-            .detail = profile.target.mount_point,
+            .detail = profile.target.mount_point.value().string(),
         });
         run_checked(
             *resolved.commands,
-            {"umount", "--", profile.target.mount_point},
-            "could not unmount " + profile.target.mount_point
+            {"umount", "--", profile.target.mount_point.value().string()},
+            "could not unmount " + profile.target.mount_point.value().string()
         );
     }
 
@@ -307,7 +310,7 @@ TargetOperationResult eject_target(
     }
 
     if (fs::exists(profile.target.device)) {
-        run_ignored(*resolved.commands, {"blockdev", "--flushbufs", profile.target.device});
+        run_ignored(*resolved.commands, {"blockdev", "--flushbufs", profile.target.device.value().string()});
     }
     run_ignored(*resolved.commands, {"udevadm", "settle", "--timeout=10"});
 

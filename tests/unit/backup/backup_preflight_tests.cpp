@@ -25,7 +25,7 @@ btrfsbackup::config::Profile profile() {
             btrfsbackup::config::IncomingRoot{"/mnt/backup/.incoming"},
         },
     };
-    result.target.mount_point = "/mnt/backup";
+    result.target.mount_point = btrfsbackup::config::TargetMountPoint{"/mnt/backup"};
     return result;
 }
 

@@ -7,6 +7,7 @@
 #include <string>
 #include <utility>
 
+#include <config/model/configuration_generation.hpp>
 #include <config/model/profile.hpp>
 
 namespace btrfsbackup::config {
@@ -26,21 +27,6 @@ class ConfigurationFingerprint {
     }
 
     bool operator==(const ConfigurationFingerprint&) const = default;
-
-  private:
-    std::string value_;
-};
-
-class ConfigurationGeneration {
-  public:
-    explicit ConfigurationGeneration(std::string value) : value_(std::move(value)) {
-    }
-
-    [[nodiscard]] const std::string& value() const {
-        return value_;
-    }
-
-    bool operator==(const ConfigurationGeneration&) const = default;
 
   private:
     std::string value_;

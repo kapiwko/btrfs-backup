@@ -10,7 +10,7 @@
 
 namespace btrfsbackup::platform::linux {
 
-[[nodiscard]] std::string generate_configuration_generation();
+[[nodiscard]] btrfsbackup::config::ConfigurationGeneration generate_configuration_generation();
 void write_profile_artifacts(const btrfsbackup::config::RenderedProfileArtifacts& rendered);
 
 } // namespace btrfsbackup::platform::linux

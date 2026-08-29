@@ -39,7 +39,7 @@ struct RenderedProfileArtifacts {
     std::vector<ProfileArtifact> artifacts;
 };
 
-using ConfigurationGenerationGenerator = std::function<std::string()>;
+using ConfigurationGenerationGenerator = std::function<ConfigurationGeneration()>;
 
 class ProfileArtifactRenderer {
   public:

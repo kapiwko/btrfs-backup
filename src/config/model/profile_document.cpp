@@ -414,13 +414,15 @@ Profile profile_from_document(const ProfileDocument& document, const fs::path& t
             IncomingRoot{normalized.at("paths").at("incomingRoot").get<std::string>()},
         },
     };
-    profile.configuration_generation = normalized.value("configurationGeneration", "");
+    profile.configuration_generation = ConfigurationGeneration{normalized.value("configurationGeneration", "")};
     profile.name = normalized.at("name").get<std::string>();
     profile.enabled = normalized.at("enabled").get<bool>();
 
-    profile.target.device = target.at("device").get<std::string>();
+    profile.target.device = TargetDevicePath{target.at("device").get<std::string>()};
     profile.target.serial = target.at("serial").get<std::string>();
-    profile.target.mount_point = (normalized_absolute_path(target_mount_root, "TARGET_MOUNT_ROOT") / profile.id.value()).string();
+    profile.target.mount_point = TargetMountPoint{
+        normalized_absolute_path(target_mount_root, "TARGET_MOUNT_ROOT") / profile.id.value()
+    };
 
     const Json& settings = normalized.at("settings");
     profile.settings.daily_limit = settings.at("dailyLimit").get<bool>();
@@ -435,14 +437,14 @@ Profile profile_from_document(const ProfileDocument& document, const fs::path& t
     const Json& hooks = normalized.at("hooks");
     for (const Json& item : hooks.at("beforeSnapshot")) {
         profile.hooks.before_snapshot.push_back({
-            .program = item.at("program").get<std::string>(),
+            .program = HookProgramPath{item.at("program").get<std::string>()},
             .arguments = item.at("arguments").get<std::vector<std::string>>(),
             .timeout = std::chrono::seconds{item.at("timeoutSeconds").get<std::chrono::seconds::rep>()},
         });
     }
     for (const Json& item : hooks.at("afterSnapshot")) {
         profile.hooks.after_snapshot.push_back({
-            .program = item.at("program").get<std::string>(),
+            .program = HookProgramPath{item.at("program").get<std::string>()},
             .arguments = item.at("arguments").get<std::vector<std::string>>(),
             .timeout = std::chrono::seconds{item.at("timeoutSeconds").get<std::chrono::seconds::rep>()},
         });
@@ -455,8 +457,8 @@ Profile profile_from_document(const ProfileDocument& document, const fs::path& t
         };
         source.name = item.at("name").get<std::string>();
         source.enabled = item.at("enabled").get<bool>();
-        source.subvolume = item.at("subvolume").get<std::string>();
-        source.local_snapshot_dir = item.at("localSnapshotDir").get<std::string>();
+        source.subvolume = SourceSubvolumePath{item.at("subvolume").get<std::string>()};
+        source.local_snapshot_dir = LocalSnapshotRoot{item.at("localSnapshotDir").get<std::string>()};
         source.remote_retention = RetentionCount{item.at("remoteRetention").get<std::uint64_t>()};
         source.local_retention = RetentionCount{item.at("localRetention").get<std::uint64_t>()};
         profile.sources.push_back(std::move(source));
@@ -471,11 +473,11 @@ Profile profile_from_json(const Json& raw, const fs::path& target_mount_root) {
 Json profile_to_json(const Profile& profile) {
     Json sources = Json::array();
     for (const ProfileSource& source : profile.sources) {
-        sources.push_back({{"id", source.id.value()}, {"name", source.name}, {"enabled", source.enabled}, {"subvolume", source.subvolume}, {"localSnapshotDir", source.local_snapshot_dir}, {"remoteSubdir", source.remote_subdir.value().string()}, {"remoteRetention", source.remote_retention.value()}, {"localRetention", source.local_retention.value()}});
+        sources.push_back({{"id", source.id.value()}, {"name", source.name}, {"enabled", source.enabled}, {"subvolume", source.subvolume.value().string()}, {"localSnapshotDir", source.local_snapshot_dir.value().string()}, {"remoteSubdir", source.remote_subdir.value().string()}, {"remoteRetention", source.remote_retention.value()}, {"localRetention", source.local_retention.value()}});
     }
 
     Json target = {
-        {"device", profile.target.device},
+        {"device", profile.target.device.value().string()},
         {"luksUuid", profile.target.luks_uuid.value()},
         {"btrfsUuid", profile.target.btrfs_uuid.value()},
         {"partitionUuid", profile.target.partition_uuid.value()},
@@ -486,7 +488,7 @@ Json profile_to_json(const Profile& profile) {
     auto hooks_to_json = [](const std::vector<ProfileHookCommand>& hooks) {
         Json result = Json::array();
         for (const ProfileHookCommand& hook : hooks) {
-            result.push_back({{"type", "program"}, {"program", hook.program}, {"arguments", hook.arguments}, {"timeoutSeconds", hook.timeout.count()}});
+            result.push_back({{"type", "program"}, {"program", hook.program.value().string()}, {"arguments", hook.arguments}, {"timeoutSeconds", hook.timeout.count()}});
         }
         return result;
     };
@@ -503,7 +505,7 @@ Json profile_to_json(const Profile& profile) {
         {"sources", sources}
     };
     if (!profile.configuration_generation.empty()) {
-        result["configurationGeneration"] = profile.configuration_generation;
+        result["configurationGeneration"] = profile.configuration_generation.value();
     }
     return result;
 }
