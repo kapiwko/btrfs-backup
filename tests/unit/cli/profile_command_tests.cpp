@@ -3,6 +3,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include <filesystem>
+#include <iostream>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -70,10 +72,26 @@ void test_profile_create_writes_json() {
     fs::remove_all(root);
 }
 
+void test_profile_list_uses_config_root() {
+    fs::path root = test_root("profile-list");
+    test_helpers::write_file(root / "profiles" / "default" / "profile.json", "{}\n");
+    btrfsbackup::config::NullConfigurationActivator activator;
+    std::ostringstream output;
+    std::streambuf* previous = std::cout.rdbuf(output.rdbuf());
+
+    const int result = btrfsbackup::cli::profile({"list"}, root, activator);
+
+    std::cout.rdbuf(previous);
+    test_helpers::expect_eq("profile list result", std::to_string(result), "0");
+    test_helpers::expect_eq("profile list config root", output.str(), "default\n");
+    fs::remove_all(root);
+}
+
 } // namespace
 
 int main() {
     test_profile_create_writes_json();
+    test_profile_list_uses_config_root();
 
     return test_helpers::finish("profile command tests");
 }

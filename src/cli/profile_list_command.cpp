@@ -14,11 +14,7 @@ namespace fs = std::filesystem;
 
 namespace btrfsbackup::cli {
 
-void profile_list(
-    const fs::path&,
-    const fs::path& profile_root_dir,
-    std::ostream& output
-) {
+void profile_list(const fs::path& profile_root_dir, std::ostream& output) {
     for (const std::string& profile : btrfsbackup::platform::linux::list_profiles(profile_root_dir)) {
         output << profile << '\n';
     }
