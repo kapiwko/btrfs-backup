@@ -380,6 +380,8 @@ stage_package_payload() {
     chmod 0644 "$pkgdir/usr/share/dbus-1/system-services/io.github.btrfsbackup.Manager1.service"
     install -Dm644 "$root/data/dbus/io.github.btrfsbackup.Manager1.conf" \
         "$pkgdir/usr/share/dbus-1/system.d/io.github.btrfsbackup.Manager1.conf"
+    install -Dm644 "$root/data/polkit/io.github.btrfsbackup.policy" \
+        "$pkgdir/usr/share/polkit-1/actions/io.github.btrfsbackup.policy"
 
     install -Dm644 "$root/README.md" "$pkgdir/usr/share/doc/btrfs-backup/README.md"
     install -Dm644 "$root/CHANGELOG.md" "$pkgdir/usr/share/doc/btrfs-backup/CHANGELOG.md"
@@ -428,7 +430,7 @@ Section: admin
 Priority: optional
 Architecture: $DEB_ARCH
 Maintainer: local reproducible build <root@localhost>
-Depends: btrfs-progs (>= 6.0), coreutils, cryptsetup, libmount1, libstdc++6, libsystemd0, libudev1, systemd, util-linux
+Depends: btrfs-progs (>= 6.0), coreutils, cryptsetup, libmount1, libstdc++6, libsystemd0, libudev1, polkitd, systemd, util-linux
 Description: Verified Btrfs send/receive backups to an encrypted removable target
  systemd and udev driven Btrfs send/receive backups with LUKS target validation,
  interrupted-run recovery, retention, and controlled eject.
@@ -504,6 +506,7 @@ Requires:       btrfs-progs >= 6.0
 Requires:       coreutils
 Requires:       cryptsetup
 Requires:       libstdc++
+Requires:       polkit
 Requires:       systemd
 Requires:       systemd-libs
 Requires:       util-linux
@@ -534,6 +537,7 @@ install -d %{buildroot}/usr/lib/systemd/system
 install -Dm644 data/systemd/btrfs-backupd.service %{buildroot}/usr/lib/systemd/system/btrfs-backupd.service
 install -Dm644 data/dbus/io.github.btrfsbackup.Manager1.service %{buildroot}%{_datadir}/dbus-1/system-services/io.github.btrfsbackup.Manager1.service
 install -Dm644 data/dbus/io.github.btrfsbackup.Manager1.conf %{buildroot}%{_datadir}/dbus-1/system.d/io.github.btrfsbackup.Manager1.conf
+install -Dm644 data/polkit/io.github.btrfsbackup.policy %{buildroot}%{_datadir}/polkit-1/actions/io.github.btrfsbackup.policy
 install -d %{buildroot}%{_datadir}/btrfs-backup/examples/config
 install -d %{buildroot}%{_datadir}/btrfs-backup/examples/systemd
 cp -a data/examples/. data/schemas/. %{buildroot}%{_datadir}/btrfs-backup/examples/config/
@@ -554,6 +558,7 @@ install -Dm644 LICENSE %{buildroot}%{_licensedir}/btrfs-backup/LICENSE
 /usr/lib/systemd/system/btrfs-backup-eject@.service
 /usr/lib/systemd/system/btrfs-backupd.service
 %{_datadir}/dbus-1/
+%{_datadir}/polkit-1/actions/io.github.btrfsbackup.policy
 %{_datadir}/btrfs-backup/
 %{_docdir}/btrfs-backup/
 %{_licensedir}/btrfs-backup/
@@ -581,6 +586,7 @@ build_nix_packaging() {
 , gcc
 , nlohmann_json
 , pkg-config
+, polkit
 , systemd
 , util-linux
 }:
@@ -593,7 +599,7 @@ stdenvNoCC.mkDerivation {
 
   dontBuild = true;
   nativeBuildInputs = [ cmake gcc nlohmann_json pkg-config ];
-  buildInputs = [ btrfs-progs coreutils cryptsetup systemd util-linux ];
+  buildInputs = [ btrfs-progs coreutils cryptsetup polkit systemd util-linux ];
 
   installPhase = ''
     runHook preInstall
@@ -613,6 +619,7 @@ stdenvNoCC.mkDerivation {
     install -Dm644 data/systemd/btrfs-backupd.service $out/lib/systemd/system/btrfs-backupd.service
     install -Dm644 data/dbus/io.github.btrfsbackup.Manager1.service $out/share/dbus-1/system-services/io.github.btrfsbackup.Manager1.service
     install -Dm644 data/dbus/io.github.btrfsbackup.Manager1.conf $out/share/dbus-1/system.d/io.github.btrfsbackup.Manager1.conf
+    install -Dm644 data/polkit/io.github.btrfsbackup.policy $out/share/polkit-1/actions/io.github.btrfsbackup.policy
     mkdir -p $out/share/btrfs-backup/examples/config
     mkdir -p $out/share/btrfs-backup/examples/systemd
     cp -a data/examples/. data/schemas/. $out/share/btrfs-backup/examples/config/
@@ -673,6 +680,7 @@ RDEPEND="
 	>=sys-fs/btrfs-progs-6.0
 	sys-fs/cryptsetup
 	sys-apps/coreutils
+	sys-auth/polkit
 	sys-apps/systemd
 	sys-apps/util-linux
 "
@@ -692,6 +700,8 @@ src_install() {
 	doins data/dbus/io.github.btrfsbackup.Manager1.service
 	insinto /usr/share/dbus-1/system.d
 	doins data/dbus/io.github.btrfsbackup.Manager1.conf
+	insinto /usr/share/polkit-1/actions
+	doins data/polkit/io.github.btrfsbackup.policy
 	insinto /usr/share/btrfs-backup/examples/config
 	doins data/examples/* data/schemas/*
 	insinto /usr/share/btrfs-backup/examples/systemd
@@ -728,7 +738,7 @@ check() {
 }
 
 package_btrfs-backup() {
-  depends=('btrfs-progs>=6.0' 'coreutils' 'cryptsetup' 'gcc-libs' 'systemd' 'systemd-libs' 'util-linux' 'util-linux-libs')
+  depends=('btrfs-progs>=6.0' 'coreutils' 'cryptsetup' 'gcc-libs' 'polkit' 'systemd' 'systemd-libs' 'util-linux' 'util-linux-libs')
   optdepends=('btrfs-backup-kde: Plasma status widget')
   install='btrfs-backup.install'
 
@@ -757,6 +767,7 @@ package_btrfs-backup() {
       "\$root/data/dbus/io.github.btrfsbackup.Manager1.service" \\
       > "\$pkgdir/usr/share/dbus-1/system-services/io.github.btrfsbackup.Manager1.service"
   install -Dm644 "\$root/data/dbus/io.github.btrfsbackup.Manager1.conf" "\$pkgdir/usr/share/dbus-1/system.d/io.github.btrfsbackup.Manager1.conf"
+  install -Dm644 "\$root/data/polkit/io.github.btrfsbackup.policy" "\$pkgdir/usr/share/polkit-1/actions/io.github.btrfsbackup.policy"
   install -d "\$pkgdir/usr/share/btrfs-backup/examples/config"
   install -d "\$pkgdir/usr/share/btrfs-backup/examples/systemd"
   cp -a "\$root/data/examples/." "\$root/data/schemas/." "\$pkgdir/usr/share/btrfs-backup/examples/config/"
@@ -816,6 +827,7 @@ pkgname = btrfs-backup
 	depends = coreutils
 	depends = cryptsetup
 	depends = gcc-libs
+	depends = polkit
 	depends = systemd
 	depends = systemd-libs
 	depends = util-linux
@@ -860,6 +872,7 @@ depend = btrfs-progs>=6.0
 depend = coreutils
 depend = cryptsetup
 depend = gcc-libs
+depend = polkit
 depend = systemd
 depend = systemd-libs
 depend = util-linux
@@ -996,6 +1009,7 @@ if [[ "$TARGET" == all || "$TARGET" == arch || "$TARGET" == arch-base ]]; then
     grep -qx 'usr/lib/systemd/system/btrfs-backupd.service' "$TMP_ROOT/package-files.txt"
     grep -qx 'usr/share/dbus-1/system-services/io.github.btrfsbackup.Manager1.service' "$TMP_ROOT/package-files.txt"
     grep -qx 'usr/share/dbus-1/system.d/io.github.btrfsbackup.Manager1.conf' "$TMP_ROOT/package-files.txt"
+    grep -qx 'usr/share/polkit-1/actions/io.github.btrfsbackup.policy' "$TMP_ROOT/package-files.txt"
     grep -qx 'usr/share/btrfs-backup/examples/config/profile.schema.json' "$TMP_ROOT/package-files.txt"
     grep -qx 'usr/share/btrfs-backup/examples/config/btrfs-backup.conf.example' "$TMP_ROOT/package-files.txt"
     if grep -q '^usr/lib/btrfs-backup/' "$TMP_ROOT/package-files.txt"; then
@@ -1068,6 +1082,7 @@ if [[ "$TARGET" == all || "$TARGET" == arch || "$TARGET" == arch-base ]]; then
 
     tar --zstd -xOf "$PACKAGE_ARCHIVE" .PKGINFO > "$TMP_ROOT/base.PKGINFO"
     grep -qx "arch = $ARCH" "$TMP_ROOT/base.PKGINFO"
+    grep -qx 'depend = polkit' "$TMP_ROOT/base.PKGINFO"
     if grep -Eq '^(depend = bash|optdepend = (pv|libnotify)(:|$))' "$TMP_ROOT/base.PKGINFO"; then
         printf '%s\n' 'Base package contains a removed runtime dependency.' >&2
         exit 1
