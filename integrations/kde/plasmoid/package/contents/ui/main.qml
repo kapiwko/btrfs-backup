@@ -171,6 +171,16 @@ PlasmoidItem {
         return root.statusText(state)
     }
 
+    function operationResultText(operation) {
+        switch (operation) {
+        case "start-backup": return translations.i18n("Backup started")
+        case "cancel-backup": return translations.i18n("Cancellation requested")
+        case "validate-target": return translations.i18n("Validation completed successfully")
+        case "eject-target": return translations.i18n("Target ejected safely")
+        default: return translations.i18n("Operation completed")
+        }
+    }
+
     function relativeTime(value) {
         root.relativeTimeTick
         var timestamp = Date.parse(value)
@@ -501,7 +511,7 @@ PlasmoidItem {
                 Layout.fillWidth: true
                 visible: backupStatus.lastOperation.length > 0 && !backupStatus.lastError
                 type: Kirigami.MessageType.Positive
-                text: translations.i18n("Operation accepted")
+                text: root.operationResultText(backupStatus.lastOperation)
             }
 
             Kirigami.Separator { Layout.fillWidth: true }
