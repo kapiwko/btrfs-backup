@@ -32,6 +32,7 @@ target_restricted_include_directories(btrfsbackup-backup-model
 target_link_libraries(btrfsbackup-backup-model
     PUBLIC
         btrfsbackup-config-domain
+    PRIVATE
         btrfsbackup-core
 )
 
@@ -93,9 +94,10 @@ target_restricted_include_directories(btrfsbackup-backup-ports
 target_link_libraries(btrfsbackup-backup-ports
     PUBLIC
         btrfsbackup-backup-model
+        btrfsbackup-transfer
+    PRIVATE
         btrfsbackup-config-domain
         btrfsbackup-core
-        btrfsbackup-transfer
 )
 
 add_library(btrfsbackup-backup-testing STATIC
@@ -167,12 +169,13 @@ target_restricted_include_directories(btrfsbackup-backup
 )
 target_link_libraries(btrfsbackup-backup
     PUBLIC
-        btrfsbackup-backup-model
         btrfsbackup-backup-ports
-        btrfsbackup-transfer
-        btrfsbackup-config-domain
         btrfsbackup-config-ports
+    PRIVATE
+        btrfsbackup-backup-model
+        btrfsbackup-config-domain
         btrfsbackup-core
+        btrfsbackup-transfer
 )
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
