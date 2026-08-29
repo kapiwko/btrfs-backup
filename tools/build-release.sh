@@ -158,6 +158,7 @@ if [[ -n "$BUILD_DIR" ]]; then
         -S "$ROOT" \
         -B "$BUILD_DIR" \
         -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_PREFIX=/usr \
         -DBUILD_TESTING=OFF
     cmake --build "$BUILD_DIR" \
         --target btrfs-backup-native btrfs-backupctl btrfs-backupd \
@@ -307,7 +308,7 @@ stage_package_payload() {
     if [[ -n "$BUILD_DIR" ]]; then
         binary_dir="$BUILD_DIR"
     else
-        make -C "$root" >/dev/null
+        make -C "$root" CMAKE_CONFIGURE_ARGS=-DCMAKE_INSTALL_PREFIX=/usr >/dev/null
     fi
     install -Dm755 "$binary_dir/btrfs-backup" "$pkgdir/usr/bin/btrfs-backup"
     install -Dm755 "$binary_dir/btrfs-backupctl" "$pkgdir/usr/bin/btrfs-backupctl"
@@ -706,7 +707,7 @@ sha256sums=('$SOURCE_SHA256')
 
 check() {
   cd "\$srcdir/\$pkgbase-\$pkgver"
-  ./tests/run-tests.sh --static-only
+  CMAKE_CONFIGURE_ARGS=-DCMAKE_INSTALL_PREFIX=/usr ./tests/run-tests.sh --static-only
 }
 
 package_btrfs-backup() {
@@ -715,7 +716,7 @@ package_btrfs-backup() {
   install='btrfs-backup.install'
 
   local root="\$srcdir/\$pkgbase-\$pkgver"
-  make -C "\$root"
+  make -C "\$root" CMAKE_CONFIGURE_ARGS=-DCMAKE_INSTALL_PREFIX=/usr
   install -Dm755 "\$root/build/btrfs-backup" "\$pkgdir/usr/bin/btrfs-backup"
   install -Dm755 "\$root/build/btrfs-backupctl" "\$pkgdir/usr/bin/btrfs-backupctl"
   install -Dm755 "\$root/build/btrfs-backupd" "\$pkgdir/usr/bin/btrfs-backupd"
@@ -1035,9 +1036,17 @@ if [[ "$TARGET" == all || "$TARGET" == arch || "$TARGET" == arch-base ]]; then
     "$PACKAGE_AUDIT_ROOT/usr/bin/btrfs-backupctl" installation render \
         --file "$PACKAGE_PROFILE" \
         --output-dir "$PACKAGE_RENDERED" \
-        --backup-command "$PACKAGE_AUDIT_ROOT/usr/bin/btrfs-backupctl runner execute" \
-        --eject-script "$PACKAGE_AUDIT_ROOT/usr/bin/btrfs-backupctl target eject" \
         --keyfile none
+    grep -Fqx 'ExecStart=/usr/bin/btrfs-backupctl runner execute --profile %i' \
+        "$PACKAGE_RENDERED/systemd/btrfs-backup@.service"
+    grep -Fqx 'ExecStart=/usr/bin/btrfs-backupctl runner execute --profile ${BTRFS_BACKUP_PROFILE_ID} --validate' \
+        "$PACKAGE_RENDERED/systemd/btrfs-backup-validate@.service"
+    grep -Fqx 'ExecStart=/usr/bin/btrfs-backupctl target eject --from-service --profile %i' \
+        "$PACKAGE_RENDERED/systemd/btrfs-backup-eject@.service"
+    if grep -R -n -F '/usr/local/' "$PACKAGE_RENDERED/systemd"; then
+        printf '%s\n' 'Packaged commands rendered an unexpected /usr/local path.' >&2
+        exit 1
+    fi
     "$PACKAGE_AUDIT_ROOT/usr/bin/btrfs-backupctl" installation validate --rendered-root "$PACKAGE_RENDERED" >/dev/null
 
     tar --zstd -xOf "$PACKAGE_ARCHIVE" .PKGINFO > "$TMP_ROOT/base.PKGINFO"
