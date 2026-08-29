@@ -15,8 +15,8 @@ ColumnLayout {
     required property string activityText
     required property string sourceName
     required property string progressText
-    required property string speedText
     required property string etaText
+    required property real speedBps
 
     visible: running
     spacing: Kirigami.Units.largeSpacing
@@ -56,13 +56,14 @@ ColumnLayout {
         }
 
         QQC2.Label {
-            Kirigami.FormData.label: translations.i18n("Speed:")
-            text: root.speedText
-        }
-
-        QQC2.Label {
             Kirigami.FormData.label: translations.i18n("Time remaining:")
             text: root.etaText
         }
+    }
+
+    TransferSpeedChart {
+        Layout.fillWidth: true
+        active: root.running
+        currentSpeed: root.speedBps
     }
 }
