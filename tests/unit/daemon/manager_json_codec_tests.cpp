@@ -97,12 +97,14 @@ void test_status_history_and_device() {
 
     const btrfsbackup::daemon::OperationResult operation{
         .operation = "cancel-backup",
+        .operation_id = "operation-1",
         .profile_id = "default",
         .run_id = "20260828T120000Z-1-1",
         .accepted = true,
     };
     const Json operation_document = Json::parse(codec.encode(operation));
     expect_field("operation", operation_document, "operation", "cancel-backup");
+    expect_field("operation", operation_document, "operationId", operation.operation_id);
     expect_field("operation", operation_document, "runId", operation.run_id);
     expect_field("operation", operation_document, "accepted", true);
 }

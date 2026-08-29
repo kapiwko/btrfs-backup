@@ -35,6 +35,7 @@ void test_error_code_names_are_stable_and_parseable() {
         std::pair{ErrorCode::RepositoryRecoveryRequired, "repository.recovery_required"},
         std::pair{ErrorCode::ConfigurationSaveFailed, "configuration.save_failed"},
         std::pair{ErrorCode::ConfigurationRollbackIncomplete, "configuration.rollback_incomplete"},
+        std::pair{ErrorCode::ConfigurationChanged, "configuration.changed"},
     };
     for (const auto& [code, name] : codes) {
         test_helpers::expect_eq("error code name " + std::string(name), btrfsbackup::error_code_name(code), name);

@@ -4,11 +4,27 @@
 
 #include <daemon/operational_control_service.hpp>
 
+#include <atomic>
+#include <chrono>
 #include <string>
+#include <utility>
 
 #include <daemon/manager_errors.hpp>
 
 namespace btrfsbackup::daemon {
+
+namespace {
+
+OperationId generate_operation_id() {
+    static std::atomic<unsigned long long> sequence{0};
+    const auto timestamp = std::chrono::duration_cast<std::chrono::microseconds>(
+                               std::chrono::system_clock::now().time_since_epoch()
+    )
+                               .count();
+    return OperationId{"op-" + std::to_string(timestamp) + "-" + std::to_string(sequence.fetch_add(1))};
+}
+
+} // namespace
 
 const char* manager_authorization_action_id(ManagerAuthorizationAction action) noexcept {
     switch (action) {
@@ -26,8 +42,11 @@ const char* manager_authorization_action_id(ManagerAuthorizationAction action) n
 
 OperationalControlService::OperationalControlService(
     IManagerAuthorizer& authorizer,
-    IOperationalControlBackend& backend
-) : authorizer_(authorizer), backend_(backend) {
+    IOperationalControlBackend& backend,
+    OperationIdGenerator operation_ids
+) : authorizer_(authorizer),
+    backend_(backend),
+    operation_ids_(operation_ids ? std::move(operation_ids) : OperationIdGenerator{generate_operation_id}) {
 }
 
 void OperationalControlService::require_authorized(
@@ -39,6 +58,18 @@ void OperationalControlService::require_authorized(
         throw ManagerOperationError(ManagerErrorCode::NotAuthorized, "manager operation was not authorized");
 }
 
+AuthorizedOperationContext OperationalControlService::authorized_context(
+    const ProfileId& profile_id,
+    const OperationalResourceVersion& version
+) {
+    return {
+        .profile_id = profile_id,
+        .generation = version.generation,
+        .fingerprint = version.fingerprint,
+        .operation_id = operation_ids_(),
+    };
+}
+
 OperationResult OperationalControlService::start_backup(
     const std::string& caller_bus_name,
     const std::string& profile_id
@@ -46,8 +77,15 @@ OperationResult OperationalControlService::start_backup(
     const ProfileId validated_profile(profile_id);
     const OperationalResourceVersion version = backend_.inspect_profile(validated_profile);
     require_authorized(caller_bus_name, ManagerAuthorizationAction::StartBackup);
-    backend_.start_backup(validated_profile, version);
-    return {.operation = "start-backup", .profile_id = profile_id, .run_id = {}, .accepted = true};
+    const AuthorizedOperationContext context = authorized_context(validated_profile, version);
+    backend_.start_backup(context);
+    return {
+        .operation = "start-backup",
+        .operation_id = std::string(context.operation_id.value()),
+        .profile_id = profile_id,
+        .run_id = {},
+        .accepted = true,
+    };
 }
 
 OperationResult OperationalControlService::cancel_backup(
@@ -59,9 +97,15 @@ OperationResult OperationalControlService::cancel_backup(
     const RunId validated_run(run_id);
     const OperationalResourceVersion version = backend_.inspect_profile(validated_profile);
     require_authorized(caller_bus_name, ManagerAuthorizationAction::CancelBackup);
-    switch (backend_.cancel_backup(validated_profile, validated_run, version)) {
+    const AuthorizedOperationContext context = authorized_context(validated_profile, version);
+    switch (backend_.cancel_backup(validated_run, context)) {
     case ManagerCancellationOutcome::Accepted:
-        return {.operation = "cancel-backup", .profile_id = profile_id, .run_id = run_id};
+        return {
+            .operation = "cancel-backup",
+            .operation_id = std::string(context.operation_id.value()),
+            .profile_id = profile_id,
+            .run_id = run_id,
+        };
     case ManagerCancellationOutcome::StaleRun:
         throw ManagerOperationError(ManagerErrorCode::NotFound, "backup run is no longer active");
     case ManagerCancellationOutcome::RunMismatch:
@@ -77,8 +121,15 @@ OperationResult OperationalControlService::validate_target(
     const ProfileId validated_profile(profile_id);
     const OperationalResourceVersion version = backend_.inspect_profile(validated_profile);
     require_authorized(caller_bus_name, ManagerAuthorizationAction::ValidateTarget);
-    backend_.validate_target(validated_profile, version);
-    return {.operation = "validate-target", .profile_id = profile_id, .run_id = {}, .accepted = true};
+    const AuthorizedOperationContext context = authorized_context(validated_profile, version);
+    backend_.validate_target(context);
+    return {
+        .operation = "validate-target",
+        .operation_id = std::string(context.operation_id.value()),
+        .profile_id = profile_id,
+        .run_id = {},
+        .accepted = true,
+    };
 }
 
 OperationResult OperationalControlService::eject_target(
@@ -88,8 +139,15 @@ OperationResult OperationalControlService::eject_target(
     const ProfileId validated_profile(profile_id);
     const OperationalResourceVersion version = backend_.inspect_profile(validated_profile);
     require_authorized(caller_bus_name, ManagerAuthorizationAction::EjectTarget);
-    backend_.eject_target(validated_profile, version);
-    return {.operation = "eject-target", .profile_id = profile_id, .run_id = {}, .accepted = true};
+    const AuthorizedOperationContext context = authorized_context(validated_profile, version);
+    backend_.eject_target(context);
+    return {
+        .operation = "eject-target",
+        .operation_id = std::string(context.operation_id.value()),
+        .profile_id = profile_id,
+        .run_id = {},
+        .accepted = true,
+    };
 }
 
 } // namespace btrfsbackup::daemon

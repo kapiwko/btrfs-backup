@@ -90,6 +90,7 @@ std::string ManagerJsonCodec::encode(const OperationResult& result) const {
     config::Json document{
         {"schemaVersion", 1},
         {"operation", result.operation},
+        {"operationId", result.operation_id},
         {"profileId", result.profile_id},
         {"accepted", result.accepted},
     };

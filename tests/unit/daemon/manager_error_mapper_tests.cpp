@@ -62,6 +62,11 @@ void test_exception_mapping() {
         ),
         ManagerErrorCode::Conflict
     );
+    expect_code(
+        "configuration changed error",
+        mapper.map(btrfsbackup::CodedValidationError(btrfsbackup::ErrorCode::ConfigurationChanged, "private version")),
+        ManagerErrorCode::Conflict
+    );
     const auto internal = mapper.map(std::runtime_error("private internal detail"));
     expect_code("unexpected error", internal, ManagerErrorCode::InternalError);
     test_helpers::expect_true(

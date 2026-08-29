@@ -15,7 +15,11 @@
 namespace {
 
 using btrfsbackup::ProfileId;
+using btrfsbackup::OperationId;
 using btrfsbackup::RunId;
+using btrfsbackup::config::ConfigurationFingerprint;
+using btrfsbackup::config::ConfigurationGeneration;
+using btrfsbackup::daemon::AuthorizedOperationContext;
 using btrfsbackup::daemon::IManagerAuthorizer;
 using btrfsbackup::daemon::IOperationalControlBackend;
 using btrfsbackup::daemon::ManagerAuthorizationAction;
@@ -51,41 +55,48 @@ class RecordingAuthorizer final : public IManagerAuthorizer {
 class RecordingBackend final : public IOperationalControlBackend {
   public:
     ManagerCancellationOutcome cancellation = ManagerCancellationOutcome::Accepted;
-    OperationalResourceVersion version{"generation-1", "fingerprint-1"};
+    OperationalResourceVersion version{
+        ConfigurationGeneration{"generation-1"},
+        ConfigurationFingerprint{"fingerprint-1"},
+    };
     std::vector<std::string> effects;
+    std::vector<AuthorizedOperationContext> contexts;
 
     OperationalResourceVersion inspect_profile(const ProfileId&) const override {
         return version;
     }
 
-    void require_version(const OperationalResourceVersion& expected) const {
-        if (version != expected)
+    void require_version(const AuthorizedOperationContext& context) const {
+        if (version != OperationalResourceVersion{context.generation, context.fingerprint})
             throw ManagerOperationError(ManagerErrorCode::Conflict, "profile changed");
     }
 
-    void start_backup(const ProfileId& profile_id, const OperationalResourceVersion& expected) override {
-        require_version(expected);
-        effects.push_back("start:" + std::string(profile_id.value()));
+    void start_backup(const AuthorizedOperationContext& context) override {
+        require_version(context);
+        contexts.push_back(context);
+        effects.push_back("start:" + std::string(context.profile_id.value()));
     }
 
     ManagerCancellationOutcome cancel_backup(
-        const ProfileId& profile_id,
         const RunId& run_id,
-        const OperationalResourceVersion& expected
+        const AuthorizedOperationContext& context
     ) override {
-        require_version(expected);
-        effects.push_back("cancel:" + std::string(profile_id.value()) + ":" + std::string(run_id.value()));
+        require_version(context);
+        contexts.push_back(context);
+        effects.push_back("cancel:" + std::string(context.profile_id.value()) + ":" + std::string(run_id.value()));
         return cancellation;
     }
 
-    void validate_target(const ProfileId& profile_id, const OperationalResourceVersion& expected) override {
-        require_version(expected);
-        effects.push_back("validate:" + std::string(profile_id.value()));
+    void validate_target(const AuthorizedOperationContext& context) override {
+        require_version(context);
+        contexts.push_back(context);
+        effects.push_back("validate:" + std::string(context.profile_id.value()));
     }
 
-    void eject_target(const ProfileId& profile_id, const OperationalResourceVersion& expected) override {
-        require_version(expected);
-        effects.push_back("eject:" + std::string(profile_id.value()));
+    void eject_target(const AuthorizedOperationContext& context) override {
+        require_version(context);
+        contexts.push_back(context);
+        effects.push_back("eject:" + std::string(context.profile_id.value()));
     }
 };
 
@@ -113,9 +124,24 @@ void test_authorized_operations() {
     (void)service.eject_target(":1.10", "default");
 
     test_helpers::expect_eq("start operation", started.operation, "start-backup");
+    test_helpers::expect_true("start operation id", !started.operation_id.empty(), "operation id was not returned");
     test_helpers::expect_eq("cancel run id", cancelled.run_id, "20260828T120000Z-1-1");
     test_helpers::expect_true("one authorization per request", authorizer.actions.size() == 4, "wrong authorization count");
     test_helpers::expect_true("one effect per request", backend.effects.size() == 4, "wrong effect count");
+    test_helpers::expect_true("one context per effect", backend.contexts.size() == 4, "authorized context was not passed");
+    test_helpers::expect_true(
+        "unique operation contexts",
+        backend.contexts.at(0).operation_id != backend.contexts.at(1).operation_id,
+        "separate authorized operations reused an operation id"
+    );
+    test_helpers::expect_true(
+        "authorized context identity",
+        backend.contexts.at(0).profile_id == ProfileId{"default"} &&
+            backend.contexts.at(0).generation == ConfigurationGeneration{"generation-1"} &&
+            backend.contexts.at(0).fingerprint == ConfigurationFingerprint{"fingerprint-1"} &&
+            !backend.contexts.at(0).operation_id.value().empty(),
+        "authorized context did not preserve the inspected profile identity"
+    );
     test_helpers::expect_true(
         "separate authorization actions",
         authorizer.actions.at(0) == ManagerAuthorizationAction::StartBackup &&
@@ -197,7 +223,10 @@ void test_profile_change_during_authorization() {
     RecordingAuthorizer authorizer;
     RecordingBackend backend;
     authorizer.during_authorization = [&] {
-        backend.version = {"generation-2", "fingerprint-2"};
+        backend.version = {
+            ConfigurationGeneration{"generation-2"},
+            ConfigurationFingerprint{"fingerprint-2"},
+        };
     };
     OperationalControlService service(authorizer, backend);
     expect_manager_error(
