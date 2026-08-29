@@ -48,7 +48,7 @@ usage() {
 Usage: tools/build-release.sh [options]
 
 Options:
-  --target NAME      Build target: all, source, arch, deb, rpm, tar-install, nix, ebuild, or pkgbuild (default: all).
+  --target NAME      Build target: all, source, arch, arch-base, deb, rpm, tar-install, nix, ebuild, or pkgbuild (default: all).
   --full-tests       Run the complete mocked test suite; requires root.
   --static-tests     Run only syntax and render validation.
   --skip-tests       Do not run tests before packaging.
@@ -93,7 +93,7 @@ while (( $# > 0 )); do
 done
 
 case "$TARGET" in
-    all|source|arch|deb|rpm|tar-install|nix|ebuild|pkgbuild) ;;
+    all|source|arch|arch-base|deb|rpm|tar-install|nix|ebuild|pkgbuild) ;;
     *) printf 'Invalid --target value: %s\n' "$TARGET" >&2; exit 2 ;;
 esac
 
@@ -117,7 +117,7 @@ make_invoker_owned() {
 }
 
 require_commands awk basename bsdtar chmod cmake cp date find g++ gzip install make mkdir mktemp mv pkg-config readlink rm sha256sum stat tar touch
-if [[ "$TARGET" == all || "$TARGET" == arch ]]; then
+if [[ "$TARGET" == all || "$TARGET" == arch || "$TARGET" == arch-base ]]; then
     require_commands zstd
 fi
 if [[ "$TARGET" == all || "$TARGET" == deb ]]; then
@@ -775,7 +775,7 @@ EOF_SRCINFO
     create_deterministic_tar_gz "$package_dir" "$PKGBUILD_ARCHIVE" "$(basename -- "$package_dir")"
 }
 
-if [[ "$TARGET" == all || "$TARGET" == arch ]]; then
+if [[ "$TARGET" == all || "$TARGET" == arch || "$TARGET" == arch-base ]]; then
     install -d -m0755 "$PACKAGE_STAGE"
     stage_package_payload "$SOURCE_STAGE" "$PACKAGE_STAGE"
     install -m0644 "$SOURCE_STAGE/packaging/arch/btrfs-backup.install" "$PACKAGE_STAGE/.INSTALL"
@@ -817,6 +817,9 @@ EOF_PKGINFO
     )
     BUILD_OUTPUTS+=("$PACKAGE_ARCHIVE")
 
+fi
+
+if [[ "$TARGET" == all || "$TARGET" == arch ]]; then
     KDE_PACKAGE_STAGE="$TMP_ROOT/package-kde"
     install -d -m0755 "$KDE_PACKAGE_STAGE"
     stage_kde_package_payload "$SOURCE_STAGE" "$KDE_PACKAGE_STAGE"
@@ -915,7 +918,7 @@ BUILD_OUTPUTS+=("$DIST_DIR/BUILD-REPORT.txt")
     sha256sum -c SHA256SUMS
 )
 
-if [[ "$TARGET" == all || "$TARGET" == arch ]]; then
+if [[ "$TARGET" == all || "$TARGET" == arch || "$TARGET" == arch-base ]]; then
     # Structural verification of the Arch package.
     tar --zstd -tf "$PACKAGE_ARCHIVE" > "$TMP_ROOT/package-files.txt"
     grep -qx '.PKGINFO' "$TMP_ROOT/package-files.txt"
@@ -993,6 +996,9 @@ if [[ "$TARGET" == all || "$TARGET" == arch ]]; then
         exit 1
     fi
 
+fi
+
+if [[ "$TARGET" == all || "$TARGET" == arch ]]; then
     tar --zstd -tf "$KDE_PACKAGE_ARCHIVE" > "$TMP_ROOT/package-kde-files.txt"
     grep -qx '.PKGINFO' "$TMP_ROOT/package-kde-files.txt"
     grep -qx '.INSTALL' "$TMP_ROOT/package-kde-files.txt"

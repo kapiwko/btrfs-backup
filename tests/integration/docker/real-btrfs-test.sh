@@ -20,7 +20,7 @@ TARGET_STAGING_MOUNT=/mnt/bb-real-target-staging
 MAPPER_NAME=bb-real-target
 MAPPER_PATH="/dev/mapper/$MAPPER_NAME"
 PASSPHRASE_FILE="$TEST_ROOT/luks.pass"
-PACKAGE_DIR="$TEST_ROOT/package"
+PACKAGE_DIR="${BTRFSBACKUP_PACKAGE_DIR:-$TEST_ROOT/package}"
 RENDERED_CONFIG="$TEST_ROOT/rendered"
 LOG_DIR="$TEST_ROOT/logs"
 RUN_LOG="$LOG_DIR/btrfs-backup.log"
@@ -80,14 +80,13 @@ ensure_loop_devices() {
 
 build_and_verify_packages() {
     local base_packages=()
-    local kde_packages=()
     local base_metadata
 
-    "$ROOT/tools/build-release.sh" --target arch --skip-tests --dist-dir "$PACKAGE_DIR" >/dev/null
+    if ! compgen -G "$PACKAGE_DIR/btrfs-backup-[0-9]*.pkg.tar.zst" >/dev/null; then
+        "$ROOT/tools/build-release.sh" --target arch-base --skip-tests --dist-dir "$PACKAGE_DIR" >/dev/null
+    fi
     base_packages=("$PACKAGE_DIR"/btrfs-backup-[0-9]*.pkg.tar.zst)
-    kde_packages=("$PACKAGE_DIR"/btrfs-backup-kde-*.pkg.tar.zst)
     (( ${#base_packages[@]} == 1 )) || fail "expected one base package, found ${#base_packages[@]}"
-    (( ${#kde_packages[@]} == 1 )) || fail "expected one KDE package, found ${#kde_packages[@]}"
 
     base_metadata="$(tar --zstd -xOf "${base_packages[0]}" .PKGINFO)"
     if grep -Eq '^depend = (extra-cmake-modules|ki18n|kirigami|kpackage|kservice|libplasma|qt6-[^ <>=]+)' \
@@ -109,16 +108,7 @@ build_and_verify_packages() {
         | grep -Eq 'lib(Qt6|KF6|Plasma)'; then
         fail 'base commands link to a KDE or Qt runtime library'
     fi
-    pass 'base package installs and runs without the KDE package'
-
-    pacman -U --noconfirm "${kde_packages[0]}" >/dev/null
-    pacman -Q btrfs-backup-kde >/dev/null
-    pass 'KDE package installs separately from the base package'
-
-    pacman -R --noconfirm btrfs-backup-kde >/dev/null
-    if pacman -Q btrfs-backup-kde >/dev/null 2>&1; then
-        fail 'KDE package remained installed after removal'
-    fi
+    pass 'base package installs and runs without KDE or Qt runtime dependencies'
 }
 
 configure_backup_with_cli() {

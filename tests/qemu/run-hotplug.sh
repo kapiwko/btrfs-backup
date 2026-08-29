@@ -30,8 +30,20 @@ EOF_USAGE
 esac
 
 if (( EUID != 0 )); then
-    package_root="$(mktemp -d /tmp/btrfs-backup-qemu-packages.XXXXXX)"
-    trap 'rm -rf -- "$package_root"' EXIT
+    remove_package_root=0
+    if [[ -n "${PACKAGE_DIR:-}" ]]; then
+        package_dir="$(realpath -- "$PACKAGE_DIR")"
+    else
+        package_root="$(mktemp -d /tmp/btrfs-backup-qemu-packages.XXXXXX)"
+        package_dir="$package_root/dist"
+        remove_package_root=1
+    fi
+    cleanup_outer() {
+        if (( remove_package_root )); then
+            rm -rf -- "$package_root"
+        fi
+    }
+    trap cleanup_outer EXIT
     command -v docker >/dev/null 2>&1 || {
         printf '%s\n' 'not ok - Docker is required to run the QEMU test without sudo' >&2
         exit 1
@@ -45,23 +57,28 @@ if (( EUID != 0 )); then
         -t "$QEMU_IMAGE_NAME" \
         -f "$ROOT/tests/qemu/Dockerfile" \
         "$ROOT/tests/qemu"
-    docker run --rm --network=none \
-        --user "$(id -u):$(id -g)" \
-        -e BUILD_JOBS="${BUILD_JOBS:-2}" \
-        -e HOME=/tmp \
-        -v "$ROOT:/work:ro" \
-        -v "$package_root:/artifacts" \
-        -w /work \
-        "$IMAGE_NAME" \
-        /work/tools/build-release.sh \
-        --target arch \
-        --skip-tests \
-        --dist-dir /artifacts/dist
+    if (( remove_package_root )); then
+        docker run --rm --network=none \
+            --user "$(id -u):$(id -g)" \
+            --tmpfs "/run:uid=$(id -u),gid=$(id -g),mode=0755" \
+            -e BUILD_JOBS="${BUILD_JOBS:-$(nproc)}" \
+            -e HOME=/tmp \
+            -v "$ROOT:/work:ro" \
+            -v "$package_root:/artifacts" \
+            -w /work \
+            "$IMAGE_NAME" \
+            /work/tools/build-release.sh \
+            --target arch-base \
+            --skip-tests \
+            --dist-dir /artifacts/dist
+    fi
+    compgen -G "$package_dir/btrfs-backup-[0-9]*.pkg.tar.zst" >/dev/null \
+        || { printf 'No base Arch package found in %s\n' "$package_dir" >&2; exit 1; }
     docker run --rm --privileged --network=none \
         -e QEMU_ROOTFS_FROM_CONTAINER=1 \
         -e QEMU_PACKAGE_DIR=/packages \
         -v "$ROOT:/work:ro" \
-        -v "$package_root/dist:/packages:ro" \
+        -v "$package_dir:/packages:ro" \
         -w /work \
         "$QEMU_IMAGE_NAME" \
         /work/tests/qemu/run-hotplug.sh
@@ -119,7 +136,7 @@ fi
 PACKAGE_DIR="${QEMU_PACKAGE_DIR:-$TEST_ROOT/packages}"
 if [[ -z "${QEMU_PACKAGE_DIR:-}" ]]; then
     "$ROOT/tools/build-release.sh" \
-        --target arch \
+        --target arch-base \
         --skip-tests \
         --dist-dir "$PACKAGE_DIR" >/dev/null
 fi

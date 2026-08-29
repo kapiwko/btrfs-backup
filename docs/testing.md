@@ -112,6 +112,13 @@ The current boundary smoke test is:
 tests/qemu/run-hotplug.sh
 ```
 
+To reuse a package produced by a previous build or CI artifact, pass its
+directory explicitly:
+
+```bash
+PACKAGE_DIR=/path/to/dist tests/qemu/run-hotplug.sh
+```
+
 It boots a disposable Arch/systemd root, installs the current base package,
 attaches a LUKS-formatted virtual USB disk through QMP and verifies on the guest
 serial console that udev starts `btrfs-backup@default.service` while no
@@ -136,11 +143,10 @@ and conflicts with active units and unrelated targets.
 ## Real Btrfs Docker Test
 
 The repository also includes a heavier Docker integration test that builds and
-installs the Arch base and KDE packages, then uses real loop-backed filesystems
+installs the Arch base package, then uses real loop-backed filesystems
 inside a privileged container. It creates:
 
-1. installable `btrfs-backup` and `btrfs-backup-kde` packages from the current
-   source tree;
+1. an installable `btrfs-backup` package from the current source tree;
 2. a source Btrfs filesystem with a `home` subvolume;
 3. a LUKS2 target image with a Btrfs filesystem inside `/dev/mapper`;
 4. rendered configuration from the installed `btrfs-backupctl`;
@@ -152,6 +158,10 @@ Run it with:
 tests/integration/docker/run-real-btrfs.sh
 ```
 
+This runner accepts the same `PACKAGE_DIR=/path/to/dist` override. Without it,
+the base Arch package is built once in an unprivileged container and mounted
+read-only into the privileged test container.
+
 The Docker run uses `--privileged` because the test needs loop devices, device
 mapper, mounts, and Btrfs ioctls. It does not read or write the host backup
 configuration. The repository is mounted read-only into the container, the
@@ -160,7 +170,8 @@ the container.
 
 The test covers:
 
-1. base and KDE package build and installation through `pacman -U`;
+1. base package build and installation through `pacman -U`, including a check
+   that it has no KDE or Qt runtime dependency;
 2. configuration rendering and validation through the installed CLI;
 3. runtime validation of the mounted target;
 4. rejection of a mismatched target Btrfs UUID;

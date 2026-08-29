@@ -10,6 +10,7 @@ build, Plasma metadata, and all release artifact names.
 ```bash
 ./tools/build-release.sh --target source --static-tests
 ./tools/build-release.sh --target deb --static-tests
+./tools/build-release.sh --target arch-base --static-tests
 ./tools/build-release.sh --target all --static-tests
 sudo ./tools/build-release.sh --target arch
 ```
