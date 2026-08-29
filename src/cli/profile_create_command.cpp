@@ -63,7 +63,7 @@ bool arg_bool(const std::string& value, const std::string& option) {
 }
 
 void usage() {
-    std::cout << "Usage: btrfs-backupctl profile create --output PATH [OPTIONS] --source ID NAME SUBVOLUME LOCAL_SNAPSHOT_DIR REMOTE_SUBDIR REMOTE_RETENTION LOCAL_RETENTION\n";
+    std::cout << "Usage: btrfs-backupctl profile create --output PATH [OPTIONS] [--keyfile PATH|none] --source ID NAME SUBVOLUME LOCAL_SNAPSHOT_DIR REMOTE_SUBDIR REMOTE_RETENTION LOCAL_RETENTION\n";
 }
 
 } // namespace
@@ -80,6 +80,7 @@ int profile_create(const std::vector<std::string>& args) {
     std::string partition_uuid;
     std::string serial;
     std::string mapper_name;
+    std::string keyfile = "none";
     std::string remote_root;
     std::string incoming_root;
     bool daily_limit = true;
@@ -112,6 +113,8 @@ int profile_create(const std::vector<std::string>& args) {
             serial = arg_value(i, args, arg);
         } else if (arg == "--mapper-name") {
             mapper_name = arg_value(i, args, arg);
+        } else if (arg == "--keyfile") {
+            keyfile = arg_value(i, args, arg);
         } else if (arg == "--remote-root") {
             remote_root = arg_value(i, args, arg);
         } else if (arg == "--incoming-root") {
@@ -162,7 +165,11 @@ int profile_create(const std::vector<std::string>& args) {
     if (!incoming_root.empty())
         paths["incomingRoot"] = incoming_root;
 
-    btrfsbackup::config::Profile profile = btrfsbackup::config::profile_from_json({{"schemaVersion", btrfsbackup::config::current_profile_schema_version}, {"profileId", profile_id}, {"name", profile_name}, {"enabled", true}, {"target", {{"device", device}, {"luksUuid", luks_uuid}, {"btrfsUuid", btrfs_uuid}, {"partitionUuid", partition_uuid}, {"serial", serial}, {"mapperName", mapper_name}}}, {"paths", paths}, {"settings", {{"dailyLimit", daily_limit}, {"incrementalRequired", incremental_required}, {"keepFailedLocalSnapshot", keep_failed_local_snapshot}, {"autoEject", auto_eject}, {"remoteRetention", remote_retention}, {"localRetention", local_retention}, {"minimumTargetFreeBytes", minimum_target_free_bytes}, {"minimumLocalFreeBytes", minimum_local_free_bytes}}}, {"sources", sources}});
+    btrfsbackup::config::Json activation = {{"mode", "askPassword"}};
+    if (keyfile != "none") {
+        activation = {{"mode", "keyFile"}, {"keyFile", keyfile}};
+    }
+    btrfsbackup::config::Profile profile = btrfsbackup::config::profile_from_json({{"schemaVersion", btrfsbackup::config::current_profile_schema_version}, {"profileId", profile_id}, {"name", profile_name}, {"enabled", true}, {"target", {{"device", device}, {"luksUuid", luks_uuid}, {"btrfsUuid", btrfs_uuid}, {"partitionUuid", partition_uuid}, {"serial", serial}, {"mapperName", mapper_name}, {"activation", activation}}}, {"paths", paths}, {"settings", {{"dailyLimit", daily_limit}, {"incrementalRequired", incremental_required}, {"keepFailedLocalSnapshot", keep_failed_local_snapshot}, {"autoEject", auto_eject}, {"remoteRetention", remote_retention}, {"localRetention", local_retention}, {"minimumTargetFreeBytes", minimum_target_free_bytes}, {"minimumLocalFreeBytes", minimum_local_free_bytes}}}, {"sources", sources}});
     btrfsbackup::platform::linux::write_profile_file(profile, output);
     return 0;
 }

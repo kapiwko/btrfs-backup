@@ -132,6 +132,22 @@ void test_profile_from_wizard_answers() {
     test_helpers::expect_true("wizard daily limit", !profile.settings.daily_limit, "daily limit should follow answers");
     test_helpers::expect_true("wizard keep failed snapshot", profile.settings.keep_failed_local_snapshot, "keep failed snapshot should follow answers");
     test_helpers::expect_true("wizard auto eject", !profile.settings.auto_eject, "auto eject should follow answers");
+    test_helpers::expect_true(
+        "wizard ask password activation",
+        profile.target.activation.mode == btrfsbackup::config::TargetActivationMode::AskPassword,
+        "none keyfile should select askPassword"
+    );
+
+    auto key_file_answers = sample_answers();
+    key_file_answers.keyfile = "/root/keys/backupdisk.key";
+    const btrfsbackup::config::Profile key_file_profile =
+        btrfsbackup::config::profile_from_wizard_answers(key_file_answers);
+    test_helpers::expect_true(
+        "wizard key file activation",
+        key_file_profile.target.activation.mode == btrfsbackup::config::TargetActivationMode::KeyFile &&
+            key_file_profile.target.activation.key_file == "/root/keys/backupdisk.key",
+        "keyfile answer was not stored in the profile"
+    );
 }
 
 void test_profile_from_wizard_answers_validation() {

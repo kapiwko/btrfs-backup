@@ -6,7 +6,7 @@
   "additionalProperties": false,
   "required": ["schemaVersion", "profileId", "name", "enabled", "target", "paths", "settings", "sources"],
   "properties": {
-    "schemaVersion": { "const": 3 },
+    "schemaVersion": { "const": 4 },
     "configurationGeneration": { "type": "string", "pattern": "^[0-9a-f]{32}$" },
     "profileId": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$" },
     "name": { "type": "string", "minLength": 1, "maxLength": 160 },
@@ -14,14 +14,33 @@
     "target": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["device", "luksUuid", "btrfsUuid", "mapperName"],
+      "required": ["device", "luksUuid", "btrfsUuid", "mapperName", "activation"],
       "properties": {
         "device": { "type": "string", "pattern": "^/dev(?:/|$)", "maxLength": 4096 },
         "luksUuid": { "$ref": "#/$defs/uuid" },
         "btrfsUuid": { "$ref": "#/$defs/uuid" },
         "partitionUuid": { "$ref": "#/$defs/optionalUuid" },
         "serial": { "type": "string", "pattern": "^(|[A-Za-z0-9][A-Za-z0-9._:+-]{0,255})$" },
-        "mapperName": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$" }
+        "mapperName": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$" },
+        "activation": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["mode"],
+              "properties": { "mode": { "const": "askPassword" } }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["mode", "keyFile"],
+              "properties": {
+                "mode": { "const": "keyFile" },
+                "keyFile": { "$ref": "#/$defs/absolutePath" }
+              }
+            }
+          ]
+        }
       }
     },
     "paths": {

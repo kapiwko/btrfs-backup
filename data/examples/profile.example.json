@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "profileId": "default",
   "name": "Default backup",
   "enabled": true,
@@ -9,7 +9,11 @@
     "btrfsUuid": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
     "partitionUuid": "",
     "serial": "",
-    "mapperName": "backupdisk"
+    "mapperName": "backupdisk",
+    "activation": {
+      "mode": "keyFile",
+      "keyFile": "/root/keys/backupdisk.key"
+    }
   },
   "paths": {
     "remoteRoot": "/mnt/btrfs-backup/default/snapshots",

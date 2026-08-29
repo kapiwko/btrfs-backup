@@ -236,7 +236,7 @@ Json normalize_profile(const Json& raw, const fs::path& target_mount_root) {
     }
     int input_schema_version = raw.at("schemaVersion").get<int>();
     if (input_schema_version < 1 || input_schema_version > current_profile_schema_version) {
-        throw ValidationError("schemaVersion must be 1, 2, or 3");
+        throw ValidationError("schemaVersion must be 1, 2, 3, or 4");
     }
     std::string profile_id = identifier(raw.at("profileId"), "profileId");
     std::string configuration_generation = text(
@@ -254,7 +254,7 @@ Json normalize_profile(const Json& raw, const fs::path& target_mount_root) {
     Json target = required_object(raw, "target", "target");
     reject_unknown_properties(
         target,
-        {"device", "luksUuid", "btrfsUuid", "partitionUuid", "serial", "mapperName", "mountPoint", "mountUnit"},
+        {"device", "luksUuid", "btrfsUuid", "partitionUuid", "serial", "mapperName", "mountPoint", "mountUnit", "activation"},
         "target"
     );
     std::string device = absolute_path(target.at("device"), "target.device");
@@ -269,6 +269,28 @@ Json normalize_profile(const Json& raw, const fs::path& target_mount_root) {
         throw ValidationError("target.serial contains unsupported characters");
     }
     std::string mapper_name = identifier(target.at("mapperName"), "target.mapperName");
+    Json activation = input_schema_version >= 4
+        ? required_object(target, "activation", "target.activation")
+        : Json{{"mode", "askPassword"}};
+    reject_unknown_properties(activation, {"mode", "keyFile"}, "target.activation");
+    const std::string activation_mode = text(
+        required_value(activation, "mode", "target.activation.mode"),
+        "target.activation.mode",
+        false,
+        32
+    );
+    if (activation_mode != "askPassword" && activation_mode != "keyFile") {
+        throw ValidationError("target.activation.mode must be askPassword or keyFile");
+    }
+    Json normalized_activation = {{"mode", activation_mode}};
+    if (activation_mode == "keyFile") {
+        normalized_activation["keyFile"] = absolute_path(
+            required_value(activation, "keyFile", "target.activation.keyFile"),
+            "target.activation.keyFile"
+        );
+    } else if (activation.contains("keyFile")) {
+        throw ValidationError("target.activation.keyFile is only valid in keyFile mode");
+    }
     fs::path normalized_mount_root = normalized_absolute_path(target_mount_root, "TARGET_MOUNT_ROOT");
     std::string mount_point = (normalized_mount_root / profile_id).string();
     if (input_schema_version == current_profile_schema_version && target.contains("mountPoint")) {
@@ -382,7 +404,7 @@ Json normalize_profile(const Json& raw, const fs::path& target_mount_root) {
         {"profileId", profile_id},
         {"name", profile_name},
         {"enabled", enabled},
-        {"target", {{"device", device}, {"luksUuid", luks_uuid}, {"btrfsUuid", btrfs_uuid}, {"partitionUuid", partition_uuid}, {"serial", serial}, {"mapperName", mapper_name}}},
+        {"target", {{"device", device}, {"luksUuid", luks_uuid}, {"btrfsUuid", btrfs_uuid}, {"partitionUuid", partition_uuid}, {"serial", serial}, {"mapperName", mapper_name}, {"activation", normalized_activation}}},
         {"paths", {{"remoteRoot", remote_root}, {"incomingRoot", incoming_root}}},
         {"settings", {{"dailyLimit", boolean_value(settings, "dailyLimit", "settings.dailyLimit", true)}, {"incrementalRequired", boolean_value(settings, "incrementalRequired", "settings.incrementalRequired", true)}, {"keepFailedLocalSnapshot", boolean_value(settings, "keepFailedLocalSnapshot", "settings.keepFailedLocalSnapshot", false)}, {"autoEject", boolean_value(settings, "autoEject", "settings.autoEject", true)}, {"remoteRetention", remote_retention}, {"localRetention", local_retention}, {"minimumTargetFreeBytes", integer_value(settings, "minimumTargetFreeBytes", "settings.minimumTargetFreeBytes", 5LL * 1024 * 1024 * 1024, ByteThreshold::maximum)}, {"minimumLocalFreeBytes", integer_value(settings, "minimumLocalFreeBytes", "settings.minimumLocalFreeBytes", 1024LL * 1024 * 1024, ByteThreshold::maximum)}}},
         {"hooks", {{"beforeSnapshot", normalize_hook_commands(hooks, "beforeSnapshot", "hooks.beforeSnapshot")}, {"afterSnapshot", normalize_hook_commands(hooks, "afterSnapshot", "hooks.afterSnapshot")}}},
@@ -423,6 +445,11 @@ Profile profile_from_document(const ProfileDocument& document, const fs::path& t
     profile.target.mount_point = TargetMountPoint{
         normalized_absolute_path(target_mount_root, "TARGET_MOUNT_ROOT") / profile.id.value()
     };
+    const Json& activation = target.at("activation");
+    if (activation.at("mode") == "keyFile") {
+        profile.target.activation.mode = TargetActivationMode::KeyFile;
+        profile.target.activation.key_file = activation.at("keyFile").get<std::string>();
+    }
 
     const Json& settings = normalized.at("settings");
     profile.settings.daily_limit = settings.at("dailyLimit").get<bool>();
@@ -476,13 +503,22 @@ Json profile_to_json(const Profile& profile) {
         sources.push_back({{"id", source.id.value()}, {"name", source.name}, {"enabled", source.enabled}, {"subvolume", source.subvolume.value().string()}, {"localSnapshotDir", source.local_snapshot_dir.value().string()}, {"remoteSubdir", source.remote_subdir.value().string()}, {"remoteRetention", source.remote_retention.value()}, {"localRetention", source.local_retention.value()}});
     }
 
+    Json activation = {{
+        "mode",
+        profile.target.activation.mode == TargetActivationMode::KeyFile ? "keyFile" : "askPassword",
+    }};
+    if (profile.target.activation.mode == TargetActivationMode::KeyFile) {
+        activation["keyFile"] = profile.target.activation.key_file.string();
+    }
+
     Json target = {
         {"device", profile.target.device.value().string()},
         {"luksUuid", profile.target.luks_uuid.value()},
         {"btrfsUuid", profile.target.btrfs_uuid.value()},
         {"partitionUuid", profile.target.partition_uuid.value()},
         {"serial", profile.target.serial},
-        {"mapperName", profile.target.mapper_name.value()}
+        {"mapperName", profile.target.mapper_name.value()},
+        {"activation", std::move(activation)}
     };
 
     auto hooks_to_json = [](const std::vector<ProfileHookCommand>& hooks) {

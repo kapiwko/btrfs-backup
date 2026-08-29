@@ -108,11 +108,11 @@ void install_test_profile_transactionally(
 
 btrfsbackup::config::Json valid_profile() {
     return {
-        {"schemaVersion", 3},
+        {"schemaVersion", 4},
         {"profileId", "default"},
         {"name", "Default backup"},
         {"enabled", true},
-        {"target", {{"device", "/dev/disk/by-uuid/11111111-2222-3333-4444-555555555555"}, {"luksUuid", "11111111-2222-3333-4444-555555555555"}, {"btrfsUuid", "66666666-7777-8888-9999-aaaaaaaaaaaa"}, {"partitionUuid", "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"}, {"serial", "SERIAL_123"}, {"mapperName", "backupdisk"}}},
+        {"target", {{"device", "/dev/disk/by-uuid/11111111-2222-3333-4444-555555555555"}, {"luksUuid", "11111111-2222-3333-4444-555555555555"}, {"btrfsUuid", "66666666-7777-8888-9999-aaaaaaaaaaaa"}, {"partitionUuid", "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"}, {"serial", "SERIAL_123"}, {"mapperName", "backupdisk"}, {"activation", {{"mode", "askPassword"}}}}},
         {"paths", {{"remoteRoot", "/mnt/btrfs-backup/default/snapshots"}, {"incomingRoot", "/mnt/btrfs-backup/default/.incoming"}}},
         {"settings", {{"dailyLimit", true}, {"incrementalRequired", true}, {"keepFailedLocalSnapshot", false}, {"autoEject", true}, {"remoteRetention", 30}, {"localRetention", 20}, {"minimumTargetFreeBytes", 5368709120LL}, {"minimumLocalFreeBytes", 1073741824LL}}},
         {"sources", btrfsbackup::config::Json::array({{{"id", "home"}, {"name", "Home"}, {"enabled", true}, {"subvolume", "/home"}, {"localSnapshotDir", "/.snapshots/btrfs-backup/home"}, {"remoteSubdir", "home"}, {"remoteRetention", 30}, {"localRetention", 20}}})}
@@ -219,6 +219,59 @@ void test_rejects_nested_roots() {
     expect_validation_error("nested roots", [&] { btrfsbackup::config::normalize_profile(profile); }, "remoteRoot and paths.incomingRoot");
 }
 
+void test_target_activation_is_structured_and_migrated() {
+    btrfsbackup::config::Json key_file = valid_profile();
+    key_file["target"]["activation"] = {
+        {"mode", "keyFile"},
+        {"keyFile", "/root/keys/backupdisk.key"},
+    };
+    const btrfsbackup::config::Profile key_file_profile =
+        btrfsbackup::config::profile_from_json(key_file);
+    expect_true(
+        "activation key file mode",
+        key_file_profile.target.activation.mode ==
+            btrfsbackup::config::TargetActivationMode::KeyFile,
+        "key file mode was not loaded"
+    );
+    expect_true(
+        "activation key file path",
+        key_file_profile.target.activation.key_file ==
+            "/root/keys/backupdisk.key",
+        "key file path was not loaded"
+    );
+
+    btrfsbackup::config::Json legacy = valid_profile();
+    legacy["schemaVersion"] = 3;
+    legacy["target"].erase("activation");
+    const btrfsbackup::config::Json migrated =
+        btrfsbackup::config::normalize_profile(legacy);
+    expect_true("activation migration schema", migrated.at("schemaVersion") == 4, "profile was not migrated to v4");
+    expect_true(
+        "activation migration mode",
+        migrated.at("target").at("activation").at("mode") == "askPassword",
+        "legacy profile did not default to askPassword"
+    );
+
+    btrfsbackup::config::Json invalid = valid_profile();
+    invalid["target"]["activation"] = {{"mode", "keyFile"}, {"keyFile", "relative.key"}};
+    expect_validation_error(
+        "activation absolute key file",
+        [&] { (void)btrfsbackup::config::normalize_profile(invalid); },
+        "absolute path"
+    );
+
+    invalid = valid_profile();
+    invalid["target"]["activation"] = {
+        {"mode", "askPassword"},
+        {"keyFile", "/root/keys/backupdisk.key"},
+    };
+    expect_validation_error(
+        "activation mode-specific field",
+        [&] { (void)btrfsbackup::config::normalize_profile(invalid); },
+        "only valid in keyFile mode"
+    );
+}
+
 void test_profile_round_trips_normalized_json() {
     const btrfsbackup::config::ProfileDocument document =
         btrfsbackup::config::normalize_profile_document(valid_profile());
@@ -259,7 +312,7 @@ void test_profile_migrates_safe_legacy_system_paths() {
 
     (void)load_legacy(legacy);
     btrfsbackup::config::Json normalized = btrfsbackup::config::normalize_profile(legacy);
-    expect_true("legacy migrated schema", normalized.at("schemaVersion") == 3, "legacy profile was not migrated");
+    expect_true("legacy migrated schema", normalized.at("schemaVersion") == 4, "legacy profile was not migrated");
     expect_true("legacy stateDir removed", !normalized.at("paths").contains("stateDir"), "stateDir remains public");
     expect_true("legacy statusRoot removed", !normalized.at("paths").contains("statusRoot"), "statusRoot remains public");
     expect_true("legacy historyRoot removed", !normalized.at("paths").contains("historyRoot"), "historyRoot remains public");
@@ -889,6 +942,7 @@ int main() {
     test_rejects_missing_btrfs_uuid();
     test_rejects_non_dev_target();
     test_rejects_nested_roots();
+    test_target_activation_is_structured_and_migrated();
     test_profile_round_trips_normalized_json();
     test_invalid_profile_document_does_not_create_profile();
     test_profile_migrates_safe_legacy_system_paths();

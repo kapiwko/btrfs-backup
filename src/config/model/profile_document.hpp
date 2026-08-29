@@ -12,7 +12,7 @@
 
 namespace btrfsbackup::config {
 
-inline constexpr int current_profile_schema_version = 3;
+inline constexpr int current_profile_schema_version = 4;
 
 struct ProfileDocument {
     Json value;
