@@ -350,6 +350,50 @@ void test_posix_pipeline_reports_producer_failure() {
     test_helpers::expect_validation_error("producer failure result", [&] { btrfsbackup::backup::transfer::require_transfer_success(result); }, "producer failed with exit code 7");
 }
 
+void test_posix_pipeline_bounds_large_stderr_without_deadlock() {
+    constexpr std::uint64_t diagnostic_bytes = 100ULL * 1024ULL * 1024ULL;
+    constexpr std::size_t retained_bytes = 2U * 64U * 1024U;
+    btrfsbackup::platform::linux::PosixTransferPipeline pipeline;
+    btrfsbackup::backup::transfer::NullTransferEventSink sink;
+    btrfsbackup::CancellationToken cancellation;
+    const auto started_at = std::chrono::steady_clock::now();
+
+    btrfsbackup::backup::transfer::TransferResult result = pipeline.run(
+        {
+            .producer_argv = {
+                "sh",
+                "-c",
+                "{ printf 'diagnostic-head\\n'; head -c \"$1\" /dev/zero | tr '\\000' x; printf '\\ndiagnostic-tail\\n'; } >&2; exit 7",
+                "large-stderr",
+                std::to_string(diagnostic_bytes),
+            },
+            .consumer_argv = {"cat"},
+        },
+        sink,
+        cancellation
+    );
+
+    const auto elapsed = std::chrono::steady_clock::now() - started_at;
+    test_helpers::expect_eq("large stderr producer exit", std::to_string(result.producer.exit_code), "7");
+    test_helpers::expect_true(
+        "large stderr completion bounded",
+        elapsed < std::chrono::seconds(15),
+        "pipeline did not continuously drain the large diagnostic stream"
+    );
+    test_helpers::expect_true(
+        "large stderr memory bounded",
+        result.producer.diagnostics.size() < retained_bytes + 256U,
+        "pipeline retained more than the bounded diagnostic head and tail"
+    );
+    test_helpers::expect_contains("large stderr head", result.producer.diagnostics, "diagnostic-head");
+    test_helpers::expect_contains("large stderr tail", result.producer.diagnostics, "diagnostic-tail");
+    test_helpers::expect_contains(
+        "large stderr discarded bytes",
+        result.producer.diagnostics,
+        "... omitted " + std::to_string(diagnostic_bytes + 33U - retained_bytes) + " diagnostic bytes ..."
+    );
+}
+
 void test_posix_pipeline_reports_missing_producer() {
     btrfsbackup::platform::linux::PosixTransferPipeline pipeline;
     RecordingEventSink sink;
@@ -722,6 +766,7 @@ int main() {
     test_posix_pipeline_transfers_bytes();
     test_posix_pipeline_transfers_gibibyte_under_backpressure();
     test_posix_pipeline_reports_producer_failure();
+    test_posix_pipeline_bounds_large_stderr_without_deadlock();
     test_posix_pipeline_reports_missing_producer();
     test_posix_pipeline_reports_consumer_failure();
     test_posix_pipeline_reports_missing_consumer();

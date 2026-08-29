@@ -10,11 +10,13 @@
 #include <unistd.h>
 
 #include <cerrno>
+#include <algorithm>
 #include <chrono>
 #include <cstring>
 #include <limits>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include <core/errors.hpp>
@@ -129,12 +131,68 @@ enum class ChildTerminationProgress {
     Abandoned,
 };
 
-void read_available(int fd, std::string& output) {
+class BoundedDiagnosticBuffer {
+  public:
+    void append(std::string_view data) {
+        const std::size_t head_remaining = segment_limit_bytes - head_.size();
+        const std::size_t head_bytes = std::min(head_remaining, data.size());
+        head_.append(data.data(), head_bytes);
+        data.remove_prefix(head_bytes);
+        if (data.empty()) {
+            return;
+        }
+
+        if (data.size() >= segment_limit_bytes) {
+            discarded_bytes_ += tail_.size() + data.size() - segment_limit_bytes;
+            tail_.assign(data.substr(data.size() - segment_limit_bytes));
+            tail_start_ = 0;
+            return;
+        }
+
+        const std::size_t tail_remaining = segment_limit_bytes - tail_.size();
+        const std::size_t appended_bytes = std::min(tail_remaining, data.size());
+        tail_.append(data.data(), appended_bytes);
+        data.remove_prefix(appended_bytes);
+        if (data.empty()) {
+            return;
+        }
+
+        discarded_bytes_ += data.size();
+        const std::size_t first_part = std::min(data.size(), segment_limit_bytes - tail_start_);
+        std::memcpy(tail_.data() + tail_start_, data.data(), first_part);
+        std::memcpy(tail_.data(), data.data() + first_part, data.size() - first_part);
+        tail_start_ = (tail_start_ + data.size()) % segment_limit_bytes;
+    }
+
+    [[nodiscard]] std::string render() const {
+        if (discarded_bytes_ == 0) {
+            return head_ + tail_;
+        }
+        return head_ + "\n... omitted " + std::to_string(discarded_bytes_) +
+            " diagnostic bytes ...\n" + tail_text();
+    }
+
+  private:
+    [[nodiscard]] std::string tail_text() const {
+        if (tail_start_ == 0) {
+            return tail_;
+        }
+        return tail_.substr(tail_start_) + tail_.substr(0, tail_start_);
+    }
+
+    static constexpr std::size_t segment_limit_bytes = 64U * 1024U;
+    std::string head_;
+    std::string tail_;
+    std::size_t tail_start_ = 0;
+    std::uint64_t discarded_bytes_ = 0;
+};
+
+void read_available(int fd, BoundedDiagnosticBuffer& output) {
     char buffer[4096];
     while (true) {
         ssize_t count = read(fd, buffer, sizeof(buffer));
         if (count > 0) {
-            output.append(buffer, static_cast<std::size_t>(count));
+            output.append(std::string_view(buffer, static_cast<std::size_t>(count)));
             continue;
         }
         if (count == 0) {
@@ -146,8 +204,7 @@ void read_available(int fd, std::string& output) {
         if (errno == EINTR) {
             continue;
         }
-        output.append("read failed: ");
-        output.append(std::strerror(errno));
+        output.append(std::string("read failed: ") + std::strerror(errno));
         return;
     }
 }
@@ -350,6 +407,8 @@ btrfsbackup::backup::transfer::TransferResult PosixTransferPipeline::run(
     bool consumer_stdin_ready = false;
     bool producer_stderr_open = result.producer.started;
     bool consumer_stderr_open = result.consumer.started;
+    BoundedDiagnosticBuffer producer_stderr;
+    BoundedDiagnosticBuffer consumer_stderr;
     bool producer_done = !result.producer.started;
     bool consumer_done = !result.consumer.started;
     const pid_t producer_pid = producer_spawn.pid;
@@ -557,13 +616,13 @@ btrfsbackup::backup::transfer::TransferResult PosixTransferPipeline::run(
             } else if (tag == consumer_stdin_tag && (fds[i].revents & POLLOUT) != 0) {
                 consumer_stdin_ready = true;
             } else if (tag == producer_stderr_tag && (fds[i].revents & (POLLIN | POLLHUP)) != 0) {
-                read_available(producer_error_pipe.read_end.get(), result.producer.diagnostics);
+                read_available(producer_error_pipe.read_end.get(), producer_stderr);
                 if ((fds[i].revents & POLLHUP) != 0) {
                     producer_error_pipe.read_end.reset();
                     producer_stderr_open = false;
                 }
             } else if (tag == consumer_stderr_tag && (fds[i].revents & (POLLIN | POLLHUP)) != 0) {
-                read_available(consumer_error_pipe.read_end.get(), result.consumer.diagnostics);
+                read_available(consumer_error_pipe.read_end.get(), consumer_stderr);
                 if ((fds[i].revents & POLLHUP) != 0) {
                     consumer_error_pipe.read_end.reset();
                     consumer_stderr_open = false;
@@ -621,6 +680,8 @@ btrfsbackup::backup::transfer::TransferResult PosixTransferPipeline::run(
     }
 
     progress_reporter.flush(events, result);
+    append_diagnostic(result.producer.diagnostics, producer_stderr.render());
+    append_diagnostic(result.consumer.diagnostics, consumer_stderr.render());
     trim_diagnostics(result.producer.diagnostics);
     trim_diagnostics(result.consumer.diagnostics);
     result.duration_ms = elapsed_ms_since(started_at);
