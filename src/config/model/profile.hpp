@@ -7,6 +7,7 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <filesystem>
 #include <string>
 #include <utility>
 #include <vector>
@@ -18,6 +19,16 @@
 #include <config/model/target_identity.hpp>
 #include <core/identifiers.hpp>
 namespace btrfsbackup::config {
+
+enum class TargetActivationMode {
+    AskPassword,
+    KeyFile,
+};
+
+struct TargetActivation {
+    TargetActivationMode mode = TargetActivationMode::AskPassword;
+    std::filesystem::path key_file;
+};
 
 struct ProfileTarget {
     ProfileTarget(
@@ -41,6 +52,7 @@ struct ProfileTarget {
     std::string serial;
     MapperName mapper_name;
     TargetMountPoint mount_point;
+    TargetActivation activation;
 };
 
 struct ProfilePaths {

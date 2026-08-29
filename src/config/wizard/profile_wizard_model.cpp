@@ -36,6 +36,10 @@ Profile profile_from_wizard_answers(const ProfileWizardAnswers& answers) {
     profile.target.mount_point = TargetMountPoint{
         std::filesystem::path(answers.target_mount_root) / profile.id.value()
     };
+    if (answers.keyfile != "none") {
+        profile.target.activation.mode = TargetActivationMode::KeyFile;
+        profile.target.activation.key_file = answers.keyfile;
+    }
 
     std::set<std::string> used_names;
     for (const ProfileWizardSourceAnswers& source_answer : answers.sources) {
