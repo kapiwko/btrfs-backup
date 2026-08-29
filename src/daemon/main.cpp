@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include <daemon/dbus_server.hpp>
+#include <daemon/command_systemd_unit_controller.hpp>
 #include <daemon/system_operational_control_backend.hpp>
 
 #include <filesystem>
@@ -92,7 +93,8 @@ int main(int argc, char** argv) {
         btrfsbackup::platform::linux::PosixDurableFileOperations durable_files;
         btrfsbackup::state::FileRunStateRepository state(configured, durable_files);
         btrfsbackup::platform::linux::PosixCommandRunner commands;
-        btrfsbackup::daemon::SystemOperationalControlBackend operational_backend(profiles, state, commands);
+        btrfsbackup::daemon::CommandSystemdUnitController units(commands);
+        btrfsbackup::daemon::SystemOperationalControlBackend operational_backend(profiles, state, units);
         return btrfsbackup::daemon::run_dbus_server(service, operational_backend, bus_address);
     } catch (const std::exception& exception) {
         std::cerr << "btrfs-backupd: " << exception.what() << '\n';

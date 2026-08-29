@@ -107,6 +107,12 @@ if(BUILD_SYSTEM_MANAGER)
         btrfsbackup-config-domain
         btrfsbackup-core
     )
+    assert_public_link_interface(
+        btrfsbackup-daemon-system-control
+        btrfsbackup-backup-ports
+        btrfsbackup-config-ports
+        btrfsbackup-daemon-core
+    )
 endif()
 
 add_test(

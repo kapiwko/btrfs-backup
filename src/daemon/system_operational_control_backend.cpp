@@ -9,7 +9,6 @@
 #include <string>
 #include <system_error>
 #include <utility>
-#include <vector>
 
 #include <config/configuration_identity.hpp>
 #include <daemon/authorized_operation_command.hpp>
@@ -45,11 +44,28 @@ class OperationEnvironmentFile {
     std::filesystem::path path_;
 };
 
-std::string trimmed(std::string value) {
-    while (!value.empty() && (value.back() == '\n' || value.back() == '\r')) {
-        value.pop_back();
+ManagerErrorCode manager_error_code(SystemdJobFailure failure) {
+    switch (failure) {
+    case SystemdJobFailure::UnitNotFound:
+        return ManagerErrorCode::NotFound;
+    case SystemdJobFailure::JobAlreadyRunning:
+        return ManagerErrorCode::Busy;
+    case SystemdJobFailure::JobConflict:
+        return ManagerErrorCode::Conflict;
+    case SystemdJobFailure::Cancelled:
+    case SystemdJobFailure::TimedOut:
+    case SystemdJobFailure::UnitFailed:
+        return ManagerErrorCode::TargetUnavailable;
+    case SystemdJobFailure::ManagerRejected:
+        return ManagerErrorCode::InternalError;
     }
-    return value;
+    return ManagerErrorCode::InternalError;
+}
+
+[[noreturn]] void throw_job_error(const SystemdJobError& error, const char* operation) {
+    if (error.unit_exit_status == btrfsbackup::config::configuration_changed_exit_code)
+        throw ManagerOperationError(ManagerErrorCode::Conflict, "profile changed before operation execution");
+    throw ManagerOperationError(manager_error_code(error.failure), std::string(operation) + " failed");
 }
 
 } // namespace
@@ -57,12 +73,12 @@ std::string trimmed(std::string value) {
 SystemOperationalControlBackend::SystemOperationalControlBackend(
     btrfsbackup::config::IProfileRepository& profiles,
     btrfsbackup::backup::ICancellationRequestStore& cancellation_requests,
-    btrfsbackup::backup::ICommandRunner& commands,
+    ISystemdUnitController& units,
     std::filesystem::path operation_environment_root
 )
     : profiles_(profiles),
       cancellation_requests_(cancellation_requests),
-      commands_(commands),
+      units_(units),
       operation_environment_root_(std::move(operation_environment_root)) {
 }
 
@@ -82,22 +98,17 @@ void SystemOperationalControlBackend::require_profile_version(
         throw ManagerOperationError(ManagerErrorCode::Conflict, "profile changed during authorization");
 }
 
-void SystemOperationalControlBackend::run_effect(
-    const std::vector<std::string>& command,
+void SystemOperationalControlBackend::require_job_accepted(
+    const TransientJobResult& result,
     const char* operation
 ) {
-    btrfsbackup::backup::ControlledCommandOptions options;
-    options.timeout = std::chrono::minutes(10);
-    const btrfsbackup::backup::CommandResult result = commands_.run_controlled(command, options);
-    if (result.exit_code == btrfsbackup::config::configuration_changed_exit_code)
-        throw ManagerOperationError(ManagerErrorCode::Conflict, "profile changed before operation execution");
-    if (result.exit_code != 0 || result.timed_out || result.cancelled)
-        throw ManagerOperationError(ManagerErrorCode::TargetUnavailable, std::string(operation) + " failed");
+    if (result.error)
+        throw_job_error(*result.error, operation);
 }
 
 void SystemOperationalControlBackend::start_backup(const AuthorizedOperationContext& context) {
     require_profile_version(context);
-    run_effect(authorized_backup_command(context), "starting backup");
+    require_job_accepted(units_.start_transient_unit(authorized_backup_unit(context)), "starting backup");
 }
 
 ManagerCancellationOutcome SystemOperationalControlBackend::cancel_backup(
@@ -126,37 +137,21 @@ void SystemOperationalControlBackend::run_target_validation(
     const AuthorizedOperationContext& context
 ) {
     OperationEnvironmentFile environment(operation_environment_root_, context);
-    btrfsbackup::backup::ControlledCommandOptions options;
-    options.timeout = std::chrono::minutes(11);
-    const btrfsbackup::backup::CommandResult result = commands_.run_controlled(
-        authorized_target_validation_command(context),
-        options
-    );
-    if (result.exit_code == 0 && !result.timed_out && !result.cancelled) {
+    const std::string unit = authorized_target_validation_unit(context);
+    const StartJobResult result = units_.start_unit({unit, std::chrono::minutes(11)});
+    if (result.accepted()) {
         return;
     }
 
-    if (result.timed_out || result.cancelled) {
-        (void)commands_.run({"systemctl", "stop", authorized_target_validation_unit(context)});
-        (void)commands_.run({"systemctl", "reset-failed", authorized_target_validation_unit(context)});
-        throw ManagerOperationError(ManagerErrorCode::TargetUnavailable, "validating target did not complete");
-    }
-
-    const btrfsbackup::backup::CommandResult status = commands_.run(
-        authorized_target_validation_status_command(context)
-    );
-    const bool configuration_changed = status.exit_code == 0 &&
-        trimmed(status.output) == std::to_string(btrfsbackup::config::configuration_changed_exit_code);
-    (void)commands_.run({"systemctl", "reset-failed", authorized_target_validation_unit(context)});
-    if (configuration_changed) {
-        throw ManagerOperationError(ManagerErrorCode::Conflict, "profile changed before operation execution");
-    }
-    throw ManagerOperationError(ManagerErrorCode::TargetUnavailable, "validating target failed");
+    if (result.error->failure == SystemdJobFailure::TimedOut ||
+        result.error->failure == SystemdJobFailure::Cancelled)
+        (void)units_.stop_unit({unit, std::chrono::minutes(2)});
+    throw_job_error(*result.error, "validating target");
 }
 
 void SystemOperationalControlBackend::eject_target(const AuthorizedOperationContext& context) {
     require_profile_version(context);
-    run_effect(authorized_target_eject_command(context), "ejecting target");
+    require_job_accepted(units_.start_transient_unit(authorized_target_eject_unit(context)), "ejecting target");
 }
 
 } // namespace btrfsbackup::daemon

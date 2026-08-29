@@ -40,3 +40,10 @@ add_btrfsbackup_test(
     btrfsbackup-daemon-core
     btrfsbackup-core
 )
+
+add_btrfsbackup_test(
+    btrfsbackup-systemd-control-tests
+    systemd_control_tests.cpp
+    systemd-control-tests
+    btrfsbackup-daemon-system-control
+)

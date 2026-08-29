@@ -29,6 +29,7 @@ target_restricted_include_directories(btrfsbackup-daemon-core
         daemon/operational_control_service.hpp
         daemon/profile_query_service.hpp
         daemon/status_query_service.hpp
+        daemon/systemd_unit_controller.hpp
     PRIVATE_HEADERS
         daemon/manager_document_reader.hpp
 )
@@ -41,17 +42,34 @@ target_link_libraries(btrfsbackup-daemon-core
         btrfsbackup-platform-linux
 )
 
+add_library(btrfsbackup-daemon-system-control STATIC
+    command_systemd_unit_controller.cpp
+    system_operational_control_backend.cpp
+)
+target_compile_features(btrfsbackup-daemon-system-control PUBLIC cxx_std_20)
+target_restricted_include_directories(btrfsbackup-daemon-system-control
+    PUBLIC_HEADERS
+        daemon/command_systemd_unit_controller.hpp
+        daemon/system_operational_control_backend.hpp
+)
+target_link_libraries(btrfsbackup-daemon-system-control
+    PUBLIC
+        btrfsbackup-backup-ports
+        btrfsbackup-config-ports
+        btrfsbackup-daemon-core
+    PRIVATE
+        btrfsbackup-platform-linux
+)
+
 add_executable(btrfs-backupd
     dbus_server.cpp
     main.cpp
     polkit_authorizer.cpp
-    system_operational_control_backend.cpp
 )
 target_restricted_include_directories(btrfs-backupd
     PRIVATE_HEADERS
         daemon/dbus_server.hpp
         daemon/polkit_authorizer.hpp
-        daemon/system_operational_control_backend.hpp
 )
 set_target_properties(btrfs-backupd PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR})
 target_link_libraries(btrfs-backupd
@@ -59,6 +77,7 @@ target_link_libraries(btrfs-backupd
         btrfsbackup-backup-ports
         btrfsbackup-config-ports
         btrfsbackup-daemon-core
+        btrfsbackup-daemon-system-control
         btrfsbackup-platform-linux
         btrfsbackup-platform-linux-config
         btrfsbackup-state
@@ -67,6 +86,7 @@ target_link_libraries(btrfs-backupd
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(btrfsbackup-daemon-core PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(btrfsbackup-daemon-system-control PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(btrfs-backupd PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 
