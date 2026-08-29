@@ -7,7 +7,6 @@
 #include <cstdint>
 #include <exception>
 #include <string>
-#include <type_traits>
 
 #include <core/errors.hpp>
 
@@ -72,57 +71,13 @@ void emit_cancelled(
     });
 }
 
-class BackupTransferEventAdapter final : public btrfsbackup::backup::transfer::ITransferEventSink {
-  public:
-    BackupTransferEventAdapter(
-        IBackupRunEventSink& events,
-        const BackupRunPlan& plan,
-        const BackupSourceRunPlan& source,
-        std::uint64_t run_bytes_base
-    )
-        : events_(events),
-          plan_(plan),
-          source_(source),
-          run_bytes_base_(run_bytes_base) {
-    }
-
-    void on_transfer_event(const btrfsbackup::backup::transfer::TransferEvent& event) override {
-        if (event.kind == btrfsbackup::backup::transfer::TransferEventKind::Progress) {
-            events_.on_backup_run_event(TransferProgress{
-                .profile_id = plan_.profile_id,
-                .run_id = plan_.run_id,
-                .source_id = source_.source_id,
-                .source_index = source_index_for_event(plan_, source_),
-                .bytes_transferred = event.bytes_transferred,
-                .bytes_produced = event.bytes_produced,
-                .bytes_total_estimated = event.bytes_total_estimated,
-                .run_bytes_transferred = run_bytes_base_ + event.bytes_transferred,
-                .delta_bytes = event.delta_bytes,
-                .elapsed_ms = event.elapsed_ms,
-                .speed_bps = event.speed_bps,
-                .message = event.message,
-            });
-        }
-    }
-
-  private:
-    IBackupRunEventSink& events_;
-    const BackupRunPlan& plan_;
-    const BackupSourceRunPlan& source_;
-    std::uint64_t run_bytes_base_ = 0;
-};
-
 } // namespace
 
 BackupRunExecutor::BackupRunExecutor(
-    IBackupRunActionHandler& action_handler,
-    btrfsbackup::backup::transfer::IAsyncTransferPipeline& transfer_pipeline,
-    IBackupRunCheckpointStore& checkpoints,
-    const ISafeDirectoryRootFactory& safe_directories
+    IBackupActionExecutor& action_executor,
+    IBackupRunCheckpointStore& checkpoints
 )
-    : action_handler_(action_handler),
-      transfer_coordinator_(transfer_pipeline, safe_directories),
-      checkpoint_policy_(checkpoints) {
+    : action_executor_(action_executor), checkpoint_policy_(checkpoints) {
 }
 
 BackupRunExecutionResult BackupRunExecutor::execute(
@@ -155,37 +110,21 @@ BackupRunExecutionResult BackupRunExecutor::execute(
                 source_index,
                 action_kind,
             });
-            bool transfer_cancelled = false;
             try {
-                std::visit([&](const auto& typed_action) {
-                    using Action = std::decay_t<decltype(typed_action)>;
-                    if constexpr (std::is_same_v<Action, SendReceiveAction>) {
-                        BackupTransferEventAdapter transfer_events(
-                            events,
-                            plan,
-                            source,
-                            completed_run_bytes
-                        );
-                        btrfsbackup::backup::transfer::TransferResult transfer_result = transfer_coordinator_.execute(
-                            typed_action,
-                            plan.target_mount_point,
-                            transfer_events,
-                            cancellation
-                        );
-                        if (transfer_result.cancelled) {
-                            transfer_cancelled = true;
-                            return;
-                        }
-                        completed_run_bytes += transfer_result.bytes_transferred;
-                    } else {
-                        action_handler_.handle(action, plan, cancellation);
-                    }
-                },
-                           action);
-                if (transfer_cancelled) {
+                BackupActionExecutionContext context{
+                    .plan = plan,
+                    .source = source,
+                    .source_index = source_index,
+                    .completed_run_bytes = completed_run_bytes,
+                    .events = events,
+                    .cancellation = cancellation,
+                };
+                const BackupActionExecutionResult action_result = action_executor_.execute(action, context);
+                if (action_result.cancelled) {
                     emit_cancelled(events, plan, &source, action_kind);
                     return BackupRunExecutionCancelled{actions_completed};
                 }
+                completed_run_bytes += action_result.bytes_transferred;
             } catch (const OperationCancelledError& error) {
                 emit_cancelled(
                     events,

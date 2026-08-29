@@ -12,23 +12,13 @@
 
 namespace {
 
-class NoopActionHandler final : public btrfsbackup::backup::IBackupRunActionHandler {
+class NoopActionExecutor final : public btrfsbackup::backup::IBackupActionExecutor {
   public:
-    void handle(
+    btrfsbackup::backup::BackupActionExecutionResult execute(
         const btrfsbackup::backup::BackupRunAction&,
-        const btrfsbackup::backup::BackupRunPlan&,
-        btrfsbackup::CancellationToken&
+        btrfsbackup::backup::BackupActionExecutionContext&
     ) override {
-    }
-};
-
-class UnusedTransferPipeline final : public btrfsbackup::backup::transfer::IAsyncTransferPipeline {
-  public:
-    std::unique_ptr<btrfsbackup::backup::transfer::IAsyncTransferHandle> start(
-        const btrfsbackup::backup::transfer::TransferPipelinePlan&,
-        btrfsbackup::backup::transfer::ITransferEventSink&
-    ) override {
-        throw std::logic_error("empty backup run must not start a transfer");
+        return {};
     }
 };
 
@@ -39,19 +29,15 @@ class NoopCheckpointStore final : public btrfsbackup::backup::IBackupRunCheckpoi
 };
 
 void test_backup_run_owns_plan_and_executes_once() {
-    NoopActionHandler handler;
-    UnusedTransferPipeline transfers;
+    NoopActionExecutor action_executor;
     NoopCheckpointStore checkpoints;
-    test_support::FakeSafeDirectoryRootFactory safe_directories;
     btrfsbackup::backup::BackupRun run(
         btrfsbackup::backup::BackupRunPlan{
             .profile_id = btrfsbackup::ProfileId{"default"},
             .run_id = btrfsbackup::RunId{"run-1"},
         },
-        handler,
-        transfers,
-        checkpoints,
-        safe_directories
+        action_executor,
+        checkpoints
     );
 
     test_helpers::expect_eq("owned profile", std::string(run.plan().profile_id.value()), "default");

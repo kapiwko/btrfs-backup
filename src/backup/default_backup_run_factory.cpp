@@ -7,6 +7,7 @@
 #include <utility>
 
 #include <backup/action_handlers/backup_run_action_handler.hpp>
+#include <backup/backup_action_executor.hpp>
 #include <backup/backup_run.hpp>
 
 namespace btrfsbackup::backup {
@@ -27,7 +28,8 @@ BackupRunExecutionResult DefaultBackupRunFactory::execute(
 ) {
     std::unique_ptr<IBackupRunActionHandler> action_handler = action_handlers_.create(plan);
     btrfsbackup::backup::transfer::ThreadedAsyncTransferPipeline async_transfers(transfers_);
-    BackupRun run(std::move(plan), *action_handler, async_transfers, checkpoints, safe_directories_);
+    BackupActionExecutor action_executor(*action_handler, async_transfers, safe_directories_);
+    BackupRun run(std::move(plan), action_executor, checkpoints);
     return run.execute(events, cancellation);
 }
 
