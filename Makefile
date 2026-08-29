@@ -5,7 +5,7 @@
 BUILD_JOBS ?= $(shell nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)
 CMAKE_CONFIGURE_ARGS ?=
 
-.PHONY: all check-format clang-tidy quality clean
+.PHONY: all check-format clang-tidy clang-tidy-changed quality quality-changed clean
 
 all: build/btrfs-backupctl
 
@@ -19,7 +19,12 @@ check-format:
 clang-tidy:
 	BUILD_JOBS=$(BUILD_JOBS) ./tools/run-clang-tidy.sh
 
+clang-tidy-changed:
+	BUILD_JOBS=$(BUILD_JOBS) ./tools/run-clang-tidy-changed.sh
+
 quality: check-format clang-tidy
+
+quality-changed: check-format clang-tidy-changed
 
 clean:
 	rm -rf build
