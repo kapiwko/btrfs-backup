@@ -9,7 +9,7 @@ Documentation=man:btrfs-backupd(8)
 [Service]
 Type=dbus
 BusName=io.github.btrfsbackup.Manager1
-ExecStart=/usr/bin/btrfs-backupd
+ExecStart=@BTRFSBACKUP_MANAGER_EXECUTABLE@
 User=root
 Group=root
 NoNewPrivileges=yes

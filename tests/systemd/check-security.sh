@@ -24,8 +24,8 @@ cleanup() {
 trap cleanup EXIT
 
 sed \
-    -e 's#{{BACKUP_COMMAND}}#/usr/bin/true#g' \
-    -e 's#{{EJECT_SCRIPT_PATH}}#/usr/bin/true#g' \
+    -e 's#@BTRFSBACKUP_BACKUP_COMMAND@#/usr/bin/true#g' \
+    -e 's#@BTRFSBACKUP_EJECT_SCRIPT_PATH@#/usr/bin/true#g' \
     -e 's#{{PROFILE_ID}}#default#g' \
     "$UNIT_FILE" > "$STAGED_UNIT"
 

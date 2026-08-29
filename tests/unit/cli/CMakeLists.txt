@@ -17,6 +17,10 @@ add_btrfsbackup_test(
     btrfsbackup-cli
     btrfsbackup-config-json
 )
+target_compile_definitions(
+    btrfsbackup-installation-tests
+    PRIVATE BTRFSBACKUP_TEST_INSTALL_BINDIR="${CMAKE_INSTALL_FULL_BINDIR}"
+)
 add_btrfsbackup_test(
     btrfsbackup-profile-command-tests
     profile_command_tests.cpp

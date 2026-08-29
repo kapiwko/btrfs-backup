@@ -12,6 +12,14 @@
 
 namespace {
 
+#ifndef BTRFSBACKUP_TEST_INSTALL_BINDIR
+#error "BTRFSBACKUP_TEST_INSTALL_BINDIR must be defined by the build system"
+#endif
+
+std::string installed_program(const char* name) {
+    return std::string(BTRFSBACKUP_TEST_INSTALL_BINDIR) + "/" + name;
+}
+
 btrfsbackup::daemon::AuthorizedOperationContext context() {
     return {
         .profile_id = btrfsbackup::ProfileId{"laptop"},
@@ -58,8 +66,17 @@ void test_backup_uses_versioned_transient_unit() {
     );
     test_helpers::expect_true(
         "backup cleanup",
-        contains(unit.properties, "ExecStopPost=/usr/bin/btrfs-backupctl target eject --from-service --profile laptop"),
+        contains(
+            unit.properties,
+            "ExecStopPost=" + installed_program("btrfs-backupctl") +
+                " target eject --from-service --profile laptop"
+        ),
         "backup cleanup did not retain the authorized environment"
+    );
+    test_helpers::expect_true(
+        "backup executable",
+        unit.command.at(0) == installed_program("btrfs-backup"),
+        "backup transient unit ignored the configured install bindir"
     );
 }
 
@@ -78,6 +95,11 @@ void test_synchronous_target_operations_carry_identity() {
         "eject unit",
         eject.unit == "btrfs-backup-eject@operation-1.service",
         "eject unit is not operation-specific"
+    );
+    test_helpers::expect_true(
+        "eject executable",
+        eject.command.at(0) == installed_program("btrfs-backupctl"),
+        "eject transient unit ignored the configured install bindir"
     );
 }
 
