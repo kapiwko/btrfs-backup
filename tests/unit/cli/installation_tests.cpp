@@ -111,6 +111,16 @@ void test_installation_render_writes_static_files() {
         "ExecStart=/usr/bin/btrfs-backupctl target eject --from-service --profile %i"
     );
     test_helpers::expect_contains(
+        "installation validation command",
+        read_file(root / "rendered" / "systemd" / "btrfs-backup-validate@.service"),
+        "ExecStart=/usr/bin/btrfs-backupctl runner execute --profile ${BTRFS_BACKUP_PROFILE_ID} --validate"
+    );
+    test_helpers::expect_contains(
+        "installation validation context",
+        read_file(root / "rendered" / "systemd" / "btrfs-backup-validate@.service"),
+        "EnvironmentFile=/run/btrfs-backup-manager/%i.env"
+    );
+    test_helpers::expect_contains(
         "installation stop timeout",
         read_file(root / "rendered" / "systemd" / "btrfs-backup@.service"),
         "TimeoutStopSec=90s"
@@ -127,6 +137,10 @@ void test_installation_render_writes_static_files() {
     expect_service_hardening(
         "installation profile service hardening",
         read_file(root / "rendered" / "systemd" / "btrfs-backup@.service")
+    );
+    expect_service_hardening(
+        "installation validation service hardening",
+        read_file(root / "rendered" / "systemd" / "btrfs-backup-validate@.service")
     );
     test_helpers::expect_contains(
         "installation profile mount dependency",

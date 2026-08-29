@@ -135,6 +135,10 @@ keeps a mixed installation inactive.
 - Operational effects compare the profile generation and fingerprint captured
   before authorization with a fresh profile read immediately before the effect.
   A change during the authorization prompt returns `Conflict`.
+- `ValidateTarget` runs in `btrfs-backup-validate@.service`, acquires the normal
+  profile and target leases, and restores the mount and LUKS mapper state that
+  existed before validation. The unit receives the authorized generation and
+  fingerprint through a root-only runtime environment file.
 - Mutating methods retain the existing profile and target lock boundaries.
   Structured, secret-free audit records remain an explicit delivery item in
   `TODO.md`; normal service diagnostics in journald are not yet the stable audit

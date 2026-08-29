@@ -5,20 +5,65 @@
 #include <daemon/system_operational_control_backend.hpp>
 
 #include <chrono>
+#include <filesystem>
 #include <string>
+#include <system_error>
+#include <utility>
 #include <vector>
 
 #include <config/configuration_identity.hpp>
 #include <daemon/authorized_operation_command.hpp>
 #include <daemon/manager_errors.hpp>
+#include <platform/linux/file_io.hpp>
 
 namespace btrfsbackup::daemon {
+
+namespace {
+
+class OperationEnvironmentFile {
+  public:
+    OperationEnvironmentFile(
+        const std::filesystem::path& root,
+        const AuthorizedOperationContext& context
+    ) : path_(root / (std::string(context.operation_id.value()) + ".env")) {
+        btrfsbackup::platform::linux::atomic_write(
+            path_,
+            authorized_operation_environment(context),
+            0600
+        );
+    }
+
+    ~OperationEnvironmentFile() {
+        std::error_code error;
+        std::filesystem::remove(path_, error);
+    }
+
+    OperationEnvironmentFile(const OperationEnvironmentFile&) = delete;
+    OperationEnvironmentFile& operator=(const OperationEnvironmentFile&) = delete;
+
+  private:
+    std::filesystem::path path_;
+};
+
+std::string trimmed(std::string value) {
+    while (!value.empty() && (value.back() == '\n' || value.back() == '\r')) {
+        value.pop_back();
+    }
+    return value;
+}
+
+} // namespace
 
 SystemOperationalControlBackend::SystemOperationalControlBackend(
     btrfsbackup::config::IProfileRepository& profiles,
     btrfsbackup::backup::ICancellationRequestStore& cancellation_requests,
-    btrfsbackup::backup::ICommandRunner& commands
-) : profiles_(profiles), cancellation_requests_(cancellation_requests), commands_(commands) {
+    btrfsbackup::backup::ICommandRunner& commands,
+    std::filesystem::path operation_environment_root
+)
+    : profiles_(profiles),
+      cancellation_requests_(cancellation_requests),
+      commands_(commands),
+      operation_environment_root_(std::move(operation_environment_root)) {
 }
 
 OperationalResourceVersion SystemOperationalControlBackend::inspect_profile(const ProfileId& profile_id) const {
@@ -74,7 +119,39 @@ ManagerCancellationOutcome SystemOperationalControlBackend::cancel_backup(
 
 void SystemOperationalControlBackend::validate_target(const AuthorizedOperationContext& context) {
     require_profile_version(context);
-    run_effect(authorized_target_validation_command(context), "validating target");
+    run_target_validation(context);
+}
+
+void SystemOperationalControlBackend::run_target_validation(
+    const AuthorizedOperationContext& context
+) {
+    OperationEnvironmentFile environment(operation_environment_root_, context);
+    btrfsbackup::backup::ControlledCommandOptions options;
+    options.timeout = std::chrono::minutes(11);
+    const btrfsbackup::backup::CommandResult result = commands_.run_controlled(
+        authorized_target_validation_command(context),
+        options
+    );
+    if (result.exit_code == 0 && !result.timed_out && !result.cancelled) {
+        return;
+    }
+
+    if (result.timed_out || result.cancelled) {
+        (void)commands_.run({"systemctl", "stop", authorized_target_validation_unit(context)});
+        (void)commands_.run({"systemctl", "reset-failed", authorized_target_validation_unit(context)});
+        throw ManagerOperationError(ManagerErrorCode::TargetUnavailable, "validating target did not complete");
+    }
+
+    const btrfsbackup::backup::CommandResult status = commands_.run(
+        authorized_target_validation_status_command(context)
+    );
+    const bool configuration_changed = status.exit_code == 0 &&
+        trimmed(status.output) == std::to_string(btrfsbackup::config::configuration_changed_exit_code);
+    (void)commands_.run({"systemctl", "reset-failed", authorized_target_validation_unit(context)});
+    if (configuration_changed) {
+        throw ManagerOperationError(ManagerErrorCode::Conflict, "profile changed before operation execution");
+    }
+    throw ManagerOperationError(ManagerErrorCode::TargetUnavailable, "validating target failed");
 }
 
 void SystemOperationalControlBackend::eject_target(const AuthorizedOperationContext& context) {

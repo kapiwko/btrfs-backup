@@ -22,6 +22,7 @@ set(required_paths
     "usr/bin/btrfs-backupctl"
     "usr/${INSTALL_LIBDIR}/systemd/system/btrfs-backup@.service"
     "usr/${INSTALL_LIBDIR}/systemd/system/btrfs-backup-eject@.service"
+    "usr/${INSTALL_LIBDIR}/systemd/system/btrfs-backup-validate@.service"
     "usr/share/btrfs-backup/examples/config/profile.schema.json"
     "usr/share/btrfs-backup/examples/config/profile.example.json"
     "usr/share/btrfs-backup/examples/udev/README.md"
@@ -44,7 +45,7 @@ foreach(relative_path IN LISTS required_paths)
     endif()
 endforeach()
 
-foreach(unit_name IN ITEMS btrfs-backup@.service btrfs-backup-eject@.service)
+foreach(unit_name IN ITEMS btrfs-backup@.service btrfs-backup-eject@.service btrfs-backup-validate@.service)
     set(unit_path "${INSTALL_ROOT}/usr/${INSTALL_LIBDIR}/systemd/system/${unit_name}")
     file(READ "${unit_path}" unit_content)
     if(unit_content MATCHES "\\{\\{")

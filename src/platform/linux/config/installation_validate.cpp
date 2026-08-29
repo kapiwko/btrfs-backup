@@ -110,11 +110,13 @@ void validate_rendered_installation(const fs::path& root, const fs::path& target
     fs::path service_file = root / "systemd" / "btrfs-backup.service";
     fs::path profile_service_file = root / "systemd" / "btrfs-backup@.service";
     fs::path eject_service_file = root / "systemd" / "btrfs-backup-eject@.service";
+    fs::path validate_service_file = root / "systemd" / "btrfs-backup-validate@.service";
 
     require_file(profile_json, "missing rendered canonical profile JSON");
     require_file(service_file, "missing rendered systemd unit");
     require_file(profile_service_file, "missing rendered systemd template unit");
     require_file(eject_service_file, "missing rendered eject systemd template unit");
+    require_file(validate_service_file, "missing rendered validation systemd template unit");
     if (contains_unresolved_placeholder(root)) {
         throw ValidationError("unresolved placeholders remain in rendered files");
     }
@@ -129,7 +131,14 @@ void validate_rendered_installation(const fs::path& root, const fs::path& target
     fs::path udev_file = root / "udev" / ("99-btrfs-backup-" + std::string(profile.id.value()) + ".rules");
     require_file(udev_file, "missing rendered profile udev rule");
     run_checked(
-        {"systemd-analyze", "verify", service_file.string(), profile_service_file.string(), eject_service_file.string()},
+        {
+            "systemd-analyze",
+            "verify",
+            service_file.string(),
+            profile_service_file.string(),
+            eject_service_file.string(),
+            validate_service_file.string(),
+        },
         true,
         true
     );
@@ -145,12 +154,14 @@ void validate_active_installation(const std::string& profile_id) {
     fs::path service_file = "/etc/systemd/system/btrfs-backup.service";
     fs::path profile_service_file = "/etc/systemd/system/btrfs-backup@.service";
     fs::path eject_service_file = "/etc/systemd/system/btrfs-backup-eject@.service";
+    fs::path validate_service_file = "/etc/systemd/system/btrfs-backup-validate@.service";
 
     require_file(profile_json, "missing profile JSON");
     if (!fs::is_regular_file(service_file)) {
         throw ValidationError("missing " + service_file.string());
     }
     require_file(eject_service_file, "missing eject systemd template unit");
+    require_file(validate_service_file, "missing validation systemd template unit");
 
     btrfsbackup::config::ApplicationConfig config = load_application_config();
     btrfsbackup::config::Profile profile = validate_profile_file(profile_json, config.paths().target_mount_root);
@@ -165,6 +176,7 @@ void validate_active_installation(const std::string& profile_id) {
         verify_units.push_back(profile_service_file.string());
     }
     verify_units.push_back(eject_service_file.string());
+    verify_units.push_back(validate_service_file.string());
     run_checked(verify_units, true);
     run_checked({"udevadm", "verify", udev_file.string()});
 
