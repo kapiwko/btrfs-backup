@@ -10,6 +10,10 @@ std::string run_state_name(RunState state) {
     switch (state) {
     case RunState::Running:
         return "running";
+    case RunState::Validating:
+        return "validating";
+    case RunState::Validated:
+        return "validated";
     case RunState::Succeeded:
         return "succeeded";
     case RunState::Failed:
@@ -66,6 +70,8 @@ std::string run_phase_name(RunPhase phase) {
         return "skipped";
     case RunPhase::ValidatingTarget:
         return "validating-target";
+    case RunPhase::Validated:
+        return "validated";
     }
     return "run-started";
 }

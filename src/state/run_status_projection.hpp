@@ -44,6 +44,7 @@ class RunStatusProjection final : public btrfsbackup::backup::IBackupRunEventSin
     IAtomicDocumentWriter& files_;
     BackupRunStatusContext context_;
     std::optional<RunId> run_id_;
+    btrfsbackup::backup::OperationKind operation_kind_ = btrfsbackup::backup::OperationKind::Backup;
     std::optional<PendingActionFailure> pending_action_failure_;
     bool run_started_ = false;
     int last_overall_progress_ = -1;
