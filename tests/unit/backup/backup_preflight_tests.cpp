@@ -36,9 +36,34 @@ struct FakeTargetManager final : btrfsbackup::backup::ITargetManager {
     bool mounted = false;
     std::vector<std::string>& calls;
 
-    void ensure_mounted(const btrfsbackup::config::Profile&) override {
-        calls.push_back("mount");
-        mounted = true;
+    struct Session final : btrfsbackup::backup::IMountedTargetSession {
+        Session(bool& mounted, std::vector<std::string>& calls, bool mounted_by_session)
+            : mounted(mounted), calls(calls), mounted_by_session(mounted_by_session) {
+        }
+        ~Session() override {
+            if (mounted_by_session) {
+                mounted = false;
+                calls.push_back("unmount");
+            }
+        }
+        bool mounted_by_this_session() const noexcept override {
+            return mounted_by_session;
+        }
+        bool& mounted;
+        std::vector<std::string>& calls;
+        bool mounted_by_session;
+    };
+
+    std::unique_ptr<btrfsbackup::backup::IMountedTargetSession> prepare(
+        const btrfsbackup::config::Profile&,
+        btrfsbackup::backup::TargetMountMode mode
+    ) override {
+        const bool should_mount = !mounted && mode == btrfsbackup::backup::TargetMountMode::MountIfNeeded;
+        if (should_mount) {
+            calls.push_back("mount");
+            mounted = true;
+        }
+        return std::make_unique<Session>(mounted, calls, should_mount);
     }
 };
 
@@ -73,12 +98,39 @@ void test_activates_target_before_reading_and_validating_mounts() {
     FakeMountInspector mounts(target.mounted, calls);
     btrfsbackup::backup::BackupPreflight preflight(mounts, target);
 
-    preflight.run(profile());
+    std::unique_ptr<btrfsbackup::backup::IMountedTargetSession> session = preflight.run(
+        profile(),
+        btrfsbackup::backup::TargetMountMode::MountIfNeeded
+    );
 
     test_helpers::expect_true(
         "preflight order",
         calls == std::vector<std::string>{"mount", "inspect"},
         "mount table was not read after target activation"
+    );
+    session.reset();
+    test_helpers::expect_true(
+        "preflight restores mount",
+        calls == std::vector<std::string>{"mount", "inspect", "unmount"},
+        "session did not restore the target mount state"
+    );
+}
+
+void test_offline_preflight_does_not_activate_target() {
+    std::vector<std::string> calls;
+    FakeTargetManager target(calls);
+    FakeMountInspector mounts(target.mounted, calls);
+    btrfsbackup::backup::BackupPreflight preflight(mounts, target);
+
+    test_helpers::expect_validation_error(
+        "offline target",
+        [&] { (void)preflight.run(profile(), btrfsbackup::backup::TargetMountMode::RequireMounted); },
+        "not mounted"
+    );
+    test_helpers::expect_true(
+        "offline has no mount effects",
+        calls == std::vector<std::string>{"inspect"},
+        "offline preflight changed the target state"
     );
 }
 
@@ -91,13 +143,13 @@ void test_rejects_identity_seen_after_target_activation() {
 
     test_helpers::expect_validation_error(
         "post-activation identity",
-        [&] { preflight.run(profile()); },
+        [&] { (void)preflight.run(profile(), btrfsbackup::backup::TargetMountMode::MountIfNeeded); },
         "Btrfs UUID mismatch"
     );
     test_helpers::expect_true(
         "identity check order",
-        calls == std::vector<std::string>{"mount", "inspect"},
-        "post-activation mount identity was not inspected"
+        calls == std::vector<std::string>{"mount", "inspect", "unmount"},
+        "post-activation failure did not restore the target state"
     );
 }
 
@@ -105,6 +157,7 @@ void test_rejects_identity_seen_after_target_activation() {
 
 int main() {
     test_activates_target_before_reading_and_validating_mounts();
+    test_offline_preflight_does_not_activate_target();
     test_rejects_identity_seen_after_target_activation();
     return test_helpers::finish("backup preflight tests");
 }

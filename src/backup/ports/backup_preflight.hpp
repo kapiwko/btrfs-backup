@@ -4,6 +4,9 @@
 
 #pragma once
 
+#include <memory>
+
+#include <backup/ports/target_manager.hpp>
 #include <config/model/profile.hpp>
 
 namespace btrfsbackup::backup {
@@ -12,7 +15,10 @@ class IBackupPreflight {
   public:
     virtual ~IBackupPreflight() = default;
 
-    virtual void run(const btrfsbackup::config::Profile& profile) = 0;
+    [[nodiscard]] virtual std::unique_ptr<IMountedTargetSession> run(
+        const btrfsbackup::config::Profile& profile,
+        TargetMountMode mode
+    ) = 0;
 };
 
 } // namespace btrfsbackup::backup

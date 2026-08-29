@@ -29,7 +29,7 @@ int run_with_service(
         );
     }
     if (options.command == RunnerCommandKind::Plan) {
-        return present_runner_plan(service.plan(options.request), output);
+        return present_runner_plan(service.plan({options.request.profile_id, options.mount_target}), output);
     }
     return present_runner_execution(service.start(options.request), output);
 }

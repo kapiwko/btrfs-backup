@@ -11,6 +11,7 @@
 #include <backup/ports/checkpoint_store_factory.hpp>
 #include <backup/ports/run_event_sink_factory.hpp>
 #include <backup/ports/run_lease.hpp>
+#include <backup/ports/target_manager.hpp>
 #include <core/cancellation.hpp>
 #include <core/identifiers.hpp>
 
@@ -21,6 +22,7 @@ struct RunExecutionContext {
         ProfileId profile_id,
         RunId run_id,
         std::unique_ptr<IBackupRunLease> lease,
+        std::unique_ptr<IMountedTargetSession> target_session,
         ICheckpointStoreFactory& checkpoints,
         IRunEventSinkFactory& event_sinks,
         ICancellationRequestStore& cancellation_requests,
@@ -40,6 +42,7 @@ struct RunExecutionContext {
     std::unique_ptr<IBackupRunCheckpointStore> checkpoints;
     std::unique_ptr<IBackupRunEventSink> events;
     std::unique_ptr<IBackupRunLease> lease;
+    std::unique_ptr<IMountedTargetSession> target_session;
 };
 
 } // namespace btrfsbackup::backup

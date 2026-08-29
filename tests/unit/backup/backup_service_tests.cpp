@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include <backup/backup_service.hpp>
+#include <core/errors.hpp>
 
 #include <memory>
 #include <optional>
@@ -39,8 +40,34 @@ struct FakeProfiles final : btrfsbackup::config::IProfileRepository {
 
 struct FakePreflight final : btrfsbackup::backup::IBackupPreflight {
     int calls = 0;
-    void run(const btrfsbackup::config::Profile&) override {
+    int session_destructions = 0;
+    std::vector<std::string>* lifecycle = nullptr;
+    std::vector<btrfsbackup::backup::TargetMountMode> modes;
+
+    struct Session final : btrfsbackup::backup::IMountedTargetSession {
+        Session(int& destructions, std::vector<std::string>* lifecycle)
+            : destructions(destructions), lifecycle(lifecycle) {
+        }
+        ~Session() override {
+            if (lifecycle != nullptr) {
+                lifecycle->push_back("target-session");
+            }
+            ++destructions;
+        }
+        bool mounted_by_this_session() const noexcept override {
+            return false;
+        }
+        int& destructions;
+        std::vector<std::string>* lifecycle;
+    };
+
+    std::unique_ptr<btrfsbackup::backup::IMountedTargetSession> run(
+        const btrfsbackup::config::Profile&,
+        btrfsbackup::backup::TargetMountMode mode
+    ) override {
         ++calls;
+        modes.push_back(mode);
+        return std::make_unique<Session>(session_destructions, lifecycle);
     }
 };
 
@@ -131,20 +158,26 @@ struct FakeRunFactory final : btrfsbackup::backup::IBackupRunFactory {
 };
 
 struct FakeLease final : btrfsbackup::backup::IBackupRunLease {
-    explicit FakeLease(int& destructions) : destructions_(destructions) {
+    FakeLease(int& destructions, std::vector<std::string>* lifecycle)
+        : destructions_(destructions), lifecycle_(lifecycle) {
     }
     ~FakeLease() override {
+        if (lifecycle_ != nullptr) {
+            lifecycle_->push_back("lease");
+        }
         ++destructions_;
     }
 
   private:
     int& destructions_;
+    std::vector<std::string>* lifecycle_;
 };
 
 struct FakeLeases final : btrfsbackup::backup::IBackupRunLeaseProvider {
     bool busy = false;
     int calls = 0;
     int destructions = 0;
+    std::vector<std::string>* lifecycle = nullptr;
 
     btrfsbackup::backup::BackupRunLeaseResult try_acquire(const btrfsbackup::config::Profile&) override {
         ++calls;
@@ -155,7 +188,7 @@ struct FakeLeases final : btrfsbackup::backup::IBackupRunLeaseProvider {
             };
         }
         return btrfsbackup::backup::BackupRunLeaseAcquired{
-            .lease = std::make_unique<FakeLease>(destructions),
+            .lease = std::make_unique<FakeLease>(destructions, lifecycle),
         };
     }
 };
@@ -338,6 +371,7 @@ struct Fixture {
     FakeClock clock;
     FakeRunIds run_ids;
     std::vector<std::string> cancellation_lifecycle;
+    std::vector<std::string> target_lifecycle;
     btrfsbackup::config::ApplicationPaths paths;
     btrfsbackup::backup::BackupService service;
 
@@ -360,6 +394,8 @@ struct Fixture {
           ) {
         state.lifecycle = &cancellation_lifecycle;
         cancellation_monitor.lifecycle = &cancellation_lifecycle;
+        preflight.lifecycle = &target_lifecycle;
+        leases.lifecycle = &target_lifecycle;
         profiles.profile.name = "Default";
         profiles.profile.settings.daily_limit = true;
     }
@@ -447,6 +483,11 @@ void test_run_context_releases_resources_after_success() {
     Fixture fixture;
     (void)fixture.service.start({.profile_id = btrfsbackup::ProfileId{"default"}});
     expect_run_resources_released("successful run", fixture);
+    test_helpers::expect_true(
+        "target cleanup under lease",
+        fixture.target_lifecycle == std::vector<std::string>{"target-session", "lease"},
+        "target session was released after the lease"
+    );
 }
 
 void test_run_context_releases_resources_after_exception() {
@@ -471,6 +512,50 @@ void test_busy_stops_before_target_access() {
     test_helpers::expect_true("preflight not called", fixture.preflight.calls == 0, "preflight was called");
     test_helpers::expect_true("discovery not called", fixture.discovery.calls == 0, "discovery was called");
     test_helpers::expect_true("plan builder not called", fixture.plan_builder.calls == 0, "plan builder was called");
+}
+
+void test_plan_acquires_lease_and_defaults_to_offline_target() {
+    Fixture fixture;
+    (void)fixture.service.plan({.profile_id = btrfsbackup::ProfileId{"default"}});
+
+    test_helpers::expect_true("plan lease", fixture.leases.calls == 1, "plan did not acquire a lease");
+    test_helpers::expect_true(
+        "plan target mode",
+        fixture.preflight.modes == std::vector{btrfsbackup::backup::TargetMountMode::RequireMounted},
+        "plan did not use offline target preparation"
+    );
+    test_helpers::expect_true("plan session released", fixture.preflight.session_destructions == 1, "plan target session was not released");
+    test_helpers::expect_true("plan lease released", fixture.leases.destructions == 1, "plan lease was not released");
+}
+
+void test_plan_can_explicitly_mount_target() {
+    Fixture fixture;
+    (void)fixture.service.plan({
+        .profile_id = btrfsbackup::ProfileId{"default"},
+        .mount_target = true,
+    });
+
+    test_helpers::expect_true(
+        "mounted plan target mode",
+        fixture.preflight.modes == std::vector{btrfsbackup::backup::TargetMountMode::MountIfNeeded},
+        "mounted plan did not enable target activation"
+    );
+}
+
+void test_busy_plan_stops_before_target_access() {
+    Fixture fixture;
+    fixture.leases.busy = true;
+    try {
+        (void)fixture.service.plan({.profile_id = btrfsbackup::ProfileId{"default"}});
+        test_helpers::expect_true("busy plan exception", false, "busy plan did not fail");
+    } catch (const btrfsbackup::CodedOperationError& error) {
+        test_helpers::expect_true(
+            "busy plan code",
+            error.error_code == btrfsbackup::ErrorCode::RunnerProfileBusy,
+            "busy plan returned the wrong error code"
+        );
+    }
+    test_helpers::expect_true("busy plan preflight", fixture.preflight.calls == 0, "busy plan accessed the target");
 }
 
 void test_daily_match_skips_execution() {
@@ -534,6 +619,9 @@ int main() {
     test_run_context_releases_resources_after_success();
     test_run_context_releases_resources_after_exception();
     test_busy_stops_before_target_access();
+    test_plan_acquires_lease_and_defaults_to_offline_target();
+    test_plan_can_explicitly_mount_target();
+    test_busy_plan_stops_before_target_access();
     test_daily_match_skips_execution();
     test_cancel_validates_profile_and_writes_request();
     test_cancel_rejects_stale_run_when_lease_is_available();
