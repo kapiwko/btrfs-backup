@@ -168,11 +168,26 @@ class ConfigurableTransferPipeline final : public btrfsbackup::backup::transfer:
         btrfsbackup::backup::transfer::ITransferEventSink& events,
         btrfsbackup::CancellationToken& cancellation
     ) override {
+        if (plan.consumer_argv == std::vector<std::string>{"btrfs", "receive", "--dump"}) {
+            return {
+                .producer = {
+                    .started = true,
+                    .exit_code = 0,
+                },
+                .consumer = {
+                    .started = true,
+                    .exit_code = 0,
+                },
+                .bytes_transferred = 1024,
+                .bytes_produced = 1024,
+            };
+        }
         plans.push_back(plan);
         events.on_transfer_event({
             .kind = btrfsbackup::backup::transfer::TransferEventKind::Progress,
             .bytes_transferred = 1024,
             .bytes_produced = 1024,
+            .bytes_total_estimated = plan.bytes_total_estimated,
             .delta_bytes = 1024,
             .elapsed_ms = 1000,
             .speed_bps = 1024,
@@ -188,7 +203,9 @@ class ConfigurableTransferPipeline final : public btrfsbackup::backup::transfer:
             }
             next_result.cancelled = cancellation.cancellation_requested();
         }
-        return next_result;
+        btrfsbackup::backup::transfer::TransferResult result = next_result;
+        result.bytes_total_estimated = plan.bytes_total_estimated;
+        return result;
     }
 };
 

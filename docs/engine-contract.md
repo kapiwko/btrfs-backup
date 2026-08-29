@@ -109,7 +109,7 @@ Schema version 3 contains only presentation-safe fields:
   "etaSeconds": 42,
   "sourceProgress": 50,
   "overallProgress": 25,
-  "progressAccuracy": "estimated"
+  "progressAccuracy": "exact"
 }
 ```
 

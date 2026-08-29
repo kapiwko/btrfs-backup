@@ -36,7 +36,7 @@ presentation-safe state and progress:
   "etaSeconds": 42,
   "sourceProgress": 50,
   "overallProgress": 25,
-  "progressAccuracy": "estimated"
+  "progressAccuracy": "exact"
 }
 ```
 
@@ -49,6 +49,10 @@ Progress values use `-1` when unknown. `progressAccuracy` is `exact`,
 `estimated`, or `indeterminate`. `speedBps` uses a three-second exponentially
 weighted moving average, while `etaSeconds` is an estimate. Clients must not
 present estimated progress as an exact guarantee.
+
+During Btrfs stream sizing, percentage and ETA remain indeterminate. The
+effectful transfer reports exact percentage progress because its total is
+measured by an identical, non-effectful send pass.
 
 `sourceName` and `targetName` are presentation labels from the sanitized public
 profile. They must never be populated from device paths, mount points, UUIDs,

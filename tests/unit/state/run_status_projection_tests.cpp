@@ -87,7 +87,7 @@ void test_public_transfer_progress_excludes_run_details() {
     test_helpers::expect_true("progress source progress", current.at("sourceProgress") == 50, "wrong source progress");
     test_helpers::expect_true("progress eta", current.at("etaSeconds") == 2, "wrong ETA");
     test_helpers::expect_true("progress overall", current.at("overallProgress") == 25, "wrong overall progress");
-    test_helpers::expect_true("progress accuracy", current.at("progressAccuracy") == "estimated", "wrong progress accuracy");
+    test_helpers::expect_true("progress accuracy", current.at("progressAccuracy") == "exact", "wrong progress accuracy");
 
     const btrfsbackup::backup::TransferProgress second = transfer_progress(btrfsbackup::SourceId{"home"}, 2);
     sink.on_backup_run_event(second);
