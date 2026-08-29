@@ -1037,6 +1037,14 @@ if [[ "$TARGET" == all || "$TARGET" == arch || "$TARGET" == arch-base ]]; then
         bash -n "$packaged_script"
     done < <(find "$PACKAGE_AUDIT_ROOT/usr/bin" -type f -print0)
     bash -n "$PACKAGE_AUDIT_ROOT/.INSTALL"
+    grep -Fq 'find /var/lib/btrfs-backup/history -type d -exec chmod 0700' \
+        "$PACKAGE_AUDIT_ROOT/.INSTALL"
+    grep -Fq 'find /var/lib/btrfs-backup/history -type f -exec chmod 0600' \
+        "$PACKAGE_AUDIT_ROOT/.INSTALL"
+    if grep -F 'history' "$PACKAGE_AUDIT_ROOT/.INSTALL" | grep -Eq 'chmod 0(644|755)'; then
+        printf '%s\n' 'Arch install hook makes private history readable by other users.' >&2
+        exit 1
+    fi
     "$PACKAGE_AUDIT_ROOT/usr/bin/btrfs-backup" --help >/dev/null
     "$PACKAGE_AUDIT_ROOT/usr/bin/btrfs-backupctl" --help >/dev/null
     "$PACKAGE_AUDIT_ROOT/usr/bin/btrfs-backupctl" target --help >/dev/null

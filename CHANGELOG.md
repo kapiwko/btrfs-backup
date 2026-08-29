@@ -68,7 +68,10 @@
     transfers;
 14. the native architecture now separates domain models, application ports,
     Linux adapters, state persistence, CLI presentation, and daemon services with
-    narrow CMake interfaces and compile-checked public headers.
+    narrow CMake interfaces and compile-checked public headers;
+15. the Arch upgrade hook migrates diagnostic history directories and files to
+    root-only `0700/0600` permissions while keeping reduced current status
+    readable by local clients.
 
 ### Progress And Status
 

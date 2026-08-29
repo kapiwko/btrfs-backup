@@ -8,12 +8,11 @@ _btrfs_backup_reload_managers() {
     fi
 }
 
-_btrfs_backup_fix_public_state_permissions() {
+_btrfs_backup_fix_state_permissions() {
     local path
 
     for path in \
         /var/lib/btrfs-backup \
-        /var/lib/btrfs-backup/history \
         /run/btrfs-backup \
         /run/btrfs-backup/profiles; do
         if [[ -d "$path" ]]; then
@@ -22,8 +21,9 @@ _btrfs_backup_fix_public_state_permissions() {
     done
 
     if [[ -d /var/lib/btrfs-backup/history ]]; then
-        find /var/lib/btrfs-backup/history -type d -exec chmod 0755 {} + 2>/dev/null || true
-        find /var/lib/btrfs-backup/history -type f -name '*.json' -exec chmod 0644 {} + 2>/dev/null || true
+        chmod 0700 /var/lib/btrfs-backup/history || true
+        find /var/lib/btrfs-backup/history -type d -exec chmod 0700 {} + 2>/dev/null || true
+        find /var/lib/btrfs-backup/history -type f -exec chmod 0600 {} + 2>/dev/null || true
     fi
     if [[ -d /run/btrfs-backup/profiles ]]; then
         find /run/btrfs-backup/profiles -type d -exec chmod 0755 {} + 2>/dev/null || true
@@ -49,7 +49,7 @@ post_install() {
 
 MSG
     _btrfs_backup_reload_managers
-    _btrfs_backup_fix_public_state_permissions
+    _btrfs_backup_fix_state_permissions
 }
 
 post_upgrade() {
@@ -64,7 +64,7 @@ post_upgrade() {
 
 MSG
     _btrfs_backup_reload_managers
-    _btrfs_backup_fix_public_state_permissions
+    _btrfs_backup_fix_state_permissions
 }
 
 pre_remove() {
