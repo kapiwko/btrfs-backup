@@ -28,8 +28,8 @@ The Plasma integration is shipped separately as `btrfs-backup-kde`. Install it
 next to the matching base package version:
 
 ```bash
-sudo pacman -U btrfs-backup-3.0.1-1-x86_64.pkg.tar.zst \
-               btrfs-backup-kde-3.0.1-1-x86_64.pkg.tar.zst
+sudo pacman -U btrfs-backup-3.1.0-1-x86_64.pkg.tar.zst \
+               btrfs-backup-kde-3.1.0-1-x86_64.pkg.tar.zst
 ```
 
 The base package does not depend on Plasma. The KDE package installs:

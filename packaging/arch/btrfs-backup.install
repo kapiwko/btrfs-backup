@@ -43,7 +43,6 @@ post_install() {
 ==> After review, install the active files with:
 ==>   sudo btrfs-backupctl profile wizard --apply
 ==>
-==> Merge the generated crypttab and fstab fragments manually, then run:
 ==>   sudo systemctl daemon-reload
 ==>   sudo btrfs-backup --validate
 
@@ -59,8 +58,8 @@ post_upgrade() {
 ==> Existing files under /etc are intentionally not overwritten by the package.
 ==> Review the changelog and rerun the wizard to migrate generated units:
 ==>   sudo btrfs-backupctl profile wizard --apply
-==> Merge /etc/btrfs-backup/generated/config/fstab.fragment so the target uses:
-==>   nodev,nosuid,noexec,nosymfollow
+==> Profiles now install native mount and target activation units; fstab and
+==> crypttab changes are no longer required.
 
 MSG
     _btrfs_backup_reload_managers
