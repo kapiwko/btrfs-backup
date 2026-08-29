@@ -4,6 +4,7 @@
 
 #include <config/profile_render.hpp>
 
+#include <cctype>
 #include <cstddef>
 #include <sstream>
 #include <string>
@@ -24,6 +25,18 @@ std::string systemd_quote(const std::string& value) {
         result.push_back(ch);
     }
     result.push_back('"');
+    return result;
+}
+
+bool systemd_unit_plain_char(unsigned char value) {
+    return std::isalnum(value) || value == ':' || value == '_' || value == '.';
+}
+
+std::string systemd_hex_escape(unsigned char value) {
+    constexpr char digits[] = "0123456789abcdef";
+    std::string result = "\\x";
+    result.push_back(digits[(value >> 4U) & 0x0fU]);
+    result.push_back(digits[value & 0x0fU]);
     return result;
 }
 
@@ -73,6 +86,35 @@ std::string render_mount_dependency(const Profile& profile) {
         result += "\n[Service]\nEnvironment=BTRFS_BACKUP_CONFIGURATION_GENERATION=" + profile.configuration_generation.value() + "\n";
     }
     return result;
+}
+
+std::string target_mount_unit_name(const std::filesystem::path& mount_point) {
+    std::string path = mount_point.lexically_normal().string();
+    while (path.size() > 1 && path.back() == '/') {
+        path.pop_back();
+    }
+    if (path == "/") {
+        return "-.mount";
+    }
+    if (!path.empty() && path.front() == '/') {
+        path.erase(path.begin());
+    }
+
+    std::string escaped;
+    bool previous_slash = false;
+    for (const char character : path) {
+        const auto value = static_cast<unsigned char>(character);
+        if (value == '/') {
+            if (!escaped.empty() && !previous_slash) {
+                escaped.push_back('-');
+            }
+            previous_slash = true;
+            continue;
+        }
+        previous_slash = false;
+        escaped += systemd_unit_plain_char(value) ? std::string(1, character) : systemd_hex_escape(value);
+    }
+    return (escaped.empty() ? "-" : escaped) + ".mount";
 }
 
 std::string render_target_mount_unit(const Profile& profile) {

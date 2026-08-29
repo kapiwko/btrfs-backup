@@ -59,6 +59,7 @@ RenderedProfileArtifacts ProfileArtifactRenderer::render_profile_artifacts(
         throw ValidationError("configuration generation must not be empty");
     }
     const std::string profile_id{rendered.id.value()};
+    const std::string mount_unit = target_mount_unit_name(rendered.target.mount_point);
     return {
         .profile = rendered,
         .artifacts = {
@@ -75,9 +76,28 @@ RenderedProfileArtifacts ProfileArtifactRenderer::render_profile_artifacts(
                 .permissions = public_artifact_permissions,
             },
             {
+                .kind = ProfileArtifactKind::NativeTargetMount,
+                .destination = roots.systemd_root / mount_unit,
+                .content = render_target_mount_unit(rendered),
+                .permissions = public_artifact_permissions,
+            },
+            {
                 .kind = ProfileArtifactKind::PrivateProfile,
                 .destination = roots.etc_root / "profiles" / profile_id / "profile.json",
                 .content = dump_json(profile_to_json(rendered)),
+                .permissions = private_profile_permissions,
+            },
+            {
+                .kind = ProfileArtifactKind::ManagedArtifactManifest,
+                .destination = roots.etc_root / "profiles" / profile_id / "managed-artifacts.json",
+                .content = dump_json({
+                    {"schemaVersion", 1},
+                    {"profileId", profile_id},
+                    {"mounts", Json::array({{
+                                   {"unit", mount_unit},
+                                   {"mountPoint", rendered.target.mount_point.value().string()},
+                               }})},
+                }),
                 .permissions = private_profile_permissions,
             },
             {

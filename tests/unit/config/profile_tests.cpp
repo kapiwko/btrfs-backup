@@ -475,7 +475,7 @@ void test_profile_artifact_renderer() {
         !fs::exists(rendered_root),
         "rendering wrote artifacts to disk"
     );
-    expect_true("renderer artifact count", rendered.artifacts.size() == 4, "unexpected artifact count");
+    expect_true("renderer artifact count", rendered.artifacts.size() == 6, "unexpected artifact count");
     expect_true(
         "renderer deterministic generation",
         rendered.profile.configuration_generation.value() == generation,
@@ -503,6 +503,7 @@ void test_profile_artifact_renderer() {
     for (const auto kind : {
              btrfsbackup::config::ProfileArtifactKind::UdevRule,
              btrfsbackup::config::ProfileArtifactKind::SystemdMountDependency,
+             btrfsbackup::config::ProfileArtifactKind::NativeTargetMount,
              btrfsbackup::config::ProfileArtifactKind::PublicProfile,
          }) {
         expect_true(
@@ -549,6 +550,22 @@ void test_profile_artifact_renderer() {
         "typed tree mount dependency",
         fs::is_regular_file(root / "rendered" / "etc" / "systemd" / "system" / "btrfs-backup@default.service.d" / "target-mount.conf"),
         "missing rendered mount dependency"
+    );
+    expect_true(
+        "typed tree native mount",
+        fs::is_regular_file(
+            root / "rendered" / "etc" / "systemd" / "system" /
+            "mnt-btrfs\\x2dbackup-default.mount"
+        ),
+        "missing rendered native mount"
+    );
+    expect_true(
+        "typed tree artifact manifest",
+        mode_of(
+            root / "rendered" / "etc" / "btrfs-backup" / "profiles" /
+            "default" / "managed-artifacts.json"
+        ) == 0600,
+        "managed artifact manifest should be written as 0600"
     );
     fs::remove_all(root);
 }
@@ -619,6 +636,14 @@ void test_profile_installer() {
         "typed save mount dependency",
         fs::is_regular_file(root / "etc" / "systemd" / "system" / "btrfs-backup@default.service.d" / "target-mount.conf"),
         "missing saved mount dependency"
+    );
+    expect_true(
+        "typed save native mount",
+        fs::is_regular_file(
+            root / "etc" / "systemd" / "system" /
+            "mnt-btrfs\\x2dbackup-default.mount"
+        ),
+        "missing saved native mount"
     );
 
     const fs::path profile_path = root / "etc" / "btrfs-backup" / "profiles" / "default" / "profile.json";
@@ -701,6 +726,70 @@ void test_profile_installer() {
     } else {
         unsetenv("BTRFS_BACKUP_CONFIGURATION_FINGERPRINT");
     }
+    fs::remove_all(root);
+}
+
+void test_profile_installer_replaces_obsolete_mount_transactionally() {
+    const fs::path root = test_root();
+    const fs::path etc_root = root / "etc" / "btrfs-backup";
+    const fs::path udev_root = root / "etc" / "udev" / "rules.d";
+    const fs::path systemd_root = root / "etc" / "systemd" / "system";
+    const fs::path public_root = root / "public";
+    btrfsbackup::platform::linux::atomic_write(
+        etc_root / "btrfs-backup.conf",
+        "CONFIG_VERSION=1\nTARGET_MOUNT_ROOT=/srv/backup\n",
+        0644
+    );
+
+    btrfsbackup::config::Json raw = valid_profile();
+    raw["paths"] = btrfsbackup::config::Json::object();
+    const btrfsbackup::config::Profile profile =
+        btrfsbackup::config::profile_from_json(raw, "/srv/backup");
+    const fs::path old_unit = systemd_root / "mnt-btrfs\\x2dbackup-default.mount";
+    const fs::path new_unit = systemd_root / "srv-backup-default.mount";
+    const fs::path manifest =
+        etc_root / "profiles" / "default" / "managed-artifacts.json";
+    btrfsbackup::platform::linux::atomic_write(old_unit, "old mount unit\n", 0644);
+    btrfsbackup::platform::linux::atomic_write(
+        manifest,
+        btrfsbackup::config::dump_json({
+            {"schemaVersion", 1},
+            {"profileId", "default"},
+            {"mounts", btrfsbackup::config::Json::array({{
+                           {"unit", "mnt-btrfs\\x2dbackup-default.mount"},
+                           {"mountPoint", "/mnt/btrfs-backup/default"},
+                       }})},
+        }),
+        0600
+    );
+    const std::string old_manifest = read_text(manifest);
+
+    int activations = 0;
+    expect_validation_error(
+        "obsolete mount activation rollback",
+        [&] {
+            install_test_profile_transactionally(
+                profile,
+                etc_root,
+                udev_root,
+                systemd_root,
+                public_root,
+                [&] {
+                    if (++activations == 1) {
+                        throw ValidationError("injected mount activation failure");
+                    }
+                }
+            );
+        },
+        "injected mount activation failure"
+    );
+    expect_true("obsolete mount rollback old unit", fs::is_regular_file(old_unit), "old mount was not restored");
+    expect_true("obsolete mount rollback new unit", !fs::exists(new_unit), "new mount survived rollback");
+    expect_true("obsolete mount rollback manifest", read_text(manifest) == old_manifest, "old manifest was not restored");
+
+    install_test_profile_transactionally(profile, etc_root, udev_root, systemd_root, public_root);
+    expect_true("obsolete mount removed", !fs::exists(old_unit), "obsolete mount unit remains");
+    expect_true("replacement mount installed", fs::is_regular_file(new_unit), "replacement mount unit is missing");
     fs::remove_all(root);
 }
 
@@ -955,6 +1044,7 @@ int main() {
     test_profile_artifact_renderer();
     test_profile_configuration_transaction_publishes_temp_artifacts();
     test_profile_installer();
+    test_profile_installer_replaces_obsolete_mount_transactionally();
     test_profile_installation_staging_failure_preserves_installed_artifacts();
     test_profile_installation_activation_failure_rolls_back_all_artifacts();
     test_profile_installation_reports_incomplete_rollback();
