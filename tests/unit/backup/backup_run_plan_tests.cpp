@@ -16,8 +16,34 @@ namespace fs = std::filesystem;
 
 namespace {
 
+template <typename Plan>
+concept HasParentDecision = requires(Plan plan) { plan.parent; };
+
+template <typename Plan>
+concept HasRecoveryDecision = requires(Plan plan) { plan.recovery; };
+
+template <typename Plan>
+concept HasLocalRetentionDecision = requires(Plan plan) { plan.local_retention; };
+
+template <typename Plan>
+concept HasRemoteRetentionDecision = requires(Plan plan) { plan.remote_retention; };
+
+template <typename Plan>
+concept HasDescriptiveSnapshotPath = requires(Plan plan) { plan.local_snapshot_path; };
+
 static_assert(!std::is_default_constructible_v<btrfsbackup::backup::CreateSnapshotAction>);
 static_assert(!std::is_default_constructible_v<btrfsbackup::backup::BackupRunAction>);
+static_assert(!HasParentDecision<btrfsbackup::backup::BackupSourceRunPlan>);
+static_assert(!HasRecoveryDecision<btrfsbackup::backup::BackupSourceRunPlan>);
+static_assert(!HasLocalRetentionDecision<btrfsbackup::backup::BackupSourceRunPlan>);
+static_assert(!HasRemoteRetentionDecision<btrfsbackup::backup::BackupSourceRunPlan>);
+static_assert(!HasDescriptiveSnapshotPath<btrfsbackup::backup::BackupSourceRunPlan>);
+static_assert(std::is_same_v<
+              decltype(std::declval<btrfsbackup::backup::BackupSourceRunPlan&>().actions()),
+              const std::vector<btrfsbackup::backup::BackupRunAction>&>);
+static_assert(!std::is_assignable_v<
+              decltype((std::declval<btrfsbackup::backup::BackupSourceRunPlan&>().source_id)),
+              btrfsbackup::SourceId>);
 
 btrfsbackup::config::Profile profile() {
     btrfsbackup::config::Profile result{
@@ -122,20 +148,20 @@ void test_builds_ordered_source_plan() {
 
     test_helpers::expect_eq("plan source count", std::to_string(plan.sources.size()), "1");
     const btrfsbackup::backup::BackupSourceRunPlan& source = plan.sources.at(0);
+    const auto& send_receive = std::get<btrfsbackup::backup::SendReceiveAction>(source.actions().at(2));
+    const auto& create_snapshot = std::get<btrfsbackup::backup::CreateSnapshotAction>(source.actions().at(1));
     test_helpers::expect_eq("plan source id", std::string(source.source_id.value()), "root");
-    test_helpers::expect_eq("plan snapshot path", source.local_snapshot_path.string(), "/.snapshots/root/root-2026-08-23T080000Z");
-    test_helpers::expect_true("plan incremental", source.parent.incremental, "expected incremental parent");
-    test_helpers::expect_eq("plan parent", source.parent.local_parent->path.string(), "/.snapshots/root/root-2026-08-22T080000Z");
-    test_helpers::expect_eq("plan actions", std::to_string(source.actions.size()), "8");
-    test_helpers::expect_eq("first action", std::to_string(static_cast<int>(btrfsbackup::backup::backup_run_action_kind(source.actions.at(0)))), std::to_string(static_cast<int>(btrfsbackup::backup::BackupRunActionKind::CleanupIncoming)));
-    test_helpers::expect_eq("last action", std::to_string(static_cast<int>(btrfsbackup::backup::backup_run_action_kind(source.actions.back()))), std::to_string(static_cast<int>(btrfsbackup::backup::BackupRunActionKind::CleanupSource)));
+    test_helpers::expect_eq("plan snapshot path", create_snapshot.snapshot.string(), "/.snapshots/root/root-2026-08-23T080000Z");
+    test_helpers::expect_true("plan incremental", send_receive.parent.has_value(), "expected incremental parent");
+    test_helpers::expect_eq("plan parent", send_receive.parent->string(), "/.snapshots/root/root-2026-08-22T080000Z");
+    test_helpers::expect_eq("plan actions", std::to_string(source.actions().size()), "8");
+    test_helpers::expect_eq("first action", std::to_string(static_cast<int>(btrfsbackup::backup::backup_run_action_kind(source.actions().at(0)))), std::to_string(static_cast<int>(btrfsbackup::backup::BackupRunActionKind::CleanupIncoming)));
+    test_helpers::expect_eq("last action", std::to_string(static_cast<int>(btrfsbackup::backup::backup_run_action_kind(source.actions().back()))), std::to_string(static_cast<int>(btrfsbackup::backup::BackupRunActionKind::CleanupSource)));
 
-    const auto& create_snapshot = std::get<btrfsbackup::backup::CreateSnapshotAction>(source.actions.at(1));
     test_helpers::expect_eq("create source", create_snapshot.source.string(), "/");
     test_helpers::expect_eq("create snapshot", create_snapshot.snapshot.string(), "/.snapshots/root/root-2026-08-23T080000Z");
     test_helpers::expect_eq("create run id", std::string(create_snapshot.run_id.value()), "20260823T080000Z-123-456");
 
-    const auto& send_receive = std::get<btrfsbackup::backup::SendReceiveAction>(source.actions.at(2));
     test_helpers::expect_eq("send snapshot", send_receive.snapshot.string(), create_snapshot.snapshot.string());
     test_helpers::expect_eq("send parent", send_receive.parent->string(), "/.snapshots/root/root-2026-08-22T080000Z");
     test_helpers::expect_eq("receive directory", send_receive.incoming_run_directory.string(), "/mnt/backup/.incoming/root/20260823T080000Z-123-456");
@@ -170,7 +196,7 @@ void test_inserts_snapshot_hooks_around_snapshot_creation() {
         "2026-08-23T080000Z"
     );
 
-    const std::vector<btrfsbackup::backup::BackupRunAction>& actions = plan.sources.at(0).actions;
+    const std::vector<btrfsbackup::backup::BackupRunAction>& actions = plan.sources.at(0).actions();
     const auto& before_hook = std::get<btrfsbackup::backup::RunHookAction>(actions.at(1));
     const auto& after_hook = std::get<btrfsbackup::backup::RunHookAction>(actions.at(3));
     test_helpers::expect_eq("hook action count", std::to_string(actions.size()), "10");
@@ -211,9 +237,11 @@ void test_plans_collision_suffix_and_retention() {
     );
 
     const btrfsbackup::backup::BackupSourceRunPlan& source = plan.sources.at(0);
-    test_helpers::expect_eq("collision suffix", source.local_snapshot_path.filename().string(), "root-2026-08-23T080000Z-01");
-    test_helpers::expect_eq("local retention deletes one", std::to_string(source.local_retention.delete_snapshots.size()), "1");
-    test_helpers::expect_eq("local retention deletes old", source.local_retention.delete_snapshots.at(0).path.string(), "/.snapshots/root/old");
+    const auto& create_snapshot = std::get<btrfsbackup::backup::CreateSnapshotAction>(source.actions().at(1));
+    const auto& local_retention = std::get<btrfsbackup::backup::ApplyLocalRetentionAction>(source.actions().at(6)).plan;
+    test_helpers::expect_eq("collision suffix", create_snapshot.snapshot.filename().string(), "root-2026-08-23T080000Z-01");
+    test_helpers::expect_eq("local retention deletes one", std::to_string(local_retention.delete_snapshots.size()), "1");
+    test_helpers::expect_eq("local retention deletes old", local_retention.delete_snapshots.at(0).path.string(), "/.snapshots/root/old");
 }
 
 void test_includes_pending_recovery_action() {
@@ -255,8 +283,8 @@ void test_includes_pending_recovery_action() {
     );
 
     const btrfsbackup::backup::BackupSourceRunPlan& source = plan.sources.at(0);
-    test_helpers::expect_eq("recovery action", std::to_string(static_cast<int>(btrfsbackup::backup::backup_run_action_kind(source.actions.at(0)))), std::to_string(static_cast<int>(btrfsbackup::backup::BackupRunActionKind::RecoverPending)));
-    test_helpers::expect_true("recovery delete", source.recovery.delete_local_snapshot, "orphan should be scheduled for deletion");
+    test_helpers::expect_eq("recovery action", std::to_string(static_cast<int>(btrfsbackup::backup::backup_run_action_kind(source.actions().at(0)))), std::to_string(static_cast<int>(btrfsbackup::backup::BackupRunActionKind::RecoverPending)));
+    test_helpers::expect_true("recovery delete", std::get<btrfsbackup::backup::RecoverPendingAction>(source.actions().at(0)).recovery.delete_local_snapshot, "orphan should be scheduled for deletion");
 }
 
 void test_excludes_recovery_deletions_from_retention() {
@@ -315,11 +343,13 @@ void test_excludes_recovery_deletions_from_retention() {
     );
 
     const btrfsbackup::backup::BackupSourceRunPlan& source = plan.sources.at(0);
-    test_helpers::expect_true("recovery deletes orphan", source.recovery.delete_local_snapshot, "orphan should be recovered");
-    test_helpers::expect_eq("retention deletes one", std::to_string(source.local_retention.delete_snapshots.size()), "1");
+    const auto& recovery = std::get<btrfsbackup::backup::RecoverPendingAction>(source.actions().at(0)).recovery;
+    const auto& local_retention = std::get<btrfsbackup::backup::ApplyLocalRetentionAction>(source.actions().at(7)).plan;
+    test_helpers::expect_true("recovery deletes orphan", recovery.delete_local_snapshot, "orphan should be recovered");
+    test_helpers::expect_eq("retention deletes one", std::to_string(local_retention.delete_snapshots.size()), "1");
     test_helpers::expect_true(
         "retention does not repeat recovery deletion",
-        source.local_retention.delete_snapshots.at(0).path != orphan.path,
+        local_retention.delete_snapshots.at(0).path != orphan.path,
         "a snapshot must not be deleted by recovery and retention"
     );
 }
@@ -340,6 +370,30 @@ void test_rejects_invalid_mount_layout() {
                                                                     ); }, "LOCAL_SNAPSHOT_DIR must not be inside the backup target");
 }
 
+void test_rejects_inconsistent_executable_action_set() {
+    test_helpers::expect_validation_error("action source mismatch", [] { (void)btrfsbackup::backup::BackupSourceRunPlan{
+                                                                             btrfsbackup::SourceId{"root"},
+                                                                             {btrfsbackup::backup::CleanupIncomingAction{
+                                                                                 btrfsbackup::SourceId{"home"},
+                                                                                 "/mnt/backup/.incoming/home",
+                                                                             }},
+                                                                         }; }, "different source");
+
+    test_helpers::expect_validation_error("duplicate decision action", [] { (void)btrfsbackup::backup::BackupSourceRunPlan{
+                                                                                btrfsbackup::SourceId{"root"},
+                                                                                {
+                                                                                    btrfsbackup::backup::CleanupIncomingAction{
+                                                                                        btrfsbackup::SourceId{"root"},
+                                                                                        "/mnt/backup/.incoming/root",
+                                                                                    },
+                                                                                    btrfsbackup::backup::CleanupIncomingAction{
+                                                                                        btrfsbackup::SourceId{"root"},
+                                                                                        "/mnt/backup/.incoming/root-old",
+                                                                                    },
+                                                                                },
+                                                                            }; }, "duplicate action kind");
+}
+
 } // namespace
 
 int main() {
@@ -349,6 +403,7 @@ int main() {
     test_includes_pending_recovery_action();
     test_excludes_recovery_deletions_from_retention();
     test_rejects_invalid_mount_layout();
+    test_rejects_inconsistent_executable_action_set();
 
     return test_helpers::finish("backup run plan tests");
 }

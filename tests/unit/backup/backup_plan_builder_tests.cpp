@@ -60,21 +60,23 @@ void test_same_snapshot_builds_same_plan() {
         run_id,
         "2026-08-23T080000Z"
     );
+    const auto& first_snapshot = std::get<btrfsbackup::backup::CreateSnapshotAction>(first.sources.at(0).actions().at(1));
+    const auto& second_snapshot = std::get<btrfsbackup::backup::CreateSnapshotAction>(second.sources.at(0).actions().at(1));
 
     test_helpers::expect_eq(
         "deterministic local snapshot",
-        first.sources.at(0).local_snapshot_path.string(),
-        second.sources.at(0).local_snapshot_path.string()
+        first_snapshot.snapshot.string(),
+        second_snapshot.snapshot.string()
     );
     test_helpers::expect_eq(
         "deterministic action count",
-        std::to_string(first.sources.at(0).actions.size()),
-        std::to_string(second.sources.at(0).actions.size())
+        std::to_string(first.sources.at(0).actions().size()),
+        std::to_string(second.sources.at(0).actions().size())
     );
-    for (std::size_t index = 0; index < first.sources.at(0).actions.size(); ++index) {
+    for (std::size_t index = 0; index < first.sources.at(0).actions().size(); ++index) {
         test_helpers::expect_true(
             "deterministic action " + std::to_string(index),
-            btrfsbackup::backup::backup_run_action_kind(first.sources.at(0).actions.at(index)) == btrfsbackup::backup::backup_run_action_kind(second.sources.at(0).actions.at(index)),
+            btrfsbackup::backup::backup_run_action_kind(first.sources.at(0).actions().at(index)) == btrfsbackup::backup::backup_run_action_kind(second.sources.at(0).actions().at(index)),
             "action kinds differ"
         );
     }

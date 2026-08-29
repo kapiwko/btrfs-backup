@@ -51,7 +51,8 @@ std::string action_name(btrfsbackup::backup::BackupRunActionKind kind) {
 
 btrfsbackup::config::Json action_to_json(
     const btrfsbackup::backup::BackupRunAction& action,
-    const btrfsbackup::backup::BackupSourceRunPlan& source
+    const fs::path& local_snapshot_dir,
+    const fs::path& remote_snapshot_dir
 ) {
     const auto [primary_path, secondary_path] = std::visit([&](const auto& typed_action) {
         using Action = std::decay_t<decltype(typed_action)>;
@@ -68,9 +69,9 @@ btrfsbackup::config::Json action_to_json(
         } else if constexpr (std::is_same_v<Action, btrfsbackup::backup::CommitReceivedAction>) {
             return std::pair{typed_action.received_snapshot, typed_action.final_snapshot};
         } else if constexpr (std::is_same_v<Action, btrfsbackup::backup::ApplyRemoteRetentionAction>) {
-            return std::pair{source.remote_snapshot_dir, fs::path{}};
+            return std::pair{remote_snapshot_dir, fs::path{}};
         } else if constexpr (std::is_same_v<Action, btrfsbackup::backup::ApplyLocalRetentionAction>) {
-            return std::pair{source.local_snapshot_dir, fs::path{}};
+            return std::pair{local_snapshot_dir, fs::path{}};
         } else {
             return std::pair{fs::path{}, fs::path{}};
         }
@@ -101,25 +102,50 @@ btrfsbackup::config::Json paths_to_json(const std::vector<btrfsbackup::backup::S
     return result;
 }
 
+template <typename Action>
+const Action* find_action(const btrfsbackup::backup::BackupSourceRunPlan& source) {
+    for (const btrfsbackup::backup::BackupRunAction& action : source.actions()) {
+        if (const auto* typed_action = std::get_if<Action>(&action)) {
+            return typed_action;
+        }
+    }
+    return nullptr;
+}
+
+template <typename RetentionAction>
+const std::vector<btrfsbackup::backup::SnapshotInfo>& retention_deletions(const RetentionAction* action) {
+    static const std::vector<btrfsbackup::backup::SnapshotInfo> empty;
+    return action == nullptr ? empty : action->plan.delete_snapshots;
+}
+
 btrfsbackup::config::Json source_plan_to_json(const btrfsbackup::backup::BackupSourceRunPlan& source, bool include_actions) {
+    const auto* transfer = find_action<btrfsbackup::backup::SendReceiveAction>(source);
+    const auto* create_snapshot = find_action<btrfsbackup::backup::CreateSnapshotAction>(source);
+    const auto* verify = find_action<btrfsbackup::backup::VerifyReceivedAction>(source);
+    const auto* commit = find_action<btrfsbackup::backup::CommitReceivedAction>(source);
+    const auto* recovery = find_action<btrfsbackup::backup::RecoverPendingAction>(source);
+    const auto* local_retention = find_action<btrfsbackup::backup::ApplyLocalRetentionAction>(source);
+    const auto* remote_retention = find_action<btrfsbackup::backup::ApplyRemoteRetentionAction>(source);
     btrfsbackup::config::Json result = {
         {"sourceId", std::string(source.source_id.value())},
-        {"sourceSubvolume", source.source_subvolume.string()},
-        {"localSnapshotPath", source.local_snapshot_path.string()},
-        {"remoteSnapshotDir", source.remote_snapshot_dir.string()},
-        {"incomingRunDir", source.incoming_run_dir.string()},
-        {"receivedSnapshotPath", source.received_snapshot_path.string()},
-        {"finalRemoteSnapshotPath", source.final_remote_snapshot_path.string()},
-        {"incremental", source.parent.incremental},
-        {"parentPath", source.parent.local_parent.has_value() ? btrfsbackup::config::Json(source.parent.local_parent->path.string()) : btrfsbackup::config::Json(nullptr)},
-        {"pendingRecoveryAction", std::holds_alternative<btrfsbackup::backup::RecoverPendingAction>(source.actions.front()) ? "recover-pending" : "none"},
-        {"localRetentionDelete", paths_to_json(source.local_retention.delete_snapshots)},
-        {"remoteRetentionDelete", paths_to_json(source.remote_retention.delete_snapshots)}
+        {"sourceSubvolume", create_snapshot != nullptr ? create_snapshot->source.string() : ""},
+        {"localSnapshotPath", create_snapshot != nullptr ? create_snapshot->snapshot.string() : ""},
+        {"remoteSnapshotDir", transfer != nullptr ? transfer->remote_snapshot_directory.string() : ""},
+        {"incomingRunDir", transfer != nullptr ? transfer->incoming_run_directory.string() : ""},
+        {"receivedSnapshotPath", verify != nullptr ? verify->received_snapshot.string() : ""},
+        {"finalRemoteSnapshotPath", commit != nullptr ? commit->final_snapshot.string() : ""},
+        {"incremental", transfer != nullptr && transfer->parent.has_value()},
+        {"parentPath", transfer != nullptr && transfer->parent.has_value() ? btrfsbackup::config::Json(transfer->parent->string()) : btrfsbackup::config::Json(nullptr)},
+        {"pendingRecoveryAction", recovery != nullptr ? "recover-pending" : "none"},
+        {"localRetentionDelete", paths_to_json(retention_deletions(local_retention))},
+        {"remoteRetentionDelete", paths_to_json(retention_deletions(remote_retention))}
     };
     if (include_actions) {
+        const fs::path local_snapshot_dir = create_snapshot != nullptr ? create_snapshot->snapshot_directory : fs::path{};
+        const fs::path remote_snapshot_dir = transfer != nullptr ? transfer->remote_snapshot_directory : fs::path{};
         btrfsbackup::config::Json actions = btrfsbackup::config::Json::array();
-        for (const btrfsbackup::backup::BackupRunAction& action : source.actions) {
-            actions.push_back(action_to_json(action, source));
+        for (const btrfsbackup::backup::BackupRunAction& action : source.actions()) {
+            actions.push_back(action_to_json(action, local_snapshot_dir, remote_snapshot_dir));
         }
         result["actions"] = actions;
     }
