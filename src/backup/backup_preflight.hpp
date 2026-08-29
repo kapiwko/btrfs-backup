@@ -16,7 +16,8 @@ class BackupPreflight final : public IBackupPreflight {
 
     [[nodiscard]] std::unique_ptr<IMountedTargetSession> run(
         const btrfsbackup::config::Profile& profile,
-        TargetMountMode mode
+        TargetMountMode mode,
+        CancellationToken& cancellation
     ) override;
 
   private:

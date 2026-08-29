@@ -10,6 +10,7 @@
 #include <backup/ports/backup_discovery.hpp>
 #include <config/model/profile.hpp>
 #include <core/identifiers.hpp>
+#include <core/cancellation.hpp>
 
 namespace btrfsbackup::backup {
 
@@ -21,7 +22,8 @@ class IBackupPlanBuilder {
         const btrfsbackup::config::Profile& profile,
         const BackupPlanningSnapshot& snapshot,
         const RunId& run_id,
-        const std::string& snapshot_timestamp
+        const std::string& snapshot_timestamp,
+        CancellationToken& cancellation
     ) const = 0;
 };
 

@@ -46,6 +46,12 @@ struct FakePreflight final : btrfsbackup::backup::IBackupPreflight {
     int session_destructions = 0;
     std::vector<std::string>* lifecycle = nullptr;
     std::vector<btrfsbackup::backup::TargetMountMode> modes;
+    bool cancel_during_run = false;
+    bool active_run_registered_at_call = false;
+    int cancellation_watches_at_call = 0;
+    const std::optional<btrfsbackup::RunId>* active_run = nullptr;
+    const int* cancellation_watch_calls = nullptr;
+    btrfsbackup::CancellationToken* received_cancellation = nullptr;
 
     struct Session final : btrfsbackup::backup::IMountedTargetSession {
         Session(int& destructions, std::vector<std::string>* lifecycle)
@@ -66,10 +72,17 @@ struct FakePreflight final : btrfsbackup::backup::IBackupPreflight {
 
     std::unique_ptr<btrfsbackup::backup::IMountedTargetSession> run(
         const btrfsbackup::config::Profile&,
-        btrfsbackup::backup::TargetMountMode mode
+        btrfsbackup::backup::TargetMountMode mode,
+        btrfsbackup::CancellationToken& cancellation
     ) override {
         ++calls;
         modes.push_back(mode);
+        received_cancellation = &cancellation;
+        active_run_registered_at_call = active_run != nullptr && active_run->has_value();
+        cancellation_watches_at_call = cancellation_watch_calls == nullptr ? 0 : *cancellation_watch_calls;
+        if (cancel_during_run) {
+            cancellation.request_cancel();
+        }
         if (fail) {
             throw btrfsbackup::CodedOperationError(
                 btrfsbackup::ErrorCode::TargetBtrfsUuidMismatch,
@@ -82,12 +95,15 @@ struct FakePreflight final : btrfsbackup::backup::IBackupPreflight {
 
 struct FakeDiscovery final : btrfsbackup::backup::IBackupDiscovery {
     mutable int calls = 0;
+    mutable btrfsbackup::CancellationToken* received_cancellation = nullptr;
 
     btrfsbackup::backup::BackupPlanningSnapshot discover(
         const btrfsbackup::config::Profile&,
-        const btrfsbackup::config::ApplicationPaths&
+        const btrfsbackup::config::ApplicationPaths&,
+        btrfsbackup::CancellationToken& cancellation
     ) const override {
         ++calls;
+        received_cancellation = &cancellation;
         return {{}, {}, {}, {}, "/state/from-discovery"};
     }
 };
@@ -96,15 +112,18 @@ struct FakePlanBuilder final : btrfsbackup::backup::IBackupPlanBuilder {
     mutable int calls = 0;
     mutable std::string received_timestamp;
     mutable std::filesystem::path received_profile_state_dir;
+    mutable btrfsbackup::CancellationToken* received_cancellation = nullptr;
     btrfsbackup::backup::BackupRunPlan build(
         const btrfsbackup::config::Profile& profile,
         const btrfsbackup::backup::BackupPlanningSnapshot& snapshot,
         const btrfsbackup::RunId& run_id,
-        const std::string& snapshot_timestamp
+        const std::string& snapshot_timestamp,
+        btrfsbackup::CancellationToken& cancellation
     ) const override {
         ++calls;
         received_timestamp = snapshot_timestamp;
         received_profile_state_dir = snapshot.profile_state_dir();
+        received_cancellation = &cancellation;
         return {.profile_id = btrfsbackup::ProfileId{profile.id}, .run_id = run_id};
     }
 };
@@ -412,6 +431,7 @@ struct FakeCancellationWatch final : btrfsbackup::backup::ICancellationWatch {
 };
 
 struct FakeCancellationMonitor final : btrfsbackup::backup::ICancellationMonitor {
+    int watch_calls = 0;
     int watch_destructions = 0;
     std::vector<std::string>* lifecycle = nullptr;
     std::optional<std::string> close_diagnostic;
@@ -420,6 +440,7 @@ struct FakeCancellationMonitor final : btrfsbackup::backup::ICancellationMonitor
         const btrfsbackup::backup::CancellationRequest&,
         btrfsbackup::CancellationToken&
     ) override {
+        ++watch_calls;
         return std::make_unique<FakeCancellationWatch>(watch_destructions, lifecycle, close_diagnostic);
     }
 };
@@ -463,6 +484,8 @@ struct Fixture {
         state.lifecycle = &cancellation_lifecycle;
         cancellation_monitor.lifecycle = &cancellation_lifecycle;
         preflight.lifecycle = &cancellation_lifecycle;
+        preflight.active_run = &state.active_run;
+        preflight.cancellation_watch_calls = &cancellation_monitor.watch_calls;
         leases.lifecycle = &cancellation_lifecycle;
         profiles.profile.name = "Default";
         profiles.profile.settings.daily_limit = true;
@@ -483,6 +506,13 @@ void test_success_uses_ports_and_persists_success() {
     test_helpers::expect_true("preflight calls", fixture.preflight.calls == 1, "unexpected call count");
     test_helpers::expect_true("discovery calls", fixture.discovery.calls == 1, "unexpected call count");
     test_helpers::expect_true("plan builder calls", fixture.plan_builder.calls == 1, "unexpected call count");
+    test_helpers::expect_true(
+        "preparation uses run cancellation",
+        fixture.preflight.received_cancellation != nullptr &&
+            fixture.preflight.received_cancellation == fixture.discovery.received_cancellation &&
+            fixture.discovery.received_cancellation == fixture.plan_builder.received_cancellation,
+        "preflight, discovery, and planning did not share the run token"
+    );
     test_helpers::expect_true("run factory calls", fixture.runs.calls == 1, "unexpected call count");
     test_helpers::expect_true("success writes", fixture.state.success_writes == 1, "unexpected write count");
     test_helpers::expect_eq("planner timestamp", fixture.plan_builder.received_timestamp, "2026-08-26T120000Z");
@@ -586,20 +616,22 @@ void test_run_context_close_aggregates_cleanup_diagnostics() {
     std::unique_ptr<btrfsbackup::backup::IBackupRunLease> lease = std::move(
         std::get<btrfsbackup::backup::BackupRunLeaseAcquired>(lease_result).lease
     );
+    btrfsbackup::CancellationToken cancellation;
     std::unique_ptr<btrfsbackup::backup::IMountedTargetSession> target_session = fixture.preflight.run(
         fixture.profiles.profile,
-        btrfsbackup::backup::TargetMountMode::MountIfNeeded
+        btrfsbackup::backup::TargetMountMode::MountIfNeeded,
+        cancellation
     );
     btrfsbackup::backup::RunExecutionContext context(
         fixture.profiles.profile.id,
         btrfsbackup::RunId{"run-1"},
         events,
         std::move(lease),
-        std::move(target_session),
         fixture.state,
         fixture.state,
         fixture.cancellation_monitor
     );
+    context.attach_target_session(std::move(target_session));
 
     const btrfsbackup::backup::CloseResult result = context.close();
     test_helpers::expect_true("cleanup result failed", !result.succeeded(), "cleanup failures were lost");
@@ -690,6 +722,42 @@ void test_preflight_failure_has_terminal_run_lifecycle() {
     );
     test_helpers::expect_true("preflight failure lease release", fixture.leases.destructions == 1, "lease was not released");
     test_helpers::expect_true("preflight failure no executor", fixture.runs.calls == 0, "executor was called");
+}
+
+void test_run_can_be_cancelled_during_preflight() {
+    Fixture fixture;
+    fixture.preflight.cancel_during_run = true;
+
+    const btrfsbackup::backup::BackupExecutionResult result = fixture.service.start({
+        .profile_id = btrfsbackup::ProfileId{"default"},
+    });
+
+    test_helpers::expect_true(
+        "preflight cancellation result",
+        std::holds_alternative<btrfsbackup::backup::BackupExecutionCancelled>(result),
+        "preflight cancellation was not returned as a cancelled run"
+    );
+    test_helpers::expect_true(
+        "active run before preflight",
+        fixture.preflight.active_run_registered_at_call,
+        "preflight started before the active run was registered"
+    );
+    test_helpers::expect_true(
+        "cancellation watch before preflight",
+        fixture.preflight.cancellation_watches_at_call == 1,
+        "preflight started before the cancellation watch"
+    );
+    test_helpers::expect_true("cancelled before discovery", fixture.discovery.calls == 0, "discovery ran after preflight cancellation");
+    test_helpers::expect_true(
+        "preflight cancellation lifecycle",
+        fixture.state.events_received.size() == 2 &&
+            btrfsbackup::backup::backup_run_event_kind(fixture.state.events_received.at(0)) ==
+                btrfsbackup::backup::BackupRunEventKind::RunStarted &&
+            btrfsbackup::backup::backup_run_event_kind(fixture.state.events_received.at(1)) ==
+                btrfsbackup::backup::BackupRunEventKind::RunCancelled,
+        "preflight cancellation did not emit RunStarted followed by RunCancelled"
+    );
+    expect_run_resources_released("preflight cancellation", fixture);
 }
 
 void test_executor_typed_failure_is_not_emitted_twice() {
@@ -842,6 +910,7 @@ int main() {
     test_run_context_releases_resources_after_exception();
     test_success_persistence_failure_does_not_emit_run_completed();
     test_preflight_failure_has_terminal_run_lifecycle();
+    test_run_can_be_cancelled_during_preflight();
     test_executor_typed_failure_is_not_emitted_twice();
     test_busy_stops_before_target_access();
     test_plan_acquires_lease_and_defaults_to_offline_target();

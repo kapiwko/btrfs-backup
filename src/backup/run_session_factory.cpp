@@ -86,19 +86,17 @@ std::unique_ptr<IBackupRunEventSink> RunSessionFactory::fallback_events(
     });
 }
 
-std::unique_ptr<RunExecutionContext> RunSessionFactory::create(
+std::unique_ptr<RunExecutionContext> RunSessionFactory::create_preparing(
     const btrfsbackup::config::LoadedProfile& loaded,
     const RunIdentity& identity,
     std::unique_ptr<IBackupRunEventSink>& events,
-    std::unique_ptr<IBackupRunLease> lease,
-    std::unique_ptr<IMountedTargetSession> target_session
+    std::unique_ptr<IBackupRunLease> lease
 ) {
     return std::make_unique<RunExecutionContext>(
         loaded.profile.id,
         identity.run_id,
         events,
         std::move(lease),
-        std::move(target_session),
         checkpoints_,
         cancellation_requests_,
         cancellation_monitor_

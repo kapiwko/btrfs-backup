@@ -72,15 +72,6 @@ BackupService::BackupService(
       run_ids_(run_ids) {
 }
 
-BackupRunPlan BackupService::build_plan(
-    const btrfsbackup::config::Profile& profile,
-    const RunId& run_id,
-    const std::string& timestamp
-) {
-    const BackupPlanningSnapshot snapshot = discovery_.discover(profile, application_paths_);
-    return plan_builder_.build(profile, snapshot, run_id, timestamp);
-}
-
 BackupRunPlan BackupService::plan(const BackupPlanRequest& request) {
     const RuntimeTimePoint time = clock_.now();
     const std::string timestamp = format_utc_snapshot_timestamp(time);
@@ -91,11 +82,14 @@ BackupRunPlan BackupService::plan(const BackupPlanRequest& request) {
         throw CodedOperationError(busy->error_code, busy->error_message);
     }
     std::unique_ptr<IBackupRunLease> lease = std::move(std::get<BackupRunLeaseAcquired>(lease_result).lease);
+    CancellationToken cancellation;
     std::unique_ptr<IMountedTargetSession> target_session = preflight_.run(
         loaded.profile,
-        request.mount_target ? TargetMountMode::MountIfNeeded : TargetMountMode::RequireMounted
+        request.mount_target ? TargetMountMode::MountIfNeeded : TargetMountMode::RequireMounted,
+        cancellation
     );
-    return build_plan(loaded.profile, run_id, timestamp);
+    const BackupPlanningSnapshot snapshot = discovery_.discover(loaded.profile, application_paths_, cancellation);
+    return plan_builder_.build(loaded.profile, snapshot, run_id, timestamp, cancellation);
 }
 
 BackupExecutionResult BackupService::start(const BackupRequest& request) {
@@ -140,13 +134,38 @@ BackupExecutionResult BackupService::start(const BackupRequest& request) {
             };
         }
         std::unique_ptr<IBackupRunLease> lease = std::move(std::get<BackupRunLeaseAcquired>(lease_result).lease);
+        context = sessions_.create_preparing(
+            loaded_profile,
+            identity,
+            events,
+            std::move(lease)
+        );
         events->on_backup_run_event(RunStarted{profile.id, run_id});
 
         std::unique_ptr<IMountedTargetSession> target_session = preflight_.run(
             profile,
-            TargetMountMode::MountIfNeeded
+            TargetMountMode::MountIfNeeded,
+            context->cancellation
         );
-        BackupRunPlan plan = build_plan(profile, run_id, timestamp);
+        context->attach_target_session(std::move(target_session));
+        if (context->cancellation.cancellation_requested()) {
+            throw OperationCancelledError("backup cancelled during preflight");
+        }
+        const BackupPlanningSnapshot snapshot = discovery_.discover(
+            profile,
+            application_paths_,
+            context->cancellation
+        );
+        BackupRunPlan plan = plan_builder_.build(
+            profile,
+            snapshot,
+            run_id,
+            timestamp,
+            context->cancellation
+        );
+        if (context->cancellation.cancellation_requested()) {
+            throw OperationCancelledError("backup cancelled during planning");
+        }
         const std::string& fingerprint = loaded_profile.fingerprint.value();
         if (request.validate_only) {
             events->on_backup_run_event(RunCompleted{profile.id, run_id});
@@ -159,13 +178,6 @@ BackupExecutionResult BackupService::start(const BackupRequest& request) {
             return BackupExecutionSkipped{std::move(plan)};
         }
 
-        context = sessions_.create(
-            loaded_profile,
-            identity,
-            events,
-            std::move(lease),
-            std::move(target_session)
-        );
         BackupRunExecutionResult execution = run_factory_.execute(
             plan,
             *events,
@@ -203,6 +215,29 @@ BackupExecutionResult BackupService::start(const BackupRequest& request) {
             std::get<BackupRunExecutionCancelled>(execution).actions_completed,
         };
         (void)context->close();
+        return result;
+    } catch (const OperationCancelledError& error) {
+        events->on_backup_run_event(RunCancelled{
+            .profile_id = profile.id,
+            .run_id = run_id,
+            .source_id = std::nullopt,
+            .source_index = 0,
+            .action_kind = std::nullopt,
+            .error_code = ErrorCode::RunnerCancelled,
+            .message = error.what(),
+        });
+        BackupExecutionResult result = BackupExecutionCancelled{
+            BackupRunPlan{
+                .profile_id = profile.id,
+                .run_id = run_id,
+                .target_mount_point = profile.target.mount_point,
+                .sources = {},
+            },
+            0,
+        };
+        if (context != nullptr) {
+            (void)context->close();
+        }
         return result;
     } catch (const BtrfsBackupError& error) {
         BackupExecutionResult result = emit_run_failed(

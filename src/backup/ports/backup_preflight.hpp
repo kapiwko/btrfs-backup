@@ -8,6 +8,7 @@
 
 #include <backup/ports/target_manager.hpp>
 #include <config/model/profile.hpp>
+#include <core/cancellation.hpp>
 
 namespace btrfsbackup::backup {
 
@@ -17,7 +18,8 @@ class IBackupPreflight {
 
     [[nodiscard]] virtual std::unique_ptr<IMountedTargetSession> run(
         const btrfsbackup::config::Profile& profile,
-        TargetMountMode mode
+        TargetMountMode mode,
+        CancellationToken& cancellation
     ) = 0;
 };
 

@@ -47,18 +47,21 @@ void test_same_snapshot_builds_same_plan() {
     };
     const btrfsbackup::backup::BackupPlanBuilder builder;
     const btrfsbackup::RunId run_id{"20260823T080000Z-123-456"};
+    btrfsbackup::CancellationToken cancellation;
 
     const btrfsbackup::backup::BackupRunPlan first = builder.build(
         profile(),
         snapshot,
         run_id,
-        "2026-08-23T080000Z"
+        "2026-08-23T080000Z",
+        cancellation
     );
     const btrfsbackup::backup::BackupRunPlan second = builder.build(
         profile(),
         snapshot,
         run_id,
-        "2026-08-23T080000Z"
+        "2026-08-23T080000Z",
+        cancellation
     );
     const auto& first_snapshot = std::get<btrfsbackup::backup::CreateSnapshotAction>(first.sources.at(0).actions().at(1));
     const auto& second_snapshot = std::get<btrfsbackup::backup::CreateSnapshotAction>(second.sources.at(0).actions().at(1));
