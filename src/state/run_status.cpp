@@ -40,6 +40,8 @@ std::string run_phase_name(RunPhase phase) {
         return "after-snapshot-hook";
     case RunPhase::SendReceive:
         return "send-receive";
+    case RunPhase::Sizing:
+        return "sizing";
     case RunPhase::Transferring:
         return "transferring";
     case RunPhase::VerifyReceived:

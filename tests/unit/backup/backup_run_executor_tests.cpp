@@ -655,6 +655,16 @@ void test_transfer_plan_measures_exact_send_stream_size() {
         "sizing used a different Btrfs send command"
     );
     test_helpers::expect_eq("exact stream bytes", std::to_string(transfers.plans.at(0).bytes_total_estimated), "12345");
+    const auto sizing_progress = std::find_if(events.events.begin(), events.events.end(), [](const btrfsbackup::backup::BackupRunEvent& event) {
+        const auto* progress = std::get_if<btrfsbackup::backup::TransferProgress>(&event);
+        return progress != nullptr && progress->stage == btrfsbackup::backup::BackupTransferStage::Sizing;
+    });
+    test_helpers::expect_true("typed sizing progress", sizing_progress != events.events.end(), "sizing stage was not propagated");
+    if (sizing_progress != events.events.end()) {
+        const auto& progress = std::get<btrfsbackup::backup::TransferProgress>(*sizing_progress);
+        test_helpers::expect_eq("sizing public bytes", std::to_string(progress.bytes_transferred), "0");
+        test_helpers::expect_eq("sizing public total", std::to_string(progress.bytes_total_estimated), "0");
+    }
     fs::remove_all(root);
 }
 

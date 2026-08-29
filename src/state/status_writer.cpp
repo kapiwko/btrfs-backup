@@ -44,6 +44,29 @@ btrfsbackup::config::Json build_details_json(const btrfsbackup::state::RunDetail
     return json;
 }
 
+std::string public_activity(const btrfsbackup::state::RunStatus& status) {
+    using btrfsbackup::state::RunPhase;
+    using btrfsbackup::state::RunState;
+    if (status.state != RunState::Running) {
+        return "idle";
+    }
+    switch (status.phase) {
+    case RunPhase::Sizing:
+        return "sizing";
+    case RunPhase::Transferring:
+        return "transferring";
+    case RunPhase::VerifyReceived:
+    case RunPhase::CommitReceived:
+    case RunPhase::ApplyRemoteRetention:
+    case RunPhase::ApplyLocalRetention:
+    case RunPhase::CleanupSource:
+    case RunPhase::SourceCompleted:
+        return "finalizing";
+    default:
+        return "preparing";
+    }
+}
+
 } // namespace
 
 namespace btrfsbackup::state {
@@ -98,7 +121,11 @@ btrfsbackup::config::Json build_public_status_json(const RunStatus& status) {
 
     return {
         {"schemaVersion", 3},
+        {"runId", std::string(status.run_id.value())},
         {"state", run_state_name(status.state)},
+        {"phase", run_phase_name(status.phase)},
+        {"activity", public_activity(status)},
+        {"canCancel", status.can_cancel},
         {"errorCode", public_error_code},
         {"sourceName", status.current_source_name},
         {"targetName", status.target_name},

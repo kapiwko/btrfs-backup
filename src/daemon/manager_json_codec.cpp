@@ -45,7 +45,11 @@ std::string ManagerJsonCodec::encode(const std::vector<ProfileSummary>& profiles
 std::string ManagerJsonCodec::encode(const PublicRunStatus& status) const {
     return config::dump_json({
         {"schemaVersion", 3},
+        {"runId", status.run_id},
         {"state", status.state},
+        {"phase", status.phase},
+        {"activity", status.activity},
+        {"canCancel", status.can_cancel},
         {"errorCode", status.error_code},
         {"sourceName", status.source_name},
         {"targetName", status.target_name},

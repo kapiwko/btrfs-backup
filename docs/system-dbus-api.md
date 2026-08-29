@@ -30,7 +30,7 @@ schema versions are not advertised as public API versions.
 |---|---|---|---|
 | `GetCapabilities` | `()` | `(s)` | API/schema versions, features and `readOnly: false` |
 | `ListProfiles` | `()` | `(s)` | sanitized public profile array |
-| `GetStatus` | `(s profileId)` | `(s)` | public status schema 3 or an unavailable status |
+| `GetStatus` | `(s profileId)` | `(s)` | public status schema 3, including run phase and cancellable run id, or an unavailable status |
 | `GetHistorySanitized` | `(s profileId, u offset, u limit)` | `(s)` | sanitized history array |
 | `GetDeviceState` | `(s profileId)` | `(s)` | labels and lifecycle booleans without storage identifiers |
 | `StartBackup` | `(s profileId)` | `(s)` | accepted systemd runner start |

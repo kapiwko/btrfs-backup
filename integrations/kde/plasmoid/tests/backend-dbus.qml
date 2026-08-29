@@ -28,13 +28,25 @@ Window {
             if (status.managerConnected
                     && status.profileName === "Default backup"
                     && status.state === "running"
+                    && status.runId === "20260829T160000Z-1-1"
+                    && status.phase === "sizing"
+                    && status.activity === "sizing"
+                    && status.canCancel
                     && status.currentSourceName === "Home"
                     && status.targetName === "Backup disk"
                     && status.speedBps === 10
                     && status.etaSeconds === 20
                     && status.sourceProgress === 30
                     && status.overallProgress === 40
-                    && status.progressAccuracy === "estimated") {
+                    && status.progressAccuracy === "estimated"
+                    && status.targetConnected
+                    && status.safeToRemove
+                    && status.targetState === "connected"
+                    && status.history.length === 1
+                    && typeof status.startBackup === "function"
+                    && typeof status.cancelBackup === "function"
+                    && typeof status.validateTarget === "function"
+                    && typeof status.ejectTarget === "function") {
                 Qt.exit(0)
             }
             if (attempts >= 100) {

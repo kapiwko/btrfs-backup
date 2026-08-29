@@ -88,6 +88,10 @@ void test_public_transfer_progress_excludes_run_details() {
     test_helpers::expect_true("progress eta", current.at("etaSeconds") == 2, "wrong ETA");
     test_helpers::expect_true("progress overall", current.at("overallProgress") == 25, "wrong overall progress");
     test_helpers::expect_true("progress accuracy", current.at("progressAccuracy") == "exact", "wrong progress accuracy");
+    test_helpers::expect_true("transfer activity", current.at("activity") == "transferring", "wrong transfer activity");
+    test_helpers::expect_true("transfer phase", current.at("phase") == "transferring", "wrong transfer phase");
+    test_helpers::expect_true("run id", current.at("runId") == "20260823T120000Z-123-456", "runId was not published");
+    test_helpers::expect_true("can cancel", current.at("canCancel") == true, "running transfer cannot be cancelled");
 
     const btrfsbackup::backup::TransferProgress second = transfer_progress(btrfsbackup::SourceId{"home"}, 2);
     sink.on_backup_run_event(second);
@@ -120,6 +124,7 @@ void test_unknown_stream_size_produces_indeterminate_progress() {
                                                                   });
 
     btrfsbackup::backup::TransferProgress progress = transfer_progress();
+    progress.stage = btrfsbackup::backup::BackupTransferStage::Sizing;
     progress.bytes_total_estimated = 0;
     sink.on_backup_run_event(progress);
 
@@ -130,6 +135,8 @@ void test_unknown_stream_size_produces_indeterminate_progress() {
     test_helpers::expect_true("unknown overall progress", current.at("overallProgress") == -1, "overall progress should be unknown");
     test_helpers::expect_true("unknown ETA", current.at("etaSeconds") == -1, "ETA should be unknown");
     test_helpers::expect_true("indeterminate accuracy", current.at("progressAccuracy") == "indeterminate", "progress should be indeterminate");
+    test_helpers::expect_true("sizing activity", current.at("activity") == "sizing", "sizing activity was not published");
+    test_helpers::expect_true("sizing phase", current.at("phase") == "sizing", "sizing phase was not published");
 
     fs::remove_all(root);
 }
@@ -148,7 +155,8 @@ void test_status_sink_writes_current_and_terminal_history() {
     fs::path current = root / "status" / "default" / "current.json";
     btrfsbackup::config::Json current_data = btrfsbackup::config::load_json_file(current);
     test_helpers::expect_true("current state", current_data.at("state") == "running", "wrong current state");
-    test_helpers::expect_true("current phase hidden", !current_data.contains("phase"), "public status exposes phase");
+    test_helpers::expect_true("current phase", current_data.at("phase") == "send-receive", "wrong public phase");
+    test_helpers::expect_true("current activity", current_data.at("activity") == "preparing", "wrong public activity");
     test_helpers::expect_true("history absent before terminal", !fs::exists(root / "history" / "default"), "history should wait for terminal event");
 
     const btrfsbackup::backup::RunCompleted completed{

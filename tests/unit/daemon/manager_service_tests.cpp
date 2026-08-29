@@ -59,7 +59,11 @@ btrfsbackup::config::Json private_profile(const fs::path& root) {
 std::string public_status() {
     return R"({
   "schemaVersion": 3,
+  "runId": "20260829T160000Z-1-1",
   "state": "running",
+  "phase": "sizing",
+  "activity": "sizing",
+  "canCancel": true,
   "errorCode": "",
   "sourceName": "Home",
   "targetName": "Backup disk",
@@ -136,6 +140,9 @@ void test_status_and_history_sanitization() {
     const btrfsbackup::daemon::StatusQueryService status_service(root / "status", history_service);
     const btrfsbackup::daemon::PublicRunStatus status = status_service.get_status("default");
     test_helpers::expect_eq("status state", status.state, "running");
+    test_helpers::expect_eq("status phase", status.phase, "sizing");
+    test_helpers::expect_eq("status activity", status.activity, "sizing");
+    test_helpers::expect_true("status cancellable", status.can_cancel, "status lost cancellation capability");
     test_helpers::expect_eq("status source", status.source_name, "Home");
     const btrfsbackup::daemon::SanitizedHistoryPage history = history_service.get_history_sanitized("default", 0, 1);
     test_helpers::expect_eq("bounded history", std::to_string(history.entries.size()), "1");

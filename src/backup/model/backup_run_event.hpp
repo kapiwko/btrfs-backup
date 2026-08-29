@@ -50,11 +50,17 @@ struct ActionStarted {
     BackupRunActionKind action_kind;
 };
 
+enum class BackupTransferStage {
+    Sizing,
+    Transferring,
+};
+
 struct TransferProgress {
     ProfileId profile_id;
     RunId run_id;
     SourceId source_id;
     int source_index = 0;
+    BackupTransferStage stage = BackupTransferStage::Transferring;
     std::uint64_t bytes_transferred = 0;
     std::uint64_t bytes_produced = 0;
     std::uint64_t bytes_total_estimated = 0;

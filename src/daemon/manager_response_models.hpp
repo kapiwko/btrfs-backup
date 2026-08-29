@@ -35,7 +35,11 @@ struct ProfileSummary {
 };
 
 struct PublicRunStatus {
+    std::string run_id;
     std::string state = "unavailable";
+    std::string phase = "idle";
+    std::string activity = "idle";
+    bool can_cancel = false;
     std::string error_code;
     std::string source_name;
     std::string target_name;

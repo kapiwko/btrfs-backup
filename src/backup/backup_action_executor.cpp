@@ -25,6 +25,9 @@ class BackupTransferEventAdapter final : public btrfsbackup::backup::transfer::I
             .run_id = context_.plan.run_id,
             .source_id = context_.source.source_id,
             .source_index = context_.source_index,
+            .stage = event.activity == btrfsbackup::backup::transfer::TransferActivity::Sizing
+                ? BackupTransferStage::Sizing
+                : BackupTransferStage::Transferring,
             .bytes_transferred = event.bytes_transferred,
             .bytes_produced = event.bytes_produced,
             .bytes_total_estimated = event.bytes_total_estimated,

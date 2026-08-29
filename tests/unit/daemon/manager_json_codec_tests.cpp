@@ -52,7 +52,11 @@ void test_profiles() {
 void test_status_history_and_device() {
     const ManagerJsonCodec codec;
     const btrfsbackup::daemon::PublicRunStatus status{
+        .run_id = "20260829T160000Z-1-1",
         .state = "running",
+        .phase = "sizing",
+        .activity = "sizing",
+        .can_cancel = true,
         .error_code = "",
         .source_name = "Home",
         .target_name = "Backup disk",
@@ -64,6 +68,9 @@ void test_status_history_and_device() {
     };
     const Json status_document = Json::parse(codec.encode(status));
     expect_field("status", status_document, "schemaVersion", 3);
+    expect_field("status", status_document, "runId", status.run_id);
+    expect_field("status", status_document, "activity", "sizing");
+    expect_field("status", status_document, "canCancel", true);
     expect_field("status", status_document, "overallProgress", 40);
 
     const btrfsbackup::daemon::SanitizedHistoryPage history{{{
