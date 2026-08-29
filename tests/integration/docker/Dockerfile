@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1
+
 FROM archlinux:base-devel
 
 # The Arch release target builds both the base and Plasma packages.
