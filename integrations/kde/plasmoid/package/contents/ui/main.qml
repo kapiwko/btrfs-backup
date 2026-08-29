@@ -159,6 +159,14 @@ PlasmoidItem {
         }
     }
 
+    function targetConnectionText() {
+        if (!backupStatus.managerConnected || backupStatus.targetState === "unknown")
+            return translations.i18n("Unknown")
+        return backupStatus.targetConnected
+            ? translations.i18n("Connected")
+            : translations.i18n("Disconnected")
+    }
+
     function historyText(state) {
         return root.statusText(state)
     }
@@ -330,6 +338,7 @@ PlasmoidItem {
                         text: translations.i18n("Start backup")
                         display: PlasmaComponents3.AbstractButton.IconOnly
                         icon.name: "media-playback-start"
+                        visible: backupStatus.managerConnected && backupStatus.targetConnected
                         enabled: backupStatus.managerConnected && !root.running && !backupStatus.operationPending
                         onClicked: backupStatus.startBackup()
                         QQC2.ToolTip.text: text
@@ -451,6 +460,12 @@ PlasmoidItem {
                     text: backupStatus.targetName || translations.i18n("Unknown")
                     Layout.fillWidth: true
                     elide: Text.ElideMiddle
+                }
+
+                QQC2.Label { text: translations.i18n("Connection:"); opacity: 0.7 }
+                QQC2.Label {
+                    text: root.targetConnectionText()
+                    Layout.fillWidth: true
                 }
 
                 QQC2.Label { text: translations.i18n("Target state:"); opacity: 0.7 }

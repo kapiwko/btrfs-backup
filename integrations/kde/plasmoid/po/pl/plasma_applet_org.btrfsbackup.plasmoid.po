@@ -117,6 +117,9 @@ msgstr "Źródło:"
 msgid "Destination:"
 msgstr "Cel:"
 
+msgid "Connection:"
+msgstr "Połączenie:"
+
 msgid "Target state:"
 msgstr "Stan celu:"
 
