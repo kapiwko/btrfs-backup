@@ -344,7 +344,7 @@ stage_kde_package_payload() {
     rm -rf -- "$build_dir"
     cmake -S "$root/integrations/kde" -B "$build_dir" -DCMAKE_BUILD_TYPE=Release >/dev/null
     cmake --build "$build_dir" -j"$(nproc)" >/dev/null
-    ctest --test-dir "$build_dir" --output-on-failure >/dev/null
+    ctest --test-dir "$build_dir" --parallel "${BUILD_JOBS}" --output-on-failure >/dev/null
     cmake --install "$build_dir" --prefix "$pkgdir/usr" >/dev/null
 
     install -Dm644 "$root/docs/plasma-integration.md" \
@@ -716,7 +716,7 @@ package_btrfs-backup-kde() {
 
   cmake -S "\$root/integrations/kde" -B "\$build_dir" -DCMAKE_BUILD_TYPE=Release
   cmake --build "\$build_dir" -j"\$(nproc)"
-  ctest --test-dir "\$build_dir" --output-on-failure
+	ctest --test-dir "\$build_dir" --parallel "\$(nproc)" --output-on-failure
   cmake --install "\$build_dir" --prefix "\$pkgdir/usr"
 
   install -Dm644 "\$root/docs/plasma-integration.md" "\$pkgdir/usr/share/doc/btrfs-backup-kde/plasma-integration.md"
