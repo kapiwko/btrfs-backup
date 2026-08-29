@@ -265,13 +265,9 @@ btrfsbackup::backup::BackupRunAction action(btrfsbackup::backup::BackupRunAction
 
 btrfsbackup::backup::BackupRunPlan plan_with_actions(std::vector<btrfsbackup::backup::BackupRunAction> actions) {
     btrfsbackup::backup::BackupSourceRunPlan source{
-        .source_id = btrfsbackup::SourceId{"root"},
-        .local_retention = {.source_id = btrfsbackup::SourceId{"root"}},
-        .remote_retention = {.source_id = btrfsbackup::SourceId{"root"}},
+        btrfsbackup::SourceId{"root"},
+        std::move(actions),
     };
-    source.local_snapshot_path = "/.snapshots/root/root-2026-08-23T080000Z";
-    source.incoming_run_dir = "/mnt/backup/.incoming/root/run-1";
-    source.actions = std::move(actions);
 
     return btrfsbackup::backup::BackupRunPlan{
         .profile_id = btrfsbackup::ProfileId{"default"},
@@ -631,38 +627,32 @@ void test_multi_source_progress_accumulates_run_bytes() {
     btrfsbackup::backup::transfer::ThreadedAsyncTransferPipeline async_transfers(transfers);
     btrfsbackup::backup::BackupRunExecutor executor(handler, async_transfers, checkpoints, safe_directories);
 
+    const btrfsbackup::SourceId home_id{"home"};
+    const fs::path home_snapshot = "/.snapshots/home/home-2026-08-23T080000Z";
+    const fs::path home_incoming = "/mnt/backup/.incoming/home/run-1";
     btrfsbackup::backup::BackupSourceRunPlan home{
-        .source_id = btrfsbackup::SourceId{"home"},
-        .local_retention = {.source_id = btrfsbackup::SourceId{"home"}},
-        .remote_retention = {.source_id = btrfsbackup::SourceId{"home"}},
-    };
-    home.local_snapshot_path = "/.snapshots/home/home-2026-08-23T080000Z";
-    home.incoming_run_dir = "/mnt/backup/.incoming/home/run-1";
-    home.actions = {
-        btrfsbackup::backup::SendReceiveAction{
-            home.source_id,
-            home.local_snapshot_path,
+        home_id,
+        {btrfsbackup::backup::SendReceiveAction{
+            home_id,
+            home_snapshot,
             std::nullopt,
             "/mnt/backup/home",
-            home.incoming_run_dir,
-        },
+            home_incoming,
+        }},
     };
 
+    const btrfsbackup::SourceId root_id{"root"};
+    const fs::path root_snapshot = "/.snapshots/root/root-2026-08-23T080000Z";
+    const fs::path root_incoming = "/mnt/backup/.incoming/root/run-1";
     btrfsbackup::backup::BackupSourceRunPlan root{
-        .source_id = btrfsbackup::SourceId{"root"},
-        .local_retention = {.source_id = btrfsbackup::SourceId{"root"}},
-        .remote_retention = {.source_id = btrfsbackup::SourceId{"root"}},
-    };
-    root.local_snapshot_path = "/.snapshots/root/root-2026-08-23T080000Z";
-    root.incoming_run_dir = "/mnt/backup/.incoming/root/run-1";
-    root.actions = {
-        btrfsbackup::backup::SendReceiveAction{
-            root.source_id,
-            root.local_snapshot_path,
+        root_id,
+        {btrfsbackup::backup::SendReceiveAction{
+            root_id,
+            root_snapshot,
             std::nullopt,
             "/mnt/backup/root",
-            root.incoming_run_dir,
-        },
+            root_incoming,
+        }},
     };
 
     btrfsbackup::backup::BackupRunPlan plan{

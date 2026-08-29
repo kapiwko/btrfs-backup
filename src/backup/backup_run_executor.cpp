@@ -141,7 +141,7 @@ BackupRunExecutionResult BackupRunExecutor::execute(
         const int source_index = source_index_for_event(plan, source);
         events.on_backup_run_event(SourceStarted{plan.profile_id, plan.run_id, source.source_id, source_index});
 
-        for (const BackupRunAction& action : source.actions) {
+        for (const BackupRunAction& action : source.actions()) {
             const BackupRunActionKind action_kind = backup_run_action_kind(action);
             if (cancellation.cancellation_requested()) {
                 emit_cancelled(events, plan, &source, std::nullopt);

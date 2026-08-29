@@ -3,10 +3,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include <backup/model/backup_run_plan.hpp>
+#include <backup/model/incremental_parent.hpp>
+#include <backup/model/pending_recovery.hpp>
+#include <backup/model/retention_plan.hpp>
 
 #include <filesystem>
 #include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <core/errors.hpp>
@@ -102,6 +106,27 @@ btrfsbackup::backup::SnapshotInfo projected_snapshot(
 
 namespace btrfsbackup::backup {
 
+BackupSourceRunPlan::BackupSourceRunPlan(SourceId source_id, std::vector<BackupRunAction> actions)
+    : source_id(std::move(source_id)), actions_(std::move(actions)) {
+    std::set<BackupRunActionKind> singleton_actions;
+    for (const BackupRunAction& action : actions_) {
+        if (backup_run_action_source_id(action) != this->source_id) {
+            throw ValidationError("backup source plan contains an action for a different source");
+        }
+        const BackupRunActionKind kind = backup_run_action_kind(action);
+        if (kind == BackupRunActionKind::BeforeSnapshotHook || kind == BackupRunActionKind::AfterSnapshotHook) {
+            continue;
+        }
+        if (!singleton_actions.insert(kind).second) {
+            throw ValidationError("backup source plan contains a duplicate action kind");
+        }
+    }
+}
+
+const std::vector<BackupRunAction>& BackupSourceRunPlan::actions() const noexcept {
+    return actions_;
+}
+
 BackupRunPlan build_backup_run_plan(
     const btrfsbackup::config::Profile& profile,
     const SnapshotInventoryBySource& local_inventory,
@@ -196,35 +221,19 @@ BackupRunPlan build_backup_run_plan(
         RetentionPlan local_retention = plan_count_retention(source_id, projected_local, source.local_retention.value());
         RetentionPlan remote_retention = plan_count_retention(source_id, projected_remote, source.remote_retention.value());
 
-        BackupSourceRunPlan source_plan{
-            .source_id = source.id,
-            .source_subvolume = source.subvolume,
-            .local_snapshot_dir = source.local_snapshot_dir,
-            .remote_snapshot_dir = remote_snapshot_dir,
-            .incoming_source_root = incoming_source_root,
-            .incoming_run_dir = incoming_run_dir,
-            .local_snapshot_path = local_snapshot_path,
-            .received_snapshot_path = received_snapshot_path,
-            .final_remote_snapshot_path = final_remote_snapshot_path,
-            .parent = parent,
-            .recovery = recovery,
-            .local_retention = local_retention,
-            .remote_retention = remote_retention,
-            .actions = {},
-        };
-
         const std::optional<fs::path> parent_path = parent.local_parent.has_value()
             ? std::optional<fs::path>(parent.local_parent->path)
             : std::nullopt;
+        std::vector<BackupRunAction> actions;
         if (recovery.action != PendingRecoveryAction::NoMarker) {
-            source_plan.actions.emplace_back(RecoverPendingAction{source_plan.source_id, recovery});
+            actions.emplace_back(RecoverPendingAction{source_id, recovery});
         }
-        source_plan.actions.emplace_back(CleanupIncomingAction{source_plan.source_id, incoming_source_root});
+        actions.emplace_back(CleanupIncomingAction{source_id, incoming_source_root});
         for (const btrfsbackup::config::ProfileHookCommand& hook : profile.hooks.before_snapshot) {
-            source_plan.actions.emplace_back(RunHookAction{source_plan.source_id, HookPhase::BeforeSnapshot, hook});
+            actions.emplace_back(RunHookAction{source_id, HookPhase::BeforeSnapshot, hook});
         }
-        source_plan.actions.emplace_back(CreateSnapshotAction{
-            source_plan.source_id,
+        actions.emplace_back(CreateSnapshotAction{
+            source_id,
             source.subvolume,
             source.local_snapshot_dir,
             local_snapshot_path,
@@ -233,43 +242,43 @@ BackupRunPlan build_backup_run_plan(
             run_id,
         });
         for (const btrfsbackup::config::ProfileHookCommand& hook : profile.hooks.after_snapshot) {
-            source_plan.actions.emplace_back(RunHookAction{source_plan.source_id, HookPhase::AfterSnapshot, hook});
+            actions.emplace_back(RunHookAction{source_id, HookPhase::AfterSnapshot, hook});
         }
-        source_plan.actions.emplace_back(SendReceiveAction{
-            source_plan.source_id,
+        actions.emplace_back(SendReceiveAction{
+            source_id,
             local_snapshot_path,
             parent_path,
             remote_snapshot_dir,
             incoming_run_dir,
         });
-        source_plan.actions.emplace_back(VerifyReceivedAction{
-            source_plan.source_id,
+        actions.emplace_back(VerifyReceivedAction{
+            source_id,
             local_snapshot_path,
             received_snapshot_path,
         });
-        source_plan.actions.emplace_back(CommitReceivedAction{
-            source_plan.source_id,
+        actions.emplace_back(CommitReceivedAction{
+            source_id,
             local_snapshot_path,
             received_snapshot_path,
             final_remote_snapshot_path,
         });
-        source_plan.actions.emplace_back(ApplyRemoteRetentionAction{
-            source_plan.source_id,
+        actions.emplace_back(ApplyRemoteRetentionAction{
+            source_id,
             remote_retention,
         });
-        source_plan.actions.emplace_back(ApplyLocalRetentionAction{
-            source_plan.source_id,
+        actions.emplace_back(ApplyLocalRetentionAction{
+            source_id,
             local_retention,
         });
-        source_plan.actions.emplace_back(CleanupSourceAction{
-            source_plan.source_id,
+        actions.emplace_back(CleanupSourceAction{
+            source_id,
             received_snapshot_path,
             incoming_run_dir,
             recovery.marker_path,
             profile_state_dir,
         });
 
-        run_plan.sources.push_back(source_plan);
+        run_plan.sources.emplace_back(source.id, std::move(actions));
     }
 
     return run_plan;

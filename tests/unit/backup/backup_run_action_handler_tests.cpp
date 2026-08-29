@@ -333,12 +333,20 @@ btrfsbackup::backup::BackupRunPlan run_plan() {
     };
 }
 
-btrfsbackup::backup::BackupSourceRunPlan source_plan(const fs::path& root) {
-    btrfsbackup::backup::BackupSourceRunPlan source{
-        .source_id = btrfsbackup::SourceId{"root"},
-        .local_retention = {.source_id = btrfsbackup::SourceId{"root"}},
-        .remote_retention = {.source_id = btrfsbackup::SourceId{"root"}},
-    };
+struct TestSource {
+    btrfsbackup::SourceId source_id{"root"};
+    fs::path source_subvolume;
+    fs::path local_snapshot_dir;
+    fs::path remote_snapshot_dir;
+    fs::path incoming_source_root;
+    fs::path incoming_run_dir;
+    fs::path local_snapshot_path;
+    fs::path received_snapshot_path;
+    fs::path final_remote_snapshot_path;
+};
+
+TestSource source_plan(const fs::path& root) {
+    TestSource source;
     source.source_subvolume = root / "source";
     source.local_snapshot_dir = root / "local";
     source.remote_snapshot_dir = root / "remote";
@@ -347,17 +355,23 @@ btrfsbackup::backup::BackupSourceRunPlan source_plan(const fs::path& root) {
     source.local_snapshot_path = source.local_snapshot_dir / "root-2026-08-23T120000Z";
     source.received_snapshot_path = source.incoming_run_dir / "root-2026-08-23T120000Z";
     source.final_remote_snapshot_path = source.remote_snapshot_dir / "root-2026-08-23T120000Z";
-    source.recovery.marker_path = root / "state" / "pending-root";
     return source;
+}
+
+fs::path marker_path(const TestSource& source) {
+    return source.local_snapshot_dir.parent_path() / "state" / "pending-root";
 }
 
 btrfsbackup::backup::BackupRunAction action(
     btrfsbackup::backup::BackupRunActionKind kind,
-    const btrfsbackup::backup::BackupSourceRunPlan& source
+    const TestSource& source,
+    const btrfsbackup::backup::PendingRecoveryPlan& recovery,
+    const btrfsbackup::backup::RetentionPlan& local_retention,
+    const btrfsbackup::backup::RetentionPlan& remote_retention
 ) {
     switch (kind) {
     case btrfsbackup::backup::BackupRunActionKind::RecoverPending:
-        return btrfsbackup::backup::RecoverPendingAction{source.source_id, source.recovery};
+        return btrfsbackup::backup::RecoverPendingAction{source.source_id, recovery};
     case btrfsbackup::backup::BackupRunActionKind::CleanupIncoming:
         return btrfsbackup::backup::CleanupIncomingAction{source.source_id, source.incoming_source_root};
     case btrfsbackup::backup::BackupRunActionKind::CreateSnapshot:
@@ -367,7 +381,7 @@ btrfsbackup::backup::BackupRunAction action(
             source.local_snapshot_dir,
             source.local_snapshot_path,
             source.final_remote_snapshot_path,
-            source.recovery.marker_path.parent_path(),
+            recovery.marker_path.parent_path(),
             run_plan().run_id,
         };
     case btrfsbackup::backup::BackupRunActionKind::SendReceive:
@@ -392,22 +406,37 @@ btrfsbackup::backup::BackupRunAction action(
             source.final_remote_snapshot_path,
         };
     case btrfsbackup::backup::BackupRunActionKind::ApplyRemoteRetention:
-        return btrfsbackup::backup::ApplyRemoteRetentionAction{source.source_id, source.remote_retention};
+        return btrfsbackup::backup::ApplyRemoteRetentionAction{source.source_id, remote_retention};
     case btrfsbackup::backup::BackupRunActionKind::ApplyLocalRetention:
-        return btrfsbackup::backup::ApplyLocalRetentionAction{source.source_id, source.local_retention};
+        return btrfsbackup::backup::ApplyLocalRetentionAction{source.source_id, local_retention};
     case btrfsbackup::backup::BackupRunActionKind::CleanupSource:
         return btrfsbackup::backup::CleanupSourceAction{
             source.source_id,
             source.received_snapshot_path,
             source.incoming_run_dir,
-            source.recovery.marker_path,
-            source.recovery.marker_path.parent_path(),
+            recovery.marker_path,
+            recovery.marker_path.parent_path(),
         };
     case btrfsbackup::backup::BackupRunActionKind::BeforeSnapshotHook:
     case btrfsbackup::backup::BackupRunActionKind::AfterSnapshotHook:
         break;
     }
     throw std::logic_error("hook action requires hook_action");
+}
+
+btrfsbackup::backup::BackupRunAction action(
+    btrfsbackup::backup::BackupRunActionKind kind,
+    const TestSource& source
+) {
+    btrfsbackup::backup::PendingRecoveryPlan recovery;
+    recovery.marker_path = marker_path(source);
+    return action(
+        kind,
+        source,
+        recovery,
+        btrfsbackup::backup::RetentionPlan{.source_id = source.source_id},
+        btrfsbackup::backup::RetentionPlan{.source_id = source.source_id}
+    );
 }
 
 btrfsbackup::backup::BackupRunAction hook_action(btrfsbackup::backup::HookPhase phase) {
@@ -432,7 +461,7 @@ void handle_action(
 
 void test_create_snapshot_writes_pending_marker_and_verifies_readonly_snapshot() {
     fs::path root = test_helpers::test_root("backup-run-action-handler", "create-snapshot");
-    btrfsbackup::backup::BackupSourceRunPlan source = source_plan(root);
+    TestSource source = source_plan(root);
     FakeBtrfsOperations btrfs;
     btrfs.metadata_by_path[source.local_snapshot_path.string()] = btrfsbackup::backup::SnapshotMetadata{
         .is_subvolume = true,
@@ -447,12 +476,12 @@ void test_create_snapshot_writes_pending_marker_and_verifies_readonly_snapshot()
     test_helpers::expect_eq("mkdir local snapshot dir", fs_effects.calls.at(0), action_path("mkdir", source.local_snapshot_dir));
     test_helpers::expect_eq("snapshot call", btrfs.calls.at(0), "snapshot:" + source.source_subvolume.string() + "->" + source.local_snapshot_path.string());
     test_helpers::expect_eq("metadata call", btrfs.calls.at(1), action_path("metadata", source.local_snapshot_path));
-    test_helpers::expect_true("pending marker exists", fs::is_regular_file(source.recovery.marker_path), "pending marker should be written");
+    test_helpers::expect_true("pending marker exists", fs::is_regular_file(marker_path(source)), "pending marker should be written");
 }
 
 void test_cleanup_incoming_uses_safe_root() {
     fs::path root = test_helpers::test_root("backup-run-action-handler", "cleanup-incoming");
-    btrfsbackup::backup::BackupSourceRunPlan source = source_plan(root);
+    TestSource source = source_plan(root);
     fs::path directory = source.incoming_source_root / "old-dir";
     fs::create_directories(directory);
     test_helpers::write_file(directory / "data", "remove\n");
@@ -475,7 +504,7 @@ void test_production_cleanup_rejects_incoming_symlink_escape() {
     test_helpers::write_file(outside / "sentinel", "keep\n");
     fs::create_directory_symlink(outside, target / ".incoming" / "root");
 
-    btrfsbackup::backup::BackupSourceRunPlan source = source_plan(root);
+    TestSource source = source_plan(root);
     source.incoming_source_root = target / ".incoming" / "root";
     source.incoming_run_dir = source.incoming_source_root / "run-1";
     FakeBtrfsOperations btrfs;
@@ -495,13 +524,17 @@ void test_production_cleanup_rejects_incoming_symlink_escape() {
 
 void test_verify_commit_retention_and_cleanup_use_existing_helpers() {
     fs::path root = test_helpers::test_root("backup-run-action-handler", "commit-cleanup");
-    btrfsbackup::backup::BackupSourceRunPlan source = source_plan(root);
-    source.local_retention.delete_snapshots = {
+    TestSource source = source_plan(root);
+    btrfsbackup::backup::RetentionPlan local_retention{.source_id = source.source_id};
+    local_retention.delete_snapshots = {
         btrfsbackup::backup::SnapshotInfo{.source_id = btrfsbackup::SourceId{"root"}, .path = root / "local" / "old"},
     };
-    source.remote_retention.delete_snapshots = {
+    btrfsbackup::backup::RetentionPlan remote_retention{.source_id = source.source_id};
+    remote_retention.delete_snapshots = {
         btrfsbackup::backup::SnapshotInfo{.source_id = btrfsbackup::SourceId{"root"}, .path = root / "remote" / "old"},
     };
+    btrfsbackup::backup::PendingRecoveryPlan recovery;
+    recovery.marker_path = marker_path(source);
 
     FakeBtrfsOperations btrfs;
     btrfs.subvolumes = {source.received_snapshot_path.string()};
@@ -527,8 +560,8 @@ void test_verify_commit_retention_and_cleanup_use_existing_helpers() {
 
     handle_action(handler, action(btrfsbackup::backup::BackupRunActionKind::VerifyReceived, source));
     handle_action(handler, action(btrfsbackup::backup::BackupRunActionKind::CommitReceived, source));
-    handle_action(handler, action(btrfsbackup::backup::BackupRunActionKind::ApplyRemoteRetention, source));
-    handle_action(handler, action(btrfsbackup::backup::BackupRunActionKind::ApplyLocalRetention, source));
+    handle_action(handler, action(btrfsbackup::backup::BackupRunActionKind::ApplyRemoteRetention, source, recovery, local_retention, remote_retention));
+    handle_action(handler, action(btrfsbackup::backup::BackupRunActionKind::ApplyLocalRetention, source, recovery, local_retention, remote_retention));
     handle_action(handler, action(btrfsbackup::backup::BackupRunActionKind::CleanupSource, source));
 
     test_helpers::expect_true("commit snapshot", std::find(btrfs.calls.begin(), btrfs.calls.end(), "snapshot:" + source.received_snapshot_path.string() + "->" + source.final_remote_snapshot_path.string()) != btrfs.calls.end(), "commit should snapshot received subvolume");
@@ -539,16 +572,18 @@ void test_verify_commit_retention_and_cleanup_use_existing_helpers() {
 
 void test_pending_recovery_deletes_invalid_remote_snapshot_first() {
     fs::path root = test_helpers::test_root("backup-run-action-handler", "recover-invalid-commit");
-    btrfsbackup::backup::BackupSourceRunPlan source = source_plan(root);
-    source.recovery.delete_remote_snapshot = true;
-    source.recovery.remote_snapshot_path = source.final_remote_snapshot_path;
-    source.recovery.delete_local_snapshot = true;
-    source.recovery.local_snapshot_path = source.local_snapshot_path;
+    TestSource source = source_plan(root);
+    btrfsbackup::backup::PendingRecoveryPlan recovery;
+    recovery.marker_path = marker_path(source);
+    recovery.delete_remote_snapshot = true;
+    recovery.remote_snapshot_path = source.final_remote_snapshot_path;
+    recovery.delete_local_snapshot = true;
+    recovery.local_snapshot_path = source.local_snapshot_path;
     FakeBtrfsOperations btrfs;
     FakeFileSystem fs_effects;
     ActionHandlerFixture handler(btrfs, fs_effects);
 
-    handle_action(handler, action(btrfsbackup::backup::BackupRunActionKind::RecoverPending, source));
+    handle_action(handler, action(btrfsbackup::backup::BackupRunActionKind::RecoverPending, source, recovery, {.source_id = source.source_id}, {.source_id = source.source_id}));
 
     test_helpers::expect_eq("recovery delete count", std::to_string(btrfs.calls.size()), "2");
     test_helpers::expect_eq("recovery remote first", btrfs.calls.at(0), action_path("delete", source.final_remote_snapshot_path));
@@ -557,12 +592,14 @@ void test_pending_recovery_deletes_invalid_remote_snapshot_first() {
 
 void test_failed_remote_recovery_keeps_local_snapshot_and_marker() {
     fs::path root = test_helpers::test_root("backup-run-action-handler", "recover-invalid-commit-fails");
-    btrfsbackup::backup::BackupSourceRunPlan source = source_plan(root);
-    source.recovery.delete_remote_snapshot = true;
-    source.recovery.remote_snapshot_path = source.final_remote_snapshot_path;
-    source.recovery.delete_local_snapshot = true;
-    source.recovery.local_snapshot_path = source.local_snapshot_path;
-    source.recovery.clear_marker = true;
+    TestSource source = source_plan(root);
+    btrfsbackup::backup::PendingRecoveryPlan recovery;
+    recovery.marker_path = marker_path(source);
+    recovery.delete_remote_snapshot = true;
+    recovery.remote_snapshot_path = source.final_remote_snapshot_path;
+    recovery.delete_local_snapshot = true;
+    recovery.local_snapshot_path = source.local_snapshot_path;
+    recovery.clear_marker = true;
     btrfsbackup::platform::linux::PosixDurableFileOperations durable_files;
     btrfsbackup::state::write_pending_marker(
         durable_files,
@@ -581,17 +618,17 @@ void test_failed_remote_recovery_keeps_local_snapshot_and_marker() {
     FakeFileSystem fs_effects;
     ActionHandlerFixture handler(btrfs, fs_effects);
 
-    test_helpers::expect_validation_error("failed recovery delete", [&] { handle_action(handler, action(btrfsbackup::backup::BackupRunActionKind::RecoverPending, source)); }, "injected subvolume delete failure");
+    test_helpers::expect_validation_error("failed recovery delete", [&] { handle_action(handler, action(btrfsbackup::backup::BackupRunActionKind::RecoverPending, source, recovery, {.source_id = source.source_id}, {.source_id = source.source_id})); }, "injected subvolume delete failure");
 
     test_helpers::expect_eq("failed recovery delete count", std::to_string(btrfs.calls.size()), "1");
     test_helpers::expect_eq("failed recovery stops at remote", btrfs.calls.at(0), action_path("delete", source.final_remote_snapshot_path));
-    test_helpers::expect_true("failed recovery keeps marker", fs::is_regular_file(source.recovery.marker_path), "pending marker must remain after failed cleanup");
+    test_helpers::expect_true("failed recovery keeps marker", fs::is_regular_file(recovery.marker_path), "pending marker must remain after failed cleanup");
     fs::remove_all(root);
 }
 
 void test_hook_actions_use_command_runner_argv() {
     fs::path root = test_helpers::test_root("backup-run-action-handler", "hooks");
-    btrfsbackup::backup::BackupSourceRunPlan source = source_plan(root);
+    TestSource source = source_plan(root);
     FakeBtrfsOperations btrfs;
     FakeFileSystem fs_effects;
     FakeCommandRunner hooks;
@@ -628,7 +665,7 @@ void test_production_hook_uses_pinned_trusted_descriptor() {
     test_helpers::write_file(program, "#!/bin/sh\nexit 0\n");
     chmod(program.c_str(), 0700);
 
-    btrfsbackup::backup::BackupSourceRunPlan source = source_plan(root);
+    TestSource source = source_plan(root);
     FakeBtrfsOperations btrfs;
     FakeFileSystem fs_effects;
     FakeCommandRunner hooks;
@@ -662,7 +699,7 @@ void test_production_hook_uses_pinned_trusted_descriptor() {
 
 void test_hook_failure_is_reported_as_system_operation_error() {
     fs::path root = test_helpers::test_root("backup-run-action-handler", "hook-failure");
-    btrfsbackup::backup::BackupSourceRunPlan source = source_plan(root);
+    TestSource source = source_plan(root);
     FakeBtrfsOperations btrfs;
     FakeFileSystem fs_effects;
     FakeCommandRunner hooks;
@@ -679,7 +716,7 @@ void test_hook_failure_is_reported_as_system_operation_error() {
 
 void test_hook_timeout_has_stable_error_code() {
     fs::path root = test_helpers::test_root("backup-run-action-handler", "hook-timeout");
-    btrfsbackup::backup::BackupSourceRunPlan source = source_plan(root);
+    TestSource source = source_plan(root);
     FakeBtrfsOperations btrfs;
     FakeFileSystem fs_effects;
     FakeCommandRunner hooks;
@@ -703,7 +740,7 @@ void test_hook_timeout_has_stable_error_code() {
 
 void test_hook_cancellation_is_not_reported_as_hook_failure() {
     fs::path root = test_helpers::test_root("backup-run-action-handler", "hook-cancel");
-    btrfsbackup::backup::BackupSourceRunPlan source = source_plan(root);
+    TestSource source = source_plan(root);
     FakeBtrfsOperations btrfs;
     FakeFileSystem fs_effects;
     FakeCommandRunner hooks;
