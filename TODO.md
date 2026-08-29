@@ -53,7 +53,7 @@ by systemd and preserving automatic backup when the manager is absent.
 
 ## Exit Criteria
 
-- [ ] All default, private-bus, QEMU hotplug, real-Btrfs and package tests pass.
+- [x] All default, private-bus, QEMU hotplug, real-Btrfs and package tests pass.
 - [ ] GCC and Clang builds pass with manager enabled and disabled; the base
   package remains free of Qt/KDE dependencies.
 - [ ] Automatic backup and an active runner work when `btrfs-backupd` is

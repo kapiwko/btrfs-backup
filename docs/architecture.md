@@ -52,7 +52,7 @@ flowchart TB
 
     mount --> lock
 
-    schedule[ExecStopPost schedules the profile eject service]
+    schedule[OnSuccess or OnFailure schedules the profile eject service]
 
     subgraph eject[eject service]
         direction TB
@@ -93,11 +93,11 @@ privilege acquisition and writable-executable mappings, and limiting sockets to
 `AF_UNIX` and `AF_NETLINK`. The runner validates the target mounted by PID 1
 from inside that namespace before it performs any repository operation.
 
-The filesystem sandbox makes service mount changes private. `ExecStopPost`
-queues the short-lived eject unit without blocking, and its ordering makes it
-start only after the runner has left that namespace. The unit performs the host
-unmount and LUKS closure without a private mount namespace, while retaining the
-restrictions that do not interfere with the target lifecycle.
+The filesystem sandbox makes service mount changes private. `OnSuccess` and
+`OnFailure` queue the short-lived eject unit after the runner reaches its final
+state and has left that namespace. The unit performs the host unmount and LUKS
+closure without a private mount namespace, while retaining the restrictions
+that do not interfere with the target lifecycle.
 
 ## Runner And Target Locks
 

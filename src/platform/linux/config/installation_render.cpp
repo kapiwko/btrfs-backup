@@ -101,21 +101,23 @@ std::string render_backup_service(const btrfsbackup::config::Profile& profile, c
         "After=local-fs.target systemd-udevd.service\n"
         "StartLimitIntervalSec=5min\n"
         "StartLimitBurst=3\n"
-        "\n"
-        "[Service]\n"
-        "Type=oneshot\n"
-        "ExecStart=" +
-        backup_command + " --profile " + std::string(profile.id.value()) + "\n"
-                                                                           "ExecStopPost=/usr/bin/systemctl --no-block start btrfs-backup-eject@" +
+        "OnSuccess=btrfs-backup-eject@" +
         std::string(profile.id.value()) + ".service\n"
-                                          "User=root\n"
-                                          "Group=root\n"
-                                          "UMask=0077\n"
-                                          "RuntimeDirectory=btrfs-backup\n"
-                                          "RuntimeDirectoryMode=0755\n"
-                                          "StateDirectory=btrfs-backup\n"
-                                          "StateDirectoryMode=0755\n"
-                                          "Environment=PATH=/usr/bin\n" +
+                                          "OnFailure=btrfs-backup-eject@" +
+        std::string(profile.id.value()) + ".service\n"
+                                          "\n"
+                                          "[Service]\n"
+                                          "Type=oneshot\n"
+                                          "ExecStart=" +
+        backup_command + " --profile " + std::string(profile.id.value()) + "\n"
+                                                                           "User=root\n"
+                                                                           "Group=root\n"
+                                                                           "UMask=0077\n"
+                                                                           "RuntimeDirectory=btrfs-backup\n"
+                                                                           "RuntimeDirectoryMode=0755\n"
+                                                                           "StateDirectory=btrfs-backup\n"
+                                                                           "StateDirectoryMode=0755\n"
+                                                                           "Environment=PATH=/usr/bin\n" +
         service_hardening +
         "Nice=10\n"
         "IOSchedulingClass=best-effort\n"
@@ -136,12 +138,13 @@ std::string render_profile_service(const std::string& backup_command) {
            "After=local-fs.target systemd-udevd.service\n"
            "StartLimitIntervalSec=5min\n"
            "StartLimitBurst=3\n"
+           "OnSuccess=btrfs-backup-eject@%i.service\n"
+           "OnFailure=btrfs-backup-eject@%i.service\n"
            "\n"
            "[Service]\n"
            "Type=oneshot\n"
            "ExecStart=" +
         backup_command + " --profile %i\n"
-                         "ExecStopPost=/usr/bin/systemctl --no-block start btrfs-backup-eject@%i.service\n"
                          "User=root\n"
                          "Group=root\n"
                          "UMask=0077\n"

@@ -223,7 +223,10 @@ The test covers:
 19. offline `systemd-analyze security` against the installed unit;
 20. a complete real Btrfs backup started through the sandboxed systemd profile
     service, including the pre-sandbox target mount dependency;
-21. automatic host unmount and LUKS closure through the post-run eject unit;
+21. a plain mapper close/reopen lifecycle plus automatic host unmount and LUKS
+    closure through the terminal-state eject unit; auxiliary sandboxed services
+    started by the harness are stopped before this check so they cannot retain
+    the test mount in a private namespace;
 22. a complete backup requested through the system D-Bus manager by an
     unprivileged user and authorized by real polkit from the installed package.
 
