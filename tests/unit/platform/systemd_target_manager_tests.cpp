@@ -49,6 +49,7 @@ struct FakeCommandRunner final : btrfsbackup::backup::ICommandRunner {
     std::vector<std::vector<std::string>> calls;
     int start_exit_code = 0;
     int stop_mount_exit_code = 0;
+    int stop_crypt_exit_code = 0;
 
     btrfsbackup::backup::CommandResult run(const std::vector<std::string>& argv) override {
         calls.push_back(argv);
@@ -57,6 +58,9 @@ struct FakeCommandRunner final : btrfsbackup::backup::ICommandRunner {
         }
         if (argv == std::vector<std::string>{"systemctl", "stop", "mnt-backup.mount"}) {
             return {.exit_code = stop_mount_exit_code};
+        }
+        if (argv == std::vector<std::string>{"systemctl", "stop", "systemd-cryptsetup@backup.service"}) {
+            return {.exit_code = stop_crypt_exit_code};
         }
         return {};
     }
@@ -93,7 +97,7 @@ void test_mounted_session_restores_target_state() {
         btrfsbackup::backup::TargetMountMode::MountIfNeeded
     );
     test_helpers::expect_true("mounted session ownership", session->mounted_by_this_session(), "session did not claim its mount");
-    session.reset();
+    test_helpers::expect_true("mounted session close", !session->close().has_value(), "session cleanup failed");
 
     const std::vector<std::vector<std::string>> expected{
         {"systemctl", "start", "mnt-backup.mount"},
@@ -115,7 +119,7 @@ void test_preexisting_mapper_is_not_stopped() {
         profile(),
         btrfsbackup::backup::TargetMountMode::MountIfNeeded
     );
-    session.reset();
+    test_helpers::expect_true("preexisting mapper close", !session->close().has_value(), "session cleanup failed");
 
     const std::vector<std::vector<std::string>> expected{
         {"systemctl", "start", "mnt-backup.mount"},
@@ -135,7 +139,7 @@ void test_existing_mount_is_not_stopped() {
         profile(),
         btrfsbackup::backup::TargetMountMode::MountIfNeeded
     );
-    session.reset();
+    test_helpers::expect_true("existing mount close", !session->close().has_value(), "session cleanup failed");
 
     test_helpers::expect_true("existing mount commands", commands.calls.empty(), "session changed a pre-existing mount");
 }
@@ -171,13 +175,50 @@ void test_failed_unmount_does_not_close_mapper() {
         profile(),
         btrfsbackup::backup::TargetMountMode::MountIfNeeded
     );
-    session.reset();
+    const std::optional<btrfsbackup::backup::TargetCleanupError> error = session->close();
+
+    test_helpers::expect_true(
+        "failed unmount result",
+        error.has_value() &&
+            error->stage == btrfsbackup::backup::TargetCleanupStage::MountUnit &&
+            error->unit == "mnt-backup.mount" &&
+            error->exit_code == 1,
+        "failed unmount was not reported"
+    );
 
     const std::vector<std::vector<std::string>> expected{
         {"systemctl", "start", "mnt-backup.mount"},
         {"systemctl", "stop", "mnt-backup.mount"},
     };
     test_helpers::expect_true("failed unmount cleanup", commands.calls == expected, "session closed mapper while mount remained active");
+}
+
+void test_failed_cryptsetup_stop_is_reported_separately() {
+    FakeMountInspector mounts;
+    FakeCommandRunner commands;
+    commands.stop_crypt_exit_code = 2;
+    btrfsbackup::platform::linux::SystemdTargetManager manager(mounts, commands);
+
+    std::unique_ptr<btrfsbackup::backup::IMountedTargetSession> session = manager.prepare(
+        profile(),
+        btrfsbackup::backup::TargetMountMode::MountIfNeeded
+    );
+    const std::optional<btrfsbackup::backup::TargetCleanupError> error = session->close();
+
+    test_helpers::expect_true(
+        "failed cryptsetup result",
+        error.has_value() &&
+            error->stage == btrfsbackup::backup::TargetCleanupStage::CryptsetupUnit &&
+            error->unit == "systemd-cryptsetup@backup.service" &&
+            error->exit_code == 2,
+        "failed cryptsetup stop was not reported"
+    );
+    const std::vector<std::vector<std::string>> expected{
+        {"systemctl", "start", "mnt-backup.mount"},
+        {"systemctl", "stop", "mnt-backup.mount"},
+        {"systemctl", "stop", "systemd-cryptsetup@backup.service"},
+    };
+    test_helpers::expect_true("failed cryptsetup cleanup", commands.calls == expected, "cleanup commands were incomplete");
 }
 
 } // namespace
@@ -189,5 +230,6 @@ int main() {
     test_existing_mount_is_not_stopped();
     test_failed_mount_start_restores_inactive_mapper();
     test_failed_unmount_does_not_close_mapper();
+    test_failed_cryptsetup_stop_is_reported_separately();
     return test_helpers::finish("systemd target manager tests");
 }

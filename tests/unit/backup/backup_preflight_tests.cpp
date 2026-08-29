@@ -41,10 +41,15 @@ struct FakeTargetManager final : btrfsbackup::backup::ITargetManager {
             : mounted(mounted), calls(calls), mounted_by_session(mounted_by_session) {
         }
         ~Session() override {
-            if (mounted_by_session) {
+            (void)close();
+        }
+        std::optional<btrfsbackup::backup::TargetCleanupError> close() noexcept override {
+            if (!closed && mounted_by_session) {
                 mounted = false;
                 calls.push_back("unmount");
             }
+            closed = true;
+            return std::nullopt;
         }
         bool mounted_by_this_session() const noexcept override {
             return mounted_by_session;
@@ -52,6 +57,7 @@ struct FakeTargetManager final : btrfsbackup::backup::ITargetManager {
         bool& mounted;
         std::vector<std::string>& calls;
         bool mounted_by_session;
+        bool closed = false;
     };
 
     std::unique_ptr<btrfsbackup::backup::IMountedTargetSession> prepare(
@@ -110,7 +116,7 @@ void test_activates_target_before_reading_and_validating_mounts() {
         calls == std::vector<std::string>{"mount", "inspect"},
         "mount table was not read after target activation"
     );
-    session.reset();
+    test_helpers::expect_true("preflight close", !session->close().has_value(), "target cleanup failed");
     test_helpers::expect_true(
         "preflight restores mount",
         calls == std::vector<std::string>{"mount", "inspect", "unmount"},

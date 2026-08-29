@@ -58,6 +58,7 @@ struct RunExecutionContext {
     ~RunExecutionContext() noexcept;
 
     [[nodiscard]] CloseResult close();
+    [[nodiscard]] std::optional<TargetCleanupError> close_target_session() noexcept;
     void attach_target_session(std::unique_ptr<IMountedTargetSession> session);
 
     ProfileId profile_id;
@@ -72,6 +73,8 @@ struct RunExecutionContext {
   private:
     std::unique_ptr<IBackupRunEventSink>& events_;
     ICancellationRequestStore& cancellation_requests_;
+    bool target_close_attempted_ = false;
+    std::optional<TargetCleanupError> target_close_error_;
     bool closed_ = false;
 };
 
