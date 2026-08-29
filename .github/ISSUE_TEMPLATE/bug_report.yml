@@ -14,7 +14,7 @@ body:
     attributes:
       label: btrfs-backup version
       description: Provide the release version and commit when building from source.
-      placeholder: "0.3.0 / commit b4d5f3b"
+      placeholder: "0.3.1 / commit abc1234"
     validations:
       required: true
 

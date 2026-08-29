@@ -1,9 +1,10 @@
-# TODO: Post-release Work After v0.3.0
+# TODO: Post-release Work For v0.3.x
 
-v0.3.0 has been released. Unchecked items in this file are post-release work,
-not retroactive release criteria. Product directions that are not near-term
-commitments belong in [ROADMAP.md](ROADMAP.md). Unresolved architecture belongs
-in `docs/design/`; accepted decisions belong in `docs/adr/`.
+The v0.3.x line has been released. Unchecked items in this file are follow-up
+work, not retroactive release criteria. Product directions that are not
+near-term commitments belong in [ROADMAP.md](ROADMAP.md). Unresolved
+architecture belongs in `docs/design/`; accepted decisions belong in
+`docs/adr/`.
 
 ## Sprint Goal
 
