@@ -60,6 +60,10 @@ assert_public_link_interface(
     btrfsbackup-transfer
 )
 assert_public_link_interface(
+    btrfsbackup-backup-testing
+    btrfsbackup-backup-ports
+)
+assert_public_link_interface(
     btrfsbackup-backup
     btrfsbackup-backup-model
     btrfsbackup-backup-ports

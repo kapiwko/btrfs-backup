@@ -8,9 +8,9 @@
 
 #include <backup/backup_action_executor.hpp>
 #include <backup/backup_run_checkpoint_policy.hpp>
-#include <backup/model/backup_run_event.hpp>
 #include <backup/model/backup_run_execution.hpp>
 #include <backup/model/backup_run_plan.hpp>
+#include <backup/ports/backup_run_event_sink.hpp>
 
 namespace btrfsbackup::backup {
 

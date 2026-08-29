@@ -6,7 +6,7 @@
 
 #include <memory>
 
-#include <backup/model/backup_run_event.hpp>
+#include <backup/ports/backup_run_checkpoint_store.hpp>
 #include <core/identifiers.hpp>
 
 namespace btrfsbackup::backup {
