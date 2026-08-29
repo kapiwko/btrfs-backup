@@ -78,6 +78,11 @@ void test_backup_uses_versioned_transient_unit() {
         unit.command.at(0) == installed_program("btrfs-backup"),
         "backup transient unit ignored the configured install bindir"
     );
+    test_helpers::expect_true(
+        "manual backup force",
+        contains(unit.command, "--force"),
+        "manual backup remains subject to the daily limit"
+    );
 }
 
 void test_synchronous_target_operations_carry_identity() {
@@ -100,6 +105,11 @@ void test_synchronous_target_operations_carry_identity() {
         "eject executable",
         eject.command.at(0) == installed_program("btrfs-backupctl"),
         "eject transient unit ignored the configured install bindir"
+    );
+    test_helpers::expect_true(
+        "eject preserves busy check",
+        !contains(eject.command, "--force"),
+        "manager eject bypasses the target lease and identity checks"
     );
 }
 

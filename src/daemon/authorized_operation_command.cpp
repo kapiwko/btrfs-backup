@@ -98,7 +98,13 @@ TransientUnitRequest authorized_backup_unit(const AuthorizedOperationContext& co
         "ExecStopPost=" + installed_program("btrfs-backupctl") +
         " target eject --from-service --profile " + profile_id
     );
-    unit.command = {installed_program("btrfs-backup"), "--profile", profile_id, "--no-eject"};
+    unit.command = {
+        installed_program("btrfs-backup"),
+        "--profile",
+        profile_id,
+        "--force",
+        "--no-eject",
+    };
     return unit;
 }
 
