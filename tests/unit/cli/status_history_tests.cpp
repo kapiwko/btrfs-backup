@@ -52,7 +52,7 @@ void test_list_profiles_from_json_files() {
     test_helpers::write_file(root / "profiles" / "default" / "profile.json", "{}\n");
     std::ostringstream output;
 
-    btrfsbackup::cli::profile_list(root / "profiles.d", root / "profiles", output);
+    btrfsbackup::cli::profile_list(root / "profiles", output);
 
     test_helpers::expect_eq("list profiles", output.str(), "beta\ndefault\n");
     fs::remove_all(root);
@@ -195,7 +195,7 @@ void test_list_profiles_rejects_invalid_name() {
         "invalid profile",
         [&] {
             std::ostringstream output;
-            btrfsbackup::cli::profile_list(root / "profiles.d", root / "profiles", output);
+            btrfsbackup::cli::profile_list(root / "profiles", output);
         },
         "invalid profile id"
     );

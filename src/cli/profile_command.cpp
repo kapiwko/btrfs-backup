@@ -63,7 +63,8 @@ int profile(
     const fs::path& profile_config_dir,
     btrfsbackup::config::IConfigurationActivator& system_activator
 ) {
-    fs::path etc_root = std::getenv("BTRFS_BACKUP_ETC_ROOT") ? std::getenv("BTRFS_BACKUP_ETC_ROOT") : "/etc/btrfs-backup";
+    fs::path etc_root =
+        std::getenv("BTRFS_BACKUP_ETC_ROOT") ? std::getenv("BTRFS_BACKUP_ETC_ROOT") : profile_config_dir;
     fs::path udev_root = std::getenv("BTRFS_BACKUP_UDEV_ROOT") ? std::getenv("BTRFS_BACKUP_UDEV_ROOT") : "/etc/udev/rules.d";
     fs::path systemd_root = std::getenv("BTRFS_BACKUP_SYSTEMD_ROOT") ? std::getenv("BTRFS_BACKUP_SYSTEMD_ROOT") : "/etc/systemd/system";
     fs::path public_root = std::getenv("BTRFS_BACKUP_PUBLIC_ROOT") ? std::getenv("BTRFS_BACKUP_PUBLIC_ROOT") : "/var/lib/btrfs-backup/public/profiles";
@@ -99,7 +100,7 @@ int profile(
             return profile_create(std::vector<std::string>(rest.begin() + 1, rest.end()));
         }
         if (command == "list") {
-            profile_list(profile_config_dir, profile_config_dir.parent_path() / "profiles", std::cout);
+            profile_list(etc_root / "profiles", std::cout);
             return 0;
         }
         if (command == "wizard") {
