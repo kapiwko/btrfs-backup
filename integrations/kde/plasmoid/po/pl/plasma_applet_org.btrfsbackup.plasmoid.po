@@ -120,6 +120,9 @@ msgstr "Cel:"
 msgid "Backup target"
 msgstr "Cel kopii zapasowej"
 
+msgid "Backup target:"
+msgstr "Cel kopii zapasowej:"
+
 msgid "Connect the backup target to run or validate a backup."
 msgstr "Podłącz cel kopii zapasowej, aby uruchomić lub zweryfikować kopię."
 
@@ -224,3 +227,9 @@ msgstr "Waliduj"
 
 msgid "Eject"
 msgstr "Wysuń"
+
+msgid "No backup profiles configured"
+msgstr "Nie skonfigurowano profili kopii zapasowej"
+
+msgid "Backup service unavailable"
+msgstr "Usługa kopii zapasowej jest niedostępna"

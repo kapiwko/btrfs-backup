@@ -1177,7 +1177,7 @@ if [[ "$TARGET" == all || "$TARGET" == arch ]]; then
     grep -qx '.MTREE' "$TMP_ROOT/package-kde-files.txt"
     grep -qx 'usr/share/plasma/plasmoids/org.btrfsbackup.plasmoid/metadata.json' "$TMP_ROOT/package-kde-files.txt"
     grep -qx 'usr/share/plasma/plasmoids/org.btrfsbackup.plasmoid/contents/ui/main.qml' "$TMP_ROOT/package-kde-files.txt"
-    for component in ActionToolbar RunDetails TargetOverview TransferSpeedChart; do
+    for component in ProfileItem TransferSpeedChart; do
         grep -qx "usr/share/plasma/plasmoids/org.btrfsbackup.plasmoid/contents/ui/$component.qml" \
             "$TMP_ROOT/package-kde-files.txt"
     done
