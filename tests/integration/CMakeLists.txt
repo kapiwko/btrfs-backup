@@ -20,8 +20,19 @@ add_test(
         -DBUILD_DIR=${PROJECT_BINARY_DIR}
         -DINSTALL_ROOT=${PROJECT_BINARY_DIR}/cmake-install-test
         -DINSTALL_LIBDIR=${CMAKE_INSTALL_LIBDIR}
+        -DINSTALL_BINDIR_FULL=${CMAKE_INSTALL_FULL_BINDIR}
         -DBUILD_SYSTEM_MANAGER=${BUILD_SYSTEM_MANAGER}
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake_install_tests.cmake
+)
+
+add_test(
+    NAME cmake-custom-prefix-tests
+    COMMAND
+        ${CMAKE_COMMAND}
+        -DSOURCE_DIR=${PROJECT_SOURCE_DIR}
+        -DBINARY_ROOT=${PROJECT_BINARY_DIR}/cmake-custom-prefix-test
+        -DINSTALL_LIBDIR=${CMAKE_INSTALL_LIBDIR}
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake_custom_prefix_tests.cmake
 )
 
 if(BUILD_SYSTEM_MANAGER)

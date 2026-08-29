@@ -2,8 +2,8 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-if(NOT DEFINED BUILD_DIR OR NOT DEFINED INSTALL_ROOT OR NOT DEFINED INSTALL_LIBDIR)
-    message(FATAL_ERROR "BUILD_DIR, INSTALL_ROOT, and INSTALL_LIBDIR are required")
+if(NOT DEFINED BUILD_DIR OR NOT DEFINED INSTALL_ROOT OR NOT DEFINED INSTALL_LIBDIR OR NOT DEFINED INSTALL_BINDIR_FULL)
+    message(FATAL_ERROR "BUILD_DIR, INSTALL_ROOT, INSTALL_LIBDIR, and INSTALL_BINDIR_FULL are required")
 endif()
 
 file(REMOVE_RECURSE "${INSTALL_ROOT}")
@@ -48,7 +48,23 @@ endforeach()
 foreach(unit_name IN ITEMS btrfs-backup@.service btrfs-backup-eject@.service btrfs-backup-validate@.service)
     set(unit_path "${INSTALL_ROOT}/usr/${INSTALL_LIBDIR}/systemd/system/${unit_name}")
     file(READ "${unit_path}" unit_content)
-    if(unit_content MATCHES "\\{\\{")
+    if(unit_content MATCHES "\\{\\{" OR unit_content MATCHES "@BTRFSBACKUP_")
         message(FATAL_ERROR "unresolved placeholder in ${unit_name}")
     endif()
 endforeach()
+
+file(READ "${INSTALL_ROOT}/usr/${INSTALL_LIBDIR}/systemd/system/btrfs-backup@.service" backup_unit)
+if(NOT backup_unit MATCHES "ExecStart=${INSTALL_BINDIR_FULL}/btrfs-backupctl runner execute")
+    message(FATAL_ERROR "installed backup unit does not use configured bindir")
+endif()
+
+if(BUILD_SYSTEM_MANAGER)
+    file(READ "${INSTALL_ROOT}/usr/${INSTALL_LIBDIR}/systemd/system/btrfs-backupd.service" manager_unit)
+    file(READ "${INSTALL_ROOT}/usr/share/dbus-1/system-services/io.github.btrfsbackup.Manager1.service" activation)
+    if(NOT manager_unit MATCHES "ExecStart=${INSTALL_BINDIR_FULL}/btrfs-backupd")
+        message(FATAL_ERROR "manager unit does not use configured bindir")
+    endif()
+    if(NOT activation MATCHES "Exec=${INSTALL_BINDIR_FULL}/btrfs-backupd")
+        message(FATAL_ERROR "D-Bus activation does not use configured bindir")
+    endif()
+endif()

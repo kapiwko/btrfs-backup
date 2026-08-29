@@ -8,7 +8,7 @@ StartLimitBurst=3
 
 [Service]
 Type=oneshot
-ExecStart={{BACKUP_COMMAND}} --profile %i
+ExecStart=@BTRFSBACKUP_BACKUP_COMMAND@ --profile %i
 ExecStopPost=/usr/bin/systemctl --no-block start btrfs-backup-eject@%i.service
 User=root
 Group=root

@@ -120,6 +120,10 @@ add_library(btrfsbackup-platform-linux-config STATIC
 )
 
 target_compile_features(btrfsbackup-platform-linux-config PUBLIC cxx_std_20)
+target_compile_definitions(
+    btrfsbackup-platform-linux-config
+    PRIVATE BTRFSBACKUP_INSTALL_BINDIR="${CMAKE_INSTALL_FULL_BINDIR}"
+)
 target_restricted_include_directories(btrfsbackup-platform-linux-config
     PUBLIC_HEADERS
         platform/linux/config/application_config.hpp

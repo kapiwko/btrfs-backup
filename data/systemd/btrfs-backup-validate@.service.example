@@ -11,7 +11,7 @@ After=local-fs.target systemd-udevd.service
 [Service]
 Type=oneshot
 EnvironmentFile=/run/btrfs-backup-manager/%i.env
-ExecStart={{BACKUP_COMMAND}} --profile ${BTRFS_BACKUP_PROFILE_ID} --validate
+ExecStart=@BTRFSBACKUP_BACKUP_COMMAND@ --profile ${BTRFS_BACKUP_PROFILE_ID} --validate
 User=root
 Group=root
 UMask=0077

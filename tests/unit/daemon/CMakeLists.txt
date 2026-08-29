@@ -8,6 +8,10 @@ add_btrfsbackup_test(
     authorized-operation-command-tests
     btrfsbackup-daemon-core
 )
+target_compile_definitions(
+    btrfsbackup-authorized-operation-command-tests
+    PRIVATE BTRFSBACKUP_TEST_INSTALL_BINDIR="${CMAKE_INSTALL_FULL_BINDIR}"
+)
 
 add_btrfsbackup_test(
     btrfsbackup-manager-service-tests

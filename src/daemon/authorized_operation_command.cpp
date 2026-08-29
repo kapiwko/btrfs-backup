@@ -15,6 +15,14 @@ namespace btrfsbackup::daemon {
 
 namespace {
 
+#ifndef BTRFSBACKUP_INSTALL_BINDIR
+#error "BTRFSBACKUP_INSTALL_BINDIR must be defined by the build system"
+#endif
+
+std::string installed_program(const char* name) {
+    return std::string(BTRFSBACKUP_INSTALL_BINDIR) + "/" + name;
+}
+
 std::string environment_value(const std::string& value) {
     std::string quoted{"\""};
     for (const char character : value) {
@@ -87,9 +95,10 @@ TransientUnitRequest authorized_backup_unit(const AuthorizedOperationContext& co
     const std::string profile_id(context.profile_id.value());
     TransientUnitRequest unit = transient_unit(context, "run", false);
     unit.properties.push_back(
-        "ExecStopPost=/usr/bin/btrfs-backupctl target eject --from-service --profile " + profile_id
+        "ExecStopPost=" + installed_program("btrfs-backupctl") +
+        " target eject --from-service --profile " + profile_id
     );
-    unit.command = {"/usr/bin/btrfs-backup", "--profile", profile_id, "--no-eject"};
+    unit.command = {installed_program("btrfs-backup"), "--profile", profile_id, "--no-eject"};
     return unit;
 }
 
@@ -111,7 +120,14 @@ std::string authorized_target_validation_unit(const AuthorizedOperationContext& 
 TransientUnitRequest authorized_target_eject_unit(const AuthorizedOperationContext& context) {
     const std::string profile_id(context.profile_id.value());
     TransientUnitRequest unit = transient_unit(context, "eject", true);
-    unit.command = {"/usr/bin/btrfs-backupctl", "target", "eject", "--from-service", "--profile", profile_id};
+    unit.command = {
+        installed_program("btrfs-backupctl"),
+        "target",
+        "eject",
+        "--from-service",
+        "--profile",
+        profile_id,
+    };
     return unit;
 }
 
