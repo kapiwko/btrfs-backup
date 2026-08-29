@@ -4,8 +4,8 @@
 
 #include <daemon/authorized_operation_command.hpp>
 
+#include <chrono>
 #include <string>
-#include <utility>
 #include <vector>
 
 #include <config/configuration_identity.hpp>
@@ -30,82 +30,67 @@ std::string environment_value(const std::string& value) {
     return quoted;
 }
 
-std::vector<std::string> transient_command(
+TransientUnitRequest transient_unit(
     const AuthorizedOperationContext& context,
     std::string operation,
     bool wait
 ) {
     const std::string operation_id(context.operation_id.value());
     return {
-        "systemd-run",
-        "--quiet",
-        wait ? "--wait" : "--no-block",
-        "--collect",
-        "--unit=btrfs-backup-" + std::move(operation) + "@" + operation_id + ".service",
-        "--property=User=root",
-        "--property=Group=root",
-        "--property=UMask=0077",
-        "--property=RuntimeDirectory=btrfs-backup",
-        "--property=RuntimeDirectoryMode=0755",
-        "--property=StateDirectory=btrfs-backup",
-        "--property=StateDirectoryMode=0755",
-        "--property=NoNewPrivileges=yes",
-        "--property=PrivateTmp=yes",
-        "--property=ProtectSystem=full",
-        "--property=ProtectKernelTunables=yes",
-        "--property=ProtectKernelModules=yes",
-        "--property=ProtectControlGroups=yes",
-        "--property=ProtectHostname=yes",
-        "--property=ProtectClock=yes",
-        "--property=ProtectProc=invisible",
-        "--property=LockPersonality=yes",
-        "--property=RestrictRealtime=yes",
-        "--property=MemoryDenyWriteExecute=yes",
-        "--property=SystemCallArchitectures=native",
-        "--property=RestrictAddressFamilies=AF_UNIX AF_NETLINK",
-        "--property=Nice=10",
-        "--property=IOSchedulingClass=best-effort",
-        "--property=IOSchedulingPriority=7",
-        "--property=TimeoutStartSec=infinity",
-        "--property=TimeoutStopSec=90s",
-        "--property=KillSignal=SIGINT",
-        "--property=KillMode=mixed",
-        "--property=SendSIGKILL=yes",
-        "--setenv=PATH=/usr/bin",
-        std::string("--setenv=") + btrfsbackup::config::expected_configuration_generation_environment + "=" + context.generation.value(),
-        std::string("--setenv=") + btrfsbackup::config::expected_configuration_fingerprint_environment + "=" + context.fingerprint.value(),
-        std::string("--setenv=") + btrfsbackup::config::authorized_operation_id_environment + "=" + operation_id,
+        .unit = "btrfs-backup-" + operation + "@" + operation_id + ".service",
+        .command = {},
+        .properties = {
+            "User=root",
+            "Group=root",
+            "UMask=0077",
+            "RuntimeDirectory=btrfs-backup",
+            "RuntimeDirectoryMode=0755",
+            "StateDirectory=btrfs-backup",
+            "StateDirectoryMode=0755",
+            "NoNewPrivileges=yes",
+            "PrivateTmp=yes",
+            "ProtectSystem=full",
+            "ProtectKernelTunables=yes",
+            "ProtectKernelModules=yes",
+            "ProtectControlGroups=yes",
+            "ProtectHostname=yes",
+            "ProtectClock=yes",
+            "ProtectProc=invisible",
+            "LockPersonality=yes",
+            "RestrictRealtime=yes",
+            "MemoryDenyWriteExecute=yes",
+            "SystemCallArchitectures=native",
+            "RestrictAddressFamilies=AF_UNIX AF_NETLINK",
+            "Nice=10",
+            "IOSchedulingClass=best-effort",
+            "IOSchedulingPriority=7",
+            "TimeoutStartSec=infinity",
+            "TimeoutStopSec=90s",
+            "KillSignal=SIGINT",
+            "KillMode=mixed",
+            "SendSIGKILL=yes",
+        },
+        .environment = {
+            "PATH=/usr/bin",
+            std::string(btrfsbackup::config::expected_configuration_generation_environment) + "=" + context.generation.value(),
+            std::string(btrfsbackup::config::expected_configuration_fingerprint_environment) + "=" + context.fingerprint.value(),
+            std::string(btrfsbackup::config::authorized_operation_id_environment) + "=" + operation_id,
+        },
+        .timeout = std::chrono::minutes(10),
+        .wait = wait,
     };
 }
 
 } // namespace
 
-std::vector<std::string> authorized_backup_command(const AuthorizedOperationContext& context) {
+TransientUnitRequest authorized_backup_unit(const AuthorizedOperationContext& context) {
     const std::string profile_id(context.profile_id.value());
-    std::vector<std::string> command = transient_command(context, "run", false);
-    command.push_back(
-        "--property=ExecStopPost=/usr/bin/btrfs-backupctl target eject --from-service --profile " + profile_id
+    TransientUnitRequest unit = transient_unit(context, "run", false);
+    unit.properties.push_back(
+        "ExecStopPost=/usr/bin/btrfs-backupctl target eject --from-service --profile " + profile_id
     );
-    command.insert(command.end(), {"/usr/bin/btrfs-backup", "--profile", profile_id, "--no-eject"});
-    return command;
-}
-
-std::vector<std::string> authorized_target_validation_command(
-    const AuthorizedOperationContext& context
-) {
-    return {"systemctl", "start", authorized_target_validation_unit(context)};
-}
-
-std::vector<std::string> authorized_target_validation_status_command(
-    const AuthorizedOperationContext& context
-) {
-    return {
-        "systemctl",
-        "show",
-        "--property=ExecMainStatus",
-        "--value",
-        authorized_target_validation_unit(context),
-    };
+    unit.command = {"/usr/bin/btrfs-backup", "--profile", profile_id, "--no-eject"};
+    return unit;
 }
 
 std::string authorized_operation_environment(const AuthorizedOperationContext& context) {
@@ -123,14 +108,11 @@ std::string authorized_target_validation_unit(const AuthorizedOperationContext& 
     return "btrfs-backup-validate@" + std::string(context.operation_id.value()) + ".service";
 }
 
-std::vector<std::string> authorized_target_eject_command(const AuthorizedOperationContext& context) {
+TransientUnitRequest authorized_target_eject_unit(const AuthorizedOperationContext& context) {
     const std::string profile_id(context.profile_id.value());
-    std::vector<std::string> command = transient_command(context, "eject", true);
-    command.insert(
-        command.end(),
-        {"/usr/bin/btrfs-backupctl", "target", "eject", "--from-service", "--profile", profile_id}
-    );
-    return command;
+    TransientUnitRequest unit = transient_unit(context, "eject", true);
+    unit.command = {"/usr/bin/btrfs-backupctl", "target", "eject", "--from-service", "--profile", profile_id};
+    return unit;
 }
 
 } // namespace btrfsbackup::daemon

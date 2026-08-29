@@ -5,12 +5,10 @@
 #pragma once
 
 #include <filesystem>
-#include <vector>
-
 #include <backup/ports/cancellation_request_store.hpp>
-#include <backup/ports/command_runner.hpp>
 #include <config/ports/profile_repository.hpp>
 #include <daemon/operational_control_service.hpp>
+#include <daemon/systemd_unit_controller.hpp>
 
 namespace btrfsbackup::daemon {
 
@@ -19,7 +17,7 @@ class SystemOperationalControlBackend final : public IOperationalControlBackend 
     SystemOperationalControlBackend(
         btrfsbackup::config::IProfileRepository& profiles,
         btrfsbackup::backup::ICancellationRequestStore& cancellation_requests,
-        btrfsbackup::backup::ICommandRunner& commands,
+        ISystemdUnitController& units,
         std::filesystem::path operation_environment_root = "/run/btrfs-backup-manager"
     );
 
@@ -36,12 +34,12 @@ class SystemOperationalControlBackend final : public IOperationalControlBackend 
     void require_profile_version(
         const AuthorizedOperationContext& context
     ) const;
-    void run_effect(const std::vector<std::string>& command, const char* operation);
+    static void require_job_accepted(const TransientJobResult& result, const char* operation);
     void run_target_validation(const AuthorizedOperationContext& context);
 
     btrfsbackup::config::IProfileRepository& profiles_;
     btrfsbackup::backup::ICancellationRequestStore& cancellation_requests_;
-    btrfsbackup::backup::ICommandRunner& commands_;
+    ISystemdUnitController& units_;
     std::filesystem::path operation_environment_root_;
 };
 
