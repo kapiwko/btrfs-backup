@@ -6,7 +6,7 @@
 
 #include <filesystem>
 
-#include <backup/model/backup_run_event.hpp>
+#include <backup/ports/backup_run_checkpoint_store.hpp>
 #include <state/persistent_document_operations.hpp>
 
 namespace btrfsbackup::state {

@@ -219,28 +219,4 @@ using BackupRunEvent = std::variant<
                       event);
 }
 
-class IBackupRunEventSink {
-  public:
-    virtual ~IBackupRunEventSink() = default;
-    virtual void on_backup_run_event(const BackupRunEvent& event) = 0;
-};
-
-class NullBackupRunEventSink final : public IBackupRunEventSink {
-  public:
-    void on_backup_run_event(const BackupRunEvent& event) override;
-};
-
-struct BackupRunCheckpoint {
-    ProfileId profile_id;
-    RunId run_id;
-    SourceId source_id;
-    BackupRunActionKind action_kind = BackupRunActionKind::CleanupSource;
-};
-
-class IBackupRunCheckpointStore {
-  public:
-    virtual ~IBackupRunCheckpointStore() = default;
-    virtual void write_checkpoint(const BackupRunCheckpoint& checkpoint) = 0;
-};
-
 } // namespace btrfsbackup::backup

@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include <backup/backup_run.hpp>
+#include <backup/testing/null_backup_run_event_sink.hpp>
 
 #include <memory>
 #include <stdexcept>

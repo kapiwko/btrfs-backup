@@ -9,6 +9,7 @@
 
 #include <backup/action_handlers/backup_run_action_handler.hpp>
 #include <backup/default_backup_run_factory.hpp>
+#include <backup/testing/null_backup_run_event_sink.hpp>
 
 #include "support/fake_safe_directory.hpp"
 #include "support/test_helpers.hpp"

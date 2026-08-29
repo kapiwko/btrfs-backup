@@ -8,7 +8,7 @@
 #include <memory>
 #include <string>
 
-#include <backup/model/backup_run_event.hpp>
+#include <backup/ports/backup_run_event_sink.hpp>
 #include <core/runtime_time.hpp>
 
 namespace btrfsbackup::backup {

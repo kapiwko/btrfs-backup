@@ -7,7 +7,7 @@
 #include <cstdint>
 
 #include <backup/action_handlers/backup_run_action_handler.hpp>
-#include <backup/model/backup_run_event.hpp>
+#include <backup/ports/backup_run_event_sink.hpp>
 #include <backup/ports/safe_directory.hpp>
 #include <backup/transfer/transfer_coordinator.hpp>
 
