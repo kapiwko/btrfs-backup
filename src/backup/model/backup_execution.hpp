@@ -7,12 +7,24 @@
 #include <cstddef>
 #include <string>
 #include <variant>
+#include <vector>
 
 #include <backup/model/backup_run_plan.hpp>
 #include <core/error_code.hpp>
 #include <core/identifiers.hpp>
 
 namespace btrfsbackup::backup {
+
+enum class BackupCompletionWarningComponent {
+    SuccessLedger,
+    TerminalStatus,
+};
+
+struct BackupCompletionWarning {
+    BackupCompletionWarningComponent component;
+    ErrorCode error_code;
+    std::string message;
+};
 
 struct BackupRequest {
     ProfileId profile_id;
@@ -56,6 +68,7 @@ using CancelBackupResult = std::variant<CancellationAccepted, CancellationStaleR
 struct BackupExecutionCompleted {
     BackupRunPlan plan;
     std::size_t actions_completed = 0;
+    std::vector<BackupCompletionWarning> warnings;
 };
 
 struct BackupExecutionSkipped {

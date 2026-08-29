@@ -172,9 +172,13 @@ struct TrackingEvents final : btrfsbackup::backup::IBackupRunEventSink {
     TrackingEvents(
         int& destructions,
         std::vector<btrfsbackup::backup::BackupRunEvent>& events,
-        std::vector<std::string>* lifecycle
+        std::vector<std::string>* lifecycle,
+        const bool& fail_run_completed
     )
-        : destructions_(destructions), events_(events), lifecycle_(lifecycle) {
+        : destructions_(destructions),
+          events_(events),
+          lifecycle_(lifecycle),
+          fail_run_completed_(fail_run_completed) {
     }
     ~TrackingEvents() override {
         if (lifecycle_ != nullptr) {
@@ -183,6 +187,11 @@ struct TrackingEvents final : btrfsbackup::backup::IBackupRunEventSink {
         ++destructions_;
     }
     void on_backup_run_event(const btrfsbackup::backup::BackupRunEvent& event) override {
+        if (fail_run_completed_ &&
+            btrfsbackup::backup::backup_run_event_kind(event) ==
+                btrfsbackup::backup::BackupRunEventKind::RunCompleted) {
+            throw std::runtime_error("could not persist terminal status");
+        }
         events_.push_back(event);
     }
 
@@ -190,6 +199,7 @@ struct TrackingEvents final : btrfsbackup::backup::IBackupRunEventSink {
     int& destructions_;
     std::vector<btrfsbackup::backup::BackupRunEvent>& events_;
     std::vector<std::string>* lifecycle_;
+    const bool& fail_run_completed_;
 };
 
 struct FakeRunFactory final : btrfsbackup::backup::IBackupRunFactory {
@@ -310,6 +320,7 @@ struct FakeState final : btrfsbackup::backup::IRunLedger,
     int skipped_writes = 0;
     int success_writes = 0;
     bool fail_success_write = false;
+    bool fail_run_completed = false;
     int cancel_writes = 0;
     int checkpoint_destructions = 0;
     int event_destructions = 0;
@@ -369,7 +380,12 @@ struct FakeState final : btrfsbackup::backup::IRunLedger,
         btrfsbackup::backup::BackupRunStatusDescription description
     ) override {
         event_descriptions.push_back(std::move(description));
-        return std::make_unique<TrackingEvents>(event_destructions, events_received, lifecycle);
+        return std::make_unique<TrackingEvents>(
+            event_destructions,
+            events_received,
+            lifecycle,
+            fail_run_completed
+        );
     }
 
     std::unique_ptr<btrfsbackup::backup::IActiveRunRegistration> register_active_run(
@@ -743,7 +759,7 @@ void test_run_context_releases_resources_after_exception() {
     );
 }
 
-void test_success_persistence_failure_does_not_emit_run_completed() {
+void test_success_ledger_failure_returns_degraded_success() {
     Fixture fixture;
     fixture.state.fail_success_write = true;
 
@@ -751,16 +767,50 @@ void test_success_persistence_failure_does_not_emit_run_completed() {
         .profile_id = btrfsbackup::ProfileId{"default"},
     });
 
-    const auto* failed = std::get_if<btrfsbackup::backup::BackupExecutionFailed>(&result);
-    test_helpers::expect_true("success persistence failure result", failed != nullptr, "ledger failure was not typed");
+    const auto* completed = std::get_if<btrfsbackup::backup::BackupExecutionCompleted>(&result);
+    test_helpers::expect_true("ledger failure result", completed != nullptr, "ledger failure changed completed backup to failure");
     test_helpers::expect_true(
-        "success persistence failure lifecycle",
+        "ledger failure warning",
+        completed != nullptr && completed->warnings.size() == 1 &&
+            completed->warnings.front().component ==
+                btrfsbackup::backup::BackupCompletionWarningComponent::SuccessLedger,
+        "ledger failure was not reported as degraded completion"
+    );
+    test_helpers::expect_true(
+        "ledger failure terminal status",
         fixture.state.events_received.size() == 2 &&
             btrfsbackup::backup::backup_run_event_kind(fixture.state.events_received.at(0)) ==
                 btrfsbackup::backup::BackupRunEventKind::RunStarted &&
             btrfsbackup::backup::backup_run_event_kind(fixture.state.events_received.at(1)) ==
-                btrfsbackup::backup::BackupRunEventKind::RunFailed,
-        "ledger failure emitted a premature RunCompleted"
+                btrfsbackup::backup::BackupRunEventKind::RunCompleted,
+        "ledger failure suppressed terminal status"
+    );
+}
+
+void test_terminal_status_failure_returns_degraded_success() {
+    Fixture fixture;
+    fixture.state.fail_run_completed = true;
+
+    const btrfsbackup::backup::BackupExecutionResult result = fixture.service.start({
+        .profile_id = btrfsbackup::ProfileId{"default"},
+    });
+
+    const auto* completed = std::get_if<btrfsbackup::backup::BackupExecutionCompleted>(&result);
+    test_helpers::expect_true("terminal status failure result", completed != nullptr, "status failure changed completed backup to failure");
+    test_helpers::expect_true("terminal status ledger", fixture.state.success_writes == 1, "status failure suppressed success ledger");
+    test_helpers::expect_true(
+        "terminal status warning",
+        completed != nullptr && completed->warnings.size() == 1 &&
+            completed->warnings.front().component ==
+                btrfsbackup::backup::BackupCompletionWarningComponent::TerminalStatus,
+        "terminal status failure was not reported as degraded completion"
+    );
+    test_helpers::expect_true(
+        "terminal status no failure event",
+        fixture.state.events_received.size() == 1 &&
+            btrfsbackup::backup::backup_run_event_kind(fixture.state.events_received.front()) ==
+                btrfsbackup::backup::BackupRunEventKind::RunStarted,
+        "status persistence failure emitted RunFailed"
     );
 }
 
@@ -1017,7 +1067,8 @@ int main() {
     test_run_context_releases_resources_after_success();
     test_run_context_close_aggregates_cleanup_diagnostics();
     test_run_context_releases_resources_after_exception();
-    test_success_persistence_failure_does_not_emit_run_completed();
+    test_success_ledger_failure_returns_degraded_success();
+    test_terminal_status_failure_returns_degraded_success();
     test_target_cleanup_failure_prevents_success();
     test_preflight_failure_has_terminal_run_lifecycle();
     test_run_can_be_cancelled_during_preflight();
