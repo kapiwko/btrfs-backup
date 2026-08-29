@@ -1,0 +1,6 @@
+.git/
+build/
+dist/
+*.img
+*.qcow2
+*.pkg.tar.zst

@@ -46,7 +46,7 @@ esac
 docker build \
     -t "$IMAGE_NAME" \
     -f "$ROOT/tests/integration/docker/Dockerfile" \
-    "$ROOT"
+    "$ROOT/tests/integration/docker"
 
 CONTAINER_ID="$(docker run -d --rm --privileged \
     --cgroupns=host \
