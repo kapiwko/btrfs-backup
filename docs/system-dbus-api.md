@@ -62,13 +62,17 @@ or durable history. Operational methods return schema-versioned `OperationResult
 | `PrepareDevice` | administrative | `io.github.btrfsbackup.prepare-device` |
 | `ChangeHooks` | code-execution risk | `io.github.btrfsbackup.change-hooks` |
 
-Operational actions use these defaults:
+Operational backup controls are allowed without a password from the active
+local session. The profile and hooks remain root-owned, so this grants control
+over an already approved backup definition, not configuration or arbitrary
+code execution. Eject still acquires the target lease and refuses to run while
+the target is in use:
 
 ```xml
 <defaults>
   <allow_any>no</allow_any>
   <allow_inactive>auth_admin</allow_inactive>
-  <allow_active>auth_admin_keep</allow_active>
+  <allow_active>yes</allow_active>
 </defaults>
 ```
 
@@ -85,8 +89,10 @@ or any implicit active-session grant:
 ```
 
 Each row has a distinct action identifier so an administrator can delegate one
-operation without implicitly delegating the others. The daemon must authorize
-every call, including calls from the active graphical session.
+operation without implicitly delegating the others. The daemon still asks
+polkit to authorize every call from the active graphical session; the policy,
+rather than the daemon, provides the narrow passwordless grants described
+above.
 
 ## Planned Profile And Hook Writes
 

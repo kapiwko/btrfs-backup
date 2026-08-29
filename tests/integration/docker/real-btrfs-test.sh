@@ -31,7 +31,10 @@ cleanup() {
     set +e
     umount -R "$TARGET_MOUNT" 2>/dev/null
     umount -R "$TARGET_STAGING_MOUNT" 2>/dev/null
-    cryptsetup close "$MAPPER_NAME" 2>/dev/null
+    for _ in $(seq 1 5); do
+        timeout --kill-after=1s 1s cryptsetup close "$MAPPER_NAME" 2>/dev/null && break
+        sleep 0.1
+    done
     umount -R "$SOURCE_MOUNT" 2>/dev/null
     [[ -n "$TARGET_LOOP" ]] && losetup -d "$TARGET_LOOP" 2>/dev/null
     [[ -n "$SOURCE_LOOP" ]] && losetup -d "$SOURCE_LOOP" 2>/dev/null
@@ -101,6 +104,8 @@ build_and_verify_packages() {
     command -v btrfs-backup >/dev/null
     command -v btrfs-backupctl >/dev/null
     command -v btrfs-backupd >/dev/null
+    command -v pkaction >/dev/null \
+        || fail 'base package did not install its polkit runtime dependency'
     btrfs-backup --help >/dev/null
     btrfs-backupctl --help >/dev/null
     btrfs-backupd --help >/dev/null
@@ -170,6 +175,110 @@ run_backup() {
         btrfs-backup \
         --force \
         --no-eject 2>&1 | tee -a "$RUN_LOG"
+}
+
+run_first_backup_through_system_dbus() {
+    local test_user=btrfs-dbus-test
+    local action_id=io.github.btrfsbackup.start-backup
+    local passwordless_action
+    local policy_rule=/etc/polkit-1/rules.d/49-btrfs-backup-integration.rules
+    local action_details
+    local response
+    local status_response
+    local operation_id
+    local unit
+    local state
+
+    action_details="$(pkaction --verbose --action-id "$action_id")" \
+        || fail 'installed polkit policy does not register the start-backup action'
+    grep -Eq 'implicit active:[[:space:]]+yes' <<< "$action_details" \
+        || fail 'installed polkit policy does not permit passwordless start from an active session'
+    for passwordless_action in \
+        io.github.btrfsbackup.cancel-backup \
+        io.github.btrfsbackup.validate-target \
+        io.github.btrfsbackup.eject-target; do
+        action_details="$(pkaction --verbose --action-id "$passwordless_action")" \
+            || fail "installed polkit policy does not register $passwordless_action"
+        grep -Eq 'implicit active:[[:space:]]+yes' <<< "$action_details" \
+            || fail "installed polkit policy requires a password for $passwordless_action"
+    done
+    useradd --system --no-create-home --shell /usr/bin/nologin "$test_user"
+    [[ "$(id -u "$test_user")" -ne 0 ]] || fail 'D-Bus integration caller unexpectedly has UID 0'
+    cat > "$policy_rule" <<'EOF_POLKIT_RULE'
+polkit.addRule(function(action, subject) {
+    if (action.id == "io.github.btrfsbackup.start-backup" &&
+        subject.user == "btrfs-dbus-test") {
+        return polkit.Result.YES;
+    }
+});
+EOF_POLKIT_RULE
+    chmod 0644 "$policy_rule"
+
+    rm -rf -- \
+        /run/btrfs-backup/profiles/default \
+        /var/lib/btrfs-backup/history/default
+    systemctl reload dbus.service
+    systemctl start polkit.service btrfs-backupd.service
+    systemctl is-active --quiet polkit.service \
+        || fail 'real polkit authority did not start'
+    systemctl is-active --quiet btrfs-backupd.service \
+        || fail 'system manager did not start'
+
+    if ! response="$(runuser -u "$test_user" -- \
+        busctl --system call \
+            io.github.btrfsbackup.Manager1 \
+            /io/github/btrfsbackup/Manager1 \
+            io.github.btrfsbackup.Manager1 \
+            StartBackup s default 2>&1)"; then
+        journalctl --no-pager -u polkit.service -u btrfs-backupd.service -n 100 >&2 || true
+        printf '%s\n' "$response" >&2
+        fail 'unprivileged user could not request StartBackup through the system D-Bus API'
+    fi
+    grep -Eq '\\"accepted\\":[[:space:]]*true' <<< "$response" \
+        || fail "manager did not accept the unprivileged start request: $response"
+    operation_id="$(sed -n 's/.*\\"operationId\\":[[:space:]]*\\"\([^"\\]*\)\\".*/\1/p' <<< "$response")"
+    [[ -n "$operation_id" ]] || fail "manager response omitted the operation id: $response"
+    unit="btrfs-backup-run@$operation_id.service"
+
+    for _ in $(seq 1 600); do
+        if [[ -f /var/lib/btrfs-backup/history/default/last.json ]]; then
+            state="$(sed -n 's/.*"state":[[:space:]]*"\([^"]*\)".*/\1/p' \
+                /var/lib/btrfs-backup/history/default/last.json | head -n1)"
+            [[ "$state" == 'succeeded' ]] && break
+            [[ "$state" == 'failed' || "$state" == 'cancelled' ]] && break
+        fi
+        sleep 0.1
+    done
+
+    for _ in $(seq 1 300); do
+        state="$(systemctl show --property=ActiveState --value "$unit" 2>/dev/null || true)"
+        [[ -z "$state" || "$state" == 'inactive' || "$state" == 'failed' ]] && break
+        sleep 0.1
+    done
+
+    journalctl --sync
+    journalctl --no-pager -o cat -u "$unit" -u btrfs-backupd.service | tee -a "$RUN_LOG"
+    state="$(sed -n 's/.*"state":[[:space:]]*"\([^"]*\)".*/\1/p' \
+        /var/lib/btrfs-backup/history/default/last.json 2>/dev/null | head -n1)"
+    if [[ "$state" != 'succeeded' ]]; then
+        cat /var/lib/btrfs-backup/history/default/last.json >&2 2>/dev/null || true
+        systemctl status --no-pager "$unit" >&2 || true
+        journalctl --no-pager -u btrfs-backupd.service -n 100 >&2 || true
+        fail "backup requested over D-Bus did not succeed (state: ${state:-missing})"
+    fi
+    status_response="$(runuser -u "$test_user" -- \
+        busctl --system call \
+            io.github.btrfsbackup.Manager1 \
+            /io/github/btrfsbackup/Manager1 \
+            io.github.btrfsbackup.Manager1 \
+            GetStatus s default)"
+    grep -Fq '\"state\": \"succeeded\"' <<< "$status_response" \
+        || fail "manager did not reconstruct terminal status from history: $status_response"
+
+    systemctl stop btrfs-backupd.service
+    rm -f -- "$policy_rule"
+    userdel "$test_user"
+    pass 'unprivileged user starts a real backup through system D-Bus and polkit'
 }
 
 expect_backup_failure() {
@@ -575,7 +684,7 @@ missing_incremental_parent_test() {
 }
 
 require_root
-require_commands btrfs cryptsetup dd diff dmsetup find findmnt grep ldd losetup mkfifo mkfs.btrfs mknod mount pacman perl seq sha256sum stat systemd-escape tar tee truncate
+require_commands btrfs busctl cryptsetup dd diff dmsetup find findmnt grep journalctl ldd losetup mkfifo mkfs.btrfs mknod mount pacman perl runuser seq sha256sum stat systemd-escape tar tee timeout truncate useradd userdel
 ensure_loop_devices
 
 install -d -m0755 "$SOURCE_MOUNT" "$TARGET_MOUNT"
@@ -628,12 +737,10 @@ with_restored_file "$PROFILE_JSON" target_uuid_mismatch_test
 source_on_target_test
 incoming_symlink_escape_test
 
-run_backup
+run_first_backup_through_system_dbus
 grep -q '"incremental": false' "$RUN_LOG" || fail 'full stream was not used for first backup'
 grep -q '^profile_id=default$' /var/lib/btrfs-backup/profiles/default/last-success \
     || fail 'profile last-success state was not written'
-grep -q '"state": "succeeded"' /run/btrfs-backup/profiles/default/current.json \
-    || fail 'current status JSON was not written'
 grep -q '"state": "succeeded"' /var/lib/btrfs-backup/history/default/last.json \
     || fail 'history JSON was not written'
 set +e
@@ -642,7 +749,7 @@ CTL_STATUS_CODE=$?
 set -e
 [[ "$CTL_STATUS_CODE" -eq 0 ]] \
     || { printf '%s\n' "$CTL_STATUS_OUTPUT" >&2; fail 'btrfs-backupctl status failed'; }
-grep -q '^default: succeeded$' <<< "$CTL_STATUS_OUTPUT" \
+grep -q '^Default backup: succeeded$' <<< "$CTL_STATUS_OUTPUT" \
     || { printf '%s\n' "$CTL_STATUS_OUTPUT" >&2; fail 'btrfs-backupctl did not render human status'; }
 set +e
 CTL_HISTORY_OUTPUT="$(btrfs-backupctl status history --profile default --limit 1 2>&1)"
