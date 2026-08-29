@@ -26,11 +26,11 @@ btrfsbackup::config::Profile profile() {
             btrfsbackup::config::IncomingRoot{"/mnt/backup/default/.incoming"},
         },
     };
-    result.target.mount_point = "/mnt/backup";
+    result.target.mount_point = btrfsbackup::config::TargetMountPoint{"/mnt/backup"};
     result.settings.incremental_required = false;
     btrfsbackup::config::ProfileSource source{btrfsbackup::SourceId{"root"}};
-    source.subvolume = "/";
-    source.local_snapshot_dir = "/.snapshots/root";
+    source.subvolume = btrfsbackup::config::SourceSubvolumePath{"/"};
+    source.local_snapshot_dir = btrfsbackup::config::LocalSnapshotRoot{"/.snapshots/root"};
     source.local_retention = btrfsbackup::config::RetentionCount{2};
     source.remote_retention = btrfsbackup::config::RetentionCount{2};
     result.sources.push_back(std::move(source));

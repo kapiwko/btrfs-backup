@@ -35,7 +35,7 @@ Json public_profile_json(const Profile& profile) {
         {"sources", std::move(sources)},
     };
     if (!profile.configuration_generation.empty()) {
-        result["configurationGeneration"] = profile.configuration_generation;
+        result["configurationGeneration"] = profile.configuration_generation.value();
     }
     return result;
 }

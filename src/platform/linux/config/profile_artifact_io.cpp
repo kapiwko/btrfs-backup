@@ -10,6 +10,7 @@
 #include <cerrno>
 #include <cstddef>
 #include <string>
+#include <utility>
 
 #include <core/errors.hpp>
 #include <platform/linux/file_io.hpp>
@@ -18,7 +19,7 @@ namespace fs = std::filesystem;
 
 namespace btrfsbackup::platform::linux {
 
-std::string generate_configuration_generation() {
+btrfsbackup::config::ConfigurationGeneration generate_configuration_generation() {
     std::array<unsigned char, 16> bytes{};
     std::size_t offset = 0;
     while (offset < bytes.size()) {
@@ -39,7 +40,7 @@ std::string generate_configuration_generation() {
         result.push_back(hex[byte >> 4]);
         result.push_back(hex[byte & 0x0f]);
     }
-    return result;
+    return btrfsbackup::config::ConfigurationGeneration{std::move(result)};
 }
 
 void write_profile_artifacts(const btrfsbackup::config::RenderedProfileArtifacts& rendered) {

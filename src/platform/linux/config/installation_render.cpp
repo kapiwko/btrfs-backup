@@ -73,7 +73,7 @@ std::string render_fstab_fragment(const btrfsbackup::config::Profile& profile) {
            "\n"
            "/dev/mapper/" +
         fstab_escape(profile.target.mapper_name.value()) + "  " +
-        fstab_escape(profile.target.mount_point) +
+        fstab_escape(profile.target.mount_point.value().string()) +
         "  btrfs  noauto,nofail,noatime,nodev,nosuid,noexec,nosymfollow,compress=zstd,x-systemd.requires=" +
         cryptsetup_unit +
         ",x-systemd.device-timeout=30s,x-systemd.mount-timeout=60s  0  0\n";

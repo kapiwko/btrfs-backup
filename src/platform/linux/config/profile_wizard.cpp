@@ -57,7 +57,12 @@ btrfsbackup::config::ProfileWizardAnswers collect_answers(std::istream& input, s
         source.id = btrfsbackup::config::prompt_value(input, output, "Source name for " + source_path, default_name);
         used_names.push_back(source.id);
         source.subvolume = source_path;
-        source.local_snapshot_dir = btrfsbackup::config::prompt_value(input, output, "Local snapshot directory for " + source_path, "/.snapshots/btrfs-backup/" + source.id);
+        source.local_snapshot_dir = btrfsbackup::config::prompt_value(
+            input,
+            output,
+            "Local snapshot directory for " + source_path,
+            "/.snapshots/btrfs-backup/" + source.id
+        );
         source.remote_subdir = btrfsbackup::config::prompt_value(input, output, "Remote subdirectory under the backup snapshots root", source.id);
         answers.sources.push_back(source);
     }

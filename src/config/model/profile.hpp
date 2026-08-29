@@ -11,6 +11,8 @@
 #include <utility>
 #include <vector>
 
+#include <config/model/configuration_generation.hpp>
+#include <config/model/operation_path.hpp>
 #include <config/model/repository_path.hpp>
 #include <config/model/storage_policy.hpp>
 #include <config/model/target_identity.hpp>
@@ -24,19 +26,21 @@ struct ProfileTarget {
         PartitionUuid partition_uuid_value,
         MapperName mapper_name_value
     )
-        : luks_uuid(std::move(luks_uuid_value)),
+        : device(TargetDevicePath{"/dev"}),
+          luks_uuid(std::move(luks_uuid_value)),
           btrfs_uuid(std::move(btrfs_uuid_value)),
           partition_uuid(std::move(partition_uuid_value)),
-          mapper_name(std::move(mapper_name_value)) {
+          mapper_name(std::move(mapper_name_value)),
+          mount_point(TargetMountPoint{"/"}) {
     }
 
-    std::string device;
+    TargetDevicePath device;
     LuksUuid luks_uuid;
     BtrfsUuid btrfs_uuid;
     PartitionUuid partition_uuid;
     std::string serial;
     MapperName mapper_name;
-    std::string mount_point;
+    TargetMountPoint mount_point;
 };
 
 struct ProfilePaths {
@@ -60,7 +64,7 @@ struct ProfileSettings {
 };
 
 struct ProfileHookCommand {
-    std::string program;
+    HookProgramPath program;
     std::vector<std::string> arguments;
     std::chrono::seconds timeout{30};
 };
@@ -72,18 +76,24 @@ struct ProfileHooks {
 
 struct ProfileSource {
     explicit ProfileSource(SourceId identifier)
-        : id(std::move(identifier)), remote_subdir(std::string(id.value())) {
+        : id(std::move(identifier)),
+          subvolume(SourceSubvolumePath{"/"}),
+          local_snapshot_dir(LocalSnapshotRoot{"/"}),
+          remote_subdir(std::string(id.value())) {
     }
 
     ProfileSource(SourceId identifier, SafeRelativePath remote_subdir_value)
-        : id(std::move(identifier)), remote_subdir(std::move(remote_subdir_value)) {
+        : id(std::move(identifier)),
+          subvolume(SourceSubvolumePath{"/"}),
+          local_snapshot_dir(LocalSnapshotRoot{"/"}),
+          remote_subdir(std::move(remote_subdir_value)) {
     }
 
     SourceId id;
     std::string name;
     bool enabled = true;
-    std::string subvolume;
-    std::string local_snapshot_dir;
+    SourceSubvolumePath subvolume;
+    LocalSnapshotRoot local_snapshot_dir;
     SafeRelativePath remote_subdir;
     RetentionCount remote_retention{30};
     RetentionCount local_retention{30};
@@ -94,7 +104,7 @@ struct Profile {
         : id(std::move(identifier)), target(std::move(target_value)), paths(std::move(paths_value)) {
     }
 
-    std::string configuration_generation;
+    ConfigurationGeneration configuration_generation{""};
     ProfileId id;
     std::string name;
     bool enabled = true;

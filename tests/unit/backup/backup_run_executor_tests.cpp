@@ -218,7 +218,11 @@ btrfsbackup::backup::BackupRunAction action(btrfsbackup::backup::BackupRunAction
         return btrfsbackup::backup::RunHookAction{
             source_id,
             btrfsbackup::backup::HookPhase::BeforeSnapshot,
-            btrfsbackup::config::ProfileHookCommand{"hook", {}, std::chrono::seconds{30}}
+            btrfsbackup::config::ProfileHookCommand{
+                btrfsbackup::config::HookProgramPath{"/hook"},
+                {},
+                std::chrono::seconds{30}
+            }
         };
     case btrfsbackup::backup::BackupRunActionKind::CreateSnapshot:
         return btrfsbackup::backup::CreateSnapshotAction{
@@ -234,7 +238,11 @@ btrfsbackup::backup::BackupRunAction action(btrfsbackup::backup::BackupRunAction
         return btrfsbackup::backup::RunHookAction{
             source_id,
             btrfsbackup::backup::HookPhase::AfterSnapshot,
-            btrfsbackup::config::ProfileHookCommand{"hook", {}, std::chrono::seconds{30}}
+            btrfsbackup::config::ProfileHookCommand{
+                btrfsbackup::config::HookProgramPath{"/hook"},
+                {},
+                std::chrono::seconds{30}
+            }
         };
     case btrfsbackup::backup::BackupRunActionKind::SendReceive:
         return btrfsbackup::backup::SendReceiveAction{source_id, local_snapshot, std::nullopt, "/mnt/backup/root", incoming};

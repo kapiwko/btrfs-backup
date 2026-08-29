@@ -173,7 +173,7 @@ BackupRunPlan build_backup_run_plan(
         }
         if (btrfsbackup::config::path_is_within(source.local_snapshot_dir, profile.target.mount_point)) {
             throw ValidationError(
-                "LOCAL_SNAPSHOT_DIR must not be inside the backup target: " + source.local_snapshot_dir
+                "LOCAL_SNAPSHOT_DIR must not be inside the backup target: " + source.local_snapshot_dir.value().string()
             );
         }
 
