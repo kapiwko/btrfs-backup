@@ -4,12 +4,18 @@ _btrfs_backup_kde_refresh_cache() {
     fi
 }
 
+_btrfs_backup_kde_print_reload_hint() {
+    printf '%s\n' 'Restart Plasma Shell or log out to load the updated btrfs-backup widget.'
+}
+
 post_install() {
     _btrfs_backup_kde_refresh_cache
+    _btrfs_backup_kde_print_reload_hint
 }
 
 post_upgrade() {
     _btrfs_backup_kde_refresh_cache
+    _btrfs_backup_kde_print_reload_hint
 }
 
 post_remove() {
