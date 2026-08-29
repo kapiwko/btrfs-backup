@@ -39,12 +39,12 @@ if (( EUID != 0 )); then
     docker build \
         -t "$IMAGE_NAME" \
         -f "$ROOT/tests/integration/docker/Dockerfile" \
-        "$ROOT"
+        "$ROOT/tests/integration/docker"
     docker build \
         --build-arg "BASE_IMAGE=$IMAGE_NAME" \
         -t "$QEMU_IMAGE_NAME" \
         -f "$ROOT/tests/qemu/Dockerfile" \
-        "$ROOT"
+        "$ROOT/tests/qemu"
     docker run --rm --network=none \
         --user "$(id -u):$(id -g)" \
         -e BUILD_JOBS="${BUILD_JOBS:-2}" \
@@ -139,7 +139,10 @@ if [[ -n "${QEMU_ROOTFS_FROM_CONTAINER:-}" ]]; then
         -C / . \
         | tar -xpf - -C "$ROOT_MOUNT"
 else
-    docker build -t "$IMAGE_NAME" -f "$ROOT/tests/integration/docker/Dockerfile" "$ROOT" >/dev/null
+    docker build \
+        -t "$IMAGE_NAME" \
+        -f "$ROOT/tests/integration/docker/Dockerfile" \
+        "$ROOT/tests/integration/docker" >/dev/null
     CONTAINER_ID="$(docker create "$IMAGE_NAME" /usr/bin/true)"
     docker export "$CONTAINER_ID" | tar -xpf - -C "$ROOT_MOUNT"
     docker rm "$CONTAINER_ID" >/dev/null
