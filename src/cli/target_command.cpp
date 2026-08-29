@@ -58,6 +58,8 @@ TargetOptions parse_options(const std::vector<std::string>& args) {
 void usage(std::ostream& output) {
     output << "Usage: btrfs-backupctl target COMMAND\n"
            << "\nCommands:\n"
+           << "  activate --profile ID [--from-service]\n"
+           << "  deactivate --profile ID [--from-service]\n"
            << "  mount --profile ID\n"
            << "  eject --profile ID [--force] [--from-service] [--from-runner]\n";
 }
@@ -82,8 +84,14 @@ std::string format_event(const btrfsbackup::cli::TargetEvent& event) {
         return "Synchronizing filesystems before eject.";
     case TargetEventKind::Unmounting:
         return "Unmounting " + event.detail;
-    case TargetEventKind::StoppingCryptUnit:
-        return "Stopping LUKS systemd unit " + event.detail;
+    case TargetEventKind::StoppingTargetUnit:
+        return "Stopping target activation unit " + event.detail;
+    case TargetEventKind::Activating:
+        return "Activating LUKS mapper " + event.detail + ".";
+    case TargetEventKind::Activated:
+        return "LUKS mapper " + event.detail + " is active.";
+    case TargetEventKind::Deactivated:
+        return "LUKS mapper " + event.detail + " was restored to its previous state.";
     case TargetEventKind::MapperStillMounted:
         return "Mapper is still mounted at: " + event.detail;
     case TargetEventKind::ClosingMapper:
@@ -121,7 +129,7 @@ int target(
         usage(output);
         return 0;
     }
-    if (command != "mount" && command != "eject") {
+    if (command != "activate" && command != "deactivate" && command != "mount" && command != "eject") {
         fail("unknown command: " + command);
     }
     if (args.size() == 2 && (args.at(1) == "-h" || args.at(1) == "--help")) {
@@ -131,7 +139,23 @@ int target(
 
     TargetOptions options = parse_options(args);
     TargetOperationResult result;
-    if (command == "mount") {
+    if (command == "activate") {
+        result = btrfsbackup::cli::activate_target(
+            ActivateTargetRequest{
+                .profile_config_dir = profile_config_dir,
+                .profile_id = ProfileId{options.profile_id},
+            },
+            services
+        );
+    } else if (command == "deactivate") {
+        result = btrfsbackup::cli::deactivate_target(
+            DeactivateTargetRequest{
+                .profile_config_dir = profile_config_dir,
+                .profile_id = ProfileId{options.profile_id},
+            },
+            services
+        );
+    } else if (command == "mount") {
         result = btrfsbackup::cli::mount_target(
             MountTargetRequest{
                 .profile_config_dir = profile_config_dir,

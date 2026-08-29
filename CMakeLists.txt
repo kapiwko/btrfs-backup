@@ -40,6 +40,14 @@ pkg_check_modules(BLKID REQUIRED IMPORTED_TARGET blkid)
 pkg_check_modules(MOUNT REQUIRED IMPORTED_TARGET mount)
 pkg_check_modules(UDEV REQUIRED IMPORTED_TARGET libudev)
 pkg_check_modules(BTRFSUTIL REQUIRED IMPORTED_TARGET libbtrfsutil)
+find_program(
+    BTRFSBACKUP_SYSTEMD_CRYPTSETUP_EXECUTABLE
+    NAMES systemd-cryptsetup
+    PATHS /usr/lib/systemd /lib/systemd /usr/libexec/systemd
+)
+if(NOT BTRFSBACKUP_SYSTEMD_CRYPTSETUP_EXECUTABLE)
+    message(FATAL_ERROR "systemd-cryptsetup executable was not found")
+endif()
 if(BUILD_SYSTEM_MANAGER)
     pkg_check_modules(SYSTEMD REQUIRED IMPORTED_TARGET libsystemd)
 endif()

@@ -142,7 +142,7 @@ std::unique_ptr<btrfsbackup::backup::IMountedTargetSession> SystemdTargetManager
             );
         }
         if (!mapper_was_active) {
-            const std::string crypt_unit = systemd_cryptsetup_unit_name(profile.target.mapper_name.value());
+            const std::string crypt_unit = target_activation_unit_name(profile.id.value());
             const btrfsbackup::backup::CommandResult crypt_stop = commands_.run({
                 "systemctl",
                 "stop",
@@ -162,7 +162,7 @@ std::unique_ptr<btrfsbackup::backup::IMountedTargetSession> SystemdTargetManager
         commands_,
         mount_unit,
         true,
-        mapper_was_active ? std::string{} : systemd_cryptsetup_unit_name(profile.target.mapper_name.value())
+        mapper_was_active ? std::string{} : target_activation_unit_name(profile.id.value())
     );
 }
 

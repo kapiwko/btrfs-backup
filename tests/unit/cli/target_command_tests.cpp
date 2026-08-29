@@ -23,11 +23,12 @@ namespace {
 constexpr const char* luks_uuid = "11111111-2222-3333-4444-555555555555";
 constexpr const char* btrfs_uuid = "22222222-3333-4444-5555-666666666666";
 constexpr const char* mapper_name = "btrfsbackup-test-target-command";
-constexpr const char* crypt_unit_name = "systemd-cryptsetup@btrfsbackup\\x2dtest\\x2dtarget\\x2dcommand.service";
+constexpr const char* target_unit_name = "btrfs-backup-target@default.service";
 
 class RecordingCommandRunner final : public btrfsbackup::backup::ICommandRunner {
   public:
     bool mounted = false;
+    fs::path mapper_path;
     std::vector<std::string> calls;
 
     btrfsbackup::backup::CommandResult run(const std::vector<std::string>& argv) override {
@@ -35,14 +36,22 @@ class RecordingCommandRunner final : public btrfsbackup::backup::ICommandRunner 
         if (argv == std::vector<std::string>{"cryptsetup", "luksUUID", "/dev/disk/by-uuid/target-luks"}) {
             return {0, std::string(luks_uuid) + "\n"};
         }
-        if (argv == std::vector<std::string>{"systemd-escape", "--template=systemd-cryptsetup@.service", mapper_name}) {
-            return {0, std::string(crypt_unit_name) + "\n"};
+        if (argv == std::vector<std::string>{"cryptsetup", "status", mapper_name}) {
+            return {0, "device: /dev/disk/by-uuid/target-luks\n"};
+        }
+        if (argv.size() == 6 && argv.at(1) == "attach") {
+            test_helpers::write_file(mapper_path, "mapper");
+            return {};
+        }
+        if (argv.size() == 3 && argv.at(1) == "detach") {
+            fs::remove(mapper_path);
+            return {};
         }
         if (argv.size() == 3 && argv.at(0) == "systemctl" && argv.at(1) == "start") {
             mounted = true;
             return {};
         }
-        if (argv.size() == 3 && argv.at(0) == "umount" && argv.at(1) == "--") {
+        if (argv.size() == 3 && argv.at(0) == "systemctl" && argv.at(1) == "stop" && argv.at(2).ends_with(".mount")) {
             mounted = false;
             return {};
         }
@@ -69,27 +78,43 @@ class RecordingCommandRunner final : public btrfsbackup::backup::ICommandRunner 
     }
 };
 
-btrfsbackup::config::Json profile_json(const std::string& mount_point, bool auto_eject = true) {
+btrfsbackup::config::Json profile_json(
+    const std::string& mount_point,
+    bool auto_eject = true,
+    const fs::path& key_file = {}
+) {
+    btrfsbackup::config::Json activation = {{"mode", "askPassword"}};
+    if (!key_file.empty()) {
+        activation = {{"mode", "keyFile"}, {"keyFile", key_file.string()}};
+    }
     return {
-        {"schemaVersion", 1},
+        {"schemaVersion", 4},
         {"profileId", "default"},
         {"name", "Default backup"},
         {"enabled", true},
-        {"target", {{"device", "/dev/disk/by-uuid/target-luks"}, {"luksUuid", luks_uuid}, {"btrfsUuid", btrfs_uuid}, {"mapperName", mapper_name}}},
+        {"target", {{"device", "/dev/disk/by-uuid/target-luks"}, {"luksUuid", luks_uuid}, {"btrfsUuid", btrfs_uuid}, {"mapperName", mapper_name}, {"activation", std::move(activation)}}},
         {"paths", {{"remoteRoot", mount_point + "/snapshots"}, {"incomingRoot", mount_point + "/.incoming"}}},
         {"settings", {{"autoEject", auto_eject}, {"remoteRetention", 2}, {"localRetention", 2}}},
         {"sources", btrfsbackup::config::Json::array({{{"id", "home"}, {"name", "home"}, {"enabled", true}, {"subvolume", "/home"}, {"localSnapshotDir", "/.snapshots/home"}, {"remoteSubdir", "home"}, {"remoteRetention", 2}, {"localRetention", 2}}})}
     };
 }
 
-fs::path write_profile(const fs::path& root, const std::string& mount_point, bool auto_eject = true) {
+fs::path write_profile(
+    const fs::path& root,
+    const std::string& mount_point,
+    bool auto_eject = true,
+    const fs::path& key_file = {}
+) {
     test_helpers::write_file(
         root / "btrfs-backup.conf",
         "CONFIG_VERSION=1\nTARGET_MOUNT_ROOT=" + fs::path(mount_point).parent_path().string() + "\n"
     );
     chmod((root / "btrfs-backup.conf").c_str(), 0600);
     fs::path profile_path = root / "profiles" / "default" / "profile.json";
-    test_helpers::write_file(profile_path, btrfsbackup::config::dump_json(profile_json(mount_point, auto_eject)));
+    test_helpers::write_file(
+        profile_path,
+        btrfsbackup::config::dump_json(profile_json(mount_point, auto_eject, key_file))
+    );
     chmod(profile_path.c_str(), 0600);
     return profile_path;
 }
@@ -155,7 +180,7 @@ void test_mount_starts_unit_and_validates_target() {
     fs::remove_all(root);
 }
 
-void test_eject_unmounts_and_stops_crypt_unit() {
+void test_eject_unmounts_and_stops_target_unit() {
     fs::path root = test_helpers::test_root("target-command", "eject");
     std::string mount_point = (root / "mnt" / "default").string();
     write_profile(root, mount_point);
@@ -174,11 +199,147 @@ void test_eject_unmounts_and_stops_crypt_unit() {
 
     test_helpers::expect_eq("target eject result", std::to_string(result), "0");
     test_helpers::expect_true("target eject sync", contains_call(commands, "sync"), "sync was not called");
-    test_helpers::expect_true("target eject unmount", contains_call(commands, "umount -- " + mount_point), "target was not unmounted");
     test_helpers::expect_true(
-        "target eject stop crypt unit",
-        contains_call(commands, std::string("systemctl stop ") + crypt_unit_name),
-        "cryptsetup unit was not stopped"
+        "target eject unmount",
+        contains_call_prefix(commands, "systemctl stop ") && !commands.mounted,
+        "target mount unit was not stopped"
+    );
+    test_helpers::expect_true(
+        "target eject stop activation unit",
+        contains_call(commands, std::string("systemctl stop ") + target_unit_name),
+        "target activation unit was not stopped"
+    );
+    fs::remove_all(root);
+}
+
+void test_activation_owns_and_restores_mapper() {
+    fs::path root = test_helpers::test_root("target-command", "activation-owned");
+    std::string mount_point = (root / "mnt" / "default").string();
+    write_profile(root, mount_point);
+    RecordingCommandRunner commands;
+    const fs::path mapper_root = root / "mapper";
+    commands.mapper_path = mapper_root / mapper_name;
+    btrfsbackup::cli::TargetExecutionServices services{
+        .commands = commands,
+        .read_mounts = [] { return std::vector<btrfsbackup::backup::MountEntry>{}; },
+        .lock_root = root / "locks",
+        .mount_point_trust_root = root,
+        .mapper_root = mapper_root,
+        .activation_state_root = root / "activation",
+        .keyfile_trust_root = root,
+        .systemd_cryptsetup_command = "/test/systemd-cryptsetup",
+        .canonical_device = [](const fs::path& path) { return path; },
+    };
+    std::ostringstream output;
+
+    setenv("BTRFS_BACKUP_ALLOW_ROOTLESS_TESTS", "true", 1);
+    int result = btrfsbackup::cli::target(root, {"activate", "--from-service", "--profile", "default"}, output, &services);
+    test_helpers::expect_eq("target activate result", std::to_string(result), "0");
+    test_helpers::expect_true("target activate mapper", fs::is_regular_file(commands.mapper_path), "mapper was not created");
+    test_helpers::expect_true(
+        "target activate marker",
+        fs::is_regular_file(root / "activation" / "default.json"),
+        "ownership marker was not created"
+    );
+    test_helpers::expect_true(
+        "target activate command",
+        contains_call(
+            commands,
+            "/test/systemd-cryptsetup attach " + std::string(mapper_name) +
+                " /dev/disk/by-uuid/target-luks - luks"
+        ),
+        "systemd-cryptsetup attach was not called"
+    );
+
+    result = btrfsbackup::cli::target(root, {"deactivate", "--from-service", "--profile", "default"}, output, &services);
+    test_helpers::expect_eq("target deactivate result", std::to_string(result), "0");
+    test_helpers::expect_true("target deactivate mapper", !fs::exists(commands.mapper_path), "owned mapper remains active");
+    test_helpers::expect_true(
+        "target deactivate marker",
+        !fs::exists(root / "activation" / "default.json"),
+        "ownership marker remains"
+    );
+    test_helpers::expect_true(
+        "target deactivate command",
+        contains_call(commands, "/test/systemd-cryptsetup detach " + std::string(mapper_name)),
+        "systemd-cryptsetup detach was not called"
+    );
+    fs::remove_all(root);
+}
+
+void test_activation_preserves_preexisting_mapper() {
+    fs::path root = test_helpers::test_root("target-command", "activation-preexisting");
+    std::string mount_point = (root / "mnt" / "default").string();
+    write_profile(root, mount_point);
+    RecordingCommandRunner commands;
+    const fs::path mapper_root = root / "mapper";
+    commands.mapper_path = mapper_root / mapper_name;
+    test_helpers::write_file(commands.mapper_path, "preexisting mapper");
+    btrfsbackup::cli::TargetExecutionServices services{
+        .commands = commands,
+        .read_mounts = [] { return std::vector<btrfsbackup::backup::MountEntry>{}; },
+        .lock_root = root / "locks",
+        .mount_point_trust_root = root,
+        .mapper_root = mapper_root,
+        .activation_state_root = root / "activation",
+        .keyfile_trust_root = root,
+        .systemd_cryptsetup_command = "/test/systemd-cryptsetup",
+        .canonical_device = [](const fs::path& path) { return path; },
+    };
+    std::ostringstream output;
+
+    setenv("BTRFS_BACKUP_ALLOW_ROOTLESS_TESTS", "true", 1);
+    (void)btrfsbackup::cli::target(root, {"activate", "--from-service", "--profile", "default"}, output, &services);
+    (void)btrfsbackup::cli::target(root, {"deactivate", "--from-service", "--profile", "default"}, output, &services);
+    test_helpers::expect_true("preexisting mapper preserved", fs::is_regular_file(commands.mapper_path), "preexisting mapper was closed");
+    test_helpers::expect_true(
+        "preexisting mapper not detached",
+        !contains_call(commands, "/test/systemd-cryptsetup detach " + std::string(mapper_name)),
+        "preexisting mapper was detached"
+    );
+    fs::remove_all(root);
+}
+
+void test_activation_rejects_insecure_key_file() {
+    fs::path root = test_helpers::test_root("target-command", "activation-insecure-key");
+    std::string mount_point = (root / "mnt" / "default").string();
+    const fs::path key_file = root / "keys" / "target.key";
+    test_helpers::write_file(key_file, "secret");
+    chmod(key_file.c_str(), 0644);
+    write_profile(root, mount_point, true, key_file);
+    RecordingCommandRunner commands;
+    const fs::path mapper_root = root / "mapper";
+    commands.mapper_path = mapper_root / mapper_name;
+    btrfsbackup::cli::TargetExecutionServices services{
+        .commands = commands,
+        .read_mounts = [] { return std::vector<btrfsbackup::backup::MountEntry>{}; },
+        .lock_root = root / "locks",
+        .mount_point_trust_root = root,
+        .mapper_root = mapper_root,
+        .activation_state_root = root / "activation",
+        .keyfile_trust_root = root,
+        .systemd_cryptsetup_command = "/test/systemd-cryptsetup",
+        .canonical_device = [](const fs::path& path) { return path; },
+    };
+    std::ostringstream output;
+
+    setenv("BTRFS_BACKUP_ALLOW_ROOTLESS_TESTS", "true", 1);
+    test_helpers::expect_validation_error(
+        "insecure activation key rejected",
+        [&] {
+            (void)btrfsbackup::cli::target(
+                root,
+                {"activate", "--from-service", "--profile", "default"},
+                output,
+                &services
+            );
+        },
+        "accessible by group or others"
+    );
+    test_helpers::expect_true(
+        "insecure key not used",
+        !contains_call_prefix(commands, "/test/systemd-cryptsetup attach "),
+        "activation used an insecure key file"
     );
     fs::remove_all(root);
 }
@@ -276,7 +437,10 @@ void test_mount_rejects_symlinked_mount_point_without_chmod() {
 
 int main() {
     test_mount_starts_unit_and_validates_target();
-    test_eject_unmounts_and_stops_crypt_unit();
+    test_eject_unmounts_and_stops_target_unit();
+    test_activation_owns_and_restores_mapper();
+    test_activation_preserves_preexisting_mapper();
+    test_activation_rejects_insecure_key_file();
     test_internal_eject_honors_auto_eject_setting();
     test_eject_refuses_busy_target_without_running_commands();
     test_mount_rejects_symlinked_mount_point_without_chmod();

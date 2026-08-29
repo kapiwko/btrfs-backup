@@ -243,8 +243,6 @@ std::string render_target_service(const std::string& target_command) {
         "User=root\n"
         "Group=root\n"
         "UMask=0077\n"
-        "RuntimeDirectory=btrfs-backup\n"
-        "RuntimeDirectoryMode=0755\n"
         "Environment=PATH=/usr/bin\n"
         "NoNewPrivileges=yes\n"
         "PrivateTmp=yes\n"

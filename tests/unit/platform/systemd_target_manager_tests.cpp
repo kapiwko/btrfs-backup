@@ -59,7 +59,7 @@ struct FakeCommandRunner final : btrfsbackup::backup::ICommandRunner {
         if (argv == std::vector<std::string>{"systemctl", "stop", "mnt-backup.mount"}) {
             return {.exit_code = stop_mount_exit_code};
         }
-        if (argv == std::vector<std::string>{"systemctl", "stop", "systemd-cryptsetup@backup.service"}) {
+        if (argv == std::vector<std::string>{"systemctl", "stop", "btrfs-backup-target@default.service"}) {
             return {.exit_code = stop_crypt_exit_code};
         }
         return {};
@@ -102,7 +102,7 @@ void test_mounted_session_restores_target_state() {
     const std::vector<std::vector<std::string>> expected{
         {"systemctl", "start", "mnt-backup.mount"},
         {"systemctl", "stop", "mnt-backup.mount"},
-        {"systemctl", "stop", "systemd-cryptsetup@backup.service"},
+        {"systemctl", "stop", "btrfs-backup-target@default.service"},
     };
     test_helpers::expect_true("mounted session commands", commands.calls == expected, "session did not restore the target state");
 }
@@ -160,7 +160,7 @@ void test_failed_mount_start_restores_inactive_mapper() {
     const std::vector<std::vector<std::string>> expected{
         {"systemctl", "start", "mnt-backup.mount"},
         {"systemctl", "stop", "mnt-backup.mount"},
-        {"systemctl", "stop", "systemd-cryptsetup@backup.service"},
+        {"systemctl", "stop", "btrfs-backup-target@default.service"},
     };
     test_helpers::expect_true("failed mount cleanup", commands.calls == expected, "failed mount left target state changed");
 }
@@ -209,14 +209,14 @@ void test_failed_cryptsetup_stop_is_reported_separately() {
         "failed cryptsetup result",
         error.has_value() &&
             error->stage == btrfsbackup::backup::TargetCleanupStage::CryptsetupUnit &&
-            error->unit == "systemd-cryptsetup@backup.service" &&
+            error->unit == "btrfs-backup-target@default.service" &&
             error->exit_code == 2,
         "failed cryptsetup stop was not reported"
     );
     const std::vector<std::vector<std::string>> expected{
         {"systemctl", "start", "mnt-backup.mount"},
         {"systemctl", "stop", "mnt-backup.mount"},
-        {"systemctl", "stop", "systemd-cryptsetup@backup.service"},
+        {"systemctl", "stop", "btrfs-backup-target@default.service"},
     };
     test_helpers::expect_true("failed cryptsetup cleanup", commands.calls == expected, "cleanup commands were incomplete");
 }
