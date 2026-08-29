@@ -266,8 +266,10 @@ sudo btrfs-backupctl profile migrate-activation --profile default --apply
 
 The migrator accepts only the legacy options emitted by btrfs-backup 3.0 and
 never changes crypttab. Existing fstab and crypttab lines are not required by
-the new units and may remain unused. The compatibility command is scheduled for
-removal in 4.0.
+the new units and may remain unused. The target activation template can come
+from the package's systemd unit load path and does not need to be copied into
+`/etc/systemd/system`. The compatibility command is scheduled for removal in
+4.0.
 
 ## udev Matching
 
