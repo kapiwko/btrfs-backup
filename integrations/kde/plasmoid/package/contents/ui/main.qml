@@ -24,6 +24,7 @@ PlasmoidItem {
     property bool failed: backupStatus.state === "failed"
     property bool estimated: backupStatus.progressAccuracy === "estimated"
     property int progress: backupStatus.overallProgress
+    property int relativeTimeTick: 0
     property string badgeIcon: {
         switch (backupStatus.state) {
         case "succeeded": return "emblem-ok-symbolic"
@@ -50,6 +51,13 @@ PlasmoidItem {
         id: backupStatus
         profile: "default"
         Component.onCompleted: start()
+    }
+
+    Timer {
+        interval: 60000
+        running: root.visible
+        repeat: true
+        onTriggered: root.relativeTimeTick++
     }
 
     function formatBytes(value) {
@@ -150,6 +158,30 @@ PlasmoidItem {
         return root.statusText(state)
     }
 
+    function relativeTime(value) {
+        root.relativeTimeTick
+        var timestamp = Date.parse(value)
+        if (isNaN(timestamp))
+            return translations.i18n("Unknown")
+        var seconds = Math.max(0, Math.floor((Date.now() - timestamp) / 1000))
+        if (seconds < 60)
+            return translations.i18n("Just now")
+        var minutes = Math.floor(seconds / 60)
+        if (minutes < 60)
+            return translations.i18np("1 minute ago", "%1 minutes ago", minutes)
+        var hours = Math.floor(minutes / 60)
+        if (hours < 24)
+            return translations.i18np("1 hour ago", "%1 hours ago", hours)
+        var days = Math.floor(hours / 24)
+        if (days < 30)
+            return translations.i18np("1 day ago", "%1 days ago", days)
+        var months = Math.floor(days / 30)
+        if (months < 12)
+            return translations.i18np("1 month ago", "%1 months ago", months)
+        var years = Math.floor(days / 365)
+        return translations.i18np("1 year ago", "%1 years ago", years)
+    }
+
     compactRepresentation: MouseArea {
         implicitWidth: Kirigami.Units.iconSizes.smallMedium
         implicitHeight: implicitWidth
@@ -233,7 +265,7 @@ PlasmoidItem {
 
     fullRepresentation: Item {
         implicitWidth: Kirigami.Units.gridUnit * 22
-        implicitHeight: Kirigami.Units.gridUnit * 27
+        implicitHeight: Kirigami.Units.gridUnit * 21
 
         ColumnLayout {
             anchors.fill: parent
@@ -279,6 +311,18 @@ PlasmoidItem {
                 value: Math.max(0, root.progress)
                 indeterminate: root.running && root.progress < 0
             }
+
+            QQC2.ScrollView {
+                id: detailsScroll
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                clip: true
+                contentWidth: availableWidth
+                QQC2.ScrollBar.horizontal.policy: QQC2.ScrollBar.AlwaysOff
+
+                ColumnLayout {
+                    width: detailsScroll.availableWidth
+                    spacing: Kirigami.Units.largeSpacing
 
             GridLayout {
                 Layout.fillWidth: true
@@ -384,7 +428,7 @@ PlasmoidItem {
                     Layout.fillWidth: true
 
                     Kirigami.Icon {
-                        source: historyRow.modelData.state === "succeeded" ? "emblem-success"
+                        source: historyRow.modelData.state === "succeeded" ? "emblem-ok-symbolic"
                             : historyRow.modelData.state === "failed" ? "dialog-error"
                             : "dialog-information"
                         implicitWidth: Kirigami.Units.iconSizes.small
@@ -396,15 +440,18 @@ PlasmoidItem {
                         elide: Text.ElideRight
                     }
                     QQC2.Label {
-                        text: historyRow.modelData.finishedAt
+                        text: root.relativeTime(historyRow.modelData.finishedAt)
                         opacity: 0.7
                         Layout.maximumWidth: Kirigami.Units.gridUnit * 8
                         elide: Text.ElideRight
+                        QQC2.ToolTip.text: historyRow.modelData.finishedAt
+                        QQC2.ToolTip.visible: historyDateHover.hovered
+                        HoverHandler { id: historyDateHover }
                     }
                 }
             }
-
-            Item { Layout.fillHeight: true }
+                }
+            }
 
             RowLayout {
                 Layout.fillWidth: true
