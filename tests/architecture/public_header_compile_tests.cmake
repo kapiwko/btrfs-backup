@@ -70,8 +70,6 @@ function(add_public_header_architecture_tests)
             --target btrfsbackup-public-header-probes
             --parallel 8
     )
-    set_tests_properties(public-header-self-containment PROPERTIES FIXTURES_SETUP public-header-probes)
-
     add_test(
         NAME cmake-file-api-target-graph
         COMMAND
@@ -94,10 +92,6 @@ function(add_public_header_architecture_tests)
                 -DPROBE_ROOT=${probe_root}
                 -DMANIFEST=${manifest_path}
                 -P ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/clang_scan_public_headers.cmake
-        )
-        set_tests_properties(
-            public-header-dependency-usage
-            PROPERTIES FIXTURES_REQUIRED public-header-probes
         )
     else()
         message(STATUS "clang-scan-deps not found: public header dependency usage test disabled")
