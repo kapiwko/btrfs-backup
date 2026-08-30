@@ -21,6 +21,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
 endif()
 
 add_btrfsbackup_test(btrfsbackup-mount-info-tests MountInfoTests.cpp mount-info-tests btrfsbackup-platform-linux)
+add_btrfsbackup_test(btrfsbackup-owned-file-descriptor-tests OwnedFileDescriptorTests.cpp owned-file-descriptor-tests btrfsbackup-platform-linux)
 add_btrfsbackup_test(btrfsbackup-process-tests ProcessTests.cpp process-tests btrfsbackup-platform-linux)
 add_btrfsbackup_test(btrfsbackup-safe-directory-root-tests SafeDirectoryRootTests.cpp safe-directory-root-tests btrfsbackup-platform-linux)
 add_btrfsbackup_test(btrfsbackup-space-check-tests SpaceCheckTests.cpp space-check-tests btrfsbackup-platform-linux)
