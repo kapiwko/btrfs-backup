@@ -149,8 +149,7 @@ works without the daemon. Desktop notifications are owned by
 
 ## Fast Local Builds
 
-For faster local package iterations, reuse persistent native and KDE build
-trees:
+For faster local package iterations, reuse one persistent build tree:
 
 ```bash
 ./tools/build-release.sh \
@@ -159,9 +158,10 @@ trees:
     --build-dir build/release
 ```
 
-The KDE tree is stored in `build/release-kde`. New persistent trees use Ninja
-when available, and both trees use ccache when it is installed. Omit
-`--build-dir` for a clean release build compiled from the staged source tree.
+Native and KDE targets share `build/release`, the same CMake cache and the same
+dependency graph. New persistent trees use Ninja when available and ccache when
+it is installed. Omit `--build-dir` for a clean release build compiled from the
+staged source tree.
 
 ## Reproducibility
 

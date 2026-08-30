@@ -38,10 +38,10 @@ cmake --build build --parallel
 Enable the optional KDE integration explicitly:
 
 ```bash
-cmake -S . -B build-kde \
+cmake -S . -B build \
   -DCMAKE_BUILD_TYPE=Debug \
   -DBUILD_KDE_INTEGRATION=ON
-cmake --build build-kde --parallel
+cmake --build build --target btrfs-backup-kde --parallel
 ```
 
 ## Architecture
