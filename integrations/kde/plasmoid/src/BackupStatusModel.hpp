@@ -32,6 +32,7 @@ class BackupStatusModel : public QObject {
     Q_PROPERTY(bool operationPending READ operationPending NOTIFY operationChanged)
     Q_PROPERTY(QString lastOperation READ lastOperation NOTIFY operationChanged)
     Q_PROPERTY(QString lastError READ lastError NOTIFY errorChanged)
+    Q_PROPERTY(bool browseSupported READ browseSupported NOTIFY managerConnectedChanged)
 
   public:
     explicit BackupStatusModel(QObject* parent = nullptr);
@@ -48,6 +49,7 @@ class BackupStatusModel : public QObject {
     bool operationPending() const;
     QString lastOperation() const;
     QString lastError() const;
+    bool browseSupported() const;
 
     Q_INVOKABLE void start();
     Q_INVOKABLE void stop();
@@ -56,6 +58,8 @@ class BackupStatusModel : public QObject {
     Q_INVOKABLE void cancelBackup();
     Q_INVOKABLE void validateTarget();
     Q_INVOKABLE void ejectTarget();
+    Q_INVOKABLE void openSettings();
+    Q_INVOKABLE void browseBackups();
 
   signals:
     void profileChanged();

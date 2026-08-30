@@ -25,13 +25,20 @@ namespace btrfsbackup::kde {
 struct ManagerCapabilities {
     int api_major = -1;
     int public_status_schema_version = -1;
+    int history_schema_version = -1;
     QSet<QString> features;
+};
+
+struct ProfileSourceSummary {
+    QString id;
+    QString name;
 };
 
 struct ProfileSummary {
     QString id;
     QString name;
     QString target_name;
+    QList<ProfileSourceSummary> sources;
 };
 
 struct RunStatus {
@@ -46,11 +53,15 @@ struct RunStatus {
     QString last_success_at;
     QString last_attempt_at;
     QString last_attempt_state;
+    QString started_at;
+    QString updated_at;
     bool can_cancel = false;
     qint64 speed_bps = 0;
     qint64 eta_seconds = -1;
     int source_progress = -1;
     int overall_progress = -1;
+    int source_index = 0;
+    int source_count = 0;
 };
 
 struct OperationResult {

@@ -47,6 +47,10 @@ std::string public_status() {
   "sourceProgress": 30,
   "overallProgress": 40,
   "progressAccuracy": "estimated",
+  "sourceIndex": 1,
+  "sourceCount": 2,
+  "startedAt": "2026-08-29T15:00:00Z",
+  "updatedAt": "2026-08-29T16:00:00Z",
   "privateField": "must not cross the boundary"
 })";
 }
@@ -101,10 +105,10 @@ void test_capabilities_and_profiles() {
     btrfsbackup::daemon::ManagerService service(manager_paths(root));
     const btrfsbackup::daemon::ManagerCapabilities capabilities = service.get_capabilities();
     test_helpers::expect_true("operational capability", !capabilities.read_only, "manager is still read-only");
-    test_helpers::expect_true("manager API minor", capabilities.api_minor == 3, "manager API minor was not advanced");
+    test_helpers::expect_true("manager API minor", capabilities.api_minor == 4, "manager API minor was not advanced");
     test_helpers::expect_true(
         "manager status schema",
-        capabilities.public_status_schema_version == 4,
+        capabilities.public_status_schema_version == 5,
         "manager did not advertise the backup summary schema"
     );
     test_helpers::expect_true(
@@ -119,7 +123,7 @@ void test_capabilities_and_profiles() {
     );
     test_helpers::expect_true(
         "sanitized history schema capability",
-        capabilities.history_schema_version == 1,
+        capabilities.history_schema_version == 2,
         "manager advertises the private history schema"
     );
     test_helpers::expect_true(
@@ -175,6 +179,12 @@ void test_status_and_history_sanitization() {
     test_helpers::expect_eq("status activity", btrfsbackup::state::document::public_activity_name(status.run), "sizing");
     test_helpers::expect_true("status cancellable", status.run.can_cancel, "status lost cancellation capability");
     test_helpers::expect_eq("status source", status.run.source_name, "Home");
+    test_helpers::expect_true(
+        "status source position",
+        status.source_index == 1 && status.source_count == 2,
+        "status lost source position"
+    );
+    test_helpers::expect_eq("status started time", status.started_at, "2026-08-29T15:00:00Z");
     test_helpers::expect_eq("last success is independent from history page", status.last_success_at, "2026-08-25T10:00:00+0000");
     test_helpers::expect_eq("last attempt timestamp", status.last_attempt_at, "2026-08-25T13:00:00Z");
     test_helpers::expect_eq("last attempt state", status.last_attempt_state, "failed");
@@ -182,6 +192,8 @@ void test_status_and_history_sanitization() {
     test_helpers::expect_eq("bounded history", std::to_string(history.entries.size()), "1");
     test_helpers::expect_eq("newest history first", history.entries.at(0).state, "failed");
     test_helpers::expect_eq("generalized history error", history.entries.at(0).error_code, "backup.failed");
+    test_helpers::expect_eq("history started time", history.entries.at(0).started_at, "2026-08-25T09:00:00Z");
+    test_helpers::expect_true("history source count", history.entries.at(0).source_count == 1, "history lost source count");
     test_helpers::expect_validation_error(
         "history limit",
         [&] { (void)history_service.get_history_sanitized("default", 0, 101); },

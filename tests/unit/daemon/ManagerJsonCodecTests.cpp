@@ -69,16 +69,22 @@ void test_status_history_and_device() {
                 .accuracy = btrfsbackup::state::ProgressAccuracy::Estimated,
             },
         },
+        .source_index = 1,
+        .source_count = 2,
+        .started_at = "2026-08-29T15:00:00Z",
+        .updated_at = "2026-08-29T16:00:00Z",
         .last_success_at = "2026-08-25T10:00:00Z",
         .last_attempt_at = "2026-08-29T16:00:00Z",
         .last_attempt_state = "failed",
     };
     const Json status_document = Json::parse(codec.encode(status));
-    expect_field("status", status_document, "schemaVersion", 4);
+    expect_field("status", status_document, "schemaVersion", 5);
     expect_field("status", status_document, "runId", std::string(status.run.run_id->value()));
     expect_field("status", status_document, "activity", "sizing");
     expect_field("status", status_document, "canCancel", true);
     expect_field("status", status_document, "overallProgress", 40);
+    expect_field("status", status_document, "sourceIndex", 1);
+    expect_field("status", status_document, "sourceCount", 2);
     expect_field("status", status_document, "lastSuccessAt", status.last_success_at);
     expect_field("status", status_document, "lastAttemptAt", status.last_attempt_at);
     expect_field("status", status_document, "lastAttemptState", status.last_attempt_state);
@@ -88,7 +94,9 @@ void test_status_history_and_device() {
         .error_code = "backup.failed",
         .source_name = "Home",
         .target_name = "Backup disk",
+        .started_at = "2026-08-25T09:00:00Z",
         .finished_at = "2026-08-25T10:00:00Z",
+        .source_count = 2,
         .overall_progress = 40,
     }}};
     const Json history_document = Json::parse(codec.encode(history));

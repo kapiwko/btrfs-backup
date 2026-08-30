@@ -1503,7 +1503,7 @@ void test_runner_execute_multi_source_success() {
 
     btrfsbackup::config::json::Json current = btrfsbackup::config::json::load_json_file(root / "status" / "default" / "current.json");
     test_helpers::expect_true("multi status", current.at("state") == "succeeded", "status should succeed");
-    test_helpers::expect_true("multi source hidden", !current.contains("sourceCount"), "public status exposes source count");
+    test_helpers::expect_true("multi source count", current.at("sourceCount") == 2, "public status lost source count");
 
     fs::remove_all(root);
 }

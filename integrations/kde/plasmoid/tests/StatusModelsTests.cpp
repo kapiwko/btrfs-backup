@@ -22,7 +22,7 @@ void expect(bool condition, const char* message) {
 
 QString run_payload(const QString& state, bool can_cancel) {
     return QStringLiteral(R"({
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "runId": "run-1",
         "state": "%1",
         "phase": "transferring",
@@ -39,6 +39,10 @@ QString run_payload(const QString& state, bool can_cancel) {
         "lastSuccessAt": "2026-08-18T18:42:00Z",
         "lastAttemptAt": "2026-08-30T12:34:56Z",
         "lastAttemptState": "failed"
+        ,"sourceIndex": 2
+        ,"sourceCount": 5
+        ,"startedAt": "2026-08-30T12:30:00Z"
+        ,"updatedAt": "2026-08-30T12:34:56Z"
     })")
         .arg(state, can_cancel ? QStringLiteral("true") : QStringLiteral("false"));
 }
@@ -56,7 +60,10 @@ void test_run_status_and_terminal_transition() {
     expect(model.lastSuccessAt() == QStringLiteral("2026-08-18T18:42:00Z"), "last success was not applied");
     expect(model.lastAttemptAt() == QStringLiteral("2026-08-30T12:34:56Z"), "last attempt was not applied");
     expect(model.lastAttemptState() == QStringLiteral("failed"), "last attempt state was not applied");
+    expect(model.sourceIndex() == 2 && model.sourceCount() == 5, "source position was not applied");
+    expect(model.freshnessState() == QStringLiteral("informational"), "backup freshness was not informational");
     expect(model.apply(run_payload(QStringLiteral("succeeded"), false)), "terminal status was rejected");
+    expect(model.elapsedSeconds() == 296, "run duration was not derived from public timestamps");
     expect(finished == 1, "active-to-terminal transition was not reported exactly once");
 
     model.setCancelSupported(false);
@@ -67,16 +74,23 @@ void test_history_validation_and_reset() {
     BackupHistoryModel model;
     expect(
         model.apply(QStringLiteral(R"([{
+            "schemaVersion": 2,
             "state": "succeeded",
             "errorCode": "",
             "sourceName": "Home",
             "targetName": "Backup disk",
+            "startedAt": "2026-08-30T12:30:00Z",
             "finishedAt": "2026-08-30T12:34:56Z",
+            "sourceCount": 2,
             "overallProgress": 100
         }])")),
         "history was rejected"
     );
     expect(model.entries().size() == 1, "history entry was not applied");
+    expect(
+        model.entries().front().toMap().value(QStringLiteral("durationSeconds")).toInt() == 296,
+        "history duration was not derived"
+    );
     expect(!model.apply(QStringLiteral("[null]")), "invalid history entry was accepted");
     expect(model.entries().size() == 1, "rejected history changed the model");
     model.reset();
