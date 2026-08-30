@@ -27,7 +27,9 @@ target_link_libraries(btrfsbackup-config-domain PUBLIC btrfsbackup-core)
 
 add_library(btrfsbackup-config-json STATIC
     model/JsonIo.cpp
-    model/ProfileDocument.cpp
+    model/ProfileDocumentDecode.cpp
+    model/ProfileDocumentEncode.cpp
+    model/ProfileDocumentNormalization.cpp
 )
 
 target_compile_features(btrfsbackup-config-json PUBLIC cxx_std_20)
