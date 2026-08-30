@@ -208,6 +208,15 @@ add_dependencies(
 
 if(BUILD_TESTING)
     add_executable(
+        kio-snapshot-interop-probe
+        spikes/KioSnapshotInteropProbe.cpp
+    )
+    target_compile_features(kio-snapshot-interop-probe PRIVATE cxx_std_23)
+    target_link_libraries(kio-snapshot-interop-probe PRIVATE Qt6::Core)
+    add_test(NAME kio-snapshot-interop-probe COMMAND kio-snapshot-interop-probe)
+    set_tests_properties(kio-snapshot-interop-probe PROPERTIES LABELS kde)
+
+    add_executable(
         kde-manager-api-tests
         client/tests/ManagerApiTests.cpp
     )
@@ -324,6 +333,7 @@ if(BUILD_TESTING)
         btrfs-backup-kde-tests
         kde-manager-api-tests
         kde-terminal-notification-tests
+        kio-snapshot-interop-probe
         plasma-progress-job-tests
         plasma-status-models-tests
         plasma-target-status-model-tests
