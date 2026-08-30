@@ -11,13 +11,14 @@ inline constexpr char object_path[] = "/io/github/btrfsbackup/Manager1";
 inline constexpr char interface_name[] = "io.github.btrfsbackup.Manager1";
 
 inline constexpr int api_major = 1;
-inline constexpr int api_minor = 1;
+inline constexpr int api_minor = 2;
 inline constexpr int capabilities_schema_version = 1;
 inline constexpr int profile_schema_version = 3;
 inline constexpr int profile_summary_schema_version = 1;
 inline constexpr int public_status_schema_version = 3;
 inline constexpr int history_schema_version = 1;
 inline constexpr int device_state_schema_version = 1;
+inline constexpr int target_storage_schema_version = 1;
 inline constexpr int operation_result_schema_version = 1;
 
 namespace feature {
@@ -26,6 +27,7 @@ inline constexpr char profiles[] = "profiles";
 inline constexpr char status[] = "status";
 inline constexpr char sanitized_history[] = "sanitized-history";
 inline constexpr char device_state[] = "device-state";
+inline constexpr char target_storage_usage[] = "target-storage-usage";
 inline constexpr char start_backup[] = "start-backup";
 inline constexpr char cancel_backup[] = "cancel-backup";
 inline constexpr char validate_target[] = "validate-target";
