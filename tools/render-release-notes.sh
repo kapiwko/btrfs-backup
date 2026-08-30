@@ -12,10 +12,10 @@ PREVIOUS_TAG="${2:-}"
 
 usage() {
     cat <<'USAGE'
-Usage: tools/render-release-notes.sh VERSION PREVIOUS_TAG
+Usage: tools/render-release-notes.sh VERSION [PREVIOUS_TAG]
 
 Render one released CHANGELOG.md section as GitHub release notes and append
-the standard artifact and comparison footer.
+the standard artifact footer. Omit PREVIOUS_TAG for the first release.
 USAGE
 }
 
@@ -28,7 +28,7 @@ if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
     usage >&2
     exit 2
 fi
-if [[ ! "$PREVIOUS_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+if [[ -n "$PREVIOUS_TAG" && ! "$PREVIOUS_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
     printf '%s\n' 'PREVIOUS_TAG must use vMAJOR.MINOR.PATCH format.' >&2
     usage >&2
     exit 2
@@ -58,7 +58,15 @@ awk -v heading="$section_heading" '
 cat <<EOF
 ## Artifacts
 
-This release includes native Arch and Debian packages, the optional Plasma integration, a generic install archive, source archives and packaging skeletons. Verify downloaded files with the attached \`SHA256SUMS\`; \`BUILD-REPORT.txt\` records the packaged version, target and test mode.
+Download the package or archive appropriate for your system from the attached release assets. Verify downloaded files with \`SHA256SUMS\`; \`BUILD-REPORT.txt\` records the packaged version, target and test mode.
+EOF
 
+if [[ -n "$PREVIOUS_TAG" ]]; then
+    cat <<EOF
 **Full changelog:** https://github.com/kapiwko/btrfs-backup/compare/$PREVIOUS_TAG...v$VERSION
 EOF
+else
+    cat <<EOF
+**Source at this release:** https://github.com/kapiwko/btrfs-backup/tree/v$VERSION
+EOF
+fi

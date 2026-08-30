@@ -251,6 +251,7 @@ command_surface_test() {
 
 release_notes_test() {
     local notes="$TEST_ROOT/release-notes.md"
+    local initial_notes="$TEST_ROOT/initial-release-notes.md"
 
     "$ROOT/tools/render-release-notes.sh" 0.3.2 v0.3.1 > "$notes"
     assert_contains "$notes" "## What's New"
@@ -261,6 +262,10 @@ release_notes_test() {
     assert_contains "$notes" '/compare/v0.3.1...v0.3.2'
     assert_not_contains "$notes" '## Unreleased'
     assert_not_contains "$notes" '## 0.3.1'
+
+    "$ROOT/tools/render-release-notes.sh" 0.1.0 > "$initial_notes"
+    assert_contains "$initial_notes" '/tree/v0.1.0'
+    assert_not_contains "$initial_notes" '/compare/'
     pass 'release notes render one changelog version with the standard footer'
 }
 
