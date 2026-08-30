@@ -10,16 +10,16 @@
 #include <string>
 #include <vector>
 
-#include <cli/ProfileCreateCommand.hpp>
-#include <cli/ProfileCommand.hpp>
-#include <cli/ProfileWizardCommand.hpp>
+#include <cli/profile/ProfileCreateCommand.hpp>
+#include <cli/profile/ProfileCommand.hpp>
+#include <cli/profile/ProfileWizardCommand.hpp>
 #include <core/Errors.hpp>
 #include <platform/linux/config/ApplicationConfig.hpp>
 #include <platform/linux/config/ProfileActivationMigration.hpp>
 #include <config/model/JsonIo.hpp>
 #include <config/model/Profile.hpp>
 #include <config/model/ProfileDocument.hpp>
-#include <cli/ProfileListCommand.hpp>
+#include <cli/profile/ProfileListCommand.hpp>
 #include <platform/linux/config/ProfileService.hpp>
 
 namespace fs = std::filesystem;
@@ -58,7 +58,7 @@ void usage() {
 
 } // namespace
 
-namespace btrfsbackup::cli {
+namespace btrfsbackup::cli::profile {
 
 int profile(
     const std::vector<std::string>& args,
@@ -213,4 +213,4 @@ int profile(
     return 0;
 }
 
-} // namespace btrfsbackup::cli
+} // namespace btrfsbackup::cli::profile

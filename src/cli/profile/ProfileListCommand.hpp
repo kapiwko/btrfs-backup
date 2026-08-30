@@ -7,8 +7,8 @@
 #include <filesystem>
 #include <iosfwd>
 
-namespace btrfsbackup::cli {
+namespace btrfsbackup::cli::profile {
 
 void profile_list(const std::filesystem::path& profile_root_dir, std::ostream& output);
 
-} // namespace btrfsbackup::cli
+} // namespace btrfsbackup::cli::profile

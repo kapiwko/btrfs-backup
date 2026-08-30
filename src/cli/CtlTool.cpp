@@ -16,7 +16,7 @@
 #include <platform/linux/config/ApplicationConfig.hpp>
 #include <cli/BackupTool.hpp>
 #include <cli/InstallationCommand.hpp>
-#include <cli/ProfileCommand.hpp>
+#include <cli/profile/ProfileCommand.hpp>
 #include <cli/runner/RunnerCommand.hpp>
 #include <cli/runner/RunnerOptions.hpp>
 #include <cli/StatusCommand.hpp>
@@ -102,7 +102,7 @@ int ctl_tool_main(int argc, char** argv) {
 
         if (command == "profile") {
             btrfsbackup::platform::linux::systemd::LinuxSystemConfigurationActivator activator;
-            return profile(args, profile_config_dir, activator);
+            return profile::profile(args, profile_config_dir, activator);
         } else if (command == "status") {
             bool help_requested = std::ranges::contains(args, "-h") || std::ranges::contains(args, "--help");
             if (!help_requested) {

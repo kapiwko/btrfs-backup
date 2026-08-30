@@ -7,8 +7,8 @@
 #include <string>
 #include <vector>
 
-namespace btrfsbackup::cli {
+namespace btrfsbackup::cli::profile {
 
-int profile_wizard(const std::vector<std::string>& args);
+int profile_create(const std::vector<std::string>& args);
 
-} // namespace btrfsbackup::cli
+} // namespace btrfsbackup::cli::profile

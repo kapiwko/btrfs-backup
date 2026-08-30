@@ -6,6 +6,7 @@ set(namespace_layout
     "src/backup/execution|btrfsbackup::backup::execution"
     "src/backup/planning|btrfsbackup::backup::planning"
     "src/cli/runner|btrfsbackup::cli::runner"
+    "src/cli/profile|btrfsbackup::cli::profile"
     "src/daemon/dbus|btrfsbackup::daemon::dbus"
     "src/daemon/control|btrfsbackup::daemon::control"
     "src/daemon/query|btrfsbackup::daemon::query"

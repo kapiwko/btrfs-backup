@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <cli/ProfileListCommand.hpp>
+#include <cli/profile/ProfileListCommand.hpp>
 
 #include <filesystem>
 #include <ostream>
@@ -12,7 +12,7 @@
 
 namespace fs = std::filesystem;
 
-namespace btrfsbackup::cli {
+namespace btrfsbackup::cli::profile {
 
 void profile_list(const fs::path& profile_root_dir, std::ostream& output) {
     for (const std::string& profile : btrfsbackup::platform::linux::list_profiles(profile_root_dir)) {
@@ -20,4 +20,4 @@ void profile_list(const fs::path& profile_root_dir, std::ostream& output) {
     }
 }
 
-} // namespace btrfsbackup::cli
+} // namespace btrfsbackup::cli::profile
