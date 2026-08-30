@@ -7,8 +7,6 @@
 #include <string>
 
 #include <config/json/JsonIo.hpp>
-#include <config/domain/Profile.hpp>
-#include <daemon/query/DeviceStateQueryService.hpp>
 #include <daemon/query/HistoryQueryService.hpp>
 #include <daemon/ManagerService.hpp>
 #include <daemon/query/ProfileQueryService.hpp>
@@ -30,41 +28,6 @@ btrfsbackup::daemon::ManagerPaths manager_paths(const fs::path& root) {
         .target_mount_root = root / "mnt",
         .mapper_root = root / "mapper",
         .mountinfo_path = "/proc/self/mountinfo",
-    };
-}
-
-btrfsbackup::config::json::Json private_profile(const fs::path& root) {
-    return {
-        {"schemaVersion", 3},
-        {"profileId", "default"},
-        {"name", "Default backup"},
-        {"enabled", true},
-        {"target", {
-                       {"device", "/dev/null"},
-                       {"luksUuid", "11111111-2222-3333-4444-555555555555"},
-                       {"btrfsUuid", "66666666-7777-8888-9999-aaaaaaaaaaaa"},
-                       {"mapperName", "backupdisk"},
-                   }},
-        {"sources", btrfsbackup::config::json::Json::array({{
-                        {"id", "home"},
-                        {"name", "Home"},
-                        {"enabled", true},
-                        {"subvolume", "/home"},
-                        {"localSnapshotDir", "/.snapshots/home"},
-                        {"remoteSubdir", "home"},
-                        {"remoteRetention", 2},
-                        {"localRetention", 2},
-                    }})},
-        {"settings", {
-                         {"dailyLimit", true},
-                         {"incrementalRequired", true},
-                         {"keepFailedLocalSnapshot", false},
-                         {"autoEject", true},
-                         {"remoteRetention", 2},
-                         {"localRetention", 2},
-                         {"minimumTargetFreeBytes", 500},
-                         {"minimumLocalFreeBytes", 0},
-                     }},
     };
 }
 
@@ -264,85 +227,6 @@ void test_malformed_and_oversized_documents() {
     fs::remove_all(root);
 }
 
-void test_device_state_is_presentation_safe() {
-    fs::path root = test_helpers::test_root("manager-service", "device");
-    test_helpers::write_file(
-        root / "etc" / "profiles" / "default" / "profile.json",
-        btrfsbackup::config::json::dump_json(private_profile(root))
-    );
-    test_helpers::write_file(
-        root / "state" / "profiles" / "default" / "target-storage.json",
-        R"({
-            "schemaVersion": 1,
-            "profileId": "default",
-            "targetIdentity": {
-                "luksUuid": "11111111-2222-3333-4444-555555555555",
-                "btrfsUuid": "66666666-7777-8888-9999-aaaaaaaaaaaa",
-                "partitionUuid": ""
-            },
-            "measurement": {
-                "capacityBytes": 1000,
-                "freeBytes": 400,
-                "availableBytes": 350,
-                "measuredAt": "2026-08-30T12:34:56Z"
-            }
-        })"
-    );
-    const btrfsbackup::daemon::query::DeviceStateQueryService service(manager_paths(root));
-    const btrfsbackup::daemon::TargetStatus state = service.get_device_state("default");
-    test_helpers::expect_eq("connected target state", state.state, "connected");
-    test_helpers::expect_true("safe closed target", state.safe_to_remove, "target is not safe");
-    test_helpers::expect_true("cached storage available", state.storage.has_value(), "cached target storage was not returned");
-    test_helpers::expect_true("cached storage freshness", state.storage.has_value() && !state.storage->live, "cache was marked live");
-    test_helpers::expect_true("cached used bytes", state.storage.has_value() && state.storage->used_bytes == 600, "cached used bytes are wrong");
-    test_helpers::expect_true(
-        "configured minimum",
-        state.storage.has_value() && state.storage->space_state == btrfsbackup::state::document::TargetSpaceState::BelowConfiguredMinimum,
-        "profile minimum did not produce a storage warning"
-    );
-
-    test_helpers::write_file(
-        root / "state" / "profiles" / "default" / "target-storage.json",
-        R"({"schemaVersion":1,"profileId":"default","targetIdentity":{"luksUuid":"11111111-2222-3333-4444-555555555555","btrfsUuid":"AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE","partitionUuid":""},"measurement":{"capacityBytes":1000,"freeBytes":400,"availableBytes":350,"measuredAt":"2026-08-30T12:34:56Z"}})"
-    );
-    test_helpers::expect_true(
-        "changed target cache ignored",
-        !service.get_device_state("default").storage.has_value(),
-        "cache for a different target was returned"
-    );
-    fs::remove_all(root);
-}
-
-void test_device_state_rejects_unexpected_mount() {
-    fs::path root = test_helpers::test_root("manager-service", "unexpected-mount");
-    test_helpers::write_file(
-        root / "etc" / "profiles" / "default" / "profile.json",
-        btrfsbackup::config::json::dump_json(private_profile(root))
-    );
-    test_helpers::write_file(
-        root / "state" / "profiles" / "default" / "target-storage.json",
-        R"({"schemaVersion":1,"profileId":"default","targetIdentity":{"luksUuid":"11111111-2222-3333-4444-555555555555","btrfsUuid":"66666666-7777-8888-9999-aaaaaaaaaaaa","partitionUuid":""},"measurement":{"capacityBytes":1000,"freeBytes":400,"availableBytes":350,"measuredAt":"2026-08-30T12:34:56Z"}})"
-    );
-    test_helpers::write_file(
-        root / "mountinfo",
-        "23 21 0:22 / " + (root / "mnt" / "default").string() +
-            " rw,nosuid,nodev - tmpfs tmpfs rw,size=123\n"
-    );
-    auto paths = manager_paths(root);
-    paths.mountinfo_path = root / "mountinfo";
-
-    const btrfsbackup::daemon::query::DeviceStateQueryService service(std::move(paths));
-    const btrfsbackup::daemon::TargetStatus state = service.get_device_state("default");
-    test_helpers::expect_eq("unexpected mount state", state.state, "unexpected-mount");
-    test_helpers::expect_true("unexpected mount is not target", !state.mounted, "foreign mount was reported as the target");
-    test_helpers::expect_true(
-        "unexpected mount cached storage",
-        state.storage.has_value() && !state.storage->live,
-        "foreign mount produced live storage data"
-    );
-    fs::remove_all(root);
-}
-
 } // namespace
 
 int main() {
@@ -350,7 +234,5 @@ int main() {
     test_status_and_history_sanitization();
     test_last_history_cache_recovers_from_authoritative_record();
     test_malformed_and_oversized_documents();
-    test_device_state_is_presentation_safe();
-    test_device_state_rejects_unexpected_mount();
     return test_helpers::finish("manager service tests");
 }

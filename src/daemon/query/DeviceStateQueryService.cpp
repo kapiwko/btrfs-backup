@@ -25,16 +25,47 @@ namespace btrfsbackup::daemon::query {
 
 struct DeviceStateQueryService::Impl {
     explicit Impl(ManagerPaths configured_paths)
-        : paths(std::move(configured_paths)), storage_store(paths.state_root) {
+        : paths(std::move(configured_paths)),
+          owned_mounts(std::make_unique<btrfsbackup::platform::linux::storage::LinuxMountInspector>(paths.mountinfo_path)),
+          owned_space_probe(std::make_unique<btrfsbackup::platform::linux::storage::FilesystemSpaceProbe>()),
+          owned_storage_reader(std::make_unique<btrfsbackup::state::FileTargetStorageMeasurementStore>(paths.state_root)),
+          mounts(*owned_mounts),
+          space_probe(*owned_space_probe),
+          storage_reader(*owned_storage_reader) {
+    }
+
+    Impl(
+        ManagerPaths configured_paths,
+        btrfsbackup::backup::IMountInspector& configured_mounts,
+        btrfsbackup::backup::IFilesystemSpaceProbe& configured_space_probe,
+        btrfsbackup::backup::ITargetStorageMeasurementReader& configured_storage_reader
+    )
+        : paths(std::move(configured_paths)),
+          mounts(configured_mounts),
+          space_probe(configured_space_probe),
+          storage_reader(configured_storage_reader) {
     }
 
     ManagerPaths paths;
-    btrfsbackup::platform::linux::storage::FilesystemSpaceProbe space_probe;
-    btrfsbackup::state::FileTargetStorageMeasurementStore storage_store;
+    std::unique_ptr<btrfsbackup::backup::IMountInspector> owned_mounts;
+    std::unique_ptr<btrfsbackup::backup::IFilesystemSpaceProbe> owned_space_probe;
+    std::unique_ptr<btrfsbackup::backup::ITargetStorageMeasurementReader> owned_storage_reader;
+    btrfsbackup::backup::IMountInspector& mounts;
+    btrfsbackup::backup::IFilesystemSpaceProbe& space_probe;
+    btrfsbackup::backup::ITargetStorageMeasurementReader& storage_reader;
 };
 
 DeviceStateQueryService::DeviceStateQueryService(ManagerPaths paths)
     : impl_(std::make_unique<Impl>(std::move(paths))) {
+}
+
+DeviceStateQueryService::DeviceStateQueryService(
+    ManagerPaths paths,
+    btrfsbackup::backup::IMountInspector& mounts,
+    btrfsbackup::backup::IFilesystemSpaceProbe& space_probe,
+    btrfsbackup::backup::ITargetStorageMeasurementReader& storage_reader
+)
+    : impl_(std::make_unique<Impl>(std::move(paths), mounts, space_probe, storage_reader)) {
 }
 
 DeviceStateQueryService::~DeviceStateQueryService() noexcept = default;
@@ -54,8 +85,7 @@ TargetStatus DeviceStateQueryService::get_device_state(
         paths.mapper_root
     );
     const fs::path mountpoint = paths.target_mount_root / profile_id;
-    const std::vector<btrfsbackup::backup::MountEntry> mounts =
-        btrfsbackup::platform::linux::storage::read_mount_table(paths.mountinfo_path);
+    const std::vector<btrfsbackup::backup::MountEntry> mounts = impl_->mounts.inspect();
     const std::optional<btrfsbackup::backup::MountEntry> mounted_entry = btrfsbackup::backup::mount_at(mounts, mountpoint);
     const bool mount_present = mounted_entry.has_value();
     const bool target_mounted = mount_present && mounted_entry->fstype == "btrfs" &&
@@ -89,7 +119,7 @@ TargetStatus DeviceStateQueryService::get_device_state(
         }
     }
     if (!measurement.has_value()) {
-        measurement = impl_->storage_store.read_matching(profile);
+        measurement = impl_->storage_reader.read_matching(profile);
     }
 
     std::optional<btrfsbackup::state::document::TargetStorageStatusV1> storage;
