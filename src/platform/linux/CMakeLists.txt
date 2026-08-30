@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 add_library(btrfsbackup-platform-linux STATIC
+    ChildProcess.cpp
     LibBtrfsOperations.cpp
     DeviceInfo.cpp
     FileIo.cpp
@@ -36,6 +37,7 @@ target_compile_features(btrfsbackup-platform-linux PUBLIC cxx_std_20)
 target_restricted_include_directories(btrfsbackup-platform-linux
     PUBLIC_HEADERS
         platform/linux/LibBtrfsOperations.hpp
+        platform/linux/ChildProcess.hpp
         platform/linux/DeviceInfo.hpp
         platform/linux/FileBackupRunLeaseProvider.hpp
         platform/linux/FileIo.hpp
@@ -46,7 +48,6 @@ target_restricted_include_directories(btrfsbackup-platform-linux
         platform/linux/PosixDurableFileOperations.hpp
         platform/linux/PosixFileSystem.hpp
         platform/linux/PosixTransferPipeline.hpp
-        platform/linux/PosixTransferSession.hpp
         platform/linux/PosixTransferProcess.hpp
         platform/linux/PosixTransferPump.hpp
         platform/linux/Process.hpp
@@ -62,6 +63,7 @@ target_restricted_include_directories(btrfsbackup-platform-linux
         platform/linux/TrustedExecutable.hpp
         platform/linux/TrustedFile.hpp
     PRIVATE_HEADERS
+        platform/linux/PosixTransferSession.hpp
         platform/linux/SystemdMountedTargetSession.hpp
 )
 target_link_libraries(btrfsbackup-platform-linux
