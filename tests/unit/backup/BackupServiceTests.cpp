@@ -133,6 +133,7 @@ struct FakeDiscovery final : btrfsbackup::backup::IBackupDiscovery {
 
 struct FakePlanBuilder final : btrfsbackup::backup::IBackupPlanBuilder {
     mutable int calls = 0;
+    mutable bool fail = false;
     mutable std::string received_timestamp;
     mutable std::filesystem::path received_profile_state_dir;
     mutable btrfsbackup::CancellationToken* received_cancellation = nullptr;
@@ -147,6 +148,12 @@ struct FakePlanBuilder final : btrfsbackup::backup::IBackupPlanBuilder {
         received_timestamp = snapshot_timestamp;
         received_profile_state_dir = snapshot.profile_state_dir();
         received_cancellation = &cancellation;
+        if (fail) {
+            throw btrfsbackup::CodedOperationError(
+                btrfsbackup::ErrorCode::ConfigurationChanged,
+                "planning inputs changed"
+            );
+        }
         return {.profile_id = btrfsbackup::ProfileId{profile.id}, .run_id = run_id};
     }
 };
@@ -285,15 +292,17 @@ struct FakeActiveRunRegistration final : btrfsbackup::backup::IActiveRunRegistra
         std::optional<std::string> diagnostic
     )
         : active_run_(active_run),
-          lifecycle_(lifecycle),
-          diagnostic_(std::move(diagnostic)) {
+          lifecycle_(lifecycle) {
+        if (diagnostic.has_value()) {
+            diagnostic_ = btrfsbackup::backup::CleanupDiagnostic{std::move(*diagnostic)};
+        }
     }
 
-    ~FakeActiveRunRegistration() override = default;
+    ~FakeActiveRunRegistration() noexcept override = default;
 
-    std::optional<std::string> close() override {
+    const std::optional<btrfsbackup::backup::CleanupDiagnostic>& close() noexcept override {
         if (closed_) {
-            return std::nullopt;
+            return diagnostic_;
         }
         closed_ = true;
         if (lifecycle_ != nullptr) {
@@ -306,7 +315,7 @@ struct FakeActiveRunRegistration final : btrfsbackup::backup::IActiveRunRegistra
   private:
     std::optional<btrfsbackup::RunId>& active_run_;
     std::vector<std::string>* lifecycle_;
-    std::optional<std::string> diagnostic_;
+    std::optional<btrfsbackup::backup::CleanupDiagnostic> diagnostic_;
     bool closed_ = false;
 };
 
@@ -446,13 +455,16 @@ struct FakeCancellationWatch final : btrfsbackup::backup::ICancellationWatch {
         std::vector<std::string>* lifecycle,
         std::optional<std::string> diagnostic
     )
-        : destructions_(destructions), lifecycle_(lifecycle), diagnostic_(std::move(diagnostic)) {
+        : destructions_(destructions), lifecycle_(lifecycle) {
+        if (diagnostic.has_value()) {
+            diagnostic_ = btrfsbackup::backup::CleanupDiagnostic{std::move(*diagnostic)};
+        }
     }
-    ~FakeCancellationWatch() override = default;
+    ~FakeCancellationWatch() noexcept override = default;
 
-    std::optional<std::string> close() override {
+    const std::optional<btrfsbackup::backup::CleanupDiagnostic>& close() noexcept override {
         if (closed_) {
-            return std::nullopt;
+            return diagnostic_;
         }
         closed_ = true;
         if (lifecycle_ != nullptr) {
@@ -465,7 +477,7 @@ struct FakeCancellationWatch final : btrfsbackup::backup::ICancellationWatch {
   private:
     int& destructions_;
     std::vector<std::string>* lifecycle_;
-    std::optional<std::string> diagnostic_;
+    std::optional<btrfsbackup::backup::CleanupDiagnostic> diagnostic_;
     bool closed_ = false;
 };
 
@@ -722,7 +734,7 @@ void test_run_context_close_aggregates_cleanup_diagnostics() {
     context.attach_event_sink(std::move(events));
     context.attach_target_session(std::move(target_session));
 
-    const btrfsbackup::backup::RunExecutionContextCloseResult result = context.close();
+    const btrfsbackup::backup::RunExecutionContextCloseResult& result = context.close();
     test_helpers::expect_true("cleanup result failed", !result.succeeded(), "cleanup failures were lost");
     test_helpers::expect_true(
         "cleanup diagnostics",
@@ -736,8 +748,8 @@ void test_run_context_close_aggregates_cleanup_diagnostics() {
     test_helpers::expect_true("event sink closed", events == nullptr, "event sink remained open");
     test_helpers::expect_true(
         "idempotent close",
-        context.close().succeeded(),
-        "second close repeated cleanup failures"
+        !context.close().succeeded() && context.close().failures.size() == result.failures.size(),
+        "second close did not preserve cleanup failures"
     );
     expect_run_resources_released("diagnostic cleanup", fixture);
 }
@@ -992,6 +1004,28 @@ void test_plan_reports_target_cleanup_failure() {
     }
 }
 
+void test_plan_preserves_planning_failure_when_target_cleanup_also_fails() {
+    Fixture fixture;
+    fixture.plan_builder.fail = true;
+    fixture.preflight.session_close_fail = true;
+
+    try {
+        (void)fixture.service.plan({
+            .profile_id = btrfsbackup::ProfileId{"default"},
+            .mount_target = true,
+        });
+        test_helpers::expect_true("combined plan failure", false, "plan succeeded despite two failures");
+    } catch (const btrfsbackup::CodedOperationError& error) {
+        test_helpers::expect_true(
+            "combined plan failure code",
+            error.error_code == btrfsbackup::ErrorCode::ConfigurationChanged,
+            "cleanup failure replaced the planning error code"
+        );
+        test_helpers::expect_contains("combined planning diagnostic", error.what(), "planning inputs changed");
+        test_helpers::expect_contains("combined cleanup diagnostic", error.what(), "could not stop target mount unit");
+    }
+}
+
 void test_busy_plan_stops_before_target_access() {
     Fixture fixture;
     fixture.leases.busy = true;
@@ -1080,6 +1114,7 @@ int main() {
     test_plan_acquires_lease_and_defaults_to_offline_target();
     test_plan_can_explicitly_mount_target();
     test_plan_reports_target_cleanup_failure();
+    test_plan_preserves_planning_failure_when_target_cleanup_also_fails();
     test_busy_plan_stops_before_target_access();
     test_daily_match_skips_execution();
     test_cancel_validates_profile_and_writes_request();

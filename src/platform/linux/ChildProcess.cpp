@@ -35,7 +35,7 @@ ChildProcess& ChildProcess::operator=(ChildProcess&& other) noexcept {
     return *this;
 }
 
-ChildProcess::~ChildProcess() {
+ChildProcess::~ChildProcess() noexcept {
     cleanup();
 }
 

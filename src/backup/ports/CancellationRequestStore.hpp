@@ -9,13 +9,14 @@
 #include <string>
 
 #include <backup/model/BackupExecution.hpp>
+#include <backup/ports/CleanupDiagnostic.hpp>
 
 namespace btrfsbackup::backup {
 
 class IActiveRunRegistration {
   public:
-    virtual ~IActiveRunRegistration() = default;
-    [[nodiscard]] virtual std::optional<std::string> close() = 0;
+    virtual ~IActiveRunRegistration() noexcept = default;
+    [[nodiscard]] virtual const std::optional<CleanupDiagnostic>& close() noexcept = 0;
 };
 
 class ICancellationRequestStore {

@@ -5,7 +5,10 @@
 #include <platform/linux/SystemdMountedTargetSession.hpp>
 
 #include <exception>
+#include <type_traits>
 #include <utility>
+
+static_assert(std::is_nothrow_destructible_v<btrfsbackup::platform::linux::SystemdMountedTargetSession>);
 
 namespace btrfsbackup::platform::linux {
 
@@ -21,7 +24,7 @@ SystemdMountedTargetSession::SystemdMountedTargetSession(
       crypt_unit_to_restore_(std::move(crypt_unit_to_restore)) {
 }
 
-SystemdMountedTargetSession::~SystemdMountedTargetSession() {
+SystemdMountedTargetSession::~SystemdMountedTargetSession() noexcept {
     (void)close();
 }
 

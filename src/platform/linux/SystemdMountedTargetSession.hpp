@@ -20,7 +20,11 @@ class SystemdMountedTargetSession final : public btrfsbackup::backup::IMountedTa
         bool mounted_by_this_session,
         std::string crypt_unit_to_restore = {}
     );
-    ~SystemdMountedTargetSession() override;
+    SystemdMountedTargetSession(const SystemdMountedTargetSession&) = delete;
+    SystemdMountedTargetSession& operator=(const SystemdMountedTargetSession&) = delete;
+    SystemdMountedTargetSession(SystemdMountedTargetSession&&) = delete;
+    SystemdMountedTargetSession& operator=(SystemdMountedTargetSession&&) = delete;
+    ~SystemdMountedTargetSession() noexcept override;
 
     [[nodiscard]] bool mounted_by_this_session() const noexcept override;
     [[nodiscard]] std::optional<btrfsbackup::backup::TargetCleanupError> close() noexcept override;
