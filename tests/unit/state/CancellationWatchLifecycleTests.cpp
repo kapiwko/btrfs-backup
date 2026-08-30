@@ -7,7 +7,7 @@
 #include <memory>
 #include <thread>
 
-#include <state/FileCancellationMonitor.hpp>
+#include <state/cancellation/FileCancellationMonitor.hpp>
 
 #include "support/TestHelpers.hpp"
 
