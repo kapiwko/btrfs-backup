@@ -1,0 +1,10 @@
+{
+    "KPlugin": {
+        "Description": "Control and browse btrfs-backup profiles",
+        "EnabledByDefault": true,
+        "Icon": "drive-harddisk-symbolic",
+        "License": "GPL-3.0-or-later",
+        "Name": "Btrfs Backup"
+    },
+    "X-Plasma-Runner-Min-Letter-Count": 8
+}

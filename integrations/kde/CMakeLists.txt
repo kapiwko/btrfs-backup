@@ -14,7 +14,7 @@ set(KDE_INSTALL_DATADIR "${CMAKE_INSTALL_DATADIR}")
 set(KDE_INSTALL_LOCALEDIR "${CMAKE_INSTALL_DATADIR}/locale")
 
 find_package(Qt6 REQUIRED COMPONENTS Core DBus Gui Qml Quick)
-find_package(KF6 REQUIRED COMPONENTS CoreAddons I18n JobWidgets KCMUtils Notifications Package KIO)
+find_package(KF6 REQUIRED COMPONENTS CoreAddons I18n JobWidgets KCMUtils Notifications Package KIO Runner)
 find_package(Plasma REQUIRED)
 if(COMMAND qt_policy)
     qt_policy(SET QTP0001 NEW)
@@ -137,6 +137,28 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
 endif()
 install(TARGETS btrfs-backup-kde-restore RUNTIME DESTINATION "${KDE_INSTALL_BINDIR}")
 install(FILES restore/btrfs-backup-kde-restore.notifyrc DESTINATION "${CMAKE_INSTALL_DATADIR}/knotifications6")
+
+add_library(btrfsbackup-runner MODULE
+    krunner/BackupRunner.cpp
+    krunner/BackupRunner.hpp
+    krunner/RunnerCommandParser.cpp
+    krunner/RunnerCommandParser.hpp
+    krunner/backuprunner.json
+)
+set_target_properties(btrfsbackup-runner PROPERTIES PREFIX "")
+target_compile_features(btrfsbackup-runner PRIVATE cxx_std_23)
+target_include_directories(btrfsbackup-runner PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/client ${CMAKE_CURRENT_SOURCE_DIR}/krunner)
+target_link_libraries(btrfsbackup-runner PRIVATE
+    btrfsbackup_kde_manager_client
+    KF6::I18n
+    KF6::Runner
+    Qt6::Core
+    Qt6::DBus
+)
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(btrfsbackup-runner PRIVATE -Wall -Wextra -Wpedantic)
+endif()
+install(TARGETS btrfsbackup-runner LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}/qt6/plugins/kf6/krunner")
 
 add_executable(
     btrfs-backup-kde-monitor
@@ -289,11 +311,22 @@ add_dependencies(
     kio_btrfsbackup
     previousversionsaction
     btrfs-backup-kde-restore
+    btrfsbackup-runner
     pofiles
     tsfiles
 )
 
 if(BUILD_TESTING)
+    add_executable(krunner-command-parser-tests
+        krunner/RunnerCommandParser.cpp
+        krunner/tests/RunnerCommandParserTests.cpp
+    )
+    target_compile_features(krunner-command-parser-tests PRIVATE cxx_std_23)
+    target_include_directories(krunner-command-parser-tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/krunner)
+    target_link_libraries(krunner-command-parser-tests PRIVATE Qt6::Core)
+    add_test(NAME krunner-command-parser COMMAND krunner-command-parser-tests)
+    set_tests_properties(krunner-command-parser PROPERTIES LABELS "kde;krunner")
+
     add_executable(dolphin-previous-versions-selection-tests
         dolphin/PreviousVersionsSelection.cpp
         dolphin/tests/PreviousVersionsSelectionTests.cpp
