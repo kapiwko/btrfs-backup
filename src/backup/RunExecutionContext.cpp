@@ -4,97 +4,17 @@
 
 #include <backup/RunExecutionContext.hpp>
 
+#include <cstdio>
 #include <exception>
-#include <iostream>
+#include <stdexcept>
 #include <string_view>
 #include <utility>
 
 namespace btrfsbackup::backup {
 
-namespace {
-
-std::string_view close_stage_name(RunExecutionContextCloseStage stage) {
-    switch (stage) {
-    case RunExecutionContextCloseStage::CancellationWatch:
-        return "cancellation-watch";
-    case RunExecutionContextCloseStage::EventSink:
-        return "event-sink";
-    case RunExecutionContextCloseStage::CheckpointStore:
-        return "checkpoint-store";
-    case RunExecutionContextCloseStage::ActiveRun:
-        return "active-run";
-    case RunExecutionContextCloseStage::CancellationRequest:
-        return "cancellation-request";
-    case RunExecutionContextCloseStage::TargetSession:
-        return "target-session";
-    case RunExecutionContextCloseStage::Lease:
-        return "lease";
-    }
-    return "unknown";
-}
-
-void record_exception(
-    CloseResult& result,
-    RunExecutionContextCloseStage stage,
-    const std::exception& error
-) {
-    result.failures.push_back({stage, error.what()});
-}
-
-void record_unknown_exception(CloseResult& result, RunExecutionContextCloseStage stage) {
-    result.failures.push_back({stage, "unknown cleanup failure"});
-}
-
-template <typename Resource>
-void reset_resource(
-    std::unique_ptr<Resource>& resource,
-    RunExecutionContextCloseStage stage,
-    CloseResult& result
-) {
-    try {
-        resource.reset();
-    } catch (const std::exception& error) {
-        record_exception(result, stage, error);
-    } catch (...) {
-        record_unknown_exception(result, stage);
-    }
-}
-
-template <typename Resource>
-void close_resource(
-    std::unique_ptr<Resource>& resource,
-    RunExecutionContextCloseStage stage,
-    CloseResult& result
-) {
-    if (resource == nullptr) {
-        return;
-    }
-    try {
-        if (std::optional<std::string> diagnostic = resource->close()) {
-            result.failures.push_back({stage, std::move(*diagnostic)});
-        }
-    } catch (const std::exception& error) {
-        record_exception(result, stage, error);
-    } catch (...) {
-        record_unknown_exception(result, stage);
-    }
-    reset_resource(resource, stage, result);
-}
-
-void write_diagnostics(const ProfileId& profile_id, const RunId& run_id, const CloseResult& result) noexcept {
-    for (const RunExecutionContextCloseFailure& failure : result.failures) {
-        std::clog << "btrfs-backup: cleanup failed for profile " << profile_id.value()
-                  << ", run " << run_id.value() << ", stage " << close_stage_name(failure.stage)
-                  << ": " << failure.message << '\n';
-    }
-}
-
-} // namespace
-
 RunExecutionContext::RunExecutionContext(
     ProfileId profile_id_value,
     RunId run_id_value,
-    std::unique_ptr<IBackupRunEventSink>& events,
     std::unique_ptr<IBackupRunLease> lease_value,
     ICheckpointStoreFactory& checkpoint_factory,
     ICancellationRequestStore& cancellation_requests,
@@ -104,10 +24,43 @@ RunExecutionContext::RunExecutionContext(
       run_id(std::move(run_id_value)),
       checkpoints(checkpoint_factory.checkpoints(profile_id)),
       lease(std::move(lease_value)),
-      events_(events),
       cancellation_requests_(cancellation_requests) {
     active_run = cancellation_requests.register_active_run({profile_id, run_id});
     cancellation_watch = cancellation_monitor.watch({profile_id, run_id}, cancellation);
+}
+
+RunExecutionContext::~RunExecutionContext() noexcept {
+    try {
+        (void)close();
+    } catch (const std::exception& error) {
+        std::fputs("btrfs-backup: run context cleanup failed before diagnostics could be completed: ", stderr);
+        std::fputs(error.what(), stderr);
+        std::fputc('\n', stderr);
+    } catch (...) {
+        std::fputs("btrfs-backup: run context cleanup failed with an unknown error\n", stderr);
+    }
+}
+
+RunExecutionContextCloseResult RunExecutionContext::close() {
+    RunExecutionContextCloseResult result;
+    if (closed_) {
+        return result;
+    }
+    closed_ = true;
+
+    close_cancellation_watch(result);
+    release_event_sink();
+    release_checkpoint_store();
+    close_active_run(result);
+    clear_cancellation_request(result);
+    collect_target_session_failure(result);
+    release_lease();
+    report_close_failures(result);
+    return result;
+}
+
+void RunExecutionContext::attach_event_sink(std::unique_ptr<IBackupRunEventSink> events) noexcept {
+    events_ = std::move(events);
 }
 
 void RunExecutionContext::attach_target_session(std::unique_ptr<IMountedTargetSession> session) {
@@ -126,42 +79,107 @@ std::optional<TargetCleanupError> RunExecutionContext::close_target_session() no
     return target_close_error_;
 }
 
-RunExecutionContext::~RunExecutionContext() noexcept {
-    try {
-        (void)close();
-    } catch (const std::exception& error) {
-        std::clog << "btrfs-backup: run context cleanup failed before diagnostics could be completed: "
-                  << error.what() << '\n';
-    } catch (...) {
-        std::clog << "btrfs-backup: run context cleanup failed with an unknown error\n";
+IBackupRunEventSink& RunExecutionContext::event_sink() const {
+    if (events_ == nullptr) {
+        throw std::logic_error("run execution context has no event sink");
     }
+    return *events_;
 }
 
-CloseResult RunExecutionContext::close() {
-    CloseResult result;
-    if (closed_) {
-        return result;
+void RunExecutionContext::close_cancellation_watch(RunExecutionContextCloseResult& result) {
+    if (cancellation_watch == nullptr) {
+        return;
     }
-    closed_ = true;
+    try {
+        if (std::optional<std::string> diagnostic = cancellation_watch->close()) {
+            result.failures.push_back({RunExecutionContextCloseStage::CancellationWatch, std::move(*diagnostic)});
+        }
+    } catch (const std::exception& error) {
+        result.failures.push_back({RunExecutionContextCloseStage::CancellationWatch, error.what()});
+    } catch (...) {
+        result.failures.push_back({RunExecutionContextCloseStage::CancellationWatch, "unknown cleanup failure"});
+    }
+    cancellation_watch.reset();
+}
 
-    close_resource(cancellation_watch, RunExecutionContextCloseStage::CancellationWatch, result);
-    reset_resource(events_, RunExecutionContextCloseStage::EventSink, result);
-    reset_resource(checkpoints, RunExecutionContextCloseStage::CheckpointStore, result);
-    close_resource(active_run, RunExecutionContextCloseStage::ActiveRun, result);
+void RunExecutionContext::release_event_sink() noexcept {
+    events_.reset();
+}
+
+void RunExecutionContext::release_checkpoint_store() noexcept {
+    checkpoints.reset();
+}
+
+void RunExecutionContext::close_active_run(RunExecutionContextCloseResult& result) {
+    if (active_run == nullptr) {
+        return;
+    }
+    try {
+        if (std::optional<std::string> diagnostic = active_run->close()) {
+            result.failures.push_back({RunExecutionContextCloseStage::ActiveRun, std::move(*diagnostic)});
+        }
+    } catch (const std::exception& error) {
+        result.failures.push_back({RunExecutionContextCloseStage::ActiveRun, error.what()});
+    } catch (...) {
+        result.failures.push_back({RunExecutionContextCloseStage::ActiveRun, "unknown cleanup failure"});
+    }
+    active_run.reset();
+}
+
+void RunExecutionContext::clear_cancellation_request(RunExecutionContextCloseResult& result) {
     try {
         cancellation_requests_.clear_cancel_request({profile_id, run_id});
     } catch (const std::exception& error) {
-        record_exception(result, RunExecutionContextCloseStage::CancellationRequest, error);
+        result.failures.push_back({RunExecutionContextCloseStage::CancellationRequest, error.what()});
     } catch (...) {
-        record_unknown_exception(result, RunExecutionContextCloseStage::CancellationRequest);
+        result.failures.push_back({RunExecutionContextCloseStage::CancellationRequest, "unknown cleanup failure"});
     }
+}
+
+void RunExecutionContext::collect_target_session_failure(RunExecutionContextCloseResult& result) {
     if (std::optional<TargetCleanupError> error = close_target_session()) {
         result.failures.push_back({RunExecutionContextCloseStage::TargetSession, error->message});
     }
-    reset_resource(lease, RunExecutionContextCloseStage::Lease, result);
+}
 
-    write_diagnostics(profile_id, run_id, result);
-    return result;
+void RunExecutionContext::release_lease() noexcept {
+    lease.reset();
+}
+
+void RunExecutionContext::report_close_failures(const RunExecutionContextCloseResult& result) const noexcept {
+    for (const RunExecutionContextCloseFailure& failure : result.failures) {
+        std::fputs("btrfs-backup: cleanup failed for profile ", stderr);
+        std::fwrite(profile_id.value().data(), 1, profile_id.value().size(), stderr);
+        std::fputs(", run ", stderr);
+        std::fwrite(run_id.value().data(), 1, run_id.value().size(), stderr);
+        std::fputs(", stage ", stderr);
+        switch (failure.stage) {
+        case RunExecutionContextCloseStage::CancellationWatch:
+            std::fputs("cancellation-watch", stderr);
+            break;
+        case RunExecutionContextCloseStage::EventSink:
+            std::fputs("event-sink", stderr);
+            break;
+        case RunExecutionContextCloseStage::CheckpointStore:
+            std::fputs("checkpoint-store", stderr);
+            break;
+        case RunExecutionContextCloseStage::ActiveRun:
+            std::fputs("active-run", stderr);
+            break;
+        case RunExecutionContextCloseStage::CancellationRequest:
+            std::fputs("cancellation-request", stderr);
+            break;
+        case RunExecutionContextCloseStage::TargetSession:
+            std::fputs("target-session", stderr);
+            break;
+        case RunExecutionContextCloseStage::Lease:
+            std::fputs("lease", stderr);
+            break;
+        }
+        std::fputs(": ", stderr);
+        std::fwrite(failure.message.data(), 1, failure.message.size(), stderr);
+        std::fputc('\n', stderr);
+    }
 }
 
 } // namespace btrfsbackup::backup

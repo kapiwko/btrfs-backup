@@ -711,15 +711,15 @@ void test_run_context_close_aggregates_cleanup_diagnostics() {
     btrfsbackup::backup::RunExecutionContext context(
         fixture.profiles.profile.id,
         btrfsbackup::RunId{"run-1"},
-        events,
         std::move(lease),
         fixture.state,
         fixture.state,
         fixture.cancellation_monitor
     );
+    context.attach_event_sink(std::move(events));
     context.attach_target_session(std::move(target_session));
 
-    const btrfsbackup::backup::CloseResult result = context.close();
+    const btrfsbackup::backup::RunExecutionContextCloseResult result = context.close();
     test_helpers::expect_true("cleanup result failed", !result.succeeded(), "cleanup failures were lost");
     test_helpers::expect_true(
         "cleanup diagnostics",
