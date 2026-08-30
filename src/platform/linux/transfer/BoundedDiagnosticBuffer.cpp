@@ -2,12 +2,12 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <platform/linux/BoundedDiagnosticBuffer.hpp>
+#include <platform/linux/transfer/BoundedDiagnosticBuffer.hpp>
 
 #include <algorithm>
 #include <cstring>
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::transfer {
 
 void BoundedDiagnosticBuffer::append(std::string_view data) {
     const std::size_t head_remaining = segment_limit_bytes - head_.size();
@@ -51,4 +51,4 @@ std::string BoundedDiagnosticBuffer::tail_text() const {
     return tail_.substr(tail_start_) + tail_.substr(0, tail_start_);
 }
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::transfer

@@ -10,7 +10,7 @@
 #include <core/Cancellation.hpp>
 #include <platform/linux/OwnedFileDescriptor.hpp>
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::transfer {
 
 class PosixCancellationSignal {
   public:
@@ -33,4 +33,4 @@ class PosixCancellationSignal {
     std::optional<std::stop_callback<WriteSignal>> callback_;
 };
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::transfer

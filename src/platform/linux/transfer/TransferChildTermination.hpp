@@ -10,7 +10,7 @@
 #include <backup/transfer/TransferResult.hpp>
 #include <platform/linux/ChildProcess.hpp>
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::transfer {
 
 enum class ChildTerminationProgress {
     None,
@@ -42,4 +42,4 @@ class TransferChildTermination final {
     std::optional<std::chrono::steady_clock::time_point> deadline_;
 };
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::transfer

@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <platform/linux/PosixTransferSession.hpp>
+#include <platform/linux/transfer/PosixTransferSession.hpp>
 
 #include <fcntl.h>
 #include <poll.h>
@@ -16,17 +16,17 @@
 #include <vector>
 
 #include <core/Errors.hpp>
-#include <platform/linux/BoundedDiagnosticBuffer.hpp>
+#include <platform/linux/transfer/BoundedDiagnosticBuffer.hpp>
 #include <platform/linux/ChildProcess.hpp>
 #include <platform/linux/OwnedFileDescriptor.hpp>
-#include <platform/linux/PosixCancellationSignal.hpp>
-#include <platform/linux/PosixTransferProcess.hpp>
-#include <platform/linux/PosixTransferPump.hpp>
-#include <platform/linux/ThreadSigpipeBlock.hpp>
-#include <platform/linux/TransferChildTermination.hpp>
-#include <platform/linux/TransferProgressReporter.hpp>
+#include <platform/linux/transfer/PosixCancellationSignal.hpp>
+#include <platform/linux/transfer/PosixTransferProcess.hpp>
+#include <platform/linux/transfer/PosixTransferPump.hpp>
+#include <platform/linux/transfer/ThreadSigpipeBlock.hpp>
+#include <platform/linux/transfer/TransferChildTermination.hpp>
+#include <platform/linux/transfer/TransferProgressReporter.hpp>
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::transfer {
 
 namespace {
 
@@ -135,14 +135,14 @@ btrfsbackup::backup::transfer::TransferResult PosixTransferSession::run() {
     const auto started_at = TransferSteadyClock::now();
     TransferProgressReporter progress_reporter(started_at);
     ThreadSigpipeBlock sigpipe_block;
-    btrfsbackup::platform::linux::PosixCancellationSignal cancellation_signal(cancellation);
+    btrfsbackup::platform::linux::transfer::PosixCancellationSignal cancellation_signal(cancellation);
     Pipe data_pipe = create_pipe();
     Pipe consumer_input_pipe = create_pipe();
     Pipe producer_error_pipe = create_pipe();
     Pipe consumer_error_pipe = create_pipe();
     OwnedFileDescriptor dev_null = open_dev_null();
 
-    ProcessSpawnResult producer_spawn = btrfsbackup::platform::linux::spawn_posix_transfer_process(
+    ProcessSpawnResult producer_spawn = btrfsbackup::platform::linux::transfer::spawn_posix_transfer_process(
         plan.producer_argv,
         dev_null.get(),
         data_pipe.write_end.get(),
@@ -157,7 +157,7 @@ btrfsbackup::backup::transfer::TransferResult PosixTransferSession::run() {
             .kill_reap_period = termination_policy_.kill_reap_period,
         }
     );
-    ProcessSpawnResult consumer_spawn = btrfsbackup::platform::linux::spawn_posix_transfer_process(
+    ProcessSpawnResult consumer_spawn = btrfsbackup::platform::linux::transfer::spawn_posix_transfer_process(
         plan.consumer_argv,
         consumer_input_pipe.read_end.get(),
         dev_null.get(),
@@ -385,7 +385,7 @@ btrfsbackup::backup::transfer::TransferResult PosixTransferSession::run() {
 
         constexpr std::size_t splice_cycle_budget_bytes = 16U * 1024U * 1024U;
         if (producer_stdout_open && consumer_stdin_open && producer_stdout_ready && consumer_stdin_ready) {
-            const btrfsbackup::platform::linux::PosixTransferPumpResult pump = btrfsbackup::platform::linux::pump_posix_transfer(
+            const btrfsbackup::platform::linux::transfer::PosixTransferPumpResult pump = btrfsbackup::platform::linux::transfer::pump_posix_transfer(
                 data_pipe.read_end.get(),
                 consumer_input_pipe.write_end.get(),
                 splice_cycle_budget_bytes
@@ -417,12 +417,12 @@ btrfsbackup::backup::transfer::TransferResult PosixTransferSession::run() {
 
         progress_reporter.maybe_report(events, result);
 
-        if (!producer_done && btrfsbackup::platform::linux::reap_posix_transfer_process(producer_pid, result.producer)) {
+        if (!producer_done && btrfsbackup::platform::linux::transfer::reap_posix_transfer_process(producer_pid, result.producer)) {
             producer_done = true;
             producer_process.mark_reaped();
             emit_transfer_event(events, btrfsbackup::backup::transfer::TransferEventKind::ProducerFinished, result, started_at);
         }
-        if (!consumer_done && btrfsbackup::platform::linux::reap_posix_transfer_process(consumer_pid, result.consumer)) {
+        if (!consumer_done && btrfsbackup::platform::linux::transfer::reap_posix_transfer_process(consumer_pid, result.consumer)) {
             consumer_done = true;
             consumer_process.mark_reaped();
             emit_transfer_event(events, btrfsbackup::backup::transfer::TransferEventKind::ConsumerFinished, result, started_at);
@@ -440,4 +440,4 @@ btrfsbackup::backup::transfer::TransferResult PosixTransferSession::run() {
     return result;
 }
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::transfer

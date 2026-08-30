@@ -2,11 +2,11 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <platform/linux/TransferProgressReporter.hpp>
+#include <platform/linux/transfer/TransferProgressReporter.hpp>
 
 #include <limits>
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::transfer {
 
 std::uint64_t transfer_elapsed_ms(TransferSteadyClock::time_point started_at) {
     return static_cast<std::uint64_t>(
@@ -89,4 +89,4 @@ void TransferProgressReporter::report(
     reported_ = true;
 }
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::transfer

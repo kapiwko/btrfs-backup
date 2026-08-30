@@ -12,7 +12,7 @@
 #include <backup/transfer/ITransferPipeline.hpp>
 #include <backup/transfer/TransferSpeedEstimator.hpp>
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::transfer {
 
 using TransferSteadyClock = std::chrono::steady_clock;
 
@@ -55,4 +55,4 @@ class TransferProgressReporter final {
     bool reported_ = false;
 };
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::transfer

@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <platform/linux/ThreadSigpipeBlock.hpp>
+#include <platform/linux/transfer/ThreadSigpipeBlock.hpp>
 
 #include <pthread.h>
 #include <signal.h>
@@ -35,7 +35,7 @@ void test_guard_is_thread_local() {
         inspected.set_value();
     });
     {
-        btrfsbackup::platform::linux::ThreadSigpipeBlock block;
+        btrfsbackup::platform::linux::transfer::ThreadSigpipeBlock block;
         test_helpers::expect_true("guarded thread mask", sigpipe_blocked(), "SIGPIPE was not blocked");
         guarded.set_value();
         inspected_ready.wait();
@@ -57,9 +57,9 @@ void test_guard_is_thread_local() {
 void test_pending_sigpipe_is_consumed_before_unblocking() {
     test_helpers::expect_true("test precondition", !sigpipe_blocked(), "SIGPIPE unexpectedly blocked before test");
     {
-        btrfsbackup::platform::linux::ThreadSigpipeBlock outer;
+        btrfsbackup::platform::linux::transfer::ThreadSigpipeBlock outer;
         {
-            btrfsbackup::platform::linux::ThreadSigpipeBlock inner;
+            btrfsbackup::platform::linux::transfer::ThreadSigpipeBlock inner;
             int descriptors[2]{};
             test_helpers::expect_true("create pipe", pipe(descriptors) == 0, "pipe failed");
             close(descriptors[0]);

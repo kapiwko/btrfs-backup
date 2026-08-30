@@ -2,15 +2,15 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <platform/linux/TransferChildTermination.hpp>
+#include <platform/linux/transfer/TransferChildTermination.hpp>
 
 #include <signal.h>
 
 #include <string>
 
-#include <platform/linux/PosixTransferProcess.hpp>
+#include <platform/linux/transfer/PosixTransferProcess.hpp>
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::transfer {
 
 namespace {
 
@@ -79,4 +79,4 @@ bool TransferChildTermination::pending() const noexcept {
     return terminate_sent_ && deadline_.has_value();
 }
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::transfer

@@ -8,7 +8,7 @@
 
 #include <backup/transfer/ITransferPipeline.hpp>
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::transfer {
 
 struct TransferTerminationPolicy {
     std::chrono::milliseconds terminate_grace_period{5000};
@@ -29,4 +29,4 @@ class PosixTransferPipeline final : public btrfsbackup::backup::transfer::ITrans
     TransferTerminationPolicy termination_policy_;
 };
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::transfer

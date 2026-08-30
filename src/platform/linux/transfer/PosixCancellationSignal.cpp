@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <platform/linux/PosixCancellationSignal.hpp>
+#include <platform/linux/transfer/PosixCancellationSignal.hpp>
 
 #include <fcntl.h>
 #include <unistd.h>
@@ -13,7 +13,7 @@
 
 #include <core/Errors.hpp>
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::transfer {
 
 void PosixCancellationSignal::WriteSignal::operator()() const noexcept {
     const char byte = 1;
@@ -55,4 +55,4 @@ void PosixCancellationSignal::drain() const noexcept {
     }
 }
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::transfer

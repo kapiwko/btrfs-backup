@@ -18,10 +18,3 @@ add_btrfsbackup_test(btrfsbackup-pending-recovery-plan-tests PendingRecoveryPlan
 add_btrfsbackup_test(btrfsbackup-snapshot-transfer-tests SnapshotTransferTests.cpp snapshot-transfer-tests btrfsbackup-backup)
 add_btrfsbackup_test(btrfsbackup-backup-preflight-tests BackupPreflightTests.cpp backup-preflight-tests btrfsbackup-backup)
 add_btrfsbackup_test(btrfsbackup-backup-preflight-validation-tests BackupPreflightValidationTests.cpp backup-preflight-validation-tests btrfsbackup-backup)
-add_btrfsbackup_test(
-    btrfsbackup-transfer-pipeline-tests
-    TransferPipelineTests.cpp
-    transfer-pipeline-tests
-    btrfsbackup-transfer
-    btrfsbackup-platform-linux
-)

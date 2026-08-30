@@ -8,7 +8,7 @@
 #include <string>
 #include <string_view>
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::transfer {
 
 class BoundedDiagnosticBuffer final {
   public:
@@ -25,4 +25,4 @@ class BoundedDiagnosticBuffer final {
     std::uint64_t discarded_bytes_ = 0;
 };
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::transfer

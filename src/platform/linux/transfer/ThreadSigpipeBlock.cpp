@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <platform/linux/ThreadSigpipeBlock.hpp>
+#include <platform/linux/transfer/ThreadSigpipeBlock.hpp>
 
 #include <pthread.h>
 
@@ -11,7 +11,7 @@
 
 #include <core/Errors.hpp>
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::transfer {
 
 namespace {
 
@@ -42,4 +42,4 @@ ThreadSigpipeBlock::~ThreadSigpipeBlock() noexcept {
     pthread_sigmask(SIG_SETMASK, &previous_mask_, nullptr);
 }
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::transfer

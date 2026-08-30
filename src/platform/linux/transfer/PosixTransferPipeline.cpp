@@ -2,12 +2,12 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <platform/linux/PosixTransferPipeline.hpp>
+#include <platform/linux/transfer/PosixTransferPipeline.hpp>
 
 #include <core/Errors.hpp>
-#include <platform/linux/PosixTransferSession.hpp>
+#include <platform/linux/transfer/PosixTransferSession.hpp>
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::transfer {
 
 PosixTransferPipeline::PosixTransferPipeline(TransferTerminationPolicy termination_policy)
     : termination_policy_(termination_policy) {
@@ -25,4 +25,4 @@ btrfsbackup::backup::transfer::TransferResult PosixTransferPipeline::run(
     return session.run();
 }
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::transfer

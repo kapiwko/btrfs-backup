@@ -12,7 +12,7 @@
 #include <backup/transfer/TransferResult.hpp>
 #include <platform/linux/ProcessSpawn.hpp>
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::transfer {
 
 ProcessSpawnResult spawn_posix_transfer_process(
     const std::vector<std::string>& argv,
@@ -24,4 +24,4 @@ ProcessSpawnResult spawn_posix_transfer_process(
 
 bool reap_posix_transfer_process(pid_t pid, btrfsbackup::backup::transfer::TransferSideResult& result);
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::transfer

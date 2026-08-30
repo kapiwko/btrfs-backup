@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <platform/linux/PosixTransferProcess.hpp>
+#include <platform/linux/transfer/PosixTransferProcess.hpp>
 
 #include <sys/wait.h>
 
@@ -12,7 +12,7 @@
 #include <core/Errors.hpp>
 #include <platform/linux/SafeDirectoryRoot.hpp>
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::transfer {
 
 namespace {
 
@@ -79,4 +79,4 @@ bool reap_posix_transfer_process(pid_t pid, btrfsbackup::backup::transfer::Trans
     return true;
 }
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::transfer

@@ -8,7 +8,7 @@
 #include <cstdint>
 #include <string>
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::transfer {
 
 struct PosixTransferPumpResult {
     std::uint64_t bytes_transferred = 0;
@@ -23,4 +23,4 @@ PosixTransferPumpResult pump_posix_transfer(
     std::size_t cycle_budget_bytes
 );
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::transfer

@@ -7,8 +7,8 @@
 #include <cstddef>
 #include <sys/types.h>
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::transfer {
 
 ssize_t splice_pipe(int source_fd, int target_fd, std::size_t max_bytes);
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::transfer
