@@ -9,7 +9,7 @@
 
 #include <backup/ports/IBtrfsOperations.hpp>
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::storage {
 
 std::optional<btrfsbackup::backup::SnapshotMetadata> read_btrfs_snapshot_metadata(const std::filesystem::path& path);
 
@@ -33,4 +33,4 @@ class LibBtrfsOperations final : public btrfsbackup::backup::IBtrfsOperations {
     void delete_subvolume_beneath(const btrfsbackup::backup::ISafeDirectoryRoot& root, const std::filesystem::path& path) override;
 };
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::storage

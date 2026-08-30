@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <platform/linux/SpaceCheck.hpp>
+#include <platform/linux/storage/SpaceCheck.hpp>
 
 #include <system_error>
 
@@ -10,7 +10,7 @@
 
 namespace fs = std::filesystem;
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::storage {
 
 std::uint64_t available_bytes(const fs::path& path) {
     std::error_code ec;
@@ -33,4 +33,4 @@ void check_minimum_free_space(const fs::path& path, std::uint64_t minimum_bytes,
     }
 }
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::storage

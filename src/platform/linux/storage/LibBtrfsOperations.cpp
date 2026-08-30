@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <platform/linux/LibBtrfsOperations.hpp>
+#include <platform/linux/storage/LibBtrfsOperations.hpp>
 
 #include <array>
 #include <cstdio>
@@ -59,7 +59,7 @@ std::string uuid_to_string(const uint8_t uuid[16]) {
 
 } // namespace
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::storage {
 
 std::optional<btrfsbackup::backup::SnapshotMetadata> read_btrfs_snapshot_metadata(const fs::path& path) {
     struct btrfs_util_subvolume_info info{};
@@ -155,4 +155,4 @@ void LibBtrfsOperations::delete_subvolume_beneath(const btrfsbackup::backup::ISa
     root.delete_subvolume(path);
 }
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::storage

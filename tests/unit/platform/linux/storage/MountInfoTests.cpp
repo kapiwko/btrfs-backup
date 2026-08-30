@@ -5,7 +5,7 @@
 #include <filesystem>
 #include <string>
 
-#include <platform/linux/MountInfo.hpp>
+#include <platform/linux/storage/MountInfo.hpp>
 
 #include "support/ValidationTestHelpers.hpp"
 
@@ -24,7 +24,7 @@ void test_reads_mount_table() {
         "24 21 0:21 / /mnt/backup rw,relatime - btrfs /dev/mapper/backupdisk[/snapshots] rw,subvolid=5\n"
     );
 
-    std::vector<btrfsbackup::backup::MountEntry> entries = btrfsbackup::platform::linux::read_mount_table(mountinfo, [](const std::string& source) {
+    std::vector<btrfsbackup::backup::MountEntry> entries = btrfsbackup::platform::linux::storage::read_mount_table(mountinfo, [](const std::string& source) {
         if (source == "/dev/sda2") {
             return std::string{"source-uuid"};
         }
@@ -44,7 +44,7 @@ void test_reads_mount_table() {
     test_helpers::expect_eq("mount tmpfs filesystem uuid", entries.at(2).filesystem_uuid, "");
     test_helpers::expect_eq("mount backup filesystem uuid", entries.at(3).filesystem_uuid, "target-uuid");
 
-    std::vector<std::string> targets = btrfsbackup::platform::linux::btrfs_mount_targets(mountinfo);
+    std::vector<std::string> targets = btrfsbackup::platform::linux::storage::btrfs_mount_targets(mountinfo);
     test_helpers::expect_eq("btrfs target count", std::to_string(targets.size()), "3");
     test_helpers::expect_eq("btrfs target root", targets.at(0), "/");
     test_helpers::expect_eq("btrfs target home", targets.at(1), "/home");
@@ -132,7 +132,7 @@ void test_same_filesystem_device_fallback() {
 }
 
 void test_missing_mount_table_is_error() {
-    test_helpers::expect_validation_error("missing mount table", [] { (void)btrfsbackup::platform::linux::read_mount_table("/tmp/does-not-exist-btrfs-backup-mountinfo"); }, "could not read mount table");
+    test_helpers::expect_validation_error("missing mount table", [] { (void)btrfsbackup::platform::linux::storage::read_mount_table("/tmp/does-not-exist-btrfs-backup-mountinfo"); }, "could not read mount table");
 }
 
 } // namespace

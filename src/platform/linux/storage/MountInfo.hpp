@@ -12,7 +12,7 @@
 
 #include <backup/ports/IMountInspector.hpp>
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::storage {
 
 using FilesystemUuidResolver = std::function<std::string(const std::string&)>;
 
@@ -34,4 +34,4 @@ class LinuxMountInspector final : public btrfsbackup::backup::IMountInspector {
     FilesystemUuidResolver uuid_resolver_;
 };
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::storage

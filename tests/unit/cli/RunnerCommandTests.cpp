@@ -38,7 +38,7 @@
 #include <platform/linux/filesystem/PosixDurableFileOperations.hpp>
 #include <platform/linux/process/PosixCommandRunner.hpp>
 #include <platform/linux/SystemdTargetManager.hpp>
-#include <platform/linux/MountInfo.hpp>
+#include <platform/linux/storage/MountInfo.hpp>
 #include <config/model/Json.hpp>
 #include <config/model/JsonIo.hpp>
 #include <config/model/Profile.hpp>
@@ -456,7 +456,7 @@ int run_runner(
     );
     const fs::path mountinfo = option_value(args, "--mountinfo", "/proc/self/mountinfo");
     btrfsbackup::platform::linux::FileProfileRepository profiles(config_root, fixture->application_config);
-    btrfsbackup::platform::linux::LinuxMountInspector mounts(mountinfo, [&args, target_uuid = profile.target.btrfs_uuid.value()](const std::string& source) {
+    btrfsbackup::platform::linux::storage::LinuxMountInspector mounts(mountinfo, [&args, target_uuid = profile.target.btrfs_uuid.value()](const std::string& source) {
         return mount_uuid_value(
             args,
             source,
