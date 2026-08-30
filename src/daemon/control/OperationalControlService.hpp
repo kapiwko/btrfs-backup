@@ -11,7 +11,7 @@
 #include <core/Identifiers.hpp>
 #include <daemon/ManagerResponseModels.hpp>
 
-namespace btrfsbackup::daemon {
+namespace btrfsbackup::daemon::control {
 
 enum class ManagerAuthorizationAction {
     StartBackup,
@@ -105,4 +105,4 @@ class OperationalControlService {
     OperationIdGenerator operation_ids_;
 };
 
-} // namespace btrfsbackup::daemon
+} // namespace btrfsbackup::daemon::control

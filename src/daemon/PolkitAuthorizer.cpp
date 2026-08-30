@@ -43,7 +43,7 @@ PolkitAuthorizer::PolkitAuthorizer(sd_bus* bus) : bus_(bus) {
 
 bool PolkitAuthorizer::authorize(
     const std::string& caller_bus_name,
-    ManagerAuthorizationAction action
+    control::ManagerAuthorizationAction action
 ) {
     sd_bus_message* raw_request = nullptr;
     require_bus_success(
@@ -60,7 +60,7 @@ bool PolkitAuthorizer::authorize(
     std::unique_ptr<sd_bus_message, decltype(&sd_bus_message_unref)> request(raw_request, sd_bus_message_unref);
     append_subject(request.get(), caller_bus_name);
     require_bus_success(
-        sd_bus_message_append(request.get(), "s", manager_authorization_action_id(action)),
+        sd_bus_message_append(request.get(), "s", control::manager_authorization_action_id(action)),
         "cannot append polkit action"
     );
     require_bus_success(sd_bus_message_open_container(request.get(), SD_BUS_TYPE_ARRAY, "{ss}"), "cannot open polkit details");

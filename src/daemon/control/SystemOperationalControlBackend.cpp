@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <daemon/SystemOperationalControlBackend.hpp>
+#include <daemon/control/SystemOperationalControlBackend.hpp>
 
 #include <chrono>
 #include <filesystem>
@@ -11,11 +11,11 @@
 #include <utility>
 
 #include <config/ConfigurationIdentity.hpp>
-#include <daemon/AuthorizedOperationCommand.hpp>
+#include <daemon/control/AuthorizedOperationCommand.hpp>
 #include <daemon/ManagerErrors.hpp>
-#include <daemon/OperationEnvironmentFile.hpp>
+#include <daemon/control/OperationEnvironmentFile.hpp>
 
-namespace btrfsbackup::daemon {
+namespace btrfsbackup::daemon::control {
 
 namespace {
 
@@ -129,4 +129,4 @@ void SystemOperationalControlBackend::eject_target(const AuthorizedOperationCont
     require_job_accepted(units_.start_transient_unit(authorized_target_eject_unit(context)), "ejecting target");
 }
 
-} // namespace btrfsbackup::daemon
+} // namespace btrfsbackup::daemon::control

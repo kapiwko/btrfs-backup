@@ -6,9 +6,9 @@
 
 #include <filesystem>
 
-#include <daemon/AuthorizedOperationCommand.hpp>
+#include <daemon/control/AuthorizedOperationCommand.hpp>
 
-namespace btrfsbackup::daemon {
+namespace btrfsbackup::daemon::control {
 
 class OperationEnvironmentFile {
   public:
@@ -27,4 +27,4 @@ class OperationEnvironmentFile {
     std::filesystem::path path_;
 };
 
-} // namespace btrfsbackup::daemon
+} // namespace btrfsbackup::daemon::control

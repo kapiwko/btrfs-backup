@@ -15,7 +15,7 @@
 #include <daemon/ManagerErrorMapper.hpp>
 #include <daemon/ManagerJsonCodec.hpp>
 #include <daemon/ManagerService.hpp>
-#include <daemon/OperationalControlService.hpp>
+#include <daemon/control/OperationalControlService.hpp>
 
 namespace btrfsbackup::daemon {
 
@@ -23,7 +23,7 @@ class ManagerDbusObject final {
   public:
     ManagerDbusObject(
         ManagerService& service,
-        OperationalControlService& operational,
+        control::OperationalControlService& operational,
         IManagerAuditLog& audit_log
     );
 
@@ -63,7 +63,7 @@ class ManagerDbusObject final {
     );
 
     ManagerService& service_;
-    OperationalControlService& operational_;
+    control::OperationalControlService& operational_;
     IManagerAuditLog& audit_log_;
     ManagerJsonCodec codec_;
     ManagerErrorMapper error_mapper_;
