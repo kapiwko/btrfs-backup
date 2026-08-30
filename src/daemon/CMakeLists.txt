@@ -71,6 +71,7 @@ target_link_libraries(btrfsbackup-daemon-system-control
 )
 
 add_executable(btrfs-backupd
+    ManagerDbusObject.cpp
     ManagerDbusServer.cpp
     main.cpp
     ManagerChangeMonitor.cpp
@@ -78,6 +79,7 @@ add_executable(btrfs-backupd
 )
 target_restricted_include_directories(btrfs-backupd
     PRIVATE_HEADERS
+        daemon/ManagerDbusObject.hpp
         daemon/ManagerDbusServer.hpp
         daemon/ManagerChangeMonitor.hpp
         daemon/PolkitAuthorizer.hpp
