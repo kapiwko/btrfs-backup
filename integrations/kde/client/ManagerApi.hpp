@@ -7,6 +7,7 @@
 #include <QDBusConnection>
 #include <QDBusPendingCall>
 #include <QList>
+#include <QObject>
 #include <QSet>
 #include <QString>
 #include <QVariantList>
@@ -45,6 +46,22 @@ struct RunStatus {
     qint64 eta_seconds = -1;
     int source_progress = -1;
     int overall_progress = -1;
+};
+
+class ManagerEventSubscriber final : public QObject {
+    Q_OBJECT
+
+  public:
+    explicit ManagerEventSubscriber(QDBusConnection bus, QObject* parent = nullptr);
+
+  signals:
+    void profilesChanged();
+    void statusChanged(const QString& profile_id);
+    void historyChanged(const QString& profile_id);
+    void deviceStateChanged(const QString& profile_id);
+
+  private:
+    QDBusConnection bus_;
 };
 
 [[nodiscard]] QDBusPendingCall manager_call(

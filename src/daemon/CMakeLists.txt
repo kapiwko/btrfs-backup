@@ -70,11 +70,13 @@ target_link_libraries(btrfsbackup-daemon-system-control
 add_executable(btrfs-backupd
     dbus_server.cpp
     main.cpp
+    manager_change_monitor.cpp
     polkit_authorizer.cpp
 )
 target_restricted_include_directories(btrfs-backupd
     PRIVATE_HEADERS
         daemon/dbus_server.hpp
+        daemon/manager_change_monitor.hpp
         daemon/polkit_authorizer.hpp
 )
 set_target_properties(btrfs-backupd PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR})
@@ -88,6 +90,7 @@ target_link_libraries(btrfs-backupd
         btrfsbackup-platform-linux-config
         btrfsbackup-state
         PkgConfig::SYSTEMD
+        PkgConfig::UDEV
 )
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")

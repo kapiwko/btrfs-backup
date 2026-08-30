@@ -159,6 +159,7 @@ start_daemon
 capabilities="$(call GetCapabilities)"
 grep -Fq 'readOnly' <<<"$capabilities" || fail 'capabilities omit readOnly'
 grep -Fq 'start-backup' <<<"$capabilities" || fail 'capabilities omit operational control'
+grep -Fq 'change-signals' <<<"$capabilities" || fail 'capabilities omit change signals'
 profiles="$(call ListProfiles)"
 grep -Fq 'Default backup' <<<"$profiles" || fail 'public profile was not returned'
 status_before="$(call GetStatus s default)"
@@ -167,8 +168,32 @@ grep -Fq 'running' <<<"$status_before" || fail 'current state was not returned'
 if [[ -n "$QML_EXECUTABLE" ]]; then
     DBUS_SYSTEM_BUS_ADDRESS="$BUS_ADDRESS" \
         QT_QPA_PLATFORM=offscreen \
+        QT_FORCE_STDERR_LOGGING=1 \
         "$QML_EXECUTABLE" -I "$QML_IMPORT_PATH" "$QML_DBUS_TEST" \
-        || fail 'Plasma backend did not consume the manager API'
+        >"$TEST_ROOT/qml.log" 2>&1 &
+    qml_pid=$!
+    for _ in {1..220}; do
+        grep -Fq 'initial-manager-state-ready' "$TEST_ROOT/qml.log" && break
+        kill -0 "$qml_pid" 2>/dev/null || {
+            cat "$TEST_ROOT/qml.log" >&2
+            fail 'Plasma backend exited before loading the initial manager state'
+        }
+        sleep 0.05
+    done
+    if ! grep -Fq 'initial-manager-state-ready' "$TEST_ROOT/qml.log"; then
+        cat "$TEST_ROOT/qml.log" >&2
+        fail 'Plasma backend did not load the initial manager state'
+    fi
+    cp "$TEST_ROOT/status/default/current.json" "$TEST_ROOT/status/default/current.json.running"
+    cat >"$TEST_ROOT/status/default/current.json.next" <<'EOF_COMPLETED_STATUS'
+{"schemaVersion":3,"runId":"20260829T160000Z-1-1","state":"succeeded","phase":"completed","activity":"idle","canCancel":false,"errorCode":"","sourceName":"Home","targetName":"Backup disk","speedBps":0,"etaSeconds":-1,"sourceProgress":100,"overallProgress":100,"progressAccuracy":"exact"}
+EOF_COMPLETED_STATUS
+    mv "$TEST_ROOT/status/default/current.json.next" "$TEST_ROOT/status/default/current.json"
+    wait "$qml_pid" || {
+        cat "$TEST_ROOT/qml.log" >&2
+        fail 'Plasma backend did not consume the manager change signal'
+    }
+    mv "$TEST_ROOT/status/default/current.json.running" "$TEST_ROOT/status/default/current.json"
 fi
 history="$(call GetHistorySanitized suu default 0 1)"
 grep -Fq 'backup.failed' <<<"$history" || fail 'history error was not sanitized'
@@ -181,9 +206,36 @@ introspection="$($BUSCTL --address="$BUS_ADDRESS" introspect "$SERVICE" "$OBJECT
 for method in GetCapabilities ListProfiles GetStatus GetHistorySanitized GetDeviceState StartBackup CancelBackup ValidateTarget EjectTarget; do
     grep -Fq "$method" <<<"$introspection" || fail "missing method $method"
 done
+for signal in ProfilesChanged StatusChanged HistoryChanged DeviceStateChanged; do
+    grep -Fq "$signal" <<<"$introspection" || fail "missing signal $signal"
+done
 if grep -Eq 'SaveProfile|DeleteProfile' <<<"$introspection"; then
     fail 'an unsupported mutating method is exported'
 fi
+
+"$BUSCTL" --address="$BUS_ADDRESS" --timeout=2 wait \
+    "$SERVICE" "$OBJECT" "$INTERFACE" ProfilesChanged >"$TEST_ROOT/profiles-signal" &
+profiles_signal_pid=$!
+"$BUSCTL" --address="$BUS_ADDRESS" --timeout=2 wait \
+    "$SERVICE" "$OBJECT" "$INTERFACE" StatusChanged >"$TEST_ROOT/status-signal" &
+status_signal_pid=$!
+"$BUSCTL" --address="$BUS_ADDRESS" --timeout=2 wait \
+    "$SERVICE" "$OBJECT" "$INTERFACE" HistoryChanged >"$TEST_ROOT/history-signal" &
+history_signal_pid=$!
+"$BUSCTL" --address="$BUS_ADDRESS" --timeout=2 wait \
+    "$SERVICE" "$OBJECT" "$INTERFACE" DeviceStateChanged >"$TEST_ROOT/device-signal" &
+device_signal_pid=$!
+sleep 0.1
+cp "$TEST_ROOT/public/default.json" "$TEST_ROOT/public/default.json.next"
+mv "$TEST_ROOT/public/default.json.next" "$TEST_ROOT/public/default.json"
+cp "$TEST_ROOT/status/default/current.json" "$TEST_ROOT/status/default/current.json.next"
+mv "$TEST_ROOT/status/default/current.json.next" "$TEST_ROOT/status/default/current.json"
+cp "$TEST_ROOT/history/default/last.json" "$TEST_ROOT/history/default/last.json.next"
+mv "$TEST_ROOT/history/default/last.json.next" "$TEST_ROOT/history/default/last.json"
+wait "$profiles_signal_pid" || fail 'profile filesystem change did not emit ProfilesChanged'
+wait "$status_signal_pid" || fail 'status filesystem change did not emit StatusChanged'
+wait "$history_signal_pid" || fail 'history filesystem change did not emit HistoryChanged'
+wait "$device_signal_pid" || fail 'status filesystem change did not emit DeviceStateChanged'
 
 set +e
 call StartBackup s default >/dev/null 2>&1
@@ -257,7 +309,16 @@ call ListProfiles >/dev/null
 kill -0 "$DAEMON_PID" || fail 'caller disconnect stopped the daemon'
 
 crash_daemon
+mv "$TEST_ROOT/status" "$TEST_ROOT/status.saved"
 start_daemon
+"$BUSCTL" --address="$BUS_ADDRESS" --timeout=2 wait \
+    "$SERVICE" "$OBJECT" "$INTERFACE" StatusChanged >"$TEST_ROOT/recreated-status-signal" &
+recreated_status_signal_pid=$!
+sleep 0.1
+mkdir -p "$TEST_ROOT/status/default"
+mv "$TEST_ROOT/status.saved/default/current.json" "$TEST_ROOT/status/default/current.json"
+wait "$recreated_status_signal_pid" \
+    || fail 'creating a previously absent status root did not emit StatusChanged'
 status_after="$(call GetStatus s default)"
 [[ "$status_before" == "$status_after" ]] || fail 'daemon crash recovery did not restore visible state'
 

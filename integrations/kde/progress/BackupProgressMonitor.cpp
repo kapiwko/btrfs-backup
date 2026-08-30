@@ -15,12 +15,9 @@
 #include <QLoggingCategory>
 
 #include <algorithm>
+#include <utility>
 
 namespace {
-
-constexpr int active_poll_interval_ms = 1000;
-constexpr int idle_poll_interval_ms = 5000;
-constexpr int profile_refresh_interval_ms = 60000;
 
 QString activity_text(const QString& activity, const QString& phase) {
     if (activity == QStringLiteral("sizing")) {
@@ -56,6 +53,7 @@ BackupProgressMonitor::BackupProgressMonitor(
 )
     : QObject(parent),
       bus_(std::move(bus)),
+      manager_events_(bus_, this),
       service_watcher_(
           QLatin1String(btrfsbackup::kde::manager_service),
           bus_,
@@ -63,15 +61,6 @@ BackupProgressMonitor::BackupProgressMonitor(
           this
       ),
       tracker_(tracker) {
-    poll_timer_.setInterval(idle_poll_interval_ms);
-    profile_refresh_timer_.setInterval(profile_refresh_interval_ms);
-    connect(&poll_timer_, &QTimer::timeout, this, &BackupProgressMonitor::refresh);
-    connect(
-        &profile_refresh_timer_,
-        &QTimer::timeout,
-        this,
-        &BackupProgressMonitor::request_profiles
-    );
     connect(&service_watcher_, &QDBusServiceWatcher::serviceRegistered, this, [this]() {
         if (active_) {
             connect_to_manager();
@@ -81,6 +70,20 @@ BackupProgressMonitor::BackupProgressMonitor(
         if (active_) {
             manager_unavailable();
         }
+    });
+    connect(&manager_events_, &btrfsbackup::kde::ManagerEventSubscriber::profilesChanged, this, [this]() {
+        if (active_ && capabilities_verified_)
+            request_profiles();
+    });
+    connect(&manager_events_, &btrfsbackup::kde::ManagerEventSubscriber::statusChanged, this, [this](const QString& profile_id) {
+        if (!active_ || !capabilities_verified_)
+            return;
+        const auto profile = profiles_.find(profile_id);
+        if (profile == profiles_.end()) {
+            request_profiles();
+            return;
+        }
+        request_status(profile.value());
     });
 }
 
@@ -93,7 +96,6 @@ void BackupProgressMonitor::start() {
 }
 
 void BackupProgressMonitor::connect_to_manager() {
-    poll_timer_.stop();
     capabilities_verified_ = false;
     if (capabilities_request_pending_) {
         return;
@@ -117,7 +119,8 @@ void BackupProgressMonitor::connect_to_manager() {
 
         const auto capabilities = btrfsbackup::kde::parse_capabilities(reply.value());
         if (!capabilities.has_value() || capabilities->api_major != 1 ||
-            capabilities->public_status_schema_version != 3) {
+            capabilities->public_status_schema_version != 3 ||
+            !capabilities->features.contains(QStringLiteral("change-signals"))) {
             qWarning() << "btrfs-backup KDE monitor received incompatible manager capabilities";
             manager_unavailable();
             return;
@@ -125,17 +128,15 @@ void BackupProgressMonitor::connect_to_manager() {
 
         capabilities_verified_ = true;
         request_profiles();
-        poll_timer_.start();
-        profile_refresh_timer_.start();
     });
 }
 
 void BackupProgressMonitor::manager_unavailable() {
-    poll_timer_.stop();
-    profile_refresh_timer_.stop();
     capabilities_verified_ = false;
     profiles_request_pending_ = false;
+    profiles_refresh_queued_ = false;
     pending_status_requests_.clear();
+    queued_status_requests_.clear();
     for (auto job : std::as_const(jobs_)) {
         if (job) {
             job->finish_with_error(i18n("Backup service unavailable"));
@@ -146,7 +147,11 @@ void BackupProgressMonitor::manager_unavailable() {
 }
 
 void BackupProgressMonitor::request_profiles() {
-    if (!capabilities_verified_ || profiles_request_pending_) {
+    if (!capabilities_verified_) {
+        return;
+    }
+    if (profiles_request_pending_) {
+        profiles_refresh_queued_ = true;
         return;
     }
     profiles_request_pending_ = true;
@@ -163,14 +168,17 @@ void BackupProgressMonitor::request_profiles() {
         }
         if (reply.isError()) {
             qWarning() << "btrfs-backup KDE monitor could not list profiles:" << reply.error().message();
-            return;
+        } else {
+            apply_profiles(reply.value());
         }
-        apply_profiles(reply.value());
+        if (std::exchange(profiles_refresh_queued_, false))
+            request_profiles();
     });
 }
 
 void BackupProgressMonitor::request_status(const Profile& profile) {
     if (pending_status_requests_.contains(profile.id)) {
+        queued_status_requests_.insert(profile.id);
         return;
     }
     pending_status_requests_.insert(profile.id);
@@ -188,9 +196,11 @@ void BackupProgressMonitor::request_status(const Profile& profile) {
         if (reply.isError()) {
             qWarning() << "btrfs-backup KDE monitor could not read profile status:"
                        << profile.id << reply.error().message();
-            return;
+        } else {
+            apply_status(profile, reply.value());
         }
-        apply_status(profile, reply.value());
+        if (queued_status_requests_.remove(profile.id) > 0 && profiles_.contains(profile.id))
+            request_status(profiles_.value(profile.id));
     });
 }
 
@@ -214,15 +224,6 @@ void BackupProgressMonitor::request_cancel(const QString& profile_id, const QStr
                        << reply.error().message();
         }
     });
-}
-
-void BackupProgressMonitor::refresh() {
-    if (!capabilities_verified_) {
-        return;
-    }
-    for (const Profile& profile : std::as_const(profiles_)) {
-        request_status(profile);
-    }
 }
 
 void BackupProgressMonitor::apply_profiles(const QString& payload) {
@@ -302,14 +303,11 @@ void BackupProgressMonitor::create_job(const Profile& profile, const Status& sta
     );
     jobs_.insert(profile.id, job);
     connect(job, &QObject::destroyed, this, [this, profile_id = profile.id, job]() {
-        if (jobs_.value(profile_id) == job) {
+        if (jobs_.value(profile_id) == job)
             jobs_.remove(profile_id);
-            update_poll_interval();
-        }
     });
     tracker_.registerJob(job);
     job->start();
-    update_poll_interval();
 }
 
 void BackupProgressMonitor::finish_job(const QString& profile_id, const Status& status) {
@@ -334,13 +332,6 @@ void BackupProgressMonitor::finish_job(const QString& profile_id, const Status& 
     } else {
         job->finish_successfully();
     }
-    update_poll_interval();
-}
-
-void BackupProgressMonitor::update_poll_interval() {
-    poll_timer_.setInterval(
-        jobs_.isEmpty() ? idle_poll_interval_ms : active_poll_interval_ms
-    );
 }
 
 QString BackupProgressMonitor::suppression_key(

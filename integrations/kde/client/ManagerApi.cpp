@@ -9,7 +9,45 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 
+#include <utility>
+
 namespace btrfsbackup::kde {
+
+ManagerEventSubscriber::ManagerEventSubscriber(QDBusConnection bus, QObject* parent)
+    : QObject(parent), bus_(std::move(bus)) {
+    bus_.connect(
+        QLatin1String(manager_service),
+        QLatin1String(manager_path),
+        QLatin1String(manager_interface),
+        QStringLiteral("ProfilesChanged"),
+        this,
+        SIGNAL(profilesChanged())
+    );
+    bus_.connect(
+        QLatin1String(manager_service),
+        QLatin1String(manager_path),
+        QLatin1String(manager_interface),
+        QStringLiteral("StatusChanged"),
+        this,
+        SIGNAL(statusChanged(QString))
+    );
+    bus_.connect(
+        QLatin1String(manager_service),
+        QLatin1String(manager_path),
+        QLatin1String(manager_interface),
+        QStringLiteral("HistoryChanged"),
+        this,
+        SIGNAL(historyChanged(QString))
+    );
+    bus_.connect(
+        QLatin1String(manager_service),
+        QLatin1String(manager_path),
+        QLatin1String(manager_interface),
+        QStringLiteral("DeviceStateChanged"),
+        this,
+        SIGNAL(deviceStateChanged(QString))
+    );
+}
 
 QDBusPendingCall manager_call(
     const QDBusConnection& bus,

@@ -42,7 +42,25 @@ History `limit` must be between 1 and 100 and `offset` must not exceed 10000.
 Manager input files are regular, non-symlink files no larger than 1 MiB and
 must not be writable by group or others. The daemon reads state for every
 request, so a restart reconstructs the same visible state from current status
-or durable history. Operational methods return schema-versioned `OperationResult` documents.
+or durable history. Operational methods return schema-versioned
+`OperationResult` documents.
+
+The `change-signals` capability advertises the event-driven invalidation
+surface. Signals carry only a public profile identifier; clients obtain the
+current sanitized document with the corresponding read method:
+
+| Signal | Signature | Invalidates |
+|---|---|---|
+| `ProfilesChanged` | `()` | `ListProfiles` |
+| `StatusChanged` | `(s profileId)` | `GetStatus` |
+| `HistoryChanged` | `(s profileId)` | `GetHistorySanitized` |
+| `DeviceStateChanged` | `(s profileId)` | `GetDeviceState` |
+
+The manager derives these signals from inotify changes to public profiles,
+runtime status and private history, plus udev block events and pollable kernel
+mount notifications. Clients load state once after connecting and then react to
+signals; a signal received during an outstanding request must schedule one
+coalesced follow-up read so the last change cannot be lost.
 
 ## Method Classes
 
@@ -160,7 +178,8 @@ API.
 
 ## Required Tests
 
-The system API test target verifies unauthenticated reads, distinct action
+The system API test target verifies unauthenticated reads, all four change
+signals, recreation of an initially absent status root, distinct action
 identifiers and caller subjects, caller disappearance during an authorization
 prompt, profile-version races, mismatched cancellation, malformed input and
 manager restart. Inactive-session behavior and cross-action policy delegation
