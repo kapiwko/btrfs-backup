@@ -12,7 +12,7 @@
 namespace btrfsbackup::backup {
 class IBtrfsOperations;
 class ISafeDirectoryRoot;
-}
+} // namespace btrfsbackup::backup
 
 namespace btrfsbackup::backup::execution {
 

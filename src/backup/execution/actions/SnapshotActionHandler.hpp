@@ -15,7 +15,7 @@ class IFileSystem;
 class IPendingMarkerStore;
 class ISafeDirectoryRoot;
 class IClock;
-}
+} // namespace btrfsbackup::backup
 
 namespace btrfsbackup::backup::execution {
 
