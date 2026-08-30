@@ -248,7 +248,7 @@ coordinator owned by `backup`.
    C++ filenames use `PascalCase` and match their primary type or precise
    module concept; `main.cpp` remains the conventional entry-point exception.
    Include internal headers through paths such as `<backup/BackupService.hpp>`
-   or `<platform/linux/Process.hpp>`.
+   or `<platform/linux/process/Process.hpp>`.
 2. Reserve a future top-level `include/` directory for an intentionally public,
    versioned SDK. Do not mirror internal headers there.
 3. Each unit test belongs to the domain it exercises and links the narrowest

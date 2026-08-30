@@ -10,11 +10,11 @@
 
 #include <backup/transfer/TransferPlan.hpp>
 #include <backup/transfer/TransferResult.hpp>
-#include <platform/linux/ProcessSpawn.hpp>
+#include <platform/linux/process/ProcessSpawn.hpp>
 
 namespace btrfsbackup::platform::linux::transfer {
 
-ProcessSpawnResult spawn_posix_transfer_process(
+process::ProcessSpawnResult spawn_posix_transfer_process(
     const std::vector<std::string>& argv,
     int stdin_fd,
     int stdout_fd,

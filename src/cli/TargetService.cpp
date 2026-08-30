@@ -22,12 +22,12 @@
 #include <config/model/Profile.hpp>
 #include <platform/linux/config/FileProfileRepository.hpp>
 #include <config/model/Validation.hpp>
-#include <platform/linux/PosixCommandRunner.hpp>
+#include <platform/linux/process/PosixCommandRunner.hpp>
 #include <platform/linux/DeviceInfo.hpp>
 #include <platform/linux/FileIo.hpp>
 #include <platform/linux/FileLock.hpp>
 #include <platform/linux/MountInfo.hpp>
-#include <platform/linux/Process.hpp>
+#include <platform/linux/process/Process.hpp>
 #include <platform/linux/TrustedDirectory.hpp>
 #include <platform/linux/SystemdUnit.hpp>
 #include <platform/linux/TrustedFile.hpp>
@@ -577,25 +577,25 @@ TargetOperationResult eject_target(
 }
 
 TargetOperationResult activate_target(const ActivateTargetRequest& request) {
-    btrfsbackup::platform::linux::PosixCommandRunner commands;
+    btrfsbackup::platform::linux::process::PosixCommandRunner commands;
     TargetServiceDependencies dependencies = production_dependencies(commands);
     return activate_target(request, dependencies);
 }
 
 TargetOperationResult deactivate_target(const DeactivateTargetRequest& request) {
-    btrfsbackup::platform::linux::PosixCommandRunner commands;
+    btrfsbackup::platform::linux::process::PosixCommandRunner commands;
     TargetServiceDependencies dependencies = production_dependencies(commands);
     return deactivate_target(request, dependencies);
 }
 
 TargetOperationResult mount_target(const MountTargetRequest& request) {
-    btrfsbackup::platform::linux::PosixCommandRunner commands;
+    btrfsbackup::platform::linux::process::PosixCommandRunner commands;
     TargetServiceDependencies dependencies = production_dependencies(commands);
     return mount_target(request, dependencies);
 }
 
 TargetOperationResult eject_target(const EjectTargetRequest& request) {
-    btrfsbackup::platform::linux::PosixCommandRunner commands;
+    btrfsbackup::platform::linux::process::PosixCommandRunner commands;
     TargetServiceDependencies dependencies = production_dependencies(commands);
     return eject_target(request, dependencies);
 }

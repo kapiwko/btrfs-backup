@@ -14,7 +14,7 @@
 
 #include <platform/linux/config/ApplicationConfig.hpp>
 #include <platform/linux/config/FileProfileRepository.hpp>
-#include <platform/linux/PosixCommandRunner.hpp>
+#include <platform/linux/process/PosixCommandRunner.hpp>
 #include <platform/linux/PosixDurableFileOperations.hpp>
 #include <state/FileRunStateRepository.hpp>
 
@@ -97,7 +97,7 @@ int main(int argc, char** argv) {
         btrfsbackup::platform::linux::FileProfileRepository profiles(config_root, application_config);
         btrfsbackup::platform::linux::PosixDurableFileOperations durable_files;
         btrfsbackup::state::FileRunStateRepository state(configured, durable_files);
-        btrfsbackup::platform::linux::PosixCommandRunner commands;
+        btrfsbackup::platform::linux::process::PosixCommandRunner commands;
         btrfsbackup::daemon::CommandSystemdUnitController units(commands);
         btrfsbackup::daemon::SystemOperationalControlBackend operational_backend(profiles, state, units);
         btrfsbackup::daemon::FileManagerAuditLog audit_log(audit_log_path);

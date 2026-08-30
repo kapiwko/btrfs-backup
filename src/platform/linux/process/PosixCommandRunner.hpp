@@ -5,9 +5,9 @@
 #pragma once
 
 #include <backup/ports/ICommandRunner.hpp>
-#include <platform/linux/Process.hpp>
+#include <platform/linux/process/Process.hpp>
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::process {
 
 class PosixCommandRunner final : public btrfsbackup::backup::ICommandRunner {
   public:
@@ -18,4 +18,4 @@ class PosixCommandRunner final : public btrfsbackup::backup::ICommandRunner {
     ) override;
 };
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::process

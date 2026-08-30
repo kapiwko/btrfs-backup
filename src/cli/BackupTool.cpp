@@ -17,7 +17,7 @@
 #include <core/Errors.hpp>
 #include <platform/linux/config/FileProfileRepository.hpp>
 #include <core/Cancellation.hpp>
-#include <platform/linux/TerminationSignalMonitor.hpp>
+#include <platform/linux/process/TerminationSignalMonitor.hpp>
 
 namespace fs = std::filesystem;
 
@@ -94,7 +94,7 @@ class TerminationSignalMonitor::Impl {
     }
 
   private:
-    platform::linux::TerminationSignalMonitor monitor_;
+    platform::linux::process::TerminationSignalMonitor monitor_;
 };
 
 TerminationSignalMonitor::TerminationSignalMonitor(CancellationToken& cancellation)
