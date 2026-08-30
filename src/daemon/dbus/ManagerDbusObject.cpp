@@ -79,6 +79,14 @@ int delete_profile(sd_bus_message* message, void* userdata, sd_bus_error* error)
     return static_cast<ManagerDbusObject*>(userdata)->handle_delete_profile(message, error);
 }
 
+int open_browse_session(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
+    return static_cast<ManagerDbusObject*>(userdata)->handle_open_browse_session(message, error);
+}
+
+int close_browse_session(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
+    return static_cast<ManagerDbusObject*>(userdata)->handle_close_browse_session(message, error);
+}
+
 const sd_bus_vtable manager_vtable[] = {
     SD_BUS_VTABLE_START(0),
     SD_BUS_METHOD(manager_protocol::method::get_capabilities, "", "s", get_capabilities, SD_BUS_VTABLE_UNPRIVILEGED),
@@ -95,6 +103,8 @@ const sd_bus_vtable manager_vtable[] = {
     SD_BUS_METHOD(manager_protocol::method::save_profile, "ssss", "s", save_profile, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD(manager_protocol::method::save_profile_hooks, "ssss", "s", save_profile_hooks, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD(manager_protocol::method::delete_profile, "sss", "s", delete_profile, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD(manager_protocol::method::open_browse_session, "s", "s", open_browse_session, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD(manager_protocol::method::close_browse_session, "s", "s", close_browse_session, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_SIGNAL(manager_protocol::signal::profiles_changed, "", 0),
     SD_BUS_SIGNAL(manager_protocol::signal::status_changed, "s", 0),
     SD_BUS_SIGNAL(manager_protocol::signal::history_changed, "s", 0),
@@ -109,10 +119,12 @@ namespace btrfsbackup::daemon::dbus {
 ManagerDbusObject::ManagerDbusObject(
     ManagerService& service,
     control::OperationalControlService& operational,
+    control::BrowseSessionService& browse_sessions,
     control::ProfileAdministrationService& profile_administration,
     IManagerAuditLog& audit_log
 )
-    : service_(service), operational_(operational), profile_administration_(profile_administration), audit_log_(audit_log) {
+    : service_(service), operational_(operational), browse_sessions_(browse_sessions),
+      profile_administration_(profile_administration), audit_log_(audit_log) {
 }
 
 const sd_bus_vtable* ManagerDbusObject::vtable() noexcept {
@@ -444,6 +456,39 @@ int ManagerDbusObject::handle_delete_profile(sd_bus_message* message, sd_bus_err
                     {"accepted", true},
                 });
             });
+        },
+        [&](const std::exception* exception) { return set_callback_error(error, exception); }
+    );
+}
+
+int ManagerDbusObject::handle_open_browse_session(sd_bus_message* message, sd_bus_error* error) noexcept {
+    return invoke_dbus_callback(
+        [&] {
+            const char* profile_id = nullptr;
+            const int read_result = sd_bus_message_read(message, "s", &profile_id);
+            if (read_result < 0)
+                return read_result;
+            const std::string profile = profile_id == nullptr ? "" : profile_id;
+            return reply_operational_json(message, error, manager_protocol::feature::browse_backups, profile, [&] {
+                return codec_.encode(browse_sessions_.open(caller_bus_name(message), caller_uid(message), profile));
+            });
+        },
+        [&](const std::exception* exception) { return set_callback_error(error, exception); }
+    );
+}
+
+int ManagerDbusObject::handle_close_browse_session(sd_bus_message* message, sd_bus_error* error) noexcept {
+    return invoke_dbus_callback(
+        [&] {
+            const char* session_id = nullptr;
+            const int read_result = sd_bus_message_read(message, "s", &session_id);
+            if (read_result < 0)
+                return read_result;
+            browse_sessions_.close(caller_bus_name(message), session_id == nullptr ? "" : session_id);
+            return reply_json(message, config::json::dump_json({
+                {"schemaVersion", manager_protocol::operation_result_schema_version},
+                {"operation", "close-browse-session"}, {"accepted", true},
+            }));
         },
         [&](const std::exception* exception) { return set_callback_error(error, exception); }
     );

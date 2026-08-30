@@ -46,6 +46,16 @@ class OperationId {
     std::string value_;
 };
 
+class BrowseSessionId {
+  public:
+    explicit BrowseSessionId(std::string value);
+    [[nodiscard]] std::string_view value() const noexcept;
+    auto operator<=>(const BrowseSessionId&) const = default;
+
+  private:
+    std::string value_;
+};
+
 class SourceId {
   public:
     explicit SourceId(std::string value);
@@ -62,5 +72,6 @@ void validate_identifier(const std::string& value, const std::string& field_name
 void validate_profile_id(const std::string& profile_id);
 void validate_run_id(const std::string& run_id);
 void validate_operation_id(const std::string& operation_id);
+void validate_browse_session_id(const std::string& browse_session_id);
 
 } // namespace btrfsbackup

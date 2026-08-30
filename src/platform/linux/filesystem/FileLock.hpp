@@ -25,6 +25,9 @@ class FileLock {
     ~FileLock() noexcept;
 
     [[nodiscard]] bool try_acquire();
+    [[nodiscard]] bool try_acquire_shared();
+    [[nodiscard]] bool try_upgrade_to_exclusive();
+    void downgrade_to_shared();
     void release();
     [[nodiscard]] bool acquired() const noexcept;
 
@@ -32,6 +35,7 @@ class FileLock {
     std::filesystem::path path_;
     int fd_ = -1;
     bool acquired_ = false;
+    bool shared_ = false;
 };
 
 } // namespace btrfsbackup::platform::linux::filesystem

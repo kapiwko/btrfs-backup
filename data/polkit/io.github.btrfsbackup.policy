@@ -47,4 +47,9 @@
     <message>Authentication is required to change commands executed by backups</message>
     <defaults><allow_any>no</allow_any><allow_inactive>auth_admin</allow_inactive><allow_active>auth_admin</allow_active></defaults>
   </action>
+  <action id="io.github.btrfsbackup.open-browse-session">
+    <description>Open a read-only Btrfs backup browsing session</description>
+    <message>Authentication is required to browse backup contents</message>
+    <defaults><allow_any>no</allow_any><allow_inactive>auth_admin</allow_inactive><allow_active>auth_admin_keep</allow_active></defaults>
+  </action>
 </policyconfig>

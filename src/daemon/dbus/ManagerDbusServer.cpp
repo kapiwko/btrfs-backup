@@ -133,6 +133,24 @@ int process_mount_changes(sd_event_source*, int, std::uint32_t, void* userdata) 
     });
 }
 
+int browse_session_expiration(sd_event_source* source, std::uint64_t now, void* userdata) noexcept {
+    static_cast<btrfsbackup::daemon::control::BrowseSessionService*>(userdata)->expire();
+    (void)sd_event_source_set_time(source, now + 30ULL * 1000ULL * 1000ULL);
+    return sd_event_source_set_enabled(source, SD_EVENT_ONESHOT);
+}
+
+int caller_owner_changed(sd_bus_message* message, void* userdata, sd_bus_error*) noexcept {
+    const char* name = nullptr;
+    const char* old_owner = nullptr;
+    const char* new_owner = nullptr;
+    if (sd_bus_message_read(message, "sss", &name, &old_owner, &new_owner) < 0)
+        return 0;
+    if (name != nullptr && name[0] == ':' && old_owner != nullptr && old_owner[0] != '\0' &&
+        (new_owner == nullptr || new_owner[0] == '\0'))
+        static_cast<btrfsbackup::daemon::control::BrowseSessionService*>(userdata)->close_for_caller(name);
+    return 0;
+}
+
 } // namespace
 
 namespace btrfsbackup::daemon::dbus {
@@ -141,6 +159,7 @@ int run_dbus_server(
     ManagerService& service,
     control::IOperationalControlBackend& operational_backend,
     control::IProfileAdministrationBackend& profile_administration_backend,
+    control::IBrowseSessionBackend& browse_session_backend,
     IManagerAuditLog& audit_log,
     const ManagerPaths& paths,
     const std::string& bus_address
@@ -163,7 +182,29 @@ int run_dbus_server(
     PolkitAuthorizer authorizer(bus.get());
     control::OperationalControlService operational(authorizer, operational_backend);
     control::ProfileAdministrationService profile_administration(authorizer, profile_administration_backend);
-    ManagerDbusObject object(service, operational, profile_administration, audit_log);
+    control::BrowseSessionService browse_sessions(
+        authorizer, browse_session_backend, std::chrono::minutes(15), {}, {},
+        [&](const control::BrowseSessionEvent& event) {
+            const char* reason = "closed";
+            switch (event.reason) {
+            case control::BrowseSessionCloseReason::Requested: reason = "closed"; break;
+            case control::BrowseSessionCloseReason::CallerDisconnected: reason = "caller-disconnected"; break;
+            case control::BrowseSessionCloseReason::Expired: reason = "expired"; break;
+            case control::BrowseSessionCloseReason::Shutdown: reason = "shutdown"; break;
+            }
+            (void)audit_log.write({event.caller_uid, "close-browse-session", event.profile_id,
+                event.succeeded ? reason : "cleanup-failed", event.succeeded ? "none" : "cleanup-failed"});
+        }
+    );
+    ManagerDbusObject object(service, operational, browse_sessions, profile_administration, audit_log);
+
+    std::unique_ptr<sd_bus_slot, decltype(&sd_bus_slot_unref)> owner_slot(nullptr, sd_bus_slot_unref);
+    sd_bus_slot* raw_owner_slot = nullptr;
+    require_success(sd_bus_match_signal(
+        bus.get(), &raw_owner_slot, "org.freedesktop.DBus", "/org/freedesktop/DBus",
+        "org.freedesktop.DBus", "NameOwnerChanged", caller_owner_changed, &browse_sessions
+    ), "cannot monitor D-Bus callers");
+    owner_slot.reset(raw_owner_slot);
 
     std::unique_ptr<sd_bus_slot, decltype(&sd_bus_slot_unref)> slot(nullptr, sd_bus_slot_unref);
     sd_bus_slot* raw_slot = nullptr;
@@ -194,6 +235,7 @@ int run_dbus_server(
     EventSource filesystem_source(nullptr, sd_event_source_unref);
     EventSource device_source(nullptr, sd_event_source_unref);
     EventSource mount_source(nullptr, sd_event_source_unref);
+    EventSource expiration_source(nullptr, sd_event_source_unref);
     sd_event_source* raw_source = nullptr;
     require_success(
         sd_event_add_io(event.get(), &raw_source, changes.filesystem_fd(), EPOLLIN, process_filesystem_changes, &changes),
@@ -212,6 +254,14 @@ int run_dbus_server(
         "cannot watch manager mount changes"
     );
     mount_source.reset(raw_source);
+    raw_source = nullptr;
+    std::uint64_t now = 0;
+    require_success(sd_event_now(event.get(), CLOCK_MONOTONIC, &now), "cannot read manager event time");
+    require_success(sd_event_add_time(
+        event.get(), &raw_source, CLOCK_MONOTONIC, now + 30ULL * 1000ULL * 1000ULL, 1000ULL * 1000ULL,
+        browse_session_expiration, &browse_sessions
+    ), "cannot schedule browse session expiration");
+    expiration_source.reset(raw_source);
 
     stop_requested = 0;
     std::signal(SIGINT, request_stop);
