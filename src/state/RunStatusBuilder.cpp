@@ -235,10 +235,9 @@ RunStatus status_for_event(
     const RunEventData& event,
     int minimum_overall_progress
 ) {
-    const std::string source_id = event.source_id.has_value()
-        ? std::string(event.source_id->value())
-        : std::string{};
-    auto source_name = context.source_names.find(source_id);
+    const std::optional<SourceId>& source_id = event.source_id;
+    auto source_name = source_id.has_value() ? context.source_names.find(*source_id) : context.source_names.end();
+    const std::string source_id_text = source_id.has_value() ? std::string(source_id->value()) : std::string{};
     RunState state = RunState::Running;
     RunPhase phase = phase_for_event(event.kind);
     const RuntimeTimePoint updated_at = std::chrono::system_clock::now();
@@ -316,14 +315,14 @@ RunStatus status_for_event(
     }
     if (event.kind == btrfsbackup::backup::BackupRunEventKind::ActionFailed) {
         details = {
-            {"sourceId", source_id},
+            {"sourceId", source_id_text},
             {"action", event.action_kind.has_value() ? backup_run_action_kind_name(*event.action_kind) : ""}
         };
     } else if (event.kind == btrfsbackup::backup::BackupRunEventKind::RunFailed) {
         error_code = event.error_code.value_or(ErrorCode::BackupFailed);
         error_message = event.message;
         details = {
-            {"sourceId", source_id},
+            {"sourceId", source_id_text},
             {"action", event.action_kind.has_value() ? backup_run_action_kind_name(*event.action_kind) : ""}
         };
         if (error_code == ErrorCode::RepositoryRecoveryRequired) {
@@ -346,7 +345,7 @@ RunStatus status_for_event(
         error_code = ErrorCode::RunnerCancelled;
         error_message = message_for_event(event);
         details = {
-            {"sourceId", source_id},
+            {"sourceId", source_id_text},
             {"action", event.action_kind.has_value() ? backup_run_action_kind_name(*event.action_kind) : ""}
         };
         recoverable = true;
@@ -370,7 +369,7 @@ RunStatus status_for_event(
         .state = state,
         .phase = phase,
         .message = message_for_event(event),
-        .current_source_name = source_name == context.source_names.end() ? source_id : source_name->second,
+        .current_source_name = source_name == context.source_names.end() ? source_id_text : source_name->second,
         .target_name = context.target_name,
         .source_index = event.source_index,
         .source_count = context.source_count,

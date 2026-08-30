@@ -26,7 +26,7 @@ SendReceiveCommandPlan build_send_receive_command_plan(
 );
 
 void verify_received_snapshot(
-    const std::string& source_id,
+    const SourceId& source_id,
     const SnapshotMetadata& local_snapshot,
     const SnapshotMetadata& received_snapshot
 );
@@ -36,7 +36,7 @@ void commit_received_snapshot(
     IFileSystem& fs_effects,
     const std::filesystem::path& received_path,
     const std::filesystem::path& final_path,
-    const std::string& expected_received_uuid
+    const SnapshotUuid& expected_received_uuid
 );
 
 void commit_received_snapshot_beneath(
@@ -44,7 +44,7 @@ void commit_received_snapshot_beneath(
     const ISafeDirectoryRoot& root,
     const std::filesystem::path& received_path,
     const std::filesystem::path& final_path,
-    const std::string& expected_received_uuid
+    const SnapshotUuid& expected_received_uuid
 );
 
 } // namespace btrfsbackup::backup

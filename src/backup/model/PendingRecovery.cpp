@@ -4,8 +4,6 @@
 
 #include <backup/model/PendingRecovery.hpp>
 
-#include <algorithm>
-#include <cctype>
 #include <filesystem>
 #include <optional>
 #include <string>
@@ -18,29 +16,17 @@ namespace fs = std::filesystem;
 
 namespace {
 
-std::string lowercase(std::string value) {
-    std::transform(value.begin(), value.end(), value.begin(), [](unsigned char ch) {
-        return static_cast<char>(std::tolower(ch));
-    });
-    return value;
-}
-
 bool remote_contains_received_uuid(
     const std::vector<btrfsbackup::backup::SnapshotInfo>& remote_snapshots,
     const btrfsbackup::SourceId& source_id,
-    const std::string& uuid
+    const btrfsbackup::backup::SnapshotUuid& uuid
 ) {
-    const std::string wanted = lowercase(uuid);
     for (const btrfsbackup::backup::SnapshotInfo& remote : remote_snapshots) {
-        if (remote.source_id == source_id && !remote.received_uuid.empty() && lowercase(remote.received_uuid) == wanted) {
+        if (remote.source_id == source_id && uuid_matches(uuid, remote.received_uuid)) {
             return true;
         }
     }
     return false;
-}
-
-bool uuid_equals(const std::string& left, const std::string& right) {
-    return !left.empty() && !right.empty() && lowercase(left) == lowercase(right);
 }
 
 bool marker_path_is_valid(
@@ -50,11 +36,11 @@ bool marker_path_is_valid(
     const fs::path& remote_snapshot_dir
 ) {
     const std::string source_id_value{source_id.value()};
-    if (marker.source_name != source_id_value || marker.local_snapshot_path.empty()) {
+    if (marker.source_id != source_id || marker.local_snapshot_path.empty()) {
         return false;
     }
 
-    const fs::path snapshot_path = fs::path(marker.local_snapshot_path).lexically_normal();
+    const fs::path snapshot_path = marker.local_snapshot_path.lexically_normal();
     if (!btrfsbackup::config::path_is_within(snapshot_path, local_snapshot_dir)) {
         return false;
     }
@@ -70,7 +56,7 @@ bool marker_path_is_valid(
         return true;
     }
 
-    const fs::path final_path = fs::path(marker.final_snapshot_path).lexically_normal();
+    const fs::path final_path = marker.final_snapshot_path.lexically_normal();
     return btrfsbackup::config::path_is_within(final_path, remote_snapshot_dir) && final_path.filename() == snapshot_path.filename();
 }
 
@@ -122,13 +108,13 @@ PendingRecoveryPlan plan_pending_recovery(
     }
 
     if (!pending_snapshot.has_value() || !pending_snapshot->is_subvolume) {
-        plan.message = "Clearing pending marker for missing local snapshot: " + marker->local_snapshot_path;
+        plan.message = "Clearing pending marker for missing local snapshot: " + marker->local_snapshot_path.string();
         return plan;
     }
 
     const fs::path remote_snapshot_path = marker->final_snapshot_path;
     const SnapshotInfo* final_snapshot = remote_snapshot_at_path(remote_snapshots, remote_snapshot_path);
-    if (final_snapshot != nullptr && !pending_snapshot->uuid.empty() && !uuid_equals(final_snapshot->received_uuid, pending_snapshot->uuid)) {
+    if (final_snapshot != nullptr && !pending_snapshot->uuid.empty() && !uuid_matches(pending_snapshot->uuid, final_snapshot->received_uuid)) {
         plan.effects.insert(plan.effects.begin(), DeletePendingRemoteSnapshot{remote_snapshot_path});
         if (!keep_failed_local_snapshot && !remote_contains_received_uuid(remote_snapshots, source_id, pending_snapshot->uuid)) {
             plan.effects.insert(plan.effects.begin() + 1, DeletePendingLocalSnapshot{plan.pending_snapshot_path});
@@ -138,17 +124,17 @@ PendingRecoveryPlan plan_pending_recovery(
     }
 
     if (!pending_snapshot->uuid.empty() && remote_contains_received_uuid(remote_snapshots, source_id, pending_snapshot->uuid)) {
-        plan.message = "Recovered committed snapshot from an interrupted run: " + marker->local_snapshot_path;
+        plan.message = "Recovered committed snapshot from an interrupted run: " + marker->local_snapshot_path.string();
         return plan;
     }
 
     if (keep_failed_local_snapshot) {
-        plan.message = "Keeping pending local snapshot by configuration: " + marker->local_snapshot_path;
+        plan.message = "Keeping pending local snapshot by configuration: " + marker->local_snapshot_path.string();
         return plan;
     }
 
     plan.effects.insert(plan.effects.begin(), DeletePendingLocalSnapshot{plan.pending_snapshot_path});
-    plan.message = "Removing orphaned local snapshot from an interrupted run: " + marker->local_snapshot_path;
+    plan.message = "Removing orphaned local snapshot from an interrupted run: " + marker->local_snapshot_path.string();
     return plan;
 }
 

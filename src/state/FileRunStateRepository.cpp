@@ -34,12 +34,12 @@ fs::path FileRunStateRepository::state_dir(const ProfileId& profile_id) const {
 bool FileRunStateRepository::last_success_matches(
     const btrfsbackup::config::Profile& profile,
     LocalDate date,
-    const std::string& fingerprint
+    const btrfsbackup::config::ConfigurationFingerprint& fingerprint
 ) const {
     return btrfsbackup::state::last_success_matches(
         state_dir(profile.id),
-        format_local_date(date),
-        profile.target.luks_uuid.value(),
+        date,
+        profile.target.luks_uuid,
         fingerprint
     );
 }
@@ -79,20 +79,20 @@ void FileRunStateRepository::write_success(
     const RunId& run_id,
     LocalDate date,
     RuntimeTimePoint timestamp,
-    const std::string& fingerprint,
+    const btrfsbackup::config::ConfigurationFingerprint& fingerprint,
     std::size_t source_count
 ) {
     write_success_state(
         files_,
         state_dir(profile.id),
         SuccessState{
-            .date = format_local_date(date),
-            .timestamp = format_local_timestamp(timestamp),
-            .run_id = std::string(run_id.value()),
-            .profile_id = std::string(profile.id.value()),
+            .date = date,
+            .timestamp = timestamp,
+            .run_id = run_id,
+            .profile_id = profile.id,
             .profile_name = profile.name,
             .source_count = static_cast<int>(source_count),
-            .target_luks_uuid = profile.target.luks_uuid.value(),
+            .target_luks_uuid = profile.target.luks_uuid,
             .config_fingerprint = fingerprint,
         }
     );

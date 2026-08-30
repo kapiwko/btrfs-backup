@@ -87,7 +87,7 @@ BackupPlanningSnapshot BackupDiscovery::discover(
             );
         }
 
-        const std::optional<PendingMarker> marker = pending_markers_.read(profile_state, source_id_value);
+        const std::optional<PendingMarker> marker = pending_markers_.read(profile_state, source_id);
         pending_markers[source_id] = marker;
         if (marker.has_value()) {
             if (local_root->exists(marker->local_snapshot_path)) {

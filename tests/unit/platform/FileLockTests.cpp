@@ -52,12 +52,12 @@ void test_lock_paths_use_separate_profile_and_target_namespaces() {
     fs::path root = test_helpers::test_root("file-lock", "paths");
     test_helpers::expect_eq(
         "profile lock path",
-        btrfsbackup::platform::linux::profile_lock_path(root, "default").string(),
+        btrfsbackup::platform::linux::profile_lock_path(root, btrfsbackup::ProfileId{"default"}).string(),
         (root / "profiles" / "default.lock").string()
     );
     test_helpers::expect_eq(
         "target lock path",
-        btrfsbackup::platform::linux::target_lock_path(root, "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE").string(),
+        btrfsbackup::platform::linux::target_lock_path(root, btrfsbackup::config::LuksUuid{"AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE"}).string(),
         (root / "targets" / "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee.lock").string()
     );
 }

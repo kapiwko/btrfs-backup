@@ -53,14 +53,14 @@ void test_same_snapshot_builds_same_plan() {
         profile(),
         snapshot,
         run_id,
-        "2026-08-23T080000Z",
+        test_helpers::runtime_time("2026-08-23T080000Z"),
         cancellation
     );
     const btrfsbackup::backup::BackupRunPlan second = builder.build(
         profile(),
         snapshot,
         run_id,
-        "2026-08-23T080000Z",
+        test_helpers::runtime_time("2026-08-23T080000Z"),
         cancellation
     );
     const auto& first_snapshot = std::get<btrfsbackup::backup::CreateSnapshotAction>(first.sources.at(0).actions().at(1));

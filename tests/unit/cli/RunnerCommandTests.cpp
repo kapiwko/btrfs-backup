@@ -102,11 +102,11 @@ class RecordingActionHandler final : public btrfsbackup::backup::IBackupRunActio
                 durable_files,
                 pending_state_dir,
                 {
-                    .source_name = std::string(snapshot->source_id.value()),
-                    .local_snapshot_path = snapshot->snapshot.string(),
-                    .final_snapshot_path = snapshot->final_remote_snapshot.string(),
-                    .run_id = std::string(plan.run_id.value()),
-                    .timestamp = pending_timestamp,
+                    .source_id = snapshot->source_id,
+                    .local_snapshot_path = snapshot->snapshot,
+                    .final_snapshot_path = snapshot->final_remote_snapshot,
+                    .run_id = plan.run_id,
+                    .timestamp = test_helpers::runtime_time(pending_timestamp),
                 }
             );
         }
@@ -282,8 +282,8 @@ void add_snapshot_metadata(
     metadata.values[path.string()] = btrfsbackup::backup::SnapshotMetadata{
         .is_subvolume = true,
         .readonly = true,
-        .uuid = uuid,
-        .received_uuid = received_uuid,
+        .uuid = btrfsbackup::backup::SnapshotUuid{uuid},
+        .received_uuid = btrfsbackup::backup::ReceivedSnapshotUuid{received_uuid},
     };
 }
 
@@ -540,14 +540,14 @@ void write_matching_last_success(const fs::path& config_root, const btrfsbackup:
         durable_files,
         config_root.parent_path() / "state" / "profiles" / profile.id.value(),
         btrfsbackup::state::SuccessState{
-            .date = "2026-08-23",
-            .timestamp = "2026-08-23T08:00:00+02:00",
-            .run_id = "20260823T080000Z-previous",
-            .profile_id = std::string(profile.id.value()),
+            .date = *btrfsbackup::parse_local_date("2026-08-23"),
+            .timestamp = test_helpers::runtime_time("2026-08-23T08:00:00Z"),
+            .run_id = btrfsbackup::RunId{"20260823T080000Z-previous"},
+            .profile_id = profile.id,
             .profile_name = profile.name,
             .source_count = 1,
-            .target_luks_uuid = profile.target.luks_uuid.value(),
-            .config_fingerprint = profile_fingerprint(config_root, profile),
+            .target_luks_uuid = profile.target.luks_uuid,
+            .config_fingerprint = btrfsbackup::config::ConfigurationFingerprint{profile_fingerprint(config_root, profile)},
         }
     );
 }
@@ -681,7 +681,7 @@ void test_runner_execute_rejects_busy_profile_before_target_access() {
     write_mountinfo(mountinfo, profile);
 
     btrfsbackup::platform::linux::FileLock active_profile_lock(
-        btrfsbackup::platform::linux::profile_lock_path(lock_root, std::string(profile.id.value()))
+        btrfsbackup::platform::linux::profile_lock_path(lock_root, profile.id)
     );
     test_helpers::expect_true(
         "active profile lock acquired",
@@ -1013,9 +1013,9 @@ void test_runner_execute_uses_injected_services_and_writes_state() {
         "last success matches",
         btrfsbackup::state::last_success_matches(
             root / "state" / "profiles" / "default",
-            "2026-08-23",
-            profile.target.luks_uuid.value(),
-            profile_fingerprint(config_root, profile)
+            *btrfsbackup::parse_local_date("2026-08-23"),
+            profile.target.luks_uuid,
+            btrfsbackup::config::ConfigurationFingerprint{profile_fingerprint(config_root, profile)}
         ),
         "successful runner should write daily-limit state"
     );
@@ -1677,11 +1677,11 @@ void test_runner_execute_pending_recovery_deletes_orphan() {
         durable_files,
         root / "state" / "profiles" / "default",
         btrfsbackup::backup::PendingMarker{
-            .source_name = "root",
-            .local_snapshot_path = pending.string(),
-            .final_snapshot_path = (root / "target" / "default" / "snapshots" / "root" / pending.filename()).string(),
-            .run_id = "20260822T080000Z-123-456",
-            .timestamp = "2026-08-22T08:00:00Z",
+            .source_id = btrfsbackup::SourceId{"root"},
+            .local_snapshot_path = pending,
+            .final_snapshot_path = root / "target" / "default" / "snapshots" / "root" / pending.filename(),
+            .run_id = btrfsbackup::RunId{"20260822T080000Z-123-456"},
+            .timestamp = test_helpers::runtime_time("2026-08-22T08:00:00Z"),
         }
     );
 
@@ -1754,7 +1754,7 @@ void test_runner_cancel_validates_active_run_identity_without_target_mount() {
         .application_config = btrfsbackup::config::ApplicationConfig(test_application_paths(root)),
     };
     btrfsbackup::platform::linux::FileLock active_profile_lock(
-        btrfsbackup::platform::linux::profile_lock_path(lock_root, "default")
+        btrfsbackup::platform::linux::profile_lock_path(lock_root, btrfsbackup::ProfileId{"default"})
     );
     test_helpers::expect_true(
         "active profile lock",

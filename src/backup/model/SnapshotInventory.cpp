@@ -17,14 +17,17 @@ namespace fs = std::filesystem;
 
 namespace {
 
+std::string normalized_uuid(std::string value) {
+    std::transform(value.begin(), value.end(), value.begin(), [](unsigned char character) {
+        return static_cast<char>(std::tolower(character));
+    });
+    return value;
+}
+
 bool all_digits(const std::string& value) {
     return std::all_of(value.begin(), value.end(), [](unsigned char ch) {
         return std::isdigit(ch) != 0;
     });
-}
-
-bool valid_snapshot_timestamp(const std::string& value) {
-    return value.size() == 18 && all_digits(value.substr(0, 4)) && value[4] == '-' && all_digits(value.substr(5, 2)) && value[7] == '-' && all_digits(value.substr(8, 2)) && value[10] == 'T' && all_digits(value.substr(11, 6)) && value[17] == 'Z';
 }
 
 bool metadata_sort_key_less(const btrfsbackup::backup::SnapshotInfo& left, const btrfsbackup::backup::SnapshotInfo& right) {
@@ -41,6 +44,32 @@ bool metadata_sort_key_less(const btrfsbackup::backup::SnapshotInfo& left, const
 
 namespace btrfsbackup::backup {
 
+SnapshotUuid::SnapshotUuid(std::string value) : value_(normalized_uuid(std::move(value))) {
+}
+
+const std::string& SnapshotUuid::value() const noexcept {
+    return value_;
+}
+
+bool SnapshotUuid::empty() const noexcept {
+    return value_.empty();
+}
+
+ReceivedSnapshotUuid::ReceivedSnapshotUuid(std::string value) : value_(normalized_uuid(std::move(value))) {
+}
+
+const std::string& ReceivedSnapshotUuid::value() const noexcept {
+    return value_;
+}
+
+bool ReceivedSnapshotUuid::empty() const noexcept {
+    return value_.empty();
+}
+
+bool uuid_matches(const SnapshotUuid& snapshot, const ReceivedSnapshotUuid& received) noexcept {
+    return !snapshot.empty() && !received.empty() && snapshot.value() == received.value();
+}
+
 std::optional<SnapshotName> parse_snapshot_name(const std::string& name, const SourceId& source_id) {
     const std::string source_id_value{source_id.value()};
     const std::string prefix = source_id_value + "-";
@@ -53,8 +82,9 @@ std::optional<SnapshotName> parse_snapshot_name(const std::string& name, const S
         return std::nullopt;
     }
 
-    const std::string timestamp = rest.substr(0, 18);
-    if (!valid_snapshot_timestamp(timestamp)) {
+    const std::string timestamp_text = rest.substr(0, 18);
+    const std::optional<RuntimeTimePoint> timestamp = parse_utc_timestamp(timestamp_text);
+    if (!timestamp.has_value()) {
         return std::nullopt;
     }
 
@@ -71,7 +101,7 @@ std::optional<SnapshotName> parse_snapshot_name(const std::string& name, const S
 
     return SnapshotName{
         .source_id = source_id,
-        .timestamp = timestamp,
+        .timestamp = *timestamp,
         .sequence = sequence,
         .name = name,
     };
