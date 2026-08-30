@@ -243,9 +243,6 @@ msgstr "Uruchom kopię"
 msgid "Cancel"
 msgstr "Anuluj"
 
-msgid "Validate"
-msgstr "Waliduj"
-
 msgid "Eject"
 msgstr "Wysuń"
 
