@@ -162,7 +162,11 @@ target_link_libraries(btrfsbackup-platform-linux-config
         btrfsbackup-config-json
         btrfsbackup-config-wizard
         btrfsbackup-core
-        btrfsbackup-platform-linux
+        btrfsbackup-platform-linux-filesystem
+        btrfsbackup-platform-linux-process
+        btrfsbackup-platform-linux-storage
+        btrfsbackup-platform-linux-systemd
+        PkgConfig::UDEV
 )
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")

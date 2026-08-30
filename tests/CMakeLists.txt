@@ -74,10 +74,39 @@ assert_public_link_interface(
     btrfsbackup-state-persistence-ports
 )
 assert_public_link_interface(
-    btrfsbackup-platform-linux
+    btrfsbackup-platform-linux-base
+)
+assert_public_link_interface(
+    btrfsbackup-platform-linux-process
+    btrfsbackup-backup-ports
+)
+assert_public_link_interface(
+    btrfsbackup-platform-linux-filesystem
+    btrfsbackup-backup-ports
+    btrfsbackup-state-persistence-ports
+)
+assert_public_link_interface(
+    btrfsbackup-platform-linux-storage
+    btrfsbackup-backup-ports
+)
+assert_public_link_interface(
+    btrfsbackup-platform-linux-transfer
+    btrfsbackup-platform-linux-base
+    btrfsbackup-platform-linux-process
+)
+assert_public_link_interface(
+    btrfsbackup-platform-linux-systemd
     btrfsbackup-backup-ports
     btrfsbackup-config-ports
-    btrfsbackup-state-persistence-ports
+)
+assert_public_link_interface(
+    btrfsbackup-platform-linux
+    btrfsbackup-platform-linux-base
+    btrfsbackup-platform-linux-filesystem
+    btrfsbackup-platform-linux-process
+    btrfsbackup-platform-linux-storage
+    btrfsbackup-platform-linux-systemd
+    btrfsbackup-platform-linux-transfer
 )
 assert_public_link_interface(
     btrfsbackup-cli
@@ -114,6 +143,12 @@ set(architecture_targets
     btrfsbackup-state-persistence-ports
     btrfsbackup-state-model
     btrfsbackup-state
+    btrfsbackup-platform-linux-base
+    btrfsbackup-platform-linux-filesystem
+    btrfsbackup-platform-linux-process
+    btrfsbackup-platform-linux-storage
+    btrfsbackup-platform-linux-systemd
+    btrfsbackup-platform-linux-transfer
     btrfsbackup-platform-linux
     btrfsbackup-cli
 )
