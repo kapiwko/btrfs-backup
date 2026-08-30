@@ -93,6 +93,12 @@ are private, atomically stored by the runner before cleanup and rejected after
 the configured target identity changes. No paths, UUIDs or device nodes cross
 this API boundary.
 
+The `mounted` lifecycle flag is true only when the mount at the configured
+target path is Btrfs and matches both the configured filesystem UUID and mapper.
+If another filesystem or device occupies that path, `mounted` is false and
+`state` is `unexpected-mount`. In that state an identity-matching cached storage
+measurement may still be present, but it is never marked as live.
+
 The `change-signals` capability advertises the event-driven invalidation
 surface. Signals carry only a public profile identifier; clients obtain the
 current sanitized document with the corresponding read method:
