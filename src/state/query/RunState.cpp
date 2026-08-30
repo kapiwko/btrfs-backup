@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <state/RunState.hpp>
+#include <state/query/RunState.hpp>
 
 #include <algorithm>
 #include <cctype>

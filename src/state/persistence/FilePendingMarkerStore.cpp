@@ -7,7 +7,7 @@
 #include <filesystem>
 
 #include <core/Identifiers.hpp>
-#include <state/RunState.hpp>
+#include <state/query/RunState.hpp>
 
 namespace btrfsbackup::state {
 

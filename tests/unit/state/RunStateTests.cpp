@@ -7,7 +7,7 @@
 #include <string>
 #include <sys/stat.h>
 
-#include <state/RunState.hpp>
+#include <state/query/RunState.hpp>
 #include <platform/linux/filesystem/PosixDurableFileOperations.hpp>
 
 #include "support/TestHelpers.hpp"

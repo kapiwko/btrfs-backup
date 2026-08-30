@@ -31,7 +31,7 @@
 #include <platform/linux/filesystem/PosixDurableFileOperations.hpp>
 #include <platform/linux/filesystem/TrustedExecutable.hpp>
 #include <state/persistence/FilePendingMarkerStore.hpp>
-#include <state/RunState.hpp>
+#include <state/query/RunState.hpp>
 
 #include "support/FakeTrustedExecutable.hpp"
 #include "support/FakeSafeDirectory.hpp"

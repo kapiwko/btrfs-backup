@@ -11,7 +11,7 @@
 
 #include <core/Errors.hpp>
 #include <config/json/Json.hpp>
-#include <state/StatusService.hpp>
+#include <state/query/StatusService.hpp>
 
 namespace fs = std::filesystem;
 using json = btrfsbackup::config::json::Json;

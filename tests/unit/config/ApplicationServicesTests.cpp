@@ -13,8 +13,8 @@
 #include <platform/linux/config/ProfileService.hpp>
 #include <platform/linux/config/RenderDirectory.hpp>
 #include <platform/linux/filesystem/FileIo.hpp>
-#include <state/StatusService.hpp>
-#include <state/RunHistory.hpp>
+#include <state/query/StatusService.hpp>
+#include <state/query/RunHistory.hpp>
 
 #include "support/ValidationTestHelpers.hpp"
 
