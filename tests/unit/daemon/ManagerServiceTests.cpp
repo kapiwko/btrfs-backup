@@ -138,7 +138,12 @@ void test_capabilities_and_profiles() {
     btrfsbackup::daemon::ManagerService service(manager_paths(root));
     const btrfsbackup::daemon::ManagerCapabilities capabilities = service.get_capabilities();
     test_helpers::expect_true("operational capability", !capabilities.read_only, "manager is still read-only");
-    test_helpers::expect_true("manager API minor", capabilities.api_minor == 1, "manager API minor was not advanced");
+    test_helpers::expect_true("manager API minor", capabilities.api_minor == 2, "manager API minor was not advanced");
+    test_helpers::expect_true(
+        "target storage capability",
+        std::ranges::find(capabilities.features, "target-storage-usage") != capabilities.features.end(),
+        "manager omits target storage capability"
+    );
     test_helpers::expect_true(
         "change signal capability",
         std::ranges::find(capabilities.features, "change-signals") != capabilities.features.end(),

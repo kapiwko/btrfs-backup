@@ -65,7 +65,7 @@ std::string ManagerJsonCodec::encode(const SanitizedHistoryPage& page) const {
 }
 
 std::string ManagerJsonCodec::encode(const TargetStatus& status) const {
-    return config::json::dump_json({
+    config::json::Json document{
         {"schemaVersion", manager_protocol::device_state_schema_version},
         {"profileId", status.profile_id},
         {"targetName", status.target_name},
@@ -74,7 +74,20 @@ std::string ManagerJsonCodec::encode(const TargetStatus& status) const {
         {"unlocked", status.unlocked},
         {"mounted", status.mounted},
         {"safeToRemove", status.safe_to_remove},
-    });
+    };
+    if (status.storage.has_value()) {
+        document["storage"] = {
+            {"schemaVersion", manager_protocol::target_storage_schema_version},
+            {"capacityBytes", status.storage->capacity_bytes},
+            {"usedBytes", status.storage->used_bytes},
+            {"availableBytes", status.storage->available_bytes},
+            {"usagePercent", status.storage->usage_percent},
+            {"measuredAt", status.storage->measured_at},
+            {"live", status.storage->live},
+            {"spaceState", status.storage->space_state},
+        };
+    }
+    return config::json::dump_json(document);
 }
 
 std::string ManagerJsonCodec::encode(const OperationResult& result) const {

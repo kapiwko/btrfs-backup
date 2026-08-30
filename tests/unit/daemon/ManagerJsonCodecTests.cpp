@@ -99,10 +99,38 @@ void test_status_history_and_device() {
         .unlocked = true,
         .mounted = true,
         .safe_to_remove = false,
+        .storage = btrfsbackup::daemon::TargetStatus::Storage{
+            .capacity_bytes = 1000,
+            .used_bytes = 600,
+            .available_bytes = 350,
+            .usage_percent = 64,
+            .measured_at = "2026-08-30T12:34:56Z",
+            .live = true,
+            .space_state = "below-configured-minimum",
+        },
     };
     const Json target_document = Json::parse(codec.encode(target));
     expect_field("target", target_document, "safeToRemove", false);
+    expect_field("target storage", target_document.at("storage"), "schemaVersion", 1);
+    expect_field("target storage", target_document.at("storage"), "usedBytes", 600);
+    expect_field("target storage", target_document.at("storage"), "live", true);
     test_helpers::expect_true("target privacy", !target_document.contains("device"), "private device field was encoded");
+    test_helpers::expect_true(
+        "target storage privacy",
+        !target_document.at("storage").contains("luksUuid") &&
+            !target_document.at("storage").contains("btrfsUuid") &&
+            !target_document.at("storage").contains("partitionUuid"),
+        "private target identity was encoded"
+    );
+
+    btrfsbackup::daemon::TargetStatus target_without_storage = target;
+    target_without_storage.storage.reset();
+    const Json target_without_storage_document = Json::parse(codec.encode(target_without_storage));
+    test_helpers::expect_true(
+        "target storage optional",
+        !target_without_storage_document.contains("storage"),
+        "missing measurement was encoded as storage data"
+    );
 
     const btrfsbackup::daemon::OperationResult operation{
         .operation = "cancel-backup",

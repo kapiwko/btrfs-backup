@@ -26,6 +26,7 @@ ManagerCapabilities ManagerService::get_capabilities() const {
             manager_protocol::feature::status,
             manager_protocol::feature::sanitized_history,
             manager_protocol::feature::device_state,
+            manager_protocol::feature::target_storage_usage,
             manager_protocol::feature::start_backup,
             manager_protocol::feature::cancel_backup,
             manager_protocol::feature::validate_target,
