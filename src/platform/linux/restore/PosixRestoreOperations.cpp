@@ -11,9 +11,11 @@
 #include <fstream>
 #include <string>
 #include <system_error>
+#include <vector>
 
 #include <btrfsutil.h>
 #include <sys/stat.h>
+#include <sys/xattr.h>
 #include <unistd.h>
 
 #include <restore/RestoreError.hpp>
@@ -25,6 +27,29 @@ namespace {
 struct SourceIdentity {
     dev_t device = 0;
 };
+
+void reject_symlink_components(const std::filesystem::path& path, bool leaf_may_be_missing) {
+    std::filesystem::path current;
+    for (const std::filesystem::path& component : path) {
+        current /= component;
+        struct stat status{};
+        if (::lstat(current.c_str(), &status) != 0) {
+            if (leaf_may_be_missing && errno == ENOENT) {
+                return;
+            }
+            throw btrfsbackup::restore::RestoreError(
+                btrfsbackup::restore::RestoreErrorCode::DestinationUnsafe,
+                "could not inspect restore path " + current.string() + ": " + std::strerror(errno)
+            );
+        }
+        if (S_ISLNK(status.st_mode)) {
+            throw btrfsbackup::restore::RestoreError(
+                btrfsbackup::restore::RestoreErrorCode::SymlinkRejected,
+                "restore path traverses a symbolic link: " + current.string()
+            );
+        }
+    }
+}
 
 struct stat lstat_or_throw(const std::filesystem::path& path) {
     struct stat status{};
@@ -78,8 +103,51 @@ void verify_regular_file(
     }
 }
 
+void copy_extended_attributes(const std::filesystem::path& source, const std::filesystem::path& destination) {
+    const ssize_t names_size = ::listxattr(source.c_str(), nullptr, 0);
+    if (names_size < 0) {
+        throw btrfsbackup::restore::RestoreError(
+            btrfsbackup::restore::RestoreErrorCode::CopyFailed,
+            "could not list extended attributes for " + source.string() + ": " + std::strerror(errno)
+        );
+    }
+    std::vector<char> names(static_cast<std::size_t>(names_size));
+    if (names_size > 0 && ::listxattr(source.c_str(), names.data(), names.size()) != names_size) {
+        throw btrfsbackup::restore::RestoreError(
+            btrfsbackup::restore::RestoreErrorCode::CopyFailed,
+            "extended attributes changed while restoring: " + source.string()
+        );
+    }
+    std::size_t offset = 0;
+    while (offset < names.size()) {
+        const std::string name{names.data() + offset};
+        offset += name.size() + 1;
+        const ssize_t value_size = ::getxattr(source.c_str(), name.c_str(), nullptr, 0);
+        if (value_size < 0) {
+            throw btrfsbackup::restore::RestoreError(
+                btrfsbackup::restore::RestoreErrorCode::CopyFailed,
+                "could not read extended attribute " + name
+            );
+        }
+        std::vector<char> value(static_cast<std::size_t>(value_size));
+        if (value_size > 0 && ::getxattr(source.c_str(), name.c_str(), value.data(), value.size()) != value_size) {
+            throw btrfsbackup::restore::RestoreError(
+                btrfsbackup::restore::RestoreErrorCode::CopyFailed,
+                "extended attribute changed while restoring: " + name
+            );
+        }
+        if (::setxattr(destination.c_str(), name.c_str(), value.data(), value.size(), 0) != 0) {
+            throw btrfsbackup::restore::RestoreError(
+                btrfsbackup::restore::RestoreErrorCode::CopyFailed,
+                "could not preserve extended attribute " + name + ": " + std::strerror(errno)
+            );
+        }
+    }
+}
+
 void preserve_metadata(const std::filesystem::path& source, const std::filesystem::path& destination) {
     const struct stat status = lstat_or_throw(source);
+    copy_extended_attributes(source, destination);
     if (::chmod(destination.c_str(), status.st_mode & 07777) != 0) {
         throw btrfsbackup::restore::RestoreError(
             btrfsbackup::restore::RestoreErrorCode::CopyFailed,
@@ -98,6 +166,14 @@ void preserve_metadata(const std::filesystem::path& source, const std::filesyste
         throw btrfsbackup::restore::RestoreError(
             btrfsbackup::restore::RestoreErrorCode::CopyFailed,
             "could not preserve modification time for " + destination.string()
+        );
+    }
+    const struct stat restored = lstat_or_throw(destination);
+    if ((restored.st_mode & 07777) != (status.st_mode & 07777) ||
+        (::geteuid() == 0 && (restored.st_uid != status.st_uid || restored.st_gid != status.st_gid))) {
+        throw btrfsbackup::restore::RestoreError(
+            btrfsbackup::restore::RestoreErrorCode::VerificationFailed,
+            "restored metadata differs: " + destination.string()
         );
     }
 }
@@ -199,6 +275,8 @@ void PosixRestoreOperations::prepare_copy_root(
     const std::filesystem::path& source,
     const std::filesystem::path& path
 ) {
+    reject_symlink_components(source, false);
+    reject_symlink_components(path.parent_path(), true);
     const struct stat status = lstat_or_throw(source);
     std::error_code error;
     std::filesystem::create_directories(path.parent_path(), error);
@@ -208,6 +286,7 @@ void PosixRestoreOperations::prepare_copy_root(
             "could not create restore parent: " + path.parent_path().string()
         );
     }
+    reject_symlink_components(path.parent_path(), false);
     if (S_ISDIR(status.st_mode)) {
         std::filesystem::create_directory(path, error);
         if (error) {
@@ -220,6 +299,7 @@ void PosixRestoreOperations::prepare_copy_root(
 }
 
 void PosixRestoreOperations::create_subvolume_root(const std::filesystem::path& path) {
+    reject_symlink_components(path.parent_path(), true);
     std::error_code parent_error;
     std::filesystem::create_directories(path.parent_path(), parent_error);
     if (parent_error) {
@@ -228,6 +308,7 @@ void PosixRestoreOperations::create_subvolume_root(const std::filesystem::path& 
             "could not create subvolume parent: " + path.parent_path().string()
         );
     }
+    reject_symlink_components(path.parent_path(), false);
     const enum btrfs_util_error error = btrfs_util_subvolume_create(path.c_str(), 0, nullptr, nullptr);
     if (error != BTRFS_UTIL_OK) {
         throw btrfsbackup::restore::RestoreError(
@@ -242,6 +323,8 @@ btrfsbackup::restore::RestoreStatistics PosixRestoreOperations::copy_and_verify(
     const std::filesystem::path& destination_root,
     CancellationToken& cancellation
 ) {
+    reject_symlink_components(source, false);
+    reject_symlink_components(destination_root.parent_path(), false);
     const struct stat source_status = lstat_or_throw(source);
     btrfsbackup::restore::RestoreStatistics statistics;
     if (S_ISDIR(source_status.st_mode)) {
@@ -262,6 +345,8 @@ btrfsbackup::restore::RestoreStatistics PosixRestoreOperations::copy_and_verify(
 }
 
 void PosixRestoreOperations::move(const std::filesystem::path& source, const std::filesystem::path& destination) {
+    reject_symlink_components(source, false);
+    reject_symlink_components(destination.parent_path(), false);
     std::error_code error;
     std::filesystem::rename(source, destination, error);
     if (error) {

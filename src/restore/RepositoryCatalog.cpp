@@ -120,7 +120,17 @@ std::vector<const CatalogSnapshot*> find_versions(
             continue;
         }
         std::error_code error;
-        const std::filesystem::path candidate = catalog.root() / snapshot.repository_path.value() / relative_path.value();
+        std::filesystem::path candidate = catalog.root() / snapshot.repository_path.value();
+        for (const std::filesystem::path& component : relative_path.value()) {
+            candidate /= component;
+            const std::filesystem::file_status component_status = std::filesystem::symlink_status(candidate, error);
+            if (!error && std::filesystem::is_symlink(component_status)) {
+                throw RestoreError(RestoreErrorCode::SymlinkRejected, "version path traverses a symbolic link");
+            }
+            if (error || !std::filesystem::exists(component_status)) {
+                break;
+            }
+        }
         const std::filesystem::file_status status = std::filesystem::symlink_status(candidate, error);
         if (!error && std::filesystem::exists(status)) {
             versions.push_back(&snapshot);
