@@ -19,6 +19,15 @@ count, and do not introduce a class solely to justify a filename. Conversely, a
 type deserves its own file when it has independent state, lifecycle,
 invariants, cleanup, or tests.
 
+Whenever a class is added, explicitly decide whether it needs its own
+`ClassName.hpp` and, when non-trivial, `ClassName.cpp`. A class with state, an
+RAII responsibility, an independently useful contract, non-trivial invariants,
+or likely independent tests belongs in separate files by default. A class may
+remain local only when it is a small implementation detail of the file's
+primary abstraction, has no reusable contract, and is unlikely to grow. Record
+that decision in review instead of adding a second primary abstraction by
+accident.
+
 Conventional entry points named `main.cpp`, generated sources, and names
 required by a framework or build system are exceptions. Directories remain
 lowercase and continue to describe domain ownership.
@@ -103,6 +112,12 @@ Choose the error channel from the caller's required control flow:
 Exceptions must not cross C callbacks or D-Bus callbacks. Boundary adapters
 catch them and map them to the protocol's error representation.
 
+Every C-facing trampoline is `noexcept`, performs no business logic, and
+delegates immediately to a named owner. The boundary catches coded application
+errors, standard exceptions, and `...`; the last case maps to a stable internal
+error without exposing private diagnostics. Logging and audit attempts inside
+the catch path must themselves be contained so they cannot break the boundary.
+
 The systemd unit-control port is the reference `std::expected<void,
 SystemdJobError>` boundary: accepting a job is success, while a rejected job is
 an expected typed failure inspected by the operational backend. Higher-level
@@ -155,6 +170,19 @@ adapters. The testable application overload takes required dependencies by
 reference. In particular, `TargetService` has one-argument production
 overloads, while its injected overloads require `TargetServiceDependencies&`;
 nullable dependency pointers do not enter the service logic.
+
+The runner is the reference composition shape: parse adapter options, construct
+one object that owns dependencies in destruction order, then pass only the
+application service to command logic.
+
+```cpp
+const RunnerOptions options = parse_runner_options(args);
+RunnerComposition composition(config_root, options, cancellation);
+return run_with_service(options, output, composition.service());
+```
+
+Do not construct Linux, JSON, or file-backed adapters inside `BackupService` or
+hide production/test selection behind nullable dependencies.
 
 Avoid generic `utils` modules. Extract shared code only when it represents a
 specific concept with a stable invariant and at least two real consumers, or
