@@ -12,7 +12,7 @@
 #include <backup/planning/BackupPlanBuilder.hpp>
 #include <backup/planning/BackupPreflight.hpp>
 #include <backup/BackupService.hpp>
-#include <backup/DefaultBackupRunActionHandlerFactory.hpp>
+#include <backup/execution/actions/DefaultBackupRunActionHandlerFactory.hpp>
 #include <backup/execution/DefaultBackupRunFactory.hpp>
 #include <backup/execution/LinkedCancellationMonitor.hpp>
 #include <backup/execution/SystemRunContext.hpp>
@@ -102,7 +102,7 @@ struct RunnerComposition::Impl {
     backup::planning::BackupPlanBuilder plan_builder;
     platform::linux::filesystem::PosixTrustedExecutableResolver hook_executables;
     ConfiguredRunnerClock clock;
-    backup::DefaultBackupRunActionHandlerFactory action_handlers;
+    backup::execution::DefaultBackupRunActionHandlerFactory action_handlers;
     backup::execution::DefaultBackupRunFactory run_factory;
     platform::linux::filesystem::FileBackupRunLeaseProvider leases;
     state::FileRunStateRepository state;

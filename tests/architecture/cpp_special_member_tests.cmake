@@ -16,9 +16,9 @@ file(
 set(approved_special_member_types
     "src/platform/linux/process/CommandCancellationSignal.hpp:CommandCancellationSignal"
     "src/backup/execution/RunExecutionContext.hpp:RunExecutionContext"
-    "src/backup/action_handlers/RecoveryActionHandler.hpp:RecoveryActionHandler"
-    "src/backup/action_handlers/RetentionActionHandler.hpp:RetentionActionHandler"
-    "src/backup/action_handlers/SnapshotActionHandler.hpp:SnapshotActionHandler"
+    "src/backup/execution/actions/RecoveryActionHandler.hpp:RecoveryActionHandler"
+    "src/backup/execution/actions/RetentionActionHandler.hpp:RetentionActionHandler"
+    "src/backup/execution/actions/SnapshotActionHandler.hpp:SnapshotActionHandler"
     "src/backup/transfer/ThreadedAsyncTransferHandle.hpp:ThreadedAsyncTransferHandle"
     "src/cli/BackupTool.hpp:TerminationSignalMonitor"
     "src/cli/RunnerComposition.hpp:RunnerComposition"

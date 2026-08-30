@@ -10,10 +10,12 @@
 #include <backup/model/BackupRunActions.hpp>
 
 namespace btrfsbackup::backup {
-
 class IBtrfsOperations;
 class IPendingMarkerStore;
 class ISafeDirectoryRoot;
+}
+
+namespace btrfsbackup::backup::execution {
 
 class RecoveryActionHandler {
   public:
@@ -35,4 +37,4 @@ class RecoveryActionHandler {
     std::unique_ptr<ISafeDirectoryRoot> target_root_;
 };
 
-} // namespace btrfsbackup::backup
+} // namespace btrfsbackup::backup::execution

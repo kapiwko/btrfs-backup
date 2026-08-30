@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <backup/action_handlers/SnapshotActionHandler.hpp>
+#include <backup/execution/actions/SnapshotActionHandler.hpp>
 
 #include <optional>
 #include <string>
@@ -16,7 +16,7 @@
 #include <core/Errors.hpp>
 #include <core/RuntimeTime.hpp>
 
-namespace btrfsbackup::backup {
+namespace btrfsbackup::backup::execution {
 
 namespace {
 
@@ -94,4 +94,4 @@ void SnapshotActionHandler::handle(const CreateSnapshotAction& action) {
     }
 }
 
-} // namespace btrfsbackup::backup
+} // namespace btrfsbackup::backup::execution

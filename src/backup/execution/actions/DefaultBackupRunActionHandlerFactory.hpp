@@ -7,7 +7,6 @@
 #include <backup/ports/BackupRunActionHandlerFactory.hpp>
 
 namespace btrfsbackup::backup {
-
 class IBtrfsOperations;
 class ICommandRunner;
 class IFileSystem;
@@ -15,6 +14,9 @@ class IPendingMarkerStore;
 class ISafeDirectoryRootFactory;
 class ITrustedExecutableResolver;
 class IClock;
+}
+
+namespace btrfsbackup::backup::execution {
 
 class DefaultBackupRunActionHandlerFactory final : public IBackupRunActionHandlerFactory {
   public:
@@ -42,4 +44,4 @@ class DefaultBackupRunActionHandlerFactory final : public IBackupRunActionHandle
     const ITrustedExecutableResolver& hook_executables_;
 };
 
-} // namespace btrfsbackup::backup
+} // namespace btrfsbackup::backup::execution
