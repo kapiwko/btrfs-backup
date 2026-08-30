@@ -12,7 +12,7 @@
 #include <core/Errors.hpp>
 #include <core/Identifiers.hpp>
 
-namespace btrfsbackup::config {
+namespace btrfsbackup::config::wizard {
 
 Profile profile_from_wizard_answers(const ProfileWizardAnswers& answers) {
     Profile profile{
@@ -68,4 +68,4 @@ Profile profile_from_wizard_answers(const ProfileWizardAnswers& answers) {
     return json::profile_from_json(json::profile_to_json(profile), answers.target_mount_root);
 }
 
-} // namespace btrfsbackup::config
+} // namespace btrfsbackup::config::wizard
