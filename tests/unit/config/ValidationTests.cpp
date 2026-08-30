@@ -9,8 +9,8 @@
 #include <string>
 #include <type_traits>
 
-#include <config/model/Profile.hpp>
-#include <config/model/Validation.hpp>
+#include <config/domain/Profile.hpp>
+#include <config/domain/Validation.hpp>
 
 #include "support/ValidationTestHelpers.hpp"
 

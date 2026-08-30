@@ -10,7 +10,7 @@
 
 #include <backup/model/PendingRecovery.hpp>
 #include <config/ConfigurationIdentity.hpp>
-#include <config/model/TargetIdentity.hpp>
+#include <config/domain/TargetIdentity.hpp>
 #include <core/Identifiers.hpp>
 #include <core/RuntimeTime.hpp>
 #include <state/PersistentDocumentOperations.hpp>

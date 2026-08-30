@@ -7,8 +7,8 @@
 #include <string>
 #include <utility>
 
-#include <config/model/ConfigurationGeneration.hpp>
-#include <config/model/Profile.hpp>
+#include <config/domain/ConfigurationGeneration.hpp>
+#include <config/domain/Profile.hpp>
 
 namespace btrfsbackup::config {
 

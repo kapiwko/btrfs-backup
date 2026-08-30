@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-#include <config/model/Profile.hpp>
+#include <config/domain/Profile.hpp>
 
 namespace btrfsbackup::config {
 

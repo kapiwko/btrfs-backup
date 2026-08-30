@@ -6,7 +6,7 @@
 
 #include <filesystem>
 
-#include <config/model/TargetIdentity.hpp>
+#include <config/domain/TargetIdentity.hpp>
 #include <core/Identifiers.hpp>
 
 namespace btrfsbackup::platform::linux::filesystem {

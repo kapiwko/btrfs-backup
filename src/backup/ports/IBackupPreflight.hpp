@@ -7,7 +7,7 @@
 #include <memory>
 
 #include <backup/ports/TargetManager.hpp>
-#include <config/model/Profile.hpp>
+#include <config/domain/Profile.hpp>
 #include <core/Cancellation.hpp>
 
 namespace btrfsbackup::backup {

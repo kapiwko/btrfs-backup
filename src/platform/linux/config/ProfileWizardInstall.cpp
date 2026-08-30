@@ -16,7 +16,7 @@
 #include <platform/linux/config/InstallationRender.hpp>
 #include <platform/linux/config/InstallationValidate.hpp>
 #include <config/model/JsonIo.hpp>
-#include <config/model/Profile.hpp>
+#include <config/domain/Profile.hpp>
 #include <config/model/ProfileDocument.hpp>
 #include <config/ProfileArtifactRenderer.hpp>
 #include <platform/linux/config/ProfileArtifactIo.hpp>

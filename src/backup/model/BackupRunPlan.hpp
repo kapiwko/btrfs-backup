@@ -10,7 +10,7 @@
 
 #include <backup/model/BackupPlanningSnapshot.hpp>
 #include <backup/model/BackupRunActions.hpp>
-#include <config/model/Profile.hpp>
+#include <config/domain/Profile.hpp>
 #include <core/Identifiers.hpp>
 #include <backup/model/SnapshotInventory.hpp>
 

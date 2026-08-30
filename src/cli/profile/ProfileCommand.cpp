@@ -17,7 +17,7 @@
 #include <platform/linux/config/ApplicationConfig.hpp>
 #include <platform/linux/config/ProfileActivationMigration.hpp>
 #include <config/model/JsonIo.hpp>
-#include <config/model/Profile.hpp>
+#include <config/domain/Profile.hpp>
 #include <config/model/ProfileDocument.hpp>
 #include <cli/profile/ProfileListCommand.hpp>
 #include <platform/linux/config/ProfileService.hpp>

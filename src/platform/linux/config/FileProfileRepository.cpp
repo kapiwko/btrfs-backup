@@ -15,7 +15,7 @@
 #include <config/ProfileFingerprint.hpp>
 #include <core/Identifiers.hpp>
 #include <config/model/Json.hpp>
-#include <config/model/Profile.hpp>
+#include <config/domain/Profile.hpp>
 #include <config/model/ProfileDocument.hpp>
 #include <platform/linux/filesystem/TrustedFile.hpp>
 

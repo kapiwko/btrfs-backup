@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <config/model/Validation.hpp>
+#include <config/domain/Validation.hpp>
 
 #include <algorithm>
 #include <cctype>

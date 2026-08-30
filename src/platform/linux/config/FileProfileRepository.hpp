@@ -9,7 +9,7 @@
 #include <string>
 
 #include <config/ApplicationConfig.hpp>
-#include <config/model/Profile.hpp>
+#include <config/domain/Profile.hpp>
 #include <config/ports/IProfileRepository.hpp>
 #include <core/Identifiers.hpp>
 

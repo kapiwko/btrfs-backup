@@ -4,7 +4,7 @@
 
 #include <backup/ports/IMountInspector.hpp>
 
-#include <config/model/Validation.hpp>
+#include <config/domain/Validation.hpp>
 
 namespace btrfsbackup::backup {
 
