@@ -158,6 +158,21 @@ PlasmaExtras.ExpandableListItem {
                     font: Kirigami.Theme.smallFont
                 }
 
+                TargetStorageUsage {
+                    Layout.columnSpan: 2
+                    Layout.fillWidth: true
+                    supported: profileStatus.target.storageSupported
+                    known: profileStatus.target.storageKnown
+                    capacityBytes: profileStatus.target.capacityBytes
+                    usedBytes: profileStatus.target.usedBytes
+                    availableBytes: profileStatus.target.availableBytes
+                    usagePercent: profileStatus.target.usagePercent
+                    live: profileStatus.target.storageLive
+                    measuredAt: profileStatus.target.storageMeasuredAt
+                    relativeMeasurementTime: root.relativeTime(profileStatus.target.storageMeasuredAt)
+                    belowMinimum: profileStatus.target.spaceBelowMinimum
+                }
+
                 PlasmaComponents3.Label {
                     visible: root.running
                     text: translations.i18n("Source:")
