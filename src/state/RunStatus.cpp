@@ -4,7 +4,34 @@
 
 #include <state/RunStatus.hpp>
 
+#include <core/Errors.hpp>
+
 namespace btrfsbackup::state {
+
+namespace {
+
+bool terminal(RunState state) {
+    return state != RunState::Running && state != RunState::Validating;
+}
+
+} // namespace
+
+void validate_run_status(const RunStatus& status) {
+    const bool is_terminal = terminal(status.state);
+    const bool has_terminal_error = status.state == RunState::Failed || status.state == RunState::Cancelled;
+    if (is_terminal != status.finished_at.has_value()) {
+        throw ValidationError(is_terminal ? "terminal run status requires finishedAt" : "active run status must not contain finishedAt");
+    }
+    if (has_terminal_error && !status.error.has_value()) {
+        throw ValidationError("failed or cancelled run status requires an error");
+    }
+    if (is_terminal && !has_terminal_error && status.error.has_value()) {
+        throw ValidationError("successful terminal run status must not contain an error");
+    }
+    if (is_terminal && status.can_cancel) {
+        throw ValidationError("terminal run status cannot be cancelled");
+    }
+}
 
 std::string run_state_name(RunState state) {
     switch (state) {
