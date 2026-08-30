@@ -8,3 +8,10 @@ add_btrfsbackup_test(
     restore-catalog-tests
     btrfsbackup-restore
 )
+add_btrfsbackup_test(
+    btrfsbackup-restore-engine-tests
+    RestoreEngineTests.cpp
+    restore-engine-tests
+    btrfsbackup-restore
+    btrfsbackup-platform-linux-restore
+)

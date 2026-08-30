@@ -15,6 +15,7 @@ add_library(btrfsbackup-cli STATIC
     runner/RunnerJsonCodec.cpp
     runner/RunnerOptions.cpp
     runner/RunnerPresenter.cpp
+    restore/RestoreCommand.cpp
     status/StatusCommand.cpp
     status/StatusHistoryCommand.cpp
     status/StatusShowCommand.cpp
@@ -39,6 +40,7 @@ target_restricted_include_directories(btrfsbackup-cli
         cli/runner/RunnerCommand.hpp
         cli/runner/RunnerOptions.hpp
         cli/runner/RunnerPresenter.hpp
+        cli/restore/RestoreCommand.hpp
         cli/status/StatusCommand.hpp
         cli/status/StatusHistoryCommand.hpp
         cli/status/StatusShowCommand.hpp
@@ -61,6 +63,7 @@ target_link_libraries(btrfsbackup-cli
         btrfsbackup-core
         btrfsbackup-platform-linux
         btrfsbackup-platform-linux-config
+        btrfsbackup-restore
         btrfsbackup-state
         btrfsbackup-transfer
 )
