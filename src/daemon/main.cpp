@@ -2,21 +2,21 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <daemon/dbus_server.hpp>
-#include <daemon/command_systemd_unit_controller.hpp>
-#include <daemon/manager_audit_log.hpp>
-#include <daemon/system_operational_control_backend.hpp>
+#include <daemon/ManagerDbusServer.hpp>
+#include <daemon/CommandSystemdUnitController.hpp>
+#include <daemon/ManagerAuditLog.hpp>
+#include <daemon/SystemOperationalControlBackend.hpp>
 
 #include <filesystem>
 #include <iostream>
 #include <stdexcept>
 #include <string>
 
-#include <platform/linux/config/application_config.hpp>
-#include <platform/linux/config/profile_repository.hpp>
-#include <platform/linux/posix_command_runner.hpp>
-#include <platform/linux/posix_durable_file_operations.hpp>
-#include <state/file_run_state_repository.hpp>
+#include <platform/linux/config/ApplicationConfig.hpp>
+#include <platform/linux/config/FileProfileRepository.hpp>
+#include <platform/linux/PosixCommandRunner.hpp>
+#include <platform/linux/PosixDurableFileOperations.hpp>
+#include <state/FileRunStateRepository.hpp>
 
 namespace fs = std::filesystem;
 

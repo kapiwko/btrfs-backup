@@ -12,7 +12,7 @@ serial number. It requests `btrfs-backup@<PROFILE_ID>.service` through
 `SYSTEMD_WANTS`; it never executes the backup command directly and has no
 device-removal action.
 
-`src/config/profile_render.cpp` owns the rule format. `profile save` and the
+`src/config/ProfileRender.cpp` owns the rule format. `profile save` and the
 profile wizard own materialization and udev reload. Files below this directory
 document that generated-data boundary; they must not be installed directly
 into `/etc/udev/rules.d`.

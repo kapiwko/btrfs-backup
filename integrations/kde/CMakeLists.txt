@@ -170,7 +170,7 @@ if(BUILD_TESTING)
         plasma-progress-job-tests
         progress/BackupProgressJob.cpp
         progress/BackupProgressJob.hpp
-        progress/tests/backup_progress_job_tests.cpp
+        progress/tests/BackupProgressJobTests.cpp
     )
     target_compile_features(plasma-progress-job-tests PRIVATE cxx_std_20)
     target_include_directories(

@@ -3,22 +3,22 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 add_library(btrfsbackup-cli STATIC
-    backup_tool.cpp
-    ctl_tool.cpp
-    installation_command.cpp
-    profile_command.cpp
-    profile_create_command.cpp
-    profile_list_command.cpp
-    profile_wizard_command.cpp
-    runner_command.cpp
-    runner_composition.cpp
-    runner_options.cpp
-    runner_presenter.cpp
-    status_command.cpp
-    status_history_command.cpp
-    status_show_command.cpp
-    target_command.cpp
-    target_service.cpp
+    BackupTool.cpp
+    CtlTool.cpp
+    InstallationCommand.cpp
+    ProfileCommand.cpp
+    ProfileCreateCommand.cpp
+    ProfileListCommand.cpp
+    ProfileWizardCommand.cpp
+    RunnerCommand.cpp
+    RunnerComposition.cpp
+    RunnerOptions.cpp
+    RunnerPresenter.cpp
+    StatusCommand.cpp
+    StatusHistoryCommand.cpp
+    StatusShowCommand.cpp
+    TargetCommand.cpp
+    TargetService.cpp
 )
 
 target_compile_features(btrfsbackup-cli PUBLIC cxx_std_20)
@@ -28,23 +28,23 @@ target_compile_definitions(
 )
 target_restricted_include_directories(btrfsbackup-cli
     PUBLIC_HEADERS
-        cli/backup_tool.hpp
-        cli/ctl_tool.hpp
-        cli/installation_command.hpp
-        cli/profile_command.hpp
-        cli/profile_create_command.hpp
-        cli/profile_list_command.hpp
-        cli/profile_wizard_command.hpp
-        cli/runner_command.hpp
-        cli/runner_options.hpp
-        cli/runner_presenter.hpp
-        cli/status_command.hpp
-        cli/status_history_command.hpp
-        cli/status_show_command.hpp
-        cli/target_command.hpp
-        cli/target_service.hpp
+        cli/BackupTool.hpp
+        cli/CtlTool.hpp
+        cli/InstallationCommand.hpp
+        cli/ProfileCommand.hpp
+        cli/ProfileCreateCommand.hpp
+        cli/ProfileListCommand.hpp
+        cli/ProfileWizardCommand.hpp
+        cli/RunnerCommand.hpp
+        cli/RunnerOptions.hpp
+        cli/RunnerPresenter.hpp
+        cli/StatusCommand.hpp
+        cli/StatusHistoryCommand.hpp
+        cli/StatusShowCommand.hpp
+        cli/TargetCommand.hpp
+        cli/TargetService.hpp
     PRIVATE_HEADERS
-        cli/runner_composition.hpp
+        cli/RunnerComposition.hpp
 )
 target_link_libraries(btrfsbackup-cli
     PUBLIC

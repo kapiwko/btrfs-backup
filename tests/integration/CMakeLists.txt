@@ -4,7 +4,7 @@
 
 add_btrfsbackup_test(
     btrfsbackup-profile-schema-contract-tests
-    profile_schema_contract_tests.cpp
+    ProfileSchemaContractTests.cpp
     profile-schema-contract-tests
     btrfsbackup-config-json
 )
@@ -39,7 +39,7 @@ if(BUILD_SYSTEM_MANAGER)
     find_program(DBUS_DAEMON_EXECUTABLE dbus-daemon)
     find_program(BUSCTL_EXECUTABLE busctl)
     if(DBUS_DAEMON_EXECUTABLE AND BUSCTL_EXECUTABLE)
-        add_executable(btrfsbackup-fake-polkit-authority fake_polkit_authority.cpp)
+        add_executable(btrfsbackup-fake-polkit-authority FakePolkitAuthority.cpp)
         target_link_libraries(btrfsbackup-fake-polkit-authority PRIVATE PkgConfig::SYSTEMD)
         set(DBUS_MANAGER_TEST_EXTRA_ARGS)
         if(TARGET btrfsbackup_plasma_backend)

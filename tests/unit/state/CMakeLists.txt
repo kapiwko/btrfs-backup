@@ -2,10 +2,10 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-add_btrfsbackup_test(btrfsbackup-backup-run-serialization-tests backup_run_serialization_tests.cpp backup-run-serialization-tests btrfsbackup-state)
-add_btrfsbackup_test(btrfsbackup-persistent-document-operations-tests persistent_document_operations_tests.cpp persistent-document-operations-tests btrfsbackup-state)
-add_btrfsbackup_test(btrfsbackup-run-checkpoint-store-tests run_checkpoint_store_tests.cpp run-checkpoint-store-tests btrfsbackup-state btrfsbackup-platform-linux)
-add_btrfsbackup_test(btrfsbackup-run-status-projection-tests run_status_projection_tests.cpp run-status-projection-tests btrfsbackup-state btrfsbackup-platform-linux)
-add_btrfsbackup_test(btrfsbackup-run-state-tests run_state_tests.cpp run-state-tests btrfsbackup-state btrfsbackup-platform-linux)
-add_btrfsbackup_test(btrfsbackup-run-status-tests run_status_tests.cpp run-status-tests btrfsbackup-state-model)
-add_btrfsbackup_test(btrfsbackup-status-writer-tests status_writer_tests.cpp status-writer-tests btrfsbackup-state btrfsbackup-platform-linux)
+add_btrfsbackup_test(btrfsbackup-backup-run-serialization-tests BackupRunSerializationTests.cpp backup-run-serialization-tests btrfsbackup-state)
+add_btrfsbackup_test(btrfsbackup-persistent-document-operations-tests PersistentDocumentOperationsTests.cpp persistent-document-operations-tests btrfsbackup-state)
+add_btrfsbackup_test(btrfsbackup-run-checkpoint-store-tests RunCheckpointStoreTests.cpp run-checkpoint-store-tests btrfsbackup-state btrfsbackup-platform-linux)
+add_btrfsbackup_test(btrfsbackup-run-status-projection-tests RunStatusProjectionTests.cpp run-status-projection-tests btrfsbackup-state btrfsbackup-platform-linux)
+add_btrfsbackup_test(btrfsbackup-run-state-tests RunStateTests.cpp run-state-tests btrfsbackup-state btrfsbackup-platform-linux)
+add_btrfsbackup_test(btrfsbackup-run-status-tests RunStatusTests.cpp run-status-tests btrfsbackup-state-model)
+add_btrfsbackup_test(btrfsbackup-status-writer-tests StatusWriterTests.cpp status-writer-tests btrfsbackup-state btrfsbackup-platform-linux)
