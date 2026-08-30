@@ -13,6 +13,8 @@ add_library(btrfsbackup-config-domain STATIC
 target_compile_features(btrfsbackup-config-domain PUBLIC cxx_std_23)
 target_restricted_include_directories(btrfsbackup-config-domain
     PUBLIC_HEADERS
+        config/ApplicationPaths.hpp
+        config/ConfigurationIdentity.hpp
         config/domain/ConfigurationGeneration.hpp
         config/domain/OperationPath.hpp
         config/domain/Profile.hpp
@@ -20,8 +22,6 @@ target_restricted_include_directories(btrfsbackup-config-domain
         config/domain/StoragePolicy.hpp
         config/domain/TargetIdentity.hpp
         config/domain/Validation.hpp
-        config/ApplicationPaths.hpp
-        config/ConfigurationIdentity.hpp
 )
 target_link_libraries(btrfsbackup-config-domain PUBLIC btrfsbackup-core)
 
@@ -83,8 +83,8 @@ target_link_libraries(btrfsbackup-config-ports
 
 add_library(btrfsbackup-config STATIC
     ApplicationConfig.cpp
-    ProfileFingerprint.cpp
     ProfileArtifactRenderer.cpp
+    ProfileFingerprint.cpp
     ProfileRender.cpp
     wizard/ProfileWizardPaths.cpp
     wizard/ProfileWizardPrompt.cpp
@@ -110,19 +110,19 @@ target_link_libraries(btrfsbackup-config
 
 add_library(btrfsbackup-platform-linux-config STATIC
     ../platform/linux/config/ApplicationConfig.cpp
+    ../platform/linux/config/FileProfileRepository.cpp
     ../platform/linux/config/InstallationRender.cpp
     ../platform/linux/config/InstallationService.cpp
     ../platform/linux/config/InstallationValidate.cpp
-    ../platform/linux/config/ProfileArtifactIo.cpp
     ../platform/linux/config/ProfileActivationMigration.cpp
+    ../platform/linux/config/ProfileArtifactIo.cpp
     ../platform/linux/config/ProfileConfigurationTransaction.cpp
     ../platform/linux/config/ProfileInstaller.cpp
-    ../platform/linux/config/FileProfileRepository.cpp
     ../platform/linux/config/ProfileRuntimePolicy.cpp
     ../platform/linux/config/ProfileService.cpp
-    ../platform/linux/config/ProfileWizardInstall.cpp
     ../platform/linux/config/ProfileWizard.cpp
     ../platform/linux/config/ProfileWizardDevice.cpp
+    ../platform/linux/config/ProfileWizardInstall.cpp
     ../platform/linux/config/ProfileWizardSources.cpp
     ../platform/linux/config/RenderDirectory.cpp
 )
@@ -135,14 +135,14 @@ target_compile_definitions(
 target_restricted_include_directories(btrfsbackup-platform-linux-config
     PUBLIC_HEADERS
         platform/linux/config/ApplicationConfig.hpp
+        platform/linux/config/FileProfileRepository.hpp
         platform/linux/config/InstallationRender.hpp
         platform/linux/config/InstallationService.hpp
         platform/linux/config/InstallationValidate.hpp
-        platform/linux/config/ProfileArtifactIo.hpp
         platform/linux/config/ProfileActivationMigration.hpp
+        platform/linux/config/ProfileArtifactIo.hpp
         platform/linux/config/ProfileConfigurationTransaction.hpp
         platform/linux/config/ProfileInstaller.hpp
-        platform/linux/config/FileProfileRepository.hpp
         platform/linux/config/ProfileRuntimePolicy.hpp
         platform/linux/config/ProfileService.hpp
         platform/linux/config/ProfileWizard.hpp
@@ -170,10 +170,10 @@ target_link_libraries(btrfsbackup-platform-linux-config
 )
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(btrfsbackup-config PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(btrfsbackup-config-domain PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(btrfsbackup-config-json PRIVATE -Wall -Wextra -Wpedantic)
-    target_compile_options(btrfsbackup-config-wizard PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(btrfsbackup-config-ports PRIVATE -Wall -Wextra -Wpedantic)
-    target_compile_options(btrfsbackup-config PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(btrfsbackup-config-wizard PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(btrfsbackup-platform-linux-config PRIVATE -Wall -Wextra -Wpedantic)
 endif()
