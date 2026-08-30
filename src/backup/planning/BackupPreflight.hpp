@@ -8,7 +8,7 @@
 #include <backup/ports/IMountInspector.hpp>
 #include <backup/ports/TargetManager.hpp>
 
-namespace btrfsbackup::backup {
+namespace btrfsbackup::backup::planning {
 
 class BackupPreflight final : public IBackupPreflight {
   public:
@@ -25,4 +25,4 @@ class BackupPreflight final : public IBackupPreflight {
     ITargetManager& target_manager_;
 };
 
-} // namespace btrfsbackup::backup
+} // namespace btrfsbackup::backup::planning

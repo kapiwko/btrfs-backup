@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 set(namespace_layout
+    "src/backup/planning|btrfsbackup::backup::planning"
     "src/platform/linux/systemd|btrfsbackup::platform::linux::systemd"
     "src/platform/linux/storage|btrfsbackup::platform::linux::storage"
     "src/platform/linux/filesystem|btrfsbackup::platform::linux::filesystem"

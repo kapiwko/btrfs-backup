@@ -8,9 +8,9 @@
 #include <string>
 #include <utility>
 
-#include <backup/BackupDiscovery.hpp>
-#include <backup/BackupPlanBuilder.hpp>
-#include <backup/BackupPreflight.hpp>
+#include <backup/planning/BackupDiscovery.hpp>
+#include <backup/planning/BackupPlanBuilder.hpp>
+#include <backup/planning/BackupPreflight.hpp>
 #include <backup/BackupService.hpp>
 #include <backup/DefaultBackupRunActionHandlerFactory.hpp>
 #include <backup/DefaultBackupRunFactory.hpp>
@@ -91,15 +91,15 @@ struct RunnerComposition::Impl {
     platform::linux::storage::LinuxMountInspector mounts;
     platform::linux::process::PosixCommandRunner commands;
     platform::linux::systemd::SystemdTargetManager target_mounter;
-    backup::BackupPreflight preflight;
+    backup::planning::BackupPreflight preflight;
     platform::linux::filesystem::SafeDirectoryRootFactory safe_directories;
     platform::linux::storage::LibBtrfsOperations btrfs;
     platform::linux::filesystem::PosixFileSystem filesystem;
     platform::linux::transfer::PosixTransferPipeline transfers;
     platform::linux::filesystem::PosixDurableFileOperations durable_files;
     state::FilePendingMarkerStore pending_markers;
-    backup::BackupDiscovery discovery;
-    backup::BackupPlanBuilder plan_builder;
+    backup::planning::BackupDiscovery discovery;
+    backup::planning::BackupPlanBuilder plan_builder;
     platform::linux::filesystem::PosixTrustedExecutableResolver hook_executables;
     ConfiguredRunnerClock clock;
     backup::DefaultBackupRunActionHandlerFactory action_handlers;

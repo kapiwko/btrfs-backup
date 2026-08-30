@@ -6,7 +6,7 @@
 
 #include <backup/ports/IBackupPlanBuilder.hpp>
 
-namespace btrfsbackup::backup {
+namespace btrfsbackup::backup::planning {
 
 class BackupPlanBuilder final : public IBackupPlanBuilder {
   public:
@@ -19,4 +19,4 @@ class BackupPlanBuilder final : public IBackupPlanBuilder {
     ) const override;
 };
 
-} // namespace btrfsbackup::backup
+} // namespace btrfsbackup::backup::planning

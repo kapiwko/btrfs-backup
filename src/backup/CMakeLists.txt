@@ -120,14 +120,14 @@ target_link_libraries(btrfsbackup-backup-testing
 
 add_library(btrfsbackup-backup STATIC
     BackupActionExecutor.cpp
-    BackupPreflight.cpp
-    BackupPreflightValidation.cpp
+    planning/BackupPreflight.cpp
+    planning/BackupPreflightValidation.cpp
     BackupRun.cpp
     BackupRunCheckpointPolicy.cpp
     BackupRunExecutor.cpp
     BackupService.cpp
-    BackupDiscovery.cpp
-    BackupPlanBuilder.cpp
+    planning/BackupDiscovery.cpp
+    planning/BackupPlanBuilder.cpp
     DefaultBackupRunActionHandlerFactory.cpp
     DefaultBackupRunFactory.cpp
     LinkedCancellationMonitor.cpp
@@ -156,10 +156,10 @@ target_restricted_include_directories(btrfsbackup-backup
         backup/action_handlers/RetentionActionHandler.hpp
         backup/action_handlers/SnapshotActionHandler.hpp
         backup/BackupActionExecutor.hpp
-        backup/BackupDiscovery.hpp
-        backup/BackupPlanBuilder.hpp
-        backup/BackupPreflight.hpp
-        backup/BackupPreflightValidation.hpp
+        backup/planning/BackupDiscovery.hpp
+        backup/planning/BackupPlanBuilder.hpp
+        backup/planning/BackupPreflight.hpp
+        backup/planning/BackupPreflightValidation.hpp
         backup/BackupRun.hpp
         backup/BackupRunCheckpointPolicy.hpp
         backup/BackupRunExecutor.hpp

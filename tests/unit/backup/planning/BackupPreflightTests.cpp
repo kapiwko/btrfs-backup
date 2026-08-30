@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 
-#include <backup/BackupPreflight.hpp>
+#include <backup/planning/BackupPreflight.hpp>
 
 #include "support/ValidationTestHelpers.hpp"
 
@@ -102,7 +102,7 @@ void test_activates_target_before_reading_and_validating_mounts() {
     std::vector<std::string> calls;
     FakeTargetManager target(calls);
     FakeMountInspector mounts(target.mounted, calls);
-    btrfsbackup::backup::BackupPreflight preflight(mounts, target);
+    btrfsbackup::backup::planning::BackupPreflight preflight(mounts, target);
     btrfsbackup::CancellationToken cancellation;
 
     std::unique_ptr<btrfsbackup::backup::IMountedTargetSession> session = preflight.run(
@@ -128,7 +128,7 @@ void test_offline_preflight_does_not_activate_target() {
     std::vector<std::string> calls;
     FakeTargetManager target(calls);
     FakeMountInspector mounts(target.mounted, calls);
-    btrfsbackup::backup::BackupPreflight preflight(mounts, target);
+    btrfsbackup::backup::planning::BackupPreflight preflight(mounts, target);
     btrfsbackup::CancellationToken cancellation;
 
     test_helpers::expect_validation_error(
@@ -148,7 +148,7 @@ void test_rejects_identity_seen_after_target_activation() {
     FakeTargetManager target(calls);
     FakeMountInspector mounts(target.mounted, calls);
     mounts.filesystem_uuid = "replacement-fs";
-    btrfsbackup::backup::BackupPreflight preflight(mounts, target);
+    btrfsbackup::backup::planning::BackupPreflight preflight(mounts, target);
     btrfsbackup::CancellationToken cancellation;
 
     test_helpers::expect_validation_error(

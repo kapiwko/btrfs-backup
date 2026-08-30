@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <backup/BackupDiscovery.hpp>
+#include <backup/planning/BackupDiscovery.hpp>
 
 #include <filesystem>
 #include <memory>
@@ -15,7 +15,7 @@
 
 namespace fs = std::filesystem;
 
-namespace btrfsbackup::backup {
+namespace btrfsbackup::backup::planning {
 
 BackupDiscovery::BackupDiscovery(
     SnapshotMetadataReader metadata_reader,
@@ -112,4 +112,4 @@ BackupPlanningSnapshot BackupDiscovery::discover(
     };
 }
 
-} // namespace btrfsbackup::backup
+} // namespace btrfsbackup::backup::planning

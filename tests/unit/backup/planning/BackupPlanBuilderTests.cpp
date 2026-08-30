@@ -6,7 +6,7 @@
 #include <string>
 #include <utility>
 
-#include <backup/BackupPlanBuilder.hpp>
+#include <backup/planning/BackupPlanBuilder.hpp>
 
 #include "support/TestHelpers.hpp"
 
@@ -45,7 +45,7 @@ void test_same_snapshot_builds_same_plan() {
         {},
         "/var/lib/btrfs-backup/profiles/default",
     };
-    const btrfsbackup::backup::BackupPlanBuilder builder;
+    const btrfsbackup::backup::planning::BackupPlanBuilder builder;
     const btrfsbackup::RunId run_id{"20260823T080000Z-123-456"};
     btrfsbackup::CancellationToken cancellation;
 
