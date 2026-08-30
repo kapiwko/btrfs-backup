@@ -15,18 +15,21 @@ class IBtrfsOperations;
 class IFileSystem;
 class IPendingMarkerStore;
 class ISafeDirectoryRoot;
+class IClock;
 
 class SnapshotActionHandler {
   public:
     SnapshotActionHandler(
         IBtrfsOperations& btrfs,
         IFileSystem& filesystem,
-        IPendingMarkerStore& pending_markers
+        IPendingMarkerStore& pending_markers,
+        IClock& clock
     );
     SnapshotActionHandler(
         IBtrfsOperations& btrfs,
         IFileSystem& filesystem,
         IPendingMarkerStore& pending_markers,
+        IClock& clock,
         std::unique_ptr<ISafeDirectoryRoot> local_root
     );
     ~SnapshotActionHandler();
@@ -37,6 +40,7 @@ class SnapshotActionHandler {
     IBtrfsOperations& btrfs_;
     IFileSystem& filesystem_;
     IPendingMarkerStore& pending_markers_;
+    IClock& clock_;
     std::unique_ptr<ISafeDirectoryRoot> local_root_;
 };
 

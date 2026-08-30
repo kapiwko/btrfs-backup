@@ -48,39 +48,68 @@ std::string action_name(btrfsbackup::backup::BackupRunActionKind kind) {
     return "unknown";
 }
 
+struct ActionPathContext {
+    const fs::path& local_snapshot_directory;
+    const fs::path& remote_snapshot_directory;
+};
+
+struct ActionPaths {
+    fs::path primary;
+    fs::path secondary;
+};
+
+ActionPaths action_paths(const btrfsbackup::backup::RecoverPendingAction& action, const ActionPathContext&) {
+    return {action.recovery.pending_snapshot_path, {}};
+}
+
+ActionPaths action_paths(const btrfsbackup::backup::CleanupIncomingAction& action, const ActionPathContext&) {
+    return {action.incoming_directory, {}};
+}
+
+ActionPaths action_paths(const btrfsbackup::backup::CreateSnapshotAction& action, const ActionPathContext&) {
+    return {action.snapshot, action.source};
+}
+
+ActionPaths action_paths(const btrfsbackup::backup::SendReceiveAction& action, const ActionPathContext&) {
+    return {action.snapshot, action.incoming_run_directory};
+}
+
+ActionPaths action_paths(const btrfsbackup::backup::VerifyReceivedAction& action, const ActionPathContext&) {
+    return {action.received_snapshot, action.local_snapshot};
+}
+
+ActionPaths action_paths(const btrfsbackup::backup::CommitReceivedAction& action, const ActionPathContext&) {
+    return {action.received_snapshot, action.final_snapshot};
+}
+
+ActionPaths action_paths(const btrfsbackup::backup::ApplyRemoteRetentionAction&, const ActionPathContext& context) {
+    return {context.remote_snapshot_directory, {}};
+}
+
+ActionPaths action_paths(const btrfsbackup::backup::ApplyLocalRetentionAction&, const ActionPathContext& context) {
+    return {context.local_snapshot_directory, {}};
+}
+
+template <typename Action>
+ActionPaths action_paths(const Action&, const ActionPathContext&) {
+    return {};
+}
+
 btrfsbackup::config::Json action_to_json(
     const btrfsbackup::backup::BackupRunAction& action,
     const fs::path& local_snapshot_dir,
     const fs::path& remote_snapshot_dir
 ) {
-    const auto [primary_path, secondary_path] = std::visit([&](const auto& typed_action) {
-        using Action = std::decay_t<decltype(typed_action)>;
-        if constexpr (std::is_same_v<Action, btrfsbackup::backup::RecoverPendingAction>) {
-            return std::pair{typed_action.recovery.pending_snapshot_path, fs::path{}};
-        } else if constexpr (std::is_same_v<Action, btrfsbackup::backup::CleanupIncomingAction>) {
-            return std::pair{typed_action.incoming_directory, fs::path{}};
-        } else if constexpr (std::is_same_v<Action, btrfsbackup::backup::CreateSnapshotAction>) {
-            return std::pair{typed_action.snapshot, typed_action.source};
-        } else if constexpr (std::is_same_v<Action, btrfsbackup::backup::SendReceiveAction>) {
-            return std::pair{typed_action.snapshot, typed_action.incoming_run_directory};
-        } else if constexpr (std::is_same_v<Action, btrfsbackup::backup::VerifyReceivedAction>) {
-            return std::pair{typed_action.received_snapshot, typed_action.local_snapshot};
-        } else if constexpr (std::is_same_v<Action, btrfsbackup::backup::CommitReceivedAction>) {
-            return std::pair{typed_action.received_snapshot, typed_action.final_snapshot};
-        } else if constexpr (std::is_same_v<Action, btrfsbackup::backup::ApplyRemoteRetentionAction>) {
-            return std::pair{remote_snapshot_dir, fs::path{}};
-        } else if constexpr (std::is_same_v<Action, btrfsbackup::backup::ApplyLocalRetentionAction>) {
-            return std::pair{local_snapshot_dir, fs::path{}};
-        } else {
-            return std::pair{fs::path{}, fs::path{}};
-        }
+    const ActionPathContext context{local_snapshot_dir, remote_snapshot_dir};
+    const ActionPaths paths = std::visit([&](const auto& typed_action) {
+        return action_paths(typed_action, context);
     },
-                                                           action);
+                                         action);
     btrfsbackup::config::Json result = {
         {"kind", action_name(btrfsbackup::backup::backup_run_action_kind(action))},
         {"sourceId", std::string(btrfsbackup::backup::backup_run_action_source_id(action).value())},
-        {"primaryPath", primary_path.string()},
-        {"secondaryPath", secondary_path.string()}
+        {"primaryPath", paths.primary.string()},
+        {"secondaryPath", paths.secondary.string()}
     };
     if (const auto* hook_action = std::get_if<btrfsbackup::backup::RunHookAction>(&action)) {
         result["hook"] = {

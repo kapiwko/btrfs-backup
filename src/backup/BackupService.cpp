@@ -200,6 +200,176 @@ BackupExecutionResult BackupService::start(const BackupRequest& request) {
     return start_loaded_profile(request, identity, operation_kind, *loaded, std::move(event_sink));
 }
 
+BackupService::RunLeaseResult BackupService::acquire_run_lease(
+    const btrfsbackup::config::Profile& profile,
+    const RunIdentity& identity,
+    OperationKind operation_kind,
+    IBackupRunEventSink& events
+) {
+    BackupRunLeaseResult lease_result = sessions_.try_acquire_lease(profile);
+    if (auto* busy = std::get_if<BackupRunLeaseBusy>(&lease_result)) {
+        (void)emit_run_failed(
+            events,
+            profile.id,
+            identity.run_id,
+            busy->error_code,
+            busy->error_message,
+            0,
+            operation_kind
+        );
+        return BackupExecutionBusy{
+            .profile_id = profile.id,
+            .run_id = identity.run_id,
+            .error_code = busy->error_code,
+            .error_message = std::move(busy->error_message),
+        };
+    }
+
+    return std::move(std::get<BackupRunLeaseAcquired>(lease_result).lease);
+}
+
+std::optional<BackupExecutionResult> BackupService::finish_validation_if_requested(
+    const BackupRequest& request,
+    const btrfsbackup::config::Profile& profile,
+    const RunIdentity& identity,
+    OperationKind operation_kind,
+    BackupRunPlan& plan,
+    RunExecutionContext& context,
+    IBackupRunEventSink& events
+) {
+    if (!request.validate_only) {
+        return std::nullopt;
+    }
+    if (std::optional<BackupExecutionFailed> failed = close_target_or_fail(
+            context,
+            events,
+            profile.id,
+            identity.run_id,
+            0,
+            operation_kind
+        )) {
+        (void)context.close();
+        return *failed;
+    }
+    if (context.cancellation_token().cancellation_requested()) {
+        throw OperationCancelledError("backup cancelled during target cleanup");
+    }
+    events.on_backup_run_event(TargetValidationCompleted{profile.id, identity.run_id});
+    return BackupExecutionValidated{std::move(plan)};
+}
+
+std::optional<BackupExecutionResult> BackupService::skip_if_daily_limit_reached(
+    const BackupRequest& request,
+    const btrfsbackup::config::LoadedProfile& loaded_profile,
+    const RunIdentity& identity,
+    LocalDate today,
+    OperationKind operation_kind,
+    BackupRunPlan& plan,
+    RunExecutionContext& context,
+    IBackupRunEventSink& events
+) {
+    const btrfsbackup::config::Profile& profile = loaded_profile.profile;
+    if (request.force || !profile.settings.daily_limit ||
+        !ledger_.last_success_matches(profile, today, loaded_profile.fingerprint)) {
+        return std::nullopt;
+    }
+    if (std::optional<BackupExecutionFailed> failed = close_target_or_fail(
+            context,
+            events,
+            profile.id,
+            identity.run_id,
+            0,
+            operation_kind
+        )) {
+        (void)context.close();
+        return *failed;
+    }
+    if (context.cancellation_token().cancellation_requested()) {
+        throw OperationCancelledError("backup cancelled during target cleanup");
+    }
+    ledger_.write_skipped(profile, identity.run_id, identity.started_at, clock_.now(), plan.sources.size());
+    return BackupExecutionSkipped{std::move(plan)};
+}
+
+BackupExecutionResult BackupService::execute_plan(
+    const btrfsbackup::config::LoadedProfile& loaded_profile,
+    const RunIdentity& identity,
+    LocalDate today,
+    OperationKind operation_kind,
+    BackupRunPlan plan,
+    RunExecutionContext& context,
+    IBackupRunEventSink& events
+) {
+    const btrfsbackup::config::Profile& profile = loaded_profile.profile;
+    BackupRunExecutionResult execution = run_factory_.execute(
+        plan,
+        events,
+        context.checkpoint_store(),
+        context.cancellation_token()
+    );
+
+    if (const auto* completed = std::get_if<BackupRunExecutionCompleted>(&execution)) {
+        if (std::optional<BackupExecutionFailed> failed = close_target_or_fail(
+                context,
+                events,
+                profile.id,
+                identity.run_id,
+                completed->actions_completed,
+                operation_kind
+            )) {
+            (void)context.close();
+            return *failed;
+        }
+        if (context.cancellation_token().cancellation_requested()) {
+            throw OperationCancelledError("backup cancelled during target cleanup");
+        }
+        std::vector<BackupCompletionWarning> warnings;
+        capture_completion_warning(
+            warnings,
+            BackupCompletionWarningComponent::SuccessLedger,
+            [&] {
+                ledger_.write_success(
+                    profile,
+                    identity.run_id,
+                    today,
+                    clock_.now(),
+                    loaded_profile.fingerprint,
+                    plan.sources.size()
+                );
+            }
+        );
+        capture_completion_warning(
+            warnings,
+            BackupCompletionWarningComponent::TerminalStatus,
+            [&] { events.on_backup_run_event(RunCompleted{profile.id, identity.run_id}); }
+        );
+        BackupExecutionResult result = BackupExecutionCompleted{
+            std::move(plan),
+            completed->actions_completed,
+            std::move(warnings),
+        };
+        (void)context.close();
+        return result;
+    }
+    if (const auto* failed = std::get_if<BackupRunExecutionFailed>(&execution)) {
+        BackupExecutionResult result = BackupExecutionFailed{
+            .profile_id = profile.id,
+            .run_id = identity.run_id,
+            .error_code = failed->error_code,
+            .error_message = failed->error_message,
+            .actions_completed = failed->actions_completed,
+        };
+        (void)context.close();
+        return result;
+    }
+    BackupExecutionResult result = BackupExecutionCancelled{
+        std::move(plan),
+        std::get<BackupRunExecutionCancelled>(execution).actions_completed,
+    };
+    (void)context.close();
+    return result;
+}
+
 BackupExecutionResult BackupService::start_loaded_profile(
     const BackupRequest& request,
     const RunIdentity& identity,
@@ -207,151 +377,63 @@ BackupExecutionResult BackupService::start_loaded_profile(
     const btrfsbackup::config::LoadedProfile& loaded_profile,
     std::unique_ptr<IBackupRunEventSink> event_sink
 ) {
-    const RuntimeTimePoint started_at = identity.started_at;
     const RunId& run_id = identity.run_id;
     const btrfsbackup::config::Profile& profile = loaded_profile.profile;
     IBackupRunEventSink& events = *event_sink;
     std::unique_ptr<RunExecutionContext> context;
     try {
-        BackupRunLeaseResult lease_result = sessions_.try_acquire_lease(profile);
-        if (auto* busy = std::get_if<BackupRunLeaseBusy>(&lease_result)) {
-            (void)emit_run_failed(
-                events,
-                profile.id,
-                run_id,
-                busy->error_code,
-                busy->error_message,
-                0,
-                operation_kind
-            );
-            return BackupExecutionBusy{
-                .profile_id = profile.id,
-                .run_id = run_id,
-                .error_code = busy->error_code,
-                .error_message = std::move(busy->error_message),
-            };
+        RunLeaseResult lease_result = acquire_run_lease(
+            profile,
+            identity,
+            operation_kind,
+            events
+        );
+        if (auto* busy = std::get_if<BackupExecutionBusy>(&lease_result)) {
+            return std::move(*busy);
         }
-        std::unique_ptr<IBackupRunLease> lease = std::move(std::get<BackupRunLeaseAcquired>(lease_result).lease);
         context = sessions_.create_preparing(
             loaded_profile,
             identity,
-            std::move(lease)
+            std::move(std::get<std::unique_ptr<IBackupRunLease>>(lease_result))
         );
         context->attach_event_sink(std::move(event_sink));
-        events.on_backup_run_event(RunStarted{
-            profile.id,
-            run_id,
-            operation_kind,
-        });
+        events.on_backup_run_event(RunStarted{profile.id, run_id, operation_kind});
 
         BackupRunPlan plan = prepare_target_and_plan(profile, identity, *context);
-        const btrfsbackup::config::ConfigurationFingerprint& fingerprint = loaded_profile.fingerprint;
-        if (request.validate_only) {
-            if (std::optional<BackupExecutionFailed> failed = close_target_or_fail(
-                    *context,
-                    events,
-                    profile.id,
-                    run_id,
-                    0,
-                    operation_kind
-                )) {
-                (void)context->close();
-                return *failed;
-            }
-            if (context->cancellation_token().cancellation_requested()) {
-                throw OperationCancelledError("backup cancelled during target cleanup");
-            }
-            events.on_backup_run_event(TargetValidationCompleted{profile.id, run_id});
-            return BackupExecutionValidated{std::move(plan)};
+        if (std::optional<BackupExecutionResult> validation = finish_validation_if_requested(
+                request,
+                profile,
+                identity,
+                operation_kind,
+                plan,
+                *context,
+                events
+            )) {
+            return std::move(*validation);
         }
 
         const LocalDate today = clock_.local_date();
-        if (!request.force && profile.settings.daily_limit && ledger_.last_success_matches(profile, today, fingerprint)) {
-            if (std::optional<BackupExecutionFailed> failed = close_target_or_fail(
-                    *context,
-                    events,
-                    profile.id,
-                    run_id,
-                    0,
-                    operation_kind
-                )) {
-                (void)context->close();
-                return *failed;
-            }
-            if (context->cancellation_token().cancellation_requested()) {
-                throw OperationCancelledError("backup cancelled during target cleanup");
-            }
-            ledger_.write_skipped(profile, run_id, started_at, clock_.now(), plan.sources.size());
-            return BackupExecutionSkipped{std::move(plan)};
+        if (std::optional<BackupExecutionResult> skipped = skip_if_daily_limit_reached(
+                request,
+                loaded_profile,
+                identity,
+                today,
+                operation_kind,
+                plan,
+                *context,
+                events
+            )) {
+            return std::move(*skipped);
         }
-
-        BackupRunExecutionResult execution = run_factory_.execute(
-            plan,
-            events,
-            context->checkpoint_store(),
-            context->cancellation_token()
-        );
-
-        if (const auto* completed = std::get_if<BackupRunExecutionCompleted>(&execution)) {
-            if (std::optional<BackupExecutionFailed> failed = close_target_or_fail(
-                    *context,
-                    events,
-                    profile.id,
-                    run_id,
-                    completed->actions_completed,
-                    operation_kind
-                )) {
-                (void)context->close();
-                return *failed;
-            }
-            if (context->cancellation_token().cancellation_requested()) {
-                throw OperationCancelledError("backup cancelled during target cleanup");
-            }
-            std::vector<BackupCompletionWarning> warnings;
-            capture_completion_warning(
-                warnings,
-                BackupCompletionWarningComponent::SuccessLedger,
-                [&] {
-                    ledger_.write_success(
-                        profile,
-                        run_id,
-                        today,
-                        clock_.now(),
-                        fingerprint,
-                        plan.sources.size()
-                    );
-                }
-            );
-            capture_completion_warning(
-                warnings,
-                BackupCompletionWarningComponent::TerminalStatus,
-                [&] { events.on_backup_run_event(RunCompleted{profile.id, run_id}); }
-            );
-            BackupExecutionResult result = BackupExecutionCompleted{
-                std::move(plan),
-                completed->actions_completed,
-                std::move(warnings),
-            };
-            (void)context->close();
-            return result;
-        }
-        if (const auto* failed = std::get_if<BackupRunExecutionFailed>(&execution)) {
-            BackupExecutionResult result = BackupExecutionFailed{
-                .profile_id = profile.id,
-                .run_id = run_id,
-                .error_code = failed->error_code,
-                .error_message = failed->error_message,
-                .actions_completed = failed->actions_completed,
-            };
-            (void)context->close();
-            return result;
-        }
-        BackupExecutionResult result = BackupExecutionCancelled{
+        return execute_plan(
+            loaded_profile,
+            identity,
+            today,
+            operation_kind,
             std::move(plan),
-            std::get<BackupRunExecutionCancelled>(execution).actions_completed,
-        };
-        (void)context->close();
-        return result;
+            *context,
+            events
+        );
     } catch (const OperationCancelledError& error) {
         events.on_backup_run_event(RunCancelled{
             .profile_id = profile.id,

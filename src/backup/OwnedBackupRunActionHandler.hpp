@@ -23,6 +23,7 @@ class OwnedBackupRunActionHandler final : public IBackupRunActionHandler {
         IFileSystem& filesystem,
         ICommandRunner& commands,
         IPendingMarkerStore& pending_markers,
+        IClock& clock,
         const ISafeDirectoryRootFactory& safe_directories,
         const ITrustedExecutableResolver& hook_executables,
         const BackupRunPlan& plan
