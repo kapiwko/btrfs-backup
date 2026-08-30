@@ -83,6 +83,21 @@ add_library(btrfsbackup-platform-linux-storage STATIC
     storage/MountInfo.cpp
     storage/SpaceCheck.cpp
 )
+
+add_library(btrfsbackup-platform-linux-restore STATIC
+    restore/PosixRestoreOperations.cpp
+)
+target_restricted_include_directories(btrfsbackup-platform-linux-restore
+    PUBLIC_HEADERS
+        platform/linux/restore/PosixRestoreOperations.hpp
+)
+target_link_libraries(btrfsbackup-platform-linux-restore
+    PUBLIC
+        btrfsbackup-restore
+    PRIVATE
+        btrfsbackup-core
+        PkgConfig::BTRFSUTIL
+)
 target_restricted_include_directories(btrfsbackup-platform-linux-storage
     PUBLIC_HEADERS
         platform/linux/storage/DeviceInfo.hpp
@@ -170,6 +185,7 @@ target_link_libraries(btrfsbackup-platform-linux INTERFACE
     btrfsbackup-platform-linux-base
     btrfsbackup-platform-linux-filesystem
     btrfsbackup-platform-linux-process
+    btrfsbackup-platform-linux-restore
     btrfsbackup-platform-linux-storage
     btrfsbackup-platform-linux-systemd
     btrfsbackup-platform-linux-transfer
@@ -179,6 +195,7 @@ set(linux_platform_targets
     btrfsbackup-platform-linux-base
     btrfsbackup-platform-linux-filesystem
     btrfsbackup-platform-linux-process
+    btrfsbackup-platform-linux-restore
     btrfsbackup-platform-linux-storage
     btrfsbackup-platform-linux-systemd
     btrfsbackup-platform-linux-transfer

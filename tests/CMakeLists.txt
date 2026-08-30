@@ -97,6 +97,10 @@ assert_public_link_interface(
     btrfsbackup-backup-ports
 )
 assert_public_link_interface(
+    btrfsbackup-platform-linux-restore
+    btrfsbackup-restore
+)
+assert_public_link_interface(
     btrfsbackup-platform-linux-filesystem
     btrfsbackup-backup-ports
     btrfsbackup-state-persistence-ports
@@ -120,6 +124,7 @@ assert_public_link_interface(
     btrfsbackup-platform-linux-base
     btrfsbackup-platform-linux-filesystem
     btrfsbackup-platform-linux-process
+    btrfsbackup-platform-linux-restore
     btrfsbackup-platform-linux-storage
     btrfsbackup-platform-linux-systemd
     btrfsbackup-platform-linux-transfer
@@ -178,6 +183,7 @@ set(architecture_targets
     btrfsbackup-platform-linux-config
     btrfsbackup-platform-linux-filesystem
     btrfsbackup-platform-linux-process
+    btrfsbackup-platform-linux-restore
     btrfsbackup-platform-linux-storage
     btrfsbackup-platform-linux-systemd
     btrfsbackup-platform-linux-transfer

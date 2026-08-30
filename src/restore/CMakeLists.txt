@@ -5,6 +5,8 @@
 add_library(btrfsbackup-restore STATIC
     RepositoryCatalog.cpp
     RepositoryDiscoveryService.cpp
+    RestoreEngine.cpp
+    RestorePlan.cpp
     SnapshotBrowser.cpp
 )
 target_compile_features(btrfsbackup-restore PUBLIC cxx_std_23)
@@ -13,6 +15,9 @@ target_restricted_include_directories(btrfsbackup-restore
         restore/RepositoryCatalog.hpp
         restore/RepositoryDiscoveryService.hpp
         restore/RestoreError.hpp
+        restore/RestoreEngine.hpp
+        restore/RestoreOperations.hpp
+        restore/RestorePlan.hpp
         restore/SnapshotBrowser.hpp
 )
 target_link_libraries(btrfsbackup-restore

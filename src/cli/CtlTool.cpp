@@ -19,11 +19,13 @@
 #include <cli/profile/ProfileCommand.hpp>
 #include <cli/runner/RunnerCommand.hpp>
 #include <cli/runner/RunnerOptions.hpp>
+#include <cli/restore/RestoreCommand.hpp>
 #include <cli/status/StatusCommand.hpp>
 #include <cli/target/TargetCommand.hpp>
 #include <config/ConfigurationIdentity.hpp>
 #include <core/Errors.hpp>
 #include <core/Cancellation.hpp>
+#include <restore/RestoreError.hpp>
 #include <platform/linux/systemd/LinuxSystemConfigurationActivator.hpp>
 
 namespace fs = std::filesystem;
@@ -54,6 +56,7 @@ void usage() {
         "  status COMMAND\n"
         "  installation COMMAND\n"
         "  runner COMMAND\n"
+        "  restore COMMAND\n"
         "  target COMMAND\n"
         "  -h, --help\n"
     );
@@ -119,6 +122,10 @@ int ctl_tool_main(int argc, char** argv) {
             CancellationToken cancellation;
             TerminationSignalMonitor termination_signals(cancellation);
             return runner::runner(profile_config_dir, args, std::cout, cancellation);
+        } else if (command == "restore") {
+            CancellationToken cancellation;
+            TerminationSignalMonitor termination_signals(cancellation);
+            return restore::restore(args, std::cout, cancellation);
         } else if (command == "target") {
             return target::target(profile_config_dir, args, std::cout);
         } else if (command == "-h" || command == "--help") {
@@ -138,6 +145,8 @@ int ctl_tool_main(int argc, char** argv) {
         );
     } catch (const ValidationError& exc) {
         fail(exc.what());
+    } catch (const btrfsbackup::restore::RestoreError& exc) {
+        fail(btrfsbackup::restore::restore_error_code_name(exc.code()) + ": " + exc.what());
     } catch (const std::exception& exc) {
         fail(exc.what());
     }

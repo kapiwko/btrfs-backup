@@ -21,6 +21,9 @@ std::filesystem::path validate_relative_path(const std::string& value) {
         throw RestoreError(RestoreErrorCode::PathInvalid, "restore path is empty or contains NUL");
     }
     const std::filesystem::path path{value};
+    if (path == ".") {
+        return path;
+    }
     if (path.is_absolute() || path.has_root_name() || path.has_root_directory()) {
         throw RestoreError(RestoreErrorCode::PathTraversal, "restore path must be relative: " + value);
     }
@@ -49,7 +52,7 @@ const std::filesystem::path& RelativeRestorePath::value() const noexcept {
 }
 
 bool RelativeRestorePath::empty() const noexcept {
-    return value_.empty();
+    return value_ == ".";
 }
 
 RepositoryCatalog::RepositoryCatalog(
