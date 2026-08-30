@@ -11,7 +11,7 @@
 
 #include <config/model/Json.hpp>
 #include <config/model/JsonIo.hpp>
-#include <cli/ProfileCommand.hpp>
+#include <cli/profile/ProfileCommand.hpp>
 #include <config/ports/ConfigurationActivator.hpp>
 
 #include "support/TestHelpers.hpp"
@@ -80,7 +80,7 @@ void test_profile_create_writes_json() {
         "2",
         "2",
     };
-    int result = btrfsbackup::cli::profile(args, "/etc/btrfs-backup/profiles.d", activator);
+    int result = btrfsbackup::cli::profile::profile(args, "/etc/btrfs-backup/profiles.d", activator);
 
     test_helpers::expect_eq("profile create result", std::to_string(result), "0");
     btrfsbackup::config::Json profile = btrfsbackup::config::load_json_file(profile_json);
@@ -102,7 +102,7 @@ void test_profile_list_uses_config_root() {
     std::ostringstream output;
     std::streambuf* previous = std::cout.rdbuf(output.rdbuf());
 
-    const int result = btrfsbackup::cli::profile({"list"}, root, activator);
+    const int result = btrfsbackup::cli::profile::profile({"list"}, root, activator);
 
     std::cout.rdbuf(previous);
     test_helpers::expect_eq("profile list result", std::to_string(result), "0");
@@ -123,7 +123,7 @@ void test_profile_activation_migration_previews_key_file() {
     std::ostringstream output;
     std::streambuf* previous = std::cout.rdbuf(output.rdbuf());
 
-    const int result = btrfsbackup::cli::profile(
+    const int result = btrfsbackup::cli::profile::profile(
         {"migrate-activation", "--profile", "default", "--crypttab", crypttab.string()},
         root,
         activator
@@ -159,7 +159,7 @@ void test_profile_activation_migration_applies_without_editing_crypttab() {
     std::ostringstream output;
     std::streambuf* previous = std::cout.rdbuf(output.rdbuf());
 
-    const int result = btrfsbackup::cli::profile(
+    const int result = btrfsbackup::cli::profile::profile(
         {
             "--udev-root",
             (root / "udev").string(),

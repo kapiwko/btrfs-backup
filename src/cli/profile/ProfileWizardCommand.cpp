@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <cli/ProfileWizardCommand.hpp>
+#include <cli/profile/ProfileWizardCommand.hpp>
 
 #include <cstdlib>
 #include <filesystem>
@@ -43,7 +43,7 @@ void usage() {
 
 } // namespace
 
-namespace btrfsbackup::cli {
+namespace btrfsbackup::cli::profile {
 
 int profile_wizard(const std::vector<std::string>& args) {
     btrfsbackup::platform::linux::ProfileWizardOptions options;
@@ -81,4 +81,4 @@ int profile_wizard(const std::vector<std::string>& args) {
     return btrfsbackup::platform::linux::run_profile_wizard(options, std::cin, std::cout);
 }
 
-} // namespace btrfsbackup::cli
+} // namespace btrfsbackup::cli::profile
