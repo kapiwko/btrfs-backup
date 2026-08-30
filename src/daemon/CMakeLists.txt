@@ -50,6 +50,7 @@ target_link_libraries(btrfsbackup-daemon-core
 
 add_library(btrfsbackup-daemon-system-control STATIC
     CommandSystemdUnitController.cpp
+    OperationEnvironmentFile.cpp
     SystemOperationalControlBackend.cpp
 )
 target_compile_features(btrfsbackup-daemon-system-control PUBLIC cxx_std_20)
@@ -57,6 +58,8 @@ target_restricted_include_directories(btrfsbackup-daemon-system-control
     PUBLIC_HEADERS
         daemon/CommandSystemdUnitController.hpp
         daemon/SystemOperationalControlBackend.hpp
+    PRIVATE_HEADERS
+        daemon/OperationEnvironmentFile.hpp
 )
 target_link_libraries(btrfsbackup-daemon-system-control
     PUBLIC
