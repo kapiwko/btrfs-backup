@@ -22,9 +22,12 @@ target_link_libraries(btrfsbackup-state-model PUBLIC btrfsbackup-core)
 
 add_library(btrfsbackup-state STATIC
     BackupRunSerialization.cpp
+    FileActiveRunRegistration.cpp
+    FileCancellationMonitor.cpp
     FilePendingMarkerStore.cpp
     FileRunStateRepository.cpp
     JsonFileBackupRunCheckpointStore.cpp
+    PollingCancellationWatch.cpp
     RunHistory.cpp
     RunState.cpp
     RunStatusBuilder.cpp
@@ -37,6 +40,7 @@ target_compile_features(btrfsbackup-state PUBLIC cxx_std_20)
 target_restricted_include_directories(btrfsbackup-state
     PUBLIC_HEADERS
         state/FilePendingMarkerStore.hpp
+        state/FileCancellationMonitor.hpp
         state/FileRunStateRepository.hpp
         state/JsonFileBackupRunCheckpointStore.hpp
         state/RunHistory.hpp
@@ -46,6 +50,9 @@ target_restricted_include_directories(btrfsbackup-state
         state/BackupRunSerialization.hpp
         state/StatusService.hpp
         state/StatusWriter.hpp
+    PRIVATE_HEADERS
+        state/FileActiveRunRegistration.hpp
+        state/PollingCancellationWatch.hpp
 )
 target_link_libraries(btrfsbackup-state
     PUBLIC
