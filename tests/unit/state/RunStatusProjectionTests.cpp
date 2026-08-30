@@ -20,6 +20,27 @@ btrfsbackup::platform::linux::filesystem::PosixDurableFileOperations& durable_fi
     return files;
 }
 
+class CountingDocumentWriter final : public btrfsbackup::state::IAtomicDocumentWriter {
+  public:
+    void ensure_directory(const fs::path& path, fs::perms permissions) override {
+        durable_files().ensure_directory(path, permissions);
+    }
+
+    void write_atomically(const fs::path& path, std::string_view data, fs::perms permissions) override {
+        durable_files().write_atomically(path, data, permissions);
+        if (path.filename() == "current.json") {
+            ++current_writes_;
+        }
+    }
+
+    [[nodiscard]] int current_writes() const {
+        return current_writes_;
+    }
+
+  private:
+    int current_writes_ = 0;
+};
+
 btrfsbackup::backup::TransferProgress transfer_progress(
     btrfsbackup::SourceId source_id = btrfsbackup::SourceId{"root"},
     int source_index = 1
@@ -137,6 +158,54 @@ void test_unknown_stream_size_produces_indeterminate_progress() {
     test_helpers::expect_true("indeterminate accuracy", current.at("progressAccuracy") == "indeterminate", "progress should be indeterminate");
     test_helpers::expect_true("sizing activity", current.at("activity") == "sizing", "sizing activity was not published");
     test_helpers::expect_true("sizing phase", current.at("phase") == "sizing", "sizing phase was not published");
+
+    fs::remove_all(root);
+}
+
+void test_progress_publication_is_throttled_without_delaying_state_changes() {
+    fs::path root = test_helpers::test_root("backup-run-persistence", "throttled-progress");
+    CountingDocumentWriter files;
+    btrfsbackup::state::RunStatusProjection sink(files, {
+                                                            .status_root = root / "status",
+                                                            .history_root = root / "history",
+                                                            .profile_name = "Default backup",
+                                                            .source_count = 2,
+                                                            .started_at = *btrfsbackup::parse_utc_timestamp("2026-08-23T12:00:00Z"),
+                                                            .source_names = {{btrfsbackup::SourceId{"root"}, "@home"}, {btrfsbackup::SourceId{"home"}, "@archive"}},
+                                                            .target_name = "backupdisk",
+                                                        });
+
+    btrfsbackup::backup::TransferProgress progress = transfer_progress();
+    sink.on_backup_run_event(progress);
+    test_helpers::expect_true("first progress published", files.current_writes() == 1, "first progress was suppressed");
+
+    progress.bytes_transferred = 4177;
+    progress.elapsed_ms = 2500;
+    sink.on_backup_run_event(progress);
+    test_helpers::expect_true("small progress suppressed", files.current_writes() == 1, "small progress forced a durable write");
+
+    progress.elapsed_ms = 3000;
+    sink.on_backup_run_event(progress);
+    test_helpers::expect_true("interval progress published", files.current_writes() == 2, "publication interval was ignored");
+
+    progress.bytes_transferred = 4916;
+    progress.elapsed_ms = 3100;
+    sink.on_backup_run_event(progress);
+    test_helpers::expect_true("threshold progress published", files.current_writes() == 3, "progress threshold was ignored");
+
+    progress.stage = btrfsbackup::backup::BackupTransferStage::Sizing;
+    progress.bytes_total_estimated = 0;
+    progress.elapsed_ms = 3200;
+    sink.on_backup_run_event(progress);
+    test_helpers::expect_true("phase change published", files.current_writes() == 4, "phase change was delayed");
+
+    progress = transfer_progress(btrfsbackup::SourceId{"home"}, 2);
+    progress.elapsed_ms = 100;
+    sink.on_backup_run_event(progress);
+    test_helpers::expect_true("source change published", files.current_writes() == 5, "source change was delayed");
+
+    sink.on_backup_run_event(btrfsbackup::backup::RunCompleted{progress.profile_id, progress.run_id});
+    test_helpers::expect_true("terminal state published", files.current_writes() == 6, "terminal state was delayed");
 
     fs::remove_all(root);
 }
@@ -308,6 +377,7 @@ int main() {
     test_failed_validation_without_start_does_not_enter_backup_history();
     test_public_transfer_progress_excludes_run_details();
     test_unknown_stream_size_produces_indeterminate_progress();
+    test_progress_publication_is_throttled_without_delaying_state_changes();
     test_hook_failure_status_uses_stable_error_code();
     test_repository_recovery_required_status_is_actionable();
 
