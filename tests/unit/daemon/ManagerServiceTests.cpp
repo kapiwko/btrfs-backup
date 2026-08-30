@@ -7,7 +7,7 @@
 #include <string>
 
 #include <config/model/JsonIo.hpp>
-#include <config/model/Profile.hpp>
+#include <config/domain/Profile.hpp>
 #include <daemon/query/DeviceStateQueryService.hpp>
 #include <daemon/query/HistoryQueryService.hpp>
 #include <daemon/ManagerService.hpp>

@@ -7,7 +7,7 @@
 #include <cstddef>
 #include <string>
 
-#include <config/model/Profile.hpp>
+#include <config/domain/Profile.hpp>
 #include <config/ConfigurationIdentity.hpp>
 #include <core/Identifiers.hpp>
 #include <core/RuntimeTime.hpp>

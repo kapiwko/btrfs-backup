@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <config/model/StoragePolicy.hpp>
+#include <config/domain/StoragePolicy.hpp>
 
 #include <core/Errors.hpp>
 

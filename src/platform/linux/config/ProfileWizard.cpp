@@ -12,7 +12,7 @@
 
 #include <platform/linux/config/InstallationValidate.hpp>
 #include <platform/linux/config/ApplicationConfig.hpp>
-#include <config/model/Profile.hpp>
+#include <config/domain/Profile.hpp>
 #include <platform/linux/config/ProfileWizardDevice.hpp>
 #include <platform/linux/config/ProfileWizardInstall.hpp>
 #include <config/wizard/ProfileWizardModel.hpp>

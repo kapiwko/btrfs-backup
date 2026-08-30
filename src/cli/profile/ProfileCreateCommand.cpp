@@ -15,7 +15,7 @@
 #include <platform/linux/config/ProfileService.hpp>
 #include <config/model/Json.hpp>
 #include <config/model/JsonIo.hpp>
-#include <config/model/Profile.hpp>
+#include <config/domain/Profile.hpp>
 #include <config/model/ProfileDocument.hpp>
 
 namespace fs = std::filesystem;

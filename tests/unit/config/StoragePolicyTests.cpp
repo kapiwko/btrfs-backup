@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <type_traits>
 
-#include <config/model/StoragePolicy.hpp>
+#include <config/domain/StoragePolicy.hpp>
 
 #include "support/TestHelpers.hpp"
 #include "support/ValidationTestHelpers.hpp"

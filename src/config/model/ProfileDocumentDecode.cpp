@@ -11,7 +11,7 @@
 #include <vector>
 
 #include <core/Identifiers.hpp>
-#include <config/model/Validation.hpp>
+#include <config/domain/Validation.hpp>
 
 namespace fs = std::filesystem;
 

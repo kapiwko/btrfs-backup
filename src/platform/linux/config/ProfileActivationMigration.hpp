@@ -6,7 +6,7 @@
 
 #include <filesystem>
 
-#include <config/model/Profile.hpp>
+#include <config/domain/Profile.hpp>
 
 namespace btrfsbackup::platform::linux {
 

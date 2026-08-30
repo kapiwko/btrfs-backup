@@ -8,7 +8,7 @@
 #include <string>
 
 #include <config/model/Json.hpp>
-#include <config/model/Profile.hpp>
+#include <config/domain/Profile.hpp>
 
 namespace btrfsbackup::config {
 
