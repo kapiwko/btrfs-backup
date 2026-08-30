@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+### Target Storage Visibility
+
+1. the runner records a private, atomically written and identity-bound target
+   filesystem-space measurement before cleanup;
+2. the system manager exposes verified live or matching cached capacity, used,
+   available and minimum-space state through an optional versioned
+   `GetDeviceState` block without mounting the target;
+3. the Plasma widget shows capacity and usage in expanded profile details,
+   distinguishes cached data, warns below the configured free-space minimum and
+   remains compatible with older daemons;
+4. shared typed codecs and grouped run, target and history presentation models
+   keep schema validation out of the D-Bus coordinator and QML.
+
 ## 3.1.0 - 2026-08-30
 
 ### Table-Free Target Management

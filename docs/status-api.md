@@ -6,8 +6,9 @@ status without parsing journal text.
 
 This document describes `RunStatus`, not target lifecycle state. A successful
 backup and a target that has been unmounted and closed are independent facts.
-The current runtime does not persist a `TargetStatus` after eject, so clients
-must not infer that a successful run means the device is safe to disconnect.
+Target lifecycle and filesystem-capacity data are exposed separately by the
+system manager; clients must not infer that a successful run means the device
+is safe to disconnect.
 
 The broader engine boundary is described in
 [engine-contract.md](engine-contract.md).
@@ -128,9 +129,36 @@ GUI clients load state when connecting and call `GetStatus` again after each
 signal, so JSON remains the source of truth and manager or client restarts do
 not lose the current state.
 
+## Target Storage Measurement
+
+Before target cleanup, the runner records the last successful filesystem-space
+measurement in the private state tree:
+
+```text
+/var/lib/btrfs-backup/profiles/<PROFILE_ID>/target-storage.json
+```
+
+The exact root follows the trusted global state-root configuration. The file is
+written atomically with mode `0600` under directories with mode `0700`. It is a
+private cache, not a public status document. It contains the profile id, target
+identity, capacity, free and available byte counts, and a UTC measurement time.
+Readers discard it after a profile or target identity change.
+
+When the target is already mounted through the configured mapper and its Btrfs
+identity is verified, the manager measures it live. Otherwise it may expose the
+matching cached measurement. Reading status never unlocks LUKS, mounts the
+target, starts validation, or changes target state.
+
+Capacity is the filesystem capacity reported by `statvfs`, not the raw disk,
+partition or LUKS container size. Used bytes are `capacity - free`; usage
+percentage follows `df`-like usable-space semantics using used plus available
+bytes. On Btrfs these values are an operational approximation and do not model
+chunk allocation, compression ratios, metadata pressure or qgroup accounting.
+
 ## Compatibility
 
 Public current status uses schema version 3. Private history retains schema
 version 2. These are separate contracts; consumers must not expect diagnostic
-history fields in public current status. A future `TargetStatus` will use a
-separate document or authorized system API.
+history or target capacity fields in public current status. Target lifecycle
+and storage usage use the separate authorized system API described in
+[system-dbus-api.md](system-dbus-api.md).
