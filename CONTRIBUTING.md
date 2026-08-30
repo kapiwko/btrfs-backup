@@ -50,6 +50,7 @@ Start with these documents before changing runtime behavior:
 
 - [architecture and runtime flow](docs/architecture.md);
 - [C++ component ownership](docs/cpp-layout.md);
+- [C++ readability and file organization](docs/cpp-readability.md);
 - [engine compatibility contract](docs/engine-contract.md);
 - [security model](docs/security.md);
 - [configuration contract](docs/configuration.md);
@@ -222,6 +223,9 @@ Naming conventions are:
 - private data members: trailing underscore;
 
 ### C++ filenames
+
+The complete rules for primary abstractions, ownership, lifecycle methods, and
+high-level flow are in [C++ readability and file organization](docs/cpp-readability.md).
 
 C++ source and header filenames use `PascalCase`.
 

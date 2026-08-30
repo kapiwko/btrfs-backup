@@ -254,6 +254,10 @@ const sd_bus_vtable manager_vtable[] = {
 
 } // namespace
 
-const sd_bus_vtable* btrfsbackup::daemon::ManagerDbusObject::vtable() const {
+namespace btrfsbackup::daemon {
+
+const sd_bus_vtable* ManagerDbusObject::vtable() const {
     return manager_vtable;
 }
+
+} // namespace btrfsbackup::daemon
