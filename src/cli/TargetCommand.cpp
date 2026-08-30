@@ -7,6 +7,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <iostream>
+#include <print>
 #include <string>
 #include <vector>
 
@@ -15,7 +16,7 @@ namespace fs = std::filesystem;
 namespace {
 
 [[noreturn]] void fail(const std::string& message, int code = 2) {
-    std::cerr << "btrfs-backupctl target: " << message << '\n';
+    std::println(std::cerr, "btrfs-backupctl target: {}", message);
     std::exit(code);
 }
 
@@ -56,12 +57,15 @@ TargetOptions parse_options(const std::vector<std::string>& args) {
 }
 
 void usage(std::ostream& output) {
-    output << "Usage: btrfs-backupctl target COMMAND\n"
-           << "\nCommands:\n"
-           << "  activate --profile ID [--from-service]\n"
-           << "  deactivate --profile ID [--from-service]\n"
-           << "  mount --profile ID\n"
-           << "  eject --profile ID [--force] [--from-service] [--from-runner]\n";
+    std::print(
+        output,
+        "Usage: btrfs-backupctl target COMMAND\n"
+        "\nCommands:\n"
+        "  activate --profile ID [--from-service]\n"
+        "  deactivate --profile ID [--from-service]\n"
+        "  mount --profile ID\n"
+        "  eject --profile ID [--force] [--from-service] [--from-runner]\n"
+    );
 }
 
 bool service_succeeded() {
@@ -106,7 +110,7 @@ std::string format_event(const btrfsbackup::cli::TargetEvent& event) {
 
 void print_result(const btrfsbackup::cli::TargetOperationResult& result, std::ostream& output) {
     for (const btrfsbackup::cli::TargetEvent& event : target_operation_events(result)) {
-        output << format_event(event) << '\n';
+        std::println(output, "{}", format_event(event));
     }
 }
 

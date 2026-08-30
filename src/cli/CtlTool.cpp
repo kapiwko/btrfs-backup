@@ -9,6 +9,7 @@
 #include <exception>
 #include <filesystem>
 #include <iostream>
+#include <print>
 #include <string>
 #include <vector>
 
@@ -30,7 +31,7 @@ namespace fs = std::filesystem;
 namespace {
 
 [[noreturn]] void fail(const std::string& message, int code = 2) {
-    std::cerr << "btrfs-backupctl: " << message << '\n';
+    std::println(std::cerr, "btrfs-backupctl: {}", message);
     std::exit(code);
 }
 
@@ -42,18 +43,20 @@ std::string arg_value(int& index, int argc, char** argv, const std::string& opti
 }
 
 void usage() {
-    std::cout << "Usage: btrfs-backupctl [options] COMMAND\n"
-              << "\nOptions:\n"
-              << "  --status-root PATH   Override status root (default: /run/btrfs-backup/profiles).\n"
-              << "  --history-root PATH  Override history root (default: /var/lib/btrfs-backup/history).\n"
-              << "  --profile-dir PATH   Override profile config root (default: /etc/btrfs-backup).\n"
-              << "\nCommands:\n"
-              << "  profile COMMAND\n"
-              << "  status COMMAND\n"
-              << "  installation COMMAND\n"
-              << "  runner COMMAND\n"
-              << "  target COMMAND\n"
-              << "  -h, --help\n";
+    std::print(
+        "Usage: btrfs-backupctl [options] COMMAND\n"
+        "\nOptions:\n"
+        "  --status-root PATH   Override status root (default: /run/btrfs-backup/profiles).\n"
+        "  --history-root PATH  Override history root (default: /var/lib/btrfs-backup/history).\n"
+        "  --profile-dir PATH   Override profile config root (default: /etc/btrfs-backup).\n"
+        "\nCommands:\n"
+        "  profile COMMAND\n"
+        "  status COMMAND\n"
+        "  installation COMMAND\n"
+        "  runner COMMAND\n"
+        "  target COMMAND\n"
+        "  -h, --help\n"
+    );
 }
 
 } // namespace
@@ -124,7 +127,7 @@ int ctl_tool_main(int argc, char** argv) {
             fail("unknown command: " + command);
         }
     } catch (const RunnerOptionsError& exc) {
-        std::cerr << "btrfs-backupctl runner: " << exc.what() << '\n';
+        std::println(std::cerr, "btrfs-backupctl runner: {}", exc.what());
         return 2;
     } catch (const CodedValidationError& exc) {
         fail(
