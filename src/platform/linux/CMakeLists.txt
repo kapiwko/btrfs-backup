@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 add_library(btrfsbackup-platform-linux STATIC
+    BoundedDiagnosticBuffer.cpp
     ChildProcess.cpp
     ControlledCommandSession.cpp
     LibBtrfsOperations.cpp
@@ -21,6 +22,8 @@ add_library(btrfsbackup-platform-linux STATIC
     PosixTransferProcess.cpp
     PosixTransferPump.cpp
     ThreadSigpipeBlock.cpp
+    TransferChildTermination.cpp
+    TransferProgressReporter.cpp
     Process.cpp
     ProcessSpawn.cpp
     SafeDirectoryRoot.cpp
@@ -67,9 +70,12 @@ target_restricted_include_directories(btrfsbackup-platform-linux
         platform/linux/TrustedExecutable.hpp
         platform/linux/TrustedFile.hpp
     PRIVATE_HEADERS
+        platform/linux/BoundedDiagnosticBuffer.hpp
         platform/linux/ControlledCommandSession.hpp
         platform/linux/PosixTransferSession.hpp
         platform/linux/ThreadSigpipeBlock.hpp
+        platform/linux/TransferChildTermination.hpp
+        platform/linux/TransferProgressReporter.hpp
         platform/linux/SystemdMountedTargetSession.hpp
 )
 target_link_libraries(btrfsbackup-platform-linux
