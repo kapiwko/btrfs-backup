@@ -10,23 +10,17 @@
 
 namespace {
 
-struct Mounts final : btrfsbackup::backup::IMountInspector {
-    std::vector<btrfsbackup::backup::MountEntry> entries;
-
-    std::vector<btrfsbackup::backup::MountEntry> inspect() const override {
-        return entries;
-    }
-};
-
 struct Probe final : btrfsbackup::backup::IFilesystemSpaceProbe {
     bool fail = false;
     mutable int calls = 0;
+    mutable std::optional<btrfsbackup::backup::MountEntry> measured_mount;
 
     btrfsbackup::backup::FilesystemSpace measure_verified_mount(
         const std::filesystem::path&,
-        const btrfsbackup::backup::MountEntry&
+        const btrfsbackup::backup::MountEntry& mount
     ) const override {
         ++calls;
+        measured_mount = mount;
         if (fail) {
             throw btrfsbackup::ValidationError("space probe failed");
         }
@@ -85,20 +79,19 @@ btrfsbackup::config::Profile profile() {
 
 void test_records_only_verified_target_mount() {
     const btrfsbackup::config::Profile expected = profile();
-    Mounts mounts;
-    mounts.entries = {{
+    const btrfsbackup::backup::MountEntry verified_mount{
         .source = "/dev/mapper/backup",
         .target = "/mnt/backup",
         .fstype = "btrfs",
         .mount_id = 42,
         .filesystem_uuid = expected.target.btrfs_uuid.value(),
-    }};
+    };
     Probe probe;
     Store store;
     Clock clock;
-    btrfsbackup::backup::TargetStorageRecorder recorder(mounts, probe, store, clock);
+    btrfsbackup::backup::TargetStorageRecorder recorder(probe, store, clock);
 
-    const auto warning = recorder.record(expected);
+    const auto warning = recorder.record(expected, verified_mount);
     test_helpers::expect_true("record succeeds", !warning.has_value(), "valid measurement produced a warning");
     test_helpers::expect_true("measurement written", store.writes == 1, "measurement was not persisted");
     test_helpers::expect_true(
@@ -106,28 +99,30 @@ void test_records_only_verified_target_mount() {
         store.measurement.has_value() && store.measurement->measured_at == clock.timestamp,
         "measurement timestamp is wrong"
     );
-
-    mounts.entries.front().filesystem_uuid = "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE";
-    (void)recorder.record(expected);
-    test_helpers::expect_true("mismatch ignored", store.writes == 1, "identity mismatch overwrote the cache");
+    test_helpers::expect_true(
+        "verified mount forwarded",
+        probe.measured_mount.has_value() && probe.measured_mount->source == "/dev/mapper/backup" &&
+            probe.measured_mount->mount_id == 42,
+        "recorder did not measure the mount verified by preflight"
+    );
 }
 
 void test_probe_failure_becomes_warning() {
     const btrfsbackup::config::Profile expected = profile();
-    Mounts mounts;
-    mounts.entries = {{
+    const btrfsbackup::backup::MountEntry verified_mount{
+        .source = "/dev/mapper/backup",
         .target = "/mnt/backup",
         .fstype = "btrfs",
         .mount_id = 42,
         .filesystem_uuid = expected.target.btrfs_uuid.value(),
-    }};
+    };
     Probe probe;
     probe.fail = true;
     Store store;
     Clock clock;
-    btrfsbackup::backup::TargetStorageRecorder recorder(mounts, probe, store, clock);
+    btrfsbackup::backup::TargetStorageRecorder recorder(probe, store, clock);
 
-    const auto warning = recorder.record(expected);
+    const auto warning = recorder.record(expected, verified_mount);
     test_helpers::expect_true("probe warning", warning.has_value(), "probe failure escaped as success");
     test_helpers::expect_true("failed probe not stored", store.writes == 0, "failed measurement was persisted");
 }

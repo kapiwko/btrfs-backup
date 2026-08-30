@@ -15,7 +15,7 @@ BackupPreflight::BackupPreflight(IMountInspector& mount_inspector, ITargetManage
     : mount_inspector_(mount_inspector), target_manager_(target_manager) {
 }
 
-std::unique_ptr<IMountedTargetSession> BackupPreflight::run(
+BackupPreflightResult BackupPreflight::run(
     const btrfsbackup::config::Profile& profile,
     TargetMountMode mode,
     CancellationToken& cancellation
@@ -28,10 +28,14 @@ std::unique_ptr<IMountedTargetSession> BackupPreflight::run(
         if (cancellation.cancellation_requested()) {
             throw OperationCancelledError("backup cancelled during preflight");
         }
-        validate_backup_mounts(profile, mount_inspector_.inspect());
+        MountEntry verified_target_mount = validate_backup_mounts(profile, mount_inspector_.inspect());
         if (cancellation.cancellation_requested()) {
             throw OperationCancelledError("backup cancelled during preflight");
         }
+        return {
+            .target_session = std::move(target_session),
+            .verified_target_mount = std::move(verified_target_mount),
+        };
     } catch (...) {
         const std::exception_ptr original_error = std::current_exception();
         if (std::optional<TargetCleanupError> cleanup_error = target_session->close()) {
@@ -39,7 +43,6 @@ std::unique_ptr<IMountedTargetSession> BackupPreflight::run(
         }
         std::rethrow_exception(original_error);
     }
-    return target_session;
 }
 
 } // namespace btrfsbackup::backup::planning

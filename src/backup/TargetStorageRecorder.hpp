@@ -18,18 +18,17 @@ namespace btrfsbackup::backup {
 class TargetStorageRecorder {
   public:
     TargetStorageRecorder(
-        IMountInspector& mounts,
         IFilesystemSpaceProbe& probe,
         ITargetStorageMeasurementStore& store,
         IClock& clock
     );
 
     [[nodiscard]] std::optional<BackupCompletionWarning> record(
-        const btrfsbackup::config::Profile& profile
+        const btrfsbackup::config::Profile& profile,
+        const MountEntry& verified_target_mount
     );
 
   private:
-    IMountInspector& mounts_;
     IFilesystemSpaceProbe& probe_;
     ITargetStorageMeasurementStore& store_;
     IClock& clock_;

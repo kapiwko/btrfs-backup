@@ -10,10 +10,10 @@
 
 #include <backup/ports/CancellationRequestStore.hpp>
 #include <backup/ports/CancellationMonitor.hpp>
+#include <backup/ports/IBackupPreflight.hpp>
 #include <backup/ports/ICheckpointStoreFactory.hpp>
 #include <backup/ports/IRunEventSinkFactory.hpp>
 #include <backup/ports/RunLease.hpp>
-#include <backup/ports/TargetManager.hpp>
 #include <core/Cancellation.hpp>
 #include <core/Identifiers.hpp>
 
@@ -59,7 +59,8 @@ class RunExecutionContext {
     [[nodiscard]] const RunExecutionContextCloseResult& close();
     [[nodiscard]] std::optional<TargetCleanupError> close_target_session() noexcept;
     void attach_event_sink(std::unique_ptr<IBackupRunEventSink> events) noexcept;
-    void attach_target_session(std::unique_ptr<IMountedTargetSession> session) noexcept;
+    void attach_verified_target(BackupPreflightResult result) noexcept;
+    [[nodiscard]] const MountEntry* verified_target_mount() const noexcept;
     [[nodiscard]] IBackupRunEventSink& event_sink() const;
     [[nodiscard]] CancellationToken& cancellation_token() noexcept;
     [[nodiscard]] IBackupRunCheckpointStore& checkpoint_store() noexcept;
@@ -82,6 +83,7 @@ class RunExecutionContext {
     std::unique_ptr<IBackupRunCheckpointStore> checkpoints_;
     std::unique_ptr<IBackupRunLease> lease_;
     std::unique_ptr<IMountedTargetSession> target_session_;
+    std::optional<MountEntry> verified_target_mount_;
     std::unique_ptr<IBackupRunEventSink> events_;
     ICancellationRequestStore& cancellation_requests_;
     bool target_close_attempted_ = false;

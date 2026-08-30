@@ -6,17 +6,23 @@
 
 #include <memory>
 
+#include <backup/ports/IMountInspector.hpp>
 #include <backup/ports/TargetManager.hpp>
 #include <config/domain/Profile.hpp>
 #include <core/Cancellation.hpp>
 
 namespace btrfsbackup::backup {
 
+struct BackupPreflightResult {
+    std::unique_ptr<IMountedTargetSession> target_session;
+    MountEntry verified_target_mount;
+};
+
 class IBackupPreflight {
   public:
     virtual ~IBackupPreflight() = default;
 
-    [[nodiscard]] virtual std::unique_ptr<IMountedTargetSession> run(
+    [[nodiscard]] virtual BackupPreflightResult run(
         const btrfsbackup::config::Profile& profile,
         TargetMountMode mode,
         CancellationToken& cancellation

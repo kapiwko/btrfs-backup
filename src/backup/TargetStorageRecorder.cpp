@@ -22,25 +22,20 @@ ErrorCode warning_code(const std::exception& error) {
 } // namespace
 
 TargetStorageRecorder::TargetStorageRecorder(
-    IMountInspector& mounts,
     IFilesystemSpaceProbe& probe,
     ITargetStorageMeasurementStore& store,
     IClock& clock
 )
-    : mounts_(mounts), probe_(probe), store_(store), clock_(clock) {
+    : probe_(probe), store_(store), clock_(clock) {
 }
 
 std::optional<BackupCompletionWarning> TargetStorageRecorder::record(
-    const btrfsbackup::config::Profile& profile
+    const btrfsbackup::config::Profile& profile,
+    const MountEntry& verified_target_mount
 ) {
     try {
-        const std::optional<MountEntry> mount = mount_at(mounts_.inspect(), profile.target.mount_point.value());
-        if (!mount.has_value() || mount->fstype != "btrfs" ||
-            mount->filesystem_uuid != profile.target.btrfs_uuid.value()) {
-            return std::nullopt;
-        }
         store_.write(profile, TargetStorageMeasurement{
-                                  .space = probe_.measure_verified_mount(profile.target.mount_point.value(), *mount),
+                                  .space = probe_.measure_verified_mount(profile.target.mount_point.value(), verified_target_mount),
                                   .measured_at = clock_.now(),
                               });
         return std::nullopt;
