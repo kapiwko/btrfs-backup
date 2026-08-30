@@ -14,6 +14,9 @@
 
 namespace {
 
+using btrfsbackup::kde::monitor::TerminalNotificationMessage;
+using btrfsbackup::kde::monitor::TerminalNotificationService;
+
 int failures = 0;
 
 void expect(bool condition, const char* message) {

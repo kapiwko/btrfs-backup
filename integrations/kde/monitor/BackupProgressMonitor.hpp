@@ -18,8 +18,11 @@
 
 #include <cstdint>
 
-class BackupProgressJob;
 class KUiServerV2JobTracker;
+
+namespace btrfsbackup::kde::monitor {
+
+class BackupProgressJob;
 
 class BackupProgressMonitor final : public QObject {
     Q_OBJECT
@@ -64,3 +67,5 @@ class BackupProgressMonitor final : public QObject {
     bool profiles_refresh_queued_ = false;
     std::uint64_t manager_generation_ = 0;
 };
+
+} // namespace btrfsbackup::kde::monitor

@@ -51,17 +51,17 @@ target_link_libraries(
 
 add_executable(
     btrfs-backup-kde-monitor
-    progress/CancellationRequestDispatcher.cpp
-    progress/CancellationRequestDispatcher.hpp
-    progress/NotificationDeduplicator.cpp
-    progress/NotificationDeduplicator.hpp
-    progress/BackupProgressJob.cpp
-    progress/BackupProgressJob.hpp
-    progress/BackupProgressMonitor.cpp
-    progress/BackupProgressMonitor.hpp
-    progress/TerminalNotificationService.cpp
-    progress/TerminalNotificationService.hpp
-    progress/main.cpp
+    monitor/CancellationRequestDispatcher.cpp
+    monitor/CancellationRequestDispatcher.hpp
+    monitor/NotificationDeduplicator.cpp
+    monitor/NotificationDeduplicator.hpp
+    monitor/BackupProgressJob.cpp
+    monitor/BackupProgressJob.hpp
+    monitor/BackupProgressMonitor.cpp
+    monitor/BackupProgressMonitor.hpp
+    monitor/TerminalNotificationService.cpp
+    monitor/TerminalNotificationService.hpp
+    monitor/main.cpp
 )
 target_compile_features(btrfs-backup-kde-monitor PRIVATE cxx_std_23)
 target_compile_definitions(
@@ -82,15 +82,20 @@ target_link_libraries(
 )
 install(TARGETS btrfs-backup-kde-monitor RUNTIME DESTINATION "${KDE_INSTALL_BINDIR}")
 install(
-    FILES progress/io.github.btrfsbackup.ProgressMonitor.desktop
+    FILES monitor/io.github.btrfsbackup.ProgressMonitor.desktop
     DESTINATION "${KDE_INSTALL_APPDIR}"
 )
 install(
-    FILES progress/btrfs-backup-kde-monitor.notifyrc
+    FILES monitor/btrfs-backup-kde-monitor.notifyrc
     DESTINATION "${CMAKE_INSTALL_DATADIR}/knotifications6"
 )
+configure_file(
+    systemd/btrfs-backup-kde-monitor.service.in
+    btrfs-backup-kde-monitor.service
+    @ONLY
+)
 install(
-    FILES systemd/btrfs-backup-kde-monitor.service
+    FILES "${CMAKE_CURRENT_BINARY_DIR}/btrfs-backup-kde-monitor.service"
     DESTINATION lib/systemd/user
 )
 install(CODE [[
@@ -261,14 +266,14 @@ if(BUILD_TESTING)
 
     add_executable(
         plasma-progress-job-tests
-        progress/BackupProgressJob.cpp
-        progress/BackupProgressJob.hpp
-        progress/tests/BackupProgressJobTests.cpp
+        monitor/BackupProgressJob.cpp
+        monitor/BackupProgressJob.hpp
+        monitor/tests/BackupProgressJobTests.cpp
     )
     target_compile_features(plasma-progress-job-tests PRIVATE cxx_std_23)
     target_include_directories(
         plasma-progress-job-tests
-        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/progress
+        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/monitor
     )
     target_link_libraries(
         plasma-progress-job-tests
@@ -286,16 +291,16 @@ if(BUILD_TESTING)
 
     add_executable(
         kde-terminal-notification-tests
-        progress/NotificationDeduplicator.cpp
-        progress/NotificationDeduplicator.hpp
-        progress/TerminalNotificationService.cpp
-        progress/TerminalNotificationService.hpp
-        progress/tests/TerminalNotificationServiceTests.cpp
+        monitor/NotificationDeduplicator.cpp
+        monitor/NotificationDeduplicator.hpp
+        monitor/TerminalNotificationService.cpp
+        monitor/TerminalNotificationService.hpp
+        monitor/tests/TerminalNotificationServiceTests.cpp
     )
     target_compile_features(kde-terminal-notification-tests PRIVATE cxx_std_23)
     target_include_directories(
         kde-terminal-notification-tests
-        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/progress
+        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/monitor
     )
     target_link_libraries(
         kde-terminal-notification-tests

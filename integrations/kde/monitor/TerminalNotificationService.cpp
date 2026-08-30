@@ -11,6 +11,8 @@
 
 #include <utility>
 
+namespace btrfsbackup::kde::monitor {
+
 namespace {
 
 constexpr auto notification_component = "btrfs-backup-kde-monitor";
@@ -85,3 +87,5 @@ void TerminalNotificationService::publish_to_desktop(const TerminalNotificationM
     });
     notification->sendEvent();
 }
+
+} // namespace btrfsbackup::kde::monitor

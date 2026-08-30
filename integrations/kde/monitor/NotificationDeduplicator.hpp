@@ -9,6 +9,8 @@
 
 #include <vector>
 
+namespace btrfsbackup::kde::monitor {
+
 class NotificationDeduplicator final {
   public:
     explicit NotificationDeduplicator(QString state_path = {});
@@ -35,3 +37,5 @@ class NotificationDeduplicator final {
     QString state_path_;
     std::vector<Entry> entries_;
 };
+
+} // namespace btrfsbackup::kde::monitor
