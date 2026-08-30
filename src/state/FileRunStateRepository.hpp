@@ -9,7 +9,6 @@
 #include <string>
 
 #include <backup/ports/CancellationRequestStore.hpp>
-#include <backup/ports/CancellationMonitor.hpp>
 #include <backup/ports/ICheckpointStoreFactory.hpp>
 #include <backup/ports/IRunEventSinkFactory.hpp>
 #include <backup/ports/IRunLedger.hpp>
@@ -65,19 +64,6 @@ class FileRunStateRepository final : public btrfsbackup::backup::IRunLedger,
     [[nodiscard]] std::filesystem::path state_dir(const ProfileId& profile_id) const;
     btrfsbackup::config::ApplicationPaths paths_;
     IPersistentDocumentOperations& files_;
-};
-
-class FileCancellationMonitor final : public btrfsbackup::backup::ICancellationMonitor {
-  public:
-    explicit FileCancellationMonitor(btrfsbackup::backup::ICancellationRequestStore& requests);
-
-    [[nodiscard]] std::unique_ptr<btrfsbackup::backup::ICancellationWatch> watch(
-        const btrfsbackup::backup::CancellationRequest& request,
-        CancellationToken& cancellation
-    ) override;
-
-  private:
-    btrfsbackup::backup::ICancellationRequestStore& requests_;
 };
 
 } // namespace btrfsbackup::state

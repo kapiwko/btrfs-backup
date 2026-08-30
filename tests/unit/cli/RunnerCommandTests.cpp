@@ -29,6 +29,7 @@
 #include <backup/DefaultBackupRunFactory.hpp>
 #include <backup/LinkedCancellationMonitor.hpp>
 #include <state/FileRunStateRepository.hpp>
+#include <state/FileCancellationMonitor.hpp>
 #include <state/FilePendingMarkerStore.hpp>
 #include <config/ProfileFingerprint.hpp>
 #include <platform/linux/FileLock.hpp>
