@@ -51,6 +51,10 @@ assert_public_link_interface(
 )
 assert_public_link_interface(btrfsbackup-transfer btrfsbackup-core)
 assert_public_link_interface(
+    btrfsbackup-restore
+    btrfsbackup-core
+)
+assert_public_link_interface(
     btrfsbackup-backup-ports
     btrfsbackup-backup-model
     btrfsbackup-transfer
@@ -168,6 +172,7 @@ set(architecture_targets
     btrfsbackup-config-wizard
     btrfsbackup-core
     btrfsbackup-manager-protocol
+    btrfsbackup-restore
     btrfsbackup-platform-linux
     btrfsbackup-platform-linux-base
     btrfsbackup-platform-linux-config
@@ -265,6 +270,7 @@ endif()
 add_subdirectory(unit/backup)
 add_subdirectory(unit/config)
 add_subdirectory(unit/core)
+add_subdirectory(unit/restore)
 add_subdirectory(unit/state)
 add_subdirectory(unit/platform)
 add_subdirectory(unit/cli)
