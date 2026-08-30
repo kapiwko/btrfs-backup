@@ -151,9 +151,9 @@ if(BUILD_SYSTEM_MANAGER)
     )
     assert_public_link_interface(
         btrfsbackup-daemon-system-control
-        btrfsbackup-backup-ports
         btrfsbackup-config-ports
         btrfsbackup-daemon-control
+        btrfsbackup-platform-linux-filesystem
     )
     assert_public_link_interface(
         btrfsbackup-daemon-dbus

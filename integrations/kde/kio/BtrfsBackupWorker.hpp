@@ -17,7 +17,7 @@ class BtrfsBackupWorker final : public KIO::ForwardingWorkerBase {
 
   public:
     BtrfsBackupWorker(const QByteArray& pool, const QByteArray& app);
-    ~BtrfsBackupWorker() override;
+    ~BtrfsBackupWorker() noexcept override;
 
     KIO::WorkerResult listDir(const QUrl& url) override;
     KIO::WorkerResult get(const QUrl& url) override;

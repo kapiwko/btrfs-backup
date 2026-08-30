@@ -21,7 +21,7 @@
 
 #include <core/ManagerProtocol.hpp>
 
-using namespace Qt::StringLiterals;
+using Qt::StringLiterals::operator""_s;
 
 K_PLUGIN_CLASS_WITH_JSON(PreviousVersionsAction, "previousversionsaction.json")
 

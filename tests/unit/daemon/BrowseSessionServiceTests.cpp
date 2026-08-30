@@ -13,7 +13,6 @@
 #include "support/TestHelpers.hpp"
 
 namespace {
-using namespace std::chrono_literals;
 using btrfsbackup::BrowseSessionId;
 using btrfsbackup::ProfileId;
 using btrfsbackup::daemon::control::BrowseSessionCloseReason;
@@ -72,7 +71,7 @@ void test_authorized_open_and_owned_close() {
     Authorizer authorizer;
     Backend backend;
     std::vector<BrowseSessionEvent> events;
-    BrowseSessionService service(authorizer, backend, 15min, [] { return BrowseSessionId{"browse-one"}; }, {},
+    BrowseSessionService service(authorizer, backend, std::chrono::minutes{15}, [] { return BrowseSessionId{"browse-one"}; }, {},
         [&](const BrowseSessionEvent& event) { events.push_back(event); });
 
     const auto session = service.open(":1.10", 1000, "default");
@@ -88,7 +87,7 @@ void test_authorized_open_and_owned_close() {
 void test_denied_and_disconnected_callers_do_not_open() {
     Authorizer authorizer;
     Backend backend;
-    BrowseSessionService service(authorizer, backend, 15min, [] { return BrowseSessionId{"browse-denied"}; });
+    BrowseSessionService service(authorizer, backend, std::chrono::minutes{15}, [] { return BrowseSessionId{"browse-denied"}; });
     authorizer.allowed = false;
     expect_error("denied open", ManagerErrorCode::NotAuthorized, [&] { (void)service.open(":1.20", 1000, "default"); });
     authorizer.allowed = true;
@@ -100,7 +99,7 @@ void test_denied_and_disconnected_callers_do_not_open() {
 void test_foreign_caller_cannot_close_session() {
     Authorizer authorizer;
     Backend backend;
-    BrowseSessionService service(authorizer, backend, 15min, [] { return BrowseSessionId{"browse-owned"}; });
+    BrowseSessionService service(authorizer, backend, std::chrono::minutes{15}, [] { return BrowseSessionId{"browse-owned"}; });
     (void)service.open(":1.30", 1000, "default");
     expect_error("foreign close", ManagerErrorCode::NotAuthorized, [&] { service.close(":1.31", "browse-owned"); });
     test_helpers::expect_true("foreign resource preserved", backend.closed.empty(), "foreign caller closed the session");
@@ -111,7 +110,7 @@ void test_disconnect_only_closes_callers_sessions() {
     Authorizer authorizer;
     Backend backend;
     int next = 0;
-    BrowseSessionService service(authorizer, backend, 15min, [&] {
+    BrowseSessionService service(authorizer, backend, std::chrono::minutes{15}, [&] {
         return BrowseSessionId{next++ == 0 ? "browse-a" : "browse-b"};
     });
     (void)service.open(":1.40", 1000, "default");
@@ -125,11 +124,11 @@ void test_expiration_and_cleanup_failure_are_contained() {
     Authorizer authorizer;
     Backend backend;
     std::vector<BrowseSessionEvent> events;
-    auto now = std::chrono::system_clock::time_point{100s};
-    BrowseSessionService service(authorizer, backend, 10s, [] { return BrowseSessionId{"browse-expiring"}; },
+    auto now = std::chrono::system_clock::time_point{std::chrono::seconds{100}};
+    BrowseSessionService service(authorizer, backend, std::chrono::seconds{10}, [] { return BrowseSessionId{"browse-expiring"}; },
         [&] { return now; }, [&](const BrowseSessionEvent& event) { events.push_back(event); });
     (void)service.open(":1.50", 1000, "default");
-    now += 11s;
+    now += std::chrono::seconds{11};
     backend.fail_close = true;
     service.expire();
     test_helpers::expect_true("expiration attempted", backend.closed == std::vector<std::string>{"browse-expiring"}, "expired session was not closed");

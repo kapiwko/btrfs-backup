@@ -17,7 +17,7 @@ RestoreJob::RestoreJob(btrfsbackup::restore::RestorePlan plan, QObject* parent)
     setCapabilities(KJob::Killable);
 }
 
-RestoreJob::~RestoreJob() {
+RestoreJob::~RestoreJob() noexcept {
     cancellation_.request_cancel();
 }
 

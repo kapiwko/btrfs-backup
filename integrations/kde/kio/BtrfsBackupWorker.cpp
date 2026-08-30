@@ -25,7 +25,7 @@
 #include <platform/linux/storage/LibBtrfsOperations.hpp>
 #include <restore/RepositoryDiscoveryService.hpp>
 
-using namespace Qt::StringLiterals;
+using Qt::StringLiterals::operator""_s;
 
 namespace {
 constexpr int maximum_directory_entries = 10000;
@@ -59,7 +59,7 @@ BtrfsBackupWorker::BtrfsBackupWorker(const QByteArray& pool, const QByteArray& a
     : KIO::ForwardingWorkerBase("btrfsbackup", pool, app) {
 }
 
-BtrfsBackupWorker::~BtrfsBackupWorker() {
+BtrfsBackupWorker::~BtrfsBackupWorker() noexcept {
     close_sessions();
 }
 

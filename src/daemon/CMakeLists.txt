@@ -100,14 +100,13 @@ target_restricted_include_directories(btrfsbackup-daemon-system-control
 )
 target_link_libraries(btrfsbackup-daemon-system-control
     PUBLIC
-        btrfsbackup-backup-ports
         btrfsbackup-config-ports
         btrfsbackup-daemon-control
+        btrfsbackup-platform-linux-filesystem
     PRIVATE
         btrfsbackup-config-json
         btrfsbackup-backup-planning
         btrfsbackup-platform-linux-config
-        btrfsbackup-platform-linux-filesystem
         btrfsbackup-platform-linux-process
         btrfsbackup-platform-linux-storage
 )

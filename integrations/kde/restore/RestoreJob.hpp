@@ -18,7 +18,7 @@ class RestoreJob final : public KJob {
 
   public:
     explicit RestoreJob(btrfsbackup::restore::RestorePlan plan, QObject* parent = nullptr);
-    ~RestoreJob() override;
+    ~RestoreJob() noexcept override;
     void start() override;
 
   protected:
