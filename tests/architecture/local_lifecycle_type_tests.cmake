@@ -9,6 +9,7 @@ set(local_lifecycle_types
     "src/platform/linux/process/ProcessSpawn.cpp|SpawnAttributes|immobile"
     "src/platform/linux/process/ProcessSpawn.cpp|SpawnFileActions|immobile"
     "src/platform/linux/process/TerminationSignalMonitor.cpp|Impl|immobile"
+    "src/state/document/BoundedDocumentReader.cpp|FileDescriptor|immobile"
 )
 
 file(GLOB_RECURSE implementation_files

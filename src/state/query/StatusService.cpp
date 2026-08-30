@@ -5,26 +5,21 @@
 #include <state/query/StatusService.hpp>
 
 #include <algorithm>
-#include <fstream>
 
-#include <core/Identifiers.hpp>
 #include <core/Errors.hpp>
+#include <core/Identifiers.hpp>
+#include <state/document/BoundedDocumentReader.hpp>
 #include <state/document/RunStatusDocumentCodec.hpp>
 
 namespace fs = std::filesystem;
 
 namespace {
 
-bool readable_file(const fs::path& path) {
-    std::error_code ec;
-    return fs::is_regular_file(path, ec) && !ec && std::ifstream(path).good();
-}
+constexpr std::size_t max_status_document_bytes = 1024 * 1024;
 
-std::string read_document(const fs::path& path) {
-    std::ifstream stream(path);
-    if (!stream)
-        throw btrfsbackup::ValidationError("cannot read " + path.string());
-    return {std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()};
+bool regular_file_without_symlink(const fs::path& path) {
+    std::error_code error;
+    return fs::symlink_status(path, error).type() == fs::file_type::regular && !error;
 }
 
 } // namespace
@@ -45,7 +40,7 @@ std::vector<StatusDocument> get_statuses(
                 if (ec)
                     break;
                 fs::path current = entry.path() / "current.json";
-                if (readable_file(current))
+                if (regular_file_without_symlink(current))
                     paths.emplace_back(std::move(current), true);
             }
         }
@@ -55,7 +50,8 @@ std::vector<StatusDocument> get_statuses(
     } else {
         validate_profile_id(profile_id);
         fs::path path = status_root / profile_id / "current.json";
-        if (!readable_file(path) && readable_file(history_root / profile_id / "last.json")) {
+        if (!regular_file_without_symlink(path) &&
+            regular_file_without_symlink(history_root / profile_id / "last.json")) {
             path = history_root / profile_id / "last.json";
         }
         const bool is_public = path.filename() == "current.json";
@@ -63,8 +59,9 @@ std::vector<StatusDocument> get_statuses(
     }
     std::vector<StatusDocument> documents;
     const document::RunStatusDocumentCodec codec;
+    const document::BoundedDocumentReader reader;
     for (const auto& [path, is_public] : paths) {
-        std::string content = read_document(path);
+        std::string content = reader.read(path, max_status_document_bytes);
         if (is_public) {
             documents.push_back({.status = codec.parse_public(content), .content = std::move(content), .source = path});
         } else {
@@ -77,9 +74,10 @@ std::vector<StatusDocument> get_statuses(
 std::optional<StatusDocument> poll_status(const fs::path& status_root, const std::string& profile_id, const std::string& previous) {
     validate_profile_id(profile_id);
     fs::path path = status_root / profile_id / "current.json";
-    if (!readable_file(path))
+    if (!regular_file_without_symlink(path))
         return std::nullopt;
-    std::string content = read_document(path);
+    const document::BoundedDocumentReader reader;
+    std::string content = reader.read(path, max_status_document_bytes);
     if (content == previous)
         return std::nullopt;
     document::RunStatusDocumentCodec codec;

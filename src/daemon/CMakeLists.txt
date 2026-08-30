@@ -48,7 +48,6 @@ target_link_libraries(btrfsbackup-daemon-query
         btrfsbackup-config-domain
         btrfsbackup-config-json
         btrfsbackup-core
-        btrfsbackup-platform-linux-base
         btrfsbackup-platform-linux-storage
 )
 
