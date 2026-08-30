@@ -47,27 +47,27 @@ void test_prompt_defaults_and_retry() {
 }
 
 void test_source_names() {
-    test_helpers::expect_eq("root source name", btrfsbackup::platform::linux::source_name_from_path("/"), "root");
-    test_helpers::expect_eq("home source name", btrfsbackup::platform::linux::source_name_from_path("/home"), "home");
-    test_helpers::expect_eq("sanitized source name", btrfsbackup::platform::linux::source_name_from_path("/mnt/My Data"), "My-Data");
-    test_helpers::expect_eq("prefixed source name", btrfsbackup::platform::linux::source_name_from_path("/mnt/-data"), "source--data");
+    test_helpers::expect_eq("root source name", btrfsbackup::platform::linux::config::source_name_from_path("/"), "root");
+    test_helpers::expect_eq("home source name", btrfsbackup::platform::linux::config::source_name_from_path("/home"), "home");
+    test_helpers::expect_eq("sanitized source name", btrfsbackup::platform::linux::config::source_name_from_path("/mnt/My Data"), "My-Data");
+    test_helpers::expect_eq("prefixed source name", btrfsbackup::platform::linux::config::source_name_from_path("/mnt/-data"), "source--data");
 }
 
 void test_source_selection() {
     std::vector<std::string> candidates{"/", "/home", "/srv"};
-    test_helpers::expect_eq("default source selection", btrfsbackup::platform::linux::default_source_selection(candidates), "1,2");
-    test_helpers::expect_eq("fallback source selection", btrfsbackup::platform::linux::default_source_selection({"/srv"}), "1");
+    test_helpers::expect_eq("default source selection", btrfsbackup::platform::linux::config::default_source_selection(candidates), "1,2");
+    test_helpers::expect_eq("fallback source selection", btrfsbackup::platform::linux::config::default_source_selection({"/srv"}), "1");
 
-    auto all = btrfsbackup::platform::linux::selected_sources_from_input(candidates, "a");
+    auto all = btrfsbackup::platform::linux::config::selected_sources_from_input(candidates, "a");
     test_helpers::expect_eq("all source count", std::to_string(all.size()), "3");
 
-    auto selected = btrfsbackup::platform::linux::selected_sources_from_input(candidates, "2, 1,2");
+    auto selected = btrfsbackup::platform::linux::config::selected_sources_from_input(candidates, "2, 1,2");
     test_helpers::expect_eq("selected source count", std::to_string(selected.size()), "2");
     test_helpers::expect_eq("selected first", selected.at(0), "/home");
     test_helpers::expect_eq("selected second", selected.at(1), "/");
 
-    test_helpers::expect_validation_error("source selection token", [&] { (void)btrfsbackup::platform::linux::selected_sources_from_input(candidates, "x"); }, "invalid source selection");
-    test_helpers::expect_validation_error("source selection range", [&] { (void)btrfsbackup::platform::linux::selected_sources_from_input(candidates, "4"); }, "out of range");
+    test_helpers::expect_validation_error("source selection token", [&] { (void)btrfsbackup::platform::linux::config::selected_sources_from_input(candidates, "x"); }, "invalid source selection");
+    test_helpers::expect_validation_error("source selection range", [&] { (void)btrfsbackup::platform::linux::config::selected_sources_from_input(candidates, "4"); }, "out of range");
 }
 
 btrfsbackup::config::wizard::ProfileWizardAnswers sample_answers() {
@@ -169,11 +169,11 @@ void test_render_wizard_tree() {
     answers.keyfile = "/root/keys/backupdisk.key";
     btrfsbackup::config::Profile profile = btrfsbackup::config::wizard::profile_from_wizard_answers(answers);
 
-    btrfsbackup::platform::linux::render_wizard_tree(profile, root / "rendered");
+    btrfsbackup::platform::linux::config::render_wizard_tree(profile, root / "rendered");
 
     test_helpers::expect_true(
         "wizard render marker",
-        fs::is_regular_file(root / "rendered" / btrfsbackup::platform::linux::render_root_marker),
+        fs::is_regular_file(root / "rendered" / btrfsbackup::platform::linux::config::render_root_marker),
         "render root marker was not created"
     );
 
@@ -215,7 +215,7 @@ void test_render_wizard_tree() {
     );
 
     test_helpers::write_file(root / "rendered" / "stale.txt", "old");
-    btrfsbackup::platform::linux::render_wizard_tree(profile, root / "rendered");
+    btrfsbackup::platform::linux::config::render_wizard_tree(profile, root / "rendered");
     test_helpers::expect_true(
         "wizard rerender removes owned stale file",
         !fs::exists(root / "rendered" / "stale.txt"),
@@ -225,7 +225,7 @@ void test_render_wizard_tree() {
     test_helpers::write_file(root / "unmarked" / "important.txt", "keep me");
     test_helpers::expect_validation_error(
         "wizard refuses unmarked directory",
-        [&] { btrfsbackup::platform::linux::render_wizard_tree(profile, root / "unmarked"); },
+        [&] { btrfsbackup::platform::linux::config::render_wizard_tree(profile, root / "unmarked"); },
         "without .btrfs-backup-render-root"
     );
     test_helpers::expect_eq(

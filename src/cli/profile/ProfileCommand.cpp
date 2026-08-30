@@ -140,8 +140,8 @@ int profile(
 
         // TODO(4.0): Remove the legacy crypttab migration command after the 3.x transition window.
         if (command == "migrate-activation") {
-            Profile migrated = btrfsbackup::platform::linux::migrate_target_activation_from_crypttab(
-                btrfsbackup::platform::linux::get_profile(etc_root, profile_id),
+            Profile migrated = btrfsbackup::platform::linux::config::migrate_target_activation_from_crypttab(
+                btrfsbackup::platform::linux::config::get_profile(etc_root, profile_id),
                 crypttab
             );
             if (apply) {
@@ -158,7 +158,7 @@ int profile(
                 btrfsbackup::config::IConfigurationActivator& activator = installs_system_configuration
                     ? system_activator
                     : static_cast<btrfsbackup::config::IConfigurationActivator&>(null_activator);
-                btrfsbackup::platform::linux::install_profile(
+                btrfsbackup::platform::linux::config::install_profile(
                     migrated,
                     {etc_root, udev_root, systemd_root, public_root},
                     activator
@@ -171,16 +171,16 @@ int profile(
         } else if (command == "validate") {
             if (file.empty())
                 fail("validate requires --file");
-            btrfsbackup::config::ApplicationConfig config = btrfsbackup::platform::linux::load_application_config(etc_root);
-            std::cout << btrfsbackup::config::json::dump_json(btrfsbackup::config::json::profile_to_json(btrfsbackup::platform::linux::validate_profile_file(file, config.paths().target_mount_root)));
+            btrfsbackup::config::ApplicationConfig config = btrfsbackup::platform::linux::config::load_application_config(etc_root);
+            std::cout << btrfsbackup::config::json::dump_json(btrfsbackup::config::json::profile_to_json(btrfsbackup::platform::linux::config::validate_profile_file(file, config.paths().target_mount_root)));
         } else if (command == "render") {
             if (file.empty())
                 fail("render requires --file");
             if (output_dir.empty())
                 fail("render requires --output-dir");
-            btrfsbackup::config::ApplicationConfig config = btrfsbackup::platform::linux::load_application_config(etc_root);
-            btrfsbackup::config::Profile profile = btrfsbackup::platform::linux::validate_profile_file(file, config.paths().target_mount_root);
-            btrfsbackup::platform::linux::render_profile(file, output_dir, config.paths().target_mount_root);
+            btrfsbackup::config::ApplicationConfig config = btrfsbackup::platform::linux::config::load_application_config(etc_root);
+            btrfsbackup::config::Profile profile = btrfsbackup::platform::linux::config::validate_profile_file(file, config.paths().target_mount_root);
+            btrfsbackup::platform::linux::config::render_profile(file, output_dir, config.paths().target_mount_root);
             std::cout << "Rendered profile " << profile.id.value() << " to " << output_dir << "\n";
         } else if (command == "save") {
             if (file.empty())
@@ -193,14 +193,14 @@ int profile(
             btrfsbackup::config::IConfigurationActivator& activator = installs_system_configuration
                 ? system_activator
                 : static_cast<btrfsbackup::config::IConfigurationActivator&>(null_activator);
-            btrfsbackup::config::Profile profile = btrfsbackup::platform::linux::save_profile(file, {etc_root, udev_root, systemd_root, public_root}, activator);
+            btrfsbackup::config::Profile profile = btrfsbackup::platform::linux::config::save_profile(file, {etc_root, udev_root, systemd_root, public_root}, activator);
             std::cout << "Saved profile " << profile.id.value() << "\n";
         } else if (command == "show") {
-            std::cout << btrfsbackup::config::json::dump_json(btrfsbackup::config::json::profile_to_json(btrfsbackup::platform::linux::get_profile(etc_root, profile_id)));
+            std::cout << btrfsbackup::config::json::dump_json(btrfsbackup::config::json::profile_to_json(btrfsbackup::platform::linux::config::get_profile(etc_root, profile_id)));
         } else if (command == "export") {
             if (output_dir.empty())
                 fail("export requires --output");
-            btrfsbackup::config::Profile profile = btrfsbackup::platform::linux::export_profile(etc_root, profile_id, output_dir);
+            btrfsbackup::config::Profile profile = btrfsbackup::platform::linux::config::export_profile(etc_root, profile_id, output_dir);
             std::cout << "Exported profile " << profile.id.value() << " to " << output_dir << "\n";
         } else {
             fail("unknown command: " + command);

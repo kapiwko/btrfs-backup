@@ -7,7 +7,7 @@
 #include <filesystem>
 #include <iosfwd>
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::config {
 
 // Linux profile wizard composition entry point.
 
@@ -27,4 +27,4 @@ struct ProfileWizardOptions {
 
 int run_profile_wizard(const ProfileWizardOptions& options, std::istream& input, std::ostream& output);
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::config

@@ -133,7 +133,7 @@ int backup_tool(
     auto load_profile = services != nullptr && services->load_profile
         ? services->load_profile
         : [&](const std::string& profile_id) {
-              return btrfsbackup::platform::linux::load_profile_by_id(profile_config_dir, profile_id);
+              return btrfsbackup::platform::linux::config::load_profile_by_id(profile_config_dir, profile_id);
           };
     auto is_service_invocation = services != nullptr && services->is_service_invocation
         ? services->is_service_invocation
