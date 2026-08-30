@@ -782,7 +782,7 @@ pkgrel=$PKGREL
 pkgdesc='Verified Btrfs send/receive backups to an encrypted removable target'
 arch=('$ARCH')
 license=('GPL-3.0-or-later')
-makedepends=('cmake' 'extra-cmake-modules' 'gcc' 'ki18n' 'kirigami' 'kpackage' 'libplasma' 'nlohmann-json' 'pkgconf' 'qt6-base' 'qt6-declarative' 'systemd')
+makedepends=('cmake' 'extra-cmake-modules' 'gcc' 'kcoreaddons' 'ki18n' 'kirigami' 'kjobwidgets' 'kpackage' 'libplasma' 'nlohmann-json' 'pkgconf' 'qt6-base' 'qt6-declarative' 'systemd')
 source=("\$pkgbase-\$pkgver.tar.gz")
 sha256sums=('$SOURCE_SHA256')
 
@@ -837,8 +837,8 @@ package_btrfs-backup() {
 }
 
 package_btrfs-backup-kde() {
-  pkgdesc='Plasma status widget for btrfs-backup'
-  depends=("btrfs-backup=\$pkgver-\$pkgrel" 'kirigami' 'kservice' 'libplasma' 'qt6-base' 'qt6-declarative')
+  pkgdesc='Plasma status widget and progress monitor for btrfs-backup'
+  depends=("btrfs-backup=\$pkgver-\$pkgrel" 'kcoreaddons' 'ki18n' 'kirigami' 'kjobwidgets' 'kservice' 'libplasma' 'qt6-base' 'qt6-declarative')
   install='btrfs-backup-kde.install'
 
   local root="\$srcdir/\$pkgbase-\$pkgver"
@@ -867,8 +867,10 @@ pkgbase = btrfs-backup
 	makedepends = cmake
 	makedepends = extra-cmake-modules
 	makedepends = gcc
+	makedepends = kcoreaddons
 	makedepends = ki18n
 	makedepends = kirigami
+	makedepends = kjobwidgets
 	makedepends = kpackage
 	makedepends = libplasma
 	makedepends = nlohmann-json
@@ -893,9 +895,12 @@ pkgname = btrfs-backup
 	install = btrfs-backup.install
 
 pkgname = btrfs-backup-kde
-	pkgdesc = Plasma status widget for btrfs-backup
+	pkgdesc = Plasma status widget and progress monitor for btrfs-backup
 	depends = btrfs-backup=$VERSION-$PKGREL
+	depends = kcoreaddons
+	depends = ki18n
 	depends = kirigami
+	depends = kjobwidgets
 	depends = kservice
 	depends = libplasma
 	depends = qt6-base
@@ -964,14 +969,17 @@ pkgname = $KDE_PKGNAME
 pkgbase = $PKGBASE
 xdata = pkgtype=pkg
 pkgver = $VERSION-$PKGREL
-pkgdesc = Plasma status widget for btrfs-backup
+pkgdesc = Plasma status widget and progress monitor for btrfs-backup
 builddate = $BUILD_DATE
 packager = local reproducible build
 size = $INSTALLED_SIZE
 arch = $ARCH
 license = GPL-3.0-or-later
 depend = btrfs-backup=$VERSION-$PKGREL
+depend = kcoreaddons
+depend = ki18n
 depend = kirigami
+depend = kjobwidgets
 depend = kservice
 depend = libplasma
 depend = qt6-base
@@ -1184,6 +1192,9 @@ if [[ "$TARGET" == all || "$TARGET" == arch ]]; then
     grep -qx 'usr/lib/qt6/qml/org/btrfsbackup/plasma/qmldir' "$TMP_ROOT/package-kde-files.txt"
     grep -qx 'usr/lib/qt6/qml/org/btrfsbackup/plasma/libbtrfsbackup_plasma_backend.so' "$TMP_ROOT/package-kde-files.txt"
     grep -qx 'usr/lib/qt6/qml/org/btrfsbackup/plasma/libbtrfsbackup_plasma_backendplugin.so' "$TMP_ROOT/package-kde-files.txt"
+    grep -qx 'usr/bin/btrfs-backup-kde-monitor' "$TMP_ROOT/package-kde-files.txt"
+    grep -qx 'usr/lib/systemd/user/btrfs-backup-kde-monitor.service' "$TMP_ROOT/package-kde-files.txt"
+    grep -qx 'usr/lib/systemd/user/graphical-session.target.wants/btrfs-backup-kde-monitor.service' "$TMP_ROOT/package-kde-files.txt"
     if command -v pacman >/dev/null 2>&1; then
         pacman -Qip "$KDE_PACKAGE_ARCHIVE" >/dev/null
     fi

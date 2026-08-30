@@ -26,9 +26,64 @@ include(KDECompilerSettings NO_POLICY_SCOPE)
 include(CTest)
 
 find_package(Qt6 REQUIRED COMPONENTS Core DBus Qml Quick)
-find_package(KF6 REQUIRED COMPONENTS I18n Package)
+find_package(KF6 REQUIRED COMPONENTS CoreAddons I18n JobWidgets Package)
 find_package(Plasma REQUIRED)
 ki18n_install(plasmoid/po)
+
+add_library(
+    btrfsbackup_kde_manager_client STATIC
+    client/ManagerApi.cpp
+    client/ManagerApi.hpp
+)
+target_compile_features(btrfsbackup_kde_manager_client PUBLIC cxx_std_20)
+target_include_directories(
+    btrfsbackup_kde_manager_client
+    PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/client
+)
+target_link_libraries(
+    btrfsbackup_kde_manager_client
+    PUBLIC
+        Qt6::Core
+        Qt6::DBus
+)
+
+add_executable(
+    btrfs-backup-kde-monitor
+    progress/BackupProgressJob.cpp
+    progress/BackupProgressJob.hpp
+    progress/BackupProgressMonitor.cpp
+    progress/BackupProgressMonitor.hpp
+    progress/main.cpp
+)
+target_compile_features(btrfs-backup-kde-monitor PRIVATE cxx_std_20)
+target_compile_definitions(
+    btrfs-backup-kde-monitor
+    PRIVATE BTRFS_BACKUP_VERSION="${BTRFS_BACKUP_VERSION}"
+)
+target_link_libraries(
+    btrfs-backup-kde-monitor
+    PRIVATE
+        Qt6::Core
+        Qt6::DBus
+        btrfsbackup_kde_manager_client
+        KF6::CoreAddons
+        KF6::I18n
+        KF6::JobWidgets
+)
+install(TARGETS btrfs-backup-kde-monitor RUNTIME DESTINATION "${KDE_INSTALL_BINDIR}")
+install(
+    FILES systemd/btrfs-backup-kde-monitor.service
+    DESTINATION lib/systemd/user
+)
+install(CODE [[
+    set(wants_dir "${CMAKE_INSTALL_PREFIX}/lib/systemd/user/graphical-session.target.wants")
+    file(MAKE_DIRECTORY "${wants_dir}")
+    file(CREATE_LINK
+        "../btrfs-backup-kde-monitor.service"
+        "${wants_dir}/btrfs-backup-kde-monitor.service"
+        SYMBOLIC
+    )
+]])
 
 if(COMMAND qt_policy)
     qt_policy(SET QTP0001 NEW)
@@ -51,9 +106,12 @@ target_link_libraries(btrfsbackup_plasma_backend
         Qt6::Core
         Qt6::DBus
         Qt6::Qml
+        btrfsbackup_kde_manager_client
 )
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(btrfsbackup_kde_manager_client PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(btrfs-backup-kde-monitor PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(btrfsbackup_plasma_backend PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 
@@ -105,6 +163,30 @@ install(
 )
 
 if(BUILD_TESTING)
+    add_executable(
+        plasma-progress-job-tests
+        progress/BackupProgressJob.cpp
+        progress/BackupProgressJob.hpp
+        progress/tests/backup_progress_job_tests.cpp
+    )
+    target_compile_features(plasma-progress-job-tests PRIVATE cxx_std_20)
+    target_include_directories(
+        plasma-progress-job-tests
+        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/progress
+    )
+    target_link_libraries(
+        plasma-progress-job-tests
+        PRIVATE
+            Qt6::Core
+            btrfsbackup_kde_manager_client
+            KF6::CoreAddons
+            KF6::I18n
+    )
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(plasma-progress-job-tests PRIVATE -Wall -Wextra -Wpedantic)
+    endif()
+    add_test(NAME plasma-progress-job COMMAND plasma-progress-job-tests)
+
     find_program(
         QML_EXECUTABLE
         NAMES qml
