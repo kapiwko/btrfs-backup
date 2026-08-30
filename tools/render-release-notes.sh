@@ -51,7 +51,16 @@ awk -v heading="$section_heading" '
         exit
     }
     in_release {
-        print
+        content = content $0 ORS
+        if ($0 ~ /^### /) {
+            has_subheading = 1
+        }
+    }
+    END {
+        if (!has_subheading) {
+            print "\n### Highlights"
+        }
+        printf "%s", content
     }
 ' "$ROOT/CHANGELOG.md"
 
@@ -60,6 +69,7 @@ cat <<EOF
 
 Download the package or archive appropriate for your system from the attached release assets. Verify downloaded files with \`SHA256SUMS\`; \`BUILD-REPORT.txt\` records the packaged version, target and test mode.
 EOF
+printf '\n'
 
 if [[ -n "$PREVIOUS_TAG" ]]; then
     cat <<EOF
