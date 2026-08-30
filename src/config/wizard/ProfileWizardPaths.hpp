@@ -6,8 +6,8 @@
 
 #include <filesystem>
 
-namespace btrfsbackup::config {
+namespace btrfsbackup::config::wizard {
 
 std::filesystem::path default_output_dir();
 
-} // namespace btrfsbackup::config
+} // namespace btrfsbackup::config::wizard

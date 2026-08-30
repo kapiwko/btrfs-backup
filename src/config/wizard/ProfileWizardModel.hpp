@@ -11,7 +11,7 @@
 
 #include <config/domain/Profile.hpp>
 
-namespace btrfsbackup::config {
+namespace btrfsbackup::config::wizard {
 
 struct ProfileWizardSourceAnswers {
     std::string id;
@@ -48,4 +48,4 @@ struct ProfileWizardAnswers {
 
 Profile profile_from_wizard_answers(const ProfileWizardAnswers& answers);
 
-} // namespace btrfsbackup::config
+} // namespace btrfsbackup::config::wizard

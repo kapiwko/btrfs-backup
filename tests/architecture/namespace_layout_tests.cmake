@@ -10,6 +10,7 @@ set(namespace_layout
     "src/cli/status|btrfsbackup::cli::status"
     "src/cli/target|btrfsbackup::cli::target"
     "src/config/json|btrfsbackup::config::json"
+    "src/config/wizard|btrfsbackup::config::wizard"
     "src/daemon/dbus|btrfsbackup::daemon::dbus"
     "src/daemon/control|btrfsbackup::daemon::control"
     "src/daemon/query|btrfsbackup::daemon::query"

@@ -61,7 +61,7 @@ std::vector<std::string> selected_sources_from_input(const std::vector<std::stri
     if (candidates.empty()) {
         throw ValidationError("no mounted Btrfs source subvolumes were detected");
     }
-    std::string normalized = btrfsbackup::config::trim_text(selection);
+    std::string normalized = btrfsbackup::config::wizard::trim_text(selection);
     if (normalized == "a" || normalized == "A") {
         return candidates;
     }
@@ -71,7 +71,7 @@ std::vector<std::string> selected_sources_from_input(const std::vector<std::stri
     std::istringstream tokens(normalized);
     std::string token;
     while (std::getline(tokens, token, ',')) {
-        token = btrfsbackup::config::trim_text(token);
+        token = btrfsbackup::config::wizard::trim_text(token);
         if (token.empty() || !std::all_of(token.begin(), token.end(), [](unsigned char c) { return std::isdigit(c); })) {
             throw ValidationError("invalid source selection: " + token);
         }
@@ -99,7 +99,7 @@ std::vector<std::string> select_sources(std::istream& input, std::ostream& outpu
         output << " " << (i + 1) << ") " << candidates[i] << '\n';
     }
 
-    std::string selection = btrfsbackup::config::prompt_value(
+    std::string selection = btrfsbackup::config::wizard::prompt_value(
         input,
         output,
         "Select one or more sources, comma-separated, or 'a' for all",

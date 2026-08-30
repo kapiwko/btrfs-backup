@@ -85,7 +85,7 @@ std::vector<DeviceCandidate> detect_luks_devices() {
             continue;
         }
         std::string transport = udev_property(device.get(), "ID_BUS");
-        devices.push_back({devnode, devtype == "partition" ? "part" : "disk", "", transport, udev_property(device.get(), "ID_MODEL"), udev_property(device.get(), "ID_SERIAL_SHORT"), lower(uuid), btrfsbackup::config::trim_text(udev_sysattr(device.get(), "removable")) == "1" || transport == "usb"});
+        devices.push_back({devnode, devtype == "partition" ? "part" : "disk", "", transport, udev_property(device.get(), "ID_MODEL"), udev_property(device.get(), "ID_SERIAL_SHORT"), lower(uuid), btrfsbackup::config::wizard::trim_text(udev_sysattr(device.get(), "removable")) == "1" || transport == "usb"});
     }
     std::sort(devices.begin(), devices.end(), [](const DeviceCandidate& left, const DeviceCandidate& right) {
         return left.path < right.path;
@@ -144,7 +144,7 @@ DeviceCandidate select_device(std::istream& input, std::ostream& output) {
                << " | " << (devices[i].serial.empty() ? "no-serial" : devices[i].serial)
                << '\n';
     }
-    std::string choice = btrfsbackup::config::prompt_value(input, output, "Select backup device", "1");
+    std::string choice = btrfsbackup::config::wizard::prompt_value(input, output, "Select backup device", "1");
     if (!std::all_of(choice.begin(), choice.end(), [](unsigned char c) { return std::isdigit(c); })) {
         throw ValidationError("invalid device selection: " + choice);
     }
