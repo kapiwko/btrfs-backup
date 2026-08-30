@@ -29,7 +29,7 @@
 #include <platform/linux/PosixCommandRunner.hpp>
 #include <platform/linux/PosixDurableFileOperations.hpp>
 #include <platform/linux/PosixFileSystem.hpp>
-#include <platform/linux/PosixTransferPipeline.hpp>
+#include <platform/linux/transfer/PosixTransferPipeline.hpp>
 #include <platform/linux/SafeDirectoryRoot.hpp>
 #include <platform/linux/SystemdTargetManager.hpp>
 #include <platform/linux/TrustedExecutable.hpp>
@@ -95,7 +95,7 @@ struct RunnerComposition::Impl {
     platform::linux::SafeDirectoryRootFactory safe_directories;
     platform::linux::LibBtrfsOperations btrfs;
     platform::linux::PosixFileSystem filesystem;
-    platform::linux::PosixTransferPipeline transfers;
+    platform::linux::transfer::PosixTransferPipeline transfers;
     platform::linux::PosixDurableFileOperations durable_files;
     state::FilePendingMarkerStore pending_markers;
     backup::BackupDiscovery discovery;

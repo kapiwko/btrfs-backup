@@ -20,8 +20,8 @@
 
 #include <backup/transfer/AsyncTransfer.hpp>
 #include <backup/transfer/TransferSpeedEstimator.hpp>
-#include <platform/linux/PosixCancellationSignal.hpp>
-#include <platform/linux/PosixTransferPipeline.hpp>
+#include <platform/linux/transfer/PosixCancellationSignal.hpp>
+#include <platform/linux/transfer/PosixTransferPipeline.hpp>
 
 #include "support/ValidationTestHelpers.hpp"
 
@@ -88,7 +88,7 @@ void test_cancellation_token() {
 
 void test_posix_cancellation_signal_wakes_poll() {
     btrfsbackup::CancellationToken cancellation;
-    btrfsbackup::platform::linux::PosixCancellationSignal signal(cancellation);
+    btrfsbackup::platform::linux::transfer::PosixCancellationSignal signal(cancellation);
     pollfd fd{
         .fd = signal.fd(),
         .events = POLLIN,
@@ -102,7 +102,7 @@ void test_posix_cancellation_signal_wakes_poll() {
     fd.revents = 0;
     test_helpers::expect_eq("drained cancellation poll", std::to_string(poll(&fd, 1, 0)), "0");
 
-    btrfsbackup::platform::linux::PosixCancellationSignal late_signal(cancellation);
+    btrfsbackup::platform::linux::transfer::PosixCancellationSignal late_signal(cancellation);
     pollfd late_fd{.fd = late_signal.fd(), .events = POLLIN, .revents = 0};
     test_helpers::expect_eq("late cancellation adapter poll", std::to_string(poll(&late_fd, 1, 0)), "1");
 }
@@ -191,11 +191,11 @@ void test_transfer_speed_uses_recent_samples() {
 }
 
 void test_posix_pipeline_validates_termination_policy() {
-    test_helpers::expect_validation_error("zero terminate period", [] { btrfsbackup::platform::linux::PosixTransferPipeline pipeline({
+    test_helpers::expect_validation_error("zero terminate period", [] { btrfsbackup::platform::linux::transfer::PosixTransferPipeline pipeline({
                                                                             .terminate_grace_period = std::chrono::milliseconds(0),
                                                                             .kill_reap_period = std::chrono::milliseconds(100),
                                                                         }); }, "termination periods must be positive");
-    test_helpers::expect_validation_error("zero kill reap period", [] { btrfsbackup::platform::linux::PosixTransferPipeline pipeline({
+    test_helpers::expect_validation_error("zero kill reap period", [] { btrfsbackup::platform::linux::transfer::PosixTransferPipeline pipeline({
                                                                             .terminate_grace_period = std::chrono::milliseconds(100),
                                                                             .kill_reap_period = std::chrono::milliseconds(0),
                                                                         }); }, "termination periods must be positive");
@@ -205,7 +205,7 @@ void test_posix_pipeline_reaps_children_when_setup_unwinds() {
     const std::filesystem::path root = test_helpers::test_root("transfer-pipeline", "setup-unwind");
     const std::filesystem::path producer_pid_path = root / "producer.pid";
     const std::filesystem::path consumer_pid_path = root / "consumer.pid";
-    btrfsbackup::platform::linux::PosixTransferPipeline pipeline({
+    btrfsbackup::platform::linux::transfer::PosixTransferPipeline pipeline({
         .terminate_grace_period = std::chrono::milliseconds(50),
         .kill_reap_period = std::chrono::milliseconds(500),
     });
@@ -246,7 +246,7 @@ void test_posix_pipeline_reaps_children_when_setup_unwinds() {
 
 void test_posix_pipeline_preserves_stream_integrity() {
     constexpr std::uint64_t transfer_bytes = 8ULL * 1024ULL * 1024ULL;
-    btrfsbackup::platform::linux::PosixTransferPipeline pipeline;
+    btrfsbackup::platform::linux::transfer::PosixTransferPipeline pipeline;
     RecordingEventSink sink;
     btrfsbackup::CancellationToken cancellation;
     const std::filesystem::path root = test_helpers::test_root("transfer-pipeline", "splice-integrity");
@@ -281,7 +281,7 @@ void test_posix_pipeline_preserves_stream_integrity() {
 }
 
 void test_posix_pipeline_transfers_bytes() {
-    btrfsbackup::platform::linux::PosixTransferPipeline pipeline;
+    btrfsbackup::platform::linux::transfer::PosixTransferPipeline pipeline;
     RecordingEventSink sink;
     btrfsbackup::CancellationToken cancellation;
 
@@ -316,7 +316,7 @@ void test_posix_pipeline_transfers_bytes() {
 }
 
 void test_posix_pipeline_transfers_gibibyte_under_backpressure() {
-    btrfsbackup::platform::linux::PosixTransferPipeline pipeline;
+    btrfsbackup::platform::linux::transfer::PosixTransferPipeline pipeline;
     btrfsbackup::backup::transfer::NullTransferEventSink sink;
     btrfsbackup::CancellationToken cancellation;
     constexpr std::uint64_t transfer_bytes = 1024ULL * 1024ULL * 1024ULL;
@@ -336,7 +336,7 @@ void test_posix_pipeline_transfers_gibibyte_under_backpressure() {
 }
 
 void test_posix_pipeline_reports_producer_failure() {
-    btrfsbackup::platform::linux::PosixTransferPipeline pipeline;
+    btrfsbackup::platform::linux::transfer::PosixTransferPipeline pipeline;
     RecordingEventSink sink;
     btrfsbackup::CancellationToken cancellation;
 
@@ -358,7 +358,7 @@ void test_posix_pipeline_reports_producer_failure() {
 void test_posix_pipeline_bounds_large_stderr_without_deadlock() {
     constexpr std::uint64_t diagnostic_bytes = 100ULL * 1024ULL * 1024ULL;
     constexpr std::size_t retained_bytes = 2U * 64U * 1024U;
-    btrfsbackup::platform::linux::PosixTransferPipeline pipeline;
+    btrfsbackup::platform::linux::transfer::PosixTransferPipeline pipeline;
     btrfsbackup::backup::transfer::NullTransferEventSink sink;
     btrfsbackup::CancellationToken cancellation;
     const auto started_at = std::chrono::steady_clock::now();
@@ -400,7 +400,7 @@ void test_posix_pipeline_bounds_large_stderr_without_deadlock() {
 }
 
 void test_posix_pipeline_reports_missing_producer() {
-    btrfsbackup::platform::linux::PosixTransferPipeline pipeline;
+    btrfsbackup::platform::linux::transfer::PosixTransferPipeline pipeline;
     RecordingEventSink sink;
     btrfsbackup::CancellationToken cancellation;
 
@@ -424,7 +424,7 @@ void test_posix_pipeline_reports_missing_producer() {
 }
 
 void test_posix_pipeline_reports_consumer_failure() {
-    btrfsbackup::platform::linux::PosixTransferPipeline pipeline;
+    btrfsbackup::platform::linux::transfer::PosixTransferPipeline pipeline;
     RecordingEventSink sink;
     btrfsbackup::CancellationToken cancellation;
 
@@ -444,7 +444,7 @@ void test_posix_pipeline_reports_consumer_failure() {
 }
 
 void test_posix_pipeline_reports_missing_consumer() {
-    btrfsbackup::platform::linux::PosixTransferPipeline pipeline;
+    btrfsbackup::platform::linux::transfer::PosixTransferPipeline pipeline;
     RecordingEventSink sink;
     btrfsbackup::CancellationToken cancellation;
 
@@ -468,7 +468,7 @@ void test_posix_pipeline_reports_missing_consumer() {
 }
 
 void test_posix_pipeline_reaps_live_producer_when_consumer_spawn_fails() {
-    btrfsbackup::platform::linux::PosixTransferPipeline pipeline({
+    btrfsbackup::platform::linux::transfer::PosixTransferPipeline pipeline({
         .terminate_grace_period = std::chrono::milliseconds(100),
         .kill_reap_period = std::chrono::milliseconds(500),
     });
@@ -500,7 +500,7 @@ void test_posix_pipeline_reaps_live_producer_when_consumer_spawn_fails() {
 }
 
 void test_posix_pipeline_handles_early_consumer_exit() {
-    btrfsbackup::platform::linux::PosixTransferPipeline pipeline;
+    btrfsbackup::platform::linux::transfer::PosixTransferPipeline pipeline;
     RecordingEventSink sink;
     btrfsbackup::CancellationToken cancellation;
 
@@ -519,7 +519,7 @@ void test_posix_pipeline_handles_early_consumer_exit() {
 }
 
 void test_posix_pipeline_honors_cancellation() {
-    btrfsbackup::platform::linux::PosixTransferPipeline pipeline;
+    btrfsbackup::platform::linux::transfer::PosixTransferPipeline pipeline;
     RecordingEventSink sink;
     btrfsbackup::CancellationToken cancellation;
     cancellation.request_cancel();
@@ -538,7 +538,7 @@ void test_posix_pipeline_honors_cancellation() {
 }
 
 void test_posix_pipeline_cancellation_wakes_event_loop() {
-    btrfsbackup::platform::linux::PosixTransferPipeline pipeline({
+    btrfsbackup::platform::linux::transfer::PosixTransferPipeline pipeline({
         .terminate_grace_period = std::chrono::milliseconds(100),
         .kill_reap_period = std::chrono::milliseconds(500),
     });
@@ -580,7 +580,7 @@ void test_posix_pipeline_cancellation_wakes_event_loop() {
 }
 
 void test_posix_pipeline_cancels_while_backpressured() {
-    btrfsbackup::platform::linux::PosixTransferPipeline pipeline({
+    btrfsbackup::platform::linux::transfer::PosixTransferPipeline pipeline({
         .terminate_grace_period = std::chrono::milliseconds(100),
         .kill_reap_period = std::chrono::milliseconds(500),
     });
@@ -615,7 +615,7 @@ void test_posix_pipeline_cancels_while_backpressured() {
 }
 
 void test_posix_pipeline_kills_children_that_ignore_sigterm() {
-    btrfsbackup::platform::linux::PosixTransferPipeline pipeline({
+    btrfsbackup::platform::linux::transfer::PosixTransferPipeline pipeline({
         .terminate_grace_period = std::chrono::milliseconds(100),
         .kill_reap_period = std::chrono::milliseconds(500),
     });
@@ -654,7 +654,7 @@ void test_posix_pipeline_kills_children_that_ignore_sigterm() {
 }
 
 void test_async_handle_destructor_kills_stubborn_children() {
-    btrfsbackup::platform::linux::PosixTransferPipeline pipeline({
+    btrfsbackup::platform::linux::transfer::PosixTransferPipeline pipeline({
         .terminate_grace_period = std::chrono::milliseconds(100),
         .kill_reap_period = std::chrono::milliseconds(500),
     });
@@ -712,7 +712,7 @@ void test_threaded_async_pipeline_runs_in_background() {
 }
 
 void test_threaded_posix_pipeline_spawns_commands_in_worker_thread() {
-    btrfsbackup::platform::linux::PosixTransferPipeline pipeline;
+    btrfsbackup::platform::linux::transfer::PosixTransferPipeline pipeline;
     btrfsbackup::backup::transfer::ThreadedAsyncTransferPipeline async(pipeline);
     RecordingEventSink sink;
 

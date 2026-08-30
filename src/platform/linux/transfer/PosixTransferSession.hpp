@@ -5,9 +5,9 @@
 #pragma once
 
 #include <backup/transfer/ITransferPipeline.hpp>
-#include <platform/linux/PosixTransferPipeline.hpp>
+#include <platform/linux/transfer/PosixTransferPipeline.hpp>
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::transfer {
 
 class PosixTransferSession final {
   public:
@@ -27,4 +27,4 @@ class PosixTransferSession final {
     TransferTerminationPolicy termination_policy_;
 };
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::transfer
