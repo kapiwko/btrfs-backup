@@ -59,4 +59,4 @@ same systemd units as a controlled fallback.
   migration, but new installations do not need them.
 - Service and eject ordering require systemd integration tests.
 - The runner must validate the mounted target identity before writing.
-- Automatic backup remains independent of KDE and the future manager.
+- Automatic backup remains independent of KDE and the optional manager.

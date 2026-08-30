@@ -57,9 +57,10 @@ Start with these documents before changing runtime behavior:
 - [testing strategy](docs/testing.md).
 - [release notes and publication](docs/releasing.md).
 
-The active sprint is in [TODO.md](TODO.md), long-term direction is in
-[ROADMAP.md](ROADMAP.md), proposed designs are under `docs/design/`, and
-accepted architectural decisions are under `docs/adr/`.
+Current sprint status, including the absence of an active sprint, is in
+[TODO.md](TODO.md). Long-term direction is in [ROADMAP.md](ROADMAP.md), proposed
+designs are under `docs/design/`, and accepted architectural decisions are
+under `docs/adr/`.
 
 Keep CLI entry points thin. Reusable behavior belongs in the owning domain
 under `src/`. The base runtime must not acquire a KDE, QML or graphical-session

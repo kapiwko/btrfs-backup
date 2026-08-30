@@ -1,9 +1,9 @@
 # Product Roadmap
 
 This roadmap describes direction, not sprint commitments or release promises.
-The active sprint is maintained in [TODO.md](TODO.md). Proposed architecture is
-developed in [`docs/design`](docs/design/), while accepted constraints are
-recorded in [`docs/adr`](docs/adr/).
+[TODO.md](TODO.md) records active sprint tasks when a sprint is defined.
+Proposed architecture is developed in [`docs/design`](docs/design/), while
+accepted constraints are recorded in [`docs/adr`](docs/adr/).
 
 ## Product Invariants
 
@@ -24,14 +24,19 @@ The optional system manager described in
 sanitized read APIs and polkit-protected start, cancel, validate and eject
 operations. Runner execution remains independent and owned by systemd.
 
-The next increments are:
+The manager baseline also includes state-change signals, restart-safe
+file-backed reconstruction, explicit target and safe-removal state, secret-free
+audit records, a shared C++ desktop client, the Plasma status widget and a KDE
+session monitor that publishes active runs as KJob progress.
 
-- state-change signals and recovery of presentation state after manager restart;
+The remaining system-control increments are:
+
 - administrative profile save/delete with separate hook-change authorization;
 - destructive device preparation only after repeated device-identity checks;
-- explicit `TargetStatus` and safe-removal state;
-- a shared C++ client, KDE session monitor, KJob integration and KCM;
-- privileged-operation audit records without secrets.
+- a KCM for profile inspection, target validation and controlled configuration
+  writes;
+- scheduling and persistent request-queue integration without making the
+  manager responsible for runner execution.
 
 The manager remains an outer adapter. The systemd runner continues to execute
 an already-started backup if the manager or desktop disappears.
@@ -72,8 +77,6 @@ Improve configuration without weakening the privileged boundary:
   repeated device-identity checks and typed confirmation;
 - finish media preparation with profile creation, trial backup and trial
   restore;
-- model LUKS unlock policy explicitly while keeping keyfile and passphrase as
-  baseline modes;
 - evaluate TPM2, FIDO2 and PKCS#11 enrollment only after recovery-key and LUKS
   header-backup guidance is in place;
 - consider `libcryptsetup` only after manager authorization, cancellation and
@@ -135,14 +138,14 @@ retention, scheduling, power and transport failures. Add:
 - health output suitable for Nagios/Icinga and OpenMetrics exporters;
 - history statistics and report export;
 - configuration history, diff and transactional rollback;
-- privileged audit events tied to D-Bus caller identity;
 - stable CLI quick commands for status, manual request, eject, history and
   restore, all routed through the request queue and common control API.
 
 ## C++ Architecture And Quality
 
 Preserve the domain, port, adapter, persistence, CLI and daemon boundaries
-established in 3.0 without another directory migration or behavioral rewrite:
+established in the 3.x line without another broad directory migration or
+behavioral rewrite:
 
 - split a broad effect or persistence component only when a concrete ownership
   or lifecycle problem remains;
@@ -152,7 +155,9 @@ established in 3.0 without another directory migration or behavioral rewrite:
   outcomes where failure is expected;
 - keep CMake interfaces minimal and model targets free of Linux, JSON and UI
   dependencies;
-- add ASan, UBSan and compiler-matrix gates after establishing clean baselines.
+- maintain the existing ASan, UBSan, GCC, Clang, formatting and static-analysis
+  gates, and extend compiler coverage to manager-enabled and manager-disabled
+  builds.
 
 Refactors must preserve public CLI, profile, status, history, recovery and
 package contracts and pass the real-Btrfs regression suite when storage
@@ -160,7 +165,7 @@ semantics are touched.
 
 ## Interoperability And Desktop
 
-After stable CLI and D-Bus operations exist, add optional integrations in this
+Build optional integrations on the stable CLI and D-Bus operations in this
 order:
 
 - detect and later adopt suitable Snapper snapshots;
@@ -174,11 +179,11 @@ No integration may become a required dependency of the base runtime.
 
 ## Verification Investment
 
-Maintain unit and real-Btrfs Docker coverage and the opt-in QEMU Arch hotplug
-test. Extend QEMU coverage from its current package installation, USB attach,
-udev delivery and systemd startup baseline to device loss, ENOSPC and
-interruption at commit boundaries. Add fuzzing for untrusted JSON and path
-inputs, sanitizers, formatting/static-analysis gates and GCC/Clang coverage.
+Maintain unit and real-Btrfs Docker coverage, the opt-in QEMU Arch hotplug test,
+ASan, UBSan, formatting, static analysis and GCC/Clang coverage. Extend QEMU
+coverage from its current package installation, USB attach, udev delivery and
+systemd startup baseline to device loss, ENOSPC and interruption at commit
+boundaries. Add fuzzing for untrusted JSON and path inputs.
 
 ## Open Source And Release Maturity
 
@@ -189,8 +194,6 @@ Bring contributor and release governance up to the level of the runtime:
 - add CodeQL as an appropriate pull-request gate;
 - validate pull-request titles against the documented Conventional Commits
   types and scopes, without adding a runtime dependency;
-- pin GitHub Actions by commit, enable Dependabot for Actions and review
-  workflow permissions;
 - automate tagged releases only after verifying `VERSION`, changelog, tests,
   reproducibility, checksums and artifact inventory;
 - derive changelog, release-note and SemVer automation from Conventional

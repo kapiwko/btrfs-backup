@@ -92,8 +92,9 @@ Finished runs are written atomically to:
 The root and per-profile directories use mode `0700`; JSON entries use mode
 `0600`. History retains diagnostic schema version 2 with the complete record,
 including names, run id, phase, messages, timestamps, detailed error code,
-`details`, recovery guidance, byte counters, and exit code. Reading history
-requires root or a future authorized system API.
+`details`, recovery guidance, byte counters, and exit code. Reading the full
+private history requires root. The system manager exposes a separate sanitized
+history projection for unprivileged clients.
 
 ## CLI
 
