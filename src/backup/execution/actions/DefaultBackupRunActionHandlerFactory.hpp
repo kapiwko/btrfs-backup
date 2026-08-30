@@ -14,7 +14,7 @@ class IPendingMarkerStore;
 class ISafeDirectoryRootFactory;
 class ITrustedExecutableResolver;
 class IClock;
-}
+} // namespace btrfsbackup::backup
 
 namespace btrfsbackup::backup::execution {
 
