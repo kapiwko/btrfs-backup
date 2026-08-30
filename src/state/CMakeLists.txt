@@ -27,6 +27,7 @@ add_library(btrfsbackup-state STATIC
     JsonFileBackupRunCheckpointStore.cpp
     RunHistory.cpp
     RunState.cpp
+    RunStatusBuilder.cpp
     RunStatusProjection.cpp
     StatusService.cpp
     StatusWriter.cpp
@@ -41,6 +42,7 @@ target_restricted_include_directories(btrfsbackup-state
         state/RunHistory.hpp
         state/RunState.hpp
         state/RunStatusProjection.hpp
+        state/RunStatusBuilder.hpp
         state/BackupRunSerialization.hpp
         state/StatusService.hpp
         state/StatusWriter.hpp
