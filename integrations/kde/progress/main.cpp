@@ -9,8 +9,8 @@
 
 #include <QCommandLineOption>
 #include <QCommandLineParser>
-#include <QCoreApplication>
 #include <QDBusConnection>
+#include <QGuiApplication>
 
 namespace {
 
@@ -19,9 +19,10 @@ constexpr auto session_service = "io.github.btrfsbackup.ProgressMonitor1";
 } // namespace
 
 int main(int argc, char* argv[]) {
-    QCoreApplication application(argc, argv);
-    QCoreApplication::setApplicationName(QStringLiteral("btrfs-backup-kde-monitor"));
-    QCoreApplication::setApplicationVersion(QStringLiteral(BTRFS_BACKUP_VERSION));
+    QGuiApplication application(argc, argv);
+    QGuiApplication::setApplicationName(QStringLiteral("btrfs-backup-kde-monitor"));
+    QGuiApplication::setApplicationVersion(QStringLiteral(BTRFS_BACKUP_VERSION));
+    QGuiApplication::setDesktopFileName(QStringLiteral("io.github.btrfsbackup.ProgressMonitor"));
     KLocalizedString::setApplicationDomain("plasma_applet_org.btrfsbackup.plasmoid");
 
     QCommandLineParser parser;
@@ -52,5 +53,5 @@ int main(int argc, char* argv[]) {
     KUiServerV2JobTracker tracker;
     BackupProgressMonitor monitor(manager_bus, tracker);
     monitor.start();
-    return QCoreApplication::exec();
+    return QGuiApplication::exec();
 }
