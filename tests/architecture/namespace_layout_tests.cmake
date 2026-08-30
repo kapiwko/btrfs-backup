@@ -11,6 +11,7 @@ set(namespace_layout
     "src/cli/target|btrfsbackup::cli::target"
     "src/config/json|btrfsbackup::config::json"
     "src/config/wizard|btrfsbackup::config::wizard"
+    "src/restore|btrfsbackup::restore"
     "src/platform/linux/config|btrfsbackup::platform::linux::config"
     "src/daemon/dbus|btrfsbackup::daemon::dbus"
     "src/daemon/control|btrfsbackup::daemon::control"
@@ -70,6 +71,8 @@ file(GLOB_RECURSE namespace_sources
     "${PROJECT_SOURCE_DIR}/src/daemon/*.hpp"
     "${PROJECT_SOURCE_DIR}/src/platform/linux/*.cpp"
     "${PROJECT_SOURCE_DIR}/src/platform/linux/*.hpp"
+    "${PROJECT_SOURCE_DIR}/src/restore/*.cpp"
+    "${PROJECT_SOURCE_DIR}/src/restore/*.hpp"
     "${PROJECT_SOURCE_DIR}/src/state/*.cpp"
     "${PROJECT_SOURCE_DIR}/src/state/*.hpp"
 )
@@ -112,6 +115,8 @@ file(GLOB_RECURSE domain_sources
     "${PROJECT_SOURCE_DIR}/src/daemon/*.hpp"
     "${PROJECT_SOURCE_DIR}/src/platform/linux/*.cpp"
     "${PROJECT_SOURCE_DIR}/src/platform/linux/*.hpp"
+    "${PROJECT_SOURCE_DIR}/src/restore/*.cpp"
+    "${PROJECT_SOURCE_DIR}/src/restore/*.hpp"
     "${PROJECT_SOURCE_DIR}/src/state/*.cpp"
     "${PROJECT_SOURCE_DIR}/src/state/*.hpp"
 )
