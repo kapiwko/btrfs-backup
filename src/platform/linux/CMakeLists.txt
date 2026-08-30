@@ -20,6 +20,7 @@ add_library(btrfsbackup-platform-linux STATIC
     PosixTransferSession.cpp
     PosixTransferProcess.cpp
     PosixTransferPump.cpp
+    ThreadSigpipeBlock.cpp
     Process.cpp
     ProcessSpawn.cpp
     SafeDirectoryRoot.cpp
@@ -68,6 +69,7 @@ target_restricted_include_directories(btrfsbackup-platform-linux
     PRIVATE_HEADERS
         platform/linux/ControlledCommandSession.hpp
         platform/linux/PosixTransferSession.hpp
+        platform/linux/ThreadSigpipeBlock.hpp
         platform/linux/SystemdMountedTargetSession.hpp
 )
 target_link_libraries(btrfsbackup-platform-linux

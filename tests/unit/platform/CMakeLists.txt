@@ -30,3 +30,5 @@ add_btrfsbackup_test(btrfsbackup-systemd-unit-tests SystemdUnitTests.cpp systemd
 add_btrfsbackup_test(btrfsbackup-trusted-directory-tests TrustedDirectoryTests.cpp trusted-directory-tests btrfsbackup-platform-linux)
 add_btrfsbackup_test(btrfsbackup-trusted-executable-tests TrustedExecutableTests.cpp trusted-executable-tests btrfsbackup-platform-linux)
 add_btrfsbackup_test(btrfsbackup-trusted-file-tests TrustedFileTests.cpp trusted-file-tests btrfsbackup-platform-linux)
+add_btrfsbackup_test(btrfsbackup-thread-sigpipe-block-tests ThreadSigpipeBlockTests.cpp thread-sigpipe-block-tests btrfsbackup-platform-linux)
+target_include_directories(btrfsbackup-thread-sigpipe-block-tests PRIVATE ${PROJECT_SOURCE_DIR}/src)
