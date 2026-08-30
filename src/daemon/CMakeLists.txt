@@ -3,51 +3,76 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 add_library(btrfsbackup-daemon-core STATIC
-    control/AuthorizedOperationCommand.cpp
-    query/DeviceStateQueryService.cpp
-    query/HistoryQueryService.cpp
-    query/ManagerDocumentReader.cpp
     ManagerAuditLog.cpp
-    dbus/ManagerErrorMapper.cpp
-    dbus/ManagerJsonCodec.cpp
-    ManagerService.cpp
-    control/OperationalControlService.cpp
-    query/ProfileQueryService.cpp
-    query/StatusQueryService.cpp
 )
 target_compile_features(btrfsbackup-daemon-core PUBLIC cxx_std_23)
-target_compile_definitions(
-    btrfsbackup-daemon-core
-    PRIVATE BTRFSBACKUP_INSTALL_BINDIR="${CMAKE_INSTALL_FULL_BINDIR}"
-)
 target_restricted_include_directories(btrfsbackup-daemon-core
     PUBLIC_HEADERS
-        daemon/dbus/DbusCallbackBoundary.hpp
-        daemon/control/AuthorizedOperationCommand.hpp
-        daemon/query/DeviceStateQueryService.hpp
-        daemon/query/HistoryQueryService.hpp
-        daemon/dbus/ManagerErrorMapper.hpp
-        daemon/dbus/ManagerErrors.hpp
-        daemon/dbus/ManagerJsonCodec.hpp
         daemon/ManagerAuditLog.hpp
         daemon/ManagerPaths.hpp
         daemon/ManagerResponseModels.hpp
-        daemon/ManagerService.hpp
-        daemon/control/OperationalControlService.hpp
-        daemon/query/ProfileQueryService.hpp
-        daemon/query/StatusQueryService.hpp
-        daemon/control/SystemdUnitController.hpp
-    PRIVATE_HEADERS
-        daemon/query/ManagerDocumentReader.hpp
+        daemon/dbus/ManagerErrors.hpp
 )
 target_link_libraries(btrfsbackup-daemon-core
     PUBLIC
-        btrfsbackup-config-domain
         btrfsbackup-manager-protocol
     PRIVATE
         btrfsbackup-config-json
         btrfsbackup-core
-        btrfsbackup-platform-linux
+)
+
+add_library(btrfsbackup-daemon-query STATIC
+    ManagerService.cpp
+    query/DeviceStateQueryService.cpp
+    query/HistoryQueryService.cpp
+    query/ManagerDocumentReader.cpp
+    query/ProfileQueryService.cpp
+    query/StatusQueryService.cpp
+)
+target_compile_features(btrfsbackup-daemon-query PUBLIC cxx_std_23)
+target_restricted_include_directories(btrfsbackup-daemon-query
+    PUBLIC_HEADERS
+        daemon/ManagerService.hpp
+        daemon/query/DeviceStateQueryService.hpp
+        daemon/query/HistoryQueryService.hpp
+        daemon/query/ProfileQueryService.hpp
+        daemon/query/StatusQueryService.hpp
+    PRIVATE_HEADERS
+        daemon/query/ManagerDocumentReader.hpp
+)
+target_link_libraries(btrfsbackup-daemon-query
+    PUBLIC
+        btrfsbackup-daemon-core
+    PRIVATE
+        btrfsbackup-config-domain
+        btrfsbackup-config-json
+        btrfsbackup-core
+        btrfsbackup-platform-linux-base
+        btrfsbackup-platform-linux-storage
+)
+
+add_library(btrfsbackup-daemon-control STATIC
+    control/AuthorizedOperationCommand.cpp
+    control/OperationalControlService.cpp
+)
+target_compile_features(btrfsbackup-daemon-control PUBLIC cxx_std_23)
+target_compile_definitions(
+    btrfsbackup-daemon-control
+    PRIVATE BTRFSBACKUP_INSTALL_BINDIR="${CMAKE_INSTALL_FULL_BINDIR}"
+)
+target_restricted_include_directories(btrfsbackup-daemon-control
+    PUBLIC_HEADERS
+        daemon/control/AuthorizedOperationCommand.hpp
+        daemon/control/OperationalControlService.hpp
+        daemon/control/SystemdUnitController.hpp
+)
+target_link_libraries(btrfsbackup-daemon-control
+    PUBLIC
+        btrfsbackup-config-domain
+        btrfsbackup-daemon-core
+    PRIVATE
+        btrfsbackup-core
+        btrfsbackup-manager-protocol
 )
 
 add_library(btrfsbackup-daemon-system-control STATIC
@@ -67,42 +92,64 @@ target_link_libraries(btrfsbackup-daemon-system-control
     PUBLIC
         btrfsbackup-backup-ports
         btrfsbackup-config-ports
-        btrfsbackup-daemon-core
+        btrfsbackup-daemon-control
     PRIVATE
-        btrfsbackup-platform-linux
+        btrfsbackup-platform-linux-filesystem
+        btrfsbackup-platform-linux-process
 )
 
-add_executable(btrfs-backupd
+add_library(btrfsbackup-daemon-dbus STATIC
+    dbus/ManagerChangeMonitor.cpp
     dbus/ManagerDbusObject.cpp
     dbus/ManagerDbusServer.cpp
-    main.cpp
-    dbus/ManagerChangeMonitor.cpp
+    dbus/ManagerErrorMapper.cpp
+    dbus/ManagerJsonCodec.cpp
     dbus/PolkitAuthorizer.cpp
 )
-target_restricted_include_directories(btrfs-backupd
-    PRIVATE_HEADERS
-        daemon/dbus/ManagerDbusObject.hpp
+target_compile_features(btrfsbackup-daemon-dbus PUBLIC cxx_std_23)
+target_restricted_include_directories(btrfsbackup-daemon-dbus
+    PUBLIC_HEADERS
+        daemon/dbus/DbusCallbackBoundary.hpp
         daemon/dbus/ManagerDbusServer.hpp
+        daemon/dbus/ManagerErrorMapper.hpp
+        daemon/dbus/ManagerJsonCodec.hpp
+    PRIVATE_HEADERS
         daemon/dbus/ManagerChangeMonitor.hpp
+        daemon/dbus/ManagerDbusObject.hpp
         daemon/dbus/PolkitAuthorizer.hpp
 )
-set_target_properties(btrfs-backupd PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR})
-target_link_libraries(btrfs-backupd
+target_link_libraries(btrfsbackup-daemon-dbus
+    PUBLIC
+        btrfsbackup-daemon-control
+        btrfsbackup-daemon-query
     PRIVATE
-        btrfsbackup-backup-ports
-        btrfsbackup-config-ports
-        btrfsbackup-daemon-core
-        btrfsbackup-daemon-system-control
-        btrfsbackup-platform-linux
-        btrfsbackup-platform-linux-config
-        btrfsbackup-state
+        btrfsbackup-config-json
+        btrfsbackup-core
+        btrfsbackup-platform-linux-base
         PkgConfig::SYSTEMD
         PkgConfig::UDEV
 )
 
+add_executable(btrfs-backupd
+    main.cpp
+)
+set_target_properties(btrfs-backupd PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR})
+target_link_libraries(btrfs-backupd
+    PRIVATE
+        btrfsbackup-daemon-dbus
+        btrfsbackup-daemon-system-control
+        btrfsbackup-platform-linux-config
+        btrfsbackup-platform-linux-filesystem
+        btrfsbackup-platform-linux-process
+        btrfsbackup-state
+)
+
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(btrfsbackup-daemon-core PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(btrfsbackup-daemon-query PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(btrfsbackup-daemon-control PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(btrfsbackup-daemon-system-control PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(btrfsbackup-daemon-dbus PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(btrfs-backupd PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 
