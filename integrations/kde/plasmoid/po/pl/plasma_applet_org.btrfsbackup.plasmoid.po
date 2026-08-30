@@ -159,6 +159,9 @@ msgstr "Dostępne miejsce jest poniżej skonfigurowanego minimum."
 msgid "Mounted"
 msgstr "Zamontowany"
 
+msgid "Unexpected mount"
+msgstr "Punkt montowania jest zajęty"
+
 msgid "Unlocked"
 msgstr "Odblokowany"
 

@@ -57,14 +57,19 @@ TargetStatus DeviceStateQueryService::get_device_state(
     const std::vector<btrfsbackup::backup::MountEntry> mounts =
         btrfsbackup::platform::linux::storage::read_mount_table(paths.mountinfo_path);
     const std::optional<btrfsbackup::backup::MountEntry> mounted_entry = btrfsbackup::backup::mount_at(mounts, mountpoint);
-    const bool mounted = mounted_entry.has_value();
+    const bool mount_present = mounted_entry.has_value();
+    const bool target_mounted = mount_present && mounted_entry->fstype == "btrfs" &&
+        mounted_entry->filesystem_uuid == profile.target.btrfs_uuid.value() &&
+        btrfsbackup::backup::mount_uses_mapper(mounts, mountpoint, mapper);
     const bool unlocked = fs::exists(mapper);
     const bool connected = fs::exists(profile.target.device);
 
     std::string state = "disconnected";
     bool safe_to_remove = false;
-    if (mounted) {
+    if (target_mounted) {
         state = "mounted";
+    } else if (mount_present) {
+        state = "unexpected-mount";
     } else if (unlocked) {
         state = "unlocked";
     } else if (connected) {
@@ -73,10 +78,7 @@ TargetStatus DeviceStateQueryService::get_device_state(
     }
     std::optional<btrfsbackup::backup::TargetStorageMeasurement> measurement;
     bool live = false;
-    const bool verified_mount = mounted_entry.has_value() && mounted_entry->fstype == "btrfs" &&
-        mounted_entry->filesystem_uuid == profile.target.btrfs_uuid.value() &&
-        btrfsbackup::backup::mount_uses_mapper(mounts, mountpoint, mapper);
-    if (verified_mount) {
+    if (target_mounted) {
         try {
             measurement = btrfsbackup::backup::TargetStorageMeasurement{
                 .space = impl_->space_probe.measure_verified_mount(mountpoint, *mounted_entry),
@@ -113,7 +115,7 @@ TargetStatus DeviceStateQueryService::get_device_state(
         .state = state,
         .connected = connected,
         .unlocked = unlocked,
-        .mounted = mounted,
+        .mounted = target_mounted,
         .safe_to_remove = safe_to_remove,
         .storage = storage,
     };
