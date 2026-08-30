@@ -7,7 +7,7 @@
 #include <stdexcept>
 #include <string>
 
-namespace btrfsbackup::daemon {
+namespace btrfsbackup::daemon::dbus {
 
 enum class ManagerErrorCode {
     InvalidRequest,
@@ -34,4 +34,4 @@ class ManagerOperationError final : public std::runtime_error {
     ManagerErrorCode code_;
 };
 
-} // namespace btrfsbackup::daemon
+} // namespace btrfsbackup::daemon::dbus

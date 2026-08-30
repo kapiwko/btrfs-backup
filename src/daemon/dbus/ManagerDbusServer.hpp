@@ -12,7 +12,7 @@
 #include <daemon/ManagerService.hpp>
 #include <daemon/control/OperationalControlService.hpp>
 
-namespace btrfsbackup::daemon {
+namespace btrfsbackup::daemon::dbus {
 
 int run_dbus_server(
     ManagerService& service,
@@ -22,4 +22,4 @@ int run_dbus_server(
     const std::string& bus_address = {}
 );
 
-} // namespace btrfsbackup::daemon
+} // namespace btrfsbackup::daemon::dbus

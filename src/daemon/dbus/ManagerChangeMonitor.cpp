@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <daemon/ManagerChangeMonitor.hpp>
+#include <daemon/dbus/ManagerChangeMonitor.hpp>
 
 #include <libudev.h>
 #include <sys/inotify.h>
@@ -54,7 +54,7 @@ bool json_file(const std::string& name) {
 
 } // namespace
 
-namespace btrfsbackup::daemon {
+namespace btrfsbackup::daemon::dbus {
 
 class ManagerChangeMonitor::Impl final {
   public:
@@ -340,4 +340,4 @@ void ManagerChangeMonitor::process_mount_events() {
     impl_->process_mount_events();
 }
 
-} // namespace btrfsbackup::daemon
+} // namespace btrfsbackup::daemon::dbus

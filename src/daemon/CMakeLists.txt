@@ -8,8 +8,8 @@ add_library(btrfsbackup-daemon-core STATIC
     query/HistoryQueryService.cpp
     query/ManagerDocumentReader.cpp
     ManagerAuditLog.cpp
-    ManagerErrorMapper.cpp
-    ManagerJsonCodec.cpp
+    dbus/ManagerErrorMapper.cpp
+    dbus/ManagerJsonCodec.cpp
     ManagerService.cpp
     control/OperationalControlService.cpp
     query/ProfileQueryService.cpp
@@ -22,13 +22,13 @@ target_compile_definitions(
 )
 target_restricted_include_directories(btrfsbackup-daemon-core
     PUBLIC_HEADERS
-        daemon/DbusCallbackBoundary.hpp
+        daemon/dbus/DbusCallbackBoundary.hpp
         daemon/control/AuthorizedOperationCommand.hpp
         daemon/query/DeviceStateQueryService.hpp
         daemon/query/HistoryQueryService.hpp
-        daemon/ManagerErrorMapper.hpp
-        daemon/ManagerErrors.hpp
-        daemon/ManagerJsonCodec.hpp
+        daemon/dbus/ManagerErrorMapper.hpp
+        daemon/dbus/ManagerErrors.hpp
+        daemon/dbus/ManagerJsonCodec.hpp
         daemon/ManagerAuditLog.hpp
         daemon/ManagerPaths.hpp
         daemon/ManagerResponseModels.hpp
@@ -73,18 +73,18 @@ target_link_libraries(btrfsbackup-daemon-system-control
 )
 
 add_executable(btrfs-backupd
-    ManagerDbusObject.cpp
-    ManagerDbusServer.cpp
+    dbus/ManagerDbusObject.cpp
+    dbus/ManagerDbusServer.cpp
     main.cpp
-    ManagerChangeMonitor.cpp
-    PolkitAuthorizer.cpp
+    dbus/ManagerChangeMonitor.cpp
+    dbus/PolkitAuthorizer.cpp
 )
 target_restricted_include_directories(btrfs-backupd
     PRIVATE_HEADERS
-        daemon/ManagerDbusObject.hpp
-        daemon/ManagerDbusServer.hpp
-        daemon/ManagerChangeMonitor.hpp
-        daemon/PolkitAuthorizer.hpp
+        daemon/dbus/ManagerDbusObject.hpp
+        daemon/dbus/ManagerDbusServer.hpp
+        daemon/dbus/ManagerChangeMonitor.hpp
+        daemon/dbus/PolkitAuthorizer.hpp
 )
 set_target_properties(btrfs-backupd PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR})
 target_link_libraries(btrfs-backupd

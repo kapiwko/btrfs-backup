@@ -25,7 +25,7 @@ set(approved_special_member_types
     "src/config/ports/IProfileRepository.hpp:IProfileRepository"
     "src/core/Cancellation.hpp:CancellationToken"
     "src/daemon/ManagerAuditLog.hpp:FileManagerAuditLog"
-    "src/daemon/ManagerChangeMonitor.hpp:ManagerChangeMonitor"
+    "src/daemon/dbus/ManagerChangeMonitor.hpp:ManagerChangeMonitor"
     "src/daemon/ManagerService.hpp:ManagerService"
     "src/daemon/control/OperationEnvironmentFile.hpp:OperationEnvironmentFile"
     "src/platform/linux/process/ChildProcess.hpp:ChildProcess"
