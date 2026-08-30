@@ -35,6 +35,7 @@
 #include <platform/linux/TrustedExecutable.hpp>
 #include <state/FilePendingMarkerStore.hpp>
 #include <state/FileRunStateRepository.hpp>
+#include <state/FileCancellationMonitor.hpp>
 
 namespace btrfsbackup::cli {
 namespace {
