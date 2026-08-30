@@ -55,10 +55,10 @@ PlasmaExtras.ExpandableListItem {
     isBusy: profileStatus.operationPending
     showDefaultActionButtonWhenBusy: false
     defaultActionButtonVisible: profileStatus.managerConnected
-        && (root.running || profileStatus.targetConnected)
+        && (root.running || profileStatus.target.connected)
     defaultActionButtonAction: QQC2.Action {
         enabled: !profileStatus.operationPending
-            && (root.running ? profileStatus.canCancel : profileStatus.targetConnected)
+            && (root.running ? profileStatus.canCancel : profileStatus.target.connected)
         icon.name: root.running ? "process-stop" : "media-playback-start"
         text: root.running ? translations.i18n("Cancel") : translations.i18n("Start backup")
         onTriggered: {
@@ -71,7 +71,7 @@ PlasmaExtras.ExpandableListItem {
     contextualActions: [
         QQC2.Action {
             enabled: profileStatus.managerConnected
-                && profileStatus.targetConnected
+                && profileStatus.target.connected
                 && !root.running
                 && !profileStatus.operationPending
             icon.name: "task-complete"
@@ -80,10 +80,10 @@ PlasmaExtras.ExpandableListItem {
         },
         QQC2.Action {
             enabled: profileStatus.managerConnected
-                && profileStatus.targetConnected
+                && profileStatus.target.connected
                 && !root.running
                 && !profileStatus.operationPending
-                && (profileStatus.targetMounted || profileStatus.targetUnlocked)
+                && (profileStatus.target.mounted || profileStatus.target.unlocked)
             icon.name: "media-eject"
             text: translations.i18n("Eject")
             onTriggered: profileStatus.ejectTarget()
@@ -139,7 +139,7 @@ PlasmaExtras.ExpandableListItem {
                     opacity: 0.6
                 }
                 PlasmaComponents3.Label {
-                    text: profileStatus.targetName || root.targetNameHint || translations.i18n("Unknown")
+                    text: profileStatus.target.name || profileStatus.targetName || root.targetNameHint || translations.i18n("Unknown")
                     Layout.fillWidth: true
                     elide: Text.ElideMiddle
                     font: Kirigami.Theme.smallFont
@@ -152,7 +152,7 @@ PlasmaExtras.ExpandableListItem {
                     opacity: 0.6
                 }
                 PlasmaComponents3.Label {
-                    text: root.targetStateText(profileStatus.targetState)
+                    text: root.targetStateText(profileStatus.target.state)
                     Layout.fillWidth: true
                     elide: Text.ElideRight
                     font: Kirigami.Theme.smallFont
@@ -267,9 +267,9 @@ PlasmaExtras.ExpandableListItem {
     }
 
     function targetIcon() {
-        if (!profileStatus.targetConnected)
+        if (!profileStatus.target.connected)
             return "drive-removable-media-symbolic"
-        if (profileStatus.targetMounted)
+        if (profileStatus.target.mounted)
             return "drive-harddisk-symbolic"
         return "drive-removable-media-symbolic"
     }
@@ -289,8 +289,8 @@ PlasmaExtras.ExpandableListItem {
             return profileStatus.lastError
         if (root.running)
             return root.activityText(profileStatus.activity, profileStatus.phase)
-        const target = profileStatus.targetName || root.targetNameHint || translations.i18n("Backup target")
-        return target + " - " + root.targetStateText(profileStatus.targetState)
+        const target = profileStatus.target.name || profileStatus.targetName || root.targetNameHint || translations.i18n("Backup target")
+        return target + " - " + root.targetStateText(profileStatus.target.state)
     }
 
     function statusText(state) {
@@ -343,7 +343,7 @@ PlasmaExtras.ExpandableListItem {
         switch (state) {
         case "mounted": return translations.i18n("Mounted")
         case "unlocked": return translations.i18n("Unlocked")
-        case "connected": return profileStatus.safeToRemove
+        case "connected": return profileStatus.target.safeToRemove
             ? translations.i18n("Safe to remove")
             : translations.i18n("Connected")
         case "disconnected": return translations.i18n("Disconnected")

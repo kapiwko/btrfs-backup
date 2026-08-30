@@ -104,6 +104,8 @@ qt_add_qml_module(btrfsbackup_plasma_backend
     SOURCES
         plasmoid/src/BackupStatusModel.cpp
         plasmoid/src/BackupStatusModel.hpp
+        plasmoid/src/TargetStatusModel.cpp
+        plasmoid/src/TargetStatusModel.hpp
 )
 
 target_compile_features(btrfsbackup_plasma_backend PRIVATE cxx_std_23)
@@ -187,6 +189,29 @@ if(BUILD_TESTING)
     target_link_libraries(kde-manager-api-tests PRIVATE btrfsbackup_kde_manager_client Qt6::Core)
     add_test(NAME kde-manager-api COMMAND kde-manager-api-tests)
     set_tests_properties(kde-manager-api PROPERTIES LABELS kde)
+
+    add_executable(
+        plasma-target-status-model-tests
+        plasmoid/src/TargetStatusModel.cpp
+        plasmoid/src/TargetStatusModel.hpp
+        plasmoid/tests/TargetStatusModelTests.cpp
+    )
+    target_compile_features(plasma-target-status-model-tests PRIVATE cxx_std_23)
+    target_include_directories(
+        plasma-target-status-model-tests
+        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/plasmoid/src
+    )
+    target_link_libraries(
+        plasma-target-status-model-tests
+        PRIVATE
+            Qt6::Core
+            btrfsbackup_kde_manager_client
+    )
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(plasma-target-status-model-tests PRIVATE -Wall -Wextra -Wpedantic)
+    endif()
+    add_test(NAME plasma-target-status-model COMMAND plasma-target-status-model-tests)
+    set_tests_properties(plasma-target-status-model PROPERTIES LABELS kde)
 
     add_executable(
         plasma-progress-job-tests
