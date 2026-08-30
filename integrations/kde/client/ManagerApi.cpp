@@ -11,6 +11,10 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 
+#include <limits>
+
+#include <state/document/RunStatusDocumentCodec.hpp>
+
 namespace btrfsbackup::kde {
 
 ManagerEventSubscriber::ManagerEventSubscriber(QDBusConnection bus, QObject* parent)
@@ -116,44 +120,32 @@ std::optional<QList<ProfileSummary>> parse_profiles(const QString& payload) {
 }
 
 std::optional<RunStatus> parse_status(const QString& payload) {
-    const QJsonDocument document = QJsonDocument::fromJson(payload.toUtf8());
-    if (!document.isObject()) {
+    const auto decoded = btrfsbackup::state::document::RunStatusDocumentCodec{}.try_parse_public(payload.toStdString());
+    if (!decoded.has_value()) {
         return std::nullopt;
     }
-    const QJsonObject object = document.object();
-    if (object.value(QStringLiteral("schemaVersion")).toInt(-1) != manager_protocol::public_status_schema_version) {
+    const auto& status = *decoded;
+    constexpr auto max_qint64 = static_cast<std::uint64_t>(std::numeric_limits<qint64>::max());
+    if (status.progress.speed_bps > max_qint64 ||
+        (status.progress.eta_seconds.has_value() && *status.progress.eta_seconds > max_qint64)) {
         return std::nullopt;
     }
-    for (const auto* field : {
-             "state",
-             "errorCode",
-             "sourceName",
-             "targetName",
-             "speedBps",
-             "etaSeconds",
-             "sourceProgress",
-             "overallProgress",
-             "progressAccuracy",
-         }) {
-        if (!object.contains(QLatin1String(field))) {
-            return std::nullopt;
-        }
-    }
-
     return RunStatus{
-        .run_id = object.value(QStringLiteral("runId")).toString(),
-        .state = object.value(QStringLiteral("state")).toString(),
-        .phase = object.value(QStringLiteral("phase")).toString(QStringLiteral("idle")),
-        .activity = object.value(QStringLiteral("activity")).toString(QStringLiteral("idle")),
-        .error_code = object.value(QStringLiteral("errorCode")).toString(),
-        .source_name = object.value(QStringLiteral("sourceName")).toString(),
-        .target_name = object.value(QStringLiteral("targetName")).toString(),
-        .progress_accuracy = object.value(QStringLiteral("progressAccuracy")).toString(QStringLiteral("indeterminate")),
-        .can_cancel = object.value(QStringLiteral("canCancel")).toBool(false),
-        .speed_bps = static_cast<qint64>(object.value(QStringLiteral("speedBps")).toDouble()),
-        .eta_seconds = static_cast<qint64>(object.value(QStringLiteral("etaSeconds")).toDouble(-1)),
-        .source_progress = object.value(QStringLiteral("sourceProgress")).toInt(-1),
-        .overall_progress = object.value(QStringLiteral("overallProgress")).toInt(-1),
+        .run_id = status.run_id.has_value()
+            ? QString::fromStdString(std::string(status.run_id->value()))
+            : QString{},
+        .state = QString::fromStdString(btrfsbackup::state::document::public_run_state_name(status)),
+        .phase = QString::fromStdString(status.phase.value),
+        .activity = QString::fromStdString(btrfsbackup::state::document::public_activity_name(status)),
+        .error_code = QString::fromStdString(btrfsbackup::state::document::public_error_code_name(status.error_code)),
+        .source_name = QString::fromStdString(status.source_name),
+        .target_name = QString::fromStdString(status.target_name),
+        .progress_accuracy = QString::fromStdString(btrfsbackup::state::progress_accuracy_name(status.progress.accuracy)),
+        .can_cancel = status.can_cancel,
+        .speed_bps = static_cast<qint64>(status.progress.speed_bps),
+        .eta_seconds = status.progress.eta_seconds.has_value() ? static_cast<qint64>(*status.progress.eta_seconds) : -1,
+        .source_progress = status.progress.source_percent.value_or(-1),
+        .overall_progress = status.progress.overall_percent.value_or(-1),
     };
 }
 

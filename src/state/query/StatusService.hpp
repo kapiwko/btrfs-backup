@@ -7,14 +7,15 @@
 #include <filesystem>
 #include <optional>
 #include <string>
+#include <variant>
 #include <vector>
 
-#include <config/json/Json.hpp>
+#include <state/document/RunStatusDocumentCodec.hpp>
 
 namespace btrfsbackup::state {
 
 struct StatusDocument {
-    btrfsbackup::config::json::Json data;
+    std::variant<document::PublicRunStatusV3, document::PrivateRunHistoryV2> status;
     std::string content;
     std::filesystem::path source;
 };

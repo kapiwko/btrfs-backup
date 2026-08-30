@@ -12,6 +12,7 @@
 #include <core/Errors.hpp>
 #include <core/Identifiers.hpp>
 #include <daemon/query/ManagerDocumentReader.hpp>
+#include <state/document/RunStatusDocumentCodec.hpp>
 
 namespace fs = std::filesystem;
 
@@ -20,19 +21,18 @@ namespace {
 constexpr std::size_t max_history_limit = 100;
 constexpr std::size_t max_history_offset = 10000;
 
-btrfsbackup::daemon::SanitizedHistoryEntry sanitize_private_history(const btrfsbackup::config::json::Json& input) {
-    if (!input.is_object() || input.value("schemaVersion", 0) != 2) {
-        throw btrfsbackup::ValidationError("private history has an unsupported schema");
-    }
-    const std::string state = input.value("state", "unavailable");
-    const std::string detailed_error = input.value("errorCode", "");
+using PrivateHistory = btrfsbackup::state::document::PrivateRunHistoryV2;
+
+btrfsbackup::daemon::SanitizedHistoryEntry sanitize_private_history(const PrivateHistory& input) {
+    const std::string& state = input.state.value;
+    const std::string& detailed_error = input.error_code;
     return {
         .state = state,
         .error_code = detailed_error.empty() ? "" : (state == "cancelled" ? "backup.cancelled" : "backup.failed"),
-        .source_name = input.value("currentSourceName", std::string{}),
-        .target_name = input.value("targetName", std::string{}),
-        .finished_at = input.value("finishedAt", std::string{}),
-        .overall_progress = input.value("overallProgress", -1),
+        .source_name = input.current_source_name,
+        .target_name = input.target_name,
+        .finished_at = input.finished_at,
+        .overall_progress = input.progress.overall_percent.value_or(-1),
     };
 }
 
@@ -82,13 +82,14 @@ SanitizedHistoryPage HistoryQueryService::get_history_sanitized(
     }
 
     const std::vector<fs::path> files = history_paths(history_root_, profile_id);
+    const btrfsbackup::state::document::RunStatusDocumentCodec codec;
     SanitizedHistoryPage result;
     if (offset >= files.size()) {
         return result;
     }
     const std::size_t end = std::min(files.size(), offset + limit);
     for (std::size_t index = offset; index < end; ++index) {
-        result.entries.push_back(sanitize_private_history(read_manager_json_document(files[index])));
+        result.entries.push_back(sanitize_private_history(codec.parse_private(read_manager_document(files[index]))));
     }
     return result;
 }
@@ -101,7 +102,8 @@ std::optional<SanitizedHistoryEntry> HistoryQueryService::get_last_sanitized(
     if (!manager_regular_file_if_present(last)) {
         return std::nullopt;
     }
-    return sanitize_private_history(read_manager_json_document(last));
+    const btrfsbackup::state::document::RunStatusDocumentCodec codec;
+    return sanitize_private_history(codec.parse_private(read_manager_document(last)));
 }
 
 } // namespace btrfsbackup::daemon::query

@@ -7,9 +7,9 @@
 #include <algorithm>
 #include <fstream>
 
-#include <config/json/Json.hpp>
 #include <core/Errors.hpp>
 #include <core/Identifiers.hpp>
+#include <state/document/RunStatusDocumentCodec.hpp>
 #include <state/persistence/StatusWriter.hpp>
 
 namespace fs = std::filesystem;
@@ -66,13 +66,14 @@ std::vector<StatusDocument> get_status_history(
     }
 
     std::vector<StatusDocument> documents;
+    const document::RunStatusDocumentCodec codec;
     for (const fs::path& path : paths) {
         std::ifstream stream(path);
         if (!stream) {
             throw ValidationError("cannot read " + path.string());
         }
         std::string content{std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()};
-        documents.push_back({.data = btrfsbackup::config::json::Json::parse(content), .content = std::move(content), .source = path});
+        documents.push_back({.status = codec.parse_private(content), .content = std::move(content), .source = path});
     }
     return documents;
 }

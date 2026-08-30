@@ -25,6 +25,41 @@ fs::path test_root(const std::string& name) {
     return test_helpers::test_root("status-history", name);
 }
 
+std::string private_history(const std::string& run_id, const std::string& message = "") {
+    return btrfsbackup::config::json::Json({
+                                               {"schemaVersion", 2},
+                                               {"profileId", "default"},
+                                               {"profileName", "Default backup"},
+                                               {"runId", run_id},
+                                               {"state", "succeeded"},
+                                               {"phase", "succeeded"},
+                                               {"message", message},
+                                               {"currentSourceName", "Home"},
+                                               {"targetName", "backupdisk"},
+                                               {"sourceIndex", 1},
+                                               {"sourceCount", 1},
+                                               {"startedAt", "2026-08-23T00:00:00Z"},
+                                               {"updatedAt", "2026-08-23T00:01:00Z"},
+                                               {"finishedAt", "2026-08-23T00:01:00Z"},
+                                               {"errorCode", ""},
+                                               {"errorMessage", ""},
+                                               {"details", btrfsbackup::config::json::Json::object()},
+                                               {"recoverable", false},
+                                               {"suggestedAction", ""},
+                                               {"canCancel", false},
+                                               {"bytesProcessed", 0},
+                                               {"bytesTotalEstimated", 0},
+                                               {"runBytesProcessed", 0},
+                                               {"speedBps", 0},
+                                               {"etaSeconds", -1},
+                                               {"sourceProgress", 100},
+                                               {"overallProgress", 100},
+                                               {"progressAccuracy", "exact"},
+                                               {"exitCode", 0},
+                                           })
+        .dump();
+}
+
 void test_history_without_directory_returns_empty_array() {
     fs::path root = test_root("history-empty");
     std::ostringstream output;
@@ -37,12 +72,13 @@ void test_history_without_directory_returns_empty_array() {
 
 void test_status_falls_back_to_last_json() {
     fs::path root = test_root("status-fallback");
-    test_helpers::write_file(root / "history" / "default" / "last.json", "{\"profileId\":\"default\",\"state\":\"ok\"}\n");
+    const std::string history = private_history("run-1");
+    test_helpers::write_file(root / "history" / "default" / "last.json", history + "\n");
     std::ostringstream output;
 
     btrfsbackup::cli::status::status_show(root / "status", root / "history", {}, output);
 
-    test_helpers::expect_eq("status fallback", output.str(), "{\"profileId\":\"default\",\"state\":\"ok\"}\n");
+    test_helpers::expect_eq("status fallback", output.str(), history + "\n");
     fs::remove_all(root);
 }
 
@@ -64,7 +100,11 @@ void test_public_status_human_format() {
         root / "status" / "default" / "current.json",
         "{"
         "\"schemaVersion\":3,"
+        "\"runId\":\"run-1\","
         "\"state\":\"running\","
+        "\"phase\":\"transferring\","
+        "\"activity\":\"transferring\","
+        "\"canCancel\":true,"
         "\"errorCode\":\"\","
         "\"sourceName\":\"Home\","
         "\"targetName\":\"backupdisk\","
@@ -89,21 +129,14 @@ void test_private_history_human_format() {
     fs::path root = test_root("private-human");
     test_helpers::write_file(
         root / "history" / "default" / "last.json",
-        "{"
-        "\"schemaVersion\":2,"
-        "\"profileId\":\"default\","
-        "\"profileName\":\"Default backup\","
-        "\"state\":\"succeeded\","
-        "\"phase\":\"completed\","
-        "\"message\":\"backup completed\""
-        "}\n"
+        private_history("run-1", "backup completed") + "\n"
     );
     std::ostringstream output;
 
     btrfsbackup::cli::status::status_show(root / "status", root / "history", {"--human"}, output);
 
     test_helpers::expect_contains("private human status", output.str(), "Default backup: succeeded\n");
-    test_helpers::expect_contains("private human phase", output.str(), "  phase: completed\n");
+    test_helpers::expect_contains("private human phase", output.str(), "  phase: succeeded\n");
     test_helpers::expect_contains("private human message", output.str(), "  backup completed\n");
     fs::remove_all(root);
 }
@@ -204,14 +237,16 @@ void test_list_profiles_rejects_invalid_name() {
 
 void test_history_limit() {
     fs::path root = test_root("history-limit");
-    test_helpers::write_file(root / "history" / "default" / "2026-08-22T000000Z.json", "{\"id\":1}");
-    test_helpers::write_file(root / "history" / "default" / "2026-08-23T000000Z.json", "{\"id\":2}");
-    test_helpers::write_file(root / "history" / "default" / "last.json", "{\"id\":3}");
+    const std::string older = private_history("run-1");
+    const std::string newer = private_history("run-2");
+    test_helpers::write_file(root / "history" / "default" / "2026-08-22T000000Z.json", older);
+    test_helpers::write_file(root / "history" / "default" / "2026-08-23T000000Z.json", newer);
+    test_helpers::write_file(root / "history" / "default" / "last.json", newer);
     std::ostringstream output;
 
     btrfsbackup::cli::status::status_history(root / "history", {"--limit", "1"}, output);
 
-    test_helpers::expect_eq("history limit", output.str(), "[\n{\"id\":2}\n]\n");
+    test_helpers::expect_eq("history limit", output.str(), "[\n" + newer + "\n]\n");
     fs::remove_all(root);
 }
 

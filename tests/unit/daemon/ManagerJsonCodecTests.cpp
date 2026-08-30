@@ -52,23 +52,25 @@ void test_profiles() {
 void test_status_history_and_device() {
     const ManagerJsonCodec codec;
     const btrfsbackup::daemon::PublicRunStatus status{
-        .run_id = "20260829T160000Z-1-1",
-        .state = "running",
-        .phase = "sizing",
-        .activity = "sizing",
+        .run_id = btrfsbackup::RunId{"20260829T160000Z-1-1"},
+        .state = btrfsbackup::state::document::PublicRunState::Running,
+        .phase = {.value = "sizing", .known = true},
+        .activity = btrfsbackup::state::document::PublicActivity::Sizing,
         .can_cancel = true,
-        .error_code = "",
+        .error_code = btrfsbackup::state::document::PublicErrorCode::None,
         .source_name = "Home",
         .target_name = "Backup disk",
-        .speed_bps = 10,
-        .eta_seconds = 20,
-        .source_progress = 30,
-        .overall_progress = 40,
-        .progress_accuracy = "estimated",
+        .progress = {
+            .speed_bps = 10,
+            .eta_seconds = 20,
+            .source_percent = 30,
+            .overall_percent = 40,
+            .accuracy = btrfsbackup::state::ProgressAccuracy::Estimated,
+        },
     };
     const Json status_document = Json::parse(codec.encode(status));
     expect_field("status", status_document, "schemaVersion", 3);
-    expect_field("status", status_document, "runId", status.run_id);
+    expect_field("status", status_document, "runId", std::string(status.run_id->value()));
     expect_field("status", status_document, "activity", "sizing");
     expect_field("status", status_document, "canCancel", true);
     expect_field("status", status_document, "overallProgress", 40);

@@ -20,6 +20,21 @@ target_restricted_include_directories(btrfsbackup-state-model
 )
 target_link_libraries(btrfsbackup-state-model PUBLIC btrfsbackup-core)
 
+add_library(btrfsbackup-status-documents STATIC
+    document/RunStatusDocumentCodec.cpp
+)
+target_compile_features(btrfsbackup-status-documents PUBLIC cxx_std_23)
+target_restricted_include_directories(btrfsbackup-status-documents
+    PUBLIC_HEADERS
+        state/document/RunStatusDocumentCodec.hpp
+)
+target_link_libraries(btrfsbackup-status-documents
+    PUBLIC
+        btrfsbackup-state-model
+    PRIVATE
+        btrfsbackup-config-json
+)
+
 add_library(btrfsbackup-state STATIC
     cancellation/FileActiveRunRegistration.cpp
     cancellation/FileCancellationMonitor.cpp
@@ -58,8 +73,8 @@ target_link_libraries(btrfsbackup-state
     PUBLIC
         btrfsbackup-backup-ports
         btrfsbackup-config-json
-        btrfsbackup-state-model
         btrfsbackup-state-persistence-ports
+        btrfsbackup-status-documents
     PRIVATE
         btrfsbackup-backup-model
         btrfsbackup-config-domain
@@ -68,5 +83,6 @@ target_link_libraries(btrfsbackup-state
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(btrfsbackup-state-model PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(btrfsbackup-status-documents PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(btrfsbackup-state PRIVATE -Wall -Wextra -Wpedantic)
 endif()
