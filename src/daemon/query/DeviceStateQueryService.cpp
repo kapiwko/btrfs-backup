@@ -12,12 +12,12 @@
 #include <config/domain/Profile.hpp>
 #include <config/json/ProfileDocument.hpp>
 #include <core/Identifiers.hpp>
+#include <core/RuntimeTime.hpp>
 #include <daemon/query/ManagerDocumentReader.hpp>
+#include <platform/linux/storage/FilesystemSpaceProbe.hpp>
 #include <platform/linux/storage/DeviceInfo.hpp>
 #include <platform/linux/storage/MountInfo.hpp>
-#include <platform/linux/storage/FilesystemSpaceProbe.hpp>
 #include <state/persistence/FileTargetStorageMeasurementStore.hpp>
-#include <core/RuntimeTime.hpp>
 
 namespace fs = std::filesystem;
 
@@ -90,18 +90,20 @@ TargetStatus DeviceStateQueryService::get_device_state(
         measurement = impl_->storage_store.read_matching(profile);
     }
 
-    std::optional<TargetStatus::Storage> storage;
+    std::optional<btrfsbackup::state::document::TargetStorageStatusV1> storage;
     if (measurement.has_value()) {
         const bool below_minimum = profile.settings.minimum_target_free_bytes.value() > 0 &&
             measurement->space.available_bytes < profile.settings.minimum_target_free_bytes.value();
-        storage = TargetStatus::Storage{
+        storage = btrfsbackup::state::document::TargetStorageStatusV1{
             .capacity_bytes = measurement->space.capacity_bytes,
             .used_bytes = measurement->space.used_bytes(),
             .available_bytes = measurement->space.available_bytes,
             .usage_percent = measurement->space.usage_percent(),
-            .measured_at = format_utc_iso_timestamp(measurement->measured_at),
+            .measured_at = measurement->measured_at,
             .live = live,
-            .space_state = below_minimum ? "below-configured-minimum" : "normal",
+            .space_state = below_minimum
+                ? btrfsbackup::state::document::TargetSpaceState::BelowConfiguredMinimum
+                : btrfsbackup::state::document::TargetSpaceState::Normal,
         };
     }
 

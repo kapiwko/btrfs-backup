@@ -297,7 +297,7 @@ void test_device_state_is_presentation_safe() {
     test_helpers::expect_true("cached used bytes", state.storage.has_value() && state.storage->used_bytes == 600, "cached used bytes are wrong");
     test_helpers::expect_true(
         "configured minimum",
-        state.storage.has_value() && state.storage->space_state == "below-configured-minimum",
+        state.storage.has_value() && state.storage->space_state == btrfsbackup::state::document::TargetSpaceState::BelowConfiguredMinimum,
         "profile minimum did not produce a storage warning"
     );
 

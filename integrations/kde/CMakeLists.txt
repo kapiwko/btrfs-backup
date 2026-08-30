@@ -29,6 +29,8 @@ add_library(
     ${manager_client_sources}
     client/ManagerApi.cpp
     client/ManagerApi.hpp
+    client/TargetStatusParser.cpp
+    client/TargetStatusParser.hpp
 )
 target_compile_features(btrfsbackup_kde_manager_client PUBLIC cxx_std_23)
 target_include_directories(
@@ -177,6 +179,15 @@ add_dependencies(
 )
 
 if(BUILD_TESTING)
+    add_executable(
+        kde-manager-api-tests
+        client/tests/ManagerApiTests.cpp
+    )
+    target_compile_features(kde-manager-api-tests PRIVATE cxx_std_23)
+    target_link_libraries(kde-manager-api-tests PRIVATE btrfsbackup_kde_manager_client Qt6::Core)
+    add_test(NAME kde-manager-api COMMAND kde-manager-api-tests)
+    set_tests_properties(kde-manager-api PROPERTIES LABELS kde)
+
     add_executable(
         plasma-progress-job-tests
         progress/BackupProgressJob.cpp

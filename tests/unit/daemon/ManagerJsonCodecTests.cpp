@@ -99,14 +99,14 @@ void test_status_history_and_device() {
         .unlocked = true,
         .mounted = true,
         .safe_to_remove = false,
-        .storage = btrfsbackup::daemon::TargetStatus::Storage{
+        .storage = btrfsbackup::state::document::TargetStorageStatusV1{
             .capacity_bytes = 1000,
             .used_bytes = 600,
             .available_bytes = 350,
             .usage_percent = 64,
-            .measured_at = "2026-08-30T12:34:56Z",
+            .measured_at = *btrfsbackup::parse_utc_timestamp("2026-08-30T12:34:56Z"),
             .live = true,
-            .space_state = "below-configured-minimum",
+            .space_state = btrfsbackup::state::document::TargetSpaceState::BelowConfiguredMinimum,
         },
     };
     const Json target_document = Json::parse(codec.encode(target));
