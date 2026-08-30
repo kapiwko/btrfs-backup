@@ -12,6 +12,7 @@ add_library(btrfsbackup-cli STATIC
     ProfileWizardCommand.cpp
     RunnerCommand.cpp
     RunnerComposition.cpp
+    RunnerJsonCodec.cpp
     RunnerOptions.cpp
     RunnerPresenter.cpp
     StatusCommand.cpp
@@ -44,6 +45,7 @@ target_restricted_include_directories(btrfsbackup-cli
         cli/TargetCommand.hpp
         cli/TargetService.hpp
     PRIVATE_HEADERS
+        cli/RunnerJsonCodec.hpp
         cli/RunnerComposition.hpp
 )
 target_link_libraries(btrfsbackup-cli
