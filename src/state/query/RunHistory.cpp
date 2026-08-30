@@ -9,6 +9,7 @@
 #include <core/Errors.hpp>
 #include <core/Identifiers.hpp>
 #include <state/document/BoundedDocumentReader.hpp>
+#include <state/document/LatestRunHistoryDocumentReader.hpp>
 #include <state/document/RunStatusDocumentCodec.hpp>
 #include <state/persistence/StatusWriter.hpp>
 
@@ -20,7 +21,6 @@ constexpr fs::perms private_history_file_permissions =
     fs::perms::owner_read | fs::perms::owner_write;
 constexpr fs::perms private_history_directory_permissions =
     private_history_file_permissions | fs::perms::owner_exec;
-constexpr std::size_t max_history_document_bytes = 1024 * 1024;
 
 } // namespace
 
@@ -34,6 +34,7 @@ void write_history_entry(IAtomicDocumentWriter& files, const fs::path& history_r
 
     files.ensure_directory(history_root, private_history_directory_permissions);
     files.ensure_directory(directory, private_history_directory_permissions);
+    // The run-specific document is authoritative. last.json is a rebuildable cache.
     files.write_atomically(run_path, content, private_history_file_permissions);
     files.write_atomically(last_path, content, private_history_file_permissions);
 }
@@ -71,7 +72,7 @@ std::vector<StatusDocument> get_status_history(
     const document::RunStatusDocumentCodec codec;
     const document::BoundedDocumentReader reader;
     for (const fs::path& path : paths) {
-        std::string content = reader.read(path, max_history_document_bytes);
+        std::string content = reader.read(path, document::maximum_run_document_size);
         documents.push_back({.status = codec.parse_private(content), .content = std::move(content), .source = path});
     }
     return documents;
