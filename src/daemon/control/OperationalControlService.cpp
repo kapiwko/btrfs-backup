@@ -45,6 +45,8 @@ const char* manager_authorization_action_id(ManagerAuthorizationAction action) n
         return "io.github.btrfsbackup.delete-profile-configuration";
     case ManagerAuthorizationAction::SaveProfileHooks:
         return "io.github.btrfsbackup.save-profile-hooks";
+    case ManagerAuthorizationAction::OpenBrowseSession:
+        return "io.github.btrfsbackup.open-browse-session";
     }
     return "io.github.btrfsbackup.invalid-action";
 }

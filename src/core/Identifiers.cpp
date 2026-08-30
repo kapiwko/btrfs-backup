@@ -39,6 +39,14 @@ std::string_view OperationId::value() const noexcept {
     return value_;
 }
 
+BrowseSessionId::BrowseSessionId(std::string value) : value_(std::move(value)) {
+    validate_browse_session_id(value_);
+}
+
+std::string_view BrowseSessionId::value() const noexcept {
+    return value_;
+}
+
 std::string_view RunId::value() const noexcept {
     return value_;
 }
@@ -73,6 +81,10 @@ void validate_run_id(const std::string& run_id) {
 
 void validate_operation_id(const std::string& operation_id) {
     validate_identifier(operation_id, "operationId");
+}
+
+void validate_browse_session_id(const std::string& browse_session_id) {
+    validate_identifier(browse_session_id, "browseSessionId");
 }
 
 } // namespace btrfsbackup

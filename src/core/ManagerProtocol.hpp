@@ -11,7 +11,7 @@ inline constexpr char object_path[] = "/io/github/btrfsbackup/Manager1";
 inline constexpr char interface_name[] = "io.github.btrfsbackup.Manager1";
 
 inline constexpr int api_major = 1;
-inline constexpr int api_minor = 5;
+inline constexpr int api_minor = 6;
 inline constexpr int capabilities_schema_version = 1;
 inline constexpr int profile_schema_version = 3;
 inline constexpr int profile_summary_schema_version = 1;
@@ -21,6 +21,7 @@ inline constexpr int device_state_schema_version = 1;
 inline constexpr int target_storage_schema_version = 1;
 inline constexpr int operation_result_schema_version = 1;
 inline constexpr int profile_edit_schema_version = 1;
+inline constexpr int browse_session_schema_version = 1;
 
 namespace feature {
 
@@ -56,6 +57,8 @@ inline constexpr char validate_profile_draft[] = "ValidateProfileDraft";
 inline constexpr char save_profile[] = "SaveProfile";
 inline constexpr char save_profile_hooks[] = "SaveProfileHooks";
 inline constexpr char delete_profile[] = "DeleteProfile";
+inline constexpr char open_browse_session[] = "OpenBrowseSession";
+inline constexpr char close_browse_session[] = "CloseBrowseSession";
 
 } // namespace method
 

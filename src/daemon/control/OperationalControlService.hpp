@@ -22,6 +22,7 @@ enum class ManagerAuthorizationAction {
     SaveProfileConfiguration,
     DeleteProfileConfiguration,
     SaveProfileHooks,
+    OpenBrowseSession,
 };
 
 enum class ManagerCancellationOutcome {

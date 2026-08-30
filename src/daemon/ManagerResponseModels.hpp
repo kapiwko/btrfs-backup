@@ -75,4 +75,12 @@ struct OperationResult {
     bool accepted = true;
 };
 
+struct BrowseSessionInfo {
+    std::string session_id;
+    std::string profile_id;
+    std::string root_path;
+    std::string expires_at;
+    bool read_only = true;
+};
+
 } // namespace btrfsbackup::daemon

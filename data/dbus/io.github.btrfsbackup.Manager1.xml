@@ -76,6 +76,14 @@ SPDX-License-Identifier: GPL-3.0-or-later
       <arg name="expectedFingerprint" type="s" direction="in"/>
       <arg name="payload" type="s" direction="out"/>
     </method>
+    <method name="OpenBrowseSession">
+      <arg name="profileId" type="s" direction="in"/>
+      <arg name="payload" type="s" direction="out"/>
+    </method>
+    <method name="CloseBrowseSession">
+      <arg name="sessionId" type="s" direction="in"/>
+      <arg name="payload" type="s" direction="out"/>
+    </method>
 
     <signal name="ProfilesChanged"/>
     <signal name="StatusChanged">
