@@ -15,7 +15,7 @@ add_library(btrfsbackup-daemon-core STATIC
     ProfileQueryService.cpp
     StatusQueryService.cpp
 )
-target_compile_features(btrfsbackup-daemon-core PUBLIC cxx_std_20)
+target_compile_features(btrfsbackup-daemon-core PUBLIC cxx_std_23)
 target_compile_definitions(
     btrfsbackup-daemon-core
     PRIVATE BTRFSBACKUP_INSTALL_BINDIR="${CMAKE_INSTALL_FULL_BINDIR}"
@@ -53,7 +53,7 @@ add_library(btrfsbackup-daemon-system-control STATIC
     OperationEnvironmentFile.cpp
     SystemOperationalControlBackend.cpp
 )
-target_compile_features(btrfsbackup-daemon-system-control PUBLIC cxx_std_20)
+target_compile_features(btrfsbackup-daemon-system-control PUBLIC cxx_std_23)
 target_restricted_include_directories(btrfsbackup-daemon-system-control
     PUBLIC_HEADERS
         daemon/CommandSystemdUnitController.hpp
