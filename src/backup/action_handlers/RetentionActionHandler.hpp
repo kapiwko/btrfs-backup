@@ -22,7 +22,7 @@ class RetentionActionHandler {
         std::unique_ptr<ISafeDirectoryRoot> local_root,
         std::unique_ptr<ISafeDirectoryRoot> target_root
     );
-    ~RetentionActionHandler();
+    ~RetentionActionHandler() noexcept;
 
     void handle(const ApplyRemoteRetentionAction& action);
     void handle(const ApplyLocalRetentionAction& action);

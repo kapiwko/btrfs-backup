@@ -140,40 +140,40 @@ int target(
     TargetOptions options = parse_options(args);
     TargetOperationResult result;
     if (command == "activate") {
-        result = btrfsbackup::cli::activate_target(
-            ActivateTargetRequest{
-                .profile_config_dir = profile_config_dir,
-                .profile_id = ProfileId{options.profile_id},
-            },
-            services
-        );
+        const ActivateTargetRequest request{
+            .profile_config_dir = profile_config_dir,
+            .profile_id = ProfileId{options.profile_id},
+        };
+        result = services == nullptr
+            ? btrfsbackup::cli::activate_target(request)
+            : btrfsbackup::cli::activate_target(request, *services);
     } else if (command == "deactivate") {
-        result = btrfsbackup::cli::deactivate_target(
-            DeactivateTargetRequest{
-                .profile_config_dir = profile_config_dir,
-                .profile_id = ProfileId{options.profile_id},
-            },
-            services
-        );
+        const DeactivateTargetRequest request{
+            .profile_config_dir = profile_config_dir,
+            .profile_id = ProfileId{options.profile_id},
+        };
+        result = services == nullptr
+            ? btrfsbackup::cli::deactivate_target(request)
+            : btrfsbackup::cli::deactivate_target(request, *services);
     } else if (command == "mount") {
-        result = btrfsbackup::cli::mount_target(
-            MountTargetRequest{
-                .profile_config_dir = profile_config_dir,
-                .profile_id = ProfileId{options.profile_id},
-            },
-            services
-        );
+        const MountTargetRequest request{
+            .profile_config_dir = profile_config_dir,
+            .profile_id = ProfileId{options.profile_id},
+        };
+        result = services == nullptr
+            ? btrfsbackup::cli::mount_target(request)
+            : btrfsbackup::cli::mount_target(request, *services);
     } else {
-        result = btrfsbackup::cli::eject_target(
-            EjectTargetRequest{
-                .profile_config_dir = profile_config_dir,
-                .profile_id = ProfileId{options.profile_id},
-                .force = options.force,
-                .automatic = options.from_service || options.from_runner,
-                .service_succeeded = !options.from_service || service_succeeded(),
-            },
-            services
-        );
+        const EjectTargetRequest request{
+            .profile_config_dir = profile_config_dir,
+            .profile_id = ProfileId{options.profile_id},
+            .force = options.force,
+            .automatic = options.from_service || options.from_runner,
+            .service_succeeded = !options.from_service || service_succeeded(),
+        };
+        result = services == nullptr
+            ? btrfsbackup::cli::eject_target(request)
+            : btrfsbackup::cli::eject_target(request, *services);
     }
     print_result(result, output);
     return std::holds_alternative<TargetOperationBusy>(result) ? 1 : 0;

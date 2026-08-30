@@ -28,7 +28,7 @@ RecoveryActionHandler::RecoveryActionHandler(
       target_root_(std::move(target_root)) {
 }
 
-RecoveryActionHandler::~RecoveryActionHandler() = default;
+RecoveryActionHandler::~RecoveryActionHandler() noexcept = default;
 
 void RecoveryActionHandler::handle(const RecoverPendingAction& action) {
     if (const auto* effect = pending_recovery_effect<DeletePendingRemoteSnapshot>(action.recovery)) {

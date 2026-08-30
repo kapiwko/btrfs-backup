@@ -97,7 +97,7 @@ TerminationSignalMonitor::TerminationSignalMonitor(CancellationToken& cancellati
     : impl_(std::make_unique<Impl>(cancellation)) {
 }
 
-TerminationSignalMonitor::~TerminationSignalMonitor() = default;
+TerminationSignalMonitor::~TerminationSignalMonitor() noexcept = default;
 
 int backup_tool(
     const fs::path& profile_config_dir,

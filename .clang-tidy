@@ -16,7 +16,10 @@ Checks: >
   modernize-use-override,
   performance-for-range-copy,
   performance-move-const-arg,
+  performance-noexcept-destructor,
+  performance-noexcept-move-constructor,
   performance-unnecessary-copy-initialization,
+  readability-make-member-function-const,
   readability-redundant-string-init,
   readability-static-accessed-through-instance
 WarningsAsErrors: '*'
