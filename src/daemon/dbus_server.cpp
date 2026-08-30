@@ -4,11 +4,14 @@
 
 #include <daemon/dbus_server.hpp>
 #include <daemon/manager_audit_log.hpp>
+#include <daemon/manager_change_monitor.hpp>
 #include <daemon/manager_error_mapper.hpp>
 #include <daemon/manager_json_codec.hpp>
 #include <daemon/polkit_authorizer.hpp>
 
 #include <systemd/sd-bus.h>
+#include <systemd/sd-event.h>
+#include <sys/epoll.h>
 
 #include <cerrno>
 #include <csignal>
@@ -258,12 +261,106 @@ const sd_bus_vtable manager_vtable[] = {
     SD_BUS_METHOD("CancelBackup", "ss", "s", cancel_backup, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD("ValidateTarget", "s", "s", validate_target, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD("EjectTarget", "s", "s", eject_target, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_SIGNAL("ProfilesChanged", "", 0),
+    SD_BUS_SIGNAL("StatusChanged", "s", 0),
+    SD_BUS_SIGNAL("HistoryChanged", "s", 0),
+    SD_BUS_SIGNAL("DeviceStateChanged", "s", 0),
     SD_BUS_VTABLE_END,
 };
 
 void require_success(int result, const char* operation) {
     if (result < 0)
         throw std::runtime_error(std::string(operation) + ": " + std::strerror(-result));
+}
+
+void emit_profile_signal(sd_bus* bus, const char* signal, const std::string& profile_id) {
+    const int result = sd_bus_emit_signal(
+        bus,
+        btrfsbackup::daemon::manager_object_path,
+        btrfsbackup::daemon::manager_interface,
+        signal,
+        "s",
+        profile_id.c_str()
+    );
+    if (result < 0) {
+        std::cerr << "btrfs-backupd: cannot emit " << signal << ": "
+                  << std::strerror(-result) << '\n';
+    }
+}
+
+void emit_change(
+    sd_bus* bus,
+    btrfsbackup::daemon::ManagerService& service,
+    const btrfsbackup::daemon::ManagerChange& change
+) {
+    if (change.kind == btrfsbackup::daemon::ManagerChangeKind::Profiles) {
+        const int result = sd_bus_emit_signal(
+            bus,
+            btrfsbackup::daemon::manager_object_path,
+            btrfsbackup::daemon::manager_interface,
+            "ProfilesChanged",
+            ""
+        );
+        if (result < 0) {
+            std::cerr << "btrfs-backupd: cannot emit ProfilesChanged: "
+                      << std::strerror(-result) << '\n';
+        }
+        return;
+    }
+
+    const char* signal = nullptr;
+    switch (change.kind) {
+    case btrfsbackup::daemon::ManagerChangeKind::Status:
+        signal = "StatusChanged";
+        break;
+    case btrfsbackup::daemon::ManagerChangeKind::History:
+        signal = "HistoryChanged";
+        break;
+    case btrfsbackup::daemon::ManagerChangeKind::Device:
+        signal = "DeviceStateChanged";
+        break;
+    case btrfsbackup::daemon::ManagerChangeKind::Profiles:
+        return;
+    }
+
+    if (!change.profile_id.empty()) {
+        emit_profile_signal(bus, signal, change.profile_id);
+        return;
+    }
+    try {
+        for (const auto& profile : service.list_profiles())
+            emit_profile_signal(bus, signal, profile.profile_id);
+    } catch (const std::exception& exception) {
+        std::cerr << "btrfs-backupd: cannot enumerate changed profiles: "
+                  << exception.what() << '\n';
+    }
+}
+
+int process_filesystem_changes(sd_event_source*, int, std::uint32_t, void* userdata) {
+    try {
+        static_cast<btrfsbackup::daemon::ManagerChangeMonitor*>(userdata)
+            ->process_filesystem_events();
+        return 0;
+    } catch (const std::exception& exception) {
+        std::cerr << "btrfs-backupd: filesystem notification failed: " << exception.what()
+                  << '\n';
+        return -EIO;
+    }
+}
+
+int process_device_changes(sd_event_source*, int, std::uint32_t, void* userdata) {
+    static_cast<btrfsbackup::daemon::ManagerChangeMonitor*>(userdata)->process_device_events();
+    return 0;
+}
+
+int process_mount_changes(sd_event_source*, int, std::uint32_t, void* userdata) {
+    try {
+        static_cast<btrfsbackup::daemon::ManagerChangeMonitor*>(userdata)->process_mount_events();
+        return 0;
+    } catch (const std::exception& exception) {
+        std::cerr << "btrfs-backupd: mount notification failed: " << exception.what() << '\n';
+        return -EIO;
+    }
 }
 
 } // namespace
@@ -274,6 +371,7 @@ int run_dbus_server(
     ManagerService& service,
     IOperationalControlBackend& operational_backend,
     IManagerAuditLog& audit_log,
+    const ManagerPaths& paths,
     const std::string& bus_address
 ) {
     std::unique_ptr<sd_bus, decltype(&sd_bus_unref)> bus(nullptr, sd_bus_unref);
@@ -311,19 +409,68 @@ int run_dbus_server(
     slot.reset(raw_slot);
     require_success(sd_bus_request_name(bus.get(), manager_bus_name, 0), "cannot acquire the manager bus name");
 
+    std::unique_ptr<sd_event, decltype(&sd_event_unref)> event(nullptr, sd_event_unref);
+    sd_event* raw_event = nullptr;
+    require_success(sd_event_new(&raw_event), "cannot create the manager event loop");
+    event.reset(raw_event);
+    require_success(sd_bus_attach_event(bus.get(), event.get(), 0), "cannot attach D-Bus to the manager event loop");
+
+    ManagerChangeMonitor changes(paths, [&](const ManagerChange& change) {
+        emit_change(bus.get(), service, change);
+    });
+    using EventSource = std::unique_ptr<sd_event_source, decltype(&sd_event_source_unref)>;
+    EventSource filesystem_source(nullptr, sd_event_source_unref);
+    EventSource device_source(nullptr, sd_event_source_unref);
+    EventSource mount_source(nullptr, sd_event_source_unref);
+    sd_event_source* raw_source = nullptr;
+    require_success(
+        sd_event_add_io(
+            event.get(),
+            &raw_source,
+            changes.filesystem_fd(),
+            EPOLLIN,
+            process_filesystem_changes,
+            &changes
+        ),
+        "cannot watch manager filesystem changes"
+    );
+    filesystem_source.reset(raw_source);
+    raw_source = nullptr;
+    require_success(
+        sd_event_add_io(
+            event.get(),
+            &raw_source,
+            changes.device_fd(),
+            EPOLLIN,
+            process_device_changes,
+            &changes
+        ),
+        "cannot watch manager device changes"
+    );
+    device_source.reset(raw_source);
+    raw_source = nullptr;
+    require_success(
+        sd_event_add_io(
+            event.get(),
+            &raw_source,
+            changes.mount_fd(),
+            EPOLLPRI | EPOLLERR,
+            process_mount_changes,
+            &changes
+        ),
+        "cannot watch manager mount changes"
+    );
+    mount_source.reset(raw_source);
+
     stop_requested = 0;
     std::signal(SIGINT, request_stop);
     std::signal(SIGTERM, request_stop);
     while (!stop_requested) {
-        const int processed = sd_bus_process(bus.get(), nullptr);
+        const int processed = sd_event_run(event.get(), UINT64_MAX);
         if (processed < 0 && processed != -EINTR)
-            require_success(processed, "D-Bus processing failed");
-        if (processed > 0)
-            continue;
-        const int waited = sd_bus_wait(bus.get(), 1000000);
-        if (waited < 0 && waited != -EINTR)
-            require_success(waited, "D-Bus wait failed");
+            require_success(processed, "manager event processing failed");
     }
+    sd_bus_detach_event(bus.get());
     return 0;
 }
 

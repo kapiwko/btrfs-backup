@@ -93,7 +93,7 @@ int main(int argc, char** argv) {
             }
         }
 
-        btrfsbackup::daemon::ManagerService service(std::move(paths));
+        btrfsbackup::daemon::ManagerService service(paths);
         btrfsbackup::platform::linux::FileProfileRepository profiles(config_root, application_config);
         btrfsbackup::platform::linux::PosixDurableFileOperations durable_files;
         btrfsbackup::state::FileRunStateRepository state(configured, durable_files);
@@ -101,7 +101,13 @@ int main(int argc, char** argv) {
         btrfsbackup::daemon::CommandSystemdUnitController units(commands);
         btrfsbackup::daemon::SystemOperationalControlBackend operational_backend(profiles, state, units);
         btrfsbackup::daemon::FileManagerAuditLog audit_log(audit_log_path);
-        return btrfsbackup::daemon::run_dbus_server(service, operational_backend, audit_log, bus_address);
+        return btrfsbackup::daemon::run_dbus_server(
+            service,
+            operational_backend,
+            audit_log,
+            paths,
+            bus_address
+        );
     } catch (const std::exception& exception) {
         std::cerr << "btrfs-backupd: " << exception.what() << '\n';
         return 1;

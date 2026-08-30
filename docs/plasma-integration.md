@@ -7,9 +7,9 @@ installed.
 The current integration starts with a plasmoid in
 `integrations/kde/plasmoid`. Its QML UI talks to a C++ `BackupStatusModel`, and
 that model uses the full implemented `io.github.btrfsbackup.Manager1` system
-D-Bus interface. Calls are asynchronous and status is polled because the first
-manager interface does not publish change signals. Mutating calls remain behind
-the manager's per-operation polkit authorization.
+D-Bus interface. Calls are asynchronous; after the initial state load, the
+clients refresh only in response to manager change signals. Mutating calls
+remain behind the manager's per-operation polkit authorization.
 
 The model validates `apiMajor` and public status schema capabilities before it
 accepts data. `managerConnected` reports manager availability, while target
@@ -43,9 +43,9 @@ The base package does not depend on Plasma. The KDE package installs:
 
 The monitor starts with the graphical user session. It publishes active runs as
 native Plasma jobs through `KUiServerV2JobTracker`, including progress, transfer
-rate and cancellation. It polls once per second only while a run is active;
-otherwise status polling backs off to five seconds and profile discovery to one
-minute.
+rate and cancellation. Filesystem, block-device and mount changes are delivered
+through event-driven manager signals, so the monitor does not poll while active
+or idle.
 
 The package hook does not run KDE cache tools as root. It prints a reload hint,
 and package timestamps change when the widget sources change so stale QML cache

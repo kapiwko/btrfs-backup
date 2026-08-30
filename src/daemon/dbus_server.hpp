@@ -7,6 +7,7 @@
 #include <string>
 
 #include <daemon/manager_audit_log.hpp>
+#include <daemon/manager_paths.hpp>
 #include <daemon/manager_service.hpp>
 #include <daemon/operational_control_service.hpp>
 
@@ -20,6 +21,7 @@ int run_dbus_server(
     ManagerService& service,
     IOperationalControlBackend& operational_backend,
     IManagerAuditLog& audit_log,
+    const ManagerPaths& paths,
     const std::string& bus_address = {}
 );
 

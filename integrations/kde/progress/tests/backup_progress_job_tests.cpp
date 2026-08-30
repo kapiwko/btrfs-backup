@@ -91,7 +91,7 @@ void test_success() {
 
 void test_shared_manager_protocol() {
     const auto capabilities = btrfsbackup::kde::parse_capabilities(
-        QStringLiteral(R"({"apiMajor":1,"publicStatusSchemaVersion":3,"features":["cancel-backup"]})")
+        QStringLiteral(R"({"apiMajor":1,"publicStatusSchemaVersion":3,"features":["cancel-backup","change-signals"]})")
     );
     expect(
         capabilities.has_value() && capabilities->api_major == 1 &&
