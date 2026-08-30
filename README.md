@@ -153,6 +153,10 @@ not require a password from the active local desktop session. Direct runtime
 commands and future KCM operations that change profiles, hooks, or devices
 remain administrator operations.
 
+Its expanded profile view reports Btrfs filesystem capacity and usage from a
+verified live measurement or the runner's last identity-matching private cache.
+Inspecting this state never unlocks or mounts the backup target.
+
 Logs:
 
 ```bash

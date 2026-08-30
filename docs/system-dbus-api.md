@@ -38,7 +38,7 @@ schema versions are not advertised as public API versions.
 | `ListProfiles` | `()` | `(s)` | sanitized public profile array |
 | `GetStatus` | `(s profileId)` | `(s)` | public status schema 3, including run phase and cancellable run id, or an unavailable status |
 | `GetHistorySanitized` | `(s profileId, u offset, u limit)` | `(s)` | sanitized history array |
-| `GetDeviceState` | `(s profileId)` | `(s)` | labels and lifecycle booleans without storage identifiers |
+| `GetDeviceState` | `(s profileId)` | `(s)` | labels, lifecycle booleans and optional filesystem usage without storage identifiers |
 | `StartBackup` | `(s profileId)` | `(s)` | accepted systemd runner start |
 | `CancelBackup` | `(s profileId, s runId)` | `(s)` | accepted run-scoped cancellation |
 | `ValidateTarget` | `(s profileId)` | `(s)` | completed target validation |
@@ -50,6 +50,48 @@ must not be writable by group or others. The daemon reads state for every
 request, so a restart reconstructs the same visible state from current status
 or durable history. Operational methods return schema-versioned
 `OperationResult` documents.
+
+API minor version 2 advertises the `target-storage-usage` feature. The
+device-state parent remains schema version 1 and may contain this optional,
+independently versioned block:
+
+```json
+{
+  "schemaVersion": 1,
+  "profileId": "default",
+  "targetName": "backupdisk",
+  "state": "mounted",
+  "connected": true,
+  "unlocked": true,
+  "mounted": true,
+  "safeToRemove": false,
+  "storage": {
+    "schemaVersion": 1,
+    "capacityBytes": 4000787030016,
+    "usedBytes": 1280251849600,
+    "availableBytes": 2720535180416,
+    "usagePercent": 32,
+    "measuredAt": "2026-08-30T12:34:56Z",
+    "live": true,
+    "spaceState": "normal"
+  }
+}
+```
+
+`storage` is absent when no verified live measurement or identity-matching
+cache is available. `live: false` identifies the last persisted measurement;
+`measuredAt` is always its UTC timestamp. `spaceState` is `normal` or
+`below-configured-minimum`, calculated against the current profile. Clients
+must ignore an unsupported or malformed optional storage block while retaining
+valid lifecycle state. A new client hides storage presentation when the feature
+is absent, allowing it to work with an older daemon.
+
+The capacity is the mounted Btrfs filesystem capacity, not block-device size.
+The manager performs a live read only for an already mounted, identity-verified
+target. `GetDeviceState` never unlocks or mounts a target. Cached measurements
+are private, atomically stored by the runner before cleanup and rejected after
+the configured target identity changes. No paths, UUIDs or device nodes cross
+this API boundary.
 
 The `change-signals` capability advertises the event-driven invalidation
 surface. Signals carry only a public profile identifier; clients obtain the
@@ -157,8 +199,9 @@ API.
 - `GetHistorySanitized` uses bounded pagination and returns stable codes plus
   presentation-safe labels, never the private history document.
 - `ListProfiles` returns the sanitized public profile representation only.
-- `GetDeviceState` returns lifecycle and safe-removal state, not device nodes or
-  storage identifiers.
+- `GetDeviceState` returns lifecycle, safe-removal and optional filesystem-space
+  state, not device nodes or storage identifiers. Its Btrfs capacity and usage
+  values are `statvfs` approximations, not chunk or qgroup accounting.
 - `StartBackup`, `CancelBackup`, `EjectTarget`, and `ValidateTarget` re-check the
   selected profile and target after authorization; object paths or identifiers
   cannot stand in for authorization.
