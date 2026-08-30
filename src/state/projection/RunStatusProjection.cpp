@@ -48,11 +48,13 @@ void RunStatusProjection::on_backup_run_event(const btrfsbackup::backup::BackupR
 
     if (data.run_id != run_id_) {
         run_id_ = data.run_id;
+        publication_policy_.reset();
         pending_action_failure_.reset();
         run_started_ = data.kind == btrfsbackup::backup::BackupRunEventKind::RunStarted;
         last_overall_progress_ = -1;
         operation_kind_ = data.operation_kind;
     } else if (data.kind == btrfsbackup::backup::BackupRunEventKind::RunStarted) {
+        publication_policy_.reset();
         run_started_ = true;
         pending_action_failure_.reset();
         last_overall_progress_ = -1;
@@ -80,8 +82,10 @@ void RunStatusProjection::on_backup_run_event(const btrfsbackup::backup::BackupR
     if (status.progress.overall_percent.has_value()) {
         last_overall_progress_ = *status.progress.overall_percent;
     }
-    if (data.kind != btrfsbackup::backup::BackupRunEventKind::RunFailed || run_started_) {
+    if ((data.kind != btrfsbackup::backup::BackupRunEventKind::RunFailed || run_started_) &&
+        publication_policy_.should_publish(data.kind, status, data.elapsed_ms)) {
         write_current_status(files_, context_.status_root, status);
+        publication_policy_.record_publication(data.kind, status, data.elapsed_ms);
     }
     if (should_write_history(data.kind, data.operation_kind)) {
         write_history_entry(files_, context_.history_root, status);

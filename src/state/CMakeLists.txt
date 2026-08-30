@@ -51,6 +51,7 @@ add_library(btrfsbackup-state STATIC
     persistence/StatusWriter.cpp
     projection/RunStatusBuilder.cpp
     projection/RunStatusProjection.cpp
+    projection/StatusPublicationPolicy.cpp
     query/RunHistory.cpp
     query/RunState.cpp
     query/StatusService.cpp
@@ -67,6 +68,7 @@ target_restricted_include_directories(btrfsbackup-state
         state/persistence/StatusWriter.hpp
         state/projection/RunStatusBuilder.hpp
         state/projection/RunStatusProjection.hpp
+        state/projection/StatusPublicationPolicy.hpp
         state/query/RunHistory.hpp
         state/query/RunState.hpp
         state/query/StatusService.hpp
