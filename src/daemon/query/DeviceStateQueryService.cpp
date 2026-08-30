@@ -115,7 +115,7 @@ TargetStatus DeviceStateQueryService::get_device_state(
         .unlocked = unlocked,
         .mounted = mounted,
         .safe_to_remove = safe_to_remove,
-        .storage = std::move(storage),
+        .storage = storage,
     };
 }
 
