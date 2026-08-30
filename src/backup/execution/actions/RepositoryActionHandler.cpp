@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <backup/action_handlers/RepositoryActionHandler.hpp>
+#include <backup/execution/actions/RepositoryActionHandler.hpp>
 
 #include <optional>
 #include <string>
@@ -13,7 +13,7 @@
 #include <backup/SnapshotTransfer.hpp>
 #include <core/Errors.hpp>
 
-namespace btrfsbackup::backup {
+namespace btrfsbackup::backup::execution {
 
 namespace {
 
@@ -86,4 +86,4 @@ void RepositoryActionHandler::handle(const CleanupSourceAction& action) {
     pending_markers_.clear(action.pending_marker);
 }
 
-} // namespace btrfsbackup::backup
+} // namespace btrfsbackup::backup::execution

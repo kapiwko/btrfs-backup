@@ -6,15 +6,15 @@
 
 #include <memory>
 
-#include <backup/action_handlers/BackupRunActionHandler.hpp>
-#include <backup/action_handlers/HookActionHandler.hpp>
-#include <backup/action_handlers/RecoveryActionHandler.hpp>
-#include <backup/action_handlers/RepositoryActionHandler.hpp>
-#include <backup/action_handlers/RetentionActionHandler.hpp>
-#include <backup/action_handlers/SnapshotActionHandler.hpp>
+#include <backup/execution/actions/BackupRunActionHandler.hpp>
+#include <backup/execution/actions/HookActionHandler.hpp>
+#include <backup/execution/actions/RecoveryActionHandler.hpp>
+#include <backup/execution/actions/RepositoryActionHandler.hpp>
+#include <backup/execution/actions/RetentionActionHandler.hpp>
+#include <backup/execution/actions/SnapshotActionHandler.hpp>
 #include <backup/ports/SafeDirectory.hpp>
 
-namespace btrfsbackup::backup {
+namespace btrfsbackup::backup::execution {
 
 class OwnedBackupRunActionHandler final : public IBackupRunActionHandler {
   public:
@@ -46,4 +46,4 @@ class OwnedBackupRunActionHandler final : public IBackupRunActionHandler {
     BackupRunActionHandler dispatcher_;
 };
 
-} // namespace btrfsbackup::backup
+} // namespace btrfsbackup::backup::execution

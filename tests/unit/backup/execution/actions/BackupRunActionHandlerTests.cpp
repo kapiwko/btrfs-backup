@@ -14,17 +14,17 @@
 #include <type_traits>
 #include <vector>
 
-#include <backup/action_handlers/BackupRunActionHandler.hpp>
-#include <backup/action_handlers/HookActionHandler.hpp>
+#include <backup/execution/actions/BackupRunActionHandler.hpp>
+#include <backup/execution/actions/HookActionHandler.hpp>
 #include <backup/ports/IBtrfsOperations.hpp>
 #include <backup/ports/ICommandRunner.hpp>
 #include <backup/ports/IFileSystem.hpp>
 #include <backup/ports/RunContext.hpp>
-#include <backup/action_handlers/RecoveryActionHandler.hpp>
-#include <backup/action_handlers/RepositoryActionHandler.hpp>
-#include <backup/action_handlers/RetentionActionHandler.hpp>
-#include <backup/action_handlers/SnapshotActionHandler.hpp>
-#include <backup/DefaultBackupRunActionHandlerFactory.hpp>
+#include <backup/execution/actions/RecoveryActionHandler.hpp>
+#include <backup/execution/actions/RepositoryActionHandler.hpp>
+#include <backup/execution/actions/RetentionActionHandler.hpp>
+#include <backup/execution/actions/SnapshotActionHandler.hpp>
+#include <backup/execution/actions/DefaultBackupRunActionHandlerFactory.hpp>
 #include <backup/execution/SystemRunContext.hpp>
 
 #include <platform/linux/filesystem/SafeDirectoryRoot.hpp>
@@ -56,31 +56,31 @@ concept HandlesHookAction = requires(
     handler.handle(action, profile_id, cancellation);
 };
 
-static_assert(HandlesAction<btrfsbackup::backup::SnapshotActionHandler, btrfsbackup::backup::CreateSnapshotAction>);
-static_assert(!HandlesAction<btrfsbackup::backup::SnapshotActionHandler, btrfsbackup::backup::RecoverPendingAction>);
-static_assert(HandlesAction<btrfsbackup::backup::RecoveryActionHandler, btrfsbackup::backup::RecoverPendingAction>);
-static_assert(!HandlesAction<btrfsbackup::backup::RecoveryActionHandler, btrfsbackup::backup::CreateSnapshotAction>);
-static_assert(HandlesAction<btrfsbackup::backup::RetentionActionHandler, btrfsbackup::backup::ApplyRemoteRetentionAction>);
-static_assert(HandlesAction<btrfsbackup::backup::RetentionActionHandler, btrfsbackup::backup::ApplyLocalRetentionAction>);
-static_assert(!HandlesAction<btrfsbackup::backup::RetentionActionHandler, btrfsbackup::backup::CleanupSourceAction>);
-static_assert(HandlesAction<btrfsbackup::backup::RepositoryActionHandler, btrfsbackup::backup::CleanupIncomingAction>);
-static_assert(HandlesAction<btrfsbackup::backup::RepositoryActionHandler, btrfsbackup::backup::VerifyReceivedAction>);
-static_assert(HandlesAction<btrfsbackup::backup::RepositoryActionHandler, btrfsbackup::backup::CommitReceivedAction>);
-static_assert(HandlesAction<btrfsbackup::backup::RepositoryActionHandler, btrfsbackup::backup::CleanupSourceAction>);
-static_assert(!HandlesAction<btrfsbackup::backup::RepositoryActionHandler, btrfsbackup::backup::SendReceiveAction>);
+static_assert(HandlesAction<btrfsbackup::backup::execution::SnapshotActionHandler, btrfsbackup::backup::CreateSnapshotAction>);
+static_assert(!HandlesAction<btrfsbackup::backup::execution::SnapshotActionHandler, btrfsbackup::backup::RecoverPendingAction>);
+static_assert(HandlesAction<btrfsbackup::backup::execution::RecoveryActionHandler, btrfsbackup::backup::RecoverPendingAction>);
+static_assert(!HandlesAction<btrfsbackup::backup::execution::RecoveryActionHandler, btrfsbackup::backup::CreateSnapshotAction>);
+static_assert(HandlesAction<btrfsbackup::backup::execution::RetentionActionHandler, btrfsbackup::backup::ApplyRemoteRetentionAction>);
+static_assert(HandlesAction<btrfsbackup::backup::execution::RetentionActionHandler, btrfsbackup::backup::ApplyLocalRetentionAction>);
+static_assert(!HandlesAction<btrfsbackup::backup::execution::RetentionActionHandler, btrfsbackup::backup::CleanupSourceAction>);
+static_assert(HandlesAction<btrfsbackup::backup::execution::RepositoryActionHandler, btrfsbackup::backup::CleanupIncomingAction>);
+static_assert(HandlesAction<btrfsbackup::backup::execution::RepositoryActionHandler, btrfsbackup::backup::VerifyReceivedAction>);
+static_assert(HandlesAction<btrfsbackup::backup::execution::RepositoryActionHandler, btrfsbackup::backup::CommitReceivedAction>);
+static_assert(HandlesAction<btrfsbackup::backup::execution::RepositoryActionHandler, btrfsbackup::backup::CleanupSourceAction>);
+static_assert(!HandlesAction<btrfsbackup::backup::execution::RepositoryActionHandler, btrfsbackup::backup::SendReceiveAction>);
 static_assert(!std::is_constructible_v<
-              btrfsbackup::backup::RepositoryActionHandler,
+              btrfsbackup::backup::execution::RepositoryActionHandler,
               btrfsbackup::backup::IBtrfsOperations&,
               btrfsbackup::backup::IFileSystem&,
               btrfsbackup::backup::IPendingMarkerStore&>);
 static_assert(std::is_constructible_v<
-              btrfsbackup::backup::RepositoryActionHandler,
+              btrfsbackup::backup::execution::RepositoryActionHandler,
               btrfsbackup::backup::IBtrfsOperations&,
               btrfsbackup::backup::IPendingMarkerStore&,
               btrfsbackup::backup::ISafeDirectoryRoot&,
               btrfsbackup::backup::ISafeDirectoryRoot&>);
-static_assert(HandlesHookAction<btrfsbackup::backup::HookActionHandler>);
-static_assert(!HandlesAction<btrfsbackup::backup::HookActionHandler, btrfsbackup::backup::RunHookAction>);
+static_assert(HandlesHookAction<btrfsbackup::backup::execution::HookActionHandler>);
+static_assert(!HandlesAction<btrfsbackup::backup::execution::HookActionHandler, btrfsbackup::backup::RunHookAction>);
 
 std::string action_path(const std::string& prefix, const fs::path& path) {
     return prefix + ":" + path.string();
@@ -207,7 +207,7 @@ class FakeCommandRunner final : public btrfsbackup::backup::ICommandRunner {
     }
 };
 
-class ActionHandlerFixture final : public btrfsbackup::backup::IBackupRunActionHandler {
+class ActionHandlerFixture final : public btrfsbackup::backup::execution::IBackupRunActionHandler {
   public:
     ActionHandlerFixture(FakeBtrfsOperations& btrfs, FakeFileSystem& filesystem)
         : pending_markers_(durable_files_),
@@ -329,15 +329,15 @@ class ActionHandlerFixture final : public btrfsbackup::backup::IBackupRunActionH
     btrfsbackup::platform::linux::filesystem::PosixDurableFileOperations durable_files_;
     btrfsbackup::state::FilePendingMarkerStore pending_markers_;
     FixedClock clock_;
-    btrfsbackup::backup::SnapshotActionHandler snapshots_;
-    btrfsbackup::backup::RecoveryActionHandler recovery_;
-    btrfsbackup::backup::RetentionActionHandler retention_;
+    btrfsbackup::backup::execution::SnapshotActionHandler snapshots_;
+    btrfsbackup::backup::execution::RecoveryActionHandler recovery_;
+    btrfsbackup::backup::execution::RetentionActionHandler retention_;
     std::unique_ptr<btrfsbackup::backup::ITrustedExecutableResolver> hook_executables_;
-    btrfsbackup::backup::HookActionHandler hooks_;
+    btrfsbackup::backup::execution::HookActionHandler hooks_;
     std::unique_ptr<btrfsbackup::backup::ISafeDirectoryRoot> local_repository_root_;
     std::unique_ptr<btrfsbackup::backup::ISafeDirectoryRoot> target_repository_root_;
-    btrfsbackup::backup::RepositoryActionHandler repository_;
-    btrfsbackup::backup::BackupRunActionHandler dispatcher_;
+    btrfsbackup::backup::execution::RepositoryActionHandler repository_;
+    btrfsbackup::backup::execution::BackupRunActionHandler dispatcher_;
 };
 
 btrfsbackup::backup::BackupRunPlan run_plan() {
@@ -466,7 +466,7 @@ btrfsbackup::backup::BackupRunAction hook_action(btrfsbackup::backup::HookPhase 
 }
 
 void handle_action(
-    btrfsbackup::backup::IBackupRunActionHandler& handler,
+    btrfsbackup::backup::execution::IBackupRunActionHandler& handler,
     const btrfsbackup::backup::BackupRunAction& action
 ) {
     btrfsbackup::CancellationToken cancellation;
@@ -788,7 +788,7 @@ void test_default_factory_builds_run_scoped_dispatcher() {
     test_support::FakeSafeDirectoryRootFactory safe_directories;
     test_support::FakeTrustedExecutableResolver hook_executables;
     btrfsbackup::backup::execution::SystemClock clock;
-    btrfsbackup::backup::DefaultBackupRunActionHandlerFactory factory(
+    btrfsbackup::backup::execution::DefaultBackupRunActionHandlerFactory factory(
         btrfs,
         filesystem,
         commands,
@@ -799,7 +799,7 @@ void test_default_factory_builds_run_scoped_dispatcher() {
     );
     btrfsbackup::backup::BackupRunPlan plan = run_plan();
     plan.target_mount_point = "/mnt/backup/default";
-    std::unique_ptr<btrfsbackup::backup::IBackupRunActionHandler> handler = factory.create(plan);
+    std::unique_ptr<btrfsbackup::backup::execution::IBackupRunActionHandler> handler = factory.create(plan);
     btrfsbackup::CancellationToken cancellation;
 
     handler->handle(

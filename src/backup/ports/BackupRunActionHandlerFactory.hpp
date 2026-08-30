@@ -8,15 +8,17 @@
 
 #include <backup/model/BackupRunPlan.hpp>
 
-namespace btrfsbackup::backup {
-
+namespace btrfsbackup::backup::execution {
 class IBackupRunActionHandler;
+}
+
+namespace btrfsbackup::backup {
 
 class IBackupRunActionHandlerFactory {
   public:
     virtual ~IBackupRunActionHandlerFactory() = default;
 
-    [[nodiscard]] virtual std::unique_ptr<IBackupRunActionHandler> create(
+    [[nodiscard]] virtual std::unique_ptr<execution::IBackupRunActionHandler> create(
         const BackupRunPlan& plan
     ) = 0;
 };

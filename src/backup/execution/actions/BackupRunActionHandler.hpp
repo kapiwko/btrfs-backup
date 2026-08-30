@@ -10,7 +10,7 @@ namespace btrfsbackup {
 class CancellationToken;
 }
 
-namespace btrfsbackup::backup {
+namespace btrfsbackup::backup::execution {
 class HookActionHandler;
 class RecoveryActionHandler;
 class RepositoryActionHandler;
@@ -52,4 +52,4 @@ class BackupRunActionHandler final : public IBackupRunActionHandler {
     RepositoryActionHandler& repository_;
 };
 
-} // namespace btrfsbackup::backup
+} // namespace btrfsbackup::backup::execution

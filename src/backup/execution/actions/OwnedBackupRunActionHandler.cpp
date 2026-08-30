@@ -2,11 +2,11 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <backup/OwnedBackupRunActionHandler.hpp>
+#include <backup/execution/actions/OwnedBackupRunActionHandler.hpp>
 
 #include <utility>
 
-namespace btrfsbackup::backup {
+namespace btrfsbackup::backup::execution {
 
 OwnedBackupRunActionHandler::OwnedBackupRunActionHandler(
     IBtrfsOperations& btrfs,
@@ -50,4 +50,4 @@ void OwnedBackupRunActionHandler::handle(
     dispatcher_.handle(action, plan, cancellation);
 }
 
-} // namespace btrfsbackup::backup
+} // namespace btrfsbackup::backup::execution

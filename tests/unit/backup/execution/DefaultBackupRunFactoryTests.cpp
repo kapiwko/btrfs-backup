@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-#include <backup/action_handlers/BackupRunActionHandler.hpp>
+#include <backup/execution/actions/BackupRunActionHandler.hpp>
 #include <backup/execution/DefaultBackupRunFactory.hpp>
 #include <backup/testing/NullBackupRunEventSink.hpp>
 
@@ -16,7 +16,7 @@
 
 namespace {
 
-class NoopActionHandler final : public btrfsbackup::backup::IBackupRunActionHandler {
+class NoopActionHandler final : public btrfsbackup::backup::execution::IBackupRunActionHandler {
   public:
     explicit NoopActionHandler(int& destroyed) : destroyed_(destroyed) {
     }
@@ -39,7 +39,7 @@ class NoopActionHandler final : public btrfsbackup::backup::IBackupRunActionHand
 class RecordingActionHandlerFactory final
     : public btrfsbackup::backup::IBackupRunActionHandlerFactory {
   public:
-    std::unique_ptr<btrfsbackup::backup::IBackupRunActionHandler> create(
+    std::unique_ptr<btrfsbackup::backup::execution::IBackupRunActionHandler> create(
         const btrfsbackup::backup::BackupRunPlan& plan
     ) override {
         ++created;

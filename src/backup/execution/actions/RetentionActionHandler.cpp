@@ -2,14 +2,14 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <backup/action_handlers/RetentionActionHandler.hpp>
+#include <backup/execution/actions/RetentionActionHandler.hpp>
 
 #include <utility>
 
 #include <backup/ports/IBtrfsOperations.hpp>
 #include <backup/ports/SafeDirectory.hpp>
 
-namespace btrfsbackup::backup {
+namespace btrfsbackup::backup::execution {
 
 RetentionActionHandler::RetentionActionHandler(IBtrfsOperations& btrfs) : btrfs_(btrfs) {
 }
@@ -44,4 +44,4 @@ void RetentionActionHandler::apply(const RetentionPlan& plan, const ISafeDirecto
     }
 }
 
-} // namespace btrfsbackup::backup
+} // namespace btrfsbackup::backup::execution

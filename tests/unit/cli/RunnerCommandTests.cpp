@@ -23,7 +23,7 @@
 #include <cli/RunnerCommand.hpp>
 #include <cli/BackupTool.hpp>
 #include <cli/RunnerPresenter.hpp>
-#include <backup/action_handlers/BackupRunActionHandler.hpp>
+#include <backup/execution/actions/BackupRunActionHandler.hpp>
 #include <backup/planning/BackupDiscovery.hpp>
 #include <backup/planning/BackupPlanBuilder.hpp>
 #include <backup/planning/BackupPreflight.hpp>
@@ -57,7 +57,7 @@ std::string action_name(btrfsbackup::backup::BackupRunActionKind kind) {
     return std::to_string(std::to_underlying(kind));
 }
 
-class RecordingActionHandler final : public btrfsbackup::backup::IBackupRunActionHandler {
+class RecordingActionHandler final : public btrfsbackup::backup::execution::IBackupRunActionHandler {
   public:
     btrfsbackup::platform::linux::filesystem::PosixDurableFileOperations durable_files;
     std::vector<std::string> calls;
@@ -117,9 +117,9 @@ class RecordingActionHandler final : public btrfsbackup::backup::IBackupRunActio
     }
 };
 
-class DelegatingActionHandler final : public btrfsbackup::backup::IBackupRunActionHandler {
+class DelegatingActionHandler final : public btrfsbackup::backup::execution::IBackupRunActionHandler {
   public:
-    explicit DelegatingActionHandler(btrfsbackup::backup::IBackupRunActionHandler& delegate)
+    explicit DelegatingActionHandler(btrfsbackup::backup::execution::IBackupRunActionHandler& delegate)
         : delegate_(delegate) {
     }
 
@@ -132,24 +132,24 @@ class DelegatingActionHandler final : public btrfsbackup::backup::IBackupRunActi
     }
 
   private:
-    btrfsbackup::backup::IBackupRunActionHandler& delegate_;
+    btrfsbackup::backup::execution::IBackupRunActionHandler& delegate_;
 };
 
 class DelegatingActionHandlerFactory final
     : public btrfsbackup::backup::IBackupRunActionHandlerFactory {
   public:
-    explicit DelegatingActionHandlerFactory(btrfsbackup::backup::IBackupRunActionHandler& delegate)
+    explicit DelegatingActionHandlerFactory(btrfsbackup::backup::execution::IBackupRunActionHandler& delegate)
         : delegate_(delegate) {
     }
 
-    std::unique_ptr<btrfsbackup::backup::IBackupRunActionHandler> create(
+    std::unique_ptr<btrfsbackup::backup::execution::IBackupRunActionHandler> create(
         const btrfsbackup::backup::BackupRunPlan&
     ) override {
         return std::make_unique<DelegatingActionHandler>(delegate_);
     }
 
   private:
-    btrfsbackup::backup::IBackupRunActionHandler& delegate_;
+    btrfsbackup::backup::execution::IBackupRunActionHandler& delegate_;
 };
 
 class ConfigurableTransferPipeline final : public btrfsbackup::backup::transfer::ITransferPipeline {
@@ -400,7 +400,7 @@ class FixedRunIdGenerator final : public btrfsbackup::backup::IRunIdGenerator {
 };
 
 struct ServiceFixture {
-    btrfsbackup::backup::IBackupRunActionHandler& action_handler;
+    btrfsbackup::backup::execution::IBackupRunActionHandler& action_handler;
     btrfsbackup::backup::transfer::ITransferPipeline& transfer_pipeline;
     fs::path lock_root;
     btrfsbackup::config::ApplicationConfig application_config;

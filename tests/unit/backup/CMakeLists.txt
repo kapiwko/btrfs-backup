@@ -4,7 +4,7 @@
 
 add_btrfsbackup_test(btrfsbackup-retention-plan-tests RetentionPlanTests.cpp retention-plan-tests btrfsbackup-backup-model)
 add_btrfsbackup_test(btrfsbackup-snapshot-inventory-tests SnapshotInventoryTests.cpp snapshot-inventory-tests btrfsbackup-backup-model)
-add_btrfsbackup_test(btrfsbackup-backup-run-action-handler-tests BackupRunActionHandlerTests.cpp backup-run-action-handler-tests btrfsbackup-backup btrfsbackup-state btrfsbackup-platform-linux)
+add_btrfsbackup_test(btrfsbackup-backup-run-action-handler-tests execution/actions/BackupRunActionHandlerTests.cpp backup-run-action-handler-tests btrfsbackup-backup btrfsbackup-state btrfsbackup-platform-linux)
 add_btrfsbackup_test(btrfsbackup-backup-run-checkpoint-policy-tests execution/BackupRunCheckpointPolicyTests.cpp backup-run-checkpoint-policy-tests btrfsbackup-backup)
 add_btrfsbackup_test(btrfsbackup-backup-run-tests execution/BackupRunTests.cpp backup-run-tests btrfsbackup-backup btrfsbackup-backup-testing)
 add_btrfsbackup_test(btrfsbackup-backup-planning-snapshot-tests BackupPlanningSnapshotTests.cpp backup-planning-snapshot-tests btrfsbackup-backup-model)
