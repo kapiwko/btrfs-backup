@@ -166,6 +166,10 @@ QString BackupStatusModel::lastError() const {
     return last_error_;
 }
 
+QString BackupStatusModel::lastErrorCode() const {
+    return last_error_code_;
+}
+
 bool BackupStatusModel::browseSupported() const {
     return supports(QLatin1String(btrfsbackup::manager_protocol::feature::browse_backups));
 }
@@ -232,7 +236,7 @@ void BackupStatusModel::startBackup() {
 
 void BackupStatusModel::cancelBackup() {
     if (run_.runId().isEmpty()) {
-        setLastError(tr("No active backup run can be cancelled."));
+        setLastError(tr("No active backup run can be cancelled."), QStringLiteral("run.not-active"));
         return;
     }
     requestOperation(QLatin1String(btrfsbackup::manager_protocol::method::cancel_backup), {profile_, run_.runId()});
@@ -248,7 +252,7 @@ void BackupStatusModel::ejectTarget() {
 
 void BackupStatusModel::openSettings() {
     if (!QProcess::startDetached(QStringLiteral("systemsettings"), {QStringLiteral("kcm_btrfsbackup")})) {
-        setLastError(tr("Could not open backup settings."));
+        setLastError(tr("Could not open backup settings."), QStringLiteral("desktop.settings-launch-failed"));
     }
 }
 
@@ -260,13 +264,13 @@ void BackupStatusModel::browseBackups() {
     location.setScheme(QStringLiteral("btrfsbackup"));
     location.setPath(QStringLiteral("/profiles/") + profile_);
     if (!QProcess::startDetached(QStringLiteral("dolphin"), {location.toString()})) {
-        setLastError(tr("Could not open backup snapshots."));
+        setLastError(tr("Could not open backup snapshots."), QStringLiteral("desktop.browser-launch-failed"));
     }
 }
 
 void BackupStatusModel::openNotificationSettings() {
     if (!QProcess::startDetached(QStringLiteral("systemsettings"), {QStringLiteral("kcm_notifications")})) {
-        setLastError(tr("Could not open notification settings."));
+        setLastError(tr("Could not open notification settings."), QStringLiteral("desktop.notification-settings-launch-failed"));
     }
 }
 
@@ -295,7 +299,7 @@ void BackupStatusModel::connectToManager() {
 
         const auto capabilities = btrfsbackup::kde::parse_capabilities(reply.value());
         if (!capabilities.has_value()) {
-            setLastError(tr("Invalid manager response."));
+            setLastError(tr("Invalid manager response."), QStringLiteral("manager.invalid-response"));
             managerUnavailable();
             return;
         }
@@ -303,7 +307,7 @@ void BackupStatusModel::connectToManager() {
             capabilities->public_status_schema_version != btrfsbackup::manager_protocol::public_status_schema_version ||
             capabilities->history_schema_version != btrfsbackup::manager_protocol::history_schema_version ||
             !capabilities->features.contains(QLatin1String(btrfsbackup::manager_protocol::feature::change_signals))) {
-            setLastError(tr("The backup manager API is not compatible with this widget."));
+            setLastError(tr("The backup manager API is not compatible with this widget."), QStringLiteral("manager.incompatible-api"));
             managerUnavailable();
             return;
         }
@@ -347,7 +351,7 @@ void BackupStatusModel::requestDeviceState() {
         device_request_pending_ = false;
         const bool refresh_again = std::exchange(device_refresh_queued_, false);
         if (reply.isError()) {
-            setLastError(tr("Could not load backup target state from the system manager."));
+            setLastError(tr("Could not load backup target state from the system manager."), reply.error().name());
         } else {
             applyDeviceState(reply.value());
         }
@@ -384,7 +388,7 @@ void BackupStatusModel::requestHistory() {
         history_request_pending_ = false;
         const bool refresh_again = std::exchange(history_refresh_queued_, false);
         if (reply.isError()) {
-            setLastError(tr("Could not load backup history from the system manager."));
+            setLastError(tr("Could not load backup history from the system manager."), reply.error().name());
         } else {
             applyHistory(reply.value());
         }
@@ -410,7 +414,7 @@ void BackupStatusModel::requestProfiles() {
         profiles_request_pending_ = false;
         const bool refresh_again = std::exchange(profiles_refresh_queued_, false);
         if (reply.isError()) {
-            setLastError(tr("Could not load backup profiles from the system manager."));
+            setLastError(tr("Could not load backup profiles from the system manager."), reply.error().name());
         } else {
             applyProfiles(reply.value());
         }
@@ -437,7 +441,7 @@ void BackupStatusModel::requestStatus() {
         status_request_pending_ = false;
         const bool refresh_again = std::exchange(status_refresh_queued_, false);
         if (reply.isError()) {
-            setLastError(tr("Could not load backup status from the system manager."));
+            setLastError(tr("Could not load backup status from the system manager."), reply.error().name());
         } else {
             applyStatus(reply.value());
         }
@@ -449,7 +453,7 @@ void BackupStatusModel::requestStatus() {
 void BackupStatusModel::applyProfiles(const QString& payload) {
     const auto decoded_profiles = btrfsbackup::kde::parse_profiles(payload);
     if (!decoded_profiles.has_value()) {
-        setLastError(tr("Invalid manager response."));
+        setLastError(tr("Invalid manager response."), QStringLiteral("manager.invalid-response"));
         return;
     }
 
@@ -477,7 +481,7 @@ void BackupStatusModel::applyProfiles(const QString& payload) {
 
 void BackupStatusModel::applyStatus(const QString& payload) {
     if (!run_.apply(payload)) {
-        setLastError(tr("The backup manager returned an unsupported status schema."));
+        setLastError(tr("The backup manager returned an unsupported status schema."), QStringLiteral("manager.unsupported-status-schema"));
         return;
     }
     setManagerConnected(true);
@@ -486,7 +490,7 @@ void BackupStatusModel::applyStatus(const QString& payload) {
 
 void BackupStatusModel::applyDeviceState(const QString& payload) {
     if (!target_.apply(profile_, payload)) {
-        setLastError(tr("The backup manager returned an unsupported target schema."));
+        setLastError(tr("The backup manager returned an unsupported target schema."), QStringLiteral("manager.unsupported-target-schema"));
         return;
     }
     setLastError(QString());
@@ -494,7 +498,7 @@ void BackupStatusModel::applyDeviceState(const QString& payload) {
 
 void BackupStatusModel::applyHistory(const QString& payload) {
     if (!history_.apply(payload)) {
-        setLastError(tr("Invalid manager response."));
+        setLastError(tr("Invalid manager response."), QStringLiteral("manager.invalid-response"));
         return;
     }
 }
@@ -510,7 +514,7 @@ void BackupStatusModel::requestOperation(const QString& method, const QVariantLi
         {QLatin1String(btrfsbackup::manager_protocol::method::eject_target), QLatin1String(btrfsbackup::manager_protocol::feature::eject_target)},
     };
     if (!supports(required_features.value(method))) {
-        setLastError(tr("The backup manager does not support this operation."));
+        setLastError(tr("The backup manager does not support this operation."), QStringLiteral("manager.unsupported-operation"));
         return;
     }
     operation_pending_ = true;
@@ -528,7 +532,7 @@ void BackupStatusModel::requestOperation(const QString& method, const QVariantLi
         }
         operation_pending_ = false;
         if (reply.isError()) {
-            setLastError(tr("The requested backup operation failed: %1").arg(reply.error().message()));
+            setLastError(tr("The requested backup operation failed: %1").arg(reply.error().message()), reply.error().name());
             emit operationChanged();
             return;
         }
@@ -536,7 +540,7 @@ void BackupStatusModel::requestOperation(const QString& method, const QVariantLi
         const QJsonDocument document = QJsonDocument::fromJson(reply.value().toUtf8(), &error);
         if (error.error != QJsonParseError::NoError || !document.isObject() ||
             json_int(document.object(), "schemaVersion", -1) != 1) {
-            setLastError(parseError(error));
+            setLastError(parseError(error), QStringLiteral("manager.invalid-operation-response"));
             emit operationChanged();
             return;
         }
@@ -561,11 +565,12 @@ void BackupStatusModel::setManagerConnected(bool connected) {
     emit managerConnectedChanged();
 }
 
-void BackupStatusModel::setLastError(const QString& message) {
-    if (last_error_ == message) {
+void BackupStatusModel::setLastError(const QString& message, const QString& code) {
+    if (last_error_ == message && last_error_code_ == code) {
         return;
     }
     last_error_ = message;
+    last_error_code_ = code;
     emit errorChanged();
 }
 
@@ -588,6 +593,6 @@ void BackupStatusModel::managerUnavailable() {
     emit operationChanged();
     setManagerConnected(false);
     if (last_error_.isEmpty()) {
-        setLastError(tr("The system backup manager is unavailable."));
+        setLastError(tr("The system backup manager is unavailable."), QStringLiteral("manager.unavailable"));
     }
 }

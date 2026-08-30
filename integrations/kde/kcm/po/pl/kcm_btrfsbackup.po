@@ -1,0 +1,101 @@
+# SPDX-FileCopyrightText: 2026 Kamil Piwowarski <kapiwko@gmail.com>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+msgid ""
+msgstr ""
+"Project-Id-Version: btrfs-backup\n"
+"PO-Revision-Date: 2026-08-31 00:00+0200\n"
+"Last-Translator: Kamil Piwowarski <kapiwko@gmail.com>\n"
+"Language-Team: Polish\n"
+"Language: pl\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=3; plural=(n==1 ? 0 : n%10>=2 && n%10<=4 && "
+"(n%100<10 || n%100>=20) ? 1 : 2);\n"
+
+msgid "Btrfs Backups"
+msgstr "Kopie zapasowe Btrfs"
+
+msgid "Backup service unavailable"
+msgstr "Usługa kopii zapasowych jest niedostępna"
+
+msgid "1 profile"
+msgid_plural "%1 profiles"
+msgstr[0] "1 profil"
+msgstr[1] "%1 profile"
+msgstr[2] "%1 profili"
+
+msgid "Waiting for the system backup service"
+msgstr "Oczekiwanie na systemową usługę kopii zapasowych"
+
+msgid "Refresh"
+msgstr "Odśwież"
+
+msgid "Validate target"
+msgstr "Sprawdź cel"
+
+msgid "Last successful backup:"
+msgstr "Ostatnia udana kopia:"
+
+msgid "No successful backup"
+msgstr "Brak udanej kopii"
+
+msgid "Target:"
+msgstr "Cel:"
+
+msgid "Unknown"
+msgstr "Nieznany"
+
+msgid "Target state:"
+msgstr "Stan celu:"
+
+msgid "Available space:"
+msgstr "Dostępne miejsce:"
+
+msgid "Target validation completed successfully"
+msgstr "Sprawdzanie celu zakończono pomyślnie"
+
+msgid "Administrative operation details are recorded in the system journal."
+msgstr "Szczegóły operacji administracyjnych są zapisywane w dzienniku systemowym."
+
+msgid "Open system log"
+msgstr "Otwórz dziennik systemowy"
+
+msgid "Support"
+msgstr "Pomoc"
+
+msgid "Backup is in progress"
+msgstr "Kopia zapasowa jest wykonywana"
+
+msgid "Backup completed successfully"
+msgstr "Kopia zapasowa zakończyła się pomyślnie"
+
+msgid "Backup failed"
+msgstr "Kopia zapasowa nie powiodła się"
+
+msgid "Backup cancelled"
+msgstr "Kopia zapasowa została anulowana"
+
+msgid "No active backup"
+msgstr "Brak aktywnej kopii"
+
+msgid "Mounted"
+msgstr "Zamontowany"
+
+msgid "Unexpected mount"
+msgstr "Nieoczekiwany mount"
+
+msgid "Unlocked"
+msgstr "Odblokowany"
+
+msgid "Connected"
+msgstr "Podłączony"
+
+msgid "Disconnected"
+msgstr "Odłączony"
+
+msgctxt "error message followed by a stable diagnostic code"
+msgid "%1 (code: %2)"
+msgstr "%1 (kod: %2)"

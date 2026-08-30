@@ -32,6 +32,7 @@ class BackupStatusModel : public QObject {
     Q_PROPERTY(bool operationPending READ operationPending NOTIFY operationChanged)
     Q_PROPERTY(QString lastOperation READ lastOperation NOTIFY operationChanged)
     Q_PROPERTY(QString lastError READ lastError NOTIFY errorChanged)
+    Q_PROPERTY(QString lastErrorCode READ lastErrorCode NOTIFY errorChanged)
     Q_PROPERTY(bool browseSupported READ browseSupported NOTIFY managerConnectedChanged)
     Q_PROPERTY(int historyLimit READ historyLimit WRITE setHistoryLimit NOTIFY historyLimitChanged)
 
@@ -50,6 +51,7 @@ class BackupStatusModel : public QObject {
     bool operationPending() const;
     QString lastOperation() const;
     QString lastError() const;
+    QString lastErrorCode() const;
     bool browseSupported() const;
     int historyLimit() const;
     void setHistoryLimit(int limit);
@@ -89,7 +91,7 @@ class BackupStatusModel : public QObject {
     void requestOperation(const QString& method, const QVariantList& arguments);
     bool supports(const QString& feature) const;
     void setManagerConnected(bool connected);
-    void setLastError(const QString& message);
+    void setLastError(const QString& message, const QString& code = {});
     void managerUnavailable();
 
     QString profile_ = QStringLiteral("default");
@@ -118,5 +120,6 @@ class BackupStatusModel : public QObject {
     QString profile_name_;
     QString last_operation_;
     QString last_error_;
+    QString last_error_code_;
     int history_limit_ = 3;
 };
