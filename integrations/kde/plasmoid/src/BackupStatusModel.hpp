@@ -33,6 +33,7 @@ class BackupStatusModel : public QObject {
     Q_PROPERTY(QString lastOperation READ lastOperation NOTIFY operationChanged)
     Q_PROPERTY(QString lastError READ lastError NOTIFY errorChanged)
     Q_PROPERTY(bool browseSupported READ browseSupported NOTIFY managerConnectedChanged)
+    Q_PROPERTY(int historyLimit READ historyLimit WRITE setHistoryLimit NOTIFY historyLimitChanged)
 
   public:
     explicit BackupStatusModel(QObject* parent = nullptr);
@@ -50,6 +51,8 @@ class BackupStatusModel : public QObject {
     QString lastOperation() const;
     QString lastError() const;
     bool browseSupported() const;
+    int historyLimit() const;
+    void setHistoryLimit(int limit);
 
     Q_INVOKABLE void start();
     Q_INVOKABLE void stop();
@@ -60,6 +63,7 @@ class BackupStatusModel : public QObject {
     Q_INVOKABLE void ejectTarget();
     Q_INVOKABLE void openSettings();
     Q_INVOKABLE void browseBackups();
+    Q_INVOKABLE void openNotificationSettings();
 
   signals:
     void profileChanged();
@@ -70,6 +74,7 @@ class BackupStatusModel : public QObject {
     void historyChanged();
     void operationChanged();
     void errorChanged();
+    void historyLimitChanged();
 
   private:
     void connectToManager();
@@ -113,4 +118,5 @@ class BackupStatusModel : public QObject {
     QString profile_name_;
     QString last_operation_;
     QString last_error_;
+    int history_limit_ = 3;
 };

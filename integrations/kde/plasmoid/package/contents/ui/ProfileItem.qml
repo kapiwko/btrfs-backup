@@ -22,6 +22,14 @@ PlasmaExtras.ExpandableListItem {
     required property string targetNameHint
     required property int relativeTimeTick
     required property int refreshRevision
+    property int historyLimit: 3
+    property bool autoExpandActive: true
+    property bool autoExpandFailed: true
+    property bool showSpeedChart: true
+    property bool showStorageDetails: true
+    property bool hideSourceNamesInTooltip: false
+    property bool previousRunning: false
+    property bool previousFailed: false
 
     readonly property bool running: profileStatus.run.state === "running"
         || profileStatus.run.state === "starting"
@@ -41,6 +49,7 @@ PlasmaExtras.ExpandableListItem {
     BackupStatusModel {
         id: profileStatus
         profile: root.profileId
+        historyLimit: root.historyLimit
         Component.onCompleted: start()
     }
 
@@ -99,7 +108,7 @@ PlasmaExtras.ExpandableListItem {
 
             TransferSpeedChart {
                 Layout.fillWidth: true
-                visible: root.running
+                visible: root.running && root.showSpeedChart
                 active: root.running
                 currentSpeed: profileStatus.run.speedBps
                 currentSpeedText: profileStatus.run.speedText
@@ -194,6 +203,7 @@ PlasmaExtras.ExpandableListItem {
                 TargetStorageUsage {
                     Layout.columnSpan: 2
                     Layout.fillWidth: true
+                    visible: root.showStorageDetails
                     supported: profileStatus.target.storageSupported
                     known: profileStatus.target.storageKnown
                     capacityText: profileStatus.target.capacityText
@@ -310,7 +320,10 @@ PlasmaExtras.ExpandableListItem {
 
     Connections {
         target: profileStatus
-        function onStatusChanged() { root.publishSummary() }
+        function onStatusChanged() {
+            root.applyAutomaticExpansion()
+            root.publishSummary()
+        }
         function onTargetChanged() { root.publishSummary() }
         function onErrorChanged() { root.publishSummary() }
         function onManagerConnectedChanged() { root.publishSummary() }
@@ -371,10 +384,22 @@ PlasmaExtras.ExpandableListItem {
     function subtitleText() {
         if (profileStatus.lastError.length > 0)
             return profileStatus.lastError
-        if (root.running)
-            return root.activityText(profileStatus.run.activity, profileStatus.run.phase)
+        if (root.running) {
+            const activity = root.activityText(profileStatus.run.activity, profileStatus.run.phase)
+            if (!root.hideSourceNamesInTooltip && profileStatus.run.sourceName.length > 0)
+                return activity + " - " + profileStatus.run.sourceName
+            return activity
+        }
         const target = profileStatus.target.name || profileStatus.run.targetName || root.targetNameHint || translations.i18n("Backup target")
         return target + " - " + root.targetStateText(profileStatus.target.state)
+    }
+
+    function applyAutomaticExpansion() {
+        if ((root.autoExpandActive && root.running && !root.previousRunning)
+                || (root.autoExpandFailed && root.failed && !root.previousFailed))
+            root.expand()
+        root.previousRunning = root.running
+        root.previousFailed = root.failed
     }
 
     function statusText(state) {
