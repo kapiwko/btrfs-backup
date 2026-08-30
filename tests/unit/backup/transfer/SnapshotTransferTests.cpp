@@ -8,7 +8,7 @@
 #include <vector>
 
 #include <core/Errors.hpp>
-#include <backup/SnapshotTransfer.hpp>
+#include <backup/transfer/SnapshotTransfer.hpp>
 
 #include "support/ValidationTestHelpers.hpp"
 
@@ -86,7 +86,7 @@ class FakeFileSystem final : public btrfsbackup::backup::IFileSystem {
 };
 
 void test_builds_send_receive_commands() {
-    btrfsbackup::backup::SendReceiveCommandPlan full = btrfsbackup::backup::build_send_receive_command_plan(
+    btrfsbackup::backup::transfer::SendReceiveCommandPlan full = btrfsbackup::backup::transfer::build_send_receive_command_plan(
         "/snap/current",
         {},
         "/incoming/run"
@@ -98,7 +98,7 @@ void test_builds_send_receive_commands() {
     test_helpers::expect_eq("full send path", full.send_argv.at(5), "/snap/current");
     test_helpers::expect_eq("receive dir", full.receive_argv.at(2), "/incoming/run");
 
-    btrfsbackup::backup::SendReceiveCommandPlan incremental = btrfsbackup::backup::build_send_receive_command_plan(
+    btrfsbackup::backup::transfer::SendReceiveCommandPlan incremental = btrfsbackup::backup::transfer::build_send_receive_command_plan(
         "/snap/current",
         "/snap/parent",
         "/incoming/run"
@@ -124,10 +124,10 @@ void test_verifies_received_snapshot() {
         .received_uuid = btrfsbackup::backup::ReceivedSnapshotUuid{"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"},
     };
 
-    btrfsbackup::backup::verify_received_snapshot(btrfsbackup::SourceId{"home"}, local, received);
+    btrfsbackup::backup::transfer::verify_received_snapshot(btrfsbackup::SourceId{"home"}, local, received);
 
     received.readonly = false;
-    test_helpers::expect_validation_error("received readonly", [&] { btrfsbackup::backup::verify_received_snapshot(btrfsbackup::SourceId{"home"}, local, received); }, "Received subvolume is not readonly");
+    test_helpers::expect_validation_error("received readonly", [&] { btrfsbackup::backup::transfer::verify_received_snapshot(btrfsbackup::SourceId{"home"}, local, received); }, "Received subvolume is not readonly");
 }
 
 void test_commit_received_snapshot() {
@@ -139,7 +139,7 @@ void test_commit_received_snapshot() {
     };
     FakeFileSystem fs_effects;
 
-    btrfsbackup::backup::commit_received_snapshot(
+    btrfsbackup::backup::transfer::commit_received_snapshot(
         btrfs,
         fs_effects,
         "/incoming/run/home",
@@ -161,7 +161,7 @@ void test_commit_deletes_invalid_final_snapshot() {
     };
     FakeFileSystem fs_effects;
 
-    test_helpers::expect_validation_error("commit uuid mismatch", [&] { btrfsbackup::backup::commit_received_snapshot(
+    test_helpers::expect_validation_error("commit uuid mismatch", [&] { btrfsbackup::backup::transfer::commit_received_snapshot(
                                                                             btrfs,
                                                                             fs_effects,
                                                                             "/incoming/run/home",
@@ -176,7 +176,7 @@ void test_commit_rejects_existing_destination() {
     FakeFileSystem fs_effects;
     fs_effects.final_exists = true;
 
-    test_helpers::expect_validation_error("commit destination exists", [&] { btrfsbackup::backup::commit_received_snapshot(
+    test_helpers::expect_validation_error("commit destination exists", [&] { btrfsbackup::backup::transfer::commit_received_snapshot(
                                                                                  btrfs,
                                                                                  fs_effects,
                                                                                  "/incoming/run/home",
@@ -196,7 +196,7 @@ void test_commit_reports_verification_and_cleanup_failure() {
     FakeFileSystem fs_effects;
 
     try {
-        btrfsbackup::backup::commit_received_snapshot(
+        btrfsbackup::backup::transfer::commit_received_snapshot(
             btrfs,
             fs_effects,
             "/incoming/run/home",

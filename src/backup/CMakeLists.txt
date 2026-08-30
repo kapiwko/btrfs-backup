@@ -141,7 +141,7 @@ add_library(btrfsbackup-backup STATIC
     execution/actions/RepositoryActionHandler.cpp
     execution/actions/RetentionActionHandler.cpp
     execution/actions/SnapshotActionHandler.cpp
-    SnapshotTransfer.cpp
+    transfer/SnapshotTransfer.cpp
     transfer/TransferCoordinator.cpp
     transfer/TransferSizing.cpp
 )
@@ -169,7 +169,7 @@ target_restricted_include_directories(btrfsbackup-backup
         backup/execution/LinkedCancellationMonitor.hpp
         backup/execution/RunExecutionContext.hpp
         backup/execution/RunSessionFactory.hpp
-        backup/SnapshotTransfer.hpp
+        backup/transfer/SnapshotTransfer.hpp
         backup/execution/SystemRunContext.hpp
         backup/transfer/TransferCoordinator.hpp
     PRIVATE_HEADERS
