@@ -63,6 +63,22 @@ add_btrfsbackup_test(
 )
 
 add_btrfsbackup_test(
+    btrfsbackup-profile-administration-service-tests
+    ProfileAdministrationServiceTests.cpp
+    profile-administration-service-tests
+    btrfsbackup-daemon-control
+)
+
+add_btrfsbackup_test(
+    btrfsbackup-system-profile-administration-backend-tests
+    SystemProfileAdministrationBackendTests.cpp
+    system-profile-administration-backend-tests
+    btrfsbackup-daemon-system-control
+    btrfsbackup-config-json
+    btrfsbackup-platform-linux-config
+)
+
+add_btrfsbackup_test(
     btrfsbackup-systemd-control-tests
     SystemdControlTests.cpp
     systemd-control-tests
