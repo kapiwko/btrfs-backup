@@ -121,6 +121,13 @@ KCMUtils.ScrollViewKCM {
                         }
                     }
                     QQC2.Button {
+                        visible: profileStatus.browseSupported
+                        icon.name: "folder-open-symbolic"
+                        text: i18n("Browse backups")
+                        enabled: profileStatus.managerConnected && !profileStatus.operationPending
+                        onClicked: profileStatus.browseBackups()
+                    }
+                    QQC2.Button {
                         icon.name: "tools-check-spelling"
                         text: i18n("Validate target")
                         enabled: profileStatus.managerConnected && !profileStatus.operationPending

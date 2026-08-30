@@ -8,6 +8,7 @@
 
 #include <QDBusConnection>
 #include <QDBusPendingCall>
+#include <QDateTime>
 #include <QList>
 #include <QObject>
 #include <QSet>
@@ -72,6 +73,14 @@ struct OperationResult {
     bool accepted = false;
 };
 
+struct BrowseSessionInfo {
+    QString session_id;
+    QString profile_id;
+    QString root_path;
+    QDateTime expires_at;
+    bool read_only = false;
+};
+
 class ManagerEventSubscriber final : public QObject {
     Q_OBJECT
 
@@ -97,6 +106,7 @@ class ManagerEventSubscriber final : public QObject {
 [[nodiscard]] std::optional<QList<ProfileSummary>> parse_profiles(const QString& payload);
 [[nodiscard]] std::optional<RunStatus> parse_status(const QString& payload);
 [[nodiscard]] std::optional<OperationResult> parse_operation_result(const QString& payload);
+[[nodiscard]] std::optional<BrowseSessionInfo> parse_browse_session(const QString& payload);
 [[nodiscard]] bool active_run_state(const QString& state);
 
 } // namespace btrfsbackup::kde
