@@ -15,6 +15,7 @@
 #include <stdexcept>
 #include <string>
 #include <thread>
+#include <utility>
 #include <vector>
 
 #include <backup/transfer/AsyncTransfer.hpp>
@@ -25,6 +26,10 @@
 #include "support/ValidationTestHelpers.hpp"
 
 namespace {
+
+auto exited(int exit_code, std::string diagnostics = {}) {
+    return btrfsbackup::backup::transfer::TransferSideResult::exited(exit_code, std::move(diagnostics));
+}
 
 class RecordingEventSink final : public btrfsbackup::backup::transfer::ITransferEventSink {
   public:
@@ -60,8 +65,8 @@ class BlockingTransferPipeline final : public btrfsbackup::backup::transfer::ITr
             std::this_thread::sleep_for(std::chrono::milliseconds(5));
         }
         return {
-            .producer = {.started = true, .exit_code = 0},
-            .consumer = {.started = true, .exit_code = 0},
+            .producer = exited(0),
+            .consumer = exited(0),
             .cancelled = cancellation.cancellation_requested(),
         };
     }
@@ -104,8 +109,8 @@ void test_posix_cancellation_signal_wakes_poll() {
 
 void test_success_result() {
     btrfsbackup::backup::transfer::TransferResult result{
-        .producer = {.started = true, .exit_code = 0},
-        .consumer = {.started = true, .exit_code = 0},
+        .producer = exited(0),
+        .consumer = exited(0),
         .bytes_transferred = 123,
     };
 
@@ -115,8 +120,8 @@ void test_success_result() {
 
 void test_producer_failure_is_reported_separately() {
     btrfsbackup::backup::transfer::TransferResult result{
-        .producer = {.started = true, .exit_code = 1, .diagnostics = "send failed"},
-        .consumer = {.started = true, .exit_code = 0},
+        .producer = exited(1, "send failed"),
+        .consumer = exited(0),
     };
 
     test_helpers::expect_eq("producer error code", btrfsbackup::error_code_name(btrfsbackup::backup::transfer::transfer_failure_error_code(result).value()), "transfer.producer_failed");
@@ -125,8 +130,8 @@ void test_producer_failure_is_reported_separately() {
 
 void test_consumer_failure_is_reported_separately() {
     btrfsbackup::backup::transfer::TransferResult result{
-        .producer = {.started = true, .exit_code = 0},
-        .consumer = {.started = true, .exit_code = 1, .diagnostics = "receive failed"},
+        .producer = exited(0),
+        .consumer = exited(1, "receive failed"),
     };
 
     test_helpers::expect_eq("consumer error code", btrfsbackup::error_code_name(btrfsbackup::backup::transfer::transfer_failure_error_code(result).value()), "transfer.consumer_failed");
@@ -135,8 +140,8 @@ void test_consumer_failure_is_reported_separately() {
 
 void test_both_sides_failure_keeps_both_diagnostics() {
     btrfsbackup::backup::transfer::TransferResult result{
-        .producer = {.started = true, .exit_code = 1, .diagnostics = "send failed"},
-        .consumer = {.started = true, .exit_code = 2, .diagnostics = "receive failed"},
+        .producer = exited(1, "send failed"),
+        .consumer = exited(2, "receive failed"),
     };
 
     test_helpers::expect_eq("both sides error code", btrfsbackup::error_code_name(btrfsbackup::backup::transfer::transfer_failure_error_code(result).value()), "transfer.producer_consumer_failed");
@@ -145,8 +150,8 @@ void test_both_sides_failure_keeps_both_diagnostics() {
 
 void test_cancelled_transfer_is_reported() {
     btrfsbackup::backup::transfer::TransferResult result{
-        .producer = {.started = true, .exit_code = 0},
-        .consumer = {.started = true, .exit_code = 0},
+        .producer = exited(0),
+        .consumer = exited(0),
         .cancelled = true,
     };
 
@@ -344,9 +349,9 @@ void test_posix_pipeline_reports_producer_failure() {
         cancellation
     );
 
-    test_helpers::expect_eq("producer exit", std::to_string(result.producer.exit_code), "7");
-    test_helpers::expect_eq("consumer exit", std::to_string(result.consumer.exit_code), "0");
-    test_helpers::expect_contains("producer diagnostics", result.producer.diagnostics, "producer-error");
+    test_helpers::expect_eq("producer exit", std::to_string(result.producer.exit_code().value()), "7");
+    test_helpers::expect_eq("consumer exit", std::to_string(result.consumer.exit_code().value()), "0");
+    test_helpers::expect_contains("producer diagnostics", result.producer.diagnostics(), "producer-error");
     test_helpers::expect_validation_error("producer failure result", [&] { btrfsbackup::backup::transfer::require_transfer_success(result); }, "producer failed with exit code 7");
 }
 
@@ -374,7 +379,7 @@ void test_posix_pipeline_bounds_large_stderr_without_deadlock() {
     );
 
     const auto elapsed = std::chrono::steady_clock::now() - started_at;
-    test_helpers::expect_eq("large stderr producer exit", std::to_string(result.producer.exit_code), "7");
+    test_helpers::expect_eq("large stderr producer exit", std::to_string(result.producer.exit_code().value()), "7");
     test_helpers::expect_true(
         "large stderr completion bounded",
         elapsed < std::chrono::seconds(15),
@@ -382,14 +387,14 @@ void test_posix_pipeline_bounds_large_stderr_without_deadlock() {
     );
     test_helpers::expect_true(
         "large stderr memory bounded",
-        result.producer.diagnostics.size() < retained_bytes + 256U,
+        result.producer.diagnostics().size() < retained_bytes + 256U,
         "pipeline retained more than the bounded diagnostic head and tail"
     );
-    test_helpers::expect_contains("large stderr head", result.producer.diagnostics, "diagnostic-head");
-    test_helpers::expect_contains("large stderr tail", result.producer.diagnostics, "diagnostic-tail");
+    test_helpers::expect_contains("large stderr head", result.producer.diagnostics(), "diagnostic-head");
+    test_helpers::expect_contains("large stderr tail", result.producer.diagnostics(), "diagnostic-tail");
     test_helpers::expect_contains(
         "large stderr discarded bytes",
-        result.producer.diagnostics,
+        result.producer.diagnostics(),
         "... omitted " + std::to_string(diagnostic_bytes + 33U - retained_bytes) + " diagnostic bytes ..."
     );
 }
@@ -408,9 +413,9 @@ void test_posix_pipeline_reports_missing_producer() {
         cancellation
     );
 
-    test_helpers::expect_true("missing producer not started", !result.producer.started, "producer should not start");
-    test_helpers::expect_true("missing producer consumer started", result.consumer.started, "consumer should start");
-    test_helpers::expect_contains("missing producer diagnostics", result.producer.diagnostics, "posix_spawn failed");
+    test_helpers::expect_true("missing producer not started", !result.producer.started(), "producer should not start");
+    test_helpers::expect_true("missing producer consumer started", result.consumer.started(), "consumer should start");
+    test_helpers::expect_contains("missing producer diagnostics", result.producer.diagnostics(), "posix_spawn failed");
     test_helpers::expect_eq(
         "missing producer error code",
         btrfsbackup::error_code_name(btrfsbackup::backup::transfer::transfer_failure_error_code(result).value()),
@@ -432,9 +437,9 @@ void test_posix_pipeline_reports_consumer_failure() {
         cancellation
     );
 
-    test_helpers::expect_eq("producer exit for consumer failure", std::to_string(result.producer.exit_code), "0");
-    test_helpers::expect_eq("consumer exit", std::to_string(result.consumer.exit_code), "9");
-    test_helpers::expect_contains("consumer diagnostics", result.consumer.diagnostics, "consumer-error");
+    test_helpers::expect_eq("producer exit for consumer failure", std::to_string(result.producer.exit_code().value()), "0");
+    test_helpers::expect_eq("consumer exit", std::to_string(result.consumer.exit_code().value()), "9");
+    test_helpers::expect_contains("consumer diagnostics", result.consumer.diagnostics(), "consumer-error");
     test_helpers::expect_validation_error("consumer failure result", [&] { btrfsbackup::backup::transfer::require_transfer_success(result); }, "consumer failed with exit code 9");
 }
 
@@ -452,9 +457,9 @@ void test_posix_pipeline_reports_missing_consumer() {
         cancellation
     );
 
-    test_helpers::expect_true("missing consumer producer started", result.producer.started, "producer should start");
-    test_helpers::expect_true("missing consumer not started", !result.consumer.started, "consumer should not start");
-    test_helpers::expect_contains("missing consumer diagnostics", result.consumer.diagnostics, "posix_spawn failed");
+    test_helpers::expect_true("missing consumer producer started", result.producer.started(), "producer should start");
+    test_helpers::expect_true("missing consumer not started", !result.consumer.started(), "consumer should not start");
+    test_helpers::expect_contains("missing consumer diagnostics", result.consumer.diagnostics(), "posix_spawn failed");
     test_helpers::expect_true(
         "missing consumer transfer failed",
         !btrfsbackup::backup::transfer::transfer_succeeded(result),
@@ -488,10 +493,10 @@ void test_posix_pipeline_reaps_live_producer_when_consumer_spawn_fails() {
                                 std::chrono::steady_clock::now() - started_at
     )
                                 .count();
-    test_helpers::expect_true("partial spawn producer started", result.producer.started, "producer should start before consumer failure");
-    test_helpers::expect_true("partial spawn consumer missing", !result.consumer.started, "consumer should fail to start");
+    test_helpers::expect_true("partial spawn producer started", result.producer.started(), "producer should start before consumer failure");
+    test_helpers::expect_true("partial spawn consumer missing", !result.consumer.started(), "consumer should fail to start");
     test_helpers::expect_true("partial spawn cleanup bounded", elapsed_ms < 2000, "producer cleanup exceeded its deadline");
-    test_helpers::expect_contains("partial spawn consumer diagnostics", result.consumer.diagnostics, "posix_spawn failed");
+    test_helpers::expect_contains("partial spawn consumer diagnostics", result.consumer.diagnostics(), "posix_spawn failed");
 }
 
 void test_posix_pipeline_handles_early_consumer_exit() {
@@ -508,8 +513,8 @@ void test_posix_pipeline_handles_early_consumer_exit() {
         cancellation
     );
 
-    test_helpers::expect_eq("early consumer exit", std::to_string(result.consumer.exit_code), "9");
-    test_helpers::expect_contains("early consumer diagnostics", result.consumer.diagnostics, "closed");
+    test_helpers::expect_eq("early consumer exit", std::to_string(result.consumer.exit_code().value()), "9");
+    test_helpers::expect_contains("early consumer diagnostics", result.consumer.diagnostics(), "closed");
     test_helpers::expect_validation_error("early consumer failure result", [&] { btrfsbackup::backup::transfer::require_transfer_success(result); }, "consumer failed with exit code 9");
 }
 
@@ -642,10 +647,10 @@ void test_posix_pipeline_kills_children_that_ignore_sigterm() {
 
     test_helpers::expect_true("stubborn transfer cancelled", result.cancelled, "transfer should report cancellation");
     test_helpers::expect_true("stubborn cancellation bounded", elapsed_ms < 2000, "SIGKILL escalation should bound cancellation");
-    test_helpers::expect_eq("stubborn producer killed", std::to_string(result.producer.exit_code), "137");
-    test_helpers::expect_eq("stubborn consumer killed", std::to_string(result.consumer.exit_code), "137");
-    test_helpers::expect_contains("producer escalation diagnostic", result.producer.diagnostics, "sent SIGKILL");
-    test_helpers::expect_contains("consumer escalation diagnostic", result.consumer.diagnostics, "sent SIGKILL");
+    test_helpers::expect_eq("stubborn producer killed", std::to_string(result.producer.exit_code().value()), "137");
+    test_helpers::expect_eq("stubborn consumer killed", std::to_string(result.consumer.exit_code().value()), "137");
+    test_helpers::expect_contains("producer escalation diagnostic", result.producer.diagnostics(), "sent SIGKILL");
+    test_helpers::expect_contains("consumer escalation diagnostic", result.consumer.diagnostics(), "sent SIGKILL");
 }
 
 void test_async_handle_destructor_kills_stubborn_children() {

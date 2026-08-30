@@ -101,10 +101,7 @@ btrfsbackup::config::Profile migrate_target_activation_from_crypttab(
 
     const std::string& key_file = match.at(2);
     if (key_file == "none" || key_file == "-") {
-        profile.target.activation = {
-            .mode = btrfsbackup::config::TargetActivationMode::AskPassword,
-            .key_file = {},
-        };
+        profile.target.activation = btrfsbackup::config::AskPasswordActivation{};
     } else {
         const fs::path path = key_file;
         if (!path.is_absolute() || key_file.find('\\') != std::string::npos) {
@@ -112,9 +109,8 @@ btrfsbackup::config::Profile migrate_target_activation_from_crypttab(
                 "legacy crypttab key file must be none, -, or an absolute path without escapes"
             );
         }
-        profile.target.activation = {
-            .mode = btrfsbackup::config::TargetActivationMode::KeyFile,
-            .key_file = path.lexically_normal(),
+        profile.target.activation = btrfsbackup::config::KeyFileActivation{
+            btrfsbackup::config::KeyFilePath{path.lexically_normal()},
         };
     }
     return profile;

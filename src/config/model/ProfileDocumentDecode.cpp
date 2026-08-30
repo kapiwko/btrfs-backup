@@ -44,8 +44,9 @@ Profile profile_from_document(const ProfileDocument& document, const fs::path& t
     };
     const Json& activation = target.at("activation");
     if (activation.at("mode") == "keyFile") {
-        profile.target.activation.mode = TargetActivationMode::KeyFile;
-        profile.target.activation.key_file = activation.at("keyFile").get<std::string>();
+        profile.target.activation = KeyFileActivation{
+            KeyFilePath{activation.at("keyFile").get<std::string>()},
+        };
     }
 
     const Json& settings = normalized.at("settings");

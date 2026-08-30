@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <optional>
 #include <string>
+#include <variant>
 #include <vector>
 
 #include <backup/model/Snapshot.hpp>
@@ -14,12 +15,15 @@
 
 namespace btrfsbackup::backup {
 
-struct IncrementalParentSelection {
-    bool incremental = false;
-    bool remote_snapshots_exist = false;
-    std::optional<SnapshotInfo> local_parent;
-    std::optional<SnapshotInfo> remote_parent;
+struct FullTransfer {
 };
+
+struct IncrementalTransfer {
+    SnapshotInfo local_parent;
+    SnapshotInfo remote_parent;
+};
+
+using IncrementalParentSelection = std::variant<FullTransfer, IncrementalTransfer>;
 
 IncrementalParentSelection select_incremental_parent(
     const SourceId& source_id,

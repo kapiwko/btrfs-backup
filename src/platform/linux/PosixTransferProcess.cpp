@@ -71,11 +71,11 @@ bool reap_posix_transfer_process(pid_t pid, btrfsbackup::backup::transfer::Trans
         return false;
     }
     if (waited < 0) {
-        result.exit_code = 128;
-        result.diagnostics = std::string("waitpid failed: ") + std::strerror(errno);
+        result.mark_exited(128);
+        result.diagnostics() = std::string("waitpid failed: ") + std::strerror(errno);
         return true;
     }
-    result.exit_code = status_to_exit_code(status);
+    result.mark_exited(status_to_exit_code(status));
     return true;
 }
 

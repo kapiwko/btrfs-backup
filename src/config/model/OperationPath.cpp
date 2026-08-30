@@ -47,6 +47,10 @@ LocalSnapshotRoot::LocalSnapshotRoot(fs::path value)
     : detail::OperationPathValue(std::move(value), "source.localSnapshotDir") {
 }
 
+KeyFilePath::KeyFilePath(fs::path value)
+    : detail::OperationPathValue(std::move(value), "target.activation.keyFile") {
+}
+
 HookProgramPath::HookProgramPath(fs::path value)
     : detail::OperationPathValue(std::move(value), "hook.program") {
 }

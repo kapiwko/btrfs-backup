@@ -14,6 +14,31 @@ bool terminal(RunState state) {
     return state != RunState::Running && state != RunState::Validating;
 }
 
+bool terminal_phase_matches(RunState state, RunPhase phase) {
+    switch (state) {
+    case RunState::Validated:
+        return phase == RunPhase::Validated;
+    case RunState::Succeeded:
+        return phase == RunPhase::Succeeded;
+    case RunState::Failed:
+        return phase != RunPhase::Validated && phase != RunPhase::Succeeded && phase != RunPhase::Cancelled &&
+            phase != RunPhase::Skipped;
+    case RunState::Cancelled:
+        return phase == RunPhase::Cancelled;
+    case RunState::Skipped:
+        return phase == RunPhase::Skipped;
+    case RunState::Running:
+    case RunState::Validating:
+        return true;
+    }
+    return false;
+}
+
+bool is_terminal_phase(RunPhase phase) {
+    return phase == RunPhase::Validated || phase == RunPhase::Succeeded || phase == RunPhase::Failed ||
+        phase == RunPhase::Cancelled || phase == RunPhase::Skipped;
+}
+
 } // namespace
 
 void validate_run_status(const RunStatus& status) {
@@ -21,6 +46,15 @@ void validate_run_status(const RunStatus& status) {
     const bool has_terminal_error = status.state == RunState::Failed || status.state == RunState::Cancelled;
     if (is_terminal != status.finished_at.has_value()) {
         throw ValidationError(is_terminal ? "terminal run status requires finishedAt" : "active run status must not contain finishedAt");
+    }
+    if (is_terminal && !terminal_phase_matches(status.state, status.phase)) {
+        throw ValidationError("terminal run state and phase do not match");
+    }
+    if (status.state == RunState::Validating && status.phase != RunPhase::ValidatingTarget) {
+        throw ValidationError("validating run status requires validatingTarget phase");
+    }
+    if (status.state == RunState::Running && is_terminal_phase(status.phase)) {
+        throw ValidationError("running run status must not use a terminal phase");
     }
     if (has_terminal_error && !status.error.has_value()) {
         throw ValidationError("failed or cancelled run status requires an error");

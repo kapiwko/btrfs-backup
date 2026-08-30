@@ -90,11 +90,10 @@ void test_selects_newest_uuid_matching_parent() {
     btrfsbackup::backup::IncrementalParentSelection selection =
         btrfsbackup::backup::select_incremental_parent(btrfsbackup::SourceId{"home"}, local, remote, std::nullopt, true);
 
-    test_helpers::expect_true("select incremental", selection.incremental, "expected incremental parent");
-    test_helpers::expect_true("select local parent", selection.local_parent.has_value(), "missing local parent");
-    test_helpers::expect_true("select remote parent", selection.remote_parent.has_value(), "missing remote parent");
-    test_helpers::expect_eq("select newest local", selection.local_parent->path.string(), "/local/home/home-2026-08-23T080000Z");
-    test_helpers::expect_eq("select matching remote", selection.remote_parent->path.string(), "/remote/home/home-2026-08-23T080000Z");
+    const auto* incremental = std::get_if<btrfsbackup::backup::IncrementalTransfer>(&selection);
+    test_helpers::expect_true("select incremental", incremental != nullptr, "expected incremental parent");
+    test_helpers::expect_eq("select newest local", incremental->local_parent.path.string(), "/local/home/home-2026-08-23T080000Z");
+    test_helpers::expect_eq("select matching remote", incremental->remote_parent.path.string(), "/remote/home/home-2026-08-23T080000Z");
 }
 
 void test_skips_current_snapshot() {
@@ -148,8 +147,9 @@ void test_skips_current_snapshot() {
     btrfsbackup::backup::IncrementalParentSelection selection =
         btrfsbackup::backup::select_incremental_parent(btrfsbackup::SourceId{"root"}, local, remote, fs::path("/local/root/root-2026-08-23T080000Z"), true);
 
-    test_helpers::expect_true("skip current incremental", selection.incremental, "expected older parent");
-    test_helpers::expect_eq("skip current local", selection.local_parent->path.string(), "/local/root/root-2026-08-22T080000Z");
+    const auto* incremental = std::get_if<btrfsbackup::backup::IncrementalTransfer>(&selection);
+    test_helpers::expect_true("skip current incremental", incremental != nullptr, "expected older parent");
+    test_helpers::expect_eq("skip current local", incremental->local_parent.path.string(), "/local/root/root-2026-08-22T080000Z");
 }
 
 void test_missing_parent_rules() {
@@ -181,8 +181,11 @@ void test_missing_parent_rules() {
 
     btrfsbackup::backup::IncrementalParentSelection full =
         btrfsbackup::backup::select_incremental_parent(btrfsbackup::SourceId{"home"}, local, remote, std::nullopt, false);
-    test_helpers::expect_true("missing parent full", !full.incremental, "optional incremental should fall back to full");
-    test_helpers::expect_true("remote snapshots exist", full.remote_snapshots_exist, "remote inventory should be noted");
+    test_helpers::expect_true(
+        "missing parent full",
+        std::holds_alternative<btrfsbackup::backup::FullTransfer>(full),
+        "optional incremental should fall back to full"
+    );
 
     test_helpers::expect_validation_error("missing required parent", [&] { (void)btrfsbackup::backup::select_incremental_parent(btrfsbackup::SourceId{"home"}, local, remote, std::nullopt, true); }, "Remote snapshots exist for home, but no UUID-matching local parent was found.");
 }
@@ -226,7 +229,11 @@ void test_ignores_unusable_snapshots() {
 
     btrfsbackup::backup::IncrementalParentSelection selection =
         btrfsbackup::backup::select_incremental_parent(btrfsbackup::SourceId{"home"}, local, remote, std::nullopt, false);
-    test_helpers::expect_true("ignore unusable", !selection.incremental, "unusable snapshots should not become parents");
+    test_helpers::expect_true(
+        "ignore unusable",
+        std::holds_alternative<btrfsbackup::backup::FullTransfer>(selection),
+        "unusable snapshots should not become parents"
+    );
 }
 
 void test_rejects_ambiguous_remote_uuid() {

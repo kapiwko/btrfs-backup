@@ -7,15 +7,42 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <variant>
 
 #include <core/ErrorCode.hpp>
 
 namespace btrfsbackup::backup::transfer {
 
-struct TransferSideResult {
-    bool started = false;
-    int exit_code = -1;
+struct TransferNotStarted {
     std::string diagnostics;
+};
+
+struct TransferRunning {
+    std::string diagnostics;
+};
+
+struct TransferExited {
+    int exit_code;
+    std::string diagnostics;
+};
+
+class TransferSideResult {
+  public:
+    TransferSideResult() = default;
+    static TransferSideResult not_started(std::string diagnostics = {});
+    static TransferSideResult running();
+    static TransferSideResult exited(int exit_code, std::string diagnostics = {});
+
+    [[nodiscard]] bool started() const noexcept;
+    [[nodiscard]] std::optional<int> exit_code() const noexcept;
+    [[nodiscard]] const std::string& diagnostics() const noexcept;
+    [[nodiscard]] std::string& diagnostics() noexcept;
+    void mark_exited(int exit_code);
+
+  private:
+    explicit TransferSideResult(std::variant<TransferNotStarted, TransferRunning, TransferExited> state);
+
+    std::variant<TransferNotStarted, TransferRunning, TransferExited> state_{TransferNotStarted{}};
 };
 
 struct TransferResult {

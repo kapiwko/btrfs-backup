@@ -44,9 +44,12 @@ void test_plan_encodes_every_action_kind() {
     const fs::path final_snapshot = remote_directory / "root-run-1";
 
     backup::PendingRecoveryPlan recovery{
-        .action = backup::PendingRecoveryAction::DeleteOrphanSnapshot,
-        .delete_local_snapshot = true,
-        .local_snapshot_path = local_snapshot,
+        .marker_path = "/state/default/pending-root",
+        .pending_snapshot_path = local_snapshot,
+        .effects = {
+            backup::DeletePendingLocalSnapshot{local_snapshot},
+            backup::ClearPendingMarker{"/state/default/pending-root"},
+        },
         .message = "remove orphan",
     };
     config::ProfileHookCommand hook{
