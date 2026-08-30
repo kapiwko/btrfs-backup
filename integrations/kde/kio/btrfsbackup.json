@@ -1,0 +1,21 @@
+{
+    "KDE-KIO-Protocols": {
+        "btrfsbackup": {
+            "Class": ":local",
+            "Icon": "view-history",
+            "deleting": false,
+            "determineMimetypeFromExtension": true,
+            "input": "none",
+            "linking": false,
+            "listing": ["Name", "Type", "Size", "Date", "Access", "Owner", "Group"],
+            "makedir": false,
+            "maxInstances": 4,
+            "moving": false,
+            "output": "filesystem",
+            "protocol": "btrfsbackup",
+            "reading": true,
+            "source": false,
+            "writing": false
+        }
+    }
+}
