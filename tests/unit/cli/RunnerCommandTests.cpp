@@ -29,9 +29,9 @@
 #include <backup/planning/BackupPreflight.hpp>
 #include <backup/execution/DefaultBackupRunFactory.hpp>
 #include <backup/execution/LinkedCancellationMonitor.hpp>
-#include <state/FileRunStateRepository.hpp>
+#include <state/persistence/FileRunStateRepository.hpp>
 #include <state/FileCancellationMonitor.hpp>
-#include <state/FilePendingMarkerStore.hpp>
+#include <state/persistence/FilePendingMarkerStore.hpp>
 #include <config/ProfileFingerprint.hpp>
 #include <platform/linux/filesystem/FileLock.hpp>
 #include <platform/linux/filesystem/FileBackupRunLeaseProvider.hpp>

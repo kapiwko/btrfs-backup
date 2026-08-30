@@ -7,7 +7,7 @@
 #include <utility>
 
 #include <state/RunHistory.hpp>
-#include <state/StatusWriter.hpp>
+#include <state/persistence/StatusWriter.hpp>
 
 namespace btrfsbackup::state {
 

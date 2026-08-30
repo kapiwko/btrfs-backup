@@ -10,7 +10,7 @@
 
 #include <state/RunStatus.hpp>
 #include <state/StatusService.hpp>
-#include <state/PersistentDocumentOperations.hpp>
+#include <state/persistence/PersistentDocumentOperations.hpp>
 
 namespace btrfsbackup::state {
 

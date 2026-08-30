@@ -7,7 +7,7 @@
 #include <filesystem>
 
 #include <backup/ports/IBackupRunCheckpointStore.hpp>
-#include <state/PersistentDocumentOperations.hpp>
+#include <state/persistence/PersistentDocumentOperations.hpp>
 
 namespace btrfsbackup::state {
 

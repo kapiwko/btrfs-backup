@@ -33,8 +33,8 @@
 #include <platform/linux/filesystem/SafeDirectoryRoot.hpp>
 #include <platform/linux/systemd/SystemdTargetManager.hpp>
 #include <platform/linux/filesystem/TrustedExecutable.hpp>
-#include <state/FilePendingMarkerStore.hpp>
-#include <state/FileRunStateRepository.hpp>
+#include <state/persistence/FilePendingMarkerStore.hpp>
+#include <state/persistence/FileRunStateRepository.hpp>
 #include <state/FileCancellationMonitor.hpp>
 
 namespace btrfsbackup::cli::runner {

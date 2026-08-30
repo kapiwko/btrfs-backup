@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <state/FilePendingMarkerStore.hpp>
+#include <state/persistence/FilePendingMarkerStore.hpp>
 
 #include <filesystem>
 

@@ -16,7 +16,7 @@
 #include <platform/linux/config/FileProfileRepository.hpp>
 #include <platform/linux/process/PosixCommandRunner.hpp>
 #include <platform/linux/filesystem/PosixDurableFileOperations.hpp>
-#include <state/FileRunStateRepository.hpp>
+#include <state/persistence/FileRunStateRepository.hpp>
 
 namespace fs = std::filesystem;
 

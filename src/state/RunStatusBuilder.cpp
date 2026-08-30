@@ -8,7 +8,7 @@
 #include <chrono>
 #include <limits>
 #include <string>
-#include <state/BackupRunSerialization.hpp>
+#include <state/persistence/BackupRunSerialization.hpp>
 
 namespace btrfsbackup::state {
 

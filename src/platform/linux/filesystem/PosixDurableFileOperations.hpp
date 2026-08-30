@@ -7,7 +7,7 @@
 #include <filesystem>
 #include <string_view>
 
-#include <state/PersistentDocumentOperations.hpp>
+#include <state/persistence/PersistentDocumentOperations.hpp>
 
 namespace btrfsbackup::platform::linux::filesystem {
 
