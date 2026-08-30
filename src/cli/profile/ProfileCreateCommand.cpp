@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <cli/ProfileCreateCommand.hpp>
+#include <cli/profile/ProfileCreateCommand.hpp>
 
 #include <cstdint>
 #include <cstdlib>
@@ -68,7 +68,7 @@ void usage() {
 
 } // namespace
 
-namespace btrfsbackup::cli {
+namespace btrfsbackup::cli::profile {
 
 int profile_create(const std::vector<std::string>& args) {
     fs::path output;
@@ -174,4 +174,4 @@ int profile_create(const std::vector<std::string>& args) {
     return 0;
 }
 
-} // namespace btrfsbackup::cli
+} // namespace btrfsbackup::cli::profile
