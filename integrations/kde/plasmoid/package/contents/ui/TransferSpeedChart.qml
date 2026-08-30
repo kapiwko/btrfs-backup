@@ -13,8 +13,10 @@ ColumnLayout {
 
     required property bool active
     required property real currentSpeed
+    required property string currentSpeedText
     property var samples: []
     property real peakSpeed: 0
+    property string peakSpeedText: currentSpeedText
     readonly property int sampleLimit: 60
 
     spacing: Kirigami.Units.smallSpacing
@@ -24,24 +26,10 @@ ColumnLayout {
         translationDomain: "plasma_applet_org.btrfsbackup.plasmoid"
     }
 
-    function formatBytes(value) {
-        var amount = Number(value || 0)
-        var units = ["B", "KiB", "MiB", "GiB", "TiB", "PiB"]
-        var index = 0
-        while (amount >= 1024 && index < units.length - 1) {
-            amount /= 1024
-            index++
-        }
-        return (index === 0 ? amount.toFixed(0) : amount.toFixed(1)) + " " + units[index]
-    }
-
-    function rateText(value) {
-        return translations.i18n("%1/s", formatBytes(value))
-    }
-
     function resetSamples() {
         samples = []
         peakSpeed = 0
+        peakSpeedText = currentSpeedText
         appendSample()
     }
 
@@ -52,7 +40,10 @@ ColumnLayout {
         var next = samples.slice(Math.max(0, samples.length - sampleLimit + 1))
         next.push(value)
         samples = next
-        peakSpeed = Math.max(peakSpeed, value)
+        if (value >= peakSpeed) {
+            peakSpeed = value
+            peakSpeedText = currentSpeedText
+        }
     }
 
     onActiveChanged: {
@@ -81,12 +72,12 @@ ColumnLayout {
         }
 
         QQC2.Label {
-            text: root.rateText(root.currentSpeed)
+            text: root.currentSpeedText
             font.weight: Font.DemiBold
         }
 
         QQC2.Label {
-            text: translations.i18n("Peak: %1", root.rateText(root.peakSpeed))
+            text: translations.i18n("Peak: %1", root.peakSpeedText)
             opacity: 0.7
         }
     }

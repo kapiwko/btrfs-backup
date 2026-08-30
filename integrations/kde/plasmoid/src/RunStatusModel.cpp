@@ -4,6 +4,7 @@
 
 #include "RunStatusModel.hpp"
 
+#include "ByteFormatting.hpp"
 #include "ManagerApi.hpp"
 
 RunStatusModel::RunStatusModel(QObject* parent)
@@ -40,6 +41,10 @@ QString RunStatusModel::targetName() const {
 
 qint64 RunStatusModel::speedBps() const {
     return speed_bps_;
+}
+
+QString RunStatusModel::speedText() const {
+    return btrfsbackup::kde::format_byte_rate(speed_bps_);
 }
 
 int RunStatusModel::etaSeconds() const {
