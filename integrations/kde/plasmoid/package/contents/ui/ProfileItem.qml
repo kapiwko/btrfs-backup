@@ -348,6 +348,7 @@ PlasmaExtras.ExpandableListItem {
     function targetStateText(state) {
         switch (state) {
         case "mounted": return translations.i18n("Mounted")
+        case "unexpected-mount": return translations.i18n("Unexpected mount")
         case "unlocked": return translations.i18n("Unlocked")
         case "connected": return profileStatus.target.safeToRemove
             ? translations.i18n("Safe to remove")

@@ -313,6 +313,36 @@ void test_device_state_is_presentation_safe() {
     fs::remove_all(root);
 }
 
+void test_device_state_rejects_unexpected_mount() {
+    fs::path root = test_helpers::test_root("manager-service", "unexpected-mount");
+    test_helpers::write_file(
+        root / "etc" / "profiles" / "default" / "profile.json",
+        btrfsbackup::config::json::dump_json(private_profile(root))
+    );
+    test_helpers::write_file(
+        root / "state" / "profiles" / "default" / "target-storage.json",
+        R"({"schemaVersion":1,"profileId":"default","targetIdentity":{"luksUuid":"11111111-2222-3333-4444-555555555555","btrfsUuid":"66666666-7777-8888-9999-aaaaaaaaaaaa","partitionUuid":""},"measurement":{"capacityBytes":1000,"freeBytes":400,"availableBytes":350,"measuredAt":"2026-08-30T12:34:56Z"}})"
+    );
+    test_helpers::write_file(
+        root / "mountinfo",
+        "23 21 0:22 / " + (root / "mnt" / "default").string() +
+            " rw,nosuid,nodev - tmpfs tmpfs rw,size=123\n"
+    );
+    auto paths = manager_paths(root);
+    paths.mountinfo_path = root / "mountinfo";
+
+    const btrfsbackup::daemon::query::DeviceStateQueryService service(std::move(paths));
+    const btrfsbackup::daemon::TargetStatus state = service.get_device_state("default");
+    test_helpers::expect_eq("unexpected mount state", state.state, "unexpected-mount");
+    test_helpers::expect_true("unexpected mount is not target", !state.mounted, "foreign mount was reported as the target");
+    test_helpers::expect_true(
+        "unexpected mount cached storage",
+        state.storage.has_value() && !state.storage->live,
+        "foreign mount produced live storage data"
+    );
+    fs::remove_all(root);
+}
+
 } // namespace
 
 int main() {
@@ -321,5 +351,6 @@ int main() {
     test_last_history_cache_recovers_from_authoritative_record();
     test_malformed_and_oversized_documents();
     test_device_state_is_presentation_safe();
+    test_device_state_rejects_unexpected_mount();
     return test_helpers::finish("manager service tests");
 }
