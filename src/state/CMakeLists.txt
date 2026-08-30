@@ -24,6 +24,7 @@ add_library(btrfsbackup-status-documents STATIC
     document/BoundedDocumentReader.cpp
     document/LatestRunHistoryDocumentReader.cpp
     document/RunStatusDocumentCodec.cpp
+    document/TargetStatusDocumentCodec.cpp
 )
 target_compile_features(btrfsbackup-status-documents PUBLIC cxx_std_23)
 target_restricted_include_directories(btrfsbackup-status-documents
@@ -31,6 +32,7 @@ target_restricted_include_directories(btrfsbackup-status-documents
         state/document/BoundedDocumentReader.hpp
         state/document/LatestRunHistoryDocumentReader.hpp
         state/document/RunStatusDocumentCodec.hpp
+        state/document/TargetStatusDocumentCodec.hpp
 )
 target_link_libraries(btrfsbackup-status-documents
     PUBLIC
@@ -38,6 +40,7 @@ target_link_libraries(btrfsbackup-status-documents
     PRIVATE
         btrfsbackup-config-json
         btrfsbackup-core
+        btrfsbackup-manager-protocol
 )
 
 add_library(btrfsbackup-state STATIC
