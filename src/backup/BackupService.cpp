@@ -7,7 +7,6 @@
 #include <exception>
 #include <memory>
 #include <optional>
-#include <utility>
 #include <vector>
 
 #include <core/Errors.hpp>
@@ -22,21 +21,6 @@ ErrorCode failure_code(const std::exception& error) {
         return coded_error->error_code;
     }
     return ErrorCode::BackupFailed;
-}
-
-template <typename Operation>
-void capture_completion_warning(
-    std::vector<BackupCompletionWarning>& warnings,
-    BackupCompletionWarningComponent component,
-    Operation&& operation
-) {
-    try {
-        std::forward<Operation>(operation)();
-    } catch (const std::exception& error) {
-        warnings.push_back({component, failure_code(error), error.what()});
-    } catch (...) {
-        warnings.push_back({component, ErrorCode::BackupFailed, "unknown completion metadata error"});
-    }
 }
 
 BackupExecutionFailed emit_run_failed(
@@ -324,25 +308,8 @@ BackupExecutionResult BackupService::execute_plan(
             throw OperationCancelledError("backup cancelled during target cleanup");
         }
         std::vector<BackupCompletionWarning> warnings;
-        capture_completion_warning(
-            warnings,
-            BackupCompletionWarningComponent::SuccessLedger,
-            [&] {
-                ledger_.write_success(
-                    profile,
-                    identity.run_id,
-                    today,
-                    clock_.now(),
-                    loaded_profile.fingerprint,
-                    plan.sources.size()
-                );
-            }
-        );
-        capture_completion_warning(
-            warnings,
-            BackupCompletionWarningComponent::TerminalStatus,
-            [&] { events.on_backup_run_event(RunCompleted{profile.id, identity.run_id}); }
-        );
+        record_success_ledger_warning(warnings, loaded_profile, identity, today, plan.sources.size());
+        record_terminal_status_warning(warnings, events, profile, identity);
         BackupExecutionResult result = BackupExecutionCompleted{
             std::move(plan),
             completed->actions_completed,
@@ -368,6 +335,52 @@ BackupExecutionResult BackupService::execute_plan(
     };
     (void)context.close();
     return result;
+}
+
+void BackupService::record_success_ledger_warning(
+    std::vector<BackupCompletionWarning>& warnings,
+    const btrfsbackup::config::LoadedProfile& loaded_profile,
+    const execution::RunIdentity& identity,
+    LocalDate today,
+    std::size_t source_count
+) {
+    try {
+        ledger_.write_success(
+            loaded_profile.profile,
+            identity.run_id,
+            today,
+            clock_.now(),
+            loaded_profile.fingerprint,
+            source_count
+        );
+    } catch (const std::exception& error) {
+        warnings.push_back({BackupCompletionWarningComponent::SuccessLedger, failure_code(error), error.what()});
+    } catch (...) {
+        warnings.push_back({
+            BackupCompletionWarningComponent::SuccessLedger,
+            ErrorCode::BackupFailed,
+            "unknown completion metadata error",
+        });
+    }
+}
+
+void BackupService::record_terminal_status_warning(
+    std::vector<BackupCompletionWarning>& warnings,
+    IBackupRunEventSink& events,
+    const btrfsbackup::config::Profile& profile,
+    const execution::RunIdentity& identity
+) {
+    try {
+        events.on_backup_run_event(RunCompleted{profile.id, identity.run_id});
+    } catch (const std::exception& error) {
+        warnings.push_back({BackupCompletionWarningComponent::TerminalStatus, failure_code(error), error.what()});
+    } catch (...) {
+        warnings.push_back({
+            BackupCompletionWarningComponent::TerminalStatus,
+            ErrorCode::BackupFailed,
+            "unknown completion metadata error",
+        });
+    }
 }
 
 BackupExecutionResult BackupService::start_loaded_profile(
