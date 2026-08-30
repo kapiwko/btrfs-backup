@@ -123,14 +123,27 @@ assert_public_link_interface(
 if(BUILD_SYSTEM_MANAGER)
     assert_public_link_interface(
         btrfsbackup-daemon-core
-        btrfsbackup-config-domain
         btrfsbackup-manager-protocol
+    )
+    assert_public_link_interface(
+        btrfsbackup-daemon-query
+        btrfsbackup-daemon-core
+    )
+    assert_public_link_interface(
+        btrfsbackup-daemon-control
+        btrfsbackup-config-domain
+        btrfsbackup-daemon-core
     )
     assert_public_link_interface(
         btrfsbackup-daemon-system-control
         btrfsbackup-backup-ports
         btrfsbackup-config-ports
-        btrfsbackup-daemon-core
+        btrfsbackup-daemon-control
+    )
+    assert_public_link_interface(
+        btrfsbackup-daemon-dbus
+        btrfsbackup-daemon-control
+        btrfsbackup-daemon-query
     )
 endif()
 
@@ -165,7 +178,10 @@ set(architecture_targets
 if(BUILD_SYSTEM_MANAGER)
     list(APPEND architecture_targets
         btrfsbackup-daemon-core
+        btrfsbackup-daemon-query
+        btrfsbackup-daemon-control
         btrfsbackup-daemon-system-control
+        btrfsbackup-daemon-dbus
     )
 endif()
 add_public_header_architecture_tests(${architecture_targets})
