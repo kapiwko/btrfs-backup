@@ -13,9 +13,9 @@
 #include <backup/planning/BackupPreflight.hpp>
 #include <backup/BackupService.hpp>
 #include <backup/DefaultBackupRunActionHandlerFactory.hpp>
-#include <backup/DefaultBackupRunFactory.hpp>
-#include <backup/LinkedCancellationMonitor.hpp>
-#include <backup/SystemRunContext.hpp>
+#include <backup/execution/DefaultBackupRunFactory.hpp>
+#include <backup/execution/LinkedCancellationMonitor.hpp>
+#include <backup/execution/SystemRunContext.hpp>
 #include <cli/RunnerOptions.hpp>
 #include <core/Cancellation.hpp>
 #include <core/RuntimeTime.hpp>
@@ -103,13 +103,13 @@ struct RunnerComposition::Impl {
     platform::linux::filesystem::PosixTrustedExecutableResolver hook_executables;
     ConfiguredRunnerClock clock;
     backup::DefaultBackupRunActionHandlerFactory action_handlers;
-    backup::DefaultBackupRunFactory run_factory;
+    backup::execution::DefaultBackupRunFactory run_factory;
     platform::linux::filesystem::FileBackupRunLeaseProvider leases;
     state::FileRunStateRepository state;
     state::FileCancellationMonitor file_cancellation_monitor;
-    backup::LinkedCancellationMonitor cancellation_monitor;
+    backup::execution::LinkedCancellationMonitor cancellation_monitor;
     ConfiguredRunnerRunIdGenerator run_ids;
-    backup::RunSessionFactory sessions;
+    backup::execution::RunSessionFactory sessions;
     backup::BackupService backup_service;
 };
 

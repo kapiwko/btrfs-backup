@@ -2,11 +2,11 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <backup/BackupRunCheckpointPolicy.hpp>
+#include <backup/execution/BackupRunCheckpointPolicy.hpp>
 
 #include <cstddef>
 
-namespace btrfsbackup::backup {
+namespace btrfsbackup::backup::execution {
 
 namespace {
 
@@ -47,4 +47,4 @@ void BackupRunCheckpointPolicy::after_success(
     });
 }
 
-} // namespace btrfsbackup::backup
+} // namespace btrfsbackup::backup::execution

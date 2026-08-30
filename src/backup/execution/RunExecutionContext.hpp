@@ -17,7 +17,7 @@
 #include <core/Cancellation.hpp>
 #include <core/Identifiers.hpp>
 
-namespace btrfsbackup::backup {
+namespace btrfsbackup::backup::execution {
 
 enum class RunExecutionContextCloseStage {
     CancellationWatch,
@@ -93,4 +93,4 @@ class RunExecutionContext {
     RunExecutionContextCloseResult close_result_;
 };
 
-} // namespace btrfsbackup::backup
+} // namespace btrfsbackup::backup::execution

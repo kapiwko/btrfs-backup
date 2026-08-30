@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <backup/RunSessionFactory.hpp>
+#include <backup/execution/RunSessionFactory.hpp>
 
 #include <algorithm>
 #include <map>
@@ -10,7 +10,7 @@
 #include <utility>
 #include <variant>
 
-namespace btrfsbackup::backup {
+namespace btrfsbackup::backup::execution {
 namespace {
 
 BackupRunStatusDescription status_description(
@@ -101,4 +101,4 @@ std::unique_ptr<RunExecutionContext> RunSessionFactory::create_preparing(
     );
 }
 
-} // namespace btrfsbackup::backup
+} // namespace btrfsbackup::backup::execution

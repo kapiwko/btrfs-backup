@@ -8,7 +8,7 @@
 #include <vector>
 
 #include <backup/action_handlers/BackupRunActionHandler.hpp>
-#include <backup/DefaultBackupRunFactory.hpp>
+#include <backup/execution/DefaultBackupRunFactory.hpp>
 #include <backup/testing/NullBackupRunEventSink.hpp>
 
 #include "support/FakeSafeDirectory.hpp"
@@ -73,7 +73,7 @@ void test_default_factory_creates_run_scoped_action_handlers() {
     RecordingActionHandlerFactory action_handlers;
     UnusedTransferPipeline transfers;
     test_support::FakeSafeDirectoryRootFactory safe_directories;
-    btrfsbackup::backup::DefaultBackupRunFactory factory(
+    btrfsbackup::backup::execution::DefaultBackupRunFactory factory(
         action_handlers,
         transfers,
         safe_directories

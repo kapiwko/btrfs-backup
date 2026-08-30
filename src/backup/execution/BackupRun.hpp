@@ -4,9 +4,9 @@
 
 #pragma once
 
-#include <backup/BackupRunExecutor.hpp>
+#include <backup/execution/BackupRunExecutor.hpp>
 
-namespace btrfsbackup::backup {
+namespace btrfsbackup::backup::execution {
 
 class BackupRun {
   public:
@@ -30,4 +30,4 @@ class BackupRun {
     bool started_ = false;
 };
 
-} // namespace btrfsbackup::backup
+} // namespace btrfsbackup::backup::execution

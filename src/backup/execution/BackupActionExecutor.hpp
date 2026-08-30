@@ -11,7 +11,7 @@
 #include <backup/ports/SafeDirectory.hpp>
 #include <backup/transfer/TransferCoordinator.hpp>
 
-namespace btrfsbackup::backup {
+namespace btrfsbackup::backup::execution {
 
 struct BackupActionExecutionContext {
     const BackupRunPlan& plan;
@@ -64,4 +64,4 @@ class BackupActionExecutor final : public IBackupActionExecutor {
     btrfsbackup::backup::transfer::TransferCoordinator transfer_coordinator_;
 };
 
-} // namespace btrfsbackup::backup
+} // namespace btrfsbackup::backup::execution

@@ -15,7 +15,7 @@ file(
 # review of its lifecycle before the architecture test accepts it.
 set(approved_special_member_types
     "src/platform/linux/process/CommandCancellationSignal.hpp:CommandCancellationSignal"
-    "src/backup/RunExecutionContext.hpp:RunExecutionContext"
+    "src/backup/execution/RunExecutionContext.hpp:RunExecutionContext"
     "src/backup/action_handlers/RecoveryActionHandler.hpp:RecoveryActionHandler"
     "src/backup/action_handlers/RetentionActionHandler.hpp:RetentionActionHandler"
     "src/backup/action_handlers/SnapshotActionHandler.hpp:SnapshotActionHandler"

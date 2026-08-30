@@ -8,7 +8,7 @@
 #include <backup/ports/IBackupRunCheckpointStore.hpp>
 #include <backup/ports/IBackupRunEventSink.hpp>
 
-namespace btrfsbackup::backup {
+namespace btrfsbackup::backup::execution {
 
 class BackupRunCheckpointPolicy {
   public:
@@ -25,4 +25,4 @@ class BackupRunCheckpointPolicy {
     IBackupRunCheckpointStore& checkpoints_;
 };
 
-} // namespace btrfsbackup::backup
+} // namespace btrfsbackup::backup::execution
