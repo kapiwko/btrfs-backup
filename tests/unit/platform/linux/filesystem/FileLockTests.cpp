@@ -48,6 +48,24 @@ void test_lock_released_by_destructor() {
     fs::remove_all(root);
 }
 
+void test_shared_locks_block_exclusive_until_last_release() {
+    fs::path root = test_helpers::test_root("file-lock", "shared");
+    fs::path lock_path = root / "target.lock";
+    btrfsbackup::platform::linux::filesystem::FileLock first(lock_path);
+    btrfsbackup::platform::linux::filesystem::FileLock second(lock_path);
+    btrfsbackup::platform::linux::filesystem::FileLock exclusive(lock_path);
+    test_helpers::expect_true("first shared", first.try_acquire_shared(), "first shared lock failed");
+    test_helpers::expect_true("second shared", second.try_acquire_shared(), "second shared lock failed");
+    test_helpers::expect_true("exclusive blocked", !exclusive.try_acquire(), "exclusive lock bypassed browse leases");
+    test_helpers::expect_true("upgrade blocked", !first.try_upgrade_to_exclusive(), "shared lock upgraded while another user remained");
+    second.release();
+    test_helpers::expect_true("upgrade after last user", first.try_upgrade_to_exclusive(), "last shared lock did not become exclusive");
+    first.downgrade_to_shared();
+    first.release();
+    test_helpers::expect_true("exclusive after release", exclusive.try_acquire(), "target remained locked after last user");
+    fs::remove_all(root);
+}
+
 void test_lock_paths_use_separate_profile_and_target_namespaces() {
     fs::path root = test_helpers::test_root("file-lock", "paths");
     test_helpers::expect_eq(
@@ -82,6 +100,7 @@ void test_lock_rejects_symbolic_link() {
 int main() {
     test_lock_lifecycle();
     test_lock_released_by_destructor();
+    test_shared_locks_block_exclusive_until_last_release();
     test_lock_paths_use_separate_profile_and_target_namespaces();
     test_lock_rejects_symbolic_link();
 
