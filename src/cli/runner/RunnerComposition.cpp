@@ -12,6 +12,7 @@
 #include <backup/planning/BackupPlanBuilder.hpp>
 #include <backup/planning/BackupPreflight.hpp>
 #include <backup/BackupService.hpp>
+#include <backup/TargetStorageRecorder.hpp>
 #include <backup/execution/actions/DefaultBackupRunActionHandlerFactory.hpp>
 #include <backup/execution/DefaultBackupRunFactory.hpp>
 #include <backup/execution/LinkedCancellationMonitor.hpp>
@@ -20,6 +21,7 @@
 #include <core/Cancellation.hpp>
 #include <core/RuntimeTime.hpp>
 #include <platform/linux/storage/LibBtrfsOperations.hpp>
+#include <platform/linux/storage/FilesystemSpaceProbe.hpp>
 #include <platform/linux/config/ApplicationConfig.hpp>
 #include <platform/linux/config/FileProfileRepository.hpp>
 #include <platform/linux/config/ProfileRuntimePolicy.hpp>
@@ -35,6 +37,7 @@
 #include <platform/linux/filesystem/TrustedExecutable.hpp>
 #include <state/persistence/FilePendingMarkerStore.hpp>
 #include <state/persistence/FileRunStateRepository.hpp>
+#include <state/persistence/FileTargetStorageMeasurementStore.hpp>
 #include <state/cancellation/FileCancellationMonitor.hpp>
 
 namespace btrfsbackup::cli::runner {
@@ -83,7 +86,7 @@ struct RunnerComposition::Impl {
                   ? platform::linux::storage::blkid_filesystem_uuid(source)
                   : found->second;
           }),
-          target_mounter(mounts, commands), preflight(mounts, target_mounter), pending_markers(durable_files), discovery(platform::linux::storage::read_btrfs_snapshot_metadata, pending_markers, safe_directories), hook_executables(platform::linux::config::trusted_hook_directory), clock(options.timestamp, options.today), action_handlers(btrfs, filesystem, commands, pending_markers, clock, safe_directories, hook_executables), run_factory(action_handlers, transfers, safe_directories), leases(platform::linux::filesystem::default_lock_root()), state(config.paths(), durable_files), file_cancellation_monitor(state), cancellation_monitor(file_cancellation_monitor, cancellation), run_ids(options.run_id), sessions(leases, state, state, state, cancellation_monitor), backup_service(profiles, config.paths(), preflight, discovery, plan_builder, run_factory, state, sessions, clock, run_ids) {
+          target_mounter(mounts, commands), preflight(mounts, target_mounter), target_storage_store(config.paths().state_root, &durable_files), pending_markers(durable_files), discovery(platform::linux::storage::read_btrfs_snapshot_metadata, pending_markers, safe_directories), hook_executables(platform::linux::config::trusted_hook_directory), clock(options.timestamp, options.today), target_storage_recorder(mounts, space_probe, target_storage_store, clock), action_handlers(btrfs, filesystem, commands, pending_markers, clock, safe_directories, hook_executables), run_factory(action_handlers, transfers, safe_directories), leases(platform::linux::filesystem::default_lock_root()), state(config.paths(), durable_files), file_cancellation_monitor(state), cancellation_monitor(file_cancellation_monitor, cancellation), run_ids(options.run_id), sessions(leases, state, state, state, cancellation_monitor), backup_service(profiles, config.paths(), preflight, discovery, plan_builder, run_factory, state, sessions, clock, run_ids, &target_storage_recorder) {
     }
 
     config::ApplicationConfig config;
@@ -97,11 +100,14 @@ struct RunnerComposition::Impl {
     platform::linux::filesystem::PosixFileSystem filesystem;
     platform::linux::transfer::PosixTransferPipeline transfers;
     platform::linux::filesystem::PosixDurableFileOperations durable_files;
+    platform::linux::storage::FilesystemSpaceProbe space_probe;
+    state::FileTargetStorageMeasurementStore target_storage_store;
     state::FilePendingMarkerStore pending_markers;
     backup::planning::BackupDiscovery discovery;
     backup::planning::BackupPlanBuilder plan_builder;
     platform::linux::filesystem::PosixTrustedExecutableResolver hook_executables;
     ConfiguredRunnerClock clock;
+    backup::TargetStorageRecorder target_storage_recorder;
     backup::execution::DefaultBackupRunActionHandlerFactory action_handlers;
     backup::execution::DefaultBackupRunFactory run_factory;
     platform::linux::filesystem::FileBackupRunLeaseProvider leases;

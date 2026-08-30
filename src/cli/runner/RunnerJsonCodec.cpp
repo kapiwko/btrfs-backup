@@ -199,6 +199,8 @@ std::string completion_warning_component_name(
         return "success-ledger";
     case btrfsbackup::backup::BackupCompletionWarningComponent::TerminalStatus:
         return "terminal-status";
+    case btrfsbackup::backup::BackupCompletionWarningComponent::TargetStorageMeasurement:
+        return "target-storage-measurement";
     }
     return "unknown";
 }
