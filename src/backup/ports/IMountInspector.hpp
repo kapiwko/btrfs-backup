@@ -17,6 +17,7 @@ struct MountEntry {
     std::string fstype;
     std::string root;
     std::string options;
+    int mount_id = 0;
     std::string device_id;
     std::string filesystem_uuid;
 };

@@ -10,6 +10,7 @@ add_library(btrfsbackup-backup-model STATIC
     model/PendingRecovery.cpp
     model/RetentionPlan.cpp
     model/SnapshotInventory.cpp
+    model/TargetStorageMeasurement.cpp
 )
 
 target_compile_features(btrfsbackup-backup-model PUBLIC cxx_std_23)
@@ -28,6 +29,7 @@ target_restricted_include_directories(btrfsbackup-backup-model
         backup/model/RetentionPlan.hpp
         backup/model/Snapshot.hpp
         backup/model/SnapshotInventory.hpp
+        backup/model/TargetStorageMeasurement.hpp
 )
 target_link_libraries(btrfsbackup-backup-model
     PUBLIC
@@ -85,9 +87,11 @@ target_restricted_include_directories(btrfsbackup-backup-ports
         backup/ports/ICommandRunner.hpp
         backup/ports/IFileSystem.hpp
         backup/ports/IMountInspector.hpp
+        backup/ports/IFilesystemSpaceProbe.hpp
         backup/ports/IPendingMarkerStore.hpp
         backup/ports/IRunEventSinkFactory.hpp
         backup/ports/IRunLedger.hpp
+        backup/ports/ITargetStorageMeasurementStore.hpp
         backup/ports/Process.hpp
         backup/ports/RunContext.hpp
         backup/ports/RunLease.hpp
