@@ -29,6 +29,7 @@ set(approved_special_member_types
     "src/daemon/dbus/ManagerChangeMonitor.hpp:ManagerChangeMonitor"
     "src/platform/linux/OwnedFileDescriptor.hpp:OwnedFileDescriptor"
     "src/platform/linux/filesystem/FileLock.hpp:FileLock"
+    "src/platform/linux/filesystem/InotifyFileChangeWatcher.hpp:InotifyFileChangeWatcher"
     "src/platform/linux/filesystem/SafeDirectoryRoot.hpp:SafeDirectoryHandle"
     "src/platform/linux/filesystem/SafeDirectoryRoot.hpp:SafeDirectoryRoot"
     "src/platform/linux/process/ChildProcess.hpp:ChildProcess"
