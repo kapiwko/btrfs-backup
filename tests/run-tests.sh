@@ -264,6 +264,7 @@ release_notes_test() {
     assert_not_contains "$notes" '## 0.3.1'
 
     "$ROOT/tools/render-release-notes.sh" 0.1.0 > "$initial_notes"
+    assert_contains "$initial_notes" '### Highlights'
     assert_contains "$initial_notes" '/tree/v0.1.0'
     assert_not_contains "$initial_notes" '/compare/'
     pass 'release notes render one changelog version with the standard footer'
