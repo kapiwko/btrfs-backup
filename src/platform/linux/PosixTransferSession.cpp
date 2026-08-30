@@ -22,6 +22,7 @@
 #include <core/Errors.hpp>
 #include <backup/transfer/TransferSpeedEstimator.hpp>
 #include <platform/linux/ChildProcess.hpp>
+#include <platform/linux/OwnedFileDescriptor.hpp>
 #include <platform/linux/PosixCancellationSignal.hpp>
 #include <platform/linux/PosixTransferProcess.hpp>
 #include <platform/linux/PosixTransferPump.hpp>
@@ -29,49 +30,6 @@
 namespace btrfsbackup::platform::linux {
 
 namespace {
-
-class UniqueFd {
-  public:
-    UniqueFd() = default;
-    explicit UniqueFd(int fd) : fd_(fd) {
-    }
-    UniqueFd(const UniqueFd&) = delete;
-    UniqueFd& operator=(const UniqueFd&) = delete;
-    UniqueFd(UniqueFd&& other) noexcept : fd_(other.fd_) {
-        other.fd_ = -1;
-    }
-    UniqueFd& operator=(UniqueFd&& other) noexcept {
-        if (this != &other) {
-            reset();
-            fd_ = other.fd_;
-            other.fd_ = -1;
-        }
-        return *this;
-    }
-    ~UniqueFd() {
-        reset();
-    }
-
-    int get() const {
-        return fd_;
-    }
-
-    int release() {
-        int result = fd_;
-        fd_ = -1;
-        return result;
-    }
-
-    void reset(int fd = -1) {
-        if (fd_ >= 0) {
-            close(fd_);
-        }
-        fd_ = fd;
-    }
-
-  private:
-    int fd_ = -1;
-};
 
 class ScopedIgnoredSigpipe {
   public:
@@ -92,8 +50,8 @@ class ScopedIgnoredSigpipe {
 };
 
 struct Pipe {
-    UniqueFd read_end;
-    UniqueFd write_end;
+    OwnedFileDescriptor read_end;
+    OwnedFileDescriptor write_end;
 };
 
 Pipe create_pipe() {
@@ -101,7 +59,7 @@ Pipe create_pipe() {
     if (pipe2(fds, O_CLOEXEC) != 0) {
         throw ValidationError(std::string("cannot create transfer pipe: ") + std::strerror(errno));
     }
-    return Pipe{.read_end = UniqueFd(fds[0]), .write_end = UniqueFd(fds[1])};
+    return Pipe{.read_end = OwnedFileDescriptor(fds[0]), .write_end = OwnedFileDescriptor(fds[1])};
 }
 
 void set_nonblocking(int fd) {
@@ -111,12 +69,12 @@ void set_nonblocking(int fd) {
     }
 }
 
-UniqueFd open_dev_null() {
+OwnedFileDescriptor open_dev_null() {
     int fd = open("/dev/null", O_RDWR | O_CLOEXEC);
     if (fd < 0) {
         throw ValidationError(std::string("cannot open /dev/null: ") + std::strerror(errno));
     }
-    return UniqueFd(fd);
+    return OwnedFileDescriptor(fd);
 }
 
 struct ChildTerminationState {
@@ -338,7 +296,7 @@ btrfsbackup::backup::transfer::TransferResult PosixTransferSession::run() {
     Pipe consumer_input_pipe = create_pipe();
     Pipe producer_error_pipe = create_pipe();
     Pipe consumer_error_pipe = create_pipe();
-    UniqueFd dev_null = open_dev_null();
+    OwnedFileDescriptor dev_null = open_dev_null();
 
     ProcessSpawnResult producer_spawn = btrfsbackup::platform::linux::spawn_posix_transfer_process(
         plan.producer_argv,

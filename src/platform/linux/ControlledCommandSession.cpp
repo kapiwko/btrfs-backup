@@ -16,6 +16,7 @@
 
 #include <core/Errors.hpp>
 #include <platform/linux/ChildProcess.hpp>
+#include <platform/linux/OwnedFileDescriptor.hpp>
 #include <platform/linux/ProcessSpawn.hpp>
 #include <platform/linux/PosixCancellationSignal.hpp>
 
@@ -80,23 +81,22 @@ btrfsbackup::backup::CommandResult ControlledCommandSession::run() {
     if (pipe2(pipefd, O_CLOEXEC) != 0) {
         throw ValidationError(std::string("cannot create command pipe: ") + std::strerror(errno));
     }
-    int read_flags = fcntl(pipefd[0], F_GETFL);
-    if (read_flags < 0 || fcntl(pipefd[0], F_SETFL, read_flags | O_NONBLOCK) != 0) {
+    OwnedFileDescriptor output_read_end(pipefd[0]);
+    OwnedFileDescriptor output_write_end(pipefd[1]);
+    int read_flags = fcntl(output_read_end.get(), F_GETFL);
+    if (read_flags < 0 || fcntl(output_read_end.get(), F_SETFL, read_flags | O_NONBLOCK) != 0) {
         const int error = errno;
-        close(pipefd[0]);
-        close(pipefd[1]);
         throw ValidationError(std::string("cannot configure command pipe: ") + std::strerror(error));
     }
     ProcessSpawnResult spawned = spawn_program(argv, {
-                                                         .stdout_fd = pipefd[1],
-                                                         .stderr_fd = pipefd[1],
+                                                         .stdout_fd = output_write_end.get(),
+                                                         .stderr_fd = output_write_end.get(),
                                                          .create_process_group = true,
                                                          .inherited_fds = options.inherited_fds,
                                                          .environment = options.environment,
                                                      });
-    close(pipefd[1]);
+    output_write_end.reset();
     if (!spawned.started()) {
-        close(pipefd[0]);
         result.exit_code = 127;
         result.output = "cannot spawn " + argv.front() + ": " + std::strerror(spawned.error);
         return result;
@@ -119,14 +119,13 @@ btrfsbackup::backup::CommandResult ControlledCommandSession::run() {
         const auto now = std::chrono::steady_clock::now();
         if (now >= deadline) {
             result.timed_out = true;
-            close(pipefd[0]);
             return result;
         }
 
         pollfd descriptors[2];
         nfds_t count = 0;
         if (output_open) {
-            descriptors[count++] = {.fd = pipefd[0], .events = POLLIN, .revents = 0};
+            descriptors[count++] = {.fd = output_read_end.get(), .events = POLLIN, .revents = 0};
         }
         if (cancellation_fd >= 0) {
             descriptors[count++] = {.fd = cancellation_fd, .events = POLLIN, .revents = 0};
@@ -138,7 +137,6 @@ btrfsbackup::backup::CommandResult ControlledCommandSession::run() {
             polled = poll(descriptors, count, poll_timeout);
         } while (polled < 0 && errno == EINTR);
         if (polled < 0) {
-            close(pipefd[0]);
             throw ValidationError(std::string("cannot poll command: ") + std::strerror(errno));
         }
 
@@ -146,24 +144,22 @@ btrfsbackup::backup::CommandResult ControlledCommandSession::run() {
         if (output_open) {
             const short events = descriptors[index++].revents;
             if ((events & POLLNVAL) != 0) {
-                close(pipefd[0]);
                 throw ValidationError("command output descriptor became invalid");
             }
             if ((events & (POLLIN | POLLHUP | POLLERR)) != 0) {
                 char buffer[4096];
                 std::size_t drained_bytes = 0;
                 while (drained_bytes < max_drain_bytes_per_poll) {
-                    const ssize_t bytes = read(pipefd[0], buffer, sizeof(buffer));
+                    const ssize_t bytes = read(output_read_end.get(), buffer, sizeof(buffer));
                     if (bytes > 0) {
                         drained_bytes += static_cast<std::size_t>(bytes);
                         append_bounded(result.output, buffer, static_cast<std::size_t>(bytes), options.max_output_bytes);
                         continue;
                     }
                     if (bytes == 0) {
-                        close(pipefd[0]);
+                        output_read_end.reset();
                         output_open = false;
                     } else if (errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR) {
-                        close(pipefd[0]);
                         throw ValidationError(std::string("cannot read command output: ") + std::strerror(errno));
                     }
                     break;
@@ -173,15 +169,9 @@ btrfsbackup::backup::CommandResult ControlledCommandSession::run() {
         if (cancellation_fd >= 0) {
             const short events = descriptors[index].revents;
             if ((events & POLLNVAL) != 0) {
-                if (output_open) {
-                    close(pipefd[0]);
-                }
                 throw ValidationError("command cancellation descriptor became invalid");
             }
             if ((events & (POLLIN | POLLHUP | POLLERR)) != 0) {
-                if (output_open) {
-                    close(pipefd[0]);
-                }
                 result.cancelled = true;
                 return result;
             }
@@ -195,9 +185,6 @@ btrfsbackup::backup::CommandResult ControlledCommandSession::run() {
             if (waited == spawned.pid) {
                 child_reaped = true;
             } else if (waited < 0) {
-                if (output_open) {
-                    close(pipefd[0]);
-                }
                 throw ValidationError(std::string("cannot wait for command: ") + std::strerror(errno));
             }
         }

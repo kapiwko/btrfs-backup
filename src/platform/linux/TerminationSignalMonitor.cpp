@@ -18,6 +18,8 @@
 #include <thread>
 #include <utility>
 
+#include <platform/linux/OwnedFileDescriptor.hpp>
+
 namespace btrfsbackup::platform::linux {
 
 class TerminationSignalMonitor::Impl {
@@ -34,14 +36,14 @@ class TerminationSignalMonitor::Impl {
         }
         mask_installed_ = true;
 
-        signal_fd_ = signalfd(-1, &signals_, SFD_CLOEXEC | SFD_NONBLOCK);
-        if (signal_fd_ < 0) {
+        signal_fd_.reset(signalfd(-1, &signals_, SFD_CLOEXEC | SFD_NONBLOCK));
+        if (!signal_fd_.valid()) {
             int signal_fd_error = errno;
             cleanup();
             throw std::runtime_error(std::string("cannot create termination signal fd: ") + std::strerror(signal_fd_error));
         }
-        stop_fd_ = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
-        if (stop_fd_ < 0) {
+        stop_fd_.reset(eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK));
+        if (!stop_fd_.valid()) {
             int stop_fd_error = errno;
             cleanup();
             throw std::runtime_error(std::string("cannot create signal monitor stop fd: ") + std::strerror(stop_fd_error));
@@ -57,7 +59,7 @@ class TerminationSignalMonitor::Impl {
 
     ~Impl() {
         std::uint64_t value = 1;
-        ssize_t ignored = write(stop_fd_, &value, sizeof(value));
+        ssize_t ignored = write(stop_fd_.get(), &value, sizeof(value));
         (void)ignored;
         if (worker_.joinable()) {
             worker_.join();
@@ -68,8 +70,8 @@ class TerminationSignalMonitor::Impl {
   private:
     void run() {
         pollfd fds[2]{
-            {.fd = signal_fd_, .events = POLLIN, .revents = 0},
-            {.fd = stop_fd_, .events = POLLIN, .revents = 0},
+            {.fd = signal_fd_.get(), .events = POLLIN, .revents = 0},
+            {.fd = stop_fd_.get(), .events = POLLIN, .revents = 0},
         };
         while (true) {
             int ready = poll(fds, 2, -1);
@@ -88,7 +90,7 @@ class TerminationSignalMonitor::Impl {
             }
 
             signalfd_siginfo signal_info{};
-            while (read(signal_fd_, &signal_info, sizeof(signal_info)) == sizeof(signal_info)) {
+            while (read(signal_fd_.get(), &signal_info, sizeof(signal_info)) == sizeof(signal_info)) {
                 if (signal_info.ssi_signo == SIGINT || signal_info.ssi_signo == SIGTERM) {
                     on_termination_();
                 }
@@ -97,14 +99,8 @@ class TerminationSignalMonitor::Impl {
     }
 
     void cleanup() {
-        if (stop_fd_ >= 0) {
-            close(stop_fd_);
-            stop_fd_ = -1;
-        }
-        if (signal_fd_ >= 0) {
-            close(signal_fd_);
-            signal_fd_ = -1;
-        }
+        stop_fd_.reset();
+        signal_fd_.reset();
         if (mask_installed_) {
             pthread_sigmask(SIG_SETMASK, &previous_mask_, nullptr);
             mask_installed_ = false;
@@ -115,8 +111,8 @@ class TerminationSignalMonitor::Impl {
     sigset_t signals_{};
     sigset_t previous_mask_{};
     bool mask_installed_ = false;
-    int signal_fd_ = -1;
-    int stop_fd_ = -1;
+    OwnedFileDescriptor signal_fd_;
+    OwnedFileDescriptor stop_fd_;
     std::thread worker_;
 };
 

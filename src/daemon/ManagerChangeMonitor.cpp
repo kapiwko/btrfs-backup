@@ -19,6 +19,8 @@
 #include <vector>
 #include <unistd.h>
 
+#include <platform/linux/OwnedFileDescriptor.hpp>
+
 namespace fs = std::filesystem;
 
 namespace {
@@ -61,8 +63,8 @@ class ManagerChangeMonitor::Impl final {
           profiles_root_(paths.public_profile_root),
           status_root_(paths.status_root),
           history_root_(paths.history_root) {
-        filesystem_fd_ = inotify_init1(IN_NONBLOCK | IN_CLOEXEC);
-        if (filesystem_fd_ < 0)
+        filesystem_fd_.reset(inotify_init1(IN_NONBLOCK | IN_CLOEXEC));
+        if (!filesystem_fd_.valid())
             throw system_error("cannot initialize manager filesystem notifications");
         refresh_watches();
 
@@ -82,21 +84,14 @@ class ManagerChangeMonitor::Impl final {
         }
         device_fd_ = udev_monitor_get_fd(device_monitor_.get());
 
-        mount_fd_ = open(paths.mountinfo_path.c_str(), O_RDONLY | O_CLOEXEC | O_NONBLOCK);
-        if (mount_fd_ < 0)
+        mount_fd_.reset(open(paths.mountinfo_path.c_str(), O_RDONLY | O_CLOEXEC | O_NONBLOCK));
+        if (!mount_fd_.valid())
             throw system_error("cannot open mountinfo notifications");
         drain_mountinfo();
     }
 
-    ~Impl() {
-        if (mount_fd_ >= 0)
-            close(mount_fd_);
-        if (filesystem_fd_ >= 0)
-            close(filesystem_fd_);
-    }
-
     int filesystem_fd() const noexcept {
-        return filesystem_fd_;
+        return filesystem_fd_.get();
     }
 
     int device_fd() const noexcept {
@@ -104,13 +99,13 @@ class ManagerChangeMonitor::Impl final {
     }
 
     int mount_fd() const noexcept {
-        return mount_fd_;
+        return mount_fd_.get();
     }
 
     void process_filesystem_events() {
         alignas(inotify_event) std::array<char, 64 * 1024> buffer{};
         for (;;) {
-            const ssize_t size = read(filesystem_fd_, buffer.data(), buffer.size());
+            const ssize_t size = read(filesystem_fd_.get(), buffer.data(), buffer.size());
             if (size < 0) {
                 if (errno == EAGAIN || errno == EWOULDBLOCK)
                     return;
@@ -151,7 +146,7 @@ class ManagerChangeMonitor::Impl final {
         std::string profile_id,
         std::uint32_t mask
     ) {
-        const int descriptor = inotify_add_watch(filesystem_fd_, path.c_str(), mask);
+        const int descriptor = inotify_add_watch(filesystem_fd_.get(), path.c_str(), mask);
         if (descriptor < 0)
             throw system_error("cannot add manager filesystem watch");
         watches_.insert_or_assign(descriptor, Watch{kind, std::move(profile_id)});
@@ -278,11 +273,11 @@ class ManagerChangeMonitor::Impl final {
     }
 
     void drain_mountinfo() {
-        if (lseek(mount_fd_, 0, SEEK_SET) < 0)
+        if (lseek(mount_fd_.get(), 0, SEEK_SET) < 0)
             throw system_error("cannot rewind mountinfo notifications");
         std::array<char, 16 * 1024> buffer{};
         for (;;) {
-            const ssize_t size = read(mount_fd_, buffer.data(), buffer.size());
+            const ssize_t size = read(mount_fd_.get(), buffer.data(), buffer.size());
             if (size > 0)
                 continue;
             if (size == 0 || errno == EAGAIN || errno == EWOULDBLOCK)
@@ -307,9 +302,9 @@ class ManagerChangeMonitor::Impl final {
     fs::path profiles_root_;
     fs::path status_root_;
     fs::path history_root_;
-    int filesystem_fd_ = -1;
+    btrfsbackup::platform::linux::OwnedFileDescriptor filesystem_fd_;
     int device_fd_ = -1;
-    int mount_fd_ = -1;
+    btrfsbackup::platform::linux::OwnedFileDescriptor mount_fd_;
     std::unique_ptr<udev, UdevDeleter> udev_;
     std::unique_ptr<udev_monitor, UdevMonitorDeleter> device_monitor_;
     std::unordered_map<int, Watch> watches_;

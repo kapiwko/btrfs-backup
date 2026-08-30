@@ -12,30 +12,11 @@
 #include <cstring>
 
 #include <core/Errors.hpp>
+#include <platform/linux/OwnedFileDescriptor.hpp>
 
 namespace btrfsbackup::platform::linux {
 
 namespace {
-
-class UniqueFd {
-  public:
-    explicit UniqueFd(int fd) : fd_(fd) {
-    }
-    UniqueFd(const UniqueFd&) = delete;
-    UniqueFd& operator=(const UniqueFd&) = delete;
-    ~UniqueFd() {
-        if (fd_ >= 0) {
-            close(fd_);
-        }
-    }
-
-    int get() const {
-        return fd_;
-    }
-
-  private:
-    int fd_;
-};
 
 int open_trusted_config_file(const std::filesystem::path& path) {
     int fd = open(path.c_str(), O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
@@ -91,12 +72,12 @@ std::string read_all(int fd, const std::filesystem::path& path) {
 } // namespace
 
 void assert_trusted_config_file(const std::filesystem::path& path, const TrustedFilePolicy& policy) {
-    UniqueFd fd(open_trusted_config_file(path));
+    OwnedFileDescriptor fd(open_trusted_config_file(path));
     assert_trusted_config_fd(fd.get(), path, policy);
 }
 
 std::string read_trusted_config_file(const std::filesystem::path& path, const TrustedFilePolicy& policy) {
-    UniqueFd fd(open_trusted_config_file(path));
+    OwnedFileDescriptor fd(open_trusted_config_file(path));
     assert_trusted_config_fd(fd.get(), path, policy);
     return read_all(fd.get(), path);
 }

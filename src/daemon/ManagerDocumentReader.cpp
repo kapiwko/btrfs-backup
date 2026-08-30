@@ -14,6 +14,7 @@
 #include <system_error>
 
 #include <core/Errors.hpp>
+#include <platform/linux/OwnedFileDescriptor.hpp>
 
 namespace fs = std::filesystem;
 
@@ -21,31 +22,12 @@ namespace {
 
 constexpr std::size_t max_document_bytes = 1024 * 1024;
 
-class UniqueFd {
-  public:
-    explicit UniqueFd(int value) : value_(value) {
-    }
-    UniqueFd(const UniqueFd&) = delete;
-    UniqueFd& operator=(const UniqueFd&) = delete;
-    ~UniqueFd() {
-        if (value_ >= 0) {
-            close(value_);
-        }
-    }
-    [[nodiscard]] int get() const {
-        return value_;
-    }
-
-  private:
-    int value_;
-};
-
 } // namespace
 
 namespace btrfsbackup::daemon {
 
 btrfsbackup::config::Json read_manager_json_document(const fs::path& path) {
-    UniqueFd descriptor(open(path.c_str(), O_RDONLY | O_CLOEXEC | O_NOFOLLOW));
+    btrfsbackup::platform::linux::OwnedFileDescriptor descriptor(open(path.c_str(), O_RDONLY | O_CLOEXEC | O_NOFOLLOW));
     if (descriptor.get() < 0) {
         throw ValidationError("cannot read manager data file " + path.string());
     }

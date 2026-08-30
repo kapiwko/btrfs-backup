@@ -8,6 +8,7 @@
 #include <stop_token>
 
 #include <core/Cancellation.hpp>
+#include <platform/linux/OwnedFileDescriptor.hpp>
 
 namespace btrfsbackup::platform::linux {
 
@@ -27,8 +28,8 @@ class PosixCancellationSignal {
         void operator()() const noexcept;
     };
 
-    int read_fd_ = -1;
-    int write_fd_ = -1;
+    OwnedFileDescriptor read_fd_;
+    OwnedFileDescriptor write_fd_;
     std::optional<std::stop_callback<WriteSignal>> callback_;
 };
 
