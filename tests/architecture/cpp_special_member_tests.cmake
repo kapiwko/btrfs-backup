@@ -35,6 +35,7 @@ set(approved_special_member_types
     "src/platform/linux/SafeDirectoryRoot.hpp:SafeDirectoryRoot"
     "src/platform/linux/SystemdMountedTargetSession.hpp:SystemdMountedTargetSession"
     "src/platform/linux/TerminationSignalMonitor.hpp:TerminationSignalMonitor"
+    "src/platform/linux/ThreadSigpipeBlock.hpp:ThreadSigpipeBlock"
     "src/state/FileActiveRunRegistration.hpp:FileActiveRunRegistration"
     "src/state/PollingCancellationWatch.hpp:PollingCancellationWatch"
 )
