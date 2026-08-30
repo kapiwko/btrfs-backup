@@ -6,7 +6,7 @@
 
 #include <backup/ports/RunContext.hpp>
 
-namespace btrfsbackup::backup {
+namespace btrfsbackup::backup::execution {
 
 class SystemClock final : public IClock {
   public:
@@ -19,4 +19,4 @@ class TimestampRunIdGenerator final : public IRunIdGenerator {
     [[nodiscard]] RunId generate(RuntimeTimePoint time) override;
 };
 
-} // namespace btrfsbackup::backup
+} // namespace btrfsbackup::backup::execution

@@ -25,7 +25,7 @@
 #include <backup/action_handlers/RetentionActionHandler.hpp>
 #include <backup/action_handlers/SnapshotActionHandler.hpp>
 #include <backup/DefaultBackupRunActionHandlerFactory.hpp>
-#include <backup/SystemRunContext.hpp>
+#include <backup/execution/SystemRunContext.hpp>
 
 #include <platform/linux/filesystem/SafeDirectoryRoot.hpp>
 #include <platform/linux/filesystem/PosixDurableFileOperations.hpp>
@@ -787,7 +787,7 @@ void test_default_factory_builds_run_scoped_dispatcher() {
     btrfsbackup::state::FilePendingMarkerStore pending_markers(durable_files);
     test_support::FakeSafeDirectoryRootFactory safe_directories;
     test_support::FakeTrustedExecutableResolver hook_executables;
-    btrfsbackup::backup::SystemClock clock;
+    btrfsbackup::backup::execution::SystemClock clock;
     btrfsbackup::backup::DefaultBackupRunActionHandlerFactory factory(
         btrfs,
         filesystem,

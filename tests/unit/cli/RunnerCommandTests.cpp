@@ -27,8 +27,8 @@
 #include <backup/planning/BackupDiscovery.hpp>
 #include <backup/planning/BackupPlanBuilder.hpp>
 #include <backup/planning/BackupPreflight.hpp>
-#include <backup/DefaultBackupRunFactory.hpp>
-#include <backup/LinkedCancellationMonitor.hpp>
+#include <backup/execution/DefaultBackupRunFactory.hpp>
+#include <backup/execution/LinkedCancellationMonitor.hpp>
 #include <state/FileRunStateRepository.hpp>
 #include <state/FileCancellationMonitor.hpp>
 #include <state/FilePendingMarkerStore.hpp>
@@ -480,7 +480,7 @@ int run_runner(
     );
     btrfsbackup::backup::planning::BackupPlanBuilder plan_builder;
     DelegatingActionHandlerFactory action_handlers(fixture->action_handler);
-    btrfsbackup::backup::DefaultBackupRunFactory run_factory(
+    btrfsbackup::backup::execution::DefaultBackupRunFactory run_factory(
         action_handlers,
         fixture->transfer_pipeline,
         safe_directories
@@ -503,11 +503,11 @@ int run_runner(
     btrfsbackup::CancellationToken& cancellation = external_cancellation == nullptr
         ? owned_cancellation
         : *external_cancellation;
-    btrfsbackup::backup::LinkedCancellationMonitor cancellation_monitor(
+    btrfsbackup::backup::execution::LinkedCancellationMonitor cancellation_monitor(
         file_cancellation_monitor,
         cancellation
     );
-    btrfsbackup::backup::RunSessionFactory sessions(leases, state, state, state, cancellation_monitor);
+    btrfsbackup::backup::execution::RunSessionFactory sessions(leases, state, state, state, cancellation_monitor);
     btrfsbackup::backup::BackupService service(
         profiles,
         fixture->application_config.paths(),

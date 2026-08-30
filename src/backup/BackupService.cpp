@@ -65,7 +65,7 @@ BackupExecutionFailed emit_run_failed(
 }
 
 std::optional<BackupExecutionFailed> close_target_or_fail(
-    RunExecutionContext& context,
+    execution::RunExecutionContext& context,
     IBackupRunEventSink& events,
     const ProfileId& profile_id,
     const RunId& run_id,
@@ -129,7 +129,7 @@ BackupService::BackupService(
     IBackupPlanBuilder& plan_builder,
     IBackupRunFactory& run_factory,
     IRunLedger& ledger,
-    RunSessionFactory& sessions,
+    execution::RunSessionFactory& sessions,
     IClock& clock,
     IRunIdGenerator& run_ids
 )
@@ -175,7 +175,7 @@ BackupRunPlan BackupService::plan(const BackupPlanRequest& request) {
 BackupExecutionResult BackupService::start(const BackupRequest& request) {
     const RuntimeTimePoint started_at = clock_.now();
     const RunId run_id = run_ids_.generate(started_at);
-    const RunIdentity identity{run_id, started_at};
+    const execution::RunIdentity identity{run_id, started_at};
     const OperationKind operation_kind = request.validate_only
         ? OperationKind::TargetValidation
         : OperationKind::Backup;
@@ -202,7 +202,7 @@ BackupExecutionResult BackupService::start(const BackupRequest& request) {
 
 BackupService::RunLeaseResult BackupService::acquire_run_lease(
     const btrfsbackup::config::Profile& profile,
-    const RunIdentity& identity,
+    const execution::RunIdentity& identity,
     OperationKind operation_kind,
     IBackupRunEventSink& events
 ) {
@@ -231,10 +231,10 @@ BackupService::RunLeaseResult BackupService::acquire_run_lease(
 std::optional<BackupExecutionResult> BackupService::finish_validation_if_requested(
     const BackupRequest& request,
     const btrfsbackup::config::Profile& profile,
-    const RunIdentity& identity,
+    const execution::RunIdentity& identity,
     OperationKind operation_kind,
     BackupRunPlan& plan,
-    RunExecutionContext& context,
+    execution::RunExecutionContext& context,
     IBackupRunEventSink& events
 ) {
     if (!request.validate_only) {
@@ -261,11 +261,11 @@ std::optional<BackupExecutionResult> BackupService::finish_validation_if_request
 std::optional<BackupExecutionResult> BackupService::skip_if_daily_limit_reached(
     const BackupRequest& request,
     const btrfsbackup::config::LoadedProfile& loaded_profile,
-    const RunIdentity& identity,
+    const execution::RunIdentity& identity,
     LocalDate today,
     OperationKind operation_kind,
     BackupRunPlan& plan,
-    RunExecutionContext& context,
+    execution::RunExecutionContext& context,
     IBackupRunEventSink& events
 ) {
     const btrfsbackup::config::Profile& profile = loaded_profile.profile;
@@ -293,11 +293,11 @@ std::optional<BackupExecutionResult> BackupService::skip_if_daily_limit_reached(
 
 BackupExecutionResult BackupService::execute_plan(
     const btrfsbackup::config::LoadedProfile& loaded_profile,
-    const RunIdentity& identity,
+    const execution::RunIdentity& identity,
     LocalDate today,
     OperationKind operation_kind,
     BackupRunPlan plan,
-    RunExecutionContext& context,
+    execution::RunExecutionContext& context,
     IBackupRunEventSink& events
 ) {
     const btrfsbackup::config::Profile& profile = loaded_profile.profile;
@@ -372,7 +372,7 @@ BackupExecutionResult BackupService::execute_plan(
 
 BackupExecutionResult BackupService::start_loaded_profile(
     const BackupRequest& request,
-    const RunIdentity& identity,
+    const execution::RunIdentity& identity,
     OperationKind operation_kind,
     const btrfsbackup::config::LoadedProfile& loaded_profile,
     std::unique_ptr<IBackupRunEventSink> event_sink
@@ -380,7 +380,7 @@ BackupExecutionResult BackupService::start_loaded_profile(
     const RunId& run_id = identity.run_id;
     const btrfsbackup::config::Profile& profile = loaded_profile.profile;
     IBackupRunEventSink& events = *event_sink;
-    std::unique_ptr<RunExecutionContext> context;
+    std::unique_ptr<execution::RunExecutionContext> context;
     try {
         RunLeaseResult lease_result = acquire_run_lease(
             profile,
@@ -491,8 +491,8 @@ BackupExecutionResult BackupService::start_loaded_profile(
 
 BackupRunPlan BackupService::prepare_target_and_plan(
     const btrfsbackup::config::Profile& profile,
-    const RunIdentity& identity,
-    RunExecutionContext& context
+    const execution::RunIdentity& identity,
+    execution::RunExecutionContext& context
 ) {
     std::unique_ptr<IMountedTargetSession> target_session = preflight_.run(
         profile,

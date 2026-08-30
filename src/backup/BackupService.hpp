@@ -17,7 +17,7 @@
 #include <backup/ports/IBackupRunFactory.hpp>
 #include <backup/ports/RunContext.hpp>
 #include <backup/ports/IRunLedger.hpp>
-#include <backup/RunSessionFactory.hpp>
+#include <backup/execution/RunSessionFactory.hpp>
 #include <config/ApplicationPaths.hpp>
 #include <config/ports/IProfileRepository.hpp>
 #include <config/model/Profile.hpp>
@@ -35,7 +35,7 @@ class BackupService {
         IBackupPlanBuilder& plan_builder,
         IBackupRunFactory& run_factory,
         IRunLedger& ledger,
-        RunSessionFactory& sessions,
+        execution::RunSessionFactory& sessions,
         IClock& clock,
         IRunIdGenerator& run_ids
     );
@@ -49,48 +49,48 @@ class BackupService {
 
     [[nodiscard]] BackupExecutionResult start_loaded_profile(
         const BackupRequest& request,
-        const RunIdentity& identity,
+        const execution::RunIdentity& identity,
         OperationKind operation_kind,
         const btrfsbackup::config::LoadedProfile& loaded_profile,
         std::unique_ptr<IBackupRunEventSink> event_sink
     );
     [[nodiscard]] BackupRunPlan prepare_target_and_plan(
         const btrfsbackup::config::Profile& profile,
-        const RunIdentity& identity,
-        RunExecutionContext& context
+        const execution::RunIdentity& identity,
+        execution::RunExecutionContext& context
     );
     [[nodiscard]] RunLeaseResult acquire_run_lease(
         const btrfsbackup::config::Profile& profile,
-        const RunIdentity& identity,
+        const execution::RunIdentity& identity,
         OperationKind operation_kind,
         IBackupRunEventSink& events
     );
     [[nodiscard]] std::optional<BackupExecutionResult> finish_validation_if_requested(
         const BackupRequest& request,
         const btrfsbackup::config::Profile& profile,
-        const RunIdentity& identity,
+        const execution::RunIdentity& identity,
         OperationKind operation_kind,
         BackupRunPlan& plan,
-        RunExecutionContext& context,
+        execution::RunExecutionContext& context,
         IBackupRunEventSink& events
     );
     [[nodiscard]] std::optional<BackupExecutionResult> skip_if_daily_limit_reached(
         const BackupRequest& request,
         const btrfsbackup::config::LoadedProfile& loaded_profile,
-        const RunIdentity& identity,
+        const execution::RunIdentity& identity,
         LocalDate today,
         OperationKind operation_kind,
         BackupRunPlan& plan,
-        RunExecutionContext& context,
+        execution::RunExecutionContext& context,
         IBackupRunEventSink& events
     );
     [[nodiscard]] BackupExecutionResult execute_plan(
         const btrfsbackup::config::LoadedProfile& loaded_profile,
-        const RunIdentity& identity,
+        const execution::RunIdentity& identity,
         LocalDate today,
         OperationKind operation_kind,
         BackupRunPlan plan,
-        RunExecutionContext& context,
+        execution::RunExecutionContext& context,
         IBackupRunEventSink& events
     );
 
@@ -101,7 +101,7 @@ class BackupService {
     IBackupPlanBuilder& plan_builder_;
     IBackupRunFactory& run_factory_;
     IRunLedger& ledger_;
-    RunSessionFactory& sessions_;
+    execution::RunSessionFactory& sessions_;
     IClock& clock_;
     IRunIdGenerator& run_ids_;
 };

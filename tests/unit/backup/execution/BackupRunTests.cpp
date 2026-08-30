@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <backup/BackupRun.hpp>
+#include <backup/execution/BackupRun.hpp>
 #include <backup/testing/NullBackupRunEventSink.hpp>
 
 #include <memory>
@@ -13,11 +13,11 @@
 
 namespace {
 
-class NoopActionExecutor final : public btrfsbackup::backup::IBackupActionExecutor {
+class NoopActionExecutor final : public btrfsbackup::backup::execution::IBackupActionExecutor {
   public:
-    btrfsbackup::backup::BackupActionExecutionResult execute(
+    btrfsbackup::backup::execution::BackupActionExecutionResult execute(
         const btrfsbackup::backup::BackupRunAction&,
-        btrfsbackup::backup::BackupActionExecutionContext&
+        btrfsbackup::backup::execution::BackupActionExecutionContext&
     ) override {
         return {};
     }
@@ -32,7 +32,7 @@ class NoopCheckpointStore final : public btrfsbackup::backup::IBackupRunCheckpoi
 void test_backup_run_owns_plan_and_executes_once() {
     NoopActionExecutor action_executor;
     NoopCheckpointStore checkpoints;
-    btrfsbackup::backup::BackupRun run(
+    btrfsbackup::backup::execution::BackupRun run(
         btrfsbackup::backup::BackupRunPlan{
             .profile_id = btrfsbackup::ProfileId{"default"},
             .run_id = btrfsbackup::RunId{"run-1"},
