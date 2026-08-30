@@ -44,6 +44,7 @@ add_library(btrfsbackup-platform-linux-filesystem STATIC
     filesystem/FileBackupRunLeaseProvider.cpp
     filesystem/FileIo.cpp
     filesystem/FileLock.cpp
+    filesystem/InotifyFileChangeWatcher.cpp
     filesystem/PosixDurableFileOperations.cpp
     filesystem/PosixFileSystem.cpp
     filesystem/SafeDirectoryRoot.cpp
@@ -56,6 +57,7 @@ target_restricted_include_directories(btrfsbackup-platform-linux-filesystem
         platform/linux/filesystem/FileBackupRunLeaseProvider.hpp
         platform/linux/filesystem/FileIo.hpp
         platform/linux/filesystem/FileLock.hpp
+        platform/linux/filesystem/InotifyFileChangeWatcher.hpp
         platform/linux/filesystem/PosixDurableFileOperations.hpp
         platform/linux/filesystem/PosixFileSystem.hpp
         platform/linux/filesystem/SafeDirectoryRoot.hpp
