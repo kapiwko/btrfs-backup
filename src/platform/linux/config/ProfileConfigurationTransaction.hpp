@@ -57,6 +57,15 @@ class ProfileConfigurationTransaction {
     };
 
     void publish(TransactionArtifact& artifact);
+    void rollback_artifact(TransactionArtifact& artifact, RollbackResult& result) noexcept;
+    void remove_published_artifact(TransactionArtifact& artifact, RollbackResult& result) noexcept;
+    [[nodiscard]] bool restore_previous_artifact(TransactionArtifact& artifact, RollbackResult& result) noexcept;
+    void sync_rollback_directory(const TransactionArtifact& artifact, RollbackResult& result) noexcept;
+    void remove_transaction_files(
+        const TransactionArtifact& artifact,
+        bool restored_previous,
+        RollbackResult& result
+    ) noexcept;
     [[nodiscard]] TransactionArtifact& artifact(btrfsbackup::config::ProfileArtifactKind kind);
     [[nodiscard]] const TransactionArtifact& artifact(btrfsbackup::config::ProfileArtifactKind kind) const;
 
