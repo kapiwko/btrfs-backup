@@ -5,6 +5,7 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -60,6 +61,16 @@ struct TargetStatus {
     bool unlocked = false;
     bool mounted = false;
     bool safe_to_remove = false;
+    struct Storage {
+        std::uint64_t capacity_bytes = 0;
+        std::uint64_t used_bytes = 0;
+        std::uint64_t available_bytes = 0;
+        int usage_percent = 0;
+        std::string measured_at;
+        bool live = false;
+        std::string space_state;
+    };
+    std::optional<Storage> storage;
 };
 
 struct OperationResult {

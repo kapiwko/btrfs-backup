@@ -15,32 +15,49 @@
 #include <daemon/query/ManagerDocumentReader.hpp>
 #include <platform/linux/storage/DeviceInfo.hpp>
 #include <platform/linux/storage/MountInfo.hpp>
+#include <platform/linux/storage/FilesystemSpaceProbe.hpp>
+#include <state/persistence/FileTargetStorageMeasurementStore.hpp>
+#include <core/RuntimeTime.hpp>
 
 namespace fs = std::filesystem;
 
 namespace btrfsbackup::daemon::query {
 
+struct DeviceStateQueryService::Impl {
+    explicit Impl(ManagerPaths configured_paths)
+        : paths(std::move(configured_paths)), storage_store(paths.state_root) {
+    }
+
+    ManagerPaths paths;
+    btrfsbackup::platform::linux::storage::FilesystemSpaceProbe space_probe;
+    btrfsbackup::state::FileTargetStorageMeasurementStore storage_store;
+};
+
 DeviceStateQueryService::DeviceStateQueryService(ManagerPaths paths)
-    : paths_(std::move(paths)) {
+    : impl_(std::make_unique<Impl>(std::move(paths))) {
 }
+
+DeviceStateQueryService::~DeviceStateQueryService() noexcept = default;
 
 TargetStatus DeviceStateQueryService::get_device_state(
     const std::string& profile_id
 ) const {
+    const ManagerPaths& paths = impl_->paths;
     validate_profile_id(profile_id);
-    const fs::path profile_path = paths_.config_root / "profiles" / profile_id / "profile.json";
+    const fs::path profile_path = paths.config_root / "profiles" / profile_id / "profile.json";
     const btrfsbackup::config::Profile profile = btrfsbackup::config::json::profile_from_json(
         read_manager_json_document(profile_path),
-        paths_.target_mount_root
+        paths.target_mount_root
     );
     const fs::path mapper = btrfsbackup::platform::linux::storage::mapper_path(
         profile.target.mapper_name.value(),
-        paths_.mapper_root
+        paths.mapper_root
     );
-    const fs::path mountpoint = paths_.target_mount_root / profile_id;
+    const fs::path mountpoint = paths.target_mount_root / profile_id;
     const std::vector<btrfsbackup::backup::MountEntry> mounts =
-        btrfsbackup::platform::linux::storage::read_mount_table(paths_.mountinfo_path);
-    const bool mounted = btrfsbackup::backup::mount_at(mounts, mountpoint).has_value();
+        btrfsbackup::platform::linux::storage::read_mount_table(paths.mountinfo_path);
+    const std::optional<btrfsbackup::backup::MountEntry> mounted_entry = btrfsbackup::backup::mount_at(mounts, mountpoint);
+    const bool mounted = mounted_entry.has_value();
     const bool unlocked = fs::exists(mapper);
     const bool connected = fs::exists(profile.target.device);
 
@@ -54,6 +71,40 @@ TargetStatus DeviceStateQueryService::get_device_state(
         state = "connected";
         safe_to_remove = true;
     }
+    std::optional<btrfsbackup::backup::TargetStorageMeasurement> measurement;
+    bool live = false;
+    const bool verified_mount = mounted_entry.has_value() && mounted_entry->fstype == "btrfs" &&
+        mounted_entry->filesystem_uuid == profile.target.btrfs_uuid.value() &&
+        btrfsbackup::backup::mount_uses_mapper(mounts, mountpoint, mapper);
+    if (verified_mount) {
+        try {
+            measurement = btrfsbackup::backup::TargetStorageMeasurement{
+                .space = impl_->space_probe.measure_verified_mount(mountpoint, *mounted_entry),
+                .measured_at = std::chrono::system_clock::now(),
+            };
+            live = true;
+        } catch (const std::exception&) {
+        }
+    }
+    if (!measurement.has_value()) {
+        measurement = impl_->storage_store.read_matching(profile);
+    }
+
+    std::optional<TargetStatus::Storage> storage;
+    if (measurement.has_value()) {
+        const bool below_minimum = profile.settings.minimum_target_free_bytes.value() > 0 &&
+            measurement->space.available_bytes < profile.settings.minimum_target_free_bytes.value();
+        storage = TargetStatus::Storage{
+            .capacity_bytes = measurement->space.capacity_bytes,
+            .used_bytes = measurement->space.used_bytes(),
+            .available_bytes = measurement->space.available_bytes,
+            .usage_percent = measurement->space.usage_percent(),
+            .measured_at = format_utc_iso_timestamp(measurement->measured_at),
+            .live = live,
+            .space_state = below_minimum ? "below-configured-minimum" : "normal",
+        };
+    }
+
     return {
         .profile_id = profile_id,
         .target_name = std::string(profile.target.mapper_name.value()),
@@ -62,6 +113,7 @@ TargetStatus DeviceStateQueryService::get_device_state(
         .unlocked = unlocked,
         .mounted = mounted,
         .safe_to_remove = safe_to_remove,
+        .storage = std::move(storage),
     };
 }
 
