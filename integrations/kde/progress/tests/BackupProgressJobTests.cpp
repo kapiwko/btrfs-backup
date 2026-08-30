@@ -95,7 +95,7 @@ void test_shared_manager_protocol() {
     );
     expect(
         capabilities.has_value() && capabilities->api_major == 1 &&
-            capabilities->features.contains(QStringLiteral("cancel-backup")),
+            capabilities->features.contains(QLatin1String(btrfsbackup::manager_protocol::feature::cancel_backup)),
         "shared client decodes manager capabilities"
     );
 

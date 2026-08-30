@@ -55,7 +55,7 @@ BackupProgressMonitor::BackupProgressMonitor(
       bus_(std::move(bus)),
       manager_events_(bus_, this),
       service_watcher_(
-          QLatin1String(btrfsbackup::kde::manager_service),
+          QLatin1String(btrfsbackup::manager_protocol::service_name),
           bus_,
           QDBusServiceWatcher::WatchForRegistration | QDBusServiceWatcher::WatchForUnregistration,
           this
@@ -102,7 +102,7 @@ void BackupProgressMonitor::connect_to_manager() {
     }
     capabilities_request_pending_ = true;
     auto* watcher = new QDBusPendingCallWatcher(
-        btrfsbackup::kde::manager_call(bus_, QStringLiteral("GetCapabilities")),
+        btrfsbackup::kde::manager_call(bus_, QLatin1String(btrfsbackup::manager_protocol::method::get_capabilities)),
         this
     );
     connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, watcher](QDBusPendingCallWatcher*) {
@@ -118,9 +118,10 @@ void BackupProgressMonitor::connect_to_manager() {
         }
 
         const auto capabilities = btrfsbackup::kde::parse_capabilities(reply.value());
-        if (!capabilities.has_value() || capabilities->api_major != 1 ||
-            capabilities->public_status_schema_version != 3 ||
-            !capabilities->features.contains(QStringLiteral("change-signals"))) {
+        if (!capabilities.has_value() ||
+            capabilities->api_major != btrfsbackup::manager_protocol::api_major ||
+            capabilities->public_status_schema_version != btrfsbackup::manager_protocol::public_status_schema_version ||
+            !capabilities->features.contains(QLatin1String(btrfsbackup::manager_protocol::feature::change_signals))) {
             qWarning() << "btrfs-backup KDE monitor received incompatible manager capabilities";
             manager_unavailable();
             return;
@@ -156,7 +157,7 @@ void BackupProgressMonitor::request_profiles() {
     }
     profiles_request_pending_ = true;
     auto* watcher = new QDBusPendingCallWatcher(
-        btrfsbackup::kde::manager_call(bus_, QStringLiteral("ListProfiles")),
+        btrfsbackup::kde::manager_call(bus_, QLatin1String(btrfsbackup::manager_protocol::method::list_profiles)),
         this
     );
     connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, watcher](QDBusPendingCallWatcher*) {
@@ -183,7 +184,7 @@ void BackupProgressMonitor::request_status(const Profile& profile) {
     }
     pending_status_requests_.insert(profile.id);
     auto* watcher = new QDBusPendingCallWatcher(
-        btrfsbackup::kde::manager_call(bus_, QStringLiteral("GetStatus"), {profile.id}),
+        btrfsbackup::kde::manager_call(bus_, QLatin1String(btrfsbackup::manager_protocol::method::get_status), {profile.id}),
         this
     );
     connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, watcher, profile](QDBusPendingCallWatcher*) {
@@ -210,7 +211,7 @@ void BackupProgressMonitor::request_cancel(const QString& profile_id, const QStr
     auto* watcher = new QDBusPendingCallWatcher(
         btrfsbackup::kde::manager_call(
             bus_,
-            QStringLiteral("CancelBackup"),
+            QLatin1String(btrfsbackup::manager_protocol::method::cancel_backup),
             {profile_id, run_id}
         ),
         this

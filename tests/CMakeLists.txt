@@ -27,6 +27,7 @@ assert_model_dependencies(btrfsbackup-state-model btrfsbackup-core)
 assert_model_dependencies(btrfsbackup-transfer btrfsbackup-core)
 
 assert_public_link_interface(btrfsbackup-core)
+assert_public_link_interface(btrfsbackup-manager-protocol)
 assert_public_link_interface(btrfsbackup-config-domain btrfsbackup-core)
 assert_public_link_interface(
     btrfsbackup-config-json
@@ -86,6 +87,7 @@ if(BUILD_SYSTEM_MANAGER)
     assert_public_link_interface(
         btrfsbackup-daemon-core
         btrfsbackup-config-domain
+        btrfsbackup-manager-protocol
     )
     assert_public_link_interface(
         btrfsbackup-daemon-system-control
@@ -97,6 +99,7 @@ endif()
 
 set(architecture_targets
     btrfsbackup-core
+    btrfsbackup-manager-protocol
     btrfsbackup-config-domain
     btrfsbackup-config-json
     btrfsbackup-config-wizard
