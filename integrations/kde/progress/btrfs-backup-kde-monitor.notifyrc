@@ -1,0 +1,27 @@
+# SPDX-FileCopyrightText: 2026 Kamil Piwowarski <kapiwko@gmail.com>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+[Global]
+IconName=drive-harddisk
+Name=Btrfs Backup
+Comment=Backup status notifications
+DesktopEntry=io.github.btrfsbackup.ProgressMonitor
+
+[Event/backupSucceeded]
+Name=Backup completed
+Comment=A backup completed successfully
+Action=
+Urgency=Normal
+
+[Event/backupFailed]
+Name=Backup failed
+Comment=A backup failed
+Action=Popup
+Urgency=Critical
+
+[Event/backupCancelled]
+Name=Backup cancelled
+Comment=A backup was cancelled
+Action=
+Urgency=Normal
