@@ -59,5 +59,5 @@ by systemd and preserving automatic backup when the manager is absent.
   package remains free of Qt/KDE dependencies.
 - [ ] Automatic backup and an active runner work when `btrfs-backupd` is
   stopped, killed or removed.
-- [ ] No profile, hook or destructive media-preparation mutation is exported in
+- [x] No profile, hook or destructive media-preparation mutation is exported in
   this sprint.
