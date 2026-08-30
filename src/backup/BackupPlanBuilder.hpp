@@ -1,0 +1,22 @@
+// SPDX-FileCopyrightText: 2026 Kamil Piwowarski <kapiwko@gmail.com>
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+#pragma once
+
+#include <backup/ports/IBackupPlanBuilder.hpp>
+
+namespace btrfsbackup::backup {
+
+class BackupPlanBuilder final : public IBackupPlanBuilder {
+  public:
+    [[nodiscard]] BackupRunPlan build(
+        const btrfsbackup::config::Profile& profile,
+        const BackupPlanningSnapshot& snapshot,
+        const RunId& run_id,
+        const std::string& snapshot_timestamp,
+        CancellationToken& cancellation
+    ) const override;
+};
+
+} // namespace btrfsbackup::backup

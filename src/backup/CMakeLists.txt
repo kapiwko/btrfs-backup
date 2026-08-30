@@ -3,31 +3,31 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 add_library(btrfsbackup-backup-model STATIC
-    model/backup_planning_snapshot.cpp
-    model/backup_run_actions.cpp
-    model/backup_run_plan.cpp
-    model/incremental_parent.cpp
-    model/pending_recovery.cpp
-    model/retention_plan.cpp
-    model/snapshot_inventory.cpp
+    model/BackupPlanningSnapshot.cpp
+    model/BackupRunActions.cpp
+    model/BackupRunPlan.cpp
+    model/IncrementalParent.cpp
+    model/PendingRecovery.cpp
+    model/RetentionPlan.cpp
+    model/SnapshotInventory.cpp
 )
 
 target_compile_features(btrfsbackup-backup-model PUBLIC cxx_std_20)
 target_restricted_include_directories(btrfsbackup-backup-model
     PUBLIC_HEADERS
-        backup/model/backup_planning_snapshot.hpp
-        backup/model/backup_execution.hpp
-        backup/model/backup_run_action.hpp
-        backup/model/backup_run_actions.hpp
-        backup/model/backup_run_checkpoint.hpp
-        backup/model/backup_run_event.hpp
-        backup/model/backup_run_execution.hpp
-        backup/model/backup_run_plan.hpp
-        backup/model/incremental_parent.hpp
-        backup/model/pending_recovery.hpp
-        backup/model/retention_plan.hpp
-        backup/model/snapshot.hpp
-        backup/model/snapshot_inventory.hpp
+        backup/model/BackupPlanningSnapshot.hpp
+        backup/model/BackupExecution.hpp
+        backup/model/BackupRunAction.hpp
+        backup/model/BackupRunActions.hpp
+        backup/model/BackupRunCheckpoint.hpp
+        backup/model/BackupRunEvent.hpp
+        backup/model/BackupRunExecution.hpp
+        backup/model/BackupRunPlan.hpp
+        backup/model/IncrementalParent.hpp
+        backup/model/PendingRecovery.hpp
+        backup/model/RetentionPlan.hpp
+        backup/model/Snapshot.hpp
+        backup/model/SnapshotInventory.hpp
 )
 target_link_libraries(btrfsbackup-backup-model
     PUBLIC
@@ -37,21 +37,21 @@ target_link_libraries(btrfsbackup-backup-model
 )
 
 add_library(btrfsbackup-transfer STATIC
-    transfer/async_transfer.cpp
-    transfer/transfer_event.cpp
-    transfer/transfer_result.cpp
-    transfer/transfer_speed_estimator.cpp
+    transfer/AsyncTransfer.cpp
+    transfer/TransferEvent.cpp
+    transfer/TransferResult.cpp
+    transfer/TransferSpeedEstimator.cpp
 )
 
 target_compile_features(btrfsbackup-transfer PUBLIC cxx_std_20)
 target_restricted_include_directories(btrfsbackup-transfer
     PUBLIC_HEADERS
-        backup/transfer/async_transfer.hpp
-        backup/transfer/transfer_event.hpp
-        backup/transfer/transfer_pipeline.hpp
-        backup/transfer/transfer_plan.hpp
-        backup/transfer/transfer_result.hpp
-        backup/transfer/transfer_speed_estimator.hpp
+        backup/transfer/AsyncTransfer.hpp
+        backup/transfer/TransferEvent.hpp
+        backup/transfer/ITransferPipeline.hpp
+        backup/transfer/TransferPlan.hpp
+        backup/transfer/TransferResult.hpp
+        backup/transfer/TransferSpeedEstimator.hpp
 )
 target_link_libraries(btrfsbackup-transfer
     PUBLIC
@@ -59,37 +59,37 @@ target_link_libraries(btrfsbackup-transfer
 )
 
 add_library(btrfsbackup-backup-ports STATIC
-    ports/btrfs_operations.cpp
-    ports/command_runner.cpp
-    ports/mount_inspector.cpp
+    ports/IBtrfsOperations.cpp
+    ports/ICommandRunner.cpp
+    ports/IMountInspector.cpp
 )
 
 target_compile_features(btrfsbackup-backup-ports PUBLIC cxx_std_20)
 target_restricted_include_directories(btrfsbackup-backup-ports
     PUBLIC_HEADERS
-        backup/ports/backup_discovery.hpp
-        backup/ports/backup_plan_builder.hpp
-        backup/ports/backup_preflight.hpp
-        backup/ports/backup_run_checkpoint_store.hpp
-        backup/ports/backup_run_event_sink.hpp
-        backup/ports/backup_run_action_handler_factory.hpp
-        backup/ports/backup_run_factory.hpp
-        backup/ports/btrfs_operations.hpp
-        backup/ports/cancellation_request_store.hpp
-        backup/ports/cancellation_monitor.hpp
-        backup/ports/checkpoint_store_factory.hpp
-        backup/ports/command_runner.hpp
-        backup/ports/filesystem.hpp
-        backup/ports/mount_inspector.hpp
-        backup/ports/pending_marker_store.hpp
-        backup/ports/process.hpp
-        backup/ports/run_context.hpp
-        backup/ports/run_event_sink_factory.hpp
-        backup/ports/run_ledger.hpp
-        backup/ports/run_lease.hpp
-        backup/ports/safe_directory.hpp
-        backup/ports/target_manager.hpp
-        backup/ports/trusted_executable.hpp
+        backup/ports/IBackupDiscovery.hpp
+        backup/ports/IBackupPlanBuilder.hpp
+        backup/ports/IBackupPreflight.hpp
+        backup/ports/IBackupRunCheckpointStore.hpp
+        backup/ports/IBackupRunEventSink.hpp
+        backup/ports/BackupRunActionHandlerFactory.hpp
+        backup/ports/IBackupRunFactory.hpp
+        backup/ports/IBtrfsOperations.hpp
+        backup/ports/CancellationRequestStore.hpp
+        backup/ports/CancellationMonitor.hpp
+        backup/ports/ICheckpointStoreFactory.hpp
+        backup/ports/ICommandRunner.hpp
+        backup/ports/IFileSystem.hpp
+        backup/ports/IMountInspector.hpp
+        backup/ports/IPendingMarkerStore.hpp
+        backup/ports/Process.hpp
+        backup/ports/RunContext.hpp
+        backup/ports/IRunEventSinkFactory.hpp
+        backup/ports/IRunLedger.hpp
+        backup/ports/RunLease.hpp
+        backup/ports/SafeDirectory.hpp
+        backup/ports/TargetManager.hpp
+        backup/ports/TrustedExecutable.hpp
 )
 target_link_libraries(btrfsbackup-backup-ports
     PUBLIC
@@ -101,13 +101,13 @@ target_link_libraries(btrfsbackup-backup-ports
 )
 
 add_library(btrfsbackup-backup-testing STATIC
-    testing/null_backup_run_event_sink.cpp
+    testing/NullBackupRunEventSink.cpp
 )
 
 target_compile_features(btrfsbackup-backup-testing PUBLIC cxx_std_20)
 target_restricted_include_directories(btrfsbackup-backup-testing
     PUBLIC_HEADERS
-        backup/testing/null_backup_run_event_sink.hpp
+        backup/testing/NullBackupRunEventSink.hpp
 )
 target_link_libraries(btrfsbackup-backup-testing
     PUBLIC
@@ -115,57 +115,57 @@ target_link_libraries(btrfsbackup-backup-testing
 )
 
 add_library(btrfsbackup-backup STATIC
-    backup_action_executor.cpp
-    backup_preflight.cpp
-    backup_preflight_validation.cpp
-    backup_run.cpp
-    backup_run_checkpoint_policy.cpp
-    backup_run_executor.cpp
-    backup_service.cpp
-    backup_discovery.cpp
-    backup_plan_builder.cpp
-    default_backup_run_action_handler_factory.cpp
-    default_backup_run_factory.cpp
-    linked_cancellation_monitor.cpp
-    run_execution_context.cpp
-    run_session_factory.cpp
-    system_run_context.cpp
-    action_handlers/backup_run_action_handler.cpp
-    action_handlers/hook_action_handler.cpp
-    action_handlers/recovery_action_handler.cpp
-    action_handlers/repository_action_handler.cpp
-    action_handlers/retention_action_handler.cpp
-    action_handlers/snapshot_action_handler.cpp
-    snapshot_transfer.cpp
-    transfer/transfer_coordinator.cpp
+    BackupActionExecutor.cpp
+    BackupPreflight.cpp
+    BackupPreflightValidation.cpp
+    BackupRun.cpp
+    BackupRunCheckpointPolicy.cpp
+    BackupRunExecutor.cpp
+    BackupService.cpp
+    BackupDiscovery.cpp
+    BackupPlanBuilder.cpp
+    DefaultBackupRunActionHandlerFactory.cpp
+    DefaultBackupRunFactory.cpp
+    LinkedCancellationMonitor.cpp
+    RunExecutionContext.cpp
+    RunSessionFactory.cpp
+    SystemRunContext.cpp
+    action_handlers/BackupRunActionHandler.cpp
+    action_handlers/HookActionHandler.cpp
+    action_handlers/RecoveryActionHandler.cpp
+    action_handlers/RepositoryActionHandler.cpp
+    action_handlers/RetentionActionHandler.cpp
+    action_handlers/SnapshotActionHandler.cpp
+    SnapshotTransfer.cpp
+    transfer/TransferCoordinator.cpp
 )
 
 target_compile_features(btrfsbackup-backup PUBLIC cxx_std_20)
 target_restricted_include_directories(btrfsbackup-backup
     PUBLIC_HEADERS
-        backup/action_handlers/backup_run_action_handler.hpp
-        backup/action_handlers/hook_action_handler.hpp
-        backup/action_handlers/recovery_action_handler.hpp
-        backup/action_handlers/repository_action_handler.hpp
-        backup/action_handlers/retention_action_handler.hpp
-        backup/action_handlers/snapshot_action_handler.hpp
-        backup/backup_action_executor.hpp
-        backup/backup_discovery.hpp
-        backup/backup_plan_builder.hpp
-        backup/backup_preflight.hpp
-        backup/backup_preflight_validation.hpp
-        backup/backup_run.hpp
-        backup/backup_run_checkpoint_policy.hpp
-        backup/backup_run_executor.hpp
-        backup/backup_service.hpp
-        backup/default_backup_run_action_handler_factory.hpp
-        backup/default_backup_run_factory.hpp
-        backup/linked_cancellation_monitor.hpp
-        backup/run_execution_context.hpp
-        backup/run_session_factory.hpp
-        backup/snapshot_transfer.hpp
-        backup/system_run_context.hpp
-        backup/transfer/transfer_coordinator.hpp
+        backup/action_handlers/BackupRunActionHandler.hpp
+        backup/action_handlers/HookActionHandler.hpp
+        backup/action_handlers/RecoveryActionHandler.hpp
+        backup/action_handlers/RepositoryActionHandler.hpp
+        backup/action_handlers/RetentionActionHandler.hpp
+        backup/action_handlers/SnapshotActionHandler.hpp
+        backup/BackupActionExecutor.hpp
+        backup/BackupDiscovery.hpp
+        backup/BackupPlanBuilder.hpp
+        backup/BackupPreflight.hpp
+        backup/BackupPreflightValidation.hpp
+        backup/BackupRun.hpp
+        backup/BackupRunCheckpointPolicy.hpp
+        backup/BackupRunExecutor.hpp
+        backup/BackupService.hpp
+        backup/DefaultBackupRunActionHandlerFactory.hpp
+        backup/DefaultBackupRunFactory.hpp
+        backup/LinkedCancellationMonitor.hpp
+        backup/RunExecutionContext.hpp
+        backup/RunSessionFactory.hpp
+        backup/SnapshotTransfer.hpp
+        backup/SystemRunContext.hpp
+        backup/transfer/TransferCoordinator.hpp
 )
 target_link_libraries(btrfsbackup-backup
     PUBLIC

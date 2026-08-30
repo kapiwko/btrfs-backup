@@ -2,17 +2,17 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-file(READ "${PROJECT_SOURCE_DIR}/src/config/model/profile.hpp" profile_header)
-if(profile_header MATCHES "config/model/json.hpp|nlohmann")
+file(READ "${PROJECT_SOURCE_DIR}/src/config/model/Profile.hpp" profile_header)
+if(profile_header MATCHES "config/model/Json.hpp|nlohmann")
     message(FATAL_ERROR "config domain profile must not expose a JSON dependency")
 endif()
 
-file(READ "${PROJECT_SOURCE_DIR}/src/config/configuration_identity.hpp" identity_header)
-if(identity_header MATCHES "config/model/json.hpp|nlohmann")
+file(READ "${PROJECT_SOURCE_DIR}/src/config/ConfigurationIdentity.hpp" identity_header)
+if(identity_header MATCHES "config/model/Json.hpp|nlohmann")
     message(FATAL_ERROR "configuration identity types must not expose a JSON dependency")
 endif()
 
-file(READ "${PROJECT_SOURCE_DIR}/src/config/ports/profile_repository.hpp" repository_header)
+file(READ "${PROJECT_SOURCE_DIR}/src/config/ports/IProfileRepository.hpp" repository_header)
 if(repository_header MATCHES "application_paths[ 	]*\\(|fingerprint[ 	]*\\(")
     message(FATAL_ERROR "profile repository must return one atomic LoadedProfile result")
 endif()
@@ -42,17 +42,17 @@ if(NOT config_cmake MATCHES "target_link_libraries\\(btrfsbackup-platform-linux-
     message(FATAL_ERROR "Linux configuration adapter dependencies are not isolated")
 endif()
 
-file(READ "${PROJECT_SOURCE_DIR}/src/platform/linux/config/profile_repository.hpp" linux_repository_header)
-if(linux_repository_header MATCHES "config/model/profile_document.hpp|config/model/json.hpp|nlohmann")
+file(READ "${PROJECT_SOURCE_DIR}/src/platform/linux/config/FileProfileRepository.hpp" linux_repository_header)
+if(linux_repository_header MATCHES "config/model/ProfileDocument.hpp|config/model/Json.hpp|nlohmann")
     message(FATAL_ERROR "Linux profile repository header exposes JSON implementation details")
 endif()
 
-file(READ "${PROJECT_SOURCE_DIR}/src/platform/linux/config/profile_runtime_policy.hpp" runtime_policy_header)
-if(runtime_policy_header MATCHES "config/model/json.hpp|nlohmann")
+file(READ "${PROJECT_SOURCE_DIR}/src/platform/linux/config/ProfileRuntimePolicy.hpp" runtime_policy_header)
+if(runtime_policy_header MATCHES "config/model/Json.hpp|nlohmann")
     message(FATAL_ERROR "public Linux runtime policy exposes JSON implementation details")
 endif()
 
-file(READ "${PROJECT_SOURCE_DIR}/src/config/model/profile_document.cpp" document_source)
+file(READ "${PROJECT_SOURCE_DIR}/src/config/model/ProfileDocument.cpp" document_source)
 if(document_source MATCHES "systemd_|trusted_hook_directory")
     message(FATAL_ERROR "config JSON target contains Linux runtime policy")
 endif()
