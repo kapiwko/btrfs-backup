@@ -249,17 +249,34 @@ command_surface_test() {
     pass 'backupctl exposes only supported command groups'
 }
 
+release_notes_test() {
+    local notes="$TEST_ROOT/release-notes.md"
+
+    "$ROOT/tools/render-release-notes.sh" 3.1.0 v3.0.1 > "$notes"
+    assert_contains "$notes" "## What's New"
+    assert_contains "$notes" '### Table-Free Target Management'
+    assert_contains "$notes" '### Upgrade Notes'
+    assert_contains "$notes" '### Plasma Integration'
+    assert_contains "$notes" '## Artifacts'
+    assert_contains "$notes" '/compare/v3.0.1...v3.1.0'
+    assert_not_contains "$notes" '## Unreleased'
+    assert_not_contains "$notes" '## 3.0.1'
+    pass 'release notes render one changelog version with the standard footer'
+}
+
 if [[ "$MODE" == static ]]; then
-    printf '1..4\n'
+    printf '1..5\n'
     syntax_test
     render_test
     profile_json_test
     command_surface_test
+    release_notes_test
     exit 0
 fi
 
-printf '1..4\n'
+printf '1..5\n'
 syntax_test
 render_test
 profile_json_test
 command_surface_test
+release_notes_test

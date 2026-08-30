@@ -54,6 +54,7 @@ Start with these documents before changing runtime behavior:
 - [security model](docs/security.md);
 - [configuration contract](docs/configuration.md);
 - [testing strategy](docs/testing.md).
+- [release notes and publication](docs/releasing.md).
 
 The active sprint is in [TODO.md](TODO.md), long-term direction is in
 [ROADMAP.md](ROADMAP.md), proposed designs are under `docs/design/`, and
