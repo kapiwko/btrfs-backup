@@ -20,7 +20,7 @@
 #include <cli/runner/RunnerCommand.hpp>
 #include <cli/runner/RunnerOptions.hpp>
 #include <cli/status/StatusCommand.hpp>
-#include <cli/TargetCommand.hpp>
+#include <cli/target/TargetCommand.hpp>
 #include <config/ConfigurationIdentity.hpp>
 #include <core/Errors.hpp>
 #include <core/Cancellation.hpp>
@@ -120,7 +120,7 @@ int ctl_tool_main(int argc, char** argv) {
             TerminationSignalMonitor termination_signals(cancellation);
             return runner::runner(profile_config_dir, args, std::cout, cancellation);
         } else if (command == "target") {
-            return target(profile_config_dir, args, std::cout);
+            return target::target(profile_config_dir, args, std::cout);
         } else if (command == "-h" || command == "--help") {
             usage();
         } else {

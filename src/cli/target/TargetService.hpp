@@ -14,7 +14,7 @@
 #include <backup/ports/IMountInspector.hpp>
 #include <core/Identifiers.hpp>
 
-namespace btrfsbackup::cli {
+namespace btrfsbackup::cli::target {
 
 struct TargetServiceDependencies {
     btrfsbackup::backup::ICommandRunner& commands;
@@ -128,4 +128,4 @@ TargetOperationResult eject_target(
     TargetServiceDependencies& dependencies
 );
 
-} // namespace btrfsbackup::cli
+} // namespace btrfsbackup::cli::target
