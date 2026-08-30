@@ -36,7 +36,8 @@ Window {
             if (!usage.visible
                     || usage.capacityText !== "3.6 TiB"
                     || usage.usedText !== "1.2 TiB"
-                    || usage.availableText !== "2.5 TiB") {
+                    || usage.availableText !== "2.5 TiB"
+                    || usage.usageText !== "32%") {
                 Qt.exit(2)
                 return
             }
