@@ -2,10 +2,6 @@
 
 ## Unreleased
 
-1. Arch upgrades now restart an already running `btrfs-backupd` after replacing
-   the binary, preventing a stale manager process from rejecting newly
-   supported profile schema versions.
-
 ## 3.1.0 - 2026-08-30
 
 ### Table-Free Target Management
@@ -22,7 +18,10 @@
 4. target mount artifacts are published and obsolete mount paths are removed in
    the existing configuration transaction with rollback and systemd reload;
 5. eject and mounted-session cleanup stop the managed activation unit and
-   preserve compatible mappers that were already active before the session.
+   preserve compatible mappers that were already active before the session;
+6. target activation waits for udev to publish the mapper device before
+   validating and mounting it, avoiding races immediately after cryptsetup
+   reports success.
 
 ### Upgrade Notes
 
@@ -35,6 +34,33 @@
    the compatibility migrator and command are scheduled for removal in 4.0;
 4. release packages now include the managed target activation template across
    all packaging backends and no longer ship table-fragment examples.
+
+### Plasma Integration
+
+1. the widget presents profiles as the primary objects, with profile-scoped
+   actions, history, target state, validation feedback and expandable details;
+2. actions are hidden when their target is disconnected, transient operation
+   confirmations dismiss automatically, and successful validation is reported
+   explicitly;
+3. active transfers expose a live speed chart and are also published as native
+   cancellable Plasma jobs by a graphical-session monitor without requiring
+   KIO;
+4. the widget and progress monitor share the Qt D-Bus manager client, and
+   manager, filesystem, block-device and mount changes are delivered by
+   signals instead of periodic polling;
+5. the progress monitor installs a desktop identity understood by Plasma and
+   continues reporting jobs independently of plasmoid or shell restarts.
+
+### Release And Tooling
+
+1. packaged installations resolve the managed target template from the system
+   unit directory, and Arch upgrades restart an already running
+   `btrfs-backupd` after replacing the binary;
+2. release builds print stage and compiler progress, reuse one persistent CMake
+   graph for native and KDE targets, and enable test targets only for explicit
+   test modes;
+3. changed-line clang-tidy checks provide a fast local path while the complete
+   quality target remains available for full verification.
 
 ## 3.0.1 - 2026-08-29
 
