@@ -323,7 +323,7 @@ TargetOperationResult activate_target(
     TargetServiceDependencies& dependencies
 ) {
     require_root();
-    const btrfsbackup::config::Profile profile = btrfsbackup::platform::linux::load_profile_by_id(
+    const btrfsbackup::config::Profile profile = btrfsbackup::platform::linux::config::load_profile_by_id(
         request.profile_config_dir,
         std::string(request.profile_id.value())
     );
@@ -411,7 +411,7 @@ TargetOperationResult deactivate_target(
     TargetServiceDependencies& dependencies
 ) {
     require_root();
-    const btrfsbackup::config::Profile profile = btrfsbackup::platform::linux::load_profile_by_id(
+    const btrfsbackup::config::Profile profile = btrfsbackup::platform::linux::config::load_profile_by_id(
         request.profile_config_dir,
         std::string(request.profile_id.value())
     );
@@ -455,7 +455,7 @@ TargetOperationResult mount_target(
     TargetServiceDependencies& dependencies
 ) {
     require_root();
-    btrfsbackup::config::Profile profile = btrfsbackup::platform::linux::load_profile_by_id(request.profile_config_dir, std::string(request.profile_id.value()));
+    btrfsbackup::config::Profile profile = btrfsbackup::platform::linux::config::load_profile_by_id(request.profile_config_dir, std::string(request.profile_id.value()));
     ResolvedDependencies resolved = resolve_dependencies(dependencies);
     std::vector<TargetEvent> events;
     std::optional<btrfsbackup::platform::linux::filesystem::FileLock> lock = acquire_target_lock(profile, resolved.lock_root, "mount", events);
@@ -491,7 +491,7 @@ TargetOperationResult eject_target(
     TargetServiceDependencies& dependencies
 ) {
     require_root();
-    btrfsbackup::config::Profile profile = btrfsbackup::platform::linux::load_profile_by_id(request.profile_config_dir, std::string(request.profile_id.value()));
+    btrfsbackup::config::Profile profile = btrfsbackup::platform::linux::config::load_profile_by_id(request.profile_config_dir, std::string(request.profile_id.value()));
     std::vector<TargetEvent> events;
     if (request.automatic && !profile.settings.auto_eject) {
         events.push_back({.kind = TargetEventKind::AutomaticEjectDisabled, .detail = {}});

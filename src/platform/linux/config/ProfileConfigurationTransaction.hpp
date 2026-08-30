@@ -11,7 +11,7 @@
 #include <core/Errors.hpp>
 #include <config/ProfileArtifactRenderer.hpp>
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::config {
 
 // Filesystem transaction used by the Linux profile installer.
 
@@ -73,4 +73,4 @@ class ProfileConfigurationTransaction {
     std::vector<TransactionArtifact> artifacts_;
 };
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::config

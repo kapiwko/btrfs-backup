@@ -104,7 +104,7 @@ void require_exact_text(const fs::path& path, const std::string& expected, const
 
 } // namespace
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::config {
 
 void validate_rendered_installation(const fs::path& root, const fs::path& target_mount_root) {
     fs::path profile_json = root / "config" / "profile.json";
@@ -221,4 +221,4 @@ void validate_active_installation(const std::string& profile_id) {
     std::cerr << "Active static configuration is valid. Run 'sudo btrfs-backup --validate' with the target connected for runtime validation.\n";
 }
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::config

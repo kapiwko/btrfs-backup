@@ -450,12 +450,12 @@ int run_runner(
         return btrfsbackup::cli::runner::runner(config_root, args, output);
     }
     const btrfsbackup::ProfileId profile_id{option_value(args, "--profile", "default")};
-    const btrfsbackup::config::Profile profile = btrfsbackup::platform::linux::load_profile_by_id(
+    const btrfsbackup::config::Profile profile = btrfsbackup::platform::linux::config::load_profile_by_id(
         config_root,
         std::string(profile_id.value())
     );
     const fs::path mountinfo = option_value(args, "--mountinfo", "/proc/self/mountinfo");
-    btrfsbackup::platform::linux::FileProfileRepository profiles(config_root, fixture->application_config);
+    btrfsbackup::platform::linux::config::FileProfileRepository profiles(config_root, fixture->application_config);
     btrfsbackup::platform::linux::storage::LinuxMountInspector mounts(mountinfo, [&args, target_uuid = profile.target.btrfs_uuid.value()](const std::string& source) {
         return mount_uuid_value(
             args,

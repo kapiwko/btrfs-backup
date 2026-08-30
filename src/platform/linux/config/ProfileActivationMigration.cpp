@@ -56,7 +56,7 @@ void validate_legacy_options(const std::vector<std::string>& fields) {
 
 } // namespace
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::config {
 
 btrfsbackup::config::Profile migrate_target_activation_from_crypttab(
     btrfsbackup::config::Profile profile,
@@ -116,4 +116,4 @@ btrfsbackup::config::Profile migrate_target_activation_from_crypttab(
     return profile;
 }
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::config

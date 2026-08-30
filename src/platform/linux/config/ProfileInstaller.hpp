@@ -8,7 +8,7 @@
 #include <config/ProfileArtifactRenderer.hpp>
 #include <config/ports/ConfigurationActivator.hpp>
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::config {
 
 // Publishes rendered artifacts using Linux locking and activation semantics.
 
@@ -23,4 +23,4 @@ class ProfileInstaller {
     btrfsbackup::config::IConfigurationActivator& activator_;
 };
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::config

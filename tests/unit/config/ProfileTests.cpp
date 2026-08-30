@@ -88,7 +88,7 @@ void install_test_profile_transactionally(
     const fs::path& public_root,
     const std::function<void()>& activate = {}
 ) {
-    btrfsbackup::config::ProfileArtifactRenderer renderer(btrfsbackup::platform::linux::generate_configuration_generation);
+    btrfsbackup::config::ProfileArtifactRenderer renderer(btrfsbackup::platform::linux::config::generate_configuration_generation);
     const btrfsbackup::config::ProfileArtifactRoots roots{
         .etc_root = etc_root,
         .udev_root = udev_root,
@@ -97,11 +97,11 @@ void install_test_profile_transactionally(
     };
     if (activate) {
         FakeConfigurationActivator activator(activate);
-        btrfsbackup::platform::linux::ProfileInstaller installer(renderer, activator);
+        btrfsbackup::platform::linux::config::ProfileInstaller installer(renderer, activator);
         installer.install_profile_transactionally(profile, roots);
     } else {
         btrfsbackup::config::NullConfigurationActivator activator;
-        btrfsbackup::platform::linux::ProfileInstaller installer(renderer, activator);
+        btrfsbackup::platform::linux::config::ProfileInstaller installer(renderer, activator);
         installer.install_profile_transactionally(profile, roots);
     }
 }
@@ -162,7 +162,7 @@ void test_profile_repository_loads_profile_and_fingerprint_from_one_read() {
     const fs::path profile_path = config_root / "profiles" / "default" / "profile.json";
     const std::string bytes = btrfsbackup::config::json::dump_json(valid_profile());
     int reads = 0;
-    btrfsbackup::platform::linux::FileProfileRepository repository(
+    btrfsbackup::platform::linux::config::FileProfileRepository repository(
         config_root,
         btrfsbackup::config::ApplicationConfig::defaults(),
         [&](const fs::path& requested_path) {
@@ -301,7 +301,7 @@ void test_profile_migrates_safe_legacy_system_paths() {
     legacy["paths"]["historyRoot"] = "/var/lib/btrfs-backup/history";
 
     const auto load_legacy = [](const btrfsbackup::config::json::Json& document) {
-        btrfsbackup::platform::linux::FileProfileRepository repository(
+        btrfsbackup::platform::linux::config::FileProfileRepository repository(
             "/unused/test/config",
             btrfsbackup::config::ApplicationConfig::defaults(),
             [&](const fs::path&) { return btrfsbackup::config::json::dump_json(document); }
@@ -434,7 +434,7 @@ void test_profile_rejects_unsafe_hook_shape() {
         "hook program outside trusted directory",
         [&] {
             const btrfsbackup::config::Profile profile = btrfsbackup::config::json::profile_from_json(raw);
-            btrfsbackup::platform::linux::validate_profile_runtime_policy(profile);
+            btrfsbackup::platform::linux::config::validate_profile_runtime_policy(profile);
         },
         "must be a direct child of /etc/btrfs-backup/hooks.d"
     );
@@ -444,7 +444,7 @@ void test_profile_rejects_unsafe_hook_shape() {
         "hook program nested directory",
         [&] {
             const btrfsbackup::config::Profile profile = btrfsbackup::config::json::profile_from_json(raw);
-            btrfsbackup::platform::linux::validate_profile_runtime_policy(profile);
+            btrfsbackup::platform::linux::config::validate_profile_runtime_policy(profile);
         },
         "must be a direct child of /etc/btrfs-backup/hooks.d"
     );
@@ -512,7 +512,7 @@ void test_profile_artifact_renderer() {
             "public artifact should be 0644"
         );
     }
-    btrfsbackup::platform::linux::write_profile_artifacts(rendered);
+    btrfsbackup::platform::linux::config::write_profile_artifacts(rendered);
 
     expect_true("typed tree profile env", !fs::exists(root / "rendered" / "etc" / "btrfs-backup" / "profiles.d" / "default.env"), "profile env should not be rendered");
     expect_true(
@@ -584,7 +584,7 @@ void test_profile_configuration_transaction_publishes_temp_artifacts() {
             .public_root = root / "public",
         }
     );
-    btrfsbackup::platform::linux::ProfileConfigurationTransaction transaction(rendered);
+    btrfsbackup::platform::linux::config::ProfileConfigurationTransaction transaction(rendered);
 
     transaction.stage();
     expect_true(
@@ -681,7 +681,7 @@ void test_profile_installer() {
         : std::optional<std::string>(previous_fingerprint_env);
     unsetenv("BTRFS_BACKUP_CONFIGURATION_GENERATION");
     unsetenv("BTRFS_BACKUP_CONFIGURATION_FINGERPRINT");
-    const btrfsbackup::config::LoadedProfile loaded = btrfsbackup::platform::linux::FileProfileRepository(
+    const btrfsbackup::config::LoadedProfile loaded = btrfsbackup::platform::linux::config::FileProfileRepository(
                                                           root / "etc" / "btrfs-backup"
     )
                                                           .get(btrfsbackup::ProfileId{"default"});
@@ -689,19 +689,19 @@ void test_profile_installer() {
     setenv("BTRFS_BACKUP_CONFIGURATION_FINGERPRINT", loaded.fingerprint.value().c_str(), 1);
     expect_true(
         "typed load matching generation",
-        btrfsbackup::platform::linux::load_profile_by_id(root / "etc" / "btrfs-backup", "default").id == btrfsbackup::ProfileId{"default"},
+        btrfsbackup::platform::linux::config::load_profile_by_id(root / "etc" / "btrfs-backup", "default").id == btrfsbackup::ProfileId{"default"},
         "matching generation was rejected"
     );
     setenv("BTRFS_BACKUP_CONFIGURATION_GENERATION", "00000000000000000000000000000000", 1);
     expect_validation_error(
         "typed load mismatched generation",
-        [&] { (void)btrfsbackup::platform::linux::load_profile_by_id(root / "etc" / "btrfs-backup", "default"); },
+        [&] { (void)btrfsbackup::platform::linux::config::load_profile_by_id(root / "etc" / "btrfs-backup", "default"); },
         "generation does not match"
     );
     setenv("BTRFS_BACKUP_CONFIGURATION_GENERATION", generation.c_str(), 1);
     setenv("BTRFS_BACKUP_CONFIGURATION_FINGERPRINT", "changed-fingerprint", 1);
     try {
-        (void)btrfsbackup::platform::linux::load_profile_by_id(root / "etc" / "btrfs-backup", "default");
+        (void)btrfsbackup::platform::linux::config::load_profile_by_id(root / "etc" / "btrfs-backup", "default");
         fail("typed load mismatched fingerprint", "mismatched fingerprint was accepted");
     } catch (const btrfsbackup::CodedValidationError& error) {
         expect_true(
@@ -819,7 +819,7 @@ void test_profile_installation_staging_failure_preserves_installed_artifacts() {
     bool rejected = false;
     try {
         install_test_profile_transactionally(changed, etc_root, udev_root, systemd_root, blocked_public_root);
-    } catch (const btrfsbackup::platform::linux::ConfigurationSaveError& error) {
+    } catch (const btrfsbackup::platform::linux::config::ConfigurationSaveError& error) {
         rejected = true;
         expect_true(
             "transaction staging failure code",
@@ -935,7 +935,7 @@ void test_profile_installation_reports_incomplete_rollback() {
             }
         );
         fail("transaction incomplete rollback", "save unexpectedly succeeded");
-    } catch (const btrfsbackup::platform::linux::ConfigurationSaveError& error) {
+    } catch (const btrfsbackup::platform::linux::config::ConfigurationSaveError& error) {
         expect_true(
             "transaction rollback error code",
             error.error_code == btrfsbackup::ErrorCode::ConfigurationRollbackIncomplete,
@@ -957,7 +957,7 @@ void test_profile_installation_reports_incomplete_rollback() {
             "rollback result contains no diagnostics"
         );
         bool reported_restore_failure = false;
-        for (const btrfsbackup::platform::linux::RollbackError& rollback_error : error.rollback_result.errors) {
+        for (const btrfsbackup::platform::linux::config::RollbackError& rollback_error : error.rollback_result.errors) {
             if (rollback_error.operation == "restore previous artifact" && rollback_error.path.filename().string().starts_with(".99-btrfs-backup-default.rules.previous-")) {
                 reported_restore_failure = true;
             }

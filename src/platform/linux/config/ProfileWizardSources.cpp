@@ -18,7 +18,7 @@
 
 namespace fs = std::filesystem;
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::config {
 
 std::string source_name_from_path(const std::string& path) {
     if (path == "/") {
@@ -108,4 +108,4 @@ std::vector<std::string> select_sources(std::istream& input, std::ostream& outpu
     return selected_sources_from_input(candidates, selection);
 }
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::config

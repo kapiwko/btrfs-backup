@@ -7,7 +7,7 @@
 #include <platform/linux/config/InstallationValidate.hpp>
 #include <platform/linux/config/ProfileService.hpp>
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::config {
 
 void render_installation(const RenderInstallationRequest& request) {
     render_installation_files(
@@ -25,4 +25,4 @@ void validate_active_installation_for(const std::string& profile_id) {
     validate_active_installation(profile_id);
 }
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::config

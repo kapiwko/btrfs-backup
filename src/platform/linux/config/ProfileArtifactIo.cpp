@@ -17,7 +17,7 @@
 
 namespace fs = std::filesystem;
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::config {
 
 btrfsbackup::config::ConfigurationGeneration generate_configuration_generation() {
     std::array<unsigned char, 16> bytes{};
@@ -53,4 +53,4 @@ void write_profile_artifacts(const btrfsbackup::config::RenderedProfileArtifacts
     }
 }
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::config

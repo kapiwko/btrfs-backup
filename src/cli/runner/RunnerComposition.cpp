@@ -75,7 +75,7 @@ class ConfiguredRunnerRunIdGenerator final : public backup::IRunIdGenerator {
 
 struct RunnerComposition::Impl {
     Impl(const std::filesystem::path& config_root, const RunnerOptions& options, CancellationToken& cancellation)
-        : config(platform::linux::load_application_config(config_root)),
+        : config(platform::linux::config::load_application_config(config_root)),
           profiles(config_root, config),
           mounts(options.mountinfo, [&options](const std::string& source) {
               const auto found = options.mount_uuid_overrides.find(source);
@@ -83,11 +83,11 @@ struct RunnerComposition::Impl {
                   ? platform::linux::storage::blkid_filesystem_uuid(source)
                   : found->second;
           }),
-          target_mounter(mounts, commands), preflight(mounts, target_mounter), pending_markers(durable_files), discovery(platform::linux::storage::read_btrfs_snapshot_metadata, pending_markers, safe_directories), hook_executables(platform::linux::trusted_hook_directory), clock(options.timestamp, options.today), action_handlers(btrfs, filesystem, commands, pending_markers, clock, safe_directories, hook_executables), run_factory(action_handlers, transfers, safe_directories), leases(platform::linux::filesystem::default_lock_root()), state(config.paths(), durable_files), file_cancellation_monitor(state), cancellation_monitor(file_cancellation_monitor, cancellation), run_ids(options.run_id), sessions(leases, state, state, state, cancellation_monitor), backup_service(profiles, config.paths(), preflight, discovery, plan_builder, run_factory, state, sessions, clock, run_ids) {
+          target_mounter(mounts, commands), preflight(mounts, target_mounter), pending_markers(durable_files), discovery(platform::linux::storage::read_btrfs_snapshot_metadata, pending_markers, safe_directories), hook_executables(platform::linux::config::trusted_hook_directory), clock(options.timestamp, options.today), action_handlers(btrfs, filesystem, commands, pending_markers, clock, safe_directories, hook_executables), run_factory(action_handlers, transfers, safe_directories), leases(platform::linux::filesystem::default_lock_root()), state(config.paths(), durable_files), file_cancellation_monitor(state), cancellation_monitor(file_cancellation_monitor, cancellation), run_ids(options.run_id), sessions(leases, state, state, state, cancellation_monitor), backup_service(profiles, config.paths(), preflight, discovery, plan_builder, run_factory, state, sessions, clock, run_ids) {
     }
 
     config::ApplicationConfig config;
-    platform::linux::FileProfileRepository profiles;
+    platform::linux::config::FileProfileRepository profiles;
     platform::linux::storage::LinuxMountInspector mounts;
     platform::linux::process::PosixCommandRunner commands;
     platform::linux::systemd::SystemdTargetManager target_mounter;
