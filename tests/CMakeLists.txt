@@ -75,11 +75,15 @@ assert_public_link_interface(
 assert_public_link_interface(btrfsbackup-state-persistence-ports)
 assert_public_link_interface(btrfsbackup-state-model btrfsbackup-core)
 assert_public_link_interface(
+    btrfsbackup-status-documents
+    btrfsbackup-state-model
+)
+assert_public_link_interface(
     btrfsbackup-state
     btrfsbackup-backup-ports
     btrfsbackup-config-json
-    btrfsbackup-state-model
     btrfsbackup-state-persistence-ports
+    btrfsbackup-status-documents
 )
 assert_public_link_interface(
     btrfsbackup-platform-linux-base
@@ -124,6 +128,7 @@ if(BUILD_SYSTEM_MANAGER)
     assert_public_link_interface(
         btrfsbackup-daemon-core
         btrfsbackup-manager-protocol
+        btrfsbackup-status-documents
     )
     assert_public_link_interface(
         btrfsbackup-daemon-query
@@ -173,6 +178,7 @@ set(architecture_targets
     btrfsbackup-state
     btrfsbackup-state-model
     btrfsbackup-state-persistence-ports
+    btrfsbackup-status-documents
     btrfsbackup-transfer
 )
 if(BUILD_SYSTEM_MANAGER)

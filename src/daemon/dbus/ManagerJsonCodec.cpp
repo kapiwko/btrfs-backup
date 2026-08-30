@@ -8,6 +8,7 @@
 
 #include <config/json/JsonIo.hpp>
 #include <core/ManagerProtocol.hpp>
+#include <state/document/RunStatusDocumentCodec.hpp>
 
 namespace btrfsbackup::daemon::dbus {
 
@@ -44,22 +45,7 @@ std::string ManagerJsonCodec::encode(const std::vector<ProfileSummary>& profiles
 }
 
 std::string ManagerJsonCodec::encode(const PublicRunStatus& status) const {
-    return config::json::dump_json({
-        {"schemaVersion", manager_protocol::public_status_schema_version},
-        {"runId", status.run_id},
-        {"state", status.state},
-        {"phase", status.phase},
-        {"activity", status.activity},
-        {"canCancel", status.can_cancel},
-        {"errorCode", status.error_code},
-        {"sourceName", status.source_name},
-        {"targetName", status.target_name},
-        {"speedBps", status.speed_bps},
-        {"etaSeconds", status.eta_seconds},
-        {"sourceProgress", status.source_progress},
-        {"overallProgress", status.overall_progress},
-        {"progressAccuracy", status.progress_accuracy},
-    });
+    return state::document::RunStatusDocumentCodec{}.serialize_public(status);
 }
 
 std::string ManagerJsonCodec::encode(const SanitizedHistoryPage& page) const {

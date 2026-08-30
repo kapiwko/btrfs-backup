@@ -16,6 +16,7 @@ target_restricted_include_directories(btrfsbackup-daemon-core
 target_link_libraries(btrfsbackup-daemon-core
     PUBLIC
         btrfsbackup-manager-protocol
+        btrfsbackup-status-documents
     PRIVATE
         btrfsbackup-config-json
         btrfsbackup-core

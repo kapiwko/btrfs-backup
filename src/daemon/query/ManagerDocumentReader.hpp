@@ -5,6 +5,7 @@
 #pragma once
 
 #include <filesystem>
+#include <string>
 
 #include <config/json/Json.hpp>
 
@@ -13,6 +14,7 @@ namespace btrfsbackup::daemon::query {
 [[nodiscard]] btrfsbackup::config::json::Json read_manager_json_document(
     const std::filesystem::path& path
 );
+[[nodiscard]] std::string read_manager_document(const std::filesystem::path& path);
 [[nodiscard]] bool manager_regular_file_if_present(const std::filesystem::path& path);
 [[nodiscard]] bool manager_regular_file_without_symlink(
     const std::filesystem::directory_entry& entry

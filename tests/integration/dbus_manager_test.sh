@@ -127,7 +127,7 @@ cat >"$TEST_ROOT/status/default/current.json" <<'EOF_STATUS'
 {"schemaVersion":3,"runId":"20260829T160000Z-1-1","state":"running","phase":"sizing","activity":"sizing","canCancel":true,"errorCode":"","sourceName":"Home","targetName":"Backup disk","speedBps":10,"etaSeconds":20,"sourceProgress":30,"overallProgress":40,"progressAccuracy":"estimated"}
 EOF_STATUS
 cat >"$TEST_ROOT/history/default/20260825T100000Z-1-1.json" <<'EOF_HISTORY'
-{"schemaVersion":2,"profileId":"default","profileName":"Default backup","runId":"20260825T100000Z-1-1","state":"failed","phase":"failed","message":"private","currentSourceName":"Home","targetName":"Backup disk","finishedAt":"2026-08-25T10:00:00Z","errorCode":"private.failure","details":{"device":"/dev/private"},"overallProgress":40}
+{"schemaVersion":2,"profileId":"default","profileName":"Default backup","runId":"20260825T100000Z-1-1","state":"failed","phase":"failed","message":"private","currentSourceName":"Home","targetName":"Backup disk","sourceIndex":1,"sourceCount":1,"startedAt":"2026-08-25T09:59:00Z","updatedAt":"2026-08-25T10:00:00Z","finishedAt":"2026-08-25T10:00:00Z","errorCode":"private.failure","errorMessage":"private failure","details":{"device":"/dev/private"},"recoverable":false,"suggestedAction":"","canCancel":false,"bytesProcessed":40,"bytesTotalEstimated":100,"runBytesProcessed":40,"speedBps":0,"etaSeconds":-1,"sourceProgress":40,"overallProgress":40,"progressAccuracy":"exact","exitCode":1}
 EOF_HISTORY
 cp "$TEST_ROOT/history/default/20260825T100000Z-1-1.json" "$TEST_ROOT/history/default/last.json"
 cat >"$TEST_ROOT/etc/profiles/default/profile.json" <<'EOF_PROFILE'

@@ -7,24 +7,17 @@
 #include <filesystem>
 #include <ostream>
 #include <string>
+#include <type_traits>
+#include <variant>
 #include <vector>
 
 #include <core/Errors.hpp>
-#include <config/json/Json.hpp>
+#include <state/document/RunStatusDocumentCodec.hpp>
 #include <state/query/StatusService.hpp>
 
 namespace fs = std::filesystem;
-using json = btrfsbackup::config::json::Json;
 
 namespace {
-
-std::string string_or_empty(const json& data, const char* key) {
-    auto it = data.find(key);
-    if (it == data.end() || !it->is_string()) {
-        return {};
-    }
-    return it->get<std::string>();
-}
 
 void print_json_document(const btrfsbackup::state::StatusDocument& document, std::ostream& output) {
     output << document.content;
@@ -34,33 +27,45 @@ void print_json_document(const btrfsbackup::state::StatusDocument& document, std
 }
 
 void print_human_status(const btrfsbackup::state::StatusDocument& document, std::ostream& output) {
-    const json& data = document.data;
-    std::string profile = string_or_empty(data, "profileName");
-    if (profile.empty()) {
-        profile = string_or_empty(data, "profileId");
-    }
-    if (profile.empty()) {
-        profile = document.source.parent_path().filename().string();
-    }
-    std::string state = string_or_empty(data, "state");
-    output << (profile.empty() ? "unknown" : profile) << ": " << (state.empty() ? "unknown" : state) << '\n';
-
-    const std::vector<std::pair<const char*, const char*>> fields = {
-        {"phase", "  phase: "},
-        {"message", "  "},
-        {"sourceName", "  source: "},
-        {"currentSourceName", "  source: "},
-        {"targetName", "  target: "},
-        {"updatedAt", "  updated: "},
-        {"errorCode", "  error code: "},
-        {"errorMessage", "  error: "},
-    };
-    for (const auto& [key, prefix] : fields) {
-        std::string value = string_or_empty(data, key);
-        if (!value.empty()) {
-            output << prefix << value << '\n';
-        }
-    }
+    std::visit(
+        [&](const auto& status) {
+            using Status = std::decay_t<decltype(status)>;
+            if constexpr (std::is_same_v<Status, btrfsbackup::state::document::PublicRunStatusV3>) {
+                const std::string profile = document.source.parent_path().filename().string();
+                output << (profile.empty() ? "unknown" : profile) << ": "
+                       << btrfsbackup::state::document::public_run_state_name(status) << '\n';
+                if (!status.phase.value.empty())
+                    output << "  phase: " << status.phase.value << '\n';
+                if (!status.source_name.empty())
+                    output << "  source: " << status.source_name << '\n';
+                if (!status.target_name.empty())
+                    output << "  target: " << status.target_name << '\n';
+                const std::string error = btrfsbackup::state::document::public_error_code_name(status.error_code);
+                if (!error.empty())
+                    output << "  error code: " << error << '\n';
+            } else {
+                const std::string profile = status.profile_name.empty()
+                    ? std::string(status.profile_id.value())
+                    : status.profile_name;
+                output << profile << ": " << status.state.value << '\n';
+                if (!status.phase.value.empty())
+                    output << "  phase: " << status.phase.value << '\n';
+                if (!status.message.empty())
+                    output << "  " << status.message << '\n';
+                if (!status.current_source_name.empty())
+                    output << "  source: " << status.current_source_name << '\n';
+                if (!status.target_name.empty())
+                    output << "  target: " << status.target_name << '\n';
+                if (!status.updated_at.empty())
+                    output << "  updated: " << status.updated_at << '\n';
+                if (!status.error_code.empty())
+                    output << "  error code: " << status.error_code << '\n';
+                if (!status.error_message.empty())
+                    output << "  error: " << status.error_message << '\n';
+            }
+        },
+        document.status
+    );
 }
 
 } // namespace

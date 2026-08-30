@@ -42,6 +42,7 @@ target_link_libraries(
     btrfsbackup_kde_manager_client
     PUBLIC
         btrfsbackup-manager-protocol
+        btrfsbackup-status-documents
         Qt6::Core
         Qt6::DBus
 )
