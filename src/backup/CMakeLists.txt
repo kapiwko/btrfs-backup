@@ -12,7 +12,7 @@ add_library(btrfsbackup-backup-model STATIC
     model/SnapshotInventory.cpp
 )
 
-target_compile_features(btrfsbackup-backup-model PUBLIC cxx_std_20)
+target_compile_features(btrfsbackup-backup-model PUBLIC cxx_std_23)
 target_restricted_include_directories(btrfsbackup-backup-model
     PUBLIC_HEADERS
         backup/model/BackupPlanningSnapshot.hpp
@@ -44,7 +44,7 @@ add_library(btrfsbackup-transfer STATIC
     transfer/TransferSpeedEstimator.cpp
 )
 
-target_compile_features(btrfsbackup-transfer PUBLIC cxx_std_20)
+target_compile_features(btrfsbackup-transfer PUBLIC cxx_std_23)
 target_restricted_include_directories(btrfsbackup-transfer
     PUBLIC_HEADERS
         backup/transfer/AsyncTransfer.hpp
@@ -67,7 +67,7 @@ add_library(btrfsbackup-backup-ports STATIC
     ports/IMountInspector.cpp
 )
 
-target_compile_features(btrfsbackup-backup-ports PUBLIC cxx_std_20)
+target_compile_features(btrfsbackup-backup-ports PUBLIC cxx_std_23)
 target_restricted_include_directories(btrfsbackup-backup-ports
     PUBLIC_HEADERS
         backup/ports/IBackupDiscovery.hpp
@@ -107,7 +107,7 @@ add_library(btrfsbackup-backup-testing STATIC
     testing/NullBackupRunEventSink.cpp
 )
 
-target_compile_features(btrfsbackup-backup-testing PUBLIC cxx_std_20)
+target_compile_features(btrfsbackup-backup-testing PUBLIC cxx_std_23)
 target_restricted_include_directories(btrfsbackup-backup-testing
     PUBLIC_HEADERS
         backup/testing/NullBackupRunEventSink.hpp
@@ -144,7 +144,7 @@ add_library(btrfsbackup-backup STATIC
     transfer/TransferCoordinator.cpp
 )
 
-target_compile_features(btrfsbackup-backup PUBLIC cxx_std_20)
+target_compile_features(btrfsbackup-backup PUBLIC cxx_std_23)
 target_restricted_include_directories(btrfsbackup-backup
     PUBLIC_HEADERS
         backup/action_handlers/BackupRunActionHandler.hpp

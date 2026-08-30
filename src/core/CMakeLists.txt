@@ -9,7 +9,7 @@ add_library(btrfsbackup-core STATIC
     RuntimeTime.cpp
 )
 
-target_compile_features(btrfsbackup-core PUBLIC cxx_std_20)
+target_compile_features(btrfsbackup-core PUBLIC cxx_std_23)
 target_restricted_include_directories(btrfsbackup-core
     PUBLIC_HEADERS
         core/Cancellation.hpp

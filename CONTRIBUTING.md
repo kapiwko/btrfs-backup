@@ -10,7 +10,7 @@ potential vulnerability privately as described in [SECURITY.md](SECURITY.md).
 ## Development Setup
 
 The primary development platform is Arch Linux. A source build needs CMake, a
-C++20 compiler, `pkg-config`, `nlohmann-json`, and development files for
+C++23 compiler, `pkg-config`, `nlohmann-json`, and development files for
 `libmount`, `libblkid`, `libudev` and `libbtrfsutil`. On Arch Linux:
 
 ```bash
@@ -193,7 +193,7 @@ therefore follows the same convention and becomes the final commit subject.
 Atomic commit series may be retained when every commit is independently useful,
 buildable and tested. Existing history predating this policy is not rewritten.
 
-## C++20 Style
+## C++23 Style
 
 Follow the established formatting in the component being changed. The
 repository `.clang-format` captures that style, but its adoption deliberately
@@ -251,7 +251,7 @@ Keep one primary abstraction per file; closely related supporting enums, result
 types and small value types may remain beside it when splitting them would
 reduce locality.
 
-Use C++20 features when they make ownership and domain invariants clearer:
+Use C++23 features when they make ownership and domain invariants clearer:
 
 - own file descriptors, processes, locks, temporary files and other resources
   through RAII; avoid raw `new`, `delete` and unowned handles;

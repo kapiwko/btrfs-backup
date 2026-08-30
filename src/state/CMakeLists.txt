@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 add_library(btrfsbackup-state-persistence-ports INTERFACE)
-target_compile_features(btrfsbackup-state-persistence-ports INTERFACE cxx_std_20)
+target_compile_features(btrfsbackup-state-persistence-ports INTERFACE cxx_std_23)
 target_restricted_include_directories(btrfsbackup-state-persistence-ports
     INTERFACE_HEADERS
         state/PersistentDocumentOperations.hpp
@@ -13,7 +13,7 @@ add_library(btrfsbackup-state-model STATIC
     RunStatus.cpp
 )
 
-target_compile_features(btrfsbackup-state-model PUBLIC cxx_std_20)
+target_compile_features(btrfsbackup-state-model PUBLIC cxx_std_23)
 target_restricted_include_directories(btrfsbackup-state-model
     PUBLIC_HEADERS
         state/RunStatus.hpp
@@ -36,7 +36,7 @@ add_library(btrfsbackup-state STATIC
     StatusWriter.cpp
 )
 
-target_compile_features(btrfsbackup-state PUBLIC cxx_std_20)
+target_compile_features(btrfsbackup-state PUBLIC cxx_std_23)
 target_restricted_include_directories(btrfsbackup-state
     PUBLIC_HEADERS
         state/FilePendingMarkerStore.hpp

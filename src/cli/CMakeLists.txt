@@ -22,7 +22,7 @@ add_library(btrfsbackup-cli STATIC
     TargetService.cpp
 )
 
-target_compile_features(btrfsbackup-cli PUBLIC cxx_std_20)
+target_compile_features(btrfsbackup-cli PUBLIC cxx_std_23)
 target_compile_definitions(
     btrfsbackup-cli
     PRIVATE BTRFSBACKUP_SYSTEMD_CRYPTSETUP="${BTRFSBACKUP_SYSTEMD_CRYPTSETUP_EXECUTABLE}"
