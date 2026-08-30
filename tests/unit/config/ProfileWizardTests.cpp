@@ -27,21 +27,21 @@ std::string read_file(const fs::path& path) {
 }
 
 void test_prompt_parsing() {
-    test_helpers::expect_eq("trim", btrfsbackup::config::trim_text("  value \n"), "value");
-    test_helpers::expect_true("bool true", btrfsbackup::config::parse_bool(" yes "), "yes should parse as true");
-    test_helpers::expect_true("bool false", !btrfsbackup::config::parse_bool("OFF"), "OFF should parse as false");
-    test_helpers::expect_eq("uint", std::to_string(btrfsbackup::config::parse_uint(" 42 ")), "42");
-    test_helpers::expect_validation_error("invalid bool", [] { (void)btrfsbackup::config::parse_bool("maybe"); }, "enter true or false");
-    test_helpers::expect_validation_error("invalid uint", [] { (void)btrfsbackup::config::parse_uint("-1"); }, "non-negative integer");
+    test_helpers::expect_eq("trim", btrfsbackup::config::wizard::trim_text("  value \n"), "value");
+    test_helpers::expect_true("bool true", btrfsbackup::config::wizard::parse_bool(" yes "), "yes should parse as true");
+    test_helpers::expect_true("bool false", !btrfsbackup::config::wizard::parse_bool("OFF"), "OFF should parse as false");
+    test_helpers::expect_eq("uint", std::to_string(btrfsbackup::config::wizard::parse_uint(" 42 ")), "42");
+    test_helpers::expect_validation_error("invalid bool", [] { (void)btrfsbackup::config::wizard::parse_bool("maybe"); }, "enter true or false");
+    test_helpers::expect_validation_error("invalid uint", [] { (void)btrfsbackup::config::wizard::parse_uint("-1"); }, "non-negative integer");
 }
 
 void test_prompt_defaults_and_retry() {
     std::istringstream input("\ninvalid\nfalse\nbad\n17\n");
     std::ostringstream output;
 
-    test_helpers::expect_eq("prompt default", btrfsbackup::config::prompt_value(input, output, "Name", "default"), "default");
-    test_helpers::expect_true("prompt bool retry", !btrfsbackup::config::prompt_bool(input, output, "Enabled", true), "false should be accepted after retry");
-    test_helpers::expect_eq("prompt uint retry", std::to_string(btrfsbackup::config::prompt_uint(input, output, "Count", 3)), "17");
+    test_helpers::expect_eq("prompt default", btrfsbackup::config::wizard::prompt_value(input, output, "Name", "default"), "default");
+    test_helpers::expect_true("prompt bool retry", !btrfsbackup::config::wizard::prompt_bool(input, output, "Enabled", true), "false should be accepted after retry");
+    test_helpers::expect_eq("prompt uint retry", std::to_string(btrfsbackup::config::wizard::prompt_uint(input, output, "Count", 3)), "17");
     test_helpers::expect_contains("prompt retry output", output.str(), "enter true or false");
     test_helpers::expect_contains("prompt uint retry output", output.str(), "enter a non-negative integer");
 }
@@ -70,8 +70,8 @@ void test_source_selection() {
     test_helpers::expect_validation_error("source selection range", [&] { (void)btrfsbackup::platform::linux::selected_sources_from_input(candidates, "4"); }, "out of range");
 }
 
-btrfsbackup::config::ProfileWizardAnswers sample_answers() {
-    btrfsbackup::config::ProfileWizardAnswers answers;
+btrfsbackup::config::wizard::ProfileWizardAnswers sample_answers() {
+    btrfsbackup::config::wizard::ProfileWizardAnswers answers;
     answers.profile_id = "laptop";
     answers.profile_name = "Laptop backup";
     answers.target_device = "/dev/disk/by-uuid/AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE";
@@ -107,7 +107,7 @@ btrfsbackup::config::ProfileWizardAnswers sample_answers() {
 }
 
 void test_profile_from_wizard_answers() {
-    btrfsbackup::config::Profile profile = btrfsbackup::config::profile_from_wizard_answers(sample_answers());
+    btrfsbackup::config::Profile profile = btrfsbackup::config::wizard::profile_from_wizard_answers(sample_answers());
 
     test_helpers::expect_eq("wizard profile id", std::string(profile.id.value()), "laptop");
     test_helpers::expect_eq("wizard profile name", profile.name, "Laptop backup");
@@ -141,7 +141,7 @@ void test_profile_from_wizard_answers() {
     auto key_file_answers = sample_answers();
     key_file_answers.keyfile = "/root/keys/backupdisk.key";
     const btrfsbackup::config::Profile key_file_profile =
-        btrfsbackup::config::profile_from_wizard_answers(key_file_answers);
+        btrfsbackup::config::wizard::profile_from_wizard_answers(key_file_answers);
     test_helpers::expect_true(
         "wizard key file activation",
         std::holds_alternative<btrfsbackup::config::KeyFileActivation>(key_file_profile.target.activation) &&
@@ -155,19 +155,19 @@ void test_profile_from_wizard_answers_validation() {
     test_helpers::expect_validation_error("wizard invalid profile id", [] {
         auto answers = sample_answers();
         answers.profile_id = "../bad";
-        (void)btrfsbackup::config::profile_from_wizard_answers(answers); }, "invalid profile id");
+        (void)btrfsbackup::config::wizard::profile_from_wizard_answers(answers); }, "invalid profile id");
 
     test_helpers::expect_validation_error("wizard duplicate sources", [] {
         auto answers = sample_answers();
         answers.sources.at(1).id = "root";
-        (void)btrfsbackup::config::profile_from_wizard_answers(answers); }, "duplicate source name");
+        (void)btrfsbackup::config::wizard::profile_from_wizard_answers(answers); }, "duplicate source name");
 }
 
 void test_render_wizard_tree() {
     fs::path root = test_helpers::test_root("profile-wizard", "render");
     auto answers = sample_answers();
     answers.keyfile = "/root/keys/backupdisk.key";
-    btrfsbackup::config::Profile profile = btrfsbackup::config::profile_from_wizard_answers(answers);
+    btrfsbackup::config::Profile profile = btrfsbackup::config::wizard::profile_from_wizard_answers(answers);
 
     btrfsbackup::platform::linux::render_wizard_tree(profile, root / "rendered");
 
