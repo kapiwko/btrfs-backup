@@ -13,8 +13,8 @@
 
 #include <platform/linux/config/ApplicationConfig.hpp>
 #include <core/Errors.hpp>
-#include <config/model/JsonIo.hpp>
-#include <config/model/ProfileDocument.hpp>
+#include <config/json/JsonIo.hpp>
+#include <config/json/ProfileDocument.hpp>
 #include <config/ProfileRender.hpp>
 #include <platform/linux/config/ProfileConfigurationTransaction.hpp>
 #include <platform/linux/config/ProfileService.hpp>
@@ -71,7 +71,7 @@ void append_obsolete_systemd_units(
         throw ValidationError("managed artifact manifest is not a regular file: " + manifest_path.string());
     }
 
-    const btrfsbackup::config::Json manifest = btrfsbackup::config::load_json_file(manifest_path);
+    const btrfsbackup::config::json::Json manifest = btrfsbackup::config::json::load_json_file(manifest_path);
     if (!manifest.is_object() || manifest.size() != 3 || manifest.value("schemaVersion", 0) != 1 ||
         manifest.value("profileId", "") != profile_id || !manifest.contains("mounts") ||
         !manifest.at("mounts").is_array()) {
@@ -84,7 +84,7 @@ void append_obsolete_systemd_units(
             current_units.insert(artifact.destination.filename().string());
         }
     }
-    for (const btrfsbackup::config::Json& value : manifest.at("mounts")) {
+    for (const btrfsbackup::config::json::Json& value : manifest.at("mounts")) {
         if (!value.is_object() || value.size() != 2 || !value.contains("unit") ||
             !value.at("unit").is_string() || !value.contains("mountPoint") ||
             !value.at("mountPoint").is_string()) {
@@ -130,7 +130,7 @@ void ProfileInstaller::install_profile_transactionally(const btrfsbackup::config
             transaction.staged_path(btrfsbackup::config::ProfileArtifactKind::PrivateProfile),
             application_config.paths().target_mount_root
         );
-        const btrfsbackup::config::Json staged_public = btrfsbackup::config::load_json_file(transaction.staged_path(btrfsbackup::config::ProfileArtifactKind::PublicProfile));
+        const btrfsbackup::config::json::Json staged_public = btrfsbackup::config::json::load_json_file(transaction.staged_path(btrfsbackup::config::ProfileArtifactKind::PublicProfile));
         if (staged_profile.configuration_generation != generation || staged_public.value("configurationGeneration", "") != generation.value()) {
             throw ValidationError("staged configuration generation mismatch");
         }

@@ -8,8 +8,8 @@
 #include <vector>
 
 #include <cli/InstallationCommand.hpp>
-#include <config/model/Json.hpp>
-#include <config/model/JsonIo.hpp>
+#include <config/json/Json.hpp>
+#include <config/json/JsonIo.hpp>
 
 #include "support/TestHelpers.hpp"
 
@@ -56,15 +56,15 @@ void expect_service_hardening(const std::string& name, const std::string& unit) 
 void test_installation_render_writes_static_files() {
     fs::path root = test_root("render");
     fs::path profile_json = root / "profile.json";
-    btrfsbackup::config::Json profile = {
+    btrfsbackup::config::json::Json profile = {
         {"schemaVersion", 3},
         {"profileId", "laptop"},
         {"name", "Laptop backup"},
         {"enabled", true},
         {"target", {{"device", "/dev/disk/by-uuid/11111111-2222-3333-4444-555555555555"}, {"luksUuid", "11111111-2222-3333-4444-555555555555"}, {"btrfsUuid", "66666666-7777-8888-9999-aaaaaaaaaaaa"}, {"mapperName", "backupdisk"}}},
-        {"sources", btrfsbackup::config::Json::array({{{"id", "home"}, {"name", "Home"}, {"enabled", true}, {"subvolume", "/home"}, {"localSnapshotDir", "/.snapshots/btrfs-backup/home"}, {"remoteSubdir", "home"}, {"remoteRetention", 7}, {"localRetention", 3}}})}
+        {"sources", btrfsbackup::config::json::Json::array({{{"id", "home"}, {"name", "Home"}, {"enabled", true}, {"subvolume", "/home"}, {"localSnapshotDir", "/.snapshots/btrfs-backup/home"}, {"remoteSubdir", "home"}, {"remoteRetention", 7}, {"localRetention", 3}}})}
     };
-    test_helpers::write_file(profile_json, btrfsbackup::config::dump_json(profile));
+    test_helpers::write_file(profile_json, btrfsbackup::config::json::dump_json(profile));
 
     int result = btrfsbackup::cli::installation({
         "render",
@@ -173,15 +173,15 @@ void test_installation_render_writes_static_files() {
 void test_installation_render_allows_explicit_backup_command_override() {
     fs::path root = test_root("render-backup-command");
     fs::path profile_json = root / "profile.json";
-    btrfsbackup::config::Json profile = {
+    btrfsbackup::config::json::Json profile = {
         {"schemaVersion", 3},
         {"profileId", "laptop"},
         {"name", "Laptop backup"},
         {"enabled", true},
         {"target", {{"device", "/dev/disk/by-uuid/11111111-2222-3333-4444-555555555555"}, {"luksUuid", "11111111-2222-3333-4444-555555555555"}, {"btrfsUuid", "66666666-7777-8888-9999-aaaaaaaaaaaa"}, {"mapperName", "backupdisk"}}},
-        {"sources", btrfsbackup::config::Json::array({{{"id", "home"}, {"name", "Home"}, {"enabled", true}, {"subvolume", "/home"}, {"localSnapshotDir", "/.snapshots/btrfs-backup/home"}, {"remoteSubdir", "home"}}})}
+        {"sources", btrfsbackup::config::json::Json::array({{{"id", "home"}, {"name", "Home"}, {"enabled", true}, {"subvolume", "/home"}, {"localSnapshotDir", "/.snapshots/btrfs-backup/home"}, {"remoteSubdir", "home"}}})}
     };
-    test_helpers::write_file(profile_json, btrfsbackup::config::dump_json(profile));
+    test_helpers::write_file(profile_json, btrfsbackup::config::json::dump_json(profile));
 
     int result = btrfsbackup::cli::installation({
         "render",

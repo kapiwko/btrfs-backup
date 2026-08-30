@@ -2,12 +2,12 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <config/model/ProfileDocument.hpp>
+#include <config/json/ProfileDocument.hpp>
 
 #include <utility>
 #include <vector>
 
-namespace btrfsbackup::config {
+namespace btrfsbackup::config::json {
 
 Json profile_to_json(const Profile& profile) {
     Json sources = Json::array();
@@ -60,4 +60,4 @@ ProfileDocument profile_to_document(const Profile& profile) {
     return ProfileDocument{profile_to_json(profile)};
 }
 
-} // namespace btrfsbackup::config
+} // namespace btrfsbackup::config::json

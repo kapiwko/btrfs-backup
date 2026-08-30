@@ -3,12 +3,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 file(READ "${PROJECT_SOURCE_DIR}/src/config/domain/Profile.hpp" profile_header)
-if(profile_header MATCHES "config/model/Json.hpp|nlohmann")
+if(profile_header MATCHES "config/json/Json.hpp|nlohmann")
     message(FATAL_ERROR "config domain profile must not expose a JSON dependency")
 endif()
 
 file(READ "${PROJECT_SOURCE_DIR}/src/config/ConfigurationIdentity.hpp" identity_header)
-if(identity_header MATCHES "config/model/Json.hpp|nlohmann")
+if(identity_header MATCHES "config/json/Json.hpp|nlohmann")
     message(FATAL_ERROR "configuration identity types must not expose a JSON dependency")
 endif()
 
@@ -43,18 +43,18 @@ if(NOT config_cmake MATCHES "target_link_libraries\\(btrfsbackup-platform-linux-
 endif()
 
 file(READ "${PROJECT_SOURCE_DIR}/src/platform/linux/config/FileProfileRepository.hpp" linux_repository_header)
-if(linux_repository_header MATCHES "config/model/ProfileDocument.hpp|config/model/Json.hpp|nlohmann")
+if(linux_repository_header MATCHES "config/json/ProfileDocument.hpp|config/json/Json.hpp|nlohmann")
     message(FATAL_ERROR "Linux profile repository header exposes JSON implementation details")
 endif()
 
 file(READ "${PROJECT_SOURCE_DIR}/src/platform/linux/config/ProfileRuntimePolicy.hpp" runtime_policy_header)
-if(runtime_policy_header MATCHES "config/model/Json.hpp|nlohmann")
+if(runtime_policy_header MATCHES "config/json/Json.hpp|nlohmann")
     message(FATAL_ERROR "public Linux runtime policy exposes JSON implementation details")
 endif()
 
 set(document_source)
 foreach(document_module ProfileDocumentNormalization ProfileDocumentDecode ProfileDocumentEncode)
-    file(READ "${PROJECT_SOURCE_DIR}/src/config/model/${document_module}.cpp" module_source)
+    file(READ "${PROJECT_SOURCE_DIR}/src/config/json/${document_module}.cpp" module_source)
     string(APPEND document_source "${module_source}")
 endforeach()
 if(document_source MATCHES "systemd_|trusted_hook_directory")

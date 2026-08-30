@@ -20,7 +20,7 @@ namespace {
 constexpr std::size_t max_history_limit = 100;
 constexpr std::size_t max_history_offset = 10000;
 
-btrfsbackup::daemon::SanitizedHistoryEntry sanitize_private_history(const btrfsbackup::config::Json& input) {
+btrfsbackup::daemon::SanitizedHistoryEntry sanitize_private_history(const btrfsbackup::config::json::Json& input) {
     if (!input.is_object() || input.value("schemaVersion", 0) != 2) {
         throw btrfsbackup::ValidationError("private history has an unsupported schema");
     }

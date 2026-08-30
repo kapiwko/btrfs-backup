@@ -10,11 +10,11 @@
 #include <vector>
 
 #include <core/Errors.hpp>
-#include <config/model/Json.hpp>
+#include <config/json/Json.hpp>
 #include <state/StatusService.hpp>
 
 namespace fs = std::filesystem;
-using json = btrfsbackup::config::Json;
+using json = btrfsbackup::config::json::Json;
 
 namespace {
 

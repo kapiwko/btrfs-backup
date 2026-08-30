@@ -8,7 +8,7 @@
 
 #include <backup/model/BackupRunCheckpoint.hpp>
 #include <backup/model/BackupRunEvent.hpp>
-#include <config/model/Json.hpp>
+#include <config/json/Json.hpp>
 
 namespace btrfsbackup::state {
 
@@ -18,7 +18,7 @@ std::string backup_run_action_kind_name(btrfsbackup::backup::BackupRunActionKind
 std::string backup_run_event_kind_name(btrfsbackup::backup::BackupRunEventKind kind);
 std::string operation_kind_name(btrfsbackup::backup::OperationKind kind);
 
-btrfsbackup::config::Json build_backup_run_checkpoint_json(const btrfsbackup::backup::BackupRunCheckpoint& checkpoint);
-btrfsbackup::config::Json build_backup_run_event_json(const btrfsbackup::backup::BackupRunEvent& event);
+btrfsbackup::config::json::Json build_backup_run_checkpoint_json(const btrfsbackup::backup::BackupRunCheckpoint& checkpoint);
+btrfsbackup::config::json::Json build_backup_run_event_json(const btrfsbackup::backup::BackupRunEvent& event);
 
 } // namespace btrfsbackup::state

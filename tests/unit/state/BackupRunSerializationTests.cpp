@@ -54,14 +54,14 @@ void test_names_are_stable() {
 }
 
 void test_build_validation_event_json() {
-    const btrfsbackup::config::Json started = btrfsbackup::state::build_backup_run_event_json(
+    const btrfsbackup::config::json::Json started = btrfsbackup::state::build_backup_run_event_json(
         btrfsbackup::backup::RunStarted{
             btrfsbackup::ProfileId{"default"},
             btrfsbackup::RunId{"validation-1"},
             btrfsbackup::backup::OperationKind::TargetValidation,
         }
     );
-    const btrfsbackup::config::Json completed = btrfsbackup::state::build_backup_run_event_json(
+    const btrfsbackup::config::json::Json completed = btrfsbackup::state::build_backup_run_event_json(
         btrfsbackup::backup::TargetValidationCompleted{
             btrfsbackup::ProfileId{"default"},
             btrfsbackup::RunId{"validation-1"},
@@ -72,7 +72,7 @@ void test_build_validation_event_json() {
     test_helpers::expect_true("validation completed event", completed.at("event") == "target-validation-completed", "wrong terminal event");
     test_helpers::expect_true("validation completed operation", completed.at("operationKind") == "target-validation", "wrong terminal operation kind");
 
-    const btrfsbackup::config::Json failed = btrfsbackup::state::build_backup_run_event_json(
+    const btrfsbackup::config::json::Json failed = btrfsbackup::state::build_backup_run_event_json(
         btrfsbackup::backup::RunFailed{
             .profile_id = btrfsbackup::ProfileId{"default"},
             .run_id = btrfsbackup::RunId{"validation-1"},
@@ -85,7 +85,7 @@ void test_build_validation_event_json() {
 }
 
 void test_build_event_json() {
-    const btrfsbackup::config::Json data = btrfsbackup::state::build_backup_run_event_json(
+    const btrfsbackup::config::json::Json data = btrfsbackup::state::build_backup_run_event_json(
         transfer_progress()
     );
 
@@ -108,7 +108,7 @@ void test_build_run_event_json_without_source() {
         .run_id = btrfsbackup::RunId{"20260823T120000Z-123-456"},
     };
 
-    const btrfsbackup::config::Json data = btrfsbackup::state::build_backup_run_event_json(run_completed);
+    const btrfsbackup::config::json::Json data = btrfsbackup::state::build_backup_run_event_json(run_completed);
     test_helpers::expect_true("run event source", data.at("sourceId") == "", "run-level event has a source");
     test_helpers::expect_true("run event action", data.at("action") == "", "run-level event has an action");
 }

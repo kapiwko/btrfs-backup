@@ -16,17 +16,17 @@
 #include <core/Errors.hpp>
 #include <platform/linux/config/ApplicationConfig.hpp>
 #include <platform/linux/config/ProfileActivationMigration.hpp>
-#include <config/model/JsonIo.hpp>
+#include <config/json/JsonIo.hpp>
 #include <config/domain/Profile.hpp>
-#include <config/model/ProfileDocument.hpp>
+#include <config/json/ProfileDocument.hpp>
 #include <cli/profile/ProfileListCommand.hpp>
 #include <platform/linux/config/ProfileService.hpp>
 
 namespace fs = std::filesystem;
 using btrfsbackup::ValidationError;
-using btrfsbackup::config::dump_json;
+using btrfsbackup::config::json::dump_json;
 using btrfsbackup::config::Profile;
-using btrfsbackup::config::profile_to_json;
+using btrfsbackup::config::json::profile_to_json;
 
 namespace {
 
@@ -172,7 +172,7 @@ int profile(
             if (file.empty())
                 fail("validate requires --file");
             btrfsbackup::config::ApplicationConfig config = btrfsbackup::platform::linux::load_application_config(etc_root);
-            std::cout << btrfsbackup::config::dump_json(btrfsbackup::config::profile_to_json(btrfsbackup::platform::linux::validate_profile_file(file, config.paths().target_mount_root)));
+            std::cout << btrfsbackup::config::json::dump_json(btrfsbackup::config::json::profile_to_json(btrfsbackup::platform::linux::validate_profile_file(file, config.paths().target_mount_root)));
         } else if (command == "render") {
             if (file.empty())
                 fail("render requires --file");
@@ -196,7 +196,7 @@ int profile(
             btrfsbackup::config::Profile profile = btrfsbackup::platform::linux::save_profile(file, {etc_root, udev_root, systemd_root, public_root}, activator);
             std::cout << "Saved profile " << profile.id.value() << "\n";
         } else if (command == "show") {
-            std::cout << btrfsbackup::config::dump_json(btrfsbackup::config::profile_to_json(btrfsbackup::platform::linux::get_profile(etc_root, profile_id)));
+            std::cout << btrfsbackup::config::json::dump_json(btrfsbackup::config::json::profile_to_json(btrfsbackup::platform::linux::get_profile(etc_root, profile_id)));
         } else if (command == "export") {
             if (output_dir.empty())
                 fail("export requires --output");

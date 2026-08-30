@@ -11,7 +11,7 @@
 #include <core/Errors.hpp>
 #include <core/Identifiers.hpp>
 #include <core/RuntimeTime.hpp>
-#include <config/model/JsonIo.hpp>
+#include <config/json/JsonIo.hpp>
 
 namespace fs = std::filesystem;
 
@@ -37,8 +37,8 @@ void prepare_public_parent(btrfsbackup::state::IAtomicDocumentWriter& files, con
     files.ensure_directory(path.parent_path(), public_status_directory_permissions);
 }
 
-btrfsbackup::config::Json build_details_json(const btrfsbackup::state::RunDetails& details) {
-    btrfsbackup::config::Json json = btrfsbackup::config::Json::object();
+btrfsbackup::config::json::Json build_details_json(const btrfsbackup::state::RunDetails& details) {
+    btrfsbackup::config::json::Json json = btrfsbackup::config::json::Json::object();
     for (const auto& [name, value] : details) {
         std::visit([&](const auto& item) { json[name] = item; }, value);
     }
@@ -72,7 +72,7 @@ std::string public_activity(const btrfsbackup::state::RunStatus& status) {
 
 namespace btrfsbackup::state {
 
-btrfsbackup::config::Json build_status_json(const RunStatus& status) {
+btrfsbackup::config::json::Json build_status_json(const RunStatus& status) {
     validate_status(status);
 
     const RunError* error = status.error ? &*status.error : nullptr;
@@ -111,10 +111,10 @@ btrfsbackup::config::Json build_status_json(const RunStatus& status) {
 }
 
 std::string dump_status_json(const RunStatus& status) {
-    return btrfsbackup::config::dump_json(build_status_json(status));
+    return btrfsbackup::config::json::dump_json(build_status_json(status));
 }
 
-btrfsbackup::config::Json build_public_status_json(const RunStatus& status) {
+btrfsbackup::config::json::Json build_public_status_json(const RunStatus& status) {
     validate_status(status);
     const std::string public_error_code = !status.error.has_value()
         ? ""
@@ -139,7 +139,7 @@ btrfsbackup::config::Json build_public_status_json(const RunStatus& status) {
 }
 
 std::string dump_public_status_json(const RunStatus& status) {
-    return btrfsbackup::config::dump_json(build_public_status_json(status));
+    return btrfsbackup::config::json::dump_json(build_public_status_json(status));
 }
 
 void write_current_status(

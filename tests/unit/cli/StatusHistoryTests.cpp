@@ -10,7 +10,7 @@
 #include <cli/status/StatusHistoryCommand.hpp>
 #include <cli/status/StatusCommand.hpp>
 #include <cli/status/StatusShowCommand.hpp>
-#include <config/model/JsonIo.hpp>
+#include <config/json/JsonIo.hpp>
 #include <core/RuntimeTime.hpp>
 #include <state/StatusWriter.hpp>
 #include <platform/linux/filesystem/PosixDurableFileOperations.hpp>
@@ -165,7 +165,7 @@ void test_status_watch_json_emits_status_api_shape_once() {
     );
 
     test_helpers::expect_true("watch emitted", emitted, "watch should emit current status");
-    btrfsbackup::config::Json data = btrfsbackup::config::Json::parse(output.str());
+    btrfsbackup::config::json::Json data = btrfsbackup::config::json::Json::parse(output.str());
     for (const std::string& field : required_status_api_fields()) {
         test_helpers::expect_true("watch field " + field, data.contains(field), "missing field " + field);
     }

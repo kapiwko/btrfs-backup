@@ -2,13 +2,13 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <config/model/JsonIo.hpp>
+#include <config/json/JsonIo.hpp>
 
 #include <fstream>
 
 #include <core/Errors.hpp>
 
-namespace btrfsbackup::config {
+namespace btrfsbackup::config::json {
 
 Json load_json_file(const std::filesystem::path& path) {
     std::ifstream stream(path);
@@ -28,4 +28,4 @@ std::string dump_json(const Json& data) {
     return data.dump(2) + "\n";
 }
 
-} // namespace btrfsbackup::config
+} // namespace btrfsbackup::config::json

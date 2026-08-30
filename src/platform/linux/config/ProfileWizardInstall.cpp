@@ -15,9 +15,9 @@
 #include <platform/linux/filesystem/FileIo.hpp>
 #include <platform/linux/config/InstallationRender.hpp>
 #include <platform/linux/config/InstallationValidate.hpp>
-#include <config/model/JsonIo.hpp>
+#include <config/json/JsonIo.hpp>
 #include <config/domain/Profile.hpp>
-#include <config/model/ProfileDocument.hpp>
+#include <config/json/ProfileDocument.hpp>
 #include <config/ProfileArtifactRenderer.hpp>
 #include <platform/linux/config/ProfileArtifactIo.hpp>
 #include <platform/linux/config/ProfileInstaller.hpp>
@@ -80,7 +80,7 @@ class WizardConfigurationActivator final : public btrfsbackup::config::IConfigur
 
 void render_wizard_tree(const btrfsbackup::config::Profile& profile, const fs::path& output_dir) {
     const fs::path target_mount_root = fs::path(profile.target.mount_point).parent_path();
-    const btrfsbackup::config::Profile validated_profile = btrfsbackup::config::profile_from_json(btrfsbackup::config::profile_to_json(profile), target_mount_root);
+    const btrfsbackup::config::Profile validated_profile = btrfsbackup::config::json::profile_from_json(btrfsbackup::config::json::profile_to_json(profile), target_mount_root);
     validate_profile_runtime_policy(validated_profile);
     replace_render_directory(
         output_dir,
@@ -89,7 +89,7 @@ void render_wizard_tree(const btrfsbackup::config::Profile& profile, const fs::p
             fs::create_directories(staging / "systemd");
             fs::create_directories(staging / "udev");
 
-            filesystem::atomic_write(staging / "config" / "profile.json", btrfsbackup::config::dump_json(btrfsbackup::config::profile_to_json(validated_profile)), 0600);
+            filesystem::atomic_write(staging / "config" / "profile.json", btrfsbackup::config::json::dump_json(btrfsbackup::config::json::profile_to_json(validated_profile)), 0600);
             btrfsbackup::config::ProfileArtifactRenderer renderer(generate_configuration_generation);
             btrfsbackup::config::NullConfigurationActivator activator;
             ProfileInstaller installer(renderer, activator);

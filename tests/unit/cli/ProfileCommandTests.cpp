@@ -9,8 +9,8 @@
 #include <string>
 #include <vector>
 
-#include <config/model/Json.hpp>
-#include <config/model/JsonIo.hpp>
+#include <config/json/Json.hpp>
+#include <config/json/JsonIo.hpp>
 #include <cli/profile/ProfileCommand.hpp>
 #include <config/ports/ConfigurationActivator.hpp>
 
@@ -24,20 +24,20 @@ fs::path test_root(const std::string& name) {
     return test_helpers::test_root("profile-command", name);
 }
 
-btrfsbackup::config::Json sample_profile_json() {
+btrfsbackup::config::json::Json sample_profile_json() {
     return {
         {"schemaVersion", 3},
         {"profileId", "default"},
         {"name", "Default backup"},
         {"enabled", true},
         {"target", {{"device", "/dev/disk/by-uuid/11111111-2222-3333-4444-555555555555"}, {"luksUuid", "11111111-2222-3333-4444-555555555555"}, {"btrfsUuid", "66666666-7777-8888-9999-aaaaaaaaaaaa"}, {"mapperName", "backupdisk"}}},
-        {"sources", btrfsbackup::config::Json::array({{{"id", "home"}, {"name", "Home"}, {"enabled", true}, {"subvolume", "/home"}, {"localSnapshotDir", "/.snapshots/btrfs-backup/home"}, {"remoteSubdir", "home"}, {"remoteRetention", 2}, {"localRetention", 2}}})}
+        {"sources", btrfsbackup::config::json::Json::array({{{"id", "home"}, {"name", "Home"}, {"enabled", true}, {"subvolume", "/home"}, {"localSnapshotDir", "/.snapshots/btrfs-backup/home"}, {"remoteSubdir", "home"}, {"remoteRetention", 2}, {"localRetention", 2}}})}
     };
 }
 
 void write_installed_profile(const fs::path& root) {
     const fs::path profile = root / "profiles" / "default" / "profile.json";
-    test_helpers::write_file(profile, btrfsbackup::config::dump_json(sample_profile_json()));
+    test_helpers::write_file(profile, btrfsbackup::config::json::dump_json(sample_profile_json()));
     fs::permissions(profile, fs::perms::owner_read | fs::perms::owner_write);
 }
 
@@ -83,7 +83,7 @@ void test_profile_create_writes_json() {
     int result = btrfsbackup::cli::profile::profile(args, "/etc/btrfs-backup/profiles.d", activator);
 
     test_helpers::expect_eq("profile create result", std::to_string(result), "0");
-    btrfsbackup::config::Json profile = btrfsbackup::config::load_json_file(profile_json);
+    btrfsbackup::config::json::Json profile = btrfsbackup::config::json::load_json_file(profile_json);
     test_helpers::expect_true("profile create schema", profile.at("schemaVersion") == 4, "wrong profile schema version");
     test_helpers::expect_eq("profile create id", profile.at("profileId").get<std::string>(), "default");
     test_helpers::expect_eq("profile create source id", profile.at("sources").at(0).at("id").get<std::string>(), "home");
@@ -131,7 +131,7 @@ void test_profile_activation_migration_previews_key_file() {
 
     std::cout.rdbuf(previous);
     test_helpers::expect_eq("activation preview result", std::to_string(result), "0");
-    const btrfsbackup::config::Json migrated = btrfsbackup::config::Json::parse(output.str());
+    const btrfsbackup::config::json::Json migrated = btrfsbackup::config::json::Json::parse(output.str());
     test_helpers::expect_true(
         "activation preview keyfile",
         migrated.at("target").at("activation").at("mode") == "keyFile" &&
@@ -140,7 +140,7 @@ void test_profile_activation_migration_previews_key_file() {
     );
     test_helpers::expect_true(
         "activation preview does not write",
-        !btrfsbackup::config::load_json_file(root / "profiles" / "default" / "profile.json")
+        !btrfsbackup::config::json::load_json_file(root / "profiles" / "default" / "profile.json")
              .at("target")
              .contains("activation"),
         "preview modified the installed profile"
@@ -180,8 +180,8 @@ void test_profile_activation_migration_applies_without_editing_crypttab() {
 
     std::cout.rdbuf(previous);
     test_helpers::expect_eq("activation apply result", std::to_string(result), "0");
-    const btrfsbackup::config::Json migrated =
-        btrfsbackup::config::load_json_file(root / "profiles" / "default" / "profile.json");
+    const btrfsbackup::config::json::Json migrated =
+        btrfsbackup::config::json::load_json_file(root / "profiles" / "default" / "profile.json");
     test_helpers::expect_true(
         "activation apply ask password",
         migrated.at("target").at("activation").at("mode") == "askPassword",

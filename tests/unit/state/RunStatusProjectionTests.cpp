@@ -5,7 +5,7 @@
 #include <filesystem>
 #include <string>
 #include <state/RunStatusProjection.hpp>
-#include <config/model/JsonIo.hpp>
+#include <config/json/JsonIo.hpp>
 #include <core/RuntimeTime.hpp>
 #include <platform/linux/filesystem/PosixDurableFileOperations.hpp>
 
@@ -79,7 +79,7 @@ void test_public_transfer_progress_excludes_run_details() {
                                                                   });
 
     sink.on_backup_run_event(transfer_progress());
-    btrfsbackup::config::Json current = btrfsbackup::config::load_json_file(root / "status" / "default" / "current.json");
+    btrfsbackup::config::json::Json current = btrfsbackup::config::json::load_json_file(root / "status" / "default" / "current.json");
     test_helpers::expect_true("progress source hidden", !current.contains("currentSourceName"), "public status exposes source");
     test_helpers::expect_true("progress bytes hidden", !current.contains("bytesProcessed"), "public status exposes byte count");
     test_helpers::expect_true("progress source label", current.at("sourceName") == "@home", "wrong source label");
@@ -95,7 +95,7 @@ void test_public_transfer_progress_excludes_run_details() {
 
     const btrfsbackup::backup::TransferProgress second = transfer_progress(btrfsbackup::SourceId{"home"}, 2);
     sink.on_backup_run_event(second);
-    current = btrfsbackup::config::load_json_file(root / "status" / "default" / "current.json");
+    current = btrfsbackup::config::json::load_json_file(root / "status" / "default" / "current.json");
     test_helpers::expect_true("second source overall", current.at("overallProgress") == 75, "wrong second-source overall progress");
 
     const btrfsbackup::backup::ActionCompleted action_completed{
@@ -106,7 +106,7 @@ void test_public_transfer_progress_excludes_run_details() {
         .action_kind = btrfsbackup::backup::BackupRunActionKind::SendReceive,
     };
     sink.on_backup_run_event(action_completed);
-    current = btrfsbackup::config::load_json_file(root / "status" / "default" / "current.json");
+    current = btrfsbackup::config::json::load_json_file(root / "status" / "default" / "current.json");
     test_helpers::expect_true("overall remains monotonic", current.at("overallProgress") == 75, "overall progress regressed after transfer");
     fs::remove_all(root);
 }
@@ -128,7 +128,7 @@ void test_unknown_stream_size_produces_indeterminate_progress() {
     progress.bytes_total_estimated = 0;
     sink.on_backup_run_event(progress);
 
-    const btrfsbackup::config::Json current = btrfsbackup::config::load_json_file(
+    const btrfsbackup::config::json::Json current = btrfsbackup::config::json::load_json_file(
         root / "status" / "default" / "current.json"
     );
     test_helpers::expect_true("unknown source progress", current.at("sourceProgress") == -1, "source progress should be unknown");
@@ -153,7 +153,7 @@ void test_status_sink_writes_current_and_terminal_history() {
 
     sink.on_backup_run_event(action_started());
     fs::path current = root / "status" / "default" / "current.json";
-    btrfsbackup::config::Json current_data = btrfsbackup::config::load_json_file(current);
+    btrfsbackup::config::json::Json current_data = btrfsbackup::config::json::load_json_file(current);
     test_helpers::expect_true("current state", current_data.at("state") == "running", "wrong current state");
     test_helpers::expect_true("current phase", current_data.at("phase") == "send-receive", "wrong public phase");
     test_helpers::expect_true("current activity", current_data.at("activity") == "preparing", "wrong public activity");
@@ -165,7 +165,7 @@ void test_status_sink_writes_current_and_terminal_history() {
     };
     sink.on_backup_run_event(completed);
     fs::path history = root / "history" / "default" / "20260823T120000Z-123-456.json";
-    btrfsbackup::config::Json history_data = btrfsbackup::config::load_json_file(history);
+    btrfsbackup::config::json::Json history_data = btrfsbackup::config::json::load_json_file(history);
     test_helpers::expect_true("history state", history_data.at("state") == "succeeded", "wrong history state");
     test_helpers::expect_true("history phase", history_data.at("phase") == "succeeded", "wrong history phase");
     test_helpers::expect_true("last history exists", fs::is_regular_file(root / "history" / "default" / "last.json"), "missing last history");
@@ -189,7 +189,7 @@ void test_target_validation_updates_status_without_backup_history() {
         run_id,
         btrfsbackup::backup::OperationKind::TargetValidation,
     });
-    btrfsbackup::config::Json current = btrfsbackup::config::load_json_file(
+    btrfsbackup::config::json::Json current = btrfsbackup::config::json::load_json_file(
         root / "status" / "default" / "current.json"
     );
     test_helpers::expect_true("validation running state", current.at("state") == "validating", "validation looked like a running backup");
@@ -197,7 +197,7 @@ void test_target_validation_updates_status_without_backup_history() {
     test_helpers::expect_true("validation can cancel", current.at("canCancel") == true, "validation cannot be cancelled");
 
     sink.on_backup_run_event(btrfsbackup::backup::TargetValidationCompleted{profile_id, run_id});
-    current = btrfsbackup::config::load_json_file(root / "status" / "default" / "current.json");
+    current = btrfsbackup::config::json::load_json_file(root / "status" / "default" / "current.json");
     test_helpers::expect_true("validation terminal state", current.at("state") == "validated", "validation looked like a successful backup");
     test_helpers::expect_true("validation terminal phase", current.at("phase") == "validated", "wrong validation terminal phase");
     test_helpers::expect_true("validation terminal cancel", current.at("canCancel") == false, "completed validation can be cancelled");
@@ -251,8 +251,8 @@ void test_hook_failure_status_uses_stable_error_code() {
         .message = failed.message,
     });
 
-    btrfsbackup::config::Json current = btrfsbackup::config::load_json_file(root / "status" / "default" / "current.json");
-    btrfsbackup::config::Json history = btrfsbackup::config::load_json_file(root / "history" / "default" / "20260823T120000Z-123-456.json");
+    btrfsbackup::config::json::Json current = btrfsbackup::config::json::load_json_file(root / "status" / "default" / "current.json");
+    btrfsbackup::config::json::Json history = btrfsbackup::config::json::load_json_file(root / "history" / "default" / "20260823T120000Z-123-456.json");
     test_helpers::expect_true("hook state", current.at("state") == "failed", "wrong state");
     test_helpers::expect_true("hook public error code", current.at("errorCode") == "backup.failed", "wrong public error code");
     test_helpers::expect_true("hook phase", history.at("phase") == "before-snapshot-hook", "wrong phase");
@@ -289,8 +289,8 @@ void test_repository_recovery_required_status_is_actionable() {
         .message = failed.message,
     });
 
-    btrfsbackup::config::Json current = btrfsbackup::config::load_json_file(root / "status" / "default" / "current.json");
-    btrfsbackup::config::Json history = btrfsbackup::config::load_json_file(root / "history" / "default" / "20260823T120000Z-123-456.json");
+    btrfsbackup::config::json::Json current = btrfsbackup::config::json::load_json_file(root / "status" / "default" / "current.json");
+    btrfsbackup::config::json::Json history = btrfsbackup::config::json::load_json_file(root / "history" / "default" / "20260823T120000Z-123-456.json");
     test_helpers::expect_true("recovery state", current.at("state") == "failed", "wrong state");
     test_helpers::expect_true("recovery public error code", current.at("errorCode") == "backup.failed", "wrong public error code");
     test_helpers::expect_true("recovery error code", history.at("errorCode") == "repository.recovery_required", "wrong error code");

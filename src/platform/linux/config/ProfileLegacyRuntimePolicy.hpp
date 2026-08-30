@@ -6,12 +6,12 @@
 
 #include <filesystem>
 
-#include <config/model/Json.hpp>
+#include <config/json/Json.hpp>
 
 namespace btrfsbackup::platform::linux {
 
 void validate_legacy_profile_runtime_fields(
-    const btrfsbackup::config::Json& raw,
+    const btrfsbackup::config::json::Json& raw,
     const std::filesystem::path& target_mount_root
 );
 

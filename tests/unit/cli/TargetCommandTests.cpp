@@ -11,8 +11,8 @@
 
 #include <cli/target/TargetCommand.hpp>
 #include <platform/linux/filesystem/FileLock.hpp>
-#include <config/model/Json.hpp>
-#include <config/model/JsonIo.hpp>
+#include <config/json/Json.hpp>
+#include <config/json/JsonIo.hpp>
 
 #include "support/ValidationTestHelpers.hpp"
 
@@ -78,12 +78,12 @@ class RecordingCommandRunner final : public btrfsbackup::backup::ICommandRunner 
     }
 };
 
-btrfsbackup::config::Json profile_json(
+btrfsbackup::config::json::Json profile_json(
     const std::string& mount_point,
     bool auto_eject = true,
     const fs::path& key_file = {}
 ) {
-    btrfsbackup::config::Json activation = {{"mode", "askPassword"}};
+    btrfsbackup::config::json::Json activation = {{"mode", "askPassword"}};
     if (!key_file.empty()) {
         activation = {{"mode", "keyFile"}, {"keyFile", key_file.string()}};
     }
@@ -95,7 +95,7 @@ btrfsbackup::config::Json profile_json(
         {"target", {{"device", "/dev/disk/by-uuid/target-luks"}, {"luksUuid", luks_uuid}, {"btrfsUuid", btrfs_uuid}, {"mapperName", mapper_name}, {"activation", std::move(activation)}}},
         {"paths", {{"remoteRoot", mount_point + "/snapshots"}, {"incomingRoot", mount_point + "/.incoming"}}},
         {"settings", {{"autoEject", auto_eject}, {"remoteRetention", 2}, {"localRetention", 2}}},
-        {"sources", btrfsbackup::config::Json::array({{{"id", "home"}, {"name", "home"}, {"enabled", true}, {"subvolume", "/home"}, {"localSnapshotDir", "/.snapshots/home"}, {"remoteSubdir", "home"}, {"remoteRetention", 2}, {"localRetention", 2}}})}
+        {"sources", btrfsbackup::config::json::Json::array({{{"id", "home"}, {"name", "home"}, {"enabled", true}, {"subvolume", "/home"}, {"localSnapshotDir", "/.snapshots/home"}, {"remoteSubdir", "home"}, {"remoteRetention", 2}, {"localRetention", 2}}})}
     };
 }
 
@@ -113,7 +113,7 @@ fs::path write_profile(
     fs::path profile_path = root / "profiles" / "default" / "profile.json";
     test_helpers::write_file(
         profile_path,
-        btrfsbackup::config::dump_json(profile_json(mount_point, auto_eject, key_file))
+        btrfsbackup::config::json::dump_json(profile_json(mount_point, auto_eject, key_file))
     );
     chmod(profile_path.c_str(), 0600);
     return profile_path;

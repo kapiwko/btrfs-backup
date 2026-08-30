@@ -17,11 +17,11 @@
 #include <core/Errors.hpp>
 #include <platform/linux/config/ApplicationConfig.hpp>
 #include <platform/linux/config/ProfileService.hpp>
-#include <config/model/JsonIo.hpp>
+#include <config/json/JsonIo.hpp>
 #include <platform/linux/process/Process.hpp>
 #include <platform/linux/systemd/SystemdUnit.hpp>
 #include <config/domain/Profile.hpp>
-#include <config/model/ProfileDocument.hpp>
+#include <config/json/ProfileDocument.hpp>
 #include <config/ProfileRender.hpp>
 
 namespace fs = std::filesystem;

@@ -44,7 +44,7 @@ std::vector<ProfileSummary> ProfileQueryService::list_profiles() const {
     std::vector<ProfileSummary> result;
     result.reserve(files.size());
     for (const fs::path& file : files) {
-        btrfsbackup::config::Json profile = read_manager_json_document(file);
+        btrfsbackup::config::json::Json profile = read_manager_json_document(file);
         if (!profile.is_object() || profile.value("schemaVersion", 0) != 1) {
             throw ValidationError("public profile has an unsupported schema: " + file.string());
         }
@@ -55,7 +55,7 @@ std::vector<ProfileSummary> ProfileQueryService::list_profiles() const {
         }
         std::vector<ProfileSourceSummary> sources;
         sources.reserve(profile.at("sources").size());
-        for (const btrfsbackup::config::Json& source : profile.at("sources")) {
+        for (const btrfsbackup::config::json::Json& source : profile.at("sources")) {
             sources.push_back({
                 .id = source.value("id", std::string{}),
                 .name = source.value("name", std::string{}),
@@ -64,7 +64,7 @@ std::vector<ProfileSummary> ProfileQueryService::list_profiles() const {
         result.push_back(ProfileSummary{
             .profile_id = profile_id,
             .name = profile.value("name", std::string{}),
-            .target_name = profile.value("target", btrfsbackup::config::Json::object()).value("name", std::string{}),
+            .target_name = profile.value("target", btrfsbackup::config::json::Json::object()).value("name", std::string{}),
             .sources = std::move(sources),
         });
     }

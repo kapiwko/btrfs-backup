@@ -12,7 +12,7 @@
 #include <vector>
 
 #include <backup/model/BackupRunActions.hpp>
-#include <config/model/Json.hpp>
+#include <config/json/Json.hpp>
 #include <core/ErrorCode.hpp>
 
 namespace btrfsbackup::cli::runner {
@@ -95,7 +95,7 @@ ActionPaths action_paths(const Action&, const ActionPathContext&) {
     return {};
 }
 
-btrfsbackup::config::Json action_to_json(
+btrfsbackup::config::json::Json action_to_json(
     const btrfsbackup::backup::BackupRunAction& action,
     const fs::path& local_snapshot_dir,
     const fs::path& remote_snapshot_dir
@@ -105,7 +105,7 @@ btrfsbackup::config::Json action_to_json(
         return action_paths(typed_action, context);
     },
                                          action);
-    btrfsbackup::config::Json result = {
+    btrfsbackup::config::json::Json result = {
         {"kind", action_name(btrfsbackup::backup::backup_run_action_kind(action))},
         {"sourceId", std::string(btrfsbackup::backup::backup_run_action_source_id(action).value())},
         {"primaryPath", paths.primary.string()},
@@ -122,8 +122,8 @@ btrfsbackup::config::Json action_to_json(
     return result;
 }
 
-btrfsbackup::config::Json paths_to_json(const std::vector<btrfsbackup::backup::SnapshotInfo>& snapshots) {
-    btrfsbackup::config::Json result = btrfsbackup::config::Json::array();
+btrfsbackup::config::json::Json paths_to_json(const std::vector<btrfsbackup::backup::SnapshotInfo>& snapshots) {
+    btrfsbackup::config::json::Json result = btrfsbackup::config::json::Json::array();
     for (const btrfsbackup::backup::SnapshotInfo& snapshot : snapshots) {
         result.push_back(snapshot.path.string());
     }
@@ -146,7 +146,7 @@ const std::vector<btrfsbackup::backup::SnapshotInfo>& retention_deletions(const 
     return action == nullptr ? empty : action->plan.delete_snapshots;
 }
 
-btrfsbackup::config::Json source_plan_to_json(const btrfsbackup::backup::BackupSourceRunPlan& source, bool include_actions) {
+btrfsbackup::config::json::Json source_plan_to_json(const btrfsbackup::backup::BackupSourceRunPlan& source, bool include_actions) {
     const auto* transfer = find_action<btrfsbackup::backup::SendReceiveAction>(source);
     const auto* create_snapshot = find_action<btrfsbackup::backup::CreateSnapshotAction>(source);
     const auto* verify = find_action<btrfsbackup::backup::VerifyReceivedAction>(source);
@@ -154,7 +154,7 @@ btrfsbackup::config::Json source_plan_to_json(const btrfsbackup::backup::BackupS
     const auto* recovery = find_action<btrfsbackup::backup::RecoverPendingAction>(source);
     const auto* local_retention = find_action<btrfsbackup::backup::ApplyLocalRetentionAction>(source);
     const auto* remote_retention = find_action<btrfsbackup::backup::ApplyRemoteRetentionAction>(source);
-    btrfsbackup::config::Json result = {
+    btrfsbackup::config::json::Json result = {
         {"sourceId", std::string(source.source_id.value())},
         {"sourceSubvolume", create_snapshot != nullptr ? create_snapshot->source.string() : ""},
         {"localSnapshotPath", create_snapshot != nullptr ? create_snapshot->snapshot.string() : ""},
@@ -163,7 +163,7 @@ btrfsbackup::config::Json source_plan_to_json(const btrfsbackup::backup::BackupS
         {"receivedSnapshotPath", verify != nullptr ? verify->received_snapshot.string() : ""},
         {"finalRemoteSnapshotPath", commit != nullptr ? commit->final_snapshot.string() : ""},
         {"incremental", transfer != nullptr && transfer->parent.has_value()},
-        {"parentPath", transfer != nullptr && transfer->parent.has_value() ? btrfsbackup::config::Json(transfer->parent->string()) : btrfsbackup::config::Json(nullptr)},
+        {"parentPath", transfer != nullptr && transfer->parent.has_value() ? btrfsbackup::config::json::Json(transfer->parent->string()) : btrfsbackup::config::json::Json(nullptr)},
         {"pendingRecoveryAction", recovery != nullptr ? "recover-pending" : "none"},
         {"localRetentionDelete", paths_to_json(retention_deletions(local_retention))},
         {"remoteRetentionDelete", paths_to_json(retention_deletions(remote_retention))}
@@ -171,7 +171,7 @@ btrfsbackup::config::Json source_plan_to_json(const btrfsbackup::backup::BackupS
     if (include_actions) {
         const fs::path local_snapshot_dir = create_snapshot != nullptr ? create_snapshot->snapshot_directory : fs::path{};
         const fs::path remote_snapshot_dir = transfer != nullptr ? transfer->remote_snapshot_directory : fs::path{};
-        btrfsbackup::config::Json actions = btrfsbackup::config::Json::array();
+        btrfsbackup::config::json::Json actions = btrfsbackup::config::json::Json::array();
         for (const btrfsbackup::backup::BackupRunAction& action : source.actions()) {
             actions.push_back(action_to_json(action, local_snapshot_dir, remote_snapshot_dir));
         }
@@ -180,11 +180,11 @@ btrfsbackup::config::Json source_plan_to_json(const btrfsbackup::backup::BackupS
     return result;
 }
 
-btrfsbackup::config::Json sources_to_json(
+btrfsbackup::config::json::Json sources_to_json(
     const std::vector<btrfsbackup::backup::BackupSourceRunPlan>& sources,
     bool include_actions
 ) {
-    btrfsbackup::config::Json result = btrfsbackup::config::Json::array();
+    btrfsbackup::config::json::Json result = btrfsbackup::config::json::Json::array();
     for (const btrfsbackup::backup::BackupSourceRunPlan& source : sources) {
         result.push_back(source_plan_to_json(source, include_actions));
     }
@@ -203,10 +203,10 @@ std::string completion_warning_component_name(
     return "unknown";
 }
 
-btrfsbackup::config::Json completion_warnings_to_json(
+btrfsbackup::config::json::Json completion_warnings_to_json(
     const std::vector<btrfsbackup::backup::BackupCompletionWarning>& warnings
 ) {
-    btrfsbackup::config::Json result = btrfsbackup::config::Json::array();
+    btrfsbackup::config::json::Json result = btrfsbackup::config::json::Json::array();
     for (const btrfsbackup::backup::BackupCompletionWarning& warning : warnings) {
         result.push_back({
             {"component", completion_warning_component_name(warning.component)},
@@ -217,7 +217,7 @@ btrfsbackup::config::Json completion_warnings_to_json(
     return result;
 }
 
-EncodedRunnerResponse encode_json(btrfsbackup::config::Json document, int exit_code) {
+EncodedRunnerResponse encode_json(btrfsbackup::config::json::Json document, int exit_code) {
     return {.output = document.dump(2) + '\n', .exit_code = exit_code};
 }
 

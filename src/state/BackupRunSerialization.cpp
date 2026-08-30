@@ -147,7 +147,7 @@ std::string operation_kind_name(btrfsbackup::backup::OperationKind kind) {
     return "backup";
 }
 
-btrfsbackup::config::Json build_backup_run_checkpoint_json(const btrfsbackup::backup::BackupRunCheckpoint& checkpoint) {
+btrfsbackup::config::json::Json build_backup_run_checkpoint_json(const btrfsbackup::backup::BackupRunCheckpoint& checkpoint) {
     return {
         {"schemaVersion", 1},
         {"profileId", std::string(checkpoint.profile_id.value())},
@@ -158,7 +158,7 @@ btrfsbackup::config::Json build_backup_run_checkpoint_json(const btrfsbackup::ba
     };
 }
 
-btrfsbackup::config::Json build_backup_run_event_json(const btrfsbackup::backup::BackupRunEvent& event) {
+btrfsbackup::config::json::Json build_backup_run_event_json(const btrfsbackup::backup::BackupRunEvent& event) {
     const SerializedEventData data = serialized_event_data(event);
     const std::string source_id = data.source_id.has_value()
         ? std::string(data.source_id->value())

@@ -6,13 +6,13 @@
 
 #include <utility>
 
-#include <config/model/JsonIo.hpp>
+#include <config/json/JsonIo.hpp>
 #include <core/ManagerProtocol.hpp>
 
 namespace btrfsbackup::daemon::dbus {
 
 std::string ManagerJsonCodec::encode(const ManagerCapabilities& capabilities) const {
-    return config::dump_json({
+    return config::json::dump_json({
         {"schemaVersion", manager_protocol::capabilities_schema_version},
         {"interface", capabilities.interface_name},
         {"apiMajor", capabilities.api_major},
@@ -27,9 +27,9 @@ std::string ManagerJsonCodec::encode(const ManagerCapabilities& capabilities) co
 }
 
 std::string ManagerJsonCodec::encode(const std::vector<ProfileSummary>& profiles) const {
-    config::Json result = config::Json::array();
+    config::json::Json result = config::json::Json::array();
     for (const auto& profile : profiles) {
-        config::Json sources = config::Json::array();
+        config::json::Json sources = config::json::Json::array();
         for (const auto& source : profile.sources)
             sources.push_back({{"id", source.id}, {"name", source.name}});
         result.push_back({
@@ -40,11 +40,11 @@ std::string ManagerJsonCodec::encode(const std::vector<ProfileSummary>& profiles
             {"sources", std::move(sources)},
         });
     }
-    return config::dump_json(result);
+    return config::json::dump_json(result);
 }
 
 std::string ManagerJsonCodec::encode(const PublicRunStatus& status) const {
-    return config::dump_json({
+    return config::json::dump_json({
         {"schemaVersion", manager_protocol::public_status_schema_version},
         {"runId", status.run_id},
         {"state", status.state},
@@ -63,7 +63,7 @@ std::string ManagerJsonCodec::encode(const PublicRunStatus& status) const {
 }
 
 std::string ManagerJsonCodec::encode(const SanitizedHistoryPage& page) const {
-    config::Json result = config::Json::array();
+    config::json::Json result = config::json::Json::array();
     for (const auto& entry : page.entries) {
         result.push_back({
             {"schemaVersion", manager_protocol::history_schema_version},
@@ -75,11 +75,11 @@ std::string ManagerJsonCodec::encode(const SanitizedHistoryPage& page) const {
             {"overallProgress", entry.overall_progress},
         });
     }
-    return config::dump_json(result);
+    return config::json::dump_json(result);
 }
 
 std::string ManagerJsonCodec::encode(const TargetStatus& status) const {
-    return config::dump_json({
+    return config::json::dump_json({
         {"schemaVersion", manager_protocol::device_state_schema_version},
         {"profileId", status.profile_id},
         {"targetName", status.target_name},
@@ -92,7 +92,7 @@ std::string ManagerJsonCodec::encode(const TargetStatus& status) const {
 }
 
 std::string ManagerJsonCodec::encode(const OperationResult& result) const {
-    config::Json document{
+    config::json::Json document{
         {"schemaVersion", manager_protocol::operation_result_schema_version},
         {"operation", result.operation},
         {"operationId", result.operation_id},
@@ -101,7 +101,7 @@ std::string ManagerJsonCodec::encode(const OperationResult& result) const {
     };
     if (!result.run_id.empty())
         document["runId"] = result.run_id;
-    return config::dump_json(document);
+    return config::json::dump_json(document);
 }
 
 } // namespace btrfsbackup::daemon::dbus
