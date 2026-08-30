@@ -128,4 +128,17 @@ void BrowseSessionService::expire() noexcept {
     }
 }
 
+std::vector<BackupCoverage> BrowseSessionService::resolve_coverage(
+    const std::string& caller_bus_name,
+    const std::string& local_path,
+    const std::vector<ProfileId>& profiles
+) {
+    const std::filesystem::path path{local_path};
+    if (caller_bus_name.empty() || !path.is_absolute() ||
+        !authorizer_.authorize(caller_bus_name, ManagerAuthorizationAction::OpenBrowseSession) ||
+        !authorizer_.caller_is_active(caller_bus_name))
+        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::NotAuthorized, "backup coverage query is not authorized");
+    return backend_.resolve_coverage(path.lexically_normal(), profiles);
+}
+
 } // namespace btrfsbackup::daemon::control

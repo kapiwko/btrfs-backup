@@ -1,0 +1,9 @@
+{
+    "KPlugin": {
+        "Description": "Open previous versions stored by btrfs-backup",
+        "Icon": "view-history",
+        "License": "GPL-3.0-or-later",
+        "MimeTypes": ["application/octet-stream", "inode/directory"],
+        "Name": "Previous backup versions"
+    }
+}

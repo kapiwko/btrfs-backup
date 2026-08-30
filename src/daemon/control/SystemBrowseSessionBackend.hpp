@@ -32,6 +32,9 @@ class SystemBrowseSessionBackend final : public IBrowseSessionBackend {
     ) override;
     void close(const BrowseSessionId& session_id) override;
     void cleanup_stale() override;
+    [[nodiscard]] std::vector<BackupCoverage> resolve_coverage(
+        const std::filesystem::path& local_path, const std::vector<ProfileId>& profiles
+    ) override;
 
   private:
     struct TargetLease {

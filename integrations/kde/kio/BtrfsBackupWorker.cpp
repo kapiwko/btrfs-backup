@@ -187,7 +187,56 @@ KIO::WorkerResult BtrfsBackupWorker::listDir(const QUrl& url) {
         return list_profiles();
     if (parsed->snapshot.isEmpty())
         return list_snapshots(parsed->profile);
+    if (parsed->snapshot == u".versions"_s)
+        return list_versions(*parsed);
     return list_repository_directory(url);
+}
+
+KIO::WorkerResult BtrfsBackupWorker::list_versions(const ParsedUrl& url) {
+    const QStringList parts = url.relative_path.split(u'/', Qt::SkipEmptyParts);
+    if (parts.isEmpty())
+        return KIO::WorkerResult::fail(KIO::ERR_MALFORMED_URL);
+    const QString source_id = parts.front();
+    const QString relative = parts.size() > 1 ? parts.mid(1).join(u'/') : u"."_s;
+    Session* active = session(url.profile);
+    if (active == nullptr || !active->catalog)
+        return KIO::WorkerResult::fail(KIO::ERR_ACCESS_DENIED);
+    KIO::UDSEntryList entries;
+    for (const auto& snapshot : active->catalog->snapshots()) {
+        if (wasKilled())
+            return KIO::WorkerResult::fail(KIO::ERR_USER_CANCELED);
+        if (snapshot.profile_id != url.profile.toStdString() || snapshot.source_id != source_id.toStdString())
+            continue;
+        std::filesystem::path candidate = active->catalog->root() / snapshot.repository_path.value();
+        bool valid = true;
+        try {
+            const btrfsbackup::restore::RelativeRestorePath path{relative.toStdString()};
+            for (const auto& component : path.value()) {
+                candidate /= component;
+                std::error_code error;
+                const auto status = std::filesystem::symlink_status(candidate, error);
+                if (error || std::filesystem::is_symlink(status) || !std::filesystem::exists(status)) {
+                    valid = false;
+                    break;
+                }
+            }
+        } catch (...) { valid = false; }
+        if (!valid)
+            continue;
+        auto entry = directory_entry(QString::fromStdString(snapshot.snapshot_id));
+        entry.fastInsert(KIO::UDSEntry::UDS_CREATION_TIME,
+            std::chrono::duration_cast<std::chrono::seconds>(snapshot.created_at.time_since_epoch()).count());
+        QUrl target;
+        target.setScheme(u"btrfsbackup"_s);
+        QString target_path = u"/"_s + url.profile + u"/"_s + QString::fromStdString(snapshot.snapshot_id);
+        if (relative != u"."_s)
+            target_path += u"/"_s + relative;
+        target.setPath(target_path);
+        entry.fastInsert(KIO::UDSEntry::UDS_URL, target.toString(QUrl::FullyEncoded));
+        entries.push_back(std::move(entry));
+    }
+    listEntries(entries);
+    return KIO::WorkerResult::pass();
 }
 
 KIO::WorkerResult BtrfsBackupWorker::list_repository_directory(const QUrl& url) {
@@ -244,7 +293,7 @@ KIO::WorkerResult BtrfsBackupWorker::stat(const QUrl& url) {
     const auto parsed = parse(url);
     if (!parsed)
         return KIO::WorkerResult::fail(KIO::ERR_MALFORMED_URL);
-    if (parsed->profile.isEmpty() || parsed->snapshot.isEmpty()) {
+    if (parsed->profile.isEmpty() || parsed->snapshot.isEmpty() || parsed->snapshot == u".versions"_s) {
         statEntry(directory_entry(u"."_s));
         return KIO::WorkerResult::pass();
     }
@@ -261,7 +310,7 @@ KIO::WorkerResult BtrfsBackupWorker::mimetype(const QUrl& url) {
     const auto parsed = parse(url);
     if (!parsed)
         return KIO::WorkerResult::fail(KIO::ERR_MALFORMED_URL);
-    if (parsed->profile.isEmpty() || parsed->snapshot.isEmpty()) {
+    if (parsed->profile.isEmpty() || parsed->snapshot.isEmpty() || parsed->snapshot == u".versions"_s) {
         mimeType(u"inode/directory"_s);
         return KIO::WorkerResult::pass();
     }

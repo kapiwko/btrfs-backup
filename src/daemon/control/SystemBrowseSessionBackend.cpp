@@ -205,4 +205,27 @@ void SystemBrowseSessionBackend::cleanup_stale() {
     }
 }
 
+std::vector<BackupCoverage> SystemBrowseSessionBackend::resolve_coverage(
+    const fs::path& local_path, const std::vector<ProfileId>& profile_ids
+) {
+    std::vector<BackupCoverage> result;
+    for (const ProfileId& profile_id : profile_ids) {
+        const auto loaded = profiles_.get(profile_id);
+        const btrfsbackup::config::ProfileSource* best = nullptr;
+        for (const auto& source : loaded.profile.sources) {
+            if (!source.enabled || !btrfsbackup::config::path_is_within(local_path, source.subvolume.value()))
+                continue;
+            if (best == nullptr || source.subvolume.value().string().size() > best->subvolume.value().string().size())
+                best = &source;
+        }
+        if (best == nullptr)
+            continue;
+        const fs::path relative = local_path.lexically_relative(best->subvolume.value());
+        result.push_back({
+            std::string(profile_id.value()), std::string(best->id.value()), relative.empty() ? "." : relative.string(),
+        });
+    }
+    return result;
+}
+
 } // namespace btrfsbackup::daemon::control

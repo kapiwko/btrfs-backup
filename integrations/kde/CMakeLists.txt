@@ -74,6 +74,30 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(kio_btrfsbackup PRIVATE -fexceptions -Wall -Wextra -Wpedantic)
 endif()
 
+add_library(previousversionsaction MODULE
+    dolphin/PreviousVersionsAction.cpp
+    dolphin/PreviousVersionsAction.hpp
+    dolphin/PreviousVersionsSelection.cpp
+    dolphin/PreviousVersionsSelection.hpp
+    dolphin/previousversionsaction.json
+)
+set_target_properties(previousversionsaction PROPERTIES PREFIX "")
+target_compile_features(previousversionsaction PRIVATE cxx_std_23)
+target_include_directories(previousversionsaction PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/client ${CMAKE_CURRENT_SOURCE_DIR}/dolphin)
+target_link_libraries(previousversionsaction PRIVATE
+    btrfsbackup_kde_manager_client
+    KF6::CoreAddons
+    KF6::I18n
+    KF6::KIOCore
+    KF6::KIOWidgets
+    Qt6::Core
+    Qt6::DBus
+)
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(previousversionsaction PRIVATE -Wall -Wextra -Wpedantic)
+endif()
+install(TARGETS previousversionsaction LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}/qt6/plugins/kf6/kfileitemaction")
+
 add_executable(
     btrfs-backup-kde-monitor
     monitor/CancellationRequestDispatcher.cpp
@@ -227,11 +251,22 @@ add_dependencies(
     btrfsbackup_plasma_backendplugin
     kcm_btrfsbackup
     kio_btrfsbackup
+    previousversionsaction
     pofiles
     tsfiles
 )
 
 if(BUILD_TESTING)
+    add_executable(dolphin-previous-versions-selection-tests
+        dolphin/PreviousVersionsSelection.cpp
+        dolphin/tests/PreviousVersionsSelectionTests.cpp
+    )
+    target_compile_features(dolphin-previous-versions-selection-tests PRIVATE cxx_std_23)
+    target_include_directories(dolphin-previous-versions-selection-tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/dolphin)
+    target_link_libraries(dolphin-previous-versions-selection-tests PRIVATE Qt6::Core)
+    add_test(NAME dolphin-previous-versions-selection COMMAND dolphin-previous-versions-selection-tests)
+    set_tests_properties(dolphin-previous-versions-selection PROPERTIES LABELS "kde;dolphin")
+
     add_executable(kio-btrfsbackup-metadata-tests kio/tests/PluginMetadataTests.cpp)
     target_compile_features(kio-btrfsbackup-metadata-tests PRIVATE cxx_std_23)
     target_compile_definitions(kio-btrfsbackup-metadata-tests PRIVATE

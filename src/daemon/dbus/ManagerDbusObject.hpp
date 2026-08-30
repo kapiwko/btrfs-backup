@@ -49,6 +49,7 @@ class ManagerDbusObject final {
     int handle_delete_profile(sd_bus_message* message, sd_bus_error* error) noexcept;
     int handle_open_browse_session(sd_bus_message* message, sd_bus_error* error) noexcept;
     int handle_close_browse_session(sd_bus_message* message, sd_bus_error* error) noexcept;
+    int handle_resolve_backup_coverage(sd_bus_message* message, sd_bus_error* error) noexcept;
 
   private:
     using JsonOperation = std::function<std::string()>;

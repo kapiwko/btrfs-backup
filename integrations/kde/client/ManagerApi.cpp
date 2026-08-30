@@ -278,6 +278,28 @@ std::optional<BrowseSessionInfo> parse_browse_session(const QString& payload) {
     return result;
 }
 
+std::optional<QList<BackupCoverage>> parse_backup_coverage(const QString& payload) {
+    const QJsonDocument document = QJsonDocument::fromJson(payload.toUtf8());
+    if (!document.isArray())
+        return std::nullopt;
+    QList<BackupCoverage> result;
+    for (const QJsonValue& value : document.array()) {
+        if (!value.isObject())
+            return std::nullopt;
+        const QJsonObject object = value.toObject();
+        BackupCoverage item{
+            object.value(QStringLiteral("profileId")).toString(),
+            object.value(QStringLiteral("sourceId")).toString(),
+            object.value(QStringLiteral("relativePath")).toString(),
+        };
+        if (item.profile_id.isEmpty() || item.source_id.isEmpty() || item.relative_path.isEmpty() ||
+            item.relative_path.startsWith(u'/') || item.relative_path.split(u'/').contains(QStringLiteral("..")))
+            return std::nullopt;
+        result.push_back(std::move(item));
+    }
+    return result;
+}
+
 bool active_run_state(const QString& state) {
     return state == QStringLiteral("starting") || state == QStringLiteral("running") ||
         state == QStringLiteral("validating");

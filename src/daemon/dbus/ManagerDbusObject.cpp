@@ -87,6 +87,10 @@ int close_browse_session(sd_bus_message* message, void* userdata, sd_bus_error* 
     return static_cast<ManagerDbusObject*>(userdata)->handle_close_browse_session(message, error);
 }
 
+int resolve_backup_coverage(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
+    return static_cast<ManagerDbusObject*>(userdata)->handle_resolve_backup_coverage(message, error);
+}
+
 const sd_bus_vtable manager_vtable[] = {
     SD_BUS_VTABLE_START(0),
     SD_BUS_METHOD(manager_protocol::method::get_capabilities, "", "s", get_capabilities, SD_BUS_VTABLE_UNPRIVILEGED),
@@ -105,6 +109,7 @@ const sd_bus_vtable manager_vtable[] = {
     SD_BUS_METHOD(manager_protocol::method::delete_profile, "sss", "s", delete_profile, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD(manager_protocol::method::open_browse_session, "s", "s", open_browse_session, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD(manager_protocol::method::close_browse_session, "s", "s", close_browse_session, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD(manager_protocol::method::resolve_backup_coverage, "s", "s", resolve_backup_coverage, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_SIGNAL(manager_protocol::signal::profiles_changed, "", 0),
     SD_BUS_SIGNAL(manager_protocol::signal::status_changed, "s", 0),
     SD_BUS_SIGNAL(manager_protocol::signal::history_changed, "s", 0),
@@ -489,6 +494,26 @@ int ManagerDbusObject::handle_close_browse_session(sd_bus_message* message, sd_b
                 {"schemaVersion", manager_protocol::operation_result_schema_version},
                 {"operation", "close-browse-session"}, {"accepted", true},
             }));
+        },
+        [&](const std::exception* exception) { return set_callback_error(error, exception); }
+    );
+}
+
+int ManagerDbusObject::handle_resolve_backup_coverage(sd_bus_message* message, sd_bus_error* error) noexcept {
+    return invoke_dbus_callback(
+        [&] {
+            const char* local_path = nullptr;
+            const int read_result = sd_bus_message_read(message, "s", &local_path);
+            if (read_result < 0)
+                return read_result;
+            std::vector<ProfileId> profile_ids;
+            for (const auto& profile : service_.list_profiles())
+                profile_ids.emplace_back(profile.profile_id);
+            return reply_operational_json(message, error, "resolve-backup-coverage", "", [&] {
+                return codec_.encode(browse_sessions_.resolve_coverage(
+                    caller_bus_name(message), local_path == nullptr ? "" : local_path, profile_ids
+                ));
+            });
         },
         [&](const std::exception* exception) { return set_callback_error(error, exception); }
     );
