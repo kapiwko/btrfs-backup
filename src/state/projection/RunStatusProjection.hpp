@@ -10,6 +10,7 @@
 #include <backup/ports/IBackupRunEventSink.hpp>
 #include <state/persistence/PersistentDocumentOperations.hpp>
 #include <state/projection/RunStatusBuilder.hpp>
+#include <state/projection/StatusPublicationPolicy.hpp>
 
 namespace btrfsbackup::state {
 
@@ -30,6 +31,7 @@ class RunStatusProjection final : public btrfsbackup::backup::IBackupRunEventSin
     IAtomicDocumentWriter& files_;
     BackupRunStatusContext context_;
     RunStatusBuilder builder_;
+    StatusPublicationPolicy publication_policy_;
     std::optional<RunId> run_id_;
     btrfsbackup::backup::OperationKind operation_kind_ = btrfsbackup::backup::OperationKind::Backup;
     std::optional<PendingActionFailure> pending_action_failure_;
