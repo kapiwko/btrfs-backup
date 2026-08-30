@@ -4,6 +4,7 @@
 
 add_library(btrfsbackup-platform-linux STATIC
     ChildProcess.cpp
+    ControlledCommandSession.cpp
     LibBtrfsOperations.cpp
     DeviceInfo.cpp
     FileIo.cpp
@@ -63,6 +64,7 @@ target_restricted_include_directories(btrfsbackup-platform-linux
         platform/linux/TrustedExecutable.hpp
         platform/linux/TrustedFile.hpp
     PRIVATE_HEADERS
+        platform/linux/ControlledCommandSession.hpp
         platform/linux/PosixTransferSession.hpp
         platform/linux/SystemdMountedTargetSession.hpp
 )
