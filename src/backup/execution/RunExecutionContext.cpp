@@ -164,12 +164,6 @@ void RunExecutionContext::report_close_failures(const RunExecutionContextCloseRe
         case RunExecutionContextCloseStage::CancellationWatch:
             std::fputs("cancellation-watch", stderr);
             break;
-        case RunExecutionContextCloseStage::EventSink:
-            std::fputs("event-sink", stderr);
-            break;
-        case RunExecutionContextCloseStage::CheckpointStore:
-            std::fputs("checkpoint-store", stderr);
-            break;
         case RunExecutionContextCloseStage::ActiveRun:
             std::fputs("active-run", stderr);
             break;
@@ -178,9 +172,6 @@ void RunExecutionContext::report_close_failures(const RunExecutionContextCloseRe
             break;
         case RunExecutionContextCloseStage::TargetSession:
             std::fputs("target-session", stderr);
-            break;
-        case RunExecutionContextCloseStage::Lease:
-            std::fputs("lease", stderr);
             break;
         }
         std::fputs(": ", stderr);
