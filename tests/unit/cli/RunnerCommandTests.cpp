@@ -89,8 +89,12 @@ class RecordingActionHandler final : public btrfsbackup::backup::IBackupRunActio
             }
         }
         if (const auto* recovery = std::get_if<btrfsbackup::backup::RecoverPendingAction>(&action);
-            recovery != nullptr && recovery->recovery.delete_local_snapshot) {
-            recovered_pending_paths.push_back(recovery->recovery.local_snapshot_path.string());
+            recovery != nullptr) {
+            const auto* deletion = btrfsbackup::backup::pending_recovery_effect<
+                btrfsbackup::backup::DeletePendingLocalSnapshot>(recovery->recovery);
+            if (deletion != nullptr) {
+                recovered_pending_paths.push_back(deletion->snapshot_path.string());
+            }
         }
         if (const auto* snapshot = std::get_if<btrfsbackup::backup::CreateSnapshotAction>(&action);
             write_pending_on_snapshot && snapshot != nullptr) {
@@ -152,14 +156,8 @@ class ConfigurableTransferPipeline final : public btrfsbackup::backup::transfer:
     btrfsbackup::platform::linux::PosixDurableFileOperations durable_files;
     std::vector<btrfsbackup::backup::transfer::TransferPipelinePlan> plans;
     btrfsbackup::backup::transfer::TransferResult next_result{
-        .producer = {
-            .started = true,
-            .exit_code = 0,
-        },
-        .consumer = {
-            .started = true,
-            .exit_code = 0,
-        },
+        .producer = btrfsbackup::backup::transfer::TransferSideResult::exited(0),
+        .consumer = btrfsbackup::backup::transfer::TransferSideResult::exited(0),
         .bytes_transferred = 1024,
     };
     std::optional<fs::path> request_cancel_path;
@@ -172,14 +170,8 @@ class ConfigurableTransferPipeline final : public btrfsbackup::backup::transfer:
     ) override {
         if (plan.consumer_argv == std::vector<std::string>{"btrfs", "receive", "--dump"}) {
             return {
-                .producer = {
-                    .started = true,
-                    .exit_code = 0,
-                },
-                .consumer = {
-                    .started = true,
-                    .exit_code = 0,
-                },
+                .producer = btrfsbackup::backup::transfer::TransferSideResult::exited(0),
+                .consumer = btrfsbackup::backup::transfer::TransferSideResult::exited(0),
                 .bytes_transferred = 1024,
                 .bytes_produced = 1024,
             };
@@ -226,14 +218,8 @@ class BlockingTransferPipeline final : public btrfsbackup::backup::transfer::ITr
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
         return {
-            .producer = {
-                .started = true,
-                .exit_code = 0,
-            },
-            .consumer = {
-                .started = true,
-                .exit_code = 0,
-            },
+            .producer = btrfsbackup::backup::transfer::TransferSideResult::exited(0),
+            .consumer = btrfsbackup::backup::transfer::TransferSideResult::exited(0),
             .bytes_transferred = 1024,
         };
     }
@@ -253,8 +239,8 @@ class CancellationAwareTransferPipeline final : public btrfsbackup::backup::tran
             std::this_thread::sleep_for(std::chrono::milliseconds(5));
         }
         return {
-            .producer = {.started = true, .exit_code = 143},
-            .consumer = {.started = true, .exit_code = 143},
+            .producer = btrfsbackup::backup::transfer::TransferSideResult::exited(143),
+            .consumer = btrfsbackup::backup::transfer::TransferSideResult::exited(143),
             .cancelled = true,
         };
     }
@@ -1244,8 +1230,8 @@ void test_runner_execute_transfer_failure_writes_failed_status() {
 
     RecordingActionHandler action_handler;
     ConfigurableTransferPipeline transfer_pipeline;
-    transfer_pipeline.next_result.producer.exit_code = 7;
-    transfer_pipeline.next_result.producer.diagnostics = "send failed";
+    transfer_pipeline.next_result.producer.mark_exited(7);
+    transfer_pipeline.next_result.producer.diagnostics() = "send failed";
     ServiceFixture services{
         .action_handler = action_handler,
         .transfer_pipeline = transfer_pipeline,

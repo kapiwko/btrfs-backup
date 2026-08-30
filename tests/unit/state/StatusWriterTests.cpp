@@ -144,7 +144,7 @@ void test_build_status_json_matches_contract_shape() {
 void test_build_status_json_includes_structured_error() {
     btrfsbackup::state::RunStatus record = sample_record();
     record.state = btrfsbackup::state::RunState::Failed;
-    record.phase = btrfsbackup::state::RunPhase::ValidatingTarget;
+    record.phase = btrfsbackup::state::RunPhase::Failed;
     record.message = "Validation failed.";
     record.error = btrfsbackup::state::RunError{
         .code = ErrorCode::TargetBtrfsUuidMismatch,
@@ -173,6 +173,7 @@ void test_build_status_json_includes_structured_error() {
 void test_build_public_status_json_excludes_diagnostics() {
     btrfsbackup::state::RunStatus record = sample_record();
     record.state = btrfsbackup::state::RunState::Failed;
+    record.phase = btrfsbackup::state::RunPhase::Failed;
     record.error = btrfsbackup::state::RunError{
         .code = ErrorCode::TargetBtrfsUuidMismatch,
         .message = "Target Btrfs UUID does not match.",
@@ -192,7 +193,7 @@ void test_build_public_status_json_excludes_diagnostics() {
     expect_true("public schema", data.at("schemaVersion") == 3, "wrong public schemaVersion");
     expect_true("public run id", data.at("runId") == record.run_id.value(), "wrong public runId");
     expect_true("public state", data.at("state") == "failed", "wrong public state");
-    expect_true("public phase", data.at("phase") == "succeeded", "wrong public phase");
+    expect_true("public phase", data.at("phase") == "failed", "wrong public phase");
     expect_true("public activity", data.at("activity") == "idle", "wrong public activity");
     expect_true("public can cancel", data.at("canCancel") == false, "terminal status can be cancelled");
     expect_true("public generic error", data.at("errorCode") == "backup.failed", "error code is not generic");

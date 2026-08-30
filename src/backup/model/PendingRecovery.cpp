@@ -103,13 +103,9 @@ PendingRecoveryPlan plan_pending_recovery(
 ) {
     const std::string source_id_value{source_id.value()};
     PendingRecoveryPlan plan{
-        .action = PendingRecoveryAction::NoMarker,
-        .clear_marker = false,
-        .delete_local_snapshot = false,
-        .delete_remote_snapshot = false,
         .marker_path = profile_state_dir / ("pending-" + source_id_value),
-        .local_snapshot_path = {},
-        .remote_snapshot_path = {},
+        .pending_snapshot_path = {},
+        .effects = {},
         .message = {},
     };
 
@@ -117,45 +113,41 @@ PendingRecoveryPlan plan_pending_recovery(
         return plan;
     }
 
-    plan.clear_marker = true;
-    plan.local_snapshot_path = marker->local_snapshot_path;
-    plan.remote_snapshot_path = marker->final_snapshot_path;
+    plan.pending_snapshot_path = marker->local_snapshot_path;
+    plan.effects.emplace_back(ClearPendingMarker{plan.marker_path});
 
     if (!marker_path_is_valid(*marker, source_id, local_snapshot_dir, remote_snapshot_dir)) {
-        plan.action = PendingRecoveryAction::ClearInvalidMarker;
         plan.message = "Ignoring invalid pending marker for " + source_id_value + ": " + plan.marker_path.string();
         return plan;
     }
 
     if (!pending_snapshot.has_value() || !pending_snapshot->is_subvolume) {
-        plan.action = PendingRecoveryAction::ClearMissingSnapshot;
         plan.message = "Clearing pending marker for missing local snapshot: " + marker->local_snapshot_path;
         return plan;
     }
 
-    const SnapshotInfo* final_snapshot = remote_snapshot_at_path(remote_snapshots, plan.remote_snapshot_path);
+    const fs::path remote_snapshot_path = marker->final_snapshot_path;
+    const SnapshotInfo* final_snapshot = remote_snapshot_at_path(remote_snapshots, remote_snapshot_path);
     if (final_snapshot != nullptr && !pending_snapshot->uuid.empty() && !uuid_equals(final_snapshot->received_uuid, pending_snapshot->uuid)) {
-        plan.action = PendingRecoveryAction::DeleteInvalidCommittedSnapshot;
-        plan.delete_remote_snapshot = true;
-        plan.delete_local_snapshot = !keep_failed_local_snapshot && !remote_contains_received_uuid(remote_snapshots, source_id, pending_snapshot->uuid);
-        plan.message = "Removing unverified committed snapshot left by an interrupted run: " + plan.remote_snapshot_path.string();
+        plan.effects.insert(plan.effects.begin(), DeletePendingRemoteSnapshot{remote_snapshot_path});
+        if (!keep_failed_local_snapshot && !remote_contains_received_uuid(remote_snapshots, source_id, pending_snapshot->uuid)) {
+            plan.effects.insert(plan.effects.begin() + 1, DeletePendingLocalSnapshot{plan.pending_snapshot_path});
+        }
+        plan.message = "Removing unverified committed snapshot left by an interrupted run: " + remote_snapshot_path.string();
         return plan;
     }
 
     if (!pending_snapshot->uuid.empty() && remote_contains_received_uuid(remote_snapshots, source_id, pending_snapshot->uuid)) {
-        plan.action = PendingRecoveryAction::PreserveCommittedSnapshot;
         plan.message = "Recovered committed snapshot from an interrupted run: " + marker->local_snapshot_path;
         return plan;
     }
 
     if (keep_failed_local_snapshot) {
-        plan.action = PendingRecoveryAction::KeepFailedLocalSnapshot;
         plan.message = "Keeping pending local snapshot by configuration: " + marker->local_snapshot_path;
         return plan;
     }
 
-    plan.action = PendingRecoveryAction::DeleteOrphanSnapshot;
-    plan.delete_local_snapshot = true;
+    plan.effects.insert(plan.effects.begin(), DeletePendingLocalSnapshot{plan.pending_snapshot_path});
     plan.message = "Removing orphaned local snapshot from an interrupted run: " + marker->local_snapshot_path;
     return plan;
 }

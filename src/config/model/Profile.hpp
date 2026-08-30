@@ -10,6 +10,7 @@
 #include <filesystem>
 #include <string>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include <config/model/ConfigurationGeneration.hpp>
@@ -20,15 +21,14 @@
 #include <core/Identifiers.hpp>
 namespace btrfsbackup::config {
 
-enum class TargetActivationMode {
-    AskPassword,
-    KeyFile,
+struct AskPasswordActivation {
 };
 
-struct TargetActivation {
-    TargetActivationMode mode = TargetActivationMode::AskPassword;
-    std::filesystem::path key_file;
+struct KeyFileActivation {
+    KeyFilePath key_file;
 };
+
+using TargetActivation = std::variant<AskPasswordActivation, KeyFileActivation>;
 
 struct ProfileTarget {
     ProfileTarget(

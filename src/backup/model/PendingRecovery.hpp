@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <optional>
 #include <string>
+#include <variant>
 #include <vector>
 
 #include <backup/model/Snapshot.hpp>
@@ -14,15 +15,22 @@
 
 namespace btrfsbackup::backup {
 
-enum class PendingRecoveryAction {
-    NoMarker,
-    ClearInvalidMarker,
-    ClearMissingSnapshot,
-    PreserveCommittedSnapshot,
-    DeleteInvalidCommittedSnapshot,
-    KeepFailedLocalSnapshot,
-    DeleteOrphanSnapshot,
+struct ClearPendingMarker {
+    std::filesystem::path marker_path;
 };
+
+struct DeletePendingLocalSnapshot {
+    std::filesystem::path snapshot_path;
+};
+
+struct DeletePendingRemoteSnapshot {
+    std::filesystem::path snapshot_path;
+};
+
+using PendingRecoveryEffect = std::variant<
+    DeletePendingRemoteSnapshot,
+    DeletePendingLocalSnapshot,
+    ClearPendingMarker>;
 
 struct PendingMarker {
     std::string source_name;
@@ -33,15 +41,25 @@ struct PendingMarker {
 };
 
 struct PendingRecoveryPlan {
-    PendingRecoveryAction action = PendingRecoveryAction::NoMarker;
-    bool clear_marker = false;
-    bool delete_local_snapshot = false;
-    bool delete_remote_snapshot = false;
     std::filesystem::path marker_path;
-    std::filesystem::path local_snapshot_path;
-    std::filesystem::path remote_snapshot_path;
+    std::filesystem::path pending_snapshot_path;
+    std::vector<PendingRecoveryEffect> effects;
     std::string message;
+
+    [[nodiscard]] bool required() const noexcept {
+        return !effects.empty();
+    }
 };
+
+template <typename Effect>
+[[nodiscard]] const Effect* pending_recovery_effect(const PendingRecoveryPlan& plan) noexcept {
+    for (const PendingRecoveryEffect& effect : plan.effects) {
+        if (const auto* typed = std::get_if<Effect>(&effect)) {
+            return typed;
+        }
+    }
+    return nullptr;
+}
 
 PendingRecoveryPlan plan_pending_recovery(
     const SourceId& source_id,

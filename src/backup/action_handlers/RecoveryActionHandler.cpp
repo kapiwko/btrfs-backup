@@ -31,22 +31,22 @@ RecoveryActionHandler::RecoveryActionHandler(
 RecoveryActionHandler::~RecoveryActionHandler() = default;
 
 void RecoveryActionHandler::handle(const RecoverPendingAction& action) {
-    if (action.recovery.delete_remote_snapshot) {
+    if (const auto* effect = pending_recovery_effect<DeletePendingRemoteSnapshot>(action.recovery)) {
         if (target_root_ == nullptr) {
-            btrfs_.delete_subvolume(action.recovery.remote_snapshot_path);
+            btrfs_.delete_subvolume(effect->snapshot_path);
         } else {
-            btrfs_.delete_subvolume_beneath(*target_root_, action.recovery.remote_snapshot_path);
+            btrfs_.delete_subvolume_beneath(*target_root_, effect->snapshot_path);
         }
     }
-    if (action.recovery.delete_local_snapshot) {
+    if (const auto* effect = pending_recovery_effect<DeletePendingLocalSnapshot>(action.recovery)) {
         if (local_root_ == nullptr) {
-            btrfs_.delete_subvolume(action.recovery.local_snapshot_path);
+            btrfs_.delete_subvolume(effect->snapshot_path);
         } else {
-            btrfs_.delete_subvolume_beneath(*local_root_, action.recovery.local_snapshot_path);
+            btrfs_.delete_subvolume_beneath(*local_root_, effect->snapshot_path);
         }
     }
-    if (action.recovery.clear_marker) {
-        pending_markers_.clear(action.recovery.marker_path);
+    if (const auto* effect = pending_recovery_effect<ClearPendingMarker>(action.recovery)) {
+        pending_markers_.clear(effect->marker_path);
     }
 }
 

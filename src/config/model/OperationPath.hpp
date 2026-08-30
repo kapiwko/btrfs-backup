@@ -39,6 +39,7 @@ BTRFSBACKUP_DECLARE_OPERATION_PATH(TargetDevicePath);
 BTRFSBACKUP_DECLARE_OPERATION_PATH(TargetMountPoint);
 BTRFSBACKUP_DECLARE_OPERATION_PATH(SourceSubvolumePath);
 BTRFSBACKUP_DECLARE_OPERATION_PATH(LocalSnapshotRoot);
+BTRFSBACKUP_DECLARE_OPERATION_PATH(KeyFilePath);
 
 class HookProgramPath : public detail::OperationPathValue {
   public:

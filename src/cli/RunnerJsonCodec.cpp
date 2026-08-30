@@ -56,7 +56,7 @@ btrfsbackup::config::Json action_to_json(
     const auto [primary_path, secondary_path] = std::visit([&](const auto& typed_action) {
         using Action = std::decay_t<decltype(typed_action)>;
         if constexpr (std::is_same_v<Action, btrfsbackup::backup::RecoverPendingAction>) {
-            return std::pair{typed_action.recovery.local_snapshot_path, fs::path{}};
+            return std::pair{typed_action.recovery.pending_snapshot_path, fs::path{}};
         } else if constexpr (std::is_same_v<Action, btrfsbackup::backup::CleanupIncomingAction>) {
             return std::pair{typed_action.incoming_directory, fs::path{}};
         } else if constexpr (std::is_same_v<Action, btrfsbackup::backup::CreateSnapshotAction>) {

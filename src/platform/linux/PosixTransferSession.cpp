@@ -330,14 +330,16 @@ btrfsbackup::backup::transfer::TransferResult PosixTransferSession::run() {
     );
 
     btrfsbackup::backup::transfer::TransferResult result;
-    result.producer.started = producer_spawn.started();
-    result.consumer.started = consumer_spawn.started();
-    if (!result.producer.started) {
-        result.producer.diagnostics = "posix_spawn failed for " + plan.producer_argv.front() + ": " + std::strerror(producer_spawn.error);
-    }
-    if (!result.consumer.started) {
-        result.consumer.diagnostics = "posix_spawn failed for " + plan.consumer_argv.front() + ": " + std::strerror(consumer_spawn.error);
-    }
+    result.producer = producer_spawn.started()
+        ? btrfsbackup::backup::transfer::TransferSideResult::running()
+        : btrfsbackup::backup::transfer::TransferSideResult::not_started(
+              "posix_spawn failed for " + plan.producer_argv.front() + ": " + std::strerror(producer_spawn.error)
+          );
+    result.consumer = consumer_spawn.started()
+        ? btrfsbackup::backup::transfer::TransferSideResult::running()
+        : btrfsbackup::backup::transfer::TransferSideResult::not_started(
+              "posix_spawn failed for " + plan.consumer_argv.front() + ": " + std::strerror(consumer_spawn.error)
+          );
     result.bytes_total_estimated = plan.bytes_total_estimated;
     emit_event(events, btrfsbackup::backup::transfer::TransferEventKind::Started, result, started_at);
 
@@ -346,14 +348,14 @@ btrfsbackup::backup::transfer::TransferResult PosixTransferSession::run() {
     producer_error_pipe.write_end.reset();
     consumer_error_pipe.write_end.reset();
 
-    if (result.producer.started) {
+    if (result.producer.started()) {
         set_nonblocking(data_pipe.read_end.get());
         set_nonblocking(producer_error_pipe.read_end.get());
     } else {
         data_pipe.read_end.reset();
         producer_error_pipe.read_end.reset();
     }
-    if (result.consumer.started) {
+    if (result.consumer.started()) {
         set_nonblocking(consumer_input_pipe.write_end.get());
         set_nonblocking(consumer_error_pipe.read_end.get());
     } else {
@@ -361,16 +363,16 @@ btrfsbackup::backup::transfer::TransferResult PosixTransferSession::run() {
         consumer_error_pipe.read_end.reset();
     }
 
-    bool producer_stdout_open = result.producer.started;
-    bool consumer_stdin_open = result.consumer.started;
+    bool producer_stdout_open = result.producer.started();
+    bool consumer_stdin_open = result.consumer.started();
     bool producer_stdout_ready = false;
     bool consumer_stdin_ready = false;
-    bool producer_stderr_open = result.producer.started;
-    bool consumer_stderr_open = result.consumer.started;
+    bool producer_stderr_open = result.producer.started();
+    bool consumer_stderr_open = result.consumer.started();
     BoundedDiagnosticBuffer producer_stderr;
     BoundedDiagnosticBuffer consumer_stderr;
-    bool producer_done = !result.producer.started;
-    bool consumer_done = !result.consumer.started;
+    bool producer_done = !result.producer.started();
+    bool consumer_done = !result.consumer.started();
     const pid_t producer_pid = producer_spawn.pid;
     const pid_t consumer_pid = consumer_spawn.pid;
     ChildTerminationState producer_termination{
@@ -412,7 +414,7 @@ btrfsbackup::backup::transfer::TransferResult PosixTransferSession::run() {
             state.process->send_signal(SIGKILL);
             state.kill_sent = true;
             state.deadline = SteadyClock::now() + termination_policy_.kill_reap_period;
-            append_diagnostic(side.diagnostics, "did not exit after SIGTERM; sent SIGKILL");
+            append_diagnostic(side.diagnostics(), "did not exit after SIGTERM; sent SIGKILL");
             return ChildTerminationProgress::None;
         }
 
@@ -425,8 +427,8 @@ btrfsbackup::backup::transfer::TransferResult PosixTransferSession::run() {
             state.process->mark_reaped();
             return ChildTerminationProgress::Reaped;
         }
-        side.exit_code = 128 + SIGKILL;
-        append_diagnostic(side.diagnostics, "did not become waitable after SIGKILL");
+        side.mark_exited(128 + SIGKILL);
+        append_diagnostic(side.diagnostics(), "did not become waitable after SIGKILL");
         done = true;
         state.process->release();
         return ChildTerminationProgress::Abandoned;
@@ -525,8 +527,8 @@ btrfsbackup::backup::transfer::TransferResult PosixTransferSession::run() {
             int ready = poll(fds.data(), fds.size(), 100);
             if (ready < 0 && errno != EINTR) {
                 const std::string message = std::string("transfer poll failed: ") + std::strerror(errno);
-                append_diagnostic(result.producer.diagnostics, message);
-                append_diagnostic(result.consumer.diagnostics, message);
+                append_diagnostic(result.producer.diagnostics(), message);
+                append_diagnostic(result.consumer.diagnostics(), message);
                 data_pipe.read_end.reset();
                 producer_stdout_open = false;
                 consumer_input_pipe.write_end.reset();
@@ -549,7 +551,7 @@ btrfsbackup::backup::transfer::TransferResult PosixTransferSession::run() {
             }
             int tag = tags[i];
             if (tag == producer_stdout_tag && (fds[i].revents & POLLNVAL) != 0) {
-                append_diagnostic(result.producer.diagnostics, "stdout pipe became invalid");
+                append_diagnostic(result.producer.diagnostics(), "stdout pipe became invalid");
                 data_pipe.read_end.reset();
                 producer_stdout_open = false;
                 producer_stdout_ready = false;
@@ -563,7 +565,7 @@ btrfsbackup::backup::transfer::TransferResult PosixTransferSession::run() {
             } else if (tag == producer_stdout_tag && (fds[i].revents & (POLLIN | POLLHUP)) != 0) {
                 producer_stdout_ready = true;
             } else if (tag == consumer_stdin_tag && (fds[i].revents & (POLLHUP | POLLERR | POLLNVAL)) != 0) {
-                append_diagnostic(result.consumer.diagnostics, "stdin closed before transfer completed");
+                append_diagnostic(result.consumer.diagnostics(), "stdin closed before transfer completed");
                 consumer_input_pipe.write_end.reset();
                 consumer_stdin_open = false;
                 consumer_stdin_ready = false;
@@ -613,7 +615,7 @@ btrfsbackup::backup::transfer::TransferResult PosixTransferSession::run() {
                 producer_stdout_ready = false;
                 consumer_stdin_ready = false;
             } else if (!pump.error.empty()) {
-                append_diagnostic(result.consumer.diagnostics, pump.error);
+                append_diagnostic(result.consumer.diagnostics(), pump.error);
                 consumer_input_pipe.write_end.reset();
                 consumer_stdin_open = false;
                 consumer_stdin_ready = false;
@@ -640,10 +642,10 @@ btrfsbackup::backup::transfer::TransferResult PosixTransferSession::run() {
     }
 
     progress_reporter.flush(events, result);
-    append_diagnostic(result.producer.diagnostics, producer_stderr.render());
-    append_diagnostic(result.consumer.diagnostics, consumer_stderr.render());
-    trim_diagnostics(result.producer.diagnostics);
-    trim_diagnostics(result.consumer.diagnostics);
+    append_diagnostic(result.producer.diagnostics(), producer_stderr.render());
+    append_diagnostic(result.consumer.diagnostics(), consumer_stderr.render());
+    trim_diagnostics(result.producer.diagnostics());
+    trim_diagnostics(result.consumer.diagnostics());
     result.duration_ms = elapsed_ms_since(started_at);
     result.average_speed_bps = average_speed_bps(result.bytes_transferred, result.duration_ms);
     emit_event(events, btrfsbackup::backup::transfer::TransferEventKind::Completed, result, started_at);

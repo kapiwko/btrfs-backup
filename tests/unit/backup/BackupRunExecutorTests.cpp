@@ -148,14 +148,8 @@ class RecordingTransferPipeline final : public btrfsbackup::backup::transfer::IT
     std::vector<btrfsbackup::backup::transfer::TransferPipelinePlan> sizing_plans;
     std::vector<std::string>* execution_trace = nullptr;
     btrfsbackup::backup::transfer::TransferResult next_result{
-        .producer = {
-            .started = true,
-            .exit_code = 0,
-        },
-        .consumer = {
-            .started = true,
-            .exit_code = 0,
-        },
+        .producer = btrfsbackup::backup::transfer::TransferSideResult::exited(0),
+        .consumer = btrfsbackup::backup::transfer::TransferSideResult::exited(0),
     };
     std::uint64_t sizing_bytes = 4096;
     std::uint64_t progress_bytes = 0;
@@ -179,14 +173,8 @@ class RecordingTransferPipeline final : public btrfsbackup::backup::transfer::IT
                 .message = "sizing progress",
             });
             return {
-                .producer = {
-                    .started = true,
-                    .exit_code = 0,
-                },
-                .consumer = {
-                    .started = true,
-                    .exit_code = 0,
-                },
+                .producer = btrfsbackup::backup::transfer::TransferSideResult::exited(0),
+                .consumer = btrfsbackup::backup::transfer::TransferSideResult::exited(0),
                 .bytes_transferred = sizing_bytes,
                 .bytes_produced = sizing_bytes,
             };
@@ -801,8 +789,8 @@ void test_cancels_during_transfer_without_checkpointing_transfer() {
 void test_transfer_failure_emits_failed_action() {
     RecordingActionHandler handler;
     RecordingTransferPipeline transfers;
-    transfers.next_result.producer.exit_code = 7;
-    transfers.next_result.producer.diagnostics = "send failed";
+    transfers.next_result.producer.mark_exited(7);
+    transfers.next_result.producer.diagnostics() = "send failed";
     RecordingCheckpoints checkpoints;
     RecordingEvents events;
     btrfsbackup::CancellationToken cancellation;
@@ -859,8 +847,8 @@ void test_snapshot_failure_does_not_write_a_checkpoint() {
 void test_receive_failure_is_reported_separately() {
     RecordingActionHandler handler;
     RecordingTransferPipeline transfers;
-    transfers.next_result.consumer.exit_code = 9;
-    transfers.next_result.consumer.diagnostics = "receive failed";
+    transfers.next_result.consumer.mark_exited(9);
+    transfers.next_result.consumer.diagnostics() = "receive failed";
     RecordingCheckpoints checkpoints;
     RecordingEvents events;
     btrfsbackup::CancellationToken cancellation;

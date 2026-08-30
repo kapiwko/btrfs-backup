@@ -134,7 +134,7 @@ void test_profile_from_wizard_answers() {
     test_helpers::expect_true("wizard auto eject", !profile.settings.auto_eject, "auto eject should follow answers");
     test_helpers::expect_true(
         "wizard ask password activation",
-        profile.target.activation.mode == btrfsbackup::config::TargetActivationMode::AskPassword,
+        std::holds_alternative<btrfsbackup::config::AskPasswordActivation>(profile.target.activation),
         "none keyfile should select askPassword"
     );
 
@@ -144,8 +144,9 @@ void test_profile_from_wizard_answers() {
         btrfsbackup::config::profile_from_wizard_answers(key_file_answers);
     test_helpers::expect_true(
         "wizard key file activation",
-        key_file_profile.target.activation.mode == btrfsbackup::config::TargetActivationMode::KeyFile &&
-            key_file_profile.target.activation.key_file == "/root/keys/backupdisk.key",
+        std::holds_alternative<btrfsbackup::config::KeyFileActivation>(key_file_profile.target.activation) &&
+            std::get<btrfsbackup::config::KeyFileActivation>(key_file_profile.target.activation).key_file.value() ==
+                "/root/keys/backupdisk.key",
         "keyfile answer was not stored in the profile"
     );
 }

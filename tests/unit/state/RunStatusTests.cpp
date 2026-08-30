@@ -90,17 +90,20 @@ void test_run_status_rejects_inconsistent_terminal_state() {
 
     status = running_status();
     status.state = btrfsbackup::state::RunState::Failed;
+    status.phase = btrfsbackup::state::RunPhase::Failed;
     status.finished_at = status.updated_at;
     expect_invalid_status("failed error", status, "requires an error");
 
     status = running_status();
     status.state = btrfsbackup::state::RunState::Cancelled;
+    status.phase = btrfsbackup::state::RunPhase::Cancelled;
     status.finished_at = status.updated_at;
     status.can_cancel = false;
     expect_invalid_status("cancelled error", status, "requires an error");
 
     status = running_status();
     status.state = btrfsbackup::state::RunState::Succeeded;
+    status.phase = btrfsbackup::state::RunPhase::Succeeded;
     status.finished_at = status.updated_at;
     status.can_cancel = false;
     status.error = btrfsbackup::state::RunError{
@@ -112,7 +115,19 @@ void test_run_status_rejects_inconsistent_terminal_state() {
     status = running_status();
     status.state = btrfsbackup::state::RunState::Succeeded;
     status.finished_at = status.updated_at;
+    status.phase = btrfsbackup::state::RunPhase::Succeeded;
     expect_invalid_status("terminal cancellation", status, "cannot be cancelled");
+
+    status = running_status();
+    status.state = btrfsbackup::state::RunState::Succeeded;
+    status.finished_at = status.updated_at;
+    status.phase = btrfsbackup::state::RunPhase::Failed;
+    status.can_cancel = false;
+    expect_invalid_status("terminal phase", status, "state and phase do not match");
+
+    status = running_status();
+    status.phase = btrfsbackup::state::RunPhase::Succeeded;
+    expect_invalid_status("running phase", status, "must not use a terminal phase");
 }
 
 void test_run_status_accepts_consistent_active_and_failed_states() {
@@ -140,6 +155,24 @@ void test_run_status_accepts_consistent_active_and_failed_states() {
     };
     cancelled.can_cancel = false;
     btrfsbackup::state::validate_run_status(cancelled);
+
+    for (const auto [state, phase] : {
+             std::pair{btrfsbackup::state::RunState::Validated, btrfsbackup::state::RunPhase::Validated},
+             std::pair{btrfsbackup::state::RunState::Succeeded, btrfsbackup::state::RunPhase::Succeeded},
+             std::pair{btrfsbackup::state::RunState::Skipped, btrfsbackup::state::RunPhase::Skipped},
+         }) {
+        btrfsbackup::state::RunStatus terminal = running_status();
+        terminal.state = state;
+        terminal.phase = phase;
+        terminal.finished_at = terminal.updated_at;
+        terminal.can_cancel = false;
+        btrfsbackup::state::validate_run_status(terminal);
+    }
+
+    btrfsbackup::state::RunStatus validating = running_status();
+    validating.state = btrfsbackup::state::RunState::Validating;
+    validating.phase = btrfsbackup::state::RunPhase::ValidatingTarget;
+    btrfsbackup::state::validate_run_status(validating);
 }
 
 } // namespace

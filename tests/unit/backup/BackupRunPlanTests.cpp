@@ -284,7 +284,12 @@ void test_includes_pending_recovery_action() {
 
     const btrfsbackup::backup::BackupSourceRunPlan& source = plan.sources.at(0);
     test_helpers::expect_eq("recovery action", std::to_string(static_cast<int>(btrfsbackup::backup::backup_run_action_kind(source.actions().at(0)))), std::to_string(static_cast<int>(btrfsbackup::backup::BackupRunActionKind::RecoverPending)));
-    test_helpers::expect_true("recovery delete", std::get<btrfsbackup::backup::RecoverPendingAction>(source.actions().at(0)).recovery.delete_local_snapshot, "orphan should be scheduled for deletion");
+    const auto& recovery = std::get<btrfsbackup::backup::RecoverPendingAction>(source.actions().at(0)).recovery;
+    test_helpers::expect_true(
+        "recovery delete",
+        btrfsbackup::backup::pending_recovery_effect<btrfsbackup::backup::DeletePendingLocalSnapshot>(recovery) != nullptr,
+        "orphan should be scheduled for deletion"
+    );
 }
 
 void test_excludes_recovery_deletions_from_retention() {
@@ -345,7 +350,11 @@ void test_excludes_recovery_deletions_from_retention() {
     const btrfsbackup::backup::BackupSourceRunPlan& source = plan.sources.at(0);
     const auto& recovery = std::get<btrfsbackup::backup::RecoverPendingAction>(source.actions().at(0)).recovery;
     const auto& local_retention = std::get<btrfsbackup::backup::ApplyLocalRetentionAction>(source.actions().at(7)).plan;
-    test_helpers::expect_true("recovery deletes orphan", recovery.delete_local_snapshot, "orphan should be recovered");
+    test_helpers::expect_true(
+        "recovery deletes orphan",
+        btrfsbackup::backup::pending_recovery_effect<btrfsbackup::backup::DeletePendingLocalSnapshot>(recovery) != nullptr,
+        "orphan should be recovered"
+    );
     test_helpers::expect_eq("retention deletes one", std::to_string(local_retention.delete_snapshots.size()), "1");
     test_helpers::expect_true(
         "retention does not repeat recovery deletion",

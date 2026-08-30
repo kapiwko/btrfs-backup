@@ -15,12 +15,10 @@ Json profile_to_json(const Profile& profile) {
         sources.push_back({{"id", source.id.value()}, {"name", source.name}, {"enabled", source.enabled}, {"subvolume", source.subvolume.value().string()}, {"localSnapshotDir", source.local_snapshot_dir.value().string()}, {"remoteSubdir", source.remote_subdir.value().string()}, {"remoteRetention", source.remote_retention.value()}, {"localRetention", source.local_retention.value()}});
     }
 
-    Json activation = {{
-        "mode",
-        profile.target.activation.mode == TargetActivationMode::KeyFile ? "keyFile" : "askPassword",
-    }};
-    if (profile.target.activation.mode == TargetActivationMode::KeyFile) {
-        activation["keyFile"] = profile.target.activation.key_file.string();
+    Json activation = {{"mode", "askPassword"}};
+    if (const auto* key_file = std::get_if<KeyFileActivation>(&profile.target.activation)) {
+        activation["mode"] = "keyFile";
+        activation["keyFile"] = key_file->key_file.value().string();
     }
 
     Json target = {

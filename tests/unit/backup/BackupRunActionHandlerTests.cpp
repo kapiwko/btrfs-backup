@@ -575,10 +575,10 @@ void test_pending_recovery_deletes_invalid_remote_snapshot_first() {
     TestSource source = source_plan(root);
     btrfsbackup::backup::PendingRecoveryPlan recovery;
     recovery.marker_path = marker_path(source);
-    recovery.delete_remote_snapshot = true;
-    recovery.remote_snapshot_path = source.final_remote_snapshot_path;
-    recovery.delete_local_snapshot = true;
-    recovery.local_snapshot_path = source.local_snapshot_path;
+    recovery.effects = {
+        btrfsbackup::backup::DeletePendingRemoteSnapshot{source.final_remote_snapshot_path},
+        btrfsbackup::backup::DeletePendingLocalSnapshot{source.local_snapshot_path},
+    };
     FakeBtrfsOperations btrfs;
     FakeFileSystem fs_effects;
     ActionHandlerFixture handler(btrfs, fs_effects);
@@ -595,11 +595,11 @@ void test_failed_remote_recovery_keeps_local_snapshot_and_marker() {
     TestSource source = source_plan(root);
     btrfsbackup::backup::PendingRecoveryPlan recovery;
     recovery.marker_path = marker_path(source);
-    recovery.delete_remote_snapshot = true;
-    recovery.remote_snapshot_path = source.final_remote_snapshot_path;
-    recovery.delete_local_snapshot = true;
-    recovery.local_snapshot_path = source.local_snapshot_path;
-    recovery.clear_marker = true;
+    recovery.effects = {
+        btrfsbackup::backup::DeletePendingRemoteSnapshot{source.final_remote_snapshot_path},
+        btrfsbackup::backup::DeletePendingLocalSnapshot{source.local_snapshot_path},
+        btrfsbackup::backup::ClearPendingMarker{recovery.marker_path},
+    };
     btrfsbackup::platform::linux::PosixDurableFileOperations durable_files;
     btrfsbackup::state::write_pending_marker(
         durable_files,

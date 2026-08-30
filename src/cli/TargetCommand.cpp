@@ -105,7 +105,7 @@ std::string format_event(const btrfsbackup::cli::TargetEvent& event) {
 }
 
 void print_result(const btrfsbackup::cli::TargetOperationResult& result, std::ostream& output) {
-    for (const btrfsbackup::cli::TargetEvent& event : result.events) {
+    for (const btrfsbackup::cli::TargetEvent& event : target_operation_events(result)) {
         output << format_event(event) << '\n';
     }
 }
@@ -176,7 +176,7 @@ int target(
         );
     }
     print_result(result, output);
-    return result.busy ? 1 : 0;
+    return std::holds_alternative<TargetOperationBusy>(result) ? 1 : 0;
 }
 
 int target(const fs::path& profile_config_dir, const std::vector<std::string>& args, std::ostream& output) {

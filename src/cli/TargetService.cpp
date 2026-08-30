@@ -134,13 +134,13 @@ bool mapper_identity_matches(
 bool mapper_has_mounts(
     const btrfsbackup::config::Profile& profile,
     const std::vector<btrfsbackup::backup::MountEntry>& mounts,
-    btrfsbackup::cli::TargetOperationResult& result,
+    std::vector<btrfsbackup::cli::TargetEvent>& events,
     const fs::path& mapper_root = "/dev/mapper"
 ) {
     fs::path mapper = mapper_root / profile.target.mapper_name.value();
     for (const btrfsbackup::backup::MountEntry& mount : mounts) {
         if (btrfsbackup::config::normalized_path(btrfsbackup::platform::linux::strip_subvolume_suffix(mount.source)) == btrfsbackup::config::normalized_path(mapper)) {
-            result.events.push_back({
+            events.push_back({
                 .kind = btrfsbackup::cli::TargetEventKind::MapperStillMounted,
                 .detail = mount.target,
             });
@@ -287,13 +287,12 @@ std::optional<btrfsbackup::platform::linux::FileLock> acquire_target_lock(
     const btrfsbackup::config::Profile& profile,
     const fs::path& lock_root,
     const std::string& operation,
-    btrfsbackup::cli::TargetOperationResult& result
+    std::vector<btrfsbackup::cli::TargetEvent>& events
 ) {
     std::optional<btrfsbackup::platform::linux::FileLock> lock;
     lock.emplace(btrfsbackup::platform::linux::target_lock_path(lock_root, profile.target.luks_uuid.value()));
     if (!lock->try_acquire()) {
-        result.busy = true;
-        result.events.push_back({
+        events.push_back({
             .kind = btrfsbackup::cli::TargetEventKind::Busy,
             .detail = operation,
         });
@@ -305,6 +304,10 @@ std::optional<btrfsbackup::platform::linux::FileLock> acquire_target_lock(
 } // namespace
 
 namespace btrfsbackup::cli {
+
+const std::vector<TargetEvent>& target_operation_events(const TargetOperationResult& result) noexcept {
+    return std::visit([](const auto& outcome) -> const std::vector<TargetEvent>& { return outcome.events; }, result);
+}
 
 TargetOperationResult activate_target(
     const ActivateTargetRequest& request,
@@ -318,7 +321,7 @@ TargetOperationResult activate_target(
     ResolvedDependencies resolved = resolve_dependencies(dependencies);
     btrfsbackup::platform::linux::FileLock activation_lock = acquire_activation_lock(resolved, profile);
     (void)activation_lock;
-    TargetOperationResult result;
+    std::vector<TargetEvent> events;
     const fs::path mapper = resolved.mapper_root / profile.target.mapper_name.value();
 
     validate_luks_uuid(*resolved.commands, profile);
@@ -330,13 +333,13 @@ TargetOperationResult activate_target(
             );
         }
         (void)activation_is_owned(resolved, profile);
-        result.events.push_back({.kind = TargetEventKind::Activated, .detail = profile.target.mapper_name.value()});
-        return result;
+        events.push_back({.kind = TargetEventKind::Activated, .detail = profile.target.mapper_name.value()});
+        return TargetOperationCompleted{std::move(events)};
     }
 
     std::string key_file = "-";
-    if (profile.target.activation.mode == btrfsbackup::config::TargetActivationMode::KeyFile) {
-        const fs::path& configured_key_file = profile.target.activation.key_file;
+    if (const auto* activation = std::get_if<btrfsbackup::config::KeyFileActivation>(&profile.target.activation)) {
+        const fs::path& configured_key_file = activation->key_file.value();
         btrfsbackup::platform::linux::validate_trusted_directory(
             configured_key_file.parent_path(),
             resolved.keyfile_trust_root,
@@ -349,7 +352,7 @@ TargetOperationResult activate_target(
         key_file = configured_key_file.string();
     }
 
-    result.events.push_back({.kind = TargetEventKind::Activating, .detail = profile.target.mapper_name.value()});
+    events.push_back({.kind = TargetEventKind::Activating, .detail = profile.target.mapper_name.value()});
     run_checked_controlled(
         *resolved.commands,
         {
@@ -390,8 +393,8 @@ TargetOperationResult activate_target(
         );
         throw;
     }
-    result.events.push_back({.kind = TargetEventKind::Activated, .detail = profile.target.mapper_name.value()});
-    return result;
+    events.push_back({.kind = TargetEventKind::Activated, .detail = profile.target.mapper_name.value()});
+    return TargetOperationCompleted{std::move(events)};
 }
 
 TargetOperationResult deactivate_target(
@@ -406,22 +409,22 @@ TargetOperationResult deactivate_target(
     ResolvedDependencies resolved = resolve_dependencies(dependencies);
     btrfsbackup::platform::linux::FileLock activation_lock = acquire_activation_lock(resolved, profile);
     (void)activation_lock;
-    TargetOperationResult result;
+    std::vector<TargetEvent> events;
     if (!activation_is_owned(resolved, profile)) {
-        result.events.push_back({.kind = TargetEventKind::Deactivated, .detail = profile.target.mapper_name.value()});
-        return result;
+        events.push_back({.kind = TargetEventKind::Deactivated, .detail = profile.target.mapper_name.value()});
+        return TargetOperationCompleted{std::move(events)};
     }
 
     const fs::path mapper = resolved.mapper_root / profile.target.mapper_name.value();
     if (!fs::exists(mapper)) {
         remove_activation_marker(resolved, profile);
-        result.events.push_back({.kind = TargetEventKind::Deactivated, .detail = profile.target.mapper_name.value()});
-        return result;
+        events.push_back({.kind = TargetEventKind::Deactivated, .detail = profile.target.mapper_name.value()});
+        return TargetOperationCompleted{std::move(events)};
     }
     if (!mapper_identity_matches(*resolved.commands, profile, resolved.canonical_device)) {
         throw ValidationError("Refusing to deactivate a mapper that does not match configuration");
     }
-    if (mapper_has_mounts(profile, resolved.read_mounts(), result, resolved.mapper_root)) {
+    if (mapper_has_mounts(profile, resolved.read_mounts(), events, resolved.mapper_root)) {
         throw ValidationError("Refusing to deactivate LUKS mapper while it still has mounted filesystems");
     }
     run_checked_controlled(
@@ -434,8 +437,8 @@ TargetOperationResult deactivate_target(
         throw ValidationError("LUKS mapper remains active after deactivation");
     }
     remove_activation_marker(resolved, profile);
-    result.events.push_back({.kind = TargetEventKind::Deactivated, .detail = profile.target.mapper_name.value()});
-    return result;
+    events.push_back({.kind = TargetEventKind::Deactivated, .detail = profile.target.mapper_name.value()});
+    return TargetOperationCompleted{std::move(events)};
 }
 
 TargetOperationResult mount_target(
@@ -445,10 +448,10 @@ TargetOperationResult mount_target(
     require_root();
     btrfsbackup::config::Profile profile = btrfsbackup::platform::linux::load_profile_by_id(request.profile_config_dir, std::string(request.profile_id.value()));
     ResolvedDependencies resolved = resolve_dependencies(dependencies);
-    TargetOperationResult result;
-    std::optional<btrfsbackup::platform::linux::FileLock> lock = acquire_target_lock(profile, resolved.lock_root, "mount", result);
+    std::vector<TargetEvent> events;
+    std::optional<btrfsbackup::platform::linux::FileLock> lock = acquire_target_lock(profile, resolved.lock_root, "mount", events);
     if (!lock.has_value()) {
-        return result;
+        return TargetOperationBusy{std::move(events)};
     }
 
     validate_luks_uuid(*resolved.commands, profile);
@@ -457,7 +460,7 @@ TargetOperationResult mount_target(
         btrfsbackup::platform::linux::validate_trusted_directory(profile.target.mount_point, resolved.mount_point_trust_root, geteuid());
     } else {
         btrfsbackup::platform::linux::ensure_trusted_directory(profile.target.mount_point, 0755, resolved.mount_point_trust_root, geteuid());
-        result.events.push_back({.kind = TargetEventKind::Mounting, .detail = {}});
+        events.push_back({.kind = TargetEventKind::Mounting, .detail = {}});
         const std::string mount_unit = btrfsbackup::platform::linux::systemd_mount_unit_name(profile.target.mount_point);
         run_checked(
             *resolved.commands,
@@ -467,11 +470,11 @@ TargetOperationResult mount_target(
     }
 
     btrfsbackup::backup::validate_backup_target_mount(profile, resolved.read_mounts());
-    result.events.push_back({
+    events.push_back({
         .kind = TargetEventKind::Mounted,
         .detail = profile.target.mount_point.value().string(),
     });
-    return result;
+    return TargetOperationCompleted{std::move(events)};
 }
 
 TargetOperationResult eject_target(
@@ -480,20 +483,19 @@ TargetOperationResult eject_target(
 ) {
     require_root();
     btrfsbackup::config::Profile profile = btrfsbackup::platform::linux::load_profile_by_id(request.profile_config_dir, std::string(request.profile_id.value()));
-    TargetOperationResult result;
+    std::vector<TargetEvent> events;
     if (request.automatic && !profile.settings.auto_eject) {
-        result.skipped = true;
-        result.events.push_back({.kind = TargetEventKind::AutomaticEjectDisabled, .detail = {}});
-        return result;
+        events.push_back({.kind = TargetEventKind::AutomaticEjectDisabled, .detail = {}});
+        return TargetOperationSkipped{std::move(events)};
     }
 
     ResolvedDependencies resolved = resolve_dependencies(dependencies);
-    std::optional<btrfsbackup::platform::linux::FileLock> lock = acquire_target_lock(profile, resolved.lock_root, "eject", result);
+    std::optional<btrfsbackup::platform::linux::FileLock> lock = acquire_target_lock(profile, resolved.lock_root, "eject", events);
     if (!lock.has_value()) {
-        return result;
+        return TargetOperationBusy{std::move(events)};
     }
 
-    result.events.push_back({.kind = TargetEventKind::Synchronizing, .detail = {}});
+    events.push_back({.kind = TargetEventKind::Synchronizing, .detail = {}});
     run_checked_controlled(*resolved.commands, {"sync"}, "sync failed", std::chrono::minutes(5));
 
     std::vector<btrfsbackup::backup::MountEntry> mounts = resolved.read_mounts();
@@ -504,7 +506,7 @@ TargetOperationResult eject_target(
                 " because it is not backed by /dev/mapper/" + profile.target.mapper_name.value()
             );
         }
-        result.events.push_back({
+        events.push_back({
             .kind = TargetEventKind::Unmounting,
             .detail = profile.target.mount_point.value().string(),
         });
@@ -517,7 +519,7 @@ TargetOperationResult eject_target(
     const std::string target_unit = btrfsbackup::platform::linux::target_activation_unit_name(
         profile.id.value()
     );
-    result.events.push_back({
+    events.push_back({
         .kind = TargetEventKind::StoppingTargetUnit,
         .detail = target_unit,
     });
@@ -535,13 +537,13 @@ TargetOperationResult eject_target(
                 " because its underlying device does not match configuration."
             );
         }
-        if (mapper_has_mounts(profile, resolved.read_mounts(), result, resolved.mapper_root)) {
+        if (mapper_has_mounts(profile, resolved.read_mounts(), events, resolved.mapper_root)) {
             throw ValidationError(
                 "Refusing to close mapper " + profile.target.mapper_name.value() +
                 " while it still has mounted filesystems."
             );
         }
-        result.events.push_back({
+        events.push_back({
             .kind = TargetEventKind::ClosingMapper,
             .detail = profile.target.mapper_name.value(),
         });
@@ -558,11 +560,11 @@ TargetOperationResult eject_target(
     run_ignored(*resolved.commands, {"udevadm", "settle", "--timeout=10"});
 
     if (request.automatic && !request.service_succeeded) {
-        result.events.push_back({.kind = TargetEventKind::EjectedAfterFailedBackup, .detail = {}});
+        events.push_back({.kind = TargetEventKind::EjectedAfterFailedBackup, .detail = {}});
     } else {
-        result.events.push_back({.kind = TargetEventKind::Ejected, .detail = {}});
+        events.push_back({.kind = TargetEventKind::Ejected, .detail = {}});
     }
-    return result;
+    return TargetOperationCompleted{std::move(events)};
 }
 
 } // namespace btrfsbackup::cli

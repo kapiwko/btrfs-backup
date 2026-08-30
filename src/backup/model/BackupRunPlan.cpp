@@ -204,16 +204,16 @@ BackupRunPlan build_backup_run_plan(
         );
 
         std::vector<SnapshotInfo> projected_local = current_local_snapshots;
-        if (recovery.delete_local_snapshot) {
+        if (const auto* effect = pending_recovery_effect<DeletePendingLocalSnapshot>(recovery)) {
             std::erase_if(projected_local, [&](const SnapshotInfo& snapshot) {
-                return snapshot.path == recovery.local_snapshot_path;
+                return snapshot.path == effect->snapshot_path;
             });
         }
         projected_local.push_back(projected_snapshot(SnapshotSide::Local, source_id, snapshot_name, snapshot_timestamp, local_snapshot_path));
         std::vector<SnapshotInfo> projected_remote = current_remote_snapshots;
-        if (recovery.delete_remote_snapshot) {
+        if (const auto* effect = pending_recovery_effect<DeletePendingRemoteSnapshot>(recovery)) {
             std::erase_if(projected_remote, [&](const SnapshotInfo& snapshot) {
-                return snapshot.path == recovery.remote_snapshot_path;
+                return snapshot.path == effect->snapshot_path;
             });
         }
         projected_remote.push_back(projected_snapshot(SnapshotSide::Remote, source_id, snapshot_name, snapshot_timestamp, final_remote_snapshot_path));
@@ -221,11 +221,12 @@ BackupRunPlan build_backup_run_plan(
         RetentionPlan local_retention = plan_count_retention(source_id, projected_local, source.local_retention.value());
         RetentionPlan remote_retention = plan_count_retention(source_id, projected_remote, source.remote_retention.value());
 
-        const std::optional<fs::path> parent_path = parent.local_parent.has_value()
-            ? std::optional<fs::path>(parent.local_parent->path)
+        const auto* incremental_parent = std::get_if<IncrementalTransfer>(&parent);
+        const std::optional<fs::path> parent_path = incremental_parent != nullptr
+            ? std::optional<fs::path>(incremental_parent->local_parent.path)
             : std::nullopt;
         std::vector<BackupRunAction> actions;
-        if (recovery.action != PendingRecoveryAction::NoMarker) {
+        if (recovery.required()) {
             actions.emplace_back(RecoverPendingAction{source_id, recovery});
         }
         actions.emplace_back(CleanupIncomingAction{source_id, incoming_source_root});

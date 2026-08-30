@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <functional>
 #include <string>
+#include <variant>
 #include <vector>
 
 #include <backup/ports/ICommandRunner.hpp>
@@ -72,11 +73,24 @@ struct TargetEvent {
     std::string detail;
 };
 
-struct TargetOperationResult {
-    bool busy = false;
-    bool skipped = false;
+struct TargetOperationCompleted {
     std::vector<TargetEvent> events;
 };
+
+struct TargetOperationBusy {
+    std::vector<TargetEvent> events;
+};
+
+struct TargetOperationSkipped {
+    std::vector<TargetEvent> events;
+};
+
+using TargetOperationResult = std::variant<
+    TargetOperationCompleted,
+    TargetOperationBusy,
+    TargetOperationSkipped>;
+
+[[nodiscard]] const std::vector<TargetEvent>& target_operation_events(const TargetOperationResult& result) noexcept;
 
 TargetOperationResult mount_target(
     const MountTargetRequest& request,
