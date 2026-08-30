@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <platform/linux/TrustedDirectory.hpp>
+#include <platform/linux/filesystem/TrustedDirectory.hpp>
 
 #include <fcntl.h>
 #include <linux/openat2.h>
@@ -17,11 +17,11 @@
 
 #include <core/Errors.hpp>
 #include <config/model/Validation.hpp>
-#include <platform/linux/SafeDirectoryRoot.hpp>
+#include <platform/linux/filesystem/SafeDirectoryRoot.hpp>
 
 namespace fs = std::filesystem;
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::filesystem {
 
 namespace {
 
@@ -133,4 +133,4 @@ void ensure_trusted_directory(
     }
 }
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::filesystem

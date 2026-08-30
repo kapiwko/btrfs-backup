@@ -2,18 +2,18 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <platform/linux/PosixDurableFileOperations.hpp>
+#include <platform/linux/filesystem/PosixDurableFileOperations.hpp>
 
 #include <string>
 #include <system_error>
 #include <sys/types.h>
 
 #include <core/Errors.hpp>
-#include <platform/linux/FileIo.hpp>
+#include <platform/linux/filesystem/FileIo.hpp>
 
 namespace fs = std::filesystem;
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::filesystem {
 
 void PosixDurableFileOperations::ensure_directory(const fs::path& path, fs::perms permissions) {
     fs::create_directories(path);
@@ -43,4 +43,4 @@ void PosixDurableFileOperations::remove_durably(const fs::path& path) {
     }
 }
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::filesystem

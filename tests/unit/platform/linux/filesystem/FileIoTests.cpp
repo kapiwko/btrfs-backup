@@ -11,7 +11,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include <platform/linux/FileIo.hpp>
+#include <platform/linux/filesystem/FileIo.hpp>
 
 #include "support/ValidationTestHelpers.hpp"
 
@@ -63,7 +63,7 @@ void expect_atomic_failure(const std::string& name, FailurePoint point, const st
     failure_point = point;
     test_helpers::expect_validation_error(
         name,
-        [&] { btrfsbackup::platform::linux::atomic_write(path, "new", 0600); },
+        [&] { btrfsbackup::platform::linux::filesystem::atomic_write(path, "new", 0600); },
         expected_error
     );
     reset_faults();
@@ -85,7 +85,7 @@ void test_atomic_write_replaces_file_with_requested_mode() {
     const fs::path path = root / "state";
     test_helpers::write_file(path, "old");
 
-    btrfsbackup::platform::linux::atomic_write(path, "new content", 0640);
+    btrfsbackup::platform::linux::filesystem::atomic_write(path, "new content", 0640);
 
     struct stat metadata{};
     test_helpers::expect_eq("atomic content", read_file(path), "new content");
@@ -103,7 +103,7 @@ void test_write_retries_eintr() {
     const fs::path path = root / "state";
     interrupt_next_write = true;
 
-    btrfsbackup::platform::linux::atomic_write(path, "written after interruption", 0600);
+    btrfsbackup::platform::linux::filesystem::atomic_write(path, "written after interruption", 0600);
     reset_faults();
 
     test_helpers::expect_eq("write EINTR retry", read_file(path), "written after interruption");
@@ -123,7 +123,7 @@ void test_fsync_dir_reports_open_failure() {
     const fs::path root = test_helpers::test_root("file-io", "directory-open");
     test_helpers::expect_validation_error(
         "directory open failure",
-        [&] { btrfsbackup::platform::linux::fsync_dir(root / "missing"); },
+        [&] { btrfsbackup::platform::linux::filesystem::fsync_dir(root / "missing"); },
         "cannot open directory"
     );
 }

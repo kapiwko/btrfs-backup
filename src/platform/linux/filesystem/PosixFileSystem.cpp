@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <platform/linux/PosixFileSystem.hpp>
+#include <platform/linux/filesystem/PosixFileSystem.hpp>
 
 #include <algorithm>
 
@@ -10,7 +10,7 @@
 
 namespace fs = std::filesystem;
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::filesystem {
 
 bool PosixFileSystem::exists(const fs::path& path) {
     std::error_code ec;
@@ -73,4 +73,4 @@ std::vector<fs::path> PosixFileSystem::list_directory(const fs::path& path) {
     return entries;
 }
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::filesystem

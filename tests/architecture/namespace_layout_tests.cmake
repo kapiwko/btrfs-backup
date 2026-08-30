@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 set(namespace_layout
+    "src/platform/linux/filesystem|btrfsbackup::platform::linux::filesystem"
     "src/platform/linux/process|btrfsbackup::platform::linux::process"
     "src/platform/linux/transfer|btrfsbackup::platform::linux::transfer"
     "src/backup/transfer|btrfsbackup::backup::transfer"

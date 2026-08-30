@@ -10,7 +10,7 @@
 #include <string>
 
 #include <platform/linux/process/Process.hpp>
-#include <platform/linux/TrustedExecutable.hpp>
+#include <platform/linux/filesystem/TrustedExecutable.hpp>
 
 #include "support/ValidationTestHelpers.hpp"
 
@@ -32,9 +32,9 @@ fs::path write_executable(const fs::path& path, const std::string& output) {
 void test_accepts_private_regular_executable() {
     fs::path root = test_helpers::test_root("trusted-executable", "valid");
     fs::path program = write_executable(root / "prepare", "valid");
-    btrfsbackup::platform::linux::SafeDirectoryRoot trusted_root(root);
+    btrfsbackup::platform::linux::filesystem::SafeDirectoryRoot trusted_root(root);
 
-    btrfsbackup::platform::linux::SafeDirectoryHandle executable = btrfsbackup::platform::linux::open_trusted_executable(
+    btrfsbackup::platform::linux::filesystem::SafeDirectoryHandle executable = btrfsbackup::platform::linux::filesystem::open_trusted_executable(
         trusted_root,
         program,
         rootless_test_policy
@@ -49,10 +49,10 @@ void test_rejects_symlink_and_non_regular_file() {
     fs::path real_program = write_executable(root / "real", "real");
     fs::create_symlink(real_program.filename(), root / "linked");
     fs::create_directory(root / "directory");
-    btrfsbackup::platform::linux::SafeDirectoryRoot trusted_root(root);
+    btrfsbackup::platform::linux::filesystem::SafeDirectoryRoot trusted_root(root);
 
-    test_helpers::expect_validation_error("trusted executable symlink", [&] { (void)btrfsbackup::platform::linux::open_trusted_executable(trusted_root, root / "linked", rootless_test_policy); }, "cannot open path below safe directory root");
-    test_helpers::expect_validation_error("trusted executable directory", [&] { (void)btrfsbackup::platform::linux::open_trusted_executable(trusted_root, root / "directory", rootless_test_policy); }, "not a regular file");
+    test_helpers::expect_validation_error("trusted executable symlink", [&] { (void)btrfsbackup::platform::linux::filesystem::open_trusted_executable(trusted_root, root / "linked", rootless_test_policy); }, "cannot open path below safe directory root");
+    test_helpers::expect_validation_error("trusted executable directory", [&] { (void)btrfsbackup::platform::linux::filesystem::open_trusted_executable(trusted_root, root / "directory", rootless_test_policy); }, "not a regular file");
 
     fs::remove_all(root);
 }
@@ -60,13 +60,13 @@ void test_rejects_symlink_and_non_regular_file() {
 void test_rejects_unsafe_permissions_and_missing_execute_bit() {
     fs::path root = test_helpers::test_root("trusted-executable", "mode");
     fs::path program = write_executable(root / "prepare", "mode");
-    btrfsbackup::platform::linux::SafeDirectoryRoot trusted_root(root);
+    btrfsbackup::platform::linux::filesystem::SafeDirectoryRoot trusted_root(root);
 
     chmod(program.c_str(), 0720);
-    test_helpers::expect_validation_error("trusted executable writable by group", [&] { (void)btrfsbackup::platform::linux::open_trusted_executable(trusted_root, program, rootless_test_policy); }, "writable by group or others");
+    test_helpers::expect_validation_error("trusted executable writable by group", [&] { (void)btrfsbackup::platform::linux::filesystem::open_trusted_executable(trusted_root, program, rootless_test_policy); }, "writable by group or others");
 
     chmod(program.c_str(), 0600);
-    test_helpers::expect_validation_error("trusted executable not executable", [&] { (void)btrfsbackup::platform::linux::open_trusted_executable(trusted_root, program, rootless_test_policy); }, "not executable");
+    test_helpers::expect_validation_error("trusted executable not executable", [&] { (void)btrfsbackup::platform::linux::filesystem::open_trusted_executable(trusted_root, program, rootless_test_policy); }, "not executable");
 
     fs::remove_all(root);
 }
@@ -74,10 +74,10 @@ void test_rejects_unsafe_permissions_and_missing_execute_bit() {
 void test_rejects_nested_program_and_untrusted_parent() {
     fs::path root = test_helpers::test_root("trusted-executable", "parent");
     fs::path nested = write_executable(root / "nested" / "prepare", "nested");
-    btrfsbackup::platform::linux::SafeDirectoryRoot trusted_root(root);
+    btrfsbackup::platform::linux::filesystem::SafeDirectoryRoot trusted_root(root);
 
-    test_helpers::expect_validation_error("trusted executable nested", [&] { (void)btrfsbackup::platform::linux::open_trusted_executable(trusted_root, nested, rootless_test_policy); }, "must be a direct child");
-    test_helpers::expect_validation_error("trusted executable writable parent", [&] { (void)btrfsbackup::platform::linux::open_trusted_executable(
+    test_helpers::expect_validation_error("trusted executable nested", [&] { (void)btrfsbackup::platform::linux::filesystem::open_trusted_executable(trusted_root, nested, rootless_test_policy); }, "must be a direct child");
+    test_helpers::expect_validation_error("trusted executable writable parent", [&] { (void)btrfsbackup::platform::linux::filesystem::open_trusted_executable(
                                                                                           trusted_root,
                                                                                           root / "nested",
                                                                                           {.allow_current_user_owner = true, .verify_parent_directories = true}
@@ -89,8 +89,8 @@ void test_rejects_nested_program_and_untrusted_parent() {
 void test_pinned_descriptor_prevents_path_replacement_race() {
     fs::path root = test_helpers::test_root("trusted-executable", "pinned");
     fs::path program = write_executable(root / "prepare", "trusted-original");
-    btrfsbackup::platform::linux::SafeDirectoryRoot trusted_root(root);
-    btrfsbackup::platform::linux::SafeDirectoryHandle executable = btrfsbackup::platform::linux::open_trusted_executable(
+    btrfsbackup::platform::linux::filesystem::SafeDirectoryRoot trusted_root(root);
+    btrfsbackup::platform::linux::filesystem::SafeDirectoryHandle executable = btrfsbackup::platform::linux::filesystem::open_trusted_executable(
         trusted_root,
         program,
         rootless_test_policy

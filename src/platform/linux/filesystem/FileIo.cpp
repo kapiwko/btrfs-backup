@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <platform/linux/FileIo.hpp>
+#include <platform/linux/filesystem/FileIo.hpp>
 
 #include <algorithm>
 #include <cerrno>
@@ -49,7 +49,7 @@ void close_checked(
 
 } // namespace
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::filesystem {
 
 void atomic_write(const fs::path& path, const std::string& data, mode_t mode) {
     const fs::path parent = path.has_parent_path() ? path.parent_path() : fs::path(".");
@@ -122,4 +122,4 @@ void fsync_dir(const fs::path& path) {
     close_checked(fd, path, "cannot close directory");
 }
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::filesystem

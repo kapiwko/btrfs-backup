@@ -24,13 +24,13 @@
 #include <config/model/Validation.hpp>
 #include <platform/linux/process/PosixCommandRunner.hpp>
 #include <platform/linux/DeviceInfo.hpp>
-#include <platform/linux/FileIo.hpp>
-#include <platform/linux/FileLock.hpp>
+#include <platform/linux/filesystem/FileIo.hpp>
+#include <platform/linux/filesystem/FileLock.hpp>
 #include <platform/linux/MountInfo.hpp>
 #include <platform/linux/process/Process.hpp>
-#include <platform/linux/TrustedDirectory.hpp>
+#include <platform/linux/filesystem/TrustedDirectory.hpp>
 #include <platform/linux/SystemdUnit.hpp>
-#include <platform/linux/TrustedFile.hpp>
+#include <platform/linux/filesystem/TrustedFile.hpp>
 
 namespace fs = std::filesystem;
 
@@ -168,7 +168,7 @@ ResolvedDependencies resolve_dependencies(btrfsbackup::cli::TargetServiceDepende
             ? std::function<std::vector<btrfsbackup::backup::MountEntry>()>([] { return btrfsbackup::platform::linux::read_mount_table(); })
             : dependencies.read_mounts,
         .lock_root = dependencies.lock_root.empty()
-            ? btrfsbackup::platform::linux::default_lock_root()
+            ? btrfsbackup::platform::linux::filesystem::default_lock_root()
             : dependencies.lock_root,
         .mount_point_trust_root = dependencies.mount_point_trust_root.empty()
             ? fs::path("/")
@@ -211,12 +211,12 @@ fs::path activation_marker_path(const ResolvedDependencies& resolved, const btrf
     return resolved.activation_state_root / (std::string(profile.id.value()) + ".json");
 }
 
-btrfsbackup::platform::linux::FileLock acquire_activation_lock(
+btrfsbackup::platform::linux::filesystem::FileLock acquire_activation_lock(
     const ResolvedDependencies& resolved,
     const btrfsbackup::config::Profile& profile
 ) {
-    btrfsbackup::platform::linux::FileLock lock(
-        btrfsbackup::platform::linux::target_lock_path(
+    btrfsbackup::platform::linux::filesystem::FileLock lock(
+        btrfsbackup::platform::linux::filesystem::target_lock_path(
             resolved.activation_state_root / ".locks",
             profile.target.luks_uuid
         )
@@ -242,7 +242,7 @@ bool activation_is_owned(
     }
     try {
         const btrfsbackup::config::Json marker = btrfsbackup::config::Json::parse(
-            btrfsbackup::platform::linux::read_trusted_config_file(
+            btrfsbackup::platform::linux::filesystem::read_trusted_config_file(
                 marker_path,
                 {.allow_current_user_owner = rootless_tests_allowed()}
             )
@@ -266,7 +266,7 @@ void write_activation_marker(
     const ResolvedDependencies& resolved,
     const btrfsbackup::config::Profile& profile
 ) {
-    btrfsbackup::platform::linux::atomic_write(
+    btrfsbackup::platform::linux::filesystem::atomic_write(
         activation_marker_path(resolved, profile),
         btrfsbackup::config::dump_json({
             {"schemaVersion", 1},
@@ -289,17 +289,17 @@ void remove_activation_marker(
     if (error) {
         throw btrfsbackup::ValidationError("cannot remove target activation marker: " + error.message());
     }
-    btrfsbackup::platform::linux::fsync_dir(marker_path.parent_path());
+    btrfsbackup::platform::linux::filesystem::fsync_dir(marker_path.parent_path());
 }
 
-std::optional<btrfsbackup::platform::linux::FileLock> acquire_target_lock(
+std::optional<btrfsbackup::platform::linux::filesystem::FileLock> acquire_target_lock(
     const btrfsbackup::config::Profile& profile,
     const fs::path& lock_root,
     const std::string& operation,
     std::vector<btrfsbackup::cli::TargetEvent>& events
 ) {
-    std::optional<btrfsbackup::platform::linux::FileLock> lock;
-    lock.emplace(btrfsbackup::platform::linux::target_lock_path(lock_root, profile.target.luks_uuid));
+    std::optional<btrfsbackup::platform::linux::filesystem::FileLock> lock;
+    lock.emplace(btrfsbackup::platform::linux::filesystem::target_lock_path(lock_root, profile.target.luks_uuid));
     if (!lock->try_acquire()) {
         events.push_back({
             .kind = btrfsbackup::cli::TargetEventKind::Busy,
@@ -328,7 +328,7 @@ TargetOperationResult activate_target(
         std::string(request.profile_id.value())
     );
     ResolvedDependencies resolved = resolve_dependencies(dependencies);
-    btrfsbackup::platform::linux::FileLock activation_lock = acquire_activation_lock(resolved, profile);
+    btrfsbackup::platform::linux::filesystem::FileLock activation_lock = acquire_activation_lock(resolved, profile);
     (void)activation_lock;
     std::vector<TargetEvent> events;
     const fs::path mapper = resolved.mapper_root / profile.target.mapper_name.value();
@@ -349,12 +349,12 @@ TargetOperationResult activate_target(
     std::string key_file = "-";
     if (const auto* activation = std::get_if<btrfsbackup::config::KeyFileActivation>(&profile.target.activation)) {
         const fs::path& configured_key_file = activation->key_file.value();
-        btrfsbackup::platform::linux::validate_trusted_directory(
+        btrfsbackup::platform::linux::filesystem::validate_trusted_directory(
             configured_key_file.parent_path(),
             resolved.keyfile_trust_root,
             rootless_tests_allowed() ? geteuid() : 0
         );
-        btrfsbackup::platform::linux::assert_trusted_config_file(
+        btrfsbackup::platform::linux::filesystem::assert_trusted_config_file(
             configured_key_file,
             {.allow_current_user_owner = rootless_tests_allowed()}
         );
@@ -416,7 +416,7 @@ TargetOperationResult deactivate_target(
         std::string(request.profile_id.value())
     );
     ResolvedDependencies resolved = resolve_dependencies(dependencies);
-    btrfsbackup::platform::linux::FileLock activation_lock = acquire_activation_lock(resolved, profile);
+    btrfsbackup::platform::linux::filesystem::FileLock activation_lock = acquire_activation_lock(resolved, profile);
     (void)activation_lock;
     std::vector<TargetEvent> events;
     if (!activation_is_owned(resolved, profile)) {
@@ -458,7 +458,7 @@ TargetOperationResult mount_target(
     btrfsbackup::config::Profile profile = btrfsbackup::platform::linux::load_profile_by_id(request.profile_config_dir, std::string(request.profile_id.value()));
     ResolvedDependencies resolved = resolve_dependencies(dependencies);
     std::vector<TargetEvent> events;
-    std::optional<btrfsbackup::platform::linux::FileLock> lock = acquire_target_lock(profile, resolved.lock_root, "mount", events);
+    std::optional<btrfsbackup::platform::linux::filesystem::FileLock> lock = acquire_target_lock(profile, resolved.lock_root, "mount", events);
     if (!lock.has_value()) {
         return TargetOperationBusy{std::move(events)};
     }
@@ -466,9 +466,9 @@ TargetOperationResult mount_target(
     validate_luks_uuid(resolved.commands, profile);
     std::vector<btrfsbackup::backup::MountEntry> mounts = resolved.read_mounts();
     if (btrfsbackup::backup::mount_at(mounts, profile.target.mount_point).has_value()) {
-        btrfsbackup::platform::linux::validate_trusted_directory(profile.target.mount_point, resolved.mount_point_trust_root, geteuid());
+        btrfsbackup::platform::linux::filesystem::validate_trusted_directory(profile.target.mount_point, resolved.mount_point_trust_root, geteuid());
     } else {
-        btrfsbackup::platform::linux::ensure_trusted_directory(profile.target.mount_point, 0755, resolved.mount_point_trust_root, geteuid());
+        btrfsbackup::platform::linux::filesystem::ensure_trusted_directory(profile.target.mount_point, 0755, resolved.mount_point_trust_root, geteuid());
         events.push_back({.kind = TargetEventKind::Mounting, .detail = {}});
         const std::string mount_unit = btrfsbackup::platform::linux::systemd_mount_unit_name(profile.target.mount_point);
         run_checked(
@@ -499,7 +499,7 @@ TargetOperationResult eject_target(
     }
 
     ResolvedDependencies resolved = resolve_dependencies(dependencies);
-    std::optional<btrfsbackup::platform::linux::FileLock> lock = acquire_target_lock(profile, resolved.lock_root, "eject", events);
+    std::optional<btrfsbackup::platform::linux::filesystem::FileLock> lock = acquire_target_lock(profile, resolved.lock_root, "eject", events);
     if (!lock.has_value()) {
         return TargetOperationBusy{std::move(events)};
     }

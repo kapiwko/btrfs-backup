@@ -8,7 +8,7 @@
 #include <system_error>
 #include <type_traits>
 
-#include <platform/linux/FileIo.hpp>
+#include <platform/linux/filesystem/FileIo.hpp>
 
 static_assert(std::is_nothrow_destructible_v<btrfsbackup::daemon::OperationEnvironmentFile>);
 
@@ -18,7 +18,7 @@ OperationEnvironmentFile::OperationEnvironmentFile(
     const std::filesystem::path& root,
     const AuthorizedOperationContext& context
 ) : path_(root / (std::string(context.operation_id.value()) + ".env")) {
-    btrfsbackup::platform::linux::atomic_write(
+    btrfsbackup::platform::linux::filesystem::atomic_write(
         path_,
         authorized_operation_environment(context),
         0600

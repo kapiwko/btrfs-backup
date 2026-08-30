@@ -8,7 +8,7 @@
 #include <sys/stat.h>
 
 #include <state/RunState.hpp>
-#include <platform/linux/PosixDurableFileOperations.hpp>
+#include <platform/linux/filesystem/PosixDurableFileOperations.hpp>
 
 #include "support/TestHelpers.hpp"
 
@@ -16,8 +16,8 @@ namespace fs = std::filesystem;
 
 namespace {
 
-btrfsbackup::platform::linux::PosixDurableFileOperations& durable_files() {
-    static btrfsbackup::platform::linux::PosixDurableFileOperations files;
+btrfsbackup::platform::linux::filesystem::PosixDurableFileOperations& durable_files() {
+    static btrfsbackup::platform::linux::filesystem::PosixDurableFileOperations files;
     return files;
 }
 

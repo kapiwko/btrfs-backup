@@ -6,7 +6,7 @@
 
 #include <backup/ports/IFileSystem.hpp>
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::filesystem {
 
 class PosixFileSystem final : public btrfsbackup::backup::IFileSystem {
   public:
@@ -20,4 +20,4 @@ class PosixFileSystem final : public btrfsbackup::backup::IFileSystem {
     std::vector<std::filesystem::path> list_directory(const std::filesystem::path& path) override;
 };
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::filesystem

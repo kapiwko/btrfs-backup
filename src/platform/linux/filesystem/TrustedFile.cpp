@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <platform/linux/TrustedFile.hpp>
+#include <platform/linux/filesystem/TrustedFile.hpp>
 
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -14,7 +14,7 @@
 #include <core/Errors.hpp>
 #include <platform/linux/OwnedFileDescriptor.hpp>
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::filesystem {
 
 namespace {
 
@@ -82,4 +82,4 @@ std::string read_trusted_config_file(const std::filesystem::path& path, const Tr
     return read_all(fd.get(), path);
 }
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::filesystem

@@ -23,16 +23,16 @@
 #include <platform/linux/config/ApplicationConfig.hpp>
 #include <platform/linux/config/FileProfileRepository.hpp>
 #include <platform/linux/config/ProfileRuntimePolicy.hpp>
-#include <platform/linux/FileBackupRunLeaseProvider.hpp>
-#include <platform/linux/FileLock.hpp>
+#include <platform/linux/filesystem/FileBackupRunLeaseProvider.hpp>
+#include <platform/linux/filesystem/FileLock.hpp>
 #include <platform/linux/MountInfo.hpp>
 #include <platform/linux/process/PosixCommandRunner.hpp>
-#include <platform/linux/PosixDurableFileOperations.hpp>
-#include <platform/linux/PosixFileSystem.hpp>
+#include <platform/linux/filesystem/PosixDurableFileOperations.hpp>
+#include <platform/linux/filesystem/PosixFileSystem.hpp>
 #include <platform/linux/transfer/PosixTransferPipeline.hpp>
-#include <platform/linux/SafeDirectoryRoot.hpp>
+#include <platform/linux/filesystem/SafeDirectoryRoot.hpp>
 #include <platform/linux/SystemdTargetManager.hpp>
-#include <platform/linux/TrustedExecutable.hpp>
+#include <platform/linux/filesystem/TrustedExecutable.hpp>
 #include <state/FilePendingMarkerStore.hpp>
 #include <state/FileRunStateRepository.hpp>
 #include <state/FileCancellationMonitor.hpp>
@@ -83,7 +83,7 @@ struct RunnerComposition::Impl {
                   ? platform::linux::blkid_filesystem_uuid(source)
                   : found->second;
           }),
-          target_mounter(mounts, commands), preflight(mounts, target_mounter), pending_markers(durable_files), discovery(platform::linux::read_btrfs_snapshot_metadata, pending_markers, safe_directories), hook_executables(platform::linux::trusted_hook_directory), clock(options.timestamp, options.today), action_handlers(btrfs, filesystem, commands, pending_markers, clock, safe_directories, hook_executables), run_factory(action_handlers, transfers, safe_directories), leases(platform::linux::default_lock_root()), state(config.paths(), durable_files), file_cancellation_monitor(state), cancellation_monitor(file_cancellation_monitor, cancellation), run_ids(options.run_id), sessions(leases, state, state, state, cancellation_monitor), backup_service(profiles, config.paths(), preflight, discovery, plan_builder, run_factory, state, sessions, clock, run_ids) {
+          target_mounter(mounts, commands), preflight(mounts, target_mounter), pending_markers(durable_files), discovery(platform::linux::read_btrfs_snapshot_metadata, pending_markers, safe_directories), hook_executables(platform::linux::trusted_hook_directory), clock(options.timestamp, options.today), action_handlers(btrfs, filesystem, commands, pending_markers, clock, safe_directories, hook_executables), run_factory(action_handlers, transfers, safe_directories), leases(platform::linux::filesystem::default_lock_root()), state(config.paths(), durable_files), file_cancellation_monitor(state), cancellation_monitor(file_cancellation_monitor, cancellation), run_ids(options.run_id), sessions(leases, state, state, state, cancellation_monitor), backup_service(profiles, config.paths(), preflight, discovery, plan_builder, run_factory, state, sessions, clock, run_ids) {
     }
 
     config::ApplicationConfig config;
@@ -92,19 +92,19 @@ struct RunnerComposition::Impl {
     platform::linux::process::PosixCommandRunner commands;
     platform::linux::SystemdTargetManager target_mounter;
     backup::BackupPreflight preflight;
-    platform::linux::SafeDirectoryRootFactory safe_directories;
+    platform::linux::filesystem::SafeDirectoryRootFactory safe_directories;
     platform::linux::LibBtrfsOperations btrfs;
-    platform::linux::PosixFileSystem filesystem;
+    platform::linux::filesystem::PosixFileSystem filesystem;
     platform::linux::transfer::PosixTransferPipeline transfers;
-    platform::linux::PosixDurableFileOperations durable_files;
+    platform::linux::filesystem::PosixDurableFileOperations durable_files;
     state::FilePendingMarkerStore pending_markers;
     backup::BackupDiscovery discovery;
     backup::BackupPlanBuilder plan_builder;
-    platform::linux::PosixTrustedExecutableResolver hook_executables;
+    platform::linux::filesystem::PosixTrustedExecutableResolver hook_executables;
     ConfiguredRunnerClock clock;
     backup::DefaultBackupRunActionHandlerFactory action_handlers;
     backup::DefaultBackupRunFactory run_factory;
-    platform::linux::FileBackupRunLeaseProvider leases;
+    platform::linux::filesystem::FileBackupRunLeaseProvider leases;
     state::FileRunStateRepository state;
     state::FileCancellationMonitor file_cancellation_monitor;
     backup::LinkedCancellationMonitor cancellation_monitor;

@@ -29,8 +29,8 @@
 #include <platform/linux/config/FileProfileRepository.hpp>
 #include <platform/linux/config/ProfileRuntimePolicy.hpp>
 #include <config/ProfileRender.hpp>
-#include <platform/linux/FileIo.hpp>
-#include <platform/linux/FileLock.hpp>
+#include <platform/linux/filesystem/FileIo.hpp>
+#include <platform/linux/filesystem/FileLock.hpp>
 
 namespace fs = std::filesystem;
 
@@ -734,7 +734,7 @@ void test_profile_installer_replaces_obsolete_mount_transactionally() {
     const fs::path udev_root = root / "etc" / "udev" / "rules.d";
     const fs::path systemd_root = root / "etc" / "systemd" / "system";
     const fs::path public_root = root / "public";
-    btrfsbackup::platform::linux::atomic_write(
+    btrfsbackup::platform::linux::filesystem::atomic_write(
         etc_root / "btrfs-backup.conf",
         "CONFIG_VERSION=1\nTARGET_MOUNT_ROOT=/srv/backup\n",
         0644
@@ -748,8 +748,8 @@ void test_profile_installer_replaces_obsolete_mount_transactionally() {
     const fs::path new_unit = systemd_root / "srv-backup-default.mount";
     const fs::path manifest =
         etc_root / "profiles" / "default" / "managed-artifacts.json";
-    btrfsbackup::platform::linux::atomic_write(old_unit, "old mount unit\n", 0644);
-    btrfsbackup::platform::linux::atomic_write(
+    btrfsbackup::platform::linux::filesystem::atomic_write(old_unit, "old mount unit\n", 0644);
+    btrfsbackup::platform::linux::filesystem::atomic_write(
         manifest,
         btrfsbackup::config::dump_json({
             {"schemaVersion", 1},
@@ -814,7 +814,7 @@ void test_profile_installation_staging_failure_preserves_installed_artifacts() {
     btrfsbackup::config::Profile changed = original;
     changed.name = "Changed profile";
     const fs::path blocked_public_root = root / "blocked-public";
-    btrfsbackup::platform::linux::atomic_write(blocked_public_root, "not a directory", 0600);
+    btrfsbackup::platform::linux::filesystem::atomic_write(blocked_public_root, "not a directory", 0600);
 
     bool rejected = false;
     try {
@@ -930,7 +930,7 @@ void test_profile_installation_reports_incomplete_rollback() {
                 }
                 fs::remove(udev_path);
                 fs::create_directory(udev_path);
-                btrfsbackup::platform::linux::atomic_write(udev_path / "blocker", "injected rollback failure", 0600);
+                btrfsbackup::platform::linux::filesystem::atomic_write(udev_path / "blocker", "injected rollback failure", 0600);
                 throw ValidationError("injected save failure");
             }
         );
@@ -998,8 +998,8 @@ void test_profile_installation_refuses_active_profile_lock() {
     install_test_profile_transactionally(original, etc_root, udev_root, systemd_root, public_root);
     const std::string before = read_text(profile_path);
 
-    btrfsbackup::platform::linux::FileLock lock(
-        btrfsbackup::platform::linux::profile_lock_path(etc_root / ".locks", btrfsbackup::ProfileId{"default"})
+    btrfsbackup::platform::linux::filesystem::FileLock lock(
+        btrfsbackup::platform::linux::filesystem::profile_lock_path(etc_root / ".locks", btrfsbackup::ProfileId{"default"})
     );
     expect_true("transaction test lock acquired", lock.try_acquire(), "cannot acquire test profile lock");
     btrfsbackup::config::Profile changed = original;

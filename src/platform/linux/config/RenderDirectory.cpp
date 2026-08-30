@@ -24,7 +24,7 @@
 #include <vector>
 
 #include <core/Errors.hpp>
-#include <platform/linux/FileIo.hpp>
+#include <platform/linux/filesystem/FileIo.hpp>
 
 namespace fs = std::filesystem;
 
@@ -211,7 +211,7 @@ void replace_render_directory(
     try {
         render(staging);
         validate(staging);
-        atomic_write(staging / render_root_marker, marker_content, 0600);
+        filesystem::atomic_write(staging / render_root_marker, marker_content, 0600);
 
         if (!exists) {
             std::error_code rename_error;
@@ -220,7 +220,7 @@ void replace_render_directory(
                 throw ValidationError("cannot publish render output " + output.string() + ": " + rename_error.message());
             }
             try {
-                fsync_dir(output.parent_path());
+                filesystem::fsync_dir(output.parent_path());
             } catch (...) {
                 std::error_code rollback_error;
                 fs::rename(output, staging, rollback_error);
@@ -238,7 +238,7 @@ void replace_render_directory(
             if (!same_directory(staging, previous) || (!directory_empty(staging) && !valid_marker(staging))) {
                 throw ValidationError("render output changed during replacement: " + output.string());
             }
-            fsync_dir(output.parent_path());
+            filesystem::fsync_dir(output.parent_path());
         } catch (...) {
             exchange_directories(staging, output);
             staging_contains_previous = false;
@@ -252,7 +252,7 @@ void replace_render_directory(
     }
     remove_staging(staging);
     try {
-        fsync_dir(output.parent_path());
+        filesystem::fsync_dir(output.parent_path());
     } catch (...) {
     }
 }

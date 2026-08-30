@@ -12,7 +12,7 @@
 #include <utility>
 
 #include <core/Errors.hpp>
-#include <platform/linux/FileIo.hpp>
+#include <platform/linux/filesystem/FileIo.hpp>
 #include <platform/linux/config/InstallationRender.hpp>
 #include <platform/linux/config/InstallationValidate.hpp>
 #include <config/model/JsonIo.hpp>
@@ -25,7 +25,7 @@
 #include <platform/linux/config/RenderDirectory.hpp>
 #include <platform/linux/LinuxSystemConfigurationActivator.hpp>
 #include <platform/linux/process/Process.hpp>
-#include <platform/linux/TrustedDirectory.hpp>
+#include <platform/linux/filesystem/TrustedDirectory.hpp>
 
 namespace fs = std::filesystem;
 
@@ -89,7 +89,7 @@ void render_wizard_tree(const btrfsbackup::config::Profile& profile, const fs::p
             fs::create_directories(staging / "systemd");
             fs::create_directories(staging / "udev");
 
-            atomic_write(staging / "config" / "profile.json", btrfsbackup::config::dump_json(btrfsbackup::config::profile_to_json(validated_profile)), 0600);
+            filesystem::atomic_write(staging / "config" / "profile.json", btrfsbackup::config::dump_json(btrfsbackup::config::profile_to_json(validated_profile)), 0600);
             btrfsbackup::config::ProfileArtifactRenderer renderer(generate_configuration_generation);
             btrfsbackup::config::NullConfigurationActivator activator;
             ProfileInstaller installer(renderer, activator);
@@ -119,7 +119,7 @@ void apply_rendered_wizard_tree(const btrfsbackup::config::Profile& profile, con
     fs::create_directories("/etc/systemd/system");
     fs::create_directories("/etc/udev/rules.d");
     fs::create_directories("/var/lib/btrfs-backup/public/profiles");
-    ensure_trusted_directory(profile.target.mount_point, 0755);
+    filesystem::ensure_trusted_directory(profile.target.mount_point, 0755);
 
     WizardConfigurationActivator activator(output_dir);
     btrfsbackup::config::ProfileArtifactRenderer renderer(generate_configuration_generation);

@@ -23,7 +23,7 @@
 #include <config/model/Profile.hpp>
 #include <config/model/ProfileDocument.hpp>
 #include <platform/linux/config/RenderDirectory.hpp>
-#include <platform/linux/FileIo.hpp>
+#include <platform/linux/filesystem/FileIo.hpp>
 #include <platform/linux/config/ProfileArtifactIo.hpp>
 
 namespace fs = std::filesystem;
@@ -39,7 +39,7 @@ btrfsbackup::config::Profile validate_profile_file(const fs::path& file, const f
 }
 
 void write_profile_file(const btrfsbackup::config::Profile& profile, const fs::path& output) {
-    atomic_write(output, btrfsbackup::config::dump_json(btrfsbackup::config::profile_to_json(profile)), 0600);
+    filesystem::atomic_write(output, btrfsbackup::config::dump_json(btrfsbackup::config::profile_to_json(profile)), 0600);
 }
 
 void render_profile(const fs::path& file, const fs::path& output_dir, const fs::path& target_mount_root) {

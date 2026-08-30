@@ -7,7 +7,7 @@
 #include <filesystem>
 #include <string>
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::filesystem {
 
 struct TrustedFilePolicy {
     bool allow_current_user_owner = false;
@@ -17,4 +17,4 @@ struct TrustedFilePolicy {
 void assert_trusted_config_file(const std::filesystem::path& path, const TrustedFilePolicy& policy = {});
 std::string read_trusted_config_file(const std::filesystem::path& path, const TrustedFilePolicy& policy = {});
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::filesystem

@@ -7,7 +7,7 @@
 
 #include <filesystem>
 
-#include <platform/linux/TrustedFile.hpp>
+#include <platform/linux/filesystem/TrustedFile.hpp>
 
 #include "support/ValidationTestHelpers.hpp"
 
@@ -21,10 +21,10 @@ void test_rootless_policy_accepts_current_user_private_file() {
     test_helpers::write_file(config, "{}\n");
     chmod(config.c_str(), 0600);
 
-    btrfsbackup::platform::linux::assert_trusted_config_file(config, {.allow_current_user_owner = true});
+    btrfsbackup::platform::linux::filesystem::assert_trusted_config_file(config, {.allow_current_user_owner = true});
     test_helpers::expect_eq(
         "trusted read content",
-        btrfsbackup::platform::linux::read_trusted_config_file(config, {.allow_current_user_owner = true}),
+        btrfsbackup::platform::linux::filesystem::read_trusted_config_file(config, {.allow_current_user_owner = true}),
         "{}\n"
     );
 
@@ -40,7 +40,7 @@ void test_default_policy_rejects_current_user_file_when_not_root() {
     test_helpers::write_file(config, "{}\n");
     chmod(config.c_str(), 0600);
 
-    test_helpers::expect_validation_error("trusted owner", [&] { btrfsbackup::platform::linux::assert_trusted_config_file(config); }, "owned by root");
+    test_helpers::expect_validation_error("trusted owner", [&] { btrfsbackup::platform::linux::filesystem::assert_trusted_config_file(config); }, "owned by root");
 
     fs::remove_all(root);
 }
@@ -51,7 +51,7 @@ void test_rejects_public_permissions() {
     test_helpers::write_file(config, "{}\n");
     chmod(config.c_str(), 0640);
 
-    test_helpers::expect_validation_error("trusted mode", [&] { btrfsbackup::platform::linux::assert_trusted_config_file(config, {.allow_current_user_owner = true}); }, "group or others");
+    test_helpers::expect_validation_error("trusted mode", [&] { btrfsbackup::platform::linux::filesystem::assert_trusted_config_file(config, {.allow_current_user_owner = true}); }, "group or others");
 
     fs::remove_all(root);
 }
@@ -59,8 +59,8 @@ void test_rejects_public_permissions() {
 void test_rejects_missing_or_directory() {
     fs::path root = test_helpers::test_root("trusted-file", "missing");
 
-    test_helpers::expect_validation_error("trusted missing", [&] { btrfsbackup::platform::linux::assert_trusted_config_file(root / "missing.json", {.allow_current_user_owner = true}); }, "not a regular file");
-    test_helpers::expect_validation_error("trusted directory", [&] { btrfsbackup::platform::linux::assert_trusted_config_file(root, {.allow_current_user_owner = true}); }, "not a regular file");
+    test_helpers::expect_validation_error("trusted missing", [&] { btrfsbackup::platform::linux::filesystem::assert_trusted_config_file(root / "missing.json", {.allow_current_user_owner = true}); }, "not a regular file");
+    test_helpers::expect_validation_error("trusted directory", [&] { btrfsbackup::platform::linux::filesystem::assert_trusted_config_file(root, {.allow_current_user_owner = true}); }, "not a regular file");
 
     fs::remove_all(root);
 }
@@ -73,7 +73,7 @@ void test_rejects_symbolic_link() {
     chmod(real_config.c_str(), 0600);
     fs::create_symlink(real_config, config);
 
-    test_helpers::expect_validation_error("trusted symlink", [&] { (void)btrfsbackup::platform::linux::read_trusted_config_file(config, {.allow_current_user_owner = true}); }, "not a regular file");
+    test_helpers::expect_validation_error("trusted symlink", [&] { (void)btrfsbackup::platform::linux::filesystem::read_trusted_config_file(config, {.allow_current_user_owner = true}); }, "not a regular file");
 
     fs::remove_all(root);
 }

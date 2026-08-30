@@ -10,7 +10,7 @@
 #include <backup/ports/SafeDirectory.hpp>
 #include <backup/transfer/TransferPlan.hpp>
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::filesystem {
 
 class SafeDirectoryHandle final : public btrfsbackup::backup::ISafeDirectoryHandle {
   public:
@@ -68,4 +68,4 @@ class SafeDirectoryRootFactory final : public btrfsbackup::backup::ISafeDirector
     ) const override;
 };
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::filesystem

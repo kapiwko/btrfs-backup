@@ -10,7 +10,7 @@
 #include <system_error>
 #include <utility>
 
-#include <platform/linux/FileIo.hpp>
+#include <platform/linux/filesystem/FileIo.hpp>
 
 namespace fs = std::filesystem;
 
@@ -167,7 +167,7 @@ void ProfileConfigurationTransaction::stage() {
         remove_if_present(item.staged);
         remove_if_present(item.previous);
         if (item.operation == btrfsbackup::config::ProfileArtifactOperation::Write) {
-            atomic_write(item.staged, item.content, static_cast<mode_t>(item.permissions));
+            filesystem::atomic_write(item.staged, item.content, static_cast<mode_t>(item.permissions));
         }
     }
 }
@@ -215,13 +215,13 @@ void ProfileConfigurationTransaction::publish(TransactionArtifact& item) {
     }
     if (item.operation == btrfsbackup::config::ProfileArtifactOperation::Remove) {
         item.published = item.had_previous;
-        fsync_dir(item.destination.parent_path());
+        filesystem::fsync_dir(item.destination.parent_path());
         return;
     }
     try {
         rename_checked(item.staged, item.destination);
         item.published = true;
-        fsync_dir(item.destination.parent_path());
+        filesystem::fsync_dir(item.destination.parent_path());
     } catch (...) {
         if (item.had_previous) {
             std::error_code restore_error;
@@ -270,7 +270,7 @@ void ProfileConfigurationTransaction::sync_rollback_directory(
     RollbackResult& result
 ) noexcept {
     try {
-        fsync_dir(item.destination.parent_path());
+        filesystem::fsync_dir(item.destination.parent_path());
     } catch (const std::exception& error) {
         record_rollback_error(result, "fsync artifact directory", item.destination.parent_path(), error.what());
     } catch (...) {

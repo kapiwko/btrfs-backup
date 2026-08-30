@@ -10,7 +10,7 @@
 #include <vector>
 
 #include <cli/TargetCommand.hpp>
-#include <platform/linux/FileLock.hpp>
+#include <platform/linux/filesystem/FileLock.hpp>
 #include <config/model/Json.hpp>
 #include <config/model/JsonIo.hpp>
 
@@ -385,8 +385,8 @@ void test_eject_refuses_busy_target_without_running_commands() {
         lock_root,
         root
     };
-    btrfsbackup::platform::linux::FileLock active_target_lock(
-        btrfsbackup::platform::linux::target_lock_path(lock_root, btrfsbackup::config::LuksUuid{luks_uuid})
+    btrfsbackup::platform::linux::filesystem::FileLock active_target_lock(
+        btrfsbackup::platform::linux::filesystem::target_lock_path(lock_root, btrfsbackup::config::LuksUuid{luks_uuid})
     );
     test_helpers::expect_true(
         "target busy lock acquired",

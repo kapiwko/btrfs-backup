@@ -7,7 +7,7 @@
 
 #include <config/model/JsonIo.hpp>
 #include <state/JsonFileBackupRunCheckpointStore.hpp>
-#include <platform/linux/PosixDurableFileOperations.hpp>
+#include <platform/linux/filesystem/PosixDurableFileOperations.hpp>
 
 #include "support/TestHelpers.hpp"
 
@@ -26,7 +26,7 @@ int mode_of(const fs::path& path) {
 
 void test_checkpoint_store_writes_private_json_in_state_dir() {
     const fs::path root = test_helpers::test_root("run-checkpoint-store", "checkpoint");
-    btrfsbackup::platform::linux::PosixDurableFileOperations durable_files;
+    btrfsbackup::platform::linux::filesystem::PosixDurableFileOperations durable_files;
     btrfsbackup::state::JsonFileBackupRunCheckpointStore store(durable_files, root / "state");
 
     store.write_checkpoint({

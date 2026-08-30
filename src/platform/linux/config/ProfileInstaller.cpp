@@ -18,7 +18,7 @@
 #include <config/ProfileRender.hpp>
 #include <platform/linux/config/ProfileConfigurationTransaction.hpp>
 #include <platform/linux/config/ProfileService.hpp>
-#include <platform/linux/FileLock.hpp>
+#include <platform/linux/filesystem/FileLock.hpp>
 
 namespace fs = std::filesystem;
 
@@ -28,9 +28,9 @@ namespace {
 
 fs::path configuration_lock_path(const fs::path& etc_root, const ProfileId& profile_id) {
     if (fs::absolute(etc_root).lexically_normal() == fs::path("/etc/btrfs-backup")) {
-        return profile_lock_path(default_lock_root(), profile_id);
+        return filesystem::profile_lock_path(filesystem::default_lock_root(), profile_id);
     }
-    return profile_lock_path(etc_root / ".locks", profile_id);
+    return filesystem::profile_lock_path(etc_root / ".locks", profile_id);
 }
 
 std::string current_exception_message() noexcept {
@@ -135,7 +135,7 @@ void ProfileInstaller::install_profile_transactionally(const btrfsbackup::config
             throw ValidationError("staged configuration generation mismatch");
         }
 
-        FileLock lock(configuration_lock_path(roots.etc_root, ProfileId{installed_id}));
+        filesystem::FileLock lock(configuration_lock_path(roots.etc_root, ProfileId{installed_id}));
         if (!lock.try_acquire()) {
             throw ValidationError("profile is active; configuration save refused: " + installed_id);
         }

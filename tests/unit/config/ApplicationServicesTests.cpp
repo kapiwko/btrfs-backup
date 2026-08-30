@@ -12,7 +12,7 @@
 #include <config/model/ProfileDocument.hpp>
 #include <platform/linux/config/ProfileService.hpp>
 #include <platform/linux/config/RenderDirectory.hpp>
-#include <platform/linux/FileIo.hpp>
+#include <platform/linux/filesystem/FileIo.hpp>
 #include <state/StatusService.hpp>
 #include <state/RunHistory.hpp>
 
@@ -153,7 +153,7 @@ void test_profile_render_replaces_only_owned_render_directories() {
             btrfsbackup::platform::linux::replace_render_directory(
                 rendered,
                 [](const fs::path& staging) {
-                    btrfsbackup::platform::linux::atomic_write(staging / "candidate.txt", "candidate", 0600);
+                    btrfsbackup::platform::linux::filesystem::atomic_write(staging / "candidate.txt", "candidate", 0600);
                 },
                 [](const fs::path&) {
                     throw btrfsbackup::ValidationError("injected rendered tree validation failure");

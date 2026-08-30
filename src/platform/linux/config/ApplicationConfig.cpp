@@ -13,7 +13,7 @@
 #include <utility>
 
 #include <core/Errors.hpp>
-#include <platform/linux/TrustedFile.hpp>
+#include <platform/linux/filesystem/TrustedFile.hpp>
 
 namespace fs = std::filesystem;
 
@@ -83,11 +83,11 @@ btrfsbackup::config::ApplicationConfig load_application_config(const fs::path& c
         throw ValidationError("cannot inspect application configuration " + config_path.string() + ": " + error.message());
     }
 
-    TrustedFilePolicy policy{
+    filesystem::TrustedFilePolicy policy{
         .allow_current_user_owner = !system_config,
         .allow_group_other_read = true,
     };
-    const auto values = parse_config(read_trusted_config_file(config_path, policy));
+    const auto values = parse_config(filesystem::read_trusted_config_file(config_path, policy));
     auto version = values.find("CONFIG_VERSION");
     if (version == values.end() || version->second != "1") {
         throw ValidationError("application configuration CONFIG_VERSION must be 1");
