@@ -14,6 +14,7 @@ add_library(btrfsbackup-platform-linux STATIC
     PosixDurableFileOperations.cpp
     PosixFileSystem.cpp
     PosixTransferPipeline.cpp
+    PosixTransferSession.cpp
     PosixTransferProcess.cpp
     PosixTransferPump.cpp
     Process.cpp
@@ -45,6 +46,7 @@ target_restricted_include_directories(btrfsbackup-platform-linux
         platform/linux/PosixDurableFileOperations.hpp
         platform/linux/PosixFileSystem.hpp
         platform/linux/PosixTransferPipeline.hpp
+        platform/linux/PosixTransferSession.hpp
         platform/linux/PosixTransferProcess.hpp
         platform/linux/PosixTransferPump.hpp
         platform/linux/Process.hpp
