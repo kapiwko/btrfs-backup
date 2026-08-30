@@ -129,7 +129,7 @@ CONFIG_VERSION=1
 STATE_ROOT=$TEST_ROOT/state
 EOF_CONFIG
 cat >"$TEST_ROOT/status/default/current.json" <<'EOF_STATUS'
-{"schemaVersion":3,"runId":"20260829T160000Z-1-1","state":"running","phase":"sizing","activity":"sizing","canCancel":true,"errorCode":"","sourceName":"Home","targetName":"Backup disk","speedBps":10,"etaSeconds":20,"sourceProgress":30,"overallProgress":40,"progressAccuracy":"estimated"}
+{"schemaVersion":3,"runId":"20260829T160000Z-1-1","state":"running","phase":"sizing","activity":"sizing","canCancel":true,"errorCode":"","sourceName":"Home","targetName":"Backup disk","speedBps":10,"etaSeconds":20,"sourceProgress":30,"overallProgress":40,"progressAccuracy":"estimated","sourceIndex":1,"sourceCount":1,"startedAt":"2026-08-29T15:59:00Z","updatedAt":"2026-08-29T16:00:00Z"}
 EOF_STATUS
 cat >"$TEST_ROOT/history/default/20260825T100000Z-1-1.json" <<'EOF_HISTORY'
 {"schemaVersion":2,"profileId":"default","profileName":"Default backup","runId":"20260825T100000Z-1-1","state":"failed","phase":"failed","message":"private","currentSourceName":"Home","targetName":"Backup disk","sourceIndex":1,"sourceCount":1,"startedAt":"2026-08-25T09:59:00Z","updatedAt":"2026-08-25T10:00:00Z","finishedAt":"2026-08-25T10:00:00Z","errorCode":"private.failure","errorMessage":"private failure","details":{"device":"/dev/private"},"recoverable":false,"suggestedAction":"","canCancel":false,"bytesProcessed":40,"bytesTotalEstimated":100,"runBytesProcessed":40,"speedBps":0,"etaSeconds":-1,"sourceProgress":40,"overallProgress":40,"progressAccuracy":"exact","exitCode":1}
@@ -197,7 +197,7 @@ if [[ -n "$QML_EXECUTABLE" ]]; then
     fi
     cp "$TEST_ROOT/status/default/current.json" "$TEST_ROOT/status/default/current.json.running"
     cat >"$TEST_ROOT/status/default/current.json.next" <<'EOF_COMPLETED_STATUS'
-{"schemaVersion":3,"runId":"20260829T160000Z-1-1","state":"succeeded","phase":"completed","activity":"idle","canCancel":false,"errorCode":"","sourceName":"Home","targetName":"Backup disk","speedBps":0,"etaSeconds":-1,"sourceProgress":100,"overallProgress":100,"progressAccuracy":"exact"}
+{"schemaVersion":3,"runId":"20260829T160000Z-1-1","state":"succeeded","phase":"completed","activity":"idle","canCancel":false,"errorCode":"","sourceName":"Home","targetName":"Backup disk","speedBps":0,"etaSeconds":-1,"sourceProgress":100,"overallProgress":100,"progressAccuracy":"exact","sourceIndex":1,"sourceCount":1,"startedAt":"2026-08-29T15:59:00Z","updatedAt":"2026-08-29T16:00:00Z"}
 EOF_COMPLETED_STATUS
     mv "$TEST_ROOT/status/default/current.json.next" "$TEST_ROOT/status/default/current.json"
     wait "$qml_pid" || {

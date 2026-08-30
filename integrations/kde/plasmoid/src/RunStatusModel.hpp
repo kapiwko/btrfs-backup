@@ -27,6 +27,12 @@ class RunStatusModel : public QObject {
     Q_PROPERTY(QString lastSuccessAt READ lastSuccessAt NOTIFY changed)
     Q_PROPERTY(QString lastAttemptAt READ lastAttemptAt NOTIFY changed)
     Q_PROPERTY(QString lastAttemptState READ lastAttemptState NOTIFY changed)
+    Q_PROPERTY(QString freshnessState READ freshnessState NOTIFY changed)
+    Q_PROPERTY(QString startedAt READ startedAt NOTIFY changed)
+    Q_PROPERTY(QString updatedAt READ updatedAt NOTIFY changed)
+    Q_PROPERTY(int elapsedSeconds READ elapsedSeconds NOTIFY changed)
+    Q_PROPERTY(int sourceIndex READ sourceIndex NOTIFY changed)
+    Q_PROPERTY(int sourceCount READ sourceCount NOTIFY changed)
 
   public:
     explicit RunStatusModel(QObject* parent = nullptr);
@@ -48,6 +54,12 @@ class RunStatusModel : public QObject {
     QString lastSuccessAt() const;
     QString lastAttemptAt() const;
     QString lastAttemptState() const;
+    QString freshnessState() const;
+    QString startedAt() const;
+    QString updatedAt() const;
+    int elapsedSeconds() const;
+    int sourceIndex() const;
+    int sourceCount() const;
 
     void setCancelSupported(bool supported);
     [[nodiscard]] bool apply(const QString& payload);
@@ -75,4 +87,8 @@ class RunStatusModel : public QObject {
     QString last_success_at_;
     QString last_attempt_at_;
     QString last_attempt_state_;
+    QString started_at_;
+    QString updated_at_;
+    int source_index_ = 0;
+    int source_count_ = 0;
 };

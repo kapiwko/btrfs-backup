@@ -12,6 +12,8 @@
 #include <QJsonObject>
 #include <QJsonParseError>
 #include <QMap>
+#include <QProcess>
+#include <QUrl>
 
 #include <utility>
 
@@ -163,6 +165,10 @@ QString BackupStatusModel::lastError() const {
     return last_error_;
 }
 
+bool BackupStatusModel::browseSupported() const {
+    return supports(QLatin1String(btrfsbackup::manager_protocol::feature::browse_backups));
+}
+
 void BackupStatusModel::start() {
     active_ = true;
     setLastError(QString());
@@ -223,6 +229,24 @@ void BackupStatusModel::ejectTarget() {
     requestOperation(QLatin1String(btrfsbackup::manager_protocol::method::eject_target), {profile_});
 }
 
+void BackupStatusModel::openSettings() {
+    if (!QProcess::startDetached(QStringLiteral("systemsettings"), {QStringLiteral("kcm_btrfsbackup")})) {
+        setLastError(tr("Could not open backup settings."));
+    }
+}
+
+void BackupStatusModel::browseBackups() {
+    if (!browseSupported()) {
+        return;
+    }
+    QUrl location;
+    location.setScheme(QStringLiteral("btrfsbackup"));
+    location.setPath(QStringLiteral("/profiles/") + profile_);
+    if (!QProcess::startDetached(QStringLiteral("dolphin"), {location.toString()})) {
+        setLastError(tr("Could not open backup snapshots."));
+    }
+}
+
 void BackupStatusModel::connectToManager() {
     capabilities_verified_ = false;
     profiles_request_pending_ = false;
@@ -254,6 +278,7 @@ void BackupStatusModel::connectToManager() {
         }
         if (capabilities->api_major != btrfsbackup::manager_protocol::api_major ||
             capabilities->public_status_schema_version != btrfsbackup::manager_protocol::public_status_schema_version ||
+            capabilities->history_schema_version != btrfsbackup::manager_protocol::history_schema_version ||
             !capabilities->features.contains(QLatin1String(btrfsbackup::manager_protocol::feature::change_signals))) {
             setLastError(tr("The backup manager API is not compatible with this widget."));
             managerUnavailable();

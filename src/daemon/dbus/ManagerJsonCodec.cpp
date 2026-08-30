@@ -49,6 +49,10 @@ std::string ManagerJsonCodec::encode(const PublicStatusResponse& status) const {
         state::document::RunStatusDocumentCodec{}.serialize_public(status.run)
     );
     result["schemaVersion"] = manager_protocol::public_status_schema_version;
+    result["sourceIndex"] = status.source_index;
+    result["sourceCount"] = status.source_count;
+    result["startedAt"] = status.started_at;
+    result["updatedAt"] = status.updated_at;
     result["lastSuccessAt"] = status.last_success_at;
     result["lastAttemptAt"] = status.last_attempt_at;
     result["lastAttemptState"] = status.last_attempt_state;
@@ -64,7 +68,9 @@ std::string ManagerJsonCodec::encode(const SanitizedHistoryPage& page) const {
             {"errorCode", entry.error_code},
             {"sourceName", entry.source_name},
             {"targetName", entry.target_name},
+            {"startedAt", entry.started_at},
             {"finishedAt", entry.finished_at},
+            {"sourceCount", entry.source_count},
             {"overallProgress", entry.overall_progress},
         });
     }

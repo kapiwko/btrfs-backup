@@ -41,6 +41,10 @@ using PublicRunStatus = btrfsbackup::state::document::PublicRunStatusV3;
 
 struct PublicStatusResponse {
     PublicRunStatus run;
+    int source_index = 0;
+    int source_count = 0;
+    std::string started_at;
+    std::string updated_at;
     std::string last_success_at;
     std::string last_attempt_at;
     std::string last_attempt_state;
@@ -51,7 +55,9 @@ struct SanitizedHistoryEntry {
     std::string error_code;
     std::string source_name;
     std::string target_name;
+    std::string started_at;
     std::string finished_at;
+    int source_count = 0;
     int overall_progress = -1;
 };
 

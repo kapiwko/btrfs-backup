@@ -7,6 +7,7 @@
 #include "Manager1Interface.h"
 
 #include <QDBusMessage>
+#include <QDateTime>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -79,6 +80,7 @@ std::optional<ManagerCapabilities> parse_capabilities(const QString& payload) {
                                                   QStringLiteral("publicStatusSchemaVersion")
         )
                                             .toInt(-1),
+        .history_schema_version = object.value(QStringLiteral("historySchemaVersion")).toInt(-1),
         .features = {},
     };
     const QJsonValue features = object.value(QStringLiteral("features"));
@@ -110,9 +112,25 @@ std::optional<QList<ProfileSummary>> parse_profiles(const QString& payload) {
             .id = object.value(QStringLiteral("profileId")).toString(),
             .name = object.value(QStringLiteral("name")).toString(),
             .target_name = object.value(QStringLiteral("targetName")).toString(),
+            .sources = {},
         };
-        if (profile.id.isEmpty()) {
+        const QJsonValue sources = object.value(QStringLiteral("sources"));
+        if (profile.id.isEmpty() || !sources.isArray()) {
             return std::nullopt;
+        }
+        for (const QJsonValue& source_value : sources.toArray()) {
+            if (!source_value.isObject()) {
+                return std::nullopt;
+            }
+            const QJsonObject source = source_value.toObject();
+            const ProfileSourceSummary summary{
+                .id = source.value(QStringLiteral("id")).toString(),
+                .name = source.value(QStringLiteral("name")).toString(),
+            };
+            if (summary.id.isEmpty()) {
+                return std::nullopt;
+            }
+            profile.sources.push_back(summary);
         }
         result.push_back(std::move(profile));
     }
@@ -140,6 +158,29 @@ std::optional<RunStatus> parse_status(const QString& payload) {
     const QString last_success_at = object.take(QStringLiteral("lastSuccessAt")).toString();
     const QString last_attempt_at = object.take(QStringLiteral("lastAttemptAt")).toString();
     const QString last_attempt_state = object.take(QStringLiteral("lastAttemptState")).toString();
+    for (const QString& field : {QStringLiteral("startedAt"), QStringLiteral("updatedAt")}) {
+        if (!object.value(field).isString()) {
+            return std::nullopt;
+        }
+    }
+    for (const QString& field : {QStringLiteral("sourceIndex"), QStringLiteral("sourceCount")}) {
+        const QJsonValue value = object.value(field);
+        if (!value.isDouble() || value.toDouble() != value.toInt(-1)) {
+            return std::nullopt;
+        }
+    }
+    const QString started_at = object.take(QStringLiteral("startedAt")).toString();
+    const QString updated_at = object.take(QStringLiteral("updatedAt")).toString();
+    const int source_index = object.take(QStringLiteral("sourceIndex")).toInt(-1);
+    const int source_count = object.take(QStringLiteral("sourceCount")).toInt(-1);
+    if (source_index < 0 || source_count < 0 || source_index > source_count) {
+        return std::nullopt;
+    }
+    for (const QString& timestamp : {started_at, updated_at}) {
+        if (!timestamp.isEmpty() && !QDateTime::fromString(timestamp, Qt::ISODate).isValid()) {
+            return std::nullopt;
+        }
+    }
     object[QStringLiteral("schemaVersion")] = 3;
     const auto decoded = btrfsbackup::state::document::RunStatusDocumentCodec{}.try_parse_public(
         QJsonDocument(object).toJson(QJsonDocument::Compact).toStdString()
@@ -167,11 +208,15 @@ std::optional<RunStatus> parse_status(const QString& payload) {
         .last_success_at = last_success_at,
         .last_attempt_at = last_attempt_at,
         .last_attempt_state = last_attempt_state,
+        .started_at = started_at,
+        .updated_at = updated_at,
         .can_cancel = status.can_cancel,
         .speed_bps = static_cast<qint64>(status.progress.speed_bps),
         .eta_seconds = status.progress.eta_seconds.has_value() ? static_cast<qint64>(*status.progress.eta_seconds) : -1,
         .source_progress = status.progress.source_percent.value_or(-1),
         .overall_progress = status.progress.overall_percent.value_or(-1),
+        .source_index = source_index,
+        .source_count = source_count,
     };
 }
 

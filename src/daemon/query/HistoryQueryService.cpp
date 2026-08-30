@@ -32,7 +32,9 @@ btrfsbackup::daemon::SanitizedHistoryEntry sanitize_private_history(const Privat
         .error_code = detailed_error.empty() ? "" : (state == "cancelled" ? "backup.cancelled" : "backup.failed"),
         .source_name = input.current_source_name,
         .target_name = input.target_name,
+        .started_at = input.started_at,
         .finished_at = input.finished_at,
+        .source_count = input.source_count,
         .overall_progress = input.progress.overall_percent.value_or(-1),
     };
 }

@@ -56,12 +56,18 @@ std::string dump_status_json(const RunStatus& status) {
 btrfsbackup::config::json::Json build_public_status_json(const RunStatus& status) {
     validate_status(status);
     const document::RunStatusDocumentCodec codec;
-    return btrfsbackup::config::json::Json::parse(codec.serialize_public(document::make_public_status(status)));
+    btrfsbackup::config::json::Json result = btrfsbackup::config::json::Json::parse(
+        codec.serialize_public(document::make_public_status(status))
+    );
+    result["sourceIndex"] = status.source_index;
+    result["sourceCount"] = status.source_count;
+    result["startedAt"] = format_utc_iso_timestamp(status.started_at);
+    result["updatedAt"] = format_utc_iso_timestamp(status.updated_at);
+    return result;
 }
 
 std::string dump_public_status_json(const RunStatus& status) {
-    validate_status(status);
-    return document::RunStatusDocumentCodec{}.serialize_public(document::make_public_status(status));
+    return btrfsbackup::config::json::dump_json(build_public_status_json(status));
 }
 
 void write_current_status(

@@ -66,6 +66,9 @@ Window {
                     && status.run.sourceProgress === 30
                     && status.run.overallProgress === 40
                     && status.run.progressAccuracy === "estimated"
+                    && status.run.sourceIndex === 1
+                    && status.run.sourceCount === 1
+                    && status.run.startedAt === "2026-08-29T15:59:00Z"
                     && status.run.lastSuccessAt === "2026-08-24T18:42:00+0000"
                     && status.run.lastAttemptAt === "2026-08-25T10:00:00Z"
                     && status.run.lastAttemptState === "failed"

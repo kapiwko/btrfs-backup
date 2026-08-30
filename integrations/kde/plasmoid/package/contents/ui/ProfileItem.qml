@@ -30,7 +30,7 @@ PlasmaExtras.ExpandableListItem {
     readonly property int progress: profileStatus.run.overallProgress
     readonly property int historyCount: profileStatus.history.entries.length
 
-    signal summaryUpdated(string profileId, bool isRunning, bool isFailed, int profileProgress, string subtitle)
+    signal summaryUpdated(string profileId, int priority, bool isRunning, bool isFailed, int profileProgress, string subtitle)
     signal summaryRemoved(string profileId)
 
     KI18n.KI18nContext {
@@ -68,18 +68,29 @@ PlasmaExtras.ExpandableListItem {
                 profileStatus.startBackup()
         }
     }
-    contextualActions: [
-        QQC2.Action {
-            enabled: profileStatus.managerConnected
-                && profileStatus.target.connected
-                && !root.running
-                && !profileStatus.operationPending
-                && (profileStatus.target.mounted || profileStatus.target.unlocked)
-            icon.name: "media-eject"
-            text: translations.i18n("Eject")
-            onTriggered: profileStatus.ejectTarget()
-        }
-    ]
+    contextualActions: profileStatus.browseSupported
+        ? [ejectAction, browseAction]
+        : [ejectAction]
+
+    QQC2.Action {
+        id: ejectAction
+        enabled: profileStatus.managerConnected
+            && profileStatus.target.connected
+            && !root.running
+            && !profileStatus.operationPending
+            && (profileStatus.target.mounted || profileStatus.target.unlocked)
+        icon.name: "media-eject"
+        text: translations.i18n("Eject")
+        onTriggered: profileStatus.ejectTarget()
+    }
+
+    QQC2.Action {
+        id: browseAction
+        enabled: profileStatus.managerConnected && !profileStatus.operationPending
+        icon.name: "folder-open-symbolic"
+        text: translations.i18n("Browse backups")
+        onTriggered: profileStatus.browseBackups()
+    }
 
     customExpandedViewContent: Component {
         ColumnLayout {
@@ -204,7 +215,7 @@ PlasmaExtras.ExpandableListItem {
                 }
                 PlasmaComponents3.Label {
                     visible: root.running
-                    text: profileStatus.run.sourceName || translations.i18n("Unknown")
+                    text: root.sourceText()
                     Layout.fillWidth: true
                     elide: Text.ElideMiddle
                     font: Kirigami.Theme.smallFont
@@ -220,6 +231,20 @@ PlasmaExtras.ExpandableListItem {
                 PlasmaComponents3.Label {
                     visible: root.running
                     text: root.formatEta(profileStatus.run.etaSeconds)
+                    Layout.fillWidth: true
+                    font: Kirigami.Theme.smallFont
+                }
+
+                PlasmaComponents3.Label {
+                    visible: root.running
+                    text: translations.i18n("Duration:")
+                    horizontalAlignment: Text.AlignRight
+                    font: Kirigami.Theme.smallFont
+                    opacity: 0.6
+                }
+                PlasmaComponents3.Label {
+                    visible: root.running
+                    text: root.formatDuration(profileStatus.run.elapsedSeconds)
                     Layout.fillWidth: true
                     font: Kirigami.Theme.smallFont
                 }
@@ -262,7 +287,7 @@ PlasmaExtras.ExpandableListItem {
                         implicitHeight: implicitWidth
                     }
                     PlasmaComponents3.Label {
-                        text: root.historyText(historyRow.modelData.state)
+                        text: root.historySummary(historyRow.modelData)
                         Layout.fillWidth: true
                         elide: Text.ElideRight
                         font: Kirigami.Theme.smallFont
@@ -300,7 +325,7 @@ PlasmaExtras.ExpandableListItem {
     }
 
     function publishSummary() {
-        root.summaryUpdated(root.profileId, root.running, root.failed, root.progress, root.subtitleText())
+        root.summaryUpdated(root.profileId, root.summaryPriority(), root.running, root.failed, root.progress, root.subtitleText())
     }
 
     function targetIcon() {
@@ -312,6 +337,14 @@ PlasmaExtras.ExpandableListItem {
     }
 
     function statusEmblem() {
+        if (profileStatus.lastError.length > 0 || root.failed)
+            return "emblem-error"
+        if (root.running)
+            return ""
+        if (profileStatus.target.spaceBelowMinimum)
+            return "emblem-warning"
+        if (profileStatus.target.safeToRemove)
+            return "emblem-ok-symbolic"
         switch (profileStatus.run.state) {
         case "succeeded":
         case "validated": return "emblem-ok-symbolic"
@@ -319,6 +352,20 @@ PlasmaExtras.ExpandableListItem {
         case "cancelled": return "emblem-pause"
         default: return ""
         }
+    }
+
+    function summaryPriority() {
+        if (profileStatus.lastError.length > 0 || root.failed)
+            return 1
+        if (root.running)
+            return 2
+        if (profileStatus.target.spaceBelowMinimum)
+            return 3
+        if (profileStatus.target.safeToRemove)
+            return 5
+        if (profileStatus.run.state === "succeeded")
+            return 6
+        return 7
     }
 
     function subtitleText() {
@@ -401,6 +448,39 @@ PlasmaExtras.ExpandableListItem {
 
     function historyText(state) {
         return root.statusText(state)
+    }
+
+    function historySummary(entry) {
+        let parts = [root.historyText(entry.state)]
+        if (entry.durationSeconds >= 0)
+            parts.push(root.formatDuration(entry.durationSeconds))
+        if (entry.sourceCount > 0)
+            parts.push(translations.i18np("1 source", "%1 sources", entry.sourceCount))
+        if (entry.errorCode?.length > 0)
+            parts.push(entry.errorCode)
+        return parts.join(" · ")
+    }
+
+    function sourceText() {
+        const name = profileStatus.run.sourceName || translations.i18n("Unknown")
+        if (profileStatus.run.sourceIndex <= 0 || profileStatus.run.sourceCount <= 0)
+            return name
+        return translations.i18n("%1 (%2 of %3)", name,
+                                 profileStatus.run.sourceIndex,
+                                 profileStatus.run.sourceCount)
+    }
+
+    function formatDuration(value) {
+        let seconds = Number(value)
+        if (seconds < 0)
+            return translations.i18n("Unknown")
+        const hours = Math.floor(seconds / 3600)
+        const minutes = Math.floor((seconds % 3600) / 60)
+        if (hours > 0)
+            return translations.i18n("%1 h %2 min", hours, minutes)
+        if (minutes > 0)
+            return translations.i18np("1 minute", "%1 minutes", minutes)
+        return translations.i18np("1 second", "%1 seconds", Math.max(1, Math.floor(seconds)))
     }
 
     function formatEta(value) {

@@ -204,7 +204,11 @@ void test_build_public_status_json_excludes_diagnostics() {
     expect_true("public source progress", data.at("sourceProgress") == 50, "wrong public source progress");
     expect_true("public overall progress", data.at("overallProgress") == 25, "wrong public overall progress");
     expect_true("public accuracy", data.at("progressAccuracy") == "estimated", "wrong public progress accuracy");
-    for (const char* field : {"profileId", "profileName", "message", "currentSourceName", "startedAt", "updatedAt", "finishedAt", "errorMessage", "details", "recoverable", "suggestedAction", "exitCode"}) {
+    expect_true("public source index", data.at("sourceIndex") == record.source_index, "wrong public source index");
+    expect_true("public source count", data.at("sourceCount") == record.source_count, "wrong public source count");
+    expect_true("public started time", data.at("startedAt") == "2026-08-23T02:44:07Z", "wrong public started time");
+    expect_true("public updated time", data.at("updatedAt") == "2026-08-23T02:45:07Z", "wrong public updated time");
+    for (const char* field : {"profileId", "profileName", "message", "currentSourceName", "finishedAt", "errorMessage", "details", "recoverable", "suggestedAction", "exitCode"}) {
         expect_true(std::string("public excludes ") + field, !data.contains(field), std::string("public status exposes ") + field);
     }
 }
