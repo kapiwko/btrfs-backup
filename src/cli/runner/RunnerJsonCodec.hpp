@@ -8,7 +8,7 @@
 
 #include <backup/model/BackupExecution.hpp>
 
-namespace btrfsbackup::cli {
+namespace btrfsbackup::cli::runner {
 
 struct EncodedRunnerResponse {
     std::string output;
@@ -25,4 +25,4 @@ struct EncodedRunnerResponse {
     const btrfsbackup::backup::CancelBackupResult& result
 );
 
-} // namespace btrfsbackup::cli
+} // namespace btrfsbackup::cli::runner

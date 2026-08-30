@@ -13,7 +13,7 @@ namespace btrfsbackup::backup {
 class BackupService;
 } // namespace btrfsbackup::backup
 
-namespace btrfsbackup::cli {
+namespace btrfsbackup::cli::runner {
 
 struct RunnerOptions;
 
@@ -36,4 +36,4 @@ class RunnerComposition {
     std::unique_ptr<Impl> impl_;
 };
 
-} // namespace btrfsbackup::cli
+} // namespace btrfsbackup::cli::runner

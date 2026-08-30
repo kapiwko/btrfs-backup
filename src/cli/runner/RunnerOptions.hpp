@@ -14,7 +14,7 @@
 #include <backup/BackupService.hpp>
 #include <core/RuntimeTime.hpp>
 
-namespace btrfsbackup::cli {
+namespace btrfsbackup::cli::runner {
 
 enum class RunnerCommandKind {
     Plan,
@@ -40,4 +40,4 @@ struct RunnerOptions {
 
 RunnerOptions parse_runner_options(const std::vector<std::string>& args);
 
-} // namespace btrfsbackup::cli
+} // namespace btrfsbackup::cli::runner

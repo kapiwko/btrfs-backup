@@ -12,7 +12,7 @@
 #include <string>
 #include <vector>
 
-#include <cli/RunnerCommand.hpp>
+#include <cli/runner/RunnerCommand.hpp>
 #include <cli/TargetCommand.hpp>
 #include <core/Errors.hpp>
 #include <platform/linux/config/FileProfileRepository.hpp>
@@ -121,9 +121,9 @@ int backup_tool(
         ? services->runner
         : [&](const std::vector<std::string>& runner_args, std::ostream& runner_output) {
               if (cancellation != nullptr) {
-                  return btrfsbackup::cli::runner(profile_config_dir, runner_args, runner_output, *cancellation);
+                  return btrfsbackup::cli::runner::runner(profile_config_dir, runner_args, runner_output, *cancellation);
               }
-              return btrfsbackup::cli::runner(profile_config_dir, runner_args, runner_output);
+              return btrfsbackup::cli::runner::runner(profile_config_dir, runner_args, runner_output);
           };
     auto target = services != nullptr && services->target
         ? services->target

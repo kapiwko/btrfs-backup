@@ -10,11 +10,11 @@ add_library(btrfsbackup-cli STATIC
     ProfileCreateCommand.cpp
     ProfileListCommand.cpp
     ProfileWizardCommand.cpp
-    RunnerCommand.cpp
-    RunnerComposition.cpp
-    RunnerJsonCodec.cpp
-    RunnerOptions.cpp
-    RunnerPresenter.cpp
+    runner/RunnerCommand.cpp
+    runner/RunnerComposition.cpp
+    runner/RunnerJsonCodec.cpp
+    runner/RunnerOptions.cpp
+    runner/RunnerPresenter.cpp
     StatusCommand.cpp
     StatusHistoryCommand.cpp
     StatusShowCommand.cpp
@@ -36,17 +36,17 @@ target_restricted_include_directories(btrfsbackup-cli
         cli/ProfileCreateCommand.hpp
         cli/ProfileListCommand.hpp
         cli/ProfileWizardCommand.hpp
-        cli/RunnerCommand.hpp
-        cli/RunnerOptions.hpp
-        cli/RunnerPresenter.hpp
+        cli/runner/RunnerCommand.hpp
+        cli/runner/RunnerOptions.hpp
+        cli/runner/RunnerPresenter.hpp
         cli/StatusCommand.hpp
         cli/StatusHistoryCommand.hpp
         cli/StatusShowCommand.hpp
         cli/TargetCommand.hpp
         cli/TargetService.hpp
     PRIVATE_HEADERS
-        cli/RunnerJsonCodec.hpp
-        cli/RunnerComposition.hpp
+        cli/runner/RunnerJsonCodec.hpp
+        cli/runner/RunnerComposition.hpp
 )
 target_link_libraries(btrfsbackup-cli
     PUBLIC
