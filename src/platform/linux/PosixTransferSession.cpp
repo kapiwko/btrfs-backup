@@ -6,7 +6,6 @@
 
 #include <fcntl.h>
 #include <poll.h>
-#include <signal.h>
 #include <unistd.h>
 
 #include <cerrno>
@@ -26,28 +25,11 @@
 #include <platform/linux/PosixCancellationSignal.hpp>
 #include <platform/linux/PosixTransferProcess.hpp>
 #include <platform/linux/PosixTransferPump.hpp>
+#include <platform/linux/ThreadSigpipeBlock.hpp>
 
 namespace btrfsbackup::platform::linux {
 
 namespace {
-
-class ScopedIgnoredSigpipe {
-  public:
-    ScopedIgnoredSigpipe() {
-        struct sigaction action{};
-        action.sa_handler = SIG_IGN;
-        sigemptyset(&action.sa_mask);
-        sigaction(SIGPIPE, &action, &previous_);
-    }
-    ScopedIgnoredSigpipe(const ScopedIgnoredSigpipe&) = delete;
-    ScopedIgnoredSigpipe& operator=(const ScopedIgnoredSigpipe&) = delete;
-    ~ScopedIgnoredSigpipe() noexcept {
-        sigaction(SIGPIPE, &previous_, nullptr);
-    }
-
-  private:
-    struct sigaction previous_{};
-};
 
 struct Pipe {
     OwnedFileDescriptor read_end;
@@ -290,7 +272,7 @@ btrfsbackup::backup::transfer::TransferResult PosixTransferSession::run() {
     CancellationToken& cancellation = cancellation_;
     const auto started_at = SteadyClock::now();
     TransferProgressReporter progress_reporter(started_at);
-    ScopedIgnoredSigpipe ignored_sigpipe;
+    ThreadSigpipeBlock sigpipe_block;
     btrfsbackup::platform::linux::PosixCancellationSignal cancellation_signal(cancellation);
     Pipe data_pipe = create_pipe();
     Pipe consumer_input_pipe = create_pipe();
