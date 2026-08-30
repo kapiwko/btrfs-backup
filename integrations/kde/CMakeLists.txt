@@ -267,6 +267,15 @@ if(BUILD_TESTING)
     add_test(NAME plasma-progress-job COMMAND plasma-progress-job-tests)
     set_tests_properties(plasma-progress-job PROPERTIES LABELS kde)
 
+    add_custom_target(btrfs-backup-kde-tests)
+    add_dependencies(
+        btrfs-backup-kde-tests
+        kde-manager-api-tests
+        plasma-progress-job-tests
+        plasma-status-models-tests
+        plasma-target-status-model-tests
+    )
+
     find_program(
         QML_EXECUTABLE
         NAMES qml

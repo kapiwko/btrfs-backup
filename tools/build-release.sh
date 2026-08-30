@@ -476,7 +476,7 @@ stage_kde_package_payload() {
         --parallel "$BUILD_JOBS"
     if [[ "$RELEASE_BUILD_TESTING" == ON ]]; then
         cmake --build "$RELEASE_BUILD_DIR" \
-            --target plasma-progress-job-tests \
+            --target btrfs-backup-kde-tests \
             --parallel "$BUILD_JOBS"
         log_stage 'Testing Plasma integration'
         ctest \
