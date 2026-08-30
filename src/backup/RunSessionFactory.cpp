@@ -17,9 +17,9 @@ BackupRunStatusDescription status_description(
     const btrfsbackup::config::Profile& profile,
     RuntimeTimePoint started_at
 ) {
-    std::map<std::string, std::string> source_names;
+    std::map<SourceId, std::string> source_names;
     for (const btrfsbackup::config::ProfileSource& source : profile.sources) {
-        source_names.emplace(source.id.value(), source.name);
+        source_names.emplace(source.id, source.name);
     }
     return {
         .profile_name = profile.name,

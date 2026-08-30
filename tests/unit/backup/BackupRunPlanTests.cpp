@@ -93,12 +93,12 @@ btrfsbackup::backup::SnapshotInfo snapshot(
         .side = side,
         .source_id = btrfsbackup::SourceId{source_id},
         .name = name,
-        .timestamp = timestamp,
+        .timestamp = test_helpers::runtime_time(timestamp),
         .sequence = 0,
         .path = path,
         .readonly = true,
-        .uuid = uuid,
-        .received_uuid = received_uuid,
+        .uuid = btrfsbackup::backup::SnapshotUuid{uuid},
+        .received_uuid = btrfsbackup::backup::ReceivedSnapshotUuid{received_uuid},
     };
 }
 
@@ -143,7 +143,7 @@ void test_builds_ordered_source_plan() {
         {},
         "/var/lib/btrfs-backup/profiles/default",
         btrfsbackup::RunId{"20260823T080000Z-123-456"},
-        "2026-08-23T080000Z"
+        test_helpers::runtime_time("2026-08-23T080000Z")
     );
 
     test_helpers::expect_eq("plan source count", std::to_string(plan.sources.size()), "1");
@@ -193,7 +193,7 @@ void test_inserts_snapshot_hooks_around_snapshot_creation() {
         {},
         "/var/lib/btrfs-backup/profiles/default",
         btrfsbackup::RunId{"20260823T080000Z-123-456"},
-        "2026-08-23T080000Z"
+        test_helpers::runtime_time("2026-08-23T080000Z")
     );
 
     const std::vector<btrfsbackup::backup::BackupRunAction>& actions = plan.sources.at(0).actions();
@@ -233,7 +233,7 @@ void test_plans_collision_suffix_and_retention() {
         {},
         "/var/lib/btrfs-backup/profiles/default",
         btrfsbackup::RunId{"20260823T080000Z-123-456"},
-        "2026-08-23T080000Z"
+        test_helpers::runtime_time("2026-08-23T080000Z")
     );
 
     const btrfsbackup::backup::BackupSourceRunPlan& source = plan.sources.at(0);
@@ -249,11 +249,11 @@ void test_includes_pending_recovery_action() {
         {
             btrfsbackup::SourceId{"root"},
             btrfsbackup::backup::PendingMarker{
-                .source_name = "root",
+                .source_id = btrfsbackup::SourceId{"root"},
                 .local_snapshot_path = "/.snapshots/root/root-2026-08-22T080000Z",
                 .final_snapshot_path = "/mnt/backup/snapshots/root/root-2026-08-22T080000Z",
-                .run_id = "20260822T080000Z-123-456",
-                .timestamp = "2026-08-22T08:00:00+00:00",
+                .run_id = btrfsbackup::RunId{"20260822T080000Z-123-456"},
+                .timestamp = test_helpers::runtime_time("2026-08-22T08:00:00Z"),
             },
         },
     };
@@ -263,7 +263,7 @@ void test_includes_pending_recovery_action() {
             btrfsbackup::backup::SnapshotMetadata{
                 .is_subvolume = true,
                 .readonly = true,
-                .uuid = "orphan-uuid",
+                .uuid = btrfsbackup::backup::SnapshotUuid{"orphan-uuid"},
             },
         },
     };
@@ -279,7 +279,7 @@ void test_includes_pending_recovery_action() {
         pending_snapshots,
         "/var/lib/btrfs-backup/profiles/default",
         btrfsbackup::RunId{"20260823T080000Z-123-456"},
-        "2026-08-23T080000Z"
+        test_helpers::runtime_time("2026-08-23T080000Z")
     );
 
     const btrfsbackup::backup::BackupSourceRunPlan& source = plan.sources.at(0);
@@ -315,11 +315,11 @@ void test_excludes_recovery_deletions_from_retention() {
         {
             btrfsbackup::SourceId{"root"},
             btrfsbackup::backup::PendingMarker{
-                .source_name = "root",
+                .source_id = btrfsbackup::SourceId{"root"},
                 .local_snapshot_path = orphan.path.string(),
                 .final_snapshot_path = "/mnt/backup/snapshots/root/root-2026-08-20T080000Z",
-                .run_id = "20260820T080000Z-123-456",
-                .timestamp = "2026-08-20T08:00:00+00:00",
+                .run_id = btrfsbackup::RunId{"20260820T080000Z-123-456"},
+                .timestamp = test_helpers::runtime_time("2026-08-20T08:00:00Z"),
             },
         },
     };
@@ -344,7 +344,7 @@ void test_excludes_recovery_deletions_from_retention() {
         pending_snapshots,
         "/var/lib/btrfs-backup/profiles/default",
         btrfsbackup::RunId{"20260823T080000Z-123-456"},
-        "2026-08-23T080000Z"
+        test_helpers::runtime_time("2026-08-23T080000Z")
     );
 
     const btrfsbackup::backup::BackupSourceRunPlan& source = plan.sources.at(0);
@@ -375,7 +375,7 @@ void test_rejects_invalid_mount_layout() {
                                                                         {},
                                                                         "/var/lib/btrfs-backup/profiles/default",
                                                                         btrfsbackup::RunId{"20260823T080000Z-123-456"},
-                                                                        "2026-08-23T080000Z"
+                                                                        test_helpers::runtime_time("2026-08-23T080000Z")
                                                                     ); }, "LOCAL_SNAPSHOT_DIR must not be inside the backup target");
 }
 

@@ -61,7 +61,7 @@ void RepositoryActionHandler::handle(const VerifyReceivedAction& action) {
         action.received_snapshot,
         "Received snapshot metadata is missing"
     );
-    verify_received_snapshot(std::string(action.source_id.value()), local, received);
+    verify_received_snapshot(action.source_id, local, received);
 }
 
 void RepositoryActionHandler::handle(const CommitReceivedAction& action) {

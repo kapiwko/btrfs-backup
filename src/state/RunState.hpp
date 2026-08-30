@@ -9,27 +9,30 @@
 #include <string>
 
 #include <backup/model/PendingRecovery.hpp>
+#include <config/ConfigurationIdentity.hpp>
+#include <config/model/TargetIdentity.hpp>
 #include <core/Identifiers.hpp>
+#include <core/RuntimeTime.hpp>
 #include <state/PersistentDocumentOperations.hpp>
 
 namespace btrfsbackup::state {
 
 struct SuccessState {
-    std::string date;
-    std::string timestamp;
-    std::string run_id;
-    std::string profile_id;
+    LocalDate date;
+    RuntimeTimePoint timestamp;
+    RunId run_id;
+    ProfileId profile_id;
     std::string profile_name;
     int source_count = 0;
-    std::string target_luks_uuid;
-    std::string config_fingerprint;
+    btrfsbackup::config::LuksUuid target_luks_uuid;
+    btrfsbackup::config::ConfigurationFingerprint config_fingerprint;
 };
 
 bool last_success_matches(
     const std::filesystem::path& profile_state_dir,
-    const std::string& today,
-    const std::string& target_luks_uuid,
-    const std::string& config_fingerprint
+    LocalDate today,
+    const btrfsbackup::config::LuksUuid& target_luks_uuid,
+    const btrfsbackup::config::ConfigurationFingerprint& config_fingerprint
 );
 
 void write_success_state(
@@ -63,7 +66,7 @@ void clear_cancel_request(
     const std::filesystem::path& profile_state_dir,
     const RunId& run_id
 );
-std::filesystem::path pending_marker_path(const std::filesystem::path& profile_state_dir, const std::string& source_name);
+std::filesystem::path pending_marker_path(const std::filesystem::path& profile_state_dir, const SourceId& source_id);
 void write_pending_marker(
     IAtomicDocumentWriter& files,
     const std::filesystem::path& profile_state_dir,

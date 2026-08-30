@@ -999,7 +999,7 @@ void test_profile_installation_refuses_active_profile_lock() {
     const std::string before = read_text(profile_path);
 
     btrfsbackup::platform::linux::FileLock lock(
-        btrfsbackup::platform::linux::profile_lock_path(etc_root / ".locks", "default")
+        btrfsbackup::platform::linux::profile_lock_path(etc_root / ".locks", btrfsbackup::ProfileId{"default"})
     );
     expect_true("transaction test lock acquired", lock.try_acquire(), "cannot acquire test profile lock");
     btrfsbackup::config::Profile changed = original;

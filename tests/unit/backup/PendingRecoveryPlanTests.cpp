@@ -22,23 +22,23 @@ btrfsbackup::backup::SnapshotInfo remote_snapshot(const std::string& source_id, 
         .side = btrfsbackup::backup::SnapshotSide::Remote,
         .source_id = btrfsbackup::SourceId{source_id},
         .name = source_id + "-2026-08-23T080000Z",
-        .timestamp = "2026-08-23T080000Z",
+        .timestamp = test_helpers::runtime_time("2026-08-23T080000Z"),
         .sequence = 0,
         .path = "/remote/" + source_id + "/" + source_id + "-2026-08-23T080000Z",
         .readonly = true,
-        .uuid = "remote-uuid",
-        .received_uuid = received_uuid,
+        .uuid = btrfsbackup::backup::SnapshotUuid{"remote-uuid"},
+        .received_uuid = btrfsbackup::backup::ReceivedSnapshotUuid{received_uuid},
     };
 }
 
 btrfsbackup::backup::PendingMarker marker(const std::string& source_id, const std::string& path) {
     const fs::path local_path(path);
     return btrfsbackup::backup::PendingMarker{
-        .source_name = source_id,
+        .source_id = btrfsbackup::SourceId{source_id},
         .local_snapshot_path = path,
         .final_snapshot_path = (fs::path("/remote") / source_id / local_path.filename()).string(),
-        .run_id = "20260823T080000Z-123-456",
-        .timestamp = "2026-08-23T08:00:00+00:00",
+        .run_id = btrfsbackup::RunId{"20260823T080000Z-123-456"},
+        .timestamp = test_helpers::runtime_time("2026-08-23T08:00:00Z"),
     };
 }
 
@@ -46,7 +46,7 @@ btrfsbackup::backup::SnapshotMetadata local_snapshot(const std::string& uuid) {
     return btrfsbackup::backup::SnapshotMetadata{
         .is_subvolume = true,
         .readonly = true,
-        .uuid = uuid,
+        .uuid = btrfsbackup::backup::SnapshotUuid{uuid},
     };
 }
 
@@ -64,14 +64,14 @@ void test_reads_pending_marker() {
     markers.write(state_dir, marker("root", "/local/root/root-2026-08-23T080000Z"));
 
     std::optional<btrfsbackup::backup::PendingMarker> read =
-        markers.read(state_dir, "root");
+        markers.read(state_dir, btrfsbackup::SourceId{"root"});
 
     test_helpers::expect_true("read pending marker", read.has_value(), "expected pending marker");
-    test_helpers::expect_eq("read pending source", read->source_name, "root");
-    test_helpers::expect_eq("read pending path", read->local_snapshot_path, "/local/root/root-2026-08-23T080000Z");
+    test_helpers::expect_eq("read pending source", std::string(read->source_id.value()), "root");
+    test_helpers::expect_eq("read pending path", read->local_snapshot_path.string(), "/local/root/root-2026-08-23T080000Z");
 
     std::optional<btrfsbackup::backup::PendingMarker> missing =
-        markers.read(state_dir, "home");
+        markers.read(state_dir, btrfsbackup::SourceId{"home"});
     test_helpers::expect_true("missing pending marker", !missing.has_value(), "missing marker should return nullopt");
 
     fs::remove_all(root);

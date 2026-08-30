@@ -8,6 +8,7 @@
 #include <string>
 
 #include <config/model/Profile.hpp>
+#include <config/ConfigurationIdentity.hpp>
 #include <core/Identifiers.hpp>
 #include <core/RuntimeTime.hpp>
 
@@ -20,7 +21,7 @@ class IRunLedger {
     [[nodiscard]] virtual bool last_success_matches(
         const btrfsbackup::config::Profile& profile,
         LocalDate date,
-        const std::string& fingerprint
+        const btrfsbackup::config::ConfigurationFingerprint& fingerprint
     ) const = 0;
     virtual void write_skipped(
         const btrfsbackup::config::Profile& profile,
@@ -34,7 +35,7 @@ class IRunLedger {
         const RunId& run_id,
         LocalDate date,
         RuntimeTimePoint timestamp,
-        const std::string& fingerprint,
+        const btrfsbackup::config::ConfigurationFingerprint& fingerprint,
         std::size_t source_count
     ) = 0;
 };

@@ -30,12 +30,12 @@ btrfsbackup::backup::SnapshotInfo snapshot(
         .side = side,
         .source_id = btrfsbackup::SourceId{source_id},
         .name = name,
-        .timestamp = timestamp,
+        .timestamp = test_helpers::runtime_time(timestamp),
         .sequence = sequence,
         .path = path,
         .readonly = readonly,
-        .uuid = uuid,
-        .received_uuid = received_uuid,
+        .uuid = btrfsbackup::backup::SnapshotUuid{uuid},
+        .received_uuid = btrfsbackup::backup::ReceivedSnapshotUuid{received_uuid},
     };
 }
 

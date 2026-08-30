@@ -34,14 +34,14 @@ FileBackupRunLeaseProvider::FileBackupRunLeaseProvider(fs::path lock_root) : loc
 }
 
 btrfsbackup::backup::BackupRunLeaseResult FileBackupRunLeaseProvider::try_acquire(const btrfsbackup::config::Profile& profile) {
-    FileLock profile_lock(profile_lock_path(lock_root_, std::string(profile.id.value())));
+    FileLock profile_lock(profile_lock_path(lock_root_, profile.id));
     if (!profile_lock.try_acquire()) {
         return btrfsbackup::backup::BackupRunLeaseBusy{
             .error_code = ErrorCode::RunnerProfileBusy,
             .error_message = "Another runner is already active for profile " + std::string(profile.id.value()) + ".",
         };
     }
-    FileLock target_lock(target_lock_path(lock_root_, profile.target.luks_uuid.value()));
+    FileLock target_lock(target_lock_path(lock_root_, profile.target.luks_uuid));
     if (!target_lock.try_acquire()) {
         return btrfsbackup::backup::BackupRunLeaseBusy{
             .error_code = ErrorCode::RunnerTargetBusy,

@@ -22,7 +22,7 @@ void test_parse_snapshot_name() {
 
     test_helpers::expect_true("parse snapshot name", parsed.has_value(), "expected snapshot name to parse");
     test_helpers::expect_eq("parse source", std::string(parsed->source_id.value()), "home");
-    test_helpers::expect_eq("parse timestamp", parsed->timestamp, "2026-08-23T082504Z");
+    test_helpers::expect_eq("parse timestamp", btrfsbackup::format_utc_snapshot_timestamp(parsed->timestamp), "2026-08-23T082504Z");
     test_helpers::expect_eq("parse sequence", std::to_string(parsed->sequence), "0");
 
     parsed = btrfsbackup::backup::parse_snapshot_name("home-2026-08-23T082504Z-02", btrfsbackup::SourceId{"home"});
@@ -59,19 +59,19 @@ void test_list_snapshot_inventory() {
     std::unordered_map<std::string, btrfsbackup::backup::SnapshotMetadata> metadata{
         {
             (snapshots / "home-2026-08-22T082504Z").string(),
-            {.is_subvolume = true, .readonly = true, .uuid = "uuid-old"},
+            {.is_subvolume = true, .readonly = true, .uuid = btrfsbackup::backup::SnapshotUuid{"uuid-old"}},
         },
         {
             (snapshots / "home-2026-08-23T082504Z").string(),
-            {.is_subvolume = true, .readonly = true, .uuid = "uuid-new"},
+            {.is_subvolume = true, .readonly = true, .uuid = btrfsbackup::backup::SnapshotUuid{"uuid-new"}},
         },
         {
             (snapshots / "home-2026-08-23T082504Z-01").string(),
-            {.is_subvolume = true, .readonly = false, .uuid = "uuid-new-seq", .received_uuid = "received-new-seq"},
+            {.is_subvolume = true, .readonly = false, .uuid = btrfsbackup::backup::SnapshotUuid{"uuid-new-seq"}, .received_uuid = btrfsbackup::backup::ReceivedSnapshotUuid{"received-new-seq"}},
         },
         {
             (snapshots / "root-2026-08-23T082504Z").string(),
-            {.is_subvolume = true, .readonly = true, .uuid = "uuid-root"},
+            {.is_subvolume = true, .readonly = true, .uuid = btrfsbackup::backup::SnapshotUuid{"uuid-root"}},
         },
     };
 
@@ -92,8 +92,8 @@ void test_list_snapshot_inventory() {
     test_helpers::expect_eq("inventory sorted old", inventory.at(0).name, "home-2026-08-22T082504Z");
     test_helpers::expect_eq("inventory sorted new", inventory.at(1).name, "home-2026-08-23T082504Z");
     test_helpers::expect_eq("inventory sorted sequence", inventory.at(2).name, "home-2026-08-23T082504Z-01");
-    test_helpers::expect_eq("inventory uuid", inventory.at(2).uuid, "uuid-new-seq");
-    test_helpers::expect_eq("inventory received uuid", inventory.at(2).received_uuid, "received-new-seq");
+    test_helpers::expect_eq("inventory uuid", inventory.at(2).uuid.value(), "uuid-new-seq");
+    test_helpers::expect_eq("inventory received uuid", inventory.at(2).received_uuid.value(), "received-new-seq");
     test_helpers::expect_true("inventory readonly flag", !inventory.at(2).readonly, "readonly flag should follow metadata");
 
     fs::remove_all(root);
@@ -140,7 +140,7 @@ void test_inventory_separates_scan_and_reported_paths() {
         btrfsbackup::backup::SnapshotSide::Remote,
         [&](const fs::path& path) -> std::optional<btrfsbackup::backup::SnapshotMetadata> {
             metadata_path = path;
-            return btrfsbackup::backup::SnapshotMetadata{.is_subvolume = true, .readonly = true, .uuid = "uuid"};
+            return btrfsbackup::backup::SnapshotMetadata{.is_subvolume = true, .readonly = true, .uuid = btrfsbackup::backup::SnapshotUuid{"uuid"}};
         }
     );
 

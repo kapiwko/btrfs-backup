@@ -147,7 +147,6 @@ BackupService::BackupService(
 
 BackupRunPlan BackupService::plan(const BackupPlanRequest& request) {
     const RuntimeTimePoint time = clock_.now();
-    const std::string timestamp = format_utc_snapshot_timestamp(time);
     const RunId run_id = run_ids_.generate(time);
     const btrfsbackup::config::LoadedProfile loaded = profiles_.get(request.profile_id);
     BackupRunLeaseResult lease_result = sessions_.try_acquire_lease(loaded.profile);
@@ -164,7 +163,7 @@ BackupRunPlan BackupService::plan(const BackupPlanRequest& request) {
     std::optional<BackupRunPlan> plan;
     try {
         const BackupPlanningSnapshot snapshot = discovery_.discover(loaded.profile, application_paths_, cancellation);
-        plan = plan_builder_.build(loaded.profile, snapshot, run_id, timestamp, cancellation);
+        plan = plan_builder_.build(loaded.profile, snapshot, run_id, time, cancellation);
     } catch (...) {
         const std::exception_ptr original_error = std::current_exception();
         rethrow_planning_failure_after_target_cleanup(*target_session, original_error);
@@ -246,7 +245,7 @@ BackupExecutionResult BackupService::start_loaded_profile(
         });
 
         BackupRunPlan plan = prepare_target_and_plan(profile, identity, *context);
-        const std::string& fingerprint = loaded_profile.fingerprint.value();
+        const btrfsbackup::config::ConfigurationFingerprint& fingerprint = loaded_profile.fingerprint;
         if (request.validate_only) {
             if (std::optional<BackupExecutionFailed> failed = close_target_or_fail(
                     *context,
@@ -432,7 +431,7 @@ BackupRunPlan BackupService::prepare_target_and_plan(
         profile,
         snapshot,
         identity.run_id,
-        format_utc_snapshot_timestamp(identity.started_at),
+        identity.started_at,
         context.cancellation_token()
     );
     if (context.cancellation_token().cancellation_requested()) {

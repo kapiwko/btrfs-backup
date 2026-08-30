@@ -10,9 +10,15 @@
 #include <string>
 #include <unistd.h>
 
+#include <core/RuntimeTime.hpp>
+
 namespace test_helpers {
 
 inline int failures = 0;
+
+inline btrfsbackup::RuntimeTimePoint runtime_time(const std::string& value) {
+    return *btrfsbackup::parse_utc_timestamp(value);
+}
 
 inline void fail(const std::string& name, const std::string& message) {
     ++failures;

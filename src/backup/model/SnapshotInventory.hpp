@@ -11,6 +11,7 @@
 #include <vector>
 
 #include <core/Identifiers.hpp>
+#include <core/RuntimeTime.hpp>
 
 namespace btrfsbackup::backup {
 
@@ -19,9 +20,39 @@ enum class SnapshotSide {
     Remote,
 };
 
+class SnapshotUuid {
+  public:
+    SnapshotUuid() = default;
+    explicit SnapshotUuid(std::string value);
+
+    [[nodiscard]] const std::string& value() const noexcept;
+    [[nodiscard]] bool empty() const noexcept;
+
+    auto operator<=>(const SnapshotUuid&) const = default;
+
+  private:
+    std::string value_;
+};
+
+class ReceivedSnapshotUuid {
+  public:
+    ReceivedSnapshotUuid() = default;
+    explicit ReceivedSnapshotUuid(std::string value);
+
+    [[nodiscard]] const std::string& value() const noexcept;
+    [[nodiscard]] bool empty() const noexcept;
+
+    auto operator<=>(const ReceivedSnapshotUuid&) const = default;
+
+  private:
+    std::string value_;
+};
+
+[[nodiscard]] bool uuid_matches(const SnapshotUuid& snapshot, const ReceivedSnapshotUuid& received) noexcept;
+
 struct SnapshotName {
     SourceId source_id;
-    std::string timestamp;
+    RuntimeTimePoint timestamp;
     int sequence = 0;
     std::string name;
 };
@@ -29,20 +60,20 @@ struct SnapshotName {
 struct SnapshotMetadata {
     bool is_subvolume = false;
     bool readonly = false;
-    std::string uuid;
-    std::string received_uuid;
+    SnapshotUuid uuid;
+    ReceivedSnapshotUuid received_uuid;
 };
 
 struct SnapshotInfo {
     SnapshotSide side = SnapshotSide::Local;
     SourceId source_id;
     std::string name;
-    std::string timestamp;
+    RuntimeTimePoint timestamp;
     int sequence = 0;
     std::filesystem::path path;
     bool readonly = false;
-    std::string uuid;
-    std::string received_uuid;
+    SnapshotUuid uuid;
+    ReceivedSnapshotUuid received_uuid;
 };
 
 using SnapshotMetadataReader = std::function<std::optional<SnapshotMetadata>(const std::filesystem::path&)>;

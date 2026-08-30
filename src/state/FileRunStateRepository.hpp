@@ -30,7 +30,7 @@ class FileRunStateRepository final : public btrfsbackup::backup::IRunLedger,
     [[nodiscard]] bool last_success_matches(
         const btrfsbackup::config::Profile& profile,
         LocalDate date,
-        const std::string& fingerprint
+        const btrfsbackup::config::ConfigurationFingerprint& fingerprint
     ) const override;
     void write_skipped(
         const btrfsbackup::config::Profile& profile,
@@ -44,7 +44,7 @@ class FileRunStateRepository final : public btrfsbackup::backup::IRunLedger,
         const RunId& run_id,
         LocalDate date,
         RuntimeTimePoint timestamp,
-        const std::string& fingerprint,
+        const btrfsbackup::config::ConfigurationFingerprint& fingerprint,
         std::size_t source_count
     ) override;
     [[nodiscard]] std::unique_ptr<btrfsbackup::backup::IBackupRunCheckpointStore> checkpoints(const ProfileId& profile_id) override;

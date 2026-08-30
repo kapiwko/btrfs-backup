@@ -12,6 +12,7 @@
 
 #include <backup/model/Snapshot.hpp>
 #include <core/Identifiers.hpp>
+#include <core/RuntimeTime.hpp>
 
 namespace btrfsbackup::backup {
 
@@ -33,11 +34,11 @@ using PendingRecoveryEffect = std::variant<
     ClearPendingMarker>;
 
 struct PendingMarker {
-    std::string source_name;
-    std::string local_snapshot_path;
-    std::string final_snapshot_path;
-    std::string run_id;
-    std::string timestamp;
+    SourceId source_id;
+    std::filesystem::path local_snapshot_path;
+    std::filesystem::path final_snapshot_path;
+    RunId run_id;
+    RuntimeTimePoint timestamp;
 };
 
 struct PendingRecoveryPlan {

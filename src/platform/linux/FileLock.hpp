@@ -5,13 +5,15 @@
 #pragma once
 
 #include <filesystem>
-#include <string>
+
+#include <config/model/TargetIdentity.hpp>
+#include <core/Identifiers.hpp>
 
 namespace btrfsbackup::platform::linux {
 
 std::filesystem::path default_lock_root();
-std::filesystem::path profile_lock_path(const std::filesystem::path& lock_root, const std::string& profile_id);
-std::filesystem::path target_lock_path(const std::filesystem::path& lock_root, const std::string& luks_uuid);
+std::filesystem::path profile_lock_path(const std::filesystem::path& lock_root, const ProfileId& profile_id);
+std::filesystem::path target_lock_path(const std::filesystem::path& lock_root, const btrfsbackup::config::LuksUuid& luks_uuid);
 
 class FileLock {
   public:

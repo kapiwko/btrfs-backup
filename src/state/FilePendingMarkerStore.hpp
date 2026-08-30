@@ -15,7 +15,7 @@ class FilePendingMarkerStore final : public btrfsbackup::backup::IPendingMarkerS
 
     [[nodiscard]] std::optional<btrfsbackup::backup::PendingMarker> read(
         const std::filesystem::path& profile_state_dir,
-        const std::string& source_id
+        const SourceId& source_id
     ) const override;
     void write(
         const std::filesystem::path& profile_state_dir,

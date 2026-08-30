@@ -28,11 +28,11 @@ btrfsbackup::backup::SnapshotInfo snapshot(
         .side = btrfsbackup::backup::SnapshotSide::Local,
         .source_id = btrfsbackup::SourceId{source_id},
         .name = name,
-        .timestamp = timestamp,
+        .timestamp = test_helpers::runtime_time(timestamp),
         .sequence = sequence,
         .path = path,
         .readonly = true,
-        .uuid = name,
+        .uuid = btrfsbackup::backup::SnapshotUuid{name},
     };
 }
 

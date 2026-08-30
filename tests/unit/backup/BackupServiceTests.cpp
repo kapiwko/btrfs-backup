@@ -134,14 +134,14 @@ struct FakeDiscovery final : btrfsbackup::backup::IBackupDiscovery {
 struct FakePlanBuilder final : btrfsbackup::backup::IBackupPlanBuilder {
     mutable int calls = 0;
     mutable bool fail = false;
-    mutable std::string received_timestamp;
+    mutable btrfsbackup::RuntimeTimePoint received_timestamp;
     mutable std::filesystem::path received_profile_state_dir;
     mutable btrfsbackup::CancellationToken* received_cancellation = nullptr;
     btrfsbackup::backup::BackupRunPlan build(
         const btrfsbackup::config::Profile& profile,
         const btrfsbackup::backup::BackupPlanningSnapshot& snapshot,
         const btrfsbackup::RunId& run_id,
-        const std::string& snapshot_timestamp,
+        btrfsbackup::RuntimeTimePoint snapshot_timestamp,
         btrfsbackup::CancellationToken& cancellation
     ) const override {
         ++calls;
@@ -346,9 +346,9 @@ struct FakeState final : btrfsbackup::backup::IRunLedger,
     bool last_success_matches(
         const btrfsbackup::config::Profile&,
         btrfsbackup::LocalDate,
-        const std::string& fingerprint
+        const btrfsbackup::config::ConfigurationFingerprint& fingerprint
     ) const override {
-        matched_fingerprint = fingerprint;
+        matched_fingerprint = fingerprint.value();
         return daily_match;
     }
 
@@ -367,7 +367,7 @@ struct FakeState final : btrfsbackup::backup::IRunLedger,
         const btrfsbackup::RunId&,
         btrfsbackup::LocalDate date,
         btrfsbackup::RuntimeTimePoint timestamp,
-        const std::string& fingerprint,
+        const btrfsbackup::config::ConfigurationFingerprint& fingerprint,
         std::size_t
     ) override {
         if (fail_success_write) {
@@ -379,7 +379,7 @@ struct FakeState final : btrfsbackup::backup::IRunLedger,
         ++success_writes;
         success_date = btrfsbackup::format_local_date(date);
         success_timestamp = timestamp;
-        success_fingerprint = fingerprint;
+        success_fingerprint = fingerprint.value();
     }
 
     std::unique_ptr<btrfsbackup::backup::IBackupRunCheckpointStore> checkpoints(
@@ -566,7 +566,11 @@ void test_success_uses_ports_and_persists_success() {
     );
     test_helpers::expect_true("run factory calls", fixture.runs.calls == 1, "unexpected call count");
     test_helpers::expect_true("success writes", fixture.state.success_writes == 1, "unexpected write count");
-    test_helpers::expect_eq("planner timestamp", fixture.plan_builder.received_timestamp, "2026-08-26T120000Z");
+    test_helpers::expect_eq(
+        "planner timestamp",
+        btrfsbackup::format_utc_snapshot_timestamp(fixture.plan_builder.received_timestamp),
+        "2026-08-26T120000Z"
+    );
     test_helpers::expect_eq(
         "discovery passed to builder",
         fixture.plan_builder.received_profile_state_dir.string(),

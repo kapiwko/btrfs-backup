@@ -57,11 +57,12 @@ bool name_exists(const std::vector<btrfsbackup::backup::SnapshotInfo>& snapshots
 
 std::string planned_snapshot_name(
     const btrfsbackup::SourceId& source_id,
-    const std::string& timestamp,
+    btrfsbackup::RuntimeTimePoint timestamp,
     const std::vector<btrfsbackup::backup::SnapshotInfo>& local_snapshots
 ) {
     const std::string source_id_value{source_id.value()};
-    const std::string base = source_id_value + "-" + timestamp;
+    const std::string timestamp_text = btrfsbackup::format_utc_snapshot_timestamp(timestamp);
+    const std::string base = source_id_value + "-" + timestamp_text;
     if (!name_exists(local_snapshots, base)) {
         return base;
     }
@@ -75,14 +76,14 @@ std::string planned_snapshot_name(
         }
     }
 
-    throw btrfsbackup::ValidationError("could not allocate snapshot name for " + source_id_value + " at " + timestamp);
+    throw btrfsbackup::ValidationError("could not allocate snapshot name for " + source_id_value + " at " + timestamp_text);
 }
 
 btrfsbackup::backup::SnapshotInfo projected_snapshot(
     btrfsbackup::backup::SnapshotSide side,
     const btrfsbackup::SourceId& source_id,
     const std::string& name,
-    const std::string& timestamp,
+    btrfsbackup::RuntimeTimePoint timestamp,
     const fs::path& path
 ) {
     std::optional<btrfsbackup::backup::SnapshotName> parsed = btrfsbackup::backup::parse_snapshot_name(name, source_id);
@@ -135,13 +136,9 @@ BackupRunPlan build_backup_run_plan(
     const PendingSnapshotBySource& pending_snapshots,
     const fs::path& profile_state_dir,
     const RunId& run_id,
-    const std::string& snapshot_timestamp
+    RuntimeTimePoint snapshot_timestamp
 ) {
-    const SourceId timestamp_validation_source{std::string(profile.id.value())};
     const std::string run_id_value{run_id.value()};
-    if (!parse_snapshot_name(std::string(profile.id.value()) + "-" + snapshot_timestamp, timestamp_validation_source).has_value()) {
-        throw ValidationError("snapshot timestamp is invalid: " + snapshot_timestamp);
-    }
 
     BackupRunPlan run_plan{
         .profile_id = profile.id,

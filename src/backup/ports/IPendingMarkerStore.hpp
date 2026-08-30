@@ -18,7 +18,7 @@ class IPendingMarkerStore {
 
     [[nodiscard]] virtual std::optional<PendingMarker> read(
         const std::filesystem::path& profile_state_dir,
-        const std::string& source_id
+        const SourceId& source_id
     ) const = 0;
     virtual void write(
         const std::filesystem::path& profile_state_dir,

@@ -209,7 +209,7 @@ btrfsbackup::platform::linux::FileLock acquire_activation_lock(
     btrfsbackup::platform::linux::FileLock lock(
         btrfsbackup::platform::linux::target_lock_path(
             resolved.activation_state_root / ".locks",
-            profile.target.luks_uuid.value()
+            profile.target.luks_uuid
         )
     );
     if (!lock.try_acquire()) {
@@ -290,7 +290,7 @@ std::optional<btrfsbackup::platform::linux::FileLock> acquire_target_lock(
     std::vector<btrfsbackup::cli::TargetEvent>& events
 ) {
     std::optional<btrfsbackup::platform::linux::FileLock> lock;
-    lock.emplace(btrfsbackup::platform::linux::target_lock_path(lock_root, profile.target.luks_uuid.value()));
+    lock.emplace(btrfsbackup::platform::linux::target_lock_path(lock_root, profile.target.luks_uuid));
     if (!lock->try_acquire()) {
         events.push_back({
             .kind = btrfsbackup::cli::TargetEventKind::Busy,

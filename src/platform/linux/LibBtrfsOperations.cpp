@@ -73,9 +73,9 @@ std::optional<btrfsbackup::backup::SnapshotMetadata> read_btrfs_snapshot_metadat
 
     btrfsbackup::backup::SnapshotMetadata metadata;
     metadata.is_subvolume = true;
-    metadata.uuid = uuid_to_string(info.uuid);
+    metadata.uuid = btrfsbackup::backup::SnapshotUuid{uuid_to_string(info.uuid)};
     if (!is_zero_uuid(info.received_uuid)) {
-        metadata.received_uuid = uuid_to_string(info.received_uuid);
+        metadata.received_uuid = btrfsbackup::backup::ReceivedSnapshotUuid{uuid_to_string(info.received_uuid)};
     }
 
     bool readonly = false;

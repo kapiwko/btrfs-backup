@@ -8,9 +8,7 @@
 #include <sys/file.h>
 #include <unistd.h>
 
-#include <algorithm>
 #include <cerrno>
-#include <cctype>
 #include <filesystem>
 #include <string>
 #include <utility>
@@ -25,16 +23,12 @@ fs::path default_lock_root() {
     return "/run/btrfs-backup/locks";
 }
 
-fs::path profile_lock_path(const fs::path& lock_root, const std::string& profile_id) {
-    return lock_root / "profiles" / (profile_id + ".lock");
+fs::path profile_lock_path(const fs::path& lock_root, const ProfileId& profile_id) {
+    return lock_root / "profiles" / (std::string(profile_id.value()) + ".lock");
 }
 
-fs::path target_lock_path(const fs::path& lock_root, const std::string& luks_uuid) {
-    std::string normalized_uuid = luks_uuid;
-    std::transform(normalized_uuid.begin(), normalized_uuid.end(), normalized_uuid.begin(), [](unsigned char ch) {
-        return static_cast<char>(std::tolower(ch));
-    });
-    return lock_root / "targets" / (normalized_uuid + ".lock");
+fs::path target_lock_path(const fs::path& lock_root, const btrfsbackup::config::LuksUuid& luks_uuid) {
+    return lock_root / "targets" / (luks_uuid.value() + ".lock");
 }
 
 FileLock::FileLock(fs::path path) : path_(std::move(path)) {
