@@ -1,0 +1,13 @@
+{
+  "KPlugin": {
+    "Description": "Review Btrfs backup profiles and validate backup targets",
+    "Description[pl]": "Przeglądaj profile kopii Btrfs i sprawdzaj cele kopii zapasowych",
+    "Icon": "drive-harddisk",
+    "Id": "kcm_btrfsbackup",
+    "License": "GPL-3.0-or-later",
+    "Name": "Btrfs Backups",
+    "Name[pl]": "Kopie zapasowe Btrfs"
+  },
+  "X-KDE-System-Settings-Parent-Category": "system-administration",
+  "X-KDE-Weight": 80
+}
