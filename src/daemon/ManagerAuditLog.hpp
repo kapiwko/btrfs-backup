@@ -31,7 +31,7 @@ class IManagerAuditLog {
 class FileManagerAuditLog final : public IManagerAuditLog {
   public:
     explicit FileManagerAuditLog(const std::filesystem::path& path);
-    ~FileManagerAuditLog() override;
+    ~FileManagerAuditLog() noexcept override;
 
     FileManagerAuditLog(const FileManagerAuditLog&) = delete;
     FileManagerAuditLog& operator=(const FileManagerAuditLog&) = delete;

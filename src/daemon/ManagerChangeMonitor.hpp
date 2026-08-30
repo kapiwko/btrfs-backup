@@ -29,7 +29,7 @@ class ManagerChangeMonitor final {
     using Callback = std::function<void(const ManagerChange&)>;
 
     ManagerChangeMonitor(const ManagerPaths& paths, Callback callback);
-    ~ManagerChangeMonitor();
+    ~ManagerChangeMonitor() noexcept;
 
     ManagerChangeMonitor(const ManagerChangeMonitor&) = delete;
     ManagerChangeMonitor& operator=(const ManagerChangeMonitor&) = delete;

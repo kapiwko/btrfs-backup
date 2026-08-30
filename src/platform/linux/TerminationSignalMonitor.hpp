@@ -14,7 +14,7 @@ class TerminationSignalMonitor {
     explicit TerminationSignalMonitor(std::function<void()> on_termination);
     TerminationSignalMonitor(const TerminationSignalMonitor&) = delete;
     TerminationSignalMonitor& operator=(const TerminationSignalMonitor&) = delete;
-    ~TerminationSignalMonitor();
+    ~TerminationSignalMonitor() noexcept;
 
   private:
     class Impl;

@@ -121,7 +121,7 @@ RunnerComposition::RunnerComposition(
     : impl_(std::make_unique<Impl>(config_root, options, cancellation)) {
 }
 
-RunnerComposition::~RunnerComposition() = default;
+RunnerComposition::~RunnerComposition() noexcept = default;
 
 backup::BackupService& RunnerComposition::service() {
     return impl_->backup_service;

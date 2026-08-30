@@ -41,7 +41,7 @@ class ScopedIgnoredSigpipe {
     }
     ScopedIgnoredSigpipe(const ScopedIgnoredSigpipe&) = delete;
     ScopedIgnoredSigpipe& operator=(const ScopedIgnoredSigpipe&) = delete;
-    ~ScopedIgnoredSigpipe() {
+    ~ScopedIgnoredSigpipe() noexcept {
         sigaction(SIGPIPE, &previous_, nullptr);
     }
 

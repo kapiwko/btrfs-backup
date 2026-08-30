@@ -314,7 +314,7 @@ ManagerChangeMonitor::ManagerChangeMonitor(const ManagerPaths& paths, Callback c
     : impl_(std::make_unique<Impl>(paths, std::move(callback))) {
 }
 
-ManagerChangeMonitor::~ManagerChangeMonitor() = default;
+ManagerChangeMonitor::~ManagerChangeMonitor() noexcept = default;
 
 int ManagerChangeMonitor::filesystem_fd() const noexcept {
     return impl_->filesystem_fd();

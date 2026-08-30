@@ -153,7 +153,7 @@ SafeDirectoryHandle& SafeDirectoryHandle::operator=(SafeDirectoryHandle&& other)
     return *this;
 }
 
-SafeDirectoryHandle::~SafeDirectoryHandle() {
+SafeDirectoryHandle::~SafeDirectoryHandle() noexcept {
     if (fd_ >= 0) {
         close(fd_);
     }

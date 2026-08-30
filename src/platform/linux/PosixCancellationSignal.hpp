@@ -17,7 +17,7 @@ class PosixCancellationSignal {
     explicit PosixCancellationSignal(const CancellationToken& cancellation);
     PosixCancellationSignal(const PosixCancellationSignal&) = delete;
     PosixCancellationSignal& operator=(const PosixCancellationSignal&) = delete;
-    ~PosixCancellationSignal();
+    ~PosixCancellationSignal() noexcept;
 
     [[nodiscard]] int fd() const noexcept;
     void drain() const noexcept;

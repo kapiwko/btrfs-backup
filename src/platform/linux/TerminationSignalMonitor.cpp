@@ -57,7 +57,7 @@ class TerminationSignalMonitor::Impl {
         }
     }
 
-    ~Impl() {
+    ~Impl() noexcept {
         std::uint64_t value = 1;
         ssize_t ignored = write(stop_fd_.get(), &value, sizeof(value));
         (void)ignored;
@@ -120,6 +120,6 @@ TerminationSignalMonitor::TerminationSignalMonitor(std::function<void()> on_term
     : impl_(std::make_unique<Impl>(std::move(on_termination))) {
 }
 
-TerminationSignalMonitor::~TerminationSignalMonitor() = default;
+TerminationSignalMonitor::~TerminationSignalMonitor() noexcept = default;
 
 } // namespace btrfsbackup::platform::linux

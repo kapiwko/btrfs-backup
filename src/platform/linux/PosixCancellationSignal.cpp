@@ -33,7 +33,7 @@ PosixCancellationSignal::PosixCancellationSignal(const CancellationToken& cancel
     callback_.emplace(cancellation.stop_token(), WriteSignal{write_fd_.get()});
 }
 
-PosixCancellationSignal::~PosixCancellationSignal() = default;
+PosixCancellationSignal::~PosixCancellationSignal() noexcept = default;
 
 int PosixCancellationSignal::fd() const noexcept {
     return read_fd_.get();

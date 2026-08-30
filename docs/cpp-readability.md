@@ -57,9 +57,51 @@ callers need cleanup diagnostics or ordering. Destructors are non-throwing
 fallbacks. Critical cleanup is performed explicitly while its dependencies are
 still alive, and partial failures preserve all useful diagnostics.
 
+Prefer the rule of zero. An explicit destructor, copy operation, or move
+operation is a reviewed lifecycle decision and must be present in the inventory
+in `cpp_special_member_tests.cmake`. A defined move operation and every
+non-default destructor are declared `noexcept`; deleted move operations need no
+exception specification. The inventory is deliberately not inferred from a
+base class: adding a resource owner or making a type immobile requires an
+explicit review.
+
 Do not replace differently named cleanup steps with a generic callback helper
 when the steps have different ordering, failure consequences, or recovery
 meaning.
+
+## Domain Values
+
+Use nominal types for identifiers, UUIDs, fingerprints, paths, and operation
+states once data crosses from an input DTO into domain code. Normalize UUIDs
+and other canonical values in their constructors. Raw strings belong at JSON,
+D-Bus, CLI, and configuration input boundaries; codecs perform the conversion
+to and from domain values.
+
+Use `RuntimeTimePoint` and `std::chrono` durations inside the application.
+Formatting and parsing timestamps is a serialization concern. Represent
+mutually exclusive states with `std::variant` and state-specific structures so
+invalid combinations cannot be created through the public API.
+
+`OperationPathValue` remains a protected implementation base for the nominal
+operation paths. Replacing it with member composition alone would retain the
+declaration macro and duplicate forwarding without strengthening invariants or
+the public API. Reconsider it only with a macro-free nominal template or
+another design that preserves the separately named validating constructors.
+
+## Errors
+
+Choose the error channel from the caller's required control flow:
+
+| Situation | Contract |
+| --- | --- |
+| A synchronous operation cannot complete | Throw `BtrfsBackupError` or a more specific coded exception. |
+| A value is legitimately absent | Return `std::optional<T>`. |
+| The caller must handle one of several expected outcomes | Return a named `std::variant`. |
+| An expected failure must be inspected directly | Use `std::expected<T, E>` for new, coherent boundaries; do not migrate isolated functions mechanically. |
+| Cleanup must preserve diagnostics without throwing | Return a named close/cleanup result and keep the destructor as a `noexcept` fallback. |
+
+Exceptions must not cross C callbacks or D-Bus callbacks. Boundary adapters
+catch them and map them to the protocol's error representation.
 
 ## Boundaries
 
@@ -72,6 +114,12 @@ Keep system details in their adapters:
 - D-Bus C callbacks catch every exception before returning across the C
   boundary;
 - application services depend on ports and domain values, not adapter details.
+
+Composition roots may expose a production overload that constructs system
+adapters. The testable application overload takes required dependencies by
+reference. In particular, `TargetService` has one-argument production
+overloads, while its injected overloads require `TargetServiceDependencies&`;
+nullable dependency pointers do not enter the service logic.
 
 Avoid generic `utils` modules. Extract shared code only when it represents a
 specific concept with a stable invariant and at least two real consumers, or
@@ -91,4 +139,7 @@ local until at least two test files genuinely need it.
 There is no enforced maximum file length, function length, anonymous-namespace
 length, or class count. These are review signals only. Architecture tests are
 reserved for objective rules such as filenames, namespaces, dependency
-direction, header ownership, and ownership signatures.
+direction, header ownership, ownership signatures, and the reviewed inventory
+of explicit special members. Clang-tidy additionally rejects member functions
+that should be `const` and defined destructors or move constructors missing
+`noexcept`.
