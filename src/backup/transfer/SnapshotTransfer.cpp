@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <backup/SnapshotTransfer.hpp>
+#include <backup/transfer/SnapshotTransfer.hpp>
 
 #include <filesystem>
 #include <string>
@@ -12,7 +12,7 @@
 
 namespace fs = std::filesystem;
 
-namespace btrfsbackup::backup {
+namespace btrfsbackup::backup::transfer {
 
 SendReceiveCommandPlan build_send_receive_command_plan(
     const fs::path& snapshot_path,
@@ -102,4 +102,4 @@ void commit_received_snapshot_beneath(
     }
 }
 
-} // namespace btrfsbackup::backup
+} // namespace btrfsbackup::backup::transfer
