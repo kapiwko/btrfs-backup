@@ -52,7 +52,7 @@ void BackupProgressJob::update(
     }
 
     can_cancel_ = can_cancel;
-    setCapabilities(can_cancel_ ? KJob::Killable : KJob::NoCapabilities);
+    update_capabilities();
     if (progress >= 0) {
         setPercent(static_cast<unsigned long>(std::clamp(progress, 0, 100)));
     }
@@ -114,6 +114,14 @@ void BackupProgressJob::stop_tracking() {
     deleteLater();
 }
 
+void BackupProgressJob::cancellation_rejected() {
+    if (finished_ || !cancel_requested_) {
+        return;
+    }
+    cancel_requested_ = false;
+    update_capabilities();
+}
+
 QString BackupProgressJob::profile_id() const {
     return profile_id_;
 }
@@ -122,13 +130,22 @@ QString BackupProgressJob::run_id() const {
     return run_id_;
 }
 
+bool BackupProgressJob::cancellation_requested() const {
+    return cancel_requested_;
+}
+
 bool BackupProgressJob::doKill() {
     if (!can_cancel_ || cancel_requested_ || finished_) {
         return false;
     }
     cancel_requested_ = true;
+    update_capabilities();
     cancel_request_(profile_id_, run_id_);
-    return true;
+    return false;
+}
+
+void BackupProgressJob::update_capabilities() {
+    setCapabilities(can_cancel_ && !cancel_requested_ ? KJob::Killable : KJob::NoCapabilities);
 }
 
 void BackupProgressJob::publish_description() {

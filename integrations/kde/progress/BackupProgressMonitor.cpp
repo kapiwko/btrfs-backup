@@ -60,6 +60,7 @@ BackupProgressMonitor::BackupProgressMonitor(
           QDBusServiceWatcher::WatchForRegistration | QDBusServiceWatcher::WatchForUnregistration,
           this
       ),
+      cancellation_dispatcher_(bus_, this),
       tracker_(tracker) {
     connect(&service_watcher_, &QDBusServiceWatcher::serviceRegistered, this, [this]() {
         if (active_) {
@@ -85,6 +86,18 @@ BackupProgressMonitor::BackupProgressMonitor(
         }
         request_status(profile.value());
     });
+    connect(
+        &cancellation_dispatcher_,
+        &CancellationRequestDispatcher::rejected,
+        this,
+        [this](const QString& profile_id, const QString& run_id, const QString& reason) {
+            const QPointer<BackupProgressJob> job = jobs_.value(profile_id);
+            if (job && job->run_id() == run_id) {
+                job->cancellation_rejected();
+            }
+            qWarning() << "btrfs-backup KDE monitor could not cancel the backup:" << reason;
+        }
+    );
 }
 
 void BackupProgressMonitor::start() {
@@ -100,14 +113,18 @@ void BackupProgressMonitor::connect_to_manager() {
     if (capabilities_request_pending_) {
         return;
     }
+    const std::uint64_t generation = ++manager_generation_;
     capabilities_request_pending_ = true;
     auto* watcher = new QDBusPendingCallWatcher(
         btrfsbackup::kde::manager_call(bus_, QLatin1String(btrfsbackup::manager_protocol::method::get_capabilities)),
         this
     );
-    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, watcher](QDBusPendingCallWatcher*) {
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, watcher, generation](QDBusPendingCallWatcher*) {
         const QDBusPendingReply<QString> reply = *watcher;
         watcher->deleteLater();
+        if (generation != manager_generation_) {
+            return;
+        }
         capabilities_request_pending_ = false;
         if (!active_) {
             return;
@@ -127,13 +144,17 @@ void BackupProgressMonitor::connect_to_manager() {
             return;
         }
 
+        manager_features_ = capabilities->features;
         capabilities_verified_ = true;
         request_profiles();
     });
 }
 
 void BackupProgressMonitor::manager_unavailable() {
+    ++manager_generation_;
     capabilities_verified_ = false;
+    capabilities_request_pending_ = false;
+    manager_features_.clear();
     profiles_request_pending_ = false;
     profiles_refresh_queued_ = false;
     pending_status_requests_.clear();
@@ -144,7 +165,6 @@ void BackupProgressMonitor::manager_unavailable() {
         }
     }
     jobs_.clear();
-    suppressed_runs_.clear();
 }
 
 void BackupProgressMonitor::request_profiles() {
@@ -155,14 +175,18 @@ void BackupProgressMonitor::request_profiles() {
         profiles_refresh_queued_ = true;
         return;
     }
+    const std::uint64_t generation = manager_generation_;
     profiles_request_pending_ = true;
     auto* watcher = new QDBusPendingCallWatcher(
         btrfsbackup::kde::manager_call(bus_, QLatin1String(btrfsbackup::manager_protocol::method::list_profiles)),
         this
     );
-    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, watcher](QDBusPendingCallWatcher*) {
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, watcher, generation](QDBusPendingCallWatcher*) {
         const QDBusPendingReply<QString> reply = *watcher;
         watcher->deleteLater();
+        if (generation != manager_generation_) {
+            return;
+        }
         profiles_request_pending_ = false;
         if (!active_ || !capabilities_verified_) {
             return;
@@ -182,14 +206,18 @@ void BackupProgressMonitor::request_status(const Profile& profile) {
         queued_status_requests_.insert(profile.id);
         return;
     }
+    const std::uint64_t generation = manager_generation_;
     pending_status_requests_.insert(profile.id);
     auto* watcher = new QDBusPendingCallWatcher(
         btrfsbackup::kde::manager_call(bus_, QLatin1String(btrfsbackup::manager_protocol::method::get_status), {profile.id}),
         this
     );
-    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, watcher, profile](QDBusPendingCallWatcher*) {
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, watcher, profile, generation](QDBusPendingCallWatcher*) {
         const QDBusPendingReply<QString> reply = *watcher;
         watcher->deleteLater();
+        if (generation != manager_generation_) {
+            return;
+        }
         pending_status_requests_.remove(profile.id);
         if (!active_ || !capabilities_verified_ || !profiles_.contains(profile.id)) {
             return;
@@ -206,25 +234,7 @@ void BackupProgressMonitor::request_status(const Profile& profile) {
 }
 
 void BackupProgressMonitor::request_cancel(const QString& profile_id, const QString& run_id) {
-    const QString key = suppression_key(profile_id, run_id);
-    suppressed_runs_.insert(key);
-    auto* watcher = new QDBusPendingCallWatcher(
-        btrfsbackup::kde::manager_call(
-            bus_,
-            QLatin1String(btrfsbackup::manager_protocol::method::cancel_backup),
-            {profile_id, run_id}
-        ),
-        this
-    );
-    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, watcher, key](QDBusPendingCallWatcher*) {
-        const QDBusPendingReply<QString> reply = *watcher;
-        watcher->deleteLater();
-        if (reply.isError()) {
-            suppressed_runs_.remove(key);
-            qWarning() << "btrfs-backup KDE monitor could not cancel the backup:"
-                       << reply.error().message();
-        }
-    });
+    cancellation_dispatcher_.request(profile_id, run_id);
 }
 
 void BackupProgressMonitor::apply_profiles(const QString& payload) {
@@ -267,10 +277,6 @@ void BackupProgressMonitor::apply_status(const Profile& profile, const QString& 
         finish_job(profile.id, status);
         return;
     }
-    if (suppressed_runs_.contains(suppression_key(profile.id, status.run_id))) {
-        return;
-    }
-
     const QPointer<BackupProgressJob> current = jobs_.value(profile.id);
     if (!current || current->run_id() != status.run_id) {
         if (current) {
@@ -284,7 +290,9 @@ void BackupProgressMonitor::apply_status(const Profile& profile, const QString& 
         job->update(
             status.overall_progress,
             status.speed_bps,
-            status.can_cancel,
+            status.can_cancel && manager_features_.contains(
+                QLatin1String(btrfsbackup::manager_protocol::feature::cancel_backup)
+            ),
             activity_text(status.activity, status.phase),
             status.source_name,
             status.target_name.isEmpty() ? profile.target_name : status.target_name
@@ -312,14 +320,6 @@ void BackupProgressMonitor::create_job(const Profile& profile, const Status& sta
 }
 
 void BackupProgressMonitor::finish_job(const QString& profile_id, const Status& status) {
-    for (auto iterator = suppressed_runs_.begin(); iterator != suppressed_runs_.end();) {
-        if (iterator->startsWith(profile_id + QLatin1Char('\n'))) {
-            iterator = suppressed_runs_.erase(iterator);
-        } else {
-            ++iterator;
-        }
-    }
-
     const QPointer<BackupProgressJob> job = jobs_.take(profile_id);
     if (!job) {
         return;
@@ -333,11 +333,4 @@ void BackupProgressMonitor::finish_job(const QString& profile_id, const Status& 
     } else {
         job->finish_successfully();
     }
-}
-
-QString BackupProgressMonitor::suppression_key(
-    const QString& profile_id,
-    const QString& run_id
-) const {
-    return profile_id + QLatin1Char('\n') + run_id;
 }
