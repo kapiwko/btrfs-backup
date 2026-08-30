@@ -9,7 +9,7 @@
 #include <stdexcept>
 #include <string>
 
-#include <config/model/Json.hpp>
+#include <config/json/Json.hpp>
 #include <daemon/ManagerAuditLog.hpp>
 
 #include "support/TestHelpers.hpp"
@@ -40,8 +40,8 @@ void test_audit_log_appends_durable_structured_records() {
     std::string second_line;
     std::getline(input, first_line);
     std::getline(input, second_line);
-    const btrfsbackup::config::Json first = btrfsbackup::config::Json::parse(first_line);
-    const btrfsbackup::config::Json second = btrfsbackup::config::Json::parse(second_line);
+    const btrfsbackup::config::json::Json first = btrfsbackup::config::json::Json::parse(first_line);
+    const btrfsbackup::config::json::Json second = btrfsbackup::config::json::Json::parse(second_line);
     test_helpers::expect_true("audit schema", first.at("schemaVersion") == 1, "wrong audit schema");
     test_helpers::expect_true("audit uid", first.at("callerUid") == 1000, "caller UID was lost");
     test_helpers::expect_true("audit action", first.at("action") == "start-backup", "action was lost");

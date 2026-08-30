@@ -7,10 +7,10 @@
 #include <filesystem>
 #include <string>
 
-#include <config/model/Json.hpp>
+#include <config/json/Json.hpp>
 #include <config/domain/Profile.hpp>
 
-namespace btrfsbackup::config {
+namespace btrfsbackup::config::json {
 
 inline constexpr int current_profile_schema_version = 4;
 
@@ -31,4 +31,4 @@ Profile profile_from_json(const Json& raw, const std::filesystem::path& target_m
 ProfileDocument profile_to_document(const Profile& profile);
 Json profile_to_json(const Profile& profile);
 
-} // namespace btrfsbackup::config
+} // namespace btrfsbackup::config::json

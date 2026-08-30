@@ -14,9 +14,9 @@
 #include <platform/linux/config/ProfileRuntimePolicy.hpp>
 #include <config/ProfileFingerprint.hpp>
 #include <core/Identifiers.hpp>
-#include <config/model/Json.hpp>
+#include <config/json/Json.hpp>
 #include <config/domain/Profile.hpp>
-#include <config/model/ProfileDocument.hpp>
+#include <config/json/ProfileDocument.hpp>
 #include <platform/linux/filesystem/TrustedFile.hpp>
 
 namespace fs = std::filesystem;
@@ -43,13 +43,13 @@ btrfsbackup::config::LoadedProfile loaded_profile_from_bytes(
     const btrfsbackup::config::ApplicationPaths& application_paths
 ) {
     try {
-        const btrfsbackup::config::Json raw = btrfsbackup::config::Json::parse(bytes);
+        const btrfsbackup::config::json::Json raw = btrfsbackup::config::json::Json::parse(bytes);
         validate_legacy_profile_runtime_fields(raw, application_paths.target_mount_root);
-        const btrfsbackup::config::ProfileDocument document = btrfsbackup::config::normalize_profile_document(
+        const btrfsbackup::config::json::ProfileDocument document = btrfsbackup::config::json::normalize_profile_document(
             raw,
             application_paths.target_mount_root
         );
-        btrfsbackup::config::Profile profile = btrfsbackup::config::profile_from_document(
+        btrfsbackup::config::Profile profile = btrfsbackup::config::json::profile_from_document(
             document,
             application_paths.target_mount_root
         );
@@ -66,7 +66,7 @@ btrfsbackup::config::LoadedProfile loaded_profile_from_bytes(
             ),
             .generation = generation,
         };
-    } catch (const btrfsbackup::config::Json::exception& exc) {
+    } catch (const btrfsbackup::config::json::Json::exception& exc) {
         throw ValidationError("cannot read JSON profile " + path.string() + ": " + exc.what());
     }
 }

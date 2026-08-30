@@ -14,14 +14,14 @@
 #include <platform/linux/config/ApplicationConfig.hpp>
 #include <core/Errors.hpp>
 #include <core/Identifiers.hpp>
-#include <config/model/JsonIo.hpp>
+#include <config/json/JsonIo.hpp>
 #include <config/ProfileArtifactRenderer.hpp>
 #include <platform/linux/config/ProfileInstaller.hpp>
 #include <platform/linux/config/FileProfileRepository.hpp>
 #include <platform/linux/config/ProfileLegacyRuntimePolicy.hpp>
 #include <platform/linux/config/ProfileRuntimePolicy.hpp>
 #include <config/domain/Profile.hpp>
-#include <config/model/ProfileDocument.hpp>
+#include <config/json/ProfileDocument.hpp>
 #include <platform/linux/config/RenderDirectory.hpp>
 #include <platform/linux/filesystem/FileIo.hpp>
 #include <platform/linux/config/ProfileArtifactIo.hpp>
@@ -31,15 +31,15 @@ namespace fs = std::filesystem;
 namespace btrfsbackup::platform::linux {
 
 btrfsbackup::config::Profile validate_profile_file(const fs::path& file, const fs::path& target_mount_root) {
-    const btrfsbackup::config::Json raw = btrfsbackup::config::load_json_file(file);
+    const btrfsbackup::config::json::Json raw = btrfsbackup::config::json::load_json_file(file);
     validate_legacy_profile_runtime_fields(raw, target_mount_root);
-    btrfsbackup::config::Profile profile = btrfsbackup::config::profile_from_json(raw, target_mount_root);
+    btrfsbackup::config::Profile profile = btrfsbackup::config::json::profile_from_json(raw, target_mount_root);
     validate_profile_runtime_policy(profile);
     return profile;
 }
 
 void write_profile_file(const btrfsbackup::config::Profile& profile, const fs::path& output) {
-    filesystem::atomic_write(output, btrfsbackup::config::dump_json(btrfsbackup::config::profile_to_json(profile)), 0600);
+    filesystem::atomic_write(output, btrfsbackup::config::json::dump_json(btrfsbackup::config::json::profile_to_json(profile)), 0600);
 }
 
 void render_profile(const fs::path& file, const fs::path& output_dir, const fs::path& target_mount_root) {

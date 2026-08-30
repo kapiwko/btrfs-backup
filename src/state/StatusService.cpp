@@ -24,10 +24,10 @@ btrfsbackup::state::StatusDocument read_document(const fs::path& path) {
     if (!stream)
         throw btrfsbackup::ValidationError("cannot read " + path.string());
     std::string content{std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()};
-    return {.data = btrfsbackup::config::Json::parse(content), .content = std::move(content), .source = path};
+    return {.data = btrfsbackup::config::json::Json::parse(content), .content = std::move(content), .source = path};
 }
 
-void validate_status_api(const btrfsbackup::config::Json& data) {
+void validate_status_api(const btrfsbackup::config::json::Json& data) {
     if (!data.is_object() || !data.contains("schemaVersion") || data.at("schemaVersion") != 3) {
         throw btrfsbackup::ValidationError("status JSON has unsupported schemaVersion");
     }

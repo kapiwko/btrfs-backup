@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <config/model/ProfileDocument.hpp>
+#include <config/json/ProfileDocument.hpp>
 
 #include <chrono>
 #include <filesystem>
@@ -15,7 +15,7 @@
 
 namespace fs = std::filesystem;
 
-namespace btrfsbackup::config {
+namespace btrfsbackup::config::json {
 
 Profile profile_from_document(const ProfileDocument& document, const fs::path& target_mount_root) {
     const Json normalized = normalize_profile(document.value, target_mount_root);
@@ -95,4 +95,4 @@ Profile profile_from_json(const Json& raw, const fs::path& target_mount_root) {
     return profile_from_document(normalize_profile_document(raw, target_mount_root), target_mount_root);
 }
 
-} // namespace btrfsbackup::config
+} // namespace btrfsbackup::config::json

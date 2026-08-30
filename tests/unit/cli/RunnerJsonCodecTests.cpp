@@ -13,7 +13,7 @@
 
 #include <backup/model/BackupRunPlan.hpp>
 #include <cli/runner/RunnerPresenter.hpp>
-#include <config/model/Json.hpp>
+#include <config/json/Json.hpp>
 
 #include "support/TestHelpers.hpp"
 
@@ -104,8 +104,8 @@ void test_plan_encodes_every_action_kind() {
 
     std::ostringstream output;
     const int exit_code = runner::present_runner_plan(plan, output);
-    const config::Json document = config::Json::parse(output.str());
-    const config::Json& encoded = document.at("sources").at(0).at("actions");
+    const config::json::Json document = config::json::Json::parse(output.str());
+    const config::json::Json& encoded = document.at("sources").at(0).at("actions");
     const std::array expected{
         ExpectedAction{"recover-pending", local_snapshot, {}},
         ExpectedAction{"cleanup-incoming", incoming_directory, {}},
@@ -131,7 +131,7 @@ void test_plan_encodes_every_action_kind() {
     }
 
     for (const std::size_t index : {std::size_t{2}, std::size_t{4}}) {
-        const config::Json& encoded_hook = encoded.at(index).at("hook");
+        const config::json::Json& encoded_hook = encoded.at(index).at("hook");
         test_helpers::expect_eq("hook program", encoded_hook.at("program").get<std::string>(), "/hooks/snapshot");
         test_helpers::expect_eq("hook timeout", std::to_string(encoded_hook.at("timeoutSeconds").get<int>()), "12");
     }

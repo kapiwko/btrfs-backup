@@ -7,11 +7,11 @@
 #include <filesystem>
 #include <string>
 
-#include <config/model/Json.hpp>
+#include <config/json/Json.hpp>
 
-namespace btrfsbackup::config {
+namespace btrfsbackup::config::json {
 
 Json load_json_file(const std::filesystem::path& path);
 std::string dump_json(const Json& data);
 
-} // namespace btrfsbackup::config
+} // namespace btrfsbackup::config::json

@@ -20,7 +20,7 @@ btrfsbackup::daemon::PublicRunStatus unavailable_status() {
     return {};
 }
 
-btrfsbackup::daemon::PublicRunStatus sanitize_public_status(const btrfsbackup::config::Json& input) {
+btrfsbackup::daemon::PublicRunStatus sanitize_public_status(const btrfsbackup::config::json::Json& input) {
     if (!input.is_object() || input.value("schemaVersion", 0) != 3) {
         throw btrfsbackup::ValidationError("public status has an unsupported schema");
     }

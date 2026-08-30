@@ -5,14 +5,14 @@
 #include <string>
 #include <vector>
 
-#include <config/model/Json.hpp>
+#include <config/json/Json.hpp>
 #include <daemon/dbus/ManagerJsonCodec.hpp>
 
 #include "support/TestHelpers.hpp"
 
 namespace {
 
-using btrfsbackup::config::Json;
+using btrfsbackup::config::json::Json;
 using btrfsbackup::daemon::dbus::ManagerJsonCodec;
 
 void expect_field(const std::string& name, const Json& document, const std::string& field, const Json& expected) {

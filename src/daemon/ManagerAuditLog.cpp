@@ -13,7 +13,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include <config/model/Json.hpp>
+#include <config/json/Json.hpp>
 #include <core/RuntimeTime.hpp>
 
 namespace fs = std::filesystem;
@@ -92,7 +92,7 @@ FileManagerAuditLog::~FileManagerAuditLog() noexcept {
 
 std::optional<std::string> FileManagerAuditLog::write(const ManagerAuditRecord& record) noexcept {
     try {
-        std::string data = btrfsbackup::config::Json{
+        std::string data = btrfsbackup::config::json::Json{
             {"schemaVersion", 1},
             {"timestamp", format_utc_iso_timestamp(std::chrono::system_clock::now())},
             {"callerUid", record.caller_uid},
