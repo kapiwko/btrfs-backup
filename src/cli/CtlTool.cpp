@@ -17,8 +17,8 @@
 #include <cli/BackupTool.hpp>
 #include <cli/InstallationCommand.hpp>
 #include <cli/ProfileCommand.hpp>
-#include <cli/RunnerCommand.hpp>
-#include <cli/RunnerOptions.hpp>
+#include <cli/runner/RunnerCommand.hpp>
+#include <cli/runner/RunnerOptions.hpp>
 #include <cli/StatusCommand.hpp>
 #include <cli/TargetCommand.hpp>
 #include <config/ConfigurationIdentity.hpp>
@@ -118,7 +118,7 @@ int ctl_tool_main(int argc, char** argv) {
         } else if (command == "runner") {
             CancellationToken cancellation;
             TerminationSignalMonitor termination_signals(cancellation);
-            return runner(profile_config_dir, args, std::cout, cancellation);
+            return runner::runner(profile_config_dir, args, std::cout, cancellation);
         } else if (command == "target") {
             return target(profile_config_dir, args, std::cout);
         } else if (command == "-h" || command == "--help") {
@@ -126,7 +126,7 @@ int ctl_tool_main(int argc, char** argv) {
         } else {
             fail("unknown command: " + command);
         }
-    } catch (const RunnerOptionsError& exc) {
+    } catch (const runner::RunnerOptionsError& exc) {
         std::println(std::cerr, "btrfs-backupctl runner: {}", exc.what());
         return 2;
     } catch (const CodedValidationError& exc) {

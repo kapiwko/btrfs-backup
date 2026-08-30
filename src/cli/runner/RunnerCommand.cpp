@@ -2,19 +2,19 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <cli/RunnerCommand.hpp>
+#include <cli/runner/RunnerCommand.hpp>
 
 #include <filesystem>
 #include <ostream>
 #include <vector>
 
 #include <backup/BackupService.hpp>
-#include <cli/RunnerComposition.hpp>
-#include <cli/RunnerOptions.hpp>
-#include <cli/RunnerPresenter.hpp>
+#include <cli/runner/RunnerComposition.hpp>
+#include <cli/runner/RunnerOptions.hpp>
+#include <cli/runner/RunnerPresenter.hpp>
 #include <core/Cancellation.hpp>
 
-namespace btrfsbackup::cli {
+namespace btrfsbackup::cli::runner {
 namespace {
 
 int run_with_service(
@@ -86,4 +86,4 @@ int runner(
     return run_with_service(options, output, composition.service());
 }
 
-} // namespace btrfsbackup::cli
+} // namespace btrfsbackup::cli::runner

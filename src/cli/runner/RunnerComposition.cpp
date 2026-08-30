@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <cli/RunnerComposition.hpp>
+#include <cli/runner/RunnerComposition.hpp>
 
 #include <memory>
 #include <string>
@@ -16,7 +16,7 @@
 #include <backup/execution/DefaultBackupRunFactory.hpp>
 #include <backup/execution/LinkedCancellationMonitor.hpp>
 #include <backup/execution/SystemRunContext.hpp>
-#include <cli/RunnerOptions.hpp>
+#include <cli/runner/RunnerOptions.hpp>
 #include <core/Cancellation.hpp>
 #include <core/RuntimeTime.hpp>
 #include <platform/linux/storage/LibBtrfsOperations.hpp>
@@ -37,7 +37,7 @@
 #include <state/FileRunStateRepository.hpp>
 #include <state/FileCancellationMonitor.hpp>
 
-namespace btrfsbackup::cli {
+namespace btrfsbackup::cli::runner {
 namespace {
 
 class ConfiguredRunnerClock final : public backup::IClock {
@@ -127,4 +127,4 @@ backup::BackupService& RunnerComposition::service() {
     return impl_->backup_service;
 }
 
-} // namespace btrfsbackup::cli
+} // namespace btrfsbackup::cli::runner

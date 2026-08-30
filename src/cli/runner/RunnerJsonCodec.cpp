@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <cli/RunnerJsonCodec.hpp>
+#include <cli/runner/RunnerJsonCodec.hpp>
 
 #include <filesystem>
 #include <string>
@@ -15,7 +15,7 @@
 #include <config/model/Json.hpp>
 #include <core/ErrorCode.hpp>
 
-namespace btrfsbackup::cli {
+namespace btrfsbackup::cli::runner {
 namespace {
 
 namespace fs = std::filesystem;
@@ -229,59 +229,21 @@ EncodedRunnerResponse encode_run_execution(
     const std::vector<btrfsbackup::backup::BackupCompletionWarning>& warnings
 ) {
     const bool completed = !cancelled;
-    return encode_json({
-        {"schemaVersion", 1},
-        {"mode", "cpp-execute"},
-        {"profileId", std::string(plan.profile_id.value())},
-        {"runId", std::string(plan.run_id.value())},
-        {"completed", completed},
-        {"skipped", skipped},
-        {"cancelled", cancelled},
-        {"degraded", !warnings.empty()},
-        {"actionsCompleted", actions_completed},
-        {"warnings", completion_warnings_to_json(warnings)},
-        {"sources", sources_to_json(plan.sources, false)}
-    }, completed ? 0 : 1);
+    return encode_json({{"schemaVersion", 1}, {"mode", "cpp-execute"}, {"profileId", std::string(plan.profile_id.value())}, {"runId", std::string(plan.run_id.value())}, {"completed", completed}, {"skipped", skipped}, {"cancelled", cancelled}, {"degraded", !warnings.empty()}, {"actionsCompleted", actions_completed}, {"warnings", completion_warnings_to_json(warnings)}, {"sources", sources_to_json(plan.sources, false)}}, completed ? 0 : 1);
 }
 
 } // namespace
 
 EncodedRunnerResponse encode_runner_plan(const btrfsbackup::backup::BackupRunPlan& plan) {
-    return encode_json({
-        {"schemaVersion", 1},
-        {"mode", "shadow-plan"},
-        {"profileId", std::string(plan.profile_id.value())},
-        {"runId", std::string(plan.run_id.value())},
-        {"sources", sources_to_json(plan.sources, true)}
-    }, 0);
+    return encode_json({{"schemaVersion", 1}, {"mode", "shadow-plan"}, {"profileId", std::string(plan.profile_id.value())}, {"runId", std::string(plan.run_id.value())}, {"sources", sources_to_json(plan.sources, true)}}, 0);
 }
 
 EncodedRunnerResponse encode_runner_execution(const btrfsbackup::backup::BackupExecutionResult& result) {
     if (const auto* busy = std::get_if<btrfsbackup::backup::BackupExecutionBusy>(&result)) {
-        return encode_json({
-            {"schemaVersion", 1},
-            {"mode", "cpp-execute"},
-            {"profileId", std::string(busy->profile_id.value())},
-            {"runId", std::string(busy->run_id.value())},
-            {"completed", false},
-            {"skipped", false},
-            {"cancelled", false},
-            {"busy", true},
-            {"actionsCompleted", 0},
-            {"errorCode", error_code_name(busy->error_code)},
-            {"errorMessage", busy->error_message}
-        }, 1);
+        return encode_json({{"schemaVersion", 1}, {"mode", "cpp-execute"}, {"profileId", std::string(busy->profile_id.value())}, {"runId", std::string(busy->run_id.value())}, {"completed", false}, {"skipped", false}, {"cancelled", false}, {"busy", true}, {"actionsCompleted", 0}, {"errorCode", error_code_name(busy->error_code)}, {"errorMessage", busy->error_message}}, 1);
     }
     if (const auto* validated = std::get_if<btrfsbackup::backup::BackupExecutionValidated>(&result)) {
-        return encode_json({
-            {"schemaVersion", 1},
-            {"mode", "cpp-validate"},
-            {"profileId", std::string(validated->plan.profile_id.value())},
-            {"runId", std::string(validated->plan.run_id.value())},
-            {"completed", true},
-            {"cancelled", false},
-            {"actionsCompleted", 0}
-        }, 0);
+        return encode_json({{"schemaVersion", 1}, {"mode", "cpp-validate"}, {"profileId", std::string(validated->plan.profile_id.value())}, {"runId", std::string(validated->plan.run_id.value())}, {"completed", true}, {"cancelled", false}, {"actionsCompleted", 0}}, 0);
     }
     if (const auto* completed = std::get_if<btrfsbackup::backup::BackupExecutionCompleted>(&result)) {
         return encode_run_execution(completed->plan, false, false, completed->actions_completed, completed->warnings);
@@ -290,19 +252,7 @@ EncodedRunnerResponse encode_runner_execution(const btrfsbackup::backup::BackupE
         return encode_run_execution(skipped->plan, true, false, 0, {});
     }
     if (const auto* failed = std::get_if<btrfsbackup::backup::BackupExecutionFailed>(&result)) {
-        return encode_json({
-            {"schemaVersion", 1},
-            {"mode", "cpp-execute"},
-            {"profileId", std::string(failed->profile_id.value())},
-            {"runId", std::string(failed->run_id.value())},
-            {"completed", false},
-            {"skipped", false},
-            {"cancelled", false},
-            {"busy", false},
-            {"actionsCompleted", failed->actions_completed},
-            {"errorCode", error_code_name(failed->error_code)},
-            {"errorMessage", failed->error_message}
-        }, 1);
+        return encode_json({{"schemaVersion", 1}, {"mode", "cpp-execute"}, {"profileId", std::string(failed->profile_id.value())}, {"runId", std::string(failed->run_id.value())}, {"completed", false}, {"skipped", false}, {"cancelled", false}, {"busy", false}, {"actionsCompleted", failed->actions_completed}, {"errorCode", error_code_name(failed->error_code)}, {"errorMessage", failed->error_message}}, 1);
     }
     const auto& cancelled = std::get<btrfsbackup::backup::BackupExecutionCancelled>(result);
     return encode_run_execution(cancelled.plan, false, true, cancelled.actions_completed, {});
@@ -318,16 +268,9 @@ EncodedRunnerResponse encode_runner_cancellation(const btrfsbackup::backup::Canc
         } else if constexpr (std::is_same_v<Outcome, btrfsbackup::backup::CancellationRunMismatch>) {
             error_code = error_code_name(btrfsbackup::ErrorCode::RunnerRunMismatch);
         }
-        return encode_json({
-            {"schemaVersion", 1},
-            {"mode", "cpp-cancel"},
-            {"profileId", std::string(outcome.profile_id.value())},
-            {"runId", std::string(outcome.run_id.value())},
-            {"cancelRequested", accepted},
-            {"errorCode", error_code}
-        }, accepted ? 0 : 1);
+        return encode_json({{"schemaVersion", 1}, {"mode", "cpp-cancel"}, {"profileId", std::string(outcome.profile_id.value())}, {"runId", std::string(outcome.run_id.value())}, {"cancelRequested", accepted}, {"errorCode", error_code}}, accepted ? 0 : 1);
     },
                       result);
 }
 
-} // namespace btrfsbackup::cli
+} // namespace btrfsbackup::cli::runner
