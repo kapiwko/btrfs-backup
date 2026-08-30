@@ -18,6 +18,10 @@ enum class ManagerAuthorizationAction {
     CancelBackup,
     ValidateTarget,
     EjectTarget,
+    ReadProfileConfiguration,
+    SaveProfileConfiguration,
+    DeleteProfileConfiguration,
+    SaveProfileHooks,
 };
 
 enum class ManagerCancellationOutcome {

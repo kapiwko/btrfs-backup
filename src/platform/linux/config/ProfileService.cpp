@@ -74,7 +74,8 @@ btrfsbackup::config::Profile save_profile(
 void install_profile(
     const btrfsbackup::config::Profile& profile,
     const ProfileInstallationRoots& roots,
-    btrfsbackup::config::IConfigurationActivator& activator
+    btrfsbackup::config::IConfigurationActivator& activator,
+    const ExpectedProfileIdentity* expected
 ) {
     btrfsbackup::config::ProfileArtifactRenderer renderer(generate_configuration_generation);
     const btrfsbackup::config::ProfileArtifactRoots artifact_roots{
@@ -84,7 +85,24 @@ void install_profile(
         .public_root = roots.public_root,
     };
     ProfileInstaller installer(renderer, activator);
-    installer.install_profile_transactionally(profile, artifact_roots);
+    installer.install_profile_transactionally(profile, artifact_roots, expected);
+}
+
+void delete_profile(
+    const btrfsbackup::config::Profile& profile,
+    const ProfileInstallationRoots& roots,
+    btrfsbackup::config::IConfigurationActivator& activator,
+    const ExpectedProfileIdentity* expected
+) {
+    btrfsbackup::config::ProfileArtifactRenderer renderer(generate_configuration_generation);
+    const btrfsbackup::config::ProfileArtifactRoots artifact_roots{
+        .etc_root = roots.etc_root,
+        .udev_root = roots.udev_root,
+        .systemd_root = roots.systemd_root,
+        .public_root = roots.public_root,
+    };
+    ProfileInstaller installer(renderer, activator);
+    installer.delete_profile_transactionally(profile, artifact_roots, expected);
 }
 
 btrfsbackup::config::Profile get_profile(const fs::path& etc_root, const std::string& profile_id) {

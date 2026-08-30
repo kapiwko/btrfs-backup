@@ -6,6 +6,7 @@
 
 #include <daemon/dbus/DbusCallbackBoundary.hpp>
 #include <daemon/dbus/ManagerDbusServer.hpp>
+#include <config/json/JsonIo.hpp>
 
 #include <systemd/sd-bus.h>
 
@@ -58,6 +59,26 @@ int eject_target(sd_bus_message* message, void* userdata, sd_bus_error* error) n
     return static_cast<ManagerDbusObject*>(userdata)->handle_eject_target(message, error);
 }
 
+int get_profile_for_editing(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
+    return static_cast<ManagerDbusObject*>(userdata)->handle_get_profile_for_editing(message, error);
+}
+
+int validate_profile_draft(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
+    return static_cast<ManagerDbusObject*>(userdata)->handle_validate_profile_draft(message, error);
+}
+
+int save_profile(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
+    return static_cast<ManagerDbusObject*>(userdata)->handle_save_profile(message, error);
+}
+
+int save_profile_hooks(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
+    return static_cast<ManagerDbusObject*>(userdata)->handle_save_profile_hooks(message, error);
+}
+
+int delete_profile(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
+    return static_cast<ManagerDbusObject*>(userdata)->handle_delete_profile(message, error);
+}
+
 const sd_bus_vtable manager_vtable[] = {
     SD_BUS_VTABLE_START(0),
     SD_BUS_METHOD(manager_protocol::method::get_capabilities, "", "s", get_capabilities, SD_BUS_VTABLE_UNPRIVILEGED),
@@ -69,6 +90,11 @@ const sd_bus_vtable manager_vtable[] = {
     SD_BUS_METHOD(manager_protocol::method::cancel_backup, "ss", "s", cancel_backup, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD(manager_protocol::method::validate_target, "s", "s", validate_target, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD(manager_protocol::method::eject_target, "s", "s", eject_target, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD(manager_protocol::method::get_profile_for_editing, "s", "s", get_profile_for_editing, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD(manager_protocol::method::validate_profile_draft, "ssss", "s", validate_profile_draft, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD(manager_protocol::method::save_profile, "ssss", "s", save_profile, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD(manager_protocol::method::save_profile_hooks, "ssss", "s", save_profile_hooks, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD(manager_protocol::method::delete_profile, "sss", "s", delete_profile, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_SIGNAL(manager_protocol::signal::profiles_changed, "", 0),
     SD_BUS_SIGNAL(manager_protocol::signal::status_changed, "s", 0),
     SD_BUS_SIGNAL(manager_protocol::signal::history_changed, "s", 0),
@@ -83,9 +109,10 @@ namespace btrfsbackup::daemon::dbus {
 ManagerDbusObject::ManagerDbusObject(
     ManagerService& service,
     control::OperationalControlService& operational,
+    control::ProfileAdministrationService& profile_administration,
     IManagerAuditLog& audit_log
 )
-    : service_(service), operational_(operational), audit_log_(audit_log) {
+    : service_(service), operational_(operational), profile_administration_(profile_administration), audit_log_(audit_log) {
 }
 
 const sd_bus_vtable* ManagerDbusObject::vtable() noexcept {
@@ -307,6 +334,115 @@ int ManagerDbusObject::handle_eject_target(sd_bus_message* message, sd_bus_error
             const std::string profile = profile_id == nullptr ? "" : profile_id;
             return reply_operational_json(message, error, manager_protocol::feature::eject_target, profile, [&] {
                 return codec_.encode(operational_.eject_target(caller_bus_name(message), profile));
+            });
+        },
+        [&](const std::exception* exception) { return set_callback_error(error, exception); }
+    );
+}
+
+int ManagerDbusObject::handle_get_profile_for_editing(sd_bus_message* message, sd_bus_error* error) noexcept {
+    return invoke_dbus_callback(
+        [&] {
+            const char* profile_id = nullptr;
+            const int read_result = sd_bus_message_read(message, "s", &profile_id);
+            if (read_result < 0)
+                return read_result;
+            const std::string profile = profile_id == nullptr ? "" : profile_id;
+            return reply_operational_json(message, error, "read-profile-configuration", profile, [&] {
+                return codec_.encode(profile_administration_.get_profile_for_editing(caller_bus_name(message), profile));
+            });
+        },
+        [&](const std::exception* exception) { return set_callback_error(error, exception); }
+    );
+}
+
+int ManagerDbusObject::handle_validate_profile_draft(sd_bus_message* message, sd_bus_error* error) noexcept {
+    return invoke_dbus_callback(
+        [&] {
+            const char* profile_id = nullptr;
+            const char* generation = nullptr;
+            const char* fingerprint = nullptr;
+            const char* document = nullptr;
+            const int read_result = sd_bus_message_read(message, "ssss", &profile_id, &generation, &fingerprint, &document);
+            if (read_result < 0)
+                return read_result;
+            const std::string profile = profile_id == nullptr ? "" : profile_id;
+            return reply_operational_json(message, error, "validate-profile-draft", profile, [&] {
+                return codec_.encode(profile_administration_.validate_profile_draft(
+                    caller_bus_name(message), profile, generation == nullptr ? "" : generation,
+                    fingerprint == nullptr ? "" : fingerprint, document == nullptr ? "" : document
+                ));
+            });
+        },
+        [&](const std::exception* exception) { return set_callback_error(error, exception); }
+    );
+}
+
+int ManagerDbusObject::handle_save_profile(sd_bus_message* message, sd_bus_error* error) noexcept {
+    return invoke_dbus_callback(
+        [&] {
+            const char* profile_id = nullptr;
+            const char* generation = nullptr;
+            const char* fingerprint = nullptr;
+            const char* document = nullptr;
+            const int read_result = sd_bus_message_read(message, "ssss", &profile_id, &generation, &fingerprint, &document);
+            if (read_result < 0)
+                return read_result;
+            const std::string profile = profile_id == nullptr ? "" : profile_id;
+            return reply_operational_json(message, error, "save-profile", profile, [&] {
+                return codec_.encode(profile_administration_.save_profile(
+                    caller_bus_name(message), profile, generation == nullptr ? "" : generation,
+                    fingerprint == nullptr ? "" : fingerprint, document == nullptr ? "" : document
+                ));
+            });
+        },
+        [&](const std::exception* exception) { return set_callback_error(error, exception); }
+    );
+}
+
+int ManagerDbusObject::handle_save_profile_hooks(sd_bus_message* message, sd_bus_error* error) noexcept {
+    return invoke_dbus_callback(
+        [&] {
+            const char* profile_id = nullptr;
+            const char* generation = nullptr;
+            const char* fingerprint = nullptr;
+            const char* document = nullptr;
+            const int read_result = sd_bus_message_read(message, "ssss", &profile_id, &generation, &fingerprint, &document);
+            if (read_result < 0)
+                return read_result;
+            const std::string profile = profile_id == nullptr ? "" : profile_id;
+            return reply_operational_json(message, error, "save-profile-hooks", profile, [&] {
+                return codec_.encode(profile_administration_.save_profile_hooks(
+                    caller_bus_name(message), profile, generation == nullptr ? "" : generation,
+                    fingerprint == nullptr ? "" : fingerprint, document == nullptr ? "" : document
+                ));
+            });
+        },
+        [&](const std::exception* exception) { return set_callback_error(error, exception); }
+    );
+}
+
+int ManagerDbusObject::handle_delete_profile(sd_bus_message* message, sd_bus_error* error) noexcept {
+    return invoke_dbus_callback(
+        [&] {
+            const char* profile_id = nullptr;
+            const char* generation = nullptr;
+            const char* fingerprint = nullptr;
+            const int read_result = sd_bus_message_read(message, "sss", &profile_id, &generation, &fingerprint);
+            if (read_result < 0)
+                return read_result;
+            const std::string profile = profile_id == nullptr ? "" : profile_id;
+            return reply_operational_json(message, error, "delete-profile", profile, [&] {
+                profile_administration_.delete_profile(
+                    caller_bus_name(message), profile, generation == nullptr ? "" : generation,
+                    fingerprint == nullptr ? "" : fingerprint
+                );
+                return config::json::dump_json({
+                    {"schemaVersion", manager_protocol::operation_result_schema_version},
+                    {"operation", "delete-profile"},
+                    {"profileId", profile},
+                    {"accepted", true},
+                });
             });
         },
         [&](const std::exception* exception) { return set_callback_error(error, exception); }
