@@ -1,5 +1,5 @@
 _btrfs_backup_kde_print_reload_hint() {
-    printf '%s\n' 'Restart Plasma Shell or log out to load the updated btrfs-backup widget.'
+    printf '%s\n' 'Restart Plasma Shell and btrfs-backup-kde-monitor, or log out, to load the updated Plasma integration.'
 }
 
 post_install() {

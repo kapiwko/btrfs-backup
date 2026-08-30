@@ -35,9 +35,17 @@ sudo pacman -U btrfs-backup-3.1.0-1-x86_64.pkg.tar.zst \
 The base package does not depend on Plasma. The KDE package installs:
 
 ```text
+/usr/bin/btrfs-backup-kde-monitor
+/usr/lib/systemd/user/btrfs-backup-kde-monitor.service
 /usr/share/plasma/plasmoids/org.btrfsbackup.plasmoid
 /usr/lib/qt6/qml/org/btrfsbackup/plasma
 ```
+
+The monitor starts with the graphical user session. It publishes active runs as
+native Plasma jobs through `KUiServerV2JobTracker`, including progress, transfer
+rate and cancellation. It polls once per second only while a run is active;
+otherwise status polling backs off to five seconds and profile discovery to one
+minute.
 
 The package hook does not run KDE cache tools as root. It prints a reload hint,
 and package timestamps change when the widget sources change so stale QML cache
@@ -47,12 +55,13 @@ after upgrading the widget:
 
 ```bash
 systemctl --user restart plasma-plasmashell.service
+systemctl --user restart btrfs-backup-kde-monitor.service
 ```
 
 If that user unit is not available, remove and add the widget again after
 restarting the shell through the desktop session tools.
 
-The target architecture remains:
+The current architecture is:
 
 1. system manager with a versioned D-Bus API and polkit for mutating actions;
 2. shared desktop client library extracted from the current Qt D-Bus model;
@@ -66,11 +75,10 @@ as a distinct high-risk authorization path. Its polkit action must require an
 explicit administrator decision and must not be implicitly granted to the
 active desktop user.
 
-The plasmoid must not own long-running backup progress. After the desktop
-monitor exists, progress and notifications belong there so they survive
-plasmoid removal and shell restarts.
+The plasmoid does not own long-running backup progress. Progress belongs to the
+desktop monitor so it survives plasmoid removal and shell restarts.
 
 The privileged core publishes reduced current status and sanitized history.
 Full diagnostic history and service diagnostics remain root-only.
-KNotifications belongs to the future per-session KDE monitor, which owns the
-user session and desktop delivery context.
+Terminal notifications can be added to the same per-session monitor without
+moving any desktop dependency into the privileged system service.

@@ -55,28 +55,27 @@ After installing both the plasmoid and the QML module:
 plasmawindowed org.btrfsbackup.plasmoid
 ```
 
-## Desktop Progress Notifications
+## Desktop Progress
 
-The expanded profile view owns the live transfer chart. A future copy-style
-progress notification does not require KIO. The session-side monitor should
-represent each active manager run as a `KJob`, register it with
-`KUiServerV2JobTracker`, and map manager progress, byte rate and remaining time
-onto the job. A killable job must forward cancellation to the manager with the
-matching profile and run ID.
+The expanded profile view owns the live transfer chart. The
+`btrfs-backup-kde-monitor` process represents each active manager run as a
+`KJob`, registers it with `KUiServerV2JobTracker`, and maps manager progress and
+byte rate onto the job. A killable job forwards cancellation to the manager
+with the matching profile and run ID. KIO is not required.
 
 This adapter must run in the graphical user session. The root system manager
 cannot publish directly to a user's Plasma job tracker. `KNotification` remains
 appropriate for terminal success or failure messages; it is not the primary
 transport for continuously updated job progress.
 
-## Roadmap
+## Architecture
 
-This package is a stepping stone toward the planned native desktop layer:
+The package now contains:
 
-1. extraction of the plasmoid's D-Bus client into a shared C++ client library;
-2. session monitor using `KJob`, `KUiServerV2JobTracker` and `KNotification` for
-   long-running backup progress and terminal results;
-3. KCM for profile browsing, validation and controlled writes through the
+1. a shared Qt D-Bus manager client used by the plasmoid and session monitor;
+2. a session monitor using `KJob` and `KUiServerV2JobTracker` for long-running
+   backup progress;
+3. a future KCM for profile browsing, validation and controlled writes through the
    system service;
 4. profile editing introduced only through future authorized manager methods.
 
