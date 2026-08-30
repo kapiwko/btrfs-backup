@@ -52,6 +52,35 @@ if(target_count GREATER 0)
     endforeach()
 endif()
 
+set(discovered_library_targets)
+foreach(target IN LISTS target_names)
+    if(NOT target MATCHES "^btrfsbackup-")
+        continue()
+    endif()
+    set(target_file "${target_file_${target}}")
+    file(READ "${REPLY_DIR}/${target_file}" target_json)
+    string(JSON target_type GET "${target_json}" type)
+    if(target_type MATCHES "_LIBRARY$")
+        list(APPEND discovered_library_targets "${target}")
+    endif()
+endforeach()
+
+set(expected_library_targets)
+foreach(target IN LISTS BTRFSBACKUP_ARCHITECTURE_TARGETS)
+    if(NOT BTRFSBACKUP_TYPE_${target} STREQUAL "INTERFACE_LIBRARY")
+        list(APPEND expected_library_targets "${target}")
+    endif()
+endforeach()
+list(SORT discovered_library_targets)
+list(SORT expected_library_targets)
+if(NOT "${discovered_library_targets}" STREQUAL "${expected_library_targets}")
+    message(
+        FATAL_ERROR
+        "Architecture tests do not cover every btrfsbackup library target. "
+        "Discovered: '${discovered_library_targets}', expected: '${expected_library_targets}'"
+    )
+endif()
+
 foreach(target IN LISTS BTRFSBACKUP_ARCHITECTURE_TARGETS)
     if(BTRFSBACKUP_TYPE_${target} STREQUAL "INTERFACE_LIBRARY")
         continue()
