@@ -11,6 +11,7 @@ add_library(btrfsbackup-platform-linux STATIC
     FileBackupRunLeaseProvider.cpp
     FileLock.cpp
     MountInfo.cpp
+    OwnedFileDescriptor.cpp
     PosixCancellationSignal.cpp
     PosixCommandRunner.cpp
     PosixDurableFileOperations.cpp
@@ -44,6 +45,7 @@ target_restricted_include_directories(btrfsbackup-platform-linux
         platform/linux/FileIo.hpp
         platform/linux/FileLock.hpp
         platform/linux/MountInfo.hpp
+        platform/linux/OwnedFileDescriptor.hpp
         platform/linux/PosixCancellationSignal.hpp
         platform/linux/PosixCommandRunner.hpp
         platform/linux/PosixDurableFileOperations.hpp
