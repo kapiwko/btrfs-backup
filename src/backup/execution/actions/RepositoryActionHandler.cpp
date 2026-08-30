@@ -10,7 +10,7 @@
 #include <backup/ports/IBtrfsOperations.hpp>
 #include <backup/ports/IPendingMarkerStore.hpp>
 #include <backup/ports/SafeDirectory.hpp>
-#include <backup/SnapshotTransfer.hpp>
+#include <backup/transfer/SnapshotTransfer.hpp>
 #include <core/Errors.hpp>
 
 namespace btrfsbackup::backup::execution {
@@ -61,7 +61,7 @@ void RepositoryActionHandler::handle(const VerifyReceivedAction& action) {
         action.received_snapshot,
         "Received snapshot metadata is missing"
     );
-    verify_received_snapshot(action.source_id, local, received);
+    transfer::verify_received_snapshot(action.source_id, local, received);
 }
 
 void RepositoryActionHandler::handle(const CommitReceivedAction& action) {
@@ -71,7 +71,7 @@ void RepositoryActionHandler::handle(const CommitReceivedAction& action) {
         action.local_snapshot,
         "Local snapshot metadata is missing"
     );
-    commit_received_snapshot_beneath(
+    transfer::commit_received_snapshot_beneath(
         btrfs_,
         target_root_,
         action.received_snapshot,

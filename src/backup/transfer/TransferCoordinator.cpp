@@ -10,7 +10,7 @@
 #include <utility>
 
 #include <backup/ports/SafeDirectory.hpp>
-#include <backup/SnapshotTransfer.hpp>
+#include <backup/transfer/SnapshotTransfer.hpp>
 #include <backup/transfer/TransferSizing.hpp>
 #include <core/Cancellation.hpp>
 #include <core/ErrorCode.hpp>
