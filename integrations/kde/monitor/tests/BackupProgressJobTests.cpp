@@ -14,6 +14,8 @@
 
 namespace {
 
+using btrfsbackup::kde::monitor::BackupProgressJob;
+
 int failures = 0;
 
 void expect(bool condition, const char* message) {

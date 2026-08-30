@@ -8,6 +8,8 @@
 #include <QObject>
 #include <QString>
 
+namespace btrfsbackup::kde::monitor {
+
 class CancellationRequestDispatcher final : public QObject {
     Q_OBJECT
 
@@ -23,3 +25,5 @@ class CancellationRequestDispatcher final : public QObject {
   private:
     QDBusConnection bus_;
 };
+
+} // namespace btrfsbackup::kde::monitor

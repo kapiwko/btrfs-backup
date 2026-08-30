@@ -51,7 +51,7 @@ int main(int argc, char* argv[]) {
     }
 
     KUiServerV2JobTracker tracker;
-    BackupProgressMonitor monitor(manager_bus, tracker);
+    btrfsbackup::kde::monitor::BackupProgressMonitor monitor(manager_bus, tracker);
     monitor.start();
     return QGuiApplication::exec();
 }

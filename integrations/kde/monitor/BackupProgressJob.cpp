@@ -12,6 +12,8 @@
 #include <limits>
 #include <utility>
 
+namespace btrfsbackup::kde::monitor {
+
 BackupProgressJob::BackupProgressJob(
     QString profile_id,
     QString run_id,
@@ -156,3 +158,5 @@ void BackupProgressJob::publish_description() {
         {i18n("Destination"), target_name_}
     );
 }
+
+} // namespace btrfsbackup::kde::monitor

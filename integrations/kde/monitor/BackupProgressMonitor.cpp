@@ -17,6 +17,8 @@
 #include <algorithm>
 #include <utility>
 
+namespace btrfsbackup::kde::monitor {
+
 namespace {
 
 QString activity_text(const QString& activity, const QString& phase) {
@@ -344,3 +346,5 @@ void BackupProgressMonitor::finish_job(const QString& profile_id, const Status& 
         job->finish_successfully();
     }
 }
+
+} // namespace btrfsbackup::kde::monitor

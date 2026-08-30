@@ -10,6 +10,8 @@
 
 #include <functional>
 
+namespace btrfsbackup::kde::monitor {
+
 class BackupProgressJob final : public KJob {
     Q_OBJECT
 
@@ -62,3 +64,5 @@ class BackupProgressJob final : public KJob {
     bool started_ = false;
     bool finished_ = false;
 };
+
+} // namespace btrfsbackup::kde::monitor
