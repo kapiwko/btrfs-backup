@@ -7,7 +7,7 @@
 namespace btrfsbackup::platform::linux {
 
 class OwnedFileDescriptor final {
-public:
+  public:
     OwnedFileDescriptor() noexcept = default;
     explicit OwnedFileDescriptor(int descriptor) noexcept;
     ~OwnedFileDescriptor() noexcept;
@@ -23,7 +23,7 @@ public:
     [[nodiscard]] int release() noexcept;
     void reset(int descriptor = -1) noexcept;
 
-private:
+  private:
     int descriptor_{-1};
 };
 
