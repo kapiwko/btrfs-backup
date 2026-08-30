@@ -34,6 +34,7 @@ add_btrfsbackup_test(
     RunnerCommandTests.cpp
     runner-command-tests
     btrfsbackup-backup
+    btrfsbackup-backup-planning
     btrfsbackup-cli
     btrfsbackup-config
     btrfsbackup-config-domain
