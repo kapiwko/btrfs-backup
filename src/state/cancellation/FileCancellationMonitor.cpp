@@ -2,9 +2,9 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <state/FileCancellationMonitor.hpp>
+#include <state/cancellation/FileCancellationMonitor.hpp>
 
-#include <state/PollingCancellationWatch.hpp>
+#include <state/cancellation/PollingCancellationWatch.hpp>
 
 namespace btrfsbackup::state {
 

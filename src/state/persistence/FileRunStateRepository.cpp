@@ -8,7 +8,7 @@
 #include <string>
 #include <utility>
 
-#include <state/FileActiveRunRegistration.hpp>
+#include <state/cancellation/FileActiveRunRegistration.hpp>
 #include <state/persistence/JsonFileBackupRunCheckpointStore.hpp>
 #include <state/RunHistory.hpp>
 #include <state/RunState.hpp>

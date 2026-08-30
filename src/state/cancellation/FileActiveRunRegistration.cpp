@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <state/FileActiveRunRegistration.hpp>
+#include <state/cancellation/FileActiveRunRegistration.hpp>
 
 #include <exception>
 #include <iostream>

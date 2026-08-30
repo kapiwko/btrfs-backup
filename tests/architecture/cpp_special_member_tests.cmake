@@ -37,8 +37,8 @@ set(approved_special_member_types
     "src/platform/linux/systemd/SystemdMountedTargetSession.hpp:SystemdMountedTargetSession"
     "src/platform/linux/process/TerminationSignalMonitor.hpp:TerminationSignalMonitor"
     "src/platform/linux/transfer/ThreadSigpipeBlock.hpp:ThreadSigpipeBlock"
-    "src/state/FileActiveRunRegistration.hpp:FileActiveRunRegistration"
-    "src/state/PollingCancellationWatch.hpp:PollingCancellationWatch"
+    "src/state/cancellation/FileActiveRunRegistration.hpp:FileActiveRunRegistration"
+    "src/state/cancellation/PollingCancellationWatch.hpp:PollingCancellationWatch"
 )
 
 set(observed_special_member_types)

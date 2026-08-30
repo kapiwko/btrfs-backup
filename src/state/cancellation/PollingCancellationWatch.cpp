@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <state/PollingCancellationWatch.hpp>
+#include <state/cancellation/PollingCancellationWatch.hpp>
 
 #include <chrono>
 #include <exception>
