@@ -12,6 +12,7 @@
 #include <core/Errors.hpp>
 #include <core/Identifiers.hpp>
 #include <daemon/query/ManagerDocumentReader.hpp>
+#include <state/document/LatestRunHistoryDocumentReader.hpp>
 #include <state/document/RunStatusDocumentCodec.hpp>
 
 namespace fs = std::filesystem;
@@ -98,12 +99,13 @@ std::optional<SanitizedHistoryEntry> HistoryQueryService::get_last_sanitized(
     const std::string& profile_id
 ) const {
     validate_profile_id(profile_id);
-    const fs::path last = history_root_ / profile_id / "last.json";
-    if (!manager_regular_file_if_present(last)) {
+    const btrfsbackup::state::document::LatestRunHistoryDocumentReader reader;
+    std::optional<btrfsbackup::state::document::PrivateRunHistoryDocument> latest =
+        reader.read(history_root_ / profile_id);
+    if (!latest.has_value()) {
         return std::nullopt;
     }
-    const btrfsbackup::state::document::RunStatusDocumentCodec codec;
-    return sanitize_private_history(codec.parse_private(read_manager_document(last)));
+    return sanitize_private_history(latest->history);
 }
 
 } // namespace btrfsbackup::daemon::query

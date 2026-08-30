@@ -22,12 +22,14 @@ target_link_libraries(btrfsbackup-state-model PUBLIC btrfsbackup-core)
 
 add_library(btrfsbackup-status-documents STATIC
     document/BoundedDocumentReader.cpp
+    document/LatestRunHistoryDocumentReader.cpp
     document/RunStatusDocumentCodec.cpp
 )
 target_compile_features(btrfsbackup-status-documents PUBLIC cxx_std_23)
 target_restricted_include_directories(btrfsbackup-status-documents
     PUBLIC_HEADERS
         state/document/BoundedDocumentReader.hpp
+        state/document/LatestRunHistoryDocumentReader.hpp
         state/document/RunStatusDocumentCodec.hpp
 )
 target_link_libraries(btrfsbackup-status-documents

@@ -77,12 +77,16 @@ std::string public_status() {
 })";
 }
 
-std::string private_history(const std::string& state, const std::string& finished_at) {
+std::string private_history(
+    const std::string& run_id,
+    const std::string& state,
+    const std::string& finished_at
+) {
     return btrfsbackup::config::json::Json({
                                                {"schemaVersion", 2},
                                                {"profileId", "default"},
                                                {"profileName", "Default backup"},
-                                               {"runId", "private-run-id"},
+                                               {"runId", run_id},
                                                {"state", state},
                                                {"phase", state},
                                                {"message", "private message"},
@@ -152,15 +156,15 @@ void test_status_and_history_sanitization() {
     test_helpers::write_file(root / "status" / "default" / "current.json", public_status());
     test_helpers::write_file(
         root / "history" / "default" / "20260825T100000Z-1-1.json",
-        private_history("succeeded", "2026-08-25T10:00:00Z")
+        private_history("20260825T100000Z-1-1", "succeeded", "2026-08-25T10:00:00Z")
     );
     test_helpers::write_file(
         root / "history" / "default" / "20260825T110000Z-1-2.json",
-        private_history("failed", "2026-08-25T11:00:00Z")
+        private_history("20260825T110000Z-1-2", "failed", "2026-08-25T11:00:00Z")
     );
     test_helpers::write_file(
         root / "history" / "default" / "last.json",
-        private_history("failed", "2026-08-25T11:00:00Z")
+        private_history("20260825T110000Z-1-2", "failed", "2026-08-25T11:00:00Z")
     );
 
     const btrfsbackup::daemon::query::HistoryQueryService history_service(root / "history");
@@ -185,6 +189,39 @@ void test_status_and_history_sanitization() {
         "restart fallback state",
         btrfsbackup::state::document::public_run_state_name(status_service.get_status("default")),
         "failed"
+    );
+    fs::remove_all(root);
+}
+
+void test_last_history_cache_recovers_from_authoritative_record() {
+    fs::path root = test_helpers::test_root("manager-service", "last-cache");
+    const fs::path history = root / "history" / "default";
+    test_helpers::write_file(
+        history / "20260825T120000Z-1-2.json",
+        private_history("20260825T120000Z-1-2", "succeeded", "2026-08-25T12:00:00Z")
+    );
+    test_helpers::write_file(
+        history / "last.json",
+        private_history("20260825T110000Z-1-1", "failed", "2026-08-25T11:00:00Z")
+    );
+    const btrfsbackup::daemon::query::HistoryQueryService service(root / "history");
+
+    test_helpers::expect_eq(
+        "stale last cache",
+        service.get_last_sanitized("default")->state,
+        "succeeded"
+    );
+    fs::remove(history / "last.json");
+    test_helpers::expect_eq(
+        "missing last cache",
+        service.get_last_sanitized("default")->state,
+        "succeeded"
+    );
+    test_helpers::write_file(history / "last.json", "{invalid");
+    test_helpers::expect_eq(
+        "malformed last cache",
+        service.get_last_sanitized("default")->state,
+        "succeeded"
     );
     fs::remove_all(root);
 }
@@ -229,6 +266,7 @@ void test_device_state_is_presentation_safe() {
 int main() {
     test_capabilities_and_profiles();
     test_status_and_history_sanitization();
+    test_last_history_cache_recovers_from_authoritative_record();
     test_malformed_and_oversized_documents();
     test_device_state_is_presentation_safe();
     return test_helpers::finish("manager service tests");

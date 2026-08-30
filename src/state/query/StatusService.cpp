@@ -9,13 +9,12 @@
 #include <core/Errors.hpp>
 #include <core/Identifiers.hpp>
 #include <state/document/BoundedDocumentReader.hpp>
+#include <state/document/LatestRunHistoryDocumentReader.hpp>
 #include <state/document/RunStatusDocumentCodec.hpp>
 
 namespace fs = std::filesystem;
 
 namespace {
-
-constexpr std::size_t max_status_document_bytes = 1024 * 1024;
 
 bool regular_file_without_symlink(const fs::path& path) {
     std::error_code error;
@@ -32,7 +31,7 @@ std::vector<StatusDocument> get_statuses(
     const std::string& profile_id,
     bool all
 ) {
-    std::vector<std::pair<fs::path, bool>> paths;
+    std::vector<fs::path> paths;
     if (all) {
         std::error_code ec;
         if (fs::is_directory(status_root, ec) && !ec) {
@@ -41,7 +40,7 @@ std::vector<StatusDocument> get_statuses(
                     break;
                 fs::path current = entry.path() / "current.json";
                 if (regular_file_without_symlink(current))
-                    paths.emplace_back(std::move(current), true);
+                    paths.push_back(std::move(current));
             }
         }
         std::sort(paths.begin(), paths.end());
@@ -50,23 +49,26 @@ std::vector<StatusDocument> get_statuses(
     } else {
         validate_profile_id(profile_id);
         fs::path path = status_root / profile_id / "current.json";
-        if (!regular_file_without_symlink(path) &&
-            regular_file_without_symlink(history_root / profile_id / "last.json")) {
-            path = history_root / profile_id / "last.json";
+        if (!regular_file_without_symlink(path)) {
+            const document::LatestRunHistoryDocumentReader history_reader;
+            std::optional<document::PrivateRunHistoryDocument> latest =
+                history_reader.read(history_root / profile_id);
+            if (latest.has_value()) {
+                return {{
+                    .status = std::move(latest->history),
+                    .content = std::move(latest->content),
+                    .source = std::move(latest->source),
+                }};
+            }
         }
-        const bool is_public = path.filename() == "current.json";
-        paths.emplace_back(std::move(path), is_public);
+        paths.push_back(std::move(path));
     }
     std::vector<StatusDocument> documents;
     const document::RunStatusDocumentCodec codec;
     const document::BoundedDocumentReader reader;
-    for (const auto& [path, is_public] : paths) {
-        std::string content = reader.read(path, max_status_document_bytes);
-        if (is_public) {
-            documents.push_back({.status = codec.parse_public(content), .content = std::move(content), .source = path});
-        } else {
-            documents.push_back({.status = codec.parse_private(content), .content = std::move(content), .source = path});
-        }
+    for (const fs::path& path : paths) {
+        std::string content = reader.read(path, document::maximum_run_document_size);
+        documents.push_back({.status = codec.parse_public(content), .content = std::move(content), .source = path});
     }
     return documents;
 }
@@ -77,7 +79,7 @@ std::optional<StatusDocument> poll_status(const fs::path& status_root, const std
     if (!regular_file_without_symlink(path))
         return std::nullopt;
     const document::BoundedDocumentReader reader;
-    std::string content = reader.read(path, max_status_document_bytes);
+    std::string content = reader.read(path, document::maximum_run_document_size);
     if (content == previous)
         return std::nullopt;
     document::RunStatusDocumentCodec codec;
