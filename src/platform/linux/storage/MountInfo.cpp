@@ -73,6 +73,7 @@ std::vector<btrfsbackup::backup::MountEntry> read_mount_table(const std::filesys
             .fstype = fstype,
             .root = c_string(mnt_fs_get_root(mount)),
             .options = c_string(mnt_fs_get_options(mount)),
+            .mount_id = mnt_fs_get_id(mount),
             .device_id = device_id(mnt_fs_get_devno(mount)),
             .filesystem_uuid = fstype == "btrfs" ? filesystem_uuid_resolver(strip_subvolume_suffix(source)) : "",
         });

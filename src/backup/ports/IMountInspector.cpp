@@ -19,9 +19,9 @@ std::string strip_subvolume_suffix(const std::string& source) {
 
 std::optional<MountEntry> mount_at(const std::vector<MountEntry>& entries, const std::filesystem::path& target) {
     const std::filesystem::path normalized_target = btrfsbackup::config::normalized_path(target);
-    for (const MountEntry& entry : entries) {
-        if (btrfsbackup::config::normalized_path(entry.target) == normalized_target) {
-            return entry;
+    for (auto entry = entries.rbegin(); entry != entries.rend(); ++entry) {
+        if (btrfsbackup::config::normalized_path(entry->target) == normalized_target) {
+            return *entry;
         }
     }
     return std::nullopt;
@@ -38,7 +38,7 @@ std::optional<MountEntry> mount_for_path(const std::vector<MountEntry>& entries,
         const std::filesystem::path target = btrfsbackup::config::normalized_path(entry.target);
         if (btrfsbackup::config::path_is_within(normalized, target)) {
             const std::size_t size = target.string().size();
-            if (best == nullptr || size > best_size) {
+            if (best == nullptr || size >= best_size) {
                 best = &entry;
                 best_size = size;
             }
