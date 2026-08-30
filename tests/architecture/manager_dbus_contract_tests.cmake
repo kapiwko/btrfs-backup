@@ -84,6 +84,26 @@ assert_method(
     eject_target EjectTarget s s
     "<methodname=\"EjectTarget\"><argname=\"profileId\"type=\"s\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
 )
+assert_method(
+    get_profile_for_editing GetProfileForEditing s s
+    "<methodname=\"GetProfileForEditing\"><argname=\"profileId\"type=\"s\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
+)
+assert_method(
+    validate_profile_draft ValidateProfileDraft ssss s
+    "<methodname=\"ValidateProfileDraft\"><argname=\"profileId\"type=\"s\"direction=\"in\"/><argname=\"expectedGeneration\"type=\"s\"direction=\"in\"/><argname=\"expectedFingerprint\"type=\"s\"direction=\"in\"/><argname=\"document\"type=\"s\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
+)
+assert_method(
+    save_profile SaveProfile ssss s
+    "<methodname=\"SaveProfile\"><argname=\"profileId\"type=\"s\"direction=\"in\"/><argname=\"expectedGeneration\"type=\"s\"direction=\"in\"/><argname=\"expectedFingerprint\"type=\"s\"direction=\"in\"/><argname=\"document\"type=\"s\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
+)
+assert_method(
+    save_profile_hooks SaveProfileHooks ssss s
+    "<methodname=\"SaveProfileHooks\"><argname=\"profileId\"type=\"s\"direction=\"in\"/><argname=\"expectedGeneration\"type=\"s\"direction=\"in\"/><argname=\"expectedFingerprint\"type=\"s\"direction=\"in\"/><argname=\"document\"type=\"s\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
+)
+assert_method(
+    delete_profile DeleteProfile sss s
+    "<methodname=\"DeleteProfile\"><argname=\"profileId\"type=\"s\"direction=\"in\"/><argname=\"expectedGeneration\"type=\"s\"direction=\"in\"/><argname=\"expectedFingerprint\"type=\"s\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
+)
 
 assert_signal(profiles_changed ProfilesChanged "" "<signalname=\"ProfilesChanged\"/>")
 assert_signal(
@@ -101,8 +121,8 @@ assert_signal(
 
 string(REGEX MATCHALL "<method name=" xml_methods "${manager_xml}")
 list(LENGTH xml_methods method_count)
-if(NOT method_count EQUAL 9)
-    message(FATAL_ERROR "manager XML must declare exactly 9 methods, found ${method_count}")
+if(NOT method_count EQUAL 14)
+    message(FATAL_ERROR "manager XML must declare exactly 14 methods, found ${method_count}")
 endif()
 
 string(REGEX MATCHALL "<signal name=" xml_signals "${manager_xml}")
