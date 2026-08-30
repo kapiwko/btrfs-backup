@@ -36,8 +36,8 @@ void require_success(int result, const char* operation) {
 void emit_profile_signal(sd_bus* bus, const char* signal, const std::string& profile_id) {
     const int result = sd_bus_emit_signal(
         bus,
-        btrfsbackup::daemon::manager_object_path,
-        btrfsbackup::daemon::manager_interface,
+        btrfsbackup::manager_protocol::object_path,
+        btrfsbackup::manager_protocol::interface_name,
         signal,
         "s",
         profile_id.c_str()
@@ -56,9 +56,9 @@ void emit_change(
     if (change.kind == btrfsbackup::daemon::ManagerChangeKind::Profiles) {
         const int result = sd_bus_emit_signal(
             bus,
-            btrfsbackup::daemon::manager_object_path,
-            btrfsbackup::daemon::manager_interface,
-            "ProfilesChanged",
+            btrfsbackup::manager_protocol::object_path,
+            btrfsbackup::manager_protocol::interface_name,
+            btrfsbackup::manager_protocol::signal::profiles_changed,
             ""
         );
         if (result < 0) {
@@ -71,13 +71,13 @@ void emit_change(
     const char* signal = nullptr;
     switch (change.kind) {
     case btrfsbackup::daemon::ManagerChangeKind::Status:
-        signal = "StatusChanged";
+        signal = btrfsbackup::manager_protocol::signal::status_changed;
         break;
     case btrfsbackup::daemon::ManagerChangeKind::History:
-        signal = "HistoryChanged";
+        signal = btrfsbackup::manager_protocol::signal::history_changed;
         break;
     case btrfsbackup::daemon::ManagerChangeKind::Device:
-        signal = "DeviceStateChanged";
+        signal = btrfsbackup::manager_protocol::signal::device_state_changed;
         break;
     case btrfsbackup::daemon::ManagerChangeKind::Profiles:
         return;
@@ -157,15 +157,15 @@ int run_dbus_server(
         sd_bus_add_object_vtable(
             bus.get(),
             &raw_slot,
-            manager_object_path,
-            manager_interface,
+            manager_protocol::object_path,
+            manager_protocol::interface_name,
             object.vtable(),
             &object
         ),
         "cannot export the manager object"
     );
     slot.reset(raw_slot);
-    require_success(sd_bus_request_name(bus.get(), manager_bus_name, 0), "cannot acquire the manager bus name");
+    require_success(sd_bus_request_name(bus.get(), manager_protocol::service_name, 0), "cannot acquire the manager bus name");
 
     std::unique_ptr<sd_event, decltype(&sd_event_unref)> event(nullptr, sd_event_unref);
     sd_event* raw_event = nullptr;

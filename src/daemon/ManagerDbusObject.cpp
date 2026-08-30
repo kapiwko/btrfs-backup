@@ -21,6 +21,7 @@
 namespace {
 
 using ManagerRequestContext = btrfsbackup::daemon::ManagerDbusObject;
+namespace manager_protocol = btrfsbackup::manager_protocol;
 
 template <typename Operation>
 int reply_json(
@@ -182,7 +183,7 @@ int start_backup(sd_bus_message* message, void* userdata, sd_bus_error* error) {
         return read_result;
     auto& context = *static_cast<ManagerRequestContext*>(userdata);
     const std::string profile = profile_id == nullptr ? "" : profile_id;
-    return reply_operational_json(message, error, context, "start-backup", profile, [&] {
+    return reply_operational_json(message, error, context, manager_protocol::feature::start_backup, profile, [&] {
         return context.codec.encode(
             context.operational.start_backup(caller_bus_name(message), profile)
         );
@@ -197,7 +198,7 @@ int cancel_backup(sd_bus_message* message, void* userdata, sd_bus_error* error) 
         return read_result;
     auto& context = *static_cast<ManagerRequestContext*>(userdata);
     const std::string profile = profile_id == nullptr ? "" : profile_id;
-    return reply_operational_json(message, error, context, "cancel-backup", profile, [&] {
+    return reply_operational_json(message, error, context, manager_protocol::feature::cancel_backup, profile, [&] {
         return context.codec.encode(context.operational.cancel_backup(
             caller_bus_name(message),
             profile,
@@ -213,7 +214,7 @@ int validate_target(sd_bus_message* message, void* userdata, sd_bus_error* error
         return read_result;
     auto& context = *static_cast<ManagerRequestContext*>(userdata);
     const std::string profile = profile_id == nullptr ? "" : profile_id;
-    return reply_operational_json(message, error, context, "validate-target", profile, [&] {
+    return reply_operational_json(message, error, context, manager_protocol::feature::validate_target, profile, [&] {
         return context.codec.encode(
             context.operational.validate_target(caller_bus_name(message), profile)
         );
@@ -227,7 +228,7 @@ int eject_target(sd_bus_message* message, void* userdata, sd_bus_error* error) {
         return read_result;
     auto& context = *static_cast<ManagerRequestContext*>(userdata);
     const std::string profile = profile_id == nullptr ? "" : profile_id;
-    return reply_operational_json(message, error, context, "eject-target", profile, [&] {
+    return reply_operational_json(message, error, context, manager_protocol::feature::eject_target, profile, [&] {
         return context.codec.encode(
             context.operational.eject_target(caller_bus_name(message), profile)
         );
@@ -236,19 +237,19 @@ int eject_target(sd_bus_message* message, void* userdata, sd_bus_error* error) {
 
 const sd_bus_vtable manager_vtable[] = {
     SD_BUS_VTABLE_START(0),
-    SD_BUS_METHOD("GetCapabilities", "", "s", get_capabilities, SD_BUS_VTABLE_UNPRIVILEGED),
-    SD_BUS_METHOD("ListProfiles", "", "s", list_profiles, SD_BUS_VTABLE_UNPRIVILEGED),
-    SD_BUS_METHOD("GetStatus", "s", "s", get_status, SD_BUS_VTABLE_UNPRIVILEGED),
-    SD_BUS_METHOD("GetHistorySanitized", "suu", "s", get_history_sanitized, SD_BUS_VTABLE_UNPRIVILEGED),
-    SD_BUS_METHOD("GetDeviceState", "s", "s", get_device_state, SD_BUS_VTABLE_UNPRIVILEGED),
-    SD_BUS_METHOD("StartBackup", "s", "s", start_backup, SD_BUS_VTABLE_UNPRIVILEGED),
-    SD_BUS_METHOD("CancelBackup", "ss", "s", cancel_backup, SD_BUS_VTABLE_UNPRIVILEGED),
-    SD_BUS_METHOD("ValidateTarget", "s", "s", validate_target, SD_BUS_VTABLE_UNPRIVILEGED),
-    SD_BUS_METHOD("EjectTarget", "s", "s", eject_target, SD_BUS_VTABLE_UNPRIVILEGED),
-    SD_BUS_SIGNAL("ProfilesChanged", "", 0),
-    SD_BUS_SIGNAL("StatusChanged", "s", 0),
-    SD_BUS_SIGNAL("HistoryChanged", "s", 0),
-    SD_BUS_SIGNAL("DeviceStateChanged", "s", 0),
+    SD_BUS_METHOD(manager_protocol::method::get_capabilities, "", "s", get_capabilities, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD(manager_protocol::method::list_profiles, "", "s", list_profiles, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD(manager_protocol::method::get_status, "s", "s", get_status, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD(manager_protocol::method::get_history_sanitized, "suu", "s", get_history_sanitized, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD(manager_protocol::method::get_device_state, "s", "s", get_device_state, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD(manager_protocol::method::start_backup, "s", "s", start_backup, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD(manager_protocol::method::cancel_backup, "ss", "s", cancel_backup, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD(manager_protocol::method::validate_target, "s", "s", validate_target, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD(manager_protocol::method::eject_target, "s", "s", eject_target, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_SIGNAL(manager_protocol::signal::profiles_changed, "", 0),
+    SD_BUS_SIGNAL(manager_protocol::signal::status_changed, "s", 0),
+    SD_BUS_SIGNAL(manager_protocol::signal::history_changed, "s", 0),
+    SD_BUS_SIGNAL(manager_protocol::signal::device_state_changed, "s", 0),
     SD_BUS_VTABLE_END,
 };
 

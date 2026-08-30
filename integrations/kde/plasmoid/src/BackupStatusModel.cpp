@@ -39,7 +39,7 @@ BackupStatusModel::BackupStatusModel(QObject* parent)
     : QObject(parent),
       bus_(QDBusConnection::systemBus()),
       manager_events_(bus_, this),
-      service_watcher_(QLatin1String(btrfsbackup::kde::manager_service), bus_, QDBusServiceWatcher::WatchForRegistration | QDBusServiceWatcher::WatchForUnregistration, this) {
+      service_watcher_(QLatin1String(btrfsbackup::manager_protocol::service_name), bus_, QDBusServiceWatcher::WatchForRegistration | QDBusServiceWatcher::WatchForUnregistration, this) {
     operation_message_timer_.setInterval(operation_message_timeout_ms);
     operation_message_timer_.setSingleShot(true);
     connect(&operation_message_timer_, &QTimer::timeout, this, [this]() {
@@ -157,7 +157,7 @@ QString BackupStatusModel::activity() const {
 }
 
 bool BackupStatusModel::canCancel() const {
-    return can_cancel_ && !run_id_.isEmpty() && supports(QStringLiteral("cancel-backup"));
+    return can_cancel_ && !run_id_.isEmpty() && supports(QLatin1String(btrfsbackup::manager_protocol::feature::cancel_backup));
 }
 
 QString BackupStatusModel::currentSourceName() const {
@@ -269,7 +269,7 @@ void BackupStatusModel::refreshNow() {
 }
 
 void BackupStatusModel::startBackup() {
-    requestOperation(QStringLiteral("StartBackup"), {profile_});
+    requestOperation(QLatin1String(btrfsbackup::manager_protocol::method::start_backup), {profile_});
 }
 
 void BackupStatusModel::cancelBackup() {
@@ -277,15 +277,15 @@ void BackupStatusModel::cancelBackup() {
         setLastError(tr("No active backup run can be cancelled."));
         return;
     }
-    requestOperation(QStringLiteral("CancelBackup"), {profile_, run_id_});
+    requestOperation(QLatin1String(btrfsbackup::manager_protocol::method::cancel_backup), {profile_, run_id_});
 }
 
 void BackupStatusModel::validateTarget() {
-    requestOperation(QStringLiteral("ValidateTarget"), {profile_});
+    requestOperation(QLatin1String(btrfsbackup::manager_protocol::method::validate_target), {profile_});
 }
 
 void BackupStatusModel::ejectTarget() {
-    requestOperation(QStringLiteral("EjectTarget"), {profile_});
+    requestOperation(QLatin1String(btrfsbackup::manager_protocol::method::eject_target), {profile_});
 }
 
 void BackupStatusModel::connectToManager() {
@@ -299,7 +299,7 @@ void BackupStatusModel::connectToManager() {
     device_refresh_queued_ = false;
     history_refresh_queued_ = false;
     const quint64 request_generation = ++generation_;
-    auto* watcher = new QDBusPendingCallWatcher(btrfsbackup::kde::manager_call(bus_, QStringLiteral("GetCapabilities")), this);
+    auto* watcher = new QDBusPendingCallWatcher(btrfsbackup::kde::manager_call(bus_, QLatin1String(btrfsbackup::manager_protocol::method::get_capabilities)), this);
     connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, watcher, request_generation](QDBusPendingCallWatcher*) {
         const QDBusPendingReply<QString> reply = *watcher;
         watcher->deleteLater();
@@ -317,8 +317,9 @@ void BackupStatusModel::connectToManager() {
             managerUnavailable();
             return;
         }
-        if (capabilities->api_major != 1 || capabilities->public_status_schema_version != 3 ||
-            !capabilities->features.contains(QStringLiteral("change-signals"))) {
+        if (capabilities->api_major != btrfsbackup::manager_protocol::api_major ||
+            capabilities->public_status_schema_version != btrfsbackup::manager_protocol::public_status_schema_version ||
+            !capabilities->features.contains(QLatin1String(btrfsbackup::manager_protocol::feature::change_signals))) {
             setLastError(tr("The backup manager API is not compatible with this widget."));
             managerUnavailable();
             return;
@@ -337,7 +338,7 @@ void BackupStatusModel::connectToManager() {
 }
 
 void BackupStatusModel::requestDeviceState() {
-    if (!supports(QStringLiteral("device-state"))) {
+    if (!supports(QLatin1String(btrfsbackup::manager_protocol::feature::device_state))) {
         return;
     }
     if (device_request_pending_) {
@@ -347,7 +348,7 @@ void BackupStatusModel::requestDeviceState() {
     device_request_pending_ = true;
     const quint64 request_generation = generation_;
     const QString requested_profile = profile_;
-    auto* watcher = new QDBusPendingCallWatcher(btrfsbackup::kde::manager_call(bus_, QStringLiteral("GetDeviceState"), {requested_profile}), this);
+    auto* watcher = new QDBusPendingCallWatcher(btrfsbackup::kde::manager_call(bus_, QLatin1String(btrfsbackup::manager_protocol::method::get_device_state), {requested_profile}), this);
     connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, watcher, request_generation, requested_profile](QDBusPendingCallWatcher*) {
         const QDBusPendingReply<QString> reply = *watcher;
         watcher->deleteLater();
@@ -367,7 +368,7 @@ void BackupStatusModel::requestDeviceState() {
 }
 
 void BackupStatusModel::requestHistory() {
-    if (!supports(QStringLiteral("sanitized-history"))) {
+    if (!supports(QLatin1String(btrfsbackup::manager_protocol::feature::sanitized_history))) {
         return;
     }
     if (history_request_pending_) {
@@ -377,7 +378,7 @@ void BackupStatusModel::requestHistory() {
     history_request_pending_ = true;
     const quint64 request_generation = generation_;
     const QString requested_profile = profile_;
-    auto* watcher = new QDBusPendingCallWatcher(btrfsbackup::kde::manager_call(bus_, QStringLiteral("GetHistorySanitized"), {requested_profile, 0U, 3U}), this);
+    auto* watcher = new QDBusPendingCallWatcher(btrfsbackup::kde::manager_call(bus_, QLatin1String(btrfsbackup::manager_protocol::method::get_history_sanitized), {requested_profile, 0U, 3U}), this);
     connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, watcher, request_generation, requested_profile](QDBusPendingCallWatcher*) {
         const QDBusPendingReply<QString> reply = *watcher;
         watcher->deleteLater();
@@ -403,7 +404,7 @@ void BackupStatusModel::requestProfiles() {
     }
     profiles_request_pending_ = true;
     const quint64 request_generation = generation_;
-    auto* watcher = new QDBusPendingCallWatcher(btrfsbackup::kde::manager_call(bus_, QStringLiteral("ListProfiles")), this);
+    auto* watcher = new QDBusPendingCallWatcher(btrfsbackup::kde::manager_call(bus_, QLatin1String(btrfsbackup::manager_protocol::method::list_profiles)), this);
     connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, watcher, request_generation](QDBusPendingCallWatcher*) {
         const QDBusPendingReply<QString> reply = *watcher;
         watcher->deleteLater();
@@ -430,7 +431,7 @@ void BackupStatusModel::requestStatus() {
     status_request_pending_ = true;
     const quint64 request_generation = generation_;
     const QString requested_profile = profile_;
-    auto* watcher = new QDBusPendingCallWatcher(btrfsbackup::kde::manager_call(bus_, QStringLiteral("GetStatus"), {requested_profile}), this);
+    auto* watcher = new QDBusPendingCallWatcher(btrfsbackup::kde::manager_call(bus_, QLatin1String(btrfsbackup::manager_protocol::method::get_status), {requested_profile}), this);
     connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, watcher, request_generation, requested_profile](QDBusPendingCallWatcher*) {
         const QDBusPendingReply<QString> reply = *watcher;
         watcher->deleteLater();
@@ -560,10 +561,10 @@ void BackupStatusModel::requestOperation(const QString& method, const QVariantLi
         return;
     }
     const QMap<QString, QString> required_features{
-        {QStringLiteral("StartBackup"), QStringLiteral("start-backup")},
-        {QStringLiteral("CancelBackup"), QStringLiteral("cancel-backup")},
-        {QStringLiteral("ValidateTarget"), QStringLiteral("validate-target")},
-        {QStringLiteral("EjectTarget"), QStringLiteral("eject-target")},
+        {QLatin1String(btrfsbackup::manager_protocol::method::start_backup), QLatin1String(btrfsbackup::manager_protocol::feature::start_backup)},
+        {QLatin1String(btrfsbackup::manager_protocol::method::cancel_backup), QLatin1String(btrfsbackup::manager_protocol::feature::cancel_backup)},
+        {QLatin1String(btrfsbackup::manager_protocol::method::validate_target), QLatin1String(btrfsbackup::manager_protocol::feature::validate_target)},
+        {QLatin1String(btrfsbackup::manager_protocol::method::eject_target), QLatin1String(btrfsbackup::manager_protocol::feature::eject_target)},
     };
     if (!supports(required_features.value(method))) {
         setLastError(tr("The backup manager does not support this operation."));

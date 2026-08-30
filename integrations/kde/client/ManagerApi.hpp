@@ -14,11 +14,9 @@
 
 #include <optional>
 
-namespace btrfsbackup::kde {
+#include <core/ManagerProtocol.hpp>
 
-inline constexpr auto manager_service = "io.github.btrfsbackup.Manager1";
-inline constexpr auto manager_path = "/io/github/btrfsbackup/Manager1";
-inline constexpr auto manager_interface = "io.github.btrfsbackup.Manager1";
+namespace btrfsbackup::kde {
 
 struct ManagerCapabilities {
     int api_major = -1;

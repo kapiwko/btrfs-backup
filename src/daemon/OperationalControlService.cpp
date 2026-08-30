@@ -9,6 +9,7 @@
 #include <string>
 #include <utility>
 
+#include <core/ManagerProtocol.hpp>
 #include <daemon/ManagerErrors.hpp>
 
 namespace btrfsbackup::daemon {
@@ -80,7 +81,7 @@ OperationResult OperationalControlService::start_backup(
     const AuthorizedOperationContext context = authorized_context(validated_profile, version);
     backend_.start_backup(context);
     return {
-        .operation = "start-backup",
+        .operation = manager_protocol::feature::start_backup,
         .operation_id = std::string(context.operation_id.value()),
         .profile_id = profile_id,
         .run_id = {},
@@ -101,7 +102,7 @@ OperationResult OperationalControlService::cancel_backup(
     switch (backend_.cancel_backup(validated_run, context)) {
     case ManagerCancellationOutcome::Accepted:
         return {
-            .operation = "cancel-backup",
+            .operation = manager_protocol::feature::cancel_backup,
             .operation_id = std::string(context.operation_id.value()),
             .profile_id = profile_id,
             .run_id = run_id,
@@ -124,7 +125,7 @@ OperationResult OperationalControlService::validate_target(
     const AuthorizedOperationContext context = authorized_context(validated_profile, version);
     backend_.validate_target(context);
     return {
-        .operation = "validate-target",
+        .operation = manager_protocol::feature::validate_target,
         .operation_id = std::string(context.operation_id.value()),
         .profile_id = profile_id,
         .run_id = {},
@@ -142,7 +143,7 @@ OperationResult OperationalControlService::eject_target(
     const AuthorizedOperationContext context = authorized_context(validated_profile, version);
     backend_.eject_target(context);
     return {
-        .operation = "eject-target",
+        .operation = manager_protocol::feature::eject_target,
         .operation_id = std::string(context.operation_id.value()),
         .profile_id = profile_id,
         .run_id = {},

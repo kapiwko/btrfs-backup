@@ -32,6 +32,7 @@ target_include_directories(
 target_link_libraries(
     btrfsbackup_kde_manager_client
     PUBLIC
+        btrfsbackup-manager-protocol
         Qt6::Core
         Qt6::DBus
 )

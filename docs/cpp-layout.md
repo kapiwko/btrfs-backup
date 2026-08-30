@@ -10,7 +10,7 @@ public C++ SDK.
 ```text
 apps/                         # small executable entry points
 src/
-├── core/                     # identifiers, errors, cancellation and shared runtime primitives
+├── core/                     # identifiers, errors, cancellation and shared runtime/protocol primitives
 ├── backup/                   # planning, execution, snapshots, transfer, recovery
 │   ├── model/                # run plans, typed actions, events, snapshots and retention
 │   ├── ports/                # platform-neutral application contracts
@@ -60,6 +60,7 @@ CMake targets and their declared dependencies:
 ```mermaid
 flowchart TB
     subgraph contracts[Dependency-light contracts]
+        manager_protocol[manager-protocol]
         core[core]
         config_domain[config-domain]
         config_json[config-json]
@@ -123,6 +124,7 @@ flowchart TB
     core --> state
     state_model --> state
     state_persistence --> state
+    manager_protocol --> daemon_core
     backup_model --> backup
     backup_ports --> backup
     transfer --> backup
@@ -168,6 +170,12 @@ The `btrfsbackup-core` target contains the validated `ProfileId`, `RunId`, and
 `SourceId` value types and the shared error hierarchy. Those contracts can be
 used by configuration, backup, state, and platform adapters without pulling in
 JSON or filesystem implementations.
+
+The header-only `btrfsbackup-manager-protocol` target owns the stable D-Bus
+identity, API and schema versions, capability names, methods, and signals. It
+has no Qt, JSON, systemd, or runtime dependency and is shared by the daemon and
+the optional KDE client. Transport-specific DTOs and codecs remain in their
+respective adapters.
 
 ## Ownership
 
@@ -257,7 +265,8 @@ coordinator owned by `backup`.
 8. Do not add empty directories for planned QEMU or KDE components.
    Add them only with the first implementation they own.
 9. Optional KDE code remains under `integrations/kde` and outside the base
-   runtime dependency graph.
+   runtime dependency graph. It may depend on the header-only manager protocol,
+   but not on daemon, backup, state, configuration, or Linux implementations.
 
 Application-facing functions such as `plan_backup`, `start_backup`,
 `cancel_backup`, `mount_target`, `eject_target`, `save_profile`, `get_statuses`,
