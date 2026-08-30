@@ -55,7 +55,6 @@ class RunSessionFactory {
     [[nodiscard]] std::unique_ptr<RunExecutionContext> create_preparing(
         const btrfsbackup::config::LoadedProfile& loaded,
         const RunIdentity& identity,
-        std::unique_ptr<IBackupRunEventSink>& events,
         std::unique_ptr<IBackupRunLease> lease
     );
 
