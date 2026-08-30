@@ -69,6 +69,8 @@ start_daemon() {
         --status-root "$TEST_ROOT/status" \
         --history-root "$TEST_ROOT/history" \
         --target-mount-root "$TEST_ROOT/mnt" \
+        --udev-root "$TEST_ROOT/udev" \
+        --systemd-root "$TEST_ROOT/systemd" \
         --audit-log "$TEST_ROOT/audit/manager.jsonl" \
         >"$TEST_ROOT/daemon.log" 2>&1 &
     DAEMON_PID=$!
@@ -214,15 +216,19 @@ grep -Fq 'connected' <<<"$device" || fail 'device state was not returned'
 if grep -Fq '/dev/null' <<<"$device"; then fail 'device path crossed the bus'; fi
 
 introspection="$($BUSCTL --address="$BUS_ADDRESS" introspect "$SERVICE" "$OBJECT" "$INTERFACE")"
-for method in GetCapabilities ListProfiles GetStatus GetHistorySanitized GetDeviceState StartBackup CancelBackup ValidateTarget EjectTarget; do
+for method in GetCapabilities ListProfiles GetStatus GetHistorySanitized GetDeviceState StartBackup CancelBackup ValidateTarget EjectTarget GetProfileForEditing ValidateProfileDraft SaveProfile SaveProfileHooks DeleteProfile; do
     grep -Fq "$method" <<<"$introspection" || fail "missing method $method"
 done
 for signal in ProfilesChanged StatusChanged HistoryChanged DeviceStateChanged; do
     grep -Fq "$signal" <<<"$introspection" || fail "missing signal $signal"
 done
-if grep -Eq 'SaveProfile|DeleteProfile' <<<"$introspection"; then
-    fail 'an unsupported mutating method is exported'
-fi
+
+touch "$TEST_ROOT/polkit.log.allow"
+editable_profile="$(call GetProfileForEditing s default)"
+rm -f -- "$TEST_ROOT/polkit.log.allow"
+grep -Fq 'fingerprint' <<<"$editable_profile" || fail 'editable profile omits fingerprint'
+grep -Fq 'generation' <<<"$editable_profile" || fail 'editable profile omits generation'
+if grep -Fq 'key contents' <<<"$editable_profile"; then fail 'secret contents crossed the bus'; fi
 
 "$BUSCTL" --address="$BUS_ADDRESS" --timeout=2 wait \
     "$SERVICE" "$OBJECT" "$INTERFACE" ProfilesChanged >"$TEST_ROOT/profiles-signal" &
@@ -256,6 +262,8 @@ grep -Fq 'io.github.btrfsbackup.start-backup' "$TEST_ROOT/polkit.log" \
     || fail 'start request used the wrong polkit action'
 grep -Fq 'io.github.btrfsbackup.validate-target' "$TEST_ROOT/polkit.log" \
     || fail 'validate request used the wrong polkit action'
+grep -Fq 'io.github.btrfsbackup.read-profile-configuration' "$TEST_ROOT/polkit.log" \
+    || fail 'profile read used the wrong polkit action'
 grep -Fq '"callerUid":'"$(id -u)" "$TEST_ROOT/audit/manager.jsonl" \
     || fail 'manager audit omitted the D-Bus caller UID'
 grep -Fq '"action":"start-backup"' "$TEST_ROOT/audit/manager.jsonl" \
