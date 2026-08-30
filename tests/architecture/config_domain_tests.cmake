@@ -38,7 +38,7 @@ if(NOT config_cmake MATCHES "target_link_libraries\\(btrfsbackup-config[ \t\r\n]
     message(FATAL_ERROR "config target must expose only its domain model dependency")
 endif()
 
-if(NOT config_cmake MATCHES "target_link_libraries\\(btrfsbackup-platform-linux-config[ \t\r\n]+PUBLIC[ \t\r\n]+btrfsbackup-config[ \t\r\n]+btrfsbackup-config-ports[ \t\r\n]+PRIVATE[ \t\r\n]+btrfsbackup-config-domain[ \t\r\n]+btrfsbackup-config-json[ \t\r\n]+btrfsbackup-config-wizard[ \t\r\n]+btrfsbackup-core[ \t\r\n]+btrfsbackup-platform-linux[ \t\r\n]+\\)")
+if(NOT config_cmake MATCHES "target_link_libraries\\(btrfsbackup-platform-linux-config[ \t\r\n]+PUBLIC[ \t\r\n]+btrfsbackup-config[ \t\r\n]+btrfsbackup-config-ports[ \t\r\n]+PRIVATE[ \t\r\n]+btrfsbackup-config-domain[ \t\r\n]+btrfsbackup-config-json[ \t\r\n]+btrfsbackup-config-wizard[ \t\r\n]+btrfsbackup-core[ \t\r\n]+btrfsbackup-platform-linux-filesystem[ \t\r\n]+btrfsbackup-platform-linux-process[ \t\r\n]+btrfsbackup-platform-linux-storage[ \t\r\n]+btrfsbackup-platform-linux-systemd[ \t\r\n]+PkgConfig::UDEV[ \t\r\n]+\\)")
     message(FATAL_ERROR "Linux configuration adapter dependencies are not isolated")
 endif()
 

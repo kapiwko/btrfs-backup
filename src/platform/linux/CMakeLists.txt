@@ -2,100 +2,181 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-add_library(btrfsbackup-platform-linux STATIC
-    transfer/BoundedDiagnosticBuffer.cpp
+add_library(btrfsbackup-platform-linux-base STATIC
+    OwnedFileDescriptor.cpp
+)
+target_restricted_include_directories(btrfsbackup-platform-linux-base
+    PUBLIC_HEADERS
+        platform/linux/OwnedFileDescriptor.hpp
+)
+
+add_library(btrfsbackup-platform-linux-process STATIC
     process/ChildProcess.cpp
     process/CommandCancellationSignal.cpp
     process/ControlledCommandSession.cpp
-    storage/LibBtrfsOperations.cpp
-    storage/DeviceInfo.cpp
-    filesystem/FileIo.cpp
-    filesystem/FileBackupRunLeaseProvider.cpp
-    filesystem/FileLock.cpp
-    storage/MountInfo.cpp
-    OwnedFileDescriptor.cpp
-    transfer/PosixCancellationSignal.cpp
     process/PosixCommandRunner.cpp
-    filesystem/PosixDurableFileOperations.cpp
-    filesystem/PosixFileSystem.cpp
-    transfer/PosixTransferPipeline.cpp
-    transfer/PosixTransferSession.cpp
-    transfer/PosixTransferProcess.cpp
-    transfer/PosixTransferPump.cpp
-    transfer/ThreadSigpipeBlock.cpp
-    transfer/TransferChildTermination.cpp
-    transfer/TransferProgressReporter.cpp
     process/Process.cpp
     process/ProcessSpawn.cpp
-    filesystem/SafeDirectoryRoot.cpp
-    storage/SpaceCheck.cpp
-    transfer/Splice.cpp
-    systemd/LinuxSystemConfigurationActivator.cpp
-    systemd/SystemdTargetManager.cpp
-    systemd/SystemdMountedTargetSession.cpp
-    systemd/SystemdUnit.cpp
     process/TerminationSignalMonitor.cpp
+)
+target_restricted_include_directories(btrfsbackup-platform-linux-process
+    PUBLIC_HEADERS
+        platform/linux/process/ChildProcess.hpp
+        platform/linux/process/PosixCommandRunner.hpp
+        platform/linux/process/Process.hpp
+        platform/linux/process/ProcessSpawn.hpp
+        platform/linux/process/TerminationSignalMonitor.hpp
+    PRIVATE_HEADERS
+        platform/linux/process/CommandCancellationSignal.hpp
+        platform/linux/process/ControlledCommandSession.hpp
+)
+target_link_libraries(btrfsbackup-platform-linux-process
+    PUBLIC
+        btrfsbackup-backup-ports
+    PRIVATE
+        btrfsbackup-core
+        btrfsbackup-platform-linux-base
+)
+
+add_library(btrfsbackup-platform-linux-filesystem STATIC
+    filesystem/FileBackupRunLeaseProvider.cpp
+    filesystem/FileIo.cpp
+    filesystem/FileLock.cpp
+    filesystem/PosixDurableFileOperations.cpp
+    filesystem/PosixFileSystem.cpp
+    filesystem/SafeDirectoryRoot.cpp
     filesystem/TrustedDirectory.cpp
     filesystem/TrustedExecutable.cpp
     filesystem/TrustedFile.cpp
 )
-
-target_compile_features(btrfsbackup-platform-linux PUBLIC cxx_std_23)
-target_restricted_include_directories(btrfsbackup-platform-linux
+target_restricted_include_directories(btrfsbackup-platform-linux-filesystem
     PUBLIC_HEADERS
-        platform/linux/storage/LibBtrfsOperations.hpp
-        platform/linux/process/ChildProcess.hpp
-        platform/linux/storage/DeviceInfo.hpp
         platform/linux/filesystem/FileBackupRunLeaseProvider.hpp
         platform/linux/filesystem/FileIo.hpp
         platform/linux/filesystem/FileLock.hpp
-        platform/linux/storage/MountInfo.hpp
-        platform/linux/OwnedFileDescriptor.hpp
-        platform/linux/transfer/PosixCancellationSignal.hpp
-        platform/linux/process/PosixCommandRunner.hpp
         platform/linux/filesystem/PosixDurableFileOperations.hpp
         platform/linux/filesystem/PosixFileSystem.hpp
-        platform/linux/transfer/PosixTransferPipeline.hpp
-        platform/linux/transfer/PosixTransferProcess.hpp
-        platform/linux/transfer/PosixTransferPump.hpp
-        platform/linux/process/Process.hpp
-        platform/linux/process/ProcessSpawn.hpp
         platform/linux/filesystem/SafeDirectoryRoot.hpp
-        platform/linux/storage/SpaceCheck.hpp
-        platform/linux/transfer/Splice.hpp
-        platform/linux/systemd/LinuxSystemConfigurationActivator.hpp
-        platform/linux/systemd/SystemdTargetManager.hpp
-        platform/linux/systemd/SystemdUnit.hpp
-        platform/linux/process/TerminationSignalMonitor.hpp
         platform/linux/filesystem/TrustedDirectory.hpp
         platform/linux/filesystem/TrustedExecutable.hpp
         platform/linux/filesystem/TrustedFile.hpp
+)
+target_link_libraries(btrfsbackup-platform-linux-filesystem
+    PUBLIC
+        btrfsbackup-backup-ports
+        btrfsbackup-state-persistence-ports
+    PRIVATE
+        btrfsbackup-config-domain
+        btrfsbackup-core
+        btrfsbackup-platform-linux-base
+        btrfsbackup-transfer
+)
+
+add_library(btrfsbackup-platform-linux-storage STATIC
+    storage/DeviceInfo.cpp
+    storage/LibBtrfsOperations.cpp
+    storage/MountInfo.cpp
+    storage/SpaceCheck.cpp
+)
+target_restricted_include_directories(btrfsbackup-platform-linux-storage
+    PUBLIC_HEADERS
+        platform/linux/storage/DeviceInfo.hpp
+        platform/linux/storage/LibBtrfsOperations.hpp
+        platform/linux/storage/MountInfo.hpp
+        platform/linux/storage/SpaceCheck.hpp
+)
+target_link_libraries(btrfsbackup-platform-linux-storage
+    PUBLIC
+        btrfsbackup-backup-ports
+    PRIVATE
+        btrfsbackup-backup-model
+        btrfsbackup-core
+        PkgConfig::BLKID
+        PkgConfig::BTRFSUTIL
+        PkgConfig::MOUNT
+)
+
+add_library(btrfsbackup-platform-linux-transfer STATIC
+    transfer/BoundedDiagnosticBuffer.cpp
+    transfer/PosixCancellationSignal.cpp
+    transfer/PosixTransferPipeline.cpp
+    transfer/PosixTransferProcess.cpp
+    transfer/PosixTransferPump.cpp
+    transfer/PosixTransferSession.cpp
+    transfer/Splice.cpp
+    transfer/ThreadSigpipeBlock.cpp
+    transfer/TransferChildTermination.cpp
+    transfer/TransferProgressReporter.cpp
+)
+target_restricted_include_directories(btrfsbackup-platform-linux-transfer
+    PUBLIC_HEADERS
+        platform/linux/transfer/PosixCancellationSignal.hpp
+        platform/linux/transfer/PosixTransferPipeline.hpp
+        platform/linux/transfer/PosixTransferProcess.hpp
+        platform/linux/transfer/PosixTransferPump.hpp
+        platform/linux/transfer/Splice.hpp
     PRIVATE_HEADERS
         platform/linux/transfer/BoundedDiagnosticBuffer.hpp
-        platform/linux/process/CommandCancellationSignal.hpp
-        platform/linux/process/ControlledCommandSession.hpp
         platform/linux/transfer/PosixTransferSession.hpp
         platform/linux/transfer/ThreadSigpipeBlock.hpp
         platform/linux/transfer/TransferChildTermination.hpp
         platform/linux/transfer/TransferProgressReporter.hpp
-        platform/linux/systemd/SystemdMountedTargetSession.hpp
 )
-target_link_libraries(btrfsbackup-platform-linux
+target_link_libraries(btrfsbackup-platform-linux-transfer
     PUBLIC
-        btrfsbackup-backup-ports
-        btrfsbackup-state-persistence-ports
-        btrfsbackup-config-ports
+        btrfsbackup-platform-linux-base
+        btrfsbackup-platform-linux-process
     PRIVATE
-        btrfsbackup-backup-model
-        btrfsbackup-config-domain
         btrfsbackup-core
+        btrfsbackup-platform-linux-filesystem
         btrfsbackup-transfer
-        PkgConfig::BLKID
-        PkgConfig::BTRFSUTIL
-        PkgConfig::MOUNT
-        PkgConfig::UDEV
 )
 
-if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-    target_compile_options(btrfsbackup-platform-linux PRIVATE -Wall -Wextra -Wpedantic)
-endif()
+add_library(btrfsbackup-platform-linux-systemd STATIC
+    systemd/LinuxSystemConfigurationActivator.cpp
+    systemd/SystemdMountedTargetSession.cpp
+    systemd/SystemdTargetManager.cpp
+    systemd/SystemdUnit.cpp
+)
+target_restricted_include_directories(btrfsbackup-platform-linux-systemd
+    PUBLIC_HEADERS
+        platform/linux/systemd/LinuxSystemConfigurationActivator.hpp
+        platform/linux/systemd/SystemdTargetManager.hpp
+        platform/linux/systemd/SystemdUnit.hpp
+    PRIVATE_HEADERS
+        platform/linux/systemd/SystemdMountedTargetSession.hpp
+)
+target_link_libraries(btrfsbackup-platform-linux-systemd
+    PUBLIC
+        btrfsbackup-backup-ports
+        btrfsbackup-config-ports
+    PRIVATE
+        btrfsbackup-core
+        btrfsbackup-platform-linux-process
+)
+
+add_library(btrfsbackup-platform-linux INTERFACE)
+target_compile_features(btrfsbackup-platform-linux INTERFACE cxx_std_23)
+target_link_libraries(btrfsbackup-platform-linux INTERFACE
+    btrfsbackup-platform-linux-base
+    btrfsbackup-platform-linux-filesystem
+    btrfsbackup-platform-linux-process
+    btrfsbackup-platform-linux-storage
+    btrfsbackup-platform-linux-systemd
+    btrfsbackup-platform-linux-transfer
+)
+
+set(linux_platform_targets
+    btrfsbackup-platform-linux-base
+    btrfsbackup-platform-linux-filesystem
+    btrfsbackup-platform-linux-process
+    btrfsbackup-platform-linux-storage
+    btrfsbackup-platform-linux-systemd
+    btrfsbackup-platform-linux-transfer
+)
+foreach(target IN LISTS linux_platform_targets)
+    target_compile_features(${target} PUBLIC cxx_std_23)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(${target} PRIVATE -Wall -Wextra -Wpedantic)
+    endif()
+endforeach()
