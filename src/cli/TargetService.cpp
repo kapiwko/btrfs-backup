@@ -29,7 +29,7 @@
 #include <platform/linux/storage/MountInfo.hpp>
 #include <platform/linux/process/Process.hpp>
 #include <platform/linux/filesystem/TrustedDirectory.hpp>
-#include <platform/linux/SystemdUnit.hpp>
+#include <platform/linux/systemd/SystemdUnit.hpp>
 #include <platform/linux/filesystem/TrustedFile.hpp>
 
 namespace fs = std::filesystem;
@@ -470,7 +470,7 @@ TargetOperationResult mount_target(
     } else {
         btrfsbackup::platform::linux::filesystem::ensure_trusted_directory(profile.target.mount_point, 0755, resolved.mount_point_trust_root, geteuid());
         events.push_back({.kind = TargetEventKind::Mounting, .detail = {}});
-        const std::string mount_unit = btrfsbackup::platform::linux::systemd_mount_unit_name(profile.target.mount_point);
+        const std::string mount_unit = btrfsbackup::platform::linux::systemd::systemd_mount_unit_name(profile.target.mount_point);
         run_checked(
             resolved.commands,
             {"systemctl", "start", mount_unit},
@@ -519,13 +519,13 @@ TargetOperationResult eject_target(
             .kind = TargetEventKind::Unmounting,
             .detail = profile.target.mount_point.value().string(),
         });
-        const std::string mount_unit = btrfsbackup::platform::linux::systemd_mount_unit_name(
+        const std::string mount_unit = btrfsbackup::platform::linux::systemd::systemd_mount_unit_name(
             profile.target.mount_point
         );
         run_checked(resolved.commands, {"systemctl", "stop", mount_unit}, "could not stop target mount unit " + mount_unit);
     }
 
-    const std::string target_unit = btrfsbackup::platform::linux::target_activation_unit_name(
+    const std::string target_unit = btrfsbackup::platform::linux::systemd::target_activation_unit_name(
         profile.id.value()
     );
     events.push_back({

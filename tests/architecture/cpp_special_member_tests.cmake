@@ -33,7 +33,7 @@ set(approved_special_member_types
     "src/platform/linux/transfer/PosixCancellationSignal.hpp:PosixCancellationSignal"
     "src/platform/linux/filesystem/SafeDirectoryRoot.hpp:SafeDirectoryHandle"
     "src/platform/linux/filesystem/SafeDirectoryRoot.hpp:SafeDirectoryRoot"
-    "src/platform/linux/SystemdMountedTargetSession.hpp:SystemdMountedTargetSession"
+    "src/platform/linux/systemd/SystemdMountedTargetSession.hpp:SystemdMountedTargetSession"
     "src/platform/linux/process/TerminationSignalMonitor.hpp:TerminationSignalMonitor"
     "src/platform/linux/transfer/ThreadSigpipeBlock.hpp:ThreadSigpipeBlock"
     "src/state/FileActiveRunRegistration.hpp:FileActiveRunRegistration"

@@ -11,7 +11,7 @@
 #include <platform/linux/config/RenderDirectory.hpp>
 #include <platform/linux/config/ProfileWizardInstall.hpp>
 #include <config/wizard/ProfileWizardModel.hpp>
-#include <platform/linux/SystemdUnit.hpp>
+#include <platform/linux/systemd/SystemdUnit.hpp>
 #include <config/wizard/ProfileWizardPrompt.hpp>
 #include <platform/linux/config/ProfileWizardSources.hpp>
 
@@ -119,7 +119,7 @@ void test_profile_from_wizard_answers() {
     );
     test_helpers::expect_eq(
         "wizard target mount unit",
-        btrfsbackup::platform::linux::systemd_mount_unit_name(profile.target.mount_point),
+        btrfsbackup::platform::linux::systemd::systemd_mount_unit_name(profile.target.mount_point),
         "mnt-btrfs\\x2dbackup-laptop.mount"
     );
     test_helpers::expect_eq("wizard remote root", profile.paths.remote_root.value().string(), "/mnt/btrfs-backup/laptop/snapshots");

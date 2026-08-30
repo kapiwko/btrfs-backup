@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <platform/linux/SystemdTargetManager.hpp>
-#include <platform/linux/SystemdMountedTargetSession.hpp>
+#include <platform/linux/systemd/SystemdTargetManager.hpp>
+#include <platform/linux/systemd/SystemdMountedTargetSession.hpp>
 
 #include <memory>
 #include <filesystem>
@@ -11,9 +11,9 @@
 #include <utility>
 
 #include <core/Errors.hpp>
-#include <platform/linux/SystemdUnit.hpp>
+#include <platform/linux/systemd/SystemdUnit.hpp>
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::systemd {
 
 SystemdTargetManager::SystemdTargetManager(
     btrfsbackup::backup::IMountInspector& mounts,
@@ -74,4 +74,4 @@ std::unique_ptr<btrfsbackup::backup::IMountedTargetSession> SystemdTargetManager
     );
 }
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::systemd

@@ -29,10 +29,10 @@ add_library(btrfsbackup-platform-linux STATIC
     filesystem/SafeDirectoryRoot.cpp
     storage/SpaceCheck.cpp
     transfer/Splice.cpp
-    LinuxSystemConfigurationActivator.cpp
-    SystemdTargetManager.cpp
-    SystemdMountedTargetSession.cpp
-    SystemdUnit.cpp
+    systemd/LinuxSystemConfigurationActivator.cpp
+    systemd/SystemdTargetManager.cpp
+    systemd/SystemdMountedTargetSession.cpp
+    systemd/SystemdUnit.cpp
     process/TerminationSignalMonitor.cpp
     filesystem/TrustedDirectory.cpp
     filesystem/TrustedExecutable.cpp
@@ -62,9 +62,9 @@ target_restricted_include_directories(btrfsbackup-platform-linux
         platform/linux/filesystem/SafeDirectoryRoot.hpp
         platform/linux/storage/SpaceCheck.hpp
         platform/linux/transfer/Splice.hpp
-        platform/linux/LinuxSystemConfigurationActivator.hpp
-        platform/linux/SystemdTargetManager.hpp
-        platform/linux/SystemdUnit.hpp
+        platform/linux/systemd/LinuxSystemConfigurationActivator.hpp
+        platform/linux/systemd/SystemdTargetManager.hpp
+        platform/linux/systemd/SystemdUnit.hpp
         platform/linux/process/TerminationSignalMonitor.hpp
         platform/linux/filesystem/TrustedDirectory.hpp
         platform/linux/filesystem/TrustedExecutable.hpp
@@ -76,7 +76,7 @@ target_restricted_include_directories(btrfsbackup-platform-linux
         platform/linux/transfer/ThreadSigpipeBlock.hpp
         platform/linux/transfer/TransferChildTermination.hpp
         platform/linux/transfer/TransferProgressReporter.hpp
-        platform/linux/SystemdMountedTargetSession.hpp
+        platform/linux/systemd/SystemdMountedTargetSession.hpp
 )
 target_link_libraries(btrfsbackup-platform-linux
     PUBLIC

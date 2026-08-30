@@ -31,7 +31,7 @@
 #include <platform/linux/filesystem/PosixFileSystem.hpp>
 #include <platform/linux/transfer/PosixTransferPipeline.hpp>
 #include <platform/linux/filesystem/SafeDirectoryRoot.hpp>
-#include <platform/linux/SystemdTargetManager.hpp>
+#include <platform/linux/systemd/SystemdTargetManager.hpp>
 #include <platform/linux/filesystem/TrustedExecutable.hpp>
 #include <state/FilePendingMarkerStore.hpp>
 #include <state/FileRunStateRepository.hpp>
@@ -90,7 +90,7 @@ struct RunnerComposition::Impl {
     platform::linux::FileProfileRepository profiles;
     platform::linux::storage::LinuxMountInspector mounts;
     platform::linux::process::PosixCommandRunner commands;
-    platform::linux::SystemdTargetManager target_mounter;
+    platform::linux::systemd::SystemdTargetManager target_mounter;
     backup::BackupPreflight preflight;
     platform::linux::filesystem::SafeDirectoryRootFactory safe_directories;
     platform::linux::storage::LibBtrfsOperations btrfs;
