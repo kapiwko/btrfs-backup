@@ -40,7 +40,7 @@ bool contains_unresolved_placeholder(const fs::path& root) {
         std::ifstream stream(it->path());
         std::string line;
         while (std::getline(stream, line)) {
-            if (line.find("{{") != std::string::npos && line.find("}}") != std::string::npos) {
+            if (line.contains("{{") && line.contains("}}")) {
                 return true;
             }
         }
@@ -57,7 +57,7 @@ bool allowed_systemd_verify_failure(const std::string& output, bool allow_missin
             continue;
         }
         saw_output = true;
-        bool missing_executable = allow_missing_executables && line.find(".service: Command ") != std::string::npos && line.ends_with(" is not executable: No such file or directory");
+        bool missing_executable = allow_missing_executables && line.contains(".service: Command ") && line.ends_with(" is not executable: No such file or directory");
         if (line != "Failed to turn off SO_PASSRIGHTS on user lookup socket, ignoring: Operation not permitted" && line != "Failed to enable SO_PASSCRED on handoff timestamp socket: Operation not permitted" && !missing_executable) {
             return false;
         }
@@ -212,8 +212,8 @@ void validate_active_installation(const std::string& profile_id) {
     if (fs::is_regular_file(old_dropin)) {
         std::ifstream stream(old_dropin);
         std::string content{std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()};
-        if ((content.find("Wants=") != std::string::npos || content.find("After=") != std::string::npos) &&
-            content.find("btrfs-backup.service") != std::string::npos) {
+        if ((content.contains("Wants=") || content.contains("After=")) &&
+            content.contains("btrfs-backup.service")) {
             throw ValidationError("obsolete cyclic mount drop-in still exists: " + old_dropin.string());
         }
     }

@@ -21,10 +21,6 @@ std::string lowercase(std::string value) {
     return value;
 }
 
-bool contains(const std::string& text, const char* fragment) {
-    return text.find(fragment) != std::string::npos;
-}
-
 SystemdJobFailure classify_failure(const btrfsbackup::backup::CommandResult& result) {
     if (result.cancelled)
         return SystemdJobFailure::Cancelled;
@@ -32,19 +28,19 @@ SystemdJobFailure classify_failure(const btrfsbackup::backup::CommandResult& res
         return SystemdJobFailure::TimedOut;
 
     const std::string output = lowercase(result.output);
-    if (contains(output, "job canceled") || contains(output, "job cancelled"))
+    if (output.contains("job canceled") || output.contains("job cancelled"))
         return SystemdJobFailure::Cancelled;
-    if (contains(output, "timed out"))
+    if (output.contains("timed out"))
         return SystemdJobFailure::TimedOut;
-    if (contains(output, "could not be found") || contains(output, "unit not found") ||
-        contains(output, "no such unit") || contains(output, "unit is not loaded"))
+    if (output.contains("could not be found") || output.contains("unit not found") ||
+        output.contains("no such unit") || output.contains("unit is not loaded"))
         return SystemdJobFailure::UnitNotFound;
-    if (contains(output, "already running") || contains(output, "already in progress"))
+    if (output.contains("already running") || output.contains("already in progress"))
         return SystemdJobFailure::JobAlreadyRunning;
-    if (contains(output, "conflicting job") || contains(output, "transaction is destructive"))
+    if (output.contains("conflicting job") || output.contains("transaction is destructive"))
         return SystemdJobFailure::JobConflict;
-    if (contains(output, "access denied") || contains(output, "authentication is required") ||
-        contains(output, "failed to connect to bus") || contains(output, "operation refused"))
+    if (output.contains("access denied") || output.contains("authentication is required") ||
+        output.contains("failed to connect to bus") || output.contains("operation refused"))
         return SystemdJobFailure::ManagerRejected;
     return SystemdJobFailure::UnitFailed;
 }

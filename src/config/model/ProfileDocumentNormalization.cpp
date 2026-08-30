@@ -42,7 +42,7 @@ std::string text(const Json& value, const std::string& name, bool allow_empty = 
         throw ValidationError(name + " must be text");
     }
     std::string result = value.get<std::string>();
-    if (result.find('\0') != std::string::npos || result.find('\n') != std::string::npos || result.find('\r') != std::string::npos) {
+    if (result.contains('\0') || result.contains('\n') || result.contains('\r')) {
         throw ValidationError(name + " contains a forbidden control character");
     }
     if (result.size() > maximum) {

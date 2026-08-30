@@ -22,7 +22,7 @@ namespace btrfsbackup::platform::linux {
 namespace {
 
 fs::path absolute_path(const std::string& value, const std::string& name) {
-    if (value.empty() || value.find('\0') != std::string::npos || value.find('\r') != std::string::npos) {
+    if (value.empty() || value.contains('\0') || value.contains('\r')) {
         throw ValidationError(name + " must be a non-empty absolute path");
     }
     fs::path result = value;

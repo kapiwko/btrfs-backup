@@ -50,7 +50,7 @@ btrfsbackup::config::ProfileWizardAnswers collect_answers(std::istream& input, s
     std::vector<std::string> used_names;
     for (const auto& source_path : source_paths) {
         std::string default_name = source_name_from_path(source_path);
-        while (std::find(used_names.begin(), used_names.end(), default_name) != used_names.end()) {
+        while (std::ranges::contains(used_names, default_name)) {
             default_name += "-2";
         }
         btrfsbackup::config::ProfileWizardSourceAnswers source;

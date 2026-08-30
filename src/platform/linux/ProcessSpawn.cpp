@@ -100,17 +100,17 @@ std::string trusted_program_path(const std::string& program) {
     if (program.front() == '/') {
         return program;
     }
-    if (program.find('/') != std::string::npos) {
+    if (program.contains('/')) {
         throw ValidationError("command path must be absolute: " + program);
     }
     return "/usr/bin/" + program;
 }
 
 void validate_environment_entry(const std::string& name, const std::string& value) {
-    if (name.empty() || name.find('=') != std::string::npos || name.find('\0') != std::string::npos) {
+    if (name.empty() || name.contains('=') || name.contains('\0')) {
         throw ValidationError("invalid environment variable name");
     }
-    if (value.find('\0') != std::string::npos) {
+    if (value.contains('\0')) {
         throw ValidationError("invalid environment variable value for " + name);
     }
 }

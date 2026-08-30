@@ -27,7 +27,7 @@ std::string lower(std::string value) {
 }
 
 bool has_mount_option(const std::string& options, const std::string& option) {
-    return ("," + options + ",").find("," + option + ",") != std::string::npos;
+    return ("," + options + ",").contains("," + option + ",");
 }
 
 fs::path resolved_path(const fs::path& path) {

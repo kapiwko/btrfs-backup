@@ -9,6 +9,7 @@
 #include <optional>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <backup/BackupRunExecutor.hpp>
@@ -22,7 +23,7 @@ namespace fs = std::filesystem;
 namespace {
 
 std::string action_name(btrfsbackup::backup::BackupRunActionKind kind) {
-    return std::to_string(static_cast<int>(kind));
+    return std::to_string(std::to_underlying(kind));
 }
 
 std::string event_action_name(const btrfsbackup::backup::BackupRunEvent& event) {
@@ -328,7 +329,7 @@ void test_lifecycle_events_do_not_have_synthetic_actions() {
             }
         );
         test_helpers::expect_true(
-            "lifecycle event exists " + std::to_string(static_cast<int>(kind)),
+            "lifecycle event exists " + std::to_string(std::to_underlying(kind)),
             found != events.events.end(),
             "missing lifecycle event"
         );
@@ -336,7 +337,7 @@ void test_lifecycle_events_do_not_have_synthetic_actions() {
             continue;
         }
         test_helpers::expect_true(
-            "lifecycle action absent " + std::to_string(static_cast<int>(kind)),
+            "lifecycle action absent " + std::to_string(std::to_underlying(kind)),
             !btrfsbackup::backup::backup_run_event_action_kind(*found).has_value(),
             "lifecycle event contains a synthetic action"
         );
@@ -358,7 +359,7 @@ void test_every_action_uses_uniform_execution_semantics() {
         btrfsbackup::backup::BackupRunActionKind::CleanupSource,
     };
     static_assert(
-        action_kinds.size() == static_cast<std::size_t>(btrfsbackup::backup::BackupRunActionKind::CleanupSource) + 1
+        action_kinds.size() == std::to_underlying(btrfsbackup::backup::BackupRunActionKind::CleanupSource) + 1
     );
 
     for (const btrfsbackup::backup::BackupRunActionKind kind : action_kinds) {

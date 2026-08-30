@@ -310,8 +310,8 @@ void test_posix_pipeline_transfers_bytes() {
     }
     test_helpers::expect_eq(
         "posix final event",
-        std::to_string(static_cast<int>(sink.events.back().kind)),
-        std::to_string(static_cast<int>(btrfsbackup::backup::transfer::TransferEventKind::Completed))
+        std::to_string(std::to_underlying(sink.events.back().kind)),
+        std::to_string(std::to_underlying(btrfsbackup::backup::transfer::TransferEventKind::Completed))
     );
 }
 
