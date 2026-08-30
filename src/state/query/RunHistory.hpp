@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 
-#include <state/RunStatus.hpp>
+#include <state/model/RunStatus.hpp>
 #include <state/query/StatusService.hpp>
 #include <state/persistence/PersistentDocumentOperations.hpp>
 
