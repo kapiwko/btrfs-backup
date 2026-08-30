@@ -16,7 +16,7 @@
 #include <string>
 #include <vector>
 
-#include <backup/BackupPreflightValidation.hpp>
+#include <backup/planning/BackupPreflightValidation.hpp>
 #include <core/Errors.hpp>
 #include <config/model/JsonIo.hpp>
 #include <config/model/Profile.hpp>
@@ -478,7 +478,7 @@ TargetOperationResult mount_target(
         );
     }
 
-    btrfsbackup::backup::validate_backup_target_mount(profile, resolved.read_mounts());
+    btrfsbackup::backup::planning::validate_backup_target_mount(profile, resolved.read_mounts());
     events.push_back({
         .kind = TargetEventKind::Mounted,
         .detail = profile.target.mount_point.value().string(),

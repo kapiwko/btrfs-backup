@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <backup/BackupPreflightValidation.hpp>
+#include <backup/planning/BackupPreflightValidation.hpp>
 
 #include <algorithm>
 #include <cctype>
@@ -15,7 +15,7 @@
 
 namespace fs = std::filesystem;
 
-namespace btrfsbackup::backup {
+namespace btrfsbackup::backup::planning {
 
 namespace {
 
@@ -103,4 +103,4 @@ void validate_backup_mounts(const btrfsbackup::config::Profile& profile, const s
     }
 }
 
-} // namespace btrfsbackup::backup
+} // namespace btrfsbackup::backup::planning

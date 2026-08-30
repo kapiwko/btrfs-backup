@@ -2,14 +2,14 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <backup/BackupPreflight.hpp>
+#include <backup/planning/BackupPreflight.hpp>
 
-#include <backup/BackupPreflightValidation.hpp>
+#include <backup/planning/BackupPreflightValidation.hpp>
 #include <core/Errors.hpp>
 
 #include <exception>
 
-namespace btrfsbackup::backup {
+namespace btrfsbackup::backup::planning {
 
 BackupPreflight::BackupPreflight(IMountInspector& mount_inspector, ITargetManager& target_manager)
     : mount_inspector_(mount_inspector), target_manager_(target_manager) {
@@ -42,4 +42,4 @@ std::unique_ptr<IMountedTargetSession> BackupPreflight::run(
     return target_session;
 }
 
-} // namespace btrfsbackup::backup
+} // namespace btrfsbackup::backup::planning

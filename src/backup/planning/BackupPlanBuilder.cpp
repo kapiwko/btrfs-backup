@@ -2,11 +2,11 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <backup/BackupPlanBuilder.hpp>
+#include <backup/planning/BackupPlanBuilder.hpp>
 
 #include <core/Errors.hpp>
 
-namespace btrfsbackup::backup {
+namespace btrfsbackup::backup::planning {
 
 BackupRunPlan BackupPlanBuilder::build(
     const btrfsbackup::config::Profile& profile,
@@ -34,4 +34,4 @@ BackupRunPlan BackupPlanBuilder::build(
     return plan;
 }
 
-} // namespace btrfsbackup::backup
+} // namespace btrfsbackup::backup::planning

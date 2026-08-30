@@ -24,9 +24,9 @@
 #include <cli/BackupTool.hpp>
 #include <cli/RunnerPresenter.hpp>
 #include <backup/action_handlers/BackupRunActionHandler.hpp>
-#include <backup/BackupDiscovery.hpp>
-#include <backup/BackupPlanBuilder.hpp>
-#include <backup/BackupPreflight.hpp>
+#include <backup/planning/BackupDiscovery.hpp>
+#include <backup/planning/BackupPlanBuilder.hpp>
+#include <backup/planning/BackupPreflight.hpp>
 #include <backup/DefaultBackupRunFactory.hpp>
 #include <backup/LinkedCancellationMonitor.hpp>
 #include <state/FileRunStateRepository.hpp>
@@ -465,11 +465,11 @@ int run_runner(
     });
     btrfsbackup::platform::linux::process::PosixCommandRunner commands;
     btrfsbackup::platform::linux::systemd::SystemdTargetManager target_mounter(mounts, commands);
-    btrfsbackup::backup::BackupPreflight preflight(mounts, target_mounter);
+    btrfsbackup::backup::planning::BackupPreflight preflight(mounts, target_mounter);
     test_support::FakeSafeDirectoryRootFactory safe_directories;
     btrfsbackup::platform::linux::filesystem::PosixDurableFileOperations durable_files;
     btrfsbackup::state::FilePendingMarkerStore pending_markers(durable_files);
-    btrfsbackup::backup::BackupDiscovery discovery(
+    btrfsbackup::backup::planning::BackupDiscovery discovery(
         fixture->snapshot_metadata_reader
             ? fixture->snapshot_metadata_reader
             : btrfsbackup::backup::SnapshotMetadataReader{[](const fs::path&) {
@@ -478,7 +478,7 @@ int run_runner(
         pending_markers,
         safe_directories
     );
-    btrfsbackup::backup::BackupPlanBuilder plan_builder;
+    btrfsbackup::backup::planning::BackupPlanBuilder plan_builder;
     DelegatingActionHandlerFactory action_handlers(fixture->action_handler);
     btrfsbackup::backup::DefaultBackupRunFactory run_factory(
         action_handlers,
