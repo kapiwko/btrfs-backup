@@ -16,7 +16,7 @@
 #include <cli/status/StatusHistoryCommand.hpp>
 #include <cli/status/StatusShowCommand.hpp>
 #include <core/Identifiers.hpp>
-#include <state/StatusService.hpp>
+#include <state/query/StatusService.hpp>
 
 namespace fs = std::filesystem;
 

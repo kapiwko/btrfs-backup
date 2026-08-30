@@ -74,7 +74,7 @@ set(root_namespace_forward_declarations
     "src/backup/ports/Process.hpp"
     "src/cli/BackupTool.hpp"
     "src/state/persistence/FilePendingMarkerStore.hpp"
-    "src/state/RunHistory.hpp"
+    "src/state/query/RunHistory.hpp"
 )
 
 file(GLOB_RECURSE domain_sources

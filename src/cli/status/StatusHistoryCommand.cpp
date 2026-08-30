@@ -11,8 +11,8 @@
 #include <vector>
 
 #include <core/Errors.hpp>
-#include <state/StatusService.hpp>
-#include <state/RunHistory.hpp>
+#include <state/query/StatusService.hpp>
+#include <state/query/RunHistory.hpp>
 
 namespace fs = std::filesystem;
 

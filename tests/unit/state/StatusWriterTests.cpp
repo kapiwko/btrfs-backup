@@ -16,7 +16,7 @@
 #include <config/json/Json.hpp>
 #include <config/json/JsonIo.hpp>
 #include <state/persistence/StatusWriter.hpp>
-#include <state/RunHistory.hpp>
+#include <state/query/RunHistory.hpp>
 #include <platform/linux/filesystem/PosixDurableFileOperations.hpp>
 
 namespace fs = std::filesystem;
