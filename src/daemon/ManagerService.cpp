@@ -6,6 +6,8 @@
 
 #include <utility>
 
+#include <core/ManagerProtocol.hpp>
+
 namespace btrfsbackup::daemon {
 
 ManagerService::ManagerService(ManagerPaths paths)
@@ -17,19 +19,18 @@ ManagerService::ManagerService(ManagerPaths paths)
 
 ManagerCapabilities ManagerService::get_capabilities() const {
     return {
-        .interface_name = "io.github.btrfsbackup.Manager1",
-        .api_minor = 1,
+        .interface_name = manager_protocol::interface_name,
         .read_only = false,
         .features = {
-            "profiles",
-            "status",
-            "sanitized-history",
-            "device-state",
-            "start-backup",
-            "cancel-backup",
-            "validate-target",
-            "eject-target",
-            "change-signals",
+            manager_protocol::feature::profiles,
+            manager_protocol::feature::status,
+            manager_protocol::feature::sanitized_history,
+            manager_protocol::feature::device_state,
+            manager_protocol::feature::start_backup,
+            manager_protocol::feature::cancel_backup,
+            manager_protocol::feature::validate_target,
+            manager_protocol::feature::eject_target,
+            manager_protocol::feature::change_signals,
         },
     };
 }

@@ -9,6 +9,13 @@ add_library(btrfsbackup-core STATIC
     RuntimeTime.cpp
 )
 
+add_library(btrfsbackup-manager-protocol INTERFACE)
+target_compile_features(btrfsbackup-manager-protocol INTERFACE cxx_std_23)
+target_restricted_include_directories(btrfsbackup-manager-protocol
+    INTERFACE_HEADERS
+        core/ManagerProtocol.hpp
+)
+
 target_compile_features(btrfsbackup-core PUBLIC cxx_std_23)
 target_restricted_include_directories(btrfsbackup-core
     PUBLIC_HEADERS

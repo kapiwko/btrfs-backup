@@ -16,34 +16,34 @@ namespace btrfsbackup::kde {
 ManagerEventSubscriber::ManagerEventSubscriber(QDBusConnection bus, QObject* parent)
     : QObject(parent), bus_(std::move(bus)) {
     bus_.connect(
-        QLatin1String(manager_service),
-        QLatin1String(manager_path),
-        QLatin1String(manager_interface),
-        QStringLiteral("ProfilesChanged"),
+        QLatin1String(manager_protocol::service_name),
+        QLatin1String(manager_protocol::object_path),
+        QLatin1String(manager_protocol::interface_name),
+        QLatin1String(manager_protocol::signal::profiles_changed),
         this,
         SIGNAL(profilesChanged())
     );
     bus_.connect(
-        QLatin1String(manager_service),
-        QLatin1String(manager_path),
-        QLatin1String(manager_interface),
-        QStringLiteral("StatusChanged"),
+        QLatin1String(manager_protocol::service_name),
+        QLatin1String(manager_protocol::object_path),
+        QLatin1String(manager_protocol::interface_name),
+        QLatin1String(manager_protocol::signal::status_changed),
         this,
         SIGNAL(statusChanged(QString))
     );
     bus_.connect(
-        QLatin1String(manager_service),
-        QLatin1String(manager_path),
-        QLatin1String(manager_interface),
-        QStringLiteral("HistoryChanged"),
+        QLatin1String(manager_protocol::service_name),
+        QLatin1String(manager_protocol::object_path),
+        QLatin1String(manager_protocol::interface_name),
+        QLatin1String(manager_protocol::signal::history_changed),
         this,
         SIGNAL(historyChanged(QString))
     );
     bus_.connect(
-        QLatin1String(manager_service),
-        QLatin1String(manager_path),
-        QLatin1String(manager_interface),
-        QStringLiteral("DeviceStateChanged"),
+        QLatin1String(manager_protocol::service_name),
+        QLatin1String(manager_protocol::object_path),
+        QLatin1String(manager_protocol::interface_name),
+        QLatin1String(manager_protocol::signal::device_state_changed),
         this,
         SIGNAL(deviceStateChanged(QString))
     );
@@ -55,9 +55,9 @@ QDBusPendingCall manager_call(
     const QVariantList& arguments
 ) {
     QDBusMessage message = QDBusMessage::createMethodCall(
-        QLatin1String(manager_service),
-        QLatin1String(manager_path),
-        QLatin1String(manager_interface),
+        QLatin1String(manager_protocol::service_name),
+        QLatin1String(manager_protocol::object_path),
+        QLatin1String(manager_protocol::interface_name),
         method
     );
     message.setArguments(arguments);
@@ -123,7 +123,7 @@ std::optional<RunStatus> parse_status(const QString& payload) {
         return std::nullopt;
     }
     const QJsonObject object = document.object();
-    if (object.value(QStringLiteral("schemaVersion")).toInt(-1) != 3) {
+    if (object.value(QStringLiteral("schemaVersion")).toInt(-1) != manager_protocol::public_status_schema_version) {
         return std::nullopt;
     }
     for (const auto* field : {

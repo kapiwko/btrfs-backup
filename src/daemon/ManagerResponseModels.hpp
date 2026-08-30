@@ -8,16 +8,18 @@
 #include <string>
 #include <vector>
 
+#include <core/ManagerProtocol.hpp>
+
 namespace btrfsbackup::daemon {
 
 struct ManagerCapabilities {
     std::string interface_name;
-    int api_major = 1;
-    int api_minor = 0;
-    int profile_schema_version = 3;
-    int public_status_schema_version = 3;
-    int history_schema_version = 1;
-    int device_state_schema_version = 1;
+    int api_major = manager_protocol::api_major;
+    int api_minor = manager_protocol::api_minor;
+    int profile_schema_version = manager_protocol::profile_schema_version;
+    int public_status_schema_version = manager_protocol::public_status_schema_version;
+    int history_schema_version = manager_protocol::history_schema_version;
+    int device_state_schema_version = manager_protocol::device_state_schema_version;
     bool read_only = true;
     std::vector<std::string> features;
 };
