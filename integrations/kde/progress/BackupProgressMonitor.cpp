@@ -140,7 +140,7 @@ void BackupProgressMonitor::manager_unavailable() {
     queued_status_requests_.clear();
     for (auto job : std::as_const(jobs_)) {
         if (job) {
-            job->finish_with_error(i18n("Backup service unavailable"));
+            job->stop_tracking();
         }
     }
     jobs_.clear();

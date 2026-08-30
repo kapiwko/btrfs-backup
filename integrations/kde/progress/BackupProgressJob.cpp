@@ -105,6 +105,15 @@ void BackupProgressJob::finish_cancelled() {
     emitResult();
 }
 
+void BackupProgressJob::stop_tracking() {
+    if (finished_) {
+        return;
+    }
+    finished_ = true;
+    setCapabilities(KJob::NoCapabilities);
+    deleteLater();
+}
+
 QString BackupProgressJob::profile_id() const {
     return profile_id_;
 }
