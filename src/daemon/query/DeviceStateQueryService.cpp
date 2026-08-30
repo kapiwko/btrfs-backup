@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <daemon/DeviceStateQueryService.hpp>
+#include <daemon/query/DeviceStateQueryService.hpp>
 
 #include <filesystem>
 #include <string>
@@ -12,13 +12,13 @@
 #include <config/model/Profile.hpp>
 #include <config/model/ProfileDocument.hpp>
 #include <core/Identifiers.hpp>
-#include <daemon/ManagerDocumentReader.hpp>
+#include <daemon/query/ManagerDocumentReader.hpp>
 #include <platform/linux/storage/DeviceInfo.hpp>
 #include <platform/linux/storage/MountInfo.hpp>
 
 namespace fs = std::filesystem;
 
-namespace btrfsbackup::daemon {
+namespace btrfsbackup::daemon::query {
 
 DeviceStateQueryService::DeviceStateQueryService(ManagerPaths paths)
     : paths_(std::move(paths)) {
@@ -65,4 +65,4 @@ TargetStatus DeviceStateQueryService::get_device_state(
     };
 }
 
-} // namespace btrfsbackup::daemon
+} // namespace btrfsbackup::daemon::query

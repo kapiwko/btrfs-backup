@@ -8,7 +8,7 @@
 
 #include <daemon/ManagerResponseModels.hpp>
 
-namespace btrfsbackup::daemon {
+namespace btrfsbackup::daemon::query {
 
 class ProfileQueryService {
   public:
@@ -20,4 +20,4 @@ class ProfileQueryService {
     std::filesystem::path public_profile_root_;
 };
 
-} // namespace btrfsbackup::daemon
+} // namespace btrfsbackup::daemon::query

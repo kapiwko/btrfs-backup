@@ -7,11 +7,11 @@
 #include <cstddef>
 #include <string>
 
-#include <daemon/DeviceStateQueryService.hpp>
-#include <daemon/HistoryQueryService.hpp>
+#include <daemon/query/DeviceStateQueryService.hpp>
+#include <daemon/query/HistoryQueryService.hpp>
 #include <daemon/ManagerPaths.hpp>
-#include <daemon/ProfileQueryService.hpp>
-#include <daemon/StatusQueryService.hpp>
+#include <daemon/query/ProfileQueryService.hpp>
+#include <daemon/query/StatusQueryService.hpp>
 
 namespace btrfsbackup::daemon {
 
@@ -34,10 +34,10 @@ class ManagerService {
     [[nodiscard]] TargetStatus get_device_state(const std::string& profile_id) const;
 
   private:
-    ProfileQueryService profiles_;
-    HistoryQueryService history_;
-    StatusQueryService status_;
-    DeviceStateQueryService device_state_;
+    query::ProfileQueryService profiles_;
+    query::HistoryQueryService history_;
+    query::StatusQueryService status_;
+    query::DeviceStateQueryService device_state_;
 };
 
 } // namespace btrfsbackup::daemon

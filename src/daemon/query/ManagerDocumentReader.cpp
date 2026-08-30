@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <daemon/ManagerDocumentReader.hpp>
+#include <daemon/query/ManagerDocumentReader.hpp>
 
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -24,7 +24,7 @@ constexpr std::size_t max_document_bytes = 1024 * 1024;
 
 } // namespace
 
-namespace btrfsbackup::daemon {
+namespace btrfsbackup::daemon::query {
 
 btrfsbackup::config::Json read_manager_json_document(const fs::path& path) {
     btrfsbackup::platform::linux::OwnedFileDescriptor descriptor(open(path.c_str(), O_RDONLY | O_CLOEXEC | O_NOFOLLOW));
@@ -84,4 +84,4 @@ bool manager_regular_file_if_present(const fs::path& path) {
     return status.type() == fs::file_type::regular;
 }
 
-} // namespace btrfsbackup::daemon
+} // namespace btrfsbackup::daemon::query

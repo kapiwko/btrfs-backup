@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <daemon/ProfileQueryService.hpp>
+#include <daemon/query/ProfileQueryService.hpp>
 
 #include <algorithm>
 #include <string>
@@ -11,11 +11,11 @@
 
 #include <core/Errors.hpp>
 #include <core/Identifiers.hpp>
-#include <daemon/ManagerDocumentReader.hpp>
+#include <daemon/query/ManagerDocumentReader.hpp>
 
 namespace fs = std::filesystem;
 
-namespace btrfsbackup::daemon {
+namespace btrfsbackup::daemon::query {
 
 ProfileQueryService::ProfileQueryService(fs::path public_profile_root)
     : public_profile_root_(std::move(public_profile_root)) {
@@ -71,4 +71,4 @@ std::vector<ProfileSummary> ProfileQueryService::list_profiles() const {
     return result;
 }
 
-} // namespace btrfsbackup::daemon
+} // namespace btrfsbackup::daemon::query

@@ -8,7 +8,7 @@
 
 #include <config/model/Json.hpp>
 
-namespace btrfsbackup::daemon {
+namespace btrfsbackup::daemon::query {
 
 [[nodiscard]] btrfsbackup::config::Json read_manager_json_document(
     const std::filesystem::path& path
@@ -18,4 +18,4 @@ namespace btrfsbackup::daemon {
     const std::filesystem::directory_entry& entry
 );
 
-} // namespace btrfsbackup::daemon
+} // namespace btrfsbackup::daemon::query

@@ -11,7 +11,7 @@
 
 #include <daemon/ManagerResponseModels.hpp>
 
-namespace btrfsbackup::daemon {
+namespace btrfsbackup::daemon::query {
 
 class HistoryQueryService {
   public:
@@ -30,4 +30,4 @@ class HistoryQueryService {
     std::filesystem::path history_root_;
 };
 
-} // namespace btrfsbackup::daemon
+} // namespace btrfsbackup::daemon::query
