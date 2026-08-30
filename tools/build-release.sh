@@ -85,7 +85,7 @@ Options:
   --static-tests     Run only syntax and render validation before packaging.
   --skip-tests       Do not run tests before packaging (default).
   --dist-dir PATH    Write artifacts to a different directory.
-  --build-dir PATH   Reuse persistent PATH and PATH-kde CMake build directories.
+  --build-dir PATH   Reuse a persistent CMake build directory.
   -h, --help         Show this help.
 USAGE
 }
@@ -196,9 +196,13 @@ case "$TEST_MODE" in
     skip) log_stage 'Skipping the pre-package test suite' ;;
 esac
 
-KDE_BUILD_TESTING=OFF
-if [[ "$TEST_MODE" != skip ]]; then
-    KDE_BUILD_TESTING=ON
+RELEASE_BUILD_KDE=OFF
+if [[ "$TARGET" == all || "$TARGET" == arch ]]; then
+    RELEASE_BUILD_KDE=ON
+fi
+RELEASE_BUILD_TESTING=OFF
+if [[ "$RELEASE_BUILD_KDE" == ON && "$TEST_MODE" != skip ]]; then
+    RELEASE_BUILD_TESTING=ON
 fi
 
 TMP_ROOT="$(mktemp -d /tmp/btrfs-backup-release.XXXXXX)"
@@ -209,20 +213,6 @@ trap cleanup EXIT
 
 if [[ -n "$BUILD_DIR" ]]; then
     BUILD_DIR="$(realpath -m -- "$BUILD_DIR")"
-    CMAKE_ACCELERATION_ARGS=()
-    cmake_acceleration_args "$BUILD_DIR" CMAKE_ACCELERATION_ARGS
-    log_stage "Configuring native release build in $BUILD_DIR"
-    cmake \
-        -S "$ROOT" \
-        -B "$BUILD_DIR" \
-        "${CMAKE_ACCELERATION_ARGS[@]}" \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_INSTALL_PREFIX=/usr \
-        -DBUILD_TESTING=OFF
-    log_stage 'Building native release executables'
-    cmake --build "$BUILD_DIR" \
-        --target btrfs-backup-native btrfs-backupctl btrfs-backupd \
-        --parallel "$BUILD_JOBS"
 fi
 
 DIST_DIR="$(realpath -m -- "$DIST_DIR")"
@@ -361,22 +351,55 @@ find "$SOURCE_STAGE" -exec touch -h -d "@$SOURCE_DATE_EPOCH" {} +
 SOURCE_SHA256="$(sha256sum "$SOURCE_ARCHIVE" | awk '{print $1}')"
 BUILD_OUTPUTS+=("$SOURCE_ARCHIVE")
 
+RELEASE_SOURCE_ROOT="$SOURCE_STAGE"
+RELEASE_BUILD_DIR="$TMP_ROOT/release-build"
+if [[ -n "$BUILD_DIR" ]]; then
+    RELEASE_SOURCE_ROOT="$ROOT"
+    RELEASE_BUILD_DIR="$BUILD_DIR"
+fi
+RELEASE_BUILD_CONFIGURED=false
+NATIVE_BUILD_READY=false
+
+configure_release_build() {
+    if [[ "$RELEASE_BUILD_CONFIGURED" == true ]]; then
+        return
+    fi
+
+    local cmake_args=()
+    cmake_acceleration_args "$RELEASE_BUILD_DIR" cmake_args
+    log_stage "Configuring release build in $RELEASE_BUILD_DIR"
+    cmake \
+        -S "$RELEASE_SOURCE_ROOT" \
+        -B "$RELEASE_BUILD_DIR" \
+        "${cmake_args[@]}" \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_PREFIX=/usr \
+        -DBUILD_KDE_INTEGRATION="$RELEASE_BUILD_KDE" \
+        -DBUILD_TESTING="$RELEASE_BUILD_TESTING"
+    RELEASE_BUILD_CONFIGURED=true
+}
+
+build_native_payload() {
+    if [[ "$NATIVE_BUILD_READY" == true ]]; then
+        return
+    fi
+
+    configure_release_build
+    log_stage 'Building native release executables'
+    cmake --build "$RELEASE_BUILD_DIR" \
+        --target btrfs-backup-native btrfs-backupctl btrfs-backupd \
+        --parallel "$BUILD_JOBS"
+    NATIVE_BUILD_READY=true
+}
+
 stage_package_payload() {
     local root="$1"
     local pkgdir="$2"
     local document
-    local binary_dir="$root/build"
-
-    if [[ -n "$BUILD_DIR" ]]; then
-        binary_dir="$BUILD_DIR"
-    else
-        log_stage 'Building native package payload'
-        make -C "$root" \
-            'CMAKE_CONFIGURE_ARGS=-DCMAKE_INSTALL_PREFIX=/usr -DBUILD_TESTING=OFF'
-    fi
-    install -Dm755 "$binary_dir/btrfs-backup" "$pkgdir/usr/bin/btrfs-backup"
-    install -Dm755 "$binary_dir/btrfs-backupctl" "$pkgdir/usr/bin/btrfs-backupctl"
-    install -Dm755 "$binary_dir/btrfs-backupd" "$pkgdir/usr/bin/btrfs-backupd"
+    build_native_payload
+    install -Dm755 "$RELEASE_BUILD_DIR/btrfs-backup" "$pkgdir/usr/bin/btrfs-backup"
+    install -Dm755 "$RELEASE_BUILD_DIR/btrfs-backupctl" "$pkgdir/usr/bin/btrfs-backupctl"
+    install -Dm755 "$RELEASE_BUILD_DIR/btrfs-backupd" "$pkgdir/usr/bin/btrfs-backupd"
     install -d -m0755 "$pkgdir/etc/btrfs-backup/hooks.d"
 
     install -Dm644 "$root/data/examples/profile.example.json" \
@@ -445,32 +468,27 @@ stage_package_payload() {
 stage_kde_package_payload() {
     local root="$1"
     local pkgdir="$2"
-    local build_dir="$TMP_ROOT/plasma-build"
-    local source_root="$root"
-    local cmake_args=()
 
-    if [[ -n "$BUILD_DIR" ]]; then
-        build_dir="${BUILD_DIR}-kde"
-        source_root="$ROOT"
-        log_stage "Reusing KDE build directory $build_dir"
-    else
-        rm -rf -- "$build_dir"
-    fi
-    cmake_acceleration_args "$build_dir" cmake_args
-    cmake \
-        -S "$source_root/integrations/kde" \
-        -B "$build_dir" \
-        "${cmake_args[@]}" \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DBUILD_TESTING="$KDE_BUILD_TESTING"
+    configure_release_build
     log_stage 'Building Plasma integration'
-    cmake --build "$build_dir" --parallel "$BUILD_JOBS"
-    if [[ "$KDE_BUILD_TESTING" == ON ]]; then
+    cmake --build "$RELEASE_BUILD_DIR" \
+        --target btrfs-backup-kde \
+        --parallel "$BUILD_JOBS"
+    if [[ "$RELEASE_BUILD_TESTING" == ON ]]; then
+        cmake --build "$RELEASE_BUILD_DIR" \
+            --target plasma-progress-job-tests \
+            --parallel "$BUILD_JOBS"
         log_stage 'Testing Plasma integration'
-        ctest --test-dir "$build_dir" --parallel "${BUILD_JOBS}" --output-on-failure
+        ctest \
+            --test-dir "$RELEASE_BUILD_DIR" \
+            --label-regex kde \
+            --parallel "$BUILD_JOBS" \
+            --output-on-failure
     fi
     log_stage 'Staging Plasma integration'
-    cmake --install "$build_dir" --prefix "$pkgdir/usr"
+    cmake --install "$RELEASE_BUILD_DIR" \
+        --prefix "$pkgdir/usr" \
+        --component KDEIntegration
 
     install -Dm644 "$root/docs/plasma-integration.md" \
         "$pkgdir/usr/share/doc/btrfs-backup-kde/plasma-integration.md"
@@ -823,12 +841,8 @@ sha256sums=('$SOURCE_SHA256')
 
 check() {
   cd "\$srcdir/\$pkgbase-\$pkgver"
-  CMAKE_CONFIGURE_ARGS=-DCMAKE_INSTALL_PREFIX=/usr ./tests/run-tests.sh --static-only
-
-  local kde_build_dir="\$srcdir/plasma-test-build"
-  cmake -S integrations/kde -B "\$kde_build_dir" -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
-  cmake --build "\$kde_build_dir" -j"\$(nproc)"
-  ctest --test-dir "\$kde_build_dir" --parallel "\$(nproc)" --output-on-failure
+  CMAKE_CONFIGURE_ARGS='-DCMAKE_INSTALL_PREFIX=/usr -DBUILD_KDE_INTEGRATION=ON' \
+    ./tests/run-tests.sh --static-only
 }
 
 package_btrfs-backup() {
@@ -837,7 +851,8 @@ package_btrfs-backup() {
   install='btrfs-backup.install'
 
   local root="\$srcdir/\$pkgbase-\$pkgver"
-  make -C "\$root" 'CMAKE_CONFIGURE_ARGS=-DCMAKE_INSTALL_PREFIX=/usr -DBUILD_TESTING=OFF'
+  make -C "\$root" \
+    'CMAKE_CONFIGURE_ARGS=-DCMAKE_INSTALL_PREFIX=/usr -DBUILD_KDE_INTEGRATION=ON -DBUILD_TESTING=OFF'
   install -Dm755 "\$root/build/btrfs-backup" "\$pkgdir/usr/bin/btrfs-backup"
   install -Dm755 "\$root/build/btrfs-backupctl" "\$pkgdir/usr/bin/btrfs-backupctl"
   install -Dm755 "\$root/build/btrfs-backupd" "\$pkgdir/usr/bin/btrfs-backupd"
@@ -882,11 +897,9 @@ package_btrfs-backup-kde() {
   install='btrfs-backup-kde.install'
 
   local root="\$srcdir/\$pkgbase-\$pkgver"
-  local build_dir="\$srcdir/plasma-build"
 
-  cmake -S "\$root/integrations/kde" -B "\$build_dir" -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF
-  cmake --build "\$build_dir" -j"\$(nproc)"
-  cmake --install "\$build_dir" --prefix "\$pkgdir/usr"
+  cmake --build "\$root/build" --target btrfs-backup-kde -j"\$(nproc)"
+  cmake --install "\$root/build" --prefix "\$pkgdir/usr" --component KDEIntegration
 
   install -Dm644 "\$root/docs/plasma-integration.md" "\$pkgdir/usr/share/doc/btrfs-backup-kde/plasma-integration.md"
   install -Dm644 "\$root/integrations/kde/README.md" "\$pkgdir/usr/share/doc/btrfs-backup-kde/README.md"
