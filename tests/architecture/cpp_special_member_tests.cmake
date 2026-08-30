@@ -14,6 +14,7 @@ file(
 # Keep this inventory narrow: adding a new owner or immobile type requires a
 # review of its lifecycle before the architecture test accepts it.
 set(approved_special_member_types
+    "src/platform/linux/process/CommandCancellationSignal.hpp:CommandCancellationSignal"
     "src/backup/RunExecutionContext.hpp:RunExecutionContext"
     "src/backup/action_handlers/RecoveryActionHandler.hpp:RecoveryActionHandler"
     "src/backup/action_handlers/RetentionActionHandler.hpp:RetentionActionHandler"
