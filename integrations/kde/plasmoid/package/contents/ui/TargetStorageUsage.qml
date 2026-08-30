@@ -26,6 +26,7 @@ ColumnLayout {
     readonly property string capacityText: formatBytes(capacityBytes)
     readonly property string usedText: formatBytes(usedBytes)
     readonly property string availableText: formatBytes(availableBytes)
+    readonly property string usageText: usagePercent + "%"
 
     visible: supported
     spacing: Kirigami.Units.smallSpacing
@@ -84,8 +85,19 @@ ColumnLayout {
         }
         PlasmaComponents3.Label {
             Layout.fillWidth: true
-            text: translations.i18n("%1 of %2 (%3)", root.usedText, root.capacityText, root.usagePercent + "%")
-            wrapMode: Text.Wrap
+            text: root.usedText
+            font: Kirigami.Theme.smallFont
+        }
+
+        PlasmaComponents3.Label {
+            text: translations.i18n("Usage:")
+            horizontalAlignment: Text.AlignRight
+            font: Kirigami.Theme.smallFont
+            opacity: 0.6
+        }
+        PlasmaComponents3.Label {
+            Layout.fillWidth: true
+            text: root.usageText
             font: Kirigami.Theme.smallFont
         }
 

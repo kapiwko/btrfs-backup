@@ -142,10 +142,10 @@ msgid "Capacity:"
 msgstr "Pojemność:"
 
 msgid "Used:"
-msgstr "Zajętość:"
+msgstr "Zajęte:"
 
-msgid "%1 of %2 (%3)"
-msgstr "%1 z %2 (%3)"
+msgid "Usage:"
+msgstr "Wykorzystanie:"
 
 msgid "Available:"
 msgstr "Dostępne:"
