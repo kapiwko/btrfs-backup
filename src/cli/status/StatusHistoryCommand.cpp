@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <cli/StatusHistoryCommand.hpp>
+#include <cli/status/StatusHistoryCommand.hpp>
 
 #include <filesystem>
 #include <ostream>
@@ -16,7 +16,7 @@
 
 namespace fs = std::filesystem;
 
-namespace btrfsbackup::cli {
+namespace btrfsbackup::cli::status {
 
 void status_history(const fs::path& history_root, const std::vector<std::string>& args, std::ostream& output) {
     std::string profile = "default";
@@ -52,4 +52,4 @@ void status_history(const fs::path& history_root, const std::vector<std::string>
     output << "\n]\n";
 }
 
-} // namespace btrfsbackup::cli
+} // namespace btrfsbackup::cli::status

@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-namespace btrfsbackup::cli {
+namespace btrfsbackup::cli::status {
 
 void status_history(
     const std::filesystem::path& history_root,
@@ -17,4 +17,4 @@ void status_history(
     std::ostream& output
 );
 
-} // namespace btrfsbackup::cli
+} // namespace btrfsbackup::cli::status

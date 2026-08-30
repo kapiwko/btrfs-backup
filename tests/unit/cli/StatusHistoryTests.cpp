@@ -7,9 +7,9 @@
 #include <string>
 
 #include <cli/profile/ProfileListCommand.hpp>
-#include <cli/StatusHistoryCommand.hpp>
-#include <cli/StatusCommand.hpp>
-#include <cli/StatusShowCommand.hpp>
+#include <cli/status/StatusHistoryCommand.hpp>
+#include <cli/status/StatusCommand.hpp>
+#include <cli/status/StatusShowCommand.hpp>
 #include <config/model/JsonIo.hpp>
 #include <core/RuntimeTime.hpp>
 #include <state/StatusWriter.hpp>
@@ -29,7 +29,7 @@ void test_history_without_directory_returns_empty_array() {
     fs::path root = test_root("history-empty");
     std::ostringstream output;
 
-    btrfsbackup::cli::status_history(root / "history", {}, output);
+    btrfsbackup::cli::status::status_history(root / "history", {}, output);
 
     test_helpers::expect_eq("history without directory", output.str(), "[]\n");
     fs::remove_all(root);
@@ -40,7 +40,7 @@ void test_status_falls_back_to_last_json() {
     test_helpers::write_file(root / "history" / "default" / "last.json", "{\"profileId\":\"default\",\"state\":\"ok\"}\n");
     std::ostringstream output;
 
-    btrfsbackup::cli::status_show(root / "status", root / "history", {}, output);
+    btrfsbackup::cli::status::status_show(root / "status", root / "history", {}, output);
 
     test_helpers::expect_eq("status fallback", output.str(), "{\"profileId\":\"default\",\"state\":\"ok\"}\n");
     fs::remove_all(root);
@@ -77,7 +77,7 @@ void test_public_status_human_format() {
     );
     std::ostringstream output;
 
-    btrfsbackup::cli::status_show(root / "status", root / "history", {"--human"}, output);
+    btrfsbackup::cli::status::status_show(root / "status", root / "history", {"--human"}, output);
 
     test_helpers::expect_contains("public human status", output.str(), "default: running\n");
     test_helpers::expect_contains("public human source", output.str(), "  source: Home\n");
@@ -100,7 +100,7 @@ void test_private_history_human_format() {
     );
     std::ostringstream output;
 
-    btrfsbackup::cli::status_show(root / "status", root / "history", {"--human"}, output);
+    btrfsbackup::cli::status::status_show(root / "status", root / "history", {"--human"}, output);
 
     test_helpers::expect_contains("private human status", output.str(), "Default backup: succeeded\n");
     test_helpers::expect_contains("private human phase", output.str(), "  phase: completed\n");
@@ -157,7 +157,7 @@ void test_status_watch_json_emits_status_api_shape_once() {
 
     std::ostringstream output;
     std::string previous;
-    bool emitted = btrfsbackup::cli::status_watch_once(
+    bool emitted = btrfsbackup::cli::status::status_watch_once(
         root / "status",
         {"--profile", "default"},
         previous,
@@ -175,7 +175,7 @@ void test_status_watch_json_emits_status_api_shape_once() {
     test_helpers::expect_true("watch progress", data.at("sourceProgress") == 50, "wrong source progress");
 
     std::ostringstream duplicate_output;
-    bool duplicate = btrfsbackup::cli::status_watch_once(
+    bool duplicate = btrfsbackup::cli::status::status_watch_once(
         root / "status",
         {"--profile", "default"},
         previous,
@@ -209,7 +209,7 @@ void test_history_limit() {
     test_helpers::write_file(root / "history" / "default" / "last.json", "{\"id\":3}");
     std::ostringstream output;
 
-    btrfsbackup::cli::status_history(root / "history", {"--limit", "1"}, output);
+    btrfsbackup::cli::status::status_history(root / "history", {"--limit", "1"}, output);
 
     test_helpers::expect_eq("history limit", output.str(), "[\n{\"id\":2}\n]\n");
     fs::remove_all(root);

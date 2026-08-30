@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <cli/StatusShowCommand.hpp>
+#include <cli/status/StatusShowCommand.hpp>
 
 #include <filesystem>
 #include <ostream>
@@ -65,7 +65,7 @@ void print_human_status(const btrfsbackup::state::StatusDocument& document, std:
 
 } // namespace
 
-namespace btrfsbackup::cli {
+namespace btrfsbackup::cli::status {
 
 void status_show(
     const fs::path& status_root,
@@ -98,4 +98,4 @@ void status_show(
     }
 }
 
-} // namespace btrfsbackup::cli
+} // namespace btrfsbackup::cli::status

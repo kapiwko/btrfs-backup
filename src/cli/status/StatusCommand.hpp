@@ -9,13 +9,19 @@
 #include <string>
 #include <vector>
 
-namespace btrfsbackup::cli {
+namespace btrfsbackup::cli::status {
 
-void status_show(
+bool status_watch_once(
     const std::filesystem::path& status_root,
-    const std::filesystem::path& history_root,
     const std::vector<std::string>& args,
+    std::string& previous,
     std::ostream& output
 );
 
-} // namespace btrfsbackup::cli
+int status(
+    const std::filesystem::path& status_root,
+    const std::filesystem::path& history_root,
+    const std::vector<std::string>& args
+);
+
+} // namespace btrfsbackup::cli::status
