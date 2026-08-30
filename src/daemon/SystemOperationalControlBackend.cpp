@@ -77,8 +77,8 @@ void SystemOperationalControlBackend::require_job_accepted(
     const TransientJobResult& result,
     const char* operation
 ) {
-    if (result.error)
-        throw_job_error(*result.error, operation);
+    if (!result)
+        throw_job_error(result.error(), operation);
 }
 
 void SystemOperationalControlBackend::start_backup(const AuthorizedOperationContext& context) {
@@ -114,14 +114,14 @@ void SystemOperationalControlBackend::run_target_validation(
     OperationEnvironmentFile environment(operation_environment_root_, context);
     const std::string unit = authorized_target_validation_unit(context);
     const StartJobResult result = units_.start_unit({unit, std::chrono::minutes(11)});
-    if (result.accepted()) {
+    if (result) {
         return;
     }
 
-    if (result.error->failure == SystemdJobFailure::TimedOut ||
-        result.error->failure == SystemdJobFailure::Cancelled)
+    if (result.error().failure == SystemdJobFailure::TimedOut ||
+        result.error().failure == SystemdJobFailure::Cancelled)
         (void)units_.stop_unit({unit, std::chrono::minutes(2)});
-    throw_job_error(*result.error, "validating target");
+    throw_job_error(result.error(), "validating target");
 }
 
 void SystemOperationalControlBackend::eject_target(const AuthorizedOperationContext& context) {
