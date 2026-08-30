@@ -11,17 +11,23 @@
 
 namespace btrfsbackup::backup {
 
-class ITargetStorageMeasurementStore {
+class ITargetStorageMeasurementReader {
   public:
-    virtual ~ITargetStorageMeasurementStore() = default;
+    virtual ~ITargetStorageMeasurementReader() = default;
+
+    [[nodiscard]] virtual std::optional<TargetStorageMeasurement> read_matching(
+        const btrfsbackup::config::Profile& profile
+    ) const = 0;
+};
+
+class ITargetStorageMeasurementStore : public ITargetStorageMeasurementReader {
+  public:
+    ~ITargetStorageMeasurementStore() override = default;
 
     virtual void write(
         const btrfsbackup::config::Profile& profile,
         const TargetStorageMeasurement& measurement
     ) = 0;
-    [[nodiscard]] virtual std::optional<TargetStorageMeasurement> read_matching(
-        const btrfsbackup::config::Profile& profile
-    ) const = 0;
 };
 
 } // namespace btrfsbackup::backup

@@ -30,6 +30,15 @@ add_btrfsbackup_test(
 )
 
 add_btrfsbackup_test(
+    btrfsbackup-device-state-query-service-tests
+    DeviceStateQueryServiceTests.cpp
+    device-state-query-service-tests
+    btrfsbackup-daemon-query
+    btrfsbackup-config-json
+    btrfsbackup-state
+)
+
+add_btrfsbackup_test(
     btrfsbackup-manager-json-codec-tests
     ManagerJsonCodecTests.cpp
     manager-json-codec-tests

@@ -132,6 +132,7 @@ if(BUILD_SYSTEM_MANAGER)
     )
     assert_public_link_interface(
         btrfsbackup-daemon-query
+        btrfsbackup-backup-ports
         btrfsbackup-daemon-core
     )
     assert_public_link_interface(
