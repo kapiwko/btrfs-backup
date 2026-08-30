@@ -19,6 +19,70 @@ namespace btrfsbackup::platform::linux {
 
 namespace {
 
+class SpawnFileActions final {
+  public:
+    SpawnFileActions() noexcept
+        : error_(posix_spawn_file_actions_init(&value_)) {
+    }
+
+    ~SpawnFileActions() noexcept {
+        if (initialized()) {
+            posix_spawn_file_actions_destroy(&value_);
+        }
+    }
+
+    SpawnFileActions(const SpawnFileActions&) = delete;
+    SpawnFileActions& operator=(const SpawnFileActions&) = delete;
+
+    [[nodiscard]] bool initialized() const noexcept {
+        return error_ == 0;
+    }
+
+    [[nodiscard]] int error() const noexcept {
+        return error_;
+    }
+
+    [[nodiscard]] posix_spawn_file_actions_t& get() noexcept {
+        return value_;
+    }
+
+  private:
+    posix_spawn_file_actions_t value_{};
+    int error_;
+};
+
+class SpawnAttributes final {
+  public:
+    SpawnAttributes() noexcept
+        : error_(posix_spawnattr_init(&value_)) {
+    }
+
+    ~SpawnAttributes() noexcept {
+        if (initialized()) {
+            posix_spawnattr_destroy(&value_);
+        }
+    }
+
+    SpawnAttributes(const SpawnAttributes&) = delete;
+    SpawnAttributes& operator=(const SpawnAttributes&) = delete;
+
+    [[nodiscard]] bool initialized() const noexcept {
+        return error_ == 0;
+    }
+
+    [[nodiscard]] int error() const noexcept {
+        return error_;
+    }
+
+    [[nodiscard]] posix_spawnattr_t& get() noexcept {
+        return value_;
+    }
+
+  private:
+    posix_spawnattr_t value_{};
+    int error_;
+};
+
 std::vector<char*> argv_for_spawn(const std::vector<std::string>& argv) {
     std::vector<char*> result;
     result.reserve(argv.size() + 1);
@@ -89,39 +153,35 @@ ProcessSpawnResult spawn_program(const std::vector<std::string>& argv, const Pro
     std::vector<char*> arguments = argv_for_spawn(argv);
     std::vector<std::string> environment = child_environment(options);
     std::vector<char*> environment_entries = argv_for_spawn(environment);
-    posix_spawn_file_actions_t actions;
-    int error = posix_spawn_file_actions_init(&actions);
-    if (error != 0) {
-        return {.error = error};
+    SpawnFileActions actions;
+    if (!actions.initialized()) {
+        return {.error = actions.error()};
     }
 
-    error = add_dup2(actions, options.stdin_fd, STDIN_FILENO);
+    int error = add_dup2(actions.get(), options.stdin_fd, STDIN_FILENO);
     if (error == 0) {
-        error = add_dup2(actions, options.stdout_fd, STDOUT_FILENO);
+        error = add_dup2(actions.get(), options.stdout_fd, STDOUT_FILENO);
     }
     if (error == 0) {
-        error = add_dup2(actions, options.stderr_fd, STDERR_FILENO);
+        error = add_dup2(actions.get(), options.stderr_fd, STDERR_FILENO);
     }
     for (int inherited_fd : options.inherited_fds) {
         if (error == 0 && inherited_fd >= 0) {
-            error = posix_spawn_file_actions_adddup2(&actions, inherited_fd, inherited_fd);
+            error = posix_spawn_file_actions_adddup2(&actions.get(), inherited_fd, inherited_fd);
         }
     }
     if (error != 0) {
-        posix_spawn_file_actions_destroy(&actions);
         return {.error = error};
     }
 
-    posix_spawnattr_t attributes;
-    error = posix_spawnattr_init(&attributes);
-    if (error != 0) {
-        posix_spawn_file_actions_destroy(&actions);
-        return {.error = error};
+    SpawnAttributes attributes;
+    if (!attributes.initialized()) {
+        return {.error = attributes.error()};
     }
 
     sigset_t child_mask;
     sigemptyset(&child_mask);
-    error = posix_spawnattr_setsigmask(&attributes, &child_mask);
+    error = posix_spawnattr_setsigmask(&attributes.get(), &child_mask);
 
     sigset_t child_defaults;
     sigemptyset(&child_defaults);
@@ -129,22 +189,20 @@ ProcessSpawnResult spawn_program(const std::vector<std::string>& argv, const Pro
     sigaddset(&child_defaults, SIGTERM);
     sigaddset(&child_defaults, SIGPIPE);
     if (error == 0) {
-        error = posix_spawnattr_setsigdefault(&attributes, &child_defaults);
+        error = posix_spawnattr_setsigdefault(&attributes.get(), &child_defaults);
     }
 
     short flags = POSIX_SPAWN_SETSIGMASK | POSIX_SPAWN_SETSIGDEF;
     if (options.create_process_group) {
         if (error == 0) {
-            error = posix_spawnattr_setpgroup(&attributes, 0);
+            error = posix_spawnattr_setpgroup(&attributes.get(), 0);
         }
         flags |= POSIX_SPAWN_SETPGROUP;
     }
     if (error == 0) {
-        error = posix_spawnattr_setflags(&attributes, flags);
+        error = posix_spawnattr_setflags(&attributes.get(), flags);
     }
     if (error != 0) {
-        posix_spawnattr_destroy(&attributes);
-        posix_spawn_file_actions_destroy(&actions);
         return {.error = error};
     }
 
@@ -152,14 +210,11 @@ ProcessSpawnResult spawn_program(const std::vector<std::string>& argv, const Pro
     error = posix_spawn(
         &pid,
         executable.c_str(),
-        &actions,
-        &attributes,
+        &actions.get(),
+        &attributes.get(),
         arguments.data(),
         environment_entries.data()
     );
-
-    posix_spawnattr_destroy(&attributes);
-    posix_spawn_file_actions_destroy(&actions);
     if (error != 0) {
         return {.error = error};
     }
