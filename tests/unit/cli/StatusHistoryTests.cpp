@@ -250,6 +250,58 @@ void test_history_limit() {
     fs::remove_all(root);
 }
 
+void test_status_rejects_oversized_document() {
+    fs::path root = test_root("status-oversized");
+    test_helpers::write_file(
+        root / "status" / "default" / "current.json",
+        std::string(1024 * 1024 + 1, 'x')
+    );
+
+    test_helpers::expect_validation_error(
+        "oversized CLI status",
+        [&] {
+            std::ostringstream output;
+            btrfsbackup::cli::status::status_show(root / "status", root / "history", {}, output);
+        },
+        "exceeds the size limit"
+    );
+    fs::remove_all(root);
+}
+
+void test_status_rejects_symbolic_link() {
+    fs::path root = test_root("status-symlink");
+    const fs::path target = root / "status.json";
+    const fs::path current = root / "status" / "default" / "current.json";
+    test_helpers::write_file(target, private_history("run-1"));
+    fs::create_directories(current.parent_path());
+    fs::create_symlink(target, current);
+
+    test_helpers::expect_validation_error(
+        "CLI status symlink",
+        [&] {
+            std::ostringstream output;
+            btrfsbackup::cli::status::status_show(root / "status", root / "history", {}, output);
+        },
+        "cannot read document"
+    );
+    fs::remove_all(root);
+}
+
+void test_history_ignores_symbolic_links() {
+    fs::path root = test_root("history-symlink");
+    const fs::path target = root / "outside.json";
+    const fs::path link = root / "history" / "default" / "2026-08-23T000000Z.json";
+    test_helpers::write_file(target, private_history("run-1"));
+    fs::create_directories(link.parent_path());
+    fs::create_symlink(target, link);
+    std::ostringstream output;
+
+    btrfsbackup::cli::status::status_history(root / "history", {}, output);
+
+    test_helpers::expect_eq("history symlink", output.str(), "[]\n");
+    fs::remove_all(root);
+}
+
 } // namespace
 
 int main() {
@@ -261,6 +313,9 @@ int main() {
     test_status_watch_json_emits_status_api_shape_once();
     test_list_profiles_rejects_invalid_name();
     test_history_limit();
+    test_status_rejects_oversized_document();
+    test_status_rejects_symbolic_link();
+    test_history_ignores_symbolic_links();
 
     return test_helpers::finish("status/history tests");
 }

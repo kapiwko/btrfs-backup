@@ -5,10 +5,10 @@
 #include <state/query/RunHistory.hpp>
 
 #include <algorithm>
-#include <fstream>
 
 #include <core/Errors.hpp>
 #include <core/Identifiers.hpp>
+#include <state/document/BoundedDocumentReader.hpp>
 #include <state/document/RunStatusDocumentCodec.hpp>
 #include <state/persistence/StatusWriter.hpp>
 
@@ -20,6 +20,7 @@ constexpr fs::perms private_history_file_permissions =
     fs::perms::owner_read | fs::perms::owner_write;
 constexpr fs::perms private_history_directory_permissions =
     private_history_file_permissions | fs::perms::owner_exec;
+constexpr std::size_t max_history_document_bytes = 1024 * 1024;
 
 } // namespace
 
@@ -55,7 +56,8 @@ std::vector<StatusDocument> get_status_history(
             break;
         }
         const std::string name = entry.path().filename().string();
-        if (entry.is_regular_file(error) && !error && name != "last.json" && entry.path().extension() == ".json") {
+        if (entry.symlink_status(error).type() == fs::file_type::regular && !error &&
+            name != "last.json" && entry.path().extension() == ".json") {
             paths.push_back(entry.path());
         }
         error.clear();
@@ -67,12 +69,9 @@ std::vector<StatusDocument> get_status_history(
 
     std::vector<StatusDocument> documents;
     const document::RunStatusDocumentCodec codec;
+    const document::BoundedDocumentReader reader;
     for (const fs::path& path : paths) {
-        std::ifstream stream(path);
-        if (!stream) {
-            throw ValidationError("cannot read " + path.string());
-        }
-        std::string content{std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()};
+        std::string content = reader.read(path, max_history_document_bytes);
         documents.push_back({.status = codec.parse_private(content), .content = std::move(content), .source = path});
     }
     return documents;
