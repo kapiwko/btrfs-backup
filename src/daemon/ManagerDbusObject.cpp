@@ -3,13 +3,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include <daemon/ManagerDbusObject.hpp>
+
 #include <daemon/DbusCallbackBoundary.hpp>
 #include <daemon/ManagerDbusServer.hpp>
-#include <daemon/ManagerAuditLog.hpp>
-#include <daemon/ManagerErrorMapper.hpp>
-#include <daemon/ManagerJsonCodec.hpp>
 
 #include <systemd/sd-bus.h>
+
 #include <cerrno>
 #include <cstdint>
 #include <cstring>
@@ -17,254 +16,46 @@
 #include <limits>
 #include <memory>
 #include <stdexcept>
-#include <utility>
 
 namespace {
 
-using ManagerRequestContext = btrfsbackup::daemon::ManagerDbusObject;
 namespace manager_protocol = btrfsbackup::manager_protocol;
-
-template <typename Callback>
-int manager_callback(sd_bus_error* error, ManagerRequestContext& context, Callback&& callback) noexcept {
-    return btrfsbackup::daemon::invoke_dbus_callback(
-        std::forward<Callback>(callback),
-        [&](const std::exception* exception) {
-            if (exception != nullptr)
-                std::cerr << "btrfs-backupd: request failed: " << exception->what() << '\n';
-            else
-                std::cerr << "btrfs-backupd: request failed with an unknown exception\n";
-            const auto mapped = exception != nullptr
-                ? context.error_mapper.map(*exception)
-                : btrfsbackup::daemon::ManagerErrorMapper::describe(
-                      btrfsbackup::daemon::ManagerErrorCode::InternalError
-                  );
-            return sd_bus_error_set_const(error, mapped.dbus_name, mapped.public_message);
-        }
-    );
-}
-
-template <typename Operation>
-int reply_json(
-    sd_bus_message* message,
-    sd_bus_error* error,
-    ManagerRequestContext& context,
-    Operation&& operation
-) {
-    try {
-        const std::string payload = operation();
-        return sd_bus_reply_method_return(message, "s", payload.c_str());
-    } catch (const std::exception& exception) {
-        std::cerr << "btrfs-backupd: request failed: " << exception.what() << '\n';
-        const auto mapped = context.error_mapper.map(exception);
-        return sd_bus_error_set_const(error, mapped.dbus_name, mapped.public_message);
-    }
-}
-
-std::uint32_t caller_uid(sd_bus_message* message) {
-    sd_bus_creds* raw_credentials = nullptr;
-    const int query_result = sd_bus_query_sender_creds(
-        message,
-        SD_BUS_CREDS_UID | SD_BUS_CREDS_EUID | SD_BUS_CREDS_PID | SD_BUS_CREDS_AUGMENT,
-        &raw_credentials
-    );
-    if (query_result < 0)
-        throw std::runtime_error("cannot resolve D-Bus caller credentials: " + std::string(std::strerror(-query_result)));
-    std::unique_ptr<sd_bus_creds, decltype(&sd_bus_creds_unref)> credentials(raw_credentials, sd_bus_creds_unref);
-    uid_t uid = 0;
-    int uid_result = sd_bus_creds_get_uid(credentials.get(), &uid);
-    if (uid_result == -ENODATA)
-        uid_result = sd_bus_creds_get_euid(credentials.get(), &uid);
-    if (uid_result < 0)
-        throw std::runtime_error("cannot resolve D-Bus caller UID: " + std::string(std::strerror(-uid_result)));
-    if (uid > std::numeric_limits<std::uint32_t>::max())
-        throw std::runtime_error("D-Bus caller UID is outside the supported range");
-    return static_cast<std::uint32_t>(uid);
-}
-
-std::string audit_profile_id(const std::string& profile_id) {
-    try {
-        return std::string(btrfsbackup::ProfileId{profile_id}.value());
-    } catch (const std::exception&) {
-        return "<invalid>";
-    }
-}
-
-void write_audit_record(
-    ManagerRequestContext& context,
-    std::uint32_t uid,
-    const std::string& action,
-    const std::string& profile_id,
-    const std::string& result,
-    const std::string& error_code
-) {
-    const std::optional<std::string> diagnostic = context.audit_log.write({
-        .caller_uid = uid,
-        .action = action,
-        .profile_id = profile_id,
-        .result = result,
-        .error_code = error_code,
-    });
-    if (diagnostic.has_value())
-        std::cerr << "btrfs-backupd: audit write failed: " << *diagnostic << '\n';
-}
-
-template <typename Operation>
-int reply_operational_json(
-    sd_bus_message* message,
-    sd_bus_error* error,
-    ManagerRequestContext& context,
-    const std::string& action,
-    const std::string& profile_id,
-    Operation&& operation
-) {
-    const std::string audited_profile_id = audit_profile_id(profile_id);
-    try {
-        const std::uint32_t uid = caller_uid(message);
-        try {
-            const std::string payload = operation();
-            write_audit_record(context, uid, action, audited_profile_id, "accepted", "none");
-            return sd_bus_reply_method_return(message, "s", payload.c_str());
-        } catch (const std::exception& exception) {
-            const auto mapped = context.error_mapper.map(exception);
-            write_audit_record(
-                context,
-                uid,
-                action,
-                audited_profile_id,
-                mapped.code == btrfsbackup::daemon::ManagerErrorCode::NotAuthorized ? "denied" : "failed",
-                mapped.dbus_name
-            );
-            std::cerr << "btrfs-backupd: request failed: " << exception.what() << '\n';
-            return sd_bus_error_set_const(error, mapped.dbus_name, mapped.public_message);
-        }
-    } catch (const std::exception& exception) {
-        std::cerr << "btrfs-backupd: request failed: " << exception.what() << '\n';
-        const auto mapped = context.error_mapper.map(exception);
-        return sd_bus_error_set_const(error, mapped.dbus_name, mapped.public_message);
-    }
-}
+using ManagerDbusObject = btrfsbackup::daemon::ManagerDbusObject;
 
 int get_capabilities(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
-    auto& context = *static_cast<ManagerRequestContext*>(userdata);
-    return manager_callback(error, context, [&] {
-        return reply_json(message, error, context, [&] { return context.codec.encode(context.service.get_capabilities()); });
-    });
+    return static_cast<ManagerDbusObject*>(userdata)->handle_get_capabilities(message, error);
 }
 
 int list_profiles(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
-    auto& context = *static_cast<ManagerRequestContext*>(userdata);
-    return manager_callback(error, context, [&] {
-        return reply_json(message, error, context, [&] { return context.codec.encode(context.service.list_profiles()); });
-    });
+    return static_cast<ManagerDbusObject*>(userdata)->handle_list_profiles(message, error);
 }
 
 int get_status(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
-    auto& context = *static_cast<ManagerRequestContext*>(userdata);
-    return manager_callback(error, context, [&] {
-        const char* profile_id = nullptr;
-        const int read_result = sd_bus_message_read(message, "s", &profile_id);
-        if (read_result < 0)
-            return read_result;
-        return reply_json(message, error, context, [&] {
-            return context.codec.encode(context.service.get_status(profile_id == nullptr ? "" : profile_id));
-        });
-    });
+    return static_cast<ManagerDbusObject*>(userdata)->handle_get_status(message, error);
 }
 
 int get_history_sanitized(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
-    auto& context = *static_cast<ManagerRequestContext*>(userdata);
-    return manager_callback(error, context, [&] {
-        const char* profile_id = nullptr;
-        std::uint32_t offset = 0;
-        std::uint32_t limit = 0;
-        const int read_result = sd_bus_message_read(message, "suu", &profile_id, &offset, &limit);
-        if (read_result < 0)
-            return read_result;
-        return reply_json(message, error, context, [&] {
-            return context.codec.encode(
-                context.service.get_history_sanitized(profile_id == nullptr ? "" : profile_id, offset, limit)
-            );
-        });
-    });
+    return static_cast<ManagerDbusObject*>(userdata)->handle_get_history_sanitized(message, error);
 }
 
 int get_device_state(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
-    auto& context = *static_cast<ManagerRequestContext*>(userdata);
-    return manager_callback(error, context, [&] {
-        const char* profile_id = nullptr;
-        const int read_result = sd_bus_message_read(message, "s", &profile_id);
-        if (read_result < 0)
-            return read_result;
-        return reply_json(message, error, context, [&] {
-            return context.codec.encode(context.service.get_device_state(profile_id == nullptr ? "" : profile_id));
-        });
-    });
-}
-
-std::string caller_bus_name(sd_bus_message* message) {
-    const char* sender = sd_bus_message_get_sender(message);
-    return sender == nullptr ? std::string{} : std::string(sender);
+    return static_cast<ManagerDbusObject*>(userdata)->handle_get_device_state(message, error);
 }
 
 int start_backup(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
-    auto& context = *static_cast<ManagerRequestContext*>(userdata);
-    return manager_callback(error, context, [&] {
-        const char* profile_id = nullptr;
-        const int read_result = sd_bus_message_read(message, "s", &profile_id);
-        if (read_result < 0)
-            return read_result;
-        const std::string profile = profile_id == nullptr ? "" : profile_id;
-        return reply_operational_json(message, error, context, manager_protocol::feature::start_backup, profile, [&] {
-            return context.codec.encode(context.operational.start_backup(caller_bus_name(message), profile));
-        });
-    });
+    return static_cast<ManagerDbusObject*>(userdata)->handle_start_backup(message, error);
 }
 
 int cancel_backup(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
-    auto& context = *static_cast<ManagerRequestContext*>(userdata);
-    return manager_callback(error, context, [&] {
-        const char* profile_id = nullptr;
-        const char* run_id = nullptr;
-        const int read_result = sd_bus_message_read(message, "ss", &profile_id, &run_id);
-        if (read_result < 0)
-            return read_result;
-        const std::string profile = profile_id == nullptr ? "" : profile_id;
-        return reply_operational_json(message, error, context, manager_protocol::feature::cancel_backup, profile, [&] {
-            return context.codec.encode(context.operational.cancel_backup(
-                caller_bus_name(message),
-                profile,
-                run_id == nullptr ? "" : run_id
-            ));
-        });
-    });
+    return static_cast<ManagerDbusObject*>(userdata)->handle_cancel_backup(message, error);
 }
 
 int validate_target(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
-    auto& context = *static_cast<ManagerRequestContext*>(userdata);
-    return manager_callback(error, context, [&] {
-        const char* profile_id = nullptr;
-        const int read_result = sd_bus_message_read(message, "s", &profile_id);
-        if (read_result < 0)
-            return read_result;
-        const std::string profile = profile_id == nullptr ? "" : profile_id;
-        return reply_operational_json(message, error, context, manager_protocol::feature::validate_target, profile, [&] {
-            return context.codec.encode(context.operational.validate_target(caller_bus_name(message), profile));
-        });
-    });
+    return static_cast<ManagerDbusObject*>(userdata)->handle_validate_target(message, error);
 }
 
 int eject_target(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
-    auto& context = *static_cast<ManagerRequestContext*>(userdata);
-    return manager_callback(error, context, [&] {
-        const char* profile_id = nullptr;
-        const int read_result = sd_bus_message_read(message, "s", &profile_id);
-        if (read_result < 0)
-            return read_result;
-        const std::string profile = profile_id == nullptr ? "" : profile_id;
-        return reply_operational_json(message, error, context, manager_protocol::feature::eject_target, profile, [&] {
-            return context.codec.encode(context.operational.eject_target(caller_bus_name(message), profile));
-        });
-    });
+    return static_cast<ManagerDbusObject*>(userdata)->handle_eject_target(message, error);
 }
 
 const sd_bus_vtable manager_vtable[] = {
@@ -289,8 +80,237 @@ const sd_bus_vtable manager_vtable[] = {
 
 namespace btrfsbackup::daemon {
 
-const sd_bus_vtable* ManagerDbusObject::vtable() const {
+ManagerDbusObject::ManagerDbusObject(
+    ManagerService& service,
+    OperationalControlService& operational,
+    IManagerAuditLog& audit_log
+)
+    : service_(service), operational_(operational), audit_log_(audit_log) {
+}
+
+const sd_bus_vtable* ManagerDbusObject::vtable() noexcept {
     return manager_vtable;
+}
+
+int ManagerDbusObject::set_callback_error(sd_bus_error* error, const std::exception* exception) {
+    if (exception != nullptr)
+        std::cerr << "btrfs-backupd: request failed: " << exception->what() << '\n';
+    else
+        std::cerr << "btrfs-backupd: request failed with an unknown exception\n";
+    const auto mapped = exception != nullptr
+        ? error_mapper_.map(*exception)
+        : ManagerErrorMapper::describe(ManagerErrorCode::InternalError);
+    return sd_bus_error_set_const(error, mapped.dbus_name, mapped.public_message);
+}
+
+int ManagerDbusObject::reply_json(sd_bus_message* message, const std::string& payload) {
+    return sd_bus_reply_method_return(message, "s", payload.c_str());
+}
+
+std::uint32_t ManagerDbusObject::caller_uid(sd_bus_message* message) {
+    sd_bus_creds* raw_credentials = nullptr;
+    const int query_result = sd_bus_query_sender_creds(
+        message,
+        SD_BUS_CREDS_UID | SD_BUS_CREDS_EUID | SD_BUS_CREDS_PID | SD_BUS_CREDS_AUGMENT,
+        &raw_credentials
+    );
+    if (query_result < 0)
+        throw std::runtime_error("cannot resolve D-Bus caller credentials: " + std::string(std::strerror(-query_result)));
+    std::unique_ptr<sd_bus_creds, decltype(&sd_bus_creds_unref)> credentials(raw_credentials, sd_bus_creds_unref);
+    uid_t uid = 0;
+    int uid_result = sd_bus_creds_get_uid(credentials.get(), &uid);
+    if (uid_result == -ENODATA)
+        uid_result = sd_bus_creds_get_euid(credentials.get(), &uid);
+    if (uid_result < 0)
+        throw std::runtime_error("cannot resolve D-Bus caller UID: " + std::string(std::strerror(-uid_result)));
+    if (uid > std::numeric_limits<std::uint32_t>::max())
+        throw std::runtime_error("D-Bus caller UID is outside the supported range");
+    return static_cast<std::uint32_t>(uid);
+}
+
+std::string ManagerDbusObject::caller_bus_name(sd_bus_message* message) {
+    const char* sender = sd_bus_message_get_sender(message);
+    return sender == nullptr ? std::string{} : std::string(sender);
+}
+
+std::string ManagerDbusObject::audit_profile_id(const std::string& profile_id) {
+    try {
+        return std::string(ProfileId{profile_id}.value());
+    } catch (const std::exception&) {
+        return "<invalid>";
+    }
+}
+
+void ManagerDbusObject::write_audit_record(
+    std::uint32_t uid,
+    const std::string& action,
+    const std::string& profile_id,
+    const std::string& result,
+    const std::string& error_code
+) {
+    const std::optional<std::string> diagnostic = audit_log_.write({
+        .caller_uid = uid,
+        .action = action,
+        .profile_id = profile_id,
+        .result = result,
+        .error_code = error_code,
+    });
+    if (diagnostic.has_value())
+        std::cerr << "btrfs-backupd: audit write failed: " << *diagnostic << '\n';
+}
+
+int ManagerDbusObject::reply_operational_json(
+    sd_bus_message* message,
+    sd_bus_error* error,
+    const std::string& action,
+    const std::string& profile_id,
+    const JsonOperation& operation
+) {
+    const std::string audited_profile_id = audit_profile_id(profile_id);
+    const std::uint32_t uid = caller_uid(message);
+    try {
+        const std::string payload = operation();
+        write_audit_record(uid, action, audited_profile_id, "accepted", "none");
+        return reply_json(message, payload);
+    } catch (const std::exception& exception) {
+        const auto mapped = error_mapper_.map(exception);
+        write_audit_record(
+            uid,
+            action,
+            audited_profile_id,
+            mapped.code == ManagerErrorCode::NotAuthorized ? "denied" : "failed",
+            mapped.dbus_name
+        );
+        std::cerr << "btrfs-backupd: request failed: " << exception.what() << '\n';
+        return sd_bus_error_set_const(error, mapped.dbus_name, mapped.public_message);
+    }
+}
+
+int ManagerDbusObject::handle_get_capabilities(sd_bus_message* message, sd_bus_error* error) noexcept {
+    return invoke_dbus_callback(
+        [&] { return reply_json(message, codec_.encode(service_.get_capabilities())); },
+        [&](const std::exception* exception) { return set_callback_error(error, exception); }
+    );
+}
+
+int ManagerDbusObject::handle_list_profiles(sd_bus_message* message, sd_bus_error* error) noexcept {
+    return invoke_dbus_callback(
+        [&] { return reply_json(message, codec_.encode(service_.list_profiles())); },
+        [&](const std::exception* exception) { return set_callback_error(error, exception); }
+    );
+}
+
+int ManagerDbusObject::handle_get_status(sd_bus_message* message, sd_bus_error* error) noexcept {
+    return invoke_dbus_callback(
+        [&] {
+            const char* profile_id = nullptr;
+            const int read_result = sd_bus_message_read(message, "s", &profile_id);
+            if (read_result < 0)
+                return read_result;
+            return reply_json(message, codec_.encode(service_.get_status(profile_id == nullptr ? "" : profile_id)));
+        },
+        [&](const std::exception* exception) { return set_callback_error(error, exception); }
+    );
+}
+
+int ManagerDbusObject::handle_get_history_sanitized(sd_bus_message* message, sd_bus_error* error) noexcept {
+    return invoke_dbus_callback(
+        [&] {
+            const char* profile_id = nullptr;
+            std::uint32_t offset = 0;
+            std::uint32_t limit = 0;
+            const int read_result = sd_bus_message_read(message, "suu", &profile_id, &offset, &limit);
+            if (read_result < 0)
+                return read_result;
+            return reply_json(
+                message,
+                codec_.encode(service_.get_history_sanitized(profile_id == nullptr ? "" : profile_id, offset, limit))
+            );
+        },
+        [&](const std::exception* exception) { return set_callback_error(error, exception); }
+    );
+}
+
+int ManagerDbusObject::handle_get_device_state(sd_bus_message* message, sd_bus_error* error) noexcept {
+    return invoke_dbus_callback(
+        [&] {
+            const char* profile_id = nullptr;
+            const int read_result = sd_bus_message_read(message, "s", &profile_id);
+            if (read_result < 0)
+                return read_result;
+            return reply_json(message, codec_.encode(service_.get_device_state(profile_id == nullptr ? "" : profile_id)));
+        },
+        [&](const std::exception* exception) { return set_callback_error(error, exception); }
+    );
+}
+
+int ManagerDbusObject::handle_start_backup(sd_bus_message* message, sd_bus_error* error) noexcept {
+    return invoke_dbus_callback(
+        [&] {
+            const char* profile_id = nullptr;
+            const int read_result = sd_bus_message_read(message, "s", &profile_id);
+            if (read_result < 0)
+                return read_result;
+            const std::string profile = profile_id == nullptr ? "" : profile_id;
+            return reply_operational_json(message, error, manager_protocol::feature::start_backup, profile, [&] {
+                return codec_.encode(operational_.start_backup(caller_bus_name(message), profile));
+            });
+        },
+        [&](const std::exception* exception) { return set_callback_error(error, exception); }
+    );
+}
+
+int ManagerDbusObject::handle_cancel_backup(sd_bus_message* message, sd_bus_error* error) noexcept {
+    return invoke_dbus_callback(
+        [&] {
+            const char* profile_id = nullptr;
+            const char* run_id = nullptr;
+            const int read_result = sd_bus_message_read(message, "ss", &profile_id, &run_id);
+            if (read_result < 0)
+                return read_result;
+            const std::string profile = profile_id == nullptr ? "" : profile_id;
+            return reply_operational_json(message, error, manager_protocol::feature::cancel_backup, profile, [&] {
+                return codec_.encode(operational_.cancel_backup(
+                    caller_bus_name(message),
+                    profile,
+                    run_id == nullptr ? "" : run_id
+                ));
+            });
+        },
+        [&](const std::exception* exception) { return set_callback_error(error, exception); }
+    );
+}
+
+int ManagerDbusObject::handle_validate_target(sd_bus_message* message, sd_bus_error* error) noexcept {
+    return invoke_dbus_callback(
+        [&] {
+            const char* profile_id = nullptr;
+            const int read_result = sd_bus_message_read(message, "s", &profile_id);
+            if (read_result < 0)
+                return read_result;
+            const std::string profile = profile_id == nullptr ? "" : profile_id;
+            return reply_operational_json(message, error, manager_protocol::feature::validate_target, profile, [&] {
+                return codec_.encode(operational_.validate_target(caller_bus_name(message), profile));
+            });
+        },
+        [&](const std::exception* exception) { return set_callback_error(error, exception); }
+    );
+}
+
+int ManagerDbusObject::handle_eject_target(sd_bus_message* message, sd_bus_error* error) noexcept {
+    return invoke_dbus_callback(
+        [&] {
+            const char* profile_id = nullptr;
+            const int read_result = sd_bus_message_read(message, "s", &profile_id);
+            if (read_result < 0)
+                return read_result;
+            const std::string profile = profile_id == nullptr ? "" : profile_id;
+            return reply_operational_json(message, error, manager_protocol::feature::eject_target, profile, [&] {
+                return codec_.encode(operational_.eject_target(caller_bus_name(message), profile));
+            });
+        },
+        [&](const std::exception* exception) { return set_callback_error(error, exception); }
+    );
 }
 
 } // namespace btrfsbackup::daemon
