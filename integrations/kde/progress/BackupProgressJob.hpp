@@ -37,15 +37,18 @@ class BackupProgressJob final : public KJob {
     void finish_with_error(const QString& message);
     void finish_cancelled();
     void stop_tracking();
+    void cancellation_rejected();
 
     [[nodiscard]] QString profile_id() const;
     [[nodiscard]] QString run_id() const;
+    [[nodiscard]] bool cancellation_requested() const;
 
   protected:
     bool doKill() override;
 
   private:
     void publish_description();
+    void update_capabilities();
 
     QString profile_id_;
     QString run_id_;

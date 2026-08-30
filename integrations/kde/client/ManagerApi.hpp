@@ -53,6 +53,14 @@ struct RunStatus {
     int overall_progress = -1;
 };
 
+struct OperationResult {
+    QString operation;
+    QString operation_id;
+    QString profile_id;
+    QString run_id;
+    bool accepted = false;
+};
+
 class ManagerEventSubscriber final : public QObject {
     Q_OBJECT
 
@@ -77,6 +85,7 @@ class ManagerEventSubscriber final : public QObject {
 [[nodiscard]] std::optional<ManagerCapabilities> parse_capabilities(const QString& payload);
 [[nodiscard]] std::optional<QList<ProfileSummary>> parse_profiles(const QString& payload);
 [[nodiscard]] std::optional<RunStatus> parse_status(const QString& payload);
+[[nodiscard]] std::optional<OperationResult> parse_operation_result(const QString& payload);
 [[nodiscard]] bool active_run_state(const QString& state);
 
 } // namespace btrfsbackup::kde

@@ -24,7 +24,7 @@ void expect(bool condition, const char* message) {
 }
 
 void test_progress_and_cancellation() {
-    bool cancellation_requested = false;
+    int cancellation_requests = 0;
     int descriptions = 0;
     int speed_updates = 0;
     unsigned long last_speed = 0;
@@ -34,8 +34,9 @@ void test_progress_and_cancellation() {
         QStringLiteral("run-1"),
         QStringLiteral("Default backup"),
         [&](const QString& profile_id, const QString& run_id) {
-            cancellation_requested = profile_id == QStringLiteral("default") &&
-                run_id == QStringLiteral("run-1");
+            if (profile_id == QStringLiteral("default") && run_id == QStringLiteral("run-1")) {
+                ++cancellation_requests;
+            }
         }
     );
     job.setAutoDelete(false);
@@ -65,9 +66,40 @@ void test_progress_and_cancellation() {
     expect(job.capabilities().testFlag(KJob::Killable), "job is killable when the run can be cancelled");
     expect(descriptions >= 1, "job publishes its Plasma description");
     expect(speed_updates == 1 && last_speed == 2048, "job publishes transfer speed");
-    expect(job.kill(KJob::EmitResult), "killable job accepts cancellation");
-    expect(cancellation_requested, "job cancellation contains profile and run identity");
-    expect(results == 1 && job.error() == KJob::KilledJobError, "cancelled job finishes as cancelled");
+    expect(!job.kill(KJob::EmitResult), "cancellation request does not terminate the progress job");
+    expect(cancellation_requests == 1, "job cancellation contains profile and run identity");
+    expect(job.cancellation_requested(), "job exposes the pending cancellation state");
+    expect(!job.capabilities().testFlag(KJob::Killable), "pending cancellation cannot be requested twice");
+    expect(results == 0, "requesting cancellation does not publish a terminal result");
+
+    job.update(43, 1024, true, QStringLiteral("Transferring backup data"), {}, {});
+    expect(!job.capabilities().testFlag(KJob::Killable), "status refresh does not clear pending cancellation");
+    job.cancellation_rejected();
+    expect(job.capabilities().testFlag(KJob::Killable), "rejected cancellation can be retried");
+
+    expect(!job.kill(KJob::EmitResult), "retried cancellation remains asynchronous");
+    expect(cancellation_requests == 2, "rejected cancellation dispatches again when retried");
+    job.finish_cancelled();
+    expect(results == 1 && job.error() == KJob::KilledJobError, "manager terminal state finishes the job as cancelled");
+}
+
+void test_cancellation_capability_gate() {
+    int cancellation_requests = 0;
+    BackupProgressJob job(
+        QStringLiteral("default"),
+        QStringLiteral("run-no-cancel"),
+        QStringLiteral("Default backup"),
+        [&](const QString&, const QString&) {
+            ++cancellation_requests;
+        }
+    );
+    job.setAutoDelete(false);
+    job.start();
+    job.update(10, 0, false, QStringLiteral("Preparing backup"), {}, {});
+
+    expect(!job.capabilities().testFlag(KJob::Killable), "job hides unsupported cancellation");
+    expect(!job.kill(KJob::EmitResult), "unsupported cancellation is rejected locally");
+    expect(cancellation_requests == 0, "unsupported cancellation is not dispatched");
 }
 
 void test_success() {
@@ -150,6 +182,21 @@ void test_shared_manager_protocol() {
              .has_value(),
         "shared client rejects incomplete backup summary"
     );
+
+    const auto operation = btrfsbackup::kde::parse_operation_result(QStringLiteral(
+        R"({"schemaVersion":1,"operation":"cancel-backup","operationId":"op-1","profileId":"default","runId":"run-1","accepted":true})"
+    ));
+    expect(
+        operation.has_value() && operation->accepted && operation->run_id == QStringLiteral("run-1"),
+        "shared client decodes accepted operation results"
+    );
+    expect(
+        !btrfsbackup::kde::parse_operation_result(QStringLiteral(
+                                                     R"({"schemaVersion":1,"accepted":true})"
+                                                 ))
+             .has_value(),
+        "shared client rejects incomplete operation results"
+    );
 }
 
 } // namespace
@@ -158,6 +205,7 @@ int main(int argc, char* argv[]) {
     QCoreApplication application(argc, argv);
     KLocalizedString::setApplicationDomain("plasma_applet_org.btrfsbackup.plasmoid");
     test_progress_and_cancellation();
+    test_cancellation_capability_gate();
     test_success();
     test_stopping_tracking_is_not_a_terminal_result();
     test_shared_manager_protocol();
