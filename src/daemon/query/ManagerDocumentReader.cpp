@@ -26,7 +26,7 @@ constexpr std::size_t max_document_bytes = 1024 * 1024;
 
 namespace btrfsbackup::daemon::query {
 
-btrfsbackup::config::Json read_manager_json_document(const fs::path& path) {
+btrfsbackup::config::json::Json read_manager_json_document(const fs::path& path) {
     btrfsbackup::platform::linux::OwnedFileDescriptor descriptor(open(path.c_str(), O_RDONLY | O_CLOEXEC | O_NOFOLLOW));
     if (descriptor.get() < 0) {
         throw ValidationError("cannot read manager data file " + path.string());
@@ -61,7 +61,7 @@ btrfsbackup::config::Json read_manager_json_document(const fs::path& path) {
         }
     }
     try {
-        return btrfsbackup::config::Json::parse(content);
+        return btrfsbackup::config::json::Json::parse(content);
     } catch (const std::exception& error) {
         throw ValidationError("invalid manager JSON " + path.string() + ": " + error.what());
     }

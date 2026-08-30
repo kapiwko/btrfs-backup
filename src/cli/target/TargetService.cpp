@@ -18,7 +18,7 @@
 
 #include <backup/planning/BackupPreflightValidation.hpp>
 #include <core/Errors.hpp>
-#include <config/model/JsonIo.hpp>
+#include <config/json/JsonIo.hpp>
 #include <config/domain/Profile.hpp>
 #include <platform/linux/config/FileProfileRepository.hpp>
 #include <config/domain/Validation.hpp>
@@ -241,7 +241,7 @@ bool activation_is_owned(
         throw btrfsbackup::ValidationError("invalid target activation marker: " + marker_path.string());
     }
     try {
-        const btrfsbackup::config::Json marker = btrfsbackup::config::Json::parse(
+        const btrfsbackup::config::json::Json marker = btrfsbackup::config::json::Json::parse(
             btrfsbackup::platform::linux::filesystem::read_trusted_config_file(
                 marker_path,
                 {.allow_current_user_owner = rootless_tests_allowed()}
@@ -268,7 +268,7 @@ void write_activation_marker(
 ) {
     btrfsbackup::platform::linux::filesystem::atomic_write(
         activation_marker_path(resolved, profile),
-        btrfsbackup::config::dump_json({
+        btrfsbackup::config::json::dump_json({
             {"schemaVersion", 1},
             {"profileId", profile.id.value()},
             {"luksUuid", profile.target.luks_uuid.value()},

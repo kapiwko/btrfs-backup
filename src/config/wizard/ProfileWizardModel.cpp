@@ -4,7 +4,7 @@
 
 #include <config/wizard/ProfileWizardModel.hpp>
 
-#include <config/model/ProfileDocument.hpp>
+#include <config/json/ProfileDocument.hpp>
 
 #include <filesystem>
 #include <set>
@@ -65,7 +65,7 @@ Profile profile_from_wizard_answers(const ProfileWizardAnswers& answers) {
     profile.settings.minimum_target_free_bytes = ByteThreshold{answers.minimum_target_free_bytes};
     profile.settings.minimum_local_free_bytes = ByteThreshold{answers.minimum_local_free_bytes};
 
-    return profile_from_json(profile_to_json(profile), answers.target_mount_root);
+    return json::profile_from_json(json::profile_to_json(profile), answers.target_mount_root);
 }
 
 } // namespace btrfsbackup::config

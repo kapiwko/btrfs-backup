@@ -7,7 +7,7 @@
 
 #include <string>
 
-#include <config/model/ProfileDocument.hpp>
+#include <config/json/ProfileDocument.hpp>
 #include <config/domain/Validation.hpp>
 #include <core/Errors.hpp>
 #include <core/Identifiers.hpp>
@@ -18,14 +18,14 @@ namespace fs = std::filesystem;
 namespace btrfsbackup::platform::linux {
 
 void validate_legacy_profile_runtime_fields(
-    const btrfsbackup::config::Json& raw,
+    const btrfsbackup::config::json::Json& raw,
     const fs::path& target_mount_root
 ) {
     if (!raw.is_object() || !raw.contains("schemaVersion") || !raw.at("schemaVersion").is_number_integer()) {
         return;
     }
     const int schema_version = raw.at("schemaVersion").get<int>();
-    if (schema_version >= btrfsbackup::config::current_profile_schema_version || !raw.contains("target") ||
+    if (schema_version >= btrfsbackup::config::json::current_profile_schema_version || !raw.contains("target") ||
         !raw.at("target").is_object() || !raw.contains("profileId") || !raw.at("profileId").is_string()) {
         return;
     }
@@ -34,7 +34,7 @@ void validate_legacy_profile_runtime_fields(
     validate_identifier(profile_id, "profileId");
     const fs::path mount_point =
         btrfsbackup::config::normalized_absolute_path(target_mount_root, "TARGET_MOUNT_ROOT") / profile_id;
-    const btrfsbackup::config::Json& target = raw.at("target");
+    const btrfsbackup::config::json::Json& target = raw.at("target");
     if (target.contains("mountPoint")) {
         if (!target.at("mountPoint").is_string()) {
             throw ValidationError("target.mountPoint must be text");

@@ -7,9 +7,9 @@
 #include <string>
 #include <utility>
 
-#include <config/model/Json.hpp>
-#include <config/model/JsonIo.hpp>
-#include <config/model/ProfileDocument.hpp>
+#include <config/json/Json.hpp>
+#include <config/json/JsonIo.hpp>
+#include <config/json/ProfileDocument.hpp>
 #include <config/ProfileRender.hpp>
 #include <core/Errors.hpp>
 
@@ -22,12 +22,12 @@ constexpr std::filesystem::perms private_profile_permissions =
 constexpr std::filesystem::perms public_artifact_permissions =
     private_profile_permissions | std::filesystem::perms::group_read | std::filesystem::perms::others_read;
 
-Json public_profile_json(const Profile& profile) {
-    Json sources = Json::array();
+json::Json public_profile_json(const Profile& profile) {
+    json::Json sources = json::Json::array();
     for (const ProfileSource& source : profile.sources) {
         sources.push_back({{"id", std::string(source.id.value())}, {"name", source.name}});
     }
-    Json result = {
+    json::Json result = {
         {"schemaVersion", 1},
         {"profileId", std::string(profile.id.value())},
         {"name", profile.name},
@@ -84,16 +84,16 @@ RenderedProfileArtifacts ProfileArtifactRenderer::render_profile_artifacts(
             {
                 .kind = ProfileArtifactKind::PrivateProfile,
                 .destination = roots.etc_root / "profiles" / profile_id / "profile.json",
-                .content = dump_json(profile_to_json(rendered)),
+                .content = json::dump_json(json::profile_to_json(rendered)),
                 .permissions = private_profile_permissions,
             },
             {
                 .kind = ProfileArtifactKind::ManagedArtifactManifest,
                 .destination = roots.etc_root / "profiles" / profile_id / "managed-artifacts.json",
-                .content = dump_json({
+                .content = json::dump_json({
                     {"schemaVersion", 1},
                     {"profileId", profile_id},
-                    {"mounts", Json::array({{
+                    {"mounts", json::Json::array({{
                                    {"unit", mount_unit},
                                    {"mountPoint", rendered.target.mount_point.value().string()},
                                }})},
@@ -103,7 +103,7 @@ RenderedProfileArtifacts ProfileArtifactRenderer::render_profile_artifacts(
             {
                 .kind = ProfileArtifactKind::PublicProfile,
                 .destination = roots.public_root / (profile_id + ".json"),
-                .content = dump_json(public_profile_json(rendered)),
+                .content = json::dump_json(public_profile_json(rendered)),
                 .permissions = public_artifact_permissions,
             },
         },

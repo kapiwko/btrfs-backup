@@ -10,7 +10,7 @@
 #include <vector>
 
 #include <config/domain/Profile.hpp>
-#include <config/model/ProfileDocument.hpp>
+#include <config/json/ProfileDocument.hpp>
 #include <core/Identifiers.hpp>
 #include <daemon/query/ManagerDocumentReader.hpp>
 #include <platform/linux/storage/DeviceInfo.hpp>
@@ -29,7 +29,7 @@ TargetStatus DeviceStateQueryService::get_device_state(
 ) const {
     validate_profile_id(profile_id);
     const fs::path profile_path = paths_.config_root / "profiles" / profile_id / "profile.json";
-    const btrfsbackup::config::Profile profile = btrfsbackup::config::profile_from_json(
+    const btrfsbackup::config::Profile profile = btrfsbackup::config::json::profile_from_json(
         read_manager_json_document(profile_path),
         paths_.target_mount_root
     );

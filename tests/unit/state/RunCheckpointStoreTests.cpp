@@ -5,7 +5,7 @@
 #include <filesystem>
 #include <sys/stat.h>
 
-#include <config/model/JsonIo.hpp>
+#include <config/json/JsonIo.hpp>
 #include <state/JsonFileBackupRunCheckpointStore.hpp>
 #include <platform/linux/filesystem/PosixDurableFileOperations.hpp>
 
@@ -37,7 +37,7 @@ void test_checkpoint_store_writes_private_json_in_state_dir() {
     });
 
     const fs::path checkpoint = root / "state" / "checkpoint.json";
-    const btrfsbackup::config::Json data = btrfsbackup::config::load_json_file(checkpoint);
+    const btrfsbackup::config::json::Json data = btrfsbackup::config::json::load_json_file(checkpoint);
     test_helpers::expect_true("checkpoint exists", fs::is_regular_file(checkpoint), "missing checkpoint");
     test_helpers::expect_true("checkpoint action", data.at("action") == "create-snapshot", "wrong action");
     test_helpers::expect_true("state dir mode", mode_of(root / "state") == 0700, "state dir should be private");

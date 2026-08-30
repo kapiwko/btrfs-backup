@@ -26,18 +26,18 @@ target_restricted_include_directories(btrfsbackup-config-domain
 target_link_libraries(btrfsbackup-config-domain PUBLIC btrfsbackup-core)
 
 add_library(btrfsbackup-config-json STATIC
-    model/JsonIo.cpp
-    model/ProfileDocumentDecode.cpp
-    model/ProfileDocumentEncode.cpp
-    model/ProfileDocumentNormalization.cpp
+    json/JsonIo.cpp
+    json/ProfileDocumentDecode.cpp
+    json/ProfileDocumentEncode.cpp
+    json/ProfileDocumentNormalization.cpp
 )
 
 target_compile_features(btrfsbackup-config-json PUBLIC cxx_std_23)
 target_restricted_include_directories(btrfsbackup-config-json
     PUBLIC_HEADERS
-        config/model/Json.hpp
-        config/model/JsonIo.hpp
-        config/model/ProfileDocument.hpp
+        config/json/Json.hpp
+        config/json/JsonIo.hpp
+        config/json/ProfileDocument.hpp
 )
 target_link_libraries(btrfsbackup-config-json
     PUBLIC

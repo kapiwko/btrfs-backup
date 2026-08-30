@@ -6,7 +6,7 @@
 #include <filesystem>
 #include <string>
 
-#include <config/model/JsonIo.hpp>
+#include <config/json/JsonIo.hpp>
 #include <config/domain/Profile.hpp>
 #include <daemon/query/DeviceStateQueryService.hpp>
 #include <daemon/query/HistoryQueryService.hpp>
@@ -32,7 +32,7 @@ btrfsbackup::daemon::ManagerPaths manager_paths(const fs::path& root) {
     };
 }
 
-btrfsbackup::config::Json private_profile(const fs::path& root) {
+btrfsbackup::config::json::Json private_profile(const fs::path& root) {
     return {
         {"schemaVersion", 3},
         {"profileId", "default"},
@@ -44,7 +44,7 @@ btrfsbackup::config::Json private_profile(const fs::path& root) {
                        {"btrfsUuid", "66666666-7777-8888-9999-aaaaaaaaaaaa"},
                        {"mapperName", "backupdisk"},
                    }},
-        {"sources", btrfsbackup::config::Json::array({{
+        {"sources", btrfsbackup::config::json::Json::array({{
                         {"id", "home"},
                         {"name", "Home"},
                         {"enabled", true},
@@ -78,17 +78,17 @@ std::string public_status() {
 }
 
 std::string private_history(const std::string& state, const std::string& finished_at) {
-    return btrfsbackup::config::Json({
-                                         {"schemaVersion", 2},
-                                         {"state", state},
-                                         {"errorCode", state == "succeeded" ? "" : "repository.private_failure"},
-                                         {"currentSourceName", "Home"},
-                                         {"targetName", "Backup disk"},
-                                         {"finishedAt", finished_at},
-                                         {"overallProgress", 100},
-                                         {"details", {{"device", "/dev/private"}}},
-                                         {"runId", "private-run-id"},
-                                     })
+    return btrfsbackup::config::json::Json({
+                                               {"schemaVersion", 2},
+                                               {"state", state},
+                                               {"errorCode", state == "succeeded" ? "" : "repository.private_failure"},
+                                               {"currentSourceName", "Home"},
+                                               {"targetName", "Backup disk"},
+                                               {"finishedAt", finished_at},
+                                               {"overallProgress", 100},
+                                               {"details", {{"device", "/dev/private"}}},
+                                               {"runId", "private-run-id"},
+                                           })
         .dump();
 }
 
@@ -191,7 +191,7 @@ void test_device_state_is_presentation_safe() {
     fs::path root = test_helpers::test_root("manager-service", "device");
     test_helpers::write_file(
         root / "etc" / "profiles" / "default" / "profile.json",
-        btrfsbackup::config::dump_json(private_profile(root))
+        btrfsbackup::config::json::dump_json(private_profile(root))
     );
     const btrfsbackup::daemon::query::DeviceStateQueryService service(manager_paths(root));
     const btrfsbackup::daemon::TargetStatus state = service.get_device_state("default");

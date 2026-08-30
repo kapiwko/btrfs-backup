@@ -39,10 +39,10 @@
 #include <platform/linux/process/PosixCommandRunner.hpp>
 #include <platform/linux/systemd/SystemdTargetManager.hpp>
 #include <platform/linux/storage/MountInfo.hpp>
-#include <config/model/Json.hpp>
-#include <config/model/JsonIo.hpp>
+#include <config/json/Json.hpp>
+#include <config/json/JsonIo.hpp>
 #include <config/domain/Profile.hpp>
-#include <config/model/ProfileDocument.hpp>
+#include <config/json/ProfileDocument.hpp>
 #include <platform/linux/config/FileProfileRepository.hpp>
 #include <state/RunState.hpp>
 
@@ -352,7 +352,7 @@ void write_profile(const fs::path& config_root, const btrfsbackup::config::Profi
         chmod(config_path.c_str(), 0600);
     }
     fs::path profile_path = config_root / "profiles" / profile.id.value() / "profile.json";
-    test_helpers::write_file(profile_path, btrfsbackup::config::profile_to_json(profile).dump(2));
+    test_helpers::write_file(profile_path, btrfsbackup::config::json::profile_to_json(profile).dump(2));
     chmod(profile_path.c_str(), 0600);
 }
 
@@ -599,7 +599,7 @@ void test_runner_plan_outputs_shadow_json() {
         &services
     );
 
-    btrfsbackup::config::Json json = btrfsbackup::config::Json::parse(output.str());
+    btrfsbackup::config::json::Json json = btrfsbackup::config::json::Json::parse(output.str());
     test_helpers::expect_eq("runner result", std::to_string(result), "0");
     test_helpers::expect_eq("runner mode", json.at("mode").get<std::string>(), "shadow-plan");
     test_helpers::expect_eq("runner profile", json.at("profileId").get<std::string>(), "default");
@@ -712,7 +712,7 @@ void test_runner_execute_rejects_busy_profile_before_target_access() {
         &services
     );
 
-    btrfsbackup::config::Json json = btrfsbackup::config::Json::parse(output.str());
+    btrfsbackup::config::json::Json json = btrfsbackup::config::json::Json::parse(output.str());
     test_helpers::expect_eq("profile busy result", std::to_string(result), "1");
     test_helpers::expect_true("profile busy flag", json.at("busy").get<bool>(), "runner should report busy");
     test_helpers::expect_eq(
@@ -838,7 +838,7 @@ void test_runner_execute_serializes_shared_target_but_allows_another_target() {
         &same_profile_services
     );
 
-    btrfsbackup::config::Json same_profile_json = btrfsbackup::config::Json::parse(same_profile_output.str());
+    btrfsbackup::config::json::Json same_profile_json = btrfsbackup::config::json::Json::parse(same_profile_output.str());
     test_helpers::expect_eq("concurrent profile result", std::to_string(same_profile_result), "1");
     test_helpers::expect_eq(
         "concurrent profile error",
@@ -847,7 +847,7 @@ void test_runner_execute_serializes_shared_target_but_allows_another_target() {
     );
     test_helpers::expect_true("concurrent profile effects", same_profile_action_handler.calls.empty(), "second runner must not execute actions");
     test_helpers::expect_true("concurrent profile transfers", same_profile_transfer_pipeline.plans.empty(), "second runner must not transfer");
-    btrfsbackup::config::Json active_status = btrfsbackup::config::load_json_file(
+    btrfsbackup::config::json::Json active_status = btrfsbackup::config::json::load_json_file(
         root / "status" / active_profile.id.value() / "current.json"
     );
     test_helpers::expect_eq(
@@ -878,7 +878,7 @@ void test_runner_execute_serializes_shared_target_but_allows_another_target() {
         &shared_services
     );
 
-    btrfsbackup::config::Json shared_json = btrfsbackup::config::Json::parse(shared_output.str());
+    btrfsbackup::config::json::Json shared_json = btrfsbackup::config::json::Json::parse(shared_output.str());
     test_helpers::expect_eq("target busy result", std::to_string(shared_result), "1");
     test_helpers::expect_eq(
         "target busy error",
@@ -989,7 +989,7 @@ void test_runner_execute_uses_injected_services_and_writes_state() {
         &services
     );
 
-    btrfsbackup::config::Json json = btrfsbackup::config::Json::parse(output.str());
+    btrfsbackup::config::json::Json json = btrfsbackup::config::json::Json::parse(output.str());
     test_helpers::expect_eq("execute result", std::to_string(result), "0");
     test_helpers::expect_eq("execute mode", json.at("mode").get<std::string>(), "cpp-execute");
     test_helpers::expect_true("execute completed", json.at("completed").get<bool>(), "run should complete");
@@ -1007,7 +1007,7 @@ void test_runner_execute_uses_injected_services_and_writes_state() {
     test_helpers::expect_true("history exists", fs::is_regular_file(history), "missing history");
     test_helpers::expect_true(
         "current succeeded",
-        btrfsbackup::config::load_json_file(current).at("state") == "succeeded",
+        btrfsbackup::config::json::load_json_file(current).at("state") == "succeeded",
         "current status should be succeeded"
     );
     test_helpers::expect_true(
@@ -1073,7 +1073,7 @@ void test_runner_execute_daily_limit_skips_matching_success() {
         &services
     );
 
-    btrfsbackup::config::Json json = btrfsbackup::config::Json::parse(output.str());
+    btrfsbackup::config::json::Json json = btrfsbackup::config::json::Json::parse(output.str());
     test_helpers::expect_eq("daily skip result", std::to_string(result), "0");
     test_helpers::expect_true("daily skip completed", json.at("completed").get<bool>(), "skip should be successful");
     test_helpers::expect_true("daily skip flag", json.at("skipped").get<bool>(), "matching success should skip");
@@ -1086,12 +1086,12 @@ void test_runner_execute_daily_limit_skips_matching_success() {
     test_helpers::expect_true("daily skip history exists", fs::is_regular_file(history), "missing skipped history");
     test_helpers::expect_true(
         "daily skip current",
-        btrfsbackup::config::load_json_file(current).at("state") == "skipped",
+        btrfsbackup::config::json::load_json_file(current).at("state") == "skipped",
         "current status should be skipped"
     );
     test_helpers::expect_true(
         "daily skip history",
-        btrfsbackup::config::load_json_file(history).at("state") == "skipped",
+        btrfsbackup::config::json::load_json_file(history).at("state") == "skipped",
         "history should be skipped"
     );
 
@@ -1148,7 +1148,7 @@ void test_runner_execute_force_ignores_daily_limit() {
         &services
     );
 
-    btrfsbackup::config::Json json = btrfsbackup::config::Json::parse(output.str());
+    btrfsbackup::config::json::Json json = btrfsbackup::config::json::Json::parse(output.str());
     test_helpers::expect_eq("force result", std::to_string(result), "0");
     test_helpers::expect_true("force completed", json.at("completed").get<bool>(), "forced run should complete");
     test_helpers::expect_true("force not skipped", !json.at("skipped").get<bool>(), "forced run should bypass daily limit");
@@ -1205,7 +1205,7 @@ void test_runner_execute_validate_builds_plan_without_effects() {
         &services
     );
 
-    btrfsbackup::config::Json json = btrfsbackup::config::Json::parse(output.str());
+    btrfsbackup::config::json::Json json = btrfsbackup::config::json::Json::parse(output.str());
     test_helpers::expect_eq("validate result", std::to_string(result), "0");
     test_helpers::expect_eq("validate mode", json.at("mode").get<std::string>(), "cpp-validate");
     test_helpers::expect_true("validate completed", json.at("completed").get<bool>(), "validation should complete");
@@ -1263,7 +1263,7 @@ void test_runner_execute_transfer_failure_writes_failed_status() {
         output,
         &services
     );
-    const auto result_json = btrfsbackup::config::Json::parse(output.str());
+    const auto result_json = btrfsbackup::config::json::Json::parse(output.str());
     test_helpers::expect_eq("execute transfer failure exit", std::to_string(result), "1");
     test_helpers::expect_true("execute transfer failure completed", !result_json.at("completed").get<bool>(), "failed run must not complete");
     test_helpers::expect_contains("execute transfer failure message", result_json.at("errorMessage").get<std::string>(), "producer failed with exit code 7");
@@ -1271,11 +1271,11 @@ void test_runner_execute_transfer_failure_writes_failed_status() {
     fs::path checkpoint = root / "state" / "profiles" / "default" / "checkpoint.json";
     fs::path current = root / "status" / "default" / "current.json";
     fs::path history = root / "history" / "default" / "20260823T080000Z-123-456.json";
-    btrfsbackup::config::Json current_json = btrfsbackup::config::load_json_file(current);
+    btrfsbackup::config::json::Json current_json = btrfsbackup::config::json::load_json_file(current);
     test_helpers::expect_true("failed checkpoint exists", fs::is_regular_file(checkpoint), "missing checkpoint before failure");
     test_helpers::expect_true(
         "failed checkpoint action",
-        btrfsbackup::config::load_json_file(checkpoint).at("action") == "create-snapshot",
+        btrfsbackup::config::json::load_json_file(checkpoint).at("action") == "create-snapshot",
         "failed send-receive should not be checkpointed"
     );
     test_helpers::expect_true(
@@ -1286,12 +1286,12 @@ void test_runner_execute_transfer_failure_writes_failed_status() {
     test_helpers::expect_eq("failed transfer public error code", current_json.at("errorCode").get<std::string>(), "backup.failed");
     test_helpers::expect_eq(
         "failed transfer private error code",
-        btrfsbackup::config::load_json_file(history).at("errorCode").get<std::string>(),
+        btrfsbackup::config::json::load_json_file(history).at("errorCode").get<std::string>(),
         "transfer.producer_failed"
     );
     test_helpers::expect_true(
         "failed history",
-        btrfsbackup::config::load_json_file(history).at("state") == "failed",
+        btrfsbackup::config::json::load_json_file(history).at("state") == "failed",
         "history should fail"
     );
 
@@ -1345,7 +1345,7 @@ void test_runner_execute_commit_failure_writes_failed_status() {
         output,
         &services
     );
-    const auto result_json = btrfsbackup::config::Json::parse(output.str());
+    const auto result_json = btrfsbackup::config::json::Json::parse(output.str());
     test_helpers::expect_eq("execute commit failure exit", std::to_string(result), "1");
     test_helpers::expect_contains("execute commit failure message", result_json.at("errorMessage").get<std::string>(), "injected action failure");
 
@@ -1354,17 +1354,17 @@ void test_runner_execute_commit_failure_writes_failed_status() {
     fs::path history = root / "history" / "default" / "20260823T080000Z-123-456.json";
     test_helpers::expect_true(
         "commit failure checkpoint action",
-        btrfsbackup::config::load_json_file(checkpoint).at("action") == "verify-received",
+        btrfsbackup::config::json::load_json_file(checkpoint).at("action") == "verify-received",
         "failed commit should not be checkpointed"
     );
     test_helpers::expect_true(
         "commit failure current",
-        btrfsbackup::config::load_json_file(current).at("state") == "failed",
+        btrfsbackup::config::json::load_json_file(current).at("state") == "failed",
         "current status should fail"
     );
     test_helpers::expect_true(
         "commit failure phase",
-        btrfsbackup::config::load_json_file(history).at("phase") == "commit-received",
+        btrfsbackup::config::json::load_json_file(history).at("phase") == "commit-received",
         "history should identify commit phase"
     );
 
@@ -1418,7 +1418,7 @@ void test_runner_execute_verify_failure_writes_failed_status() {
         output,
         &services
     );
-    const auto result_json = btrfsbackup::config::Json::parse(output.str());
+    const auto result_json = btrfsbackup::config::json::Json::parse(output.str());
     test_helpers::expect_eq("execute verify failure exit", std::to_string(result), "1");
     test_helpers::expect_contains("execute verify failure message", result_json.at("errorMessage").get<std::string>(), "injected action failure");
 
@@ -1427,17 +1427,17 @@ void test_runner_execute_verify_failure_writes_failed_status() {
     fs::path history = root / "history" / "default" / "20260823T080000Z-123-456.json";
     test_helpers::expect_true(
         "verify failure checkpoint action",
-        btrfsbackup::config::load_json_file(checkpoint).at("action") == "send-receive",
+        btrfsbackup::config::json::load_json_file(checkpoint).at("action") == "send-receive",
         "failed verify should not be checkpointed"
     );
     test_helpers::expect_true(
         "verify failure current",
-        btrfsbackup::config::load_json_file(current).at("state") == "failed",
+        btrfsbackup::config::json::load_json_file(current).at("state") == "failed",
         "current status should fail"
     );
     test_helpers::expect_true(
         "verify failure phase",
-        btrfsbackup::config::load_json_file(history).at("phase") == "verify-received",
+        btrfsbackup::config::json::load_json_file(history).at("phase") == "verify-received",
         "history should identify verify phase"
     );
 
@@ -1494,14 +1494,14 @@ void test_runner_execute_multi_source_success() {
         &services
     );
 
-    btrfsbackup::config::Json json = btrfsbackup::config::Json::parse(output.str());
+    btrfsbackup::config::json::Json json = btrfsbackup::config::json::Json::parse(output.str());
     test_helpers::expect_eq("multi execute result", std::to_string(result), "0");
     test_helpers::expect_true("multi completed", json.at("completed").get<bool>(), "run should complete");
     test_helpers::expect_eq("multi transfers", std::to_string(transfer_pipeline.plans.size()), "2");
     test_helpers::expect_true("root actions", std::find(action_handler.calls.begin(), action_handler.calls.end(), "root:" + action_name(btrfsbackup::backup::BackupRunActionKind::CreateSnapshot)) != action_handler.calls.end(), "missing root create action");
     test_helpers::expect_true("home actions", std::find(action_handler.calls.begin(), action_handler.calls.end(), "home:" + action_name(btrfsbackup::backup::BackupRunActionKind::CreateSnapshot)) != action_handler.calls.end(), "missing home create action");
 
-    btrfsbackup::config::Json current = btrfsbackup::config::load_json_file(root / "status" / "default" / "current.json");
+    btrfsbackup::config::json::Json current = btrfsbackup::config::json::load_json_file(root / "status" / "default" / "current.json");
     test_helpers::expect_true("multi status", current.at("state") == "succeeded", "status should succeed");
     test_helpers::expect_true("multi source hidden", !current.contains("sourceCount"), "public status exposes source count");
 
@@ -1567,7 +1567,7 @@ void test_runner_execute_incremental_uses_selected_parent() {
     );
 
     test_helpers::expect_eq("incremental result", std::to_string(result), "0");
-    btrfsbackup::config::Json json = btrfsbackup::config::Json::parse(output.str());
+    btrfsbackup::config::json::Json json = btrfsbackup::config::json::Json::parse(output.str());
     test_helpers::expect_true("incremental output", json.at("sources").at(0).at("incremental").get<bool>(), "runner output should identify incremental transfer");
     test_helpers::expect_eq("incremental output parent", json.at("sources").at(0).at("parentPath").get<std::string>(), local_parent.string());
     test_helpers::expect_eq("incremental transfers", std::to_string(transfer_pipeline.plans.size()), "1");
@@ -1785,7 +1785,7 @@ void test_runner_cancel_validates_active_run_identity_without_target_mount() {
         &services
     );
 
-    btrfsbackup::config::Json json = btrfsbackup::config::Json::parse(output.str());
+    btrfsbackup::config::json::Json json = btrfsbackup::config::json::Json::parse(output.str());
     test_helpers::expect_eq("cancel result", std::to_string(result), "0");
     test_helpers::expect_eq("cancel mode", json.at("mode").get<std::string>(), "cpp-cancel");
     test_helpers::expect_true("cancel requested json", json.at("cancelRequested").get<bool>(), "cancel should be requested");
@@ -1809,7 +1809,7 @@ void test_runner_cancel_validates_active_run_identity_without_target_mount() {
         mismatch_output,
         &services
     );
-    btrfsbackup::config::Json mismatch_json = btrfsbackup::config::Json::parse(mismatch_output.str());
+    btrfsbackup::config::json::Json mismatch_json = btrfsbackup::config::json::Json::parse(mismatch_output.str());
     test_helpers::expect_eq("mismatch result", std::to_string(mismatch_result), "1");
     test_helpers::expect_true(
         "mismatch rejected",
@@ -1841,7 +1841,7 @@ void test_runner_cancel_validates_active_run_identity_without_target_mount() {
         stale_output,
         &services
     );
-    btrfsbackup::config::Json stale_json = btrfsbackup::config::Json::parse(stale_output.str());
+    btrfsbackup::config::json::Json stale_json = btrfsbackup::config::json::Json::parse(stale_output.str());
     test_helpers::expect_eq("stale result", std::to_string(stale_result), "1");
     test_helpers::expect_true(
         "stale rejected",
@@ -1906,13 +1906,13 @@ void test_runner_execute_honors_cancel_request_during_transfer() {
         &services
     );
 
-    btrfsbackup::config::Json json = btrfsbackup::config::Json::parse(output.str());
+    btrfsbackup::config::json::Json json = btrfsbackup::config::json::Json::parse(output.str());
     test_helpers::expect_eq("execute cancel result", std::to_string(result), "1");
     test_helpers::expect_true("execute cancel incomplete", !json.at("completed").get<bool>(), "cancelled run should not complete");
     test_helpers::expect_true("execute cancel flag", json.at("cancelled").get<bool>(), "cancelled flag should be true");
 
     fs::path current = root / "status" / "default" / "current.json";
-    btrfsbackup::config::Json current_json = btrfsbackup::config::load_json_file(current);
+    btrfsbackup::config::json::Json current_json = btrfsbackup::config::json::load_json_file(current);
     test_helpers::expect_eq("execute cancel status state", current_json.at("state").get<std::string>(), "cancelled");
     test_helpers::expect_eq("execute cancel code", current_json.at("errorCode").get<std::string>(), "backup.cancelled");
     test_helpers::expect_true(
@@ -1990,8 +1990,8 @@ void test_runner_execute_handles_sigint_as_cancelled_with_recovery_marker() {
         std::rethrow_exception(runner_error);
     }
 
-    btrfsbackup::config::Json run = btrfsbackup::config::Json::parse(output.str());
-    btrfsbackup::config::Json current = btrfsbackup::config::load_json_file(root / "status" / "default" / "current.json");
+    btrfsbackup::config::json::Json run = btrfsbackup::config::json::Json::parse(output.str());
+    btrfsbackup::config::json::Json current = btrfsbackup::config::json::load_json_file(root / "status" / "default" / "current.json");
     test_helpers::expect_eq("SIGINT runner result", std::to_string(result), "1");
     test_helpers::expect_true("SIGINT cancelled result", run.at("cancelled").get<bool>(), "run should report cancellation");
     test_helpers::expect_eq("SIGINT status state", current.at("state").get<std::string>(), "cancelled");
@@ -2029,7 +2029,7 @@ void test_runner_presents_degraded_completion_as_success_with_warnings() {
     std::ostringstream output;
 
     const int exit_code = btrfsbackup::cli::runner::present_runner_execution(result, output);
-    const btrfsbackup::config::Json json = btrfsbackup::config::Json::parse(output.str());
+    const btrfsbackup::config::json::Json json = btrfsbackup::config::json::Json::parse(output.str());
 
     test_helpers::expect_eq("degraded completion exit code", std::to_string(exit_code), "0");
     test_helpers::expect_true("degraded completion flag", json.at("degraded").get<bool>(), "degraded success was hidden");

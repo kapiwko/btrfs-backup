@@ -7,7 +7,7 @@
 #include <algorithm>
 #include <fstream>
 
-#include <config/model/Json.hpp>
+#include <config/json/Json.hpp>
 #include <core/Errors.hpp>
 #include <core/Identifiers.hpp>
 #include <state/StatusWriter.hpp>
@@ -72,7 +72,7 @@ std::vector<StatusDocument> get_status_history(
             throw ValidationError("cannot read " + path.string());
         }
         std::string content{std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()};
-        documents.push_back({.data = btrfsbackup::config::Json::parse(content), .content = std::move(content), .source = path});
+        documents.push_back({.data = btrfsbackup::config::json::Json::parse(content), .content = std::move(content), .source = path});
     }
     return documents;
 }

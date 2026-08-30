@@ -9,12 +9,12 @@
 #include <string>
 #include <vector>
 
-#include <config/model/Json.hpp>
+#include <config/json/Json.hpp>
 
 namespace btrfsbackup::state {
 
 struct StatusDocument {
-    btrfsbackup::config::Json data;
+    btrfsbackup::config::json::Json data;
     std::string content;
     std::filesystem::path source;
 };

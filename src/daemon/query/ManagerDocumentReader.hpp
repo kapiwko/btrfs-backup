@@ -6,11 +6,11 @@
 
 #include <filesystem>
 
-#include <config/model/Json.hpp>
+#include <config/json/Json.hpp>
 
 namespace btrfsbackup::daemon::query {
 
-[[nodiscard]] btrfsbackup::config::Json read_manager_json_document(
+[[nodiscard]] btrfsbackup::config::json::Json read_manager_json_document(
     const std::filesystem::path& path
 );
 [[nodiscard]] bool manager_regular_file_if_present(const std::filesystem::path& path);

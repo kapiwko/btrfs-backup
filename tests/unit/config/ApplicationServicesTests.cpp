@@ -8,8 +8,8 @@
 
 #include <platform/linux/config/InstallationService.hpp>
 #include <platform/linux/config/ProfileActivationMigration.hpp>
-#include <config/model/JsonIo.hpp>
-#include <config/model/ProfileDocument.hpp>
+#include <config/json/JsonIo.hpp>
+#include <config/json/ProfileDocument.hpp>
 #include <platform/linux/config/ProfileService.hpp>
 #include <platform/linux/config/RenderDirectory.hpp>
 #include <platform/linux/filesystem/FileIo.hpp>
@@ -32,7 +32,7 @@ std::string read_text(const fs::path& path) {
 }
 
 btrfsbackup::config::Profile sample_profile() {
-    return btrfsbackup::config::profile_from_json({{"schemaVersion", 3}, {"profileId", "laptop"}, {"name", "Laptop backup"}, {"enabled", true}, {"target", {{"device", "/dev/disk/by-uuid/11111111-2222-3333-4444-555555555555"}, {"luksUuid", "11111111-2222-3333-4444-555555555555"}, {"btrfsUuid", "66666666-7777-8888-9999-aaaaaaaaaaaa"}, {"mapperName", "backupdisk"}}}, {"sources", btrfsbackup::config::Json::array({{{"id", "home"}, {"name", "Home"}, {"enabled", true}, {"subvolume", "/home"}, {"localSnapshotDir", "/.snapshots/btrfs-backup/home"}, {"remoteSubdir", "home"}, {"remoteRetention", 7}, {"localRetention", 3}}})}});
+    return btrfsbackup::config::json::profile_from_json({{"schemaVersion", 3}, {"profileId", "laptop"}, {"name", "Laptop backup"}, {"enabled", true}, {"target", {{"device", "/dev/disk/by-uuid/11111111-2222-3333-4444-555555555555"}, {"luksUuid", "11111111-2222-3333-4444-555555555555"}, {"btrfsUuid", "66666666-7777-8888-9999-aaaaaaaaaaaa"}, {"mapperName", "backupdisk"}}}, {"sources", btrfsbackup::config::json::Json::array({{{"id", "home"}, {"name", "Home"}, {"enabled", true}, {"subvolume", "/home"}, {"localSnapshotDir", "/.snapshots/btrfs-backup/home"}, {"remoteSubdir", "home"}, {"remoteRetention", 7}, {"localRetention", 3}}})}});
 }
 
 void test_profile_and_installation_use_cases() {
