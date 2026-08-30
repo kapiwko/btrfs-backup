@@ -10,7 +10,7 @@
 #include <backup/ports/ICommandRunner.hpp>
 #include <backup/ports/TargetManager.hpp>
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::systemd {
 
 class SystemdMountedTargetSession final : public btrfsbackup::backup::IMountedTargetSession {
   public:
@@ -44,4 +44,4 @@ class SystemdMountedTargetSession final : public btrfsbackup::backup::IMountedTa
     std::optional<btrfsbackup::backup::TargetCleanupError> close_error_;
 };
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::systemd

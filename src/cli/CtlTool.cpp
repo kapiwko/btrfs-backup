@@ -24,7 +24,7 @@
 #include <config/ConfigurationIdentity.hpp>
 #include <core/Errors.hpp>
 #include <core/Cancellation.hpp>
-#include <platform/linux/LinuxSystemConfigurationActivator.hpp>
+#include <platform/linux/systemd/LinuxSystemConfigurationActivator.hpp>
 
 namespace fs = std::filesystem;
 
@@ -101,7 +101,7 @@ int ctl_tool_main(int argc, char** argv) {
         std::vector<std::string> args(rest.begin() + 1, rest.end());
 
         if (command == "profile") {
-            btrfsbackup::platform::linux::LinuxSystemConfigurationActivator activator;
+            btrfsbackup::platform::linux::systemd::LinuxSystemConfigurationActivator activator;
             return profile(args, profile_config_dir, activator);
         } else if (command == "status") {
             bool help_requested = std::ranges::contains(args, "-h") || std::ranges::contains(args, "--help");

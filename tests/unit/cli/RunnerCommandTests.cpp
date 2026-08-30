@@ -37,7 +37,7 @@
 #include <platform/linux/filesystem/FileBackupRunLeaseProvider.hpp>
 #include <platform/linux/filesystem/PosixDurableFileOperations.hpp>
 #include <platform/linux/process/PosixCommandRunner.hpp>
-#include <platform/linux/SystemdTargetManager.hpp>
+#include <platform/linux/systemd/SystemdTargetManager.hpp>
 #include <platform/linux/storage/MountInfo.hpp>
 #include <config/model/Json.hpp>
 #include <config/model/JsonIo.hpp>
@@ -464,7 +464,7 @@ int run_runner(
         );
     });
     btrfsbackup::platform::linux::process::PosixCommandRunner commands;
-    btrfsbackup::platform::linux::SystemdTargetManager target_mounter(mounts, commands);
+    btrfsbackup::platform::linux::systemd::SystemdTargetManager target_mounter(mounts, commands);
     btrfsbackup::backup::BackupPreflight preflight(mounts, target_mounter);
     test_support::FakeSafeDirectoryRootFactory safe_directories;
     btrfsbackup::platform::linux::filesystem::PosixDurableFileOperations durable_files;

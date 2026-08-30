@@ -8,7 +8,7 @@
 #include <string>
 
 #include <platform/linux/filesystem/FileIo.hpp>
-#include <platform/linux/SystemdUnit.hpp>
+#include <platform/linux/systemd/SystemdUnit.hpp>
 #include <config/ProfileRender.hpp>
 
 namespace fs = std::filesystem;
@@ -241,7 +241,7 @@ void render_installation_files(
     filesystem::atomic_write(output_dir / "systemd" / "btrfs-backup-validate@.service", render_validate_service(options.backup_command), 0644);
     filesystem::atomic_write(output_dir / "systemd" / "btrfs-backup-target@.service", render_target_service(options.target_command), 0644);
     filesystem::atomic_write(
-        output_dir / "systemd" / btrfsbackup::platform::linux::systemd_mount_unit_name(profile.target.mount_point),
+        output_dir / "systemd" / btrfsbackup::platform::linux::systemd::systemd_mount_unit_name(profile.target.mount_point),
         btrfsbackup::config::render_target_mount_unit(profile),
         0644
     );

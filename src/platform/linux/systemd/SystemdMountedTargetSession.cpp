@@ -2,15 +2,15 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <platform/linux/SystemdMountedTargetSession.hpp>
+#include <platform/linux/systemd/SystemdMountedTargetSession.hpp>
 
 #include <exception>
 #include <type_traits>
 #include <utility>
 
-static_assert(std::is_nothrow_destructible_v<btrfsbackup::platform::linux::SystemdMountedTargetSession>);
+static_assert(std::is_nothrow_destructible_v<btrfsbackup::platform::linux::systemd::SystemdMountedTargetSession>);
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::systemd {
 
 SystemdMountedTargetSession::SystemdMountedTargetSession(
     btrfsbackup::backup::ICommandRunner& commands,
@@ -89,4 +89,4 @@ std::optional<btrfsbackup::backup::TargetCleanupError> SystemdMountedTargetSessi
     }
 }
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::systemd

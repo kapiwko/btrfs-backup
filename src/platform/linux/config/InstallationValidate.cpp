@@ -19,7 +19,7 @@
 #include <platform/linux/config/ProfileService.hpp>
 #include <config/model/JsonIo.hpp>
 #include <platform/linux/process/Process.hpp>
-#include <platform/linux/SystemdUnit.hpp>
+#include <platform/linux/systemd/SystemdUnit.hpp>
 #include <config/model/Profile.hpp>
 #include <config/model/ProfileDocument.hpp>
 #include <config/ProfileRender.hpp>
@@ -131,7 +131,7 @@ void validate_rendered_installation(const fs::path& root, const fs::path& target
         btrfsbackup::config::render_mount_dependency(profile),
         "missing rendered target mount dependency"
     );
-    fs::path mount_unit = root / "systemd" / systemd_mount_unit_name(profile.target.mount_point);
+    fs::path mount_unit = root / "systemd" / systemd::systemd_mount_unit_name(profile.target.mount_point);
     require_exact_text(
         mount_unit,
         btrfsbackup::config::render_target_mount_unit(profile),
@@ -167,7 +167,7 @@ void validate_active_installation(const std::string& profile_id) {
     fs::path eject_service_file = "/etc/systemd/system/btrfs-backup-eject@.service";
     fs::path validate_service_file = "/etc/systemd/system/btrfs-backup-validate@.service";
     const std::optional<fs::path> target_service_file =
-        locate_systemd_unit_file("btrfs-backup-target@.service");
+        systemd::locate_systemd_unit_file("btrfs-backup-target@.service");
     if (!target_service_file.has_value()) {
         throw ValidationError(
             "missing target systemd template unit in the systemd unit load path: "
@@ -186,7 +186,7 @@ void validate_active_installation(const std::string& profile_id) {
     btrfsbackup::config::Profile profile = validate_profile_file(profile_json, config.paths().target_mount_root);
     fs::path mount_dependency = fs::path("/etc/systemd/system") / ("btrfs-backup@" + std::string(profile.id.value()) + ".service.d") / "target-mount.conf";
     require_exact_text(mount_dependency, btrfsbackup::config::render_mount_dependency(profile), "missing target mount dependency");
-    fs::path native_mount_unit = fs::path("/etc/systemd/system") / systemd_mount_unit_name(profile.target.mount_point);
+    fs::path native_mount_unit = fs::path("/etc/systemd/system") / systemd::systemd_mount_unit_name(profile.target.mount_point);
     require_exact_text(
         native_mount_unit,
         btrfsbackup::config::render_target_mount_unit(profile),
