@@ -6,12 +6,12 @@ add_library(btrfsbackup-platform-linux STATIC
     transfer/BoundedDiagnosticBuffer.cpp
     process/ChildProcess.cpp
     process/ControlledCommandSession.cpp
-    LibBtrfsOperations.cpp
-    DeviceInfo.cpp
+    storage/LibBtrfsOperations.cpp
+    storage/DeviceInfo.cpp
     filesystem/FileIo.cpp
     filesystem/FileBackupRunLeaseProvider.cpp
     filesystem/FileLock.cpp
-    MountInfo.cpp
+    storage/MountInfo.cpp
     OwnedFileDescriptor.cpp
     transfer/PosixCancellationSignal.cpp
     process/PosixCommandRunner.cpp
@@ -27,7 +27,7 @@ add_library(btrfsbackup-platform-linux STATIC
     process/Process.cpp
     process/ProcessSpawn.cpp
     filesystem/SafeDirectoryRoot.cpp
-    SpaceCheck.cpp
+    storage/SpaceCheck.cpp
     transfer/Splice.cpp
     LinuxSystemConfigurationActivator.cpp
     SystemdTargetManager.cpp
@@ -42,13 +42,13 @@ add_library(btrfsbackup-platform-linux STATIC
 target_compile_features(btrfsbackup-platform-linux PUBLIC cxx_std_23)
 target_restricted_include_directories(btrfsbackup-platform-linux
     PUBLIC_HEADERS
-        platform/linux/LibBtrfsOperations.hpp
+        platform/linux/storage/LibBtrfsOperations.hpp
         platform/linux/process/ChildProcess.hpp
-        platform/linux/DeviceInfo.hpp
+        platform/linux/storage/DeviceInfo.hpp
         platform/linux/filesystem/FileBackupRunLeaseProvider.hpp
         platform/linux/filesystem/FileIo.hpp
         platform/linux/filesystem/FileLock.hpp
-        platform/linux/MountInfo.hpp
+        platform/linux/storage/MountInfo.hpp
         platform/linux/OwnedFileDescriptor.hpp
         platform/linux/transfer/PosixCancellationSignal.hpp
         platform/linux/process/PosixCommandRunner.hpp
@@ -60,7 +60,7 @@ target_restricted_include_directories(btrfsbackup-platform-linux
         platform/linux/process/Process.hpp
         platform/linux/process/ProcessSpawn.hpp
         platform/linux/filesystem/SafeDirectoryRoot.hpp
-        platform/linux/SpaceCheck.hpp
+        platform/linux/storage/SpaceCheck.hpp
         platform/linux/transfer/Splice.hpp
         platform/linux/LinuxSystemConfigurationActivator.hpp
         platform/linux/SystemdTargetManager.hpp

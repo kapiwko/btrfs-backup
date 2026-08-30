@@ -13,7 +13,7 @@
 #include <string>
 
 #include <core/Errors.hpp>
-#include <platform/linux/MountInfo.hpp>
+#include <platform/linux/storage/MountInfo.hpp>
 #include <config/wizard/ProfileWizardPrompt.hpp>
 
 namespace fs = std::filesystem;
@@ -37,7 +37,7 @@ std::string source_name_from_path(const std::string& path) {
 }
 
 std::vector<std::string> detect_btrfs_sources() {
-    return btrfs_mount_targets();
+    return storage::btrfs_mount_targets();
 }
 
 std::string default_source_selection(const std::vector<std::string>& candidates) {

@@ -13,8 +13,8 @@
 #include <config/model/ProfileDocument.hpp>
 #include <core/Identifiers.hpp>
 #include <daemon/ManagerDocumentReader.hpp>
-#include <platform/linux/DeviceInfo.hpp>
-#include <platform/linux/MountInfo.hpp>
+#include <platform/linux/storage/DeviceInfo.hpp>
+#include <platform/linux/storage/MountInfo.hpp>
 
 namespace fs = std::filesystem;
 
@@ -33,13 +33,13 @@ TargetStatus DeviceStateQueryService::get_device_state(
         read_manager_json_document(profile_path),
         paths_.target_mount_root
     );
-    const fs::path mapper = btrfsbackup::platform::linux::mapper_path(
+    const fs::path mapper = btrfsbackup::platform::linux::storage::mapper_path(
         profile.target.mapper_name.value(),
         paths_.mapper_root
     );
     const fs::path mountpoint = paths_.target_mount_root / profile_id;
     const std::vector<btrfsbackup::backup::MountEntry> mounts =
-        btrfsbackup::platform::linux::read_mount_table(paths_.mountinfo_path);
+        btrfsbackup::platform::linux::storage::read_mount_table(paths_.mountinfo_path);
     const bool mounted = btrfsbackup::backup::mount_at(mounts, mountpoint).has_value();
     const bool unlocked = fs::exists(mapper);
     const bool connected = fs::exists(profile.target.device);

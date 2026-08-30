@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-#include <platform/linux/LibBtrfsOperations.hpp>
+#include <platform/linux/storage/LibBtrfsOperations.hpp>
 
 #include "support/TestHelpers.hpp"
 
@@ -63,7 +63,7 @@ void test_fake_operations_capture_expected_calls() {
 
 void test_lib_operations_treat_regular_directory_as_not_subvolume() {
     fs::path root = test_helpers::test_root("btrfs-operations", "regular-dir");
-    btrfsbackup::platform::linux::LibBtrfsOperations ops;
+    btrfsbackup::platform::linux::storage::LibBtrfsOperations ops;
 
     test_helpers::expect_true(
         "regular dir not subvolume",

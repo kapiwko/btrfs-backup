@@ -2,13 +2,13 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <platform/linux/DeviceInfo.hpp>
+#include <platform/linux/storage/DeviceInfo.hpp>
 
 #include <system_error>
 
 namespace fs = std::filesystem;
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::storage {
 
 fs::path mapper_path(const std::string& mapper_name, const fs::path& mapper_root) {
     return mapper_root / mapper_name;
@@ -31,4 +31,4 @@ std::string strip_subvolume_suffix(const std::string& source) {
     return source.substr(0, bracket);
 }
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::storage

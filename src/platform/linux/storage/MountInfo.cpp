@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <platform/linux/MountInfo.hpp>
+#include <platform/linux/storage/MountInfo.hpp>
 
 #include <blkid/blkid.h>
 #include <libmount/libmount.h>
@@ -13,10 +13,10 @@
 #include <sstream>
 #include <sys/sysmacros.h>
 
-#include <platform/linux/DeviceInfo.hpp>
+#include <platform/linux/storage/DeviceInfo.hpp>
 #include <core/Errors.hpp>
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::storage {
 
 namespace {
 
@@ -101,4 +101,4 @@ std::vector<btrfsbackup::backup::MountEntry> LinuxMountInspector::inspect() cons
     return read_mount_table(mountinfo_, uuid_resolver_);
 }
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::storage

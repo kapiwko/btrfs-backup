@@ -8,9 +8,9 @@
 #include <filesystem>
 #include <string>
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::storage {
 
 std::uint64_t available_bytes(const std::filesystem::path& path);
 void check_minimum_free_space(const std::filesystem::path& path, std::uint64_t minimum_bytes, const std::string& label);
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::storage
