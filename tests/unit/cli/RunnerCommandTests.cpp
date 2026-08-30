@@ -20,9 +20,9 @@
 #include <utility>
 #include <vector>
 
-#include <cli/RunnerCommand.hpp>
+#include <cli/runner/RunnerCommand.hpp>
 #include <cli/BackupTool.hpp>
-#include <cli/RunnerPresenter.hpp>
+#include <cli/runner/RunnerPresenter.hpp>
 #include <backup/execution/actions/BackupRunActionHandler.hpp>
 #include <backup/planning/BackupDiscovery.hpp>
 #include <backup/planning/BackupPlanBuilder.hpp>
@@ -447,7 +447,7 @@ int run_runner(
     btrfsbackup::CancellationToken* external_cancellation = nullptr
 ) {
     if (fixture == nullptr) {
-        return btrfsbackup::cli::runner(config_root, args, output);
+        return btrfsbackup::cli::runner::runner(config_root, args, output);
     }
     const btrfsbackup::ProfileId profile_id{option_value(args, "--profile", "default")};
     const btrfsbackup::config::Profile profile = btrfsbackup::platform::linux::load_profile_by_id(
@@ -520,11 +520,11 @@ int run_runner(
         clock,
         run_ids
     );
-    return btrfsbackup::cli::runner(args, output, service);
+    return btrfsbackup::cli::runner::runner(args, output, service);
 }
 
 int run_runner(const fs::path& config_root, const std::vector<std::string>& args, std::ostream& output) {
-    return btrfsbackup::cli::runner(config_root, args, output);
+    return btrfsbackup::cli::runner::runner(config_root, args, output);
 }
 
 std::string profile_fingerprint(const fs::path& config_root, const btrfsbackup::config::Profile& profile) {
@@ -2028,7 +2028,7 @@ void test_runner_presents_degraded_completion_as_success_with_warnings() {
         };
     std::ostringstream output;
 
-    const int exit_code = btrfsbackup::cli::present_runner_execution(result, output);
+    const int exit_code = btrfsbackup::cli::runner::present_runner_execution(result, output);
     const btrfsbackup::config::Json json = btrfsbackup::config::Json::parse(output.str());
 
     test_helpers::expect_eq("degraded completion exit code", std::to_string(exit_code), "0");

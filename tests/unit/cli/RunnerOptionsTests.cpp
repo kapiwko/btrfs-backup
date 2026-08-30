@@ -5,14 +5,14 @@
 #include <string>
 #include <vector>
 
-#include <cli/RunnerOptions.hpp>
+#include <cli/runner/RunnerOptions.hpp>
 
 #include "support/TestHelpers.hpp"
 
 namespace {
 
 void test_execute_options_are_typed() {
-    const btrfsbackup::cli::RunnerOptions options = btrfsbackup::cli::parse_runner_options({
+    const btrfsbackup::cli::runner::RunnerOptions options = btrfsbackup::cli::runner::parse_runner_options({
         "execute",
         "--profile",
         "laptop",
@@ -33,7 +33,7 @@ void test_execute_options_are_typed() {
 
     test_helpers::expect_true(
         "runner command kind",
-        options.command == btrfsbackup::cli::RunnerCommandKind::Execute,
+        options.command == btrfsbackup::cli::runner::RunnerCommandKind::Execute,
         "expected execute command"
     );
     test_helpers::expect_eq("runner profile", std::string(options.request.profile_id.value()), "laptop");
@@ -55,7 +55,7 @@ void test_execute_options_are_typed() {
 }
 
 void test_run_id_defaults_from_timestamp() {
-    const btrfsbackup::cli::RunnerOptions options = btrfsbackup::cli::parse_runner_options({
+    const btrfsbackup::cli::runner::RunnerOptions options = btrfsbackup::cli::runner::parse_runner_options({
         "plan",
         "--timestamp",
         "2026-08-23T08:00:00Z",
@@ -63,7 +63,7 @@ void test_run_id_defaults_from_timestamp() {
 
     test_helpers::expect_true(
         "plan command kind",
-        options.command == btrfsbackup::cli::RunnerCommandKind::Plan,
+        options.command == btrfsbackup::cli::runner::RunnerCommandKind::Plan,
         "expected plan command"
     );
     test_helpers::expect_eq(
@@ -74,8 +74,8 @@ void test_run_id_defaults_from_timestamp() {
 }
 
 void test_plan_target_mode_is_offline_unless_mount_is_explicit() {
-    const btrfsbackup::cli::RunnerOptions offline = btrfsbackup::cli::parse_runner_options({"plan", "--offline"});
-    const btrfsbackup::cli::RunnerOptions mounted = btrfsbackup::cli::parse_runner_options({"plan", "--mount-target"});
+    const btrfsbackup::cli::runner::RunnerOptions offline = btrfsbackup::cli::runner::parse_runner_options({"plan", "--offline"});
+    const btrfsbackup::cli::runner::RunnerOptions mounted = btrfsbackup::cli::runner::parse_runner_options({"plan", "--mount-target"});
 
     test_helpers::expect_true("offline plan target", !offline.mount_target, "offline plan enabled mounting");
     test_helpers::expect_true("mounted plan target", mounted.mount_target, "mounted plan did not enable mounting");
@@ -83,16 +83,16 @@ void test_plan_target_mode_is_offline_unless_mount_is_explicit() {
 
 void test_invalid_options_return_parser_error_without_terminating_process() {
     try {
-        (void)btrfsbackup::cli::parse_runner_options({"cancel", "--profile", "laptop"});
+        (void)btrfsbackup::cli::runner::parse_runner_options({"cancel", "--profile", "laptop"});
         test_helpers::expect_true("missing run id parser error", false, "parser accepted a missing run id");
-    } catch (const btrfsbackup::cli::RunnerOptionsError& error) {
+    } catch (const btrfsbackup::cli::runner::RunnerOptionsError& error) {
         test_helpers::expect_eq("missing run id parser message", error.what(), "--run-id is required for cancel");
     }
 
     try {
-        (void)btrfsbackup::cli::parse_runner_options({"unknown"});
+        (void)btrfsbackup::cli::runner::parse_runner_options({"unknown"});
         test_helpers::expect_true("unknown command parser error", false, "parser accepted an unknown command");
-    } catch (const btrfsbackup::cli::RunnerOptionsError& error) {
+    } catch (const btrfsbackup::cli::runner::RunnerOptionsError& error) {
         test_helpers::expect_eq("unknown command parser message", error.what(), "unknown command: unknown");
     }
 }

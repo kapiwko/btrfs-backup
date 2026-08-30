@@ -11,7 +11,7 @@
 
 #include <backup/BackupService.hpp>
 
-namespace btrfsbackup::cli {
+namespace btrfsbackup::cli::runner {
 
 int runner(const std::filesystem::path& profile_config_dir, const std::vector<std::string>& args, std::ostream& output);
 int runner(
@@ -26,4 +26,4 @@ int runner(
     btrfsbackup::backup::BackupService& service
 );
 
-} // namespace btrfsbackup::cli
+} // namespace btrfsbackup::cli::runner

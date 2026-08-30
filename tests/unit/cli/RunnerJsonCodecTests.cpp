@@ -12,7 +12,7 @@
 #include <vector>
 
 #include <backup/model/BackupRunPlan.hpp>
-#include <cli/RunnerPresenter.hpp>
+#include <cli/runner/RunnerPresenter.hpp>
 #include <config/model/Json.hpp>
 
 #include "support/TestHelpers.hpp"
@@ -22,7 +22,7 @@ namespace fs = std::filesystem;
 namespace {
 
 namespace backup = btrfsbackup::backup;
-namespace cli = btrfsbackup::cli;
+namespace runner = btrfsbackup::cli::runner;
 namespace config = btrfsbackup::config;
 
 struct ExpectedAction {
@@ -103,7 +103,7 @@ void test_plan_encodes_every_action_kind() {
     };
 
     std::ostringstream output;
-    const int exit_code = cli::present_runner_plan(plan, output);
+    const int exit_code = runner::present_runner_plan(plan, output);
     const config::Json document = config::Json::parse(output.str());
     const config::Json& encoded = document.at("sources").at(0).at("actions");
     const std::array expected{

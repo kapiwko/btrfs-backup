@@ -2,14 +2,14 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <cli/RunnerPresenter.hpp>
+#include <cli/runner/RunnerPresenter.hpp>
 
 #include <ostream>
 #include <print>
 
-#include <cli/RunnerJsonCodec.hpp>
+#include <cli/runner/RunnerJsonCodec.hpp>
 
-namespace btrfsbackup::cli {
+namespace btrfsbackup::cli::runner {
 namespace {
 
 int present(const EncodedRunnerResponse& response, std::ostream& output) {
@@ -42,4 +42,4 @@ int present_runner_cancellation(const btrfsbackup::backup::CancelBackupResult& r
     return present(encode_runner_cancellation(result), output);
 }
 
-} // namespace btrfsbackup::cli
+} // namespace btrfsbackup::cli::runner

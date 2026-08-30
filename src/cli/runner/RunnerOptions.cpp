@@ -2,14 +2,14 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <cli/RunnerOptions.hpp>
+#include <cli/runner/RunnerOptions.hpp>
 
 #include <chrono>
 #include <optional>
 #include <string>
 #include <utility>
 
-namespace btrfsbackup::cli {
+namespace btrfsbackup::cli::runner {
 namespace {
 
 struct ParsedRunnerCommand {
@@ -125,4 +125,4 @@ RunnerOptions parse_runner_options(const std::vector<std::string>& args) {
     };
 }
 
-} // namespace btrfsbackup::cli
+} // namespace btrfsbackup::cli::runner
