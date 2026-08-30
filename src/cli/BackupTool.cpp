@@ -8,6 +8,7 @@
 #include <exception>
 #include <filesystem>
 #include <iostream>
+#include <print>
 #include <string>
 #include <vector>
 
@@ -23,7 +24,7 @@ namespace fs = std::filesystem;
 namespace {
 
 [[noreturn]] void fail(const std::string& message, int code = 2) {
-    std::cerr << "btrfs-backup: " << message << '\n';
+    std::println(std::cerr, "btrfs-backup: {}", message);
     std::exit(code);
 }
 
@@ -35,13 +36,16 @@ std::string arg_value(const std::vector<std::string>& args, std::size_t& index, 
 }
 
 void usage(std::ostream& output) {
-    output << "Usage: btrfs-backup [options]\n"
-           << "\nOptions:\n"
-           << "  --profile ID   Use /etc/btrfs-backup/profiles/ID/profile.json.\n"
-           << "  --force        Run even if a successful backup was already made today.\n"
-           << "  --validate     Mount the target and validate configuration without creating snapshots.\n"
-           << "  --no-eject     Do not automatically eject after a manual invocation.\n"
-           << "  -h, --help     Show this help.\n";
+    std::print(
+        output,
+        "Usage: btrfs-backup [options]\n"
+        "\nOptions:\n"
+        "  --profile ID   Use /etc/btrfs-backup/profiles/ID/profile.json.\n"
+        "  --force        Run even if a successful backup was already made today.\n"
+        "  --validate     Mount the target and validate configuration without creating snapshots.\n"
+        "  --no-eject     Do not automatically eject after a manual invocation.\n"
+        "  -h, --help     Show this help.\n"
+    );
 }
 
 struct BackupOptions {
