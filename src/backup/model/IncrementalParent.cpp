@@ -54,14 +54,14 @@ IncrementalParentSelection select_incremental_parent(
     bool incremental_required
 ) {
     const std::string source_id_value{source_id.value()};
-    IncrementalParentSelection selection;
+    bool remote_snapshots_exist = false;
     std::map<std::string, SnapshotInfo> remote_by_received_uuid;
 
     for (const SnapshotInfo& remote : remote_snapshots) {
         if (remote.source_id != source_id) {
             continue;
         }
-        selection.remote_snapshots_exist = true;
+        remote_snapshots_exist = true;
         if (!remote.readonly || remote.received_uuid.empty()) {
             continue;
         }
@@ -90,17 +90,14 @@ IncrementalParentSelection select_incremental_parent(
         if (found == remote_by_received_uuid.end()) {
             continue;
         }
-        selection.incremental = true;
-        selection.local_parent = local;
-        selection.remote_parent = found->second;
-        return selection;
+        return IncrementalTransfer{local, found->second};
     }
 
-    if (selection.remote_snapshots_exist && incremental_required) {
+    if (remote_snapshots_exist && incremental_required) {
         throw ValidationError("Remote snapshots exist for " + source_id_value + ", but no UUID-matching local parent was found.");
     }
 
-    return selection;
+    return FullTransfer{};
 }
 
 } // namespace btrfsbackup::backup

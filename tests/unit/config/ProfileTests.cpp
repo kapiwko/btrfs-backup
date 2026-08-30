@@ -229,14 +229,13 @@ void test_target_activation_is_structured_and_migrated() {
         btrfsbackup::config::profile_from_json(key_file);
     expect_true(
         "activation key file mode",
-        key_file_profile.target.activation.mode ==
-            btrfsbackup::config::TargetActivationMode::KeyFile,
+        std::holds_alternative<btrfsbackup::config::KeyFileActivation>(key_file_profile.target.activation),
         "key file mode was not loaded"
     );
+    const auto& activation = std::get<btrfsbackup::config::KeyFileActivation>(key_file_profile.target.activation);
     expect_true(
         "activation key file path",
-        key_file_profile.target.activation.key_file ==
-            "/root/keys/backupdisk.key",
+        activation.key_file.value() == "/root/keys/backupdisk.key",
         "key file path was not loaded"
     );
 
