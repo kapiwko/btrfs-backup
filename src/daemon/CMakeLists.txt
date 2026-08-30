@@ -145,11 +145,11 @@ target_link_libraries(btrfs-backupd
 )
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-    target_compile_options(btrfsbackup-daemon-core PRIVATE -Wall -Wextra -Wpedantic)
-    target_compile_options(btrfsbackup-daemon-query PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(btrfsbackup-daemon-control PRIVATE -Wall -Wextra -Wpedantic)
-    target_compile_options(btrfsbackup-daemon-system-control PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(btrfsbackup-daemon-core PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(btrfsbackup-daemon-dbus PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(btrfsbackup-daemon-query PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(btrfsbackup-daemon-system-control PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(btrfs-backupd PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 
