@@ -49,6 +49,7 @@ target_link_libraries(btrfsbackup-daemon-query
         btrfsbackup-config-json
         btrfsbackup-core
         btrfsbackup-platform-linux-storage
+        btrfsbackup-state
 )
 
 add_library(btrfsbackup-daemon-control STATIC

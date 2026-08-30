@@ -55,6 +55,7 @@ int main(int argc, char** argv) {
             .public_profile_root = "/var/lib/btrfs-backup/public/profiles",
             .status_root = configured.status_root,
             .history_root = configured.history_root,
+            .state_root = configured.state_root,
             .target_mount_root = configured.target_mount_root,
         };
         std::string bus_address;
