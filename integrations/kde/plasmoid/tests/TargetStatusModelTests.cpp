@@ -6,6 +6,8 @@
 
 #include <iostream>
 
+#include <QLocale>
+
 namespace {
 
 int failures = 0;
@@ -37,10 +39,10 @@ void test_applies_lifecycle_and_storage() {
     const bool applied = model.apply("default", payload(QStringLiteral(R"(,
         "storage": {
             "schemaVersion": 1,
-            "capacityBytes": 1000,
-            "usedBytes": 400,
-            "availableBytes": 600,
-            "usagePercent": 40,
+            "capacityBytes": 4000787030016,
+            "usedBytes": 1280251849600,
+            "availableBytes": 2720535180416,
+            "usagePercent": 32,
             "measuredAt": "2026-08-30T12:34:56Z",
             "live": false,
             "spaceState": "below-configured-minimum"
@@ -49,7 +51,10 @@ void test_applies_lifecycle_and_storage() {
     expect(applied, "valid target status was rejected");
     expect(model.connected() && model.mounted(), "target lifecycle was not applied");
     expect(model.storageKnown(), "target storage was not applied");
-    expect(model.capacityBytes() == 1000 && model.usagePercent() == 40, "target capacity is wrong");
+    expect(model.capacityBytes() == 4000787030016 && model.usagePercent() == 32, "target capacity is wrong");
+    expect(model.capacityText() == QStringLiteral("3,6 TiB"), "target capacity was not localized");
+    expect(model.usedText() == QStringLiteral("1,2 TiB"), "used storage was not localized");
+    expect(model.availableText() == QStringLiteral("2,5 TiB"), "available storage was not localized");
     expect(model.spaceBelowMinimum(), "minimum-space warning was lost");
     expect(!model.storageLive(), "cached storage was marked live");
 }
@@ -78,6 +83,7 @@ void test_wrong_profile_preserves_last_state() {
 } // namespace
 
 int main() {
+    QLocale::setDefault(QLocale(QLocale::Polish, QLocale::Poland));
     test_applies_lifecycle_and_storage();
     test_capability_and_reset_clear_storage();
     test_wrong_profile_preserves_last_state();

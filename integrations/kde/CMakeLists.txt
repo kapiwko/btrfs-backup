@@ -106,6 +106,8 @@ qt_add_qml_module(btrfsbackup_plasma_backend
         plasmoid/src/BackupHistoryModel.hpp
         plasmoid/src/BackupStatusModel.cpp
         plasmoid/src/BackupStatusModel.hpp
+        plasmoid/src/ByteFormatting.cpp
+        plasmoid/src/ByteFormatting.hpp
         plasmoid/src/RunStatusModel.cpp
         plasmoid/src/RunStatusModel.hpp
         plasmoid/src/TargetStatusModel.cpp
@@ -196,6 +198,8 @@ if(BUILD_TESTING)
 
     add_executable(
         plasma-target-status-model-tests
+        plasmoid/src/ByteFormatting.cpp
+        plasmoid/src/ByteFormatting.hpp
         plasmoid/src/TargetStatusModel.cpp
         plasmoid/src/TargetStatusModel.hpp
         plasmoid/tests/TargetStatusModelTests.cpp
@@ -221,6 +225,8 @@ if(BUILD_TESTING)
         plasma-status-models-tests
         plasmoid/src/BackupHistoryModel.cpp
         plasmoid/src/BackupHistoryModel.hpp
+        plasmoid/src/ByteFormatting.cpp
+        plasmoid/src/ByteFormatting.hpp
         plasmoid/src/RunStatusModel.cpp
         plasmoid/src/RunStatusModel.hpp
         plasmoid/tests/StatusModelsTests.cpp

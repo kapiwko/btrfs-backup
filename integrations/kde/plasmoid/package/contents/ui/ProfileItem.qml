@@ -91,6 +91,7 @@ PlasmaExtras.ExpandableListItem {
                 visible: root.running
                 active: root.running
                 currentSpeed: profileStatus.run.speedBps
+                currentSpeedText: profileStatus.run.speedText
             }
 
             PlasmaComponents3.ProgressBar {
@@ -154,9 +155,9 @@ PlasmaExtras.ExpandableListItem {
                     Layout.fillWidth: true
                     supported: profileStatus.target.storageSupported
                     known: profileStatus.target.storageKnown
-                    capacityBytes: profileStatus.target.capacityBytes
-                    usedBytes: profileStatus.target.usedBytes
-                    availableBytes: profileStatus.target.availableBytes
+                    capacityText: profileStatus.target.capacityText
+                    usedText: profileStatus.target.usedText
+                    availableText: profileStatus.target.availableText
                     usagePercent: profileStatus.target.usagePercent
                     live: profileStatus.target.storageLive
                     measuredAt: profileStatus.target.storageMeasuredAt

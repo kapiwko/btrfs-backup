@@ -7,6 +7,8 @@
 
 #include <iostream>
 
+#include <QLocale>
+
 namespace {
 
 int failures = 0;
@@ -47,6 +49,7 @@ void test_run_status_and_terminal_transition() {
     expect(model.apply(run_payload(QStringLiteral("running"), true)), "running status was rejected");
     expect(model.canCancel(), "cancellable status was not exposed");
     expect(model.overallProgress() == 40 && model.speedBps() == 1024, "run progress was not applied");
+    expect(model.speedText() == QStringLiteral("1,0 KiB/s"), "transfer rate was not localized");
     expect(model.apply(run_payload(QStringLiteral("succeeded"), false)), "terminal status was rejected");
     expect(finished == 1, "active-to-terminal transition was not reported exactly once");
 
@@ -77,6 +80,7 @@ void test_history_validation_and_reset() {
 } // namespace
 
 int main() {
+    QLocale::setDefault(QLocale(QLocale::Polish, QLocale::Poland));
     test_run_status_and_terminal_transition();
     test_history_validation_and_reset();
     if (failures == 0) {

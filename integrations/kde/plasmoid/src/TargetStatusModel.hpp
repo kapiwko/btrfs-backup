@@ -21,6 +21,9 @@ class TargetStatusModel : public QObject {
     Q_PROPERTY(qint64 capacityBytes READ capacityBytes NOTIFY changed)
     Q_PROPERTY(qint64 usedBytes READ usedBytes NOTIFY changed)
     Q_PROPERTY(qint64 availableBytes READ availableBytes NOTIFY changed)
+    Q_PROPERTY(QString capacityText READ capacityText NOTIFY changed)
+    Q_PROPERTY(QString usedText READ usedText NOTIFY changed)
+    Q_PROPERTY(QString availableText READ availableText NOTIFY changed)
     Q_PROPERTY(int usagePercent READ usagePercent NOTIFY changed)
     Q_PROPERTY(bool storageLive READ storageLive NOTIFY changed)
     Q_PROPERTY(QString storageMeasuredAt READ storageMeasuredAt NOTIFY changed)
@@ -40,6 +43,9 @@ class TargetStatusModel : public QObject {
     qint64 capacityBytes() const;
     qint64 usedBytes() const;
     qint64 availableBytes() const;
+    QString capacityText() const;
+    QString usedText() const;
+    QString availableText() const;
     int usagePercent() const;
     bool storageLive() const;
     QString storageMeasuredAt() const;
