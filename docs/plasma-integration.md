@@ -17,10 +17,29 @@ connectivity, mount state, and safe-removal state come only from authoritative
 `GetDeviceState` data supplied by the system backend.
 
 The plasmoid consumes profiles, reduced current status, sanitized history and
-target lifecycle state. It exposes start, run-scoped cancellation, validation,
-and eject through the authorized manager methods. Detailed run phases drive
-the visible activity text; compact mode shows determinate or indeterminate
-progress and a terminal-state badge.
+target lifecycle state. Its expanded profile view also shows filesystem
+capacity, used and available space, and a usage percentage when the manager
+advertises `target-storage-usage`. Cached measurements are labelled with their
+measurement time, and space below `minimum_target_free_bytes` is presented as a
+theme-aware warning. Compact mode remains limited to status and progress.
+
+Opening the widget has no target-side effects. A live measurement is used only
+when the target is already mounted and verified; otherwise the widget shows the
+last identity-matching measurement saved by the runner or a no-data state. It
+does not unlock LUKS, mount a filesystem or start validation to obtain capacity.
+The values represent Btrfs filesystem space reported by the kernel, not raw disk
+size or exact Btrfs chunk, compression, metadata or qgroup consumption.
+
+The presentation backend is split into grouped run, target and history models.
+The shared state-document codec validates target JSON before the Qt target model
+applies it, keeping schema handling out of the D-Bus coordinator and QML.
+
+The plasmoid exposes start, run-scoped cancellation, validation, and eject
+through the authorized manager methods. Detailed run phases drive the visible
+activity text; compact mode shows determinate or indeterminate progress and a
+terminal-state badge. Device changes, successful operations and active-to-
+terminal run transitions trigger coalesced device-state refreshes without
+polling on progress updates.
 
 ## Package
 
