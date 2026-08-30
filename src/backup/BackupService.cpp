@@ -142,7 +142,7 @@ BackupRunPlan BackupService::plan(const BackupPlanRequest& request) {
     }
     std::unique_ptr<IBackupRunLease> lease = std::move(std::get<BackupRunLeaseAcquired>(lease_result).lease);
     CancellationToken cancellation;
-    std::unique_ptr<IMountedTargetSession> target_session = preflight_.run(
+    BackupPreflightResult preflight = preflight_.run(
         loaded.profile,
         request.mount_target ? TargetMountMode::MountIfNeeded : TargetMountMode::RequireMounted,
         cancellation
@@ -153,9 +153,9 @@ BackupRunPlan BackupService::plan(const BackupPlanRequest& request) {
         plan = plan_builder_.build(loaded.profile, snapshot, run_id, time, cancellation);
     } catch (...) {
         const std::exception_ptr original_error = std::current_exception();
-        rethrow_planning_failure_after_target_cleanup(*target_session, original_error);
+        rethrow_planning_failure_after_target_cleanup(*preflight.target_session, original_error);
     }
-    close_standalone_target_or_throw(*target_session);
+    close_standalone_target_or_throw(*preflight.target_session);
     return std::move(*plan);
 }
 
@@ -227,7 +227,7 @@ std::optional<BackupExecutionResult> BackupService::finish_validation_if_request
     if (!request.validate_only) {
         return std::nullopt;
     }
-    record_target_storage(profile);
+    record_target_storage(profile, context);
     if (std::optional<BackupExecutionFailed> failed = close_target_or_fail(
             context,
             events,
@@ -261,7 +261,7 @@ std::optional<BackupExecutionResult> BackupService::skip_if_daily_limit_reached(
         !ledger_.last_success_matches(profile, today, loaded_profile.fingerprint)) {
         return std::nullopt;
     }
-    record_target_storage(profile);
+    record_target_storage(profile, context);
     if (std::optional<BackupExecutionFailed> failed = close_target_or_fail(
             context,
             events,
@@ -299,7 +299,7 @@ BackupExecutionResult BackupService::execute_plan(
 
     if (const auto* completed = std::get_if<BackupRunExecutionCompleted>(&execution)) {
         std::vector<BackupCompletionWarning> warnings;
-        record_target_storage(profile, &warnings);
+        record_target_storage(profile, context, &warnings);
         if (std::optional<BackupExecutionFailed> failed = close_target_or_fail(
                 context,
                 events,
@@ -325,7 +325,7 @@ BackupExecutionResult BackupService::execute_plan(
         return result;
     }
     if (const auto* failed = std::get_if<BackupRunExecutionFailed>(&execution)) {
-        record_target_storage(profile);
+        record_target_storage(profile, context);
         BackupExecutionResult result = BackupExecutionFailed{
             .profile_id = profile.id,
             .run_id = identity.run_id,
@@ -336,7 +336,7 @@ BackupExecutionResult BackupService::execute_plan(
         (void)context.close();
         return result;
     }
-    record_target_storage(profile);
+    record_target_storage(profile, context);
     BackupExecutionResult result = BackupExecutionCancelled{
         std::move(plan),
         std::get<BackupRunExecutionCancelled>(execution).actions_completed,
@@ -393,12 +393,14 @@ void BackupService::record_terminal_status_warning(
 
 void BackupService::record_target_storage(
     const btrfsbackup::config::Profile& profile,
+    const execution::RunExecutionContext& context,
     std::vector<BackupCompletionWarning>* warnings
 ) {
-    if (target_storage_ == nullptr) {
+    const MountEntry* verified_target_mount = context.verified_target_mount();
+    if (target_storage_ == nullptr || verified_target_mount == nullptr) {
         return;
     }
-    std::optional<BackupCompletionWarning> warning = target_storage_->record(profile);
+    std::optional<BackupCompletionWarning> warning = target_storage_->record(profile, *verified_target_mount);
     if (warning.has_value() && warnings != nullptr) {
         warnings->push_back(std::move(*warning));
     }
@@ -489,7 +491,7 @@ BackupExecutionResult BackupService::start_loaded_profile(
             0,
         };
         if (context != nullptr) {
-            record_target_storage(profile);
+            record_target_storage(profile, *context);
             (void)context->close();
         }
         return result;
@@ -504,7 +506,7 @@ BackupExecutionResult BackupService::start_loaded_profile(
             operation_kind
         );
         if (context != nullptr) {
-            record_target_storage(profile);
+            record_target_storage(profile, *context);
             (void)context->close();
         }
         return result;
@@ -519,7 +521,7 @@ BackupExecutionResult BackupService::start_loaded_profile(
             operation_kind
         );
         if (context != nullptr) {
-            record_target_storage(profile);
+            record_target_storage(profile, *context);
             (void)context->close();
         }
         throw;
@@ -531,12 +533,12 @@ BackupRunPlan BackupService::prepare_target_and_plan(
     const execution::RunIdentity& identity,
     execution::RunExecutionContext& context
 ) {
-    std::unique_ptr<IMountedTargetSession> target_session = preflight_.run(
+    BackupPreflightResult preflight = preflight_.run(
         profile,
         TargetMountMode::MountIfNeeded,
         context.cancellation_token()
     );
-    context.attach_target_session(std::move(target_session));
+    context.attach_verified_target(std::move(preflight));
     if (context.cancellation_token().cancellation_requested()) {
         throw OperationCancelledError("backup cancelled during preflight");
     }

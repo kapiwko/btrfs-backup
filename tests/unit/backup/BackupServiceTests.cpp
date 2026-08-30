@@ -93,7 +93,7 @@ struct FakePreflight final : btrfsbackup::backup::IBackupPreflight {
         std::optional<btrfsbackup::backup::TargetCleanupError> close_error;
     };
 
-    std::unique_ptr<btrfsbackup::backup::IMountedTargetSession> run(
+    btrfsbackup::backup::BackupPreflightResult run(
         const btrfsbackup::config::Profile&,
         btrfsbackup::backup::TargetMountMode mode,
         btrfsbackup::CancellationToken& cancellation
@@ -112,7 +112,16 @@ struct FakePreflight final : btrfsbackup::backup::IBackupPreflight {
                 "target identity mismatch"
             );
         }
-        return std::make_unique<Session>(session_destructions, lifecycle, session_close_fail);
+        return {
+            .target_session = std::make_unique<Session>(session_destructions, lifecycle, session_close_fail),
+            .verified_target_mount = {
+                .source = "/dev/mapper/backup",
+                .target = "/mnt/backup",
+                .fstype = "btrfs",
+                .mount_id = 42,
+                .filesystem_uuid = "22222222-3333-4444-5555-666666666666",
+            },
+        };
     }
 };
 
@@ -722,7 +731,7 @@ void test_run_context_close_aggregates_cleanup_diagnostics() {
         std::get<btrfsbackup::backup::BackupRunLeaseAcquired>(lease_result).lease
     );
     btrfsbackup::CancellationToken cancellation;
-    std::unique_ptr<btrfsbackup::backup::IMountedTargetSession> target_session = fixture.preflight.run(
+    btrfsbackup::backup::BackupPreflightResult preflight = fixture.preflight.run(
         fixture.profiles.profile,
         btrfsbackup::backup::TargetMountMode::MountIfNeeded,
         cancellation
@@ -736,7 +745,7 @@ void test_run_context_close_aggregates_cleanup_diagnostics() {
         fixture.cancellation_monitor
     );
     context.attach_event_sink(std::move(events));
-    context.attach_target_session(std::move(target_session));
+    context.attach_verified_target(std::move(preflight));
 
     const btrfsbackup::backup::execution::RunExecutionContextCloseResult& result = context.close();
     test_helpers::expect_true("cleanup result failed", !result.succeeded(), "cleanup failures were lost");

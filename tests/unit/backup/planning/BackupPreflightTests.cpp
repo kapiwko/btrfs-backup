@@ -92,6 +92,7 @@ struct FakeMountInspector final : btrfsbackup::backup::IMountInspector {
             .target = "/mnt/backup",
             .fstype = "btrfs",
             .options = "rw,nodev,nosuid,noexec,nosymfollow",
+            .mount_id = 42,
             .device_id = "0:21",
             .filesystem_uuid = filesystem_uuid,
         }};
@@ -105,7 +106,7 @@ void test_activates_target_before_reading_and_validating_mounts() {
     btrfsbackup::backup::planning::BackupPreflight preflight(mounts, target);
     btrfsbackup::CancellationToken cancellation;
 
-    std::unique_ptr<btrfsbackup::backup::IMountedTargetSession> session = preflight.run(
+    btrfsbackup::backup::BackupPreflightResult result = preflight.run(
         profile(),
         btrfsbackup::backup::TargetMountMode::MountIfNeeded,
         cancellation
@@ -116,7 +117,13 @@ void test_activates_target_before_reading_and_validating_mounts() {
         calls == std::vector<std::string>{"mount", "inspect"},
         "mount table was not read after target activation"
     );
-    test_helpers::expect_true("preflight close", !session->close().has_value(), "target cleanup failed");
+    test_helpers::expect_true(
+        "verified target forwarded",
+        result.verified_target_mount.source == "/dev/mapper/backup" &&
+            result.verified_target_mount.mount_id == 42,
+        "preflight did not return the mount it verified"
+    );
+    test_helpers::expect_true("preflight close", !result.target_session->close().has_value(), "target cleanup failed");
     test_helpers::expect_true(
         "preflight restores mount",
         calls == std::vector<std::string>{"mount", "inspect", "unmount"},

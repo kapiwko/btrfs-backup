@@ -14,7 +14,7 @@ class BackupPreflight final : public IBackupPreflight {
   public:
     BackupPreflight(IMountInspector& mount_inspector, ITargetManager& target_manager);
 
-    [[nodiscard]] std::unique_ptr<IMountedTargetSession> run(
+    [[nodiscard]] BackupPreflightResult run(
         const btrfsbackup::config::Profile& profile,
         TargetMountMode mode,
         CancellationToken& cancellation
