@@ -156,7 +156,7 @@ void test_build_status_json_includes_structured_error() {
         {"expected", std::string{"expected-uuid"}},
         {"actual", std::string{"actual-uuid"}},
     };
-    record.can_cancel = true;
+    record.can_cancel = false;
     record.exit_code = 2;
 
     btrfsbackup::config::Json data = btrfsbackup::state::build_status_json(record);
@@ -167,7 +167,7 @@ void test_build_status_json_includes_structured_error() {
     expect_true("structured detail actual", data.at("details").at("actual") == "actual-uuid", "wrong actual detail");
     expect_true("structured recoverable", data.at("recoverable") == false, "wrong recoverable");
     expect_true("structured action", data.at("suggestedAction") == "connect-correct-target", "wrong suggested action");
-    expect_true("structured can cancel", data.at("canCancel") == true, "wrong canCancel");
+    expect_true("structured can cancel", data.at("canCancel") == false, "wrong canCancel");
 }
 
 void test_build_public_status_json_excludes_diagnostics() {

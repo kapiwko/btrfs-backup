@@ -11,10 +11,13 @@
 #include <optional>
 #include <string>
 #include <vector>
+#include <type_traits>
 
 #include "support/TestHelpers.hpp"
 
 namespace {
+
+static_assert(std::is_nothrow_destructible_v<btrfsbackup::backup::RunExecutionContext>);
 
 struct FakeProfiles final : btrfsbackup::config::IProfileRepository {
     btrfsbackup::config::Profile profile{

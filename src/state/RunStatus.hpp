@@ -106,4 +106,5 @@ struct RunStatus {
 std::string run_state_name(RunState state);
 std::string run_phase_name(RunPhase phase);
 std::string progress_accuracy_name(ProgressAccuracy accuracy);
+void validate_run_status(const RunStatus& status);
 } // namespace btrfsbackup::state

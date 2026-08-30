@@ -5,6 +5,9 @@
 #include <state/PollingCancellationWatch.hpp>
 
 #include <chrono>
+#include <type_traits>
+
+static_assert(std::is_nothrow_destructible_v<btrfsbackup::state::PollingCancellationWatch>);
 #include <exception>
 #include <iostream>
 #include <utility>

@@ -829,6 +829,33 @@ void test_transfer_failure_emits_failed_action() {
     }
 }
 
+void test_snapshot_failure_does_not_write_a_checkpoint() {
+    RecordingActionHandler handler;
+    handler.should_throw = true;
+    handler.throw_on = btrfsbackup::backup::BackupRunActionKind::CreateSnapshot;
+    RecordingTransferPipeline transfers;
+    RecordingCheckpoints checkpoints;
+    RecordingEvents events;
+    btrfsbackup::CancellationToken cancellation;
+    btrfsbackup::backup::transfer::ThreadedAsyncTransferPipeline async_transfers(transfers);
+    btrfsbackup::backup::BackupActionExecutor action_executor(handler, async_transfers, safe_directories);
+    btrfsbackup::backup::BackupRunExecutor executor(action_executor, checkpoints);
+
+    const auto result = executor.execute(
+        plan_with_actions({action(btrfsbackup::backup::BackupRunActionKind::CreateSnapshot)}),
+        events,
+        cancellation
+    );
+
+    test_helpers::expect_true("snapshot failure result", failed_run(result) != nullptr, "run should fail");
+    test_helpers::expect_true("snapshot failure checkpoint", checkpoints.checkpoints.empty(), "failed snapshot was checkpointed");
+    test_helpers::expect_true(
+        "snapshot failed event",
+        events.has_event(btrfsbackup::backup::BackupRunEventKind::ActionFailed),
+        "missing failed action event"
+    );
+}
+
 void test_receive_failure_is_reported_separately() {
     RecordingActionHandler handler;
     RecordingTransferPipeline transfers;
@@ -1047,6 +1074,7 @@ int main() {
     test_cancels_between_actions();
     test_cancels_during_transfer_without_checkpointing_transfer();
     test_transfer_failure_emits_failed_action();
+    test_snapshot_failure_does_not_write_a_checkpoint();
     test_receive_failure_is_reported_separately();
     test_commit_failure_after_successful_transfer_keeps_verify_checkpoint();
     test_commit_cleanup_failure_emits_recovery_required_code();
