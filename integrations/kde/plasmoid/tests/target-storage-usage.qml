@@ -37,7 +37,8 @@ Window {
                     || usage.capacityText !== "3,6 TiB"
                     || usage.usedText !== "1,2 TiB"
                     || usage.availableText !== "2,5 TiB"
-                    || usage.usageText !== "32%") {
+                    || usage.usageText !== "32%"
+                    || usage.measuredAt !== "2026-08-30T12:34:56Z") {
                 Qt.exit(2)
                 return
             }
