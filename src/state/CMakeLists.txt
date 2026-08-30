@@ -47,6 +47,7 @@ add_library(btrfsbackup-state STATIC
     persistence/BackupRunSerialization.cpp
     persistence/FilePendingMarkerStore.cpp
     persistence/FileRunStateRepository.cpp
+    persistence/FileTargetStorageMeasurementStore.cpp
     persistence/JsonFileBackupRunCheckpointStore.cpp
     persistence/StatusWriter.cpp
     projection/RunStatusBuilder.cpp
@@ -64,6 +65,7 @@ target_restricted_include_directories(btrfsbackup-state
         state/persistence/BackupRunSerialization.hpp
         state/persistence/FilePendingMarkerStore.hpp
         state/persistence/FileRunStateRepository.hpp
+        state/persistence/FileTargetStorageMeasurementStore.hpp
         state/persistence/JsonFileBackupRunCheckpointStore.hpp
         state/persistence/StatusWriter.hpp
         state/projection/RunStatusBuilder.hpp
