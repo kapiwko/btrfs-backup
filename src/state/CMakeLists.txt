@@ -30,8 +30,8 @@ add_library(btrfsbackup-state STATIC
     cancellation/PollingCancellationWatch.cpp
     RunHistory.cpp
     RunState.cpp
-    RunStatusBuilder.cpp
-    RunStatusProjection.cpp
+    projection/RunStatusBuilder.cpp
+    projection/RunStatusProjection.cpp
     StatusService.cpp
     persistence/StatusWriter.cpp
 )
@@ -45,8 +45,8 @@ target_restricted_include_directories(btrfsbackup-state
         state/persistence/JsonFileBackupRunCheckpointStore.hpp
         state/RunHistory.hpp
         state/RunState.hpp
-        state/RunStatusProjection.hpp
-        state/RunStatusBuilder.hpp
+        state/projection/RunStatusProjection.hpp
+        state/projection/RunStatusBuilder.hpp
         state/persistence/BackupRunSerialization.hpp
         state/StatusService.hpp
         state/persistence/StatusWriter.hpp
