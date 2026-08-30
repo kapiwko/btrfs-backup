@@ -1,5 +1,8 @@
 # Building Release Artifacts
 
+Release-note structure, metadata preparation, tagging and GitHub publication
+are defined in [release notes and publication](releasing.md).
+
 ## Release Script
 
 The upstream repository includes a release script with separate build targets:
