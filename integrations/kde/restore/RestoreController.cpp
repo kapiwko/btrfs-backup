@@ -18,7 +18,7 @@
 #include <platform/linux/storage/LibBtrfsOperations.hpp>
 #include <restore/RepositoryDiscoveryService.hpp>
 
-using namespace Qt::StringLiterals;
+using Qt::StringLiterals::operator""_s;
 
 namespace btrfsbackup::kde::restore {
 namespace {
@@ -47,7 +47,7 @@ RestoreController::RestoreController(QUrl source_url, QObject* parent)
     destination_ = QDir::cleanPath(QDir::homePath() + u"/Downloads/"_s + name);
 }
 
-RestoreController::~RestoreController() {
+RestoreController::~RestoreController() noexcept {
     if (job_ != nullptr)
         job_->kill(KJob::Quietly);
     close_session();
