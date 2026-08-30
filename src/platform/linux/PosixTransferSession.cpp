@@ -21,6 +21,7 @@
 
 #include <core/Errors.hpp>
 #include <backup/transfer/TransferSpeedEstimator.hpp>
+#include <platform/linux/ChildProcess.hpp>
 #include <platform/linux/PosixCancellationSignal.hpp>
 #include <platform/linux/PosixTransferProcess.hpp>
 #include <platform/linux/PosixTransferPump.hpp>

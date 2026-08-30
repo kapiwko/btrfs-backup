@@ -17,6 +17,7 @@
 #include <thread>
 
 #include <platform/linux/Process.hpp>
+#include <platform/linux/ChildProcess.hpp>
 #include <platform/linux/ProcessSpawn.hpp>
 #include <core/Cancellation.hpp>
 

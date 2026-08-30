@@ -15,6 +15,7 @@
 #include <cstring>
 
 #include <core/Errors.hpp>
+#include <platform/linux/ChildProcess.hpp>
 #include <platform/linux/ProcessSpawn.hpp>
 #include <platform/linux/PosixCancellationSignal.hpp>
 
