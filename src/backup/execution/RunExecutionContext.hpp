@@ -21,12 +21,9 @@ namespace btrfsbackup::backup::execution {
 
 enum class RunExecutionContextCloseStage {
     CancellationWatch,
-    EventSink,
-    CheckpointStore,
     ActiveRun,
     CancellationRequest,
     TargetSession,
-    Lease,
 };
 
 struct RunExecutionContextCloseFailure {
