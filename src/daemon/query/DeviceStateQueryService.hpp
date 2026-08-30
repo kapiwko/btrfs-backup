@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <memory>
 #include <string>
 
 #include <daemon/ManagerPaths.hpp>
@@ -14,13 +15,18 @@ namespace btrfsbackup::daemon::query {
 class DeviceStateQueryService {
   public:
     explicit DeviceStateQueryService(ManagerPaths paths);
+    ~DeviceStateQueryService() noexcept;
+
+    DeviceStateQueryService(const DeviceStateQueryService&) = delete;
+    DeviceStateQueryService& operator=(const DeviceStateQueryService&) = delete;
 
     [[nodiscard]] TargetStatus get_device_state(
         const std::string& profile_id
     ) const;
 
   private:
-    ManagerPaths paths_;
+    struct Impl;
+    std::unique_ptr<Impl> impl_;
 };
 
 } // namespace btrfsbackup::daemon::query

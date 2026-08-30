@@ -26,6 +26,7 @@ btrfsbackup::daemon::ManagerPaths manager_paths(const fs::path& root) {
         .public_profile_root = root / "public",
         .status_root = root / "status",
         .history_root = root / "history",
+        .state_root = root / "state",
         .target_mount_root = root / "mnt",
         .mapper_root = root / "mapper",
         .mountinfo_path = "/proc/self/mountinfo",
@@ -54,6 +55,16 @@ btrfsbackup::config::json::Json private_profile(const fs::path& root) {
                         {"remoteRetention", 2},
                         {"localRetention", 2},
                     }})},
+        {"settings", {
+                         {"dailyLimit", true},
+                         {"incrementalRequired", true},
+                         {"keepFailedLocalSnapshot", false},
+                         {"autoEject", true},
+                         {"remoteRetention", 2},
+                         {"localRetention", 2},
+                         {"minimumTargetFreeBytes", 500},
+                         {"minimumLocalFreeBytes", 0},
+                     }},
     };
 }
 
@@ -254,10 +265,46 @@ void test_device_state_is_presentation_safe() {
         root / "etc" / "profiles" / "default" / "profile.json",
         btrfsbackup::config::json::dump_json(private_profile(root))
     );
+    test_helpers::write_file(
+        root / "state" / "profiles" / "default" / "target-storage.json",
+        R"({
+            "schemaVersion": 1,
+            "profileId": "default",
+            "targetIdentity": {
+                "luksUuid": "11111111-2222-3333-4444-555555555555",
+                "btrfsUuid": "66666666-7777-8888-9999-aaaaaaaaaaaa",
+                "partitionUuid": ""
+            },
+            "measurement": {
+                "capacityBytes": 1000,
+                "freeBytes": 400,
+                "availableBytes": 350,
+                "measuredAt": "2026-08-30T12:34:56Z"
+            }
+        })"
+    );
     const btrfsbackup::daemon::query::DeviceStateQueryService service(manager_paths(root));
     const btrfsbackup::daemon::TargetStatus state = service.get_device_state("default");
     test_helpers::expect_eq("connected target state", state.state, "connected");
     test_helpers::expect_true("safe closed target", state.safe_to_remove, "target is not safe");
+    test_helpers::expect_true("cached storage available", state.storage.has_value(), "cached target storage was not returned");
+    test_helpers::expect_true("cached storage freshness", state.storage.has_value() && !state.storage->live, "cache was marked live");
+    test_helpers::expect_true("cached used bytes", state.storage.has_value() && state.storage->used_bytes == 600, "cached used bytes are wrong");
+    test_helpers::expect_true(
+        "configured minimum",
+        state.storage.has_value() && state.storage->space_state == "below-configured-minimum",
+        "profile minimum did not produce a storage warning"
+    );
+
+    test_helpers::write_file(
+        root / "state" / "profiles" / "default" / "target-storage.json",
+        R"({"schemaVersion":1,"profileId":"default","targetIdentity":{"luksUuid":"11111111-2222-3333-4444-555555555555","btrfsUuid":"AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE","partitionUuid":""},"measurement":{"capacityBytes":1000,"freeBytes":400,"availableBytes":350,"measuredAt":"2026-08-30T12:34:56Z"}})"
+    );
+    test_helpers::expect_true(
+        "changed target cache ignored",
+        !service.get_device_state("default").storage.has_value(),
+        "cache for a different target was returned"
+    );
     fs::remove_all(root);
 }
 
