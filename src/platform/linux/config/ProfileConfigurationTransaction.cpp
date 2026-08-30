@@ -191,29 +191,7 @@ void ProfileConfigurationTransaction::publish_public_marker() {
 RollbackResult ProfileConfigurationTransaction::rollback() noexcept {
     RollbackResult result;
     for (auto it = artifacts_.rbegin(); it != artifacts_.rend(); ++it) {
-        bool restored_previous = false;
-        if (it->published && it->operation == btrfsbackup::config::ProfileArtifactOperation::Write) {
-            remove_for_rollback(it->destination, result, "remove published artifact");
-        }
-        if (it->had_previous) {
-            restored_previous = rename_for_rollback(
-                it->previous,
-                it->destination,
-                result,
-                "restore previous artifact"
-            );
-        }
-        try {
-            fsync_dir(it->destination.parent_path());
-        } catch (const std::exception& error) {
-            record_rollback_error(result, "fsync artifact directory", it->destination.parent_path(), error.what());
-        } catch (...) {
-            record_rollback_error(result, "fsync artifact directory", it->destination.parent_path(), "unknown error");
-        }
-        remove_cleanup_for_rollback(it->staged, result, "remove staged artifact");
-        if (!it->had_previous || restored_previous) {
-            remove_cleanup_for_rollback(it->previous, result, "remove rollback artifact");
-        }
+        rollback_artifact(*it, result);
     }
     return result;
 }
@@ -250,6 +228,64 @@ void ProfileConfigurationTransaction::publish(TransactionArtifact& item) {
             fs::rename(item.previous, item.destination, restore_error);
         }
         throw;
+    }
+}
+
+void ProfileConfigurationTransaction::rollback_artifact(
+    TransactionArtifact& item,
+    RollbackResult& result
+) noexcept {
+    remove_published_artifact(item, result);
+    const bool restored_previous = restore_previous_artifact(item, result);
+    sync_rollback_directory(item, result);
+    remove_transaction_files(item, restored_previous, result);
+}
+
+void ProfileConfigurationTransaction::remove_published_artifact(
+    TransactionArtifact& item,
+    RollbackResult& result
+) noexcept {
+    if (item.published && item.operation == btrfsbackup::config::ProfileArtifactOperation::Write) {
+        remove_for_rollback(item.destination, result, "remove published artifact");
+    }
+}
+
+bool ProfileConfigurationTransaction::restore_previous_artifact(
+    TransactionArtifact& item,
+    RollbackResult& result
+) noexcept {
+    if (!item.had_previous) {
+        return false;
+    }
+    return rename_for_rollback(
+        item.previous,
+        item.destination,
+        result,
+        "restore previous artifact"
+    );
+}
+
+void ProfileConfigurationTransaction::sync_rollback_directory(
+    const TransactionArtifact& item,
+    RollbackResult& result
+) noexcept {
+    try {
+        fsync_dir(item.destination.parent_path());
+    } catch (const std::exception& error) {
+        record_rollback_error(result, "fsync artifact directory", item.destination.parent_path(), error.what());
+    } catch (...) {
+        record_rollback_error(result, "fsync artifact directory", item.destination.parent_path(), "unknown error");
+    }
+}
+
+void ProfileConfigurationTransaction::remove_transaction_files(
+    const TransactionArtifact& item,
+    bool restored_previous,
+    RollbackResult& result
+) noexcept {
+    remove_cleanup_for_rollback(item.staged, result, "remove staged artifact");
+    if (!item.had_previous || restored_previous) {
+        remove_cleanup_for_rollback(item.previous, result, "remove rollback artifact");
     }
 }
 
