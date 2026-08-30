@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 add_btrfsbackup_test(btrfsbackup-backup-run-serialization-tests BackupRunSerializationTests.cpp backup-run-serialization-tests btrfsbackup-state)
+add_btrfsbackup_test(btrfsbackup-cancellation-watch-lifecycle-tests CancellationWatchLifecycleTests.cpp cancellation-watch-lifecycle-tests btrfsbackup-state)
 add_btrfsbackup_test(btrfsbackup-persistent-document-operations-tests PersistentDocumentOperationsTests.cpp persistent-document-operations-tests btrfsbackup-state)
 add_btrfsbackup_test(btrfsbackup-run-checkpoint-store-tests RunCheckpointStoreTests.cpp run-checkpoint-store-tests btrfsbackup-state btrfsbackup-platform-linux)
 add_btrfsbackup_test(btrfsbackup-run-status-projection-tests RunStatusProjectionTests.cpp run-status-projection-tests btrfsbackup-state btrfsbackup-platform-linux)
