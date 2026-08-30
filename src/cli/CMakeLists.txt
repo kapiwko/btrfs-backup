@@ -53,6 +53,7 @@ target_link_libraries(btrfsbackup-cli
         btrfsbackup-backup
     PRIVATE
         btrfsbackup-backup-model
+        btrfsbackup-backup-planning
         btrfsbackup-backup-ports
         btrfsbackup-config-domain
         btrfsbackup-config-ports

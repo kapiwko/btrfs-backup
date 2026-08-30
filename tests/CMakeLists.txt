@@ -60,8 +60,16 @@ assert_public_link_interface(
     btrfsbackup-backup-ports
 )
 assert_public_link_interface(
-    btrfsbackup-backup
+    btrfsbackup-backup-planning
     btrfsbackup-backup-ports
+)
+assert_public_link_interface(
+    btrfsbackup-backup-execution
+    btrfsbackup-backup-ports
+)
+assert_public_link_interface(
+    btrfsbackup-backup
+    btrfsbackup-backup-execution
     btrfsbackup-config-ports
 )
 assert_public_link_interface(btrfsbackup-state-persistence-ports)
@@ -139,6 +147,8 @@ set(architecture_targets
     btrfsbackup-transfer
     btrfsbackup-backup-ports
     btrfsbackup-backup-testing
+    btrfsbackup-backup-planning
+    btrfsbackup-backup-execution
     btrfsbackup-backup
     btrfsbackup-state-persistence-ports
     btrfsbackup-state-model

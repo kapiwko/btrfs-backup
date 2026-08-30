@@ -118,16 +118,34 @@ target_link_libraries(btrfsbackup-backup-testing
         btrfsbackup-backup-ports
 )
 
-add_library(btrfsbackup-backup STATIC
-    execution/BackupActionExecutor.cpp
+add_library(btrfsbackup-backup-planning STATIC
     planning/BackupPreflight.cpp
     planning/BackupPreflightValidation.cpp
+    planning/BackupDiscovery.cpp
+    planning/BackupPlanBuilder.cpp
+)
+target_compile_features(btrfsbackup-backup-planning PUBLIC cxx_std_23)
+target_restricted_include_directories(btrfsbackup-backup-planning
+    PUBLIC_HEADERS
+        backup/planning/BackupDiscovery.hpp
+        backup/planning/BackupPlanBuilder.hpp
+        backup/planning/BackupPreflight.hpp
+        backup/planning/BackupPreflightValidation.hpp
+)
+target_link_libraries(btrfsbackup-backup-planning
+    PUBLIC
+        btrfsbackup-backup-ports
+    PRIVATE
+        btrfsbackup-backup-model
+        btrfsbackup-config-domain
+        btrfsbackup-core
+)
+
+add_library(btrfsbackup-backup-execution STATIC
+    execution/BackupActionExecutor.cpp
     execution/BackupRun.cpp
     execution/BackupRunCheckpointPolicy.cpp
     execution/BackupRunExecutor.cpp
-    BackupService.cpp
-    planning/BackupDiscovery.cpp
-    planning/BackupPlanBuilder.cpp
     execution/actions/DefaultBackupRunActionHandlerFactory.cpp
     execution/DefaultBackupRunFactory.cpp
     execution/LinkedCancellationMonitor.cpp
@@ -145,9 +163,8 @@ add_library(btrfsbackup-backup STATIC
     transfer/TransferCoordinator.cpp
     transfer/TransferSizing.cpp
 )
-
-target_compile_features(btrfsbackup-backup PUBLIC cxx_std_23)
-target_restricted_include_directories(btrfsbackup-backup
+target_compile_features(btrfsbackup-backup-execution PUBLIC cxx_std_23)
+target_restricted_include_directories(btrfsbackup-backup-execution
     PUBLIC_HEADERS
         backup/execution/actions/BackupRunActionHandler.hpp
         backup/execution/actions/HookActionHandler.hpp
@@ -156,14 +173,9 @@ target_restricted_include_directories(btrfsbackup-backup
         backup/execution/actions/RetentionActionHandler.hpp
         backup/execution/actions/SnapshotActionHandler.hpp
         backup/execution/BackupActionExecutor.hpp
-        backup/planning/BackupDiscovery.hpp
-        backup/planning/BackupPlanBuilder.hpp
-        backup/planning/BackupPreflight.hpp
-        backup/planning/BackupPreflightValidation.hpp
         backup/execution/BackupRun.hpp
         backup/execution/BackupRunCheckpointPolicy.hpp
         backup/execution/BackupRunExecutor.hpp
-        backup/BackupService.hpp
         backup/execution/actions/DefaultBackupRunActionHandlerFactory.hpp
         backup/execution/DefaultBackupRunFactory.hpp
         backup/execution/LinkedCancellationMonitor.hpp
@@ -176,10 +188,9 @@ target_restricted_include_directories(btrfsbackup-backup
         backup/execution/actions/OwnedBackupRunActionHandler.hpp
         backup/transfer/TransferSizing.hpp
 )
-target_link_libraries(btrfsbackup-backup
+target_link_libraries(btrfsbackup-backup-execution
     PUBLIC
         btrfsbackup-backup-ports
-        btrfsbackup-config-ports
     PRIVATE
         btrfsbackup-backup-model
         btrfsbackup-config-domain
@@ -187,10 +198,30 @@ target_link_libraries(btrfsbackup-backup
         btrfsbackup-transfer
 )
 
+add_library(btrfsbackup-backup STATIC
+    BackupService.cpp
+)
+target_compile_features(btrfsbackup-backup PUBLIC cxx_std_23)
+target_restricted_include_directories(btrfsbackup-backup
+    PUBLIC_HEADERS
+        backup/BackupService.hpp
+)
+target_link_libraries(btrfsbackup-backup
+    PUBLIC
+        btrfsbackup-backup-execution
+        btrfsbackup-config-ports
+    PRIVATE
+        btrfsbackup-backup-model
+        btrfsbackup-config-domain
+        btrfsbackup-core
+)
+
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(btrfsbackup-backup-model PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(btrfsbackup-transfer PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(btrfsbackup-backup-ports PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(btrfsbackup-backup-testing PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(btrfsbackup-backup-planning PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(btrfsbackup-backup-execution PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(btrfsbackup-backup PRIVATE -Wall -Wextra -Wpedantic)
 endif()
