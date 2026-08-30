@@ -171,7 +171,7 @@ int run_dbus_server(
             &raw_slot,
             manager_protocol::object_path,
             manager_protocol::interface_name,
-            object.vtable(),
+            ManagerDbusObject::vtable(),
             &object
         ),
         "cannot export the manager object"
