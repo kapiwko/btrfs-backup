@@ -25,7 +25,7 @@ include(KDEInstallDirs)
 include(KDECompilerSettings NO_POLICY_SCOPE)
 include(CTest)
 
-find_package(Qt6 REQUIRED COMPONENTS Core DBus Qml Quick)
+find_package(Qt6 REQUIRED COMPONENTS Core DBus Gui Qml Quick)
 find_package(KF6 REQUIRED COMPONENTS CoreAddons I18n JobWidgets Package)
 find_package(Plasma REQUIRED)
 ki18n_install(plasmoid/po)
@@ -65,12 +65,17 @@ target_link_libraries(
     PRIVATE
         Qt6::Core
         Qt6::DBus
+        Qt6::Gui
         btrfsbackup_kde_manager_client
         KF6::CoreAddons
         KF6::I18n
         KF6::JobWidgets
 )
 install(TARGETS btrfs-backup-kde-monitor RUNTIME DESTINATION "${KDE_INSTALL_BINDIR}")
+install(
+    FILES progress/io.github.btrfsbackup.ProgressMonitor.desktop
+    DESTINATION "${KDE_INSTALL_APPDIR}"
+)
 install(
     FILES systemd/btrfs-backup-kde-monitor.service
     DESTINATION lib/systemd/user

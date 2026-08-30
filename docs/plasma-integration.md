@@ -37,6 +37,7 @@ The base package does not depend on Plasma. The KDE package installs:
 ```text
 /usr/bin/btrfs-backup-kde-monitor
 /usr/lib/systemd/user/btrfs-backup-kde-monitor.service
+/usr/share/applications/io.github.btrfsbackup.ProgressMonitor.desktop
 /usr/share/plasma/plasmoids/org.btrfsbackup.plasmoid
 /usr/lib/qt6/qml/org/btrfsbackup/plasma
 ```
