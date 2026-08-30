@@ -251,6 +251,17 @@ Keep one primary abstraction per file; closely related supporting enums, result
 types and small value types may remain beside it when splitting them would
 reduce locality.
 
+Whenever you add a class, decide explicitly whether it should have its own
+files. Classes with state, lifecycle or RAII ownership, independent invariants,
+a reusable contract, or focused tests use `ClassName.hpp` and, when needed,
+`ClassName.cpp` by default. Keep a class local only when it is a small,
+non-growing implementation detail of the file's primary abstraction.
+
+List source files, headers, and targets alphabetically within their logical
+CMake section. Preserve meaningful `PUBLIC`, `PRIVATE`, and `INTERFACE`
+grouping; do not reorder entries across visibility boundaries merely to obtain
+one global sort order.
+
 Use C++23 features when they make ownership and domain invariants clearer:
 
 - own file descriptors, processes, locks, temporary files and other resources
