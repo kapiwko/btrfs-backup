@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include "TargetStatusParser.hpp"
+
 #include <QDBusConnection>
 #include <QDBusPendingCall>
 #include <QList>
