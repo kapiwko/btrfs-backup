@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <platform/linux/FileLock.hpp>
+#include <platform/linux/filesystem/FileLock.hpp>
 
 #include <fcntl.h>
 #include <sys/file.h>
@@ -17,7 +17,7 @@
 
 namespace fs = std::filesystem;
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::filesystem {
 
 fs::path default_lock_root() {
     return "/run/btrfs-backup/locks";
@@ -95,4 +95,4 @@ bool FileLock::acquired() const noexcept {
     return acquired_;
 }
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::filesystem

@@ -8,7 +8,7 @@
 
 #include <backup/ports/RunLease.hpp>
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::filesystem {
 
 class FileBackupRunLeaseProvider final : public btrfsbackup::backup::IBackupRunLeaseProvider {
   public:
@@ -20,4 +20,4 @@ class FileBackupRunLeaseProvider final : public btrfsbackup::backup::IBackupRunL
     std::filesystem::path lock_root_;
 };
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::filesystem

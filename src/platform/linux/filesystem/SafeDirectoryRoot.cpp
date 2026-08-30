@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <platform/linux/SafeDirectoryRoot.hpp>
+#include <platform/linux/filesystem/SafeDirectoryRoot.hpp>
 
 #include <dirent.h>
 #include <fcntl.h>
@@ -25,7 +25,7 @@
 
 namespace fs = std::filesystem;
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::filesystem {
 
 namespace {
 
@@ -312,4 +312,4 @@ std::unique_ptr<btrfsbackup::backup::ISafeDirectoryRoot> SafeDirectoryRootFactor
     return std::make_unique<SafeDirectoryRoot>(root);
 }
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::filesystem

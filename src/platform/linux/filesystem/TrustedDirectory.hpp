@@ -8,7 +8,7 @@
 
 #include <filesystem>
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::filesystem {
 
 void validate_trusted_directory(
     const std::filesystem::path& path,
@@ -23,4 +23,4 @@ void ensure_trusted_directory(
     uid_t trusted_owner = 0
 );
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::filesystem

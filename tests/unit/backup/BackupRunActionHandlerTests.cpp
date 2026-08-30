@@ -27,9 +27,9 @@
 #include <backup/DefaultBackupRunActionHandlerFactory.hpp>
 #include <backup/SystemRunContext.hpp>
 
-#include <platform/linux/SafeDirectoryRoot.hpp>
-#include <platform/linux/PosixDurableFileOperations.hpp>
-#include <platform/linux/TrustedExecutable.hpp>
+#include <platform/linux/filesystem/SafeDirectoryRoot.hpp>
+#include <platform/linux/filesystem/PosixDurableFileOperations.hpp>
+#include <platform/linux/filesystem/TrustedExecutable.hpp>
 #include <state/FilePendingMarkerStore.hpp>
 #include <state/RunState.hpp>
 
@@ -246,22 +246,22 @@ class ActionHandlerFixture final : public btrfsbackup::backup::IBackupRunActionH
         const fs::path& target_root
     )
         : pending_markers_(durable_files_),
-          snapshots_(btrfs, filesystem, pending_markers_, clock_, std::make_unique<btrfsbackup::platform::linux::SafeDirectoryRoot>("/")),
+          snapshots_(btrfs, filesystem, pending_markers_, clock_, std::make_unique<btrfsbackup::platform::linux::filesystem::SafeDirectoryRoot>("/")),
           recovery_(
               btrfs,
               pending_markers_,
-              std::make_unique<btrfsbackup::platform::linux::SafeDirectoryRoot>("/"),
-              std::make_unique<btrfsbackup::platform::linux::SafeDirectoryRoot>(target_root)
+              std::make_unique<btrfsbackup::platform::linux::filesystem::SafeDirectoryRoot>("/"),
+              std::make_unique<btrfsbackup::platform::linux::filesystem::SafeDirectoryRoot>(target_root)
           ),
           retention_(
               btrfs,
-              std::make_unique<btrfsbackup::platform::linux::SafeDirectoryRoot>("/"),
-              std::make_unique<btrfsbackup::platform::linux::SafeDirectoryRoot>(target_root)
+              std::make_unique<btrfsbackup::platform::linux::filesystem::SafeDirectoryRoot>("/"),
+              std::make_unique<btrfsbackup::platform::linux::filesystem::SafeDirectoryRoot>(target_root)
           ),
           hook_executables_(std::make_unique<test_support::FakeTrustedExecutableResolver>()),
           hooks_(commands, *hook_executables_),
-          local_repository_root_(std::make_unique<btrfsbackup::platform::linux::SafeDirectoryRoot>("/")),
-          target_repository_root_(std::make_unique<btrfsbackup::platform::linux::SafeDirectoryRoot>(target_root)),
+          local_repository_root_(std::make_unique<btrfsbackup::platform::linux::filesystem::SafeDirectoryRoot>("/")),
+          target_repository_root_(std::make_unique<btrfsbackup::platform::linux::filesystem::SafeDirectoryRoot>(target_root)),
           repository_(
               btrfs,
               pending_markers_,
@@ -280,22 +280,22 @@ class ActionHandlerFixture final : public btrfsbackup::backup::IBackupRunActionH
         const btrfsbackup::backup::TrustedExecutablePolicy& hook_policy
     )
         : pending_markers_(durable_files_),
-          snapshots_(btrfs, filesystem, pending_markers_, clock_, std::make_unique<btrfsbackup::platform::linux::SafeDirectoryRoot>("/")),
+          snapshots_(btrfs, filesystem, pending_markers_, clock_, std::make_unique<btrfsbackup::platform::linux::filesystem::SafeDirectoryRoot>("/")),
           recovery_(
               btrfs,
               pending_markers_,
-              std::make_unique<btrfsbackup::platform::linux::SafeDirectoryRoot>("/"),
-              std::make_unique<btrfsbackup::platform::linux::SafeDirectoryRoot>(target_root)
+              std::make_unique<btrfsbackup::platform::linux::filesystem::SafeDirectoryRoot>("/"),
+              std::make_unique<btrfsbackup::platform::linux::filesystem::SafeDirectoryRoot>(target_root)
           ),
           retention_(
               btrfs,
-              std::make_unique<btrfsbackup::platform::linux::SafeDirectoryRoot>("/"),
-              std::make_unique<btrfsbackup::platform::linux::SafeDirectoryRoot>(target_root)
+              std::make_unique<btrfsbackup::platform::linux::filesystem::SafeDirectoryRoot>("/"),
+              std::make_unique<btrfsbackup::platform::linux::filesystem::SafeDirectoryRoot>(target_root)
           ),
-          hook_executables_(std::make_unique<btrfsbackup::platform::linux::PosixTrustedExecutableResolver>(hook_root, hook_policy)),
+          hook_executables_(std::make_unique<btrfsbackup::platform::linux::filesystem::PosixTrustedExecutableResolver>(hook_root, hook_policy)),
           hooks_(commands, *hook_executables_),
-          local_repository_root_(std::make_unique<btrfsbackup::platform::linux::SafeDirectoryRoot>("/")),
-          target_repository_root_(std::make_unique<btrfsbackup::platform::linux::SafeDirectoryRoot>(target_root)),
+          local_repository_root_(std::make_unique<btrfsbackup::platform::linux::filesystem::SafeDirectoryRoot>("/")),
+          target_repository_root_(std::make_unique<btrfsbackup::platform::linux::filesystem::SafeDirectoryRoot>(target_root)),
           repository_(
               btrfs,
               pending_markers_,
@@ -326,7 +326,7 @@ class ActionHandlerFixture final : public btrfsbackup::backup::IBackupRunActionH
     };
 
     FakeCommandRunner fallback_commands_;
-    btrfsbackup::platform::linux::PosixDurableFileOperations durable_files_;
+    btrfsbackup::platform::linux::filesystem::PosixDurableFileOperations durable_files_;
     btrfsbackup::state::FilePendingMarkerStore pending_markers_;
     FixedClock clock_;
     btrfsbackup::backup::SnapshotActionHandler snapshots_;
@@ -491,7 +491,7 @@ void test_create_snapshot_writes_pending_marker_and_verifies_readonly_snapshot()
     test_helpers::expect_eq("snapshot call", btrfs.calls.at(0), "snapshot:" + source.source_subvolume.string() + "->" + source.local_snapshot_path.string());
     test_helpers::expect_eq("metadata call", btrfs.calls.at(1), action_path("metadata", source.local_snapshot_path));
     test_helpers::expect_true("pending marker exists", fs::is_regular_file(marker_path(source)), "pending marker should be written");
-    btrfsbackup::platform::linux::PosixDurableFileOperations durable_files;
+    btrfsbackup::platform::linux::filesystem::PosixDurableFileOperations durable_files;
     btrfsbackup::state::FilePendingMarkerStore pending_markers(durable_files);
     const auto marker = pending_markers.read(root / "state", source.source_id);
     test_helpers::expect_true(
@@ -622,7 +622,7 @@ void test_failed_remote_recovery_keeps_local_snapshot_and_marker() {
         btrfsbackup::backup::DeletePendingLocalSnapshot{source.local_snapshot_path},
         btrfsbackup::backup::ClearPendingMarker{recovery.marker_path},
     };
-    btrfsbackup::platform::linux::PosixDurableFileOperations durable_files;
+    btrfsbackup::platform::linux::filesystem::PosixDurableFileOperations durable_files;
     btrfsbackup::state::write_pending_marker(
         durable_files,
         root / "state",
@@ -783,7 +783,7 @@ void test_default_factory_builds_run_scoped_dispatcher() {
     FakeBtrfsOperations btrfs;
     FakeFileSystem filesystem;
     FakeCommandRunner commands;
-    btrfsbackup::platform::linux::PosixDurableFileOperations durable_files;
+    btrfsbackup::platform::linux::filesystem::PosixDurableFileOperations durable_files;
     btrfsbackup::state::FilePendingMarkerStore pending_markers(durable_files);
     test_support::FakeSafeDirectoryRootFactory safe_directories;
     test_support::FakeTrustedExecutableResolver hook_executables;

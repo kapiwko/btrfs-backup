@@ -13,7 +13,7 @@
 #include <utility>
 
 #include <core/Errors.hpp>
-#include <platform/linux/FileIo.hpp>
+#include <platform/linux/filesystem/FileIo.hpp>
 
 namespace fs = std::filesystem;
 
@@ -45,7 +45,7 @@ btrfsbackup::config::ConfigurationGeneration generate_configuration_generation()
 
 void write_profile_artifacts(const btrfsbackup::config::RenderedProfileArtifacts& rendered) {
     for (const btrfsbackup::config::ProfileArtifact& artifact : rendered.artifacts) {
-        atomic_write(
+        filesystem::atomic_write(
             artifact.destination,
             artifact.content,
             static_cast<mode_t>(artifact.permissions)

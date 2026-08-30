@@ -8,7 +8,7 @@
 #include <vector>
 
 #include <backup/model/PendingRecovery.hpp>
-#include <platform/linux/PosixDurableFileOperations.hpp>
+#include <platform/linux/filesystem/PosixDurableFileOperations.hpp>
 #include <state/FilePendingMarkerStore.hpp>
 
 #include "support/TestHelpers.hpp"
@@ -59,7 +59,7 @@ void test_reads_pending_marker() {
     fs::path root = test_helpers::test_root("pending-recovery", "read");
     fs::path state_dir = root / "state" / "profiles" / "default";
 
-    btrfsbackup::platform::linux::PosixDurableFileOperations durable_files;
+    btrfsbackup::platform::linux::filesystem::PosixDurableFileOperations durable_files;
     btrfsbackup::state::FilePendingMarkerStore markers(durable_files);
     markers.write(state_dir, marker("root", "/local/root/root-2026-08-23T080000Z"));
 

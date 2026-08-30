@@ -10,7 +10,7 @@
 #include <cstring>
 
 #include <core/Errors.hpp>
-#include <platform/linux/SafeDirectoryRoot.hpp>
+#include <platform/linux/filesystem/SafeDirectoryRoot.hpp>
 
 namespace btrfsbackup::platform::linux::transfer {
 
@@ -30,7 +30,7 @@ std::vector<int> inherited_fds(const std::vector<std::shared_ptr<btrfsbackup::ba
     std::vector<int> result;
     result.reserve(resources.size());
     for (const std::shared_ptr<btrfsbackup::backup::transfer::ITransferResource>& resource : resources) {
-        const auto handle = std::dynamic_pointer_cast<SafeDirectoryHandle>(resource);
+        const auto handle = std::dynamic_pointer_cast<filesystem::SafeDirectoryHandle>(resource);
         if (!handle) {
             throw ValidationError("unsupported POSIX transfer resource");
         }

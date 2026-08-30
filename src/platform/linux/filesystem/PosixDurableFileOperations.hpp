@@ -9,7 +9,7 @@
 
 #include <state/PersistentDocumentOperations.hpp>
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::filesystem {
 
 class PosixDurableFileOperations final : public btrfsbackup::state::IPersistentDocumentOperations {
   public:
@@ -25,4 +25,4 @@ class PosixDurableFileOperations final : public btrfsbackup::state::IPersistentD
     void remove_durably(const std::filesystem::path& path) override;
 };
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::filesystem

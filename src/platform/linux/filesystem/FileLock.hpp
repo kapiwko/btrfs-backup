@@ -9,7 +9,7 @@
 #include <config/model/TargetIdentity.hpp>
 #include <core/Identifiers.hpp>
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::filesystem {
 
 std::filesystem::path default_lock_root();
 std::filesystem::path profile_lock_path(const std::filesystem::path& lock_root, const ProfileId& profile_id);
@@ -34,4 +34,4 @@ class FileLock {
     bool acquired_ = false;
 };
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::filesystem

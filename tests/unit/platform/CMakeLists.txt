@@ -5,11 +5,11 @@
 add_btrfsbackup_test(btrfsbackup-btrfs-operations-tests BtrfsOperationsTests.cpp btrfs-operations-tests btrfsbackup-platform-linux)
 add_btrfsbackup_test(btrfsbackup-command-runner-tests linux/process/CommandRunnerTests.cpp command-runner-tests btrfsbackup-platform-linux)
 add_btrfsbackup_test(btrfsbackup-device-info-tests DeviceInfoTests.cpp device-info-tests btrfsbackup-platform-linux)
-add_btrfsbackup_test(btrfsbackup-file-lock-tests FileLockTests.cpp file-lock-tests btrfsbackup-platform-linux)
-add_btrfsbackup_test(btrfsbackup-filesystem-tests FilesystemTests.cpp filesystem-tests btrfsbackup-platform-linux)
+add_btrfsbackup_test(btrfsbackup-file-lock-tests linux/filesystem/FileLockTests.cpp file-lock-tests btrfsbackup-platform-linux)
+add_btrfsbackup_test(btrfsbackup-filesystem-tests linux/filesystem/FilesystemTests.cpp filesystem-tests btrfsbackup-platform-linux)
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-    add_btrfsbackup_test(btrfsbackup-file-io-tests FileIoTests.cpp file-io-tests btrfsbackup-platform-linux)
+    add_btrfsbackup_test(btrfsbackup-file-io-tests linux/filesystem/FileIoTests.cpp file-io-tests btrfsbackup-platform-linux)
     target_link_options(btrfsbackup-file-io-tests PRIVATE
         -Wl,--wrap=close
         -Wl,--wrap=fchmod
@@ -23,13 +23,13 @@ endif()
 add_btrfsbackup_test(btrfsbackup-mount-info-tests MountInfoTests.cpp mount-info-tests btrfsbackup-platform-linux)
 add_btrfsbackup_test(btrfsbackup-owned-file-descriptor-tests OwnedFileDescriptorTests.cpp owned-file-descriptor-tests btrfsbackup-platform-linux)
 add_btrfsbackup_test(btrfsbackup-process-tests linux/process/ProcessTests.cpp process-tests btrfsbackup-platform-linux)
-add_btrfsbackup_test(btrfsbackup-safe-directory-root-tests SafeDirectoryRootTests.cpp safe-directory-root-tests btrfsbackup-platform-linux)
+add_btrfsbackup_test(btrfsbackup-safe-directory-root-tests linux/filesystem/SafeDirectoryRootTests.cpp safe-directory-root-tests btrfsbackup-platform-linux)
 add_btrfsbackup_test(btrfsbackup-space-check-tests SpaceCheckTests.cpp space-check-tests btrfsbackup-platform-linux)
 add_btrfsbackup_test(btrfsbackup-systemd-target-manager-tests SystemdTargetManagerTests.cpp systemd-target-manager-tests btrfsbackup-platform-linux)
 add_btrfsbackup_test(btrfsbackup-systemd-unit-tests SystemdUnitTests.cpp systemd-unit-tests btrfsbackup-platform-linux)
-add_btrfsbackup_test(btrfsbackup-trusted-directory-tests TrustedDirectoryTests.cpp trusted-directory-tests btrfsbackup-platform-linux)
-add_btrfsbackup_test(btrfsbackup-trusted-executable-tests TrustedExecutableTests.cpp trusted-executable-tests btrfsbackup-platform-linux)
-add_btrfsbackup_test(btrfsbackup-trusted-file-tests TrustedFileTests.cpp trusted-file-tests btrfsbackup-platform-linux)
+add_btrfsbackup_test(btrfsbackup-trusted-directory-tests linux/filesystem/TrustedDirectoryTests.cpp trusted-directory-tests btrfsbackup-platform-linux)
+add_btrfsbackup_test(btrfsbackup-trusted-executable-tests linux/filesystem/TrustedExecutableTests.cpp trusted-executable-tests btrfsbackup-platform-linux)
+add_btrfsbackup_test(btrfsbackup-trusted-file-tests linux/filesystem/TrustedFileTests.cpp trusted-file-tests btrfsbackup-platform-linux)
 add_btrfsbackup_test(btrfsbackup-thread-sigpipe-block-tests linux/transfer/ThreadSigpipeBlockTests.cpp thread-sigpipe-block-tests btrfsbackup-platform-linux)
 target_include_directories(btrfsbackup-thread-sigpipe-block-tests PRIVATE ${PROJECT_SOURCE_DIR}/src)
 

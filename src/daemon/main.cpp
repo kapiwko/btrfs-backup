@@ -15,7 +15,7 @@
 #include <platform/linux/config/ApplicationConfig.hpp>
 #include <platform/linux/config/FileProfileRepository.hpp>
 #include <platform/linux/process/PosixCommandRunner.hpp>
-#include <platform/linux/PosixDurableFileOperations.hpp>
+#include <platform/linux/filesystem/PosixDurableFileOperations.hpp>
 #include <state/FileRunStateRepository.hpp>
 
 namespace fs = std::filesystem;
@@ -95,7 +95,7 @@ int main(int argc, char** argv) {
 
         btrfsbackup::daemon::ManagerService service(paths);
         btrfsbackup::platform::linux::FileProfileRepository profiles(config_root, application_config);
-        btrfsbackup::platform::linux::PosixDurableFileOperations durable_files;
+        btrfsbackup::platform::linux::filesystem::PosixDurableFileOperations durable_files;
         btrfsbackup::state::FileRunStateRepository state(configured, durable_files);
         btrfsbackup::platform::linux::process::PosixCommandRunner commands;
         btrfsbackup::daemon::CommandSystemdUnitController units(commands);

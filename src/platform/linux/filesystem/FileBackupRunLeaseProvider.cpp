@@ -2,18 +2,18 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <platform/linux/FileBackupRunLeaseProvider.hpp>
+#include <platform/linux/filesystem/FileBackupRunLeaseProvider.hpp>
 
 #include <memory>
 #include <string>
 #include <utility>
 
 #include <core/ErrorCode.hpp>
-#include <platform/linux/FileLock.hpp>
+#include <platform/linux/filesystem/FileLock.hpp>
 
 namespace fs = std::filesystem;
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::filesystem {
 
 namespace {
 
@@ -54,4 +54,4 @@ btrfsbackup::backup::BackupRunLeaseResult FileBackupRunLeaseProvider::try_acquir
     };
 }
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::filesystem
