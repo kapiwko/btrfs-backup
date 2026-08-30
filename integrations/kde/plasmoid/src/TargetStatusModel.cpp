@@ -4,6 +4,7 @@
 
 #include "TargetStatusModel.hpp"
 
+#include "ByteFormatting.hpp"
 #include "TargetStatusParser.hpp"
 
 TargetStatusModel::TargetStatusModel(QObject* parent)
@@ -52,6 +53,18 @@ qint64 TargetStatusModel::usedBytes() const {
 
 qint64 TargetStatusModel::availableBytes() const {
     return available_bytes_;
+}
+
+QString TargetStatusModel::capacityText() const {
+    return btrfsbackup::kde::format_byte_size(capacity_bytes_);
+}
+
+QString TargetStatusModel::usedText() const {
+    return btrfsbackup::kde::format_byte_size(used_bytes_);
+}
+
+QString TargetStatusModel::availableText() const {
+    return btrfsbackup::kde::format_byte_size(available_bytes_);
 }
 
 int TargetStatusModel::usagePercent() const {

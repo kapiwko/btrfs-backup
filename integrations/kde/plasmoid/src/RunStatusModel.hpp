@@ -18,6 +18,7 @@ class RunStatusModel : public QObject {
     Q_PROPERTY(QString sourceName READ sourceName NOTIFY changed)
     Q_PROPERTY(QString targetName READ targetName NOTIFY changed)
     Q_PROPERTY(qint64 speedBps READ speedBps NOTIFY changed)
+    Q_PROPERTY(QString speedText READ speedText NOTIFY changed)
     Q_PROPERTY(int etaSeconds READ etaSeconds NOTIFY changed)
     Q_PROPERTY(int sourceProgress READ sourceProgress NOTIFY changed)
     Q_PROPERTY(int overallProgress READ overallProgress NOTIFY changed)
@@ -35,6 +36,7 @@ class RunStatusModel : public QObject {
     QString sourceName() const;
     QString targetName() const;
     qint64 speedBps() const;
+    QString speedText() const;
     int etaSeconds() const;
     int sourceProgress() const;
     int overallProgress() const;

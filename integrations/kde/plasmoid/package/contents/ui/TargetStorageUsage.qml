@@ -14,18 +14,15 @@ ColumnLayout {
 
     required property bool supported
     required property bool known
-    required property real capacityBytes
-    required property real usedBytes
-    required property real availableBytes
+    required property string capacityText
+    required property string usedText
+    required property string availableText
     required property int usagePercent
     required property bool live
     required property string measuredAt
     required property string relativeMeasurementTime
     required property bool belowMinimum
 
-    readonly property string capacityText: formatBytes(capacityBytes)
-    readonly property string usedText: formatBytes(usedBytes)
-    readonly property string availableText: formatBytes(availableBytes)
     readonly property string usageText: usagePercent + "%"
 
     visible: supported
@@ -34,19 +31,6 @@ ColumnLayout {
     KI18n.KI18nContext {
         id: translations
         translationDomain: "plasma_applet_org.btrfsbackup.plasmoid"
-    }
-
-    function formatBytes(value) {
-        var amount = Math.max(0, Number(value || 0))
-        if (!isFinite(amount))
-            return "0 B"
-        var units = ["B", "KiB", "MiB", "GiB", "TiB", "PiB"]
-        var index = 0
-        while (amount >= 1024 && index < units.length - 1) {
-            amount /= 1024
-            index++
-        }
-        return (index === 0 ? amount.toFixed(0) : amount.toFixed(1)) + " " + units[index]
     }
 
     PlasmaComponents3.Label {

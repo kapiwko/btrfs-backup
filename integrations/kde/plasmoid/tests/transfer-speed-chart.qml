@@ -16,6 +16,7 @@ Window {
         anchors.fill: parent
         active: true
         currentSpeed: 2048
+        currentSpeedText: "2,0 KiB/s"
     }
 
     Timer {
@@ -23,7 +24,9 @@ Window {
         running: true
         repeat: false
         onTriggered: {
-            if (chart.samples.length < 2 || chart.peakSpeed !== 2048)
+            if (chart.samples.length < 2
+                    || chart.peakSpeed !== 2048
+                    || chart.peakSpeedText !== "2,0 KiB/s")
                 Qt.exit(2)
             Qt.exit(0)
         }
