@@ -13,36 +13,11 @@
 #include <config/ConfigurationIdentity.hpp>
 #include <daemon/AuthorizedOperationCommand.hpp>
 #include <daemon/ManagerErrors.hpp>
-#include <platform/linux/FileIo.hpp>
+#include <daemon/OperationEnvironmentFile.hpp>
 
 namespace btrfsbackup::daemon {
 
 namespace {
-
-class OperationEnvironmentFile {
-  public:
-    OperationEnvironmentFile(
-        const std::filesystem::path& root,
-        const AuthorizedOperationContext& context
-    ) : path_(root / (std::string(context.operation_id.value()) + ".env")) {
-        btrfsbackup::platform::linux::atomic_write(
-            path_,
-            authorized_operation_environment(context),
-            0600
-        );
-    }
-
-    ~OperationEnvironmentFile() {
-        std::error_code error;
-        std::filesystem::remove(path_, error);
-    }
-
-    OperationEnvironmentFile(const OperationEnvironmentFile&) = delete;
-    OperationEnvironmentFile& operator=(const OperationEnvironmentFile&) = delete;
-
-  private:
-    std::filesystem::path path_;
-};
 
 ManagerErrorCode manager_error_code(SystemdJobFailure failure) {
     switch (failure) {

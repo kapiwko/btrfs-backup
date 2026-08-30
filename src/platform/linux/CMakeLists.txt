@@ -23,6 +23,7 @@ add_library(btrfsbackup-platform-linux STATIC
     Splice.cpp
     LinuxSystemConfigurationActivator.cpp
     SystemdTargetManager.cpp
+    SystemdMountedTargetSession.cpp
     SystemdUnit.cpp
     TerminationSignalMonitor.cpp
     TrustedDirectory.cpp
@@ -58,6 +59,8 @@ target_restricted_include_directories(btrfsbackup-platform-linux
         platform/linux/TrustedDirectory.hpp
         platform/linux/TrustedExecutable.hpp
         platform/linux/TrustedFile.hpp
+    PRIVATE_HEADERS
+        platform/linux/SystemdMountedTargetSession.hpp
 )
 target_link_libraries(btrfsbackup-platform-linux
     PUBLIC

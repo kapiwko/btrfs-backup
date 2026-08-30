@@ -38,6 +38,7 @@ target_link_libraries(btrfsbackup-backup-model
 
 add_library(btrfsbackup-transfer STATIC
     transfer/AsyncTransfer.cpp
+    transfer/ThreadedAsyncTransferHandle.cpp
     transfer/TransferEvent.cpp
     transfer/TransferResult.cpp
     transfer/TransferSpeedEstimator.cpp
@@ -52,6 +53,8 @@ target_restricted_include_directories(btrfsbackup-transfer
         backup/transfer/TransferPlan.hpp
         backup/transfer/TransferResult.hpp
         backup/transfer/TransferSpeedEstimator.hpp
+    PRIVATE_HEADERS
+        backup/transfer/ThreadedAsyncTransferHandle.hpp
 )
 target_link_libraries(btrfsbackup-transfer
     PUBLIC
@@ -127,6 +130,7 @@ add_library(btrfsbackup-backup STATIC
     DefaultBackupRunActionHandlerFactory.cpp
     DefaultBackupRunFactory.cpp
     LinkedCancellationMonitor.cpp
+    OwnedBackupRunActionHandler.cpp
     RunExecutionContext.cpp
     RunSessionFactory.cpp
     SystemRunContext.cpp
@@ -166,6 +170,8 @@ target_restricted_include_directories(btrfsbackup-backup
         backup/SnapshotTransfer.hpp
         backup/SystemRunContext.hpp
         backup/transfer/TransferCoordinator.hpp
+    PRIVATE_HEADERS
+        backup/OwnedBackupRunActionHandler.hpp
 )
 target_link_libraries(btrfsbackup-backup
     PUBLIC
