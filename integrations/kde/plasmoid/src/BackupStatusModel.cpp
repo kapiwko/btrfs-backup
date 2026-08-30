@@ -8,12 +8,10 @@
 
 #include <QDBusPendingCallWatcher>
 #include <QDBusPendingReply>
-#include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonParseError>
 #include <QMap>
-#include <QVariantMap>
 
 #include <utility>
 
@@ -40,7 +38,13 @@ BackupStatusModel::BackupStatusModel(QObject* parent)
       bus_(QDBusConnection::systemBus()),
       manager_events_(bus_, this),
       service_watcher_(QLatin1String(btrfsbackup::manager_protocol::service_name), bus_, QDBusServiceWatcher::WatchForRegistration | QDBusServiceWatcher::WatchForUnregistration, this) {
+    connect(&run_, &RunStatusModel::changed, this, &BackupStatusModel::statusChanged);
+    connect(&run_, &RunStatusModel::activeRunFinished, this, [this]() {
+        requestDeviceState();
+        requestHistory();
+    });
     connect(&target_, &TargetStatusModel::changed, this, &BackupStatusModel::targetChanged);
+    connect(&history_, &BackupHistoryModel::changed, this, &BackupStatusModel::historyChanged);
     operation_message_timer_.setInterval(operation_message_timeout_ms);
     operation_message_timer_.setSingleShot(true);
     connect(&operation_message_timer_, &QTimer::timeout, this, [this]() {
@@ -91,13 +95,9 @@ void BackupStatusModel::setProfile(const QString& profile) {
     }
     profile_ = profile;
     profile_name_.clear();
-    run_id_.clear();
-    state_ = QStringLiteral("unknown");
-    phase_ = QStringLiteral("idle");
-    activity_ = QStringLiteral("idle");
-    can_cancel_ = false;
+    run_.reset();
     target_.reset();
-    history_.clear();
+    history_.reset();
     operation_message_timer_.stop();
     last_operation_.clear();
     ++generation_;
@@ -137,64 +137,16 @@ QString BackupStatusModel::profileName() const {
     return profile_name_;
 }
 
-QString BackupStatusModel::state() const {
-    return state_;
-}
-
-QString BackupStatusModel::runId() const {
-    return run_id_;
-}
-
-QString BackupStatusModel::phase() const {
-    return phase_;
-}
-
-QString BackupStatusModel::activity() const {
-    return activity_;
-}
-
-bool BackupStatusModel::canCancel() const {
-    return can_cancel_ && !run_id_.isEmpty() && supports(QLatin1String(btrfsbackup::manager_protocol::feature::cancel_backup));
-}
-
-QString BackupStatusModel::currentSourceName() const {
-    return current_source_name_;
-}
-
-QString BackupStatusModel::targetName() const {
-    return target_name_;
-}
-
-qint64 BackupStatusModel::speedBps() const {
-    return speed_bps_;
-}
-
-int BackupStatusModel::etaSeconds() const {
-    return eta_seconds_;
-}
-
-int BackupStatusModel::sourceProgress() const {
-    return source_progress_;
-}
-
-int BackupStatusModel::overallProgress() const {
-    return overall_progress_;
-}
-
-QString BackupStatusModel::progressAccuracy() const {
-    return progress_accuracy_;
-}
-
-QString BackupStatusModel::errorCode() const {
-    return error_code_;
+RunStatusModel* BackupStatusModel::run() {
+    return &run_;
 }
 
 TargetStatusModel* BackupStatusModel::target() {
     return &target_;
 }
 
-QVariantList BackupStatusModel::history() const {
-    return history_;
+BackupHistoryModel* BackupStatusModel::history() {
+    return &history_;
 }
 
 bool BackupStatusModel::operationPending() const {
@@ -254,11 +206,11 @@ void BackupStatusModel::startBackup() {
 }
 
 void BackupStatusModel::cancelBackup() {
-    if (run_id_.isEmpty()) {
+    if (run_.runId().isEmpty()) {
         setLastError(tr("No active backup run can be cancelled."));
         return;
     }
-    requestOperation(QLatin1String(btrfsbackup::manager_protocol::method::cancel_backup), {profile_, run_id_});
+    requestOperation(QLatin1String(btrfsbackup::manager_protocol::method::cancel_backup), {profile_, run_.runId()});
 }
 
 void BackupStatusModel::validateTarget() {
@@ -307,6 +259,9 @@ void BackupStatusModel::connectToManager() {
         }
 
         features_ = capabilities->features;
+        run_.setCancelSupported(supports(
+            QLatin1String(btrfsbackup::manager_protocol::feature::cancel_backup)
+        ));
         target_.setStorageSupported(supports(
             QLatin1String(btrfsbackup::manager_protocol::feature::target_storage_usage)
         ));
@@ -464,32 +419,12 @@ void BackupStatusModel::applyProfiles(const QString& payload) {
 }
 
 void BackupStatusModel::applyStatus(const QString& payload) {
-    const auto status = btrfsbackup::kde::parse_status(payload);
-    if (!status.has_value()) {
+    if (!run_.apply(payload)) {
         setLastError(tr("The backup manager returned an unsupported status schema."));
         return;
     }
-
-    const QString previous_state = state_;
-    run_id_ = status->run_id;
-    state_ = status->state;
-    phase_ = status->phase;
-    activity_ = status->activity;
-    can_cancel_ = status->can_cancel;
-    current_source_name_ = status->source_name;
-    target_name_ = status->target_name;
-    speed_bps_ = status->speed_bps;
-    eta_seconds_ = static_cast<int>(status->eta_seconds);
-    source_progress_ = status->source_progress;
-    overall_progress_ = status->overall_progress;
-    progress_accuracy_ = status->progress_accuracy;
-    error_code_ = status->error_code;
     setManagerConnected(true);
     setLastError(QString());
-    emit statusChanged();
-    if (previous_state == QStringLiteral("running") && state_ != previous_state) {
-        requestHistory();
-    }
 }
 
 void BackupStatusModel::applyDeviceState(const QString& payload) {
@@ -497,32 +432,14 @@ void BackupStatusModel::applyDeviceState(const QString& payload) {
         setLastError(tr("The backup manager returned an unsupported target schema."));
         return;
     }
-    target_name_ = target_.name();
     setLastError(QString());
-    emit statusChanged();
 }
 
 void BackupStatusModel::applyHistory(const QString& payload) {
-    QJsonParseError error;
-    const QJsonDocument document = QJsonDocument::fromJson(payload.toUtf8(), &error);
-    if (error.error != QJsonParseError::NoError || !document.isArray()) {
-        setLastError(parseError(error));
+    if (!history_.apply(payload)) {
+        setLastError(tr("Invalid manager response."));
         return;
     }
-    QVariantList history;
-    for (const QJsonValue& value : document.array()) {
-        const QJsonObject item = value.toObject();
-        QVariantMap entry;
-        entry.insert(QStringLiteral("state"), item.value(QStringLiteral("state")).toString());
-        entry.insert(QStringLiteral("errorCode"), item.value(QStringLiteral("errorCode")).toString());
-        entry.insert(QStringLiteral("sourceName"), item.value(QStringLiteral("sourceName")).toString());
-        entry.insert(QStringLiteral("targetName"), item.value(QStringLiteral("targetName")).toString());
-        entry.insert(QStringLiteral("finishedAt"), item.value(QStringLiteral("finishedAt")).toString());
-        entry.insert(QStringLiteral("overallProgress"), json_int(item, "overallProgress", -1));
-        history.push_back(entry);
-    }
-    history_ = history;
-    emit historyChanged();
 }
 
 void BackupStatusModel::requestOperation(const QString& method, const QVariantList& arguments) {
@@ -607,6 +524,7 @@ void BackupStatusModel::managerUnavailable() {
     device_refresh_queued_ = false;
     history_refresh_queued_ = false;
     features_.clear();
+    run_.setCancelSupported(false);
     target_.setStorageSupported(false);
     target_.reset();
     operation_pending_ = false;

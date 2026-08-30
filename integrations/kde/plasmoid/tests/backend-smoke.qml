@@ -29,7 +29,10 @@ Window {
                 Qt.exit(3)
             }
             if (typeof status.managerConnected !== "boolean"
-                    || typeof status.canCancel !== "boolean"
+                    || typeof status.run !== "object"
+                    || typeof status.run.canCancel !== "boolean"
+                    || typeof status.history !== "object"
+                    || typeof status.history.entries !== "object"
                     || typeof status.target !== "object"
                     || typeof status.target.safeToRemove !== "boolean"
                     || typeof status.target.connected !== "boolean"
