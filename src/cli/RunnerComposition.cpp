@@ -83,7 +83,7 @@ struct RunnerComposition::Impl {
                   ? platform::linux::blkid_filesystem_uuid(source)
                   : found->second;
           }),
-          target_mounter(mounts, commands), preflight(mounts, target_mounter), pending_markers(durable_files), discovery(platform::linux::read_btrfs_snapshot_metadata, pending_markers, safe_directories), hook_executables(platform::linux::trusted_hook_directory), action_handlers(btrfs, filesystem, commands, pending_markers, safe_directories, hook_executables), run_factory(action_handlers, transfers, safe_directories), leases(platform::linux::default_lock_root()), state(config.paths(), durable_files), file_cancellation_monitor(state), cancellation_monitor(file_cancellation_monitor, cancellation), clock(options.timestamp, options.today), run_ids(options.run_id), sessions(leases, state, state, state, cancellation_monitor), backup_service(profiles, config.paths(), preflight, discovery, plan_builder, run_factory, state, sessions, clock, run_ids) {
+          target_mounter(mounts, commands), preflight(mounts, target_mounter), pending_markers(durable_files), discovery(platform::linux::read_btrfs_snapshot_metadata, pending_markers, safe_directories), hook_executables(platform::linux::trusted_hook_directory), clock(options.timestamp, options.today), action_handlers(btrfs, filesystem, commands, pending_markers, clock, safe_directories, hook_executables), run_factory(action_handlers, transfers, safe_directories), leases(platform::linux::default_lock_root()), state(config.paths(), durable_files), file_cancellation_monitor(state), cancellation_monitor(file_cancellation_monitor, cancellation), run_ids(options.run_id), sessions(leases, state, state, state, cancellation_monitor), backup_service(profiles, config.paths(), preflight, discovery, plan_builder, run_factory, state, sessions, clock, run_ids) {
     }
 
     config::ApplicationConfig config;
@@ -101,13 +101,13 @@ struct RunnerComposition::Impl {
     backup::BackupDiscovery discovery;
     backup::BackupPlanBuilder plan_builder;
     platform::linux::PosixTrustedExecutableResolver hook_executables;
+    ConfiguredRunnerClock clock;
     backup::DefaultBackupRunActionHandlerFactory action_handlers;
     backup::DefaultBackupRunFactory run_factory;
     platform::linux::FileBackupRunLeaseProvider leases;
     state::FileRunStateRepository state;
     state::FileCancellationMonitor file_cancellation_monitor;
     backup::LinkedCancellationMonitor cancellation_monitor;
-    ConfiguredRunnerClock clock;
     ConfiguredRunnerRunIdGenerator run_ids;
     backup::RunSessionFactory sessions;
     backup::BackupService backup_service;

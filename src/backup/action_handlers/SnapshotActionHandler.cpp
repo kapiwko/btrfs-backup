@@ -4,7 +4,6 @@
 
 #include <backup/action_handlers/SnapshotActionHandler.hpp>
 
-#include <chrono>
 #include <optional>
 #include <string>
 #include <utility>
@@ -12,6 +11,7 @@
 #include <backup/ports/IBtrfsOperations.hpp>
 #include <backup/ports/IFileSystem.hpp>
 #include <backup/ports/IPendingMarkerStore.hpp>
+#include <backup/ports/RunContext.hpp>
 #include <backup/ports/SafeDirectory.hpp>
 #include <core/Errors.hpp>
 #include <core/RuntimeTime.hpp>
@@ -39,20 +39,23 @@ SnapshotMetadata require_snapshot_metadata(
 SnapshotActionHandler::SnapshotActionHandler(
     IBtrfsOperations& btrfs,
     IFileSystem& filesystem,
-    IPendingMarkerStore& pending_markers
+    IPendingMarkerStore& pending_markers,
+    IClock& clock
 )
-    : btrfs_(btrfs), filesystem_(filesystem), pending_markers_(pending_markers) {
+    : btrfs_(btrfs), filesystem_(filesystem), pending_markers_(pending_markers), clock_(clock) {
 }
 
 SnapshotActionHandler::SnapshotActionHandler(
     IBtrfsOperations& btrfs,
     IFileSystem& filesystem,
     IPendingMarkerStore& pending_markers,
+    IClock& clock,
     std::unique_ptr<ISafeDirectoryRoot> local_root
 )
     : btrfs_(btrfs),
       filesystem_(filesystem),
       pending_markers_(pending_markers),
+      clock_(clock),
       local_root_(std::move(local_root)) {
 }
 
@@ -71,7 +74,7 @@ void SnapshotActionHandler::handle(const CreateSnapshotAction& action) {
             .local_snapshot_path = action.snapshot,
             .final_snapshot_path = action.final_remote_snapshot,
             .run_id = action.run_id,
-            .timestamp = std::chrono::system_clock::now(),
+            .timestamp = clock_.now(),
         }
     );
 

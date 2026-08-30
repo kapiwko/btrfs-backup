@@ -19,11 +19,13 @@
 #include <backup/ports/IBtrfsOperations.hpp>
 #include <backup/ports/ICommandRunner.hpp>
 #include <backup/ports/IFileSystem.hpp>
+#include <backup/ports/RunContext.hpp>
 #include <backup/action_handlers/RecoveryActionHandler.hpp>
 #include <backup/action_handlers/RepositoryActionHandler.hpp>
 #include <backup/action_handlers/RetentionActionHandler.hpp>
 #include <backup/action_handlers/SnapshotActionHandler.hpp>
 #include <backup/DefaultBackupRunActionHandlerFactory.hpp>
+#include <backup/SystemRunContext.hpp>
 
 #include <platform/linux/SafeDirectoryRoot.hpp>
 #include <platform/linux/PosixDurableFileOperations.hpp>
@@ -209,7 +211,7 @@ class ActionHandlerFixture final : public btrfsbackup::backup::IBackupRunActionH
   public:
     ActionHandlerFixture(FakeBtrfsOperations& btrfs, FakeFileSystem& filesystem)
         : pending_markers_(durable_files_),
-          snapshots_(btrfs, filesystem, pending_markers_),
+          snapshots_(btrfs, filesystem, pending_markers_, clock_),
           recovery_(btrfs, pending_markers_),
           retention_(btrfs),
           hook_executables_(std::make_unique<test_support::FakeTrustedExecutableResolver>()),
@@ -226,7 +228,7 @@ class ActionHandlerFixture final : public btrfsbackup::backup::IBackupRunActionH
         FakeCommandRunner& commands
     )
         : pending_markers_(durable_files_),
-          snapshots_(btrfs, filesystem, pending_markers_),
+          snapshots_(btrfs, filesystem, pending_markers_, clock_),
           recovery_(btrfs, pending_markers_),
           retention_(btrfs),
           hook_executables_(std::make_unique<test_support::FakeTrustedExecutableResolver>()),
@@ -244,7 +246,7 @@ class ActionHandlerFixture final : public btrfsbackup::backup::IBackupRunActionH
         const fs::path& target_root
     )
         : pending_markers_(durable_files_),
-          snapshots_(btrfs, filesystem, pending_markers_, std::make_unique<btrfsbackup::platform::linux::SafeDirectoryRoot>("/")),
+          snapshots_(btrfs, filesystem, pending_markers_, clock_, std::make_unique<btrfsbackup::platform::linux::SafeDirectoryRoot>("/")),
           recovery_(
               btrfs,
               pending_markers_,
@@ -278,7 +280,7 @@ class ActionHandlerFixture final : public btrfsbackup::backup::IBackupRunActionH
         const btrfsbackup::backup::TrustedExecutablePolicy& hook_policy
     )
         : pending_markers_(durable_files_),
-          snapshots_(btrfs, filesystem, pending_markers_, std::make_unique<btrfsbackup::platform::linux::SafeDirectoryRoot>("/")),
+          snapshots_(btrfs, filesystem, pending_markers_, clock_, std::make_unique<btrfsbackup::platform::linux::SafeDirectoryRoot>("/")),
           recovery_(
               btrfs,
               pending_markers_,
@@ -312,9 +314,21 @@ class ActionHandlerFixture final : public btrfsbackup::backup::IBackupRunActionH
     }
 
   private:
+    class FixedClock final : public btrfsbackup::backup::IClock {
+      public:
+        btrfsbackup::RuntimeTimePoint now() const override {
+            return test_helpers::runtime_time("2026-08-23T12:00:00Z");
+        }
+
+        btrfsbackup::LocalDate local_date() const override {
+            return *btrfsbackup::parse_local_date("2026-08-23");
+        }
+    };
+
     FakeCommandRunner fallback_commands_;
     btrfsbackup::platform::linux::PosixDurableFileOperations durable_files_;
     btrfsbackup::state::FilePendingMarkerStore pending_markers_;
+    FixedClock clock_;
     btrfsbackup::backup::SnapshotActionHandler snapshots_;
     btrfsbackup::backup::RecoveryActionHandler recovery_;
     btrfsbackup::backup::RetentionActionHandler retention_;
@@ -477,6 +491,14 @@ void test_create_snapshot_writes_pending_marker_and_verifies_readonly_snapshot()
     test_helpers::expect_eq("snapshot call", btrfs.calls.at(0), "snapshot:" + source.source_subvolume.string() + "->" + source.local_snapshot_path.string());
     test_helpers::expect_eq("metadata call", btrfs.calls.at(1), action_path("metadata", source.local_snapshot_path));
     test_helpers::expect_true("pending marker exists", fs::is_regular_file(marker_path(source)), "pending marker should be written");
+    btrfsbackup::platform::linux::PosixDurableFileOperations durable_files;
+    btrfsbackup::state::FilePendingMarkerStore pending_markers(durable_files);
+    const auto marker = pending_markers.read(root / "state", source.source_id);
+    test_helpers::expect_true(
+        "pending marker clock",
+        marker.has_value() && marker->timestamp == test_helpers::runtime_time("2026-08-23T12:00:00Z"),
+        "pending marker should use the injected clock"
+    );
 }
 
 void test_cleanup_incoming_uses_safe_root() {
@@ -765,11 +787,13 @@ void test_default_factory_builds_run_scoped_dispatcher() {
     btrfsbackup::state::FilePendingMarkerStore pending_markers(durable_files);
     test_support::FakeSafeDirectoryRootFactory safe_directories;
     test_support::FakeTrustedExecutableResolver hook_executables;
+    btrfsbackup::backup::SystemClock clock;
     btrfsbackup::backup::DefaultBackupRunActionHandlerFactory factory(
         btrfs,
         filesystem,
         commands,
         pending_markers,
+        clock,
         safe_directories,
         hook_executables
     );

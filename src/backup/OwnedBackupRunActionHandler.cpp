@@ -13,11 +13,12 @@ OwnedBackupRunActionHandler::OwnedBackupRunActionHandler(
     IFileSystem& filesystem,
     ICommandRunner& commands,
     IPendingMarkerStore& pending_markers,
+    IClock& clock,
     const ISafeDirectoryRootFactory& safe_directories,
     const ITrustedExecutableResolver& hook_executables,
     const BackupRunPlan& plan
 )
-    : snapshots_(btrfs, filesystem, pending_markers, safe_directories.open("/")),
+    : snapshots_(btrfs, filesystem, pending_markers, clock, safe_directories.open("/")),
       recovery_(
           btrfs,
           pending_markers,
