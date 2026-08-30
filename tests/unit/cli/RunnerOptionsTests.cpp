@@ -81,11 +81,28 @@ void test_plan_target_mode_is_offline_unless_mount_is_explicit() {
     test_helpers::expect_true("mounted plan target", mounted.mount_target, "mounted plan did not enable mounting");
 }
 
+void test_invalid_options_return_parser_error_without_terminating_process() {
+    try {
+        (void)btrfsbackup::cli::parse_runner_options({"cancel", "--profile", "laptop"});
+        test_helpers::expect_true("missing run id parser error", false, "parser accepted a missing run id");
+    } catch (const btrfsbackup::cli::RunnerOptionsError& error) {
+        test_helpers::expect_eq("missing run id parser message", error.what(), "--run-id is required for cancel");
+    }
+
+    try {
+        (void)btrfsbackup::cli::parse_runner_options({"unknown"});
+        test_helpers::expect_true("unknown command parser error", false, "parser accepted an unknown command");
+    } catch (const btrfsbackup::cli::RunnerOptionsError& error) {
+        test_helpers::expect_eq("unknown command parser message", error.what(), "unknown command: unknown");
+    }
+}
+
 } // namespace
 
 int main() {
     test_execute_options_are_typed();
     test_run_id_defaults_from_timestamp();
     test_plan_target_mode_is_offline_unless_mount_is_explicit();
+    test_invalid_options_return_parser_error_without_terminating_process();
     return test_helpers::finish("runner options tests");
 }
