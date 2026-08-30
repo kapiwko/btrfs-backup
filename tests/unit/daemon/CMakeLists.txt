@@ -63,6 +63,13 @@ add_btrfsbackup_test(
 )
 
 add_btrfsbackup_test(
+    btrfsbackup-browse-session-service-tests
+    BrowseSessionServiceTests.cpp
+    browse-session-service-tests
+    btrfsbackup-daemon-control
+)
+
+add_btrfsbackup_test(
     btrfsbackup-profile-administration-service-tests
     ProfileAdministrationServiceTests.cpp
     profile-administration-service-tests
