@@ -80,14 +80,34 @@ std::string public_status() {
 std::string private_history(const std::string& state, const std::string& finished_at) {
     return btrfsbackup::config::json::Json({
                                                {"schemaVersion", 2},
+                                               {"profileId", "default"},
+                                               {"profileName", "Default backup"},
+                                               {"runId", "private-run-id"},
                                                {"state", state},
-                                               {"errorCode", state == "succeeded" ? "" : "repository.private_failure"},
+                                               {"phase", state},
+                                               {"message", "private message"},
                                                {"currentSourceName", "Home"},
                                                {"targetName", "Backup disk"},
+                                               {"sourceIndex", 1},
+                                               {"sourceCount", 1},
+                                               {"startedAt", "2026-08-25T09:00:00Z"},
+                                               {"updatedAt", finished_at},
                                                {"finishedAt", finished_at},
-                                               {"overallProgress", 100},
+                                               {"errorCode", state == "succeeded" ? "" : "repository.private_failure"},
+                                               {"errorMessage", state == "succeeded" ? "" : "private failure"},
                                                {"details", {{"device", "/dev/private"}}},
-                                               {"runId", "private-run-id"},
+                                               {"recoverable", false},
+                                               {"suggestedAction", ""},
+                                               {"canCancel", false},
+                                               {"bytesProcessed", 100},
+                                               {"bytesTotalEstimated", 100},
+                                               {"runBytesProcessed", 100},
+                                               {"speedBps", 0},
+                                               {"etaSeconds", -1},
+                                               {"sourceProgress", 100},
+                                               {"overallProgress", 100},
+                                               {"progressAccuracy", "exact"},
+                                               {"exitCode", state == "succeeded" ? 0 : 1},
                                            })
         .dump();
 }
@@ -146,9 +166,9 @@ void test_status_and_history_sanitization() {
     const btrfsbackup::daemon::query::HistoryQueryService history_service(root / "history");
     const btrfsbackup::daemon::query::StatusQueryService status_service(root / "status", history_service);
     const btrfsbackup::daemon::PublicRunStatus status = status_service.get_status("default");
-    test_helpers::expect_eq("status state", status.state, "running");
-    test_helpers::expect_eq("status phase", status.phase, "sizing");
-    test_helpers::expect_eq("status activity", status.activity, "sizing");
+    test_helpers::expect_eq("status state", btrfsbackup::state::document::public_run_state_name(status), "running");
+    test_helpers::expect_eq("status phase", status.phase.value, "sizing");
+    test_helpers::expect_eq("status activity", btrfsbackup::state::document::public_activity_name(status), "sizing");
     test_helpers::expect_true("status cancellable", status.can_cancel, "status lost cancellation capability");
     test_helpers::expect_eq("status source", status.source_name, "Home");
     const btrfsbackup::daemon::SanitizedHistoryPage history = history_service.get_history_sanitized("default", 0, 1);
@@ -161,7 +181,11 @@ void test_status_and_history_sanitization() {
         "between 1 and 100"
     );
     fs::remove(root / "status" / "default" / "current.json");
-    test_helpers::expect_eq("restart fallback state", status_service.get_status("default").state, "failed");
+    test_helpers::expect_eq(
+        "restart fallback state",
+        btrfsbackup::state::document::public_run_state_name(status_service.get_status("default")),
+        "failed"
+    );
     fs::remove_all(root);
 }
 
@@ -173,7 +197,7 @@ void test_malformed_and_oversized_documents() {
     test_helpers::expect_validation_error(
         "malformed status",
         [&] { (void)status_service.get_status("default"); },
-        "invalid manager JSON"
+        "invalid public status JSON"
     );
     test_helpers::write_file(
         root / "status" / "default" / "current.json",

@@ -9,6 +9,7 @@
 #include <vector>
 
 #include <core/ManagerProtocol.hpp>
+#include <state/document/RunStatusDocumentCodec.hpp>
 
 namespace btrfsbackup::daemon {
 
@@ -36,21 +37,7 @@ struct ProfileSummary {
     std::vector<ProfileSourceSummary> sources;
 };
 
-struct PublicRunStatus {
-    std::string run_id;
-    std::string state = "unavailable";
-    std::string phase = "idle";
-    std::string activity = "idle";
-    bool can_cancel = false;
-    std::string error_code;
-    std::string source_name;
-    std::string target_name;
-    std::int64_t speed_bps = 0;
-    std::int64_t eta_seconds = -1;
-    int source_progress = -1;
-    int overall_progress = -1;
-    std::string progress_accuracy = "indeterminate";
-};
+using PublicRunStatus = btrfsbackup::state::document::PublicRunStatusV3;
 
 struct SanitizedHistoryEntry {
     std::string state;

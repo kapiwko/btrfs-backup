@@ -71,6 +71,14 @@ or snapshot paths. The public document deliberately excludes private
 messages, timestamps, paths, UUIDs, byte totals, detailed error codes,
 diagnostic details, recovery guidance, and exit codes.
 
+All fields shown in the schema version 3 example are required. Unknown numeric
+progress is represented by `-1`, and an unavailable run identifier is represented
+by an empty `runId`; fields are not omitted. Producers and in-tree consumers use
+the shared typed `RunStatusDocumentCodec`. Consumers reject missing fields, wrong
+JSON types, invalid progress ranges, and inconsistent cancellation/error state,
+while ignoring additional fields and retaining unknown state, phase, and activity
+values for forward compatibility.
+
 ## Private History
 
 Finished runs are written atomically to:
