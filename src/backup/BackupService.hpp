@@ -8,6 +8,7 @@
 #include <optional>
 #include <string>
 #include <variant>
+#include <vector>
 
 #include <backup/model/BackupExecution.hpp>
 #include <backup/model/BackupRunPlan.hpp>
@@ -92,6 +93,19 @@ class BackupService {
         BackupRunPlan plan,
         execution::RunExecutionContext& context,
         IBackupRunEventSink& events
+    );
+    void record_success_ledger_warning(
+        std::vector<BackupCompletionWarning>& warnings,
+        const btrfsbackup::config::LoadedProfile& loaded_profile,
+        const execution::RunIdentity& identity,
+        LocalDate today,
+        std::size_t source_count
+    );
+    static void record_terminal_status_warning(
+        std::vector<BackupCompletionWarning>& warnings,
+        IBackupRunEventSink& events,
+        const btrfsbackup::config::Profile& profile,
+        const execution::RunIdentity& identity
     );
 
     btrfsbackup::config::IProfileRepository& profiles_;
