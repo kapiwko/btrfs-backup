@@ -10,7 +10,7 @@
 #include <string>
 #include <string_view>
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::systemd {
 
 [[nodiscard]] std::string systemd_mount_unit_name(const std::filesystem::path& mount_point);
 [[nodiscard]] std::string systemd_cryptsetup_unit_name(const std::string& mapper_name);
@@ -23,4 +23,4 @@ namespace btrfsbackup::platform::linux {
     std::string_view unit_name
 );
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::systemd

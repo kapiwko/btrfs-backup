@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-#include <platform/linux/SystemdTargetManager.hpp>
+#include <platform/linux/systemd/SystemdTargetManager.hpp>
 
 #include "support/TestHelpers.hpp"
 #include "support/ValidationTestHelpers.hpp"
@@ -76,7 +76,7 @@ struct FakeCommandRunner final : btrfsbackup::backup::ICommandRunner {
 void test_offline_session_does_not_mount_target() {
     FakeMountInspector mounts;
     FakeCommandRunner commands;
-    btrfsbackup::platform::linux::SystemdTargetManager manager(mounts, commands);
+    btrfsbackup::platform::linux::systemd::SystemdTargetManager manager(mounts, commands);
 
     std::unique_ptr<btrfsbackup::backup::IMountedTargetSession> session = manager.prepare(
         profile(),
@@ -90,7 +90,7 @@ void test_offline_session_does_not_mount_target() {
 void test_mounted_session_restores_target_state() {
     FakeMountInspector mounts;
     FakeCommandRunner commands;
-    btrfsbackup::platform::linux::SystemdTargetManager manager(mounts, commands);
+    btrfsbackup::platform::linux::systemd::SystemdTargetManager manager(mounts, commands);
 
     std::unique_ptr<btrfsbackup::backup::IMountedTargetSession> session = manager.prepare(
         profile(),
@@ -113,7 +113,7 @@ void test_preexisting_mapper_is_not_stopped() {
     test_helpers::write_file(mapper_root / "backup", "");
     FakeMountInspector mounts;
     FakeCommandRunner commands;
-    btrfsbackup::platform::linux::SystemdTargetManager manager(mounts, commands, mapper_root);
+    btrfsbackup::platform::linux::systemd::SystemdTargetManager manager(mounts, commands, mapper_root);
 
     std::unique_ptr<btrfsbackup::backup::IMountedTargetSession> session = manager.prepare(
         profile(),
@@ -133,7 +133,7 @@ void test_existing_mount_is_not_stopped() {
     FakeMountInspector mounts;
     mounts.mounted = true;
     FakeCommandRunner commands;
-    btrfsbackup::platform::linux::SystemdTargetManager manager(mounts, commands);
+    btrfsbackup::platform::linux::systemd::SystemdTargetManager manager(mounts, commands);
 
     std::unique_ptr<btrfsbackup::backup::IMountedTargetSession> session = manager.prepare(
         profile(),
@@ -148,7 +148,7 @@ void test_failed_mount_start_restores_inactive_mapper() {
     FakeMountInspector mounts;
     FakeCommandRunner commands;
     commands.start_exit_code = 1;
-    btrfsbackup::platform::linux::SystemdTargetManager manager(mounts, commands);
+    btrfsbackup::platform::linux::systemd::SystemdTargetManager manager(mounts, commands);
 
     test_helpers::expect_validation_error(
         "failed mount start",
@@ -169,7 +169,7 @@ void test_failed_unmount_does_not_close_mapper() {
     FakeMountInspector mounts;
     FakeCommandRunner commands;
     commands.stop_mount_exit_code = 1;
-    btrfsbackup::platform::linux::SystemdTargetManager manager(mounts, commands);
+    btrfsbackup::platform::linux::systemd::SystemdTargetManager manager(mounts, commands);
 
     std::unique_ptr<btrfsbackup::backup::IMountedTargetSession> session = manager.prepare(
         profile(),
@@ -197,7 +197,7 @@ void test_failed_cryptsetup_stop_is_reported_separately() {
     FakeMountInspector mounts;
     FakeCommandRunner commands;
     commands.stop_crypt_exit_code = 2;
-    btrfsbackup::platform::linux::SystemdTargetManager manager(mounts, commands);
+    btrfsbackup::platform::linux::systemd::SystemdTargetManager manager(mounts, commands);
 
     std::unique_ptr<btrfsbackup::backup::IMountedTargetSession> session = manager.prepare(
         profile(),

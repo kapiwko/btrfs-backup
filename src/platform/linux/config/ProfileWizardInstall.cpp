@@ -23,7 +23,7 @@
 #include <platform/linux/config/ProfileInstaller.hpp>
 #include <platform/linux/config/ProfileRuntimePolicy.hpp>
 #include <platform/linux/config/RenderDirectory.hpp>
-#include <platform/linux/LinuxSystemConfigurationActivator.hpp>
+#include <platform/linux/systemd/LinuxSystemConfigurationActivator.hpp>
 #include <platform/linux/process/Process.hpp>
 #include <platform/linux/filesystem/TrustedDirectory.hpp>
 
@@ -73,7 +73,7 @@ class WizardConfigurationActivator final : public btrfsbackup::config::IConfigur
 
   private:
     fs::path rendered_root_;
-    LinuxSystemConfigurationActivator system_configuration_;
+    systemd::LinuxSystemConfigurationActivator system_configuration_;
 };
 
 } // namespace

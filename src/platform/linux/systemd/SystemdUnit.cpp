@@ -2,12 +2,12 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <platform/linux/SystemdUnit.hpp>
+#include <platform/linux/systemd/SystemdUnit.hpp>
 
 #include <array>
 #include <cctype>
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::systemd {
 
 namespace {
 
@@ -102,4 +102,4 @@ std::optional<std::filesystem::path> locate_systemd_unit_file(
     return locate_systemd_unit_file(unit_name, unit_roots);
 }
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::systemd

@@ -11,7 +11,7 @@
 #include <config/model/Validation.hpp>
 #include <core/Errors.hpp>
 #include <core/Identifiers.hpp>
-#include <platform/linux/SystemdUnit.hpp>
+#include <platform/linux/systemd/SystemdUnit.hpp>
 
 namespace fs = std::filesystem;
 
@@ -50,7 +50,7 @@ void validate_legacy_profile_runtime_fields(
         if (!target.at("mountUnit").is_string()) {
             throw ValidationError("target.mountUnit must be text");
         }
-        if (target.at("mountUnit").get<std::string>() != systemd_mount_unit_name(mount_point)) {
+        if (target.at("mountUnit").get<std::string>() != systemd::systemd_mount_unit_name(mount_point)) {
             throw ValidationError("target.mountUnit does not match target.mountPoint");
         }
     }

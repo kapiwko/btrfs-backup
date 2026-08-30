@@ -10,7 +10,7 @@
 #include <backup/ports/IMountInspector.hpp>
 #include <backup/ports/TargetManager.hpp>
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::systemd {
 
 class SystemdTargetManager final : public btrfsbackup::backup::ITargetManager {
   public:
@@ -30,4 +30,4 @@ class SystemdTargetManager final : public btrfsbackup::backup::ITargetManager {
     std::filesystem::path mapper_root_;
 };
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::systemd
