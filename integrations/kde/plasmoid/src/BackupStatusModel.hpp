@@ -5,6 +5,7 @@
 #pragma once
 
 #include "ManagerApi.hpp"
+#include "TargetStatusModel.hpp"
 
 #include <QDBusConnection>
 #include <QDBusServiceWatcher>
@@ -36,11 +37,7 @@ class BackupStatusModel : public QObject {
     Q_PROPERTY(int overallProgress READ overallProgress NOTIFY statusChanged)
     Q_PROPERTY(QString progressAccuracy READ progressAccuracy NOTIFY statusChanged)
     Q_PROPERTY(QString errorCode READ errorCode NOTIFY statusChanged)
-    Q_PROPERTY(QString targetState READ targetState NOTIFY targetChanged)
-    Q_PROPERTY(bool targetConnected READ targetConnected NOTIFY targetChanged)
-    Q_PROPERTY(bool targetUnlocked READ targetUnlocked NOTIFY targetChanged)
-    Q_PROPERTY(bool targetMounted READ targetMounted NOTIFY targetChanged)
-    Q_PROPERTY(bool safeToRemove READ safeToRemove NOTIFY targetChanged)
+    Q_PROPERTY(TargetStatusModel* target READ target CONSTANT)
     Q_PROPERTY(QVariantList history READ history NOTIFY historyChanged)
     Q_PROPERTY(bool operationPending READ operationPending NOTIFY operationChanged)
     Q_PROPERTY(QString lastOperation READ lastOperation NOTIFY operationChanged)
@@ -68,11 +65,7 @@ class BackupStatusModel : public QObject {
     int overallProgress() const;
     QString progressAccuracy() const;
     QString errorCode() const;
-    QString targetState() const;
-    bool targetConnected() const;
-    bool targetUnlocked() const;
-    bool targetMounted() const;
-    bool safeToRemove() const;
+    TargetStatusModel* target();
     QVariantList history() const;
     bool operationPending() const;
     QString lastOperation() const;
@@ -117,6 +110,7 @@ class BackupStatusModel : public QObject {
     btrfsbackup::kde::ManagerEventSubscriber manager_events_;
     QDBusServiceWatcher service_watcher_;
     QTimer operation_message_timer_;
+    TargetStatusModel target_;
     bool active_ = false;
     bool capabilities_verified_ = false;
     bool profiles_request_pending_ = false;
@@ -146,11 +140,6 @@ class BackupStatusModel : public QObject {
     int overall_progress_ = -1;
     QString progress_accuracy_ = QStringLiteral("indeterminate");
     QString error_code_;
-    QString target_state_ = QStringLiteral("unknown");
-    bool target_connected_ = false;
-    bool target_unlocked_ = false;
-    bool target_mounted_ = false;
-    bool safe_to_remove_ = false;
     QVariantList history_;
     QString last_operation_;
     QString last_error_;
