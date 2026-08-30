@@ -160,7 +160,7 @@ void test_command_adapter_builds_transient_invocation() {
         .wait = false,
     });
 
-    test_helpers::expect_true("transient accepted", result.accepted(), "successful job was rejected");
+    test_helpers::expect_true("transient accepted", result.has_value(), "successful job was rejected");
     test_helpers::expect_true(
         "typed request encoded",
         commands.calls == std::vector<std::vector<std::string>>{{
@@ -190,7 +190,7 @@ void test_command_adapter_classifies_systemd_failures() {
     const auto missing = units.stop_unit({"missing.service", std::chrono::seconds(5)});
     test_helpers::expect_true(
         "unit not found",
-        missing.error && missing.error->failure == SystemdJobFailure::UnitNotFound,
+        !missing && missing.error().failure == SystemdJobFailure::UnitNotFound,
         "missing unit lost its systemd meaning"
     );
 
@@ -198,7 +198,7 @@ void test_command_adapter_classifies_systemd_failures() {
     const auto conflict = units.stop_unit({"busy.service", std::chrono::seconds(5)});
     test_helpers::expect_true(
         "job conflict",
-        conflict.error && conflict.error->failure == SystemdJobFailure::JobConflict,
+        !conflict && conflict.error().failure == SystemdJobFailure::JobConflict,
         "conflicting job lost its systemd meaning"
     );
 
@@ -206,7 +206,7 @@ void test_command_adapter_classifies_systemd_failures() {
     const auto rejected = units.stop_unit({"denied.service", std::chrono::seconds(5)});
     test_helpers::expect_true(
         "manager rejected",
-        rejected.error && rejected.error->failure == SystemdJobFailure::ManagerRejected,
+        !rejected && rejected.error().failure == SystemdJobFailure::ManagerRejected,
         "manager rejection lost its systemd meaning"
     );
 }
@@ -223,8 +223,8 @@ void test_waited_transient_job_preserves_service_exit_status() {
     });
     test_helpers::expect_true(
         "transient exit status",
-        result.error &&
-            result.error->unit_exit_status == config::configuration_changed_exit_code,
+        !result &&
+            result.error().unit_exit_status == config::configuration_changed_exit_code,
         "waited transient unit exit status was lost after collection"
     );
 }
@@ -243,7 +243,7 @@ void test_backend_maps_typed_systemd_failures() {
         {SystemdJobFailure::ManagerRejected, ManagerErrorCode::InternalError},
     };
     for (const auto& [failure, expected] : mappings) {
-        units.transient_result.error = SystemdJobError{failure, "detail", std::nullopt};
+        units.transient_result = std::unexpected(SystemdJobError{failure, "detail", std::nullopt});
         expect_manager_error(
             "typed backend mapping",
             expected,
@@ -251,11 +251,11 @@ void test_backend_maps_typed_systemd_failures() {
         );
     }
 
-    units.transient_result.error = SystemdJobError{
+    units.transient_result = std::unexpected(SystemdJobError{
         SystemdJobFailure::UnitFailed,
         "runner failed",
         config::configuration_changed_exit_code,
-    };
+    });
     expect_manager_error(
         "configuration exit status",
         ManagerErrorCode::Conflict,

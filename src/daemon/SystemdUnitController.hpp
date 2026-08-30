@@ -5,6 +5,7 @@
 #pragma once
 
 #include <chrono>
+#include <expected>
 #include <optional>
 #include <string>
 #include <vector>
@@ -46,29 +47,9 @@ struct TransientUnitRequest {
     bool wait = false;
 };
 
-struct StartJobResult {
-    std::optional<SystemdJobError> error;
-
-    [[nodiscard]] bool accepted() const noexcept {
-        return !error.has_value();
-    }
-};
-
-struct StopJobResult {
-    std::optional<SystemdJobError> error;
-
-    [[nodiscard]] bool accepted() const noexcept {
-        return !error.has_value();
-    }
-};
-
-struct TransientJobResult {
-    std::optional<SystemdJobError> error;
-
-    [[nodiscard]] bool accepted() const noexcept {
-        return !error.has_value();
-    }
-};
+using StartJobResult = std::expected<void, SystemdJobError>;
+using StopJobResult = std::expected<void, SystemdJobError>;
+using TransientJobResult = std::expected<void, SystemdJobError>;
 
 class ISystemdUnitController {
   public:
