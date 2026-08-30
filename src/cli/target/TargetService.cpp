@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <cli/TargetService.hpp>
+#include <cli/target/TargetService.hpp>
 
 #include <unistd.h>
 
@@ -133,14 +133,14 @@ bool mapper_identity_matches(
 bool mapper_has_mounts(
     const btrfsbackup::config::Profile& profile,
     const std::vector<btrfsbackup::backup::MountEntry>& mounts,
-    std::vector<btrfsbackup::cli::TargetEvent>& events,
+    std::vector<btrfsbackup::cli::target::TargetEvent>& events,
     const fs::path& mapper_root = "/dev/mapper"
 ) {
     fs::path mapper = mapper_root / profile.target.mapper_name.value();
     for (const btrfsbackup::backup::MountEntry& mount : mounts) {
         if (btrfsbackup::config::normalized_path(btrfsbackup::platform::linux::storage::strip_subvolume_suffix(mount.source)) == btrfsbackup::config::normalized_path(mapper)) {
             events.push_back({
-                .kind = btrfsbackup::cli::TargetEventKind::MapperStillMounted,
+                .kind = btrfsbackup::cli::target::TargetEventKind::MapperStillMounted,
                 .detail = mount.target,
             });
             return true;
@@ -161,7 +161,7 @@ struct ResolvedDependencies {
     std::function<fs::path(const fs::path&)> canonical_device;
 };
 
-ResolvedDependencies resolve_dependencies(btrfsbackup::cli::TargetServiceDependencies& dependencies) {
+ResolvedDependencies resolve_dependencies(btrfsbackup::cli::target::TargetServiceDependencies& dependencies) {
     return {
         .commands = dependencies.commands,
         .read_mounts = !dependencies.read_mounts
@@ -191,7 +191,7 @@ ResolvedDependencies resolve_dependencies(btrfsbackup::cli::TargetServiceDepende
     };
 }
 
-btrfsbackup::cli::TargetServiceDependencies production_dependencies(
+btrfsbackup::cli::target::TargetServiceDependencies production_dependencies(
     btrfsbackup::backup::ICommandRunner& commands
 ) {
     return {
@@ -296,13 +296,13 @@ std::optional<btrfsbackup::platform::linux::filesystem::FileLock> acquire_target
     const btrfsbackup::config::Profile& profile,
     const fs::path& lock_root,
     const std::string& operation,
-    std::vector<btrfsbackup::cli::TargetEvent>& events
+    std::vector<btrfsbackup::cli::target::TargetEvent>& events
 ) {
     std::optional<btrfsbackup::platform::linux::filesystem::FileLock> lock;
     lock.emplace(btrfsbackup::platform::linux::filesystem::target_lock_path(lock_root, profile.target.luks_uuid));
     if (!lock->try_acquire()) {
         events.push_back({
-            .kind = btrfsbackup::cli::TargetEventKind::Busy,
+            .kind = btrfsbackup::cli::target::TargetEventKind::Busy,
             .detail = operation,
         });
         return std::nullopt;
@@ -312,7 +312,7 @@ std::optional<btrfsbackup::platform::linux::filesystem::FileLock> acquire_target
 
 } // namespace
 
-namespace btrfsbackup::cli {
+namespace btrfsbackup::cli::target {
 
 const std::vector<TargetEvent>& target_operation_events(const TargetOperationResult& result) noexcept {
     return std::visit([](const auto& outcome) -> const std::vector<TargetEvent>& { return outcome.events; }, result);
@@ -600,4 +600,4 @@ TargetOperationResult eject_target(const EjectTargetRequest& request) {
     return eject_target(request, dependencies);
 }
 
-} // namespace btrfsbackup::cli
+} // namespace btrfsbackup::cli::target

@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-#include <cli/TargetCommand.hpp>
+#include <cli/target/TargetCommand.hpp>
 #include <platform/linux/filesystem/FileLock.hpp>
 #include <config/model/Json.hpp>
 #include <config/model/JsonIo.hpp>
@@ -159,7 +159,7 @@ void test_mount_starts_unit_and_validates_target() {
     std::string mount_point = (root / "mnt" / "default").string();
     write_profile(root, mount_point);
     RecordingCommandRunner commands;
-    btrfsbackup::cli::TargetExecutionServices services{
+    btrfsbackup::cli::target::TargetExecutionServices services{
         commands,
         [&commands, mount_point] { return mounts_for(commands.mounted, mount_point); },
         root / "locks",
@@ -168,7 +168,7 @@ void test_mount_starts_unit_and_validates_target() {
     std::ostringstream output;
 
     setenv("BTRFS_BACKUP_ALLOW_ROOTLESS_TESTS", "true", 1);
-    int result = btrfsbackup::cli::target(root, {"mount", "--profile", "default"}, output, &services);
+    int result = btrfsbackup::cli::target::target(root, {"mount", "--profile", "default"}, output, &services);
 
     test_helpers::expect_eq("target mount result", std::to_string(result), "0");
     test_helpers::expect_true(
@@ -186,7 +186,7 @@ void test_eject_unmounts_and_stops_target_unit() {
     write_profile(root, mount_point);
     RecordingCommandRunner commands;
     commands.mounted = true;
-    btrfsbackup::cli::TargetExecutionServices services{
+    btrfsbackup::cli::target::TargetExecutionServices services{
         commands,
         [&commands, mount_point] { return mounts_for(commands.mounted, mount_point); },
         root / "locks",
@@ -195,7 +195,7 @@ void test_eject_unmounts_and_stops_target_unit() {
     std::ostringstream output;
 
     setenv("BTRFS_BACKUP_ALLOW_ROOTLESS_TESTS", "true", 1);
-    int result = btrfsbackup::cli::target(root, {"eject", "--profile", "default"}, output, &services);
+    int result = btrfsbackup::cli::target::target(root, {"eject", "--profile", "default"}, output, &services);
 
     test_helpers::expect_eq("target eject result", std::to_string(result), "0");
     test_helpers::expect_true("target eject sync", contains_call(commands, "sync"), "sync was not called");
@@ -219,7 +219,7 @@ void test_activation_owns_and_restores_mapper() {
     RecordingCommandRunner commands;
     const fs::path mapper_root = root / "mapper";
     commands.mapper_path = mapper_root / mapper_name;
-    btrfsbackup::cli::TargetExecutionServices services{
+    btrfsbackup::cli::target::TargetExecutionServices services{
         .commands = commands,
         .read_mounts = [] { return std::vector<btrfsbackup::backup::MountEntry>{}; },
         .lock_root = root / "locks",
@@ -233,7 +233,7 @@ void test_activation_owns_and_restores_mapper() {
     std::ostringstream output;
 
     setenv("BTRFS_BACKUP_ALLOW_ROOTLESS_TESTS", "true", 1);
-    int result = btrfsbackup::cli::target(root, {"activate", "--from-service", "--profile", "default"}, output, &services);
+    int result = btrfsbackup::cli::target::target(root, {"activate", "--from-service", "--profile", "default"}, output, &services);
     test_helpers::expect_eq("target activate result", std::to_string(result), "0");
     test_helpers::expect_true("target activate mapper", fs::is_regular_file(commands.mapper_path), "mapper was not created");
     test_helpers::expect_true(
@@ -256,7 +256,7 @@ void test_activation_owns_and_restores_mapper() {
         "activation did not wait for the mapper device node"
     );
 
-    result = btrfsbackup::cli::target(root, {"deactivate", "--from-service", "--profile", "default"}, output, &services);
+    result = btrfsbackup::cli::target::target(root, {"deactivate", "--from-service", "--profile", "default"}, output, &services);
     test_helpers::expect_eq("target deactivate result", std::to_string(result), "0");
     test_helpers::expect_true("target deactivate mapper", !fs::exists(commands.mapper_path), "owned mapper remains active");
     test_helpers::expect_true(
@@ -280,7 +280,7 @@ void test_activation_preserves_preexisting_mapper() {
     const fs::path mapper_root = root / "mapper";
     commands.mapper_path = mapper_root / mapper_name;
     test_helpers::write_file(commands.mapper_path, "preexisting mapper");
-    btrfsbackup::cli::TargetExecutionServices services{
+    btrfsbackup::cli::target::TargetExecutionServices services{
         .commands = commands,
         .read_mounts = [] { return std::vector<btrfsbackup::backup::MountEntry>{}; },
         .lock_root = root / "locks",
@@ -294,8 +294,8 @@ void test_activation_preserves_preexisting_mapper() {
     std::ostringstream output;
 
     setenv("BTRFS_BACKUP_ALLOW_ROOTLESS_TESTS", "true", 1);
-    (void)btrfsbackup::cli::target(root, {"activate", "--from-service", "--profile", "default"}, output, &services);
-    (void)btrfsbackup::cli::target(root, {"deactivate", "--from-service", "--profile", "default"}, output, &services);
+    (void)btrfsbackup::cli::target::target(root, {"activate", "--from-service", "--profile", "default"}, output, &services);
+    (void)btrfsbackup::cli::target::target(root, {"deactivate", "--from-service", "--profile", "default"}, output, &services);
     test_helpers::expect_true("preexisting mapper preserved", fs::is_regular_file(commands.mapper_path), "preexisting mapper was closed");
     test_helpers::expect_true(
         "preexisting mapper not detached",
@@ -315,7 +315,7 @@ void test_activation_rejects_insecure_key_file() {
     RecordingCommandRunner commands;
     const fs::path mapper_root = root / "mapper";
     commands.mapper_path = mapper_root / mapper_name;
-    btrfsbackup::cli::TargetExecutionServices services{
+    btrfsbackup::cli::target::TargetExecutionServices services{
         .commands = commands,
         .read_mounts = [] { return std::vector<btrfsbackup::backup::MountEntry>{}; },
         .lock_root = root / "locks",
@@ -332,7 +332,7 @@ void test_activation_rejects_insecure_key_file() {
     test_helpers::expect_validation_error(
         "insecure activation key rejected",
         [&] {
-            (void)btrfsbackup::cli::target(
+            (void)btrfsbackup::cli::target::target(
                 root,
                 {"activate", "--from-service", "--profile", "default"},
                 output,
@@ -355,7 +355,7 @@ void test_internal_eject_honors_auto_eject_setting() {
     write_profile(root, mount_point, false);
     RecordingCommandRunner commands;
     commands.mounted = true;
-    btrfsbackup::cli::TargetExecutionServices services{
+    btrfsbackup::cli::target::TargetExecutionServices services{
         commands,
         [&commands, mount_point] { return mounts_for(commands.mounted, mount_point); },
         root / "locks",
@@ -364,7 +364,7 @@ void test_internal_eject_honors_auto_eject_setting() {
     std::ostringstream output;
 
     setenv("BTRFS_BACKUP_ALLOW_ROOTLESS_TESTS", "true", 1);
-    int result = btrfsbackup::cli::target(root, {"eject", "--from-runner", "--profile", "default"}, output, &services);
+    int result = btrfsbackup::cli::target::target(root, {"eject", "--from-runner", "--profile", "default"}, output, &services);
 
     test_helpers::expect_eq("target eject auto disabled result", std::to_string(result), "0");
     test_helpers::expect_true("target eject auto disabled calls", commands.calls.empty(), "commands should not run");
@@ -379,7 +379,7 @@ void test_eject_refuses_busy_target_without_running_commands() {
     RecordingCommandRunner commands;
     commands.mounted = true;
     fs::path lock_root = root / "locks";
-    btrfsbackup::cli::TargetExecutionServices services{
+    btrfsbackup::cli::target::TargetExecutionServices services{
         commands,
         [&commands, mount_point] { return mounts_for(commands.mounted, mount_point); },
         lock_root,
@@ -396,7 +396,7 @@ void test_eject_refuses_busy_target_without_running_commands() {
     std::ostringstream output;
 
     setenv("BTRFS_BACKUP_ALLOW_ROOTLESS_TESTS", "true", 1);
-    int result = btrfsbackup::cli::target(root, {"eject", "--profile", "default"}, output, &services);
+    int result = btrfsbackup::cli::target::target(root, {"eject", "--profile", "default"}, output, &services);
 
     test_helpers::expect_eq("target busy result", std::to_string(result), "1");
     test_helpers::expect_true("target busy commands", commands.calls.empty(), "busy eject must not run commands");
@@ -418,7 +418,7 @@ void test_mount_rejects_symlinked_mount_point_without_chmod() {
     write_profile(root, mount_point.string());
 
     RecordingCommandRunner commands;
-    btrfsbackup::cli::TargetExecutionServices services{
+    btrfsbackup::cli::target::TargetExecutionServices services{
         commands,
         [&commands, mount_point] { return mounts_for(commands.mounted, mount_point.string()); },
         root / "locks",
@@ -427,7 +427,7 @@ void test_mount_rejects_symlinked_mount_point_without_chmod() {
     std::ostringstream output;
 
     setenv("BTRFS_BACKUP_ALLOW_ROOTLESS_TESTS", "true", 1);
-    test_helpers::expect_validation_error("symlinked target mount rejected", [&] { (void)btrfsbackup::cli::target(root, {"mount", "--profile", "default"}, output, &services); }, "without symlinks");
+    test_helpers::expect_validation_error("symlinked target mount rejected", [&] { (void)btrfsbackup::cli::target::target(root, {"mount", "--profile", "default"}, output, &services); }, "without symlinks");
 
     struct stat victim_status{};
     stat(victim.c_str(), &victim_status);

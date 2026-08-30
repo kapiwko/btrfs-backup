@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <cli/TargetCommand.hpp>
+#include <cli/target/TargetCommand.hpp>
 
 #include <cstdlib>
 #include <filesystem>
@@ -73,8 +73,8 @@ bool service_succeeded() {
     return value == nullptr || std::string(value) == "success";
 }
 
-std::string format_event(const btrfsbackup::cli::TargetEvent& event) {
-    using btrfsbackup::cli::TargetEventKind;
+std::string format_event(const btrfsbackup::cli::target::TargetEvent& event) {
+    using btrfsbackup::cli::target::TargetEventKind;
     switch (event.kind) {
     case TargetEventKind::AutomaticEjectDisabled:
         return "Automatic eject is disabled by configuration.";
@@ -108,15 +108,15 @@ std::string format_event(const btrfsbackup::cli::TargetEvent& event) {
     return {};
 }
 
-void print_result(const btrfsbackup::cli::TargetOperationResult& result, std::ostream& output) {
-    for (const btrfsbackup::cli::TargetEvent& event : target_operation_events(result)) {
+void print_result(const btrfsbackup::cli::target::TargetOperationResult& result, std::ostream& output) {
+    for (const btrfsbackup::cli::target::TargetEvent& event : target_operation_events(result)) {
         std::println(output, "{}", format_event(event));
     }
 }
 
 } // namespace
 
-namespace btrfsbackup::cli {
+namespace btrfsbackup::cli::target {
 
 int target(
     const fs::path& profile_config_dir,
@@ -149,24 +149,24 @@ int target(
             .profile_id = ProfileId{options.profile_id},
         };
         result = services == nullptr
-            ? btrfsbackup::cli::activate_target(request)
-            : btrfsbackup::cli::activate_target(request, *services);
+            ? btrfsbackup::cli::target::activate_target(request)
+            : btrfsbackup::cli::target::activate_target(request, *services);
     } else if (command == "deactivate") {
         const DeactivateTargetRequest request{
             .profile_config_dir = profile_config_dir,
             .profile_id = ProfileId{options.profile_id},
         };
         result = services == nullptr
-            ? btrfsbackup::cli::deactivate_target(request)
-            : btrfsbackup::cli::deactivate_target(request, *services);
+            ? btrfsbackup::cli::target::deactivate_target(request)
+            : btrfsbackup::cli::target::deactivate_target(request, *services);
     } else if (command == "mount") {
         const MountTargetRequest request{
             .profile_config_dir = profile_config_dir,
             .profile_id = ProfileId{options.profile_id},
         };
         result = services == nullptr
-            ? btrfsbackup::cli::mount_target(request)
-            : btrfsbackup::cli::mount_target(request, *services);
+            ? btrfsbackup::cli::target::mount_target(request)
+            : btrfsbackup::cli::target::mount_target(request, *services);
     } else {
         const EjectTargetRequest request{
             .profile_config_dir = profile_config_dir,
@@ -176,8 +176,8 @@ int target(
             .service_succeeded = !options.from_service || service_succeeded(),
         };
         result = services == nullptr
-            ? btrfsbackup::cli::eject_target(request)
-            : btrfsbackup::cli::eject_target(request, *services);
+            ? btrfsbackup::cli::target::eject_target(request)
+            : btrfsbackup::cli::target::eject_target(request, *services);
     }
     print_result(result, output);
     return std::holds_alternative<TargetOperationBusy>(result) ? 1 : 0;
@@ -187,4 +187,4 @@ int target(const fs::path& profile_config_dir, const std::vector<std::string>& a
     return target(profile_config_dir, args, output, nullptr);
 }
 
-} // namespace btrfsbackup::cli
+} // namespace btrfsbackup::cli::target

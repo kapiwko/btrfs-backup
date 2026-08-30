@@ -18,8 +18,8 @@ add_library(btrfsbackup-cli STATIC
     status/StatusCommand.cpp
     status/StatusHistoryCommand.cpp
     status/StatusShowCommand.cpp
-    TargetCommand.cpp
-    TargetService.cpp
+    target/TargetCommand.cpp
+    target/TargetService.cpp
 )
 
 target_compile_features(btrfsbackup-cli PUBLIC cxx_std_23)
@@ -42,8 +42,8 @@ target_restricted_include_directories(btrfsbackup-cli
         cli/status/StatusCommand.hpp
         cli/status/StatusHistoryCommand.hpp
         cli/status/StatusShowCommand.hpp
-        cli/TargetCommand.hpp
-        cli/TargetService.hpp
+        cli/target/TargetCommand.hpp
+        cli/target/TargetService.hpp
     PRIVATE_HEADERS
         cli/runner/RunnerJsonCodec.hpp
         cli/runner/RunnerComposition.hpp

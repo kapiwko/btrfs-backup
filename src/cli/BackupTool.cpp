@@ -13,7 +13,7 @@
 #include <vector>
 
 #include <cli/runner/RunnerCommand.hpp>
-#include <cli/TargetCommand.hpp>
+#include <cli/target/TargetCommand.hpp>
 #include <core/Errors.hpp>
 #include <platform/linux/config/FileProfileRepository.hpp>
 #include <core/Cancellation.hpp>
@@ -128,7 +128,7 @@ int backup_tool(
     auto target = services != nullptr && services->target
         ? services->target
         : [&](const std::vector<std::string>& target_args, std::ostream& target_output) {
-              return btrfsbackup::cli::target(profile_config_dir, target_args, target_output);
+              return btrfsbackup::cli::target::target(profile_config_dir, target_args, target_output);
           };
     auto load_profile = services != nullptr && services->load_profile
         ? services->load_profile

@@ -9,9 +9,9 @@
 #include <string>
 #include <vector>
 
-#include <cli/TargetService.hpp>
+#include <cli/target/TargetService.hpp>
 
-namespace btrfsbackup::cli {
+namespace btrfsbackup::cli::target {
 
 using TargetExecutionServices = TargetServiceDependencies;
 
@@ -28,4 +28,4 @@ int target(
     TargetExecutionServices* services
 );
 
-} // namespace btrfsbackup::cli
+} // namespace btrfsbackup::cli::target
