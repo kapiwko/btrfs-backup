@@ -242,7 +242,7 @@ void BackupProgressMonitor::apply_profiles(const QString& payload) {
     for (auto iterator = jobs_.begin(); iterator != jobs_.end();) {
         if (!profiles.contains(iterator.key())) {
             if (iterator.value()) {
-                iterator.value()->finish_with_error(i18n("Backup profile is no longer available"));
+                iterator.value()->stop_tracking();
             }
             iterator = jobs_.erase(iterator);
         } else {
@@ -274,7 +274,7 @@ void BackupProgressMonitor::apply_status(const Profile& profile, const QString& 
     const QPointer<BackupProgressJob> current = jobs_.value(profile.id);
     if (!current || current->run_id() != status.run_id) {
         if (current) {
-            current->finish_with_error(i18n("A newer backup run replaced this progress report"));
+            current->stop_tracking();
         }
         create_job(profile, status);
     }
