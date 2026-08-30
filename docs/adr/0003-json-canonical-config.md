@@ -2,12 +2,13 @@
 
 - Status: accepted
 - Date: 2026-08-25
+- Amended: 2026-08-30
 
 ## Context
 
 The project previously had multiple representations of profile and source
 configuration. Multiple writable formats create drift, duplicate validation
-and make CLI, runtime and future D-Bus/KDE clients disagree about defaults and
+and make CLI, runtime, D-Bus and KDE clients disagree about defaults and
 schema evolution.
 
 Configuration contains privileged paths and hook definitions, so it must be
@@ -33,7 +34,7 @@ Never source profile data as shell code.
 ## Consequences
 
 - Schema versions and migrations are explicit compatibility contracts.
-- CLI, runner and future manager reuse one model and validator.
+- CLI, runner and manager reuse one model and validator.
 - Installed systemd/udev artifacts are derived state and may be regenerated.
 - Profile writes need atomic multi-artifact publication and rollback handling.
 - User-facing clients cannot bypass privileged persistence by editing derived

@@ -147,11 +147,11 @@ btrfs-backupctl status history --profile default --limit 10
 btrfs-backupctl profile list
 ```
 
-The Plasma widget routes start, cancellation, target validation, and eject
-through the system manager. These already configured operational controls do
-not require a password from the active local desktop session. Direct runtime
-commands and future KCM operations that change profiles, hooks, or devices
-remain administrator operations.
+The Plasma widget routes start, cancellation and eject through the system
+manager. These already configured operational controls do not require a
+password from the active local desktop session. Target validation belongs to
+the planned KCM. Direct runtime commands and KCM operations that change
+profiles, hooks, or devices remain administrator operations.
 
 Its expanded profile view reports Btrfs filesystem capacity and usage from a
 verified live measurement or the runner's last identity-matching private cache.
@@ -195,7 +195,7 @@ Backups should be checked regularly with a restore test. A successful transfer e
 7. [C++ source layout](docs/cpp-layout.md);
 8. [security model](docs/security.md);
 9. [release and packaging](docs/packaging.md);
-10. [active sprint](TODO.md) and [product roadmap](ROADMAP.md);
+10. [current task status](TODO.md) and [product roadmap](ROADMAP.md);
 11. proposed designs for [consistency groups](docs/design/consistency-groups.md),
     [repository format](docs/design/repository-format.md),
     [restore](docs/design/restore-engine.md),
