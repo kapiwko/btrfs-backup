@@ -11,12 +11,14 @@
 #include <daemon/ManagerPaths.hpp>
 #include <daemon/ManagerService.hpp>
 #include <daemon/control/OperationalControlService.hpp>
+#include <daemon/control/ProfileAdministrationService.hpp>
 
 namespace btrfsbackup::daemon::dbus {
 
 int run_dbus_server(
     ManagerService& service,
     control::IOperationalControlBackend& operational_backend,
+    control::IProfileAdministrationBackend& profile_administration_backend,
     IManagerAuditLog& audit_log,
     const ManagerPaths& paths,
     const std::string& bus_address = {}

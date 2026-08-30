@@ -11,7 +11,7 @@ inline constexpr char object_path[] = "/io/github/btrfsbackup/Manager1";
 inline constexpr char interface_name[] = "io.github.btrfsbackup.Manager1";
 
 inline constexpr int api_major = 1;
-inline constexpr int api_minor = 4;
+inline constexpr int api_minor = 5;
 inline constexpr int capabilities_schema_version = 1;
 inline constexpr int profile_schema_version = 3;
 inline constexpr int profile_summary_schema_version = 1;
@@ -20,6 +20,7 @@ inline constexpr int history_schema_version = 2;
 inline constexpr int device_state_schema_version = 1;
 inline constexpr int target_storage_schema_version = 1;
 inline constexpr int operation_result_schema_version = 1;
+inline constexpr int profile_edit_schema_version = 1;
 
 namespace feature {
 
@@ -34,6 +35,8 @@ inline constexpr char validate_target[] = "validate-target";
 inline constexpr char eject_target[] = "eject-target";
 inline constexpr char change_signals[] = "change-signals";
 inline constexpr char browse_backups[] = "browse-backups";
+inline constexpr char profile_administration[] = "profile-administration";
+inline constexpr char profile_hook_administration[] = "profile-hook-administration";
 
 } // namespace feature
 
@@ -48,6 +51,11 @@ inline constexpr char start_backup[] = "StartBackup";
 inline constexpr char cancel_backup[] = "CancelBackup";
 inline constexpr char validate_target[] = "ValidateTarget";
 inline constexpr char eject_target[] = "EjectTarget";
+inline constexpr char get_profile_for_editing[] = "GetProfileForEditing";
+inline constexpr char validate_profile_draft[] = "ValidateProfileDraft";
+inline constexpr char save_profile[] = "SaveProfile";
+inline constexpr char save_profile_hooks[] = "SaveProfileHooks";
+inline constexpr char delete_profile[] = "DeleteProfile";
 
 } // namespace method
 

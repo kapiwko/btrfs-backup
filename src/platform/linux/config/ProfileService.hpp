@@ -10,6 +10,7 @@
 
 #include <config/domain/Profile.hpp>
 #include <config/ports/ConfigurationActivator.hpp>
+#include <platform/linux/config/ProfileInstaller.hpp>
 
 namespace btrfsbackup::platform::linux::config {
 
@@ -40,7 +41,14 @@ btrfsbackup::config::Profile save_profile(
 void install_profile(
     const btrfsbackup::config::Profile& profile,
     const ProfileInstallationRoots& roots,
-    btrfsbackup::config::IConfigurationActivator& activator
+    btrfsbackup::config::IConfigurationActivator& activator,
+    const ExpectedProfileIdentity* expected = nullptr
+);
+void delete_profile(
+    const btrfsbackup::config::Profile& profile,
+    const ProfileInstallationRoots& roots,
+    btrfsbackup::config::IConfigurationActivator& activator,
+    const ExpectedProfileIdentity* expected = nullptr
 );
 btrfsbackup::config::Profile get_profile(const std::filesystem::path& etc_root, const std::string& profile_id);
 btrfsbackup::config::Profile export_profile(

@@ -32,6 +32,8 @@ ManagerCapabilities ManagerService::get_capabilities() const {
             manager_protocol::feature::validate_target,
             manager_protocol::feature::eject_target,
             manager_protocol::feature::change_signals,
+            manager_protocol::feature::profile_administration,
+            manager_protocol::feature::profile_hook_administration,
         },
     };
 }

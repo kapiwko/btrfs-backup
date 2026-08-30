@@ -37,6 +37,14 @@ const char* manager_authorization_action_id(ManagerAuthorizationAction action) n
         return "io.github.btrfsbackup.validate-target";
     case ManagerAuthorizationAction::EjectTarget:
         return "io.github.btrfsbackup.eject-target";
+    case ManagerAuthorizationAction::ReadProfileConfiguration:
+        return "io.github.btrfsbackup.read-profile-configuration";
+    case ManagerAuthorizationAction::SaveProfileConfiguration:
+        return "io.github.btrfsbackup.save-profile-configuration";
+    case ManagerAuthorizationAction::DeleteProfileConfiguration:
+        return "io.github.btrfsbackup.delete-profile-configuration";
+    case ManagerAuthorizationAction::SaveProfileHooks:
+        return "io.github.btrfsbackup.save-profile-hooks";
     }
     return "io.github.btrfsbackup.invalid-action";
 }

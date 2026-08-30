@@ -140,6 +140,7 @@ namespace btrfsbackup::daemon::dbus {
 int run_dbus_server(
     ManagerService& service,
     control::IOperationalControlBackend& operational_backend,
+    control::IProfileAdministrationBackend& profile_administration_backend,
     IManagerAuditLog& audit_log,
     const ManagerPaths& paths,
     const std::string& bus_address
@@ -161,7 +162,8 @@ int run_dbus_server(
 
     PolkitAuthorizer authorizer(bus.get());
     control::OperationalControlService operational(authorizer, operational_backend);
-    ManagerDbusObject object(service, operational, audit_log);
+    control::ProfileAdministrationService profile_administration(authorizer, profile_administration_backend);
+    ManagerDbusObject object(service, operational, profile_administration, audit_log);
 
     std::unique_ptr<sd_bus_slot, decltype(&sd_bus_slot_unref)> slot(nullptr, sd_bus_slot_unref);
     sd_bus_slot* raw_slot = nullptr;

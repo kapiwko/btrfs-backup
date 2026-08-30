@@ -18,6 +18,7 @@
 #include <config/ProfileRender.hpp>
 #include <platform/linux/config/ProfileConfigurationTransaction.hpp>
 #include <platform/linux/config/ProfileService.hpp>
+#include <platform/linux/config/FileProfileRepository.hpp>
 #include <platform/linux/filesystem/FileLock.hpp>
 
 namespace fs = std::filesystem;
@@ -109,13 +110,39 @@ void append_obsolete_systemd_units(
     }
 }
 
+void require_expected_profile_identity(
+    const btrfsbackup::config::ProfileArtifactRoots& roots,
+    const ProfileId& profile_id,
+    const ExpectedProfileIdentity* expected
+) {
+    if (expected == nullptr)
+        return;
+    const fs::path profile_path = roots.etc_root / "profiles" / profile_id.value() / "profile.json";
+    std::error_code error;
+    const fs::file_status status = fs::symlink_status(profile_path, error);
+    const bool exists = !error && status.type() != fs::file_type::not_found;
+    if (error && error != std::errc::no_such_file_or_directory)
+        throw ValidationError("cannot inspect current profile configuration");
+    if (exists != expected->exists)
+        throw CodedValidationError(ErrorCode::ConfigurationChanged, "profile existence changed before commit");
+    if (!exists)
+        return;
+    const auto loaded = FileProfileRepository(roots.etc_root).get(profile_id);
+    if (loaded.generation.value() != expected->generation || loaded.fingerprint.value() != expected->fingerprint)
+        throw CodedValidationError(ErrorCode::ConfigurationChanged, "profile identity changed before commit");
+}
+
 } // namespace
 
 ProfileInstaller::ProfileInstaller(btrfsbackup::config::ProfileArtifactRenderer& renderer, btrfsbackup::config::IConfigurationActivator& activator)
     : renderer_(renderer), activator_(activator) {
 }
 
-void ProfileInstaller::install_profile_transactionally(const btrfsbackup::config::Profile& profile, const btrfsbackup::config::ProfileArtifactRoots& roots) {
+void ProfileInstaller::install_profile_transactionally(
+    const btrfsbackup::config::Profile& profile,
+    const btrfsbackup::config::ProfileArtifactRoots& roots,
+    const ExpectedProfileIdentity* expected
+) {
     btrfsbackup::config::RenderedProfileArtifacts rendered = renderer_.render_profile_artifacts(profile, roots);
     append_obsolete_systemd_units(rendered, roots);
     const std::string installed_id{rendered.profile.id.value()};
@@ -139,6 +166,7 @@ void ProfileInstaller::install_profile_transactionally(const btrfsbackup::config
         if (!lock.try_acquire()) {
             throw ValidationError("profile is active; configuration save refused: " + installed_id);
         }
+        require_expected_profile_identity(roots, profile.id, expected);
 
         bool activation_attempted = false;
         try {
@@ -168,6 +196,62 @@ void ProfileInstaller::install_profile_transactionally(const btrfsbackup::config
         transaction.finish();
     } catch (const ConfigurationSaveError&) {
         throw;
+    } catch (const CodedValidationError& error) {
+        transaction.finish();
+        if (error.error_code == ErrorCode::ConfigurationChanged)
+            throw;
+        throw ConfigurationSaveError(error.what(), {});
+    } catch (...) {
+        const std::string cause = current_exception_message();
+        transaction.finish();
+        throw ConfigurationSaveError(cause, {});
+    }
+}
+
+void ProfileInstaller::delete_profile_transactionally(
+    const btrfsbackup::config::Profile& profile,
+    const btrfsbackup::config::ProfileArtifactRoots& roots,
+    const ExpectedProfileIdentity* expected
+) {
+    btrfsbackup::config::RenderedProfileArtifacts rendered = renderer_.render_profile_artifacts(profile, roots);
+    append_obsolete_systemd_units(rendered, roots);
+    for (auto& artifact : rendered.artifacts)
+        artifact.operation = btrfsbackup::config::ProfileArtifactOperation::Remove;
+    ProfileConfigurationTransaction transaction(rendered);
+    try {
+        transaction.stage();
+        filesystem::FileLock lock(configuration_lock_path(roots.etc_root, profile.id));
+        if (!lock.try_acquire())
+            throw ValidationError("profile is active; configuration delete refused: " + std::string(profile.id.value()));
+        require_expected_profile_identity(roots, profile.id, expected);
+        bool activation_attempted = false;
+        try {
+            transaction.publish_configuration();
+            activation_attempted = true;
+            activator_.activate();
+            transaction.publish_public_marker();
+        } catch (...) {
+            const std::string cause = current_exception_message();
+            RollbackResult rollback = transaction.rollback();
+            if (activation_attempted) {
+                try {
+                    activator_.activate();
+                } catch (const std::exception& error) {
+                    record_rollback_error(rollback, "reactivate previous configuration", roots.systemd_root, error.what());
+                } catch (...) {
+                    record_rollback_error(rollback, "reactivate previous configuration", roots.systemd_root, "unknown error");
+                }
+            }
+            throw ConfigurationSaveError(cause, std::move(rollback));
+        }
+        transaction.finish();
+    } catch (const ConfigurationSaveError&) {
+        throw;
+    } catch (const CodedValidationError& error) {
+        transaction.finish();
+        if (error.error_code == ErrorCode::ConfigurationChanged)
+            throw;
+        throw ConfigurationSaveError(error.what(), {});
     } catch (...) {
         const std::string cause = current_exception_message();
         transaction.finish();

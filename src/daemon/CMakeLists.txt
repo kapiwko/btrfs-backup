@@ -56,6 +56,7 @@ target_link_libraries(btrfsbackup-daemon-query
 add_library(btrfsbackup-daemon-control STATIC
     control/AuthorizedOperationCommand.cpp
     control/OperationalControlService.cpp
+    control/ProfileAdministrationService.cpp
 )
 target_compile_features(btrfsbackup-daemon-control PUBLIC cxx_std_23)
 target_compile_definitions(
@@ -66,6 +67,7 @@ target_restricted_include_directories(btrfsbackup-daemon-control
     PUBLIC_HEADERS
         daemon/control/AuthorizedOperationCommand.hpp
         daemon/control/OperationalControlService.hpp
+        daemon/control/ProfileAdministrationService.hpp
         daemon/control/SystemdUnitController.hpp
 )
 target_link_libraries(btrfsbackup-daemon-control
@@ -81,12 +83,14 @@ add_library(btrfsbackup-daemon-system-control STATIC
     control/CommandSystemdUnitController.cpp
     control/OperationEnvironmentFile.cpp
     control/SystemOperationalControlBackend.cpp
+    control/SystemProfileAdministrationBackend.cpp
 )
 target_compile_features(btrfsbackup-daemon-system-control PUBLIC cxx_std_23)
 target_restricted_include_directories(btrfsbackup-daemon-system-control
     PUBLIC_HEADERS
         daemon/control/CommandSystemdUnitController.hpp
         daemon/control/SystemOperationalControlBackend.hpp
+        daemon/control/SystemProfileAdministrationBackend.hpp
     PRIVATE_HEADERS
         daemon/control/OperationEnvironmentFile.hpp
 )
@@ -96,6 +100,8 @@ target_link_libraries(btrfsbackup-daemon-system-control
         btrfsbackup-config-ports
         btrfsbackup-daemon-control
     PRIVATE
+        btrfsbackup-config-json
+        btrfsbackup-platform-linux-config
         btrfsbackup-platform-linux-filesystem
         btrfsbackup-platform-linux-process
 )
@@ -143,6 +149,7 @@ target_link_libraries(btrfs-backupd
         btrfsbackup-platform-linux-config
         btrfsbackup-platform-linux-filesystem
         btrfsbackup-platform-linux-process
+        btrfsbackup-platform-linux-systemd
         btrfsbackup-state
 )
 

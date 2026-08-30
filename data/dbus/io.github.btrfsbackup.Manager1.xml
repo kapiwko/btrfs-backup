@@ -45,6 +45,37 @@ SPDX-License-Identifier: GPL-3.0-or-later
       <arg name="profileId" type="s" direction="in"/>
       <arg name="payload" type="s" direction="out"/>
     </method>
+    <method name="GetProfileForEditing">
+      <arg name="profileId" type="s" direction="in"/>
+      <arg name="payload" type="s" direction="out"/>
+    </method>
+    <method name="ValidateProfileDraft">
+      <arg name="profileId" type="s" direction="in"/>
+      <arg name="expectedGeneration" type="s" direction="in"/>
+      <arg name="expectedFingerprint" type="s" direction="in"/>
+      <arg name="document" type="s" direction="in"/>
+      <arg name="payload" type="s" direction="out"/>
+    </method>
+    <method name="SaveProfile">
+      <arg name="profileId" type="s" direction="in"/>
+      <arg name="expectedGeneration" type="s" direction="in"/>
+      <arg name="expectedFingerprint" type="s" direction="in"/>
+      <arg name="document" type="s" direction="in"/>
+      <arg name="payload" type="s" direction="out"/>
+    </method>
+    <method name="SaveProfileHooks">
+      <arg name="profileId" type="s" direction="in"/>
+      <arg name="expectedGeneration" type="s" direction="in"/>
+      <arg name="expectedFingerprint" type="s" direction="in"/>
+      <arg name="document" type="s" direction="in"/>
+      <arg name="payload" type="s" direction="out"/>
+    </method>
+    <method name="DeleteProfile">
+      <arg name="profileId" type="s" direction="in"/>
+      <arg name="expectedGeneration" type="s" direction="in"/>
+      <arg name="expectedFingerprint" type="s" direction="in"/>
+      <arg name="payload" type="s" direction="out"/>
+    </method>
 
     <signal name="ProfilesChanged"/>
     <signal name="StatusChanged">

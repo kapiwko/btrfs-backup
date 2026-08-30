@@ -16,6 +16,7 @@
 #include <daemon/dbus/ManagerJsonCodec.hpp>
 #include <daemon/ManagerService.hpp>
 #include <daemon/control/OperationalControlService.hpp>
+#include <daemon/control/ProfileAdministrationService.hpp>
 
 namespace btrfsbackup::daemon::dbus {
 
@@ -24,6 +25,7 @@ class ManagerDbusObject final {
     ManagerDbusObject(
         ManagerService& service,
         control::OperationalControlService& operational,
+        control::ProfileAdministrationService& profile_administration,
         IManagerAuditLog& audit_log
     );
 
@@ -38,6 +40,11 @@ class ManagerDbusObject final {
     int handle_cancel_backup(sd_bus_message* message, sd_bus_error* error) noexcept;
     int handle_validate_target(sd_bus_message* message, sd_bus_error* error) noexcept;
     int handle_eject_target(sd_bus_message* message, sd_bus_error* error) noexcept;
+    int handle_get_profile_for_editing(sd_bus_message* message, sd_bus_error* error) noexcept;
+    int handle_validate_profile_draft(sd_bus_message* message, sd_bus_error* error) noexcept;
+    int handle_save_profile(sd_bus_message* message, sd_bus_error* error) noexcept;
+    int handle_save_profile_hooks(sd_bus_message* message, sd_bus_error* error) noexcept;
+    int handle_delete_profile(sd_bus_message* message, sd_bus_error* error) noexcept;
 
   private:
     using JsonOperation = std::function<std::string()>;
@@ -64,6 +71,7 @@ class ManagerDbusObject final {
 
     ManagerService& service_;
     control::OperationalControlService& operational_;
+    control::ProfileAdministrationService& profile_administration_;
     IManagerAuditLog& audit_log_;
     ManagerJsonCodec codec_;
     ManagerErrorMapper error_mapper_;

@@ -27,4 +27,24 @@
     <message>Authentication is required to eject a Btrfs backup target</message>
     <defaults><allow_any>no</allow_any><allow_inactive>auth_admin</allow_inactive><allow_active>yes</allow_active></defaults>
   </action>
+  <action id="io.github.btrfsbackup.read-profile-configuration">
+    <description>Read private Btrfs backup profile configuration</description>
+    <message>Authentication is required to inspect private backup configuration</message>
+    <defaults><allow_any>no</allow_any><allow_inactive>auth_admin</allow_inactive><allow_active>auth_admin_keep</allow_active></defaults>
+  </action>
+  <action id="io.github.btrfsbackup.save-profile-configuration">
+    <description>Change a Btrfs backup profile</description>
+    <message>Authentication is required to change backup configuration</message>
+    <defaults><allow_any>no</allow_any><allow_inactive>auth_admin</allow_inactive><allow_active>auth_admin_keep</allow_active></defaults>
+  </action>
+  <action id="io.github.btrfsbackup.delete-profile-configuration">
+    <description>Delete a Btrfs backup profile</description>
+    <message>Authentication is required to delete backup configuration</message>
+    <defaults><allow_any>no</allow_any><allow_inactive>auth_admin</allow_inactive><allow_active>auth_admin</allow_active></defaults>
+  </action>
+  <action id="io.github.btrfsbackup.save-profile-hooks">
+    <description>Change privileged Btrfs backup hooks</description>
+    <message>Authentication is required to change commands executed by backups</message>
+    <defaults><allow_any>no</allow_any><allow_inactive>auth_admin</allow_inactive><allow_active>auth_admin</allow_active></defaults>
+  </action>
 </policyconfig>
