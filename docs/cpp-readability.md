@@ -103,6 +103,41 @@ Choose the error channel from the caller's required control flow:
 Exceptions must not cross C callbacks or D-Bus callbacks. Boundary adapters
 catch them and map them to the protocol's error representation.
 
+The systemd unit-control port is the reference `std::expected<void,
+SystemdJobError>` boundary: accepting a job is success, while a rejected job is
+an expected typed failure inspected by the operational backend. Higher-level
+manager operations still translate that failure into their established coded
+exception contract.
+
+## C++23 Library Use
+
+Prefer standard-library facilities when they state the existing intent more
+directly:
+
+- use `std::print` and `std::println` for formatted CLI output, including their
+  `std::ostream&` overloads where tests inject a stream;
+- use `string::contains`, `string_view::contains`, and
+  `std::ranges::contains` for presence checks that do not need a position;
+- use `std::to_underlying` when an enum's numeric representation is genuinely
+  required, primarily for diagnostics, indexing, or protocol conversion;
+- use `std::expected` for a complete boundary whose expected failure is part of
+  the caller's control flow, not as a local replacement for one thrown call.
+
+Monadic `optional` and `expected` operations are appropriate for a short linear
+pipeline. Keep guard clauses when several independently named validations must
+remain visible, as in timestamp parsing. Use `std::ranges::to` only when a view
+is already the clearest expression of a pure transformation; a loop remains
+preferable when it reserves capacity, validates elements, preserves partial
+diagnostics, or performs ordered effects.
+
+Use `std::move_only_function` only when the callback contract itself transfers
+or retains move-only state. Current callbacks are copyable borrowed policies,
+so converting them would add a restriction without expressing real ownership.
+`std::stacktrace` is not part of normal user-visible errors. It may be added as
+an opt-in, build-probed diagnostic for private logs after its runtime and
+toolchain cost is measured; stack frames must never cross the public D-Bus or
+status boundary.
+
 ## Boundaries
 
 Keep system details in their adapters:
