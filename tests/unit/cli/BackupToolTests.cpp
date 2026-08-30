@@ -12,7 +12,7 @@
 #include <vector>
 
 #include <cli/BackupTool.hpp>
-#include <platform/linux/Process.hpp>
+#include <platform/linux/process/Process.hpp>
 #include <core/Cancellation.hpp>
 #include <platform/linux/transfer/PosixCancellationSignal.hpp>
 
@@ -201,7 +201,7 @@ void test_termination_signals_request_cancellation() {
 void test_spawned_children_do_not_inherit_blocked_termination_signals() {
     btrfsbackup::CancellationToken cancellation;
     btrfsbackup::cli::TerminationSignalMonitor monitor(cancellation);
-    btrfsbackup::backup::CommandResult result = btrfsbackup::platform::linux::run_command({
+    btrfsbackup::backup::CommandResult result = btrfsbackup::platform::linux::process::run_command({
         "sh",
         "-c",
         "kill -TERM $$; printf survived",

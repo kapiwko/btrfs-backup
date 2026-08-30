@@ -24,7 +24,7 @@
 #include <platform/linux/config/ProfileRuntimePolicy.hpp>
 #include <platform/linux/config/RenderDirectory.hpp>
 #include <platform/linux/LinuxSystemConfigurationActivator.hpp>
-#include <platform/linux/Process.hpp>
+#include <platform/linux/process/Process.hpp>
 #include <platform/linux/TrustedDirectory.hpp>
 
 namespace fs = std::filesystem;
@@ -67,7 +67,7 @@ class WizardConfigurationActivator final : public btrfsbackup::config::IConfigur
         );
         std::error_code error;
         fs::remove("/etc/udev/rules.d/99-btrfs-backup.rules", error);
-        (void)run_command({"systemctl", "disable", "btrfs-backup.service"});
+        (void)process::run_command({"systemctl", "disable", "btrfs-backup.service"});
         system_configuration_.activate();
     }
 

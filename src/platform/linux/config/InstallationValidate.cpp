@@ -18,7 +18,7 @@
 #include <platform/linux/config/ApplicationConfig.hpp>
 #include <platform/linux/config/ProfileService.hpp>
 #include <config/model/JsonIo.hpp>
-#include <platform/linux/Process.hpp>
+#include <platform/linux/process/Process.hpp>
 #include <platform/linux/SystemdUnit.hpp>
 #include <config/model/Profile.hpp>
 #include <config/model/ProfileDocument.hpp>
@@ -70,7 +70,7 @@ void run_checked(
     bool allow_systemd_warnings = false,
     bool allow_missing_executables = false
 ) {
-    btrfsbackup::backup::CommandResult result = btrfsbackup::platform::linux::run_command(argv);
+    btrfsbackup::backup::CommandResult result = btrfsbackup::platform::linux::process::run_command(argv);
     if (result.exit_code == 0) {
         if (!result.output.empty()) {
             std::cerr << result.output;
@@ -207,7 +207,7 @@ void validate_active_installation(const std::string& profile_id) {
     run_checked(verify_units, true);
     run_checked({"udevadm", "verify", udev_file.string()});
 
-    std::string mount_unit = run_capture({"systemd-escape", "-p", "--suffix=mount", profile.target.mount_point.value().string()});
+    std::string mount_unit = process::run_capture({"systemd-escape", "-p", "--suffix=mount", profile.target.mount_point.value().string()});
     fs::path old_dropin = fs::path("/etc/systemd/system") / (mount_unit + ".d") / "backup.conf";
     if (fs::is_regular_file(old_dropin)) {
         std::ifstream stream(old_dropin);

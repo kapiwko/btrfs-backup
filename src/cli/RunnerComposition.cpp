@@ -26,7 +26,7 @@
 #include <platform/linux/FileBackupRunLeaseProvider.hpp>
 #include <platform/linux/FileLock.hpp>
 #include <platform/linux/MountInfo.hpp>
-#include <platform/linux/PosixCommandRunner.hpp>
+#include <platform/linux/process/PosixCommandRunner.hpp>
 #include <platform/linux/PosixDurableFileOperations.hpp>
 #include <platform/linux/PosixFileSystem.hpp>
 #include <platform/linux/transfer/PosixTransferPipeline.hpp>
@@ -89,7 +89,7 @@ struct RunnerComposition::Impl {
     config::ApplicationConfig config;
     platform::linux::FileProfileRepository profiles;
     platform::linux::LinuxMountInspector mounts;
-    platform::linux::PosixCommandRunner commands;
+    platform::linux::process::PosixCommandRunner commands;
     platform::linux::SystemdTargetManager target_mounter;
     backup::BackupPreflight preflight;
     platform::linux::SafeDirectoryRootFactory safe_directories;

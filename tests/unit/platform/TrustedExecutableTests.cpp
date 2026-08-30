@@ -9,7 +9,7 @@
 #include <filesystem>
 #include <string>
 
-#include <platform/linux/Process.hpp>
+#include <platform/linux/process/Process.hpp>
 #include <platform/linux/TrustedExecutable.hpp>
 
 #include "support/ValidationTestHelpers.hpp"
@@ -99,7 +99,7 @@ void test_pinned_descriptor_prevents_path_replacement_race() {
     fs::rename(program, root / "prepare.original");
     write_executable(program, "replacement");
 
-    btrfsbackup::backup::CommandResult result = btrfsbackup::platform::linux::run_controlled_command(
+    btrfsbackup::backup::CommandResult result = btrfsbackup::platform::linux::process::run_controlled_command(
         {executable.proc_path().string()},
         {
             .timeout = std::chrono::seconds(2),

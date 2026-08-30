@@ -36,7 +36,7 @@
 #include <platform/linux/FileLock.hpp>
 #include <platform/linux/FileBackupRunLeaseProvider.hpp>
 #include <platform/linux/PosixDurableFileOperations.hpp>
-#include <platform/linux/PosixCommandRunner.hpp>
+#include <platform/linux/process/PosixCommandRunner.hpp>
 #include <platform/linux/SystemdTargetManager.hpp>
 #include <platform/linux/MountInfo.hpp>
 #include <config/model/Json.hpp>
@@ -463,7 +463,7 @@ int run_runner(
             source.find("/dev/mapper/") == 0 ? target_uuid : "source-btrfs-uuid"
         );
     });
-    btrfsbackup::platform::linux::PosixCommandRunner commands;
+    btrfsbackup::platform::linux::process::PosixCommandRunner commands;
     btrfsbackup::platform::linux::SystemdTargetManager target_mounter(mounts, commands);
     btrfsbackup::backup::BackupPreflight preflight(mounts, target_mounter);
     test_support::FakeSafeDirectoryRootFactory safe_directories;

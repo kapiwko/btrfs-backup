@@ -9,7 +9,7 @@
 
 #include <backup/ports/Process.hpp>
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::process {
 
 class ControlledCommandSession final {
   public:
@@ -25,4 +25,4 @@ class ControlledCommandSession final {
     const btrfsbackup::backup::ControlledCommandOptions& options_;
 };
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::process

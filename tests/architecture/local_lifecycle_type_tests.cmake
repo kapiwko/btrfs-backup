@@ -6,9 +6,9 @@
 # their copy/move/destruction policy visible without pretending to parse C++.
 set(local_lifecycle_types
     "src/backup/LinkedCancellationMonitor.cpp|LinkedCancellationWatch|immobile"
-    "src/platform/linux/ProcessSpawn.cpp|SpawnAttributes|immobile"
-    "src/platform/linux/ProcessSpawn.cpp|SpawnFileActions|immobile"
-    "src/platform/linux/TerminationSignalMonitor.cpp|Impl|immobile"
+    "src/platform/linux/process/ProcessSpawn.cpp|SpawnAttributes|immobile"
+    "src/platform/linux/process/ProcessSpawn.cpp|SpawnFileActions|immobile"
+    "src/platform/linux/process/TerminationSignalMonitor.cpp|Impl|immobile"
 )
 
 file(GLOB_RECURSE implementation_files

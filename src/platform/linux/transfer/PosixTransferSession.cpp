@@ -17,7 +17,7 @@
 
 #include <core/Errors.hpp>
 #include <platform/linux/transfer/BoundedDiagnosticBuffer.hpp>
-#include <platform/linux/ChildProcess.hpp>
+#include <platform/linux/process/ChildProcess.hpp>
 #include <platform/linux/OwnedFileDescriptor.hpp>
 #include <platform/linux/transfer/PosixCancellationSignal.hpp>
 #include <platform/linux/transfer/PosixTransferProcess.hpp>
@@ -142,14 +142,14 @@ btrfsbackup::backup::transfer::TransferResult PosixTransferSession::run() {
     Pipe consumer_error_pipe = create_pipe();
     OwnedFileDescriptor dev_null = open_dev_null();
 
-    ProcessSpawnResult producer_spawn = btrfsbackup::platform::linux::transfer::spawn_posix_transfer_process(
+    process::ProcessSpawnResult producer_spawn = spawn_posix_transfer_process(
         plan.producer_argv,
         dev_null.get(),
         data_pipe.write_end.get(),
         producer_error_pipe.write_end.get(),
         plan.retained_resources
     );
-    ChildProcess producer_process(
+    process::ChildProcess producer_process(
         producer_spawn.started() ? producer_spawn.pid : -1,
         true,
         {
@@ -157,14 +157,14 @@ btrfsbackup::backup::transfer::TransferResult PosixTransferSession::run() {
             .kill_reap_period = termination_policy_.kill_reap_period,
         }
     );
-    ProcessSpawnResult consumer_spawn = btrfsbackup::platform::linux::transfer::spawn_posix_transfer_process(
+    process::ProcessSpawnResult consumer_spawn = spawn_posix_transfer_process(
         plan.consumer_argv,
         consumer_input_pipe.read_end.get(),
         dev_null.get(),
         consumer_error_pipe.write_end.get(),
         plan.retained_resources
     );
-    ChildProcess consumer_process(
+    process::ChildProcess consumer_process(
         consumer_spawn.started() ? consumer_spawn.pid : -1,
         true,
         {

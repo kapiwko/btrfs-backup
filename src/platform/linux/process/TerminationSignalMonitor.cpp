@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <platform/linux/TerminationSignalMonitor.hpp>
+#include <platform/linux/process/TerminationSignalMonitor.hpp>
 
 #include <poll.h>
 #include <pthread.h>
@@ -20,7 +20,7 @@
 
 #include <platform/linux/OwnedFileDescriptor.hpp>
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::process {
 
 class TerminationSignalMonitor::Impl {
   public:
@@ -122,4 +122,4 @@ TerminationSignalMonitor::TerminationSignalMonitor(std::function<void()> on_term
 
 TerminationSignalMonitor::~TerminationSignalMonitor() noexcept = default;
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::process
