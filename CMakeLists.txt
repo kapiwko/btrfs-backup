@@ -129,6 +129,10 @@ if(BUILD_SYSTEM_MANAGER)
         DESTINATION "${CMAKE_INSTALL_DATADIR}/dbus-1/system.d"
     )
     install(
+        FILES data/dbus/io.github.btrfsbackup.Manager1.xml
+        DESTINATION "${CMAKE_INSTALL_DATADIR}/dbus-1/interfaces"
+    )
+    install(
         FILES data/polkit/io.github.btrfsbackup.policy
         DESTINATION "${CMAKE_INSTALL_DATADIR}/polkit-1/actions"
     )

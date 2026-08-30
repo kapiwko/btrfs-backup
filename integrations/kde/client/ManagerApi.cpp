@@ -4,48 +4,46 @@
 
 #include "ManagerApi.hpp"
 
+#include "Manager1Interface.h"
+
 #include <QDBusMessage>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 
-#include <utility>
-
 namespace btrfsbackup::kde {
 
 ManagerEventSubscriber::ManagerEventSubscriber(QDBusConnection bus, QObject* parent)
-    : QObject(parent), bus_(std::move(bus)) {
-    bus_.connect(
-        QLatin1String(manager_protocol::service_name),
-        QLatin1String(manager_protocol::object_path),
-        QLatin1String(manager_protocol::interface_name),
-        QLatin1String(manager_protocol::signal::profiles_changed),
+    : QObject(parent),
+      manager_(new IoGithubBtrfsbackupManager1Interface(
+          QLatin1String(manager_protocol::service_name),
+          QLatin1String(manager_protocol::object_path),
+          bus,
+          this
+      )) {
+    connect(
+        manager_,
+        &IoGithubBtrfsbackupManager1Interface::ProfilesChanged,
         this,
-        SIGNAL(profilesChanged())
+        &ManagerEventSubscriber::profilesChanged
     );
-    bus_.connect(
-        QLatin1String(manager_protocol::service_name),
-        QLatin1String(manager_protocol::object_path),
-        QLatin1String(manager_protocol::interface_name),
-        QLatin1String(manager_protocol::signal::status_changed),
+    connect(
+        manager_,
+        &IoGithubBtrfsbackupManager1Interface::StatusChanged,
         this,
-        SIGNAL(statusChanged(QString))
+        &ManagerEventSubscriber::statusChanged
     );
-    bus_.connect(
-        QLatin1String(manager_protocol::service_name),
-        QLatin1String(manager_protocol::object_path),
-        QLatin1String(manager_protocol::interface_name),
-        QLatin1String(manager_protocol::signal::history_changed),
+    connect(
+        manager_,
+        &IoGithubBtrfsbackupManager1Interface::HistoryChanged,
         this,
-        SIGNAL(historyChanged(QString))
+        &ManagerEventSubscriber::historyChanged
     );
-    bus_.connect(
-        QLatin1String(manager_protocol::service_name),
-        QLatin1String(manager_protocol::object_path),
-        QLatin1String(manager_protocol::interface_name),
-        QLatin1String(manager_protocol::signal::device_state_changed),
+    connect(
+        manager_,
+        &IoGithubBtrfsbackupManager1Interface::DeviceStateChanged,
         this,
-        SIGNAL(deviceStateChanged(QString))
+        &ManagerEventSubscriber::deviceStateChanged
     );
 }
 

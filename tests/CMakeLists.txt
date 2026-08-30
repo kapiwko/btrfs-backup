@@ -167,6 +167,13 @@ add_test(
         -DPROJECT_SOURCE_DIR=${PROJECT_SOURCE_DIR}
         -P ${CMAKE_CURRENT_SOURCE_DIR}/architecture/config_domain_tests.cmake
 )
+add_test(
+    NAME manager-dbus-contract
+    COMMAND
+        ${CMAKE_COMMAND}
+        -DPROJECT_SOURCE_DIR=${PROJECT_SOURCE_DIR}
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/architecture/manager_dbus_contract_tests.cmake
+)
 set_tests_properties(
     dependency-direction
     namespace-layout
@@ -174,6 +181,7 @@ set_tests_properties(
     cpp-readability-convention
     cpp-special-member-convention
     config-domain-boundary
+    manager-dbus-contract
     PROPERTIES LABELS architecture
 )
 endif()

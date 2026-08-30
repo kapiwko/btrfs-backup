@@ -20,6 +20,12 @@ The service owns `io.github.btrfsbackup.Manager1` on the system bus and exports
 in a D-Bus string. JSON schema versions are independent from the D-Bus
 interface version.
 
+The canonical introspection document is
+`data/dbus/io.github.btrfsbackup.Manager1.xml`. It is installed under
+`share/dbus-1/interfaces`, drives the generated Qt proxy used by the KDE
+integration, and is checked against the daemon vtable during the architecture
+tests.
+
 `profileSchemaVersion` describes canonical profile compatibility,
 `publicStatusSchemaVersion` describes `GetStatus`, `historySchemaVersion`
 describes the sanitized history rows returned over D-Bus, and
