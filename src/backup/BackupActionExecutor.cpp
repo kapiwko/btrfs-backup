@@ -58,23 +58,37 @@ BackupActionExecutionResult BackupActionExecutor::execute(
     return std::visit([&](const auto& typed_action) -> BackupActionExecutionResult {
         using Action = std::decay_t<decltype(typed_action)>;
         if constexpr (std::is_same_v<Action, SendReceiveAction>) {
-            BackupTransferEventAdapter transfer_events(context);
-            const btrfsbackup::backup::transfer::TransferResult result = transfer_coordinator_.execute(
-                typed_action,
-                context.plan.target_mount_point,
-                transfer_events,
-                context.cancellation
-            );
-            return {
-                .cancelled = result.cancelled,
-                .bytes_transferred = result.bytes_transferred,
-            };
+            return execute_transfer(typed_action, context);
         } else {
-            action_handler_.handle(action, context.plan, context.cancellation);
-            return {};
+            return execute_short_action(action, context);
         }
     },
                       action);
+}
+
+BackupActionExecutionResult BackupActionExecutor::execute_transfer(
+    const SendReceiveAction& action,
+    BackupActionExecutionContext& context
+) {
+    BackupTransferEventAdapter transfer_events(context);
+    const btrfsbackup::backup::transfer::TransferResult result = transfer_coordinator_.execute(
+        action,
+        context.plan.target_mount_point,
+        transfer_events,
+        context.cancellation
+    );
+    return {
+        .cancelled = result.cancelled,
+        .bytes_transferred = result.bytes_transferred,
+    };
+}
+
+BackupActionExecutionResult BackupActionExecutor::execute_short_action(
+    const BackupRunAction& action,
+    BackupActionExecutionContext& context
+) {
+    action_handler_.handle(action, context.plan, context.cancellation);
+    return {};
 }
 
 } // namespace btrfsbackup::backup

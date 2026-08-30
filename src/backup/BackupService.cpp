@@ -150,7 +150,6 @@ BackupRunPlan BackupService::plan(const BackupPlanRequest& request) {
 
 BackupExecutionResult BackupService::start(const BackupRequest& request) {
     const RuntimeTimePoint started_at = clock_.now();
-    const std::string timestamp = format_utc_snapshot_timestamp(started_at);
     const RunId run_id = run_ids_.generate(started_at);
     const RunIdentity identity{run_id, started_at};
     const OperationKind operation_kind = request.validate_only
@@ -173,9 +172,20 @@ BackupExecutionResult BackupService::start(const BackupRequest& request) {
         );
     }
 
-    const btrfsbackup::config::LoadedProfile& loaded_profile = *loaded;
+    std::unique_ptr<IBackupRunEventSink> event_sink = sessions_.events(*loaded, identity);
+    return start_loaded_profile(request, identity, operation_kind, *loaded, std::move(event_sink));
+}
+
+BackupExecutionResult BackupService::start_loaded_profile(
+    const BackupRequest& request,
+    const RunIdentity& identity,
+    OperationKind operation_kind,
+    const btrfsbackup::config::LoadedProfile& loaded_profile,
+    std::unique_ptr<IBackupRunEventSink> event_sink
+) {
+    const RuntimeTimePoint started_at = identity.started_at;
+    const RunId& run_id = identity.run_id;
     const btrfsbackup::config::Profile& profile = loaded_profile.profile;
-    std::unique_ptr<IBackupRunEventSink> event_sink = sessions_.events(loaded_profile, identity);
     IBackupRunEventSink& events = *event_sink;
     std::unique_ptr<RunExecutionContext> context;
     try {
@@ -210,30 +220,7 @@ BackupExecutionResult BackupService::start(const BackupRequest& request) {
             operation_kind,
         });
 
-        std::unique_ptr<IMountedTargetSession> target_session = preflight_.run(
-            profile,
-            TargetMountMode::MountIfNeeded,
-            context->cancellation
-        );
-        context->attach_target_session(std::move(target_session));
-        if (context->cancellation.cancellation_requested()) {
-            throw OperationCancelledError("backup cancelled during preflight");
-        }
-        const BackupPlanningSnapshot snapshot = discovery_.discover(
-            profile,
-            application_paths_,
-            context->cancellation
-        );
-        BackupRunPlan plan = plan_builder_.build(
-            profile,
-            snapshot,
-            run_id,
-            timestamp,
-            context->cancellation
-        );
-        if (context->cancellation.cancellation_requested()) {
-            throw OperationCancelledError("backup cancelled during planning");
-        }
+        BackupRunPlan plan = prepare_target_and_plan(profile, identity, *context);
         const std::string& fingerprint = loaded_profile.fingerprint.value();
         if (request.validate_only) {
             if (std::optional<BackupExecutionFailed> failed = close_target_or_fail(
@@ -394,6 +381,39 @@ BackupExecutionResult BackupService::start(const BackupRequest& request) {
         }
         throw;
     }
+}
+
+BackupRunPlan BackupService::prepare_target_and_plan(
+    const btrfsbackup::config::Profile& profile,
+    const RunIdentity& identity,
+    RunExecutionContext& context
+) {
+    std::unique_ptr<IMountedTargetSession> target_session = preflight_.run(
+        profile,
+        TargetMountMode::MountIfNeeded,
+        context.cancellation
+    );
+    context.attach_target_session(std::move(target_session));
+    if (context.cancellation.cancellation_requested()) {
+        throw OperationCancelledError("backup cancelled during preflight");
+    }
+
+    const BackupPlanningSnapshot snapshot = discovery_.discover(
+        profile,
+        application_paths_,
+        context.cancellation
+    );
+    BackupRunPlan plan = plan_builder_.build(
+        profile,
+        snapshot,
+        identity.run_id,
+        format_utc_snapshot_timestamp(identity.started_at),
+        context.cancellation
+    );
+    if (context.cancellation.cancellation_requested()) {
+        throw OperationCancelledError("backup cancelled during planning");
+    }
+    return plan;
 }
 
 CancelBackupResult BackupService::cancel(const CancellationRequest& request) {

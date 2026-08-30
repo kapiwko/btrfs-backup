@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <memory>
 #include <string>
 
 #include <backup/model/BackupExecution.hpp>
@@ -42,6 +43,19 @@ class BackupService {
     [[nodiscard]] CancelBackupResult cancel(const CancellationRequest& request);
 
   private:
+    [[nodiscard]] BackupExecutionResult start_loaded_profile(
+        const BackupRequest& request,
+        const RunIdentity& identity,
+        OperationKind operation_kind,
+        const btrfsbackup::config::LoadedProfile& loaded_profile,
+        std::unique_ptr<IBackupRunEventSink> event_sink
+    );
+    [[nodiscard]] BackupRunPlan prepare_target_and_plan(
+        const btrfsbackup::config::Profile& profile,
+        const RunIdentity& identity,
+        RunExecutionContext& context
+    );
+
     btrfsbackup::config::IProfileRepository& profiles_;
     btrfsbackup::config::ApplicationPaths application_paths_;
     IBackupPreflight& preflight_;

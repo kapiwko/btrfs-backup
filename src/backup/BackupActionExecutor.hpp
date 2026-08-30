@@ -51,6 +51,15 @@ class BackupActionExecutor final : public IBackupActionExecutor {
     ) override;
 
   private:
+    [[nodiscard]] BackupActionExecutionResult execute_transfer(
+        const SendReceiveAction& action,
+        BackupActionExecutionContext& context
+    );
+    [[nodiscard]] BackupActionExecutionResult execute_short_action(
+        const BackupRunAction& action,
+        BackupActionExecutionContext& context
+    );
+
     IBackupRunActionHandler& action_handler_;
     btrfsbackup::backup::transfer::TransferCoordinator transfer_coordinator_;
 };
