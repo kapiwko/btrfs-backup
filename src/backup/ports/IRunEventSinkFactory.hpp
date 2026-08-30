@@ -9,6 +9,7 @@
 #include <string>
 
 #include <backup/ports/IBackupRunEventSink.hpp>
+#include <core/Identifiers.hpp>
 #include <core/RuntimeTime.hpp>
 
 namespace btrfsbackup::backup {
@@ -17,7 +18,7 @@ struct BackupRunStatusDescription {
     std::string profile_name;
     int source_count = 0;
     RuntimeTimePoint started_at;
-    std::map<std::string, std::string> source_names;
+    std::map<SourceId, std::string> source_names;
     std::string target_name;
 };
 

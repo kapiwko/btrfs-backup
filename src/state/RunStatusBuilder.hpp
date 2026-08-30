@@ -21,7 +21,7 @@ struct BackupRunStatusContext {
     std::string profile_name;
     int source_count = 0;
     RuntimeTimePoint started_at;
-    std::map<std::string, std::string> source_names;
+    std::map<SourceId, std::string> source_names;
     std::string target_name;
 };
 

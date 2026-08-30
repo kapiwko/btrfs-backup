@@ -44,14 +44,14 @@ void test_fake_operations_capture_expected_calls() {
     ops.metadata = btrfsbackup::backup::SnapshotMetadata{
         .is_subvolume = true,
         .readonly = true,
-        .uuid = "local-uuid",
-        .received_uuid = "received-uuid",
+        .uuid = btrfsbackup::backup::SnapshotUuid{"local-uuid"},
+        .received_uuid = btrfsbackup::backup::ReceivedSnapshotUuid{"received-uuid"},
     };
 
     test_helpers::expect_true("fake subvolume", ops.is_subvolume("/source"), "fake should report a subvolume");
     std::optional<btrfsbackup::backup::SnapshotMetadata> metadata = ops.read_snapshot_metadata("/snapshot");
     test_helpers::expect_true("fake metadata", metadata.has_value(), "fake metadata should exist");
-    test_helpers::expect_eq("fake uuid", metadata->uuid, "local-uuid");
+    test_helpers::expect_eq("fake uuid", metadata->uuid.value(), "local-uuid");
 
     ops.create_readonly_snapshot("/source", "/snapshot");
     ops.delete_subvolume("/snapshot");

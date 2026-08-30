@@ -116,18 +116,18 @@ void test_verifies_received_snapshot() {
     btrfsbackup::backup::SnapshotMetadata local{
         .is_subvolume = true,
         .readonly = true,
-        .uuid = "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA",
+        .uuid = btrfsbackup::backup::SnapshotUuid{"AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA"},
     };
     btrfsbackup::backup::SnapshotMetadata received{
         .is_subvolume = true,
         .readonly = true,
-        .received_uuid = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        .received_uuid = btrfsbackup::backup::ReceivedSnapshotUuid{"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"},
     };
 
-    btrfsbackup::backup::verify_received_snapshot("home", local, received);
+    btrfsbackup::backup::verify_received_snapshot(btrfsbackup::SourceId{"home"}, local, received);
 
     received.readonly = false;
-    test_helpers::expect_validation_error("received readonly", [&] { btrfsbackup::backup::verify_received_snapshot("home", local, received); }, "Received subvolume is not readonly");
+    test_helpers::expect_validation_error("received readonly", [&] { btrfsbackup::backup::verify_received_snapshot(btrfsbackup::SourceId{"home"}, local, received); }, "Received subvolume is not readonly");
 }
 
 void test_commit_received_snapshot() {
@@ -135,7 +135,7 @@ void test_commit_received_snapshot() {
     btrfs.metadata = btrfsbackup::backup::SnapshotMetadata{
         .is_subvolume = true,
         .readonly = true,
-        .received_uuid = "local-uuid",
+        .received_uuid = btrfsbackup::backup::ReceivedSnapshotUuid{"local-uuid"},
     };
     FakeFileSystem fs_effects;
 
@@ -144,7 +144,7 @@ void test_commit_received_snapshot() {
         fs_effects,
         "/incoming/run/home",
         "/remote/home/home-2026-08-23T080000Z",
-        "LOCAL-UUID"
+        btrfsbackup::backup::SnapshotUuid{"LOCAL-UUID"}
     );
 
     test_helpers::expect_eq("commit call count", std::to_string(btrfs.calls.size()), "2");
@@ -157,7 +157,7 @@ void test_commit_deletes_invalid_final_snapshot() {
     btrfs.metadata = btrfsbackup::backup::SnapshotMetadata{
         .is_subvolume = true,
         .readonly = true,
-        .received_uuid = "wrong-uuid",
+        .received_uuid = btrfsbackup::backup::ReceivedSnapshotUuid{"wrong-uuid"},
     };
     FakeFileSystem fs_effects;
 
@@ -166,7 +166,7 @@ void test_commit_deletes_invalid_final_snapshot() {
                                                                             fs_effects,
                                                                             "/incoming/run/home",
                                                                             "/remote/home/home-2026-08-23T080000Z",
-                                                                            "expected-uuid"
+                                                                            btrfsbackup::backup::SnapshotUuid{"expected-uuid"}
                                                                         ); }, "Committed snapshot Received UUID does not match the local snapshot UUID");
     test_helpers::expect_eq("commit cleanup call", btrfs.calls.back(), "delete:/remote/home/home-2026-08-23T080000Z");
 }
@@ -181,7 +181,7 @@ void test_commit_rejects_existing_destination() {
                                                                                  fs_effects,
                                                                                  "/incoming/run/home",
                                                                                  "/remote/home/home-2026-08-23T080000Z",
-                                                                                 "expected-uuid"
+                                                                                 btrfsbackup::backup::SnapshotUuid{"expected-uuid"}
                                                                              ); }, "Destination snapshot already exists");
 }
 
@@ -190,7 +190,7 @@ void test_commit_reports_verification_and_cleanup_failure() {
     btrfs.metadata = btrfsbackup::backup::SnapshotMetadata{
         .is_subvolume = true,
         .readonly = true,
-        .received_uuid = "wrong-uuid",
+        .received_uuid = btrfsbackup::backup::ReceivedSnapshotUuid{"wrong-uuid"},
     };
     btrfs.delete_throws = true;
     FakeFileSystem fs_effects;
@@ -201,7 +201,7 @@ void test_commit_reports_verification_and_cleanup_failure() {
             fs_effects,
             "/incoming/run/home",
             "/remote/home/home-2026-08-23T080000Z",
-            "expected-uuid"
+            btrfsbackup::backup::SnapshotUuid{"expected-uuid"}
         );
         test_helpers::fail("commit cleanup failure", "expected RecoveryRequiredError");
     } catch (const btrfsbackup::RecoveryRequiredError& error) {

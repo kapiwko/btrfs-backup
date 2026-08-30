@@ -68,9 +68,9 @@ namespace btrfsbackup::state {
 
 bool last_success_matches(
     const fs::path& profile_state_dir,
-    const std::string& today,
-    const std::string& target_luks_uuid,
-    const std::string& config_fingerprint
+    LocalDate today,
+    const btrfsbackup::config::LuksUuid& target_luks_uuid,
+    const btrfsbackup::config::ConfigurationFingerprint& config_fingerprint
 ) {
     fs::path state_file = profile_state_dir / "last-success";
     std::error_code ec;
@@ -79,7 +79,9 @@ bool last_success_matches(
     }
 
     std::map<std::string, std::string> values = read_state_file(state_file);
-    return get_value(values, "date") == today && lower(get_value(values, "target_luks_uuid")) == lower(target_luks_uuid) && get_value(values, "config_fingerprint") == config_fingerprint;
+    return get_value(values, "date") == format_local_date(today) &&
+        lower(get_value(values, "target_luks_uuid")) == lower(target_luks_uuid.value()) &&
+        get_value(values, "config_fingerprint") == config_fingerprint.value();
 }
 
 void write_success_state(
@@ -87,13 +89,7 @@ void write_success_state(
     const fs::path& profile_state_dir,
     const SuccessState& state
 ) {
-    validate_profile_id(state.profile_id);
-    validate_run_id(state.run_id);
-    require_non_empty(state.date, "date");
-    require_non_empty(state.timestamp, "timestamp");
     require_non_empty(state.profile_name, "profile_name");
-    require_non_empty(state.target_luks_uuid, "target_luks_uuid");
-    require_non_empty(state.config_fingerprint, "config_fingerprint");
     if (state.source_count < 0) {
         throw ValidationError("source_count must be non-negative");
     }
@@ -101,14 +97,14 @@ void write_success_state(
     files.ensure_directory(profile_state_dir, private_state_directory_permissions);
 
     std::ostringstream content;
-    content << "date=" << state.date << '\n'
-            << "timestamp=" << state.timestamp << '\n'
-            << "run_id=" << state.run_id << '\n'
-            << "profile_id=" << state.profile_id << '\n'
+    content << "date=" << format_local_date(state.date) << '\n'
+            << "timestamp=" << format_local_timestamp(state.timestamp) << '\n'
+            << "run_id=" << state.run_id.value() << '\n'
+            << "profile_id=" << state.profile_id.value() << '\n'
             << "profile_name=" << state.profile_name << '\n'
             << "source_count=" << state.source_count << '\n'
-            << "target_luks_uuid=" << state.target_luks_uuid << '\n'
-            << "config_fingerprint=" << state.config_fingerprint << '\n';
+            << "target_luks_uuid=" << state.target_luks_uuid.value() << '\n'
+            << "config_fingerprint=" << state.config_fingerprint.value() << '\n';
 
     files.write_atomically(
         profile_state_dir / "last-success",
@@ -200,9 +196,8 @@ void clear_cancel_request(
     }
 }
 
-fs::path pending_marker_path(const fs::path& profile_state_dir, const std::string& source_name) {
-    validate_identifier(source_name, "source_name");
-    return profile_state_dir / ("pending-" + source_name);
+fs::path pending_marker_path(const fs::path& profile_state_dir, const SourceId& source_id) {
+    return profile_state_dir / ("pending-" + std::string(source_id.value()));
 }
 
 void write_pending_marker(
@@ -210,23 +205,20 @@ void write_pending_marker(
     const fs::path& profile_state_dir,
     const btrfsbackup::backup::PendingMarker& marker
 ) {
-    validate_identifier(marker.source_name, "source_name");
-    validate_run_id(marker.run_id);
-    require_absolute_path(marker.local_snapshot_path, "local_snapshot_path");
-    require_absolute_path(marker.final_snapshot_path, "final_snapshot_path");
-    require_non_empty(marker.timestamp, "timestamp");
+    require_absolute_path(marker.local_snapshot_path.string(), "local_snapshot_path");
+    require_absolute_path(marker.final_snapshot_path.string(), "final_snapshot_path");
 
     files.ensure_directory(profile_state_dir, private_state_directory_permissions);
 
     std::ostringstream content;
-    content << "source_name=" << marker.source_name << '\n'
-            << "local_snapshot_path=" << marker.local_snapshot_path << '\n'
-            << "final_snapshot_path=" << marker.final_snapshot_path << '\n'
-            << "run_id=" << marker.run_id << '\n'
-            << "timestamp=" << marker.timestamp << '\n';
+    content << "source_name=" << marker.source_id.value() << '\n'
+            << "local_snapshot_path=" << marker.local_snapshot_path.string() << '\n'
+            << "final_snapshot_path=" << marker.final_snapshot_path.string() << '\n'
+            << "run_id=" << marker.run_id.value() << '\n'
+            << "timestamp=" << format_utc_iso_timestamp(marker.timestamp) << '\n';
 
     files.write_atomically(
-        pending_marker_path(profile_state_dir, marker.source_name),
+        pending_marker_path(profile_state_dir, marker.source_id),
         content.str(),
         private_state_file_permissions
     );

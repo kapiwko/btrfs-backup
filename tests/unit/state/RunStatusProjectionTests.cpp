@@ -74,7 +74,7 @@ void test_public_transfer_progress_excludes_run_details() {
                                                                       .profile_name = "Default backup",
                                                                       .source_count = 2,
                                                                       .started_at = *btrfsbackup::parse_utc_timestamp("2026-08-23T12:00:00Z"),
-                                                                      .source_names = {{"root", "@home"}, {"home", "@archive"}},
+                                                                      .source_names = {{btrfsbackup::SourceId{"root"}, "@home"}, {btrfsbackup::SourceId{"home"}, "@archive"}},
                                                                       .target_name = "backupdisk",
                                                                   });
 
@@ -119,7 +119,7 @@ void test_unknown_stream_size_produces_indeterminate_progress() {
                                                                       .profile_name = "Default backup",
                                                                       .source_count = 1,
                                                                       .started_at = *btrfsbackup::parse_utc_timestamp("2026-08-23T12:00:00Z"),
-                                                                      .source_names = {{"root", "@home"}},
+                                                                      .source_names = {{btrfsbackup::SourceId{"root"}, "@home"}},
                                                                       .target_name = "backupdisk",
                                                                   });
 

@@ -5,10 +5,10 @@
 #include <backup/model/IncrementalParent.hpp>
 
 #include <algorithm>
-#include <cctype>
 #include <filesystem>
-#include <map>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include <core/Errors.hpp>
 #include <core/Identifiers.hpp>
@@ -16,13 +16,6 @@
 namespace fs = std::filesystem;
 
 namespace {
-
-std::string lowercase(std::string value) {
-    std::transform(value.begin(), value.end(), value.begin(), [](unsigned char ch) {
-        return static_cast<char>(std::tolower(ch));
-    });
-    return value;
-}
 
 std::string normalized_path_string(const fs::path& path) {
     return path.lexically_normal().string();
@@ -55,7 +48,7 @@ IncrementalParentSelection select_incremental_parent(
 ) {
     const std::string source_id_value{source_id.value()};
     bool remote_snapshots_exist = false;
-    std::map<std::string, SnapshotInfo> remote_by_received_uuid;
+    std::vector<std::pair<ReceivedSnapshotUuid, SnapshotInfo>> remote_by_received_uuid;
 
     for (const SnapshotInfo& remote : remote_snapshots) {
         if (remote.source_id != source_id) {
@@ -66,10 +59,14 @@ IncrementalParentSelection select_incremental_parent(
             continue;
         }
 
-        const std::string received_uuid = lowercase(remote.received_uuid);
-        auto [it, inserted] = remote_by_received_uuid.emplace(received_uuid, remote);
-        if (!inserted && it->second.path != remote.path) {
-            throw ValidationError("ambiguous remote parent received UUID for " + source_id_value + ": " + received_uuid);
+        const auto duplicate = std::find_if(remote_by_received_uuid.begin(), remote_by_received_uuid.end(), [&](const auto& entry) {
+            return entry.first == remote.received_uuid;
+        });
+        if (duplicate != remote_by_received_uuid.end() && duplicate->second.path != remote.path) {
+            throw ValidationError("ambiguous remote parent received UUID for " + source_id_value + ": " + remote.received_uuid.value());
+        }
+        if (duplicate == remote_by_received_uuid.end()) {
+            remote_by_received_uuid.emplace_back(remote.received_uuid, remote);
         }
     }
 
@@ -86,7 +83,9 @@ IncrementalParentSelection select_incremental_parent(
     std::sort(candidates.begin(), candidates.end(), newest_first);
 
     for (const SnapshotInfo& local : candidates) {
-        const auto found = remote_by_received_uuid.find(lowercase(local.uuid));
+        const auto found = std::find_if(remote_by_received_uuid.begin(), remote_by_received_uuid.end(), [&](const auto& entry) {
+            return uuid_matches(local.uuid, entry.first);
+        });
         if (found == remote_by_received_uuid.end()) {
             continue;
         }

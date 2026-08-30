@@ -4,8 +4,6 @@
 
 #pragma once
 
-#include <string>
-
 #include <backup/model/BackupRunPlan.hpp>
 #include <backup/ports/IBackupDiscovery.hpp>
 #include <config/model/Profile.hpp>
@@ -22,7 +20,7 @@ class IBackupPlanBuilder {
         const btrfsbackup::config::Profile& profile,
         const BackupPlanningSnapshot& snapshot,
         const RunId& run_id,
-        const std::string& snapshot_timestamp,
+        RuntimeTimePoint snapshot_timestamp,
         CancellationToken& cancellation
     ) const = 0;
 };

@@ -40,14 +40,14 @@ void test_success_state_write_and_match() {
     fs::path state_dir = root / "state" / "profiles" / "default";
 
     btrfsbackup::state::write_success_state(durable_files(), state_dir, {
-                                                                            .date = "2026-08-23",
-                                                                            .timestamp = "2026-08-23T08:25:04+02:00",
-                                                                            .run_id = "20260823T062504Z-123-456",
-                                                                            .profile_id = "default",
+                                                                            .date = *btrfsbackup::parse_local_date("2026-08-23"),
+                                                                            .timestamp = test_helpers::runtime_time("2026-08-23T06:25:04Z"),
+                                                                            .run_id = btrfsbackup::RunId{"20260823T062504Z-123-456"},
+                                                                            .profile_id = btrfsbackup::ProfileId{"default"},
                                                                             .profile_name = "Default backup",
                                                                             .source_count = 2,
-                                                                            .target_luks_uuid = "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE",
-                                                                            .config_fingerprint = "630b159cf7939e5baf76ce27d4505a5cf68fe2995d5071c1f22e011e143b7c67",
+                                                                            .target_luks_uuid = btrfsbackup::config::LuksUuid{"AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE"},
+                                                                            .config_fingerprint = btrfsbackup::config::ConfigurationFingerprint{"630b159cf7939e5baf76ce27d4505a5cf68fe2995d5071c1f22e011e143b7c67"},
                                                                         });
 
     fs::path state_file = state_dir / "last-success";
@@ -61,9 +61,9 @@ void test_success_state_write_and_match() {
         "success state match",
         btrfsbackup::state::last_success_matches(
             state_dir,
-            "2026-08-23",
-            "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
-            "630b159cf7939e5baf76ce27d4505a5cf68fe2995d5071c1f22e011e143b7c67"
+            *btrfsbackup::parse_local_date("2026-08-23"),
+            btrfsbackup::config::LuksUuid{"aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"},
+            btrfsbackup::config::ConfigurationFingerprint{"630b159cf7939e5baf76ce27d4505a5cf68fe2995d5071c1f22e011e143b7c67"}
         ),
         "expected last success to match"
     );
@@ -71,9 +71,9 @@ void test_success_state_write_and_match() {
         "success state mismatch",
         !btrfsbackup::state::last_success_matches(
             state_dir,
-            "2026-08-24",
-            "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
-            "630b159cf7939e5baf76ce27d4505a5cf68fe2995d5071c1f22e011e143b7c67"
+            *btrfsbackup::parse_local_date("2026-08-24"),
+            btrfsbackup::config::LuksUuid{"aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"},
+            btrfsbackup::config::ConfigurationFingerprint{"630b159cf7939e5baf76ce27d4505a5cf68fe2995d5071c1f22e011e143b7c67"}
         ),
         "stale date matched"
     );
@@ -88,11 +88,11 @@ void test_pending_marker_write_read_and_clear() {
     fs::path final_snapshot = root / "remote" / "root" / snapshot.filename();
 
     btrfsbackup::state::write_pending_marker(durable_files(), state_dir, {
-                                                                             .source_name = "root",
-                                                                             .local_snapshot_path = snapshot.string(),
-                                                                             .final_snapshot_path = final_snapshot.string(),
-                                                                             .run_id = "20260823T062504Z-123-456",
-                                                                             .timestamp = "2026-08-23T08:25:04+02:00",
+                                                                             .source_id = btrfsbackup::SourceId{"root"},
+                                                                             .local_snapshot_path = snapshot,
+                                                                             .final_snapshot_path = final_snapshot,
+                                                                             .run_id = btrfsbackup::RunId{"20260823T062504Z-123-456"},
+                                                                             .timestamp = test_helpers::runtime_time("2026-08-23T06:25:04Z"),
                                                                          });
 
     fs::path marker = state_dir / "pending-root";

@@ -466,7 +466,7 @@ void test_create_snapshot_writes_pending_marker_and_verifies_readonly_snapshot()
     btrfs.metadata_by_path[source.local_snapshot_path.string()] = btrfsbackup::backup::SnapshotMetadata{
         .is_subvolume = true,
         .readonly = true,
-        .uuid = "local-uuid",
+        .uuid = btrfsbackup::backup::SnapshotUuid{"local-uuid"},
     };
     FakeFileSystem fs_effects;
     ActionHandlerFixture handler(btrfs, fs_effects);
@@ -541,17 +541,17 @@ void test_verify_commit_retention_and_cleanup_use_existing_helpers() {
     btrfs.metadata_by_path[source.local_snapshot_path.string()] = btrfsbackup::backup::SnapshotMetadata{
         .is_subvolume = true,
         .readonly = true,
-        .uuid = "local-uuid",
+        .uuid = btrfsbackup::backup::SnapshotUuid{"local-uuid"},
     };
     btrfs.metadata_by_path[source.received_snapshot_path.string()] = btrfsbackup::backup::SnapshotMetadata{
         .is_subvolume = true,
         .readonly = true,
-        .received_uuid = "local-uuid",
+        .received_uuid = btrfsbackup::backup::ReceivedSnapshotUuid{"local-uuid"},
     };
     btrfs.metadata_by_path[source.final_remote_snapshot_path.string()] = btrfsbackup::backup::SnapshotMetadata{
         .is_subvolume = true,
         .readonly = true,
-        .received_uuid = "local-uuid",
+        .received_uuid = btrfsbackup::backup::ReceivedSnapshotUuid{"local-uuid"},
     };
 
     FakeFileSystem fs_effects;
@@ -605,11 +605,11 @@ void test_failed_remote_recovery_keeps_local_snapshot_and_marker() {
         durable_files,
         root / "state",
         btrfsbackup::backup::PendingMarker{
-            .source_name = std::string(source.source_id.value()),
-            .local_snapshot_path = source.local_snapshot_path.string(),
-            .final_snapshot_path = source.final_remote_snapshot_path.string(),
-            .run_id = "run-1",
-            .timestamp = "2026-08-23T12:00:00Z",
+            .source_id = source.source_id,
+            .local_snapshot_path = source.local_snapshot_path,
+            .final_snapshot_path = source.final_remote_snapshot_path,
+            .run_id = btrfsbackup::RunId{"run-1"},
+            .timestamp = test_helpers::runtime_time("2026-08-23T12:00:00Z"),
         }
     );
 

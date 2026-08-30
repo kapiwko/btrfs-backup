@@ -26,7 +26,7 @@ namespace btrfsbackup::platform::linux {
 
 namespace {
 
-fs::path configuration_lock_path(const fs::path& etc_root, const std::string& profile_id) {
+fs::path configuration_lock_path(const fs::path& etc_root, const ProfileId& profile_id) {
     if (fs::absolute(etc_root).lexically_normal() == fs::path("/etc/btrfs-backup")) {
         return profile_lock_path(default_lock_root(), profile_id);
     }
@@ -135,7 +135,7 @@ void ProfileInstaller::install_profile_transactionally(const btrfsbackup::config
             throw ValidationError("staged configuration generation mismatch");
         }
 
-        FileLock lock(configuration_lock_path(roots.etc_root, installed_id));
+        FileLock lock(configuration_lock_path(roots.etc_root, ProfileId{installed_id}));
         if (!lock.try_acquire()) {
             throw ValidationError("profile is active; configuration save refused: " + installed_id);
         }

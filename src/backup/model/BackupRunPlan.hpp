@@ -43,7 +43,7 @@ struct BackupRunPlan {
     const PendingSnapshotBySource& pending_snapshots,
     const std::filesystem::path& profile_state_dir,
     const RunId& run_id,
-    const std::string& snapshot_timestamp
+    RuntimeTimePoint snapshot_timestamp
 );
 
 } // namespace btrfsbackup::backup
