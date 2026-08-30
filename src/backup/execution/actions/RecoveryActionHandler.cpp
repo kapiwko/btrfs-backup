@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <backup/action_handlers/RecoveryActionHandler.hpp>
+#include <backup/execution/actions/RecoveryActionHandler.hpp>
 
 #include <utility>
 
@@ -10,7 +10,7 @@
 #include <backup/ports/IPendingMarkerStore.hpp>
 #include <backup/ports/SafeDirectory.hpp>
 
-namespace btrfsbackup::backup {
+namespace btrfsbackup::backup::execution {
 
 RecoveryActionHandler::RecoveryActionHandler(IBtrfsOperations& btrfs, IPendingMarkerStore& pending_markers)
     : btrfs_(btrfs), pending_markers_(pending_markers) {
@@ -50,4 +50,4 @@ void RecoveryActionHandler::handle(const RecoverPendingAction& action) {
     }
 }
 
-} // namespace btrfsbackup::backup
+} // namespace btrfsbackup::backup::execution

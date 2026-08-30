@@ -128,19 +128,19 @@ add_library(btrfsbackup-backup STATIC
     BackupService.cpp
     planning/BackupDiscovery.cpp
     planning/BackupPlanBuilder.cpp
-    DefaultBackupRunActionHandlerFactory.cpp
+    execution/actions/DefaultBackupRunActionHandlerFactory.cpp
     execution/DefaultBackupRunFactory.cpp
     execution/LinkedCancellationMonitor.cpp
-    OwnedBackupRunActionHandler.cpp
+    execution/actions/OwnedBackupRunActionHandler.cpp
     execution/RunExecutionContext.cpp
     execution/RunSessionFactory.cpp
     execution/SystemRunContext.cpp
-    action_handlers/BackupRunActionHandler.cpp
-    action_handlers/HookActionHandler.cpp
-    action_handlers/RecoveryActionHandler.cpp
-    action_handlers/RepositoryActionHandler.cpp
-    action_handlers/RetentionActionHandler.cpp
-    action_handlers/SnapshotActionHandler.cpp
+    execution/actions/BackupRunActionHandler.cpp
+    execution/actions/HookActionHandler.cpp
+    execution/actions/RecoveryActionHandler.cpp
+    execution/actions/RepositoryActionHandler.cpp
+    execution/actions/RetentionActionHandler.cpp
+    execution/actions/SnapshotActionHandler.cpp
     SnapshotTransfer.cpp
     transfer/TransferCoordinator.cpp
     transfer/TransferSizing.cpp
@@ -149,12 +149,12 @@ add_library(btrfsbackup-backup STATIC
 target_compile_features(btrfsbackup-backup PUBLIC cxx_std_23)
 target_restricted_include_directories(btrfsbackup-backup
     PUBLIC_HEADERS
-        backup/action_handlers/BackupRunActionHandler.hpp
-        backup/action_handlers/HookActionHandler.hpp
-        backup/action_handlers/RecoveryActionHandler.hpp
-        backup/action_handlers/RepositoryActionHandler.hpp
-        backup/action_handlers/RetentionActionHandler.hpp
-        backup/action_handlers/SnapshotActionHandler.hpp
+        backup/execution/actions/BackupRunActionHandler.hpp
+        backup/execution/actions/HookActionHandler.hpp
+        backup/execution/actions/RecoveryActionHandler.hpp
+        backup/execution/actions/RepositoryActionHandler.hpp
+        backup/execution/actions/RetentionActionHandler.hpp
+        backup/execution/actions/SnapshotActionHandler.hpp
         backup/execution/BackupActionExecutor.hpp
         backup/planning/BackupDiscovery.hpp
         backup/planning/BackupPlanBuilder.hpp
@@ -164,7 +164,7 @@ target_restricted_include_directories(btrfsbackup-backup
         backup/execution/BackupRunCheckpointPolicy.hpp
         backup/execution/BackupRunExecutor.hpp
         backup/BackupService.hpp
-        backup/DefaultBackupRunActionHandlerFactory.hpp
+        backup/execution/actions/DefaultBackupRunActionHandlerFactory.hpp
         backup/execution/DefaultBackupRunFactory.hpp
         backup/execution/LinkedCancellationMonitor.hpp
         backup/execution/RunExecutionContext.hpp
@@ -173,7 +173,7 @@ target_restricted_include_directories(btrfsbackup-backup
         backup/execution/SystemRunContext.hpp
         backup/transfer/TransferCoordinator.hpp
     PRIVATE_HEADERS
-        backup/OwnedBackupRunActionHandler.hpp
+        backup/execution/actions/OwnedBackupRunActionHandler.hpp
         backup/transfer/TransferSizing.hpp
 )
 target_link_libraries(btrfsbackup-backup

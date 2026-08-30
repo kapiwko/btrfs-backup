@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <backup/action_handlers/HookActionHandler.hpp>
+#include <backup/execution/actions/HookActionHandler.hpp>
 
 #include <chrono>
 #include <memory>
@@ -12,7 +12,7 @@
 #include <backup/ports/ICommandRunner.hpp>
 #include <core/Errors.hpp>
 
-namespace btrfsbackup::backup {
+namespace btrfsbackup::backup::execution {
 
 namespace {
 
@@ -85,4 +85,4 @@ void HookActionHandler::handle(
     }
 }
 
-} // namespace btrfsbackup::backup
+} // namespace btrfsbackup::backup::execution

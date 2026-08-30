@@ -58,7 +58,7 @@ std::size_t actions_completed(const btrfsbackup::backup::BackupRunExecutionResul
                       result);
 }
 
-class RecordingActionHandler final : public btrfsbackup::backup::IBackupRunActionHandler {
+class RecordingActionHandler final : public btrfsbackup::backup::execution::IBackupRunActionHandler {
   public:
     std::vector<std::string> calls;
     std::vector<std::string>* execution_trace = nullptr;
