@@ -19,6 +19,7 @@
 #include <platform/linux/process/ChildProcess.hpp>
 #include <platform/linux/OwnedFileDescriptor.hpp>
 #include <platform/linux/process/CommandCancellationSignal.hpp>
+#include <platform/linux/process/ProcessEnvironment.hpp>
 #include <platform/linux/process/ProcessSpawn.hpp>
 
 namespace btrfsbackup::platform::linux::process {
@@ -45,6 +46,25 @@ bool fd_is_ready(int fd) {
         result = poll(&descriptor, 1, 0);
     } while (result < 0 && errno == EINTR);
     return result > 0 && (descriptor.revents & (POLLIN | POLLHUP | POLLERR)) != 0;
+}
+
+ProcessEnvironment command_environment(const btrfsbackup::backup::ControlledCommandOptions& options) {
+    using btrfsbackup::backup::CommandEnvironmentProfile;
+    switch (options.environment_profile) {
+    case CommandEnvironmentProfile::Standard:
+        if (!options.environment.empty()) {
+            throw ValidationError("explicit environment variables require the hook profile");
+        }
+        return {};
+    case CommandEnvironmentProfile::Hook:
+        return ProcessEnvironment::for_hook(options.environment);
+    case CommandEnvironmentProfile::SystemdControl:
+        if (!options.environment.empty()) {
+            throw ValidationError("systemd control environment does not accept overrides");
+        }
+        return ProcessEnvironment::for_systemd_control();
+    }
+    throw ValidationError("unknown command environment profile");
 }
 
 } // namespace
@@ -94,7 +114,7 @@ btrfsbackup::backup::CommandResult ControlledCommandSession::run() {
                                                          .stderr_fd = output_write_end.get(),
                                                          .create_process_group = true,
                                                          .inherited_fds = options.inherited_fds,
-                                                         .environment = options.environment,
+                                                         .environment = command_environment(options),
                                                      });
     output_write_end.reset();
     if (!spawned.started()) {

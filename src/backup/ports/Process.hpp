@@ -26,6 +26,12 @@ struct CommandResult {
     bool timed_out = false;
 };
 
+enum class CommandEnvironmentProfile {
+    Standard,
+    Hook,
+    SystemdControl,
+};
+
 struct ControlledCommandOptions {
     CancellationToken* cancellation = nullptr;
     std::chrono::milliseconds timeout{300000};
@@ -33,6 +39,7 @@ struct ControlledCommandOptions {
     std::chrono::milliseconds terminate_grace_period{5000};
     std::chrono::milliseconds kill_reap_period{5000};
     std::vector<int> inherited_fds;
+    CommandEnvironmentProfile environment_profile = CommandEnvironmentProfile::Standard;
     std::map<std::string, std::string> environment;
 };
 

@@ -6,9 +6,10 @@
 
 #include <sys/types.h>
 
-#include <map>
 #include <string>
 #include <vector>
+
+#include <platform/linux/process/ProcessEnvironment.hpp>
 
 namespace btrfsbackup::platform::linux::process {
 
@@ -18,7 +19,7 @@ struct ProcessSpawnOptions {
     int stderr_fd = -1;
     bool create_process_group = false;
     std::vector<int> inherited_fds;
-    std::map<std::string, std::string> environment;
+    ProcessEnvironment environment;
 };
 
 struct ProcessSpawnResult {

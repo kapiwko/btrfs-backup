@@ -667,6 +667,12 @@ void test_hook_actions_use_command_runner_argv() {
         std::to_string(hooks.controlled_options->timeout.count()),
         std::to_string(std::chrono::minutes(5).count() * 60 * 1000)
     );
+    test_helpers::expect_true(
+        "hook environment profile",
+        hooks.controlled_options->environment_profile ==
+            btrfsbackup::backup::CommandEnvironmentProfile::Hook,
+        "hook did not select its explicit environment profile"
+    );
     test_helpers::expect_eq(
         "hook profile environment",
         hooks.controlled_options->environment.at("BTRFS_BACKUP_PROFILE_ID"),
