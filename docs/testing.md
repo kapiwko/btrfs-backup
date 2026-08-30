@@ -191,6 +191,13 @@ Run it with:
 tests/integration/docker/run-real-btrfs.sh
 ```
 
+The restore engine also has a focused real-Btrfs gate which avoids the systemd
+and encrypted-target lifecycle used by the full scenario:
+
+```bash
+sudo tests/integration/real_restore_engine_test.sh build/btrfs-backupctl
+```
+
 This runner accepts the same `PACKAGE_DIR=/path/to/dist` override. Without it,
 the base Arch package is built from the persistent local
 `build/integration-package` tree and mounted read-only into the privileged test

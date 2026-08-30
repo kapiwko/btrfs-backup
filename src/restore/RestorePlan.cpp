@@ -40,7 +40,23 @@ void validate_destination(const std::filesystem::path& destination) {
     }
 }
 
+void reject_symlink_components(const std::filesystem::path& path, RestoreErrorCode code) {
+    std::filesystem::path current;
+    for (const std::filesystem::path& component : path) {
+        current /= component;
+        std::error_code error;
+        const std::filesystem::file_status status = std::filesystem::symlink_status(current, error);
+        if (error) {
+            throw RestoreError(code, "restore path cannot be inspected: " + current.string());
+        }
+        if (std::filesystem::is_symlink(status)) {
+            throw RestoreError(RestoreErrorCode::SymlinkRejected, "restore path traverses a symbolic link: " + current.string());
+        }
+    }
+}
+
 void validate_source(const std::filesystem::path& source) {
+    reject_symlink_components(source, RestoreErrorCode::PathInvalid);
     std::error_code error;
     const std::filesystem::file_status status = std::filesystem::symlink_status(source, error);
     if (error || (!std::filesystem::is_regular_file(status) && !std::filesystem::is_directory(status))) {

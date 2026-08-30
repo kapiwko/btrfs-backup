@@ -1,6 +1,6 @@
 # Restore Engine
 
-Status: proposed.
+Status: implemented for repository format v1 and local POSIX/Btrfs restores.
 
 ## Goals
 
@@ -22,6 +22,14 @@ The engine should support these layers:
 
 The core request/result API is independent of CLI, D-Bus and KDE. Those
 adapters expose the same operation and stable error codes.
+
+The base package exposes the engine through `btrfs-backupctl restore` with
+`catalog`, `list`, `versions`, `plan`, `execute` and `drill` commands. Discovery
+starts only from an already mounted repository path and never activates or
+mounts a target. `plan` performs no mutation. The POSIX backend rejects
+symlinks, special files and nested mount boundaries and preserves mode,
+ownership when privileged, timestamps and extended attributes (including POSIX
+ACL attributes) before publishing the staging tree.
 
 ## Safety Rules
 
@@ -54,10 +62,10 @@ reports any incomplete cleanup. Re-running the request must either resume a
 defined checkpoint or safely restart; it must not infer success from a partial
 destination.
 
-## Open Questions
+## Remaining Work
 
-- copy implementation and sparse/reflink behavior across filesystems;
-- ACL/xattr portability policy;
+- sparse/reflink and hard-link preservation across filesystems;
+- ACL/xattr portability policy across filesystems without compatible namespaces;
 - checksum storage and performance budget;
 - resumable file restore versus deterministic restart;
 - representation of partial consistency-group restore.

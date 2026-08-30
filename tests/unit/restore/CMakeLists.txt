@@ -9,6 +9,13 @@ add_btrfsbackup_test(
     btrfsbackup-restore
 )
 add_btrfsbackup_test(
+    btrfsbackup-restore-safety-tests
+    RestoreSafetyTests.cpp
+    restore-safety-tests
+    btrfsbackup-restore
+    btrfsbackup-platform-linux-restore
+)
+add_btrfsbackup_test(
     btrfsbackup-restore-engine-tests
     RestoreEngineTests.cpp
     restore-engine-tests
