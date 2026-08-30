@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <map>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -19,6 +20,11 @@ enum class RunnerCommandKind {
     Plan,
     Execute,
     Cancel,
+};
+
+class RunnerOptionsError final : public std::runtime_error {
+  public:
+    using std::runtime_error::runtime_error;
 };
 
 struct RunnerOptions {

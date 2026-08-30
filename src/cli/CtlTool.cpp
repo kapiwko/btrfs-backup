@@ -17,6 +17,7 @@
 #include <cli/InstallationCommand.hpp>
 #include <cli/ProfileCommand.hpp>
 #include <cli/RunnerCommand.hpp>
+#include <cli/RunnerOptions.hpp>
 #include <cli/StatusCommand.hpp>
 #include <cli/TargetCommand.hpp>
 #include <config/ConfigurationIdentity.hpp>
@@ -122,6 +123,9 @@ int ctl_tool_main(int argc, char** argv) {
         } else {
             fail("unknown command: " + command);
         }
+    } catch (const RunnerOptionsError& exc) {
+        std::cerr << "btrfs-backupctl runner: " << exc.what() << '\n';
+        return 2;
     } catch (const CodedValidationError& exc) {
         fail(
             exc.what(),
