@@ -45,8 +45,8 @@ target_restricted_include_directories(btrfsbackup-cli
         cli/target/TargetCommand.hpp
         cli/target/TargetService.hpp
     PRIVATE_HEADERS
-        cli/runner/RunnerJsonCodec.hpp
         cli/runner/RunnerComposition.hpp
+        cli/runner/RunnerJsonCodec.hpp
 )
 target_link_libraries(btrfsbackup-cli
     PUBLIC
@@ -56,9 +56,9 @@ target_link_libraries(btrfsbackup-cli
         btrfsbackup-backup-planning
         btrfsbackup-backup-ports
         btrfsbackup-config-domain
+        btrfsbackup-config-json
         btrfsbackup-config-ports
         btrfsbackup-core
-        btrfsbackup-config-json
         btrfsbackup-platform-linux
         btrfsbackup-platform-linux-config
         btrfsbackup-state
