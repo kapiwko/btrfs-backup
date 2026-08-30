@@ -175,6 +175,42 @@ std::optional<RunStatus> parse_status(const QString& payload) {
     };
 }
 
+std::optional<OperationResult> parse_operation_result(const QString& payload) {
+    const QJsonDocument document = QJsonDocument::fromJson(payload.toUtf8());
+    if (!document.isObject()) {
+        return std::nullopt;
+    }
+
+    const QJsonObject object = document.object();
+    if (object.value(QStringLiteral("schemaVersion")).toInt(-1) !=
+        manager_protocol::operation_result_schema_version) {
+        return std::nullopt;
+    }
+    for (const QString& field : {
+             QStringLiteral("operation"),
+             QStringLiteral("operationId"),
+             QStringLiteral("profileId"),
+         }) {
+        if (!object.value(field).isString() || object.value(field).toString().isEmpty()) {
+            return std::nullopt;
+        }
+    }
+    if (!object.value(QStringLiteral("accepted")).isBool()) {
+        return std::nullopt;
+    }
+    const QJsonValue run_id = object.value(QStringLiteral("runId"));
+    if (!run_id.isUndefined() && !run_id.isString()) {
+        return std::nullopt;
+    }
+    return OperationResult{
+        .operation = object.value(QStringLiteral("operation")).toString(),
+        .operation_id = object.value(QStringLiteral("operationId")).toString(),
+        .profile_id = object.value(QStringLiteral("profileId")).toString(),
+        .run_id = run_id.toString(),
+        .accepted = object.value(QStringLiteral("accepted")).toBool(),
+    };
+}
+
 bool active_run_state(const QString& state) {
     return state == QStringLiteral("starting") || state == QStringLiteral("running") ||
         state == QStringLiteral("validating");

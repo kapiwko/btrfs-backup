@@ -51,6 +51,8 @@ target_link_libraries(
 
 add_executable(
     btrfs-backup-kde-monitor
+    progress/CancellationRequestDispatcher.cpp
+    progress/CancellationRequestDispatcher.hpp
     progress/BackupProgressJob.cpp
     progress/BackupProgressJob.hpp
     progress/BackupProgressMonitor.cpp
