@@ -61,6 +61,7 @@ BackupProgressMonitor::BackupProgressMonitor(
           this
       ),
       cancellation_dispatcher_(bus_, this),
+      terminal_notifications_(),
       tracker_(tracker) {
     connect(&service_watcher_, &QDBusServiceWatcher::serviceRegistered, this, [this]() {
         if (active_) {
@@ -320,6 +321,15 @@ void BackupProgressMonitor::create_job(const Profile& profile, const Status& sta
 }
 
 void BackupProgressMonitor::finish_job(const QString& profile_id, const Status& status) {
+    const auto profile = profiles_.constFind(profile_id);
+    terminal_notifications_.publish(
+        profile_id,
+        status.run_id,
+        profile == profiles_.cend() ? profile_id : profile->name,
+        status.state,
+        status.error_code
+    );
+
     const QPointer<BackupProgressJob> job = jobs_.take(profile_id);
     if (!job) {
         return;

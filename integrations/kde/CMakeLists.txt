@@ -14,7 +14,7 @@ set(KDE_INSTALL_DATADIR "${CMAKE_INSTALL_DATADIR}")
 set(KDE_INSTALL_LOCALEDIR "${CMAKE_INSTALL_DATADIR}/locale")
 
 find_package(Qt6 REQUIRED COMPONENTS Core DBus Gui Qml Quick)
-find_package(KF6 REQUIRED COMPONENTS CoreAddons I18n JobWidgets Package)
+find_package(KF6 REQUIRED COMPONENTS CoreAddons I18n JobWidgets Notifications Package)
 find_package(Plasma REQUIRED)
 set(CMAKE_INSTALL_DEFAULT_COMPONENT_NAME KDEIntegration)
 ki18n_install(plasmoid/po)
@@ -53,10 +53,14 @@ add_executable(
     btrfs-backup-kde-monitor
     progress/CancellationRequestDispatcher.cpp
     progress/CancellationRequestDispatcher.hpp
+    progress/NotificationDeduplicator.cpp
+    progress/NotificationDeduplicator.hpp
     progress/BackupProgressJob.cpp
     progress/BackupProgressJob.hpp
     progress/BackupProgressMonitor.cpp
     progress/BackupProgressMonitor.hpp
+    progress/TerminalNotificationService.cpp
+    progress/TerminalNotificationService.hpp
     progress/main.cpp
 )
 target_compile_features(btrfs-backup-kde-monitor PRIVATE cxx_std_23)
@@ -74,11 +78,16 @@ target_link_libraries(
         KF6::CoreAddons
         KF6::I18n
         KF6::JobWidgets
+        KF6::Notifications
 )
 install(TARGETS btrfs-backup-kde-monitor RUNTIME DESTINATION "${KDE_INSTALL_BINDIR}")
 install(
     FILES progress/io.github.btrfsbackup.ProgressMonitor.desktop
     DESTINATION "${KDE_INSTALL_APPDIR}"
+)
+install(
+    FILES progress/btrfs-backup-kde-monitor.notifyrc
+    DESTINATION "${CMAKE_INSTALL_DATADIR}/knotifications6"
 )
 install(
     FILES systemd/btrfs-backup-kde-monitor.service
@@ -275,10 +284,37 @@ if(BUILD_TESTING)
     add_test(NAME plasma-progress-job COMMAND plasma-progress-job-tests)
     set_tests_properties(plasma-progress-job PROPERTIES LABELS kde)
 
+    add_executable(
+        kde-terminal-notification-tests
+        progress/NotificationDeduplicator.cpp
+        progress/NotificationDeduplicator.hpp
+        progress/TerminalNotificationService.cpp
+        progress/TerminalNotificationService.hpp
+        progress/tests/TerminalNotificationServiceTests.cpp
+    )
+    target_compile_features(kde-terminal-notification-tests PRIVATE cxx_std_23)
+    target_include_directories(
+        kde-terminal-notification-tests
+        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/progress
+    )
+    target_link_libraries(
+        kde-terminal-notification-tests
+        PRIVATE
+            Qt6::Core
+            KF6::I18n
+            KF6::Notifications
+    )
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(kde-terminal-notification-tests PRIVATE -Wall -Wextra -Wpedantic)
+    endif()
+    add_test(NAME kde-terminal-notification COMMAND kde-terminal-notification-tests)
+    set_tests_properties(kde-terminal-notification PROPERTIES LABELS kde)
+
     add_custom_target(btrfs-backup-kde-tests)
     add_dependencies(
         btrfs-backup-kde-tests
         kde-manager-api-tests
+        kde-terminal-notification-tests
         plasma-progress-job-tests
         plasma-status-models-tests
         plasma-target-status-model-tests
