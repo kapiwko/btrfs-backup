@@ -40,6 +40,7 @@ BackupStatusModel::BackupStatusModel(QObject* parent)
       bus_(QDBusConnection::systemBus()),
       manager_events_(bus_, this),
       service_watcher_(QLatin1String(btrfsbackup::manager_protocol::service_name), bus_, QDBusServiceWatcher::WatchForRegistration | QDBusServiceWatcher::WatchForUnregistration, this) {
+    connect(&target_, &TargetStatusModel::changed, this, &BackupStatusModel::targetChanged);
     operation_message_timer_.setInterval(operation_message_timeout_ms);
     operation_message_timer_.setSingleShot(true);
     connect(&operation_message_timer_, &QTimer::timeout, this, [this]() {
@@ -95,11 +96,7 @@ void BackupStatusModel::setProfile(const QString& profile) {
     phase_ = QStringLiteral("idle");
     activity_ = QStringLiteral("idle");
     can_cancel_ = false;
-    target_state_ = QStringLiteral("unknown");
-    target_connected_ = false;
-    target_unlocked_ = false;
-    target_mounted_ = false;
-    safe_to_remove_ = false;
+    target_.reset();
     history_.clear();
     operation_message_timer_.stop();
     last_operation_.clear();
@@ -192,24 +189,8 @@ QString BackupStatusModel::errorCode() const {
     return error_code_;
 }
 
-QString BackupStatusModel::targetState() const {
-    return target_state_;
-}
-
-bool BackupStatusModel::targetConnected() const {
-    return target_connected_;
-}
-
-bool BackupStatusModel::targetUnlocked() const {
-    return target_unlocked_;
-}
-
-bool BackupStatusModel::targetMounted() const {
-    return target_mounted_;
-}
-
-bool BackupStatusModel::safeToRemove() const {
-    return safe_to_remove_;
+TargetStatusModel* BackupStatusModel::target() {
+    return &target_;
 }
 
 QVariantList BackupStatusModel::history() const {
@@ -326,6 +307,9 @@ void BackupStatusModel::connectToManager() {
         }
 
         features_ = capabilities->features;
+        target_.setStorageSupported(supports(
+            QLatin1String(btrfsbackup::manager_protocol::feature::target_storage_usage)
+        ));
 
         capabilities_verified_ = true;
         setManagerConnected(true);
@@ -509,27 +493,12 @@ void BackupStatusModel::applyStatus(const QString& payload) {
 }
 
 void BackupStatusModel::applyDeviceState(const QString& payload) {
-    QJsonParseError error;
-    const QJsonDocument document = QJsonDocument::fromJson(payload.toUtf8(), &error);
-    if (error.error != QJsonParseError::NoError || !document.isObject()) {
-        setLastError(parseError(error));
-        return;
-    }
-    const QJsonObject target = document.object();
-    if (json_int(target, "schemaVersion", -1) != 1) {
+    if (!target_.apply(profile_, payload)) {
         setLastError(tr("The backup manager returned an unsupported target schema."));
         return;
     }
-    target_state_ = target.value(QStringLiteral("state")).toString(QStringLiteral("unknown"));
-    target_connected_ = target.value(QStringLiteral("connected")).toBool(false);
-    target_unlocked_ = target.value(QStringLiteral("unlocked")).toBool(false);
-    target_mounted_ = target.value(QStringLiteral("mounted")).toBool(false);
-    safe_to_remove_ = target.value(QStringLiteral("safeToRemove")).toBool(false);
-    const QString reported_name = target.value(QStringLiteral("targetName")).toString();
-    if (!reported_name.isEmpty()) {
-        target_name_ = reported_name;
-    }
-    emit targetChanged();
+    target_name_ = target_.name();
+    setLastError(QString());
     emit statusChanged();
 }
 
@@ -638,6 +607,8 @@ void BackupStatusModel::managerUnavailable() {
     device_refresh_queued_ = false;
     history_refresh_queued_ = false;
     features_.clear();
+    target_.setStorageSupported(false);
+    target_.reset();
     operation_pending_ = false;
     emit operationChanged();
     setManagerConnected(false);

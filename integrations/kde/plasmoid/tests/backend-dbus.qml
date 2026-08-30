@@ -66,9 +66,9 @@ Window {
                     && status.sourceProgress === 30
                     && status.overallProgress === 40
                     && status.progressAccuracy === "estimated"
-                    && status.targetConnected
-                    && status.safeToRemove
-                    && status.targetState === "connected"
+                    && status.target.connected
+                    && status.target.safeToRemove
+                    && status.target.state === "connected"
                     && status.history.length === 1
                     && typeof status.startBackup === "function"
                     && typeof status.cancelBackup === "function"
@@ -106,8 +106,8 @@ Window {
                               status.currentSourceName, status.targetName,
                               status.speedBps, status.etaSeconds,
                               status.sourceProgress, status.overallProgress,
-                              status.progressAccuracy, status.targetConnected,
-                              status.safeToRemove, status.targetState,
+                              status.progressAccuracy, status.target.connected,
+                              status.target.safeToRemove, status.target.state,
                               status.history.length, profileItem !== null,
                               profileItem !== null ? profileItem.profileId : "missing",
                               profileItem !== null ? profileItem.running : false,
