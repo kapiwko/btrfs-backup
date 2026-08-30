@@ -23,10 +23,10 @@
 #include <platform/linux/config/FileProfileRepository.hpp>
 #include <config/model/Validation.hpp>
 #include <platform/linux/process/PosixCommandRunner.hpp>
-#include <platform/linux/DeviceInfo.hpp>
+#include <platform/linux/storage/DeviceInfo.hpp>
 #include <platform/linux/filesystem/FileIo.hpp>
 #include <platform/linux/filesystem/FileLock.hpp>
-#include <platform/linux/MountInfo.hpp>
+#include <platform/linux/storage/MountInfo.hpp>
 #include <platform/linux/process/Process.hpp>
 #include <platform/linux/filesystem/TrustedDirectory.hpp>
 #include <platform/linux/SystemdUnit.hpp>
@@ -138,7 +138,7 @@ bool mapper_has_mounts(
 ) {
     fs::path mapper = mapper_root / profile.target.mapper_name.value();
     for (const btrfsbackup::backup::MountEntry& mount : mounts) {
-        if (btrfsbackup::config::normalized_path(btrfsbackup::platform::linux::strip_subvolume_suffix(mount.source)) == btrfsbackup::config::normalized_path(mapper)) {
+        if (btrfsbackup::config::normalized_path(btrfsbackup::platform::linux::storage::strip_subvolume_suffix(mount.source)) == btrfsbackup::config::normalized_path(mapper)) {
             events.push_back({
                 .kind = btrfsbackup::cli::TargetEventKind::MapperStillMounted,
                 .detail = mount.target,
@@ -165,7 +165,7 @@ ResolvedDependencies resolve_dependencies(btrfsbackup::cli::TargetServiceDepende
     return {
         .commands = dependencies.commands,
         .read_mounts = !dependencies.read_mounts
-            ? std::function<std::vector<btrfsbackup::backup::MountEntry>()>([] { return btrfsbackup::platform::linux::read_mount_table(); })
+            ? std::function<std::vector<btrfsbackup::backup::MountEntry>()>([] { return btrfsbackup::platform::linux::storage::read_mount_table(); })
             : dependencies.read_mounts,
         .lock_root = dependencies.lock_root.empty()
             ? btrfsbackup::platform::linux::filesystem::default_lock_root()
@@ -186,7 +186,7 @@ ResolvedDependencies resolve_dependencies(btrfsbackup::cli::TargetServiceDepende
             ? std::string(BTRFSBACKUP_SYSTEMD_CRYPTSETUP)
             : dependencies.systemd_cryptsetup_command,
         .canonical_device = !dependencies.canonical_device
-            ? std::function<fs::path(const fs::path&)>(btrfsbackup::platform::linux::canonical_device)
+            ? std::function<fs::path(const fs::path&)>(btrfsbackup::platform::linux::storage::canonical_device)
             : dependencies.canonical_device,
     };
 }

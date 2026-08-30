@@ -19,13 +19,13 @@
 #include <cli/RunnerOptions.hpp>
 #include <core/Cancellation.hpp>
 #include <core/RuntimeTime.hpp>
-#include <platform/linux/LibBtrfsOperations.hpp>
+#include <platform/linux/storage/LibBtrfsOperations.hpp>
 #include <platform/linux/config/ApplicationConfig.hpp>
 #include <platform/linux/config/FileProfileRepository.hpp>
 #include <platform/linux/config/ProfileRuntimePolicy.hpp>
 #include <platform/linux/filesystem/FileBackupRunLeaseProvider.hpp>
 #include <platform/linux/filesystem/FileLock.hpp>
-#include <platform/linux/MountInfo.hpp>
+#include <platform/linux/storage/MountInfo.hpp>
 #include <platform/linux/process/PosixCommandRunner.hpp>
 #include <platform/linux/filesystem/PosixDurableFileOperations.hpp>
 #include <platform/linux/filesystem/PosixFileSystem.hpp>
@@ -80,20 +80,20 @@ struct RunnerComposition::Impl {
           mounts(options.mountinfo, [&options](const std::string& source) {
               const auto found = options.mount_uuid_overrides.find(source);
               return found == options.mount_uuid_overrides.end()
-                  ? platform::linux::blkid_filesystem_uuid(source)
+                  ? platform::linux::storage::blkid_filesystem_uuid(source)
                   : found->second;
           }),
-          target_mounter(mounts, commands), preflight(mounts, target_mounter), pending_markers(durable_files), discovery(platform::linux::read_btrfs_snapshot_metadata, pending_markers, safe_directories), hook_executables(platform::linux::trusted_hook_directory), clock(options.timestamp, options.today), action_handlers(btrfs, filesystem, commands, pending_markers, clock, safe_directories, hook_executables), run_factory(action_handlers, transfers, safe_directories), leases(platform::linux::filesystem::default_lock_root()), state(config.paths(), durable_files), file_cancellation_monitor(state), cancellation_monitor(file_cancellation_monitor, cancellation), run_ids(options.run_id), sessions(leases, state, state, state, cancellation_monitor), backup_service(profiles, config.paths(), preflight, discovery, plan_builder, run_factory, state, sessions, clock, run_ids) {
+          target_mounter(mounts, commands), preflight(mounts, target_mounter), pending_markers(durable_files), discovery(platform::linux::storage::read_btrfs_snapshot_metadata, pending_markers, safe_directories), hook_executables(platform::linux::trusted_hook_directory), clock(options.timestamp, options.today), action_handlers(btrfs, filesystem, commands, pending_markers, clock, safe_directories, hook_executables), run_factory(action_handlers, transfers, safe_directories), leases(platform::linux::filesystem::default_lock_root()), state(config.paths(), durable_files), file_cancellation_monitor(state), cancellation_monitor(file_cancellation_monitor, cancellation), run_ids(options.run_id), sessions(leases, state, state, state, cancellation_monitor), backup_service(profiles, config.paths(), preflight, discovery, plan_builder, run_factory, state, sessions, clock, run_ids) {
     }
 
     config::ApplicationConfig config;
     platform::linux::FileProfileRepository profiles;
-    platform::linux::LinuxMountInspector mounts;
+    platform::linux::storage::LinuxMountInspector mounts;
     platform::linux::process::PosixCommandRunner commands;
     platform::linux::SystemdTargetManager target_mounter;
     backup::BackupPreflight preflight;
     platform::linux::filesystem::SafeDirectoryRootFactory safe_directories;
-    platform::linux::LibBtrfsOperations btrfs;
+    platform::linux::storage::LibBtrfsOperations btrfs;
     platform::linux::filesystem::PosixFileSystem filesystem;
     platform::linux::transfer::PosixTransferPipeline transfers;
     platform::linux::filesystem::PosixDurableFileOperations durable_files;
