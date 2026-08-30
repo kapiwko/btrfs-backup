@@ -135,6 +135,9 @@ RepositoryCatalog RepositoryDiscoveryService::discover(const std::filesystem::pa
             .parent_uuid = value.value("parentUuid", ""),
             .verified = value.value("verified", false),
         };
+        if (entry.repository_path.empty()) {
+            throw RestoreError(RestoreErrorCode::CatalogInvalid, "snapshot repository path cannot be the repository root");
+        }
         reject_symlink_components(already_mounted_root, entry.repository_path);
         std::optional<DiscoveredSnapshotMetadata> actual = metadata_reader_(already_mounted_root / entry.repository_path.value());
         if (!actual.has_value() || !actual->is_subvolume || !actual->readonly || actual->uuid != entry.uuid ||
