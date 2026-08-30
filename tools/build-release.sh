@@ -42,6 +42,19 @@ TARGET=all
 BUILD_DIR=""
 BUILD_JOBS="${BUILD_JOBS:-$(nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)}"
 
+log_stage() {
+    printf '\n[release %(%H:%M:%S)T] %s\n' -1 "$*" >&2
+}
+
+report_failure() {
+    local status="$?" command="$BASH_COMMAND" line="${BASH_LINENO[0]}"
+    printf '\n[release %(%H:%M:%S)T] FAILED at line %s: %s\n' \
+        -1 "$line" "$command" >&2
+    exit "$status"
+}
+
+trap report_failure ERR
+
 HOST_MACHINE="$(uname -m)"
 case "$HOST_MACHINE" in
     x86_64)
@@ -172,9 +185,15 @@ case "$TEST_MODE" in
 esac
 
 case "$TEST_MODE" in
-    full) "$ROOT/tests/run-tests.sh" --full ;;
-    static) "$ROOT/tests/run-tests.sh" --static-only ;;
-    skip) printf '%s\n' 'Packaging without running the test suite.' >&2 ;;
+    full)
+        log_stage 'Running the complete test suite'
+        "$ROOT/tests/run-tests.sh" --full
+        ;;
+    static)
+        log_stage 'Running static release tests'
+        "$ROOT/tests/run-tests.sh" --static-only
+        ;;
+    skip) log_stage 'Skipping the pre-package test suite' ;;
 esac
 
 TMP_ROOT="$(mktemp -d /tmp/btrfs-backup-release.XXXXXX)"
@@ -187,7 +206,7 @@ if [[ -n "$BUILD_DIR" ]]; then
     BUILD_DIR="$(realpath -m -- "$BUILD_DIR")"
     CMAKE_ACCELERATION_ARGS=()
     cmake_acceleration_args "$BUILD_DIR" CMAKE_ACCELERATION_ARGS
-    printf 'Reusing native build directory: %s\n' "$BUILD_DIR" >&2
+    log_stage "Configuring native release build in $BUILD_DIR"
     cmake \
         -S "$ROOT" \
         -B "$BUILD_DIR" \
@@ -195,6 +214,7 @@ if [[ -n "$BUILD_DIR" ]]; then
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_PREFIX=/usr \
         -DBUILD_TESTING=OFF
+    log_stage 'Building native release executables'
     cmake --build "$BUILD_DIR" \
         --target btrfs-backup-native btrfs-backupctl btrfs-backupd \
         --parallel "$BUILD_JOBS"
@@ -209,6 +229,7 @@ case "$DIST_DIR" in
 esac
 rm -rf -- "$DIST_DIR"
 install -d -m0755 "$DIST_DIR"
+log_stage "Preparing release artifacts in $DIST_DIR"
 
 SOURCE_NAME="$PKGBASE-$VERSION"
 SOURCE_STAGE="$TMP_ROOT/$SOURCE_NAME"
@@ -317,6 +338,7 @@ copy_source_tree() {
 
 }
 
+log_stage 'Creating source archive'
 copy_source_tree "$SOURCE_STAGE"
 find "$SOURCE_STAGE" -exec touch -h -d "@$SOURCE_DATE_EPOCH" {} +
 (
@@ -343,7 +365,8 @@ stage_package_payload() {
     if [[ -n "$BUILD_DIR" ]]; then
         binary_dir="$BUILD_DIR"
     else
-        make -C "$root" CMAKE_CONFIGURE_ARGS=-DCMAKE_INSTALL_PREFIX=/usr >/dev/null
+        log_stage 'Building native package payload'
+        make -C "$root" CMAKE_CONFIGURE_ARGS=-DCMAKE_INSTALL_PREFIX=/usr
     fi
     install -Dm755 "$binary_dir/btrfs-backup" "$pkgdir/usr/bin/btrfs-backup"
     install -Dm755 "$binary_dir/btrfs-backupctl" "$pkgdir/usr/bin/btrfs-backupctl"
@@ -423,7 +446,7 @@ stage_kde_package_payload() {
     if [[ -n "$BUILD_DIR" ]]; then
         build_dir="${BUILD_DIR}-kde"
         source_root="$ROOT"
-        printf 'Reusing KDE build directory: %s\n' "$build_dir" >&2
+        log_stage "Reusing KDE build directory $build_dir"
     else
         rm -rf -- "$build_dir"
     fi
@@ -432,10 +455,13 @@ stage_kde_package_payload() {
         -S "$source_root/integrations/kde" \
         -B "$build_dir" \
         "${cmake_args[@]}" \
-        -DCMAKE_BUILD_TYPE=Release >/dev/null
-    cmake --build "$build_dir" --parallel "$BUILD_JOBS" >/dev/null
-    ctest --test-dir "$build_dir" --parallel "${BUILD_JOBS}" --output-on-failure >/dev/null
-    cmake --install "$build_dir" --prefix "$pkgdir/usr" >/dev/null
+        -DCMAKE_BUILD_TYPE=Release
+    log_stage 'Building Plasma integration'
+    cmake --build "$build_dir" --parallel "$BUILD_JOBS"
+    log_stage 'Testing Plasma integration'
+    ctest --test-dir "$build_dir" --parallel "${BUILD_JOBS}" --output-on-failure
+    log_stage 'Staging Plasma integration'
+    cmake --install "$build_dir" --prefix "$pkgdir/usr"
 
     install -Dm644 "$root/docs/plasma-integration.md" \
         "$pkgdir/usr/share/doc/btrfs-backup-kde/plasma-integration.md"
@@ -912,6 +938,7 @@ EOF_SRCINFO
 }
 
 if [[ "$TARGET" == all || "$TARGET" == arch || "$TARGET" == arch-base ]]; then
+    log_stage 'Building Arch base package'
     install -d -m0755 "$PACKAGE_STAGE"
     stage_package_payload "$SOURCE_STAGE" "$PACKAGE_STAGE"
     install -m0644 "$SOURCE_STAGE/packaging/arch/btrfs-backup.install" "$PACKAGE_STAGE/.INSTALL"
@@ -957,6 +984,7 @@ EOF_PKGINFO
 fi
 
 if [[ "$TARGET" == all || "$TARGET" == arch ]]; then
+    log_stage 'Building Arch KDE package'
     KDE_PACKAGE_STAGE="$TMP_ROOT/package-kde"
     install -d -m0755 "$KDE_PACKAGE_STAGE"
     stage_kde_package_payload "$SOURCE_STAGE" "$KDE_PACKAGE_STAGE"
@@ -1001,35 +1029,42 @@ EOF_KDE_PKGINFO
 fi
 
 if [[ "$TARGET" == all || "$TARGET" == deb ]]; then
+    log_stage 'Building Debian package'
     build_deb_package "$SOURCE_STAGE" "$TMP_ROOT/deb"
     BUILD_OUTPUTS+=("$DEB_ARCHIVE")
 fi
 
 if [[ "$TARGET" == all || "$TARGET" == tar-install ]]; then
+    log_stage 'Building install tarball'
     build_install_tarball "$SOURCE_STAGE" "$TMP_ROOT/tar-install"
     BUILD_OUTPUTS+=("$INSTALL_TARBALL")
 fi
 
 if [[ "$TARGET" == all || "$TARGET" == rpm ]]; then
+    log_stage 'Building RPM packaging archive'
     build_rpm_packaging "$TMP_ROOT/rpm"
     BUILD_OUTPUTS+=("$RPM_PACKAGING_ARCHIVE")
 fi
 
 if [[ "$TARGET" == all || "$TARGET" == nix ]]; then
+    log_stage 'Building Nix packaging archive'
     build_nix_packaging "$TMP_ROOT/nix"
     BUILD_OUTPUTS+=("$NIX_PACKAGING_ARCHIVE")
 fi
 
 if [[ "$TARGET" == all || "$TARGET" == ebuild ]]; then
+    log_stage 'Building ebuild packaging archive'
     build_ebuild_packaging "$TMP_ROOT/ebuild"
     BUILD_OUTPUTS+=("$EBUILD_PACKAGING_ARCHIVE")
 fi
 
 if [[ "$TARGET" == all || "$TARGET" == pkgbuild ]]; then
+    log_stage 'Building PKGBUILD archive'
     build_pkgbuild_packaging "$TMP_ROOT/pkgbuild"
     BUILD_OUTPUTS+=("$PKGBUILD_ARCHIVE")
 fi
 
+log_stage 'Creating source ZIP'
 copy_source_tree "$ZIP_STAGE"
 find "$ZIP_STAGE" -exec touch -h -d "@$SOURCE_DATE_EPOCH" {} +
 create_deterministic_zip "$ZIP_STAGE" "$SOURCE_ZIP"
@@ -1050,6 +1085,7 @@ EOF_REPORT
 BUILD_OUTPUTS+=("$DIST_DIR/BUILD-REPORT.txt")
 
 (
+    log_stage 'Generating and verifying checksums'
     cd "$DIST_DIR"
     : > SHA256SUMS
     for artifact in "${BUILD_OUTPUTS[@]}"; do
@@ -1059,6 +1095,7 @@ BUILD_OUTPUTS+=("$DIST_DIR/BUILD-REPORT.txt")
 )
 
 if [[ "$TARGET" == all || "$TARGET" == arch || "$TARGET" == arch-base ]]; then
+    log_stage 'Auditing Arch base package'
     # Structural verification of the Arch package.
     tar --zstd -tf "$PACKAGE_ARCHIVE" > "$TMP_ROOT/package-files.txt"
     grep -qx '.PKGINFO' "$TMP_ROOT/package-files.txt"
@@ -1179,6 +1216,7 @@ if [[ "$TARGET" == all || "$TARGET" == arch || "$TARGET" == arch-base ]]; then
 fi
 
 if [[ "$TARGET" == all || "$TARGET" == arch ]]; then
+    log_stage 'Auditing Arch KDE package'
     tar --zstd -tf "$KDE_PACKAGE_ARCHIVE" > "$TMP_ROOT/package-kde-files.txt"
     grep -qx '.PKGINFO' "$TMP_ROOT/package-kde-files.txt"
     grep -qx '.INSTALL' "$TMP_ROOT/package-kde-files.txt"
