@@ -77,13 +77,22 @@ transport for continuously updated job progress.
 
 ## Architecture
 
-The package now contains:
+The desktop integration is divided into five surfaces:
 
-1. a shared Qt D-Bus manager client used by the plasmoid and session monitor;
-2. a session monitor using `KJob` and `KUiServerV2JobTracker` for long-running
-   backup progress;
-3. a future KCM for profile browsing, validation and controlled writes through
-   the system service;
-4. profile editing introduced only through future authorized manager methods.
+1. the plasmoid provides concise status and routine controls;
+2. plasmoid settings contain presentation preferences only;
+3. the session monitor owns `KJob`, `KUiServerV2JobTracker` and terminal
+   notifications without owning run results;
+4. a QML Kirigami KCM provides profile inspection, target validation,
+   diagnostics and later controlled writes through the system service;
+5. future read-only KIO and Dolphin adapters browse backups through a shared,
+   CLI-first restore engine.
+
+The shared Qt D-Bus client supports these adapters without becoming a single
+desktop application object. KIO must not implement repository discovery or
+restore policy, and the `kio-snapshot` provider and authorization model must be
+evaluated before a public backup URL is selected. Profile editing is introduced
+only through authorized manager methods; no desktop component invokes `sudo` or
+writes `/etc` directly.
 
 The base backup package must keep working without this integration installed.

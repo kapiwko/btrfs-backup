@@ -165,14 +165,28 @@ semantics are touched.
 
 ## Interoperability And Desktop
 
-Build optional integrations on the stable CLI and D-Bus operations in this
+Keep the optional desktop integration split between the status plasmoid,
+presentation-only widget settings, the session monitor, a QML Kirigami KCM and
+read-only KIO/Dolphin adapters. The monitor owns terminal notifications, the
+KCM owns target validation and administration, and the manager remains an outer
+adapter rather than the backup execution owner. See
+[ADR 0005](docs/adr/0005-kde-integration-boundaries.md).
+
+Build optional integrations on stable engine and D-Bus operations in this
 order:
 
+- correct monitor outage, resync and cancellation semantics;
+- add monitor-owned native notifications and presentation-only widget settings;
+- add a read-only KCM before profile editing;
+- finish authorized profile administration and the CLI-first restore engine;
 - detect and later adopt suitable Snapper snapshots;
 - dry-run import from btrbk configuration;
 - snapshot diff for diagnostics and restore selection;
+- evaluate `kio-snapshot` interoperability and a provider API;
+- add authorized read-only browse sessions;
 - KDE KIO read-only browsing;
 - Dolphin previous-version actions;
+- guided restore UI over the shared restore engine;
 - KRunner commands routed through the shared client API.
 
 No integration may become a required dependency of the base runtime.
