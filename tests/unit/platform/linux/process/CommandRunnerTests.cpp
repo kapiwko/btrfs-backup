@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 
-#include <platform/linux/PosixCommandRunner.hpp>
+#include <platform/linux/process/PosixCommandRunner.hpp>
 
 #include "support/ValidationTestHelpers.hpp"
 

@@ -2,12 +2,12 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <platform/linux/Process.hpp>
+#include <platform/linux/process/Process.hpp>
 
 #include <core/Errors.hpp>
-#include <platform/linux/ControlledCommandSession.hpp>
+#include <platform/linux/process/ControlledCommandSession.hpp>
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::process {
 
 btrfsbackup::backup::CommandResult run_command(const std::vector<std::string>& argv) {
     btrfsbackup::backup::ControlledCommandOptions options;
@@ -39,4 +39,4 @@ std::string run_capture(const std::vector<std::string>& argv) {
     return result.output;
 }
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::process

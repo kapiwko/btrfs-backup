@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <platform/linux/ProcessSpawn.hpp>
+#include <platform/linux/process/ProcessSpawn.hpp>
 
 #include <spawn.h>
 #include <signal.h>
@@ -15,7 +15,7 @@
 
 #include <core/Errors.hpp>
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::process {
 
 namespace {
 
@@ -221,4 +221,4 @@ ProcessSpawnResult spawn_program(const std::vector<std::string>& argv, const Pro
     return {.pid = pid};
 }
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::process

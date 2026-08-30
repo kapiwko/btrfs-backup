@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <platform/linux/ControlledCommandSession.hpp>
+#include <platform/linux/process/ControlledCommandSession.hpp>
 
 #include <fcntl.h>
 #include <poll.h>
@@ -15,12 +15,12 @@
 #include <cstring>
 
 #include <core/Errors.hpp>
-#include <platform/linux/ChildProcess.hpp>
+#include <platform/linux/process/ChildProcess.hpp>
 #include <platform/linux/OwnedFileDescriptor.hpp>
-#include <platform/linux/ProcessSpawn.hpp>
+#include <platform/linux/process/ProcessSpawn.hpp>
 #include <platform/linux/transfer/PosixCancellationSignal.hpp>
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::process {
 
 namespace {
 
@@ -203,4 +203,4 @@ btrfsbackup::backup::CommandResult ControlledCommandSession::run() {
     }
 }
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::process

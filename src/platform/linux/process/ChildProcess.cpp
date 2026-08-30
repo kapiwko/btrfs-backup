@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <platform/linux/ChildProcess.hpp>
+#include <platform/linux/process/ChildProcess.hpp>
 
 #include <signal.h>
 #include <sys/wait.h>
@@ -10,7 +10,7 @@
 #include <cerrno>
 #include <thread>
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::process {
 
 ChildProcess::ChildProcess(pid_t pid, bool process_group, ChildProcessCleanupPolicy cleanup_policy) noexcept
     : pid_(pid), process_group_(process_group), owned_(pid > 0), cleanup_policy_(cleanup_policy) {
@@ -118,4 +118,4 @@ void ChildProcess::cleanup() noexcept {
     owned_ = false;
 }
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::process

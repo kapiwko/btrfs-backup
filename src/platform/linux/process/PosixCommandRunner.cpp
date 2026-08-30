@@ -2,9 +2,9 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <platform/linux/PosixCommandRunner.hpp>
+#include <platform/linux/process/PosixCommandRunner.hpp>
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::process {
 
 btrfsbackup::backup::CommandResult PosixCommandRunner::run(const std::vector<std::string>& argv) {
     return run_command(argv);
@@ -17,4 +17,4 @@ btrfsbackup::backup::CommandResult PosixCommandRunner::run_controlled(
     return run_controlled_command(argv, options);
 }
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::process

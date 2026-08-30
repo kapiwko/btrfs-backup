@@ -7,7 +7,7 @@
 #include <functional>
 #include <memory>
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::process {
 
 class TerminationSignalMonitor {
   public:
@@ -21,4 +21,4 @@ class TerminationSignalMonitor {
     std::unique_ptr<Impl> impl_;
 };
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::process

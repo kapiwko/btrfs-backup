@@ -41,7 +41,7 @@ std::vector<int> inherited_fds(const std::vector<std::shared_ptr<btrfsbackup::ba
 
 } // namespace
 
-ProcessSpawnResult spawn_posix_transfer_process(
+process::ProcessSpawnResult spawn_posix_transfer_process(
     const std::vector<std::string>& argv,
     int stdin_fd,
     int stdout_fd,
@@ -51,7 +51,7 @@ ProcessSpawnResult spawn_posix_transfer_process(
     if (argv.empty()) {
         throw ValidationError("empty transfer command");
     }
-    return spawn_program(argv, {
+    return process::spawn_program(argv, {
                                    .stdin_fd = stdin_fd,
                                    .stdout_fd = stdout_fd,
                                    .stderr_fd = stderr_fd,

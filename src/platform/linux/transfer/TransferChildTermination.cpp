@@ -23,7 +23,7 @@ void append_diagnostic(std::string& diagnostics, const std::string& message) {
 } // namespace
 
 TransferChildTermination::TransferChildTermination(
-    ChildProcess& process,
+    process::ChildProcess& process,
     std::chrono::milliseconds terminate_grace_period,
     std::chrono::milliseconds kill_reap_period
 ) noexcept

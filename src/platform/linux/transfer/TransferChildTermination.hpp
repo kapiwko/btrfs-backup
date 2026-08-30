@@ -8,7 +8,7 @@
 #include <optional>
 
 #include <backup/transfer/TransferResult.hpp>
-#include <platform/linux/ChildProcess.hpp>
+#include <platform/linux/process/ChildProcess.hpp>
 
 namespace btrfsbackup::platform::linux::transfer {
 
@@ -21,7 +21,7 @@ enum class ChildTerminationProgress {
 class TransferChildTermination final {
   public:
     TransferChildTermination(
-        ChildProcess& process,
+        process::ChildProcess& process,
         std::chrono::milliseconds terminate_grace_period,
         std::chrono::milliseconds kill_reap_period
     ) noexcept;
@@ -34,7 +34,7 @@ class TransferChildTermination final {
     [[nodiscard]] bool pending() const noexcept;
 
   private:
-    ChildProcess& process_;
+    process::ChildProcess& process_;
     std::chrono::milliseconds terminate_grace_period_;
     std::chrono::milliseconds kill_reap_period_;
     bool terminate_sent_ = false;

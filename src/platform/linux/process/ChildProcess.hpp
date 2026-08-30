@@ -8,7 +8,7 @@
 
 #include <chrono>
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::process {
 
 struct ChildProcessCleanupPolicy {
     std::chrono::milliseconds terminate_grace_period{5000};
@@ -42,4 +42,4 @@ class ChildProcess {
     ChildProcessCleanupPolicy cleanup_policy_;
 };
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::process

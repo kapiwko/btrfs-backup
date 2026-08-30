@@ -10,7 +10,7 @@
 #include <string>
 #include <vector>
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::process {
 
 struct ProcessSpawnOptions {
     int stdin_fd = -1;
@@ -35,4 +35,4 @@ ProcessSpawnResult spawn_program(
     const ProcessSpawnOptions& options = {}
 );
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::process
