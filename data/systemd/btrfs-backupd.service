@@ -21,6 +21,7 @@ LogsDirectoryMode=0700
 ProtectSystem=strict
 ReadWritePaths=-/var/lib/btrfs-backup/state
 ReadWritePaths=-/run/btrfs-backup-manager
+ReadWritePaths=-/run/btrfs-backup-browse
 ProtectHome=yes
 ProtectKernelTunables=yes
 ProtectKernelModules=yes

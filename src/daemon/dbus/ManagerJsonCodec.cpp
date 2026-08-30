@@ -94,6 +94,17 @@ std::string ManagerJsonCodec::encode(const OperationResult& result) const {
     return config::json::dump_json(document);
 }
 
+std::string ManagerJsonCodec::encode(const BrowseSessionInfo& session) const {
+    return config::json::dump_json({
+        {"schemaVersion", manager_protocol::browse_session_schema_version},
+        {"sessionId", session.session_id},
+        {"profileId", session.profile_id},
+        {"rootPath", session.root_path},
+        {"expiresAt", session.expires_at},
+        {"readOnly", session.read_only},
+    });
+}
+
 std::string ManagerJsonCodec::encode(const control::EditableProfile& profile) const {
     return config::json::dump_json({
         {"schemaVersion", manager_protocol::profile_edit_schema_version},

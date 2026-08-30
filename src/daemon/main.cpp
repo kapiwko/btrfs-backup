@@ -7,6 +7,7 @@
 #include <daemon/ManagerAuditLog.hpp>
 #include <daemon/control/SystemOperationalControlBackend.hpp>
 #include <daemon/control/SystemProfileAdministrationBackend.hpp>
+#include <daemon/control/SystemBrowseSessionBackend.hpp>
 
 #include <filesystem>
 #include <iostream>
@@ -18,6 +19,7 @@
 #include <platform/linux/systemd/LinuxSystemConfigurationActivator.hpp>
 #include <platform/linux/process/PosixCommandRunner.hpp>
 #include <platform/linux/filesystem/PosixDurableFileOperations.hpp>
+#include <platform/linux/storage/MountInfo.hpp>
 #include <state/persistence/FileRunStateRepository.hpp>
 
 namespace fs = std::filesystem;
@@ -112,6 +114,8 @@ int main(int argc, char** argv) {
         btrfsbackup::platform::linux::process::PosixCommandRunner commands;
         btrfsbackup::daemon::control::CommandSystemdUnitController units(commands);
         btrfsbackup::daemon::control::SystemOperationalControlBackend operational_backend(profiles, state, units);
+        btrfsbackup::platform::linux::storage::LinuxMountInspector mounts(paths.mountinfo_path);
+        btrfsbackup::daemon::control::SystemBrowseSessionBackend browse_session_backend(profiles, mounts, units);
         btrfsbackup::platform::linux::systemd::LinuxSystemConfigurationActivator configuration_activator;
         btrfsbackup::config::NullConfigurationActivator null_configuration_activator;
         btrfsbackup::config::IConfigurationActivator& selected_configuration_activator =
@@ -133,6 +137,7 @@ int main(int argc, char** argv) {
             service,
             operational_backend,
             profile_administration_backend,
+            browse_session_backend,
             audit_log,
             paths,
             bus_address

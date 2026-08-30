@@ -55,6 +55,7 @@ target_link_libraries(btrfsbackup-daemon-query
 
 add_library(btrfsbackup-daemon-control STATIC
     control/AuthorizedOperationCommand.cpp
+    control/BrowseSessionService.cpp
     control/OperationalControlService.cpp
     control/ProfileAdministrationService.cpp
 )
@@ -66,6 +67,7 @@ target_compile_definitions(
 target_restricted_include_directories(btrfsbackup-daemon-control
     PUBLIC_HEADERS
         daemon/control/AuthorizedOperationCommand.hpp
+        daemon/control/BrowseSessionService.hpp
         daemon/control/OperationalControlService.hpp
         daemon/control/ProfileAdministrationService.hpp
         daemon/control/SystemdUnitController.hpp
@@ -83,6 +85,7 @@ add_library(btrfsbackup-daemon-system-control STATIC
     control/CommandSystemdUnitController.cpp
     control/OperationEnvironmentFile.cpp
     control/SystemOperationalControlBackend.cpp
+    control/SystemBrowseSessionBackend.cpp
     control/SystemProfileAdministrationBackend.cpp
 )
 target_compile_features(btrfsbackup-daemon-system-control PUBLIC cxx_std_23)
@@ -90,6 +93,7 @@ target_restricted_include_directories(btrfsbackup-daemon-system-control
     PUBLIC_HEADERS
         daemon/control/CommandSystemdUnitController.hpp
         daemon/control/SystemOperationalControlBackend.hpp
+        daemon/control/SystemBrowseSessionBackend.hpp
         daemon/control/SystemProfileAdministrationBackend.hpp
     PRIVATE_HEADERS
         daemon/control/OperationEnvironmentFile.hpp
@@ -101,9 +105,11 @@ target_link_libraries(btrfsbackup-daemon-system-control
         btrfsbackup-daemon-control
     PRIVATE
         btrfsbackup-config-json
+        btrfsbackup-backup-planning
         btrfsbackup-platform-linux-config
         btrfsbackup-platform-linux-filesystem
         btrfsbackup-platform-linux-process
+        btrfsbackup-platform-linux-storage
 )
 
 add_library(btrfsbackup-daemon-dbus STATIC
@@ -149,6 +155,7 @@ target_link_libraries(btrfs-backupd
         btrfsbackup-platform-linux-config
         btrfsbackup-platform-linux-filesystem
         btrfsbackup-platform-linux-process
+        btrfsbackup-platform-linux-storage
         btrfsbackup-platform-linux-systemd
         btrfsbackup-state
 )
