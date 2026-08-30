@@ -4,28 +4,14 @@
 
 #pragma once
 
-#include <filesystem>
-#include <map>
 #include <optional>
-#include <string>
 
 #include <backup/model/BackupRunEvent.hpp>
 #include <backup/ports/IBackupRunEventSink.hpp>
-#include <core/RuntimeTime.hpp>
 #include <state/PersistentDocumentOperations.hpp>
-#include <state/StatusWriter.hpp>
+#include <state/RunStatusBuilder.hpp>
 
 namespace btrfsbackup::state {
-
-struct BackupRunStatusContext {
-    std::filesystem::path status_root;
-    std::filesystem::path history_root;
-    std::string profile_name;
-    int source_count = 0;
-    RuntimeTimePoint started_at;
-    std::map<std::string, std::string> source_names;
-    std::string target_name;
-};
 
 class RunStatusProjection final : public btrfsbackup::backup::IBackupRunEventSink {
   public:
@@ -43,6 +29,7 @@ class RunStatusProjection final : public btrfsbackup::backup::IBackupRunEventSin
 
     IAtomicDocumentWriter& files_;
     BackupRunStatusContext context_;
+    RunStatusBuilder builder_;
     std::optional<RunId> run_id_;
     btrfsbackup::backup::OperationKind operation_kind_ = btrfsbackup::backup::OperationKind::Backup;
     std::optional<PendingActionFailure> pending_action_failure_;
