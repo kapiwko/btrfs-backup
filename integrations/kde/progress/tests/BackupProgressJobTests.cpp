@@ -8,6 +8,7 @@
 #include <KLocalizedString>
 
 #include <QCoreApplication>
+#include <QPointer>
 
 #include <iostream>
 
@@ -89,6 +90,28 @@ void test_success() {
     expect(job.percent() == 100, "successful run reaches 100 percent");
 }
 
+void test_stopping_tracking_is_not_a_terminal_result() {
+    int results = 0;
+    auto* job = new BackupProgressJob(
+        QStringLiteral("default"),
+        QStringLiteral("run-3"),
+        QStringLiteral("Default backup"),
+        [](const QString&, const QString&) {}
+    );
+    QPointer<BackupProgressJob> tracked_job(job);
+    job->setAutoDelete(false);
+    QObject::connect(job, &KJob::result, [&results]() {
+        ++results;
+    });
+
+    job->start();
+    job->stop_tracking();
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+
+    expect(results == 0, "stopping local tracking does not publish a terminal result");
+    expect(tracked_job.isNull(), "stopped local tracking releases the progress job");
+}
+
 void test_shared_manager_protocol() {
     const auto capabilities = btrfsbackup::kde::parse_capabilities(
         QStringLiteral(R"({"apiMajor":1,"publicStatusSchemaVersion":4,"features":["cancel-backup","change-signals"]})")
@@ -136,6 +159,7 @@ int main(int argc, char* argv[]) {
     KLocalizedString::setApplicationDomain("plasma_applet_org.btrfsbackup.plasmoid");
     test_progress_and_cancellation();
     test_success();
+    test_stopping_tracking_is_not_a_terminal_result();
     test_shared_manager_protocol();
     if (failures == 0) {
         std::cout << "ok - Plasma progress job tests\n";
