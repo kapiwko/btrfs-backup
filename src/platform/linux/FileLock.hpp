@@ -20,11 +20,11 @@ class FileLock {
     FileLock& operator=(const FileLock&) = delete;
     FileLock(FileLock&& other) noexcept;
     FileLock& operator=(FileLock&& other) noexcept;
-    ~FileLock();
+    ~FileLock() noexcept;
 
     [[nodiscard]] bool try_acquire();
     void release();
-    bool acquired() const;
+    [[nodiscard]] bool acquired() const noexcept;
 
   private:
     std::filesystem::path path_;

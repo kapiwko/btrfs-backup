@@ -93,6 +93,32 @@ void close_standalone_target_or_throw(IMountedTargetSession& target_session) {
     }
 }
 
+[[noreturn]] void rethrow_planning_failure_after_target_cleanup(
+    IMountedTargetSession& target_session,
+    const std::exception_ptr& original_error
+) {
+    const std::optional<TargetCleanupError> cleanup_error = target_session.close();
+    try {
+        std::rethrow_exception(original_error);
+    } catch (const std::exception& error) {
+        if (cleanup_error.has_value()) {
+            throw CodedOperationError(
+                failure_code(error),
+                std::string(error.what()) + "; target cleanup also failed: " + cleanup_error->message
+            );
+        }
+        throw;
+    } catch (...) {
+        if (cleanup_error.has_value()) {
+            throw CodedOperationError(
+                ErrorCode::BackupFailed,
+                "unknown planning failure; target cleanup also failed: " + cleanup_error->message
+            );
+        }
+        throw;
+    }
+}
+
 } // namespace
 
 BackupService::BackupService(
@@ -141,8 +167,7 @@ BackupRunPlan BackupService::plan(const BackupPlanRequest& request) {
         plan = plan_builder_.build(loaded.profile, snapshot, run_id, timestamp, cancellation);
     } catch (...) {
         const std::exception_ptr original_error = std::current_exception();
-        close_standalone_target_or_throw(*target_session);
-        std::rethrow_exception(original_error);
+        rethrow_planning_failure_after_target_cleanup(*target_session, original_error);
     }
     close_standalone_target_or_throw(*target_session);
     return std::move(*plan);
@@ -234,7 +259,7 @@ BackupExecutionResult BackupService::start_loaded_profile(
                 (void)context->close();
                 return *failed;
             }
-            if (context->cancellation.cancellation_requested()) {
+            if (context->cancellation_token().cancellation_requested()) {
                 throw OperationCancelledError("backup cancelled during target cleanup");
             }
             events.on_backup_run_event(TargetValidationCompleted{profile.id, run_id});
@@ -254,7 +279,7 @@ BackupExecutionResult BackupService::start_loaded_profile(
                 (void)context->close();
                 return *failed;
             }
-            if (context->cancellation.cancellation_requested()) {
+            if (context->cancellation_token().cancellation_requested()) {
                 throw OperationCancelledError("backup cancelled during target cleanup");
             }
             ledger_.write_skipped(profile, run_id, started_at, clock_.now(), plan.sources.size());
@@ -264,8 +289,8 @@ BackupExecutionResult BackupService::start_loaded_profile(
         BackupRunExecutionResult execution = run_factory_.execute(
             plan,
             events,
-            *context->checkpoints,
-            context->cancellation
+            context->checkpoint_store(),
+            context->cancellation_token()
         );
 
         if (const auto* completed = std::get_if<BackupRunExecutionCompleted>(&execution)) {
@@ -280,7 +305,7 @@ BackupExecutionResult BackupService::start_loaded_profile(
                 (void)context->close();
                 return *failed;
             }
-            if (context->cancellation.cancellation_requested()) {
+            if (context->cancellation_token().cancellation_requested()) {
                 throw OperationCancelledError("backup cancelled during target cleanup");
             }
             std::vector<BackupCompletionWarning> warnings;
@@ -391,26 +416,26 @@ BackupRunPlan BackupService::prepare_target_and_plan(
     std::unique_ptr<IMountedTargetSession> target_session = preflight_.run(
         profile,
         TargetMountMode::MountIfNeeded,
-        context.cancellation
+        context.cancellation_token()
     );
     context.attach_target_session(std::move(target_session));
-    if (context.cancellation.cancellation_requested()) {
+    if (context.cancellation_token().cancellation_requested()) {
         throw OperationCancelledError("backup cancelled during preflight");
     }
 
     const BackupPlanningSnapshot snapshot = discovery_.discover(
         profile,
         application_paths_,
-        context.cancellation
+        context.cancellation_token()
     );
     BackupRunPlan plan = plan_builder_.build(
         profile,
         snapshot,
         identity.run_id,
         format_utc_snapshot_timestamp(identity.started_at),
-        context.cancellation
+        context.cancellation_token()
     );
-    if (context.cancellation.cancellation_requested()) {
+    if (context.cancellation_token().cancellation_requested()) {
         throw OperationCancelledError("backup cancelled during planning");
     }
     return plan;

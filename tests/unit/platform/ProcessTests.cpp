@@ -27,6 +27,8 @@
 namespace {
 
 static_assert(std::is_nothrow_destructible_v<btrfsbackup::platform::linux::ChildProcess>);
+static_assert(std::is_nothrow_move_constructible_v<btrfsbackup::platform::linux::ChildProcess>);
+static_assert(std::is_nothrow_move_assignable_v<btrfsbackup::platform::linux::ChildProcess>);
 
 class EnvironmentGuard {
   public:

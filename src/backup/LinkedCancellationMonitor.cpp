@@ -11,6 +11,7 @@
 #include <optional>
 #include <stop_token>
 #include <string>
+#include <type_traits>
 #include <utility>
 
 namespace btrfsbackup::backup {
@@ -28,34 +29,38 @@ class LinkedCancellationWatch final : public ICancellationWatch {
           callback_(std::in_place, upstream.stop_token(), [&cancellation] { cancellation.request_cancel(); }) {
     }
 
-    ~LinkedCancellationWatch() override {
-        try {
-            if (std::optional<std::string> diagnostic = close()) {
-                std::clog << "btrfs-backup: linked cancellation watch cleanup failed: " << *diagnostic << '\n';
-            }
-        } catch (const std::exception& error) {
-            std::clog << "btrfs-backup: linked cancellation watch cleanup failed: " << error.what() << '\n';
-        } catch (...) {
-            std::clog << "btrfs-backup: linked cancellation watch cleanup failed with an unknown error\n";
+    LinkedCancellationWatch(const LinkedCancellationWatch&) = delete;
+    LinkedCancellationWatch& operator=(const LinkedCancellationWatch&) = delete;
+    LinkedCancellationWatch(LinkedCancellationWatch&&) = delete;
+    LinkedCancellationWatch& operator=(LinkedCancellationWatch&&) = delete;
+
+    ~LinkedCancellationWatch() noexcept override {
+        if (const auto& diagnostic = close()) {
+            std::clog << "btrfs-backup: linked cancellation watch cleanup failed: " << diagnostic->message << '\n';
         }
     }
 
-    std::optional<std::string> close() override {
+    const std::optional<CleanupDiagnostic>& close() noexcept override {
         if (closed_) {
-            return std::nullopt;
+            return close_diagnostic_;
         }
         closed_ = true;
         callback_.reset();
-        std::optional<std::string> result = primary_->close();
+        if (const auto& diagnostic = primary_->close()) {
+            close_diagnostic_ = *diagnostic;
+        }
         primary_.reset();
-        return result;
+        return close_diagnostic_;
     }
 
   private:
     std::unique_ptr<ICancellationWatch> primary_;
     std::optional<std::stop_callback<std::function<void()>>> callback_;
     bool closed_ = false;
+    std::optional<CleanupDiagnostic> close_diagnostic_;
 };
+
+static_assert(std::is_nothrow_destructible_v<LinkedCancellationWatch>);
 
 } // namespace
 
