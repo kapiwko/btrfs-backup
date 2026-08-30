@@ -284,3 +284,105 @@ msgstr "Profil kopii zapasowej nie jest już dostępny"
 
 msgid "A newer backup run replaced this progress report"
 msgstr "Nowszy przebieg kopii zastąpił ten raport postępu"
+
+msgid "Backup completed"
+msgstr "Kopia zapasowa zakończona"
+
+msgid "Backup “%1” completed successfully."
+msgstr "Kopia zapasowa „%1” została pomyślnie zakończona."
+
+msgid "Backup “%1” failed."
+msgstr "Kopia zapasowa „%1” nie powiodła się."
+
+msgid "Backup “%1” failed (%2)."
+msgstr "Kopia zapasowa „%1” nie powiodła się (%2)."
+
+msgid "Backup “%1” was cancelled."
+msgstr "Kopia zapasowa „%1” została anulowana."
+
+msgid "Show details"
+msgstr "Pokaż szczegóły"
+
+msgid "Configure notifications"
+msgstr "Skonfiguruj powiadomienia"
+
+msgid "Browse backups"
+msgstr "Przeglądaj kopie zapasowe"
+
+msgid "Open settings"
+msgstr "Otwórz ustawienia"
+
+msgid "Duration:"
+msgstr "Czas trwania:"
+
+msgid "%1 (%2 of %3)"
+msgstr "%1 (%2 z %3)"
+
+msgid "%1 h %2 min"
+msgstr "%1 godz. %2 min"
+
+msgid "1 minute"
+msgid_plural "%1 minutes"
+msgstr[0] "1 minuta"
+msgstr[1] "%1 minuty"
+msgstr[2] "%1 minut"
+
+msgid "1 second"
+msgid_plural "%1 seconds"
+msgstr[0] "1 sekunda"
+msgstr[1] "%1 sekundy"
+msgstr[2] "%1 sekund"
+
+msgid "1 source"
+msgid_plural "%1 sources"
+msgstr[0] "1 źródło"
+msgstr[1] "%1 źródła"
+msgstr[2] "%1 źródeł"
+
+msgid "General"
+msgstr "Ogólne"
+
+msgid "Profiles:"
+msgstr "Profile:"
+
+msgid "Move up"
+msgstr "Przenieś wyżej"
+
+msgid "Move down"
+msgstr "Przenieś niżej"
+
+msgid "No profiles selected"
+msgstr "Nie wybrano profili"
+
+msgid "Recent backups:"
+msgstr "Ostatnie kopie:"
+
+msgid "Expansion:"
+msgstr "Rozwijanie:"
+
+msgid "Expand an active backup automatically"
+msgstr "Automatycznie rozwiń aktywną kopię"
+
+msgid "Expand a failed backup automatically"
+msgstr "Automatycznie rozwiń nieudaną kopię"
+
+msgid "Details:"
+msgstr "Szczegóły:"
+
+msgid "Show transfer speed chart"
+msgstr "Pokaż wykres prędkości przesyłania"
+
+msgid "Show target storage usage"
+msgstr "Pokaż wykorzystanie miejsca na celu"
+
+msgid "Privacy:"
+msgstr "Prywatność:"
+
+msgid "Hide source names in the panel tooltip"
+msgstr "Ukryj nazwy źródeł w podpowiedzi panelu"
+
+msgid "Notifications:"
+msgstr "Powiadomienia:"
+
+msgid "Configure notifications..."
+msgstr "Skonfiguruj powiadomienia..."
