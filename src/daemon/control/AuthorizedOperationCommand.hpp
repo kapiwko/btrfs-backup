@@ -6,10 +6,10 @@
 
 #include <string>
 
-#include <daemon/OperationalControlService.hpp>
-#include <daemon/SystemdUnitController.hpp>
+#include <daemon/control/OperationalControlService.hpp>
+#include <daemon/control/SystemdUnitController.hpp>
 
-namespace btrfsbackup::daemon {
+namespace btrfsbackup::daemon::control {
 
 [[nodiscard]] TransientUnitRequest authorized_backup_unit(
     const AuthorizedOperationContext& context
@@ -24,4 +24,4 @@ namespace btrfsbackup::daemon {
     const AuthorizedOperationContext& context
 );
 
-} // namespace btrfsbackup::daemon
+} // namespace btrfsbackup::daemon::control

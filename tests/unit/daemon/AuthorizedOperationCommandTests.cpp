@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 
-#include <daemon/AuthorizedOperationCommand.hpp>
+#include <daemon/control/AuthorizedOperationCommand.hpp>
 
 #include "support/TestHelpers.hpp"
 
@@ -20,7 +20,7 @@ std::string installed_program(const char* name) {
     return std::string(BTRFSBACKUP_TEST_INSTALL_BINDIR) + "/" + name;
 }
 
-btrfsbackup::daemon::AuthorizedOperationContext context() {
+btrfsbackup::daemon::control::AuthorizedOperationContext context() {
     return {
         .profile_id = btrfsbackup::ProfileId{"laptop"},
         .generation = btrfsbackup::config::ConfigurationGeneration{"generation-1"},
@@ -35,7 +35,7 @@ bool contains(const std::vector<std::string>& command, const std::string& argume
 
 void expect_authorized_environment(
     const std::string& name,
-    const btrfsbackup::daemon::TransientUnitRequest& unit
+    const btrfsbackup::daemon::control::TransientUnitRequest& unit
 ) {
     test_helpers::expect_true(
         name + " generation",
@@ -55,7 +55,7 @@ void expect_authorized_environment(
 }
 
 void test_backup_uses_versioned_transient_unit() {
-    const auto unit = btrfsbackup::daemon::authorized_backup_unit(context());
+    const auto unit = btrfsbackup::daemon::control::authorized_backup_unit(context());
 
     expect_authorized_environment("backup", unit);
     test_helpers::expect_true("backup async", !unit.wait, "backup transient unit is not asynchronous");
@@ -87,8 +87,8 @@ void test_backup_uses_versioned_transient_unit() {
 }
 
 void test_synchronous_target_operations_carry_identity() {
-    const std::string validation = btrfsbackup::daemon::authorized_target_validation_unit(context());
-    const auto eject = btrfsbackup::daemon::authorized_target_eject_unit(context());
+    const std::string validation = btrfsbackup::daemon::control::authorized_target_validation_unit(context());
+    const auto eject = btrfsbackup::daemon::control::authorized_target_eject_unit(context());
 
     expect_authorized_environment("eject", eject);
     test_helpers::expect_true("eject waits", eject.wait, "eject does not wait for the process");
@@ -115,7 +115,7 @@ void test_synchronous_target_operations_carry_identity() {
 }
 
 void test_validation_environment_carries_authorized_context() {
-    const std::string environment = btrfsbackup::daemon::authorized_operation_environment(context());
+    const std::string environment = btrfsbackup::daemon::control::authorized_operation_environment(context());
     test_helpers::expect_contains("validation profile environment", environment, "BTRFS_BACKUP_PROFILE_ID=\"laptop\"\n");
     test_helpers::expect_contains(
         "validation generation environment",

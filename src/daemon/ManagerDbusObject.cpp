@@ -82,7 +82,7 @@ namespace btrfsbackup::daemon {
 
 ManagerDbusObject::ManagerDbusObject(
     ManagerService& service,
-    OperationalControlService& operational,
+    control::OperationalControlService& operational,
     IManagerAuditLog& audit_log
 )
     : service_(service), operational_(operational), audit_log_(audit_log) {

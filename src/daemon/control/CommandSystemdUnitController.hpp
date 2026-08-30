@@ -5,9 +5,9 @@
 #pragma once
 
 #include <backup/ports/ICommandRunner.hpp>
-#include <daemon/SystemdUnitController.hpp>
+#include <daemon/control/SystemdUnitController.hpp>
 
-namespace btrfsbackup::daemon {
+namespace btrfsbackup::daemon::control {
 
 class CommandSystemdUnitController final : public ISystemdUnitController {
   public:
@@ -23,4 +23,4 @@ class CommandSystemdUnitController final : public ISystemdUnitController {
     btrfsbackup::backup::ICommandRunner& commands_;
 };
 
-} // namespace btrfsbackup::daemon
+} // namespace btrfsbackup::daemon::control
