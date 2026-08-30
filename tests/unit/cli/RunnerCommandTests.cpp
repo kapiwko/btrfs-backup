@@ -17,6 +17,7 @@
 #include <stdexcept>
 #include <string>
 #include <thread>
+#include <utility>
 #include <vector>
 
 #include <cli/RunnerCommand.hpp>
@@ -53,7 +54,7 @@ namespace fs = std::filesystem;
 namespace {
 
 std::string action_name(btrfsbackup::backup::BackupRunActionKind kind) {
-    return std::to_string(static_cast<int>(kind));
+    return std::to_string(std::to_underlying(kind));
 }
 
 class RecordingActionHandler final : public btrfsbackup::backup::IBackupRunActionHandler {

@@ -48,7 +48,7 @@ fs::path normalized_absolute_path(const std::string& value, const std::string& n
     if (value.empty() || value.front() != '/') {
         throw ValidationError(name + " must be an absolute path");
     }
-    if (value.find('\n') != std::string::npos || value.find('\r') != std::string::npos) {
+    if (value.contains('\n') || value.contains('\r')) {
         throw ValidationError(name + " contains a newline");
     }
     fs::path result = normalized_path(value);
@@ -62,7 +62,7 @@ fs::path normalized_relative_path(const std::string& value, const std::string& n
     if (value.empty()) {
         throw ValidationError(name + " must be a non-empty relative path");
     }
-    if (value.find('\n') != std::string::npos || value.find('\r') != std::string::npos) {
+    if (value.contains('\n') || value.contains('\r')) {
         throw ValidationError(name + " contains a newline");
     }
     fs::path path(value);
