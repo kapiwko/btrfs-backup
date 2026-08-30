@@ -34,7 +34,7 @@ struct RunExecutionContextCloseFailure {
     std::string message;
 };
 
-struct CloseResult {
+struct RunExecutionContextCloseResult {
     std::vector<RunExecutionContextCloseFailure> failures;
 
     [[nodiscard]] bool succeeded() const noexcept {
@@ -46,7 +46,6 @@ struct RunExecutionContext {
     RunExecutionContext(
         ProfileId profile_id,
         RunId run_id,
-        std::unique_ptr<IBackupRunEventSink>& events,
         std::unique_ptr<IBackupRunLease> lease,
         ICheckpointStoreFactory& checkpoints,
         ICancellationRequestStore& cancellation_requests,
@@ -57,9 +56,11 @@ struct RunExecutionContext {
     RunExecutionContext& operator=(const RunExecutionContext&) = delete;
     ~RunExecutionContext() noexcept;
 
-    [[nodiscard]] CloseResult close();
+    [[nodiscard]] RunExecutionContextCloseResult close();
     [[nodiscard]] std::optional<TargetCleanupError> close_target_session() noexcept;
+    void attach_event_sink(std::unique_ptr<IBackupRunEventSink> events) noexcept;
     void attach_target_session(std::unique_ptr<IMountedTargetSession> session);
+    [[nodiscard]] IBackupRunEventSink& event_sink() const;
 
     ProfileId profile_id;
     RunId run_id;
@@ -71,7 +72,16 @@ struct RunExecutionContext {
     std::unique_ptr<IMountedTargetSession> target_session;
 
   private:
-    std::unique_ptr<IBackupRunEventSink>& events_;
+    void close_cancellation_watch(RunExecutionContextCloseResult& result);
+    void release_event_sink() noexcept;
+    void release_checkpoint_store() noexcept;
+    void close_active_run(RunExecutionContextCloseResult& result);
+    void clear_cancellation_request(RunExecutionContextCloseResult& result);
+    void collect_target_session_failure(RunExecutionContextCloseResult& result);
+    void release_lease() noexcept;
+    void report_close_failures(const RunExecutionContextCloseResult& result) const noexcept;
+
+    std::unique_ptr<IBackupRunEventSink> events_;
     ICancellationRequestStore& cancellation_requests_;
     bool target_close_attempted_ = false;
     std::optional<TargetCleanupError> target_close_error_;
