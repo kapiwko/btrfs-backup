@@ -9,7 +9,7 @@
 #include <backup/ports/IPendingMarkerStore.hpp>
 #include <backup/ports/SafeDirectory.hpp>
 
-namespace btrfsbackup::backup {
+namespace btrfsbackup::backup::planning {
 
 class BackupDiscovery final : public IBackupDiscovery {
   public:
@@ -31,4 +31,4 @@ class BackupDiscovery final : public IBackupDiscovery {
     const ISafeDirectoryRootFactory& safe_directories_;
 };
 
-} // namespace btrfsbackup::backup
+} // namespace btrfsbackup::backup::planning

@@ -7,7 +7,7 @@
 #include <utility>
 #include <vector>
 
-#include <backup/BackupPreflightValidation.hpp>
+#include <backup/planning/BackupPreflightValidation.hpp>
 
 #include "support/ValidationTestHelpers.hpp"
 
@@ -69,32 +69,32 @@ std::vector<btrfsbackup::backup::MountEntry> mounts_with_source() {
 }
 
 void test_accepts_valid_target_mount() {
-    btrfsbackup::backup::validate_backup_mounts(profile(), mounts());
+    btrfsbackup::backup::planning::validate_backup_mounts(profile(), mounts());
 }
 
 void test_rejects_missing_mount() {
-    test_helpers::expect_validation_error("missing target mount", [] { btrfsbackup::backup::validate_backup_mounts(profile(), {}); }, "not mounted");
+    test_helpers::expect_validation_error("missing target mount", [] { btrfsbackup::backup::planning::validate_backup_mounts(profile(), {}); }, "not mounted");
 }
 
 void test_rejects_wrong_filesystem_type() {
     std::vector<btrfsbackup::backup::MountEntry> entries = mounts();
     entries.at(0).fstype = "ext4";
 
-    test_helpers::expect_validation_error("wrong filesystem", [&] { btrfsbackup::backup::validate_backup_mounts(profile(), entries); }, "not a Btrfs filesystem");
+    test_helpers::expect_validation_error("wrong filesystem", [&] { btrfsbackup::backup::planning::validate_backup_mounts(profile(), entries); }, "not a Btrfs filesystem");
 }
 
 void test_rejects_wrong_mapper() {
     std::vector<btrfsbackup::backup::MountEntry> entries = mounts();
     entries.at(0).source = "/dev/mapper/other";
 
-    test_helpers::expect_validation_error("wrong mapper", [&] { btrfsbackup::backup::validate_backup_mounts(profile(), entries); }, "is not /dev/mapper/backup");
+    test_helpers::expect_validation_error("wrong mapper", [&] { btrfsbackup::backup::planning::validate_backup_mounts(profile(), entries); }, "is not /dev/mapper/backup");
 }
 
 void test_rejects_read_only_mount() {
     std::vector<btrfsbackup::backup::MountEntry> entries = mounts();
     entries.at(0).options = "ro,relatime";
 
-    test_helpers::expect_validation_error("read-only target", [&] { btrfsbackup::backup::validate_backup_mounts(profile(), entries); }, "not mounted read-write");
+    test_helpers::expect_validation_error("read-only target", [&] { btrfsbackup::backup::planning::validate_backup_mounts(profile(), entries); }, "not mounted read-write");
 }
 
 void test_rejects_missing_security_mount_options() {
@@ -107,7 +107,7 @@ void test_rejects_missing_security_mount_options() {
             }
         }
 
-        test_helpers::expect_validation_error("missing " + missing, [&] { btrfsbackup::backup::validate_backup_mounts(profile(), entries); }, "missing required mount option " + missing);
+        test_helpers::expect_validation_error("missing " + missing, [&] { btrfsbackup::backup::planning::validate_backup_mounts(profile(), entries); }, "missing required mount option " + missing);
     }
 }
 
@@ -115,7 +115,7 @@ void test_rejects_uuid_mismatch() {
     std::vector<btrfsbackup::backup::MountEntry> entries = mounts();
     entries.at(0).filesystem_uuid = "other-fs";
 
-    test_helpers::expect_validation_error("uuid mismatch", [&] { btrfsbackup::backup::validate_backup_mounts(profile(), entries); }, "Btrfs UUID mismatch");
+    test_helpers::expect_validation_error("uuid mismatch", [&] { btrfsbackup::backup::planning::validate_backup_mounts(profile(), entries); }, "Btrfs UUID mismatch");
 }
 
 void test_rejects_remote_root_symlink_escape() {
@@ -129,7 +129,7 @@ void test_rejects_remote_root_symlink_escape() {
     btrfsbackup::config::Profile test_profile = profile(mount_point);
     test_profile.paths.remote_root = btrfsbackup::config::RemoteSnapshotRoot{(mount_point / "escape" / "snapshots").string()};
 
-    test_helpers::expect_validation_error("remote root escape", [&] { btrfsbackup::backup::validate_backup_mounts(test_profile, mounts(mount_point)); }, "REMOTE_ROOT escapes");
+    test_helpers::expect_validation_error("remote root escape", [&] { btrfsbackup::backup::planning::validate_backup_mounts(test_profile, mounts(mount_point)); }, "REMOTE_ROOT escapes");
 
     fs::remove_all(root);
 }
@@ -145,7 +145,7 @@ void test_rejects_incoming_root_symlink_escape() {
     btrfsbackup::config::Profile test_profile = profile(mount_point);
     test_profile.paths.incoming_root = btrfsbackup::config::IncomingRoot{(mount_point / "escape" / ".incoming").string()};
 
-    test_helpers::expect_validation_error("incoming root escape", [&] { btrfsbackup::backup::validate_backup_mounts(test_profile, mounts(mount_point)); }, "INCOMING_ROOT escapes");
+    test_helpers::expect_validation_error("incoming root escape", [&] { btrfsbackup::backup::planning::validate_backup_mounts(test_profile, mounts(mount_point)); }, "INCOMING_ROOT escapes");
 
     fs::remove_all(root);
 }
@@ -165,7 +165,7 @@ void test_rejects_local_snapshot_directory_on_another_filesystem() {
 
     test_helpers::expect_validation_error(
         "local snapshot filesystem",
-        [&] { btrfsbackup::backup::validate_backup_mounts(test_profile, entries); },
+        [&] { btrfsbackup::backup::planning::validate_backup_mounts(test_profile, entries); },
         "LOCAL_SNAPSHOT_DIR must be on the same Btrfs filesystem"
     );
 }
@@ -177,7 +177,7 @@ void test_rejects_source_on_backup_target_filesystem() {
 
     test_helpers::expect_validation_error(
         "source on target filesystem",
-        [&] { btrfsbackup::backup::validate_backup_mounts(test_profile, mounts()); },
+        [&] { btrfsbackup::backup::planning::validate_backup_mounts(test_profile, mounts()); },
         "SOURCE_SUBVOLUME must not be on the backup target filesystem"
     );
 }
