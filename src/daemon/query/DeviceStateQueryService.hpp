@@ -9,7 +9,7 @@
 #include <daemon/ManagerPaths.hpp>
 #include <daemon/ManagerResponseModels.hpp>
 
-namespace btrfsbackup::daemon {
+namespace btrfsbackup::daemon::query {
 
 class DeviceStateQueryService {
   public:
@@ -23,4 +23,4 @@ class DeviceStateQueryService {
     ManagerPaths paths_;
 };
 
-} // namespace btrfsbackup::daemon
+} // namespace btrfsbackup::daemon::query

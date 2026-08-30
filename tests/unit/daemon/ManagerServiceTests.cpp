@@ -8,11 +8,11 @@
 
 #include <config/model/JsonIo.hpp>
 #include <config/model/Profile.hpp>
-#include <daemon/DeviceStateQueryService.hpp>
-#include <daemon/HistoryQueryService.hpp>
+#include <daemon/query/DeviceStateQueryService.hpp>
+#include <daemon/query/HistoryQueryService.hpp>
 #include <daemon/ManagerService.hpp>
-#include <daemon/ProfileQueryService.hpp>
-#include <daemon/StatusQueryService.hpp>
+#include <daemon/query/ProfileQueryService.hpp>
+#include <daemon/query/StatusQueryService.hpp>
 
 #include "support/ValidationTestHelpers.hpp"
 
@@ -119,7 +119,7 @@ void test_capabilities_and_profiles() {
         capabilities.device_state_schema_version == 1,
         "manager omits the device-state schema"
     );
-    const btrfsbackup::daemon::ProfileQueryService profiles_service(root / "public");
+    const btrfsbackup::daemon::query::ProfileQueryService profiles_service(root / "public");
     const std::vector<btrfsbackup::daemon::ProfileSummary> profiles = profiles_service.list_profiles();
     test_helpers::expect_eq("one public profile", std::to_string(profiles.size()), "1");
     test_helpers::expect_eq("profile id", profiles.at(0).profile_id, "default");
@@ -143,8 +143,8 @@ void test_status_and_history_sanitization() {
         private_history("failed", "2026-08-25T11:00:00Z")
     );
 
-    const btrfsbackup::daemon::HistoryQueryService history_service(root / "history");
-    const btrfsbackup::daemon::StatusQueryService status_service(root / "status", history_service);
+    const btrfsbackup::daemon::query::HistoryQueryService history_service(root / "history");
+    const btrfsbackup::daemon::query::StatusQueryService status_service(root / "status", history_service);
     const btrfsbackup::daemon::PublicRunStatus status = status_service.get_status("default");
     test_helpers::expect_eq("status state", status.state, "running");
     test_helpers::expect_eq("status phase", status.phase, "sizing");
@@ -167,8 +167,8 @@ void test_status_and_history_sanitization() {
 
 void test_malformed_and_oversized_documents() {
     fs::path root = test_helpers::test_root("manager-service", "invalid-documents");
-    const btrfsbackup::daemon::HistoryQueryService history_service(root / "history");
-    const btrfsbackup::daemon::StatusQueryService status_service(root / "status", history_service);
+    const btrfsbackup::daemon::query::HistoryQueryService history_service(root / "history");
+    const btrfsbackup::daemon::query::StatusQueryService status_service(root / "status", history_service);
     test_helpers::write_file(root / "status" / "default" / "current.json", "{invalid");
     test_helpers::expect_validation_error(
         "malformed status",
@@ -193,7 +193,7 @@ void test_device_state_is_presentation_safe() {
         root / "etc" / "profiles" / "default" / "profile.json",
         btrfsbackup::config::dump_json(private_profile(root))
     );
-    const btrfsbackup::daemon::DeviceStateQueryService service(manager_paths(root));
+    const btrfsbackup::daemon::query::DeviceStateQueryService service(manager_paths(root));
     const btrfsbackup::daemon::TargetStatus state = service.get_device_state("default");
     test_helpers::expect_eq("connected target state", state.state, "connected");
     test_helpers::expect_true("safe closed target", state.safe_to_remove, "target is not safe");

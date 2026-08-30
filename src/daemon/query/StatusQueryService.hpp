@@ -9,7 +9,7 @@
 
 #include <daemon/ManagerResponseModels.hpp>
 
-namespace btrfsbackup::daemon {
+namespace btrfsbackup::daemon::query {
 
 class HistoryQueryService;
 
@@ -27,4 +27,4 @@ class StatusQueryService {
     const HistoryQueryService& history_;
 };
 
-} // namespace btrfsbackup::daemon
+} // namespace btrfsbackup::daemon::query
