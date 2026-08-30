@@ -7,6 +7,9 @@
 #include <memory>
 #include <string>
 
+#include <backup/ports/IFilesystemSpaceProbe.hpp>
+#include <backup/ports/IMountInspector.hpp>
+#include <backup/ports/ITargetStorageMeasurementStore.hpp>
 #include <daemon/ManagerPaths.hpp>
 #include <daemon/ManagerResponseModels.hpp>
 
@@ -15,6 +18,12 @@ namespace btrfsbackup::daemon::query {
 class DeviceStateQueryService {
   public:
     explicit DeviceStateQueryService(ManagerPaths paths);
+    DeviceStateQueryService(
+        ManagerPaths paths,
+        btrfsbackup::backup::IMountInspector& mounts,
+        btrfsbackup::backup::IFilesystemSpaceProbe& space_probe,
+        btrfsbackup::backup::ITargetStorageMeasurementReader& storage_reader
+    );
     ~DeviceStateQueryService() noexcept;
 
     DeviceStateQueryService(const DeviceStateQueryService&) = delete;

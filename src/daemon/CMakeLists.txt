@@ -43,6 +43,7 @@ target_restricted_include_directories(btrfsbackup-daemon-query
 )
 target_link_libraries(btrfsbackup-daemon-query
     PUBLIC
+        btrfsbackup-backup-ports
         btrfsbackup-daemon-core
     PRIVATE
         btrfsbackup-config-domain
