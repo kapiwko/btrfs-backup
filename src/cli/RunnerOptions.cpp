@@ -5,8 +5,6 @@
 #include <cli/RunnerOptions.hpp>
 
 #include <chrono>
-#include <cstdlib>
-#include <iostream>
 #include <optional>
 #include <string>
 #include <utility>
@@ -14,9 +12,13 @@
 namespace btrfsbackup::cli {
 namespace {
 
-[[noreturn]] void fail(const std::string& message, int code = 2) {
-    std::cerr << "btrfs-backupctl runner: " << message << '\n';
-    std::exit(code);
+struct ParsedRunnerCommand {
+    RunnerCommandKind kind;
+    std::string name;
+};
+
+[[noreturn]] void fail(const std::string& message) {
+    throw RunnerOptionsError(message);
 }
 
 std::string arg_value(const std::vector<std::string>& args, std::size_t& index, const std::string& option) {
@@ -26,15 +28,15 @@ std::string arg_value(const std::vector<std::string>& args, std::size_t& index, 
     return args[++index];
 }
 
-std::pair<RunnerCommandKind, std::string> parse_command(const std::string& command) {
+ParsedRunnerCommand parse_command(const std::string& command) {
     if (command == "plan") {
-        return {RunnerCommandKind::Plan, command};
+        return {.kind = RunnerCommandKind::Plan, .name = command};
     }
     if (command == "execute") {
-        return {RunnerCommandKind::Execute, command};
+        return {.kind = RunnerCommandKind::Execute, .name = command};
     }
     if (command == "cancel") {
-        return {RunnerCommandKind::Cancel, command};
+        return {.kind = RunnerCommandKind::Cancel, .name = command};
     }
     fail("unknown command: " + command);
 }
@@ -46,7 +48,8 @@ RunnerOptions parse_runner_options(const std::vector<std::string>& args) {
         fail("command is required");
     }
 
-    const auto [command, command_name] = parse_command(args.front());
+    const ParsedRunnerCommand parsed_command = parse_command(args.front());
+    const RunnerCommandKind command = parsed_command.kind;
     const RuntimeTimePoint initial_timestamp = std::chrono::system_clock::now();
     btrfsbackup::backup::BackupRequest request{.profile_id = ProfileId{"default"}};
     std::filesystem::path mountinfo = "/proc/self/mountinfo";
@@ -96,7 +99,7 @@ RunnerOptions parse_runner_options(const std::vector<std::string>& args) {
             target_mode_selected = true;
             mount_target = arg == "--mount-target";
         } else {
-            fail("unknown " + command_name + " option: " + arg);
+            fail("unknown " + parsed_command.name + " option: " + arg);
         }
     }
 
