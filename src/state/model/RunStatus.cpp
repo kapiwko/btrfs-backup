@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <state/RunStatus.hpp>
+#include <state/model/RunStatus.hpp>
 
 #include <core/Errors.hpp>
 

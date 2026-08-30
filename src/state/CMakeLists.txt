@@ -10,13 +10,13 @@ target_restricted_include_directories(btrfsbackup-state-persistence-ports
 )
 
 add_library(btrfsbackup-state-model STATIC
-    RunStatus.cpp
+    model/RunStatus.cpp
 )
 
 target_compile_features(btrfsbackup-state-model PUBLIC cxx_std_23)
 target_restricted_include_directories(btrfsbackup-state-model
     PUBLIC_HEADERS
-        state/RunStatus.hpp
+        state/model/RunStatus.hpp
 )
 target_link_libraries(btrfsbackup-state-model PUBLIC btrfsbackup-core)
 

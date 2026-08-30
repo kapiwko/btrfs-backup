@@ -11,7 +11,7 @@
 
 #include <backup/model/BackupRunEvent.hpp>
 #include <core/RuntimeTime.hpp>
-#include <state/RunStatus.hpp>
+#include <state/model/RunStatus.hpp>
 
 namespace btrfsbackup::state {
 

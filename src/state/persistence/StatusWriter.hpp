@@ -8,7 +8,7 @@
 
 #include <config/json/Json.hpp>
 #include <state/persistence/PersistentDocumentOperations.hpp>
-#include <state/RunStatus.hpp>
+#include <state/model/RunStatus.hpp>
 
 namespace btrfsbackup::state {
 
