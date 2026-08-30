@@ -96,6 +96,16 @@ void test_browse_session_requires_read_only_absolute_root() {
     })")).has_value(), "writable browse session was accepted");
 }
 
+void test_backup_coverage_is_sanitized() {
+    const auto coverage = btrfsbackup::kde::parse_backup_coverage(QStringLiteral(R"([
+        {"profileId":"default","sourceId":"home","relativePath":"Documents/report.txt"}
+    ])"));
+    expect(coverage.has_value() && coverage->size() == 1, "valid backup coverage was rejected");
+    expect(!btrfsbackup::kde::parse_backup_coverage(QStringLiteral(R"([
+        {"profileId":"default","sourceId":"home","relativePath":"../private"}
+    ])")).has_value(), "traversal coverage was accepted");
+}
+
 } // namespace
 
 int main() {
@@ -103,6 +113,7 @@ int main() {
     test_invalid_storage_preserves_target_state();
     test_invalid_parent_is_rejected();
     test_browse_session_requires_read_only_absolute_root();
+    test_backup_coverage_is_sanitized();
     if (failures == 0) {
         std::cout << "manager API tests passed\n";
     }

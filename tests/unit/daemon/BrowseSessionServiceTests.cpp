@@ -54,6 +54,9 @@ class Backend final : public IBrowseSessionBackend {
             throw std::runtime_error("cleanup failed");
     }
     void cleanup_stale() override { ++stale_cleanups; }
+    std::vector<btrfsbackup::daemon::BackupCoverage> resolve_coverage(
+        const std::filesystem::path&, const std::vector<ProfileId>&
+    ) override { return {}; }
 };
 
 void expect_error(const char* name, ManagerErrorCode code, const std::function<void()>& operation) {

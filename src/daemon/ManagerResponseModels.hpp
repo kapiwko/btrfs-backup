@@ -83,4 +83,10 @@ struct BrowseSessionInfo {
     bool read_only = true;
 };
 
+struct BackupCoverage {
+    std::string profile_id;
+    std::string source_id;
+    std::string relative_path;
+};
+
 } // namespace btrfsbackup::daemon
