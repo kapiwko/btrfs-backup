@@ -16,6 +16,7 @@
 #include <QDBusPendingCallWatcher>
 #include <QDBusPendingReply>
 #include <QIcon>
+#include <QProcess>
 #include <QWidget>
 
 #include <core/ManagerProtocol.hpp>
@@ -32,6 +33,19 @@ QList<QAction*> PreviousVersionsAction::actions(
     const KFileItemListProperties& properties, QWidget* parent_widget
 ) {
     const QList<QUrl> urls = properties.urlList();
+    if (urls.size() == 1 && urls.front().scheme() == u"btrfsbackup"_s) {
+        const QStringList parts = urls.front().path(QUrl::FullyDecoded).split(u'/', Qt::SkipEmptyParts);
+        if (parts.size() < 2 || parts.at(1) == u".versions"_s)
+            return {};
+        auto* restore = new QAction(
+            QIcon::fromTheme(u"document-restore"_s), i18nc("@action:inmenu", "Restore to…"), parent_widget
+        );
+        const QString source = urls.front().toString(QUrl::FullyEncoded);
+        connect(restore, &QAction::triggered, this, [source] {
+            (void)QProcess::startDetached(u"btrfs-backup-kde-restore"_s, {u"--url"_s, source});
+        });
+        return {restore};
+    }
     const bool symlink = urls.size() == 1 && properties.items().findByUrl(urls.front()).isLink();
     if (!btrfsbackup::kde::dolphin::can_offer_previous_versions(urls, symlink))
         return {};

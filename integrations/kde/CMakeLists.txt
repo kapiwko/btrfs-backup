@@ -16,6 +16,10 @@ set(KDE_INSTALL_LOCALEDIR "${CMAKE_INSTALL_DATADIR}/locale")
 find_package(Qt6 REQUIRED COMPONENTS Core DBus Gui Qml Quick)
 find_package(KF6 REQUIRED COMPONENTS CoreAddons I18n JobWidgets KCMUtils Notifications Package KIO)
 find_package(Plasma REQUIRED)
+if(COMMAND qt_policy)
+    qt_policy(SET QTP0001 NEW)
+    qt_policy(SET QTP0004 NEW)
+endif()
 set(CMAKE_INSTALL_DEFAULT_COMPONENT_NAME KDEIntegration)
 ki18n_install(plasmoid/po)
 ki18n_install(kcm/po)
@@ -98,6 +102,42 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
 endif()
 install(TARGETS previousversionsaction LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}/qt6/plugins/kf6/kfileitemaction")
 
+qt_add_executable(btrfs-backup-kde-restore
+    restore/main.cpp
+    restore/RestoreController.cpp
+    restore/RestoreController.hpp
+    restore/RestoreJob.cpp
+    restore/RestoreJob.hpp
+)
+qt_add_qml_module(btrfs-backup-kde-restore
+    URI org.btrfsbackup.restore
+    VERSION 1.0
+    NO_IMPORT_SCAN
+    QML_FILES restore/Main.qml
+)
+target_compile_features(btrfs-backup-kde-restore PRIVATE cxx_std_23)
+target_include_directories(btrfs-backup-kde-restore PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/client ${CMAKE_CURRENT_SOURCE_DIR}/restore)
+target_link_libraries(btrfs-backup-kde-restore PRIVATE
+    btrfsbackup_kde_manager_client
+    btrfsbackup-restore
+    btrfsbackup-platform-linux-restore
+    btrfsbackup-platform-linux-storage
+    KF6::I18n
+    KF6::I18nQml
+    KF6::JobWidgets
+    KF6::Notifications
+    Qt6::Core
+    Qt6::DBus
+    Qt6::Gui
+    Qt6::Qml
+    Qt6::Quick
+)
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(btrfs-backup-kde-restore PRIVATE -fexceptions -Wall -Wextra -Wpedantic)
+endif()
+install(TARGETS btrfs-backup-kde-restore RUNTIME DESTINATION "${KDE_INSTALL_BINDIR}")
+install(FILES restore/btrfs-backup-kde-restore.notifyrc DESTINATION "${CMAKE_INSTALL_DATADIR}/knotifications6")
+
 add_executable(
     btrfs-backup-kde-monitor
     monitor/CancellationRequestDispatcher.cpp
@@ -158,10 +198,6 @@ install(CODE [[
         SYMBOLIC
     )
 ]])
-
-if(COMMAND qt_policy)
-    qt_policy(SET QTP0001 NEW)
-endif()
 
 qt_add_qml_module(btrfsbackup_plasma_backend
     URI org.btrfsbackup.plasma
@@ -252,6 +288,7 @@ add_dependencies(
     kcm_btrfsbackup
     kio_btrfsbackup
     previousversionsaction
+    btrfs-backup-kde-restore
     pofiles
     tsfiles
 )

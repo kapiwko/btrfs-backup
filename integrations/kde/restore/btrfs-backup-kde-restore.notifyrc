@@ -1,0 +1,12 @@
+[Global]
+Name=btrfs-backup restore
+Comment=Backup restore notifications
+
+[Event/restoreSuccess]
+Name=Restore completed
+Action=Popup
+
+[Event/restoreFailed]
+Name=Restore failed
+Action=Popup
+Urgency=Critical
