@@ -119,22 +119,22 @@ target_link_libraries(btrfsbackup-backup-testing
 )
 
 add_library(btrfsbackup-backup STATIC
-    BackupActionExecutor.cpp
+    execution/BackupActionExecutor.cpp
     planning/BackupPreflight.cpp
     planning/BackupPreflightValidation.cpp
-    BackupRun.cpp
-    BackupRunCheckpointPolicy.cpp
-    BackupRunExecutor.cpp
+    execution/BackupRun.cpp
+    execution/BackupRunCheckpointPolicy.cpp
+    execution/BackupRunExecutor.cpp
     BackupService.cpp
     planning/BackupDiscovery.cpp
     planning/BackupPlanBuilder.cpp
     DefaultBackupRunActionHandlerFactory.cpp
-    DefaultBackupRunFactory.cpp
-    LinkedCancellationMonitor.cpp
+    execution/DefaultBackupRunFactory.cpp
+    execution/LinkedCancellationMonitor.cpp
     OwnedBackupRunActionHandler.cpp
-    RunExecutionContext.cpp
-    RunSessionFactory.cpp
-    SystemRunContext.cpp
+    execution/RunExecutionContext.cpp
+    execution/RunSessionFactory.cpp
+    execution/SystemRunContext.cpp
     action_handlers/BackupRunActionHandler.cpp
     action_handlers/HookActionHandler.cpp
     action_handlers/RecoveryActionHandler.cpp
@@ -155,22 +155,22 @@ target_restricted_include_directories(btrfsbackup-backup
         backup/action_handlers/RepositoryActionHandler.hpp
         backup/action_handlers/RetentionActionHandler.hpp
         backup/action_handlers/SnapshotActionHandler.hpp
-        backup/BackupActionExecutor.hpp
+        backup/execution/BackupActionExecutor.hpp
         backup/planning/BackupDiscovery.hpp
         backup/planning/BackupPlanBuilder.hpp
         backup/planning/BackupPreflight.hpp
         backup/planning/BackupPreflightValidation.hpp
-        backup/BackupRun.hpp
-        backup/BackupRunCheckpointPolicy.hpp
-        backup/BackupRunExecutor.hpp
+        backup/execution/BackupRun.hpp
+        backup/execution/BackupRunCheckpointPolicy.hpp
+        backup/execution/BackupRunExecutor.hpp
         backup/BackupService.hpp
         backup/DefaultBackupRunActionHandlerFactory.hpp
-        backup/DefaultBackupRunFactory.hpp
-        backup/LinkedCancellationMonitor.hpp
-        backup/RunExecutionContext.hpp
-        backup/RunSessionFactory.hpp
+        backup/execution/DefaultBackupRunFactory.hpp
+        backup/execution/LinkedCancellationMonitor.hpp
+        backup/execution/RunExecutionContext.hpp
+        backup/execution/RunSessionFactory.hpp
         backup/SnapshotTransfer.hpp
-        backup/SystemRunContext.hpp
+        backup/execution/SystemRunContext.hpp
         backup/transfer/TransferCoordinator.hpp
     PRIVATE_HEADERS
         backup/OwnedBackupRunActionHandler.hpp

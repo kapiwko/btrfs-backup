@@ -27,7 +27,7 @@ if(backup_service_header MATCHES "CancellationToken[ \t]*&")
     message(FATAL_ERROR "BackupService must not retain a cross-run cancellation token")
 endif()
 
-file(READ "${PROJECT_SOURCE_DIR}/src/backup/RunExecutionContext.hpp" run_execution_context_header)
+file(READ "${PROJECT_SOURCE_DIR}/src/backup/execution/RunExecutionContext.hpp" run_execution_context_header)
 if(NOT run_execution_context_header MATCHES "CancellationToken[ \t\r\n]+cancellation")
     message(FATAL_ERROR "RunExecutionContext must own the run cancellation token")
 endif()

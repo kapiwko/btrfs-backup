@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include <backup/BackupService.hpp>
-#include <backup/RunExecutionContext.hpp>
+#include <backup/execution/RunExecutionContext.hpp>
 #include <core/Errors.hpp>
 
 #include <algorithm>
@@ -17,7 +17,7 @@
 
 namespace {
 
-static_assert(std::is_nothrow_destructible_v<btrfsbackup::backup::RunExecutionContext>);
+static_assert(std::is_nothrow_destructible_v<btrfsbackup::backup::execution::RunExecutionContext>);
 
 struct FakeProfiles final : btrfsbackup::config::IProfileRepository {
     btrfsbackup::config::Profile profile{
@@ -513,7 +513,7 @@ struct Fixture {
     FakeCancellationMonitor cancellation_monitor;
     FakeClock clock;
     FakeRunIds run_ids;
-    btrfsbackup::backup::RunSessionFactory sessions;
+    btrfsbackup::backup::execution::RunSessionFactory sessions;
     std::vector<std::string> cancellation_lifecycle;
     btrfsbackup::config::ApplicationPaths paths;
     btrfsbackup::backup::BackupService service;
@@ -727,7 +727,7 @@ void test_run_context_close_aggregates_cleanup_diagnostics() {
         btrfsbackup::backup::TargetMountMode::MountIfNeeded,
         cancellation
     );
-    btrfsbackup::backup::RunExecutionContext context(
+    btrfsbackup::backup::execution::RunExecutionContext context(
         fixture.profiles.profile.id,
         btrfsbackup::RunId{"run-1"},
         std::move(lease),
@@ -738,15 +738,15 @@ void test_run_context_close_aggregates_cleanup_diagnostics() {
     context.attach_event_sink(std::move(events));
     context.attach_target_session(std::move(target_session));
 
-    const btrfsbackup::backup::RunExecutionContextCloseResult& result = context.close();
+    const btrfsbackup::backup::execution::RunExecutionContextCloseResult& result = context.close();
     test_helpers::expect_true("cleanup result failed", !result.succeeded(), "cleanup failures were lost");
     test_helpers::expect_true(
         "cleanup diagnostics",
         result.failures.size() == 4 &&
-            result.failures.at(0).stage == btrfsbackup::backup::RunExecutionContextCloseStage::CancellationWatch &&
-            result.failures.at(1).stage == btrfsbackup::backup::RunExecutionContextCloseStage::ActiveRun &&
-            result.failures.at(2).stage == btrfsbackup::backup::RunExecutionContextCloseStage::CancellationRequest &&
-            result.failures.at(3).stage == btrfsbackup::backup::RunExecutionContextCloseStage::TargetSession,
+            result.failures.at(0).stage == btrfsbackup::backup::execution::RunExecutionContextCloseStage::CancellationWatch &&
+            result.failures.at(1).stage == btrfsbackup::backup::execution::RunExecutionContextCloseStage::ActiveRun &&
+            result.failures.at(2).stage == btrfsbackup::backup::execution::RunExecutionContextCloseStage::CancellationRequest &&
+            result.failures.at(3).stage == btrfsbackup::backup::execution::RunExecutionContextCloseStage::TargetSession,
         "cleanup failures were not aggregated in lifecycle order"
     );
     test_helpers::expect_true("event sink closed", events == nullptr, "event sink remained open");

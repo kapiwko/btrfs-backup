@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <backup/BackupRunExecutor.hpp>
+#include <backup/execution/BackupRunExecutor.hpp>
 
 #include <cstdint>
 #include <exception>
@@ -10,7 +10,7 @@
 
 #include <core/Errors.hpp>
 
-namespace btrfsbackup::backup {
+namespace btrfsbackup::backup::execution {
 
 namespace {
 
@@ -174,4 +174,4 @@ BackupRunExecutionResult BackupRunExecutor::execute(
     return BackupRunExecutionCompleted{actions_completed};
 }
 
-} // namespace btrfsbackup::backup
+} // namespace btrfsbackup::backup::execution

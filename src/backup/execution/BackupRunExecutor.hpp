@@ -6,13 +6,13 @@
 
 #include <string>
 
-#include <backup/BackupActionExecutor.hpp>
-#include <backup/BackupRunCheckpointPolicy.hpp>
+#include <backup/execution/BackupActionExecutor.hpp>
+#include <backup/execution/BackupRunCheckpointPolicy.hpp>
 #include <backup/model/BackupRunExecution.hpp>
 #include <backup/model/BackupRunPlan.hpp>
 #include <backup/ports/IBackupRunEventSink.hpp>
 
-namespace btrfsbackup::backup {
+namespace btrfsbackup::backup::execution {
 
 class BackupRunExecutor {
   public:
@@ -32,4 +32,4 @@ class BackupRunExecutor {
     BackupRunCheckpointPolicy checkpoint_policy_;
 };
 
-} // namespace btrfsbackup::backup
+} // namespace btrfsbackup::backup::execution

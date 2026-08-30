@@ -7,7 +7,7 @@
 #include <backup/ports/CancellationMonitor.hpp>
 #include <core/Cancellation.hpp>
 
-namespace btrfsbackup::backup {
+namespace btrfsbackup::backup::execution {
 
 class LinkedCancellationMonitor final : public ICancellationMonitor {
   public:
@@ -23,4 +23,4 @@ class LinkedCancellationMonitor final : public ICancellationMonitor {
     CancellationToken& upstream_;
 };
 
-} // namespace btrfsbackup::backup
+} // namespace btrfsbackup::backup::execution

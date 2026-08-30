@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <backup/RunExecutionContext.hpp>
+#include <backup/execution/RunExecutionContext.hpp>
 
 #include <cstdio>
 #include <exception>
@@ -10,7 +10,7 @@
 #include <string_view>
 #include <utility>
 
-namespace btrfsbackup::backup {
+namespace btrfsbackup::backup::execution {
 
 RunExecutionContext::RunExecutionContext(
     ProfileId profile_id_value,
@@ -189,4 +189,4 @@ void RunExecutionContext::report_close_failures(const RunExecutionContextCloseRe
     }
 }
 
-} // namespace btrfsbackup::backup
+} // namespace btrfsbackup::backup::execution

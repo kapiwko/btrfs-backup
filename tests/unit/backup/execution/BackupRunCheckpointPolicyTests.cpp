@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 
-#include <backup/BackupRunCheckpointPolicy.hpp>
+#include <backup/execution/BackupRunCheckpointPolicy.hpp>
 
 #include "support/TestHelpers.hpp"
 
@@ -47,7 +47,7 @@ void test_writes_checkpoint_before_emitting_success_event() {
     std::vector<std::string> calls;
     RecordingCheckpointStore checkpoints(calls);
     RecordingEventSink events(calls);
-    btrfsbackup::backup::BackupRunCheckpointPolicy policy(checkpoints);
+    btrfsbackup::backup::execution::BackupRunCheckpointPolicy policy(checkpoints);
 
     btrfsbackup::backup::BackupSourceRunPlan home{btrfsbackup::SourceId{"home"}};
     btrfsbackup::backup::BackupSourceRunPlan root{btrfsbackup::SourceId{"root"}};

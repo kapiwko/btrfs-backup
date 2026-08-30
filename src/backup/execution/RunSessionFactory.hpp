@@ -12,11 +12,11 @@
 #include <backup/ports/IRunEventSinkFactory.hpp>
 #include <backup/ports/RunLease.hpp>
 #include <backup/ports/TargetManager.hpp>
-#include <backup/RunExecutionContext.hpp>
+#include <backup/execution/RunExecutionContext.hpp>
 #include <config/ConfigurationIdentity.hpp>
 #include <core/RuntimeTime.hpp>
 
-namespace btrfsbackup::backup {
+namespace btrfsbackup::backup::execution {
 
 struct RunIdentity {
     RunId run_id;
@@ -66,4 +66,4 @@ class RunSessionFactory {
     ICancellationMonitor& cancellation_monitor_;
 };
 
-} // namespace btrfsbackup::backup
+} // namespace btrfsbackup::backup::execution

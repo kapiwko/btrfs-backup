@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <backup/LinkedCancellationMonitor.hpp>
+#include <backup/execution/LinkedCancellationMonitor.hpp>
 
 #include <exception>
 #include <functional>
@@ -14,7 +14,7 @@
 #include <type_traits>
 #include <utility>
 
-namespace btrfsbackup::backup {
+namespace btrfsbackup::backup::execution {
 
 namespace {
 
@@ -82,4 +82,4 @@ std::unique_ptr<ICancellationWatch> LinkedCancellationMonitor::watch(
     );
 }
 
-} // namespace btrfsbackup::backup
+} // namespace btrfsbackup::backup::execution

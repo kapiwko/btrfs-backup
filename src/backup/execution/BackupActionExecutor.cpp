@@ -2,11 +2,11 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <backup/BackupActionExecutor.hpp>
+#include <backup/execution/BackupActionExecutor.hpp>
 
 #include <type_traits>
 
-namespace btrfsbackup::backup {
+namespace btrfsbackup::backup::execution {
 
 namespace {
 
@@ -91,4 +91,4 @@ BackupActionExecutionResult BackupActionExecutor::execute_short_action(
     return {};
 }
 
-} // namespace btrfsbackup::backup
+} // namespace btrfsbackup::backup::execution

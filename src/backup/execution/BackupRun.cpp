@@ -2,12 +2,12 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <backup/BackupRun.hpp>
+#include <backup/execution/BackupRun.hpp>
 
 #include <stdexcept>
 #include <utility>
 
-namespace btrfsbackup::backup {
+namespace btrfsbackup::backup::execution {
 
 BackupRun::BackupRun(
     BackupRunPlan plan,
@@ -36,4 +36,4 @@ BackupRunExecutionResult BackupRun::execute(
     return executor_.execute(plan_, events, cancellation);
 }
 
-} // namespace btrfsbackup::backup
+} // namespace btrfsbackup::backup::execution

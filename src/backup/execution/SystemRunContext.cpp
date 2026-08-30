@@ -2,14 +2,14 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <backup/SystemRunContext.hpp>
+#include <backup/execution/SystemRunContext.hpp>
 
 #include <chrono>
 #include <string>
 
 #include <core/RuntimeTime.hpp>
 
-namespace btrfsbackup::backup {
+namespace btrfsbackup::backup::execution {
 
 RuntimeTimePoint SystemClock::now() const {
     return std::chrono::system_clock::now();
@@ -30,4 +30,4 @@ RunId TimestampRunIdGenerator::generate(RuntimeTimePoint time) {
     return RunId{compact + "-shadow"};
 }
 
-} // namespace btrfsbackup::backup
+} // namespace btrfsbackup::backup::execution

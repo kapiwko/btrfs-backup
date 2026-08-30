@@ -5,7 +5,7 @@
 # Local resource owners are deliberately exceptional. This inventory makes
 # their copy/move/destruction policy visible without pretending to parse C++.
 set(local_lifecycle_types
-    "src/backup/LinkedCancellationMonitor.cpp|LinkedCancellationWatch|immobile"
+    "src/backup/execution/LinkedCancellationMonitor.cpp|LinkedCancellationWatch|immobile"
     "src/platform/linux/process/ProcessSpawn.cpp|SpawnAttributes|immobile"
     "src/platform/linux/process/ProcessSpawn.cpp|SpawnFileActions|immobile"
     "src/platform/linux/process/TerminationSignalMonitor.cpp|Impl|immobile"

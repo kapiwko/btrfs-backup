@@ -2,15 +2,15 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <backup/DefaultBackupRunFactory.hpp>
+#include <backup/execution/DefaultBackupRunFactory.hpp>
 
 #include <utility>
 
 #include <backup/action_handlers/BackupRunActionHandler.hpp>
-#include <backup/BackupActionExecutor.hpp>
-#include <backup/BackupRun.hpp>
+#include <backup/execution/BackupActionExecutor.hpp>
+#include <backup/execution/BackupRun.hpp>
 
-namespace btrfsbackup::backup {
+namespace btrfsbackup::backup::execution {
 
 DefaultBackupRunFactory::DefaultBackupRunFactory(
     IBackupRunActionHandlerFactory& action_handlers,
@@ -33,4 +33,4 @@ BackupRunExecutionResult DefaultBackupRunFactory::execute(
     return run.execute(events, cancellation);
 }
 
-} // namespace btrfsbackup::backup
+} // namespace btrfsbackup::backup::execution
