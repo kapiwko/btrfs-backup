@@ -4,17 +4,10 @@
 
 #include <daemon/query/ManagerDocumentReader.hpp>
 
-#include <fcntl.h>
-#include <sys/stat.h>
-#include <unistd.h>
-
-#include <cerrno>
-#include <cstring>
 #include <string>
-#include <system_error>
 
 #include <core/Errors.hpp>
-#include <platform/linux/OwnedFileDescriptor.hpp>
+#include <state/document/BoundedDocumentReader.hpp>
 
 namespace fs = std::filesystem;
 
@@ -27,40 +20,8 @@ constexpr std::size_t max_document_bytes = 1024 * 1024;
 namespace btrfsbackup::daemon::query {
 
 std::string read_manager_document(const fs::path& path) {
-    btrfsbackup::platform::linux::OwnedFileDescriptor descriptor(open(path.c_str(), O_RDONLY | O_CLOEXEC | O_NOFOLLOW));
-    if (descriptor.get() < 0) {
-        throw ValidationError("cannot read manager data file " + path.string());
-    }
-    struct stat info{};
-    if (fstat(descriptor.get(), &info) != 0 || !S_ISREG(info.st_mode)) {
-        throw ValidationError("manager data path is not a regular file: " + path.string());
-    }
-    if (info.st_size < 0 || static_cast<std::uintmax_t>(info.st_size) > max_document_bytes) {
-        throw ValidationError("manager data file exceeds the size limit: " + path.string());
-    }
-    if ((info.st_mode & 0022) != 0) {
-        throw ValidationError("manager data file is writable by group or others: " + path.string());
-    }
-
-    std::string content;
-    content.reserve(static_cast<std::size_t>(info.st_size));
-    char buffer[8192];
-    while (true) {
-        const ssize_t count = read(descriptor.get(), buffer, sizeof(buffer));
-        if (count > 0) {
-            if (content.size() + static_cast<std::size_t>(count) > max_document_bytes) {
-                throw ValidationError("manager data file exceeds the size limit: " + path.string());
-            }
-            content.append(buffer, static_cast<std::size_t>(count));
-        } else if (count == 0) {
-            break;
-        } else if (errno != EINTR) {
-            throw ValidationError(
-                "cannot read manager data file " + path.string() + ": " + std::strerror(errno)
-            );
-        }
-    }
-    return content;
+    const btrfsbackup::state::document::BoundedDocumentReader reader;
+    return reader.read(path, max_document_bytes);
 }
 
 btrfsbackup::config::json::Json read_manager_json_document(const fs::path& path) {
