@@ -8,6 +8,7 @@
 #include <vector>
 
 #include <daemon/ManagerResponseModels.hpp>
+#include <daemon/control/ProfileAdministrationService.hpp>
 
 namespace btrfsbackup::daemon::dbus {
 
@@ -19,6 +20,8 @@ class ManagerJsonCodec {
     [[nodiscard]] std::string encode(const SanitizedHistoryPage& page) const;
     [[nodiscard]] std::string encode(const TargetStatus& status) const;
     [[nodiscard]] std::string encode(const OperationResult& result) const;
+    [[nodiscard]] std::string encode(const control::EditableProfile& profile) const;
+    [[nodiscard]] std::string encode(const control::ProfileDraftResult& draft) const;
 };
 
 } // namespace btrfsbackup::daemon::dbus
