@@ -35,7 +35,7 @@ add_library(btrfsbackup-platform-linux STATIC
     TrustedFile.cpp
 )
 
-target_compile_features(btrfsbackup-platform-linux PUBLIC cxx_std_20)
+target_compile_features(btrfsbackup-platform-linux PUBLIC cxx_std_23)
 target_restricted_include_directories(btrfsbackup-platform-linux
     PUBLIC_HEADERS
         platform/linux/LibBtrfsOperations.hpp

@@ -30,7 +30,7 @@ Repository build, release, and test scripts use Bash.
 Source builds require:
 
 - CMake 3.20 or newer;
-- a C++20 compiler;
+- a C++23 compiler;
 - `pkgconf` / `pkg-config`;
 - `nlohmann-json`;
 - `libmount` development files from `util-linux`;

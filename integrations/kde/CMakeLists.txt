@@ -24,7 +24,7 @@ add_library(
     client/ManagerApi.cpp
     client/ManagerApi.hpp
 )
-target_compile_features(btrfsbackup_kde_manager_client PUBLIC cxx_std_20)
+target_compile_features(btrfsbackup_kde_manager_client PUBLIC cxx_std_23)
 target_include_directories(
     btrfsbackup_kde_manager_client
     PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/client
@@ -44,7 +44,7 @@ add_executable(
     progress/BackupProgressMonitor.hpp
     progress/main.cpp
 )
-target_compile_features(btrfs-backup-kde-monitor PRIVATE cxx_std_20)
+target_compile_features(btrfs-backup-kde-monitor PRIVATE cxx_std_23)
 target_compile_definitions(
     btrfs-backup-kde-monitor
     PRIVATE BTRFS_BACKUP_VERSION="${BTRFS_BACKUP_VERSION}"
@@ -93,7 +93,7 @@ qt_add_qml_module(btrfsbackup_plasma_backend
         plasmoid/src/BackupStatusModel.hpp
 )
 
-target_compile_features(btrfsbackup_plasma_backend PRIVATE cxx_std_20)
+target_compile_features(btrfsbackup_plasma_backend PRIVATE cxx_std_23)
 target_include_directories(btrfsbackup_plasma_backend PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/plasmoid/src)
 target_link_libraries(btrfsbackup_plasma_backend
     PRIVATE
@@ -172,7 +172,7 @@ if(BUILD_TESTING)
         progress/BackupProgressJob.hpp
         progress/tests/BackupProgressJobTests.cpp
     )
-    target_compile_features(plasma-progress-job-tests PRIVATE cxx_std_20)
+    target_compile_features(plasma-progress-job-tests PRIVATE cxx_std_23)
     target_include_directories(
         plasma-progress-job-tests
         PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/progress

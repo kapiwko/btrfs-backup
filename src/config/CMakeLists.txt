@@ -10,7 +10,7 @@ add_library(btrfsbackup-config-domain STATIC
     model/Validation.cpp
 )
 
-target_compile_features(btrfsbackup-config-domain PUBLIC cxx_std_20)
+target_compile_features(btrfsbackup-config-domain PUBLIC cxx_std_23)
 target_restricted_include_directories(btrfsbackup-config-domain
     PUBLIC_HEADERS
         config/model/ConfigurationGeneration.hpp
@@ -32,7 +32,7 @@ add_library(btrfsbackup-config-json STATIC
     model/ProfileDocumentNormalization.cpp
 )
 
-target_compile_features(btrfsbackup-config-json PUBLIC cxx_std_20)
+target_compile_features(btrfsbackup-config-json PUBLIC cxx_std_23)
 target_restricted_include_directories(btrfsbackup-config-json
     PUBLIC_HEADERS
         config/model/Json.hpp
@@ -51,7 +51,7 @@ add_library(btrfsbackup-config-wizard STATIC
     wizard/ProfileWizardModel.cpp
 )
 
-target_compile_features(btrfsbackup-config-wizard PUBLIC cxx_std_20)
+target_compile_features(btrfsbackup-config-wizard PUBLIC cxx_std_23)
 target_restricted_include_directories(btrfsbackup-config-wizard
     PUBLIC_HEADERS
         config/wizard/ProfileWizardModel.hpp
@@ -68,7 +68,7 @@ add_library(btrfsbackup-config-ports STATIC
     ports/IProfileRepository.cpp
 )
 
-target_compile_features(btrfsbackup-config-ports PUBLIC cxx_std_20)
+target_compile_features(btrfsbackup-config-ports PUBLIC cxx_std_23)
 target_restricted_include_directories(btrfsbackup-config-ports
     PUBLIC_HEADERS
         config/ports/ConfigurationActivator.hpp
@@ -90,7 +90,7 @@ add_library(btrfsbackup-config STATIC
     wizard/ProfileWizardPrompt.cpp
 )
 
-target_compile_features(btrfsbackup-config PUBLIC cxx_std_20)
+target_compile_features(btrfsbackup-config PUBLIC cxx_std_23)
 target_restricted_include_directories(btrfsbackup-config
     PUBLIC_HEADERS
         config/ApplicationConfig.hpp
@@ -127,7 +127,7 @@ add_library(btrfsbackup-platform-linux-config STATIC
     ../platform/linux/config/RenderDirectory.cpp
 )
 
-target_compile_features(btrfsbackup-platform-linux-config PUBLIC cxx_std_20)
+target_compile_features(btrfsbackup-platform-linux-config PUBLIC cxx_std_23)
 target_compile_definitions(
     btrfsbackup-platform-linux-config
     PRIVATE BTRFSBACKUP_INSTALL_BINDIR="${CMAKE_INSTALL_FULL_BINDIR}"
