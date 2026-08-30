@@ -13,7 +13,8 @@
 
 namespace json = btrfsbackup::config::json;
 
-namespace btrfsbackup::state::document {
+namespace btrfsbackup::state {
+namespace document {
 
 namespace {
 
@@ -180,4 +181,5 @@ std::string target_space_state_name(TargetSpaceState state) {
     return "normal";
 }
 
-} // namespace btrfsbackup::state::document
+} // namespace document
+} // namespace btrfsbackup::state

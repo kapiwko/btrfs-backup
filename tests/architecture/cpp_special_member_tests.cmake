@@ -27,6 +27,7 @@ set(approved_special_member_types
     "src/daemon/ManagerService.hpp:ManagerService"
     "src/daemon/control/OperationEnvironmentFile.hpp:OperationEnvironmentFile"
     "src/daemon/dbus/ManagerChangeMonitor.hpp:ManagerChangeMonitor"
+    "src/daemon/query/DeviceStateQueryService.hpp:DeviceStateQueryService"
     "src/platform/linux/OwnedFileDescriptor.hpp:OwnedFileDescriptor"
     "src/platform/linux/filesystem/FileLock.hpp:FileLock"
     "src/platform/linux/filesystem/InotifyFileChangeWatcher.hpp:InotifyFileChangeWatcher"
