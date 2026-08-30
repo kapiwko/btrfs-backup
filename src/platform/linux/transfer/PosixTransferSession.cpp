@@ -147,7 +147,8 @@ btrfsbackup::backup::transfer::TransferResult PosixTransferSession::run() {
         dev_null.get(),
         data_pipe.write_end.get(),
         producer_error_pipe.write_end.get(),
-        plan.retained_resources
+        plan.retained_resources,
+        process::ProcessEnvironment::for_btrfs_send()
     );
     process::ChildProcess producer_process(
         producer_spawn.started() ? producer_spawn.pid : -1,
@@ -162,7 +163,8 @@ btrfsbackup::backup::transfer::TransferResult PosixTransferSession::run() {
         consumer_input_pipe.read_end.get(),
         dev_null.get(),
         consumer_error_pipe.write_end.get(),
-        plan.retained_resources
+        plan.retained_resources,
+        process::ProcessEnvironment::for_btrfs_receive()
     );
     process::ChildProcess consumer_process(
         consumer_spawn.started() ? consumer_spawn.pid : -1,

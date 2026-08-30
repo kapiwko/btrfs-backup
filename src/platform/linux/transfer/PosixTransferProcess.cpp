@@ -46,19 +46,20 @@ process::ProcessSpawnResult spawn_posix_transfer_process(
     int stdin_fd,
     int stdout_fd,
     int stderr_fd,
-    const std::vector<std::shared_ptr<btrfsbackup::backup::transfer::ITransferResource>>& resources
+    const std::vector<std::shared_ptr<btrfsbackup::backup::transfer::ITransferResource>>& resources,
+    process::ProcessEnvironment environment
 ) {
     if (argv.empty()) {
         throw ValidationError("empty transfer command");
     }
     return process::spawn_program(argv, {
-                                   .stdin_fd = stdin_fd,
-                                   .stdout_fd = stdout_fd,
-                                   .stderr_fd = stderr_fd,
-                                   .create_process_group = true,
-                                   .inherited_fds = inherited_fds(resources),
-                                   .environment = {},
-                               });
+                                            .stdin_fd = stdin_fd,
+                                            .stdout_fd = stdout_fd,
+                                            .stderr_fd = stderr_fd,
+                                            .create_process_group = true,
+                                            .inherited_fds = inherited_fds(resources),
+                                            .environment = std::move(environment),
+                                        });
 }
 
 bool reap_posix_transfer_process(pid_t pid, btrfsbackup::backup::transfer::TransferSideResult& result) {

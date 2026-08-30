@@ -177,9 +177,11 @@ void test_command_adapter_builds_transient_invocation() {
         "transient request was encoded incorrectly"
     );
     test_helpers::expect_true(
-        "stable systemd locale",
-        commands.controlled_options.at(0).environment.at("LC_ALL") == "C",
-        "systemd error classification depends on the manager locale"
+        "controlled systemd environment",
+        commands.controlled_options.at(0).environment_profile ==
+                backup::CommandEnvironmentProfile::SystemdControl &&
+            commands.controlled_options.at(0).environment.empty(),
+        "systemd command did not select its controlled environment profile"
     );
 }
 

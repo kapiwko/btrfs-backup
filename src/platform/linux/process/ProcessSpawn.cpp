@@ -9,7 +9,6 @@
 #include <unistd.h>
 
 #include <cerrno>
-#include <map>
 #include <string>
 #include <vector>
 
@@ -106,30 +105,10 @@ std::string trusted_program_path(const std::string& program) {
     return "/usr/bin/" + program;
 }
 
-void validate_environment_entry(const std::string& name, const std::string& value) {
-    if (name.empty() || name.contains('=') || name.contains('\0')) {
-        throw ValidationError("invalid environment variable name");
-    }
-    if (value.contains('\0')) {
-        throw ValidationError("invalid environment variable value for " + name);
-    }
-}
-
 std::vector<std::string> child_environment(const ProcessSpawnOptions& options) {
-    std::map<std::string, std::string> environment{
-        {"HOME", "/root"},
-        {"LANG", "C.UTF-8"},
-        {"LC_ALL", "C.UTF-8"},
-        {"PATH", "/usr/bin"},
-    };
-    for (const auto& [name, value] : options.environment) {
-        validate_environment_entry(name, value);
-        environment.insert_or_assign(name, value);
-    }
-
     std::vector<std::string> result;
-    result.reserve(environment.size());
-    for (const auto& [name, value] : environment) {
+    result.reserve(options.environment.variables().size());
+    for (const auto& [name, value] : options.environment.variables()) {
         result.push_back(name + "=" + value);
     }
     return result;

@@ -85,7 +85,7 @@ SystemdJobError job_error(
 btrfsbackup::backup::ControlledCommandOptions options(std::chrono::milliseconds timeout) {
     btrfsbackup::backup::ControlledCommandOptions result;
     result.timeout = timeout;
-    result.environment.emplace("LC_ALL", "C");
+    result.environment_profile = btrfsbackup::backup::CommandEnvironmentProfile::SystemdControl;
     return result;
 }
 
