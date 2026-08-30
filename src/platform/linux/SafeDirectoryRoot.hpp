@@ -20,7 +20,7 @@ class SafeDirectoryHandle final : public btrfsbackup::backup::ISafeDirectoryHand
     SafeDirectoryHandle& operator=(const SafeDirectoryHandle&) = delete;
     SafeDirectoryHandle(SafeDirectoryHandle&& other) noexcept;
     SafeDirectoryHandle& operator=(SafeDirectoryHandle&& other) noexcept;
-    ~SafeDirectoryHandle() override;
+    ~SafeDirectoryHandle() noexcept override;
 
     int fd() const noexcept;
     std::filesystem::path proc_path() const;

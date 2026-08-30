@@ -59,7 +59,7 @@ SnapshotActionHandler::SnapshotActionHandler(
       local_root_(std::move(local_root)) {
 }
 
-SnapshotActionHandler::~SnapshotActionHandler() = default;
+SnapshotActionHandler::~SnapshotActionHandler() noexcept = default;
 
 void SnapshotActionHandler::handle(const CreateSnapshotAction& action) {
     if (local_root_ == nullptr) {

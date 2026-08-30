@@ -24,7 +24,7 @@ class RecoveryActionHandler {
         std::unique_ptr<ISafeDirectoryRoot> local_root,
         std::unique_ptr<ISafeDirectoryRoot> target_root
     );
-    ~RecoveryActionHandler();
+    ~RecoveryActionHandler() noexcept;
 
     void handle(const RecoverPendingAction& action);
 

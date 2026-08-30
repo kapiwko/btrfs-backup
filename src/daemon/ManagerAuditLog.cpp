@@ -85,7 +85,7 @@ FileManagerAuditLog::FileManagerAuditLog(const fs::path& path) : path_(path) {
     }
 }
 
-FileManagerAuditLog::~FileManagerAuditLog() {
+FileManagerAuditLog::~FileManagerAuditLog() noexcept {
     if (descriptor_ >= 0)
         close(descriptor_);
 }

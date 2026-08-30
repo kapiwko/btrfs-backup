@@ -32,7 +32,7 @@ class SnapshotActionHandler {
         IClock& clock,
         std::unique_ptr<ISafeDirectoryRoot> local_root
     );
-    ~SnapshotActionHandler();
+    ~SnapshotActionHandler() noexcept;
 
     void handle(const CreateSnapshotAction& action);
 

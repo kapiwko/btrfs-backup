@@ -11,7 +11,7 @@ namespace btrfsbackup::config {
 
 class IProfileRepository {
   public:
-    virtual ~IProfileRepository();
+    virtual ~IProfileRepository() noexcept;
 
     [[nodiscard]] virtual LoadedProfile get(const ProfileId& profile_id) const = 0;
 };

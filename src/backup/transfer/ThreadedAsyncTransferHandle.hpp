@@ -18,7 +18,7 @@ class ThreadedAsyncTransferHandle final : public IAsyncTransferHandle {
         std::shared_ptr<CancellationToken> cancellation,
         std::future<TransferResult> future
     );
-    ~ThreadedAsyncTransferHandle() override;
+    ~ThreadedAsyncTransferHandle() noexcept override;
 
     [[nodiscard]] bool finished() const override;
     [[nodiscard]] bool wait_for(std::chrono::milliseconds timeout) const override;

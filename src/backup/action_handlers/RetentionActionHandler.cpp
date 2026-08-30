@@ -24,7 +24,7 @@ RetentionActionHandler::RetentionActionHandler(
       target_root_(std::move(target_root)) {
 }
 
-RetentionActionHandler::~RetentionActionHandler() = default;
+RetentionActionHandler::~RetentionActionHandler() noexcept = default;
 
 void RetentionActionHandler::handle(const ApplyRemoteRetentionAction& action) {
     apply(action.plan, target_root_.get());

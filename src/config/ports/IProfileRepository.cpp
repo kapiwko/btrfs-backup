@@ -6,6 +6,6 @@
 
 namespace btrfsbackup::config {
 
-IProfileRepository::~IProfileRepository() = default;
+IProfileRepository::~IProfileRepository() noexcept = default;
 
 } // namespace btrfsbackup::config

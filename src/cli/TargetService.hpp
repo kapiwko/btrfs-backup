@@ -93,23 +93,39 @@ using TargetOperationResult = std::variant<
 [[nodiscard]] const std::vector<TargetEvent>& target_operation_events(const TargetOperationResult& result) noexcept;
 
 TargetOperationResult mount_target(
+    const MountTargetRequest& request
+);
+
+TargetOperationResult mount_target(
     const MountTargetRequest& request,
-    TargetServiceDependencies* dependencies = nullptr
+    TargetServiceDependencies& dependencies
+);
+
+TargetOperationResult activate_target(
+    const ActivateTargetRequest& request
 );
 
 TargetOperationResult activate_target(
     const ActivateTargetRequest& request,
-    TargetServiceDependencies* dependencies = nullptr
+    TargetServiceDependencies& dependencies
+);
+
+TargetOperationResult deactivate_target(
+    const DeactivateTargetRequest& request
 );
 
 TargetOperationResult deactivate_target(
     const DeactivateTargetRequest& request,
-    TargetServiceDependencies* dependencies = nullptr
+    TargetServiceDependencies& dependencies
+);
+
+TargetOperationResult eject_target(
+    const EjectTargetRequest& request
 );
 
 TargetOperationResult eject_target(
     const EjectTargetRequest& request,
-    TargetServiceDependencies* dependencies = nullptr
+    TargetServiceDependencies& dependencies
 );
 
 } // namespace btrfsbackup::cli

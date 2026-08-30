@@ -24,7 +24,7 @@ class TerminationSignalMonitor {
     explicit TerminationSignalMonitor(CancellationToken& cancellation);
     TerminationSignalMonitor(const TerminationSignalMonitor&) = delete;
     TerminationSignalMonitor& operator=(const TerminationSignalMonitor&) = delete;
-    ~TerminationSignalMonitor();
+    ~TerminationSignalMonitor() noexcept;
 
   private:
     class Impl;

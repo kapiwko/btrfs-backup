@@ -24,7 +24,7 @@ class RunnerComposition {
         const RunnerOptions& options,
         CancellationToken& cancellation
     );
-    ~RunnerComposition();
+    ~RunnerComposition() noexcept;
 
     RunnerComposition(const RunnerComposition&) = delete;
     RunnerComposition& operator=(const RunnerComposition&) = delete;

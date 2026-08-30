@@ -15,7 +15,7 @@ ThreadedAsyncTransferHandle::ThreadedAsyncTransferHandle(
     future_(std::move(future)) {
 }
 
-ThreadedAsyncTransferHandle::~ThreadedAsyncTransferHandle() {
+ThreadedAsyncTransferHandle::~ThreadedAsyncTransferHandle() noexcept {
     if (future_.valid() && !result_.has_value()) {
         request_cancel();
         try {
