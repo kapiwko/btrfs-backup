@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <daemon/ManagerDbusServer.hpp>
+#include <daemon/dbus/ManagerDbusServer.hpp>
 #include <daemon/control/CommandSystemdUnitController.hpp>
 #include <daemon/ManagerAuditLog.hpp>
 #include <daemon/control/SystemOperationalControlBackend.hpp>
@@ -101,7 +101,7 @@ int main(int argc, char** argv) {
         btrfsbackup::daemon::control::CommandSystemdUnitController units(commands);
         btrfsbackup::daemon::control::SystemOperationalControlBackend operational_backend(profiles, state, units);
         btrfsbackup::daemon::FileManagerAuditLog audit_log(audit_log_path);
-        return btrfsbackup::daemon::run_dbus_server(
+        return btrfsbackup::daemon::dbus::run_dbus_server(
             service,
             operational_backend,
             audit_log,

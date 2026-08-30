@@ -2,14 +2,14 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <daemon/ManagerJsonCodec.hpp>
+#include <daemon/dbus/ManagerJsonCodec.hpp>
 
 #include <utility>
 
 #include <config/model/JsonIo.hpp>
 #include <core/ManagerProtocol.hpp>
 
-namespace btrfsbackup::daemon {
+namespace btrfsbackup::daemon::dbus {
 
 std::string ManagerJsonCodec::encode(const ManagerCapabilities& capabilities) const {
     return config::dump_json({
@@ -104,4 +104,4 @@ std::string ManagerJsonCodec::encode(const OperationResult& result) const {
     return config::dump_json(document);
 }
 
-} // namespace btrfsbackup::daemon
+} // namespace btrfsbackup::daemon::dbus

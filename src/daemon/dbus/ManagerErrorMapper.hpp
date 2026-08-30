@@ -6,9 +6,9 @@
 
 #include <exception>
 
-#include <daemon/ManagerErrors.hpp>
+#include <daemon/dbus/ManagerErrors.hpp>
 
-namespace btrfsbackup::daemon {
+namespace btrfsbackup::daemon::dbus {
 
 struct ManagerErrorDescription {
     ManagerErrorCode code;
@@ -22,4 +22,4 @@ class ManagerErrorMapper {
     [[nodiscard]] static ManagerErrorDescription describe(ManagerErrorCode code) noexcept;
 };
 
-} // namespace btrfsbackup::daemon
+} // namespace btrfsbackup::daemon::dbus

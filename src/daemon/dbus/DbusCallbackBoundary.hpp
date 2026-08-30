@@ -9,7 +9,7 @@
 #include <functional>
 #include <utility>
 
-namespace btrfsbackup::daemon {
+namespace btrfsbackup::daemon::dbus {
 
 template <typename Callback, typename ErrorHandler>
 int invoke_dbus_callback(Callback&& callback, ErrorHandler&& handle_error) noexcept {
@@ -30,4 +30,4 @@ int invoke_dbus_callback(Callback&& callback, ErrorHandler&& handle_error) noexc
     }
 }
 
-} // namespace btrfsbackup::daemon
+} // namespace btrfsbackup::daemon::dbus

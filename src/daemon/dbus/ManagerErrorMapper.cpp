@@ -2,11 +2,11 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <daemon/ManagerErrorMapper.hpp>
+#include <daemon/dbus/ManagerErrorMapper.hpp>
 
 #include <core/Errors.hpp>
 
-namespace btrfsbackup::daemon {
+namespace btrfsbackup::daemon::dbus {
 
 ManagerErrorDescription ManagerErrorMapper::map(const std::exception& error) const noexcept {
     if (const auto* manager_error = dynamic_cast<const ManagerOperationError*>(&error))
@@ -54,4 +54,4 @@ ManagerErrorDescription ManagerErrorMapper::describe(ManagerErrorCode code) noex
     return {ManagerErrorCode::InternalError, "io.github.btrfsbackup.Error.InternalError", "manager request failed"};
 }
 
-} // namespace btrfsbackup::daemon
+} // namespace btrfsbackup::daemon::dbus
