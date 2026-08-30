@@ -19,15 +19,24 @@ find_package(Plasma REQUIRED)
 set(CMAKE_INSTALL_DEFAULT_COMPONENT_NAME KDEIntegration)
 ki18n_install(plasmoid/po)
 
+qt_add_dbus_interface(
+    manager_client_sources
+    "${PROJECT_SOURCE_DIR}/data/dbus/io.github.btrfsbackup.Manager1.xml"
+    Manager1Interface
+)
 add_library(
     btrfsbackup_kde_manager_client STATIC
+    ${manager_client_sources}
     client/ManagerApi.cpp
     client/ManagerApi.hpp
 )
 target_compile_features(btrfsbackup_kde_manager_client PUBLIC cxx_std_23)
 target_include_directories(
     btrfsbackup_kde_manager_client
-    PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/client
+    PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/client
+    PRIVATE
+        ${CMAKE_CURRENT_BINARY_DIR}
 )
 target_link_libraries(
     btrfsbackup_kde_manager_client
