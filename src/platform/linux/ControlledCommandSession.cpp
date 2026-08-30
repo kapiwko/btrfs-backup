@@ -18,7 +18,7 @@
 #include <platform/linux/ChildProcess.hpp>
 #include <platform/linux/OwnedFileDescriptor.hpp>
 #include <platform/linux/ProcessSpawn.hpp>
-#include <platform/linux/PosixCancellationSignal.hpp>
+#include <platform/linux/transfer/PosixCancellationSignal.hpp>
 
 namespace btrfsbackup::platform::linux {
 
@@ -65,7 +65,7 @@ btrfsbackup::backup::CommandResult ControlledCommandSession::run() {
         throw ValidationError("command timeout must be positive");
     }
 
-    std::optional<btrfsbackup::platform::linux::PosixCancellationSignal> cancellation_signal;
+    std::optional<btrfsbackup::platform::linux::transfer::PosixCancellationSignal> cancellation_signal;
     if (options.cancellation != nullptr) {
         cancellation_signal.emplace(*options.cancellation);
     }

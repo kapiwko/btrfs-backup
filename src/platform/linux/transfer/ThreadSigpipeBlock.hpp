@@ -6,7 +6,7 @@
 
 #include <signal.h>
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::transfer {
 
 class ThreadSigpipeBlock final {
   public:
@@ -20,4 +20,4 @@ class ThreadSigpipeBlock final {
     bool previously_blocked_ = false;
 };
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::transfer

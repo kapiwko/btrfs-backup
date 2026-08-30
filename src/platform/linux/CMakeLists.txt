@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 add_library(btrfsbackup-platform-linux STATIC
-    BoundedDiagnosticBuffer.cpp
+    transfer/BoundedDiagnosticBuffer.cpp
     ChildProcess.cpp
     ControlledCommandSession.cpp
     LibBtrfsOperations.cpp
@@ -13,22 +13,22 @@ add_library(btrfsbackup-platform-linux STATIC
     FileLock.cpp
     MountInfo.cpp
     OwnedFileDescriptor.cpp
-    PosixCancellationSignal.cpp
+    transfer/PosixCancellationSignal.cpp
     PosixCommandRunner.cpp
     PosixDurableFileOperations.cpp
     PosixFileSystem.cpp
-    PosixTransferPipeline.cpp
-    PosixTransferSession.cpp
-    PosixTransferProcess.cpp
-    PosixTransferPump.cpp
-    ThreadSigpipeBlock.cpp
-    TransferChildTermination.cpp
-    TransferProgressReporter.cpp
+    transfer/PosixTransferPipeline.cpp
+    transfer/PosixTransferSession.cpp
+    transfer/PosixTransferProcess.cpp
+    transfer/PosixTransferPump.cpp
+    transfer/ThreadSigpipeBlock.cpp
+    transfer/TransferChildTermination.cpp
+    transfer/TransferProgressReporter.cpp
     Process.cpp
     ProcessSpawn.cpp
     SafeDirectoryRoot.cpp
     SpaceCheck.cpp
-    Splice.cpp
+    transfer/Splice.cpp
     LinuxSystemConfigurationActivator.cpp
     SystemdTargetManager.cpp
     SystemdMountedTargetSession.cpp
@@ -50,18 +50,18 @@ target_restricted_include_directories(btrfsbackup-platform-linux
         platform/linux/FileLock.hpp
         platform/linux/MountInfo.hpp
         platform/linux/OwnedFileDescriptor.hpp
-        platform/linux/PosixCancellationSignal.hpp
+        platform/linux/transfer/PosixCancellationSignal.hpp
         platform/linux/PosixCommandRunner.hpp
         platform/linux/PosixDurableFileOperations.hpp
         platform/linux/PosixFileSystem.hpp
-        platform/linux/PosixTransferPipeline.hpp
-        platform/linux/PosixTransferProcess.hpp
-        platform/linux/PosixTransferPump.hpp
+        platform/linux/transfer/PosixTransferPipeline.hpp
+        platform/linux/transfer/PosixTransferProcess.hpp
+        platform/linux/transfer/PosixTransferPump.hpp
         platform/linux/Process.hpp
         platform/linux/ProcessSpawn.hpp
         platform/linux/SafeDirectoryRoot.hpp
         platform/linux/SpaceCheck.hpp
-        platform/linux/Splice.hpp
+        platform/linux/transfer/Splice.hpp
         platform/linux/LinuxSystemConfigurationActivator.hpp
         platform/linux/SystemdTargetManager.hpp
         platform/linux/SystemdUnit.hpp
@@ -70,12 +70,12 @@ target_restricted_include_directories(btrfsbackup-platform-linux
         platform/linux/TrustedExecutable.hpp
         platform/linux/TrustedFile.hpp
     PRIVATE_HEADERS
-        platform/linux/BoundedDiagnosticBuffer.hpp
+        platform/linux/transfer/BoundedDiagnosticBuffer.hpp
         platform/linux/ControlledCommandSession.hpp
-        platform/linux/PosixTransferSession.hpp
-        platform/linux/ThreadSigpipeBlock.hpp
-        platform/linux/TransferChildTermination.hpp
-        platform/linux/TransferProgressReporter.hpp
+        platform/linux/transfer/PosixTransferSession.hpp
+        platform/linux/transfer/ThreadSigpipeBlock.hpp
+        platform/linux/transfer/TransferChildTermination.hpp
+        platform/linux/transfer/TransferProgressReporter.hpp
         platform/linux/SystemdMountedTargetSession.hpp
 )
 target_link_libraries(btrfsbackup-platform-linux

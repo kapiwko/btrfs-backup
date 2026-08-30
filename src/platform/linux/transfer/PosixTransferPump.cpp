@@ -2,14 +2,14 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <platform/linux/PosixTransferPump.hpp>
+#include <platform/linux/transfer/PosixTransferPump.hpp>
 
 #include <cerrno>
 #include <cstring>
 
-#include <platform/linux/Splice.hpp>
+#include <platform/linux/transfer/Splice.hpp>
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::transfer {
 
 PosixTransferPumpResult pump_posix_transfer(
     int producer_fd,
@@ -42,4 +42,4 @@ PosixTransferPumpResult pump_posix_transfer(
     return result;
 }
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::transfer

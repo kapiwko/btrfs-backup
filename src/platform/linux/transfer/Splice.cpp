@@ -2,11 +2,11 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <platform/linux/Splice.hpp>
+#include <platform/linux/transfer/Splice.hpp>
 
 #include <fcntl.h>
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::transfer {
 
 ssize_t splice_pipe(int source_fd, int target_fd, std::size_t max_bytes) {
     return ::splice(
@@ -19,4 +19,4 @@ ssize_t splice_pipe(int source_fd, int target_fd, std::size_t max_bytes) {
     );
 }
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::transfer
