@@ -13,7 +13,7 @@
 #include <config/model/JsonIo.hpp>
 #include <core/RuntimeTime.hpp>
 #include <state/StatusWriter.hpp>
-#include <platform/linux/PosixDurableFileOperations.hpp>
+#include <platform/linux/filesystem/PosixDurableFileOperations.hpp>
 
 #include "support/ValidationTestHelpers.hpp"
 
@@ -152,7 +152,7 @@ btrfsbackup::state::RunStatus watch_sample_record() {
 
 void test_status_watch_json_emits_status_api_shape_once() {
     fs::path root = test_root("watch-json");
-    btrfsbackup::platform::linux::PosixDurableFileOperations durable_files;
+    btrfsbackup::platform::linux::filesystem::PosixDurableFileOperations durable_files;
     btrfsbackup::state::write_current_status(durable_files, root / "status", watch_sample_record());
 
     std::ostringstream output;

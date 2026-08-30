@@ -8,7 +8,7 @@
 #include <filesystem>
 #include <stdexcept>
 
-#include <platform/linux/TrustedDirectory.hpp>
+#include <platform/linux/filesystem/TrustedDirectory.hpp>
 
 #include "support/ValidationTestHelpers.hpp"
 
@@ -29,7 +29,7 @@ void test_creates_directory_through_trusted_parents() {
     chmod(root.c_str(), 0755);
 
     fs::path mount_point = root / "mounts" / "default";
-    btrfsbackup::platform::linux::ensure_trusted_directory(mount_point, 0755, root, geteuid());
+    btrfsbackup::platform::linux::filesystem::ensure_trusted_directory(mount_point, 0755, root, geteuid());
 
     test_helpers::expect_true("trusted mount created", fs::is_directory(mount_point), "mount point was not created");
     test_helpers::expect_true("trusted mount mode", permissions(mount_point) == 0755, "mount point mode is not 0755");
@@ -46,7 +46,7 @@ void test_rejects_symlink_without_changing_target_permissions() {
     chmod(victim.c_str(), 0700);
     fs::create_directory_symlink(victim, mount_root / "default");
 
-    test_helpers::expect_validation_error("mount symlink rejected", [&] { btrfsbackup::platform::linux::ensure_trusted_directory(mount_root / "default", 0755, root, geteuid()); }, "without symlinks");
+    test_helpers::expect_validation_error("mount symlink rejected", [&] { btrfsbackup::platform::linux::filesystem::ensure_trusted_directory(mount_root / "default", 0755, root, geteuid()); }, "without symlinks");
     test_helpers::expect_true("victim mode unchanged", permissions(victim) == 0700, "symlink target permissions changed");
     fs::remove_all(root);
 }
@@ -58,7 +58,7 @@ void test_rejects_writable_parent() {
     fs::create_directories(mount_root);
     chmod(mount_root.c_str(), 0777);
 
-    test_helpers::expect_validation_error("writable mount parent rejected", [&] { btrfsbackup::platform::linux::ensure_trusted_directory(mount_root / "default", 0755, root, geteuid()); }, "writable by group or others");
+    test_helpers::expect_validation_error("writable mount parent rejected", [&] { btrfsbackup::platform::linux::filesystem::ensure_trusted_directory(mount_root / "default", 0755, root, geteuid()); }, "writable by group or others");
     test_helpers::expect_true("mount not created", !fs::exists(mount_root / "default"), "created below writable parent");
     fs::remove_all(root);
 }

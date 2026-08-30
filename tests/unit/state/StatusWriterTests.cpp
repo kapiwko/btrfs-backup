@@ -17,14 +17,14 @@
 #include <config/model/JsonIo.hpp>
 #include <state/StatusWriter.hpp>
 #include <state/RunHistory.hpp>
-#include <platform/linux/PosixDurableFileOperations.hpp>
+#include <platform/linux/filesystem/PosixDurableFileOperations.hpp>
 
 namespace fs = std::filesystem;
 
 namespace {
 
-btrfsbackup::platform::linux::PosixDurableFileOperations& durable_files() {
-    static btrfsbackup::platform::linux::PosixDurableFileOperations files;
+btrfsbackup::platform::linux::filesystem::PosixDurableFileOperations& durable_files() {
+    static btrfsbackup::platform::linux::filesystem::PosixDurableFileOperations files;
     return files;
 }
 

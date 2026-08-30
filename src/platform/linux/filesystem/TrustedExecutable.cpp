@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <platform/linux/TrustedExecutable.hpp>
+#include <platform/linux/filesystem/TrustedExecutable.hpp>
 
 #include <sys/stat.h>
 #include <unistd.h>
@@ -18,13 +18,13 @@
 
 namespace fs = std::filesystem;
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::filesystem {
 
 namespace {
 
 class PosixTrustedExecutable final : public btrfsbackup::backup::ITrustedExecutable {
   public:
-    explicit PosixTrustedExecutable(btrfsbackup::platform::linux::SafeDirectoryHandle handle)
+    explicit PosixTrustedExecutable(btrfsbackup::platform::linux::filesystem::SafeDirectoryHandle handle)
         : handle_(std::move(handle)) {
     }
 
@@ -37,7 +37,7 @@ class PosixTrustedExecutable final : public btrfsbackup::backup::ITrustedExecuta
     }
 
   private:
-    btrfsbackup::platform::linux::SafeDirectoryHandle handle_;
+    btrfsbackup::platform::linux::filesystem::SafeDirectoryHandle handle_;
 };
 
 bool trusted_owner(uid_t owner, const btrfsbackup::backup::TrustedExecutablePolicy& policy) {
@@ -131,4 +131,4 @@ std::unique_ptr<btrfsbackup::backup::ITrustedExecutable> PosixTrustedExecutableR
     );
 }
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::filesystem

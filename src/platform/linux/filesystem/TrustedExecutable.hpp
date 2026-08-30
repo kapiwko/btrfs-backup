@@ -7,9 +7,9 @@
 #include <filesystem>
 
 #include <backup/ports/TrustedExecutable.hpp>
-#include <platform/linux/SafeDirectoryRoot.hpp>
+#include <platform/linux/filesystem/SafeDirectoryRoot.hpp>
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::filesystem {
 
 SafeDirectoryHandle open_trusted_executable(
     const SafeDirectoryRoot& trusted_root,
@@ -33,4 +33,4 @@ class PosixTrustedExecutableResolver final : public btrfsbackup::backup::ITruste
     btrfsbackup::backup::TrustedExecutablePolicy policy_;
 };
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::filesystem

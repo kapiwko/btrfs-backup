@@ -17,7 +17,7 @@
 #include <config/model/Json.hpp>
 #include <config/model/Profile.hpp>
 #include <config/model/ProfileDocument.hpp>
-#include <platform/linux/TrustedFile.hpp>
+#include <platform/linux/filesystem/TrustedFile.hpp>
 
 namespace fs = std::filesystem;
 
@@ -31,10 +31,10 @@ fs::path profile_json_path(const fs::path& etc_root, const std::string& profile_
 namespace {
 
 ProfileFileReader trusted_profile_reader(const fs::path& config_root) {
-    TrustedFilePolicy policy{
+    filesystem::TrustedFilePolicy policy{
         .allow_current_user_owner = fs::absolute(config_root).lexically_normal() != fs::path("/etc/btrfs-backup"),
     };
-    return [policy](const fs::path& path) { return read_trusted_config_file(path, policy); };
+    return [policy](const fs::path& path) { return filesystem::read_trusted_config_file(path, policy); };
 }
 
 btrfsbackup::config::LoadedProfile loaded_profile_from_bytes(

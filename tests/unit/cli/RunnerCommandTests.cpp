@@ -33,9 +33,9 @@
 #include <state/FileCancellationMonitor.hpp>
 #include <state/FilePendingMarkerStore.hpp>
 #include <config/ProfileFingerprint.hpp>
-#include <platform/linux/FileLock.hpp>
-#include <platform/linux/FileBackupRunLeaseProvider.hpp>
-#include <platform/linux/PosixDurableFileOperations.hpp>
+#include <platform/linux/filesystem/FileLock.hpp>
+#include <platform/linux/filesystem/FileBackupRunLeaseProvider.hpp>
+#include <platform/linux/filesystem/PosixDurableFileOperations.hpp>
 #include <platform/linux/process/PosixCommandRunner.hpp>
 #include <platform/linux/SystemdTargetManager.hpp>
 #include <platform/linux/MountInfo.hpp>
@@ -59,7 +59,7 @@ std::string action_name(btrfsbackup::backup::BackupRunActionKind kind) {
 
 class RecordingActionHandler final : public btrfsbackup::backup::IBackupRunActionHandler {
   public:
-    btrfsbackup::platform::linux::PosixDurableFileOperations durable_files;
+    btrfsbackup::platform::linux::filesystem::PosixDurableFileOperations durable_files;
     std::vector<std::string> calls;
     std::vector<std::string> local_retention_deletes;
     std::vector<std::string> remote_retention_deletes;
@@ -154,7 +154,7 @@ class DelegatingActionHandlerFactory final
 
 class ConfigurableTransferPipeline final : public btrfsbackup::backup::transfer::ITransferPipeline {
   public:
-    btrfsbackup::platform::linux::PosixDurableFileOperations durable_files;
+    btrfsbackup::platform::linux::filesystem::PosixDurableFileOperations durable_files;
     std::vector<btrfsbackup::backup::transfer::TransferPipelinePlan> plans;
     btrfsbackup::backup::transfer::TransferResult next_result{
         .producer = btrfsbackup::backup::transfer::TransferSideResult::exited(0),
@@ -467,7 +467,7 @@ int run_runner(
     btrfsbackup::platform::linux::SystemdTargetManager target_mounter(mounts, commands);
     btrfsbackup::backup::BackupPreflight preflight(mounts, target_mounter);
     test_support::FakeSafeDirectoryRootFactory safe_directories;
-    btrfsbackup::platform::linux::PosixDurableFileOperations durable_files;
+    btrfsbackup::platform::linux::filesystem::PosixDurableFileOperations durable_files;
     btrfsbackup::state::FilePendingMarkerStore pending_markers(durable_files);
     btrfsbackup::backup::BackupDiscovery discovery(
         fixture->snapshot_metadata_reader
@@ -485,7 +485,7 @@ int run_runner(
         fixture->transfer_pipeline,
         safe_directories
     );
-    btrfsbackup::platform::linux::FileBackupRunLeaseProvider leases(fixture->lock_root);
+    btrfsbackup::platform::linux::filesystem::FileBackupRunLeaseProvider leases(fixture->lock_root);
     btrfsbackup::state::FileRunStateRepository state(fixture->application_config.paths(), durable_files);
     btrfsbackup::state::FileCancellationMonitor file_cancellation_monitor(state);
     FixedClock clock;
@@ -536,7 +536,7 @@ std::string profile_fingerprint(const fs::path& config_root, const btrfsbackup::
 }
 
 void write_matching_last_success(const fs::path& config_root, const btrfsbackup::config::Profile& profile) {
-    btrfsbackup::platform::linux::PosixDurableFileOperations durable_files;
+    btrfsbackup::platform::linux::filesystem::PosixDurableFileOperations durable_files;
     btrfsbackup::state::write_success_state(
         durable_files,
         config_root.parent_path() / "state" / "profiles" / profile.id.value(),
@@ -681,8 +681,8 @@ void test_runner_execute_rejects_busy_profile_before_target_access() {
     write_profile(config_root, profile);
     write_mountinfo(mountinfo, profile);
 
-    btrfsbackup::platform::linux::FileLock active_profile_lock(
-        btrfsbackup::platform::linux::profile_lock_path(lock_root, profile.id)
+    btrfsbackup::platform::linux::filesystem::FileLock active_profile_lock(
+        btrfsbackup::platform::linux::filesystem::profile_lock_path(lock_root, profile.id)
     );
     test_helpers::expect_true(
         "active profile lock acquired",
@@ -1673,7 +1673,7 @@ void test_runner_execute_pending_recovery_deletes_orphan() {
     fs::path mountinfo = root / "mountinfo";
     write_profile(config_root, profile);
     write_mountinfo(mountinfo, profile);
-    btrfsbackup::platform::linux::PosixDurableFileOperations durable_files;
+    btrfsbackup::platform::linux::filesystem::PosixDurableFileOperations durable_files;
     btrfsbackup::state::write_pending_marker(
         durable_files,
         root / "state" / "profiles" / "default",
@@ -1754,8 +1754,8 @@ void test_runner_cancel_validates_active_run_identity_without_target_mount() {
         .lock_root = lock_root,
         .application_config = btrfsbackup::config::ApplicationConfig(test_application_paths(root)),
     };
-    btrfsbackup::platform::linux::FileLock active_profile_lock(
-        btrfsbackup::platform::linux::profile_lock_path(lock_root, btrfsbackup::ProfileId{"default"})
+    btrfsbackup::platform::linux::filesystem::FileLock active_profile_lock(
+        btrfsbackup::platform::linux::filesystem::profile_lock_path(lock_root, btrfsbackup::ProfileId{"default"})
     );
     test_helpers::expect_true(
         "active profile lock",
@@ -1764,7 +1764,7 @@ void test_runner_cancel_validates_active_run_identity_without_target_mount() {
     );
 
     fs::path profile_state_dir = root / "state" / "profiles" / "default";
-    btrfsbackup::platform::linux::PosixDurableFileOperations durable_files;
+    btrfsbackup::platform::linux::filesystem::PosixDurableFileOperations durable_files;
     btrfsbackup::state::write_active_run(
         durable_files,
         profile_state_dir,
