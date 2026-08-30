@@ -22,6 +22,7 @@ target_compile_definitions(
 )
 target_restricted_include_directories(btrfsbackup-daemon-core
     PUBLIC_HEADERS
+        daemon/DbusCallbackBoundary.hpp
         daemon/AuthorizedOperationCommand.hpp
         daemon/DeviceStateQueryService.hpp
         daemon/HistoryQueryService.hpp

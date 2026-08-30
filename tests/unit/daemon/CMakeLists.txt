@@ -59,3 +59,10 @@ add_btrfsbackup_test(
     systemd-control-tests
     btrfsbackup-daemon-system-control
 )
+
+add_btrfsbackup_test(
+    btrfsbackup-dbus-callback-boundary-tests
+    DbusCallbackBoundaryTests.cpp
+    dbus-callback-boundary-tests
+    btrfsbackup-daemon-core
+)

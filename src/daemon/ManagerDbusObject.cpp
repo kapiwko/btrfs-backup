@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include <daemon/ManagerDbusObject.hpp>
+#include <daemon/DbusCallbackBoundary.hpp>
 #include <daemon/ManagerDbusServer.hpp>
 #include <daemon/ManagerAuditLog.hpp>
 #include <daemon/ManagerErrorMapper.hpp>
@@ -22,6 +23,25 @@ namespace {
 
 using ManagerRequestContext = btrfsbackup::daemon::ManagerDbusObject;
 namespace manager_protocol = btrfsbackup::manager_protocol;
+
+template <typename Callback>
+int manager_callback(sd_bus_error* error, ManagerRequestContext& context, Callback&& callback) noexcept {
+    return btrfsbackup::daemon::invoke_dbus_callback(
+        std::forward<Callback>(callback),
+        [&](const std::exception* exception) {
+            if (exception != nullptr)
+                std::cerr << "btrfs-backupd: request failed: " << exception->what() << '\n';
+            else
+                std::cerr << "btrfs-backupd: request failed with an unknown exception\n";
+            const auto mapped = exception != nullptr
+                ? context.error_mapper.map(*exception)
+                : btrfsbackup::daemon::ManagerErrorMapper::describe(
+                      btrfsbackup::daemon::ManagerErrorCode::InternalError
+                  );
+            return sd_bus_error_set_const(error, mapped.dbus_name, mapped.public_message);
+        }
+    );
+}
 
 template <typename Operation>
 int reply_json(
@@ -124,50 +144,60 @@ int reply_operational_json(
     }
 }
 
-int get_capabilities(sd_bus_message* message, void* userdata, sd_bus_error* error) {
+int get_capabilities(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
     auto& context = *static_cast<ManagerRequestContext*>(userdata);
-    return reply_json(message, error, context, [&] { return context.codec.encode(context.service.get_capabilities()); });
-}
-
-int list_profiles(sd_bus_message* message, void* userdata, sd_bus_error* error) {
-    auto& context = *static_cast<ManagerRequestContext*>(userdata);
-    return reply_json(message, error, context, [&] { return context.codec.encode(context.service.list_profiles()); });
-}
-
-int get_status(sd_bus_message* message, void* userdata, sd_bus_error* error) {
-    const char* profile_id = nullptr;
-    const int read_result = sd_bus_message_read(message, "s", &profile_id);
-    if (read_result < 0)
-        return read_result;
-    auto& context = *static_cast<ManagerRequestContext*>(userdata);
-    return reply_json(message, error, context, [&] {
-        return context.codec.encode(context.service.get_status(profile_id == nullptr ? "" : profile_id));
+    return manager_callback(error, context, [&] {
+        return reply_json(message, error, context, [&] { return context.codec.encode(context.service.get_capabilities()); });
     });
 }
 
-int get_history_sanitized(sd_bus_message* message, void* userdata, sd_bus_error* error) {
-    const char* profile_id = nullptr;
-    std::uint32_t offset = 0;
-    std::uint32_t limit = 0;
-    const int read_result = sd_bus_message_read(message, "suu", &profile_id, &offset, &limit);
-    if (read_result < 0)
-        return read_result;
+int list_profiles(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
     auto& context = *static_cast<ManagerRequestContext*>(userdata);
-    return reply_json(message, error, context, [&] {
-        return context.codec.encode(
-            context.service.get_history_sanitized(profile_id == nullptr ? "" : profile_id, offset, limit)
-        );
+    return manager_callback(error, context, [&] {
+        return reply_json(message, error, context, [&] { return context.codec.encode(context.service.list_profiles()); });
     });
 }
 
-int get_device_state(sd_bus_message* message, void* userdata, sd_bus_error* error) {
-    const char* profile_id = nullptr;
-    const int read_result = sd_bus_message_read(message, "s", &profile_id);
-    if (read_result < 0)
-        return read_result;
+int get_status(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
     auto& context = *static_cast<ManagerRequestContext*>(userdata);
-    return reply_json(message, error, context, [&] {
-        return context.codec.encode(context.service.get_device_state(profile_id == nullptr ? "" : profile_id));
+    return manager_callback(error, context, [&] {
+        const char* profile_id = nullptr;
+        const int read_result = sd_bus_message_read(message, "s", &profile_id);
+        if (read_result < 0)
+            return read_result;
+        return reply_json(message, error, context, [&] {
+            return context.codec.encode(context.service.get_status(profile_id == nullptr ? "" : profile_id));
+        });
+    });
+}
+
+int get_history_sanitized(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
+    auto& context = *static_cast<ManagerRequestContext*>(userdata);
+    return manager_callback(error, context, [&] {
+        const char* profile_id = nullptr;
+        std::uint32_t offset = 0;
+        std::uint32_t limit = 0;
+        const int read_result = sd_bus_message_read(message, "suu", &profile_id, &offset, &limit);
+        if (read_result < 0)
+            return read_result;
+        return reply_json(message, error, context, [&] {
+            return context.codec.encode(
+                context.service.get_history_sanitized(profile_id == nullptr ? "" : profile_id, offset, limit)
+            );
+        });
+    });
+}
+
+int get_device_state(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
+    auto& context = *static_cast<ManagerRequestContext*>(userdata);
+    return manager_callback(error, context, [&] {
+        const char* profile_id = nullptr;
+        const int read_result = sd_bus_message_read(message, "s", &profile_id);
+        if (read_result < 0)
+            return read_result;
+        return reply_json(message, error, context, [&] {
+            return context.codec.encode(context.service.get_device_state(profile_id == nullptr ? "" : profile_id));
+        });
     });
 }
 
@@ -176,62 +206,64 @@ std::string caller_bus_name(sd_bus_message* message) {
     return sender == nullptr ? std::string{} : std::string(sender);
 }
 
-int start_backup(sd_bus_message* message, void* userdata, sd_bus_error* error) {
-    const char* profile_id = nullptr;
-    const int read_result = sd_bus_message_read(message, "s", &profile_id);
-    if (read_result < 0)
-        return read_result;
+int start_backup(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
     auto& context = *static_cast<ManagerRequestContext*>(userdata);
-    const std::string profile = profile_id == nullptr ? "" : profile_id;
-    return reply_operational_json(message, error, context, manager_protocol::feature::start_backup, profile, [&] {
-        return context.codec.encode(
-            context.operational.start_backup(caller_bus_name(message), profile)
-        );
+    return manager_callback(error, context, [&] {
+        const char* profile_id = nullptr;
+        const int read_result = sd_bus_message_read(message, "s", &profile_id);
+        if (read_result < 0)
+            return read_result;
+        const std::string profile = profile_id == nullptr ? "" : profile_id;
+        return reply_operational_json(message, error, context, manager_protocol::feature::start_backup, profile, [&] {
+            return context.codec.encode(context.operational.start_backup(caller_bus_name(message), profile));
+        });
     });
 }
 
-int cancel_backup(sd_bus_message* message, void* userdata, sd_bus_error* error) {
-    const char* profile_id = nullptr;
-    const char* run_id = nullptr;
-    const int read_result = sd_bus_message_read(message, "ss", &profile_id, &run_id);
-    if (read_result < 0)
-        return read_result;
+int cancel_backup(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
     auto& context = *static_cast<ManagerRequestContext*>(userdata);
-    const std::string profile = profile_id == nullptr ? "" : profile_id;
-    return reply_operational_json(message, error, context, manager_protocol::feature::cancel_backup, profile, [&] {
-        return context.codec.encode(context.operational.cancel_backup(
-            caller_bus_name(message),
-            profile,
-            run_id == nullptr ? "" : run_id
-        ));
+    return manager_callback(error, context, [&] {
+        const char* profile_id = nullptr;
+        const char* run_id = nullptr;
+        const int read_result = sd_bus_message_read(message, "ss", &profile_id, &run_id);
+        if (read_result < 0)
+            return read_result;
+        const std::string profile = profile_id == nullptr ? "" : profile_id;
+        return reply_operational_json(message, error, context, manager_protocol::feature::cancel_backup, profile, [&] {
+            return context.codec.encode(context.operational.cancel_backup(
+                caller_bus_name(message),
+                profile,
+                run_id == nullptr ? "" : run_id
+            ));
+        });
     });
 }
 
-int validate_target(sd_bus_message* message, void* userdata, sd_bus_error* error) {
-    const char* profile_id = nullptr;
-    const int read_result = sd_bus_message_read(message, "s", &profile_id);
-    if (read_result < 0)
-        return read_result;
+int validate_target(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
     auto& context = *static_cast<ManagerRequestContext*>(userdata);
-    const std::string profile = profile_id == nullptr ? "" : profile_id;
-    return reply_operational_json(message, error, context, manager_protocol::feature::validate_target, profile, [&] {
-        return context.codec.encode(
-            context.operational.validate_target(caller_bus_name(message), profile)
-        );
+    return manager_callback(error, context, [&] {
+        const char* profile_id = nullptr;
+        const int read_result = sd_bus_message_read(message, "s", &profile_id);
+        if (read_result < 0)
+            return read_result;
+        const std::string profile = profile_id == nullptr ? "" : profile_id;
+        return reply_operational_json(message, error, context, manager_protocol::feature::validate_target, profile, [&] {
+            return context.codec.encode(context.operational.validate_target(caller_bus_name(message), profile));
+        });
     });
 }
 
-int eject_target(sd_bus_message* message, void* userdata, sd_bus_error* error) {
-    const char* profile_id = nullptr;
-    const int read_result = sd_bus_message_read(message, "s", &profile_id);
-    if (read_result < 0)
-        return read_result;
+int eject_target(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
     auto& context = *static_cast<ManagerRequestContext*>(userdata);
-    const std::string profile = profile_id == nullptr ? "" : profile_id;
-    return reply_operational_json(message, error, context, manager_protocol::feature::eject_target, profile, [&] {
-        return context.codec.encode(
-            context.operational.eject_target(caller_bus_name(message), profile)
-        );
+    return manager_callback(error, context, [&] {
+        const char* profile_id = nullptr;
+        const int read_result = sd_bus_message_read(message, "s", &profile_id);
+        if (read_result < 0)
+            return read_result;
+        const std::string profile = profile_id == nullptr ? "" : profile_id;
+        return reply_operational_json(message, error, context, manager_protocol::feature::eject_target, profile, [&] {
+            return context.codec.encode(context.operational.eject_target(caller_bus_name(message), profile));
+        });
     });
 }
 
