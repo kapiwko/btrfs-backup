@@ -54,22 +54,22 @@ Window {
             if (!root.initialStateObserved
                     && status.managerConnected
                     && status.profileName === "Default backup"
-                    && status.state === "running"
-                    && status.runId === "20260829T160000Z-1-1"
-                    && status.phase === "sizing"
-                    && status.activity === "sizing"
-                    && status.canCancel
-                    && status.currentSourceName === "Home"
-                    && status.targetName === "backupdisk"
-                    && status.speedBps === 10
-                    && status.etaSeconds === 20
-                    && status.sourceProgress === 30
-                    && status.overallProgress === 40
-                    && status.progressAccuracy === "estimated"
+                    && status.run.state === "running"
+                    && status.run.runId === "20260829T160000Z-1-1"
+                    && status.run.phase === "sizing"
+                    && status.run.activity === "sizing"
+                    && status.run.canCancel
+                    && status.run.sourceName === "Home"
+                    && status.run.targetName === "backupdisk"
+                    && status.run.speedBps === 10
+                    && status.run.etaSeconds === 20
+                    && status.run.sourceProgress === 30
+                    && status.run.overallProgress === 40
+                    && status.run.progressAccuracy === "estimated"
                     && status.target.connected
                     && status.target.safeToRemove
                     && status.target.state === "connected"
-                    && status.history.length === 1
+                    && status.history.entries.length === 1
                     && typeof status.startBackup === "function"
                     && typeof status.cancelBackup === "function"
                     && typeof status.validateTarget === "function"
@@ -86,12 +86,12 @@ Window {
                 return
             }
             if (root.initialStateObserved
-                    && status.state === "succeeded"
-                    && status.phase === "completed"
-                    && !status.canCancel
-                    && status.speedBps === 0
-                    && status.sourceProgress === 100
-                    && status.overallProgress === 100
+                    && status.run.state === "succeeded"
+                    && status.run.phase === "completed"
+                    && !status.run.canCancel
+                    && status.run.speedBps === 0
+                    && status.run.sourceProgress === 100
+                    && status.run.overallProgress === 100
                     && profileItem !== null
                     && !profileItem.running
                     && profileItem.progress === 100
@@ -101,14 +101,14 @@ Window {
             }
             if (root.attempts === 50) {
                 console.error("Initial manager state diagnostic:", status.managerConnected,
-                              status.lastError, status.state, status.runId,
-                              status.phase, status.activity, status.canCancel,
-                              status.currentSourceName, status.targetName,
-                              status.speedBps, status.etaSeconds,
-                              status.sourceProgress, status.overallProgress,
-                              status.progressAccuracy, status.target.connected,
+                              status.lastError, status.run.state, status.run.runId,
+                              status.run.phase, status.run.activity, status.run.canCancel,
+                              status.run.sourceName, status.run.targetName,
+                              status.run.speedBps, status.run.etaSeconds,
+                              status.run.sourceProgress, status.run.overallProgress,
+                              status.run.progressAccuracy, status.target.connected,
                               status.target.safeToRemove, status.target.state,
-                              status.history.length, profileItem !== null,
+                              status.history.entries.length, profileItem !== null,
                               profileItem !== null ? profileItem.profileId : "missing",
                               profileItem !== null ? profileItem.running : false,
                               profileItem !== null ? profileItem.progress : -2,

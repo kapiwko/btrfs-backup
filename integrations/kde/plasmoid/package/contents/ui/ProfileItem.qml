@@ -23,12 +23,12 @@ PlasmaExtras.ExpandableListItem {
     required property int relativeTimeTick
     required property int refreshRevision
 
-    readonly property bool running: profileStatus.state === "running"
-        || profileStatus.state === "starting"
-        || profileStatus.state === "validating"
-    readonly property bool failed: profileStatus.state === "failed"
-    readonly property int progress: profileStatus.overallProgress
-    readonly property int historyCount: profileStatus.history.length
+    readonly property bool running: profileStatus.run.state === "running"
+        || profileStatus.run.state === "starting"
+        || profileStatus.run.state === "validating"
+    readonly property bool failed: profileStatus.run.state === "failed"
+    readonly property int progress: profileStatus.run.overallProgress
+    readonly property int historyCount: profileStatus.history.entries.length
 
     signal summaryUpdated(string profileId, bool isRunning, bool isFailed, int profileProgress, string subtitle)
     signal summaryRemoved(string profileId)
@@ -58,7 +58,7 @@ PlasmaExtras.ExpandableListItem {
         && (root.running || profileStatus.target.connected)
     defaultActionButtonAction: QQC2.Action {
         enabled: !profileStatus.operationPending
-            && (root.running ? profileStatus.canCancel : profileStatus.target.connected)
+            && (root.running ? profileStatus.run.canCancel : profileStatus.target.connected)
         icon.name: root.running ? "process-stop" : "media-playback-start"
         text: root.running ? translations.i18n("Cancel") : translations.i18n("Start backup")
         onTriggered: {
@@ -99,7 +99,7 @@ PlasmaExtras.ExpandableListItem {
                 Layout.fillWidth: true
                 visible: root.running
                 active: root.running
-                currentSpeed: profileStatus.speedBps
+                currentSpeed: profileStatus.run.speedBps
             }
 
             PlasmaComponents3.ProgressBar {
@@ -125,8 +125,8 @@ PlasmaExtras.ExpandableListItem {
                 }
                 PlasmaComponents3.Label {
                     text: root.running
-                        ? root.activityText(profileStatus.activity, profileStatus.phase)
-                        : root.statusText(profileStatus.state)
+                        ? root.activityText(profileStatus.run.activity, profileStatus.run.phase)
+                        : root.statusText(profileStatus.run.state)
                     Layout.fillWidth: true
                     elide: Text.ElideRight
                     font: Kirigami.Theme.smallFont
@@ -139,7 +139,7 @@ PlasmaExtras.ExpandableListItem {
                     opacity: 0.6
                 }
                 PlasmaComponents3.Label {
-                    text: profileStatus.target.name || profileStatus.targetName || root.targetNameHint || translations.i18n("Unknown")
+                    text: profileStatus.target.name || profileStatus.run.targetName || root.targetNameHint || translations.i18n("Unknown")
                     Layout.fillWidth: true
                     elide: Text.ElideMiddle
                     font: Kirigami.Theme.smallFont
@@ -167,7 +167,7 @@ PlasmaExtras.ExpandableListItem {
                 }
                 PlasmaComponents3.Label {
                     visible: root.running
-                    text: profileStatus.currentSourceName || translations.i18n("Unknown")
+                    text: profileStatus.run.sourceName || translations.i18n("Unknown")
                     Layout.fillWidth: true
                     elide: Text.ElideMiddle
                     font: Kirigami.Theme.smallFont
@@ -182,7 +182,7 @@ PlasmaExtras.ExpandableListItem {
                 }
                 PlasmaComponents3.Label {
                     visible: root.running
-                    text: root.formatEta(profileStatus.etaSeconds)
+                    text: root.formatEta(profileStatus.run.etaSeconds)
                     Layout.fillWidth: true
                     font: Kirigami.Theme.smallFont
                 }
@@ -190,9 +190,9 @@ PlasmaExtras.ExpandableListItem {
 
             Kirigami.InlineMessage {
                 Layout.fillWidth: true
-                visible: profileStatus.lastError.length > 0 || profileStatus.errorCode.length > 0
+                visible: profileStatus.lastError.length > 0 || profileStatus.run.errorCode.length > 0
                 type: Kirigami.MessageType.Error
-                text: profileStatus.lastError || root.statusText(profileStatus.state)
+                text: profileStatus.lastError || root.statusText(profileStatus.run.state)
             }
 
             Kirigami.InlineMessage {
@@ -204,12 +204,12 @@ PlasmaExtras.ExpandableListItem {
 
             PlasmaExtras.ListSectionHeader {
                 Layout.fillWidth: true
-                visible: profileStatus.history.length > 0
+                visible: profileStatus.history.entries.length > 0
                 text: translations.i18n("Recent backups")
             }
 
             Repeater {
-                model: profileStatus.history
+                model: profileStatus.history.entries
 
                 delegate: RowLayout {
                     id: historyRow
@@ -275,7 +275,7 @@ PlasmaExtras.ExpandableListItem {
     }
 
     function statusEmblem() {
-        switch (profileStatus.state) {
+        switch (profileStatus.run.state) {
         case "succeeded":
         case "validated": return "emblem-ok-symbolic"
         case "failed": return "emblem-error"
@@ -288,8 +288,8 @@ PlasmaExtras.ExpandableListItem {
         if (profileStatus.lastError.length > 0)
             return profileStatus.lastError
         if (root.running)
-            return root.activityText(profileStatus.activity, profileStatus.phase)
-        const target = profileStatus.target.name || profileStatus.targetName || root.targetNameHint || translations.i18n("Backup target")
+            return root.activityText(profileStatus.run.activity, profileStatus.run.phase)
+        const target = profileStatus.target.name || profileStatus.run.targetName || root.targetNameHint || translations.i18n("Backup target")
         return target + " - " + root.targetStateText(profileStatus.target.state)
     }
 

@@ -102,8 +102,12 @@ qt_add_qml_module(btrfsbackup_plasma_backend
     NO_PLUGIN_OPTIONAL
     OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/org/btrfsbackup/plasma
     SOURCES
+        plasmoid/src/BackupHistoryModel.cpp
+        plasmoid/src/BackupHistoryModel.hpp
         plasmoid/src/BackupStatusModel.cpp
         plasmoid/src/BackupStatusModel.hpp
+        plasmoid/src/RunStatusModel.cpp
+        plasmoid/src/RunStatusModel.hpp
         plasmoid/src/TargetStatusModel.cpp
         plasmoid/src/TargetStatusModel.hpp
 )
@@ -212,6 +216,31 @@ if(BUILD_TESTING)
     endif()
     add_test(NAME plasma-target-status-model COMMAND plasma-target-status-model-tests)
     set_tests_properties(plasma-target-status-model PROPERTIES LABELS kde)
+
+    add_executable(
+        plasma-status-models-tests
+        plasmoid/src/BackupHistoryModel.cpp
+        plasmoid/src/BackupHistoryModel.hpp
+        plasmoid/src/RunStatusModel.cpp
+        plasmoid/src/RunStatusModel.hpp
+        plasmoid/tests/StatusModelsTests.cpp
+    )
+    target_compile_features(plasma-status-models-tests PRIVATE cxx_std_23)
+    target_include_directories(
+        plasma-status-models-tests
+        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/plasmoid/src
+    )
+    target_link_libraries(
+        plasma-status-models-tests
+        PRIVATE
+            Qt6::Core
+            btrfsbackup_kde_manager_client
+    )
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(plasma-status-models-tests PRIVATE -Wall -Wextra -Wpedantic)
+    endif()
+    add_test(NAME plasma-status-models COMMAND plasma-status-models-tests)
+    set_tests_properties(plasma-status-models PROPERTIES LABELS kde)
 
     add_executable(
         plasma-progress-job-tests
