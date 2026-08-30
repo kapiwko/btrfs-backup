@@ -9,7 +9,7 @@
 #include <type_traits>
 #include <utility>
 
-#include <state/RunState.hpp>
+#include <state/query/RunState.hpp>
 
 static_assert(std::is_nothrow_destructible_v<btrfsbackup::state::FileActiveRunRegistration>);
 

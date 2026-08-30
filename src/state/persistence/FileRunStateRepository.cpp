@@ -10,8 +10,8 @@
 
 #include <state/cancellation/FileActiveRunRegistration.hpp>
 #include <state/persistence/JsonFileBackupRunCheckpointStore.hpp>
-#include <state/RunHistory.hpp>
-#include <state/RunState.hpp>
+#include <state/query/RunHistory.hpp>
+#include <state/query/RunState.hpp>
 #include <state/projection/RunStatusProjection.hpp>
 #include <state/persistence/StatusWriter.hpp>
 #include <core/RuntimeTime.hpp>

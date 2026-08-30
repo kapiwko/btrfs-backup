@@ -44,7 +44,7 @@
 #include <config/domain/Profile.hpp>
 #include <config/json/ProfileDocument.hpp>
 #include <platform/linux/config/FileProfileRepository.hpp>
-#include <state/RunState.hpp>
+#include <state/query/RunState.hpp>
 
 #include "support/FakeSafeDirectory.hpp"
 #include "support/ValidationTestHelpers.hpp"

@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <state/StatusService.hpp>
+#include <state/query/StatusService.hpp>
 
 #include <algorithm>
 #include <fstream>
