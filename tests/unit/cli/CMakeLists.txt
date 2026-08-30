@@ -49,6 +49,15 @@ add_btrfsbackup_test(
     btrfsbackup-cli
 )
 add_btrfsbackup_test(
+    btrfsbackup-runner-json-codec-tests
+    RunnerJsonCodecTests.cpp
+    runner-json-codec-tests
+    btrfsbackup-backup
+    btrfsbackup-cli
+    btrfsbackup-config-domain
+    btrfsbackup-config-json
+)
+add_btrfsbackup_test(
     btrfsbackup-status-history-tests
     StatusHistoryTests.cpp
     status-history-tests

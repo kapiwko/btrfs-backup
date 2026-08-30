@@ -15,6 +15,7 @@
 #include <stdexcept>
 #include <string>
 #include <thread>
+#include <type_traits>
 
 #include <platform/linux/Process.hpp>
 #include <platform/linux/ChildProcess.hpp>
@@ -24,6 +25,8 @@
 #include "support/ValidationTestHelpers.hpp"
 
 namespace {
+
+static_assert(std::is_nothrow_destructible_v<btrfsbackup::platform::linux::ChildProcess>);
 
 class EnvironmentGuard {
   public:

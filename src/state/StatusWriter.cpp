@@ -30,6 +30,7 @@ void require_non_empty(const std::string& value, const char* field) {
 
 void validate_status(const btrfsbackup::state::RunStatus& status) {
     require_non_empty(status.profile_name, "profileName");
+    btrfsbackup::state::validate_run_status(status);
 }
 
 void prepare_public_parent(btrfsbackup::state::IAtomicDocumentWriter& files, const fs::path& path) {

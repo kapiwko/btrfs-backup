@@ -5,6 +5,9 @@
 #include <state/FileActiveRunRegistration.hpp>
 
 #include <exception>
+#include <type_traits>
+
+static_assert(std::is_nothrow_destructible_v<btrfsbackup::state::FileActiveRunRegistration>);
 #include <iostream>
 #include <utility>
 

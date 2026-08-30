@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include <filesystem>
+#include <type_traits>
 
 #include <platform/linux/FileLock.hpp>
 
@@ -11,6 +12,8 @@
 namespace fs = std::filesystem;
 
 namespace {
+
+static_assert(std::is_nothrow_destructible_v<btrfsbackup::platform::linux::FileLock>);
 
 void test_lock_lifecycle() {
     fs::path root = test_helpers::test_root("file-lock", "lifecycle");
