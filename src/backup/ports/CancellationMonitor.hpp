@@ -9,14 +9,15 @@
 #include <string>
 
 #include <backup/model/BackupExecution.hpp>
+#include <backup/ports/CleanupDiagnostic.hpp>
 #include <core/Cancellation.hpp>
 
 namespace btrfsbackup::backup {
 
 class ICancellationWatch {
   public:
-    virtual ~ICancellationWatch() = default;
-    [[nodiscard]] virtual std::optional<std::string> close() = 0;
+    virtual ~ICancellationWatch() noexcept = default;
+    [[nodiscard]] virtual const std::optional<CleanupDiagnostic>& close() noexcept = 0;
 };
 
 class ICancellationMonitor {

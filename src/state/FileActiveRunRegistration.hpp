@@ -18,15 +18,20 @@ class FileActiveRunRegistration final : public btrfsbackup::backup::IActiveRunRe
         std::filesystem::path profile_state_dir,
         RunId run_id
     );
-    ~FileActiveRunRegistration() override;
+    FileActiveRunRegistration(const FileActiveRunRegistration&) = delete;
+    FileActiveRunRegistration& operator=(const FileActiveRunRegistration&) = delete;
+    FileActiveRunRegistration(FileActiveRunRegistration&&) = delete;
+    FileActiveRunRegistration& operator=(FileActiveRunRegistration&&) = delete;
+    ~FileActiveRunRegistration() noexcept override;
 
-    std::optional<std::string> close() override;
+    [[nodiscard]] const std::optional<btrfsbackup::backup::CleanupDiagnostic>& close() noexcept override;
 
   private:
     IDurableDocumentRemover& files_;
     std::filesystem::path profile_state_dir_;
     RunId run_id_;
     bool closed_ = false;
+    std::optional<btrfsbackup::backup::CleanupDiagnostic> close_diagnostic_;
 };
 
 } // namespace btrfsbackup::state

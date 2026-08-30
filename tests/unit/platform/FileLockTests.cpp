@@ -14,6 +14,8 @@ namespace fs = std::filesystem;
 namespace {
 
 static_assert(std::is_nothrow_destructible_v<btrfsbackup::platform::linux::FileLock>);
+static_assert(std::is_nothrow_move_constructible_v<btrfsbackup::platform::linux::FileLock>);
+static_assert(std::is_nothrow_move_assignable_v<btrfsbackup::platform::linux::FileLock>);
 
 void test_lock_lifecycle() {
     fs::path root = test_helpers::test_root("file-lock", "lifecycle");

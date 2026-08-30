@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include <cerrno>
+#include <type_traits>
 #include <utility>
 
 #include <fcntl.h>
@@ -15,6 +16,9 @@
 namespace {
 
 using btrfsbackup::platform::linux::OwnedFileDescriptor;
+
+static_assert(std::is_nothrow_move_constructible_v<OwnedFileDescriptor>);
+static_assert(std::is_nothrow_move_assignable_v<OwnedFileDescriptor>);
 
 void expect_closed(const std::string& name, int descriptor) {
     errno = 0;

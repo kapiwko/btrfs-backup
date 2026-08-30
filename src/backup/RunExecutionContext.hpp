@@ -42,7 +42,8 @@ struct RunExecutionContextCloseResult {
     }
 };
 
-struct RunExecutionContext {
+class RunExecutionContext {
+  public:
     RunExecutionContext(
         ProfileId profile_id,
         RunId run_id,
@@ -54,22 +55,17 @@ struct RunExecutionContext {
 
     RunExecutionContext(const RunExecutionContext&) = delete;
     RunExecutionContext& operator=(const RunExecutionContext&) = delete;
+    RunExecutionContext(RunExecutionContext&&) = delete;
+    RunExecutionContext& operator=(RunExecutionContext&&) = delete;
     ~RunExecutionContext() noexcept;
 
-    [[nodiscard]] RunExecutionContextCloseResult close();
+    [[nodiscard]] const RunExecutionContextCloseResult& close();
     [[nodiscard]] std::optional<TargetCleanupError> close_target_session() noexcept;
     void attach_event_sink(std::unique_ptr<IBackupRunEventSink> events) noexcept;
-    void attach_target_session(std::unique_ptr<IMountedTargetSession> session);
+    void attach_target_session(std::unique_ptr<IMountedTargetSession> session) noexcept;
     [[nodiscard]] IBackupRunEventSink& event_sink() const;
-
-    ProfileId profile_id;
-    RunId run_id;
-    CancellationToken cancellation;
-    std::unique_ptr<IActiveRunRegistration> active_run;
-    std::unique_ptr<ICancellationWatch> cancellation_watch;
-    std::unique_ptr<IBackupRunCheckpointStore> checkpoints;
-    std::unique_ptr<IBackupRunLease> lease;
-    std::unique_ptr<IMountedTargetSession> target_session;
+    [[nodiscard]] CancellationToken& cancellation_token() noexcept;
+    [[nodiscard]] IBackupRunCheckpointStore& checkpoint_store() noexcept;
 
   private:
     void close_cancellation_watch(RunExecutionContextCloseResult& result);
@@ -81,11 +77,20 @@ struct RunExecutionContext {
     void release_lease() noexcept;
     void report_close_failures(const RunExecutionContextCloseResult& result) const noexcept;
 
+    ProfileId profile_id_;
+    RunId run_id_;
+    CancellationToken cancellation_;
+    std::unique_ptr<IActiveRunRegistration> active_run_;
+    std::unique_ptr<ICancellationWatch> cancellation_watch_;
+    std::unique_ptr<IBackupRunCheckpointStore> checkpoints_;
+    std::unique_ptr<IBackupRunLease> lease_;
+    std::unique_ptr<IMountedTargetSession> target_session_;
     std::unique_ptr<IBackupRunEventSink> events_;
     ICancellationRequestStore& cancellation_requests_;
     bool target_close_attempted_ = false;
     std::optional<TargetCleanupError> target_close_error_;
     bool closed_ = false;
+    RunExecutionContextCloseResult close_result_;
 };
 
 } // namespace btrfsbackup::backup

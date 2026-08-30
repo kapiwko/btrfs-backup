@@ -80,6 +80,7 @@ target_restricted_include_directories(btrfsbackup-backup-ports
         backup/ports/IBtrfsOperations.hpp
         backup/ports/CancellationRequestStore.hpp
         backup/ports/CancellationMonitor.hpp
+        backup/ports/CleanupDiagnostic.hpp
         backup/ports/ICheckpointStoreFactory.hpp
         backup/ports/ICommandRunner.hpp
         backup/ports/IFileSystem.hpp

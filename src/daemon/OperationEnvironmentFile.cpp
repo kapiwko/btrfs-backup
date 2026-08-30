@@ -6,8 +6,11 @@
 
 #include <string>
 #include <system_error>
+#include <type_traits>
 
 #include <platform/linux/FileIo.hpp>
+
+static_assert(std::is_nothrow_destructible_v<btrfsbackup::daemon::OperationEnvironmentFile>);
 
 namespace btrfsbackup::daemon {
 
@@ -22,7 +25,7 @@ OperationEnvironmentFile::OperationEnvironmentFile(
     );
 }
 
-OperationEnvironmentFile::~OperationEnvironmentFile() {
+OperationEnvironmentFile::~OperationEnvironmentFile() noexcept {
     std::error_code error;
     std::filesystem::remove(path_, error);
 }

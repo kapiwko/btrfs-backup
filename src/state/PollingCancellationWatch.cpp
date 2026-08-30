@@ -5,12 +5,12 @@
 #include <state/PollingCancellationWatch.hpp>
 
 #include <chrono>
-#include <type_traits>
-
-static_assert(std::is_nothrow_destructible_v<btrfsbackup::state::PollingCancellationWatch>);
 #include <exception>
 #include <iostream>
+#include <type_traits>
 #include <utility>
+
+static_assert(std::is_nothrow_destructible_v<btrfsbackup::state::PollingCancellationWatch>);
 
 namespace btrfsbackup::state {
 
@@ -23,21 +23,15 @@ PollingCancellationWatch::PollingCancellationWatch(
       worker_([this](std::stop_token stop) { run(stop); }) {
 }
 
-PollingCancellationWatch::~PollingCancellationWatch() {
-    try {
-        if (std::optional<std::string> diagnostic = close()) {
-            std::clog << "btrfs-backup: cancellation watch cleanup failed: " << *diagnostic << '\n';
-        }
-    } catch (const std::exception& error) {
-        std::clog << "btrfs-backup: cancellation watch cleanup failed: " << error.what() << '\n';
-    } catch (...) {
-        std::clog << "btrfs-backup: cancellation watch cleanup failed with an unknown error\n";
+PollingCancellationWatch::~PollingCancellationWatch() noexcept {
+    if (const auto& diagnostic = close()) {
+        std::clog << "btrfs-backup: cancellation watch cleanup failed: " << diagnostic->message << '\n';
     }
 }
 
-std::optional<std::string> PollingCancellationWatch::close() {
+const std::optional<btrfsbackup::backup::CleanupDiagnostic>& PollingCancellationWatch::close() noexcept {
     if (closed_) {
-        return std::nullopt;
+        return close_diagnostic_;
     }
     closed_ = true;
     worker_.request_stop();
@@ -45,12 +39,12 @@ std::optional<std::string> PollingCancellationWatch::close() {
         if (worker_.joinable()) {
             worker_.join();
         }
-        return std::nullopt;
     } catch (const std::exception& error) {
-        return error.what();
+        close_diagnostic_ = btrfsbackup::backup::CleanupDiagnostic{error.what()};
     } catch (...) {
-        return "unknown cancellation watch cleanup failure";
+        close_diagnostic_ = btrfsbackup::backup::CleanupDiagnostic{"unknown cancellation watch cleanup failure"};
     }
+    return close_diagnostic_;
 }
 
 void PollingCancellationWatch::run(std::stop_token stop) {

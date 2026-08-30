@@ -23,7 +23,7 @@ class ChildProcess {
     ChildProcess& operator=(const ChildProcess&) = delete;
     ChildProcess(ChildProcess&& other) noexcept;
     ChildProcess& operator=(ChildProcess&& other) noexcept;
-    ~ChildProcess();
+    ~ChildProcess() noexcept;
 
     pid_t pid() const;
     bool process_group_exists() const;

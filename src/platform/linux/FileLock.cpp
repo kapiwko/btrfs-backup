@@ -58,7 +58,7 @@ FileLock& FileLock::operator=(FileLock&& other) noexcept {
     return *this;
 }
 
-FileLock::~FileLock() {
+FileLock::~FileLock() noexcept {
     release();
 }
 
@@ -97,7 +97,7 @@ void FileLock::release() {
     acquired_ = false;
 }
 
-bool FileLock::acquired() const {
+bool FileLock::acquired() const noexcept {
     return acquired_;
 }
 

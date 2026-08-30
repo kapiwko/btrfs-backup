@@ -22,9 +22,11 @@ class PollingCancellationWatch final : public btrfsbackup::backup::ICancellation
     );
     PollingCancellationWatch(const PollingCancellationWatch&) = delete;
     PollingCancellationWatch& operator=(const PollingCancellationWatch&) = delete;
-    ~PollingCancellationWatch() override;
+    PollingCancellationWatch(PollingCancellationWatch&&) = delete;
+    PollingCancellationWatch& operator=(PollingCancellationWatch&&) = delete;
+    ~PollingCancellationWatch() noexcept override;
 
-    std::optional<std::string> close() override;
+    [[nodiscard]] const std::optional<btrfsbackup::backup::CleanupDiagnostic>& close() noexcept override;
 
   private:
     void run(std::stop_token stop);
@@ -34,6 +36,7 @@ class PollingCancellationWatch final : public btrfsbackup::backup::ICancellation
     CancellationToken& cancellation_;
     std::jthread worker_;
     bool closed_ = false;
+    std::optional<btrfsbackup::backup::CleanupDiagnostic> close_diagnostic_;
 };
 
 } // namespace btrfsbackup::state

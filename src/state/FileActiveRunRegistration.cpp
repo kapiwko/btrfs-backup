@@ -5,13 +5,13 @@
 #include <state/FileActiveRunRegistration.hpp>
 
 #include <exception>
-#include <type_traits>
-
-static_assert(std::is_nothrow_destructible_v<btrfsbackup::state::FileActiveRunRegistration>);
 #include <iostream>
+#include <type_traits>
 #include <utility>
 
 #include <state/RunState.hpp>
+
+static_assert(std::is_nothrow_destructible_v<btrfsbackup::state::FileActiveRunRegistration>);
 
 namespace btrfsbackup::state {
 
@@ -23,31 +23,25 @@ FileActiveRunRegistration::FileActiveRunRegistration(
     : files_(files), profile_state_dir_(std::move(profile_state_dir)), run_id_(std::move(run_id)) {
 }
 
-FileActiveRunRegistration::~FileActiveRunRegistration() {
-    try {
-        if (std::optional<std::string> diagnostic = close()) {
-            std::clog << "btrfs-backup: active run cleanup failed: " << *diagnostic << '\n';
-        }
-    } catch (const std::exception& error) {
-        std::clog << "btrfs-backup: active run cleanup failed: " << error.what() << '\n';
-    } catch (...) {
-        std::clog << "btrfs-backup: active run cleanup failed with an unknown error\n";
+FileActiveRunRegistration::~FileActiveRunRegistration() noexcept {
+    if (const auto& diagnostic = close()) {
+        std::clog << "btrfs-backup: active run cleanup failed: " << diagnostic->message << '\n';
     }
 }
 
-std::optional<std::string> FileActiveRunRegistration::close() {
+const std::optional<btrfsbackup::backup::CleanupDiagnostic>& FileActiveRunRegistration::close() noexcept {
     if (closed_) {
-        return std::nullopt;
+        return close_diagnostic_;
     }
     closed_ = true;
     try {
         btrfsbackup::state::clear_active_run(files_, profile_state_dir_, run_id_);
-        return std::nullopt;
     } catch (const std::exception& error) {
-        return error.what();
+        close_diagnostic_ = btrfsbackup::backup::CleanupDiagnostic{error.what()};
     } catch (...) {
-        return "unknown active run cleanup failure";
+        close_diagnostic_ = btrfsbackup::backup::CleanupDiagnostic{"unknown active run cleanup failure"};
     }
+    return close_diagnostic_;
 }
 
 } // namespace btrfsbackup::state

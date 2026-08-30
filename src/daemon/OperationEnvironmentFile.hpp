@@ -16,10 +16,12 @@ class OperationEnvironmentFile {
         const std::filesystem::path& root,
         const AuthorizedOperationContext& context
     );
-    ~OperationEnvironmentFile();
+    ~OperationEnvironmentFile() noexcept;
 
     OperationEnvironmentFile(const OperationEnvironmentFile&) = delete;
     OperationEnvironmentFile& operator=(const OperationEnvironmentFile&) = delete;
+    OperationEnvironmentFile(OperationEnvironmentFile&&) = delete;
+    OperationEnvironmentFile& operator=(OperationEnvironmentFile&&) = delete;
 
   private:
     std::filesystem::path path_;
