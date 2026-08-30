@@ -115,6 +115,9 @@ ColumnLayout {
         font: Kirigami.Theme.smallFont
         opacity: 0.7
 
+        PlasmaComponents3.ToolTip {
+            text: root.measuredAt
+        }
     }
 
     RowLayout {
