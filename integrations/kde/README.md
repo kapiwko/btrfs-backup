@@ -14,8 +14,9 @@ io.github.btrfsbackup.Manager1
 
 QML only binds to C++ properties. The C++ model validates manager capabilities,
 loads public profiles, status, target state and sanitized history, and invokes
-authorized operations asynchronously. It does not spawn `btrfs-backupctl` or
-block the UI thread on D-Bus calls.
+authorized operations asynchronously. Subsequent refreshes are driven by D-Bus
+change signals rather than polling. It does not spawn `btrfs-backupctl` or block
+the UI thread on D-Bus calls.
 
 `managerConnected` reports whether a compatible manager has answered. It must
 not be interpreted as target-device connectivity; target lifecycle is a

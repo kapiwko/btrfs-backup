@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include "ManagerApi.hpp"
+
 #include <QDBusConnection>
 #include <QDBusServiceWatcher>
 #include <QObject>
@@ -96,7 +98,6 @@ class BackupStatusModel : public QObject {
 
   private:
     void connectToManager();
-    void refresh();
     void requestProfiles();
     void requestStatus();
     void requestDeviceState();
@@ -113,14 +114,19 @@ class BackupStatusModel : public QObject {
 
     QString profile_ = QStringLiteral("default");
     QDBusConnection bus_;
+    btrfsbackup::kde::ManagerEventSubscriber manager_events_;
     QDBusServiceWatcher service_watcher_;
-    QTimer poll_timer_;
     QTimer operation_message_timer_;
     bool active_ = false;
     bool capabilities_verified_ = false;
+    bool profiles_request_pending_ = false;
     bool status_request_pending_ = false;
     bool device_request_pending_ = false;
     bool history_request_pending_ = false;
+    bool profiles_refresh_queued_ = false;
+    bool status_refresh_queued_ = false;
+    bool device_refresh_queued_ = false;
+    bool history_refresh_queued_ = false;
     bool manager_connected_ = false;
     bool operation_pending_ = false;
     quint64 generation_ = 0;

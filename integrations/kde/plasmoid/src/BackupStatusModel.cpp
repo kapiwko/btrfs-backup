@@ -15,10 +15,10 @@
 #include <QMap>
 #include <QVariantMap>
 
+#include <utility>
+
 namespace {
 
-constexpr int active_poll_interval_ms = 1000;
-constexpr int idle_poll_interval_ms = 5000;
 constexpr int operation_message_timeout_ms = 5000;
 
 int json_int(const QJsonObject& object, const char* key, int fallback = 0) {
@@ -36,11 +36,12 @@ QString parseError(const QJsonParseError& error) {
 } // namespace
 
 BackupStatusModel::BackupStatusModel(QObject* parent)
-    : QObject(parent), bus_(QDBusConnection::systemBus()), service_watcher_(QLatin1String(btrfsbackup::kde::manager_service), bus_, QDBusServiceWatcher::WatchForRegistration | QDBusServiceWatcher::WatchForUnregistration, this) {
-    poll_timer_.setInterval(idle_poll_interval_ms);
+    : QObject(parent),
+      bus_(QDBusConnection::systemBus()),
+      manager_events_(bus_, this),
+      service_watcher_(QLatin1String(btrfsbackup::kde::manager_service), bus_, QDBusServiceWatcher::WatchForRegistration | QDBusServiceWatcher::WatchForUnregistration, this) {
     operation_message_timer_.setInterval(operation_message_timeout_ms);
     operation_message_timer_.setSingleShot(true);
-    connect(&poll_timer_, &QTimer::timeout, this, &BackupStatusModel::refresh);
     connect(&operation_message_timer_, &QTimer::timeout, this, [this]() {
         if (!last_operation_.isEmpty()) {
             last_operation_.clear();
@@ -56,6 +57,26 @@ BackupStatusModel::BackupStatusModel(QObject* parent)
         if (active_) {
             managerUnavailable();
         }
+    });
+    connect(&manager_events_, &btrfsbackup::kde::ManagerEventSubscriber::profilesChanged, this, [this]() {
+        if (active_ && capabilities_verified_) {
+            requestProfiles();
+            requestStatus();
+            requestDeviceState();
+            requestHistory();
+        }
+    });
+    connect(&manager_events_, &btrfsbackup::kde::ManagerEventSubscriber::statusChanged, this, [this](const QString& profile_id) {
+        if (active_ && capabilities_verified_ && profile_id == profile_)
+            requestStatus();
+    });
+    connect(&manager_events_, &btrfsbackup::kde::ManagerEventSubscriber::historyChanged, this, [this](const QString& profile_id) {
+        if (active_ && capabilities_verified_ && profile_id == profile_)
+            requestHistory();
+    });
+    connect(&manager_events_, &btrfsbackup::kde::ManagerEventSubscriber::deviceStateChanged, this, [this](const QString& profile_id) {
+        if (active_ && capabilities_verified_ && profile_id == profile_)
+            requestDeviceState();
     });
 }
 
@@ -83,9 +104,14 @@ void BackupStatusModel::setProfile(const QString& profile) {
     operation_message_timer_.stop();
     last_operation_.clear();
     ++generation_;
+    profiles_request_pending_ = false;
     status_request_pending_ = false;
     device_request_pending_ = false;
     history_request_pending_ = false;
+    profiles_refresh_queued_ = false;
+    status_refresh_queued_ = false;
+    device_refresh_queued_ = false;
+    history_refresh_queued_ = false;
     operation_pending_ = false;
     emit profileChanged();
     emit statusChanged();
@@ -210,11 +236,15 @@ void BackupStatusModel::start() {
 
 void BackupStatusModel::stop() {
     active_ = false;
-    poll_timer_.stop();
     ++generation_;
+    profiles_request_pending_ = false;
     status_request_pending_ = false;
     device_request_pending_ = false;
     history_request_pending_ = false;
+    profiles_refresh_queued_ = false;
+    status_refresh_queued_ = false;
+    device_refresh_queued_ = false;
+    history_refresh_queued_ = false;
     capabilities_verified_ = false;
     operation_pending_ = false;
     operation_message_timer_.stop();
@@ -259,11 +289,15 @@ void BackupStatusModel::ejectTarget() {
 }
 
 void BackupStatusModel::connectToManager() {
-    poll_timer_.stop();
     capabilities_verified_ = false;
+    profiles_request_pending_ = false;
     status_request_pending_ = false;
     device_request_pending_ = false;
     history_request_pending_ = false;
+    profiles_refresh_queued_ = false;
+    status_refresh_queued_ = false;
+    device_refresh_queued_ = false;
+    history_refresh_queued_ = false;
     const quint64 request_generation = ++generation_;
     auto* watcher = new QDBusPendingCallWatcher(btrfsbackup::kde::manager_call(bus_, QStringLiteral("GetCapabilities")), this);
     connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, watcher, request_generation](QDBusPendingCallWatcher*) {
@@ -283,7 +317,8 @@ void BackupStatusModel::connectToManager() {
             managerUnavailable();
             return;
         }
-        if (capabilities->api_major != 1 || capabilities->public_status_schema_version != 3) {
+        if (capabilities->api_major != 1 || capabilities->public_status_schema_version != 3 ||
+            !capabilities->features.contains(QStringLiteral("change-signals"))) {
             setLastError(tr("The backup manager API is not compatible with this widget."));
             managerUnavailable();
             return;
@@ -298,19 +333,15 @@ void BackupStatusModel::connectToManager() {
         requestStatus();
         requestDeviceState();
         requestHistory();
-        poll_timer_.start();
     });
 }
 
-void BackupStatusModel::refresh() {
-    if (active_ && capabilities_verified_) {
-        requestStatus();
-        requestDeviceState();
-    }
-}
-
 void BackupStatusModel::requestDeviceState() {
-    if (!supports(QStringLiteral("device-state")) || device_request_pending_) {
+    if (!supports(QStringLiteral("device-state"))) {
+        return;
+    }
+    if (device_request_pending_) {
+        device_refresh_queued_ = true;
         return;
     }
     device_request_pending_ = true;
@@ -320,22 +351,27 @@ void BackupStatusModel::requestDeviceState() {
     connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, watcher, request_generation, requested_profile](QDBusPendingCallWatcher*) {
         const QDBusPendingReply<QString> reply = *watcher;
         watcher->deleteLater();
-        if (request_generation == generation_) {
-            device_request_pending_ = false;
-        }
         if (!active_ || request_generation != generation_ || requested_profile != profile_) {
             return;
         }
+        device_request_pending_ = false;
+        const bool refresh_again = std::exchange(device_refresh_queued_, false);
         if (reply.isError()) {
             setLastError(tr("Could not load backup target state from the system manager."));
-            return;
+        } else {
+            applyDeviceState(reply.value());
         }
-        applyDeviceState(reply.value());
+        if (refresh_again)
+            requestDeviceState();
     });
 }
 
 void BackupStatusModel::requestHistory() {
-    if (!supports(QStringLiteral("sanitized-history")) || history_request_pending_) {
+    if (!supports(QStringLiteral("sanitized-history"))) {
+        return;
+    }
+    if (history_request_pending_) {
+        history_refresh_queued_ = true;
         return;
     }
     history_request_pending_ = true;
@@ -345,21 +381,27 @@ void BackupStatusModel::requestHistory() {
     connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, watcher, request_generation, requested_profile](QDBusPendingCallWatcher*) {
         const QDBusPendingReply<QString> reply = *watcher;
         watcher->deleteLater();
-        if (request_generation == generation_) {
-            history_request_pending_ = false;
-        }
         if (!active_ || request_generation != generation_ || requested_profile != profile_) {
             return;
         }
+        history_request_pending_ = false;
+        const bool refresh_again = std::exchange(history_refresh_queued_, false);
         if (reply.isError()) {
             setLastError(tr("Could not load backup history from the system manager."));
-            return;
+        } else {
+            applyHistory(reply.value());
         }
-        applyHistory(reply.value());
+        if (refresh_again)
+            requestHistory();
     });
 }
 
 void BackupStatusModel::requestProfiles() {
+    if (profiles_request_pending_) {
+        profiles_refresh_queued_ = true;
+        return;
+    }
+    profiles_request_pending_ = true;
     const quint64 request_generation = generation_;
     auto* watcher = new QDBusPendingCallWatcher(btrfsbackup::kde::manager_call(bus_, QStringLiteral("ListProfiles")), this);
     connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, watcher, request_generation](QDBusPendingCallWatcher*) {
@@ -368,16 +410,21 @@ void BackupStatusModel::requestProfiles() {
         if (!active_ || request_generation != generation_) {
             return;
         }
+        profiles_request_pending_ = false;
+        const bool refresh_again = std::exchange(profiles_refresh_queued_, false);
         if (reply.isError()) {
             setLastError(tr("Could not load backup profiles from the system manager."));
-            return;
+        } else {
+            applyProfiles(reply.value());
         }
-        applyProfiles(reply.value());
+        if (refresh_again)
+            requestProfiles();
     });
 }
 
 void BackupStatusModel::requestStatus() {
     if (status_request_pending_) {
+        status_refresh_queued_ = true;
         return;
     }
     status_request_pending_ = true;
@@ -387,17 +434,18 @@ void BackupStatusModel::requestStatus() {
     connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, watcher, request_generation, requested_profile](QDBusPendingCallWatcher*) {
         const QDBusPendingReply<QString> reply = *watcher;
         watcher->deleteLater();
-        if (request_generation == generation_) {
-            status_request_pending_ = false;
-        }
         if (!active_ || request_generation != generation_ || requested_profile != profile_) {
             return;
         }
+        status_request_pending_ = false;
+        const bool refresh_again = std::exchange(status_refresh_queued_, false);
         if (reply.isError()) {
             setLastError(tr("Could not load backup status from the system manager."));
-            return;
+        } else {
+            applyStatus(reply.value());
         }
-        applyStatus(reply.value());
+        if (refresh_again)
+            requestStatus();
     });
 }
 
@@ -450,8 +498,6 @@ void BackupStatusModel::applyStatus(const QString& payload) {
     source_progress_ = status->source_progress;
     overall_progress_ = status->overall_progress;
     progress_accuracy_ = status->progress_accuracy;
-    const bool active_run = btrfsbackup::kde::active_run_state(state_);
-    poll_timer_.setInterval(active_run ? active_poll_interval_ms : idle_poll_interval_ms);
     error_code_ = status->error_code;
     setManagerConnected(true);
     setLastError(QString());
@@ -580,12 +626,16 @@ void BackupStatusModel::setLastError(const QString& message) {
 }
 
 void BackupStatusModel::managerUnavailable() {
-    poll_timer_.stop();
     ++generation_;
     capabilities_verified_ = false;
+    profiles_request_pending_ = false;
     status_request_pending_ = false;
     device_request_pending_ = false;
     history_request_pending_ = false;
+    profiles_refresh_queued_ = false;
+    status_refresh_queued_ = false;
+    device_refresh_queued_ = false;
+    history_refresh_queued_ = false;
     features_.clear();
     operation_pending_ = false;
     emit operationChanged();

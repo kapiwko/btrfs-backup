@@ -1,7 +1,8 @@
 # System Manager
 
-Status: query, authorized operational control and stable audit records
-implemented; administrative mutation and the later delivery stages remain planned.
+Status: query, event-driven change signals, authorized operational control and
+stable audit records implemented; administrative mutation and later delivery
+stages remain planned.
 
 Descriptions of the current query and operational-control surface below are
 implemented unless explicitly marked as planned. The delivery sequence records
@@ -34,6 +35,10 @@ StartBackup
 CancelBackup
 ValidateTarget
 EjectTarget
+ProfilesChanged
+StatusChanged
+HistoryChanged
+DeviceStateChanged
 ```
 
 Later administrative operations include profile save/delete and device
@@ -47,9 +52,11 @@ major versions and tolerate unknown optional fields.
 ## State Ownership
 
 The runner owns execution and writes runtime current status plus durable
-history. The manager loads the current files on each request and falls back to
-durable history after the oneshot runner exits. It never owns or signals the
-running backup process, and stopping the manager cannot stop an active run.
+history. The manager loads the current files on each request, falls back to
+durable history after the oneshot runner exits, and emits invalidation signals
+when those files change. It observes files, udev and kernel mount notifications;
+it never owns or signals the running backup process, and stopping the manager
+cannot stop an active run.
 
 `TargetStatus` is separate from `RunStatus` and represents mounted, ejecting,
 safe-to-remove and error states based on the actual target lifecycle.
@@ -84,16 +91,14 @@ not the audit contract.
 
 1. read-only capabilities, profiles, status, history and device state
    (implemented);
-2. state-change signals (planned); file-backed query reconstruction after a
-   manager restart is implemented;
+2. state-change signals and file-backed reconstruction after a manager restart
+   (implemented);
 3. operational start/cancel/validate/eject actions with polkit (implemented);
 4. administrative profile writes and hook-change authorization (planned);
-5. shared C++ client, KDE monitor and KCM (planned);
+5. shared C++ client and KDE monitor (implemented); KCM (planned);
 6. scheduling and request queue integration (planned).
 
 ## Open Questions
 
-- state-change signals and their coalescing rules;
-- observation mechanism for status changes;
 - ObjectManager adoption if multiple live run objects are introduced;
 - exact boundary between systemd unit control and application orchestration.
