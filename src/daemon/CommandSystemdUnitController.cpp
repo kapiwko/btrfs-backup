@@ -119,7 +119,7 @@ StartJobResult CommandSystemdUnitController::start_unit(const StartUnitRequest& 
     );
     if (result.exit_code == 0 && !result.cancelled && !result.timed_out)
         return {};
-    return {.error = job_error(commands_, result, request.unit, true)};
+    return std::unexpected(job_error(commands_, result, request.unit, true));
 }
 
 StopJobResult CommandSystemdUnitController::stop_unit(const StopUnitRequest& request) {
@@ -129,7 +129,7 @@ StopJobResult CommandSystemdUnitController::stop_unit(const StopUnitRequest& req
     );
     if (result.exit_code == 0 && !result.cancelled && !result.timed_out)
         return {};
-    return {.error = job_error(commands_, result, request.unit, false)};
+    return std::unexpected(job_error(commands_, result, request.unit, false));
 }
 
 TransientJobResult CommandSystemdUnitController::start_transient_unit(
@@ -138,7 +138,7 @@ TransientJobResult CommandSystemdUnitController::start_transient_unit(
     const auto result = commands_.run_controlled(transient_command(request), options(request.timeout));
     if (result.exit_code == 0 && !result.cancelled && !result.timed_out)
         return {};
-    return {.error = job_error(commands_, result, request.unit, request.wait)};
+    return std::unexpected(job_error(commands_, result, request.unit, request.wait));
 }
 
 } // namespace btrfsbackup::daemon
