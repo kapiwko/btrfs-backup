@@ -16,6 +16,7 @@ add_library(btrfsbackup-platform-linux-process STATIC
     process/ControlledCommandSession.cpp
     process/PosixCommandRunner.cpp
     process/Process.cpp
+    process/ProcessEnvironment.cpp
     process/ProcessSpawn.cpp
     process/TerminationSignalMonitor.cpp
 )
@@ -24,6 +25,7 @@ target_restricted_include_directories(btrfsbackup-platform-linux-process
         platform/linux/process/ChildProcess.hpp
         platform/linux/process/PosixCommandRunner.hpp
         platform/linux/process/Process.hpp
+        platform/linux/process/ProcessEnvironment.hpp
         platform/linux/process/ProcessSpawn.hpp
         platform/linux/process/TerminationSignalMonitor.hpp
     PRIVATE_HEADERS

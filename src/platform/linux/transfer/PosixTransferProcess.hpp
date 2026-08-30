@@ -19,7 +19,8 @@ process::ProcessSpawnResult spawn_posix_transfer_process(
     int stdin_fd,
     int stdout_fd,
     int stderr_fd,
-    const std::vector<std::shared_ptr<btrfsbackup::backup::transfer::ITransferResource>>& resources
+    const std::vector<std::shared_ptr<btrfsbackup::backup::transfer::ITransferResource>>& resources,
+    process::ProcessEnvironment environment
 );
 
 bool reap_posix_transfer_process(pid_t pid, btrfsbackup::backup::transfer::TransferSideResult& result);

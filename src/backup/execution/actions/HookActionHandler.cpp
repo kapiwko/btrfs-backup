@@ -59,6 +59,7 @@ void HookActionHandler::handle(
                                                     .cancellation = &cancellation,
                                                     .timeout = action.hook.timeout,
                                                     .inherited_fds = executable->inherited_fds(),
+                                                    .environment_profile = CommandEnvironmentProfile::Hook,
                                                     .environment = {
                                                         {"BTRFS_BACKUP_PROFILE_ID", std::string(profile_id.value())},
                                                         {"BTRFS_BACKUP_SOURCE_ID", std::string(action.source_id.value())},

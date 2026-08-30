@@ -19,6 +19,7 @@
 
 #include <platform/linux/process/Process.hpp>
 #include <platform/linux/process/ChildProcess.hpp>
+#include <platform/linux/process/ProcessEnvironment.hpp>
 #include <platform/linux/process/ProcessSpawn.hpp>
 #include <core/Cancellation.hpp>
 
@@ -150,6 +151,7 @@ void test_controlled_command_adds_explicit_environment() {
         {"env"},
         {
             .timeout = std::chrono::seconds(1),
+            .environment_profile = btrfsbackup::backup::CommandEnvironmentProfile::Hook,
             .environment = {
                 {"BTRFS_BACKUP_PROFILE_ID", "laptop"},
                 {"BTRFS_BACKUP_SOURCE_ID", "home"},
@@ -170,6 +172,67 @@ void test_controlled_command_adds_explicit_environment() {
         "explicit environment",
         environment_lines(result.output) == expected,
         "controlled child received an unexpected environment"
+    );
+}
+
+void test_standard_command_rejects_environment_overrides() {
+    test_helpers::expect_validation_error(
+        "standard environment override",
+        [] {
+            (void)btrfsbackup::platform::linux::process::run_controlled_command(
+                {"env"},
+                {
+                    .environment = {{"PATH", "/tmp/untrusted"}},
+                }
+            );
+        },
+        "explicit environment variables require the hook profile"
+    );
+}
+
+void test_hook_environment_rejects_protected_variables() {
+    test_helpers::expect_validation_error(
+        "hook loader environment",
+        [] {
+            (void)btrfsbackup::platform::linux::process::ProcessEnvironment::for_hook({
+                {"LD_PRELOAD", "/tmp/untrusted.so"},
+            });
+        },
+        "hook cannot override protected environment variable: LD_PRELOAD"
+    );
+    test_helpers::expect_validation_error(
+        "hook path environment",
+        [] {
+            (void)btrfsbackup::platform::linux::process::ProcessEnvironment::for_hook({
+                {"PATH", "/tmp/untrusted"},
+            });
+        },
+        "hook cannot override protected environment variable: PATH"
+    );
+}
+
+void test_named_process_environments_are_controlled() {
+    using btrfsbackup::platform::linux::process::ProcessEnvironment;
+    const std::map<std::string, std::string> expected{
+        {"HOME", "/root"},
+        {"LANG", "C.UTF-8"},
+        {"LC_ALL", "C.UTF-8"},
+        {"PATH", "/usr/bin"},
+    };
+    test_helpers::expect_true(
+        "btrfs send environment",
+        ProcessEnvironment::for_btrfs_send().variables() == expected,
+        "btrfs send environment is not controlled"
+    );
+    test_helpers::expect_true(
+        "btrfs receive environment",
+        ProcessEnvironment::for_btrfs_receive().variables() == expected,
+        "btrfs receive environment is not controlled"
+    );
+    test_helpers::expect_eq(
+        "systemd control locale",
+        ProcessEnvironment::for_systemd_control().variables().at("LC_ALL"),
+        "C"
     );
 }
 
@@ -304,6 +367,9 @@ int main() {
     test_run_command_uses_environment_allowlist();
     test_run_command_limits_captured_output();
     test_controlled_command_adds_explicit_environment();
+    test_standard_command_rejects_environment_overrides();
+    test_hook_environment_rejects_protected_variables();
+    test_named_process_environments_are_controlled();
     test_run_command_rejects_relative_program_path();
     test_run_command_rejects_empty_program();
     test_controlled_command_times_out_and_reaps_process();
