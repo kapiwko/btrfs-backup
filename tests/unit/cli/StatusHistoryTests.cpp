@@ -82,6 +82,56 @@ void test_status_falls_back_to_last_json() {
     fs::remove_all(root);
 }
 
+void test_status_recovers_from_stale_last_cache() {
+    fs::path root = test_root("status-stale-last");
+    const std::string newest = private_history("20260823T020000Z-1-2", "newest");
+    test_helpers::write_file(
+        root / "history" / "default" / "20260823T020000Z-1-2.json",
+        newest
+    );
+    test_helpers::write_file(
+        root / "history" / "default" / "last.json",
+        private_history("20260823T010000Z-1-1", "stale")
+    );
+    std::ostringstream output;
+
+    btrfsbackup::cli::status::status_show(root / "status", root / "history", {}, output);
+
+    test_helpers::expect_eq("stale last cache fallback", output.str(), newest + "\n");
+    fs::remove_all(root);
+}
+
+void test_status_recovers_from_missing_last_cache() {
+    fs::path root = test_root("status-missing-last");
+    const std::string newest = private_history("20260823T020000Z-1-2", "newest");
+    test_helpers::write_file(
+        root / "history" / "default" / "20260823T020000Z-1-2.json",
+        newest
+    );
+    std::ostringstream output;
+
+    btrfsbackup::cli::status::status_show(root / "status", root / "history", {}, output);
+
+    test_helpers::expect_eq("missing last cache fallback", output.str(), newest + "\n");
+    fs::remove_all(root);
+}
+
+void test_status_recovers_from_malformed_last_cache() {
+    fs::path root = test_root("status-malformed-last");
+    const std::string newest = private_history("20260823T020000Z-1-2", "newest");
+    test_helpers::write_file(
+        root / "history" / "default" / "20260823T020000Z-1-2.json",
+        newest
+    );
+    test_helpers::write_file(root / "history" / "default" / "last.json", "{invalid");
+    std::ostringstream output;
+
+    btrfsbackup::cli::status::status_show(root / "status", root / "history", {}, output);
+
+    test_helpers::expect_eq("malformed last cache fallback", output.str(), newest + "\n");
+    fs::remove_all(root);
+}
+
 void test_list_profiles_from_json_files() {
     fs::path root = test_root("profiles");
     test_helpers::write_file(root / "profiles" / "beta" / "profile.json", "{}\n");
@@ -307,6 +357,9 @@ void test_history_ignores_symbolic_links() {
 int main() {
     test_history_without_directory_returns_empty_array();
     test_status_falls_back_to_last_json();
+    test_status_recovers_from_stale_last_cache();
+    test_status_recovers_from_missing_last_cache();
+    test_status_recovers_from_malformed_last_cache();
     test_list_profiles_from_json_files();
     test_public_status_human_format();
     test_private_history_human_format();
