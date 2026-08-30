@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <daemon/AuthorizedOperationCommand.hpp>
+#include <daemon/control/AuthorizedOperationCommand.hpp>
 
 #include <chrono>
 #include <string>
@@ -11,7 +11,7 @@
 #include <config/ConfigurationIdentity.hpp>
 #include <core/Errors.hpp>
 
-namespace btrfsbackup::daemon {
+namespace btrfsbackup::daemon::control {
 
 namespace {
 
@@ -136,4 +136,4 @@ TransientUnitRequest authorized_target_eject_unit(const AuthorizedOperationConte
     return unit;
 }
 
-} // namespace btrfsbackup::daemon
+} // namespace btrfsbackup::daemon::control

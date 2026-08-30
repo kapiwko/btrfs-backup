@@ -5,6 +5,7 @@
 set(namespace_layout
     "src/backup/execution|btrfsbackup::backup::execution"
     "src/backup/planning|btrfsbackup::backup::planning"
+    "src/daemon/control|btrfsbackup::daemon::control"
     "src/daemon/query|btrfsbackup::daemon::query"
     "src/platform/linux/systemd|btrfsbackup::platform::linux::systemd"
     "src/platform/linux/storage|btrfsbackup::platform::linux::storage"

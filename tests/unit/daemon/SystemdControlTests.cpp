@@ -11,9 +11,9 @@
 #include <vector>
 
 #include <backup/ports/CancellationRequestStore.hpp>
-#include <daemon/CommandSystemdUnitController.hpp>
+#include <daemon/control/CommandSystemdUnitController.hpp>
 #include <daemon/ManagerErrors.hpp>
-#include <daemon/SystemOperationalControlBackend.hpp>
+#include <daemon/control/SystemOperationalControlBackend.hpp>
 
 #include "support/TestHelpers.hpp"
 
@@ -23,20 +23,20 @@ namespace backup = btrfsbackup::backup;
 namespace config = btrfsbackup::config;
 using btrfsbackup::OperationId;
 using btrfsbackup::ProfileId;
-using btrfsbackup::daemon::AuthorizedOperationContext;
-using btrfsbackup::daemon::CommandSystemdUnitController;
-using btrfsbackup::daemon::ISystemdUnitController;
+using btrfsbackup::daemon::control::AuthorizedOperationContext;
+using btrfsbackup::daemon::control::CommandSystemdUnitController;
+using btrfsbackup::daemon::control::ISystemdUnitController;
 using btrfsbackup::daemon::ManagerErrorCode;
 using btrfsbackup::daemon::ManagerOperationError;
-using btrfsbackup::daemon::StartJobResult;
-using btrfsbackup::daemon::StartUnitRequest;
-using btrfsbackup::daemon::StopJobResult;
-using btrfsbackup::daemon::StopUnitRequest;
-using btrfsbackup::daemon::SystemdJobError;
-using btrfsbackup::daemon::SystemdJobFailure;
-using btrfsbackup::daemon::SystemOperationalControlBackend;
-using btrfsbackup::daemon::TransientJobResult;
-using btrfsbackup::daemon::TransientUnitRequest;
+using btrfsbackup::daemon::control::StartJobResult;
+using btrfsbackup::daemon::control::StartUnitRequest;
+using btrfsbackup::daemon::control::StopJobResult;
+using btrfsbackup::daemon::control::StopUnitRequest;
+using btrfsbackup::daemon::control::SystemdJobError;
+using btrfsbackup::daemon::control::SystemdJobFailure;
+using btrfsbackup::daemon::control::SystemOperationalControlBackend;
+using btrfsbackup::daemon::control::TransientJobResult;
+using btrfsbackup::daemon::control::TransientUnitRequest;
 
 class FakeCommands final : public backup::ICommandRunner {
   public:

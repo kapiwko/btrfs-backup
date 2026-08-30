@@ -3,9 +3,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include <daemon/ManagerDbusServer.hpp>
-#include <daemon/CommandSystemdUnitController.hpp>
+#include <daemon/control/CommandSystemdUnitController.hpp>
 #include <daemon/ManagerAuditLog.hpp>
-#include <daemon/SystemOperationalControlBackend.hpp>
+#include <daemon/control/SystemOperationalControlBackend.hpp>
 
 #include <filesystem>
 #include <iostream>
@@ -98,8 +98,8 @@ int main(int argc, char** argv) {
         btrfsbackup::platform::linux::filesystem::PosixDurableFileOperations durable_files;
         btrfsbackup::state::FileRunStateRepository state(configured, durable_files);
         btrfsbackup::platform::linux::process::PosixCommandRunner commands;
-        btrfsbackup::daemon::CommandSystemdUnitController units(commands);
-        btrfsbackup::daemon::SystemOperationalControlBackend operational_backend(profiles, state, units);
+        btrfsbackup::daemon::control::CommandSystemdUnitController units(commands);
+        btrfsbackup::daemon::control::SystemOperationalControlBackend operational_backend(profiles, state, units);
         btrfsbackup::daemon::FileManagerAuditLog audit_log(audit_log_path);
         return btrfsbackup::daemon::run_dbus_server(
             service,

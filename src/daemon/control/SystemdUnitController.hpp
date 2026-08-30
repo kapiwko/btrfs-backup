@@ -10,7 +10,7 @@
 #include <string>
 #include <vector>
 
-namespace btrfsbackup::daemon {
+namespace btrfsbackup::daemon::control {
 
 enum class SystemdJobFailure {
     UnitNotFound,
@@ -61,4 +61,4 @@ class ISystemdUnitController {
     ) = 0;
 };
 
-} // namespace btrfsbackup::daemon
+} // namespace btrfsbackup::daemon::control

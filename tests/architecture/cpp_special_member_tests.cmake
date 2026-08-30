@@ -27,7 +27,7 @@ set(approved_special_member_types
     "src/daemon/ManagerAuditLog.hpp:FileManagerAuditLog"
     "src/daemon/ManagerChangeMonitor.hpp:ManagerChangeMonitor"
     "src/daemon/ManagerService.hpp:ManagerService"
-    "src/daemon/OperationEnvironmentFile.hpp:OperationEnvironmentFile"
+    "src/daemon/control/OperationEnvironmentFile.hpp:OperationEnvironmentFile"
     "src/platform/linux/process/ChildProcess.hpp:ChildProcess"
     "src/platform/linux/filesystem/FileLock.hpp:FileLock"
     "src/platform/linux/OwnedFileDescriptor.hpp:OwnedFileDescriptor"

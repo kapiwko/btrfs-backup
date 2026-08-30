@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <daemon/OperationEnvironmentFile.hpp>
+#include <daemon/control/OperationEnvironmentFile.hpp>
 
 #include <string>
 #include <system_error>
@@ -10,9 +10,9 @@
 
 #include <platform/linux/filesystem/FileIo.hpp>
 
-static_assert(std::is_nothrow_destructible_v<btrfsbackup::daemon::OperationEnvironmentFile>);
+static_assert(std::is_nothrow_destructible_v<btrfsbackup::daemon::control::OperationEnvironmentFile>);
 
-namespace btrfsbackup::daemon {
+namespace btrfsbackup::daemon::control {
 
 OperationEnvironmentFile::OperationEnvironmentFile(
     const std::filesystem::path& root,
@@ -30,4 +30,4 @@ OperationEnvironmentFile::~OperationEnvironmentFile() noexcept {
     std::filesystem::remove(path_, error);
 }
 
-} // namespace btrfsbackup::daemon
+} // namespace btrfsbackup::daemon::control

@@ -7,10 +7,10 @@
 #include <filesystem>
 #include <backup/ports/CancellationRequestStore.hpp>
 #include <config/ports/IProfileRepository.hpp>
-#include <daemon/OperationalControlService.hpp>
-#include <daemon/SystemdUnitController.hpp>
+#include <daemon/control/OperationalControlService.hpp>
+#include <daemon/control/SystemdUnitController.hpp>
 
-namespace btrfsbackup::daemon {
+namespace btrfsbackup::daemon::control {
 
 class SystemOperationalControlBackend final : public IOperationalControlBackend {
   public:
@@ -43,4 +43,4 @@ class SystemOperationalControlBackend final : public IOperationalControlBackend 
     std::filesystem::path operation_environment_root_;
 };
 
-} // namespace btrfsbackup::daemon
+} // namespace btrfsbackup::daemon::control

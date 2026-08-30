@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <daemon/CommandSystemdUnitController.hpp>
+#include <daemon/control/CommandSystemdUnitController.hpp>
 
 #include <algorithm>
 #include <cctype>
@@ -10,7 +10,7 @@
 #include <string>
 #include <vector>
 
-namespace btrfsbackup::daemon {
+namespace btrfsbackup::daemon::control {
 
 namespace {
 
@@ -141,4 +141,4 @@ TransientJobResult CommandSystemdUnitController::start_transient_unit(
     return std::unexpected(job_error(commands_, result, request.unit, request.wait));
 }
 
-} // namespace btrfsbackup::daemon
+} // namespace btrfsbackup::daemon::control

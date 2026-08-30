@@ -6,19 +6,19 @@
 
 #include <string>
 
-#include <daemon/OperationalControlService.hpp>
+#include <daemon/control/OperationalControlService.hpp>
 
 struct sd_bus;
 
 namespace btrfsbackup::daemon {
 
-class PolkitAuthorizer final : public IManagerAuthorizer {
+class PolkitAuthorizer final : public control::IManagerAuthorizer {
   public:
     explicit PolkitAuthorizer(sd_bus* bus);
 
     [[nodiscard]] bool authorize(
         const std::string& caller_bus_name,
-        ManagerAuthorizationAction action
+        control::ManagerAuthorizationAction action
     ) override;
     [[nodiscard]] bool caller_is_active(const std::string& caller_bus_name) override;
 

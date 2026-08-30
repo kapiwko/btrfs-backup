@@ -8,7 +8,7 @@
 #include <vector>
 
 #include <daemon/ManagerErrors.hpp>
-#include <daemon/OperationalControlService.hpp>
+#include <daemon/control/OperationalControlService.hpp>
 
 #include "support/TestHelpers.hpp"
 
@@ -19,16 +19,16 @@ using btrfsbackup::OperationId;
 using btrfsbackup::RunId;
 using btrfsbackup::config::ConfigurationFingerprint;
 using btrfsbackup::config::ConfigurationGeneration;
-using btrfsbackup::daemon::AuthorizedOperationContext;
-using btrfsbackup::daemon::IManagerAuthorizer;
-using btrfsbackup::daemon::IOperationalControlBackend;
-using btrfsbackup::daemon::ManagerAuthorizationAction;
-using btrfsbackup::daemon::ManagerCancellationOutcome;
+using btrfsbackup::daemon::control::AuthorizedOperationContext;
+using btrfsbackup::daemon::control::IManagerAuthorizer;
+using btrfsbackup::daemon::control::IOperationalControlBackend;
+using btrfsbackup::daemon::control::ManagerAuthorizationAction;
+using btrfsbackup::daemon::control::ManagerCancellationOutcome;
 using btrfsbackup::daemon::ManagerErrorCode;
 using btrfsbackup::daemon::ManagerOperationError;
 using btrfsbackup::daemon::OperationResult;
-using btrfsbackup::daemon::OperationalResourceVersion;
-using btrfsbackup::daemon::OperationalControlService;
+using btrfsbackup::daemon::control::OperationalResourceVersion;
+using btrfsbackup::daemon::control::OperationalControlService;
 
 class RecordingAuthorizer final : public IManagerAuthorizer {
   public:

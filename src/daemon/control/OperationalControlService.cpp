@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <daemon/OperationalControlService.hpp>
+#include <daemon/control/OperationalControlService.hpp>
 
 #include <atomic>
 #include <chrono>
@@ -12,7 +12,7 @@
 #include <core/ManagerProtocol.hpp>
 #include <daemon/ManagerErrors.hpp>
 
-namespace btrfsbackup::daemon {
+namespace btrfsbackup::daemon::control {
 
 namespace {
 
@@ -151,4 +151,4 @@ OperationResult OperationalControlService::eject_target(
     };
 }
 
-} // namespace btrfsbackup::daemon
+} // namespace btrfsbackup::daemon::control
