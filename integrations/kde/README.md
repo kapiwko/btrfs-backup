@@ -1,8 +1,8 @@
 # Plasma Integration
 
-This directory contains optional Plasma 6 integration. It is intentionally kept
-outside the main CMake project so the system backup runtime does not depend on
-Qt Quick, Kirigami, Plasma or a graphical session.
+This directory contains optional Plasma 6 integration. It is part of the main
+CMake graph only when `BUILD_KDE_INTEGRATION=ON`, so the system backup runtime
+does not require Qt Quick, Kirigami, Plasma or a graphical session by default.
 
 The first component is a plasmoid with a small C++ QML backend. The backend
 uses the implemented system manager D-Bus API:
@@ -32,10 +32,14 @@ remain administrator-authorized operations.
 ## Build
 
 ```bash
-cmake -S integrations/kde -B /tmp/btrfs-backup-plasma-build -DCMAKE_BUILD_TYPE=Release
-cmake --build /tmp/btrfs-backup-plasma-build
-ctest --test-dir /tmp/btrfs-backup-plasma-build --output-on-failure
-cmake --install /tmp/btrfs-backup-plasma-build --prefix "$HOME/.local"
+cmake -S . -B /tmp/btrfs-backup-build \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DBUILD_KDE_INTEGRATION=ON
+cmake --build /tmp/btrfs-backup-build --target btrfs-backup-kde
+ctest --test-dir /tmp/btrfs-backup-build -L kde --output-on-failure
+cmake --install /tmp/btrfs-backup-build \
+    --prefix "$HOME/.local" \
+    --component KDEIntegration
 ```
 
 The compiled QML module is installed under `lib/qt6/qml` relative to the chosen

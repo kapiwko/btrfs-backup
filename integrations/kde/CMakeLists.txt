@@ -2,32 +2,21 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-cmake_minimum_required(VERSION 3.20)
-
-file(READ "${CMAKE_CURRENT_SOURCE_DIR}/../../VERSION" BTRFS_BACKUP_VERSION)
-string(STRIP "${BTRFS_BACKUP_VERSION}" BTRFS_BACKUP_VERSION)
-if(NOT BTRFS_BACKUP_VERSION MATCHES "^[0-9]+\\.[0-9]+\\.[0-9]+$")
-    message(FATAL_ERROR "VERSION must contain a semantic version in MAJOR.MINOR.PATCH format")
-endif()
-
-project(
-    btrfs-backup-plasma
-    VERSION "${BTRFS_BACKUP_VERSION}"
-    LANGUAGES CXX
-)
-
 find_package(ECM REQUIRED NO_MODULE)
 set(CMAKE_MODULE_PATH ${ECM_MODULE_PATH})
 set(QT_DEFAULT_MAJOR_VERSION 6)
 set(CMAKE_AUTOMOC ON)
 
-include(KDEInstallDirs)
 include(KDECompilerSettings NO_POLICY_SCOPE)
-include(CTest)
+set(KDE_INSTALL_BINDIR "${CMAKE_INSTALL_BINDIR}")
+set(KDE_INSTALL_APPDIR "${CMAKE_INSTALL_DATADIR}/applications")
+set(KDE_INSTALL_DATADIR "${CMAKE_INSTALL_DATADIR}")
+set(KDE_INSTALL_LOCALEDIR "${CMAKE_INSTALL_DATADIR}/locale")
 
 find_package(Qt6 REQUIRED COMPONENTS Core DBus Gui Qml Quick)
 find_package(KF6 REQUIRED COMPONENTS CoreAddons I18n JobWidgets Package)
 find_package(Plasma REQUIRED)
+set(CMAKE_INSTALL_DEFAULT_COMPONENT_NAME KDEIntegration)
 ki18n_install(plasmoid/po)
 
 add_library(
@@ -167,6 +156,15 @@ install(
     DESTINATION "${BTRFSBACKUP_PLASMA_PACKAGE_INSTALL_DIR}"
 )
 
+add_custom_target(btrfs-backup-kde)
+add_dependencies(
+    btrfs-backup-kde
+    btrfs-backup-kde-monitor
+    btrfsbackup_plasma_backendplugin
+    pofiles
+    tsfiles
+)
+
 if(BUILD_TESTING)
     add_executable(
         plasma-progress-job-tests
@@ -191,6 +189,7 @@ if(BUILD_TESTING)
         target_compile_options(plasma-progress-job-tests PRIVATE -Wall -Wextra -Wpedantic)
     endif()
     add_test(NAME plasma-progress-job COMMAND plasma-progress-job-tests)
+    set_tests_properties(plasma-progress-job PROPERTIES LABELS kde)
 
     find_program(
         QML_EXECUTABLE
@@ -216,6 +215,11 @@ if(BUILD_TESTING)
                 QT_QPA_PLATFORM=offscreen
                 ${QML_EXECUTABLE}
                 ${CMAKE_CURRENT_SOURCE_DIR}/plasmoid/tests/transfer-speed-chart.qml
+        )
+        set_tests_properties(
+            plasma-backend-qml-smoke
+            plasma-transfer-speed-chart
+            PROPERTIES LABELS kde
         )
     endif()
 endif()
