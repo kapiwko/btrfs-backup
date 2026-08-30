@@ -445,6 +445,65 @@ restore_latest_snapshot() {
     pass 'latest repository snapshot completes a full restore drill'
 }
 
+restore_engine_test() {
+    local repository="$TARGET_MOUNT/snapshots"
+    local latest_remote relative snapshot_uuid received_uuid created_at
+    local restored="$SOURCE_MOUNT/restore-engine-result"
+    local drill_destination="$SOURCE_MOUNT/restore-engine-drill/result"
+
+    latest_remote="$(find "$repository/home" -mindepth 1 -maxdepth 1 -type d -name 'home-*' | sort | tail -n1)"
+    [[ -n "$latest_remote" ]] || fail 'restore engine has no repository snapshot'
+    relative="home/$(basename -- "$latest_remote")"
+    snapshot_uuid="$(btrfs subvolume show "$latest_remote" | sed -n 's/^[[:space:]]*UUID:[[:space:]]*//p' | head -n1)"
+    received_uuid="$(btrfs subvolume show "$latest_remote" | sed -n 's/^[[:space:]]*Received UUID:[[:space:]]*//p' | head -n1)"
+    created_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    [[ -n "$snapshot_uuid" && -n "$received_uuid" ]] \
+        || fail 'restore engine could not read real Btrfs snapshot identity'
+
+    cat > "$repository/repository.json" <<EOF_REPOSITORY
+{"schemaVersion":1,"repositoryId":"real-$TARGET_BTRFS_UUID","targetFilesystemUuid":"$TARGET_BTRFS_UUID","createdAt":"$created_at","features":["catalog-v1"]}
+EOF_REPOSITORY
+    cat > "$repository/catalog.json" <<EOF_CATALOG
+{"schemaVersion":1,"generation":1,"snapshots":[{"snapshotId":"real-latest","hostId":"real-host","profileId":"default","sourceId":"home","relativePath":"$relative","createdAt":"$created_at","uuid":"$snapshot_uuid","receivedUuid":"$received_uuid","verified":true}]}
+EOF_CATALOG
+
+    btrfs-backupctl restore plan \
+        --repository "$repository" \
+        --snapshot real-latest \
+        --source . \
+        --destination "$restored" \
+        --transaction real-plan \
+        --subvolume >/dev/null
+    [[ ! -e "$restored" ]] || fail 'restore plan mutated its destination'
+    btrfs-backupctl restore execute \
+        --repository "$repository" \
+        --snapshot real-latest \
+        --source . \
+        --destination "$restored" \
+        --transaction real-execute \
+        --subvolume >/dev/null
+    btrfs subvolume show "$restored" >/dev/null \
+        || fail 'restore engine did not create a Btrfs subvolume'
+    if ! diff -qr "$latest_remote" "$restored" >/dev/null; then
+        diff -qr "$latest_remote" "$restored" >&2 || true
+        fail 'restore engine output differs from the selected repository snapshot'
+    fi
+
+    btrfs-backupctl restore drill \
+        --repository "$repository" \
+        --snapshot real-latest \
+        --source . \
+        --destination "$drill_destination" \
+        --transaction real-drill >/dev/null
+    [[ ! -e "$drill_destination" ]] || fail 'restore drill published a destination'
+    [[ ! -e "$SOURCE_MOUNT/restore-engine-drill/.btrfs-backup-restore-real-drill.staging" ]] \
+        || fail 'restore drill left staging data'
+
+    btrfs subvolume delete -- "$restored" >/dev/null
+    rmdir -- "$SOURCE_MOUNT/restore-engine-drill"
+    pass 'restore engine plans, restores and drills against real Btrfs snapshots'
+}
+
 manager_independence_test() {
     local hook_dir=/etc/btrfs-backup/hooks.d
     local hook="$hook_dir/manager-independence-test"
@@ -749,7 +808,7 @@ missing_incremental_parent_test() {
 }
 
 require_root
-require_commands btrfs busctl cryptsetup dd diff dmsetup find findmnt grep journalctl ldd losetup mkfifo mkfs.btrfs mknod mount pacman perl runuser seq sha256sum stat systemd-escape tar tee timeout truncate useradd userdel
+require_commands btrfs busctl cryptsetup date dd diff dmsetup find findmnt grep journalctl ldd losetup mkfifo mkfs.btrfs mknod mount pacman perl runuser seq sha256sum stat systemd-escape tar tee timeout truncate useradd userdel
 ensure_loop_devices
 
 install -d -m0755 "$SOURCE_MOUNT" "$TARGET_MOUNT"
@@ -857,6 +916,7 @@ pass 'retention keeps the latest two local and remote snapshots'
 recover_interrupted_before_receive
 recover_interrupted_after_commit
 restore_latest_snapshot
+restore_engine_test
 manager_independence_test
 trusted_hook_security_test
 systemd_security_audit

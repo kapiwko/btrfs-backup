@@ -1,6 +1,6 @@
 # Repository Format
 
-Status: proposed.
+Status: format v1 reader implemented; automatic catalog writing remains planned.
 
 ## Purpose
 
