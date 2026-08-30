@@ -4,7 +4,7 @@
 
 add_btrfsbackup_test(
     btrfsbackup-authorized-operation-command-tests
-    authorized_operation_command_tests.cpp
+    AuthorizedOperationCommandTests.cpp
     authorized-operation-command-tests
     btrfsbackup-daemon-core
 )
@@ -15,7 +15,7 @@ target_compile_definitions(
 
 add_btrfsbackup_test(
     btrfsbackup-manager-audit-log-tests
-    manager_audit_log_tests.cpp
+    ManagerAuditLogTests.cpp
     manager-audit-log-tests
     btrfsbackup-daemon-core
     btrfsbackup-config-json
@@ -23,7 +23,7 @@ add_btrfsbackup_test(
 
 add_btrfsbackup_test(
     btrfsbackup-manager-service-tests
-    manager_service_tests.cpp
+    ManagerServiceTests.cpp
     manager-service-tests
     btrfsbackup-daemon-core
     btrfsbackup-config-json
@@ -31,7 +31,7 @@ add_btrfsbackup_test(
 
 add_btrfsbackup_test(
     btrfsbackup-manager-json-codec-tests
-    manager_json_codec_tests.cpp
+    ManagerJsonCodecTests.cpp
     manager-json-codec-tests
     btrfsbackup-daemon-core
     btrfsbackup-config-json
@@ -39,7 +39,7 @@ add_btrfsbackup_test(
 
 add_btrfsbackup_test(
     btrfsbackup-manager-error-mapper-tests
-    manager_error_mapper_tests.cpp
+    ManagerErrorMapperTests.cpp
     manager-error-mapper-tests
     btrfsbackup-daemon-core
     btrfsbackup-core
@@ -47,7 +47,7 @@ add_btrfsbackup_test(
 
 add_btrfsbackup_test(
     btrfsbackup-operational-control-service-tests
-    operational_control_service_tests.cpp
+    OperationalControlServiceTests.cpp
     operational-control-service-tests
     btrfsbackup-daemon-core
     btrfsbackup-core
@@ -55,7 +55,7 @@ add_btrfsbackup_test(
 
 add_btrfsbackup_test(
     btrfsbackup-systemd-control-tests
-    systemd_control_tests.cpp
+    SystemdControlTests.cpp
     systemd-control-tests
     btrfsbackup-daemon-system-control
 )

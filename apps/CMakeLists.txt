@@ -2,11 +2,11 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-add_executable(btrfs-backupctl btrfs-backupctl.cpp)
+add_executable(btrfs-backupctl BtrfsBackupCtl.cpp)
 set_target_properties(btrfs-backupctl PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR})
 target_link_libraries(btrfs-backupctl PRIVATE btrfsbackup-cli)
 
-add_executable(btrfs-backup-native btrfs-backup.cpp)
+add_executable(btrfs-backup-native BtrfsBackup.cpp)
 set_target_properties(
     btrfs-backup-native
     PROPERTIES

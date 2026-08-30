@@ -6,44 +6,44 @@ add_library(btrfsbackup-state-persistence-ports INTERFACE)
 target_compile_features(btrfsbackup-state-persistence-ports INTERFACE cxx_std_20)
 target_restricted_include_directories(btrfsbackup-state-persistence-ports
     INTERFACE_HEADERS
-        state/persistent_document_operations.hpp
+        state/PersistentDocumentOperations.hpp
 )
 
 add_library(btrfsbackup-state-model STATIC
-    run_status.cpp
+    RunStatus.cpp
 )
 
 target_compile_features(btrfsbackup-state-model PUBLIC cxx_std_20)
 target_restricted_include_directories(btrfsbackup-state-model
     PUBLIC_HEADERS
-        state/run_status.hpp
+        state/RunStatus.hpp
 )
 target_link_libraries(btrfsbackup-state-model PUBLIC btrfsbackup-core)
 
 add_library(btrfsbackup-state STATIC
-    serialization.cpp
-    file_pending_marker_store.cpp
-    file_run_state_repository.cpp
-    run_checkpoint_store.cpp
-    run_history.cpp
-    run_state.cpp
-    run_status_projection.cpp
-    status_service.cpp
-    status_writer.cpp
+    BackupRunSerialization.cpp
+    FilePendingMarkerStore.cpp
+    FileRunStateRepository.cpp
+    JsonFileBackupRunCheckpointStore.cpp
+    RunHistory.cpp
+    RunState.cpp
+    RunStatusProjection.cpp
+    StatusService.cpp
+    StatusWriter.cpp
 )
 
 target_compile_features(btrfsbackup-state PUBLIC cxx_std_20)
 target_restricted_include_directories(btrfsbackup-state
     PUBLIC_HEADERS
-        state/file_pending_marker_store.hpp
-        state/file_run_state_repository.hpp
-        state/run_checkpoint_store.hpp
-        state/run_history.hpp
-        state/run_state.hpp
-        state/run_status_projection.hpp
-        state/serialization.hpp
-        state/status_service.hpp
-        state/status_writer.hpp
+        state/FilePendingMarkerStore.hpp
+        state/FileRunStateRepository.hpp
+        state/JsonFileBackupRunCheckpointStore.hpp
+        state/RunHistory.hpp
+        state/RunState.hpp
+        state/RunStatusProjection.hpp
+        state/BackupRunSerialization.hpp
+        state/StatusService.hpp
+        state/StatusWriter.hpp
 )
 target_link_libraries(btrfsbackup-state
     PUBLIC

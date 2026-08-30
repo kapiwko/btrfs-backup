@@ -234,8 +234,10 @@ coordinator owned by `backup`.
 ## Rules
 
 1. Put a component's `.hpp` and `.cpp` files together in the owning domain.
-   Include internal headers through paths such as `<backup/backup_service.hpp>`
-   or `<platform/linux/process.hpp>`.
+   C++ filenames use `PascalCase` and match their primary type or precise
+   module concept; `main.cpp` remains the conventional entry-point exception.
+   Include internal headers through paths such as `<backup/BackupService.hpp>`
+   or `<platform/linux/Process.hpp>`.
 2. Reserve a future top-level `include/` directory for an intentionally public,
    versioned SDK. Do not mirror internal headers there.
 3. Each unit test belongs to the domain it exercises and links the narrowest

@@ -3,39 +3,39 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 add_library(btrfsbackup-config-domain STATIC
-    model/operation_path.cpp
-    model/repository_path.cpp
-    model/storage_policy.cpp
-    model/target_identity.cpp
-    model/validation.cpp
+    model/OperationPath.cpp
+    model/RepositoryPath.cpp
+    model/StoragePolicy.cpp
+    model/TargetIdentity.cpp
+    model/Validation.cpp
 )
 
 target_compile_features(btrfsbackup-config-domain PUBLIC cxx_std_20)
 target_restricted_include_directories(btrfsbackup-config-domain
     PUBLIC_HEADERS
-        config/model/configuration_generation.hpp
-        config/model/operation_path.hpp
-        config/model/profile.hpp
-        config/model/repository_path.hpp
-        config/model/storage_policy.hpp
-        config/model/target_identity.hpp
-        config/model/validation.hpp
-        config/application_paths.hpp
-        config/configuration_identity.hpp
+        config/model/ConfigurationGeneration.hpp
+        config/model/OperationPath.hpp
+        config/model/Profile.hpp
+        config/model/RepositoryPath.hpp
+        config/model/StoragePolicy.hpp
+        config/model/TargetIdentity.hpp
+        config/model/Validation.hpp
+        config/ApplicationPaths.hpp
+        config/ConfigurationIdentity.hpp
 )
 target_link_libraries(btrfsbackup-config-domain PUBLIC btrfsbackup-core)
 
 add_library(btrfsbackup-config-json STATIC
-    model/json_io.cpp
-    model/profile_document.cpp
+    model/JsonIo.cpp
+    model/ProfileDocument.cpp
 )
 
 target_compile_features(btrfsbackup-config-json PUBLIC cxx_std_20)
 target_restricted_include_directories(btrfsbackup-config-json
     PUBLIC_HEADERS
-        config/model/json.hpp
-        config/model/json_io.hpp
-        config/model/profile_document.hpp
+        config/model/Json.hpp
+        config/model/JsonIo.hpp
+        config/model/ProfileDocument.hpp
 )
 target_link_libraries(btrfsbackup-config-json
     PUBLIC
@@ -46,13 +46,13 @@ target_link_libraries(btrfsbackup-config-json
 )
 
 add_library(btrfsbackup-config-wizard STATIC
-    wizard/profile_wizard_model.cpp
+    wizard/ProfileWizardModel.cpp
 )
 
 target_compile_features(btrfsbackup-config-wizard PUBLIC cxx_std_20)
 target_restricted_include_directories(btrfsbackup-config-wizard
     PUBLIC_HEADERS
-        config/wizard/profile_wizard_model.hpp
+        config/wizard/ProfileWizardModel.hpp
 )
 target_link_libraries(btrfsbackup-config-wizard
     PUBLIC
@@ -63,14 +63,14 @@ target_link_libraries(btrfsbackup-config-wizard
 )
 
 add_library(btrfsbackup-config-ports STATIC
-    ports/profile_repository.cpp
+    ports/IProfileRepository.cpp
 )
 
 target_compile_features(btrfsbackup-config-ports PUBLIC cxx_std_20)
 target_restricted_include_directories(btrfsbackup-config-ports
     PUBLIC_HEADERS
-        config/ports/configuration_activator.hpp
-        config/ports/profile_repository.hpp
+        config/ports/ConfigurationActivator.hpp
+        config/ports/IProfileRepository.hpp
 )
 target_link_libraries(btrfsbackup-config-ports
     PUBLIC
@@ -80,23 +80,23 @@ target_link_libraries(btrfsbackup-config-ports
 )
 
 add_library(btrfsbackup-config STATIC
-    application_config.cpp
-    profile_fingerprint.cpp
-    profile_artifact_renderer.cpp
-    profile_render.cpp
-    wizard/profile_wizard_paths.cpp
-    wizard/profile_wizard_prompt.cpp
+    ApplicationConfig.cpp
+    ProfileFingerprint.cpp
+    ProfileArtifactRenderer.cpp
+    ProfileRender.cpp
+    wizard/ProfileWizardPaths.cpp
+    wizard/ProfileWizardPrompt.cpp
 )
 
 target_compile_features(btrfsbackup-config PUBLIC cxx_std_20)
 target_restricted_include_directories(btrfsbackup-config
     PUBLIC_HEADERS
-        config/application_config.hpp
-        config/profile_artifact_renderer.hpp
-        config/profile_fingerprint.hpp
-        config/profile_render.hpp
-        config/wizard/profile_wizard_paths.hpp
-        config/wizard/profile_wizard_prompt.hpp
+        config/ApplicationConfig.hpp
+        config/ProfileArtifactRenderer.hpp
+        config/ProfileFingerprint.hpp
+        config/ProfileRender.hpp
+        config/wizard/ProfileWizardPaths.hpp
+        config/wizard/ProfileWizardPrompt.hpp
 )
 target_link_libraries(btrfsbackup-config
     PUBLIC
@@ -107,22 +107,22 @@ target_link_libraries(btrfsbackup-config
 )
 
 add_library(btrfsbackup-platform-linux-config STATIC
-    ../platform/linux/config/application_config.cpp
-    ../platform/linux/config/installation_render.cpp
-    ../platform/linux/config/installation_service.cpp
-    ../platform/linux/config/installation_validate.cpp
-    ../platform/linux/config/profile_artifact_io.cpp
-    ../platform/linux/config/profile_activation_migration.cpp
-    ../platform/linux/config/profile_configuration_transaction.cpp
-    ../platform/linux/config/profile_installer.cpp
-    ../platform/linux/config/profile_repository.cpp
-    ../platform/linux/config/profile_runtime_policy.cpp
-    ../platform/linux/config/profile_service.cpp
-    ../platform/linux/config/profile_wizard_install.cpp
-    ../platform/linux/config/profile_wizard.cpp
-    ../platform/linux/config/profile_wizard_device.cpp
-    ../platform/linux/config/profile_wizard_sources.cpp
-    ../platform/linux/config/render_directory.cpp
+    ../platform/linux/config/ApplicationConfig.cpp
+    ../platform/linux/config/InstallationRender.cpp
+    ../platform/linux/config/InstallationService.cpp
+    ../platform/linux/config/InstallationValidate.cpp
+    ../platform/linux/config/ProfileArtifactIo.cpp
+    ../platform/linux/config/ProfileActivationMigration.cpp
+    ../platform/linux/config/ProfileConfigurationTransaction.cpp
+    ../platform/linux/config/ProfileInstaller.cpp
+    ../platform/linux/config/FileProfileRepository.cpp
+    ../platform/linux/config/ProfileRuntimePolicy.cpp
+    ../platform/linux/config/ProfileService.cpp
+    ../platform/linux/config/ProfileWizardInstall.cpp
+    ../platform/linux/config/ProfileWizard.cpp
+    ../platform/linux/config/ProfileWizardDevice.cpp
+    ../platform/linux/config/ProfileWizardSources.cpp
+    ../platform/linux/config/RenderDirectory.cpp
 )
 
 target_compile_features(btrfsbackup-platform-linux-config PUBLIC cxx_std_20)
@@ -132,24 +132,24 @@ target_compile_definitions(
 )
 target_restricted_include_directories(btrfsbackup-platform-linux-config
     PUBLIC_HEADERS
-        platform/linux/config/application_config.hpp
-        platform/linux/config/installation_render.hpp
-        platform/linux/config/installation_service.hpp
-        platform/linux/config/installation_validate.hpp
-        platform/linux/config/profile_artifact_io.hpp
-        platform/linux/config/profile_activation_migration.hpp
-        platform/linux/config/profile_configuration_transaction.hpp
-        platform/linux/config/profile_installer.hpp
-        platform/linux/config/profile_repository.hpp
-        platform/linux/config/profile_runtime_policy.hpp
-        platform/linux/config/profile_service.hpp
-        platform/linux/config/profile_wizard.hpp
-        platform/linux/config/profile_wizard_device.hpp
-        platform/linux/config/profile_wizard_install.hpp
-        platform/linux/config/profile_wizard_sources.hpp
-        platform/linux/config/render_directory.hpp
+        platform/linux/config/ApplicationConfig.hpp
+        platform/linux/config/InstallationRender.hpp
+        platform/linux/config/InstallationService.hpp
+        platform/linux/config/InstallationValidate.hpp
+        platform/linux/config/ProfileArtifactIo.hpp
+        platform/linux/config/ProfileActivationMigration.hpp
+        platform/linux/config/ProfileConfigurationTransaction.hpp
+        platform/linux/config/ProfileInstaller.hpp
+        platform/linux/config/FileProfileRepository.hpp
+        platform/linux/config/ProfileRuntimePolicy.hpp
+        platform/linux/config/ProfileService.hpp
+        platform/linux/config/ProfileWizard.hpp
+        platform/linux/config/ProfileWizardDevice.hpp
+        platform/linux/config/ProfileWizardInstall.hpp
+        platform/linux/config/ProfileWizardSources.hpp
+        platform/linux/config/RenderDirectory.hpp
     PRIVATE_HEADERS
-        platform/linux/config/profile_legacy_runtime_policy.hpp
+        platform/linux/config/ProfileLegacyRuntimePolicy.hpp
 )
 target_link_libraries(btrfsbackup-platform-linux-config
     PUBLIC

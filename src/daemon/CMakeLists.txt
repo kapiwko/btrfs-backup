@@ -3,17 +3,17 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 add_library(btrfsbackup-daemon-core STATIC
-    authorized_operation_command.cpp
-    device_state_query_service.cpp
-    history_query_service.cpp
-    manager_document_reader.cpp
-    manager_audit_log.cpp
-    manager_error_mapper.cpp
-    manager_json_codec.cpp
-    manager_service.cpp
-    operational_control_service.cpp
-    profile_query_service.cpp
-    status_query_service.cpp
+    AuthorizedOperationCommand.cpp
+    DeviceStateQueryService.cpp
+    HistoryQueryService.cpp
+    ManagerDocumentReader.cpp
+    ManagerAuditLog.cpp
+    ManagerErrorMapper.cpp
+    ManagerJsonCodec.cpp
+    ManagerService.cpp
+    OperationalControlService.cpp
+    ProfileQueryService.cpp
+    StatusQueryService.cpp
 )
 target_compile_features(btrfsbackup-daemon-core PUBLIC cxx_std_20)
 target_compile_definitions(
@@ -22,22 +22,22 @@ target_compile_definitions(
 )
 target_restricted_include_directories(btrfsbackup-daemon-core
     PUBLIC_HEADERS
-        daemon/authorized_operation_command.hpp
-        daemon/device_state_query_service.hpp
-        daemon/history_query_service.hpp
-        daemon/manager_error_mapper.hpp
-        daemon/manager_errors.hpp
-        daemon/manager_json_codec.hpp
-        daemon/manager_audit_log.hpp
-        daemon/manager_paths.hpp
-        daemon/manager_response_models.hpp
-        daemon/manager_service.hpp
-        daemon/operational_control_service.hpp
-        daemon/profile_query_service.hpp
-        daemon/status_query_service.hpp
-        daemon/systemd_unit_controller.hpp
+        daemon/AuthorizedOperationCommand.hpp
+        daemon/DeviceStateQueryService.hpp
+        daemon/HistoryQueryService.hpp
+        daemon/ManagerErrorMapper.hpp
+        daemon/ManagerErrors.hpp
+        daemon/ManagerJsonCodec.hpp
+        daemon/ManagerAuditLog.hpp
+        daemon/ManagerPaths.hpp
+        daemon/ManagerResponseModels.hpp
+        daemon/ManagerService.hpp
+        daemon/OperationalControlService.hpp
+        daemon/ProfileQueryService.hpp
+        daemon/StatusQueryService.hpp
+        daemon/SystemdUnitController.hpp
     PRIVATE_HEADERS
-        daemon/manager_document_reader.hpp
+        daemon/ManagerDocumentReader.hpp
 )
 target_link_libraries(btrfsbackup-daemon-core
     PUBLIC
@@ -49,14 +49,14 @@ target_link_libraries(btrfsbackup-daemon-core
 )
 
 add_library(btrfsbackup-daemon-system-control STATIC
-    command_systemd_unit_controller.cpp
-    system_operational_control_backend.cpp
+    CommandSystemdUnitController.cpp
+    SystemOperationalControlBackend.cpp
 )
 target_compile_features(btrfsbackup-daemon-system-control PUBLIC cxx_std_20)
 target_restricted_include_directories(btrfsbackup-daemon-system-control
     PUBLIC_HEADERS
-        daemon/command_systemd_unit_controller.hpp
-        daemon/system_operational_control_backend.hpp
+        daemon/CommandSystemdUnitController.hpp
+        daemon/SystemOperationalControlBackend.hpp
 )
 target_link_libraries(btrfsbackup-daemon-system-control
     PUBLIC
@@ -68,16 +68,16 @@ target_link_libraries(btrfsbackup-daemon-system-control
 )
 
 add_executable(btrfs-backupd
-    dbus_server.cpp
+    ManagerDbusServer.cpp
     main.cpp
-    manager_change_monitor.cpp
-    polkit_authorizer.cpp
+    ManagerChangeMonitor.cpp
+    PolkitAuthorizer.cpp
 )
 target_restricted_include_directories(btrfs-backupd
     PRIVATE_HEADERS
-        daemon/dbus_server.hpp
-        daemon/manager_change_monitor.hpp
-        daemon/polkit_authorizer.hpp
+        daemon/ManagerDbusServer.hpp
+        daemon/ManagerChangeMonitor.hpp
+        daemon/PolkitAuthorizer.hpp
 )
 set_target_properties(btrfs-backupd PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR})
 target_link_libraries(btrfs-backupd

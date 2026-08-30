@@ -2,25 +2,25 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-add_btrfsbackup_test(btrfsbackup-retention-plan-tests retention_plan_tests.cpp retention-plan-tests btrfsbackup-backup-model)
-add_btrfsbackup_test(btrfsbackup-snapshot-inventory-tests snapshot_inventory_tests.cpp snapshot-inventory-tests btrfsbackup-backup-model)
-add_btrfsbackup_test(btrfsbackup-backup-run-action-handler-tests backup_run_action_handler_tests.cpp backup-run-action-handler-tests btrfsbackup-backup btrfsbackup-state btrfsbackup-platform-linux)
-add_btrfsbackup_test(btrfsbackup-backup-run-checkpoint-policy-tests backup_run_checkpoint_policy_tests.cpp backup-run-checkpoint-policy-tests btrfsbackup-backup)
-add_btrfsbackup_test(btrfsbackup-backup-run-tests backup_run_tests.cpp backup-run-tests btrfsbackup-backup btrfsbackup-backup-testing)
-add_btrfsbackup_test(btrfsbackup-backup-planning-snapshot-tests backup_planning_snapshot_tests.cpp backup-planning-snapshot-tests btrfsbackup-backup-model)
-add_btrfsbackup_test(btrfsbackup-backup-plan-builder-tests backup_plan_builder_tests.cpp backup-plan-builder-tests btrfsbackup-backup)
-add_btrfsbackup_test(btrfsbackup-backup-service-tests backup_service_tests.cpp backup-service-tests btrfsbackup-backup)
-add_btrfsbackup_test(btrfsbackup-default-backup-run-factory-tests default_backup_run_factory_tests.cpp default-backup-run-factory-tests btrfsbackup-backup btrfsbackup-backup-testing)
-add_btrfsbackup_test(btrfsbackup-backup-run-executor-tests backup_run_executor_tests.cpp backup-run-executor-tests btrfsbackup-backup)
-add_btrfsbackup_test(btrfsbackup-backup-run-plan-tests backup_run_plan_tests.cpp backup-run-plan-tests btrfsbackup-backup-model)
-add_btrfsbackup_test(btrfsbackup-incremental-parent-tests incremental_parent_tests.cpp incremental-parent-tests btrfsbackup-backup-model)
-add_btrfsbackup_test(btrfsbackup-pending-recovery-plan-tests pending_recovery_plan_tests.cpp pending-recovery-plan-tests btrfsbackup-backup-model btrfsbackup-state btrfsbackup-platform-linux)
-add_btrfsbackup_test(btrfsbackup-snapshot-transfer-tests snapshot_transfer_tests.cpp snapshot-transfer-tests btrfsbackup-backup)
-add_btrfsbackup_test(btrfsbackup-backup-preflight-tests backup_preflight_tests.cpp backup-preflight-tests btrfsbackup-backup)
-add_btrfsbackup_test(btrfsbackup-backup-preflight-validation-tests backup_preflight_validation_tests.cpp backup-preflight-validation-tests btrfsbackup-backup)
+add_btrfsbackup_test(btrfsbackup-retention-plan-tests RetentionPlanTests.cpp retention-plan-tests btrfsbackup-backup-model)
+add_btrfsbackup_test(btrfsbackup-snapshot-inventory-tests SnapshotInventoryTests.cpp snapshot-inventory-tests btrfsbackup-backup-model)
+add_btrfsbackup_test(btrfsbackup-backup-run-action-handler-tests BackupRunActionHandlerTests.cpp backup-run-action-handler-tests btrfsbackup-backup btrfsbackup-state btrfsbackup-platform-linux)
+add_btrfsbackup_test(btrfsbackup-backup-run-checkpoint-policy-tests BackupRunCheckpointPolicyTests.cpp backup-run-checkpoint-policy-tests btrfsbackup-backup)
+add_btrfsbackup_test(btrfsbackup-backup-run-tests BackupRunTests.cpp backup-run-tests btrfsbackup-backup btrfsbackup-backup-testing)
+add_btrfsbackup_test(btrfsbackup-backup-planning-snapshot-tests BackupPlanningSnapshotTests.cpp backup-planning-snapshot-tests btrfsbackup-backup-model)
+add_btrfsbackup_test(btrfsbackup-backup-plan-builder-tests BackupPlanBuilderTests.cpp backup-plan-builder-tests btrfsbackup-backup)
+add_btrfsbackup_test(btrfsbackup-backup-service-tests BackupServiceTests.cpp backup-service-tests btrfsbackup-backup)
+add_btrfsbackup_test(btrfsbackup-default-backup-run-factory-tests DefaultBackupRunFactoryTests.cpp default-backup-run-factory-tests btrfsbackup-backup btrfsbackup-backup-testing)
+add_btrfsbackup_test(btrfsbackup-backup-run-executor-tests BackupRunExecutorTests.cpp backup-run-executor-tests btrfsbackup-backup)
+add_btrfsbackup_test(btrfsbackup-backup-run-plan-tests BackupRunPlanTests.cpp backup-run-plan-tests btrfsbackup-backup-model)
+add_btrfsbackup_test(btrfsbackup-incremental-parent-tests IncrementalParentTests.cpp incremental-parent-tests btrfsbackup-backup-model)
+add_btrfsbackup_test(btrfsbackup-pending-recovery-plan-tests PendingRecoveryPlanTests.cpp pending-recovery-plan-tests btrfsbackup-backup-model btrfsbackup-state btrfsbackup-platform-linux)
+add_btrfsbackup_test(btrfsbackup-snapshot-transfer-tests SnapshotTransferTests.cpp snapshot-transfer-tests btrfsbackup-backup)
+add_btrfsbackup_test(btrfsbackup-backup-preflight-tests BackupPreflightTests.cpp backup-preflight-tests btrfsbackup-backup)
+add_btrfsbackup_test(btrfsbackup-backup-preflight-validation-tests BackupPreflightValidationTests.cpp backup-preflight-validation-tests btrfsbackup-backup)
 add_btrfsbackup_test(
     btrfsbackup-transfer-pipeline-tests
-    transfer_pipeline_tests.cpp
+    TransferPipelineTests.cpp
     transfer-pipeline-tests
     btrfsbackup-transfer
     btrfsbackup-platform-linux

@@ -1,0 +1,129 @@
+// SPDX-FileCopyrightText: 2026 Kamil Piwowarski <kapiwko@gmail.com>
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+#include <cli/RunnerComposition.hpp>
+
+#include <memory>
+#include <string>
+#include <utility>
+
+#include <backup/BackupDiscovery.hpp>
+#include <backup/BackupPlanBuilder.hpp>
+#include <backup/BackupPreflight.hpp>
+#include <backup/BackupService.hpp>
+#include <backup/DefaultBackupRunActionHandlerFactory.hpp>
+#include <backup/DefaultBackupRunFactory.hpp>
+#include <backup/LinkedCancellationMonitor.hpp>
+#include <backup/SystemRunContext.hpp>
+#include <cli/RunnerOptions.hpp>
+#include <core/Cancellation.hpp>
+#include <core/RuntimeTime.hpp>
+#include <platform/linux/LibBtrfsOperations.hpp>
+#include <platform/linux/config/ApplicationConfig.hpp>
+#include <platform/linux/config/FileProfileRepository.hpp>
+#include <platform/linux/config/ProfileRuntimePolicy.hpp>
+#include <platform/linux/FileBackupRunLeaseProvider.hpp>
+#include <platform/linux/FileLock.hpp>
+#include <platform/linux/MountInfo.hpp>
+#include <platform/linux/PosixCommandRunner.hpp>
+#include <platform/linux/PosixDurableFileOperations.hpp>
+#include <platform/linux/PosixFileSystem.hpp>
+#include <platform/linux/PosixTransferPipeline.hpp>
+#include <platform/linux/SafeDirectoryRoot.hpp>
+#include <platform/linux/SystemdTargetManager.hpp>
+#include <platform/linux/TrustedExecutable.hpp>
+#include <state/FilePendingMarkerStore.hpp>
+#include <state/FileRunStateRepository.hpp>
+
+namespace btrfsbackup::cli {
+namespace {
+
+class ConfiguredRunnerClock final : public backup::IClock {
+  public:
+    ConfiguredRunnerClock(RuntimeTimePoint timestamp, LocalDate today)
+        : timestamp_(timestamp), today_(today) {
+    }
+
+    RuntimeTimePoint now() const override {
+        return timestamp_;
+    }
+    LocalDate local_date() const override {
+        return today_;
+    }
+
+  private:
+    RuntimeTimePoint timestamp_;
+    LocalDate today_;
+};
+
+class ConfiguredRunnerRunIdGenerator final : public backup::IRunIdGenerator {
+  public:
+    explicit ConfiguredRunnerRunIdGenerator(RunId run_id) : run_id_(std::move(run_id)) {
+    }
+
+    RunId generate(RuntimeTimePoint) override {
+        return run_id_;
+    }
+
+  private:
+    RunId run_id_;
+};
+
+} // namespace
+
+struct RunnerComposition::Impl {
+    Impl(const std::filesystem::path& config_root, const RunnerOptions& options, CancellationToken& cancellation)
+        : config(platform::linux::load_application_config(config_root)),
+          profiles(config_root, config),
+          mounts(options.mountinfo, [&options](const std::string& source) {
+              const auto found = options.mount_uuid_overrides.find(source);
+              return found == options.mount_uuid_overrides.end()
+                  ? platform::linux::blkid_filesystem_uuid(source)
+                  : found->second;
+          }),
+          target_mounter(mounts, commands), preflight(mounts, target_mounter), pending_markers(durable_files), discovery(platform::linux::read_btrfs_snapshot_metadata, pending_markers, safe_directories), hook_executables(platform::linux::trusted_hook_directory), action_handlers(btrfs, filesystem, commands, pending_markers, safe_directories, hook_executables), run_factory(action_handlers, transfers, safe_directories), leases(platform::linux::default_lock_root()), state(config.paths(), durable_files), file_cancellation_monitor(state), cancellation_monitor(file_cancellation_monitor, cancellation), clock(options.timestamp, options.today), run_ids(options.run_id), sessions(leases, state, state, state, cancellation_monitor), backup_service(profiles, config.paths(), preflight, discovery, plan_builder, run_factory, state, sessions, clock, run_ids) {
+    }
+
+    config::ApplicationConfig config;
+    platform::linux::FileProfileRepository profiles;
+    platform::linux::LinuxMountInspector mounts;
+    platform::linux::PosixCommandRunner commands;
+    platform::linux::SystemdTargetManager target_mounter;
+    backup::BackupPreflight preflight;
+    platform::linux::SafeDirectoryRootFactory safe_directories;
+    platform::linux::LibBtrfsOperations btrfs;
+    platform::linux::PosixFileSystem filesystem;
+    platform::linux::PosixTransferPipeline transfers;
+    platform::linux::PosixDurableFileOperations durable_files;
+    state::FilePendingMarkerStore pending_markers;
+    backup::BackupDiscovery discovery;
+    backup::BackupPlanBuilder plan_builder;
+    platform::linux::PosixTrustedExecutableResolver hook_executables;
+    backup::DefaultBackupRunActionHandlerFactory action_handlers;
+    backup::DefaultBackupRunFactory run_factory;
+    platform::linux::FileBackupRunLeaseProvider leases;
+    state::FileRunStateRepository state;
+    state::FileCancellationMonitor file_cancellation_monitor;
+    backup::LinkedCancellationMonitor cancellation_monitor;
+    ConfiguredRunnerClock clock;
+    ConfiguredRunnerRunIdGenerator run_ids;
+    backup::RunSessionFactory sessions;
+    backup::BackupService backup_service;
+};
+
+RunnerComposition::RunnerComposition(
+    const std::filesystem::path& config_root,
+    const RunnerOptions& options,
+    CancellationToken& cancellation
+)
+    : impl_(std::make_unique<Impl>(config_root, options, cancellation)) {
+}
+
+RunnerComposition::~RunnerComposition() = default;
+
+backup::BackupService& RunnerComposition::service() {
+    return impl_->backup_service;
+}
+
+} // namespace btrfsbackup::cli

@@ -220,7 +220,32 @@ Naming conventions are:
 - functions and methods: `snake_case`;
 - variables: `snake_case`;
 - private data members: trailing underscore;
-- filenames: `snake_case.hpp` and `snake_case.cpp` matching their main concept.
+
+### C++ filenames
+
+C++ source and header filenames use `PascalCase`.
+
+A file containing one primary class, struct, enum or interface must be named
+exactly after that type:
+
+```text
+RunExecutionContext.hpp
+RunExecutionContext.cpp
+BackupService.hpp
+ICommandRunner.hpp
+PosixCommandRunner.hpp
+```
+
+A file containing a small, cohesive group of closely related value types or
+free functions uses a precise `PascalCase` concept name, for example
+`Identifiers.hpp`, `Errors.hpp`, `BackupRunSerialization.hpp` or
+`ApplicationPaths.hpp`.
+
+Do not introduce a class solely to justify a filename. Entry points named
+`main.cpp`, generated files and conventional build-system filenames are exempt.
+Keep one primary abstraction per file; closely related supporting enums, result
+types and small value types may remain beside it when splitting them would
+reduce locality.
 
 Use C++20 features when they make ownership and domain invariants clearer:
 

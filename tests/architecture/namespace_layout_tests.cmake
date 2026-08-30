@@ -12,7 +12,7 @@ function(assert_domain_namespace root expected_namespace)
         if(root STREQUAL "src/backup" AND source MATCHES "/transfer/")
             continue()
         endif()
-        if(relative STREQUAL "src/backup/model/snapshot.hpp"
+        if(relative STREQUAL "src/backup/model/Snapshot.hpp"
             OR relative STREQUAL "src/daemon/main.cpp")
             continue()
         endif()
@@ -33,11 +33,11 @@ assert_domain_namespace("src/cli" "btrfsbackup::cli")
 assert_domain_namespace("src/daemon" "btrfsbackup::daemon")
 
 set(root_namespace_forward_declarations
-    "src/backup/action_handlers/backup_run_action_handler.hpp"
-    "src/backup/ports/process.hpp"
-    "src/cli/backup_tool.hpp"
-    "src/state/file_pending_marker_store.hpp"
-    "src/state/run_history.hpp"
+    "src/backup/action_handlers/BackupRunActionHandler.hpp"
+    "src/backup/ports/Process.hpp"
+    "src/cli/BackupTool.hpp"
+    "src/state/FilePendingMarkerStore.hpp"
+    "src/state/RunHistory.hpp"
 )
 
 file(GLOB_RECURSE domain_sources

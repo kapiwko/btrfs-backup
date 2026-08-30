@@ -4,7 +4,7 @@
 
 add_btrfsbackup_test(
     btrfsbackup-backup-tool-tests
-    backup_tool_tests.cpp
+    BackupToolTests.cpp
     backup-tool-tests
     btrfsbackup-cli
     btrfsbackup-core
@@ -12,7 +12,7 @@ add_btrfsbackup_test(
 )
 add_btrfsbackup_test(
     btrfsbackup-installation-tests
-    installation_tests.cpp
+    InstallationTests.cpp
     installation-tests
     btrfsbackup-cli
     btrfsbackup-config-json
@@ -23,7 +23,7 @@ target_compile_definitions(
 )
 add_btrfsbackup_test(
     btrfsbackup-profile-command-tests
-    profile_command_tests.cpp
+    ProfileCommandTests.cpp
     profile-command-tests
     btrfsbackup-cli
     btrfsbackup-config-json
@@ -31,7 +31,7 @@ add_btrfsbackup_test(
 )
 add_btrfsbackup_test(
     btrfsbackup-runner-command-tests
-    runner_command_tests.cpp
+    RunnerCommandTests.cpp
     runner-command-tests
     btrfsbackup-backup
     btrfsbackup-cli
@@ -44,13 +44,13 @@ add_btrfsbackup_test(
 )
 add_btrfsbackup_test(
     btrfsbackup-runner-options-tests
-    runner_options_tests.cpp
+    RunnerOptionsTests.cpp
     runner-options-tests
     btrfsbackup-cli
 )
 add_btrfsbackup_test(
     btrfsbackup-status-history-tests
-    status_history_tests.cpp
+    StatusHistoryTests.cpp
     status-history-tests
     btrfsbackup-cli
     btrfsbackup-config-json
@@ -60,7 +60,7 @@ add_btrfsbackup_test(
 )
 add_btrfsbackup_test(
     btrfsbackup-target-command-tests
-    target_command_tests.cpp
+    TargetCommandTests.cpp
     target-command-tests
     btrfsbackup-cli
     btrfsbackup-config-json
