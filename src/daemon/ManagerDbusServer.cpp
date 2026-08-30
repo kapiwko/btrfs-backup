@@ -15,8 +15,10 @@
 #include <iostream>
 #include <memory>
 #include <stdexcept>
+#include <utility>
 
 #include <daemon/ManagerChangeMonitor.hpp>
+#include <daemon/DbusCallbackBoundary.hpp>
 #include <daemon/ManagerDbusObject.hpp>
 #include <daemon/PolkitAuthorizer.hpp>
 
@@ -96,29 +98,39 @@ void emit_change(
     }
 }
 
-int process_filesystem_changes(sd_event_source*, int, std::uint32_t, void* userdata) {
-    try {
+template <typename Callback>
+int event_callback(const char* description, Callback&& callback) noexcept {
+    return btrfsbackup::daemon::invoke_dbus_callback(
+        std::forward<Callback>(callback),
+        [description](const std::exception* exception) {
+            std::cerr << "btrfs-backupd: " << description << " failed";
+            if (exception != nullptr)
+                std::cerr << ": " << exception->what();
+            std::cerr << '\n';
+            return -EIO;
+        }
+    );
+}
+
+int process_filesystem_changes(sd_event_source*, int, std::uint32_t, void* userdata) noexcept {
+    return event_callback("filesystem notification", [&] {
         static_cast<btrfsbackup::daemon::ManagerChangeMonitor*>(userdata)->process_filesystem_events();
         return 0;
-    } catch (const std::exception& exception) {
-        std::cerr << "btrfs-backupd: filesystem notification failed: " << exception.what() << '\n';
-        return -EIO;
-    }
+    });
 }
 
-int process_device_changes(sd_event_source*, int, std::uint32_t, void* userdata) {
-    static_cast<btrfsbackup::daemon::ManagerChangeMonitor*>(userdata)->process_device_events();
-    return 0;
+int process_device_changes(sd_event_source*, int, std::uint32_t, void* userdata) noexcept {
+    return event_callback("device notification", [&] {
+        static_cast<btrfsbackup::daemon::ManagerChangeMonitor*>(userdata)->process_device_events();
+        return 0;
+    });
 }
 
-int process_mount_changes(sd_event_source*, int, std::uint32_t, void* userdata) {
-    try {
+int process_mount_changes(sd_event_source*, int, std::uint32_t, void* userdata) noexcept {
+    return event_callback("mount notification", [&] {
         static_cast<btrfsbackup::daemon::ManagerChangeMonitor*>(userdata)->process_mount_events();
         return 0;
-    } catch (const std::exception& exception) {
-        std::cerr << "btrfs-backupd: mount notification failed: " << exception.what() << '\n';
-        return -EIO;
-    }
+    });
 }
 
 } // namespace
