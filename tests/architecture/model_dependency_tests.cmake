@@ -40,7 +40,7 @@ function(assert_model_dependencies target)
 
     string(CONCAT forbidden_include_pattern
         "#include[ \t]+[<\"]"
-        "(config/model/(json|json_io|profile_document)\\.hpp|"
+        "(config/json/(Json|JsonIo|ProfileDocument)\\.hpp|"
         "platform/|daemon/|cli/|nlohmann/|dbus/|systemd/|"
         "Qt|Q[A-Z]|K[A-Z]|linux/|sys/|unistd\\.h|fcntl\\.h|"
         "libudev|libmount|blkid|btrfs|libcryptsetup|cryptsetup\\.h)"

@@ -148,40 +148,40 @@ if(BUILD_SYSTEM_MANAGER)
 endif()
 
 set(architecture_targets
-    btrfsbackup-core
-    btrfsbackup-manager-protocol
-    btrfsbackup-config-domain
-    btrfsbackup-config-json
-    btrfsbackup-config-wizard
-    btrfsbackup-config-ports
-    btrfsbackup-config
-    btrfsbackup-platform-linux-config
+    btrfsbackup-backup
+    btrfsbackup-backup-execution
     btrfsbackup-backup-model
-    btrfsbackup-transfer
+    btrfsbackup-backup-planning
     btrfsbackup-backup-ports
     btrfsbackup-backup-testing
-    btrfsbackup-backup-planning
-    btrfsbackup-backup-execution
-    btrfsbackup-backup
-    btrfsbackup-state-persistence-ports
-    btrfsbackup-state-model
-    btrfsbackup-state
+    btrfsbackup-cli
+    btrfsbackup-config
+    btrfsbackup-config-domain
+    btrfsbackup-config-json
+    btrfsbackup-config-ports
+    btrfsbackup-config-wizard
+    btrfsbackup-core
+    btrfsbackup-manager-protocol
+    btrfsbackup-platform-linux
     btrfsbackup-platform-linux-base
+    btrfsbackup-platform-linux-config
     btrfsbackup-platform-linux-filesystem
     btrfsbackup-platform-linux-process
     btrfsbackup-platform-linux-storage
     btrfsbackup-platform-linux-systemd
     btrfsbackup-platform-linux-transfer
-    btrfsbackup-platform-linux
-    btrfsbackup-cli
+    btrfsbackup-state
+    btrfsbackup-state-model
+    btrfsbackup-state-persistence-ports
+    btrfsbackup-transfer
 )
 if(BUILD_SYSTEM_MANAGER)
     list(APPEND architecture_targets
-        btrfsbackup-daemon-core
-        btrfsbackup-daemon-query
         btrfsbackup-daemon-control
-        btrfsbackup-daemon-system-control
+        btrfsbackup-daemon-core
         btrfsbackup-daemon-dbus
+        btrfsbackup-daemon-query
+        btrfsbackup-daemon-system-control
     )
 endif()
 add_public_header_architecture_tests(${architecture_targets})
