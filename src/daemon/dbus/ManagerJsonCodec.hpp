@@ -15,7 +15,7 @@ class ManagerJsonCodec {
   public:
     [[nodiscard]] std::string encode(const ManagerCapabilities& capabilities) const;
     [[nodiscard]] std::string encode(const std::vector<ProfileSummary>& profiles) const;
-    [[nodiscard]] std::string encode(const PublicRunStatus& status) const;
+    [[nodiscard]] std::string encode(const PublicStatusResponse& status) const;
     [[nodiscard]] std::string encode(const SanitizedHistoryPage& page) const;
     [[nodiscard]] std::string encode(const TargetStatus& status) const;
     [[nodiscard]] std::string encode(const OperationResult& result) const;

@@ -44,8 +44,15 @@ std::string ManagerJsonCodec::encode(const std::vector<ProfileSummary>& profiles
     return config::json::dump_json(result);
 }
 
-std::string ManagerJsonCodec::encode(const PublicRunStatus& status) const {
-    return state::document::RunStatusDocumentCodec{}.serialize_public(status);
+std::string ManagerJsonCodec::encode(const PublicStatusResponse& status) const {
+    config::json::Json result = config::json::Json::parse(
+        state::document::RunStatusDocumentCodec{}.serialize_public(status.run)
+    );
+    result["schemaVersion"] = manager_protocol::public_status_schema_version;
+    result["lastSuccessAt"] = status.last_success_at;
+    result["lastAttemptAt"] = status.last_attempt_at;
+    result["lastAttemptState"] = status.last_attempt_state;
+    return config::json::dump_json(result);
 }
 
 std::string ManagerJsonCodec::encode(const SanitizedHistoryPage& page) const {

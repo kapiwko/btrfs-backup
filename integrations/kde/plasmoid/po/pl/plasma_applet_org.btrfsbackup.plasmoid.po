@@ -192,6 +192,18 @@ msgstr "Odśwież"
 msgid "Recent backups"
 msgstr "Ostatnie kopie"
 
+msgid "Last successful backup:"
+msgstr "Ostatnia udana kopia:"
+
+msgid "No successful backup"
+msgstr "Brak udanej kopii"
+
+msgid "today, %1"
+msgstr "dzisiaj, %1"
+
+msgid "The last backup attempt failed."
+msgstr "Ostatnia próba utworzenia kopii nie powiodła się."
+
 msgid "Just now"
 msgstr "Przed chwilą"
 

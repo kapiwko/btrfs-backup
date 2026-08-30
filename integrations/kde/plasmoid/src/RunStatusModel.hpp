@@ -24,6 +24,9 @@ class RunStatusModel : public QObject {
     Q_PROPERTY(int overallProgress READ overallProgress NOTIFY changed)
     Q_PROPERTY(QString progressAccuracy READ progressAccuracy NOTIFY changed)
     Q_PROPERTY(QString errorCode READ errorCode NOTIFY changed)
+    Q_PROPERTY(QString lastSuccessAt READ lastSuccessAt NOTIFY changed)
+    Q_PROPERTY(QString lastAttemptAt READ lastAttemptAt NOTIFY changed)
+    Q_PROPERTY(QString lastAttemptState READ lastAttemptState NOTIFY changed)
 
   public:
     explicit RunStatusModel(QObject* parent = nullptr);
@@ -42,6 +45,9 @@ class RunStatusModel : public QObject {
     int overallProgress() const;
     QString progressAccuracy() const;
     QString errorCode() const;
+    QString lastSuccessAt() const;
+    QString lastAttemptAt() const;
+    QString lastAttemptState() const;
 
     void setCancelSupported(bool supported);
     [[nodiscard]] bool apply(const QString& payload);
@@ -66,4 +72,7 @@ class RunStatusModel : public QObject {
     int overall_progress_ = -1;
     QString progress_accuracy_ = QStringLiteral("indeterminate");
     QString error_code_;
+    QString last_success_at_;
+    QString last_attempt_at_;
+    QString last_attempt_state_;
 };

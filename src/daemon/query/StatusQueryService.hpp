@@ -17,13 +17,15 @@ class StatusQueryService {
   public:
     StatusQueryService(
         std::filesystem::path status_root,
+        std::filesystem::path state_root,
         const HistoryQueryService& history
     );
 
-    [[nodiscard]] PublicRunStatus get_status(const std::string& profile_id) const;
+    [[nodiscard]] PublicStatusResponse get_status(const std::string& profile_id) const;
 
   private:
     std::filesystem::path status_root_;
+    std::filesystem::path state_root_;
     const HistoryQueryService& history_;
 };
 

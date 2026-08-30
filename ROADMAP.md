@@ -33,8 +33,8 @@ The remaining system-control increments are:
 
 - administrative profile save/delete with separate hook-change authorization;
 - destructive device preparation only after repeated device-identity checks;
-- a KCM for profile inspection, target validation and controlled configuration
-  writes;
+- a QML Kirigami KCM for profile inspection, target validation, retention,
+  automation, administrative diagnostics and controlled configuration writes;
 - scheduling and persistent request-queue integration without making the
   manager responsible for runner execution.
 
