@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <cli/StatusCommand.hpp>
+#include <cli/status/StatusCommand.hpp>
 
 #include <chrono>
 #include <cstdlib>
@@ -13,8 +13,8 @@
 #include <vector>
 
 #include <core/Errors.hpp>
-#include <cli/StatusHistoryCommand.hpp>
-#include <cli/StatusShowCommand.hpp>
+#include <cli/status/StatusHistoryCommand.hpp>
+#include <cli/status/StatusShowCommand.hpp>
 #include <core/Identifiers.hpp>
 #include <state/StatusService.hpp>
 
@@ -63,7 +63,7 @@ void watch(const fs::path& status_root, const std::vector<std::string>& args) {
     WatchOptions options = parse_watch_options(args);
     std::string previous;
     while (true) {
-        (void)btrfsbackup::cli::status_watch_once(status_root, args, previous, std::cout);
+        (void)btrfsbackup::cli::status::status_watch_once(status_root, args, previous, std::cout);
         std::this_thread::sleep_for(options.interval);
     }
 }
@@ -78,7 +78,7 @@ void usage() {
 
 } // namespace
 
-namespace btrfsbackup::cli {
+namespace btrfsbackup::cli::status {
 
 bool status_watch_once(
     const fs::path& status_root,
@@ -125,4 +125,4 @@ int status(const fs::path& status_root, const fs::path& history_root, const std:
     fail("unknown command: " + command);
 }
 
-} // namespace btrfsbackup::cli
+} // namespace btrfsbackup::cli::status

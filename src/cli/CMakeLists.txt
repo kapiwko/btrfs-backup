@@ -15,9 +15,9 @@ add_library(btrfsbackup-cli STATIC
     runner/RunnerJsonCodec.cpp
     runner/RunnerOptions.cpp
     runner/RunnerPresenter.cpp
-    StatusCommand.cpp
-    StatusHistoryCommand.cpp
-    StatusShowCommand.cpp
+    status/StatusCommand.cpp
+    status/StatusHistoryCommand.cpp
+    status/StatusShowCommand.cpp
     TargetCommand.cpp
     TargetService.cpp
 )
@@ -39,9 +39,9 @@ target_restricted_include_directories(btrfsbackup-cli
         cli/runner/RunnerCommand.hpp
         cli/runner/RunnerOptions.hpp
         cli/runner/RunnerPresenter.hpp
-        cli/StatusCommand.hpp
-        cli/StatusHistoryCommand.hpp
-        cli/StatusShowCommand.hpp
+        cli/status/StatusCommand.hpp
+        cli/status/StatusHistoryCommand.hpp
+        cli/status/StatusShowCommand.hpp
         cli/TargetCommand.hpp
         cli/TargetService.hpp
     PRIVATE_HEADERS

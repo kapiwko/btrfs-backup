@@ -19,7 +19,7 @@
 #include <cli/profile/ProfileCommand.hpp>
 #include <cli/runner/RunnerCommand.hpp>
 #include <cli/runner/RunnerOptions.hpp>
-#include <cli/StatusCommand.hpp>
+#include <cli/status/StatusCommand.hpp>
 #include <cli/TargetCommand.hpp>
 #include <config/ConfigurationIdentity.hpp>
 #include <core/Errors.hpp>
@@ -112,7 +112,7 @@ int ctl_tool_main(int argc, char** argv) {
                 if (!history_root_overridden)
                     history_root = application_config.paths().history_root;
             }
-            return status(status_root, history_root, args);
+            return status::status(status_root, history_root, args);
         } else if (command == "installation") {
             return installation(args);
         } else if (command == "runner") {
