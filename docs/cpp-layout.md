@@ -11,18 +11,40 @@ public C++ SDK.
 apps/                         # small executable entry points
 src/
 ├── core/                     # identifiers, errors, cancellation and shared runtime/protocol primitives
-├── backup/                   # planning, execution, snapshots, transfer, recovery
+├── backup/                   # backup use-case facade
 │   ├── model/                # run plans, typed actions, events, snapshots and retention
 │   ├── ports/                # platform-neutral application contracts
-│   ├── action_handlers/      # action dispatcher and focused effect handlers
-│   └── transfer/             # transfer model, events, results and async orchestration
-├── config/                   # profile domain, JSON adapter, validation and rendering
-│   ├── model/                # typed profile data and validation; JSON files build as config-json
+│   ├── planning/             # discovery, preflight and plan construction
+│   ├── execution/            # run lifecycle and action handlers
+│   │   └── actions/          # technical grouping; still execution namespace
+│   └── transfer/             # transfer model plus snapshot transfer coordination
+├── config/                   # profile services and rendering
+│   ├── domain/               # typed profile data and validation
+│   ├── json/                 # JSON profile adapter
+│   ├── ports/                # configuration contracts
 │   └── wizard/               # interactive profile construction
-├── state/                    # status, checkpoints, fingerprints, history reads
+├── state/                    # one state domain, physically grouped by role
+│   ├── model/
+│   ├── persistence/
+│   ├── cancellation/
+│   ├── projection/
+│   └── query/
 ├── platform/linux/           # explicitly Linux-specific system integration
-├── cli/                      # argv parsing, presentation, exit-code mapping
+│   ├── process/
+│   ├── filesystem/
+│   ├── storage/
+│   ├── transfer/
+│   ├── systemd/
+│   └── config/
+├── cli/                      # command entry adapters
+│   ├── runner/
+│   ├── profile/
+│   ├── status/
+│   └── target/
 └── daemon/                   # optional authorized system D-Bus adapter
+    ├── query/
+    ├── control/
+    └── dbus/
 tests/
 ├── unit/{backup,config,state,platform,cli,daemon}/
 ├── integration/
@@ -41,131 +63,105 @@ types remain directly in `btrfsbackup`; domain code uses the following map:
 |---|---|
 | `src/core/` | `btrfsbackup` |
 | `src/config/` | `btrfsbackup::config` |
-| `src/state/` | `btrfsbackup::state` |
+| `src/config/domain/` | `btrfsbackup::config` |
+| `src/config/json/` | `btrfsbackup::config::json` |
+| `src/config/ports/` | `btrfsbackup::config` |
+| `src/config/wizard/` | `btrfsbackup::config::wizard` |
 | `src/backup/` | `btrfsbackup::backup` |
+| `src/backup/model/` | `btrfsbackup::backup` |
+| `src/backup/ports/` | `btrfsbackup::backup` |
+| `src/backup/planning/` | `btrfsbackup::backup::planning` |
+| `src/backup/execution/` | `btrfsbackup::backup::execution` |
+| `src/backup/execution/actions/` | `btrfsbackup::backup::execution` |
 | `src/backup/transfer/` | `btrfsbackup::backup::transfer` |
+| `src/state/**` | `btrfsbackup::state` |
 | `src/platform/linux/` | `btrfsbackup::platform::linux` |
+| `src/platform/linux/process/` | `btrfsbackup::platform::linux::process` |
+| `src/platform/linux/filesystem/` | `btrfsbackup::platform::linux::filesystem` |
+| `src/platform/linux/storage/` | `btrfsbackup::platform::linux::storage` |
+| `src/platform/linux/transfer/` | `btrfsbackup::platform::linux::transfer` |
+| `src/platform/linux/systemd/` | `btrfsbackup::platform::linux::systemd` |
+| `src/platform/linux/config/` | `btrfsbackup::platform::linux::config` |
 | `src/cli/` | `btrfsbackup::cli` |
+| `src/cli/runner/` | `btrfsbackup::cli::runner` |
+| `src/cli/profile/` | `btrfsbackup::cli::profile` |
+| `src/cli/status/` | `btrfsbackup::cli::status` |
+| `src/cli/target/` | `btrfsbackup::cli::target` |
 | `src/daemon/` | `btrfsbackup::daemon` |
+| `src/daemon/query/` | `btrfsbackup::daemon::query` |
+| `src/daemon/control/` | `btrfsbackup::daemon::control` |
+| `src/daemon/dbus/` | `btrfsbackup::daemon::dbus` |
 
-Technical subdirectories such as `model`, `ports`, `action_handlers`, and
-`wizard` do not create additional namespaces. Global entry points delegate
-immediately to their qualified adapter function. The `namespace-layout`
-architecture test enforces this mapping and rejects namespace-wide using
-directives.
+A directory, namespace, and CMake target answer different questions. A
+directory improves navigation, a namespace names a stable language or adapter,
+and a target enforces a dependency boundary. Therefore technical directories
+such as `model`, `ports`, `execution/actions`, and every directory below
+`state` do not add namespaces. Conversely, `config/json`, `config/wizard`, and
+the Linux adapters do because their qualified names identify stable boundaries.
+The `namespace-layout` architecture test applies the longest matching directory
+prefix and rejects namespace-wide using directives.
 
 Directories describe what code does. Architectural boundaries are enforced by
 CMake targets and their declared dependencies:
 
 ```mermaid
 flowchart TB
-    subgraph contracts[Dependency-light contracts]
-        manager_protocol[manager-protocol]
-        core[core]
-        config_domain[config-domain]
-        config_json[config-json]
-        config_wizard[config-wizard]
-        config_ports[config-ports]
-        state_model[state-model]
-        state_persistence[state-persistence-ports]
-        backup_model[backup-model]
-        transfer[transfer]
-        backup_ports[backup-ports]
-
-        core --> config_domain
-        config_domain --> config_json
-        config_domain --> config_wizard
-        config_json --> config_wizard
-        config_domain --> config_ports
-        core --> config_ports
-        core --> state_model
-        config_domain --> backup_model
-        core --> backup_model
-        core --> transfer
-        backup_model --> backup_ports
-        config_domain --> backup_ports
-        core --> backup_ports
-        transfer --> backup_ports
-    end
-
-    subgraph support[Supporting runtime components]
-        platform[platform-linux]
-        config[config]
-        linux_config[platform-linux-config]
-        state[state]
-        backup[backup orchestration]
-        daemon_core[daemon-core]
-    end
-
-    cli[CLI adapter]
-    manager[authorized D-Bus executable]
-
-    backup_ports --> platform
-    backup_model --> platform
-    config_domain --> platform
-    config_ports --> platform
-    core --> platform
-    state_persistence --> platform
-    transfer --> platform
+    core --> config_domain[config-domain]
+    core --> state_model[state-model]
+    core --> transfer
+    config_domain --> config_json[config-json]
+    config_domain --> config_wizard[config-wizard]
+    config_domain --> config_ports[config-ports]
     config_domain --> config
-    config_json --> config
-    core --> config
-    config --> linux_config
-    config_domain --> linux_config
-    config_json --> linux_config
-    config_wizard --> linux_config
-    config_ports --> linux_config
-    core --> linux_config
-    platform --> linux_config
-    config_domain --> state
-    config_json --> state
-    backup_model --> state
-    backup_ports --> state
-    core --> state
-    state_model --> state
-    state_persistence --> state
-    manager_protocol --> daemon_core
-    backup_model --> backup
-    backup_ports --> backup
-    transfer --> backup
-    config_domain --> backup
+    config_domain --> backup_model[backup-model]
+    backup_model --> backup_ports[backup-ports]
+    transfer --> backup_ports
+    backup_ports --> planning[backup-planning]
+    backup_ports --> execution[backup-execution]
+    execution --> backup
     config_ports --> backup
-    core --> backup
-    backup --> cli
-    backup_model --> cli
-    backup_ports --> cli
-    config_domain --> cli
-    config_ports --> cli
-    core --> cli
-    config_json --> cli
-    platform --> cli
-    linux_config --> cli
-    state --> cli
-    transfer --> cli
-    core --> daemon_core
-    config_domain --> daemon_core
-    config_json --> daemon_core
-    platform --> daemon_core
-    backup_ports --> manager
-    config_ports --> manager
-    daemon_core --> manager
-    platform --> manager
-    linux_config --> manager
-    state --> manager
+    backup_ports --> state
+    config_json --> state
+    state_model --> state
+    state_persistence[state-persistence-ports] --> state
 
+    backup_ports --> linux_process[platform-linux-process]
+    backup_ports --> linux_filesystem[platform-linux-filesystem]
+    backup_ports --> linux_storage[platform-linux-storage]
+    backup_ports --> linux_systemd[platform-linux-systemd]
+    state_persistence --> linux_filesystem
+    linux_process --> linux_transfer[platform-linux-transfer]
+    config --> linux_config[platform-linux-config]
+    config_ports --> linux_config
+    linux_process --> platform[platform-linux]
+    linux_filesystem --> platform
+    linux_storage --> platform
+    linux_systemd --> platform
+    linux_transfer --> platform
+
+    backup --> cli
     cli --> executables[btrfs-backup<br/>btrfs-backupctl]
+
+    manager_protocol[manager-protocol] --> daemon_core[daemon-core]
+    daemon_core --> daemon_query[daemon-query]
+    daemon_core --> daemon_control[daemon-control]
+    config_domain --> daemon_control
+    daemon_control --> daemon_dbus[daemon-dbus]
+    daemon_query --> daemon_dbus
 ```
 
-Arrows point from a dependency provider to its direct consumer. Third-party
-libraries are omitted. In particular, `btrfsbackup-backup` is platform-neutral:
-Linux and file-backed adapters meet it only in the CLI composition root.
+Arrows show direct public link interfaces; private and third-party dependencies
+are omitted. In particular, `btrfsbackup-backup` is platform-neutral: Linux and
+file-backed adapters meet it only in the CLI composition root.
 
 The `*-model` targets contain dependency-light contracts needed to avoid
-cycles between configuration, backup concepts, and Linux implementations. They
-are implementation details of the domain layout, not separate source trees.
+cycles between configuration, backup concepts, and Linux implementations. Their
+`model` directories are physical ownership aids and do not add namespaces.
 Configure-time architecture checks reject unexpected target dependencies and
 JSON, Linux, D-Bus, or UI includes in the model and transfer targets. The same
-checks require every source header to have exactly one owning CMake target.
+checks require every source header to have exactly one owning CMake target,
+compile every public header in isolation, and use CMake File API data to ensure
+that every project library is covered by the architecture manifest.
 The `btrfsbackup-core` target contains the validated `ProfileId`, `RunId`, and
 `SourceId` value types and the shared error hierarchy. Those contracts can be
 used by configuration, backup, state, and platform adapters without pulling in
@@ -187,9 +183,9 @@ respective adapters.
   target operations, and backup use cases.
 - `config-domain` owns typed profile data and validation without a JSON
   dependency. The separate `config-json` adapter owns canonical profile parsing,
-  serialization and document conversion. The remaining configuration targets
-  own profile repositories, fingerprinting, installation rendering and
-  validation, and the profile wizard.
+  serialization and document conversion. `config-wizard` owns general wizard
+  values, while `platform-linux-config` owns Linux profile repositories,
+  installation rendering, activation, validation, and device discovery.
 - `state` owns configuration fingerprints, JSON checkpoint persistence,
   file-backed current status and history, status history reads, and the public
   status contract. It implements the event and checkpoint interfaces declared
