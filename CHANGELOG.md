@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 3.2.0 - 2026-08-30
+
 ### Target Storage Visibility
 
 1. the runner records a private, atomically written and identity-bound target
@@ -14,6 +16,24 @@
    remains compatible with older daemons;
 4. shared typed codecs and grouped run, target and history presentation models
    keep schema validation out of the D-Bus coordinator and QML.
+
+### State API Reliability
+
+1. public status and private history documents use shared typed codecs with
+   strict schema, field type and range validation;
+2. CLI and daemon readers share bounded, regular-file-only reads protected with
+   `O_NOFOLLOW`;
+3. history lookup treats `last.json` as a rebuildable cache and recovers the
+   newest authoritative run document when that cache is stale or missing;
+4. status watching uses inotify while keeping JSON documents as the recoverable
+   source of truth;
+5. progress-only status writes are throttled without delaying phase, source or
+   terminal-state updates.
+
+### Plasma Operations
+
+1. target validation remains available through the manager API but is no longer
+   presented as a routine action in the status plasmoid.
 
 ## 3.1.0 - 2026-08-30
 

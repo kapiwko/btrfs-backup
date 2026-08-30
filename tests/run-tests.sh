@@ -253,15 +253,15 @@ release_notes_test() {
     local notes="$TEST_ROOT/release-notes.md"
     local initial_notes="$TEST_ROOT/initial-release-notes.md"
 
-    "$ROOT/tools/render-release-notes.sh" 3.1.0 v3.0.1 > "$notes"
+    "$ROOT/tools/render-release-notes.sh" 3.2.0 v3.1.0 > "$notes"
     assert_contains "$notes" "## What's New"
-    assert_contains "$notes" '### Table-Free Target Management'
-    assert_contains "$notes" '### Upgrade Notes'
-    assert_contains "$notes" '### Plasma Integration'
+    assert_contains "$notes" '### Target Storage Visibility'
+    assert_contains "$notes" '### State API Reliability'
+    assert_contains "$notes" '### Plasma Operations'
     assert_contains "$notes" '## Artifacts'
-    assert_contains "$notes" '/compare/v3.0.1...v3.1.0'
+    assert_contains "$notes" '/compare/v3.1.0...v3.2.0'
     assert_not_contains "$notes" '## Unreleased'
-    assert_not_contains "$notes" '## 3.0.1'
+    assert_not_contains "$notes" '## 3.1.0'
 
     "$ROOT/tools/render-release-notes.sh" 1.0.0 > "$initial_notes"
     assert_contains "$initial_notes" '### Highlights'
