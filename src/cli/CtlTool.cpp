@@ -101,7 +101,7 @@ int ctl_tool_main(int argc, char** argv) {
             btrfsbackup::platform::linux::LinuxSystemConfigurationActivator activator;
             return profile(args, profile_config_dir, activator);
         } else if (command == "status") {
-            bool help_requested = std::find(args.begin(), args.end(), "-h") != args.end() || std::find(args.begin(), args.end(), "--help") != args.end();
+            bool help_requested = std::ranges::contains(args, "-h") || std::ranges::contains(args, "--help");
             if (!help_requested) {
                 btrfsbackup::config::ApplicationConfig application_config = btrfsbackup::platform::linux::load_application_config(profile_config_dir);
                 if (!status_root_overridden)
