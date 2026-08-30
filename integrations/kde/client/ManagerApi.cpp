@@ -8,6 +8,7 @@
 
 #include <QDBusMessage>
 #include <QDateTime>
+#include <QDir>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -254,6 +255,27 @@ std::optional<OperationResult> parse_operation_result(const QString& payload) {
         .run_id = run_id.toString(),
         .accepted = object.value(QStringLiteral("accepted")).toBool(),
     };
+}
+
+std::optional<BrowseSessionInfo> parse_browse_session(const QString& payload) {
+    const QJsonDocument document = QJsonDocument::fromJson(payload.toUtf8());
+    if (!document.isObject())
+        return std::nullopt;
+    const QJsonObject object = document.object();
+    if (object.value(QStringLiteral("schemaVersion")).toInt(-1) != manager_protocol::browse_session_schema_version ||
+        !object.value(QStringLiteral("readOnly")).toBool(false))
+        return std::nullopt;
+    BrowseSessionInfo result{
+        .session_id = object.value(QStringLiteral("sessionId")).toString(),
+        .profile_id = object.value(QStringLiteral("profileId")).toString(),
+        .root_path = object.value(QStringLiteral("rootPath")).toString(),
+        .expires_at = QDateTime::fromString(object.value(QStringLiteral("expiresAt")).toString(), Qt::ISODate),
+        .read_only = true,
+    };
+    if (result.session_id.isEmpty() || result.profile_id.isEmpty() || result.root_path.isEmpty() ||
+        !result.expires_at.isValid() || !QDir::isAbsolutePath(result.root_path))
+        return std::nullopt;
+    return result;
 }
 
 bool active_run_state(const QString& state) {

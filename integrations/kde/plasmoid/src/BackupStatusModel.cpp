@@ -262,7 +262,7 @@ void BackupStatusModel::browseBackups() {
     }
     QUrl location;
     location.setScheme(QStringLiteral("btrfsbackup"));
-    location.setPath(QStringLiteral("/profiles/") + profile_);
+    location.setPath(QStringLiteral("/") + profile_);
     if (!QProcess::startDetached(QStringLiteral("dolphin"), {location.toString()})) {
         setLastError(tr("Could not open backup snapshots."), QStringLiteral("desktop.browser-launch-failed"));
     }

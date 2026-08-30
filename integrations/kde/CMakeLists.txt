@@ -14,7 +14,7 @@ set(KDE_INSTALL_DATADIR "${CMAKE_INSTALL_DATADIR}")
 set(KDE_INSTALL_LOCALEDIR "${CMAKE_INSTALL_DATADIR}/locale")
 
 find_package(Qt6 REQUIRED COMPONENTS Core DBus Gui Qml Quick)
-find_package(KF6 REQUIRED COMPONENTS CoreAddons I18n JobWidgets KCMUtils Notifications Package)
+find_package(KF6 REQUIRED COMPONENTS CoreAddons I18n JobWidgets KCMUtils Notifications Package KIO)
 find_package(Plasma REQUIRED)
 set(CMAKE_INSTALL_DEFAULT_COMPONENT_NAME KDEIntegration)
 ki18n_install(plasmoid/po)
@@ -49,6 +49,30 @@ target_link_libraries(
         Qt6::Core
         Qt6::DBus
 )
+
+add_library(kio_btrfsbackup MODULE
+    kio/BtrfsBackupWorker.cpp
+    kio/BtrfsBackupWorker.hpp
+    kio/btrfsbackup.json
+)
+set_target_properties(kio_btrfsbackup PROPERTIES
+    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/kf6/kio"
+    PREFIX ""
+)
+install(TARGETS kio_btrfsbackup LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}/qt6/plugins/kf6/kio")
+target_compile_features(kio_btrfsbackup PRIVATE cxx_std_23)
+target_include_directories(kio_btrfsbackup PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/client ${CMAKE_CURRENT_SOURCE_DIR}/kio)
+target_link_libraries(kio_btrfsbackup PRIVATE
+    btrfsbackup_kde_manager_client
+    btrfsbackup-restore
+    btrfsbackup-platform-linux-storage
+    KF6::KIOCore
+    Qt6::Core
+    Qt6::DBus
+)
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(kio_btrfsbackup PRIVATE -fexceptions -Wall -Wextra -Wpedantic)
+endif()
 
 add_executable(
     btrfs-backup-kde-monitor
@@ -202,11 +226,22 @@ add_dependencies(
     btrfs-backup-kde-monitor
     btrfsbackup_plasma_backendplugin
     kcm_btrfsbackup
+    kio_btrfsbackup
     pofiles
     tsfiles
 )
 
 if(BUILD_TESTING)
+    add_executable(kio-btrfsbackup-metadata-tests kio/tests/PluginMetadataTests.cpp)
+    target_compile_features(kio-btrfsbackup-metadata-tests PRIVATE cxx_std_23)
+    target_compile_definitions(kio-btrfsbackup-metadata-tests PRIVATE
+        BTRFSBACKUP_KIO_PLUGIN="$<TARGET_FILE:kio_btrfsbackup>"
+    )
+    target_link_libraries(kio-btrfsbackup-metadata-tests PRIVATE Qt6::Core)
+    add_dependencies(kio-btrfsbackup-metadata-tests kio_btrfsbackup)
+    add_test(NAME kio-btrfsbackup-metadata COMMAND kio-btrfsbackup-metadata-tests)
+    set_tests_properties(kio-btrfsbackup-metadata PROPERTIES LABELS "kde;kio")
+
     add_executable(
         kio-snapshot-interop-probe
         spikes/KioSnapshotInteropProbe.cpp
