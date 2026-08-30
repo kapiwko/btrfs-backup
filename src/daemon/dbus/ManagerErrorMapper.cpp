@@ -23,6 +23,10 @@ ManagerErrorDescription ManagerErrorMapper::map(const std::exception& error) con
         case ErrorCode::RepositoryRecoveryRequired:
         case ErrorCode::ConfigurationChanged:
             return describe(ManagerErrorCode::Conflict);
+        case ErrorCode::ConfigurationSaveFailed:
+            return describe(ManagerErrorCode::SaveFailed);
+        case ErrorCode::ConfigurationRollbackIncomplete:
+            return describe(ManagerErrorCode::RollbackIncomplete);
         default:
             return describe(ManagerErrorCode::InternalError);
         }
@@ -48,6 +52,10 @@ ManagerErrorDescription ManagerErrorMapper::describe(ManagerErrorCode code) noex
         return {code, "io.github.btrfsbackup.Error.TargetUnavailable", "backup target is unavailable"};
     case ManagerErrorCode::Conflict:
         return {code, "io.github.btrfsbackup.Error.Conflict", "operation conflicts with the current state"};
+    case ManagerErrorCode::SaveFailed:
+        return {code, "io.github.btrfsbackup.Error.SaveFailed", "configuration could not be saved"};
+    case ManagerErrorCode::RollbackIncomplete:
+        return {code, "io.github.btrfsbackup.Error.RollbackIncomplete", "configuration rollback is incomplete"};
     case ManagerErrorCode::InternalError:
         return {code, "io.github.btrfsbackup.Error.InternalError", "manager request failed"};
     }

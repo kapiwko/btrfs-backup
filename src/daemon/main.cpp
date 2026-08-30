@@ -45,6 +45,7 @@ int main(int argc, char** argv) {
         fs::path audit_log_path = "/var/log/btrfs-backup/manager-audit.jsonl";
         fs::path udev_root = "/etc/udev/rules.d";
         fs::path systemd_root = "/etc/systemd/system";
+        bool skip_configuration_activation = false;
         for (int index = 1; index < argc; ++index) {
             if (std::string(argv[index]) == "--config-root") {
                 config_root = absolute_path(require_value(argc, argv, index), "--config-root");
@@ -89,6 +90,8 @@ int main(int argc, char** argv) {
                 udev_root = absolute_path(require_value(argc, argv, index), argument.c_str());
             } else if (argument == "--systemd-root") {
                 systemd_root = absolute_path(require_value(argc, argv, index), argument.c_str());
+            } else if (argument == "--skip-configuration-activation") {
+                skip_configuration_activation = true;
             } else if (argument == "--help") {
                 std::cout
                     << "Usage: btrfs-backupd [--bus-address ADDRESS] [--config-root PATH]\n"
@@ -110,6 +113,11 @@ int main(int argc, char** argv) {
         btrfsbackup::daemon::control::CommandSystemdUnitController units(commands);
         btrfsbackup::daemon::control::SystemOperationalControlBackend operational_backend(profiles, state, units);
         btrfsbackup::platform::linux::systemd::LinuxSystemConfigurationActivator configuration_activator;
+        btrfsbackup::config::NullConfigurationActivator null_configuration_activator;
+        btrfsbackup::config::IConfigurationActivator& selected_configuration_activator =
+            skip_configuration_activation
+            ? static_cast<btrfsbackup::config::IConfigurationActivator&>(null_configuration_activator)
+            : static_cast<btrfsbackup::config::IConfigurationActivator&>(configuration_activator);
         btrfsbackup::daemon::control::SystemProfileAdministrationBackend profile_administration_backend(
             {
                 .etc_root = config_root,
@@ -118,7 +126,7 @@ int main(int argc, char** argv) {
                 .public_root = paths.public_profile_root,
             },
             paths.target_mount_root,
-            configuration_activator
+            selected_configuration_activator
         );
         btrfsbackup::daemon::FileManagerAuditLog audit_log(audit_log_path);
         return btrfsbackup::daemon::dbus::run_dbus_server(
