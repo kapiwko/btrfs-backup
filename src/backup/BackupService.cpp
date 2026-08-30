@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include <backup/BackupService.hpp>
+#include <backup/TargetStorageRecorder.hpp>
 
 #include <exception>
 #include <memory>
@@ -115,7 +116,8 @@ BackupService::BackupService(
     IRunLedger& ledger,
     execution::RunSessionFactory& sessions,
     IClock& clock,
-    IRunIdGenerator& run_ids
+    IRunIdGenerator& run_ids,
+    TargetStorageRecorder* target_storage
 )
     : profiles_(profiles),
       application_paths_(std::move(application_paths)),
@@ -126,7 +128,8 @@ BackupService::BackupService(
       ledger_(ledger),
       sessions_(sessions),
       clock_(clock),
-      run_ids_(run_ids) {
+      run_ids_(run_ids),
+      target_storage_(target_storage) {
 }
 
 BackupRunPlan BackupService::plan(const BackupPlanRequest& request) {
@@ -224,6 +227,7 @@ std::optional<BackupExecutionResult> BackupService::finish_validation_if_request
     if (!request.validate_only) {
         return std::nullopt;
     }
+    record_target_storage(profile);
     if (std::optional<BackupExecutionFailed> failed = close_target_or_fail(
             context,
             events,
@@ -257,6 +261,7 @@ std::optional<BackupExecutionResult> BackupService::skip_if_daily_limit_reached(
         !ledger_.last_success_matches(profile, today, loaded_profile.fingerprint)) {
         return std::nullopt;
     }
+    record_target_storage(profile);
     if (std::optional<BackupExecutionFailed> failed = close_target_or_fail(
             context,
             events,
@@ -293,6 +298,8 @@ BackupExecutionResult BackupService::execute_plan(
     );
 
     if (const auto* completed = std::get_if<BackupRunExecutionCompleted>(&execution)) {
+        std::vector<BackupCompletionWarning> warnings;
+        record_target_storage(profile, &warnings);
         if (std::optional<BackupExecutionFailed> failed = close_target_or_fail(
                 context,
                 events,
@@ -307,7 +314,6 @@ BackupExecutionResult BackupService::execute_plan(
         if (context.cancellation_token().cancellation_requested()) {
             throw OperationCancelledError("backup cancelled during target cleanup");
         }
-        std::vector<BackupCompletionWarning> warnings;
         record_success_ledger_warning(warnings, loaded_profile, identity, today, plan.sources.size());
         record_terminal_status_warning(warnings, events, profile, identity);
         BackupExecutionResult result = BackupExecutionCompleted{
@@ -319,6 +325,7 @@ BackupExecutionResult BackupService::execute_plan(
         return result;
     }
     if (const auto* failed = std::get_if<BackupRunExecutionFailed>(&execution)) {
+        record_target_storage(profile);
         BackupExecutionResult result = BackupExecutionFailed{
             .profile_id = profile.id,
             .run_id = identity.run_id,
@@ -329,6 +336,7 @@ BackupExecutionResult BackupService::execute_plan(
         (void)context.close();
         return result;
     }
+    record_target_storage(profile);
     BackupExecutionResult result = BackupExecutionCancelled{
         std::move(plan),
         std::get<BackupRunExecutionCancelled>(execution).actions_completed,
@@ -380,6 +388,19 @@ void BackupService::record_terminal_status_warning(
             ErrorCode::BackupFailed,
             "unknown completion metadata error",
         });
+    }
+}
+
+void BackupService::record_target_storage(
+    const btrfsbackup::config::Profile& profile,
+    std::vector<BackupCompletionWarning>* warnings
+) {
+    if (target_storage_ == nullptr) {
+        return;
+    }
+    std::optional<BackupCompletionWarning> warning = target_storage_->record(profile);
+    if (warning.has_value() && warnings != nullptr) {
+        warnings->push_back(std::move(*warning));
     }
 }
 
@@ -468,6 +489,7 @@ BackupExecutionResult BackupService::start_loaded_profile(
             0,
         };
         if (context != nullptr) {
+            record_target_storage(profile);
             (void)context->close();
         }
         return result;
@@ -482,6 +504,7 @@ BackupExecutionResult BackupService::start_loaded_profile(
             operation_kind
         );
         if (context != nullptr) {
+            record_target_storage(profile);
             (void)context->close();
         }
         return result;
@@ -496,6 +519,7 @@ BackupExecutionResult BackupService::start_loaded_profile(
             operation_kind
         );
         if (context != nullptr) {
+            record_target_storage(profile);
             (void)context->close();
         }
         throw;

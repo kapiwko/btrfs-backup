@@ -207,11 +207,13 @@ target_link_libraries(btrfsbackup-backup-execution
 
 add_library(btrfsbackup-backup STATIC
     BackupService.cpp
+    TargetStorageRecorder.cpp
 )
 target_compile_features(btrfsbackup-backup PUBLIC cxx_std_23)
 target_restricted_include_directories(btrfsbackup-backup
     PUBLIC_HEADERS
         backup/BackupService.hpp
+        backup/TargetStorageRecorder.hpp
 )
 target_link_libraries(btrfsbackup-backup
     PUBLIC

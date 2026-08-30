@@ -26,6 +26,8 @@
 
 namespace btrfsbackup::backup {
 
+class TargetStorageRecorder;
+
 class BackupService {
   public:
     BackupService(
@@ -38,7 +40,8 @@ class BackupService {
         IRunLedger& ledger,
         execution::RunSessionFactory& sessions,
         IClock& clock,
-        IRunIdGenerator& run_ids
+        IRunIdGenerator& run_ids,
+        TargetStorageRecorder* target_storage = nullptr
     );
 
     [[nodiscard]] BackupExecutionResult start(const BackupRequest& request);
@@ -107,6 +110,10 @@ class BackupService {
         const btrfsbackup::config::Profile& profile,
         const execution::RunIdentity& identity
     );
+    void record_target_storage(
+        const btrfsbackup::config::Profile& profile,
+        std::vector<BackupCompletionWarning>* warnings = nullptr
+    );
 
     btrfsbackup::config::IProfileRepository& profiles_;
     btrfsbackup::config::ApplicationPaths application_paths_;
@@ -118,6 +125,7 @@ class BackupService {
     execution::RunSessionFactory& sessions_;
     IClock& clock_;
     IRunIdGenerator& run_ids_;
+    TargetStorageRecorder* target_storage_;
 };
 
 } // namespace btrfsbackup::backup

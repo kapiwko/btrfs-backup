@@ -18,6 +18,7 @@ namespace btrfsbackup::backup {
 enum class BackupCompletionWarningComponent {
     SuccessLedger,
     TerminalStatus,
+    TargetStorageMeasurement,
 };
 
 struct BackupCompletionWarning {
