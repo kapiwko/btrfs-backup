@@ -112,6 +112,7 @@ class BackupService {
     );
     void record_target_storage(
         const btrfsbackup::config::Profile& profile,
+        const execution::RunExecutionContext& context,
         std::vector<BackupCompletionWarning>* warnings = nullptr
     );
 

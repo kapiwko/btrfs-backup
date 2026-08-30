@@ -69,7 +69,13 @@ std::vector<btrfsbackup::backup::MountEntry> mounts_with_source() {
 }
 
 void test_accepts_valid_target_mount() {
-    btrfsbackup::backup::planning::validate_backup_mounts(profile(), mounts());
+    const btrfsbackup::backup::MountEntry verified =
+        btrfsbackup::backup::planning::validate_backup_mounts(profile(), mounts());
+    test_helpers::expect_eq(
+        "verified target source",
+        verified.source,
+        "/dev/mapper/backup"
+    );
 }
 
 void test_rejects_missing_mount() {

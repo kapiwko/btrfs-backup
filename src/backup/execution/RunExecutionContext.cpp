@@ -62,8 +62,13 @@ void RunExecutionContext::attach_event_sink(std::unique_ptr<IBackupRunEventSink>
     events_ = std::move(events);
 }
 
-void RunExecutionContext::attach_target_session(std::unique_ptr<IMountedTargetSession> session) noexcept {
-    target_session_ = std::move(session);
+void RunExecutionContext::attach_verified_target(BackupPreflightResult result) noexcept {
+    target_session_ = std::move(result.target_session);
+    verified_target_mount_ = std::move(result.verified_target_mount);
+}
+
+const MountEntry* RunExecutionContext::verified_target_mount() const noexcept {
+    return verified_target_mount_ ? &*verified_target_mount_ : nullptr;
 }
 
 std::optional<TargetCleanupError> RunExecutionContext::close_target_session() noexcept {
@@ -75,6 +80,7 @@ std::optional<TargetCleanupError> RunExecutionContext::close_target_session() no
         target_close_error_ = target_session_->close();
         target_session_.reset();
     }
+    verified_target_mount_.reset();
     return target_close_error_;
 }
 
