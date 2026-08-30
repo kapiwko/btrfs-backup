@@ -12,13 +12,25 @@ namespace fs = std::filesystem;
 
 namespace btrfsbackup::platform::linux::storage {
 
-std::uint64_t available_bytes(const fs::path& path) {
+backup::FilesystemSpace measure_filesystem_space(const fs::path& path) {
     std::error_code ec;
     fs::space_info info = fs::space(path, ec);
     if (ec) {
         throw ValidationError("Could not determine free space at " + path.string());
     }
-    return info.available;
+    backup::FilesystemSpace result{
+        .capacity_bytes = info.capacity,
+        .free_bytes = info.free,
+        .available_bytes = info.available,
+    };
+    if (!result.valid()) {
+        throw ValidationError("Invalid filesystem space statistics at " + path.string());
+    }
+    return result;
+}
+
+std::uint64_t available_bytes(const fs::path& path) {
+    return measure_filesystem_space(path).available_bytes;
 }
 
 void check_minimum_free_space(const fs::path& path, std::uint64_t minimum_bytes, const std::string& label) {

@@ -78,6 +78,7 @@ target_link_libraries(btrfsbackup-platform-linux-filesystem
 
 add_library(btrfsbackup-platform-linux-storage STATIC
     storage/DeviceInfo.cpp
+    storage/FilesystemSpaceProbe.cpp
     storage/LibBtrfsOperations.cpp
     storage/MountInfo.cpp
     storage/SpaceCheck.cpp
@@ -85,6 +86,7 @@ add_library(btrfsbackup-platform-linux-storage STATIC
 target_restricted_include_directories(btrfsbackup-platform-linux-storage
     PUBLIC_HEADERS
         platform/linux/storage/DeviceInfo.hpp
+        platform/linux/storage/FilesystemSpaceProbe.hpp
         platform/linux/storage/LibBtrfsOperations.hpp
         platform/linux/storage/MountInfo.hpp
         platform/linux/storage/SpaceCheck.hpp
@@ -95,6 +97,7 @@ target_link_libraries(btrfsbackup-platform-linux-storage
     PRIVATE
         btrfsbackup-backup-model
         btrfsbackup-core
+        btrfsbackup-platform-linux-base
         PkgConfig::BLKID
         PkgConfig::BTRFSUTIL
         PkgConfig::MOUNT
