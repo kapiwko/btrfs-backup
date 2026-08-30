@@ -150,6 +150,36 @@ PlasmaExtras.ExpandableListItem {
                     font: Kirigami.Theme.smallFont
                 }
 
+                PlasmaComponents3.Label {
+                    text: translations.i18n("Last successful backup:")
+                    horizontalAlignment: Text.AlignRight
+                    font: Kirigami.Theme.smallFont
+                    opacity: 0.6
+                }
+                PlasmaComponents3.Label {
+                    Layout.fillWidth: true
+                    text: root.lastSuccessText(profileStatus.run.lastSuccessAt)
+                    elide: Text.ElideRight
+                    font: Kirigami.Theme.smallFont
+
+                    HoverHandler {
+                        id: lastSuccessHover
+                    }
+
+                    QQC2.ToolTip.visible: lastSuccessHover.hovered
+                        && profileStatus.run.lastSuccessAt.length > 0
+                    QQC2.ToolTip.text: profileStatus.run.lastSuccessAt
+                }
+
+                Kirigami.InlineMessage {
+                    Layout.columnSpan: 2
+                    Layout.fillWidth: true
+                    visible: profileStatus.run.lastAttemptState === "failed"
+                        && profileStatus.run.lastAttemptAt.length > 0
+                    type: Kirigami.MessageType.Error
+                    text: translations.i18n("The last backup attempt failed.")
+                }
+
                 TargetStorageUsage {
                     Layout.columnSpan: 2
                     Layout.fillWidth: true
@@ -406,5 +436,19 @@ PlasmaExtras.ExpandableListItem {
             return translations.i18np("1 month ago", "%1 months ago", months)
         const years = Math.floor(days / 365)
         return translations.i18np("1 year ago", "%1 years ago", years)
+    }
+
+    function lastSuccessText(value) {
+        const timestamp = Date.parse(value)
+        if (isNaN(timestamp))
+            return translations.i18n("No successful backup")
+        const completed = new Date(timestamp)
+        const now = new Date()
+        if (completed.getFullYear() === now.getFullYear()
+                && completed.getMonth() === now.getMonth()
+                && completed.getDate() === now.getDate()) {
+            return translations.i18n("today, %1", Qt.formatTime(completed, "HH:mm"))
+        }
+        return root.relativeTime(value)
     }
 }

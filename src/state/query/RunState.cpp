@@ -31,8 +31,8 @@ std::string lower(std::string value) {
     return value;
 }
 
-std::map<std::string, std::string> read_state_file(const fs::path& path) {
-    std::ifstream stream(path);
+std::map<std::string, std::string> parse_state_document(std::string_view document) {
+    std::istringstream stream{std::string(document)};
     std::map<std::string, std::string> values;
     std::string line;
     while (std::getline(stream, line)) {
@@ -42,6 +42,13 @@ std::map<std::string, std::string> read_state_file(const fs::path& path) {
         }
     }
     return values;
+}
+
+std::map<std::string, std::string> read_state_file(const fs::path& path) {
+    std::ifstream stream(path);
+    std::ostringstream content;
+    content << stream.rdbuf();
+    return parse_state_document(content.str());
 }
 
 std::string get_value(const std::map<std::string, std::string>& values, const std::string& key) {
@@ -82,6 +89,11 @@ bool last_success_matches(
     return get_value(values, "date") == format_local_date(today) &&
         lower(get_value(values, "target_luks_uuid")) == lower(target_luks_uuid.value()) &&
         get_value(values, "config_fingerprint") == config_fingerprint.value();
+}
+
+std::optional<std::string> parse_last_success_timestamp(std::string_view document) {
+    const std::string timestamp = get_value(parse_state_document(document), "timestamp");
+    return timestamp.empty() ? std::nullopt : std::optional<std::string>{timestamp};
 }
 
 void write_success_state(

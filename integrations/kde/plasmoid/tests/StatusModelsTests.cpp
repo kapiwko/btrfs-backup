@@ -22,7 +22,7 @@ void expect(bool condition, const char* message) {
 
 QString run_payload(const QString& state, bool can_cancel) {
     return QStringLiteral(R"({
-        "schemaVersion": 3,
+        "schemaVersion": 4,
         "runId": "run-1",
         "state": "%1",
         "phase": "transferring",
@@ -35,7 +35,10 @@ QString run_payload(const QString& state, bool can_cancel) {
         "etaSeconds": 20,
         "sourceProgress": 30,
         "overallProgress": 40,
-        "progressAccuracy": "estimated"
+        "progressAccuracy": "estimated",
+        "lastSuccessAt": "2026-08-18T18:42:00Z",
+        "lastAttemptAt": "2026-08-30T12:34:56Z",
+        "lastAttemptState": "failed"
     })")
         .arg(state, can_cancel ? QStringLiteral("true") : QStringLiteral("false"));
 }
@@ -50,6 +53,9 @@ void test_run_status_and_terminal_transition() {
     expect(model.canCancel(), "cancellable status was not exposed");
     expect(model.overallProgress() == 40 && model.speedBps() == 1024, "run progress was not applied");
     expect(model.speedText() == QStringLiteral("1,0 KiB/s"), "transfer rate was not localized");
+    expect(model.lastSuccessAt() == QStringLiteral("2026-08-18T18:42:00Z"), "last success was not applied");
+    expect(model.lastAttemptAt() == QStringLiteral("2026-08-30T12:34:56Z"), "last attempt was not applied");
+    expect(model.lastAttemptState() == QStringLiteral("failed"), "last attempt state was not applied");
     expect(model.apply(run_payload(QStringLiteral("succeeded"), false)), "terminal status was rejected");
     expect(finished == 1, "active-to-terminal transition was not reported exactly once");
 

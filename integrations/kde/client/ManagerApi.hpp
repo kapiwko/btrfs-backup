@@ -43,6 +43,9 @@ struct RunStatus {
     QString source_name;
     QString target_name;
     QString progress_accuracy;
+    QString last_success_at;
+    QString last_attempt_at;
+    QString last_attempt_state;
     bool can_cancel = false;
     qint64 speed_bps = 0;
     qint64 eta_seconds = -1;

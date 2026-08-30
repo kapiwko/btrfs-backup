@@ -115,27 +115,19 @@ ColumnLayout {
         font: Kirigami.Theme.smallFont
         opacity: 0.7
 
-        PlasmaComponents3.ToolTip {
-            text: root.measuredAt
+        HoverHandler {
+            id: measurementHover
         }
+
+        QQC2.ToolTip.visible: measurementHover.hovered && root.measuredAt.length > 0
+        QQC2.ToolTip.text: root.measuredAt
     }
 
-    RowLayout {
+    Kirigami.InlineMessage {
         Layout.fillWidth: true
         visible: root.known && root.belowMinimum
-
-        Kirigami.Icon {
-            source: "dialog-warning-symbolic"
-            implicitWidth: Kirigami.Units.iconSizes.small
-            implicitHeight: implicitWidth
-        }
-        PlasmaComponents3.Label {
-            Layout.fillWidth: true
-            text: translations.i18n("Available space is below the configured minimum.")
-            color: Kirigami.Theme.neutralTextColor
-            wrapMode: Text.Wrap
-            font: Kirigami.Theme.smallFont
-        }
+        type: Kirigami.MessageType.Warning
+        text: translations.i18n("Available space is below the configured minimum.")
     }
 
 }

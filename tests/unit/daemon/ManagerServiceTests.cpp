@@ -101,7 +101,12 @@ void test_capabilities_and_profiles() {
     btrfsbackup::daemon::ManagerService service(manager_paths(root));
     const btrfsbackup::daemon::ManagerCapabilities capabilities = service.get_capabilities();
     test_helpers::expect_true("operational capability", !capabilities.read_only, "manager is still read-only");
-    test_helpers::expect_true("manager API minor", capabilities.api_minor == 2, "manager API minor was not advanced");
+    test_helpers::expect_true("manager API minor", capabilities.api_minor == 3, "manager API minor was not advanced");
+    test_helpers::expect_true(
+        "manager status schema",
+        capabilities.public_status_schema_version == 4,
+        "manager did not advertise the backup summary schema"
+    );
     test_helpers::expect_true(
         "target storage capability",
         std::ranges::find(capabilities.features, "target-storage-usage") != capabilities.features.end(),
@@ -142,18 +147,37 @@ void test_status_and_history_sanitization() {
         private_history("20260825T110000Z-1-2", "failed", "2026-08-25T11:00:00Z")
     );
     test_helpers::write_file(
+        root / "history" / "default" / "20260825T120000Z-1-3.json",
+        private_history("20260825T120000Z-1-3", "failed", "2026-08-25T12:00:00Z")
+    );
+    test_helpers::write_file(
+        root / "history" / "default" / "20260825T130000Z-1-4.json",
+        private_history("20260825T130000Z-1-4", "failed", "2026-08-25T13:00:00Z")
+    );
+    test_helpers::write_file(
         root / "history" / "default" / "last.json",
-        private_history("20260825T110000Z-1-2", "failed", "2026-08-25T11:00:00Z")
+        private_history("20260825T130000Z-1-4", "failed", "2026-08-25T13:00:00Z")
+    );
+    test_helpers::write_file(
+        root / "state" / "profiles" / "default" / "last-success",
+        "date=2026-08-25\ntimestamp=2026-08-25T10:00:00+0000\n"
     );
 
     const btrfsbackup::daemon::query::HistoryQueryService history_service(root / "history");
-    const btrfsbackup::daemon::query::StatusQueryService status_service(root / "status", history_service);
-    const btrfsbackup::daemon::PublicRunStatus status = status_service.get_status("default");
-    test_helpers::expect_eq("status state", btrfsbackup::state::document::public_run_state_name(status), "running");
-    test_helpers::expect_eq("status phase", status.phase.value, "sizing");
-    test_helpers::expect_eq("status activity", btrfsbackup::state::document::public_activity_name(status), "sizing");
-    test_helpers::expect_true("status cancellable", status.can_cancel, "status lost cancellation capability");
-    test_helpers::expect_eq("status source", status.source_name, "Home");
+    const btrfsbackup::daemon::query::StatusQueryService status_service(
+        root / "status",
+        root / "state",
+        history_service
+    );
+    const btrfsbackup::daemon::PublicStatusResponse status = status_service.get_status("default");
+    test_helpers::expect_eq("status state", btrfsbackup::state::document::public_run_state_name(status.run), "running");
+    test_helpers::expect_eq("status phase", status.run.phase.value, "sizing");
+    test_helpers::expect_eq("status activity", btrfsbackup::state::document::public_activity_name(status.run), "sizing");
+    test_helpers::expect_true("status cancellable", status.run.can_cancel, "status lost cancellation capability");
+    test_helpers::expect_eq("status source", status.run.source_name, "Home");
+    test_helpers::expect_eq("last success is independent from history page", status.last_success_at, "2026-08-25T10:00:00+0000");
+    test_helpers::expect_eq("last attempt timestamp", status.last_attempt_at, "2026-08-25T13:00:00Z");
+    test_helpers::expect_eq("last attempt state", status.last_attempt_state, "failed");
     const btrfsbackup::daemon::SanitizedHistoryPage history = history_service.get_history_sanitized("default", 0, 1);
     test_helpers::expect_eq("bounded history", std::to_string(history.entries.size()), "1");
     test_helpers::expect_eq("newest history first", history.entries.at(0).state, "failed");
@@ -166,7 +190,7 @@ void test_status_and_history_sanitization() {
     fs::remove(root / "status" / "default" / "current.json");
     test_helpers::expect_eq(
         "restart fallback state",
-        btrfsbackup::state::document::public_run_state_name(status_service.get_status("default")),
+        btrfsbackup::state::document::public_run_state_name(status_service.get_status("default").run),
         "failed"
     );
     fs::remove_all(root);
@@ -208,7 +232,11 @@ void test_last_history_cache_recovers_from_authoritative_record() {
 void test_malformed_and_oversized_documents() {
     fs::path root = test_helpers::test_root("manager-service", "invalid-documents");
     const btrfsbackup::daemon::query::HistoryQueryService history_service(root / "history");
-    const btrfsbackup::daemon::query::StatusQueryService status_service(root / "status", history_service);
+    const btrfsbackup::daemon::query::StatusQueryService status_service(
+        root / "status",
+        root / "state",
+        history_service
+    );
     test_helpers::write_file(root / "status" / "default" / "current.json", "{invalid");
     test_helpers::expect_validation_error(
         "malformed status",

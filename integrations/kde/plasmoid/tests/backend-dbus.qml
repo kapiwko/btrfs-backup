@@ -60,12 +60,15 @@ Window {
                     && status.run.activity === "sizing"
                     && status.run.canCancel
                     && status.run.sourceName === "Home"
-                    && status.run.targetName === "backupdisk"
+                    && status.run.targetName === "Backup disk"
                     && status.run.speedBps === 10
                     && status.run.etaSeconds === 20
                     && status.run.sourceProgress === 30
                     && status.run.overallProgress === 40
                     && status.run.progressAccuracy === "estimated"
+                    && status.run.lastSuccessAt === "2026-08-24T18:42:00+0000"
+                    && status.run.lastAttemptAt === "2026-08-25T10:00:00Z"
+                    && status.run.lastAttemptState === "failed"
                     && status.target.connected
                     && status.target.safeToRemove
                     && status.target.state === "connected"

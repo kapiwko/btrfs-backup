@@ -36,7 +36,7 @@ schema versions are not advertised as public API versions.
 |---|---|---|---|
 | `GetCapabilities` | `()` | `(s)` | API/schema versions, features and `readOnly: false` |
 | `ListProfiles` | `()` | `(s)` | sanitized public profile array |
-| `GetStatus` | `(s profileId)` | `(s)` | public status schema 3, including run phase and cancellable run id, or an unavailable status |
+| `GetStatus` | `(s profileId)` | `(s)` | public status schema 4, including run state, last successful backup and last completed attempt |
 | `GetHistorySanitized` | `(s profileId, u offset, u limit)` | `(s)` | sanitized history array |
 | `GetDeviceState` | `(s profileId)` | `(s)` | labels, lifecycle booleans and optional filesystem usage without storage identifiers |
 | `StartBackup` | `(s profileId)` | `(s)` | accepted systemd runner start |
@@ -51,7 +51,16 @@ request, so a restart reconstructs the same visible state from current status
 or durable history. Operational methods return schema-versioned
 `OperationResult` documents.
 
-API minor version 2 advertises the `target-storage-usage` feature. The
+API minor version 3 advances `GetStatus` to schema version 4. In addition to the
+schema version 3 runtime fields, every response contains `lastSuccessAt`,
+`lastAttemptAt` and `lastAttemptState`. The manager reads the successful
+timestamp from the durable `last-success` state and the attempt fields from the
+authoritative latest history record; it does not derive them from a paginated
+history response. Missing values are represented by empty strings. Clients may
+present backup age, but must not classify it as overdue until scheduling defines
+an expected maximum age.
+
+API minor version 2 introduced the `target-storage-usage` feature. The
 device-state parent remains schema version 1 and may contain this optional,
 independently versioned block:
 

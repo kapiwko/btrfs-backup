@@ -91,7 +91,7 @@ void test_success() {
 
 void test_shared_manager_protocol() {
     const auto capabilities = btrfsbackup::kde::parse_capabilities(
-        QStringLiteral(R"({"apiMajor":1,"publicStatusSchemaVersion":3,"features":["cancel-backup","change-signals"]})")
+        QStringLiteral(R"({"apiMajor":1,"publicStatusSchemaVersion":4,"features":["cancel-backup","change-signals"]})")
     );
     expect(
         capabilities.has_value() && capabilities->api_major == 1 &&
@@ -108,16 +108,24 @@ void test_shared_manager_protocol() {
     );
 
     const auto status = btrfsbackup::kde::parse_status(QStringLiteral(
-        R"({"schemaVersion":3,"runId":"run-1","state":"running","phase":"transfer","activity":"transferring","canCancel":true,"errorCode":"","sourceName":"Home","targetName":"Disk","speedBps":2048,"etaSeconds":60,"sourceProgress":50,"overallProgress":25,"progressAccuracy":"estimated"})"
+        R"({"schemaVersion":4,"runId":"run-1","state":"running","phase":"transfer","activity":"transferring","canCancel":true,"errorCode":"","sourceName":"Home","targetName":"Disk","speedBps":2048,"etaSeconds":60,"sourceProgress":50,"overallProgress":25,"progressAccuracy":"estimated","lastSuccessAt":"2026-08-25T10:00:00Z","lastAttemptAt":"2026-08-29T16:00:00Z","lastAttemptState":"failed"})"
     ));
     expect(
         status.has_value() && status->run_id == QStringLiteral("run-1") &&
-            status->speed_bps == 2048 && btrfsbackup::kde::active_run_state(status->state),
+            status->speed_bps == 2048 && status->last_attempt_state == QStringLiteral("failed") &&
+            btrfsbackup::kde::active_run_state(status->state),
         "shared client decodes active run status"
     );
     expect(
         !btrfsbackup::kde::parse_status(QStringLiteral(R"({"schemaVersion":2})")).has_value(),
         "shared client rejects incompatible status schemas"
+    );
+    expect(
+        !btrfsbackup::kde::parse_status(QStringLiteral(
+                                            R"({"schemaVersion":4,"lastSuccessAt":"","lastAttemptAt":""})"
+                                        ))
+             .has_value(),
+        "shared client rejects incomplete backup summary"
     );
 }
 

@@ -76,8 +76,10 @@ BackupStatusModel::BackupStatusModel(QObject* parent)
             requestStatus();
     });
     connect(&manager_events_, &btrfsbackup::kde::ManagerEventSubscriber::historyChanged, this, [this](const QString& profile_id) {
-        if (active_ && capabilities_verified_ && profile_id == profile_)
+        if (active_ && capabilities_verified_ && profile_id == profile_) {
+            requestStatus();
             requestHistory();
+        }
     });
     connect(&manager_events_, &btrfsbackup::kde::ManagerEventSubscriber::deviceStateChanged, this, [this](const QString& profile_id) {
         if (active_ && capabilities_verified_ && profile_id == profile_)

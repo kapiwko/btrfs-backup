@@ -39,6 +39,13 @@ struct ProfileSummary {
 
 using PublicRunStatus = btrfsbackup::state::document::PublicRunStatusV3;
 
+struct PublicStatusResponse {
+    PublicRunStatus run;
+    std::string last_success_at;
+    std::string last_attempt_at;
+    std::string last_attempt_state;
+};
+
 struct SanitizedHistoryEntry {
     std::string state;
     std::string error_code;

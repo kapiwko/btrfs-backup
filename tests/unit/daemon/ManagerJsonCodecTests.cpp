@@ -51,29 +51,37 @@ void test_profiles() {
 
 void test_status_history_and_device() {
     const ManagerJsonCodec codec;
-    const btrfsbackup::daemon::PublicRunStatus status{
-        .run_id = btrfsbackup::RunId{"20260829T160000Z-1-1"},
-        .state = btrfsbackup::state::document::PublicRunState::Running,
-        .phase = {.value = "sizing", .known = true},
-        .activity = btrfsbackup::state::document::PublicActivity::Sizing,
-        .can_cancel = true,
-        .error_code = btrfsbackup::state::document::PublicErrorCode::None,
-        .source_name = "Home",
-        .target_name = "Backup disk",
-        .progress = {
-            .speed_bps = 10,
-            .eta_seconds = 20,
-            .source_percent = 30,
-            .overall_percent = 40,
-            .accuracy = btrfsbackup::state::ProgressAccuracy::Estimated,
+    const btrfsbackup::daemon::PublicStatusResponse status{
+        .run = {
+            .run_id = btrfsbackup::RunId{"20260829T160000Z-1-1"},
+            .state = btrfsbackup::state::document::PublicRunState::Running,
+            .phase = {.value = "sizing", .known = true},
+            .activity = btrfsbackup::state::document::PublicActivity::Sizing,
+            .can_cancel = true,
+            .error_code = btrfsbackup::state::document::PublicErrorCode::None,
+            .source_name = "Home",
+            .target_name = "Backup disk",
+            .progress = {
+                .speed_bps = 10,
+                .eta_seconds = 20,
+                .source_percent = 30,
+                .overall_percent = 40,
+                .accuracy = btrfsbackup::state::ProgressAccuracy::Estimated,
+            },
         },
+        .last_success_at = "2026-08-25T10:00:00Z",
+        .last_attempt_at = "2026-08-29T16:00:00Z",
+        .last_attempt_state = "failed",
     };
     const Json status_document = Json::parse(codec.encode(status));
-    expect_field("status", status_document, "schemaVersion", 3);
-    expect_field("status", status_document, "runId", std::string(status.run_id->value()));
+    expect_field("status", status_document, "schemaVersion", 4);
+    expect_field("status", status_document, "runId", std::string(status.run.run_id->value()));
     expect_field("status", status_document, "activity", "sizing");
     expect_field("status", status_document, "canCancel", true);
     expect_field("status", status_document, "overallProgress", 40);
+    expect_field("status", status_document, "lastSuccessAt", status.last_success_at);
+    expect_field("status", status_document, "lastAttemptAt", status.last_attempt_at);
+    expect_field("status", status_document, "lastAttemptState", status.last_attempt_state);
 
     const btrfsbackup::daemon::SanitizedHistoryPage history{{{
         .state = "failed",
