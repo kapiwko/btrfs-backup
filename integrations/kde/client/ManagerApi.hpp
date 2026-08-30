@@ -16,6 +16,8 @@
 
 #include <core/ManagerProtocol.hpp>
 
+class IoGithubBtrfsbackupManager1Interface;
+
 namespace btrfsbackup::kde {
 
 struct ManagerCapabilities {
@@ -59,7 +61,7 @@ class ManagerEventSubscriber final : public QObject {
     void deviceStateChanged(const QString& profile_id);
 
   private:
-    QDBusConnection bus_;
+    IoGithubBtrfsbackupManager1Interface* manager_;
 };
 
 [[nodiscard]] QDBusPendingCall manager_call(

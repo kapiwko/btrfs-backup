@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+SPDX-FileCopyrightText: 2026 Kamil Piwowarski <kapiwko@gmail.com>
+
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
+<!DOCTYPE node PUBLIC "-//freedesktop//DTD D-BUS Object Introspection 1.0//EN"
+    "http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
+<node name="/io/github/btrfsbackup/Manager1">
+  <interface name="io.github.btrfsbackup.Manager1">
+    <method name="GetCapabilities">
+      <arg name="payload" type="s" direction="out"/>
+    </method>
+    <method name="ListProfiles">
+      <arg name="payload" type="s" direction="out"/>
+    </method>
+    <method name="GetStatus">
+      <arg name="profileId" type="s" direction="in"/>
+      <arg name="payload" type="s" direction="out"/>
+    </method>
+    <method name="GetHistorySanitized">
+      <arg name="profileId" type="s" direction="in"/>
+      <arg name="offset" type="u" direction="in"/>
+      <arg name="limit" type="u" direction="in"/>
+      <arg name="payload" type="s" direction="out"/>
+    </method>
+    <method name="GetDeviceState">
+      <arg name="profileId" type="s" direction="in"/>
+      <arg name="payload" type="s" direction="out"/>
+    </method>
+    <method name="StartBackup">
+      <arg name="profileId" type="s" direction="in"/>
+      <arg name="payload" type="s" direction="out"/>
+    </method>
+    <method name="CancelBackup">
+      <arg name="profileId" type="s" direction="in"/>
+      <arg name="runId" type="s" direction="in"/>
+      <arg name="payload" type="s" direction="out"/>
+    </method>
+    <method name="ValidateTarget">
+      <arg name="profileId" type="s" direction="in"/>
+      <arg name="payload" type="s" direction="out"/>
+    </method>
+    <method name="EjectTarget">
+      <arg name="profileId" type="s" direction="in"/>
+      <arg name="payload" type="s" direction="out"/>
+    </method>
+
+    <signal name="ProfilesChanged"/>
+    <signal name="StatusChanged">
+      <arg name="profileId" type="s"/>
+    </signal>
+    <signal name="HistoryChanged">
+      <arg name="profileId" type="s"/>
+    </signal>
+    <signal name="DeviceStateChanged">
+      <arg name="profileId" type="s"/>
+    </signal>
+  </interface>
+</node>
