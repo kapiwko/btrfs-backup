@@ -35,6 +35,10 @@ void BackupKcm::openSupportPage() {
     QDesktopServices::openUrl(QUrl(QStringLiteral("https://github.com/kapiwko/btrfs-backup/issues")));
 }
 
+ProfileConfigurationModel* BackupKcm::profileConfiguration() {
+    return &profile_configuration_;
+}
+
 } // namespace btrfsbackup::kde::kcm
 
 K_PLUGIN_CLASS_WITH_JSON(btrfsbackup::kde::kcm::BackupKcm, "kcm_btrfsbackup.json")

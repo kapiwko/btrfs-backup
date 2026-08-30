@@ -71,6 +71,7 @@ start_daemon() {
         --target-mount-root "$TEST_ROOT/mnt" \
         --udev-root "$TEST_ROOT/udev" \
         --systemd-root "$TEST_ROOT/systemd" \
+        --skip-configuration-activation \
         --audit-log "$TEST_ROOT/audit/manager.jsonl" \
         >"$TEST_ROOT/daemon.log" 2>&1 &
     DAEMON_PID=$!
@@ -225,10 +226,24 @@ done
 
 touch "$TEST_ROOT/polkit.log.allow"
 editable_profile="$(call GetProfileForEditing s default)"
-rm -f -- "$TEST_ROOT/polkit.log.allow"
 grep -Fq 'fingerprint' <<<"$editable_profile" || fail 'editable profile omits fingerprint'
 grep -Fq 'generation' <<<"$editable_profile" || fail 'editable profile omits generation'
 if grep -Fq 'key contents' <<<"$editable_profile"; then fail 'secret contents crossed the bus'; fi
+fingerprint="$(grep -oE '[0-9a-f]{64}' <<<"$editable_profile")"
+if [[ ! "$fingerprint" =~ ^[0-9a-f]{64}$ ]]; then
+    printf 'editable profile response: %s\n' "$editable_profile" >&2
+    fail 'editable profile returned an invalid fingerprint'
+fi
+draft="$(<"$TEST_ROOT/etc/profiles/default/profile.json")"
+validated="$(call ValidateProfileDraft ssss default "" "$fingerprint" "$draft")"
+grep -Fq 'valid' <<<"$validated" || fail 'profile draft validation did not return a result'
+updated_draft="${draft/Default backup/Edited backup}"
+saved="$(call SaveProfile ssss default "" "$fingerprint" "$updated_draft")"
+grep -Fq 'generation' <<<"$saved" || fail 'profile save omitted the new generation'
+grep -Fq 'Edited backup' "$TEST_ROOT/etc/profiles/default/profile.json" || fail 'profile save did not publish the draft'
+grep -Eq '"configurationGeneration"[[:space:]]*:[[:space:]]*"[0-9a-f]{32}"' "$TEST_ROOT/etc/profiles/default/profile.json" \
+    || fail 'profile save did not assign a generation'
+rm -f -- "$TEST_ROOT/polkit.log.allow"
 
 "$BUSCTL" --address="$BUS_ADDRESS" --timeout=2 wait \
     "$SERVICE" "$OBJECT" "$INTERFACE" ProfilesChanged >"$TEST_ROOT/profiles-signal" &

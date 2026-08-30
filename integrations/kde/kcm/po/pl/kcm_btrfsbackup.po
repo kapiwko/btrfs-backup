@@ -99,3 +99,153 @@ msgstr "Odłączony"
 msgctxt "error message followed by a stable diagnostic code"
 msgid "%1 (code: %2)"
 msgstr "%1 (kod: %2)"
+
+msgid "Configure"
+msgstr "Konfiguruj"
+
+msgid "Configure %1"
+msgstr "Konfiguruj %1"
+
+msgid "Loading profile"
+msgstr "Wczytywanie profilu"
+
+msgid "Profile"
+msgstr "Profil"
+
+msgid "Name:"
+msgstr "Nazwa:"
+
+msgid "Enabled:"
+msgstr "Włączony:"
+
+msgid "Target"
+msgstr "Cel"
+
+msgid "Device:"
+msgstr "Urządzenie:"
+
+msgid "LUKS UUID:"
+msgstr "UUID LUKS:"
+
+msgid "Btrfs UUID:"
+msgstr "UUID Btrfs:"
+
+msgid "Mapper name:"
+msgstr "Nazwa mappera:"
+
+msgid "Unlock method:"
+msgstr "Metoda odblokowania:"
+
+msgid "Ask for password"
+msgstr "Pytaj o hasło"
+
+msgid "Key file"
+msgstr "Plik klucza"
+
+msgid "Key file:"
+msgstr "Plik klucza:"
+
+msgid "Sources"
+msgstr "Źródła"
+
+msgid "Add source"
+msgstr "Dodaj źródło"
+
+msgid "Source name"
+msgstr "Nazwa źródła"
+
+msgid "Source ID:"
+msgstr "Identyfikator źródła:"
+
+msgid "Remove source"
+msgstr "Usuń źródło"
+
+msgid "Subvolume:"
+msgstr "Subvolume:"
+
+msgid "Snapshot directory:"
+msgstr "Katalog snapshotu:"
+
+msgid "Target directory:"
+msgstr "Katalog na celu:"
+
+msgid "Target retention:"
+msgstr "Retencja na celu:"
+
+msgid "Local retention:"
+msgstr "Lokalna retencja:"
+
+msgid "Retention"
+msgstr "Retencja"
+
+msgid "Target snapshots:"
+msgstr "Snapshoty na celu:"
+
+msgid "Local snapshots:"
+msgstr "Lokalne snapshoty:"
+
+msgid "Normalized configuration preview"
+msgstr "Podgląd znormalizowanej konfiguracji"
+
+msgid "Validate"
+msgstr "Sprawdź"
+
+msgid "Duplicate"
+msgstr "Duplikuj"
+
+msgid "Delete"
+msgstr "Usuń"
+
+msgid "Discard"
+msgstr "Odrzuć"
+
+msgid "Apply"
+msgstr "Zastosuj"
+
+msgid "Close"
+msgstr "Zamknij"
+
+msgid "Profile changed"
+msgstr "Profil został zmieniony"
+
+msgid "The profile was changed by another process. Reloading discards this draft."
+msgstr "Profil został zmieniony przez inny proces. Ponowne wczytanie odrzuci ten draft."
+
+msgid "Keep draft"
+msgstr "Zachowaj draft"
+
+msgid "Reload"
+msgstr "Wczytaj ponownie"
+
+msgid "Duplicate profile"
+msgstr "Duplikuj profil"
+
+msgid "New profile ID"
+msgstr "Identyfikator nowego profilu"
+
+msgid "Delete profile"
+msgstr "Usuń profil"
+
+msgid "Delete this profile and its managed system configuration?"
+msgstr "Usunąć ten profil i zarządzaną przez niego konfigurację systemową?"
+
+msgid "Rollback was incomplete. Review the system log before running another backup."
+msgstr "Rollback nie został ukończony. Przejrzyj dziennik systemowy przed uruchomieniem kolejnej kopii."
+
+msgid "Source %1"
+msgstr "Źródło %1"
+
+msgid "Profile deleted"
+msgstr "Profil usunięto"
+
+msgid "The backup manager returned an invalid editing response."
+msgstr "Manager kopii zwrócił nieprawidłową odpowiedź edycji."
+
+msgid "Profile draft is valid"
+msgstr "Draft profilu jest prawidłowy"
+
+msgid "Profile saved"
+msgstr "Profil zapisano"
+
+msgid "Profile duplicated"
+msgstr "Profil zduplikowano"

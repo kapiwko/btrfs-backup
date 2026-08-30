@@ -17,6 +17,8 @@ enum class ManagerErrorCode {
     RunMismatch,
     TargetUnavailable,
     Conflict,
+    SaveFailed,
+    RollbackIncomplete,
     InternalError,
 };
 
