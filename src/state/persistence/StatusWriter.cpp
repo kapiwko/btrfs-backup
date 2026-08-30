@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <state/StatusWriter.hpp>
+#include <state/persistence/StatusWriter.hpp>
 
 #include <filesystem>
 #include <string>

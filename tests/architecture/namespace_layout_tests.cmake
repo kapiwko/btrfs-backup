@@ -73,7 +73,7 @@ set(root_namespace_forward_declarations
     "src/backup/execution/actions/BackupRunActionHandler.hpp"
     "src/backup/ports/Process.hpp"
     "src/cli/BackupTool.hpp"
-    "src/state/FilePendingMarkerStore.hpp"
+    "src/state/persistence/FilePendingMarkerStore.hpp"
     "src/state/RunHistory.hpp"
 )
 

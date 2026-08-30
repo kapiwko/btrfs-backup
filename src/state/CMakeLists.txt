@@ -6,7 +6,7 @@ add_library(btrfsbackup-state-persistence-ports INTERFACE)
 target_compile_features(btrfsbackup-state-persistence-ports INTERFACE cxx_std_23)
 target_restricted_include_directories(btrfsbackup-state-persistence-ports
     INTERFACE_HEADERS
-        state/PersistentDocumentOperations.hpp
+        state/persistence/PersistentDocumentOperations.hpp
 )
 
 add_library(btrfsbackup-state-model STATIC
@@ -21,35 +21,35 @@ target_restricted_include_directories(btrfsbackup-state-model
 target_link_libraries(btrfsbackup-state-model PUBLIC btrfsbackup-core)
 
 add_library(btrfsbackup-state STATIC
-    BackupRunSerialization.cpp
+    persistence/BackupRunSerialization.cpp
     FileActiveRunRegistration.cpp
     FileCancellationMonitor.cpp
-    FilePendingMarkerStore.cpp
-    FileRunStateRepository.cpp
-    JsonFileBackupRunCheckpointStore.cpp
+    persistence/FilePendingMarkerStore.cpp
+    persistence/FileRunStateRepository.cpp
+    persistence/JsonFileBackupRunCheckpointStore.cpp
     PollingCancellationWatch.cpp
     RunHistory.cpp
     RunState.cpp
     RunStatusBuilder.cpp
     RunStatusProjection.cpp
     StatusService.cpp
-    StatusWriter.cpp
+    persistence/StatusWriter.cpp
 )
 
 target_compile_features(btrfsbackup-state PUBLIC cxx_std_23)
 target_restricted_include_directories(btrfsbackup-state
     PUBLIC_HEADERS
-        state/FilePendingMarkerStore.hpp
+        state/persistence/FilePendingMarkerStore.hpp
         state/FileCancellationMonitor.hpp
-        state/FileRunStateRepository.hpp
-        state/JsonFileBackupRunCheckpointStore.hpp
+        state/persistence/FileRunStateRepository.hpp
+        state/persistence/JsonFileBackupRunCheckpointStore.hpp
         state/RunHistory.hpp
         state/RunState.hpp
         state/RunStatusProjection.hpp
         state/RunStatusBuilder.hpp
-        state/BackupRunSerialization.hpp
+        state/persistence/BackupRunSerialization.hpp
         state/StatusService.hpp
-        state/StatusWriter.hpp
+        state/persistence/StatusWriter.hpp
     PRIVATE_HEADERS
         state/FileActiveRunRegistration.hpp
         state/PollingCancellationWatch.hpp

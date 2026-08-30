@@ -12,7 +12,7 @@
 #include <cli/status/StatusShowCommand.hpp>
 #include <config/json/JsonIo.hpp>
 #include <core/RuntimeTime.hpp>
-#include <state/StatusWriter.hpp>
+#include <state/persistence/StatusWriter.hpp>
 #include <platform/linux/filesystem/PosixDurableFileOperations.hpp>
 
 #include "support/ValidationTestHelpers.hpp"

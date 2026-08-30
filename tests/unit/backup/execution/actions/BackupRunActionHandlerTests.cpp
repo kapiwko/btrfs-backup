@@ -30,7 +30,7 @@
 #include <platform/linux/filesystem/SafeDirectoryRoot.hpp>
 #include <platform/linux/filesystem/PosixDurableFileOperations.hpp>
 #include <platform/linux/filesystem/TrustedExecutable.hpp>
-#include <state/FilePendingMarkerStore.hpp>
+#include <state/persistence/FilePendingMarkerStore.hpp>
 #include <state/RunState.hpp>
 
 #include "support/FakeTrustedExecutable.hpp"

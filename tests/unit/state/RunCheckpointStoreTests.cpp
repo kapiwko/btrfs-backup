@@ -6,7 +6,7 @@
 #include <sys/stat.h>
 
 #include <config/json/JsonIo.hpp>
-#include <state/JsonFileBackupRunCheckpointStore.hpp>
+#include <state/persistence/JsonFileBackupRunCheckpointStore.hpp>
 #include <platform/linux/filesystem/PosixDurableFileOperations.hpp>
 
 #include "support/TestHelpers.hpp"

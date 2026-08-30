@@ -13,7 +13,7 @@
 #include <backup/ports/IRunEventSinkFactory.hpp>
 #include <backup/ports/IRunLedger.hpp>
 #include <config/ApplicationPaths.hpp>
-#include <state/PersistentDocumentOperations.hpp>
+#include <state/persistence/PersistentDocumentOperations.hpp>
 
 namespace btrfsbackup::state {
 

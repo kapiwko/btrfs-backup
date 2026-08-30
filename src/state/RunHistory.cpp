@@ -10,7 +10,7 @@
 #include <config/json/Json.hpp>
 #include <core/Errors.hpp>
 #include <core/Identifiers.hpp>
-#include <state/StatusWriter.hpp>
+#include <state/persistence/StatusWriter.hpp>
 
 namespace fs = std::filesystem;
 
