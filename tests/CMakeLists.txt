@@ -144,6 +144,13 @@ add_test(
 )
 
 add_test(
+    NAME cpp-readability-convention
+    COMMAND ${CMAKE_COMMAND}
+        -DPROJECT_SOURCE_DIR=${PROJECT_SOURCE_DIR}
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/architecture/cpp_readability_tests.cmake
+)
+
+add_test(
     NAME config-domain-boundary
     COMMAND
         ${CMAKE_COMMAND}
@@ -154,6 +161,7 @@ set_tests_properties(
     dependency-direction
     namespace-layout
     cpp-filename-convention
+    cpp-readability-convention
     config-domain-boundary
     PROPERTIES LABELS architecture
 )

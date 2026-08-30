@@ -1,5 +1,8 @@
 # C++ Source Layout
 
+Local file organization, lifecycle, and ownership rules are documented in
+[`cpp-readability.md`](cpp-readability.md).
+
 The native code is organized by domain and responsibility. Headers live beside
 their implementations because this repository builds an application, not a
 public C++ SDK.
