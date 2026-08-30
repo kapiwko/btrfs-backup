@@ -268,7 +268,7 @@ Application-facing functions such as `plan_backup`, `start_backup`,
 `cancel_backup`, `mount_target`, `eject_target`, `save_profile`, `get_statuses`,
 and `render_installation` accept typed requests and results. They do not depend
 on command-line arguments, output streams, presentation rules, or process exit
-codes, so future D-Bus and KDE adapters can use the same behavior.
+codes, so CLI, D-Bus and KDE adapters can use the same behavior.
 
 New backup and state contracts use `ProfileId`, `RunId`, and `SourceId` rather
 than interchangeable strings. Run lifecycle, phase, and error codes are enums.

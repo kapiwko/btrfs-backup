@@ -4,8 +4,9 @@ This directory contains optional Plasma 6 integration. It is part of the main
 CMake graph only when `BUILD_KDE_INTEGRATION=ON`, so the system backup runtime
 does not require Qt Quick, Kirigami, Plasma or a graphical session by default.
 
-The first component is a plasmoid with a small C++ QML backend. The backend
-uses the implemented system manager D-Bus API:
+The integration includes a plasmoid with a small C++ QML backend and a session
+monitor for native Plasma progress. Both use the implemented system manager
+D-Bus API:
 
 ```text
 io.github.btrfsbackup.Manager1
@@ -22,12 +23,13 @@ the UI thread on D-Bus calls.
 not be interpreted as target-device connectivity; target lifecycle is a
 separate `GetDeviceState` contract.
 
-The plasmoid offers start, run-scoped cancellation, target validation and eject
-through the manager's polkit-protected methods. Target removal state is read
-from the separate `GetDeviceState` response, never inferred from backup success.
-The installed policy grants these controls without a password to the active
-local session; inactive callers and future profile, hook, or device changes
-remain administrator-authorized operations.
+The plasmoid offers start, run-scoped cancellation and eject through the
+manager's polkit-protected methods. Target validation belongs to the planned
+KCM. Target removal state is read from the separate `GetDeviceState` response,
+never inferred from backup success. The installed policy grants the plasmoid's
+operational controls without a password to the active local session; inactive
+callers and future profile, hook, or device changes remain administrator-
+authorized operations.
 
 ## Build
 
@@ -80,8 +82,8 @@ The package now contains:
 1. a shared Qt D-Bus manager client used by the plasmoid and session monitor;
 2. a session monitor using `KJob` and `KUiServerV2JobTracker` for long-running
    backup progress;
-3. a future KCM for profile browsing, validation and controlled writes through the
-   system service;
+3. a future KCM for profile browsing, validation and controlled writes through
+   the system service;
 4. profile editing introduced only through future authorized manager methods.
 
 The base backup package must keep working without this integration installed.

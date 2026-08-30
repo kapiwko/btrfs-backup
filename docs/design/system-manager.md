@@ -6,8 +6,8 @@ stages remain planned.
 
 Descriptions of the current query and operational-control surface below are
 implemented unless explicitly marked as planned. The delivery sequence records
-both completed and future stages; the active incomplete work is tracked in
-[`TODO.md`](../../TODO.md), while longer-term features remain in
+both completed and future stages. [`TODO.md`](../../TODO.md) records active
+sprint tasks when a sprint is defined, while longer-term features remain in
 [`ROADMAP.md`](../../ROADMAP.md).
 
 ## Role

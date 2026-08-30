@@ -47,7 +47,7 @@ Security-sensitive areas include:
 - target identity, LUKS, mount and eject behavior;
 - snapshot deletion, retention, receive and interrupted-run recovery;
 - process execution, cancellation and environment handling;
-- future D-Bus and polkit authorization;
+- D-Bus caller identity, polkit authorization and privileged audit records;
 - package and release artifact integrity.
 
 The implementation's trust boundaries and hardening requirements are described

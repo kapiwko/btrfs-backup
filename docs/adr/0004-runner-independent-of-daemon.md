@@ -2,6 +2,7 @@
 
 - Status: accepted
 - Date: 2026-08-25
+- Amended: 2026-08-30
 
 ## Context
 
@@ -13,7 +14,7 @@ control plane into a single point of failure for data protection.
 ## Decision
 
 The systemd profile service executes a standalone runner. udev can start that
-service directly. The future `btrfs-backupd` process is an outer adapter that
+service directly. The optional `btrfs-backupd` process is an outer adapter that
 observes durable state and invokes existing use cases or systemd units; it is
 not a parent process or required communication channel for the runner.
 
