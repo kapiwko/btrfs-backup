@@ -21,7 +21,7 @@
 
 namespace fs = std::filesystem;
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::config {
 
 fs::path profile_json_path(const fs::path& etc_root, const std::string& profile_id) {
     validate_identifier(profile_id, "profile");
@@ -127,4 +127,4 @@ btrfsbackup::config::LoadedProfile FileProfileRepository::get(const ProfileId& p
     return loaded;
 }
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::config

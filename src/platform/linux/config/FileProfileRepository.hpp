@@ -13,7 +13,7 @@
 #include <config/ports/IProfileRepository.hpp>
 #include <core/Identifiers.hpp>
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::config {
 
 // Filesystem-backed Linux adapter for profile configuration.
 
@@ -40,4 +40,4 @@ class FileProfileRepository final : public btrfsbackup::config::IProfileReposito
     ProfileFileReader profile_reader_;
 };
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::config

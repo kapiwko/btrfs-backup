@@ -38,14 +38,14 @@ btrfsbackup::config::Profile sample_profile() {
 void test_profile_and_installation_use_cases() {
     fs::path root = test_root("profile-installation");
     fs::path profile_file = root / "profiles" / "laptop" / "profile.json";
-    btrfsbackup::platform::linux::write_profile_file(sample_profile(), profile_file);
+    btrfsbackup::platform::linux::config::write_profile_file(sample_profile(), profile_file);
 
-    btrfsbackup::config::Profile loaded = btrfsbackup::platform::linux::validate_profile_file(profile_file);
+    btrfsbackup::config::Profile loaded = btrfsbackup::platform::linux::config::validate_profile_file(profile_file);
     test_helpers::expect_eq("validated profile", std::string(loaded.id.value()), "laptop");
-    auto profiles = btrfsbackup::platform::linux::list_profiles(root / "profiles");
+    auto profiles = btrfsbackup::platform::linux::config::list_profiles(root / "profiles");
     test_helpers::expect_eq("listed profile", profiles.at(0), "laptop");
 
-    btrfsbackup::platform::linux::render_installation({profile_file, root / "rendered", {}});
+    btrfsbackup::platform::linux::config::render_installation({profile_file, root / "rendered", {}});
     test_helpers::expect_true(
         "rendered installation",
         fs::is_regular_file(root / "rendered" / "systemd" / "mnt-btrfs\\x2dbackup-laptop.mount"),
@@ -70,7 +70,7 @@ void test_activation_migration_rejects_unsupported_crypttab_semantics() {
     test_helpers::expect_validation_error(
         "activation migration unsupported options",
         [&] {
-            (void)btrfsbackup::platform::linux::migrate_target_activation_from_crypttab(
+            (void)btrfsbackup::platform::linux::config::migrate_target_activation_from_crypttab(
                 sample_profile(),
                 crypttab
             );
@@ -101,13 +101,13 @@ void test_status_use_cases() {
 void test_profile_render_replaces_only_owned_render_directories() {
     fs::path root = test_root("profile-render-safety");
     fs::path profile_file = root / "profile.json";
-    btrfsbackup::platform::linux::write_profile_file(sample_profile(), profile_file);
+    btrfsbackup::platform::linux::config::write_profile_file(sample_profile(), profile_file);
 
     fs::path unmarked = root / "home-like";
     test_helpers::write_file(unmarked / "important.txt", "keep me");
     test_helpers::expect_validation_error(
         "render refuses unmarked directory",
-        [&] { btrfsbackup::platform::linux::render_profile(profile_file, unmarked); },
+        [&] { btrfsbackup::platform::linux::config::render_profile(profile_file, unmarked); },
         "without .btrfs-backup-render-root"
     );
     test_helpers::expect_eq(
@@ -120,7 +120,7 @@ void test_profile_render_replaces_only_owned_render_directories() {
     fs::create_directory_symlink(root / "real-parent", root / "linked-parent");
     test_helpers::expect_validation_error(
         "render rejects symlink parent",
-        [&] { btrfsbackup::platform::linux::render_profile(profile_file, root / "linked-parent" / "rendered"); },
+        [&] { btrfsbackup::platform::linux::config::render_profile(profile_file, root / "linked-parent" / "rendered"); },
         "parent is not a directory"
     );
     test_helpers::expect_true(
@@ -131,14 +131,14 @@ void test_profile_render_replaces_only_owned_render_directories() {
 
     fs::path rendered = root / "rendered";
     fs::create_directories(rendered);
-    btrfsbackup::platform::linux::render_profile(profile_file, rendered);
+    btrfsbackup::platform::linux::config::render_profile(profile_file, rendered);
     test_helpers::expect_true(
         "render marker",
-        fs::is_regular_file(rendered / btrfsbackup::platform::linux::render_root_marker),
+        fs::is_regular_file(rendered / btrfsbackup::platform::linux::config::render_root_marker),
         "render root marker was not created"
     );
     test_helpers::write_file(rendered / "stale.txt", "old");
-    btrfsbackup::platform::linux::render_profile(profile_file, rendered);
+    btrfsbackup::platform::linux::config::render_profile(profile_file, rendered);
     test_helpers::expect_true(
         "render removes owned stale file",
         !fs::exists(rendered / "stale.txt"),
@@ -150,7 +150,7 @@ void test_profile_render_replaces_only_owned_render_directories() {
     test_helpers::expect_validation_error(
         "render validation failure",
         [&] {
-            btrfsbackup::platform::linux::replace_render_directory(
+            btrfsbackup::platform::linux::config::replace_render_directory(
                 rendered,
                 [](const fs::path& staging) {
                     btrfsbackup::platform::linux::filesystem::atomic_write(staging / "candidate.txt", "candidate", 0600);
@@ -176,7 +176,7 @@ void test_profile_render_replaces_only_owned_render_directories() {
     test_helpers::write_file(root / "invalid.json", "{}\n");
     test_helpers::expect_validation_error(
         "render validates before replacement",
-        [&] { btrfsbackup::platform::linux::render_profile(root / "invalid.json", rendered); },
+        [&] { btrfsbackup::platform::linux::config::render_profile(root / "invalid.json", rendered); },
         "schemaVersion"
     );
     test_helpers::expect_eq(

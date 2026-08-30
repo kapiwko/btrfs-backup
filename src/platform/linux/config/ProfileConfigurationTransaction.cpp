@@ -14,7 +14,7 @@
 
 namespace fs = std::filesystem;
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::config {
 
 namespace {
 
@@ -311,4 +311,4 @@ const ProfileConfigurationTransaction::TransactionArtifact& ProfileConfiguration
     throw ValidationError("required profile artifact is missing");
 }
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::config

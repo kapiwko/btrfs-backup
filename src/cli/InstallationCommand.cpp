@@ -43,7 +43,7 @@ namespace btrfsbackup::cli {
 int render_installation(const std::vector<std::string>& args) {
     fs::path file;
     fs::path output_dir;
-    btrfsbackup::platform::linux::InstallationRenderOptions options;
+    btrfsbackup::platform::linux::config::InstallationRenderOptions options;
     for (std::size_t i = 0; i < args.size(); ++i) {
         const std::string& arg = args[i];
         if (arg == "--file") {
@@ -66,8 +66,8 @@ int render_installation(const std::vector<std::string>& args) {
     if (output_dir.empty())
         fail("installation render requires --output-dir");
 
-    btrfsbackup::config::ApplicationConfig config = btrfsbackup::platform::linux::load_application_config(application_config_root());
-    btrfsbackup::platform::linux::render_installation({file, output_dir, options, config.paths().target_mount_root});
+    btrfsbackup::config::ApplicationConfig config = btrfsbackup::platform::linux::config::load_application_config(application_config_root());
+    btrfsbackup::platform::linux::config::render_installation({file, output_dir, options, config.paths().target_mount_root});
     return 0;
 }
 
@@ -97,10 +97,10 @@ int validate_installation(const std::vector<std::string>& args) {
         if (geteuid() != 0) {
             fail("active installation validation must be run as root", 1);
         }
-        btrfsbackup::platform::linux::validate_active_installation_for(profile_id);
+        btrfsbackup::platform::linux::config::validate_active_installation_for(profile_id);
     } else {
-        btrfsbackup::config::ApplicationConfig config = btrfsbackup::platform::linux::load_application_config(application_config_root());
-        btrfsbackup::platform::linux::validate_rendered_installation_at(rendered_root, config.paths().target_mount_root);
+        btrfsbackup::config::ApplicationConfig config = btrfsbackup::platform::linux::config::load_application_config(application_config_root());
+        btrfsbackup::platform::linux::config::validate_rendered_installation_at(rendered_root, config.paths().target_mount_root);
     }
     return 0;
 }

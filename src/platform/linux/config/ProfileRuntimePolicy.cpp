@@ -15,7 +15,7 @@
 
 namespace fs = std::filesystem;
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::config {
 
 void validate_legacy_profile_runtime_fields(
     const btrfsbackup::config::json::Json& raw,
@@ -72,4 +72,4 @@ void validate_profile_runtime_policy(const btrfsbackup::config::Profile& profile
     validate_hooks(profile.hooks.after_snapshot);
 }
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::config

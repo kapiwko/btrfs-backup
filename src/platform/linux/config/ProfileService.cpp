@@ -28,7 +28,7 @@
 
 namespace fs = std::filesystem;
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::config {
 
 btrfsbackup::config::Profile validate_profile_file(const fs::path& file, const fs::path& target_mount_root) {
     const btrfsbackup::config::json::Json raw = btrfsbackup::config::json::load_json_file(file);
@@ -119,4 +119,4 @@ std::vector<std::string> list_profiles(const fs::path& profile_root) {
     return {profiles.begin(), profiles.end()};
 }
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::config

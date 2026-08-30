@@ -106,7 +106,7 @@ int ctl_tool_main(int argc, char** argv) {
         } else if (command == "status") {
             bool help_requested = std::ranges::contains(args, "-h") || std::ranges::contains(args, "--help");
             if (!help_requested) {
-                btrfsbackup::config::ApplicationConfig application_config = btrfsbackup::platform::linux::load_application_config(profile_config_dir);
+                btrfsbackup::config::ApplicationConfig application_config = btrfsbackup::platform::linux::config::load_application_config(profile_config_dir);
                 if (!status_root_overridden)
                     status_root = application_config.paths().status_root;
                 if (!history_root_overridden)

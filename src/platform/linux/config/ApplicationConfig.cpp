@@ -17,7 +17,7 @@
 
 namespace fs = std::filesystem;
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::config {
 
 namespace {
 
@@ -103,4 +103,4 @@ btrfsbackup::config::ApplicationConfig load_application_config(const fs::path& c
     return btrfsbackup::config::ApplicationConfig(std::move(result));
 }
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::config

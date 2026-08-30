@@ -11,7 +11,7 @@
 #include <config/domain/Profile.hpp>
 #include <config/ports/ConfigurationActivator.hpp>
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::config {
 
 // File-oriented profile operations exposed to Linux frontends.
 
@@ -50,4 +50,4 @@ btrfsbackup::config::Profile export_profile(
 );
 std::vector<std::string> list_profiles(const std::filesystem::path& profile_root);
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::config

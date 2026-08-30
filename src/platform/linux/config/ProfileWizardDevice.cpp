@@ -19,7 +19,7 @@
 
 namespace fs = std::filesystem;
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::config {
 
 namespace {
 
@@ -155,4 +155,4 @@ DeviceCandidate select_device(std::istream& input, std::ostream& output) {
     return devices[index - 1];
 }
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::config

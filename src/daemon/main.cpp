@@ -48,7 +48,7 @@ int main(int argc, char** argv) {
         }
 
         const btrfsbackup::config::ApplicationConfig application_config =
-            btrfsbackup::platform::linux::load_application_config(config_root);
+            btrfsbackup::platform::linux::config::load_application_config(config_root);
         const btrfsbackup::config::ApplicationPaths& configured = application_config.paths();
         btrfsbackup::daemon::ManagerPaths paths{
             .config_root = config_root,
@@ -94,7 +94,7 @@ int main(int argc, char** argv) {
         }
 
         btrfsbackup::daemon::ManagerService service(paths);
-        btrfsbackup::platform::linux::FileProfileRepository profiles(config_root, application_config);
+        btrfsbackup::platform::linux::config::FileProfileRepository profiles(config_root, application_config);
         btrfsbackup::platform::linux::filesystem::PosixDurableFileOperations durable_files;
         btrfsbackup::state::FileRunStateRepository state(configured, durable_files);
         btrfsbackup::platform::linux::process::PosixCommandRunner commands;

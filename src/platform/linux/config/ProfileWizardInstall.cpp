@@ -29,7 +29,7 @@
 
 namespace fs = std::filesystem;
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::config {
 
 namespace {
 
@@ -136,4 +136,4 @@ void apply_rendered_wizard_tree(const btrfsbackup::config::Profile& profile, con
     validate_active_installation(std::string(profile.id.value()));
 }
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::config

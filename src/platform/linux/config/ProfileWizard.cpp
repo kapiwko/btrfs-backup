@@ -22,7 +22,7 @@
 
 namespace fs = std::filesystem;
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::config {
 
 namespace {
 
@@ -115,4 +115,4 @@ int run_profile_wizard(const ProfileWizardOptions& options, std::istream& input,
     return 0;
 }
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::config

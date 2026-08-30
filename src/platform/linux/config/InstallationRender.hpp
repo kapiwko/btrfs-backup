@@ -9,7 +9,7 @@
 
 #include <config/domain/Profile.hpp>
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::config {
 
 // Linux installation artifact rendering contract.
 
@@ -29,4 +29,4 @@ void render_installation_files(
     const InstallationRenderOptions& options
 );
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::config

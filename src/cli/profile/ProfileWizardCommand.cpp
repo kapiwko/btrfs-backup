@@ -46,18 +46,18 @@ void usage() {
 namespace btrfsbackup::cli::profile {
 
 int profile_wizard(const std::vector<std::string>& args) {
-    btrfsbackup::platform::linux::ProfileWizardOptions options;
+    btrfsbackup::platform::linux::config::ProfileWizardOptions options;
 
     for (std::size_t i = 0; i < args.size(); ++i) {
         const std::string& arg = args[i];
         if (arg == "--render-only") {
-            options.action = btrfsbackup::platform::linux::ProfileWizardAction::render;
+            options.action = btrfsbackup::platform::linux::config::ProfileWizardAction::render;
         } else if (arg == "--apply") {
-            options.action = btrfsbackup::platform::linux::ProfileWizardAction::apply;
+            options.action = btrfsbackup::platform::linux::config::ProfileWizardAction::apply;
         } else if (arg == "--validate") {
-            options.action = btrfsbackup::platform::linux::ProfileWizardAction::validate_active;
+            options.action = btrfsbackup::platform::linux::config::ProfileWizardAction::validate_active;
         } else if (arg == "--validate-dir") {
-            options.action = btrfsbackup::platform::linux::ProfileWizardAction::validate_rendered;
+            options.action = btrfsbackup::platform::linux::config::ProfileWizardAction::validate_rendered;
             options.validate_dir = arg_value(i, args, arg);
         } else if (arg == "--output-dir") {
             options.output_dir = arg_value(i, args, arg);
@@ -75,10 +75,10 @@ int profile_wizard(const std::vector<std::string>& args) {
         }
     }
 
-    if (options.action == btrfsbackup::platform::linux::ProfileWizardAction::validate_rendered && options.validate_dir.empty()) {
+    if (options.action == btrfsbackup::platform::linux::config::ProfileWizardAction::validate_rendered && options.validate_dir.empty()) {
         fail("--validate-dir requires a path");
     }
-    return btrfsbackup::platform::linux::run_profile_wizard(options, std::cin, std::cout);
+    return btrfsbackup::platform::linux::config::run_profile_wizard(options, std::cin, std::cout);
 }
 
 } // namespace btrfsbackup::cli::profile

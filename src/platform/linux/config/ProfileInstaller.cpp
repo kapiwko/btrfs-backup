@@ -22,7 +22,7 @@
 
 namespace fs = std::filesystem;
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::config {
 
 namespace {
 
@@ -175,4 +175,4 @@ void ProfileInstaller::install_profile_transactionally(const btrfsbackup::config
     }
 }
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::config

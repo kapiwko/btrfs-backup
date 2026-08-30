@@ -8,9 +8,9 @@
 
 #include <config/ProfileArtifactRenderer.hpp>
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::config {
 
 [[nodiscard]] btrfsbackup::config::ConfigurationGeneration generate_configuration_generation();
 void write_profile_artifacts(const btrfsbackup::config::RenderedProfileArtifacts& rendered);
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::config

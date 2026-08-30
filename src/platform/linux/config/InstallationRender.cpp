@@ -215,7 +215,7 @@ std::string render_target_service(const std::string& target_command) {
 
 } // namespace
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::config {
 
 std::string default_backup_command() {
     return std::string(BTRFSBACKUP_INSTALL_BINDIR) + "/btrfs-backupctl runner execute";
@@ -252,4 +252,4 @@ void render_installation_files(
     );
 }
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::config

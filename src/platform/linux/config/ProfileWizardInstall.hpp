@@ -7,7 +7,7 @@
 #include <filesystem>
 #include <config/domain/Profile.hpp>
 
-namespace btrfsbackup::platform::linux {
+namespace btrfsbackup::platform::linux::config {
 
 // Linux rendering and publishing operations used by the wizard.
 
@@ -17,4 +17,4 @@ void render_wizard_tree(
 );
 void apply_rendered_wizard_tree(const btrfsbackup::config::Profile& profile, const std::filesystem::path& output_dir);
 
-} // namespace btrfsbackup::platform::linux
+} // namespace btrfsbackup::platform::linux::config
