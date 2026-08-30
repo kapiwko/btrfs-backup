@@ -104,6 +104,7 @@ add_library(btrfsbackup-platform-linux-transfer STATIC
     transfer/PosixTransferPipeline.cpp
     transfer/PosixTransferProcess.cpp
     transfer/PosixTransferPump.cpp
+    transfer/PosixTransferRuntime.cpp
     transfer/PosixTransferSession.cpp
     transfer/Splice.cpp
     transfer/ThreadSigpipeBlock.cpp
@@ -119,6 +120,7 @@ target_restricted_include_directories(btrfsbackup-platform-linux-transfer
         platform/linux/transfer/Splice.hpp
     PRIVATE_HEADERS
         platform/linux/transfer/BoundedDiagnosticBuffer.hpp
+        platform/linux/transfer/PosixTransferRuntime.hpp
         platform/linux/transfer/PosixTransferSession.hpp
         platform/linux/transfer/ThreadSigpipeBlock.hpp
         platform/linux/transfer/TransferChildTermination.hpp
