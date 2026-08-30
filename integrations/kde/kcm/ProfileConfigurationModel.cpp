@@ -1,0 +1,269 @@
+// SPDX-FileCopyrightText: 2026 Kamil Piwowarski <kapiwko@gmail.com>
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+#include "ProfileConfigurationModel.hpp"
+
+#include <ManagerApi.hpp>
+#include <core/ManagerProtocol.hpp>
+
+#include <QDBusError>
+#include <QDBusPendingCallWatcher>
+#include <QDBusPendingReply>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonParseError>
+#include <KLocalizedString>
+
+namespace btrfsbackup::kde::kcm {
+
+ProfileConfigurationModel::ProfileConfigurationModel(QObject* parent)
+    : QObject(parent), bus_(QDBusConnection::systemBus()) {
+}
+
+QString ProfileConfigurationModel::profileId() const { return draft_.value(QStringLiteral("profileId")).toString(); }
+QString ProfileConfigurationModel::name() const { return draft_.value(QStringLiteral("name")).toString(); }
+bool ProfileConfigurationModel::enabled() const { return draft_.value(QStringLiteral("enabled")).toBool(); }
+QVariantMap ProfileConfigurationModel::target() const { return object("target").toVariantMap(); }
+QVariantMap ProfileConfigurationModel::settings() const { return object("settings").toVariantMap(); }
+QVariantList ProfileConfigurationModel::sources() const { return draft_.value(QStringLiteral("sources")).toArray().toVariantList(); }
+bool ProfileConfigurationModel::loaded() const { return loaded_; }
+bool ProfileConfigurationModel::dirty() const { return dirty_; }
+bool ProfileConfigurationModel::busy() const { return busy_; }
+QString ProfileConfigurationModel::errorCode() const { return error_code_; }
+QString ProfileConfigurationModel::errorMessage() const { return error_message_; }
+QString ProfileConfigurationModel::operationMessage() const { return operation_message_; }
+QString ProfileConfigurationModel::validationPreview() const { return validation_preview_; }
+
+void ProfileConfigurationModel::load(const QString& profile_id) {
+    if (busy_ || profile_id.isEmpty()) return;
+    request(RequestKind::Load, QLatin1String(manager_protocol::method::get_profile_for_editing), {profile_id});
+}
+
+void ProfileConfigurationModel::reload() { if (loaded_) load(profileId()); }
+
+void ProfileConfigurationModel::discard() {
+    if (!loaded_) return;
+    draft_ = baseline_;
+    validation_preview_.clear();
+    updateDirty();
+    emit draftChanged();
+}
+
+void ProfileConfigurationModel::setName(const QString& value) {
+    if (!loaded_ || name() == value) return;
+    draft_.insert(QStringLiteral("name"), value);
+    validation_preview_.clear();
+    updateDirty();
+    emit draftChanged();
+}
+
+void ProfileConfigurationModel::setEnabled(bool value) {
+    if (!loaded_ || enabled() == value) return;
+    draft_.insert(QStringLiteral("enabled"), value);
+    validation_preview_.clear();
+    updateDirty();
+    emit draftChanged();
+}
+
+QJsonObject ProfileConfigurationModel::object(const char* key) const {
+    return draft_.value(QLatin1String(key)).toObject();
+}
+
+void ProfileConfigurationModel::setObject(const char* key, const QJsonObject& value) {
+    if (object(key) == value) return;
+    draft_.insert(QLatin1String(key), value);
+    validation_preview_.clear();
+    updateDirty();
+    emit draftChanged();
+}
+
+void ProfileConfigurationModel::setTargetValue(const QString& key, const QVariant& value) {
+    if (!loaded_) return;
+    QJsonObject target_object = object("target");
+    if (key.startsWith(QStringLiteral("activation."))) {
+        QJsonObject activation = target_object.value(QStringLiteral("activation")).toObject();
+        const QString activation_key = key.sliced(QStringLiteral("activation.").size());
+        activation.insert(activation_key, QJsonValue::fromVariant(value));
+        if (activation_key == QStringLiteral("mode") && value.toString() == QStringLiteral("askPassword"))
+            activation.remove(QStringLiteral("keyFile"));
+        target_object.insert(QStringLiteral("activation"), activation);
+    } else {
+        target_object.insert(key, QJsonValue::fromVariant(value));
+    }
+    setObject("target", target_object);
+}
+
+void ProfileConfigurationModel::setSettingValue(const QString& key, const QVariant& value) {
+    if (!loaded_) return;
+    QJsonObject settings_object = object("settings");
+    settings_object.insert(key, QJsonValue::fromVariant(value));
+    setObject("settings", settings_object);
+}
+
+void ProfileConfigurationModel::setSourceValue(int index, const QString& key, const QVariant& value) {
+    QJsonArray source_array = draft_.value(QStringLiteral("sources")).toArray();
+    if (!loaded_ || index < 0 || index >= source_array.size()) return;
+    QJsonObject source = source_array.at(index).toObject();
+    const QJsonValue json_value = QJsonValue::fromVariant(value);
+    if (source.value(key) == json_value) return;
+    source.insert(key, json_value);
+    source_array.replace(index, source);
+    draft_.insert(QStringLiteral("sources"), source_array);
+    validation_preview_.clear();
+    updateDirty();
+    emit draftChanged();
+}
+
+void ProfileConfigurationModel::addSource() {
+    if (!loaded_) return;
+    QJsonArray source_array = draft_.value(QStringLiteral("sources")).toArray();
+    const int number = source_array.size() + 1;
+    source_array.append(QJsonObject{
+        {QStringLiteral("id"), QStringLiteral("source%1").arg(number)},
+        {QStringLiteral("name"), i18n("Source %1", number)},
+        {QStringLiteral("enabled"), true},
+        {QStringLiteral("subvolume"), QStringLiteral("/")},
+        {QStringLiteral("localSnapshotDir"), QStringLiteral("/.snapshots/source%1").arg(number)},
+        {QStringLiteral("remoteSubdir"), QStringLiteral("source%1").arg(number)},
+        {QStringLiteral("remoteRetention"), 30},
+        {QStringLiteral("localRetention"), 30},
+    });
+    draft_.insert(QStringLiteral("sources"), source_array);
+    validation_preview_.clear();
+    updateDirty();
+    emit draftChanged();
+}
+
+void ProfileConfigurationModel::removeSource(int index) {
+    QJsonArray source_array = draft_.value(QStringLiteral("sources")).toArray();
+    if (!loaded_ || index < 0 || index >= source_array.size()) return;
+    source_array.removeAt(index);
+    draft_.insert(QStringLiteral("sources"), source_array);
+    validation_preview_.clear();
+    updateDirty();
+    emit draftChanged();
+}
+
+void ProfileConfigurationModel::validate() {
+    if (!loaded_ || busy_) return;
+    request(RequestKind::Validate, QLatin1String(manager_protocol::method::validate_profile_draft), {
+        profileId(), generation_, fingerprint_, QString::fromUtf8(QJsonDocument(draft_).toJson(QJsonDocument::Compact))
+    });
+}
+
+void ProfileConfigurationModel::save() {
+    if (!loaded_ || !dirty_ || busy_) return;
+    request(RequestKind::Save, QLatin1String(manager_protocol::method::save_profile), {
+        profileId(), generation_, fingerprint_, QString::fromUtf8(QJsonDocument(draft_).toJson(QJsonDocument::Compact))
+    });
+}
+
+void ProfileConfigurationModel::duplicateAs(const QString& new_profile_id) {
+    if (!loaded_ || busy_ || new_profile_id.isEmpty()) return;
+    QJsonObject duplicate = draft_;
+    duplicate.insert(QStringLiteral("profileId"), new_profile_id);
+    duplicate.remove(QStringLiteral("configurationGeneration"));
+    request(RequestKind::Duplicate, QLatin1String(manager_protocol::method::save_profile_hooks), {
+        new_profile_id, QString(), QString(), QString::fromUtf8(QJsonDocument(duplicate).toJson(QJsonDocument::Compact))
+    });
+}
+
+void ProfileConfigurationModel::deleteProfile() {
+    if (!loaded_ || busy_) return;
+    request(RequestKind::Delete, QLatin1String(manager_protocol::method::delete_profile), {
+        profileId(), generation_, fingerprint_
+    });
+}
+
+void ProfileConfigurationModel::request(RequestKind kind, const QString& method, const QVariantList& arguments) {
+    operation_message_.clear();
+    setBusy(true);
+    setError({}, {});
+    auto* watcher = new QDBusPendingCallWatcher(manager_call(bus_, method, arguments), this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, watcher, kind](QDBusPendingCallWatcher*) {
+        const QDBusPendingReply<QString> reply = *watcher;
+        watcher->deleteLater();
+        setBusy(false);
+        if (reply.isError()) {
+            setError(reply.error().name(), reply.error().message());
+            if (reply.error().name().endsWith(QStringLiteral(".Conflict"))) emit conflictDetected();
+            return;
+        }
+        if (kind == RequestKind::Delete) {
+            const QString deleted_id = profileId();
+            draft_ = {};
+            baseline_ = {};
+            generation_.clear();
+            fingerprint_.clear();
+            loaded_ = false;
+            dirty_ = false;
+            operation_message_ = i18n("Profile deleted");
+            emit draftChanged();
+            emit stateChanged();
+            emit profileDeleted(deleted_id);
+            return;
+        }
+        const bool replace = kind == RequestKind::Load || kind == RequestKind::Save;
+        if (!applyEnvelope(reply.value(), replace)) {
+            setError(QStringLiteral("manager.invalid-response"), i18n("The backup manager returned an invalid editing response."));
+            return;
+        }
+        if (kind == RequestKind::Validate) operation_message_ = i18n("Profile draft is valid");
+        if (kind == RequestKind::Save) {
+            operation_message_ = i18n("Profile saved");
+            emit profileSaved(profileId());
+        }
+        if (kind == RequestKind::Duplicate) {
+            QJsonParseError error;
+            const auto response = QJsonDocument::fromJson(reply.value().toUtf8(), &error).object();
+            operation_message_ = i18n("Profile duplicated");
+            emit profileSaved(response.value(QStringLiteral("profileId")).toString());
+        }
+        emit stateChanged();
+    });
+}
+
+bool ProfileConfigurationModel::applyEnvelope(const QString& payload, bool replace_draft) {
+    QJsonParseError error;
+    const QJsonDocument response = QJsonDocument::fromJson(payload.toUtf8(), &error);
+    if (error.error != QJsonParseError::NoError || !response.isObject()) return false;
+    const QJsonObject envelope = response.object();
+    if (envelope.value(QStringLiteral("schemaVersion")).toInt() != manager_protocol::profile_edit_schema_version ||
+        !envelope.value(QStringLiteral("document")).isObject()) return false;
+    if (replace_draft) {
+        draft_ = envelope.value(QStringLiteral("document")).toObject();
+        baseline_ = draft_;
+        generation_ = envelope.value(QStringLiteral("generation")).toString();
+        fingerprint_ = envelope.value(QStringLiteral("fingerprint")).toString();
+        loaded_ = true;
+        updateDirty();
+        emit draftChanged();
+    } else {
+        validation_preview_ = QString::fromUtf8(
+            QJsonDocument(envelope.value(QStringLiteral("document")).toObject()).toJson(QJsonDocument::Indented)
+        );
+    }
+    return true;
+}
+
+void ProfileConfigurationModel::updateDirty() {
+    const bool value = loaded_ && draft_ != baseline_;
+    if (dirty_ == value) return;
+    dirty_ = value;
+    emit stateChanged();
+}
+
+void ProfileConfigurationModel::setError(const QString& code, const QString& message) {
+    if (error_code_ == code && error_message_ == message) return;
+    error_code_ = code;
+    error_message_ = message;
+    emit stateChanged();
+}
+
+void ProfileConfigurationModel::setBusy(bool value) {
+    if (busy_ == value) return;
+    busy_ = value;
+    emit stateChanged();
+}
+
+} // namespace btrfsbackup::kde::kcm

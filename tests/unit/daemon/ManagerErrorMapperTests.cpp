@@ -29,6 +29,8 @@ void test_stable_error_catalog() {
         ManagerErrorCode::RunMismatch,
         ManagerErrorCode::TargetUnavailable,
         ManagerErrorCode::Conflict,
+        ManagerErrorCode::SaveFailed,
+        ManagerErrorCode::RollbackIncomplete,
         ManagerErrorCode::InternalError,
     };
     for (const auto code : codes) {
@@ -66,6 +68,16 @@ void test_exception_mapping() {
         "configuration changed error",
         mapper.map(btrfsbackup::CodedValidationError(btrfsbackup::ErrorCode::ConfigurationChanged, "private version")),
         ManagerErrorCode::Conflict
+    );
+    expect_code(
+        "configuration save error",
+        mapper.map(btrfsbackup::CodedValidationError(btrfsbackup::ErrorCode::ConfigurationSaveFailed, "private path")),
+        ManagerErrorCode::SaveFailed
+    );
+    expect_code(
+        "rollback error",
+        mapper.map(btrfsbackup::CodedValidationError(btrfsbackup::ErrorCode::ConfigurationRollbackIncomplete, "private path")),
+        ManagerErrorCode::RollbackIncomplete
     );
     const auto internal = mapper.map(std::runtime_error("private internal detail"));
     expect_code("unexpected error", internal, ManagerErrorCode::InternalError);
