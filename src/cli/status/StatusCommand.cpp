@@ -8,14 +8,15 @@
 #include <cstdlib>
 #include <filesystem>
 #include <iostream>
+#include <optional>
 #include <string>
-#include <thread>
 #include <vector>
 
 #include <core/Errors.hpp>
 #include <cli/status/StatusHistoryCommand.hpp>
 #include <cli/status/StatusShowCommand.hpp>
 #include <core/Identifiers.hpp>
+#include <platform/linux/filesystem/InotifyFileChangeWatcher.hpp>
 #include <state/query/StatusService.hpp>
 
 namespace fs = std::filesystem;
@@ -29,7 +30,7 @@ namespace {
 
 struct WatchOptions {
     std::string profile = "default";
-    std::chrono::duration<double> interval{1.0};
+    std::optional<std::chrono::milliseconds> resync_interval;
 };
 
 std::string require_arg_value(const std::vector<std::string>& args, std::size_t& index, const std::string& option) {
@@ -47,10 +48,13 @@ WatchOptions parse_watch_options(const std::vector<std::string>& args) {
         if (arg == "--profile") {
             options.profile = require_arg_value(args, i, arg);
         } else if (arg == "--interval") {
-            options.interval = std::chrono::duration<double>{std::stod(require_arg_value(args, i, arg))};
-            if (options.interval <= std::chrono::duration<double>::zero()) {
+            const std::chrono::duration<double> interval{
+                std::stod(require_arg_value(args, i, arg))
+            };
+            if (interval <= std::chrono::duration<double>::zero()) {
                 throw btrfsbackup::ValidationError("--interval must be greater than zero");
             }
+            options.resync_interval = std::chrono::ceil<std::chrono::milliseconds>(interval);
         } else {
             throw btrfsbackup::ValidationError("unknown watch option: " + arg);
         }
@@ -61,10 +65,14 @@ WatchOptions parse_watch_options(const std::vector<std::string>& args) {
 
 void watch(const fs::path& status_root, const std::vector<std::string>& args) {
     WatchOptions options = parse_watch_options(args);
+    btrfsbackup::platform::linux::filesystem::InotifyFileChangeWatcher notifications(
+        status_root / options.profile / "current.json"
+    );
     std::string previous;
+    (void)btrfsbackup::cli::status::status_watch_once(status_root, args, previous, std::cout);
     while (true) {
+        notifications.wait_for_change(options.resync_interval);
         (void)btrfsbackup::cli::status::status_watch_once(status_root, args, previous, std::cout);
-        std::this_thread::sleep_for(options.interval);
     }
 }
 

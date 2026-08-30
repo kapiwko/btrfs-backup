@@ -100,13 +100,14 @@ Unprivileged clients can inspect and watch current status:
 
 ```bash
 btrfs-backupctl status show --profile default
-btrfs-backupctl status watch --profile default --interval 1
+btrfs-backupctl status watch --profile default
 ```
 
 Human output for a public current-status document labels the run with its
 profile id because schema version 3 deliberately does not expose the profile
-display name. When `status show` falls back to private `last.json`, it can use
-the stored profile display name and diagnostic fields.
+display name. When `status show` falls back to the latest durable history
+record, it can use the stored profile display name and diagnostic fields. The
+per-run document is authoritative; `last.json` is only a rebuildable cache.
 
 History commands require root:
 
@@ -114,9 +115,18 @@ History commands require root:
 sudo btrfs-backupctl status history --profile default --limit 10
 ```
 
-`status watch` validates schema version 3 before emitting a changed public
-document. A root `status show` invocation may fall back to private `last.json`
-after systemd removes the runtime directory.
+`status watch` reads and validates schema version 3 once, then waits for an
+inotify invalidation before reading the JSON document again. The watcher tracks
+the containing directory so atomic replacement by `rename` remains visible.
+`--interval SECONDS` optionally enables a periodic resynchronization timeout;
+it is not used by default. A root `status show` invocation may fall back to the
+latest private history record after systemd removes the runtime directory.
+
+The system manager follows the same invalidation model and emits
+`StatusChanged(profileId)` over D-Bus. This signal carries no status payload:
+GUI clients load state when connecting and call `GetStatus` again after each
+signal, so JSON remains the source of truth and manager or client restarts do
+not lose the current state.
 
 ## Compatibility
 
