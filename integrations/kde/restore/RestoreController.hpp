@@ -32,7 +32,7 @@ class RestoreController final : public QObject {
 
   public:
     explicit RestoreController(QUrl source_url, QObject* parent = nullptr);
-    ~RestoreController() override;
+    ~RestoreController() noexcept override;
 
     QUrl sourceUrl() const;
     QString sourceName() const;

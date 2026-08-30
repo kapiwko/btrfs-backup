@@ -25,7 +25,9 @@ set(approved_special_member_types
     "src/core/Cancellation.hpp:CancellationToken"
     "src/daemon/ManagerAuditLog.hpp:FileManagerAuditLog"
     "src/daemon/ManagerService.hpp:ManagerService"
+    "src/daemon/control/BrowseSessionService.hpp:BrowseSessionService"
     "src/daemon/control/OperationEnvironmentFile.hpp:OperationEnvironmentFile"
+    "src/daemon/control/SystemBrowseSessionBackend.hpp:SystemBrowseSessionBackend"
     "src/daemon/dbus/ManagerChangeMonitor.hpp:ManagerChangeMonitor"
     "src/daemon/query/DeviceStateQueryService.hpp:DeviceStateQueryService"
     "src/platform/linux/OwnedFileDescriptor.hpp:OwnedFileDescriptor"
@@ -42,6 +44,9 @@ set(approved_special_member_types
     "src/platform/linux/transfer/ThreadSigpipeBlock.hpp:ThreadSigpipeBlock"
     "src/state/cancellation/FileActiveRunRegistration.hpp:FileActiveRunRegistration"
     "src/state/cancellation/PollingCancellationWatch.hpp:PollingCancellationWatch"
+    "integrations/kde/kio/BtrfsBackupWorker.hpp:BtrfsBackupWorker"
+    "integrations/kde/restore/RestoreController.hpp:RestoreController"
+    "integrations/kde/restore/RestoreJob.hpp:RestoreJob"
 )
 
 set(observed_special_member_types)
