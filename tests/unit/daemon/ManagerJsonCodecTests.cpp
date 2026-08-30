@@ -6,14 +6,14 @@
 #include <vector>
 
 #include <config/model/Json.hpp>
-#include <daemon/ManagerJsonCodec.hpp>
+#include <daemon/dbus/ManagerJsonCodec.hpp>
 
 #include "support/TestHelpers.hpp"
 
 namespace {
 
 using btrfsbackup::config::Json;
-using btrfsbackup::daemon::ManagerJsonCodec;
+using btrfsbackup::daemon::dbus::ManagerJsonCodec;
 
 void expect_field(const std::string& name, const Json& document, const std::string& field, const Json& expected) {
     test_helpers::expect_true(name + " field", document.contains(field), "missing field " + field);

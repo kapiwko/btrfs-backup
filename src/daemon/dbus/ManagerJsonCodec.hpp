@@ -9,7 +9,7 @@
 
 #include <daemon/ManagerResponseModels.hpp>
 
-namespace btrfsbackup::daemon {
+namespace btrfsbackup::daemon::dbus {
 
 class ManagerJsonCodec {
   public:
@@ -21,4 +21,4 @@ class ManagerJsonCodec {
     [[nodiscard]] std::string encode(const OperationResult& result) const;
 };
 
-} // namespace btrfsbackup::daemon
+} // namespace btrfsbackup::daemon::dbus

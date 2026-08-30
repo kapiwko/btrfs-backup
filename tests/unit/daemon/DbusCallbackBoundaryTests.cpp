@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <daemon/DbusCallbackBoundary.hpp>
+#include <daemon/dbus/DbusCallbackBoundary.hpp>
 
 #include <cerrno>
 #include <stdexcept>
@@ -12,7 +12,7 @@
 namespace {
 
 void test_success_is_returned() {
-    const int result = btrfsbackup::daemon::invoke_dbus_callback(
+    const int result = btrfsbackup::daemon::dbus::invoke_dbus_callback(
         [] { return 17; },
         [](const std::exception*) { return -1; }
     );
@@ -21,7 +21,7 @@ void test_success_is_returned() {
 
 void test_standard_exception_is_reported() {
     bool received_standard_exception = false;
-    const int result = btrfsbackup::daemon::invoke_dbus_callback(
+    const int result = btrfsbackup::daemon::dbus::invoke_dbus_callback(
         []() -> int { throw std::runtime_error("failure"); },
         [&](const std::exception* exception) {
             received_standard_exception = exception != nullptr;
@@ -34,7 +34,7 @@ void test_standard_exception_is_reported() {
 
 void test_unknown_exception_is_contained() {
     bool received_unknown_exception = false;
-    const int result = btrfsbackup::daemon::invoke_dbus_callback(
+    const int result = btrfsbackup::daemon::dbus::invoke_dbus_callback(
         []() -> int { throw 42; },
         [&](const std::exception* exception) {
             received_unknown_exception = exception == nullptr;
@@ -46,7 +46,7 @@ void test_unknown_exception_is_contained() {
 }
 
 void test_error_handler_failure_is_contained() {
-    const int result = btrfsbackup::daemon::invoke_dbus_callback(
+    const int result = btrfsbackup::daemon::dbus::invoke_dbus_callback(
         []() -> int { throw std::runtime_error("failure"); },
         [](const std::exception*) -> int { throw 42; }
     );

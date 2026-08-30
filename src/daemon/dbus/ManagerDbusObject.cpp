@@ -2,10 +2,10 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <daemon/ManagerDbusObject.hpp>
+#include <daemon/dbus/ManagerDbusObject.hpp>
 
-#include <daemon/DbusCallbackBoundary.hpp>
-#include <daemon/ManagerDbusServer.hpp>
+#include <daemon/dbus/DbusCallbackBoundary.hpp>
+#include <daemon/dbus/ManagerDbusServer.hpp>
 
 #include <systemd/sd-bus.h>
 
@@ -20,7 +20,7 @@
 namespace {
 
 namespace manager_protocol = btrfsbackup::manager_protocol;
-using ManagerDbusObject = btrfsbackup::daemon::ManagerDbusObject;
+using ManagerDbusObject = btrfsbackup::daemon::dbus::ManagerDbusObject;
 
 int get_capabilities(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
     return static_cast<ManagerDbusObject*>(userdata)->handle_get_capabilities(message, error);
@@ -78,7 +78,7 @@ const sd_bus_vtable manager_vtable[] = {
 
 } // namespace
 
-namespace btrfsbackup::daemon {
+namespace btrfsbackup::daemon::dbus {
 
 ManagerDbusObject::ManagerDbusObject(
     ManagerService& service,
@@ -313,4 +313,4 @@ int ManagerDbusObject::handle_eject_target(sd_bus_message* message, sd_bus_error
     );
 }
 
-} // namespace btrfsbackup::daemon
+} // namespace btrfsbackup::daemon::dbus

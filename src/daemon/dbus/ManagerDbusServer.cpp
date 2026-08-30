@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <daemon/ManagerDbusServer.hpp>
+#include <daemon/dbus/ManagerDbusServer.hpp>
 
 #include <systemd/sd-bus.h>
 #include <systemd/sd-event.h>
@@ -17,10 +17,10 @@
 #include <stdexcept>
 #include <utility>
 
-#include <daemon/ManagerChangeMonitor.hpp>
-#include <daemon/DbusCallbackBoundary.hpp>
-#include <daemon/ManagerDbusObject.hpp>
-#include <daemon/PolkitAuthorizer.hpp>
+#include <daemon/dbus/ManagerChangeMonitor.hpp>
+#include <daemon/dbus/DbusCallbackBoundary.hpp>
+#include <daemon/dbus/ManagerDbusObject.hpp>
+#include <daemon/dbus/PolkitAuthorizer.hpp>
 
 namespace {
 
@@ -53,9 +53,9 @@ void emit_profile_signal(sd_bus* bus, const char* signal, const std::string& pro
 void emit_change(
     sd_bus* bus,
     btrfsbackup::daemon::ManagerService& service,
-    const btrfsbackup::daemon::ManagerChange& change
+    const btrfsbackup::daemon::dbus::ManagerChange& change
 ) {
-    if (change.kind == btrfsbackup::daemon::ManagerChangeKind::Profiles) {
+    if (change.kind == btrfsbackup::daemon::dbus::ManagerChangeKind::Profiles) {
         const int result = sd_bus_emit_signal(
             bus,
             btrfsbackup::manager_protocol::object_path,
@@ -72,16 +72,16 @@ void emit_change(
 
     const char* signal = nullptr;
     switch (change.kind) {
-    case btrfsbackup::daemon::ManagerChangeKind::Status:
+    case btrfsbackup::daemon::dbus::ManagerChangeKind::Status:
         signal = btrfsbackup::manager_protocol::signal::status_changed;
         break;
-    case btrfsbackup::daemon::ManagerChangeKind::History:
+    case btrfsbackup::daemon::dbus::ManagerChangeKind::History:
         signal = btrfsbackup::manager_protocol::signal::history_changed;
         break;
-    case btrfsbackup::daemon::ManagerChangeKind::Device:
+    case btrfsbackup::daemon::dbus::ManagerChangeKind::Device:
         signal = btrfsbackup::manager_protocol::signal::device_state_changed;
         break;
-    case btrfsbackup::daemon::ManagerChangeKind::Profiles:
+    case btrfsbackup::daemon::dbus::ManagerChangeKind::Profiles:
         return;
     }
 
@@ -100,7 +100,7 @@ void emit_change(
 
 template <typename Callback>
 int event_callback(const char* description, Callback&& callback) noexcept {
-    return btrfsbackup::daemon::invoke_dbus_callback(
+    return btrfsbackup::daemon::dbus::invoke_dbus_callback(
         std::forward<Callback>(callback),
         [description](const std::exception* exception) {
             std::cerr << "btrfs-backupd: " << description << " failed";
@@ -114,28 +114,28 @@ int event_callback(const char* description, Callback&& callback) noexcept {
 
 int process_filesystem_changes(sd_event_source*, int, std::uint32_t, void* userdata) noexcept {
     return event_callback("filesystem notification", [&] {
-        static_cast<btrfsbackup::daemon::ManagerChangeMonitor*>(userdata)->process_filesystem_events();
+        static_cast<btrfsbackup::daemon::dbus::ManagerChangeMonitor*>(userdata)->process_filesystem_events();
         return 0;
     });
 }
 
 int process_device_changes(sd_event_source*, int, std::uint32_t, void* userdata) noexcept {
     return event_callback("device notification", [&] {
-        static_cast<btrfsbackup::daemon::ManagerChangeMonitor*>(userdata)->process_device_events();
+        static_cast<btrfsbackup::daemon::dbus::ManagerChangeMonitor*>(userdata)->process_device_events();
         return 0;
     });
 }
 
 int process_mount_changes(sd_event_source*, int, std::uint32_t, void* userdata) noexcept {
     return event_callback("mount notification", [&] {
-        static_cast<btrfsbackup::daemon::ManagerChangeMonitor*>(userdata)->process_mount_events();
+        static_cast<btrfsbackup::daemon::dbus::ManagerChangeMonitor*>(userdata)->process_mount_events();
         return 0;
     });
 }
 
 } // namespace
 
-namespace btrfsbackup::daemon {
+namespace btrfsbackup::daemon::dbus {
 
 int run_dbus_server(
     ManagerService& service,
@@ -223,4 +223,4 @@ int run_dbus_server(
     return 0;
 }
 
-} // namespace btrfsbackup::daemon
+} // namespace btrfsbackup::daemon::dbus

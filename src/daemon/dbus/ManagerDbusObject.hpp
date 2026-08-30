@@ -12,12 +12,12 @@
 #include <string>
 
 #include <daemon/ManagerAuditLog.hpp>
-#include <daemon/ManagerErrorMapper.hpp>
-#include <daemon/ManagerJsonCodec.hpp>
+#include <daemon/dbus/ManagerErrorMapper.hpp>
+#include <daemon/dbus/ManagerJsonCodec.hpp>
 #include <daemon/ManagerService.hpp>
 #include <daemon/control/OperationalControlService.hpp>
 
-namespace btrfsbackup::daemon {
+namespace btrfsbackup::daemon::dbus {
 
 class ManagerDbusObject final {
   public:
@@ -69,4 +69,4 @@ class ManagerDbusObject final {
     ManagerErrorMapper error_mapper_;
 };
 
-} // namespace btrfsbackup::daemon
+} // namespace btrfsbackup::daemon::dbus

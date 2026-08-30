@@ -10,7 +10,7 @@
 
 struct sd_bus;
 
-namespace btrfsbackup::daemon {
+namespace btrfsbackup::daemon::dbus {
 
 class PolkitAuthorizer final : public control::IManagerAuthorizer {
   public:
@@ -26,4 +26,4 @@ class PolkitAuthorizer final : public control::IManagerAuthorizer {
     sd_bus* bus_;
 };
 
-} // namespace btrfsbackup::daemon
+} // namespace btrfsbackup::daemon::dbus

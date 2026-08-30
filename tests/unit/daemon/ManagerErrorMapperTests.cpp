@@ -7,16 +7,16 @@
 #include <string>
 
 #include <core/Errors.hpp>
-#include <daemon/ManagerErrorMapper.hpp>
+#include <daemon/dbus/ManagerErrorMapper.hpp>
 
 #include "support/TestHelpers.hpp"
 
 namespace {
 
-using btrfsbackup::daemon::ManagerErrorCode;
-using btrfsbackup::daemon::ManagerErrorMapper;
+using btrfsbackup::daemon::dbus::ManagerErrorCode;
+using btrfsbackup::daemon::dbus::ManagerErrorMapper;
 
-void expect_code(const std::string& name, const btrfsbackup::daemon::ManagerErrorDescription& error, ManagerErrorCode code) {
+void expect_code(const std::string& name, const btrfsbackup::daemon::dbus::ManagerErrorDescription& error, ManagerErrorCode code) {
     test_helpers::expect_true(name, error.code == code, "unexpected manager error code");
 }
 
@@ -76,7 +76,7 @@ void test_exception_mapping() {
     );
     expect_code(
         "manager authorization error",
-        mapper.map(btrfsbackup::daemon::ManagerOperationError(ManagerErrorCode::NotAuthorized, "private caller")),
+        mapper.map(btrfsbackup::daemon::dbus::ManagerOperationError(ManagerErrorCode::NotAuthorized, "private caller")),
         ManagerErrorCode::NotAuthorized
     );
 }

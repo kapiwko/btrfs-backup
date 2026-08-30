@@ -4,7 +4,7 @@
 
 file(READ "${PROJECT_SOURCE_DIR}/data/dbus/io.github.btrfsbackup.Manager1.xml" manager_xml)
 file(READ "${PROJECT_SOURCE_DIR}/src/core/ManagerProtocol.hpp" manager_protocol)
-file(READ "${PROJECT_SOURCE_DIR}/src/daemon/ManagerDbusObject.cpp" manager_vtable)
+file(READ "${PROJECT_SOURCE_DIR}/src/daemon/dbus/ManagerDbusObject.cpp" manager_vtable)
 string(REGEX REPLACE "[ \t\r\n]+" "" compact_xml "${manager_xml}")
 
 function(assert_contains content fragment description)

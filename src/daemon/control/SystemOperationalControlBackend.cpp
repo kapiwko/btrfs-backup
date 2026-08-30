@@ -12,35 +12,38 @@
 
 #include <config/ConfigurationIdentity.hpp>
 #include <daemon/control/AuthorizedOperationCommand.hpp>
-#include <daemon/ManagerErrors.hpp>
+#include <daemon/dbus/ManagerErrors.hpp>
 #include <daemon/control/OperationEnvironmentFile.hpp>
 
 namespace btrfsbackup::daemon::control {
 
 namespace {
 
-ManagerErrorCode manager_error_code(SystemdJobFailure failure) {
+dbus::ManagerErrorCode manager_error_code(SystemdJobFailure failure) {
     switch (failure) {
     case SystemdJobFailure::UnitNotFound:
-        return ManagerErrorCode::NotFound;
+        return dbus::ManagerErrorCode::NotFound;
     case SystemdJobFailure::JobAlreadyRunning:
-        return ManagerErrorCode::Busy;
+        return dbus::ManagerErrorCode::Busy;
     case SystemdJobFailure::JobConflict:
-        return ManagerErrorCode::Conflict;
+        return dbus::ManagerErrorCode::Conflict;
     case SystemdJobFailure::Cancelled:
     case SystemdJobFailure::TimedOut:
     case SystemdJobFailure::UnitFailed:
-        return ManagerErrorCode::TargetUnavailable;
+        return dbus::ManagerErrorCode::TargetUnavailable;
     case SystemdJobFailure::ManagerRejected:
-        return ManagerErrorCode::InternalError;
+        return dbus::ManagerErrorCode::InternalError;
     }
-    return ManagerErrorCode::InternalError;
+    return dbus::ManagerErrorCode::InternalError;
 }
 
 [[noreturn]] void throw_job_error(const SystemdJobError& error, const char* operation) {
     if (error.unit_exit_status == btrfsbackup::config::configuration_changed_exit_code)
-        throw ManagerOperationError(ManagerErrorCode::Conflict, "profile changed before operation execution");
-    throw ManagerOperationError(manager_error_code(error.failure), std::string(operation) + " failed");
+        throw dbus::ManagerOperationError(
+            dbus::ManagerErrorCode::Conflict,
+            "profile changed before operation execution"
+        );
+    throw dbus::ManagerOperationError(manager_error_code(error.failure), std::string(operation) + " failed");
 }
 
 } // namespace
@@ -70,7 +73,10 @@ void SystemOperationalControlBackend::require_profile_version(
 ) const {
     const OperationalResourceVersion expected_version{context.generation, context.fingerprint};
     if (inspect_profile(context.profile_id) != expected_version)
-        throw ManagerOperationError(ManagerErrorCode::Conflict, "profile changed during authorization");
+        throw dbus::ManagerOperationError(
+            dbus::ManagerErrorCode::Conflict,
+            "profile changed during authorization"
+        );
 }
 
 void SystemOperationalControlBackend::require_job_accepted(
@@ -100,7 +106,7 @@ ManagerCancellationOutcome SystemOperationalControlBackend::cancel_backup(
     case btrfsbackup::backup::CancellationRequestOutcome::RunMismatch:
         return ManagerCancellationOutcome::RunMismatch;
     }
-    throw ManagerOperationError(ManagerErrorCode::InternalError, "unknown cancellation outcome");
+    throw dbus::ManagerOperationError(dbus::ManagerErrorCode::InternalError, "unknown cancellation outcome");
 }
 
 void SystemOperationalControlBackend::validate_target(const AuthorizedOperationContext& context) {

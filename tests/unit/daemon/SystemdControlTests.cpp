@@ -12,7 +12,7 @@
 
 #include <backup/ports/CancellationRequestStore.hpp>
 #include <daemon/control/CommandSystemdUnitController.hpp>
-#include <daemon/ManagerErrors.hpp>
+#include <daemon/dbus/ManagerErrors.hpp>
 #include <daemon/control/SystemOperationalControlBackend.hpp>
 
 #include "support/TestHelpers.hpp"
@@ -26,8 +26,8 @@ using btrfsbackup::ProfileId;
 using btrfsbackup::daemon::control::AuthorizedOperationContext;
 using btrfsbackup::daemon::control::CommandSystemdUnitController;
 using btrfsbackup::daemon::control::ISystemdUnitController;
-using btrfsbackup::daemon::ManagerErrorCode;
-using btrfsbackup::daemon::ManagerOperationError;
+using btrfsbackup::daemon::dbus::ManagerErrorCode;
+using btrfsbackup::daemon::dbus::ManagerOperationError;
 using btrfsbackup::daemon::control::StartJobResult;
 using btrfsbackup::daemon::control::StartUnitRequest;
 using btrfsbackup::daemon::control::StopJobResult;

@@ -10,7 +10,7 @@
 #include <utility>
 
 #include <core/ManagerProtocol.hpp>
-#include <daemon/ManagerErrors.hpp>
+#include <daemon/dbus/ManagerErrors.hpp>
 
 namespace btrfsbackup::daemon::control {
 
@@ -56,7 +56,10 @@ void OperationalControlService::require_authorized(
 ) {
     if (caller_bus_name.empty() || !authorizer_.authorize(caller_bus_name, action) ||
         !authorizer_.caller_is_active(caller_bus_name))
-        throw ManagerOperationError(ManagerErrorCode::NotAuthorized, "manager operation was not authorized");
+        throw dbus::ManagerOperationError(
+            dbus::ManagerErrorCode::NotAuthorized,
+            "manager operation was not authorized"
+        );
 }
 
 AuthorizedOperationContext OperationalControlService::authorized_context(
@@ -108,11 +111,11 @@ OperationResult OperationalControlService::cancel_backup(
             .run_id = run_id,
         };
     case ManagerCancellationOutcome::StaleRun:
-        throw ManagerOperationError(ManagerErrorCode::NotFound, "backup run is no longer active");
+        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::NotFound, "backup run is no longer active");
     case ManagerCancellationOutcome::RunMismatch:
-        throw ManagerOperationError(ManagerErrorCode::RunMismatch, "a different backup run is active");
+        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::RunMismatch, "a different backup run is active");
     }
-    throw ManagerOperationError(ManagerErrorCode::InternalError, "unknown cancellation outcome");
+    throw dbus::ManagerOperationError(dbus::ManagerErrorCode::InternalError, "unknown cancellation outcome");
 }
 
 OperationResult OperationalControlService::validate_target(

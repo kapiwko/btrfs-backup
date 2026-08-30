@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <daemon/PolkitAuthorizer.hpp>
+#include <daemon/dbus/PolkitAuthorizer.hpp>
 
 #include <systemd/sd-bus.h>
 
@@ -34,7 +34,7 @@ void append_subject(sd_bus_message* message, const std::string& caller_bus_name)
 
 } // namespace
 
-namespace btrfsbackup::daemon {
+namespace btrfsbackup::daemon::dbus {
 
 PolkitAuthorizer::PolkitAuthorizer(sd_bus* bus) : bus_(bus) {
     if (bus_ == nullptr)
@@ -106,4 +106,4 @@ bool PolkitAuthorizer::caller_is_active(const std::string& caller_bus_name) {
     return sd_bus_message_read(reply.get(), "b", &has_owner) >= 0 && has_owner != 0;
 }
 
-} // namespace btrfsbackup::daemon
+} // namespace btrfsbackup::daemon::dbus

@@ -10,7 +10,7 @@
 
 #include <daemon/ManagerPaths.hpp>
 
-namespace btrfsbackup::daemon {
+namespace btrfsbackup::daemon::dbus {
 
 enum class ManagerChangeKind {
     Profiles,
@@ -49,4 +49,4 @@ class ManagerChangeMonitor final {
     std::unique_ptr<Impl> impl_;
 };
 
-} // namespace btrfsbackup::daemon
+} // namespace btrfsbackup::daemon::dbus
