@@ -62,15 +62,19 @@ description:
 tools/render-release-notes.sh X.Y.Z vPREVIOUS > build/release-notes-X.Y.Z.md
 ```
 
+For the first release, omit `vPREVIOUS`; the footer then links to the tagged
+source tree instead of a comparison that cannot exist.
+
 The renderer wraps changelog subsections in `What's New`, then appends the
-standard artifact-verification paragraph and the full comparison link. Review
-the rendered file before publication. It must contain:
+standard artifact-verification paragraph and a comparison or tagged-source
+link. Review the rendered file before publication. It must contain:
 
 1. the standard `What's New` heading;
 2. every thematic subsection from the released changelog entry;
 3. actionable upgrade instructions when applicable;
 4. the standard `Artifacts` section;
-5. a comparison link from the previous release tag.
+5. a comparison link from the previous release tag, or a tagged source link
+   for the first release.
 
 Do not use `gh release create --generate-notes` as the release body. GitHub may
 generate a pull-request supplement, but it must not replace the rendered
