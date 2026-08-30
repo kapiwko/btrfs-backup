@@ -233,3 +233,24 @@ msgstr "Nie skonfigurowano profili kopii zapasowej"
 
 msgid "Backup service unavailable"
 msgstr "Usługa kopii zapasowej jest niedostępna"
+
+msgid "Backing up %1"
+msgstr "Tworzenie kopii: %1"
+
+msgid "Source"
+msgstr "Źródło"
+
+msgid "Destination"
+msgstr "Cel"
+
+msgid "Publishes Btrfs backup progress to Plasma"
+msgstr "Publikuje postęp kopii Btrfs w Plasmie"
+
+msgid "Use a custom manager D-Bus address"
+msgstr "Użyj niestandardowego adresu D-Bus managera"
+
+msgid "Backup profile is no longer available"
+msgstr "Profil kopii zapasowej nie jest już dostępny"
+
+msgid "A newer backup run replaced this progress report"
+msgstr "Nowszy przebieg kopii zastąpił ten raport postępu"

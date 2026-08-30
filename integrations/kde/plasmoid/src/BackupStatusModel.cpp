@@ -4,7 +4,8 @@
 
 #include "BackupStatusModel.hpp"
 
-#include <QDBusMessage>
+#include "ManagerApi.hpp"
+
 #include <QDBusPendingCallWatcher>
 #include <QDBusPendingReply>
 #include <QJsonArray>
@@ -16,16 +17,9 @@
 
 namespace {
 
-constexpr auto manager_service = "io.github.btrfsbackup.Manager1";
-constexpr auto manager_path = "/io/github/btrfsbackup/Manager1";
-constexpr auto manager_interface = "io.github.btrfsbackup.Manager1";
-constexpr int poll_interval_ms = 1000;
+constexpr int active_poll_interval_ms = 1000;
+constexpr int idle_poll_interval_ms = 5000;
 constexpr int operation_message_timeout_ms = 5000;
-
-qint64 json_int64(const QJsonObject& object, const char* key, qint64 fallback = 0) {
-    const auto value = object.value(QLatin1String(key));
-    return value.isDouble() ? static_cast<qint64>(value.toDouble()) : fallback;
-}
 
 int json_int(const QJsonObject& object, const char* key, int fallback = 0) {
     const auto value = object.value(QLatin1String(key));
@@ -39,22 +33,11 @@ QString parseError(const QJsonParseError& error) {
     return BackupStatusModel::tr("Invalid manager response: %1").arg(error.errorString());
 }
 
-QDBusPendingCall managerCall(const QDBusConnection& bus, const QString& method, const QVariantList& arguments = {}) {
-    QDBusMessage message = QDBusMessage::createMethodCall(
-        QLatin1String(manager_service),
-        QLatin1String(manager_path),
-        QLatin1String(manager_interface),
-        method
-    );
-    message.setArguments(arguments);
-    return bus.asyncCall(message);
-}
-
 } // namespace
 
 BackupStatusModel::BackupStatusModel(QObject* parent)
-    : QObject(parent), bus_(QDBusConnection::systemBus()), service_watcher_(QLatin1String(manager_service), bus_, QDBusServiceWatcher::WatchForRegistration | QDBusServiceWatcher::WatchForUnregistration, this) {
-    poll_timer_.setInterval(poll_interval_ms);
+    : QObject(parent), bus_(QDBusConnection::systemBus()), service_watcher_(QLatin1String(btrfsbackup::kde::manager_service), bus_, QDBusServiceWatcher::WatchForRegistration | QDBusServiceWatcher::WatchForUnregistration, this) {
+    poll_timer_.setInterval(idle_poll_interval_ms);
     operation_message_timer_.setInterval(operation_message_timeout_ms);
     operation_message_timer_.setSingleShot(true);
     connect(&poll_timer_, &QTimer::timeout, this, &BackupStatusModel::refresh);
@@ -282,7 +265,7 @@ void BackupStatusModel::connectToManager() {
     device_request_pending_ = false;
     history_request_pending_ = false;
     const quint64 request_generation = ++generation_;
-    auto* watcher = new QDBusPendingCallWatcher(managerCall(bus_, QStringLiteral("GetCapabilities")), this);
+    auto* watcher = new QDBusPendingCallWatcher(btrfsbackup::kde::manager_call(bus_, QStringLiteral("GetCapabilities")), this);
     connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, watcher, request_generation](QDBusPendingCallWatcher*) {
         const QDBusPendingReply<QString> reply = *watcher;
         watcher->deleteLater();
@@ -294,26 +277,19 @@ void BackupStatusModel::connectToManager() {
             return;
         }
 
-        QJsonParseError error;
-        const QJsonDocument document = QJsonDocument::fromJson(reply.value().toUtf8(), &error);
-        if (error.error != QJsonParseError::NoError || !document.isObject()) {
-            setLastError(parseError(error));
+        const auto capabilities = btrfsbackup::kde::parse_capabilities(reply.value());
+        if (!capabilities.has_value()) {
+            setLastError(tr("Invalid manager response."));
             managerUnavailable();
             return;
         }
-        const QJsonObject capabilities = document.object();
-        if (json_int(capabilities, "apiMajor", -1) != 1 || json_int(capabilities, "publicStatusSchemaVersion", -1) != 3) {
+        if (capabilities->api_major != 1 || capabilities->public_status_schema_version != 3) {
             setLastError(tr("The backup manager API is not compatible with this widget."));
             managerUnavailable();
             return;
         }
 
-        features_.clear();
-        for (const QJsonValue& feature : capabilities.value(QStringLiteral("features")).toArray()) {
-            if (feature.isString()) {
-                features_.insert(feature.toString());
-            }
-        }
+        features_ = capabilities->features;
 
         capabilities_verified_ = true;
         setManagerConnected(true);
@@ -340,7 +316,7 @@ void BackupStatusModel::requestDeviceState() {
     device_request_pending_ = true;
     const quint64 request_generation = generation_;
     const QString requested_profile = profile_;
-    auto* watcher = new QDBusPendingCallWatcher(managerCall(bus_, QStringLiteral("GetDeviceState"), {requested_profile}), this);
+    auto* watcher = new QDBusPendingCallWatcher(btrfsbackup::kde::manager_call(bus_, QStringLiteral("GetDeviceState"), {requested_profile}), this);
     connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, watcher, request_generation, requested_profile](QDBusPendingCallWatcher*) {
         const QDBusPendingReply<QString> reply = *watcher;
         watcher->deleteLater();
@@ -365,7 +341,7 @@ void BackupStatusModel::requestHistory() {
     history_request_pending_ = true;
     const quint64 request_generation = generation_;
     const QString requested_profile = profile_;
-    auto* watcher = new QDBusPendingCallWatcher(managerCall(bus_, QStringLiteral("GetHistorySanitized"), {requested_profile, 0U, 3U}), this);
+    auto* watcher = new QDBusPendingCallWatcher(btrfsbackup::kde::manager_call(bus_, QStringLiteral("GetHistorySanitized"), {requested_profile, 0U, 3U}), this);
     connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, watcher, request_generation, requested_profile](QDBusPendingCallWatcher*) {
         const QDBusPendingReply<QString> reply = *watcher;
         watcher->deleteLater();
@@ -385,7 +361,7 @@ void BackupStatusModel::requestHistory() {
 
 void BackupStatusModel::requestProfiles() {
     const quint64 request_generation = generation_;
-    auto* watcher = new QDBusPendingCallWatcher(managerCall(bus_, QStringLiteral("ListProfiles")), this);
+    auto* watcher = new QDBusPendingCallWatcher(btrfsbackup::kde::manager_call(bus_, QStringLiteral("ListProfiles")), this);
     connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, watcher, request_generation](QDBusPendingCallWatcher*) {
         const QDBusPendingReply<QString> reply = *watcher;
         watcher->deleteLater();
@@ -407,7 +383,7 @@ void BackupStatusModel::requestStatus() {
     status_request_pending_ = true;
     const quint64 request_generation = generation_;
     const QString requested_profile = profile_;
-    auto* watcher = new QDBusPendingCallWatcher(managerCall(bus_, QStringLiteral("GetStatus"), {requested_profile}), this);
+    auto* watcher = new QDBusPendingCallWatcher(btrfsbackup::kde::manager_call(bus_, QStringLiteral("GetStatus"), {requested_profile}), this);
     connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, watcher, request_generation, requested_profile](QDBusPendingCallWatcher*) {
         const QDBusPendingReply<QString> reply = *watcher;
         watcher->deleteLater();
@@ -426,24 +402,22 @@ void BackupStatusModel::requestStatus() {
 }
 
 void BackupStatusModel::applyProfiles(const QString& payload) {
-    QJsonParseError error;
-    const QJsonDocument document = QJsonDocument::fromJson(payload.toUtf8(), &error);
-    if (error.error != QJsonParseError::NoError || !document.isArray()) {
-        setLastError(parseError(error));
+    const auto decoded_profiles = btrfsbackup::kde::parse_profiles(payload);
+    if (!decoded_profiles.has_value()) {
+        setLastError(tr("Invalid manager response."));
         return;
     }
 
     QString profile_name;
     QVariantList profiles;
-    for (const QJsonValue& value : document.array()) {
-        const QJsonObject item = value.toObject();
+    for (const auto& decoded : *decoded_profiles) {
         QVariantMap profile;
-        profile.insert(QStringLiteral("profileId"), item.value(QStringLiteral("profileId")).toString());
-        profile.insert(QStringLiteral("name"), item.value(QStringLiteral("name")).toString());
-        profile.insert(QStringLiteral("targetName"), item.value(QStringLiteral("targetName")).toString());
+        profile.insert(QStringLiteral("profileId"), decoded.id);
+        profile.insert(QStringLiteral("name"), decoded.name);
+        profile.insert(QStringLiteral("targetName"), decoded.target_name);
         profiles.push_back(profile);
-        if (item.value(QStringLiteral("profileId")).toString() == profile_) {
-            profile_name = item.value(QStringLiteral("name")).toString();
+        if (decoded.id == profile_) {
+            profile_name = decoded.name;
         }
     }
     if (profiles_ != profiles) {
@@ -457,32 +431,28 @@ void BackupStatusModel::applyProfiles(const QString& payload) {
 }
 
 void BackupStatusModel::applyStatus(const QString& payload) {
-    QJsonParseError error;
-    const QJsonDocument document = QJsonDocument::fromJson(payload.toUtf8(), &error);
-    if (error.error != QJsonParseError::NoError || !document.isObject()) {
-        setLastError(parseError(error));
-        return;
-    }
-    const QJsonObject status = document.object();
-    if (json_int(status, "schemaVersion", -1) != 3) {
+    const auto status = btrfsbackup::kde::parse_status(payload);
+    if (!status.has_value()) {
         setLastError(tr("The backup manager returned an unsupported status schema."));
         return;
     }
 
     const QString previous_state = state_;
-    run_id_ = status.value(QStringLiteral("runId")).toString();
-    state_ = status.value(QStringLiteral("state")).toString(QStringLiteral("unknown"));
-    phase_ = status.value(QStringLiteral("phase")).toString(QStringLiteral("idle"));
-    activity_ = status.value(QStringLiteral("activity")).toString(QStringLiteral("idle"));
-    can_cancel_ = status.value(QStringLiteral("canCancel")).toBool(false);
-    current_source_name_ = status.value(QStringLiteral("sourceName")).toString();
-    target_name_ = status.value(QStringLiteral("targetName")).toString();
-    speed_bps_ = json_int64(status, "speedBps");
-    eta_seconds_ = json_int(status, "etaSeconds", -1);
-    source_progress_ = json_int(status, "sourceProgress", -1);
-    overall_progress_ = json_int(status, "overallProgress", -1);
-    progress_accuracy_ = status.value(QStringLiteral("progressAccuracy")).toString(QStringLiteral("indeterminate"));
-    error_code_ = status.value(QStringLiteral("errorCode")).toString();
+    run_id_ = status->run_id;
+    state_ = status->state;
+    phase_ = status->phase;
+    activity_ = status->activity;
+    can_cancel_ = status->can_cancel;
+    current_source_name_ = status->source_name;
+    target_name_ = status->target_name;
+    speed_bps_ = status->speed_bps;
+    eta_seconds_ = static_cast<int>(status->eta_seconds);
+    source_progress_ = status->source_progress;
+    overall_progress_ = status->overall_progress;
+    progress_accuracy_ = status->progress_accuracy;
+    const bool active_run = btrfsbackup::kde::active_run_state(state_);
+    poll_timer_.setInterval(active_run ? active_poll_interval_ms : idle_poll_interval_ms);
+    error_code_ = status->error_code;
     setManagerConnected(true);
     setLastError(QString());
     emit statusChanged();
@@ -559,7 +529,7 @@ void BackupStatusModel::requestOperation(const QString& method, const QVariantLi
     setLastError(QString());
     emit operationChanged();
     const quint64 request_generation = generation_;
-    auto* watcher = new QDBusPendingCallWatcher(managerCall(bus_, method, arguments), this);
+    auto* watcher = new QDBusPendingCallWatcher(btrfsbackup::kde::manager_call(bus_, method, arguments), this);
     connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, watcher, request_generation](QDBusPendingCallWatcher*) {
         const QDBusPendingReply<QString> reply = *watcher;
         watcher->deleteLater();
