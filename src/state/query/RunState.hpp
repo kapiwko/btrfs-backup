@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <optional>
 #include <string>
+#include <string_view>
 
 #include <backup/model/PendingRecovery.hpp>
 #include <config/ConfigurationIdentity.hpp>
@@ -34,6 +35,7 @@ bool last_success_matches(
     const btrfsbackup::config::LuksUuid& target_luks_uuid,
     const btrfsbackup::config::ConfigurationFingerprint& config_fingerprint
 );
+[[nodiscard]] std::optional<std::string> parse_last_success_timestamp(std::string_view document);
 
 void write_success_state(
     IAtomicDocumentWriter& files,

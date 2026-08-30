@@ -117,12 +117,17 @@ install -d -m0755 \
     "$TEST_ROOT/public" \
     "$TEST_ROOT/status/default" \
     "$TEST_ROOT/history/default" \
+    "$TEST_ROOT/state/profiles/default" \
     "$TEST_ROOT/mnt" \
     "$TEST_ROOT/mapper"
 
 cat >"$TEST_ROOT/public/default.json" <<'EOF_PUBLIC'
 {"schemaVersion":1,"profileId":"default","name":"Default backup","target":{"name":"Backup disk"},"sources":[{"id":"home","name":"Home"}]}
 EOF_PUBLIC
+cat >"$TEST_ROOT/etc/btrfs-backup.conf" <<EOF_CONFIG
+CONFIG_VERSION=1
+STATE_ROOT=$TEST_ROOT/state
+EOF_CONFIG
 cat >"$TEST_ROOT/status/default/current.json" <<'EOF_STATUS'
 {"schemaVersion":3,"runId":"20260829T160000Z-1-1","state":"running","phase":"sizing","activity":"sizing","canCancel":true,"errorCode":"","sourceName":"Home","targetName":"Backup disk","speedBps":10,"etaSeconds":20,"sourceProgress":30,"overallProgress":40,"progressAccuracy":"estimated"}
 EOF_STATUS
@@ -130,11 +135,17 @@ cat >"$TEST_ROOT/history/default/20260825T100000Z-1-1.json" <<'EOF_HISTORY'
 {"schemaVersion":2,"profileId":"default","profileName":"Default backup","runId":"20260825T100000Z-1-1","state":"failed","phase":"failed","message":"private","currentSourceName":"Home","targetName":"Backup disk","sourceIndex":1,"sourceCount":1,"startedAt":"2026-08-25T09:59:00Z","updatedAt":"2026-08-25T10:00:00Z","finishedAt":"2026-08-25T10:00:00Z","errorCode":"private.failure","errorMessage":"private failure","details":{"device":"/dev/private"},"recoverable":false,"suggestedAction":"","canCancel":false,"bytesProcessed":40,"bytesTotalEstimated":100,"runBytesProcessed":40,"speedBps":0,"etaSeconds":-1,"sourceProgress":40,"overallProgress":40,"progressAccuracy":"exact","exitCode":1}
 EOF_HISTORY
 cp "$TEST_ROOT/history/default/20260825T100000Z-1-1.json" "$TEST_ROOT/history/default/last.json"
+cat >"$TEST_ROOT/state/profiles/default/last-success" <<'EOF_LAST_SUCCESS'
+date=2026-08-24
+timestamp=2026-08-24T18:42:00+0000
+EOF_LAST_SUCCESS
 cat >"$TEST_ROOT/etc/profiles/default/profile.json" <<'EOF_PROFILE'
 {"schemaVersion":3,"profileId":"default","name":"Default backup","enabled":true,"target":{"device":"/dev/null","luksUuid":"11111111-2222-3333-4444-555555555555","btrfsUuid":"66666666-7777-8888-9999-aaaaaaaaaaaa","mapperName":"backupdisk"},"sources":[{"id":"home","name":"Home","enabled":true,"subvolume":"/home","localSnapshotDir":"/.snapshots/home","remoteSubdir":"home","remoteRetention":2,"localRetention":2}]}
 EOF_PROFILE
 chmod 0644 "$TEST_ROOT/public/default.json" "$TEST_ROOT/status/default/current.json"
-chmod 0600 "$TEST_ROOT/history/default/"*.json "$TEST_ROOT/etc/profiles/default/profile.json"
+chmod 0600 "$TEST_ROOT/history/default/"*.json \
+    "$TEST_ROOT/state/profiles/default/last-success" \
+    "$TEST_ROOT/etc/profiles/default/profile.json"
 
 cat >"$TEST_ROOT/test-bus.conf" <<EOF_TEST_BUS
 <busconfig>

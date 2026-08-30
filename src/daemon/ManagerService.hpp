@@ -25,7 +25,7 @@ class ManagerService {
 
     [[nodiscard]] ManagerCapabilities get_capabilities() const;
     [[nodiscard]] std::vector<ProfileSummary> list_profiles() const;
-    [[nodiscard]] PublicRunStatus get_status(const std::string& profile_id) const;
+    [[nodiscard]] PublicStatusResponse get_status(const std::string& profile_id) const;
     [[nodiscard]] SanitizedHistoryPage get_history_sanitized(
         const std::string& profile_id,
         std::size_t offset,

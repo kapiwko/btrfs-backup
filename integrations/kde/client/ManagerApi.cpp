@@ -120,7 +120,30 @@ std::optional<QList<ProfileSummary>> parse_profiles(const QString& payload) {
 }
 
 std::optional<RunStatus> parse_status(const QString& payload) {
-    const auto decoded = btrfsbackup::state::document::RunStatusDocumentCodec{}.try_parse_public(payload.toStdString());
+    const QJsonDocument document = QJsonDocument::fromJson(payload.toUtf8());
+    if (!document.isObject()) {
+        return std::nullopt;
+    }
+    QJsonObject object = document.object();
+    if (object.value(QStringLiteral("schemaVersion")).toInt(-1) != manager_protocol::public_status_schema_version) {
+        return std::nullopt;
+    }
+    for (const QString& field : {
+             QStringLiteral("lastSuccessAt"),
+             QStringLiteral("lastAttemptAt"),
+             QStringLiteral("lastAttemptState"),
+         }) {
+        if (!object.value(field).isString()) {
+            return std::nullopt;
+        }
+    }
+    const QString last_success_at = object.take(QStringLiteral("lastSuccessAt")).toString();
+    const QString last_attempt_at = object.take(QStringLiteral("lastAttemptAt")).toString();
+    const QString last_attempt_state = object.take(QStringLiteral("lastAttemptState")).toString();
+    object[QStringLiteral("schemaVersion")] = 3;
+    const auto decoded = btrfsbackup::state::document::RunStatusDocumentCodec{}.try_parse_public(
+        QJsonDocument(object).toJson(QJsonDocument::Compact).toStdString()
+    );
     if (!decoded.has_value()) {
         return std::nullopt;
     }
@@ -141,6 +164,9 @@ std::optional<RunStatus> parse_status(const QString& payload) {
         .source_name = QString::fromStdString(status.source_name),
         .target_name = QString::fromStdString(status.target_name),
         .progress_accuracy = QString::fromStdString(btrfsbackup::state::progress_accuracy_name(status.progress.accuracy)),
+        .last_success_at = last_success_at,
+        .last_attempt_at = last_attempt_at,
+        .last_attempt_state = last_attempt_state,
         .can_cancel = status.can_cancel,
         .speed_bps = static_cast<qint64>(status.progress.speed_bps),
         .eta_seconds = status.progress.eta_seconds.has_value() ? static_cast<qint64>(*status.progress.eta_seconds) : -1,

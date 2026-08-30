@@ -67,6 +67,18 @@ QString RunStatusModel::errorCode() const {
     return error_code_;
 }
 
+QString RunStatusModel::lastSuccessAt() const {
+    return last_success_at_;
+}
+
+QString RunStatusModel::lastAttemptAt() const {
+    return last_attempt_at_;
+}
+
+QString RunStatusModel::lastAttemptState() const {
+    return last_attempt_state_;
+}
+
 void RunStatusModel::setCancelSupported(bool supported) {
     if (cancel_supported_ == supported) {
         return;
@@ -95,6 +107,9 @@ bool RunStatusModel::apply(const QString& payload) {
     overall_progress_ = status->overall_progress;
     progress_accuracy_ = status->progress_accuracy;
     error_code_ = status->error_code;
+    last_success_at_ = status->last_success_at;
+    last_attempt_at_ = status->last_attempt_at;
+    last_attempt_state_ = status->last_attempt_state;
     emit changed();
     if (was_active && !btrfsbackup::kde::active_run_state(state_)) {
         emit activeRunFinished();
@@ -116,5 +131,8 @@ void RunStatusModel::reset() {
     overall_progress_ = -1;
     progress_accuracy_ = QStringLiteral("indeterminate");
     error_code_.clear();
+    last_success_at_.clear();
+    last_attempt_at_.clear();
+    last_attempt_state_.clear();
     emit changed();
 }

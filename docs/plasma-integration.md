@@ -34,6 +34,34 @@ The presentation backend is split into grouped run, target and history models.
 The shared state-document codec validates target JSON before the Qt target model
 applies it, keeping schema handling out of the D-Bus coordinator and QML.
 
+## Interface Responsibilities
+
+The KDE interface has three distinct presentation layers:
+
+| Layer | Responsibility |
+| --- | --- |
+| Plasmoid | Current status, progress and frequent operations such as start, cancel and eject |
+| Plasmoid settings | Per-user or per-widget presentation preferences stored through `plasmoid.configuration` |
+| System KCM | Profile, target, retention and automation configuration, plus administrative validation and diagnostics |
+
+The boundary rule is that the plasmoid answers what is happening now and what
+routine action is available, while the KCM answers how backup is configured and
+whether that configuration is valid. Plasmoid settings must not become an
+alternate profile editor or write privileged system configuration.
+
+The current plasmoid scope is intentional. It lists profiles and presents run
+state, phase, current source, transfer rate, estimated time remaining, progress,
+target state, filesystem-space usage, the last successful backup, the outcome
+of the last completed attempt and the three most recent runs. Its routine
+controls are limited to starting a backup, cancelling the specific active run
+and safely ejecting the target. Backup age is informational until a configured
+schedule defines when a backup is overdue.
+
+The system KCM is not implemented yet. It will be a QML Kirigami module usable
+from System Settings and through `kcmshell6`, and it will perform controlled
+writes only through authorized manager APIs. The plasmoid and its settings must
+remain useful without the KCM installed.
+
 The plasmoid exposes start, run-scoped cancellation and eject through the
 authorized manager methods. Validation and configuration belong to the KCM,
 not to the status plasmoid. Detailed run phases drive the visible activity
@@ -56,8 +84,9 @@ must preserve the following rules:
    expanded view;
 3. expose one clear default action for the current state, such as start or
    cancel, and keep less frequent operations in contextual actions;
-4. reserve the plasmoid for status and routine operations; profile editing,
-   validation and other administrative workflows belong to the KCM;
+4. reserve the plasmoid for status and routine operations, its settings for
+   presentation preferences, and the KCM for profile editing, validation and
+   other administrative workflows;
 5. use semantic warning and error colors only for states that require user
    attention, and otherwise inherit the active Plasma theme;
 6. avoid custom cards, decorative backgrounds, fixed color palettes and

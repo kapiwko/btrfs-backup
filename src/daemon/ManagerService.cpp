@@ -13,7 +13,7 @@ namespace btrfsbackup::daemon {
 ManagerService::ManagerService(ManagerPaths paths)
     : profiles_(paths.public_profile_root),
       history_(paths.history_root),
-      status_(paths.status_root, history_),
+      status_(paths.status_root, paths.state_root, history_),
       device_state_(std::move(paths)) {
 }
 
@@ -40,7 +40,7 @@ std::vector<ProfileSummary> ManagerService::list_profiles() const {
     return profiles_.list_profiles();
 }
 
-PublicRunStatus ManagerService::get_status(const std::string& profile_id) const {
+PublicStatusResponse ManagerService::get_status(const std::string& profile_id) const {
     return status_.get_status(profile_id);
 }
 
