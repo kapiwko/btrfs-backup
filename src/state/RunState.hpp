@@ -13,7 +13,7 @@
 #include <config/domain/TargetIdentity.hpp>
 #include <core/Identifiers.hpp>
 #include <core/RuntimeTime.hpp>
-#include <state/PersistentDocumentOperations.hpp>
+#include <state/persistence/PersistentDocumentOperations.hpp>
 
 namespace btrfsbackup::state {
 

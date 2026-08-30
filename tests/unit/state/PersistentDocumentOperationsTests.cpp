@@ -6,8 +6,8 @@
 #include <string_view>
 #include <type_traits>
 
-#include <state/PersistentDocumentOperations.hpp>
-#include <state/JsonFileBackupRunCheckpointStore.hpp>
+#include <state/persistence/PersistentDocumentOperations.hpp>
+#include <state/persistence/JsonFileBackupRunCheckpointStore.hpp>
 
 namespace {
 

@@ -2,18 +2,18 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <state/FileRunStateRepository.hpp>
+#include <state/persistence/FileRunStateRepository.hpp>
 
 #include <optional>
 #include <string>
 #include <utility>
 
 #include <state/FileActiveRunRegistration.hpp>
-#include <state/JsonFileBackupRunCheckpointStore.hpp>
+#include <state/persistence/JsonFileBackupRunCheckpointStore.hpp>
 #include <state/RunHistory.hpp>
 #include <state/RunState.hpp>
 #include <state/RunStatusProjection.hpp>
-#include <state/StatusWriter.hpp>
+#include <state/persistence/StatusWriter.hpp>
 #include <core/RuntimeTime.hpp>
 
 namespace fs = std::filesystem;

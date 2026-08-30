@@ -15,7 +15,7 @@
 #include <core/RuntimeTime.hpp>
 #include <config/json/Json.hpp>
 #include <config/json/JsonIo.hpp>
-#include <state/StatusWriter.hpp>
+#include <state/persistence/StatusWriter.hpp>
 #include <state/RunHistory.hpp>
 #include <platform/linux/filesystem/PosixDurableFileOperations.hpp>
 

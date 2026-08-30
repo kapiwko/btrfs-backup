@@ -9,7 +9,7 @@
 
 #include <backup/model/PendingRecovery.hpp>
 #include <platform/linux/filesystem/PosixDurableFileOperations.hpp>
-#include <state/FilePendingMarkerStore.hpp>
+#include <state/persistence/FilePendingMarkerStore.hpp>
 
 #include "support/TestHelpers.hpp"
 

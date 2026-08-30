@@ -2,12 +2,12 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <state/JsonFileBackupRunCheckpointStore.hpp>
+#include <state/persistence/JsonFileBackupRunCheckpointStore.hpp>
 
 #include <utility>
 
 #include <config/json/JsonIo.hpp>
-#include <state/BackupRunSerialization.hpp>
+#include <state/persistence/BackupRunSerialization.hpp>
 
 namespace fs = std::filesystem;
 
