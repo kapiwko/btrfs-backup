@@ -161,7 +161,7 @@ int run_dbus_server(
 
     PolkitAuthorizer authorizer(bus.get());
     OperationalControlService operational(authorizer, operational_backend);
-    ManagerDbusObject object{service, operational, audit_log, {}, {}};
+    ManagerDbusObject object(service, operational, audit_log);
 
     std::unique_ptr<sd_bus_slot, decltype(&sd_bus_slot_unref)> slot(nullptr, sd_bus_slot_unref);
     sd_bus_slot* raw_slot = nullptr;
