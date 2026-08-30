@@ -41,7 +41,7 @@
 #include <platform/linux/storage/MountInfo.hpp>
 #include <config/model/Json.hpp>
 #include <config/model/JsonIo.hpp>
-#include <config/model/Profile.hpp>
+#include <config/domain/Profile.hpp>
 #include <config/model/ProfileDocument.hpp>
 #include <platform/linux/config/FileProfileRepository.hpp>
 #include <state/RunState.hpp>

@@ -7,7 +7,7 @@
 #include <vector>
 
 #include <backup/ports/IMountInspector.hpp>
-#include <config/model/Profile.hpp>
+#include <config/domain/Profile.hpp>
 
 namespace btrfsbackup::backup::planning {
 

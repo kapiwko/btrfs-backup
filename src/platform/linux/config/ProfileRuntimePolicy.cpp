@@ -8,7 +8,7 @@
 #include <string>
 
 #include <config/model/ProfileDocument.hpp>
-#include <config/model/Validation.hpp>
+#include <config/domain/Validation.hpp>
 #include <core/Errors.hpp>
 #include <core/Identifiers.hpp>
 #include <platform/linux/systemd/SystemdUnit.hpp>

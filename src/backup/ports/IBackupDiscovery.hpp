@@ -6,7 +6,7 @@
 
 #include <backup/model/BackupPlanningSnapshot.hpp>
 #include <config/ApplicationPaths.hpp>
-#include <config/model/Profile.hpp>
+#include <config/domain/Profile.hpp>
 #include <core/Cancellation.hpp>
 
 namespace btrfsbackup::backup {

@@ -20,7 +20,7 @@
 #include <backup/execution/RunSessionFactory.hpp>
 #include <config/ApplicationPaths.hpp>
 #include <config/ports/IProfileRepository.hpp>
-#include <config/model/Profile.hpp>
+#include <config/domain/Profile.hpp>
 #include <core/Identifiers.hpp>
 
 namespace btrfsbackup::backup {

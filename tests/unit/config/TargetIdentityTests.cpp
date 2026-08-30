@@ -5,7 +5,7 @@
 #include <string>
 #include <type_traits>
 
-#include <config/model/TargetIdentity.hpp>
+#include <config/domain/TargetIdentity.hpp>
 
 #include "support/TestHelpers.hpp"
 #include "support/ValidationTestHelpers.hpp"

@@ -2,11 +2,11 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <config/model/RepositoryPath.hpp>
+#include <config/domain/RepositoryPath.hpp>
 
 #include <utility>
 
-#include <config/model/Validation.hpp>
+#include <config/domain/Validation.hpp>
 #include <core/Errors.hpp>
 
 namespace btrfsbackup::config {

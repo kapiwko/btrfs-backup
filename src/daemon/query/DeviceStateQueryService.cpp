@@ -9,7 +9,7 @@
 #include <utility>
 #include <vector>
 
-#include <config/model/Profile.hpp>
+#include <config/domain/Profile.hpp>
 #include <config/model/ProfileDocument.hpp>
 #include <core/Identifiers.hpp>
 #include <daemon/query/ManagerDocumentReader.hpp>

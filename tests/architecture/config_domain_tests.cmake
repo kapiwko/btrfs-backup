@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-file(READ "${PROJECT_SOURCE_DIR}/src/config/model/Profile.hpp" profile_header)
+file(READ "${PROJECT_SOURCE_DIR}/src/config/domain/Profile.hpp" profile_header)
 if(profile_header MATCHES "config/model/Json.hpp|nlohmann")
     message(FATAL_ERROR "config domain profile must not expose a JSON dependency")
 endif()

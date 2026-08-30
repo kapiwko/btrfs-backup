@@ -19,9 +19,9 @@
 #include <backup/planning/BackupPreflightValidation.hpp>
 #include <core/Errors.hpp>
 #include <config/model/JsonIo.hpp>
-#include <config/model/Profile.hpp>
+#include <config/domain/Profile.hpp>
 #include <platform/linux/config/FileProfileRepository.hpp>
-#include <config/model/Validation.hpp>
+#include <config/domain/Validation.hpp>
 #include <platform/linux/process/PosixCommandRunner.hpp>
 #include <platform/linux/storage/DeviceInfo.hpp>
 #include <platform/linux/filesystem/FileIo.hpp>

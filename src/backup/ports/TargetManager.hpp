@@ -8,7 +8,7 @@
 #include <optional>
 #include <string>
 
-#include <config/model/Profile.hpp>
+#include <config/domain/Profile.hpp>
 
 namespace btrfsbackup::backup {
 

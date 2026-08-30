@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 
-#include <config/model/Profile.hpp>
+#include <config/domain/Profile.hpp>
 #include <config/ports/ConfigurationActivator.hpp>
 
 namespace btrfsbackup::platform::linux {

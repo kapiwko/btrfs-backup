@@ -13,11 +13,11 @@
 #include <variant>
 #include <vector>
 
-#include <config/model/ConfigurationGeneration.hpp>
-#include <config/model/OperationPath.hpp>
-#include <config/model/RepositoryPath.hpp>
-#include <config/model/StoragePolicy.hpp>
-#include <config/model/TargetIdentity.hpp>
+#include <config/domain/ConfigurationGeneration.hpp>
+#include <config/domain/OperationPath.hpp>
+#include <config/domain/RepositoryPath.hpp>
+#include <config/domain/StoragePolicy.hpp>
+#include <config/domain/TargetIdentity.hpp>
 #include <core/Identifiers.hpp>
 namespace btrfsbackup::config {
 

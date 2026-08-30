@@ -20,7 +20,7 @@
 #include <platform/linux/config/FileProfileRepository.hpp>
 #include <platform/linux/config/ProfileLegacyRuntimePolicy.hpp>
 #include <platform/linux/config/ProfileRuntimePolicy.hpp>
-#include <config/model/Profile.hpp>
+#include <config/domain/Profile.hpp>
 #include <config/model/ProfileDocument.hpp>
 #include <platform/linux/config/RenderDirectory.hpp>
 #include <platform/linux/filesystem/FileIo.hpp>

@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <config/model/TargetIdentity.hpp>
+#include <config/domain/TargetIdentity.hpp>
 
 #include <algorithm>
 #include <cctype>

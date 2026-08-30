@@ -5,7 +5,7 @@
 #include <string>
 #include <type_traits>
 
-#include <config/model/RepositoryPath.hpp>
+#include <config/domain/RepositoryPath.hpp>
 
 #include "support/TestHelpers.hpp"
 #include "support/ValidationTestHelpers.hpp"

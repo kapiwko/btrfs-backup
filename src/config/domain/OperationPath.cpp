@@ -2,11 +2,11 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <config/model/OperationPath.hpp>
+#include <config/domain/OperationPath.hpp>
 
 #include <utility>
 
-#include <config/model/Validation.hpp>
+#include <config/domain/Validation.hpp>
 #include <core/Errors.hpp>
 
 namespace fs = std::filesystem;

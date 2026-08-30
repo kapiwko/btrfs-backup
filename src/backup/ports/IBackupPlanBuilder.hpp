@@ -6,7 +6,7 @@
 
 #include <backup/model/BackupRunPlan.hpp>
 #include <backup/ports/IBackupDiscovery.hpp>
-#include <config/model/Profile.hpp>
+#include <config/domain/Profile.hpp>
 #include <core/Identifiers.hpp>
 #include <core/Cancellation.hpp>
 

@@ -20,7 +20,7 @@
 #include <config/model/JsonIo.hpp>
 #include <platform/linux/process/Process.hpp>
 #include <platform/linux/systemd/SystemdUnit.hpp>
-#include <config/model/Profile.hpp>
+#include <config/domain/Profile.hpp>
 #include <config/model/ProfileDocument.hpp>
 #include <config/ProfileRender.hpp>
 
