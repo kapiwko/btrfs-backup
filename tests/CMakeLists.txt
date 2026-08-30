@@ -161,6 +161,13 @@ add_test(
 )
 
 add_test(
+    NAME local-lifecycle-type-convention
+    COMMAND ${CMAKE_COMMAND}
+        -DPROJECT_SOURCE_DIR=${PROJECT_SOURCE_DIR}
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/architecture/local_lifecycle_type_tests.cmake
+)
+
+add_test(
     NAME config-domain-boundary
     COMMAND
         ${CMAKE_COMMAND}
@@ -180,6 +187,7 @@ set_tests_properties(
     cpp-filename-convention
     cpp-readability-convention
     cpp-special-member-convention
+    local-lifecycle-type-convention
     config-domain-boundary
     manager-dbus-contract
     PROPERTIES LABELS architecture
