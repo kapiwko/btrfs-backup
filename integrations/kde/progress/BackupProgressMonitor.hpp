@@ -6,6 +6,7 @@
 
 #include "CancellationRequestDispatcher.hpp"
 #include "ManagerApi.hpp"
+#include "TerminalNotificationService.hpp"
 
 #include <QDBusConnection>
 #include <QDBusServiceWatcher>
@@ -49,6 +50,7 @@ class BackupProgressMonitor final : public QObject {
     btrfsbackup::kde::ManagerEventSubscriber manager_events_;
     QDBusServiceWatcher service_watcher_;
     CancellationRequestDispatcher cancellation_dispatcher_;
+    TerminalNotificationService terminal_notifications_;
     KUiServerV2JobTracker& tracker_;
     QHash<QString, Profile> profiles_;
     QHash<QString, QPointer<BackupProgressJob>> jobs_;
