@@ -8,7 +8,7 @@ lines and unreleased development snapshots are not supported security branches.
 | Version | Supported |
 |---|---|
 | `0.3.x` | Yes |
-| `< 0.3.2` | No |
+| `< 0.3.3` | No |
 
 This table will be updated when a newer release line becomes supported.
 
