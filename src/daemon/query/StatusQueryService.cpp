@@ -69,7 +69,13 @@ PublicStatusResponse StatusQueryService::get_status(const std::string& profile_i
     const fs::path current = status_root_ / profile_id / "current.json";
     if (manager_regular_file_if_present(current)) {
         const btrfsbackup::state::document::RunStatusDocumentCodec codec;
-        response.run = codec.parse_public(read_manager_document(current));
+        const std::string content = read_manager_document(current);
+        response.run = codec.parse_public(content);
+        const btrfsbackup::config::json::Json document = btrfsbackup::config::json::Json::parse(content);
+        response.source_index = document.value("sourceIndex", 0);
+        response.source_count = document.value("sourceCount", 0);
+        response.started_at = document.value("startedAt", std::string{});
+        response.updated_at = document.value("updatedAt", std::string{});
         return response;
     }
 
@@ -83,6 +89,10 @@ PublicStatusResponse StatusQueryService::get_status(const std::string& profile_i
                                         : btrfsbackup::state::document::PublicErrorCode::Failed);
         response.run.source_name = last->source_name;
         response.run.target_name = last->target_name;
+        response.source_index = last->source_count;
+        response.source_count = last->source_count;
+        response.started_at = last->started_at;
+        response.updated_at = last->finished_at;
         if (last->overall_progress >= 0)
             response.run.progress.overall_percent = last->overall_progress;
     }

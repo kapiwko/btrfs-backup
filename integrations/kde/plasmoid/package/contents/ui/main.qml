@@ -21,15 +21,13 @@ PlasmoidItem {
     property int refreshRevision: 0
     property var profileSummaries: ({})
     readonly property var primarySummary: {
-        let failedSummary = null
+        let selected = null
         const summaries = root.profileSummaries
         for (const profileId in summaries) {
-            if (summaries[profileId].running)
-                return summaries[profileId]
-            if (summaries[profileId].failed)
-                failedSummary = summaries[profileId]
+            if (selected === null || summaries[profileId].priority < selected.priority)
+                selected = summaries[profileId]
         }
-        return failedSummary
+        return selected
     }
     readonly property bool running: root.primarySummary?.running ?? false
     readonly property bool failed: root.primarySummary?.failed ?? false
@@ -40,7 +38,9 @@ PlasmoidItem {
         translationDomain: "plasma_applet_org.btrfsbackup.plasmoid"
     }
 
-    Plasmoid.status: root.running || root.failed ? PlasmaCore.Types.ActiveStatus : PlasmaCore.Types.PassiveStatus
+    Plasmoid.status: (root.primarySummary?.priority ?? 7) <= 3
+        ? PlasmaCore.Types.ActiveStatus
+        : PlasmaCore.Types.PassiveStatus
     toolTipMainText: translations.i18n("Btrfs Backups")
     toolTipSubText: root.primarySummary?.subtitle
         ?? profileDirectory.lastError
@@ -59,9 +59,10 @@ PlasmoidItem {
         onTriggered: root.relativeTimeTick++
     }
 
-    function updateSummary(profileId, isRunning, isFailed, profileProgress, subtitle) {
+    function updateSummary(profileId, priority, isRunning, isFailed, profileProgress, subtitle) {
         const summaries = Object.assign({}, root.profileSummaries)
         summaries[profileId] = {
+            priority: priority,
             running: isRunning,
             failed: isFailed,
             progress: profileProgress,
@@ -91,7 +92,7 @@ PlasmoidItem {
         Kirigami.Icon {
             anchors.fill: parent
             anchors.margins: Math.max(1, parent.width * 0.13)
-            source: root.failed ? "dialog-error" : "drive-harddisk"
+            source: root.panelIcon()
             opacity: profileDirectory.managerConnected ? 1 : 0.65
         }
 
@@ -146,18 +147,15 @@ PlasmoidItem {
             }
         }
 
-        Kirigami.Badge {
-            anchors.right: parent.right
-            anchors.bottom: parent.bottom
-            width: Math.max(10, parent.width * 0.46)
-            height: width
-            z: 2
-            visible: profileDirectory.managerConnected && root.failed
-            type: Kirigami.Badge.Type.Error
-            icon.name: "dialog-error-symbolic"
-            icon.width: Math.max(8, width * 0.62)
-            icon.height: icon.width
-            padding: Math.max(1, width * 0.1)
+    }
+
+    function panelIcon() {
+        switch (root.primarySummary?.priority ?? 7) {
+        case 1: return "dialog-error"
+        case 3: return "dialog-warning"
+        case 5: return "media-eject"
+        case 6: return "emblem-ok-symbolic"
+        default: return "drive-harddisk"
         }
     }
 
@@ -194,6 +192,16 @@ PlasmoidItem {
 
                     PlasmaComponents3.ToolTip { text: refreshButton.text }
                 }
+
+                PlasmaComponents3.ToolButton {
+                    id: settingsButton
+                    text: translations.i18n("Open settings")
+                    display: PlasmaComponents3.AbstractButton.IconOnly
+                    icon.name: "configure"
+                    onClicked: profileDirectory.openSettings()
+
+                    PlasmaComponents3.ToolTip { text: settingsButton.text }
+                }
             }
         }
 
@@ -226,8 +234,8 @@ PlasmoidItem {
                     targetNameHint: modelData.targetName
                     relativeTimeTick: root.relativeTimeTick
                     refreshRevision: root.refreshRevision
-                    onSummaryUpdated: (profileId, isRunning, isFailed, profileProgress, subtitle) =>
-                        root.updateSummary(profileId, isRunning, isFailed, profileProgress, subtitle)
+                    onSummaryUpdated: (profileId, priority, isRunning, isFailed, profileProgress, subtitle) =>
+                        root.updateSummary(profileId, priority, isRunning, isFailed, profileProgress, subtitle)
                     onSummaryRemoved: profileId => root.removeSummary(profileId)
                 }
 
