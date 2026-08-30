@@ -74,15 +74,6 @@ PlasmaExtras.ExpandableListItem {
                 && profileStatus.target.connected
                 && !root.running
                 && !profileStatus.operationPending
-            icon.name: "task-complete"
-            text: translations.i18n("Validate")
-            onTriggered: profileStatus.validateTarget()
-        },
-        QQC2.Action {
-            enabled: profileStatus.managerConnected
-                && profileStatus.target.connected
-                && !root.running
-                && !profileStatus.operationPending
                 && (profileStatus.target.mounted || profileStatus.target.unlocked)
             icon.name: "media-eject"
             text: translations.i18n("Eject")
