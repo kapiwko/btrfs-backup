@@ -15,6 +15,8 @@
 #include <algorithm>
 #include <utility>
 
+namespace btrfsbackup::kde::monitor {
+
 namespace {
 
 constexpr int state_schema_version = 1;
@@ -123,3 +125,5 @@ void NotificationDeduplicator::save() const {
                    .toJson(QJsonDocument::Compact));
     file.commit();
 }
+
+} // namespace btrfsbackup::kde::monitor

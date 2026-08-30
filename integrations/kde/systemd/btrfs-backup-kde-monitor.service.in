@@ -9,7 +9,7 @@ After=plasma-core.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/btrfs-backup-kde-monitor
+ExecStart=@CMAKE_INSTALL_FULL_BINDIR@/btrfs-backup-kde-monitor
 Restart=on-failure
 RestartSec=5s
 

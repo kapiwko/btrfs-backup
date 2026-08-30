@@ -10,6 +10,8 @@
 
 #include <functional>
 
+namespace btrfsbackup::kde::monitor {
+
 struct TerminalNotificationMessage {
     QString event_id;
     QString title;
@@ -37,3 +39,5 @@ class TerminalNotificationService final {
     NotificationDeduplicator deduplicator_;
     Publisher publisher_;
 };
+
+} // namespace btrfsbackup::kde::monitor

@@ -13,6 +13,8 @@
 
 #include <utility>
 
+namespace btrfsbackup::kde::monitor {
+
 CancellationRequestDispatcher::CancellationRequestDispatcher(QDBusConnection bus, QObject* parent)
     : QObject(parent), bus_(std::move(bus)) {
 }
@@ -44,3 +46,5 @@ void CancellationRequestDispatcher::request(const QString& profile_id, const QSt
         Q_EMIT accepted(profile_id, run_id);
     });
 }
+
+} // namespace btrfsbackup::kde::monitor
