@@ -14,10 +14,11 @@ set(KDE_INSTALL_DATADIR "${CMAKE_INSTALL_DATADIR}")
 set(KDE_INSTALL_LOCALEDIR "${CMAKE_INSTALL_DATADIR}/locale")
 
 find_package(Qt6 REQUIRED COMPONENTS Core DBus Gui Qml Quick)
-find_package(KF6 REQUIRED COMPONENTS CoreAddons I18n JobWidgets Notifications Package)
+find_package(KF6 REQUIRED COMPONENTS CoreAddons I18n JobWidgets KCMUtils Notifications Package)
 find_package(Plasma REQUIRED)
 set(CMAKE_INSTALL_DEFAULT_COMPONENT_NAME KDEIntegration)
 ki18n_install(plasmoid/po)
+ki18n_install(kcm/po)
 
 qt_add_dbus_interface(
     manager_client_sources
@@ -85,6 +86,8 @@ install(
     FILES monitor/io.github.btrfsbackup.ProgressMonitor.desktop
     DESTINATION "${KDE_INSTALL_APPDIR}"
 )
+
+add_subdirectory(kcm)
 install(
     FILES monitor/btrfs-backup-kde-monitor.notifyrc
     DESTINATION "${CMAKE_INSTALL_DATADIR}/knotifications6"
@@ -99,7 +102,7 @@ install(
     DESTINATION lib/systemd/user
 )
 install(CODE [[
-    set(wants_dir "${CMAKE_INSTALL_PREFIX}/lib/systemd/user/graphical-session.target.wants")
+    set(wants_dir "$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/lib/systemd/user/graphical-session.target.wants")
     file(MAKE_DIRECTORY "${wants_dir}")
     file(CREATE_LINK
         "../btrfs-backup-kde-monitor.service"
@@ -198,6 +201,7 @@ add_dependencies(
     btrfs-backup-kde
     btrfs-backup-kde-monitor
     btrfsbackup_plasma_backendplugin
+    kcm_btrfsbackup
     pofiles
     tsfiles
 )
@@ -360,6 +364,15 @@ if(BUILD_TESTING)
                 ${CMAKE_CURRENT_SOURCE_DIR}/plasmoid/tests/config-smoke.qml
         )
         add_test(
+            NAME kde-kcm-qml-smoke
+            COMMAND
+                ${CMAKE_COMMAND} -E env
+                QT_QPA_PLATFORM=offscreen
+                ${QML_EXECUTABLE}
+                -I ${CMAKE_BINARY_DIR}
+                ${CMAKE_CURRENT_SOURCE_DIR}/kcm/tests/kcm-smoke.qml
+        )
+        add_test(
             NAME plasma-target-storage-usage
             COMMAND
                 ${CMAKE_COMMAND} -E env
@@ -371,6 +384,7 @@ if(BUILD_TESTING)
         )
         set_tests_properties(
             plasma-backend-qml-smoke
+            kde-kcm-qml-smoke
             plasma-config-qml-smoke
             plasma-target-storage-usage
             plasma-transfer-speed-chart
