@@ -12,3 +12,4 @@ add_btrfsbackup_test(btrfsbackup-run-state-tests RunStateTests.cpp run-state-tes
 add_btrfsbackup_test(btrfsbackup-run-status-tests RunStatusTests.cpp run-status-tests btrfsbackup-state-model)
 add_btrfsbackup_test(btrfsbackup-run-status-document-codec-tests RunStatusDocumentCodecTests.cpp run-status-document-codec-tests btrfsbackup-status-documents btrfsbackup-config-json)
 add_btrfsbackup_test(btrfsbackup-status-writer-tests StatusWriterTests.cpp status-writer-tests btrfsbackup-state btrfsbackup-platform-linux)
+add_btrfsbackup_test(btrfsbackup-target-storage-measurement-store-tests TargetStorageMeasurementStoreTests.cpp target-storage-measurement-store-tests btrfsbackup-state btrfsbackup-platform-linux)
