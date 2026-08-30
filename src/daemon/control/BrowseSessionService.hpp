@@ -9,6 +9,7 @@
 #include <functional>
 #include <map>
 #include <string>
+#include <vector>
 
 #include <core/Identifiers.hpp>
 #include <daemon/ManagerResponseModels.hpp>
@@ -26,6 +27,9 @@ class IBrowseSessionBackend {
     ) = 0;
     virtual void close(const BrowseSessionId& session_id) = 0;
     virtual void cleanup_stale() = 0;
+    [[nodiscard]] virtual std::vector<BackupCoverage> resolve_coverage(
+        const std::filesystem::path& local_path, const std::vector<ProfileId>& profiles
+    ) = 0;
 };
 
 enum class BrowseSessionCloseReason { Requested, CallerDisconnected, Expired, Shutdown };
@@ -60,6 +64,11 @@ class BrowseSessionService final {
     void close(const std::string& caller_bus_name, const std::string& session_id);
     void close_for_caller(const std::string& caller_bus_name) noexcept;
     void expire() noexcept;
+    [[nodiscard]] std::vector<BackupCoverage> resolve_coverage(
+        const std::string& caller_bus_name,
+        const std::string& local_path,
+        const std::vector<ProfileId>& profiles
+    );
 
   private:
     struct Session {

@@ -81,6 +81,12 @@ struct BrowseSessionInfo {
     bool read_only = false;
 };
 
+struct BackupCoverage {
+    QString profile_id;
+    QString source_id;
+    QString relative_path;
+};
+
 class ManagerEventSubscriber final : public QObject {
     Q_OBJECT
 
@@ -107,6 +113,7 @@ class ManagerEventSubscriber final : public QObject {
 [[nodiscard]] std::optional<RunStatus> parse_status(const QString& payload);
 [[nodiscard]] std::optional<OperationResult> parse_operation_result(const QString& payload);
 [[nodiscard]] std::optional<BrowseSessionInfo> parse_browse_session(const QString& payload);
+[[nodiscard]] std::optional<QList<BackupCoverage>> parse_backup_coverage(const QString& payload);
 [[nodiscard]] bool active_run_state(const QString& state);
 
 } // namespace btrfsbackup::kde

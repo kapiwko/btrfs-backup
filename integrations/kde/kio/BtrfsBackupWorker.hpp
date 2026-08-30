@@ -54,6 +54,7 @@ class BtrfsBackupWorker final : public KIO::ForwardingWorkerBase {
     KIO::WorkerResult list_profiles();
     KIO::WorkerResult list_snapshots(const QString& profile);
     KIO::WorkerResult list_repository_directory(const QUrl& url);
+    KIO::WorkerResult list_versions(const ParsedUrl& url);
     static KIO::WorkerResult read_only_failure();
     void close_sessions() noexcept;
 

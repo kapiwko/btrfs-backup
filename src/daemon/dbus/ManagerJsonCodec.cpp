@@ -105,6 +105,18 @@ std::string ManagerJsonCodec::encode(const BrowseSessionInfo& session) const {
     });
 }
 
+std::string ManagerJsonCodec::encode(const std::vector<BackupCoverage>& coverage) const {
+    config::json::Json result = config::json::Json::array();
+    for (const auto& item : coverage) {
+        result.push_back({
+            {"profileId", item.profile_id},
+            {"sourceId", item.source_id},
+            {"relativePath", item.relative_path},
+        });
+    }
+    return config::json::dump_json(result);
+}
+
 std::string ManagerJsonCodec::encode(const control::EditableProfile& profile) const {
     return config::json::dump_json({
         {"schemaVersion", manager_protocol::profile_edit_schema_version},
