@@ -1,0 +1,12 @@
+# SPDX-FileCopyrightText: 2026 Kamil Piwowarski <kapiwko@gmail.com>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+[Desktop Entry]
+Type=Application
+Name=Btrfs Backup Progress Monitor
+Comment=Publishes Btrfs backup progress to Plasma
+Exec=btrfs-backup-kde-monitor
+Icon=drive-harddisk
+NoDisplay=true
+Terminal=false

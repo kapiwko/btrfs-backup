@@ -1244,6 +1244,8 @@ if [[ "$TARGET" == all || "$TARGET" == arch ]]; then
     grep -qx 'usr/lib/qt6/qml/org/btrfsbackup/plasma/libbtrfsbackup_plasma_backend.so' "$TMP_ROOT/package-kde-files.txt"
     grep -qx 'usr/lib/qt6/qml/org/btrfsbackup/plasma/libbtrfsbackup_plasma_backendplugin.so' "$TMP_ROOT/package-kde-files.txt"
     grep -qx 'usr/bin/btrfs-backup-kde-monitor' "$TMP_ROOT/package-kde-files.txt"
+    grep -qx 'usr/share/applications/io.github.btrfsbackup.ProgressMonitor.desktop' \
+        "$TMP_ROOT/package-kde-files.txt"
     grep -qx 'usr/lib/systemd/user/btrfs-backup-kde-monitor.service' "$TMP_ROOT/package-kde-files.txt"
     grep -qx 'usr/lib/systemd/user/graphical-session.target.wants/btrfs-backup-kde-monitor.service' "$TMP_ROOT/package-kde-files.txt"
     if command -v pacman >/dev/null 2>&1; then
