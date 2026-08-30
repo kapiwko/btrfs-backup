@@ -20,6 +20,29 @@ PlasmoidItem {
     property int relativeTimeTick: 0
     property int refreshRevision: 0
     property var profileSummaries: ({})
+    readonly property var displayedProfiles: {
+        const visibleSetting = Plasmoid.configuration.visibleProfiles
+        const visible = visibleSetting === "*" ? null
+            : (visibleSetting.length > 0 ? visibleSetting.split(",") : [])
+        const orderSetting = Plasmoid.configuration.profileOrder
+        const order = orderSetting.length > 0 ? orderSetting.split(",") : []
+        const positions = {}
+        for (let index = 0; index < order.length; ++index)
+            positions[order[index]] = index
+        const profiles = []
+        for (const profile of profileDirectory.profiles) {
+            if (visible === null || visible.indexOf(profile.profileId) >= 0)
+                profiles.push(profile)
+        }
+        profiles.sort((left, right) => {
+            const leftPosition = positions[left.profileId] ?? Number.MAX_SAFE_INTEGER
+            const rightPosition = positions[right.profileId] ?? Number.MAX_SAFE_INTEGER
+            if (leftPosition !== rightPosition)
+                return leftPosition - rightPosition
+            return left.profileId.localeCompare(right.profileId)
+        })
+        return profiles
+    }
     readonly property var primarySummary: {
         let selected = null
         const summaries = root.profileSummaries
@@ -212,7 +235,7 @@ PlasmoidItem {
 
             contentItem: ListView {
                 id: profilesView
-                model: profileDirectory.profiles
+                model: root.displayedProfiles
                 clip: true
                 currentIndex: -1
                 boundsBehavior: Flickable.StopAtBounds
@@ -234,6 +257,12 @@ PlasmoidItem {
                     targetNameHint: modelData.targetName
                     relativeTimeTick: root.relativeTimeTick
                     refreshRevision: root.refreshRevision
+                    historyLimit: Plasmoid.configuration.historyCount
+                    autoExpandActive: Plasmoid.configuration.autoExpandActive
+                    autoExpandFailed: Plasmoid.configuration.autoExpandFailed
+                    showSpeedChart: Plasmoid.configuration.showSpeedChart
+                    showStorageDetails: Plasmoid.configuration.showStorage
+                    hideSourceNamesInTooltip: Plasmoid.configuration.hideSourceNamesInTooltip
                     onSummaryUpdated: (profileId, priority, isRunning, isFailed, profileProgress, subtitle) =>
                         root.updateSummary(profileId, priority, isRunning, isFailed, profileProgress, subtitle)
                     onSummaryRemoved: profileId => root.removeSummary(profileId)
@@ -248,7 +277,9 @@ PlasmoidItem {
                         width: parent.width
                         iconName: profileDirectory.managerConnected ? "drive-harddisk-symbolic" : "network-disconnect-symbolic"
                         text: profileDirectory.managerConnected
-                            ? translations.i18n("No backup profiles configured")
+                            ? (profileDirectory.profiles.length > 0
+                                ? translations.i18n("No profiles selected")
+                                : translations.i18n("No backup profiles configured"))
                             : translations.i18n("Backup service unavailable")
                     }
                 }

@@ -15,6 +15,7 @@
 #include <QProcess>
 #include <QUrl>
 
+#include <algorithm>
 #include <utility>
 
 namespace {
@@ -169,6 +170,22 @@ bool BackupStatusModel::browseSupported() const {
     return supports(QLatin1String(btrfsbackup::manager_protocol::feature::browse_backups));
 }
 
+int BackupStatusModel::historyLimit() const {
+    return history_limit_;
+}
+
+void BackupStatusModel::setHistoryLimit(int limit) {
+    const int bounded = std::clamp(limit, 1, 10);
+    if (history_limit_ == bounded) {
+        return;
+    }
+    history_limit_ = bounded;
+    emit historyLimitChanged();
+    if (active_ && capabilities_verified_) {
+        requestHistory();
+    }
+}
+
 void BackupStatusModel::start() {
     active_ = true;
     setLastError(QString());
@@ -244,6 +261,12 @@ void BackupStatusModel::browseBackups() {
     location.setPath(QStringLiteral("/profiles/") + profile_);
     if (!QProcess::startDetached(QStringLiteral("dolphin"), {location.toString()})) {
         setLastError(tr("Could not open backup snapshots."));
+    }
+}
+
+void BackupStatusModel::openNotificationSettings() {
+    if (!QProcess::startDetached(QStringLiteral("systemsettings"), {QStringLiteral("kcm_notifications")})) {
+        setLastError(tr("Could not open notification settings."));
     }
 }
 
@@ -344,7 +367,14 @@ void BackupStatusModel::requestHistory() {
     history_request_pending_ = true;
     const quint64 request_generation = generation_;
     const QString requested_profile = profile_;
-    auto* watcher = new QDBusPendingCallWatcher(btrfsbackup::kde::manager_call(bus_, QLatin1String(btrfsbackup::manager_protocol::method::get_history_sanitized), {requested_profile, 0U, 3U}), this);
+    auto* watcher = new QDBusPendingCallWatcher(
+        btrfsbackup::kde::manager_call(
+            bus_,
+            QLatin1String(btrfsbackup::manager_protocol::method::get_history_sanitized),
+            {requested_profile, 0U, static_cast<uint>(history_limit_)}
+        ),
+        this
+    );
     connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, watcher, request_generation, requested_profile](QDBusPendingCallWatcher*) {
         const QDBusPendingReply<QString> reply = *watcher;
         watcher->deleteLater();
