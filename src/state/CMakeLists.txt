@@ -21,43 +21,43 @@ target_restricted_include_directories(btrfsbackup-state-model
 target_link_libraries(btrfsbackup-state-model PUBLIC btrfsbackup-core)
 
 add_library(btrfsbackup-state STATIC
-    persistence/BackupRunSerialization.cpp
     cancellation/FileActiveRunRegistration.cpp
     cancellation/FileCancellationMonitor.cpp
+    cancellation/PollingCancellationWatch.cpp
+    persistence/BackupRunSerialization.cpp
     persistence/FilePendingMarkerStore.cpp
     persistence/FileRunStateRepository.cpp
     persistence/JsonFileBackupRunCheckpointStore.cpp
-    cancellation/PollingCancellationWatch.cpp
-    query/RunHistory.cpp
-    query/RunState.cpp
+    persistence/StatusWriter.cpp
     projection/RunStatusBuilder.cpp
     projection/RunStatusProjection.cpp
+    query/RunHistory.cpp
+    query/RunState.cpp
     query/StatusService.cpp
-    persistence/StatusWriter.cpp
 )
 
 target_compile_features(btrfsbackup-state PUBLIC cxx_std_23)
 target_restricted_include_directories(btrfsbackup-state
     PUBLIC_HEADERS
-        state/persistence/FilePendingMarkerStore.hpp
         state/cancellation/FileCancellationMonitor.hpp
+        state/persistence/BackupRunSerialization.hpp
+        state/persistence/FilePendingMarkerStore.hpp
         state/persistence/FileRunStateRepository.hpp
         state/persistence/JsonFileBackupRunCheckpointStore.hpp
+        state/persistence/StatusWriter.hpp
+        state/projection/RunStatusBuilder.hpp
+        state/projection/RunStatusProjection.hpp
         state/query/RunHistory.hpp
         state/query/RunState.hpp
-        state/projection/RunStatusProjection.hpp
-        state/projection/RunStatusBuilder.hpp
-        state/persistence/BackupRunSerialization.hpp
         state/query/StatusService.hpp
-        state/persistence/StatusWriter.hpp
     PRIVATE_HEADERS
         state/cancellation/FileActiveRunRegistration.hpp
         state/cancellation/PollingCancellationWatch.hpp
 )
 target_link_libraries(btrfsbackup-state
     PUBLIC
-        btrfsbackup-config-json
         btrfsbackup-backup-ports
+        btrfsbackup-config-json
         btrfsbackup-state-model
         btrfsbackup-state-persistence-ports
     PRIVATE
