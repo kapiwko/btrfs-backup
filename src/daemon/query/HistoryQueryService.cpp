@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <daemon/HistoryQueryService.hpp>
+#include <daemon/query/HistoryQueryService.hpp>
 
 #include <algorithm>
 #include <string>
@@ -11,7 +11,7 @@
 
 #include <core/Errors.hpp>
 #include <core/Identifiers.hpp>
-#include <daemon/ManagerDocumentReader.hpp>
+#include <daemon/query/ManagerDocumentReader.hpp>
 
 namespace fs = std::filesystem;
 
@@ -49,7 +49,7 @@ std::vector<fs::path> history_paths(const fs::path& root, const std::string& pro
             break;
         }
         const std::string name = entry.path().filename().string();
-        if (name != "last.json" && entry.path().extension() == ".json" && btrfsbackup::daemon::manager_regular_file_without_symlink(entry)) {
+        if (name != "last.json" && entry.path().extension() == ".json" && btrfsbackup::daemon::query::manager_regular_file_without_symlink(entry)) {
             result.push_back(entry.path());
         }
     }
@@ -62,7 +62,7 @@ std::vector<fs::path> history_paths(const fs::path& root, const std::string& pro
 
 } // namespace
 
-namespace btrfsbackup::daemon {
+namespace btrfsbackup::daemon::query {
 
 HistoryQueryService::HistoryQueryService(fs::path history_root)
     : history_root_(std::move(history_root)) {
@@ -104,4 +104,4 @@ std::optional<SanitizedHistoryEntry> HistoryQueryService::get_last_sanitized(
     return sanitize_private_history(read_manager_json_document(last));
 }
 
-} // namespace btrfsbackup::daemon
+} // namespace btrfsbackup::daemon::query

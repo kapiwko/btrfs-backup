@@ -4,16 +4,16 @@
 
 add_library(btrfsbackup-daemon-core STATIC
     AuthorizedOperationCommand.cpp
-    DeviceStateQueryService.cpp
-    HistoryQueryService.cpp
-    ManagerDocumentReader.cpp
+    query/DeviceStateQueryService.cpp
+    query/HistoryQueryService.cpp
+    query/ManagerDocumentReader.cpp
     ManagerAuditLog.cpp
     ManagerErrorMapper.cpp
     ManagerJsonCodec.cpp
     ManagerService.cpp
     OperationalControlService.cpp
-    ProfileQueryService.cpp
-    StatusQueryService.cpp
+    query/ProfileQueryService.cpp
+    query/StatusQueryService.cpp
 )
 target_compile_features(btrfsbackup-daemon-core PUBLIC cxx_std_23)
 target_compile_definitions(
@@ -24,8 +24,8 @@ target_restricted_include_directories(btrfsbackup-daemon-core
     PUBLIC_HEADERS
         daemon/DbusCallbackBoundary.hpp
         daemon/AuthorizedOperationCommand.hpp
-        daemon/DeviceStateQueryService.hpp
-        daemon/HistoryQueryService.hpp
+        daemon/query/DeviceStateQueryService.hpp
+        daemon/query/HistoryQueryService.hpp
         daemon/ManagerErrorMapper.hpp
         daemon/ManagerErrors.hpp
         daemon/ManagerJsonCodec.hpp
@@ -34,11 +34,11 @@ target_restricted_include_directories(btrfsbackup-daemon-core
         daemon/ManagerResponseModels.hpp
         daemon/ManagerService.hpp
         daemon/OperationalControlService.hpp
-        daemon/ProfileQueryService.hpp
-        daemon/StatusQueryService.hpp
+        daemon/query/ProfileQueryService.hpp
+        daemon/query/StatusQueryService.hpp
         daemon/SystemdUnitController.hpp
     PRIVATE_HEADERS
-        daemon/ManagerDocumentReader.hpp
+        daemon/query/ManagerDocumentReader.hpp
 )
 target_link_libraries(btrfsbackup-daemon-core
     PUBLIC

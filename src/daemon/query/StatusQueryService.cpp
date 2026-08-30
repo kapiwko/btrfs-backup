@@ -2,15 +2,15 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <daemon/StatusQueryService.hpp>
+#include <daemon/query/StatusQueryService.hpp>
 
 #include <string>
 #include <utility>
 
 #include <core/Errors.hpp>
 #include <core/Identifiers.hpp>
-#include <daemon/HistoryQueryService.hpp>
-#include <daemon/ManagerDocumentReader.hpp>
+#include <daemon/query/HistoryQueryService.hpp>
+#include <daemon/query/ManagerDocumentReader.hpp>
 
 namespace fs = std::filesystem;
 
@@ -58,7 +58,7 @@ btrfsbackup::daemon::PublicRunStatus sanitize_public_status(const btrfsbackup::c
 
 } // namespace
 
-namespace btrfsbackup::daemon {
+namespace btrfsbackup::daemon::query {
 
 StatusQueryService::StatusQueryService(
     fs::path status_root,
@@ -89,4 +89,4 @@ PublicRunStatus StatusQueryService::get_status(const std::string& profile_id) co
     return unavailable_status();
 }
 
-} // namespace btrfsbackup::daemon
+} // namespace btrfsbackup::daemon::query
