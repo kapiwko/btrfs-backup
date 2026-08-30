@@ -14,6 +14,7 @@ class IFileSystem;
 class IPendingMarkerStore;
 class ISafeDirectoryRootFactory;
 class ITrustedExecutableResolver;
+class IClock;
 
 class DefaultBackupRunActionHandlerFactory final : public IBackupRunActionHandlerFactory {
   public:
@@ -22,6 +23,7 @@ class DefaultBackupRunActionHandlerFactory final : public IBackupRunActionHandle
         IFileSystem& filesystem,
         ICommandRunner& commands,
         IPendingMarkerStore& pending_markers,
+        IClock& clock,
         const ISafeDirectoryRootFactory& safe_directories,
         const ITrustedExecutableResolver& hook_executables
     );
@@ -35,6 +37,7 @@ class DefaultBackupRunActionHandlerFactory final : public IBackupRunActionHandle
     IFileSystem& filesystem_;
     ICommandRunner& commands_;
     IPendingMarkerStore& pending_markers_;
+    IClock& clock_;
     const ISafeDirectoryRootFactory& safe_directories_;
     const ITrustedExecutableResolver& hook_executables_;
 };

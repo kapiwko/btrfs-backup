@@ -143,6 +143,7 @@ add_library(btrfsbackup-backup STATIC
     action_handlers/SnapshotActionHandler.cpp
     SnapshotTransfer.cpp
     transfer/TransferCoordinator.cpp
+    transfer/TransferSizing.cpp
 )
 
 target_compile_features(btrfsbackup-backup PUBLIC cxx_std_23)
@@ -173,6 +174,7 @@ target_restricted_include_directories(btrfsbackup-backup
         backup/transfer/TransferCoordinator.hpp
     PRIVATE_HEADERS
         backup/OwnedBackupRunActionHandler.hpp
+        backup/transfer/TransferSizing.hpp
 )
 target_link_libraries(btrfsbackup-backup
     PUBLIC

@@ -11,6 +11,7 @@
 
 #include <backup/ports/SafeDirectory.hpp>
 #include <backup/SnapshotTransfer.hpp>
+#include <backup/transfer/TransferSizing.hpp>
 #include <core/Cancellation.hpp>
 #include <core/ErrorCode.hpp>
 #include <core/Errors.hpp>
@@ -123,8 +124,7 @@ TransferResult TransferCoordinator::execute(
 ) {
     TransferPipelinePlan plan = transfer_plan_for_action(action, target_mount_point, safe_directories_);
 
-    TransferPipelinePlan sizing_plan = plan;
-    sizing_plan.consumer_argv = {"btrfs", "receive", "--dump"};
+    const TransferPipelinePlan sizing_plan = make_stream_sizing_plan(plan);
     StreamSizingEventSink sizing_events(events);
     TransferResult sizing_result = run_pipeline(pipeline_, sizing_plan, sizing_events, cancellation);
     if (sizing_result.cancelled) {
