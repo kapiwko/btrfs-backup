@@ -12,7 +12,7 @@
 #include <state/persistence/JsonFileBackupRunCheckpointStore.hpp>
 #include <state/RunHistory.hpp>
 #include <state/RunState.hpp>
-#include <state/RunStatusProjection.hpp>
+#include <state/projection/RunStatusProjection.hpp>
 #include <state/persistence/StatusWriter.hpp>
 #include <core/RuntimeTime.hpp>
 

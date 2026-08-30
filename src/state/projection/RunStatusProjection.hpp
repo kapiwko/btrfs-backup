@@ -9,7 +9,7 @@
 #include <backup/model/BackupRunEvent.hpp>
 #include <backup/ports/IBackupRunEventSink.hpp>
 #include <state/persistence/PersistentDocumentOperations.hpp>
-#include <state/RunStatusBuilder.hpp>
+#include <state/projection/RunStatusBuilder.hpp>
 
 namespace btrfsbackup::state {
 

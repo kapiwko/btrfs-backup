@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <state/RunStatusBuilder.hpp>
+#include <state/projection/RunStatusBuilder.hpp>
 
 #include <algorithm>
 #include <chrono>

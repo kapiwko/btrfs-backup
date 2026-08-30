@@ -4,7 +4,7 @@
 
 #include <filesystem>
 #include <string>
-#include <state/RunStatusProjection.hpp>
+#include <state/projection/RunStatusProjection.hpp>
 #include <config/json/JsonIo.hpp>
 #include <core/RuntimeTime.hpp>
 #include <platform/linux/filesystem/PosixDurableFileOperations.hpp>
