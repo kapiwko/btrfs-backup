@@ -5,6 +5,7 @@
 add_library(btrfsbackup-platform-linux STATIC
     transfer/BoundedDiagnosticBuffer.cpp
     process/ChildProcess.cpp
+    process/CommandCancellationSignal.cpp
     process/ControlledCommandSession.cpp
     storage/LibBtrfsOperations.cpp
     storage/DeviceInfo.cpp
@@ -71,6 +72,7 @@ target_restricted_include_directories(btrfsbackup-platform-linux
         platform/linux/filesystem/TrustedFile.hpp
     PRIVATE_HEADERS
         platform/linux/transfer/BoundedDiagnosticBuffer.hpp
+        platform/linux/process/CommandCancellationSignal.hpp
         platform/linux/process/ControlledCommandSession.hpp
         platform/linux/transfer/PosixTransferSession.hpp
         platform/linux/transfer/ThreadSigpipeBlock.hpp
