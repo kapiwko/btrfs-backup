@@ -34,12 +34,44 @@ The presentation backend is split into grouped run, target and history models.
 The shared state-document codec validates target JSON before the Qt target model
 applies it, keeping schema handling out of the D-Bus coordinator and QML.
 
-The plasmoid exposes start, run-scoped cancellation, validation, and eject
-through the authorized manager methods. Detailed run phases drive the visible
-activity text; compact mode shows determinate or indeterminate progress and a
-terminal-state badge. Device changes, successful operations and active-to-
-terminal run transitions trigger coalesced device-state refreshes without
-polling on progress updates.
+The plasmoid exposes start, run-scoped cancellation and eject through the
+authorized manager methods. Validation and configuration belong to the KCM,
+not to the status plasmoid. Detailed run phases drive the visible activity
+text; compact mode shows determinate or indeterminate progress and a terminal-
+state badge. Device changes, successful operations and active-to-terminal run
+transitions trigger coalesced device-state refreshes without polling on
+progress updates.
+
+## Visual And Interaction Principles
+
+The plasmoid must look and behave like an integrated part of Plasma rather than
+a standalone application embedded in a popup. The Bluetooth, Networks and
+Audio Volume plasmoids are the primary interaction references. New UI work
+must preserve the following rules:
+
+1. use Plasma, Kirigami and Qt Quick Controls components, theme colors, metrics
+   and icons instead of introducing a private visual language;
+2. present profiles as compact `PlasmaExtras.ExpandableListItem` rows with an
+   icon, name and short state summary, and place secondary information in the
+   expanded view;
+3. expose one clear default action for the current state, such as start or
+   cancel, and keep less frequent operations in contextual actions;
+4. reserve the plasmoid for status and routine operations; profile editing,
+   validation and other administrative workflows belong to the KCM;
+5. use semantic warning and error colors only for states that require user
+   attention, and otherwise inherit the active Plasma theme;
+6. avoid custom cards, decorative backgrounds, fixed color palettes and
+   application-style headers inside the popup;
+7. keep layouts stable and readable in compact panel mode, the normal popup and
+   narrow or expanded popup widths, without overlapping or clipped labels;
+8. support keyboard navigation, visible focus, accessible names and the
+   disabled, busy, empty, disconnected and error states expected from native
+   Plasma controls;
+9. keep motion subtle and functional, limited to state transitions, progress
+   changes and native expansion behavior;
+10. verify user-facing changes in both light and dark Plasma themes and compare
+    their information density and action placement with the reference
+    plasmoids.
 
 ## Package
 
