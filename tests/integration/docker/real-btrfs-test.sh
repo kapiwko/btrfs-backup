@@ -17,7 +17,7 @@ TARGET_LOOP=""
 SOURCE_MOUNT=/mnt/bb-real-source
 TARGET_MOUNT=/mnt/btrfs-backup/default
 TARGET_STAGING_MOUNT=/mnt/bb-real-target-staging
-MAPPER_NAME=bb-real-target
+MAPPER_NAME="bb-real-target-${TEST_ROOT##*.}"
 MAPPER_PATH="/dev/mapper/$MAPPER_NAME"
 PASSPHRASE_FILE="$TEST_ROOT/luks.pass"
 PACKAGE_DIR="${BTRFSBACKUP_PACKAGE_DIR:-$TEST_ROOT/package}"
@@ -313,6 +313,71 @@ EOF_POLKIT_RULE
     rm -f -- "$policy_rule"
     userdel "$test_user"
     pass 'unprivileged user starts a real backup through system D-Bus and polkit'
+}
+
+real_browse_session_test() {
+    local test_user=btrfs-browse-test
+    local policy_rule=/etc/polkit-1/rules.d/49-btrfs-backup-browse-integration.rules
+    local client="/tmp/btrfs-backup-browse-session-client.$$"
+    local hold="/tmp/btrfs-backup-browse-session-hold.$$"
+    local response="$TEST_ROOT/browse-session.json"
+    local errors="$TEST_ROOT/browse-session.err"
+    local browse_root options
+
+    cc -std=c11 -D_DEFAULT_SOURCE -Wall -Wextra -Werror \
+        "$ROOT/tests/integration/BrowseSessionClient.c" -lsystemd -o "$client"
+    useradd --system --no-create-home --shell /usr/bin/nologin "$test_user"
+    cat > "$policy_rule" <<'EOF_POLKIT_RULE'
+polkit.addRule(function(action, subject) {
+    if (action.id == "io.github.btrfsbackup.open-browse-session" &&
+        subject.user == "btrfs-browse-test") {
+        return polkit.Result.YES;
+    }
+});
+EOF_POLKIT_RULE
+    chmod 0644 "$policy_rule"
+    : > "$hold"
+    chmod 0644 "$hold"
+    systemctl start polkit.service btrfs-backupd.service
+
+    runuser -u "$test_user" -- "$client" default "$hold" > "$response" 2> "$errors" &
+    local client_pid=$!
+    for _ in $(seq 1 200); do
+        [[ -s "$response" ]] && break
+        if ! kill -0 "$client_pid" 2>/dev/null; then
+            cat "$errors" >&2 || true
+            journalctl --no-pager -u btrfs-backupd.service -n 100 >&2 || true
+            fail 'browse session client exited before opening a session'
+        fi
+        sleep 0.05
+    done
+    [[ -s "$response" ]] || fail 'browse session client did not return a session'
+    browse_root="$(sed -n 's/.*"rootPath":[[:space:]]*"\([^"]*\)".*/\1/p' "$response")"
+    [[ "$browse_root" == /run/btrfs-backup-browse/*/repository ]] \
+        || fail "manager returned an invalid browse root: $browse_root"
+    options="$(findmnt -n -o OPTIONS -M "$browse_root")"
+    for option in ro nodev nosuid noexec nosymfollow; do
+        grep -Eq "(^|,)$option(,|$)" <<< "$options" \
+            || fail "browse mount is missing $option: $options"
+    done
+    cmp "$TARGET_MOUNT/snapshots/browse-probe.txt" "$browse_root/browse-probe.txt" \
+        || fail 'browse session did not expose repository data'
+
+    rm -f -- "$hold"
+    wait "$client_pid"
+    for _ in $(seq 1 200); do
+        [[ ! -e "${browse_root%/repository}" ]] && break
+        sleep 0.05
+    done
+    [[ ! -e "${browse_root%/repository}" ]] \
+        || fail 'browse session survived D-Bus caller disconnect'
+    findmnt -n -M "$TARGET_MOUNT" >/dev/null \
+        || fail 'browse cleanup unmounted a target it did not mount'
+
+    systemctl stop btrfs-backupd.service polkit.service
+    rm -f -- "$client" "$policy_rule"
+    userdel "$test_user"
+    pass 'real browse session is read-only and cleans up after caller disconnect'
 }
 
 expect_backup_failure() {
@@ -808,7 +873,7 @@ missing_incremental_parent_test() {
 }
 
 require_root
-require_commands btrfs busctl cryptsetup date dd diff dmsetup find findmnt grep journalctl ldd losetup mkfifo mkfs.btrfs mknod mount pacman perl runuser seq sha256sum stat systemd-escape tar tee timeout truncate useradd userdel
+require_commands btrfs busctl cc cmp cryptsetup date dd diff dmsetup find findmnt grep journalctl ldd losetup mkfifo mkfs.btrfs mknod mount pacman perl runuser seq sha256sum stat systemd-escape tar tee timeout truncate useradd userdel
 ensure_loop_devices
 
 install -d -m0755 "$SOURCE_MOUNT" "$TARGET_MOUNT"
@@ -855,6 +920,9 @@ TARGET_LUKS_UUID="$(cryptsetup luksUUID "$TARGET_LOOP")"
 TARGET_BTRFS_UUID="$(findmnt -n -o UUID -M "$TARGET_MOUNT")"
 configure_backup_with_cli "$TARGET_LOOP" "$TARGET_LUKS_UUID" "$TARGET_BTRFS_UUID"
 pass 'installed CLI renders, installs, and validates configuration'
+printf 'browse probe\n' > "$TARGET_MOUNT/snapshots/browse-probe.txt"
+real_browse_session_test
+rm -f -- "$TARGET_MOUNT/snapshots/browse-probe.txt"
 managed_target_lifecycle_test
 validate_runtime_preflight
 pass 'installed runtime validates the mounted target'
