@@ -129,9 +129,6 @@ std::vector<std::string> list_profiles(const fs::path& profile_root) {
             ec.clear();
         }
     }
-    if (profiles.empty()) {
-        throw ValidationError("no profiles found");
-    }
     return {profiles.begin(), profiles.end()};
 }
 
