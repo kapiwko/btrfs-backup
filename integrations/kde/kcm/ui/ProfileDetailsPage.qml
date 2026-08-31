@@ -74,6 +74,8 @@ QQC2.ScrollView {
 
         ProfileUnlocking {
             Layout.fillWidth: true
+            Layout.leftMargin: -Kirigami.Units.largeSpacing
+            Layout.rightMargin: -Kirigami.Units.largeSpacing
             editor: root.editor
         }
 

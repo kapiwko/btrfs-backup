@@ -498,6 +498,14 @@ msgstr "Poproś o hasło"
 msgid "Unknown unlock method"
 msgstr "Nieznana metoda odblokowania"
 
+#: integrations/kde/kcm/ui/ProfileUnlocking.qml
+msgid "No unlock method configured"
+msgstr "Nie skonfigurowano metody odblokowania"
+
+#: integrations/kde/kcm/ui/ProfileOverview.qml
+msgid "The operation was cancelled or you do not have permission to perform it."
+msgstr "Operacja została anulowana albo nie masz uprawnień do jej wykonania."
+
 #: integrations/kde/kcm/ui/ProfilesPage.qml:42
 msgid "Backup service unavailable"
 msgstr "Usługa kopii zapasowych jest niedostępna"
