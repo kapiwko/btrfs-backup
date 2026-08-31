@@ -64,6 +64,7 @@ std::vector<ProfileSummary> ProfileQueryService::list_profiles() const {
         result.push_back(ProfileSummary{
             .profile_id = profile_id,
             .name = profile.value("name", std::string{}),
+            .enabled = profile.value("enabled", true),
             .target_name = profile.value("target", btrfsbackup::config::json::Json::object()).value("name", std::string{}),
             .sources = std::move(sources),
         });

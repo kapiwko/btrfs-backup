@@ -100,6 +100,7 @@ void BackupStatusModel::setProfile(const QString& profile) {
     }
     profile_ = profile;
     profile_name_.clear();
+    profile_enabled_ = true;
     run_.reset();
     target_.reset();
     history_.reset();
@@ -140,6 +141,10 @@ QVariantList BackupStatusModel::profiles() const {
 
 QString BackupStatusModel::profileName() const {
     return profile_name_;
+}
+
+bool BackupStatusModel::profileEnabled() const {
+    return profile_enabled_;
 }
 
 RunStatusModel* BackupStatusModel::run() {
@@ -248,6 +253,13 @@ void BackupStatusModel::validateTarget() {
 
 void BackupStatusModel::ejectTarget() {
     requestOperation(QLatin1String(btrfsbackup::manager_protocol::method::eject_target), {profile_});
+}
+
+void BackupStatusModel::setProfileEnabled(bool enabled) {
+    requestOperation(
+        QLatin1String(btrfsbackup::manager_protocol::method::set_profile_enabled),
+        {profile_, enabled}
+    );
 }
 
 void BackupStatusModel::openSettings() {
@@ -458,23 +470,27 @@ void BackupStatusModel::applyProfiles(const QString& payload) {
     }
 
     QString profile_name;
+    bool profile_enabled = true;
     QVariantList profiles;
     for (const auto& decoded : *decoded_profiles) {
         QVariantMap profile;
         profile.insert(QStringLiteral("profileId"), decoded.id);
         profile.insert(QStringLiteral("name"), decoded.name);
+        profile.insert(QStringLiteral("enabled"), decoded.enabled);
         profile.insert(QStringLiteral("targetName"), decoded.target_name);
         profiles.push_back(profile);
         if (decoded.id == profile_) {
             profile_name = decoded.name;
+            profile_enabled = decoded.enabled;
         }
     }
     if (profiles_ != profiles) {
         profiles_ = profiles;
         emit profilesChanged();
     }
-    if (profile_name_ != profile_name) {
+    if (profile_name_ != profile_name || profile_enabled_ != profile_enabled) {
         profile_name_ = profile_name;
+        profile_enabled_ = profile_enabled;
         emit statusChanged();
     }
 }
@@ -512,6 +528,7 @@ void BackupStatusModel::requestOperation(const QString& method, const QVariantLi
         {QLatin1String(btrfsbackup::manager_protocol::method::cancel_backup), QLatin1String(btrfsbackup::manager_protocol::feature::cancel_backup)},
         {QLatin1String(btrfsbackup::manager_protocol::method::validate_target), QLatin1String(btrfsbackup::manager_protocol::feature::validate_target)},
         {QLatin1String(btrfsbackup::manager_protocol::method::eject_target), QLatin1String(btrfsbackup::manager_protocol::feature::eject_target)},
+        {QLatin1String(btrfsbackup::manager_protocol::method::set_profile_enabled), QLatin1String(btrfsbackup::manager_protocol::feature::profile_activation)},
     };
     if (!supports(required_features.value(method))) {
         setLastError(tr("The backup manager does not support this operation."), QStringLiteral("manager.unsupported-operation"));
@@ -547,6 +564,7 @@ void BackupStatusModel::requestOperation(const QString& method, const QVariantLi
         last_operation_ = document.object().value(QStringLiteral("operation")).toString();
         operation_message_timer_.start();
         emit operationChanged();
+        requestProfiles();
         requestStatus();
         requestDeviceState();
         requestHistory();

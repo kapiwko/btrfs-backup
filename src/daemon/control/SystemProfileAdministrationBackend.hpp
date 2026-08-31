@@ -36,6 +36,7 @@ class SystemProfileAdministrationBackend final : public IProfileAdministrationBa
         bool allow_hook_changes
     ) override;
     void delete_profile(const EditableProfile& expected) override;
+    void set_profile_enabled(const EditableProfile& expected, bool enabled) override;
 
   private:
     [[nodiscard]] config::Profile parse_draft(const ProfileId& profile_id, const std::string& document) const;

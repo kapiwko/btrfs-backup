@@ -31,6 +31,7 @@ json::Json public_profile_json(const Profile& profile) {
         {"schemaVersion", 1},
         {"profileId", std::string(profile.id.value())},
         {"name", profile.name},
+        {"enabled", profile.enabled},
         {"target", {{"name", profile.target.mapper_name.value()}}},
         {"sources", std::move(sources)},
     };

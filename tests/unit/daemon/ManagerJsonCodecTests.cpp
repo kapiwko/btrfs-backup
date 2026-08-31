@@ -39,12 +39,14 @@ void test_profiles() {
     const std::vector<btrfsbackup::daemon::ProfileSummary> profiles{{
         .profile_id = "default",
         .name = "Default backup",
+        .enabled = false,
         .target_name = "Backup disk",
         .sources = {{.id = "home", .name = "Home"}},
     }};
     const Json document = Json::parse(codec.encode(profiles));
     test_helpers::expect_true("profiles array", document.is_array() && document.size() == 1, "invalid profile list");
     expect_field("profile", document.at(0), "profileId", "default");
+    expect_field("profile", document.at(0), "enabled", false);
     expect_field("profile source", document.at(0).at("sources").at(0), "name", "Home");
     test_helpers::expect_true("profile privacy", !document.at(0).contains("device"), "private device field was encoded");
 }

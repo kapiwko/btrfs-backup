@@ -134,4 +134,18 @@ void ProfileAdministrationService::delete_profile(
     backend_.delete_profile(expected);
 }
 
+void ProfileAdministrationService::set_profile_enabled(
+    const std::string& caller,
+    const std::string& profile_id,
+    bool enabled
+) {
+    const ProfileId id(profile_id);
+    const auto current = backend_.find_profile(id);
+    if (!current.has_value())
+        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::NotFound, "profile does not exist");
+    require_authorized(caller, ManagerAuthorizationAction::SetProfileEnabled);
+    require_current(backend_.find_profile(id), *current);
+    backend_.set_profile_enabled(*current, enabled);
+}
+
 } // namespace btrfsbackup::daemon::control

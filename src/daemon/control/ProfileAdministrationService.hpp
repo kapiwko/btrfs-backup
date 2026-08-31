@@ -39,6 +39,7 @@ class IProfileAdministrationBackend {
         bool allow_hook_changes
     ) = 0;
     virtual void delete_profile(const EditableProfile& expected) = 0;
+    virtual void set_profile_enabled(const EditableProfile& expected, bool enabled) = 0;
 };
 
 class ProfileAdministrationService {
@@ -76,6 +77,7 @@ class ProfileAdministrationService {
         const std::string& expected_generation,
         const std::string& expected_fingerprint
     );
+    void set_profile_enabled(const std::string& caller, const std::string& profile_id, bool enabled);
 
   private:
     void require_authorized(const std::string& caller, ManagerAuthorizationAction action);

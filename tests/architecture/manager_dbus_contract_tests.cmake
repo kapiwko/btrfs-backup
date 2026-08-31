@@ -112,6 +112,10 @@ assert_method(
     "<methodname=\"DeleteProfile\"><argname=\"profileId\"type=\"s\"direction=\"in\"/><argname=\"expectedGeneration\"type=\"s\"direction=\"in\"/><argname=\"expectedFingerprint\"type=\"s\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
 )
 assert_method(
+    set_profile_enabled SetProfileEnabled sb s
+    "<methodname=\"SetProfileEnabled\"><argname=\"profileId\"type=\"s\"direction=\"in\"/><argname=\"enabled\"type=\"b\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
+)
+assert_method(
     open_browse_session OpenBrowseSession s s
     "<methodname=\"OpenBrowseSession\"><argname=\"profileId\"type=\"s\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
 )
@@ -140,8 +144,8 @@ assert_signal(
 
 string(REGEX MATCHALL "<method name=" xml_methods "${manager_xml}")
 list(LENGTH xml_methods method_count)
-if(NOT method_count EQUAL 17)
-    message(FATAL_ERROR "manager XML must declare exactly 17 methods, found ${method_count}")
+if(NOT method_count EQUAL 18)
+    message(FATAL_ERROR "manager XML must declare exactly 18 methods, found ${method_count}")
 endif()
 
 string(REGEX MATCHALL "<signal name=" xml_signals "${manager_xml}")
