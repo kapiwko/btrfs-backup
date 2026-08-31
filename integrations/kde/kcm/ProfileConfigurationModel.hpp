@@ -21,6 +21,9 @@ class ProfileConfigurationModel final : public QObject {
     Q_PROPERTY(QVariantMap paths READ paths NOTIFY profileChanged)
     Q_PROPERTY(QVariantMap settings READ settings NOTIFY profileChanged)
     Q_PROPERTY(QVariantList sources READ sources NOTIFY profileChanged)
+    Q_PROPERTY(QVariantList sourceCandidates READ sourceCandidates NOTIFY profileChanged)
+    Q_PROPERTY(bool configurationValid READ configurationValid NOTIFY profileChanged)
+    Q_PROPERTY(QString configurationErrorCode READ configurationErrorCode NOTIFY profileChanged)
     Q_PROPERTY(int schemaVersion READ schemaVersion NOTIFY profileChanged)
     Q_PROPERTY(QString generation READ generation NOTIFY profileChanged)
     Q_PROPERTY(QString fingerprint READ fingerprint NOTIFY profileChanged)
@@ -40,6 +43,9 @@ class ProfileConfigurationModel final : public QObject {
     QVariantMap paths() const;
     QVariantMap settings() const;
     QVariantList sources() const;
+    QVariantList sourceCandidates() const;
+    bool configurationValid() const;
+    QString configurationErrorCode() const;
     int schemaVersion() const;
     QString generation() const;
     QString fingerprint() const;
@@ -84,6 +90,9 @@ class ProfileConfigurationModel final : public QObject {
     QJsonObject profile_;
     QString generation_;
     QString fingerprint_;
+    QVariantList source_candidates_;
+    bool configuration_valid_ = true;
+    QString configuration_error_code_;
     QString error_code_;
     QString error_message_;
     QString operation_message_;

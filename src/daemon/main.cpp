@@ -20,6 +20,7 @@
 #include <platform/linux/process/PosixCommandRunner.hpp>
 #include <platform/linux/filesystem/PosixDurableFileOperations.hpp>
 #include <platform/linux/storage/MountInfo.hpp>
+#include <platform/linux/storage/LibBtrfsOperations.hpp>
 #include <state/persistence/FileRunStateRepository.hpp>
 
 namespace fs = std::filesystem;
@@ -122,6 +123,7 @@ int main(int argc, char** argv) {
             skip_configuration_activation
             ? static_cast<btrfsbackup::config::IConfigurationActivator&>(null_configuration_activator)
             : static_cast<btrfsbackup::config::IConfigurationActivator&>(configuration_activator);
+        btrfsbackup::platform::linux::storage::LibBtrfsOperations btrfs;
         btrfsbackup::daemon::control::SystemProfileAdministrationBackend profile_administration_backend(
             {
                 .etc_root = config_root,
@@ -130,6 +132,8 @@ int main(int argc, char** argv) {
                 .public_root = paths.public_profile_root,
             },
             paths.target_mount_root,
+            paths.mountinfo_path,
+            btrfs,
             selected_configuration_activator
         );
         btrfsbackup::daemon::FileManagerAuditLog audit_log(audit_log_path);

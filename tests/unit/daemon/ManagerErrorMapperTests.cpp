@@ -23,6 +23,9 @@ void expect_code(const std::string& name, const btrfsbackup::daemon::dbus::Manag
 void test_stable_error_catalog() {
     constexpr std::array codes{
         ManagerErrorCode::InvalidRequest,
+        ManagerErrorCode::SourceMissing,
+        ManagerErrorCode::SourceNotSubvolume,
+        ManagerErrorCode::SourceUnavailable,
         ManagerErrorCode::NotFound,
         ManagerErrorCode::NotAuthorized,
         ManagerErrorCode::Busy,

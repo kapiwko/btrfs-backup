@@ -11,6 +11,9 @@ namespace btrfsbackup::daemon::dbus {
 
 enum class ManagerErrorCode {
     InvalidRequest,
+    SourceMissing,
+    SourceNotSubvolume,
+    SourceUnavailable,
     NotFound,
     NotAuthorized,
     Busy,

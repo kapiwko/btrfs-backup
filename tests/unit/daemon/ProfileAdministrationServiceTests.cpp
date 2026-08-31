@@ -5,6 +5,7 @@
 #include <daemon/dbus/ManagerErrors.hpp>
 
 #include <config/json/JsonIo.hpp>
+#include <core/Errors.hpp>
 
 #include <functional>
 #include <optional>
@@ -22,6 +23,7 @@ using btrfsbackup::daemon::control::IProfileAdministrationBackend;
 using btrfsbackup::daemon::control::ManagerAuthorizationAction;
 using btrfsbackup::daemon::control::ProfileAdministrationService;
 using btrfsbackup::daemon::control::ProfileDraftResult;
+using btrfsbackup::daemon::control::SourceSubvolumeState;
 using btrfsbackup::daemon::control::manager_authorization_action_id;
 using btrfsbackup::daemon::dbus::ManagerErrorCode;
 using btrfsbackup::daemon::dbus::ManagerOperationError;
@@ -63,6 +65,7 @@ class Backend final : public IProfileAdministrationBackend {
     int saves = 0;
     int deletes = 0;
     bool hooks_allowed = false;
+    SourceSubvolumeState source_state = SourceSubvolumeState::Available;
 
     std::optional<EditableProfile> find_profile(const ProfileId&) const override {
         return current;
@@ -89,6 +92,12 @@ class Backend final : public IProfileAdministrationBackend {
         document["enabled"] = enabled;
         current->document = document.dump();
     }
+    SourceSubvolumeState inspect_source_subvolume(const std::filesystem::path&) const override {
+        return source_state;
+    }
+    std::vector<std::filesystem::path> source_candidates() const override {
+        return {"/srv/work", "/home"};
+    }
 };
 
 void expect_error(const std::string& name, ManagerErrorCode code, const std::function<void()>& operation) {
@@ -107,6 +116,29 @@ void test_details_do_not_request_authorization() {
     const auto details = ProfileAdministrationService(authorizer, backend).get_profile_details("default");
     test_helpers::expect_eq("details profile", details.profile_id, "default");
     test_helpers::expect_true("details authorization", authorizer.actions.empty(), "details requested authorization");
+    test_helpers::expect_true("configuration valid", details.configuration_valid, "valid source was rejected");
+    test_helpers::expect_true("source candidates", details.source_candidates == std::vector<std::string>{"/srv/work"}, "configured sources were not filtered");
+}
+
+void test_invalid_existing_and_new_sources_are_reported() {
+    Authorizer authorizer;
+    Backend backend;
+    backend.source_state = SourceSubvolumeState::Missing;
+    ProfileAdministrationService service(authorizer, backend);
+    const auto details = service.get_profile_details("default");
+    test_helpers::expect_true("invalid existing source", !details.configuration_valid, "missing source was accepted");
+    test_helpers::expect_eq("missing source code", details.configuration_error_code, "configuration.source_missing");
+    try {
+        static_cast<void>(service.add_profile_source(
+            ":1.12", "default", "g1", "f1",
+            R"({"name":"Missing","subvolume":"/missing","localRetention":7,"remoteRetention":14})"
+        ));
+        test_helpers::fail("missing new source", "missing source was saved");
+    } catch (const ManagerOperationError& error) {
+        test_helpers::expect_true("missing source code", error.code() == ManagerErrorCode::SourceMissing, "wrong source error");
+    }
+    test_helpers::expect_true("missing source not authorized", authorizer.actions.empty(), "invalid source requested authorization");
+    test_helpers::expect_true("missing source not saved", backend.saves == 0, "invalid source was committed");
 }
 
 void test_settings_update_is_bounded_and_preserves_private_fields() {
@@ -221,6 +253,7 @@ void test_delete_and_activation_keep_dedicated_actions() {
 
 int main() {
     test_details_do_not_request_authorization();
+    test_invalid_existing_and_new_sources_are_reported();
     test_settings_update_is_bounded_and_preserves_private_fields();
     test_denial_and_authorization_race_have_no_effect();
     test_source_operations_use_stable_identity();

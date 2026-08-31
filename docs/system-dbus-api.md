@@ -65,9 +65,18 @@ API major version 2 removes the full-document editing methods and replaces them
 with bounded profile settings and source operations. Each mutation validates and
 atomically republishes the complete profile internally, while preserving fields
 that are not part of its request. All successful responses use the sanitized
-profile envelope with a new generation and fingerprint. The minor version is
-reset to 0 because clients built for API major version 1 are not compatible with
-this contract.
+profile envelope with a new generation and fingerprint. The minor version
+started at 0 because clients built for API major version 1 are not compatible
+with this contract.
+
+API minor version 1 advances profile summaries and profile-details envelopes to
+schema version 2. Both expose a path-free configuration health result through
+`configurationValid` and `configurationErrorCode`. Profile details additionally
+include editable `sourceCandidates` discovered from mounted Btrfs subvolumes.
+Adding a source verifies that the path exists and is a Btrfs subvolume before
+requesting authorization. Existing profiles are checked on every summary or
+details query, so clients can report stale source configuration independently
+of backup execution.
 
 API minor version 9 adds `GetProfileDetails` and the `profile-details` feature.
 The method supports read-only configuration views without authorization. Its

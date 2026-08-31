@@ -42,11 +42,15 @@ void test_profiles() {
         .enabled = false,
         .target_name = "Backup disk",
         .sources = {{.id = "home", .name = "Home"}},
+        .configuration_valid = false,
+        .configuration_error_code = "configuration.source_missing",
     }};
     const Json document = Json::parse(codec.encode(profiles));
     test_helpers::expect_true("profiles array", document.is_array() && document.size() == 1, "invalid profile list");
     expect_field("profile", document.at(0), "profileId", "default");
     expect_field("profile", document.at(0), "enabled", false);
+    expect_field("profile", document.at(0), "configurationValid", false);
+    expect_field("profile", document.at(0), "configurationErrorCode", "configuration.source_missing");
     expect_field("profile source", document.at(0).at("sources").at(0), "name", "Home");
     test_helpers::expect_true("profile privacy", !document.at(0).contains("device"), "private device field was encoded");
 }
@@ -165,7 +169,11 @@ void test_status_history_and_device() {
     expect_field("operation", operation_document, "runId", operation.run_id);
     expect_field("operation", operation_document, "accepted", true);
 
-    const Json details = Json::parse(codec.encode(btrfsbackup::daemon::control::ProfileDetails{"default", "generation", "fingerprint", R"({"profileId":"default","target":{"activation":{"mode":"keyFile","keyFile":"/root/key"}},"hooks":{"beforeSnapshot":["secret-command"]}})"}));
+    const Json details = Json::parse(codec.encode(btrfsbackup::daemon::control::ProfileDetails{
+        "default", "generation", "fingerprint",
+        R"({"profileId":"default","target":{"activation":{"mode":"keyFile","keyFile":"/root/key"}},"hooks":{"beforeSnapshot":["secret-command"]}})",
+        false, "configuration.source_not_subvolume", {"/home", "/srv/work"}
+    }));
     test_helpers::expect_true(
         "details hooks privacy",
         !details.at("document").contains("hooks"),
@@ -177,6 +185,9 @@ void test_status_history_and_device() {
         "profile details exposed the key path"
     );
     expect_field("details activation", details.at("document").at("target").at("activation"), "mode", "keyFile");
+    expect_field("details health", details, "configurationValid", false);
+    expect_field("details health code", details, "configurationErrorCode", "configuration.source_not_subvolume");
+    expect_field("details candidates", details, "sourceCandidates", std::vector<std::string>{"/home", "/srv/work"});
 }
 
 } // namespace

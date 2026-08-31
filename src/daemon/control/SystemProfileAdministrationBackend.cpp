@@ -9,6 +9,7 @@
 #include <core/Errors.hpp>
 #include <platform/linux/config/FileProfileRepository.hpp>
 #include <platform/linux/config/ProfileService.hpp>
+#include <platform/linux/storage/MountInfo.hpp>
 
 namespace btrfsbackup::daemon::control {
 
@@ -38,8 +39,34 @@ bool hooks_empty(const config::ProfileHooks& hooks) {
 SystemProfileAdministrationBackend::SystemProfileAdministrationBackend(
     ProfileAdministrationRoots roots,
     std::filesystem::path target_mount_root,
+    std::filesystem::path mountinfo_path,
+    backup::IBtrfsOperations& btrfs,
     config::IConfigurationActivator& activator
-) : roots_(std::move(roots)), target_mount_root_(std::move(target_mount_root)), activator_(activator) {
+) : roots_(std::move(roots)), target_mount_root_(std::move(target_mount_root)),
+    mountinfo_path_(std::move(mountinfo_path)), btrfs_(btrfs), activator_(activator) {
+}
+
+SourceSubvolumeState SystemProfileAdministrationBackend::inspect_source_subvolume(const std::filesystem::path& path) const {
+    std::error_code error;
+    const bool exists = std::filesystem::exists(path, error);
+    if (error)
+        return SourceSubvolumeState::Unavailable;
+    if (!exists)
+        return SourceSubvolumeState::Missing;
+    try {
+        return btrfs_.is_subvolume(path) ? SourceSubvolumeState::Available : SourceSubvolumeState::NotSubvolume;
+    } catch (...) {
+        return SourceSubvolumeState::Unavailable;
+    }
+}
+
+std::vector<std::filesystem::path> SystemProfileAdministrationBackend::source_candidates() const {
+    try {
+        const auto targets = platform::linux::storage::btrfs_mount_targets(mountinfo_path_);
+        return {targets.begin(), targets.end()};
+    } catch (...) {
+        return {};
+    }
 }
 
 std::optional<EditableProfile> SystemProfileAdministrationBackend::find_profile(const ProfileId& profile_id) const {

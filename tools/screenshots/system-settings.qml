@@ -40,6 +40,8 @@ Window {
 
         property bool managerConnected: true
         property bool profileEnabled: true
+        property bool configurationValid: true
+        property string configurationErrorCode: ""
         property bool operationPending: false
         property bool browseSupported: true
         property string lastOperation: ""
@@ -84,6 +86,8 @@ Window {
 
         property bool managerConnected: true
         property bool profileEnabled: false
+        property bool configurationValid: true
+        property string configurationErrorCode: ""
         property bool operationPending: false
         property bool browseSupported: true
         property string lastOperation: ""
@@ -134,6 +138,9 @@ Window {
         property string operationMessage: ""
         property var target: ({})
         property var sources: []
+        property var sourceCandidates: ["/home", "/srv/projects"]
+        property bool configurationValid: true
+        property string configurationErrorCode: ""
         property var settings: ({})
 
         signal conflictDetected()

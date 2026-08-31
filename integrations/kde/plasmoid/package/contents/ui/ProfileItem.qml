@@ -62,7 +62,7 @@ PlasmaExtras.ExpandableListItem {
     title: root.profileName || root.profileId
     subtitle: root.subtitleText()
     subtitleCanWrap: true
-    subtitleColor: root.failed || profileStatus.lastError.length > 0
+    subtitleColor: root.failed || profileStatus.lastError.length > 0 || !profileStatus.configurationValid
         ? Kirigami.Theme.negativeTextColor
         : Kirigami.Theme.textColor
     isBusy: root.running || profileStatus.operationPending
@@ -175,7 +175,7 @@ PlasmaExtras.ExpandableListItem {
     }
 
     function statusEmblem() {
-        if (profileStatus.lastError.length > 0 || root.failed)
+        if (profileStatus.lastError.length > 0 || !profileStatus.configurationValid || root.failed)
             return "emblem-error"
         if (root.running)
             return ""
@@ -193,7 +193,7 @@ PlasmaExtras.ExpandableListItem {
     }
 
     function summaryPriority() {
-        if (profileStatus.lastError.length > 0 || root.failed)
+        if (profileStatus.lastError.length > 0 || !profileStatus.configurationValid || root.failed)
             return 1
         if (root.running)
             return 2
@@ -209,6 +209,8 @@ PlasmaExtras.ExpandableListItem {
     function subtitleText() {
         if (profileStatus.lastError.length > 0)
             return profileStatus.lastError
+        if (!profileStatus.configurationValid)
+            return root.configurationErrorText(profileStatus.configurationErrorCode)
         if (root.running) {
             let activity = root.activityText(profileStatus.run.activity, profileStatus.run.phase)
             if (root.progress >= 0)
@@ -219,6 +221,14 @@ PlasmaExtras.ExpandableListItem {
         }
         const target = profileStatus.target.name || profileStatus.run.targetName || root.targetNameHint || translations.i18n("Backup target")
         return target + " - " + root.targetStateText(profileStatus.target.state)
+    }
+
+    function configurationErrorText(code) {
+        switch (code) {
+        case "configuration.source_missing": return translations.i18n("A backup source does not exist")
+        case "configuration.source_not_subvolume": return translations.i18n("A backup source is not a Btrfs subvolume")
+        default: return translations.i18n("A backup source cannot be inspected")
+        }
     }
 
     function applyAutomaticExpansion() {

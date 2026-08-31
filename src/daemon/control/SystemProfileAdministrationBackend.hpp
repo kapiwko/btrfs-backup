@@ -6,6 +6,7 @@
 #include <filesystem>
 
 #include <config/ports/ConfigurationActivator.hpp>
+#include <backup/ports/IBtrfsOperations.hpp>
 #include <daemon/control/ProfileAdministrationService.hpp>
 
 namespace btrfsbackup::daemon::control {
@@ -22,6 +23,8 @@ class SystemProfileAdministrationBackend final : public IProfileAdministrationBa
     SystemProfileAdministrationBackend(
         ProfileAdministrationRoots roots,
         std::filesystem::path target_mount_root,
+        std::filesystem::path mountinfo_path,
+        backup::IBtrfsOperations& btrfs,
         config::IConfigurationActivator& activator
     );
 
@@ -37,6 +40,8 @@ class SystemProfileAdministrationBackend final : public IProfileAdministrationBa
     ) override;
     void delete_profile(const EditableProfile& expected) override;
     void set_profile_enabled(const EditableProfile& expected, bool enabled) override;
+    [[nodiscard]] SourceSubvolumeState inspect_source_subvolume(const std::filesystem::path& path) const override;
+    [[nodiscard]] std::vector<std::filesystem::path> source_candidates() const override;
 
   private:
     [[nodiscard]] config::Profile parse_draft(const ProfileId& profile_id, const std::string& document) const;
@@ -45,6 +50,8 @@ class SystemProfileAdministrationBackend final : public IProfileAdministrationBa
 
     ProfileAdministrationRoots roots_;
     std::filesystem::path target_mount_root_;
+    std::filesystem::path mountinfo_path_;
+    backup::IBtrfsOperations& btrfs_;
     config::IConfigurationActivator& activator_;
 };
 

@@ -5,6 +5,7 @@
 
 #include <string>
 #include <optional>
+#include <vector>
 
 #include <daemon/control/OperationalControlService.hpp>
 
@@ -22,6 +23,16 @@ struct ProfileDetails {
     std::string generation;
     std::string fingerprint;
     std::string document;
+    bool configuration_valid = true;
+    std::string configuration_error_code;
+    std::vector<std::string> source_candidates;
+};
+
+enum class SourceSubvolumeState { Available, Missing, NotSubvolume, Unavailable };
+
+struct ProfileConfigurationHealth {
+    bool valid = true;
+    std::string error_code;
 };
 
 struct ProfileDraftResult {
@@ -47,6 +58,10 @@ class IProfileAdministrationBackend {
     ) = 0;
     virtual void delete_profile(const EditableProfile& expected) = 0;
     virtual void set_profile_enabled(const EditableProfile& expected, bool enabled) = 0;
+    [[nodiscard]] virtual SourceSubvolumeState inspect_source_subvolume(const std::filesystem::path&) const {
+        return SourceSubvolumeState::Available;
+    }
+    [[nodiscard]] virtual std::vector<std::filesystem::path> source_candidates() const { return {}; }
 };
 
 class ProfileAdministrationService {
@@ -90,6 +105,7 @@ class ProfileAdministrationService {
         const std::string& expected_fingerprint
     );
     void set_profile_enabled(const std::string& caller, const std::string& profile_id, bool enabled);
+    [[nodiscard]] ProfileConfigurationHealth configuration_health(const std::string& profile_id) const;
 
   private:
     void require_authorized(const std::string& caller, ManagerAuthorizationAction action);
@@ -103,8 +119,11 @@ class ProfileAdministrationService {
     [[nodiscard]] ProfileDetails save_document(
         const std::string& caller,
         const EditableProfile& current,
-        const std::string& document
+        const std::string& document,
+        const std::optional<std::filesystem::path>& source_to_recheck = std::nullopt
     );
+    [[nodiscard]] ProfileDetails details_from(const EditableProfile& profile) const;
+    void require_available_subvolume(const std::filesystem::path& path) const;
 
     IManagerAuthorizer& authorizer_;
     IProfileAdministrationBackend& backend_;

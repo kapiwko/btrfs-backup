@@ -125,10 +125,23 @@ KCMUtils.ScrollViewKCM {
     function profileSummary(status, profile) {
         if (status.lastError.length > 0)
             return root.errorText(status)
+        if (!status.configurationValid)
+            return root.configurationErrorText(status.configurationErrorCode)
         const target = status.target.name || profile.targetName || translations.i18n("Unknown")
         return root.statusText(status.run.state)
             + " - " + target
             + " - " + root.targetStateText(status.target.state)
+    }
+
+    function configurationErrorText(code) {
+        switch (code) {
+        case "configuration.source_missing":
+            return translations.i18n("A configured source subvolume does not exist.")
+        case "configuration.source_not_subvolume":
+            return translations.i18n("A configured source path is not a Btrfs subvolume.")
+        default:
+            return translations.i18n("A configured source subvolume cannot be inspected.")
+        }
     }
 
     function targetStateText(state) {

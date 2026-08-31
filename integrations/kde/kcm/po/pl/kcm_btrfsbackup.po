@@ -659,3 +659,21 @@ msgstr "Menedżer kopii zapasowych zwrócił nieprawidłową historię kopii."
 
 #~ msgid "Edit profile settings"
 #~ msgstr "Edytuj ustawienia profilu"
+
+msgid "A configured source subvolume does not exist."
+msgstr "Skonfigurowany subvolume źródłowy nie istnieje."
+
+msgid "A configured source path is not a Btrfs subvolume."
+msgstr "Skonfigurowana ścieżka źródłowa nie jest subvolume Btrfs."
+
+msgid "A configured source subvolume cannot be inspected."
+msgstr "Nie można sprawdzić skonfigurowanego subvolume źródłowego."
+
+msgid "The selected source subvolume does not exist."
+msgstr "Wybrany subvolume źródłowy nie istnieje."
+
+msgid "The selected source path is not a Btrfs subvolume."
+msgstr "Wybrana ścieżka źródłowa nie jest subvolume Btrfs."
+
+msgid "The selected source subvolume cannot be inspected."
+msgstr "Nie można sprawdzić wybranego subvolume źródłowego."

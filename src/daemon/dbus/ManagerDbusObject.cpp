@@ -251,7 +251,15 @@ int ManagerDbusObject::handle_get_capabilities(sd_bus_message* message, sd_bus_e
 
 int ManagerDbusObject::handle_list_profiles(sd_bus_message* message, sd_bus_error* error) noexcept {
     return invoke_dbus_callback(
-        [&] { return reply_json(message, codec_.encode(service_.list_profiles())); },
+        [&] {
+            auto profiles = service_.list_profiles();
+            for (auto& profile : profiles) {
+                const auto health = profile_administration_.configuration_health(profile.profile_id);
+                profile.configuration_valid = health.valid;
+                profile.configuration_error_code = health.error_code;
+            }
+            return reply_json(message, codec_.encode(profiles));
+        },
         [&](const std::exception* exception) { return set_callback_error(error, exception); }
     );
 }

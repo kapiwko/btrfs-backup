@@ -19,6 +19,16 @@ using btrfsbackup::daemon::dbus::ManagerOperationError;
 namespace json = btrfsbackup::config::json;
 namespace linux_config = btrfsbackup::platform::linux::config;
 
+class FakeBtrfsOperations final : public btrfsbackup::backup::IBtrfsOperations {
+  public:
+    bool is_subvolume(const std::filesystem::path&) override { return true; }
+    std::optional<btrfsbackup::backup::SnapshotMetadata> read_snapshot_metadata(const std::filesystem::path&) override {
+        return std::nullopt;
+    }
+    void create_readonly_snapshot(const std::filesystem::path&, const std::filesystem::path&) override {}
+    void delete_subvolume(const std::filesystem::path&) override {}
+};
+
 json::Json profile_document() {
     return {
         {"schemaVersion", 4}, {"profileId", "default"}, {"name", "Default"}, {"enabled", true},
@@ -45,6 +55,7 @@ void test_backend_preserves_secrets_and_hook_boundary() {
         root / "etc", root / "udev", root / "systemd", root / "public"
     };
     btrfsbackup::config::NullConfigurationActivator activator;
+    FakeBtrfsOperations btrfs;
     const auto initial = json::profile_from_json(profile_document(), root / "mounts");
     linux_config::install_profile(initial, roots, activator);
     test_helpers::write_file(root / "etc" / "key.secret", "TOP-SECRET-KEY-CONTENTS");
@@ -52,6 +63,8 @@ void test_backend_preserves_secrets_and_hook_boundary() {
     SystemProfileAdministrationBackend backend(
         {roots.etc_root, roots.udev_root, roots.systemd_root, roots.public_root},
         root / "mounts",
+        "/proc/self/mountinfo",
+        btrfs,
         activator
     );
     const auto current = backend.find_profile(ProfileId{"default"});
