@@ -1,78 +1,81 @@
 # btrfs-backup
 
-Unattended backup of Btrfs subvolumes to an encrypted removable disk. The project combines read-only snapshots, `btrfs send/receive`, incremental transfers, systemd, udev, retention, and controlled unmounting with LUKS closure.
+`btrfs-backup` creates unattended, incremental backups of Btrfs subvolumes on
+an encrypted removable disk. Connect the configured drive, let udev and systemd
+run the backup, then safely disconnect it when the job finishes.
 
-## Key Features
+The core runtime works without a desktop. An optional KDE package adds setup in
+System Settings, live progress, notifications, backup browsing in Dolphin and a
+guided restore application.
 
-1. multiple backup sources defined in one profile JSON document;
-2. full and incremental `btrfs send/receive`, with the incremental parent selected by UUID rather than by name;
-3. receives into `.incoming`, verifies `Received UUID`, then commits a read-only target snapshot;
-4. `pending` markers so the next run can resolve interrupted transfers or power loss;
-5. at most one successful backup per local day for the same target UUID and configuration fingerprint;
-6. independent local and remote retention, globally configured or overridden per source;
-7. per-profile and per-target `flock` locking, target LUKS validation, mapper validation, source/target separation, symlink escape checks, and free-space checks;
-8. automatic startup only when the exact configured LUKS partition appears;
-9. automatic `sync`, unmount, and LUKS closure after the service finishes;
-10. native CLI tooling for profile wizards, rendering, installation files, and validation;
-11. an optional system D-Bus manager with sanitized reads and separately
-    authorized start, cancel, validate, and eject controls.
+### Plasma Widget
 
-## Requirements
+| Profiles collapsed | Target connected |
+|---|---|
+| [![Collapsed profiles in the Plasma widget](docs/images/plasma-widget-collapsed.png)](docs/images/plasma-widget-collapsed.png) | [![Connected target in the Plasma widget](docs/images/plasma-widget-connected.png)](docs/images/plasma-widget-connected.png) |
 
-The project primarily targets Arch Linux and derivatives. The native runtime
-requires Linux 6.0 or newer and `btrfs-progs` 6.0 or newer. Transfers always use
-send protocol v2 with `btrfs send --proto 2 --compressed-data`; Linux 6.0 also
-provides the encoded-write ioctl used by `btrfs receive` to write compressed
-extents directly. The runtime additionally requires systemd/udev, cryptsetup,
-`coreutils` (for `sync`), and `util-linux`.
-Repository build, release, and test scripts use Bash.
+| Target disconnected | Backup in progress |
+|---|---|
+| [![Disconnected target in the Plasma widget](docs/images/plasma-widget-disconnected.png)](docs/images/plasma-widget-disconnected.png) | [![Active transfer in the Plasma widget](docs/images/plasma-widget-transferring.png)](docs/images/plasma-widget-transferring.png) |
 
-Source builds require:
+### Desktop Progress And Notifications
 
-- CMake 3.20 or newer;
-- a C++23 compiler;
-- `pkgconf` / `pkg-config`;
-- `nlohmann-json`;
-- `libmount` development files from `util-linux`;
-- `libblkid` development files from `util-linux`;
-- `libudev` development files from `systemd`;
-- `libbtrfsutil` development files from `btrfs-progs`.
+| Native transfer progress | Backup completed |
+|---|---|
+| [![KUiJob transfer progress in Plasma notifications](docs/images/kui-job-transferring.png)](docs/images/kui-job-transferring.png) | [![Completed backup notification in Plasma](docs/images/notification-completed.png)](docs/images/notification-completed.png) |
 
-On Arch Linux, the build dependencies are provided by packages such as
-`base-devel`, `cmake`, `pkgconf`, `nlohmann-json`, `util-linux`, `systemd`, and
-`btrfs-progs`.
+### System Settings
 
-The optional Plasma widget is built as a separate package and additionally
-requires Qt 6 QML/Quick, Extra CMake Modules, Kirigami, KPackage, KI18n and
-libplasma development files.
+| Targets connected | Targets disconnected | Backup in progress |
+|---|---|---|
+| [![Connected backup targets in System Settings](docs/images/system-settings-connected.png)](docs/images/system-settings-connected.png) | [![Disconnected backup targets in System Settings](docs/images/system-settings-disconnected.png)](docs/images/system-settings-disconnected.png) | [![Active backup in System Settings](docs/images/system-settings-transferring.png)](docs/images/system-settings-transferring.png) |
 
-Each source must be a Btrfs subvolume. The local snapshot directory must be on the same Btrfs filesystem as its source. The target must be a separate Btrfs filesystem inside LUKS; the runtime rejects a source that belongs to the same filesystem as the target, even if it is available through another mount point.
+### Guided Restore
 
-## Arch Package Installation
+![Restore plan in the KDE restore application](docs/images/restore-dialog.png)
 
-```bash
-sudo pacman -U btrfs-backup-3.2.0-1-x86_64.pkg.tar.zst
-```
+The screenshots use sample data and are rendered deterministically from the
+repository with [`tools/render-readme-screenshot.sh`](tools/render-readme-screenshot.sh).
 
-The package installs the systemd template unit used by udev, but it does not
-enable a service at boot and does not create active backup configuration without
-an explicit user action.
+## What You Get
 
-The optional Plasma status widget is packaged separately:
+- full and incremental `btrfs send/receive` with UUID-based parent selection;
+- read-only local and target snapshots with independent retention policies;
+- safe interrupted-transfer recovery through `.incoming` snapshots and
+  `pending` markers;
+- exact LUKS device matching, mapper validation, free-space checks and
+  controlled unmount and LUKS closure;
+- multiple backup sources and profiles;
+- passwordless per-profile control over automatic backups from Plasma and
+  System Settings;
+- CLI repository discovery, version browsing and transactional restore;
+- an optional system D-Bus manager with sanitized status and Polkit-protected
+  administration;
+- optional Plasma, System Settings, Dolphin, KIO and KRunner integration.
+
+## Install On Arch Linux
+
+Install the base release package:
 
 ```bash
-sudo pacman -U btrfs-backup-kde-3.2.0-1-x86_64.pkg.tar.zst
+sudo pacman -U btrfs-backup-4.0.0-1-x86_64.pkg.tar.zst
 ```
 
-That package installs the plasmoid and the compiled QML backend only. The base
-backup runtime does not depend on a graphical session. Core reports reduced
-current status, private history, and service diagnostics through journald;
-desktop notifications belong to the KDE session monitor rather than the
-privileged backup process.
+For the KDE desktop tools, install the matching optional package:
 
-## First Configuration
+```bash
+sudo pacman -U btrfs-backup-kde-4.0.0-1-x86_64.pkg.tar.zst
+```
 
-The safest flow is to render files into a normal directory first and review them:
+The base package installs the systemd and udev templates but does not enable a
+backup or create an active profile. The KDE package does not become a runtime
+dependency of unattended backups.
+
+## Quick Start
+
+### 1. Prepare A Profile
+
+Start by rendering the proposed configuration into a normal directory:
 
 ```bash
 btrfs-backupctl profile wizard \
@@ -80,139 +83,186 @@ btrfs-backupctl profile wizard \
   --output-dir "$PWD/generated"
 ```
 
-The wizard detects connected LUKS devices and mounted Btrfs sources. Apply mode requires root:
+The wizard detects connected LUKS devices and mounted Btrfs sources. Review the
+generated profile and systemd files before installing them.
+
+### 2. Install The Profile
+
+Run the wizard in apply mode when the generated configuration is correct:
 
 ```bash
 sudo btrfs-backupctl profile wizard --apply
 ```
 
-`--apply` installs:
+The active profile is stored at
+`/etc/btrfs-backup/profiles/default/profile.json`. The wizard also installs the
+matching mount, service and udev units. It does not edit `/etc/crypttab` or
+`/etc/fstab`.
 
-```text
-/etc/btrfs-backup/profiles/default/profile.json
-/var/lib/btrfs-backup/public/profiles/default.json
-/etc/systemd/system/btrfs-backup.service
-/etc/systemd/system/btrfs-backup@.service
-/etc/systemd/system/btrfs-backup-eject@.service
-/etc/systemd/system/btrfs-backup-validate@.service
-/etc/systemd/system/btrfs-backup-target@.service
-/etc/systemd/system/mnt-btrfs\x2dbackup-default.mount
-/etc/systemd/system/btrfs-backup@default.service.d/target-mount.conf
-/etc/udev/rules.d/99-btrfs-backup-default.rules
-```
+For unattended unlock, select a root-owned key file with mode `0600`.
+`askPassword` instead uses the systemd password agent and requires someone to
+provide the passphrase.
 
-The wizard does not edit `/etc/crypttab` or `/etc/fstab`, and no manual entries
-are required. The profile selects either systemd ask-password or a root-only
-key file; the generated target service activates LUKS on demand and the native
-mount unit mounts it with the required security options.
+### 3. Connect The Backup Drive
 
-Fully unattended operation requires a root-owned key file with mode `0600`;
-`askPassword` uses systemd's password agent.
+Do not enable `btrfs-backup@default.service`. The unit is intentionally started
+by udev only when the exact configured LUKS partition appears.
 
-## Usage
-
-After installation, do not run `systemctl enable btrfs-backup.service` or
-`systemctl enable btrfs-backup@default.service`. The units have no `[Install]`
-section; udev starts the profile instance when the exact configured device
-appears.
-
-Manual commands:
+Follow the first run with:
 
 ```bash
-sudo btrfs-backup
-sudo btrfs-backup --force
-sudo btrfs-backup --validate
-sudo btrfs-backup --no-eject
-sudo btrfs-backup --profile default --validate
-sudo btrfs-backupctl target mount --profile default
-sudo btrfs-backupctl target eject --profile default
-sudo btrfs-backupctl runner cancel --profile default --run-id RUN_ID
-btrfs-backupctl profile validate --file profile.json
-btrfs-backupctl profile render --file profile.json --output-dir ./generated-profile
-btrfs-backupctl profile show --profile default
-btrfs-backupctl profile export --profile default --output profile.json
-btrfs-backupctl status show --profile default --human
-btrfs-backupctl status history --profile default --limit 10
-btrfs-backupctl profile list
+journalctl -u btrfs-backup@default.service -f
 ```
 
-The Plasma widget routes start, cancellation and eject through the system
-manager. These already configured operational controls do not require a
-password from the active local desktop session. Target validation belongs to
-the planned KCM. Direct runtime commands and KCM operations that change
-profiles, hooks, or devices remain administrator operations.
+After a successful run, test a restore before treating the setup as complete.
 
-Its expanded profile view reports Btrfs filesystem capacity and usage from a
-verified live measurement or the runner's last identity-matching private cache.
-Inspecting this state never unlocks or mounts the backup target.
+## Everyday Commands
 
-Logs:
+```bash
+# Inspect profiles and status
+btrfs-backupctl profile list
+btrfs-backupctl profile show --profile default
+btrfs-backupctl status show --profile default --human
+btrfs-backupctl status history --profile default --limit 10
+
+# Validate or start a backup manually
+sudo btrfs-backup --profile default --validate
+sudo btrfs-backup --profile default
+sudo btrfs-backup --profile default --force
+
+# Manage the target
+sudo btrfs-backupctl target mount --profile default
+sudo btrfs-backupctl target eject --profile default
+```
+
+Useful service logs:
 
 ```bash
 journalctl -u btrfs-backup@default.service
-journalctl -u btrfs-backup@default.service -f
 journalctl -u btrfs-backupd.service
 ```
 
-## Configuration Layout
+## Restore A Backup
 
-The canonical format for tools and source definitions is JSON.
-`btrfs-backupctl profile wizard` uses the native profile model to write
-`profile.json` and materialize the trusted runtime files consumed by the backup
-runner.
+The restore workflow is read-only until an explicit execute step. First inspect
+a mounted repository:
 
-Active runtime profile JSON is trusted root-owned configuration. It must use
-mode `0600`; the runtime refuses files that are accessible by group or other
-users.
+```bash
+btrfs-backupctl restore catalog \
+  --repository /mnt/btrfs-backup/default/btrfs-backup
+btrfs-backupctl restore list \
+  --repository /mnt/btrfs-backup/default/btrfs-backup
+btrfs-backupctl restore versions \
+  --repository /mnt/btrfs-backup/default/btrfs-backup \
+  --source Documents/report.odt
+```
 
-Profiles are selected with `--profile <profile>` or `BTRFS_BACKUP_PROFILE=<profile>`.
+Then create and review a restore plan before executing it. The CLI refuses
+dangerous destinations by default and commits replacements transactionally.
+The KDE package exposes the same engine through Dolphin, the read-only
+`btrfsbackup:` KIO worker and the guided restore application.
 
-## Recovery
+See [the recovery guide](docs/recovery.md) for complete plan and execute
+examples, repository layout details and disaster-recovery procedures.
 
-Target snapshots remain read-only. You can copy individual files from them or send a whole snapshot to another Btrfs filesystem. See [docs/recovery.md](docs/recovery.md) for the detailed procedure.
+## KDE Desktop Integration
 
-Backups should be checked regularly with a restore test. A successful transfer exit code is not a substitute for proving that data can be recovered.
+The optional `btrfs-backup-kde` package provides:
+
+- a Plasma widget for profile state, progress, transfer rate and target usage;
+- a session monitor for native progress and terminal notifications;
+- a System Settings page for profile administration and target validation;
+- read-only repository browsing through KIO and Dolphin previous versions;
+- a guided restore application using the same transactional restore engine;
+- KRunner commands for common backup operations.
+
+Starting, cancelling, ejecting and changing automatic activation for an already
+configured profile are available to the active local desktop session without a
+password. Other profile changes and validation use Polkit; hook changes require
+a separate high-risk authorization. Inspecting cached target capacity never
+unlocks or mounts the drive.
+
+## How Backups Stay Consistent
+
+Each source must be a Btrfs subvolume, and its local snapshot directory must be
+on the same Btrfs filesystem. The target must be a separate Btrfs filesystem
+inside LUKS.
+
+For every transfer, `btrfs-backup`:
+
+1. creates or selects a read-only source snapshot;
+2. chooses an incremental parent by Btrfs UUID identity, not by filename;
+3. receives into an uncommitted `.incoming` location;
+4. verifies the received UUID before committing the target snapshot;
+5. records private history and reduced public status;
+6. applies retention, syncs, unmounts and closes the LUKS mapping.
+
+Profile and target locks prevent overlapping runs. Path, filesystem, mapper and
+device checks reject common configuration and substitution mistakes.
+
+## Requirements
+
+The primary target is Arch Linux and its derivatives. The native runtime needs:
+
+- Linux 6.0 or newer;
+- `btrfs-progs` 6.0 or newer;
+- systemd and udev;
+- cryptsetup, coreutils and util-linux.
+
+Transfers always use send protocol v2 with
+`btrfs send --proto 2 --compressed-data`. Linux 6.0 also provides the encoded
+write ioctl used by `btrfs receive` for compressed extents.
+
+Source builds additionally need CMake 3.20+, a C++23 compiler, pkg-config,
+nlohmann-json and development files for libmount, libblkid, libudev and
+libbtrfsutil. Build the base package with:
+
+```bash
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr
+cmake --build build --parallel
+```
+
+Pass `-DBUILD_KDE_INTEGRATION=ON` to build the optional desktop package. It
+requires Qt 6 Core, DBus, Gui, QML and Quick, Extra CMake Modules, Plasma and
+KF6 CoreAddons, I18n, JobWidgets, KCMUtils, Notifications, Package, KIO and
+Runner development files.
+
+## Upgrading To 4.0
+
+Version 4.0 accepts only canonical profile schema v4 and requires
+`configurationGeneration`. Legacy profile schemas, automatic profile migration
+and old activation markers have been removed. Prepare and validate schema v4
+profiles with the 3.2.x tools before installing 4.0.
+
+Read the [4.0 changelog](CHANGELOG.md) and the
+[configuration guide](docs/configuration.md) before upgrading an existing
+installation.
 
 ## Documentation
 
-1. [architecture and runtime flow](docs/architecture.md);
-2. [configuration](docs/configuration.md);
-3. [recovery](docs/recovery.md);
-4. [testing](docs/testing.md);
-5. [status API](docs/status-api.md);
-6. [engine contract](docs/engine-contract.md);
-7. [C++ source layout](docs/cpp-layout.md);
-8. [security model](docs/security.md);
-9. [release and packaging](docs/packaging.md);
-10. [current task status](TODO.md) and [product roadmap](ROADMAP.md);
-11. proposed designs for [consistency groups](docs/design/consistency-groups.md),
-    [repository format](docs/design/repository-format.md),
-    [restore](docs/design/restore-engine.md),
-    [remote transport](docs/design/remote-transport.md),
-    [scheduling](docs/design/scheduling.md), and the
-    [system manager](docs/design/system-manager.md);
-12. accepted decisions for [external Btrfs send/receive](docs/adr/0001-btrfs-send-external-process.md),
-    [systemd-owned mounts](docs/adr/0002-systemd-owns-mounts.md),
-    [canonical JSON configuration](docs/adr/0003-json-canonical-config.md), and
-    [runner independence](docs/adr/0004-runner-independent-of-daemon.md).
+- [Architecture and runtime flow](docs/architecture.md)
+- [Configuration reference](docs/configuration.md)
+- [Recovery guide](docs/recovery.md)
+- [Security model](docs/security.md)
+- [Status API](docs/status-api.md) and [system D-Bus API](docs/system-dbus-api.md)
+- [KDE integration](docs/plasma-integration.md)
+- [Testing](docs/testing.md) and [contributing](CONTRIBUTING.md)
+- [Release and packaging](docs/packaging.md)
+- [Product roadmap](ROADMAP.md) and [current task status](TODO.md)
+- [Architecture decisions](docs/adr/) and [implemented designs](docs/design/)
 
-## Contributing And Security
+## Security And Limits
 
-Development setup, test expectations and pull-request requirements are in
-[CONTRIBUTING.md](CONTRIBUTING.md). Suspected vulnerabilities must be reported
-privately according to [SECURITY.md](SECURITY.md), not through a public issue.
+Active profiles are trusted root-owned configuration and must use mode `0600`.
+The runtime validates the target at several levels, but it does not replace a
+3-2-1 backup strategy. Removable media reduces exposure; it cannot protect
+against every hardware failure, theft, administrator mistake or corruption of
+both copies.
 
-Native code is organized by responsibility under `src/backup`, `src/config`,
-`src/state`, `src/platform/linux`, `src/cli`, and `src/daemon`. Executable entry
-points live in `apps/` or their owning adapter, tests mirror those domains under
-`tests/`, and optional desktop code is isolated under `integrations/kde`.
-
-## Security and Limits
-
-The project verifies the target device at several levels, but it is not a replacement for a 3-2-1 backup strategy. A disk connected only during backups reduces exposure, but it does not protect against every hardware failure, theft, administrator mistake, or corruption of both copies.
-
-Automated tests use controlled mocks for system commands. Before production use, run a test on real Btrfs filesystems and perform a restore drill.
+Automated tests use controlled command mocks. Before production use, run the
+real-Btrfs integration test and perform a restore drill. Report suspected
+vulnerabilities privately as described in [SECURITY.md](SECURITY.md).
 
 ## License
 
-GPL-3.0-or-later. The full text is in [LICENSE](LICENSE).
+GPL-3.0-or-later. See [LICENSE](LICENSE).

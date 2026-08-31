@@ -43,6 +43,15 @@ schema versions are not advertised as public API versions.
 | `CancelBackup` | `(s profileId, s runId)` | `(s)` | accepted run-scoped cancellation |
 | `ValidateTarget` | `(s profileId)` | `(s)` | completed target validation |
 | `EjectTarget` | `(s profileId)` | `(s)` | completed target eject |
+| `SetProfileEnabled` | `(s profileId, b enabled)` | `(s)` | transactionally enables or disables automatic activation only |
+| `GetProfileForEditing` | `(s profileId)` | `(s)` | authorized private profile plus generation and fingerprint |
+| `ValidateProfileDraft` | `(s profileId, s generation, s fingerprint, s document)` | `(s)` | validated canonical draft without publishing it |
+| `SaveProfile` | `(s profileId, s generation, s fingerprint, s document)` | `(s)` | transactionally published profile without hook changes |
+| `SaveProfileHooks` | `(s profileId, s generation, s fingerprint, s document)` | `(s)` | transactionally published profile with separately authorized hook changes |
+| `DeleteProfile` | `(s profileId, s generation, s fingerprint)` | `(s)` | transactionally removed profile artifacts |
+| `OpenBrowseSession` | `(s profileId)` | `(s)` | caller-bound, expiring read-only repository session |
+| `CloseBrowseSession` | `(s sessionId)` | `(s)` | closes a session owned by the caller |
+| `ResolveBackupCoverage` | `(s localPath)` | `(s)` | presentation-safe profile/source coverage for a local path |
 
 History `limit` must be between 1 and 100 and `offset` must not exceed 10000.
 Manager input files are regular, non-symlink files no larger than 1 MiB and
@@ -50,6 +59,23 @@ must not be writable by group or others. The daemon reads state for every
 request, so a restart reconstructs the same visible state from current status
 or durable history. Operational methods return schema-versioned
 `OperationResult` documents.
+
+API minor version 8 adds `SetProfileEnabled` and the `profile-activation`
+feature. The method republishes the selected profile's managed artifacts while
+changing only its top-level `enabled` flag. It does not change manual-start
+behavior or grant access to any other profile field.
+
+API minor version 7 adds `ResolveBackupCoverage` for side-effect-free Dolphin
+and KRunner applicability checks. It returns public identifiers only and does
+not activate or scan a target.
+
+API minor version 6 adds caller-bound `OpenBrowseSession` and
+`CloseBrowseSession`. Sessions use verified read-only bind mounts, expire after
+15 minutes and close when the caller disconnects or the daemon exits.
+
+API minor version 5 adds authorized profile administration. Edit envelopes
+carry generation and fingerprint preconditions; saves and deletes reject stale
+clients, and hook changes require a separate high-risk authorization.
 
 API minor version 4 advances `GetStatus` to schema version 5 and sanitized
 history to schema version 2. Status responses add `sourceIndex`, `sourceCount`,
@@ -98,8 +124,8 @@ cache is available. `live: false` identifies the last persisted measurement;
 `measuredAt` is always its UTC timestamp. `spaceState` is `normal` or
 `below-configured-minimum`, calculated against the current profile. Clients
 must ignore an unsupported or malformed optional storage block while retaining
-valid lifecycle state. A new client hides storage presentation when the feature
-is absent, allowing it to work with an older daemon.
+valid lifecycle state. Storage presentation is enabled only when the manager
+advertises the corresponding feature.
 
 The capacity is the mounted Btrfs filesystem capacity, not block-device size.
 The manager performs a live read only for an already mounted, identity-verified
@@ -144,10 +170,15 @@ coalesced follow-up read so the last change cannot be lost.
 | `CancelBackup` | operational | `io.github.btrfsbackup.cancel-backup` |
 | `EjectTarget` | operational | `io.github.btrfsbackup.eject-target` |
 | `ValidateTarget` | operational | `io.github.btrfsbackup.validate-target` |
-| `SaveProfile` | administrative | `io.github.btrfsbackup.save-profile` |
-| `DeleteProfile` | administrative | `io.github.btrfsbackup.delete-profile` |
-| `PrepareDevice` | administrative | `io.github.btrfsbackup.prepare-device` |
-| `ChangeHooks` | code-execution risk | `io.github.btrfsbackup.change-hooks` |
+| `SetProfileEnabled` | operational | `io.github.btrfsbackup.set-profile-enabled` |
+| `GetProfileForEditing` | administrative read | `io.github.btrfsbackup.read-profile-configuration` |
+| `ValidateProfileDraft` | administrative read | `io.github.btrfsbackup.read-profile-configuration` |
+| `SaveProfile` | administrative | `io.github.btrfsbackup.save-profile-configuration` |
+| `SaveProfileHooks` | code-execution risk plus administrative | `io.github.btrfsbackup.save-profile-hooks` and `io.github.btrfsbackup.save-profile-configuration` |
+| `DeleteProfile` | administrative | `io.github.btrfsbackup.delete-profile-configuration` |
+| `OpenBrowseSession` | repository access | `io.github.btrfsbackup.open-browse-session` |
+| `CloseBrowseSession` | session ownership | none |
+| `ResolveBackupCoverage` | none | none |
 
 Operational backup controls are allowed without a password from the active
 local session. The profile and hooks remain root-owned, so this grants control
@@ -181,10 +212,7 @@ polkit to authorize every call from the active graphical session; the policy,
 rather than the daemon, provides the narrow passwordless grants described
 above.
 
-## Planned Profile And Hook Writes
-
-The methods in this section are an accepted API design, not part of the
-implemented `Manager1` surface. Their implementation remains roadmap work.
+## Profile And Hook Writes
 
 `SaveProfile` must parse and fully validate canonical profile data before it
 requests authorization. System paths are application configuration and are not
@@ -192,17 +220,15 @@ accepted in profile input.
 
 The manager must compare the validated hook set with the currently stored hook
 set. A save that adds, removes, reorders, or changes a hook program, argument,
-or timeout requires both `io.github.btrfsbackup.save-profile` and
-`io.github.btrfsbackup.change-hooks`. The same rule applies when creating a new
-profile containing hooks. An empty or omitted hook list must not erase existing
-hooks unless the hook-change authorization was granted.
+or timeout requires both `io.github.btrfsbackup.save-profile-configuration` and
+`io.github.btrfsbackup.save-profile-hooks`. The same rule applies when creating
+a new profile containing hooks. An empty or omitted hook list must not erase
+existing hooks unless the hook-change authorization was granted.
 
-`ChangeHooks` will be a separate high-risk method for clients that edit hooks
-directly. It is not an alternative path around `SaveProfile`: both methods use
-the same validation, trusted hook directory restrictions, atomic persistence,
-and, once delivered, stable audit event generation. Authorization must be
-checked immediately before the commit and bound to the calling D-Bus
-connection.
+`SaveProfileHooks` is the high-risk path for a draft that changes hooks. It is
+not an alternative around normal profile authorization: it requires both hook
+and profile-save authorization and uses the same validation, trusted hook
+directory restrictions, atomic persistence and audit boundary.
 
 `SaveProfile` exposes `configuration.save_failed` when the transaction fails
 and the previous configuration is restored. If any rollback operation fails,
@@ -214,8 +240,7 @@ keeps a mixed installation inactive.
 
 ## Operation Rules
 
-Unless a rule is marked as planned, it describes the implemented operational
-API.
+These rules describe the implemented API unless explicitly marked otherwise.
 
 - `GetHistorySanitized` uses bounded pagination and returns stable codes plus
   presentation-safe labels, never the private history document.
@@ -223,9 +248,17 @@ API.
 - `GetDeviceState` returns lifecycle, safe-removal and optional filesystem-space
   state, not device nodes or storage identifiers. Its Btrfs capacity and usage
   values are `statvfs` approximations, not chunk or qgroup accounting.
-- `StartBackup`, `CancelBackup`, `EjectTarget`, and `ValidateTarget` re-check the
-  selected profile and target after authorization; object paths or identifiers
-  cannot stand in for authorization.
+- `StartBackup`, `CancelBackup`, `EjectTarget`, `ValidateTarget`, and
+  `SetProfileEnabled` re-check the selected profile and target after
+  authorization; object paths or identifiers cannot stand in for
+  authorization.
+- `SetProfileEnabled` loads the current root-owned profile and republishes its
+  managed artifacts transactionally, changing only automatic activation.
+- Profile saves and deletes compare the submitted generation and fingerprint
+  before authorization and immediately before commit.
+- Browse sessions are bound to the unique caller bus name and UID, expose only
+  a verified read-only root and close on request, disconnect, expiry or daemon
+  shutdown.
 - Planned: `PrepareDevice` requires explicit destructive-operation confirmation
   in addition to polkit authorization and revalidates the selected block device
   immediately before modification.
@@ -248,11 +281,10 @@ API.
 
 ## Required Tests
 
-The system API test target verifies unauthenticated reads, all four change
-signals, recreation of an initially absent status root, distinct action
-identifiers and caller subjects, caller disappearance during an authorization
-prompt, profile-version races, mismatched cancellation, malformed input and
-manager restart. Inactive-session behavior and cross-action policy delegation
-remain packaging/system integration concerns.
-Planned administrative API tests must also prove that `SaveProfile` cannot add
-or alter hooks with only the profile-save authorization.
+The system API tests verify unauthenticated reads, all four change signals,
+recreation of an initially absent status root, distinct action identifiers and
+caller subjects, caller disappearance during authorization, profile-version
+races, hook authorization, browse-session ownership and cleanup, mismatched
+cancellation, malformed input and manager restart. Inactive-session behavior
+and cross-action policy delegation remain packaging/system integration
+concerns.

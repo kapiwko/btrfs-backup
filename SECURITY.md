@@ -2,13 +2,13 @@
 
 ## Supported Versions
 
-Security fixes are provided for the latest `3.2.x` release line. Older release
+Security fixes are provided for the latest `4.0.x` release line. Older release
 lines and unreleased development snapshots are not supported security branches.
 
 | Version | Supported |
 |---|---|
-| `3.2.x` | Yes |
-| `< 3.2` | No |
+| `4.0.x` | Yes |
+| `< 4.0` | No |
 
 This table will be updated when a newer release line becomes supported.
 
