@@ -4,6 +4,7 @@
 
 #include <state/projection/RunStatusProjection.hpp>
 
+#include <algorithm>
 #include <utility>
 
 #include <state/query/RunHistory.hpp>
@@ -52,12 +53,14 @@ void RunStatusProjection::on_backup_run_event(const btrfsbackup::backup::BackupR
         pending_action_failure_.reset();
         run_started_ = data.kind == btrfsbackup::backup::BackupRunEventKind::RunStarted;
         last_overall_progress_ = -1;
+        run_bytes_processed_ = 0;
         operation_kind_ = data.operation_kind;
     } else if (data.kind == btrfsbackup::backup::BackupRunEventKind::RunStarted) {
         publication_policy_.reset();
         run_started_ = true;
         pending_action_failure_.reset();
         last_overall_progress_ = -1;
+        run_bytes_processed_ = 0;
         operation_kind_ = data.operation_kind;
     }
     if (data.kind == btrfsbackup::backup::BackupRunEventKind::TargetValidationCompleted) {
@@ -79,6 +82,9 @@ void RunStatusProjection::on_backup_run_event(const btrfsbackup::backup::BackupR
     }
 
     RunStatus status = builder_.build(data, last_overall_progress_);
+    run_bytes_processed_ = std::max(run_bytes_processed_, status.progress.run_processed_bytes);
+    if (is_terminal_event(data.kind))
+        status.progress.run_processed_bytes = run_bytes_processed_;
     if (status.progress.overall_percent.has_value()) {
         last_overall_progress_ = *status.progress.overall_percent;
     }

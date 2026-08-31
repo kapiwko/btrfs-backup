@@ -129,7 +129,6 @@ TransientUnitRequest authorized_target_eject_unit(const AuthorizedOperationConte
         installed_program("btrfs-backupctl"),
         "target",
         "eject",
-        "--from-service",
         "--profile",
         profile_id,
     };

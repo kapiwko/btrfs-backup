@@ -228,6 +228,8 @@ void test_status_sink_writes_current_and_terminal_history() {
     test_helpers::expect_true("current activity", current_data.at("activity") == "preparing", "wrong public activity");
     test_helpers::expect_true("history absent before terminal", !fs::exists(root / "history" / "default"), "history should wait for terminal event");
 
+    sink.on_backup_run_event(transfer_progress());
+
     const btrfsbackup::backup::RunCompleted completed{
         .profile_id = btrfsbackup::ProfileId{"default"},
         .run_id = btrfsbackup::RunId{"20260823T120000Z-123-456"},
@@ -237,6 +239,7 @@ void test_status_sink_writes_current_and_terminal_history() {
     btrfsbackup::config::json::Json history_data = btrfsbackup::config::json::load_json_file(history);
     test_helpers::expect_true("history state", history_data.at("state") == "succeeded", "wrong history state");
     test_helpers::expect_true("history phase", history_data.at("phase") == "succeeded", "wrong history phase");
+    test_helpers::expect_true("history transfer size", history_data.at("runBytesProcessed") == 12288, "terminal history lost transferred bytes");
     test_helpers::expect_true("last history exists", fs::is_regular_file(root / "history" / "default" / "last.json"), "missing last history");
     fs::remove_all(root);
 }
