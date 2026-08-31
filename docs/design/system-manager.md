@@ -36,6 +36,7 @@ StartBackup
 CancelBackup
 ValidateTarget
 EjectTarget
+GetProfileDetails
 GetProfileForEditing
 ValidateProfileDraft
 SaveProfile

@@ -69,6 +69,18 @@ EditableProfile ProfileAdministrationService::get_profile_for_editing(
     return *profile;
 }
 
+ProfileDetails ProfileAdministrationService::get_profile_details(const std::string& profile_id) const {
+    const auto profile = backend_.find_profile(ProfileId(profile_id));
+    if (!profile.has_value())
+        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::NotFound, "profile does not exist");
+    return {
+        .profile_id = profile->profile_id,
+        .generation = profile->generation,
+        .fingerprint = profile->fingerprint,
+        .document = profile->document,
+    };
+}
+
 ProfileDraftResult ProfileAdministrationService::validate_profile_draft(
     const std::string& caller,
     const std::string& profile_id,

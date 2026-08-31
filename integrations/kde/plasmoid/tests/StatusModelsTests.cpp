@@ -74,7 +74,7 @@ void test_history_validation_and_reset() {
     BackupHistoryModel model;
     expect(
         model.apply(QStringLiteral(R"([{
-            "schemaVersion": 2,
+            "schemaVersion": 3,
             "state": "succeeded",
             "errorCode": "",
             "sourceName": "Home",
@@ -82,7 +82,8 @@ void test_history_validation_and_reset() {
             "startedAt": "2026-08-30T12:30:00Z",
             "finishedAt": "2026-08-30T12:34:56Z",
             "sourceCount": 2,
-            "overallProgress": 100
+            "overallProgress": 100,
+            "bytesTransferred": 4294967296
         }])")),
         "history was rejected"
     );

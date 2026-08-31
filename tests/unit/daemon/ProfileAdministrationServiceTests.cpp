@@ -36,7 +36,9 @@ class Authorizer final : public IManagerAuthorizer {
             during(action);
         return allowed;
     }
-    bool caller_is_active(const std::string&) override { return active; }
+    bool caller_is_active(const std::string&) override {
+        return active;
+    }
 };
 
 class Backend final : public IProfileAdministrationBackend {
@@ -47,7 +49,9 @@ class Backend final : public IProfileAdministrationBackend {
     int deletes = 0;
     bool hooks_allowed = false;
 
-    std::optional<EditableProfile> find_profile(const ProfileId&) const override { return current; }
+    std::optional<EditableProfile> find_profile(const ProfileId&) const override {
+        return current;
+    }
     ProfileDraftResult validate_draft(const ProfileId& id, const std::string& document) const override {
         ++const_cast<Backend*>(this)->validations;
         return {std::string(id.value()), {}, {}, document, true};
@@ -89,6 +93,16 @@ void test_validation_precedes_authorization_and_denial_has_no_effect() {
     test_helpers::expect_true("denied save", backend.saves == 0, "denied request reached commit");
 }
 
+void test_profile_details_do_not_request_authorization() {
+    Authorizer authorizer;
+    authorizer.allowed = false;
+    Backend backend;
+    ProfileAdministrationService service(authorizer, backend);
+    const auto details = service.get_profile_details("default");
+    test_helpers::expect_eq("details profile", details.profile_id, "default");
+    test_helpers::expect_true("details authorization", authorizer.actions.empty(), "read-only details requested authorization");
+}
+
 void test_conflicts_before_and_during_authorization() {
     Authorizer authorizer;
     Backend backend;
@@ -118,9 +132,9 @@ void test_hook_save_requires_both_authorizations() {
     test_helpers::expect_true(
         "separate hook actions",
         authorizer.actions == std::vector{
-            ManagerAuthorizationAction::SaveProfileHooks,
-            ManagerAuthorizationAction::SaveProfileConfiguration,
-        },
+                                  ManagerAuthorizationAction::SaveProfileHooks,
+                                  ManagerAuthorizationAction::SaveProfileConfiguration,
+                              },
         "hook save did not require both policies"
     );
     test_helpers::expect_eq(
@@ -167,6 +181,7 @@ void test_profile_activation_has_dedicated_authorization() {
 } // namespace
 
 int main() {
+    test_profile_details_do_not_request_authorization();
     test_validation_precedes_authorization_and_denial_has_no_effect();
     test_conflicts_before_and_during_authorization();
     test_hook_save_requires_both_authorizations();

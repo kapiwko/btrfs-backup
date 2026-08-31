@@ -35,8 +35,16 @@ void BackupKcm::openSupportPage() {
     QDesktopServices::openUrl(QUrl(QStringLiteral("https://github.com/kapiwko/btrfs-backup/issues")));
 }
 
+QString BackupKcm::toLocalFile(const QUrl& url) const {
+    return url.toLocalFile();
+}
+
 ProfileConfigurationModel* BackupKcm::profileConfiguration() {
     return &profile_configuration_;
+}
+
+ProfileHistoryModel* BackupKcm::profileHistory() {
+    return &profile_history_;
 }
 
 } // namespace btrfsbackup::kde::kcm

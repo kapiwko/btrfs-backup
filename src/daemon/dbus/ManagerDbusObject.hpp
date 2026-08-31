@@ -42,6 +42,7 @@ class ManagerDbusObject final {
     int handle_cancel_backup(sd_bus_message* message, sd_bus_error* error) noexcept;
     int handle_validate_target(sd_bus_message* message, sd_bus_error* error) noexcept;
     int handle_eject_target(sd_bus_message* message, sd_bus_error* error) noexcept;
+    int handle_get_profile_details(sd_bus_message* message, sd_bus_error* error) noexcept;
     int handle_get_profile_for_editing(sd_bus_message* message, sd_bus_error* error) noexcept;
     int handle_validate_profile_draft(sd_bus_message* message, sd_bus_error* error) noexcept;
     int handle_save_profile(sd_bus_message* message, sd_bus_error* error) noexcept;
