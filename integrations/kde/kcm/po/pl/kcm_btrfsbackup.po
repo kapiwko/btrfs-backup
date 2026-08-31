@@ -463,7 +463,7 @@ msgstr "Dodaj źródło"
 
 #: integrations/kde/kcm/ui/ProfileSources.qml:66
 msgid "Unknown subvolume"
-msgstr "Nieznane subvolume"
+msgstr "Nieznany podwolumin"
 
 #: integrations/kde/kcm/ui/ProfileSources.qml:70
 msgid "%1 local / %2 target"
@@ -536,7 +536,7 @@ msgstr "Pomoc"
 
 #: integrations/kde/kcm/ui/SourceDialog.qml:76
 msgid "Btrfs subvolume:"
-msgstr "Subvolume Btrfs:"
+msgstr "Podwolumin Btrfs:"
 
 #: integrations/kde/kcm/ui/SourceDialog.qml:90
 msgid "Local snapshots"
@@ -551,7 +551,7 @@ msgid ""
 "The subvolume binding cannot be changed. Remove this source and add a new "
 "one instead."
 msgstr ""
-"Powiązania subvolume nie można zmienić. Usuń to źródło i dodaj zamiast niego "
+"Powiązania podwoluminu nie można zmienić. Usuń to źródło i dodaj zamiast niego "
 "nowe."
 
 #: integrations/kde/kcm/ui/TechnicalDetails.qml:27
@@ -661,22 +661,22 @@ msgstr "Menedżer kopii zapasowych zwrócił nieprawidłową historię kopii."
 #~ msgstr "Edytuj ustawienia profilu"
 
 msgid "A configured source subvolume does not exist."
-msgstr "Skonfigurowany subvolume źródłowy nie istnieje."
+msgstr "Skonfigurowany podwolumin źródłowy nie istnieje."
 
 msgid "A configured source path is not a Btrfs subvolume."
-msgstr "Skonfigurowana ścieżka źródłowa nie jest subvolume Btrfs."
+msgstr "Skonfigurowana ścieżka źródłowa nie jest podwoluminem Btrfs."
 
 msgid "A configured source subvolume cannot be inspected."
-msgstr "Nie można sprawdzić skonfigurowanego subvolume źródłowego."
+msgstr "Nie można sprawdzić skonfigurowanego podwoluminu źródłowego."
 
 msgid "The selected source subvolume does not exist."
-msgstr "Wybrany subvolume źródłowy nie istnieje."
+msgstr "Wybrany podwolumin źródłowy nie istnieje."
 
 msgid "The selected source path is not a Btrfs subvolume."
-msgstr "Wybrana ścieżka źródłowa nie jest subvolume Btrfs."
+msgstr "Wybrana ścieżka źródłowa nie jest podwoluminem Btrfs."
 
 msgid "The selected source subvolume cannot be inspected."
-msgstr "Nie można sprawdzić wybranego subvolume źródłowego."
+msgstr "Nie można sprawdzić wybranego podwoluminu źródłowego."
 
 msgid "Today at %1"
 msgstr "Dzisiaj o %1"

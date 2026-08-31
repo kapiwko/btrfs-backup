@@ -62,10 +62,8 @@ QQC2.Dialog {
         sourceIndex = index
         editingSubvolume = source.subvolume || ""
         nameField.text = source.name || source.id || ""
-        const value = source.subvolume || ""
-        const candidateIndex = root.sourceCandidates.indexOf(value)
-        subvolumeField.currentIndex = candidateIndex
-        subvolumeField.editText = value
+        subvolumeField.currentIndex = 0
+        subvolumeField.editText = editingSubvolume
         localRetention.value = source.localRetention || 30
         targetRetention.value = source.remoteRetention || 30
         open()
@@ -87,6 +85,7 @@ QQC2.Dialog {
             }
             QQC2.ComboBox {
                 id: subvolumeField
+                objectName: "subvolumeField"
                 Kirigami.FormData.label: translations.i18n("Btrfs subvolume:")
                 Layout.preferredWidth: Kirigami.Units.gridUnit * 22
                 editable: !root.editing

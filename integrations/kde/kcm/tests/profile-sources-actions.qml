@@ -52,13 +52,16 @@ Item {
         function test_clickingSourceOpensEditor() {
             const row = findChild(sources, "sourceRow")
             const dialog = findChild(sources, "sourceDialog")
+            const subvolume = findChild(sources, "subvolumeField")
             verify(row !== null)
             verify(dialog !== null)
+            verify(subvolume !== null)
 
             mouseClick(row, 10, row.height / 2)
 
             tryCompare(dialog, "visible", true)
             compare(dialog.editing, true)
+            compare(subvolume.currentText, "/home")
             dialog.close()
         }
     }
