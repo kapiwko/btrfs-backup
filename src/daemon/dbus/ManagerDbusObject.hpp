@@ -58,6 +58,7 @@ class ManagerDbusObject final {
 
     int set_callback_error(sd_bus_error* error, const std::exception* exception);
     static int reply_json(sd_bus_message* message, const std::string& payload);
+    static void emit_device_state_changed(sd_bus_message* message, const std::string& profile_id) noexcept;
     int reply_operational_json(
         sd_bus_message* message,
         sd_bus_error* error,
