@@ -677,3 +677,15 @@ msgstr "Wybrana ścieżka źródłowa nie jest subvolume Btrfs."
 
 msgid "The selected source subvolume cannot be inspected."
 msgstr "Nie można sprawdzić wybranego subvolume źródłowego."
+
+msgid "Today at %1"
+msgstr "Dzisiaj o %1"
+
+msgid "Yesterday at %1"
+msgstr "Wczoraj o %1"
+
+msgid "1 day ago at %2"
+msgid_plural "%1 days ago at %2"
+msgstr[0] "1 dzień temu o %2"
+msgstr[1] "%1 dni temu o %2"
+msgstr[2] "%1 dni temu o %2"

@@ -115,8 +115,7 @@ ColumnLayout {
         QQC2.Label { text: translations.i18n("Last successful backup:"); opacity: 0.65 }
         QQC2.Label {
             Layout.fillWidth: true
-            text: root.dateTime(root.profileStatus.run.lastSuccessAt,
-                                translations.i18n("No successful backup"))
+            text: root.lastSuccessDateTime(root.profileStatus.run.lastSuccessAt)
         }
         QQC2.Label {
             visible: root.profileStatus.target.storageKnown
@@ -177,6 +176,25 @@ ColumnLayout {
     function dateTime(value, fallback) {
         const parsed = Date.parse(value)
         return isNaN(parsed) ? fallback : Qt.formatDateTime(new Date(parsed), Locale.ShortFormat)
+    }
+
+    function lastSuccessDateTime(value) {
+        const timestamp = Date.parse(value)
+        if (isNaN(timestamp))
+            return translations.i18n("No successful backup")
+        const completed = new Date(timestamp)
+        const today = new Date()
+        const completedDay = new Date(completed.getFullYear(), completed.getMonth(), completed.getDate())
+        const todayDay = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+        const days = Math.round((todayDay.getTime() - completedDay.getTime()) / 86400000)
+        const time = Qt.formatTime(completed, Locale.ShortFormat)
+        if (days === 0)
+            return translations.i18n("Today at %1", time)
+        if (days === 1)
+            return translations.i18n("Yesterday at %1", time)
+        if (days > 1 && days < 7)
+            return translations.i18np("1 day ago at %2", "%1 days ago at %2", days, time)
+        return Qt.formatDateTime(completed, "d MMMM yyyy, HH:mm")
     }
 
 }
