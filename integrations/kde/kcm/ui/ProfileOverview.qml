@@ -17,6 +17,7 @@ ColumnLayout {
     required property var statusTextFor
     required property var targetStateTextFor
     required property var runningStateFor
+    readonly property bool authorizationError: root.editor !== null && root.editor.errorCode.endsWith(".NotAuthorized")
 
     spacing: Kirigami.Units.largeSpacing
 
@@ -28,11 +29,19 @@ ColumnLayout {
     Kirigami.InlineMessage {
         Layout.fillWidth: true
         visible: root.editor !== null && root.editor.errorMessage.length > 0
-        type: Kirigami.MessageType.Error
-        text: root.editor !== null
-            ? translations.i18nc("error message followed by a stable diagnostic code",
-                "%1 (code: %2)", root.editor.errorMessage, root.editor.errorCode)
-            : ""
+        type: root.authorizationError ? Kirigami.MessageType.Warning : Kirigami.MessageType.Error
+        text: root.errorText()
+    }
+
+    Timer {
+        id: authorizationErrorTimer
+
+        interval: 7000
+        running: root.authorizationError
+        onTriggered: {
+            if (root.editor !== null && typeof root.editor.clearError === "function")
+                root.editor.clearError();
+        }
     }
 
     ProfileDetails {
@@ -48,22 +57,14 @@ ColumnLayout {
         spacing: Kirigami.Units.smallSpacing
 
         QQC2.Button {
-            icon.name: root.runningStateFor(root.profileStatus.run.state)
-                ? "media-playback-stop-symbolic"
-                : "media-playback-start-symbolic"
-            text: root.runningStateFor(root.profileStatus.run.state)
-                ? translations.i18n("Cancel backup")
-                : translations.i18n("Start backup")
-            enabled: root.profileStatus.managerConnected
-                && !root.profileStatus.operationPending
-                && (root.runningStateFor(root.profileStatus.run.state)
-                    ? root.profileStatus.run.canCancel
-                    : root.profileStatus.target.connected)
+            icon.name: root.runningStateFor(root.profileStatus.run.state) ? "media-playback-stop-symbolic" : "media-playback-start-symbolic"
+            text: root.runningStateFor(root.profileStatus.run.state) ? translations.i18n("Cancel backup") : translations.i18n("Start backup")
+            enabled: root.profileStatus.managerConnected && !root.profileStatus.operationPending && (root.runningStateFor(root.profileStatus.run.state) ? root.profileStatus.run.canCancel : root.profileStatus.target.connected)
             onClicked: {
                 if (root.runningStateFor(root.profileStatus.run.state))
-                    root.profileStatus.cancelBackup()
+                    root.profileStatus.cancelBackup();
                 else
-                    root.profileStatus.startBackup()
+                    root.profileStatus.startBackup();
             }
         }
         QQC2.Button {
@@ -77,11 +78,20 @@ ColumnLayout {
             icon.name: "media-eject-symbolic"
             text: translations.i18n("Eject")
             visible: root.profileStatus.target.connected
-            enabled: root.profileStatus.managerConnected
-                && !root.profileStatus.operationPending
-                && !root.runningStateFor(root.profileStatus.run.state)
+            enabled: root.profileStatus.managerConnected && !root.profileStatus.operationPending && !root.runningStateFor(root.profileStatus.run.state)
             onClicked: root.profileStatus.ejectTarget()
         }
-        Item { Layout.fillWidth: true }
+        Item {
+            Layout.fillWidth: true
+        }
+    }
+
+    function errorText() {
+        if (root.editor === null || root.editor.errorMessage.length === 0)
+            return "";
+        if (root.authorizationError) {
+            return translations.i18n("The operation was cancelled or you do not have permission to perform it.");
+        }
+        return translations.i18nc("error message followed by a stable diagnostic code", "%1 (code: %2)", root.editor.errorMessage, root.editor.errorCode);
     }
 }

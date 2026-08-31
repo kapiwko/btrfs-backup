@@ -157,6 +157,10 @@ void ProfileConfigurationModel::discard() {
     emit draftChanged();
 }
 
+void ProfileConfigurationModel::clearError() {
+    setError({}, {});
+}
+
 void ProfileConfigurationModel::setName(const QString& value) {
     if (!loaded_ || name() == value)
         return;
