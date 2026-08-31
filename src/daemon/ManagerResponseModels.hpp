@@ -37,6 +37,8 @@ struct ProfileSummary {
     bool enabled = true;
     std::string target_name;
     std::vector<ProfileSourceSummary> sources;
+    bool configuration_valid = true;
+    std::string configuration_error_code;
 };
 
 using PublicRunStatus = btrfsbackup::state::document::PublicRunStatusV3;

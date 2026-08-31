@@ -35,6 +35,14 @@ ProfileConfigurationModel::ProfileConfigurationModel(QObject* parent)
             loadDetails(profileId());
         }
     });
+    connect(&manager_events_, &btrfsbackup::kde::ManagerEventSubscriber::deviceStateChanged, this, [this](const QString& profile_id) {
+        if (!loaded_ || profile_id != profileId())
+            return;
+        if (busy_)
+            refresh_pending_ = true;
+        else
+            loadDetails(profile_id);
+    });
 }
 
 QString ProfileConfigurationModel::profileId() const {
@@ -57,6 +65,15 @@ QVariantMap ProfileConfigurationModel::settings() const {
 }
 QVariantList ProfileConfigurationModel::sources() const {
     return profile_.value(QStringLiteral("sources")).toArray().toVariantList();
+}
+QVariantList ProfileConfigurationModel::sourceCandidates() const {
+    return source_candidates_;
+}
+bool ProfileConfigurationModel::configurationValid() const {
+    return configuration_valid_;
+}
+QString ProfileConfigurationModel::configurationErrorCode() const {
+    return configuration_error_code_;
 }
 int ProfileConfigurationModel::schemaVersion() const {
     return profile_.value(QStringLiteral("schemaVersion")).toInt();
@@ -239,6 +256,9 @@ bool ProfileConfigurationModel::applyEnvelope(const QString& payload) {
     profile_ = envelope.value(QStringLiteral("document")).toObject();
     generation_ = envelope.value(QStringLiteral("generation")).toString();
     fingerprint_ = envelope.value(QStringLiteral("fingerprint")).toString();
+    source_candidates_ = envelope.value(QStringLiteral("sourceCandidates")).toArray().toVariantList();
+    configuration_valid_ = envelope.value(QStringLiteral("configurationValid")).toBool(true);
+    configuration_error_code_ = envelope.value(QStringLiteral("configurationErrorCode")).toString();
     loaded_ = true;
     emit profileChanged();
     return true;

@@ -76,6 +76,20 @@ void test_invalid_parent_is_rejected() {
     );
 }
 
+void test_profile_configuration_health_is_decoded() {
+    const auto profiles = btrfsbackup::kde::parse_profiles(QStringLiteral(R"([{
+        "schemaVersion":2,"profileId":"default","name":"Default","enabled":true,
+        "targetName":"Backup disk","sources":[],"configurationValid":false,
+        "configurationErrorCode":"configuration.source_missing"
+    }])"));
+    expect(profiles.has_value() && profiles->size() == 1, "profile summary was rejected");
+    expect(profiles.has_value() && !profiles->front().configuration_valid, "configuration health was ignored");
+    expect(
+        profiles.has_value() && profiles->front().configuration_error_code == QStringLiteral("configuration.source_missing"),
+        "configuration health code was ignored"
+    );
+}
+
 void test_browse_session_requires_read_only_absolute_root() {
     const auto session = btrfsbackup::kde::parse_browse_session(QStringLiteral(R"({
         "schemaVersion": 1,
@@ -112,6 +126,7 @@ int main() {
     test_complete_and_missing_storage();
     test_invalid_storage_preserves_target_state();
     test_invalid_parent_is_rejected();
+    test_profile_configuration_health_is_decoded();
     test_browse_session_requires_read_only_absolute_root();
     test_backup_coverage_is_sanitized();
     if (failures == 0) {

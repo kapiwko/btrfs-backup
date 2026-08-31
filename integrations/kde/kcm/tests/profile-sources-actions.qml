@@ -22,6 +22,7 @@ Item {
             localRetention: 30,
             remoteRetention: 30
         }]
+        property var sourceCandidates: ["/home", "/srv/work"]
     }
 
     KcmUi.ProfileSources {

@@ -115,6 +115,8 @@ std::optional<QList<ProfileSummary>> parse_profiles(const QString& payload) {
             .enabled = object.value(QStringLiteral("enabled")).toBool(true),
             .target_name = object.value(QStringLiteral("targetName")).toString(),
             .sources = {},
+            .configuration_valid = object.value(QStringLiteral("configurationValid")).toBool(true),
+            .configuration_error_code = object.value(QStringLiteral("configurationErrorCode")).toString(),
         };
         const QJsonValue sources = object.value(QStringLiteral("sources"));
         if (profile.id.isEmpty() || !sources.isArray()) {

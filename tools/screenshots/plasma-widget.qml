@@ -31,6 +31,8 @@ Window {
 
         property bool managerConnected: true
         property bool profileEnabled: true
+        property bool configurationValid: true
+        property string configurationErrorCode: ""
         property bool operationPending: false
         property bool browseSupported: true
         property string lastError: ""
@@ -85,6 +87,8 @@ Window {
 
         property bool managerConnected: true
         property bool profileEnabled: false
+        property bool configurationValid: true
+        property string configurationErrorCode: ""
         property bool operationPending: false
         property bool browseSupported: true
         property string lastError: ""
