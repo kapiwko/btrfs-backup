@@ -52,10 +52,11 @@ caller owns the active graphical session.
 
 The complete method and action matrix is defined in
 [system-dbus-api.md](system-dbus-api.md). The system bus policy is deny-by-default:
-only sanitized read methods are available without polkit, operational methods
-have distinct actions, and profile, device-preparation, and hook changes require
-fresh administrator authorization. `SaveProfile` cannot be used to smuggle a
-hook change through the lower-risk profile authorization.
+only sanitized read methods are available without polkit and operational methods
+have distinct actions. Ordinary profile changes use narrow domain operations and
+one retained administrator authorization. They never accept hooks, key paths or
+a complete profile document; hook and device-provisioning APIs remain outside
+this lower-risk boundary.
 
 Every external command receives a newly built environment containing only
 `PATH=/usr/bin`, `LANG=C.UTF-8`, `LC_ALL=C.UTF-8`, and `HOME=/root`. Variables

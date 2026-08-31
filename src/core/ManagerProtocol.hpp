@@ -10,8 +10,8 @@ inline constexpr char service_name[] = "io.github.btrfsbackup.Manager1";
 inline constexpr char object_path[] = "/io/github/btrfsbackup/Manager1";
 inline constexpr char interface_name[] = "io.github.btrfsbackup.Manager1";
 
-inline constexpr int api_major = 1;
-inline constexpr int api_minor = 9;
+inline constexpr int api_major = 2;
+inline constexpr int api_minor = 0;
 inline constexpr int capabilities_schema_version = 1;
 inline constexpr int profile_schema_version = 4;
 inline constexpr int profile_summary_schema_version = 1;
@@ -20,7 +20,7 @@ inline constexpr int history_schema_version = 3;
 inline constexpr int device_state_schema_version = 1;
 inline constexpr int target_storage_schema_version = 1;
 inline constexpr int operation_result_schema_version = 1;
-inline constexpr int profile_edit_schema_version = 1;
+inline constexpr int profile_details_schema_version = 1;
 inline constexpr int browse_session_schema_version = 1;
 
 namespace feature {
@@ -38,7 +38,6 @@ inline constexpr char change_signals[] = "change-signals";
 inline constexpr char browse_backups[] = "browse-backups";
 inline constexpr char profile_administration[] = "profile-administration";
 inline constexpr char profile_details[] = "profile-details";
-inline constexpr char profile_hook_administration[] = "profile-hook-administration";
 inline constexpr char profile_activation[] = "profile-activation";
 
 } // namespace feature
@@ -54,11 +53,11 @@ inline constexpr char start_backup[] = "StartBackup";
 inline constexpr char cancel_backup[] = "CancelBackup";
 inline constexpr char validate_target[] = "ValidateTarget";
 inline constexpr char eject_target[] = "EjectTarget";
-inline constexpr char get_profile_for_editing[] = "GetProfileForEditing";
 inline constexpr char get_profile_details[] = "GetProfileDetails";
-inline constexpr char validate_profile_draft[] = "ValidateProfileDraft";
-inline constexpr char save_profile[] = "SaveProfile";
-inline constexpr char save_profile_hooks[] = "SaveProfileHooks";
+inline constexpr char update_profile_settings[] = "UpdateProfileSettings";
+inline constexpr char add_profile_source[] = "AddProfileSource";
+inline constexpr char update_profile_source[] = "UpdateProfileSource";
+inline constexpr char remove_profile_source[] = "RemoveProfileSource";
 inline constexpr char delete_profile[] = "DeleteProfile";
 inline constexpr char set_profile_enabled[] = "SetProfileEnabled";
 inline constexpr char open_browse_session[] = "OpenBrowseSession";

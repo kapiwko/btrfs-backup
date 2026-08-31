@@ -74,6 +74,7 @@ add_btrfsbackup_test(
     ProfileAdministrationServiceTests.cpp
     profile-administration-service-tests
     btrfsbackup-daemon-control
+    btrfsbackup-config-json
 )
 
 add_btrfsbackup_test(

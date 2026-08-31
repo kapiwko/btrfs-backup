@@ -45,10 +45,10 @@ schema versions are not advertised as public API versions.
 | `EjectTarget` | `(s profileId)` | `(s)` | completed target eject |
 | `SetProfileEnabled` | `(s profileId, b enabled)` | `(s)` | transactionally enables or disables automatic activation only |
 | `GetProfileDetails` | `(s profileId)` | `(s)` | read-only profile details without hooks or key-file paths |
-| `GetProfileForEditing` | `(s profileId)` | `(s)` | authorized private profile plus generation and fingerprint |
-| `ValidateProfileDraft` | `(s profileId, s generation, s fingerprint, s document)` | `(s)` | validated canonical draft without publishing it |
-| `SaveProfile` | `(s profileId, s generation, s fingerprint, s document)` | `(s)` | transactionally published profile without hook changes |
-| `SaveProfileHooks` | `(s profileId, s generation, s fingerprint, s document)` | `(s)` | transactionally published profile with separately authorized hook changes |
+| `UpdateProfileSettings` | `(s profileId, s generation, s fingerprint, s request)` | `(s)` | changes the display name, daily limit and automatic eject policy |
+| `AddProfileSource` | `(s profileId, s generation, s fingerprint, s request)` | `(s)` | adds a source from its name, subvolume and retention policy |
+| `UpdateProfileSource` | `(s profileId, s sourceId, s generation, s fingerprint, s request)` | `(s)` | changes a source name and retention policy |
+| `RemoveProfileSource` | `(s profileId, s sourceId, s generation, s fingerprint)` | `(s)` | removes a source definition without deleting backup data |
 | `DeleteProfile` | `(s profileId, s generation, s fingerprint)` | `(s)` | transactionally removed profile artifacts |
 | `OpenBrowseSession` | `(s profileId)` | `(s)` | caller-bound, expiring read-only repository session |
 | `CloseBrowseSession` | `(s sessionId)` | `(s)` | closes a session owned by the caller |
@@ -61,11 +61,18 @@ request, so a restart reconstructs the same visible state from current status
 or durable history. Operational methods return schema-versioned
 `OperationResult` documents.
 
+API major version 2 removes the full-document editing methods and replaces them
+with bounded profile settings and source operations. Each mutation validates and
+atomically republishes the complete profile internally, while preserving fields
+that are not part of its request. All successful responses use the sanitized
+profile envelope with a new generation and fingerprint. The minor version is
+reset to 0 because clients built for API major version 1 are not compatible with
+this contract.
+
 API minor version 9 adds `GetProfileDetails` and the `profile-details` feature.
 The method supports read-only configuration views without authorization. Its
 profile envelope retains source, target and behavior fields, but removes hook
-commands and the activation key-file path. Clients must use the authorized
-`GetProfileForEditing` method before constructing a document that can be saved.
+commands and the activation key-file path.
 This version also advances sanitized history to schema version 3 and adds the
 privacy-safe `bytesTransferred` total for completed synchronization summaries.
 
@@ -155,7 +162,7 @@ current sanitized document with the corresponding read method:
 
 | Signal | Signature | Invalidates |
 |---|---|---|
-| `ProfilesChanged` | `()` | `ListProfiles` |
+| `ProfilesChanged` | `()` | `ListProfiles`, and `GetProfileDetails` for an open profile |
 | `StatusChanged` | `(s profileId)` | `GetStatus` |
 | `HistoryChanged` | `(s profileId)` | `GetHistorySanitized` |
 | `DeviceStateChanged` | `(s profileId)` | `GetDeviceState` |
@@ -163,8 +170,10 @@ current sanitized document with the corresponding read method:
 The manager derives these signals from inotify changes to public profiles,
 runtime status and private history, plus udev block events and pollable kernel
 mount notifications. Clients load state once after connecting and then react to
-signals; a signal received during an outstanding request must schedule one
-coalesced follow-up read so the last change cannot be lost.
+signals; a signal received during an outstanding read must schedule a coalesced
+follow-up so the last change cannot be lost. A mutating response already carries
+the newly published generation. The KCM refreshes both its profile list and the
+currently open profile, including changes published by the CLI.
 
 ## Method Classes
 
@@ -181,10 +190,10 @@ coalesced follow-up read so the last change cannot be lost.
 | `ValidateTarget` | operational | `io.github.btrfsbackup.validate-target` |
 | `SetProfileEnabled` | operational | `io.github.btrfsbackup.set-profile-enabled` |
 | `GetProfileDetails` | none | none |
-| `GetProfileForEditing` | administrative read | `io.github.btrfsbackup.read-profile-configuration` |
-| `ValidateProfileDraft` | administrative read | `io.github.btrfsbackup.read-profile-configuration` |
-| `SaveProfile` | administrative | `io.github.btrfsbackup.save-profile-configuration` |
-| `SaveProfileHooks` | code-execution risk plus administrative | `io.github.btrfsbackup.save-profile-hooks` and `io.github.btrfsbackup.save-profile-configuration` |
+| `UpdateProfileSettings` | administrative | `io.github.btrfsbackup.manage-profile-configuration` |
+| `AddProfileSource` | administrative | `io.github.btrfsbackup.manage-profile-configuration` |
+| `UpdateProfileSource` | administrative | `io.github.btrfsbackup.manage-profile-configuration` |
+| `RemoveProfileSource` | administrative | `io.github.btrfsbackup.manage-profile-configuration` |
 | `DeleteProfile` | administrative | `io.github.btrfsbackup.delete-profile-configuration` |
 | `OpenBrowseSession` | repository access | `io.github.btrfsbackup.open-browse-session` |
 | `CloseBrowseSession` | session ownership | none |
@@ -204,43 +213,32 @@ the target is in use:
 </defaults>
 ```
 
-The administrative and code-execution-risk actions must require a fresh
-administrator decision and must not use `yes`, `auth_self`, `auth_self_keep`,
-or any implicit active-session grant:
+Ordinary profile mutations share one retained administrator authorization so a
+short editing session does not prompt for every save:
 
 ```xml
 <defaults>
-  <allow_any>auth_admin</allow_any>
+  <allow_any>no</allow_any>
   <allow_inactive>auth_admin</allow_inactive>
-  <allow_active>auth_admin</allow_active>
+  <allow_active>auth_admin_keep</allow_active>
 </defaults>
 ```
 
-Each row has a distinct action identifier so an administrator can delegate one
-operation without implicitly delegating the others. The daemon still asks
-polkit to authorize every call from the active graphical session; the policy,
-rather than the daemon, provides the narrow passwordless grants described
-above.
+The daemon still asks polkit to authorize every mutating call. Polkit scopes the
+temporary retention to the same caller, subject and action identifier. Deleting
+a profile and future hook or device-provisioning operations keep distinct,
+stronger actions.
 
-## Profile And Hook Writes
+## Profile Writes
 
-`SaveProfile` must parse and fully validate canonical profile data before it
-requests authorization. System paths are application configuration and are not
-accepted in profile input.
+Domain requests are JSON objects with an explicit allowlist and a 64 KiB size
+limit. The manager loads the current private profile, checks its generation and
+fingerprint, applies only the fields owned by the operation, validates the full
+canonical profile, authorizes the caller, checks for a race again and publishes
+all managed artifacts atomically. These methods cannot create, erase or modify
+hooks, target identity, key paths or technical layout fields.
 
-The manager must compare the validated hook set with the currently stored hook
-set. A save that adds, removes, reorders, or changes a hook program, argument,
-or timeout requires both `io.github.btrfsbackup.save-profile-configuration` and
-`io.github.btrfsbackup.save-profile-hooks`. The same rule applies when creating
-a new profile containing hooks. An empty or omitted hook list must not erase
-existing hooks unless the hook-change authorization was granted.
-
-`SaveProfileHooks` is the high-risk path for a draft that changes hooks. It is
-not an alternative around normal profile authorization: it requires both hook
-and profile-save authorization and uses the same validation, trusted hook
-directory restrictions, atomic persistence and audit boundary.
-
-`SaveProfile` exposes `configuration.save_failed` when the transaction fails
+Profile writes expose `configuration.save_failed` when the transaction fails
 and the previous configuration is restored. If any rollback operation fails,
 it exposes `configuration.rollback_incomplete` together with the primary save
 failure and per-artifact rollback diagnostics. Clients must present the latter

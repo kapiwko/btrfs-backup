@@ -59,24 +59,24 @@ int eject_target(sd_bus_message* message, void* userdata, sd_bus_error* error) n
     return static_cast<ManagerDbusObject*>(userdata)->handle_eject_target(message, error);
 }
 
-int get_profile_for_editing(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
-    return static_cast<ManagerDbusObject*>(userdata)->handle_get_profile_for_editing(message, error);
-}
-
 int get_profile_details(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
     return static_cast<ManagerDbusObject*>(userdata)->handle_get_profile_details(message, error);
 }
 
-int validate_profile_draft(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
-    return static_cast<ManagerDbusObject*>(userdata)->handle_validate_profile_draft(message, error);
+int update_profile_settings(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
+    return static_cast<ManagerDbusObject*>(userdata)->handle_update_profile_settings(message, error);
 }
 
-int save_profile(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
-    return static_cast<ManagerDbusObject*>(userdata)->handle_save_profile(message, error);
+int add_profile_source(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
+    return static_cast<ManagerDbusObject*>(userdata)->handle_add_profile_source(message, error);
 }
 
-int save_profile_hooks(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
-    return static_cast<ManagerDbusObject*>(userdata)->handle_save_profile_hooks(message, error);
+int update_profile_source(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
+    return static_cast<ManagerDbusObject*>(userdata)->handle_update_profile_source(message, error);
+}
+
+int remove_profile_source(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
+    return static_cast<ManagerDbusObject*>(userdata)->handle_remove_profile_source(message, error);
 }
 
 int delete_profile(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
@@ -111,10 +111,10 @@ const sd_bus_vtable manager_vtable[] = {
     SD_BUS_METHOD(manager_protocol::method::validate_target, "s", "s", validate_target, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD(manager_protocol::method::eject_target, "s", "s", eject_target, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD(manager_protocol::method::get_profile_details, "s", "s", get_profile_details, SD_BUS_VTABLE_UNPRIVILEGED),
-    SD_BUS_METHOD(manager_protocol::method::get_profile_for_editing, "s", "s", get_profile_for_editing, SD_BUS_VTABLE_UNPRIVILEGED),
-    SD_BUS_METHOD(manager_protocol::method::validate_profile_draft, "ssss", "s", validate_profile_draft, SD_BUS_VTABLE_UNPRIVILEGED),
-    SD_BUS_METHOD(manager_protocol::method::save_profile, "ssss", "s", save_profile, SD_BUS_VTABLE_UNPRIVILEGED),
-    SD_BUS_METHOD(manager_protocol::method::save_profile_hooks, "ssss", "s", save_profile_hooks, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD(manager_protocol::method::update_profile_settings, "ssss", "s", update_profile_settings, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD(manager_protocol::method::add_profile_source, "ssss", "s", add_profile_source, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD(manager_protocol::method::update_profile_source, "sssss", "s", update_profile_source, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD(manager_protocol::method::remove_profile_source, "ssss", "s", remove_profile_source, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD(manager_protocol::method::delete_profile, "sss", "s", delete_profile, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD(manager_protocol::method::set_profile_enabled, "sb", "s", set_profile_enabled, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD(manager_protocol::method::open_browse_session, "s", "s", open_browse_session, SD_BUS_VTABLE_UNPRIVILEGED),
@@ -369,22 +369,6 @@ int ManagerDbusObject::handle_eject_target(sd_bus_message* message, sd_bus_error
     );
 }
 
-int ManagerDbusObject::handle_get_profile_for_editing(sd_bus_message* message, sd_bus_error* error) noexcept {
-    return invoke_dbus_callback(
-        [&] {
-            const char* profile_id = nullptr;
-            const int read_result = sd_bus_message_read(message, "s", &profile_id);
-            if (read_result < 0)
-                return read_result;
-            const std::string profile = profile_id == nullptr ? "" : profile_id;
-            return reply_operational_json(message, error, "read-profile-configuration", profile, [&] {
-                return codec_.encode(profile_administration_.get_profile_for_editing(caller_bus_name(message), profile));
-            });
-        },
-        [&](const std::exception* exception) { return set_callback_error(error, exception); }
-    );
-}
-
 int ManagerDbusObject::handle_get_profile_details(sd_bus_message* message, sd_bus_error* error) noexcept {
     return invoke_dbus_callback(
         [&] {
@@ -399,24 +383,24 @@ int ManagerDbusObject::handle_get_profile_details(sd_bus_message* message, sd_bu
     );
 }
 
-int ManagerDbusObject::handle_validate_profile_draft(sd_bus_message* message, sd_bus_error* error) noexcept {
+int ManagerDbusObject::handle_update_profile_settings(sd_bus_message* message, sd_bus_error* error) noexcept {
     return invoke_dbus_callback(
         [&] {
             const char* profile_id = nullptr;
             const char* generation = nullptr;
             const char* fingerprint = nullptr;
-            const char* document = nullptr;
-            const int read_result = sd_bus_message_read(message, "ssss", &profile_id, &generation, &fingerprint, &document);
+            const char* request = nullptr;
+            const int read_result = sd_bus_message_read(message, "ssss", &profile_id, &generation, &fingerprint, &request);
             if (read_result < 0)
                 return read_result;
             const std::string profile = profile_id == nullptr ? "" : profile_id;
-            return reply_operational_json(message, error, "validate-profile-draft", profile, [&] {
-                return codec_.encode(profile_administration_.validate_profile_draft(
+            return reply_operational_json(message, error, "update-profile-settings", profile, [&] {
+                return codec_.encode(profile_administration_.update_profile_settings(
                     caller_bus_name(message),
                     profile,
                     generation == nullptr ? "" : generation,
                     fingerprint == nullptr ? "" : fingerprint,
-                    document == nullptr ? "" : document
+                    request == nullptr ? "" : request
                 ));
             });
         },
@@ -424,24 +408,24 @@ int ManagerDbusObject::handle_validate_profile_draft(sd_bus_message* message, sd
     );
 }
 
-int ManagerDbusObject::handle_save_profile(sd_bus_message* message, sd_bus_error* error) noexcept {
+int ManagerDbusObject::handle_add_profile_source(sd_bus_message* message, sd_bus_error* error) noexcept {
     return invoke_dbus_callback(
         [&] {
             const char* profile_id = nullptr;
             const char* generation = nullptr;
             const char* fingerprint = nullptr;
-            const char* document = nullptr;
-            const int read_result = sd_bus_message_read(message, "ssss", &profile_id, &generation, &fingerprint, &document);
+            const char* request = nullptr;
+            const int read_result = sd_bus_message_read(message, "ssss", &profile_id, &generation, &fingerprint, &request);
             if (read_result < 0)
                 return read_result;
             const std::string profile = profile_id == nullptr ? "" : profile_id;
-            return reply_operational_json(message, error, "save-profile", profile, [&] {
-                return codec_.encode(profile_administration_.save_profile(
+            return reply_operational_json(message, error, "add-profile-source", profile, [&] {
+                return codec_.encode(profile_administration_.add_profile_source(
                     caller_bus_name(message),
                     profile,
                     generation == nullptr ? "" : generation,
                     fingerprint == nullptr ? "" : fingerprint,
-                    document == nullptr ? "" : document
+                    request == nullptr ? "" : request
                 ));
             });
         },
@@ -449,24 +433,51 @@ int ManagerDbusObject::handle_save_profile(sd_bus_message* message, sd_bus_error
     );
 }
 
-int ManagerDbusObject::handle_save_profile_hooks(sd_bus_message* message, sd_bus_error* error) noexcept {
+int ManagerDbusObject::handle_update_profile_source(sd_bus_message* message, sd_bus_error* error) noexcept {
     return invoke_dbus_callback(
         [&] {
             const char* profile_id = nullptr;
+            const char* source_id = nullptr;
             const char* generation = nullptr;
             const char* fingerprint = nullptr;
-            const char* document = nullptr;
-            const int read_result = sd_bus_message_read(message, "ssss", &profile_id, &generation, &fingerprint, &document);
+            const char* request = nullptr;
+            const int read_result = sd_bus_message_read(message, "sssss", &profile_id, &source_id, &generation, &fingerprint, &request);
             if (read_result < 0)
                 return read_result;
             const std::string profile = profile_id == nullptr ? "" : profile_id;
-            return reply_operational_json(message, error, "save-profile-hooks", profile, [&] {
-                return codec_.encode(profile_administration_.save_profile_hooks(
+            return reply_operational_json(message, error, "update-profile-source", profile, [&] {
+                return codec_.encode(profile_administration_.update_profile_source(
                     caller_bus_name(message),
                     profile,
+                    source_id == nullptr ? "" : source_id,
                     generation == nullptr ? "" : generation,
                     fingerprint == nullptr ? "" : fingerprint,
-                    document == nullptr ? "" : document
+                    request == nullptr ? "" : request
+                ));
+            });
+        },
+        [&](const std::exception* exception) { return set_callback_error(error, exception); }
+    );
+}
+
+int ManagerDbusObject::handle_remove_profile_source(sd_bus_message* message, sd_bus_error* error) noexcept {
+    return invoke_dbus_callback(
+        [&] {
+            const char* profile_id = nullptr;
+            const char* source_id = nullptr;
+            const char* generation = nullptr;
+            const char* fingerprint = nullptr;
+            const int read_result = sd_bus_message_read(message, "ssss", &profile_id, &source_id, &generation, &fingerprint);
+            if (read_result < 0)
+                return read_result;
+            const std::string profile = profile_id == nullptr ? "" : profile_id;
+            return reply_operational_json(message, error, "remove-profile-source", profile, [&] {
+                return codec_.encode(profile_administration_.remove_profile_source(
+                    caller_bus_name(message),
+                    profile,
+                    source_id == nullptr ? "" : source_id,
+                    generation == nullptr ? "" : generation,
+                    fingerprint == nullptr ? "" : fingerprint
                 ));
             });
         },

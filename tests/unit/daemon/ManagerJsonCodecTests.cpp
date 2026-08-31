@@ -165,11 +165,6 @@ void test_status_history_and_device() {
     expect_field("operation", operation_document, "runId", operation.run_id);
     expect_field("operation", operation_document, "accepted", true);
 
-    const Json editable = Json::parse(codec.encode(btrfsbackup::daemon::control::EditableProfile{"default", "generation", "fingerprint", R"({"profileId":"default","keyFile":"/private/path"})"}));
-    expect_field("editable schema", editable, "schemaVersion", 1);
-    expect_field("editable fingerprint", editable, "fingerprint", "fingerprint");
-    test_helpers::expect_true("editable document", editable.at("document").is_object(), "document was double encoded");
-
     const Json details = Json::parse(codec.encode(btrfsbackup::daemon::control::ProfileDetails{"default", "generation", "fingerprint", R"({"profileId":"default","target":{"activation":{"mode":"keyFile","keyFile":"/root/key"}},"hooks":{"beforeSnapshot":["secret-command"]}})"}));
     test_helpers::expect_true(
         "details hooks privacy",
@@ -182,9 +177,6 @@ void test_status_history_and_device() {
         "profile details exposed the key path"
     );
     expect_field("details activation", details.at("document").at("target").at("activation"), "mode", "keyFile");
-
-    const Json draft = Json::parse(codec.encode(btrfsbackup::daemon::control::ProfileDraftResult{"default", "generation", "fingerprint", R"({"profileId":"default"})", true}));
-    expect_field("draft valid", draft, "valid", true);
 }
 
 } // namespace
