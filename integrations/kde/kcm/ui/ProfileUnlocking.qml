@@ -17,7 +17,9 @@ ColumnLayout {
         translationDomain: "kcm_btrfsbackup"
     }
 
-    SectionHeading { text: translations.i18n("Unlocking") }
+    SectionHeading {
+        text: translations.i18n("Unlocking")
+    }
 
     RowLayout {
         Layout.fillWidth: true
@@ -37,9 +39,12 @@ ColumnLayout {
 
     function activationTitle(mode) {
         switch (mode) {
-        case "keyFile": return translations.i18n("Key file")
-        case "askPassword": return translations.i18n("Ask for a password")
-        default: return translations.i18n("Unknown unlock method")
+        case "keyFile":
+            return translations.i18n("Key file");
+        case "askPassword":
+            return translations.i18n("Ask for a password");
+        default:
+            return translations.i18n("Unknown unlock method");
         }
     }
 
@@ -48,7 +53,12 @@ ColumnLayout {
         Layout.fillWidth: true
         spacing: Kirigami.Units.smallSpacing
 
-        Kirigami.Heading { text: parent.text; level: 3 }
-        Kirigami.Separator { Layout.fillWidth: true }
+        Kirigami.Heading {
+            text: parent.text
+            level: 3
+        }
+        Kirigami.Separator {
+            Layout.fillWidth: true
+        }
     }
 }

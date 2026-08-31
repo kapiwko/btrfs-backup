@@ -217,12 +217,17 @@ grep -Fq 'connected' <<<"$device" || fail 'device state was not returned'
 if grep -Fq '/dev/null' <<<"$device"; then fail 'device path crossed the bus'; fi
 
 introspection="$($BUSCTL --address="$BUS_ADDRESS" introspect "$SERVICE" "$OBJECT" "$INTERFACE")"
-for method in GetCapabilities ListProfiles GetStatus GetHistorySanitized GetDeviceState StartBackup CancelBackup ValidateTarget EjectTarget GetProfileForEditing ValidateProfileDraft SaveProfile SaveProfileHooks DeleteProfile SetProfileEnabled; do
+for method in GetCapabilities ListProfiles GetStatus GetHistorySanitized GetDeviceState StartBackup CancelBackup ValidateTarget EjectTarget GetProfileDetails GetProfileForEditing ValidateProfileDraft SaveProfile SaveProfileHooks DeleteProfile SetProfileEnabled; do
     grep -Fq "$method" <<<"$introspection" || fail "missing method $method"
 done
 for signal in ProfilesChanged StatusChanged HistoryChanged DeviceStateChanged; do
     grep -Fq "$signal" <<<"$introspection" || fail "missing signal $signal"
 done
+
+profile_details="$(call GetProfileDetails s default)"
+grep -Fq 'fingerprint' <<<"$profile_details" || fail 'profile details omit fingerprint'
+grep -Fq 'generation' <<<"$profile_details" || fail 'profile details omit generation'
+if grep -Fq 'key contents' <<<"$profile_details"; then fail 'secret contents crossed the unauthenticated details method'; fi
 
 touch "$TEST_ROOT/polkit.log.allow"
 editable_profile="$(call GetProfileForEditing s default)"
@@ -383,6 +388,7 @@ BUS_PID="$($DBUS_DAEMON --config-file="$TEST_ROOT/policy-bus.conf" --fork --prin
 start_polkit
 start_daemon
 call GetCapabilities >/dev/null || fail 'policy denied an allowed read method'
+call GetProfileDetails s default >/dev/null || fail 'policy denied unauthenticated profile details'
 set +e
 polkit_output="$(call StartBackup s default 2>&1)"
 polkit_status=$?

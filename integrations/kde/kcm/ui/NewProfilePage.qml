@@ -4,11 +4,15 @@
 import QtQuick
 import QtQuick.Controls as QQC2
 import QtQuick.Layouts
+import org.kde.kcmutils as KCMUtils
 import org.kde.ki18n as KI18n
 import org.kde.kirigami as Kirigami
 
-Item {
+KCMUtils.SimpleKCM {
     id: root
+
+    required property var editor
+    title: translations.i18n("Add backup profile")
 
     KI18n.KI18nContext {
         id: translations

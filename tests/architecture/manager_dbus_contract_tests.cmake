@@ -92,6 +92,10 @@ assert_method(
     "<methodname=\"EjectTarget\"><argname=\"profileId\"type=\"s\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
 )
 assert_method(
+    get_profile_details GetProfileDetails s s
+    "<methodname=\"GetProfileDetails\"><argname=\"profileId\"type=\"s\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
+)
+assert_method(
     get_profile_for_editing GetProfileForEditing s s
     "<methodname=\"GetProfileForEditing\"><argname=\"profileId\"type=\"s\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
 )
@@ -144,8 +148,8 @@ assert_signal(
 
 string(REGEX MATCHALL "<method name=" xml_methods "${manager_xml}")
 list(LENGTH xml_methods method_count)
-if(NOT method_count EQUAL 18)
-    message(FATAL_ERROR "manager XML must declare exactly 18 methods, found ${method_count}")
+if(NOT method_count EQUAL 19)
+    message(FATAL_ERROR "manager XML must declare exactly 19 methods, found ${method_count}")
 endif()
 
 string(REGEX MATCHALL "<signal name=" xml_signals "${manager_xml}")

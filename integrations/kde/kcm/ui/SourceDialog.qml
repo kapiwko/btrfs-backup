@@ -10,11 +10,15 @@ import org.kde.kirigami as Kirigami
 QQC2.Dialog {
     id: root
 
-    required property var editor
     property int sourceIndex: -1
     property bool editing: sourceIndex >= 0
     readonly property bool inputValid: nameField.text.trim().length > 0
         && (editing || subvolumeField.text.trim().startsWith("/"))
+
+    signal addAccepted(string name, string subvolume, int localRetention,
+        int targetRetention)
+    signal editAccepted(int index, string name, int localRetention,
+        int targetRetention)
 
     parent: QQC2.Overlay.overlay
     anchors.centerIn: parent
@@ -30,11 +34,11 @@ QQC2.Dialog {
     onOpened: standardButton(QQC2.Dialog.Ok).enabled = Qt.binding(() => root.inputValid)
     onAccepted: {
         if (editing) {
-            editor.updateSourceConfiguration(
-                sourceIndex, nameField.text, localRetention.value, targetRetention.value)
+            root.editAccepted(sourceIndex, nameField.text,
+                localRetention.value, targetRetention.value)
         } else {
-            editor.addSourceConfiguration(
-                nameField.text, subvolumeField.text, localRetention.value, targetRetention.value)
+            root.addAccepted(nameField.text, subvolumeField.text,
+                localRetention.value, targetRetention.value)
         }
     }
 
