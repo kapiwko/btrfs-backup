@@ -161,6 +161,26 @@ int ManagerDbusObject::reply_json(sd_bus_message* message, const std::string& pa
     return sd_bus_reply_method_return(message, "s", payload.c_str());
 }
 
+void ManagerDbusObject::emit_device_state_changed(
+    sd_bus_message* message,
+    const std::string& profile_id
+) noexcept {
+    sd_bus* bus = sd_bus_message_get_bus(message);
+    if (bus == nullptr)
+        return;
+    const int result = sd_bus_emit_signal(
+        bus,
+        manager_protocol::object_path,
+        manager_protocol::interface_name,
+        manager_protocol::signal::device_state_changed,
+        "s",
+        profile_id.c_str()
+    );
+    if (result < 0)
+        std::cerr << "btrfs-backupd: cannot emit DeviceStateChanged after eject: "
+                  << std::strerror(-result) << '\n';
+}
+
 std::uint32_t ManagerDbusObject::caller_uid(sd_bus_message* message) {
     sd_bus_creds* raw_credentials = nullptr;
     const int query_result = sd_bus_query_sender_creds(
@@ -370,7 +390,9 @@ int ManagerDbusObject::handle_eject_target(sd_bus_message* message, sd_bus_error
                 return read_result;
             const std::string profile = profile_id == nullptr ? "" : profile_id;
             return reply_operational_json(message, error, manager_protocol::feature::eject_target, profile, [&] {
-                return codec_.encode(operational_.eject_target(caller_bus_name(message), profile));
+                const auto result = operational_.eject_target(caller_bus_name(message), profile);
+                emit_device_state_changed(message, profile);
+                return codec_.encode(result);
             });
         },
         [&](const std::exception* exception) { return set_callback_error(error, exception); }

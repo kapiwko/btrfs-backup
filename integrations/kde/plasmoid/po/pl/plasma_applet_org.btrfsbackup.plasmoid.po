@@ -430,7 +430,7 @@ msgid "A backup source does not exist"
 msgstr "Źródło kopii zapasowej nie istnieje"
 
 msgid "A backup source is not a Btrfs subvolume"
-msgstr "Źródło kopii zapasowej nie jest subvolume Btrfs"
+msgstr "Źródło kopii zapasowej nie jest podwoluminem Btrfs"
 
 msgid "A backup source cannot be inspected"
 msgstr "Nie można sprawdzić źródła kopii zapasowej"
