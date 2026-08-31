@@ -17,6 +17,13 @@ struct EditableProfile {
     std::string document;
 };
 
+struct ProfileDetails {
+    std::string profile_id;
+    std::string generation;
+    std::string fingerprint;
+    std::string document;
+};
+
 struct ProfileDraftResult {
     std::string profile_id;
     std::string generation;
@@ -46,6 +53,7 @@ class ProfileAdministrationService {
   public:
     ProfileAdministrationService(IManagerAuthorizer& authorizer, IProfileAdministrationBackend& backend);
 
+    [[nodiscard]] ProfileDetails get_profile_details(const std::string& profile_id) const;
     [[nodiscard]] EditableProfile get_profile_for_editing(
         const std::string& caller,
         const std::string& profile_id

@@ -36,6 +36,7 @@ btrfsbackup::daemon::SanitizedHistoryEntry sanitize_private_history(const Privat
         .finished_at = input.finished_at,
         .source_count = input.source_count,
         .overall_progress = input.progress.overall_percent.value_or(-1),
+        .bytes_transferred = input.run_bytes_processed,
     };
 }
 

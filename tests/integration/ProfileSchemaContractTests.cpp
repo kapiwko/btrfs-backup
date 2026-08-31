@@ -12,6 +12,7 @@
 #include <config/json/JsonIo.hpp>
 #include <config/domain/Profile.hpp>
 #include <config/json/ProfileDocument.hpp>
+#include <core/ManagerProtocol.hpp>
 
 namespace fs = std::filesystem;
 
@@ -56,7 +57,17 @@ void test_schema_requires_cpp_required_fields() {
     btrfsbackup::config::json::Json root = schema();
 
     expect_no_additional_properties("schema top additional", root);
-    test_helpers::expect_true("schema version", root.at("properties").at("schemaVersion").at("const") == 4, "profile schema must be version 4");
+    const int schema_version = root.at("properties").at("schemaVersion").at("const").get<int>();
+    test_helpers::expect_true(
+        "schema version",
+        schema_version == btrfsbackup::config::json::current_profile_schema_version,
+        "JSON schema and the C++ profile codec disagree"
+    );
+    test_helpers::expect_true(
+        "manager profile schema version",
+        schema_version == btrfsbackup::manager_protocol::profile_schema_version,
+        "manager capabilities and the canonical profile schema disagree"
+    );
     expect_required("schema top schemaVersion", root, "schemaVersion");
     expect_required("schema top profileId", root, "profileId");
     expect_required("schema top target", root, "target");

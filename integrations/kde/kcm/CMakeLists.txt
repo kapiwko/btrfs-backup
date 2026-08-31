@@ -11,7 +11,10 @@ kcmutils_add_qml_kcm(
         BackupKcm.hpp
         ProfileConfigurationModel.cpp
         ProfileConfigurationModel.hpp
+        ProfileHistoryModel.cpp
+        ProfileHistoryModel.hpp
 )
+set_target_properties(kcm_btrfsbackup PROPERTIES PREFIX "")
 target_compile_features(kcm_btrfsbackup PRIVATE cxx_std_23)
 target_link_libraries(
     kcm_btrfsbackup
