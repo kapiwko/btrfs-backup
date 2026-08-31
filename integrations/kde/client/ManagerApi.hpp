@@ -38,6 +38,7 @@ struct ProfileSourceSummary {
 struct ProfileSummary {
     QString id;
     QString name;
+    bool enabled = true;
     QString target_name;
     QList<ProfileSourceSummary> sources;
 };

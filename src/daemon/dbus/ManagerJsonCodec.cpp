@@ -37,6 +37,7 @@ std::string ManagerJsonCodec::encode(const std::vector<ProfileSummary>& profiles
             {"schemaVersion", manager_protocol::profile_summary_schema_version},
             {"profileId", profile.profile_id},
             {"name", profile.name},
+            {"enabled", profile.enabled},
             {"targetName", profile.target_name},
             {"sources", std::move(sources)},
         });

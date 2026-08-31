@@ -76,6 +76,11 @@ SPDX-License-Identifier: GPL-3.0-or-later
       <arg name="expectedFingerprint" type="s" direction="in"/>
       <arg name="payload" type="s" direction="out"/>
     </method>
+    <method name="SetProfileEnabled">
+      <arg name="profileId" type="s" direction="in"/>
+      <arg name="enabled" type="b" direction="in"/>
+      <arg name="payload" type="s" direction="out"/>
+    </method>
     <method name="OpenBrowseSession">
       <arg name="profileId" type="s" direction="in"/>
       <arg name="payload" type="s" direction="out"/>

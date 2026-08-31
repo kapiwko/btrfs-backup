@@ -79,6 +79,10 @@ int delete_profile(sd_bus_message* message, void* userdata, sd_bus_error* error)
     return static_cast<ManagerDbusObject*>(userdata)->handle_delete_profile(message, error);
 }
 
+int set_profile_enabled(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
+    return static_cast<ManagerDbusObject*>(userdata)->handle_set_profile_enabled(message, error);
+}
+
 int open_browse_session(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
     return static_cast<ManagerDbusObject*>(userdata)->handle_open_browse_session(message, error);
 }
@@ -107,6 +111,7 @@ const sd_bus_vtable manager_vtable[] = {
     SD_BUS_METHOD(manager_protocol::method::save_profile, "ssss", "s", save_profile, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD(manager_protocol::method::save_profile_hooks, "ssss", "s", save_profile_hooks, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD(manager_protocol::method::delete_profile, "sss", "s", delete_profile, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD(manager_protocol::method::set_profile_enabled, "sb", "s", set_profile_enabled, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD(manager_protocol::method::open_browse_session, "s", "s", open_browse_session, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD(manager_protocol::method::close_browse_session, "s", "s", close_browse_session, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD(manager_protocol::method::resolve_backup_coverage, "s", "s", resolve_backup_coverage, SD_BUS_VTABLE_UNPRIVILEGED),
@@ -460,6 +465,30 @@ int ManagerDbusObject::handle_delete_profile(sd_bus_message* message, sd_bus_err
                     {"schemaVersion", manager_protocol::operation_result_schema_version},
                     {"operation", "delete-profile"},
                     {"profileId", profile},
+                    {"accepted", true},
+                });
+            });
+        },
+        [&](const std::exception* exception) { return set_callback_error(error, exception); }
+    );
+}
+
+int ManagerDbusObject::handle_set_profile_enabled(sd_bus_message* message, sd_bus_error* error) noexcept {
+    return invoke_dbus_callback(
+        [&] {
+            const char* profile_id = nullptr;
+            int enabled = 0;
+            const int read_result = sd_bus_message_read(message, "sb", &profile_id, &enabled);
+            if (read_result < 0)
+                return read_result;
+            const std::string profile = profile_id == nullptr ? "" : profile_id;
+            return reply_operational_json(message, error, manager_protocol::feature::profile_activation, profile, [&] {
+                profile_administration_.set_profile_enabled(caller_bus_name(message), profile, enabled != 0);
+                return config::json::dump_json({
+                    {"schemaVersion", manager_protocol::operation_result_schema_version},
+                    {"operation", manager_protocol::feature::profile_activation},
+                    {"profileId", profile},
+                    {"enabled", enabled != 0},
                     {"accepted", true},
                 });
             });

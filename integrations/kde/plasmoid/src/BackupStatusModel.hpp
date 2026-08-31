@@ -25,6 +25,7 @@ class BackupStatusModel : public QObject {
     Q_PROPERTY(QString profile READ profile WRITE setProfile NOTIFY profileChanged)
     Q_PROPERTY(QVariantList profiles READ profiles NOTIFY profilesChanged)
     Q_PROPERTY(QString profileName READ profileName NOTIFY statusChanged)
+    Q_PROPERTY(bool profileEnabled READ profileEnabled NOTIFY statusChanged)
     Q_PROPERTY(bool managerConnected READ managerConnected NOTIFY managerConnectedChanged)
     Q_PROPERTY(RunStatusModel* run READ run CONSTANT)
     Q_PROPERTY(TargetStatusModel* target READ target CONSTANT)
@@ -45,6 +46,7 @@ class BackupStatusModel : public QObject {
     bool managerConnected() const;
     QVariantList profiles() const;
     QString profileName() const;
+    bool profileEnabled() const;
     RunStatusModel* run();
     TargetStatusModel* target();
     BackupHistoryModel* history();
@@ -63,6 +65,7 @@ class BackupStatusModel : public QObject {
     Q_INVOKABLE void cancelBackup();
     Q_INVOKABLE void validateTarget();
     Q_INVOKABLE void ejectTarget();
+    Q_INVOKABLE void setProfileEnabled(bool enabled);
     Q_INVOKABLE void openSettings();
     Q_INVOKABLE void browseBackups();
     Q_INVOKABLE void openNotificationSettings();
@@ -118,6 +121,7 @@ class BackupStatusModel : public QObject {
     QSet<QString> features_;
     QVariantList profiles_;
     QString profile_name_;
+    bool profile_enabled_ = true;
     QString last_operation_;
     QString last_error_;
     QString last_error_code_;

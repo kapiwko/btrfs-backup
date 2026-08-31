@@ -62,6 +62,10 @@ class Backend final : public IProfileAdministrationBackend {
         ++deletes;
         current.reset();
     }
+    void set_profile_enabled(const EditableProfile&, bool enabled) override {
+        ++saves;
+        current->document = enabled ? R"({"enabled":true})" : R"({"enabled":false})";
+    }
 };
 
 void expect_error(const std::string& name, ManagerErrorCode code, const std::function<void()>& operation) {
@@ -142,6 +146,24 @@ void test_create_and_delete_use_expected_identity() {
     test_helpers::expect_true("profile deleted", backend.deletes == 1 && !backend.current.has_value(), "delete was not committed");
 }
 
+void test_profile_activation_has_dedicated_authorization() {
+    Authorizer authorizer;
+    Backend backend;
+    ProfileAdministrationService service(authorizer, backend);
+    service.set_profile_enabled(":1.14", "default", false);
+    test_helpers::expect_true("activation committed", backend.saves == 1, "activation did not reach backend");
+    test_helpers::expect_true(
+        "activation authorization",
+        authorizer.actions == std::vector{ManagerAuthorizationAction::SetProfileEnabled},
+        "activation used the broad profile-save authorization"
+    );
+    test_helpers::expect_eq(
+        "activation action id",
+        manager_authorization_action_id(ManagerAuthorizationAction::SetProfileEnabled),
+        "io.github.btrfsbackup.set-profile-enabled"
+    );
+}
+
 } // namespace
 
 int main() {
@@ -149,5 +171,6 @@ int main() {
     test_conflicts_before_and_during_authorization();
     test_hook_save_requires_both_authorizations();
     test_create_and_delete_use_expected_identity();
+    test_profile_activation_has_dedicated_authorization();
     return test_helpers::finish("profile administration service tests");
 }
