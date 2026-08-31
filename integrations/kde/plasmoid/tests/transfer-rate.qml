@@ -11,8 +11,8 @@ Window {
     height: 180
     visible: false
 
-    BackupUi.TransferSpeedChart {
-        id: chart
+    BackupUi.TransferRate {
+        id: rate
         anchors.fill: parent
         active: true
         currentSpeed: 2048
@@ -20,13 +20,14 @@ Window {
     }
 
     Timer {
-        interval: 2200
+        interval: 100
         running: true
         repeat: false
         onTriggered: {
-            if (chart.samples.length < 2
-                    || chart.peakSpeed !== 2048
-                    || chart.peakSpeedText !== "2,0 KiB/s")
+            rate.currentSpeed = 4096
+            rate.currentSpeedText = "4,0 KiB/s"
+            if (rate.peakSpeed !== 4096
+                    || rate.peakSpeedText !== "4,0 KiB/s")
                 Qt.exit(2)
             Qt.exit(0)
         }

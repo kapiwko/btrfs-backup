@@ -497,12 +497,12 @@ if(BUILD_TESTING)
                 ${CMAKE_CURRENT_SOURCE_DIR}/plasmoid/tests/backend-smoke.qml
         )
         add_test(
-            NAME plasma-transfer-speed-chart
+            NAME plasma-transfer-rate
             COMMAND
                 ${CMAKE_COMMAND} -E env
                 QT_QPA_PLATFORM=offscreen
                 ${QML_EXECUTABLE}
-                ${CMAKE_CURRENT_SOURCE_DIR}/plasmoid/tests/transfer-speed-chart.qml
+                ${CMAKE_CURRENT_SOURCE_DIR}/plasmoid/tests/transfer-rate.qml
         )
         add_test(
             NAME plasma-config-qml-smoke
@@ -537,7 +537,7 @@ if(BUILD_TESTING)
             kde-kcm-qml-smoke
             plasma-config-qml-smoke
             plasma-target-storage-usage
-            plasma-transfer-speed-chart
+            plasma-transfer-rate
             PROPERTIES
                 LABELS kde
                 TIMEOUT 10

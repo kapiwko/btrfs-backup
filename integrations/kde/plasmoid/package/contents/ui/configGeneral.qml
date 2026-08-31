@@ -16,7 +16,6 @@ Kirigami.FormLayout {
     property alias cfg_historyCount: historyCount.value
     property alias cfg_autoExpandActive: autoExpandActive.checked
     property alias cfg_autoExpandFailed: autoExpandFailed.checked
-    property alias cfg_showSpeedChart: showSpeedChart.checked
     property alias cfg_showStorage: showStorage.checked
     property alias cfg_hideSourceNamesInTooltip: hideSourceNames.checked
 
@@ -124,13 +123,8 @@ Kirigami.FormLayout {
     }
 
     QQC2.CheckBox {
-        id: showSpeedChart
-        Kirigami.FormData.label: i18n("Details:")
-        text: i18n("Show transfer speed chart")
-    }
-
-    QQC2.CheckBox {
         id: showStorage
+        Kirigami.FormData.label: i18n("Details:")
         text: i18n("Show target storage usage")
     }
 
