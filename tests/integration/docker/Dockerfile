@@ -10,6 +10,7 @@ RUN pacman -Syu --noconfirm --needed \
         cryptsetup \
         diffutils \
         findutils \
+        gcc \
         gawk \
         grep \
         perl \
