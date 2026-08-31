@@ -9,7 +9,6 @@ import QtQuick.Controls as QQC2
 import QtQuick.Layouts
 import org.kde.ki18n as KI18n
 import org.kde.kirigami as Kirigami
-import org.kde.plasma.components as PlasmaComponents3
 import org.kde.plasma.extras as PlasmaExtras
 import org.btrfsbackup.plasma
 
@@ -21,22 +20,24 @@ PlasmaExtras.ExpandableListItem {
     required property string profileName
     required property string targetNameHint
     required property int relativeTimeTick
-    required property int refreshRevision
+    property int refreshRevision: 0
     property int historyLimit: 3
     property bool autoExpandActive: true
     property bool autoExpandFailed: true
-    property bool showSpeedChart: true
     property bool showStorageDetails: true
     property bool hideSourceNamesInTooltip: false
     property bool previousRunning: false
     property bool previousFailed: false
+    property var statusModelOverride: null
+    readonly property var profileStatus: statusModelOverride ?? liveProfileStatus
+    readonly property var ejectProfileAction: ejectAction
+    readonly property var browseProfileAction: browseAction
 
     readonly property bool running: profileStatus.run.state === "running"
         || profileStatus.run.state === "starting"
         || profileStatus.run.state === "validating"
     readonly property bool failed: profileStatus.run.state === "failed"
     readonly property int progress: profileStatus.run.overallProgress
-    readonly property int historyCount: profileStatus.history.entries.length
 
     signal summaryUpdated(string profileId, int priority, bool isRunning, bool isFailed, int profileProgress, string subtitle)
     signal summaryRemoved(string profileId)
@@ -47,10 +48,13 @@ PlasmaExtras.ExpandableListItem {
     }
 
     BackupStatusModel {
-        id: profileStatus
+        id: liveProfileStatus
         profile: root.profileId
         historyLimit: root.historyLimit
-        Component.onCompleted: start()
+        Component.onCompleted: {
+            if (root.statusModelOverride === null)
+                start()
+        }
     }
 
     icon: root.targetIcon()
@@ -61,8 +65,8 @@ PlasmaExtras.ExpandableListItem {
     subtitleColor: root.failed || profileStatus.lastError.length > 0
         ? Kirigami.Theme.negativeTextColor
         : Kirigami.Theme.textColor
-    isBusy: profileStatus.operationPending
-    showDefaultActionButtonWhenBusy: false
+    isBusy: root.running || profileStatus.operationPending
+    showDefaultActionButtonWhenBusy: root.running
     defaultActionButtonVisible: profileStatus.managerConnected
         && (root.running || profileStatus.target.connected)
     defaultActionButtonAction: QQC2.Action {
@@ -77,10 +81,6 @@ PlasmaExtras.ExpandableListItem {
                 profileStatus.startBackup()
         }
     }
-    contextualActions: profileStatus.browseSupported
-        ? [ejectAction, browseAction]
-        : [ejectAction]
-
     QQC2.Action {
         id: ejectAction
         enabled: profileStatus.managerConnected
@@ -102,217 +102,46 @@ PlasmaExtras.ExpandableListItem {
     }
 
     customExpandedViewContent: Component {
-        ColumnLayout {
-            width: root.width
-            spacing: Kirigami.Units.smallSpacing
+        Item {
+            implicitHeight: expandedLayout.implicitHeight
 
-            TransferSpeedChart {
-                Layout.fillWidth: true
-                visible: root.running && root.showSpeedChart
-                active: root.running
-                currentSpeed: profileStatus.run.speedBps
-                currentSpeedText: profileStatus.run.speedText
-            }
+            ColumnLayout {
+                id: expandedLayout
 
-            PlasmaComponents3.ProgressBar {
-                Layout.fillWidth: true
-                visible: root.running
-                from: 0
-                to: 100
-                value: Math.max(0, root.progress)
-                indeterminate: root.progress < 0
-            }
+                anchors.top: parent.top
+                anchors.left: parent.left
+                anchors.right: parent.right
+                spacing: Kirigami.Units.smallSpacing * 2
 
-            GridLayout {
-                Layout.fillWidth: true
-                columns: 2
-                rowSpacing: Kirigami.Units.smallSpacing / 4
-                columnSpacing: Kirigami.Units.smallSpacing
-
-                PlasmaComponents3.Label {
-                    text: translations.i18n("Status:")
-                    horizontalAlignment: Text.AlignRight
-                    font: Kirigami.Theme.smallFont
-                    opacity: 0.6
-                }
-                PlasmaComponents3.Label {
-                    text: root.running
-                        ? root.activityText(profileStatus.run.activity, profileStatus.run.phase)
-                        : root.statusText(profileStatus.run.state)
+                ProfileActions {
                     Layout.fillWidth: true
-                    elide: Text.ElideRight
-                    font: Kirigami.Theme.smallFont
+                    Layout.leftMargin: Kirigami.Units.gridUnit
+                    Layout.rightMargin: Kirigami.Units.gridUnit
+                    ejectAction: root.ejectProfileAction
+                    browseAction: root.browseProfileAction
+                    browseVisible: root.profileStatus.browseSupported
                 }
 
-                PlasmaComponents3.Label {
-                    text: translations.i18n("Backup target:")
-                    horizontalAlignment: Text.AlignRight
-                    font: Kirigami.Theme.smallFont
-                    opacity: 0.6
-                }
-                PlasmaComponents3.Label {
-                    text: profileStatus.target.name || profileStatus.run.targetName || root.targetNameHint || translations.i18n("Unknown")
+                ProfileExpandedDetails {
                     Layout.fillWidth: true
-                    elide: Text.ElideMiddle
-                    font: Kirigami.Theme.smallFont
-                }
-
-                PlasmaComponents3.Label {
-                    text: translations.i18n("Target state:")
-                    horizontalAlignment: Text.AlignRight
-                    font: Kirigami.Theme.smallFont
-                    opacity: 0.6
-                }
-                PlasmaComponents3.Label {
-                    text: root.targetStateText(profileStatus.target.state)
-                    Layout.fillWidth: true
-                    elide: Text.ElideRight
-                    font: Kirigami.Theme.smallFont
-                }
-
-                PlasmaComponents3.Label {
-                    text: translations.i18n("Last successful backup:")
-                    horizontalAlignment: Text.AlignRight
-                    font: Kirigami.Theme.smallFont
-                    opacity: 0.6
-                }
-                PlasmaComponents3.Label {
-                    Layout.fillWidth: true
-                    text: root.lastSuccessText(profileStatus.run.lastSuccessAt)
-                    elide: Text.ElideRight
-                    font: Kirigami.Theme.smallFont
-
-                    HoverHandler {
-                        id: lastSuccessHover
-                    }
-
-                    QQC2.ToolTip.visible: lastSuccessHover.hovered
-                        && profileStatus.run.lastSuccessAt.length > 0
-                    QQC2.ToolTip.text: profileStatus.run.lastSuccessAt
-                }
-
-                Kirigami.InlineMessage {
-                    Layout.columnSpan: 2
-                    Layout.fillWidth: true
-                    visible: profileStatus.run.lastAttemptState === "failed"
-                        && profileStatus.run.lastAttemptAt.length > 0
-                    type: Kirigami.MessageType.Error
-                    text: translations.i18n("The last backup attempt failed.")
-                }
-
-                TargetStorageUsage {
-                    Layout.columnSpan: 2
-                    Layout.fillWidth: true
-                    visible: root.showStorageDetails
-                    supported: profileStatus.target.storageSupported
-                    known: profileStatus.target.storageKnown
-                    capacityText: profileStatus.target.capacityText
-                    usedText: profileStatus.target.usedText
-                    availableText: profileStatus.target.availableText
-                    usagePercent: profileStatus.target.usagePercent
-                    live: profileStatus.target.storageLive
-                    measuredAt: profileStatus.target.storageMeasuredAt
-                    relativeMeasurementTime: root.relativeTime(profileStatus.target.storageMeasuredAt)
-                    belowMinimum: profileStatus.target.spaceBelowMinimum
-                }
-
-                PlasmaComponents3.Label {
-                    visible: root.running
-                    text: translations.i18n("Source:")
-                    horizontalAlignment: Text.AlignRight
-                    font: Kirigami.Theme.smallFont
-                    opacity: 0.6
-                }
-                PlasmaComponents3.Label {
-                    visible: root.running
-                    text: root.sourceText()
-                    Layout.fillWidth: true
-                    elide: Text.ElideMiddle
-                    font: Kirigami.Theme.smallFont
-                }
-
-                PlasmaComponents3.Label {
-                    visible: root.running
-                    text: translations.i18n("Time remaining:")
-                    horizontalAlignment: Text.AlignRight
-                    font: Kirigami.Theme.smallFont
-                    opacity: 0.6
-                }
-                PlasmaComponents3.Label {
-                    visible: root.running
-                    text: root.formatEta(profileStatus.run.etaSeconds)
-                    Layout.fillWidth: true
-                    font: Kirigami.Theme.smallFont
-                }
-
-                PlasmaComponents3.Label {
-                    visible: root.running
-                    text: translations.i18n("Duration:")
-                    horizontalAlignment: Text.AlignRight
-                    font: Kirigami.Theme.smallFont
-                    opacity: 0.6
-                }
-                PlasmaComponents3.Label {
-                    visible: root.running
-                    text: root.formatDuration(profileStatus.run.elapsedSeconds)
-                    Layout.fillWidth: true
-                    font: Kirigami.Theme.smallFont
-                }
-            }
-
-            Kirigami.InlineMessage {
-                Layout.fillWidth: true
-                visible: profileStatus.lastError.length > 0 || profileStatus.run.errorCode.length > 0
-                type: Kirigami.MessageType.Error
-                text: profileStatus.lastError || root.statusText(profileStatus.run.state)
-            }
-
-            Kirigami.InlineMessage {
-                Layout.fillWidth: true
-                visible: profileStatus.lastOperation.length > 0 && profileStatus.lastError.length === 0
-                type: Kirigami.MessageType.Positive
-                text: root.operationResultText(profileStatus.lastOperation)
-            }
-
-            PlasmaExtras.ListSectionHeader {
-                Layout.fillWidth: true
-                visible: profileStatus.history.entries.length > 0
-                text: translations.i18n("Recent backups")
-            }
-
-            Repeater {
-                model: profileStatus.history.entries
-
-                delegate: RowLayout {
-                    id: historyRow
-                    required property var modelData
-                    Layout.fillWidth: true
-                    spacing: Kirigami.Units.smallSpacing
-
-                    Kirigami.Icon {
-                        source: historyRow.modelData.state === "succeeded" ? "emblem-ok-symbolic"
-                            : historyRow.modelData.state === "failed" ? "dialog-error-symbolic"
-                            : "dialog-information-symbolic"
-                        implicitWidth: Kirigami.Units.iconSizes.small
-                        implicitHeight: implicitWidth
-                    }
-                    PlasmaComponents3.Label {
-                        text: root.historySummary(historyRow.modelData)
-                        Layout.fillWidth: true
-                        elide: Text.ElideRight
-                        font: Kirigami.Theme.smallFont
-                    }
-                    PlasmaComponents3.Label {
-                        text: root.relativeTime(historyRow.modelData.finishedAt)
-                        opacity: 0.7
-                        Layout.maximumWidth: Kirigami.Units.gridUnit * 8
-                        elide: Text.ElideRight
-                        font: Kirigami.Theme.smallFont
-
-                        PlasmaComponents3.ToolTip {
-                            text: historyRow.modelData.finishedAt
-                        }
-                    }
+                    Layout.leftMargin: Kirigami.Units.gridUnit
+                    Layout.rightMargin: Kirigami.Units.gridUnit
+                    profileStatus: root.profileStatus
+                    targetNameHint: root.targetNameHint
+                    running: root.running
+                    progress: root.progress
+                    showStorageDetails: root.showStorageDetails
+                    activityLabel: root.activityText(root.profileStatus.run.activity, root.profileStatus.run.phase)
+                    sourceLabel: root.sourceText()
+                    statusLabel: root.statusText(root.profileStatus.run.state)
+                    targetStateLabel: root.targetStateText(root.profileStatus.target.state)
+                    lastSuccessLabel: root.lastSuccessText(root.profileStatus.run.lastSuccessAt)
+                    relativeStorageTime: root.relativeTime(root.profileStatus.target.storageMeasuredAt)
+                    etaLabel: root.formatEta(root.profileStatus.run.etaSeconds)
+                    durationLabel: root.formatDuration(root.profileStatus.run.elapsedSeconds)
+                    operationLabel: root.operationResultText(root.profileStatus.lastOperation)
+                    historySummaryFor: entry => root.historySummary(entry)
+                    relativeTimeFor: value => root.relativeTime(value)
                 }
             }
         }
@@ -332,10 +161,6 @@ PlasmaExtras.ExpandableListItem {
     Component.onCompleted: publishSummary()
     Component.onDestruction: summaryRemoved(root.profileId)
     onRefreshRevisionChanged: profileStatus.refreshNow()
-
-    function refresh() {
-        profileStatus.refreshNow()
-    }
 
     function publishSummary() {
         root.summaryUpdated(root.profileId, root.summaryPriority(), root.running, root.failed, root.progress, root.subtitleText())
@@ -385,7 +210,9 @@ PlasmaExtras.ExpandableListItem {
         if (profileStatus.lastError.length > 0)
             return profileStatus.lastError
         if (root.running) {
-            const activity = root.activityText(profileStatus.run.activity, profileStatus.run.phase)
+            let activity = root.activityText(profileStatus.run.activity, profileStatus.run.phase)
+            if (root.progress >= 0)
+                activity += translations.i18n(" (%1%)", root.progress)
             if (!root.hideSourceNamesInTooltip && profileStatus.run.sourceName.length > 0)
                 return activity + " - " + profileStatus.run.sourceName
             return activity
@@ -467,6 +294,9 @@ PlasmaExtras.ExpandableListItem {
         case "cancel-backup": return translations.i18n("Cancellation requested")
         case "validate-target": return translations.i18n("Validation completed successfully")
         case "eject-target": return translations.i18n("Target ejected safely")
+        case "profile-activation": return profileStatus.profileEnabled
+            ? translations.i18n("Automatic backups enabled")
+            : translations.i18n("Automatic backups disabled")
         default: return translations.i18n("Operation completed")
         }
     }

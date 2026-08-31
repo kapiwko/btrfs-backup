@@ -29,7 +29,6 @@ Item {
                     || typeof page.item.cfg_historyCount !== "number"
                     || typeof page.item.cfg_autoExpandActive !== "boolean"
                     || typeof page.item.cfg_autoExpandFailed !== "boolean"
-                    || typeof page.item.cfg_showSpeedChart !== "boolean"
                     || typeof page.item.cfg_showStorage !== "boolean"
                     || typeof page.item.cfg_hideSourceNamesInTooltip !== "boolean") {
                 console.error("Plasmoid configuration properties are incomplete")

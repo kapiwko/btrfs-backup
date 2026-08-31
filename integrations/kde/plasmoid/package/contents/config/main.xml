@@ -21,9 +21,6 @@
     <entry name="autoExpandFailed" type="Bool">
       <default>true</default>
     </entry>
-    <entry name="showSpeedChart" type="Bool">
-      <default>true</default>
-    </entry>
     <entry name="showStorage" type="Bool">
       <default>true</default>
     </entry>

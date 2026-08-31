@@ -40,7 +40,6 @@ Window {
             profileName: modelData.name
             targetNameHint: modelData.targetName
             relativeTimeTick: 0
-            refreshRevision: 0
         }
     }
 

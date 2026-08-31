@@ -120,6 +120,15 @@ msgstr "Cel:"
 msgid "Backup target"
 msgstr "Cel kopii zapasowej"
 
+msgid "Current transfer"
+msgstr "Bieżący transfer"
+
+msgid "Name:"
+msgstr "Nazwa:"
+
+msgid "Storage usage:"
+msgstr "Wykorzystanie miejsca:"
+
 msgid "Backup target:"
 msgstr "Cel kopii zapasowej:"
 
@@ -137,6 +146,15 @@ msgstr "Stan celu:"
 
 msgid "No capacity data"
 msgstr "Brak danych o pojemności"
+
+msgid "Backup storage"
+msgstr "Miejsce na kopie"
+
+msgid "%1 used of %2"
+msgstr "Zajęte %1 z %2"
+
+msgid "%1 available"
+msgstr "Dostępne %1"
 
 msgid "Capacity:"
 msgstr "Pojemność:"
@@ -188,6 +206,30 @@ msgstr "Pozostały czas:"
 
 msgid "Refresh"
 msgstr "Odśwież"
+
+msgid "Refresh status"
+msgstr "Odśwież stan"
+
+msgid "Manage backup profiles…"
+msgstr "Zarządzaj profilami kopii…"
+
+msgid " (%1%)"
+msgstr " (%1%)"
+
+msgid "Automatic backups:"
+msgstr "Automatyczne kopie:"
+
+msgid "Automatic backups enabled"
+msgstr "Automatyczne kopie zostały włączone"
+
+msgid "Automatic backups disabled"
+msgstr "Automatyczne kopie zostały wyłączone"
+
+msgid "On"
+msgstr "Wł."
+
+msgid "Off"
+msgstr "Wył."
 
 msgid "Recent backups"
 msgstr "Ostatnie kopie"
@@ -368,9 +410,6 @@ msgstr "Automatycznie rozwiń nieudaną kopię"
 
 msgid "Details:"
 msgstr "Szczegóły:"
-
-msgid "Show transfer speed chart"
-msgstr "Pokaż wykres prędkości przesyłania"
 
 msgid "Show target storage usage"
 msgstr "Pokaż wykorzystanie miejsca na celu"
