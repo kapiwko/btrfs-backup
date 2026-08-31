@@ -11,9 +11,12 @@
 
 namespace btrfsbackup::backup::planning {
 
+enum class TargetMountAccess { Read, ReadWrite };
+
 MountEntry validate_backup_target_mount(
     const btrfsbackup::config::Profile& profile,
-    const std::vector<MountEntry>& mounts
+    const std::vector<MountEntry>& mounts,
+    TargetMountAccess access = TargetMountAccess::ReadWrite
 );
 MountEntry validate_backup_mounts(
     const btrfsbackup::config::Profile& profile,
