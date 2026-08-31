@@ -6,32 +6,45 @@
 #include <ManagerApi.hpp>
 #include <core/ManagerProtocol.hpp>
 
-#include <QDBusError>
+#include <KLocalizedString>
 #include <QDBusPendingCallWatcher>
 #include <QDBusPendingReply>
+#include <QDir>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonParseError>
-#include <QDir>
-#include <QFileInfo>
-#include <QRegularExpression>
-#include <QSet>
-#include <KLocalizedString>
 
 namespace btrfsbackup::kde::kcm {
 
+namespace {
+
+QString compact_json(const QJsonObject& object) {
+    return QString::fromUtf8(QJsonDocument(object).toJson(QJsonDocument::Compact));
+}
+
+} // namespace
+
 ProfileConfigurationModel::ProfileConfigurationModel(QObject* parent)
-    : QObject(parent), bus_(QDBusConnection::systemBus()) {
+    : QObject(parent), bus_(QDBusConnection::systemBus()), manager_events_(bus_, this) {
+    connect(&manager_events_, &btrfsbackup::kde::ManagerEventSubscriber::profilesChanged, this, [this]() {
+        if (!loaded_)
+            return;
+        if (busy_) {
+            refresh_pending_ = true;
+        } else {
+            loadDetails(profileId());
+        }
+    });
 }
 
 QString ProfileConfigurationModel::profileId() const {
-    return draft_.value(QStringLiteral("profileId")).toString();
+    return profile_.value(QStringLiteral("profileId")).toString();
 }
 QString ProfileConfigurationModel::name() const {
-    return draft_.value(QStringLiteral("name")).toString();
+    return profile_.value(QStringLiteral("name")).toString();
 }
 bool ProfileConfigurationModel::enabled() const {
-    return draft_.value(QStringLiteral("enabled")).toBool();
+    return profile_.value(QStringLiteral("enabled")).toBool();
 }
 QVariantMap ProfileConfigurationModel::target() const {
     return object("target").toVariantMap();
@@ -43,10 +56,10 @@ QVariantMap ProfileConfigurationModel::settings() const {
     return object("settings").toVariantMap();
 }
 QVariantList ProfileConfigurationModel::sources() const {
-    return draft_.value(QStringLiteral("sources")).toArray().toVariantList();
+    return profile_.value(QStringLiteral("sources")).toArray().toVariantList();
 }
 int ProfileConfigurationModel::schemaVersion() const {
-    return draft_.value(QStringLiteral("schemaVersion")).toInt();
+    return profile_.value(QStringLiteral("schemaVersion")).toInt();
 }
 QString ProfileConfigurationModel::generation() const {
     return generation_;
@@ -56,12 +69,6 @@ QString ProfileConfigurationModel::fingerprint() const {
 }
 bool ProfileConfigurationModel::loaded() const {
     return loaded_;
-}
-bool ProfileConfigurationModel::newDraft() const {
-    return new_draft_;
-}
-bool ProfileConfigurationModel::dirty() const {
-    return dirty_;
 }
 bool ProfileConfigurationModel::busy() const {
     return busy_;
@@ -75,8 +82,9 @@ QString ProfileConfigurationModel::errorMessage() const {
 QString ProfileConfigurationModel::operationMessage() const {
     return operation_message_;
 }
-QString ProfileConfigurationModel::validationPreview() const {
-    return validation_preview_;
+
+QJsonObject ProfileConfigurationModel::object(const char* key) const {
+    return profile_.value(QLatin1String(key)).toObject();
 }
 
 void ProfileConfigurationModel::load(const QString& profile_id) {
@@ -84,63 +92,8 @@ void ProfileConfigurationModel::load(const QString& profile_id) {
 }
 
 void ProfileConfigurationModel::loadDetails(const QString& profile_id) {
-    if (busy_ || profile_id.isEmpty())
-        return;
-    request(RequestKind::LoadDetails, QLatin1String(manager_protocol::method::get_profile_details), {profile_id});
-}
-
-void ProfileConfigurationModel::loadForEditing(const QString& profile_id) {
-    if (busy_ || profile_id.isEmpty())
-        return;
-    request(RequestKind::LoadEditing, QLatin1String(manager_protocol::method::get_profile_for_editing), {profile_id});
-}
-
-void ProfileConfigurationModel::createDraft(const QString& profile_id) {
-    if (busy_ || profile_id.isEmpty())
-        return;
-    const QString remote_root = QStringLiteral("/mnt/btrfs-backup/%1").arg(profile_id);
-    draft_ = QJsonObject{
-        {QStringLiteral("schemaVersion"), 4},
-        {QStringLiteral("profileId"), profile_id},
-        {QStringLiteral("name"), profile_id},
-        {QStringLiteral("enabled"), true},
-        {QStringLiteral("target"), QJsonObject{
-                                       {QStringLiteral("device"), QString()},
-                                       {QStringLiteral("luksUuid"), QString()},
-                                       {QStringLiteral("btrfsUuid"), QString()},
-                                       {QStringLiteral("partitionUuid"), QString()},
-                                       {QStringLiteral("serial"), QString()},
-                                       {QStringLiteral("mapperName"), QStringLiteral("backupdisk")},
-                                       {QStringLiteral("activation"), QJsonObject{{QStringLiteral("mode"), QStringLiteral("askPassword")}}},
-                                   }},
-        {QStringLiteral("paths"), QJsonObject{
-                                      {QStringLiteral("remoteRoot"), remote_root + QStringLiteral("/snapshots")},
-                                      {QStringLiteral("incomingRoot"), remote_root + QStringLiteral("/.incoming")},
-                                  }},
-        {QStringLiteral("settings"), QJsonObject{
-                                         {QStringLiteral("dailyLimit"), true},
-                                         {QStringLiteral("incrementalRequired"), true},
-                                         {QStringLiteral("keepFailedLocalSnapshot"), false},
-                                         {QStringLiteral("autoEject"), true},
-                                         {QStringLiteral("remoteRetention"), 30},
-                                         {QStringLiteral("localRetention"), 30},
-                                         {QStringLiteral("minimumTargetFreeBytes"), 5368709120LL},
-                                         {QStringLiteral("minimumLocalFreeBytes"), 1073741824LL},
-                                     }},
-        {QStringLiteral("sources"), QJsonArray{}},
-    };
-    baseline_ = draft_;
-    generation_.clear();
-    fingerprint_.clear();
-    validation_preview_.clear();
-    error_code_.clear();
-    error_message_.clear();
-    operation_message_.clear();
-    loaded_ = true;
-    new_draft_ = true;
-    updateDirty();
-    emit draftChanged();
-    emit stateChanged();
+    if (!busy_ && !profile_id.isEmpty())
+        request(RequestKind::LoadDetails, QLatin1String(manager_protocol::method::get_profile_details), {profile_id});
 }
 
 void ProfileConfigurationModel::reload() {
@@ -148,121 +101,8 @@ void ProfileConfigurationModel::reload() {
         loadDetails(profileId());
 }
 
-void ProfileConfigurationModel::discard() {
-    if (!loaded_)
-        return;
-    draft_ = baseline_;
-    validation_preview_.clear();
-    updateDirty();
-    emit draftChanged();
-}
-
 void ProfileConfigurationModel::clearError() {
     setError({}, {});
-}
-
-void ProfileConfigurationModel::setName(const QString& value) {
-    if (!loaded_ || name() == value)
-        return;
-    draft_.insert(QStringLiteral("name"), value);
-    validation_preview_.clear();
-    updateDirty();
-    emit draftChanged();
-}
-
-void ProfileConfigurationModel::setEnabled(bool value) {
-    if (!loaded_ || enabled() == value)
-        return;
-    draft_.insert(QStringLiteral("enabled"), value);
-    validation_preview_.clear();
-    updateDirty();
-    emit draftChanged();
-}
-
-QJsonObject ProfileConfigurationModel::object(const char* key) const {
-    return draft_.value(QLatin1String(key)).toObject();
-}
-
-void ProfileConfigurationModel::setObject(const char* key, const QJsonObject& value) {
-    if (object(key) == value)
-        return;
-    draft_.insert(QLatin1String(key), value);
-    validation_preview_.clear();
-    updateDirty();
-    emit draftChanged();
-}
-
-void ProfileConfigurationModel::setTargetValue(const QString& key, const QVariant& value) {
-    if (!loaded_)
-        return;
-    QJsonObject target_object = object("target");
-    if (key.startsWith(QStringLiteral("activation."))) {
-        QJsonObject activation = target_object.value(QStringLiteral("activation")).toObject();
-        const QString activation_key = key.sliced(QStringLiteral("activation.").size());
-        activation.insert(activation_key, QJsonValue::fromVariant(value));
-        if (activation_key == QStringLiteral("mode") && value.toString() == QStringLiteral("askPassword"))
-            activation.remove(QStringLiteral("keyFile"));
-        target_object.insert(QStringLiteral("activation"), activation);
-    } else {
-        target_object.insert(key, QJsonValue::fromVariant(value));
-    }
-    setObject("target", target_object);
-}
-
-void ProfileConfigurationModel::setSettingValue(const QString& key, const QVariant& value) {
-    if (!loaded_)
-        return;
-    QJsonObject settings_object = object("settings");
-    settings_object.insert(key, QJsonValue::fromVariant(value));
-    setObject("settings", settings_object);
-}
-
-void ProfileConfigurationModel::setSourceValue(int index, const QString& key, const QVariant& value) {
-    QJsonArray source_array = draft_.value(QStringLiteral("sources")).toArray();
-    if (!loaded_ || index < 0 || index >= source_array.size())
-        return;
-    QJsonObject source = source_array.at(index).toObject();
-    const QJsonValue json_value = QJsonValue::fromVariant(value);
-    if (source.value(key) == json_value)
-        return;
-    source.insert(key, json_value);
-    source_array.replace(index, source);
-    draft_.insert(QStringLiteral("sources"), source_array);
-    validation_preview_.clear();
-    updateDirty();
-    emit draftChanged();
-}
-
-void ProfileConfigurationModel::addSource() {
-    if (!loaded_)
-        return;
-    QJsonArray source_array = draft_.value(QStringLiteral("sources")).toArray();
-    const int number = source_array.size() + 1;
-    source_array.append(QJsonObject{
-        {QStringLiteral("id"), QStringLiteral("source%1").arg(number)},
-        {QStringLiteral("name"), i18n("Source %1", number)},
-        {QStringLiteral("enabled"), true},
-        {QStringLiteral("subvolume"), QStringLiteral("/")},
-        {QStringLiteral("localSnapshotDir"), QStringLiteral("/.snapshots/source%1").arg(number)},
-        {QStringLiteral("remoteSubdir"), QStringLiteral("source%1").arg(number)},
-        {QStringLiteral("remoteRetention"), 30},
-        {QStringLiteral("localRetention"), 30},
-    });
-    draft_.insert(QStringLiteral("sources"), source_array);
-    validation_preview_.clear();
-    updateDirty();
-    emit draftChanged();
-}
-
-void ProfileConfigurationModel::removeSource(int index) {
-    QJsonArray source_array = draft_.value(QStringLiteral("sources")).toArray();
-    if (!loaded_ || index < 0 || index >= source_array.size())
-        return;
-    source_array.removeAt(index);
-    draft_.insert(QStringLiteral("sources"), source_array);
-    validation_preview_.clear();
-    updateDirty();
-    emit draftChanged();
 }
 
 void ProfileConfigurationModel::addSourceConfiguration(
@@ -271,31 +111,16 @@ void ProfileConfigurationModel::addSourceConfiguration(
     int local_retention,
     int remote_retention
 ) {
-    const QString trimmed_name = name.trimmed();
     const QString clean_subvolume = QDir::cleanPath(subvolume.trimmed());
-    if (!loaded_ || busy_ || trimmed_name.isEmpty() || !QDir::isAbsolutePath(clean_subvolume) ||
-        local_retention < 1 || local_retention > 100000 ||
-        remote_retention < 1 || remote_retention > 100000)
+    if (!loaded_ || busy_ || name.trimmed().isEmpty() || !QDir::isAbsolutePath(clean_subvolume))
         return;
-
-    QJsonArray source_array = draft_.value(QStringLiteral("sources")).toArray();
-    const QString source_id = nextSourceId(trimmed_name, clean_subvolume);
-    const QString snapshot_root = QDir(QFileInfo(clean_subvolume).absolutePath()).filePath(QStringLiteral(".snapshots/btrfs-backup/%1").arg(source_id));
-    source_array.append(QJsonObject{
-        {QStringLiteral("id"), source_id},
-        {QStringLiteral("name"), trimmed_name},
-        {QStringLiteral("enabled"), true},
+    const QJsonObject payload{
+        {QStringLiteral("name"), name.trimmed()},
         {QStringLiteral("subvolume"), clean_subvolume},
-        {QStringLiteral("localSnapshotDir"), QDir::cleanPath(snapshot_root)},
-        {QStringLiteral("remoteSubdir"), source_id},
-        {QStringLiteral("remoteRetention"), remote_retention},
         {QStringLiteral("localRetention"), local_retention},
-    });
-    draft_.insert(QStringLiteral("sources"), source_array);
-    validation_preview_.clear();
-    updateDirty();
-    emit draftChanged();
-    save();
+        {QStringLiteral("remoteRetention"), remote_retention},
+    };
+    request(RequestKind::AddSource, QLatin1String(manager_protocol::method::add_profile_source), {profileId(), generation_, fingerprint_, compact_json(payload)});
 }
 
 void ProfileConfigurationModel::updateSourceConfiguration(
@@ -304,101 +129,40 @@ void ProfileConfigurationModel::updateSourceConfiguration(
     int local_retention,
     int remote_retention
 ) {
-    QJsonArray source_array = draft_.value(QStringLiteral("sources")).toArray();
-    const QString trimmed_name = name.trimmed();
-    if (!loaded_ || busy_ || index < 0 || index >= source_array.size() || trimmed_name.isEmpty() ||
-        local_retention < 1 || local_retention > 100000 ||
-        remote_retention < 1 || remote_retention > 100000)
+    const QJsonArray source_array = profile_.value(QStringLiteral("sources")).toArray();
+    if (!loaded_ || busy_ || index < 0 || index >= source_array.size() || name.trimmed().isEmpty())
         return;
-
-    QJsonObject source = source_array.at(index).toObject();
-    source.insert(QStringLiteral("name"), trimmed_name);
-    source.insert(QStringLiteral("localRetention"), local_retention);
-    source.insert(QStringLiteral("remoteRetention"), remote_retention);
-    source_array.replace(index, source);
-    draft_.insert(QStringLiteral("sources"), source_array);
-    validation_preview_.clear();
-    updateDirty();
-    emit draftChanged();
-    save();
+    const QJsonObject payload{
+        {QStringLiteral("name"), name.trimmed()},
+        {QStringLiteral("localRetention"), local_retention},
+        {QStringLiteral("remoteRetention"), remote_retention},
+    };
+    const QString source_id = source_array.at(index).toObject().value(QStringLiteral("id")).toString();
+    request(RequestKind::UpdateSource, QLatin1String(manager_protocol::method::update_profile_source), {profileId(), source_id, generation_, fingerprint_, compact_json(payload)});
 }
 
 void ProfileConfigurationModel::removeSourceConfiguration(int index) {
-    const QJsonArray source_array = draft_.value(QStringLiteral("sources")).toArray();
+    const QJsonArray source_array = profile_.value(QStringLiteral("sources")).toArray();
     if (!loaded_ || busy_ || index < 0 || index >= source_array.size() || source_array.size() <= 1)
         return;
-    removeSource(index);
-    save();
+    const QString source_id = source_array.at(index).toObject().value(QStringLiteral("id")).toString();
+    request(RequestKind::RemoveSource, QLatin1String(manager_protocol::method::remove_profile_source), {profileId(), source_id, generation_, fingerprint_});
 }
 
-void ProfileConfigurationModel::updateProfileSettings(
-    const QString& name,
-    bool daily_limit,
-    bool auto_eject
-) {
-    const QString trimmed_name = name.trimmed();
-    if (!loaded_ || busy_ || trimmed_name.isEmpty())
+void ProfileConfigurationModel::updateProfileSettings(const QString& name, bool daily_limit, bool auto_eject) {
+    if (!loaded_ || busy_ || name.trimmed().isEmpty())
         return;
-
-    QJsonObject settings_object = object("settings");
-    settings_object.insert(QStringLiteral("dailyLimit"), daily_limit);
-    settings_object.insert(QStringLiteral("autoEject"), auto_eject);
-    draft_.insert(QStringLiteral("name"), trimmed_name);
-    draft_.insert(QStringLiteral("settings"), settings_object);
-    validation_preview_.clear();
-    updateDirty();
-    emit draftChanged();
-    save();
-}
-
-QString ProfileConfigurationModel::nextSourceId(const QString& name, const QString& subvolume) const {
-    QString candidate = name.toLower();
-    if (candidate.isEmpty())
-        candidate = QFileInfo(subvolume).fileName().toLower();
-    candidate.replace(QRegularExpression(QStringLiteral("[^a-z0-9._-]+")), QStringLiteral("-"));
-    candidate.remove(QRegularExpression(QStringLiteral("^[^a-z0-9]+|[^a-z0-9]+$")));
-    if (candidate.isEmpty())
-        candidate = QStringLiteral("source");
-    candidate = candidate.left(48);
-
-    QSet<QString> existing;
-    for (const QJsonValue& value : draft_.value(QStringLiteral("sources")).toArray())
-        existing.insert(value.toObject().value(QStringLiteral("id")).toString());
-    if (!existing.contains(candidate))
-        return candidate;
-    for (int suffix = 2; suffix < 10000; ++suffix) {
-        const QString numbered = QStringLiteral("%1-%2").arg(candidate.left(58), QString::number(suffix));
-        if (!existing.contains(numbered))
-            return numbered;
-    }
-    return QStringLiteral("source-%1").arg(existing.size() + 1);
-}
-
-void ProfileConfigurationModel::validate() {
-    if (!loaded_ || busy_)
-        return;
-    request(RequestKind::Validate, QLatin1String(manager_protocol::method::validate_profile_draft), {profileId(), generation_, fingerprint_, QString::fromUtf8(QJsonDocument(draft_).toJson(QJsonDocument::Compact))});
-}
-
-void ProfileConfigurationModel::save() {
-    if (!loaded_ || !dirty_ || busy_)
-        return;
-    request(RequestKind::Save, QLatin1String(manager_protocol::method::save_profile), {profileId(), generation_, fingerprint_, QString::fromUtf8(QJsonDocument(draft_).toJson(QJsonDocument::Compact))});
-}
-
-void ProfileConfigurationModel::duplicateAs(const QString& new_profile_id) {
-    if (!loaded_ || busy_ || new_profile_id.isEmpty())
-        return;
-    QJsonObject duplicate = draft_;
-    duplicate.insert(QStringLiteral("profileId"), new_profile_id);
-    duplicate.remove(QStringLiteral("configurationGeneration"));
-    request(RequestKind::Duplicate, QLatin1String(manager_protocol::method::save_profile_hooks), {new_profile_id, QString(), QString(), QString::fromUtf8(QJsonDocument(duplicate).toJson(QJsonDocument::Compact))});
+    const QJsonObject payload{
+        {QStringLiteral("name"), name.trimmed()},
+        {QStringLiteral("dailyLimit"), daily_limit},
+        {QStringLiteral("autoEject"), auto_eject},
+    };
+    request(RequestKind::UpdateSettings, QLatin1String(manager_protocol::method::update_profile_settings), {profileId(), generation_, fingerprint_, compact_json(payload)});
 }
 
 void ProfileConfigurationModel::deleteProfile() {
-    if (!loaded_ || busy_)
-        return;
-    request(RequestKind::Delete, QLatin1String(manager_protocol::method::delete_profile), {profileId(), generation_, fingerprint_});
+    if (loaded_ && !busy_)
+        request(RequestKind::Delete, QLatin1String(manager_protocol::method::delete_profile), {profileId(), generation_, fingerprint_});
 }
 
 void ProfileConfigurationModel::request(RequestKind kind, const QString& method, const QVariantList& arguments) {
@@ -410,84 +174,74 @@ void ProfileConfigurationModel::request(RequestKind kind, const QString& method,
         const QDBusPendingReply<QString> reply = *watcher;
         watcher->deleteLater();
         if (reply.isError()) {
+            if (kind == RequestKind::LoadDetails && reply.error().name().endsWith(QStringLiteral(".NotFound"))) {
+                const QString deleted_id = profileId();
+                profile_ = {};
+                generation_.clear();
+                fingerprint_.clear();
+                loaded_ = false;
+                refresh_pending_ = false;
+                emit profileChanged();
+                setBusy(false);
+                emit profileDeleted(deleted_id);
+                return;
+            }
             setError(reply.error().name(), reply.error().message());
             setBusy(false);
             if (reply.error().name().endsWith(QStringLiteral(".Conflict")))
                 emit conflictDetected();
+            if (refresh_pending_) {
+                refresh_pending_ = false;
+                loadDetails(profileId());
+            }
             return;
         }
         if (kind == RequestKind::Delete) {
             const QString deleted_id = profileId();
-            draft_ = {};
-            baseline_ = {};
+            profile_ = {};
             generation_.clear();
             fingerprint_.clear();
             loaded_ = false;
-            new_draft_ = false;
-            dirty_ = false;
+            refresh_pending_ = false;
             operation_message_ = i18n("Profile deleted");
-            emit draftChanged();
+            emit profileChanged();
             setBusy(false);
-            emit stateChanged();
             emit profileDeleted(deleted_id);
             return;
         }
-        const bool replace = kind == RequestKind::LoadDetails || kind == RequestKind::LoadEditing ||
-            kind == RequestKind::Save;
-        if (!applyEnvelope(reply.value(), replace)) {
-            setError(QStringLiteral("manager.invalid-response"), i18n("The backup manager returned an invalid editing response."));
+        if (!applyEnvelope(reply.value())) {
+            setError(QStringLiteral("manager.invalid-response"), i18n("The backup manager returned an invalid profile response."));
             setBusy(false);
             return;
         }
         setBusy(false);
-        if (kind == RequestKind::Validate)
-            operation_message_ = i18n("Profile draft is valid");
-        if (kind == RequestKind::Save) {
+        if (kind != RequestKind::LoadDetails) {
             operation_message_ = i18n("Profile saved");
             emit profileSaved(profileId());
         }
-        if (kind == RequestKind::Duplicate) {
-            QJsonParseError error;
-            const auto response = QJsonDocument::fromJson(reply.value().toUtf8(), &error).object();
-            operation_message_ = i18n("Profile duplicated");
-            emit profileSaved(response.value(QStringLiteral("profileId")).toString());
-        }
         emit stateChanged();
+        if (refresh_pending_) {
+            refresh_pending_ = false;
+            loadDetails(profileId());
+        }
     });
 }
 
-bool ProfileConfigurationModel::applyEnvelope(const QString& payload, bool replace_draft) {
+bool ProfileConfigurationModel::applyEnvelope(const QString& payload) {
     QJsonParseError error;
     const QJsonDocument response = QJsonDocument::fromJson(payload.toUtf8(), &error);
     if (error.error != QJsonParseError::NoError || !response.isObject())
         return false;
     const QJsonObject envelope = response.object();
-    if (envelope.value(QStringLiteral("schemaVersion")).toInt() != manager_protocol::profile_edit_schema_version ||
+    if (envelope.value(QStringLiteral("schemaVersion")).toInt() != manager_protocol::profile_details_schema_version ||
         !envelope.value(QStringLiteral("document")).isObject())
         return false;
-    if (replace_draft) {
-        draft_ = envelope.value(QStringLiteral("document")).toObject();
-        baseline_ = draft_;
-        new_draft_ = false;
-        generation_ = envelope.value(QStringLiteral("generation")).toString();
-        fingerprint_ = envelope.value(QStringLiteral("fingerprint")).toString();
-        loaded_ = true;
-        updateDirty();
-        emit draftChanged();
-    } else {
-        validation_preview_ = QString::fromUtf8(
-            QJsonDocument(envelope.value(QStringLiteral("document")).toObject()).toJson(QJsonDocument::Indented)
-        );
-    }
+    profile_ = envelope.value(QStringLiteral("document")).toObject();
+    generation_ = envelope.value(QStringLiteral("generation")).toString();
+    fingerprint_ = envelope.value(QStringLiteral("fingerprint")).toString();
+    loaded_ = true;
+    emit profileChanged();
     return true;
-}
-
-void ProfileConfigurationModel::updateDirty() {
-    const bool value = loaded_ && (new_draft_ || draft_ != baseline_);
-    if (dirty_ == value)
-        return;
-    dirty_ = value;
-    emit stateChanged();
 }
 
 void ProfileConfigurationModel::setError(const QString& code, const QString& message) {

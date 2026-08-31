@@ -49,29 +49,33 @@ SPDX-License-Identifier: GPL-3.0-or-later
       <arg name="profileId" type="s" direction="in"/>
       <arg name="payload" type="s" direction="out"/>
     </method>
-    <method name="GetProfileForEditing">
-      <arg name="profileId" type="s" direction="in"/>
-      <arg name="payload" type="s" direction="out"/>
-    </method>
-    <method name="ValidateProfileDraft">
+    <method name="UpdateProfileSettings">
       <arg name="profileId" type="s" direction="in"/>
       <arg name="expectedGeneration" type="s" direction="in"/>
       <arg name="expectedFingerprint" type="s" direction="in"/>
-      <arg name="document" type="s" direction="in"/>
+      <arg name="request" type="s" direction="in"/>
       <arg name="payload" type="s" direction="out"/>
     </method>
-    <method name="SaveProfile">
+    <method name="AddProfileSource">
       <arg name="profileId" type="s" direction="in"/>
       <arg name="expectedGeneration" type="s" direction="in"/>
       <arg name="expectedFingerprint" type="s" direction="in"/>
-      <arg name="document" type="s" direction="in"/>
+      <arg name="request" type="s" direction="in"/>
       <arg name="payload" type="s" direction="out"/>
     </method>
-    <method name="SaveProfileHooks">
+    <method name="UpdateProfileSource">
       <arg name="profileId" type="s" direction="in"/>
+      <arg name="sourceId" type="s" direction="in"/>
       <arg name="expectedGeneration" type="s" direction="in"/>
       <arg name="expectedFingerprint" type="s" direction="in"/>
-      <arg name="document" type="s" direction="in"/>
+      <arg name="request" type="s" direction="in"/>
+      <arg name="payload" type="s" direction="out"/>
+    </method>
+    <method name="RemoveProfileSource">
+      <arg name="profileId" type="s" direction="in"/>
+      <arg name="sourceId" type="s" direction="in"/>
+      <arg name="expectedGeneration" type="s" direction="in"/>
+      <arg name="expectedFingerprint" type="s" direction="in"/>
       <arg name="payload" type="s" direction="out"/>
     </method>
     <method name="DeleteProfile">

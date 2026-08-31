@@ -43,10 +43,10 @@ class ManagerDbusObject final {
     int handle_validate_target(sd_bus_message* message, sd_bus_error* error) noexcept;
     int handle_eject_target(sd_bus_message* message, sd_bus_error* error) noexcept;
     int handle_get_profile_details(sd_bus_message* message, sd_bus_error* error) noexcept;
-    int handle_get_profile_for_editing(sd_bus_message* message, sd_bus_error* error) noexcept;
-    int handle_validate_profile_draft(sd_bus_message* message, sd_bus_error* error) noexcept;
-    int handle_save_profile(sd_bus_message* message, sd_bus_error* error) noexcept;
-    int handle_save_profile_hooks(sd_bus_message* message, sd_bus_error* error) noexcept;
+    int handle_update_profile_settings(sd_bus_message* message, sd_bus_error* error) noexcept;
+    int handle_add_profile_source(sd_bus_message* message, sd_bus_error* error) noexcept;
+    int handle_update_profile_source(sd_bus_message* message, sd_bus_error* error) noexcept;
+    int handle_remove_profile_source(sd_bus_message* message, sd_bus_error* error) noexcept;
     int handle_delete_profile(sd_bus_message* message, sd_bus_error* error) noexcept;
     int handle_set_profile_enabled(sd_bus_message* message, sd_bus_error* error) noexcept;
     int handle_open_browse_session(sd_bus_message* message, sd_bus_error* error) noexcept;

@@ -96,20 +96,20 @@ assert_method(
     "<methodname=\"GetProfileDetails\"><argname=\"profileId\"type=\"s\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
 )
 assert_method(
-    get_profile_for_editing GetProfileForEditing s s
-    "<methodname=\"GetProfileForEditing\"><argname=\"profileId\"type=\"s\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
+    update_profile_settings UpdateProfileSettings ssss s
+    "<methodname=\"UpdateProfileSettings\"><argname=\"profileId\"type=\"s\"direction=\"in\"/><argname=\"expectedGeneration\"type=\"s\"direction=\"in\"/><argname=\"expectedFingerprint\"type=\"s\"direction=\"in\"/><argname=\"request\"type=\"s\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
 )
 assert_method(
-    validate_profile_draft ValidateProfileDraft ssss s
-    "<methodname=\"ValidateProfileDraft\"><argname=\"profileId\"type=\"s\"direction=\"in\"/><argname=\"expectedGeneration\"type=\"s\"direction=\"in\"/><argname=\"expectedFingerprint\"type=\"s\"direction=\"in\"/><argname=\"document\"type=\"s\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
+    add_profile_source AddProfileSource ssss s
+    "<methodname=\"AddProfileSource\"><argname=\"profileId\"type=\"s\"direction=\"in\"/><argname=\"expectedGeneration\"type=\"s\"direction=\"in\"/><argname=\"expectedFingerprint\"type=\"s\"direction=\"in\"/><argname=\"request\"type=\"s\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
 )
 assert_method(
-    save_profile SaveProfile ssss s
-    "<methodname=\"SaveProfile\"><argname=\"profileId\"type=\"s\"direction=\"in\"/><argname=\"expectedGeneration\"type=\"s\"direction=\"in\"/><argname=\"expectedFingerprint\"type=\"s\"direction=\"in\"/><argname=\"document\"type=\"s\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
+    update_profile_source UpdateProfileSource sssss s
+    "<methodname=\"UpdateProfileSource\"><argname=\"profileId\"type=\"s\"direction=\"in\"/><argname=\"sourceId\"type=\"s\"direction=\"in\"/><argname=\"expectedGeneration\"type=\"s\"direction=\"in\"/><argname=\"expectedFingerprint\"type=\"s\"direction=\"in\"/><argname=\"request\"type=\"s\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
 )
 assert_method(
-    save_profile_hooks SaveProfileHooks ssss s
-    "<methodname=\"SaveProfileHooks\"><argname=\"profileId\"type=\"s\"direction=\"in\"/><argname=\"expectedGeneration\"type=\"s\"direction=\"in\"/><argname=\"expectedFingerprint\"type=\"s\"direction=\"in\"/><argname=\"document\"type=\"s\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
+    remove_profile_source RemoveProfileSource ssss s
+    "<methodname=\"RemoveProfileSource\"><argname=\"profileId\"type=\"s\"direction=\"in\"/><argname=\"sourceId\"type=\"s\"direction=\"in\"/><argname=\"expectedGeneration\"type=\"s\"direction=\"in\"/><argname=\"expectedFingerprint\"type=\"s\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
 )
 assert_method(
     delete_profile DeleteProfile sss s

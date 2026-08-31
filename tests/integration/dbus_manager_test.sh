@@ -217,7 +217,7 @@ grep -Fq 'connected' <<<"$device" || fail 'device state was not returned'
 if grep -Fq '/dev/null' <<<"$device"; then fail 'device path crossed the bus'; fi
 
 introspection="$($BUSCTL --address="$BUS_ADDRESS" introspect "$SERVICE" "$OBJECT" "$INTERFACE")"
-for method in GetCapabilities ListProfiles GetStatus GetHistorySanitized GetDeviceState StartBackup CancelBackup ValidateTarget EjectTarget GetProfileDetails GetProfileForEditing ValidateProfileDraft SaveProfile SaveProfileHooks DeleteProfile SetProfileEnabled; do
+for method in GetCapabilities ListProfiles GetStatus GetHistorySanitized GetDeviceState StartBackup CancelBackup ValidateTarget EjectTarget GetProfileDetails UpdateProfileSettings AddProfileSource UpdateProfileSource RemoveProfileSource DeleteProfile SetProfileEnabled; do
     grep -Fq "$method" <<<"$introspection" || fail "missing method $method"
 done
 for signal in ProfilesChanged StatusChanged HistoryChanged DeviceStateChanged; do
@@ -229,23 +229,16 @@ grep -Fq 'fingerprint' <<<"$profile_details" || fail 'profile details omit finge
 grep -Fq 'generation' <<<"$profile_details" || fail 'profile details omit generation'
 if grep -Fq 'key contents' <<<"$profile_details"; then fail 'secret contents crossed the unauthenticated details method'; fi
 
-touch "$TEST_ROOT/polkit.log.allow"
-editable_profile="$(call GetProfileForEditing s default)"
-grep -Fq 'fingerprint' <<<"$editable_profile" || fail 'editable profile omits fingerprint'
-grep -Fq 'generation' <<<"$editable_profile" || fail 'editable profile omits generation'
-if grep -Fq 'key contents' <<<"$editable_profile"; then fail 'secret contents crossed the bus'; fi
-fingerprint="$(grep -oE '[0-9a-f]{64}' <<<"$editable_profile")"
+fingerprint="$(grep -oE '[0-9a-f]{64}' <<<"$profile_details")"
 if [[ ! "$fingerprint" =~ ^[0-9a-f]{64}$ ]]; then
-    printf 'editable profile response: %s\n' "$editable_profile" >&2
-    fail 'editable profile returned an invalid fingerprint'
+    printf 'profile details response: %s\n' "$profile_details" >&2
+    fail 'profile details returned an invalid fingerprint'
 fi
-draft="$(<"$TEST_ROOT/etc/profiles/default/profile.json")"
-validated="$(call ValidateProfileDraft ssss default "0123456789abcdef0123456789abcdef" "$fingerprint" "$draft")"
-grep -Fq 'valid' <<<"$validated" || fail 'profile draft validation did not return a result'
-updated_draft="${draft/Default backup/Edited backup}"
-saved="$(call SaveProfile ssss default "0123456789abcdef0123456789abcdef" "$fingerprint" "$updated_draft")"
+touch "$TEST_ROOT/polkit.log.allow"
+settings_request='{"name":"Edited backup","dailyLimit":false,"autoEject":true}'
+saved="$(call UpdateProfileSettings ssss default "0123456789abcdef0123456789abcdef" "$fingerprint" "$settings_request")"
 grep -Fq 'generation' <<<"$saved" || fail 'profile save omitted the new generation'
-grep -Fq 'Edited backup' "$TEST_ROOT/etc/profiles/default/profile.json" || fail 'profile save did not publish the draft'
+grep -Fq 'Edited backup' "$TEST_ROOT/etc/profiles/default/profile.json" || fail 'profile settings update was not published'
 grep -Eq '"configurationGeneration"[[:space:]]*:[[:space:]]*"[0-9a-f]{32}"' "$TEST_ROOT/etc/profiles/default/profile.json" \
     || fail 'profile save did not assign a generation'
 rm -f -- "$TEST_ROOT/polkit.log.allow"
@@ -282,8 +275,8 @@ grep -Fq 'io.github.btrfsbackup.start-backup' "$TEST_ROOT/polkit.log" \
     || fail 'start request used the wrong polkit action'
 grep -Fq 'io.github.btrfsbackup.validate-target' "$TEST_ROOT/polkit.log" \
     || fail 'validate request used the wrong polkit action'
-grep -Fq 'io.github.btrfsbackup.read-profile-configuration' "$TEST_ROOT/polkit.log" \
-    || fail 'profile read used the wrong polkit action'
+grep -Fq 'io.github.btrfsbackup.manage-profile-configuration' "$TEST_ROOT/polkit.log" \
+    || fail 'profile update used the wrong polkit action'
 grep -Fq '"callerUid":'"$(id -u)" "$TEST_ROOT/audit/manager.jsonl" \
     || fail 'manager audit omitted the D-Bus caller UID'
 grep -Fq '"action":"start-backup"' "$TEST_ROOT/audit/manager.jsonl" \

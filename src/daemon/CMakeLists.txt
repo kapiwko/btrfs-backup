@@ -77,6 +77,7 @@ target_link_libraries(btrfsbackup-daemon-control
         btrfsbackup-config-domain
         btrfsbackup-daemon-core
     PRIVATE
+        btrfsbackup-config-json
         btrfsbackup-core
         btrfsbackup-manager-protocol
 )

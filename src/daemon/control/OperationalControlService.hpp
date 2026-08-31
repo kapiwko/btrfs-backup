@@ -18,10 +18,8 @@ enum class ManagerAuthorizationAction {
     CancelBackup,
     ValidateTarget,
     EjectTarget,
-    ReadProfileConfiguration,
-    SaveProfileConfiguration,
+    ManageProfileConfiguration,
     DeleteProfileConfiguration,
-    SaveProfileHooks,
     SetProfileEnabled,
     OpenBrowseSession,
 };

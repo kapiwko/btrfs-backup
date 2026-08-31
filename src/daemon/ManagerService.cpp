@@ -34,7 +34,6 @@ ManagerCapabilities ManagerService::get_capabilities() const {
             manager_protocol::feature::change_signals,
             manager_protocol::feature::profile_administration,
             manager_protocol::feature::profile_details,
-            manager_protocol::feature::profile_hook_administration,
             manager_protocol::feature::profile_activation,
             manager_protocol::feature::browse_backups,
         },
