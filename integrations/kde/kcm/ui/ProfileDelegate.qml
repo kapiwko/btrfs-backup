@@ -26,6 +26,7 @@ QQC2.ItemDelegate {
 
     width: ListView.view?.width ?? implicitWidth
     highlighted: pressed
+    Kirigami.Theme.useAlternateBackgroundColor: true
     onClicked: {
         if (ListView.view)
             ListView.view.currentIndex = index

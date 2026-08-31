@@ -45,6 +45,10 @@ SPDX-License-Identifier: GPL-3.0-or-later
       <arg name="profileId" type="s" direction="in"/>
       <arg name="payload" type="s" direction="out"/>
     </method>
+    <method name="GetProfileDetails">
+      <arg name="profileId" type="s" direction="in"/>
+      <arg name="payload" type="s" direction="out"/>
+    </method>
     <method name="GetProfileForEditing">
       <arg name="profileId" type="s" direction="in"/>
       <arg name="payload" type="s" direction="out"/>

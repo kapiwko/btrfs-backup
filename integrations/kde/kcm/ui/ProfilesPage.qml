@@ -29,11 +29,12 @@ Item {
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: Kirigami.Units.largeSpacing
-        spacing: Kirigami.Units.smallSpacing
+        spacing: 0
 
         Kirigami.InlineMessage {
             Layout.fillWidth: true
+            Layout.margins: Kirigami.Units.largeSpacing
+            Layout.bottomMargin: Kirigami.Units.smallSpacing
             visible: !root.directory.managerConnected || root.directory.lastError.length > 0
             type: Kirigami.MessageType.Error
             text: root.directory.lastError.length > 0
@@ -41,41 +42,36 @@ Item {
                 : translations.i18n("Backup service unavailable")
         }
 
-        QQC2.Frame {
+        ListView {
+            id: profilesView
+
             Layout.fillWidth: true
             Layout.fillHeight: true
-            padding: 0
+            model: root.directory.profiles
+            clip: true
+            focus: true
+            activeFocusOnTab: true
+            boundsBehavior: Flickable.StopAtBounds
+            currentIndex: -1
 
-            ListView {
-                id: profilesView
+            delegate: ProfileDelegate {
+                statusOverride: root.profileStatusOverrides[modelData.profileId] ?? null
+                profileSummaryFor: root.profileSummaryFor
+                runningStateFor: root.runningStateFor
+                onDetailsRequested: profileId => root.profileRequested(profileId)
+                onEditRequested: profileId => root.editProfileRequested(profileId)
+            }
 
-                anchors.fill: parent
-                model: root.directory.profiles
-                clip: true
-                focus: true
-                activeFocusOnTab: true
-                boundsBehavior: Flickable.StopAtBounds
-                currentIndex: -1
-
-                delegate: ProfileDelegate {
-                    statusOverride: root.profileStatusOverrides[modelData.profileId] ?? null
-                    profileSummaryFor: root.profileSummaryFor
-                    runningStateFor: root.runningStateFor
-                    onDetailsRequested: profileId => root.profileRequested(profileId)
-                    onEditRequested: profileId => root.editProfileRequested(profileId)
-                }
-
-                Kirigami.PlaceholderMessage {
-                    anchors.centerIn: parent
-                    width: Math.min(parent.width - Kirigami.Units.gridUnit * 4, implicitWidth)
-                    visible: profilesView.count === 0
-                    icon.name: root.directory.managerConnected
-                        ? "drive-harddisk-symbolic"
-                        : "network-disconnect-symbolic"
-                    text: root.directory.managerConnected
-                        ? translations.i18n("No backup profiles configured")
-                        : translations.i18n("Waiting for the system backup service")
-                }
+            Kirigami.PlaceholderMessage {
+                anchors.centerIn: parent
+                width: Math.min(parent.width - Kirigami.Units.gridUnit * 4, implicitWidth)
+                visible: profilesView.count === 0
+                icon.name: root.directory.managerConnected
+                    ? "drive-harddisk-symbolic"
+                    : "network-disconnect-symbolic"
+                text: root.directory.managerConnected
+                    ? translations.i18n("No backup profiles configured")
+                    : translations.i18n("Waiting for the system backup service")
             }
         }
 
@@ -83,6 +79,9 @@ Item {
 
         QQC2.Label {
             Layout.fillWidth: true
+            Layout.leftMargin: Kirigami.Units.largeSpacing
+            Layout.rightMargin: Kirigami.Units.largeSpacing
+            Layout.topMargin: Kirigami.Units.largeSpacing
             text: translations.i18n("Administrative operations are recorded in the system journal.")
             wrapMode: Text.Wrap
             opacity: 0.75
@@ -90,6 +89,7 @@ Item {
 
         RowLayout {
             Layout.fillWidth: true
+            Layout.margins: Kirigami.Units.largeSpacing
             spacing: Kirigami.Units.smallSpacing
 
             QQC2.Button {

@@ -14,15 +14,14 @@ QQC2.ScrollView {
 
     required property var editor
     required property var profileStatus
-    required property var historyModel
     required property var statusTextFor
     required property var targetStateTextFor
     required property var runningStateFor
 
-    signal addSourceRequested()
-    signal editSourceRequested(int index, var source)
+    signal addSourceRequested(string name, string subvolume, int localRetention, int targetRetention)
+    signal editSourceRequested(int index, string name, int localRetention, int targetRetention)
     signal removeSourceRequested(int index, var source)
-    signal deleteRequested()
+    signal deleteRequested
 
     clip: true
     contentWidth: availableWidth
@@ -45,93 +44,63 @@ QQC2.ScrollView {
 
         Kirigami.InlineMessage {
             Layout.fillWidth: true
-            visible: root.editor !== null
-                && root.editor.errorCode.endsWith(".RollbackIncomplete")
+            visible: root.editor !== null && root.editor.errorCode.endsWith(".RollbackIncomplete")
             type: Kirigami.MessageType.Warning
             text: translations.i18n("Rollback was incomplete. Review the system log before running another backup.")
         }
 
-        QQC2.TabBar {
-            id: tabs
+        ProfileOverview {
             Layout.fillWidth: true
-
-            QQC2.TabButton {
-                text: translations.i18n("Overview")
-                icon.name: "view-list-details-symbolic"
-            }
-            QQC2.TabButton {
-                text: translations.i18n("History")
-                icon.name: "view-history-symbolic"
-            }
+            editor: root.editor
+            profileStatus: root.profileStatus
+            statusTextFor: root.statusTextFor
+            targetStateTextFor: root.targetStateTextFor
+            runningStateFor: root.runningStateFor
         }
 
-        StackLayout {
+        ProfileSources {
             Layout.fillWidth: true
-            currentIndex: tabs.currentIndex
-
-            ColumnLayout {
-                spacing: Kirigami.Units.largeSpacing
-
-                ProfileOverview {
-                    Layout.fillWidth: true
-                    editor: root.editor
-                    profileStatus: root.profileStatus
-                    statusTextFor: root.statusTextFor
-                    targetStateTextFor: root.targetStateTextFor
-                    runningStateFor: root.runningStateFor
-                }
-
-                ProfileSources {
-                    Layout.fillWidth: true
-                    editor: root.editor
-                    onAddRequested: root.addSourceRequested()
-                    onEditRequested: (index, source) => root.editSourceRequested(index, source)
-                    onRemoveRequested: (index, source) => root.removeSourceRequested(index, source)
-                }
-
-                ProfileUnlocking {
-                    Layout.fillWidth: true
-                    editor: root.editor
-                }
-
-                ProfileBehavior {
-                    Layout.fillWidth: true
-                    editor: root.editor
-                }
-
-                TechnicalDetails {
-                    Layout.fillWidth: true
-                    editor: root.editor
-                }
-
-                Kirigami.Separator { Layout.fillWidth: true }
-
-                RowLayout {
-                    Layout.fillWidth: true
-                    Item { Layout.fillWidth: true }
-                    QQC2.Button {
-                        icon.name: "edit-delete-symbolic"
-                        text: translations.i18n("Delete profile")
-                        enabled: root.editor !== null && !root.editor.busy
-                        onClicked: root.deleteRequested()
-                    }
-                }
+            Layout.leftMargin: -Kirigami.Units.largeSpacing
+            Layout.rightMargin: -Kirigami.Units.largeSpacing
+            editor: root.editor
+            onAddRequested: (name, subvolume, localRetention, targetRetention) => {
+                root.addSourceRequested(name, subvolume, localRetention, targetRetention);
             }
+            onEditRequested: (index, name, localRetention, targetRetention) => {
+                root.editSourceRequested(index, name, localRetention, targetRetention);
+            }
+            onRemoveRequested: (index, source) => root.removeSourceRequested(index, source)
+        }
 
-            ColumnLayout {
-                spacing: Kirigami.Units.largeSpacing
+        ProfileUnlocking {
+            Layout.fillWidth: true
+            editor: root.editor
+        }
 
-                QQC2.Frame {
-                    Layout.fillWidth: true
-                    padding: 0
+        ProfileBehavior {
+            Layout.fillWidth: true
+            editor: root.editor
+        }
 
-                    ProfileHistory {
-                        width: parent.width
-                        historyModel: root.historyModel
-                        statusTextFor: root.statusTextFor
-                    }
-                }
-                Item { Layout.fillHeight: true }
+        TechnicalDetails {
+            Layout.fillWidth: true
+            editor: root.editor
+        }
+
+        Kirigami.Separator {
+            Layout.fillWidth: true
+        }
+
+        RowLayout {
+            Layout.fillWidth: true
+            Item {
+                Layout.fillWidth: true
+            }
+            QQC2.Button {
+                icon.name: "edit-delete-symbolic"
+                text: translations.i18n("Delete profile")
+                enabled: root.editor !== null && !root.editor.busy
+                onClicked: root.deleteRequested()
             }
         }
 
