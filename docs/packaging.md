@@ -133,9 +133,11 @@ wizard --apply` and `profile save` write active profiles, udev rules, native
 profile-specific mount units, and mount-dependency drop-ins after an explicit
 user command.
 
-The Arch `post_upgrade` hook reloads systemd, D-Bus, and udev configuration and
-uses `try-restart` to replace an already running `btrfs-backupd`. Backup runners
-are separate units and are not restarted by the package hook.
+The Arch `post_upgrade` hook regenerates the derived systemd and udev artifacts
+for all installed profiles, reloads systemd, D-Bus, and udev configuration, and
+uses `try-restart` to replace an already running `btrfs-backupd`. A profile that
+cannot be regenerated produces a warning without aborting the package upgrade.
+Backup runners are separate units and are not restarted by the package hook.
 
 The optional `btrfs-backup-kde` package installs the Plasma applet under
 `/usr/share/plasma/plasmoids` and the compiled QML module under

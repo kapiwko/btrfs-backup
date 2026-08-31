@@ -1,8 +1,6 @@
 # Changelog
 
-## Unreleased
-
-## 4.0.0 - 2026-08-31
+## 4.0.0 - Unreleased
 
 ### Highlights
 
@@ -79,6 +77,14 @@ schema version 4 profile with 3.2.x before upgrading, then install it with the
 4. the real target lifecycle test starts and verifies `systemd-udevd` before
    managed activation, removing an environment-dependent device-publication
    race from release verification.
+
+### Profile Configuration Lifecycle
+
+1. `btrfs-backupctl profile regenerate --all` rebuilds transactional systemd
+   and udev artifacts for every installed profile;
+2. the Arch package invokes profile regeneration automatically after upgrades
+   and reports profiles requiring manual attention without aborting the package
+   transaction.
 
 ## 3.2.0 - 2026-08-30
 

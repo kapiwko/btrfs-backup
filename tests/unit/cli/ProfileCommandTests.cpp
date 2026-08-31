@@ -98,10 +98,89 @@ void test_profile_list_uses_config_root() {
     fs::remove_all(root);
 }
 
+void test_profile_regenerate_all_restores_derived_artifacts() {
+    const fs::path root = test_root("profile-regenerate-all");
+    const fs::path etc_root = root / "etc/btrfs-backup";
+    const fs::path udev_root = root / "etc/udev/rules.d";
+    const fs::path systemd_root = root / "etc/systemd/system";
+    const fs::path public_root = root / "var/lib/btrfs-backup/public/profiles";
+    const auto command = [&](std::vector<std::string> arguments) {
+        arguments.insert(arguments.begin(), {
+                                                "--etc-root",
+                                                etc_root.string(),
+                                                "--udev-root",
+                                                udev_root.string(),
+                                                "--systemd-root",
+                                                systemd_root.string(),
+                                                "--public-root",
+                                                public_root.string(),
+                                            });
+        btrfsbackup::config::NullConfigurationActivator activator;
+        return btrfsbackup::cli::profile::profile(arguments, etc_root, activator);
+    };
+
+    auto save_profile = [&](const std::string& id) {
+        auto profile = sample_profile_json();
+        profile["profileId"] = id;
+        profile["name"] = id + " backup";
+        const fs::path draft = root / (id + ".json");
+        test_helpers::write_file(draft, btrfsbackup::config::json::dump_json(profile));
+        test_helpers::expect_eq(
+            "initial profile save " + id,
+            std::to_string(command({"save", "--file", draft.string()})),
+            "0"
+        );
+    };
+
+    save_profile("archive");
+    save_profile("default");
+    const std::string archive_generation = btrfsbackup::config::json::load_json_file(
+                                               etc_root / "profiles/archive/profile.json"
+    )
+                                               .at("configurationGeneration")
+                                               .get<std::string>();
+    fs::remove(udev_root / "99-btrfs-backup-archive.rules");
+    fs::remove(systemd_root / "btrfs-backup@default.service.d/target-mount.conf");
+
+    std::ostringstream output;
+    std::streambuf* previous = std::cout.rdbuf(output.rdbuf());
+    const int result = command({"regenerate", "--all"});
+    std::cout.rdbuf(previous);
+
+    test_helpers::expect_eq("profile regenerate result", std::to_string(result), "0");
+    test_helpers::expect_eq(
+        "profile regenerate output",
+        output.str(),
+        "Regenerated profile archive\nRegenerated profile default\n"
+    );
+    test_helpers::expect_true(
+        "profile regenerate restores udev rule",
+        fs::is_regular_file(udev_root / "99-btrfs-backup-archive.rules"),
+        "archive udev rule was not restored"
+    );
+    test_helpers::expect_true(
+        "profile regenerate restores systemd drop-in",
+        fs::is_regular_file(systemd_root / "btrfs-backup@default.service.d/target-mount.conf"),
+        "default systemd drop-in was not restored"
+    );
+    const std::string regenerated_generation = btrfsbackup::config::json::load_json_file(
+                                                   etc_root / "profiles/archive/profile.json"
+    )
+                                                   .at("configurationGeneration")
+                                                   .get<std::string>();
+    test_helpers::expect_true(
+        "profile regenerate updates generation",
+        regenerated_generation != archive_generation,
+        "configuration generation did not change"
+    );
+    fs::remove_all(root);
+}
+
 } // namespace
 
 int main() {
     test_profile_create_writes_json();
     test_profile_list_uses_config_root();
+    test_profile_regenerate_all_restores_derived_artifacts();
     return test_helpers::finish("profile command tests");
 }
