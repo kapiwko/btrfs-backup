@@ -13,6 +13,61 @@ sudo cryptsetup open /dev/disk/by-uuid/<LUKS-UUID> backupdisk
 sudo mount -o ro /dev/mapper/backupdisk /mnt/btrfs-backup/default
 ```
 
+## Discover And Browse A Repository
+
+For a format v1 repository, inspect its identity and snapshots before choosing
+data to restore:
+
+```bash
+btrfs-backupctl restore catalog \
+  --repository /mnt/btrfs-backup/default/btrfs-backup
+
+btrfs-backupctl restore list \
+  --repository /mnt/btrfs-backup/default/btrfs-backup \
+  --snapshot <snapshot-id> \
+  --source Documents
+
+btrfs-backupctl restore versions \
+  --repository /mnt/btrfs-backup/default/btrfs-backup \
+  --host <host-id> \
+  --profile <profile-id> \
+  --source-id <source-id> \
+  --source Documents/report.odt
+```
+
+Discovery validates `repository.json`, `catalog.json`, snapshot paths,
+read-only state and Btrfs UUID identity. It starts only from an already mounted
+repository and never unlocks or mounts a target.
+
+Preview a transactional file or directory restore, then execute the same
+request:
+
+```bash
+btrfs-backupctl restore plan \
+  --repository /mnt/btrfs-backup/default/btrfs-backup \
+  --snapshot <snapshot-id> \
+  --source Documents \
+  --destination /mnt/restore/Documents \
+  --transaction restore-20260831
+
+btrfs-backupctl restore execute \
+  --repository /mnt/btrfs-backup/default/btrfs-backup \
+  --snapshot <snapshot-id> \
+  --source Documents \
+  --destination /mnt/restore/Documents \
+  --transaction restore-20260831
+```
+
+Add `--subvolume` to create a restored Btrfs subvolume. Existing destinations
+are rejected unless `--replace` is explicit. The engine stages the result,
+rejects traversal, symlinks, special files and nested mount boundaries, and
+publishes only a complete restore.
+
+With the matching KDE package installed, the same repository can be opened
+read-only from the plasmoid or KCM. Dolphin's previous-versions action and
+`btrfs-backup-kde-restore` use caller-bound manager sessions and the same
+restore engine.
+
 List snapshots:
 
 ```bash

@@ -1,8 +1,8 @@
 # System Manager
 
-Status: query, event-driven change signals, authorized operational control and
-stable audit records implemented; administrative mutation and later delivery
-stages remain planned.
+Status: query, event-driven change signals, authorized operational control,
+profile administration, caller-bound browse sessions and stable audit records
+implemented; scheduling and device preparation remain planned.
 
 Descriptions of the current query and operational-control surface below are
 implemented unless explicitly marked as planned. The delivery sequence records
@@ -14,8 +14,9 @@ sprint tasks when a sprint is defined, while longer-term features remain in
 
 `btrfs-backupd` is an optional privileged system-bus adapter. Its implemented
 surface exposes sanitized profiles, status, history and device state plus
-polkit-authorized start, cancel, validation and eject operations. It does not
-contain backup planning or transfer implementations copied from the CLI.
+polkit-authorized start, cancel, validation, eject, profile administration and
+read-only browse-session operations. It does not contain backup planning or
+transfer implementations copied from the CLI.
 
 The runner remains a separate systemd process. udev starts the runner unit
 without contacting the manager, and an active runner survives manager restart
@@ -35,15 +36,22 @@ StartBackup
 CancelBackup
 ValidateTarget
 EjectTarget
+GetProfileForEditing
+ValidateProfileDraft
+SaveProfile
+SaveProfileHooks
+DeleteProfile
+GetBackupCoverage
+OpenBrowseSession
+CloseBrowseSession
 ProfilesChanged
 StatusChanged
 HistoryChanged
 DeviceStateChanged
 ```
 
-Later administrative operations include profile save/delete and device
-preparation. Stable codes and structured details cross
-the bus; presentation text remains a client concern.
+Destructive device preparation remains a later operation. Stable codes and
+structured details cross the bus; presentation text remains a client concern.
 
 Capabilities independently advertise D-Bus API, profile schema, public status
 schema, history schema and optional features. Clients reject incompatible
@@ -69,7 +77,7 @@ specific action defined in [the authorization contract](../system-dbus-api.md).
 Inputs are validated before prompting and revalidated immediately before the
 effect. The revalidation compares configuration generation and fingerprint,
 and the caller's unique bus name must still have an owner after polkit returns.
-Planned hook changes will require both profile-save and change-hooks permission.
+Hook changes require both profile-save and change-hooks permission.
 
 Stable, secret-free audit records contain caller UID, action, profile, result
 and stable error code. The manager appends and synchronizes them to the root-only
@@ -94,9 +102,10 @@ not the audit contract.
 2. state-change signals and file-backed reconstruction after a manager restart
    (implemented);
 3. operational start/cancel/validate/eject actions with polkit (implemented);
-4. administrative profile writes and hook-change authorization (planned);
-5. shared C++ client and KDE monitor (implemented); KCM (planned);
-6. scheduling and request queue integration (planned).
+4. administrative profile writes and hook-change authorization (implemented);
+5. shared C++ client, KDE monitor and KCM (implemented);
+6. caller-bound browse sessions and KDE restore adapters (implemented);
+7. scheduling and request queue integration (planned).
 
 ## Open Questions
 

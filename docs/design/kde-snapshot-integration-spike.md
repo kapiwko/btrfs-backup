@@ -1,6 +1,6 @@
 # KDE Snapshot Integration Spike
 
-Status: decided.
+Status: implemented in 1.0.0.
 
 Date: 2026-08-31.
 
@@ -9,15 +9,15 @@ Upstream examined: KDE `kio-snapshot` 1.0.0, revision
 
 ## Decision
 
-Do not make `kio-snapshot` the repository browser for `btrfs-backup` 3.x and do
+Do not make `kio-snapshot` the repository browser for `btrfs-backup` and do
 not fork it. Keep both integrations installable side by side:
 
 - `snapshot:` continues to expose snapshots that belong to a currently mounted
   local Btrfs filesystem;
-- `btrfsbackup:` will expose catalog entries through an explicit, authorized,
+- `btrfsbackup:` exposes catalog entries through an explicit, authorized,
   read-only browse session;
 - the Dolphin plugin may present both actions when both providers apply;
-- propose a provider boundary upstream after the `btrfsbackup:` MVP has proved
+- propose a provider boundary upstream after the `btrfsbackup:` implementation has proved
   its catalog and session contracts.
 
 This is an interoperability decision, not a rejection of upstream. The worker,
@@ -104,8 +104,8 @@ and `SYNC_ACL`. File entries may publish `UDS_LOCAL_PATH` and a `file:` target.
 The backup repository can contain root-owned files, historical UIDs and mode
 `0600` data. Its manager must therefore authorize opening the repository,
 validate the target identity, bind a lease to the D-Bus caller, enforce a
-timeout and return only a session-scoped root. The first implementation will
-retain normal Unix read checks; broader privileged reads require a separate FD
+timeout and return only a session-scoped root. The 1.0 implementation retains
+normal Unix read checks; broader privileged reads require a separate FD
 broker and threat-model review. Raw repository paths are never part of the
 public URL.
 
@@ -154,14 +154,13 @@ tracks KIO API changes and prevents a second snapshot catalog implementation.
 
 ## Upstream Plan
 
-1. Complete caller-bound browse sessions and the read-only worker.
-2. Collect concrete traces for local snapshot, removable repository, target
+1. Collect concrete traces for local snapshot, removable repository, target
    disconnect and expired-session behavior.
-3. Open a KDE issue describing provider use cases without proposing a
+2. Open a KDE issue describing provider use cases without proposing a
    `btrfs-backup`-specific API.
-4. Offer a small provider interface and tests with local Btrfs as the reference
+3. Offer a small provider interface and tests with local Btrfs as the reference
    provider and opaque session-backed storage as the second implementation.
-5. Keep `snapshot:` URLs backward compatible; do not reinterpret their host or
+4. Keep `snapshot:` URLs backward compatible; do not reinterpret their host or
    numeric path segments.
-6. If accepted and released, adapt `btrfs-backup` to the provider boundary and
+5. If accepted and released, adapt `btrfs-backup` to the provider boundary and
    deprecate only the duplicated presentation code, not the manager session API.

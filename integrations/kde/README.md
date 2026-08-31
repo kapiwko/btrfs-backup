@@ -4,9 +4,10 @@ This directory contains optional Plasma 6 integration. It is part of the main
 CMake graph only when `BUILD_KDE_INTEGRATION=ON`, so the system backup runtime
 does not require Qt Quick, Kirigami, Plasma or a graphical session by default.
 
-The integration includes a plasmoid with a small C++ QML backend and a session
-monitor for native Plasma progress. Both use the implemented system manager
-D-Bus API:
+The integration includes a plasmoid, session monitor, System Settings KCM,
+read-only KIO worker, Dolphin previous-version action, guided restore
+application and KRunner plugin. They use the implemented system manager D-Bus
+API:
 
 ```text
 io.github.btrfsbackup.Manager1
@@ -23,13 +24,13 @@ the UI thread on D-Bus calls.
 not be interpreted as target-device connectivity; target lifecycle is a
 separate `GetDeviceState` contract.
 
-The plasmoid offers start, run-scoped cancellation and eject through the
-manager's polkit-protected methods. Target validation belongs to the planned
-KCM. Target removal state is read from the separate `GetDeviceState` response,
-never inferred from backup success. The installed policy grants the plasmoid's
-operational controls without a password to the active local session; inactive
-callers and future profile, hook, or device changes remain administrator-
-authorized operations.
+The plasmoid offers start, run-scoped cancellation, browse and eject through
+the manager's polkit-protected methods. The KCM owns target validation and
+profile administration, with a separate high-risk authorization for hook
+changes. Target removal state is read from the separate `GetDeviceState`
+response, never inferred from backup success. Routine operational controls are
+available to the active local session; administrative operations require
+administrator authorization.
 
 ## Build
 
@@ -68,7 +69,7 @@ The expanded profile view owns the live transfer chart. The
 `btrfs-backup-kde-monitor` process represents each active manager run as a
 `KJob`, registers it with `KUiServerV2JobTracker`, and maps manager progress and
 byte rate onto the job. A killable job forwards cancellation to the manager
-with the matching profile and run ID. KIO is not required.
+with the matching profile and run ID.
 
 This adapter must run in the graphical user session. The root system manager
 cannot publish directly to a user's Plasma job tracker. `KNotification` remains
@@ -77,22 +78,23 @@ transport for continuously updated job progress.
 
 ## Architecture
 
-The desktop integration is divided into five surfaces:
+The desktop integration is divided into six surfaces:
 
 1. the plasmoid provides concise status and routine controls;
 2. plasmoid settings contain presentation preferences only;
 3. the session monitor owns `KJob`, `KUiServerV2JobTracker` and terminal
    notifications without owning run results;
 4. a QML Kirigami KCM provides profile inspection, target validation,
-   diagnostics and later controlled writes through the system service;
-5. future read-only KIO and Dolphin adapters browse backups through a shared,
-   CLI-first restore engine.
+   diagnostics and controlled writes through the system service;
+5. KIO and Dolphin adapters browse backups through a shared, CLI-first restore
+   engine and caller-bound read-only manager sessions;
+6. the guided restore application and KRunner plugin expose restore and common
+   backup operations without duplicating domain logic.
 
 The shared Qt D-Bus client supports these adapters without becoming a single
-desktop application object. KIO must not implement repository discovery or
-restore policy, and the `kio-snapshot` provider and authorization model must be
-evaluated before a public backup URL is selected. Profile editing is introduced
-only through authorized manager methods; no desktop component invokes `sudo` or
-writes `/etc` directly.
+desktop application object. KIO does not implement repository discovery or
+restore policy; it maps `btrfsbackup:` URLs onto the shared engine inside an
+authorized session. Profile editing uses only authorized manager methods; no
+desktop component invokes `sudo` or writes `/etc` directly.
 
 The base backup package must keep working without this integration installed.

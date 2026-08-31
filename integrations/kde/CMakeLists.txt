@@ -113,7 +113,9 @@ qt_add_qml_module(btrfs-backup-kde-restore
     URI org.btrfsbackup.restore
     VERSION 1.0
     NO_IMPORT_SCAN
-    QML_FILES restore/Main.qml
+    QML_FILES
+        restore/Main.qml
+        restore/RestorePage.qml
 )
 target_compile_features(btrfs-backup-kde-restore PRIVATE cxx_std_23)
 target_include_directories(btrfs-backup-kde-restore PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/client ${CMAKE_CURRENT_SOURCE_DIR}/restore)
@@ -174,6 +176,28 @@ add_executable(
     monitor/TerminalNotificationService.hpp
     monitor/main.cpp
 )
+
+if(BUILD_README_SCREENSHOTS)
+    qt_add_executable(btrfs-backup-kde-screenshot-demo EXCLUDE_FROM_ALL
+        monitor/BackupProgressJob.cpp
+        monitor/BackupProgressJob.hpp
+        ../../tools/screenshots/kde-desktop-demo.cpp
+    )
+    target_compile_features(btrfs-backup-kde-screenshot-demo PRIVATE cxx_std_23)
+    target_include_directories(
+        btrfs-backup-kde-screenshot-demo
+        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/monitor
+    )
+    target_link_libraries(
+        btrfs-backup-kde-screenshot-demo
+        PRIVATE
+            Qt6::Gui
+            KF6::CoreAddons
+            KF6::I18n
+            KF6::JobWidgets
+            KF6::Notifications
+    )
+endif()
 target_compile_features(btrfs-backup-kde-monitor PRIVATE cxx_std_23)
 target_compile_definitions(
     btrfs-backup-kde-monitor
