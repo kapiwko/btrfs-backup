@@ -23,7 +23,8 @@ constexpr const char* replacement_uuid = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
 
 btrfsbackup::config::json::Json profile_document(const std::string& btrfs_uuid) {
     return {
-        {"schemaVersion", 3},
+        {"schemaVersion", 4},
+        {"configurationGeneration", "0123456789abcdef0123456789abcdef"},
         {"profileId", "default"},
         {"name", "Default backup"},
         {"enabled", true},
@@ -32,6 +33,7 @@ btrfsbackup::config::json::Json profile_document(const std::string& btrfs_uuid) 
                        {"luksUuid", "11111111-2222-3333-4444-555555555555"},
                        {"btrfsUuid", btrfs_uuid},
                        {"mapperName", "backupdisk"},
+                       {"activation", {{"mode", "askPassword"}}},
                    }},
         {"sources", btrfsbackup::config::json::Json::array({{
                         {"id", "home"},

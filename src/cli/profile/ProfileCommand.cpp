@@ -15,7 +15,6 @@
 #include <cli/profile/ProfileWizardCommand.hpp>
 #include <core/Errors.hpp>
 #include <platform/linux/config/ApplicationConfig.hpp>
-#include <platform/linux/config/ProfileActivationMigration.hpp>
 #include <config/json/JsonIo.hpp>
 #include <config/domain/Profile.hpp>
 #include <config/json/ProfileDocument.hpp>
@@ -24,9 +23,6 @@
 
 namespace fs = std::filesystem;
 using btrfsbackup::ValidationError;
-using btrfsbackup::config::json::dump_json;
-using btrfsbackup::config::Profile;
-using btrfsbackup::config::json::profile_to_json;
 
 namespace {
 
@@ -51,7 +47,6 @@ void usage() {
               << "  validate --file PATH\n"
               << "  render --file PATH --output-dir PATH\n"
               << "  save --file PATH\n"
-              << "  migrate-activation [--profile ID] [--crypttab PATH] [--apply]\n"
               << "  show [--profile ID]\n"
               << "  export [--profile ID] --output PATH\n";
 }
@@ -108,14 +103,12 @@ int profile(
         if (command == "wizard") {
             return profile_wizard(std::vector<std::string>(rest.begin() + 1, rest.end()));
         }
-        if (command != "validate" && command != "render" && command != "save" && command != "show" && command != "export" && command != "migrate-activation") {
+        if (command != "validate" && command != "render" && command != "save" && command != "show" && command != "export") {
             fail("unknown command: " + command);
         }
         fs::path file;
         fs::path output_dir;
-        fs::path crypttab = "/etc/crypttab";
         std::string profile_id = "default";
-        bool apply = false;
         for (std::size_t i = 1; i < rest.size(); ++i) {
             const std::string& arg = rest[i];
             if (arg == "--file" && i + 1 < rest.size()) {
@@ -126,10 +119,6 @@ int profile(
                 profile_id = rest[++i];
             } else if (arg == "--output" && i + 1 < rest.size()) {
                 output_dir = rest[++i];
-            } else if (arg == "--crypttab" && i + 1 < rest.size()) {
-                crypttab = rest[++i];
-            } else if (arg == "--apply") {
-                apply = true;
             } else if (arg == "-h" || arg == "--help") {
                 usage();
                 return 0;
@@ -138,37 +127,7 @@ int profile(
             }
         }
 
-        // TODO(4.0): Remove the legacy crypttab migration command after the 3.x transition window.
-        if (command == "migrate-activation") {
-            Profile migrated = btrfsbackup::platform::linux::config::migrate_target_activation_from_crypttab(
-                btrfsbackup::platform::linux::config::get_profile(etc_root, profile_id),
-                crypttab
-            );
-            if (apply) {
-                if (geteuid() != 0 && etc_root == "/etc/btrfs-backup") {
-                    fail("migration of system configuration must be run as root", 1);
-                }
-                const bool installs_system_configuration =
-                    fs::absolute(etc_root).lexically_normal() == fs::path("/etc/btrfs-backup") &&
-                    fs::absolute(udev_root).lexically_normal() == fs::path("/etc/udev/rules.d") &&
-                    fs::absolute(systemd_root).lexically_normal() == fs::path("/etc/systemd/system") &&
-                    fs::absolute(public_root).lexically_normal() ==
-                        fs::path("/var/lib/btrfs-backup/public/profiles");
-                btrfsbackup::config::NullConfigurationActivator null_activator;
-                btrfsbackup::config::IConfigurationActivator& activator = installs_system_configuration
-                    ? system_activator
-                    : static_cast<btrfsbackup::config::IConfigurationActivator&>(null_activator);
-                btrfsbackup::platform::linux::config::install_profile(
-                    migrated,
-                    {etc_root, udev_root, systemd_root, public_root},
-                    activator
-                );
-                std::cout << "Migrated target activation for profile " << migrated.id.value()
-                          << "; legacy crypttab was not modified\n";
-            } else {
-                std::cout << dump_json(profile_to_json(migrated));
-            }
-        } else if (command == "validate") {
+        if (command == "validate") {
             if (file.empty())
                 fail("validate requires --file");
             btrfsbackup::config::ApplicationConfig config = btrfsbackup::platform::linux::config::load_application_config(etc_root);

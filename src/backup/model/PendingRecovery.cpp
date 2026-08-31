@@ -50,10 +50,8 @@ bool marker_path_is_valid(
         return false;
     }
 
-    // Markers written before final_snapshot_path was introduced retain the
-    // previous UUID-based recovery behavior.
     if (marker.final_snapshot_path.empty()) {
-        return true;
+        return false;
     }
 
     const fs::path final_path = marker.final_snapshot_path.lexically_normal();

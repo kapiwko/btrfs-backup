@@ -234,9 +234,9 @@ Json normalize_profile(const Json& raw, const fs::path& target_mount_root) {
     if (!raw.contains("schemaVersion") || !raw.at("schemaVersion").is_number_integer()) {
         throw ValidationError("schemaVersion must be an integer");
     }
-    int input_schema_version = raw.at("schemaVersion").get<int>();
-    if (input_schema_version < 1 || input_schema_version > current_profile_schema_version) {
-        throw ValidationError("schemaVersion must be 1, 2, 3, or 4");
+    const int input_schema_version = raw.at("schemaVersion").get<int>();
+    if (input_schema_version != current_profile_schema_version) {
+        throw ValidationError("schemaVersion must be 4");
     }
     std::string profile_id = identifier(raw.at("profileId"), "profileId");
     std::string configuration_generation = text(
@@ -254,7 +254,7 @@ Json normalize_profile(const Json& raw, const fs::path& target_mount_root) {
     Json target = required_object(raw, "target", "target");
     reject_unknown_properties(
         target,
-        {"device", "luksUuid", "btrfsUuid", "partitionUuid", "serial", "mapperName", "mountPoint", "mountUnit", "activation"},
+        {"device", "luksUuid", "btrfsUuid", "partitionUuid", "serial", "mapperName", "activation"},
         "target"
     );
     std::string device = absolute_path(target.at("device"), "target.device");
@@ -269,9 +269,7 @@ Json normalize_profile(const Json& raw, const fs::path& target_mount_root) {
         throw ValidationError("target.serial contains unsupported characters");
     }
     std::string mapper_name = identifier(target.at("mapperName"), "target.mapperName");
-    Json activation = input_schema_version >= 4
-        ? required_object(target, "activation", "target.activation")
-        : Json{{"mode", "askPassword"}};
+    Json activation = required_object(target, "activation", "target.activation");
     reject_unknown_properties(activation, {"mode", "keyFile"}, "target.activation");
     const std::string activation_mode = text(
         required_value(activation, "mode", "target.activation.mode"),
@@ -293,39 +291,9 @@ Json normalize_profile(const Json& raw, const fs::path& target_mount_root) {
     }
     fs::path normalized_mount_root = normalized_absolute_path(target_mount_root, "TARGET_MOUNT_ROOT");
     std::string mount_point = (normalized_mount_root / profile_id).string();
-    if (input_schema_version == current_profile_schema_version && target.contains("mountPoint")) {
-        throw ValidationError("target.mountPoint is application-controlled and cannot be changed");
-    }
-    if (target.contains("mountPoint")) {
-        (void)absolute_path(target.at("mountPoint"), "target.mountPoint");
-    }
-    if (input_schema_version == current_profile_schema_version && target.contains("mountUnit")) {
-        throw ValidationError("target.mountUnit is application-controlled and cannot be changed");
-    }
-    if (target.contains("mountUnit") && !target.at("mountUnit").is_null() && target.at("mountUnit") != "") {
-        (void)text(target.at("mountUnit"), "target.mountUnit", false, 256);
-    }
 
     Json paths = object_or_empty(raw, "paths", "paths");
-    if (input_schema_version == 1) {
-        reject_unknown_properties(
-            paths,
-            {"remoteRoot", "incomingRoot", "stateDir", "statusRoot", "historyRoot"},
-            "paths"
-        );
-        const std::vector<std::pair<std::string, std::string>> legacy_system_paths{
-            {"stateDir", "/var/lib/btrfs-backup"},
-            {"statusRoot", "/run/btrfs-backup/profiles"},
-            {"historyRoot", "/var/lib/btrfs-backup/history"},
-        };
-        for (const auto& [key, fixed_value] : legacy_system_paths) {
-            if (paths.contains(key) && absolute_path(paths.at(key), "paths." + key) != fixed_value) {
-                throw ValidationError("paths." + key + " is application-controlled and cannot be changed");
-            }
-        }
-    } else {
-        reject_unknown_properties(paths, {"remoteRoot", "incomingRoot"}, "paths");
-    }
+    reject_unknown_properties(paths, {"remoteRoot", "incomingRoot"}, "paths");
     std::string remote_root = absolute_path(paths.value("remoteRoot", mount_point + "/snapshots"), "paths.remoteRoot");
     std::string incoming_root = absolute_path(paths.value("incomingRoot", mount_point + "/.incoming"), "paths.incomingRoot");
     if (remote_root == incoming_root || starts_with(remote_root, incoming_root + "/") || starts_with(incoming_root, remote_root + "/")) {

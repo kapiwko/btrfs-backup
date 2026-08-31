@@ -10,6 +10,7 @@
 #include <chrono>
 #include <exception>
 #include <filesystem>
+#include <fstream>
 #include <map>
 #include <memory>
 #include <optional>
@@ -352,7 +353,10 @@ void write_profile(const fs::path& config_root, const btrfsbackup::config::Profi
         chmod(config_path.c_str(), 0600);
     }
     fs::path profile_path = config_root / "profiles" / profile.id.value() / "profile.json";
-    test_helpers::write_file(profile_path, btrfsbackup::config::json::profile_to_json(profile).dump(2));
+    btrfsbackup::config::Profile installed = profile;
+    installed.configuration_generation =
+        btrfsbackup::config::ConfigurationGeneration{"0123456789abcdef0123456789abcdef"};
+    test_helpers::write_file(profile_path, btrfsbackup::config::json::profile_to_json(installed).dump(2));
     chmod(profile_path.c_str(), 0600);
 }
 
@@ -528,10 +532,13 @@ int run_runner(const fs::path& config_root, const std::vector<std::string>& args
 }
 
 std::string profile_fingerprint(const fs::path& config_root, const btrfsbackup::config::Profile& profile) {
-    return btrfsbackup::config::compute_config_fingerprint(
-        std::string(btrfsbackup::config::current_configuration_fingerprint_version),
-        config_root / "profiles" / profile.id.value() / "profile.json",
-        {}
+    const fs::path profile_path = config_root / "profiles" / profile.id.value() / "profile.json";
+    std::ifstream input(profile_path, std::ios::binary);
+    const std::string bytes{std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()};
+    return btrfsbackup::config::compute_config_fingerprint_from_bytes(
+        btrfsbackup::config::current_configuration_fingerprint_version,
+        profile_path,
+        bytes
     );
 }
 
