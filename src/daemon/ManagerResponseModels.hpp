@@ -33,6 +33,7 @@ struct ProfileSourceSummary {
 struct ProfileSummary {
     std::string profile_id;
     std::string name;
+    bool enabled = true;
     std::string target_name;
     std::vector<ProfileSourceSummary> sources;
 };

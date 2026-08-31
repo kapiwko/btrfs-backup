@@ -112,6 +112,7 @@ std::optional<QList<ProfileSummary>> parse_profiles(const QString& payload) {
         ProfileSummary profile{
             .id = object.value(QStringLiteral("profileId")).toString(),
             .name = object.value(QStringLiteral("name")).toString(),
+            .enabled = object.value(QStringLiteral("enabled")).toBool(true),
             .target_name = object.value(QStringLiteral("targetName")).toString(),
             .sources = {},
         };

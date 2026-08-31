@@ -92,7 +92,20 @@ void test_backend_preserves_secrets_and_hook_boundary() {
             "stale identity returned the wrong error"
         );
     }
-    backend.delete_profile({saved.profile_id, saved.generation, saved.fingerprint, saved.document});
+    backend.set_profile_enabled({saved.profile_id, saved.generation, saved.fingerprint, saved.document}, false);
+    const auto disabled = backend.find_profile(ProfileId{"default"});
+    test_helpers::expect_true("disabled profile loaded", disabled.has_value(), "disabled profile disappeared");
+    test_helpers::expect_true(
+        "profile disabled",
+        !json::Json::parse(disabled->document).at("enabled").get<bool>(),
+        "enabled flag was not updated"
+    );
+    test_helpers::expect_true(
+        "public activation disabled",
+        !json::load_json_file(root / "public" / "default.json").at("enabled").get<bool>(),
+        "public activation state remained enabled"
+    );
+    backend.delete_profile(*disabled);
     test_helpers::expect_true("private profile removed", !std::filesystem::exists(root / "etc" / "profiles" / "default" / "profile.json"), "private profile remains");
     test_helpers::expect_true("public profile removed", !std::filesystem::exists(root / "public" / "default.json"), "public marker remains");
 }

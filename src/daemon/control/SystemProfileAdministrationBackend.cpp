@@ -154,4 +154,21 @@ void SystemProfileAdministrationBackend::delete_profile(const EditableProfile& e
     }, activator_, &expected_identity);
 }
 
+void SystemProfileAdministrationBackend::set_profile_enabled(const EditableProfile& expected, bool enabled) {
+    require_current(expected);
+    const ProfileId id(expected.profile_id);
+    config::Profile profile = platform::linux::config::FileProfileRepository(roots_.etc_root).get(id).profile;
+    if (profile.enabled == enabled)
+        return;
+    profile.enabled = enabled;
+    profile.configuration_generation = config::ConfigurationGeneration{""};
+    const ProfileDraftResult draft{
+        .profile_id = expected.profile_id,
+        .generation = {},
+        .fingerprint = {},
+        .document = config::json::dump_json(config::json::profile_to_json(profile)),
+    };
+    static_cast<void>(save_profile(expected, draft, false));
+}
+
 } // namespace btrfsbackup::daemon::control

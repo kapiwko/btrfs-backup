@@ -105,7 +105,7 @@ void test_capabilities_and_profiles() {
     btrfsbackup::daemon::ManagerService service(manager_paths(root));
     const btrfsbackup::daemon::ManagerCapabilities capabilities = service.get_capabilities();
     test_helpers::expect_true("operational capability", !capabilities.read_only, "manager is still read-only");
-    test_helpers::expect_true("manager API minor", capabilities.api_minor == 7, "manager API minor was not advanced");
+    test_helpers::expect_true("manager API minor", capabilities.api_minor == 8, "manager API minor was not advanced");
     test_helpers::expect_true(
         "profile administration capability",
         std::ranges::find(capabilities.features, "profile-administration") != capabilities.features.end(),
@@ -140,6 +140,7 @@ void test_capabilities_and_profiles() {
     const std::vector<btrfsbackup::daemon::ProfileSummary> profiles = profiles_service.list_profiles();
     test_helpers::expect_eq("one public profile", std::to_string(profiles.size()), "1");
     test_helpers::expect_eq("profile id", profiles.at(0).profile_id, "default");
+    test_helpers::expect_true("profile enabled default", profiles.at(0).enabled, "missing enabled default changed behavior");
     test_helpers::expect_eq("profile source id", profiles.at(0).sources.at(0).id, "home");
     fs::remove_all(root);
 }
