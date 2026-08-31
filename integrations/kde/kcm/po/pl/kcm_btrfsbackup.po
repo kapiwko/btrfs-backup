@@ -1,446 +1,653 @@
-# SPDX-FileCopyrightText: 2026 Kamil Piwowarski <kapiwko@gmail.com>
-#
-# SPDX-License-Identifier: GPL-3.0-or-later
-
 msgid ""
 msgstr ""
 "Project-Id-Version: btrfs-backup\n"
-"PO-Revision-Date: 2026-08-31 00:00+0200\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-08-31 21:45+0200\n"
+"PO-Revision-Date: 2026-08-31 21:30+0200\n"
 "Last-Translator: Kamil Piwowarski <kapiwko@gmail.com>\n"
 "Language-Team: Polish\n"
 "Language: pl\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=3; plural=(n==1 ? 0 : n%10>=2 && n%10<=4 && "
-"(n%100<10 || n%100>=20) ? 1 : 2);\n"
+"Plural-Forms: nplurals=3; plural=(n==1 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 "
+"|| n%100>=20) ? 1 : 2);\n"
 
-msgid "Btrfs Backups"
-msgstr "Kopie zapasowe Btrfs"
-
-msgid "Backup service unavailable"
-msgstr "Usługa kopii zapasowych jest niedostępna"
-
-msgid "1 profile"
-msgid_plural "%1 profiles"
-msgstr[0] "1 profil"
-msgstr[1] "%1 profile"
-msgstr[2] "%1 profili"
-
-msgid "Waiting for the system backup service"
-msgstr "Oczekiwanie na systemową usługę kopii zapasowych"
-
-msgid "Refresh"
-msgstr "Odśwież"
-
-msgid "Automatic"
-msgstr "Automatyczne"
-
-msgid "Validate target"
-msgstr "Sprawdź cel"
-
-msgid "Last successful backup:"
-msgstr "Ostatnia udana kopia:"
-
-msgid "No successful backup"
-msgstr "Brak udanej kopii"
-
-msgid "Target:"
-msgstr "Cel:"
-
-msgid "Unknown"
-msgstr "Nieznany"
-
-msgid "Target state:"
-msgstr "Stan celu:"
-
-msgid "Available space:"
-msgstr "Dostępne miejsce:"
-
-msgid "Target validation completed successfully"
-msgstr "Sprawdzanie celu zakończono pomyślnie"
-
-msgid "Administrative operation details are recorded in the system journal."
-msgstr "Szczegóły operacji administracyjnych są zapisywane w dzienniku systemowym."
-
-msgid "Open system log"
-msgstr "Otwórz dziennik systemowy"
-
-msgid "Support"
-msgstr "Pomoc"
-
-msgid "Backup is in progress"
-msgstr "Kopia zapasowa jest wykonywana"
-
-msgid "Backup completed successfully"
-msgstr "Kopia zapasowa zakończyła się pomyślnie"
-
-msgid "Backup failed"
-msgstr "Kopia zapasowa nie powiodła się"
-
-msgid "Backup cancelled"
-msgstr "Kopia zapasowa została anulowana"
-
-msgid "No active backup"
-msgstr "Brak aktywnej kopii"
-
-msgid "Mounted"
-msgstr "Zamontowany"
-
-msgid "Unexpected mount"
-msgstr "Nieoczekiwany mount"
-
-msgid "Unlocked"
-msgstr "Odblokowany"
-
-msgid "Connected"
-msgstr "Podłączony"
-
-msgid "Disconnected"
-msgstr "Odłączony"
-
-msgctxt "error message followed by a stable diagnostic code"
-msgid "%1 (code: %2)"
-msgstr "%1 (kod: %2)"
-
-msgid "Configure"
-msgstr "Konfiguruj"
-
-msgid "Configure %1"
-msgstr "Konfiguruj %1"
-
-msgid "Create %1"
-msgstr "Utwórz %1"
-
-msgid "Loading profile"
-msgstr "Wczytywanie profilu"
-
-msgid "Profile"
-msgstr "Profil"
-
-msgid "Name:"
-msgstr "Nazwa:"
-
-msgid "Enabled:"
-msgstr "Włączony:"
-
-msgid "Target"
-msgstr "Cel"
-
-msgid "Device:"
-msgstr "Urządzenie:"
-
-msgid "LUKS UUID:"
-msgstr "UUID LUKS:"
-
-msgid "Btrfs UUID:"
-msgstr "UUID Btrfs:"
-
-msgid "Mapper name:"
-msgstr "Nazwa mappera:"
-
-msgid "Unlock method:"
-msgstr "Metoda odblokowania:"
-
-msgid "Ask for password"
-msgstr "Pytaj o hasło"
-
-msgid "Key file"
-msgstr "Plik klucza"
-
-msgid "Key file:"
-msgstr "Plik klucza:"
-
-msgid "Sources"
-msgstr "Źródła"
-
-msgid "Add source"
-msgstr "Dodaj źródło"
-
-msgid "Source name"
-msgstr "Nazwa źródła"
-
-msgid "Name"
-msgstr "Nazwa"
-
-msgid "Source ID"
-msgstr "Identyfikator źródła"
-
-msgid "Subvolume"
-msgstr "Subvolume"
-
-msgid "Snapshot directory"
-msgstr "Katalog snapshotu"
-
-msgid "Target directory"
-msgstr "Katalog na celu"
-
-msgid "Target retention"
-msgstr "Retencja na celu"
-
-msgid "Local retention"
-msgstr "Lokalna retencja"
-
-msgid "Select subvolume"
-msgstr "Wybierz subvolume"
-
-msgid "Select snapshot directory"
-msgstr "Wybierz katalog snapshotu"
-
-msgid "Source subvolume"
-msgstr "Subvolume źródłowy"
-
-msgid "Local snapshot root"
-msgstr "Lokalny katalog główny snapshotów"
-
-msgid "Directory on backup target"
-msgstr "Katalog na celu kopii"
-
-msgid "Source ID:"
-msgstr "Identyfikator źródła:"
-
-msgid "Remove source"
-msgstr "Usuń źródło"
-
-msgid "Subvolume:"
-msgstr "Subvolume:"
-
-msgid "Snapshot directory:"
-msgstr "Katalog snapshotu:"
-
-msgid "Target directory:"
-msgstr "Katalog na celu:"
-
-msgid "Target retention:"
-msgstr "Retencja na celu:"
-
-msgid "Local retention:"
-msgstr "Lokalna retencja:"
-
-msgid "Retention"
-msgstr "Retencja"
-
-msgid "Target snapshots:"
-msgstr "Snapshoty na celu:"
-
-msgid "Local snapshots:"
-msgstr "Lokalne snapshoty:"
-
-msgid "Normalized configuration preview"
-msgstr "Podgląd znormalizowanej konfiguracji"
-
-msgid "Validate"
-msgstr "Sprawdź"
-
-msgid "Duplicate"
-msgstr "Duplikuj"
-
-msgid "Delete"
-msgstr "Usuń"
-
-msgid "Discard"
-msgstr "Odrzuć"
-
-msgid "Apply"
-msgstr "Zastosuj"
-
-msgid "Close"
-msgstr "Zamknij"
-
-msgid "Profile changed"
-msgstr "Profil został zmieniony"
-
-msgid "The profile was changed by another process. Reloading discards this draft."
-msgstr "Profil został zmieniony przez inny proces. Ponowne wczytanie odrzuci ten draft."
-
-msgid "Keep draft"
-msgstr "Zachowaj draft"
-
-msgid "Reload"
-msgstr "Wczytaj ponownie"
-
-msgid "Duplicate profile"
-msgstr "Duplikuj profil"
-
-msgid "New profile ID"
-msgstr "Identyfikator nowego profilu"
-
-msgid "Delete profile"
-msgstr "Usuń profil"
-
-msgid "Delete this profile and its managed system configuration?"
-msgstr "Usunąć ten profil i zarządzaną przez niego konfigurację systemową?"
-
-msgid "Rollback was incomplete. Review the system log before running another backup."
-msgstr "Rollback nie został ukończony. Przejrzyj dziennik systemowy przed uruchomieniem kolejnej kopii."
-
-msgid "Source %1"
-msgstr "Źródło %1"
-
-msgid "Profile deleted"
-msgstr "Profil usunięto"
-
-msgid "The backup manager returned an invalid editing response."
-msgstr "Manager kopii zwrócił nieprawidłową odpowiedź edycji."
-
-msgid "Profile draft is valid"
-msgstr "Draft profilu jest prawidłowy"
-
-msgid "Profile saved"
-msgstr "Profil zapisano"
-
-msgid "Profile duplicated"
-msgstr "Profil zduplikowano"
-
-msgid "Automatic backups"
-msgstr "Automatyczne kopie"
-
-msgid "Show details"
-msgstr "Pokaż szczegóły"
-
-msgid "Hide details"
-msgstr "Ukryj szczegóły"
-
-msgid "Back"
-msgstr "Wstecz"
-
-msgid "Add profile"
-msgstr "Dodaj profil"
-
-msgid "Backup profiles"
-msgstr "Profile kopii zapasowych"
-
+#: integrations/kde/kcm/ui/NewProfilePage.qml:15
 msgid "Add backup profile"
 msgstr "Dodaj profil kopii zapasowej"
 
-msgid "Profile ID:"
-msgstr "Identyfikator profilu:"
+#: integrations/kde/kcm/ui/NewProfilePage.qml:46
+msgid "Use a prepared backup device"
+msgstr "Użyj przygotowanego urządzenia kopii zapasowych"
 
-msgid "Guided setup"
-msgstr "Kreator konfiguracji"
+#: integrations/kde/kcm/ui/NewProfilePage.qml:47
+msgid "Select an existing encrypted Btrfs target"
+msgstr "Wybierz istniejący zaszyfrowany cel Btrfs"
 
-msgid "Choose a disk, encryption and backup folders step by step"
-msgstr "Wybierz krok po kroku dysk, szyfrowanie i katalogi kopii"
+#: integrations/kde/kcm/ui/NewProfilePage.qml:71
+msgid "Prepare a new backup device"
+msgstr "Przygotuj nowe urządzenie kopii zapasowych"
 
-msgid "Advanced configuration"
-msgstr "Konfiguracja zaawansowana"
+#: integrations/kde/kcm/ui/NewProfilePage.qml:72
+msgid "Partition, encrypt and initialize an empty disk"
+msgstr "Utwórz partycję, zaszyfruj i zainicjalizuj pusty dysk"
 
-msgid "Enter device identifiers, paths and retention settings manually"
-msgstr "Wpisz ręcznie identyfikatory urządzenia, ścieżki i ustawienia retencji"
+#: integrations/kde/kcm/ui/NewProfilePage.qml:87
+msgid ""
+"Device setup will become available after the system service gains device "
+"discovery and provisioning support."
+msgstr ""
+"Konfiguracja urządzenia będzie dostępna po dodaniu do usługi systemowej "
+"obsługi wykrywania i przygotowywania urządzeń."
 
-msgid "Use an existing encrypted Btrfs device"
-msgstr "Użyj istniejącego zaszyfrowanego urządzenia Btrfs"
+#: integrations/kde/kcm/ui/ProfileBehavior.qml:21
+msgid "Backup behavior"
+msgstr "Zachowanie kopii zapasowych"
 
-msgid "Erase and prepare this device"
-msgstr "Wyczyść i przygotuj to urządzenie"
+#: integrations/kde/kcm/ui/ProfileBehavior.qml:27
+msgid "Daily limit:"
+msgstr "Limit dzienny:"
 
-msgid "Device preparation requires a dedicated privileged backend operation."
-msgstr "Przygotowanie urządzenia wymaga dedykowanej uprzywilejowanej operacji backendu."
+#: integrations/kde/kcm/ui/ProfileBehavior.qml:31
+msgid "Automatic eject:"
+msgstr "Automatyczne wysuwanie:"
 
-msgid "Continue in advanced configuration"
-msgstr "Kontynuuj w konfiguracji zaawansowanej"
-
-msgid "Key file path"
-msgstr "Ścieżka pliku klucza"
-
-msgid "Select key file"
-msgstr "Wybierz plik klucza"
-
-msgid "LUKS UUID"
-msgstr "UUID LUKS"
-
-msgid "Btrfs UUID"
-msgstr "UUID Btrfs"
-
-msgid "Mapper name"
-msgstr "Nazwa mappera"
-
-msgid "Current transfer"
-msgstr "Bieżący transfer"
-
-msgid "Activity:"
-msgstr "Aktywność:"
-
-msgid "Source:"
-msgstr "Źródło:"
-
-msgid "Progress:"
-msgstr "Postęp:"
-
-msgid "Calculating"
-msgstr "Obliczanie"
-
-msgid "Speed:"
-msgstr "Szybkość:"
-
-msgid "Elapsed:"
-msgstr "Upłynęło:"
-
-msgid "Remaining:"
-msgstr "Pozostało:"
-
-msgid "Backup target"
-msgstr "Cel kopii zapasowej"
-
-msgid "Automatic backups:"
-msgstr "Automatyczne kopie:"
-
+#: integrations/kde/kcm/ui/ProfileBehavior.qml:37
+#: integrations/kde/kcm/ui/ProfileDetails.qml:112
 msgid "Enabled"
 msgstr "Włączone"
 
+#: integrations/kde/kcm/ui/ProfileBehavior.qml:37
+#: integrations/kde/kcm/ui/ProfileDetails.qml:113
 msgid "Disabled"
 msgstr "Wyłączone"
 
+#: integrations/kde/kcm/ui/ProfileDelegate.qml:75
+#: integrations/kde/kcm/ui/ProfileDetailsKcmPage.qml:48
+#: integrations/kde/kcm/ui/ProfileSettingsPage.qml:17
+msgid "Edit profile"
+msgstr "Edytuj profil"
+
+#: integrations/kde/kcm/ui/ProfileDelegate.qml:82
+#: integrations/kde/kcm/ui/ProfileOverview.qml:71
+msgid "Browse backups"
+msgstr "Przeglądaj kopie zapasowe"
+
+#: integrations/kde/kcm/ui/ProfileDelegate.qml:92
+#: integrations/kde/kcm/ui/ProfileOverview.qml:56
+msgid "Start backup"
+msgstr "Uruchom kopię zapasową"
+
+#: integrations/kde/kcm/ui/ProfileDelegate.qml:102
+#: integrations/kde/kcm/ui/ProfileOverview.qml:55
+msgid "Cancel backup"
+msgstr "Anuluj kopię zapasową"
+
+#: integrations/kde/kcm/ui/ProfileDelegate.qml:111
+#: integrations/kde/kcm/ui/ProfileOverview.qml:78
+msgid "Eject"
+msgstr "Wysuń"
+
+#: integrations/kde/kcm/ui/ProfileDelegate.qml:131
+msgid "Automatic backups"
+msgstr "Automatyczne kopie"
+
+#: integrations/kde/kcm/ui/ProfileDelegate.qml:165
+msgid "Low free space: %1 available"
+msgstr "Mało wolnego miejsca: dostępne %1"
+
+#: integrations/kde/kcm/ui/ProfileDelegate.qml:167
+msgid "%1 available"
+msgstr "Dostępne %1"
+
+#: integrations/kde/kcm/ui/ProfileDetails.qml:42
+msgid "Current transfer"
+msgstr "Bieżący transfer"
+
+#: integrations/kde/kcm/ui/ProfileDetails.qml:53
+msgid "Activity:"
+msgstr "Aktywność:"
+
+#: integrations/kde/kcm/ui/ProfileDetails.qml:58
+msgid "Source:"
+msgstr "Źródło:"
+
+#: integrations/kde/kcm/ui/ProfileDetails.qml:61
+#: integrations/kde/kcm/ui/ProfileDetails.qml:78
+#: integrations/kde/kcm/ui/ProfileDetails.qml:104
+#: integrations/kde/kcm/ui/ProfileDetails.qml:166
+#: integrations/kde/kcm/ui/ProfileDetailsKcmPage.qml:237
+#: integrations/kde/kcm/ui/ProfileHistory.qml:72
+#: integrations/kde/kcm/ui/ProfileHistory.qml:140
+#: integrations/kde/kcm/ui/ProfileHistory.qml:144
+#: integrations/kde/kcm/ui/ProfileHistory.qml:157
+#: integrations/kde/kcm/ui/ProfileHistory.qml:162
+#: integrations/kde/kcm/ui/ProfileHistory.qml:199
+#: integrations/kde/kcm/ui/TechnicalDetails.qml:48
+#: integrations/kde/kcm/ui/TechnicalDetails.qml:52
+#: integrations/kde/kcm/ui/TechnicalDetails.qml:56
+#: integrations/kde/kcm/ui/TechnicalDetails.qml:60
+#: integrations/kde/kcm/ui/TechnicalDetails.qml:64
+#: integrations/kde/kcm/ui/TechnicalDetails.qml:72
+#: integrations/kde/kcm/ui/TechnicalDetails.qml:76
+#: integrations/kde/kcm/ui/TechnicalDetails.qml:80
+#: integrations/kde/kcm/ui/main.qml:128 integrations/kde/kcm/ui/main.qml:141
+msgid "Unknown"
+msgstr "Nieznany"
+
+#: integrations/kde/kcm/ui/ProfileDetails.qml:71
+msgid "Progress:"
+msgstr "Postęp:"
+
+#: integrations/kde/kcm/ui/ProfileDetails.qml:74
+#, javascript-format
+msgid "%1%"
+msgstr "%1%"
+
+#: integrations/kde/kcm/ui/ProfileDetails.qml:75
+msgid "Calculating"
+msgstr "Obliczanie"
+
+#: integrations/kde/kcm/ui/ProfileDetails.qml:77
+msgid "Speed:"
+msgstr "Szybkość:"
+
+#: integrations/kde/kcm/ui/ProfileDetails.qml:79
+msgid "Elapsed:"
+msgstr "Upłynęło:"
+
+#: integrations/kde/kcm/ui/ProfileDetails.qml:81
+msgid "Remaining:"
+msgstr "Pozostało:"
+
+#: integrations/kde/kcm/ui/ProfileDetails.qml:85
+msgid "Backup target"
+msgstr "Cel kopii zapasowej"
+
+#: integrations/kde/kcm/ui/ProfileDetails.qml:93
+msgid "Status:"
+msgstr "Stan:"
+
+#: integrations/kde/kcm/ui/ProfileDetails.qml:98
+#: integrations/kde/kcm/ui/ProfileSettingsPage.qml:60
+#: integrations/kde/kcm/ui/SourceDialog.qml:69
+msgid "Name:"
+msgstr "Nazwa:"
+
+#: integrations/kde/kcm/ui/ProfileDetails.qml:107
+msgid "Target state:"
+msgstr "Stan celu:"
+
+#: integrations/kde/kcm/ui/ProfileDetails.qml:109
+msgid "Automatic backups:"
+msgstr "Automatyczne kopie:"
+
+#: integrations/kde/kcm/ui/ProfileDetails.qml:115
+msgid "Last successful backup:"
+msgstr "Ostatnia udana kopia:"
+
+#: integrations/kde/kcm/ui/ProfileDetails.qml:119
+msgid "No successful backup"
+msgstr "Brak udanej kopii"
+
+#: integrations/kde/kcm/ui/ProfileDetails.qml:123
 msgid "Storage usage:"
 msgstr "Wykorzystanie miejsca:"
 
+#: integrations/kde/kcm/ui/ProfileDetails.qml:137
 msgid "%1 used, %2 available"
 msgstr "Wykorzystano %1, dostępne %2"
 
+#: integrations/kde/kcm/ui/ProfileDetails.qml:152
 msgid "Backup failed with code %1"
 msgstr "Kopia nie powiodła się z kodem %1"
 
-msgid "Recent backups"
-msgstr "Ostatnie kopie"
-
-msgid "Show all backups"
-msgstr "Pokaż wszystkie kopie"
-
-msgid "No backup history"
-msgstr "Brak historii kopii"
-
+#: integrations/kde/kcm/ui/ProfileDetails.qml:157
 msgid "Calculating transfer size"
 msgstr "Obliczanie rozmiaru transferu"
 
+#: integrations/kde/kcm/ui/ProfileDetails.qml:158
 msgid "Transferring backup data"
 msgstr "Przesyłanie danych kopii"
 
+#: integrations/kde/kcm/ui/ProfileDetails.qml:159
 msgid "Preparing backup"
 msgstr "Przygotowywanie kopii"
 
+#: integrations/kde/kcm/ui/ProfileDetails.qml:171
+#: integrations/kde/kcm/ui/ProfileHistory.qml:204
 msgid "%1 h %2 min"
 msgstr "%1 godz. %2 min"
 
+#: integrations/kde/kcm/ui/ProfileDetails.qml:173
+#: integrations/kde/kcm/ui/ProfileHistory.qml:206
 msgid "%1 min %2 sec"
 msgstr "%1 min %2 s"
 
+#: integrations/kde/kcm/ui/ProfileDetails.qml:174
+#: integrations/kde/kcm/ui/ProfileHistory.qml:207
 msgid "1 second"
 msgid_plural "%1 seconds"
 msgstr[0] "1 sekunda"
 msgstr[1] "%1 sekundy"
 msgstr[2] "%1 sekund"
 
+#: integrations/kde/kcm/ui/ProfileDetailsKcmPage.qml:28
+msgid "Profile details"
+msgstr "Szczegóły profilu"
+
+#: integrations/kde/kcm/ui/ProfileDetailsKcmPage.qml:54
+msgctxt "@action: automatic backups enabled"
+msgid "Enabled"
+msgstr "Włączone"
+
+#: integrations/kde/kcm/ui/ProfileDetailsKcmPage.qml:135
+msgid "Profile changed"
+msgstr "Profil został zmieniony"
+
+#: integrations/kde/kcm/ui/ProfileDetailsKcmPage.qml:142
+msgid ""
+"The profile was changed by another process. Reloading discards local changes."
+msgstr ""
+"Profil został zmieniony przez inny proces. Ponowne wczytanie odrzuci lokalne "
+"zmiany."
+
+#: integrations/kde/kcm/ui/ProfileDetailsKcmPage.qml:147
+msgid "Keep changes"
+msgstr "Zachowaj zmiany"
+
+#: integrations/kde/kcm/ui/ProfileDetailsKcmPage.qml:149
+msgid "Reload"
+msgstr "Wczytaj ponownie"
+
+#: integrations/kde/kcm/ui/ProfileDetailsKcmPage.qml:165
+#: integrations/kde/kcm/ui/ProfileSources.qml:86
+msgid "Remove source"
+msgstr "Usuń źródło"
+
+#: integrations/kde/kcm/ui/ProfileDetailsKcmPage.qml:174
+msgid ""
+"Remove %1 from this profile? Existing local and target snapshots are not "
+"deleted."
+msgstr ""
+"Usunąć %1 z tego profilu? Istniejące lokalne snapshoty i snapshoty na celu "
+"nie zostaną usunięte."
+
+#: integrations/kde/kcm/ui/ProfileDetailsKcmPage.qml:185
+#: integrations/kde/kcm/ui/ProfileDetailsPage.qml:114
+msgid "Delete profile"
+msgstr "Usuń profil"
+
+#: integrations/kde/kcm/ui/ProfileDetailsKcmPage.qml:189
+msgid ""
+"Delete this profile and its managed system configuration? Backup data is not "
+"removed."
+msgstr ""
+"Usunąć ten profil i zarządzaną przez niego konfigurację systemową? Dane "
+"kopii zapasowych nie zostaną usunięte."
+
+#: integrations/kde/kcm/ui/ProfileDetailsKcmPage.qml:215
+#: integrations/kde/kcm/ui/main.qml:110
+msgid "Backup is in progress"
+msgstr "Kopia zapasowa jest wykonywana"
+
+#: integrations/kde/kcm/ui/ProfileDetailsKcmPage.qml:216
+#: integrations/kde/kcm/ui/main.qml:111
+msgid "Target validation is in progress"
+msgstr "Trwa sprawdzanie celu"
+
+#: integrations/kde/kcm/ui/ProfileDetailsKcmPage.qml:217
+#: integrations/kde/kcm/ui/main.qml:112
+msgid "Validation completed successfully"
+msgstr "Sprawdzanie zakończono pomyślnie"
+
+#: integrations/kde/kcm/ui/ProfileDetailsKcmPage.qml:218
+#: integrations/kde/kcm/ui/main.qml:113
+msgid "Backup completed successfully"
+msgstr "Kopia zapasowa zakończyła się pomyślnie"
+
+#: integrations/kde/kcm/ui/ProfileDetailsKcmPage.qml:219
+#: integrations/kde/kcm/ui/main.qml:114
+msgid "Backup failed"
+msgstr "Kopia zapasowa nie powiodła się"
+
+#: integrations/kde/kcm/ui/ProfileDetailsKcmPage.qml:220
+#: integrations/kde/kcm/ui/main.qml:115
+msgid "Backup cancelled"
+msgstr "Kopia zapasowa została anulowana"
+
+#: integrations/kde/kcm/ui/ProfileDetailsKcmPage.qml:221
+#: integrations/kde/kcm/ui/main.qml:116
+msgid "Backup skipped"
+msgstr "Kopia została pominięta"
+
+#: integrations/kde/kcm/ui/ProfileDetailsKcmPage.qml:222
+#: integrations/kde/kcm/ui/main.qml:117
+msgid "No active backup"
+msgstr "Brak aktywnej kopii"
+
+#: integrations/kde/kcm/ui/ProfileDetailsKcmPage.qml:232
+#: integrations/kde/kcm/ui/main.qml:136
+msgid "Mounted"
+msgstr "Zamontowany"
+
+#: integrations/kde/kcm/ui/ProfileDetailsKcmPage.qml:233
+#: integrations/kde/kcm/ui/main.qml:137
+msgid "Unexpected mount"
+msgstr "Nieoczekiwany mount"
+
+#: integrations/kde/kcm/ui/ProfileDetailsKcmPage.qml:234
+#: integrations/kde/kcm/ui/main.qml:138
+msgid "Unlocked"
+msgstr "Odblokowany"
+
+#: integrations/kde/kcm/ui/ProfileDetailsKcmPage.qml:235
+#: integrations/kde/kcm/ui/main.qml:139
+msgid "Connected"
+msgstr "Podłączony"
+
+#: integrations/kde/kcm/ui/ProfileDetailsKcmPage.qml:236
+#: integrations/kde/kcm/ui/main.qml:140
+msgid "Disconnected"
+msgstr "Odłączony"
+
+#: integrations/kde/kcm/ui/ProfileDetailsPage.qml:51
+msgid ""
+"Rollback was incomplete. Review the system log before running another backup."
+msgstr ""
+"Rollback nie został ukończony. Przejrzyj dziennik systemowy przed "
+"uruchomieniem kolejnej kopii."
+
+#: integrations/kde/kcm/ui/ProfileDetailsPage.qml:59
+msgid "Overview"
+msgstr "Przegląd"
+
+#: integrations/kde/kcm/ui/ProfileDetailsPage.qml:63
+msgid "History"
+msgstr "Historia"
+
+#: integrations/kde/kcm/ui/ProfileHistory.qml:36
+msgid "Retry"
+msgstr "Ponów"
+
+#: integrations/kde/kcm/ui/ProfileHistory.qml:92
+msgid "No synchronization history"
+msgstr "Brak historii synchronizacji"
+
+#: integrations/kde/kcm/ui/ProfileHistory.qml:110
+msgid "Load more"
+msgstr "Wczytaj więcej"
+
+#: integrations/kde/kcm/ui/ProfileHistory.qml:130
+msgid "Synchronization details"
+msgstr "Szczegóły synchronizacji"
+
+#: integrations/kde/kcm/ui/ProfileHistory.qml:135
+msgid "Result:"
+msgstr "Wynik:"
+
+#: integrations/kde/kcm/ui/ProfileHistory.qml:139
+msgid "Started:"
+msgstr "Rozpoczęto:"
+
+#: integrations/kde/kcm/ui/ProfileHistory.qml:143
+msgid "Finished:"
+msgstr "Zakończono:"
+
+#: integrations/kde/kcm/ui/ProfileHistory.qml:147
+msgid "Duration:"
+msgstr "Czas trwania:"
+
+#: integrations/kde/kcm/ui/ProfileHistory.qml:151
+msgid "Sources:"
+msgstr "Źródła:"
+
+#: integrations/kde/kcm/ui/ProfileHistory.qml:155
+msgid "Data transferred:"
+msgstr "Przesłane dane:"
+
+#: integrations/kde/kcm/ui/ProfileHistory.qml:160
+msgid "Average speed:"
+msgstr "Średnia prędkość:"
+
+#: integrations/kde/kcm/ui/ProfileHistory.qml:165
+msgid "Error code:"
+msgstr "Kod błędu:"
+
+#: integrations/kde/kcm/ui/ProfileHistory.qml:190
 msgid "1 source"
 msgid_plural "%1 sources"
 msgstr[0] "1 źródło"
 msgstr[1] "%1 źródła"
 msgstr[2] "%1 źródeł"
 
-msgid "Target validation is in progress"
-msgstr "Trwa sprawdzanie celu"
+#: integrations/kde/kcm/ui/ProfileOverview.qml:34
+#: integrations/kde/kcm/ui/main.qml:148
+msgctxt "error message followed by a stable diagnostic code"
+msgid "%1 (code: %2)"
+msgstr "%1 (kod: %2)"
 
-msgid "Validation completed successfully"
-msgstr "Sprawdzanie zakończono pomyślnie"
+#: integrations/kde/kcm/ui/ProfileSettingsPage.qml:21
+msgid "Save"
+msgstr "Zapisz"
 
-msgid "Backup skipped"
-msgstr "Kopia została pominięta"
+#: integrations/kde/kcm/ui/ProfileSettingsPage.qml:64
+msgid "Profile name"
+msgstr "Nazwa profilu"
+
+#: integrations/kde/kcm/ui/ProfileSettingsPage.qml:70
+msgid "Scheduling:"
+msgstr "Harmonogram:"
+
+#: integrations/kde/kcm/ui/ProfileSettingsPage.qml:71
+msgid "Limit automatic backups to once per day"
+msgstr "Ogranicz automatyczne kopie do jednej dziennie"
+
+#: integrations/kde/kcm/ui/ProfileSettingsPage.qml:77
+msgid "After backup:"
+msgstr "Po wykonaniu kopii:"
+
+#: integrations/kde/kcm/ui/ProfileSettingsPage.qml:78
+msgid "Eject the backup device automatically"
+msgstr "Automatycznie wysuń urządzenie kopii zapasowych"
+
+#: integrations/kde/kcm/ui/ProfileSources.qml:30
+msgid "Sources"
+msgstr "Źródła"
+
+#: integrations/kde/kcm/ui/ProfileSources.qml:34
+#: integrations/kde/kcm/ui/SourceDialog.qml:22
+msgid "Add source"
+msgstr "Dodaj źródło"
+
+#: integrations/kde/kcm/ui/ProfileSources.qml:66
+msgid "Unknown subvolume"
+msgstr "Nieznane subvolume"
+
+#: integrations/kde/kcm/ui/ProfileSources.qml:70
+msgid "%1 local / %2 target"
+msgstr "%1 lokalnie / %2 na celu"
+
+#: integrations/kde/kcm/ui/ProfileSources.qml:77
+#: integrations/kde/kcm/ui/SourceDialog.qml:22
+msgid "Edit source"
+msgstr "Edytuj źródło"
+
+#: integrations/kde/kcm/ui/ProfileSources.qml:104
+msgid "No sources configured"
+msgstr "Nie skonfigurowano źródeł"
+
+#: integrations/kde/kcm/ui/ProfileUnlocking.qml:20
+msgid "Unlocking"
+msgstr "Odblokowywanie"
+
+#: integrations/kde/kcm/ui/ProfileUnlocking.qml:33
+msgid "Automatic activation policy"
+msgstr "Zasady automatycznej aktywacji"
+
+#: integrations/kde/kcm/ui/ProfileUnlocking.qml:40
+msgid "Key file"
+msgstr "Plik klucza"
+
+#: integrations/kde/kcm/ui/ProfileUnlocking.qml:41
+msgid "Ask for a password"
+msgstr "Poproś o hasło"
+
+#: integrations/kde/kcm/ui/ProfileUnlocking.qml:42
+msgid "Unknown unlock method"
+msgstr "Nieznana metoda odblokowania"
+
+#: integrations/kde/kcm/ui/ProfilesPage.qml:42
+msgid "Backup service unavailable"
+msgstr "Usługa kopii zapasowych jest niedostępna"
+
+#: integrations/kde/kcm/ui/ProfilesPage.qml:73
+msgid "No backup profiles configured"
+msgstr "Nie skonfigurowano profili kopii zapasowych"
+
+#: integrations/kde/kcm/ui/ProfilesPage.qml:74
+msgid "Waiting for the system backup service"
+msgstr "Oczekiwanie na systemową usługę kopii zapasowych"
+
+#: integrations/kde/kcm/ui/ProfilesPage.qml:85
+msgid "Administrative operations are recorded in the system journal."
+msgstr "Operacje administracyjne są zapisywane w dzienniku systemowym."
+
+#: integrations/kde/kcm/ui/ProfilesPage.qml:97
+msgid "Notifications"
+msgstr "Powiadomienia"
+
+#: integrations/kde/kcm/ui/ProfilesPage.qml:102
+msgid "Open system log"
+msgstr "Otwórz dziennik systemowy"
+
+#: integrations/kde/kcm/ui/ProfilesPage.qml:107
+msgid "Support"
+msgstr "Pomoc"
+
+#: integrations/kde/kcm/ui/SourceDialog.qml:76
+msgid "Btrfs subvolume:"
+msgstr "Subvolume Btrfs:"
+
+#: integrations/kde/kcm/ui/SourceDialog.qml:90
+msgid "Local snapshots"
+msgstr "Lokalne snapshoty"
+
+#: integrations/kde/kcm/ui/SourceDialog.qml:101
+msgid "Target snapshots"
+msgstr "Snapshoty na celu"
+
+#: integrations/kde/kcm/ui/SourceDialog.qml:116
+msgid ""
+"The subvolume binding cannot be changed. Remove this source and add a new "
+"one instead."
+msgstr ""
+"Powiązania subvolume nie można zmienić. Usuń to źródło i dodaj zamiast niego "
+"nowe."
+
+#: integrations/kde/kcm/ui/TechnicalDetails.qml:27
+msgid "Technical details"
+msgstr "Szczegóły techniczne"
+
+#: integrations/kde/kcm/ui/TechnicalDetails.qml:39
+msgid "Profile ID:"
+msgstr "Identyfikator profilu:"
+
+#: integrations/kde/kcm/ui/TechnicalDetails.qml:43
+msgid "Schema version:"
+msgstr "Wersja schematu:"
+
+#: integrations/kde/kcm/ui/TechnicalDetails.qml:47
+msgid "Generation:"
+msgstr "Generacja:"
+
+#: integrations/kde/kcm/ui/TechnicalDetails.qml:51
+msgid "Fingerprint:"
+msgstr "Odcisk:"
+
+#: integrations/kde/kcm/ui/TechnicalDetails.qml:55
+msgid "Device:"
+msgstr "Urządzenie:"
+
+#: integrations/kde/kcm/ui/TechnicalDetails.qml:59
+msgid "LUKS UUID:"
+msgstr "UUID LUKS:"
+
+#: integrations/kde/kcm/ui/TechnicalDetails.qml:63
+msgid "Btrfs UUID:"
+msgstr "UUID Btrfs:"
+
+#: integrations/kde/kcm/ui/TechnicalDetails.qml:67
+msgid "Partition UUID:"
+msgstr "UUID partycji:"
+
+#: integrations/kde/kcm/ui/TechnicalDetails.qml:68
+msgid "Not recorded"
+msgstr "Nie zapisano"
+
+#: integrations/kde/kcm/ui/TechnicalDetails.qml:71
+msgid "Mapper:"
+msgstr "Mapper:"
+
+#: integrations/kde/kcm/ui/TechnicalDetails.qml:75
+msgid "Repository:"
+msgstr "Repozytorium:"
+
+#: integrations/kde/kcm/ui/TechnicalDetails.qml:79
+msgid "Incoming data:"
+msgstr "Dane przychodzące:"
+
+#: integrations/kde/kcm/ui/main.qml:15
+msgid "Backup profiles"
+msgstr "Profile kopii zapasowych"
+
+#: integrations/kde/kcm/ui/main.qml:48
+msgid "Add profile"
+msgstr "Dodaj profil"
+
+#: integrations/kde/kcm/ProfileConfigurationModel.cpp:239
+msgid "Source %1"
+msgstr "Źródło %1"
+
+#: integrations/kde/kcm/ProfileConfigurationModel.cpp:424
+msgid "Profile deleted"
+msgstr "Profil usunięto"
+
+#: integrations/kde/kcm/ProfileConfigurationModel.cpp:434
+msgid "The backup manager returned an invalid editing response."
+msgstr "Manager kopii zwrócił nieprawidłową odpowiedź edycji."
+
+#: integrations/kde/kcm/ProfileConfigurationModel.cpp:440
+msgid "Profile draft is valid"
+msgstr "Draft profilu jest prawidłowy"
+
+#: integrations/kde/kcm/ProfileConfigurationModel.cpp:442
+msgid "Profile saved"
+msgstr "Profil zapisano"
+
+#: integrations/kde/kcm/ProfileConfigurationModel.cpp:448
+msgid "Profile duplicated"
+msgstr "Profil zduplikowano"
+
+#: integrations/kde/kcm/ProfileHistoryModel.cpp:151
+msgid "Could not query backup manager capabilities."
+msgstr "Nie udało się odczytać możliwości menedżera kopii zapasowych."
+
+#: integrations/kde/kcm/ProfileHistoryModel.cpp:163
+msgid "The backup manager does not provide compatible backup history."
+msgstr "Menedżer kopii zapasowych nie udostępnia zgodnej historii kopii."
+
+#: integrations/kde/kcm/ProfileHistoryModel.cpp:194
+msgid "Could not load backup history."
+msgstr "Nie udało się wczytać historii kopii zapasowych."
+
+#: integrations/kde/kcm/ProfileHistoryModel.cpp:201
+msgid "The backup manager returned invalid backup history."
+msgstr "Menedżer kopii zapasowych zwrócił nieprawidłową historię kopii."
+
+#~ msgid "Back"
+#~ msgstr "Wstecz"
+
+#~ msgid "Edit profile settings"
+#~ msgstr "Edytuj ustawienia profilu"

@@ -510,6 +510,13 @@ if(BUILD_TESTING)
         NO_DEFAULT_PATH
     )
     find_program(QML_EXECUTABLE NAMES qml)
+    find_program(
+        QML_TEST_RUNNER_EXECUTABLE
+        NAMES qmltestrunner
+        PATHS /usr/lib/qt6/bin
+        NO_DEFAULT_PATH
+    )
+    find_program(QML_TEST_RUNNER_EXECUTABLE NAMES qmltestrunner)
     if(QML_EXECUTABLE)
         add_test(
             NAME plasma-backend-qml-smoke
@@ -562,6 +569,24 @@ if(BUILD_TESTING)
             plasma-config-qml-smoke
             plasma-target-storage-usage
             plasma-transfer-rate
+            PROPERTIES
+                LABELS kde
+                TIMEOUT 10
+        )
+    endif()
+    if(QML_TEST_RUNNER_EXECUTABLE)
+        add_test(
+            NAME kde-kcm-profile-sources-actions
+            COMMAND
+                ${CMAKE_COMMAND} -E env
+                QT_QPA_PLATFORM=offscreen
+                ${QML_TEST_RUNNER_EXECUTABLE}
+                -input ${CMAKE_CURRENT_SOURCE_DIR}/kcm/tests/profile-sources-actions.qml
+                -import ${CMAKE_BINARY_DIR}
+                -o -,txt
+        )
+        set_tests_properties(
+            kde-kcm-profile-sources-actions
             PROPERTIES
                 LABELS kde
                 TIMEOUT 10
