@@ -232,8 +232,11 @@ command_surface_test() {
 
     assert_not_contains "$output/root.txt" 'state COMMAND'
     assert_not_contains "$output/profile.txt" 'sources --file'
+    assert_contains "$output/profile.txt" 'regenerate --all'
     assert_not_contains "$output/status.txt" 'write [OPTIONS]'
     assert_not_contains "$output/status.txt" '--json'
+    assert_contains "$ROOT/packaging/arch/btrfs-backup.install" \
+        'btrfs-backupctl profile regenerate --all'
 
     if "$ctl" state --help >/dev/null 2>&1; then
         fail 'removed state command is still accepted'

@@ -12,6 +12,7 @@ The canonical format for tooling and runtime is a JSON profile document matching
 btrfs-backupctl profile validate --file profile.json
 btrfs-backupctl profile render --file profile.json --output-dir ./generated-profile
 sudo btrfs-backupctl profile save --file profile.json
+sudo btrfs-backupctl profile regenerate --all
 btrfs-backupctl profile show --profile default
 btrfs-backupctl profile export --profile default --output profile.json
 ```
@@ -31,6 +32,12 @@ service starts. A save stages and validates all managed artifacts, holds the pro
 lock while publishing them, reloads systemd and udev, and publishes the public
 profile last. A failure restores the previous files and attempts to reload
 their rules.
+
+`regenerate --all` installs fresh derived artifacts for every profile already
+stored below `/etc/btrfs-backup/profiles`. It is also run automatically by the
+Arch package's `post_upgrade` hook. The command does not change user-selected
+profile settings, but it assigns a new configuration generation as part of the
+transactional publication.
 
 The public profile contains only `profileId`, the profile display name, the
 target label derived from `target.mapperName`, source ids/display names, and the

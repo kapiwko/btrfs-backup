@@ -15,6 +15,7 @@
 #include <cli/profile/ProfileWizardCommand.hpp>
 #include <core/Errors.hpp>
 #include <platform/linux/config/ApplicationConfig.hpp>
+#include <platform/linux/config/FileProfileRepository.hpp>
 #include <config/json/JsonIo.hpp>
 #include <config/domain/Profile.hpp>
 #include <config/json/ProfileDocument.hpp>
@@ -47,6 +48,7 @@ void usage() {
               << "  validate --file PATH\n"
               << "  render --file PATH --output-dir PATH\n"
               << "  save --file PATH\n"
+              << "  regenerate --all\n"
               << "  show [--profile ID]\n"
               << "  export [--profile ID] --output PATH\n";
 }
@@ -103,12 +105,14 @@ int profile(
         if (command == "wizard") {
             return profile_wizard(std::vector<std::string>(rest.begin() + 1, rest.end()));
         }
-        if (command != "validate" && command != "render" && command != "save" && command != "show" && command != "export") {
+        if (command != "validate" && command != "render" && command != "save" && command != "regenerate" &&
+            command != "show" && command != "export") {
             fail("unknown command: " + command);
         }
         fs::path file;
         fs::path output_dir;
         std::string profile_id = "default";
+        bool all_profiles = false;
         for (std::size_t i = 1; i < rest.size(); ++i) {
             const std::string& arg = rest[i];
             if (arg == "--file" && i + 1 < rest.size()) {
@@ -119,6 +123,8 @@ int profile(
                 profile_id = rest[++i];
             } else if (arg == "--output" && i + 1 < rest.size()) {
                 output_dir = rest[++i];
+            } else if (arg == "--all") {
+                all_profiles = true;
             } else if (arg == "-h" || arg == "--help") {
                 usage();
                 return 0;
@@ -126,6 +132,12 @@ int profile(
                 fail("unknown option: " + arg);
             }
         }
+
+        const bool installs_system_configuration = fs::absolute(etc_root).lexically_normal() == fs::path("/etc/btrfs-backup") && fs::absolute(udev_root).lexically_normal() == fs::path("/etc/udev/rules.d") && fs::absolute(systemd_root).lexically_normal() == fs::path("/etc/systemd/system") && fs::absolute(public_root).lexically_normal() == fs::path("/var/lib/btrfs-backup/public/profiles");
+        btrfsbackup::config::NullConfigurationActivator null_activator;
+        btrfsbackup::config::IConfigurationActivator& activator = installs_system_configuration
+            ? system_activator
+            : static_cast<btrfsbackup::config::IConfigurationActivator&>(null_activator);
 
         if (command == "validate") {
             if (file.empty())
@@ -144,16 +156,39 @@ int profile(
         } else if (command == "save") {
             if (file.empty())
                 fail("save requires --file");
-            if (geteuid() != 0 && etc_root == "/etc/btrfs-backup") {
+            if (geteuid() != 0 && installs_system_configuration) {
                 fail("save to system configuration must be run as root", 1);
             }
-            const bool installs_system_configuration = fs::absolute(etc_root).lexically_normal() == fs::path("/etc/btrfs-backup") && fs::absolute(udev_root).lexically_normal() == fs::path("/etc/udev/rules.d") && fs::absolute(systemd_root).lexically_normal() == fs::path("/etc/systemd/system") && fs::absolute(public_root).lexically_normal() == fs::path("/var/lib/btrfs-backup/public/profiles");
-            btrfsbackup::config::NullConfigurationActivator null_activator;
-            btrfsbackup::config::IConfigurationActivator& activator = installs_system_configuration
-                ? system_activator
-                : static_cast<btrfsbackup::config::IConfigurationActivator&>(null_activator);
             btrfsbackup::config::Profile profile = btrfsbackup::platform::linux::config::save_profile(file, {etc_root, udev_root, systemd_root, public_root}, activator);
             std::cout << "Saved profile " << profile.id.value() << "\n";
+        } else if (command == "regenerate") {
+            if (!all_profiles)
+                fail("regenerate requires --all");
+            if (geteuid() != 0 && installs_system_configuration)
+                fail("regenerate system configuration must be run as root", 1);
+            const std::vector<std::string> profiles =
+                btrfsbackup::platform::linux::config::list_profiles(etc_root / "profiles");
+            if (profiles.empty()) {
+                std::cout << "No profiles to regenerate\n";
+                return 0;
+            }
+            bool failed = false;
+            for (const std::string& id : profiles) {
+                try {
+                    static_cast<void>(btrfsbackup::platform::linux::config::save_profile(
+                        btrfsbackup::platform::linux::config::profile_json_path(etc_root, id),
+                        {etc_root, udev_root, systemd_root, public_root},
+                        activator
+                    ));
+                    std::cout << "Regenerated profile " << id << "\n";
+                } catch (const std::exception& error) {
+                    std::cerr << "btrfs-backupctl profile: failed to regenerate " << id << ": "
+                              << error.what() << '\n';
+                    failed = true;
+                }
+            }
+            if (failed)
+                return 1;
         } else if (command == "show") {
             std::cout << btrfsbackup::config::json::dump_json(btrfsbackup::config::json::profile_to_json(btrfsbackup::platform::linux::config::get_profile(etc_root, profile_id)));
         } else if (command == "export") {

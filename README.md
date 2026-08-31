@@ -114,6 +114,14 @@ Follow the first run with:
 journalctl -u btrfs-backup@default.service -f
 ```
 
+Package upgrades automatically regenerate the systemd and udev artifacts
+derived from installed profiles. To repeat that maintenance step manually,
+run:
+
+```bash
+sudo btrfs-backupctl profile regenerate --all
+```
+
 After a successful run, test a restore before treating the setup as complete.
 
 ## Everyday Commands
