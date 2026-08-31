@@ -143,7 +143,7 @@ date=2026-08-24
 timestamp=2026-08-24T18:42:00+0000
 EOF_LAST_SUCCESS
 cat >"$TEST_ROOT/etc/profiles/default/profile.json" <<'EOF_PROFILE'
-{"schemaVersion":3,"profileId":"default","name":"Default backup","enabled":true,"target":{"device":"/dev/null","luksUuid":"11111111-2222-3333-4444-555555555555","btrfsUuid":"66666666-7777-8888-9999-aaaaaaaaaaaa","mapperName":"backupdisk"},"sources":[{"id":"home","name":"Home","enabled":true,"subvolume":"/home","localSnapshotDir":"/.snapshots/home","remoteSubdir":"home","remoteRetention":2,"localRetention":2}]}
+{"schemaVersion":4,"configurationGeneration":"0123456789abcdef0123456789abcdef","profileId":"default","name":"Default backup","enabled":true,"target":{"device":"/dev/null","luksUuid":"11111111-2222-3333-4444-555555555555","btrfsUuid":"66666666-7777-8888-9999-aaaaaaaaaaaa","mapperName":"backupdisk","activation":{"mode":"askPassword"}},"sources":[{"id":"home","name":"Home","enabled":true,"subvolume":"/home","localSnapshotDir":"/.snapshots/home","remoteSubdir":"home","remoteRetention":2,"localRetention":2}]}
 EOF_PROFILE
 chmod 0644 "$TEST_ROOT/public/default.json" "$TEST_ROOT/status/default/current.json"
 chmod 0600 "$TEST_ROOT/history/default/"*.json \
@@ -235,10 +235,10 @@ if [[ ! "$fingerprint" =~ ^[0-9a-f]{64}$ ]]; then
     fail 'editable profile returned an invalid fingerprint'
 fi
 draft="$(<"$TEST_ROOT/etc/profiles/default/profile.json")"
-validated="$(call ValidateProfileDraft ssss default "" "$fingerprint" "$draft")"
+validated="$(call ValidateProfileDraft ssss default "0123456789abcdef0123456789abcdef" "$fingerprint" "$draft")"
 grep -Fq 'valid' <<<"$validated" || fail 'profile draft validation did not return a result'
 updated_draft="${draft/Default backup/Edited backup}"
-saved="$(call SaveProfile ssss default "" "$fingerprint" "$updated_draft")"
+saved="$(call SaveProfile ssss default "0123456789abcdef0123456789abcdef" "$fingerprint" "$updated_draft")"
 grep -Fq 'generation' <<<"$saved" || fail 'profile save omitted the new generation'
 grep -Fq 'Edited backup' "$TEST_ROOT/etc/profiles/default/profile.json" || fail 'profile save did not publish the draft'
 grep -Eq '"configurationGeneration"[[:space:]]*:[[:space:]]*"[0-9a-f]{32}"' "$TEST_ROOT/etc/profiles/default/profile.json" \

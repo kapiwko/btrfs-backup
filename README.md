@@ -106,19 +106,8 @@ are required. The profile selects either systemd ask-password or a root-only
 key file; the generated target service activates LUKS on demand and the native
 mount unit mounts it with the required security options.
 
-For a profile upgraded from 0.3, preview and apply the legacy crypttab import:
-
-```bash
-sudo btrfs-backupctl profile migrate-activation --profile default
-sudo btrfs-backupctl profile migrate-activation --profile default --apply
-```
-
-The command reads but never modifies `/etc/crypttab`; old entries may remain
-unused. The migrated profile uses the target service template installed by the
-package in systemd's unit load path; no copy in `/etc/systemd/system` is
-required. This transition command is available only in the 3.x line and will
-be removed in 1.0. Fully unattended operation requires a root-owned key file
-with mode `0600`; `askPassword` uses systemd's password agent.
+Fully unattended operation requires a root-owned key file with mode `0600`;
+`askPassword` uses systemd's password agent.
 
 ## Usage
 

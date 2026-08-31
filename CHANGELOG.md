@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+### Breaking Changes
+
+1. profile loading now accepts only schema version 4; automatic normalization
+   of schema versions 1 through 3 and their retired mount and state-path fields
+   has been removed;
+2. installed profiles without `configurationGeneration` are rejected by the
+   runtime;
+3. `btrfs-backupctl profile migrate-activation` and the crypttab import support
+   have been removed;
+4. pending recovery markers without `final_snapshot_path` are invalid and are
+   cleared without applying the former UUID-only recovery behavior;
+5. the retired multi-file configuration fingerprint API has been removed.
+
 ## 0.3.3 - 2026-08-30
 
 ### Target Storage Visibility
