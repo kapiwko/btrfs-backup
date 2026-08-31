@@ -7,7 +7,6 @@
 #include <string>
 
 #include <platform/linux/config/InstallationService.hpp>
-#include <platform/linux/config/ProfileActivationMigration.hpp>
 #include <config/json/JsonIo.hpp>
 #include <config/json/ProfileDocument.hpp>
 #include <platform/linux/config/ProfileService.hpp>
@@ -32,7 +31,7 @@ std::string read_text(const fs::path& path) {
 }
 
 btrfsbackup::config::Profile sample_profile() {
-    return btrfsbackup::config::json::profile_from_json({{"schemaVersion", 3}, {"profileId", "laptop"}, {"name", "Laptop backup"}, {"enabled", true}, {"target", {{"device", "/dev/disk/by-uuid/11111111-2222-3333-4444-555555555555"}, {"luksUuid", "11111111-2222-3333-4444-555555555555"}, {"btrfsUuid", "66666666-7777-8888-9999-aaaaaaaaaaaa"}, {"mapperName", "backupdisk"}}}, {"sources", btrfsbackup::config::json::Json::array({{{"id", "home"}, {"name", "Home"}, {"enabled", true}, {"subvolume", "/home"}, {"localSnapshotDir", "/.snapshots/btrfs-backup/home"}, {"remoteSubdir", "home"}, {"remoteRetention", 7}, {"localRetention", 3}}})}});
+    return btrfsbackup::config::json::profile_from_json({{"schemaVersion", 4}, {"profileId", "laptop"}, {"name", "Laptop backup"}, {"enabled", true}, {"target", {{"device", "/dev/disk/by-uuid/11111111-2222-3333-4444-555555555555"}, {"luksUuid", "11111111-2222-3333-4444-555555555555"}, {"btrfsUuid", "66666666-7777-8888-9999-aaaaaaaaaaaa"}, {"mapperName", "backupdisk"}, {"activation", {{"mode", "askPassword"}}}}}, {"sources", btrfsbackup::config::json::Json::array({{{"id", "home"}, {"name", "Home"}, {"enabled", true}, {"subvolume", "/home"}, {"localSnapshotDir", "/.snapshots/btrfs-backup/home"}, {"remoteSubdir", "home"}, {"remoteRetention", 7}, {"localRetention", 3}}})}});
 }
 
 void test_profile_and_installation_use_cases() {
@@ -56,26 +55,6 @@ void test_profile_and_installation_use_cases() {
         !fs::exists(root / "rendered" / "config" / "fstab.fragment") &&
             !fs::exists(root / "rendered" / "config" / "crypttab.fragment"),
         "legacy table fragments were rendered"
-    );
-    fs::remove_all(root);
-}
-
-void test_activation_migration_rejects_unsupported_crypttab_semantics() {
-    fs::path root = test_root("activation-migration-options");
-    const fs::path crypttab = root / "crypttab";
-    test_helpers::write_file(
-        crypttab,
-        "backupdisk UUID=11111111-2222-3333-4444-555555555555 none luks,keyscript=/usr/local/bin/key\n"
-    );
-    test_helpers::expect_validation_error(
-        "activation migration unsupported options",
-        [&] {
-            (void)btrfsbackup::platform::linux::config::migrate_target_activation_from_crypttab(
-                sample_profile(),
-                crypttab
-            );
-        },
-        "keyscript="
     );
     fs::remove_all(root);
 }
@@ -206,7 +185,6 @@ void test_profile_render_replaces_only_owned_render_directories() {
 
 int main() {
     test_profile_and_installation_use_cases();
-    test_activation_migration_rejects_unsupported_crypttab_semantics();
     test_profile_render_replaces_only_owned_render_directories();
     test_status_use_cases();
     return test_helpers::finish("application services tests");

@@ -136,31 +136,12 @@ int mode_of(const fs::path& path) {
     return stat(path.c_str(), &info) == 0 ? info.st_mode & 0777 : -1;
 }
 
-void test_profile_fingerprint_matches_legacy_stream() {
-    const fs::path root = test_root();
-    {
-        std::ofstream(root / "main.env") << "A=1\n";
-        std::ofstream(root / "10-root.conf") << "SOURCE_NAME=root\n";
-        std::ofstream(root / "20-home.conf") << "SOURCE_NAME=home\n";
-    }
-
-    const std::string digest = btrfsbackup::config::compute_config_fingerprint(
-        std::string(btrfsbackup::config::current_configuration_fingerprint_version),
-        root / "main.env",
-        {root / "10-root.conf", root / "20-home.conf"}
-    );
-    expect_true(
-        "profile fingerprint",
-        digest == "f125982c7f64868550006c139bdba904248a93b4118afcc2332190e516494c34",
-        "fingerprint changed"
-    );
-    fs::remove_all(root);
-}
-
 void test_profile_repository_loads_profile_and_fingerprint_from_one_read() {
     const fs::path config_root = "/unused/test/config";
     const fs::path profile_path = config_root / "profiles" / "default" / "profile.json";
-    const std::string bytes = btrfsbackup::config::json::dump_json(valid_profile());
+    btrfsbackup::config::json::Json installed = valid_profile();
+    installed["configurationGeneration"] = "0123456789abcdef0123456789abcdef";
+    const std::string bytes = btrfsbackup::config::json::dump_json(installed);
     int reads = 0;
     btrfsbackup::platform::linux::config::FileProfileRepository repository(
         config_root,
@@ -182,7 +163,25 @@ void test_profile_repository_loads_profile_and_fingerprint_from_one_read() {
     expect_true("atomic profile read count", reads == 1, "profile was read more than once");
     expect_true("atomic profile id", loaded.profile.id == btrfsbackup::ProfileId{"default"}, "wrong profile loaded");
     expect_true("atomic profile fingerprint", loaded.fingerprint.value() == expected_fingerprint, "fingerprint did not use loaded bytes");
-    expect_true("atomic profile generation", loaded.generation.value().empty(), "unexpected profile generation");
+    expect_true(
+        "atomic profile generation",
+        loaded.generation.value() == "0123456789abcdef0123456789abcdef",
+        "wrong profile generation"
+    );
+}
+
+void test_profile_repository_rejects_missing_generation() {
+    const std::string bytes = btrfsbackup::config::json::dump_json(valid_profile());
+    btrfsbackup::platform::linux::config::FileProfileRepository repository(
+        "/unused/test/config",
+        btrfsbackup::config::ApplicationConfig::defaults(),
+        [&](const fs::path&) { return bytes; }
+    );
+    expect_validation_error(
+        "installed profile generation",
+        [&] { (void)repository.get(btrfsbackup::ProfileId{"default"}); },
+        "configurationGeneration is required"
+    );
 }
 
 void test_rejects_bad_uuid() {
@@ -219,7 +218,7 @@ void test_rejects_nested_roots() {
     expect_validation_error("nested roots", [&] { btrfsbackup::config::json::normalize_profile(profile); }, "remoteRoot and paths.incomingRoot");
 }
 
-void test_target_activation_is_structured_and_migrated() {
+void test_target_activation_is_structured() {
     btrfsbackup::config::json::Json key_file = valid_profile();
     key_file["target"]["activation"] = {
         {"mode", "keyFile"},
@@ -237,18 +236,6 @@ void test_target_activation_is_structured_and_migrated() {
         "activation key file path",
         activation.key_file.value() == "/root/keys/backupdisk.key",
         "key file path was not loaded"
-    );
-
-    btrfsbackup::config::json::Json legacy = valid_profile();
-    legacy["schemaVersion"] = 3;
-    legacy["target"].erase("activation");
-    const btrfsbackup::config::json::Json migrated =
-        btrfsbackup::config::json::normalize_profile(legacy);
-    expect_true("activation migration schema", migrated.at("schemaVersion") == 4, "profile was not migrated to v4");
-    expect_true(
-        "activation migration mode",
-        migrated.at("target").at("activation").at("mode") == "askPassword",
-        "legacy profile did not default to askPassword"
     );
 
     btrfsbackup::config::json::Json invalid = valid_profile();
@@ -291,56 +278,24 @@ void test_invalid_profile_document_does_not_create_profile() {
     );
 }
 
-void test_profile_migrates_safe_legacy_system_paths() {
-    btrfsbackup::config::json::Json legacy = valid_profile();
-    legacy["schemaVersion"] = 1;
-    legacy["target"]["mountPoint"] = "/mnt/btrfs-backup/default";
-    legacy["target"]["mountUnit"] = "mnt-btrfs\\x2dbackup-default.mount";
-    legacy["paths"]["stateDir"] = "/var/lib/btrfs-backup";
-    legacy["paths"]["statusRoot"] = "/run/btrfs-backup/profiles";
-    legacy["paths"]["historyRoot"] = "/var/lib/btrfs-backup/history";
-
-    const auto load_legacy = [](const btrfsbackup::config::json::Json& document) {
-        btrfsbackup::platform::linux::config::FileProfileRepository repository(
-            "/unused/test/config",
-            btrfsbackup::config::ApplicationConfig::defaults(),
-            [&](const fs::path&) { return btrfsbackup::config::json::dump_json(document); }
+void test_profile_rejects_old_schema_versions() {
+    for (const int version : {1, 2, 3}) {
+        btrfsbackup::config::json::Json old = valid_profile();
+        old["schemaVersion"] = version;
+        expect_validation_error(
+            "old profile schema",
+            [&] { (void)btrfsbackup::config::json::normalize_profile(old); },
+            "schemaVersion must be 4"
         );
-        return repository.get(btrfsbackup::ProfileId{"default"}).profile;
-    };
-
-    (void)load_legacy(legacy);
-    btrfsbackup::config::json::Json normalized = btrfsbackup::config::json::normalize_profile(legacy);
-    expect_true("legacy migrated schema", normalized.at("schemaVersion") == 4, "legacy profile was not migrated");
-    expect_true("legacy stateDir removed", !normalized.at("paths").contains("stateDir"), "stateDir remains public");
-    expect_true("legacy statusRoot removed", !normalized.at("paths").contains("statusRoot"), "statusRoot remains public");
-    expect_true("legacy historyRoot removed", !normalized.at("paths").contains("historyRoot"), "historyRoot remains public");
-
-    legacy["target"]["mountPoint"] = "/mnt/btrfs-backup/other";
-    expect_validation_error(
-        "legacy mount point mismatch",
-        [&] { (void)load_legacy(legacy); },
-        "mountPoint does not match"
-    );
-
-    legacy["target"]["mountPoint"] = "/mnt/btrfs-backup/default";
-    legacy["target"]["mountUnit"] = "wrong.mount";
-    expect_validation_error(
-        "legacy mount unit mismatch",
-        [&] { (void)load_legacy(legacy); },
-        "mountUnit does not match"
-    );
+    }
 }
 
-void test_profile_rejects_retired_legacy_sources_directory() {
-    btrfsbackup::config::json::Json legacy = valid_profile();
-    legacy["schemaVersion"] = 1;
-    legacy["target"]["mountPoint"] = "/mnt/btrfs-backup/default";
-    legacy["paths"]["sourcesDir"] = "/etc/btrfs-backup/profiles/default/sources.d";
-
+void test_profile_rejects_removed_sources_directory() {
+    btrfsbackup::config::json::Json profile = valid_profile();
+    profile["paths"]["sourcesDir"] = "/etc/btrfs-backup/profiles/default/sources.d";
     expect_validation_error(
-        "retired legacy sources directory",
-        [&] { (void)btrfsbackup::config::json::normalize_profile(legacy); },
+        "removed sources directory",
+        [&] { (void)btrfsbackup::config::json::normalize_profile(profile); },
         "paths.sourcesDir is not supported"
     );
 }
@@ -353,22 +308,12 @@ void test_profile_rejects_system_path_overrides() {
         [&] { btrfsbackup::config::json::normalize_profile(current); },
         "paths.statusRoot is not supported"
     );
-
-    btrfsbackup::config::json::Json legacy = valid_profile();
-    legacy["schemaVersion"] = 1;
-    legacy["target"]["mountPoint"] = "/mnt/btrfs-backup/default";
-    legacy["paths"]["statusRoot"] = "/etc";
-    expect_validation_error(
-        "legacy system path",
-        [&] { btrfsbackup::config::json::normalize_profile(legacy); },
-        "paths.statusRoot is application-controlled"
-    );
 }
 
 void test_mount_point_is_application_controlled() {
     btrfsbackup::config::json::Json raw = valid_profile();
     raw["target"]["mountPoint"] = "/home/alice/backup";
-    expect_validation_error("profile mount point rejected", [&] { (void)btrfsbackup::config::json::normalize_profile(raw); }, "application-controlled");
+    expect_validation_error("profile mount point rejected", [&] { (void)btrfsbackup::config::json::normalize_profile(raw); }, "not supported");
 
     btrfsbackup::config::json::Json custom = valid_profile();
     custom["paths"] = btrfsbackup::config::json::Json::object();
@@ -1023,18 +968,18 @@ void test_render_udev_optional_matches() {
 } // namespace
 
 int main() {
-    test_profile_fingerprint_matches_legacy_stream();
     test_profile_repository_loads_profile_and_fingerprint_from_one_read();
+    test_profile_repository_rejects_missing_generation();
     test_rejects_bad_uuid();
     test_rejects_bad_configuration_generation();
     test_rejects_missing_btrfs_uuid();
     test_rejects_non_dev_target();
     test_rejects_nested_roots();
-    test_target_activation_is_structured_and_migrated();
+    test_target_activation_is_structured();
     test_profile_round_trips_normalized_json();
     test_invalid_profile_document_does_not_create_profile();
-    test_profile_migrates_safe_legacy_system_paths();
-    test_profile_rejects_retired_legacy_sources_directory();
+    test_profile_rejects_old_schema_versions();
+    test_profile_rejects_removed_sources_directory();
     test_profile_rejects_system_path_overrides();
     test_mount_point_is_application_controlled();
     test_profile_rejects_removed_notifications();

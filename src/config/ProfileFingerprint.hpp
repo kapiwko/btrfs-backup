@@ -5,9 +5,7 @@
 #pragma once
 
 #include <filesystem>
-#include <string>
 #include <string_view>
-#include <vector>
 
 namespace btrfsbackup::config {
 
@@ -17,12 +15,6 @@ std::string compute_config_fingerprint_from_bytes(
     std::string_view version,
     const std::filesystem::path& config_file,
     std::string_view contents
-);
-
-std::string compute_config_fingerprint(
-    const std::string& version,
-    const std::filesystem::path& config_file,
-    const std::vector<std::filesystem::path>& source_files
 );
 
 } // namespace btrfsbackup::config

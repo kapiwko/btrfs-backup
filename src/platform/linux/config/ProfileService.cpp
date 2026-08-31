@@ -18,7 +18,6 @@
 #include <config/ProfileArtifactRenderer.hpp>
 #include <platform/linux/config/ProfileInstaller.hpp>
 #include <platform/linux/config/FileProfileRepository.hpp>
-#include <platform/linux/config/ProfileLegacyRuntimePolicy.hpp>
 #include <platform/linux/config/ProfileRuntimePolicy.hpp>
 #include <config/domain/Profile.hpp>
 #include <config/json/ProfileDocument.hpp>
@@ -32,7 +31,6 @@ namespace btrfsbackup::platform::linux::config {
 
 btrfsbackup::config::Profile validate_profile_file(const fs::path& file, const fs::path& target_mount_root) {
     const btrfsbackup::config::json::Json raw = btrfsbackup::config::json::load_json_file(file);
-    validate_legacy_profile_runtime_fields(raw, target_mount_root);
     btrfsbackup::config::Profile profile = btrfsbackup::config::json::profile_from_json(raw, target_mount_root);
     validate_profile_runtime_policy(profile);
     return profile;

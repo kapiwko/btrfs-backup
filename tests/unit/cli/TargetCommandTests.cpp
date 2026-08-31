@@ -89,6 +89,7 @@ btrfsbackup::config::json::Json profile_json(
     }
     return {
         {"schemaVersion", 4},
+        {"configurationGeneration", "0123456789abcdef0123456789abcdef"},
         {"profileId", "default"},
         {"name", "Default backup"},
         {"enabled", true},

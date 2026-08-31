@@ -7,13 +7,9 @@
 #include <array>
 #include <cstdint>
 #include <filesystem>
-#include <fstream>
-#include <iterator>
 #include <string>
 #include <string_view>
 #include <vector>
-
-#include <core/Errors.hpp>
 
 namespace fs = std::filesystem;
 
@@ -105,14 +101,6 @@ void store_hex32(std::string& output, std::uint32_t value) {
     for (int shift = 28; shift >= 0; shift -= 4) {
         output.push_back(digits[(value >> shift) & 0x0fU]);
     }
-}
-
-std::string read_file_bytes(const fs::path& path) {
-    std::ifstream stream(path, std::ios::binary);
-    if (!stream) {
-        throw btrfsbackup::ValidationError("cannot read " + path.string());
-    }
-    return std::string(std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>());
 }
 
 void append_record(std::string& data, const std::string& key, const std::string& value) {
@@ -212,26 +200,6 @@ std::string compute_config_fingerprint_from_bytes(
     append_record(data, "main", config_file.filename().string());
     data.append(contents);
     data.push_back('\0');
-    return sha256_bytes(data);
-}
-
-std::string compute_config_fingerprint(
-    const std::string& version,
-    const fs::path& config_file,
-    const std::vector<fs::path>& source_files
-) {
-    std::string data;
-    append_record(data, "version", version);
-    append_record(data, "main", config_file.filename().string());
-    data.append(read_file_bytes(config_file));
-    data.push_back('\0');
-
-    for (const fs::path& source_file : source_files) {
-        append_record(data, "source", source_file.filename().string());
-        data.append(read_file_bytes(source_file));
-        data.push_back('\0');
-    }
-
     return sha256_bytes(data);
 }
 

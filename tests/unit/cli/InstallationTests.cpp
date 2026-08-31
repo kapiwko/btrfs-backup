@@ -57,11 +57,11 @@ void test_installation_render_writes_static_files() {
     fs::path root = test_root("render");
     fs::path profile_json = root / "profile.json";
     btrfsbackup::config::json::Json profile = {
-        {"schemaVersion", 3},
+        {"schemaVersion", 4},
         {"profileId", "laptop"},
         {"name", "Laptop backup"},
         {"enabled", true},
-        {"target", {{"device", "/dev/disk/by-uuid/11111111-2222-3333-4444-555555555555"}, {"luksUuid", "11111111-2222-3333-4444-555555555555"}, {"btrfsUuid", "66666666-7777-8888-9999-aaaaaaaaaaaa"}, {"mapperName", "backupdisk"}}},
+        {"target", {{"device", "/dev/disk/by-uuid/11111111-2222-3333-4444-555555555555"}, {"luksUuid", "11111111-2222-3333-4444-555555555555"}, {"btrfsUuid", "66666666-7777-8888-9999-aaaaaaaaaaaa"}, {"mapperName", "backupdisk"}, {"activation", {{"mode", "askPassword"}}}}},
         {"sources", btrfsbackup::config::json::Json::array({{{"id", "home"}, {"name", "Home"}, {"enabled", true}, {"subvolume", "/home"}, {"localSnapshotDir", "/.snapshots/btrfs-backup/home"}, {"remoteSubdir", "home"}, {"remoteRetention", 7}, {"localRetention", 3}}})}
     };
     test_helpers::write_file(profile_json, btrfsbackup::config::json::dump_json(profile));
@@ -174,11 +174,11 @@ void test_installation_render_allows_explicit_backup_command_override() {
     fs::path root = test_root("render-backup-command");
     fs::path profile_json = root / "profile.json";
     btrfsbackup::config::json::Json profile = {
-        {"schemaVersion", 3},
+        {"schemaVersion", 4},
         {"profileId", "laptop"},
         {"name", "Laptop backup"},
         {"enabled", true},
-        {"target", {{"device", "/dev/disk/by-uuid/11111111-2222-3333-4444-555555555555"}, {"luksUuid", "11111111-2222-3333-4444-555555555555"}, {"btrfsUuid", "66666666-7777-8888-9999-aaaaaaaaaaaa"}, {"mapperName", "backupdisk"}}},
+        {"target", {{"device", "/dev/disk/by-uuid/11111111-2222-3333-4444-555555555555"}, {"luksUuid", "11111111-2222-3333-4444-555555555555"}, {"btrfsUuid", "66666666-7777-8888-9999-aaaaaaaaaaaa"}, {"mapperName", "backupdisk"}, {"activation", {{"mode", "askPassword"}}}}},
         {"sources", btrfsbackup::config::json::Json::array({{{"id", "home"}, {"name", "Home"}, {"enabled", true}, {"subvolume", "/home"}, {"localSnapshotDir", "/.snapshots/btrfs-backup/home"}, {"remoteSubdir", "home"}}})}
     };
     test_helpers::write_file(profile_json, btrfsbackup::config::json::dump_json(profile));

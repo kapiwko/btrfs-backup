@@ -37,17 +37,16 @@ target label derived from `target.mapperName`, source ids/display names, and the
 non-secret `configurationGeneration` commit marker. It excludes devices, UUIDs,
 mount points, paths, retention settings, and hooks.
 
-Installed private profiles also contain `configurationGeneration`. The udev
+Installed private profiles must contain `configurationGeneration`. The udev
 rule records it in a comment and the systemd drop-in passes it to the runner as
 `BTRFS_BACKUP_CONFIGURATION_GENERATION`. A runner started by a mismatched
-drop-in rejects the profile before performing backup work. Older profiles
-without this installation metadata remain loadable when no generation is
-provided by the service.
+drop-in rejects the profile before performing backup work. Runtime loading also
+rejects installed profiles without this metadata.
 
 A failed transactional save reports `configuration.save_failed`. If restoring
-the previous artifacts, synchronizing their directories, restoring legacy
-source configuration, or reactivating the old rules also fails, the diagnostic
-code is `configuration.rollback_incomplete`. Its message retains the original
+the previous artifacts, synchronizing their directories, or reactivating the
+old rules also fails, the diagnostic code is
+`configuration.rollback_incomplete`. Its message retains the original
 save failure and lists the rollback errors. Unrestored `.previous-*` files are
 left in place for recovery; `configurationGeneration` prevents a partially
 restored installation from being accepted by the automatic runner.
@@ -118,11 +117,9 @@ must not be a symbolic link, and must not be writable by group or other users
 with id `laptop` is always mounted at `TARGET_MOUNT_ROOT/laptop`; neither the
 mount point nor its systemd mount unit is stored in profile JSON.
 
-Profile schema version 4 adds structured target activation and retains the
-version 3 removal of `target.mountPoint` and `target.mountUnit`.
-Legacy profiles are accepted only when their stored mount point already equals
-`TARGET_MOUNT_ROOT/profileId`; other profiles must be migrated deliberately so
-the target cannot silently move to a different path.
+Only profile schema version 4 is accepted. It requires structured target
+activation and does not allow `target.mountPoint`, `target.mountUnit`, or
+application-owned state paths in profile JSON.
 
 ## JSON Schema
 
@@ -252,24 +249,6 @@ already open is validated and preserved.
 The key file and its parent path must pass the trusted-file checks; use root
 ownership and mode `0600`. `askPassword` delegates prompting to systemd's
 password agent and is not suitable for unattended operation without an agent.
-
-## Migration From 0.3
-
-Version 3.x can import the password field from the exact mapper and LUKS UUID
-entry in an existing crypttab. The first command is a JSON preview; the second
-publishes the migrated profile and generated units transactionally:
-
-```bash
-sudo btrfs-backupctl profile migrate-activation --profile default
-sudo btrfs-backupctl profile migrate-activation --profile default --apply
-```
-
-The migrator accepts only the legacy options emitted by btrfs-backup 0.3 and
-never changes crypttab. Existing fstab and crypttab lines are not required by
-the new units and may remain unused. The target activation template can come
-from the package's systemd unit load path and does not need to be copied into
-`/etc/systemd/system`. The compatibility command is scheduled for removal in
-1.0.
 
 ## udev Matching
 

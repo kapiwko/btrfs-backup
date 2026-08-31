@@ -10,7 +10,6 @@
 
 #include <core/Errors.hpp>
 #include <platform/linux/config/ApplicationConfig.hpp>
-#include <platform/linux/config/ProfileLegacyRuntimePolicy.hpp>
 #include <platform/linux/config/ProfileRuntimePolicy.hpp>
 #include <config/ProfileFingerprint.hpp>
 #include <core/Identifiers.hpp>
@@ -44,7 +43,6 @@ btrfsbackup::config::LoadedProfile loaded_profile_from_bytes(
 ) {
     try {
         const btrfsbackup::config::json::Json raw = btrfsbackup::config::json::Json::parse(bytes);
-        validate_legacy_profile_runtime_fields(raw, application_paths.target_mount_root);
         const btrfsbackup::config::json::ProfileDocument document = btrfsbackup::config::json::normalize_profile_document(
             raw,
             application_paths.target_mount_root
@@ -55,6 +53,9 @@ btrfsbackup::config::LoadedProfile loaded_profile_from_bytes(
         );
         validate_profile_runtime_policy(profile);
         const btrfsbackup::config::ConfigurationGeneration generation = profile.configuration_generation;
+        if (generation.empty()) {
+            throw ValidationError("installed profile configurationGeneration is required");
+        }
         return {
             .profile = std::move(profile),
             .fingerprint = btrfsbackup::config::ConfigurationFingerprint(

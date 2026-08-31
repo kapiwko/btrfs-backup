@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include <filesystem>
-#include <fstream>
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -26,24 +25,13 @@ fs::path test_root(const std::string& name) {
 
 btrfsbackup::config::json::Json sample_profile_json() {
     return {
-        {"schemaVersion", 3},
+        {"schemaVersion", 4},
         {"profileId", "default"},
         {"name", "Default backup"},
         {"enabled", true},
-        {"target", {{"device", "/dev/disk/by-uuid/11111111-2222-3333-4444-555555555555"}, {"luksUuid", "11111111-2222-3333-4444-555555555555"}, {"btrfsUuid", "66666666-7777-8888-9999-aaaaaaaaaaaa"}, {"mapperName", "backupdisk"}}},
+        {"target", {{"device", "/dev/disk/by-uuid/11111111-2222-3333-4444-555555555555"}, {"luksUuid", "11111111-2222-3333-4444-555555555555"}, {"btrfsUuid", "66666666-7777-8888-9999-aaaaaaaaaaaa"}, {"mapperName", "backupdisk"}, {"activation", {{"mode", "askPassword"}}}}},
         {"sources", btrfsbackup::config::json::Json::array({{{"id", "home"}, {"name", "Home"}, {"enabled", true}, {"subvolume", "/home"}, {"localSnapshotDir", "/.snapshots/btrfs-backup/home"}, {"remoteSubdir", "home"}, {"remoteRetention", 2}, {"localRetention", 2}}})}
     };
-}
-
-void write_installed_profile(const fs::path& root) {
-    const fs::path profile = root / "profiles" / "default" / "profile.json";
-    test_helpers::write_file(profile, btrfsbackup::config::json::dump_json(sample_profile_json()));
-    fs::permissions(profile, fs::perms::owner_read | fs::perms::owner_write);
-}
-
-std::string read_file(const fs::path& path) {
-    std::ifstream input(path);
-    return {std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()};
 }
 
 void test_profile_create_writes_json() {
@@ -110,99 +98,10 @@ void test_profile_list_uses_config_root() {
     fs::remove_all(root);
 }
 
-void test_profile_activation_migration_previews_key_file() {
-    fs::path root = test_root("activation-preview");
-    write_installed_profile(root);
-    const fs::path crypttab = root / "crypttab";
-    test_helpers::write_file(
-        crypttab,
-        "# existing configuration\n"
-        "backupdisk UUID=11111111-2222-3333-4444-555555555555 /root/keys/backupdisk.key luks,noauto\n"
-    );
-    btrfsbackup::config::NullConfigurationActivator activator;
-    std::ostringstream output;
-    std::streambuf* previous = std::cout.rdbuf(output.rdbuf());
-
-    const int result = btrfsbackup::cli::profile::profile(
-        {"migrate-activation", "--profile", "default", "--crypttab", crypttab.string()},
-        root,
-        activator
-    );
-
-    std::cout.rdbuf(previous);
-    test_helpers::expect_eq("activation preview result", std::to_string(result), "0");
-    const btrfsbackup::config::json::Json migrated = btrfsbackup::config::json::Json::parse(output.str());
-    test_helpers::expect_true(
-        "activation preview keyfile",
-        migrated.at("target").at("activation").at("mode") == "keyFile" &&
-            migrated.at("target").at("activation").at("keyFile") == "/root/keys/backupdisk.key",
-        "legacy key file was not migrated"
-    );
-    test_helpers::expect_true(
-        "activation preview does not write",
-        !btrfsbackup::config::json::load_json_file(root / "profiles" / "default" / "profile.json")
-             .at("target")
-             .contains("activation"),
-        "preview modified the installed profile"
-    );
-    fs::remove_all(root);
-}
-
-void test_profile_activation_migration_applies_without_editing_crypttab() {
-    fs::path root = test_root("activation-apply");
-    write_installed_profile(root);
-    const fs::path crypttab = root / "crypttab";
-    const std::string legacy =
-        "backupdisk UUID=11111111-2222-3333-4444-555555555555 none luks,noauto\n";
-    test_helpers::write_file(crypttab, legacy);
-    btrfsbackup::config::NullConfigurationActivator activator;
-    std::ostringstream output;
-    std::streambuf* previous = std::cout.rdbuf(output.rdbuf());
-
-    const int result = btrfsbackup::cli::profile::profile(
-        {
-            "--udev-root",
-            (root / "udev").string(),
-            "--systemd-root",
-            (root / "systemd").string(),
-            "--public-root",
-            (root / "public").string(),
-            "migrate-activation",
-            "--profile",
-            "default",
-            "--crypttab",
-            crypttab.string(),
-            "--apply",
-        },
-        root,
-        activator
-    );
-
-    std::cout.rdbuf(previous);
-    test_helpers::expect_eq("activation apply result", std::to_string(result), "0");
-    const btrfsbackup::config::json::Json migrated =
-        btrfsbackup::config::json::load_json_file(root / "profiles" / "default" / "profile.json");
-    test_helpers::expect_true(
-        "activation apply ask password",
-        migrated.at("target").at("activation").at("mode") == "askPassword",
-        "none was not migrated to askPassword"
-    );
-    test_helpers::expect_eq("activation apply preserves crypttab", read_file(crypttab), legacy);
-    test_helpers::expect_contains(
-        "activation apply output",
-        output.str(),
-        "legacy crypttab was not modified"
-    );
-    fs::remove_all(root);
-}
-
 } // namespace
 
 int main() {
     test_profile_create_writes_json();
     test_profile_list_uses_config_root();
-    test_profile_activation_migration_previews_key_file();
-    test_profile_activation_migration_applies_without_editing_crypttab();
-
     return test_helpers::finish("profile command tests");
 }

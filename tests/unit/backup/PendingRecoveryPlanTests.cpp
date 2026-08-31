@@ -162,23 +162,24 @@ void test_removes_invalid_snapshot_left_at_final_path() {
     );
 }
 
-void test_legacy_marker_without_final_path_uses_uuid_recovery() {
-    btrfsbackup::backup::PendingMarker legacy = marker("home", "/local/home/home-2026-08-23T080000Z");
-    legacy.final_snapshot_path.clear();
+void test_marker_without_final_path_is_invalid() {
+    btrfsbackup::backup::PendingMarker invalid = marker("home", "/local/home/home-2026-08-23T080000Z");
+    invalid.final_snapshot_path.clear();
 
     btrfsbackup::backup::PendingRecoveryPlan plan = btrfsbackup::backup::plan_pending_recovery(
         btrfsbackup::SourceId{"home"},
         "/state/default",
         "/local/home",
         "/remote/home",
-        legacy,
+        invalid,
         local_snapshot("expected-uuid"),
         {remote_snapshot("home", "expected-uuid")},
         false
     );
 
-    test_helpers::expect_true("legacy marker clear", has_effect<btrfsbackup::backup::ClearPendingMarker>(plan), "legacy marker should be cleared");
-    test_helpers::expect_true("legacy marker no remote delete", !has_effect<btrfsbackup::backup::DeletePendingRemoteSnapshot>(plan), "legacy marker has no trusted final path");
+    test_helpers::expect_true("invalid marker clear", has_effect<btrfsbackup::backup::ClearPendingMarker>(plan), "invalid marker should be cleared");
+    test_helpers::expect_true("invalid marker no remote delete", !has_effect<btrfsbackup::backup::DeletePendingRemoteSnapshot>(plan), "invalid marker has no trusted final path");
+    test_helpers::expect_contains("invalid marker message", plan.message, "Ignoring invalid pending marker");
 }
 
 void test_keeps_or_deletes_orphan_by_policy() {
@@ -217,7 +218,7 @@ int main() {
     test_missing_snapshot_clears_marker();
     test_preserves_committed_snapshot();
     test_removes_invalid_snapshot_left_at_final_path();
-    test_legacy_marker_without_final_path_uses_uuid_recovery();
+    test_marker_without_final_path_is_invalid();
     test_keeps_or_deletes_orphan_by_policy();
 
     return test_helpers::finish("pending recovery plan tests");
