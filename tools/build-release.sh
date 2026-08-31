@@ -39,7 +39,8 @@ fi
 DIST_DIR="$ROOT/dist"
 TEST_MODE=skip
 TARGET=all
-BUILD_DIR=""
+BUILD_DIR="$ROOT/build/release"
+USE_EPHEMERAL_BUILD=false
 BUILD_JOBS="${BUILD_JOBS:-$(nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)}"
 
 log_stage() {
@@ -85,7 +86,8 @@ Options:
   --static-tests     Run only syntax and render validation before packaging.
   --skip-tests       Do not run tests before packaging (default).
   --dist-dir PATH    Write artifacts to a different directory.
-  --build-dir PATH   Reuse a persistent CMake build directory.
+  --build-dir PATH   Reuse a CMake build directory (default: build/release).
+  --clean-build      Compile from staged sources in a temporary build directory.
   -h, --help         Show this help.
 USAGE
 }
@@ -117,7 +119,13 @@ while (( $# > 0 )); do
         --build-dir)
             [[ $# -ge 2 ]] || { printf '%s\n' '--build-dir requires a path.' >&2; exit 2; }
             BUILD_DIR="$2"
+            USE_EPHEMERAL_BUILD=false
             shift 2
+            ;;
+        --clean-build)
+            BUILD_DIR=""
+            USE_EPHEMERAL_BUILD=true
+            shift
             ;;
         -h|--help)
             usage
@@ -211,7 +219,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-if [[ -n "$BUILD_DIR" ]]; then
+if [[ "$USE_EPHEMERAL_BUILD" == false ]]; then
     BUILD_DIR="$(realpath -m -- "$BUILD_DIR")"
 fi
 
