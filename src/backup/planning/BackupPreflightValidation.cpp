@@ -45,7 +45,11 @@ bool resolved_path_is_within(const fs::path& candidate, const fs::path& base) {
 
 } // namespace
 
-MountEntry validate_backup_target_mount(const btrfsbackup::config::Profile& profile, const std::vector<MountEntry>& mounts) {
+MountEntry validate_backup_target_mount(
+    const btrfsbackup::config::Profile& profile,
+    const std::vector<MountEntry>& mounts,
+    TargetMountAccess access
+) {
     std::optional<MountEntry> target_mount = mount_at(mounts, profile.target.mount_point);
     if (!target_mount.has_value()) {
         throw ValidationError("Backup target is not mounted at " + profile.target.mount_point.value().string());
@@ -60,7 +64,7 @@ MountEntry validate_backup_target_mount(const btrfsbackup::config::Profile& prof
         throw ValidationError("The filesystem mounted at " + profile.target.mount_point.value().string() + " is not " + mapper_path.string());
     }
 
-    if (!has_mount_option(target_mount->options, "rw")) {
+    if (access == TargetMountAccess::ReadWrite && !has_mount_option(target_mount->options, "rw")) {
         throw ValidationError("Backup target is not mounted read-write: " + profile.target.mount_point.value().string());
     }
 

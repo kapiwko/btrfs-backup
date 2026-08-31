@@ -3,9 +3,11 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 file(READ "${PROJECT_SOURCE_DIR}/data/dbus/io.github.btrfsbackup.Manager1.xml" manager_xml)
+file(READ "${PROJECT_SOURCE_DIR}/data/dbus/io.github.btrfsbackup.Manager1.conf" manager_bus_policy)
 file(READ "${PROJECT_SOURCE_DIR}/src/core/ManagerProtocol.hpp" manager_protocol)
 file(READ "${PROJECT_SOURCE_DIR}/src/daemon/dbus/ManagerDbusObject.cpp" manager_vtable)
 string(REGEX REPLACE "[ \t\r\n]+" "" compact_xml "${manager_xml}")
+string(REGEX REPLACE "[ \t\r\n]+" "" compact_bus_policy "${manager_bus_policy}")
 
 function(assert_contains content fragment description)
     string(FIND "${content}" "${fragment}" position)
@@ -26,6 +28,11 @@ function(assert_method identifier name input_signature output_signature xml_frag
         "the ${name} daemon vtable entry"
     )
     assert_contains("${compact_xml}" "${xml_fragment}" "the ${name} XML declaration")
+    assert_contains(
+        "${compact_bus_policy}"
+        "send_interface=\"io.github.btrfsbackup.Manager1\"send_member=\"${name}\""
+        "the ${name} system bus allow rule"
+    )
 endfunction()
 
 function(assert_signal identifier name signature xml_fragment)

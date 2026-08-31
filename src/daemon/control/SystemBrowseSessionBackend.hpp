@@ -47,8 +47,12 @@ class SystemBrowseSessionBackend final : public IBrowseSessionBackend {
 
     TargetLease& acquire_target(const btrfsbackup::config::Profile& profile);
     void release_target(const std::string& target_key);
-    static void mount_read_only(const std::filesystem::path& source, const std::filesystem::path& target);
-    static void unmount(const std::filesystem::path& target);
+    void mount_read_only(
+        const BrowseSessionId& session_id,
+        const std::filesystem::path& source,
+        const std::filesystem::path& target
+    );
+    void unmount(const BrowseSessionId& session_id, const std::filesystem::path& target);
     void write_marker(const BrowseSessionId& id, const ProfileId& profile, std::uint32_t uid, const SessionMount& mount);
 
     btrfsbackup::config::IProfileRepository& profiles_;

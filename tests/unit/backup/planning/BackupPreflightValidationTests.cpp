@@ -103,6 +103,19 @@ void test_rejects_read_only_mount() {
     test_helpers::expect_validation_error("read-only target", [&] { btrfsbackup::backup::planning::validate_backup_mounts(profile(), entries); }, "not mounted read-write");
 }
 
+void test_read_access_accepts_verified_read_only_mount() {
+    std::vector<btrfsbackup::backup::MountEntry> entries = mounts();
+    entries.at(0).options = "ro,relatime,nodev,nosuid,noexec,nosymfollow";
+
+    const btrfsbackup::backup::MountEntry verified =
+        btrfsbackup::backup::planning::validate_backup_target_mount(
+            profile(),
+            entries,
+            btrfsbackup::backup::planning::TargetMountAccess::Read
+        );
+    test_helpers::expect_eq("verified read-only target", verified.source, "/dev/mapper/backup");
+}
+
 void test_rejects_missing_security_mount_options() {
     for (const std::string missing : {"nodev", "nosuid", "noexec", "nosymfollow"}) {
         std::vector<btrfsbackup::backup::MountEntry> entries = mounts();
@@ -196,6 +209,7 @@ int main() {
     test_rejects_wrong_filesystem_type();
     test_rejects_wrong_mapper();
     test_rejects_read_only_mount();
+    test_read_access_accepts_verified_read_only_mount();
     test_rejects_missing_security_mount_options();
     test_rejects_uuid_mismatch();
     test_rejects_remote_root_symlink_escape();
