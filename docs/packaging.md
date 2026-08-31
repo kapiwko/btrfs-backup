@@ -152,19 +152,19 @@ works without the daemon. Desktop notifications are owned by
 
 ## Fast Local Builds
 
-For faster local package iterations, reuse one persistent build tree:
+Release builds reuse `build/release` by default, so Ninja can rebuild only
+changed targets and ccache can reuse compiler results:
 
 ```bash
-./tools/build-release.sh \
-    --target arch \
-    --skip-tests \
-    --build-dir build/release
+./tools/build-release.sh --target arch
 ```
 
 Native and KDE targets share `build/release`, the same CMake cache and the same
 dependency graph. New persistent trees use Ninja when available and ccache when
-it is installed. Omit `--build-dir` for a clean release build compiled from the
-staged source tree.
+it is installed. Tests are skipped unless `--static-tests` or `--full-tests` is
+selected. Use `--build-dir PATH` to select another persistent tree. Use
+`--clean-build` for an isolated release build compiled from the staged source
+tree in a temporary directory.
 
 ## Reproducibility
 
