@@ -3,7 +3,6 @@
 
 #include <daemon/control/SystemBrowseSessionBackend.hpp>
 
-#include <sys/mount.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -34,10 +33,6 @@ void require_root_directory(const fs::path& path) {
     if (lstat(path.c_str(), &status) != 0 || !S_ISDIR(status.st_mode) || status.st_uid != 0)
         target_error("browse session root is not a trusted root-owned directory");
     chmod(path.c_str(), 0711);
-}
-
-bool has_option(const std::string& options, const std::string& option) {
-    return ("," + options + ",").contains("," + option + ",");
 }
 
 } // namespace
@@ -90,7 +85,11 @@ SystemBrowseSessionBackend::TargetLease& SystemBrowseSessionBackend::acquire_tar
         table = mounts_.inspect();
     }
     try {
-        (void)btrfsbackup::backup::planning::validate_backup_target_mount(profile, table);
+        (void)btrfsbackup::backup::planning::validate_backup_target_mount(
+            profile,
+            table,
+            btrfsbackup::backup::planning::TargetMountAccess::Read
+        );
     } catch (...) {
         if (lease->mounted_by_backend)
             (void)units_.stop_unit({btrfsbackup::config::target_mount_unit_name(profile.target.mount_point), std::chrono::minutes(2)});
@@ -102,18 +101,48 @@ SystemBrowseSessionBackend::TargetLease& SystemBrowseSessionBackend::acquire_tar
     return *position->second;
 }
 
-void SystemBrowseSessionBackend::mount_read_only(const fs::path& source, const fs::path& target) {
-    if (::mount(source.c_str(), target.c_str(), nullptr, MS_BIND, nullptr) != 0)
-        target_error("cannot create browse bind mount");
-    constexpr unsigned long flags = MS_BIND | MS_REMOUNT | MS_RDONLY | MS_NODEV | MS_NOSUID | MS_NOEXEC;
-    if (::mount(nullptr, target.c_str(), nullptr, flags, "nosymfollow") != 0) {
-        (void)::umount2(target.c_str(), MNT_DETACH);
-        target_error("cannot make browse bind mount read-only");
+void SystemBrowseSessionBackend::mount_read_only(
+    const BrowseSessionId& session_id,
+    const fs::path& source,
+    const fs::path& target
+) {
+    const auto result = units_.start_transient_unit({
+        .unit = "btrfs-backup-browse-mount-" + std::string(session_id.value()) + ".service",
+        .command = {"mount", "-o", "bind,ro,nodev,nosuid,noexec,nosymfollow", source.string(), target.string()},
+        .properties = {"PrivateMounts=no"},
+        .environment = {},
+        .timeout = std::chrono::seconds(30),
+        .wait = true,
+    });
+    if (!result)
+        target_error("cannot create read-only browse bind mount");
+
+    const auto verified = units_.start_transient_unit({
+        .unit = "btrfs-backup-browse-verify-" + std::string(session_id.value()) + ".service",
+        .command = {"findmnt", "--noheadings", "--mountpoint", target.string(), "--options", "ro,nodev,nosuid,noexec,nosymfollow"},
+        .properties = {"PrivateMounts=no"},
+        .environment = {},
+        .timeout = std::chrono::seconds(30),
+        .wait = true,
+    });
+    if (!verified) {
+        try {
+            unmount(session_id, target);
+        } catch (...) {}
+        target_error("browse bind mount failed read-only verification");
     }
 }
 
-void SystemBrowseSessionBackend::unmount(const fs::path& target) {
-    if (::umount2(target.c_str(), 0) != 0 && errno != EINVAL && errno != ENOENT)
+void SystemBrowseSessionBackend::unmount(const BrowseSessionId& session_id, const fs::path& target) {
+    const auto result = units_.start_transient_unit({
+        .unit = "btrfs-backup-browse-unmount-" + std::string(session_id.value()) + ".service",
+        .command = {"umount", target.string()},
+        .properties = {"PrivateMounts=no"},
+        .environment = {},
+        .timeout = std::chrono::seconds(30),
+        .wait = true,
+    });
+    if (!result)
         target_error("cannot unmount browse session");
 }
 
@@ -137,23 +166,25 @@ OpenedBrowseRoot SystemBrowseSessionBackend::open(
     const std::string key{loaded.profile.target.luks_uuid.value()};
     const fs::path directory = session_root_ / std::string(session_id.value());
     const fs::path view = directory / "repository";
+    bool view_mounted = false;
     try {
         if (fs::exists(directory))
             target_error("browse session directory already exists");
         fs::create_directories(view);
         chmod(directory.c_str(), 0711);
         chmod(view.c_str(), 0555);
-        mount_read_only(loaded.profile.paths.remote_root.value(), view);
-        const auto mounted = btrfsbackup::backup::mount_at(mounts_.inspect(), view);
-        if (!mounted || !has_option(mounted->options, "ro")) {
-            unmount(view);
-            target_error("browse mount did not become read-only");
-        }
+        mount_read_only(session_id, loaded.profile.paths.remote_root.value(), view);
+        view_mounted = true;
         SessionMount session{key, directory, view};
         write_marker(session_id, profile_id, caller_uid, session);
         sessions_.emplace(std::string(session_id.value()), session);
         return {view};
     } catch (...) {
+        if (view_mounted) {
+            try {
+                unmount(session_id, view);
+            } catch (...) {}
+        }
         std::error_code ignored;
         fs::remove_all(directory, ignored);
         release_target(key);
@@ -179,7 +210,7 @@ void SystemBrowseSessionBackend::close(const BrowseSessionId& session_id) {
     if (session == sessions_.end())
         return;
     const SessionMount record = session->second;
-    unmount(record.view);
+    unmount(session_id, record.view);
     std::error_code error;
     fs::remove_all(record.directory, error);
     sessions_.erase(session);
@@ -198,8 +229,9 @@ void SystemBrowseSessionBackend::cleanup_stale() {
         if (lstat(marker.c_str(), &status) != 0 || !S_ISREG(status.st_mode) || status.st_uid != 0)
             continue;
         const fs::path view = entry.path() / "repository";
-        if (btrfsbackup::backup::mount_at(mounts_.inspect(), view).has_value())
-            unmount(view);
+        try {
+            unmount(BrowseSessionId{entry.path().filename().string()}, view);
+        } catch (...) {}
         std::error_code ignored;
         fs::remove_all(entry.path(), ignored);
     }

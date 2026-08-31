@@ -218,6 +218,8 @@ int ManagerDbusObject::reply_operational_json(
         return reply_json(message, payload);
     } catch (const std::exception& exception) {
         const auto mapped = error_mapper_.map(exception);
+        std::cerr << "btrfs-backupd: " << action << " failed for profile "
+                  << audited_profile_id << ": " << exception.what() << '\n';
         write_audit_record(
             uid,
             action,
