@@ -59,6 +59,7 @@ class ProfileConfigurationModel final : public QObject {
     Q_INVOKABLE void createDraft(const QString& profileId);
     Q_INVOKABLE void reload();
     Q_INVOKABLE void discard();
+    Q_INVOKABLE void clearError();
     Q_INVOKABLE void setName(const QString& value);
     Q_INVOKABLE void setEnabled(bool value);
     Q_INVOKABLE void setTargetValue(const QString& key, const QVariant& value);
