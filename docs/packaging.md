@@ -53,16 +53,16 @@ generated Arch `PKGBUILD` still defines `check()` for distribution builders.
 Outputs are written to `dist/`:
 
 ```text
-btrfs-backup-0.3.3.tar.gz
-btrfs-backup-0.3.3-1-x86_64.pkg.tar.zst
-btrfs-backup-kde-0.3.3-1-x86_64.pkg.tar.zst
-btrfs-backup_0.3.3-1_amd64.deb
-btrfs-backup-0.3.3-install.tar.gz
-btrfs-backup-0.3.3-rpm-packaging.tar.gz
-btrfs-backup-0.3.3-nix-packaging.tar.gz
-btrfs-backup-0.3.3-ebuild.tar.gz
-btrfs-backup-0.3.3-pkgbuild.tar.gz
-btrfs-backup-0.3.3-source.zip
+btrfs-backup-1.0.0.tar.gz
+btrfs-backup-1.0.0-1-x86_64.pkg.tar.zst
+btrfs-backup-kde-1.0.0-1-x86_64.pkg.tar.zst
+btrfs-backup_1.0.0-1_amd64.deb
+btrfs-backup-1.0.0-install.tar.gz
+btrfs-backup-1.0.0-rpm-packaging.tar.gz
+btrfs-backup-1.0.0-nix-packaging.tar.gz
+btrfs-backup-1.0.0-ebuild.tar.gz
+btrfs-backup-1.0.0-pkgbuild.tar.gz
+btrfs-backup-1.0.0-source.zip
 SHA256SUMS
 BUILD-REPORT.txt
 ```

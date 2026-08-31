@@ -11,7 +11,7 @@ DesktopEntry=io.github.btrfsbackup.ProgressMonitor
 [Event/backupSucceeded]
 Name=Backup completed
 Comment=A backup completed successfully
-Action=
+Action=Popup
 Urgency=Normal
 
 [Event/backupFailed]

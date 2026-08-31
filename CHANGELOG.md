@@ -2,7 +2,22 @@
 
 ## Unreleased
 
-### Breaking Changes
+## 1.0.0 - 2026-08-31
+
+### Highlights
+
+1. the base package now provides a CLI-first restore engine that discovers and
+   validates repository format v1, browses snapshots, finds previous versions,
+   plans restores and performs transactional file, directory, subvolume and
+   restore-drill workflows;
+2. the KDE package adds authorized read-only repository browsing through KIO,
+   previous-version actions in Dolphin, a guided restore application and
+   backup commands in KRunner;
+3. the System Settings KCM can inspect, validate, save and delete profiles
+   through the manager's authorized administration boundary, with hook changes
+   protected by a separate high-risk authorization.
+
+### Upgrade Notes
 
 1. profile loading now accepts only schema version 4; automatic normalization
    of schema versions 1 through 3 and their retired mount and state-path fields
@@ -14,6 +29,56 @@
 4. pending recovery markers without `final_snapshot_path` are invalid and are
    cleared without applying the former UUID-only recovery behavior;
 5. the retired multi-file configuration fingerprint API has been removed.
+
+There is no in-place 3.x profile migration in 1.0.0. Recreate or export a
+schema version 4 profile with 0.3.x before upgrading, then install it with the
+1.0.0 wizard or `btrfs-backupctl profile save` so all generated artifacts and
+`configurationGeneration` are published together.
+
+### Restore And Repository Access
+
+1. repository discovery verifies format, catalog structure, snapshot identity,
+   read-only state and Btrfs UUID relationships before exposing restore data;
+2. restore planning rejects traversal, symlink escapes, special files, nested
+   mount boundaries and unsafe destinations, while execution stages changes
+   and either commits the complete result or rolls it back;
+3. the manager opens caller-bound, time-limited, read-only browse sessions,
+   verifies the bind mount and closes sessions on request, caller disconnect,
+   expiry or daemon shutdown;
+4. browse-session lifecycle and authorization are covered by unit tests and a
+   real system D-Bus integration test, including cleanup after client exit.
+
+### KDE Desktop Integration
+
+1. `btrfsbackup:` URLs expose session-scoped repository entries without
+   publishing device identifiers or persistent host paths;
+2. Dolphin offers previous versions for a single local file and launches the
+   guided restore workflow without scanning or activating backup media while
+   building the context menu;
+3. the restore application selects a version and destination, previews the
+   operation and reports completion through native desktop notifications;
+4. KRunner provides status, start, browse and previous-version commands through
+   the shared manager client;
+5. the plasmoid and KCM expose repository browsing alongside their existing
+   status, target and profile workflows;
+6. automatic backup activation can be switched per profile from both the
+   plasmoid and KCM without an administrator password, while configuration
+   edits remain separately authorized;
+7. plasmoid-wide refresh and profile management moved to Plasma's contextual
+   header actions, removing the duplicate in-popup application header.
+
+### Manager And Desktop Reliability
+
+1. profile administration uses generation and fingerprint preconditions so a
+   stale editor cannot overwrite a newer installed profile;
+2. browse-session roots are verified as usable by the requesting desktop user
+   while remaining read-only and manager-owned;
+3. architecture and integration gates cover the expanded KCM, KIO, Dolphin,
+   restore and KRunner surfaces without adding KDE dependencies to the base
+   runtime;
+4. the real target lifecycle test starts and verifies `systemd-udevd` before
+   managed activation, removing an environment-dependent device-publication
+   race from release verification.
 
 ## 0.3.3 - 2026-08-30
 
@@ -88,7 +153,7 @@
 2. actions are hidden when their target is disconnected, transient operation
    confirmations dismiss automatically, and successful validation is reported
    explicitly;
-3. active transfers expose a live speed chart and are also published as native
+3. active transfers expose live transfer rates and are also published as native
    cancellable Plasma jobs by a graphical-session monitor without requiring
    KIO;
 4. the widget and progress monitor share the Qt D-Bus manager client, and

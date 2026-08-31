@@ -9,6 +9,7 @@
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
+#include <QVariant>
 
 int main(int argc, char** argv) {
     QGuiApplication application(argc, argv);
@@ -21,7 +22,7 @@ int main(int argc, char** argv) {
     const QUrl source(parser.value(QStringLiteral("url")));
     btrfsbackup::kde::restore::RestoreController controller(source);
     QQmlApplicationEngine engine;
-    engine.rootContext()->setContextProperty(QStringLiteral("restoreController"), &controller);
+    engine.setInitialProperties({{QStringLiteral("controller"), QVariant::fromValue(&controller)}});
     KLocalization::setupLocalizedContext(&engine);
     engine.loadFromModule(QStringLiteral("org.btrfsbackup.restore"), QStringLiteral("Main"));
     if (engine.rootObjects().isEmpty())

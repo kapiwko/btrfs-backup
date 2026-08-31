@@ -17,7 +17,7 @@ Every roadmap item must preserve these properties:
 6. restore and administrative workflows remain usable without a desktop;
 7. formats and APIs are versioned before external clients depend on them.
 
-## Near Term: Complete The System Control Boundary
+## Near Term: Extend The System Control Boundary
 
 The optional system manager described in
 [system-manager.md](docs/design/system-manager.md) now provides versioned,
@@ -26,15 +26,12 @@ operations. Runner execution remains independent and owned by systemd.
 
 The manager baseline also includes state-change signals, restart-safe
 file-backed reconstruction, explicit target and safe-removal state, secret-free
-audit records, a shared C++ desktop client, the Plasma status widget and a KDE
-session monitor that publishes active runs as KJob progress.
+audit records, authorized profile administration, caller-bound browse sessions,
+a shared C++ desktop client and the complete KDE integration shipped in 4.0.
 
 The remaining system-control increments are:
 
-- administrative profile save/delete with separate hook-change authorization;
 - destructive device preparation only after repeated device-identity checks;
-- a QML Kirigami KCM for profile inspection, target validation, retention,
-  automation, administrative diagnostics and controlled configuration writes;
 - scheduling and persistent request-queue integration without making the
   manager responsible for runner execution.
 
@@ -84,10 +81,10 @@ Improve configuration without weakening the privileged boundary:
 
 ## Repository Durability
 
-Make backup media self-describing with a versioned repository identity and a
-rebuildable snapshot catalog. Define explicit format upgrades with dry-run,
-transactional commit and compatibility fixtures before writing the first
-repository format. See [repository-format.md](docs/design/repository-format.md).
+Repository format v1 provides a self-describing identity and a validated
+snapshot catalog. Add automatic catalog writing and define future format
+upgrades with dry-run, transactional commit and compatibility fixtures. See
+[repository-format.md](docs/design/repository-format.md).
 
 Repository operations should grow in this order:
 
@@ -103,19 +100,19 @@ identity and upgrade rules are stable.
 
 ## Restore And Disaster Recovery
 
-Promote restore from documentation to a CLI-first engine. Provide repository
-discovery, snapshot listing, read-only browsing, file/directory restore,
-subvolume restore and periodic drills. Dangerous destinations remain denied by
-default. See [restore-engine.md](docs/design/restore-engine.md).
+The 4.0 CLI-first restore engine provides repository discovery, snapshot and
+version listing, read-only browsing, file/directory restore and subvolume
+restore. Dangerous destinations remain denied by default. Build operational
+recovery and repair workflows on that baseline. See
+[restore-engine.md](docs/design/restore-engine.md).
 
 Disaster-recovery work also includes:
 
 - LUKS key-slot and header-backup audit;
 - a secret-free host recovery manifest;
 - an exportable rescue bundle;
-- documented and recorded restore drills;
+- documented, scheduled and recorded restore drills;
 - repository repair and reseed workflows;
-- read-only previous-version browsing for future KDE clients.
 
 ## Transport And Resilience
 
@@ -144,7 +141,7 @@ retention, scheduling, power and transport failures. Add:
 ## C++ Architecture And Quality
 
 Preserve the domain, port, adapter, persistence, CLI and daemon boundaries
-established in the 3.x line without another broad directory migration or
+established in the current codebase without another broad directory migration or
 behavioral rewrite:
 
 - split a broad effect or persistence component only when a concrete ownership
@@ -172,22 +169,16 @@ KCM owns target validation and administration, and the manager remains an outer
 adapter rather than the backup execution owner. See
 [ADR 0005](docs/adr/0005-kde-integration-boundaries.md).
 
-Build optional integrations on stable engine and D-Bus operations in this
-order:
+The 4.0 desktop baseline includes the monitor, notifications, widget settings,
+KCM, authorized profile administration, caller-bound browse sessions, KIO,
+Dolphin previous versions, guided restore and KRunner. Continue integration in
+this order:
 
-- correct monitor outage, resync and cancellation semantics;
-- add monitor-owned native notifications and presentation-only widget settings;
-- add a read-only KCM before profile editing;
-- finish authorized profile administration and the CLI-first restore engine;
 - detect and later adopt suitable Snapper snapshots;
 - dry-run import from btrbk configuration;
 - snapshot diff for diagnostics and restore selection;
 - evaluate `kio-snapshot` interoperability and a provider API;
-- add authorized read-only browse sessions;
-- KDE KIO read-only browsing;
-- Dolphin previous-version actions;
-- guided restore UI over the shared restore engine;
-- KRunner commands routed through the shared client API.
+- extend repository health and restore-drill reporting into the desktop.
 
 No integration may become a required dependency of the base runtime.
 
@@ -215,7 +206,6 @@ Bring contributor and release governance up to the level of the runtime:
 - add signed checksums or artifact attestations/provenance;
 - provide man pages and Bash, Zsh and Fish completions;
 - document development versus stable versions clearly;
-- improve first-screen README onboarding and add a current KDE screenshot;
 - adopt a code of conduct when actively inviting community participation and
   CODEOWNERS when multiple maintainers make ownership meaningful;
 - evaluate a distinctive product name before wider promotion while preserving

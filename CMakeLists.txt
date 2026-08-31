@@ -27,6 +27,7 @@ if(BUILD_TESTING)
     set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 endif()
 option(BUILD_KDE_INTEGRATION "Build the optional KDE integration" OFF)
+option(BUILD_README_SCREENSHOTS "Build helpers used to render README screenshots" OFF)
 option(BUILD_SYSTEM_MANAGER "Build the optional read-only system D-Bus manager" ON)
 if(BUILD_KDE_INTEGRATION)
     set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -164,7 +165,9 @@ install(
 install(
     DIRECTORY docs/
     DESTINATION "${CMAKE_INSTALL_DOCDIR}"
-    FILES_MATCHING PATTERN "*.md"
+    FILES_MATCHING
+        PATTERN "*.md"
+        PATTERN "*.png"
 )
 install(CODE
     "file(MAKE_DIRECTORY \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_SYSCONFDIR}/btrfs-backup/hooks.d\")\n"
