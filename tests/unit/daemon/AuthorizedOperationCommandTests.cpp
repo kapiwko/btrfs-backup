@@ -112,6 +112,11 @@ void test_synchronous_target_operations_carry_identity() {
         !contains(eject.command, "--force"),
         "manager eject bypasses the target lease and identity checks"
     );
+    test_helpers::expect_true(
+        "eject is manual",
+        !contains(eject.command, "--from-service"),
+        "manager eject was incorrectly subject to automatic eject settings"
+    );
 }
 
 void test_validation_environment_carries_authorized_context() {

@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <optional>
 
 #include <backup/model/BackupRunEvent.hpp>
@@ -37,6 +38,7 @@ class RunStatusProjection final : public btrfsbackup::backup::IBackupRunEventSin
     std::optional<PendingActionFailure> pending_action_failure_;
     bool run_started_ = false;
     int last_overall_progress_ = -1;
+    std::uint64_t run_bytes_processed_ = 0;
 };
 
 } // namespace btrfsbackup::state
