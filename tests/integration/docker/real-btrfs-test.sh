@@ -185,6 +185,10 @@ managed_target_lifecycle_test() {
     cryptsetup close "$MAPPER_NAME"
     [[ ! -e "$MAPPER_PATH" ]] || fail 'test mapper remained active before managed activation'
 
+    systemctl start systemd-udevd.service
+    systemctl is-active --quiet systemd-udevd.service \
+        || fail 'systemd-udevd did not start before managed target activation'
+
     if ! systemctl start "$mount_unit"; then
         systemctl status --no-pager "$mount_unit" >&2 || true
         systemctl status --no-pager btrfs-backup-target@default.service >&2 || true
