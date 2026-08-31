@@ -623,8 +623,8 @@ msgid "Profile deleted"
 msgstr "Profil usunięto"
 
 #: integrations/kde/kcm/ProfileConfigurationModel.cpp:434
-msgid "The backup manager returned an invalid editing response."
-msgstr "Manager kopii zwrócił nieprawidłową odpowiedź edycji."
+msgid "The backup manager returned an invalid profile response."
+msgstr "Manager kopii zwrócił nieprawidłową odpowiedź profilu."
 
 #: integrations/kde/kcm/ProfileConfigurationModel.cpp:440
 msgid "Profile draft is valid"

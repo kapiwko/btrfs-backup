@@ -106,7 +106,8 @@ void test_capabilities_and_profiles() {
     btrfsbackup::daemon::ManagerService service(manager_paths(root));
     const btrfsbackup::daemon::ManagerCapabilities capabilities = service.get_capabilities();
     test_helpers::expect_true("operational capability", !capabilities.read_only, "manager is still read-only");
-    test_helpers::expect_true("manager API minor", capabilities.api_minor == 9, "manager API minor was not advanced");
+    test_helpers::expect_true("manager API major", capabilities.api_major == 2, "manager API major was not advanced");
+    test_helpers::expect_true("manager API minor", capabilities.api_minor == 0, "manager API minor was not reset");
     test_helpers::expect_true(
         "profile administration capability",
         std::ranges::find(capabilities.features, "profile-administration") != capabilities.features.end(),

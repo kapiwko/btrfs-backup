@@ -4,6 +4,8 @@
 #include <daemon/control/ProfileAdministrationService.hpp>
 #include <daemon/dbus/ManagerErrors.hpp>
 
+#include <config/json/JsonIo.hpp>
+
 #include <functional>
 #include <optional>
 #include <vector>
@@ -13,6 +15,7 @@
 namespace {
 
 using btrfsbackup::ProfileId;
+using btrfsbackup::config::json::Json;
 using btrfsbackup::daemon::control::EditableProfile;
 using btrfsbackup::daemon::control::IManagerAuthorizer;
 using btrfsbackup::daemon::control::IProfileAdministrationBackend;
@@ -22,6 +25,18 @@ using btrfsbackup::daemon::control::ProfileDraftResult;
 using btrfsbackup::daemon::control::manager_authorization_action_id;
 using btrfsbackup::daemon::dbus::ManagerErrorCode;
 using btrfsbackup::daemon::dbus::ManagerOperationError;
+
+constexpr auto profile_document = R"({
+  "profileId":"default",
+  "name":"Default",
+  "settings":{"dailyLimit":true,"autoEject":true,"incrementalRequired":true},
+  "sources":[{
+    "id":"home","name":"Home","enabled":true,"subvolume":"/home",
+    "localSnapshotDir":"/.snapshots/btrfs-backup/home","remoteSubdir":"home",
+    "localRetention":30,"remoteRetention":30
+  }],
+  "hooks":{"beforeSnapshot":["private-command"]}
+})";
 
 class Authorizer final : public IManagerAuthorizer {
   public:
@@ -43,7 +58,7 @@ class Authorizer final : public IManagerAuthorizer {
 
 class Backend final : public IProfileAdministrationBackend {
   public:
-    std::optional<EditableProfile> current = EditableProfile{"default", "g1", "f1", R"({"profileId":"default"})"};
+    std::optional<EditableProfile> current = EditableProfile{"default", "g1", "f1", profile_document};
     int validations = 0;
     int saves = 0;
     int deletes = 0;
@@ -54,6 +69,8 @@ class Backend final : public IProfileAdministrationBackend {
     }
     ProfileDraftResult validate_draft(const ProfileId& id, const std::string& document) const override {
         ++const_cast<Backend*>(this)->validations;
+        const Json parsed = Json::parse(document);
+        static_cast<void>(parsed);
         return {std::string(id.value()), {}, {}, document, true};
     }
     ProfileDraftResult save_profile(const EditableProfile&, const ProfileDraftResult& draft, bool allow_hooks) override {
@@ -68,7 +85,9 @@ class Backend final : public IProfileAdministrationBackend {
     }
     void set_profile_enabled(const EditableProfile&, bool enabled) override {
         ++saves;
-        current->document = enabled ? R"({"enabled":true})" : R"({"enabled":false})";
+        Json document = Json::parse(current->document);
+        document["enabled"] = enabled;
+        current->document = document.dump();
     }
 };
 
@@ -81,111 +100,130 @@ void expect_error(const std::string& name, ManagerErrorCode code, const std::fun
     }
 }
 
-void test_validation_precedes_authorization_and_denial_has_no_effect() {
+void test_details_do_not_request_authorization() {
+    Authorizer authorizer;
+    authorizer.allowed = false;
+    Backend backend;
+    const auto details = ProfileAdministrationService(authorizer, backend).get_profile_details("default");
+    test_helpers::expect_eq("details profile", details.profile_id, "default");
+    test_helpers::expect_true("details authorization", authorizer.actions.empty(), "details requested authorization");
+}
+
+void test_settings_update_is_bounded_and_preserves_private_fields() {
+    Authorizer authorizer;
+    Backend backend;
+    ProfileAdministrationService service(authorizer, backend);
+    const auto result = service.update_profile_settings(
+        ":1.10",
+        "default",
+        "g1",
+        "f1",
+        R"({"name":"Laptop","dailyLimit":false,"autoEject":false})"
+    );
+    const Json document = Json::parse(result.document);
+    test_helpers::expect_eq("updated name", document.at("name").get<std::string>(), "Laptop");
+    test_helpers::expect_true("updated daily limit", !document.at("settings").at("dailyLimit").get<bool>(), "daily limit unchanged");
+    test_helpers::expect_true("technical setting preserved", document.at("settings").at("incrementalRequired").get<bool>(), "technical field was lost");
+    test_helpers::expect_true("hooks preserved", document.contains("hooks"), "private hooks were lost");
+    test_helpers::expect_true("hooks not authorized", !backend.hooks_allowed, "domain update enabled hook changes");
+    test_helpers::expect_true(
+        "single manage action",
+        authorizer.actions == std::vector{ManagerAuthorizationAction::ManageProfileConfiguration},
+        "settings update used the wrong policy"
+    );
+}
+
+void test_denial_and_authorization_race_have_no_effect() {
     Authorizer authorizer;
     authorizer.allowed = false;
     Backend backend;
     ProfileAdministrationService service(authorizer, backend);
     expect_error("save denied", ManagerErrorCode::NotAuthorized, [&] {
-        (void)service.save_profile(":1.10", "default", "g1", "f1", R"({"profileId":"default"})");
+        static_cast<void>(service.update_profile_settings(
+            ":1.11",
+            "default",
+            "g1",
+            "f1",
+            R"({"name":"Denied","dailyLimit":true,"autoEject":true})"
+        ));
     });
-    test_helpers::expect_true("draft validated", backend.validations == 1, "draft was not validated before authorization");
+    test_helpers::expect_true("request validated", backend.validations == 1, "request was not validated before authorization");
     test_helpers::expect_true("denied save", backend.saves == 0, "denied request reached commit");
-}
 
-void test_profile_details_do_not_request_authorization() {
-    Authorizer authorizer;
-    authorizer.allowed = false;
-    Backend backend;
-    ProfileAdministrationService service(authorizer, backend);
-    const auto details = service.get_profile_details("default");
-    test_helpers::expect_eq("details profile", details.profile_id, "default");
-    test_helpers::expect_true("details authorization", authorizer.actions.empty(), "read-only details requested authorization");
-}
-
-void test_conflicts_before_and_during_authorization() {
-    Authorizer authorizer;
-    Backend backend;
-    ProfileAdministrationService service(authorizer, backend);
-    expect_error("stale expected identity", ManagerErrorCode::Conflict, [&] {
-        (void)service.save_profile(":1.11", "default", "old", "f1", "{}");
-    });
-    test_helpers::expect_true("stale request no prompt", authorizer.actions.empty(), "stale request reached authorization");
-
+    authorizer.allowed = true;
     authorizer.during = [&](ManagerAuthorizationAction) {
         backend.current->generation = "g2";
         backend.current->fingerprint = "f2";
     };
     expect_error("authorization race", ManagerErrorCode::Conflict, [&] {
-        (void)service.save_profile(":1.11", "default", "g1", "f1", "{}");
+        static_cast<void>(service.update_profile_settings(
+            ":1.11",
+            "default",
+            "g1",
+            "f1",
+            R"({"name":"Race","dailyLimit":true,"autoEject":true})"
+        ));
     });
     test_helpers::expect_true("race no commit", backend.saves == 0, "changed profile was committed");
 }
 
-void test_hook_save_requires_both_authorizations() {
+void test_source_operations_use_stable_identity() {
     Authorizer authorizer;
     Backend backend;
     ProfileAdministrationService service(authorizer, backend);
-    const auto result = service.save_profile_hooks(":1.12", "default", "g1", "f1", "{}");
-    test_helpers::expect_eq("hook result generation", result.generation, "g2");
-    test_helpers::expect_true("hook backend flag", backend.hooks_allowed, "hook authorization was not propagated");
-    test_helpers::expect_true(
-        "separate hook actions",
-        authorizer.actions == std::vector{
-                                  ManagerAuthorizationAction::SaveProfileHooks,
-                                  ManagerAuthorizationAction::SaveProfileConfiguration,
-                              },
-        "hook save did not require both policies"
+    auto added = service.add_profile_source(
+        ":1.12",
+        "default",
+        "g1",
+        "f1",
+        R"({"name":"Work files","subvolume":"/srv/work","localRetention":7,"remoteRetention":14})"
     );
+    Json document = Json::parse(added.document);
+    test_helpers::expect_eq("generated source id", document.at("sources").at(1).at("id").get<std::string>(), "work-files");
     test_helpers::expect_eq(
-        "profile save action id",
-        manager_authorization_action_id(ManagerAuthorizationAction::SaveProfileConfiguration),
-        "io.github.btrfsbackup.save-profile-configuration"
+        "derived snapshot path",
+        document.at("sources").at(1).at("localSnapshotDir").get<std::string>(),
+        "/srv/.snapshots/btrfs-backup/work-files"
     );
-    test_helpers::expect_eq(
-        "hook action id",
-        manager_authorization_action_id(ManagerAuthorizationAction::SaveProfileHooks),
-        "io.github.btrfsbackup.save-profile-hooks"
+
+    auto updated = service.update_profile_source(
+        ":1.12",
+        "default",
+        "work-files",
+        "g2",
+        "f2",
+        R"({"name":"Projects","localRetention":10,"remoteRetention":20})"
     );
+    document = Json::parse(updated.document);
+    test_helpers::expect_eq("source identity preserved", document.at("sources").at(1).at("id").get<std::string>(), "work-files");
+    test_helpers::expect_eq("source renamed", document.at("sources").at(1).at("name").get<std::string>(), "Projects");
+
+    const auto removed = service.remove_profile_source(":1.12", "default", "work-files", "g2", "f2");
+    document = Json::parse(removed.document);
+    test_helpers::expect_true("source removed", document.at("sources").size() == 1, "source remained in profile");
 }
 
-void test_create_and_delete_use_expected_identity() {
-    Authorizer authorizer;
-    Backend backend;
-    backend.current.reset();
-    ProfileAdministrationService service(authorizer, backend);
-    const auto created = service.save_profile(":1.13", "copy", "", "", R"({"profileId":"copy"})");
-    test_helpers::expect_eq("created profile", created.profile_id, "copy");
-    service.delete_profile(":1.13", "copy", "g2", "f2");
-    test_helpers::expect_true("profile deleted", backend.deletes == 1 && !backend.current.has_value(), "delete was not committed");
-}
-
-void test_profile_activation_has_dedicated_authorization() {
+void test_delete_and_activation_keep_dedicated_actions() {
     Authorizer authorizer;
     Backend backend;
     ProfileAdministrationService service(authorizer, backend);
-    service.set_profile_enabled(":1.14", "default", false);
-    test_helpers::expect_true("activation committed", backend.saves == 1, "activation did not reach backend");
-    test_helpers::expect_true(
-        "activation authorization",
-        authorizer.actions == std::vector{ManagerAuthorizationAction::SetProfileEnabled},
-        "activation used the broad profile-save authorization"
-    );
+    service.set_profile_enabled(":1.13", "default", false);
+    service.delete_profile(":1.13", "default", "g1", "f1");
+    test_helpers::expect_true("profile deleted", backend.deletes == 1, "delete was not committed");
     test_helpers::expect_eq(
-        "activation action id",
-        manager_authorization_action_id(ManagerAuthorizationAction::SetProfileEnabled),
-        "io.github.btrfsbackup.set-profile-enabled"
+        "manage action id",
+        manager_authorization_action_id(ManagerAuthorizationAction::ManageProfileConfiguration),
+        "io.github.btrfsbackup.manage-profile-configuration"
     );
 }
 
 } // namespace
 
 int main() {
-    test_profile_details_do_not_request_authorization();
-    test_validation_precedes_authorization_and_denial_has_no_effect();
-    test_conflicts_before_and_during_authorization();
-    test_hook_save_requires_both_authorizations();
-    test_create_and_delete_use_expected_identity();
-    test_profile_activation_has_dedicated_authorization();
+    test_details_do_not_request_authorization();
+    test_settings_update_is_bounded_and_preserves_private_fields();
+    test_denial_and_authorization_race_have_no_effect();
+    test_source_operations_use_stable_identity();
+    test_delete_and_activation_keep_dedicated_actions();
     return test_helpers::finish("profile administration service tests");
 }

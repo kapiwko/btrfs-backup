@@ -37,10 +37,10 @@ CancelBackup
 ValidateTarget
 EjectTarget
 GetProfileDetails
-GetProfileForEditing
-ValidateProfileDraft
-SaveProfile
-SaveProfileHooks
+UpdateProfileSettings
+AddProfileSource
+UpdateProfileSource
+RemoveProfileSource
 DeleteProfile
 GetBackupCoverage
 OpenBrowseSession

@@ -54,30 +54,34 @@ class ProfileAdministrationService {
     ProfileAdministrationService(IManagerAuthorizer& authorizer, IProfileAdministrationBackend& backend);
 
     [[nodiscard]] ProfileDetails get_profile_details(const std::string& profile_id) const;
-    [[nodiscard]] EditableProfile get_profile_for_editing(
-        const std::string& caller,
-        const std::string& profile_id
-    );
-    [[nodiscard]] ProfileDraftResult validate_profile_draft(
+    [[nodiscard]] ProfileDetails update_profile_settings(
         const std::string& caller,
         const std::string& profile_id,
         const std::string& expected_generation,
         const std::string& expected_fingerprint,
-        const std::string& document
+        const std::string& request
     );
-    [[nodiscard]] ProfileDraftResult save_profile(
+    [[nodiscard]] ProfileDetails add_profile_source(
         const std::string& caller,
         const std::string& profile_id,
         const std::string& expected_generation,
         const std::string& expected_fingerprint,
-        const std::string& document
+        const std::string& request
     );
-    [[nodiscard]] ProfileDraftResult save_profile_hooks(
+    [[nodiscard]] ProfileDetails update_profile_source(
         const std::string& caller,
         const std::string& profile_id,
+        const std::string& source_id,
         const std::string& expected_generation,
         const std::string& expected_fingerprint,
-        const std::string& document
+        const std::string& request
+    );
+    [[nodiscard]] ProfileDetails remove_profile_source(
+        const std::string& caller,
+        const std::string& profile_id,
+        const std::string& source_id,
+        const std::string& expected_generation,
+        const std::string& expected_fingerprint
     );
     void delete_profile(
         const std::string& caller,
@@ -96,6 +100,11 @@ class ProfileAdministrationService {
     );
     static void require_current(const EditableProfile& current, const EditableProfile& expected);
     static void require_current(const std::optional<EditableProfile>& current, const EditableProfile& expected);
+    [[nodiscard]] ProfileDetails save_document(
+        const std::string& caller,
+        const EditableProfile& current,
+        const std::string& document
+    );
 
     IManagerAuthorizer& authorizer_;
     IProfileAdministrationBackend& backend_;

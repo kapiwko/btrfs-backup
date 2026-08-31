@@ -19,12 +19,7 @@ KCMUtils.SimpleKCM {
     required property var historyModel
     property var statusOverride: null
     property bool editImmediately: false
-    property string pendingAuthorizedAction: ""
-    property int pendingSourceIndex: -1
-    property string pendingSourceName: ""
-    property string pendingSourceSubvolume: ""
-    property int pendingLocalRetention: 0
-    property int pendingTargetRetention: 0
+    property bool openSettingsWhenLoaded: editImmediately
     property int sourceToRemove: -1
     property string sourceNameToRemove: ""
     readonly property var profileStatus: statusOverride ?? liveProfileStatus
@@ -62,7 +57,7 @@ KCMUtils.SimpleKCM {
             icon.name: "document-edit-symbolic"
             text: translations.i18n("Edit profile")
             enabled: root.editor !== null && root.editor.loaded && !root.editor.busy
-            onTriggered: root.authorizeProfileAction("profile-settings")
+            onTriggered: root.openProfileSettings()
         },
         Kirigami.Action {
             id: toggleAutomaticBackupsAction
@@ -86,18 +81,10 @@ KCMUtils.SimpleKCM {
         targetStateTextFor: state => root.targetStateText(state)
         runningStateFor: state => root.isRunning(state)
         onAddSourceRequested: (name, subvolume, localRetention, targetRetention) => {
-            root.pendingSourceName = name;
-            root.pendingSourceSubvolume = subvolume;
-            root.pendingLocalRetention = localRetention;
-            root.pendingTargetRetention = targetRetention;
-            root.authorizeProfileAction("source-add");
+            root.editor.addSourceConfiguration(name, subvolume, localRetention, targetRetention);
         }
         onEditSourceRequested: (index, name, localRetention, targetRetention) => {
-            root.pendingSourceIndex = index;
-            root.pendingSourceName = name;
-            root.pendingLocalRetention = localRetention;
-            root.pendingTargetRetention = targetRetention;
-            root.authorizeProfileAction("source-edit");
+            root.editor.updateSourceConfiguration(index, name, localRetention, targetRetention);
         }
         onRemoveSourceRequested: (index, source) => {
             root.sourceToRemove = index;
@@ -113,28 +100,11 @@ KCMUtils.SimpleKCM {
         function onConflictDetected() {
             conflictDialog.open();
         }
-        function onStateChanged() {
-            if (root.pendingAuthorizedAction.length === 0 || root.editor === null || root.editor.busy || !root.editor.loaded || root.editor.profileId !== root.profileId)
-                return;
-            if (root.editor.errorCode.length > 0) {
-                root.clearPendingAction();
-                return;
+        function onProfileChanged() {
+            if (root.openSettingsWhenLoaded && root.editor.loaded && root.editor.profileId === root.profileId) {
+                root.openSettingsWhenLoaded = false;
+                root.openProfileSettings();
             }
-            const action = root.pendingAuthorizedAction;
-            root.pendingAuthorizedAction = "";
-            if (action === "profile-settings") {
-                if (typeof kcm !== "undefined")
-                    kcm.push("ProfileSettingsPage.qml", {
-                        "editor": root.editor
-                    });
-            } else if (action === "source-add") {
-                root.editor.addSourceConfiguration(root.pendingSourceName, root.pendingSourceSubvolume, root.pendingLocalRetention, root.pendingTargetRetention);
-            } else if (action === "source-edit") {
-                root.editor.updateSourceConfiguration(root.pendingSourceIndex, root.pendingSourceName, root.pendingLocalRetention, root.pendingTargetRetention);
-            } else if (action === "source-remove") {
-                root.editor.removeSourceConfiguration(root.pendingSourceIndex);
-            }
-            root.clearPendingSource();
         }
         function onProfileSaved() {
             root.directory.refreshNow();
@@ -188,8 +158,7 @@ KCMUtils.SimpleKCM {
         title: translations.i18n("Remove source")
         standardButtons: QQC2.Dialog.Yes | QQC2.Dialog.Cancel
         onAccepted: {
-            root.pendingSourceIndex = root.sourceToRemove;
-            root.authorizeProfileAction("source-remove");
+            root.editor.removeSourceConfiguration(root.sourceToRemove);
             root.sourceToRemove = -1;
             root.sourceNameToRemove = "";
         }
@@ -216,33 +185,12 @@ KCMUtils.SimpleKCM {
     Component.onCompleted: {
         if (root.historyModel !== null)
             root.historyModel.profileId = root.profileId;
-        if (root.editImmediately) {
-            root.pendingAuthorizedAction = "profile-settings";
-            root.editor.loadForEditing(root.profileId);
-        } else {
-            root.editor.loadDetails(root.profileId);
-        }
-    }
-    Component.onDestruction: root.clearPendingAction()
-
-    function authorizeProfileAction(action) {
-        if (root.editor === null || root.editor.busy)
-            return;
-        root.pendingAuthorizedAction = action;
-        root.editor.loadForEditing(root.profileId);
+        root.editor.loadDetails(root.profileId);
     }
 
-    function clearPendingAction() {
-        root.pendingAuthorizedAction = "";
-        root.clearPendingSource();
-    }
-
-    function clearPendingSource() {
-        root.pendingSourceIndex = -1;
-        root.pendingSourceName = "";
-        root.pendingSourceSubvolume = "";
-        root.pendingLocalRetention = 0;
-        root.pendingTargetRetention = 0;
+    function openProfileSettings() {
+        if (typeof kcm !== "undefined")
+            kcm.push("ProfileSettingsPage.qml", {"editor": root.editor});
     }
 
     function statusText(state) {

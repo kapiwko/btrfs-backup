@@ -119,16 +119,6 @@ std::string ManagerJsonCodec::encode(const std::vector<BackupCoverage>& coverage
     return config::json::dump_json(result);
 }
 
-std::string ManagerJsonCodec::encode(const control::EditableProfile& profile) const {
-    return config::json::dump_json({
-        {"schemaVersion", manager_protocol::profile_edit_schema_version},
-        {"profileId", profile.profile_id},
-        {"generation", profile.generation},
-        {"fingerprint", profile.fingerprint},
-        {"document", config::json::Json::parse(profile.document)},
-    });
-}
-
 std::string ManagerJsonCodec::encode(const control::ProfileDetails& profile) const {
     config::json::Json document = config::json::Json::parse(profile.document);
     document.erase("hooks");
@@ -138,22 +128,11 @@ std::string ManagerJsonCodec::encode(const control::ProfileDetails& profile) con
             target["activation"].erase("keyFile");
     }
     return config::json::dump_json({
-        {"schemaVersion", manager_protocol::profile_edit_schema_version},
+        {"schemaVersion", manager_protocol::profile_details_schema_version},
         {"profileId", profile.profile_id},
         {"generation", profile.generation},
         {"fingerprint", profile.fingerprint},
         {"document", std::move(document)},
-    });
-}
-
-std::string ManagerJsonCodec::encode(const control::ProfileDraftResult& draft) const {
-    return config::json::dump_json({
-        {"schemaVersion", manager_protocol::profile_edit_schema_version},
-        {"profileId", draft.profile_id},
-        {"generation", draft.generation},
-        {"fingerprint", draft.fingerprint},
-        {"valid", draft.valid},
-        {"document", config::json::Json::parse(draft.document)},
     });
 }
 

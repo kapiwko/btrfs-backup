@@ -126,39 +126,28 @@ Window {
         id: fakeEditor
 
         property bool loaded: true
-        property bool newDraft: false
         property bool busy: false
-        property bool dirty: false
         property string profileId: "home"
         property string name: "Home backup"
         property string errorCode: ""
         property string errorMessage: ""
         property string operationMessage: ""
-        property string validationPreview: ""
         property var target: ({})
         property var sources: []
         property var settings: ({})
 
         signal conflictDetected()
+        signal profileChanged()
         signal stateChanged()
         signal profileSaved(string profileId)
         signal profileDeleted(string profileId)
 
         function load(id) { profileId = id }
         function loadDetails(id) { profileId = id }
-        function loadForEditing(id) { profileId = id; stateChanged() }
-        function createDraft(id) { profileId = id }
-        function setName(value) { name = value }
-        function setTargetValue(key, value) {}
-        function addSource() {}
-        function removeSource(index) {}
-        function setSourceValue(index, key, value) {}
-        function setSettingValue(key, value) {}
-        function validate() {}
-        function duplicateAs(id) {}
+        function addSourceConfiguration(name, subvolume, localRetention, remoteRetention) {}
+        function updateSourceConfiguration(index, name, localRetention, remoteRetention) {}
+        function removeSourceConfiguration(index) {}
         function deleteProfile() {}
-        function discard() {}
-        function save() {}
         function updateProfileSettings(name, dailyLimit, autoEject) {
             editor.name = name
         }
