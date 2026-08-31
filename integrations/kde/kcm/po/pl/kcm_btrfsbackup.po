@@ -33,6 +33,9 @@ msgstr "Oczekiwanie na systemową usługę kopii zapasowych"
 msgid "Refresh"
 msgstr "Odśwież"
 
+msgid "Automatic"
+msgstr "Automatyczne"
+
 msgid "Validate target"
 msgstr "Sprawdź cel"
 
@@ -106,6 +109,9 @@ msgstr "Konfiguruj"
 msgid "Configure %1"
 msgstr "Konfiguruj %1"
 
+msgid "Create %1"
+msgstr "Utwórz %1"
+
 msgid "Loading profile"
 msgstr "Wczytywanie profilu"
 
@@ -153,6 +159,42 @@ msgstr "Dodaj źródło"
 
 msgid "Source name"
 msgstr "Nazwa źródła"
+
+msgid "Name"
+msgstr "Nazwa"
+
+msgid "Source ID"
+msgstr "Identyfikator źródła"
+
+msgid "Subvolume"
+msgstr "Subvolume"
+
+msgid "Snapshot directory"
+msgstr "Katalog snapshotu"
+
+msgid "Target directory"
+msgstr "Katalog na celu"
+
+msgid "Target retention"
+msgstr "Retencja na celu"
+
+msgid "Local retention"
+msgstr "Lokalna retencja"
+
+msgid "Select subvolume"
+msgstr "Wybierz subvolume"
+
+msgid "Select snapshot directory"
+msgstr "Wybierz katalog snapshotu"
+
+msgid "Source subvolume"
+msgstr "Subvolume źródłowy"
+
+msgid "Local snapshot root"
+msgstr "Lokalny katalog główny snapshotów"
+
+msgid "Directory on backup target"
+msgstr "Katalog na celu kopii"
 
 msgid "Source ID:"
 msgstr "Identyfikator źródła:"
@@ -249,3 +291,156 @@ msgstr "Profil zapisano"
 
 msgid "Profile duplicated"
 msgstr "Profil zduplikowano"
+
+msgid "Automatic backups"
+msgstr "Automatyczne kopie"
+
+msgid "Show details"
+msgstr "Pokaż szczegóły"
+
+msgid "Hide details"
+msgstr "Ukryj szczegóły"
+
+msgid "Back"
+msgstr "Wstecz"
+
+msgid "Add profile"
+msgstr "Dodaj profil"
+
+msgid "Backup profiles"
+msgstr "Profile kopii zapasowych"
+
+msgid "Add backup profile"
+msgstr "Dodaj profil kopii zapasowej"
+
+msgid "Profile ID:"
+msgstr "Identyfikator profilu:"
+
+msgid "Guided setup"
+msgstr "Kreator konfiguracji"
+
+msgid "Choose a disk, encryption and backup folders step by step"
+msgstr "Wybierz krok po kroku dysk, szyfrowanie i katalogi kopii"
+
+msgid "Advanced configuration"
+msgstr "Konfiguracja zaawansowana"
+
+msgid "Enter device identifiers, paths and retention settings manually"
+msgstr "Wpisz ręcznie identyfikatory urządzenia, ścieżki i ustawienia retencji"
+
+msgid "Use an existing encrypted Btrfs device"
+msgstr "Użyj istniejącego zaszyfrowanego urządzenia Btrfs"
+
+msgid "Erase and prepare this device"
+msgstr "Wyczyść i przygotuj to urządzenie"
+
+msgid "Device preparation requires a dedicated privileged backend operation."
+msgstr "Przygotowanie urządzenia wymaga dedykowanej uprzywilejowanej operacji backendu."
+
+msgid "Continue in advanced configuration"
+msgstr "Kontynuuj w konfiguracji zaawansowanej"
+
+msgid "Key file path"
+msgstr "Ścieżka pliku klucza"
+
+msgid "Select key file"
+msgstr "Wybierz plik klucza"
+
+msgid "LUKS UUID"
+msgstr "UUID LUKS"
+
+msgid "Btrfs UUID"
+msgstr "UUID Btrfs"
+
+msgid "Mapper name"
+msgstr "Nazwa mappera"
+
+msgid "Current transfer"
+msgstr "Bieżący transfer"
+
+msgid "Activity:"
+msgstr "Aktywność:"
+
+msgid "Source:"
+msgstr "Źródło:"
+
+msgid "Progress:"
+msgstr "Postęp:"
+
+msgid "Calculating"
+msgstr "Obliczanie"
+
+msgid "Speed:"
+msgstr "Szybkość:"
+
+msgid "Elapsed:"
+msgstr "Upłynęło:"
+
+msgid "Remaining:"
+msgstr "Pozostało:"
+
+msgid "Backup target"
+msgstr "Cel kopii zapasowej"
+
+msgid "Automatic backups:"
+msgstr "Automatyczne kopie:"
+
+msgid "Enabled"
+msgstr "Włączone"
+
+msgid "Disabled"
+msgstr "Wyłączone"
+
+msgid "Storage usage:"
+msgstr "Wykorzystanie miejsca:"
+
+msgid "%1 used, %2 available"
+msgstr "Wykorzystano %1, dostępne %2"
+
+msgid "Backup failed with code %1"
+msgstr "Kopia nie powiodła się z kodem %1"
+
+msgid "Recent backups"
+msgstr "Ostatnie kopie"
+
+msgid "Show all backups"
+msgstr "Pokaż wszystkie kopie"
+
+msgid "No backup history"
+msgstr "Brak historii kopii"
+
+msgid "Calculating transfer size"
+msgstr "Obliczanie rozmiaru transferu"
+
+msgid "Transferring backup data"
+msgstr "Przesyłanie danych kopii"
+
+msgid "Preparing backup"
+msgstr "Przygotowywanie kopii"
+
+msgid "%1 h %2 min"
+msgstr "%1 godz. %2 min"
+
+msgid "%1 min %2 sec"
+msgstr "%1 min %2 s"
+
+msgid "1 second"
+msgid_plural "%1 seconds"
+msgstr[0] "1 sekunda"
+msgstr[1] "%1 sekundy"
+msgstr[2] "%1 sekund"
+
+msgid "1 source"
+msgid_plural "%1 sources"
+msgstr[0] "1 źródło"
+msgstr[1] "%1 źródła"
+msgstr[2] "%1 źródeł"
+
+msgid "Target validation is in progress"
+msgstr "Trwa sprawdzanie celu"
+
+msgid "Validation completed successfully"
+msgstr "Sprawdzanie zakończono pomyślnie"
+
+msgid "Backup skipped"
+msgstr "Kopia została pominięta"

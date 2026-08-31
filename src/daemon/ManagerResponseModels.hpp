@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -60,6 +61,7 @@ struct SanitizedHistoryEntry {
     std::string finished_at;
     int source_count = 0;
     int overall_progress = -1;
+    std::uint64_t bytes_transferred = 0;
 };
 
 struct SanitizedHistoryPage {

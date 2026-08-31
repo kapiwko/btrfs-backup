@@ -23,6 +23,7 @@ Item {
         property var settings: ({remoteRetention: 30, localRetention: 30})
         property var sources: [{name: "Home", subvolume: "/home", localSnapshotDir: "/.snapshots/home", remoteSubdir: "home"}]
         property bool loaded: true
+        property bool newDraft: false
         property bool dirty: true
         property bool busy: false
         property string errorCode: ""
@@ -30,9 +31,13 @@ Item {
         property string operationMessage: ""
         property string validationPreview: "{\n  \"profileId\": \"default\"\n}"
         signal conflictDetected()
+        signal stateChanged()
         signal profileSaved(string profileId)
         signal profileDeleted(string profileId)
         function load(profileId) {}
+        function loadDetails(profileId) {}
+        function loadForEditing(profileId) {}
+        function createDraft(profileId) {}
         function reload() {}
         function discard() {}
         function setName(value) {}
@@ -44,6 +49,7 @@ Item {
         function removeSource(index) {}
         function validate() {}
         function save() {}
+        function updateProfileSettings(name, dailyLimit, autoEject) {}
         function duplicateAs(profileId) {}
         function deleteProfile() {}
     }

@@ -73,6 +73,7 @@ std::string ManagerJsonCodec::encode(const SanitizedHistoryPage& page) const {
             {"finishedAt", entry.finished_at},
             {"sourceCount", entry.source_count},
             {"overallProgress", entry.overall_progress},
+            {"bytesTransferred", entry.bytes_transferred},
         });
     }
     return config::json::dump_json(result);
@@ -125,6 +126,23 @@ std::string ManagerJsonCodec::encode(const control::EditableProfile& profile) co
         {"generation", profile.generation},
         {"fingerprint", profile.fingerprint},
         {"document", config::json::Json::parse(profile.document)},
+    });
+}
+
+std::string ManagerJsonCodec::encode(const control::ProfileDetails& profile) const {
+    config::json::Json document = config::json::Json::parse(profile.document);
+    document.erase("hooks");
+    if (document.contains("target") && document["target"].is_object()) {
+        auto& target = document["target"];
+        if (target.contains("activation") && target["activation"].is_object())
+            target["activation"].erase("keyFile");
+    }
+    return config::json::dump_json({
+        {"schemaVersion", manager_protocol::profile_edit_schema_version},
+        {"profileId", profile.profile_id},
+        {"generation", profile.generation},
+        {"fingerprint", profile.fingerprint},
+        {"document", std::move(document)},
     });
 }
 

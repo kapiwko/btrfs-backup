@@ -44,6 +44,7 @@ schema versions are not advertised as public API versions.
 | `ValidateTarget` | `(s profileId)` | `(s)` | completed target validation |
 | `EjectTarget` | `(s profileId)` | `(s)` | completed target eject |
 | `SetProfileEnabled` | `(s profileId, b enabled)` | `(s)` | transactionally enables or disables automatic activation only |
+| `GetProfileDetails` | `(s profileId)` | `(s)` | read-only profile details without hooks or key-file paths |
 | `GetProfileForEditing` | `(s profileId)` | `(s)` | authorized private profile plus generation and fingerprint |
 | `ValidateProfileDraft` | `(s profileId, s generation, s fingerprint, s document)` | `(s)` | validated canonical draft without publishing it |
 | `SaveProfile` | `(s profileId, s generation, s fingerprint, s document)` | `(s)` | transactionally published profile without hook changes |
@@ -59,6 +60,14 @@ must not be writable by group or others. The daemon reads state for every
 request, so a restart reconstructs the same visible state from current status
 or durable history. Operational methods return schema-versioned
 `OperationResult` documents.
+
+API minor version 9 adds `GetProfileDetails` and the `profile-details` feature.
+The method supports read-only configuration views without authorization. Its
+profile envelope retains source, target and behavior fields, but removes hook
+commands and the activation key-file path. Clients must use the authorized
+`GetProfileForEditing` method before constructing a document that can be saved.
+This version also advances sanitized history to schema version 3 and adds the
+privacy-safe `bytesTransferred` total for completed synchronization summaries.
 
 API minor version 8 adds `SetProfileEnabled` and the `profile-activation`
 feature. The method republishes the selected profile's managed artifacts while
@@ -171,6 +180,7 @@ coalesced follow-up read so the last change cannot be lost.
 | `EjectTarget` | operational | `io.github.btrfsbackup.eject-target` |
 | `ValidateTarget` | operational | `io.github.btrfsbackup.validate-target` |
 | `SetProfileEnabled` | operational | `io.github.btrfsbackup.set-profile-enabled` |
+| `GetProfileDetails` | none | none |
 | `GetProfileForEditing` | administrative read | `io.github.btrfsbackup.read-profile-configuration` |
 | `ValidateProfileDraft` | administrative read | `io.github.btrfsbackup.read-profile-configuration` |
 | `SaveProfile` | administrative | `io.github.btrfsbackup.save-profile-configuration` |

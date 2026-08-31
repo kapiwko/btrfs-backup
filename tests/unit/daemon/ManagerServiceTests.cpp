@@ -78,6 +78,7 @@ std::string private_history(
                                                {"errorCode", state == "succeeded" ? "" : "repository.private_failure"},
                                                {"errorMessage", state == "succeeded" ? "" : "private failure"},
                                                {"details", {{"device", "/dev/private"}}},
+                                               {"runBytesProcessed", 4294967296ULL},
                                                {"recoverable", false},
                                                {"suggestedAction", ""},
                                                {"canCancel", false},
@@ -105,7 +106,7 @@ void test_capabilities_and_profiles() {
     btrfsbackup::daemon::ManagerService service(manager_paths(root));
     const btrfsbackup::daemon::ManagerCapabilities capabilities = service.get_capabilities();
     test_helpers::expect_true("operational capability", !capabilities.read_only, "manager is still read-only");
-    test_helpers::expect_true("manager API minor", capabilities.api_minor == 8, "manager API minor was not advanced");
+    test_helpers::expect_true("manager API minor", capabilities.api_minor == 9, "manager API minor was not advanced");
     test_helpers::expect_true(
         "profile administration capability",
         std::ranges::find(capabilities.features, "profile-administration") != capabilities.features.end(),
@@ -128,7 +129,7 @@ void test_capabilities_and_profiles() {
     );
     test_helpers::expect_true(
         "sanitized history schema capability",
-        capabilities.history_schema_version == 2,
+        capabilities.history_schema_version == 3,
         "manager advertises the private history schema"
     );
     test_helpers::expect_true(
@@ -200,6 +201,11 @@ void test_status_and_history_sanitization() {
     test_helpers::expect_eq("generalized history error", history.entries.at(0).error_code, "backup.failed");
     test_helpers::expect_eq("history started time", history.entries.at(0).started_at, "2026-08-25T09:00:00Z");
     test_helpers::expect_true("history source count", history.entries.at(0).source_count == 1, "history lost source count");
+    test_helpers::expect_true(
+        "history transferred bytes",
+        history.entries.at(0).bytes_transferred == 4294967296ULL,
+        "history lost transferred byte count"
+    );
     test_helpers::expect_validation_error(
         "history limit",
         [&] { (void)history_service.get_history_sanitized("default", 0, 101); },

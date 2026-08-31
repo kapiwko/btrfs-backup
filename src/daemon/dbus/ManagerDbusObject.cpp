@@ -63,6 +63,10 @@ int get_profile_for_editing(sd_bus_message* message, void* userdata, sd_bus_erro
     return static_cast<ManagerDbusObject*>(userdata)->handle_get_profile_for_editing(message, error);
 }
 
+int get_profile_details(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
+    return static_cast<ManagerDbusObject*>(userdata)->handle_get_profile_details(message, error);
+}
+
 int validate_profile_draft(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
     return static_cast<ManagerDbusObject*>(userdata)->handle_validate_profile_draft(message, error);
 }
@@ -106,6 +110,7 @@ const sd_bus_vtable manager_vtable[] = {
     SD_BUS_METHOD(manager_protocol::method::cancel_backup, "ss", "s", cancel_backup, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD(manager_protocol::method::validate_target, "s", "s", validate_target, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD(manager_protocol::method::eject_target, "s", "s", eject_target, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD(manager_protocol::method::get_profile_details, "s", "s", get_profile_details, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD(manager_protocol::method::get_profile_for_editing, "s", "s", get_profile_for_editing, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD(manager_protocol::method::validate_profile_draft, "ssss", "s", validate_profile_draft, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD(manager_protocol::method::save_profile, "ssss", "s", save_profile, SD_BUS_VTABLE_UNPRIVILEGED),
@@ -380,6 +385,20 @@ int ManagerDbusObject::handle_get_profile_for_editing(sd_bus_message* message, s
     );
 }
 
+int ManagerDbusObject::handle_get_profile_details(sd_bus_message* message, sd_bus_error* error) noexcept {
+    return invoke_dbus_callback(
+        [&] {
+            const char* profile_id = nullptr;
+            const int read_result = sd_bus_message_read(message, "s", &profile_id);
+            if (read_result < 0)
+                return read_result;
+            const std::string profile = profile_id == nullptr ? "" : profile_id;
+            return reply_json(message, codec_.encode(profile_administration_.get_profile_details(profile)));
+        },
+        [&](const std::exception* exception) { return set_callback_error(error, exception); }
+    );
+}
+
 int ManagerDbusObject::handle_validate_profile_draft(sd_bus_message* message, sd_bus_error* error) noexcept {
     return invoke_dbus_callback(
         [&] {
@@ -393,8 +412,11 @@ int ManagerDbusObject::handle_validate_profile_draft(sd_bus_message* message, sd
             const std::string profile = profile_id == nullptr ? "" : profile_id;
             return reply_operational_json(message, error, "validate-profile-draft", profile, [&] {
                 return codec_.encode(profile_administration_.validate_profile_draft(
-                    caller_bus_name(message), profile, generation == nullptr ? "" : generation,
-                    fingerprint == nullptr ? "" : fingerprint, document == nullptr ? "" : document
+                    caller_bus_name(message),
+                    profile,
+                    generation == nullptr ? "" : generation,
+                    fingerprint == nullptr ? "" : fingerprint,
+                    document == nullptr ? "" : document
                 ));
             });
         },
@@ -415,8 +437,11 @@ int ManagerDbusObject::handle_save_profile(sd_bus_message* message, sd_bus_error
             const std::string profile = profile_id == nullptr ? "" : profile_id;
             return reply_operational_json(message, error, "save-profile", profile, [&] {
                 return codec_.encode(profile_administration_.save_profile(
-                    caller_bus_name(message), profile, generation == nullptr ? "" : generation,
-                    fingerprint == nullptr ? "" : fingerprint, document == nullptr ? "" : document
+                    caller_bus_name(message),
+                    profile,
+                    generation == nullptr ? "" : generation,
+                    fingerprint == nullptr ? "" : fingerprint,
+                    document == nullptr ? "" : document
                 ));
             });
         },
@@ -437,8 +462,11 @@ int ManagerDbusObject::handle_save_profile_hooks(sd_bus_message* message, sd_bus
             const std::string profile = profile_id == nullptr ? "" : profile_id;
             return reply_operational_json(message, error, "save-profile-hooks", profile, [&] {
                 return codec_.encode(profile_administration_.save_profile_hooks(
-                    caller_bus_name(message), profile, generation == nullptr ? "" : generation,
-                    fingerprint == nullptr ? "" : fingerprint, document == nullptr ? "" : document
+                    caller_bus_name(message),
+                    profile,
+                    generation == nullptr ? "" : generation,
+                    fingerprint == nullptr ? "" : fingerprint,
+                    document == nullptr ? "" : document
                 ));
             });
         },
@@ -458,7 +486,9 @@ int ManagerDbusObject::handle_delete_profile(sd_bus_message* message, sd_bus_err
             const std::string profile = profile_id == nullptr ? "" : profile_id;
             return reply_operational_json(message, error, "delete-profile", profile, [&] {
                 profile_administration_.delete_profile(
-                    caller_bus_name(message), profile, generation == nullptr ? "" : generation,
+                    caller_bus_name(message),
+                    profile,
+                    generation == nullptr ? "" : generation,
                     fingerprint == nullptr ? "" : fingerprint
                 );
                 return config::json::dump_json({
@@ -522,9 +552,10 @@ int ManagerDbusObject::handle_close_browse_session(sd_bus_message* message, sd_b
                 return read_result;
             browse_sessions_.close(caller_bus_name(message), session_id == nullptr ? "" : session_id);
             return reply_json(message, config::json::dump_json({
-                {"schemaVersion", manager_protocol::operation_result_schema_version},
-                {"operation", "close-browse-session"}, {"accepted", true},
-            }));
+                                           {"schemaVersion", manager_protocol::operation_result_schema_version},
+                                           {"operation", "close-browse-session"},
+                                           {"accepted", true},
+                                       }));
         },
         [&](const std::exception* exception) { return set_callback_error(error, exception); }
     );
@@ -542,7 +573,9 @@ int ManagerDbusObject::handle_resolve_backup_coverage(sd_bus_message* message, s
                 profile_ids.emplace_back(profile.profile_id);
             return reply_operational_json(message, error, "resolve-backup-coverage", "", [&] {
                 return codec_.encode(browse_sessions_.resolve_coverage(
-                    caller_bus_name(message), local_path == nullptr ? "" : local_path, profile_ids
+                    caller_bus_name(message),
+                    local_path == nullptr ? "" : local_path,
+                    profile_ids
                 ));
             });
         },
