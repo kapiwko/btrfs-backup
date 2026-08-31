@@ -56,6 +56,23 @@ PlasmoidItem {
     readonly property bool failed: root.primarySummary?.failed ?? false
     readonly property int progress: root.primarySummary?.progress ?? -1
 
+    Plasmoid.contextualActions: [
+        PlasmaCore.Action {
+            text: translations.i18n("Refresh status")
+            icon.name: "view-refresh"
+            enabled: profileDirectory.managerConnected
+            onTriggered: {
+                profileDirectory.refreshNow()
+                root.refreshRevision++
+            }
+        },
+        PlasmaCore.Action {
+            text: translations.i18n("Manage backup profiles…")
+            icon.name: "configure"
+            onTriggered: profileDirectory.openSettings()
+        }
+    ]
+
     KI18n.KI18nContext {
         id: translations
         translationDomain: "plasma_applet_org.btrfsbackup.plasmoid"
@@ -98,11 +115,6 @@ PlasmoidItem {
         const summaries = Object.assign({}, root.profileSummaries)
         delete summaries[profileId]
         root.profileSummaries = summaries
-    }
-
-    function refreshAll() {
-        profileDirectory.refreshNow()
-        root.refreshRevision++
     }
 
     compactRepresentation: MouseArea {
@@ -192,42 +204,6 @@ PlasmoidItem {
         focus: true
         collapseMarginsHint: true
 
-        header: PlasmaExtras.PlasmoidHeading {
-            leftPadding: Kirigami.Units.smallSpacing
-            rightPadding: Kirigami.Units.smallSpacing
-
-            contentItem: RowLayout {
-                spacing: Kirigami.Units.smallSpacing
-
-                PlasmaComponents3.Label {
-                    text: translations.i18n("Btrfs Backups")
-                    font.weight: Font.DemiBold
-                    Layout.fillWidth: true
-                }
-
-                PlasmaComponents3.ToolButton {
-                    id: refreshButton
-                    text: translations.i18n("Refresh")
-                    display: PlasmaComponents3.AbstractButton.IconOnly
-                    icon.name: "view-refresh"
-                    enabled: profileDirectory.managerConnected
-                    onClicked: root.refreshAll()
-
-                    PlasmaComponents3.ToolTip { text: refreshButton.text }
-                }
-
-                PlasmaComponents3.ToolButton {
-                    id: settingsButton
-                    text: translations.i18n("Open settings")
-                    display: PlasmaComponents3.AbstractButton.IconOnly
-                    icon.name: "configure"
-                    onClicked: profileDirectory.openSettings()
-
-                    PlasmaComponents3.ToolTip { text: settingsButton.text }
-                }
-            }
-        }
-
         PlasmaComponents3.ScrollView {
             anchors.fill: parent
             contentWidth: availableWidth - profilesView.leftMargin - profilesView.rightMargin
@@ -235,15 +211,16 @@ PlasmoidItem {
 
             contentItem: ListView {
                 id: profilesView
+
                 model: root.displayedProfiles
                 clip: true
                 currentIndex: -1
                 boundsBehavior: Flickable.StopAtBounds
                 spacing: Kirigami.Units.smallSpacing
-                leftMargin: Kirigami.Units.largeSpacing
-                rightMargin: Kirigami.Units.largeSpacing
-                topMargin: Kirigami.Units.largeSpacing
-                bottomMargin: Kirigami.Units.largeSpacing
+                leftMargin: 0
+                rightMargin: 0
+                topMargin: Kirigami.Units.smallSpacing
+                bottomMargin: Kirigami.Units.smallSpacing
                 cacheBuffer: 1000
                 highlight: PlasmaExtras.Highlight {}
                 highlightMoveDuration: Kirigami.Units.shortDuration
@@ -260,7 +237,6 @@ PlasmoidItem {
                     historyLimit: Plasmoid.configuration.historyCount
                     autoExpandActive: Plasmoid.configuration.autoExpandActive
                     autoExpandFailed: Plasmoid.configuration.autoExpandFailed
-                    showSpeedChart: Plasmoid.configuration.showSpeedChart
                     showStorageDetails: Plasmoid.configuration.showStorage
                     hideSourceNamesInTooltip: Plasmoid.configuration.hideSourceNamesInTooltip
                     onSummaryUpdated: (profileId, priority, isRunning, isFailed, profileProgress, subtitle) =>

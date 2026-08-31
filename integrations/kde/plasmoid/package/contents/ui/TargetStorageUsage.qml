@@ -33,6 +33,23 @@ ColumnLayout {
         translationDomain: "plasma_applet_org.btrfsbackup.plasmoid"
     }
 
+    RowLayout {
+        Layout.fillWidth: true
+
+        PlasmaComponents3.Label {
+            text: translations.i18n("Storage usage:")
+            Layout.fillWidth: true
+            font: Kirigami.Theme.smallFont
+            opacity: 0.6
+        }
+        PlasmaComponents3.Label {
+            visible: root.known
+            text: root.usageText
+            font: Kirigami.Theme.smallFont
+            opacity: 0.72
+        }
+    }
+
     PlasmaComponents3.Label {
         Layout.fillWidth: true
         visible: !root.known
@@ -42,62 +59,6 @@ ColumnLayout {
         opacity: 0.7
     }
 
-    GridLayout {
-        Layout.fillWidth: true
-        visible: root.known
-        columns: 2
-        rowSpacing: Kirigami.Units.smallSpacing / 4
-        columnSpacing: Kirigami.Units.smallSpacing
-
-        PlasmaComponents3.Label {
-            text: translations.i18n("Capacity:")
-            horizontalAlignment: Text.AlignRight
-            font: Kirigami.Theme.smallFont
-            opacity: 0.6
-        }
-        PlasmaComponents3.Label {
-            Layout.fillWidth: true
-            text: root.capacityText
-            font: Kirigami.Theme.smallFont
-        }
-
-        PlasmaComponents3.Label {
-            text: translations.i18n("Used:")
-            horizontalAlignment: Text.AlignRight
-            font: Kirigami.Theme.smallFont
-            opacity: 0.6
-        }
-        PlasmaComponents3.Label {
-            Layout.fillWidth: true
-            text: root.usedText
-            font: Kirigami.Theme.smallFont
-        }
-
-        PlasmaComponents3.Label {
-            text: translations.i18n("Usage:")
-            horizontalAlignment: Text.AlignRight
-            font: Kirigami.Theme.smallFont
-            opacity: 0.6
-        }
-        PlasmaComponents3.Label {
-            Layout.fillWidth: true
-            text: root.usageText
-            font: Kirigami.Theme.smallFont
-        }
-
-        PlasmaComponents3.Label {
-            text: translations.i18n("Available:")
-            horizontalAlignment: Text.AlignRight
-            font: Kirigami.Theme.smallFont
-            opacity: 0.6
-        }
-        PlasmaComponents3.Label {
-            Layout.fillWidth: true
-            text: root.availableText
-            font: Kirigami.Theme.smallFont
-        }
-    }
-
     QQC2.ProgressBar {
         Layout.fillWidth: true
         visible: root.known
@@ -105,6 +66,22 @@ ColumnLayout {
         to: 100
         value: Math.max(0, Math.min(100, root.usagePercent))
         indeterminate: false
+    }
+
+    RowLayout {
+        Layout.fillWidth: true
+        visible: root.known
+
+        PlasmaComponents3.Label {
+            Layout.fillWidth: true
+            text: translations.i18n("%1 used of %2", root.usedText, root.capacityText)
+            font: Kirigami.Theme.smallFont
+        }
+        PlasmaComponents3.Label {
+            text: translations.i18n("%1 available", root.availableText)
+            font: Kirigami.Theme.smallFont
+            opacity: 0.72
+        }
     }
 
     PlasmaComponents3.Label {
