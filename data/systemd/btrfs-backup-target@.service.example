@@ -9,6 +9,7 @@ DefaultDependencies=no
 After=systemd-udevd.service
 Before=umount.target
 Conflicts=umount.target
+StopWhenUnneeded=yes
 
 [Service]
 Type=oneshot

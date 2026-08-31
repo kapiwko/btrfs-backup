@@ -29,6 +29,7 @@ class RecordingCommandRunner final : public btrfsbackup::backup::ICommandRunner 
   public:
     bool mounted = false;
     fs::path mapper_path;
+    std::string status_device = "/dev/disk/by-uuid/target-luks";
     std::vector<std::string> calls;
 
     btrfsbackup::backup::CommandResult run(const std::vector<std::string>& argv) override {
@@ -37,7 +38,7 @@ class RecordingCommandRunner final : public btrfsbackup::backup::ICommandRunner 
             return {0, std::string(luks_uuid) + "\n"};
         }
         if (argv == std::vector<std::string>{"cryptsetup", "status", mapper_name}) {
-            return {0, "device: /dev/disk/by-uuid/target-luks\n"};
+            return {0, "device: " + status_device + "\n"};
         }
         if (argv.size() == 6 && argv.at(1) == "attach") {
             test_helpers::write_file(mapper_path, "mapper");
@@ -306,6 +307,51 @@ void test_activation_preserves_preexisting_mapper() {
     fs::remove_all(root);
 }
 
+void test_deactivation_closes_owned_mapper_after_device_disappears() {
+    fs::path root = test_helpers::test_root("target-command", "activation-device-removed");
+    std::string mount_point = (root / "mnt" / "default").string();
+    write_profile(root, mount_point);
+    RecordingCommandRunner commands;
+    const fs::path mapper_root = root / "mapper";
+    commands.mapper_path = mapper_root / mapper_name;
+    btrfsbackup::cli::target::TargetExecutionServices services{
+        .commands = commands,
+        .read_mounts = [] { return std::vector<btrfsbackup::backup::MountEntry>{}; },
+        .lock_root = root / "locks",
+        .mount_point_trust_root = root,
+        .mapper_root = mapper_root,
+        .activation_state_root = root / "activation",
+        .keyfile_trust_root = root,
+        .systemd_cryptsetup_command = "/test/systemd-cryptsetup",
+        .canonical_device = [](const fs::path& path) { return path; },
+    };
+    std::ostringstream output;
+
+    setenv("BTRFS_BACKUP_ALLOW_ROOTLESS_TESTS", "true", 1);
+    (void)btrfsbackup::cli::target::target(
+        root,
+        {"activate", "--from-service", "--profile", "default"},
+        output,
+        &services
+    );
+    commands.status_device = "/dev/removed-target";
+
+    const int result = btrfsbackup::cli::target::target(
+        root,
+        {"deactivate", "--from-service", "--profile", "default"},
+        output,
+        &services
+    );
+
+    test_helpers::expect_eq("removed device deactivation result", std::to_string(result), "0");
+    test_helpers::expect_true(
+        "removed device mapper detached",
+        !fs::exists(commands.mapper_path),
+        "owned mapper survived physical device removal"
+    );
+    fs::remove_all(root);
+}
+
 void test_activation_rejects_insecure_key_file() {
     fs::path root = test_helpers::test_root("target-command", "activation-insecure-key");
     std::string mount_point = (root / "mnt" / "default").string();
@@ -448,6 +494,7 @@ int main() {
     test_eject_unmounts_and_stops_target_unit();
     test_activation_owns_and_restores_mapper();
     test_activation_preserves_preexisting_mapper();
+    test_deactivation_closes_owned_mapper_after_device_disappears();
     test_activation_rejects_insecure_key_file();
     test_internal_eject_honors_auto_eject_setting();
     test_eject_refuses_busy_target_without_running_commands();

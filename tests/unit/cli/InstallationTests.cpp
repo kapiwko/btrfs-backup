@@ -96,9 +96,19 @@ void test_installation_render_writes_static_files() {
         "Options=noatime,nodev,nosuid,noexec,nosymfollow,compress=zstd"
     );
     test_helpers::expect_contains(
+        "installation native mount follows physical device",
+        read_file(root / "rendered" / "systemd" / "mnt-btrfs\\x2dbackup-laptop.mount"),
+        "BindsTo=dev-disk-by\\x2duuid-11111111\\x2d2222\\x2d3333\\x2d4444\\x2d555555555555.device"
+    );
+    test_helpers::expect_contains(
         "installation target activation command",
         read_file(root / "rendered" / "systemd" / "btrfs-backup-target@.service"),
         "btrfs-backupctl target activate --from-service --profile %i"
+    );
+    test_helpers::expect_contains(
+        "installation target activation lifetime",
+        read_file(root / "rendered" / "systemd" / "btrfs-backup-target@.service"),
+        "StopWhenUnneeded=yes"
     );
     test_helpers::expect_contains(
         "installation service",

@@ -20,8 +20,9 @@ case "${1:-}" in
         cat <<'EOF_USAGE'
 Usage: tests/qemu/run-hotplug.sh
 
-Build and boot a disposable Arch guest, then attach a virtual LUKS USB disk and
-verify that udev starts btrfs-backup@default.service without a graphical target.
+Build and boot a disposable Arch guest, attach a virtual LUKS USB disk, then
+disconnect and reconnect it. Verify that udev restarts btrfs-backup@default.service
+without a graphical target and that target activation follows device lifetime.
 Non-root callers need permission to run privileged Docker containers.
 EOF_USAGE
         exit 0
@@ -267,6 +268,7 @@ truncate -s 64M "$TARGET_IMAGE"
 cryptsetup luksFormat --type luks2 --pbkdf pbkdf2 --pbkdf-force-iterations 1000 \
     --batch-mode --key-file "$TEST_ROOT/luks.key" "$TARGET_IMAGE"
 TARGET_UUID="$(cryptsetup luksUUID "$TARGET_IMAGE")"
+TARGET_DEVICE_UNIT="$(systemd-escape --path --suffix=device "/dev/disk/by-uuid/$TARGET_UUID")"
 
 cat > "$ROOT_MOUNT/setup.sh" <<EOF_SETUP
 set -eu
@@ -283,11 +285,35 @@ cat > /etc/systemd/system/btrfs-backup@default.service.d/qemu-hotplug-test.conf 
 [Unit]
 OnSuccess=
 OnFailure=
+Requires=qemu-hotplug-target-holder.service
+After=qemu-hotplug-target-holder.service
 
 [Service]
 ExecStart=
-ExecStart=/usr/bin/sh -c 'if /usr/bin/systemctl is-active --quiet graphical.target; then exit 1; fi; printf "QEMU_HOTPLUG_OK\n" > /dev/ttyS0'
+ExecStart=/usr/bin/sh -c 'if /usr/bin/systemctl is-active --quiet graphical.target; then exit 1; fi; count=0; test ! -r /run/qemu-hotplug-backup-count || read -r count < /run/qemu-hotplug-backup-count; count=\$\$((count + 1)); printf "%%s\n" "\$\$count" > /run/qemu-hotplug-backup-count; printf "QEMU_HOTPLUG_OK_%%s\n" "\$\$count" > /dev/ttyS0'
 EOF_OVERRIDE
+
+install -d -m0755 /etc/systemd/system/btrfs-backup-target@default.service.d
+cat > /etc/systemd/system/btrfs-backup-target@default.service.d/qemu-hotplug-test.conf <<'EOF_TARGET_OVERRIDE'
+[Service]
+ExecStart=
+ExecStart=/usr/bin/sh -c 'count=0; test ! -r /run/qemu-hotplug-target-count || read -r count < /run/qemu-hotplug-target-count; count=\$\$((count + 1)); printf "%%s\n" "\$\$count" > /run/qemu-hotplug-target-count; printf "QEMU_TARGET_START_%%s\n" "\$\$count" > /dev/ttyS0'
+ExecStop=
+ExecStop=/usr/bin/sh -c 'count=0; test ! -r /run/qemu-hotplug-target-count || read -r count < /run/qemu-hotplug-target-count; printf "QEMU_TARGET_STOP_%%s\n" "\$\$count" > /dev/ttyS0'
+EOF_TARGET_OVERRIDE
+
+cat > /etc/systemd/system/qemu-hotplug-target-holder.service <<'EOF_HOLDER'
+[Unit]
+Description=Hold target activation while the QEMU USB device exists
+BindsTo=$TARGET_DEVICE_UNIT
+After=$TARGET_DEVICE_UNIT btrfs-backup-target@default.service
+Requires=btrfs-backup-target@default.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/true
+RemainAfterExit=yes
+EOF_HOLDER
 systemctl daemon-reload
 udevadm control --reload
 ! systemd-detect-virt --container >/dev/null 2>&1
@@ -309,7 +335,8 @@ qemu_args=(
     -drive "file=$ROOT_IMAGE,if=virtio,format=raw,snapshot=on"
     -drive "file=$SETUP_IMAGE,if=virtio,format=raw,readonly=on"
     -device qemu-xhci,id=xhci
-    -drive "file=$TARGET_IMAGE,if=none,format=raw,id=hotplug-target"
+    -blockdev "driver=file,filename=$TARGET_IMAGE,node-name=hotplug-target-file"
+    -blockdev "driver=raw,file=hotplug-target-file,node-name=hotplug-target"
     -qmp "unix:$QMP_SOCKET,server=on,wait=off"
     -serial "file:$CONSOLE_LOG"
     -monitor none
@@ -344,7 +371,43 @@ for _ in $(seq 1 60); do
     kill -0 "$QEMU_PID" 2>/dev/null || fail 'QEMU guest exited after target attachment'
     sleep 0.25
 done
-grep -Fq 'QEMU_HOTPLUG_OK' "$CONSOLE_LOG" \
+grep -Fq 'QEMU_HOTPLUG_OK_1' "$CONSOLE_LOG" \
     || fail 'udev did not start btrfs-backup@default.service after USB attachment'
 
-printf '%s\n' 'ok - QEMU USB hotplug starts the system runner without a graphical session'
+{
+    printf '%s\n' '{"execute":"qmp_capabilities"}'
+    printf '%s\n' '{"execute":"device_del","arguments":{"id":"target-usb"}}'
+} | socat -t 5 - "UNIX-CONNECT:$QMP_SOCKET" > "$QMP_LOG"
+if (( $(grep -Fc '"return": {}' "$QMP_LOG") < 2 )); then
+    cat "$QMP_LOG" >&2
+    fail 'QMP rejected the virtual USB removal'
+fi
+
+for _ in $(seq 1 60); do
+    grep -Fq 'QEMU_TARGET_STOP_1' "$CONSOLE_LOG" && break
+    kill -0 "$QEMU_PID" 2>/dev/null || fail 'QEMU guest exited after target removal'
+    sleep 0.25
+done
+grep -Fq 'QEMU_TARGET_STOP_1' "$CONSOLE_LOG" \
+    || fail 'target activation remained active after USB removal'
+
+{
+    printf '%s\n' '{"execute":"qmp_capabilities"}'
+    printf '%s\n' '{"execute":"device_add","arguments":{"driver":"usb-storage","drive":"hotplug-target","id":"target-usb"}}'
+} | socat -t 5 - "UNIX-CONNECT:$QMP_SOCKET" > "$QMP_LOG"
+if (( $(grep -Fc '"return": {}' "$QMP_LOG") < 2 )); then
+    cat "$QMP_LOG" >&2
+    fail 'QMP rejected the virtual USB reattachment'
+fi
+
+for _ in $(seq 1 60); do
+    grep -Fq 'QEMU_HOTPLUG_OK_2' "$CONSOLE_LOG" && break
+    kill -0 "$QEMU_PID" 2>/dev/null || fail 'QEMU guest exited after target reattachment'
+    sleep 0.25
+done
+grep -Fq 'QEMU_TARGET_START_2' "$CONSOLE_LOG" \
+    || fail 'target activation did not restart after USB reattachment'
+grep -Fq 'QEMU_HOTPLUG_OK_2' "$CONSOLE_LOG" \
+    || fail 'udev did not restart btrfs-backup@default.service after USB reattachment'
+
+printf '%s\n' 'ok - QEMU USB hotplug restarts target activation and the system runner'

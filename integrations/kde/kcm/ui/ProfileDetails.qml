@@ -148,7 +148,9 @@ ColumnLayout {
             || root.profileStatus.run.errorCode.length > 0
         type: Kirigami.MessageType.Error
         text: root.profileStatus.lastError
-            || translations.i18n("Backup failed with code %1", root.profileStatus.run.errorCode)
+            || (root.profileStatus.run.errorCode === "backup.failed"
+                ? translations.i18n("Backup failed")
+                : translations.i18n("Backup failed with code %1", root.profileStatus.run.errorCode))
     }
 
     function activityText(activity, phase) {

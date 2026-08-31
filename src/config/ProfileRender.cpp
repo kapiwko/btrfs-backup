@@ -117,16 +117,41 @@ std::string target_mount_unit_name(const std::filesystem::path& mount_point) {
     return (escaped.empty() ? "-" : escaped) + ".mount";
 }
 
+std::string target_device_unit_name(const std::filesystem::path& device) {
+    std::string path = device.lexically_normal().string();
+    if (!path.empty() && path.front() == '/') {
+        path.erase(path.begin());
+    }
+
+    std::string escaped;
+    for (const char character : path) {
+        const auto value = static_cast<unsigned char>(character);
+        if (value == '/') {
+            escaped.push_back('-');
+        } else {
+            escaped += systemd_unit_plain_char(value) ? std::string(1, character) : systemd_hex_escape(value);
+        }
+    }
+    return (escaped.empty() ? "-" : escaped) + ".device";
+}
+
 std::string render_target_mount_unit(const Profile& profile) {
     const std::string profile_id{profile.id.value()};
+    const std::string device_unit = target_device_unit_name(profile.target.device);
     return "[Unit]\n"
            "Description=Encrypted Btrfs backup target for profile " +
         profile_id +
         "\n"
         "Documentation=file:/usr/share/doc/btrfs-backup/README.md\n"
+        "BindsTo=" +
+        device_unit +
+        "\n"
         "Requires=btrfs-backup-target@" +
         profile_id +
         ".service\n"
+        "After=" +
+        device_unit +
+        "\n"
         "After=btrfs-backup-target@" +
         profile_id +
         ".service\n"
