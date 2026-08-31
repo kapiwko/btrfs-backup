@@ -85,8 +85,10 @@ BackupStatusModel::BackupStatusModel(QObject* parent)
         }
     });
     connect(&manager_events_, &btrfsbackup::kde::ManagerEventSubscriber::deviceStateChanged, this, [this](const QString& profile_id) {
-        if (active_ && capabilities_verified_ && profile_id == profile_)
+        if (active_ && capabilities_verified_ && profile_id == profile_) {
             requestDeviceState();
+            requestProfiles();
+        }
     });
 }
 
@@ -145,6 +147,12 @@ QString BackupStatusModel::profileName() const {
 
 bool BackupStatusModel::profileEnabled() const {
     return profile_enabled_;
+}
+bool BackupStatusModel::configurationValid() const {
+    return configuration_valid_;
+}
+QString BackupStatusModel::configurationErrorCode() const {
+    return configuration_error_code_;
 }
 
 RunStatusModel* BackupStatusModel::run() {
@@ -471,6 +479,8 @@ void BackupStatusModel::applyProfiles(const QString& payload) {
 
     QString profile_name;
     bool profile_enabled = true;
+    bool configuration_valid = true;
+    QString configuration_error_code;
     QVariantList profiles;
     for (const auto& decoded : *decoded_profiles) {
         QVariantMap profile;
@@ -478,19 +488,26 @@ void BackupStatusModel::applyProfiles(const QString& payload) {
         profile.insert(QStringLiteral("name"), decoded.name);
         profile.insert(QStringLiteral("enabled"), decoded.enabled);
         profile.insert(QStringLiteral("targetName"), decoded.target_name);
+        profile.insert(QStringLiteral("configurationValid"), decoded.configuration_valid);
+        profile.insert(QStringLiteral("configurationErrorCode"), decoded.configuration_error_code);
         profiles.push_back(profile);
         if (decoded.id == profile_) {
             profile_name = decoded.name;
             profile_enabled = decoded.enabled;
+            configuration_valid = decoded.configuration_valid;
+            configuration_error_code = decoded.configuration_error_code;
         }
     }
     if (profiles_ != profiles) {
         profiles_ = profiles;
         emit profilesChanged();
     }
-    if (profile_name_ != profile_name || profile_enabled_ != profile_enabled) {
+    if (profile_name_ != profile_name || profile_enabled_ != profile_enabled ||
+        configuration_valid_ != configuration_valid || configuration_error_code_ != configuration_error_code) {
         profile_name_ = profile_name;
         profile_enabled_ = profile_enabled;
+        configuration_valid_ = configuration_valid;
+        configuration_error_code_ = configuration_error_code;
         emit statusChanged();
     }
 }

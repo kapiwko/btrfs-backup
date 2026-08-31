@@ -41,6 +41,8 @@ struct ProfileSummary {
     bool enabled = true;
     QString target_name;
     QList<ProfileSourceSummary> sources;
+    bool configuration_valid = true;
+    QString configuration_error_code;
 };
 
 struct RunStatus {

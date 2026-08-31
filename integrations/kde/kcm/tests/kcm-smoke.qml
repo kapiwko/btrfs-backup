@@ -22,6 +22,9 @@ Item {
         property var target: ({device: "/dev/test", luksUuid: "uuid", btrfsUuid: "uuid", mapperName: "backup", activation: {mode: "askPassword"}})
         property var settings: ({remoteRetention: 30, localRetention: 30})
         property var sources: [{name: "Home", subvolume: "/home", localSnapshotDir: "/.snapshots/home", remoteSubdir: "home"}]
+        property var sourceCandidates: ["/home", "/srv/work"]
+        property bool configurationValid: true
+        property string configurationErrorCode: ""
         property bool loaded: true
         property bool busy: false
         property string errorCode: ""

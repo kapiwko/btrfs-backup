@@ -40,6 +40,12 @@ ManagerErrorDescription ManagerErrorMapper::describe(ManagerErrorCode code) noex
     switch (code) {
     case ManagerErrorCode::InvalidRequest:
         return {code, "io.github.btrfsbackup.Error.InvalidRequest", "manager request is invalid"};
+    case ManagerErrorCode::SourceMissing:
+        return {code, "io.github.btrfsbackup.Error.SourceMissing", "source subvolume does not exist"};
+    case ManagerErrorCode::SourceNotSubvolume:
+        return {code, "io.github.btrfsbackup.Error.SourceNotSubvolume", "source path is not a Btrfs subvolume"};
+    case ManagerErrorCode::SourceUnavailable:
+        return {code, "io.github.btrfsbackup.Error.SourceUnavailable", "source subvolume cannot be inspected"};
     case ManagerErrorCode::NotFound:
         return {code, "io.github.btrfsbackup.Error.NotFound", "requested resource was not found"};
     case ManagerErrorCode::NotAuthorized:

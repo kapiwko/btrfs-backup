@@ -106,6 +106,7 @@ Item {
     SourceDialog {
         id: sourceDialog
         objectName: "sourceDialog"
+        sourceCandidates: root.editor?.sourceCandidates ?? []
 
         onAddAccepted: (name, subvolume, localRetention, targetRetention) => {
             root.addRequested(name, subvolume, localRetention, targetRetention);

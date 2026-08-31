@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cctype>
 #include <filesystem>
+#include <ranges>
 #include <set>
 
 #include <config/json/JsonIo.hpp>
@@ -148,25 +149,85 @@ ProfileDetails ProfileAdministrationService::get_profile_details(const std::stri
     const auto profile = backend_.find_profile(ProfileId(profile_id));
     if (!profile.has_value())
         throw dbus::ManagerOperationError(dbus::ManagerErrorCode::NotFound, "profile does not exist");
+    return details_from(*profile);
+}
+
+ProfileConfigurationHealth ProfileAdministrationService::configuration_health(const std::string& profile_id) const {
+    const auto profile = backend_.find_profile(ProfileId(profile_id));
+    if (!profile.has_value())
+        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::NotFound, "profile does not exist");
+    const Json document = Json::parse(profile->document);
+    for (const auto& source : document.at("sources")) {
+        const auto path = std::filesystem::path(source.at("subvolume").get<std::string>());
+        switch (backend_.inspect_source_subvolume(path)) {
+        case SourceSubvolumeState::Available:
+            break;
+        case SourceSubvolumeState::Missing:
+            return {false, "configuration.source_missing"};
+        case SourceSubvolumeState::NotSubvolume:
+            return {false, "configuration.source_not_subvolume"};
+        case SourceSubvolumeState::Unavailable:
+            return {false, "configuration.source_unavailable"};
+        }
+    }
+    return {};
+}
+
+ProfileDetails ProfileAdministrationService::details_from(const EditableProfile& profile) const {
+    const auto health = configuration_health(profile.profile_id);
+    const Json document = Json::parse(profile.document);
+    std::set<std::string> configured_sources;
+    for (const auto& source : document.at("sources")) {
+        configured_sources.insert(
+            std::filesystem::path(source.at("subvolume").get<std::string>()).lexically_normal().string()
+        );
+    }
+    std::vector<std::string> candidates;
+    for (const auto& candidate : backend_.source_candidates()) {
+        const std::string normalized = candidate.lexically_normal().string();
+        if (!configured_sources.contains(normalized))
+            candidates.push_back(normalized);
+    }
+    std::ranges::sort(candidates);
+    candidates.erase(std::unique(candidates.begin(), candidates.end()), candidates.end());
     return {
-        .profile_id = profile->profile_id,
-        .generation = profile->generation,
-        .fingerprint = profile->fingerprint,
-        .document = profile->document,
+        .profile_id = profile.profile_id,
+        .generation = profile.generation,
+        .fingerprint = profile.fingerprint,
+        .document = profile.document,
+        .configuration_valid = health.valid,
+        .configuration_error_code = health.error_code,
+        .source_candidates = std::move(candidates),
     };
+}
+
+void ProfileAdministrationService::require_available_subvolume(const std::filesystem::path& path) const {
+    switch (backend_.inspect_source_subvolume(path)) {
+    case SourceSubvolumeState::Available:
+        return;
+    case SourceSubvolumeState::Missing:
+        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::SourceMissing, "source subvolume does not exist");
+    case SourceSubvolumeState::NotSubvolume:
+        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::SourceNotSubvolume, "source path is not a Btrfs subvolume");
+    case SourceSubvolumeState::Unavailable:
+        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::SourceUnavailable, "source subvolume cannot be inspected");
+    }
 }
 
 ProfileDetails ProfileAdministrationService::save_document(
     const std::string& caller,
     const EditableProfile& current,
-    const std::string& document
+    const std::string& document,
+    const std::optional<std::filesystem::path>& source_to_recheck
 ) {
     const ProfileId id(current.profile_id);
     const ProfileDraftResult draft = backend_.validate_draft(id, document);
     require_authorized(caller, ManagerAuthorizationAction::ManageProfileConfiguration);
     require_current(backend_.find_profile(id), current);
+    if (source_to_recheck.has_value())
+        require_available_subvolume(*source_to_recheck);
     const ProfileDraftResult saved = backend_.save_profile(current, draft, false);
-    return {saved.profile_id, saved.generation, saved.fingerprint, saved.document};
+    return details_from({saved.profile_id, saved.generation, saved.fingerprint, saved.document});
 }
 
 ProfileDetails ProfileAdministrationService::update_profile_settings(
@@ -206,6 +267,7 @@ ProfileDetails ProfileAdministrationService::add_profile_source(
     Json& sources = document["sources"];
     const std::string name = request_value<std::string>(request, "name");
     const std::filesystem::path subvolume = request_value<std::string>(request, "subvolume");
+    require_available_subvolume(subvolume);
     const std::string source_id = unique_source_id(sources, name);
     sources.push_back({
         {"id", source_id},
@@ -217,7 +279,7 @@ ProfileDetails ProfileAdministrationService::add_profile_source(
         {"localRetention", request_value<int>(request, "localRetention")},
         {"remoteRetention", request_value<int>(request, "remoteRetention")},
     });
-    return save_document(caller, existing, config::json::dump_json(document));
+    return save_document(caller, existing, config::json::dump_json(document), subvolume);
 }
 
 ProfileDetails ProfileAdministrationService::update_profile_source(

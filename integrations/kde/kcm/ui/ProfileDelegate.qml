@@ -57,6 +57,7 @@ QQC2.ItemDelegate {
 
             Kirigami.Icon {
                 source: delegate.profileStatus.run.state === "failed"
+                    || !delegate.profileStatus.configurationValid
                     ? "dialog-error-symbolic"
                     : "drive-harddisk-symbolic"
                 implicitWidth: Kirigami.Units.iconSizes.medium

@@ -12,8 +12,12 @@ QQC2.Dialog {
 
     property int sourceIndex: -1
     property bool editing: sourceIndex >= 0
+    property var sourceCandidates: []
+    property string editingSubvolume: ""
+    readonly property string subvolumeText: subvolumeField.editable
+        ? subvolumeField.editText : subvolumeField.currentText
     readonly property bool inputValid: nameField.text.trim().length > 0
-        && (editing || subvolumeField.text.trim().startsWith("/"))
+        && (editing || root.subvolumeText.trim().startsWith("/"))
 
     signal addAccepted(string name, string subvolume, int localRetention,
         int targetRetention)
@@ -37,15 +41,17 @@ QQC2.Dialog {
             root.editAccepted(sourceIndex, nameField.text,
                 localRetention.value, targetRetention.value)
         } else {
-            root.addAccepted(nameField.text, subvolumeField.text,
+            root.addAccepted(nameField.text, root.subvolumeText,
                 localRetention.value, targetRetention.value)
         }
     }
 
     function openForAdd() {
         sourceIndex = -1
+        editingSubvolume = ""
         nameField.text = ""
-        subvolumeField.text = ""
+        subvolumeField.currentIndex = -1
+        subvolumeField.editText = ""
         localRetention.value = 30
         targetRetention.value = 30
         open()
@@ -54,8 +60,12 @@ QQC2.Dialog {
 
     function openForEdit(index, source) {
         sourceIndex = index
+        editingSubvolume = source.subvolume || ""
         nameField.text = source.name || source.id || ""
-        subvolumeField.text = source.subvolume || ""
+        const value = source.subvolume || ""
+        const candidateIndex = root.sourceCandidates.indexOf(value)
+        subvolumeField.currentIndex = candidateIndex
+        subvolumeField.editText = value
         localRetention.value = source.localRetention || 30
         targetRetention.value = source.remoteRetention || 30
         open()
@@ -75,13 +85,14 @@ QQC2.Dialog {
                 maximumLength: 160
                 selectByMouse: true
             }
-            QQC2.TextField {
+            QQC2.ComboBox {
                 id: subvolumeField
                 Kirigami.FormData.label: translations.i18n("Btrfs subvolume:")
                 Layout.preferredWidth: Kirigami.Units.gridUnit * 22
-                readOnly: root.editing
-                selectByMouse: true
-                placeholderText: "/home"
+                editable: !root.editing
+                enabled: !root.editing
+                model: root.editing ? [root.editingSubvolume] : root.sourceCandidates
+                editText: ""
             }
         }
 

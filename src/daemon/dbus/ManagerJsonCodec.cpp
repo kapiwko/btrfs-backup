@@ -40,6 +40,8 @@ std::string ManagerJsonCodec::encode(const std::vector<ProfileSummary>& profiles
             {"enabled", profile.enabled},
             {"targetName", profile.target_name},
             {"sources", std::move(sources)},
+            {"configurationValid", profile.configuration_valid},
+            {"configurationErrorCode", profile.configuration_error_code},
         });
     }
     return config::json::dump_json(result);
@@ -133,6 +135,9 @@ std::string ManagerJsonCodec::encode(const control::ProfileDetails& profile) con
         {"generation", profile.generation},
         {"fingerprint", profile.fingerprint},
         {"document", std::move(document)},
+        {"configurationValid", profile.configuration_valid},
+        {"configurationErrorCode", profile.configuration_error_code},
+        {"sourceCandidates", profile.source_candidates},
     });
 }
 

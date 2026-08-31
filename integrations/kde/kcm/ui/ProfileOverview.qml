@@ -33,6 +33,13 @@ ColumnLayout {
         text: root.errorText()
     }
 
+    Kirigami.InlineMessage {
+        Layout.fillWidth: true
+        visible: root.editor !== null && root.editor.loaded && !root.editor.configurationValid
+        type: Kirigami.MessageType.Error
+        text: root.configurationErrorText(root.editor?.configurationErrorCode ?? "")
+    }
+
     Timer {
         id: authorizationErrorTimer
 
@@ -92,6 +99,23 @@ ColumnLayout {
         if (root.authorizationError) {
             return translations.i18n("The operation was cancelled or you do not have permission to perform it.");
         }
+        if (root.editor.errorCode.endsWith(".SourceMissing"))
+            return translations.i18n("The selected source subvolume does not exist.");
+        if (root.editor.errorCode.endsWith(".SourceNotSubvolume"))
+            return translations.i18n("The selected source path is not a Btrfs subvolume.");
+        if (root.editor.errorCode.endsWith(".SourceUnavailable"))
+            return translations.i18n("The selected source subvolume cannot be inspected.");
         return translations.i18nc("error message followed by a stable diagnostic code", "%1 (code: %2)", root.editor.errorMessage, root.editor.errorCode);
+    }
+
+    function configurationErrorText(code) {
+        switch (code) {
+        case "configuration.source_missing":
+            return translations.i18n("A configured source subvolume does not exist.");
+        case "configuration.source_not_subvolume":
+            return translations.i18n("A configured source path is not a Btrfs subvolume.");
+        default:
+            return translations.i18n("A configured source subvolume cannot be inspected.");
+        }
     }
 }
