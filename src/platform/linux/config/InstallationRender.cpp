@@ -181,6 +181,7 @@ std::string render_target_service(const std::string& target_command) {
            "After=systemd-udevd.service\n"
            "Before=umount.target\n"
            "Conflicts=umount.target\n"
+           "StopWhenUnneeded=yes\n"
            "\n"
            "[Service]\n"
            "Type=oneshot\n"

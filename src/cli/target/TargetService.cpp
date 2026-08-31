@@ -431,7 +431,9 @@ TargetOperationResult deactivate_target(
         return TargetOperationCompleted{std::move(events)};
     }
     if (!mapper_identity_matches(resolved.commands, profile, resolved.canonical_device)) {
-        throw ValidationError("Refusing to deactivate a mapper that does not match configuration");
+        if (fs::exists(profile.target.device)) {
+            throw ValidationError("Refusing to deactivate a mapper that does not match configuration");
+        }
     }
     if (mapper_has_mounts(profile, resolved.read_mounts(), events, resolved.mapper_root)) {
         throw ValidationError("Refusing to deactivate LUKS mapper while it still has mounted filesystems");
