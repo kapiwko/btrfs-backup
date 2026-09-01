@@ -128,8 +128,10 @@ target_link_libraries(btrfsbackup-daemon-system-control
         btrfsbackup-config-json
         btrfsbackup-config-wizard
         btrfsbackup-backup-planning
+        btrfsbackup-daemon-provisioning
         btrfsbackup-platform-linux-config
         btrfsbackup-platform-linux-process
+        btrfsbackup-platform-linux-provisioning
         btrfsbackup-platform-linux-storage
         btrfsbackup-platform-linux-transfer
 )
@@ -196,6 +198,7 @@ target_link_libraries(btrfs-backup-device-preparation
         btrfsbackup-daemon-system-control
         btrfsbackup-platform-linux-config
         btrfsbackup-platform-linux-process
+        btrfsbackup-platform-linux-provisioning
         btrfsbackup-platform-linux-storage
         btrfsbackup-platform-linux-systemd
 )
@@ -207,6 +210,7 @@ target_link_libraries(btrfs-backupd
         btrfsbackup-platform-linux-config
         btrfsbackup-platform-linux-filesystem
         btrfsbackup-platform-linux-process
+        btrfsbackup-platform-linux-provisioning
         btrfsbackup-platform-linux-storage
         btrfsbackup-platform-linux-systemd
         btrfsbackup-state

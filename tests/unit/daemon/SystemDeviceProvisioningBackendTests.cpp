@@ -11,6 +11,7 @@
 #include <config/ports/ConfigurationActivator.hpp>
 #include <daemon/control/CredentialAdministrationService.hpp>
 #include <daemon/control/DestructiveDeviceSafetyInspector.hpp>
+#include <daemon/provisioning/StorageTopologyReader.hpp>
 
 #include <chrono>
 #include <ranges>
@@ -37,19 +38,8 @@ class Commands final : public backup::ICommandRunner {
   public:
     std::vector<std::vector<std::string>> calls;
     std::vector<std::vector<std::string>> controlled_calls;
-    int identity_scans = 0;
-    int replace_on_scan = 0;
     backup::CommandResult run(const std::vector<std::string>& argv) override {
         calls.push_back(argv);
-        if (argv.front() == "lsblk") {
-            if (std::ranges::find(argv, "PATH,TYPE") != argv.end())
-                return {0, R"({"blockdevices":[{"path":"/dev/test","type":"disk","children":[{"path":"/dev/test1","type":"part"}]}]})"};
-            ++identity_scans;
-            const bool replaced = replace_on_scan != 0 && identity_scans >= replace_on_scan;
-            return {0, replaced ? R"({"blockdevices":[{"path":"/dev/test","type":"disk","size":1048576,"model":"Other","serial":"OTHER","wwn":"WWN-OTHER","tran":"usb","rm":true,"fstype":null,"pttype":null,"mountpoints":[null],"maj:min":"8:16","kname":"test","pkname":null}]})" : R"({"blockdevices":[{"path":"/dev/test","type":"disk","size":1048576,"model":"Test","serial":"SERIAL","wwn":"WWN-TEST","tran":"usb","rm":true,"fstype":null,"pttype":null,"mountpoints":[null],"maj:min":"8:16","kname":"test","pkname":null}]})"};
-        }
-        if (argv.front() == "udevadm" && argv.size() > 1 && argv.at(1) == "info")
-            return {0, replace_on_scan != 0 && identity_scans >= replace_on_scan ? "DEVPATH=/devices/other/block/test\nMAJOR=8\nMINOR=16\nID_WWN=WWN-OTHER\nID_SERIAL=OTHER\nID_SERIAL_SHORT=OTHER\nID_BUS=usb\n" : "DEVPATH=/devices/test/block/test\nMAJOR=8\nMINOR=16\nID_WWN=WWN-TEST\nID_SERIAL=VENDOR_SERIAL\nID_SERIAL_SHORT=SERIAL\nID_BUS=usb\n"};
         if (argv.front() == "cryptsetup" && argv.at(1) == "luksUUID")
             return {0, "11111111-2222-3333-4444-555555555555\n"};
         if (argv.front() == "blkid" && argv.back() == "/dev/mapper/btrfs-backup-test")
@@ -65,6 +55,65 @@ class Commands final : public backup::ICommandRunner {
         controlled_calls.push_back(argv);
         return run(argv);
     }
+};
+
+class TopologyReader final : public btrfsbackup::daemon::provisioning::StorageTopologyReader {
+  public:
+    explicit TopologyReader(const Commands& commands) : commands_(commands) {
+    }
+
+    int scans = 0;
+    int replace_on_scan = 0;
+
+    btrfsbackup::daemon::provisioning::StorageTopology scan() override {
+        namespace provisioning = btrfsbackup::daemon::provisioning;
+        ++scans;
+        const bool replaced = replace_on_scan != 0 && scans >= replace_on_scan;
+        provisioning::StorageDevice device;
+        device.identity = {
+            .display_path = "/dev/test",
+            .major_minor = "8:16",
+            .sysfs_path = replaced ? "/sys/devices/other/block/test" : "/sys/devices/test/block/test",
+            .wwn = replaced ? "WWN-OTHER" : "WWN-TEST",
+            .serial = replaced ? "OTHER" : "VENDOR_SERIAL",
+            .serial_short = replaced ? "OTHER" : "SERIAL",
+            .size_bytes = 1048576,
+        };
+        device.display_name = replaced ? "Other" : "Test";
+        device.transport = "usb";
+        device.size_bytes = 1048576;
+        device.logical_sector_size = 512;
+        device.physical_sector_size = 4096;
+        device.removable = true;
+        const bool partitioned = std::ranges::any_of(commands_.calls, [](const auto& call) {
+            return !call.empty() && call.front() == "sfdisk";
+        });
+        if (partitioned) {
+            device.partition_table = {
+                .type = provisioning::PartitionTableType::Gpt,
+                .identifier = "gpt-test",
+            };
+            provisioning::ExistingPartition partition;
+            partition.identity = {
+                .display_path = "/dev/test1",
+                .major_minor = "8:17",
+                .sysfs_path = "/sys/devices/test/block/test/test1",
+                .size_bytes = 1048064,
+            };
+            partition.partition_uuid = "99999999-8888-7777-6666-555555555555";
+            partition.partition_number = 1;
+            partition.start_sector = 1;
+            partition.sector_count = 2047;
+            device.regions.emplace_back(std::move(partition));
+        }
+        return {
+            .generation = "test-generation-" + std::to_string(scans),
+            .devices = {std::move(device)},
+        };
+    }
+
+  private:
+    const Commands& commands_;
 };
 
 class Btrfs final : public backup::IBtrfsOperations {
@@ -145,6 +194,7 @@ int secret_descriptor(std::string_view secret) {
 void test_preparation_sequence_uses_descriptors_and_installs_profile() {
     const auto root = test_helpers::test_root("device-provisioning", "success");
     Commands commands;
+    TopologyReader topology(commands);
     Btrfs btrfs;
     Credentials credentials;
     SafetyInspector safety;
@@ -163,6 +213,7 @@ void test_preparation_sequence_uses_descriptors_and_installs_profile() {
         root / "mnt",
         root / "mountinfo",
         root / "transactions",
+        topology,
         commands,
         btrfs,
         activator,
@@ -222,7 +273,7 @@ void test_preparation_sequence_uses_descriptors_and_installs_profile() {
     );
     test_helpers::expect_true(
         "identity checked immediately before wipe",
-        commands.identity_scans >= 3,
+        topology.scans >= 3,
         "device identity was not checked twice after candidate issuance"
     );
     test_helpers::expect_true("safety inspection", safety.inspections == 1, "device safety was not rechecked");
@@ -233,21 +284,19 @@ void test_preparation_sequence_uses_descriptors_and_installs_profile() {
         }) == 2,
         "udev settle was not checked after partition and filesystem creation"
     );
-    const auto partition_scan = std::ranges::find_if(commands.calls, [](const auto& call) {
-        return !call.empty() && call.front() == "lsblk" &&
-            std::ranges::find(call, "PATH,TYPE") != call.end();
-    });
     test_helpers::expect_true(
-        "partition scan requests tree",
-        partition_scan != commands.calls.end() &&
-            std::ranges::find(*partition_scan, "--tree") != partition_scan->end(),
-        "partition discovery expected lsblk children without requesting a tree"
+        "library topology scan",
+        std::ranges::none_of(commands.calls, [](const auto& call) {
+            return !call.empty() && (call.front() == "lsblk" || (call.front() == "udevadm" && call.size() > 1 && call.at(1) == "info"));
+        }),
+        "device discovery invoked a command instead of the topology reader"
     );
 }
 
 void test_exited_helper_marks_transaction_interrupted() {
     const auto root = test_helpers::test_root("device-provisioning", "helper-exited");
     Commands commands;
+    TopologyReader topology(commands);
     Btrfs btrfs;
     Credentials credentials;
     SafetyInspector safety;
@@ -266,6 +315,7 @@ void test_exited_helper_marks_transaction_interrupted() {
         root / "mnt",
         root / "mountinfo",
         root / "transactions",
+        topology,
         commands,
         btrfs,
         activator,
@@ -315,6 +365,7 @@ void test_exited_helper_marks_transaction_interrupted() {
 void test_replacement_before_wipe_is_rejected() {
     const auto root = test_helpers::test_root("device-provisioning", "replacement");
     Commands commands;
+    TopologyReader topology(commands);
     Btrfs btrfs;
     Credentials credentials;
     SafetyInspector safety;
@@ -333,6 +384,7 @@ void test_replacement_before_wipe_is_rejected() {
         root / "mnt",
         root / "mountinfo",
         root / "transactions",
+        topology,
         commands,
         btrfs,
         activator,
@@ -341,7 +393,7 @@ void test_replacement_before_wipe_is_rejected() {
         units
     );
     const auto candidate = backend.list_devices().front();
-    commands.replace_on_scan = 3;
+    topology.replace_on_scan = 3;
     int descriptors[2];
     test_helpers::expect_true("replacement secret pipe", ::pipe(descriptors) == 0, "cannot create pipe");
     constexpr std::string_view password = "secret";
@@ -398,6 +450,7 @@ void test_restart_marks_active_transaction_interrupted_and_preserves_owner() {
     DevicePreparationTransactionStore(transaction_root).save(transaction);
 
     Commands commands;
+    TopologyReader topology(commands);
     Btrfs btrfs;
     Credentials credentials;
     SafetyInspector safety;
@@ -416,6 +469,7 @@ void test_restart_marks_active_transaction_interrupted_and_preserves_owner() {
         root / "mnt",
         root / "mountinfo",
         transaction_root,
+        topology,
         commands,
         btrfs,
         activator,

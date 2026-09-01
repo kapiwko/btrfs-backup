@@ -4,99 +4,91 @@
 #include <daemon/control/ProvisioningDeviceEnumerator.hpp>
 
 #include <algorithm>
-#include <filesystem>
-#include <map>
 #include <ranges>
 #include <sstream>
+#include <type_traits>
 
-#include <backup/ports/ICommandRunner.hpp>
-#include <config/json/Json.hpp>
 #include <core/Errors.hpp>
 #include <daemon/dbus/ManagerErrors.hpp>
-
-namespace fs = std::filesystem;
+#include <daemon/provisioning/StorageTopologyReader.hpp>
 
 namespace btrfsbackup::daemon::control {
 namespace {
 
-using config::json::Json;
+using provisioning::ExistingPartition;
+using provisioning::StorageDevice;
 
-std::string json_string(const Json& object, const char* key) {
-    const auto value = object.find(key);
-    return value != object.end() && value->is_string() ? value->get<std::string>() : std::string{};
+bool has_data(const StorageDevice& device) {
+    return device.partition_table.type != provisioning::PartitionTableType::None ||
+        !device.filesystem.type.empty() ||
+        std::ranges::any_of(device.regions, [](const auto& region) {
+               return std::holds_alternative<ExistingPartition>(region);
+           });
 }
 
-std::uint64_t json_size(const Json& object, const char* key) {
-    const auto value = object.find(key);
-    if (value == object.end())
-        return 0;
-    if (value->is_number_unsigned())
-        return value->get<std::uint64_t>();
-    if (value->is_number_integer()) {
-        const auto number = value->get<std::int64_t>();
-        return number > 0 ? static_cast<std::uint64_t>(number) : 0;
-    }
-    return 0;
-}
-
-bool json_boolean(const Json& object, const char* key) {
-    const auto value = object.find(key);
-    if (value == object.end())
-        return false;
-    if (value->is_boolean())
-        return value->get<bool>();
-    return value->is_number_integer() && value->get<int>() != 0;
-}
-
-bool nonempty_mounts(const Json& node) {
-    if (node.contains("mountpoints") && node.at("mountpoints").is_array()) {
-        for (const auto& mount : node.at("mountpoints"))
-            if (mount.is_string() && !mount.get<std::string>().empty())
-                return true;
-    }
-    return node.contains("children") && node.at("children").is_array() &&
-        std::ranges::any_of(node.at("children"), nonempty_mounts);
-}
-
-bool contains_data(const Json& node) {
-    if (!json_string(node, "fstype").empty() || !json_string(node, "pttype").empty())
+bool mounted(const StorageDevice& device) {
+    if (!device.mount_points.empty())
         return true;
-    return node.contains("children") && node.at("children").is_array() && !node.at("children").empty();
+    return std::ranges::any_of(device.regions, [](const auto& region) {
+        const auto* partition = std::get_if<ExistingPartition>(&region);
+        return partition != nullptr && !partition->mount_points.empty();
+    });
 }
 
-Json device_graph_node(const Json& node) {
-    Json result{
-        {"path", json_string(node, "path")},
-        {"type", json_string(node, "type")},
-        {"majorMinor", json_string(node, "maj:min")},
-        {"kernelName", json_string(node, "kname")},
-        {"parentKernelName", json_string(node, "pkname")},
-        {"sizeBytes", json_size(node, "size")},
-        {"filesystemType", json_string(node, "fstype")},
-        {"partitionTableType", json_string(node, "pttype")},
-    };
-    result["children"] = Json::array();
-    if (node.contains("children") && node.at("children").is_array())
-        for (const auto& child : node.at("children"))
-            result["children"].push_back(device_graph_node(child));
-    return result;
-}
-
-std::map<std::string, std::string> parse_udev_properties(const std::string& payload) {
-    std::map<std::string, std::string> result;
-    std::istringstream lines(payload);
-    std::string line;
-    while (std::getline(lines, line)) {
-        const auto separator = line.find('=');
-        if (separator != std::string::npos && separator != 0)
-            result.insert_or_assign(line.substr(0, separator), line.substr(separator + 1));
+std::string graph_fingerprint(const StorageDevice& device) {
+    std::ostringstream result;
+    result << device.identity.major_minor << '\0' << device.identity.sysfs_path << '\0'
+           << device.size_bytes << '\0' << provisioning::partition_table_type_name(device.partition_table.type)
+           << '\0' << device.partition_table.identifier << '\0' << device.filesystem.type << '\0'
+           << device.filesystem.uuid << '\0';
+    for (const auto& holder : device.holders)
+        result << "holder:" << holder << '\0';
+    for (const auto& mount : device.mount_points)
+        result << "mount:" << mount << '\0';
+    for (const auto& region : device.regions) {
+        std::visit(
+            [&](const auto& value) {
+                result << value.start_sector << ':' << value.sector_count << ':';
+                if constexpr (std::is_same_v<std::decay_t<decltype(value)>, ExistingPartition>) {
+                    result << value.identity.display_path << ':' << value.identity.major_minor << ':'
+                           << value.partition_number << ':' << value.partition_uuid.value_or("") << ':'
+                           << value.filesystem.type << ':' << value.filesystem.uuid << ':' << value.active_swap;
+                    for (const auto& mount : value.mount_points)
+                        result << ":mount=" << mount;
+                    for (const auto& holder : value.holders)
+                        result << ":holder=" << holder;
+                } else {
+                    result << value.id;
+                }
+                result << '\0';
+            },
+            region
+        );
     }
-    return result;
+    return result.str();
 }
 
-std::string property(const std::map<std::string, std::string>& properties, const char* key) {
-    const auto value = properties.find(key);
-    return value == properties.end() ? std::string{} : value->second;
+ProvisioningDevice provisioning_device(const StorageDevice& device) {
+    const std::string serial = !device.identity.serial_short.empty()
+        ? device.identity.serial_short
+        : device.identity.serial;
+    return {
+        .candidate_id = {},
+        .path = device.identity.display_path,
+        .model = device.display_name,
+        .serial = serial,
+        .transport = device.transport,
+        .size_bytes = device.size_bytes,
+        .removable = device.removable,
+        .mounted = mounted(device),
+        .contains_data = has_data(device),
+        .major_minor = device.identity.major_minor,
+        .sysfs_devpath = device.identity.sysfs_path,
+        .wwn = device.identity.wwn,
+        .serial_id = device.identity.serial,
+        .serial_short = device.identity.serial_short,
+        .device_graph = graph_fingerprint(device),
+    };
 }
 
 bool same_device_identity(const ProvisioningDevice& expected, const ProvisioningDevice& current) {
@@ -109,86 +101,53 @@ bool same_device_identity(const ProvisioningDevice& expected, const Provisioning
         expected.serial_short == current.serial_short && expected.device_graph == current.device_graph;
 }
 
-std::vector<ProvisioningDevice> parse_devices(const std::string& payload) {
-    const Json document = Json::parse(payload);
-    if (!document.is_object() || !document.contains("blockdevices") || !document.at("blockdevices").is_array())
-        throw ValidationError("lsblk returned invalid device data");
-    std::vector<ProvisioningDevice> result;
-    for (const Json& node : document.at("blockdevices")) {
-        if (!node.is_object() || json_string(node, "type") != "disk")
-            continue;
-        const std::string path = json_string(node, "path");
-        const std::uint64_t size = json_size(node, "size");
-        if (path.empty() || !fs::path(path).is_absolute() || size == 0)
-            continue;
-        result.push_back({
-            .candidate_id = {},
-            .path = path,
-            .model = json_string(node, "model"),
-            .serial = json_string(node, "serial"),
-            .transport = json_string(node, "tran"),
-            .size_bytes = size,
-            .removable = json_boolean(node, "rm"),
-            .mounted = nonempty_mounts(node),
-            .contains_data = contains_data(node),
-            .major_minor = json_string(node, "maj:min"),
-            .sysfs_devpath = {},
-            .wwn = json_string(node, "wwn"),
-            .serial_id = {},
-            .serial_short = {},
-            .device_graph = device_graph_node(node).dump(),
-        });
-    }
-    return result;
+bool same_stable_disk(const ProvisioningDevice& expected, const StorageDevice& current) {
+    const auto& identity = current.identity;
+    return expected.major_minor == identity.major_minor && expected.sysfs_devpath == identity.sysfs_path &&
+        expected.wwn == identity.wwn &&
+        expected.serial_id == identity.serial && expected.serial_short == identity.serial_short &&
+        expected.size_bytes == current.size_bytes && expected.transport == current.transport;
 }
 
 } // namespace
 
-ProvisioningDeviceEnumerator::ProvisioningDeviceEnumerator(backup::ICommandRunner& commands)
-    : commands_(commands) {
+ProvisioningDeviceEnumerator::ProvisioningDeviceEnumerator(provisioning::StorageTopologyReader& topology)
+    : topology_(topology) {
 }
 
 std::vector<ProvisioningDevice> ProvisioningDeviceEnumerator::list() {
-    std::vector<ProvisioningDevice> result = parse_devices(backup::capture_command(commands_, {"lsblk", "--json", "--tree", "--bytes", "--paths", "--output", "PATH,TYPE,SIZE,MODEL,SERIAL,WWN,TRAN,RM,FSTYPE,PTTYPE,MOUNTPOINTS,MAJ:MIN,KNAME,PKNAME"}));
-    for (auto& device : result) {
-        const auto properties = parse_udev_properties(backup::capture_command(commands_, {"udevadm", "info", "--query=property", "--name", device.path}));
-        const std::string udev_major = property(properties, "MAJOR");
-        const std::string udev_minor = property(properties, "MINOR");
-        const std::string udev_major_minor = udev_major.empty() || udev_minor.empty()
-            ? std::string{}
-            : udev_major + ":" + udev_minor;
-        if (!udev_major_minor.empty() && device.major_minor != udev_major_minor)
-            device.major_minor.clear();
-        device.sysfs_devpath = property(properties, "DEVPATH");
-        device.serial_id = property(properties, "ID_SERIAL");
-        device.serial_short = property(properties, "ID_SERIAL_SHORT");
-        const std::string udev_wwn = property(properties, "ID_WWN_WITH_EXTENSION").empty()
-            ? property(properties, "ID_WWN")
-            : property(properties, "ID_WWN_WITH_EXTENSION");
-        if (!udev_wwn.empty())
-            device.wwn = udev_wwn;
-        const std::string udev_transport = property(properties, "ID_BUS");
-        if (!udev_transport.empty())
-            device.transport = udev_transport;
-        if (!device.serial_short.empty())
-            device.serial = device.serial_short;
-        else if (!device.serial_id.empty())
-            device.serial = device.serial_id;
-    }
-    std::erase_if(result, [](const auto& device) {
-        return device.major_minor.empty() || device.sysfs_devpath.empty() || device.transport.empty() ||
-            device.device_graph.empty() ||
-            (device.wwn.empty() && device.serial_id.empty() && device.serial_short.empty());
-    });
+    const provisioning::StorageTopology topology = topology_.scan();
+    std::vector<ProvisioningDevice> result;
+    result.reserve(topology.devices.size());
+    for (const auto& device : topology.devices)
+        result.push_back(provisioning_device(device));
     return result;
 }
 
 ProvisioningDevice ProvisioningDeviceEnumerator::revalidate(const ProvisioningDevice& expected) {
     const auto current = list();
-    const auto selected = std::ranges::find(current, expected.path, &ProvisioningDevice::path);
+    const auto selected = std::ranges::find(current, expected.major_minor, &ProvisioningDevice::major_minor);
     if (selected == current.end() || !same_device_identity(expected, *selected))
         throw dbus::ManagerOperationError(dbus::ManagerErrorCode::Conflict, "selected device identity changed");
     return *selected;
+}
+
+std::string ProvisioningDeviceEnumerator::only_partition(const ProvisioningDevice& expected_device) {
+    const provisioning::StorageTopology topology = topology_.scan();
+    const auto selected = std::ranges::find_if(topology.devices, [&](const auto& device) {
+        return same_stable_disk(expected_device, device);
+    });
+    if (selected == topology.devices.end())
+        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::Conflict, "selected device identity changed");
+    std::vector<std::string> partitions;
+    for (const auto& region : selected->regions) {
+        const auto* partition = std::get_if<ExistingPartition>(&region);
+        if (partition != nullptr && !partition->identity.display_path.empty())
+            partitions.push_back(partition->identity.display_path);
+    }
+    if (partitions.size() != 1)
+        throw ValidationError("exactly one created partition was not detected");
+    return partitions.front();
 }
 
 } // namespace btrfsbackup::daemon::control

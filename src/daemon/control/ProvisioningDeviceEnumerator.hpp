@@ -7,21 +7,22 @@
 
 #include <daemon/control/DeviceProvisioningService.hpp>
 
-namespace btrfsbackup::backup {
-class ICommandRunner;
+namespace btrfsbackup::daemon::provisioning {
+class StorageTopologyReader;
 }
 
 namespace btrfsbackup::daemon::control {
 
 class ProvisioningDeviceEnumerator final {
   public:
-    explicit ProvisioningDeviceEnumerator(backup::ICommandRunner& commands);
+    explicit ProvisioningDeviceEnumerator(provisioning::StorageTopologyReader& topology);
 
     [[nodiscard]] std::vector<ProvisioningDevice> list();
     [[nodiscard]] ProvisioningDevice revalidate(const ProvisioningDevice& expected);
+    [[nodiscard]] std::string only_partition(const ProvisioningDevice& expected_device);
 
   private:
-    backup::ICommandRunner& commands_;
+    provisioning::StorageTopologyReader& topology_;
 };
 
 } // namespace btrfsbackup::daemon::control

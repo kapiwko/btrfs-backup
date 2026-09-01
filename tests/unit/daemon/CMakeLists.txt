@@ -96,6 +96,7 @@ add_btrfsbackup_test(
     SystemDeviceProvisioningBackendTests.cpp
     system-device-provisioning-backend-tests
     btrfsbackup-daemon-system-control
+    btrfsbackup-daemon-provisioning
     btrfsbackup-platform-linux-config
 )
 
@@ -121,6 +122,7 @@ add_btrfsbackup_test(
     DestructiveDeviceSafetyInspectorTests.cpp
     destructive-device-safety-inspector-tests
     btrfsbackup-daemon-system-control
+    btrfsbackup-daemon-provisioning
 )
 
 add_btrfsbackup_test(

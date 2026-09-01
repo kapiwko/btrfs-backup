@@ -26,6 +26,7 @@
 #include <platform/linux/storage/MountInfo.hpp>
 #include <platform/linux/storage/LibBtrfsOperations.hpp>
 #include <platform/linux/storage/CryptsetupOperations.hpp>
+#include <platform/linux/storage/provisioning/SystemStorageTopologyReader.hpp>
 #include <state/persistence/FileRunStateRepository.hpp>
 
 namespace fs = std::filesystem;
@@ -156,13 +157,17 @@ int main(int argc, char** argv) {
             cryptsetup,
             selected_configuration_activator
         );
-        btrfsbackup::daemon::control::DestructiveDeviceSafetyInspector destructive_device_safety(commands);
+        btrfsbackup::platform::linux::storage::SystemStorageTopologyReader storage_topology({
+            .mountinfo = paths.mountinfo_path,
+        });
+        btrfsbackup::daemon::control::DestructiveDeviceSafetyInspector destructive_device_safety(storage_topology);
         btrfsbackup::daemon::control::SystemdDevicePreparationUnitController device_preparation_units(units);
         btrfsbackup::daemon::control::SystemDeviceProvisioningBackend device_provisioning_backend(
             credential_roots,
             paths.target_mount_root,
             paths.mountinfo_path,
             paths.state_root / "device-preparations",
+            storage_topology,
             commands,
             btrfs,
             selected_configuration_activator,

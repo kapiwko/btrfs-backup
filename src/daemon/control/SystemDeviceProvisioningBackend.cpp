@@ -85,6 +85,7 @@ struct SystemDeviceProvisioningBackend::Impl {
         fs::path target_mount_root,
         fs::path mountinfo,
         fs::path transaction_root,
+        provisioning::StorageTopologyReader& topology,
         backup::ICommandRunner& commands,
         backup::IBtrfsOperations& btrfs,
         config::IConfigurationActivator& configuration_activator,
@@ -97,7 +98,7 @@ struct SystemDeviceProvisioningBackend::Impl {
           safety_inspector(device_safety_inspector),
           units(unit_controller),
           transactions(std::move(transaction_root)),
-          devices(commands),
+          devices(topology),
           executor(
               std::move(roots),
               std::move(target_mount_root),
@@ -236,6 +237,7 @@ SystemDeviceProvisioningBackend::SystemDeviceProvisioningBackend(
     fs::path target_mount_root,
     fs::path mountinfo_path,
     fs::path transaction_root,
+    provisioning::StorageTopologyReader& topology,
     backup::ICommandRunner& commands,
     backup::IBtrfsOperations& btrfs,
     config::IConfigurationActivator& configuration_activator,
@@ -244,7 +246,7 @@ SystemDeviceProvisioningBackend::SystemDeviceProvisioningBackend(
     IDevicePreparationUnitController& units,
     bool recover_existing
 )
-    : impl_(std::make_unique<Impl>(std::move(roots), std::move(target_mount_root), std::move(mountinfo_path), std::move(transaction_root), commands, btrfs, configuration_activator, credentials, safety_inspector, units, recover_existing)) {
+    : impl_(std::make_unique<Impl>(std::move(roots), std::move(target_mount_root), std::move(mountinfo_path), std::move(transaction_root), topology, commands, btrfs, configuration_activator, credentials, safety_inspector, units, recover_existing)) {
 }
 
 SystemDeviceProvisioningBackend::~SystemDeviceProvisioningBackend() noexcept = default;
