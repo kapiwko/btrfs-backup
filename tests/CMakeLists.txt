@@ -110,6 +110,15 @@ assert_public_link_interface(
     btrfsbackup-platform-linux-storage
     btrfsbackup-backup-ports
 )
+if(BUILD_SYSTEM_MANAGER)
+    assert_public_link_interface(
+        btrfsbackup-daemon-provisioning
+    )
+    assert_public_link_interface(
+        btrfsbackup-platform-linux-provisioning
+        btrfsbackup-daemon-provisioning
+    )
+endif()
 assert_public_link_interface(
     btrfsbackup-platform-linux-transfer
     btrfsbackup-platform-linux-base
@@ -120,8 +129,7 @@ assert_public_link_interface(
     btrfsbackup-backup-ports
     btrfsbackup-config-ports
 )
-assert_public_link_interface(
-    btrfsbackup-platform-linux
+set(platform_linux_public_targets
     btrfsbackup-platform-linux-base
     btrfsbackup-platform-linux-filesystem
     btrfsbackup-platform-linux-process
@@ -129,6 +137,13 @@ assert_public_link_interface(
     btrfsbackup-platform-linux-storage
     btrfsbackup-platform-linux-systemd
     btrfsbackup-platform-linux-transfer
+)
+if(BUILD_SYSTEM_MANAGER)
+    list(APPEND platform_linux_public_targets btrfsbackup-platform-linux-provisioning)
+endif()
+assert_public_link_interface(
+    btrfsbackup-platform-linux
+    ${platform_linux_public_targets}
 )
 assert_public_link_interface(
     btrfsbackup-cli
@@ -199,8 +214,10 @@ if(BUILD_SYSTEM_MANAGER)
         btrfsbackup-daemon-control
         btrfsbackup-daemon-core
         btrfsbackup-daemon-dbus
+        btrfsbackup-daemon-provisioning
         btrfsbackup-daemon-query
         btrfsbackup-daemon-system-control
+        btrfsbackup-platform-linux-provisioning
     )
 endif()
 add_public_header_architecture_tests(${architecture_targets})

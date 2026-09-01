@@ -25,6 +25,7 @@
 #include <platform/linux/process/PosixCommandRunner.hpp>
 #include <platform/linux/storage/CryptsetupOperations.hpp>
 #include <platform/linux/storage/LibBtrfsOperations.hpp>
+#include <platform/linux/storage/provisioning/SystemStorageTopologyReader.hpp>
 #include <platform/linux/systemd/LinuxSystemConfigurationActivator.hpp>
 
 namespace fs = std::filesystem;
@@ -82,7 +83,10 @@ int run_device_preparation(int argc, char** argv) {
             cryptsetup,
             activator
         );
-        btrfsbackup::daemon::control::DestructiveDeviceSafetyInspector safety(commands);
+        btrfsbackup::platform::linux::storage::SystemStorageTopologyReader storage_topology({
+            .mountinfo = "/proc/self/mountinfo",
+        });
+        btrfsbackup::daemon::control::DestructiveDeviceSafetyInspector safety(storage_topology);
         btrfsbackup::daemon::control::CommandSystemdUnitController systemd_units(commands);
         btrfsbackup::daemon::control::SystemdDevicePreparationUnitController units(systemd_units);
         btrfsbackup::daemon::control::SystemDeviceProvisioningBackend backend(
@@ -90,6 +94,7 @@ int run_device_preparation(int argc, char** argv) {
             paths.target_mount_root,
             "/proc/self/mountinfo",
             transaction_root,
+            storage_topology,
             commands,
             btrfs,
             activator,

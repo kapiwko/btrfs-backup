@@ -88,6 +88,7 @@ types remain directly in `btrfsbackup`; domain code uses the following map:
 | `src/cli/status/` | `btrfsbackup::cli::status` |
 | `src/cli/target/` | `btrfsbackup::cli::target` |
 | `src/daemon/` | `btrfsbackup::daemon` |
+| `src/daemon/provisioning/` | `btrfsbackup::daemon::provisioning` |
 | `src/daemon/query/` | `btrfsbackup::daemon::query` |
 | `src/daemon/control/` | `btrfsbackup::daemon::control` |
 | `src/daemon/dbus/` | `btrfsbackup::daemon::dbus` |
@@ -145,9 +146,11 @@ flowchart TB
     manager_protocol[manager-protocol] --> daemon_core[daemon-core]
     daemon_core --> daemon_query[daemon-query]
     daemon_core --> daemon_control[daemon-control]
+    daemon_core --> daemon_provisioning[daemon-provisioning]
     config_domain --> daemon_control
     daemon_control --> daemon_dbus[daemon-dbus]
     daemon_query --> daemon_dbus
+    daemon_provisioning --> linux_provisioning[platform-linux-provisioning]
 ```
 
 Arrows show direct public link interfaces; private and third-party dependencies

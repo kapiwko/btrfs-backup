@@ -3,7 +3,6 @@
 
 #pragma once
 
-#include <filesystem>
 #include <functional>
 #include <optional>
 #include <string>
@@ -11,8 +10,8 @@
 
 #include <daemon/control/DeviceProvisioningService.hpp>
 
-namespace btrfsbackup::backup {
-class ICommandRunner;
+namespace btrfsbackup::daemon::provisioning {
+class StorageTopologyReader;
 }
 
 namespace btrfsbackup::daemon::control {
@@ -30,9 +29,7 @@ using ExclusiveDeviceProbe = std::function<std::optional<std::string>(const Prov
 class DestructiveDeviceSafetyInspector final : public IDestructiveDeviceSafetyInspector {
   public:
     explicit DestructiveDeviceSafetyInspector(
-        btrfsbackup::backup::ICommandRunner& commands,
-        std::filesystem::path proc_swaps = "/proc/swaps",
-        std::filesystem::path sys_dev_block = "/sys/dev/block",
+        provisioning::StorageTopologyReader& topology,
         ExclusiveDeviceProbe exclusive_probe = {}
     );
 
@@ -41,9 +38,7 @@ class DestructiveDeviceSafetyInspector final : public IDestructiveDeviceSafetyIn
     ) const override;
 
   private:
-    btrfsbackup::backup::ICommandRunner& commands_;
-    std::filesystem::path proc_swaps_;
-    std::filesystem::path sys_dev_block_;
+    provisioning::StorageTopologyReader& topology_;
     ExclusiveDeviceProbe exclusive_probe_;
 };
 

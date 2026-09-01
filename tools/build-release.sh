@@ -525,7 +525,7 @@ Section: admin
 Priority: optional
 Architecture: $DEB_ARCH
 Maintainer: local reproducible build <root@localhost>
-Depends: btrfs-progs (>= 6.0), coreutils, cryptsetup, libmount1, libstdc++6, libsystemd0, libudev1, polkitd, systemd, util-linux
+Depends: btrfs-progs (>= 6.0), coreutils, cryptsetup, libfdisk1, libmount1, libstdc++6, libsystemd0, libudev1, polkitd, systemd, util-linux
 Description: Verified Btrfs send/receive backups to an encrypted removable target
  systemd and udev driven Btrfs send/receive backups with LUKS target validation,
  interrupted-run recovery, retention, and controlled eject.
@@ -592,6 +592,7 @@ BuildRequires:  cmake(nlohmann_json)
 BuildRequires:  gcc-c++
 BuildRequires:  make
 BuildRequires:  pkgconfig(blkid)
+BuildRequires:  pkgconfig(fdisk)
 BuildRequires:  pkgconfig(libmount)
 BuildRequires:  pkgconfig(libsystemd)
 BuildRequires:  pkgconfig(libudev)
