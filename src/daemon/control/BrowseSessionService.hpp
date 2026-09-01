@@ -17,22 +17,30 @@
 
 namespace btrfsbackup::daemon::control {
 
-struct OpenedBrowseRoot { std::filesystem::path path; };
+struct OpenedBrowseRoot {
+    std::filesystem::path path;
+};
 
 class IBrowseSessionBackend {
   public:
     virtual ~IBrowseSessionBackend() = default;
     [[nodiscard]] virtual OpenedBrowseRoot open(
-        const ProfileId& profile_id, const BrowseSessionId& session_id, std::uint32_t caller_uid
+        const ProfileId& profile_id,
+        const BrowseSessionId& session_id,
+        std::uint32_t caller_uid
     ) = 0;
     virtual void close(const BrowseSessionId& session_id) = 0;
     virtual void cleanup_stale() = 0;
     [[nodiscard]] virtual std::vector<BackupCoverage> resolve_coverage(
-        const std::filesystem::path& local_path, const std::vector<ProfileId>& profiles
+        const std::filesystem::path& local_path,
+        const std::vector<ProfileId>& profiles
     ) = 0;
 };
 
-enum class BrowseSessionCloseReason { Requested, CallerDisconnected, Expired, Shutdown };
+enum class BrowseSessionCloseReason { Requested,
+                                      CallerDisconnected,
+                                      Expired,
+                                      Shutdown };
 
 struct BrowseSessionEvent {
     std::uint32_t caller_uid;
@@ -42,7 +50,8 @@ struct BrowseSessionEvent {
     bool succeeded;
 };
 
-using BrowseSessionClock = std::function<std::chrono::system_clock::time_point()>;
+using BrowseSessionSteadyClock = std::function<std::chrono::steady_clock::time_point()>;
+using BrowseSessionWallClock = std::function<std::chrono::system_clock::time_point()>;
 using BrowseSessionIdGenerator = std::function<BrowseSessionId()>;
 using BrowseSessionEventSink = std::function<void(const BrowseSessionEvent&)>;
 
@@ -53,13 +62,27 @@ class BrowseSessionService final {
         IBrowseSessionBackend& backend,
         std::chrono::seconds lifetime = std::chrono::minutes(15),
         BrowseSessionIdGenerator session_ids = {},
-        BrowseSessionClock clock = {},
-        BrowseSessionEventSink events = {}
+        BrowseSessionSteadyClock steady_clock = {},
+        BrowseSessionWallClock wall_clock = {},
+        BrowseSessionEventSink events = {},
+        std::size_t global_limit = 64,
+        std::size_t per_uid_limit = 8
+    );
+    [[nodiscard]] BrowseSessionInfo renew(
+        const std::string& caller_bus_name,
+        const std::string& session_id
+    );
+    void set_active(
+        const std::string& caller_bus_name,
+        const std::string& session_id,
+        bool active
     );
     ~BrowseSessionService() noexcept;
 
     [[nodiscard]] BrowseSessionInfo open(
-        const std::string& caller_bus_name, std::uint32_t caller_uid, const std::string& profile_id
+        const std::string& caller_bus_name,
+        std::uint32_t caller_uid,
+        const std::string& profile_id
     );
     void close(const std::string& caller_bus_name, const std::string& session_id);
     void close_for_caller(const std::string& caller_bus_name) noexcept;
@@ -76,9 +99,18 @@ class BrowseSessionService final {
         ProfileId profile_id;
         std::string caller_bus_name;
         std::uint32_t caller_uid;
+        std::filesystem::path root_path;
+        std::chrono::steady_clock::time_point deadline;
         std::chrono::system_clock::time_point expires_at;
+        bool active = false;
     };
 
+    [[nodiscard]] std::map<std::string, Session>::iterator owned_session(
+        const std::string& caller_bus_name,
+        const std::string& session_id
+    );
+    [[nodiscard]] BrowseSessionInfo session_info(const Session& session) const;
+    void extend(Session& session);
     void close_session(std::map<std::string, Session>::iterator session, BrowseSessionCloseReason reason);
     void close_noexcept(std::map<std::string, Session>::iterator session, BrowseSessionCloseReason reason) noexcept;
 
@@ -86,8 +118,11 @@ class BrowseSessionService final {
     IBrowseSessionBackend& backend_;
     std::chrono::seconds lifetime_;
     BrowseSessionIdGenerator session_ids_;
-    BrowseSessionClock clock_;
+    BrowseSessionSteadyClock steady_clock_;
+    BrowseSessionWallClock wall_clock_;
     BrowseSessionEventSink events_;
+    std::size_t global_limit_;
+    std::size_t per_uid_limit_;
     std::map<std::string, Session> sessions_;
 };
 

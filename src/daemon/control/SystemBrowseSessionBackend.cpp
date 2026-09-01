@@ -8,12 +8,16 @@
 
 #include <chrono>
 #include <fstream>
+#include <set>
 #include <system_error>
+#include <vector>
 
 #include <backup/planning/BackupPreflightValidation.hpp>
 #include <config/ProfileRender.hpp>
+#include <config/json/JsonIo.hpp>
 #include <config/domain/Validation.hpp>
 #include <daemon/dbus/ManagerErrors.hpp>
+#include <platform/linux/filesystem/FileIo.hpp>
 
 namespace fs = std::filesystem;
 
@@ -35,6 +39,20 @@ void require_root_directory(const fs::path& path) {
     chmod(path.c_str(), 0711);
 }
 
+void require_private_directory(const fs::path& path, mode_t mode, uid_t owner) {
+    std::error_code error;
+    fs::create_directories(path, error);
+    if (error)
+        target_error("cannot create browse session directory");
+    struct stat status{};
+    if (lstat(path.c_str(), &status) != 0 || !S_ISDIR(status.st_mode) || S_ISLNK(status.st_mode))
+        target_error("browse session directory is not trusted");
+    if (status.st_uid != owner && chown(path.c_str(), owner, static_cast<gid_t>(-1)) != 0)
+        target_error("cannot assign browse session directory owner");
+    if (chmod(path.c_str(), mode) != 0)
+        target_error("cannot set browse session directory permissions");
+}
+
 } // namespace
 
 SystemBrowseSessionBackend::SystemBrowseSessionBackend(
@@ -47,9 +65,11 @@ SystemBrowseSessionBackend::SystemBrowseSessionBackend(
 }
 
 SystemBrowseSessionBackend::~SystemBrowseSessionBackend() noexcept {
-    while (!sessions_.empty()) {
-        try { close(BrowseSessionId{sessions_.begin()->first}); }
-        catch (...) { sessions_.erase(sessions_.begin()); }
+    for (auto session = sessions_.begin(); session != sessions_.end();) {
+        auto current = session++;
+        try {
+            close(BrowseSessionId{current->first});
+        } catch (...) {}
     }
 }
 
@@ -134,6 +154,8 @@ void SystemBrowseSessionBackend::mount_read_only(
 }
 
 void SystemBrowseSessionBackend::unmount(const BrowseSessionId& session_id, const fs::path& target) {
+    if (!btrfsbackup::backup::mount_at(mounts_.inspect(), target).has_value())
+        return;
     const auto result = units_.start_transient_unit({
         .unit = "btrfs-backup-browse-unmount-" + std::string(session_id.value()) + ".service",
         .command = {"umount", target.string()},
@@ -146,48 +168,103 @@ void SystemBrowseSessionBackend::unmount(const BrowseSessionId& session_id, cons
         target_error("cannot unmount browse session");
 }
 
-void SystemBrowseSessionBackend::write_marker(
-    const BrowseSessionId& id, const ProfileId& profile, std::uint32_t uid, const SessionMount& mount
-) {
-    std::ofstream marker(mount.directory / ".btrfs-backup-session", std::ios::trunc);
-    if (!marker)
-        target_error("cannot write browse session marker");
-    marker << id.value() << '\n' << profile.value() << '\n' << uid << '\n';
-    marker.close();
-    chmod((mount.directory / ".btrfs-backup-session").c_str(), 0600);
+void SystemBrowseSessionBackend::write_marker(const BrowseSessionId& id, const SessionMount& mount) {
+    platform::linux::filesystem::atomic_write(
+        mount.marker,
+        config::json::dump_json({
+            {"schemaVersion", 1},
+            {"sessionId", id.value()},
+            {"callerUid", mount.caller_uid},
+            {"targetKey", mount.target_key},
+            {"targetUnit", mount.target_unit},
+            {"directory", mount.directory.string()},
+            {"view", mount.view.string()},
+            {"viewMounted", mount.view_mounted},
+            {"targetMountedByBackend", mount.target_mounted_by_backend},
+            {"targetReleased", mount.target_released},
+        }),
+        0600
+    );
+}
+
+std::optional<SystemBrowseSessionBackend::SessionMount> SystemBrowseSessionBackend::read_marker(
+    const fs::path& marker
+) const {
+    try {
+        struct stat status{};
+        if (lstat(marker.c_str(), &status) != 0 || !S_ISREG(status.st_mode) || status.st_uid != 0)
+            return std::nullopt;
+        const config::json::Json document = config::json::load_json_file(marker);
+        if (document.at("schemaVersion").get<int>() != 1)
+            return std::nullopt;
+        const std::uint32_t uid = document.at("callerUid").get<std::uint32_t>();
+        const fs::path expected_directory = session_root_ / std::to_string(uid) / marker.stem();
+        const fs::path directory = fs::path(document.at("directory").get<std::string>()).lexically_normal();
+        const fs::path view = fs::path(document.at("view").get<std::string>()).lexically_normal();
+        if (directory != expected_directory || view != directory / "repository")
+            return std::nullopt;
+        return SessionMount{
+            .target_key = document.at("targetKey").get<std::string>(),
+            .target_unit = document.at("targetUnit").get<std::string>(),
+            .directory = directory,
+            .view = view,
+            .marker = marker,
+            .caller_uid = uid,
+            .view_mounted = document.at("viewMounted").get<bool>(),
+            .target_mounted_by_backend = document.at("targetMountedByBackend").get<bool>(),
+            .target_released = document.at("targetReleased").get<bool>(),
+        };
+    } catch (...) {
+        return std::nullopt;
+    }
 }
 
 OpenedBrowseRoot SystemBrowseSessionBackend::open(
-    const ProfileId& profile_id, const BrowseSessionId& session_id, std::uint32_t caller_uid
+    const ProfileId& profile_id,
+    const BrowseSessionId& session_id,
+    std::uint32_t caller_uid
 ) {
     require_root_directory(session_root_);
+    const fs::path state_root = session_root_ / ".state";
+    require_private_directory(state_root, 0700, 0);
     const auto loaded = profiles_.get(profile_id);
-    (void)acquire_target(loaded.profile);
+    const TargetLease& target = acquire_target(loaded.profile);
     const std::string key{loaded.profile.target.luks_uuid.value()};
-    const fs::path directory = session_root_ / std::string(session_id.value());
+    const fs::path uid_root = session_root_ / std::to_string(caller_uid);
+    require_private_directory(uid_root, 0700, caller_uid);
+    const fs::path directory = uid_root / std::string(session_id.value());
     const fs::path view = directory / "repository";
-    bool view_mounted = false;
+    SessionMount record{
+        .target_key = key,
+        .target_unit = btrfsbackup::config::target_mount_unit_name(loaded.profile.target.mount_point),
+        .directory = directory,
+        .view = view,
+        .marker = state_root / (std::string(session_id.value()) + ".json"),
+        .caller_uid = caller_uid,
+        .target_mounted_by_backend = target.mounted_by_backend,
+    };
+    auto [session, inserted] = sessions_.emplace(std::string(session_id.value()), record);
+    if (!inserted) {
+        release_target(key);
+        target_error("browse session already exists");
+    }
     try {
         if (fs::exists(directory))
             target_error("browse session directory already exists");
         fs::create_directories(view);
-        chmod(directory.c_str(), 0711);
-        chmod(view.c_str(), 0555);
+        if (chown(directory.c_str(), caller_uid, static_cast<gid_t>(-1)) != 0 ||
+            chown(view.c_str(), caller_uid, static_cast<gid_t>(-1)) != 0 ||
+            chmod(directory.c_str(), 0500) != 0 || chmod(view.c_str(), 0500) != 0)
+            target_error("cannot secure browse session directory");
+        write_marker(session_id, session->second);
+        session->second.view_mounted = true;
+        write_marker(session_id, session->second);
         mount_read_only(session_id, loaded.profile.paths.remote_root.value(), view);
-        view_mounted = true;
-        SessionMount session{key, directory, view};
-        write_marker(session_id, profile_id, caller_uid, session);
-        sessions_.emplace(std::string(session_id.value()), session);
         return {view};
     } catch (...) {
-        if (view_mounted) {
-            try {
-                unmount(session_id, view);
-            } catch (...) {}
-        }
-        std::error_code ignored;
-        fs::remove_all(directory, ignored);
-        release_target(key);
+        try {
+            close(session_id);
+        } catch (...) {}
         throw;
     }
 }
@@ -196,49 +273,101 @@ void SystemBrowseSessionBackend::release_target(const std::string& target_key) {
     auto target = targets_.find(target_key);
     if (target == targets_.end())
         return;
-    if (--target->second->users != 0)
+    if (target->second->users > 1) {
+        --target->second->users;
         return;
-    if (target->second->mounted_by_backend && target->second->lock.try_upgrade_to_exclusive()) {
+    }
+    if (target->second->mounted_by_backend) {
+        if (!target->second->lock.try_upgrade_to_exclusive())
+            target_error("cannot acquire exclusive target lock for cleanup");
         const auto& profile = target->second->profile;
-        (void)units_.stop_unit({btrfsbackup::config::target_mount_unit_name(profile.target.mount_point), std::chrono::minutes(2)});
+        const auto result = units_.stop_unit({btrfsbackup::config::target_mount_unit_name(profile.target.mount_point), std::chrono::minutes(2)});
+        if (!result)
+            target_error("cannot unmount backup target after browsing");
     }
     targets_.erase(target);
+}
+
+void SystemBrowseSessionBackend::cleanup_record(
+    const BrowseSessionId& session_id,
+    SessionMount& mount,
+    bool release_live_target
+) {
+    if (mount.view_mounted) {
+        unmount(session_id, mount.view);
+        mount.view_mounted = false;
+        write_marker(session_id, mount);
+    }
+    std::error_code error;
+    fs::remove_all(mount.directory, error);
+    if (error)
+        target_error("cannot remove browse session directory");
+    if (!mount.target_released) {
+        if (release_live_target) {
+            release_target(mount.target_key);
+        } else if (mount.target_mounted_by_backend) {
+            if (targets_.contains(mount.target_key))
+                target_error("stale target cleanup is deferred while the target is in use");
+            const auto result = units_.stop_unit({mount.target_unit, std::chrono::minutes(2)});
+            if (!result)
+                target_error("cannot unmount backup target after stale browse session");
+        }
+        mount.target_released = true;
+        write_marker(session_id, mount);
+    }
+    if (!fs::remove(mount.marker, error) || error)
+        target_error("cannot remove browse session cleanup marker");
 }
 
 void SystemBrowseSessionBackend::close(const BrowseSessionId& session_id) {
     auto session = sessions_.find(std::string(session_id.value()));
     if (session == sessions_.end())
         return;
-    const SessionMount record = session->second;
-    unmount(session_id, record.view);
-    std::error_code error;
-    fs::remove_all(record.directory, error);
+    cleanup_record(session_id, session->second, true);
     sessions_.erase(session);
-    release_target(record.target_key);
 }
 
 void SystemBrowseSessionBackend::cleanup_stale() {
     if (!fs::exists(session_root_))
         return;
     require_root_directory(session_root_);
-    for (const auto& entry : fs::directory_iterator(session_root_)) {
-        if (entry.is_symlink() || !entry.is_directory())
+    const fs::path state_root = session_root_ / ".state";
+    require_private_directory(state_root, 0700, 0);
+    std::vector<std::pair<BrowseSessionId, SessionMount>> records;
+    for (const auto& entry : fs::directory_iterator(state_root)) {
+        if (entry.is_symlink() || !entry.is_regular_file() || entry.path().extension() != ".json")
             continue;
-        const fs::path marker = entry.path() / ".btrfs-backup-session";
-        struct stat status{};
-        if (lstat(marker.c_str(), &status) != 0 || !S_ISREG(status.st_mode) || status.st_uid != 0)
+        if (sessions_.contains(entry.path().stem().string()))
             continue;
-        const fs::path view = entry.path() / "repository";
+        auto record = read_marker(entry.path());
+        if (!record.has_value())
+            continue;
+        records.emplace_back(BrowseSessionId{entry.path().stem().string()}, std::move(*record));
+    }
+    std::set<std::string> targets_with_mounted_views;
+    for (auto& [id, record] : records) {
+        if (record.view_mounted) {
+            try {
+                unmount(id, record.view);
+                record.view_mounted = false;
+                write_marker(id, record);
+            } catch (...) {}
+        }
+        if (record.view_mounted)
+            targets_with_mounted_views.insert(record.target_key);
+    }
+    for (auto& [id, record] : records) {
+        if (record.view_mounted || targets_with_mounted_views.contains(record.target_key))
+            continue;
         try {
-            unmount(BrowseSessionId{entry.path().filename().string()}, view);
+            cleanup_record(id, record, false);
         } catch (...) {}
-        std::error_code ignored;
-        fs::remove_all(entry.path(), ignored);
     }
 }
 
 std::vector<BackupCoverage> SystemBrowseSessionBackend::resolve_coverage(
-    const fs::path& local_path, const std::vector<ProfileId>& profile_ids
+    const fs::path& local_path,
+    const std::vector<ProfileId>& profile_ids
 ) {
     std::vector<BackupCoverage> result;
     for (const ProfileId& profile_id : profile_ids) {
@@ -254,7 +383,9 @@ std::vector<BackupCoverage> SystemBrowseSessionBackend::resolve_coverage(
             continue;
         const fs::path relative = local_path.lexically_relative(best->subvolume.value());
         result.push_back({
-            std::string(profile_id.value()), std::string(best->id.value()), relative.empty() ? "." : relative.string(),
+            std::string(profile_id.value()),
+            std::string(best->id.value()),
+            relative.empty() ? "." : relative.string(),
         });
     }
     return result;

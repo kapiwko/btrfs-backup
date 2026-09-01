@@ -217,7 +217,7 @@ grep -Fq 'connected' <<<"$device" || fail 'device state was not returned'
 if grep -Fq '/dev/null' <<<"$device"; then fail 'device path crossed the bus'; fi
 
 introspection="$($BUSCTL --address="$BUS_ADDRESS" introspect "$SERVICE" "$OBJECT" "$INTERFACE")"
-for method in GetCapabilities ListProfiles GetStatus GetHistorySanitized GetDeviceState StartBackup CancelBackup ValidateTarget EjectTarget GetProfileDetails UpdateProfileSettings AddProfileSource UpdateProfileSource RemoveProfileSource DeleteProfile SetProfileEnabled ListTargetCredentials AddTargetPassphrase AddTargetKey GenerateTargetKey RemoveTargetCredential ListProvisioningDevices ListSourceCandidates StartDevicePreparation GetDevicePreparation CancelDevicePreparation; do
+for method in GetCapabilities ListProfiles GetStatus GetHistorySanitized GetDeviceState StartBackup CancelBackup ValidateTarget EjectTarget GetProfileDetails UpdateProfileSettings AddProfileSource UpdateProfileSource RemoveProfileSource DeleteProfile SetProfileEnabled OpenBrowseSession RenewBrowseSession SetBrowseSessionActive CloseBrowseSession ResolveBackupCoverage ListTargetCredentials AddTargetPassphrase AddTargetKey GenerateTargetKey RemoveTargetCredential ListProvisioningDevices ListSourceCandidates StartDevicePreparation GetDevicePreparation CancelDevicePreparation; do
     grep -Fq "$method" <<<"$introspection" || fail "missing method $method"
 done
 for signal in ProfilesChanged StatusChanged HistoryChanged DeviceStateChanged; do
