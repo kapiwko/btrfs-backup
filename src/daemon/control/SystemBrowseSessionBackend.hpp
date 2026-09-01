@@ -6,6 +6,7 @@
 #include <filesystem>
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
 
 #include <backup/ports/IMountInspector.hpp>
@@ -28,12 +29,15 @@ class SystemBrowseSessionBackend final : public IBrowseSessionBackend {
     ~SystemBrowseSessionBackend() noexcept override;
 
     [[nodiscard]] OpenedBrowseRoot open(
-        const ProfileId& profile_id, const BrowseSessionId& session_id, std::uint32_t caller_uid
+        const ProfileId& profile_id,
+        const BrowseSessionId& session_id,
+        std::uint32_t caller_uid
     ) override;
     void close(const BrowseSessionId& session_id) override;
     void cleanup_stale() override;
     [[nodiscard]] std::vector<BackupCoverage> resolve_coverage(
-        const std::filesystem::path& local_path, const std::vector<ProfileId>& profiles
+        const std::filesystem::path& local_path,
+        const std::vector<ProfileId>& profiles
     ) override;
 
   private:
@@ -43,7 +47,17 @@ class SystemBrowseSessionBackend final : public IBrowseSessionBackend {
         std::size_t users = 0;
         bool mounted_by_backend = false;
     };
-    struct SessionMount { std::string target_key; std::filesystem::path directory; std::filesystem::path view; };
+    struct SessionMount {
+        std::string target_key;
+        std::string target_unit;
+        std::filesystem::path directory;
+        std::filesystem::path view;
+        std::filesystem::path marker;
+        std::uint32_t caller_uid = 0;
+        bool view_mounted = false;
+        bool target_mounted_by_backend = false;
+        bool target_released = false;
+    };
 
     TargetLease& acquire_target(const btrfsbackup::config::Profile& profile);
     void release_target(const std::string& target_key);
@@ -53,7 +67,9 @@ class SystemBrowseSessionBackend final : public IBrowseSessionBackend {
         const std::filesystem::path& target
     );
     void unmount(const BrowseSessionId& session_id, const std::filesystem::path& target);
-    void write_marker(const BrowseSessionId& id, const ProfileId& profile, std::uint32_t uid, const SessionMount& mount);
+    void write_marker(const BrowseSessionId& id, const SessionMount& mount);
+    [[nodiscard]] std::optional<SessionMount> read_marker(const std::filesystem::path& marker) const;
+    void cleanup_record(const BrowseSessionId& session_id, SessionMount& mount, bool release_live_target);
 
     btrfsbackup::config::IProfileRepository& profiles_;
     btrfsbackup::backup::IMountInspector& mounts_;

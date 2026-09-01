@@ -53,6 +53,35 @@ std::optional<QString> reply_payload(QDBusPendingCall call) {
     return reply.value();
 }
 
+bool set_session_active(const QString& session_id, bool active) {
+    return reply_payload(btrfsbackup::kde::manager_call(QDBusConnection::systemBus(), QLatin1String(btrfsbackup::manager_protocol::method::set_browse_session_active), {session_id, active})).has_value();
+}
+
+class BrowseSessionPin final {
+  public:
+    explicit BrowseSessionPin(const QString& session_id)
+        : session_id_(session_id), active_(set_session_active(session_id_, true)) {
+    }
+    ~BrowseSessionPin() noexcept {
+        if (active_) {
+            try {
+                (void)set_session_active(session_id_, false);
+            } catch (...) {}
+        }
+    }
+    BrowseSessionPin(const BrowseSessionPin&) = delete;
+    BrowseSessionPin& operator=(const BrowseSessionPin&) = delete;
+    BrowseSessionPin(BrowseSessionPin&&) = delete;
+    BrowseSessionPin& operator=(BrowseSessionPin&&) = delete;
+    [[nodiscard]] explicit operator bool() const noexcept {
+        return active_;
+    }
+
+  private:
+    QString session_id_;
+    bool active_;
+};
+
 } // namespace
 
 BtrfsBackupWorker::BtrfsBackupWorker(const QByteArray& pool, const QByteArray& app)
@@ -84,12 +113,16 @@ std::optional<BtrfsBackupWorker::ParsedUrl> BtrfsBackupWorker::parse(const QUrl&
 BtrfsBackupWorker::Session* BtrfsBackupWorker::session(const QString& profile) {
     if (profile.isEmpty())
         return nullptr;
-    if (auto existing = sessions_.find(profile); existing != sessions_.end() && QFileInfo::exists(existing->root))
-        return &existing.value();
+    if (auto existing = sessions_.find(profile); existing != sessions_.end()) {
+        const auto renewed = reply_payload(btrfsbackup::kde::manager_call(QDBusConnection::systemBus(), QLatin1String(btrfsbackup::manager_protocol::method::renew_browse_session), {existing->id}));
+        const auto lease = renewed ? btrfsbackup::kde::parse_browse_session(*renewed) : std::nullopt;
+        if (lease && lease->session_id == existing->id && QFileInfo::exists(existing->root))
+            return &existing.value();
+        (void)reply_payload(btrfsbackup::kde::manager_call(QDBusConnection::systemBus(), QLatin1String(btrfsbackup::manager_protocol::method::close_browse_session), {existing->id}));
+        sessions_.erase(existing);
+    }
 
-    const auto payload = reply_payload(btrfsbackup::kde::manager_call(
-        QDBusConnection::systemBus(), QLatin1String(btrfsbackup::manager_protocol::method::open_browse_session), {profile}
-    ));
+    const auto payload = reply_payload(btrfsbackup::kde::manager_call(QDBusConnection::systemBus(), QLatin1String(btrfsbackup::manager_protocol::method::open_browse_session), {profile}));
     if (!payload)
         return nullptr;
     const auto opened = btrfsbackup::kde::parse_browse_session(*payload);
@@ -101,7 +134,10 @@ BtrfsBackupWorker::Session* BtrfsBackupWorker::session(const QString& profile) {
         if (!metadata)
             return std::optional<btrfsbackup::restore::DiscoveredSnapshotMetadata>{};
         return std::optional{btrfsbackup::restore::DiscoveredSnapshotMetadata{
-            metadata->is_subvolume, metadata->readonly, metadata->uuid.value(), metadata->received_uuid.value(),
+            metadata->is_subvolume,
+            metadata->readonly,
+            metadata->uuid.value(),
+            metadata->received_uuid.value(),
         }};
     });
     try {
@@ -109,9 +145,7 @@ BtrfsBackupWorker::Session* BtrfsBackupWorker::session(const QString& profile) {
         auto inserted = sessions_.insert(profile, std::move(value));
         return &inserted.value();
     } catch (...) {
-        (void)reply_payload(btrfsbackup::kde::manager_call(
-            QDBusConnection::systemBus(), QLatin1String(btrfsbackup::manager_protocol::method::close_browse_session), {opened->session_id}
-        ));
+        (void)reply_payload(btrfsbackup::kde::manager_call(QDBusConnection::systemBus(), QLatin1String(btrfsbackup::manager_protocol::method::close_browse_session), {opened->session_id}));
         return nullptr;
     }
 }
@@ -144,9 +178,7 @@ bool BtrfsBackupWorker::rewriteUrl(const QUrl& url, QUrl& local_url) {
 }
 
 KIO::WorkerResult BtrfsBackupWorker::list_profiles() {
-    const auto payload = reply_payload(btrfsbackup::kde::manager_call(
-        QDBusConnection::systemBus(), QLatin1String(btrfsbackup::manager_protocol::method::list_profiles)
-    ));
+    const auto payload = reply_payload(btrfsbackup::kde::manager_call(QDBusConnection::systemBus(), QLatin1String(btrfsbackup::manager_protocol::method::list_profiles)));
     const auto profiles = payload ? btrfsbackup::kde::parse_profiles(*payload) : std::nullopt;
     if (!profiles)
         return KIO::WorkerResult::fail(KIO::ERR_SERVICE_NOT_AVAILABLE);
@@ -161,6 +193,9 @@ KIO::WorkerResult BtrfsBackupWorker::list_snapshots(const QString& profile) {
     Session* active = session(profile);
     if (active == nullptr || !active->catalog)
         return KIO::WorkerResult::fail(KIO::ERR_ACCESS_DENIED);
+    const BrowseSessionPin pin(active->id);
+    if (!pin)
+        return KIO::WorkerResult::fail(KIO::ERR_ACCESS_DENIED);
     KIO::UDSEntryList entries;
     int count = 0;
     for (const auto& snapshot : active->catalog->snapshots()) {
@@ -171,8 +206,7 @@ KIO::WorkerResult BtrfsBackupWorker::list_snapshots(const QString& profile) {
         if (++count > maximum_directory_entries)
             return KIO::WorkerResult::fail(KIO::ERR_OUT_OF_MEMORY, u"Repository listing exceeds the safe limit"_s);
         auto entry = directory_entry(QString::fromStdString(snapshot.snapshot_id));
-        entry.fastInsert(KIO::UDSEntry::UDS_CREATION_TIME,
-            std::chrono::duration_cast<std::chrono::seconds>(snapshot.created_at.time_since_epoch()).count());
+        entry.fastInsert(KIO::UDSEntry::UDS_CREATION_TIME, std::chrono::duration_cast<std::chrono::seconds>(snapshot.created_at.time_since_epoch()).count());
         entries.push_back(std::move(entry));
     }
     listEntries(entries);
@@ -201,6 +235,9 @@ KIO::WorkerResult BtrfsBackupWorker::list_versions(const ParsedUrl& url) {
     Session* active = session(url.profile);
     if (active == nullptr || !active->catalog)
         return KIO::WorkerResult::fail(KIO::ERR_ACCESS_DENIED);
+    const BrowseSessionPin pin(active->id);
+    if (!pin)
+        return KIO::WorkerResult::fail(KIO::ERR_ACCESS_DENIED);
     KIO::UDSEntryList entries;
     for (const auto& snapshot : active->catalog->snapshots()) {
         if (wasKilled())
@@ -220,12 +257,13 @@ KIO::WorkerResult BtrfsBackupWorker::list_versions(const ParsedUrl& url) {
                     break;
                 }
             }
-        } catch (...) { valid = false; }
+        } catch (...) {
+            valid = false;
+        }
         if (!valid)
             continue;
         auto entry = directory_entry(QString::fromStdString(snapshot.snapshot_id));
-        entry.fastInsert(KIO::UDSEntry::UDS_CREATION_TIME,
-            std::chrono::duration_cast<std::chrono::seconds>(snapshot.created_at.time_since_epoch()).count());
+        entry.fastInsert(KIO::UDSEntry::UDS_CREATION_TIME, std::chrono::duration_cast<std::chrono::seconds>(snapshot.created_at.time_since_epoch()).count());
         QUrl target;
         target.setScheme(u"btrfsbackup"_s);
         QString target_path = u"/"_s + url.profile + u"/"_s + QString::fromStdString(snapshot.snapshot_id);
@@ -240,6 +278,13 @@ KIO::WorkerResult BtrfsBackupWorker::list_versions(const ParsedUrl& url) {
 }
 
 KIO::WorkerResult BtrfsBackupWorker::list_repository_directory(const QUrl& url) {
+    const auto parsed = parse(url);
+    Session* active = parsed ? session(parsed->profile) : nullptr;
+    if (active == nullptr)
+        return KIO::WorkerResult::fail(KIO::ERR_ACCESS_DENIED);
+    const BrowseSessionPin pin(active->id);
+    if (!pin)
+        return KIO::WorkerResult::fail(KIO::ERR_ACCESS_DENIED);
     QUrl local;
     if (!rewriteUrl(url, local))
         return KIO::WorkerResult::fail(KIO::ERR_DOES_NOT_EXIST);
@@ -274,6 +319,13 @@ KIO::WorkerResult BtrfsBackupWorker::list_repository_directory(const QUrl& url) 
 }
 
 KIO::WorkerResult BtrfsBackupWorker::get(const QUrl& url) {
+    const auto parsed = parse(url);
+    Session* active = parsed ? session(parsed->profile) : nullptr;
+    if (active == nullptr)
+        return KIO::WorkerResult::fail(KIO::ERR_ACCESS_DENIED);
+    const BrowseSessionPin pin(active->id);
+    if (!pin)
+        return KIO::WorkerResult::fail(KIO::ERR_ACCESS_DENIED);
     QUrl local;
     if (!rewriteUrl(url, local) || !QFileInfo(local.toLocalFile()).isFile())
         return KIO::WorkerResult::fail(KIO::ERR_DOES_NOT_EXIST);
@@ -283,6 +335,13 @@ KIO::WorkerResult BtrfsBackupWorker::get(const QUrl& url) {
 KIO::WorkerResult BtrfsBackupWorker::open(const QUrl& url, QIODevice::OpenMode mode) {
     if (mode != QIODevice::ReadOnly)
         return read_only_failure();
+    const auto parsed = parse(url);
+    Session* active = parsed ? session(parsed->profile) : nullptr;
+    if (active == nullptr)
+        return KIO::WorkerResult::fail(KIO::ERR_ACCESS_DENIED);
+    const BrowseSessionPin pin(active->id);
+    if (!pin)
+        return KIO::WorkerResult::fail(KIO::ERR_ACCESS_DENIED);
     QUrl local;
     if (!rewriteUrl(url, local) || !QFileInfo(local.toLocalFile()).isFile())
         return KIO::WorkerResult::fail(KIO::ERR_DOES_NOT_EXIST);
@@ -297,6 +356,12 @@ KIO::WorkerResult BtrfsBackupWorker::stat(const QUrl& url) {
         statEntry(directory_entry(u"."_s));
         return KIO::WorkerResult::pass();
     }
+    Session* active = session(parsed->profile);
+    if (active == nullptr)
+        return KIO::WorkerResult::fail(KIO::ERR_ACCESS_DENIED);
+    const BrowseSessionPin pin(active->id);
+    if (!pin)
+        return KIO::WorkerResult::fail(KIO::ERR_ACCESS_DENIED);
     QUrl local;
     if (!rewriteUrl(url, local))
         return KIO::WorkerResult::fail(KIO::ERR_DOES_NOT_EXIST);
@@ -314,6 +379,12 @@ KIO::WorkerResult BtrfsBackupWorker::mimetype(const QUrl& url) {
         mimeType(u"inode/directory"_s);
         return KIO::WorkerResult::pass();
     }
+    Session* active = session(parsed->profile);
+    if (active == nullptr)
+        return KIO::WorkerResult::fail(KIO::ERR_ACCESS_DENIED);
+    const BrowseSessionPin pin(active->id);
+    if (!pin)
+        return KIO::WorkerResult::fail(KIO::ERR_ACCESS_DENIED);
     return KIO::ForwardingWorkerBase::mimetype(url);
 }
 
@@ -321,22 +392,38 @@ KIO::WorkerResult BtrfsBackupWorker::read_only_failure() {
     return KIO::WorkerResult::fail(KIO::ERR_WRITE_ACCESS_DENIED, u"Backup repositories are read-only"_s);
 }
 
-KIO::WorkerResult BtrfsBackupWorker::put(const QUrl&, int, KIO::JobFlags) { return read_only_failure(); }
-KIO::WorkerResult BtrfsBackupWorker::mkdir(const QUrl&, int) { return read_only_failure(); }
-KIO::WorkerResult BtrfsBackupWorker::rename(const QUrl&, const QUrl&, KIO::JobFlags) { return read_only_failure(); }
-KIO::WorkerResult BtrfsBackupWorker::symlink(const QString&, const QUrl&, KIO::JobFlags) { return read_only_failure(); }
-KIO::WorkerResult BtrfsBackupWorker::chmod(const QUrl&, int) { return read_only_failure(); }
-KIO::WorkerResult BtrfsBackupWorker::chown(const QUrl&, const QString&, const QString&) { return read_only_failure(); }
-KIO::WorkerResult BtrfsBackupWorker::setModificationTime(const QUrl&, const QDateTime&) { return read_only_failure(); }
-KIO::WorkerResult BtrfsBackupWorker::copy(const QUrl&, const QUrl&, int, KIO::JobFlags) { return read_only_failure(); }
-KIO::WorkerResult BtrfsBackupWorker::del(const QUrl&, bool) { return read_only_failure(); }
+KIO::WorkerResult BtrfsBackupWorker::put(const QUrl&, int, KIO::JobFlags) {
+    return read_only_failure();
+}
+KIO::WorkerResult BtrfsBackupWorker::mkdir(const QUrl&, int) {
+    return read_only_failure();
+}
+KIO::WorkerResult BtrfsBackupWorker::rename(const QUrl&, const QUrl&, KIO::JobFlags) {
+    return read_only_failure();
+}
+KIO::WorkerResult BtrfsBackupWorker::symlink(const QString&, const QUrl&, KIO::JobFlags) {
+    return read_only_failure();
+}
+KIO::WorkerResult BtrfsBackupWorker::chmod(const QUrl&, int) {
+    return read_only_failure();
+}
+KIO::WorkerResult BtrfsBackupWorker::chown(const QUrl&, const QString&, const QString&) {
+    return read_only_failure();
+}
+KIO::WorkerResult BtrfsBackupWorker::setModificationTime(const QUrl&, const QDateTime&) {
+    return read_only_failure();
+}
+KIO::WorkerResult BtrfsBackupWorker::copy(const QUrl&, const QUrl&, int, KIO::JobFlags) {
+    return read_only_failure();
+}
+KIO::WorkerResult BtrfsBackupWorker::del(const QUrl&, bool) {
+    return read_only_failure();
+}
 
 void BtrfsBackupWorker::close_sessions() noexcept {
     for (const Session& session : std::as_const(sessions_)) {
         try {
-            (void)reply_payload(btrfsbackup::kde::manager_call(
-                QDBusConnection::systemBus(), QLatin1String(btrfsbackup::manager_protocol::method::close_browse_session), {session.id}
-            ));
+            (void)reply_payload(btrfsbackup::kde::manager_call(QDBusConnection::systemBus(), QLatin1String(btrfsbackup::manager_protocol::method::close_browse_session), {session.id}));
         } catch (...) {}
     }
     sessions_.clear();

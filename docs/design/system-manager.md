@@ -44,6 +44,8 @@ RemoveProfileSource
 DeleteProfile
 GetBackupCoverage
 OpenBrowseSession
+RenewBrowseSession
+SetBrowseSessionActive
 CloseBrowseSession
 ProfilesChanged
 StatusChanged

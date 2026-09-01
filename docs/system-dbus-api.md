@@ -51,6 +51,8 @@ schema versions are not advertised as public API versions.
 | `RemoveProfileSource` | `(s profileId, s sourceId, s generation, s fingerprint)` | `(s)` | removes a source definition without deleting backup data |
 | `DeleteProfile` | `(s profileId, s generation, s fingerprint)` | `(s)` | transactionally removed profile artifacts |
 | `OpenBrowseSession` | `(s profileId)` | `(s)` | caller-bound, expiring read-only repository session |
+| `RenewBrowseSession` | `(s sessionId)` | `(s)` | extends the monotonic TTL of a session owned by the caller |
+| `SetBrowseSessionActive` | `(s sessionId, b active)` | `(s)` | pins or unpins an owned session during an active transfer |
 | `CloseBrowseSession` | `(s sessionId)` | `(s)` | closes a session owned by the caller |
 | `ResolveBackupCoverage` | `(s localPath)` | `(s)` | presentation-safe profile/source coverage for a local path |
 | `ListTargetCredentials` | `(s profileId)` | `(s)` | occupied LUKS2 keyslots with labels only for managed credentials |
@@ -95,6 +97,12 @@ initial call returns after the secret has been copied into protected memory.
 Clients poll the operation document and may cancel only while `canCancel` is
 true. The daemon revalidates the selected disk path, size, serial, mount state
 and initial Btrfs source after polkit authorization and before erasing data.
+
+API minor version 4 adds caller-owned browse-session renewal and active-operation
+pinning. Session expiry uses a monotonic clock; the wall-clock expiry in the
+response is informational. The daemon limits sessions globally and per UID,
+keeps each view below a per-UID directory, and persists incomplete cleanup for
+retry after failures or restart.
 
 The `target-storage-usage` feature is part of the current major-version
 baseline. The device-state parent remains schema version 1 and may contain this
@@ -184,6 +192,8 @@ currently open profile, including changes published by the CLI.
 | `RemoveProfileSource` | administrative | `io.github.btrfsbackup.manage-profile-configuration` |
 | `DeleteProfile` | administrative | `io.github.btrfsbackup.delete-profile-configuration` |
 | `OpenBrowseSession` | repository access | `io.github.btrfsbackup.open-browse-session` |
+| `RenewBrowseSession` | session ownership | none |
+| `SetBrowseSessionActive` | session ownership | none |
 | `CloseBrowseSession` | session ownership | none |
 | `ResolveBackupCoverage` | none | none |
 

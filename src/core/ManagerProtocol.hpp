@@ -11,7 +11,7 @@ inline constexpr char object_path[] = "/io/github/btrfsbackup/Manager1";
 inline constexpr char interface_name[] = "io.github.btrfsbackup.Manager1";
 
 inline constexpr int api_major = 2;
-inline constexpr int api_minor = 3;
+inline constexpr int api_minor = 4;
 inline constexpr int capabilities_schema_version = 1;
 inline constexpr int profile_schema_version = 4;
 inline constexpr int profile_summary_schema_version = 2;
@@ -65,6 +65,8 @@ inline constexpr char remove_profile_source[] = "RemoveProfileSource";
 inline constexpr char delete_profile[] = "DeleteProfile";
 inline constexpr char set_profile_enabled[] = "SetProfileEnabled";
 inline constexpr char open_browse_session[] = "OpenBrowseSession";
+inline constexpr char renew_browse_session[] = "RenewBrowseSession";
+inline constexpr char set_browse_session_active[] = "SetBrowseSessionActive";
 inline constexpr char close_browse_session[] = "CloseBrowseSession";
 inline constexpr char resolve_backup_coverage[] = "ResolveBackupCoverage";
 inline constexpr char list_target_credentials[] = "ListTargetCredentials";

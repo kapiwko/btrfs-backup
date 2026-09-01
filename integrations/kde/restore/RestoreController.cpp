@@ -53,14 +53,30 @@ RestoreController::~RestoreController() noexcept {
     close_session();
 }
 
-QUrl RestoreController::sourceUrl() const { return source_url_; }
-QString RestoreController::sourceName() const { return relative_path_ == u"."_s ? snapshot_id_ : QFileInfo(relative_path_).fileName(); }
-QString RestoreController::destination() const { return destination_; }
-bool RestoreController::replaceExisting() const { return replace_existing_; }
-QString RestoreController::planSummary() const { return plan_summary_; }
-QString RestoreController::errorText() const { return error_text_; }
-bool RestoreController::busy() const { return busy_; }
-bool RestoreController::completed() const { return completed_; }
+QUrl RestoreController::sourceUrl() const {
+    return source_url_;
+}
+QString RestoreController::sourceName() const {
+    return relative_path_ == u"."_s ? snapshot_id_ : QFileInfo(relative_path_).fileName();
+}
+QString RestoreController::destination() const {
+    return destination_;
+}
+bool RestoreController::replaceExisting() const {
+    return replace_existing_;
+}
+QString RestoreController::planSummary() const {
+    return plan_summary_;
+}
+QString RestoreController::errorText() const {
+    return error_text_;
+}
+bool RestoreController::busy() const {
+    return busy_;
+}
+bool RestoreController::completed() const {
+    return completed_;
+}
 
 void RestoreController::setDestination(const QString& value) {
     const QString normalized = QDir::cleanPath(value);
@@ -89,7 +105,8 @@ bool RestoreController::prepare_plan() {
             throw std::runtime_error("restore source or destination is invalid");
         if (!catalog_) {
             const auto payload = manager_payload(
-                QLatin1String(btrfsbackup::manager_protocol::method::open_browse_session), {profile_id_}
+                QLatin1String(btrfsbackup::manager_protocol::method::open_browse_session),
+                {profile_id_}
             );
             const auto session = payload ? btrfsbackup::kde::parse_browse_session(*payload) : std::nullopt;
             if (!session || session->profile_id != profile_id_)
@@ -101,22 +118,31 @@ bool RestoreController::prepare_plan() {
                 if (!metadata)
                     return std::optional<btrfsbackup::restore::DiscoveredSnapshotMetadata>{};
                 return std::optional{btrfsbackup::restore::DiscoveredSnapshotMetadata{
-                    metadata->is_subvolume, metadata->readonly, metadata->uuid.value(), metadata->received_uuid.value(),
+                    metadata->is_subvolume,
+                    metadata->readonly,
+                    metadata->uuid.value(),
+                    metadata->received_uuid.value(),
                 }};
             });
             catalog_.emplace(discovery.discover(session_root_.toStdString()));
+        } else {
+            const auto renewed = manager_payload(
+                QLatin1String(btrfsbackup::manager_protocol::method::renew_browse_session),
+                {session_id_}
+            );
+            const auto lease = renewed ? btrfsbackup::kde::parse_browse_session(*renewed) : std::nullopt;
+            if (!lease || lease->session_id != session_id_ || lease->profile_id != profile_id_)
+                throw std::runtime_error("could not renew the backup browsing session");
         }
         btrfsbackup::restore::RestorePlanner planner;
         plan_ = planner.plan(*catalog_, {
-            .transaction_id = QUuid::createUuid().toString(QUuid::WithoutBraces).toStdString(),
-            .snapshot_id = snapshot_id_.toStdString(),
-            .source_path = btrfsbackup::restore::RelativeRestorePath{relative_path_.toStdString()},
-            .destination = destination_.toStdString(),
-            .kind = btrfsbackup::restore::RestoreKind::Files,
-            .existing_destination = replace_existing_
-                ? btrfsbackup::restore::ExistingDestinationPolicy::Replace
-                : btrfsbackup::restore::ExistingDestinationPolicy::Fail,
-        });
+                                            .transaction_id = QUuid::createUuid().toString(QUuid::WithoutBraces).toStdString(),
+                                            .snapshot_id = snapshot_id_.toStdString(),
+                                            .source_path = btrfsbackup::restore::RelativeRestorePath{relative_path_.toStdString()},
+                                            .destination = destination_.toStdString(),
+                                            .kind = btrfsbackup::restore::RestoreKind::Files,
+                                            .existing_destination = replace_existing_ ? btrfsbackup::restore::ExistingDestinationPolicy::Replace : btrfsbackup::restore::ExistingDestinationPolicy::Fail,
+                                        });
         plan_summary_ = plan_->destination_exists
             ? i18n("Replace %1, preserve metadata, then verify the restored data.", destination_)
             : i18n("Restore to %1, preserve metadata, then verify the restored data.", destination_);
@@ -133,7 +159,9 @@ bool RestoreController::prepare_plan() {
     }
 }
 
-bool RestoreController::preview() { return prepare_plan(); }
+bool RestoreController::preview() {
+    return prepare_plan();
+}
 
 void RestoreController::execute() {
     if (busy_ || (!plan_ && !prepare_plan()))
@@ -141,6 +169,16 @@ void RestoreController::execute() {
     busy_ = true;
     completed_ = false;
     error_text_.clear();
+    const auto pinned = manager_payload(
+        QLatin1String(btrfsbackup::manager_protocol::method::set_browse_session_active),
+        {session_id_, true}
+    );
+    if (!pinned) {
+        busy_ = false;
+        error_text_ = i18n("Could not keep the backup browsing session active.");
+        Q_EMIT stateChanged();
+        return;
+    }
     Q_EMIT stateChanged();
     job_ = new RestoreJob(*plan_, this);
     tracker_.registerJob(job_);
@@ -172,6 +210,10 @@ void RestoreController::close_session() noexcept {
     if (session_id_.isEmpty())
         return;
     try {
+        (void)manager_payload(
+            QLatin1String(btrfsbackup::manager_protocol::method::set_browse_session_active),
+            {session_id_, false}
+        );
         (void)manager_payload(QLatin1String(btrfsbackup::manager_protocol::method::close_browse_session), {session_id_});
     } catch (...) {}
     session_id_.clear();

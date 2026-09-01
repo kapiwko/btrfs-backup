@@ -34,7 +34,9 @@ class Authorizer final : public IManagerAuthorizer {
         actions.push_back(action);
         return allowed;
     }
-    bool caller_is_active(const std::string&) override { return active; }
+    bool caller_is_active(const std::string&) override {
+        return active;
+    }
 };
 
 class Backend final : public IBrowseSessionBackend {
@@ -52,10 +54,15 @@ class Backend final : public IBrowseSessionBackend {
         if (fail_close)
             throw std::runtime_error("cleanup failed");
     }
-    void cleanup_stale() override { ++stale_cleanups; }
+    void cleanup_stale() override {
+        ++stale_cleanups;
+    }
     std::vector<btrfsbackup::daemon::BackupCoverage> resolve_coverage(
-        const std::filesystem::path&, const std::vector<ProfileId>&
-    ) override { return {}; }
+        const std::filesystem::path&,
+        const std::vector<ProfileId>&
+    ) override {
+        return {};
+    }
 };
 
 void expect_error(const char* name, ManagerErrorCode code, const std::function<void()>& operation) {
@@ -71,8 +78,7 @@ void test_authorized_open_and_owned_close() {
     Authorizer authorizer;
     Backend backend;
     std::vector<BrowseSessionEvent> events;
-    BrowseSessionService service(authorizer, backend, std::chrono::minutes{15}, [] { return BrowseSessionId{"browse-one"}; }, {},
-        [&](const BrowseSessionEvent& event) { events.push_back(event); });
+    BrowseSessionService service(authorizer, backend, std::chrono::minutes{15}, [] { return BrowseSessionId{"browse-one"}; }, {}, {}, [&](const BrowseSessionEvent& event) { events.push_back(event); });
 
     const auto session = service.open(":1.10", 1000, "default");
     test_helpers::expect_eq("session id", session.session_id, "browse-one");
@@ -101,6 +107,8 @@ void test_foreign_caller_cannot_close_session() {
     Backend backend;
     BrowseSessionService service(authorizer, backend, std::chrono::minutes{15}, [] { return BrowseSessionId{"browse-owned"}; });
     (void)service.open(":1.30", 1000, "default");
+    expect_error("foreign renew", ManagerErrorCode::NotAuthorized, [&] { (void)service.renew(":1.31", "browse-owned"); });
+    expect_error("foreign pin", ManagerErrorCode::NotAuthorized, [&] { service.set_active(":1.31", "browse-owned", true); });
     expect_error("foreign close", ManagerErrorCode::NotAuthorized, [&] { service.close(":1.31", "browse-owned"); });
     test_helpers::expect_true("foreign resource preserved", backend.closed.empty(), "foreign caller closed the session");
     service.close(":1.30", "browse-owned");
@@ -124,16 +132,102 @@ void test_expiration_and_cleanup_failure_are_contained() {
     Authorizer authorizer;
     Backend backend;
     std::vector<BrowseSessionEvent> events;
-    auto now = std::chrono::system_clock::time_point{std::chrono::seconds{100}};
-    BrowseSessionService service(authorizer, backend, std::chrono::seconds{10}, [] { return BrowseSessionId{"browse-expiring"}; },
-        [&] { return now; }, [&](const BrowseSessionEvent& event) { events.push_back(event); });
+    auto now = std::chrono::steady_clock::time_point{std::chrono::seconds{100}};
+    BrowseSessionService service(authorizer, backend, std::chrono::seconds{10}, [] { return BrowseSessionId{"browse-expiring"}; }, [&] { return now; }, {}, [&](const BrowseSessionEvent& event) { events.push_back(event); });
     (void)service.open(":1.50", 1000, "default");
     now += std::chrono::seconds{11};
     backend.fail_close = true;
     service.expire();
+    test_helpers::expect_true("periodic stale cleanup", backend.stale_cleanups == 2, "stale cleanup was not retried");
     test_helpers::expect_true("expiration attempted", backend.closed == std::vector<std::string>{"browse-expiring"}, "expired session was not closed");
     test_helpers::expect_true("cleanup failure event", events.size() == 1 && !events.front().succeeded && events.front().reason == BrowseSessionCloseReason::Expired, "cleanup failure was not reported");
-    expect_error("expired absent", ManagerErrorCode::NotFound, [&] { service.close(":1.50", "browse-expiring"); });
+    backend.fail_close = false;
+    service.close(":1.50", "browse-expiring");
+    expect_error("closed absent", ManagerErrorCode::NotFound, [&] { service.close(":1.50", "browse-expiring"); });
+}
+
+void test_failed_disconnect_unpins_session_for_cleanup_retry() {
+    Authorizer authorizer;
+    Backend backend;
+    BrowseSessionService service(
+        authorizer,
+        backend,
+        std::chrono::minutes{15},
+        [] { return BrowseSessionId{"browse-disconnected-active"}; }
+    );
+    const auto opened = service.open(":1.55", 1000, "default");
+    service.set_active(":1.55", opened.session_id, true);
+    backend.fail_close = true;
+    service.close_for_caller(":1.55");
+    backend.fail_close = false;
+    service.expire();
+    test_helpers::expect_true(
+        "disconnected cleanup retried",
+        backend.closed == std::vector<std::string>{"browse-disconnected-active", "browse-disconnected-active"},
+        "active disconnected session was not retried"
+    );
+}
+
+void test_renewal_uses_monotonic_deadline_and_active_pin() {
+    Authorizer authorizer;
+    Backend backend;
+    auto monotonic = std::chrono::steady_clock::time_point{std::chrono::seconds{100}};
+    auto wall = std::chrono::system_clock::time_point{std::chrono::seconds{1000}};
+    BrowseSessionService service(
+        authorizer,
+        backend,
+        std::chrono::seconds{10},
+        [] { return BrowseSessionId{"browse-renew"}; },
+        [&] { return monotonic; },
+        [&] { return wall; }
+    );
+    const auto opened = service.open(":1.60", 1000, "default");
+    wall -= std::chrono::hours{24};
+    monotonic += std::chrono::seconds{9};
+    const auto renewed = service.renew(":1.60", opened.session_id);
+    test_helpers::expect_true(
+        "renewed wall expiry",
+        renewed.expires_at != opened.expires_at,
+        "renewal did not refresh the display expiry"
+    );
+    monotonic += std::chrono::seconds{11};
+    service.set_active(":1.60", opened.session_id, true);
+    monotonic += std::chrono::hours{1};
+    service.expire();
+    test_helpers::expect_true("active session pinned", backend.closed.empty(), "active operation expired");
+    service.set_active(":1.60", opened.session_id, false);
+    monotonic += std::chrono::seconds{11};
+    service.expire();
+    test_helpers::expect_true("inactive session expired", backend.closed.size() == 1, "inactive session remained");
+}
+
+void test_session_limits_are_enforced_before_backend_open() {
+    Authorizer authorizer;
+    Backend backend;
+    int next = 0;
+    BrowseSessionService service(
+        authorizer,
+        backend,
+        std::chrono::minutes{15},
+        [&] { return BrowseSessionId{"browse-limit-" + std::to_string(++next)}; },
+        {},
+        {},
+        {},
+        2,
+        1
+    );
+    static_cast<void>(service.open(":1.70", 1000, "default"));
+    expect_error("per caller limit", ManagerErrorCode::Busy, [&] {
+        static_cast<void>(service.open(":1.70", 1000, "archive"));
+    });
+    expect_error("per uid limit", ManagerErrorCode::Busy, [&] {
+        static_cast<void>(service.open(":1.71", 1000, "archive"));
+    });
+    static_cast<void>(service.open(":1.72", 1001, "archive"));
+    expect_error("global session limit", ManagerErrorCode::Busy, [&] {
+        static_cast<void>(service.open(":1.73", 1002, "third"));
+    });
+    test_helpers::expect_true("limited backend opens", backend.opened.size() == 2, "limit reached backend open");
 }
 
 } // namespace
@@ -144,5 +238,8 @@ int main() {
     test_foreign_caller_cannot_close_session();
     test_disconnect_only_closes_callers_sessions();
     test_expiration_and_cleanup_failure_are_contained();
+    test_failed_disconnect_unpins_session_for_cleanup_retry();
+    test_renewal_uses_monotonic_deadline_and_active_pin();
+    test_session_limits_are_enforced_before_backend_open();
     return test_helpers::finish("browse session service tests");
 }
