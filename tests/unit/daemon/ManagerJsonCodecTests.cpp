@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <config/json/Json.hpp>
@@ -216,6 +217,56 @@ void test_provisioning_candidate_contract() {
     );
 }
 
+void test_storage_topology_and_plan_contract() {
+    namespace provisioning = btrfsbackup::daemon::provisioning;
+    const ManagerJsonCodec codec;
+    provisioning::StorageDevice device;
+    device.candidate_id = "opaque-device";
+    device.identity.display_path = "/dev/sdb";
+    device.identity.major_minor = "8:16";
+    device.display_name = "Backup disk";
+    device.size_bytes = 1024;
+    device.logical_sector_size = 512;
+    device.partition_table.type = provisioning::PartitionTableType::Gpt;
+    provisioning::ExistingPartition partition;
+    partition.candidate_id = "opaque-partition";
+    partition.identity.display_path = "/dev/sdb1";
+    partition.identity.major_minor = "8:17";
+    partition.partition_number = 1;
+    partition.start_sector = 1;
+    partition.sector_count = 1;
+    partition.filesystem.type = "ext4";
+    device.regions.emplace_back(std::move(partition));
+    const provisioning::StorageTopology topology{.generation = "topology-1", .devices = {device}};
+    const Json topology_document = Json::parse(codec.encode(topology));
+    expect_field("topology", topology_document, "schemaVersion", 1);
+    expect_field("topology", topology_document, "generation", "topology-1");
+    expect_field("topology candidate", topology_document.at("devices").at(0), "candidateId", "opaque-device");
+    test_helpers::expect_true(
+        "topology identity privacy",
+        !topology_document.at("devices").at(0).contains("majorMinor"),
+        "internal block identity was exposed"
+    );
+
+    const auto plan = provisioning::DevicePreparationPlanBuilder{}.build(
+        topology,
+        topology.generation,
+        device.candidate_id,
+        provisioning::ProvisioningMode::EraseWholeDevice,
+        "plan-1"
+    );
+    const Json plan_document = Json::parse(codec.encode(plan));
+    expect_field("plan", plan_document, "schemaVersion", 1);
+    expect_field("plan", plan_document, "planId", "plan-1");
+    expect_field("plan", plan_document, "mode", "erase-whole-device");
+    test_helpers::expect_true(
+        "plan layouts",
+        plan_document.at("before").at("regions").size() == 1 &&
+            plan_document.at("after").at("regions").size() == 1,
+        "before or after layout is missing"
+    );
+}
+
 } // namespace
 
 int main() {
@@ -223,5 +274,6 @@ int main() {
     test_profiles();
     test_status_history_and_device();
     test_provisioning_candidate_contract();
+    test_storage_topology_and_plan_contract();
     return test_helpers::finish("manager JSON codec tests");
 }

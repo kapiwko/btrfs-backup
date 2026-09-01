@@ -65,6 +65,8 @@ std::optional<ManagerAuthorizationAction> manager_method_authorization_action(
         std::pair{manager_protocol::method::generate_target_key, ManagerAuthorizationAction::ManageTargetCredentials},
         std::pair{manager_protocol::method::remove_target_credential, ManagerAuthorizationAction::ManageTargetCredentials},
         std::pair{manager_protocol::method::list_provisioning_devices, ManagerAuthorizationAction::PrepareBackupDevice},
+        std::pair{manager_protocol::method::inspect_storage_topology, ManagerAuthorizationAction::PrepareBackupDevice},
+        std::pair{manager_protocol::method::build_device_preparation_plan, ManagerAuthorizationAction::PrepareBackupDevice},
         std::pair{manager_protocol::method::list_source_candidates, ManagerAuthorizationAction::PrepareBackupDevice},
         std::pair{manager_protocol::method::start_device_preparation, ManagerAuthorizationAction::PrepareBackupDevice},
         std::pair{manager_protocol::method::get_device_preparation, ManagerAuthorizationAction::PrepareBackupDevice},

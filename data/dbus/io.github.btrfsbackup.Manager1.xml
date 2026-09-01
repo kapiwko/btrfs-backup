@@ -145,6 +145,13 @@ SPDX-License-Identifier: GPL-3.0-or-later
     <method name="ListProvisioningDevices">
       <arg name="payload" type="s" direction="out"/>
     </method>
+    <method name="InspectStorageTopology">
+      <arg name="payload" type="s" direction="out"/>
+    </method>
+    <method name="BuildDevicePreparationPlan">
+      <arg name="request" type="s" direction="in"/>
+      <arg name="payload" type="s" direction="out"/>
+    </method>
     <method name="ListSourceCandidates">
       <arg name="payload" type="s" direction="out"/>
     </method>

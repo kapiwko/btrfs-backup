@@ -80,6 +80,7 @@ target_link_libraries(btrfsbackup-daemon-control
     PUBLIC
         btrfsbackup-config-domain
         btrfsbackup-daemon-core
+        btrfsbackup-daemon-provisioning
     PRIVATE
         btrfsbackup-config-json
         btrfsbackup-core

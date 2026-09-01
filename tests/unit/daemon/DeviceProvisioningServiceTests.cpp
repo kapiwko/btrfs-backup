@@ -5,6 +5,7 @@
 
 #include <core/Errors.hpp>
 #include <daemon/dbus/ManagerErrors.hpp>
+#include <daemon/provisioning/StorageTopologyReader.hpp>
 
 #include "support/TestHelpers.hpp"
 
@@ -16,6 +17,13 @@ using btrfsbackup::daemon::control::IDeviceProvisioningBackend;
 using btrfsbackup::daemon::control::IManagerAuthorizer;
 using btrfsbackup::daemon::control::ManagerAuthorizationAction;
 using btrfsbackup::daemon::control::ProvisioningDevice;
+using btrfsbackup::daemon::provisioning::ExistingPartition;
+using btrfsbackup::daemon::provisioning::PartitionTableType;
+using btrfsbackup::daemon::provisioning::ProvisioningMode;
+using btrfsbackup::daemon::provisioning::StorageDevice;
+using btrfsbackup::daemon::provisioning::StorageRegion;
+using btrfsbackup::daemon::provisioning::StorageTopology;
+using btrfsbackup::daemon::provisioning::StorageTopologyReader;
 
 class Authorizer final : public IManagerAuthorizer {
   public:
@@ -98,6 +106,41 @@ class Backend final : public IDeviceProvisioningBackend {
     }
     void cancel(const std::string&) override {
         cancelled = true;
+    }
+};
+
+class TopologyReader final : public StorageTopologyReader {
+  public:
+    std::string generation = "topology-1";
+    StorageTopology scan() override {
+        ExistingPartition partition{
+            .candidate_id = "raw-partition",
+            .identity = {.display_path = "/dev/test1", .major_minor = "8:17", .size_bytes = 512},
+            .partition_uuid = "part-uuid",
+            .partition_number = 1,
+            .start_sector = 1,
+            .sector_count = 1,
+            .filesystem = {.type = "ext4"},
+        };
+        StorageDevice device{
+            .candidate_id = "raw-device",
+            .identity = {
+                .display_path = "/dev/test",
+                .major_minor = "8:16",
+                .sysfs_path = "/devices/test/block/test",
+                .wwn = "wwn-test",
+                .serial = "vendor_serial",
+                .serial_short = "serial",
+                .size_bytes = 1024,
+            },
+            .display_name = "Test disk",
+            .transport = "usb",
+            .size_bytes = 1024,
+            .logical_sector_size = 512,
+            .partition_table = {.type = PartitionTableType::Gpt, .identifier = "pt-uuid"},
+            .regions = {StorageRegion{std::move(partition)}},
+        };
+        return {.generation = generation, .devices = {std::move(device)}};
     }
 };
 
@@ -282,6 +325,63 @@ void test_invalid_request_is_rejected_before_backend() {
     } catch (const btrfsbackup::ValidationError&) {
     }
 }
+
+void test_topology_and_plan_are_caller_bound_and_revalidated() {
+    Authorizer authorizer;
+    Backend backend;
+    TopologyReader reader;
+    int sequence = 0;
+    DeviceProvisioningService service(
+        authorizer,
+        backend,
+        std::chrono::minutes(5),
+        [&] { return "opaque-" + std::to_string(++sequence); },
+        {},
+        &reader
+    );
+    const auto topology = service.inspect_storage_topology(":1.20");
+    test_helpers::expect_true(
+        "opaque topology candidates",
+        topology.devices.front().candidate_id != "raw-device" &&
+            std::get<ExistingPartition>(topology.devices.front().regions.front()).candidate_id != "raw-partition",
+        "raw storage identity escaped as a candidate"
+    );
+    const auto plan = service.build_device_preparation_plan(
+        ":1.20",
+        topology.generation,
+        topology.devices.front().candidate_id,
+        ProvisioningMode::EraseWholeDevice
+    );
+    test_helpers::expect_true("caller plan", !plan.id.empty(), "plan identifier is empty");
+    const auto started = service.start(
+        ":1.20",
+        1000,
+        request(topology.devices.front().candidate_id),
+        17
+    );
+    test_helpers::expect_eq("topology execution candidate", started.operation_id, "prepare-1");
+    try {
+        static_cast<void>(service.build_device_preparation_plan(
+            ":1.21",
+            topology.generation,
+            topology.devices.front().candidate_id,
+            ProvisioningMode::EraseWholeDevice
+        ));
+        test_helpers::fail("foreign topology", "another caller reused a topology snapshot");
+    } catch (const btrfsbackup::daemon::dbus::ManagerOperationError&) {
+    }
+    reader.generation = "topology-2";
+    try {
+        static_cast<void>(service.build_device_preparation_plan(
+            ":1.20",
+            topology.generation,
+            topology.devices.front().candidate_id,
+            ProvisioningMode::EraseWholeDevice
+        ));
+        test_helpers::fail("changed topology", "changed topology was accepted");
+    } catch (const btrfsbackup::daemon::dbus::ManagerOperationError&) {
+    }
+}
 } // namespace
 
 int main() {
@@ -293,5 +393,6 @@ int main() {
     test_denied_start();
     test_unsafe_device_is_rejected_before_authorization();
     test_invalid_request_is_rejected_before_backend();
+    test_topology_and_plan_are_caller_bound_and_revalidated();
     return test_helpers::finish("device provisioning service tests");
 }

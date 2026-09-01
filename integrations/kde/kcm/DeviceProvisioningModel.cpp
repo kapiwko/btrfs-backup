@@ -60,6 +60,12 @@ DeviceProvisioningModel::DeviceProvisioningModel(QObject* parent)
 QVariantList DeviceProvisioningModel::devices() const {
     return devices_;
 }
+QVariantMap DeviceProvisioningModel::topology() const {
+    return topology_;
+}
+QVariantMap DeviceProvisioningModel::plan() const {
+    return plan_;
+}
 QVariantMap DeviceProvisioningModel::operation() const {
     return operation_;
 }
@@ -75,7 +81,31 @@ QString DeviceProvisioningModel::errorMessage() const {
 
 void DeviceProvisioningModel::refresh() {
     if (!busy_)
-        request(RequestKind::Devices, QLatin1String(manager_protocol::method::list_provisioning_devices));
+        request(RequestKind::Topology, QLatin1String(manager_protocol::method::inspect_storage_topology));
+}
+
+void DeviceProvisioningModel::buildPlan(const QVariantMap& device) {
+    if (busy_ || topology_.isEmpty())
+        return;
+    const QString path = device.value(QStringLiteral("path")).toString();
+    const QString topology_candidate = device.value(QStringLiteral("candidateId")).toString();
+    if (topology_candidate.isEmpty()) {
+        setError(i18n("Refresh the storage layout and select the disk again."));
+        return;
+    }
+    plan_.clear();
+    pending_plan_path_ = path;
+    emit planChanged();
+    const QJsonObject payload{
+        {QStringLiteral("topologyGeneration"), topology_.value(QStringLiteral("generation")).toString()},
+        {QStringLiteral("candidateId"), topology_candidate},
+        {QStringLiteral("mode"), QStringLiteral("erase-whole-device")},
+    };
+    request(
+        RequestKind::Plan,
+        QLatin1String(manager_protocol::method::build_device_preparation_plan),
+        {QString::fromUtf8(QJsonDocument(payload).toJson(QJsonDocument::Compact))}
+    );
 }
 
 void DeviceProvisioningModel::start(
@@ -149,18 +179,58 @@ void DeviceProvisioningModel::request(RequestKind kind, const QString& method, c
             return;
         }
         bool valid = true;
-        if (kind == RequestKind::Devices)
+        if (kind == RequestKind::Topology)
+            valid = applyTopology(reply.value());
+        else if (kind == RequestKind::Devices)
             valid = applyDevices(reply.value());
         else if (kind == RequestKind::Sources)
             valid = applySources(reply.value());
+        else if (kind == RequestKind::Plan)
+            valid = applyPlan(reply.value());
         else if (kind == RequestKind::Start || kind == RequestKind::Poll)
             valid = applyOperation(reply.value());
         if (!valid)
             setError(i18n("The backup manager returned an invalid device preparation response."));
         emit stateChanged();
-        if (valid && kind == RequestKind::Devices)
+        if (valid && kind == RequestKind::Topology)
             request(RequestKind::Sources, QLatin1String(manager_protocol::method::list_source_candidates));
     });
+}
+
+bool DeviceProvisioningModel::applyTopology(const QString& payload) {
+    const auto document = QJsonDocument::fromJson(payload.toUtf8());
+    if (!document.isObject())
+        return false;
+    const auto object = document.object();
+    if (object.value(QStringLiteral("schemaVersion")).toInt(-1) !=
+            manager_protocol::storage_topology_schema_version ||
+        object.value(QStringLiteral("generation")).toString().isEmpty() ||
+        !object.value(QStringLiteral("devices")).isArray())
+        return false;
+    topology_ = object.toVariantMap();
+    devices_ = object.value(QStringLiteral("devices")).toArray().toVariantList();
+    plan_.clear();
+    pending_plan_path_.clear();
+    emit topologyChanged();
+    emit devicesChanged();
+    emit planChanged();
+    return true;
+}
+
+bool DeviceProvisioningModel::applyPlan(const QString& payload) {
+    const auto document = QJsonDocument::fromJson(payload.toUtf8());
+    if (!document.isObject())
+        return false;
+    const auto object = document.object();
+    if (object.value(QStringLiteral("schemaVersion")).toInt(-1) !=
+            manager_protocol::device_preparation_plan_schema_version ||
+        object.value(QStringLiteral("planId")).toString().isEmpty() ||
+        !object.value(QStringLiteral("before")).isObject() || !object.value(QStringLiteral("after")).isObject())
+        return false;
+    plan_ = object.toVariantMap();
+    plan_.insert(QStringLiteral("displayPath"), pending_plan_path_);
+    emit planChanged();
+    return true;
 }
 
 bool DeviceProvisioningModel::applyDevices(const QString& payload) {

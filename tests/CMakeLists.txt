@@ -164,6 +164,7 @@ if(BUILD_SYSTEM_MANAGER)
         btrfsbackup-daemon-control
         btrfsbackup-config-domain
         btrfsbackup-daemon-core
+        btrfsbackup-daemon-provisioning
     )
     assert_public_link_interface(
         btrfsbackup-daemon-system-control

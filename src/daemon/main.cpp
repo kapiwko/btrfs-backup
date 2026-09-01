@@ -182,6 +182,7 @@ int main(int argc, char** argv) {
             profile_administration_backend,
             credential_administration_backend,
             device_provisioning_backend,
+            storage_topology,
             browse_session_backend,
             audit_log,
             paths,

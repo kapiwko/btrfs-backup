@@ -66,6 +66,13 @@ delete only through authorized manager APIs with generation and fingerprint
 preconditions. Hook changes require their own high-risk authorization. The
 plasmoid and its settings remain useful without opening the KCM.
 
+Device preparation first obtains a caller-bound storage topology and then asks
+the manager to build a short-lived plan for the selected opaque candidate. The
+KCM renders proportional before/after layouts and a parallel textual list, so
+color is not the only indication of destructive scope. The current executable
+path remains limited to erasing a whole disk; partition, free-space and adoption
+modes stay disabled until their backend transactions are implemented.
+
 For a development build, install the generated plugin and desktop entry, then
 refresh KDE's service cache:
 

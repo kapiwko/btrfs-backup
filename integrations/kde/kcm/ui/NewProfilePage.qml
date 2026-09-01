@@ -30,7 +30,9 @@ KCMUtils.SimpleKCM {
         enabled: root.selectedDevice !== null && profileId.acceptableInput
             && profileName.text.length > 0 && sourcePath.currentIndex >= 0
             && passphrase.text.length > 0 && passphrase.text === confirmation.text
-            && eraseConfirmation.text === "ERASE" && !root.provisioning.busy
+            && eraseConfirmation.text === "ERASE" && root.provisioning.plan.planId
+            && root.provisioning.plan.displayPath === root.selectedDevice.path
+            && !root.provisioning.busy
         onTriggered: {
             root.step = 2;
             root.provisioning.start(
@@ -92,9 +94,13 @@ KCMUtils.SimpleKCM {
                         id: deviceRow
                         required property var modelData
                         Layout.fillWidth: true
-                        enabled: !modelData.mounted
+                        enabled: !modelData.mounted && (modelData.blockers?.length ?? 0) === 0
+                            && !root.provisioning.busy
                         highlighted: root.selectedDevice?.path === modelData.path
-                        onClicked: root.selectedDevice = modelData
+                        onClicked: {
+                            root.selectedDevice = modelData
+                            root.provisioning.buildPlan(modelData)
+                        }
                         contentItem: Kirigami.TitleSubtitle {
                             title: (deviceRow.modelData.model || deviceRow.modelData.path)
                                 + " - " + root.formatBytes(deviceRow.modelData.sizeBytes)
@@ -106,6 +112,34 @@ KCMUtils.SimpleKCM {
                                         : translations.i18n("empty"))
                             selected: deviceRow.highlighted
                         }
+                    }
+                }
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    visible: root.provisioning.plan.planId !== undefined
+                    spacing: Kirigami.Units.smallSpacing
+
+                    Kirigami.Heading { text: translations.i18n("Before"); level: 3 }
+                    StorageLayout {
+                        Layout.fillWidth: true
+                        regions: root.provisioning.plan.before?.regions ?? []
+                        selectedRegionId: ""
+                        preview: false
+                        logicalSectorSize: root.provisioning.plan.before?.logicalSectorSize ?? 512
+                    }
+                    Kirigami.Heading { text: translations.i18n("After preparation"); level: 3 }
+                    StorageLayout {
+                        Layout.fillWidth: true
+                        regions: root.provisioning.plan.after?.regions ?? []
+                        selectedRegionId: "planned-backup-partition"
+                        preview: true
+                        logicalSectorSize: root.provisioning.plan.after?.logicalSectorSize ?? 512
+                    }
+                    QQC2.Label {
+                        Layout.fillWidth: true
+                        wrapMode: Text.Wrap
+                        text: translations.i18n("All existing partitions on this disk will be removed. The resulting backup target will use LUKS2 encryption and Btrfs.")
                     }
                 }
 
