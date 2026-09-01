@@ -79,6 +79,12 @@ the irreversible keyslot mutation raises a typed recovery-required error.
 Failure to delete an already obsolete quarantined file is logged as a cleanup
 warning and does not change the successful operation result.
 
+Managed key metadata accepts only safe filenames located directly below the
+configured key root. Secret files are created and managed relative to a pinned,
+owner-validated directory descriptor. Publication uses
+`renameat2(RENAME_NOREPLACE)`, so an existing file or symlink is never replaced
+and correctness does not depend on a separate existence check.
+
 Device preparation has its own `io.github.btrfsbackup.prepare-backup-device`
 polkit action without retained authorization. The daemon binds a short-lived
 random candidate identifier to a complete device identity and revalidates the

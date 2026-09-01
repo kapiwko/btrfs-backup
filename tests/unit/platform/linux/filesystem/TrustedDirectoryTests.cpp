@@ -63,11 +63,19 @@ void test_rejects_writable_parent() {
     fs::remove_all(root);
 }
 
+void test_safe_filename_rejects_paths_and_special_components() {
+    using btrfsbackup::platform::linux::filesystem::SafeFilename;
+    test_helpers::expect_validation_error("absolute filename rejected", [] { static_cast<void>(SafeFilename("/tmp/key")); }, "unsafe filename");
+    test_helpers::expect_validation_error("nested filename rejected", [] { static_cast<void>(SafeFilename("nested/key")); }, "unsafe filename");
+    test_helpers::expect_validation_error("parent filename rejected", [] { static_cast<void>(SafeFilename("..")); }, "unsafe filename");
+}
+
 } // namespace
 
 int main() {
     test_creates_directory_through_trusted_parents();
     test_rejects_symlink_without_changing_target_permissions();
     test_rejects_writable_parent();
+    test_safe_filename_rejects_paths_and_special_components();
     return test_helpers::finish("trusted directory tests passed");
 }

@@ -3,10 +3,15 @@
 
 #include <daemon/control/SystemCredentialAdministrationBackend.hpp>
 
+#include <sys/stat.h>
+#include <unistd.h>
+
 #include <algorithm>
 #include <filesystem>
 #include <functional>
+#include <fstream>
 #include <iostream>
+#include <iterator>
 #include <span>
 #include <sstream>
 #include <string_view>
@@ -15,6 +20,7 @@
 #include <vector>
 
 #include <config/json/ProfileDocument.hpp>
+#include <config/json/JsonIo.hpp>
 #include <config/ports/ConfigurationActivator.hpp>
 #include <core/Errors.hpp>
 #include <platform/linux/config/ProfileService.hpp>
@@ -86,6 +92,7 @@ control::CredentialAdministrationRoots roots(const fs::path& root) {
         .udev_root = root / "udev",
         .systemd_root = root / "systemd",
         .public_root = root / "public",
+        .trusted_owner = geteuid(),
     };
 }
 
@@ -134,6 +141,11 @@ OwnedFileDescriptor secret(std::string_view value) {
     return btrfsbackup::platform::linux::filesystem::create_sealed_secret_file(
         std::as_bytes(std::span(value.data(), value.size()))
     );
+}
+
+std::string read_file(const fs::path& path) {
+    std::ifstream input(path, std::ios::binary);
+    return {std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()};
 }
 
 void test_complete_rollback_preserves_primary_failure() {
@@ -358,6 +370,76 @@ void test_quarantine_cleanup_failure_is_a_warning_after_success() {
     fs::remove_all(quarantine, cleanup_error);
 }
 
+void test_metadata_rejects_key_file_outside_trusted_root() {
+    const auto root = test_helpers::test_root("credential-administration", "external-key-file");
+    const auto paths = roots(root);
+    install_profile(paths);
+    Cryptsetup cryptsetup;
+    cryptsetup.slots.push_back(1);
+    btrfsbackup::config::NullConfigurationActivator activator;
+    control::SystemCredentialAdministrationBackend backend(paths, cryptsetup, activator);
+    const fs::path external_key = (root / "outside.key").lexically_normal();
+    test_helpers::write_file(
+        paths.metadata_root / (std::string(luks_uuid) + ".json"),
+        btrfsbackup::config::json::dump_json({
+            {"schemaVersion", 1},
+            {"luksUuid", luks_uuid},
+            {"credentials",
+             btrfsbackup::config::json::Json::array({{
+                 {"id", "slot-1"},
+                 {"label", "External"},
+                 {"type", "keyFile"},
+                 {"keyslot", 1},
+                 {"keyFile", external_key.string()},
+                 {"automatic", false},
+             }})},
+        })
+    );
+
+    try {
+        static_cast<void>(backend.list_credentials(ProfileId{"default"}));
+        test_helpers::fail("external key metadata", "external key path was accepted");
+    } catch (const ValidationError& error) {
+        test_helpers::expect_contains(
+            "external key metadata error",
+            error.what(),
+            "managed credential entry is invalid"
+        );
+    }
+}
+
+void test_failed_install_does_not_remove_existing_key_file() {
+    const auto root = test_helpers::test_root("credential-administration", "existing-key-file");
+    const auto paths = roots(root);
+    install_profile(paths);
+    fs::create_directories(paths.key_root);
+    chmod(paths.key_root.c_str(), 0700);
+    const fs::path existing_key = paths.key_root / "default-slot-1.key";
+    test_helpers::write_file(existing_key, "existing key material");
+    Cryptsetup cryptsetup;
+    btrfsbackup::config::NullConfigurationActivator activator;
+    control::SystemCredentialAdministrationBackend backend(paths, cryptsetup, activator);
+    auto authorization = secret("authorization");
+    auto credential = secret("credential");
+
+    try {
+        backend.add_key(ProfileId{"default"}, authorization.get(), credential.get(), "Recovery", false);
+        test_helpers::fail("existing key no-replace", "credential installation succeeded");
+    } catch (const ValidationError&) {
+    }
+
+    test_helpers::expect_eq(
+        "existing key preserved",
+        read_file(existing_key),
+        std::string("existing key material")
+    );
+    test_helpers::expect_true(
+        "keyslot rolled back after collision",
+        cryptsetup.slots == std::vector<int>{0},
+        "new keyslot remained after key filename collision"
+    );
+}
+
 } // namespace
 
 int main() {
@@ -367,5 +449,7 @@ int main() {
     test_removal_restores_quarantined_key_when_keyslot_removal_fails();
     test_metadata_commit_failure_reports_irreversible_removal();
     test_quarantine_cleanup_failure_is_a_warning_after_success();
+    test_metadata_rejects_key_file_outside_trusted_root();
+    test_failed_install_does_not_remove_existing_key_file();
     return test_helpers::finish("system credential administration backend tests");
 }
