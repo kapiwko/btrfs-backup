@@ -71,7 +71,10 @@ class CredentialAdministrationService {
   public:
     CredentialAdministrationService(IManagerAuthorizer& authorizer, ICredentialAdministrationBackend& backend);
 
-    [[nodiscard]] std::vector<TargetCredential> list_credentials(const std::string& profile_id) const;
+    [[nodiscard]] std::vector<TargetCredential> list_credentials(
+        const std::string& caller,
+        const std::string& profile_id
+    ) const;
     [[nodiscard]] std::vector<TargetCredential> add_passphrase(
         const std::string& caller,
         const std::string& profile_id,
@@ -102,7 +105,7 @@ class CredentialAdministrationService {
     );
 
   private:
-    void authorize(const std::string& caller) const;
+    void authorize(const std::string& caller, std::string_view method) const;
     static std::string require_label(const std::string& label);
 
     IManagerAuthorizer& authorizer_;

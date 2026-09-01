@@ -4,7 +4,10 @@
 #pragma once
 
 #include <cstdint>
+#include <map>
+#include <mutex>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include <daemon/control/OperationalControlService.hpp>
@@ -58,20 +61,30 @@ class IDeviceProvisioningBackend {
 class DeviceProvisioningService final {
   public:
     DeviceProvisioningService(IManagerAuthorizer& authorizer, IDeviceProvisioningBackend& backend);
-    [[nodiscard]] std::vector<ProvisioningDevice> list_devices();
-    [[nodiscard]] std::vector<std::string> list_source_candidates();
+    [[nodiscard]] std::vector<ProvisioningDevice> list_devices(const std::string& caller);
+    [[nodiscard]] std::vector<std::string> list_source_candidates(const std::string& caller);
     [[nodiscard]] DevicePreparationStatus start(
         const std::string& caller,
         const DevicePreparationRequest& request,
         int passphrase_fd
     );
-    [[nodiscard]] DevicePreparationStatus status(const std::string& operation_id) const;
+    [[nodiscard]] DevicePreparationStatus status(
+        const std::string& caller,
+        const std::string& operation_id
+    ) const;
     void cancel(const std::string& caller, const std::string& operation_id);
 
   private:
-    void authorize(const std::string& caller) const;
+    void authorize(const std::string& caller, std::string_view method) const;
+    void authorize_owner_or_admin(
+        const std::string& caller,
+        const std::string& operation_id,
+        std::string_view method
+    ) const;
     IManagerAuthorizer& authorizer_;
     IDeviceProvisioningBackend& backend_;
+    mutable std::mutex owners_mutex_;
+    std::map<std::string, std::string> operation_owners_;
 };
 
 } // namespace btrfsbackup::daemon::control

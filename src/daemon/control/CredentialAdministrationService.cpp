@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cctype>
 
+#include <core/ManagerProtocol.hpp>
 #include <daemon/dbus/ManagerErrors.hpp>
 
 namespace btrfsbackup::daemon::control {
@@ -30,14 +31,16 @@ CredentialAdministrationService::CredentialAdministrationService(
 }
 
 std::vector<TargetCredential> CredentialAdministrationService::list_credentials(
+    const std::string& caller,
     const std::string& profile_id
 ) const {
+    authorize(caller, manager_protocol::method::list_target_credentials);
     return backend_.list_credentials(ProfileId{profile_id});
 }
 
-void CredentialAdministrationService::authorize(const std::string& caller) const {
-    if (caller.empty() ||
-        !authorizer_.authorize(caller, ManagerAuthorizationAction::ManageTargetCredentials) ||
+void CredentialAdministrationService::authorize(const std::string& caller, std::string_view method) const {
+    const auto action = manager_method_authorization_action(method);
+    if (caller.empty() || !action.has_value() || !authorizer_.authorize(caller, *action) ||
         !authorizer_.caller_is_active(caller)) {
         throw dbus::ManagerOperationError(
             dbus::ManagerErrorCode::NotAuthorized,
@@ -62,7 +65,7 @@ std::vector<TargetCredential> CredentialAdministrationService::add_passphrase(
 ) {
     const ProfileId id(profile_id);
     const std::string checked_label = require_label(label);
-    authorize(caller);
+    authorize(caller, manager_protocol::method::add_target_passphrase);
     backend_.add_passphrase(id, authorization_secret_fd, new_secret_fd, checked_label);
     return backend_.list_credentials(id);
 }
@@ -77,7 +80,7 @@ std::vector<TargetCredential> CredentialAdministrationService::add_key(
 ) {
     const ProfileId id(profile_id);
     const std::string checked_label = require_label(label);
-    authorize(caller);
+    authorize(caller, manager_protocol::method::add_target_key);
     backend_.add_key(id, authorization_secret_fd, key_fd, checked_label, automatic);
     return backend_.list_credentials(id);
 }
@@ -91,7 +94,7 @@ std::vector<TargetCredential> CredentialAdministrationService::generate_key(
 ) {
     const ProfileId id(profile_id);
     const std::string checked_label = require_label(label);
-    authorize(caller);
+    authorize(caller, manager_protocol::method::generate_target_key);
     backend_.generate_key(id, authorization_secret_fd, checked_label, automatic);
     return backend_.list_credentials(id);
 }
@@ -105,7 +108,7 @@ std::vector<TargetCredential> CredentialAdministrationService::remove_credential
     const ProfileId id(profile_id);
     if (credential_id.empty())
         throw dbus::ManagerOperationError(dbus::ManagerErrorCode::InvalidRequest, "credential id is required");
-    authorize(caller);
+    authorize(caller, manager_protocol::method::remove_target_credential);
     backend_.remove_credential(id, credential_id, authorization_secret_fd);
     return backend_.list_credentials(id);
 }
