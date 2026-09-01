@@ -4,16 +4,39 @@
 
 file(READ "${PROJECT_SOURCE_DIR}/data/dbus/io.github.btrfsbackup.Manager1.xml" manager_xml)
 file(READ "${PROJECT_SOURCE_DIR}/data/dbus/io.github.btrfsbackup.Manager1.conf" manager_bus_policy)
+file(READ "${PROJECT_SOURCE_DIR}/data/polkit/io.github.btrfsbackup.policy" manager_polkit_policy)
 file(READ "${PROJECT_SOURCE_DIR}/src/core/ManagerProtocol.hpp" manager_protocol)
+file(READ "${PROJECT_SOURCE_DIR}/src/daemon/control/OperationalControlService.cpp" manager_authorization_map)
 file(READ "${PROJECT_SOURCE_DIR}/src/daemon/dbus/ManagerDbusObject.cpp" manager_vtable)
 string(REGEX REPLACE "[ \t\r\n]+" "" compact_xml "${manager_xml}")
 string(REGEX REPLACE "[ \t\r\n]+" "" compact_bus_policy "${manager_bus_policy}")
+string(REGEX REPLACE "[ \t\r\n]+" "" compact_polkit_policy "${manager_polkit_policy}")
+string(REGEX REPLACE "[ \t\r\n]+" "" compact_authorization_map "${manager_authorization_map}")
 
 function(assert_contains content fragment description)
     string(FIND "${content}" "${fragment}" position)
     if(position EQUAL -1)
         message(FATAL_ERROR "manager D-Bus contract is missing ${description}")
     endif()
+endfunction()
+
+function(assert_authorized_method identifier name input_signature output_signature xml_fragment action action_id)
+    assert_method(${identifier} ${name} "${input_signature}" "${output_signature}" "${xml_fragment}")
+    assert_contains(
+        "${compact_authorization_map}"
+        "{manager_protocol::method::${identifier},ManagerAuthorizationAction::${action}}"
+        "the ${name} authorization mapping"
+    )
+    assert_contains(
+        "${compact_authorization_map}"
+        "caseManagerAuthorizationAction::${action}:return\"${action_id}\";"
+        "the ${name} polkit action identifier mapping"
+    )
+    assert_contains(
+        "${compact_polkit_policy}"
+        "<actionid=\"${action_id}\">"
+        "the ${name} installed polkit action"
+    )
 endfunction()
 
 function(assert_method identifier name input_signature output_signature xml_fragment)
@@ -131,45 +154,55 @@ assert_method(
     resolve_backup_coverage ResolveBackupCoverage s s
     "<methodname=\"ResolveBackupCoverage\"><argname=\"localPath\"type=\"s\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
 )
-assert_method(
+assert_authorized_method(
     list_target_credentials ListTargetCredentials s s
     "<methodname=\"ListTargetCredentials\"><argname=\"profileId\"type=\"s\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
+    ManageTargetCredentials io.github.btrfsbackup.manage-target-credentials
 )
-assert_method(
+assert_authorized_method(
     add_target_passphrase AddTargetPassphrase shhs s
     "<methodname=\"AddTargetPassphrase\"><argname=\"profileId\"type=\"s\"direction=\"in\"/><argname=\"authorizationSecret\"type=\"h\"direction=\"in\"/><argname=\"newSecret\"type=\"h\"direction=\"in\"/><argname=\"label\"type=\"s\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
+    ManageTargetCredentials io.github.btrfsbackup.manage-target-credentials
 )
-assert_method(
+assert_authorized_method(
     add_target_key AddTargetKey shhsb s
     "<methodname=\"AddTargetKey\"><argname=\"profileId\"type=\"s\"direction=\"in\"/><argname=\"authorizationSecret\"type=\"h\"direction=\"in\"/><argname=\"key\"type=\"h\"direction=\"in\"/><argname=\"label\"type=\"s\"direction=\"in\"/><argname=\"automatic\"type=\"b\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
+    ManageTargetCredentials io.github.btrfsbackup.manage-target-credentials
 )
-assert_method(
+assert_authorized_method(
     generate_target_key GenerateTargetKey shsb s
     "<methodname=\"GenerateTargetKey\"><argname=\"profileId\"type=\"s\"direction=\"in\"/><argname=\"authorizationSecret\"type=\"h\"direction=\"in\"/><argname=\"label\"type=\"s\"direction=\"in\"/><argname=\"automatic\"type=\"b\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
+    ManageTargetCredentials io.github.btrfsbackup.manage-target-credentials
 )
-assert_method(
+assert_authorized_method(
     remove_target_credential RemoveTargetCredential ssh s
     "<methodname=\"RemoveTargetCredential\"><argname=\"profileId\"type=\"s\"direction=\"in\"/><argname=\"credentialId\"type=\"s\"direction=\"in\"/><argname=\"authorizationSecret\"type=\"h\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
+    ManageTargetCredentials io.github.btrfsbackup.manage-target-credentials
 )
-assert_method(
+assert_authorized_method(
     list_provisioning_devices ListProvisioningDevices "" s
     "<methodname=\"ListProvisioningDevices\"><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
+    PrepareBackupDevice io.github.btrfsbackup.prepare-backup-device
 )
-assert_method(
+assert_authorized_method(
     list_source_candidates ListSourceCandidates "" s
     "<methodname=\"ListSourceCandidates\"><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
+    PrepareBackupDevice io.github.btrfsbackup.prepare-backup-device
 )
-assert_method(
+assert_authorized_method(
     start_device_preparation StartDevicePreparation sh s
     "<methodname=\"StartDevicePreparation\"><argname=\"request\"type=\"s\"direction=\"in\"/><argname=\"passphrase\"type=\"h\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
+    PrepareBackupDevice io.github.btrfsbackup.prepare-backup-device
 )
-assert_method(
+assert_authorized_method(
     get_device_preparation GetDevicePreparation s s
     "<methodname=\"GetDevicePreparation\"><argname=\"operationId\"type=\"s\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
+    PrepareBackupDevice io.github.btrfsbackup.prepare-backup-device
 )
-assert_method(
+assert_authorized_method(
     cancel_device_preparation CancelDevicePreparation s s
     "<methodname=\"CancelDevicePreparation\"><argname=\"operationId\"type=\"s\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
+    PrepareBackupDevice io.github.btrfsbackup.prepare-backup-device
 )
 
 assert_signal(profiles_changed ProfilesChanged "" "<signalname=\"ProfilesChanged\"/>")

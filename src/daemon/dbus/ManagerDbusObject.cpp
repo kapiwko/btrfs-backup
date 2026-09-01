@@ -679,7 +679,13 @@ int ManagerDbusObject::handle_list_target_credentials(sd_bus_message* message, s
             const int read_result = sd_bus_message_read(message, "s", &profile_id);
             if (read_result < 0)
                 return read_result;
-            return reply_json(message, codec_.encode(credential_administration_.list_credentials(profile_id == nullptr ? "" : profile_id)));
+            const std::string profile = profile_id == nullptr ? "" : profile_id;
+            return reply_operational_json(message, error, "list-target-credentials", profile, [&] {
+                return codec_.encode(credential_administration_.list_credentials(
+                    caller_bus_name(message),
+                    profile
+                ));
+            });
         },
         [&](const std::exception* exception) { return set_callback_error(error, exception); }
     );
@@ -815,7 +821,11 @@ int ManagerDbusObject::handle_remove_target_credential(sd_bus_message* message, 
 
 int ManagerDbusObject::handle_list_provisioning_devices(sd_bus_message* message, sd_bus_error* error) noexcept {
     return invoke_dbus_callback(
-        [&] { return reply_json(message, codec_.encode(device_provisioning_.list_devices())); },
+        [&] {
+            return reply_operational_json(message, error, "list-provisioning-devices", "", [&] {
+                return codec_.encode(device_provisioning_.list_devices(caller_bus_name(message)));
+            });
+        },
         [&](const std::exception* exception) { return set_callback_error(error, exception); }
     );
 }
@@ -823,7 +833,11 @@ int ManagerDbusObject::handle_list_provisioning_devices(sd_bus_message* message,
 int ManagerDbusObject::handle_list_source_candidates(sd_bus_message* message, sd_bus_error* error) noexcept {
     return invoke_dbus_callback(
         [&] {
-            return reply_json(message, config::json::dump_json(device_provisioning_.list_source_candidates()));
+            return reply_operational_json(message, error, "list-source-candidates", "", [&] {
+                return config::json::dump_json(
+                    device_provisioning_.list_source_candidates(caller_bus_name(message))
+                );
+            });
         },
         [&](const std::exception* exception) { return set_callback_error(error, exception); }
     );
@@ -868,7 +882,10 @@ int ManagerDbusObject::handle_get_device_preparation(sd_bus_message* message, sd
             const int read_result = sd_bus_message_read(message, "s", &operation_id);
             if (read_result < 0)
                 return read_result;
-            return reply_json(message, codec_.encode(device_provisioning_.status(operation_id == nullptr ? "" : operation_id)));
+            const std::string operation = operation_id == nullptr ? "" : operation_id;
+            return reply_operational_json(message, error, "get-device-preparation", "", [&] {
+                return codec_.encode(device_provisioning_.status(caller_bus_name(message), operation));
+            });
         },
         [&](const std::exception* exception) { return set_callback_error(error, exception); }
     );
@@ -882,14 +899,16 @@ int ManagerDbusObject::handle_cancel_device_preparation(sd_bus_message* message,
             if (read_result < 0)
                 return read_result;
             const std::string operation = operation_id == nullptr ? "" : operation_id;
-            device_provisioning_.cancel(caller_bus_name(message), operation);
-            return reply_json(message, config::json::dump_json({
-                                           {"schemaVersion", manager_protocol::operation_result_schema_version},
-                                           {"operation", "cancel-device-preparation"},
-                                           {"operationId", operation},
-                                           {"profileId", ""},
-                                           {"accepted", true},
-                                       }));
+            return reply_operational_json(message, error, "cancel-device-preparation", "", [&] {
+                device_provisioning_.cancel(caller_bus_name(message), operation);
+                return config::json::dump_json({
+                    {"schemaVersion", manager_protocol::operation_result_schema_version},
+                    {"operation", "cancel-device-preparation"},
+                    {"operationId", operation},
+                    {"profileId", ""},
+                    {"accepted", true},
+                });
+            });
         },
         [&](const std::exception* exception) { return set_callback_error(error, exception); }
     );

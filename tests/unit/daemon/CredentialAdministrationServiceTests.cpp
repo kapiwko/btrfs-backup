@@ -38,8 +38,10 @@ class Backend final : public ICredentialAdministrationBackend {
     int first_fd = -1;
     int second_fd = -1;
     bool automatic = false;
+    mutable int list_calls = 0;
 
     std::vector<TargetCredential> list_credentials(const btrfsbackup::ProfileId&) const override {
+        ++list_calls;
         return credentials;
     }
     void add_passphrase(const btrfsbackup::ProfileId&, int authorization_fd, int new_fd, const std::string& value) override {
@@ -69,13 +71,24 @@ class Backend final : public ICredentialAdministrationBackend {
     }
 };
 
-void test_listing_does_not_require_authorization() {
+void test_listing_requires_credential_authorization() {
     Authorizer authorizer;
-    authorizer.allowed = false;
     Backend backend;
-    const auto result = CredentialAdministrationService(authorizer, backend).list_credentials("default");
+    const auto result = CredentialAdministrationService(authorizer, backend).list_credentials(":1.1", "default");
     test_helpers::expect_true("credential listing", result.size() == 1, "credential was not returned");
-    test_helpers::expect_true("listing authorization", authorizer.actions.empty(), "listing requested authorization");
+    test_helpers::expect_true(
+        "listing authorization",
+        authorizer.actions == std::vector{ManagerAuthorizationAction::ManageTargetCredentials},
+        "listing used the wrong authorization"
+    );
+
+    authorizer.allowed = false;
+    try {
+        static_cast<void>(CredentialAdministrationService(authorizer, backend).list_credentials(":1.2", "default"));
+        test_helpers::fail("denied credential listing", "listing was accepted");
+    } catch (const btrfsbackup::daemon::dbus::ManagerOperationError&) {
+    }
+    test_helpers::expect_true("denied credential backend", backend.list_calls == 1, "denied listing reached backend");
 }
 
 void test_mutations_use_dedicated_authorization_and_descriptors() {
@@ -118,7 +131,7 @@ void test_denied_mutation_never_reaches_backend() {
 } // namespace
 
 int main() {
-    test_listing_does_not_require_authorization();
+    test_listing_requires_credential_authorization();
     test_mutations_use_dedicated_authorization_and_descriptors();
     test_denied_mutation_never_reaches_backend();
     return test_helpers::finish("credential administration service tests");

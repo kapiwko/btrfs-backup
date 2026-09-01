@@ -5,7 +5,9 @@
 #pragma once
 
 #include <functional>
+#include <optional>
 #include <string>
+#include <string_view>
 
 #include <config/ConfigurationIdentity.hpp>
 #include <core/Identifiers.hpp>
@@ -49,6 +51,9 @@ struct AuthorizedOperationContext {
 using OperationIdGenerator = std::function<OperationId()>;
 
 [[nodiscard]] const char* manager_authorization_action_id(ManagerAuthorizationAction action) noexcept;
+[[nodiscard]] std::optional<ManagerAuthorizationAction> manager_method_authorization_action(
+    std::string_view method
+) noexcept;
 
 class IManagerAuthorizer {
   public:
