@@ -160,6 +160,7 @@ int main(int argc, char** argv) {
             credential_roots,
             paths.target_mount_root,
             paths.mountinfo_path,
+            paths.state_root / "device-preparations",
             commands,
             btrfs,
             selected_configuration_activator,

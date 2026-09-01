@@ -1,0 +1,219 @@
+// SPDX-FileCopyrightText: 2026 Kamil Piwowarski <kapiwko@gmail.com>
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+#include <daemon/control/DevicePreparationTransaction.hpp>
+
+#include <algorithm>
+#include <chrono>
+#include <fstream>
+#include <ranges>
+#include <stdexcept>
+#include <sys/stat.h>
+
+#include <config/json/Json.hpp>
+#include <core/Errors.hpp>
+#include <core/Identifiers.hpp>
+#include <platform/linux/filesystem/FileIo.hpp>
+
+namespace fs = std::filesystem;
+
+namespace btrfsbackup::daemon::control {
+namespace {
+
+using config::json::Json;
+
+constexpr mode_t transaction_permissions = S_IRUSR | S_IWUSR;
+constexpr fs::perms transaction_directory_permissions =
+    fs::perms::owner_read | fs::perms::owner_write | fs::perms::owner_exec;
+
+bool terminal(const DevicePreparationTransaction& transaction) {
+    return transaction.status.state == "succeeded" || transaction.status.state == "failed" ||
+        transaction.status.state == "cancelled" || transaction.status.state == "interrupted";
+}
+
+std::int64_t now_seconds() {
+    return std::chrono::duration_cast<std::chrono::seconds>(
+               std::chrono::system_clock::now().time_since_epoch()
+    )
+        .count();
+}
+
+void prepare_root(const fs::path& root) {
+    std::error_code error;
+    fs::create_directories(root, error);
+    if (error)
+        throw ValidationError("cannot create device preparation transaction directory");
+    fs::permissions(root, transaction_directory_permissions, fs::perm_options::replace, error);
+    if (error)
+        throw ValidationError("cannot secure device preparation transaction directory");
+}
+
+Json device_json(const ProvisioningDevice& device) {
+    return {
+        {"path", device.path},
+        {"model", device.model},
+        {"serial", device.serial},
+        {"transport", device.transport},
+        {"sizeBytes", device.size_bytes},
+        {"removable", device.removable},
+        {"majorMinor", device.major_minor},
+        {"sysfsDevpath", device.sysfs_devpath},
+        {"wwn", device.wwn},
+        {"serialId", device.serial_id},
+        {"serialShort", device.serial_short},
+        {"deviceGraph", device.device_graph},
+    };
+}
+
+ProvisioningDevice parse_device(const Json& value) {
+    return {
+        .candidate_id = {},
+        .path = value.value("path", ""),
+        .model = value.value("model", ""),
+        .serial = value.value("serial", ""),
+        .transport = value.value("transport", ""),
+        .size_bytes = value.value("sizeBytes", std::uint64_t{0}),
+        .removable = value.value("removable", false),
+        .mounted = false,
+        .contains_data = false,
+        .major_minor = value.value("majorMinor", ""),
+        .sysfs_devpath = value.value("sysfsDevpath", ""),
+        .wwn = value.value("wwn", ""),
+        .serial_id = value.value("serialId", ""),
+        .serial_short = value.value("serialShort", ""),
+        .device_graph = value.value("deviceGraph", ""),
+    };
+}
+
+Json transaction_json(const DevicePreparationTransaction& transaction) {
+    return {
+        {"schemaVersion", 1},
+        {"operationId", transaction.status.operation_id},
+        {"profileId", transaction.status.profile_id},
+        {"state", transaction.status.state},
+        {"phase", transaction.status.phase},
+        {"errorCode", transaction.status.error_code},
+        {"recoveryAction", transaction.status.recovery_action},
+        {"canCancel", transaction.status.can_cancel},
+        {"ownerBusName", transaction.owner.bus_name},
+        {"ownerUid", transaction.owner.uid},
+        {"device", device_json(transaction.device)},
+        {"createdAt", transaction.created_at},
+        {"updatedAt", transaction.updated_at},
+        {"lastCompletedPhase", transaction.last_completed_phase},
+        {"partition", transaction.partition},
+        {"partitionUuid", transaction.partition_uuid},
+        {"luksUuid", transaction.luks_uuid},
+        {"btrfsUuid", transaction.btrfs_uuid},
+        {"mapper", transaction.mapper},
+        {"configurationState", transaction.configuration_state},
+        {"credentialsState", transaction.credentials_state},
+        {"cleanupResult", transaction.cleanup_result},
+    };
+}
+
+DevicePreparationTransaction parse_transaction(const Json& value) {
+    if (!value.is_object() || value.value("schemaVersion", 0) != 1 || !value.contains("device"))
+        throw ValidationError("invalid device preparation transaction");
+    DevicePreparationTransaction result;
+    result.status = {
+        .operation_id = value.value("operationId", ""),
+        .profile_id = value.value("profileId", ""),
+        .state = value.value("state", ""),
+        .phase = value.value("phase", ""),
+        .error_code = value.value("errorCode", ""),
+        .recovery_action = value.value("recoveryAction", ""),
+        .can_cancel = value.value("canCancel", false),
+    };
+    result.owner = {
+        .bus_name = value.value("ownerBusName", ""),
+        .uid = value.value("ownerUid", std::uint32_t{0}),
+    };
+    result.device = parse_device(value.at("device"));
+    result.created_at = value.value("createdAt", std::int64_t{0});
+    result.updated_at = value.value("updatedAt", std::int64_t{0});
+    result.last_completed_phase = value.value("lastCompletedPhase", "");
+    result.partition = value.value("partition", "");
+    result.partition_uuid = value.value("partitionUuid", "");
+    result.luks_uuid = value.value("luksUuid", "");
+    result.btrfs_uuid = value.value("btrfsUuid", "");
+    result.mapper = value.value("mapper", "");
+    result.configuration_state = value.value("configurationState", "not-started");
+    result.credentials_state = value.value("credentialsState", "not-started");
+    result.cleanup_result = value.value("cleanupResult", "not-required");
+    if (result.status.operation_id.empty() || result.status.profile_id.empty() ||
+        result.owner.bus_name.empty() || result.created_at <= 0)
+        throw ValidationError("incomplete device preparation transaction");
+    return result;
+}
+
+} // namespace
+
+DevicePreparationTransactionStore::DevicePreparationTransactionStore(
+    fs::path root,
+    std::size_t completed_limit,
+    std::chrono::seconds completed_ttl
+) : root_(std::move(root)), completed_limit_(completed_limit), completed_ttl_(completed_ttl) {
+    if (root_.empty() || completed_limit_ == 0 || completed_ttl_ <= std::chrono::seconds::zero())
+        throw std::invalid_argument("invalid device preparation transaction retention");
+}
+
+void DevicePreparationTransactionStore::save(const DevicePreparationTransaction& transaction) const {
+    if (transaction.status.operation_id.empty())
+        throw ValidationError("device preparation transaction has no operation identifier");
+    validate_operation_id(transaction.status.operation_id);
+    prepare_root(root_);
+    platform::linux::filesystem::atomic_write(
+        root_ / (transaction.status.operation_id + ".json"),
+        transaction_json(transaction).dump(2) + "\n",
+        transaction_permissions
+    );
+}
+
+std::vector<DevicePreparationTransaction> DevicePreparationTransactionStore::load_and_prune() const {
+    std::vector<DevicePreparationTransaction> transactions;
+    prepare_root(root_);
+    std::error_code error;
+    for (const auto& entry : fs::directory_iterator(root_)) {
+        if (!entry.is_regular_file() || entry.path().extension() != ".json")
+            continue;
+        try {
+            std::ifstream input(entry.path());
+            Json document;
+            input >> document;
+            DevicePreparationTransaction transaction = parse_transaction(document);
+            if (entry.path().stem() != transaction.status.operation_id)
+                throw ValidationError("transaction file name does not match its operation identifier");
+            transactions.push_back(std::move(transaction));
+        } catch (const std::exception& exception) {
+            throw ValidationError(
+                "cannot load device preparation transaction " + entry.path().filename().string() +
+                ": " + exception.what()
+            );
+        }
+    }
+
+    const std::int64_t cutoff = now_seconds() - completed_ttl_.count();
+    std::vector<DevicePreparationTransaction*> completed;
+    for (auto& transaction : transactions)
+        if (terminal(transaction))
+            completed.push_back(&transaction);
+    std::ranges::sort(completed, std::greater{}, &DevicePreparationTransaction::updated_at);
+    bool removed = false;
+    for (std::size_t index = 0; index < completed.size(); ++index) {
+        DevicePreparationTransaction& transaction = *completed.at(index);
+        if (transaction.updated_at < cutoff || index >= completed_limit_) {
+            fs::remove(root_ / (transaction.status.operation_id + ".json"), error);
+            if (error)
+                throw ValidationError("cannot prune device preparation transaction");
+            removed = true;
+            transaction.status.operation_id.clear();
+        }
+    }
+    if (removed)
+        platform::linux::filesystem::fsync_dir(root_);
+    std::erase_if(transactions, [](const auto& transaction) { return transaction.status.operation_id.empty(); });
+    return transactions;
+}
+
+} // namespace btrfsbackup::daemon::control

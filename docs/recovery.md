@@ -126,6 +126,25 @@ The local snapshot `UUID` should match the remote snapshot `Received UUID`.
 
 ## Interrupted State
 
+Device preparation transactions are stored privately under:
+
+```text
+/var/lib/btrfs-backup/device-preparations/<OPERATION_ID>.json
+```
+
+The manager writes the record atomically after each phase and after discovering
+the partition, mapper, and filesystem UUIDs. If the daemon restarts while a
+preparation is active, it attempts to close the recorded mapper and changes the
+operation to `interrupted`. `GetDevicePreparation` then returns a
+`recoveryAction`; use the recorded stable device identity, last completed phase,
+UUIDs, configuration state, credential state, and cleanup result to inspect the
+partial device manually. The daemon never resumes a destructive phase
+automatically because the passphrase is not persisted.
+
+Do not delete an interrupted transaction until the partial block structures and
+installed profile or credential artifacts have been reconciled. Completed and
+interrupted records are retained for 30 days, with a maximum of 128 records.
+
 Files named `/var/lib/btrfs-backup/profiles/<profile>/pending-*` mark a run whose final state has not been resolved. Do not delete them manually without checking both the local and remote snapshots.
 
 After reconnecting the correct target, run:

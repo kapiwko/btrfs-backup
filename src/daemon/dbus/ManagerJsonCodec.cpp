@@ -184,6 +184,7 @@ std::string ManagerJsonCodec::encode(const control::DevicePreparationStatus& sta
         {"state", status.state},
         {"phase", status.phase},
         {"errorCode", status.error_code},
+        {"recoveryAction", status.recovery_action},
         {"canCancel", status.can_cancel},
     });
 }

@@ -100,6 +100,13 @@ add_btrfsbackup_test(
 )
 
 add_btrfsbackup_test(
+    btrfsbackup-device-preparation-transaction-tests
+    DevicePreparationTransactionTests.cpp
+    device-preparation-transaction-tests
+    btrfsbackup-daemon-system-control
+)
+
+add_btrfsbackup_test(
     btrfsbackup-destructive-device-safety-inspector-tests
     DestructiveDeviceSafetyInspectorTests.cpp
     destructive-device-safety-inspector-tests
