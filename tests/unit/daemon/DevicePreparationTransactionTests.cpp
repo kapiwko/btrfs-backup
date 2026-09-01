@@ -38,6 +38,9 @@ DevicePreparationTransaction transaction(
     value.device.major_minor = "8:16";
     value.device.sysfs_devpath = "/devices/test/block/test";
     value.device.wwn = "wwn-test";
+    value.profile_name = "Test";
+    value.source_subvolume = "/home";
+    value.passphrase_label = "Recovery";
     value.created_at = updated_at - 10;
     value.updated_at = updated_at;
     value.last_completed_phase = "luks-format";
@@ -88,10 +91,40 @@ void test_completed_limit_ttl_and_active_retention() {
     test_helpers::expect_true("active retained", contains("prepare-active"), "active transaction was TTL-pruned");
 }
 
+void test_version_one_transaction_remains_recoverable() {
+    const auto root = test_helpers::test_root("device-preparation-transactions", "version-one");
+    test_helpers::write_file(
+        root / "prepare-version-one.json",
+        R"({
+  "schemaVersion": 1,
+  "operationId": "prepare-version-one",
+  "profileId": "test",
+  "state": "running",
+  "phase": "open",
+  "ownerBusName": ":1.42",
+  "ownerUid": 1000,
+  "device": {"path": "/dev/test", "majorMinor": "8:16"},
+  "createdAt": 100,
+  "updatedAt": 100,
+  "mapper": "btrfs-backup-test"
+})"
+    );
+
+    const auto loaded = DevicePreparationTransactionStore(root).load("prepare-version-one");
+    test_helpers::expect_eq("version one operation", loaded.status.operation_id, "prepare-version-one");
+    test_helpers::expect_eq("version one mapper", loaded.mapper, "btrfs-backup-test");
+    test_helpers::expect_true(
+        "version one has no executable request",
+        loaded.profile_name.empty() && loaded.source_subvolume.empty() && loaded.passphrase_label.empty(),
+        "legacy transaction unexpectedly gained request data"
+    );
+}
+
 } // namespace
 
 int main() {
     test_round_trip_preserves_recovery_state();
     test_completed_limit_ttl_and_active_retention();
+    test_version_one_transaction_remains_recoverable();
     return test_helpers::finish("device preparation transaction tests");
 }

@@ -90,6 +90,7 @@ add_library(btrfsbackup-daemon-system-control STATIC
     control/CommandSystemdUnitController.cpp
     control/DestructiveDeviceSafetyInspector.cpp
     control/DevicePreparationTransaction.cpp
+    control/DevicePreparationUnitController.cpp
     control/OperationEnvironmentFile.cpp
     control/SystemOperationalControlBackend.cpp
     control/SystemBrowseSessionBackend.cpp
@@ -103,6 +104,7 @@ target_restricted_include_directories(btrfsbackup-daemon-system-control
         daemon/control/CommandSystemdUnitController.hpp
         daemon/control/DestructiveDeviceSafetyInspector.hpp
         daemon/control/DevicePreparationTransaction.hpp
+        daemon/control/DevicePreparationUnitController.hpp
         daemon/control/SystemOperationalControlBackend.hpp
         daemon/control/SystemBrowseSessionBackend.hpp
         daemon/control/SystemCredentialAdministrationBackend.hpp
@@ -123,6 +125,7 @@ target_link_libraries(btrfsbackup-daemon-system-control
         btrfsbackup-platform-linux-config
         btrfsbackup-platform-linux-process
         btrfsbackup-platform-linux-storage
+        btrfsbackup-platform-linux-transfer
 )
 
 add_library(btrfsbackup-daemon-dbus STATIC
@@ -160,6 +163,22 @@ target_link_libraries(btrfsbackup-daemon-dbus
 add_executable(btrfs-backupd
     main.cpp
 )
+
+add_executable(btrfs-backup-device-preparation
+    DevicePreparationMain.cpp
+)
+set_target_properties(
+    btrfs-backup-device-preparation
+    PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}
+)
+target_link_libraries(btrfs-backup-device-preparation
+    PRIVATE
+        btrfsbackup-daemon-system-control
+        btrfsbackup-platform-linux-config
+        btrfsbackup-platform-linux-process
+        btrfsbackup-platform-linux-storage
+        btrfsbackup-platform-linux-systemd
+)
 set_target_properties(btrfs-backupd PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR})
 target_link_libraries(btrfs-backupd
     PRIVATE
@@ -180,6 +199,10 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(btrfsbackup-daemon-query PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(btrfsbackup-daemon-system-control PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(btrfs-backupd PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(btrfs-backup-device-preparation PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 
-install(TARGETS btrfs-backupd RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
+install(
+    TARGETS btrfs-backupd btrfs-backup-device-preparation
+    RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
+)

@@ -21,6 +21,7 @@ namespace btrfsbackup::daemon::control {
 
 class ICredentialAdministrationBackend;
 class IDestructiveDeviceSafetyInspector;
+class IDevicePreparationUnitController;
 struct CredentialAdministrationRoots;
 
 class SystemDeviceProvisioningBackend final : public IDeviceProvisioningBackend {
@@ -34,7 +35,9 @@ class SystemDeviceProvisioningBackend final : public IDeviceProvisioningBackend 
         btrfsbackup::backup::IBtrfsOperations& btrfs,
         btrfsbackup::config::IConfigurationActivator& configuration_activator,
         ICredentialAdministrationBackend& credentials,
-        IDestructiveDeviceSafetyInspector& safety_inspector
+        IDestructiveDeviceSafetyInspector& safety_inspector,
+        IDevicePreparationUnitController& units,
+        bool recover_existing = true
     );
     ~SystemDeviceProvisioningBackend() noexcept override;
 
@@ -55,6 +58,8 @@ class SystemDeviceProvisioningBackend final : public IDeviceProvisioningBackend 
         const DevicePreparationOwner& owner
     ) const override;
     void cancel(const std::string& operation_id) override;
+    void execute_operation(const std::string& operation_id, int passphrase_fd);
+    void recover_operation(const std::string& operation_id);
 
   private:
     struct State;

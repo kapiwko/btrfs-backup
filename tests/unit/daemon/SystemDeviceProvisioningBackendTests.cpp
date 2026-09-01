@@ -3,6 +3,7 @@
 
 #include <daemon/control/SystemDeviceProvisioningBackend.hpp>
 #include <daemon/control/DevicePreparationTransaction.hpp>
+#include <daemon/control/DevicePreparationUnitController.hpp>
 
 #include <algorithm>
 #include <backup/ports/ICommandRunner.hpp>
@@ -28,6 +29,7 @@ using btrfsbackup::daemon::control::DevicePreparationTransaction;
 using btrfsbackup::daemon::control::DevicePreparationTransactionStore;
 using btrfsbackup::daemon::control::ICredentialAdministrationBackend;
 using btrfsbackup::daemon::control::IDestructiveDeviceSafetyInspector;
+using btrfsbackup::daemon::control::IDevicePreparationUnitController;
 using btrfsbackup::daemon::control::SystemDeviceProvisioningBackend;
 using btrfsbackup::daemon::control::TargetCredential;
 
@@ -110,12 +112,43 @@ class SafetyInspector final : public IDestructiveDeviceSafetyInspector {
     }
 };
 
+class Units final : public IDevicePreparationUnitController {
+  public:
+    bool running = false;
+    int starts = 0;
+    int recoveries = 0;
+    int stops = 0;
+    void start(const std::string&, int) override {
+        running = true;
+        ++starts;
+    }
+    void recover(const std::string&) override {
+        ++recoveries;
+    }
+    void stop(const std::string&) override {
+        running = false;
+        ++stops;
+    }
+    bool active(const std::string&) override {
+        return running;
+    }
+};
+
+int secret_descriptor(std::string_view secret) {
+    int descriptors[2];
+    test_helpers::expect_true("helper secret pipe", ::pipe(descriptors) == 0, "cannot create helper pipe");
+    static_cast<void>(::write(descriptors[1], secret.data(), secret.size()));
+    ::close(descriptors[1]);
+    return descriptors[0];
+}
+
 void test_preparation_sequence_uses_descriptors_and_installs_profile() {
     const auto root = test_helpers::test_root("device-provisioning", "success");
     Commands commands;
     Btrfs btrfs;
     Credentials credentials;
     SafetyInspector safety;
+    Units units;
     config::NullConfigurationActivator activator;
     SystemDeviceProvisioningBackend backend(
         {
@@ -134,7 +167,8 @@ void test_preparation_sequence_uses_descriptors_and_installs_profile() {
         btrfs,
         activator,
         credentials,
-        safety
+        safety,
+        units
     );
     int descriptors[2];
     test_helpers::expect_true("secret pipe", ::pipe(descriptors) == 0, "cannot create pipe");
@@ -157,11 +191,18 @@ void test_preparation_sequence_uses_descriptors_and_installs_profile() {
         descriptors[0]
     );
     ::close(descriptors[0]);
-    DevicePreparationStatus status = started;
-    for (int attempt = 0; attempt < 200 && status.state != "succeeded" && status.state != "failed"; ++attempt) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(5));
-        status = backend.status(started.operation_id);
-    }
+    test_helpers::expect_true("helper launched", units.starts == 1, "manager did not launch the helper unit");
+    test_helpers::expect_true(
+        "manager does not wipe",
+        std::ranges::find(commands.calls, std::string("wipefs"), [](const auto& call) {
+            return call.front();
+        }) == commands.calls.end(),
+        "destructive command ran on the manager start path"
+    );
+    const int helper_secret = secret_descriptor(password);
+    backend.execute_operation(started.operation_id, helper_secret);
+    ::close(helper_secret);
+    const DevicePreparationStatus status = backend.status(started.operation_id);
     test_helpers::expect_eq("preparation state", status.state, "succeeded");
     test_helpers::expect_true("initial credential", credentials.registered, "initial passphrase not registered");
     test_helpers::expect_true("automatic credential", credentials.generated, "automatic key not generated");
@@ -194,12 +235,13 @@ void test_preparation_sequence_uses_descriptors_and_installs_profile() {
     );
 }
 
-void test_replacement_before_wipe_is_rejected() {
-    const auto root = test_helpers::test_root("device-provisioning", "replacement");
+void test_exited_helper_marks_transaction_interrupted() {
+    const auto root = test_helpers::test_root("device-provisioning", "helper-exited");
     Commands commands;
     Btrfs btrfs;
     Credentials credentials;
     SafetyInspector safety;
+    Units units;
     config::NullConfigurationActivator activator;
     SystemDeviceProvisioningBackend backend(
         {
@@ -218,7 +260,75 @@ void test_replacement_before_wipe_is_rejected() {
         btrfs,
         activator,
         credentials,
-        safety
+        safety,
+        units
+    );
+    const auto candidate = backend.list_devices().front();
+    const int secret = secret_descriptor("secret");
+    const auto started = backend.start(
+        {
+            .profile_id = "helper-exited",
+            .profile_name = "Helper exited",
+            .candidate_id = "candidate-helper-exited",
+            .source_subvolume = "/home",
+            .passphrase_label = "Recovery",
+        },
+        candidate,
+        {.bus_name = ":1.7", .uid = 1000},
+        secret
+    );
+    ::close(secret);
+    auto persisted = DevicePreparationTransactionStore(root / "transactions").load(started.operation_id);
+    persisted.mapper = "btrfs-backup-helper-exited";
+    DevicePreparationTransactionStore(root / "transactions").save(persisted);
+    units.running = false;
+
+    const auto status = backend.status(started.operation_id);
+    test_helpers::expect_eq("exited helper state", status.state, "interrupted");
+    test_helpers::expect_eq(
+        "exited helper error",
+        status.error_code,
+        "device-preparation.helper-exited"
+    );
+    test_helpers::expect_true(
+        "exited helper cannot cancel",
+        !status.can_cancel,
+        "interrupted helper remained cancellable"
+    );
+    test_helpers::expect_true(
+        "exited helper cleanup launched",
+        units.recoveries == 1,
+        "recorded mapper cleanup helper was not launched"
+    );
+}
+
+void test_replacement_before_wipe_is_rejected() {
+    const auto root = test_helpers::test_root("device-provisioning", "replacement");
+    Commands commands;
+    Btrfs btrfs;
+    Credentials credentials;
+    SafetyInspector safety;
+    Units units;
+    config::NullConfigurationActivator activator;
+    SystemDeviceProvisioningBackend backend(
+        {
+            .config_root = root / "etc",
+            .metadata_root = root / "etc/credentials",
+            .key_root = root / "etc/keys",
+            .lock_root = root / "run/locks",
+            .udev_root = root / "udev",
+            .systemd_root = root / "systemd",
+            .public_root = root / "public",
+        },
+        root / "mnt",
+        root / "mountinfo",
+        root / "transactions",
+        commands,
+        btrfs,
+        activator,
+        credentials,
+        safety,
+        units
     );
     const auto candidate = backend.list_devices().front();
     commands.replace_on_scan = 3;
@@ -240,11 +350,10 @@ void test_replacement_before_wipe_is_rejected() {
         descriptors[0]
     );
     ::close(descriptors[0]);
-    DevicePreparationStatus status = started;
-    for (int attempt = 0; attempt < 200 && status.state != "succeeded" && status.state != "failed"; ++attempt) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(5));
-        status = backend.status(started.operation_id);
-    }
+    const int helper_secret = secret_descriptor(password);
+    backend.execute_operation(started.operation_id, helper_secret);
+    ::close(helper_secret);
+    const DevicePreparationStatus status = backend.status(started.operation_id);
     test_helpers::expect_eq("replacement state", status.state, "failed");
     test_helpers::expect_true(
         "replacement not wiped",
@@ -266,6 +375,9 @@ void test_restart_marks_active_transaction_interrupted_and_preserves_owner() {
     transaction.owner = {.bus_name = ":1.20", .uid = 1000};
     transaction.device.path = "/dev/test";
     transaction.device.major_minor = "8:16";
+    transaction.profile_name = "Test";
+    transaction.source_subvolume = "/home";
+    transaction.passphrase_label = "Recovery";
     transaction.created_at = 100;
     transaction.updated_at = 100;
     transaction.last_completed_phase = "open";
@@ -279,6 +391,7 @@ void test_restart_marks_active_transaction_interrupted_and_preserves_owner() {
     Btrfs btrfs;
     Credentials credentials;
     SafetyInspector safety;
+    Units units;
     config::NullConfigurationActivator activator;
     SystemDeviceProvisioningBackend backend(
         {
@@ -297,13 +410,16 @@ void test_restart_marks_active_transaction_interrupted_and_preserves_owner() {
         btrfs,
         activator,
         credentials,
-        safety
+        safety,
+        units
     );
 
     const DevicePreparationStatus restored = backend.status("prepare-restored");
     test_helpers::expect_eq("restart state", restored.state, "interrupted");
     test_helpers::expect_eq("restart error", restored.error_code, "device-preparation.daemon-restarted");
     test_helpers::expect_true("restart recovery", !restored.recovery_action.empty(), "recovery action missing");
+    test_helpers::expect_true("cleanup helper launch", units.recoveries == 1, "cleanup helper was not launched");
+    backend.recover_operation("prepare-restored");
     test_helpers::expect_true(
         "restored UID owner",
         backend.owned_by("prepare-restored", {.bus_name = ":1.99", .uid = 1000}),
@@ -334,6 +450,7 @@ void test_restart_marks_active_transaction_interrupted_and_preserves_owner() {
 int main() {
     test_preparation_sequence_uses_descriptors_and_installs_profile();
     test_replacement_before_wipe_is_rejected();
+    test_exited_helper_marks_transaction_interrupted();
     test_restart_marks_active_transaction_interrupted_and_preserves_owner();
     return test_helpers::finish("system device provisioning backend tests");
 }

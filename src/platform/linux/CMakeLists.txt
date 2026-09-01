@@ -143,11 +143,11 @@ target_restricted_include_directories(btrfsbackup-platform-linux-transfer
         platform/linux/transfer/PosixTransferProcess.hpp
         platform/linux/transfer/PosixTransferPump.hpp
         platform/linux/transfer/Splice.hpp
+        platform/linux/transfer/ThreadSigpipeBlock.hpp
     PRIVATE_HEADERS
         platform/linux/transfer/BoundedDiagnosticBuffer.hpp
         platform/linux/transfer/PosixTransferRuntime.hpp
         platform/linux/transfer/PosixTransferSession.hpp
-        platform/linux/transfer/ThreadSigpipeBlock.hpp
         platform/linux/transfer/TransferChildTermination.hpp
         platform/linux/transfer/TransferProgressReporter.hpp
 )

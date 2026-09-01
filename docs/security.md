@@ -72,8 +72,14 @@ polkit action without retained authorization. The daemon binds a short-lived
 random candidate identifier to a complete device identity and revalidates the
 block graph and active users immediately before signature erasure. It verifies
 the chosen source as a Btrfs subvolume and disables cancellation before the
-first write. Formatting runs as a phase-tracked background operation; no QML or
-KDE process invokes `wipefs`, `sfdisk`, `cryptsetup` or `mkfs.btrfs` directly.
+first write. The long-lived manager persists the request and launches one
+`btrfs-backup-device-preparation@<operationId>.service` instance. That
+short-lived helper receives the passphrase through a root-only FIFO, executes
+exactly one transaction, and checkpoints every phase. Its unit has a closed
+device policy with explicit block-device access, a strict filesystem sandbox,
+and only the capabilities required for storage administration. No QML, KDE, or
+long-lived D-Bus worker thread invokes `wipefs`, `sfdisk`, `cryptsetup` or
+`mkfs.btrfs` directly.
 
 Preparation operation identifiers contain 128 random bits supplied by
 `getrandom()`. The manager persists the initiating D-Bus unique name and UID in
