@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <sys/types.h>
+
 #include <filesystem>
 #include <string>
 #include <vector>
@@ -21,6 +23,7 @@ struct CredentialAdministrationRoots {
     std::filesystem::path udev_root{"/etc/udev/rules.d"};
     std::filesystem::path systemd_root{"/etc/systemd/system"};
     std::filesystem::path public_root{"/var/lib/btrfs-backup/public/profiles"};
+    uid_t trusted_owner = 0;
 };
 
 struct TargetCredential {

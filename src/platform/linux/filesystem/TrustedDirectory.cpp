@@ -5,7 +5,9 @@
 #include <platform/linux/filesystem/TrustedDirectory.hpp>
 
 #include <fcntl.h>
+#include <limits.h>
 #include <linux/openat2.h>
+#include <linux/fs.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
 #include <unistd.h>
@@ -110,6 +112,88 @@ SafeDirectoryHandle traverse_trusted_directory(
 }
 
 } // namespace
+
+SafeFilename::SafeFilename(std::string value) : value_(std::move(value)) {
+    const fs::path path(value_);
+    if (value_.empty() || value_ == "." || value_ == ".." || value_.find('\0') != std::string::npos ||
+        path.is_absolute() || path.has_parent_path() || path.filename() != path || value_.size() > NAME_MAX) {
+        throw ValidationError("unsafe filename: " + value_);
+    }
+}
+
+const std::string& SafeFilename::value() const noexcept {
+    return value_;
+}
+
+TrustedDirectory::TrustedDirectory(
+    const fs::path& path,
+    const fs::path& trusted_root,
+    uid_t trusted_owner
+)
+    : path_(btrfsbackup::config::normalized_path(path)),
+      directory_(traverse_trusted_directory(path_, trusted_root, trusted_owner, false, 0)) {
+}
+
+int TrustedDirectory::fd() const noexcept {
+    return directory_.fd();
+}
+
+const fs::path& TrustedDirectory::path() const noexcept {
+    return path_;
+}
+
+bool TrustedDirectory::exists(const SafeFilename& filename) const {
+    struct stat status{};
+    if (fstatat(fd(), filename.value().c_str(), &status, AT_SYMLINK_NOFOLLOW) == 0)
+        return true;
+    if (errno == ENOENT)
+        return false;
+    throw_directory_error("cannot inspect trusted directory entry", path_ / filename.value(), errno);
+}
+
+void TrustedDirectory::rename_noreplace(
+    const SafeFilename& source,
+    const TrustedDirectory& destination,
+    const SafeFilename& destination_filename
+) const {
+    int result;
+    do {
+        result = static_cast<int>(syscall(
+            SYS_renameat2,
+            fd(),
+            source.value().c_str(),
+            destination.fd(),
+            destination_filename.value().c_str(),
+            RENAME_NOREPLACE
+        ));
+    } while (result < 0 && errno == EINTR);
+    if (result < 0) {
+        throw_directory_error(
+            "cannot atomically rename trusted directory entry to",
+            destination.path() / destination_filename.value(),
+            errno
+        );
+    }
+}
+
+std::error_code TrustedDirectory::remove(const SafeFilename& filename) const noexcept {
+    int result;
+    do {
+        result = unlinkat(fd(), filename.value().c_str(), 0);
+    } while (result < 0 && errno == EINTR);
+    if (result == 0 || errno == ENOENT)
+        return {};
+    return {errno, std::generic_category()};
+}
+
+void TrustedDirectory::sync() const {
+    int result;
+    do {
+        result = fsync(fd());
+    } while (result < 0 && errno == EINTR);
+    if (result < 0)
+        throw_directory_error("cannot sync trusted directory", path_, errno);
+}
 
 void validate_trusted_directory(const fs::path& path, const fs::path& trusted_root, uid_t trusted_owner) {
     (void)traverse_trusted_directory(path, trusted_root, trusted_owner, false, 0);

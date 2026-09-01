@@ -5,9 +5,13 @@
 #include <platform/linux/filesystem/SecretFile.hpp>
 
 #include <fcntl.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include <array>
+#include <filesystem>
+#include <fstream>
+#include <iterator>
 #include <string>
 
 #include <core/Errors.hpp>
@@ -15,6 +19,20 @@
 #include "support/TestHelpers.hpp"
 
 namespace {
+
+namespace fs = std::filesystem;
+namespace filesystem = btrfsbackup::platform::linux::filesystem;
+
+btrfsbackup::platform::linux::OwnedFileDescriptor secret(std::string_view value) {
+    return filesystem::create_sealed_secret_file(
+        std::as_bytes(std::span(value.data(), value.size()))
+    );
+}
+
+std::string read_file(const fs::path& path) {
+    std::ifstream input(path, std::ios::binary);
+    return {std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()};
+}
 
 void test_secret_is_copied_and_sealed() {
     int descriptors[2];
@@ -63,10 +81,90 @@ void test_secret_size_is_bounded() {
     close(descriptors[0]);
 }
 
+void test_secret_is_installed_relative_to_trusted_directory() {
+    const fs::path root = test_helpers::test_root("secret-file", "trusted-install");
+    chmod(root.c_str(), 0700);
+    const fs::path key_root = root / "keys";
+    filesystem::ensure_trusted_directory(key_root, 0700, root, geteuid());
+    filesystem::TrustedDirectory directory(key_root, root, geteuid());
+    const filesystem::SafeFilename filename("profile-slot-1.key");
+    auto source = secret("installed secret");
+
+    filesystem::install_secret_file(directory, filename, source.get());
+
+    test_helpers::expect_eq(
+        "installed secret content",
+        read_file(key_root / filename.value()),
+        std::string("installed secret")
+    );
+    struct stat status{};
+    test_helpers::expect_true(
+        "installed secret mode",
+        ::stat((key_root / filename.value()).c_str(), &status) == 0 && (status.st_mode & 0777) == 0600,
+        "installed secret is not mode 0600"
+    );
+}
+
+void test_install_does_not_replace_existing_entry() {
+    const fs::path root = test_helpers::test_root("secret-file", "no-replace");
+    chmod(root.c_str(), 0700);
+    const fs::path key_root = root / "keys";
+    filesystem::ensure_trusted_directory(key_root, 0700, root, geteuid());
+    filesystem::TrustedDirectory directory(key_root, root, geteuid());
+    const filesystem::SafeFilename filename("profile-slot-1.key");
+    test_helpers::write_file(key_root / filename.value(), "existing secret");
+    auto source = secret("replacement secret");
+
+    try {
+        filesystem::install_secret_file(directory, filename, source.get());
+        test_helpers::fail("secret no-replace", "existing destination was replaced");
+    } catch (const btrfsbackup::ValidationError&) {
+    }
+
+    test_helpers::expect_eq(
+        "existing secret preserved",
+        read_file(key_root / filename.value()),
+        std::string("existing secret")
+    );
+}
+
+void test_install_does_not_replace_symlink() {
+    const fs::path root = test_helpers::test_root("secret-file", "symlink-no-replace");
+    chmod(root.c_str(), 0700);
+    const fs::path key_root = root / "keys";
+    filesystem::ensure_trusted_directory(key_root, 0700, root, geteuid());
+    filesystem::TrustedDirectory directory(key_root, root, geteuid());
+    const filesystem::SafeFilename filename("profile-slot-1.key");
+    const fs::path victim = root / "victim";
+    test_helpers::write_file(victim, "victim content");
+    fs::create_symlink(victim, key_root / filename.value());
+    auto source = secret("replacement secret");
+
+    try {
+        filesystem::install_secret_file(directory, filename, source.get());
+        test_helpers::fail("secret symlink no-replace", "symlink destination was replaced");
+    } catch (const btrfsbackup::ValidationError&) {
+    }
+
+    test_helpers::expect_true(
+        "secret symlink preserved",
+        fs::is_symlink(key_root / filename.value()),
+        "destination symlink was replaced"
+    );
+    test_helpers::expect_eq(
+        "symlink victim preserved",
+        read_file(victim),
+        std::string("victim content")
+    );
+}
+
 } // namespace
 
 int main() {
     test_secret_is_copied_and_sealed();
     test_secret_size_is_bounded();
+    test_secret_is_installed_relative_to_trusted_directory();
+    test_install_does_not_replace_existing_entry();
+    test_install_does_not_replace_symlink();
     return test_helpers::finish("secret file tests");
 }
