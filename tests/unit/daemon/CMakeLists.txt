@@ -100,6 +100,16 @@ add_btrfsbackup_test(
 )
 
 add_btrfsbackup_test(
+    btrfsbackup-system-credential-administration-backend-tests
+    SystemCredentialAdministrationBackendTests.cpp
+    system-credential-administration-backend-tests
+    btrfsbackup-daemon-system-control
+    btrfsbackup-config-json
+    btrfsbackup-platform-linux-config
+    btrfsbackup-platform-linux-storage
+)
+
+add_btrfsbackup_test(
     btrfsbackup-device-preparation-transaction-tests
     DevicePreparationTransactionTests.cpp
     device-preparation-transaction-tests

@@ -82,6 +82,11 @@ void test_exception_mapping() {
         mapper.map(btrfsbackup::CodedValidationError(btrfsbackup::ErrorCode::ConfigurationRollbackIncomplete, "private path")),
         ManagerErrorCode::RollbackIncomplete
     );
+    expect_code(
+        "credential rollback error",
+        mapper.map(btrfsbackup::CodedOperationError(btrfsbackup::ErrorCode::CredentialMutationRollbackIncomplete, "private credential")),
+        ManagerErrorCode::RollbackIncomplete
+    );
     const auto internal = mapper.map(std::runtime_error("private internal detail"));
     expect_code("unexpected error", internal, ManagerErrorCode::InternalError);
     test_helpers::expect_true(

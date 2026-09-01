@@ -67,6 +67,11 @@ Generated keys are installed atomically with mode `0600` under
 occupied slots, unknown slots cannot be removed through the KCM, and the last
 credential or the current automatic credential cannot be removed.
 
+Credential additions track the keyslot, key file, metadata, and profile
+publication as one mutation. A complete rollback preserves the primary error;
+an incomplete rollback raises `credential.mutation_rollback_incomplete` with
+the failed stage and explicit outcomes for every compensating action.
+
 Device preparation has its own `io.github.btrfsbackup.prepare-backup-device`
 polkit action without retained authorization. The daemon binds a short-lived
 random candidate identifier to a complete device identity and revalidates the

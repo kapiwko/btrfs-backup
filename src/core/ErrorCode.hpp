@@ -30,6 +30,7 @@ enum class ErrorCode {
     RepositoryRecoveryRequired,
     ConfigurationSaveFailed,
     ConfigurationRollbackIncomplete,
+    CredentialMutationRollbackIncomplete,
     ConfigurationChanged,
 };
 
