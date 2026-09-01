@@ -13,6 +13,13 @@ duplicate command parsing or backup logic. Runner execution remains independent
 of the daemon as recorded in
 [ADR 0004](adr/0004-runner-independent-of-daemon.md).
 
+Destructive device preparation is also outside the long-lived D-Bus process.
+The manager authorizes and validates the request, stores a durable transaction,
+and starts one templated systemd unit. The short-lived
+`btrfs-backup-device-preparation` helper revalidates the stored device identity
+and active block graph immediately before the first write, performs one
+transaction, and persists phase checkpoints for status and recovery.
+
 ## Runtime Flow
 
 ```mermaid

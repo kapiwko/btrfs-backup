@@ -5,6 +5,7 @@
 #include <daemon/dbus/ManagerDbusServer.hpp>
 #include <daemon/control/CommandSystemdUnitController.hpp>
 #include <daemon/control/DestructiveDeviceSafetyInspector.hpp>
+#include <daemon/control/DevicePreparationUnitController.hpp>
 #include <daemon/ManagerAuditLog.hpp>
 #include <daemon/control/SystemOperationalControlBackend.hpp>
 #include <daemon/control/SystemProfileAdministrationBackend.hpp>
@@ -156,6 +157,7 @@ int main(int argc, char** argv) {
             selected_configuration_activator
         );
         btrfsbackup::daemon::control::DestructiveDeviceSafetyInspector destructive_device_safety(commands);
+        btrfsbackup::daemon::control::SystemdDevicePreparationUnitController device_preparation_units(commands);
         btrfsbackup::daemon::control::SystemDeviceProvisioningBackend device_provisioning_backend(
             credential_roots,
             paths.target_mount_root,
@@ -165,7 +167,8 @@ int main(int argc, char** argv) {
             btrfs,
             selected_configuration_activator,
             credential_administration_backend,
-            destructive_device_safety
+            destructive_device_safety,
+            device_preparation_units
         );
         btrfsbackup::daemon::FileManagerAuditLog audit_log(audit_log_path);
         return btrfsbackup::daemon::dbus::run_dbus_server(

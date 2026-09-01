@@ -132,13 +132,15 @@ Device preparation transactions are stored privately under:
 /var/lib/btrfs-backup/device-preparations/<OPERATION_ID>.json
 ```
 
-The manager writes the record atomically after each phase and after discovering
-the partition, mapper, and filesystem UUIDs. If the daemon restarts while a
-preparation is active, it attempts to close the recorded mapper and changes the
-operation to `interrupted`. `GetDevicePreparation` then returns a
+The preparation helper writes the record atomically after each phase and after
+discovering the partition, mapper, and filesystem UUIDs. A manager restart does
+not terminate an active helper; status is reconstructed from the durable
+record. If the helper exits before recording a terminal state, the manager
+changes the operation to `interrupted` and launches a separate helper instance
+to close a recorded mapper. `GetDevicePreparation` then returns a
 `recoveryAction`; use the recorded stable device identity, last completed phase,
 UUIDs, configuration state, credential state, and cleanup result to inspect the
-partial device manually. The daemon never resumes a destructive phase
+partial device manually. Neither process resumes a destructive phase
 automatically because the passphrase is not persisted.
 
 Do not delete an interrupted transaction until the partial block structures and

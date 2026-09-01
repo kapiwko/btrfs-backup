@@ -2,18 +2,27 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#include <array>
 #include <chrono>
 #include <deque>
+#include <filesystem>
+#include <fcntl.h>
 #include <functional>
 #include <memory>
+#include <span>
 #include <string>
+#include <string_view>
+#include <thread>
 #include <utility>
 #include <vector>
+#include <unistd.h>
 
 #include <backup/ports/CancellationRequestStore.hpp>
 #include <daemon/control/CommandSystemdUnitController.hpp>
-#include <daemon/dbus/ManagerErrors.hpp>
+#include <daemon/control/DevicePreparationUnitController.hpp>
 #include <daemon/control/SystemOperationalControlBackend.hpp>
+#include <daemon/dbus/ManagerErrors.hpp>
+#include <platform/linux/filesystem/SecretFile.hpp>
 
 #include "support/TestHelpers.hpp"
 
@@ -25,6 +34,7 @@ using btrfsbackup::OperationId;
 using btrfsbackup::ProfileId;
 using btrfsbackup::daemon::control::AuthorizedOperationContext;
 using btrfsbackup::daemon::control::CommandSystemdUnitController;
+using btrfsbackup::daemon::control::SystemdDevicePreparationUnitController;
 using btrfsbackup::daemon::control::ISystemdUnitController;
 using btrfsbackup::daemon::dbus::ManagerErrorCode;
 using btrfsbackup::daemon::dbus::ManagerOperationError;
@@ -185,6 +195,49 @@ void test_command_adapter_builds_transient_invocation() {
     );
 }
 
+void test_device_preparation_unit_receives_secret_over_fifo() {
+    const auto root = test_helpers::test_root("systemd-control", "device-preparation-secret");
+    FakeCommands commands;
+    SystemdDevicePreparationUnitController units(commands, root);
+    constexpr std::string_view expected = "helper secret";
+    const auto bytes = std::as_bytes(std::span(expected.data(), expected.size()));
+    auto secret = btrfsbackup::platform::linux::filesystem::create_sealed_secret_file(bytes);
+    std::string received;
+    std::jthread reader([&] {
+        const auto fifo = units.secret_path("prepare-fifo-test");
+        const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+        while (!std::filesystem::exists(fifo) && std::chrono::steady_clock::now() < deadline)
+            std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        const int descriptor = ::open(fifo.c_str(), O_RDONLY | O_CLOEXEC);
+        if (descriptor < 0)
+            return;
+        std::array<char, 64> buffer{};
+        const ssize_t count = ::read(descriptor, buffer.data(), buffer.size());
+        if (count > 0)
+            received.assign(buffer.data(), static_cast<std::size_t>(count));
+        ::close(descriptor);
+    });
+
+    units.start("prepare-fifo-test", secret.get());
+    reader.join();
+    test_helpers::expect_eq("device preparation FIFO secret", received, std::string(expected));
+    test_helpers::expect_true(
+        "device preparation start command",
+        commands.calls == std::vector<std::vector<std::string>>{{
+                              "systemctl",
+                              "start",
+                              "--no-block",
+                              "btrfs-backup-device-preparation@prepare-fifo-test.service",
+                          }},
+        "helper unit start command changed"
+    );
+    test_helpers::expect_true(
+        "device preparation FIFO removed",
+        !std::filesystem::exists(units.secret_path("prepare-fifo-test")),
+        "secret FIFO remained on disk"
+    );
+}
+
 void test_command_adapter_classifies_systemd_failures() {
     FakeCommands commands;
     commands.results.push_back({.exit_code = 5, .output = "Unit missing.service could not be found.\n"});
@@ -269,6 +322,7 @@ void test_backend_maps_typed_systemd_failures() {
 
 int main() {
     test_command_adapter_builds_transient_invocation();
+    test_device_preparation_unit_receives_secret_over_fifo();
     test_command_adapter_classifies_systemd_failures();
     test_waited_transient_job_preserves_service_exit_status();
     test_backend_maps_typed_systemd_failures();

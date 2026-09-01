@@ -103,7 +103,8 @@ files under `/usr/share/dbus-1`, polkit actions under
 directory `/etc/btrfs-backup/hooks.d` as `root:root 0755`.
 
 The public command surface is `btrfs-backup` and `btrfs-backupctl`. The optional
-system-bus service executable is `btrfs-backupd`. Target
+system-bus service installs `btrfs-backupd`, the private
+`btrfs-backup-device-preparation` helper, and its templated systemd unit. Target
 mount and eject operations are `btrfs-backupctl target mount` and
 `btrfs-backupctl target eject`; standalone mount/eject wrapper commands are no
 longer packaged.
@@ -117,7 +118,7 @@ cmake --build build --parallel
 DESTDIR="$pkgdir" cmake --install build
 ```
 
-This installs the two commands, the manager executable, rendered profile,
+This installs the two commands, the manager and preparation executables, rendered profile,
 eject, validation, and target-activation service templates, manager activation
 and policy files, configuration examples, schema, documentation, and the
 trusted hook directory.

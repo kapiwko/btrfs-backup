@@ -32,6 +32,7 @@ set(generated_files
     "btrfs-backup-validate@.service"
     "btrfs-backup-target@.service"
     "btrfs-backupd.service"
+    "btrfs-backup-device-preparation@.service"
     "io.github.btrfsbackup.Manager1.service"
 )
 foreach(generated_file IN LISTS generated_files)
