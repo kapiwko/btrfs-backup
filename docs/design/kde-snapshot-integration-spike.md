@@ -76,10 +76,19 @@ The session segment is an opaque capability reference, not a filesystem path.
 
 ## Worker And Plugin Analysis
 
-The worker is a `KIO::ForwardingWorkerBase`. For a selected subvolume snapshot,
-`rewriteUrl()` resolves its numeric ID to a local path and forwards operations
-to `file:`. Its protocol metadata declares reading and listing and disables
-writing, moving, deletion, linking and directory creation. See
+The worker derives directly from `KIO::WorkerBase`. It opens the caller-bound
+session root once and retains that directory descriptor while the session is
+cached. Repository discovery uses `/proc/self/fd/<n>`, and subsequent listing,
+metadata and file reads resolve every relative path component with
+descriptor-relative `openat()` calls and `O_NOFOLLOW`. The worker therefore
+does not re-resolve a local mount path between validation and access. An open
+KIO file also keeps the browse session pinned until `close()`.
+
+The protocol metadata declares reading and listing and disables writing,
+moving, deletion, linking and directory creation. A D-Bus descriptor broker
+could later remove the initial local session-path handoff as well; it is not
+required for descriptor-stable access inside the current worker. The upstream
+`kio-snapshot` reference instead forwards operations to `file:`; see
 [`snapshot.cpp`](https://invent.kde.org/system/kio-snapshot/-/blob/c0801089f9a15a4e24d625d6ea371406e780a8df/kioworker/snapshot.cpp)
 and
 [`snapshot.json`](https://invent.kde.org/system/kio-snapshot/-/blob/c0801089f9a15a4e24d625d6ea371406e780a8df/kioworker/snapshot.json).

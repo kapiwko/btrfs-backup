@@ -57,6 +57,8 @@ target_link_libraries(
 add_library(kio_btrfsbackup MODULE
     kio/BtrfsBackupWorker.cpp
     kio/BtrfsBackupWorker.hpp
+    kio/SecureBrowsePath.cpp
+    kio/SecureBrowsePath.hpp
     kio/btrfsbackup.json
 )
 set_target_properties(kio_btrfsbackup PROPERTIES
@@ -371,6 +373,19 @@ if(BUILD_TESTING)
     add_test(NAME kio-btrfsbackup-metadata COMMAND kio-btrfsbackup-metadata-tests)
     set_tests_properties(kio-btrfsbackup-metadata PROPERTIES LABELS "kde;kio")
 
+    add_executable(kio-secure-browse-path-tests
+        kio/SecureBrowsePath.cpp
+        kio/SecureBrowsePath.hpp
+        kio/tests/SecureBrowsePathTests.cpp
+    )
+    target_compile_features(kio-secure-browse-path-tests PRIVATE cxx_std_23)
+    target_include_directories(kio-secure-browse-path-tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/kio)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(kio-secure-browse-path-tests PRIVATE -fexceptions -Wall -Wextra -Wpedantic)
+    endif()
+    add_test(NAME kio-secure-browse-path COMMAND kio-secure-browse-path-tests)
+    set_tests_properties(kio-secure-browse-path PROPERTIES LABELS "kde;kio")
+
     add_executable(
         kio-snapshot-interop-probe
         spikes/KioSnapshotInteropProbe.cpp
@@ -497,6 +512,7 @@ if(BUILD_TESTING)
         btrfs-backup-kde-tests
         kde-manager-api-tests
         kde-terminal-notification-tests
+        kio-secure-browse-path-tests
         kio-snapshot-interop-probe
         plasma-progress-job-tests
         plasma-status-models-tests
