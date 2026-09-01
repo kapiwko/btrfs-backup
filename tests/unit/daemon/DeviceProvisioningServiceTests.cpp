@@ -352,6 +352,18 @@ void test_topology_and_plan_are_caller_bound_and_revalidated() {
             std::get<ExistingPartition>(topology.devices.front().regions.front()).candidate_id != "raw-partition",
         "raw storage identity escaped as a candidate"
     );
+    const auto& partition = std::get<ExistingPartition>(topology.devices.front().regions.front());
+    const auto partition_plan = service.build_device_preparation_plan(
+        ":1.20",
+        topology.generation,
+        partition.candidate_id,
+        ProvisioningMode::ReformatExistingPartition
+    );
+    try {
+        static_cast<void>(service.start(":1.20", 1000, plan_request(partition_plan.id), 17));
+        test_helpers::fail("partition execution", "a partition plan reached the whole-device executor");
+    } catch (const btrfsbackup::daemon::dbus::ManagerOperationError&) {
+    }
     const auto plan = service.build_device_preparation_plan(
         ":1.20",
         topology.generation,

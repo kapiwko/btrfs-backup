@@ -102,7 +102,7 @@ class DeviceProvisioningService final {
     [[nodiscard]] provisioning::DevicePreparationPlan build_device_preparation_plan(
         const std::string& caller,
         const provisioning::TopologyGeneration& expected_generation,
-        const provisioning::DeviceCandidateId& device_id,
+        const std::string& selected_candidate_id,
         provisioning::ProvisioningMode mode
     );
     [[nodiscard]] std::vector<std::string> list_source_candidates(const std::string& caller);

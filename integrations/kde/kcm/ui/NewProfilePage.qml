@@ -16,6 +16,7 @@ KCMUtils.SimpleKCM {
     required property var provisioning
     property int step: 0
     property var selectedDevice: null
+    property var selectedTarget: null
 
     title: root.step === 0 ? translations.i18n("Add backup profile")
         : root.step === 1 ? translations.i18n("Prepare backup device")
@@ -27,11 +28,14 @@ KCMUtils.SimpleKCM {
         icon.name: "tools-wizard-symbolic"
         text: translations.i18n("Erase and prepare")
         visible: root.step === 1
-        enabled: root.selectedDevice !== null && profileId.acceptableInput
+        enabled: root.selectedTarget !== null && (root.selectedTarget.blockers?.length ?? 0) === 0
+            && !root.selectedTarget.mounted && (root.selectedTarget.mountPoints?.length ?? 0) === 0
+            && profileId.acceptableInput
             && profileName.text.length > 0 && sourcePath.currentIndex >= 0
             && passphrase.text.length > 0 && passphrase.text === confirmation.text
             && eraseConfirmation.text === "ERASE" && root.provisioning.plan.planId
-            && root.provisioning.plan.displayPath === root.selectedDevice.path
+            && root.provisioning.plan.mode === "erase-whole-device"
+            && root.provisioning.plan.displayPath === root.selectedTarget.path
             && !root.provisioning.busy
         onTriggered: {
             root.step = 2;
@@ -87,19 +91,19 @@ KCMUtils.SimpleKCM {
                     onVisibleChanged: if (!visible) root.provisioning.clearError()
                 }
 
-                Kirigami.Heading { text: translations.i18n("Select a disk"); level: 2 }
+                Kirigami.Heading { text: translations.i18n("Select a disk or partition"); level: 2 }
                 Repeater {
                     model: root.provisioning.devices
                     QQC2.ItemDelegate {
                         id: deviceRow
                         required property var modelData
                         Layout.fillWidth: true
-                        enabled: !modelData.mounted && (modelData.blockers?.length ?? 0) === 0
-                            && !root.provisioning.busy
-                        highlighted: root.selectedDevice?.path === modelData.path
+                        enabled: !root.provisioning.busy
+                        highlighted: root.selectedTarget?.path === modelData.path
                         onClicked: {
                             root.selectedDevice = modelData
-                            root.provisioning.buildPlan(modelData)
+                            root.selectedTarget = modelData
+                            root.provisioning.buildPlan(modelData, "erase-whole-device")
                         }
                         contentItem: Kirigami.TitleSubtitle {
                             title: (deviceRow.modelData.model || deviceRow.modelData.path)
@@ -117,6 +121,42 @@ KCMUtils.SimpleKCM {
 
                 ColumnLayout {
                     Layout.fillWidth: true
+                    visible: root.selectedDevice !== null
+                    spacing: Kirigami.Units.smallSpacing
+
+                    Kirigami.Heading { text: translations.i18n("Partitions"); level: 3 }
+                    Repeater {
+                        model: root.selectedDevice?.regions ?? []
+                        QQC2.ItemDelegate {
+                            id: partitionRow
+                            required property var modelData
+                            Layout.fillWidth: true
+                            visible: modelData.kind === "existing-partition"
+                            enabled: visible && modelData.suitableForReformat
+                                && (modelData.blockers?.length ?? 0) === 0
+                                && (modelData.mountPoints?.length ?? 0) === 0
+                                && !root.provisioning.busy
+                            highlighted: root.selectedTarget?.candidateId === modelData.candidateId
+                            onClicked: {
+                                root.selectedTarget = modelData
+                                root.provisioning.buildPlan(modelData, "reformat-existing-partition")
+                            }
+                            contentItem: Kirigami.TitleSubtitle {
+                                title: (partitionRow.modelData.partitionLabel
+                                    || partitionRow.modelData.filesystemLabel
+                                    || partitionRow.modelData.path) + " - "
+                                    + root.formatBytes(Number(partitionRow.modelData.sectorCount)
+                                        * Number(root.selectedDevice.logicalSectorSize || 512))
+                                subtitle: partitionRow.modelData.path + " - "
+                                    + (partitionRow.modelData.filesystemType || translations.i18n("unknown filesystem"))
+                                selected: partitionRow.highlighted
+                            }
+                        }
+                    }
+                }
+
+                ColumnLayout {
+                    Layout.fillWidth: true
                     visible: root.provisioning.plan.planId !== undefined
                     spacing: Kirigami.Units.smallSpacing
 
@@ -124,7 +164,7 @@ KCMUtils.SimpleKCM {
                     StorageLayout {
                         Layout.fillWidth: true
                         regions: root.provisioning.plan.before?.regions ?? []
-                        selectedRegionId: ""
+                        selectedRegionId: root.provisioning.plan.partitionId ?? ""
                         preview: false
                         logicalSectorSize: root.provisioning.plan.before?.logicalSectorSize ?? 512
                     }
@@ -132,14 +172,16 @@ KCMUtils.SimpleKCM {
                     StorageLayout {
                         Layout.fillWidth: true
                         regions: root.provisioning.plan.after?.regions ?? []
-                        selectedRegionId: "planned-backup-partition"
+                        selectedRegionId: root.provisioning.plan.partitionId ?? "planned-backup-partition"
                         preview: true
                         logicalSectorSize: root.provisioning.plan.after?.logicalSectorSize ?? 512
                     }
                     QQC2.Label {
                         Layout.fillWidth: true
                         wrapMode: Text.Wrap
-                        text: translations.i18n("All existing partitions on this disk will be removed. The resulting backup target will use LUKS2 encryption and Btrfs.")
+                        text: root.provisioning.plan.mode === "reformat-existing-partition"
+                            ? translations.i18n("Only data on the selected partition will be removed. Other partitions will remain unchanged.")
+                            : translations.i18n("All existing partitions on this disk will be removed. The resulting backup target will use LUKS2 encryption and Btrfs.")
                     }
                 }
 
