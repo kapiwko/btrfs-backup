@@ -29,6 +29,7 @@
 #include <daemon/control/CredentialAdministrationService.hpp>
 #include <daemon/control/DestructiveDeviceSafetyInspector.hpp>
 #include <daemon/control/DevicePreparationTransaction.hpp>
+#include <daemon/control/DevicePreparationUnitController.hpp>
 #include <daemon/dbus/ManagerErrors.hpp>
 #include <platform/linux/config/ProfileService.hpp>
 #include <platform/linux/filesystem/FileLock.hpp>
@@ -229,9 +230,7 @@ std::string first_partition(backup::ICommandRunner& commands, const fs::path& di
 struct SystemDeviceProvisioningBackend::State {
     mutable std::mutex mutex;
     DevicePreparationTransaction transaction;
-    bool cancel_requested = false;
     bool restored = false;
-    std::jthread worker;
 };
 
 struct SystemDeviceProvisioningBackend::Impl {
@@ -243,6 +242,7 @@ struct SystemDeviceProvisioningBackend::Impl {
     config::IConfigurationActivator& activator;
     ICredentialAdministrationBackend& credentials;
     IDestructiveDeviceSafetyInspector& safety_inspector;
+    IDevicePreparationUnitController& units;
     DevicePreparationTransactionStore transactions;
     mutable std::mutex jobs_mutex;
     std::map<std::string, std::shared_ptr<State>> jobs;
@@ -258,32 +258,33 @@ struct SystemDeviceProvisioningBackend::Impl {
         backup::IBtrfsOperations& btrfs_operations,
         config::IConfigurationActivator& configuration_activator,
         ICredentialAdministrationBackend& credential_backend,
-        IDestructiveDeviceSafetyInspector& device_safety_inspector
+        IDestructiveDeviceSafetyInspector& device_safety_inspector,
+        IDevicePreparationUnitController& unit_controller,
+        bool recover_existing
     ) : roots(std::move(roots_value)), target_mount_root(std::move(mount_root)),
         mountinfo_path(std::move(mountinfo)), commands(command_runner), btrfs(btrfs_operations),
         activator(configuration_activator), credentials(credential_backend),
-        safety_inspector(device_safety_inspector), transactions(std::move(transaction_root)) {
+        safety_inspector(device_safety_inspector), units(unit_controller),
+        transactions(std::move(transaction_root)) {
         for (auto transaction : transactions.load_and_prune()) {
-            if (transaction.status.state == "queued" || transaction.status.state == "running") {
+            if (recover_existing &&
+                (transaction.status.state == "queued" || transaction.status.state == "running") &&
+                !units.active(transaction.status.operation_id)) {
                 transaction.status.state = "interrupted";
                 transaction.status.error_code = "device-preparation.daemon-restarted";
                 transaction.status.recovery_action =
                     "Inspect the recorded device and lastCompletedPhase; complete or remove partial structures manually.";
                 transaction.status.can_cancel = false;
                 transaction.cleanup_result = "not-required";
-                if (!transaction.mapper.empty()) {
-                    try {
-                        const auto cleanup = commands.run({"cryptsetup", "close", transaction.mapper});
-                        transaction.cleanup_result =
-                            cleanup.exit_code == 0 ? "mapper-closed" : "mapper-close-failed";
-                        if (cleanup.exit_code == 0)
-                            transaction.mapper.clear();
-                    } catch (...) {
-                        transaction.cleanup_result = "mapper-close-failed";
-                    }
-                }
                 transaction.updated_at = system_time_seconds();
                 transactions.save(transaction);
+                if (!transaction.mapper.empty()) {
+                    try {
+                        units.recover(transaction.status.operation_id);
+                    } catch (const std::exception& error) {
+                        std::cerr << "Cannot start device preparation cleanup: " << error.what() << '\n';
+                    }
+                }
             }
             auto state = std::make_shared<State>();
             state->transaction = std::move(transaction);
@@ -312,14 +313,45 @@ struct SystemDeviceProvisioningBackend::Impl {
         for (const auto& transaction : retained_transactions)
             retained.insert(transaction.status.operation_id);
         std::lock_guard lock(jobs_mutex);
+        for (const auto& transaction : retained_transactions) {
+            const auto item = jobs.find(transaction.status.operation_id);
+            if (item == jobs.end()) {
+                auto state = std::make_shared<State>();
+                state->transaction = transaction;
+                state->restored = true;
+                jobs.emplace(transaction.status.operation_id, std::move(state));
+            } else {
+                std::lock_guard state_lock(item->second->mutex);
+                item->second->transaction = transaction;
+            }
+        }
         std::erase_if(jobs, [&](const auto& item) {
             if (retained.contains(item.first))
                 return false;
-            std::lock_guard state_lock(item.second->mutex);
-            const std::string& value = item.second->transaction.status.state;
-            return value == "succeeded" || value == "failed" || value == "cancelled" ||
-                value == "interrupted";
+            return true;
         });
+    }
+
+    DevicePreparationTransaction load_current(const std::string& operation_id) const {
+        DevicePreparationTransaction transaction = transactions.load(operation_id);
+        if ((transaction.status.state == "queued" || transaction.status.state == "running") &&
+            !units.active(operation_id)) {
+            transaction.status.state = "interrupted";
+            transaction.status.error_code = "device-preparation.helper-exited";
+            transaction.status.recovery_action =
+                "Inspect the recorded device and lastCompletedPhase; complete or remove partial structures manually.";
+            transaction.status.can_cancel = false;
+            transaction.updated_at = system_time_seconds();
+            transactions.save(transaction);
+            if (!transaction.mapper.empty()) {
+                try {
+                    units.recover(operation_id);
+                } catch (const std::exception& error) {
+                    std::cerr << "Cannot start device preparation cleanup: " << error.what() << '\n';
+                }
+            }
+        }
+        return transaction;
     }
 
     void register_job(const std::shared_ptr<State>& state) {
@@ -412,11 +444,6 @@ struct SystemDeviceProvisioningBackend::Impl {
         update(state, [&](auto& transaction) { transaction.last_completed_phase = value; });
     }
 
-    bool cancelled(const std::shared_ptr<State>& state) {
-        std::lock_guard lock(state->mutex);
-        return state->cancel_requested;
-    }
-
     void execute(
         const std::shared_ptr<State>& state,
         DevicePreparationRequest request,
@@ -432,16 +459,6 @@ struct SystemDeviceProvisioningBackend::Impl {
             if (!btrfs.is_subvolume(request.source_subvolume))
                 throw ValidationError("selected source is not a Btrfs subvolume");
             completed(state, "inspect");
-            if (cancelled(state)) {
-                update(state, [](auto& transaction) {
-                    transaction.status.state = "cancelled";
-                    transaction.status.phase = "cancelled";
-                    transaction.status.can_cancel = false;
-                    transaction.status.recovery_action.clear();
-                });
-                return;
-            }
-
             platform::linux::filesystem::FileLock device_lock(roots.lock_root / "device-provisioning.lock");
             if (!device_lock.try_acquire())
                 throw dbus::ManagerOperationError(dbus::ManagerErrorCode::Busy, "another device is being prepared");
@@ -643,8 +660,10 @@ SystemDeviceProvisioningBackend::SystemDeviceProvisioningBackend(
     backup::IBtrfsOperations& btrfs,
     config::IConfigurationActivator& configuration_activator,
     ICredentialAdministrationBackend& credentials,
-    IDestructiveDeviceSafetyInspector& safety_inspector
-) : impl_(std::make_unique<Impl>(std::move(roots), std::move(target_mount_root), std::move(mountinfo_path), std::move(transaction_root), commands, btrfs, configuration_activator, credentials, safety_inspector)) {
+    IDestructiveDeviceSafetyInspector& safety_inspector,
+    IDevicePreparationUnitController& units,
+    bool recover_existing
+) : impl_(std::make_unique<Impl>(std::move(roots), std::move(target_mount_root), std::move(mountinfo_path), std::move(transaction_root), commands, btrfs, configuration_activator, credentials, safety_inspector, units, recover_existing)) {
 }
 
 SystemDeviceProvisioningBackend::~SystemDeviceProvisioningBackend() noexcept = default;
@@ -690,6 +709,10 @@ DevicePreparationStatus SystemDeviceProvisioningBackend::start(
         },
         .owner = owner,
         .device = expected_device,
+        .profile_name = request.profile_name,
+        .source_subvolume = request.source_subvolume,
+        .passphrase_label = request.passphrase_label,
+        .create_automatic_key = request.create_automatic_key,
         .created_at = now,
         .updated_at = now,
         .last_completed_phase = {},
@@ -703,55 +726,104 @@ DevicePreparationStatus SystemDeviceProvisioningBackend::start(
         .cleanup_result = "not-required",
     };
     impl_->register_job(state);
-    state->worker = std::jthread([this, state, request, expected_device, secret = std::move(secret)]() mutable {
-        impl_->execute(state, request, expected_device, std::move(secret));
-    });
+    try {
+        impl_->units.start(state->transaction.status.operation_id, secret.get());
+    } catch (...) {
+        impl_->update(state, [](auto& transaction) {
+            transaction.status.state = "failed";
+            transaction.status.error_code = "device-preparation.helper-start-failed";
+            transaction.status.recovery_action = "Retry device preparation after checking the helper service.";
+            transaction.status.can_cancel = false;
+        });
+        throw;
+    }
     return status(state->transaction.status.operation_id);
 }
 
 DevicePreparationStatus SystemDeviceProvisioningBackend::status(const std::string& operation_id) const {
-    std::shared_ptr<State> state;
-    {
-        std::lock_guard lock(impl_->jobs_mutex);
-        const auto item = impl_->jobs.find(operation_id);
-        if (item == impl_->jobs.end())
-            throw dbus::ManagerOperationError(dbus::ManagerErrorCode::NotFound, "device preparation operation not found");
-        state = item->second;
+    try {
+        return impl_->load_current(operation_id).status;
+    } catch (const std::exception&) {
+        throw dbus::ManagerOperationError(
+            dbus::ManagerErrorCode::NotFound,
+            "device preparation operation not found"
+        );
     }
-    std::lock_guard lock(state->mutex);
-    return state->transaction.status;
 }
 
 bool SystemDeviceProvisioningBackend::owned_by(
     const std::string& operation_id,
     const DevicePreparationOwner& owner
 ) const {
-    std::shared_ptr<State> state;
-    {
-        std::lock_guard lock(impl_->jobs_mutex);
-        const auto item = impl_->jobs.find(operation_id);
-        if (item == impl_->jobs.end())
-            return false;
-        state = item->second;
+    try {
+        const DevicePreparationTransaction transaction = impl_->load_current(operation_id);
+        bool restored = false;
+        {
+            std::lock_guard lock(impl_->jobs_mutex);
+            const auto item = impl_->jobs.find(operation_id);
+            restored = item != impl_->jobs.end() && item->second->restored;
+        }
+        return !owner.bus_name.empty() && transaction.owner.uid == owner.uid &&
+            (transaction.owner.bus_name == owner.bus_name || restored);
+    } catch (const std::exception&) {
+        return false;
     }
-    std::lock_guard lock(state->mutex);
-    return !owner.bus_name.empty() && state->transaction.owner.uid == owner.uid &&
-        (state->transaction.owner.bus_name == owner.bus_name || state->restored);
 }
 
 void SystemDeviceProvisioningBackend::cancel(const std::string& operation_id) {
-    std::shared_ptr<State> state;
-    {
-        std::lock_guard lock(impl_->jobs_mutex);
-        const auto item = impl_->jobs.find(operation_id);
-        if (item == impl_->jobs.end())
-            throw dbus::ManagerOperationError(dbus::ManagerErrorCode::NotFound, "device preparation operation not found");
-        state = item->second;
+    DevicePreparationTransaction transaction;
+    try {
+        transaction = impl_->load_current(operation_id);
+    } catch (const std::exception&) {
+        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::NotFound, "device preparation operation not found");
     }
-    std::lock_guard lock(state->mutex);
-    if (!state->transaction.status.can_cancel)
+    if (!transaction.status.can_cancel)
         throw dbus::ManagerOperationError(dbus::ManagerErrorCode::Conflict, "device preparation can no longer be cancelled");
-    state->cancel_requested = true;
+    impl_->units.stop(operation_id);
+    transaction.status.state = "cancelled";
+    transaction.status.phase = "cancelled";
+    transaction.status.can_cancel = false;
+    transaction.updated_at = system_time_seconds();
+    impl_->transactions.save(transaction);
+}
+
+void SystemDeviceProvisioningBackend::execute_operation(
+    const std::string& operation_id,
+    int passphrase_fd
+) {
+    DevicePreparationTransaction transaction = impl_->transactions.load(operation_id);
+    if (transaction.status.state != "queued" && transaction.status.state != "running")
+        throw ValidationError("device preparation transaction is not executable");
+    auto state = std::make_shared<State>();
+    state->transaction = transaction;
+    const DevicePreparationRequest request{
+        .profile_id = transaction.status.profile_id,
+        .profile_name = transaction.profile_name,
+        .candidate_id = {},
+        .source_subvolume = transaction.source_subvolume,
+        .passphrase_label = transaction.passphrase_label,
+        .create_automatic_key = transaction.create_automatic_key,
+    };
+    OwnedFileDescriptor secret = platform::linux::filesystem::copy_secret_to_sealed_file(passphrase_fd);
+    impl_->execute(state, request, transaction.device, std::move(secret));
+}
+
+void SystemDeviceProvisioningBackend::recover_operation(const std::string& operation_id) {
+    DevicePreparationTransaction transaction = impl_->transactions.load(operation_id);
+    if (transaction.status.state != "interrupted")
+        throw ValidationError("device preparation transaction does not require cleanup");
+    if (transaction.mapper.empty())
+        return;
+    try {
+        const auto result = impl_->commands.run({"cryptsetup", "close", transaction.mapper});
+        transaction.cleanup_result = result.exit_code == 0 ? "mapper-closed" : "mapper-close-failed";
+        if (result.exit_code == 0)
+            transaction.mapper.clear();
+    } catch (...) {
+        transaction.cleanup_result = "mapper-close-failed";
+    }
+    transaction.updated_at = system_time_seconds();
+    impl_->transactions.save(transaction);
 }
 
 } // namespace btrfsbackup::daemon::control

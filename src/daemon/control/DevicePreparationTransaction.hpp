@@ -17,6 +17,10 @@ struct DevicePreparationTransaction {
     DevicePreparationStatus status;
     DevicePreparationOwner owner;
     ProvisioningDevice device;
+    std::string profile_name;
+    std::string source_subvolume;
+    std::string passphrase_label;
+    bool create_automatic_key = true;
     std::int64_t created_at = 0;
     std::int64_t updated_at = 0;
     std::string last_completed_phase;
@@ -39,6 +43,7 @@ class DevicePreparationTransactionStore final {
     );
 
     void save(const DevicePreparationTransaction& transaction) const;
+    [[nodiscard]] DevicePreparationTransaction load(const std::string& operation_id) const;
     [[nodiscard]] std::vector<DevicePreparationTransaction> load_and_prune() const;
 
   private:

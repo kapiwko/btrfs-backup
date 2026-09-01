@@ -87,7 +87,7 @@ ProvisioningDevice parse_device(const Json& value) {
 
 Json transaction_json(const DevicePreparationTransaction& transaction) {
     return {
-        {"schemaVersion", 1},
+        {"schemaVersion", 2},
         {"operationId", transaction.status.operation_id},
         {"profileId", transaction.status.profile_id},
         {"state", transaction.status.state},
@@ -98,6 +98,10 @@ Json transaction_json(const DevicePreparationTransaction& transaction) {
         {"ownerBusName", transaction.owner.bus_name},
         {"ownerUid", transaction.owner.uid},
         {"device", device_json(transaction.device)},
+        {"profileName", transaction.profile_name},
+        {"sourceSubvolume", transaction.source_subvolume},
+        {"passphraseLabel", transaction.passphrase_label},
+        {"createAutomaticKey", transaction.create_automatic_key},
         {"createdAt", transaction.created_at},
         {"updatedAt", transaction.updated_at},
         {"lastCompletedPhase", transaction.last_completed_phase},
@@ -113,7 +117,9 @@ Json transaction_json(const DevicePreparationTransaction& transaction) {
 }
 
 DevicePreparationTransaction parse_transaction(const Json& value) {
-    if (!value.is_object() || value.value("schemaVersion", 0) != 1 || !value.contains("device"))
+    const int schema_version = value.value("schemaVersion", 0);
+    if (!value.is_object() || (schema_version != 1 && schema_version != 2) ||
+        !value.contains("device"))
         throw ValidationError("invalid device preparation transaction");
     DevicePreparationTransaction result;
     result.status = {
@@ -130,6 +136,10 @@ DevicePreparationTransaction parse_transaction(const Json& value) {
         .uid = value.value("ownerUid", std::uint32_t{0}),
     };
     result.device = parse_device(value.at("device"));
+    result.profile_name = value.value("profileName", "");
+    result.source_subvolume = value.value("sourceSubvolume", "");
+    result.passphrase_label = value.value("passphraseLabel", "");
+    result.create_automatic_key = value.value("createAutomaticKey", true);
     result.created_at = value.value("createdAt", std::int64_t{0});
     result.updated_at = value.value("updatedAt", std::int64_t{0});
     result.last_completed_phase = value.value("lastCompletedPhase", "");
@@ -142,7 +152,10 @@ DevicePreparationTransaction parse_transaction(const Json& value) {
     result.credentials_state = value.value("credentialsState", "not-started");
     result.cleanup_result = value.value("cleanupResult", "not-required");
     if (result.status.operation_id.empty() || result.status.profile_id.empty() ||
-        result.owner.bus_name.empty() || result.created_at <= 0)
+        result.owner.bus_name.empty() || result.created_at <= 0 ||
+        (schema_version == 2 &&
+         (result.profile_name.empty() || result.source_subvolume.empty() ||
+          result.passphrase_label.empty())))
         throw ValidationError("incomplete device preparation transaction");
     return result;
 }
@@ -168,6 +181,23 @@ void DevicePreparationTransactionStore::save(const DevicePreparationTransaction&
         transaction_json(transaction).dump(2) + "\n",
         transaction_permissions
     );
+}
+
+DevicePreparationTransaction DevicePreparationTransactionStore::load(
+    const std::string& operation_id
+) const {
+    validate_operation_id(operation_id);
+    prepare_root(root_);
+    const fs::path path = root_ / (operation_id + ".json");
+    std::ifstream input(path);
+    if (!input)
+        throw ValidationError("device preparation transaction not found");
+    Json document;
+    input >> document;
+    DevicePreparationTransaction transaction = parse_transaction(document);
+    if (transaction.status.operation_id != operation_id)
+        throw ValidationError("transaction file name does not match its operation identifier");
+    return transaction;
 }
 
 std::vector<DevicePreparationTransaction> DevicePreparationTransactionStore::load_and_prune() const {

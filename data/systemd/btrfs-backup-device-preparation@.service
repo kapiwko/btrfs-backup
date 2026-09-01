@@ -1,0 +1,52 @@
+# SPDX-FileCopyrightText: 2026 Kamil Piwowarski <kapiwko@gmail.com>
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+[Unit]
+Description=Prepare one backup block device for transaction %i
+Documentation=man:btrfs-backupd(8)
+After=systemd-udevd.service
+
+[Service]
+Type=oneshot
+ExecStart=@BTRFSBACKUP_DEVICE_PREPARATION_EXECUTABLE@ %i
+User=root
+Group=root
+UMask=0077
+RuntimeDirectory=btrfs-backup-manager/device-preparations
+RuntimeDirectoryMode=0700
+StateDirectory=btrfs-backup/device-preparations
+StateDirectoryMode=0700
+Environment=PATH=/usr/bin
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateMounts=yes
+ProtectSystem=strict
+ReadWritePaths=-/etc/btrfs-backup
+ReadWritePaths=-/etc/systemd/system
+ReadWritePaths=-/etc/udev/rules.d
+ReadWritePaths=-/var/lib/btrfs-backup/public
+ReadWritePaths=-/var/lib/btrfs-backup/device-preparations
+ReadWritePaths=-/run/btrfs-backup-manager/device-preparations
+ProtectHome=read-only
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectHostname=yes
+ProtectClock=yes
+ProtectProc=invisible
+RestrictAddressFamilies=AF_UNIX AF_NETLINK
+RestrictNamespaces=yes
+RestrictRealtime=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+DevicePolicy=closed
+DeviceAllow=block-* rw
+DeviceAllow=/dev/mapper/control rw
+CapabilityBoundingSet=CAP_SYS_ADMIN CAP_DAC_OVERRIDE CAP_FOWNER
+TimeoutStartSec=30min
+TimeoutStopSec=30s
+KillMode=mixed
+SendSIGKILL=yes
+SyslogIdentifier=btrfs-backup-device-preparation

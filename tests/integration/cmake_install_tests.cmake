@@ -34,7 +34,9 @@ set(required_paths
 if(BUILD_SYSTEM_MANAGER)
     list(APPEND required_paths
         "usr/bin/btrfs-backupd"
+        "usr/bin/btrfs-backup-device-preparation"
         "usr/${INSTALL_LIBDIR}/systemd/system/btrfs-backupd.service"
+        "usr/${INSTALL_LIBDIR}/systemd/system/btrfs-backup-device-preparation@.service"
         "usr/share/dbus-1/system-services/io.github.btrfsbackup.Manager1.service"
         "usr/share/dbus-1/system.d/io.github.btrfsbackup.Manager1.conf"
         "usr/share/dbus-1/interfaces/io.github.btrfsbackup.Manager1.xml"
@@ -62,9 +64,17 @@ endif()
 
 if(BUILD_SYSTEM_MANAGER)
     file(READ "${INSTALL_ROOT}/usr/${INSTALL_LIBDIR}/systemd/system/btrfs-backupd.service" manager_unit)
+    file(READ "${INSTALL_ROOT}/usr/${INSTALL_LIBDIR}/systemd/system/btrfs-backup-device-preparation@.service" preparation_unit)
     file(READ "${INSTALL_ROOT}/usr/share/dbus-1/system-services/io.github.btrfsbackup.Manager1.service" activation)
     if(NOT manager_unit MATCHES "ExecStart=${INSTALL_BINDIR_FULL}/btrfs-backupd")
         message(FATAL_ERROR "manager unit does not use configured bindir")
+    endif()
+    if(NOT preparation_unit MATCHES "ExecStart=${INSTALL_BINDIR_FULL}/btrfs-backup-device-preparation")
+        message(FATAL_ERROR "device preparation unit does not use configured bindir")
+    endif()
+    if(NOT preparation_unit MATCHES "DevicePolicy=closed" OR
+       NOT preparation_unit MATCHES "ProtectSystem=strict")
+        message(FATAL_ERROR "device preparation unit lost its device or filesystem sandbox")
     endif()
     if(NOT activation MATCHES "Exec=${INSTALL_BINDIR_FULL}/btrfs-backupd")
         message(FATAL_ERROR "D-Bus activation does not use configured bindir")
