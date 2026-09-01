@@ -5,7 +5,10 @@
 
 #include <algorithm>
 #include <filesystem>
+#include <functional>
+#include <iostream>
 #include <span>
+#include <sstream>
 #include <string_view>
 #include <system_error>
 #include <utility>
@@ -36,6 +39,7 @@ class Cryptsetup final : public btrfsbackup::platform::linux::storage::ICryptset
     std::vector<int> slots{0};
     bool fail_test = false;
     bool fail_remove = false;
+    std::function<void()> after_remove;
 
     btrfsbackup::platform::linux::storage::LuksHeader inspect_luks2(const fs::path&) override {
         return {std::string(luks_uuid), slots};
@@ -51,6 +55,8 @@ class Cryptsetup final : public btrfsbackup::platform::linux::storage::ICryptset
         if (fail_remove)
             throw ValidationError("keyslot rollback failed");
         std::erase(slots, keyslot);
+        if (after_remove)
+            after_remove();
     }
 };
 
@@ -233,11 +239,133 @@ void test_metadata_and_profile_rollback_failures_are_typed() {
     );
 }
 
+void test_removal_restores_quarantined_key_when_keyslot_removal_fails() {
+    const auto root = test_helpers::test_root("credential-administration", "removal-keyslot-failure");
+    const auto paths = roots(root);
+    install_profile(paths);
+    Cryptsetup cryptsetup;
+    btrfsbackup::config::NullConfigurationActivator activator;
+    control::SystemCredentialAdministrationBackend backend(paths, cryptsetup, activator);
+    auto authorization = secret("authorization");
+    auto credential = secret("credential");
+    backend.add_key(ProfileId{"default"}, authorization.get(), credential.get(), "Recovery", false);
+    auto removal_authorization = secret("authorization");
+    cryptsetup.fail_remove = true;
+
+    try {
+        backend.remove_credential(ProfileId{"default"}, "slot-1", removal_authorization.get());
+        test_helpers::fail("credential removal rollback", "removal succeeded");
+    } catch (const control::CredentialRemovalFailure&) {
+        test_helpers::fail("credential removal rollback", "complete rollback became partial");
+    } catch (const ValidationError& error) {
+        test_helpers::expect_contains("keyslot removal error", error.what(), "keyslot rollback failed");
+    }
+
+    test_helpers::expect_true(
+        "quarantined key restored",
+        fs::exists(paths.key_root / "default-slot-1.key"),
+        "key file was not restored after keyslot removal failed"
+    );
+    const auto listed = backend.list_credentials(ProfileId{"default"});
+    test_helpers::expect_true(
+        "credential metadata preserved",
+        std::ranges::find(listed, std::string("slot-1"), &control::TargetCredential::id) != listed.end(),
+        "credential metadata changed before keyslot removal committed"
+    );
+}
+
+void test_metadata_commit_failure_reports_irreversible_removal() {
+    const auto root = test_helpers::test_root("credential-administration", "removal-metadata-failure");
+    const auto paths = roots(root);
+    install_profile(paths);
+    Cryptsetup cryptsetup;
+    btrfsbackup::config::NullConfigurationActivator activator;
+    control::SystemCredentialAdministrationBackend backend(paths, cryptsetup, activator);
+    auto authorization = secret("authorization");
+    auto credential = secret("credential");
+    backend.add_key(ProfileId{"default"}, authorization.get(), credential.get(), "Recovery", false);
+    auto removal_authorization = secret("authorization");
+    cryptsetup.after_remove = [&] {
+        std::error_code error;
+        fs::remove_all(paths.metadata_root, error);
+        test_helpers::write_file(paths.metadata_root, "not a directory");
+    };
+
+    try {
+        backend.remove_credential(ProfileId{"default"}, "slot-1", removal_authorization.get());
+        test_helpers::fail("credential removal metadata commit", "removal succeeded");
+    } catch (const control::CredentialRemovalFailure& error) {
+        test_helpers::expect_true(
+            "metadata failure stage",
+            error.failed_stage == control::CredentialRemovalStage::CommitMetadata,
+            "metadata commit stage was lost"
+        );
+        test_helpers::expect_true(
+            "irreversible removal state",
+            error.key_file_quarantined && !error.key_file_restored && error.keyslot_state_known &&
+                error.keyslot_removed && !error.metadata_committed,
+            "irreversible credential removal state is inaccurate"
+        );
+    }
+    test_helpers::expect_true(
+        "keyslot removal retained",
+        cryptsetup.slots == std::vector<int>{0},
+        "removed keyslot reappeared after metadata commit failed"
+    );
+}
+
+void test_quarantine_cleanup_failure_is_a_warning_after_success() {
+    const auto root = test_helpers::test_root("credential-administration", "removal-cleanup-warning");
+    const auto paths = roots(root);
+    install_profile(paths);
+    Cryptsetup cryptsetup;
+    btrfsbackup::config::NullConfigurationActivator activator;
+    control::SystemCredentialAdministrationBackend backend(paths, cryptsetup, activator);
+    auto authorization = secret("authorization");
+    auto credential = secret("credential");
+    backend.add_key(ProfileId{"default"}, authorization.get(), credential.get(), "Recovery", false);
+    auto removal_authorization = secret("authorization");
+    const fs::path quarantine = paths.key_root / ".quarantine";
+    cryptsetup.after_remove = [&] {
+        const auto entry = *fs::directory_iterator(quarantine);
+        fs::remove(entry.path());
+        fs::create_directories(entry.path());
+        test_helpers::write_file(entry.path() / "blocker", "prevent cleanup");
+    };
+
+    std::ostringstream warnings;
+    std::streambuf* previous = std::cerr.rdbuf(warnings.rdbuf());
+    try {
+        backend.remove_credential(ProfileId{"default"}, "slot-1", removal_authorization.get());
+    } catch (...) {
+        std::cerr.rdbuf(previous);
+        throw;
+    }
+    std::cerr.rdbuf(previous);
+
+    test_helpers::expect_contains(
+        "quarantine cleanup warning",
+        warnings.str(),
+        "credential removal succeeded but quarantined key file could not be deleted"
+    );
+    test_helpers::expect_true(
+        "credential removal committed",
+        cryptsetup.slots == std::vector<int>{0} &&
+            backend.list_credentials(ProfileId{"default"}).size() == 1,
+        "cleanup warning changed the successful removal result"
+    );
+    std::error_code cleanup_error;
+    fs::remove_all(quarantine, cleanup_error);
+}
+
 } // namespace
 
 int main() {
     test_complete_rollback_preserves_primary_failure();
     test_keyslot_rollback_failure_is_typed();
     test_metadata_and_profile_rollback_failures_are_typed();
+    test_removal_restores_quarantined_key_when_keyslot_removal_fails();
+    test_metadata_commit_failure_reports_irreversible_removal();
+    test_quarantine_cleanup_failure_is_a_warning_after_success();
     return test_helpers::finish("system credential administration backend tests");
 }

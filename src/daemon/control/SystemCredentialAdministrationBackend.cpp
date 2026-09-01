@@ -5,12 +5,17 @@
 #include <daemon/control/SystemCredentialAdministrationBackend.hpp>
 
 #include <algorithm>
+#include <array>
+#include <cerrno>
 #include <exception>
 #include <filesystem>
+#include <iomanip>
+#include <iostream>
 #include <iterator>
 #include <ranges>
 #include <sstream>
 #include <string_view>
+#include <sys/random.h>
 #include <unistd.h>
 #include <utility>
 
@@ -228,6 +233,108 @@ std::string mutation_failure_message(
     return message.str();
 }
 
+std::string_view removal_stage_name(CredentialRemovalStage stage) {
+    switch (stage) {
+    case CredentialRemovalStage::QuarantineKeyFile:
+        return "quarantine-key-file";
+    case CredentialRemovalStage::RemoveKeyslot:
+        return "remove-keyslot";
+    case CredentialRemovalStage::CommitMetadata:
+        return "commit-metadata";
+    }
+    return "unknown";
+}
+
+std::string removal_failure_message(
+    CredentialRemovalStage stage,
+    const std::string& primary_error,
+    bool key_file_quarantined,
+    bool key_file_restored,
+    bool keyslot_state_known,
+    bool keyslot_removed,
+    bool metadata_committed
+) {
+    std::ostringstream message;
+    message << "credential removal failed during " << removal_stage_name(stage) << ": " << primary_error
+            << "; recovery required"
+            << "; keyFileQuarantined=" << key_file_quarantined
+            << "; keyFileRestored=" << key_file_restored
+            << "; keyslotStateKnown=" << keyslot_state_known
+            << "; keyslotRemoved=" << keyslot_removed
+            << "; metadataCommitted=" << metadata_committed;
+    return message.str();
+}
+
+std::string random_quarantine_suffix() {
+    std::array<unsigned char, 16> bytes{};
+    std::size_t offset = 0;
+    while (offset < bytes.size()) {
+        const ssize_t count = getrandom(bytes.data() + offset, bytes.size() - offset, 0);
+        if (count > 0) {
+            offset += static_cast<std::size_t>(count);
+            continue;
+        }
+        if (count < 0 && errno == EINTR)
+            continue;
+        throw ValidationError("cannot generate a credential quarantine identifier");
+    }
+    std::ostringstream value;
+    value << std::hex << std::setfill('0');
+    for (const auto byte : bytes)
+        value << std::setw(2) << static_cast<unsigned>(byte);
+    return value.str();
+}
+
+fs::path prepare_key_quarantine(const CredentialAdministrationRoots& roots, const fs::path& key_file) {
+    const fs::path quarantine = roots.key_root / ".quarantine";
+    std::error_code error;
+    fs::create_directories(quarantine, error);
+    if (error)
+        throw ValidationError("cannot create credential key quarantine: " + error.message());
+    fs::permissions(quarantine, fs::perms::owner_all, fs::perm_options::replace, error);
+    if (error)
+        throw ValidationError("cannot protect credential key quarantine: " + error.message());
+    return quarantine / (key_file.filename().string() + "." + random_quarantine_suffix() + ".removed");
+}
+
+void rename_key_file(const fs::path& from, const fs::path& to) {
+    std::error_code error;
+    fs::rename(from, to, error);
+    if (error)
+        throw ValidationError("cannot move credential key file from " + from.string() + " to " + to.string() + ": " + error.message());
+}
+
+bool restore_quarantined_key(const fs::path& quarantine, const fs::path& destination) noexcept {
+    try {
+        rename_key_file(quarantine, destination);
+        platform::linux::filesystem::fsync_dir(quarantine.parent_path());
+        platform::linux::filesystem::fsync_dir(destination.parent_path());
+        return true;
+    } catch (...) {
+        return false;
+    }
+}
+
+void cleanup_quarantined_key(const fs::path& quarantine) noexcept {
+    std::error_code error;
+    const bool removed = fs::remove(quarantine, error);
+    if (!error && removed) {
+        try {
+            platform::linux::filesystem::fsync_dir(quarantine.parent_path());
+            return;
+        } catch (const std::exception& exception) {
+            std::cerr << "btrfs-backupd: credential removal succeeded but quarantine cleanup could not be "
+                         "synchronized: "
+                      << exception.what() << '\n';
+            return;
+        }
+    }
+    if (!error && !removed)
+        return;
+    std::cerr << "btrfs-backupd: credential removal succeeded but quarantined key file could not be deleted: "
+              << quarantine << ": " << error.message() << '\n';
+}
+
 void add_managed_credential(
     const CredentialAdministrationRoots& roots,
     platform::linux::storage::ICryptsetupOperations& cryptsetup,
@@ -401,6 +508,36 @@ CredentialMutationFailure::CredentialMutationFailure(
       profile_restored(profile_restored_value) {
 }
 
+CredentialRemovalFailure::CredentialRemovalFailure(
+    CredentialRemovalStage failed_stage_value,
+    std::string primary_error_value,
+    bool key_file_quarantined_value,
+    bool key_file_restored_value,
+    bool keyslot_state_known_value,
+    bool keyslot_removed_value,
+    bool metadata_committed_value
+)
+    : RecoveryRequiredError(
+          ErrorCode::CredentialMutationRollbackIncomplete,
+          removal_failure_message(
+              failed_stage_value,
+              primary_error_value,
+              key_file_quarantined_value,
+              key_file_restored_value,
+              keyslot_state_known_value,
+              keyslot_removed_value,
+              metadata_committed_value
+          )
+      ),
+      failed_stage(failed_stage_value),
+      primary_error(std::move(primary_error_value)),
+      key_file_quarantined(key_file_quarantined_value),
+      key_file_restored(key_file_restored_value),
+      keyslot_state_known(keyslot_state_known_value),
+      keyslot_removed(keyslot_removed_value),
+      metadata_committed(metadata_committed_value) {
+}
+
 SystemCredentialAdministrationBackend::SystemCredentialAdministrationBackend(
     CredentialAdministrationRoots roots,
     platform::linux::storage::ICryptsetupOperations& cryptsetup,
@@ -498,24 +635,77 @@ void SystemCredentialAdministrationBackend::remove_credential(
             dbus::ManagerErrorCode::Conflict,
             "automatic credential cannot be removed"
         );
+    if (!std::ranges::contains(header.keyslots, item->keyslot))
+        throw dbus::ManagerOperationError(
+            dbus::ManagerErrorCode::Conflict,
+            "managed credential keyslot does not exist"
+        );
     ManagedCredential removed = std::move(*item);
     metadata.erase(item);
-    save_metadata(roots_, profile.target.luks_uuid, metadata);
+
+    fs::path quarantined_key;
+    bool key_file_quarantined = false;
+    bool key_file_restored = removed.key_file.empty();
+    bool keyslot_state_known = true;
+    bool keyslot_removed = false;
+    bool metadata_committed = false;
+    CredentialRemovalStage stage = CredentialRemovalStage::QuarantineKeyFile;
     try {
+        if (!removed.key_file.empty()) {
+            const fs::path expected_key_file =
+                (roots_.key_root /
+                 (std::string(profile.id.value()) + "-" + removed.id + ".key"))
+                    .lexically_normal();
+            if (removed.key_file != expected_key_file)
+                throw ValidationError("managed credential key file is outside its trusted location");
+            quarantined_key = prepare_key_quarantine(roots_, removed.key_file);
+            rename_key_file(removed.key_file, quarantined_key);
+            key_file_quarantined = true;
+            platform::linux::filesystem::fsync_dir(removed.key_file.parent_path());
+            platform::linux::filesystem::fsync_dir(quarantined_key.parent_path());
+        }
+
+        stage = CredentialRemovalStage::RemoveKeyslot;
         OwnedFileDescriptor authorization =
             platform::linux::filesystem::copy_secret_to_sealed_file(authorization_secret_fd);
         cryptsetup_.remove_keyslot(profile.target.device.value(), removed.keyslot, authorization.get());
-    } catch (...) {
-        metadata.push_back(removed);
+        keyslot_removed = true;
+
+        stage = CredentialRemovalStage::CommitMetadata;
         save_metadata(roots_, profile.target.luks_uuid, metadata);
-        throw;
+        metadata_committed = true;
+    } catch (...) {
+        const std::exception_ptr primary = std::current_exception();
+        if (stage == CredentialRemovalStage::RemoveKeyslot) {
+            try {
+                const auto current = inspect_target(cryptsetup_, profile);
+                keyslot_removed = !std::ranges::contains(current.keyslots, removed.keyslot);
+                keyslot_state_known = true;
+            } catch (...) {
+                keyslot_state_known = false;
+            }
+        }
+
+        if (!keyslot_removed && key_file_quarantined)
+            key_file_restored = restore_quarantined_key(quarantined_key, removed.key_file);
+
+        const bool complete_rollback = keyslot_state_known && !keyslot_removed && key_file_restored;
+        if (complete_rollback)
+            std::rethrow_exception(primary);
+
+        throw CredentialRemovalFailure(
+            stage,
+            exception_message(primary),
+            key_file_quarantined,
+            key_file_restored,
+            keyslot_state_known,
+            keyslot_removed,
+            metadata_committed
+        );
     }
-    if (!removed.key_file.empty()) {
-        std::error_code error;
-        fs::remove(removed.key_file, error);
-        if (error)
-            throw ValidationError("credential was removed but its key file could not be deleted");
-    }
+
+    if (key_file_quarantined)
+        cleanup_quarantined_key(quarantined_key);
 }
 
 void SystemCredentialAdministrationBackend::register_initial_passphrase(

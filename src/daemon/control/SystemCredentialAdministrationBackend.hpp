@@ -28,6 +28,12 @@ enum class CredentialMutationStage {
     PublishProfile,
 };
 
+enum class CredentialRemovalStage {
+    QuarantineKeyFile,
+    RemoveKeyslot,
+    CommitMetadata,
+};
+
 struct CredentialMutationFailure final : RecoveryRequiredError {
     CredentialMutationFailure(
         CredentialMutationStage failed_stage,
@@ -46,6 +52,26 @@ struct CredentialMutationFailure final : RecoveryRequiredError {
     bool key_file_removed;
     bool metadata_restored;
     bool profile_restored;
+};
+
+struct CredentialRemovalFailure final : RecoveryRequiredError {
+    CredentialRemovalFailure(
+        CredentialRemovalStage failed_stage,
+        std::string primary_error,
+        bool key_file_quarantined,
+        bool key_file_restored,
+        bool keyslot_state_known,
+        bool keyslot_removed,
+        bool metadata_committed
+    );
+
+    CredentialRemovalStage failed_stage;
+    std::string primary_error;
+    bool key_file_quarantined;
+    bool key_file_restored;
+    bool keyslot_state_known;
+    bool keyslot_removed;
+    bool metadata_committed;
 };
 
 class SystemCredentialAdministrationBackend final : public ICredentialAdministrationBackend {
