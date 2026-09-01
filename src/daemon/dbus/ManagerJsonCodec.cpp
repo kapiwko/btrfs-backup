@@ -162,6 +162,7 @@ std::string ManagerJsonCodec::encode(const std::vector<control::ProvisioningDevi
     for (const auto& device : devices) {
         result.push_back({
             {"schemaVersion", manager_protocol::device_provisioning_schema_version},
+            {"candidateId", device.candidate_id},
             {"path", device.path},
             {"model", device.model},
             {"serial", device.serial},

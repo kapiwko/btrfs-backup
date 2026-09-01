@@ -3,23 +3,91 @@
 
 #include <daemon/control/DeviceProvisioningService.hpp>
 
+#include <sys/random.h>
+
+#include <array>
+#include <cerrno>
 #include <filesystem>
+#include <iomanip>
+#include <sstream>
+#include <stdexcept>
+#include <utility>
 
 #include <core/Errors.hpp>
 #include <core/ManagerProtocol.hpp>
 #include <daemon/dbus/ManagerErrors.hpp>
 
 namespace btrfsbackup::daemon::control {
+namespace {
+
+std::string random_candidate_id() {
+    std::array<unsigned char, 16> bytes{};
+    std::size_t offset = 0;
+    while (offset < bytes.size()) {
+        const ssize_t count = getrandom(bytes.data() + offset, bytes.size() - offset, 0);
+        if (count > 0) {
+            offset += static_cast<std::size_t>(count);
+            continue;
+        }
+        if (count < 0 && errno == EINTR)
+            continue;
+        throw ValidationError("cannot generate a device candidate identifier");
+    }
+    std::ostringstream value;
+    value << "candidate-" << std::hex << std::setfill('0');
+    for (const auto byte : bytes)
+        value << std::setw(2) << static_cast<unsigned>(byte);
+    return value.str();
+}
+
+bool complete_identity(const ProvisioningDevice& device) {
+    return !device.path.empty() && device.size_bytes != 0 && !device.major_minor.empty() &&
+        !device.sysfs_devpath.empty() && !device.transport.empty() && !device.device_graph.empty() &&
+        (!device.wwn.empty() || !device.serial_id.empty() || !device.serial_short.empty());
+}
+
+} // namespace
 
 DeviceProvisioningService::DeviceProvisioningService(
     IManagerAuthorizer& authorizer,
-    IDeviceProvisioningBackend& backend
-) : authorizer_(authorizer), backend_(backend) {
+    IDeviceProvisioningBackend& backend,
+    std::chrono::seconds candidate_lifetime,
+    ProvisioningCandidateIdGenerator candidate_ids,
+    ProvisioningCandidateClock clock
+) : authorizer_(authorizer), backend_(backend), candidate_lifetime_(candidate_lifetime),
+    candidate_ids_(candidate_ids ? std::move(candidate_ids) : ProvisioningCandidateIdGenerator{random_candidate_id}),
+    clock_(clock ? std::move(clock) : ProvisioningCandidateClock{[] { return std::chrono::steady_clock::now(); }}) {
+    if (candidate_lifetime_ <= std::chrono::seconds::zero())
+        throw std::invalid_argument("provisioning candidate lifetime must be positive");
 }
 
 std::vector<ProvisioningDevice> DeviceProvisioningService::list_devices(const std::string& caller) {
     authorize(caller, manager_protocol::method::list_provisioning_devices);
-    return backend_.list_devices();
+    std::vector<ProvisioningDevice> devices = backend_.list_devices();
+    const auto now = clock_();
+    std::lock_guard lock(candidates_mutex_);
+    expire_candidates(now);
+    std::erase_if(candidates_, [&](const auto& item) { return item.second.caller == caller; });
+    std::erase_if(devices, [](const auto& device) { return !complete_identity(device); });
+    for (auto& device : devices) {
+        bool inserted = false;
+        for (int attempt = 0; attempt < 16 && !inserted; ++attempt) {
+            device.candidate_id = candidate_ids_();
+            if (device.candidate_id.empty())
+                continue;
+            inserted = candidates_.emplace(
+                                      device.candidate_id,
+                                      Candidate{device, caller, now + candidate_lifetime_}
+            )
+                           .second;
+        }
+        if (!inserted)
+            throw dbus::ManagerOperationError(
+                dbus::ManagerErrorCode::Conflict,
+                "cannot allocate a device candidate identifier"
+            );
+    }
+    return devices;
 }
 std::vector<std::string> DeviceProvisioningService::list_source_candidates(const std::string& caller) {
     authorize(caller, manager_protocol::method::list_source_candidates);
@@ -49,26 +117,46 @@ void DeviceProvisioningService::authorize_owner_or_admin(
     authorize(caller, method);
 }
 
+void DeviceProvisioningService::expire_candidates(std::chrono::steady_clock::time_point now) {
+    std::erase_if(candidates_, [&](const auto& item) { return item.second.expires_at <= now; });
+}
+
+ProvisioningDevice DeviceProvisioningService::take_candidate(
+    const std::string& caller,
+    const std::string& candidate_id
+) {
+    std::lock_guard lock(candidates_mutex_);
+    expire_candidates(clock_());
+    const auto candidate = candidates_.find(candidate_id);
+    if (candidate == candidates_.end() || candidate->second.caller != caller)
+        throw dbus::ManagerOperationError(
+            dbus::ManagerErrorCode::NotFound,
+            "device candidate is unavailable or expired"
+        );
+    ProvisioningDevice device = std::move(candidate->second.device);
+    candidates_.erase(candidate);
+    return device;
+}
+
 DevicePreparationStatus DeviceProvisioningService::start(
     const std::string& caller,
     const DevicePreparationRequest& request,
     int passphrase_fd
 ) {
-    if (request.profile_id.empty() || request.profile_name.empty() || request.device_path.empty() ||
-        request.expected_size_bytes == 0 || request.source_subvolume.empty() || request.passphrase_label.empty())
+    if (request.profile_id.empty() || request.profile_name.empty() || request.candidate_id.empty() ||
+        request.source_subvolume.empty() || request.passphrase_label.empty())
         throw ValidationError("device preparation request is incomplete");
     static_cast<void>(ProfileId{request.profile_id});
-    const std::filesystem::path device(request.device_path);
     const std::filesystem::path source(request.source_subvolume);
-    if (!device.is_absolute() || device.lexically_normal() != device ||
-        !source.is_absolute() || source.lexically_normal() != source)
-        throw ValidationError("device preparation paths are invalid");
+    if (!source.is_absolute() || source.lexically_normal() != source)
+        throw ValidationError("device preparation source path is invalid");
     if (passphrase_fd < 0)
         throw ValidationError("device preparation passphrase descriptor is invalid");
     if (request.profile_name.size() > 120 || request.passphrase_label.size() > 80)
         throw ValidationError("device preparation text is too long");
     authorize(caller, manager_protocol::method::start_device_preparation);
-    DevicePreparationStatus result = backend_.start(request, passphrase_fd);
+    const ProvisioningDevice expected_device = take_candidate(caller, request.candidate_id);
+    DevicePreparationStatus result = backend_.start(request, expected_device, passphrase_fd);
     {
         std::lock_guard lock(owners_mutex_);
         operation_owners_.insert_or_assign(result.operation_id, caller);

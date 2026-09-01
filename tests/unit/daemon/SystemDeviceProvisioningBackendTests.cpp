@@ -28,13 +28,19 @@ using btrfsbackup::daemon::control::TargetCredential;
 class Commands final : public backup::ICommandRunner {
   public:
     std::vector<std::vector<std::string>> calls;
+    int identity_scans = 0;
+    int replace_on_scan = 0;
     backup::CommandResult run(const std::vector<std::string>& argv) override {
         calls.push_back(argv);
         if (argv.front() == "lsblk") {
             if (std::ranges::find(argv, "PATH,TYPE") != argv.end())
                 return {0, R"({"blockdevices":[{"path":"/dev/test","type":"disk","children":[{"path":"/dev/test1","type":"part"}]}]})"};
-            return {0, R"({"blockdevices":[{"path":"/dev/test","type":"disk","size":1048576,"model":"Test","serial":"SERIAL","tran":"usb","rm":true,"fstype":null,"pttype":null,"mountpoints":[null]}]})"};
+            ++identity_scans;
+            const bool replaced = replace_on_scan != 0 && identity_scans >= replace_on_scan;
+            return {0, replaced ? R"({"blockdevices":[{"path":"/dev/test","type":"disk","size":1048576,"model":"Other","serial":"OTHER","wwn":"WWN-OTHER","tran":"usb","rm":true,"fstype":null,"pttype":null,"mountpoints":[null],"maj:min":"8:16","kname":"test","pkname":null}]})" : R"({"blockdevices":[{"path":"/dev/test","type":"disk","size":1048576,"model":"Test","serial":"SERIAL","wwn":"WWN-TEST","tran":"usb","rm":true,"fstype":null,"pttype":null,"mountpoints":[null],"maj:min":"8:16","kname":"test","pkname":null}]})"};
         }
+        if (argv.front() == "udevadm" && argv.size() > 1 && argv.at(1) == "info")
+            return {0, replace_on_scan != 0 && identity_scans >= replace_on_scan ? "DEVPATH=/devices/other/block/test\nMAJOR=8\nMINOR=16\nID_WWN=WWN-OTHER\nID_SERIAL=OTHER\nID_SERIAL_SHORT=OTHER\nID_BUS=usb\n" : "DEVPATH=/devices/test/block/test\nMAJOR=8\nMINOR=16\nID_WWN=WWN-TEST\nID_SERIAL=VENDOR_SERIAL\nID_SERIAL_SHORT=SERIAL\nID_BUS=usb\n"};
         if (argv.front() == "cryptsetup" && argv.at(1) == "luksUUID")
             return {0, "11111111-2222-3333-4444-555555555555\n"};
         if (argv.front() == "blkid" && argv.back() == "/dev/mapper/btrfs-backup-test")
@@ -114,8 +120,18 @@ void test_preparation_sequence_uses_descriptors_and_installs_profile() {
     constexpr std::string_view password = "secret";
     static_cast<void>(::write(descriptors[1], password.data(), password.size()));
     ::close(descriptors[1]);
+    const auto candidates = backend.list_devices();
+    test_helpers::expect_true("identity candidate", candidates.size() == 1, "device identity was incomplete");
     const auto started = backend.start(
-        {"test", "Test backup", "/dev/test", "SERIAL", 1048576, "/home", "Recovery", true},
+        {
+            .profile_id = "test",
+            .profile_name = "Test backup",
+            .candidate_id = "candidate-test",
+            .source_subvolume = "/home",
+            .passphrase_label = "Recovery",
+            .create_automatic_key = true,
+        },
+        candidates.front(),
         descriptors[0]
     );
     ::close(descriptors[0]);
@@ -141,10 +157,72 @@ void test_preparation_sequence_uses_descriptors_and_installs_profile() {
             wipe < partition && partition < format,
         "device commands ran out of order"
     );
+    test_helpers::expect_true(
+        "identity checked immediately before wipe",
+        commands.identity_scans >= 3,
+        "device identity was not checked twice after candidate issuance"
+    );
+}
+
+void test_replacement_before_wipe_is_rejected() {
+    const auto root = test_helpers::test_root("device-provisioning", "replacement");
+    Commands commands;
+    Btrfs btrfs;
+    Credentials credentials;
+    config::NullConfigurationActivator activator;
+    SystemDeviceProvisioningBackend backend(
+        {
+            .config_root = root / "etc",
+            .metadata_root = root / "etc/credentials",
+            .key_root = root / "etc/keys",
+            .lock_root = root / "run/locks",
+            .udev_root = root / "udev",
+            .systemd_root = root / "systemd",
+            .public_root = root / "public",
+        },
+        root / "mnt",
+        root / "mountinfo",
+        commands,
+        btrfs,
+        activator,
+        credentials
+    );
+    const auto candidate = backend.list_devices().front();
+    commands.replace_on_scan = 3;
+    int descriptors[2];
+    test_helpers::expect_true("replacement secret pipe", ::pipe(descriptors) == 0, "cannot create pipe");
+    constexpr std::string_view password = "secret";
+    static_cast<void>(::write(descriptors[1], password.data(), password.size()));
+    ::close(descriptors[1]);
+    const auto started = backend.start(
+        {
+            .profile_id = "replacement",
+            .profile_name = "Replacement",
+            .candidate_id = "candidate-replacement",
+            .source_subvolume = "/home",
+            .passphrase_label = "Recovery",
+        },
+        candidate,
+        descriptors[0]
+    );
+    ::close(descriptors[0]);
+    DevicePreparationStatus status = started;
+    for (int attempt = 0; attempt < 200 && status.state != "succeeded" && status.state != "failed"; ++attempt) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        status = backend.status(started.operation_id);
+    }
+    test_helpers::expect_eq("replacement state", status.state, "failed");
+    test_helpers::expect_true(
+        "replacement not wiped",
+        std::ranges::find(commands.calls, std::string("wipefs"), [](const auto& call) { return call.front(); }) ==
+            commands.calls.end(),
+        "replacement device reached wipefs"
+    );
 }
 } // namespace
 
 int main() {
     test_preparation_sequence_uses_descriptors_and_installs_profile();
+    test_replacement_before_wipe_is_rejected();
     return test_helpers::finish("system device provisioning backend tests");
 }

@@ -93,6 +93,11 @@ void DeviceProvisioningModel::start(
         setError(i18n("The passphrases do not match."));
         return;
     }
+    const QString candidate_id = device.value(QStringLiteral("candidateId")).toString();
+    if (candidate_id.isEmpty()) {
+        setError(i18n("Refresh the device list and select the disk again."));
+        return;
+    }
     const auto secret = secret_descriptor(passphrase);
     if (!secret.isValid()) {
         setError(i18n("A passphrase must contain between 1 and 4096 bytes."));
@@ -101,9 +106,7 @@ void DeviceProvisioningModel::start(
     const QJsonObject payload{
         {QStringLiteral("profileId"), profile_id.trimmed()},
         {QStringLiteral("profileName"), profile_name.trimmed()},
-        {QStringLiteral("devicePath"), device.value(QStringLiteral("path")).toString()},
-        {QStringLiteral("expectedSerial"), device.value(QStringLiteral("serial")).toString()},
-        {QStringLiteral("expectedSizeBytes"), QJsonValue::fromVariant(device.value(QStringLiteral("sizeBytes")))},
+        {QStringLiteral("candidateId"), candidate_id},
         {QStringLiteral("sourceSubvolume"), source_subvolume.trimmed()},
         {QStringLiteral("passphraseLabel"), i18n("Recovery passphrase")},
         {QStringLiteral("createAutomaticKey"), automatic_key},
@@ -164,6 +167,16 @@ bool DeviceProvisioningModel::applyDevices(const QString& payload) {
     const auto document = QJsonDocument::fromJson(payload.toUtf8());
     if (!document.isArray())
         return false;
+    for (const auto& value : document.array()) {
+        if (!value.isObject())
+            return false;
+        const auto device = value.toObject();
+        if (device.value(QStringLiteral("schemaVersion")).toInt(-1) !=
+                manager_protocol::device_provisioning_schema_version ||
+            device.value(QStringLiteral("candidateId")).toString().isEmpty() ||
+            device.value(QStringLiteral("path")).toString().isEmpty())
+            return false;
+    }
     devices_ = document.array().toVariantList();
     emit devicesChanged();
     return true;
