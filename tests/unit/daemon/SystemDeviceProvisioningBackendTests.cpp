@@ -233,6 +233,16 @@ void test_preparation_sequence_uses_descriptors_and_installs_profile() {
         }) == 2,
         "udev settle was not checked after partition and filesystem creation"
     );
+    const auto partition_scan = std::ranges::find_if(commands.calls, [](const auto& call) {
+        return !call.empty() && call.front() == "lsblk" &&
+            std::ranges::find(call, "PATH,TYPE") != call.end();
+    });
+    test_helpers::expect_true(
+        "partition scan requests tree",
+        partition_scan != commands.calls.end() &&
+            std::ranges::find(*partition_scan, "--tree") != partition_scan->end(),
+        "partition discovery expected lsblk children without requesting a tree"
+    );
 }
 
 void test_exited_helper_marks_transaction_interrupted() {
