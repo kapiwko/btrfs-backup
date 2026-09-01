@@ -55,7 +55,8 @@ const EditableProfile& require_existing(const std::optional<EditableProfile>& pr
 std::string source_id_candidate(const std::string& name) {
     std::string result;
     bool previous_separator = false;
-    for (const unsigned char character : name) {
+    for (const char raw_character : name) {
+        const auto character = static_cast<unsigned char>(raw_character);
         const bool accepted = std::isalnum(character) != 0 || character == '.' || character == '_';
         if (accepted) {
             result.push_back(static_cast<char>(std::tolower(character)));

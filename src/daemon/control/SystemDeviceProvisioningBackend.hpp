@@ -6,13 +6,21 @@
 #include <filesystem>
 #include <memory>
 
-#include <backup/ports/ICommandRunner.hpp>
-#include <backup/ports/IBtrfsOperations.hpp>
-#include <config/ports/ConfigurationActivator.hpp>
 #include <daemon/control/DeviceProvisioningService.hpp>
-#include <daemon/control/CredentialAdministrationService.hpp>
+
+namespace btrfsbackup::backup {
+class IBtrfsOperations;
+class ICommandRunner;
+} // namespace btrfsbackup::backup
+
+namespace btrfsbackup::config {
+class IConfigurationActivator;
+}
 
 namespace btrfsbackup::daemon::control {
+
+class ICredentialAdministrationBackend;
+struct CredentialAdministrationRoots;
 
 class SystemDeviceProvisioningBackend final : public IDeviceProvisioningBackend {
   public:
@@ -25,7 +33,7 @@ class SystemDeviceProvisioningBackend final : public IDeviceProvisioningBackend 
         btrfsbackup::config::IConfigurationActivator& configuration_activator,
         ICredentialAdministrationBackend& credentials
     );
-    ~SystemDeviceProvisioningBackend() override;
+    ~SystemDeviceProvisioningBackend() noexcept override;
 
     [[nodiscard]] std::vector<ProvisioningDevice> list_devices() override;
     [[nodiscard]] std::vector<std::string> list_source_candidates() override;

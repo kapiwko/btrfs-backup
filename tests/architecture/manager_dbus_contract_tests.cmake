@@ -131,6 +131,46 @@ assert_method(
     resolve_backup_coverage ResolveBackupCoverage s s
     "<methodname=\"ResolveBackupCoverage\"><argname=\"localPath\"type=\"s\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
 )
+assert_method(
+    list_target_credentials ListTargetCredentials s s
+    "<methodname=\"ListTargetCredentials\"><argname=\"profileId\"type=\"s\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
+)
+assert_method(
+    add_target_passphrase AddTargetPassphrase shhs s
+    "<methodname=\"AddTargetPassphrase\"><argname=\"profileId\"type=\"s\"direction=\"in\"/><argname=\"authorizationSecret\"type=\"h\"direction=\"in\"/><argname=\"newSecret\"type=\"h\"direction=\"in\"/><argname=\"label\"type=\"s\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
+)
+assert_method(
+    add_target_key AddTargetKey shhsb s
+    "<methodname=\"AddTargetKey\"><argname=\"profileId\"type=\"s\"direction=\"in\"/><argname=\"authorizationSecret\"type=\"h\"direction=\"in\"/><argname=\"key\"type=\"h\"direction=\"in\"/><argname=\"label\"type=\"s\"direction=\"in\"/><argname=\"automatic\"type=\"b\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
+)
+assert_method(
+    generate_target_key GenerateTargetKey shsb s
+    "<methodname=\"GenerateTargetKey\"><argname=\"profileId\"type=\"s\"direction=\"in\"/><argname=\"authorizationSecret\"type=\"h\"direction=\"in\"/><argname=\"label\"type=\"s\"direction=\"in\"/><argname=\"automatic\"type=\"b\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
+)
+assert_method(
+    remove_target_credential RemoveTargetCredential ssh s
+    "<methodname=\"RemoveTargetCredential\"><argname=\"profileId\"type=\"s\"direction=\"in\"/><argname=\"credentialId\"type=\"s\"direction=\"in\"/><argname=\"authorizationSecret\"type=\"h\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
+)
+assert_method(
+    list_provisioning_devices ListProvisioningDevices "" s
+    "<methodname=\"ListProvisioningDevices\"><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
+)
+assert_method(
+    list_source_candidates ListSourceCandidates "" s
+    "<methodname=\"ListSourceCandidates\"><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
+)
+assert_method(
+    start_device_preparation StartDevicePreparation sh s
+    "<methodname=\"StartDevicePreparation\"><argname=\"request\"type=\"s\"direction=\"in\"/><argname=\"passphrase\"type=\"h\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
+)
+assert_method(
+    get_device_preparation GetDevicePreparation s s
+    "<methodname=\"GetDevicePreparation\"><argname=\"operationId\"type=\"s\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
+)
+assert_method(
+    cancel_device_preparation CancelDevicePreparation s s
+    "<methodname=\"CancelDevicePreparation\"><argname=\"operationId\"type=\"s\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
+)
 
 assert_signal(profiles_changed ProfilesChanged "" "<signalname=\"ProfilesChanged\"/>")
 assert_signal(
@@ -148,8 +188,8 @@ assert_signal(
 
 string(REGEX MATCHALL "<method name=" xml_methods "${manager_xml}")
 list(LENGTH xml_methods method_count)
-if(NOT method_count EQUAL 19)
-    message(FATAL_ERROR "manager XML must declare exactly 19 methods, found ${method_count}")
+if(NOT method_count EQUAL 29)
+    message(FATAL_ERROR "manager XML must declare exactly 29 methods, found ${method_count}")
 endif()
 
 string(REGEX MATCHALL "<signal name=" xml_signals "${manager_xml}")
