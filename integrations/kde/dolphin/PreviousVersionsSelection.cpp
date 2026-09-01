@@ -10,4 +10,14 @@ bool can_offer_previous_versions(const QList<QUrl>& urls, bool selected_item_is_
         !selected_item_is_symlink;
 }
 
+PreviousVersionsOutcome classify_previous_versions(
+    bool request_succeeded,
+    bool document_valid,
+    bool has_match
+) {
+    if (!request_succeeded || !document_valid)
+        return PreviousVersionsOutcome::ServiceError;
+    return has_match ? PreviousVersionsOutcome::Open : PreviousVersionsOutcome::NotFound;
+}
+
 } // namespace btrfsbackup::kde::dolphin

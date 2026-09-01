@@ -14,7 +14,7 @@ set(KDE_INSTALL_DATADIR "${CMAKE_INSTALL_DATADIR}")
 set(KDE_INSTALL_LOCALEDIR "${CMAKE_INSTALL_DATADIR}/locale")
 
 find_package(Qt6 REQUIRED COMPONENTS Core DBus Gui Qml Quick)
-find_package(KF6 REQUIRED COMPONENTS CoreAddons I18n JobWidgets KCMUtils Notifications Package KIO Runner)
+find_package(KF6 REQUIRED COMPONENTS CoreAddons I18n JobWidgets KCMUtils Notifications Package KIO Runner WidgetsAddons)
 find_package(Plasma REQUIRED)
 if(COMMAND qt_policy)
     qt_policy(SET QTP0001 NEW)
@@ -96,6 +96,7 @@ target_link_libraries(previousversionsaction PRIVATE
     KF6::I18n
     KF6::KIOCore
     KF6::KIOWidgets
+    KF6::WidgetsAddons
     Qt6::Core
     Qt6::DBus
 )

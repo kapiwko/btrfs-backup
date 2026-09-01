@@ -9,15 +9,20 @@
 #include <KFileItem>
 #include <KFileItemListProperties>
 #include <KIO/OpenUrlJob>
+#include <KJob>
 #include <KLocalizedString>
+#include <KMessageBox>
 #include <KPluginFactory>
 
 #include <QAction>
 #include <QDBusPendingCallWatcher>
 #include <QDBusPendingReply>
 #include <QIcon>
+#include <QPointer>
 #include <QProcess>
 #include <QWidget>
+
+#include <optional>
 
 #include <core/ManagerProtocol.hpp>
 
@@ -25,12 +30,45 @@ using Qt::StringLiterals::operator""_s;
 
 K_PLUGIN_CLASS_WITH_JSON(PreviousVersionsAction, "previousversionsaction.json")
 
+namespace {
+
+void show_service_error(QWidget* parent) {
+    KMessageBox::error(
+        parent,
+        i18n("Could not contact the backup service or access backup versions."),
+        i18n("Previous Backup Versions"),
+        KMessageBox::Notify | KMessageBox::PlainText
+    );
+}
+
+void show_no_versions(QWidget* parent) {
+    KMessageBox::information(
+        parent,
+        i18n("No backup versions were found for the selected path."),
+        i18n("Previous Backup Versions"),
+        {},
+        KMessageBox::Notify | KMessageBox::PlainText
+    );
+}
+
+void show_restore_start_error(QWidget* parent) {
+    KMessageBox::error(
+        parent,
+        i18n("Could not start the restore application."),
+        i18n("Restore Backup Version"),
+        KMessageBox::Notify | KMessageBox::PlainText
+    );
+}
+
+} // namespace
+
 PreviousVersionsAction::PreviousVersionsAction(QObject* parent)
     : KAbstractFileItemActionPlugin(parent) {
 }
 
 QList<QAction*> PreviousVersionsAction::actions(
-    const KFileItemListProperties& properties, QWidget* parent_widget
+    const KFileItemListProperties& properties,
+    QWidget* parent_widget
 ) {
     const QList<QUrl> urls = properties.urlList();
     if (urls.size() == 1 && urls.front().scheme() == u"btrfsbackup"_s) {
@@ -38,11 +76,15 @@ QList<QAction*> PreviousVersionsAction::actions(
         if (parts.size() < 2 || parts.at(1) == u".versions"_s)
             return {};
         auto* restore = new QAction(
-            QIcon::fromTheme(u"document-restore"_s), i18nc("@action:inmenu", "Restore to…"), parent_widget
+            QIcon::fromTheme(u"document-restore"_s),
+            i18nc("@action:inmenu", "Restore to…"),
+            parent_widget
         );
         const QString source = urls.front().toString(QUrl::FullyEncoded);
-        connect(restore, &QAction::triggered, this, [source] {
-            (void)QProcess::startDetached(u"btrfs-backup-kde-restore"_s, {u"--url"_s, source});
+        const QPointer<QWidget> parent = parent_widget;
+        connect(restore, &QAction::triggered, this, [source, parent] {
+            if (!QProcess::startDetached(u"btrfs-backup-kde-restore"_s, {u"--url"_s, source}))
+                show_restore_start_error(parent.data());
         });
         return {restore};
     }
@@ -50,7 +92,9 @@ QList<QAction*> PreviousVersionsAction::actions(
     if (!btrfsbackup::kde::dolphin::can_offer_previous_versions(urls, symlink))
         return {};
     auto* action = new QAction(
-        QIcon::fromTheme(u"view-history"_s), i18nc("@action:inmenu", "Previous backup versions…"), parent_widget
+        QIcon::fromTheme(u"view-history"_s),
+        i18nc("@action:inmenu", "Previous backup versions…"),
+        parent_widget
     );
     const QString local_path = urls.front().toLocalFile();
     connect(action, &QAction::triggered, this, [this, local_path, parent_widget] {
@@ -60,20 +104,28 @@ QList<QAction*> PreviousVersionsAction::actions(
 }
 
 void PreviousVersionsAction::resolve_and_open(const QString& local_path, QWidget* parent_widget) {
-    Q_UNUSED(parent_widget)
-    auto* watcher = new QDBusPendingCallWatcher(btrfsbackup::kde::manager_call(
-        QDBusConnection::systemBus(),
-        QLatin1String(btrfsbackup::manager_protocol::method::resolve_backup_coverage),
-        {local_path}
-    ), this);
-    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, watcher](QDBusPendingCallWatcher*) {
+    const QPointer<QWidget> parent = parent_widget;
+    auto* watcher = new QDBusPendingCallWatcher(btrfsbackup::kde::manager_call(QDBusConnection::systemBus(), QLatin1String(btrfsbackup::manager_protocol::method::resolve_backup_coverage), {local_path}), this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, watcher, parent](QDBusPendingCallWatcher*) {
         const QDBusPendingReply<QString> reply = *watcher;
         watcher->deleteLater();
-        if (reply.isError())
+        const bool request_succeeded = !reply.isError();
+        const auto coverage = request_succeeded
+            ? btrfsbackup::kde::parse_backup_coverage(reply.value())
+            : std::optional<QList<btrfsbackup::kde::BackupCoverage>>{};
+        const auto outcome = btrfsbackup::kde::dolphin::classify_previous_versions(
+            request_succeeded,
+            coverage.has_value(),
+            coverage.has_value() && !coverage->isEmpty()
+        );
+        if (outcome == btrfsbackup::kde::dolphin::PreviousVersionsOutcome::ServiceError) {
+            show_service_error(parent.data());
             return;
-        const auto coverage = btrfsbackup::kde::parse_backup_coverage(reply.value());
-        if (!coverage || coverage->isEmpty())
+        }
+        if (outcome == btrfsbackup::kde::dolphin::PreviousVersionsOutcome::NotFound) {
+            show_no_versions(parent.data());
             return;
+        }
         const auto& selected = coverage->front();
         QUrl url;
         url.setScheme(u"btrfsbackup"_s);
@@ -82,6 +134,10 @@ void PreviousVersionsAction::resolve_and_open(const QString& local_path, QWidget
             path += u"/"_s + selected.relative_path;
         url.setPath(path);
         auto* job = new KIO::OpenUrlJob(url, u"inode/directory"_s, this);
+        connect(job, &KJob::result, this, [parent](KJob* completed) {
+            if (completed->error() != 0)
+                show_service_error(parent.data());
+        });
         job->start();
     });
 }
