@@ -57,6 +57,9 @@ class IDeviceProvisioningBackend {
     virtual ~IDeviceProvisioningBackend() = default;
     [[nodiscard]] virtual std::vector<ProvisioningDevice> list_devices() = 0;
     [[nodiscard]] virtual std::vector<std::string> list_source_candidates() = 0;
+    [[nodiscard]] virtual std::vector<std::string> inspect_safety(
+        const ProvisioningDevice& expected_device
+    ) const = 0;
     [[nodiscard]] virtual DevicePreparationStatus start(
         const DevicePreparationRequest& request,
         const ProvisioningDevice& expected_device,
@@ -98,6 +101,10 @@ class DeviceProvisioningService final {
         std::chrono::steady_clock::time_point expires_at;
     };
     [[nodiscard]] ProvisioningDevice take_candidate(
+        const std::string& caller,
+        const std::string& candidate_id
+    );
+    [[nodiscard]] ProvisioningDevice find_candidate(
         const std::string& caller,
         const std::string& candidate_id
     );
