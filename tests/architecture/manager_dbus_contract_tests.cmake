@@ -8,15 +8,26 @@ file(READ "${PROJECT_SOURCE_DIR}/data/polkit/io.github.btrfsbackup.policy" manag
 file(READ "${PROJECT_SOURCE_DIR}/src/core/ManagerProtocol.hpp" manager_protocol)
 file(READ "${PROJECT_SOURCE_DIR}/src/daemon/control/OperationalControlService.cpp" manager_authorization_map)
 file(READ "${PROJECT_SOURCE_DIR}/src/daemon/dbus/ManagerDbusObject.cpp" manager_vtable)
+file(READ "${PROJECT_SOURCE_DIR}/src/daemon/dbus/ManagerJsonCodec.cpp" manager_json_codec)
+file(READ "${PROJECT_SOURCE_DIR}/integrations/kde/kcm/DeviceProvisioningModel.cpp" provisioning_kcm)
 string(REGEX REPLACE "[ \t\r\n]+" "" compact_xml "${manager_xml}")
 string(REGEX REPLACE "[ \t\r\n]+" "" compact_bus_policy "${manager_bus_policy}")
 string(REGEX REPLACE "[ \t\r\n]+" "" compact_polkit_policy "${manager_polkit_policy}")
 string(REGEX REPLACE "[ \t\r\n]+" "" compact_authorization_map "${manager_authorization_map}")
+string(REGEX REPLACE "[ \t\r\n]+" "" compact_manager_json_codec "${manager_json_codec}")
+string(REGEX REPLACE "[ \t\r\n]+" "" compact_provisioning_kcm "${provisioning_kcm}")
 
 function(assert_contains content fragment description)
     string(FIND "${content}" "${fragment}" position)
     if(position EQUAL -1)
         message(FATAL_ERROR "manager D-Bus contract is missing ${description}")
+    endif()
+endfunction()
+
+function(assert_not_contains content fragment description)
+    string(FIND "${content}" "${fragment}" position)
+    if(NOT position EQUAL -1)
+        message(FATAL_ERROR "manager D-Bus contract still contains ${description}")
     endif()
 endfunction()
 
@@ -204,6 +215,31 @@ assert_authorized_method(
     "<methodname=\"CancelDevicePreparation\"><argname=\"operationId\"type=\"s\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
     PrepareBackupDevice io.github.btrfsbackup.prepare-backup-device
 )
+
+assert_contains(
+    "${manager_protocol}"
+    "inline constexpr int device_provisioning_schema_version = 2;"
+    "the candidate-based provisioning schema version"
+)
+assert_contains(
+    "${compact_manager_json_codec}"
+    "{\"candidateId\",device.candidate_id}"
+    "the provisioning candidate identifier response"
+)
+assert_contains(
+    "${manager_vtable}"
+    ".candidate_id = request.value(\"candidateId\", \"\")"
+    "the daemon provisioning candidate request"
+)
+assert_contains(
+    "${compact_provisioning_kcm}"
+    "{QStringLiteral(\"candidateId\"),candidate_id}"
+    "the KCM provisioning candidate request"
+)
+foreach(legacy_field IN ITEMS devicePath expectedSerial expectedSizeBytes)
+    assert_not_contains("${manager_vtable}" "${legacy_field}" "legacy daemon field ${legacy_field}")
+    assert_not_contains("${provisioning_kcm}" "${legacy_field}" "legacy KCM field ${legacy_field}")
+endforeach()
 
 assert_signal(profiles_changed ProfilesChanged "" "<signalname=\"ProfilesChanged\"/>")
 assert_signal(
