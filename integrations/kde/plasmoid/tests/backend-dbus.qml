@@ -83,7 +83,7 @@ Window {
                     && profileItem.profileId === "default"
                     && profileItem.running
                     && profileItem.progress === 40
-                    && profileItem.historyCount === 1
+                    && profileItem.profileStatus.history.entries.length === 1
                     && profileItem.defaultActionButtonVisible
                     && profileItem.defaultActionButtonAction.icon.name === "process-stop") {
                 root.initialStateObserved = true
@@ -117,7 +117,7 @@ Window {
                               profileItem !== null ? profileItem.profileId : "missing",
                               profileItem !== null ? profileItem.running : false,
                               profileItem !== null ? profileItem.progress : -2,
-                              profileItem !== null ? profileItem.historyCount : -2,
+                              profileItem !== null ? profileItem.profileStatus.history.entries.length : -2,
                               profileItem !== null ? profileItem.defaultActionButtonVisible : false,
                               profileItem !== null ? profileItem.defaultActionButtonAction.icon.name : "missing")
             }
