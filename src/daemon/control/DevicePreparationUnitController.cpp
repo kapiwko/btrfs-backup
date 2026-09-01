@@ -16,9 +16,9 @@
 #include <utility>
 #include <vector>
 
-#include <backup/ports/ICommandRunner.hpp>
 #include <core/Errors.hpp>
 #include <core/Identifiers.hpp>
+#include <daemon/control/SystemdUnitController.hpp>
 #include <daemon/dbus/ManagerErrors.hpp>
 #include <platform/linux/OwnedFileDescriptor.hpp>
 #include <platform/linux/transfer/ThreadSigpipeBlock.hpp>
@@ -99,9 +99,9 @@ SecretBuffer read_secret(int descriptor) {
 } // namespace
 
 SystemdDevicePreparationUnitController::SystemdDevicePreparationUnitController(
-    backup::ICommandRunner& commands,
+    ISystemdUnitController& units,
     fs::path secret_root
-) : commands_(commands), secret_root_(std::move(secret_root)) {
+) : units_(units), secret_root_(std::move(secret_root)) {
 }
 
 fs::path SystemdDevicePreparationUnitController::secret_path(const std::string& operation_id) const {
@@ -110,14 +110,12 @@ fs::path SystemdDevicePreparationUnitController::secret_path(const std::string& 
 }
 
 void SystemdDevicePreparationUnitController::start_unit(const std::string& operation_id) {
-    backup::ControlledCommandOptions options;
-    options.timeout = std::chrono::seconds(30);
-    options.environment_profile = backup::CommandEnvironmentProfile::SystemdControl;
-    const auto result = commands_.run_controlled(
-        {"systemctl", "start", "--no-block", unit_name(operation_id)},
-        options
-    );
-    if (result.exit_code != 0 || result.cancelled || result.timed_out)
+    const auto result = units_.start_unit({
+        .unit = unit_name(operation_id),
+        .timeout = std::chrono::seconds(30),
+        .no_block = true,
+    });
+    if (!result)
         throw dbus::ManagerOperationError(
             dbus::ManagerErrorCode::TargetUnavailable,
             "cannot start device preparation helper"
@@ -167,14 +165,8 @@ void SystemdDevicePreparationUnitController::recover(const std::string& operatio
 }
 
 void SystemdDevicePreparationUnitController::stop(const std::string& operation_id) {
-    backup::ControlledCommandOptions options;
-    options.timeout = std::chrono::seconds(30);
-    options.environment_profile = backup::CommandEnvironmentProfile::SystemdControl;
-    const auto result = commands_.run_controlled(
-        {"systemctl", "stop", unit_name(operation_id)},
-        options
-    );
-    if (result.exit_code != 0 || result.cancelled || result.timed_out)
+    const auto result = units_.stop_unit({unit_name(operation_id), std::chrono::seconds(30)});
+    if (!result)
         throw dbus::ManagerOperationError(
             dbus::ManagerErrorCode::TargetUnavailable,
             "cannot stop device preparation helper"
@@ -182,14 +174,9 @@ void SystemdDevicePreparationUnitController::stop(const std::string& operation_i
 }
 
 bool SystemdDevicePreparationUnitController::active(const std::string& operation_id) {
-    backup::ControlledCommandOptions options;
-    options.timeout = std::chrono::seconds(10);
-    options.environment_profile = backup::CommandEnvironmentProfile::SystemdControl;
-    const auto result = commands_.run_controlled(
-        {"systemctl", "is-active", "--quiet", unit_name(operation_id)},
-        options
-    );
-    return result.exit_code == 0 && !result.cancelled && !result.timed_out;
+    const auto result =
+        units_.active_unit({unit_name(operation_id), std::chrono::seconds(10)});
+    return result.value_or(false);
 }
 
 } // namespace btrfsbackup::daemon::control
