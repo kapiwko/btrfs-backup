@@ -10,7 +10,11 @@
 
 namespace {
 
-using namespace btrfsbackup::daemon::control;
+using btrfsbackup::daemon::control::CredentialAdministrationService;
+using btrfsbackup::daemon::control::ICredentialAdministrationBackend;
+using btrfsbackup::daemon::control::IManagerAuthorizer;
+using btrfsbackup::daemon::control::ManagerAuthorizationAction;
+using btrfsbackup::daemon::control::TargetCredential;
 
 class Authorizer final : public IManagerAuthorizer {
   public:

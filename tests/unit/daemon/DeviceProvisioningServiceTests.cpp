@@ -9,7 +9,13 @@
 #include "support/TestHelpers.hpp"
 
 namespace {
-using namespace btrfsbackup::daemon::control;
+using btrfsbackup::daemon::control::DevicePreparationRequest;
+using btrfsbackup::daemon::control::DevicePreparationStatus;
+using btrfsbackup::daemon::control::DeviceProvisioningService;
+using btrfsbackup::daemon::control::IDeviceProvisioningBackend;
+using btrfsbackup::daemon::control::IManagerAuthorizer;
+using btrfsbackup::daemon::control::ManagerAuthorizationAction;
+using btrfsbackup::daemon::control::ProvisioningDevice;
 
 class Authorizer final : public IManagerAuthorizer {
   public:

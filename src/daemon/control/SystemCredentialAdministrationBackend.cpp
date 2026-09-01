@@ -8,14 +8,18 @@
 #include <filesystem>
 #include <iterator>
 #include <ranges>
+#include <utility>
 
 #include <config/json/JsonIo.hpp>
+#include <config/ports/ConfigurationActivator.hpp>
 #include <core/Errors.hpp>
 #include <daemon/dbus/ManagerErrors.hpp>
 #include <platform/linux/config/FileProfileRepository.hpp>
+#include <platform/linux/config/ProfileService.hpp>
 #include <platform/linux/filesystem/FileIo.hpp>
 #include <platform/linux/filesystem/FileLock.hpp>
 #include <platform/linux/filesystem/SecretFile.hpp>
+#include <platform/linux/storage/CryptsetupOperations.hpp>
 
 namespace fs = std::filesystem;
 
@@ -327,7 +331,7 @@ void SystemCredentialAdministrationBackend::remove_credential(
             dbus::ManagerErrorCode::Conflict,
             "automatic credential cannot be removed"
         );
-    const ManagedCredential removed = *item;
+    ManagedCredential removed = std::move(*item);
     metadata.erase(item);
     save_metadata(roots_, profile.target.luks_uuid, metadata);
     try {

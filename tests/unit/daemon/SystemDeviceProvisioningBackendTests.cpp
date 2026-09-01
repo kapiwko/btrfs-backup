@@ -3,7 +3,10 @@
 
 #include <daemon/control/SystemDeviceProvisioningBackend.hpp>
 
+#include <backup/ports/ICommandRunner.hpp>
+#include <backup/ports/IBtrfsOperations.hpp>
 #include <config/ports/ConfigurationActivator.hpp>
+#include <daemon/control/CredentialAdministrationService.hpp>
 
 #include <chrono>
 #include <ranges>
@@ -14,8 +17,13 @@
 #include "support/TestHelpers.hpp"
 
 namespace {
-using namespace btrfsbackup;
-using namespace btrfsbackup::daemon::control;
+namespace backup = btrfsbackup::backup;
+namespace config = btrfsbackup::config;
+using btrfsbackup::ProfileId;
+using btrfsbackup::daemon::control::DevicePreparationStatus;
+using btrfsbackup::daemon::control::ICredentialAdministrationBackend;
+using btrfsbackup::daemon::control::SystemDeviceProvisioningBackend;
+using btrfsbackup::daemon::control::TargetCredential;
 
 class Commands final : public backup::ICommandRunner {
   public:

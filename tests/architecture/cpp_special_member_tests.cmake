@@ -28,6 +28,7 @@ set(approved_special_member_types
     "src/daemon/control/BrowseSessionService.hpp:BrowseSessionService"
     "src/daemon/control/OperationEnvironmentFile.hpp:OperationEnvironmentFile"
     "src/daemon/control/SystemBrowseSessionBackend.hpp:SystemBrowseSessionBackend"
+    "src/daemon/control/SystemDeviceProvisioningBackend.hpp:SystemDeviceProvisioningBackend"
     "src/daemon/dbus/ManagerChangeMonitor.hpp:ManagerChangeMonitor"
     "src/daemon/query/DeviceStateQueryService.hpp:DeviceStateQueryService"
     "src/platform/linux/OwnedFileDescriptor.hpp:OwnedFileDescriptor"
