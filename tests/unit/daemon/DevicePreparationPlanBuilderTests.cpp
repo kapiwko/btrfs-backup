@@ -16,6 +16,7 @@ using btrfsbackup::daemon::provisioning::CreateBackupPartition;
 using btrfsbackup::daemon::provisioning::DestructiveScopeKind;
 using btrfsbackup::daemon::provisioning::DevicePreparationPlanBuilder;
 using btrfsbackup::daemon::provisioning::EraseDeviceSignatures;
+using btrfsbackup::daemon::provisioning::ErasePartitionSignatures;
 using btrfsbackup::daemon::provisioning::ExistingPartition;
 using btrfsbackup::daemon::provisioning::PartitionTableType;
 using btrfsbackup::daemon::provisioning::PredictedRegionKind;
@@ -110,6 +111,47 @@ void test_builds_before_and_after_preview_for_whole_device() {
     );
 }
 
+void test_builds_partition_plan_without_changing_other_regions() {
+    const auto plan = DevicePreparationPlanBuilder{}.build(
+        topology(),
+        "topology-test",
+        "partition-1",
+        ProvisioningMode::ReformatExistingPartition,
+        "plan-partition"
+    );
+    test_helpers::expect_true(
+        "partition scope",
+        plan.partition_id == "partition-1" &&
+            plan.destructive_scope.kind == DestructiveScopeKind::ExistingPartition &&
+            plan.destructive_scope.partition_id == plan.partition_id,
+        "destructive scope is not limited to the partition"
+    );
+    test_helpers::expect_true(
+        "partition before",
+        plan.before.regions.front().data_will_be_erased && !plan.before.regions.back().data_will_be_erased,
+        "the wrong region is marked for erasure"
+    );
+    const auto& target = plan.after.regions.front();
+    test_helpers::expect_true(
+        "partition after",
+        target.kind == PredictedRegionKind::BackupPartition && target.geometry_exact && target.changed &&
+            target.encrypted && target.filesystem_type == "btrfs",
+        "partition target prediction is incorrect"
+    );
+    test_helpers::expect_true(
+        "other region unchanged",
+        plan.before.regions.back() == plan.after.regions.back(),
+        "an unrelated region changed"
+    );
+    test_helpers::expect_true(
+        "partition operation bounds",
+        plan.operations.size() == 6 &&
+            std::holds_alternative<ErasePartitionSignatures>(plan.operations.front()) &&
+            std::holds_alternative<PublishProfile>(plan.operations.back()),
+        "partition operation sequence changed"
+    );
+}
+
 void test_rejects_stale_topology_and_unimplemented_mode() {
     const auto value = topology();
     bool stale_rejected = false;
@@ -132,8 +174,8 @@ void test_rejects_stale_topology_and_unimplemented_mode() {
             value,
             value.generation,
             "device-8:16",
-            ProvisioningMode::ReformatExistingPartition,
-            "plan-partition"
+            ProvisioningMode::AdoptExistingTarget,
+            "plan-adopt"
         ));
     } catch (const btrfsbackup::ValidationError&) {
         mode_rejected = true;
@@ -145,6 +187,7 @@ void test_rejects_stale_topology_and_unimplemented_mode() {
 
 int main() {
     test_builds_before_and_after_preview_for_whole_device();
+    test_builds_partition_plan_without_changing_other_regions();
     test_rejects_stale_topology_and_unimplemented_mode();
     return test_helpers::finish("device preparation plan builder tests");
 }

@@ -123,11 +123,11 @@ provisioning::StorageTopology DeviceProvisioningService::inspect_storage_topolog
 provisioning::DevicePreparationPlan DeviceProvisioningService::build_device_preparation_plan(
     const std::string& caller,
     const provisioning::TopologyGeneration& expected_generation,
-    const provisioning::DeviceCandidateId& device_id,
+    const std::string& selected_candidate_id,
     provisioning::ProvisioningMode mode
 ) {
     authorize(caller, manager_protocol::method::build_device_preparation_plan);
-    if (topology_reader_ == nullptr || expected_generation.empty() || device_id.empty())
+    if (topology_reader_ == nullptr || expected_generation.empty() || selected_candidate_id.empty())
         throw dbus::ManagerOperationError(dbus::ManagerErrorCode::NotFound, "storage topology is unavailable or expired");
     const provisioning::StorageTopology current = topology_reader_->scan();
     const auto now = clock_();
@@ -146,7 +146,13 @@ provisioning::DevicePreparationPlan DeviceProvisioningService::build_device_prep
     }
     if (plan_id.empty())
         throw dbus::ManagerOperationError(dbus::ManagerErrorCode::Conflict, "cannot allocate a preparation plan identifier");
-    auto plan = plan_builder_.build(snapshot->second.topology, expected_generation, device_id, mode, plan_id);
+    auto plan = plan_builder_.build(
+        snapshot->second.topology,
+        expected_generation,
+        selected_candidate_id,
+        mode,
+        plan_id
+    );
     plans_.insert_or_assign(plan_id, StoredPlan{plan, caller, now + candidate_lifetime_});
     return plan;
 }
@@ -301,6 +307,11 @@ DevicePreparationStatus DeviceProvisioningService::start(
         if (topology_reader_ == nullptr)
             throw dbus::ManagerOperationError(dbus::ManagerErrorCode::NotFound, "storage topology is unavailable");
         const auto plan = find_plan(caller, request.plan_id);
+        if (plan.mode != provisioning::ProvisioningMode::EraseWholeDevice)
+            throw dbus::ManagerOperationError(
+                dbus::ManagerErrorCode::Conflict,
+                "device preparation plan mode is not executable yet"
+            );
         const auto current = topology_reader_->scan();
         if (current.generation != plan.topology_generation)
             throw dbus::ManagerOperationError(dbus::ManagerErrorCode::Conflict, "storage topology changed");
