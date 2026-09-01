@@ -63,7 +63,10 @@ void rewind_secret(int fd) {
 }
 
 std::string first_partition(backup::ICommandRunner& commands, const fs::path& disk) {
-    const Json document = Json::parse(backup::capture_command(commands, {"lsblk", "--json", "--paths", "--output", "PATH,TYPE", disk.string()}));
+    const Json document = Json::parse(backup::capture_command(
+        commands,
+        {"lsblk", "--json", "--tree", "--paths", "--output", "PATH,TYPE", disk.string()}
+    ));
     const auto& devices = document.at("blockdevices");
     if (devices.size() != 1 || !devices.at(0).contains("children"))
         throw ValidationError("partition table was not detected after creation");
