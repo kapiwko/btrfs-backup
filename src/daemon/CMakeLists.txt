@@ -56,6 +56,8 @@ target_link_libraries(btrfsbackup-daemon-query
 add_library(btrfsbackup-daemon-control STATIC
     control/AuthorizedOperationCommand.cpp
     control/BrowseSessionService.cpp
+    control/CredentialAdministrationService.cpp
+    control/DeviceProvisioningService.cpp
     control/OperationalControlService.cpp
     control/ProfileAdministrationService.cpp
 )
@@ -68,6 +70,8 @@ target_restricted_include_directories(btrfsbackup-daemon-control
     PUBLIC_HEADERS
         daemon/control/AuthorizedOperationCommand.hpp
         daemon/control/BrowseSessionService.hpp
+        daemon/control/CredentialAdministrationService.hpp
+        daemon/control/DeviceProvisioningService.hpp
         daemon/control/OperationalControlService.hpp
         daemon/control/ProfileAdministrationService.hpp
         daemon/control/SystemdUnitController.hpp
@@ -87,6 +91,8 @@ add_library(btrfsbackup-daemon-system-control STATIC
     control/OperationEnvironmentFile.cpp
     control/SystemOperationalControlBackend.cpp
     control/SystemBrowseSessionBackend.cpp
+    control/SystemCredentialAdministrationBackend.cpp
+    control/SystemDeviceProvisioningBackend.cpp
     control/SystemProfileAdministrationBackend.cpp
 )
 target_compile_features(btrfsbackup-daemon-system-control PUBLIC cxx_std_23)
@@ -95,6 +101,8 @@ target_restricted_include_directories(btrfsbackup-daemon-system-control
         daemon/control/CommandSystemdUnitController.hpp
         daemon/control/SystemOperationalControlBackend.hpp
         daemon/control/SystemBrowseSessionBackend.hpp
+        daemon/control/SystemCredentialAdministrationBackend.hpp
+        daemon/control/SystemDeviceProvisioningBackend.hpp
         daemon/control/SystemProfileAdministrationBackend.hpp
     PRIVATE_HEADERS
         daemon/control/OperationEnvironmentFile.hpp
@@ -106,6 +114,7 @@ target_link_libraries(btrfsbackup-daemon-system-control
         btrfsbackup-platform-linux-filesystem
     PRIVATE
         btrfsbackup-config-json
+        btrfsbackup-config-wizard
         btrfsbackup-backup-planning
         btrfsbackup-platform-linux-config
         btrfsbackup-platform-linux-process

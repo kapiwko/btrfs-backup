@@ -28,6 +28,8 @@ KCMUtils.ScrollViewKCM {
     readonly property var historyModel: historyOverride !== null
         ? historyOverride
         : (typeof kcm !== "undefined" ? kcm.profileHistory : null)
+    readonly property var credentialModel: typeof kcm !== "undefined" ? kcm.targetCredentials : null
+    readonly property var provisioningModel: typeof kcm !== "undefined" ? kcm.deviceProvisioning : null
 
     KI18n.KI18nContext {
         id: translations
@@ -80,6 +82,7 @@ KCMUtils.ScrollViewKCM {
             "editor": root.editor,
             "directory": root.directory,
             "historyModel": root.historyModel,
+            "credentialModel": root.credentialModel,
             "statusOverride": root.profileStatusOverrides[profileId] ?? null,
             "editImmediately": editImmediately
         }
@@ -101,7 +104,7 @@ KCMUtils.ScrollViewKCM {
 
     function openNewProfilePage() {
         if (typeof kcm !== "undefined")
-            kcm.push("NewProfilePage.qml", {"editor": root.editor})
+            kcm.push("NewProfilePage.qml", {"editor": root.editor, "provisioning": root.provisioningModel})
     }
 
     function statusText(state) {

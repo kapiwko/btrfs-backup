@@ -47,6 +47,13 @@ ProfileHistoryModel* BackupKcm::profileHistory() {
     return &profile_history_;
 }
 
+TargetCredentialModel* BackupKcm::targetCredentials() {
+    return &target_credentials_;
+}
+DeviceProvisioningModel* BackupKcm::deviceProvisioning() {
+    return &device_provisioning_;
+}
+
 } // namespace btrfsbackup::kde::kcm
 
 K_PLUGIN_CLASS_WITH_JSON(btrfsbackup::kde::kcm::BackupKcm, "kcm_btrfsbackup.json")

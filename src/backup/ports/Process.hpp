@@ -34,6 +34,7 @@ enum class CommandEnvironmentProfile {
 
 struct ControlledCommandOptions {
     CancellationToken* cancellation = nullptr;
+    int stdin_fd = -1;
     std::chrono::milliseconds timeout{300000};
     std::size_t max_output_bytes = 64 * 1024;
     std::chrono::milliseconds terminate_grace_period{5000};

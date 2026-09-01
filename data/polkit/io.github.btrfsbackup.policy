@@ -47,4 +47,14 @@
     <message>Authentication is required to browse backup contents</message>
     <defaults><allow_any>no</allow_any><allow_inactive>auth_admin</allow_inactive><allow_active>auth_admin_keep</allow_active></defaults>
   </action>
+  <action id="io.github.btrfsbackup.manage-target-credentials">
+    <description>Manage passwords and keys for a Btrfs backup target</description>
+    <message>Authentication is required to manage backup target credentials</message>
+    <defaults><allow_any>no</allow_any><allow_inactive>auth_admin</allow_inactive><allow_active>auth_admin_keep</allow_active></defaults>
+  </action>
+  <action id="io.github.btrfsbackup.prepare-backup-device">
+    <description>Erase and prepare a backup device</description>
+    <message>Authentication is required to erase and prepare a backup device</message>
+    <defaults><allow_any>no</allow_any><allow_inactive>auth_admin</allow_inactive><allow_active>auth_admin</allow_active></defaults>
+  </action>
 </policyconfig>

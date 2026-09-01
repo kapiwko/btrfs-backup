@@ -22,6 +22,8 @@ enum class ManagerAuthorizationAction {
     DeleteProfileConfiguration,
     SetProfileEnabled,
     OpenBrowseSession,
+    ManageTargetCredentials,
+    PrepareBackupDevice,
 };
 
 enum class ManagerCancellationOutcome {

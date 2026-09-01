@@ -78,6 +78,28 @@ add_btrfsbackup_test(
 )
 
 add_btrfsbackup_test(
+    btrfsbackup-credential-administration-service-tests
+    CredentialAdministrationServiceTests.cpp
+    credential-administration-service-tests
+    btrfsbackup-daemon-control
+)
+
+add_btrfsbackup_test(
+    btrfsbackup-device-provisioning-service-tests
+    DeviceProvisioningServiceTests.cpp
+    device-provisioning-service-tests
+    btrfsbackup-daemon-control
+)
+
+add_btrfsbackup_test(
+    btrfsbackup-system-device-provisioning-backend-tests
+    SystemDeviceProvisioningBackendTests.cpp
+    system-device-provisioning-backend-tests
+    btrfsbackup-daemon-system-control
+    btrfsbackup-platform-linux-config
+)
+
+add_btrfsbackup_test(
     btrfsbackup-system-profile-administration-backend-tests
     SystemProfileAdministrationBackendTests.cpp
     system-profile-administration-backend-tests
