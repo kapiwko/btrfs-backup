@@ -11,6 +11,7 @@
 #include <mutex>
 #include <ranges>
 #include <span>
+#include <sstream>
 #include <thread>
 #include <unistd.h>
 
@@ -89,6 +90,51 @@ bool contains_data(const Json& node) {
     return node.contains("children") && node.at("children").is_array() && !node.at("children").empty();
 }
 
+Json device_graph_node(const Json& node) {
+    Json result{
+        {"path", json_string(node, "path")},
+        {"type", json_string(node, "type")},
+        {"majorMinor", json_string(node, "maj:min")},
+        {"kernelName", json_string(node, "kname")},
+        {"parentKernelName", json_string(node, "pkname")},
+        {"sizeBytes", json_size(node, "size")},
+        {"filesystemType", json_string(node, "fstype")},
+        {"partitionTableType", json_string(node, "pttype")},
+    };
+    result["children"] = Json::array();
+    if (node.contains("children") && node.at("children").is_array())
+        for (const auto& child : node.at("children"))
+            result["children"].push_back(device_graph_node(child));
+    return result;
+}
+
+std::map<std::string, std::string> parse_udev_properties(const std::string& payload) {
+    std::map<std::string, std::string> result;
+    std::istringstream lines(payload);
+    std::string line;
+    while (std::getline(lines, line)) {
+        const auto separator = line.find('=');
+        if (separator != std::string::npos && separator != 0)
+            result.insert_or_assign(line.substr(0, separator), line.substr(separator + 1));
+    }
+    return result;
+}
+
+std::string property(const std::map<std::string, std::string>& properties, const char* key) {
+    const auto value = properties.find(key);
+    return value == properties.end() ? std::string{} : value->second;
+}
+
+bool same_device_identity(const ProvisioningDevice& expected, const ProvisioningDevice& current) {
+    return expected.path == current.path && expected.model == current.model &&
+        expected.serial == current.serial && expected.transport == current.transport &&
+        expected.size_bytes == current.size_bytes && expected.removable == current.removable &&
+        expected.mounted == current.mounted && expected.contains_data == current.contains_data &&
+        expected.major_minor == current.major_minor && expected.sysfs_devpath == current.sysfs_devpath &&
+        expected.wwn == current.wwn && expected.serial_id == current.serial_id &&
+        expected.serial_short == current.serial_short && expected.device_graph == current.device_graph;
+}
+
 std::vector<ProvisioningDevice> parse_devices(const std::string& payload) {
     const Json document = Json::parse(payload);
     if (!document.is_object() || !document.contains("blockdevices") || !document.at("blockdevices").is_array())
@@ -102,6 +148,7 @@ std::vector<ProvisioningDevice> parse_devices(const std::string& payload) {
         if (path.empty() || !fs::path(path).is_absolute() || size == 0)
             continue;
         result.push_back({
+            .candidate_id = {},
             .path = path,
             .model = json_string(node, "model"),
             .serial = json_string(node, "serial"),
@@ -110,6 +157,12 @@ std::vector<ProvisioningDevice> parse_devices(const std::string& payload) {
             .removable = json_boolean(node, "rm"),
             .mounted = nonempty_mounts(node),
             .contains_data = contains_data(node),
+            .major_minor = json_string(node, "maj:min"),
+            .sysfs_devpath = {},
+            .wwn = json_string(node, "wwn"),
+            .serial_id = {},
+            .serial_short = {},
+            .device_graph = device_graph_node(node).dump(),
         });
     }
     return result;
@@ -180,7 +233,49 @@ struct SystemDeviceProvisioningBackend::Impl {
     }
 
     std::vector<ProvisioningDevice> devices() {
-        return parse_devices(backup::capture_command(commands, {"lsblk", "--json", "--bytes", "--paths", "--output", "PATH,TYPE,SIZE,MODEL,SERIAL,TRAN,RM,FSTYPE,PTTYPE,MOUNTPOINTS"}));
+        std::vector<ProvisioningDevice> result = parse_devices(backup::capture_command(commands, {"lsblk", "--json", "--tree", "--bytes", "--paths", "--output", "PATH,TYPE,SIZE,MODEL,SERIAL,WWN,TRAN,RM,FSTYPE,PTTYPE,MOUNTPOINTS,MAJ:MIN,KNAME,PKNAME"}));
+        for (auto& device : result) {
+            const auto properties = parse_udev_properties(backup::capture_command(commands, {"udevadm", "info", "--query=property", "--name", device.path}));
+            const std::string udev_major = property(properties, "MAJOR");
+            const std::string udev_minor = property(properties, "MINOR");
+            const std::string udev_major_minor = udev_major.empty() || udev_minor.empty()
+                ? std::string{}
+                : udev_major + ":" + udev_minor;
+            if (!udev_major_minor.empty() && device.major_minor != udev_major_minor)
+                device.major_minor.clear();
+            device.sysfs_devpath = property(properties, "DEVPATH");
+            device.serial_id = property(properties, "ID_SERIAL");
+            device.serial_short = property(properties, "ID_SERIAL_SHORT");
+            const std::string udev_wwn = property(properties, "ID_WWN_WITH_EXTENSION").empty()
+                ? property(properties, "ID_WWN")
+                : property(properties, "ID_WWN_WITH_EXTENSION");
+            if (!udev_wwn.empty())
+                device.wwn = udev_wwn;
+            const std::string udev_transport = property(properties, "ID_BUS");
+            if (!udev_transport.empty())
+                device.transport = udev_transport;
+            if (!device.serial_short.empty())
+                device.serial = device.serial_short;
+            else if (!device.serial_id.empty())
+                device.serial = device.serial_id;
+        }
+        std::erase_if(result, [](const auto& device) {
+            return device.major_minor.empty() || device.sysfs_devpath.empty() || device.transport.empty() ||
+                device.device_graph.empty() ||
+                (device.wwn.empty() && device.serial_id.empty() && device.serial_short.empty());
+        });
+        return result;
+    }
+
+    ProvisioningDevice revalidate(const ProvisioningDevice& expected) {
+        const auto current = devices();
+        const auto selected = std::ranges::find(current, expected.path, &ProvisioningDevice::path);
+        if (selected == current.end() || !same_device_identity(expected, *selected))
+            throw dbus::ManagerOperationError(
+                dbus::ManagerErrorCode::Conflict,
+                "selected device identity changed"
+            );
+        return *selected;
     }
 
     void phase(const std::shared_ptr<State>& state, const std::string& value, bool can_cancel) {
@@ -198,17 +293,14 @@ struct SystemDeviceProvisioningBackend::Impl {
     void execute(
         const std::shared_ptr<State>& state,
         DevicePreparationRequest request,
+        ProvisioningDevice expected_device,
         OwnedFileDescriptor passphrase
     ) {
         std::string mapper;
         try {
             phase(state, "inspect", true);
-            const auto current = devices();
-            const auto selected = std::ranges::find(current, request.device_path, &ProvisioningDevice::path);
-            if (selected == current.end() || selected->size_bytes != request.expected_size_bytes ||
-                selected->serial != request.expected_serial)
-                throw dbus::ManagerOperationError(dbus::ManagerErrorCode::Conflict, "selected device identity changed");
-            if (selected->mounted)
+            const ProvisioningDevice selected = revalidate(expected_device);
+            if (selected.mounted)
                 throw ValidationError("selected device or one of its partitions is mounted");
             if (!btrfs.is_subvolume(request.source_subvolume))
                 throw ValidationError("selected source is not a Btrfs subvolume");
@@ -224,9 +316,12 @@ struct SystemDeviceProvisioningBackend::Impl {
             if (!device_lock.try_acquire())
                 throw dbus::ManagerOperationError(dbus::ManagerErrorCode::Busy, "another device is being prepared");
 
+            const ProvisioningDevice before_wipe = revalidate(expected_device);
+            if (before_wipe.mounted)
+                throw ValidationError("selected device or one of its partitions became mounted");
             phase(state, "wipe-signatures", false);
             backup::ControlledCommandOptions standard;
-            require_success(commands, {"wipefs", "--all", "--force", request.device_path}, standard, "wiping signatures");
+            require_success(commands, {"wipefs", "--all", "--force", expected_device.path}, standard, "wiping signatures");
 
             phase(state, "partition", false);
             const std::string table = "label: gpt\n, type=L\n";
@@ -234,9 +329,9 @@ struct SystemDeviceProvisioningBackend::Impl {
             OwnedFileDescriptor partition_input = platform::linux::filesystem::create_sealed_secret_file(bytes);
             backup::ControlledCommandOptions partition_options;
             partition_options.stdin_fd = partition_input.get();
-            require_success(commands, {"sfdisk", "--wipe", "always", request.device_path}, partition_options, "partitioning device");
+            require_success(commands, {"sfdisk", "--wipe", "always", expected_device.path}, partition_options, "partitioning device");
             static_cast<void>(commands.run({"udevadm", "settle"}));
-            const std::string partition = first_partition(commands, request.device_path);
+            const std::string partition = first_partition(commands, expected_device.path);
 
             phase(state, "luks-format", false);
             rewind_secret(passphrase.get());
@@ -279,7 +374,9 @@ struct SystemDeviceProvisioningBackend::Impl {
             answers.target_luks_uuid = luks_uuid;
             answers.target_btrfs_uuid = btrfs_uuid;
             answers.target_partition_uuid = partition_uuid;
-            answers.target_serial = request.expected_serial;
+            answers.target_serial = expected_device.serial_short.empty()
+                ? expected_device.serial
+                : expected_device.serial_short;
             answers.target_mapper_name = "backupdisk-" + request.profile_id;
             answers.target_mount_root = target_mount_root.string();
             answers.keyfile = "none";
@@ -356,6 +453,7 @@ std::vector<std::string> SystemDeviceProvisioningBackend::list_source_candidates
 
 DevicePreparationStatus SystemDeviceProvisioningBackend::start(
     const DevicePreparationRequest& request,
+    const ProvisioningDevice& expected_device,
     int passphrase_fd
 ) {
     OwnedFileDescriptor secret = platform::linux::filesystem::copy_secret_to_sealed_file(passphrase_fd);
@@ -365,8 +463,8 @@ DevicePreparationStatus SystemDeviceProvisioningBackend::start(
         std::lock_guard lock(impl_->jobs_mutex);
         impl_->jobs.emplace(state->status.operation_id, state);
     }
-    state->worker = std::jthread([this, state, request, secret = std::move(secret)]() mutable {
-        impl_->execute(state, request, std::move(secret));
+    state->worker = std::jthread([this, state, request, expected_device, secret = std::move(secret)]() mutable {
+        impl_->execute(state, request, expected_device, std::move(secret));
     });
     return status(state->status.operation_id);
 }

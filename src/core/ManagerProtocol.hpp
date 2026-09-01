@@ -11,7 +11,7 @@ inline constexpr char object_path[] = "/io/github/btrfsbackup/Manager1";
 inline constexpr char interface_name[] = "io.github.btrfsbackup.Manager1";
 
 inline constexpr int api_major = 2;
-inline constexpr int api_minor = 2;
+inline constexpr int api_minor = 3;
 inline constexpr int capabilities_schema_version = 1;
 inline constexpr int profile_schema_version = 4;
 inline constexpr int profile_summary_schema_version = 2;
@@ -23,7 +23,7 @@ inline constexpr int operation_result_schema_version = 1;
 inline constexpr int profile_details_schema_version = 2;
 inline constexpr int browse_session_schema_version = 1;
 inline constexpr int target_credentials_schema_version = 1;
-inline constexpr int device_provisioning_schema_version = 1;
+inline constexpr int device_provisioning_schema_version = 2;
 
 namespace feature {
 

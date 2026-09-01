@@ -37,7 +37,11 @@ class SystemDeviceProvisioningBackend final : public IDeviceProvisioningBackend 
 
     [[nodiscard]] std::vector<ProvisioningDevice> list_devices() override;
     [[nodiscard]] std::vector<std::string> list_source_candidates() override;
-    [[nodiscard]] DevicePreparationStatus start(const DevicePreparationRequest& request, int passphrase_fd) override;
+    [[nodiscard]] DevicePreparationStatus start(
+        const DevicePreparationRequest& request,
+        const ProvisioningDevice& expected_device,
+        int passphrase_fd
+    ) override;
     [[nodiscard]] DevicePreparationStatus status(const std::string& operation_id) const override;
     void cancel(const std::string& operation_id) override;
 
