@@ -14,9 +14,13 @@
 #include <thread>
 #include <unistd.h>
 
+#include <backup/ports/ICommandRunner.hpp>
+#include <backup/ports/IBtrfsOperations.hpp>
 #include <config/json/Json.hpp>
+#include <config/ports/ConfigurationActivator.hpp>
 #include <config/wizard/ProfileWizardModel.hpp>
 #include <core/Errors.hpp>
+#include <daemon/control/CredentialAdministrationService.hpp>
 #include <daemon/dbus/ManagerErrors.hpp>
 #include <platform/linux/config/ProfileService.hpp>
 #include <platform/linux/filesystem/FileLock.hpp>
@@ -335,7 +339,7 @@ SystemDeviceProvisioningBackend::SystemDeviceProvisioningBackend(
 ) : impl_(std::make_unique<Impl>(std::move(roots), std::move(target_mount_root), std::move(mountinfo_path), commands, btrfs, configuration_activator, credentials)) {
 }
 
-SystemDeviceProvisioningBackend::~SystemDeviceProvisioningBackend() = default;
+SystemDeviceProvisioningBackend::~SystemDeviceProvisioningBackend() noexcept = default;
 
 std::vector<ProvisioningDevice> SystemDeviceProvisioningBackend::list_devices() {
     return impl_->devices();

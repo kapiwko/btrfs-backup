@@ -4,12 +4,15 @@
 
 #pragma once
 
-#include <filesystem>
-
-#include <config/ports/ConfigurationActivator.hpp>
 #include <daemon/control/CredentialAdministrationService.hpp>
-#include <platform/linux/config/ProfileService.hpp>
-#include <platform/linux/storage/CryptsetupOperations.hpp>
+
+namespace btrfsbackup::config {
+class IConfigurationActivator;
+}
+
+namespace btrfsbackup::platform::linux::storage {
+class ICryptsetupOperations;
+}
 
 namespace btrfsbackup::daemon::control {
 

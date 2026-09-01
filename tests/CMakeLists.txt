@@ -103,6 +103,7 @@ assert_public_link_interface(
 assert_public_link_interface(
     btrfsbackup-platform-linux-filesystem
     btrfsbackup-backup-ports
+    btrfsbackup-platform-linux-base
     btrfsbackup-state-persistence-ports
 )
 assert_public_link_interface(
