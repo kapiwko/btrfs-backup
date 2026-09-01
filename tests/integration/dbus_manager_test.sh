@@ -69,6 +69,7 @@ start_daemon() {
         --status-root "$TEST_ROOT/status" \
         --history-root "$TEST_ROOT/history" \
         --target-mount-root "$TEST_ROOT/mnt" \
+        --mapper-root "$TEST_ROOT/mapper" \
         --udev-root "$TEST_ROOT/udev" \
         --systemd-root "$TEST_ROOT/systemd" \
         --skip-configuration-activation \
