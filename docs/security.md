@@ -72,6 +72,13 @@ publication as one mutation. A complete rollback preserves the primary error;
 an incomplete rollback raises `credential.mutation_rollback_incomplete` with
 the failed stage and explicit outcomes for every compensating action.
 
+Credential removal first moves a managed key file into a root-only quarantine,
+then removes the LUKS keyslot and atomically commits the metadata update. A
+failure before keyslot removal restores the quarantined file. A failure after
+the irreversible keyslot mutation raises a typed recovery-required error.
+Failure to delete an already obsolete quarantined file is logged as a cleanup
+warning and does not change the successful operation result.
+
 Device preparation has its own `io.github.btrfsbackup.prepare-backup-device`
 polkit action without retained authorization. The daemon binds a short-lived
 random candidate identifier to a complete device identity and revalidates the
