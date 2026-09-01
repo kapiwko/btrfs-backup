@@ -141,4 +141,50 @@ std::string ManagerJsonCodec::encode(const control::ProfileDetails& profile) con
     });
 }
 
+std::string ManagerJsonCodec::encode(const std::vector<control::TargetCredential>& credentials) const {
+    config::json::Json result = config::json::Json::array();
+    for (const auto& credential : credentials) {
+        result.push_back({
+            {"schemaVersion", manager_protocol::target_credentials_schema_version},
+            {"id", credential.id},
+            {"label", credential.label},
+            {"type", credential.type},
+            {"keyslot", credential.keyslot},
+            {"managed", credential.managed},
+            {"automatic", credential.automatic},
+        });
+    }
+    return config::json::dump_json(result);
+}
+
+std::string ManagerJsonCodec::encode(const std::vector<control::ProvisioningDevice>& devices) const {
+    config::json::Json result = config::json::Json::array();
+    for (const auto& device : devices) {
+        result.push_back({
+            {"schemaVersion", manager_protocol::device_provisioning_schema_version},
+            {"path", device.path},
+            {"model", device.model},
+            {"serial", device.serial},
+            {"transport", device.transport},
+            {"sizeBytes", device.size_bytes},
+            {"removable", device.removable},
+            {"mounted", device.mounted},
+            {"containsData", device.contains_data},
+        });
+    }
+    return config::json::dump_json(result);
+}
+
+std::string ManagerJsonCodec::encode(const control::DevicePreparationStatus& status) const {
+    return config::json::dump_json({
+        {"schemaVersion", manager_protocol::device_provisioning_schema_version},
+        {"operationId", status.operation_id},
+        {"profileId", status.profile_id},
+        {"state", status.state},
+        {"phase", status.phase},
+        {"errorCode", status.error_code},
+        {"canCancel", status.can_cancel},
+    });
+}
+
 } // namespace btrfsbackup::daemon::dbus

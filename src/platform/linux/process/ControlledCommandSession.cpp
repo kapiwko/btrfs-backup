@@ -110,6 +110,7 @@ btrfsbackup::backup::CommandResult ControlledCommandSession::run() {
         throw ValidationError(std::string("cannot configure command pipe: ") + std::strerror(error));
     }
     ProcessSpawnResult spawned = spawn_program(argv, {
+                                                         .stdin_fd = options.stdin_fd,
                                                          .stdout_fd = output_write_end.get(),
                                                          .stderr_fd = output_write_end.get(),
                                                          .create_process_group = true,

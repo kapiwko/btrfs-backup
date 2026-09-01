@@ -18,6 +18,8 @@
 #include <daemon/control/OperationalControlService.hpp>
 #include <daemon/control/BrowseSessionService.hpp>
 #include <daemon/control/ProfileAdministrationService.hpp>
+#include <daemon/control/CredentialAdministrationService.hpp>
+#include <daemon/control/DeviceProvisioningService.hpp>
 
 namespace btrfsbackup::daemon::dbus {
 
@@ -28,6 +30,8 @@ class ManagerDbusObject final {
         control::OperationalControlService& operational,
         control::BrowseSessionService& browse_sessions,
         control::ProfileAdministrationService& profile_administration,
+        control::CredentialAdministrationService& credential_administration,
+        control::DeviceProvisioningService& device_provisioning,
         IManagerAuditLog& audit_log
     );
 
@@ -52,6 +56,16 @@ class ManagerDbusObject final {
     int handle_open_browse_session(sd_bus_message* message, sd_bus_error* error) noexcept;
     int handle_close_browse_session(sd_bus_message* message, sd_bus_error* error) noexcept;
     int handle_resolve_backup_coverage(sd_bus_message* message, sd_bus_error* error) noexcept;
+    int handle_list_target_credentials(sd_bus_message* message, sd_bus_error* error) noexcept;
+    int handle_add_target_passphrase(sd_bus_message* message, sd_bus_error* error) noexcept;
+    int handle_add_target_key(sd_bus_message* message, sd_bus_error* error) noexcept;
+    int handle_generate_target_key(sd_bus_message* message, sd_bus_error* error) noexcept;
+    int handle_remove_target_credential(sd_bus_message* message, sd_bus_error* error) noexcept;
+    int handle_list_provisioning_devices(sd_bus_message* message, sd_bus_error* error) noexcept;
+    int handle_list_source_candidates(sd_bus_message* message, sd_bus_error* error) noexcept;
+    int handle_start_device_preparation(sd_bus_message* message, sd_bus_error* error) noexcept;
+    int handle_get_device_preparation(sd_bus_message* message, sd_bus_error* error) noexcept;
+    int handle_cancel_device_preparation(sd_bus_message* message, sd_bus_error* error) noexcept;
 
   private:
     using JsonOperation = std::function<std::string()>;
@@ -81,6 +95,8 @@ class ManagerDbusObject final {
     control::OperationalControlService& operational_;
     control::BrowseSessionService& browse_sessions_;
     control::ProfileAdministrationService& profile_administration_;
+    control::CredentialAdministrationService& credential_administration_;
+    control::DeviceProvisioningService& device_provisioning_;
     IManagerAuditLog& audit_log_;
     ManagerJsonCodec codec_;
     ManagerErrorMapper error_mapper_;

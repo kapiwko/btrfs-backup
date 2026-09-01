@@ -13,6 +13,10 @@ kcmutils_add_qml_kcm(
         ProfileConfigurationModel.hpp
         ProfileHistoryModel.cpp
         ProfileHistoryModel.hpp
+        TargetCredentialModel.cpp
+        TargetCredentialModel.hpp
+        DeviceProvisioningModel.cpp
+        DeviceProvisioningModel.hpp
 )
 set_target_properties(kcm_btrfsbackup PROPERTIES PREFIX "")
 target_compile_features(kcm_btrfsbackup PRIVATE cxx_std_23)

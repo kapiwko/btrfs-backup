@@ -45,6 +45,10 @@ const char* manager_authorization_action_id(ManagerAuthorizationAction action) n
         return "io.github.btrfsbackup.set-profile-enabled";
     case ManagerAuthorizationAction::OpenBrowseSession:
         return "io.github.btrfsbackup.open-browse-session";
+    case ManagerAuthorizationAction::ManageTargetCredentials:
+        return "io.github.btrfsbackup.manage-target-credentials";
+    case ManagerAuthorizationAction::PrepareBackupDevice:
+        return "io.github.btrfsbackup.prepare-backup-device";
     }
     return "io.github.btrfsbackup.invalid-action";
 }

@@ -159,6 +159,8 @@ int run_dbus_server(
     ManagerService& service,
     control::IOperationalControlBackend& operational_backend,
     control::IProfileAdministrationBackend& profile_administration_backend,
+    control::ICredentialAdministrationBackend& credential_administration_backend,
+    control::IDeviceProvisioningBackend& device_provisioning_backend,
     control::IBrowseSessionBackend& browse_session_backend,
     IManagerAuditLog& audit_log,
     const ManagerPaths& paths,
@@ -182,28 +184,46 @@ int run_dbus_server(
     PolkitAuthorizer authorizer(bus.get());
     control::OperationalControlService operational(authorizer, operational_backend);
     control::ProfileAdministrationService profile_administration(authorizer, profile_administration_backend);
+    control::CredentialAdministrationService credential_administration(authorizer, credential_administration_backend);
+    control::DeviceProvisioningService device_provisioning(authorizer, device_provisioning_backend);
     control::BrowseSessionService browse_sessions(
-        authorizer, browse_session_backend, std::chrono::minutes(15), {}, {},
+        authorizer,
+        browse_session_backend,
+        std::chrono::minutes(15),
+        {},
+        {},
         [&](const control::BrowseSessionEvent& event) {
             const char* reason = "closed";
             switch (event.reason) {
-            case control::BrowseSessionCloseReason::Requested: reason = "closed"; break;
-            case control::BrowseSessionCloseReason::CallerDisconnected: reason = "caller-disconnected"; break;
-            case control::BrowseSessionCloseReason::Expired: reason = "expired"; break;
-            case control::BrowseSessionCloseReason::Shutdown: reason = "shutdown"; break;
+            case control::BrowseSessionCloseReason::Requested:
+                reason = "closed";
+                break;
+            case control::BrowseSessionCloseReason::CallerDisconnected:
+                reason = "caller-disconnected";
+                break;
+            case control::BrowseSessionCloseReason::Expired:
+                reason = "expired";
+                break;
+            case control::BrowseSessionCloseReason::Shutdown:
+                reason = "shutdown";
+                break;
             }
-            (void)audit_log.write({event.caller_uid, "close-browse-session", event.profile_id,
-                event.succeeded ? reason : "cleanup-failed", event.succeeded ? "none" : "cleanup-failed"});
+            (void)audit_log.write({event.caller_uid, "close-browse-session", event.profile_id, event.succeeded ? reason : "cleanup-failed", event.succeeded ? "none" : "cleanup-failed"});
         }
     );
-    ManagerDbusObject object(service, operational, browse_sessions, profile_administration, audit_log);
+    ManagerDbusObject object(
+        service,
+        operational,
+        browse_sessions,
+        profile_administration,
+        credential_administration,
+        device_provisioning,
+        audit_log
+    );
 
     std::unique_ptr<sd_bus_slot, decltype(&sd_bus_slot_unref)> owner_slot(nullptr, sd_bus_slot_unref);
     sd_bus_slot* raw_owner_slot = nullptr;
-    require_success(sd_bus_match_signal(
-        bus.get(), &raw_owner_slot, "org.freedesktop.DBus", "/org/freedesktop/DBus",
-        "org.freedesktop.DBus", "NameOwnerChanged", caller_owner_changed, &browse_sessions
-    ), "cannot monitor D-Bus callers");
+    require_success(sd_bus_match_signal(bus.get(), &raw_owner_slot, "org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus", "NameOwnerChanged", caller_owner_changed, &browse_sessions), "cannot monitor D-Bus callers");
     owner_slot.reset(raw_owner_slot);
 
     std::unique_ptr<sd_bus_slot, decltype(&sd_bus_slot_unref)> slot(nullptr, sd_bus_slot_unref);
@@ -257,10 +277,7 @@ int run_dbus_server(
     raw_source = nullptr;
     std::uint64_t now = 0;
     require_success(sd_event_now(event.get(), CLOCK_MONOTONIC, &now), "cannot read manager event time");
-    require_success(sd_event_add_time(
-        event.get(), &raw_source, CLOCK_MONOTONIC, now + 30ULL * 1000ULL * 1000ULL, 1000ULL * 1000ULL,
-        browse_session_expiration, &browse_sessions
-    ), "cannot schedule browse session expiration");
+    require_success(sd_event_add_time(event.get(), &raw_source, CLOCK_MONOTONIC, now + 30ULL * 1000ULL * 1000ULL, 1000ULL * 1000ULL, browse_session_expiration, &browse_sessions), "cannot schedule browse session expiration");
     expiration_source.reset(raw_source);
 
     stop_requested = 0;

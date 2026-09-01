@@ -9,6 +9,8 @@
 
 #include <daemon/ManagerResponseModels.hpp>
 #include <daemon/control/ProfileAdministrationService.hpp>
+#include <daemon/control/CredentialAdministrationService.hpp>
+#include <daemon/control/DeviceProvisioningService.hpp>
 
 namespace btrfsbackup::daemon::dbus {
 
@@ -23,6 +25,9 @@ class ManagerJsonCodec {
     [[nodiscard]] std::string encode(const BrowseSessionInfo& session) const;
     [[nodiscard]] std::string encode(const std::vector<BackupCoverage>& coverage) const;
     [[nodiscard]] std::string encode(const control::ProfileDetails& profile) const;
+    [[nodiscard]] std::string encode(const std::vector<control::TargetCredential>& credentials) const;
+    [[nodiscard]] std::string encode(const std::vector<control::ProvisioningDevice>& devices) const;
+    [[nodiscard]] std::string encode(const control::DevicePreparationStatus& status) const;
 };
 
 } // namespace btrfsbackup::daemon::dbus

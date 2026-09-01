@@ -36,6 +36,8 @@ ManagerCapabilities ManagerService::get_capabilities() const {
             manager_protocol::feature::profile_details,
             manager_protocol::feature::profile_activation,
             manager_protocol::feature::browse_backups,
+            manager_protocol::feature::target_credentials,
+            manager_protocol::feature::device_provisioning,
         },
     };
 }

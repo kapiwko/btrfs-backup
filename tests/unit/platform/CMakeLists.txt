@@ -7,6 +7,7 @@ add_btrfsbackup_test(btrfsbackup-command-runner-tests linux/process/CommandRunne
 add_btrfsbackup_test(btrfsbackup-device-info-tests linux/storage/DeviceInfoTests.cpp device-info-tests btrfsbackup-platform-linux-storage)
 add_btrfsbackup_test(btrfsbackup-file-lock-tests linux/filesystem/FileLockTests.cpp file-lock-tests btrfsbackup-platform-linux-filesystem)
 add_btrfsbackup_test(btrfsbackup-filesystem-tests linux/filesystem/FilesystemTests.cpp filesystem-tests btrfsbackup-platform-linux-filesystem)
+add_btrfsbackup_test(btrfsbackup-secret-file-tests linux/filesystem/SecretFileTests.cpp secret-file-tests btrfsbackup-platform-linux-filesystem)
 add_btrfsbackup_test(btrfsbackup-inotify-file-change-watcher-tests linux/filesystem/InotifyFileChangeWatcherTests.cpp inotify-file-change-watcher-tests btrfsbackup-platform-linux-filesystem)
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
