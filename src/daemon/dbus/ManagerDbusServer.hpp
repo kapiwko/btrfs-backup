@@ -15,6 +15,7 @@
 #include <daemon/control/BrowseSessionService.hpp>
 #include <daemon/control/CredentialAdministrationService.hpp>
 #include <daemon/control/DeviceProvisioningService.hpp>
+#include <daemon/provisioning/StorageTopologyReader.hpp>
 
 namespace btrfsbackup::daemon::dbus {
 
@@ -24,6 +25,7 @@ int run_dbus_server(
     control::IProfileAdministrationBackend& profile_administration_backend,
     control::ICredentialAdministrationBackend& credential_administration_backend,
     control::IDeviceProvisioningBackend& device_provisioning_backend,
+    provisioning::StorageTopologyReader& storage_topology,
     control::IBrowseSessionBackend& browse_session_backend,
     IManagerAuditLog& audit_log,
     const ManagerPaths& paths,

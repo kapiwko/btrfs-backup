@@ -161,6 +161,7 @@ int run_dbus_server(
     control::IProfileAdministrationBackend& profile_administration_backend,
     control::ICredentialAdministrationBackend& credential_administration_backend,
     control::IDeviceProvisioningBackend& device_provisioning_backend,
+    provisioning::StorageTopologyReader& storage_topology,
     control::IBrowseSessionBackend& browse_session_backend,
     IManagerAuditLog& audit_log,
     const ManagerPaths& paths,
@@ -185,7 +186,14 @@ int run_dbus_server(
     control::OperationalControlService operational(authorizer, operational_backend);
     control::ProfileAdministrationService profile_administration(authorizer, profile_administration_backend);
     control::CredentialAdministrationService credential_administration(authorizer, credential_administration_backend);
-    control::DeviceProvisioningService device_provisioning(authorizer, device_provisioning_backend);
+    control::DeviceProvisioningService device_provisioning(
+        authorizer,
+        device_provisioning_backend,
+        std::chrono::minutes(5),
+        {},
+        {},
+        &storage_topology
+    );
     control::BrowseSessionService browse_sessions(
         authorizer,
         browse_session_backend,

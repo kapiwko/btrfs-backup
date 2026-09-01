@@ -250,6 +250,16 @@ assert_authorized_method(
     PrepareBackupDevice io.github.btrfsbackup.prepare-backup-device
 )
 assert_authorized_method(
+    inspect_storage_topology InspectStorageTopology "" s
+    "<methodname=\"InspectStorageTopology\"><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
+    PrepareBackupDevice io.github.btrfsbackup.prepare-backup-device
+)
+assert_authorized_method(
+    build_device_preparation_plan BuildDevicePreparationPlan s s
+    "<methodname=\"BuildDevicePreparationPlan\"><argname=\"request\"type=\"s\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
+    PrepareBackupDevice io.github.btrfsbackup.prepare-backup-device
+)
+assert_authorized_method(
     list_source_candidates ListSourceCandidates "" s
     "<methodname=\"ListSourceCandidates\"><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
     PrepareBackupDevice io.github.btrfsbackup.prepare-backup-device
@@ -311,8 +321,8 @@ assert_signal(
 
 string(REGEX MATCHALL "<method name=" xml_methods "${manager_xml}")
 list(LENGTH xml_methods method_count)
-if(NOT method_count EQUAL 31)
-    message(FATAL_ERROR "manager XML must declare exactly 31 methods, found ${method_count}")
+if(NOT method_count EQUAL 33)
+    message(FATAL_ERROR "manager XML must declare exactly 33 methods, found ${method_count}")
 endif()
 
 string(REGEX MATCHALL "<signal name=" xml_signals "${manager_xml}")

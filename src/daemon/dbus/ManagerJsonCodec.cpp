@@ -4,13 +4,109 @@
 
 #include <daemon/dbus/ManagerJsonCodec.hpp>
 
+#include <ranges>
 #include <utility>
+#include <variant>
 
 #include <config/json/JsonIo.hpp>
 #include <core/ManagerProtocol.hpp>
 #include <state/document/RunStatusDocumentCodec.hpp>
 
 namespace btrfsbackup::daemon::dbus {
+namespace {
+
+config::json::Json blockers_json(const std::vector<provisioning::SafetyBlocker>& blockers) {
+    config::json::Json result = config::json::Json::array();
+    for (const auto& blocker : blockers)
+        result.push_back({{"code", blocker.code}, {"detail", blocker.detail}});
+    return result;
+}
+
+bool device_mounted(const provisioning::StorageDevice& device) {
+    if (!device.mount_points.empty())
+        return true;
+    return std::ranges::any_of(device.regions, [](const auto& region) {
+        const auto* partition = std::get_if<provisioning::ExistingPartition>(&region);
+        return partition != nullptr && !partition->mount_points.empty();
+    });
+}
+
+bool device_contains_data(const provisioning::StorageDevice& device) {
+    return device.partition_table.type != provisioning::PartitionTableType::None ||
+        !device.filesystem.type.empty() ||
+        std::ranges::any_of(device.regions, [](const auto& region) {
+               return std::holds_alternative<provisioning::ExistingPartition>(region);
+           });
+}
+
+config::json::Json layout_json(const provisioning::StorageLayout& layout) {
+    config::json::Json regions = config::json::Json::array();
+    for (const auto& region : layout.regions) {
+        regions.push_back({
+            {"candidateId", region.id},
+            {"kind", provisioning::predicted_region_kind_name(region.kind)},
+            {"startSector", region.start_sector},
+            {"sectorCount", region.sector_count},
+            {"partitionNumber", region.partition_number},
+            {"path", region.display_path},
+            {"partitionLabel", region.partition_label},
+            {"filesystemType", region.filesystem_type},
+            {"geometryExact", region.geometry_exact},
+            {"encrypted", region.encrypted},
+            {"changed", region.changed},
+            {"dataWillBeErased", region.data_will_be_erased},
+        });
+    }
+    return {
+        {"deviceId", layout.device_id},
+        {"sizeBytes", layout.size_bytes},
+        {"logicalSectorSize", layout.logical_sector_size},
+        {"partitionTableType", provisioning::partition_table_type_name(layout.partition_table_type)},
+        {"regions", std::move(regions)},
+    };
+}
+
+std::string operation_name(const provisioning::PlannedStorageOperation& operation) {
+    return std::visit(
+        [](const auto& value) -> std::string {
+            using Operation = std::decay_t<decltype(value)>;
+            if constexpr (std::is_same_v<Operation, provisioning::EraseDeviceSignatures>)
+                return "erase-device-signatures";
+            if constexpr (std::is_same_v<Operation, provisioning::CreateGptPartitionTable>)
+                return "create-gpt-partition-table";
+            if constexpr (std::is_same_v<Operation, provisioning::CreateBackupPartition>)
+                return "create-backup-partition";
+            if constexpr (std::is_same_v<Operation, provisioning::FormatLuks2>)
+                return "format-luks2";
+            if constexpr (std::is_same_v<Operation, provisioning::OpenLuksMapping>)
+                return "open-luks-mapping";
+            if constexpr (std::is_same_v<Operation, provisioning::FormatBtrfs>)
+                return "format-btrfs";
+            if constexpr (std::is_same_v<Operation, provisioning::VerifyPreparedTarget>)
+                return "verify-prepared-target";
+            if constexpr (std::is_same_v<Operation, provisioning::PublishProfile>)
+                return "publish-profile";
+            return "unsupported";
+        },
+        operation
+    );
+}
+
+std::string destructive_scope_name(provisioning::DestructiveScopeKind kind) {
+    switch (kind) {
+    case provisioning::DestructiveScopeKind::None:
+        return "none";
+    case provisioning::DestructiveScopeKind::WholeDevice:
+        return "whole-device";
+    case provisioning::DestructiveScopeKind::ExistingPartition:
+        return "existing-partition";
+    case provisioning::DestructiveScopeKind::UnallocatedRegion:
+        return "unallocated-region";
+    }
+    return "unsupported";
+}
+
+} // namespace
 
 std::string ManagerJsonCodec::encode(const ManagerCapabilities& capabilities) const {
     return config::json::dump_json({
@@ -174,6 +270,91 @@ std::string ManagerJsonCodec::encode(const std::vector<control::ProvisioningDevi
         });
     }
     return config::json::dump_json(result);
+}
+
+std::string ManagerJsonCodec::encode(const provisioning::StorageTopology& topology) const {
+    config::json::Json devices = config::json::Json::array();
+    for (const auto& device : topology.devices) {
+        config::json::Json regions = config::json::Json::array();
+        for (const auto& region : device.regions) {
+            std::visit(
+                [&](const auto& value) {
+                    using Region = std::decay_t<decltype(value)>;
+                    config::json::Json item{
+                        {"candidateId", [&] {
+                             if constexpr (std::is_same_v<Region, provisioning::ExistingPartition>)
+                                 return value.candidate_id;
+                             else
+                                 return value.id;
+                         }()},
+                        {"kind", std::is_same_v<Region, provisioning::ExistingPartition> ? "existing-partition" : "unallocated"},
+                        {"startSector", value.start_sector},
+                        {"sectorCount", value.sector_count},
+                        {"blockers", blockers_json(value.blockers)},
+                    };
+                    if constexpr (std::is_same_v<Region, provisioning::ExistingPartition>) {
+                        item["path"] = value.identity.display_path;
+                        item["partitionNumber"] = value.partition_number;
+                        item["partitionUuid"] = value.partition_uuid;
+                        item["partitionLabel"] = value.partition_label;
+                        item["filesystemType"] = value.filesystem.type;
+                        item["filesystemLabel"] = value.filesystem.label;
+                        item["filesystemUuid"] = value.filesystem.uuid;
+                        item["mountPoints"] = value.mount_points;
+                        item["suitableForReformat"] = value.suitable_for_reformat;
+                        item["suitableForAdoption"] = value.suitable_for_adoption;
+                    } else {
+                        item["suitableForBackupPartition"] = value.suitable_for_backup_partition;
+                    }
+                    regions.push_back(std::move(item));
+                },
+                region
+            );
+        }
+        devices.push_back({
+            {"candidateId", device.candidate_id},
+            {"path", device.identity.display_path},
+            {"displayName", device.display_name},
+            {"model", device.display_name},
+            {"transport", device.transport},
+            {"sizeBytes", device.size_bytes},
+            {"logicalSectorSize", device.logical_sector_size},
+            {"physicalSectorSize", device.physical_sector_size},
+            {"removable", device.removable},
+            {"mounted", device_mounted(device)},
+            {"containsData", device_contains_data(device)},
+            {"readOnly", device.read_only},
+            {"partitionTableType", provisioning::partition_table_type_name(device.partition_table.type)},
+            {"regions", std::move(regions)},
+            {"blockers", blockers_json(device.blockers)},
+        });
+    }
+    return config::json::dump_json({
+        {"schemaVersion", manager_protocol::storage_topology_schema_version},
+        {"generation", topology.generation},
+        {"devices", std::move(devices)},
+    });
+}
+
+std::string ManagerJsonCodec::encode(const provisioning::DevicePreparationPlan& plan) const {
+    config::json::Json operations = config::json::Json::array();
+    for (const auto& operation : plan.operations)
+        operations.push_back(operation_name(operation));
+    config::json::Json warnings = config::json::Json::array();
+    for (const auto& warning : plan.warnings)
+        warnings.push_back({{"code", warning.code}, {"detail", warning.detail}});
+    return config::json::dump_json({
+        {"schemaVersion", manager_protocol::device_preparation_plan_schema_version},
+        {"planId", plan.id},
+        {"topologyGeneration", plan.topology_generation},
+        {"mode", provisioning::provisioning_mode_name(plan.mode)},
+        {"deviceId", plan.device_id},
+        {"before", layout_json(plan.before)},
+        {"after", layout_json(plan.after)},
+        {"operations", std::move(operations)},
+        {"warnings", std::move(warnings)},
+        {"destructiveScope", destructive_scope_name(plan.destructive_scope.kind)},
+    });
 }
 
 std::string ManagerJsonCodec::encode(const control::DevicePreparationStatus& status) const {

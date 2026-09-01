@@ -9,10 +9,13 @@
 #include <cerrno>
 #include <filesystem>
 #include <iomanip>
+#include <set>
 #include <sstream>
 #include <stdexcept>
 #include <string_view>
+#include <type_traits>
 #include <utility>
+#include <variant>
 
 #include <core/Errors.hpp>
 #include <core/ManagerProtocol.hpp>
@@ -54,12 +57,97 @@ DeviceProvisioningService::DeviceProvisioningService(
     IDeviceProvisioningBackend& backend,
     std::chrono::seconds candidate_lifetime,
     ProvisioningCandidateIdGenerator candidate_ids,
-    ProvisioningCandidateClock clock
+    ProvisioningCandidateClock clock,
+    provisioning::StorageTopologyReader* topology_reader
 ) : authorizer_(authorizer), backend_(backend), candidate_lifetime_(candidate_lifetime),
     candidate_ids_(candidate_ids ? std::move(candidate_ids) : ProvisioningCandidateIdGenerator{random_candidate_id}),
-    clock_(clock ? std::move(clock) : ProvisioningCandidateClock{[] { return std::chrono::steady_clock::now(); }}) {
+    clock_(clock ? std::move(clock) : ProvisioningCandidateClock{[] { return std::chrono::steady_clock::now(); }}),
+    topology_reader_(topology_reader) {
     if (candidate_lifetime_ <= std::chrono::seconds::zero())
         throw std::invalid_argument("provisioning candidate lifetime must be positive");
+}
+
+provisioning::StorageTopology DeviceProvisioningService::inspect_storage_topology(const std::string& caller) {
+    authorize(caller, manager_protocol::method::inspect_storage_topology);
+    if (topology_reader_ == nullptr)
+        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::InternalError, "storage topology is unavailable");
+    provisioning::StorageTopology topology = topology_reader_->scan();
+    std::vector<ProvisioningDevice> execution_devices = backend_.list_devices();
+    const auto now = clock_();
+    std::lock_guard lock(candidates_mutex_);
+    expire_candidates(now);
+    std::erase_if(candidates_, [&](const auto& item) { return item.second.caller == caller; });
+    std::erase_if(topologies_, [&](const auto& item) { return item.second.caller == caller; });
+    std::set<std::string> allocated_ids;
+    const auto allocate_id = [&] {
+        for (int attempt = 0; attempt < 16; ++attempt) {
+            std::string id = candidate_ids_();
+            if (!id.empty() && !candidates_.contains(id) && !plans_.contains(id) && allocated_ids.insert(id).second)
+                return id;
+        }
+        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::Conflict, "cannot allocate a storage candidate identifier");
+    };
+    for (auto& device : topology.devices) {
+        device.candidate_id = allocate_id();
+        const auto execution = std::ranges::find(execution_devices, device.identity.major_minor, &ProvisioningDevice::major_minor);
+        if (execution != execution_devices.end() && execution->path == device.identity.display_path &&
+            execution->sysfs_devpath == device.identity.sysfs_path && execution->size_bytes == device.size_bytes &&
+            execution->wwn == device.identity.wwn && execution->serial_id == device.identity.serial &&
+            execution->serial_short == device.identity.serial_short && execution->transport == device.transport) {
+            execution->candidate_id = device.candidate_id;
+            candidates_.emplace(
+                device.candidate_id,
+                Candidate{*execution, caller, now + candidate_lifetime_}
+            );
+        }
+        for (auto& region : device.regions) {
+            std::visit(
+                [&](auto& value) {
+                    if constexpr (std::is_same_v<std::decay_t<decltype(value)>, provisioning::ExistingPartition>)
+                        value.candidate_id = allocate_id();
+                    else
+                        value.id = allocate_id();
+                },
+                region
+            );
+        }
+    }
+    topologies_.insert_or_assign(
+        caller,
+        TopologySnapshot{topology, caller, now + candidate_lifetime_}
+    );
+    return topology;
+}
+
+provisioning::DevicePreparationPlan DeviceProvisioningService::build_device_preparation_plan(
+    const std::string& caller,
+    const provisioning::TopologyGeneration& expected_generation,
+    const provisioning::DeviceCandidateId& device_id,
+    provisioning::ProvisioningMode mode
+) {
+    authorize(caller, manager_protocol::method::build_device_preparation_plan);
+    if (topology_reader_ == nullptr || expected_generation.empty() || device_id.empty())
+        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::NotFound, "storage topology is unavailable or expired");
+    const provisioning::StorageTopology current = topology_reader_->scan();
+    const auto now = clock_();
+    std::lock_guard lock(candidates_mutex_);
+    expire_candidates(now);
+    const auto snapshot = topologies_.find(caller);
+    if (snapshot == topologies_.end() || snapshot->second.topology.generation != expected_generation)
+        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::NotFound, "storage topology is unavailable or expired");
+    if (current.generation != expected_generation)
+        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::Conflict, "storage topology changed");
+    std::string plan_id;
+    for (int attempt = 0; attempt < 16 && plan_id.empty(); ++attempt) {
+        std::string candidate = candidate_ids_();
+        if (!candidate.empty() && !plans_.contains(candidate))
+            plan_id = std::move(candidate);
+    }
+    if (plan_id.empty())
+        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::Conflict, "cannot allocate a preparation plan identifier");
+    auto plan = plan_builder_.build(snapshot->second.topology, expected_generation, device_id, mode, plan_id);
+    plans_.insert_or_assign(plan_id, StoredPlan{plan, caller, now + candidate_lifetime_});
+    return plan;
 }
 
 std::vector<ProvisioningDevice> DeviceProvisioningService::list_devices(const std::string& caller) {
@@ -119,6 +207,8 @@ void DeviceProvisioningService::authorize_owner_or_admin(
 
 void DeviceProvisioningService::expire_candidates(std::chrono::steady_clock::time_point now) {
     std::erase_if(candidates_, [&](const auto& item) { return item.second.expires_at <= now; });
+    std::erase_if(topologies_, [&](const auto& item) { return item.second.expires_at <= now; });
+    std::erase_if(plans_, [&](const auto& item) { return item.second.expires_at <= now; });
 }
 
 ProvisioningDevice DeviceProvisioningService::take_candidate(
