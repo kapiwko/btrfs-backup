@@ -15,6 +15,7 @@ class CommandSystemdUnitController final : public ISystemdUnitController {
 
     [[nodiscard]] StartJobResult start_unit(const StartUnitRequest& request) override;
     [[nodiscard]] StopJobResult stop_unit(const StopUnitRequest& request) override;
+    [[nodiscard]] ActiveUnitResult active_unit(const ActiveUnitRequest& request) override;
     [[nodiscard]] TransientJobResult start_transient_unit(
         const TransientUnitRequest& request
     ) override;

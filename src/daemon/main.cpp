@@ -157,7 +157,7 @@ int main(int argc, char** argv) {
             selected_configuration_activator
         );
         btrfsbackup::daemon::control::DestructiveDeviceSafetyInspector destructive_device_safety(commands);
-        btrfsbackup::daemon::control::SystemdDevicePreparationUnitController device_preparation_units(commands);
+        btrfsbackup::daemon::control::SystemdDevicePreparationUnitController device_preparation_units(units);
         btrfsbackup::daemon::control::SystemDeviceProvisioningBackend device_provisioning_backend(
             credential_roots,
             paths.target_mount_root,

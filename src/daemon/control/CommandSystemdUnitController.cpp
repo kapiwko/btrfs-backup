@@ -113,13 +113,30 @@ CommandSystemdUnitController::CommandSystemdUnitController(
 }
 
 StartJobResult CommandSystemdUnitController::start_unit(const StartUnitRequest& request) {
+    std::vector<std::string> command{"systemctl", "start"};
+    if (request.no_block)
+        command.push_back("--no-block");
+    command.push_back(request.unit);
     const auto result = commands_.run_controlled(
-        {"systemctl", "start", request.unit},
+        command,
         options(request.timeout)
     );
     if (result.exit_code == 0 && !result.cancelled && !result.timed_out)
         return {};
     return std::unexpected(job_error(commands_, result, request.unit, true));
+}
+
+ActiveUnitResult CommandSystemdUnitController::active_unit(const ActiveUnitRequest& request) {
+    const auto result = commands_.run_controlled(
+        {"systemctl", "is-active", "--quiet", request.unit},
+        options(request.timeout)
+    );
+    if (result.exit_code == 0 && !result.cancelled && !result.timed_out)
+        return true;
+    if (!result.cancelled && !result.timed_out &&
+        (result.exit_code == 3 || result.exit_code == 4))
+        return false;
+    return std::unexpected(job_error(commands_, result, request.unit, false));
 }
 
 StopJobResult CommandSystemdUnitController::stop_unit(const StopUnitRequest& request) {

@@ -31,9 +31,15 @@ struct SystemdJobError {
 struct StartUnitRequest {
     std::string unit;
     std::chrono::milliseconds timeout;
+    bool no_block = false;
 };
 
 struct StopUnitRequest {
+    std::string unit;
+    std::chrono::milliseconds timeout;
+};
+
+struct ActiveUnitRequest {
     std::string unit;
     std::chrono::milliseconds timeout;
 };
@@ -49,6 +55,7 @@ struct TransientUnitRequest {
 
 using StartJobResult = std::expected<void, SystemdJobError>;
 using StopJobResult = std::expected<void, SystemdJobError>;
+using ActiveUnitResult = std::expected<bool, SystemdJobError>;
 using TransientJobResult = std::expected<void, SystemdJobError>;
 
 class ISystemdUnitController {
@@ -56,6 +63,7 @@ class ISystemdUnitController {
     virtual ~ISystemdUnitController() = default;
     [[nodiscard]] virtual StartJobResult start_unit(const StartUnitRequest& request) = 0;
     [[nodiscard]] virtual StopJobResult stop_unit(const StopUnitRequest& request) = 0;
+    [[nodiscard]] virtual ActiveUnitResult active_unit(const ActiveUnitRequest& request) = 0;
     [[nodiscard]] virtual TransientJobResult start_transient_unit(
         const TransientUnitRequest& request
     ) = 0;

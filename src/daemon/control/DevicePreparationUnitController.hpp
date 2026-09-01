@@ -6,11 +6,9 @@
 #include <filesystem>
 #include <string>
 
-namespace btrfsbackup::backup {
-class ICommandRunner;
-}
-
 namespace btrfsbackup::daemon::control {
+
+class ISystemdUnitController;
 
 class IDevicePreparationUnitController {
   public:
@@ -24,7 +22,7 @@ class IDevicePreparationUnitController {
 class SystemdDevicePreparationUnitController final : public IDevicePreparationUnitController {
   public:
     SystemdDevicePreparationUnitController(
-        btrfsbackup::backup::ICommandRunner& commands,
+        ISystemdUnitController& units,
         std::filesystem::path secret_root = "/run/btrfs-backup-manager/device-preparations"
     );
 
@@ -37,7 +35,7 @@ class SystemdDevicePreparationUnitController final : public IDevicePreparationUn
 
   private:
     void start_unit(const std::string& operation_id);
-    btrfsbackup::backup::ICommandRunner& commands_;
+    ISystemdUnitController& units_;
     std::filesystem::path secret_root_;
 };
 

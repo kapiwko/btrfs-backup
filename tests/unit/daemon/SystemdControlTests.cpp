@@ -33,6 +33,8 @@ namespace config = btrfsbackup::config;
 using btrfsbackup::OperationId;
 using btrfsbackup::ProfileId;
 using btrfsbackup::daemon::control::AuthorizedOperationContext;
+using btrfsbackup::daemon::control::ActiveUnitRequest;
+using btrfsbackup::daemon::control::ActiveUnitResult;
 using btrfsbackup::daemon::control::CommandSystemdUnitController;
 using btrfsbackup::daemon::control::SystemdDevicePreparationUnitController;
 using btrfsbackup::daemon::control::ISystemdUnitController;
@@ -130,6 +132,9 @@ class FakeUnits final : public ISystemdUnitController {
     StopJobResult stop_unit(const StopUnitRequest&) override {
         return {};
     }
+    ActiveUnitResult active_unit(const ActiveUnitRequest&) override {
+        return true;
+    }
     TransientJobResult start_transient_unit(const TransientUnitRequest&) override {
         return transient_result;
     }
@@ -198,7 +203,8 @@ void test_command_adapter_builds_transient_invocation() {
 void test_device_preparation_unit_receives_secret_over_fifo() {
     const auto root = test_helpers::test_root("systemd-control", "device-preparation-secret");
     FakeCommands commands;
-    SystemdDevicePreparationUnitController units(commands, root);
+    CommandSystemdUnitController systemd_units(commands);
+    SystemdDevicePreparationUnitController units(systemd_units, root);
     constexpr std::string_view expected = "helper secret";
     const auto bytes = std::as_bytes(std::span(expected.data(), expected.size()));
     auto secret = btrfsbackup::platform::linux::filesystem::create_sealed_secret_file(bytes);
@@ -266,6 +272,34 @@ void test_command_adapter_classifies_systemd_failures() {
     );
 }
 
+void test_command_adapter_reports_unit_activity() {
+    FakeCommands commands;
+    commands.results.push_back({.exit_code = 0});
+    commands.results.push_back({.exit_code = 3});
+    CommandSystemdUnitController units(commands);
+
+    const auto active = units.active_unit({"active.service", std::chrono::seconds(5)});
+    const auto inactive = units.active_unit({"inactive.service", std::chrono::seconds(5)});
+    test_helpers::expect_true(
+        "active unit",
+        active && *active,
+        "active systemd unit was not reported"
+    );
+    test_helpers::expect_true(
+        "inactive unit",
+        inactive && !*inactive,
+        "inactive systemd unit was not reported"
+    );
+    test_helpers::expect_true(
+        "activity commands",
+        commands.calls == std::vector<std::vector<std::string>>{
+                              {"systemctl", "is-active", "--quiet", "active.service"},
+                              {"systemctl", "is-active", "--quiet", "inactive.service"},
+                          },
+        "unit activity command changed"
+    );
+}
+
 void test_waited_transient_job_preserves_service_exit_status() {
     FakeCommands commands;
     commands.results.push_back({.exit_code = config::configuration_changed_exit_code});
@@ -324,6 +358,7 @@ int main() {
     test_command_adapter_builds_transient_invocation();
     test_device_preparation_unit_receives_secret_over_fifo();
     test_command_adapter_classifies_systemd_failures();
+    test_command_adapter_reports_unit_activity();
     test_waited_transient_job_preserves_service_exit_status();
     test_backend_maps_typed_systemd_failures();
     return test_helpers::finish("systemd control tests");
