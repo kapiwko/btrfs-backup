@@ -11,7 +11,7 @@ inline constexpr char object_path[] = "/io/github/btrfsbackup/Manager1";
 inline constexpr char interface_name[] = "io.github.btrfsbackup.Manager1";
 
 inline constexpr int api_major = 2;
-inline constexpr int api_minor = 1;
+inline constexpr int api_minor = 2;
 inline constexpr int capabilities_schema_version = 1;
 inline constexpr int profile_schema_version = 4;
 inline constexpr int profile_summary_schema_version = 2;
@@ -22,6 +22,8 @@ inline constexpr int target_storage_schema_version = 1;
 inline constexpr int operation_result_schema_version = 1;
 inline constexpr int profile_details_schema_version = 2;
 inline constexpr int browse_session_schema_version = 1;
+inline constexpr int target_credentials_schema_version = 1;
+inline constexpr int device_provisioning_schema_version = 1;
 
 namespace feature {
 
@@ -39,6 +41,8 @@ inline constexpr char browse_backups[] = "browse-backups";
 inline constexpr char profile_administration[] = "profile-administration";
 inline constexpr char profile_details[] = "profile-details";
 inline constexpr char profile_activation[] = "profile-activation";
+inline constexpr char target_credentials[] = "target-credentials";
+inline constexpr char device_provisioning[] = "device-provisioning";
 
 } // namespace feature
 
@@ -63,6 +67,16 @@ inline constexpr char set_profile_enabled[] = "SetProfileEnabled";
 inline constexpr char open_browse_session[] = "OpenBrowseSession";
 inline constexpr char close_browse_session[] = "CloseBrowseSession";
 inline constexpr char resolve_backup_coverage[] = "ResolveBackupCoverage";
+inline constexpr char list_target_credentials[] = "ListTargetCredentials";
+inline constexpr char add_target_passphrase[] = "AddTargetPassphrase";
+inline constexpr char add_target_key[] = "AddTargetKey";
+inline constexpr char generate_target_key[] = "GenerateTargetKey";
+inline constexpr char remove_target_credential[] = "RemoveTargetCredential";
+inline constexpr char list_provisioning_devices[] = "ListProvisioningDevices";
+inline constexpr char list_source_candidates[] = "ListSourceCandidates";
+inline constexpr char start_device_preparation[] = "StartDevicePreparation";
+inline constexpr char get_device_preparation[] = "GetDevicePreparation";
+inline constexpr char cancel_device_preparation[] = "CancelDevicePreparation";
 
 } // namespace method
 

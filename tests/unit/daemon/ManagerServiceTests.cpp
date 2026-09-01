@@ -107,7 +107,7 @@ void test_capabilities_and_profiles() {
     const btrfsbackup::daemon::ManagerCapabilities capabilities = service.get_capabilities();
     test_helpers::expect_true("operational capability", !capabilities.read_only, "manager is still read-only");
     test_helpers::expect_true("manager API major", capabilities.api_major == 2, "manager API major was not advanced");
-    test_helpers::expect_true("manager API minor", capabilities.api_minor == 1, "manager API minor was not updated");
+    test_helpers::expect_true("manager API minor", capabilities.api_minor == 2, "manager API minor was not updated");
     test_helpers::expect_true(
         "profile administration capability",
         std::ranges::find(capabilities.features, "profile-administration") != capabilities.features.end(),
@@ -127,6 +127,16 @@ void test_capabilities_and_profiles() {
         "change signal capability",
         std::ranges::find(capabilities.features, "change-signals") != capabilities.features.end(),
         "manager omits the change signal capability"
+    );
+    test_helpers::expect_true(
+        "target credentials capability",
+        std::ranges::find(capabilities.features, "target-credentials") != capabilities.features.end(),
+        "manager omits target credential management"
+    );
+    test_helpers::expect_true(
+        "device provisioning capability",
+        std::ranges::find(capabilities.features, "device-provisioning") != capabilities.features.end(),
+        "manager omits device provisioning"
     );
     test_helpers::expect_true(
         "sanitized history schema capability",

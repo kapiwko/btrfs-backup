@@ -17,6 +17,7 @@ KCMUtils.SimpleKCM {
     required property var editor
     required property var directory
     required property var historyModel
+    property var credentialModel: null
     property var statusOverride: null
     property bool editImmediately: false
     property bool openSettingsWhenLoaded: editImmediately
@@ -80,6 +81,7 @@ KCMUtils.SimpleKCM {
         statusTextFor: state => root.statusText(state)
         targetStateTextFor: state => root.targetStateText(state)
         runningStateFor: state => root.isRunning(state)
+        credentialModel: root.credentialModel
         onAddSourceRequested: (name, subvolume, localRetention, targetRetention) => {
             root.editor.addSourceConfiguration(name, subvolume, localRetention, targetRetention);
         }

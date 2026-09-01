@@ -48,6 +48,7 @@ add_library(btrfsbackup-platform-linux-filesystem STATIC
     filesystem/PosixDurableFileOperations.cpp
     filesystem/PosixFileSystem.cpp
     filesystem/SafeDirectoryRoot.cpp
+    filesystem/SecretFile.cpp
     filesystem/TrustedDirectory.cpp
     filesystem/TrustedExecutable.cpp
     filesystem/TrustedFile.cpp
@@ -61,6 +62,7 @@ target_restricted_include_directories(btrfsbackup-platform-linux-filesystem
         platform/linux/filesystem/PosixDurableFileOperations.hpp
         platform/linux/filesystem/PosixFileSystem.hpp
         platform/linux/filesystem/SafeDirectoryRoot.hpp
+        platform/linux/filesystem/SecretFile.hpp
         platform/linux/filesystem/TrustedDirectory.hpp
         platform/linux/filesystem/TrustedExecutable.hpp
         platform/linux/filesystem/TrustedFile.hpp
@@ -68,15 +70,16 @@ target_restricted_include_directories(btrfsbackup-platform-linux-filesystem
 target_link_libraries(btrfsbackup-platform-linux-filesystem
     PUBLIC
         btrfsbackup-backup-ports
+        btrfsbackup-platform-linux-base
         btrfsbackup-state-persistence-ports
     PRIVATE
         btrfsbackup-config-domain
         btrfsbackup-core
-        btrfsbackup-platform-linux-base
         btrfsbackup-transfer
 )
 
 add_library(btrfsbackup-platform-linux-storage STATIC
+    storage/CryptsetupOperations.cpp
     storage/DeviceInfo.cpp
     storage/FilesystemSpaceProbe.cpp
     storage/LibBtrfsOperations.cpp
@@ -101,6 +104,7 @@ target_link_libraries(btrfsbackup-platform-linux-restore
 target_restricted_include_directories(btrfsbackup-platform-linux-storage
     PUBLIC_HEADERS
         platform/linux/storage/DeviceInfo.hpp
+        platform/linux/storage/CryptsetupOperations.hpp
         platform/linux/storage/FilesystemSpaceProbe.hpp
         platform/linux/storage/LibBtrfsOperations.hpp
         platform/linux/storage/MountInfo.hpp
@@ -111,6 +115,7 @@ target_link_libraries(btrfsbackup-platform-linux-storage
         btrfsbackup-backup-ports
     PRIVATE
         btrfsbackup-backup-model
+        btrfsbackup-config-json
         btrfsbackup-core
         btrfsbackup-platform-linux-base
         PkgConfig::BLKID

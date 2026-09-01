@@ -58,6 +58,22 @@ one retained administrator authorization. They never accept hooks, key paths or
 a complete profile document; hook and device-provisioning APIs remain outside
 this lower-risk boundary.
 
+LUKS passphrases and key bytes cross D-Bus only as Unix file descriptors. The
+manager copies at most 4096 bytes into a sealed anonymous file, clears temporary
+buffers, and passes inherited `/proc/self/fd` paths directly to `cryptsetup`.
+Generated keys are installed atomically with mode `0600` under
+`/etc/btrfs-backup/keys`; managed keyslot labels are stored separately under
+`/etc/btrfs-backup/credentials`. The LUKS2 header remains authoritative for
+occupied slots, unknown slots cannot be removed through the KCM, and the last
+credential or the current automatic credential cannot be removed.
+
+Device preparation has its own `io.github.btrfsbackup.prepare-backup-device`
+polkit action without retained authorization. The daemon rejects mounted disks,
+compares the selected path, size and serial after authorization, verifies the
+chosen source as a Btrfs subvolume, and disables cancellation before signature
+erasure. Formatting runs as a phase-tracked background operation; no QML or KDE
+process invokes `wipefs`, `sfdisk`, `cryptsetup` or `mkfs.btrfs` directly.
+
 Every external command receives a newly built environment containing only
 `PATH=/usr/bin`, `LANG=C.UTF-8`, `LC_ALL=C.UTF-8`, and `HOME=/root`. Variables
 from the privileged parent process, including interpreter search paths, shell

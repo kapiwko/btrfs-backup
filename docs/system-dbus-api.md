@@ -53,6 +53,16 @@ schema versions are not advertised as public API versions.
 | `OpenBrowseSession` | `(s profileId)` | `(s)` | caller-bound, expiring read-only repository session |
 | `CloseBrowseSession` | `(s sessionId)` | `(s)` | closes a session owned by the caller |
 | `ResolveBackupCoverage` | `(s localPath)` | `(s)` | presentation-safe profile/source coverage for a local path |
+| `ListTargetCredentials` | `(s profileId)` | `(s)` | occupied LUKS2 keyslots with labels only for managed credentials |
+| `AddTargetPassphrase` | `(s profileId, h authorization, h newSecret, s label)` | `(s)` | adds a LUKS2 passphrase through file descriptors |
+| `AddTargetKey` | `(s profileId, h authorization, h key, s label, b automatic)` | `(s)` | imports and optionally activates a protected key file |
+| `GenerateTargetKey` | `(s profileId, h authorization, s label, b automatic)` | `(s)` | generates a protected key without returning its bytes |
+| `RemoveTargetCredential` | `(s profileId, s credentialId, h authorization)` | `(s)` | removes a managed non-automatic keyslot, never the last slot |
+| `ListProvisioningDevices` | `()` | `(s)` | block-device candidates and destructive-operation warnings |
+| `ListSourceCandidates` | `()` | `(s)` | mounted Btrfs subvolumes eligible as an initial source |
+| `StartDevicePreparation` | `(s request, h passphrase)` | `(s)` | starts an asynchronous destructive device-preparation operation |
+| `GetDevicePreparation` | `(s operationId)` | `(s)` | preparation state, phase, stable error and cancellation capability |
+| `CancelDevicePreparation` | `(s operationId)` | `(s)` | requests cancellation before the first destructive phase |
 
 History `limit` must be between 1 and 100 and `offset` must not exceed 10000.
 Manager input files are regular, non-symlink files no larger than 1 MiB and
@@ -78,48 +88,17 @@ requesting authorization. Existing profiles are checked on every summary or
 details query, so clients can report stale source configuration independently
 of backup execution.
 
-API minor version 9 adds `GetProfileDetails` and the `profile-details` feature.
-The method supports read-only configuration views without authorization. Its
-profile envelope retains source, target and behavior fields, but removes hook
-commands and the activation key-file path.
-This version also advances sanitized history to schema version 3 and adds the
-privacy-safe `bytesTransferred` total for completed synchronization summaries.
+API minor version 2 adds the `target-credentials` and `device-provisioning`
+features. Secrets use Unix file descriptors (`h`) and never enter JSON or a
+textual D-Bus argument. Device preparation is an asynchronous operation; the
+initial call returns after the secret has been copied into protected memory.
+Clients poll the operation document and may cancel only while `canCancel` is
+true. The daemon revalidates the selected disk path, size, serial, mount state
+and initial Btrfs source after polkit authorization and before erasing data.
 
-API minor version 8 adds `SetProfileEnabled` and the `profile-activation`
-feature. The method republishes the selected profile's managed artifacts while
-changing only its top-level `enabled` flag. It does not change manual-start
-behavior or grant access to any other profile field.
-
-API minor version 7 adds `ResolveBackupCoverage` for side-effect-free Dolphin
-and KRunner applicability checks. It returns public identifiers only and does
-not activate or scan a target.
-
-API minor version 6 adds caller-bound `OpenBrowseSession` and
-`CloseBrowseSession`. Sessions use verified read-only bind mounts, expire after
-15 minutes and close when the caller disconnects or the daemon exits.
-
-API minor version 5 adds authorized profile administration. Edit envelopes
-carry generation and fingerprint preconditions; saves and deletes reject stale
-clients, and hook changes require a separate high-risk authorization.
-
-API minor version 4 advances `GetStatus` to schema version 5 and sanitized
-history to schema version 2. Status responses add `sourceIndex`, `sourceCount`,
-`startedAt` and `updatedAt`; history rows add `startedAt` and `sourceCount` so
-clients can present duration and a compact source summary without private run
-documents. These fields contain no paths or diagnostics.
-
-API minor version 3 advanced `GetStatus` to schema version 4. In addition to the
-schema version 3 runtime fields, every response contains `lastSuccessAt`,
-`lastAttemptAt` and `lastAttemptState`. The manager reads the successful
-timestamp from the durable `last-success` state and the attempt fields from the
-authoritative latest history record; it does not derive them from a paginated
-history response. Missing values are represented by empty strings. Clients may
-present backup age, but must not classify it as overdue until scheduling defines
-an expected maximum age.
-
-API minor version 2 introduced the `target-storage-usage` feature. The
-device-state parent remains schema version 1 and may contain this optional,
-independently versioned block:
+The `target-storage-usage` feature is part of the current major-version
+baseline. The device-state parent remains schema version 1 and may contain this
+optional, independently versioned block:
 
 ```json
 {
@@ -276,11 +255,14 @@ These rules describe the implemented API unless explicitly marked otherwise.
 - Browse sessions are bound to the unique caller bus name and UID, expose only
   a verified read-only root and close on request, disconnect, expiry or daemon
   shutdown.
-- Planned: `PrepareDevice` requires explicit destructive-operation confirmation
-  in addition to polkit authorization and revalidates the selected block device
-  immediately before modification.
+- `StartDevicePreparation` requires separate non-retained administrator
+  authorization. The KCM additionally requires an explicit `ERASE`
+  confirmation, and the daemon revalidates device identity and use before the
+  first destructive command.
 - Authorization success is not persisted by the daemon. Only polkit controls
-  any permitted caching, and administrative actions request non-keep actions.
+  caching: credential management uses `auth_admin_keep` for a short sequence of
+  keyslot changes, while destructive device preparation and other high-risk
+  administrative actions use non-keep authorization.
 - After polkit returns, the daemon verifies that the unique caller bus name is
   still owned. A disconnected caller cannot complete a pending operation.
 - Operational effects compare the profile generation and fingerprint captured

@@ -99,6 +99,41 @@ int resolve_backup_coverage(sd_bus_message* message, void* userdata, sd_bus_erro
     return static_cast<ManagerDbusObject*>(userdata)->handle_resolve_backup_coverage(message, error);
 }
 
+int list_target_credentials(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
+    return static_cast<ManagerDbusObject*>(userdata)->handle_list_target_credentials(message, error);
+}
+
+int add_target_passphrase(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
+    return static_cast<ManagerDbusObject*>(userdata)->handle_add_target_passphrase(message, error);
+}
+
+int add_target_key(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
+    return static_cast<ManagerDbusObject*>(userdata)->handle_add_target_key(message, error);
+}
+
+int generate_target_key(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
+    return static_cast<ManagerDbusObject*>(userdata)->handle_generate_target_key(message, error);
+}
+
+int remove_target_credential(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
+    return static_cast<ManagerDbusObject*>(userdata)->handle_remove_target_credential(message, error);
+}
+int list_provisioning_devices(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
+    return static_cast<ManagerDbusObject*>(userdata)->handle_list_provisioning_devices(message, error);
+}
+int list_source_candidates(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
+    return static_cast<ManagerDbusObject*>(userdata)->handle_list_source_candidates(message, error);
+}
+int start_device_preparation(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
+    return static_cast<ManagerDbusObject*>(userdata)->handle_start_device_preparation(message, error);
+}
+int get_device_preparation(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
+    return static_cast<ManagerDbusObject*>(userdata)->handle_get_device_preparation(message, error);
+}
+int cancel_device_preparation(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
+    return static_cast<ManagerDbusObject*>(userdata)->handle_cancel_device_preparation(message, error);
+}
+
 const sd_bus_vtable manager_vtable[] = {
     SD_BUS_VTABLE_START(0),
     SD_BUS_METHOD(manager_protocol::method::get_capabilities, "", "s", get_capabilities, SD_BUS_VTABLE_UNPRIVILEGED),
@@ -120,6 +155,16 @@ const sd_bus_vtable manager_vtable[] = {
     SD_BUS_METHOD(manager_protocol::method::open_browse_session, "s", "s", open_browse_session, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD(manager_protocol::method::close_browse_session, "s", "s", close_browse_session, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD(manager_protocol::method::resolve_backup_coverage, "s", "s", resolve_backup_coverage, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD(manager_protocol::method::list_target_credentials, "s", "s", list_target_credentials, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD(manager_protocol::method::add_target_passphrase, "shhs", "s", add_target_passphrase, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD(manager_protocol::method::add_target_key, "shhsb", "s", add_target_key, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD(manager_protocol::method::generate_target_key, "shsb", "s", generate_target_key, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD(manager_protocol::method::remove_target_credential, "ssh", "s", remove_target_credential, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD(manager_protocol::method::list_provisioning_devices, "", "s", list_provisioning_devices, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD(manager_protocol::method::list_source_candidates, "", "s", list_source_candidates, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD(manager_protocol::method::start_device_preparation, "sh", "s", start_device_preparation, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD(manager_protocol::method::get_device_preparation, "s", "s", get_device_preparation, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD(manager_protocol::method::cancel_device_preparation, "s", "s", cancel_device_preparation, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_SIGNAL(manager_protocol::signal::profiles_changed, "", 0),
     SD_BUS_SIGNAL(manager_protocol::signal::status_changed, "s", 0),
     SD_BUS_SIGNAL(manager_protocol::signal::history_changed, "s", 0),
@@ -136,10 +181,13 @@ ManagerDbusObject::ManagerDbusObject(
     control::OperationalControlService& operational,
     control::BrowseSessionService& browse_sessions,
     control::ProfileAdministrationService& profile_administration,
+    control::CredentialAdministrationService& credential_administration,
+    control::DeviceProvisioningService& device_provisioning,
     IManagerAuditLog& audit_log
 )
     : service_(service), operational_(operational), browse_sessions_(browse_sessions),
-      profile_administration_(profile_administration), audit_log_(audit_log) {
+      profile_administration_(profile_administration), credential_administration_(credential_administration),
+      device_provisioning_(device_provisioning), audit_log_(audit_log) {
 }
 
 const sd_bus_vtable* ManagerDbusObject::vtable() noexcept {
@@ -619,6 +667,229 @@ int ManagerDbusObject::handle_resolve_backup_coverage(sd_bus_message* message, s
                     profile_ids
                 ));
             });
+        },
+        [&](const std::exception* exception) { return set_callback_error(error, exception); }
+    );
+}
+
+int ManagerDbusObject::handle_list_target_credentials(sd_bus_message* message, sd_bus_error* error) noexcept {
+    return invoke_dbus_callback(
+        [&] {
+            const char* profile_id = nullptr;
+            const int read_result = sd_bus_message_read(message, "s", &profile_id);
+            if (read_result < 0)
+                return read_result;
+            return reply_json(message, codec_.encode(credential_administration_.list_credentials(profile_id == nullptr ? "" : profile_id)));
+        },
+        [&](const std::exception* exception) { return set_callback_error(error, exception); }
+    );
+}
+
+int ManagerDbusObject::handle_add_target_passphrase(sd_bus_message* message, sd_bus_error* error) noexcept {
+    return invoke_dbus_callback(
+        [&] {
+            const char* profile_id = nullptr;
+            const char* label = nullptr;
+            int authorization_fd = -1;
+            int new_secret_fd = -1;
+            const int read_result = sd_bus_message_read(
+                message,
+                "shhs",
+                &profile_id,
+                &authorization_fd,
+                &new_secret_fd,
+                &label
+            );
+            if (read_result < 0)
+                return read_result;
+            const std::string profile = profile_id == nullptr ? "" : profile_id;
+            return reply_operational_json(message, error, "add-target-passphrase", profile, [&] {
+                return codec_.encode(credential_administration_.add_passphrase(
+                    caller_bus_name(message),
+                    profile,
+                    authorization_fd,
+                    new_secret_fd,
+                    label == nullptr ? "" : label
+                ));
+            });
+        },
+        [&](const std::exception* exception) { return set_callback_error(error, exception); }
+    );
+}
+
+int ManagerDbusObject::handle_add_target_key(sd_bus_message* message, sd_bus_error* error) noexcept {
+    return invoke_dbus_callback(
+        [&] {
+            const char* profile_id = nullptr;
+            const char* label = nullptr;
+            int authorization_fd = -1;
+            int key_fd = -1;
+            int automatic = 0;
+            const int read_result = sd_bus_message_read(
+                message,
+                "shhsb",
+                &profile_id,
+                &authorization_fd,
+                &key_fd,
+                &label,
+                &automatic
+            );
+            if (read_result < 0)
+                return read_result;
+            const std::string profile = profile_id == nullptr ? "" : profile_id;
+            return reply_operational_json(message, error, "add-target-key", profile, [&] {
+                return codec_.encode(credential_administration_.add_key(
+                    caller_bus_name(message),
+                    profile,
+                    authorization_fd,
+                    key_fd,
+                    label == nullptr ? "" : label,
+                    automatic != 0
+                ));
+            });
+        },
+        [&](const std::exception* exception) { return set_callback_error(error, exception); }
+    );
+}
+
+int ManagerDbusObject::handle_generate_target_key(sd_bus_message* message, sd_bus_error* error) noexcept {
+    return invoke_dbus_callback(
+        [&] {
+            const char* profile_id = nullptr;
+            const char* label = nullptr;
+            int authorization_fd = -1;
+            int automatic = 0;
+            const int read_result = sd_bus_message_read(
+                message,
+                "shsb",
+                &profile_id,
+                &authorization_fd,
+                &label,
+                &automatic
+            );
+            if (read_result < 0)
+                return read_result;
+            const std::string profile = profile_id == nullptr ? "" : profile_id;
+            return reply_operational_json(message, error, "generate-target-key", profile, [&] {
+                return codec_.encode(credential_administration_.generate_key(
+                    caller_bus_name(message),
+                    profile,
+                    authorization_fd,
+                    label == nullptr ? "" : label,
+                    automatic != 0
+                ));
+            });
+        },
+        [&](const std::exception* exception) { return set_callback_error(error, exception); }
+    );
+}
+
+int ManagerDbusObject::handle_remove_target_credential(sd_bus_message* message, sd_bus_error* error) noexcept {
+    return invoke_dbus_callback(
+        [&] {
+            const char* profile_id = nullptr;
+            const char* credential_id = nullptr;
+            int authorization_fd = -1;
+            const int read_result = sd_bus_message_read(
+                message,
+                "ssh",
+                &profile_id,
+                &credential_id,
+                &authorization_fd
+            );
+            if (read_result < 0)
+                return read_result;
+            const std::string profile = profile_id == nullptr ? "" : profile_id;
+            return reply_operational_json(message, error, "remove-target-credential", profile, [&] {
+                return codec_.encode(credential_administration_.remove_credential(
+                    caller_bus_name(message),
+                    profile,
+                    credential_id == nullptr ? "" : credential_id,
+                    authorization_fd
+                ));
+            });
+        },
+        [&](const std::exception* exception) { return set_callback_error(error, exception); }
+    );
+}
+
+int ManagerDbusObject::handle_list_provisioning_devices(sd_bus_message* message, sd_bus_error* error) noexcept {
+    return invoke_dbus_callback(
+        [&] { return reply_json(message, codec_.encode(device_provisioning_.list_devices())); },
+        [&](const std::exception* exception) { return set_callback_error(error, exception); }
+    );
+}
+
+int ManagerDbusObject::handle_list_source_candidates(sd_bus_message* message, sd_bus_error* error) noexcept {
+    return invoke_dbus_callback(
+        [&] {
+            return reply_json(message, config::json::dump_json(device_provisioning_.list_source_candidates()));
+        },
+        [&](const std::exception* exception) { return set_callback_error(error, exception); }
+    );
+}
+
+int ManagerDbusObject::handle_start_device_preparation(sd_bus_message* message, sd_bus_error* error) noexcept {
+    return invoke_dbus_callback(
+        [&] {
+            const char* request_json = nullptr;
+            int passphrase_fd = -1;
+            const int read_result = sd_bus_message_read(message, "sh", &request_json, &passphrase_fd);
+            if (read_result < 0)
+                return read_result;
+            const auto request = config::json::Json::parse(request_json == nullptr ? "{}" : request_json);
+            control::DevicePreparationRequest parsed{
+                .profile_id = request.value("profileId", ""),
+                .profile_name = request.value("profileName", ""),
+                .device_path = request.value("devicePath", ""),
+                .expected_serial = request.value("expectedSerial", ""),
+                .expected_size_bytes = request.value("expectedSizeBytes", std::uint64_t{0}),
+                .source_subvolume = request.value("sourceSubvolume", ""),
+                .passphrase_label = request.value("passphraseLabel", ""),
+                .create_automatic_key = request.value("createAutomaticKey", true),
+            };
+            const std::string profile = parsed.profile_id;
+            return reply_operational_json(message, error, manager_protocol::feature::device_provisioning, profile, [&] {
+                return codec_.encode(device_provisioning_.start(
+                    caller_bus_name(message),
+                    parsed,
+                    passphrase_fd
+                ));
+            });
+        },
+        [&](const std::exception* exception) { return set_callback_error(error, exception); }
+    );
+}
+
+int ManagerDbusObject::handle_get_device_preparation(sd_bus_message* message, sd_bus_error* error) noexcept {
+    return invoke_dbus_callback(
+        [&] {
+            const char* operation_id = nullptr;
+            const int read_result = sd_bus_message_read(message, "s", &operation_id);
+            if (read_result < 0)
+                return read_result;
+            return reply_json(message, codec_.encode(device_provisioning_.status(operation_id == nullptr ? "" : operation_id)));
+        },
+        [&](const std::exception* exception) { return set_callback_error(error, exception); }
+    );
+}
+
+int ManagerDbusObject::handle_cancel_device_preparation(sd_bus_message* message, sd_bus_error* error) noexcept {
+    return invoke_dbus_callback(
+        [&] {
+            const char* operation_id = nullptr;
+            const int read_result = sd_bus_message_read(message, "s", &operation_id);
+            if (read_result < 0)
+                return read_result;
+            const std::string operation = operation_id == nullptr ? "" : operation_id;
+            device_provisioning_.cancel(caller_bus_name(message), operation);
+            return reply_json(message, config::json::dump_json({
+                                           {"schemaVersion", manager_protocol::operation_result_schema_version},
+                                           {"operation", "cancel-device-preparation"},
+                                           {"operationId", operation},
+                                           {"profileId", ""},
+                                           {"accepted", true},
+                                       }));
         },
         [&](const std::exception* exception) { return set_callback_error(error, exception); }
     );

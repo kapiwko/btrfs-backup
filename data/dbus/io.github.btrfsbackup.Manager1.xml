@@ -101,6 +101,57 @@ SPDX-License-Identifier: GPL-3.0-or-later
       <arg name="localPath" type="s" direction="in"/>
       <arg name="payload" type="s" direction="out"/>
     </method>
+    <method name="ListTargetCredentials">
+      <arg name="profileId" type="s" direction="in"/>
+      <arg name="payload" type="s" direction="out"/>
+    </method>
+    <method name="AddTargetPassphrase">
+      <arg name="profileId" type="s" direction="in"/>
+      <arg name="authorizationSecret" type="h" direction="in"/>
+      <arg name="newSecret" type="h" direction="in"/>
+      <arg name="label" type="s" direction="in"/>
+      <arg name="payload" type="s" direction="out"/>
+    </method>
+    <method name="AddTargetKey">
+      <arg name="profileId" type="s" direction="in"/>
+      <arg name="authorizationSecret" type="h" direction="in"/>
+      <arg name="key" type="h" direction="in"/>
+      <arg name="label" type="s" direction="in"/>
+      <arg name="automatic" type="b" direction="in"/>
+      <arg name="payload" type="s" direction="out"/>
+    </method>
+    <method name="GenerateTargetKey">
+      <arg name="profileId" type="s" direction="in"/>
+      <arg name="authorizationSecret" type="h" direction="in"/>
+      <arg name="label" type="s" direction="in"/>
+      <arg name="automatic" type="b" direction="in"/>
+      <arg name="payload" type="s" direction="out"/>
+    </method>
+    <method name="RemoveTargetCredential">
+      <arg name="profileId" type="s" direction="in"/>
+      <arg name="credentialId" type="s" direction="in"/>
+      <arg name="authorizationSecret" type="h" direction="in"/>
+      <arg name="payload" type="s" direction="out"/>
+    </method>
+    <method name="ListProvisioningDevices">
+      <arg name="payload" type="s" direction="out"/>
+    </method>
+    <method name="ListSourceCandidates">
+      <arg name="payload" type="s" direction="out"/>
+    </method>
+    <method name="StartDevicePreparation">
+      <arg name="request" type="s" direction="in"/>
+      <arg name="passphrase" type="h" direction="in"/>
+      <arg name="payload" type="s" direction="out"/>
+    </method>
+    <method name="GetDevicePreparation">
+      <arg name="operationId" type="s" direction="in"/>
+      <arg name="payload" type="s" direction="out"/>
+    </method>
+    <method name="CancelDevicePreparation">
+      <arg name="operationId" type="s" direction="in"/>
+      <arg name="payload" type="s" direction="out"/>
+    </method>
 
     <signal name="ProfilesChanged"/>
     <signal name="StatusChanged">

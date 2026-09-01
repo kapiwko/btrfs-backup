@@ -17,6 +17,7 @@ QQC2.ScrollView {
     required property var statusTextFor
     required property var targetStateTextFor
     required property var runningStateFor
+    property var credentialModel: null
 
     signal addSourceRequested(string name, string subvolume, int localRetention, int targetRetention)
     signal editSourceRequested(int index, string name, int localRetention, int targetRetention)
@@ -77,6 +78,7 @@ QQC2.ScrollView {
             Layout.leftMargin: -Kirigami.Units.largeSpacing
             Layout.rightMargin: -Kirigami.Units.largeSpacing
             editor: root.editor
+            credentialModel: root.credentialModel
         }
 
         ProfileBehavior {

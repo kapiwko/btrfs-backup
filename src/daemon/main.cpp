@@ -7,6 +7,8 @@
 #include <daemon/ManagerAuditLog.hpp>
 #include <daemon/control/SystemOperationalControlBackend.hpp>
 #include <daemon/control/SystemProfileAdministrationBackend.hpp>
+#include <daemon/control/SystemCredentialAdministrationBackend.hpp>
+#include <daemon/control/SystemDeviceProvisioningBackend.hpp>
 #include <daemon/control/SystemBrowseSessionBackend.hpp>
 
 #include <filesystem>
@@ -21,6 +23,7 @@
 #include <platform/linux/filesystem/PosixDurableFileOperations.hpp>
 #include <platform/linux/storage/MountInfo.hpp>
 #include <platform/linux/storage/LibBtrfsOperations.hpp>
+#include <platform/linux/storage/CryptsetupOperations.hpp>
 #include <state/persistence/FileRunStateRepository.hpp>
 
 namespace fs = std::filesystem;
@@ -136,11 +139,37 @@ int main(int argc, char** argv) {
             btrfs,
             selected_configuration_activator
         );
+        btrfsbackup::platform::linux::storage::CryptsetupOperations cryptsetup(commands);
+        const btrfsbackup::daemon::control::CredentialAdministrationRoots credential_roots{
+            .config_root = config_root,
+            .metadata_root = config_root / "credentials",
+            .key_root = config_root / "keys",
+            .lock_root = "/run/btrfs-backup/locks",
+            .udev_root = udev_root,
+            .systemd_root = systemd_root,
+            .public_root = paths.public_profile_root,
+        };
+        btrfsbackup::daemon::control::SystemCredentialAdministrationBackend credential_administration_backend(
+            credential_roots,
+            cryptsetup,
+            selected_configuration_activator
+        );
+        btrfsbackup::daemon::control::SystemDeviceProvisioningBackend device_provisioning_backend(
+            credential_roots,
+            paths.target_mount_root,
+            paths.mountinfo_path,
+            commands,
+            btrfs,
+            selected_configuration_activator,
+            credential_administration_backend
+        );
         btrfsbackup::daemon::FileManagerAuditLog audit_log(audit_log_path);
         return btrfsbackup::daemon::dbus::run_dbus_server(
             service,
             operational_backend,
             profile_administration_backend,
+            credential_administration_backend,
+            device_provisioning_backend,
             browse_session_backend,
             audit_log,
             paths,

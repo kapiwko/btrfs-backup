@@ -3,7 +3,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include <string>
+#include <string_view>
 #include <vector>
+#include <unistd.h>
 
 #include <platform/linux/process/PosixCommandRunner.hpp>
 
@@ -46,10 +48,30 @@ void test_capture_command_failure() {
     test_helpers::expect_validation_error("capture failure", [&] { (void)btrfsbackup::backup::capture_command(runner, {"false"}); }, "command failed: false");
 }
 
+void test_controlled_command_reads_supplied_standard_input() {
+    int descriptors[2];
+    test_helpers::expect_true("stdin pipe", ::pipe(descriptors) == 0, "cannot create stdin pipe");
+    constexpr std::string_view input = "partition-script\n";
+    test_helpers::expect_true(
+        "stdin write",
+        ::write(descriptors[1], input.data(), input.size()) == static_cast<ssize_t>(input.size()),
+        "cannot write stdin pipe"
+    );
+    ::close(descriptors[1]);
+    btrfsbackup::platform::linux::process::PosixCommandRunner runner;
+    btrfsbackup::backup::ControlledCommandOptions options;
+    options.stdin_fd = descriptors[0];
+    const auto result = runner.run_controlled({"/usr/bin/cat"}, options);
+    ::close(descriptors[0]);
+    test_helpers::expect_true("stdin command status", result.exit_code == 0, "cat failed");
+    test_helpers::expect_eq("stdin command output", result.output, std::string(input));
+}
+
 } // namespace
 
 int main() {
     test_capture_command_uses_argv_without_shell();
     test_capture_command_failure();
+    test_controlled_command_reads_supplied_standard_input();
     return test_helpers::finish("command runner tests");
 }
