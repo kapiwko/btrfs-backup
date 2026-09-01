@@ -4,6 +4,9 @@
 
 #pragma once
 
+#include <string>
+
+#include <core/Errors.hpp>
 #include <daemon/control/CredentialAdministrationService.hpp>
 
 namespace btrfsbackup::config {
@@ -15,6 +18,35 @@ class ICryptsetupOperations;
 }
 
 namespace btrfsbackup::daemon::control {
+
+enum class CredentialMutationStage {
+    AddKeyslot,
+    VerifyKey,
+    InspectKeyslot,
+    InstallKeyFile,
+    SaveMetadata,
+    PublishProfile,
+};
+
+struct CredentialMutationFailure final : RecoveryRequiredError {
+    CredentialMutationFailure(
+        CredentialMutationStage failed_stage,
+        std::string primary_error,
+        bool keyslot_added,
+        bool keyslot_rollback_succeeded,
+        bool key_file_removed,
+        bool metadata_restored,
+        bool profile_restored
+    );
+
+    CredentialMutationStage failed_stage;
+    std::string primary_error;
+    bool keyslot_added;
+    bool keyslot_rollback_succeeded;
+    bool key_file_removed;
+    bool metadata_restored;
+    bool profile_restored;
+};
 
 class SystemCredentialAdministrationBackend final : public ICredentialAdministrationBackend {
   public:

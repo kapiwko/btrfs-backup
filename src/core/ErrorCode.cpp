@@ -48,6 +48,8 @@ std::string error_code_name(ErrorCode code) {
         return "configuration.save_failed";
     case ErrorCode::ConfigurationRollbackIncomplete:
         return "configuration.rollback_incomplete";
+    case ErrorCode::CredentialMutationRollbackIncomplete:
+        return "credential.mutation_rollback_incomplete";
     case ErrorCode::ConfigurationChanged:
         return "configuration.changed";
     }
@@ -95,6 +97,8 @@ std::optional<ErrorCode> error_code_from_name(const std::string& name) {
         return ErrorCode::ConfigurationSaveFailed;
     if (name == "configuration.rollback_incomplete")
         return ErrorCode::ConfigurationRollbackIncomplete;
+    if (name == "credential.mutation_rollback_incomplete")
+        return ErrorCode::CredentialMutationRollbackIncomplete;
     if (name == "configuration.changed")
         return ErrorCode::ConfigurationChanged;
     return std::nullopt;

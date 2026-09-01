@@ -26,6 +26,7 @@ ManagerErrorDescription ManagerErrorMapper::map(const std::exception& error) con
         case ErrorCode::ConfigurationSaveFailed:
             return describe(ManagerErrorCode::SaveFailed);
         case ErrorCode::ConfigurationRollbackIncomplete:
+        case ErrorCode::CredentialMutationRollbackIncomplete:
             return describe(ManagerErrorCode::RollbackIncomplete);
         default:
             return describe(ManagerErrorCode::InternalError);
@@ -61,7 +62,7 @@ ManagerErrorDescription ManagerErrorMapper::describe(ManagerErrorCode code) noex
     case ManagerErrorCode::SaveFailed:
         return {code, "io.github.btrfsbackup.Error.SaveFailed", "configuration could not be saved"};
     case ManagerErrorCode::RollbackIncomplete:
-        return {code, "io.github.btrfsbackup.Error.RollbackIncomplete", "configuration rollback is incomplete"};
+        return {code, "io.github.btrfsbackup.Error.RollbackIncomplete", "operation rollback is incomplete"};
     case ManagerErrorCode::InternalError:
         return {code, "io.github.btrfsbackup.Error.InternalError", "manager request failed"};
     }
