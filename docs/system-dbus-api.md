@@ -275,9 +275,10 @@ These rules describe the implemented API unless explicitly marked otherwise.
   a verified read-only root and close on request, disconnect, expiry or daemon
   shutdown.
 - `StartDevicePreparation` requires separate non-retained administrator
-  authorization. The KCM additionally requires an explicit `ERASE`
-  confirmation, and the daemon revalidates device identity and use before the
-  first destructive command.
+  authorization and a caller-bound, unexpired, single-use `planId`. The KCM
+  additionally requires an explicit `ERASE` confirmation. The daemon rescans
+  the topology generation before authorization and revalidates the exact
+  device identity and use before the first destructive command.
 - Authorization success is not persisted by the daemon. Only polkit controls
   caching: credential management uses `auth_admin_keep` for a short sequence of
   keyslot changes, while destructive device preparation and other high-risk

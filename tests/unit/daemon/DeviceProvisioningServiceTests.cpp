@@ -155,6 +155,12 @@ DevicePreparationRequest request(std::string candidate_id = "candidate-1") {
     };
 }
 
+DevicePreparationRequest plan_request(std::string plan_id) {
+    auto result = request({});
+    result.plan_id = std::move(plan_id);
+    return result;
+}
+
 void test_authorized_start_and_status() {
     Authorizer authorizer;
     Backend backend;
@@ -353,13 +359,23 @@ void test_topology_and_plan_are_caller_bound_and_revalidated() {
         ProvisioningMode::EraseWholeDevice
     );
     test_helpers::expect_true("caller plan", !plan.id.empty(), "plan identifier is empty");
+    try {
+        static_cast<void>(service.start(":1.21", 1001, plan_request(plan.id), 17));
+        test_helpers::fail("foreign plan", "another caller started a preparation plan");
+    } catch (const btrfsbackup::daemon::dbus::ManagerOperationError&) {
+    }
     const auto started = service.start(
         ":1.20",
         1000,
-        request(topology.devices.front().candidate_id),
+        plan_request(plan.id),
         17
     );
     test_helpers::expect_eq("topology execution candidate", started.operation_id, "prepare-1");
+    try {
+        static_cast<void>(service.start(":1.20", 1000, plan_request(plan.id), 17));
+        test_helpers::fail("reused plan", "a preparation plan was reusable");
+    } catch (const btrfsbackup::daemon::dbus::ManagerOperationError&) {
+    }
     try {
         static_cast<void>(service.build_device_preparation_plan(
             ":1.21",
@@ -370,15 +386,30 @@ void test_topology_and_plan_are_caller_bound_and_revalidated() {
         test_helpers::fail("foreign topology", "another caller reused a topology snapshot");
     } catch (const btrfsbackup::daemon::dbus::ManagerOperationError&) {
     }
+    const auto refreshed_topology = service.inspect_storage_topology(":1.20");
+    const auto stale_plan = service.build_device_preparation_plan(
+        ":1.20",
+        refreshed_topology.generation,
+        refreshed_topology.devices.front().candidate_id,
+        ProvisioningMode::EraseWholeDevice
+    );
     reader.generation = "topology-2";
     try {
-        static_cast<void>(service.build_device_preparation_plan(
-            ":1.20",
-            topology.generation,
-            topology.devices.front().candidate_id,
-            ProvisioningMode::EraseWholeDevice
-        ));
-        test_helpers::fail("changed topology", "changed topology was accepted");
+        static_cast<void>(service.start(":1.20", 1000, plan_request(stale_plan.id), 17));
+        test_helpers::fail("changed topology", "a plan for changed topology was started");
+    } catch (const btrfsbackup::daemon::dbus::ManagerOperationError&) {
+    }
+    const auto latest_topology = service.inspect_storage_topology(":1.20");
+    const auto replaced_plan = service.build_device_preparation_plan(
+        ":1.20",
+        latest_topology.generation,
+        latest_topology.devices.front().candidate_id,
+        ProvisioningMode::EraseWholeDevice
+    );
+    static_cast<void>(service.inspect_storage_topology(":1.20"));
+    try {
+        static_cast<void>(service.start(":1.20", 1000, plan_request(replaced_plan.id), 17));
+        test_helpers::fail("replaced plan", "a plan survived a newer topology inspection");
     } catch (const btrfsbackup::daemon::dbus::ManagerOperationError&) {
     }
 }

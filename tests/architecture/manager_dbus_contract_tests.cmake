@@ -292,13 +292,13 @@ assert_contains(
 )
 assert_contains(
     "${manager_provisioning_methods}"
-    ".candidate_id = request.value(\"candidateId\", \"\")"
-    "the daemon provisioning candidate request"
+    ".plan_id = request.value(\"planId\", \"\")"
+    "the daemon provisioning plan request"
 )
 assert_contains(
     "${compact_provisioning_kcm}"
-    "{QStringLiteral(\"candidateId\"),candidate_id}"
-    "the KCM provisioning candidate request"
+    "{QStringLiteral(\"planId\"),plan_id}"
+    "the KCM provisioning plan request"
 )
 foreach(legacy_field IN ITEMS devicePath expectedSerial expectedSizeBytes)
     assert_not_contains("${manager_provisioning_methods}" "${legacy_field}" "legacy daemon field ${legacy_field}")

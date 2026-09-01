@@ -78,6 +78,7 @@ provisioning::StorageTopology DeviceProvisioningService::inspect_storage_topolog
     expire_candidates(now);
     std::erase_if(candidates_, [&](const auto& item) { return item.second.caller == caller; });
     std::erase_if(topologies_, [&](const auto& item) { return item.second.caller == caller; });
+    std::erase_if(plans_, [&](const auto& item) { return item.second.caller == caller; });
     std::set<std::string> allocated_ids;
     const auto allocate_id = [&] {
         for (int attempt = 0; attempt < 16; ++attempt) {
@@ -140,7 +141,7 @@ provisioning::DevicePreparationPlan DeviceProvisioningService::build_device_prep
     std::string plan_id;
     for (int attempt = 0; attempt < 16 && plan_id.empty(); ++attempt) {
         std::string candidate = candidate_ids_();
-        if (!candidate.empty() && !plans_.contains(candidate))
+        if (!candidate.empty() && !plans_.contains(candidate) && !candidates_.contains(candidate))
             plan_id = std::move(candidate);
     }
     if (plan_id.empty())
@@ -243,13 +244,48 @@ ProvisioningDevice DeviceProvisioningService::find_candidate(
     return candidate->second.device;
 }
 
+provisioning::DevicePreparationPlan DeviceProvisioningService::find_plan(
+    const std::string& caller,
+    const std::string& plan_id
+) {
+    const auto now = clock_();
+    std::lock_guard lock(candidates_mutex_);
+    expire_candidates(now);
+    const auto plan = plans_.find(plan_id);
+    if (plan == plans_.end() || plan->second.caller != caller)
+        throw dbus::ManagerOperationError(
+            dbus::ManagerErrorCode::NotFound,
+            "device preparation plan is unavailable or expired"
+        );
+    return plan->second.plan;
+}
+
+provisioning::DevicePreparationPlan DeviceProvisioningService::take_plan(
+    const std::string& caller,
+    const std::string& plan_id
+) {
+    const auto now = clock_();
+    std::lock_guard lock(candidates_mutex_);
+    expire_candidates(now);
+    const auto plan = plans_.find(plan_id);
+    if (plan == plans_.end() || plan->second.caller != caller)
+        throw dbus::ManagerOperationError(
+            dbus::ManagerErrorCode::NotFound,
+            "device preparation plan is unavailable or expired"
+        );
+    auto result = plan->second.plan;
+    plans_.erase(plan);
+    return result;
+}
+
 DevicePreparationStatus DeviceProvisioningService::start(
     const std::string& caller,
     std::uint32_t caller_uid,
     const DevicePreparationRequest& request,
     int passphrase_fd
 ) {
-    if (request.profile_id.empty() || request.profile_name.empty() || request.candidate_id.empty() ||
+    if (request.profile_id.empty() || request.profile_name.empty() ||
+        (request.plan_id.empty() && request.candidate_id.empty()) ||
         request.source_subvolume.empty() || request.passphrase_label.empty())
         throw ValidationError("device preparation request is incomplete");
     static_cast<void>(ProfileId{request.profile_id});
@@ -260,7 +296,17 @@ DevicePreparationStatus DeviceProvisioningService::start(
         throw ValidationError("device preparation passphrase descriptor is invalid");
     if (request.profile_name.size() > 120 || request.passphrase_label.size() > 80)
         throw ValidationError("device preparation text is too long");
-    const ProvisioningDevice candidate = find_candidate(caller, request.candidate_id);
+    std::string candidate_id = request.candidate_id;
+    if (!request.plan_id.empty()) {
+        if (topology_reader_ == nullptr)
+            throw dbus::ManagerOperationError(dbus::ManagerErrorCode::NotFound, "storage topology is unavailable");
+        const auto plan = find_plan(caller, request.plan_id);
+        const auto current = topology_reader_->scan();
+        if (current.generation != plan.topology_generation)
+            throw dbus::ManagerOperationError(dbus::ManagerErrorCode::Conflict, "storage topology changed");
+        candidate_id = plan.device_id;
+    }
+    const ProvisioningDevice candidate = find_candidate(caller, candidate_id);
     const std::vector<std::string> safety_reasons = backend_.inspect_safety(candidate);
     if (!safety_reasons.empty())
         throw dbus::ManagerOperationError(
@@ -268,7 +314,12 @@ DevicePreparationStatus DeviceProvisioningService::start(
             "selected device is not safe for destructive preparation: " + safety_reasons.front()
         );
     authorize(caller, manager_protocol::method::start_device_preparation);
-    const ProvisioningDevice expected_device = take_candidate(caller, request.candidate_id);
+    if (!request.plan_id.empty()) {
+        const auto consumed_plan = take_plan(caller, request.plan_id);
+        if (consumed_plan.device_id != candidate_id)
+            throw dbus::ManagerOperationError(dbus::ManagerErrorCode::Conflict, "device preparation plan changed");
+    }
+    const ProvisioningDevice expected_device = take_candidate(caller, candidate_id);
     return backend_.start(
         request,
         expected_device,
