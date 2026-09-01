@@ -22,7 +22,10 @@ class Authorizer final : public IManagerAuthorizer {
     bool allowed = true;
     bool active = true;
     std::vector<ManagerAuthorizationAction> actions;
+    std::vector<std::string>* events = nullptr;
     bool authorize(const std::string&, ManagerAuthorizationAction action) override {
+        if (events != nullptr)
+            events->push_back("authorize");
         actions.push_back(action);
         return allowed && action == ManagerAuthorizationAction::PrepareBackupDevice;
     }
@@ -37,6 +40,8 @@ class Backend final : public IDeviceProvisioningBackend {
     int starts = 0;
     bool cancelled = false;
     bool weak_identity = false;
+    std::vector<std::string> safety_reasons;
+    std::vector<std::string>* events = nullptr;
     std::vector<ProvisioningDevice> list_devices() override {
         ProvisioningDevice device{
             .path = "/dev/test",
@@ -63,6 +68,11 @@ class Backend final : public IDeviceProvisioningBackend {
     }
     std::vector<std::string> list_source_candidates() override {
         return {"/home"};
+    }
+    std::vector<std::string> inspect_safety(const ProvisioningDevice&) const override {
+        if (events != nullptr)
+            events->push_back("inspect");
+        return safety_reasons;
     }
     DevicePreparationStatus start(
         const DevicePreparationRequest& request,
@@ -96,11 +106,20 @@ DevicePreparationRequest request(std::string candidate_id = "candidate-1") {
 void test_authorized_start_and_status() {
     Authorizer authorizer;
     Backend backend;
+    std::vector<std::string> events;
+    authorizer.events = &events;
+    backend.events = &events;
     DeviceProvisioningService service(authorizer, backend, std::chrono::minutes(5), [] { return "candidate-1"; });
     const auto devices = service.list_devices(":1.5");
     test_helpers::expect_true("device list", devices.size() == 1, "candidate missing");
     test_helpers::expect_eq("candidate id", devices.front().candidate_id, "candidate-1");
+    events.clear();
     const auto started = service.start(":1.5", request(devices.front().candidate_id), 17);
+    test_helpers::expect_true(
+        "safety before authorization",
+        events == std::vector<std::string>{"inspect", "authorize"},
+        "device safety was not inspected before polkit"
+    );
     test_helpers::expect_eq("operation id", started.operation_id, "prepare-1");
     test_helpers::expect_true("secret descriptor", backend.received_fd == 17, "descriptor not forwarded");
     test_helpers::expect_eq("operation phase", service.status(":1.5", "prepare-1").phase, "partition");
@@ -207,14 +226,34 @@ void test_device_without_persistent_identity_is_not_a_candidate() {
 
 void test_denied_start() {
     Authorizer authorizer;
-    authorizer.allowed = false;
     Backend backend;
-    DeviceProvisioningService service(authorizer, backend);
+    DeviceProvisioningService service(authorizer, backend, std::chrono::minutes(5), [] { return "candidate-denied"; });
+    const std::string candidate = service.list_devices(":1.5").front().candidate_id;
+    authorizer.allowed = false;
     try {
-        static_cast<void>(service.start(":1.5", request(), 17));
+        static_cast<void>(service.start(":1.5", request(candidate), 17));
         test_helpers::fail("denied preparation", "request was accepted");
     } catch (const btrfsbackup::daemon::dbus::ManagerOperationError&) {
     }
+}
+
+void test_unsafe_device_is_rejected_before_authorization() {
+    Authorizer authorizer;
+    Backend backend;
+    DeviceProvisioningService service(authorizer, backend, std::chrono::minutes(5), [] { return "candidate-unsafe"; });
+    const std::string candidate = service.list_devices(":1.12").front().candidate_id;
+    authorizer.actions.clear();
+    backend.safety_reasons = {"active-swap:/dev/test"};
+    try {
+        static_cast<void>(service.start(":1.12", request(candidate), 17));
+        test_helpers::fail("unsafe candidate", "unsafe device reached authorization");
+    } catch (const btrfsbackup::daemon::dbus::ManagerOperationError&) {
+    }
+    test_helpers::expect_true(
+        "unsafe preauthorization",
+        authorizer.actions.empty() && backend.starts == 0,
+        "unsafe device reached polkit or backend start"
+    );
 }
 
 void test_invalid_request_is_rejected_before_backend() {
@@ -243,6 +282,7 @@ int main() {
     test_candidate_is_caller_bound_single_use_and_expires();
     test_device_without_persistent_identity_is_not_a_candidate();
     test_denied_start();
+    test_unsafe_device_is_rejected_before_authorization();
     test_invalid_request_is_rejected_before_backend();
     return test_helpers::finish("device provisioning service tests");
 }

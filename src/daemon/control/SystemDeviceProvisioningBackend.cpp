@@ -22,6 +22,7 @@
 #include <config/wizard/ProfileWizardModel.hpp>
 #include <core/Errors.hpp>
 #include <daemon/control/CredentialAdministrationService.hpp>
+#include <daemon/control/DestructiveDeviceSafetyInspector.hpp>
 #include <daemon/dbus/ManagerErrors.hpp>
 #include <platform/linux/config/ProfileService.hpp>
 #include <platform/linux/filesystem/FileLock.hpp>
@@ -216,6 +217,7 @@ struct SystemDeviceProvisioningBackend::Impl {
     backup::IBtrfsOperations& btrfs;
     config::IConfigurationActivator& activator;
     ICredentialAdministrationBackend& credentials;
+    IDestructiveDeviceSafetyInspector& safety_inspector;
     mutable std::mutex jobs_mutex;
     std::map<std::string, std::shared_ptr<State>> jobs;
 
@@ -226,10 +228,12 @@ struct SystemDeviceProvisioningBackend::Impl {
         backup::ICommandRunner& command_runner,
         backup::IBtrfsOperations& btrfs_operations,
         config::IConfigurationActivator& configuration_activator,
-        ICredentialAdministrationBackend& credential_backend
+        ICredentialAdministrationBackend& credential_backend,
+        IDestructiveDeviceSafetyInspector& device_safety_inspector
     ) : roots(std::move(roots_value)), target_mount_root(std::move(mount_root)),
         mountinfo_path(std::move(mountinfo)), commands(command_runner), btrfs(btrfs_operations),
-        activator(configuration_activator), credentials(credential_backend) {
+        activator(configuration_activator), credentials(credential_backend),
+        safety_inspector(device_safety_inspector) {
     }
 
     std::vector<ProvisioningDevice> devices() {
@@ -319,6 +323,12 @@ struct SystemDeviceProvisioningBackend::Impl {
             const ProvisioningDevice before_wipe = revalidate(expected_device);
             if (before_wipe.mounted)
                 throw ValidationError("selected device or one of its partitions became mounted");
+            const std::vector<std::string> safety_reasons = safety_inspector.inspect(expected_device);
+            if (!safety_reasons.empty())
+                throw dbus::ManagerOperationError(
+                    dbus::ManagerErrorCode::Conflict,
+                    "selected device is not safe for destructive preparation: " + safety_reasons.front()
+                );
             phase(state, "wipe-signatures", false);
             backup::ControlledCommandOptions standard;
             require_success(commands, {"wipefs", "--all", "--force", expected_device.path}, standard, "wiping signatures");
@@ -330,7 +340,12 @@ struct SystemDeviceProvisioningBackend::Impl {
             backup::ControlledCommandOptions partition_options;
             partition_options.stdin_fd = partition_input.get();
             require_success(commands, {"sfdisk", "--wipe", "always", expected_device.path}, partition_options, "partitioning device");
-            static_cast<void>(commands.run({"udevadm", "settle"}));
+            require_success(
+                commands,
+                {"udevadm", "settle", "--timeout=10"},
+                standard,
+                "waiting for the new partition"
+            );
             const std::string partition = first_partition(commands, expected_device.path);
 
             phase(state, "luks-format", false);
@@ -358,7 +373,12 @@ struct SystemDeviceProvisioningBackend::Impl {
 
             phase(state, "mkfs-btrfs", false);
             require_success(commands, {"mkfs.btrfs", "--force", "--label", request.profile_name, mapper_path}, standard, "creating Btrfs filesystem");
-            static_cast<void>(commands.run({"udevadm", "settle"}));
+            require_success(
+                commands,
+                {"udevadm", "settle", "--timeout=10"},
+                standard,
+                "waiting for the new filesystem"
+            );
             const std::string btrfs_uuid = backup::capture_command(commands, {"blkid", "--output", "value", "--match-tag", "UUID", mapper_path});
             const std::string partition_uuid = backup::capture_command(commands, {"blkid", "--output", "value", "--match-tag", "PARTUUID", partition});
 
@@ -432,8 +452,9 @@ SystemDeviceProvisioningBackend::SystemDeviceProvisioningBackend(
     backup::ICommandRunner& commands,
     backup::IBtrfsOperations& btrfs,
     config::IConfigurationActivator& configuration_activator,
-    ICredentialAdministrationBackend& credentials
-) : impl_(std::make_unique<Impl>(std::move(roots), std::move(target_mount_root), std::move(mountinfo_path), commands, btrfs, configuration_activator, credentials)) {
+    ICredentialAdministrationBackend& credentials,
+    IDestructiveDeviceSafetyInspector& safety_inspector
+) : impl_(std::make_unique<Impl>(std::move(roots), std::move(target_mount_root), std::move(mountinfo_path), commands, btrfs, configuration_activator, credentials, safety_inspector)) {
 }
 
 SystemDeviceProvisioningBackend::~SystemDeviceProvisioningBackend() noexcept = default;
@@ -449,6 +470,12 @@ std::vector<std::string> SystemDeviceProvisioningBackend::list_source_candidates
     for (const auto& path : paths)
         result.push_back(path);
     return result;
+}
+
+std::vector<std::string> SystemDeviceProvisioningBackend::inspect_safety(
+    const ProvisioningDevice& expected_device
+) const {
+    return impl_->safety_inspector.inspect(expected_device);
 }
 
 DevicePreparationStatus SystemDeviceProvisioningBackend::start(

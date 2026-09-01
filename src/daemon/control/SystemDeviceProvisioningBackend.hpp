@@ -20,6 +20,7 @@ class IConfigurationActivator;
 namespace btrfsbackup::daemon::control {
 
 class ICredentialAdministrationBackend;
+class IDestructiveDeviceSafetyInspector;
 struct CredentialAdministrationRoots;
 
 class SystemDeviceProvisioningBackend final : public IDeviceProvisioningBackend {
@@ -31,12 +32,16 @@ class SystemDeviceProvisioningBackend final : public IDeviceProvisioningBackend 
         btrfsbackup::backup::ICommandRunner& commands,
         btrfsbackup::backup::IBtrfsOperations& btrfs,
         btrfsbackup::config::IConfigurationActivator& configuration_activator,
-        ICredentialAdministrationBackend& credentials
+        ICredentialAdministrationBackend& credentials,
+        IDestructiveDeviceSafetyInspector& safety_inspector
     );
     ~SystemDeviceProvisioningBackend() noexcept override;
 
     [[nodiscard]] std::vector<ProvisioningDevice> list_devices() override;
     [[nodiscard]] std::vector<std::string> list_source_candidates() override;
+    [[nodiscard]] std::vector<std::string> inspect_safety(
+        const ProvisioningDevice& expected_device
+    ) const override;
     [[nodiscard]] DevicePreparationStatus start(
         const DevicePreparationRequest& request,
         const ProvisioningDevice& expected_device,

@@ -3,10 +3,12 @@
 
 #include <daemon/control/SystemDeviceProvisioningBackend.hpp>
 
+#include <algorithm>
 #include <backup/ports/ICommandRunner.hpp>
 #include <backup/ports/IBtrfsOperations.hpp>
 #include <config/ports/ConfigurationActivator.hpp>
 #include <daemon/control/CredentialAdministrationService.hpp>
+#include <daemon/control/DestructiveDeviceSafetyInspector.hpp>
 
 #include <chrono>
 #include <ranges>
@@ -22,12 +24,14 @@ namespace config = btrfsbackup::config;
 using btrfsbackup::ProfileId;
 using btrfsbackup::daemon::control::DevicePreparationStatus;
 using btrfsbackup::daemon::control::ICredentialAdministrationBackend;
+using btrfsbackup::daemon::control::IDestructiveDeviceSafetyInspector;
 using btrfsbackup::daemon::control::SystemDeviceProvisioningBackend;
 using btrfsbackup::daemon::control::TargetCredential;
 
 class Commands final : public backup::ICommandRunner {
   public:
     std::vector<std::vector<std::string>> calls;
+    std::vector<std::vector<std::string>> controlled_calls;
     int identity_scans = 0;
     int replace_on_scan = 0;
     backup::CommandResult run(const std::vector<std::string>& argv) override {
@@ -53,6 +57,7 @@ class Commands final : public backup::ICommandRunner {
         const std::vector<std::string>& argv,
         const backup::ControlledCommandOptions&
     ) override {
+        controlled_calls.push_back(argv);
         return run(argv);
     }
 };
@@ -92,11 +97,22 @@ class Credentials final : public ICredentialAdministrationBackend {
     }
 };
 
+class SafetyInspector final : public IDestructiveDeviceSafetyInspector {
+  public:
+    mutable int inspections = 0;
+    std::vector<std::string> reasons;
+    std::vector<std::string> inspect(const btrfsbackup::daemon::control::ProvisioningDevice&) const override {
+        ++inspections;
+        return reasons;
+    }
+};
+
 void test_preparation_sequence_uses_descriptors_and_installs_profile() {
     const auto root = test_helpers::test_root("device-provisioning", "success");
     Commands commands;
     Btrfs btrfs;
     Credentials credentials;
+    SafetyInspector safety;
     config::NullConfigurationActivator activator;
     SystemDeviceProvisioningBackend backend(
         {
@@ -113,7 +129,8 @@ void test_preparation_sequence_uses_descriptors_and_installs_profile() {
         commands,
         btrfs,
         activator,
-        credentials
+        credentials,
+        safety
     );
     int descriptors[2];
     test_helpers::expect_true("secret pipe", ::pipe(descriptors) == 0, "cannot create pipe");
@@ -162,6 +179,14 @@ void test_preparation_sequence_uses_descriptors_and_installs_profile() {
         commands.identity_scans >= 3,
         "device identity was not checked twice after candidate issuance"
     );
+    test_helpers::expect_true("safety inspection", safety.inspections == 1, "device safety was not rechecked");
+    test_helpers::expect_true(
+        "udev settle checked",
+        std::ranges::count_if(commands.controlled_calls, [](const auto& call) {
+            return call == std::vector<std::string>{"udevadm", "settle", "--timeout=10"};
+        }) == 2,
+        "udev settle was not checked after partition and filesystem creation"
+    );
 }
 
 void test_replacement_before_wipe_is_rejected() {
@@ -169,6 +194,7 @@ void test_replacement_before_wipe_is_rejected() {
     Commands commands;
     Btrfs btrfs;
     Credentials credentials;
+    SafetyInspector safety;
     config::NullConfigurationActivator activator;
     SystemDeviceProvisioningBackend backend(
         {
@@ -185,7 +211,8 @@ void test_replacement_before_wipe_is_rejected() {
         commands,
         btrfs,
         activator,
-        credentials
+        credentials,
+        safety
     );
     const auto candidate = backend.list_devices().front();
     commands.replace_on_scan = 3;

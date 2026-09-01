@@ -11,6 +11,7 @@
 #include <iomanip>
 #include <sstream>
 #include <stdexcept>
+#include <string_view>
 #include <utility>
 
 #include <core/Errors.hpp>
@@ -138,6 +139,21 @@ ProvisioningDevice DeviceProvisioningService::take_candidate(
     return device;
 }
 
+ProvisioningDevice DeviceProvisioningService::find_candidate(
+    const std::string& caller,
+    const std::string& candidate_id
+) {
+    std::lock_guard lock(candidates_mutex_);
+    expire_candidates(clock_());
+    const auto candidate = candidates_.find(candidate_id);
+    if (candidate == candidates_.end() || candidate->second.caller != caller)
+        throw dbus::ManagerOperationError(
+            dbus::ManagerErrorCode::NotFound,
+            "device candidate is unavailable or expired"
+        );
+    return candidate->second.device;
+}
+
 DevicePreparationStatus DeviceProvisioningService::start(
     const std::string& caller,
     const DevicePreparationRequest& request,
@@ -154,6 +170,13 @@ DevicePreparationStatus DeviceProvisioningService::start(
         throw ValidationError("device preparation passphrase descriptor is invalid");
     if (request.profile_name.size() > 120 || request.passphrase_label.size() > 80)
         throw ValidationError("device preparation text is too long");
+    const ProvisioningDevice candidate = find_candidate(caller, request.candidate_id);
+    const std::vector<std::string> safety_reasons = backend_.inspect_safety(candidate);
+    if (!safety_reasons.empty())
+        throw dbus::ManagerOperationError(
+            dbus::ManagerErrorCode::Conflict,
+            "selected device is not safe for destructive preparation: " + safety_reasons.front()
+        );
     authorize(caller, manager_protocol::method::start_device_preparation);
     const ProvisioningDevice expected_device = take_candidate(caller, request.candidate_id);
     DevicePreparationStatus result = backend_.start(request, expected_device, passphrase_fd);

@@ -88,6 +88,7 @@ target_link_libraries(btrfsbackup-daemon-control
 
 add_library(btrfsbackup-daemon-system-control STATIC
     control/CommandSystemdUnitController.cpp
+    control/DestructiveDeviceSafetyInspector.cpp
     control/OperationEnvironmentFile.cpp
     control/SystemOperationalControlBackend.cpp
     control/SystemBrowseSessionBackend.cpp
@@ -99,6 +100,7 @@ target_compile_features(btrfsbackup-daemon-system-control PUBLIC cxx_std_23)
 target_restricted_include_directories(btrfsbackup-daemon-system-control
     PUBLIC_HEADERS
         daemon/control/CommandSystemdUnitController.hpp
+        daemon/control/DestructiveDeviceSafetyInspector.hpp
         daemon/control/SystemOperationalControlBackend.hpp
         daemon/control/SystemBrowseSessionBackend.hpp
         daemon/control/SystemCredentialAdministrationBackend.hpp
