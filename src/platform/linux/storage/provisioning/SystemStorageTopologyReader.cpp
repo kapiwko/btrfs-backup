@@ -360,6 +360,7 @@ void merge_blockers(std::vector<SafetyBlocker>& destination, const std::vector<S
 StorageDevice describe_disk(const RawNode& disk, const std::map<dev_t, RawNode>& nodes) {
     StorageDevice result;
     result.identity = identity(disk);
+    result.candidate_id = "device-" + result.identity.major_minor;
     result.display_name = disk.model.empty() ? disk.sysname : disk.model;
     result.transport = disk.transport;
     result.size_bytes = disk.size_bytes;

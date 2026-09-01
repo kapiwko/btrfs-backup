@@ -92,6 +92,14 @@ add_btrfsbackup_test(
 )
 
 add_btrfsbackup_test(
+    btrfsbackup-device-preparation-plan-builder-tests
+    DevicePreparationPlanBuilderTests.cpp
+    device-preparation-plan-builder-tests
+    btrfsbackup-daemon-provisioning
+    btrfsbackup-core
+)
+
+add_btrfsbackup_test(
     btrfsbackup-system-device-provisioning-backend-tests
     SystemDeviceProvisioningBackendTests.cpp
     system-device-provisioning-backend-tests
