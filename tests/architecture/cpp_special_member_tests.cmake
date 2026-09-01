@@ -36,6 +36,7 @@ set(approved_special_member_types
     "src/platform/linux/filesystem/InotifyFileChangeWatcher.hpp:InotifyFileChangeWatcher"
     "src/platform/linux/filesystem/SafeDirectoryRoot.hpp:SafeDirectoryHandle"
     "src/platform/linux/filesystem/SafeDirectoryRoot.hpp:SafeDirectoryRoot"
+    "src/platform/linux/filesystem/TrustedDirectory.hpp:TrustedDirectory"
     "src/platform/linux/process/ChildProcess.hpp:ChildProcess"
     "src/platform/linux/process/CommandCancellationSignal.hpp:CommandCancellationSignal"
     "src/platform/linux/process/TerminationSignalMonitor.hpp:TerminationSignalMonitor"

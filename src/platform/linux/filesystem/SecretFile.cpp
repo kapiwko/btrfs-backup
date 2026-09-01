@@ -13,8 +13,9 @@
 #include <array>
 #include <cerrno>
 #include <cstring>
+#include <iomanip>
+#include <sstream>
 #include <vector>
-#include <filesystem>
 
 #include <core/Errors.hpp>
 
@@ -61,6 +62,26 @@ void sync_fd(int fd, const std::string& description) {
     } while (result < 0 && errno == EINTR);
     if (result < 0)
         throw ValidationError("cannot sync " + description + ": " + std::strerror(errno));
+}
+
+SafeFilename temporary_secret_filename() {
+    std::array<unsigned char, 16> bytes{};
+    std::size_t offset = 0;
+    while (offset < bytes.size()) {
+        const ssize_t count = getrandom(bytes.data() + offset, bytes.size() - offset, 0);
+        if (count > 0) {
+            offset += static_cast<std::size_t>(count);
+            continue;
+        }
+        if (count < 0 && errno == EINTR)
+            continue;
+        throw ValidationError(std::string("cannot generate temporary secret filename: ") + std::strerror(errno));
+    }
+    std::ostringstream filename;
+    filename << ".secret." << std::hex << std::setfill('0');
+    for (const auto byte : bytes)
+        filename << std::setw(2) << static_cast<unsigned>(byte);
+    return SafeFilename(filename.str());
 }
 
 } // namespace
@@ -136,25 +157,29 @@ OwnedFileDescriptor generate_random_secret_file(std::size_t size) {
     }
 }
 
-void install_secret_file(int source_fd, const std::filesystem::path& destination, std::size_t maximum_bytes) {
+void install_secret_file(
+    TrustedDirectory& directory,
+    const SafeFilename& filename,
+    int source_fd,
+    std::size_t maximum_bytes
+) {
     if (source_fd < 0)
         throw ValidationError("secret descriptor is invalid");
-    if (!destination.is_absolute() || destination.lexically_normal() != destination)
-        throw ValidationError("secret destination must be an absolute normalized path");
     if (lseek(source_fd, 0, SEEK_SET) < 0)
         throw ValidationError(std::string("cannot rewind secret: ") + std::strerror(errno));
 
-    const std::filesystem::path parent = destination.parent_path();
-    std::filesystem::create_directories(parent);
-    std::string pattern = (parent / ("." + destination.filename().string() + ".XXXXXX")).string();
-    std::vector<char> writable(pattern.begin(), pattern.end());
-    writable.push_back('\0');
-    OwnedFileDescriptor output(mkstemp(writable.data()));
+    const SafeFilename temporary = temporary_secret_filename();
+    OwnedFileDescriptor output(openat(
+        directory.fd(),
+        temporary.value().c_str(),
+        O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC,
+        0600
+    ));
     if (!output.valid())
         throw ValidationError(std::string("cannot create secret file: ") + std::strerror(errno));
-    const std::filesystem::path temporary(writable.data());
     std::array<std::byte, 512> buffer{};
     std::size_t total = 0;
+    bool published = false;
     try {
         if (fchmod(output.get(), 0600) < 0)
             throw ValidationError(std::string("cannot protect secret file: ") + std::strerror(errno));
@@ -178,17 +203,13 @@ void install_secret_file(int source_fd, const std::filesystem::path& destination
             throw ValidationError("secret must not be empty");
         sync_fd(output.get(), "secret file");
         output.reset();
-        if (rename(temporary.c_str(), destination.c_str()) < 0)
-            throw ValidationError(std::string("cannot publish secret file: ") + std::strerror(errno));
-        OwnedFileDescriptor directory(open(parent.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC));
-        if (!directory.valid())
-            throw ValidationError(std::string("cannot open secret directory: ") + std::strerror(errno));
-        sync_fd(directory.get(), "secret directory");
+        directory.rename_noreplace(temporary, directory, filename);
+        published = true;
+        directory.sync();
         erase(buffer.data(), buffer.size());
     } catch (...) {
         erase(buffer.data(), buffer.size());
-        std::error_code error;
-        std::filesystem::remove(temporary, error);
+        static_cast<void>(directory.remove(published ? filename : temporary));
         throw;
     }
 }

@@ -12,6 +12,7 @@
 #include <iomanip>
 #include <iostream>
 #include <iterator>
+#include <optional>
 #include <ranges>
 #include <sstream>
 #include <string_view>
@@ -21,6 +22,7 @@
 
 #include <config/json/JsonIo.hpp>
 #include <config/ports/ConfigurationActivator.hpp>
+#include <config/domain/Validation.hpp>
 #include <core/Errors.hpp>
 #include <daemon/dbus/ManagerErrors.hpp>
 #include <platform/linux/config/FileProfileRepository.hpp>
@@ -28,6 +30,7 @@
 #include <platform/linux/filesystem/FileIo.hpp>
 #include <platform/linux/filesystem/FileLock.hpp>
 #include <platform/linux/filesystem/SecretFile.hpp>
+#include <platform/linux/filesystem/TrustedDirectory.hpp>
 #include <platform/linux/storage/CryptsetupOperations.hpp>
 
 namespace fs = std::filesystem;
@@ -78,10 +81,23 @@ std::vector<ManagedCredential> load_metadata(
             .key_file = item.value("keyFile", ""),
             .automatic = item.value("automatic", false),
         };
+        const fs::path normalized_key_root = config::normalized_path(roots.key_root);
+        bool trusted_key_file = true;
+        if (credential.type == "keyFile") {
+            try {
+                static_cast<void>(platform::linux::filesystem::SafeFilename(
+                    credential.key_file.filename().string()
+                ));
+                trusted_key_file = credential.key_file.parent_path() == normalized_key_root;
+            } catch (const ValidationError&) {
+                trusted_key_file = false;
+            }
+        }
         if (credential.id != "slot-" + std::to_string(credential.keyslot) || credential.label.empty() ||
             (credential.type != "passphrase" && credential.type != "keyFile") ||
             (credential.type == "keyFile" &&
-             (!credential.key_file.is_absolute() || credential.key_file.lexically_normal() != credential.key_file)) ||
+             (!credential.key_file.is_absolute() || credential.key_file.lexically_normal() != credential.key_file ||
+              !trusted_key_file)) ||
             (credential.type == "passphrase" && !credential.key_file.empty())) {
             throw ValidationError("managed credential entry is invalid");
         }
@@ -285,42 +301,38 @@ std::string random_quarantine_suffix() {
     return value.str();
 }
 
-fs::path prepare_key_quarantine(const CredentialAdministrationRoots& roots, const fs::path& key_file) {
-    const fs::path quarantine = roots.key_root / ".quarantine";
-    std::error_code error;
-    fs::create_directories(quarantine, error);
-    if (error)
-        throw ValidationError("cannot create credential key quarantine: " + error.message());
-    fs::permissions(quarantine, fs::perms::owner_all, fs::perm_options::replace, error);
-    if (error)
-        throw ValidationError("cannot protect credential key quarantine: " + error.message());
-    return quarantine / (key_file.filename().string() + "." + random_quarantine_suffix() + ".removed");
+platform::linux::filesystem::SafeFilename quarantine_filename(
+    const platform::linux::filesystem::SafeFilename& key_filename
+) {
+    return platform::linux::filesystem::SafeFilename(
+        std::string(key_filename.value()) + "." + random_quarantine_suffix() + ".removed"
+    );
 }
 
-void rename_key_file(const fs::path& from, const fs::path& to) {
-    std::error_code error;
-    fs::rename(from, to, error);
-    if (error)
-        throw ValidationError("cannot move credential key file from " + from.string() + " to " + to.string() + ": " + error.message());
-}
-
-bool restore_quarantined_key(const fs::path& quarantine, const fs::path& destination) noexcept {
+bool restore_quarantined_key(
+    const platform::linux::filesystem::TrustedDirectory& quarantine,
+    const platform::linux::filesystem::SafeFilename& quarantined_filename,
+    const platform::linux::filesystem::TrustedDirectory& key_directory,
+    const platform::linux::filesystem::SafeFilename& key_filename
+) noexcept {
     try {
-        rename_key_file(quarantine, destination);
-        platform::linux::filesystem::fsync_dir(quarantine.parent_path());
-        platform::linux::filesystem::fsync_dir(destination.parent_path());
+        quarantine.rename_noreplace(quarantined_filename, key_directory, key_filename);
+        quarantine.sync();
+        key_directory.sync();
         return true;
     } catch (...) {
         return false;
     }
 }
 
-void cleanup_quarantined_key(const fs::path& quarantine) noexcept {
-    std::error_code error;
-    const bool removed = fs::remove(quarantine, error);
-    if (!error && removed) {
+void cleanup_quarantined_key(
+    const platform::linux::filesystem::TrustedDirectory& quarantine,
+    const platform::linux::filesystem::SafeFilename& filename
+) noexcept {
+    const std::error_code error = quarantine.remove(filename);
+    if (!error) {
         try {
-            platform::linux::filesystem::fsync_dir(quarantine.parent_path());
+            quarantine.sync();
             return;
         } catch (const std::exception& exception) {
             std::cerr << "btrfs-backupd: credential removal succeeded but quarantine cleanup could not be "
@@ -329,10 +341,8 @@ void cleanup_quarantined_key(const fs::path& quarantine) noexcept {
             return;
         }
     }
-    if (!error && !removed)
-        return;
     std::cerr << "btrfs-backupd: credential removal succeeded but quarantined key file could not be deleted: "
-              << quarantine << ": " << error.message() << '\n';
+              << quarantine.path() / filename.value() << ": " << error.message() << '\n';
 }
 
 void add_managed_credential(
@@ -355,12 +365,14 @@ void add_managed_credential(
     std::vector<ManagedCredential> metadata = load_metadata(roots, profile.target.luks_uuid);
     const std::vector<ManagedCredential> previous_metadata = metadata;
     fs::path key_file;
+    std::optional<platform::linux::filesystem::TrustedDirectory> key_directory;
+    std::optional<platform::linux::filesystem::SafeFilename> key_filename;
 
     CredentialMutationStage stage = CredentialMutationStage::AddKeyslot;
     bool keyslot_added = false;
     bool keyslot_state_known = false;
     int slot = -1;
-    bool key_file_install_attempted = false;
+    bool key_file_installed = false;
     bool metadata_restore_required = false;
     bool profile_restore_required = false;
     try {
@@ -374,13 +386,26 @@ void add_managed_credential(
         keyslot_state_known = true;
         const std::string id = "slot-" + std::to_string(slot);
         if (type == "keyFile") {
-            key_file =
-                (roots.key_root / (std::string(profile.id.value()) + "-" + id + ".key")).lexically_normal();
+            platform::linux::filesystem::ensure_trusted_directory(
+                roots.key_root,
+                0700,
+                roots.config_root,
+                roots.trusted_owner
+            );
+            key_directory.emplace(
+                roots.key_root,
+                roots.config_root,
+                roots.trusted_owner
+            );
+            key_filename.emplace(std::string(profile.id.value()) + "-" + id + ".key");
+            key_file = key_directory->path() / key_filename->value();
             stage = CredentialMutationStage::InstallKeyFile;
-            if (fs::exists(key_file))
-                throw ValidationError("managed key file already exists");
-            key_file_install_attempted = true;
-            platform::linux::filesystem::install_secret_file(new_secret.get(), key_file);
+            platform::linux::filesystem::install_secret_file(
+                *key_directory,
+                *key_filename,
+                new_secret.get()
+            );
+            key_file_installed = true;
         }
         if (automatic) {
             for (ManagedCredential& credential : metadata)
@@ -442,12 +467,17 @@ void add_managed_credential(
             }
         }
 
-        std::error_code error;
-        if (key_file_install_attempted)
-            fs::remove(key_file, error);
-        std::error_code exists_error;
-        const bool key_file_removed = !key_file_install_attempted ||
-            (!fs::exists(key_file, exists_error) && !exists_error && !error);
+        bool key_file_removed = !key_file_installed;
+        if (key_file_installed && key_directory && key_filename) {
+            key_file_removed = !key_directory->remove(*key_filename);
+            if (key_file_removed) {
+                try {
+                    key_directory->sync();
+                } catch (...) {
+                    key_file_removed = false;
+                }
+            }
+        }
 
         bool keyslot_rollback_succeeded = keyslot_state_known && !keyslot_added;
         if (keyslot_added && slot >= 0) {
@@ -643,7 +673,10 @@ void SystemCredentialAdministrationBackend::remove_credential(
     ManagedCredential removed = std::move(*item);
     metadata.erase(item);
 
-    fs::path quarantined_key;
+    std::optional<platform::linux::filesystem::TrustedDirectory> key_directory;
+    std::optional<platform::linux::filesystem::TrustedDirectory> quarantine_directory;
+    std::optional<platform::linux::filesystem::SafeFilename> key_filename;
+    std::optional<platform::linux::filesystem::SafeFilename> quarantined_filename;
     bool key_file_quarantined = false;
     bool key_file_restored = removed.key_file.empty();
     bool keyslot_state_known = true;
@@ -652,17 +685,36 @@ void SystemCredentialAdministrationBackend::remove_credential(
     CredentialRemovalStage stage = CredentialRemovalStage::QuarantineKeyFile;
     try {
         if (!removed.key_file.empty()) {
-            const fs::path expected_key_file =
-                (roots_.key_root /
-                 (std::string(profile.id.value()) + "-" + removed.id + ".key"))
-                    .lexically_normal();
+            key_directory.emplace(
+                roots_.key_root,
+                roots_.config_root,
+                roots_.trusted_owner
+            );
+            key_filename.emplace(std::string(profile.id.value()) + "-" + removed.id + ".key");
+            const fs::path expected_key_file = key_directory->path() / key_filename->value();
             if (removed.key_file != expected_key_file)
                 throw ValidationError("managed credential key file is outside its trusted location");
-            quarantined_key = prepare_key_quarantine(roots_, removed.key_file);
-            rename_key_file(removed.key_file, quarantined_key);
+            const fs::path quarantine_path = roots_.key_root / ".quarantine";
+            platform::linux::filesystem::ensure_trusted_directory(
+                quarantine_path,
+                0700,
+                roots_.key_root,
+                roots_.trusted_owner
+            );
+            quarantine_directory.emplace(
+                quarantine_path,
+                roots_.key_root,
+                roots_.trusted_owner
+            );
+            quarantined_filename.emplace(quarantine_filename(*key_filename));
+            key_directory->rename_noreplace(
+                *key_filename,
+                *quarantine_directory,
+                *quarantined_filename
+            );
             key_file_quarantined = true;
-            platform::linux::filesystem::fsync_dir(removed.key_file.parent_path());
-            platform::linux::filesystem::fsync_dir(quarantined_key.parent_path());
+            key_directory->sync();
+            quarantine_directory->sync();
         }
 
         stage = CredentialRemovalStage::RemoveKeyslot;
@@ -686,8 +738,14 @@ void SystemCredentialAdministrationBackend::remove_credential(
             }
         }
 
-        if (!keyslot_removed && key_file_quarantined)
-            key_file_restored = restore_quarantined_key(quarantined_key, removed.key_file);
+        if (!keyslot_removed && key_file_quarantined) {
+            key_file_restored = restore_quarantined_key(
+                *quarantine_directory,
+                *quarantined_filename,
+                *key_directory,
+                *key_filename
+            );
+        }
 
         const bool complete_rollback = keyslot_state_known && !keyslot_removed && key_file_restored;
         if (complete_rollback)
@@ -705,7 +763,7 @@ void SystemCredentialAdministrationBackend::remove_credential(
     }
 
     if (key_file_quarantined)
-        cleanup_quarantined_key(quarantined_key);
+        cleanup_quarantined_key(*quarantine_directory, *quarantined_filename);
 }
 
 void SystemCredentialAdministrationBackend::register_initial_passphrase(
