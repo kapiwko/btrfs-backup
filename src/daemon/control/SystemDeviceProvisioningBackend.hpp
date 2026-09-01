@@ -29,6 +29,7 @@ class SystemDeviceProvisioningBackend final : public IDeviceProvisioningBackend 
         CredentialAdministrationRoots roots,
         std::filesystem::path target_mount_root,
         std::filesystem::path mountinfo_path,
+        std::filesystem::path transaction_root,
         btrfsbackup::backup::ICommandRunner& commands,
         btrfsbackup::backup::IBtrfsOperations& btrfs,
         btrfsbackup::config::IConfigurationActivator& configuration_activator,
@@ -45,9 +46,14 @@ class SystemDeviceProvisioningBackend final : public IDeviceProvisioningBackend 
     [[nodiscard]] DevicePreparationStatus start(
         const DevicePreparationRequest& request,
         const ProvisioningDevice& expected_device,
+        const DevicePreparationOwner& owner,
         int passphrase_fd
     ) override;
     [[nodiscard]] DevicePreparationStatus status(const std::string& operation_id) const override;
+    [[nodiscard]] bool owned_by(
+        const std::string& operation_id,
+        const DevicePreparationOwner& owner
+    ) const override;
     void cancel(const std::string& operation_id) override;
 
   private:

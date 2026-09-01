@@ -864,6 +864,7 @@ int ManagerDbusObject::handle_start_device_preparation(sd_bus_message* message, 
             return reply_operational_json(message, error, manager_protocol::feature::device_provisioning, profile, [&] {
                 return codec_.encode(device_provisioning_.start(
                     caller_bus_name(message),
+                    caller_uid(message),
                     parsed,
                     passphrase_fd
                 ));
@@ -882,7 +883,11 @@ int ManagerDbusObject::handle_get_device_preparation(sd_bus_message* message, sd
                 return read_result;
             const std::string operation = operation_id == nullptr ? "" : operation_id;
             return reply_operational_json(message, error, "get-device-preparation", "", [&] {
-                return codec_.encode(device_provisioning_.status(caller_bus_name(message), operation));
+                return codec_.encode(device_provisioning_.status(
+                    caller_bus_name(message),
+                    caller_uid(message),
+                    operation
+                ));
             });
         },
         [&](const std::exception* exception) { return set_callback_error(error, exception); }
@@ -898,7 +903,7 @@ int ManagerDbusObject::handle_cancel_device_preparation(sd_bus_message* message,
                 return read_result;
             const std::string operation = operation_id == nullptr ? "" : operation_id;
             return reply_operational_json(message, error, "cancel-device-preparation", "", [&] {
-                device_provisioning_.cancel(caller_bus_name(message), operation);
+                device_provisioning_.cancel(caller_bus_name(message), caller_uid(message), operation);
                 return config::json::dump_json({
                     {"schemaVersion", manager_protocol::operation_result_schema_version},
                     {"operation", "cancel-device-preparation"},

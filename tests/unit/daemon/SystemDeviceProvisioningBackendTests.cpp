@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include <daemon/control/SystemDeviceProvisioningBackend.hpp>
+#include <daemon/control/DevicePreparationTransaction.hpp>
 
 #include <algorithm>
 #include <backup/ports/ICommandRunner.hpp>
@@ -23,6 +24,8 @@ namespace backup = btrfsbackup::backup;
 namespace config = btrfsbackup::config;
 using btrfsbackup::ProfileId;
 using btrfsbackup::daemon::control::DevicePreparationStatus;
+using btrfsbackup::daemon::control::DevicePreparationTransaction;
+using btrfsbackup::daemon::control::DevicePreparationTransactionStore;
 using btrfsbackup::daemon::control::ICredentialAdministrationBackend;
 using btrfsbackup::daemon::control::IDestructiveDeviceSafetyInspector;
 using btrfsbackup::daemon::control::SystemDeviceProvisioningBackend;
@@ -126,6 +129,7 @@ void test_preparation_sequence_uses_descriptors_and_installs_profile() {
         },
         root / "mnt",
         root / "mountinfo",
+        root / "transactions",
         commands,
         btrfs,
         activator,
@@ -149,6 +153,7 @@ void test_preparation_sequence_uses_descriptors_and_installs_profile() {
             .create_automatic_key = true,
         },
         candidates.front(),
+        {.bus_name = ":1.5", .uid = 1000},
         descriptors[0]
     );
     ::close(descriptors[0]);
@@ -208,6 +213,7 @@ void test_replacement_before_wipe_is_rejected() {
         },
         root / "mnt",
         root / "mountinfo",
+        root / "transactions",
         commands,
         btrfs,
         activator,
@@ -230,6 +236,7 @@ void test_replacement_before_wipe_is_rejected() {
             .passphrase_label = "Recovery",
         },
         candidate,
+        {.bus_name = ":1.6", .uid = 1000},
         descriptors[0]
     );
     ::close(descriptors[0]);
@@ -246,10 +253,87 @@ void test_replacement_before_wipe_is_rejected() {
         "replacement device reached wipefs"
     );
 }
+
+void test_restart_marks_active_transaction_interrupted_and_preserves_owner() {
+    const auto root = test_helpers::test_root("device-provisioning", "restart");
+    const auto transaction_root = root / "transactions";
+    DevicePreparationTransaction transaction;
+    transaction.status.operation_id = "prepare-restored";
+    transaction.status.profile_id = "test";
+    transaction.status.state = "running";
+    transaction.status.phase = "mkfs-btrfs";
+    transaction.status.can_cancel = false;
+    transaction.owner = {.bus_name = ":1.20", .uid = 1000};
+    transaction.device.path = "/dev/test";
+    transaction.device.major_minor = "8:16";
+    transaction.created_at = 100;
+    transaction.updated_at = 100;
+    transaction.last_completed_phase = "open";
+    transaction.partition = "/dev/test1";
+    transaction.luks_uuid = "11111111-2222-3333-4444-555555555555";
+    transaction.mapper = "btrfs-backup-test";
+    transaction.cleanup_result = "pending";
+    DevicePreparationTransactionStore(transaction_root).save(transaction);
+
+    Commands commands;
+    Btrfs btrfs;
+    Credentials credentials;
+    SafetyInspector safety;
+    config::NullConfigurationActivator activator;
+    SystemDeviceProvisioningBackend backend(
+        {
+            .config_root = root / "etc",
+            .metadata_root = root / "etc/credentials",
+            .key_root = root / "etc/keys",
+            .lock_root = root / "run/locks",
+            .udev_root = root / "udev",
+            .systemd_root = root / "systemd",
+            .public_root = root / "public",
+        },
+        root / "mnt",
+        root / "mountinfo",
+        transaction_root,
+        commands,
+        btrfs,
+        activator,
+        credentials,
+        safety
+    );
+
+    const DevicePreparationStatus restored = backend.status("prepare-restored");
+    test_helpers::expect_eq("restart state", restored.state, "interrupted");
+    test_helpers::expect_eq("restart error", restored.error_code, "device-preparation.daemon-restarted");
+    test_helpers::expect_true("restart recovery", !restored.recovery_action.empty(), "recovery action missing");
+    test_helpers::expect_true(
+        "restored UID owner",
+        backend.owned_by("prepare-restored", {.bus_name = ":1.99", .uid = 1000}),
+        "same UID could not inspect restored operation"
+    );
+    test_helpers::expect_true(
+        "foreign restored owner",
+        !backend.owned_by("prepare-restored", {.bus_name = ":1.20", .uid = 1001}),
+        "different UID owned restored operation"
+    );
+    test_helpers::expect_true(
+        "restart mapper cleanup",
+        std::ranges::find(commands.calls, std::vector<std::string>{"cryptsetup", "close", "btrfs-backup-test"}) !=
+            commands.calls.end(),
+        "restored mapper was not closed"
+    );
+
+    const auto persisted = DevicePreparationTransactionStore(transaction_root).load_and_prune();
+    test_helpers::expect_true(
+        "restart persisted",
+        persisted.size() == 1 && persisted.front().status.state == "interrupted" &&
+            persisted.front().mapper.empty() && persisted.front().cleanup_result == "mapper-closed",
+        "restart recovery outcome was not persisted"
+    );
+}
 } // namespace
 
 int main() {
     test_preparation_sequence_uses_descriptors_and_installs_profile();
     test_replacement_before_wipe_is_rejected();
+    test_restart_marks_active_transaction_interrupted_and_preserves_owner();
     return test_helpers::finish("system device provisioning backend tests");
 }
