@@ -158,6 +158,14 @@ assert_method(
     "<methodname=\"OpenBrowseSession\"><argname=\"profileId\"type=\"s\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
 )
 assert_method(
+    renew_browse_session RenewBrowseSession s s
+    "<methodname=\"RenewBrowseSession\"><argname=\"sessionId\"type=\"s\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
+)
+assert_method(
+    set_browse_session_active SetBrowseSessionActive sb s
+    "<methodname=\"SetBrowseSessionActive\"><argname=\"sessionId\"type=\"s\"direction=\"in\"/><argname=\"active\"type=\"b\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
+)
+assert_method(
     close_browse_session CloseBrowseSession s s
     "<methodname=\"CloseBrowseSession\"><argname=\"sessionId\"type=\"s\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
 )
@@ -257,8 +265,8 @@ assert_signal(
 
 string(REGEX MATCHALL "<method name=" xml_methods "${manager_xml}")
 list(LENGTH xml_methods method_count)
-if(NOT method_count EQUAL 29)
-    message(FATAL_ERROR "manager XML must declare exactly 29 methods, found ${method_count}")
+if(NOT method_count EQUAL 31)
+    message(FATAL_ERROR "manager XML must declare exactly 31 methods, found ${method_count}")
 endif()
 
 string(REGEX MATCHALL "<signal name=" xml_signals "${manager_xml}")

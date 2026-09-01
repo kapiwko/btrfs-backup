@@ -90,6 +90,12 @@ int set_profile_enabled(sd_bus_message* message, void* userdata, sd_bus_error* e
 int open_browse_session(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
     return static_cast<ManagerDbusObject*>(userdata)->handle_open_browse_session(message, error);
 }
+int renew_browse_session(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
+    return static_cast<ManagerDbusObject*>(userdata)->handle_renew_browse_session(message, error);
+}
+int set_browse_session_active(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
+    return static_cast<ManagerDbusObject*>(userdata)->handle_set_browse_session_active(message, error);
+}
 
 int close_browse_session(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
     return static_cast<ManagerDbusObject*>(userdata)->handle_close_browse_session(message, error);
@@ -153,6 +159,8 @@ const sd_bus_vtable manager_vtable[] = {
     SD_BUS_METHOD(manager_protocol::method::delete_profile, "sss", "s", delete_profile, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD(manager_protocol::method::set_profile_enabled, "sb", "s", set_profile_enabled, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD(manager_protocol::method::open_browse_session, "s", "s", open_browse_session, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD(manager_protocol::method::renew_browse_session, "s", "s", renew_browse_session, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD(manager_protocol::method::set_browse_session_active, "sb", "s", set_browse_session_active, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD(manager_protocol::method::close_browse_session, "s", "s", close_browse_session, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD(manager_protocol::method::resolve_backup_coverage, "s", "s", resolve_backup_coverage, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD(manager_protocol::method::list_target_credentials, "s", "s", list_target_credentials, SD_BUS_VTABLE_UNPRIVILEGED),
@@ -627,6 +635,43 @@ int ManagerDbusObject::handle_open_browse_session(sd_bus_message* message, sd_bu
             return reply_operational_json(message, error, manager_protocol::feature::browse_backups, profile, [&] {
                 return codec_.encode(browse_sessions_.open(caller_bus_name(message), caller_uid(message), profile));
             });
+        },
+        [&](const std::exception* exception) { return set_callback_error(error, exception); }
+    );
+}
+
+int ManagerDbusObject::handle_renew_browse_session(sd_bus_message* message, sd_bus_error* error) noexcept {
+    return invoke_dbus_callback(
+        [&] {
+            const char* session_id = nullptr;
+            const int read_result = sd_bus_message_read(message, "s", &session_id);
+            if (read_result < 0)
+                return read_result;
+            return reply_json(message, codec_.encode(browse_sessions_.renew(caller_bus_name(message), session_id == nullptr ? "" : session_id)));
+        },
+        [&](const std::exception* exception) { return set_callback_error(error, exception); }
+    );
+}
+
+int ManagerDbusObject::handle_set_browse_session_active(sd_bus_message* message, sd_bus_error* error) noexcept {
+    return invoke_dbus_callback(
+        [&] {
+            const char* session_id = nullptr;
+            int active = 0;
+            const int read_result = sd_bus_message_read(message, "sb", &session_id, &active);
+            if (read_result < 0)
+                return read_result;
+            browse_sessions_.set_active(
+                caller_bus_name(message),
+                session_id == nullptr ? "" : session_id,
+                active != 0
+            );
+            return reply_json(message, config::json::dump_json({
+                                           {"schemaVersion", manager_protocol::operation_result_schema_version},
+                                           {"operation", "set-browse-session-active"},
+                                           {"active", active != 0},
+                                           {"accepted", true},
+                                       }));
         },
         [&](const std::exception* exception) { return set_callback_error(error, exception); }
     );

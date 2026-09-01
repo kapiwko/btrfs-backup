@@ -192,6 +192,7 @@ int run_dbus_server(
         std::chrono::minutes(15),
         {},
         {},
+        {},
         [&](const control::BrowseSessionEvent& event) {
             const char* reason = "closed";
             switch (event.reason) {

@@ -5,6 +5,7 @@
 # Local resource owners are deliberately exceptional. This inventory makes
 # their copy/move/destruction policy visible without pretending to parse C++.
 set(local_lifecycle_types
+    "integrations/kde/kio/BtrfsBackupWorker.cpp|BrowseSessionPin|immobile"
     "src/backup/execution/LinkedCancellationMonitor.cpp|LinkedCancellationWatch|immobile"
     "src/daemon/control/DevicePreparationUnitController.cpp|SecretBuffer|movable"
     "src/platform/linux/process/ProcessSpawn.cpp|SpawnAttributes|immobile"
