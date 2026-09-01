@@ -3,34 +3,29 @@
 
 #include <daemon/control/DestructiveDeviceSafetyInspector.hpp>
 
-#include <backup/ports/ICommandRunner.hpp>
+#include <daemon/provisioning/StorageTopologyReader.hpp>
 
 #include <algorithm>
-#include <filesystem>
-#include <fstream>
+#include <stdexcept>
 #include <string>
 
 #include "support/TestHelpers.hpp"
 
 namespace {
 
-namespace backup = btrfsbackup::backup;
+namespace provisioning = btrfsbackup::daemon::provisioning;
 using btrfsbackup::daemon::control::DestructiveDeviceSafetyInspector;
 using btrfsbackup::daemon::control::ProvisioningDevice;
 
-class Commands final : public backup::ICommandRunner {
+class TopologyReader final : public provisioning::StorageTopologyReader {
   public:
-    std::string graph;
-    backup::CommandResult run(const std::vector<std::string>& argv) override {
-        if (!argv.empty() && argv.front() == "lsblk")
-            return {0, graph};
-        return {1, {}};
-    }
-    backup::CommandResult run_controlled(
-        const std::vector<std::string>& argv,
-        const backup::ControlledCommandOptions&
-    ) override {
-        return run(argv);
+    provisioning::StorageTopology topology;
+    bool unavailable = false;
+
+    provisioning::StorageTopology scan() override {
+        if (unavailable)
+            throw std::runtime_error("topology unavailable");
+        return topology;
     }
 };
 
@@ -46,23 +41,41 @@ ProvisioningDevice candidate() {
     };
 }
 
+provisioning::StorageTopology safe_topology() {
+    provisioning::StorageDevice device;
+    device.identity = {
+        .display_path = "/dev/test",
+        .major_minor = "8:16",
+        .sysfs_path = "/devices/test/block/test",
+        .serial_short = "SERIAL",
+        .size_bytes = 1024,
+    };
+    device.transport = "usb";
+    device.size_bytes = 1024;
+    return {.generation = "generation-1", .devices = {std::move(device)}};
+}
+
 bool contains(const std::vector<std::string>& values, const std::string& value) {
     return std::ranges::find(values, value) != values.end();
 }
 
 void test_reports_every_detected_usage_reason() {
-    const auto root = test_helpers::test_root("destructive-device-safety", "unsafe");
-    std::filesystem::create_directories(root / "sys/8:16/holders");
-    std::filesystem::create_directories(root / "sys/8:17/holders");
-    std::ofstream(root / "sys/8:16/holders/dm-0") << '\n';
-    std::ofstream(root / "swaps")
-        << "Filename Type Size Used Priority\n/dev/test1 partition 1024 0 -2\n";
-    Commands commands;
-    commands.graph = R"({"blockdevices":[{"path":"/dev/test","type":"disk","maj:min":"8:16","pkname":null,"mountpoints":[],"children":[{"path":"/dev/test1","type":"part","maj:min":"8:17","pkname":"/dev/test","mountpoints":["/"],"children":[{"path":"/dev/mapper/root","type":"crypt","maj:min":"253:0","pkname":"/dev/test1","mountpoints":["/"]}]}]}]})";
+    TopologyReader topology;
+    topology.topology = safe_topology();
+    provisioning::ExistingPartition partition;
+    partition.identity = {
+        .display_path = "/dev/test1",
+        .major_minor = "8:17",
+        .sysfs_path = "/devices/test/block/test/test1",
+        .size_bytes = 512,
+    };
+    partition.mount_points = {"/"};
+    partition.holders = {"dm-0"};
+    partition.active_swap = true;
+    partition.blockers = {{.code = "active-block-layer", .detail = "crypt"}};
+    topology.topology.devices.front().regions.emplace_back(std::move(partition));
     DestructiveDeviceSafetyInspector inspector(
-        commands,
-        root / "swaps",
-        root / "sys",
+        topology,
         [](const ProvisioningDevice&) { return std::optional<std::string>{"exclusive-open-failed"}; }
     );
     const auto reasons = inspector.inspect(candidate());
@@ -74,15 +87,10 @@ void test_reports_every_detected_usage_reason() {
 }
 
 void test_accepts_complete_unused_device() {
-    const auto root = test_helpers::test_root("destructive-device-safety", "safe");
-    std::filesystem::create_directories(root / "sys/8:16/holders");
-    std::ofstream(root / "swaps") << "Filename Type Size Used Priority\n";
-    Commands commands;
-    commands.graph = R"({"blockdevices":[{"path":"/dev/test","type":"disk","maj:min":"8:16","pkname":null,"mountpoints":[]}]})";
+    TopologyReader topology;
+    topology.topology = safe_topology();
     DestructiveDeviceSafetyInspector inspector(
-        commands,
-        root / "swaps",
-        root / "sys",
+        topology,
         [](const ProvisioningDevice&) { return std::optional<std::string>{}; }
     );
     test_helpers::expect_true(
@@ -92,14 +100,11 @@ void test_accepts_complete_unused_device() {
     );
 }
 
-void test_unavailable_safety_sources_fail_closed() {
-    const auto root = test_helpers::test_root("destructive-device-safety", "unavailable");
-    Commands commands;
-    commands.graph = "invalid-json";
+void test_unavailable_topology_fails_closed() {
+    TopologyReader topology;
+    topology.unavailable = true;
     DestructiveDeviceSafetyInspector inspector(
-        commands,
-        root / "missing-swaps",
-        root / "missing-sys",
+        topology,
         [](const ProvisioningDevice&) { return std::optional<std::string>{}; }
     );
     const auto reasons = inspector.inspect(candidate());
@@ -108,16 +113,6 @@ void test_unavailable_safety_sources_fail_closed() {
         contains(reasons, "block-graph-unavailable"),
         "unavailable block graph was accepted"
     );
-    test_helpers::expect_true(
-        "missing swaps",
-        contains(reasons, "swap-state-unavailable"),
-        "unavailable swap state was accepted"
-    );
-    test_helpers::expect_true(
-        "missing holders",
-        contains(reasons, "holder-state-unavailable:8:16"),
-        "unavailable holder state was accepted"
-    );
 }
 
 } // namespace
@@ -125,6 +120,6 @@ void test_unavailable_safety_sources_fail_closed() {
 int main() {
     test_reports_every_detected_usage_reason();
     test_accepts_complete_unused_device();
-    test_unavailable_safety_sources_fail_closed();
+    test_unavailable_topology_fails_closed();
     return test_helpers::finish("destructive device safety inspector tests");
 }

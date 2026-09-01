@@ -11,7 +11,6 @@
 
 #include <backup/ports/IBtrfsOperations.hpp>
 #include <backup/ports/ICommandRunner.hpp>
-#include <config/json/Json.hpp>
 #include <config/ports/ConfigurationActivator.hpp>
 #include <core/Errors.hpp>
 #include <core/Identifiers.hpp>
@@ -27,7 +26,6 @@ namespace fs = std::filesystem;
 namespace btrfsbackup::daemon::control {
 namespace {
 
-using config::json::Json;
 using platform::linux::OwnedFileDescriptor;
 
 std::int64_t system_time_seconds() {
@@ -35,11 +33,6 @@ std::int64_t system_time_seconds() {
                std::chrono::system_clock::now().time_since_epoch()
     )
         .count();
-}
-
-std::string json_string(const Json& object, const char* key) {
-    const auto value = object.find(key);
-    return value != object.end() && value->is_string() ? value->get<std::string>() : std::string{};
 }
 
 void require_success(
@@ -60,20 +53,6 @@ std::string descriptor_path(int fd) {
 void rewind_secret(int fd) {
     if (::lseek(fd, 0, SEEK_SET) < 0)
         throw ValidationError("cannot rewind device preparation secret");
-}
-
-std::string first_partition(backup::ICommandRunner& commands, const fs::path& disk) {
-    const Json document = Json::parse(backup::capture_command(
-        commands,
-        {"lsblk", "--json", "--tree", "--paths", "--output", "PATH,TYPE", disk.string()}
-    ));
-    const auto& devices = document.at("blockdevices");
-    if (devices.size() != 1 || !devices.at(0).contains("children"))
-        throw ValidationError("partition table was not detected after creation");
-    for (const auto& child : devices.at(0).at("children"))
-        if (json_string(child, "type") == "part" && !json_string(child, "path").empty())
-            return json_string(child, "path");
-    throw ValidationError("created partition was not detected");
 }
 
 } // namespace
@@ -176,7 +155,7 @@ void DevicePreparationExecutor::execute(const std::string& operation_id, int pas
             "partitioning device"
         );
         require_success(commands_, {"udevadm", "settle", "--timeout=10"}, standard, "waiting for the new partition");
-        const std::string partition = first_partition(commands_, initial.device.path);
+        const std::string partition = devices_.only_partition(initial.device);
         update(operation_id, [&](auto& transaction) {
             transaction.partition = partition;
             transaction.last_completed_phase = "partition";

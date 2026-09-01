@@ -87,6 +87,26 @@ add_library(btrfsbackup-platform-linux-storage STATIC
     storage/SpaceCheck.cpp
 )
 
+if(BUILD_SYSTEM_MANAGER)
+    add_library(btrfsbackup-platform-linux-provisioning STATIC
+        storage/provisioning/SystemStorageTopologyReader.cpp
+    )
+    target_restricted_include_directories(btrfsbackup-platform-linux-provisioning
+        PUBLIC_HEADERS
+            platform/linux/storage/provisioning/SystemStorageTopologyReader.hpp
+    )
+    target_link_libraries(btrfsbackup-platform-linux-provisioning
+        PUBLIC
+            btrfsbackup-daemon-provisioning
+        PRIVATE
+            btrfsbackup-core
+            PkgConfig::BLKID
+            PkgConfig::FDISK
+            PkgConfig::MOUNT
+            PkgConfig::UDEV
+    )
+endif()
+
 add_library(btrfsbackup-platform-linux-restore STATIC
     restore/PosixRestoreOperations.cpp
 )
@@ -195,6 +215,11 @@ target_link_libraries(btrfsbackup-platform-linux INTERFACE
     btrfsbackup-platform-linux-systemd
     btrfsbackup-platform-linux-transfer
 )
+if(BUILD_SYSTEM_MANAGER)
+    target_link_libraries(btrfsbackup-platform-linux INTERFACE
+        btrfsbackup-platform-linux-provisioning
+    )
+endif()
 
 set(linux_platform_targets
     btrfsbackup-platform-linux-base
@@ -205,6 +230,9 @@ set(linux_platform_targets
     btrfsbackup-platform-linux-systemd
     btrfsbackup-platform-linux-transfer
 )
+if(BUILD_SYSTEM_MANAGER)
+    list(APPEND linux_platform_targets btrfsbackup-platform-linux-provisioning)
+endif()
 foreach(target IN LISTS linux_platform_targets)
     target_compile_features(${target} PUBLIC cxx_std_23)
     if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
