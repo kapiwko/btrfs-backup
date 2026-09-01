@@ -98,7 +98,8 @@ int ManagerProvisioningMethods::start_device_preparation(sd_bus_message* message
             control::DevicePreparationRequest parsed{
                 .profile_id = request.value("profileId", ""),
                 .profile_name = request.value("profileName", ""),
-                .candidate_id = request.value("candidateId", ""),
+                .plan_id = request.value("planId", ""),
+                .candidate_id = {},
                 .source_subvolume = request.value("sourceSubvolume", ""),
                 .passphrase_label = request.value("passphraseLabel", ""),
                 .create_automatic_key = request.value("createAutomaticKey", true),

@@ -39,6 +39,8 @@ struct ProvisioningDevice {
 struct DevicePreparationRequest {
     std::string profile_id;
     std::string profile_name;
+    std::string plan_id;
+    // Compatibility path for API clients predating storage preparation plans.
     std::string candidate_id;
     std::string source_subvolume;
     std::string passphrase_label;
@@ -140,6 +142,14 @@ class DeviceProvisioningService final {
     [[nodiscard]] ProvisioningDevice find_candidate(
         const std::string& caller,
         const std::string& candidate_id
+    );
+    [[nodiscard]] provisioning::DevicePreparationPlan find_plan(
+        const std::string& caller,
+        const std::string& plan_id
+    );
+    [[nodiscard]] provisioning::DevicePreparationPlan take_plan(
+        const std::string& caller,
+        const std::string& plan_id
     );
     void expire_candidates(std::chrono::steady_clock::time_point now);
     void authorize(const std::string& caller, std::string_view method) const;
