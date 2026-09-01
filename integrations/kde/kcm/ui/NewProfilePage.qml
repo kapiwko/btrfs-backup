@@ -36,7 +36,7 @@ KCMUtils.SimpleKCM {
         onTriggered: {
             root.step = 2;
             root.provisioning.start(
-                profileId.text, profileName.text, root.selectedDevice, sourcePath.currentText,
+                profileId.text, profileName.text, sourcePath.currentText,
                 passphrase.text, confirmation.text, automaticKey.checked
             );
         }

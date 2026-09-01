@@ -35,7 +35,6 @@ class DeviceProvisioningModel final : public QObject {
     Q_INVOKABLE void start(
         const QString& profile_id,
         const QString& profile_name,
-        const QVariantMap& device,
         const QString& source_subvolume,
         const QString& passphrase,
         const QString& confirmation,

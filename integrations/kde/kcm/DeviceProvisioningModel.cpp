@@ -111,7 +111,6 @@ void DeviceProvisioningModel::buildPlan(const QVariantMap& device) {
 void DeviceProvisioningModel::start(
     const QString& profile_id,
     const QString& profile_name,
-    const QVariantMap& device,
     const QString& source_subvolume,
     const QString& passphrase,
     const QString& confirmation,
@@ -123,9 +122,9 @@ void DeviceProvisioningModel::start(
         setError(i18n("The passphrases do not match."));
         return;
     }
-    const QString candidate_id = device.value(QStringLiteral("candidateId")).toString();
-    if (candidate_id.isEmpty()) {
-        setError(i18n("Refresh the device list and select the disk again."));
+    const QString plan_id = plan_.value(QStringLiteral("planId")).toString();
+    if (plan_id.isEmpty()) {
+        setError(i18n("Refresh the storage layout and review the preparation plan again."));
         return;
     }
     const auto secret = secret_descriptor(passphrase);
@@ -136,7 +135,7 @@ void DeviceProvisioningModel::start(
     const QJsonObject payload{
         {QStringLiteral("profileId"), profile_id.trimmed()},
         {QStringLiteral("profileName"), profile_name.trimmed()},
-        {QStringLiteral("candidateId"), candidate_id},
+        {QStringLiteral("planId"), plan_id},
         {QStringLiteral("sourceSubvolume"), source_subvolume.trimmed()},
         {QStringLiteral("passphraseLabel"), i18n("Recovery passphrase")},
         {QStringLiteral("createAutomaticKey"), automatic_key},
