@@ -13,6 +13,8 @@
 #include <vector>
 
 #include <daemon/control/OperationalControlService.hpp>
+#include <daemon/provisioning/DevicePreparationPlanBuilder.hpp>
+#include <daemon/provisioning/StorageTopologyReader.hpp>
 
 namespace btrfsbackup::daemon::control {
 
@@ -90,9 +92,17 @@ class DeviceProvisioningService final {
         IDeviceProvisioningBackend& backend,
         std::chrono::seconds candidate_lifetime = std::chrono::minutes(5),
         ProvisioningCandidateIdGenerator candidate_ids = {},
-        ProvisioningCandidateClock clock = {}
+        ProvisioningCandidateClock clock = {},
+        provisioning::StorageTopologyReader* topology_reader = nullptr
     );
     [[nodiscard]] std::vector<ProvisioningDevice> list_devices(const std::string& caller);
+    [[nodiscard]] provisioning::StorageTopology inspect_storage_topology(const std::string& caller);
+    [[nodiscard]] provisioning::DevicePreparationPlan build_device_preparation_plan(
+        const std::string& caller,
+        const provisioning::TopologyGeneration& expected_generation,
+        const provisioning::DeviceCandidateId& device_id,
+        provisioning::ProvisioningMode mode
+    );
     [[nodiscard]] std::vector<std::string> list_source_candidates(const std::string& caller);
     [[nodiscard]] DevicePreparationStatus start(
         const std::string& caller,
@@ -110,6 +120,16 @@ class DeviceProvisioningService final {
   private:
     struct Candidate {
         ProvisioningDevice device;
+        std::string caller;
+        std::chrono::steady_clock::time_point expires_at;
+    };
+    struct TopologySnapshot {
+        provisioning::StorageTopology topology;
+        std::string caller;
+        std::chrono::steady_clock::time_point expires_at;
+    };
+    struct StoredPlan {
+        provisioning::DevicePreparationPlan plan;
         std::string caller;
         std::chrono::steady_clock::time_point expires_at;
     };
@@ -136,6 +156,10 @@ class DeviceProvisioningService final {
     ProvisioningCandidateClock clock_;
     std::mutex candidates_mutex_;
     std::map<std::string, Candidate> candidates_;
+    std::map<std::string, TopologySnapshot> topologies_;
+    std::map<std::string, StoredPlan> plans_;
+    provisioning::StorageTopologyReader* topology_reader_;
+    provisioning::DevicePreparationPlanBuilder plan_builder_;
 };
 
 } // namespace btrfsbackup::daemon::control

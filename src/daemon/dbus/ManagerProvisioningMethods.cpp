@@ -7,6 +7,7 @@
 #include <daemon/dbus/DbusCallbackBoundary.hpp>
 
 #include <config/json/JsonIo.hpp>
+#include <core/Errors.hpp>
 #include <core/ManagerProtocol.hpp>
 
 namespace btrfsbackup::daemon::dbus {
@@ -25,6 +26,46 @@ int ManagerProvisioningMethods::list_provisioning_devices(sd_bus_message* messag
             return support_.reply_operational_json(message, error, "list-provisioning-devices", "", [&] {
                 return support_.codec().encode(device_provisioning_.list_devices(
                     ManagerMethodSupport::caller_bus_name(message)
+                ));
+            });
+        },
+        [&](const std::exception* exception) { return support_.set_callback_error(error, exception); }
+    );
+}
+
+int ManagerProvisioningMethods::inspect_storage_topology(sd_bus_message* message, sd_bus_error* error) noexcept {
+    return invoke_dbus_callback(
+        [&] {
+            return support_.reply_operational_json(message, error, "inspect-storage-topology", "", [&] {
+                return support_.codec().encode(device_provisioning_.inspect_storage_topology(
+                    ManagerMethodSupport::caller_bus_name(message)
+                ));
+            });
+        },
+        [&](const std::exception* exception) { return support_.set_callback_error(error, exception); }
+    );
+}
+
+int ManagerProvisioningMethods::build_device_preparation_plan(
+    sd_bus_message* message,
+    sd_bus_error* error
+) noexcept {
+    return invoke_dbus_callback(
+        [&] {
+            const char* request_json = nullptr;
+            const int read_result = sd_bus_message_read(message, "s", &request_json);
+            if (read_result < 0)
+                return read_result;
+            const auto request = config::json::Json::parse(request_json == nullptr ? "{}" : request_json);
+            const std::string mode = request.value("mode", "");
+            if (mode != "erase-whole-device")
+                throw ValidationError("provisioning mode is not implemented");
+            return support_.reply_operational_json(message, error, "build-device-preparation-plan", "", [&] {
+                return support_.codec().encode(device_provisioning_.build_device_preparation_plan(
+                    ManagerMethodSupport::caller_bus_name(message),
+                    request.value("topologyGeneration", ""),
+                    request.value("candidateId", ""),
+                    provisioning::ProvisioningMode::EraseWholeDevice
                 ));
             });
         },

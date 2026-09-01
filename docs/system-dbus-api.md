@@ -61,6 +61,8 @@ schema versions are not advertised as public API versions.
 | `GenerateTargetKey` | `(s profileId, h authorization, s label, b automatic)` | `(s)` | generates a protected key without returning its bytes |
 | `RemoveTargetCredential` | `(s profileId, s credentialId, h authorization)` | `(s)` | removes a managed non-automatic keyslot, never the last slot |
 | `ListProvisioningDevices` | `()` | `(s)` | block-device candidates and destructive-operation warnings |
+| `InspectStorageTopology` | `()` | `(s)` | caller-bound device, partition, and unallocated-region snapshot |
+| `BuildDevicePreparationPlan` | `(s request)` | `(s)` | revalidates the topology generation and creates a short-lived caller-bound before/after plan |
 | `ListSourceCandidates` | `()` | `(s)` | mounted Btrfs subvolumes eligible as an initial source |
 | `StartDevicePreparation` | `(s request, h passphrase)` | `(s)` | starts an asynchronous destructive device-preparation operation |
 | `GetDevicePreparation` | `(s operationId)` | `(s)` | preparation state, phase, stable error and cancellation capability |
@@ -103,6 +105,13 @@ pinning. Session expiry uses a monotonic clock; the wall-clock expiry in the
 response is informational. The daemon limits sessions globally and per UID,
 keeps each view below a per-UID directory, and persists incomplete cleanup for
 retry after failures or restart.
+
+API minor version 5 adds `InspectStorageTopology` and
+`BuildDevicePreparationPlan`. The first method returns opaque candidates bound
+to the caller and a short-lived topology generation. The second method rescans
+storage, rejects a changed generation, and returns a stored before/after plan.
+It does not authorize a write and does not replace the separate preparation
+authorization and revalidation performed immediately before execution.
 
 The `target-storage-usage` feature is part of the current major-version
 baseline. The device-state parent remains schema version 1 and may contain this
