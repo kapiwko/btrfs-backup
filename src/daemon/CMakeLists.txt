@@ -89,9 +89,12 @@ target_link_libraries(btrfsbackup-daemon-control
 add_library(btrfsbackup-daemon-system-control STATIC
     control/CommandSystemdUnitController.cpp
     control/DestructiveDeviceSafetyInspector.cpp
+    control/DevicePreparationExecutor.cpp
+    control/DevicePreparationPlanBuilder.cpp
     control/DevicePreparationTransaction.cpp
     control/DevicePreparationUnitController.cpp
     control/OperationEnvironmentFile.cpp
+    control/ProvisioningDeviceEnumerator.cpp
     control/SystemOperationalControlBackend.cpp
     control/SystemBrowseSessionBackend.cpp
     control/SystemCredentialAdministrationBackend.cpp
@@ -111,7 +114,10 @@ target_restricted_include_directories(btrfsbackup-daemon-system-control
         daemon/control/SystemDeviceProvisioningBackend.hpp
         daemon/control/SystemProfileAdministrationBackend.hpp
     PRIVATE_HEADERS
+        daemon/control/DevicePreparationExecutor.hpp
+        daemon/control/DevicePreparationPlanBuilder.hpp
         daemon/control/OperationEnvironmentFile.hpp
+        daemon/control/ProvisioningDeviceEnumerator.hpp
 )
 target_link_libraries(btrfsbackup-daemon-system-control
     PUBLIC
@@ -129,11 +135,18 @@ target_link_libraries(btrfsbackup-daemon-system-control
 )
 
 add_library(btrfsbackup-daemon-dbus STATIC
+    dbus/ManagerBrowseMethods.cpp
     dbus/ManagerChangeMonitor.cpp
+    dbus/ManagerCredentialMethods.cpp
     dbus/ManagerDbusObject.cpp
     dbus/ManagerDbusServer.cpp
     dbus/ManagerErrorMapper.cpp
     dbus/ManagerJsonCodec.cpp
+    dbus/ManagerMethodSupport.cpp
+    dbus/ManagerOperationalMethods.cpp
+    dbus/ManagerProfileMethods.cpp
+    dbus/ManagerProvisioningMethods.cpp
+    dbus/ManagerReadMethods.cpp
     dbus/PolkitAuthorizer.cpp
 )
 target_compile_features(btrfsbackup-daemon-dbus PUBLIC cxx_std_23)
@@ -145,7 +158,14 @@ target_restricted_include_directories(btrfsbackup-daemon-dbus
         daemon/dbus/ManagerJsonCodec.hpp
     PRIVATE_HEADERS
         daemon/dbus/ManagerChangeMonitor.hpp
+        daemon/dbus/ManagerBrowseMethods.hpp
+        daemon/dbus/ManagerCredentialMethods.hpp
         daemon/dbus/ManagerDbusObject.hpp
+        daemon/dbus/ManagerMethodSupport.hpp
+        daemon/dbus/ManagerOperationalMethods.hpp
+        daemon/dbus/ManagerProfileMethods.hpp
+        daemon/dbus/ManagerProvisioningMethods.hpp
+        daemon/dbus/ManagerReadMethods.hpp
         daemon/dbus/PolkitAuthorizer.hpp
 )
 target_link_libraries(btrfsbackup-daemon-dbus
