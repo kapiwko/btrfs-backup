@@ -12,7 +12,7 @@ class DevicePreparationPlanBuilder final {
     [[nodiscard]] DevicePreparationPlan build(
         const StorageTopology& topology,
         const TopologyGeneration& expected_generation,
-        const DeviceCandidateId& device_id,
+        const std::string& selected_candidate_id,
         ProvisioningMode mode,
         DevicePreparationPlanId plan_id
     ) const;

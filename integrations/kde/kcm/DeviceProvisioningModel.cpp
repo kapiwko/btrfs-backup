@@ -84,11 +84,11 @@ void DeviceProvisioningModel::refresh() {
         request(RequestKind::Topology, QLatin1String(manager_protocol::method::inspect_storage_topology));
 }
 
-void DeviceProvisioningModel::buildPlan(const QVariantMap& device) {
+void DeviceProvisioningModel::buildPlan(const QVariantMap& selection, const QString& mode) {
     if (busy_ || topology_.isEmpty())
         return;
-    const QString path = device.value(QStringLiteral("path")).toString();
-    const QString topology_candidate = device.value(QStringLiteral("candidateId")).toString();
+    const QString path = selection.value(QStringLiteral("path")).toString();
+    const QString topology_candidate = selection.value(QStringLiteral("candidateId")).toString();
     if (topology_candidate.isEmpty()) {
         setError(i18n("Refresh the storage layout and select the disk again."));
         return;
@@ -99,7 +99,7 @@ void DeviceProvisioningModel::buildPlan(const QVariantMap& device) {
     const QJsonObject payload{
         {QStringLiteral("topologyGeneration"), topology_.value(QStringLiteral("generation")).toString()},
         {QStringLiteral("candidateId"), topology_candidate},
-        {QStringLiteral("mode"), QStringLiteral("erase-whole-device")},
+        {QStringLiteral("mode"), mode},
     };
     request(
         RequestKind::Plan,

@@ -62,7 +62,7 @@ schema versions are not advertised as public API versions.
 | `RemoveTargetCredential` | `(s profileId, s credentialId, h authorization)` | `(s)` | removes a managed non-automatic keyslot, never the last slot |
 | `ListProvisioningDevices` | `()` | `(s)` | block-device candidates and destructive-operation warnings |
 | `InspectStorageTopology` | `()` | `(s)` | caller-bound device, partition, and unallocated-region snapshot |
-| `BuildDevicePreparationPlan` | `(s request)` | `(s)` | revalidates the topology generation and creates a short-lived caller-bound before/after plan |
+| `BuildDevicePreparationPlan` | `(s request)` | `(s)` | revalidates topology and creates a caller-bound whole-device or existing-partition before/after plan |
 | `ListSourceCandidates` | `()` | `(s)` | mounted Btrfs subvolumes eligible as an initial source |
 | `StartDevicePreparation` | `(s request, h passphrase)` | `(s)` | starts an asynchronous destructive device-preparation operation |
 | `GetDevicePreparation` | `(s operationId)` | `(s)` | preparation state, phase, stable error and cancellation capability |
@@ -279,6 +279,9 @@ These rules describe the implemented API unless explicitly marked otherwise.
   additionally requires an explicit `ERASE` confirmation. The daemon rescans
   the topology generation before authorization and revalidates the exact
   device identity and use before the first destructive command.
+- Existing-partition plans are currently preview-only. The start method rejects
+  them before authorization until the partition-scoped executor and recovery
+  path are available, so they cannot enter the whole-device executor.
 - Authorization success is not persisted by the daemon. Only polkit controls
   caching: credential management uses `auth_admin_keep` for a short sequence of
   keyslot changes, while destructive device preparation and other high-risk

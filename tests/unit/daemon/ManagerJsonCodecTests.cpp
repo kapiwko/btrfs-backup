@@ -265,6 +265,21 @@ void test_storage_topology_and_plan_contract() {
             plan_document.at("after").at("regions").size() == 1,
         "before or after layout is missing"
     );
+    const auto partition_plan = provisioning::DevicePreparationPlanBuilder{}.build(
+        topology,
+        topology.generation,
+        "opaque-partition",
+        provisioning::ProvisioningMode::ReformatExistingPartition,
+        "plan-2"
+    );
+    const Json partition_document = Json::parse(codec.encode(partition_plan));
+    expect_field("partition plan", partition_document, "partitionId", "opaque-partition");
+    expect_field("partition plan", partition_document, "destructiveScope", "existing-partition");
+    test_helpers::expect_true(
+        "partition operations",
+        partition_document.at("operations").front() == "erase-partition-signatures",
+        "partition signature erasure is not explicit"
+    );
 }
 
 } // namespace

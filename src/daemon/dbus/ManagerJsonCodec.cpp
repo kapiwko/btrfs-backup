@@ -72,6 +72,8 @@ std::string operation_name(const provisioning::PlannedStorageOperation& operatio
             using Operation = std::decay_t<decltype(value)>;
             if constexpr (std::is_same_v<Operation, provisioning::EraseDeviceSignatures>)
                 return "erase-device-signatures";
+            if constexpr (std::is_same_v<Operation, provisioning::ErasePartitionSignatures>)
+                return "erase-partition-signatures";
             if constexpr (std::is_same_v<Operation, provisioning::CreateGptPartitionTable>)
                 return "create-gpt-partition-table";
             if constexpr (std::is_same_v<Operation, provisioning::CreateBackupPartition>)
@@ -349,6 +351,8 @@ std::string ManagerJsonCodec::encode(const provisioning::DevicePreparationPlan& 
         {"topologyGeneration", plan.topology_generation},
         {"mode", provisioning::provisioning_mode_name(plan.mode)},
         {"deviceId", plan.device_id},
+        {"partitionId", plan.partition_id},
+        {"freeRegionId", plan.free_region_id},
         {"before", layout_json(plan.before)},
         {"after", layout_json(plan.after)},
         {"operations", std::move(operations)},

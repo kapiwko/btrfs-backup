@@ -101,12 +101,54 @@ DevicePreparationPlan erase_whole_device_plan(
     return result;
 }
 
+DevicePreparationPlan reformat_partition_plan(
+    const StorageTopology& topology,
+    const StorageDevice& device,
+    const ExistingPartition& partition,
+    DevicePreparationPlanId plan_id
+) {
+    StorageLayout before = current_layout(device);
+    const auto before_target = std::ranges::find(before.regions, partition.candidate_id, &PredictedStorageRegion::id);
+    before_target->data_will_be_erased = true;
+    StorageLayout after = current_layout(device);
+    const auto after_target = std::ranges::find(after.regions, partition.candidate_id, &PredictedStorageRegion::id);
+    after_target->kind = PredictedRegionKind::BackupPartition;
+    after_target->filesystem_type = "btrfs";
+    after_target->partition_label = "btrfs-backup";
+    after_target->encrypted = true;
+    after_target->changed = true;
+    std::vector<SafetyWarning> warnings{{"erase-existing-partition", partition.identity.display_path}};
+    for (const auto& blocker : partition.blockers)
+        warnings.push_back({blocker.code, blocker.detail});
+    DevicePreparationPlan result;
+    result.id = std::move(plan_id);
+    result.topology_generation = topology.generation;
+    result.mode = ProvisioningMode::ReformatExistingPartition;
+    result.device_id = device.candidate_id;
+    result.partition_id = partition.candidate_id;
+    result.before = std::move(before);
+    result.after = std::move(after);
+    result.operations = {
+        ErasePartitionSignatures{partition.candidate_id},
+        FormatLuks2{partition.candidate_id},
+        OpenLuksMapping{},
+        FormatBtrfs{},
+        VerifyPreparedTarget{},
+        PublishProfile{},
+    };
+    result.warnings = std::move(warnings);
+    result.destructive_scope.kind = DestructiveScopeKind::ExistingPartition;
+    result.destructive_scope.device_id = device.candidate_id;
+    result.destructive_scope.partition_id = partition.candidate_id;
+    return result;
+}
+
 } // namespace
 
 DevicePreparationPlan DevicePreparationPlanBuilder::build(
     const StorageTopology& topology,
     const TopologyGeneration& expected_generation,
-    const DeviceCandidateId& device_id,
+    const std::string& selected_candidate_id,
     ProvisioningMode mode,
     DevicePreparationPlanId plan_id
 ) const {
@@ -114,12 +156,29 @@ DevicePreparationPlan DevicePreparationPlanBuilder::build(
         throw ValidationError("storage topology generation changed");
     if (plan_id.empty())
         throw ValidationError("device preparation plan identifier is empty");
-    const auto device = std::ranges::find(topology.devices, device_id, &StorageDevice::candidate_id);
-    if (device == topology.devices.end())
-        throw ValidationError("storage device candidate is unavailable");
-    if (mode != ProvisioningMode::EraseWholeDevice)
-        throw ValidationError("provisioning mode is not implemented");
-    return erase_whole_device_plan(topology, *device, std::move(plan_id));
+    if (mode == ProvisioningMode::EraseWholeDevice) {
+        const auto device = std::ranges::find(topology.devices, selected_candidate_id, &StorageDevice::candidate_id);
+        if (device == topology.devices.end())
+            throw ValidationError("storage device candidate is unavailable");
+        return erase_whole_device_plan(topology, *device, std::move(plan_id));
+    }
+    if (mode == ProvisioningMode::ReformatExistingPartition) {
+        for (const auto& device : topology.devices) {
+            const auto region = std::ranges::find_if(device.regions, [&](const StorageRegion& value) {
+                const auto* partition = std::get_if<ExistingPartition>(&value);
+                return partition != nullptr && partition->candidate_id == selected_candidate_id;
+            });
+            if (region != device.regions.end())
+                return reformat_partition_plan(
+                    topology,
+                    device,
+                    std::get<ExistingPartition>(*region),
+                    std::move(plan_id)
+                );
+        }
+        throw ValidationError("storage partition candidate is unavailable");
+    }
+    throw ValidationError("provisioning mode is not implemented");
 }
 
 } // namespace btrfsbackup::daemon::provisioning

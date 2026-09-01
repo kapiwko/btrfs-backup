@@ -31,7 +31,7 @@ class DeviceProvisioningModel final : public QObject {
     [[nodiscard]] QString errorMessage() const;
 
     Q_INVOKABLE void refresh();
-    Q_INVOKABLE void buildPlan(const QVariantMap& device);
+    Q_INVOKABLE void buildPlan(const QVariantMap& selection, const QString& mode);
     Q_INVOKABLE void start(
         const QString& profile_id,
         const QString& profile_name,
