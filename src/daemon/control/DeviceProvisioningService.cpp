@@ -104,15 +104,14 @@ void DeviceProvisioningService::authorize(const std::string& caller, std::string
 
 void DeviceProvisioningService::authorize_owner_or_admin(
     const std::string& caller,
+    std::uint32_t caller_uid,
     const std::string& operation_id,
     std::string_view method
 ) const {
-    bool caller_owns_operation = false;
-    {
-        std::lock_guard lock(owners_mutex_);
-        const auto owner = operation_owners_.find(operation_id);
-        caller_owns_operation = owner != operation_owners_.end() && owner->second == caller;
-    }
+    const bool caller_owns_operation = backend_.owned_by(
+        operation_id,
+        {.bus_name = caller, .uid = caller_uid}
+    );
     if (caller_owns_operation && !caller.empty() && authorizer_.caller_is_active(caller))
         return;
     authorize(caller, method);
@@ -156,6 +155,7 @@ ProvisioningDevice DeviceProvisioningService::find_candidate(
 
 DevicePreparationStatus DeviceProvisioningService::start(
     const std::string& caller,
+    std::uint32_t caller_uid,
     const DevicePreparationRequest& request,
     int passphrase_fd
 ) {
@@ -179,28 +179,33 @@ DevicePreparationStatus DeviceProvisioningService::start(
         );
     authorize(caller, manager_protocol::method::start_device_preparation);
     const ProvisioningDevice expected_device = take_candidate(caller, request.candidate_id);
-    DevicePreparationStatus result = backend_.start(request, expected_device, passphrase_fd);
-    {
-        std::lock_guard lock(owners_mutex_);
-        operation_owners_.insert_or_assign(result.operation_id, caller);
-    }
-    return result;
+    return backend_.start(
+        request,
+        expected_device,
+        {.bus_name = caller, .uid = caller_uid},
+        passphrase_fd
+    );
 }
 
 DevicePreparationStatus DeviceProvisioningService::status(
     const std::string& caller,
+    std::uint32_t caller_uid,
     const std::string& operation_id
 ) const {
     if (operation_id.empty())
         throw ValidationError("operation identifier is empty");
-    authorize_owner_or_admin(caller, operation_id, manager_protocol::method::get_device_preparation);
+    authorize_owner_or_admin(caller, caller_uid, operation_id, manager_protocol::method::get_device_preparation);
     return backend_.status(operation_id);
 }
 
-void DeviceProvisioningService::cancel(const std::string& caller, const std::string& operation_id) {
+void DeviceProvisioningService::cancel(
+    const std::string& caller,
+    std::uint32_t caller_uid,
+    const std::string& operation_id
+) {
     if (operation_id.empty())
         throw ValidationError("operation identifier is empty");
-    authorize_owner_or_admin(caller, operation_id, manager_protocol::method::cancel_device_preparation);
+    authorize_owner_or_admin(caller, caller_uid, operation_id, manager_protocol::method::cancel_device_preparation);
     backend_.cancel(operation_id);
 }
 

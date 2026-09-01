@@ -42,6 +42,7 @@ class Backend final : public IDeviceProvisioningBackend {
     bool weak_identity = false;
     std::vector<std::string> safety_reasons;
     std::vector<std::string>* events = nullptr;
+    btrfsbackup::daemon::control::DevicePreparationOwner owner;
     std::vector<ProvisioningDevice> list_devices() override {
         ProvisioningDevice device{
             .path = "/dev/test",
@@ -77,15 +78,23 @@ class Backend final : public IDeviceProvisioningBackend {
     DevicePreparationStatus start(
         const DevicePreparationRequest& request,
         const ProvisioningDevice& expected_device,
+        const btrfsbackup::daemon::control::DevicePreparationOwner& received_owner,
         int passphrase_fd
     ) override {
+        owner = received_owner;
         received_fd = passphrase_fd;
         ++starts;
         test_helpers::expect_eq("resolved candidate path", expected_device.path, "/dev/test");
-        return {"prepare-1", request.profile_id, "queued", "inspect", {}, true};
+        return {.operation_id = "prepare-1", .profile_id = request.profile_id, .state = "queued", .phase = "inspect", .can_cancel = true};
     }
     DevicePreparationStatus status(const std::string&) const override {
-        return {"prepare-1", "test", "running", "partition", {}, false};
+        return {.operation_id = "prepare-1", .profile_id = "test", .state = "running", .phase = "partition"};
+    }
+    bool owned_by(
+        const std::string&,
+        const btrfsbackup::daemon::control::DevicePreparationOwner& candidate
+    ) const override {
+        return candidate.bus_name == owner.bus_name && candidate.uid == owner.uid;
     }
     void cancel(const std::string&) override {
         cancelled = true;
@@ -114,7 +123,7 @@ void test_authorized_start_and_status() {
     test_helpers::expect_true("device list", devices.size() == 1, "candidate missing");
     test_helpers::expect_eq("candidate id", devices.front().candidate_id, "candidate-1");
     events.clear();
-    const auto started = service.start(":1.5", request(devices.front().candidate_id), 17);
+    const auto started = service.start(":1.5", 1000, request(devices.front().candidate_id), 17);
     test_helpers::expect_true(
         "safety before authorization",
         events == std::vector<std::string>{"inspect", "authorize"},
@@ -122,8 +131,8 @@ void test_authorized_start_and_status() {
     );
     test_helpers::expect_eq("operation id", started.operation_id, "prepare-1");
     test_helpers::expect_true("secret descriptor", backend.received_fd == 17, "descriptor not forwarded");
-    test_helpers::expect_eq("operation phase", service.status(":1.5", "prepare-1").phase, "partition");
-    service.cancel(":1.5", "prepare-1");
+    test_helpers::expect_eq("operation phase", service.status(":1.5", 1000, "prepare-1").phase, "partition");
+    service.cancel(":1.5", 1000, "prepare-1");
     test_helpers::expect_true("cancel", backend.cancelled, "cancel not forwarded");
 }
 
@@ -149,21 +158,21 @@ void test_operation_access_is_limited_to_owner_or_admin() {
     Backend backend;
     DeviceProvisioningService service(authorizer, backend, std::chrono::minutes(5), [] { return "candidate-1"; });
     static_cast<void>(service.list_devices(":1.7"));
-    const auto started = service.start(":1.7", request(), 17);
+    const auto started = service.start(":1.7", 1000, request(), 17);
 
     authorizer.allowed = false;
     test_helpers::expect_eq(
         "owner status",
-        service.status(":1.7", started.operation_id).operation_id,
+        service.status(":1.7", 1000, started.operation_id).operation_id,
         started.operation_id
     );
     try {
-        static_cast<void>(service.status(":1.8", started.operation_id));
+        static_cast<void>(service.status(":1.8", 1001, started.operation_id));
         test_helpers::fail("foreign status", "status was disclosed");
     } catch (const btrfsbackup::daemon::dbus::ManagerOperationError&) {
     }
     try {
-        service.cancel(":1.8", started.operation_id);
+        service.cancel(":1.8", 1001, started.operation_id);
         test_helpers::fail("foreign cancellation", "cancellation was accepted");
     } catch (const btrfsbackup::daemon::dbus::ManagerOperationError&) {
     }
@@ -171,7 +180,7 @@ void test_operation_access_is_limited_to_owner_or_admin() {
     authorizer.allowed = true;
     test_helpers::expect_eq(
         "administrator status",
-        service.status(":1.8", started.operation_id).operation_id,
+        service.status(":1.8", 1001, started.operation_id).operation_id,
         started.operation_id
     );
 }
@@ -191,13 +200,13 @@ void test_candidate_is_caller_bound_single_use_and_expires() {
 
     const auto first = service.list_devices(":1.9").front().candidate_id;
     try {
-        static_cast<void>(service.start(":1.10", request(first), 17));
+        static_cast<void>(service.start(":1.10", 1001, request(first), 17));
         test_helpers::fail("foreign candidate", "candidate was usable by another caller");
     } catch (const btrfsbackup::daemon::dbus::ManagerOperationError&) {
     }
-    static_cast<void>(service.start(":1.9", request(first), 17));
+    static_cast<void>(service.start(":1.9", 1000, request(first), 17));
     try {
-        static_cast<void>(service.start(":1.9", request(first), 17));
+        static_cast<void>(service.start(":1.9", 1000, request(first), 17));
         test_helpers::fail("reused candidate", "candidate was reusable");
     } catch (const btrfsbackup::daemon::dbus::ManagerOperationError&) {
     }
@@ -205,7 +214,7 @@ void test_candidate_is_caller_bound_single_use_and_expires() {
     const auto expiring = service.list_devices(":1.9").front().candidate_id;
     now += std::chrono::seconds(31);
     try {
-        static_cast<void>(service.start(":1.9", request(expiring), 17));
+        static_cast<void>(service.start(":1.9", 1000, request(expiring), 17));
         test_helpers::fail("expired candidate", "expired candidate was accepted");
     } catch (const btrfsbackup::daemon::dbus::ManagerOperationError&) {
     }
@@ -231,7 +240,7 @@ void test_denied_start() {
     const std::string candidate = service.list_devices(":1.5").front().candidate_id;
     authorizer.allowed = false;
     try {
-        static_cast<void>(service.start(":1.5", request(candidate), 17));
+        static_cast<void>(service.start(":1.5", 1000, request(candidate), 17));
         test_helpers::fail("denied preparation", "request was accepted");
     } catch (const btrfsbackup::daemon::dbus::ManagerOperationError&) {
     }
@@ -245,7 +254,7 @@ void test_unsafe_device_is_rejected_before_authorization() {
     authorizer.actions.clear();
     backend.safety_reasons = {"active-swap:/dev/test"};
     try {
-        static_cast<void>(service.start(":1.12", request(candidate), 17));
+        static_cast<void>(service.start(":1.12", 1000, request(candidate), 17));
         test_helpers::fail("unsafe candidate", "unsafe device reached authorization");
     } catch (const btrfsbackup::daemon::dbus::ManagerOperationError&) {
     }
@@ -263,12 +272,12 @@ void test_invalid_request_is_rejected_before_backend() {
     auto invalid = request();
     invalid.source_subvolume = "relative/source";
     try {
-        static_cast<void>(service.start(":1.5", invalid, 17));
+        static_cast<void>(service.start(":1.5", 1000, invalid, 17));
         test_helpers::fail("invalid preparation", "relative source was accepted");
     } catch (const btrfsbackup::ValidationError&) {
     }
     try {
-        static_cast<void>(service.start(":1.5", request(), -1));
+        static_cast<void>(service.start(":1.5", 1000, request(), -1));
         test_helpers::fail("invalid descriptor", "invalid descriptor was accepted");
     } catch (const btrfsbackup::ValidationError&) {
     }

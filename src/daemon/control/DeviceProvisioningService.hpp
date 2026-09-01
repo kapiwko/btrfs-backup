@@ -49,7 +49,13 @@ struct DevicePreparationStatus {
     std::string state;
     std::string phase;
     std::string error_code;
+    std::string recovery_action;
     bool can_cancel = false;
+};
+
+struct DevicePreparationOwner {
+    std::string bus_name;
+    std::uint32_t uid = 0;
 };
 
 class IDeviceProvisioningBackend {
@@ -63,9 +69,14 @@ class IDeviceProvisioningBackend {
     [[nodiscard]] virtual DevicePreparationStatus start(
         const DevicePreparationRequest& request,
         const ProvisioningDevice& expected_device,
+        const DevicePreparationOwner& owner,
         int passphrase_fd
     ) = 0;
     [[nodiscard]] virtual DevicePreparationStatus status(const std::string& operation_id) const = 0;
+    [[nodiscard]] virtual bool owned_by(
+        const std::string& operation_id,
+        const DevicePreparationOwner& owner
+    ) const = 0;
     virtual void cancel(const std::string& operation_id) = 0;
 };
 
@@ -85,14 +96,16 @@ class DeviceProvisioningService final {
     [[nodiscard]] std::vector<std::string> list_source_candidates(const std::string& caller);
     [[nodiscard]] DevicePreparationStatus start(
         const std::string& caller,
+        std::uint32_t caller_uid,
         const DevicePreparationRequest& request,
         int passphrase_fd
     );
     [[nodiscard]] DevicePreparationStatus status(
         const std::string& caller,
+        std::uint32_t caller_uid,
         const std::string& operation_id
     ) const;
-    void cancel(const std::string& caller, const std::string& operation_id);
+    void cancel(const std::string& caller, std::uint32_t caller_uid, const std::string& operation_id);
 
   private:
     struct Candidate {
@@ -112,6 +125,7 @@ class DeviceProvisioningService final {
     void authorize(const std::string& caller, std::string_view method) const;
     void authorize_owner_or_admin(
         const std::string& caller,
+        std::uint32_t caller_uid,
         const std::string& operation_id,
         std::string_view method
     ) const;
@@ -122,8 +136,6 @@ class DeviceProvisioningService final {
     ProvisioningCandidateClock clock_;
     std::mutex candidates_mutex_;
     std::map<std::string, Candidate> candidates_;
-    mutable std::mutex owners_mutex_;
-    std::map<std::string, std::string> operation_owners_;
 };
 
 } // namespace btrfsbackup::daemon::control

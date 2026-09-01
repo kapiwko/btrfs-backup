@@ -68,11 +68,20 @@ occupied slots, unknown slots cannot be removed through the KCM, and the last
 credential or the current automatic credential cannot be removed.
 
 Device preparation has its own `io.github.btrfsbackup.prepare-backup-device`
-polkit action without retained authorization. The daemon rejects mounted disks,
-compares the selected path, size and serial after authorization, verifies the
-chosen source as a Btrfs subvolume, and disables cancellation before signature
-erasure. Formatting runs as a phase-tracked background operation; no QML or KDE
-process invokes `wipefs`, `sfdisk`, `cryptsetup` or `mkfs.btrfs` directly.
+polkit action without retained authorization. The daemon binds a short-lived
+random candidate identifier to a complete device identity and revalidates the
+block graph and active users immediately before signature erasure. It verifies
+the chosen source as a Btrfs subvolume and disables cancellation before the
+first write. Formatting runs as a phase-tracked background operation; no QML or
+KDE process invokes `wipefs`, `sfdisk`, `cryptsetup` or `mkfs.btrfs` directly.
+
+Preparation operation identifiers contain 128 random bits supplied by
+`getrandom()`. The manager persists the initiating D-Bus unique name and UID in
+a root-only transaction record. Status and cancellation require the matching
+owner (the UID is used after a daemon restart) or a fresh administrator
+authorization. Transaction files use mode `0600` in a `0700` directory and are
+updated using a same-directory atomic rename followed by file and parent
+directory synchronization.
 
 Every external command receives a newly built environment containing only
 `PATH=/usr/bin`, `LANG=C.UTF-8`, `LC_ALL=C.UTF-8`, and `HOME=/root`. Variables
