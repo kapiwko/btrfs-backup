@@ -20,11 +20,14 @@ using btrfsbackup::daemon::control::ProvisioningDevice;
 class Authorizer final : public IManagerAuthorizer {
   public:
     bool allowed = true;
+    bool active = true;
+    std::vector<ManagerAuthorizationAction> actions;
     bool authorize(const std::string&, ManagerAuthorizationAction action) override {
+        actions.push_back(action);
         return allowed && action == ManagerAuthorizationAction::PrepareBackupDevice;
     }
     bool caller_is_active(const std::string&) override {
-        return true;
+        return active;
     }
 };
 
@@ -58,14 +61,62 @@ void test_authorized_start_and_status() {
     Authorizer authorizer;
     Backend backend;
     DeviceProvisioningService service(authorizer, backend);
-    const auto devices = service.list_devices();
+    const auto devices = service.list_devices(":1.5");
     test_helpers::expect_true("device list", devices.size() == 1, "candidate missing");
     const auto started = service.start(":1.5", request(), 17);
     test_helpers::expect_eq("operation id", started.operation_id, "prepare-1");
     test_helpers::expect_true("secret descriptor", backend.received_fd == 17, "descriptor not forwarded");
-    test_helpers::expect_eq("operation phase", service.status("prepare-1").phase, "partition");
+    test_helpers::expect_eq("operation phase", service.status(":1.5", "prepare-1").phase, "partition");
     service.cancel(":1.5", "prepare-1");
     test_helpers::expect_true("cancel", backend.cancelled, "cancel not forwarded");
+}
+
+void test_inspection_requires_device_authorization() {
+    Authorizer authorizer;
+    authorizer.allowed = false;
+    Backend backend;
+    DeviceProvisioningService service(authorizer, backend);
+    try {
+        static_cast<void>(service.list_devices(":1.6"));
+        test_helpers::fail("denied device listing", "listing was accepted");
+    } catch (const btrfsbackup::daemon::dbus::ManagerOperationError&) {
+    }
+    try {
+        static_cast<void>(service.list_source_candidates(":1.6"));
+        test_helpers::fail("denied source listing", "listing was accepted");
+    } catch (const btrfsbackup::daemon::dbus::ManagerOperationError&) {
+    }
+}
+
+void test_operation_access_is_limited_to_owner_or_admin() {
+    Authorizer authorizer;
+    Backend backend;
+    DeviceProvisioningService service(authorizer, backend);
+    const auto started = service.start(":1.7", request(), 17);
+
+    authorizer.allowed = false;
+    test_helpers::expect_eq(
+        "owner status",
+        service.status(":1.7", started.operation_id).operation_id,
+        started.operation_id
+    );
+    try {
+        static_cast<void>(service.status(":1.8", started.operation_id));
+        test_helpers::fail("foreign status", "status was disclosed");
+    } catch (const btrfsbackup::daemon::dbus::ManagerOperationError&) {
+    }
+    try {
+        service.cancel(":1.8", started.operation_id);
+        test_helpers::fail("foreign cancellation", "cancellation was accepted");
+    } catch (const btrfsbackup::daemon::dbus::ManagerOperationError&) {
+    }
+
+    authorizer.allowed = true;
+    test_helpers::expect_eq(
+        "administrator status",
+        service.status(":1.8", started.operation_id).operation_id,
+        started.operation_id
+    );
 }
 
 void test_denied_start() {
@@ -101,6 +152,8 @@ void test_invalid_request_is_rejected_before_backend() {
 
 int main() {
     test_authorized_start_and_status();
+    test_inspection_requires_device_authorization();
+    test_operation_access_is_limited_to_owner_or_admin();
     test_denied_start();
     test_invalid_request_is_rejected_before_backend();
     return test_helpers::finish("device provisioning service tests");
