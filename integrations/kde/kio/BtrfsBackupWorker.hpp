@@ -3,18 +3,19 @@
 
 #pragma once
 
-#include <KIO/ForwardingWorkerBase>
+#include <KIO/WorkerBase>
 
 #include <QHash>
 #include <QUrl>
 
+#include <memory>
 #include <optional>
 
 #include <restore/RepositoryCatalog.hpp>
 
-class BtrfsBackupWorker final : public KIO::ForwardingWorkerBase {
-    Q_OBJECT
+#include "SecureBrowsePath.hpp"
 
+class BtrfsBackupWorker final : public KIO::WorkerBase {
   public:
     BtrfsBackupWorker(const QByteArray& pool, const QByteArray& app);
     ~BtrfsBackupWorker() noexcept override;
@@ -22,6 +23,9 @@ class BtrfsBackupWorker final : public KIO::ForwardingWorkerBase {
     KIO::WorkerResult listDir(const QUrl& url) override;
     KIO::WorkerResult get(const QUrl& url) override;
     KIO::WorkerResult open(const QUrl& url, QIODevice::OpenMode mode) override;
+    KIO::WorkerResult read(KIO::filesize_t size) override;
+    KIO::WorkerResult seek(KIO::filesize_t offset) override;
+    KIO::WorkerResult close() override;
     KIO::WorkerResult stat(const QUrl& url) override;
     KIO::WorkerResult mimetype(const QUrl& url) override;
     KIO::WorkerResult put(const QUrl&, int, KIO::JobFlags) override;
@@ -34,13 +38,10 @@ class BtrfsBackupWorker final : public KIO::ForwardingWorkerBase {
     KIO::WorkerResult copy(const QUrl&, const QUrl&, int, KIO::JobFlags) override;
     KIO::WorkerResult del(const QUrl&, bool) override;
 
-  protected:
-    bool rewriteUrl(const QUrl& url, QUrl& local_url) override;
-
   private:
     struct Session {
         QString id;
-        QString root;
+        std::shared_ptr<btrfsbackup::kde::kio::SecureBrowseFile> root_descriptor;
         std::optional<btrfsbackup::restore::RepositoryCatalog> catalog;
     };
     struct ParsedUrl {
@@ -51,6 +52,12 @@ class BtrfsBackupWorker final : public KIO::ForwardingWorkerBase {
 
     static std::optional<ParsedUrl> parse(const QUrl& url);
     Session* session(const QString& profile);
+    [[nodiscard]] std::optional<std::filesystem::path> resolve_entry(
+        const ParsedUrl& url,
+        const Session& session
+    ) const;
+    [[nodiscard]] bool session_root_available(const Session& session) const;
+    void close_open_file() noexcept;
     KIO::WorkerResult list_profiles();
     KIO::WorkerResult list_snapshots(const QString& profile);
     KIO::WorkerResult list_repository_directory(const QUrl& url);
@@ -59,4 +66,6 @@ class BtrfsBackupWorker final : public KIO::ForwardingWorkerBase {
     void close_sessions() noexcept;
 
     QHash<QString, Session> sessions_;
+    btrfsbackup::kde::kio::SecureBrowseFile open_file_;
+    QString open_session_id_;
 };
