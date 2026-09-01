@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include <daemon/control/CredentialAdministrationService.hpp>
+#include <daemon/control/CommandSystemdUnitController.hpp>
 #include <daemon/control/DestructiveDeviceSafetyInspector.hpp>
 #include <daemon/control/DevicePreparationTransaction.hpp>
 #include <daemon/control/DevicePreparationUnitController.hpp>
@@ -82,7 +83,8 @@ int run_device_preparation(int argc, char** argv) {
             activator
         );
         btrfsbackup::daemon::control::DestructiveDeviceSafetyInspector safety(commands);
-        btrfsbackup::daemon::control::SystemdDevicePreparationUnitController units(commands);
+        btrfsbackup::daemon::control::CommandSystemdUnitController systemd_units(commands);
+        btrfsbackup::daemon::control::SystemdDevicePreparationUnitController units(systemd_units);
         btrfsbackup::daemon::control::SystemDeviceProvisioningBackend backend(
             roots,
             paths.target_mount_root,
