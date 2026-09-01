@@ -8,12 +8,14 @@ file(READ "${PROJECT_SOURCE_DIR}/data/polkit/io.github.btrfsbackup.policy" manag
 file(READ "${PROJECT_SOURCE_DIR}/src/core/ManagerProtocol.hpp" manager_protocol)
 file(READ "${PROJECT_SOURCE_DIR}/src/daemon/control/OperationalControlService.cpp" manager_authorization_map)
 file(READ "${PROJECT_SOURCE_DIR}/src/daemon/dbus/ManagerDbusObject.cpp" manager_vtable)
+file(READ "${PROJECT_SOURCE_DIR}/src/daemon/dbus/ManagerProvisioningMethods.cpp" manager_provisioning_methods)
 file(READ "${PROJECT_SOURCE_DIR}/src/daemon/dbus/ManagerJsonCodec.cpp" manager_json_codec)
 file(READ "${PROJECT_SOURCE_DIR}/integrations/kde/kcm/DeviceProvisioningModel.cpp" provisioning_kcm)
 string(REGEX REPLACE "[ \t\r\n]+" "" compact_xml "${manager_xml}")
 string(REGEX REPLACE "[ \t\r\n]+" "" compact_bus_policy "${manager_bus_policy}")
 string(REGEX REPLACE "[ \t\r\n]+" "" compact_polkit_policy "${manager_polkit_policy}")
 string(REGEX REPLACE "[ \t\r\n]+" "" compact_authorization_map "${manager_authorization_map}")
+string(REGEX REPLACE "[ \t\r\n]+" "" compact_manager_vtable "${manager_vtable}")
 string(REGEX REPLACE "[ \t\r\n]+" "" compact_manager_json_codec "${manager_json_codec}")
 string(REGEX REPLACE "[ \t\r\n]+" "" compact_provisioning_kcm "${provisioning_kcm}")
 
@@ -82,6 +84,50 @@ function(assert_signal identifier name signature xml_fragment)
     )
     assert_contains("${compact_xml}" "${xml_fragment}" "the ${name} XML declaration")
 endfunction()
+
+function(assert_delegated_methods group)
+    foreach(method IN LISTS ARGN)
+        assert_contains(
+            "${compact_manager_vtable}"
+            "->${group}().${method}(message,error);"
+            "the ${method} delegation to ${group}"
+        )
+    endforeach()
+endfunction()
+
+assert_not_contains(
+    "${manager_vtable}"
+    "sd_bus_message_read"
+    "D-Bus argument parsing in the vtable owner"
+)
+assert_delegated_methods(
+    read_methods
+    get_capabilities list_profiles get_status get_history_sanitized get_device_state
+)
+assert_delegated_methods(
+    operational_methods
+    start_backup cancel_backup validate_target eject_target
+)
+assert_delegated_methods(
+    profile_methods
+    get_profile_details update_profile_settings add_profile_source update_profile_source
+    remove_profile_source delete_profile set_profile_enabled
+)
+assert_delegated_methods(
+    browse_methods
+    open_browse_session renew_browse_session set_browse_session_active close_browse_session
+    resolve_backup_coverage
+)
+assert_delegated_methods(
+    credential_methods
+    list_target_credentials add_target_passphrase add_target_key generate_target_key
+    remove_target_credential
+)
+assert_delegated_methods(
+    provisioning_methods
+    list_provisioning_devices list_source_candidates start_device_preparation
+    get_device_preparation cancel_device_preparation
+)
 
 assert_contains(
     "${compact_xml}"
@@ -235,7 +281,7 @@ assert_contains(
     "the provisioning candidate identifier response"
 )
 assert_contains(
-    "${manager_vtable}"
+    "${manager_provisioning_methods}"
     ".candidate_id = request.value(\"candidateId\", \"\")"
     "the daemon provisioning candidate request"
 )
@@ -245,7 +291,7 @@ assert_contains(
     "the KCM provisioning candidate request"
 )
 foreach(legacy_field IN ITEMS devicePath expectedSerial expectedSizeBytes)
-    assert_not_contains("${manager_vtable}" "${legacy_field}" "legacy daemon field ${legacy_field}")
+    assert_not_contains("${manager_provisioning_methods}" "${legacy_field}" "legacy daemon field ${legacy_field}")
     assert_not_contains("${provisioning_kcm}" "${legacy_field}" "legacy KCM field ${legacy_field}")
 endforeach()
 
