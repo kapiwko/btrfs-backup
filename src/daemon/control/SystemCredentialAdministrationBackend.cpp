@@ -143,7 +143,15 @@ platform::linux::storage::LuksHeader inspect_target(
     platform::linux::storage::ICryptsetupOperations& cryptsetup,
     const config::Profile& profile
 ) {
-    const auto header = cryptsetup.inspect_luks2(profile.target.device.value());
+    platform::linux::storage::LuksHeader header;
+    try {
+        header = cryptsetup.inspect_luks2(profile.target.device.value());
+    } catch (const ValidationError&) {
+        throw dbus::ManagerOperationError(
+            dbus::ManagerErrorCode::TargetUnavailable,
+            "backup target cannot be inspected"
+        );
+    }
     if (header.uuid != profile.target.luks_uuid.value())
         throw dbus::ManagerOperationError(dbus::ManagerErrorCode::Conflict, "LUKS target identity changed");
     return header;
