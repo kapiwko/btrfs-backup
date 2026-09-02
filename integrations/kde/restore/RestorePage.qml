@@ -3,7 +3,6 @@
 
 import QtQuick
 import QtQuick.Controls as QQC2
-import QtQuick.Dialogs
 import QtQuick.Layouts
 import org.kde.ki18n as KI18n
 import org.kde.kirigami as Kirigami
@@ -12,7 +11,6 @@ Kirigami.Page {
     id: root
 
     required property var controller
-    property bool destinationDialogEnabled: true
     title: translations.i18n("Restore from backup")
 
     KI18n.KI18nContext {
@@ -42,9 +40,8 @@ Kirigami.Page {
                     text: root.controller.destination
                     icon.name: "folder-open-symbolic"
                     display: QQC2.AbstractButton.TextBesideIcon
-                    enabled: destinationDialogLoader.item !== null
                     Accessible.name: translations.i18n("Choose destination")
-                    onClicked: destinationDialogLoader.item.open()
+                    onClicked: root.controller.chooseDestination()
                     QQC2.ToolTip.visible: hovered
                     QQC2.ToolTip.text: root.controller.destination
                 }
@@ -130,12 +127,4 @@ Kirigami.Page {
         }
     }
 
-    Loader {
-        id: destinationDialogLoader
-        active: root.destinationDialogEnabled
-        sourceComponent: FolderDialog {
-            currentFolder: "file://" + root.controller.destination.substring(0, root.controller.destination.lastIndexOf("/"))
-            onAccepted: root.controller.destination = selectedFolder.toString().replace(/^file:\/\//, "") + "/" + root.controller.sourceName
-        }
-    }
 }

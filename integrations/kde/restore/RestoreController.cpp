@@ -8,6 +8,8 @@
 
 #include <KLocalizedString>
 #include <KNotification>
+#include <KFileCustomDialog>
+#include <KFileWidget>
 
 #include <QDBusPendingReply>
 #include <QDir>
@@ -241,6 +243,19 @@ bool RestoreController::prepare_plan() {
 
 bool RestoreController::preview() {
     return prepare_plan();
+}
+
+void RestoreController::chooseDestination() {
+    const QFileInfo current(destination_);
+    KFileCustomDialog dialog(QUrl::fromLocalFile(current.absolutePath()));
+    dialog.setWindowTitle(i18n("Choose restore destination"));
+    dialog.setOperationMode(KFileWidget::Opening);
+    dialog.fileWidget()->setMode(KFile::Directory | KFile::LocalOnly);
+    if (dialog.exec() != QDialog::Accepted)
+        return;
+    const QUrl selected = dialog.fileWidget()->selectedUrl();
+    if (selected.isLocalFile())
+        setDestination(QDir(selected.toLocalFile()).filePath(sourceName()));
 }
 
 bool RestoreController::confirmOverwrite() {

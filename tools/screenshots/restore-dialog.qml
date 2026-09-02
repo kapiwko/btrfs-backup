@@ -25,6 +25,7 @@ Window {
         property bool busy: false
 
         function preview() {}
+        function chooseDestination() {}
         function execute() {}
         function cancel() {}
     }
@@ -36,10 +37,7 @@ Window {
         asynchronous: true
         Component.onCompleted: setSource(
             Qt.resolvedUrl("../../integrations/kde/restore/RestorePage.qml"),
-            {
-                "controller": fakeController,
-                "destinationDialogEnabled": false
-            }
+            {"controller": fakeController}
         )
     }
 
