@@ -16,6 +16,17 @@ struct PlannedPartitionGeometry {
     bool operator==(const PlannedPartitionGeometry&) const = default;
 };
 
+enum class PartitionCreationState {
+    NotCreated,
+    Created,
+    Conflict,
+};
+
+struct PartitionCreationInspection {
+    PartitionCreationState state = PartitionCreationState::Conflict;
+    std::filesystem::path partition;
+};
+
 class IPartitionTableOperations {
   public:
     virtual ~IPartitionTableOperations() = default;
@@ -32,6 +43,15 @@ class IPartitionTableOperations {
         std::uint32_t expected_logical_sector_size,
         std::uint64_t free_start_sector,
         std::uint64_t free_sector_count
+    ) const = 0;
+    [[nodiscard]] virtual PartitionCreationInspection inspect_partition_creation(
+        const std::filesystem::path& device,
+        const std::string& expected_major_minor,
+        const std::string& expected_partition_table_id,
+        std::uint32_t expected_logical_sector_size,
+        std::uint64_t original_free_start_sector,
+        std::uint64_t original_free_sector_count,
+        const PlannedPartitionGeometry& geometry
     ) const = 0;
     [[nodiscard]] virtual std::filesystem::path create_partition_in_free_space(
         const std::filesystem::path& device,
@@ -63,6 +83,15 @@ class LibfdiskPartitionTableOperations final : public IPartitionTableOperations 
         std::uint32_t expected_logical_sector_size,
         std::uint64_t free_start_sector,
         std::uint64_t free_sector_count
+    ) const override;
+    [[nodiscard]] PartitionCreationInspection inspect_partition_creation(
+        const std::filesystem::path& device,
+        const std::string& expected_major_minor,
+        const std::string& expected_partition_table_id,
+        std::uint32_t expected_logical_sector_size,
+        std::uint64_t original_free_start_sector,
+        std::uint64_t original_free_sector_count,
+        const PlannedPartitionGeometry& geometry
     ) const override;
     [[nodiscard]] std::filesystem::path create_partition_in_free_space(
         const std::filesystem::path& device,

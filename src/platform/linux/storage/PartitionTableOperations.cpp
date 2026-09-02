@@ -106,6 +106,40 @@ std::optional<std::uint64_t> parse_unsigned(const char* value) {
     return result;
 }
 
+std::optional<std::filesystem::path> find_exact_partition(
+    udev* udev_context,
+    dev_t parent_device,
+    std::uint64_t partition_number,
+    std::uint64_t start_512_sectors,
+    std::uint64_t size_512_sectors
+) {
+    OwnedUdevEnumerate enumeration(udev_enumerate_new(udev_context));
+    if (!enumeration || udev_enumerate_add_match_subsystem(enumeration.get(), "block") < 0 ||
+        udev_enumerate_scan_devices(enumeration.get()) < 0)
+        throw ValidationError("cannot enumerate created partition");
+    udev_list_entry* devices = udev_enumerate_get_list_entry(enumeration.get());
+    udev_list_entry* entry = nullptr;
+    udev_list_entry_foreach(entry, devices) {
+        const char* syspath = udev_list_entry_get_name(entry);
+        OwnedUdevDevice candidate(udev_device_new_from_syspath(udev_context, syspath));
+        if (!candidate)
+            continue;
+        const char* device_type = udev_device_get_devtype(candidate.get());
+        if (device_type == nullptr || std::string_view(device_type) != "partition")
+            continue;
+        udev_device* parent = udev_device_get_parent_with_subsystem_devtype(candidate.get(), "block", "disk");
+        if (parent == nullptr || udev_device_get_devnum(parent) != parent_device)
+            continue;
+        const auto number = parse_unsigned(udev_device_get_sysattr_value(candidate.get(), "partition"));
+        const auto start = parse_unsigned(udev_device_get_sysattr_value(candidate.get(), "start"));
+        const auto size = parse_unsigned(udev_device_get_sysattr_value(candidate.get(), "size"));
+        if (number == partition_number && start == start_512_sectors && size == size_512_sectors &&
+            udev_device_get_devnode(candidate.get()) != nullptr)
+            return std::filesystem::path(udev_device_get_devnode(candidate.get()));
+    }
+    return std::nullopt;
+}
+
 class PartitionAppearanceMonitor final {
   public:
     explicit PartitionAppearanceMonitor(dev_t parent) : parent_(parent), udev_(udev_new()) {
@@ -163,31 +197,13 @@ class PartitionAppearanceMonitor final {
         std::uint64_t start_512_sectors,
         std::uint64_t size_512_sectors
     ) const {
-        OwnedUdevEnumerate enumeration(udev_enumerate_new(udev_.get()));
-        if (!enumeration || udev_enumerate_add_match_subsystem(enumeration.get(), "block") < 0 ||
-            udev_enumerate_scan_devices(enumeration.get()) < 0)
-            throw ValidationError("cannot enumerate created partition");
-        udev_list_entry* devices = udev_enumerate_get_list_entry(enumeration.get());
-        udev_list_entry* entry = nullptr;
-        udev_list_entry_foreach(entry, devices) {
-            const char* syspath = udev_list_entry_get_name(entry);
-            OwnedUdevDevice candidate(udev_device_new_from_syspath(udev_.get(), syspath));
-            if (!candidate)
-                continue;
-            const char* device_type = udev_device_get_devtype(candidate.get());
-            if (device_type == nullptr || std::string_view(device_type) != "partition")
-                continue;
-            udev_device* parent = udev_device_get_parent_with_subsystem_devtype(candidate.get(), "block", "disk");
-            if (parent == nullptr || udev_device_get_devnum(parent) != parent_)
-                continue;
-            const auto number = parse_unsigned(udev_device_get_sysattr_value(candidate.get(), "partition"));
-            const auto start = parse_unsigned(udev_device_get_sysattr_value(candidate.get(), "start"));
-            const auto size = parse_unsigned(udev_device_get_sysattr_value(candidate.get(), "size"));
-            if (number == partition_number && start == start_512_sectors && size == size_512_sectors &&
-                udev_device_get_devnode(candidate.get()) != nullptr)
-                return std::filesystem::path(udev_device_get_devnode(candidate.get()));
-        }
-        return std::nullopt;
+        return find_exact_partition(
+            udev_.get(),
+            parent_,
+            partition_number,
+            start_512_sectors,
+            size_512_sectors
+        );
     }
 
     dev_t parent_;
@@ -243,15 +259,11 @@ void validate_gpt_identity(
         throw ValidationError("partition table identity changed");
 }
 
-void validate_gpt_free_region(
+bool has_exact_free_region(
     fdisk_context* context,
-    const std::string& expected_partition_table_id,
-    std::uint32_t expected_logical_sector_size,
     std::uint64_t free_start_sector,
     std::uint64_t free_sector_count
 ) {
-    validate_gpt_identity(context, expected_partition_table_id, expected_logical_sector_size);
-
     fdisk_table* raw_free_spaces = nullptr;
     require_success(fdisk_get_freespaces(context, &raw_free_spaces), "reading unallocated space");
     OwnedTable free_spaces(raw_free_spaces);
@@ -260,9 +272,21 @@ void validate_gpt_free_region(
         if (region != nullptr && fdisk_partition_has_start(region) && fdisk_partition_has_size(region) &&
             fdisk_partition_get_start(region) == free_start_sector &&
             fdisk_partition_get_size(region) == free_sector_count)
-            return;
+            return true;
     }
-    throw ValidationError("selected unallocated region changed");
+    return false;
+}
+
+void validate_gpt_free_region(
+    fdisk_context* context,
+    const std::string& expected_partition_table_id,
+    std::uint32_t expected_logical_sector_size,
+    std::uint64_t free_start_sector,
+    std::uint64_t free_sector_count
+) {
+    validate_gpt_identity(context, expected_partition_table_id, expected_logical_sector_size);
+    if (!has_exact_free_region(context, free_start_sector, free_sector_count))
+        throw ValidationError("selected unallocated region changed");
 }
 
 void validate_free_space_request(
@@ -274,6 +298,19 @@ void validate_free_space_request(
     if (expected_partition_table_id.empty() || expected_logical_sector_size == 0 || free_sector_count == 0 ||
         free_start_sector > std::numeric_limits<std::uint64_t>::max() - (free_sector_count - 1))
         throw ValidationError("free-space partition request is incomplete");
+}
+
+bool regions_overlap(
+    std::uint64_t left_start,
+    std::uint64_t left_size,
+    std::uint64_t right_start,
+    std::uint64_t right_size
+) {
+    if (left_size == 0 || right_size == 0)
+        return false;
+    return left_start <= right_start
+        ? right_start - left_start < left_size
+        : left_start - right_start < right_size;
 }
 
 } // namespace
@@ -407,6 +444,104 @@ PlannedPartitionGeometry LibfdiskPartitionTableOperations::plan_partition_in_fre
             .sector_count = partition_size,
             .partition_number = static_cast<std::uint32_t>(partition_number + 1),
         };
+        require_success(fdisk_deassign_device(context.get(), 1), "releasing partition table device");
+        return result;
+    } catch (...) {
+        if (fdisk_get_devfd(context.get()) >= 0)
+            static_cast<void>(fdisk_deassign_device(context.get(), 1));
+        throw;
+    }
+}
+
+PartitionCreationInspection LibfdiskPartitionTableOperations::inspect_partition_creation(
+    const std::filesystem::path& device,
+    const std::string& expected_major_minor,
+    const std::string& expected_partition_table_id,
+    std::uint32_t expected_logical_sector_size,
+    std::uint64_t original_free_start_sector,
+    std::uint64_t original_free_sector_count,
+    const PlannedPartitionGeometry& geometry
+) const {
+    validate_device_path(device);
+    validate_free_space_request(
+        expected_partition_table_id,
+        expected_logical_sector_size,
+        original_free_start_sector,
+        original_free_sector_count
+    );
+    const std::uint64_t free_end = original_free_start_sector + original_free_sector_count - 1;
+    if (geometry.partition_number == 0 || geometry.sector_count == 0 ||
+        geometry.start_sector < original_free_start_sector || geometry.start_sector > free_end ||
+        geometry.sector_count > free_end - geometry.start_sector + 1)
+        throw ValidationError("planned partition geometry exceeds the selected free region");
+    const auto [expected_major, expected_minor] = parse_major_minor(expected_major_minor);
+    OwnedFileDescriptor descriptor(::open(device.c_str(), O_RDONLY | O_CLOEXEC | O_NOFOLLOW));
+    if (!descriptor.valid())
+        throw ValidationError("cannot open partition table device for inspection");
+    struct stat status{};
+    if (::fstat(descriptor.get(), &status) != 0 || !S_ISBLK(status.st_mode))
+        throw ValidationError("partition table target is not a block device");
+    if (major(status.st_rdev) != expected_major || minor(status.st_rdev) != expected_minor)
+        throw ValidationError("partition table device identity changed");
+    if (::flock(descriptor.get(), LOCK_SH | LOCK_NB) != 0)
+        throw ValidationError("partition table device is locked by another process");
+
+    OwnedContext context(fdisk_new_context());
+    if (!context)
+        throw ValidationError("cannot allocate libfdisk context");
+    require_success(
+        fdisk_assign_device_by_fd(context.get(), descriptor.get(), device.c_str(), 1),
+        "assigning partition table device"
+    );
+    try {
+        require_success(fdisk_disable_dialogs(context.get(), 1), "disabling libfdisk dialogs");
+        validate_gpt_identity(context.get(), expected_partition_table_id, expected_logical_sector_size);
+        fdisk_table* raw_partitions = nullptr;
+        require_success(fdisk_get_partitions(context.get(), &raw_partitions), "reading GPT partitions");
+        OwnedTable partitions(raw_partitions);
+        bool exact_partition = false;
+        bool conflict = false;
+        for (std::size_t index = 0; index < fdisk_table_get_nents(partitions.get()); ++index) {
+            fdisk_partition* partition = fdisk_table_get_partition(partitions.get(), index);
+            if (partition == nullptr || !fdisk_partition_has_partno(partition) ||
+                !fdisk_partition_has_start(partition) || !fdisk_partition_has_size(partition))
+                continue;
+            const std::size_t partno = fdisk_partition_get_partno(partition) + 1;
+            const std::uint64_t start = fdisk_partition_get_start(partition);
+            const std::uint64_t size = fdisk_partition_get_size(partition);
+            const bool exact = partno == geometry.partition_number && start == geometry.start_sector &&
+                size == geometry.sector_count;
+            exact_partition = exact_partition || exact;
+            conflict = conflict || (!exact && (partno == geometry.partition_number || regions_overlap(start, size, geometry.start_sector, geometry.sector_count)));
+        }
+
+        PartitionCreationInspection result;
+        if (exact_partition && !conflict) {
+            const std::uint64_t sector_ratio = expected_logical_sector_size / 512;
+            if (expected_logical_sector_size % 512 != 0 || sector_ratio == 0 ||
+                geometry.start_sector > std::numeric_limits<std::uint64_t>::max() / sector_ratio ||
+                geometry.sector_count > std::numeric_limits<std::uint64_t>::max() / sector_ratio)
+                throw ValidationError("partition table sector size is unsupported");
+            OwnedUdev udev_context(udev_new());
+            if (!udev_context)
+                throw ValidationError("cannot initialize udev partition inspection");
+            const auto partition_path = find_exact_partition(
+                udev_context.get(),
+                status.st_rdev,
+                geometry.partition_number,
+                geometry.start_sector * sector_ratio,
+                geometry.sector_count * sector_ratio
+            );
+            result.state = partition_path.has_value()
+                ? PartitionCreationState::Created
+                : PartitionCreationState::Conflict;
+            if (partition_path.has_value())
+                result.partition = *partition_path;
+        } else if (!conflict && has_exact_free_region(context.get(), original_free_start_sector, original_free_sector_count)) {
+            result.state = PartitionCreationState::NotCreated;
+        } else {
+            result.state = PartitionCreationState::Conflict;
+        }
         require_success(fdisk_deassign_device(context.get(), 1), "releasing partition table device");
         return result;
     } catch (...) {
