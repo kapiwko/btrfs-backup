@@ -499,6 +499,41 @@ void DevicePreparationExecutor::recover(const std::string& operation_id) {
     DevicePreparationTransaction transaction = transactions_.load(operation_id);
     if (transaction.status.state != "interrupted")
         throw ValidationError("device preparation transaction does not require cleanup");
+    if (transaction.target.mode == provisioning::ProvisioningMode::EraseWholeDevice &&
+        transaction.partition.empty() && transaction.last_completed_phase == "wipe-signatures" &&
+        !transaction.partition_table_backup.empty()) {
+        try {
+            const auto& planned = *transaction.target.planned_partition_geometry;
+            const auto inspection = partition_tables_.inspect_single_gpt_partition(
+                transaction.device.path,
+                transaction.device.major_minor,
+                transaction.target.device.logical_sector_size,
+                {
+                    .start_sector = planned.start_sector,
+                    .sector_count = planned.sector_count,
+                    .partition_number = planned.partition_number,
+                }
+            );
+            if (inspection.state == platform::linux::storage::PartitionCreationState::Created) {
+                transaction.partition = inspection.partition.string();
+                transaction.last_completed_phase = "partition";
+                transaction.cleanup_result = "partition-detected";
+                transaction.status.recovery_action =
+                    "The planned replacement GPT and partition exist. Inspect them before continuing manually.";
+            } else {
+                transaction.cleanup_result = "partition-state-conflict";
+                transaction.status.recovery_action =
+                    "The replacement GPT does not exactly match the saved plan. Inspect the saved partition table backup manually.";
+            }
+        } catch (...) {
+            transaction.cleanup_result = "partition-inspection-failed";
+            transaction.status.recovery_action =
+                "The replacement GPT could not be verified. Inspect the saved partition table backup manually.";
+        }
+        transaction.updated_at = system_time_seconds();
+        transactions_.save(transaction);
+        return;
+    }
     if (transaction.target.mode == provisioning::ProvisioningMode::CreatePartitionInUnallocatedSpace &&
         transaction.partition.empty() && transaction.last_completed_phase == "backup-partition-table" &&
         !transaction.partition_table_backup.empty()) {

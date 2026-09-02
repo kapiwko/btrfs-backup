@@ -647,6 +647,90 @@ PartitionCreationInspection LibfdiskPartitionTableOperations::inspect_partition_
     }
 }
 
+PartitionCreationInspection LibfdiskPartitionTableOperations::inspect_single_gpt_partition(
+    const std::filesystem::path& device,
+    const std::string& expected_major_minor,
+    std::uint32_t expected_logical_sector_size,
+    const PlannedPartitionGeometry& geometry
+) const {
+    validate_device_path(device);
+    if (expected_logical_sector_size == 0 || geometry.partition_number == 0 || geometry.sector_count == 0)
+        throw ValidationError("whole-device partition inspection request is incomplete");
+    const auto [expected_major, expected_minor] = parse_major_minor(expected_major_minor);
+    OwnedFileDescriptor descriptor(::open(device.c_str(), O_RDONLY | O_CLOEXEC | O_NOFOLLOW));
+    if (!descriptor.valid())
+        throw ValidationError("cannot open partition table device for inspection");
+    struct stat status{};
+    if (::fstat(descriptor.get(), &status) != 0 || !S_ISBLK(status.st_mode))
+        throw ValidationError("partition table target is not a block device");
+    if (major(status.st_rdev) != expected_major || minor(status.st_rdev) != expected_minor)
+        throw ValidationError("partition table device identity changed");
+    if (::flock(descriptor.get(), LOCK_SH | LOCK_NB) != 0)
+        throw ValidationError("partition table device is locked by another process");
+
+    OwnedContext context(fdisk_new_context());
+    if (!context)
+        throw ValidationError("cannot allocate libfdisk context");
+    require_success(
+        fdisk_assign_device_by_fd(context.get(), descriptor.get(), device.c_str(), 1),
+        "assigning partition table device"
+    );
+    try {
+        require_success(fdisk_disable_dialogs(context.get(), 1), "disabling libfdisk dialogs");
+        if (fdisk_get_sector_size(context.get()) != expected_logical_sector_size ||
+            !fdisk_is_label(context.get(), GPT)) {
+            require_success(fdisk_deassign_device(context.get(), 1), "releasing partition table device");
+            return {};
+        }
+        fdisk_table* raw_partitions = nullptr;
+        require_success(fdisk_get_partitions(context.get(), &raw_partitions), "reading GPT partitions");
+        OwnedTable partitions(raw_partitions);
+        bool exact_partition = false;
+        bool conflict = false;
+        for (std::size_t index = 0; index < fdisk_table_get_nents(partitions.get()); ++index) {
+            fdisk_partition* partition = fdisk_table_get_partition(partitions.get(), index);
+            if (partition == nullptr || !fdisk_partition_has_partno(partition) ||
+                !fdisk_partition_has_start(partition) || !fdisk_partition_has_size(partition)) {
+                conflict = true;
+                continue;
+            }
+            const bool exact = fdisk_partition_get_partno(partition) + 1 == geometry.partition_number &&
+                fdisk_partition_get_start(partition) == geometry.start_sector &&
+                fdisk_partition_get_size(partition) == geometry.sector_count;
+            exact_partition = exact_partition || exact;
+            conflict = conflict || !exact;
+        }
+        PartitionCreationInspection result;
+        if (exact_partition && !conflict && fdisk_table_get_nents(partitions.get()) == 1) {
+            const std::uint64_t sector_ratio = expected_logical_sector_size / 512;
+            if (expected_logical_sector_size % 512 != 0 || sector_ratio == 0 ||
+                geometry.start_sector > std::numeric_limits<std::uint64_t>::max() / sector_ratio ||
+                geometry.sector_count > std::numeric_limits<std::uint64_t>::max() / sector_ratio)
+                throw ValidationError("partition table sector size is unsupported");
+            OwnedUdev udev_context(udev_new());
+            if (!udev_context)
+                throw ValidationError("cannot initialize udev partition inspection");
+            const auto partition_path = find_exact_partition(
+                udev_context.get(),
+                status.st_rdev,
+                geometry.partition_number,
+                geometry.start_sector * sector_ratio,
+                geometry.sector_count * sector_ratio
+            );
+            if (partition_path.has_value()) {
+                result.state = PartitionCreationState::Created;
+                result.partition = *partition_path;
+            }
+        }
+        require_success(fdisk_deassign_device(context.get(), 1), "releasing partition table device");
+        return result;
+    } catch (...) {
+        if (fdisk_get_devfd(context.get()) >= 0)
+            static_cast<void>(fdisk_deassign_device(context.get(), 1));
+        throw;
+    }
+}
+
 std::filesystem::path LibfdiskPartitionTableOperations::create_partition_in_free_space(
     const std::filesystem::path& device,
     const std::string& expected_major_minor,
