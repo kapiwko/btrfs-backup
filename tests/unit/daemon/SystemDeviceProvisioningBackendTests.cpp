@@ -151,6 +151,9 @@ class LuksOperations final : public btrfsbackup::platform::linux::storage::ICryp
     }
     void remove_keyslot(const std::filesystem::path&, int, int) override {
     }
+    std::string active_luks_uuid(const std::string&) override {
+        return "11111111-2222-3333-4444-555555555555";
+    }
     std::filesystem::path active_device(const std::string&) override {
         return "/dev/test";
     }

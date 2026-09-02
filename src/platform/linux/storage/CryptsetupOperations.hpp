@@ -29,6 +29,7 @@ class ICryptsetupOperations {
     virtual void add_key(const std::filesystem::path& device, int authorization_fd, int new_key_fd) = 0;
     virtual void test_key(const std::filesystem::path& device, int key_fd) = 0;
     virtual void remove_keyslot(const std::filesystem::path& device, int keyslot, int authorization_fd) = 0;
+    [[nodiscard]] virtual std::string active_luks_uuid(const std::string& mapper) = 0;
     [[nodiscard]] virtual std::filesystem::path active_device(const std::string& mapper) = 0;
     [[nodiscard]] virtual std::string format_luks2(const std::filesystem::path& device, int key_fd) = 0;
     virtual void open_luks2(const std::filesystem::path& device, const std::string& mapper, int key_fd) = 0;
@@ -46,6 +47,7 @@ class CryptsetupOperations final : public ICryptsetupOperations {
     void add_key(const std::filesystem::path& device, int authorization_fd, int new_key_fd) override;
     void test_key(const std::filesystem::path& device, int key_fd) override;
     void remove_keyslot(const std::filesystem::path& device, int keyslot, int authorization_fd) override;
+    [[nodiscard]] std::string active_luks_uuid(const std::string& mapper) override;
     [[nodiscard]] std::filesystem::path active_device(const std::string& mapper) override;
     [[nodiscard]] std::string format_luks2(const std::filesystem::path& device, int key_fd) override;
     void open_luks2(const std::filesystem::path& device, const std::string& mapper, int key_fd) override;
