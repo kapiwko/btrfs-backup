@@ -18,6 +18,7 @@ KCMUtils.SimpleKCM {
     property string workflowMode: ""
     property var selectedDevice: null
     property var selectedTarget: null
+    property bool passwordVisible: false
     readonly property bool adoption: root.workflowMode === "adopt"
     readonly property bool hasPlan: (root.provisioning.plan.planId ?? "") !== ""
     readonly property string planMode: root.provisioning.plan.mode ?? ""
@@ -105,12 +106,51 @@ KCMUtils.SimpleKCM {
 
         ColumnLayout {
             spacing: Kirigami.Units.largeSpacing
+            Layout.margins: Kirigami.Units.largeSpacing
+
+            Item { Layout.fillHeight: true; Layout.maximumHeight: Kirigami.Units.gridUnit * 2 }
+            Kirigami.Icon {
+                Layout.alignment: Qt.AlignHCenter
+                source: "drive-removable-media"
+                implicitWidth: Kirigami.Units.iconSizes.huge
+                implicitHeight: implicitWidth
+            }
+            Kirigami.Heading {
+                Layout.alignment: Qt.AlignHCenter
+                text: translations.i18n("Add backup profile")
+                level: 1
+            }
+            QQC2.Label {
+                Layout.fillWidth: true
+                Layout.maximumWidth: Kirigami.Units.gridUnit * 34
+                Layout.alignment: Qt.AlignHCenter
+                horizontalAlignment: Text.AlignHCenter
+                wrapMode: Text.Wrap
+                text: translations.i18n("Choose how the backup device should be configured.")
+                opacity: 0.75
+            }
             QQC2.ItemDelegate {
                 Layout.fillWidth: true
-                contentItem: Kirigami.TitleSubtitle {
-                    title: translations.i18n("Use a prepared backup device")
-                    subtitle: translations.i18n("Assign an existing LUKS2 and Btrfs backup repository")
-                    selected: false
+                Layout.maximumWidth: Kirigami.Units.gridUnit * 34
+                Layout.alignment: Qt.AlignHCenter
+                contentItem: RowLayout {
+                    spacing: Kirigami.Units.largeSpacing
+                    Kirigami.Icon {
+                        source: "document-import"
+                        implicitWidth: Kirigami.Units.iconSizes.large
+                        implicitHeight: implicitWidth
+                    }
+                    Kirigami.TitleSubtitle {
+                        Layout.fillWidth: true
+                        title: translations.i18n("Use a prepared backup device")
+                        subtitle: translations.i18n("Assign an existing LUKS2 and Btrfs repository. Nothing will be erased.")
+                        selected: false
+                    }
+                    Kirigami.Icon {
+                        source: "go-next-symbolic"
+                        implicitWidth: Kirigami.Units.iconSizes.smallMedium
+                        implicitHeight: implicitWidth
+                    }
                 }
                 onClicked: {
                     root.workflowMode = "adopt"
@@ -120,10 +160,26 @@ KCMUtils.SimpleKCM {
             }
             QQC2.ItemDelegate {
                 Layout.fillWidth: true
-                contentItem: Kirigami.TitleSubtitle {
-                    title: translations.i18n("Prepare a new backup device")
-                    subtitle: translations.i18n("Erase a disk, create LUKS2 and format it as Btrfs")
-                    selected: false
+                Layout.maximumWidth: Kirigami.Units.gridUnit * 34
+                Layout.alignment: Qt.AlignHCenter
+                contentItem: RowLayout {
+                    spacing: Kirigami.Units.largeSpacing
+                    Kirigami.Icon {
+                        source: "tools-wizard"
+                        implicitWidth: Kirigami.Units.iconSizes.large
+                        implicitHeight: implicitWidth
+                    }
+                    Kirigami.TitleSubtitle {
+                        Layout.fillWidth: true
+                        title: translations.i18n("Prepare a new backup device")
+                        subtitle: translations.i18n("Create an encrypted target. The selected disk or partition will be modified.")
+                        selected: false
+                    }
+                    Kirigami.Icon {
+                        source: "go-next-symbolic"
+                        implicitWidth: Kirigami.Units.iconSizes.smallMedium
+                        implicitHeight: implicitWidth
+                    }
                 }
                 onClicked: {
                     root.workflowMode = "prepare"
@@ -149,7 +205,43 @@ KCMUtils.SimpleKCM {
                     onVisibleChanged: if (!visible) root.provisioning.clearError()
                 }
 
+                RowLayout {
+                    Layout.fillWidth: true
+                    Kirigami.Icon {
+                        source: root.adoption ? "document-import" : "tools-wizard"
+                        implicitWidth: Kirigami.Units.iconSizes.medium
+                        implicitHeight: implicitWidth
+                    }
+                    Kirigami.TitleSubtitle {
+                        Layout.fillWidth: true
+                        title: root.adoption
+                            ? translations.i18n("Use existing backup device")
+                            : translations.i18n("Prepare backup device")
+                        subtitle: root.adoption
+                            ? translations.i18n("The existing repository will be verified before it is assigned.")
+                            : translations.i18n("Review the storage plan before any data is changed.")
+                        selected: false
+                    }
+                    QQC2.Button {
+                        icon.name: "go-previous-symbolic"
+                        text: translations.i18n("Change setup type")
+                        enabled: !root.provisioning.busy
+                        onClicked: root.resetWorkflow()
+                    }
+                }
+
                 Kirigami.Heading { text: translations.i18n("Select a disk or partition"); level: 2 }
+                Kirigami.PlaceholderMessage {
+                    Layout.fillWidth: true
+                    visible: root.candidateDevices.length === 0 && !root.provisioning.busy
+                    icon.name: "drive-removable-media"
+                    text: translations.i18n("No suitable backup devices found")
+                    helpfulAction: Kirigami.Action {
+                        icon.name: "view-refresh-symbolic"
+                        text: translations.i18n("Rescan")
+                        onTriggered: root.rescanStorage()
+                    }
+                }
                 Repeater {
                     model: root.candidateDevices
                     QQC2.ItemDelegate {
@@ -168,18 +260,33 @@ KCMUtils.SimpleKCM {
                                 root.provisioning.buildPlan(modelData, "erase-whole-device")
                             }
                         }
-                        contentItem: Kirigami.TitleSubtitle {
-                            title: (deviceRow.modelData.model || deviceRow.modelData.path)
-                                + " - " + root.formatBytes(deviceRow.modelData.sizeBytes)
-                            subtitle: deviceRow.modelData.path + " - "
-                                + (root.deviceHasConfiguredTarget(deviceRow.modelData)
-                                    ? translations.i18n("contains a configured backup target")
-                                    : deviceRow.modelData.mounted
-                                    ? translations.i18n("in use")
-                                    : deviceRow.modelData.containsData
-                                        ? translations.i18n("contains data")
-                                        : translations.i18n("empty"))
-                            selected: deviceRow.highlighted
+                        contentItem: RowLayout {
+                            spacing: Kirigami.Units.largeSpacing
+                            Kirigami.Icon {
+                                source: "drive-removable-media"
+                                implicitWidth: Kirigami.Units.iconSizes.medium
+                                implicitHeight: implicitWidth
+                            }
+                            Kirigami.TitleSubtitle {
+                                Layout.fillWidth: true
+                                title: (deviceRow.modelData.model || deviceRow.modelData.path)
+                                    + " — " + root.formatBytes(deviceRow.modelData.sizeBytes)
+                                subtitle: deviceRow.modelData.path + " · "
+                                    + (root.deviceHasConfiguredTarget(deviceRow.modelData)
+                                        ? translations.i18n("contains a configured backup target")
+                                        : deviceRow.modelData.mounted
+                                        ? translations.i18n("in use")
+                                        : deviceRow.modelData.containsData
+                                            ? translations.i18n("contains data")
+                                            : translations.i18n("empty"))
+                                selected: deviceRow.highlighted
+                            }
+                            Kirigami.Icon {
+                                visible: deviceRow.highlighted
+                                source: "emblem-ok"
+                                implicitWidth: Kirigami.Units.iconSizes.smallMedium
+                                implicitHeight: implicitWidth
+                            }
                         }
                     }
                 }
@@ -220,21 +327,37 @@ KCMUtils.SimpleKCM {
                                             : "reformat-existing-partition"
                                     )
                             }
-                            contentItem: Kirigami.TitleSubtitle {
-                                title: (partitionRow.modelData.kind === "unallocated"
-                                    ? translations.i18n("Free space")
-                                    : partitionRow.modelData.partitionLabel
-                                        || partitionRow.modelData.filesystemLabel
-                                        || partitionRow.modelData.path) + " - "
-                                    + root.formatBytes(Number(partitionRow.modelData.sectorCount)
-                                        * Number(root.selectedDevice.logicalSectorSize || 512))
-                                subtitle: partitionRow.modelData.kind === "unallocated"
-                                    ? translations.i18n("Available for a new backup partition")
-                                    : partitionRow.modelData.configuredBackupTarget
-                                        ? translations.i18n("Already used by a backup profile")
-                                        : partitionRow.modelData.path + " - "
-                                            + (partitionRow.modelData.filesystemType || translations.i18n("unknown filesystem"))
-                                selected: partitionRow.highlighted
+                            contentItem: RowLayout {
+                                spacing: Kirigami.Units.largeSpacing
+                                Kirigami.Icon {
+                                    source: partitionRow.modelData.kind === "unallocated"
+                                        ? "list-add" : "drive-harddisk"
+                                    implicitWidth: Kirigami.Units.iconSizes.smallMedium
+                                    implicitHeight: implicitWidth
+                                }
+                                Kirigami.TitleSubtitle {
+                                    Layout.fillWidth: true
+                                    title: (partitionRow.modelData.kind === "unallocated"
+                                        ? translations.i18n("Free space")
+                                        : partitionRow.modelData.partitionLabel
+                                            || partitionRow.modelData.filesystemLabel
+                                            || partitionRow.modelData.path) + " — "
+                                        + root.formatBytes(Number(partitionRow.modelData.sectorCount)
+                                            * Number(root.selectedDevice.logicalSectorSize || 512))
+                                    subtitle: partitionRow.modelData.kind === "unallocated"
+                                        ? translations.i18n("Available for a new backup partition")
+                                        : partitionRow.modelData.configuredBackupTarget
+                                            ? translations.i18n("Already used by a backup profile")
+                                            : partitionRow.modelData.path + " · "
+                                                + (partitionRow.modelData.filesystemType || translations.i18n("unknown filesystem"))
+                                    selected: partitionRow.highlighted
+                                }
+                                Kirigami.Icon {
+                                    visible: partitionRow.highlighted
+                                    source: "emblem-ok"
+                                    implicitWidth: Kirigami.Units.iconSizes.smallMedium
+                                    implicitHeight: implicitWidth
+                                }
                             }
                         }
                     }
@@ -295,13 +418,16 @@ KCMUtils.SimpleKCM {
                 }
 
                 Kirigami.Separator { Layout.fillWidth: true }
-                GridLayout {
+                Kirigami.Heading {
+                    text: translations.i18n("Profile details")
+                    level: 2
+                }
+                Kirigami.FormLayout {
                     Layout.fillWidth: true
-                    columns: width > Kirigami.Units.gridUnit * 28 ? 2 : 1
-                    columnSpacing: Kirigami.Units.largeSpacing
                     QQC2.TextField {
                         id: profileName
                         Layout.fillWidth: true
+                        Kirigami.FormData.label: translations.i18n("Profile name:")
                         placeholderText: translations.i18n("Profile name")
                         onTextEdited: if (!profileId.modified) profileId.text = root.slug(text)
                     }
@@ -309,6 +435,7 @@ KCMUtils.SimpleKCM {
                         id: profileId
                         property bool modified: false
                         Layout.fillWidth: true
+                        Kirigami.FormData.label: translations.i18n("Profile identifier:")
                         placeholderText: translations.i18n("Profile identifier")
                         validator: RegularExpressionValidator { regularExpression: /^[a-z0-9][a-z0-9-]{0,62}$/ }
                         onTextEdited: modified = true
@@ -316,32 +443,67 @@ KCMUtils.SimpleKCM {
                     QQC2.ComboBox {
                         id: sourcePath
                         Layout.fillWidth: true
+                        Kirigami.FormData.label: translations.i18n("Backup source:")
                         model: root.provisioning.sourceCandidates
                         editable: false
                         displayText: currentIndex >= 0 ? currentText : translations.i18n("Select source Btrfs subvolume")
                     }
+                }
+
+                Kirigami.Heading {
+                    text: translations.i18n("Encryption")
+                    level: 2
+                }
+                Kirigami.FormLayout {
+                    Layout.fillWidth: true
                     QQC2.CheckBox {
                         id: automaticKey
                         Layout.fillWidth: true
+                        Kirigami.FormData.label: translations.i18n("Automatic backups:")
                         checked: true
                         visible: !root.adoption
                         text: translations.i18n("Create a protected key for automatic backups")
                     }
-                    QQC2.TextField {
-                        id: passphrase
+                    RowLayout {
                         Layout.fillWidth: true
-                        placeholderText: root.adoption
-                            ? translations.i18n("Existing target passphrase")
-                            : translations.i18n("Recovery passphrase")
-                        echoMode: TextInput.Password
+                        Kirigami.FormData.label: root.adoption
+                            ? translations.i18n("Existing passphrase:")
+                            : translations.i18n("Recovery passphrase:")
+                        QQC2.TextField {
+                            id: passphrase
+                            Layout.fillWidth: true
+                            placeholderText: root.adoption
+                                ? translations.i18n("Existing target passphrase")
+                                : translations.i18n("Recovery passphrase")
+                            echoMode: root.passwordVisible ? TextInput.Normal : TextInput.Password
+                        }
+                        QQC2.ToolButton {
+                            icon.name: root.passwordVisible ? "view-hidden-symbolic" : "view-visible-symbolic"
+                            text: root.passwordVisible
+                                ? translations.i18n("Hide password")
+                                : translations.i18n("Show password")
+                            display: QQC2.AbstractButton.IconOnly
+                            QQC2.ToolTip.visible: hovered
+                            QQC2.ToolTip.text: text
+                            onClicked: root.passwordVisible = !root.passwordVisible
+                        }
                     }
                     QQC2.TextField {
                         id: confirmation
                         Layout.fillWidth: true
+                        Kirigami.FormData.label: translations.i18n("Confirm passphrase:")
                         visible: !root.adoption
                         placeholderText: translations.i18n("Confirm recovery passphrase")
-                        echoMode: TextInput.Password
+                        echoMode: root.passwordVisible ? TextInput.Normal : TextInput.Password
                     }
+                }
+
+                Kirigami.InlineMessage {
+                    Layout.fillWidth: true
+                    visible: !root.adoption && confirmation.text.length > 0
+                        && passphrase.text !== confirmation.text
+                    type: Kirigami.MessageType.Error
+                    text: translations.i18n("The passphrases do not match.")
                 }
 
                 Kirigami.InlineMessage {
@@ -388,6 +550,7 @@ KCMUtils.SimpleKCM {
                     id: eraseConfirmation
                     Layout.fillWidth: true
                     visible: root.selectedDevice !== null && !root.adoption
+                    Accessible.name: translations.i18n("Destructive operation confirmation")
                     placeholderText: root.confirmationToken
                 }
             }
@@ -396,6 +559,14 @@ KCMUtils.SimpleKCM {
         ColumnLayout {
             spacing: Kirigami.Units.largeSpacing
             Item { Layout.fillHeight: true }
+            Kirigami.Icon {
+                Layout.alignment: Qt.AlignHCenter
+                source: root.provisioning.operation.state === "failed"
+                    ? "dialog-error" : root.provisioning.operation.phase === "complete"
+                        ? "emblem-ok" : "drive-removable-media"
+                implicitWidth: Kirigami.Units.iconSizes.huge
+                implicitHeight: implicitWidth
+            }
             QQC2.BusyIndicator {
                 Layout.alignment: Qt.AlignHCenter
                 running: root.provisioning.operation.state === "queued" || root.provisioning.operation.state === "running"
@@ -452,6 +623,13 @@ KCMUtils.SimpleKCM {
         root.selectedTarget = null
         root.provisioning.clearSelection()
         root.provisioning.refresh()
+    }
+    function resetWorkflow() {
+        root.workflowMode = ""
+        root.step = 0
+        root.selectedDevice = null
+        root.selectedTarget = null
+        root.provisioning.clearSelection()
     }
     function formatBytes(value) {
         const gib = Number(value) / 1073741824

@@ -1058,3 +1058,54 @@ msgstr "Wybierz plik klucza o rozmiarze od 1 do 4096 bajtów i wprowadź prawid�
 
 msgid "The backup manager returned an invalid credential response."
 msgstr "Manager kopii zapasowych zwrócił nieprawidłową odpowiedź dotyczącą danych uwierzytelniających."
+
+msgid "Choose how the backup device should be configured."
+msgstr "Wybierz sposób skonfigurowania urządzenia kopii zapasowej."
+
+msgid "Assign an existing LUKS2 and Btrfs repository. Nothing will be erased."
+msgstr "Przypisz istniejące repozytorium LUKS2 i Btrfs. Żadne dane nie zostaną usunięte."
+
+msgid "Create an encrypted target. The selected disk or partition will be modified."
+msgstr "Utwórz zaszyfrowany cel. Wybrany dysk lub partycja zostaną zmodyfikowane."
+
+msgid "The existing repository will be verified before it is assigned."
+msgstr "Istniejące repozytorium zostanie sprawdzone przed przypisaniem."
+
+msgid "Review the storage plan before any data is changed."
+msgstr "Sprawdź plan pamięci masowej przed wprowadzeniem zmian w danych."
+
+msgid "Change setup type"
+msgstr "Zmień sposób konfiguracji"
+
+msgid "No suitable backup devices found"
+msgstr "Nie znaleziono odpowiednich urządzeń kopii zapasowej"
+
+msgid "Profile name:"
+msgstr "Nazwa profilu:"
+
+msgid "Profile identifier:"
+msgstr "Identyfikator profilu:"
+
+msgid "Backup source:"
+msgstr "Źródło kopii zapasowej:"
+
+msgid "Encryption"
+msgstr "Szyfrowanie"
+
+msgid "Existing passphrase:"
+msgstr "Dotychczasowe hasło:"
+
+msgid "Recovery passphrase:"
+msgstr "Hasło odzyskiwania:"
+
+msgid "Show password"
+msgstr "Pokaż hasło"
+
+msgid "Hide password"
+msgstr "Ukryj hasło"
+
+msgid "Confirm passphrase:"
+msgstr "Potwierdzenie hasła:"
+
+msgid "Destructive operation confirmation"
+msgstr "Potwierdzenie operacji destrukcyjnej"
