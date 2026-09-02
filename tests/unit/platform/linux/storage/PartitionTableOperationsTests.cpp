@@ -8,6 +8,16 @@
 int main() {
     btrfsbackup::platform::linux::storage::LibfdiskPartitionTableOperations operations;
     test_helpers::expect_validation_error(
+        "relative partition table snapshot path",
+        [&] { static_cast<void>(operations.snapshot_partition_table("dev/test", "8:0", "gpt-id", 512)); },
+        "path is invalid"
+    );
+    test_helpers::expect_validation_error(
+        "non-block partition table snapshot target",
+        [&] { static_cast<void>(operations.snapshot_partition_table("/dev/null", "1:3", "gpt-id", 512)); },
+        "not a block device"
+    );
+    test_helpers::expect_validation_error(
         "relative free-space planning path",
         [&] {
             static_cast<void>(operations.plan_partition_in_free_space(

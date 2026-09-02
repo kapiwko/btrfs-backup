@@ -178,9 +178,19 @@ class Signatures final : public btrfsbackup::platform::linux::storage::ISignatur
 class PartitionTables final : public btrfsbackup::platform::linux::storage::IPartitionTableOperations {
   public:
     bool partitioned = false;
+    mutable bool snapshot_taken = false;
     bool created_in_free_space = false;
     btrfsbackup::platform::linux::storage::PlannedPartitionGeometry created_geometry;
     std::vector<std::pair<std::string, std::string>> calls;
+    std::string snapshot_partition_table(
+        const std::filesystem::path&,
+        const std::string&,
+        const std::string&,
+        std::uint32_t
+    ) const override {
+        snapshot_taken = true;
+        return "label: gpt\nlabel-id: gpt-test\n";
+    }
     btrfsbackup::platform::linux::storage::PlannedPartitionGeometry plan_partition_in_free_space(
         const std::filesystem::path&,
         const std::string&,
@@ -204,6 +214,8 @@ class PartitionTables final : public btrfsbackup::platform::linux::storage::IPar
         std::uint64_t,
         const btrfsbackup::platform::linux::storage::PlannedPartitionGeometry& geometry
     ) override {
+        if (!snapshot_taken)
+            throw std::runtime_error("partition table was not backed up");
         created_in_free_space = true;
         created_geometry = geometry;
         return "/dev/test2";
@@ -670,7 +682,7 @@ void test_free_space_preparation_uses_frozen_geometry() {
     test_helpers::expect_true(
         "frozen free-space geometry",
         backend.status(started.operation_id).state == "succeeded" &&
-            partition_tables.created_in_free_space &&
+            partition_tables.snapshot_taken && partition_tables.created_in_free_space &&
             partition_tables.created_geometry ==
                 btrfsbackup::platform::linux::storage::PlannedPartitionGeometry{
                     .start_sector = 2048,
@@ -679,6 +691,12 @@ void test_free_space_preparation_uses_frozen_geometry() {
                 } &&
             signatures.calls.empty(),
         "free-space preparation changed scope or recomputed geometry"
+    );
+    const auto transaction = DevicePreparationTransactionStore(root / "transactions").load(started.operation_id);
+    test_helpers::expect_eq(
+        "partition table backup",
+        transaction.partition_table_backup,
+        "label: gpt\nlabel-id: gpt-test\n"
     );
     test_helpers::expect_true(
         "new partition target",

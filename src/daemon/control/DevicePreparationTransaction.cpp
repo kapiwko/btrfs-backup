@@ -277,7 +277,7 @@ DevicePreparationTarget parse_target(const Json& value) {
 
 Json transaction_json(const DevicePreparationTransaction& transaction) {
     return {
-        {"schemaVersion", 5},
+        {"schemaVersion", 6},
         {"operationId", transaction.status.operation_id},
         {"profileId", transaction.status.profile_id},
         {"state", transaction.status.state},
@@ -296,6 +296,7 @@ Json transaction_json(const DevicePreparationTransaction& transaction) {
         {"createdAt", transaction.created_at},
         {"updatedAt", transaction.updated_at},
         {"lastCompletedPhase", transaction.last_completed_phase},
+        {"partitionTableBackup", transaction.partition_table_backup},
         {"partition", transaction.partition},
         {"partitionUuid", transaction.partition_uuid},
         {"luksUuid", transaction.luks_uuid},
@@ -310,7 +311,7 @@ Json transaction_json(const DevicePreparationTransaction& transaction) {
 
 DevicePreparationTransaction parse_transaction(const Json& value) {
     const int schema_version = value.value("schemaVersion", 0);
-    if (!value.is_object() || schema_version != 5 || !value.contains("device"))
+    if (!value.is_object() || schema_version != 6 || !value.contains("device"))
         throw ValidationError("invalid device preparation transaction");
     DevicePreparationTransaction result;
     result.status = {
@@ -337,6 +338,7 @@ DevicePreparationTransaction parse_transaction(const Json& value) {
     result.created_at = value.value("createdAt", std::int64_t{0});
     result.updated_at = value.value("updatedAt", std::int64_t{0});
     result.last_completed_phase = value.value("lastCompletedPhase", "");
+    result.partition_table_backup = value.value("partitionTableBackup", "");
     result.partition = value.value("partition", "");
     result.partition_uuid = value.value("partitionUuid", "");
     result.luks_uuid = value.value("luksUuid", "");

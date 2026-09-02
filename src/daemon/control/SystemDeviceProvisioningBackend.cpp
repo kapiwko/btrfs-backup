@@ -416,6 +416,7 @@ DevicePreparationStatus SystemDeviceProvisioningBackend::start(
         .created_at = now,
         .updated_at = now,
         .last_completed_phase = {},
+        .partition_table_backup = {},
         .partition = target.partition.has_value() ? target.partition->identity.display_path : std::string{},
         .partition_uuid = {},
         .luks_uuid = {},

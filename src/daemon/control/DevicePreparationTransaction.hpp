@@ -25,6 +25,7 @@ struct DevicePreparationTransaction {
     std::int64_t created_at = 0;
     std::int64_t updated_at = 0;
     std::string last_completed_phase;
+    std::string partition_table_backup;
     std::string partition;
     std::string partition_uuid;
     std::string luks_uuid;

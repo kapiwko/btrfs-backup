@@ -17,6 +17,7 @@
 #include <cerrno>
 #include <charconv>
 #include <chrono>
+#include <cstdio>
 #include <cstdlib>
 #include <cstdint>
 #include <limits>
@@ -49,6 +50,18 @@ struct TableDeleter {
     }
 };
 
+struct ScriptDeleter {
+    void operator()(fdisk_script* script) const noexcept {
+        fdisk_unref_script(script);
+    }
+};
+
+struct FileDeleter {
+    void operator()(FILE* file) const noexcept {
+        static_cast<void>(std::fclose(file));
+    }
+};
+
 struct UdevDeleter {
     void operator()(udev* value) const noexcept {
         udev_unref(value);
@@ -76,6 +89,8 @@ struct UdevMonitorDeleter {
 using OwnedContext = std::unique_ptr<fdisk_context, ContextDeleter>;
 using OwnedPartition = std::unique_ptr<fdisk_partition, PartitionDeleter>;
 using OwnedTable = std::unique_ptr<fdisk_table, TableDeleter>;
+using OwnedScript = std::unique_ptr<fdisk_script, ScriptDeleter>;
+using OwnedFile = std::unique_ptr<FILE, FileDeleter>;
 using OwnedUdev = std::unique_ptr<udev, UdevDeleter>;
 using OwnedUdevDevice = std::unique_ptr<udev_device, UdevDeviceDeleter>;
 using OwnedUdevEnumerate = std::unique_ptr<udev_enumerate, UdevEnumerateDeleter>;
@@ -211,12 +226,10 @@ void validate_device_path(const std::filesystem::path& device) {
         throw ValidationError("partition table device path is invalid");
 }
 
-void validate_gpt_free_region(
+void validate_gpt_identity(
     fdisk_context* context,
     const std::string& expected_partition_table_id,
-    std::uint32_t expected_logical_sector_size,
-    std::uint64_t free_start_sector,
-    std::uint64_t free_sector_count
+    std::uint32_t expected_logical_sector_size
 ) {
     if (!fdisk_is_label(context, GPT))
         throw ValidationError("creating a partition in free space requires GPT");
@@ -228,6 +241,16 @@ void validate_gpt_free_region(
     const std::unique_ptr<char, decltype(&std::free)> identifier(raw_identifier, &std::free);
     if (lowercase(identifier.get()) != lowercase(expected_partition_table_id))
         throw ValidationError("partition table identity changed");
+}
+
+void validate_gpt_free_region(
+    fdisk_context* context,
+    const std::string& expected_partition_table_id,
+    std::uint32_t expected_logical_sector_size,
+    std::uint64_t free_start_sector,
+    std::uint64_t free_sector_count
+) {
+    validate_gpt_identity(context, expected_partition_table_id, expected_logical_sector_size);
 
     fdisk_table* raw_free_spaces = nullptr;
     require_success(fdisk_get_freespaces(context, &raw_free_spaces), "reading unallocated space");
@@ -254,6 +277,64 @@ void validate_free_space_request(
 }
 
 } // namespace
+
+std::string LibfdiskPartitionTableOperations::snapshot_partition_table(
+    const std::filesystem::path& device,
+    const std::string& expected_major_minor,
+    const std::string& expected_partition_table_id,
+    std::uint32_t expected_logical_sector_size
+) const {
+    constexpr std::size_t maximum_snapshot_size = 1024 * 1024;
+    validate_device_path(device);
+    if (expected_partition_table_id.empty() || expected_logical_sector_size == 0)
+        throw ValidationError("partition table snapshot request is incomplete");
+    const auto [expected_major, expected_minor] = parse_major_minor(expected_major_minor);
+    OwnedFileDescriptor descriptor(::open(device.c_str(), O_RDONLY | O_CLOEXEC | O_NOFOLLOW));
+    if (!descriptor.valid())
+        throw ValidationError("cannot open partition table device for snapshot");
+    struct stat status{};
+    if (::fstat(descriptor.get(), &status) != 0 || !S_ISBLK(status.st_mode))
+        throw ValidationError("partition table target is not a block device");
+    if (major(status.st_rdev) != expected_major || minor(status.st_rdev) != expected_minor)
+        throw ValidationError("partition table device identity changed");
+    if (::flock(descriptor.get(), LOCK_SH | LOCK_NB) != 0)
+        throw ValidationError("partition table device is locked by another process");
+    OwnedContext context(fdisk_new_context());
+    if (!context)
+        throw ValidationError("cannot allocate libfdisk context");
+    require_success(
+        fdisk_assign_device_by_fd(context.get(), descriptor.get(), device.c_str(), 1),
+        "assigning partition table device"
+    );
+    try {
+        require_success(fdisk_disable_dialogs(context.get(), 1), "disabling libfdisk dialogs");
+        validate_gpt_identity(context.get(), expected_partition_table_id, expected_logical_sector_size);
+        OwnedScript script(fdisk_new_script(context.get()));
+        if (!script)
+            throw ValidationError("cannot allocate partition table snapshot");
+        require_success(fdisk_script_read_context(script.get(), context.get()), "reading partition table snapshot");
+        OwnedFile file(std::tmpfile());
+        if (!file)
+            throw ValidationError("cannot allocate partition table snapshot file");
+        require_success(fdisk_script_write_file(script.get(), file.get()), "serializing partition table snapshot");
+        if (std::fflush(file.get()) != 0)
+            throw ValidationError("flushing partition table snapshot failed");
+        const long snapshot_size = std::ftell(file.get());
+        if (snapshot_size <= 0 || snapshot_size > static_cast<long>(maximum_snapshot_size))
+            throw ValidationError("partition table snapshot size is invalid");
+        if (std::fseek(file.get(), 0, SEEK_SET) != 0)
+            throw ValidationError("rewinding partition table snapshot failed");
+        std::string result(static_cast<std::size_t>(snapshot_size), '\0');
+        if (std::fread(result.data(), 1, result.size(), file.get()) != result.size())
+            throw ValidationError("reading partition table snapshot failed");
+        require_success(fdisk_deassign_device(context.get(), 1), "releasing partition table device");
+        return result;
+    } catch (...) {
+        if (fdisk_get_devfd(context.get()) >= 0)
+            static_cast<void>(fdisk_deassign_device(context.get(), 1));
+        throw;
+    }
+}
 
 PlannedPartitionGeometry LibfdiskPartitionTableOperations::plan_partition_in_free_space(
     const std::filesystem::path& device,
