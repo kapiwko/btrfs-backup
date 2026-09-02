@@ -71,11 +71,13 @@ Item {
         property var sourceCandidates: ["/home"]
         property bool busy: false
         property string errorMessage: ""
+        property int refreshCalls: 0
+        property int clearSelectionCalls: 0
         signal completed(string profileId)
-        function refresh() {}
+        function refresh() { ++refreshCalls }
         function buildPlan(selection, mode) {}
         function inspectExistingTarget(selection, passphrase) {}
-        function clearSelection() {}
+        function clearSelection() { ++clearSelectionCalls }
         function start(profileId, profileName, source, passphrase, confirmation, automaticKey) {}
         function poll() {}
         function cancel() {}
@@ -99,7 +101,8 @@ Item {
         repeat: false
         onTriggered: {
             if (!page.freeSpace || !page.hasPlan || !page.planMatchesSelection
-                    || page.confirmationToken !== "CREATE") {
+                    || page.confirmationToken !== "CREATE"
+                    || page.partitionManagerUrl.toString() !== "applications:org.kde.partitionmanager.desktop") {
                 console.error("Free-space preparation page bindings are invalid")
                 Qt.exit(1)
                 return
@@ -139,6 +142,14 @@ Item {
                 Qt.callLater(function() {
                     if (page.selectedTargetSafe) {
                         console.error("Mounted sibling did not block free-space preparation")
+                        Qt.exit(1)
+                        return
+                    }
+                    page.rescanStorage()
+                    if (page.selectedDevice !== null || page.selectedTarget !== null
+                            || provisioning.clearSelectionCalls !== 1
+                            || provisioning.refreshCalls !== 1) {
+                        console.error("Storage rescan preserved a stale selection or plan")
                         Qt.exit(1)
                         return
                     }

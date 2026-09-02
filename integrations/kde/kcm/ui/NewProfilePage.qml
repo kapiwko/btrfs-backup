@@ -41,6 +41,7 @@ KCMUtils.SimpleKCM {
         && (!root.freeSpace || (root.selectedDevice !== null
             && (root.selectedDevice.blockers?.length ?? 0) === 0
             && !root.selectedDevice.mounted))
+    readonly property url partitionManagerUrl: "applications:org.kde.partitionmanager.desktop"
     readonly property string inspectionClassification: root.provisioning.inspection.classification ?? ""
 
     title: root.step === 0 ? translations.i18n("Add backup profile")
@@ -221,6 +222,22 @@ KCMUtils.SimpleKCM {
                                 selected: partitionRow.highlighted
                             }
                         }
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        QQC2.Button {
+                            icon.name: "partitionmanager"
+                            text: translations.i18n("Open KDE Partition Manager")
+                            enabled: !root.provisioning.busy
+                            onClicked: Qt.openUrlExternally(root.partitionManagerUrl)
+                        }
+                        QQC2.Button {
+                            icon.name: "view-refresh-symbolic"
+                            text: translations.i18n("Rescan")
+                            enabled: !root.provisioning.busy
+                            onClicked: root.rescanStorage()
+                        }
+                        Item { Layout.fillWidth: true }
                     }
                 }
 
@@ -414,6 +431,12 @@ KCMUtils.SimpleKCM {
     function deviceNodeName(path) {
         const separator = path.lastIndexOf("/")
         return path.substring(separator + 1).toUpperCase()
+    }
+    function rescanStorage() {
+        root.selectedDevice = null
+        root.selectedTarget = null
+        root.provisioning.clearSelection()
+        root.provisioning.refresh()
     }
     function formatBytes(value) {
         const gib = Number(value) / 1073741824
