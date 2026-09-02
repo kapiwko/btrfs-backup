@@ -20,6 +20,18 @@ KCMUtils.SimpleKCM {
     property var selectedTarget: null
     readonly property bool adoption: root.workflowMode === "adopt"
     readonly property bool hasPlan: (root.provisioning.plan.planId ?? "") !== ""
+    readonly property string planMode: root.provisioning.plan.mode ?? ""
+    readonly property bool freeSpace: root.planMode === "create-partition-in-unallocated-space"
+    readonly property string confirmationToken: root.freeSpace ? "CREATE" : "ERASE"
+    readonly property bool planMatchesSelection: {
+        if (!root.hasPlan || root.selectedTarget === null)
+            return false
+        if (root.planMode === "erase-whole-device")
+            return root.provisioning.plan.deviceId === root.selectedTarget.candidateId
+        if (root.freeSpace)
+            return root.provisioning.plan.freeRegionId === root.selectedTarget.candidateId
+        return root.provisioning.plan.partitionId === root.selectedTarget.candidateId
+    }
     readonly property string inspectionClassification: root.provisioning.inspection.classification ?? ""
 
     title: root.step === 0 ? translations.i18n("Add backup profile")
@@ -36,7 +48,7 @@ KCMUtils.SimpleKCM {
         icon.name: root.adoption ? "document-import-symbolic" : "tools-wizard-symbolic"
         text: root.adoption
             ? (root.hasPlan ? translations.i18n("Use existing target") : translations.i18n("Inspect target"))
-            : translations.i18n("Erase and prepare")
+            : root.freeSpace ? translations.i18n("Create and prepare") : translations.i18n("Erase and prepare")
         visible: root.step === 1
         enabled: root.selectedTarget !== null && (root.selectedTarget.blockers?.length ?? 0) === 0
             && !root.selectedTarget.mounted && (root.selectedTarget.mountPoints?.length ?? 0) === 0
@@ -45,12 +57,13 @@ KCMUtils.SimpleKCM {
                 || profileId.acceptableInput
                     && profileName.text.length > 0 && sourcePath.currentIndex >= 0
                     && (root.adoption || passphrase.text === confirmation.text)
-                    && (root.adoption || eraseConfirmation.text === "ERASE")
+                    && (root.adoption || eraseConfirmation.text === root.confirmationToken)
                     && root.hasPlan
                     && (root.provisioning.plan.mode === "erase-whole-device"
                         || root.provisioning.plan.mode === "reformat-existing-partition"
+                        || root.provisioning.plan.mode === "create-partition-in-unallocated-space"
                         || root.provisioning.plan.mode === "adopt-existing-target")
-                    && root.provisioning.plan.displayPath === root.selectedTarget.path)
+                    && root.planMatchesSelection)
             && !root.provisioning.busy
         onTriggered: {
             if (root.adoption && !root.hasPlan) {
@@ -124,7 +137,7 @@ KCMUtils.SimpleKCM {
                         required property var modelData
                         Layout.fillWidth: true
                         enabled: !root.provisioning.busy
-                        highlighted: root.selectedTarget?.path === modelData.path
+                        highlighted: root.selectedDevice?.candidateId === modelData.candidateId
                         onClicked: {
                             root.selectedDevice = modelData
                             if (root.adoption) {
@@ -154,16 +167,19 @@ KCMUtils.SimpleKCM {
                     visible: root.selectedDevice !== null
                     spacing: Kirigami.Units.smallSpacing
 
-                    Kirigami.Heading { text: translations.i18n("Partitions"); level: 3 }
+                    Kirigami.Heading { text: translations.i18n("Partitions and free space"); level: 3 }
                     Repeater {
                         model: root.selectedDevice?.regions ?? []
                         QQC2.ItemDelegate {
                             id: partitionRow
                             required property var modelData
                             Layout.fillWidth: true
-                            visible: modelData.kind === "existing-partition"
+                            visible: modelData.kind === "existing-partition" || modelData.kind === "unallocated"
                             enabled: visible && (root.adoption
-                                ? modelData.suitableForAdoption : modelData.suitableForReformat)
+                                ? modelData.kind === "existing-partition" && modelData.suitableForAdoption
+                                : modelData.kind === "unallocated"
+                                    ? modelData.suitableForBackupPartition
+                                    : modelData.suitableForReformat)
                                 && (modelData.blockers?.length ?? 0) === 0
                                 && (modelData.mountPoints?.length ?? 0) === 0
                                 && !root.provisioning.busy
@@ -173,16 +189,25 @@ KCMUtils.SimpleKCM {
                                 if (root.adoption)
                                     root.provisioning.clearSelection()
                                 else
-                                    root.provisioning.buildPlan(modelData, "reformat-existing-partition")
+                                    root.provisioning.buildPlan(
+                                        modelData,
+                                        modelData.kind === "unallocated"
+                                            ? "create-partition-in-unallocated-space"
+                                            : "reformat-existing-partition"
+                                    )
                             }
                             contentItem: Kirigami.TitleSubtitle {
-                                title: (partitionRow.modelData.partitionLabel
-                                    || partitionRow.modelData.filesystemLabel
-                                    || partitionRow.modelData.path) + " - "
+                                title: (partitionRow.modelData.kind === "unallocated"
+                                    ? translations.i18n("Free space")
+                                    : partitionRow.modelData.partitionLabel
+                                        || partitionRow.modelData.filesystemLabel
+                                        || partitionRow.modelData.path) + " - "
                                     + root.formatBytes(Number(partitionRow.modelData.sectorCount)
                                         * Number(root.selectedDevice.logicalSectorSize || 512))
-                                subtitle: partitionRow.modelData.path + " - "
-                                    + (partitionRow.modelData.filesystemType || translations.i18n("unknown filesystem"))
+                                subtitle: partitionRow.modelData.kind === "unallocated"
+                                    ? translations.i18n("Available for a new backup partition")
+                                    : partitionRow.modelData.path + " - "
+                                        + (partitionRow.modelData.filesystemType || translations.i18n("unknown filesystem"))
                                 selected: partitionRow.highlighted
                             }
                         }
@@ -198,7 +223,8 @@ KCMUtils.SimpleKCM {
                     StorageLayout {
                         Layout.fillWidth: true
                         regions: root.provisioning.plan.before?.regions ?? []
-                        selectedRegionId: root.provisioning.plan.partitionId ?? ""
+                        selectedRegionId: root.provisioning.plan.partitionId
+                            ?? root.provisioning.plan.freeRegionId ?? ""
                         preview: false
                         logicalSectorSize: root.provisioning.plan.before?.logicalSectorSize ?? 512
                     }
@@ -220,6 +246,8 @@ KCMUtils.SimpleKCM {
                             ? translations.i18n("The existing repository and all data on this partition will remain unchanged.")
                             : root.provisioning.plan.mode === "reformat-existing-partition"
                             ? translations.i18n("Only data on the selected partition will be removed. Other partitions will remain unchanged.")
+                            : root.provisioning.plan.mode === "create-partition-in-unallocated-space"
+                            ? translations.i18n("A new LUKS2 and Btrfs backup partition will be created in the selected free space. Existing partitions will remain unchanged.")
                             : translations.i18n("All existing partitions on this disk will be removed. The resulting backup target will use LUKS2 encryption and Btrfs.")
                     }
                 }
@@ -303,6 +331,10 @@ KCMUtils.SimpleKCM {
                             "All data on partition %1 will be permanently erased. Other partitions will remain unchanged. Type ERASE to confirm.",
                             root.selectedTarget?.path ?? ""
                         )
+                        : root.freeSpace
+                        ? translations.i18n(
+                            "A new partition will be created in the selected free space. Existing partitions will remain unchanged. Type CREATE to confirm."
+                        )
                         : translations.i18n(
                             "All data on %1 will be permanently erased. Type ERASE to confirm.",
                             root.selectedDevice?.path ?? ""
@@ -312,7 +344,7 @@ KCMUtils.SimpleKCM {
                     id: eraseConfirmation
                     Layout.fillWidth: true
                     visible: root.selectedDevice !== null && !root.adoption
-                    placeholderText: "ERASE"
+                    placeholderText: root.confirmationToken
                 }
             }
         }
