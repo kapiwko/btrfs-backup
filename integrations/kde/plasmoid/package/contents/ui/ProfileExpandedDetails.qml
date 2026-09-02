@@ -234,8 +234,8 @@ ColumnLayout {
         switch (state) {
         case "mounted": return "drive-harddisk-root-symbolic"
         case "unexpected-mount": return "dialog-warning-symbolic"
-        case "unlocked": return "emblem-encrypted-unlocked"
-        case "connected": return "emblem-encrypted-locked"
+        case "unlocked": return "object-unlocked-symbolic"
+        case "connected": return "object-locked-symbolic"
         case "disconnected": return "network-disconnect-symbolic"
         default: return "dialog-question-symbolic"
         }
