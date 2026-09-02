@@ -19,6 +19,12 @@ struct PlannedPartitionGeometry {
 class IPartitionTableOperations {
   public:
     virtual ~IPartitionTableOperations() = default;
+    [[nodiscard]] virtual std::string snapshot_partition_table(
+        const std::filesystem::path& device,
+        const std::string& expected_major_minor,
+        const std::string& expected_partition_table_id,
+        std::uint32_t expected_logical_sector_size
+    ) const = 0;
     [[nodiscard]] virtual PlannedPartitionGeometry plan_partition_in_free_space(
         const std::filesystem::path& device,
         const std::string& expected_major_minor,
@@ -44,6 +50,12 @@ class IPartitionTableOperations {
 
 class LibfdiskPartitionTableOperations final : public IPartitionTableOperations {
   public:
+    [[nodiscard]] std::string snapshot_partition_table(
+        const std::filesystem::path& device,
+        const std::string& expected_major_minor,
+        const std::string& expected_partition_table_id,
+        std::uint32_t expected_logical_sector_size
+    ) const override;
     [[nodiscard]] PlannedPartitionGeometry plan_partition_in_free_space(
         const std::filesystem::path& device,
         const std::string& expected_major_minor,
