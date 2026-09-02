@@ -963,6 +963,13 @@ void test_render_udev_optional_matches() {
     std::string rendered = btrfsbackup::config::render_udev(profile);
     expect_true("udev partition", rendered.find("ENV{ID_PART_ENTRY_UUID}==\"aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee\"") != std::string::npos, "missing partition UUID match");
     expect_true("udev serial", rendered.find("ENV{ID_SERIAL_SHORT}==\"SERIAL_123\"") != std::string::npos, "missing serial match");
+    expect_true("udev visible name", rendered.find("ENV{UDISKS_NAME}=\"") != std::string::npos, "missing UDisks display name");
+    expect_true("udev visible device", rendered.find("ENV{UDISKS_IGNORE}=\"0\"") != std::string::npos, "managed target is hidden from UDisks");
+
+    profile.enabled = false;
+    rendered = btrfsbackup::config::render_udev(profile);
+    expect_true("disabled udev presentation", rendered.find("ENV{UDISKS_NAME}=\"") != std::string::npos, "disabled profile lost UDisks presentation");
+    expect_true("disabled no activation", rendered.find("SYSTEMD_WANTS") == std::string::npos, "disabled profile requests automatic activation");
 }
 
 } // namespace
