@@ -104,7 +104,24 @@ Item {
                 Qt.exit(1)
                 return
             }
-            Qt.exit(0)
+            provisioning.plan = {
+                planId: "plan-partition",
+                mode: "reformat-existing-partition",
+                deviceId: "device-1",
+                partitionId: "partition-1",
+                before: {logicalSectorSize: 512, regions: [root.partition, root.freeRegion]},
+                after: {logicalSectorSize: 512, regions: [root.partition, root.freeRegion]}
+            }
+            page.selectedTarget = root.partition
+            Qt.callLater(function() {
+                if (page.freeSpace || !page.planMatchesSelection
+                        || page.confirmationToken !== "ERASE-TEST1") {
+                    console.error("Partition-specific erase confirmation is invalid")
+                    Qt.exit(1)
+                    return
+                }
+                Qt.exit(0)
+            })
         }
     }
 }

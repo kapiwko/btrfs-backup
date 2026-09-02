@@ -22,7 +22,9 @@ KCMUtils.SimpleKCM {
     readonly property bool hasPlan: (root.provisioning.plan.planId ?? "") !== ""
     readonly property string planMode: root.provisioning.plan.mode ?? ""
     readonly property bool freeSpace: root.planMode === "create-partition-in-unallocated-space"
-    readonly property string confirmationToken: root.freeSpace ? "CREATE" : "ERASE"
+    readonly property string confirmationToken: root.adoption ? ""
+        : root.freeSpace ? "CREATE"
+        : "ERASE-" + root.deviceNodeName(root.selectedTarget?.path || root.selectedDevice?.path || "DEVICE")
     readonly property bool planMatchesSelection: {
         if (!root.hasPlan || root.selectedTarget === null)
             return false
@@ -328,16 +330,18 @@ KCMUtils.SimpleKCM {
                             : translations.i18n("The target will be opened read-only and verified before it can be assigned."))
                         : root.provisioning.plan.mode === "reformat-existing-partition"
                         ? translations.i18n(
-                            "All data on partition %1 will be permanently erased. Other partitions will remain unchanged. Type ERASE to confirm.",
-                            root.selectedTarget?.path ?? ""
+                            "All data on partition %1 will be permanently erased. Other partitions will remain unchanged. Type %2 to confirm.",
+                            root.selectedTarget?.path ?? "",
+                            root.confirmationToken
                         )
                         : root.freeSpace
                         ? translations.i18n(
                             "A new partition will be created in the selected free space. Existing partitions will remain unchanged. Type CREATE to confirm."
                         )
                         : translations.i18n(
-                            "All data on %1 will be permanently erased. Type ERASE to confirm.",
-                            root.selectedDevice?.path ?? ""
+                            "All data on %1 will be permanently erased. Type %2 to confirm.",
+                            root.selectedDevice?.path ?? "",
+                            root.confirmationToken
                         )
                 }
                 QQC2.TextField {
@@ -398,6 +402,10 @@ KCMUtils.SimpleKCM {
 
     function slug(value) {
         return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").substring(0, 63)
+    }
+    function deviceNodeName(path) {
+        const separator = path.lastIndexOf("/")
+        return path.substring(separator + 1).toUpperCase()
     }
     function formatBytes(value) {
         const gib = Number(value) / 1073741824
