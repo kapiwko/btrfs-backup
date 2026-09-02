@@ -34,7 +34,8 @@ KCMUtils.SimpleKCM {
             && profileName.text.length > 0 && sourcePath.currentIndex >= 0
             && passphrase.text.length > 0 && passphrase.text === confirmation.text
             && eraseConfirmation.text === "ERASE" && root.provisioning.plan.planId
-            && root.provisioning.plan.mode === "erase-whole-device"
+            && (root.provisioning.plan.mode === "erase-whole-device"
+                || root.provisioning.plan.mode === "reformat-existing-partition")
             && root.provisioning.plan.displayPath === root.selectedTarget.path
             && !root.provisioning.busy
         onTriggered: {
@@ -235,7 +236,15 @@ KCMUtils.SimpleKCM {
                     Layout.fillWidth: true
                     visible: root.selectedDevice !== null
                     type: Kirigami.MessageType.Warning
-                    text: translations.i18n("All data on %1 will be permanently erased. Type ERASE to confirm.", root.selectedDevice?.path ?? "")
+                    text: root.provisioning.plan.mode === "reformat-existing-partition"
+                        ? translations.i18n(
+                            "All data on partition %1 will be permanently erased. Other partitions will remain unchanged. Type ERASE to confirm.",
+                            root.selectedTarget?.path ?? ""
+                        )
+                        : translations.i18n(
+                            "All data on %1 will be permanently erased. Type ERASE to confirm.",
+                            root.selectedDevice?.path ?? ""
+                        )
                 }
                 QQC2.TextField {
                     id: eraseConfirmation

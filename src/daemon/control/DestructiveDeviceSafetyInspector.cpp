@@ -64,6 +64,69 @@ void add_blockers(std::vector<std::string>& reasons, const std::vector<provision
         add_reason(reasons, blocker.detail.empty() ? blocker.code : blocker.code + ":" + blocker.detail);
 }
 
+bool same_identity(
+    const provisioning::StableBlockDeviceIdentity& expected,
+    const provisioning::StableBlockDeviceIdentity& current
+) {
+    return expected.display_path == current.display_path && expected.major_minor == current.major_minor &&
+        expected.sysfs_path == current.sysfs_path && expected.wwn == current.wwn &&
+        expected.serial == current.serial && expected.serial_short == current.serial_short &&
+        expected.size_bytes == current.size_bytes;
+}
+
+ProvisioningDevice partition_probe_candidate(const ExistingPartition& partition) {
+    return {
+        .path = partition.identity.display_path,
+        .model = {},
+        .serial = {},
+        .transport = {},
+        .size_bytes = partition.identity.size_bytes,
+        .removable = false,
+        .mounted = false,
+        .contains_data = true,
+        .major_minor = partition.identity.major_minor,
+        .sysfs_devpath = partition.identity.sysfs_path,
+        .wwn = partition.identity.wwn,
+        .serial_id = partition.identity.serial,
+        .serial_short = partition.identity.serial_short,
+        .device_graph = {},
+    };
+}
+
+const ExistingPartition* find_partition(
+    const provisioning::StorageDevice& device,
+    std::uint32_t partition_number
+) {
+    for (const auto& region : device.regions) {
+        const auto* partition = std::get_if<ExistingPartition>(&region);
+        if (partition != nullptr && partition->partition_number == partition_number)
+            return partition;
+    }
+    return nullptr;
+}
+
+void inspect_partition(
+    std::vector<std::string>& reasons,
+    const ExistingPartition& expected,
+    const ExistingPartition& current
+) {
+    if (!same_identity(expected.identity, current.identity) ||
+        expected.partition_uuid != current.partition_uuid ||
+        expected.partition_number != current.partition_number || expected.start_sector != current.start_sector ||
+        expected.sector_count != current.sector_count)
+        add_reason(reasons, "partition-identity-mismatch");
+    if (expected.filesystem != current.filesystem)
+        add_reason(reasons, "partition-signature-changed");
+    add_blockers(reasons, current.blockers);
+    add_mount_reasons(reasons, current.mount_points);
+    if (current.active_swap)
+        add_reason(reasons, "active-swap:" + current.identity.display_path);
+    for (const auto& holder : current.holders)
+        add_reason(reasons, "block-holder:" + holder);
+    if (current.configured_backup_target)
+        add_reason(reasons, "configured-backup-target:" + current.identity.display_path);
+}
+
 } // namespace
 
 DestructiveDeviceSafetyInspector::DestructiveDeviceSafetyInspector(
@@ -74,9 +137,11 @@ DestructiveDeviceSafetyInspector::DestructiveDeviceSafetyInspector(
 }
 
 std::vector<std::string> DestructiveDeviceSafetyInspector::inspect(
-    const ProvisioningDevice& expected_device
+    const ProvisioningDevice& expected_device,
+    const DevicePreparationTarget& target
 ) const {
     std::vector<std::string> reasons;
+    ProvisioningDevice exclusive_candidate = expected_device;
     try {
         const provisioning::StorageTopology topology = topology_.scan();
         const auto selected = std::ranges::find_if(topology.devices, [&](const auto& device) {
@@ -84,8 +149,21 @@ std::vector<std::string> DestructiveDeviceSafetyInspector::inspect(
         });
         if (selected == topology.devices.end()) {
             add_reason(reasons, "block-device-missing");
-        } else if (selected->identity.display_path != expected_device.path || selected->identity.sysfs_path != expected_device.sysfs_devpath) {
+        } else if (!same_identity(target.device.identity, selected->identity) || selected->logical_sector_size != target.device.logical_sector_size || selected->physical_sector_size != target.device.physical_sector_size || selected->partition_table != target.device.partition_table) {
             add_reason(reasons, "block-device-identity-mismatch");
+        } else if (selected->read_only) {
+            add_reason(reasons, "read-only-device:" + selected->identity.display_path);
+        } else if (target.mode == provisioning::ProvisioningMode::ReformatExistingPartition) {
+            if (!target.partition.has_value()) {
+                add_reason(reasons, "planned-partition-missing");
+            } else {
+                const ExistingPartition* partition = find_partition(*selected, target.partition->partition_number);
+                if (partition == nullptr)
+                    add_reason(reasons, "block-partition-missing");
+                else
+                    inspect_partition(reasons, *target.partition, *partition);
+                exclusive_candidate = partition_probe_candidate(*target.partition);
+            }
         } else {
             add_blockers(reasons, selected->blockers);
             add_mount_reasons(reasons, selected->mount_points);
@@ -108,7 +186,7 @@ std::vector<std::string> DestructiveDeviceSafetyInspector::inspect(
     } catch (...) {
         add_reason(reasons, "block-graph-unavailable");
     }
-    if (const auto exclusive_reason = exclusive_probe_(expected_device); exclusive_reason.has_value())
+    if (const auto exclusive_reason = exclusive_probe_(exclusive_candidate); exclusive_reason.has_value())
         add_reason(reasons, *exclusive_reason);
     return reasons;
 }

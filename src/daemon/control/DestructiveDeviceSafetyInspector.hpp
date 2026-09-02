@@ -20,7 +20,8 @@ class IDestructiveDeviceSafetyInspector {
   public:
     virtual ~IDestructiveDeviceSafetyInspector() = default;
     [[nodiscard]] virtual std::vector<std::string> inspect(
-        const ProvisioningDevice& expected_device
+        const ProvisioningDevice& expected_device,
+        const DevicePreparationTarget& target
     ) const = 0;
 };
 
@@ -34,7 +35,8 @@ class DestructiveDeviceSafetyInspector final : public IDestructiveDeviceSafetyIn
     );
 
     [[nodiscard]] std::vector<std::string> inspect(
-        const ProvisioningDevice& expected_device
+        const ProvisioningDevice& expected_device,
+        const DevicePreparationTarget& target
     ) const override;
 
   private:

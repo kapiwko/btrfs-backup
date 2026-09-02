@@ -278,9 +278,11 @@ These rules describe the implemented API unless explicitly marked otherwise.
   additionally requires an explicit `ERASE` confirmation. The daemon rescans
   the topology generation before authorization and revalidates the exact
   device identity and use before the first destructive command.
-- Existing-partition plans are currently preview-only. The start method rejects
-  them before authorization until the partition-scoped executor and recovery
-  path are available, so they cannot enter the whole-device executor.
+- Existing-partition plans execute through a partition-scoped path. The helper
+  revalidates the parent identity, partition table, partition identity,
+  geometry, signature and active users, then erases signatures only on the
+  selected partition. It does not rewrite the partition table and ignores
+  unrelated mounted siblings.
 - Authorization success is not persisted by the daemon. Only polkit controls
   caching: credential management uses `auth_admin_keep` for a short sequence of
   keyslot changes, while destructive device preparation and other high-risk
