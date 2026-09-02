@@ -91,8 +91,8 @@ TargetStatus DeviceStateQueryService::get_device_state(
     const bool target_mounted = mount_present && mounted_entry->fstype == "btrfs" &&
         mounted_entry->filesystem_uuid == profile.target.btrfs_uuid.value() &&
         btrfsbackup::backup::mount_uses_mapper(mounts, mountpoint, mapper);
-    const bool unlocked = fs::exists(mapper);
     const bool connected = fs::exists(profile.target.device);
+    const bool unlocked = connected && fs::exists(mapper);
 
     std::string state = "disconnected";
     bool safe_to_remove = false;
