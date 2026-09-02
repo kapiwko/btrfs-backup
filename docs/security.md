@@ -92,7 +92,10 @@ Before authorization it rescans storage and compares the planned destructive
 scope with the current stable device identity, partition table, sector sizes,
 partition geometry, signatures, mounts, swap and holders. Whole-device plans
 inspect every child; existing-partition plans ignore unrelated siblings but are
-preview-only until their separate executor and recovery path are available.
+executed only against the selected partition. The helper never invokes the
+partition-table adapter for this mode. Its libblkid signature adapter compares
+the expected filesystem type, version, label and UUID on the exclusively opened
+partition immediately before erasing signatures.
 The helper revalidates the block graph and active users again immediately before
 signature erasure. Signature erasure uses libblkid on an `O_EXCL|O_NOFOLLOW`
 descriptor after checking that the opened block node still has the expected
@@ -105,8 +108,8 @@ table reread to succeed. A libudev monitor is enabled before the table is
 written; completion requires a visible partition with the expected parent,
 number and geometry. Filesystem creation is verified directly with a
 descriptor-backed libblkid probe, so provisioning does not invoke `udevadm settle`.
-The helper verifies the chosen source as a Btrfs
-subvolume and disables cancellation before the first write. The long-lived manager persists
+The helper verifies the chosen source as a Btrfs subvolume and disables
+cancellation before the first write. The long-lived manager persists
 the request and launches one
 `btrfs-backup-device-preparation@<operationId>.service` instance. That
 short-lived helper receives the passphrase through a root-only FIFO, executes

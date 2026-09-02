@@ -43,6 +43,18 @@ DevicePreparationTarget target(btrfsbackup::daemon::provisioning::StorageDevice 
     return {.device = std::move(device)};
 }
 
+DevicePreparationTarget partition_target(btrfsbackup::daemon::provisioning::StorageDevice device) {
+    const auto* partition = std::get_if<btrfsbackup::daemon::provisioning::ExistingPartition>(
+        &device.regions.front()
+    );
+    const auto selected_partition = *partition;
+    return {
+        .mode = btrfsbackup::daemon::provisioning::ProvisioningMode::ReformatExistingPartition,
+        .device = std::move(device),
+        .partition = selected_partition,
+    };
+}
+
 class Commands final : public backup::ICommandRunner {
   public:
     std::vector<std::vector<std::string>> calls;
@@ -103,8 +115,14 @@ class LuksOperations final : public btrfsbackup::platform::linux::storage::ICryp
 class Signatures final : public btrfsbackup::platform::linux::storage::ISignatureOperations {
   public:
     std::vector<std::pair<std::string, std::string>> calls;
-    void wipe_all(const std::filesystem::path& device, const std::string& expected_major_minor) override {
+    std::vector<std::optional<btrfsbackup::platform::linux::storage::SignatureExpectation>> expectations;
+    void wipe_all(
+        const std::filesystem::path& device,
+        const std::string& expected_major_minor,
+        const std::optional<btrfsbackup::platform::linux::storage::SignatureExpectation>& expected_signature
+    ) override {
         calls.emplace_back(device.string(), expected_major_minor);
+        expectations.push_back(expected_signature);
     }
 };
 
@@ -165,6 +183,8 @@ class TopologyReader final : public btrfsbackup::daemon::provisioning::StorageTo
             partition.partition_number = 1;
             partition.start_sector = 1;
             partition.sector_count = 2047;
+            partition.filesystem = {.type = "ext4", .uuid = "old-filesystem"};
+            partition.suitable_for_reformat = true;
             device.regions.emplace_back(std::move(partition));
         }
         return {
@@ -216,7 +236,10 @@ class SafetyInspector final : public IDestructiveDeviceSafetyInspector {
   public:
     mutable int inspections = 0;
     std::vector<std::string> reasons;
-    std::vector<std::string> inspect(const btrfsbackup::daemon::control::ProvisioningDevice&) const override {
+    std::vector<std::string> inspect(
+        const btrfsbackup::daemon::control::ProvisioningDevice&,
+        const btrfsbackup::daemon::control::DevicePreparationTarget&
+    ) const override {
         ++inspections;
         return reasons;
     }
@@ -395,6 +418,96 @@ void test_preparation_sequence_uses_descriptors_and_installs_profile() {
             return !call.empty() && (call.front() == "lsblk" || (call.front() == "udevadm" && call.size() > 1 && call.at(1) == "info"));
         }),
         "device discovery invoked a command instead of the topology reader"
+    );
+}
+
+void test_existing_partition_does_not_modify_parent_partition_table() {
+    const auto root = test_helpers::test_root("device-provisioning", "existing-partition");
+    Commands commands;
+    Signatures signatures;
+    MetadataReader metadata;
+    PartitionTables partition_tables;
+    partition_tables.partitioned = true;
+    LuksOperations luks;
+    TopologyReader topology(partition_tables);
+    Btrfs btrfs;
+    Credentials credentials;
+    SafetyInspector safety;
+    Units units;
+    config::NullConfigurationActivator activator;
+    SystemDeviceProvisioningBackend backend(
+        {
+            .config_root = root / "etc",
+            .metadata_root = root / "etc/credentials",
+            .key_root = root / "etc/keys",
+            .lock_root = root / "run/locks",
+            .udev_root = root / "udev",
+            .systemd_root = root / "systemd",
+            .public_root = root / "public",
+        },
+        root / "mnt",
+        root / "mountinfo",
+        root / "transactions",
+        topology,
+        commands,
+        signatures,
+        metadata,
+        partition_tables,
+        luks,
+        btrfs,
+        activator,
+        credentials,
+        safety,
+        units
+    );
+    const auto selected = partition_target(topology.scan().devices.front());
+    const int manager_secret = secret_descriptor("secret");
+    const auto started = backend.start(
+        {
+            .profile_id = "test",
+            .profile_name = "Partition backup",
+            .plan_id = "plan-partition",
+            .source_subvolume = "/home",
+            .passphrase_label = "Recovery",
+            .create_automatic_key = false,
+        },
+        selected,
+        {.bus_name = ":1.6", .uid = 1000},
+        manager_secret
+    );
+    ::close(manager_secret);
+    const int helper_secret = secret_descriptor("secret");
+    backend.execute_operation(started.operation_id, helper_secret);
+    ::close(helper_secret);
+
+    test_helpers::expect_eq("partition preparation state", backend.status(started.operation_id).state, "succeeded");
+    test_helpers::expect_true(
+        "partition-only signature wipe",
+        signatures.calls == std::vector<std::pair<std::string, std::string>>{{"/dev/test1", "8:17"}} &&
+            signatures.expectations ==
+                std::vector<std::optional<btrfsbackup::platform::linux::storage::SignatureExpectation>>{
+                    btrfsbackup::platform::linux::storage::SignatureExpectation{
+                        .type = "ext4",
+                        .version = {},
+                        .label = {},
+                        .uuid = "old-filesystem",
+                    },
+                },
+        "signature wipe escaped the selected partition"
+    );
+    test_helpers::expect_true(
+        "unchanged partition table",
+        partition_tables.calls.empty(),
+        "existing-partition preparation rewrote the parent partition table"
+    );
+    test_helpers::expect_true(
+        "partition-only LUKS",
+        luks.calls == std::vector<std::string>{
+                          "format:/dev/test1",
+                          "open:/dev/test1:btrfs-backup-test",
+                          "close:btrfs-backup-test",
+                      },
+        "LUKS operations did not remain scoped to the selected partition"
     );
 }
 
@@ -653,6 +766,7 @@ void test_restart_marks_active_transaction_interrupted_and_preserves_owner() {
 
 int main() {
     test_preparation_sequence_uses_descriptors_and_installs_profile();
+    test_existing_partition_does_not_modify_parent_partition_table();
     test_replacement_before_wipe_is_rejected();
     test_exited_helper_marks_transaction_interrupted();
     test_restart_marks_active_transaction_interrupted_and_preserves_owner();

@@ -120,9 +120,13 @@ void DevicePreparationExecutor::execute(const std::string& operation_id, int pas
     std::string mapper;
     try {
         phase(operation_id, "inspect", true);
-        const ProvisioningDevice selected = devices_.revalidate(initial.device);
-        if (selected.mounted)
-            throw ValidationError("selected device or one of its partitions is mounted");
+        if (initial.target.mode == provisioning::ProvisioningMode::EraseWholeDevice) {
+            const ProvisioningDevice selected = devices_.revalidate(initial.device);
+            if (selected.mounted)
+                throw ValidationError("selected device or one of its partitions is mounted");
+        } else if (initial.target.mode != provisioning::ProvisioningMode::ReformatExistingPartition || !initial.target.partition.has_value()) {
+            throw ValidationError("device preparation transaction mode is not executable");
+        }
         if (!btrfs_.is_subvolume(initial.source_subvolume))
             throw ValidationError("selected source is not a Btrfs subvolume");
         completed(operation_id, "inspect");
@@ -130,27 +134,46 @@ void DevicePreparationExecutor::execute(const std::string& operation_id, int pas
         if (!device_lock.try_acquire())
             throw dbus::ManagerOperationError(dbus::ManagerErrorCode::Busy, "another device is being prepared");
 
-        const ProvisioningDevice before_wipe = devices_.revalidate(initial.device);
-        if (before_wipe.mounted)
-            throw ValidationError("selected device or one of its partitions became mounted");
-        const std::vector<std::string> safety_reasons = safety_inspector_.inspect(initial.device);
+        if (initial.target.mode == provisioning::ProvisioningMode::EraseWholeDevice) {
+            const ProvisioningDevice before_wipe = devices_.revalidate(initial.device);
+            if (before_wipe.mounted)
+                throw ValidationError("selected device or one of its partitions became mounted");
+        }
+        const std::vector<std::string> safety_reasons = safety_inspector_.inspect(initial.device, initial.target);
         if (!safety_reasons.empty())
             throw dbus::ManagerOperationError(
                 dbus::ManagerErrorCode::Conflict,
                 "selected device is not safe for destructive preparation: " + safety_reasons.front()
             );
-        phase(operation_id, "wipe-signatures", false);
-        signatures_.wipe_all(initial.device.path, initial.device.major_minor);
-        completed(operation_id, "wipe-signatures");
-
-        phase(operation_id, "partition", false);
         backup::ControlledCommandOptions standard;
-        partition_tables_.replace_with_single_gpt_partition(initial.device.path, initial.device.major_minor);
-        const std::string partition = devices_.only_partition(initial.device);
-        update(operation_id, [&](auto& transaction) {
-            transaction.partition = partition;
-            transaction.last_completed_phase = "partition";
-        });
+        std::string partition;
+        phase(operation_id, "wipe-signatures", false);
+        if (initial.target.mode == provisioning::ProvisioningMode::EraseWholeDevice) {
+            signatures_.wipe_all(initial.device.path, initial.device.major_minor);
+            completed(operation_id, "wipe-signatures");
+
+            phase(operation_id, "partition", false);
+            partition_tables_.replace_with_single_gpt_partition(initial.device.path, initial.device.major_minor);
+            partition = devices_.only_partition(initial.device);
+            update(operation_id, [&](auto& transaction) {
+                transaction.partition = partition;
+                transaction.last_completed_phase = "partition";
+            });
+        } else {
+            const auto& selected_partition = *initial.target.partition;
+            partition = selected_partition.identity.display_path;
+            signatures_.wipe_all(
+                partition,
+                selected_partition.identity.major_minor,
+                platform::linux::storage::SignatureExpectation{
+                    .type = selected_partition.filesystem.type,
+                    .version = selected_partition.filesystem.version,
+                    .label = selected_partition.filesystem.label,
+                    .uuid = selected_partition.filesystem.uuid,
+                }
+            );
+            completed(operation_id, "wipe-signatures");
+        }
 
         phase(operation_id, "luks-format", false);
         const std::string luks_uuid = cryptsetup_.format_luks2(partition, passphrase.get());

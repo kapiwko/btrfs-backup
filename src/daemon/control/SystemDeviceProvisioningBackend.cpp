@@ -66,12 +66,22 @@ std::int64_t system_time_seconds() {
 
 void validate_execution_target(const DevicePreparationTarget& target) {
     const auto& identity = target.device.identity;
-    if (target.mode != provisioning::ProvisioningMode::EraseWholeDevice || target.partition.has_value())
+    const bool whole_device = target.mode == provisioning::ProvisioningMode::EraseWholeDevice;
+    const bool existing_partition = target.mode == provisioning::ProvisioningMode::ReformatExistingPartition;
+    if ((!whole_device && !existing_partition) || (whole_device && target.partition.has_value()) ||
+        (existing_partition && !target.partition.has_value()))
         throw ValidationError("device preparation target mode is not executable yet");
     if (identity.display_path.empty() || identity.major_minor.empty() || identity.sysfs_path.empty() ||
         identity.size_bytes == 0 || target.device.logical_sector_size == 0 || target.device.transport.empty() ||
         (identity.wwn.empty() && identity.serial.empty() && identity.serial_short.empty()))
         throw ValidationError("device preparation target identity is incomplete");
+    if (existing_partition) {
+        const auto& partition = *target.partition;
+        if (partition.identity.display_path.empty() || partition.identity.major_minor.empty() ||
+            partition.identity.sysfs_path.empty() || partition.identity.size_bytes == 0 ||
+            partition.partition_number == 0 || partition.sector_count == 0)
+            throw ValidationError("partition preparation target identity is incomplete");
+    }
 }
 
 } // namespace
@@ -289,7 +299,7 @@ std::vector<std::string> SystemDeviceProvisioningBackend::list_source_candidates
 std::vector<std::string> SystemDeviceProvisioningBackend::inspect_safety(
     const DevicePreparationTarget& target
 ) const {
-    return impl_->safety_inspector.inspect(provisioning_device_snapshot(target.device));
+    return impl_->safety_inspector.inspect(provisioning_device_snapshot(target.device), target);
 }
 
 DevicePreparationStatus SystemDeviceProvisioningBackend::start(
@@ -324,7 +334,7 @@ DevicePreparationStatus SystemDeviceProvisioningBackend::start(
         .created_at = now,
         .updated_at = now,
         .last_completed_phase = {},
-        .partition = {},
+        .partition = target.partition.has_value() ? target.partition->identity.display_path : std::string{},
         .partition_uuid = {},
         .luks_uuid = {},
         .btrfs_uuid = {},
