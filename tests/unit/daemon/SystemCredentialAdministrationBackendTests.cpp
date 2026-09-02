@@ -72,6 +72,8 @@ class Cryptsetup final : public btrfsbackup::platform::linux::storage::ICryptset
     }
     void open_luks2(const fs::path&, const std::string&, int) override {
     }
+    void open_luks2_read_only(const fs::path&, const std::string&, int) override {
+    }
     void close(const std::string&) override {
     }
 };

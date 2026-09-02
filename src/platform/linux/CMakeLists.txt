@@ -91,11 +91,13 @@ add_library(btrfsbackup-platform-linux-storage STATIC
 
 if(BUILD_SYSTEM_MANAGER)
     add_library(btrfsbackup-platform-linux-provisioning STATIC
+        storage/ExistingTargetMountOperations.cpp
         storage/PartitionTableOperations.cpp
         storage/provisioning/SystemStorageTopologyReader.cpp
     )
     target_restricted_include_directories(btrfsbackup-platform-linux-provisioning
         PUBLIC_HEADERS
+            platform/linux/storage/ExistingTargetMountOperations.hpp
             platform/linux/storage/PartitionTableOperations.hpp
             platform/linux/storage/provisioning/SystemStorageTopologyReader.hpp
     )

@@ -9,6 +9,7 @@
 namespace btrfsbackup::platform::linux::storage {
 
 struct BlockDeviceMetadata {
+    std::string filesystem_type;
     std::string filesystem_uuid;
     std::string partition_uuid;
 };

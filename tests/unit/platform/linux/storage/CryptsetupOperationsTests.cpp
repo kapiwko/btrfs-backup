@@ -28,6 +28,9 @@ void test_rejects_untrusted_inputs_before_libcryptsetup() {
     expect_validation_error("invalid mapper open", [&] {
         operations.open_luks2("/dev/null", "../mapper", 3);
     });
+    expect_validation_error("invalid read-only mapper open", [&] {
+        operations.open_luks2_read_only("/dev/null", "../mapper", 3);
+    });
     expect_validation_error("invalid mapper inspection", [&] {
         static_cast<void>(operations.active_device("mapper/name"));
     });
