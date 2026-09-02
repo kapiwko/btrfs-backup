@@ -39,6 +39,28 @@ void test_rejects_untrusted_inputs_before_libcryptsetup() {
     });
 }
 
+void test_parses_luks_uuid_from_kernel_device_mapper_identity() {
+    using btrfsbackup::platform::linux::storage::luks_uuid_from_device_mapper_uuid;
+    const auto parsed = luks_uuid_from_device_mapper_uuid(
+        "CRYPT-LUKS2-7d8634ca271043f281b8af505a965faf-backupdisk"
+    );
+    test_helpers::expect_true(
+        "device mapper LUKS UUID",
+        parsed == std::optional<std::string>{"7d8634ca-2710-43f2-81b8-af505a965faf"},
+        "kernel device mapper UUID was not parsed"
+    );
+    test_helpers::expect_true(
+        "non-LUKS device mapper UUID",
+        !luks_uuid_from_device_mapper_uuid("LVM-test").has_value(),
+        "non-LUKS mapping was accepted"
+    );
+    test_helpers::expect_true(
+        "truncated LUKS device mapper UUID",
+        !luks_uuid_from_device_mapper_uuid("CRYPT-LUKS2-7d8634ca-backupdisk").has_value(),
+        "truncated LUKS mapping UUID was accepted"
+    );
+}
+
 void test_formats_and_manages_a_luks2_header_without_a_process() {
     namespace fs = std::filesystem;
     constexpr std::string_view passphrase = "correct horse battery staple";
@@ -67,6 +89,7 @@ void test_formats_and_manages_a_luks2_header_without_a_process() {
 
 int main() {
     test_rejects_untrusted_inputs_before_libcryptsetup();
+    test_parses_luks_uuid_from_kernel_device_mapper_identity();
     test_formats_and_manages_a_luks2_header_without_a_process();
     return test_helpers::finish("cryptsetup operations tests");
 }
