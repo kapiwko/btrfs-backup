@@ -121,6 +121,16 @@ metadata, keyslots and mappings are managed through libcryptsetup; protected
 credential buffers use `crypt_safe_alloc` and are released with
 `crypt_safe_free`.
 
+Prepared-target inspection activates an existing LUKS2 mapping with
+`CRYPT_ACTIVATE_READONLY`. It accepts only a topology candidate without mounts,
+swap, holders or safety blockers and rechecks the LUKS UUID before activation.
+The mapped device must probe as Btrfs, and its filesystem UUID must match the
+repository identity. Inspection mounts it with libmount, external helpers
+disabled, and `ro,nodev,nosuid,noexec,nologreplay`; the resulting mount flags
+and mountinfo entry are verified before repository metadata is read. Both the
+mount and mapper are closed before an inspection result is returned, including
+failure paths. This inspection does not format storage or modify LUKS keyslots.
+
 Preparation operation identifiers contain 128 random bits supplied by
 `getrandom()`. The manager persists the initiating D-Bus unique name and UID in
 a root-only transaction record. Status and cancellation require the matching

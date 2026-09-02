@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <cerrno>
 #include <cctype>
+#include <cstdint>
 #include <cstring>
 #include <memory>
 #include <ranges>
@@ -118,14 +119,19 @@ std::string uuid(crypt_device* device) {
     return value;
 }
 
-int activate_secret(crypt_device* device, const char* mapper, const SafeSecret& secret) {
+int activate_secret(
+    crypt_device* device,
+    const char* mapper,
+    const SafeSecret& secret,
+    std::uint32_t flags = 0
+) {
     return crypt_activate_by_passphrase(
         device,
         mapper,
         CRYPT_ANY_SLOT,
         secret.data(),
         secret.size(),
-        0
+        flags
     );
 }
 
@@ -229,6 +235,20 @@ void CryptsetupOperations::open_luks2(
     auto context = initialize(device, true);
     const SafeSecret secret(key_fd);
     require_result(activate_secret(context.get(), mapper.c_str(), secret), "opening LUKS2 target");
+}
+
+void CryptsetupOperations::open_luks2_read_only(
+    const std::filesystem::path& device,
+    const std::string& mapper,
+    int key_fd
+) {
+    validate_mapper(mapper);
+    auto context = initialize(device, true);
+    const SafeSecret secret(key_fd);
+    require_result(
+        activate_secret(context.get(), mapper.c_str(), secret, CRYPT_ACTIVATE_READONLY),
+        "opening read-only LUKS2 target"
+    );
 }
 
 void CryptsetupOperations::close(const std::string& mapper) {

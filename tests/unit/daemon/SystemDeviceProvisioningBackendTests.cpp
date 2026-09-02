@@ -107,6 +107,9 @@ class LuksOperations final : public btrfsbackup::platform::linux::storage::ICryp
     void open_luks2(const std::filesystem::path& device, const std::string& mapper, int) override {
         calls.push_back("open:" + device.string() + ":" + mapper);
     }
+    void open_luks2_read_only(const std::filesystem::path& device, const std::string& mapper, int) override {
+        calls.push_back("open-read-only:" + device.string() + ":" + mapper);
+    }
     void close(const std::string& mapper) override {
         calls.push_back("close:" + mapper);
     }

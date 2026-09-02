@@ -51,6 +51,7 @@ BlockDeviceMetadata LibblkidBlockDeviceMetadataReader::read(const std::filesyste
     if (result != 0)
         throw ValidationError(result == 1 ? "block device metadata is unavailable" : "block device metadata probe failed");
     return {
+        .filesystem_type = value(probe.get(), "TYPE"),
         .filesystem_uuid = value(probe.get(), "UUID"),
         .partition_uuid = value(probe.get(), "PART_ENTRY_UUID"),
     };
