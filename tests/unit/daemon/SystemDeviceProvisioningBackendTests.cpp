@@ -12,6 +12,7 @@
 #include <daemon/control/CredentialAdministrationService.hpp>
 #include <daemon/control/DestructiveDeviceSafetyInspector.hpp>
 #include <daemon/provisioning/StorageTopologyReader.hpp>
+#include <platform/linux/storage/BlockDeviceMetadata.hpp>
 #include <platform/linux/storage/CryptsetupOperations.hpp>
 #include <platform/linux/storage/SignatureOperations.hpp>
 
@@ -47,10 +48,6 @@ class Commands final : public backup::ICommandRunner {
     std::vector<std::vector<std::string>> controlled_calls;
     backup::CommandResult run(const std::vector<std::string>& argv) override {
         calls.push_back(argv);
-        if (argv.front() == "blkid" && argv.back() == "/dev/mapper/btrfs-backup-test")
-            return {0, "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee\n"};
-        if (argv.front() == "blkid")
-            return {0, "99999999-8888-7777-6666-555555555555\n"};
         return {0, {}};
     }
     backup::CommandResult run_controlled(
@@ -59,6 +56,19 @@ class Commands final : public backup::ICommandRunner {
     ) override {
         controlled_calls.push_back(argv);
         return run(argv);
+    }
+};
+
+class MetadataReader final : public btrfsbackup::platform::linux::storage::IBlockDeviceMetadataReader {
+  public:
+    std::vector<std::string> calls;
+    btrfsbackup::platform::linux::storage::BlockDeviceMetadata read(
+        const std::filesystem::path& device
+    ) override {
+        calls.push_back(device.string());
+        if (device == "/dev/mapper/btrfs-backup-test")
+            return {.filesystem_uuid = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"};
+        return {.partition_uuid = "99999999-8888-7777-6666-555555555555"};
     }
 };
 
@@ -235,6 +245,7 @@ void test_preparation_sequence_uses_descriptors_and_installs_profile() {
     const auto root = test_helpers::test_root("device-provisioning", "success");
     Commands commands;
     Signatures signatures;
+    MetadataReader metadata;
     LuksOperations luks;
     TopologyReader topology(commands);
     Btrfs btrfs;
@@ -258,6 +269,7 @@ void test_preparation_sequence_uses_descriptors_and_installs_profile() {
         topology,
         commands,
         signatures,
+        metadata,
         luks,
         btrfs,
         activator,
@@ -321,6 +333,17 @@ void test_preparation_sequence_uses_descriptors_and_installs_profile() {
         "signature erasure invoked wipefs instead of libblkid"
     );
     test_helpers::expect_true(
+        "no blkid process",
+        std::ranges::none_of(commands.calls, [](const auto& call) {
+            return !call.empty() && call.front() == "blkid";
+        }) &&
+            metadata.calls == std::vector<std::string>{
+                                  "/dev/mapper/btrfs-backup-test",
+                                  "/dev/test1",
+                              },
+        "device metadata did not use the libblkid adapter"
+    );
+    test_helpers::expect_true(
         "no cryptsetup process",
         std::ranges::none_of(commands.calls, [](const auto& call) {
             return !call.empty() && call.front() == "cryptsetup";
@@ -358,6 +381,7 @@ void test_exited_helper_marks_transaction_interrupted() {
     const auto root = test_helpers::test_root("device-provisioning", "helper-exited");
     Commands commands;
     Signatures signatures;
+    MetadataReader metadata;
     LuksOperations luks;
     TopologyReader topology(commands);
     Btrfs btrfs;
@@ -381,6 +405,7 @@ void test_exited_helper_marks_transaction_interrupted() {
         topology,
         commands,
         signatures,
+        metadata,
         luks,
         btrfs,
         activator,
@@ -431,6 +456,7 @@ void test_replacement_before_wipe_is_rejected() {
     const auto root = test_helpers::test_root("device-provisioning", "replacement");
     Commands commands;
     Signatures signatures;
+    MetadataReader metadata;
     LuksOperations luks;
     TopologyReader topology(commands);
     Btrfs btrfs;
@@ -454,6 +480,7 @@ void test_replacement_before_wipe_is_rejected() {
         topology,
         commands,
         signatures,
+        metadata,
         luks,
         btrfs,
         activator,
@@ -532,6 +559,7 @@ void test_restart_marks_active_transaction_interrupted_and_preserves_owner() {
 
     Commands commands;
     Signatures signatures;
+    MetadataReader metadata;
     LuksOperations luks;
     TopologyReader topology(commands);
     Btrfs btrfs;
@@ -555,6 +583,7 @@ void test_restart_marks_active_transaction_interrupted_and_preserves_owner() {
         topology,
         commands,
         signatures,
+        metadata,
         luks,
         btrfs,
         activator,

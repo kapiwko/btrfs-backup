@@ -18,6 +18,7 @@ class IConfigurationActivator;
 }
 
 namespace btrfsbackup::platform::linux::storage {
+class IBlockDeviceMetadataReader;
 class ICryptsetupOperations;
 class ISignatureOperations;
 } // namespace btrfsbackup::platform::linux::storage
@@ -43,6 +44,7 @@ class SystemDeviceProvisioningBackend final : public IDeviceProvisioningBackend 
         provisioning::StorageTopologyReader& topology,
         btrfsbackup::backup::ICommandRunner& commands,
         btrfsbackup::platform::linux::storage::ISignatureOperations& signatures,
+        btrfsbackup::platform::linux::storage::IBlockDeviceMetadataReader& metadata,
         btrfsbackup::platform::linux::storage::ICryptsetupOperations& cryptsetup,
         btrfsbackup::backup::IBtrfsOperations& btrfs,
         btrfsbackup::config::IConfigurationActivator& configuration_activator,

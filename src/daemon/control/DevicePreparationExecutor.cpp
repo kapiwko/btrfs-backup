@@ -20,6 +20,7 @@
 #include <platform/linux/config/ProfileService.hpp>
 #include <platform/linux/filesystem/FileLock.hpp>
 #include <platform/linux/filesystem/SecretFile.hpp>
+#include <platform/linux/storage/BlockDeviceMetadata.hpp>
 #include <platform/linux/storage/CryptsetupOperations.hpp>
 #include <platform/linux/storage/SignatureOperations.hpp>
 
@@ -60,6 +61,7 @@ DevicePreparationExecutor::DevicePreparationExecutor(
     fs::path target_mount_root,
     backup::ICommandRunner& commands,
     platform::linux::storage::ISignatureOperations& signatures,
+    platform::linux::storage::IBlockDeviceMetadataReader& metadata,
     platform::linux::storage::ICryptsetupOperations& cryptsetup,
     backup::IBtrfsOperations& btrfs,
     config::IConfigurationActivator& configuration_activator,
@@ -71,6 +73,7 @@ DevicePreparationExecutor::DevicePreparationExecutor(
     : roots_(std::move(roots)),
       commands_(commands),
       signatures_(signatures),
+      metadata_(metadata),
       cryptsetup_(cryptsetup),
       btrfs_(btrfs),
       activator_(configuration_activator),
@@ -184,14 +187,14 @@ void DevicePreparationExecutor::execute(const std::string& operation_id, int pas
             "creating Btrfs filesystem"
         );
         require_success(commands_, {"udevadm", "settle", "--timeout=10"}, standard, "waiting for the new filesystem");
-        const std::string btrfs_uuid = backup::capture_command(
-            commands_,
-            {"blkid", "--output", "value", "--match-tag", "UUID", mapper_path}
-        );
-        const std::string partition_uuid = backup::capture_command(
-            commands_,
-            {"blkid", "--output", "value", "--match-tag", "PARTUUID", partition}
-        );
+        const auto mapper_metadata = metadata_.read(mapper_path);
+        const auto partition_metadata = metadata_.read(partition);
+        if (mapper_metadata.filesystem_uuid.empty())
+            throw ValidationError("Btrfs UUID is unavailable after formatting");
+        if (partition_metadata.partition_uuid.empty())
+            throw ValidationError("partition UUID is unavailable after formatting");
+        const std::string& btrfs_uuid = mapper_metadata.filesystem_uuid;
+        const std::string& partition_uuid = partition_metadata.partition_uuid;
         update(operation_id, [&](auto& transaction) {
             transaction.btrfs_uuid = btrfs_uuid;
             transaction.partition_uuid = partition_uuid;
