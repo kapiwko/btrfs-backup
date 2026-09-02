@@ -166,6 +166,27 @@ std::vector<std::string> DestructiveDeviceSafetyInspector::inspect(
                     exclusive_candidate = partition_probe_candidate(*target.partition);
             }
         } else {
+            if (target.mode == provisioning::ProvisioningMode::CreatePartitionInUnallocatedSpace) {
+                if (!target.free_region.has_value() || !target.planned_partition_geometry.has_value()) {
+                    add_reason(reasons, "planned-free-region-missing");
+                } else {
+                    const auto current_free = std::ranges::find_if(selected->regions, [&](const auto& region) {
+                        const auto* free_region = std::get_if<provisioning::UnallocatedRegion>(&region);
+                        return free_region != nullptr &&
+                            free_region->start_sector == target.free_region->start_sector &&
+                            free_region->sector_count == target.free_region->sector_count;
+                    });
+                    if (current_free == selected->regions.end())
+                        add_reason(reasons, "unallocated-region-changed");
+                    const auto& geometry = *target.planned_partition_geometry;
+                    const std::uint64_t free_start = target.free_region->start_sector;
+                    const std::uint64_t free_count = target.free_region->sector_count;
+                    if (free_count == 0 || geometry.sector_count == 0 || geometry.start_sector < free_start ||
+                        geometry.start_sector - free_start >= free_count ||
+                        geometry.sector_count > free_count - (geometry.start_sector - free_start))
+                        add_reason(reasons, "planned-partition-geometry-invalid");
+                }
+            }
             add_blockers(reasons, selected->blockers);
             add_mount_reasons(reasons, selected->mount_points);
             if (selected->active_swap)

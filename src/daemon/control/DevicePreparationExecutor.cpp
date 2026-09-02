@@ -136,6 +136,9 @@ void DevicePreparationExecutor::execute(const std::string& operation_id, int pas
             const ProvisioningDevice selected = devices_.revalidate(initial.device);
             if (selected.mounted)
                 throw ValidationError("selected device or one of its partitions is mounted");
+        } else if (initial.target.mode == provisioning::ProvisioningMode::CreatePartitionInUnallocatedSpace) {
+            if (!initial.target.free_region.has_value() || !initial.target.planned_partition_geometry.has_value())
+                throw ValidationError("free-space preparation transaction is incomplete");
         } else if ((initial.target.mode != provisioning::ProvisioningMode::ReformatExistingPartition && initial.target.mode != provisioning::ProvisioningMode::AdoptExistingTarget) || !initial.target.partition.has_value()) {
             throw ValidationError("device preparation transaction mode is not executable");
         }
@@ -245,8 +248,8 @@ void DevicePreparationExecutor::execute(const std::string& operation_id, int pas
         }
         backup::ControlledCommandOptions standard;
         std::string partition;
-        phase(operation_id, "wipe-signatures", false);
         if (initial.target.mode == provisioning::ProvisioningMode::EraseWholeDevice) {
+            phase(operation_id, "wipe-signatures", false);
             signatures_.wipe_all(initial.device.path, initial.device.major_minor);
             completed(operation_id, "wipe-signatures");
 
@@ -257,7 +260,31 @@ void DevicePreparationExecutor::execute(const std::string& operation_id, int pas
                 transaction.partition = partition;
                 transaction.last_completed_phase = "partition";
             });
+        } else if (initial.target.mode == provisioning::ProvisioningMode::CreatePartitionInUnallocatedSpace) {
+            phase(operation_id, "partition", false);
+            const auto& free_region = *initial.target.free_region;
+            const auto& planned = *initial.target.planned_partition_geometry;
+            partition = partition_tables_
+                            .create_partition_in_free_space(
+                                initial.device.path,
+                                initial.device.major_minor,
+                                initial.target.device.partition_table.identifier,
+                                initial.target.device.logical_sector_size,
+                                free_region.start_sector,
+                                free_region.sector_count,
+                                {
+                                    .start_sector = planned.start_sector,
+                                    .sector_count = planned.sector_count,
+                                    .partition_number = planned.partition_number,
+                                }
+                            )
+                            .string();
+            update(operation_id, [&](auto& transaction) {
+                transaction.partition = partition;
+                transaction.last_completed_phase = "partition";
+            });
         } else {
+            phase(operation_id, "wipe-signatures", false);
             const auto& selected_partition = *initial.target.partition;
             partition = selected_partition.identity.display_path;
             signatures_.wipe_all(

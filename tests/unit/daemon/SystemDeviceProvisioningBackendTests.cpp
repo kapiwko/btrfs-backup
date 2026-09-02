@@ -82,6 +82,25 @@ DevicePreparationTarget adoption_target(btrfsbackup::daemon::provisioning::Stora
     };
 }
 
+DevicePreparationTarget free_space_target(btrfsbackup::daemon::provisioning::StorageDevice device) {
+    namespace provisioning = btrfsbackup::daemon::provisioning;
+    device.partition_table = {.type = provisioning::PartitionTableType::Gpt, .identifier = "gpt-test"};
+    provisioning::UnallocatedRegion free_region;
+    free_region.start_sector = 2048;
+    free_region.sector_count = 4096;
+    free_region.suitable_for_backup_partition = true;
+    return {
+        .mode = provisioning::ProvisioningMode::CreatePartitionInUnallocatedSpace,
+        .device = std::move(device),
+        .free_region = std::move(free_region),
+        .planned_partition_geometry = provisioning::PlannedPartitionGeometry{
+            .start_sector = 2048,
+            .sector_count = 4096,
+            .partition_number = 2,
+        },
+    };
+}
+
 class Commands final : public backup::ICommandRunner {
   public:
     std::vector<std::vector<std::string>> calls;
@@ -159,6 +178,8 @@ class Signatures final : public btrfsbackup::platform::linux::storage::ISignatur
 class PartitionTables final : public btrfsbackup::platform::linux::storage::IPartitionTableOperations {
   public:
     bool partitioned = false;
+    bool created_in_free_space = false;
+    btrfsbackup::platform::linux::storage::PlannedPartitionGeometry created_geometry;
     std::vector<std::pair<std::string, std::string>> calls;
     btrfsbackup::platform::linux::storage::PlannedPartitionGeometry plan_partition_in_free_space(
         const std::filesystem::path&,
@@ -173,6 +194,19 @@ class PartitionTables final : public btrfsbackup::platform::linux::storage::IPar
             .sector_count = free_sector_count,
             .partition_number = 2,
         };
+    }
+    std::filesystem::path create_partition_in_free_space(
+        const std::filesystem::path&,
+        const std::string&,
+        const std::string&,
+        std::uint32_t,
+        std::uint64_t,
+        std::uint64_t,
+        const btrfsbackup::platform::linux::storage::PlannedPartitionGeometry& geometry
+    ) override {
+        created_in_free_space = true;
+        created_geometry = geometry;
+        return "/dev/test2";
     }
     void replace_with_single_gpt_partition(
         const std::filesystem::path& device,
@@ -575,6 +609,88 @@ void test_existing_partition_does_not_modify_parent_partition_table() {
     );
 }
 
+void test_free_space_preparation_uses_frozen_geometry() {
+    const auto root = test_helpers::test_root("device-provisioning", "free-space");
+    Commands commands;
+    Signatures signatures;
+    MetadataReader metadata;
+    PartitionTables partition_tables;
+    LuksOperations luks;
+    TopologyReader topology(partition_tables);
+    Btrfs btrfs;
+    Credentials credentials;
+    SafetyInspector safety;
+    Units units;
+    config::NullConfigurationActivator activator;
+    SystemDeviceProvisioningBackend backend(
+        {
+            .config_root = root / "etc",
+            .metadata_root = root / "etc/credentials",
+            .key_root = root / "etc/keys",
+            .lock_root = root / "run/locks",
+            .udev_root = root / "udev",
+            .systemd_root = root / "systemd",
+            .public_root = root / "public",
+        },
+        root / "mnt",
+        root / "mountinfo",
+        root / "transactions",
+        topology,
+        commands,
+        signatures,
+        metadata,
+        partition_tables,
+        luks,
+        btrfs,
+        activator,
+        credentials,
+        safety,
+        units
+    );
+    const auto selected = free_space_target(topology.scan().devices.front());
+    const int manager_secret = secret_descriptor("secret");
+    const auto started = backend.start(
+        {
+            .profile_id = "test",
+            .profile_name = "Free-space backup",
+            .plan_id = "plan-free-space",
+            .source_subvolume = "/home",
+            .passphrase_label = "Recovery",
+            .create_automatic_key = false,
+        },
+        selected,
+        {.bus_name = ":1.7", .uid = 1000},
+        manager_secret
+    );
+    ::close(manager_secret);
+    const int helper_secret = secret_descriptor("secret");
+    backend.execute_operation(started.operation_id, helper_secret);
+    ::close(helper_secret);
+
+    test_helpers::expect_true(
+        "frozen free-space geometry",
+        backend.status(started.operation_id).state == "succeeded" &&
+            partition_tables.created_in_free_space &&
+            partition_tables.created_geometry ==
+                btrfsbackup::platform::linux::storage::PlannedPartitionGeometry{
+                    .start_sector = 2048,
+                    .sector_count = 4096,
+                    .partition_number = 2,
+                } &&
+            signatures.calls.empty(),
+        "free-space preparation changed scope or recomputed geometry"
+    );
+    test_helpers::expect_true(
+        "new partition target",
+        luks.calls == std::vector<std::string>{
+                          "format:/dev/test2",
+                          "open:/dev/test2:btrfs-backup-test",
+                          "close:btrfs-backup-test",
+                      },
+        "LUKS was not limited to the newly verified partition"
+    );
+}
+
 void test_adoption_revalidates_fingerprint_without_modifying_target() {
     const auto root = test_helpers::test_root("device-provisioning", "adoption");
     Commands commands;
@@ -965,6 +1081,7 @@ void test_restart_marks_active_transaction_interrupted_and_preserves_owner() {
 int main() {
     test_preparation_sequence_uses_descriptors_and_installs_profile();
     test_existing_partition_does_not_modify_parent_partition_table();
+    test_free_space_preparation_uses_frozen_geometry();
     test_adoption_revalidates_fingerprint_without_modifying_target();
     test_replacement_before_wipe_is_rejected();
     test_exited_helper_marks_transaction_interrupted();
