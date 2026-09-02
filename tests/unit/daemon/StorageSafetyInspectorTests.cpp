@@ -184,7 +184,13 @@ void test_free_space_scope_requires_exact_range_and_inactive_disk() {
         expected.generation,
         "free-1",
         provisioning::ProvisioningMode::CreatePartitionInUnallocatedSpace,
-        "plan-free"
+        "plan-free",
+        std::nullopt,
+        provisioning::PlannedPartitionGeometry{
+            .start_sector = 40,
+            .sector_count = 16,
+            .partition_number = 2,
+        }
     );
     test_helpers::expect_true(
         "unchanged free range",

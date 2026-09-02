@@ -160,6 +160,20 @@ class PartitionTables final : public btrfsbackup::platform::linux::storage::IPar
   public:
     bool partitioned = false;
     std::vector<std::pair<std::string, std::string>> calls;
+    btrfsbackup::platform::linux::storage::PlannedPartitionGeometry plan_partition_in_free_space(
+        const std::filesystem::path&,
+        const std::string&,
+        const std::string&,
+        std::uint32_t,
+        std::uint64_t free_start_sector,
+        std::uint64_t free_sector_count
+    ) const override {
+        return {
+            .start_sector = free_start_sector,
+            .sector_count = free_sector_count,
+            .partition_number = 2,
+        };
+    }
     void replace_with_single_gpt_partition(
         const std::filesystem::path& device,
         const std::string& expected_major_minor

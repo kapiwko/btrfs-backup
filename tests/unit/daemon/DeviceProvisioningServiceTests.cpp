@@ -23,6 +23,7 @@ using btrfsbackup::daemon::provisioning::StorageDevice;
 using btrfsbackup::daemon::provisioning::StorageRegion;
 using btrfsbackup::daemon::provisioning::StorageTopology;
 using btrfsbackup::daemon::provisioning::StorageTopologyReader;
+using btrfsbackup::daemon::provisioning::UnallocatedRegion;
 
 class Authorizer final : public IManagerAuthorizer {
   public:
@@ -45,6 +46,7 @@ class Backend final : public IDeviceProvisioningBackend {
   public:
     int received_fd = -1;
     int starts = 0;
+    mutable int geometry_plans = 0;
     bool cancelled = false;
     std::vector<std::string> safety_reasons;
     std::vector<std::string>* events = nullptr;
@@ -61,6 +63,17 @@ class Backend final : public IDeviceProvisioningBackend {
         if (events != nullptr)
             events->push_back("inspect");
         return safety_reasons;
+    }
+    btrfsbackup::daemon::provisioning::PlannedPartitionGeometry plan_partition_geometry(
+        const btrfsbackup::daemon::provisioning::StorageDevice&,
+        const btrfsbackup::daemon::provisioning::UnallocatedRegion& free_region
+    ) const override {
+        ++geometry_plans;
+        return {
+            .start_sector = free_region.start_sector + 1,
+            .sector_count = free_region.sector_count - 2,
+            .partition_number = 2,
+        };
     }
     btrfsbackup::daemon::provisioning::ExistingTargetInspectionSummary inspect_existing_target(
         const btrfsbackup::daemon::control::DevicePreparationTarget& received_target,
@@ -141,14 +154,22 @@ class TopologyReader final : public StorageTopologyReader {
                 .wwn = "wwn-test",
                 .serial = "vendor_serial",
                 .serial_short = "serial",
-                .size_bytes = 1024,
+                .size_bytes = 8192,
             },
             .display_name = "Test disk",
             .transport = "usb",
-            .size_bytes = 1024,
+            .size_bytes = 8192,
             .logical_sector_size = 512,
             .partition_table = {.type = PartitionTableType::Gpt, .identifier = "pt-uuid"},
-            .regions = {StorageRegion{std::move(partition)}},
+            .regions = {
+                StorageRegion{std::move(partition)},
+                StorageRegion{UnallocatedRegion{
+                    .id = "raw-free",
+                    .start_sector = 4,
+                    .sector_count = 8,
+                    .suitable_for_backup_partition = true,
+                }},
+            },
         };
         return {.generation = generation, .devices = {std::move(device)}};
     }
@@ -446,6 +467,40 @@ void test_non_adoptable_inspection_has_no_reusable_token() {
         test_helpers::fail("non-adoptable plan", "an empty target produced an adoption plan");
     } catch (const btrfsbackup::daemon::dbus::ManagerOperationError&) {}
 }
+
+void test_free_space_plan_uses_backend_geometry() {
+    Authorizer authorizer;
+    Backend backend;
+    TopologyReader reader;
+    int sequence = 0;
+    DeviceProvisioningService service(
+        authorizer,
+        backend,
+        std::chrono::minutes(5),
+        [&] { return "free-plan-" + std::to_string(++sequence); },
+        {},
+        &reader
+    );
+    const auto topology = service.inspect_storage_topology(":1.50");
+    const auto& free_region = std::get<UnallocatedRegion>(topology.devices.front().regions.back());
+    const auto plan = service.build_device_preparation_plan(
+        ":1.50",
+        topology.generation,
+        free_region.id,
+        ProvisioningMode::CreatePartitionInUnallocatedSpace
+    );
+    const auto target = std::ranges::find(
+        plan.after.regions,
+        btrfsbackup::daemon::provisioning::PredictedRegionKind::BackupPartition,
+        &btrfsbackup::daemon::provisioning::PredictedStorageRegion::kind
+    );
+    test_helpers::expect_true(
+        "libfdisk geometry in plan",
+        backend.geometry_plans == 1 && target != plan.after.regions.end() && target->geometry_exact &&
+            target->start_sector == 5 && target->sector_count == 6 && target->partition_number == 2,
+        "free-space plan did not use backend geometry"
+    );
+}
 } // namespace
 
 int main() {
@@ -454,5 +509,6 @@ int main() {
     test_topology_and_plan_are_caller_bound_and_revalidated();
     test_existing_target_inspection_is_caller_bound_and_invalidated_by_rescan();
     test_non_adoptable_inspection_has_no_reusable_token();
+    test_free_space_plan_uses_backend_geometry();
     return test_helpers::finish("device provisioning service tests");
 }

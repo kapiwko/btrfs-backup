@@ -15,7 +15,8 @@ class DevicePreparationPlanBuilder final {
         const std::string& selected_candidate_id,
         ProvisioningMode mode,
         DevicePreparationPlanId plan_id,
-        std::optional<std::string> inspection_id = std::nullopt
+        std::optional<std::string> inspection_id = std::nullopt,
+        std::optional<PlannedPartitionGeometry> partition_geometry = std::nullopt
     ) const;
 };
 

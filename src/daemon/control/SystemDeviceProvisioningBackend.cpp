@@ -106,6 +106,7 @@ struct SystemDeviceProvisioningBackend::Impl {
     IDevicePreparationUnitController& units;
     DevicePreparationTransactionStore transactions;
     ProvisioningDeviceEnumerator devices;
+    platform::linux::storage::IPartitionTableOperations& partition_tables;
     DevicePreparationExecutor executor;
     IExistingTargetInspector* existing_target_inspector;
     fs::path inspection_mount_root;
@@ -139,6 +140,7 @@ struct SystemDeviceProvisioningBackend::Impl {
           units(unit_controller),
           transactions(std::move(transaction_root)),
           devices(topology),
+          partition_tables(partition_tables),
           executor(
               std::move(roots),
               std::move(target_mount_root),
@@ -320,6 +322,25 @@ std::vector<std::string> SystemDeviceProvisioningBackend::inspect_safety(
     const DevicePreparationTarget& target
 ) const {
     return impl_->safety_inspector.inspect(provisioning_device_snapshot(target.device), target);
+}
+
+provisioning::PlannedPartitionGeometry SystemDeviceProvisioningBackend::plan_partition_geometry(
+    const provisioning::StorageDevice& device,
+    const provisioning::UnallocatedRegion& free_region
+) const {
+    const auto geometry = impl_->partition_tables.plan_partition_in_free_space(
+        device.identity.display_path,
+        device.identity.major_minor,
+        device.partition_table.identifier,
+        device.logical_sector_size,
+        free_region.start_sector,
+        free_region.sector_count
+    );
+    return {
+        .start_sector = geometry.start_sector,
+        .sector_count = geometry.sector_count,
+        .partition_number = geometry.partition_number,
+    };
 }
 
 provisioning::ExistingTargetInspectionSummary SystemDeviceProvisioningBackend::inspect_existing_target(

@@ -261,7 +261,13 @@ void test_storage_topology_and_plan_contract() {
         topology.generation,
         "opaque-free",
         provisioning::ProvisioningMode::CreatePartitionInUnallocatedSpace,
-        "plan-3"
+        "plan-3",
+        std::nullopt,
+        provisioning::PlannedPartitionGeometry{
+            .start_sector = 2,
+            .sector_count = 1,
+            .partition_number = 2,
+        }
     );
     const Json free_document = Json::parse(codec.encode(free_plan));
     expect_field("free-space plan", free_document, "freeRegionId", "opaque-free");

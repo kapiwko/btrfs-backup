@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <iterator>
+#include <limits>
 #include <ranges>
 #include <type_traits>
 #include <utility>
@@ -88,7 +89,7 @@ DevicePreparationPlan erase_whole_device_plan(
     result.operations = {
         EraseDeviceSignatures{device.candidate_id},
         CreateGptPartitionTable{device.candidate_id},
-        CreateBackupPartition{device.candidate_id, std::nullopt},
+        CreateBackupPartition{device.candidate_id, std::nullopt, std::nullopt},
         FormatLuks2{std::nullopt},
         OpenLuksMapping{},
         FormatBtrfs{},
@@ -147,22 +148,60 @@ DevicePreparationPlan create_partition_in_free_space_plan(
     const StorageTopology& topology,
     const StorageDevice& device,
     const UnallocatedRegion& free_region,
-    DevicePreparationPlanId plan_id
+    DevicePreparationPlanId plan_id,
+    const PlannedPartitionGeometry& geometry
 ) {
     if (device.partition_table.type != PartitionTableType::Gpt)
         throw ValidationError("creating a backup partition requires GPT");
     if (!free_region.suitable_for_backup_partition || !free_region.blockers.empty() || free_region.sector_count == 0)
         throw ValidationError("unallocated region is not suitable for a backup partition");
+    if (geometry.sector_count == 0 || geometry.partition_number == 0 ||
+        free_region.start_sector > std::numeric_limits<std::uint64_t>::max() - free_region.sector_count ||
+        geometry.start_sector > std::numeric_limits<std::uint64_t>::max() - geometry.sector_count)
+        throw ValidationError("planned partition geometry is invalid");
+    const std::uint64_t free_end = free_region.start_sector + free_region.sector_count;
+    const std::uint64_t partition_end = geometry.start_sector + geometry.sector_count;
+    if (geometry.start_sector < free_region.start_sector || partition_end > free_end)
+        throw ValidationError("planned partition geometry exceeds the selected free region");
     StorageLayout before = current_layout(device);
     StorageLayout after = before;
     const auto target = std::ranges::find(after.regions, free_region.id, &PredictedStorageRegion::id);
-    target->id = "planned-backup-partition";
-    target->kind = PredictedRegionKind::BackupPartition;
-    target->partition_label = "btrfs-backup";
-    target->filesystem_type = "btrfs";
-    target->geometry_exact = false;
-    target->encrypted = true;
-    target->changed = true;
+    const auto target_offset = static_cast<std::size_t>(std::distance(after.regions.begin(), target));
+    after.regions.erase(target);
+    std::vector<PredictedStorageRegion> replacements;
+    if (geometry.start_sector > free_region.start_sector) {
+        PredictedStorageRegion leading_free;
+        leading_free.id = free_region.id + ":before";
+        leading_free.kind = PredictedRegionKind::Unallocated;
+        leading_free.start_sector = free_region.start_sector;
+        leading_free.sector_count = geometry.start_sector - free_region.start_sector;
+        replacements.push_back(std::move(leading_free));
+    }
+    PredictedStorageRegion target_partition;
+    target_partition.id = "planned-backup-partition";
+    target_partition.kind = PredictedRegionKind::BackupPartition;
+    target_partition.start_sector = geometry.start_sector;
+    target_partition.sector_count = geometry.sector_count;
+    target_partition.partition_number = geometry.partition_number;
+    target_partition.partition_label = "btrfs-backup";
+    target_partition.filesystem_type = "btrfs";
+    target_partition.geometry_exact = true;
+    target_partition.encrypted = true;
+    target_partition.changed = true;
+    replacements.push_back(std::move(target_partition));
+    if (partition_end < free_end) {
+        PredictedStorageRegion trailing_free;
+        trailing_free.id = free_region.id + ":after";
+        trailing_free.kind = PredictedRegionKind::Unallocated;
+        trailing_free.start_sector = partition_end;
+        trailing_free.sector_count = free_end - partition_end;
+        replacements.push_back(std::move(trailing_free));
+    }
+    after.regions.insert(
+        after.regions.begin() + static_cast<std::ptrdiff_t>(target_offset),
+        std::make_move_iterator(replacements.begin()),
+        std::make_move_iterator(replacements.end())
+    );
 
     DevicePreparationPlan result;
     result.id = std::move(plan_id);
@@ -173,7 +212,7 @@ DevicePreparationPlan create_partition_in_free_space_plan(
     result.before = std::move(before);
     result.after = std::move(after);
     result.operations = {
-        CreateBackupPartition{device.candidate_id, free_region.id},
+        CreateBackupPartition{device.candidate_id, free_region.id, geometry},
         FormatLuks2{std::nullopt},
         OpenLuksMapping{},
         FormatBtrfs{},
@@ -220,7 +259,8 @@ DevicePreparationPlan DevicePreparationPlanBuilder::build(
     const std::string& selected_candidate_id,
     ProvisioningMode mode,
     DevicePreparationPlanId plan_id,
-    std::optional<std::string> inspection_id
+    std::optional<std::string> inspection_id,
+    std::optional<PlannedPartitionGeometry> partition_geometry
 ) const {
     if (topology.generation.empty() || topology.generation != expected_generation)
         throw ValidationError("storage topology generation changed");
@@ -259,6 +299,8 @@ DevicePreparationPlan DevicePreparationPlanBuilder::build(
         throw ValidationError("storage partition candidate is unavailable");
     }
     if (mode == ProvisioningMode::CreatePartitionInUnallocatedSpace) {
+        if (!partition_geometry.has_value())
+            throw ValidationError("planned partition geometry is required");
         for (const auto& device : topology.devices) {
             const auto region = std::ranges::find_if(device.regions, [&](const StorageRegion& value) {
                 const auto* free_region = std::get_if<UnallocatedRegion>(&value);
@@ -269,7 +311,8 @@ DevicePreparationPlan DevicePreparationPlanBuilder::build(
                     topology,
                     device,
                     std::get<UnallocatedRegion>(*region),
-                    std::move(plan_id)
+                    std::move(plan_id),
+                    *partition_geometry
                 );
         }
         throw ValidationError("unallocated storage region candidate is unavailable");

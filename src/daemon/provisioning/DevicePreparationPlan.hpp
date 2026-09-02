@@ -70,9 +70,17 @@ struct CreateGptPartitionTable {
     bool operator==(const CreateGptPartitionTable&) const = default;
 };
 
+struct PlannedPartitionGeometry {
+    std::uint64_t start_sector = 0;
+    std::uint64_t sector_count = 0;
+    std::uint32_t partition_number = 0;
+    bool operator==(const PlannedPartitionGeometry&) const = default;
+};
+
 struct CreateBackupPartition {
     DeviceCandidateId device_id;
     std::optional<UnallocatedRegionId> free_region_id;
+    std::optional<PlannedPartitionGeometry> geometry;
     bool operator==(const CreateBackupPartition&) const = default;
 };
 
