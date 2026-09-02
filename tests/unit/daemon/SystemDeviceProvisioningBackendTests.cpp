@@ -244,6 +244,19 @@ class PartitionTables final : public btrfsbackup::platform::linux::storage::IPar
             .partition = "/dev/test2",
         };
     }
+    btrfsbackup::platform::linux::storage::PartitionCreationInspection inspect_single_gpt_partition(
+        const std::filesystem::path&,
+        const std::string&,
+        std::uint32_t,
+        const btrfsbackup::platform::linux::storage::PlannedPartitionGeometry& geometry
+    ) const override {
+        if (!partitioned || geometry != created_geometry)
+            return {.state = btrfsbackup::platform::linux::storage::PartitionCreationState::Conflict};
+        return {
+            .state = btrfsbackup::platform::linux::storage::PartitionCreationState::Created,
+            .partition = "/dev/test1",
+        };
+    }
     std::filesystem::path create_partition_in_free_space(
         const std::filesystem::path&,
         const std::string&,
@@ -530,11 +543,24 @@ void test_preparation_sequence_uses_descriptors_and_installs_profile() {
             format != commands.calls.end(),
         "device mutations did not use the expected adapters"
     );
-    const auto transaction = DevicePreparationTransactionStore(root / "transactions").load(started.operation_id);
+    auto transaction = DevicePreparationTransactionStore(root / "transactions").load(started.operation_id);
     test_helpers::expect_eq(
         "whole-device partition table backup",
         transaction.partition_table_backup,
         "label: gpt\nlabel-id: gpt-test\n"
+    );
+    transaction.status.state = "interrupted";
+    transaction.status.phase = "partition";
+    transaction.last_completed_phase = "wipe-signatures";
+    transaction.partition.clear();
+    DevicePreparationTransactionStore(root / "transactions").save(transaction);
+    backend.recover_operation(started.operation_id);
+    const auto recovered = DevicePreparationTransactionStore(root / "transactions").load(started.operation_id);
+    test_helpers::expect_true(
+        "whole-device partition recovery",
+        recovered.partition == "/dev/test1" && recovered.last_completed_phase == "partition" &&
+            recovered.cleanup_result == "partition-detected" && !recovered.status.recovery_action.empty(),
+        "recovery did not verify the replacement GPT and exact partition"
     );
     test_helpers::expect_true(
         "no sfdisk process",

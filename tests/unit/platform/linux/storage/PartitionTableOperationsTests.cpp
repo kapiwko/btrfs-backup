@@ -113,6 +113,18 @@ int main() {
         "path is invalid"
     );
     test_helpers::expect_validation_error(
+        "relative whole-device partition inspection path",
+        [&] {
+            static_cast<void>(operations.inspect_single_gpt_partition(
+                "dev/test",
+                "8:0",
+                512,
+                {.start_sector = 2048, .sector_count = 4096, .partition_number = 1}
+            ));
+        },
+        "path is invalid"
+    );
+    test_helpers::expect_validation_error(
         "invalid partition table identity",
         [&] {
             static_cast<void>(operations.replace_with_single_gpt_partition(

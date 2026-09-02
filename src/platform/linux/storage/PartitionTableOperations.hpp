@@ -65,6 +65,12 @@ class IPartitionTableOperations {
         std::uint64_t original_free_sector_count,
         const PlannedPartitionGeometry& geometry
     ) const = 0;
+    [[nodiscard]] virtual PartitionCreationInspection inspect_single_gpt_partition(
+        const std::filesystem::path& device,
+        const std::string& expected_major_minor,
+        std::uint32_t expected_logical_sector_size,
+        const PlannedPartitionGeometry& geometry
+    ) const = 0;
     [[nodiscard]] virtual std::filesystem::path create_partition_in_free_space(
         const std::filesystem::path& device,
         const std::string& expected_major_minor,
@@ -110,6 +116,12 @@ class LibfdiskPartitionTableOperations final : public IPartitionTableOperations 
         std::uint32_t expected_logical_sector_size,
         std::uint64_t original_free_start_sector,
         std::uint64_t original_free_sector_count,
+        const PlannedPartitionGeometry& geometry
+    ) const override;
+    [[nodiscard]] PartitionCreationInspection inspect_single_gpt_partition(
+        const std::filesystem::path& device,
+        const std::string& expected_major_minor,
+        std::uint32_t expected_logical_sector_size,
         const PlannedPartitionGeometry& geometry
     ) const override;
     [[nodiscard]] std::filesystem::path create_partition_in_free_space(
