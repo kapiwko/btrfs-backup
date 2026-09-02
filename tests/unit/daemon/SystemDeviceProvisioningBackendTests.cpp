@@ -180,6 +180,7 @@ class PartitionTables final : public btrfsbackup::platform::linux::storage::IPar
     bool partitioned = false;
     mutable bool snapshot_taken = false;
     bool created_in_free_space = false;
+    bool partition_creation_conflict = false;
     btrfsbackup::platform::linux::storage::PlannedPartitionGeometry created_geometry;
     std::vector<std::pair<std::string, std::string>> calls;
     std::string snapshot_partition_table(
@@ -203,6 +204,24 @@ class PartitionTables final : public btrfsbackup::platform::linux::storage::IPar
             .start_sector = free_start_sector,
             .sector_count = free_sector_count,
             .partition_number = 2,
+        };
+    }
+    btrfsbackup::platform::linux::storage::PartitionCreationInspection inspect_partition_creation(
+        const std::filesystem::path&,
+        const std::string&,
+        const std::string&,
+        std::uint32_t,
+        std::uint64_t,
+        std::uint64_t,
+        const btrfsbackup::platform::linux::storage::PlannedPartitionGeometry& geometry
+    ) const override {
+        if (partition_creation_conflict)
+            return {.state = btrfsbackup::platform::linux::storage::PartitionCreationState::Conflict};
+        if (!created_in_free_space || geometry != created_geometry)
+            return {.state = btrfsbackup::platform::linux::storage::PartitionCreationState::NotCreated};
+        return {
+            .state = btrfsbackup::platform::linux::storage::PartitionCreationState::Created,
+            .partition = "/dev/test2",
         };
     }
     std::filesystem::path create_partition_in_free_space(
@@ -692,7 +711,7 @@ void test_free_space_preparation_uses_frozen_geometry() {
             signatures.calls.empty(),
         "free-space preparation changed scope or recomputed geometry"
     );
-    const auto transaction = DevicePreparationTransactionStore(root / "transactions").load(started.operation_id);
+    auto transaction = DevicePreparationTransactionStore(root / "transactions").load(started.operation_id);
     test_helpers::expect_eq(
         "partition table backup",
         transaction.partition_table_backup,
@@ -706,6 +725,49 @@ void test_free_space_preparation_uses_frozen_geometry() {
                           "close:btrfs-backup-test",
                       },
         "LUKS was not limited to the newly verified partition"
+    );
+
+    transaction.status.state = "interrupted";
+    transaction.status.phase = "partition";
+    transaction.last_completed_phase = "backup-partition-table";
+    transaction.partition.clear();
+    DevicePreparationTransactionStore(root / "transactions").save(transaction);
+    backend.recover_operation(started.operation_id);
+    const auto recovered = DevicePreparationTransactionStore(root / "transactions").load(started.operation_id);
+    test_helpers::expect_true(
+        "created partition recovery",
+        recovered.partition == "/dev/test2" && recovered.last_completed_phase == "partition" &&
+            recovered.cleanup_result == "partition-detected" && !recovered.status.recovery_action.empty(),
+        "recovery did not identify the partition created before interruption"
+    );
+
+    transaction = recovered;
+    transaction.status.state = "interrupted";
+    transaction.last_completed_phase = "backup-partition-table";
+    transaction.partition.clear();
+    partition_tables.created_in_free_space = false;
+    DevicePreparationTransactionStore(root / "transactions").save(transaction);
+    backend.recover_operation(started.operation_id);
+    const auto not_created = DevicePreparationTransactionStore(root / "transactions").load(started.operation_id);
+    test_helpers::expect_true(
+        "missing partition recovery",
+        not_created.partition.empty() && not_created.last_completed_phase == "backup-partition-table" &&
+            not_created.cleanup_result == "partition-not-created" && !not_created.status.recovery_action.empty(),
+        "recovery did not identify that the partition was not created"
+    );
+
+    transaction = not_created;
+    transaction.status.state = "interrupted";
+    transaction.cleanup_result = "not-required";
+    partition_tables.partition_creation_conflict = true;
+    DevicePreparationTransactionStore(root / "transactions").save(transaction);
+    backend.recover_operation(started.operation_id);
+    const auto conflicted = DevicePreparationTransactionStore(root / "transactions").load(started.operation_id);
+    test_helpers::expect_true(
+        "conflicting partition recovery",
+        conflicted.partition.empty() && conflicted.cleanup_result == "partition-state-conflict" &&
+            !conflicted.status.recovery_action.empty(),
+        "recovery did not preserve an ambiguous partition state"
     );
 }
 

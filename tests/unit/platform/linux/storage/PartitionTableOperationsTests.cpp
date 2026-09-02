@@ -18,6 +18,21 @@ int main() {
         "not a block device"
     );
     test_helpers::expect_validation_error(
+        "relative partition creation inspection path",
+        [&] {
+            static_cast<void>(operations.inspect_partition_creation(
+                "dev/test",
+                "8:0",
+                "gpt-id",
+                512,
+                2048,
+                4096,
+                {.start_sector = 2048, .sector_count = 4096, .partition_number = 1}
+            ));
+        },
+        "path is invalid"
+    );
+    test_helpers::expect_validation_error(
         "relative free-space planning path",
         [&] {
             static_cast<void>(operations.plan_partition_in_free_space(
