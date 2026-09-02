@@ -493,29 +493,88 @@ msgstr "Edytuj źródło"
 msgid "No sources configured"
 msgstr "Nie skonfigurowano źródeł"
 
-#: integrations/kde/kcm/ui/ProfileUnlocking.qml:20
-msgid "Unlocking"
-msgstr "Odblokowywanie"
+#: integrations/kde/kcm/ui/ProfileUnlocking.qml
+msgid "Unlocking methods"
+msgstr "Metody odblokowania"
 
-#: integrations/kde/kcm/ui/ProfileUnlocking.qml:33
-msgid "Automatic activation policy"
-msgstr "Zasady automatycznej aktywacji"
+msgid "Add unlocking method"
+msgstr "Dodaj metodę odblokowania"
 
-#: integrations/kde/kcm/ui/ProfileUnlocking.qml:40
+msgid "Add passphrase"
+msgstr "Dodaj hasło"
+
+msgid "Generate key"
+msgstr "Wygeneruj klucz"
+
+msgid "Add key file"
+msgstr "Dodaj plik klucza"
+
+msgid "LUKS key slot %1"
+msgstr "Slot klucza LUKS %1"
+
+msgid "Remove unlocking method"
+msgstr "Usuń metodę odblokowania"
+
+msgid "No LUKS unlocking methods found"
+msgstr "Nie znaleziono metod odblokowania LUKS"
+
+msgid "Additional passphrase"
+msgstr "Dodatkowe hasło"
+
+msgid "Name"
+msgstr "Nazwa"
+
+msgid "Current passphrase"
+msgstr "Bieżące hasło"
+
+msgid "New passphrase"
+msgstr "Nowe hasło"
+
+msgid "Confirm new passphrase"
+msgstr "Potwierdź nowe hasło"
+
+msgid "Automatic backup key"
+msgstr "Klucz automatycznych kopii zapasowych"
+
+msgid "Use this key for automatic backups"
+msgstr "Używaj tego klucza do automatycznych kopii zapasowych"
+
+msgid "The generated key is stored in the protected system configuration and is never shown in this interface."
+msgstr "Wygenerowany klucz jest przechowywany w chronionej konfiguracji systemowej i nigdy nie jest wyświetlany w tym interfejsie."
+
+msgid "Enter an existing passphrase to remove %1."
+msgstr "Wprowadź istniejące hasło, aby usunąć %1."
+
+msgid "Existing passphrase"
+msgstr "Istniejące hasło"
+
+msgid "Select key file"
+msgstr "Wybierz plik klucza"
+
+msgid "Imported key"
+msgstr "Zaimportowany klucz"
+
+msgid "Passphrase"
+msgstr "Hasło"
+
 msgid "Key file"
 msgstr "Plik klucza"
 
-#: integrations/kde/kcm/ui/ProfileUnlocking.qml:41
-msgid "Ask for a password"
-msgstr "Poproś o hasło"
+msgid "managed by btrfs-backup"
+msgstr "zarządzane przez btrfs-backup"
 
-#: integrations/kde/kcm/ui/ProfileUnlocking.qml:42
-msgid "Unknown unlock method"
-msgstr "Nieznana metoda odblokowania"
+msgid "configured outside btrfs-backup"
+msgstr "skonfigurowane poza btrfs-backup"
 
-#: integrations/kde/kcm/ui/ProfileUnlocking.qml
-msgid "No unlock method configured"
-msgstr "Nie skonfigurowano metody odblokowania"
+msgid "automatic backups"
+msgstr "automatyczne kopie zapasowe"
+
+msgid "manual unlocking"
+msgstr "ręczne odblokowywanie"
+
+msgctxt "unlocking method details"
+msgid "%1 - slot %2 - %3 - %4"
+msgstr "%1 - slot %2 - %3 - %4"
 
 #: integrations/kde/kcm/ui/ProfileOverview.qml
 msgid "The operation was cancelled or you do not have permission to perform it."
