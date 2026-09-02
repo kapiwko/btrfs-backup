@@ -236,7 +236,6 @@ class ManagerChangeMonitor::Impl final {
                 break;
             process_profile_directory_event(event, name, WatchKind::StatusProfile);
             callback_({ManagerChangeKind::Status, name});
-            callback_({ManagerChangeKind::Device, name});
             break;
         case WatchKind::HistoryRoot:
             if (name.empty() || (event.mask & IN_ISDIR) == 0)
@@ -245,10 +244,8 @@ class ManagerChangeMonitor::Impl final {
             callback_({ManagerChangeKind::History, name});
             break;
         case WatchKind::StatusProfile:
-            if (name == "current.json") {
+            if (name == "current.json")
                 callback_({ManagerChangeKind::Status, watch.profile_id});
-                callback_({ManagerChangeKind::Device, watch.profile_id});
-            }
             break;
         case WatchKind::HistoryProfile:
             if (json_file(name))
