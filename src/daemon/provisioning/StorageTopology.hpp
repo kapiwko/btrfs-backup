@@ -101,6 +101,7 @@ struct StorageDevice {
     bool removable = false;
     bool read_only = false;
     bool hotplug = false;
+    bool system_device = false;
     PartitionTableDescription partition_table;
     FilesystemDescription filesystem;
     std::vector<StorageRegion> regions;
