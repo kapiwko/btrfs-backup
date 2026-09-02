@@ -4,6 +4,7 @@
 #include <daemon/provisioning/DevicePreparationPlanBuilder.hpp>
 
 #include <utility>
+#include <array>
 #include <variant>
 
 #include <core/Errors.hpp>
@@ -28,6 +29,28 @@ using btrfsbackup::daemon::provisioning::StorageDevice;
 using btrfsbackup::daemon::provisioning::StorageRegion;
 using btrfsbackup::daemon::provisioning::StorageTopology;
 using btrfsbackup::daemon::provisioning::UnallocatedRegion;
+
+void test_provisioning_mode_names_round_trip() {
+    constexpr std::array modes{
+        ProvisioningMode::EraseWholeDevice,
+        ProvisioningMode::ReformatExistingPartition,
+        ProvisioningMode::CreatePartitionInUnallocatedSpace,
+        ProvisioningMode::AdoptExistingTarget,
+    };
+    for (const auto mode : modes) {
+        const auto name = btrfsbackup::daemon::provisioning::provisioning_mode_name(mode);
+        test_helpers::expect_true(
+            "provisioning mode round trip",
+            btrfsbackup::daemon::provisioning::provisioning_mode_from_name(name) == mode,
+            "provisioning mode name cannot be parsed"
+        );
+    }
+    test_helpers::expect_true(
+        "unknown provisioning mode",
+        !btrfsbackup::daemon::provisioning::provisioning_mode_from_name("unknown").has_value(),
+        "unknown provisioning mode was accepted"
+    );
+}
 
 StorageTopology topology() {
     ExistingPartition partition{
@@ -281,6 +304,7 @@ void test_rejects_stale_topology_and_unimplemented_mode() {
 } // namespace
 
 int main() {
+    test_provisioning_mode_names_round_trip();
     test_builds_before_and_after_preview_for_whole_device();
     test_builds_partition_plan_without_changing_other_regions();
     test_builds_free_space_plan_without_changing_existing_partition();

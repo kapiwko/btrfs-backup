@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <variant>
 #include <vector>
 
@@ -161,6 +162,7 @@ struct DevicePreparationPlan {
 };
 
 [[nodiscard]] std::string provisioning_mode_name(ProvisioningMode mode);
+[[nodiscard]] std::optional<ProvisioningMode> provisioning_mode_from_name(std::string_view name);
 [[nodiscard]] std::string predicted_region_kind_name(PredictedRegionKind kind);
 
 } // namespace btrfsbackup::daemon::provisioning

@@ -194,16 +194,10 @@ provisioning::PartitionTableType parse_partition_table_type(const std::string& v
 DevicePreparationTarget parse_target(const Json& value) {
     DevicePreparationTarget result;
     const std::string mode = value.value("mode", "");
-    if (mode == "erase-whole-device")
-        result.mode = provisioning::ProvisioningMode::EraseWholeDevice;
-    else if (mode == "reformat-existing-partition")
-        result.mode = provisioning::ProvisioningMode::ReformatExistingPartition;
-    else if (mode == "adopt-existing-target")
-        result.mode = provisioning::ProvisioningMode::AdoptExistingTarget;
-    else if (mode == "create-partition-in-unallocated-space")
-        result.mode = provisioning::ProvisioningMode::CreatePartitionInUnallocatedSpace;
-    else
+    const auto parsed_mode = provisioning::provisioning_mode_from_name(mode);
+    if (!parsed_mode.has_value())
         throw ValidationError("unsupported device preparation transaction mode");
+    result.mode = *parsed_mode;
     result.device.identity = parse_identity(value.at("deviceIdentity"));
     result.device.transport = value.value("transport", "");
     result.device.size_bytes = result.device.identity.size_bytes;
