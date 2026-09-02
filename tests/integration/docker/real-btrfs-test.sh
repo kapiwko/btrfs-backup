@@ -171,6 +171,58 @@ provision_existing_partition_test() {
     pass 'manager provisions one partition without changing its sibling or partition table'
 }
 
+provision_unallocated_space_test() {
+    local client="$TEST_ROOT/device-provisioning-client"
+    local preserved_partition backup_partition
+    local preserved_hash_before preserved_hash_after
+    local preserved_geometry_before preserved_geometry_after
+    local response="$TEST_ROOT/free-space-provisioning-response.json"
+
+    truncate -s 768M "$PROVISION_IMAGE"
+    PROVISION_LOOP="$(losetup --find --show --partscan "$PROVISION_IMAGE")"
+    printf '%s\n' \
+        'label: gpt' \
+        'size=256M,type=0FC63DAF-8483-4772-8E79-3D69D8477DE4' \
+        | sfdisk --quiet "$PROVISION_LOOP"
+    udevadm settle --timeout=10
+    preserved_partition="${PROVISION_LOOP}p1"
+    backup_partition="${PROVISION_LOOP}p2"
+    [[ -b "$preserved_partition" ]] || fail 'preserved loop partition node was not created'
+    mkfs.ext4 -q -F -L PRESERVED "$preserved_partition"
+    preserved_hash_before="$(sha256sum "$preserved_partition" | awk '{print $1}')"
+    preserved_geometry_before="$(sfdisk --dump "$PROVISION_LOOP" | grep -F "$preserved_partition :")"
+
+    systemctl start polkit.service btrfs-backupd.service
+    "$client" \
+        "$PROVISION_LOOP" \
+        "$SOURCE_MOUNT/home" \
+        "$PASSPHRASE_FILE" \
+        create-partition-in-unallocated-space \
+        free-space-integration > "$response"
+    systemctl stop btrfs-backupd.service polkit.service
+
+    preserved_hash_after="$(sha256sum "$preserved_partition" | awk '{print $1}')"
+    preserved_geometry_after="$(sfdisk --dump "$PROVISION_LOOP" | grep -F "$preserved_partition :")"
+    [[ "$preserved_hash_before" == "$preserved_hash_after" ]] \
+        || fail 'free-space provisioning changed the existing partition'
+    [[ "$preserved_geometry_before" == "$preserved_geometry_after" ]] \
+        || fail 'free-space provisioning changed existing partition geometry'
+    [[ -b "$backup_partition" ]] \
+        || fail 'free-space provisioning did not create the planned partition node'
+    [[ "$(blkid -s TYPE -o value "$preserved_partition")" == ext4 ]] \
+        || fail 'free-space provisioning changed the existing filesystem'
+    [[ "$(blkid -s TYPE -o value "$backup_partition")" == crypto_LUKS ]] \
+        || fail 'free-space provisioning did not format the new partition as LUKS2'
+    grep -Eq '"state"[[:space:]]*:[[:space:]]*"succeeded"' "$response" \
+        || fail 'manager did not report successful free-space provisioning'
+    [[ -f /etc/btrfs-backup/profiles/free-space-integration/profile.json ]] \
+        || fail 'free-space provisioning did not publish its profile'
+
+    losetup -d "$PROVISION_LOOP"
+    PROVISION_LOOP=""
+    pass 'manager creates a backup partition in free space without changing existing data'
+}
+
 configure_backup_with_cli() {
     local target_device="$1"
     local luks_uuid="$2"
@@ -966,6 +1018,7 @@ btrfs subvolume create "$SOURCE_MOUNT/home" >/dev/null
 install -d -m0700 "$SOURCE_MOUNT/.snapshots/home"
 
 provision_existing_partition_test
+provision_unallocated_space_test
 
 mount -o noatime,nodev,nosuid,noexec,nosymfollow,compress=zstd:3 "$MAPPER_PATH" "$TARGET_MOUNT"
 install -d -m0700 "$TARGET_MOUNT/snapshots" "$TARGET_MOUNT/.incoming"

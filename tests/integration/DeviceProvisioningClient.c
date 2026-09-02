@@ -80,6 +80,23 @@ static char* json_string(const char* document, const char* key) {
     return json_string_between(document, NULL, key);
 }
 
+static int json_true_between(const char* begin, const char* end, const char* key) {
+    char pattern[128];
+    if (snprintf(pattern, sizeof(pattern), "\"%s\"", key) >= (int)sizeof(pattern))
+        die("JSON key is too long");
+    const char* position = strstr(begin, pattern);
+    if (position == NULL || (end != NULL && position >= end))
+        return 0;
+    position += strlen(pattern);
+    while (*position == ' ' || *position == '\t' || *position == '\r' || *position == '\n')
+        ++position;
+    if (*position++ != ':')
+        return 0;
+    while (*position == ' ' || *position == '\t' || *position == '\r' || *position == '\n')
+        ++position;
+    return strncmp(position, "true", 4) == 0;
+}
+
 static char* candidate_for_path(const char* topology, const char* expected_path) {
     const char* candidate = topology;
     while ((candidate = strstr(candidate, "\"candidateId\"")) != NULL) {
@@ -94,6 +111,41 @@ static char* candidate_for_path(const char* topology, const char* expected_path)
         free(identifier);
         candidate = next;
         if (candidate == NULL)
+            break;
+    }
+    return NULL;
+}
+
+static char* unallocated_candidate_for_device(const char* topology, const char* expected_path) {
+    const char* device = topology;
+    while ((device = strstr(device, "\"candidateId\"")) != NULL) {
+        const char* next_device = strstr(device + 1, "\"candidateId\"");
+        char* path = json_string_between(device, next_device, "path");
+        if (path != NULL && strcmp(path, expected_path) == 0) {
+            const char* region = strstr(device, "\"regions\"");
+            free(path);
+            if (region == NULL)
+                return NULL;
+            while ((region = strstr(region, "\"candidateId\"")) != NULL) {
+                const char* next_region = strstr(region + 1, "\"candidateId\"");
+                char* kind = json_string_between(region, next_region, "kind");
+                char* identifier = json_string_between(region, next_region, "candidateId");
+                if (kind != NULL && identifier != NULL && strcmp(kind, "unallocated") == 0 &&
+                    json_true_between(region, next_region, "suitableForBackupPartition")) {
+                    free(kind);
+                    return identifier;
+                }
+                free(kind);
+                free(identifier);
+                region = next_region;
+                if (region == NULL)
+                    break;
+            }
+            return NULL;
+        }
+        free(path);
+        device = next_device;
+        if (device == NULL)
             break;
     }
     return NULL;
@@ -125,25 +177,30 @@ static char* start_preparation(sd_bus* bus, const char* request, int passphrase_
 }
 
 int main(int argc, char** argv) {
-    if (argc != 4)
-        die("usage: DeviceProvisioningClient PARTITION SOURCE PASSPHRASE_FILE");
+    if (argc < 4 || argc > 6)
+        die("usage: DeviceProvisioningClient TARGET SOURCE PASSPHRASE_FILE [MODE [PROFILE_ID]]");
+    const char* mode = argc >= 5 ? argv[4] : "reformat-existing-partition";
+    const char* profile_id = argc >= 6 ? argv[5] : "partition-integration";
     sd_bus* bus = NULL;
     if (sd_bus_open_system(&bus) < 0)
         die("cannot connect to the system bus");
 
     char* topology = call(bus, "InspectStorageTopology", NULL, NULL);
     char* generation = json_string(topology, "generation");
-    char* candidate = candidate_for_path(topology, argv[1]);
+    char* candidate = strcmp(mode, "create-partition-in-unallocated-space") == 0
+        ? unallocated_candidate_for_device(topology, argv[1])
+        : candidate_for_path(topology, argv[1]);
     if (generation == NULL || candidate == NULL)
-        die("selected partition is absent from storage topology");
+        die("selected storage target is absent from storage topology");
 
     char plan_request[2048];
     if (snprintf(
             plan_request,
             sizeof(plan_request),
-            "{\"topologyGeneration\":\"%s\",\"candidateId\":\"%s\",\"mode\":\"reformat-existing-partition\"}",
+            "{\"topologyGeneration\":\"%s\",\"candidateId\":\"%s\",\"mode\":\"%s\"}",
             generation,
-            candidate
+            candidate,
+            mode
         ) >= (int)sizeof(plan_request))
         die("plan request is too large");
     char* plan = call(bus, "BuildDevicePreparationPlan", "s", plan_request);
@@ -155,9 +212,10 @@ int main(int argc, char** argv) {
     if (snprintf(
             start_request,
             sizeof(start_request),
-            "{\"profileId\":\"partition-integration\",\"profileName\":\"Partition integration\","
+            "{\"profileId\":\"%s\",\"profileName\":\"Partition integration\","
             "\"planId\":\"%s\",\"sourceSubvolume\":\"%s\",\"passphraseLabel\":\"Integration\","
             "\"createAutomaticKey\":false}",
+            profile_id,
             plan_id,
             argv[2]
         ) >= (int)sizeof(start_request))
