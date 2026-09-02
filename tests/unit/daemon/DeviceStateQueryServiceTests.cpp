@@ -21,7 +21,10 @@ namespace {
 constexpr const char* target_uuid = "66666666-7777-8888-9999-aaaaaaaaaaaa";
 constexpr const char* replacement_uuid = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
 
-btrfsbackup::config::json::Json profile_document(const std::string& btrfs_uuid) {
+btrfsbackup::config::json::Json profile_document(
+    const std::string& btrfs_uuid,
+    const fs::path& device = "/dev/null"
+) {
     return {
         {"schemaVersion", 4},
         {"configurationGeneration", "0123456789abcdef0123456789abcdef"},
@@ -29,7 +32,7 @@ btrfsbackup::config::json::Json profile_document(const std::string& btrfs_uuid) 
         {"name", "Default backup"},
         {"enabled", true},
         {"target", {
-                       {"device", "/dev/null"},
+                       {"device", device.string()},
                        {"luksUuid", "11111111-2222-3333-4444-555555555555"},
                        {"btrfsUuid", btrfs_uuid},
                        {"mapperName", "backupdisk"},
@@ -131,10 +134,10 @@ struct Fixture {
         fs::remove_all(root);
     }
 
-    void write_profile(const std::string& uuid) const {
+    void write_profile(const std::string& uuid, const fs::path& device = "/dev/null") const {
         test_helpers::write_file(
             root / "etc" / "profiles" / "default" / "profile.json",
-            btrfsbackup::config::json::dump_json(profile_document(uuid))
+            btrfsbackup::config::json::dump_json(profile_document(uuid, device))
         );
     }
 
@@ -305,6 +308,26 @@ void test_query_uses_only_observation_ports() {
     test_helpers::expect_true("no unverified probe", fixture.probe.reads == 0, "unmounted target was probed");
 }
 
+void test_disconnected_device_is_not_reported_as_unlocked_by_stale_mapper() {
+    Fixture fixture("disconnected-stale-mapper");
+    fixture.write_profile(target_uuid, "/dev/nonexistent-btrfsbackup-test-device");
+    test_helpers::write_file(fixture.paths.mapper_root / "backupdisk", "stale mapper");
+
+    const btrfsbackup::daemon::TargetStatus status = fixture.query();
+
+    test_helpers::expect_eq("stale mapper disconnected state", status.state, "disconnected");
+    test_helpers::expect_true(
+        "stale mapper device disconnected",
+        !status.connected,
+        "missing physical device was reported as connected"
+    );
+    test_helpers::expect_true(
+        "stale mapper not unlocked",
+        !status.unlocked,
+        "stale mapper was presented as an unlocked target"
+    );
+}
+
 } // namespace
 
 int main() {
@@ -316,5 +339,6 @@ int main() {
     test_missing_cache_leaves_storage_unknown();
     test_corrupt_cache_leaves_storage_unknown();
     test_query_uses_only_observation_ports();
+    test_disconnected_device_is_not_reported_as_unlocked_by_stale_mapper();
     return test_helpers::finish("device state query service tests");
 }
