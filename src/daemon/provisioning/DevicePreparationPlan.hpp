@@ -60,6 +60,11 @@ struct EraseDeviceSignatures {
     bool operator==(const EraseDeviceSignatures&) const = default;
 };
 
+struct BackupPartitionTable {
+    DeviceCandidateId device_id;
+    bool operator==(const BackupPartitionTable&) const = default;
+};
+
 struct ErasePartitionSignatures {
     PartitionCandidateId partition_id;
     bool operator==(const ErasePartitionSignatures&) const = default;
@@ -106,6 +111,7 @@ struct PublishProfile {
 };
 
 using PlannedStorageOperation = std::variant<
+    BackupPartitionTable,
     EraseDeviceSignatures,
     ErasePartitionSignatures,
     CreateGptPartitionTable,

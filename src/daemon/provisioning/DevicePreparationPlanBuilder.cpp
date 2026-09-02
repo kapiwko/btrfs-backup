@@ -87,6 +87,7 @@ DevicePreparationPlan erase_whole_device_plan(
     result.before = std::move(before);
     result.after = std::move(after);
     result.operations = {
+        BackupPartitionTable{device.candidate_id},
         EraseDeviceSignatures{device.candidate_id},
         CreateGptPartitionTable{device.candidate_id},
         CreateBackupPartition{device.candidate_id, std::nullopt, std::nullopt},
@@ -212,6 +213,7 @@ DevicePreparationPlan create_partition_in_free_space_plan(
     result.before = std::move(before);
     result.after = std::move(after);
     result.operations = {
+        BackupPartitionTable{device.candidate_id},
         CreateBackupPartition{device.candidate_id, free_region.id, geometry},
         FormatLuks2{std::nullopt},
         OpenLuksMapping{},
