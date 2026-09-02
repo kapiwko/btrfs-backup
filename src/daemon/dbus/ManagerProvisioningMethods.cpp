@@ -67,21 +67,15 @@ int ManagerProvisioningMethods::build_device_preparation_plan(
                 return read_result;
             const auto request = config::json::Json::parse(request_json == nullptr ? "{}" : request_json);
             const std::string mode = request.value("mode", "");
-            provisioning::ProvisioningMode provisioning_mode;
-            if (mode == "erase-whole-device")
-                provisioning_mode = provisioning::ProvisioningMode::EraseWholeDevice;
-            else if (mode == "reformat-existing-partition")
-                provisioning_mode = provisioning::ProvisioningMode::ReformatExistingPartition;
-            else if (mode == "adopt-existing-target")
-                provisioning_mode = provisioning::ProvisioningMode::AdoptExistingTarget;
-            else
+            const auto provisioning_mode = provisioning::provisioning_mode_from_name(mode);
+            if (!provisioning_mode.has_value())
                 throw ValidationError("provisioning mode is not implemented");
             return support_.reply_operational_json(message, error, "build-device-preparation-plan", "", [&] {
                 return support_.codec().encode(device_provisioning_.build_device_preparation_plan(
                     ManagerMethodSupport::caller_bus_name(message),
                     request.value("topologyGeneration", ""),
                     request.value("candidateId", ""),
-                    provisioning_mode,
+                    *provisioning_mode,
                     request.value("inspectionId", "")
                 ));
             });
