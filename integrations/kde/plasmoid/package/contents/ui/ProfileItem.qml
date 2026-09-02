@@ -95,7 +95,9 @@ PlasmaExtras.ExpandableListItem {
 
     QQC2.Action {
         id: browseAction
-        enabled: profileStatus.managerConnected && !profileStatus.operationPending
+        enabled: profileStatus.managerConnected
+            && profileStatus.target.connected
+            && !profileStatus.operationPending
         icon.name: "folder-open-symbolic"
         text: translations.i18n("Browse backups")
         onTriggered: profileStatus.browseBackups()
