@@ -3,6 +3,15 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 add_btrfsbackup_test(btrfsbackup-btrfs-operations-tests linux/storage/BtrfsOperationsTests.cpp btrfs-operations-tests btrfsbackup-platform-linux-storage)
+if(BUILD_SYSTEM_MANAGER)
+    add_btrfsbackup_test(
+        btrfsbackup-btrfs-filesystem-formatter-tests
+        linux/storage/BtrfsFilesystemFormatterTests.cpp
+        btrfs-filesystem-formatter-tests
+        btrfsbackup-platform-linux-provisioning
+        btrfsbackup-backup-ports
+    )
+endif()
 add_btrfsbackup_test(btrfsbackup-command-runner-tests linux/process/CommandRunnerTests.cpp command-runner-tests btrfsbackup-platform-linux-process)
 add_btrfsbackup_test(
     btrfsbackup-cryptsetup-operations-tests
