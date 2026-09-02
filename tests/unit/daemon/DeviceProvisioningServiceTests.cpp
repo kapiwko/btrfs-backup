@@ -112,6 +112,7 @@ class Backend final : public IDeviceProvisioningBackend {
 class TopologyReader final : public StorageTopologyReader {
   public:
     std::string generation = "topology-1";
+    bool partition_mounted = false;
     StorageTopology scan() override {
         ExistingPartition partition{
             .candidate_id = "raw-partition",
@@ -122,6 +123,10 @@ class TopologyReader final : public StorageTopologyReader {
             .sector_count = 1,
             .filesystem = {.type = "ext4"},
         };
+        if (partition_mounted) {
+            partition.mount_points = {"/media/target"};
+            partition.blockers = {{"mounted-filesystem", "/media/target"}};
+        }
         StorageDevice device{
             .candidate_id = "raw-device",
             .identity = {
@@ -411,6 +416,20 @@ void test_topology_and_plan_are_caller_bound_and_revalidated() {
         test_helpers::fail("changed topology", "a plan for changed topology was started");
     } catch (const btrfsbackup::daemon::dbus::ManagerOperationError&) {
     }
+    const auto safety_topology = service.inspect_storage_topology(":1.20");
+    const auto unsafe_plan = service.build_device_preparation_plan(
+        ":1.20",
+        safety_topology.generation,
+        safety_topology.devices.front().candidate_id,
+        ProvisioningMode::EraseWholeDevice
+    );
+    reader.partition_mounted = true;
+    try {
+        static_cast<void>(service.start(":1.20", 1000, plan_request(unsafe_plan.id), 17));
+        test_helpers::fail("changed safety state", "mounted child was accepted without a generation change");
+    } catch (const btrfsbackup::daemon::dbus::ManagerOperationError&) {
+    }
+    reader.partition_mounted = false;
     const auto latest_topology = service.inspect_storage_topology(":1.20");
     const auto replaced_plan = service.build_device_preparation_plan(
         ":1.20",
