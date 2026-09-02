@@ -60,6 +60,8 @@ struct RunStatus {
     QString started_at;
     QString updated_at;
     bool can_cancel = false;
+    qint64 bytes_processed = 0;
+    qint64 bytes_total_estimated = 0;
     qint64 speed_bps = 0;
     qint64 eta_seconds = -1;
     int source_progress = -1;

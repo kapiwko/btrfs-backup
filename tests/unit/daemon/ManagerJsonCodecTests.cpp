@@ -69,6 +69,8 @@ void test_status_history_and_device() {
             .source_name = "Home",
             .target_name = "Backup disk",
             .progress = {
+                .bytes_processed = 1048576,
+                .bytes_total_estimated = 4194304,
                 .speed_bps = 10,
                 .eta_seconds = 20,
                 .source_percent = 30,
@@ -90,6 +92,8 @@ void test_status_history_and_device() {
     expect_field("status", status_document, "activity", "sizing");
     expect_field("status", status_document, "canCancel", true);
     expect_field("status", status_document, "overallProgress", 40);
+    expect_field("status", status_document, "bytesProcessed", 1048576);
+    expect_field("status", status_document, "bytesTotalEstimated", 4194304);
     expect_field("status", status_document, "sourceIndex", 1);
     expect_field("status", status_document, "sourceCount", 2);
     expect_field("status", status_document, "lastSuccessAt", status.last_success_at);

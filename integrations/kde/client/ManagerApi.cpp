@@ -194,7 +194,9 @@ std::optional<RunStatus> parse_status(const QString& payload) {
     }
     const auto& status = *decoded;
     constexpr auto max_qint64 = static_cast<std::uint64_t>(std::numeric_limits<qint64>::max());
-    if (status.progress.speed_bps > max_qint64 ||
+    if (status.progress.bytes_processed > max_qint64 ||
+        (status.progress.bytes_total_estimated.has_value() && *status.progress.bytes_total_estimated > max_qint64) ||
+        status.progress.speed_bps > max_qint64 ||
         (status.progress.eta_seconds.has_value() && *status.progress.eta_seconds > max_qint64)) {
         return std::nullopt;
     }
@@ -215,6 +217,10 @@ std::optional<RunStatus> parse_status(const QString& payload) {
         .started_at = started_at,
         .updated_at = updated_at,
         .can_cancel = status.can_cancel,
+        .bytes_processed = static_cast<qint64>(status.progress.bytes_processed),
+        .bytes_total_estimated = status.progress.bytes_total_estimated.has_value()
+            ? static_cast<qint64>(*status.progress.bytes_total_estimated)
+            : 0,
         .speed_bps = static_cast<qint64>(status.progress.speed_bps),
         .eta_seconds = status.progress.eta_seconds.has_value() ? static_cast<qint64>(*status.progress.eta_seconds) : -1,
         .source_progress = status.progress.source_percent.value_or(-1),

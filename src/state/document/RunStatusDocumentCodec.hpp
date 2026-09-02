@@ -51,6 +51,8 @@ struct ExtensibleValue {
 };
 
 struct TransferProgress {
+    std::uint64_t bytes_processed = 0;
+    std::optional<std::uint64_t> bytes_total_estimated;
     std::uint64_t speed_bps = 0;
     std::optional<std::uint64_t> eta_seconds;
     std::optional<int> source_percent;
