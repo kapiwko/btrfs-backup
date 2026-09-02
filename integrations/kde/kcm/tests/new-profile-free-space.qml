@@ -120,7 +120,30 @@ Item {
                     Qt.exit(1)
                     return
                 }
-                Qt.exit(0)
+                provisioning.plan = {
+                    planId: "plan-free-blocked",
+                    mode: "create-partition-in-unallocated-space",
+                    deviceId: "device-1",
+                    freeRegionId: "free-1",
+                    before: {logicalSectorSize: 512, regions: [root.partition, root.freeRegion]},
+                    after: {logicalSectorSize: 512, regions: [root.partition, root.plannedPartition]}
+                }
+                page.selectedDevice = {
+                    candidateId: "device-1",
+                    path: "/dev/test",
+                    mounted: true,
+                    blockers: ["mounted-filesystem"],
+                    regions: [root.partition, root.freeRegion]
+                }
+                page.selectedTarget = root.freeRegion
+                Qt.callLater(function() {
+                    if (page.selectedTargetSafe) {
+                        console.error("Mounted sibling did not block free-space preparation")
+                        Qt.exit(1)
+                        return
+                    }
+                    Qt.exit(0)
+                })
             })
         }
     }
