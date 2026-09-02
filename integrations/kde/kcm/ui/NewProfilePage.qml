@@ -20,6 +20,7 @@ KCMUtils.SimpleKCM {
     property var selectedTarget: null
     readonly property bool adoption: root.workflowMode === "adopt"
     readonly property bool hasPlan: (root.provisioning.plan.planId ?? "") !== ""
+    readonly property string inspectionClassification: root.provisioning.inspection.classification ?? ""
 
     title: root.step === 0 ? translations.i18n("Add backup profile")
         : root.step === 1 ? (root.adoption
@@ -276,9 +277,20 @@ KCMUtils.SimpleKCM {
                 Kirigami.InlineMessage {
                     Layout.fillWidth: true
                     visible: root.selectedTarget !== null
-                    type: root.adoption ? Kirigami.MessageType.Information : Kirigami.MessageType.Warning
+                    type: root.adoption && (root.inspectionClassification === "" || root.hasPlan)
+                        ? Kirigami.MessageType.Information : Kirigami.MessageType.Warning
                     text: root.adoption
-                        ? (root.provisioning.inspection.repositoryId
+                        ? (root.inspectionClassification === "empty-filesystem"
+                            ? translations.i18n("This encrypted Btrfs filesystem is empty and does not contain a backup repository.")
+                            : root.inspectionClassification === "legacy-repository"
+                            ? translations.i18n("This target uses an older backup layout and cannot be adopted automatically.")
+                            : root.inspectionClassification === "unsupported-repository"
+                            ? translations.i18n("This repository format is not supported by this version of btrfs-backup.")
+                            : root.inspectionClassification === "foreign-or-invalid-repository"
+                            ? translations.i18n("This target does not contain a valid btrfs-backup repository.")
+                            : root.inspectionClassification === "not-btrfs-filesystem"
+                            ? translations.i18n("The encrypted target does not contain a Btrfs filesystem.")
+                            : root.provisioning.inspection.repositoryId
                             ? translations.i18np(
                                 "Repository %2 contains %1 snapshot. No data will be modified.",
                                 "Repository %2 contains %1 snapshots. No data will be modified.",
