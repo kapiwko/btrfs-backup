@@ -552,8 +552,9 @@ std::string topology_fingerprint(const StorageTopology& topology) {
         }
     }
     std::uint64_t hash = 1469598103934665603ULL;
-    for (const unsigned char byte : canonical.str()) {
-        hash ^= byte;
+    const std::string canonical_bytes = canonical.str();
+    for (const char byte : canonical_bytes) {
+        hash ^= static_cast<unsigned char>(byte);
         hash *= 1099511628211ULL;
     }
     std::ostringstream result;
