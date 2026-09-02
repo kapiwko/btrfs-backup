@@ -19,6 +19,7 @@ using btrfsbackup::daemon::provisioning::EraseDeviceSignatures;
 using btrfsbackup::daemon::provisioning::ErasePartitionSignatures;
 using btrfsbackup::daemon::provisioning::ExistingPartition;
 using btrfsbackup::daemon::provisioning::PartitionTableType;
+using btrfsbackup::daemon::provisioning::PlannedPartitionGeometry;
 using btrfsbackup::daemon::provisioning::PredictedRegionKind;
 using btrfsbackup::daemon::provisioning::ProvisioningMode;
 using btrfsbackup::daemon::provisioning::PublishProfile;
@@ -158,7 +159,9 @@ void test_builds_free_space_plan_without_changing_existing_partition() {
         "topology-test",
         "free-1",
         ProvisioningMode::CreatePartitionInUnallocatedSpace,
-        "plan-free"
+        "plan-free",
+        std::nullopt,
+        PlannedPartitionGeometry{.start_sector = 11, .sector_count = 4, .partition_number = 2}
     );
     test_helpers::expect_true(
         "free region scope",
@@ -172,19 +175,28 @@ void test_builds_free_space_plan_without_changing_existing_partition() {
         plan.before.regions.front() == plan.after.regions.front(),
         "existing partition changed in free-space preview"
     );
-    const auto& target = plan.after.regions.back();
+    test_helpers::expect_true("free-space region count", plan.after.regions.size() == 4, "residual free space was lost");
+    const auto& target = plan.after.regions.at(2);
     test_helpers::expect_true(
         "free region target",
         target.id == "planned-backup-partition" && target.kind == PredictedRegionKind::BackupPartition &&
-            target.start_sector == 10 && target.sector_count == 6 && !target.geometry_exact &&
+            target.start_sector == 11 && target.sector_count == 4 && target.partition_number == 2 && target.geometry_exact &&
             target.changed && target.encrypted && target.filesystem_type == "btrfs",
         "free-space target prediction is incorrect"
+    );
+    test_helpers::expect_true(
+        "residual free regions",
+        plan.after.regions.at(1).start_sector == 10 && plan.after.regions.at(1).sector_count == 1 &&
+            plan.after.regions.at(3).start_sector == 15 && plan.after.regions.at(3).sector_count == 1,
+        "free-space preview does not preserve alignment gaps"
     );
     test_helpers::expect_true(
         "free region operations",
         plan.operations.size() == 6 &&
             std::holds_alternative<CreateBackupPartition>(plan.operations.front()) &&
             std::get<CreateBackupPartition>(plan.operations.front()).free_region_id == plan.free_region_id &&
+            std::get<CreateBackupPartition>(plan.operations.front()).geometry ==
+                PlannedPartitionGeometry{.start_sector = 11, .sector_count = 4, .partition_number = 2} &&
             std::holds_alternative<PublishProfile>(plan.operations.back()),
         "free-space operation sequence changed"
     );
@@ -199,10 +211,34 @@ void test_rejects_free_space_plan_without_gpt() {
             value.generation,
             "free-1",
             ProvisioningMode::CreatePartitionInUnallocatedSpace,
-            "plan-free"
+            "plan-free",
+            std::nullopt,
+            PlannedPartitionGeometry{.start_sector = 10, .sector_count = 6, .partition_number = 2}
         ));
         test_helpers::fail("free space on MBR", "free-space plan accepted an MBR partition table");
     } catch (const btrfsbackup::ValidationError&) {}
+}
+
+void test_rejects_invalid_free_space_geometry() {
+    const auto value = topology();
+    for (const auto geometry : {
+             PlannedPartitionGeometry{},
+             PlannedPartitionGeometry{.start_sector = 9, .sector_count = 2, .partition_number = 2},
+             PlannedPartitionGeometry{.start_sector = 14, .sector_count = 3, .partition_number = 2},
+         }) {
+        try {
+            static_cast<void>(DevicePreparationPlanBuilder{}.build(
+                value,
+                value.generation,
+                "free-1",
+                ProvisioningMode::CreatePartitionInUnallocatedSpace,
+                "plan-invalid-free",
+                std::nullopt,
+                geometry
+            ));
+            test_helpers::fail("invalid free-space geometry", "out-of-range partition geometry was accepted");
+        } catch (const btrfsbackup::ValidationError&) {}
+    }
 }
 
 void test_rejects_stale_topology_and_unimplemented_mode() {
@@ -243,6 +279,7 @@ int main() {
     test_builds_partition_plan_without_changing_other_regions();
     test_builds_free_space_plan_without_changing_existing_partition();
     test_rejects_free_space_plan_without_gpt();
+    test_rejects_invalid_free_space_geometry();
     test_rejects_stale_topology_and_unimplemented_mode();
     return test_helpers::finish("device preparation plan builder tests");
 }

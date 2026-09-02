@@ -76,6 +76,10 @@ class IDeviceProvisioningBackend {
     [[nodiscard]] virtual std::vector<std::string> inspect_safety(
         const DevicePreparationTarget& target
     ) const = 0;
+    [[nodiscard]] virtual provisioning::PlannedPartitionGeometry plan_partition_geometry(
+        const provisioning::StorageDevice& device,
+        const provisioning::UnallocatedRegion& free_region
+    ) const = 0;
     [[nodiscard]] virtual provisioning::ExistingTargetInspectionSummary inspect_existing_target(
         const DevicePreparationTarget& target,
         int credential_fd

@@ -230,6 +230,7 @@ provisioning::DevicePreparationPlan DeviceProvisioningService::build_device_prep
     if (current.generation != expected_generation)
         throw dbus::ManagerOperationError(dbus::ManagerErrorCode::Conflict, "storage topology changed");
     std::optional<std::string> validated_inspection_id;
+    std::optional<provisioning::PlannedPartitionGeometry> partition_geometry;
     if (mode == provisioning::ProvisioningMode::AdoptExistingTarget) {
         const auto inspection = inspections_.find(inspection_id);
         if (inspection == inspections_.end() || inspection->second.caller != caller ||
@@ -240,6 +241,33 @@ provisioning::DevicePreparationPlan DeviceProvisioningService::build_device_prep
                 "existing target inspection is unavailable or expired"
             );
         validated_inspection_id = inspection_id;
+    }
+    if (mode == provisioning::ProvisioningMode::CreatePartitionInUnallocatedSpace) {
+        for (const auto& device : snapshot->second.topology.devices) {
+            const auto region = std::ranges::find_if(device.regions, [&](const auto& value) {
+                const auto* free_region = std::get_if<provisioning::UnallocatedRegion>(&value);
+                return free_region != nullptr && free_region->id == selected_candidate_id;
+            });
+            if (region != device.regions.end()) {
+                try {
+                    partition_geometry = backend_.plan_partition_geometry(
+                        device,
+                        std::get<provisioning::UnallocatedRegion>(*region)
+                    );
+                } catch (const ValidationError& error) {
+                    throw dbus::ManagerOperationError(
+                        dbus::ManagerErrorCode::Conflict,
+                        std::string("cannot plan partition in selected free space: ") + error.what()
+                    );
+                }
+                break;
+            }
+        }
+        if (!partition_geometry.has_value())
+            throw dbus::ManagerOperationError(
+                dbus::ManagerErrorCode::NotFound,
+                "unallocated storage region candidate is unavailable"
+            );
     }
     std::string plan_id;
     for (int attempt = 0; attempt < 16 && plan_id.empty(); ++attempt) {
@@ -255,7 +283,8 @@ provisioning::DevicePreparationPlan DeviceProvisioningService::build_device_prep
         selected_candidate_id,
         mode,
         plan_id,
-        std::move(validated_inspection_id)
+        std::move(validated_inspection_id),
+        partition_geometry
     );
     plans_.insert_or_assign(plan_id, StoredPlan{plan, caller, now + candidate_lifetime_});
     return plan;
