@@ -147,6 +147,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
 endif()
 install(TARGETS btrfs-backup-kde-restore RUNTIME DESTINATION "${KDE_INSTALL_BINDIR}")
 install(FILES restore/btrfs-backup-kde-restore.notifyrc DESTINATION "${CMAKE_INSTALL_DATADIR}/knotifications6")
+install(FILES restore/io.github.btrfsbackup.Restore.desktop DESTINATION "${KDE_INSTALL_APPDIR}")
 
 add_library(btrfsbackup-runner MODULE
     krunner/BackupRunner.cpp

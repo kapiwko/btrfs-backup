@@ -10,12 +10,15 @@
 #include <QApplication>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
+#include <QIcon>
 #include <QVariant>
 
 int main(int argc, char** argv) {
     QApplication application(argc, argv);
     application.setApplicationName(QStringLiteral("btrfs-backup-kde-restore"));
     application.setOrganizationDomain(QStringLiteral("io.github.btrfsbackup"));
+    application.setDesktopFileName(QStringLiteral("io.github.btrfsbackup.Restore"));
+    application.setWindowIcon(QIcon::fromTheme(QStringLiteral("document-restore")));
     KLocalizedString::setApplicationDomain("btrfs-backup-kde-restore");
     QCommandLineParser parser;
     parser.addHelpOption();
