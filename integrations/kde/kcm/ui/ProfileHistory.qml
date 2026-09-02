@@ -164,13 +164,13 @@ ColumnLayout {
     function stateIcon(state) {
         switch (state) {
         case "succeeded":
-            return "emblem-ok-symbolic";
+            return "emblem-ok";
         case "failed":
-            return "dialog-error-symbolic";
+            return "dialog-error";
         case "cancelled":
-            return "dialog-cancel-symbolic";
+            return "dialog-cancel";
         default:
-            return "dialog-information-symbolic";
+            return "dialog-information";
         }
     }
 

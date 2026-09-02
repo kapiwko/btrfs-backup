@@ -63,13 +63,28 @@ QQC2.ItemDelegate {
                     anchors.fill: parent
                     source: "drive-harddisk-symbolic"
                 }
-                Kirigami.Icon {
+                Rectangle {
                     objectName: "profileTargetStateIndicator"
                     anchors.right: parent.right
                     anchors.bottom: parent.bottom
-                    width: Kirigami.Units.iconSizes.small
+                    width: Kirigami.Units.iconSizes.smallMedium
                     height: width
-                    source: delegate.targetIndicatorIcon()
+                    radius: width / 2
+                    color: Kirigami.Theme.backgroundColor
+                    border.width: 1
+                    border.color: delegate.targetIndicatorColor()
+
+                    Kirigami.Icon {
+                        anchors.fill: parent
+                        anchors.margins: 2
+                        source: delegate.targetIndicatorIcon()
+                        color: delegate.targetIndicatorColor()
+                    }
+
+                    HoverHandler { id: targetIndicatorHover }
+                    QQC2.ToolTip.visible: targetIndicatorHover.hovered
+                    QQC2.ToolTip.delay: Kirigami.Units.toolTipDelay
+                    QQC2.ToolTip.text: delegate.targetIndicatorText()
                 }
             }
 
@@ -197,5 +212,29 @@ QQC2.ItemDelegate {
         if (delegate.profileStatus.target.unlocked)
             return "object-unlocked-symbolic"
         return "object-locked-symbolic"
+    }
+
+    function targetIndicatorColor() {
+        if (!delegate.profileStatus.configurationValid
+                || delegate.profileStatus.target.state === "unexpected-mount")
+            return Kirigami.Theme.negativeTextColor
+        if (!delegate.profileStatus.target.connected)
+            return Kirigami.Theme.disabledTextColor
+        if (delegate.profileStatus.target.mounted)
+            return Kirigami.Theme.positiveTextColor
+        return Kirigami.Theme.textColor
+    }
+
+    function targetIndicatorText() {
+        if (!delegate.profileStatus.configurationValid)
+            return translations.i18n("Backup failed")
+        switch (delegate.profileStatus.target.state) {
+        case "mounted": return translations.i18n("Mounted")
+        case "unexpected-mount": return translations.i18n("Unexpected mount")
+        case "unlocked": return translations.i18n("Unlocked")
+        case "connected": return translations.i18n("Connected")
+        case "disconnected": return translations.i18n("Disconnected")
+        default: return translations.i18n("Unknown")
+        }
     }
 }
