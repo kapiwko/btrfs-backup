@@ -450,7 +450,8 @@ DevicePreparationStatus DeviceProvisioningService::start(
     const auto plan = find_plan(caller, request.plan_id);
     if (plan.mode != provisioning::ProvisioningMode::EraseWholeDevice &&
         plan.mode != provisioning::ProvisioningMode::ReformatExistingPartition &&
-        plan.mode != provisioning::ProvisioningMode::AdoptExistingTarget)
+        plan.mode != provisioning::ProvisioningMode::AdoptExistingTarget &&
+        plan.mode != provisioning::ProvisioningMode::CreatePartitionInUnallocatedSpace)
         throw dbus::ManagerOperationError(
             dbus::ManagerErrorCode::Conflict,
             "device preparation plan mode is not executable yet"

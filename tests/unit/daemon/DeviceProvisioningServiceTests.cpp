@@ -500,6 +500,19 @@ void test_free_space_plan_uses_backend_geometry() {
             target->start_sector == 5 && target->sector_count == 6 && target->partition_number == 2,
         "free-space plan did not use backend geometry"
     );
+    const auto started = service.start(":1.50", 1000, plan_request(plan.id), 17);
+    test_helpers::expect_true(
+        "free-space execution target",
+        started.operation_id == "prepare-1" && backend.starts == 1 &&
+            backend.target.mode == ProvisioningMode::CreatePartitionInUnallocatedSpace &&
+            backend.target.partition == std::nullopt && backend.target.free_region.has_value() &&
+            backend.target.free_region->start_sector == 4 && backend.target.free_region->sector_count == 8 &&
+            backend.target.planned_partition_geometry.has_value() &&
+            backend.target.planned_partition_geometry->start_sector == 5 &&
+            backend.target.planned_partition_geometry->sector_count == 6 &&
+            backend.target.planned_partition_geometry->partition_number == 2,
+        "free-space plan did not reach the backend with its frozen geometry"
+    );
 }
 } // namespace
 
