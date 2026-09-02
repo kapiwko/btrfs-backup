@@ -100,6 +100,14 @@ add_btrfsbackup_test(
 )
 
 add_btrfsbackup_test(
+    btrfsbackup-storage-safety-inspector-tests
+    StorageSafetyInspectorTests.cpp
+    storage-safety-inspector-tests
+    btrfsbackup-daemon-provisioning
+    btrfsbackup-core
+)
+
+add_btrfsbackup_test(
     btrfsbackup-system-device-provisioning-backend-tests
     SystemDeviceProvisioningBackendTests.cpp
     system-device-provisioning-backend-tests

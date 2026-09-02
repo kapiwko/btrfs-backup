@@ -86,11 +86,17 @@ owner-validated directory descriptor. Publication uses
 and correctness does not depend on a separate existence check.
 
 Device preparation has its own `io.github.btrfsbackup.prepare-backup-device`
-polkit action without retained authorization. The daemon binds a short-lived
-random candidate identifier to a complete device identity and revalidates the
-block graph and active users immediately before signature erasure. It verifies
-the chosen source as a Btrfs subvolume and disables cancellation before the
-first write. The long-lived manager persists the request and launches one
+polkit action without retained authorization. The daemon binds short-lived
+random candidate and plan identifiers to a caller-owned topology snapshot.
+Before authorization it rescans storage and compares the planned destructive
+scope with the current stable device identity, partition table, sector sizes,
+partition geometry, signatures, mounts, swap and holders. Whole-device plans
+inspect every child; existing-partition plans ignore unrelated siblings but are
+preview-only until their separate executor and recovery path are available.
+The helper revalidates the block graph and active users again immediately before
+signature erasure. It verifies the chosen source as a Btrfs subvolume and
+disables cancellation before the first write. The long-lived manager persists
+the request and launches one
 `btrfs-backup-device-preparation@<operationId>.service` instance. That
 short-lived helper receives the passphrase through a root-only FIFO, executes
 exactly one transaction, and checkpoints every phase. Its unit has a closed

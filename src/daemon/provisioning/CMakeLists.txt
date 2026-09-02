@@ -5,6 +5,7 @@
 add_library(btrfsbackup-daemon-provisioning STATIC
     DevicePreparationPlan.cpp
     DevicePreparationPlanBuilder.cpp
+    StorageSafetyInspector.cpp
     StorageTopology.cpp
 )
 target_compile_features(btrfsbackup-daemon-provisioning PUBLIC cxx_std_23)
@@ -12,6 +13,7 @@ target_restricted_include_directories(btrfsbackup-daemon-provisioning
     PUBLIC_HEADERS
         daemon/provisioning/DevicePreparationPlan.hpp
         daemon/provisioning/DevicePreparationPlanBuilder.hpp
+        daemon/provisioning/StorageSafetyInspector.hpp
         daemon/provisioning/StorageTopology.hpp
         daemon/provisioning/StorageTopologyReader.hpp
 )

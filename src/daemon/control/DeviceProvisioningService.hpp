@@ -14,6 +14,7 @@
 
 #include <daemon/control/OperationalControlService.hpp>
 #include <daemon/provisioning/DevicePreparationPlanBuilder.hpp>
+#include <daemon/provisioning/StorageSafetyInspector.hpp>
 #include <daemon/provisioning/StorageTopologyReader.hpp>
 
 namespace btrfsbackup::daemon::control {
@@ -151,6 +152,10 @@ class DeviceProvisioningService final {
         const std::string& caller,
         const std::string& plan_id
     );
+    [[nodiscard]] provisioning::StorageTopology find_topology(
+        const std::string& caller,
+        const provisioning::TopologyGeneration& generation
+    );
     void expire_candidates(std::chrono::steady_clock::time_point now);
     void authorize(const std::string& caller, std::string_view method) const;
     void authorize_owner_or_admin(
@@ -170,6 +175,7 @@ class DeviceProvisioningService final {
     std::map<std::string, StoredPlan> plans_;
     provisioning::StorageTopologyReader* topology_reader_;
     provisioning::DevicePreparationPlanBuilder plan_builder_;
+    provisioning::StorageSafetyInspector storage_safety_inspector_;
 };
 
 } // namespace btrfsbackup::daemon::control
