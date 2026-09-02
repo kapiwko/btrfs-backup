@@ -261,6 +261,20 @@ void DevicePreparationExecutor::execute(const std::string& operation_id, int pas
                 transaction.last_completed_phase = "partition";
             });
         } else if (initial.target.mode == provisioning::ProvisioningMode::CreatePartitionInUnallocatedSpace) {
+            phase(operation_id, "backup-partition-table", false);
+            const std::string partition_table_backup = partition_tables_.snapshot_partition_table(
+                initial.device.path,
+                initial.device.major_minor,
+                initial.target.device.partition_table.identifier,
+                initial.target.device.logical_sector_size
+            );
+            if (partition_table_backup.empty())
+                throw ValidationError("partition table backup is empty");
+            update(operation_id, [&](auto& transaction) {
+                transaction.partition_table_backup = partition_table_backup;
+                transaction.last_completed_phase = "backup-partition-table";
+            });
+
             phase(operation_id, "partition", false);
             const auto& free_region = *initial.target.free_region;
             const auto& planned = *initial.target.planned_partition_geometry;

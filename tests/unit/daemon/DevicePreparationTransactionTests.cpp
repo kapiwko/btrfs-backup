@@ -153,6 +153,7 @@ void test_round_trip_preserves_free_space_geometry() {
             .sector_count = 8192,
             .partition_number = 2,
         };
+    value.partition_table_backup = "label: gpt\nlabel-id: pt-uuid\n";
     DevicePreparationTransactionStore store(root);
     store.save(value);
     const auto loaded = store.load("prepare-free-space");
@@ -162,7 +163,8 @@ void test_round_trip_preserves_free_space_geometry() {
                 btrfsbackup::daemon::provisioning::ProvisioningMode::CreatePartitionInUnallocatedSpace &&
             loaded.target.free_region.has_value() && loaded.target.free_region->id.empty() &&
             loaded.target.free_region->start_sector == 4096 && loaded.target.free_region->sector_count == 8192 &&
-            loaded.target.planned_partition_geometry == value.target.planned_partition_geometry,
+            loaded.target.planned_partition_geometry == value.target.planned_partition_geometry &&
+            loaded.partition_table_backup == value.partition_table_backup,
         "free-space target geometry changed during persistence"
     );
 }
