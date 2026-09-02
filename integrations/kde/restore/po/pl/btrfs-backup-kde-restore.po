@@ -27,6 +27,9 @@ msgstr "Miejsce docelowe:"
 msgid "Choose destination"
 msgstr "Wybierz miejsce docelowe"
 
+msgid "Choose restore destination"
+msgstr "Wybierz miejsce przywracania"
+
 msgid "If destination exists:"
 msgstr "Jeśli miejsce docelowe istnieje:"
 

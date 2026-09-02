@@ -7,13 +7,13 @@
 #include <KLocalizedQmlContext>
 
 #include <QCommandLineParser>
-#include <QGuiApplication>
+#include <QApplication>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QVariant>
 
 int main(int argc, char** argv) {
-    QGuiApplication application(argc, argv);
+    QApplication application(argc, argv);
     application.setApplicationName(QStringLiteral("btrfs-backup-kde-restore"));
     application.setOrganizationDomain(QStringLiteral("io.github.btrfsbackup"));
     KLocalizedString::setApplicationDomain("btrfs-backup-kde-restore");
