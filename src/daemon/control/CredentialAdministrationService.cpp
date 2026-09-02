@@ -34,8 +34,13 @@ std::vector<TargetCredential> CredentialAdministrationService::list_credentials(
     const std::string& caller,
     const std::string& profile_id
 ) const {
-    authorize(caller, manager_protocol::method::list_target_credentials);
+    require_active_caller(caller);
     return backend_.list_credentials(ProfileId{profile_id});
+}
+
+void CredentialAdministrationService::require_active_caller(const std::string& caller) const {
+    if (caller.empty() || !authorizer_.caller_is_active(caller))
+        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::NotAuthorized, "operation is not authorized");
 }
 
 void CredentialAdministrationService::authorize(const std::string& caller, std::string_view method) const {
