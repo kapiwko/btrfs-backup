@@ -151,9 +151,9 @@ std::vector<std::string> DestructiveDeviceSafetyInspector::inspect(
             add_reason(reasons, "block-device-missing");
         } else if (!same_identity(target.device.identity, selected->identity) || selected->logical_sector_size != target.device.logical_sector_size || selected->physical_sector_size != target.device.physical_sector_size || selected->partition_table != target.device.partition_table) {
             add_reason(reasons, "block-device-identity-mismatch");
-        } else if (selected->read_only) {
+        } else if (selected->read_only && target.mode != provisioning::ProvisioningMode::AdoptExistingTarget) {
             add_reason(reasons, "read-only-device:" + selected->identity.display_path);
-        } else if (target.mode == provisioning::ProvisioningMode::ReformatExistingPartition) {
+        } else if (target.mode == provisioning::ProvisioningMode::ReformatExistingPartition || target.mode == provisioning::ProvisioningMode::AdoptExistingTarget) {
             if (!target.partition.has_value()) {
                 add_reason(reasons, "planned-partition-missing");
             } else {
@@ -162,7 +162,8 @@ std::vector<std::string> DestructiveDeviceSafetyInspector::inspect(
                     add_reason(reasons, "block-partition-missing");
                 else
                     inspect_partition(reasons, *target.partition, *partition);
-                exclusive_candidate = partition_probe_candidate(*target.partition);
+                if (target.mode == provisioning::ProvisioningMode::ReformatExistingPartition)
+                    exclusive_candidate = partition_probe_candidate(*target.partition);
             }
         } else {
             add_blockers(reasons, selected->blockers);
@@ -186,8 +187,10 @@ std::vector<std::string> DestructiveDeviceSafetyInspector::inspect(
     } catch (...) {
         add_reason(reasons, "block-graph-unavailable");
     }
-    if (const auto exclusive_reason = exclusive_probe_(exclusive_candidate); exclusive_reason.has_value())
-        add_reason(reasons, *exclusive_reason);
+    if (target.mode != provisioning::ProvisioningMode::AdoptExistingTarget) {
+        if (const auto exclusive_reason = exclusive_probe_(exclusive_candidate); exclusive_reason.has_value())
+            add_reason(reasons, *exclusive_reason);
+    }
     return reasons;
 }
 

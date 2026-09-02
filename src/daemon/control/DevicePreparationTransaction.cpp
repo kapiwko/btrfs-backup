@@ -140,6 +140,17 @@ Json target_json(const DevicePreparationTarget& target) {
             {"filesystem", filesystem_json(target.partition->filesystem)},
         };
     }
+    Json expected_inspection = nullptr;
+    if (target.expected_inspection.has_value()) {
+        expected_inspection = {
+            {"luksUuid", target.expected_inspection->luks_uuid},
+            {"btrfsUuid", target.expected_inspection->btrfs_uuid},
+            {"partitionUuid", target.expected_inspection->partition_uuid},
+            {"repositoryId", target.expected_inspection->repository_id},
+            {"catalogGeneration", target.expected_inspection->catalog_generation},
+            {"snapshotCount", target.expected_inspection->snapshot_count},
+        };
+    }
     return {
         {"mode", provisioning::provisioning_mode_name(target.mode)},
         {"deviceIdentity", identity_json(target.device.identity)},
@@ -149,6 +160,7 @@ Json target_json(const DevicePreparationTarget& target) {
         {"partitionTableType", provisioning::partition_table_type_name(target.device.partition_table.type)},
         {"partitionTableId", target.device.partition_table.identifier},
         {"partition", std::move(partition)},
+        {"expectedInspection", std::move(expected_inspection)},
     };
 }
 
@@ -169,6 +181,8 @@ DevicePreparationTarget parse_target(const Json& value) {
         result.mode = provisioning::ProvisioningMode::EraseWholeDevice;
     else if (mode == "reformat-existing-partition")
         result.mode = provisioning::ProvisioningMode::ReformatExistingPartition;
+    else if (mode == "adopt-existing-target")
+        result.mode = provisioning::ProvisioningMode::AdoptExistingTarget;
     else
         throw ValidationError("unsupported device preparation transaction mode");
     result.device.identity = parse_identity(value.at("deviceIdentity"));
@@ -196,17 +210,34 @@ DevicePreparationTarget parse_target(const Json& value) {
             .blockers = {},
         };
     }
+    if (value.contains("expectedInspection") && value.at("expectedInspection").is_object()) {
+        const auto& inspection = value.at("expectedInspection");
+        result.expected_inspection = provisioning::ExistingTargetInspectionSummary{
+            .luks_uuid = inspection.value("luksUuid", ""),
+            .btrfs_uuid = inspection.value("btrfsUuid", ""),
+            .partition_uuid = inspection.value("partitionUuid", ""),
+            .repository_id = inspection.value("repositoryId", ""),
+            .catalog_generation = inspection.value("catalogGeneration", std::uint64_t{0}),
+            .snapshot_count = inspection.value("snapshotCount", std::size_t{0}),
+        };
+    }
     if (result.device.identity.major_minor.empty() || result.device.identity.sysfs_path.empty() ||
         result.device.identity.size_bytes == 0 || result.device.logical_sector_size == 0 ||
         result.device.transport.empty() ||
-        (result.mode == provisioning::ProvisioningMode::ReformatExistingPartition && !result.partition.has_value()))
+        ((result.mode == provisioning::ProvisioningMode::ReformatExistingPartition ||
+          result.mode == provisioning::ProvisioningMode::AdoptExistingTarget) &&
+         !result.partition.has_value()) ||
+        (result.mode == provisioning::ProvisioningMode::AdoptExistingTarget &&
+         (!result.expected_inspection.has_value() || result.expected_inspection->luks_uuid.empty() ||
+          result.expected_inspection->btrfs_uuid.empty() || result.expected_inspection->partition_uuid.empty() ||
+          result.expected_inspection->repository_id.empty())))
         throw ValidationError("incomplete device preparation target snapshot");
     return result;
 }
 
 Json transaction_json(const DevicePreparationTransaction& transaction) {
     return {
-        {"schemaVersion", 3},
+        {"schemaVersion", 4},
         {"operationId", transaction.status.operation_id},
         {"profileId", transaction.status.profile_id},
         {"state", transaction.status.state},
@@ -230,6 +261,7 @@ Json transaction_json(const DevicePreparationTransaction& transaction) {
         {"luksUuid", transaction.luks_uuid},
         {"btrfsUuid", transaction.btrfs_uuid},
         {"mapper", transaction.mapper},
+        {"inspectionMountPoint", transaction.inspection_mount_point},
         {"configurationState", transaction.configuration_state},
         {"credentialsState", transaction.credentials_state},
         {"cleanupResult", transaction.cleanup_result},
@@ -238,7 +270,7 @@ Json transaction_json(const DevicePreparationTransaction& transaction) {
 
 DevicePreparationTransaction parse_transaction(const Json& value) {
     const int schema_version = value.value("schemaVersion", 0);
-    if (!value.is_object() || schema_version != 3 || !value.contains("device"))
+    if (!value.is_object() || schema_version != 4 || !value.contains("device"))
         throw ValidationError("invalid device preparation transaction");
     DevicePreparationTransaction result;
     result.status = {
@@ -270,6 +302,7 @@ DevicePreparationTransaction parse_transaction(const Json& value) {
     result.luks_uuid = value.value("luksUuid", "");
     result.btrfs_uuid = value.value("btrfsUuid", "");
     result.mapper = value.value("mapper", "");
+    result.inspection_mount_point = value.value("inspectionMountPoint", "");
     result.configuration_state = value.value("configurationState", "not-started");
     result.credentials_state = value.value("credentialsState", "not-started");
     result.cleanup_result = value.value("cleanupResult", "not-required");

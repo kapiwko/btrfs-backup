@@ -14,11 +14,13 @@
 #include <core/Errors.hpp>
 #include <core/Identifiers.hpp>
 #include <daemon/control/DestructiveDeviceSafetyInspector.hpp>
+#include <daemon/control/ExistingTargetInspector.hpp>
 #include <daemon/control/ProvisioningDeviceEnumerator.hpp>
 #include <daemon/dbus/ManagerErrors.hpp>
 #include <platform/linux/config/ProfileService.hpp>
 #include <platform/linux/filesystem/FileLock.hpp>
 #include <platform/linux/filesystem/SecretFile.hpp>
+#include <platform/linux/filesystem/TrustedDirectory.hpp>
 #include <platform/linux/storage/BlockDeviceMetadata.hpp>
 #include <platform/linux/storage/CryptsetupOperations.hpp>
 #include <platform/linux/storage/PartitionTableOperations.hpp>
@@ -54,6 +56,12 @@ void rewind_secret(int fd) {
         throw ValidationError("cannot rewind device preparation secret");
 }
 
+void remove_inspection_mount_point(const fs::path& mount_point) {
+    std::error_code error;
+    if (!fs::remove(mount_point, error) || error)
+        throw ValidationError("cannot remove existing target inspection mount point");
+}
+
 } // namespace
 
 DevicePreparationExecutor::DevicePreparationExecutor(
@@ -69,7 +77,9 @@ DevicePreparationExecutor::DevicePreparationExecutor(
     ICredentialAdministrationBackend& credentials,
     IDestructiveDeviceSafetyInspector& safety_inspector,
     DevicePreparationTransactionStore& transactions,
-    ProvisioningDeviceEnumerator& devices
+    ProvisioningDeviceEnumerator& devices,
+    IExistingTargetInspector* existing_target_inspector,
+    fs::path inspection_mount_root
 )
     : roots_(std::move(roots)),
       commands_(commands),
@@ -83,7 +93,9 @@ DevicePreparationExecutor::DevicePreparationExecutor(
       safety_inspector_(safety_inspector),
       transactions_(transactions),
       devices_(devices),
-      plan_builder_(std::move(target_mount_root)) {
+      plan_builder_(std::move(target_mount_root)),
+      existing_target_inspector_(existing_target_inspector),
+      inspection_mount_root_(std::move(inspection_mount_root)) {
 }
 
 void DevicePreparationExecutor::update(
@@ -124,7 +136,7 @@ void DevicePreparationExecutor::execute(const std::string& operation_id, int pas
             const ProvisioningDevice selected = devices_.revalidate(initial.device);
             if (selected.mounted)
                 throw ValidationError("selected device or one of its partitions is mounted");
-        } else if (initial.target.mode != provisioning::ProvisioningMode::ReformatExistingPartition || !initial.target.partition.has_value()) {
+        } else if ((initial.target.mode != provisioning::ProvisioningMode::ReformatExistingPartition && initial.target.mode != provisioning::ProvisioningMode::AdoptExistingTarget) || !initial.target.partition.has_value()) {
             throw ValidationError("device preparation transaction mode is not executable");
         }
         if (!btrfs_.is_subvolume(initial.source_subvolume))
@@ -145,6 +157,92 @@ void DevicePreparationExecutor::execute(const std::string& operation_id, int pas
                 dbus::ManagerErrorCode::Conflict,
                 "selected device is not safe for destructive preparation: " + safety_reasons.front()
             );
+        if (initial.target.mode == provisioning::ProvisioningMode::AdoptExistingTarget) {
+            if (existing_target_inspector_ == nullptr || !initial.target.expected_inspection.has_value() ||
+                inspection_mount_root_.empty())
+                throw ValidationError("existing target adoption transaction is incomplete");
+            phase(operation_id, "verify-existing-target", false);
+            platform::linux::filesystem::ensure_trusted_directory(
+                inspection_mount_root_,
+                0700,
+                inspection_mount_root_.parent_path(),
+                ::geteuid()
+            );
+            const fs::path mount_point = inspection_mount_root_ / operation_id;
+            platform::linux::filesystem::ensure_trusted_directory(
+                mount_point,
+                0700,
+                inspection_mount_root_,
+                ::geteuid()
+            );
+            update(operation_id, [&](auto& transaction) {
+                transaction.mapper = operation_id;
+                transaction.inspection_mount_point = mount_point.string();
+                transaction.cleanup_result = "pending";
+            });
+            provisioning::ExistingTargetInspectionSummary inspected;
+            try {
+                rewind_secret(passphrase.get());
+                inspected = existing_target_inspector_->inspect(
+                    *initial.target.partition,
+                    operation_id,
+                    mount_point,
+                    passphrase.get()
+                );
+                remove_inspection_mount_point(mount_point);
+                update(operation_id, [](auto& transaction) {
+                    transaction.mapper.clear();
+                    transaction.inspection_mount_point.clear();
+                    transaction.cleanup_result = "inspection-cleaned";
+                });
+            } catch (...) {
+                std::error_code cleanup_error;
+                static_cast<void>(fs::remove(mount_point, cleanup_error));
+                update(operation_id, [&](auto& transaction) {
+                    transaction.mapper.clear();
+                    transaction.inspection_mount_point.clear();
+                    transaction.cleanup_result = cleanup_error ? "inspection-directory-remove-failed" : "inspection-cleaned";
+                });
+                throw;
+            }
+            if (inspected != *initial.target.expected_inspection)
+                throw dbus::ManagerOperationError(
+                    dbus::ManagerErrorCode::Conflict,
+                    "existing target changed since the accepted inspection"
+                );
+            update(operation_id, [&](auto& transaction) {
+                transaction.partition = transaction.target.partition->identity.display_path;
+                transaction.partition_uuid = inspected.partition_uuid;
+                transaction.luks_uuid = inspected.luks_uuid;
+                transaction.btrfs_uuid = inspected.btrfs_uuid;
+                transaction.last_completed_phase = "verify-existing-target";
+            });
+
+            phase(operation_id, "write-profile", false);
+            update(operation_id, [](auto& transaction) { transaction.configuration_state = "in-progress"; });
+            config::Profile profile = plan_builder_.build(
+                initial,
+                inspected.luks_uuid,
+                inspected.btrfs_uuid,
+                inspected.partition_uuid
+            );
+            profile.enabled = false;
+            platform::linux::config::install_profile(
+                profile,
+                {roots_.config_root, roots_.udev_root, roots_.systemd_root, roots_.public_root},
+                activator_
+            );
+            update(operation_id, [](auto& transaction) {
+                transaction.configuration_state = "installed";
+                transaction.credentials_state = "not-applicable";
+                transaction.last_completed_phase = "write-profile";
+                transaction.status.state = "succeeded";
+                transaction.status.phase = "complete";
+                transaction.status.can_cancel = false;
+                transaction.status.recovery_action.clear();
+            });
+            return;
+        }
         backup::ControlledCommandOptions standard;
         std::string partition;
         phase(operation_id, "wipe-signatures", false);
@@ -270,8 +368,9 @@ void DevicePreparationExecutor::execute(const std::string& operation_id, int pas
                           << transaction.status.phase << ": " << error.what() << '\n';
                 transaction.status.state = "failed";
                 transaction.status.error_code = "device-preparation." + transaction.status.phase + "-failed";
-                transaction.status.recovery_action =
-                    "Inspect the recorded device artifacts and complete or remove partial structures manually.";
+                transaction.status.recovery_action = initial.target.mode == provisioning::ProvisioningMode::AdoptExistingTarget
+                    ? "Rescan and inspect the existing target before creating a new adoption plan."
+                    : "Inspect the recorded device artifacts and complete or remove partial structures manually.";
                 transaction.status.can_cancel = false;
                 transaction.cleanup_result = !cleanup_required
                     ? "not-required"
@@ -296,7 +395,9 @@ void DevicePreparationExecutor::execute(const std::string& operation_id, int pas
             update(operation_id, [&](auto& transaction) {
                 transaction.status.state = "failed";
                 transaction.status.error_code = "device-preparation.unknown-failed";
-                transaction.status.recovery_action = "Inspect and repair the recorded device artifacts manually.";
+                transaction.status.recovery_action = initial.target.mode == provisioning::ProvisioningMode::AdoptExistingTarget
+                    ? "Rescan and inspect the existing target before creating a new adoption plan."
+                    : "Inspect and repair the recorded device artifacts manually.";
                 transaction.status.can_cancel = false;
                 transaction.cleanup_result = !cleanup_required
                     ? "not-required"
@@ -313,8 +414,31 @@ void DevicePreparationExecutor::recover(const std::string& operation_id) {
     DevicePreparationTransaction transaction = transactions_.load(operation_id);
     if (transaction.status.state != "interrupted")
         throw ValidationError("device preparation transaction does not require cleanup");
-    if (transaction.mapper.empty())
+    if (transaction.mapper.empty() && transaction.inspection_mount_point.empty())
         return;
+    if (transaction.target.mode == provisioning::ProvisioningMode::AdoptExistingTarget) {
+        if (existing_target_inspector_ == nullptr || transaction.mapper.empty() ||
+            transaction.inspection_mount_point.empty())
+            throw ValidationError("existing target cleanup state is incomplete");
+        try {
+            existing_target_inspector_->cleanup_session(
+                transaction.mapper,
+                transaction.inspection_mount_point
+            );
+            std::error_code error;
+            static_cast<void>(fs::remove(transaction.inspection_mount_point, error));
+            transaction.cleanup_result = error ? "inspection-cleanup-failed" : "inspection-cleaned";
+            if (!error) {
+                transaction.mapper.clear();
+                transaction.inspection_mount_point.clear();
+            }
+        } catch (...) {
+            transaction.cleanup_result = "inspection-cleanup-failed";
+        }
+        transaction.updated_at = system_time_seconds();
+        transactions_.save(transaction);
+        return;
+    }
     try {
         cryptsetup_.close(transaction.mapper);
         transaction.cleanup_result = "mapper-closed";
