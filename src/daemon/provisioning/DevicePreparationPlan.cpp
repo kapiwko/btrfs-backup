@@ -19,6 +19,18 @@ std::string provisioning_mode_name(ProvisioningMode mode) {
     return "unsupported";
 }
 
+std::optional<ProvisioningMode> provisioning_mode_from_name(std::string_view name) {
+    if (name == "erase-whole-device")
+        return ProvisioningMode::EraseWholeDevice;
+    if (name == "reformat-existing-partition")
+        return ProvisioningMode::ReformatExistingPartition;
+    if (name == "create-partition-in-unallocated-space")
+        return ProvisioningMode::CreatePartitionInUnallocatedSpace;
+    if (name == "adopt-existing-target")
+        return ProvisioningMode::AdoptExistingTarget;
+    return std::nullopt;
+}
+
 std::string predicted_region_kind_name(PredictedRegionKind kind) {
     switch (kind) {
     case PredictedRegionKind::ExistingPartition:
