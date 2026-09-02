@@ -32,11 +32,13 @@ K_PLUGIN_CLASS_WITH_JSON(PreviousVersionsAction, "previousversionsaction.json")
 
 namespace {
 
+constexpr char translation_domain[] = "btrfs-backup-dolphin";
+
 void show_service_error(QWidget* parent) {
     KMessageBox::error(
         parent,
-        i18n("Could not contact the backup service or access backup versions."),
-        i18n("Previous Backup Versions"),
+        i18nd(translation_domain, "Could not contact the backup service or access backup versions."),
+        i18nd(translation_domain, "Previous Backup Versions"),
         KMessageBox::Notify | KMessageBox::PlainText
     );
 }
@@ -44,8 +46,8 @@ void show_service_error(QWidget* parent) {
 void show_no_versions(QWidget* parent) {
     KMessageBox::information(
         parent,
-        i18n("No backup versions were found for the selected path."),
-        i18n("Previous Backup Versions"),
+        i18nd(translation_domain, "No backup versions were found for the selected path."),
+        i18nd(translation_domain, "Previous Backup Versions"),
         {},
         KMessageBox::Notify | KMessageBox::PlainText
     );
@@ -54,8 +56,8 @@ void show_no_versions(QWidget* parent) {
 void show_restore_start_error(QWidget* parent) {
     KMessageBox::error(
         parent,
-        i18n("Could not start the restore application."),
-        i18n("Restore Backup Version"),
+        i18nd(translation_domain, "Could not start the restore application."),
+        i18nd(translation_domain, "Restore Backup Version"),
         KMessageBox::Notify | KMessageBox::PlainText
     );
 }
@@ -77,7 +79,7 @@ QList<QAction*> PreviousVersionsAction::actions(
             return {};
         auto* restore = new QAction(
             QIcon::fromTheme(u"document-restore"_s),
-            i18nc("@action:inmenu", "Restore to…"),
+            i18ndc(translation_domain, "@action:inmenu", "Restore to…"),
             parent_widget
         );
         const QString source = urls.front().toString(QUrl::FullyEncoded);
@@ -93,7 +95,7 @@ QList<QAction*> PreviousVersionsAction::actions(
         return {};
     auto* action = new QAction(
         QIcon::fromTheme(u"view-history"_s),
-        i18nc("@action:inmenu", "Previous backup versions…"),
+        i18ndc(translation_domain, "@action:inmenu", "Previous backup versions…"),
         parent_widget
     );
     const QString local_path = urls.front().toLocalFile();
