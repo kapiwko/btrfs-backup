@@ -14,10 +14,15 @@
 #include <backup/ports/IMountInspector.hpp>
 #include <core/Identifiers.hpp>
 
+namespace btrfsbackup::platform::linux::storage {
+class ICryptsetupOperations;
+}
+
 namespace btrfsbackup::cli::target {
 
 struct TargetServiceDependencies {
     btrfsbackup::backup::ICommandRunner& commands;
+    btrfsbackup::platform::linux::storage::ICryptsetupOperations& cryptsetup;
     std::function<std::vector<btrfsbackup::backup::MountEntry>()> read_mounts;
     std::filesystem::path lock_root;
     std::filesystem::path mount_point_trust_root;

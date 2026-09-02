@@ -24,6 +24,7 @@
 #include <config/domain/Validation.hpp>
 #include <platform/linux/process/PosixCommandRunner.hpp>
 #include <platform/linux/storage/DeviceInfo.hpp>
+#include <platform/linux/storage/CryptsetupOperations.hpp>
 #include <platform/linux/filesystem/FileIo.hpp>
 #include <platform/linux/filesystem/FileLock.hpp>
 #include <platform/linux/storage/MountInfo.hpp>
@@ -86,47 +87,27 @@ void run_ignored(btrfsbackup::backup::ICommandRunner& commands, const std::vecto
     (void)commands.run(argv);
 }
 
-void validate_luks_uuid(btrfsbackup::backup::ICommandRunner& commands, const btrfsbackup::config::Profile& profile) {
-    std::string actual = btrfsbackup::backup::capture_command(
-        commands,
-        {"cryptsetup", "luksUUID", profile.target.device.value().string()}
-    );
-    if (actual.empty() || lower(actual) != profile.target.luks_uuid.value()) {
+void validate_luks_uuid(
+    btrfsbackup::platform::linux::storage::ICryptsetupOperations& cryptsetup,
+    const btrfsbackup::config::Profile& profile
+) {
+    const std::string actual = cryptsetup.inspect_luks2(profile.target.device.value()).uuid;
+    if (lower(actual) != profile.target.luks_uuid.value()) {
         throw btrfsbackup::ValidationError("LUKS UUID mismatch for " + profile.target.device.value().string());
     }
 }
 
-std::string mapper_underlying_device(btrfsbackup::backup::ICommandRunner& commands, const std::string& mapper_name) {
-    std::string status = btrfsbackup::backup::capture_command(commands, {"cryptsetup", "status", mapper_name});
-    const std::string marker = "device:";
-    std::size_t pos = status.find(marker);
-    if (pos == std::string::npos) {
-        return {};
-    }
-    pos += marker.size();
-    while (pos < status.size() && std::isspace(static_cast<unsigned char>(status[pos]))) {
-        ++pos;
-    }
-    std::size_t end = pos;
-    while (end < status.size() && !std::isspace(static_cast<unsigned char>(status[end]))) {
-        ++end;
-    }
-    return status.substr(pos, end - pos);
-}
-
 bool mapper_identity_matches(
-    btrfsbackup::backup::ICommandRunner& commands,
+    btrfsbackup::platform::linux::storage::ICryptsetupOperations& cryptsetup,
     const btrfsbackup::config::Profile& profile,
     const std::function<fs::path(const fs::path&)>& canonical_device
 ) {
     fs::path configured = canonical_device(profile.target.device);
-    fs::path actual = canonical_device(
-        mapper_underlying_device(commands, profile.target.mapper_name.value())
-    );
+    fs::path actual = canonical_device(cryptsetup.active_device(profile.target.mapper_name.value()));
     if (configured.empty() || actual.empty() || configured != actual) {
         return false;
     }
-    validate_luks_uuid(commands, profile);
+    validate_luks_uuid(cryptsetup, profile);
     return true;
 }
 
@@ -151,6 +132,7 @@ bool mapper_has_mounts(
 
 struct ResolvedDependencies {
     btrfsbackup::backup::ICommandRunner& commands;
+    btrfsbackup::platform::linux::storage::ICryptsetupOperations& cryptsetup;
     std::function<std::vector<btrfsbackup::backup::MountEntry>()> read_mounts;
     fs::path lock_root;
     fs::path mount_point_trust_root;
@@ -164,6 +146,7 @@ struct ResolvedDependencies {
 ResolvedDependencies resolve_dependencies(btrfsbackup::cli::target::TargetServiceDependencies& dependencies) {
     return {
         .commands = dependencies.commands,
+        .cryptsetup = dependencies.cryptsetup,
         .read_mounts = !dependencies.read_mounts
             ? std::function<std::vector<btrfsbackup::backup::MountEntry>()>([] { return btrfsbackup::platform::linux::storage::read_mount_table(); })
             : dependencies.read_mounts,
@@ -192,10 +175,12 @@ ResolvedDependencies resolve_dependencies(btrfsbackup::cli::target::TargetServic
 }
 
 btrfsbackup::cli::target::TargetServiceDependencies production_dependencies(
-    btrfsbackup::backup::ICommandRunner& commands
+    btrfsbackup::backup::ICommandRunner& commands,
+    btrfsbackup::platform::linux::storage::ICryptsetupOperations& cryptsetup
 ) {
     return {
         .commands = commands,
+        .cryptsetup = cryptsetup,
         .read_mounts = {},
         .lock_root = {},
         .mount_point_trust_root = {},
@@ -333,9 +318,9 @@ TargetOperationResult activate_target(
     std::vector<TargetEvent> events;
     const fs::path mapper = resolved.mapper_root / profile.target.mapper_name.value();
 
-    validate_luks_uuid(resolved.commands, profile);
+    validate_luks_uuid(resolved.cryptsetup, profile);
     if (fs::exists(mapper)) {
-        if (!mapper_identity_matches(resolved.commands, profile, resolved.canonical_device)) {
+        if (!mapper_identity_matches(resolved.cryptsetup, profile, resolved.canonical_device)) {
             throw ValidationError(
                 "Refusing to use mapper " + profile.target.mapper_name.value() +
                 " because its underlying device does not match configuration"
@@ -382,11 +367,8 @@ TargetOperationResult activate_target(
             "udev did not publish the activated LUKS mapper",
             std::chrono::seconds(15)
         );
-        if (!fs::exists(mapper) || !mapper_identity_matches(resolved.commands, profile, resolved.canonical_device)) {
-            const fs::path reported = mapper_underlying_device(
-                resolved.commands,
-                profile.target.mapper_name.value()
-            );
+        if (!fs::exists(mapper) || !mapper_identity_matches(resolved.cryptsetup, profile, resolved.canonical_device)) {
+            const fs::path reported = resolved.cryptsetup.active_device(profile.target.mapper_name.value());
             throw ValidationError(
                 "activated LUKS mapper identity does not match configuration: configured=" +
                 profile.target.device.value().string() + " (canonical=" +
@@ -430,7 +412,7 @@ TargetOperationResult deactivate_target(
         events.push_back({.kind = TargetEventKind::Deactivated, .detail = profile.target.mapper_name.value()});
         return TargetOperationCompleted{std::move(events)};
     }
-    if (!mapper_identity_matches(resolved.commands, profile, resolved.canonical_device)) {
+    if (!mapper_identity_matches(resolved.cryptsetup, profile, resolved.canonical_device)) {
         if (fs::exists(profile.target.device)) {
             throw ValidationError("Refusing to deactivate a mapper that does not match configuration");
         }
@@ -465,7 +447,7 @@ TargetOperationResult mount_target(
         return TargetOperationBusy{std::move(events)};
     }
 
-    validate_luks_uuid(resolved.commands, profile);
+    validate_luks_uuid(resolved.cryptsetup, profile);
     std::vector<btrfsbackup::backup::MountEntry> mounts = resolved.read_mounts();
     if (btrfsbackup::backup::mount_at(mounts, profile.target.mount_point).has_value()) {
         btrfsbackup::platform::linux::filesystem::validate_trusted_directory(profile.target.mount_point, resolved.mount_point_trust_root, geteuid());
@@ -542,7 +524,7 @@ TargetOperationResult eject_target(
 
     fs::path mapper = resolved.mapper_root / profile.target.mapper_name.value();
     if (fs::exists(mapper)) {
-        if (!request.force && !mapper_identity_matches(resolved.commands, profile, resolved.canonical_device)) {
+        if (!request.force && !mapper_identity_matches(resolved.cryptsetup, profile, resolved.canonical_device)) {
             throw ValidationError(
                 "Refusing to close mapper " + profile.target.mapper_name.value() +
                 " because its underlying device does not match configuration."
@@ -558,11 +540,7 @@ TargetOperationResult eject_target(
             .kind = TargetEventKind::ClosingMapper,
             .detail = profile.target.mapper_name.value(),
         });
-        run_checked(
-            resolved.commands,
-            {"cryptsetup", "close", profile.target.mapper_name.value()},
-            "could not close mapper " + profile.target.mapper_name.value()
-        );
+        resolved.cryptsetup.close(profile.target.mapper_name.value());
     }
 
     if (fs::exists(profile.target.device)) {
@@ -580,25 +558,29 @@ TargetOperationResult eject_target(
 
 TargetOperationResult activate_target(const ActivateTargetRequest& request) {
     btrfsbackup::platform::linux::process::PosixCommandRunner commands;
-    TargetServiceDependencies dependencies = production_dependencies(commands);
+    btrfsbackup::platform::linux::storage::CryptsetupOperations cryptsetup;
+    TargetServiceDependencies dependencies = production_dependencies(commands, cryptsetup);
     return activate_target(request, dependencies);
 }
 
 TargetOperationResult deactivate_target(const DeactivateTargetRequest& request) {
     btrfsbackup::platform::linux::process::PosixCommandRunner commands;
-    TargetServiceDependencies dependencies = production_dependencies(commands);
+    btrfsbackup::platform::linux::storage::CryptsetupOperations cryptsetup;
+    TargetServiceDependencies dependencies = production_dependencies(commands, cryptsetup);
     return deactivate_target(request, dependencies);
 }
 
 TargetOperationResult mount_target(const MountTargetRequest& request) {
     btrfsbackup::platform::linux::process::PosixCommandRunner commands;
-    TargetServiceDependencies dependencies = production_dependencies(commands);
+    btrfsbackup::platform::linux::storage::CryptsetupOperations cryptsetup;
+    TargetServiceDependencies dependencies = production_dependencies(commands, cryptsetup);
     return mount_target(request, dependencies);
 }
 
 TargetOperationResult eject_target(const EjectTargetRequest& request) {
     btrfsbackup::platform::linux::process::PosixCommandRunner commands;
-    TargetServiceDependencies dependencies = production_dependencies(commands);
+    btrfsbackup::platform::linux::storage::CryptsetupOperations cryptsetup;
+    TargetServiceDependencies dependencies = production_dependencies(commands, cryptsetup);
     return eject_target(request, dependencies);
 }
 

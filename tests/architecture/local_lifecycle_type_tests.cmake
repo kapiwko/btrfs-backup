@@ -8,6 +8,7 @@ set(local_lifecycle_types
     "integrations/kde/kio/BtrfsBackupWorker.cpp|BrowseSessionPin|immobile"
     "src/backup/execution/LinkedCancellationMonitor.cpp|LinkedCancellationWatch|immobile"
     "src/daemon/control/DevicePreparationUnitController.cpp|SecretBuffer|movable"
+    "src/platform/linux/storage/CryptsetupOperations.cpp|SafeSecret|immobile"
     "src/platform/linux/process/ProcessSpawn.cpp|SpawnAttributes|immobile"
     "src/platform/linux/process/ProcessSpawn.cpp|SpawnFileActions|immobile"
     "src/platform/linux/process/TerminationSignalMonitor.cpp|Impl|immobile"

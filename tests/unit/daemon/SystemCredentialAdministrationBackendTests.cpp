@@ -64,6 +64,16 @@ class Cryptsetup final : public btrfsbackup::platform::linux::storage::ICryptset
         if (after_remove)
             after_remove();
     }
+    fs::path active_device(const std::string&) override {
+        return "/dev/test";
+    }
+    std::string format_luks2(const fs::path&, int) override {
+        return std::string(luks_uuid);
+    }
+    void open_luks2(const fs::path&, const std::string&, int) override {
+    }
+    void close(const std::string&) override {
+    }
 };
 
 class SabotagingActivator final : public btrfsbackup::config::IConfigurationActivator {

@@ -8,8 +8,6 @@
 #include <string>
 #include <vector>
 
-#include <backup/ports/ICommandRunner.hpp>
-
 namespace btrfsbackup::platform::linux::storage {
 
 struct LuksHeader {
@@ -24,25 +22,22 @@ class ICryptsetupOperations {
     virtual void add_key(const std::filesystem::path& device, int authorization_fd, int new_key_fd) = 0;
     virtual void test_key(const std::filesystem::path& device, int key_fd) = 0;
     virtual void remove_keyslot(const std::filesystem::path& device, int keyslot, int authorization_fd) = 0;
+    [[nodiscard]] virtual std::filesystem::path active_device(const std::string& mapper) = 0;
+    [[nodiscard]] virtual std::string format_luks2(const std::filesystem::path& device, int key_fd) = 0;
+    virtual void open_luks2(const std::filesystem::path& device, const std::string& mapper, int key_fd) = 0;
+    virtual void close(const std::string& mapper) = 0;
 };
 
 class CryptsetupOperations final : public ICryptsetupOperations {
   public:
-    explicit CryptsetupOperations(btrfsbackup::backup::ICommandRunner& commands);
-
     [[nodiscard]] LuksHeader inspect_luks2(const std::filesystem::path& device) override;
     void add_key(const std::filesystem::path& device, int authorization_fd, int new_key_fd) override;
     void test_key(const std::filesystem::path& device, int key_fd) override;
     void remove_keyslot(const std::filesystem::path& device, int keyslot, int authorization_fd) override;
-
-  private:
-    void require_success(
-        const std::vector<std::string>& command,
-        const btrfsbackup::backup::ControlledCommandOptions& options,
-        const char* operation
-    );
-
-    btrfsbackup::backup::ICommandRunner& commands_;
+    [[nodiscard]] std::filesystem::path active_device(const std::string& mapper) override;
+    [[nodiscard]] std::string format_luks2(const std::filesystem::path& device, int key_fd) override;
+    void open_luks2(const std::filesystem::path& device, const std::string& mapper, int key_fd) override;
+    void close(const std::string& mapper) override;
 };
 
 } // namespace btrfsbackup::platform::linux::storage

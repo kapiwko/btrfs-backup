@@ -143,7 +143,7 @@ int main(int argc, char** argv) {
             btrfs,
             selected_configuration_activator
         );
-        btrfsbackup::platform::linux::storage::CryptsetupOperations cryptsetup(commands);
+        btrfsbackup::platform::linux::storage::CryptsetupOperations cryptsetup;
         const btrfsbackup::daemon::control::CredentialAdministrationRoots credential_roots{
             .config_root = config_root,
             .metadata_root = config_root / "credentials",
@@ -172,6 +172,7 @@ int main(int argc, char** argv) {
             storage_topology,
             commands,
             signature_operations,
+            cryptsetup,
             btrfs,
             selected_configuration_activator,
             credential_administration_backend,

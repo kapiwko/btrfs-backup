@@ -12,6 +12,7 @@
 #include <daemon/control/CredentialAdministrationService.hpp>
 #include <daemon/control/DestructiveDeviceSafetyInspector.hpp>
 #include <daemon/provisioning/StorageTopologyReader.hpp>
+#include <platform/linux/storage/CryptsetupOperations.hpp>
 #include <platform/linux/storage/SignatureOperations.hpp>
 
 #include <chrono>
@@ -46,8 +47,6 @@ class Commands final : public backup::ICommandRunner {
     std::vector<std::vector<std::string>> controlled_calls;
     backup::CommandResult run(const std::vector<std::string>& argv) override {
         calls.push_back(argv);
-        if (argv.front() == "cryptsetup" && argv.at(1) == "luksUUID")
-            return {0, "11111111-2222-3333-4444-555555555555\n"};
         if (argv.front() == "blkid" && argv.back() == "/dev/mapper/btrfs-backup-test")
             return {0, "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee\n"};
         if (argv.front() == "blkid")
@@ -60,6 +59,33 @@ class Commands final : public backup::ICommandRunner {
     ) override {
         controlled_calls.push_back(argv);
         return run(argv);
+    }
+};
+
+class LuksOperations final : public btrfsbackup::platform::linux::storage::ICryptsetupOperations {
+  public:
+    std::vector<std::string> calls;
+    btrfsbackup::platform::linux::storage::LuksHeader inspect_luks2(const std::filesystem::path&) override {
+        return {"11111111-2222-3333-4444-555555555555", {0}};
+    }
+    void add_key(const std::filesystem::path&, int, int) override {
+    }
+    void test_key(const std::filesystem::path&, int) override {
+    }
+    void remove_keyslot(const std::filesystem::path&, int, int) override {
+    }
+    std::filesystem::path active_device(const std::string&) override {
+        return "/dev/test";
+    }
+    std::string format_luks2(const std::filesystem::path& device, int) override {
+        calls.push_back("format:" + device.string());
+        return "11111111-2222-3333-4444-555555555555";
+    }
+    void open_luks2(const std::filesystem::path& device, const std::string& mapper, int) override {
+        calls.push_back("open:" + device.string() + ":" + mapper);
+    }
+    void close(const std::string& mapper) override {
+        calls.push_back("close:" + mapper);
     }
 };
 
@@ -209,6 +235,7 @@ void test_preparation_sequence_uses_descriptors_and_installs_profile() {
     const auto root = test_helpers::test_root("device-provisioning", "success");
     Commands commands;
     Signatures signatures;
+    LuksOperations luks;
     TopologyReader topology(commands);
     Btrfs btrfs;
     Credentials credentials;
@@ -231,6 +258,7 @@ void test_preparation_sequence_uses_descriptors_and_installs_profile() {
         topology,
         commands,
         signatures,
+        luks,
         btrfs,
         activator,
         credentials,
@@ -293,6 +321,18 @@ void test_preparation_sequence_uses_descriptors_and_installs_profile() {
         "signature erasure invoked wipefs instead of libblkid"
     );
     test_helpers::expect_true(
+        "no cryptsetup process",
+        std::ranges::none_of(commands.calls, [](const auto& call) {
+            return !call.empty() && call.front() == "cryptsetup";
+        }) &&
+            luks.calls == std::vector<std::string>{
+                              "format:/dev/test1",
+                              "open:/dev/test1:btrfs-backup-test",
+                              "close:btrfs-backup-test",
+                          },
+        "LUKS provisioning did not use the libcryptsetup adapter"
+    );
+    test_helpers::expect_true(
         "identity checked immediately before wipe",
         topology.scans >= 3,
         "device identity was not checked twice after candidate issuance"
@@ -318,6 +358,7 @@ void test_exited_helper_marks_transaction_interrupted() {
     const auto root = test_helpers::test_root("device-provisioning", "helper-exited");
     Commands commands;
     Signatures signatures;
+    LuksOperations luks;
     TopologyReader topology(commands);
     Btrfs btrfs;
     Credentials credentials;
@@ -340,6 +381,7 @@ void test_exited_helper_marks_transaction_interrupted() {
         topology,
         commands,
         signatures,
+        luks,
         btrfs,
         activator,
         credentials,
@@ -389,6 +431,7 @@ void test_replacement_before_wipe_is_rejected() {
     const auto root = test_helpers::test_root("device-provisioning", "replacement");
     Commands commands;
     Signatures signatures;
+    LuksOperations luks;
     TopologyReader topology(commands);
     Btrfs btrfs;
     Credentials credentials;
@@ -411,6 +454,7 @@ void test_replacement_before_wipe_is_rejected() {
         topology,
         commands,
         signatures,
+        luks,
         btrfs,
         activator,
         credentials,
@@ -488,6 +532,7 @@ void test_restart_marks_active_transaction_interrupted_and_preserves_owner() {
 
     Commands commands;
     Signatures signatures;
+    LuksOperations luks;
     TopologyReader topology(commands);
     Btrfs btrfs;
     Credentials credentials;
@@ -510,6 +555,7 @@ void test_restart_marks_active_transaction_interrupted_and_preserves_owner() {
         topology,
         commands,
         signatures,
+        luks,
         btrfs,
         activator,
         credentials,
@@ -535,8 +581,7 @@ void test_restart_marks_active_transaction_interrupted_and_preserves_owner() {
     );
     test_helpers::expect_true(
         "restart mapper cleanup",
-        std::ranges::find(commands.calls, std::vector<std::string>{"cryptsetup", "close", "btrfs-backup-test"}) !=
-            commands.calls.end(),
+        luks.calls == std::vector<std::string>{"close:btrfs-backup-test"},
         "restored mapper was not closed"
     );
 

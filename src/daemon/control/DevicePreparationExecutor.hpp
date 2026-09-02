@@ -20,8 +20,9 @@ class IConfigurationActivator;
 }
 
 namespace btrfsbackup::platform::linux::storage {
+class ICryptsetupOperations;
 class ISignatureOperations;
-}
+} // namespace btrfsbackup::platform::linux::storage
 
 namespace btrfsbackup::daemon::control {
 
@@ -35,6 +36,7 @@ class DevicePreparationExecutor final {
         std::filesystem::path target_mount_root,
         backup::ICommandRunner& commands,
         platform::linux::storage::ISignatureOperations& signatures,
+        platform::linux::storage::ICryptsetupOperations& cryptsetup,
         backup::IBtrfsOperations& btrfs,
         config::IConfigurationActivator& configuration_activator,
         ICredentialAdministrationBackend& credentials,
@@ -56,6 +58,7 @@ class DevicePreparationExecutor final {
     CredentialAdministrationRoots roots_;
     backup::ICommandRunner& commands_;
     platform::linux::storage::ISignatureOperations& signatures_;
+    platform::linux::storage::ICryptsetupOperations& cryptsetup_;
     backup::IBtrfsOperations& btrfs_;
     config::IConfigurationActivator& activator_;
     ICredentialAdministrationBackend& credentials_;
