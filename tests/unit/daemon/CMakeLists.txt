@@ -108,6 +108,15 @@ add_btrfsbackup_test(
 )
 
 add_btrfsbackup_test(
+    btrfsbackup-existing-target-inspector-tests
+    ExistingTargetInspectorTests.cpp
+    existing-target-inspector-tests
+    btrfsbackup-daemon-system-control
+    btrfsbackup-platform-linux-provisioning
+    btrfsbackup-platform-linux-storage
+)
+
+add_btrfsbackup_test(
     btrfsbackup-system-device-provisioning-backend-tests
     SystemDeviceProvisioningBackendTests.cpp
     system-device-provisioning-backend-tests

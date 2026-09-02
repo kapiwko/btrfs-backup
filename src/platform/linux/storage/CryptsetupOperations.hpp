@@ -25,6 +25,11 @@ class ICryptsetupOperations {
     [[nodiscard]] virtual std::filesystem::path active_device(const std::string& mapper) = 0;
     [[nodiscard]] virtual std::string format_luks2(const std::filesystem::path& device, int key_fd) = 0;
     virtual void open_luks2(const std::filesystem::path& device, const std::string& mapper, int key_fd) = 0;
+    virtual void open_luks2_read_only(
+        const std::filesystem::path& device,
+        const std::string& mapper,
+        int key_fd
+    ) = 0;
     virtual void close(const std::string& mapper) = 0;
 };
 
@@ -37,6 +42,11 @@ class CryptsetupOperations final : public ICryptsetupOperations {
     [[nodiscard]] std::filesystem::path active_device(const std::string& mapper) override;
     [[nodiscard]] std::string format_luks2(const std::filesystem::path& device, int key_fd) override;
     void open_luks2(const std::filesystem::path& device, const std::string& mapper, int key_fd) override;
+    void open_luks2_read_only(
+        const std::filesystem::path& device,
+        const std::string& mapper,
+        int key_fd
+    ) override;
     void close(const std::string& mapper) override;
 };
 

@@ -34,6 +34,13 @@ add_btrfsbackup_test(btrfsbackup-mount-info-tests linux/storage/MountInfoTests.c
 add_btrfsbackup_test(btrfsbackup-owned-file-descriptor-tests OwnedFileDescriptorTests.cpp owned-file-descriptor-tests btrfsbackup-core btrfsbackup-platform-linux-base)
 if(BUILD_SYSTEM_MANAGER)
     add_btrfsbackup_test(
+        btrfsbackup-existing-target-mount-operations-tests
+        linux/storage/ExistingTargetMountOperationsTests.cpp
+        existing-target-mount-operations-tests
+        btrfsbackup-core
+        btrfsbackup-platform-linux-provisioning
+    )
+    add_btrfsbackup_test(
         btrfsbackup-partition-table-operations-tests
         linux/storage/PartitionTableOperationsTests.cpp
         partition-table-operations-tests
