@@ -14,6 +14,7 @@
             "output": "filesystem",
             "protocol": "btrfsbackup",
             "reading": true,
+            "ShowPreviews": true,
             "source": false,
             "writing": false
         }

@@ -56,6 +56,12 @@ KIO::UDSEntry directory_entry(const QString& name, const QString& display_name =
     return entry;
 }
 
+QString entry_mime_type(const RemoteEntry& entry) {
+    if (entry.directory)
+        return u"inode/directory"_s;
+    return QMimeDatabase{}.mimeTypeForFile(entry.name, QMimeDatabase::MatchExtension).name();
+}
+
 std::optional<QString> reply_payload(QDBusPendingCall call) {
     call.waitForFinished();
     QDBusPendingReply<QString> reply(call);
@@ -352,6 +358,7 @@ KIO::WorkerResult BtrfsBackupWorker::list_repository_directory(const QUrl& url) 
             entry.fastInsert(KIO::UDSEntry::UDS_SIZE, static_cast<KIO::filesize_t>(child.size));
             entry.fastInsert(KIO::UDSEntry::UDS_MODIFICATION_TIME, child.modified_at);
             entry.fastInsert(KIO::UDSEntry::UDS_ACCESS, static_cast<long long>(child.mode & 0777));
+            entry.fastInsert(KIO::UDSEntry::UDS_MIME_TYPE, entry_mime_type(child));
             entries.push_back(std::move(entry));
     }
     listEntries(entries);
@@ -497,6 +504,7 @@ KIO::WorkerResult BtrfsBackupWorker::stat(const QUrl& url) {
     result.fastInsert(KIO::UDSEntry::UDS_SIZE, static_cast<KIO::filesize_t>(entry->size));
     result.fastInsert(KIO::UDSEntry::UDS_MODIFICATION_TIME, entry->modified_at);
     result.fastInsert(KIO::UDSEntry::UDS_ACCESS, static_cast<long long>(entry->mode & 0777));
+    result.fastInsert(KIO::UDSEntry::UDS_MIME_TYPE, entry_mime_type(*entry));
     statEntry(result);
     return KIO::WorkerResult::pass();
 }
