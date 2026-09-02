@@ -66,6 +66,9 @@ QVariantMap DeviceProvisioningModel::topology() const {
 QVariantMap DeviceProvisioningModel::plan() const {
     return plan_;
 }
+QVariantMap DeviceProvisioningModel::inspection() const {
+    return inspection_;
+}
 QVariantMap DeviceProvisioningModel::operation() const {
     return operation_;
 }
@@ -100,12 +103,51 @@ void DeviceProvisioningModel::buildPlan(const QVariantMap& selection, const QStr
         {QStringLiteral("topologyGeneration"), topology_.value(QStringLiteral("generation")).toString()},
         {QStringLiteral("candidateId"), topology_candidate},
         {QStringLiteral("mode"), mode},
+        {QStringLiteral("inspectionId"), mode == QStringLiteral("adopt-existing-target") ? inspection_.value(QStringLiteral("inspectionId")).toString() : QString{}},
     };
     request(
         RequestKind::Plan,
         QLatin1String(manager_protocol::method::build_device_preparation_plan),
         {QString::fromUtf8(QJsonDocument(payload).toJson(QJsonDocument::Compact))}
     );
+}
+
+void DeviceProvisioningModel::inspectExistingTarget(
+    const QVariantMap& selection,
+    const QString& passphrase
+) {
+    if (busy_ || topology_.isEmpty())
+        return;
+    const QString candidate = selection.value(QStringLiteral("candidateId")).toString();
+    if (candidate.isEmpty()) {
+        setError(i18n("Refresh the storage layout and select the partition again."));
+        return;
+    }
+    const auto secret = secret_descriptor(passphrase);
+    if (!secret.isValid()) {
+        setError(i18n("A passphrase must contain between 1 and 4096 bytes."));
+        return;
+    }
+    clearSelection();
+    pending_inspection_selection_ = selection;
+    const QJsonObject payload{
+        {QStringLiteral("topologyGeneration"), topology_.value(QStringLiteral("generation")).toString()},
+        {QStringLiteral("candidateId"), candidate},
+    };
+    request(
+        RequestKind::Inspection,
+        QLatin1String(manager_protocol::method::inspect_existing_target),
+        {QString::fromUtf8(QJsonDocument(payload).toJson(QJsonDocument::Compact)), QVariant::fromValue(secret)}
+    );
+}
+
+void DeviceProvisioningModel::clearSelection() {
+    plan_.clear();
+    inspection_.clear();
+    pending_plan_path_.clear();
+    pending_inspection_selection_.clear();
+    emit planChanged();
+    emit inspectionChanged();
 }
 
 void DeviceProvisioningModel::start(
@@ -182,6 +224,8 @@ void DeviceProvisioningModel::request(RequestKind kind, const QString& method, c
             valid = applyTopology(reply.value());
         else if (kind == RequestKind::Sources)
             valid = applySources(reply.value());
+        else if (kind == RequestKind::Inspection)
+            valid = applyInspection(reply.value());
         else if (kind == RequestKind::Plan)
             valid = applyPlan(reply.value());
         else if (kind == RequestKind::Start || kind == RequestKind::Poll)
@@ -207,10 +251,41 @@ bool DeviceProvisioningModel::applyTopology(const QString& payload) {
     topology_ = object.toVariantMap();
     devices_ = object.value(QStringLiteral("devices")).toArray().toVariantList();
     plan_.clear();
+    inspection_.clear();
     pending_plan_path_.clear();
+    pending_inspection_selection_.clear();
     emit topologyChanged();
     emit devicesChanged();
     emit planChanged();
+    emit inspectionChanged();
+    return true;
+}
+
+bool DeviceProvisioningModel::applyInspection(const QString& payload) {
+    const auto document = QJsonDocument::fromJson(payload.toUtf8());
+    if (!document.isObject())
+        return false;
+    const auto object = document.object();
+    if (object.value(QStringLiteral("schemaVersion")).toInt(-1) !=
+            manager_protocol::existing_target_inspection_schema_version ||
+        object.value(QStringLiteral("inspectionId")).toString().isEmpty() ||
+        object.value(QStringLiteral("repositoryId")).toString().isEmpty() ||
+        object.value(QStringLiteral("luksUuid")).toString().isEmpty() ||
+        object.value(QStringLiteral("btrfsUuid")).toString().isEmpty() ||
+        object.value(QStringLiteral("partitionUuid")).toString().isEmpty() ||
+        !object.value(QStringLiteral("catalogGeneration")).isDouble() ||
+        !object.value(QStringLiteral("snapshotCount")).isDouble())
+        return false;
+    const QString candidate = pending_inspection_selection_.value(QStringLiteral("candidateId")).toString();
+    if (object.value(QStringLiteral("topologyGeneration")).toString() !=
+            topology_.value(QStringLiteral("generation")).toString() ||
+        object.value(QStringLiteral("partitionId")).toString() != candidate)
+        return false;
+    inspection_ = object.toVariantMap();
+    emit inspectionChanged();
+    const QVariantMap selection = pending_inspection_selection_;
+    pending_inspection_selection_.clear();
+    buildPlan(selection, QStringLiteral("adopt-existing-target"));
     return true;
 }
 
