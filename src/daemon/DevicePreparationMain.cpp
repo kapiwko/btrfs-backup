@@ -25,6 +25,7 @@
 #include <platform/linux/filesystem/SecretFile.hpp>
 #include <platform/linux/process/PosixCommandRunner.hpp>
 #include <platform/linux/storage/BlockDeviceMetadata.hpp>
+#include <platform/linux/storage/BtrfsFilesystemFormatter.hpp>
 #include <platform/linux/storage/CryptsetupOperations.hpp>
 #include <platform/linux/storage/ExistingTargetMountOperations.hpp>
 #include <platform/linux/storage/SignatureOperations.hpp>
@@ -71,6 +72,7 @@ int run_device_preparation(int argc, char** argv) {
         transaction_root = paths.state_root / "device-preparations";
 
         btrfsbackup::platform::linux::process::PosixCommandRunner commands;
+        btrfsbackup::platform::linux::storage::CommandBtrfsFilesystemFormatter btrfs_formatter(commands);
         btrfsbackup::platform::linux::storage::LibBtrfsOperations btrfs;
         btrfsbackup::platform::linux::systemd::LinuxSystemConfigurationActivator activator;
         btrfsbackup::platform::linux::storage::CryptsetupOperations cryptsetup;
@@ -110,7 +112,7 @@ int run_device_preparation(int argc, char** argv) {
             "/proc/self/mountinfo",
             transaction_root,
             storage_topology,
-            commands,
+            btrfs_formatter,
             signature_operations,
             metadata_reader,
             partition_tables,

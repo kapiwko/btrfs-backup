@@ -9,7 +9,6 @@
 #include <unistd.h>
 
 #include <backup/ports/IBtrfsOperations.hpp>
-#include <backup/ports/ICommandRunner.hpp>
 #include <config/ports/ConfigurationActivator.hpp>
 #include <core/Errors.hpp>
 #include <core/Identifiers.hpp>
@@ -22,6 +21,7 @@
 #include <platform/linux/filesystem/SecretFile.hpp>
 #include <platform/linux/filesystem/TrustedDirectory.hpp>
 #include <platform/linux/storage/BlockDeviceMetadata.hpp>
+#include <platform/linux/storage/BtrfsFilesystemFormatter.hpp>
 #include <platform/linux/storage/CryptsetupOperations.hpp>
 #include <platform/linux/storage/PartitionTableOperations.hpp>
 #include <platform/linux/storage/SignatureOperations.hpp>
@@ -38,17 +38,6 @@ std::int64_t system_time_seconds() {
                std::chrono::system_clock::now().time_since_epoch()
     )
         .count();
-}
-
-void require_success(
-    backup::ICommandRunner& commands,
-    const std::vector<std::string>& argv,
-    const backup::ControlledCommandOptions& options,
-    const char* operation
-) {
-    const auto result = commands.run_controlled(argv, options);
-    if (result.exit_code != 0 || result.cancelled || result.timed_out)
-        throw ValidationError(std::string(operation) + " failed");
 }
 
 void rewind_secret(int fd) {
@@ -83,7 +72,7 @@ platform::linux::storage::PartitionTableFormat partition_table_format(
 DevicePreparationExecutor::DevicePreparationExecutor(
     CredentialAdministrationRoots roots,
     fs::path target_mount_root,
-    backup::ICommandRunner& commands,
+    platform::linux::storage::IBtrfsFilesystemFormatter& btrfs_formatter,
     platform::linux::storage::ISignatureOperations& signatures,
     platform::linux::storage::IBlockDeviceMetadataReader& metadata,
     platform::linux::storage::IPartitionTableOperations& partition_tables,
@@ -98,7 +87,7 @@ DevicePreparationExecutor::DevicePreparationExecutor(
     fs::path inspection_mount_root
 )
     : roots_(std::move(roots)),
-      commands_(commands),
+      btrfs_formatter_(btrfs_formatter),
       signatures_(signatures),
       metadata_(metadata),
       partition_tables_(partition_tables),
@@ -264,7 +253,6 @@ void DevicePreparationExecutor::execute(const std::string& operation_id, int pas
             });
             return;
         }
-        backup::ControlledCommandOptions standard;
         std::string partition;
         if (initial.target.mode == provisioning::ProvisioningMode::EraseWholeDevice) {
             phase(operation_id, "backup-partition-table", false);
@@ -377,12 +365,7 @@ void DevicePreparationExecutor::execute(const std::string& operation_id, int pas
         const std::string mapper_path = "/dev/mapper/" + mapper;
 
         phase(operation_id, "mkfs-btrfs", false);
-        require_success(
-            commands_,
-            {"mkfs.btrfs", "--force", "--label", initial.profile_name, mapper_path},
-            standard,
-            "creating Btrfs filesystem"
-        );
+        btrfs_formatter_.format(mapper_path, initial.profile_name);
         const auto mapper_metadata = metadata_.read(mapper_path);
         const auto partition_metadata = metadata_.read(partition);
         if (mapper_metadata.filesystem_uuid.empty())

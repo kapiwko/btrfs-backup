@@ -26,6 +26,7 @@
 #include <platform/linux/filesystem/PosixDurableFileOperations.hpp>
 #include <platform/linux/storage/MountInfo.hpp>
 #include <platform/linux/storage/BlockDeviceMetadata.hpp>
+#include <platform/linux/storage/BtrfsFilesystemFormatter.hpp>
 #include <platform/linux/storage/LibBtrfsOperations.hpp>
 #include <platform/linux/storage/CryptsetupOperations.hpp>
 #include <platform/linux/storage/ExistingTargetMountOperations.hpp>
@@ -168,6 +169,7 @@ int main(int argc, char** argv) {
         btrfsbackup::platform::linux::storage::LibblkidSignatureOperations signature_operations;
         btrfsbackup::platform::linux::storage::LibblkidBlockDeviceMetadataReader metadata_reader;
         btrfsbackup::platform::linux::storage::LibfdiskPartitionTableOperations partition_tables;
+        btrfsbackup::platform::linux::storage::CommandBtrfsFilesystemFormatter btrfs_formatter(commands);
         btrfsbackup::platform::linux::storage::LibmountExistingTargetMountOperations existing_target_mounts;
         btrfsbackup::daemon::control::ExistingTargetInspector existing_target_inspector(
             cryptsetup,
@@ -183,7 +185,7 @@ int main(int argc, char** argv) {
             paths.mountinfo_path,
             paths.state_root / "device-preparations",
             storage_topology,
-            commands,
+            btrfs_formatter,
             signature_operations,
             metadata_reader,
             partition_tables,

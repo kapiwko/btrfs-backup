@@ -12,7 +12,6 @@
 
 namespace btrfsbackup::backup {
 class IBtrfsOperations;
-class ICommandRunner;
 } // namespace btrfsbackup::backup
 
 namespace btrfsbackup::config {
@@ -21,6 +20,7 @@ class IConfigurationActivator;
 
 namespace btrfsbackup::platform::linux::storage {
 class IBlockDeviceMetadataReader;
+class IBtrfsFilesystemFormatter;
 class ICryptsetupOperations;
 class IPartitionTableOperations;
 class ISignatureOperations;
@@ -37,7 +37,7 @@ class DevicePreparationExecutor final {
     DevicePreparationExecutor(
         CredentialAdministrationRoots roots,
         std::filesystem::path target_mount_root,
-        backup::ICommandRunner& commands,
+        platform::linux::storage::IBtrfsFilesystemFormatter& btrfs_formatter,
         platform::linux::storage::ISignatureOperations& signatures,
         platform::linux::storage::IBlockDeviceMetadataReader& metadata,
         platform::linux::storage::IPartitionTableOperations& partition_tables,
@@ -63,7 +63,7 @@ class DevicePreparationExecutor final {
     void completed(const std::string& operation_id, const std::string& value);
 
     CredentialAdministrationRoots roots_;
-    backup::ICommandRunner& commands_;
+    platform::linux::storage::IBtrfsFilesystemFormatter& btrfs_formatter_;
     platform::linux::storage::ISignatureOperations& signatures_;
     platform::linux::storage::IBlockDeviceMetadataReader& metadata_;
     platform::linux::storage::IPartitionTableOperations& partition_tables_;
