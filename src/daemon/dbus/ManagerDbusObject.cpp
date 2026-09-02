@@ -81,6 +81,9 @@ int inspect_browse_entry(sd_bus_message* message, void* userdata, sd_bus_error* 
 int open_browse_file(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
     return static_cast<ManagerDbusObject*>(userdata)->browse_methods().open_browse_file(message, error);
 }
+int inspect_browse_repository(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
+    return static_cast<ManagerDbusObject*>(userdata)->browse_methods().inspect_browse_repository(message, error);
+}
 int resolve_backup_coverage(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
     return static_cast<ManagerDbusObject*>(userdata)->browse_methods().resolve_backup_coverage(message, error);
 }
@@ -146,6 +149,7 @@ const sd_bus_vtable manager_vtable[] = {
     SD_BUS_METHOD(manager_protocol::method::list_browse_directory, "ss", "s", list_browse_directory, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD(manager_protocol::method::inspect_browse_entry, "ss", "s", inspect_browse_entry, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD(manager_protocol::method::open_browse_file, "ss", "h", open_browse_file, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD(manager_protocol::method::inspect_browse_repository, "s", "s", inspect_browse_repository, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD(manager_protocol::method::resolve_backup_coverage, "s", "s", resolve_backup_coverage, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD(manager_protocol::method::list_target_credentials, "s", "s", list_target_credentials, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD(manager_protocol::method::add_target_passphrase, "shhs", "s", add_target_passphrase, SD_BUS_VTABLE_UNPRIVILEGED),

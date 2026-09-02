@@ -121,6 +121,10 @@ SPDX-License-Identifier: GPL-3.0-or-later
       <arg name="relativePath" type="s" direction="in"/>
       <arg name="file" type="h" direction="out"/>
     </method>
+    <method name="InspectBrowseRepository">
+      <arg name="sessionId" type="s" direction="in"/>
+      <arg name="payload" type="s" direction="out"/>
+    </method>
     <method name="ResolveBackupCoverage">
       <arg name="localPath" type="s" direction="in"/>
       <arg name="payload" type="s" direction="out"/>

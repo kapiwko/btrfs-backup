@@ -12,11 +12,13 @@
 #include <QDBusPendingReply>
 #include <QDir>
 #include <QFileInfo>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QUuid>
 
 #include <core/ManagerProtocol.hpp>
-#include <platform/linux/storage/LibBtrfsOperations.hpp>
-#include <restore/RepositoryDiscoveryService.hpp>
+#include <core/RuntimeTime.hpp>
 #include <restore/RestoreError.hpp>
 
 using Qt::StringLiterals::operator""_s;
@@ -30,6 +32,71 @@ std::optional<QString> manager_payload(const QString& method, const QVariantList
     if (reply.isError())
         return std::nullopt;
     return reply.value();
+}
+
+QString required_string(const QJsonObject& object, const QString& key) {
+    const QJsonValue value = object.value(key);
+    if (!value.isString() || value.toString().isEmpty())
+        throw std::runtime_error("manager returned an invalid repository catalog");
+    return value.toString();
+}
+
+btrfsbackup::RuntimeTimePoint required_time(const QJsonObject& object, const QString& key) {
+    const auto value = btrfsbackup::parse_utc_timestamp(required_string(object, key).toStdString());
+    if (!value)
+        throw std::runtime_error("manager returned an invalid repository timestamp");
+    return *value;
+}
+
+btrfsbackup::restore::RepositoryCatalog parse_repository_catalog(
+    const QString& payload,
+    const QString& root_path
+) {
+    const QJsonDocument document = QJsonDocument::fromJson(payload.toUtf8());
+    if (!document.isObject())
+        throw std::runtime_error("manager returned an invalid repository catalog");
+    const QJsonObject root = document.object();
+    if (root.value(u"schemaVersion"_s).toInt() != 1 || !root.value(u"features"_s).isArray() ||
+        !root.value(u"snapshots"_s).isArray() || !root.value(u"generation"_s).isDouble())
+        throw std::runtime_error("manager returned an unsupported repository catalog");
+
+    std::vector<std::string> features;
+    for (const QJsonValue& value : root.value(u"features"_s).toArray()) {
+        if (!value.isString())
+            throw std::runtime_error("manager returned an invalid repository feature");
+        features.push_back(value.toString().toStdString());
+    }
+    std::vector<btrfsbackup::restore::CatalogSnapshot> snapshots;
+    for (const QJsonValue& value : root.value(u"snapshots"_s).toArray()) {
+        if (!value.isObject())
+            throw std::runtime_error("manager returned an invalid repository snapshot");
+        const QJsonObject snapshot = value.toObject();
+        snapshots.push_back({
+            .snapshot_id = required_string(snapshot, u"snapshotId"_s).toStdString(),
+            .host_id = required_string(snapshot, u"hostId"_s).toStdString(),
+            .profile_id = required_string(snapshot, u"profileId"_s).toStdString(),
+            .source_id = required_string(snapshot, u"sourceId"_s).toStdString(),
+            .repository_path = btrfsbackup::restore::RelativeRestorePath{
+                required_string(snapshot, u"relativePath"_s).toStdString()
+            },
+            .created_at = required_time(snapshot, u"createdAt"_s),
+            .uuid = required_string(snapshot, u"uuid"_s).toStdString(),
+            .received_uuid = snapshot.value(u"receivedUuid"_s).toString().toStdString(),
+            .parent_uuid = snapshot.value(u"parentUuid"_s).toString().toStdString(),
+            .verified = snapshot.value(u"verified"_s).toBool(false),
+        });
+    }
+    return {
+        root_path.toStdString(),
+        {
+            .repository_id = required_string(root, u"repositoryId"_s).toStdString(),
+            .target_filesystem_uuid = required_string(root, u"targetFilesystemUuid"_s).toStdString(),
+            .created_at = required_time(root, u"createdAt"_s),
+            .features = std::move(features),
+        },
+        static_cast<std::uint64_t>(root.value(u"generation"_s).toDouble()),
+        std::move(snapshots),
+    };
 }
 
 } // namespace
@@ -115,18 +182,13 @@ bool RestoreController::prepare_plan() {
                 throw std::runtime_error("could not open an authorized backup browsing session");
             session_id_ = session->session_id;
             session_root_ = session->root_path;
-            btrfsbackup::restore::RepositoryDiscoveryService discovery([](const std::filesystem::path& path) {
-                const auto metadata = btrfsbackup::platform::linux::storage::read_btrfs_snapshot_metadata(path);
-                if (!metadata)
-                    return std::optional<btrfsbackup::restore::DiscoveredSnapshotMetadata>{};
-                return std::optional{btrfsbackup::restore::DiscoveredSnapshotMetadata{
-                    metadata->is_subvolume,
-                    metadata->readonly,
-                    metadata->uuid.value(),
-                    metadata->received_uuid.value(),
-                }};
-            });
-            catalog_.emplace(discovery.discover(session_root_.toStdString()));
+            const auto repository = manager_payload(
+                QLatin1String(btrfsbackup::manager_protocol::method::inspect_browse_repository),
+                {session_id_}
+            );
+            if (!repository)
+                throw std::runtime_error("could not inspect the backup repository");
+            catalog_.emplace(parse_repository_catalog(*repository, session_root_));
         } else {
             const auto renewed = manager_payload(
                 QLatin1String(btrfsbackup::manager_protocol::method::renew_browse_session),

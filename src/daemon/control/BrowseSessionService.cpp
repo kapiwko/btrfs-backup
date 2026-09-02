@@ -190,6 +190,15 @@ btrfsbackup::platform::linux::OwnedFileDescriptor BrowseSessionService::open_fil
     return backend_.open_file(session->second.id, relative_path);
 }
 
+std::string BrowseSessionService::inspect_repository(
+    const std::string& caller_bus_name,
+    const std::string& session_id
+) {
+    auto session = owned_session(caller_bus_name, session_id);
+    extend(session->second);
+    return backend_.inspect_repository(session->second.id);
+}
+
 void BrowseSessionService::close_session(std::map<std::string, Session>::iterator session, BrowseSessionCloseReason reason) {
     session->second.active = false;
     session->second.deadline = std::chrono::steady_clock::time_point::min();

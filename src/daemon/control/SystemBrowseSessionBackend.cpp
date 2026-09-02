@@ -21,8 +21,11 @@
 #include <config/ProfileRender.hpp>
 #include <config/json/JsonIo.hpp>
 #include <config/domain/Validation.hpp>
+#include <core/RuntimeTime.hpp>
 #include <daemon/dbus/ManagerErrors.hpp>
 #include <platform/linux/filesystem/FileIo.hpp>
+#include <platform/linux/storage/LibBtrfsOperations.hpp>
+#include <restore/RepositoryDiscoveryService.hpp>
 
 namespace fs = std::filesystem;
 
@@ -523,6 +526,48 @@ OwnedFileDescriptor SystemBrowseSessionBackend::open_file(
     if (!S_ISREG(status.st_mode))
         throw std::invalid_argument("browse entry is not a regular file");
     return result;
+}
+
+std::string SystemBrowseSessionBackend::inspect_repository(const BrowseSessionId& session_id) {
+    const auto session = sessions_.find(std::string(session_id.value()));
+    if (session == sessions_.end())
+        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::NotFound, "browse session was not found");
+    btrfsbackup::restore::RepositoryDiscoveryService discovery([](const fs::path& path) {
+        const auto value = btrfsbackup::platform::linux::storage::read_btrfs_snapshot_metadata(path);
+        if (!value)
+            return std::optional<btrfsbackup::restore::DiscoveredSnapshotMetadata>{};
+        return std::optional{btrfsbackup::restore::DiscoveredSnapshotMetadata{
+            value->is_subvolume,
+            value->readonly,
+            value->uuid.value(),
+            value->received_uuid.value(),
+        }};
+    });
+    const auto catalog = discovery.discover(session->second.view);
+    config::json::Json snapshots = config::json::Json::array();
+    for (const auto& snapshot : catalog.snapshots()) {
+        snapshots.push_back({
+            {"snapshotId", snapshot.snapshot_id},
+            {"hostId", snapshot.host_id},
+            {"profileId", snapshot.profile_id},
+            {"sourceId", snapshot.source_id},
+            {"relativePath", snapshot.repository_path.value().string()},
+            {"createdAt", format_utc_iso_timestamp(snapshot.created_at)},
+            {"uuid", snapshot.uuid},
+            {"receivedUuid", snapshot.received_uuid},
+            {"parentUuid", snapshot.parent_uuid},
+            {"verified", snapshot.verified},
+        });
+    }
+    return config::json::dump_json({
+        {"schemaVersion", 1},
+        {"repositoryId", catalog.identity().repository_id},
+        {"targetFilesystemUuid", catalog.identity().target_filesystem_uuid},
+        {"createdAt", format_utc_iso_timestamp(catalog.identity().created_at)},
+        {"features", catalog.identity().features},
+        {"generation", catalog.generation()},
+        {"snapshots", std::move(snapshots)},
+    });
 }
 
 std::vector<BackupCoverage> SystemBrowseSessionBackend::resolve_coverage(
