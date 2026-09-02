@@ -84,6 +84,7 @@ add_library(btrfsbackup-platform-linux-storage STATIC
     storage/FilesystemSpaceProbe.cpp
     storage/LibBtrfsOperations.cpp
     storage/MountInfo.cpp
+    storage/SignatureOperations.cpp
     storage/SpaceCheck.cpp
 )
 
@@ -128,6 +129,7 @@ target_restricted_include_directories(btrfsbackup-platform-linux-storage
         platform/linux/storage/FilesystemSpaceProbe.hpp
         platform/linux/storage/LibBtrfsOperations.hpp
         platform/linux/storage/MountInfo.hpp
+        platform/linux/storage/SignatureOperations.hpp
         platform/linux/storage/SpaceCheck.hpp
 )
 target_link_libraries(btrfsbackup-platform-linux-storage

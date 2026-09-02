@@ -17,6 +17,10 @@ namespace btrfsbackup::config {
 class IConfigurationActivator;
 }
 
+namespace btrfsbackup::platform::linux::storage {
+class ISignatureOperations;
+}
+
 namespace btrfsbackup::daemon::provisioning {
 class StorageTopologyReader;
 }
@@ -37,6 +41,7 @@ class SystemDeviceProvisioningBackend final : public IDeviceProvisioningBackend 
         std::filesystem::path transaction_root,
         provisioning::StorageTopologyReader& topology,
         btrfsbackup::backup::ICommandRunner& commands,
+        btrfsbackup::platform::linux::storage::ISignatureOperations& signatures,
         btrfsbackup::backup::IBtrfsOperations& btrfs,
         btrfsbackup::config::IConfigurationActivator& configuration_activator,
         ICredentialAdministrationBackend& credentials,

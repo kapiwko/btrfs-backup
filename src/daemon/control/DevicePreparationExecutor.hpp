@@ -19,6 +19,10 @@ namespace btrfsbackup::config {
 class IConfigurationActivator;
 }
 
+namespace btrfsbackup::platform::linux::storage {
+class ISignatureOperations;
+}
+
 namespace btrfsbackup::daemon::control {
 
 class IDestructiveDeviceSafetyInspector;
@@ -30,6 +34,7 @@ class DevicePreparationExecutor final {
         CredentialAdministrationRoots roots,
         std::filesystem::path target_mount_root,
         backup::ICommandRunner& commands,
+        platform::linux::storage::ISignatureOperations& signatures,
         backup::IBtrfsOperations& btrfs,
         config::IConfigurationActivator& configuration_activator,
         ICredentialAdministrationBackend& credentials,
@@ -50,6 +55,7 @@ class DevicePreparationExecutor final {
 
     CredentialAdministrationRoots roots_;
     backup::ICommandRunner& commands_;
+    platform::linux::storage::ISignatureOperations& signatures_;
     backup::IBtrfsOperations& btrfs_;
     config::IConfigurationActivator& activator_;
     ICredentialAdministrationBackend& credentials_;

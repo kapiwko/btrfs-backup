@@ -114,6 +114,7 @@ add_btrfsbackup_test(
     btrfsbackup-daemon-system-control
     btrfsbackup-daemon-provisioning
     btrfsbackup-platform-linux-config
+    btrfsbackup-platform-linux-storage
 )
 
 add_btrfsbackup_test(
