@@ -283,7 +283,7 @@ KCMUtils.SimpleKCM {
                             }
                             Kirigami.Icon {
                                 visible: deviceRow.highlighted
-                                source: "emblem-ok"
+                                source: "emblem-success"
                                 implicitWidth: Kirigami.Units.iconSizes.smallMedium
                                 implicitHeight: implicitWidth
                             }
@@ -354,7 +354,7 @@ KCMUtils.SimpleKCM {
                                 }
                                 Kirigami.Icon {
                                     visible: partitionRow.highlighted
-                                    source: "emblem-ok"
+                                    source: "emblem-success"
                                     implicitWidth: Kirigami.Units.iconSizes.smallMedium
                                     implicitHeight: implicitWidth
                                 }
@@ -563,7 +563,7 @@ KCMUtils.SimpleKCM {
                 Layout.alignment: Qt.AlignHCenter
                 source: root.provisioning.operation.state === "failed"
                     ? "dialog-error" : root.provisioning.operation.phase === "complete"
-                        ? "emblem-ok" : "drive-removable-media"
+                        ? "emblem-success" : "drive-removable-media"
                 implicitWidth: Kirigami.Units.iconSizes.huge
                 implicitHeight: implicitWidth
             }
