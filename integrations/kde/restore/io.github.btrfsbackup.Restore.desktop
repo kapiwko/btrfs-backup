@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Restore from Btrfs Backup
+Name[pl]=Przywracanie z kopii zapasowej Btrfs
+Comment=Restore files from a btrfs-backup repository
+Comment[pl]=Przywracanie plików z repozytorium btrfs-backup
+Exec=btrfs-backup-kde-restore --url %u
+Icon=document-restore
+NoDisplay=true
+Terminal=false
+Categories=System;
+StartupNotify=true
