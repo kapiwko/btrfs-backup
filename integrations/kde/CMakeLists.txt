@@ -24,6 +24,7 @@ set(CMAKE_INSTALL_DEFAULT_COMPONENT_NAME KDEIntegration)
 ki18n_install(plasmoid/po)
 ki18n_install(kcm/po)
 ki18n_install(restore/po)
+ki18n_install(dolphin/po)
 
 qt_add_dbus_interface(
     manager_client_sources
