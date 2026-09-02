@@ -613,6 +613,16 @@ if(BUILD_TESTING)
     endif()
     if(QML_TEST_RUNNER_EXECUTABLE)
         add_test(
+            NAME kde-kcm-profile-unlocking-layout
+            COMMAND
+                ${CMAKE_COMMAND} -E env
+                QT_QPA_PLATFORM=offscreen
+                ${QML_TEST_RUNNER_EXECUTABLE}
+                -input ${CMAKE_CURRENT_SOURCE_DIR}/kcm/tests/profile-unlocking-layout.qml
+                -import ${CMAKE_BINARY_DIR}
+                -o -,txt
+        )
+        add_test(
             NAME kde-kcm-profile-sources-actions
             COMMAND
                 ${CMAKE_COMMAND} -E env
@@ -623,6 +633,7 @@ if(BUILD_TESTING)
                 -o -,txt
         )
         set_tests_properties(
+            kde-kcm-profile-unlocking-layout
             kde-kcm-profile-sources-actions
             PROPERTIES
                 LABELS kde
