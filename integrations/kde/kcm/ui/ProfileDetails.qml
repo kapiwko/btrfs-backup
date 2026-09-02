@@ -74,6 +74,19 @@ ColumnLayout {
                 ? translations.i18n("%1%", root.profileStatus.run.overallProgress)
                 : translations.i18n("Calculating")
         }
+        QQC2.Label {
+            visible: root.profileStatus.run.bytesTotalEstimated > 0
+            text: translations.i18n("Transferred:")
+            opacity: 0.65
+        }
+        QQC2.Label {
+            visible: root.profileStatus.run.bytesTotalEstimated > 0
+            text: translations.i18n(
+                "%1 of %2",
+                root.profileStatus.run.bytesProcessedText,
+                root.profileStatus.run.bytesTotalEstimatedText
+            )
+        }
         QQC2.Label { text: translations.i18n("Speed:"); opacity: 0.65 }
         QQC2.Label { text: root.profileStatus.run.speedText || translations.i18n("Unknown") }
         QQC2.Label { text: translations.i18n("Elapsed:"); opacity: 0.65 }

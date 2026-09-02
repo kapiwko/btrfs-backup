@@ -183,6 +183,8 @@ void test_build_public_status_json_excludes_diagnostics() {
         {"actual", std::string{"actual-uuid"}},
     };
     record.progress.speed_bps = 2048;
+    record.progress.processed_bytes = 1048576;
+    record.progress.estimated_bytes = 4194304;
     record.progress.eta_seconds = 12;
     record.progress.source_percent = 50;
     record.progress.overall_percent = 25;
@@ -199,6 +201,8 @@ void test_build_public_status_json_excludes_diagnostics() {
     expect_true("public generic error", data.at("errorCode") == "backup.failed", "error code is not generic");
     expect_true("public source", data.at("sourceName") == "Home", "wrong public source name");
     expect_true("public target", data.at("targetName") == "backupdisk", "wrong public target name");
+    expect_true("public processed bytes", data.at("bytesProcessed") == 1048576, "wrong public processed bytes");
+    expect_true("public estimated bytes", data.at("bytesTotalEstimated") == 4194304, "wrong public estimated bytes");
     expect_true("public speed", data.at("speedBps") == 2048, "wrong public speed");
     expect_true("public eta", data.at("etaSeconds") == 12, "wrong public ETA");
     expect_true("public source progress", data.at("sourceProgress") == 50, "wrong public source progress");

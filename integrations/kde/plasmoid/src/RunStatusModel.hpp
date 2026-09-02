@@ -17,6 +17,10 @@ class RunStatusModel : public QObject {
     Q_PROPERTY(bool canCancel READ canCancel NOTIFY changed)
     Q_PROPERTY(QString sourceName READ sourceName NOTIFY changed)
     Q_PROPERTY(QString targetName READ targetName NOTIFY changed)
+    Q_PROPERTY(qint64 bytesProcessed READ bytesProcessed NOTIFY changed)
+    Q_PROPERTY(qint64 bytesTotalEstimated READ bytesTotalEstimated NOTIFY changed)
+    Q_PROPERTY(QString bytesProcessedText READ bytesProcessedText NOTIFY changed)
+    Q_PROPERTY(QString bytesTotalEstimatedText READ bytesTotalEstimatedText NOTIFY changed)
     Q_PROPERTY(qint64 speedBps READ speedBps NOTIFY changed)
     Q_PROPERTY(QString speedText READ speedText NOTIFY changed)
     Q_PROPERTY(int etaSeconds READ etaSeconds NOTIFY changed)
@@ -44,6 +48,10 @@ class RunStatusModel : public QObject {
     bool canCancel() const;
     QString sourceName() const;
     QString targetName() const;
+    qint64 bytesProcessed() const;
+    qint64 bytesTotalEstimated() const;
+    QString bytesProcessedText() const;
+    QString bytesTotalEstimatedText() const;
     qint64 speedBps() const;
     QString speedText() const;
     int etaSeconds() const;
@@ -78,6 +86,8 @@ class RunStatusModel : public QObject {
     bool can_cancel_ = false;
     QString source_name_;
     QString target_name_;
+    qint64 bytes_processed_ = 0;
+    qint64 bytes_total_estimated_ = 0;
     qint64 speed_bps_ = 0;
     int eta_seconds_ = -1;
     int source_progress_ = -1;

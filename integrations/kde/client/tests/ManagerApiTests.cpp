@@ -90,6 +90,21 @@ void test_profile_configuration_health_is_decoded() {
     );
 }
 
+void test_run_transfer_bytes_are_decoded() {
+    const auto run = btrfsbackup::kde::parse_status(QStringLiteral(R"({
+        "schemaVersion":5,"runId":"run-1","state":"running","phase":"transferring",
+        "activity":"transferring","canCancel":true,"errorCode":"","sourceName":"Home",
+        "targetName":"Backup disk","bytesProcessed":1048576,"bytesTotalEstimated":4194304,
+        "speedBps":1024,"etaSeconds":20,"sourceProgress":25,"overallProgress":25,
+        "progressAccuracy":"exact","sourceIndex":1,"sourceCount":1,
+        "startedAt":"2026-09-03T12:00:00Z","updatedAt":"2026-09-03T12:00:01Z",
+        "lastSuccessAt":"","lastAttemptAt":"","lastAttemptState":""
+    })"));
+    expect(run.has_value(), "run status with transfer byte counts was rejected");
+    expect(run.has_value() && run->bytes_processed == 1048576, "processed byte count was not decoded");
+    expect(run.has_value() && run->bytes_total_estimated == 4194304, "estimated byte count was not decoded");
+}
+
 void test_browse_session_requires_read_only_absolute_root() {
     const auto session = btrfsbackup::kde::parse_browse_session(QStringLiteral(R"({
         "schemaVersion": 1,
@@ -127,6 +142,7 @@ int main() {
     test_invalid_storage_preserves_target_state();
     test_invalid_parent_is_rejected();
     test_profile_configuration_health_is_decoded();
+    test_run_transfer_bytes_are_decoded();
     test_browse_session_requires_read_only_absolute_root();
     test_backup_coverage_is_sanitized();
     if (failures == 0) {

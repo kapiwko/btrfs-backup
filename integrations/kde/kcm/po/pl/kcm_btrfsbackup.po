@@ -168,6 +168,12 @@ msgstr "Obliczanie"
 msgid "Speed:"
 msgstr "Szybkość:"
 
+msgid "Transferred:"
+msgstr "Przesłano:"
+
+msgid "%1 of %2"
+msgstr "%1 z %2"
+
 #: integrations/kde/kcm/ui/ProfileDetails.qml:79
 msgid "Elapsed:"
 msgstr "Upłynęło:"
