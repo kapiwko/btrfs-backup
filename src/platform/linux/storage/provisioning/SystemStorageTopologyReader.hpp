@@ -4,7 +4,10 @@
 #pragma once
 
 #include <filesystem>
+#include <functional>
+#include <vector>
 
+#include <daemon/provisioning/ConfiguredBackupTargetMarker.hpp>
 #include <daemon/provisioning/StorageTopologyReader.hpp>
 
 namespace btrfsbackup::platform::linux::storage {
@@ -15,14 +18,21 @@ struct SystemStorageTopologyPaths {
     std::filesystem::path swaps = "/proc/swaps";
 };
 
+using ConfiguredBackupTargetProvider =
+    std::function<std::vector<daemon::provisioning::ConfiguredBackupTargetIdentity>()>;
+
 class SystemStorageTopologyReader final : public daemon::provisioning::StorageTopologyReader {
   public:
-    explicit SystemStorageTopologyReader(SystemStorageTopologyPaths paths = {});
+    explicit SystemStorageTopologyReader(
+        SystemStorageTopologyPaths paths = {},
+        ConfiguredBackupTargetProvider configured_targets = {}
+    );
 
     [[nodiscard]] daemon::provisioning::StorageTopology scan() override;
 
   private:
     SystemStorageTopologyPaths paths_;
+    ConfiguredBackupTargetProvider configured_targets_;
 };
 
 } // namespace btrfsbackup::platform::linux::storage

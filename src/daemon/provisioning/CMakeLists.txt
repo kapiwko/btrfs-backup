@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 add_library(btrfsbackup-daemon-provisioning STATIC
+    ConfiguredBackupTargetMarker.cpp
     DevicePreparationPlan.cpp
     ExistingTargetInspection.cpp
     DevicePreparationPlanBuilder.cpp
@@ -12,6 +13,7 @@ add_library(btrfsbackup-daemon-provisioning STATIC
 target_compile_features(btrfsbackup-daemon-provisioning PUBLIC cxx_std_23)
 target_restricted_include_directories(btrfsbackup-daemon-provisioning
     PUBLIC_HEADERS
+        daemon/provisioning/ConfiguredBackupTargetMarker.hpp
         daemon/provisioning/DevicePreparationPlan.hpp
         daemon/provisioning/DevicePreparationPlanBuilder.hpp
         daemon/provisioning/ExistingTargetInspection.hpp

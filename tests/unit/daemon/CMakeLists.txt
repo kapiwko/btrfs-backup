@@ -39,6 +39,14 @@ add_btrfsbackup_test(
 )
 
 add_btrfsbackup_test(
+    btrfsbackup-configured-backup-target-marker-tests
+    ConfiguredBackupTargetMarkerTests.cpp
+    configured-backup-target-marker-tests
+    btrfsbackup-daemon-provisioning
+    btrfsbackup-core
+)
+
+add_btrfsbackup_test(
     btrfsbackup-manager-json-codec-tests
     ManagerJsonCodecTests.cpp
     manager-json-codec-tests

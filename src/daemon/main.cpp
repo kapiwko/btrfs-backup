@@ -18,9 +18,11 @@
 #include <iostream>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 #include <platform/linux/config/ApplicationConfig.hpp>
 #include <platform/linux/config/FileProfileRepository.hpp>
+#include <platform/linux/config/ProfileService.hpp>
 #include <platform/linux/systemd/LinuxSystemConfigurationActivator.hpp>
 #include <platform/linux/process/PosixCommandRunner.hpp>
 #include <platform/linux/filesystem/PosixDurableFileOperations.hpp>
@@ -163,9 +165,19 @@ int main(int argc, char** argv) {
             cryptsetup,
             selected_configuration_activator
         );
-        btrfsbackup::platform::linux::storage::SystemStorageTopologyReader storage_topology({
-            .mountinfo = paths.mountinfo_path,
-        });
+        const auto configured_targets = [&profiles, &config_root] {
+            std::vector<btrfsbackup::daemon::provisioning::ConfiguredBackupTargetIdentity> result;
+            for (const auto& profile_id :
+                 btrfsbackup::platform::linux::config::list_profiles(config_root / "profiles")) {
+                const auto& target = profiles.get(btrfsbackup::ProfileId{profile_id}).profile.target;
+                result.push_back({target.partition_uuid.value(), target.luks_uuid.value()});
+            }
+            return result;
+        };
+        btrfsbackup::platform::linux::storage::SystemStorageTopologyReader storage_topology(
+            {.mountinfo = paths.mountinfo_path},
+            configured_targets
+        );
         btrfsbackup::platform::linux::storage::LibblkidSignatureOperations signature_operations;
         btrfsbackup::platform::linux::storage::LibblkidBlockDeviceMetadataReader metadata_reader;
         btrfsbackup::platform::linux::storage::LibfdiskPartitionTableOperations partition_tables;

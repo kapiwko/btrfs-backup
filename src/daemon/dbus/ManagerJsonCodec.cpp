@@ -286,6 +286,7 @@ std::string ManagerJsonCodec::encode(const provisioning::StorageTopology& topolo
                         item["filesystemLabel"] = value.filesystem.label;
                         item["filesystemUuid"] = value.filesystem.uuid;
                         item["mountPoints"] = value.mount_points;
+                        item["configuredBackupTarget"] = value.configured_backup_target;
                         item["suitableForReformat"] = value.suitable_for_reformat;
                         item["suitableForAdoption"] = value.suitable_for_adoption;
                     } else {
