@@ -29,6 +29,7 @@ class ManagerJsonCodec {
     [[nodiscard]] std::string encode(const control::ProfileDetails& profile) const;
     [[nodiscard]] std::string encode(const std::vector<control::TargetCredential>& credentials) const;
     [[nodiscard]] std::string encode(const provisioning::StorageTopology& topology) const;
+    [[nodiscard]] std::string encode(const provisioning::ExistingTargetInspection& inspection) const;
     [[nodiscard]] std::string encode(const provisioning::DevicePreparationPlan& plan) const;
     [[nodiscard]] std::string encode(const control::DevicePreparationStatus& status) const;
 };

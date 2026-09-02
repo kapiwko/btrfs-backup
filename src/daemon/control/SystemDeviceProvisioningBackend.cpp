@@ -21,9 +21,11 @@
 #include <daemon/control/DevicePreparationExecutor.hpp>
 #include <daemon/control/DevicePreparationTransaction.hpp>
 #include <daemon/control/DevicePreparationUnitController.hpp>
+#include <daemon/control/ExistingTargetInspector.hpp>
 #include <daemon/control/ProvisioningDeviceEnumerator.hpp>
 #include <daemon/dbus/ManagerErrors.hpp>
 #include <platform/linux/filesystem/SecretFile.hpp>
+#include <platform/linux/filesystem/TrustedDirectory.hpp>
 #include <platform/linux/storage/BlockDeviceMetadata.hpp>
 #include <platform/linux/storage/CryptsetupOperations.hpp>
 #include <platform/linux/storage/MountInfo.hpp>
@@ -99,6 +101,8 @@ struct SystemDeviceProvisioningBackend::Impl {
     DevicePreparationTransactionStore transactions;
     ProvisioningDeviceEnumerator devices;
     DevicePreparationExecutor executor;
+    IExistingTargetInspector* existing_target_inspector;
+    fs::path inspection_mount_root;
     mutable std::mutex jobs_mutex;
     std::map<std::string, std::shared_ptr<State>> jobs;
     std::condition_variable_any cleanup_wakeup;
@@ -120,7 +124,9 @@ struct SystemDeviceProvisioningBackend::Impl {
         ICredentialAdministrationBackend& credentials,
         IDestructiveDeviceSafetyInspector& device_safety_inspector,
         IDevicePreparationUnitController& unit_controller,
-        bool recover_existing
+        bool recover_existing,
+        IExistingTargetInspector* target_inspector,
+        fs::path target_inspection_root
     )
         : mountinfo_path(std::move(mountinfo)),
           safety_inspector(device_safety_inspector),
@@ -141,7 +147,11 @@ struct SystemDeviceProvisioningBackend::Impl {
               device_safety_inspector,
               transactions,
               devices
-          ) {
+          ),
+          existing_target_inspector(target_inspector),
+          inspection_mount_root(std::move(target_inspection_root)) {
+        if (existing_target_inspector != nullptr && inspection_mount_root.empty())
+            throw ValidationError("existing target inspection mount root is empty");
         restore_transactions(recover_existing);
         cleanup_worker = std::jthread([this](std::stop_token stop) {
             std::mutex wait_mutex;
@@ -280,9 +290,11 @@ SystemDeviceProvisioningBackend::SystemDeviceProvisioningBackend(
     ICredentialAdministrationBackend& credentials,
     IDestructiveDeviceSafetyInspector& safety_inspector,
     IDevicePreparationUnitController& units,
-    bool recover_existing
+    bool recover_existing,
+    IExistingTargetInspector* existing_target_inspector,
+    fs::path inspection_mount_root
 )
-    : impl_(std::make_unique<Impl>(std::move(roots), std::move(target_mount_root), std::move(mountinfo_path), std::move(transaction_root), topology, commands, signatures, metadata, partition_tables, cryptsetup, btrfs, configuration_activator, credentials, safety_inspector, units, recover_existing)) {
+    : impl_(std::make_unique<Impl>(std::move(roots), std::move(target_mount_root), std::move(mountinfo_path), std::move(transaction_root), topology, commands, signatures, metadata, partition_tables, cryptsetup, btrfs, configuration_activator, credentials, safety_inspector, units, recover_existing, existing_target_inspector, std::move(inspection_mount_root))) {
 }
 
 SystemDeviceProvisioningBackend::~SystemDeviceProvisioningBackend() noexcept = default;
@@ -300,6 +312,36 @@ std::vector<std::string> SystemDeviceProvisioningBackend::inspect_safety(
     const DevicePreparationTarget& target
 ) const {
     return impl_->safety_inspector.inspect(provisioning_device_snapshot(target.device), target);
+}
+
+provisioning::ExistingTargetInspectionSummary SystemDeviceProvisioningBackend::inspect_existing_target(
+    const DevicePreparationTarget& target,
+    int credential_fd
+) {
+    if (impl_->existing_target_inspector == nullptr)
+        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::InternalError, "existing target inspection is unavailable");
+    if (target.mode != provisioning::ProvisioningMode::AdoptExistingTarget || !target.partition.has_value())
+        throw ValidationError("existing target inspection requires a partition candidate");
+    platform::linux::filesystem::ensure_trusted_directory(impl_->inspection_mount_root, 0700);
+    const std::string session_id = next_operation_id();
+    const fs::path mount_point = impl_->inspection_mount_root / session_id;
+    platform::linux::filesystem::ensure_trusted_directory(mount_point, 0700, impl_->inspection_mount_root);
+    try {
+        auto result = impl_->existing_target_inspector->inspect(
+            *target.partition,
+            session_id,
+            mount_point,
+            credential_fd
+        );
+        std::error_code cleanup_error;
+        if (!fs::remove(mount_point, cleanup_error) || cleanup_error)
+            throw ValidationError("cannot remove existing target inspection mount point");
+        return result;
+    } catch (...) {
+        std::error_code cleanup_error;
+        static_cast<void>(fs::remove(mount_point, cleanup_error));
+        throw;
+    }
 }
 
 DevicePreparationStatus SystemDeviceProvisioningBackend::start(

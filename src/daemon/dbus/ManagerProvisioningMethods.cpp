@@ -33,6 +33,28 @@ int ManagerProvisioningMethods::inspect_storage_topology(sd_bus_message* message
     );
 }
 
+int ManagerProvisioningMethods::inspect_existing_target(sd_bus_message* message, sd_bus_error* error) noexcept {
+    return invoke_dbus_callback(
+        [&] {
+            const char* request_json = nullptr;
+            int credential_fd = -1;
+            const int read_result = sd_bus_message_read(message, "sh", &request_json, &credential_fd);
+            if (read_result < 0)
+                return read_result;
+            const auto request = config::json::Json::parse(request_json == nullptr ? "{}" : request_json);
+            return support_.reply_operational_json(message, error, "inspect-existing-target", "", [&] {
+                return support_.codec().encode(device_provisioning_.inspect_existing_target(
+                    ManagerMethodSupport::caller_bus_name(message),
+                    request.value("topologyGeneration", ""),
+                    request.value("candidateId", ""),
+                    credential_fd
+                ));
+            });
+        },
+        [&](const std::exception* exception) { return support_.set_callback_error(error, exception); }
+    );
+}
+
 int ManagerProvisioningMethods::build_device_preparation_plan(
     sd_bus_message* message,
     sd_bus_error* error
@@ -50,6 +72,8 @@ int ManagerProvisioningMethods::build_device_preparation_plan(
                 provisioning_mode = provisioning::ProvisioningMode::EraseWholeDevice;
             else if (mode == "reformat-existing-partition")
                 provisioning_mode = provisioning::ProvisioningMode::ReformatExistingPartition;
+            else if (mode == "adopt-existing-target")
+                provisioning_mode = provisioning::ProvisioningMode::AdoptExistingTarget;
             else
                 throw ValidationError("provisioning mode is not implemented");
             return support_.reply_operational_json(message, error, "build-device-preparation-plan", "", [&] {
@@ -57,7 +81,8 @@ int ManagerProvisioningMethods::build_device_preparation_plan(
                     ManagerMethodSupport::caller_bus_name(message),
                     request.value("topologyGeneration", ""),
                     request.value("candidateId", ""),
-                    provisioning_mode
+                    provisioning_mode,
+                    request.value("inspectionId", "")
                 ));
             });
         },

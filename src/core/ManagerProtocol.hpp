@@ -11,7 +11,7 @@ inline constexpr char object_path[] = "/io/github/btrfsbackup/Manager1";
 inline constexpr char interface_name[] = "io.github.btrfsbackup.Manager1";
 
 inline constexpr int api_major = 2;
-inline constexpr int api_minor = 5;
+inline constexpr int api_minor = 6;
 inline constexpr int capabilities_schema_version = 1;
 inline constexpr int profile_schema_version = 4;
 inline constexpr int profile_summary_schema_version = 2;
@@ -26,6 +26,7 @@ inline constexpr int target_credentials_schema_version = 1;
 inline constexpr int device_provisioning_schema_version = 2;
 inline constexpr int storage_topology_schema_version = 1;
 inline constexpr int device_preparation_plan_schema_version = 1;
+inline constexpr int existing_target_inspection_schema_version = 1;
 
 namespace feature {
 
@@ -77,6 +78,7 @@ inline constexpr char add_target_key[] = "AddTargetKey";
 inline constexpr char generate_target_key[] = "GenerateTargetKey";
 inline constexpr char remove_target_credential[] = "RemoveTargetCredential";
 inline constexpr char inspect_storage_topology[] = "InspectStorageTopology";
+inline constexpr char inspect_existing_target[] = "InspectExistingTarget";
 inline constexpr char build_device_preparation_plan[] = "BuildDevicePreparationPlan";
 inline constexpr char list_source_candidates[] = "ListSourceCandidates";
 inline constexpr char start_device_preparation[] = "StartDevicePreparation";
