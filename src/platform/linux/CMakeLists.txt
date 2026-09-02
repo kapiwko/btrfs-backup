@@ -91,10 +91,12 @@ add_library(btrfsbackup-platform-linux-storage STATIC
 
 if(BUILD_SYSTEM_MANAGER)
     add_library(btrfsbackup-platform-linux-provisioning STATIC
+        storage/PartitionTableOperations.cpp
         storage/provisioning/SystemStorageTopologyReader.cpp
     )
     target_restricted_include_directories(btrfsbackup-platform-linux-provisioning
         PUBLIC_HEADERS
+            platform/linux/storage/PartitionTableOperations.hpp
             platform/linux/storage/provisioning/SystemStorageTopologyReader.hpp
     )
     target_link_libraries(btrfsbackup-platform-linux-provisioning
@@ -102,6 +104,7 @@ if(BUILD_SYSTEM_MANAGER)
             btrfsbackup-daemon-provisioning
         PRIVATE
             btrfsbackup-core
+            btrfsbackup-platform-linux-base
             PkgConfig::BLKID
             PkgConfig::FDISK
             PkgConfig::MOUNT

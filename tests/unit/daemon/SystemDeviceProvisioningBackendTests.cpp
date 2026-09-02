@@ -14,6 +14,7 @@
 #include <daemon/provisioning/StorageTopologyReader.hpp>
 #include <platform/linux/storage/BlockDeviceMetadata.hpp>
 #include <platform/linux/storage/CryptsetupOperations.hpp>
+#include <platform/linux/storage/PartitionTableOperations.hpp>
 #include <platform/linux/storage/SignatureOperations.hpp>
 
 #include <chrono>
@@ -107,9 +108,22 @@ class Signatures final : public btrfsbackup::platform::linux::storage::ISignatur
     }
 };
 
+class PartitionTables final : public btrfsbackup::platform::linux::storage::IPartitionTableOperations {
+  public:
+    bool partitioned = false;
+    std::vector<std::pair<std::string, std::string>> calls;
+    void replace_with_single_gpt_partition(
+        const std::filesystem::path& device,
+        const std::string& expected_major_minor
+    ) override {
+        calls.emplace_back(device.string(), expected_major_minor);
+        partitioned = true;
+    }
+};
+
 class TopologyReader final : public btrfsbackup::daemon::provisioning::StorageTopologyReader {
   public:
-    explicit TopologyReader(const Commands& commands) : commands_(commands) {
+    explicit TopologyReader(const PartitionTables& partition_tables) : partition_tables_(partition_tables) {
     }
 
     int scans = 0;
@@ -135,10 +149,7 @@ class TopologyReader final : public btrfsbackup::daemon::provisioning::StorageTo
         device.logical_sector_size = 512;
         device.physical_sector_size = 4096;
         device.removable = true;
-        const bool partitioned = std::ranges::any_of(commands_.calls, [](const auto& call) {
-            return !call.empty() && call.front() == "sfdisk";
-        });
-        if (partitioned) {
+        if (partition_tables_.partitioned) {
             device.partition_table = {
                 .type = provisioning::PartitionTableType::Gpt,
                 .identifier = "gpt-test",
@@ -163,7 +174,7 @@ class TopologyReader final : public btrfsbackup::daemon::provisioning::StorageTo
     }
 
   private:
-    const Commands& commands_;
+    const PartitionTables& partition_tables_;
 };
 
 class Btrfs final : public backup::IBtrfsOperations {
@@ -246,8 +257,9 @@ void test_preparation_sequence_uses_descriptors_and_installs_profile() {
     Commands commands;
     Signatures signatures;
     MetadataReader metadata;
+    PartitionTables partition_tables;
     LuksOperations luks;
-    TopologyReader topology(commands);
+    TopologyReader topology(partition_tables);
     Btrfs btrfs;
     Credentials credentials;
     SafetyInspector safety;
@@ -270,6 +282,7 @@ void test_preparation_sequence_uses_descriptors_and_installs_profile() {
         commands,
         signatures,
         metadata,
+        partition_tables,
         luks,
         btrfs,
         activator,
@@ -317,13 +330,21 @@ void test_preparation_sequence_uses_descriptors_and_installs_profile() {
         std::filesystem::exists(root / "etc/profiles/test/profile.json"),
         "profile was not installed"
     );
-    const auto partition = std::ranges::find(commands.calls, std::string("sfdisk"), [](const auto& call) { return call.front(); });
     const auto format = std::ranges::find(commands.calls, std::string("mkfs.btrfs"), [](const auto& call) { return call.front(); });
     test_helpers::expect_true(
-        "destructive command order",
+        "destructive adapters",
         signatures.calls == std::vector<std::pair<std::string, std::string>>{{"/dev/test", "8:16"}} &&
-            partition != commands.calls.end() && format != commands.calls.end() && partition < format,
-        "device commands ran out of order"
+            partition_tables.calls ==
+                std::vector<std::pair<std::string, std::string>>{{"/dev/test", "8:16"}} &&
+            format != commands.calls.end(),
+        "device mutations did not use the expected adapters"
+    );
+    test_helpers::expect_true(
+        "no sfdisk process",
+        std::ranges::none_of(commands.calls, [](const auto& call) {
+            return !call.empty() && call.front() == "sfdisk";
+        }),
+        "partition table mutation invoked sfdisk instead of libfdisk"
     );
     test_helpers::expect_true(
         "no wipefs process",
@@ -382,8 +403,9 @@ void test_exited_helper_marks_transaction_interrupted() {
     Commands commands;
     Signatures signatures;
     MetadataReader metadata;
+    PartitionTables partition_tables;
     LuksOperations luks;
-    TopologyReader topology(commands);
+    TopologyReader topology(partition_tables);
     Btrfs btrfs;
     Credentials credentials;
     SafetyInspector safety;
@@ -406,6 +428,7 @@ void test_exited_helper_marks_transaction_interrupted() {
         commands,
         signatures,
         metadata,
+        partition_tables,
         luks,
         btrfs,
         activator,
@@ -457,8 +480,9 @@ void test_replacement_before_wipe_is_rejected() {
     Commands commands;
     Signatures signatures;
     MetadataReader metadata;
+    PartitionTables partition_tables;
     LuksOperations luks;
-    TopologyReader topology(commands);
+    TopologyReader topology(partition_tables);
     Btrfs btrfs;
     Credentials credentials;
     SafetyInspector safety;
@@ -481,6 +505,7 @@ void test_replacement_before_wipe_is_rejected() {
         commands,
         signatures,
         metadata,
+        partition_tables,
         luks,
         btrfs,
         activator,
@@ -560,8 +585,9 @@ void test_restart_marks_active_transaction_interrupted_and_preserves_owner() {
     Commands commands;
     Signatures signatures;
     MetadataReader metadata;
+    PartitionTables partition_tables;
     LuksOperations luks;
-    TopologyReader topology(commands);
+    TopologyReader topology(partition_tables);
     Btrfs btrfs;
     Credentials credentials;
     SafetyInspector safety;
@@ -584,6 +610,7 @@ void test_restart_marks_active_transaction_interrupted_and_preserves_owner() {
         commands,
         signatures,
         metadata,
+        partition_tables,
         luks,
         btrfs,
         activator,

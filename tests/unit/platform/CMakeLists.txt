@@ -32,6 +32,15 @@ endif()
 
 add_btrfsbackup_test(btrfsbackup-mount-info-tests linux/storage/MountInfoTests.cpp mount-info-tests btrfsbackup-platform-linux-storage)
 add_btrfsbackup_test(btrfsbackup-owned-file-descriptor-tests OwnedFileDescriptorTests.cpp owned-file-descriptor-tests btrfsbackup-core btrfsbackup-platform-linux-base)
+if(BUILD_SYSTEM_MANAGER)
+    add_btrfsbackup_test(
+        btrfsbackup-partition-table-operations-tests
+        linux/storage/PartitionTableOperationsTests.cpp
+        partition-table-operations-tests
+        btrfsbackup-core
+        btrfsbackup-platform-linux-provisioning
+    )
+endif()
 add_btrfsbackup_test(btrfsbackup-process-tests linux/process/ProcessTests.cpp process-tests btrfsbackup-platform-linux-process)
 add_btrfsbackup_test(btrfsbackup-safe-directory-root-tests linux/filesystem/SafeDirectoryRootTests.cpp safe-directory-root-tests btrfsbackup-platform-linux-filesystem)
 add_btrfsbackup_test(btrfsbackup-space-check-tests linux/storage/SpaceCheckTests.cpp space-check-tests btrfsbackup-platform-linux-storage)
