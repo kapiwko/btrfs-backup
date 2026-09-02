@@ -25,6 +25,7 @@
 #include <daemon/dbus/ManagerErrors.hpp>
 #include <platform/linux/filesystem/SecretFile.hpp>
 #include <platform/linux/storage/MountInfo.hpp>
+#include <platform/linux/storage/SignatureOperations.hpp>
 
 namespace fs = std::filesystem;
 
@@ -97,6 +98,7 @@ struct SystemDeviceProvisioningBackend::Impl {
         fs::path transaction_root,
         provisioning::StorageTopologyReader& topology,
         backup::ICommandRunner& commands,
+        platform::linux::storage::ISignatureOperations& signatures,
         backup::IBtrfsOperations& btrfs,
         config::IConfigurationActivator& configuration_activator,
         ICredentialAdministrationBackend& credentials,
@@ -113,6 +115,7 @@ struct SystemDeviceProvisioningBackend::Impl {
               std::move(roots),
               std::move(target_mount_root),
               commands,
+              signatures,
               btrfs,
               configuration_activator,
               credentials,
@@ -249,6 +252,7 @@ SystemDeviceProvisioningBackend::SystemDeviceProvisioningBackend(
     fs::path transaction_root,
     provisioning::StorageTopologyReader& topology,
     backup::ICommandRunner& commands,
+    platform::linux::storage::ISignatureOperations& signatures,
     backup::IBtrfsOperations& btrfs,
     config::IConfigurationActivator& configuration_activator,
     ICredentialAdministrationBackend& credentials,
@@ -256,7 +260,7 @@ SystemDeviceProvisioningBackend::SystemDeviceProvisioningBackend(
     IDevicePreparationUnitController& units,
     bool recover_existing
 )
-    : impl_(std::make_unique<Impl>(std::move(roots), std::move(target_mount_root), std::move(mountinfo_path), std::move(transaction_root), topology, commands, btrfs, configuration_activator, credentials, safety_inspector, units, recover_existing)) {
+    : impl_(std::make_unique<Impl>(std::move(roots), std::move(target_mount_root), std::move(mountinfo_path), std::move(transaction_root), topology, commands, signatures, btrfs, configuration_activator, credentials, safety_inspector, units, recover_existing)) {
 }
 
 SystemDeviceProvisioningBackend::~SystemDeviceProvisioningBackend() noexcept = default;
