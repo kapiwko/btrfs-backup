@@ -8,6 +8,8 @@
 #include <QVariantList>
 #include <QUrl>
 
+#include <ManagerApi.hpp>
+
 namespace btrfsbackup::kde::kcm {
 
 class TargetCredentialModel final : public QObject {
@@ -60,11 +62,13 @@ class TargetCredentialModel final : public QObject {
     [[nodiscard]] bool applyCredentials(const QString& payload);
 
     QDBusConnection bus_;
+    btrfsbackup::kde::ManagerEventSubscriber manager_events_;
     QString profile_id_;
     QVariantList credentials_;
     QString error_code_;
     QString error_message_;
     bool busy_ = false;
+    bool refresh_pending_ = false;
 };
 
 } // namespace btrfsbackup::kde::kcm

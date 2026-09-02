@@ -3,6 +3,8 @@
 
 #include "TargetCredentialModel.hpp"
 
+#include "ManagerErrorMessage.hpp"
+
 #include <ManagerApi.hpp>
 #include <core/ManagerProtocol.hpp>
 
@@ -21,6 +23,7 @@
 
 #include <cerrno>
 #include <cstring>
+#include <utility>
 
 namespace btrfsbackup::kde::kcm {
 
@@ -59,7 +62,16 @@ QDBusUnixFileDescriptor secret_descriptor(const QString& secret) {
 } // namespace
 
 TargetCredentialModel::TargetCredentialModel(QObject* parent)
-    : QObject(parent), bus_(QDBusConnection::systemBus()) {
+    : QObject(parent), bus_(QDBusConnection::systemBus()), manager_events_(bus_, this) {
+    connect(&manager_events_, &btrfsbackup::kde::ManagerEventSubscriber::deviceStateChanged, this, [this](const QString& profile_id) {
+        if (profile_id_ != profile_id || profile_id_.isEmpty())
+            return;
+        if (busy_) {
+            refresh_pending_ = true;
+            return;
+        }
+        load(profile_id_);
+    });
 }
 
 QString TargetCredentialModel::profileId() const {
@@ -95,13 +107,13 @@ void TargetCredentialModel::addPassphrase(
     if (busy_ || profile_id_.isEmpty())
         return;
     if (new_secret != confirmation) {
-        setError(QStringLiteral("credentials.passphrases-differ"), i18n("The passphrases do not match."));
+        setError(QStringLiteral("credentials.passphrases-differ"), i18nd("kcm_btrfsbackup", "The passphrases do not match."));
         return;
     }
     const auto authorization = secret_descriptor(authorization_secret);
     const auto added = secret_descriptor(new_secret);
     if (!authorization.isValid() || !added.isValid()) {
-        setError(QStringLiteral("credentials.invalid-secret"), i18n("A passphrase must contain between 1 and 4096 bytes."));
+        setError(QStringLiteral("credentials.invalid-secret"), i18nd("kcm_btrfsbackup", "A passphrase must contain between 1 and 4096 bytes."));
         return;
     }
     request(
@@ -120,7 +132,7 @@ void TargetCredentialModel::generateKey(
         return;
     const auto authorization = secret_descriptor(authorization_secret);
     if (!authorization.isValid()) {
-        setError(QStringLiteral("credentials.invalid-secret"), i18n("A passphrase must contain between 1 and 4096 bytes."));
+        setError(QStringLiteral("credentials.invalid-secret"), i18nd("kcm_btrfsbackup", "A passphrase must contain between 1 and 4096 bytes."));
         return;
     }
     request(
@@ -141,7 +153,7 @@ void TargetCredentialModel::addKey(
     const auto authorization = secret_descriptor(authorization_secret);
     QFile key(key_file.toLocalFile());
     if (!authorization.isValid() || !key.open(QIODevice::ReadOnly) || key.size() < 1 || key.size() > 4096) {
-        setError(QStringLiteral("credentials.invalid-key"), i18n("Select a key file between 1 and 4096 bytes and enter a valid passphrase."));
+        setError(QStringLiteral("credentials.invalid-key"), i18nd("kcm_btrfsbackup", "Select a key file between 1 and 4096 bytes and enter a valid passphrase."));
         return;
     }
     const QDBusUnixFileDescriptor key_descriptor(key.handle());
@@ -160,7 +172,7 @@ void TargetCredentialModel::removeCredential(
         return;
     const auto authorization = secret_descriptor(authorization_secret);
     if (!authorization.isValid()) {
-        setError(QStringLiteral("credentials.invalid-secret"), i18n("A passphrase must contain between 1 and 4096 bytes."));
+        setError(QStringLiteral("credentials.invalid-secret"), i18nd("kcm_btrfsbackup", "A passphrase must contain between 1 and 4096 bytes."));
         return;
     }
     request(
@@ -185,21 +197,22 @@ void TargetCredentialModel::request(RequestKind kind, const QString& method, con
         busy_ = false;
         if (reply.isError()) {
             const QString error_name = reply.error().name();
-            const QString error_message = error_name.endsWith(QStringLiteral(".TargetUnavailable"))
-                ? i18n("The backup device is disconnected. Connect it to view its unlocking methods.")
-                : reply.error().message();
-            setError(error_name, error_message);
+            if (kind == RequestKind::List && !credentials_.isEmpty()) {
+                credentials_.clear();
+                emit credentialsChanged();
+            }
+            setError(error_name, manager_error_message(reply.error()));
             emit stateChanged();
-            return;
-        }
-        if (!applyCredentials(reply.value())) {
-            setError(QStringLiteral("manager.invalid-response"), i18n("The backup manager returned an invalid credential response."));
+        } else if (!applyCredentials(reply.value())) {
+            setError(QStringLiteral("manager.invalid-response"), i18nd("kcm_btrfsbackup", "The backup manager returned an invalid credential response."));
             emit stateChanged();
-            return;
+        } else {
+            if (kind == RequestKind::Mutation)
+                emit credentialsChanged();
+            emit stateChanged();
         }
-        if (kind == RequestKind::Mutation)
-            emit credentialsChanged();
-        emit stateChanged();
+        if (std::exchange(refresh_pending_, false))
+            load(profile_id_);
     });
 }
 
