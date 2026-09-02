@@ -136,7 +136,7 @@ struct SystemDeviceProvisioningBackend::Impl {
         fs::path mountinfo,
         fs::path transaction_root,
         provisioning::StorageTopologyReader& topology,
-        backup::ICommandRunner& commands,
+        platform::linux::storage::IBtrfsFilesystemFormatter& btrfs_formatter,
         platform::linux::storage::ISignatureOperations& signatures,
         platform::linux::storage::IBlockDeviceMetadataReader& metadata,
         platform::linux::storage::IPartitionTableOperations& partition_tables,
@@ -159,7 +159,7 @@ struct SystemDeviceProvisioningBackend::Impl {
           executor(
               std::move(roots),
               std::move(target_mount_root),
-              commands,
+              btrfs_formatter,
               signatures,
               metadata,
               partition_tables,
@@ -305,7 +305,7 @@ SystemDeviceProvisioningBackend::SystemDeviceProvisioningBackend(
     fs::path mountinfo_path,
     fs::path transaction_root,
     provisioning::StorageTopologyReader& topology,
-    backup::ICommandRunner& commands,
+    platform::linux::storage::IBtrfsFilesystemFormatter& btrfs_formatter,
     platform::linux::storage::ISignatureOperations& signatures,
     platform::linux::storage::IBlockDeviceMetadataReader& metadata,
     platform::linux::storage::IPartitionTableOperations& partition_tables,
@@ -319,7 +319,7 @@ SystemDeviceProvisioningBackend::SystemDeviceProvisioningBackend(
     IExistingTargetInspector* existing_target_inspector,
     fs::path inspection_mount_root
 )
-    : impl_(std::make_unique<Impl>(std::move(roots), std::move(target_mount_root), std::move(mountinfo_path), std::move(transaction_root), topology, commands, signatures, metadata, partition_tables, cryptsetup, btrfs, configuration_activator, credentials, safety_inspector, units, recover_existing, existing_target_inspector, std::move(inspection_mount_root))) {
+    : impl_(std::make_unique<Impl>(std::move(roots), std::move(target_mount_root), std::move(mountinfo_path), std::move(transaction_root), topology, btrfs_formatter, signatures, metadata, partition_tables, cryptsetup, btrfs, configuration_activator, credentials, safety_inspector, units, recover_existing, existing_target_inspector, std::move(inspection_mount_root))) {
 }
 
 SystemDeviceProvisioningBackend::~SystemDeviceProvisioningBackend() noexcept = default;

@@ -14,6 +14,7 @@
 #include <daemon/control/DestructiveDeviceSafetyInspector.hpp>
 #include <daemon/provisioning/StorageTopologyReader.hpp>
 #include <platform/linux/storage/BlockDeviceMetadata.hpp>
+#include <platform/linux/storage/BtrfsFilesystemFormatter.hpp>
 #include <platform/linux/storage/CryptsetupOperations.hpp>
 #include <platform/linux/storage/PartitionTableOperations.hpp>
 #include <platform/linux/storage/SignatureOperations.hpp>
@@ -448,6 +449,7 @@ int secret_descriptor(std::string_view secret) {
 void test_preparation_sequence_uses_descriptors_and_installs_profile() {
     const auto root = test_helpers::test_root("device-provisioning", "success");
     Commands commands;
+    btrfsbackup::platform::linux::storage::CommandBtrfsFilesystemFormatter btrfs_formatter(commands);
     Signatures signatures;
     MetadataReader metadata;
     PartitionTables partition_tables;
@@ -473,7 +475,7 @@ void test_preparation_sequence_uses_descriptors_and_installs_profile() {
         root / "mountinfo",
         root / "transactions",
         topology,
-        commands,
+        btrfs_formatter,
         signatures,
         metadata,
         partition_tables,
@@ -653,6 +655,7 @@ void test_preparation_sequence_uses_descriptors_and_installs_profile() {
 void test_existing_partition_does_not_modify_parent_partition_table() {
     const auto root = test_helpers::test_root("device-provisioning", "existing-partition");
     Commands commands;
+    btrfsbackup::platform::linux::storage::CommandBtrfsFilesystemFormatter btrfs_formatter(commands);
     Signatures signatures;
     MetadataReader metadata;
     PartitionTables partition_tables;
@@ -678,7 +681,7 @@ void test_existing_partition_does_not_modify_parent_partition_table() {
         root / "mountinfo",
         root / "transactions",
         topology,
-        commands,
+        btrfs_formatter,
         signatures,
         metadata,
         partition_tables,
@@ -743,6 +746,7 @@ void test_existing_partition_does_not_modify_parent_partition_table() {
 void test_free_space_preparation_uses_frozen_geometry() {
     const auto root = test_helpers::test_root("device-provisioning", "free-space");
     Commands commands;
+    btrfsbackup::platform::linux::storage::CommandBtrfsFilesystemFormatter btrfs_formatter(commands);
     Signatures signatures;
     MetadataReader metadata;
     PartitionTables partition_tables;
@@ -767,7 +771,7 @@ void test_free_space_preparation_uses_frozen_geometry() {
         root / "mountinfo",
         root / "transactions",
         topology,
-        commands,
+        btrfs_formatter,
         signatures,
         metadata,
         partition_tables,
@@ -874,6 +878,7 @@ void test_free_space_preparation_uses_frozen_geometry() {
 void test_adoption_revalidates_fingerprint_without_modifying_target() {
     const auto root = test_helpers::test_root("device-provisioning", "adoption");
     Commands commands;
+    btrfsbackup::platform::linux::storage::CommandBtrfsFilesystemFormatter btrfs_formatter(commands);
     Signatures signatures;
     MetadataReader metadata;
     PartitionTables partition_tables;
@@ -902,7 +907,7 @@ void test_adoption_revalidates_fingerprint_without_modifying_target() {
         root / "mountinfo",
         root / "transactions",
         topology,
-        commands,
+        btrfs_formatter,
         signatures,
         metadata,
         partition_tables,
@@ -1008,6 +1013,7 @@ void test_adoption_revalidates_fingerprint_without_modifying_target() {
 void test_exited_helper_marks_transaction_interrupted() {
     const auto root = test_helpers::test_root("device-provisioning", "helper-exited");
     Commands commands;
+    btrfsbackup::platform::linux::storage::CommandBtrfsFilesystemFormatter btrfs_formatter(commands);
     Signatures signatures;
     MetadataReader metadata;
     PartitionTables partition_tables;
@@ -1032,7 +1038,7 @@ void test_exited_helper_marks_transaction_interrupted() {
         root / "mountinfo",
         root / "transactions",
         topology,
-        commands,
+        btrfs_formatter,
         signatures,
         metadata,
         partition_tables,
@@ -1085,6 +1091,7 @@ void test_exited_helper_marks_transaction_interrupted() {
 void test_replacement_before_wipe_is_rejected() {
     const auto root = test_helpers::test_root("device-provisioning", "replacement");
     Commands commands;
+    btrfsbackup::platform::linux::storage::CommandBtrfsFilesystemFormatter btrfs_formatter(commands);
     Signatures signatures;
     MetadataReader metadata;
     PartitionTables partition_tables;
@@ -1109,7 +1116,7 @@ void test_replacement_before_wipe_is_rejected() {
         root / "mountinfo",
         root / "transactions",
         topology,
-        commands,
+        btrfs_formatter,
         signatures,
         metadata,
         partition_tables,
@@ -1196,6 +1203,7 @@ void test_restart_marks_active_transaction_interrupted_and_preserves_owner() {
     DevicePreparationTransactionStore(transaction_root).save(transaction);
 
     Commands commands;
+    btrfsbackup::platform::linux::storage::CommandBtrfsFilesystemFormatter btrfs_formatter(commands);
     Signatures signatures;
     MetadataReader metadata;
     PartitionTables partition_tables;
@@ -1220,7 +1228,7 @@ void test_restart_marks_active_transaction_interrupted_and_preserves_owner() {
         root / "mountinfo",
         transaction_root,
         topology,
-        commands,
+        btrfs_formatter,
         signatures,
         metadata,
         partition_tables,
