@@ -16,6 +16,7 @@ Item {
     required property string profileId
     property var credentialModel: null
     property var credentialToRemove: null
+    property var credentialToInspect: null
 
     implicitHeight: Math.ceil(methodList.count > 0
         ? methodList.contentHeight
@@ -75,11 +76,18 @@ Item {
 
         delegate: QQC2.ItemDelegate {
             id: methodRow
+            objectName: "unlockingMethodRow"
             required property var modelData
             width: ListView.view?.width ?? implicitWidth
-            hoverEnabled: false
-            focusPolicy: Qt.NoFocus
+            hoverEnabled: true
+            focusPolicy: Qt.StrongFocus
             Kirigami.Theme.useAlternateBackgroundColor: true
+            Accessible.name: methodRow.contentItem.title
+            Accessible.description: methodRow.contentItem.subtitle
+            onClicked: {
+                root.credentialToInspect = methodRow.modelData;
+                methodDetailsDialog.open();
+            }
 
             contentItem: Kirigami.TitleSubtitleWithActions {
                 objectName: "unlockingMethodDetails"
@@ -154,6 +162,58 @@ Item {
             text: (root.credentialModel?.errorMessage?.length ?? 0) > 0
                 ? root.credentialModel.errorMessage
                 : translations.i18n("No LUKS unlocking methods found")
+        }
+    }
+
+    QQC2.Dialog {
+        id: methodDetailsDialog
+        objectName: "unlockingMethodDetailsDialog"
+        parent: QQC2.Overlay.overlay
+        anchors.centerIn: parent
+        modal: true
+        title: root.credentialTitle(root.credentialToInspect)
+        standardButtons: QQC2.Dialog.Close
+
+        contentItem: GridLayout {
+            width: Kirigami.Units.gridUnit * 24
+            columns: 2
+            columnSpacing: Kirigami.Units.largeSpacing
+            rowSpacing: Kirigami.Units.smallSpacing
+
+            QQC2.Label { text: translations.i18n("Type:"); opacity: 0.65 }
+            QQC2.Label {
+                objectName: "unlockingMethodTypeValue"
+                Layout.fillWidth: true
+                text: root.methodType(root.credentialToInspect)
+            }
+            QQC2.Label { text: translations.i18n("LUKS key slot:"); opacity: 0.65 }
+            QQC2.Label {
+                objectName: "unlockingMethodSlotValue"
+                text: root.credentialToInspect?.keyslot ?? translations.i18n("Unknown")
+            }
+            QQC2.Label { text: translations.i18n("Management:"); opacity: 0.65 }
+            QQC2.Label {
+                objectName: "unlockingMethodManagementValue"
+                Layout.fillWidth: true
+                text: root.credentialToInspect?.managed
+                    ? translations.i18n("Managed by btrfs-backup")
+                    : translations.i18n("Configured outside btrfs-backup")
+            }
+            QQC2.Label { text: translations.i18n("Usage:"); opacity: 0.65 }
+            QQC2.Label {
+                objectName: "unlockingMethodUsageValue"
+                Layout.fillWidth: true
+                text: root.credentialToInspect?.automatic
+                    ? translations.i18n("Automatic backups")
+                    : translations.i18n("Manual unlocking")
+            }
+            Kirigami.InlineMessage {
+                Layout.columnSpan: 2
+                Layout.fillWidth: true
+                visible: true
+                type: Kirigami.MessageType.Information
+                text: root.methodPrivacyText(root.credentialToInspect)
+            }
         }
     }
 
@@ -288,13 +348,35 @@ Item {
     }
 
     function methodDescription(method) {
-        const kind = method.type === "passphrase"
-            ? translations.i18n("Passphrase")
-            : method.type === "keyFile"
-                ? translations.i18n("Key file")
-                : translations.i18n("Unknown unlocking method")
+        const kind = root.methodType(method)
         const ownership = method.managed ? translations.i18n("managed by btrfs-backup") : translations.i18n("configured outside btrfs-backup")
         const automatic = method.automatic ? translations.i18n("automatic backups") : translations.i18n("manual unlocking")
         return translations.i18nc("unlocking method details", "%1 - slot %2 - %3 - %4", kind, method.keyslot, ownership, automatic)
+    }
+
+    function credentialTitle(method) {
+        if (method === null || method === undefined)
+            return translations.i18n("Unlocking method details")
+        return method.managed && method.label
+            ? method.label
+            : translations.i18n("LUKS key slot %1", method.keyslot)
+    }
+
+    function methodType(method) {
+        if (method === null || method === undefined)
+            return translations.i18n("Unknown unlocking method")
+        if (method.type === "passphrase")
+            return translations.i18n("Passphrase")
+        if (method.type === "keyFile")
+            return translations.i18n("Key file")
+        return translations.i18n("Unknown unlocking method")
+    }
+
+    function methodPrivacyText(method) {
+        if (method?.type === "passphrase")
+            return translations.i18n("The passphrase itself is not stored by btrfs-backup.")
+        if (method?.type === "keyFile" && method.managed)
+            return translations.i18n("The key is stored in protected system configuration. Its contents and path are hidden.")
+        return translations.i18n("This LUKS slot was configured outside btrfs-backup.")
     }
 }

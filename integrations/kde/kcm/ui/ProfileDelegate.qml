@@ -55,13 +55,22 @@ QQC2.ItemDelegate {
             Layout.fillWidth: true
             spacing: Kirigami.Units.smallSpacing
 
-            Kirigami.Icon {
-                source: delegate.profileStatus.run.state === "failed"
-                    || !delegate.profileStatus.configurationValid
-                    ? "dialog-error-symbolic"
-                    : "drive-harddisk-symbolic"
+            Item {
                 implicitWidth: Kirigami.Units.iconSizes.medium
                 implicitHeight: implicitWidth
+
+                Kirigami.Icon {
+                    anchors.fill: parent
+                    source: "drive-harddisk-symbolic"
+                }
+                Kirigami.Icon {
+                    objectName: "profileTargetStateIndicator"
+                    anchors.right: parent.right
+                    anchors.bottom: parent.bottom
+                    width: Kirigami.Units.iconSizes.small
+                    height: width
+                    source: delegate.targetIndicatorIcon()
+                }
             }
 
             Kirigami.TitleSubtitleWithActions {
@@ -175,5 +184,18 @@ QQC2.ItemDelegate {
             }
         }
 
+    }
+
+    function targetIndicatorIcon() {
+        if (delegate.profileStatus.run.state === "failed"
+                || !delegate.profileStatus.configurationValid)
+            return "state-error-symbolic"
+        if (!delegate.profileStatus.target.connected)
+            return "network-disconnect-symbolic"
+        if (delegate.profileStatus.target.mounted)
+            return "media-mount-symbolic"
+        if (delegate.profileStatus.target.unlocked)
+            return "object-unlocked-symbolic"
+        return "object-locked-symbolic"
     }
 }
