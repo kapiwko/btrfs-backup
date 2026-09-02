@@ -284,6 +284,22 @@ provisioning::DevicePreparationPlan DeviceProvisioningService::take_plan(
     return result;
 }
 
+provisioning::StorageTopology DeviceProvisioningService::find_topology(
+    const std::string& caller,
+    const provisioning::TopologyGeneration& generation
+) {
+    const auto now = clock_();
+    std::lock_guard lock(candidates_mutex_);
+    expire_candidates(now);
+    const auto topology = topologies_.find(caller);
+    if (topology == topologies_.end() || topology->second.topology.generation != generation)
+        throw dbus::ManagerOperationError(
+            dbus::ManagerErrorCode::NotFound,
+            "storage topology is unavailable or expired"
+        );
+    return topology->second.topology;
+}
+
 DevicePreparationStatus DeviceProvisioningService::start(
     const std::string& caller,
     std::uint32_t caller_uid,
@@ -312,9 +328,14 @@ DevicePreparationStatus DeviceProvisioningService::start(
                 dbus::ManagerErrorCode::Conflict,
                 "device preparation plan mode is not executable yet"
             );
+        const auto expected = find_topology(caller, plan.topology_generation);
         const auto current = topology_reader_->scan();
-        if (current.generation != plan.topology_generation)
-            throw dbus::ManagerOperationError(dbus::ManagerErrorCode::Conflict, "storage topology changed");
+        const auto blockers = storage_safety_inspector_.inspect(expected, current, plan);
+        if (!blockers.empty())
+            throw dbus::ManagerOperationError(
+                dbus::ManagerErrorCode::Conflict,
+                "storage safety check failed: " + blockers.front().code
+            );
         candidate_id = plan.device_id;
     }
     const ProvisioningDevice candidate = find_candidate(caller, candidate_id);
