@@ -9,6 +9,7 @@
 #include <chrono>
 #include <filesystem>
 #include <ranges>
+#include <utility>
 
 #include "support/TestHelpers.hpp"
 
@@ -134,6 +135,38 @@ void test_round_trip_preserves_adoption_fingerprint() {
     );
 }
 
+void test_round_trip_preserves_free_space_geometry() {
+    const auto root = test_helpers::test_root("device-preparation-transactions", "free-space");
+    auto value = transaction("prepare-free-space", "queued", now_seconds());
+    value.target.mode =
+        btrfsbackup::daemon::provisioning::ProvisioningMode::CreatePartitionInUnallocatedSpace;
+    value.target.partition.reset();
+    btrfsbackup::daemon::provisioning::UnallocatedRegion free_region;
+    free_region.id = "ephemeral-candidate";
+    free_region.start_sector = 4096;
+    free_region.sector_count = 8192;
+    free_region.suitable_for_backup_partition = true;
+    value.target.free_region = std::move(free_region);
+    value.target.planned_partition_geometry =
+        btrfsbackup::daemon::provisioning::PlannedPartitionGeometry{
+            .start_sector = 4096,
+            .sector_count = 8192,
+            .partition_number = 2,
+        };
+    DevicePreparationTransactionStore store(root);
+    store.save(value);
+    const auto loaded = store.load("prepare-free-space");
+    test_helpers::expect_true(
+        "free-space geometry",
+        loaded.target.mode ==
+                btrfsbackup::daemon::provisioning::ProvisioningMode::CreatePartitionInUnallocatedSpace &&
+            loaded.target.free_region.has_value() && loaded.target.free_region->id.empty() &&
+            loaded.target.free_region->start_sector == 4096 && loaded.target.free_region->sector_count == 8192 &&
+            loaded.target.planned_partition_geometry == value.target.planned_partition_geometry,
+        "free-space target geometry changed during persistence"
+    );
+}
+
 void test_completed_limit_ttl_and_active_retention() {
     const auto root = test_helpers::test_root("device-preparation-transactions", "retention");
     DevicePreparationTransactionStore store(root, 2, std::chrono::hours(1));
@@ -188,6 +221,7 @@ void test_legacy_transaction_is_rejected() {
 int main() {
     test_round_trip_preserves_recovery_state();
     test_round_trip_preserves_adoption_fingerprint();
+    test_round_trip_preserves_free_space_geometry();
     test_completed_limit_ttl_and_active_retention();
     test_legacy_transaction_is_rejected();
     return test_helpers::finish("device preparation transaction tests");
