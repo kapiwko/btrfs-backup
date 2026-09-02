@@ -62,6 +62,17 @@ provisioning::StorageTopology topology(std::string generation = "generation-1") 
     return {.generation = std::move(generation), .devices = {std::move(device)}};
 }
 
+provisioning::StorageTopology topology_with_free_space(std::string generation = "generation-1") {
+    auto result = topology(std::move(generation));
+    result.devices.front().regions.emplace_back(provisioning::UnallocatedRegion{
+        .id = "free-1",
+        .start_sector = 40,
+        .sector_count = 16,
+        .suitable_for_backup_partition = true,
+    });
+    return result;
+}
+
 bool contains_code(const std::vector<provisioning::SafetyBlocker>& blockers, const std::string& code) {
     return std::ranges::any_of(blockers, [&](const auto& blocker) { return blocker.code == code; });
 }
@@ -166,6 +177,40 @@ void test_whole_device_scope_rejects_any_topology_or_child_usage_change() {
     );
 }
 
+void test_free_space_scope_requires_exact_range_and_inactive_disk() {
+    const auto expected = topology_with_free_space();
+    auto plan = provisioning::DevicePreparationPlanBuilder{}.build(
+        expected,
+        expected.generation,
+        "free-1",
+        provisioning::ProvisioningMode::CreatePartitionInUnallocatedSpace,
+        "plan-free"
+    );
+    test_helpers::expect_true(
+        "unchanged free range",
+        provisioning::StorageSafetyInspector{}.inspect(expected, expected, plan).empty(),
+        "unchanged free-space plan was rejected"
+    );
+    auto current = topology_with_free_space("generation-changed");
+    auto& free_region = std::get<provisioning::UnallocatedRegion>(current.devices.front().regions.back());
+    free_region.start_sector += 1;
+    auto& sibling = std::get<provisioning::ExistingPartition>(current.devices.front().regions.front());
+    sibling.mount_points = {"/media/data"};
+    sibling.start_sector += 1;
+    const auto blockers = provisioning::StorageSafetyInspector{}.inspect(expected, current, plan);
+    test_helpers::expect_true(
+        "free range changed",
+        contains_code(blockers, "unallocated-region-changed") &&
+            contains_code(blockers, "topology-generation-changed"),
+        "changed free-space geometry was accepted"
+    );
+    test_helpers::expect_true(
+        "free-space sibling mount",
+        contains_code(blockers, "mounted-filesystem") && contains_code(blockers, "partition-identity-changed"),
+        "changed or mounted partition did not block partition-table mutation"
+    );
+}
+
 } // namespace
 
 int main() {
@@ -173,5 +218,6 @@ int main() {
     test_partition_scope_detects_target_changes_and_usage();
     test_partition_scope_detects_parent_and_geometry_changes();
     test_whole_device_scope_rejects_any_topology_or_child_usage_change();
+    test_free_space_scope_requires_exact_range_and_inactive_disk();
     return test_helpers::finish("storage safety inspector tests");
 }

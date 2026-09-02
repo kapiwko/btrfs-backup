@@ -152,6 +152,59 @@ void test_builds_partition_plan_without_changing_other_regions() {
     );
 }
 
+void test_builds_free_space_plan_without_changing_existing_partition() {
+    const auto plan = DevicePreparationPlanBuilder{}.build(
+        topology(),
+        "topology-test",
+        "free-1",
+        ProvisioningMode::CreatePartitionInUnallocatedSpace,
+        "plan-free"
+    );
+    test_helpers::expect_true(
+        "free region scope",
+        plan.free_region_id == "free-1" &&
+            plan.destructive_scope.kind == DestructiveScopeKind::UnallocatedRegion &&
+            plan.destructive_scope.free_region_id == plan.free_region_id,
+        "plan is not limited to the selected free region"
+    );
+    test_helpers::expect_true(
+        "existing partition preserved",
+        plan.before.regions.front() == plan.after.regions.front(),
+        "existing partition changed in free-space preview"
+    );
+    const auto& target = plan.after.regions.back();
+    test_helpers::expect_true(
+        "free region target",
+        target.id == "planned-backup-partition" && target.kind == PredictedRegionKind::BackupPartition &&
+            target.start_sector == 10 && target.sector_count == 6 && !target.geometry_exact &&
+            target.changed && target.encrypted && target.filesystem_type == "btrfs",
+        "free-space target prediction is incorrect"
+    );
+    test_helpers::expect_true(
+        "free region operations",
+        plan.operations.size() == 6 &&
+            std::holds_alternative<CreateBackupPartition>(plan.operations.front()) &&
+            std::get<CreateBackupPartition>(plan.operations.front()).free_region_id == plan.free_region_id &&
+            std::holds_alternative<PublishProfile>(plan.operations.back()),
+        "free-space operation sequence changed"
+    );
+}
+
+void test_rejects_free_space_plan_without_gpt() {
+    auto value = topology();
+    value.devices.front().partition_table.type = PartitionTableType::Mbr;
+    try {
+        static_cast<void>(DevicePreparationPlanBuilder{}.build(
+            value,
+            value.generation,
+            "free-1",
+            ProvisioningMode::CreatePartitionInUnallocatedSpace,
+            "plan-free"
+        ));
+        test_helpers::fail("free space on MBR", "free-space plan accepted an MBR partition table");
+    } catch (const btrfsbackup::ValidationError&) {}
+}
+
 void test_rejects_stale_topology_and_unimplemented_mode() {
     const auto value = topology();
     bool stale_rejected = false;
@@ -188,6 +241,8 @@ void test_rejects_stale_topology_and_unimplemented_mode() {
 int main() {
     test_builds_before_and_after_preview_for_whole_device();
     test_builds_partition_plan_without_changing_other_regions();
+    test_builds_free_space_plan_without_changing_existing_partition();
+    test_rejects_free_space_plan_without_gpt();
     test_rejects_stale_topology_and_unimplemented_mode();
     return test_helpers::finish("device preparation plan builder tests");
 }

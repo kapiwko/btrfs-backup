@@ -143,6 +143,50 @@ DevicePreparationPlan reformat_partition_plan(
     return result;
 }
 
+DevicePreparationPlan create_partition_in_free_space_plan(
+    const StorageTopology& topology,
+    const StorageDevice& device,
+    const UnallocatedRegion& free_region,
+    DevicePreparationPlanId plan_id
+) {
+    if (device.partition_table.type != PartitionTableType::Gpt)
+        throw ValidationError("creating a backup partition requires GPT");
+    if (!free_region.suitable_for_backup_partition || !free_region.blockers.empty() || free_region.sector_count == 0)
+        throw ValidationError("unallocated region is not suitable for a backup partition");
+    StorageLayout before = current_layout(device);
+    StorageLayout after = before;
+    const auto target = std::ranges::find(after.regions, free_region.id, &PredictedStorageRegion::id);
+    target->id = "planned-backup-partition";
+    target->kind = PredictedRegionKind::BackupPartition;
+    target->partition_label = "btrfs-backup";
+    target->filesystem_type = "btrfs";
+    target->geometry_exact = false;
+    target->encrypted = true;
+    target->changed = true;
+
+    DevicePreparationPlan result;
+    result.id = std::move(plan_id);
+    result.topology_generation = topology.generation;
+    result.mode = ProvisioningMode::CreatePartitionInUnallocatedSpace;
+    result.device_id = device.candidate_id;
+    result.free_region_id = free_region.id;
+    result.before = std::move(before);
+    result.after = std::move(after);
+    result.operations = {
+        CreateBackupPartition{device.candidate_id, free_region.id},
+        FormatLuks2{std::nullopt},
+        OpenLuksMapping{},
+        FormatBtrfs{},
+        VerifyPreparedTarget{},
+        PublishProfile{},
+    };
+    result.warnings = {{"create-partition-in-unallocated-space", device.identity.display_path}};
+    result.destructive_scope.kind = DestructiveScopeKind::UnallocatedRegion;
+    result.destructive_scope.device_id = device.candidate_id;
+    result.destructive_scope.free_region_id = free_region.id;
+    return result;
+}
+
 DevicePreparationPlan adopt_existing_target_plan(
     const StorageTopology& topology,
     const StorageDevice& device,
@@ -213,6 +257,22 @@ DevicePreparationPlan DevicePreparationPlanBuilder::build(
                 );
         }
         throw ValidationError("storage partition candidate is unavailable");
+    }
+    if (mode == ProvisioningMode::CreatePartitionInUnallocatedSpace) {
+        for (const auto& device : topology.devices) {
+            const auto region = std::ranges::find_if(device.regions, [&](const StorageRegion& value) {
+                const auto* free_region = std::get_if<UnallocatedRegion>(&value);
+                return free_region != nullptr && free_region->id == selected_candidate_id;
+            });
+            if (region != device.regions.end())
+                return create_partition_in_free_space_plan(
+                    topology,
+                    device,
+                    std::get<UnallocatedRegion>(*region),
+                    std::move(plan_id)
+                );
+        }
+        throw ValidationError("unallocated storage region candidate is unavailable");
     }
     throw ValidationError("provisioning mode is not implemented");
 }

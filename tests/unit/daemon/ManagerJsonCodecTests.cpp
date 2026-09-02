@@ -207,6 +207,12 @@ void test_storage_topology_and_plan_contract() {
     partition.sector_count = 1;
     partition.filesystem.type = "ext4";
     device.regions.emplace_back(std::move(partition));
+    device.regions.emplace_back(provisioning::UnallocatedRegion{
+        .id = "opaque-free",
+        .start_sector = 2,
+        .sector_count = 1,
+        .suitable_for_backup_partition = true,
+    });
     const provisioning::StorageTopology topology{.generation = "topology-1", .devices = {device}};
     const Json topology_document = Json::parse(codec.encode(topology));
     expect_field("topology", topology_document, "schemaVersion", 1);
@@ -231,7 +237,7 @@ void test_storage_topology_and_plan_contract() {
     expect_field("plan", plan_document, "mode", "erase-whole-device");
     test_helpers::expect_true(
         "plan layouts",
-        plan_document.at("before").at("regions").size() == 1 &&
+        plan_document.at("before").at("regions").size() == 2 &&
             plan_document.at("after").at("regions").size() == 1,
         "before or after layout is missing"
     );
@@ -249,6 +255,21 @@ void test_storage_topology_and_plan_contract() {
         "partition operations",
         partition_document.at("operations").front() == "erase-partition-signatures",
         "partition signature erasure is not explicit"
+    );
+    const auto free_plan = provisioning::DevicePreparationPlanBuilder{}.build(
+        topology,
+        topology.generation,
+        "opaque-free",
+        provisioning::ProvisioningMode::CreatePartitionInUnallocatedSpace,
+        "plan-3"
+    );
+    const Json free_document = Json::parse(codec.encode(free_plan));
+    expect_field("free-space plan", free_document, "freeRegionId", "opaque-free");
+    expect_field("free-space plan", free_document, "destructiveScope", "unallocated-region");
+    test_helpers::expect_true(
+        "free-space operations",
+        free_document.at("operations").front() == "create-backup-partition",
+        "free-space partition creation is not explicit"
     );
 
     const provisioning::ExistingTargetInspection inspection{
