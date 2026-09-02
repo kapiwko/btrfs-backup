@@ -77,6 +77,9 @@ class Backend final : public IBrowseSessionBackend {
     ) override {
         return btrfsbackup::platform::linux::OwnedFileDescriptor(::open("/dev/null", O_RDONLY | O_CLOEXEC));
     }
+    std::string inspect_repository(const BrowseSessionId&) override {
+        return R"({"schemaVersion":1,"repositoryId":"test"})";
+    }
     std::vector<btrfsbackup::daemon::BackupCoverage> resolve_coverage(
         const std::filesystem::path&,
         const std::vector<ProfileId>&
@@ -104,6 +107,11 @@ void test_authorized_open_and_owned_close() {
     test_helpers::expect_eq("session id", session.session_id, "browse-one");
     test_helpers::expect_true("read only", session.read_only, "session was not declared read-only");
     test_helpers::expect_true("authorization action", authorizer.actions == std::vector{ManagerAuthorizationAction::OpenBrowseSession}, "wrong authorization action");
+    test_helpers::expect_eq(
+        "repository inspection",
+        service.inspect_repository(":1.10", session.session_id),
+        R"({"schemaVersion":1,"repositoryId":"test"})"
+    );
     service.close(":1.10", session.session_id);
     test_helpers::expect_true("owned close", backend.closed == std::vector<std::string>{"browse-one"}, "backend was not closed");
     test_helpers::expect_true("close event", events.size() == 1 && events.front().reason == BrowseSessionCloseReason::Requested, "close was not audited");
@@ -138,6 +146,9 @@ void test_foreign_caller_cannot_close_session() {
     });
     expect_error("foreign open file", ManagerErrorCode::NotAuthorized, [&] {
         (void)service.open_file(":1.31", "browse-owned", "snapshot/file");
+    });
+    expect_error("foreign repository inspection", ManagerErrorCode::NotAuthorized, [&] {
+        (void)service.inspect_repository(":1.31", "browse-owned");
     });
     test_helpers::expect_true("foreign resource preserved", backend.closed.empty(), "foreign caller closed the session");
     service.close(":1.30", "browse-owned");

@@ -53,6 +53,7 @@ class IBrowseSessionBackend {
         const BrowseSessionId& session_id,
         const std::filesystem::path& relative_path
     ) = 0;
+    [[nodiscard]] virtual std::string inspect_repository(const BrowseSessionId& session_id) = 0;
     [[nodiscard]] virtual std::vector<BackupCoverage> resolve_coverage(
         const std::filesystem::path& local_path,
         const std::vector<ProfileId>& profiles
@@ -122,6 +123,10 @@ class BrowseSessionService final {
         const std::string& caller_bus_name,
         const std::string& session_id,
         const std::string& relative_path
+    );
+    [[nodiscard]] std::string inspect_repository(
+        const std::string& caller_bus_name,
+        const std::string& session_id
     );
     void close_for_caller(const std::string& caller_bus_name) noexcept;
     void expire() noexcept;

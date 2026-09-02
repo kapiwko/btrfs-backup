@@ -74,6 +74,7 @@ inline constexpr char close_browse_session[] = "CloseBrowseSession";
 inline constexpr char list_browse_directory[] = "ListBrowseDirectory";
 inline constexpr char inspect_browse_entry[] = "InspectBrowseEntry";
 inline constexpr char open_browse_file[] = "OpenBrowseFile";
+inline constexpr char inspect_browse_repository[] = "InspectBrowseRepository";
 inline constexpr char resolve_backup_coverage[] = "ResolveBackupCoverage";
 inline constexpr char list_target_credentials[] = "ListTargetCredentials";
 inline constexpr char add_target_passphrase[] = "AddTargetPassphrase";
