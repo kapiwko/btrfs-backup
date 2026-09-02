@@ -172,8 +172,8 @@ PlasmaExtras.ExpandableListItem {
         if (profileStatus.target.mounted)
             return "drive-harddisk-symbolic"
         if (profileStatus.target.unlocked)
-            return "emblem-encrypted-unlocked"
-        return "emblem-encrypted-locked"
+            return "object-unlocked-symbolic"
+        return "object-locked-symbolic"
     }
 
     function statusEmblem() {
