@@ -20,6 +20,7 @@
 #include <platform/linux/config/ProfileService.hpp>
 #include <platform/linux/filesystem/FileLock.hpp>
 #include <platform/linux/filesystem/SecretFile.hpp>
+#include <platform/linux/storage/SignatureOperations.hpp>
 
 namespace fs = std::filesystem;
 
@@ -61,6 +62,7 @@ DevicePreparationExecutor::DevicePreparationExecutor(
     CredentialAdministrationRoots roots,
     fs::path target_mount_root,
     backup::ICommandRunner& commands,
+    platform::linux::storage::ISignatureOperations& signatures,
     backup::IBtrfsOperations& btrfs,
     config::IConfigurationActivator& configuration_activator,
     ICredentialAdministrationBackend& credentials,
@@ -70,6 +72,7 @@ DevicePreparationExecutor::DevicePreparationExecutor(
 )
     : roots_(std::move(roots)),
       commands_(commands),
+      signatures_(signatures),
       btrfs_(btrfs),
       activator_(configuration_activator),
       credentials_(credentials),
@@ -131,18 +134,13 @@ void DevicePreparationExecutor::execute(const std::string& operation_id, int pas
             throw dbus::ManagerOperationError(
                 dbus::ManagerErrorCode::Conflict,
                 "selected device is not safe for destructive preparation: " + safety_reasons.front()
-            );
-        phase(operation_id, "wipe-signatures", false);
-        backup::ControlledCommandOptions standard;
-        require_success(
-            commands_,
-            {"wipefs", "--all", "--force", initial.device.path},
-            standard,
-            "wiping signatures"
         );
+        phase(operation_id, "wipe-signatures", false);
+        signatures_.wipe_all(initial.device.path, initial.device.major_minor);
         completed(operation_id, "wipe-signatures");
 
         phase(operation_id, "partition", false);
+        backup::ControlledCommandOptions standard;
         const std::string table = "label: gpt\n, type=L\n";
         const auto bytes = std::as_bytes(std::span(table.data(), table.size()));
         OwnedFileDescriptor partition_input = platform::linux::filesystem::create_sealed_secret_file(bytes);

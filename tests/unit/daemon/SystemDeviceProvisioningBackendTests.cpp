@@ -12,6 +12,7 @@
 #include <daemon/control/CredentialAdministrationService.hpp>
 #include <daemon/control/DestructiveDeviceSafetyInspector.hpp>
 #include <daemon/provisioning/StorageTopologyReader.hpp>
+#include <platform/linux/storage/SignatureOperations.hpp>
 
 #include <chrono>
 #include <ranges>
@@ -59,6 +60,14 @@ class Commands final : public backup::ICommandRunner {
     ) override {
         controlled_calls.push_back(argv);
         return run(argv);
+    }
+};
+
+class Signatures final : public btrfsbackup::platform::linux::storage::ISignatureOperations {
+  public:
+    std::vector<std::pair<std::string, std::string>> calls;
+    void wipe_all(const std::filesystem::path& device, const std::string& expected_major_minor) override {
+        calls.emplace_back(device.string(), expected_major_minor);
     }
 };
 
@@ -199,6 +208,7 @@ int secret_descriptor(std::string_view secret) {
 void test_preparation_sequence_uses_descriptors_and_installs_profile() {
     const auto root = test_helpers::test_root("device-provisioning", "success");
     Commands commands;
+    Signatures signatures;
     TopologyReader topology(commands);
     Btrfs btrfs;
     Credentials credentials;
@@ -220,6 +230,7 @@ void test_preparation_sequence_uses_descriptors_and_installs_profile() {
         root / "transactions",
         topology,
         commands,
+        signatures,
         btrfs,
         activator,
         credentials,
@@ -266,14 +277,20 @@ void test_preparation_sequence_uses_descriptors_and_installs_profile() {
         std::filesystem::exists(root / "etc/profiles/test/profile.json"),
         "profile was not installed"
     );
-    const auto wipe = std::ranges::find(commands.calls, std::string("wipefs"), [](const auto& call) { return call.front(); });
     const auto partition = std::ranges::find(commands.calls, std::string("sfdisk"), [](const auto& call) { return call.front(); });
     const auto format = std::ranges::find(commands.calls, std::string("mkfs.btrfs"), [](const auto& call) { return call.front(); });
     test_helpers::expect_true(
         "destructive command order",
-        wipe != commands.calls.end() && partition != commands.calls.end() && format != commands.calls.end() &&
-            wipe < partition && partition < format,
+        signatures.calls == std::vector<std::pair<std::string, std::string>>{{"/dev/test", "8:16"}} &&
+            partition != commands.calls.end() && format != commands.calls.end() && partition < format,
         "device commands ran out of order"
+    );
+    test_helpers::expect_true(
+        "no wipefs process",
+        std::ranges::none_of(commands.calls, [](const auto& call) {
+            return !call.empty() && call.front() == "wipefs";
+        }),
+        "signature erasure invoked wipefs instead of libblkid"
     );
     test_helpers::expect_true(
         "identity checked immediately before wipe",
@@ -300,6 +317,7 @@ void test_preparation_sequence_uses_descriptors_and_installs_profile() {
 void test_exited_helper_marks_transaction_interrupted() {
     const auto root = test_helpers::test_root("device-provisioning", "helper-exited");
     Commands commands;
+    Signatures signatures;
     TopologyReader topology(commands);
     Btrfs btrfs;
     Credentials credentials;
@@ -321,6 +339,7 @@ void test_exited_helper_marks_transaction_interrupted() {
         root / "transactions",
         topology,
         commands,
+        signatures,
         btrfs,
         activator,
         credentials,
@@ -369,6 +388,7 @@ void test_exited_helper_marks_transaction_interrupted() {
 void test_replacement_before_wipe_is_rejected() {
     const auto root = test_helpers::test_root("device-provisioning", "replacement");
     Commands commands;
+    Signatures signatures;
     TopologyReader topology(commands);
     Btrfs btrfs;
     Credentials credentials;
@@ -390,6 +410,7 @@ void test_replacement_before_wipe_is_rejected() {
         root / "transactions",
         topology,
         commands,
+        signatures,
         btrfs,
         activator,
         credentials,
@@ -423,8 +444,7 @@ void test_replacement_before_wipe_is_rejected() {
     test_helpers::expect_eq("replacement state", status.state, "failed");
     test_helpers::expect_true(
         "replacement not wiped",
-        std::ranges::find(commands.calls, std::string("wipefs"), [](const auto& call) { return call.front(); }) ==
-            commands.calls.end(),
+        signatures.calls.empty(),
         "replacement device reached wipefs"
     );
 }
@@ -467,6 +487,7 @@ void test_restart_marks_active_transaction_interrupted_and_preserves_owner() {
     DevicePreparationTransactionStore(transaction_root).save(transaction);
 
     Commands commands;
+    Signatures signatures;
     TopologyReader topology(commands);
     Btrfs btrfs;
     Credentials credentials;
@@ -488,6 +509,7 @@ void test_restart_marks_active_transaction_interrupted_and_preserves_owner() {
         transaction_root,
         topology,
         commands,
+        signatures,
         btrfs,
         activator,
         credentials,
