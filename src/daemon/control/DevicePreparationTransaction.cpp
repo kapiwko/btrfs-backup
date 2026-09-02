@@ -151,6 +151,21 @@ Json target_json(const DevicePreparationTarget& target) {
             {"snapshotCount", target.expected_inspection->snapshot_count},
         };
     }
+    Json free_region = nullptr;
+    if (target.free_region.has_value()) {
+        free_region = {
+            {"startSector", target.free_region->start_sector},
+            {"sectorCount", target.free_region->sector_count},
+        };
+    }
+    Json planned_geometry = nullptr;
+    if (target.planned_partition_geometry.has_value()) {
+        planned_geometry = {
+            {"startSector", target.planned_partition_geometry->start_sector},
+            {"sectorCount", target.planned_partition_geometry->sector_count},
+            {"partitionNumber", target.planned_partition_geometry->partition_number},
+        };
+    }
     return {
         {"mode", provisioning::provisioning_mode_name(target.mode)},
         {"deviceIdentity", identity_json(target.device.identity)},
@@ -160,6 +175,8 @@ Json target_json(const DevicePreparationTarget& target) {
         {"partitionTableType", provisioning::partition_table_type_name(target.device.partition_table.type)},
         {"partitionTableId", target.device.partition_table.identifier},
         {"partition", std::move(partition)},
+        {"freeRegion", std::move(free_region)},
+        {"plannedPartitionGeometry", std::move(planned_geometry)},
         {"expectedInspection", std::move(expected_inspection)},
     };
 }
@@ -183,6 +200,8 @@ DevicePreparationTarget parse_target(const Json& value) {
         result.mode = provisioning::ProvisioningMode::ReformatExistingPartition;
     else if (mode == "adopt-existing-target")
         result.mode = provisioning::ProvisioningMode::AdoptExistingTarget;
+    else if (mode == "create-partition-in-unallocated-space")
+        result.mode = provisioning::ProvisioningMode::CreatePartitionInUnallocatedSpace;
     else
         throw ValidationError("unsupported device preparation transaction mode");
     result.device.identity = parse_identity(value.at("deviceIdentity"));
@@ -223,6 +242,21 @@ DevicePreparationTarget parse_target(const Json& value) {
             .snapshot_count = inspection.value("snapshotCount", std::size_t{0}),
         };
     }
+    if (value.contains("freeRegion") && value.at("freeRegion").is_object()) {
+        const auto& free_region = value.at("freeRegion");
+        provisioning::UnallocatedRegion parsed_free_region;
+        parsed_free_region.start_sector = free_region.value("startSector", std::uint64_t{0});
+        parsed_free_region.sector_count = free_region.value("sectorCount", std::uint64_t{0});
+        result.free_region = std::move(parsed_free_region);
+    }
+    if (value.contains("plannedPartitionGeometry") && value.at("plannedPartitionGeometry").is_object()) {
+        const auto& geometry = value.at("plannedPartitionGeometry");
+        result.planned_partition_geometry = provisioning::PlannedPartitionGeometry{
+            .start_sector = geometry.value("startSector", std::uint64_t{0}),
+            .sector_count = geometry.value("sectorCount", std::uint64_t{0}),
+            .partition_number = geometry.value("partitionNumber", std::uint32_t{0}),
+        };
+    }
     if (result.device.identity.major_minor.empty() || result.device.identity.sysfs_path.empty() ||
         result.device.identity.size_bytes == 0 || result.device.logical_sector_size == 0 ||
         result.device.transport.empty() ||
@@ -232,14 +266,18 @@ DevicePreparationTarget parse_target(const Json& value) {
         (result.mode == provisioning::ProvisioningMode::AdoptExistingTarget &&
          (!result.expected_inspection.has_value() || result.expected_inspection->luks_uuid.empty() ||
           result.expected_inspection->btrfs_uuid.empty() || result.expected_inspection->partition_uuid.empty() ||
-          result.expected_inspection->repository_id.empty())))
+          result.expected_inspection->repository_id.empty())) ||
+        (result.mode == provisioning::ProvisioningMode::CreatePartitionInUnallocatedSpace &&
+         (!result.free_region.has_value() || result.free_region->sector_count == 0 ||
+          !result.planned_partition_geometry.has_value() || result.planned_partition_geometry->sector_count == 0 ||
+          result.planned_partition_geometry->partition_number == 0)))
         throw ValidationError("incomplete device preparation target snapshot");
     return result;
 }
 
 Json transaction_json(const DevicePreparationTransaction& transaction) {
     return {
-        {"schemaVersion", 4},
+        {"schemaVersion", 5},
         {"operationId", transaction.status.operation_id},
         {"profileId", transaction.status.profile_id},
         {"state", transaction.status.state},
@@ -272,7 +310,7 @@ Json transaction_json(const DevicePreparationTransaction& transaction) {
 
 DevicePreparationTransaction parse_transaction(const Json& value) {
     const int schema_version = value.value("schemaVersion", 0);
-    if (!value.is_object() || schema_version != 4 || !value.contains("device"))
+    if (!value.is_object() || schema_version != 5 || !value.contains("device"))
         throw ValidationError("invalid device preparation transaction");
     DevicePreparationTransaction result;
     result.status = {

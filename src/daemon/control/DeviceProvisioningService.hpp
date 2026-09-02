@@ -66,6 +66,8 @@ struct DevicePreparationTarget {
     provisioning::ProvisioningMode mode = provisioning::ProvisioningMode::EraseWholeDevice;
     provisioning::StorageDevice device;
     std::optional<provisioning::ExistingPartition> partition;
+    std::optional<provisioning::UnallocatedRegion> free_region;
+    std::optional<provisioning::PlannedPartitionGeometry> planned_partition_geometry;
     std::optional<provisioning::ExistingTargetInspectionSummary> expected_inspection;
 };
 
