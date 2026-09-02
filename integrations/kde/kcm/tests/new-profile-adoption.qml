@@ -45,6 +45,7 @@ Item {
         property var topology: ({generation: "topology-1", devices: devices})
         property var inspection: ({
             inspectionId: "inspection-1",
+            classification: "compatible-repository",
             repositoryId: "repository-1",
             snapshotCount: 3
         })

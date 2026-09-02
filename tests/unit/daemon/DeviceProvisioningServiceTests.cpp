@@ -50,6 +50,8 @@ class Backend final : public IDeviceProvisioningBackend {
     std::vector<std::string>* events = nullptr;
     btrfsbackup::daemon::control::DevicePreparationOwner owner;
     btrfsbackup::daemon::control::DevicePreparationTarget target;
+    btrfsbackup::daemon::provisioning::ExistingTargetClassification inspection_classification =
+        btrfsbackup::daemon::provisioning::ExistingTargetClassification::CompatibleRepository;
     std::vector<std::string> list_source_candidates() override {
         return {"/home"};
     }
@@ -67,10 +69,18 @@ class Backend final : public IDeviceProvisioningBackend {
         target = received_target;
         received_fd = passphrase_fd;
         return {
+            .classification = inspection_classification,
+            .diagnostic_code = inspection_classification ==
+                    btrfsbackup::daemon::provisioning::ExistingTargetClassification::CompatibleRepository
+                ? ""
+                : "repository-not-found",
             .luks_uuid = "luks-uuid",
             .btrfs_uuid = "btrfs-uuid",
             .partition_uuid = "part-uuid",
-            .repository_id = "repository-1",
+            .repository_id = inspection_classification ==
+                    btrfsbackup::daemon::provisioning::ExistingTargetClassification::CompatibleRepository
+                ? "repository-1"
+                : "",
             .catalog_generation = 7,
             .snapshot_count = 2,
         };
@@ -404,6 +414,38 @@ void test_existing_target_inspection_is_caller_bound_and_invalidated_by_rescan()
     authorizer.allowed = true;
     static_cast<void>(service.inspect_storage_topology(":1.30"));
 }
+
+void test_non_adoptable_inspection_has_no_reusable_token() {
+    Authorizer authorizer;
+    Backend backend;
+    backend.inspection_classification =
+        btrfsbackup::daemon::provisioning::ExistingTargetClassification::EmptyFilesystem;
+    TopologyReader reader;
+    DeviceProvisioningService service(authorizer, backend, std::chrono::minutes(5), {}, {}, &reader);
+    const auto topology = service.inspect_storage_topology(":1.40");
+    const auto& partition = std::get<ExistingPartition>(topology.devices.front().regions.front());
+    const auto inspection = service.inspect_existing_target(
+        ":1.40",
+        topology.generation,
+        partition.candidate_id,
+        23
+    );
+    test_helpers::expect_true(
+        "non-adoptable inspection",
+        inspection.inspection_id.empty() && !inspection.target.adoptable(),
+        "non-adoptable target received a reusable inspection token"
+    );
+    try {
+        static_cast<void>(service.build_device_preparation_plan(
+            ":1.40",
+            topology.generation,
+            partition.candidate_id,
+            ProvisioningMode::AdoptExistingTarget,
+            inspection.inspection_id
+        ));
+        test_helpers::fail("non-adoptable plan", "an empty target produced an adoption plan");
+    } catch (const btrfsbackup::daemon::dbus::ManagerOperationError&) {}
+}
 } // namespace
 
 int main() {
@@ -411,5 +453,6 @@ int main() {
     test_invalid_request_is_rejected_before_backend();
     test_topology_and_plan_are_caller_bound_and_revalidated();
     test_existing_target_inspection_is_caller_bound_and_invalidated_by_rescan();
+    test_non_adoptable_inspection_has_no_reusable_token();
     return test_helpers::finish("device provisioning service tests");
 }

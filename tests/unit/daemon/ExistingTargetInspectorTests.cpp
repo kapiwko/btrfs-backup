@@ -144,10 +144,12 @@ void test_closes_mapper_when_filesystem_is_not_btrfs() {
     Mounts mounts(calls);
     Btrfs btrfs;
     bb::daemon::control::ExistingTargetInspector inspector(cryptsetup, metadata, mounts, btrfs);
-    try {
-        (void)inspector.inspect(partition(), "inspection-test", root, 8);
-        test_helpers::fail("non-Btrfs target", "inspection accepted a non-Btrfs filesystem");
-    } catch (const bb::ValidationError&) {}
+    const auto summary = inspector.inspect(partition(), "inspection-test", root, 8);
+    test_helpers::expect_true(
+        "non-Btrfs classification",
+        summary.classification == bb::daemon::provisioning::ExistingTargetClassification::NotBtrfsFilesystem,
+        "non-Btrfs target was not classified"
+    );
     test_helpers::expect_eq("failed inspection closes mapper", calls.back(), "close:inspection-test");
     test_helpers::expect_true(
         "failed inspection does not mount",
@@ -156,10 +158,68 @@ void test_closes_mapper_when_filesystem_is_not_btrfs() {
     );
 }
 
+void test_classifies_repositoryless_btrfs_filesystems() {
+    const auto inspect = [](const fs::path& root) {
+        std::vector<std::string> calls;
+        Cryptsetup cryptsetup(calls);
+        Metadata metadata;
+        Mounts mounts(calls);
+        Btrfs btrfs;
+        bb::daemon::control::ExistingTargetInspector inspector(cryptsetup, metadata, mounts, btrfs);
+        return inspector.inspect(partition(), "inspection-test", root, 8);
+    };
+
+    const fs::path empty = test_helpers::test_root("existing-target-inspector", "empty");
+    const auto empty_summary = inspect(empty);
+    test_helpers::expect_true(
+        "empty Btrfs classification",
+        empty_summary.classification == bb::daemon::provisioning::ExistingTargetClassification::EmptyFilesystem,
+        "empty Btrfs target was not classified"
+    );
+
+    const fs::path legacy = test_helpers::test_root("existing-target-inspector", "legacy");
+    fs::create_directories(legacy / "default/snapshots/home");
+    const auto legacy_summary = inspect(legacy);
+    test_helpers::expect_true(
+        "legacy classification",
+        legacy_summary.classification == bb::daemon::provisioning::ExistingTargetClassification::LegacyRepository,
+        "legacy target was not recognized"
+    );
+
+    const fs::path foreign = test_helpers::test_root("existing-target-inspector", "foreign");
+    test_helpers::write_file(foreign / "unrelated.txt", "data");
+    const auto foreign_summary = inspect(foreign);
+    test_helpers::expect_true(
+        "foreign classification",
+        foreign_summary.classification == bb::daemon::provisioning::ExistingTargetClassification::ForeignOrInvalidRepository,
+        "foreign target was not rejected"
+    );
+}
+
+void test_classifies_unsupported_repository_format() {
+    const fs::path root = test_helpers::test_root("existing-target-inspector", "unsupported");
+    test_helpers::write_file(root / "repository.json", R"({"schemaVersion": 99})");
+    std::vector<std::string> calls;
+    Cryptsetup cryptsetup(calls);
+    Metadata metadata;
+    Mounts mounts(calls);
+    Btrfs btrfs;
+    bb::daemon::control::ExistingTargetInspector inspector(cryptsetup, metadata, mounts, btrfs);
+    const auto summary = inspector.inspect(partition(), "inspection-test", root, 8);
+    test_helpers::expect_true(
+        "unsupported repository classification",
+        summary.classification == bb::daemon::provisioning::ExistingTargetClassification::UnsupportedRepository &&
+            summary.diagnostic_code == "repository-format-unsupported",
+        "unsupported repository format was not classified"
+    );
+}
+
 } // namespace
 
 int main() {
     test_inspects_and_closes_read_only_session();
     test_closes_mapper_when_filesystem_is_not_btrfs();
+    test_classifies_repositoryless_btrfs_filesystems();
+    test_classifies_unsupported_repository_format();
     return test_helpers::finish("existing target inspector tests");
 }

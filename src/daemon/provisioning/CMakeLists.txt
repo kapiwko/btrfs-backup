@@ -4,6 +4,7 @@
 
 add_library(btrfsbackup-daemon-provisioning STATIC
     DevicePreparationPlan.cpp
+    ExistingTargetInspection.cpp
     DevicePreparationPlanBuilder.cpp
     StorageSafetyInspector.cpp
     StorageTopology.cpp

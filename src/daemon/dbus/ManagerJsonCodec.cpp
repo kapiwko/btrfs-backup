@@ -350,6 +350,8 @@ std::string ManagerJsonCodec::encode(const provisioning::ExistingTargetInspectio
         {"topologyGeneration", inspection.topology_generation},
         {"deviceId", inspection.device_id},
         {"partitionId", inspection.partition_id},
+        {"classification", provisioning::existing_target_classification_name(inspection.target.classification)},
+        {"diagnosticCode", inspection.target.diagnostic_code},
         {"luksUuid", inspection.target.luks_uuid},
         {"btrfsUuid", inspection.target.btrfs_uuid},
         {"partitionUuid", inspection.target.partition_uuid},
