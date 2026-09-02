@@ -6,6 +6,7 @@
 #include <sys/random.h>
 
 #include <array>
+#include <algorithm>
 #include <cerrno>
 #include <filesystem>
 #include <iomanip>
@@ -93,11 +94,12 @@ provisioning::StorageTopology DeviceProvisioningService::inspect_storage_topolog
     expire_candidates(now);
     std::erase_if(topologies_, [&](const auto& item) { return item.second.caller == caller; });
     std::erase_if(plans_, [&](const auto& item) { return item.second.caller == caller; });
+    std::erase_if(inspections_, [&](const auto& item) { return item.second.caller == caller; });
     std::set<std::string> allocated_ids;
     const auto allocate_id = [&] {
         for (int attempt = 0; attempt < 16; ++attempt) {
             std::string id = candidate_ids_();
-            if (!id.empty() && !plans_.contains(id) && allocated_ids.insert(id).second)
+            if (!id.empty() && !plans_.contains(id) && !inspections_.contains(id) && allocated_ids.insert(id).second)
                 return id;
         }
         throw dbus::ManagerOperationError(dbus::ManagerErrorCode::Conflict, "cannot allocate a storage candidate identifier");
@@ -123,11 +125,86 @@ provisioning::StorageTopology DeviceProvisioningService::inspect_storage_topolog
     return topology;
 }
 
+provisioning::ExistingTargetInspection DeviceProvisioningService::inspect_existing_target(
+    const std::string& caller,
+    const provisioning::TopologyGeneration& expected_generation,
+    const provisioning::PartitionCandidateId& partition_id,
+    int credential_fd
+) {
+    if (expected_generation.empty() || partition_id.empty() || credential_fd < 0)
+        throw ValidationError("existing target inspection request is incomplete");
+    authorize(caller, manager_protocol::method::inspect_existing_target);
+    if (topology_reader_ == nullptr)
+        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::NotFound, "storage topology is unavailable");
+    const auto expected = find_topology(caller, expected_generation);
+    provisioning::DevicePreparationPlan validation_plan;
+    validation_plan.topology_generation = expected_generation;
+    validation_plan.mode = provisioning::ProvisioningMode::AdoptExistingTarget;
+    validation_plan.partition_id = partition_id;
+    validation_plan.destructive_scope.kind = provisioning::DestructiveScopeKind::ExistingPartition;
+    validation_plan.destructive_scope.partition_id = partition_id;
+    for (const auto& device : expected.devices) {
+        const bool found = std::ranges::any_of(device.regions, [&](const auto& region) {
+            const auto* partition = std::get_if<provisioning::ExistingPartition>(&region);
+            return partition != nullptr && partition->candidate_id == partition_id;
+        });
+        if (found) {
+            validation_plan.device_id = device.candidate_id;
+            validation_plan.destructive_scope.device_id = device.candidate_id;
+            break;
+        }
+    }
+    if (validation_plan.device_id.empty())
+        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::NotFound, "storage partition candidate is unavailable");
+    const DevicePreparationTarget target = planned_target(expected, validation_plan);
+    if (!target.partition->suitable_for_adoption)
+        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::Conflict, "storage partition cannot be adopted");
+    const auto inspect_safety = [&](const provisioning::StorageTopology& current) {
+        const auto blockers = storage_safety_inspector_.inspect(expected, current, validation_plan);
+        if (!blockers.empty())
+            throw dbus::ManagerOperationError(
+                dbus::ManagerErrorCode::Conflict,
+                "existing target safety check failed: " + blockers.front().code
+            );
+    };
+    inspect_safety(topology_reader_->scan());
+    const auto summary = backend_.inspect_existing_target(target, credential_fd);
+    inspect_safety(topology_reader_->scan());
+
+    const auto now = clock_();
+    std::lock_guard lock(candidates_mutex_);
+    expire_candidates(now);
+    const auto snapshot = topologies_.find(caller);
+    if (snapshot == topologies_.end() || snapshot->second.topology.generation != expected_generation)
+        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::NotFound, "storage topology is unavailable or expired");
+    std::string inspection_id;
+    for (int attempt = 0; attempt < 16 && inspection_id.empty(); ++attempt) {
+        std::string candidate = candidate_ids_();
+        if (!candidate.empty() && !inspections_.contains(candidate) && !plans_.contains(candidate))
+            inspection_id = std::move(candidate);
+    }
+    if (inspection_id.empty())
+        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::Conflict, "cannot allocate a target inspection identifier");
+    provisioning::ExistingTargetInspection inspection{
+        .inspection_id = inspection_id,
+        .topology_generation = expected_generation,
+        .device_id = validation_plan.device_id,
+        .partition_id = partition_id,
+        .target = summary,
+    };
+    inspections_.insert_or_assign(
+        inspection_id,
+        StoredInspection{inspection, caller, now + candidate_lifetime_}
+    );
+    return inspection;
+}
+
 provisioning::DevicePreparationPlan DeviceProvisioningService::build_device_preparation_plan(
     const std::string& caller,
     const provisioning::TopologyGeneration& expected_generation,
     const std::string& selected_candidate_id,
-    provisioning::ProvisioningMode mode
+    provisioning::ProvisioningMode mode,
+    const std::string& inspection_id
 ) {
     authorize(caller, manager_protocol::method::build_device_preparation_plan);
     if (topology_reader_ == nullptr || expected_generation.empty() || selected_candidate_id.empty())
@@ -141,10 +218,22 @@ provisioning::DevicePreparationPlan DeviceProvisioningService::build_device_prep
         throw dbus::ManagerOperationError(dbus::ManagerErrorCode::NotFound, "storage topology is unavailable or expired");
     if (current.generation != expected_generation)
         throw dbus::ManagerOperationError(dbus::ManagerErrorCode::Conflict, "storage topology changed");
+    std::optional<std::string> validated_inspection_id;
+    if (mode == provisioning::ProvisioningMode::AdoptExistingTarget) {
+        const auto inspection = inspections_.find(inspection_id);
+        if (inspection == inspections_.end() || inspection->second.caller != caller ||
+            inspection->second.inspection.topology_generation != expected_generation ||
+            inspection->second.inspection.partition_id != selected_candidate_id)
+            throw dbus::ManagerOperationError(
+                dbus::ManagerErrorCode::NotFound,
+                "existing target inspection is unavailable or expired"
+            );
+        validated_inspection_id = inspection_id;
+    }
     std::string plan_id;
     for (int attempt = 0; attempt < 16 && plan_id.empty(); ++attempt) {
         std::string candidate = candidate_ids_();
-        if (!candidate.empty() && !plans_.contains(candidate))
+        if (!candidate.empty() && !plans_.contains(candidate) && !inspections_.contains(candidate))
             plan_id = std::move(candidate);
     }
     if (plan_id.empty())
@@ -154,7 +243,8 @@ provisioning::DevicePreparationPlan DeviceProvisioningService::build_device_prep
         expected_generation,
         selected_candidate_id,
         mode,
-        plan_id
+        plan_id,
+        std::move(validated_inspection_id)
     );
     plans_.insert_or_assign(plan_id, StoredPlan{plan, caller, now + candidate_lifetime_});
     return plan;
@@ -190,6 +280,7 @@ void DeviceProvisioningService::authorize_owner_or_admin(
 void DeviceProvisioningService::expire_candidates(std::chrono::steady_clock::time_point now) {
     std::erase_if(topologies_, [&](const auto& item) { return item.second.expires_at <= now; });
     std::erase_if(plans_, [&](const auto& item) { return item.second.expires_at <= now; });
+    std::erase_if(inspections_, [&](const auto& item) { return item.second.expires_at <= now; });
 }
 
 provisioning::DevicePreparationPlan DeviceProvisioningService::find_plan(

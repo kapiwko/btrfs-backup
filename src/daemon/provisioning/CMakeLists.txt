@@ -13,6 +13,7 @@ target_restricted_include_directories(btrfsbackup-daemon-provisioning
     PUBLIC_HEADERS
         daemon/provisioning/DevicePreparationPlan.hpp
         daemon/provisioning/DevicePreparationPlanBuilder.hpp
+        daemon/provisioning/ExistingTargetInspection.hpp
         daemon/provisioning/StorageSafetyInspector.hpp
         daemon/provisioning/StorageTopology.hpp
         daemon/provisioning/StorageTopologyReader.hpp

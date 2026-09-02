@@ -33,6 +33,7 @@ namespace btrfsbackup::daemon::control {
 class ICredentialAdministrationBackend;
 class IDestructiveDeviceSafetyInspector;
 class IDevicePreparationUnitController;
+class IExistingTargetInspector;
 struct CredentialAdministrationRoots;
 
 class SystemDeviceProvisioningBackend final : public IDeviceProvisioningBackend {
@@ -53,7 +54,9 @@ class SystemDeviceProvisioningBackend final : public IDeviceProvisioningBackend 
         ICredentialAdministrationBackend& credentials,
         IDestructiveDeviceSafetyInspector& safety_inspector,
         IDevicePreparationUnitController& units,
-        bool recover_existing = true
+        bool recover_existing = true,
+        IExistingTargetInspector* existing_target_inspector = nullptr,
+        std::filesystem::path inspection_mount_root = {}
     );
     ~SystemDeviceProvisioningBackend() noexcept override;
 
@@ -61,6 +64,10 @@ class SystemDeviceProvisioningBackend final : public IDeviceProvisioningBackend 
     [[nodiscard]] std::vector<std::string> inspect_safety(
         const DevicePreparationTarget& target
     ) const override;
+    [[nodiscard]] provisioning::ExistingTargetInspectionSummary inspect_existing_target(
+        const DevicePreparationTarget& target,
+        int credential_fd
+    ) override;
     [[nodiscard]] DevicePreparationStatus start(
         const DevicePreparationRequest& request,
         const DevicePreparationTarget& target,

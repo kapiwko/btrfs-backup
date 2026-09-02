@@ -62,7 +62,7 @@ ExistingTargetInspector::ExistingTargetInspector(
     : cryptsetup_(cryptsetup), metadata_(metadata), mounts_(mounts), btrfs_(btrfs) {
 }
 
-ExistingTargetInspectionSummary ExistingTargetInspector::inspect(
+provisioning::ExistingTargetInspectionSummary ExistingTargetInspector::inspect(
     const provisioning::ExistingPartition& partition,
     const std::string& mapper_name,
     const std::filesystem::path& mount_point,
@@ -75,7 +75,7 @@ ExistingTargetInspectionSummary ExistingTargetInspector::inspect(
         throw ValidationError("LUKS2 identity changed before existing target inspection");
     bool opened = false;
     bool mounted = false;
-    std::optional<ExistingTargetInspectionSummary> summary;
+    std::optional<provisioning::ExistingTargetInspectionSummary> summary;
     std::exception_ptr pending;
     try {
         cryptsetup_.open_luks2_read_only(device, mapper_name, credential_fd);
@@ -100,7 +100,7 @@ ExistingTargetInspectionSummary ExistingTargetInspector::inspect(
         const auto repository = discovery.discover(mount_point);
         if (repository.identity().target_filesystem_uuid != mapped.filesystem_uuid)
             throw ValidationError("repository filesystem identity does not match the existing target");
-        summary = ExistingTargetInspectionSummary{
+        summary = provisioning::ExistingTargetInspectionSummary{
             .luks_uuid = luks.uuid,
             .btrfs_uuid = mapped.filesystem_uuid,
             .partition_uuid = partition.partition_uuid.value_or(std::string{}),

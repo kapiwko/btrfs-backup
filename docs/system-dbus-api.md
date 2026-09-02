@@ -61,6 +61,7 @@ schema versions are not advertised as public API versions.
 | `GenerateTargetKey` | `(s profileId, h authorization, s label, b automatic)` | `(s)` | generates a protected key without returning its bytes |
 | `RemoveTargetCredential` | `(s profileId, s credentialId, h authorization)` | `(s)` | removes a managed non-automatic keyslot, never the last slot |
 | `InspectStorageTopology` | `()` | `(s)` | caller-bound device, partition, and unallocated-region snapshot |
+| `InspectExistingTarget` | `(s request, h credential)` | `(s)` | opens a caller-selected LUKS2 partition read-only and returns a short-lived repository inspection |
 | `BuildDevicePreparationPlan` | `(s request)` | `(s)` | revalidates topology and creates a caller-bound whole-device or existing-partition before/after plan |
 | `ListSourceCandidates` | `()` | `(s)` | mounted Btrfs subvolumes eligible as an initial source |
 | `StartDevicePreparation` | `(s request, h passphrase)` | `(s)` | starts an asynchronous destructive device-preparation operation |
@@ -111,6 +112,13 @@ to the caller and a short-lived topology generation. The second method rescans
 storage, rejects a changed generation, and returns a stored before/after plan.
 It does not authorize a write and does not replace the separate preparation
 authorization and revalidation performed immediately before execution.
+
+API minor version 6 adds `InspectExistingTarget`. Its request contains only the
+topology generation and opaque partition candidate; the credential is supplied
+as a Unix file descriptor. The manager compares the topology before and after
+the read-only LUKS2/Btrfs inspection and returns a caller-bound, expiring
+`inspectionId`. The mapper and mount are closed before the response is sent,
+and the stored inspection contains no credential material.
 
 The `target-storage-usage` feature is part of the current major-version
 baseline. The device-state parent remains schema version 1 and may contain this

@@ -60,6 +60,21 @@ class Backend final : public IDeviceProvisioningBackend {
             events->push_back("inspect");
         return safety_reasons;
     }
+    btrfsbackup::daemon::provisioning::ExistingTargetInspectionSummary inspect_existing_target(
+        const btrfsbackup::daemon::control::DevicePreparationTarget& received_target,
+        int passphrase_fd
+    ) override {
+        target = received_target;
+        received_fd = passphrase_fd;
+        return {
+            .luks_uuid = "luks-uuid",
+            .btrfs_uuid = "btrfs-uuid",
+            .partition_uuid = "part-uuid",
+            .repository_id = "repository-1",
+            .catalog_generation = 7,
+            .snapshot_count = 2,
+        };
+    }
     DevicePreparationStatus start(
         const DevicePreparationRequest& request,
         const btrfsbackup::daemon::control::DevicePreparationTarget& received_target,
@@ -99,8 +114,9 @@ class TopologyReader final : public StorageTopologyReader {
             .partition_number = 1,
             .start_sector = 1,
             .sector_count = 1,
-            .filesystem = {.type = "ext4"},
+            .filesystem = {.type = "crypto_LUKS", .uuid = "luks-uuid"},
             .suitable_for_reformat = true,
+            .suitable_for_adoption = true,
         };
         if (partition_mounted) {
             partition.mount_points = {"/media/target"};
@@ -312,11 +328,70 @@ void test_topology_and_plan_are_caller_bound_and_revalidated() {
     } catch (const btrfsbackup::daemon::dbus::ManagerOperationError&) {
     }
 }
+
+void test_existing_target_inspection_is_caller_bound_and_invalidated_by_rescan() {
+    Authorizer authorizer;
+    Backend backend;
+    TopologyReader reader;
+    int sequence = 0;
+    DeviceProvisioningService service(
+        authorizer,
+        backend,
+        std::chrono::minutes(5),
+        [&] { return "inspection-" + std::to_string(++sequence); },
+        {},
+        &reader
+    );
+    const auto topology = service.inspect_storage_topology(":1.30");
+    const auto& partition = std::get<ExistingPartition>(topology.devices.front().regions.front());
+    const auto inspection = service.inspect_existing_target(
+        ":1.30",
+        topology.generation,
+        partition.candidate_id,
+        23
+    );
+    test_helpers::expect_true("inspection id", !inspection.inspection_id.empty(), "inspection ID is empty");
+    test_helpers::expect_eq("inspection repository", inspection.target.repository_id, "repository-1");
+    test_helpers::expect_true("inspection descriptor", backend.received_fd == 23, "credential descriptor was not forwarded");
+    test_helpers::expect_true(
+        "inspection target",
+        backend.target.mode == ProvisioningMode::AdoptExistingTarget && backend.target.partition.has_value(),
+        "adoption target did not reach backend"
+    );
+    const auto plan = service.build_device_preparation_plan(
+        ":1.30",
+        topology.generation,
+        partition.candidate_id,
+        ProvisioningMode::AdoptExistingTarget,
+        inspection.inspection_id
+    );
+    test_helpers::expect_true(
+        "inspection-bound adoption plan",
+        plan.mode == ProvisioningMode::AdoptExistingTarget &&
+            plan.inspection_id == std::optional<std::string>{inspection.inspection_id} &&
+            plan.destructive_scope.kind == btrfsbackup::daemon::provisioning::DestructiveScopeKind::None &&
+            plan.before == plan.after,
+        "adoption plan is not bound to the read-only inspection"
+    );
+    authorizer.allowed = false;
+    try {
+        static_cast<void>(service.inspect_existing_target(
+            ":1.31",
+            topology.generation,
+            partition.candidate_id,
+            23
+        ));
+        test_helpers::fail("foreign inspection", "another caller inspected a topology candidate");
+    } catch (const btrfsbackup::daemon::dbus::ManagerOperationError&) {}
+    authorizer.allowed = true;
+    static_cast<void>(service.inspect_storage_topology(":1.30"));
+}
 } // namespace
 
 int main() {
     test_inspection_requires_device_authorization();
     test_invalid_request_is_rejected_before_backend();
     test_topology_and_plan_are_caller_bound_and_revalidated();
+    test_existing_target_inspection_is_caller_bound_and_invalidated_by_rescan();
     return test_helpers::finish("device provisioning service tests");
 }

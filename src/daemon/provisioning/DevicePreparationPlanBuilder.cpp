@@ -143,6 +143,31 @@ DevicePreparationPlan reformat_partition_plan(
     return result;
 }
 
+DevicePreparationPlan adopt_existing_target_plan(
+    const StorageTopology& topology,
+    const StorageDevice& device,
+    const ExistingPartition& partition,
+    DevicePreparationPlanId plan_id,
+    std::string inspection_id
+) {
+    if (!partition.suitable_for_adoption || inspection_id.empty())
+        throw ValidationError("storage partition requires a valid existing target inspection");
+    DevicePreparationPlan result;
+    result.id = std::move(plan_id);
+    result.topology_generation = topology.generation;
+    result.mode = ProvisioningMode::AdoptExistingTarget;
+    result.device_id = device.candidate_id;
+    result.partition_id = partition.candidate_id;
+    result.inspection_id = std::move(inspection_id);
+    result.before = current_layout(device);
+    result.after = result.before;
+    result.operations = {VerifyPreparedTarget{}, PublishProfile{}};
+    result.destructive_scope.kind = DestructiveScopeKind::None;
+    result.destructive_scope.device_id = device.candidate_id;
+    result.destructive_scope.partition_id = partition.candidate_id;
+    return result;
+}
+
 } // namespace
 
 DevicePreparationPlan DevicePreparationPlanBuilder::build(
@@ -150,30 +175,41 @@ DevicePreparationPlan DevicePreparationPlanBuilder::build(
     const TopologyGeneration& expected_generation,
     const std::string& selected_candidate_id,
     ProvisioningMode mode,
-    DevicePreparationPlanId plan_id
+    DevicePreparationPlanId plan_id,
+    std::optional<std::string> inspection_id
 ) const {
     if (topology.generation.empty() || topology.generation != expected_generation)
         throw ValidationError("storage topology generation changed");
     if (plan_id.empty())
         throw ValidationError("device preparation plan identifier is empty");
+    if (mode == ProvisioningMode::AdoptExistingTarget && !inspection_id.has_value())
+        throw ValidationError("existing target inspection identifier is required");
     if (mode == ProvisioningMode::EraseWholeDevice) {
         const auto device = std::ranges::find(topology.devices, selected_candidate_id, &StorageDevice::candidate_id);
         if (device == topology.devices.end())
             throw ValidationError("storage device candidate is unavailable");
         return erase_whole_device_plan(topology, *device, std::move(plan_id));
     }
-    if (mode == ProvisioningMode::ReformatExistingPartition) {
+    if (mode == ProvisioningMode::ReformatExistingPartition || mode == ProvisioningMode::AdoptExistingTarget) {
         for (const auto& device : topology.devices) {
             const auto region = std::ranges::find_if(device.regions, [&](const StorageRegion& value) {
                 const auto* partition = std::get_if<ExistingPartition>(&value);
                 return partition != nullptr && partition->candidate_id == selected_candidate_id;
             });
-            if (region != device.regions.end())
+            if (region != device.regions.end() && mode == ProvisioningMode::ReformatExistingPartition)
                 return reformat_partition_plan(
                     topology,
                     device,
                     std::get<ExistingPartition>(*region),
                     std::move(plan_id)
+                );
+            if (region != device.regions.end() && inspection_id.has_value())
+                return adopt_existing_target_plan(
+                    topology,
+                    device,
+                    std::get<ExistingPartition>(*region),
+                    std::move(plan_id),
+                    std::move(*inspection_id)
                 );
         }
         throw ValidationError("storage partition candidate is unavailable");

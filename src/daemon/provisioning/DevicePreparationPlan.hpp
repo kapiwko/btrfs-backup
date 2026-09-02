@@ -136,6 +136,7 @@ struct DevicePreparationPlan {
     DeviceCandidateId device_id;
     std::optional<PartitionCandidateId> partition_id;
     std::optional<UnallocatedRegionId> free_region_id;
+    std::optional<std::string> inspection_id;
     StorageLayout before;
     StorageLayout after;
     std::vector<PlannedStorageOperation> operations;

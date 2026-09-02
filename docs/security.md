@@ -130,6 +130,13 @@ disabled, and `ro,nodev,nosuid,noexec,nologreplay`; the resulting mount flags
 and mountinfo entry are verified before repository metadata is read. Both the
 mount and mapper are closed before an inspection result is returned, including
 failure paths. This inspection does not format storage or modify LUKS keyslots.
+The D-Bus method accepts an opaque partition candidate and credential file
+descriptor. The manager compares the caller-owned topology both before and
+after inspection, then stores only a random, expiring inspection identifier and
+the verified storage and repository identities. A newer topology scan removes
+the caller's inspections and plans. An adoption plan must name the same caller,
+topology generation, partition candidate and inspection identifier; its
+destructive scope is `none` and its before/after layouts are identical.
 
 Preparation operation identifiers contain 128 random bits supplied by
 `getrandom()`. The manager persists the initiating D-Bus unique name and UID in

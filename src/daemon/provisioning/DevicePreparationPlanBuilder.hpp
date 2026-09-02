@@ -14,7 +14,8 @@ class DevicePreparationPlanBuilder final {
         const TopologyGeneration& expected_generation,
         const std::string& selected_candidate_id,
         ProvisioningMode mode,
-        DevicePreparationPlanId plan_id
+        DevicePreparationPlanId plan_id,
+        std::optional<std::string> inspection_id = std::nullopt
     ) const;
 };
 
