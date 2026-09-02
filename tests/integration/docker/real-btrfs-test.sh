@@ -19,6 +19,7 @@ PROVISION_LOOP=""
 SOURCE_MOUNT=/mnt/bb-real-source
 TARGET_MOUNT=/mnt/btrfs-backup/default
 TARGET_STAGING_MOUNT=/mnt/bb-real-target-staging
+PROVISION_PRESERVED_MOUNT=/mnt/bb-real-provision-preserved
 MAPPER_NAME="bb-real-target-${TEST_ROOT##*.}"
 MAPPER_PATH="/dev/mapper/$MAPPER_NAME"
 PASSPHRASE_FILE="$TEST_ROOT/luks.pass"
@@ -33,6 +34,7 @@ cleanup() {
     set +e
     umount -R "$TARGET_MOUNT" 2>/dev/null
     umount -R "$TARGET_STAGING_MOUNT" 2>/dev/null
+    umount -R "$PROVISION_PRESERVED_MOUNT" 2>/dev/null
     for _ in $(seq 1 5); do
         timeout --kill-after=1s 1s cryptsetup close "$MAPPER_NAME" 2>/dev/null && break
         sleep 0.1
@@ -41,7 +43,12 @@ cleanup() {
     [[ -n "$PROVISION_LOOP" ]] && losetup -d "$PROVISION_LOOP" 2>/dev/null
     [[ -n "$TARGET_LOOP" ]] && losetup -d "$TARGET_LOOP" 2>/dev/null
     [[ -n "$SOURCE_LOOP" ]] && losetup -d "$SOURCE_LOOP" 2>/dev/null
-    rm -rf -- "$TEST_ROOT" "$SOURCE_MOUNT" "$TARGET_MOUNT" "$TARGET_STAGING_MOUNT"
+    rm -rf -- \
+        "$TEST_ROOT" \
+        "$SOURCE_MOUNT" \
+        "$TARGET_MOUNT" \
+        "$TARGET_STAGING_MOUNT" \
+        "$PROVISION_PRESERVED_MOUNT"
 }
 trap cleanup EXIT
 
@@ -141,8 +148,13 @@ provision_existing_partition_test() {
         || fail 'loop partition nodes were not created'
     mkfs.ext4 -q -F -L PRESERVED "$first_partition"
     mkfs.ext4 -q -F -L REFORMAT "$second_partition"
+    mount "$first_partition" "$PROVISION_PRESERVED_MOUNT"
+    printf 'preserved sibling data\n' > "$PROVISION_PRESERVED_MOUNT/preserved.txt"
+    sync -f "$PROVISION_PRESERVED_MOUNT/preserved.txt"
+    umount "$PROVISION_PRESERVED_MOUNT"
     first_hash_before="$(sha256sum "$first_partition" | awk '{print $1}')"
     sfdisk --dump "$PROVISION_LOOP" > "$table_before"
+    mount -o ro "$first_partition" "$PROVISION_PRESERVED_MOUNT"
 
     cc -std=c11 -Wall -Wextra -Werror -Wpedantic \
         "$ROOT/tests/integration/DeviceProvisioningClient.c" \
@@ -151,6 +163,11 @@ provision_existing_partition_test() {
     "$client" "$second_partition" "$SOURCE_MOUNT/home" "$PASSPHRASE_FILE" > "$response"
     systemctl stop btrfs-backupd.service polkit.service
 
+    findmnt -n -M "$PROVISION_PRESERVED_MOUNT" >/dev/null \
+        || fail 'partition provisioning unmounted the sibling partition'
+    [[ "$(cat "$PROVISION_PRESERVED_MOUNT/preserved.txt")" == 'preserved sibling data' ]] \
+        || fail 'partition provisioning changed data on the mounted sibling'
+    umount "$PROVISION_PRESERVED_MOUNT"
     first_hash_after="$(sha256sum "$first_partition" | awk '{print $1}')"
     sfdisk --dump "$PROVISION_LOOP" > "$table_after"
     [[ "$first_hash_before" == "$first_hash_after" ]] \
@@ -984,10 +1001,10 @@ missing_incremental_parent_test() {
 }
 
 require_root
-require_commands awk blkid btrfs busctl cc cmp cryptsetup date dd diff dmsetup find findmnt grep journalctl ldd losetup mkfifo mkfs.btrfs mkfs.ext4 mknod mount pacman perl runuser seq sfdisk sha256sum stat systemd-escape tar tee timeout truncate udevadm useradd userdel
+require_commands awk blkid btrfs busctl cat cc cmp cryptsetup date dd diff dmsetup find findmnt grep journalctl ldd losetup mkfifo mkfs.btrfs mkfs.ext4 mknod mount pacman perl runuser seq sfdisk sha256sum stat systemd-escape tar tee timeout truncate udevadm useradd userdel
 ensure_loop_devices
 
-install -d -m0755 "$SOURCE_MOUNT" "$TARGET_MOUNT"
+install -d -m0755 "$SOURCE_MOUNT" "$TARGET_MOUNT" "$PROVISION_PRESERVED_MOUNT"
 install -d -m0700 "$LOG_DIR"
 build_and_verify_packages
 
