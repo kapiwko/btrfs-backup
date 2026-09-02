@@ -5,12 +5,17 @@
 #pragma once
 
 #include <filesystem>
+#include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include <core/Errors.hpp>
 
 namespace btrfsbackup::platform::linux::storage {
+
+[[nodiscard]] std::optional<std::string> luks_uuid_from_device_mapper_uuid(std::string_view value);
+[[nodiscard]] std::string active_luks_uuid_from_device_mapper(const std::string& mapper);
 
 class ActiveDeviceUnavailableError final : public btrfsbackup::ValidationError {
   public:

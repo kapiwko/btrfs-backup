@@ -565,9 +565,15 @@ TargetOperationResult eject_target(
                     resolved.canonical_device
                 );
             } catch (const btrfsbackup::platform::linux::storage::ActiveDeviceUnavailableError&) {
-                identity_matches = lower(resolved.cryptsetup.active_luks_uuid(
-                    profile.target.mapper_name.value()
-                )) == lower(profile.target.luks_uuid.value());
+                std::string active_uuid;
+                try {
+                    active_uuid = resolved.cryptsetup.active_luks_uuid(profile.target.mapper_name.value());
+                } catch (const btrfsbackup::ValidationError&) {
+                    active_uuid = btrfsbackup::platform::linux::storage::active_luks_uuid_from_device_mapper(
+                        profile.target.mapper_name.value()
+                    );
+                }
+                identity_matches = lower(active_uuid) == lower(profile.target.luks_uuid.value());
             }
         }
         if (!identity_matches) {

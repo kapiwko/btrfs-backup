@@ -4,6 +4,8 @@
 #include <platform/linux/storage/CryptsetupOperations.hpp>
 
 #include <libcryptsetup.h>
+#include <sys/stat.h>
+#include <sys/sysmacros.h>
 #include <unistd.h>
 
 #include <algorithm>
@@ -11,6 +13,7 @@
 #include <cctype>
 #include <cstdint>
 #include <cstring>
+#include <fstream>
 #include <memory>
 #include <ranges>
 #include <utility>
@@ -136,6 +139,46 @@ int activate_secret(
 }
 
 } // namespace
+
+std::optional<std::string> luks_uuid_from_device_mapper_uuid(std::string_view value) {
+    constexpr std::string_view luks1_prefix = "CRYPT-LUKS1-";
+    constexpr std::string_view luks2_prefix = "CRYPT-LUKS2-";
+    const std::string_view prefix = value.starts_with(luks2_prefix) ? luks2_prefix
+        : value.starts_with(luks1_prefix) ? luks1_prefix : std::string_view{};
+    if (prefix.empty() || value.size() <= prefix.size() + 32 || value[prefix.size() + 32] != '-')
+        return std::nullopt;
+    const std::string_view compact = value.substr(prefix.size(), 32);
+    if (!std::ranges::all_of(compact, [](unsigned char character) {
+            return std::isxdigit(character) != 0;
+        })) {
+        return std::nullopt;
+    }
+    return std::string(compact.substr(0, 8)) + "-" +
+        std::string(compact.substr(8, 4)) + "-" +
+        std::string(compact.substr(12, 4)) + "-" +
+        std::string(compact.substr(16, 4)) + "-" +
+        std::string(compact.substr(20, 12));
+}
+
+std::string active_luks_uuid_from_device_mapper(const std::string& mapper) {
+    validate_mapper(mapper);
+    struct stat mapper_status{};
+    const std::filesystem::path mapper_path = std::filesystem::path("/dev/mapper") / mapper;
+    if (stat(mapper_path.c_str(), &mapper_status) != 0 || !S_ISBLK(mapper_status.st_mode))
+        throw ValidationError("active LUKS mapping identity is unavailable");
+    const std::filesystem::path dm_uuid_path =
+        std::filesystem::path("/sys/dev/block") /
+        (std::to_string(major(mapper_status.st_rdev)) + ":" + std::to_string(minor(mapper_status.st_rdev))) /
+        "dm" / "uuid";
+    std::ifstream input(dm_uuid_path);
+    std::string dm_uuid;
+    if (!input || !std::getline(input, dm_uuid) || dm_uuid.size() > 255)
+        throw ValidationError("active LUKS mapping identity is unavailable");
+    const auto parsed = luks_uuid_from_device_mapper_uuid(dm_uuid);
+    if (!parsed)
+        throw ValidationError("active LUKS mapping identity is unavailable");
+    return *parsed;
+}
 
 LuksHeader CryptsetupOperations::inspect_luks2(const std::filesystem::path& device) {
     auto context = initialize(device, true);
