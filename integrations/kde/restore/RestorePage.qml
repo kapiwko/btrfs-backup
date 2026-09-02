@@ -37,19 +37,16 @@ Kirigami.Page {
             RowLayout {
                 Kirigami.FormData.label: translations.i18n("Destination:")
                 Layout.fillWidth: true
-                QQC2.TextField {
+                QQC2.Button {
                     Layout.fillWidth: true
                     text: root.controller.destination
-                    onEditingFinished: root.controller.destination = text
-                }
-                QQC2.ToolButton {
                     icon.name: "folder-open-symbolic"
-                    text: translations.i18n("Choose destination")
-                    display: QQC2.AbstractButton.IconOnly
+                    display: QQC2.AbstractButton.TextBesideIcon
                     enabled: destinationDialogLoader.item !== null
+                    Accessible.name: translations.i18n("Choose destination")
                     onClicked: destinationDialogLoader.item.open()
                     QQC2.ToolTip.visible: hovered
-                    QQC2.ToolTip.text: text
+                    QQC2.ToolTip.text: root.controller.destination
                 }
             }
 
