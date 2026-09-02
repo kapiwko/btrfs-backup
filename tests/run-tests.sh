@@ -168,7 +168,7 @@ render_test() {
     assert_contains "$output/systemd/btrfs-backup@laptop.service.d/target-mount.conf" 'RequiresMountsFor="/mnt/btrfs-backup/laptop"'
     assert_contains "$output/systemd/btrfs-backup.service" 'RequiresMountsFor="/mnt/btrfs-backup/laptop"'
     assert_contains "$output/systemd/mnt-btrfs\\x2dbackup-laptop.mount" 'Requires=btrfs-backup-target@laptop.service'
-    assert_contains "$output/systemd/mnt-btrfs\\x2dbackup-laptop.mount" 'BindsTo=dev-disk-by\\x2duuid-11111111\\x2d2222\\x2d3333\\x2d4444\\x2d555555555555.device'
+    assert_contains "$output/systemd/mnt-btrfs\\x2dbackup-laptop.mount" 'BindsTo=dev-disk-by\x2duuid-11111111\x2d2222\x2d3333\x2d4444\x2d555555555555.device'
     assert_contains "$output/systemd/mnt-btrfs\\x2dbackup-laptop.mount" 'Options=noatime,nodev,nosuid,noexec,nosymfollow,compress=zstd'
     assert_contains "$output/systemd/btrfs-backup-target@.service" 'target activate --from-service --profile %i'
     assert_contains "$output/systemd/btrfs-backup-target@.service" 'StopWhenUnneeded=yes'
