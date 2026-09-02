@@ -359,7 +359,39 @@ void merge_blockers(std::vector<SafetyBlocker>& destination, const std::vector<S
         add_blocker(destination, blocker.code, blocker.detail);
 }
 
-StorageDevice describe_disk(const RawNode& disk, const std::map<dev_t, RawNode>& nodes) {
+std::set<dev_t> system_device_numbers(const std::map<dev_t, RawNode>& nodes) {
+    std::map<std::string, dev_t> numbers_by_name;
+    std::vector<dev_t> pending;
+    for (const auto& [number, node] : nodes) {
+        numbers_by_name.insert_or_assign(node.sysname, number);
+        if (std::ranges::find(node.mount_points, "/") != node.mount_points.end())
+            pending.push_back(number);
+    }
+
+    std::set<dev_t> result;
+    while (!pending.empty()) {
+        const dev_t number = pending.back();
+        pending.pop_back();
+        if (!result.insert(number).second)
+            continue;
+        const auto node = nodes.find(number);
+        if (node == nodes.end())
+            continue;
+        if (node->second.parent != 0)
+            pending.push_back(node->second.parent);
+        for (const auto& slave : node->second.slaves) {
+            if (const auto found = numbers_by_name.find(slave); found != numbers_by_name.end())
+                pending.push_back(found->second);
+        }
+    }
+    return result;
+}
+
+StorageDevice describe_disk(
+    const RawNode& disk,
+    const std::map<dev_t, RawNode>& nodes,
+    const std::set<dev_t>& system_devices
+) {
     StorageDevice result;
     result.identity = identity(disk);
     result.candidate_id = "device-" + result.identity.major_minor;
@@ -371,6 +403,7 @@ StorageDevice describe_disk(const RawNode& disk, const std::map<dev_t, RawNode>&
     result.removable = disk.removable;
     result.read_only = disk.read_only;
     result.hotplug = disk.hotplug;
+    result.system_device = system_devices.contains(disk.number);
     result.mount_points = disk.mount_points;
     result.holders = disk.holders;
     result.active_swap = disk.active_swap;
@@ -523,6 +556,7 @@ std::string topology_fingerprint(const StorageTopology& topology) {
                   << device.identity.wwn << '\0' << device.identity.serial << '\0'
                   << device.identity.serial_short << '\0' << device.size_bytes << '\0'
                   << device.logical_sector_size << '\0' << device.physical_sector_size << '\0'
+                  << device.system_device << '\0'
                   << daemon::provisioning::partition_table_type_name(device.partition_table.type) << '\0'
                   << device.partition_table.identifier << '\0';
         append_strings(device.mount_points);
@@ -579,11 +613,12 @@ StorageTopology SystemStorageTopologyReader::scan() {
     const auto mounts = read_mounts(paths_.mountinfo);
     const auto swaps = read_swaps(paths_.swaps);
     const auto nodes = enumerate_nodes(paths_.sysfs_root, mounts, swaps);
+    const auto system_devices = system_device_numbers(nodes);
     StorageTopology result;
     for (const auto& [number, node] : nodes) {
         static_cast<void>(number);
         if (node.devtype == "disk" && node.parent == 0)
-            result.devices.push_back(describe_disk(node, nodes));
+            result.devices.push_back(describe_disk(node, nodes, system_devices));
     }
     daemon::provisioning::ConfiguredBackupTargetMarker(configured_targets_()).apply(result);
     std::ranges::sort(result.devices, {}, [](const auto& device) { return device.identity.major_minor; });

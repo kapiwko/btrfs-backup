@@ -51,12 +51,36 @@ Item {
         blockers: [],
         regions: [partition, freeRegion]
     })
+    readonly property var systemDevice: ({
+        candidateId: "system-device",
+        path: "/dev/system",
+        model: "System disk",
+        sizeBytes: 536870912,
+        logicalSectorSize: 512,
+        systemDevice: true,
+        mounted: true,
+        containsData: true,
+        blockers: [],
+        regions: []
+    })
+    readonly property var mountedDataDevice: ({
+        candidateId: "mounted-data-device",
+        path: "/dev/data",
+        model: "Mounted data disk",
+        sizeBytes: 536870912,
+        logicalSectorSize: 512,
+        systemDevice: false,
+        mounted: true,
+        containsData: true,
+        blockers: [],
+        regions: []
+    })
 
     QtObject { id: editor }
 
     QtObject {
         id: provisioning
-        property var devices: [root.device]
+        property var devices: [root.systemDevice, root.mountedDataDevice, root.device]
         property var topology: ({generation: "topology-1", devices: devices})
         property var inspection: ({})
         property var plan: ({
@@ -101,6 +125,9 @@ Item {
         repeat: false
         onTriggered: {
             if (!page.freeSpace || !page.hasPlan || !page.planMatchesSelection
+                    || page.candidateDevices.length !== 2
+                    || page.candidateDevices[0].candidateId !== "mounted-data-device"
+                    || page.candidateDevices[1].candidateId !== "device-1"
                     || page.confirmationToken !== "CREATE"
                     || page.partitionManagerUrl.toString() !== "applications:org.kde.partitionmanager.desktop") {
                 console.error("Free-space preparation page bindings are invalid")

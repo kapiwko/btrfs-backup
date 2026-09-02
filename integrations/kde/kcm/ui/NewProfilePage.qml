@@ -41,6 +41,8 @@ KCMUtils.SimpleKCM {
         && (!root.freeSpace || (root.selectedDevice !== null
             && (root.selectedDevice.blockers?.length ?? 0) === 0
             && !root.selectedDevice.mounted))
+    readonly property var candidateDevices: (root.provisioning.devices ?? []).filter(
+        device => !(device.systemDevice ?? false))
     readonly property url partitionManagerUrl: "applications:org.kde.partitionmanager.desktop"
     readonly property string inspectionClassification: root.provisioning.inspection.classification ?? ""
 
@@ -149,7 +151,7 @@ KCMUtils.SimpleKCM {
 
                 Kirigami.Heading { text: translations.i18n("Select a disk or partition"); level: 2 }
                 Repeater {
-                    model: root.provisioning.devices
+                    model: root.candidateDevices
                     QQC2.ItemDelegate {
                         id: deviceRow
                         required property var modelData
