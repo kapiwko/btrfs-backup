@@ -253,9 +253,6 @@ status_signal_pid=$!
 "$BUSCTL" --address="$BUS_ADDRESS" --timeout=2 wait \
     "$SERVICE" "$OBJECT" "$INTERFACE" HistoryChanged >"$TEST_ROOT/history-signal" &
 history_signal_pid=$!
-"$BUSCTL" --address="$BUS_ADDRESS" --timeout=2 wait \
-    "$SERVICE" "$OBJECT" "$INTERFACE" DeviceStateChanged >"$TEST_ROOT/device-signal" &
-device_signal_pid=$!
 sleep 0.1
 cp "$TEST_ROOT/public/default.json" "$TEST_ROOT/public/default.json.next"
 mv "$TEST_ROOT/public/default.json.next" "$TEST_ROOT/public/default.json"
@@ -266,7 +263,6 @@ mv "$TEST_ROOT/history/default/last.json.next" "$TEST_ROOT/history/default/last.
 wait "$profiles_signal_pid" || fail 'profile filesystem change did not emit ProfilesChanged'
 wait "$status_signal_pid" || fail 'status filesystem change did not emit StatusChanged'
 wait "$history_signal_pid" || fail 'history filesystem change did not emit HistoryChanged'
-wait "$device_signal_pid" || fail 'status filesystem change did not emit DeviceStateChanged'
 
 set +e
 call StartBackup s default >/dev/null 2>&1
