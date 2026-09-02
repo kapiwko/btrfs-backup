@@ -101,7 +101,11 @@ identifiers are read from a descriptor-backed libblkid probe instead of a
 `blkid` process. Whole-device GPT creation uses a deliberately narrow libfdisk
 adapter. It verifies `major:minor` on an `O_EXCL|O_NOFOLLOW` descriptor, holds an
 advisory device lock, uses libfdisk alignment and requires the kernel partition
-table reread to succeed. The helper verifies the chosen source as a Btrfs
+table reread to succeed. A libudev monitor is enabled before the table is
+written; completion requires a visible partition with the expected parent,
+number and geometry. Filesystem creation is verified directly with a
+descriptor-backed libblkid probe, so provisioning does not invoke `udevadm settle`.
+The helper verifies the chosen source as a Btrfs
 subvolume and disables cancellation before the first write. The long-lived manager persists
 the request and launches one
 `btrfs-backup-device-preparation@<operationId>.service` instance. That

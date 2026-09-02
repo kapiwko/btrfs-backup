@@ -383,11 +383,11 @@ void test_preparation_sequence_uses_descriptors_and_installs_profile() {
     );
     test_helpers::expect_true("safety inspection", safety.inspections == 1, "device safety was not rechecked");
     test_helpers::expect_true(
-        "udev settle checked",
-        std::ranges::count_if(commands.controlled_calls, [](const auto& call) {
-            return call == std::vector<std::string>{"udevadm", "settle", "--timeout=10"};
-        }) == 2,
-        "udev settle was not checked after partition and filesystem creation"
+        "no udev settle process",
+        std::ranges::none_of(commands.calls, [](const auto& call) {
+            return !call.empty() && call.front() == "udevadm";
+        }),
+        "device preparation invoked udevadm instead of exact library verification"
     );
     test_helpers::expect_true(
         "library topology scan",

@@ -146,7 +146,6 @@ void DevicePreparationExecutor::execute(const std::string& operation_id, int pas
         phase(operation_id, "partition", false);
         backup::ControlledCommandOptions standard;
         partition_tables_.replace_with_single_gpt_partition(initial.device.path, initial.device.major_minor);
-        require_success(commands_, {"udevadm", "settle", "--timeout=10"}, standard, "waiting for the new partition");
         const std::string partition = devices_.only_partition(initial.device);
         update(operation_id, [&](auto& transaction) {
             transaction.partition = partition;
@@ -178,7 +177,6 @@ void DevicePreparationExecutor::execute(const std::string& operation_id, int pas
             standard,
             "creating Btrfs filesystem"
         );
-        require_success(commands_, {"udevadm", "settle", "--timeout=10"}, standard, "waiting for the new filesystem");
         const auto mapper_metadata = metadata_.read(mapper_path);
         const auto partition_metadata = metadata_.read(partition);
         if (mapper_metadata.filesystem_uuid.empty())
