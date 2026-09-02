@@ -164,7 +164,7 @@ ColumnLayout {
     function stateIcon(state) {
         switch (state) {
         case "succeeded":
-            return "emblem-ok";
+            return "emblem-success";
         case "failed":
             return "dialog-error";
         case "cancelled":

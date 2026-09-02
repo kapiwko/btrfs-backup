@@ -189,7 +189,7 @@ PlasmoidItem {
         case 1: return "dialog-error"
         case 3: return "dialog-warning"
         case 5: return "media-eject"
-        case 6: return "emblem-ok-symbolic"
+        case 6: return "emblem-success"
         default: return "drive-harddisk"
         }
     }
