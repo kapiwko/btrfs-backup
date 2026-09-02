@@ -689,3 +689,60 @@ msgid_plural "%1 days ago at %2"
 msgstr[0] "1 dzień temu o %2"
 msgstr[1] "%1 dni temu o %2"
 msgstr[2] "%1 dni temu o %2"
+
+msgid "Use existing backup device"
+msgstr "Użyj istniejącego urządzenia kopii zapasowych"
+
+msgid "Adding backup device"
+msgstr "Dodawanie urządzenia kopii zapasowych"
+
+msgid "Prepare backup device"
+msgstr "Przygotuj urządzenie kopii zapasowych"
+
+msgid "Preparing backup device"
+msgstr "Przygotowywanie urządzenia kopii zapasowych"
+
+msgid "Use existing target"
+msgstr "Użyj istniejącego celu"
+
+msgid "Inspect target"
+msgstr "Sprawdź cel"
+
+msgid "Erase and prepare"
+msgstr "Wyczyść i przygotuj"
+
+msgid "Assign an existing LUKS2 and Btrfs backup repository"
+msgstr "Przypisz istniejące repozytorium kopii LUKS2 i Btrfs"
+
+msgid "After adoption"
+msgstr "Po przyjęciu"
+
+msgid "The existing repository and all data on this partition will remain unchanged."
+msgstr "Istniejące repozytorium i wszystkie dane na tej partycji pozostaną niezmienione."
+
+msgid "Existing target passphrase"
+msgstr "Hasło istniejącego celu"
+
+msgid "Repository %2 contains %1 snapshot. No data will be modified."
+msgid_plural "Repository %2 contains %1 snapshots. No data will be modified."
+msgstr[0] "Repozytorium %2 zawiera %1 migawkę. Żadne dane nie zostaną zmienione."
+msgstr[1] "Repozytorium %2 zawiera %1 migawki. Żadne dane nie zostaną zmienione."
+msgstr[2] "Repozytorium %2 zawiera %1 migawek. Żadne dane nie zostaną zmienione."
+
+msgid "The target will be opened read-only and verified before it can be assigned."
+msgstr "Przed przypisaniem cel zostanie otwarty tylko do odczytu i zweryfikowany."
+
+msgid "The existing target could not be assigned. Its data was not modified."
+msgstr "Nie udało się przypisać istniejącego celu. Jego dane nie zostały zmienione."
+
+msgid "Verifying and adding the existing backup target."
+msgstr "Weryfikowanie i dodawanie istniejącego celu kopii zapasowych."
+
+msgid "Verifying existing backup target"
+msgstr "Weryfikowanie istniejącego celu kopii zapasowych"
+
+msgid "Refresh the storage layout and select the partition again."
+msgstr "Odśwież układ pamięci masowej i ponownie wybierz partycję."
+
+msgid "A passphrase must contain between 1 and 4096 bytes."
+msgstr "Hasło musi mieć od 1 do 4096 bajtów."

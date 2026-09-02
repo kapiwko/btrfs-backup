@@ -571,6 +571,15 @@ if(BUILD_TESTING)
                 ${CMAKE_CURRENT_SOURCE_DIR}/kcm/tests/kcm-smoke.qml
         )
         add_test(
+            NAME kde-kcm-new-profile-adoption
+            COMMAND
+                ${CMAKE_COMMAND} -E env
+                QT_QPA_PLATFORM=offscreen
+                ${QML_EXECUTABLE}
+                -I ${CMAKE_BINARY_DIR}
+                ${CMAKE_CURRENT_SOURCE_DIR}/kcm/tests/new-profile-adoption.qml
+        )
+        add_test(
             NAME plasma-target-storage-usage
             COMMAND
                 ${CMAKE_COMMAND} -E env
@@ -583,6 +592,7 @@ if(BUILD_TESTING)
         set_tests_properties(
             plasma-backend-qml-smoke
             kde-kcm-qml-smoke
+            kde-kcm-new-profile-adoption
             plasma-config-qml-smoke
             plasma-target-storage-usage
             plasma-transfer-rate

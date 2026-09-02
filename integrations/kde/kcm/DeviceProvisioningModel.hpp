@@ -15,6 +15,7 @@ class DeviceProvisioningModel final : public QObject {
     Q_PROPERTY(QVariantList devices READ devices NOTIFY devicesChanged)
     Q_PROPERTY(QVariantMap topology READ topology NOTIFY topologyChanged)
     Q_PROPERTY(QVariantMap plan READ plan NOTIFY planChanged)
+    Q_PROPERTY(QVariantMap inspection READ inspection NOTIFY inspectionChanged)
     Q_PROPERTY(QVariantMap operation READ operation NOTIFY operationChanged)
     Q_PROPERTY(QStringList sourceCandidates READ sourceCandidates NOTIFY sourceCandidatesChanged)
     Q_PROPERTY(bool busy READ busy NOTIFY stateChanged)
@@ -25,6 +26,7 @@ class DeviceProvisioningModel final : public QObject {
     [[nodiscard]] QVariantList devices() const;
     [[nodiscard]] QVariantMap topology() const;
     [[nodiscard]] QVariantMap plan() const;
+    [[nodiscard]] QVariantMap inspection() const;
     [[nodiscard]] QVariantMap operation() const;
     [[nodiscard]] QStringList sourceCandidates() const;
     [[nodiscard]] bool busy() const;
@@ -32,6 +34,8 @@ class DeviceProvisioningModel final : public QObject {
 
     Q_INVOKABLE void refresh();
     Q_INVOKABLE void buildPlan(const QVariantMap& selection, const QString& mode);
+    Q_INVOKABLE void inspectExistingTarget(const QVariantMap& selection, const QString& passphrase);
+    Q_INVOKABLE void clearSelection();
     Q_INVOKABLE void start(
         const QString& profile_id,
         const QString& profile_name,
@@ -48,6 +52,7 @@ class DeviceProvisioningModel final : public QObject {
     void devicesChanged();
     void topologyChanged();
     void planChanged();
+    void inspectionChanged();
     void operationChanged();
     void sourceCandidatesChanged();
     void stateChanged();
@@ -56,6 +61,7 @@ class DeviceProvisioningModel final : public QObject {
   private:
     enum class RequestKind { Topology,
                              Sources,
+                             Inspection,
                              Plan,
                              Start,
                              Poll,
@@ -63,6 +69,7 @@ class DeviceProvisioningModel final : public QObject {
     void request(RequestKind kind, const QString& method, const QVariantList& arguments = {});
     bool applyTopology(const QString& payload);
     bool applyPlan(const QString& payload);
+    bool applyInspection(const QString& payload);
     bool applySources(const QString& payload);
     bool applyOperation(const QString& payload);
     void setError(const QString& message);
@@ -71,9 +78,11 @@ class DeviceProvisioningModel final : public QObject {
     QVariantList devices_;
     QVariantMap topology_;
     QVariantMap plan_;
+    QVariantMap inspection_;
     QVariantMap operation_;
     QStringList source_candidates_;
     QString pending_plan_path_;
+    QVariantMap pending_inspection_selection_;
     QString error_message_;
     bool busy_ = false;
 };

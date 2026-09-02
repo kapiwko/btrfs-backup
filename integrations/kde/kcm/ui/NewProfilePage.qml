@@ -15,34 +15,52 @@ KCMUtils.SimpleKCM {
     required property var editor
     required property var provisioning
     property int step: 0
+    property string workflowMode: ""
     property var selectedDevice: null
     property var selectedTarget: null
+    readonly property bool adoption: root.workflowMode === "adopt"
+    readonly property bool hasPlan: (root.provisioning.plan.planId ?? "") !== ""
 
     title: root.step === 0 ? translations.i18n("Add backup profile")
-        : root.step === 1 ? translations.i18n("Prepare backup device")
-        : translations.i18n("Preparing backup device")
+        : root.step === 1 ? (root.adoption
+            ? translations.i18n("Use existing backup device")
+            : translations.i18n("Prepare backup device"))
+        : (root.adoption
+            ? translations.i18n("Adding backup device")
+            : translations.i18n("Preparing backup device"))
 
     KI18n.KI18nContext { id: translations; translationDomain: "kcm_btrfsbackup" }
 
     actions: Kirigami.Action {
-        icon.name: "tools-wizard-symbolic"
-        text: translations.i18n("Erase and prepare")
+        icon.name: root.adoption ? "document-import-symbolic" : "tools-wizard-symbolic"
+        text: root.adoption
+            ? (root.hasPlan ? translations.i18n("Use existing target") : translations.i18n("Inspect target"))
+            : translations.i18n("Erase and prepare")
         visible: root.step === 1
         enabled: root.selectedTarget !== null && (root.selectedTarget.blockers?.length ?? 0) === 0
             && !root.selectedTarget.mounted && (root.selectedTarget.mountPoints?.length ?? 0) === 0
-            && profileId.acceptableInput
-            && profileName.text.length > 0 && sourcePath.currentIndex >= 0
-            && passphrase.text.length > 0 && passphrase.text === confirmation.text
-            && eraseConfirmation.text === "ERASE" && root.provisioning.plan.planId
-            && (root.provisioning.plan.mode === "erase-whole-device"
-                || root.provisioning.plan.mode === "reformat-existing-partition")
-            && root.provisioning.plan.displayPath === root.selectedTarget.path
+            && passphrase.text.length > 0
+            && (root.adoption && !root.hasPlan
+                || profileId.acceptableInput
+                    && profileName.text.length > 0 && sourcePath.currentIndex >= 0
+                    && (root.adoption || passphrase.text === confirmation.text)
+                    && (root.adoption || eraseConfirmation.text === "ERASE")
+                    && root.hasPlan
+                    && (root.provisioning.plan.mode === "erase-whole-device"
+                        || root.provisioning.plan.mode === "reformat-existing-partition"
+                        || root.provisioning.plan.mode === "adopt-existing-target")
+                    && root.provisioning.plan.displayPath === root.selectedTarget.path)
             && !root.provisioning.busy
         onTriggered: {
+            if (root.adoption && !root.hasPlan) {
+                root.provisioning.inspectExistingTarget(root.selectedTarget, passphrase.text)
+                return
+            }
             root.step = 2;
             root.provisioning.start(
                 profileId.text, profileName.text, sourcePath.currentText,
-                passphrase.text, confirmation.text, automaticKey.checked
+                passphrase.text, root.adoption ? passphrase.text : confirmation.text,
+                root.adoption ? false : automaticKey.checked
             );
         }
     }
@@ -55,11 +73,15 @@ KCMUtils.SimpleKCM {
             spacing: Kirigami.Units.largeSpacing
             QQC2.ItemDelegate {
                 Layout.fillWidth: true
-                enabled: false
                 contentItem: Kirigami.TitleSubtitle {
                     title: translations.i18n("Use a prepared backup device")
-                    subtitle: translations.i18n("Support for assigning an existing encrypted target will be added separately.")
+                    subtitle: translations.i18n("Assign an existing LUKS2 and Btrfs backup repository")
                     selected: false
+                }
+                onClicked: {
+                    root.workflowMode = "adopt"
+                    root.step = 1
+                    root.provisioning.refresh()
                 }
             }
             QQC2.ItemDelegate {
@@ -70,6 +92,7 @@ KCMUtils.SimpleKCM {
                     selected: false
                 }
                 onClicked: {
+                    root.workflowMode = "prepare"
                     root.step = 1;
                     root.provisioning.refresh();
                 }
@@ -103,8 +126,13 @@ KCMUtils.SimpleKCM {
                         highlighted: root.selectedTarget?.path === modelData.path
                         onClicked: {
                             root.selectedDevice = modelData
-                            root.selectedTarget = modelData
-                            root.provisioning.buildPlan(modelData, "erase-whole-device")
+                            if (root.adoption) {
+                                root.selectedTarget = null
+                                root.provisioning.clearSelection()
+                            } else {
+                                root.selectedTarget = modelData
+                                root.provisioning.buildPlan(modelData, "erase-whole-device")
+                            }
                         }
                         contentItem: Kirigami.TitleSubtitle {
                             title: (deviceRow.modelData.model || deviceRow.modelData.path)
@@ -133,14 +161,18 @@ KCMUtils.SimpleKCM {
                             required property var modelData
                             Layout.fillWidth: true
                             visible: modelData.kind === "existing-partition"
-                            enabled: visible && modelData.suitableForReformat
+                            enabled: visible && (root.adoption
+                                ? modelData.suitableForAdoption : modelData.suitableForReformat)
                                 && (modelData.blockers?.length ?? 0) === 0
                                 && (modelData.mountPoints?.length ?? 0) === 0
                                 && !root.provisioning.busy
                             highlighted: root.selectedTarget?.candidateId === modelData.candidateId
                             onClicked: {
                                 root.selectedTarget = modelData
-                                root.provisioning.buildPlan(modelData, "reformat-existing-partition")
+                                if (root.adoption)
+                                    root.provisioning.clearSelection()
+                                else
+                                    root.provisioning.buildPlan(modelData, "reformat-existing-partition")
                             }
                             contentItem: Kirigami.TitleSubtitle {
                                 title: (partitionRow.modelData.partitionLabel
@@ -169,7 +201,10 @@ KCMUtils.SimpleKCM {
                         preview: false
                         logicalSectorSize: root.provisioning.plan.before?.logicalSectorSize ?? 512
                     }
-                    Kirigami.Heading { text: translations.i18n("After preparation"); level: 3 }
+                    Kirigami.Heading {
+                        text: root.adoption ? translations.i18n("After adoption") : translations.i18n("After preparation")
+                        level: 3
+                    }
                     StorageLayout {
                         Layout.fillWidth: true
                         regions: root.provisioning.plan.after?.regions ?? []
@@ -180,7 +215,9 @@ KCMUtils.SimpleKCM {
                     QQC2.Label {
                         Layout.fillWidth: true
                         wrapMode: Text.Wrap
-                        text: root.provisioning.plan.mode === "reformat-existing-partition"
+                        text: root.provisioning.plan.mode === "adopt-existing-target"
+                            ? translations.i18n("The existing repository and all data on this partition will remain unchanged.")
+                            : root.provisioning.plan.mode === "reformat-existing-partition"
                             ? translations.i18n("Only data on the selected partition will be removed. Other partitions will remain unchanged.")
                             : translations.i18n("All existing partitions on this disk will be removed. The resulting backup target will use LUKS2 encryption and Btrfs.")
                     }
@@ -216,17 +253,21 @@ KCMUtils.SimpleKCM {
                         id: automaticKey
                         Layout.fillWidth: true
                         checked: true
+                        visible: !root.adoption
                         text: translations.i18n("Create a protected key for automatic backups")
                     }
                     QQC2.TextField {
                         id: passphrase
                         Layout.fillWidth: true
-                        placeholderText: translations.i18n("Recovery passphrase")
+                        placeholderText: root.adoption
+                            ? translations.i18n("Existing target passphrase")
+                            : translations.i18n("Recovery passphrase")
                         echoMode: TextInput.Password
                     }
                     QQC2.TextField {
                         id: confirmation
                         Layout.fillWidth: true
+                        visible: !root.adoption
                         placeholderText: translations.i18n("Confirm recovery passphrase")
                         echoMode: TextInput.Password
                     }
@@ -234,9 +275,18 @@ KCMUtils.SimpleKCM {
 
                 Kirigami.InlineMessage {
                     Layout.fillWidth: true
-                    visible: root.selectedDevice !== null
-                    type: Kirigami.MessageType.Warning
-                    text: root.provisioning.plan.mode === "reformat-existing-partition"
+                    visible: root.selectedTarget !== null
+                    type: root.adoption ? Kirigami.MessageType.Information : Kirigami.MessageType.Warning
+                    text: root.adoption
+                        ? (root.provisioning.inspection.repositoryId
+                            ? translations.i18np(
+                                "Repository %2 contains %1 snapshot. No data will be modified.",
+                                "Repository %2 contains %1 snapshots. No data will be modified.",
+                                Number(root.provisioning.inspection.snapshotCount),
+                                root.provisioning.inspection.repositoryId
+                            )
+                            : translations.i18n("The target will be opened read-only and verified before it can be assigned."))
+                        : root.provisioning.plan.mode === "reformat-existing-partition"
                         ? translations.i18n(
                             "All data on partition %1 will be permanently erased. Other partitions will remain unchanged. Type ERASE to confirm.",
                             root.selectedTarget?.path ?? ""
@@ -249,7 +299,7 @@ KCMUtils.SimpleKCM {
                 QQC2.TextField {
                     id: eraseConfirmation
                     Layout.fillWidth: true
-                    visible: root.selectedDevice !== null
+                    visible: root.selectedDevice !== null && !root.adoption
                     placeholderText: "ERASE"
                 }
             }
@@ -270,8 +320,12 @@ KCMUtils.SimpleKCM {
             QQC2.Label {
                 Layout.alignment: Qt.AlignHCenter
                 text: root.provisioning.operation.state === "failed"
-                    ? translations.i18n("Device preparation failed. The disk may require manual recovery.")
-                    : translations.i18n("Do not disconnect the device while preparation is in progress.")
+                    ? (root.adoption
+                        ? translations.i18n("The existing target could not be assigned. Its data was not modified.")
+                        : translations.i18n("Device preparation failed. The disk may require manual recovery."))
+                    : (root.adoption
+                        ? translations.i18n("Verifying and adding the existing backup target.")
+                        : translations.i18n("Do not disconnect the device while preparation is in progress."))
             }
             QQC2.Button {
                 Layout.alignment: Qt.AlignHCenter
@@ -308,6 +362,7 @@ KCMUtils.SimpleKCM {
     function phaseText(phase) {
         switch (phase) {
         case "inspect": return translations.i18n("Inspecting device")
+        case "verify-existing-target": return translations.i18n("Verifying existing backup target")
         case "wipe-signatures": return translations.i18n("Erasing existing signatures")
         case "partition": return translations.i18n("Creating partition table")
         case "luks-format": return translations.i18n("Creating LUKS2 encryption")
