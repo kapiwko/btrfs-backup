@@ -119,7 +119,7 @@ DeviceProvisioningService::DeviceProvisioningService(
 }
 
 provisioning::StorageTopology DeviceProvisioningService::inspect_storage_topology(const std::string& caller) {
-    authorize(caller, manager_protocol::method::inspect_storage_topology);
+    require_active_caller(caller);
     if (topology_reader_ == nullptr)
         throw dbus::ManagerOperationError(dbus::ManagerErrorCode::InternalError, "storage topology is unavailable");
     provisioning::StorageTopology topology = topology_reader_->scan();
@@ -167,7 +167,7 @@ provisioning::ExistingTargetInspection DeviceProvisioningService::inspect_existi
 ) {
     if (expected_generation.empty() || partition_id.empty() || credential_fd < 0)
         throw ValidationError("existing target inspection request is incomplete");
-    authorize(caller, manager_protocol::method::inspect_existing_target);
+    require_active_caller(caller);
     if (topology_reader_ == nullptr)
         throw dbus::ManagerOperationError(dbus::ManagerErrorCode::NotFound, "storage topology is unavailable");
     const auto expected = find_topology(caller, expected_generation);
@@ -246,7 +246,7 @@ provisioning::DevicePreparationPlan DeviceProvisioningService::build_device_prep
     provisioning::ProvisioningMode mode,
     const std::string& inspection_id
 ) {
-    authorize(caller, manager_protocol::method::build_device_preparation_plan);
+    require_active_caller(caller);
     if (topology_reader_ == nullptr || expected_generation.empty() || selected_candidate_id.empty())
         throw dbus::ManagerOperationError(dbus::ManagerErrorCode::NotFound, "storage topology is unavailable or expired");
     const provisioning::StorageTopology current = topology_reader_->scan();
@@ -340,8 +340,13 @@ provisioning::DevicePreparationPlan DeviceProvisioningService::build_device_prep
 }
 
 std::vector<std::string> DeviceProvisioningService::list_source_candidates(const std::string& caller) {
-    authorize(caller, manager_protocol::method::list_source_candidates);
+    require_active_caller(caller);
     return backend_.list_source_candidates();
+}
+
+void DeviceProvisioningService::require_active_caller(const std::string& caller) const {
+    if (caller.empty() || !authorizer_.caller_is_active(caller))
+        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::NotAuthorized, "operation is not authorized");
 }
 
 void DeviceProvisioningService::authorize(const std::string& caller, std::string_view method) const {

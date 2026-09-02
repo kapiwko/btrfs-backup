@@ -178,6 +178,7 @@ class DeviceProvisioningService final {
         const provisioning::TopologyGeneration& generation
     );
     void expire_candidates(std::chrono::steady_clock::time_point now);
+    void require_active_caller(const std::string& caller) const;
     void authorize(const std::string& caller, std::string_view method) const;
     void authorize_owner_or_admin(
         const std::string& caller,

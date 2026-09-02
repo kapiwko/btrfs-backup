@@ -108,6 +108,7 @@ class CredentialAdministrationService {
     );
 
   private:
+    void require_active_caller(const std::string& caller) const;
     void authorize(const std::string& caller, std::string_view method) const;
     static std::string require_label(const std::string& label);
 

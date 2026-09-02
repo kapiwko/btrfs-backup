@@ -19,6 +19,7 @@ using btrfsbackup::daemon::control::TargetCredential;
 class Authorizer final : public IManagerAuthorizer {
   public:
     bool allowed = true;
+    bool active = true;
     std::vector<ManagerAuthorizationAction> actions;
 
     bool authorize(const std::string&, ManagerAuthorizationAction action) override {
@@ -26,7 +27,7 @@ class Authorizer final : public IManagerAuthorizer {
         return allowed;
     }
     bool caller_is_active(const std::string&) override {
-        return true;
+        return active;
     }
 };
 
@@ -71,18 +72,14 @@ class Backend final : public ICredentialAdministrationBackend {
     }
 };
 
-void test_listing_requires_credential_authorization() {
+void test_listing_requires_only_an_active_caller() {
     Authorizer authorizer;
     Backend backend;
     const auto result = CredentialAdministrationService(authorizer, backend).list_credentials(":1.1", "default");
     test_helpers::expect_true("credential listing", result.size() == 1, "credential was not returned");
-    test_helpers::expect_true(
-        "listing authorization",
-        authorizer.actions == std::vector{ManagerAuthorizationAction::ManageTargetCredentials},
-        "listing used the wrong authorization"
-    );
+    test_helpers::expect_true("listing authorization", authorizer.actions.empty(), "listing invoked polkit");
 
-    authorizer.allowed = false;
+    authorizer.active = false;
     try {
         static_cast<void>(CredentialAdministrationService(authorizer, backend).list_credentials(":1.2", "default"));
         test_helpers::fail("denied credential listing", "listing was accepted");
@@ -131,7 +128,7 @@ void test_denied_mutation_never_reaches_backend() {
 } // namespace
 
 int main() {
-    test_listing_requires_credential_authorization();
+    test_listing_requires_only_an_active_caller();
     test_mutations_use_dedicated_authorization_and_descriptors();
     test_denied_mutation_never_reaches_backend();
     return test_helpers::finish("credential administration service tests");

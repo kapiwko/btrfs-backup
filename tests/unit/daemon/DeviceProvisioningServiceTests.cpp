@@ -196,22 +196,21 @@ DevicePreparationRequest plan_request(std::string plan_id) {
     return request(std::move(plan_id));
 }
 
-void test_inspection_requires_device_authorization() {
+void test_read_only_discovery_requires_only_an_active_caller() {
     Authorizer authorizer;
     authorizer.allowed = false;
     Backend backend;
     TopologyReader reader;
     DeviceProvisioningService service(authorizer, backend, std::chrono::minutes(5), {}, {}, &reader);
+    static_cast<void>(service.inspect_storage_topology(":1.6"));
+    static_cast<void>(service.list_source_candidates(":1.6"));
+    test_helpers::expect_true("read-only authorization", authorizer.actions.empty(), "read-only discovery invoked polkit");
+
+    authorizer.active = false;
     try {
-        static_cast<void>(service.inspect_storage_topology(":1.6"));
-        test_helpers::fail("denied topology inspection", "inspection was accepted");
-    } catch (const btrfsbackup::daemon::dbus::ManagerOperationError&) {
-    }
-    try {
-        static_cast<void>(service.list_source_candidates(":1.6"));
-        test_helpers::fail("denied source listing", "listing was accepted");
-    } catch (const btrfsbackup::daemon::dbus::ManagerOperationError&) {
-    }
+        static_cast<void>(service.inspect_storage_topology(":1.7"));
+        test_helpers::fail("inactive topology inspection", "inspection was accepted");
+    } catch (const btrfsbackup::daemon::dbus::ManagerOperationError&) {}
 }
 
 void test_invalid_request_is_rejected_before_backend() {
@@ -538,7 +537,7 @@ void test_free_space_plan_uses_backend_geometry() {
 } // namespace
 
 int main() {
-    test_inspection_requires_device_authorization();
+    test_read_only_discovery_requires_only_an_active_caller();
     test_invalid_request_is_rejected_before_backend();
     test_topology_and_plan_are_caller_bound_and_revalidated();
     test_existing_target_inspection_is_caller_bound_and_invalidated_by_rescan();

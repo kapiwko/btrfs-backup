@@ -52,6 +52,15 @@ function(assert_authorized_method identifier name input_signature output_signatu
     )
 endfunction()
 
+function(assert_unprivileged_method identifier name input_signature output_signature xml_fragment)
+    assert_method(${identifier} ${name} "${input_signature}" "${output_signature}" "${xml_fragment}")
+    assert_not_contains(
+        "${compact_authorization_map}"
+        "{manager_protocol::method::${identifier},"
+        "a polkit mapping for read-only method ${name}"
+    )
+endfunction()
+
 function(assert_method identifier name input_signature output_signature xml_fragment)
     assert_contains(
         "${manager_protocol}"
@@ -219,10 +228,9 @@ assert_method(
     resolve_backup_coverage ResolveBackupCoverage s s
     "<methodname=\"ResolveBackupCoverage\"><argname=\"localPath\"type=\"s\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
 )
-assert_authorized_method(
+assert_unprivileged_method(
     list_target_credentials ListTargetCredentials s s
     "<methodname=\"ListTargetCredentials\"><argname=\"profileId\"type=\"s\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
-    ManageTargetCredentials io.github.btrfsbackup.manage-target-credentials
 )
 assert_authorized_method(
     add_target_passphrase AddTargetPassphrase shhs s
@@ -244,25 +252,21 @@ assert_authorized_method(
     "<methodname=\"RemoveTargetCredential\"><argname=\"profileId\"type=\"s\"direction=\"in\"/><argname=\"credentialId\"type=\"s\"direction=\"in\"/><argname=\"authorizationSecret\"type=\"h\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
     ManageTargetCredentials io.github.btrfsbackup.manage-target-credentials
 )
-assert_authorized_method(
+assert_unprivileged_method(
     inspect_storage_topology InspectStorageTopology "" s
     "<methodname=\"InspectStorageTopology\"><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
-    PrepareBackupDevice io.github.btrfsbackup.prepare-backup-device
 )
-assert_authorized_method(
+assert_unprivileged_method(
     inspect_existing_target InspectExistingTarget sh s
     "<methodname=\"InspectExistingTarget\"><argname=\"request\"type=\"s\"direction=\"in\"/><argname=\"credential\"type=\"h\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
-    PrepareBackupDevice io.github.btrfsbackup.prepare-backup-device
 )
-assert_authorized_method(
+assert_unprivileged_method(
     build_device_preparation_plan BuildDevicePreparationPlan s s
     "<methodname=\"BuildDevicePreparationPlan\"><argname=\"request\"type=\"s\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
-    PrepareBackupDevice io.github.btrfsbackup.prepare-backup-device
 )
-assert_authorized_method(
+assert_unprivileged_method(
     list_source_candidates ListSourceCandidates "" s
     "<methodname=\"ListSourceCandidates\"><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
-    PrepareBackupDevice io.github.btrfsbackup.prepare-backup-device
 )
 assert_authorized_method(
     start_device_preparation StartDevicePreparation sh s
