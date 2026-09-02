@@ -68,6 +68,9 @@ class Cryptsetup final : public btrfsbackup::platform::linux::storage::ICryptset
         if (after_remove)
             after_remove();
     }
+    std::string active_luks_uuid(const std::string&) override {
+        return std::string(luks_uuid);
+    }
     fs::path active_device(const std::string&) override {
         return "/dev/test";
     }

@@ -36,6 +36,9 @@ class Cryptsetup final : public bb::platform::linux::storage::ICryptsetupOperati
     }
     void remove_keyslot(const fs::path&, int, int) override {
     }
+    std::string active_luks_uuid(const std::string&) override {
+        return "luks-uuid";
+    }
     fs::path active_device(const std::string&) override {
         return {};
     }
