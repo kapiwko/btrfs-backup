@@ -67,36 +67,48 @@ Item {
 
             width: ListView.view?.width ?? implicitWidth
             Kirigami.Theme.useAlternateBackgroundColor: true
-            Accessible.name: sourceRow.contentItem.title
-            Accessible.description: sourceRow.contentItem.subtitle
+            Accessible.name: sourceDetails.title
+            Accessible.description: sourceDetails.subtitle
             onClicked: {
                 root.sourceToInspect = sourceRow.modelData;
                 sourceDetailsDialog.open();
             }
 
-            contentItem: Kirigami.TitleSubtitleWithActions {
-                title: sourceRow.modelData.name || sourceRow.modelData.id
-                subtitle: root.sourceSubtitle(sourceRow.modelData)
-                elide: Text.ElideRight
-                selected: sourceRow.pressed || sourceRow.highlighted
-                displayHint: QQC2.Button.IconOnly
-                actions: [
-                    Kirigami.Action {
-                        objectName: "editSourceAction"
-                        icon.name: "edit-entry-symbolic"
-                        text: translations.i18n("Edit source")
-                        tooltip: text
-                        enabled: root.editor !== null && !root.editor.busy
-                        onTriggered: sourceDialog.openForEdit(sourceRow.index, sourceRow.modelData)
-                    },
-                    Kirigami.Action {
-                        icon.name: "edit-delete-remove-symbolic"
-                        text: translations.i18n("Remove source")
-                        tooltip: text
-                        enabled: root.editor !== null && !root.editor.busy && root.editor.sources.length > 1
-                        onTriggered: root.removeRequested(sourceRow.index, sourceRow.modelData)
-                    }
-                ]
+            contentItem: RowLayout {
+                spacing: Kirigami.Units.smallSpacing
+
+                Kirigami.Icon {
+                    source: "folder-sync"
+                    implicitWidth: Kirigami.Units.iconSizes.smallMedium
+                    implicitHeight: implicitWidth
+                }
+
+                Kirigami.TitleSubtitleWithActions {
+                    id: sourceDetails
+                    Layout.fillWidth: true
+                    title: sourceRow.modelData.name || sourceRow.modelData.id
+                    subtitle: root.sourceSubtitle(sourceRow.modelData)
+                    elide: Text.ElideRight
+                    selected: sourceRow.pressed || sourceRow.highlighted
+                    displayHint: QQC2.Button.IconOnly
+                    actions: [
+                        Kirigami.Action {
+                            objectName: "editSourceAction"
+                            icon.name: "edit-entry-symbolic"
+                            text: translations.i18n("Edit source")
+                            tooltip: text
+                            enabled: root.editor !== null && !root.editor.busy
+                            onTriggered: sourceDialog.openForEdit(sourceRow.index, sourceRow.modelData)
+                        },
+                        Kirigami.Action {
+                            icon.name: "edit-delete-remove-symbolic"
+                            text: translations.i18n("Remove source")
+                            tooltip: text
+                            enabled: root.editor !== null && !root.editor.busy && root.editor.sources.length > 1
+                            onTriggered: root.removeRequested(sourceRow.index, sourceRow.modelData)
+                        }
+                    ]
+                }
             }
         }
 
