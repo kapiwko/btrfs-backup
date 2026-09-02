@@ -1,8 +1,9 @@
 // SPDX-FileCopyrightText: 2026 Kamil Piwowarski <kapiwko@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <platform/linux/storage/CryptsetupOperations.hpp>
 #include <platform/linux/filesystem/SecretFile.hpp>
+#include <platform/linux/storage/BlockDeviceMetadata.hpp>
+#include <platform/linux/storage/CryptsetupOperations.hpp>
 
 #include <core/Errors.hpp>
 
@@ -50,8 +51,11 @@ void test_formats_and_manages_a_luks2_header_without_a_process() {
     const std::string uuid = operations.format_luks2(image, secret.get());
     const auto header = operations.inspect_luks2(image);
     operations.test_key(image, secret.get());
+    const auto metadata =
+        btrfsbackup::platform::linux::storage::LibblkidBlockDeviceMetadataReader().read(image);
 
     test_helpers::expect_true("formatted LUKS UUID", !uuid.empty() && header.uuid == uuid, "LUKS UUID differs");
+    test_helpers::expect_true("libblkid LUKS UUID", metadata.filesystem_uuid == uuid, "libblkid UUID differs");
     test_helpers::expect_true("initial LUKS keyslot", header.keyslots == std::vector<int>{0}, "initial keyslot missing");
     fs::remove_all(root);
 }

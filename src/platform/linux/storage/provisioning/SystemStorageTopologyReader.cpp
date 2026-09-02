@@ -125,6 +125,8 @@ std::string probe_value(blkid_probe probe, const char* name) {
     std::size_t size = 0;
     if (blkid_probe_lookup_value(probe, name, &value, &size) != 0 || value == nullptr)
         return {};
+    if (size > 0 && value[size - 1] == '\0')
+        --size;
     return std::string(value, size);
 }
 

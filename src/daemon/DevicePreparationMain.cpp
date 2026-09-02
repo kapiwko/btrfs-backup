@@ -23,6 +23,7 @@
 #include <platform/linux/config/ApplicationConfig.hpp>
 #include <platform/linux/filesystem/SecretFile.hpp>
 #include <platform/linux/process/PosixCommandRunner.hpp>
+#include <platform/linux/storage/BlockDeviceMetadata.hpp>
 #include <platform/linux/storage/CryptsetupOperations.hpp>
 #include <platform/linux/storage/SignatureOperations.hpp>
 #include <platform/linux/storage/LibBtrfsOperations.hpp>
@@ -88,6 +89,7 @@ int run_device_preparation(int argc, char** argv) {
             .mountinfo = "/proc/self/mountinfo",
         });
         btrfsbackup::platform::linux::storage::LibblkidSignatureOperations signature_operations;
+        btrfsbackup::platform::linux::storage::LibblkidBlockDeviceMetadataReader metadata_reader;
         btrfsbackup::daemon::control::DestructiveDeviceSafetyInspector safety(storage_topology);
         btrfsbackup::daemon::control::CommandSystemdUnitController systemd_units(commands);
         btrfsbackup::daemon::control::SystemdDevicePreparationUnitController units(systemd_units);
@@ -99,6 +101,7 @@ int run_device_preparation(int argc, char** argv) {
             storage_topology,
             commands,
             signature_operations,
+            metadata_reader,
             cryptsetup,
             btrfs,
             activator,

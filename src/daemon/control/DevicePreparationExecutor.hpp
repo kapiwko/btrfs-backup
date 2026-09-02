@@ -20,6 +20,7 @@ class IConfigurationActivator;
 }
 
 namespace btrfsbackup::platform::linux::storage {
+class IBlockDeviceMetadataReader;
 class ICryptsetupOperations;
 class ISignatureOperations;
 } // namespace btrfsbackup::platform::linux::storage
@@ -36,6 +37,7 @@ class DevicePreparationExecutor final {
         std::filesystem::path target_mount_root,
         backup::ICommandRunner& commands,
         platform::linux::storage::ISignatureOperations& signatures,
+        platform::linux::storage::IBlockDeviceMetadataReader& metadata,
         platform::linux::storage::ICryptsetupOperations& cryptsetup,
         backup::IBtrfsOperations& btrfs,
         config::IConfigurationActivator& configuration_activator,
@@ -58,6 +60,7 @@ class DevicePreparationExecutor final {
     CredentialAdministrationRoots roots_;
     backup::ICommandRunner& commands_;
     platform::linux::storage::ISignatureOperations& signatures_;
+    platform::linux::storage::IBlockDeviceMetadataReader& metadata_;
     platform::linux::storage::ICryptsetupOperations& cryptsetup_;
     backup::IBtrfsOperations& btrfs_;
     config::IConfigurationActivator& activator_;
