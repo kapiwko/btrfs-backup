@@ -10,6 +10,7 @@ add_library(btrfsbackup-cli STATIC
     profile/ProfileCreateCommand.cpp
     profile/ProfileListCommand.cpp
     profile/ProfileWizardCommand.cpp
+    repository/RepositoryCommand.cpp
     runner/RunnerCommand.cpp
     runner/RunnerComposition.cpp
     runner/RunnerJsonCodec.cpp
@@ -37,6 +38,7 @@ target_restricted_include_directories(btrfsbackup-cli
         cli/profile/ProfileCreateCommand.hpp
         cli/profile/ProfileListCommand.hpp
         cli/profile/ProfileWizardCommand.hpp
+        cli/repository/RepositoryCommand.hpp
         cli/runner/RunnerCommand.hpp
         cli/runner/RunnerOptions.hpp
         cli/runner/RunnerPresenter.hpp

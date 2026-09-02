@@ -1,6 +1,6 @@
 # Repository Format
 
-Status: format v1 reader implemented; automatic catalog writing remains planned.
+Status: format v1 reader and explicit catalog rebuild writer implemented.
 
 ## Purpose
 
@@ -56,6 +56,21 @@ Discovery starts from an already mounted path and later may inspect block
 devices. Verification compares metadata with readonly state, UUID chains,
 `.incoming` content and free space. Repair is plan-first and distinguishes safe
 metadata rebuild from destructive cleanup or full reseed.
+
+The supported metadata rebuild is deliberately plan-first:
+
+```console
+sudo btrfs-backupctl target mount --profile default
+sudo btrfs-backupctl repository rebuild --profile default
+sudo btrfs-backupctl repository rebuild --profile default --apply
+```
+
+The first rebuild command only reports the mounted filesystem identity,
+generation and number of verified readonly snapshots. `--apply` writes
+`catalog.json` and then `repository.json` using durable atomic replacement.
+The command holds both profile and target locks, validates the configured
+Btrfs filesystem UUID, rejects symlinks and writable snapshots, preserves an
+existing repository identity, and never deletes snapshot data.
 
 ## Open Questions
 
