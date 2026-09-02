@@ -518,6 +518,9 @@ msgstr "Usuń metodę odblokowania"
 msgid "No LUKS unlocking methods found"
 msgstr "Nie znaleziono metod odblokowania LUKS"
 
+msgid "The backup device is disconnected. Connect it to view its unlocking methods."
+msgstr "Urządzenie kopii zapasowej jest odłączone. Podłącz je, aby wyświetlić metody odblokowania."
+
 msgid "Additional passphrase"
 msgstr "Dodatkowe hasło"
 

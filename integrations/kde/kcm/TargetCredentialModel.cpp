@@ -184,7 +184,11 @@ void TargetCredentialModel::request(RequestKind kind, const QString& method, con
         watcher->deleteLater();
         busy_ = false;
         if (reply.isError()) {
-            setError(reply.error().name(), reply.error().message());
+            const QString error_name = reply.error().name();
+            const QString error_message = error_name.endsWith(QStringLiteral(".TargetUnavailable"))
+                ? i18n("The backup device is disconnected. Connect it to view its unlocking methods.")
+                : reply.error().message();
+            setError(error_name, error_message);
             emit stateChanged();
             return;
         }
