@@ -5,6 +5,7 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import QtQuick.Controls as QQC2
+import QtQuick.Layouts
 import org.kde.ki18n as KI18n
 import org.kde.kirigami as Kirigami
 
@@ -12,6 +13,7 @@ Item {
     id: root
 
     required property var editor
+    property var sourceToInspect: null
 
     signal addRequested(string name, string subvolume, int localRetention, int targetRetention)
     signal editRequested(int index, string name, int localRetention, int targetRetention)
@@ -65,7 +67,12 @@ Item {
 
             width: ListView.view?.width ?? implicitWidth
             Kirigami.Theme.useAlternateBackgroundColor: true
-            onClicked: sourceDialog.openForEdit(sourceRow.index, sourceRow.modelData)
+            Accessible.name: sourceRow.contentItem.title
+            Accessible.description: sourceRow.contentItem.subtitle
+            onClicked: {
+                root.sourceToInspect = sourceRow.modelData;
+                sourceDetailsDialog.open();
+            }
 
             contentItem: Kirigami.TitleSubtitleWithActions {
                 title: sourceRow.modelData.name || sourceRow.modelData.id
@@ -100,6 +107,56 @@ Item {
             visible: sourceList.count === 0
             icon.name: "folder-symbolic"
             text: translations.i18n("No sources configured")
+        }
+    }
+
+    QQC2.Dialog {
+        id: sourceDetailsDialog
+        objectName: "sourceDetailsDialog"
+        parent: QQC2.Overlay.overlay
+        anchors.centerIn: parent
+        modal: true
+        title: root.sourceToInspect?.name || root.sourceToInspect?.id || translations.i18n("Source details")
+        standardButtons: QQC2.Dialog.Close
+
+        contentItem: GridLayout {
+            width: Math.min(Kirigami.Units.gridUnit * 24,
+                root.width - Kirigami.Units.largeSpacing * 4)
+            columns: 2
+            columnSpacing: Kirigami.Units.largeSpacing
+            rowSpacing: Kirigami.Units.smallSpacing
+
+            QQC2.Label { text: translations.i18n("Source subvolume:"); opacity: 0.65 }
+            QQC2.Label {
+                objectName: "sourceDetailsSubvolume"
+                Layout.fillWidth: true
+                text: root.sourceToInspect?.subvolume || translations.i18n("Unknown")
+                elide: Text.ElideMiddle
+            }
+            QQC2.Label { text: translations.i18n("Local snapshot directory:"); opacity: 0.65 }
+            QQC2.Label {
+                objectName: "sourceDetailsLocalDirectory"
+                Layout.fillWidth: true
+                text: root.sourceToInspect?.localSnapshotDir || translations.i18n("Unknown")
+                elide: Text.ElideMiddle
+            }
+            QQC2.Label { text: translations.i18n("Target directory:"); opacity: 0.65 }
+            QQC2.Label {
+                objectName: "sourceDetailsTargetDirectory"
+                Layout.fillWidth: true
+                text: root.sourceToInspect?.remoteSubdir || translations.i18n("Unknown")
+                elide: Text.ElideMiddle
+            }
+            QQC2.Label { text: translations.i18n("Local retention:"); opacity: 0.65 }
+            QQC2.Label {
+                objectName: "sourceDetailsLocalRetention"
+                text: root.sourceToInspect?.localRetention ?? translations.i18n("Unknown")
+            }
+            QQC2.Label { text: translations.i18n("Target retention:"); opacity: 0.65 }
+            QQC2.Label {
+                objectName: "sourceDetailsTargetRetention"
+                text: root.sourceToInspect?.remoteRetention ?? translations.i18n("Unknown")
+            }
         }
     }
 

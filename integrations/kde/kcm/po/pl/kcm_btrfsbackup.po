@@ -496,6 +496,24 @@ msgstr "Edytuj źródło"
 msgid "No sources configured"
 msgstr "Nie skonfigurowano źródeł"
 
+msgid "Source details"
+msgstr "Szczegóły źródła"
+
+msgid "Source subvolume:"
+msgstr "Podwolumin źródłowy:"
+
+msgid "Local snapshot directory:"
+msgstr "Lokalny katalog migawek:"
+
+msgid "Target directory:"
+msgstr "Katalog na celu:"
+
+msgid "Local retention:"
+msgstr "Retencja lokalna:"
+
+msgid "Target retention:"
+msgstr "Retencja na celu:"
+
 #: integrations/kde/kcm/ui/ProfileUnlocking.qml
 msgid "Unlocking methods"
 msgstr "Metody odblokowania"
@@ -520,6 +538,39 @@ msgstr "Nieznana metoda odblokowania"
 
 msgid "Updating unlocking methods…"
 msgstr "Aktualizowanie metod odblokowania…"
+
+msgid "Unlocking method details"
+msgstr "Szczegóły metody odblokowania"
+
+msgid "Type:"
+msgstr "Typ:"
+
+msgid "LUKS key slot:"
+msgstr "Slot klucza LUKS:"
+
+msgid "Management:"
+msgstr "Zarządzanie:"
+
+msgid "Managed by btrfs-backup"
+msgstr "Zarządzana przez btrfs-backup"
+
+msgid "Configured outside btrfs-backup"
+msgstr "Skonfigurowana poza btrfs-backup"
+
+msgid "Usage:"
+msgstr "Zastosowanie:"
+
+msgid "Manual unlocking"
+msgstr "Ręczne odblokowywanie"
+
+msgid "The passphrase itself is not stored by btrfs-backup."
+msgstr "Samo hasło nie jest przechowywane przez btrfs-backup."
+
+msgid "The key is stored in protected system configuration. Its contents and path are hidden."
+msgstr "Klucz jest przechowywany w chronionej konfiguracji systemowej. Jego zawartość i ścieżka są ukryte."
+
+msgid "This LUKS slot was configured outside btrfs-backup."
+msgstr "Ten slot LUKS został skonfigurowany poza btrfs-backup."
 
 msgid "Remove unlocking method"
 msgstr "Usuń metodę odblokowania"

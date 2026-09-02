@@ -54,6 +54,37 @@ Item {
             credentials.errorMessage = ""
         }
 
+        function test_methodDetailsOpenFromClick() {
+            credentials.credentials = [{
+                id: "slot-1",
+                label: "Automatic backup key",
+                type: "keyFile",
+                keyslot: 1,
+                managed: true,
+                automatic: true
+            }]
+            wait(0)
+
+            const row = findChild(unlocking, "unlockingMethodRow")
+            const dialog = findChild(unlocking, "unlockingMethodDetailsDialog")
+            verify(row !== null)
+            verify(dialog !== null)
+
+            mouseClick(row)
+            wait(0)
+
+            verify(dialog.visible)
+            compare(dialog.title, "Automatic backup key")
+            compare(findChild(dialog, "unlockingMethodTypeValue").text, "Key file")
+            compare(findChild(dialog, "unlockingMethodSlotValue").text, "1")
+            compare(findChild(dialog, "unlockingMethodManagementValue").text, "Managed by btrfs-backup")
+            compare(findChild(dialog, "unlockingMethodUsageValue").text, "Automatic backups")
+
+            dialog.close()
+            tryCompare(dialog, "visible", false)
+            credentials.credentials = []
+        }
+
         function test_busyOperationIsVisible() {
             const message = findChild(unlocking, "emptyUnlockingMessage")
             const progress = findChild(unlocking, "unlockingMethodsProgress")

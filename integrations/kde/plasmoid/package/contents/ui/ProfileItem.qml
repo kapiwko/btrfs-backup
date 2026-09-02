@@ -178,18 +178,18 @@ PlasmaExtras.ExpandableListItem {
 
     function statusEmblem() {
         if (profileStatus.lastError.length > 0 || !profileStatus.configurationValid || root.failed)
-            return "emblem-error"
+            return "state-error-symbolic"
         if (root.running)
             return ""
         if (profileStatus.target.spaceBelowMinimum)
-            return "emblem-warning"
+            return "state-warning-symbolic"
         if (profileStatus.target.safeToRemove)
             return "emblem-ok-symbolic"
         switch (profileStatus.run.state) {
         case "succeeded":
         case "validated": return "emblem-ok-symbolic"
-        case "failed": return "emblem-error"
-        case "cancelled": return "emblem-pause"
+        case "failed": return "state-error-symbolic"
+        case "cancelled": return "state-pause-symbolic"
         default: return ""
         }
     }
