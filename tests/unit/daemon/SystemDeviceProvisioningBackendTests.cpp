@@ -163,6 +163,7 @@ class LuksOperations final : public btrfsbackup::platform::linux::storage::ICryp
 
 class Signatures final : public btrfsbackup::platform::linux::storage::ISignatureOperations {
   public:
+    const bool* required_partition_table_backup = nullptr;
     std::vector<std::pair<std::string, std::string>> calls;
     std::vector<std::optional<btrfsbackup::platform::linux::storage::SignatureExpectation>> expectations;
     void wipe_all(
@@ -170,6 +171,8 @@ class Signatures final : public btrfsbackup::platform::linux::storage::ISignatur
         const std::string& expected_major_minor,
         const std::optional<btrfsbackup::platform::linux::storage::SignatureExpectation>& expected_signature
     ) override {
+        if (required_partition_table_backup != nullptr && !*required_partition_table_backup)
+            throw std::runtime_error("partition table was not backed up before signature erasure");
         calls.emplace_back(device.string(), expected_major_minor);
         expectations.push_back(expected_signature);
     }
@@ -179,6 +182,7 @@ class PartitionTables final : public btrfsbackup::platform::linux::storage::IPar
   public:
     bool partitioned = false;
     mutable bool snapshot_taken = false;
+    mutable std::vector<btrfsbackup::platform::linux::storage::PartitionTableFormat> snapshot_formats;
     bool created_in_free_space = false;
     bool partition_creation_conflict = false;
     btrfsbackup::platform::linux::storage::PlannedPartitionGeometry created_geometry;
@@ -186,10 +190,12 @@ class PartitionTables final : public btrfsbackup::platform::linux::storage::IPar
     std::string snapshot_partition_table(
         const std::filesystem::path&,
         const std::string&,
+        btrfsbackup::platform::linux::storage::PartitionTableFormat format,
         const std::string&,
         std::uint32_t
     ) const override {
         snapshot_taken = true;
+        snapshot_formats.push_back(format);
         return "label: gpt\nlabel-id: gpt-test\n";
     }
     btrfsbackup::platform::linux::storage::PlannedPartitionGeometry plan_partition_in_free_space(
@@ -255,6 +261,7 @@ class TopologyReader final : public btrfsbackup::daemon::provisioning::StorageTo
 
     int scans = 0;
     int replace_on_scan = 0;
+    std::optional<btrfsbackup::daemon::provisioning::PartitionTableType> partition_table_type_override;
 
     btrfsbackup::daemon::provisioning::StorageTopology scan() override {
         namespace provisioning = btrfsbackup::daemon::provisioning;
@@ -295,6 +302,10 @@ class TopologyReader final : public btrfsbackup::daemon::provisioning::StorageTo
             partition.filesystem = {.type = "ext4", .uuid = "old-filesystem"};
             partition.suitable_for_reformat = true;
             device.regions.emplace_back(std::move(partition));
+        }
+        if (partition_table_type_override.has_value()) {
+            device.partition_table.type = *partition_table_type_override;
+            device.partition_table.identifier = "unsupported-test";
         }
         return {
             .generation = "test-generation-" + std::to_string(scans),
@@ -410,6 +421,7 @@ void test_preparation_sequence_uses_descriptors_and_installs_profile() {
     Signatures signatures;
     MetadataReader metadata;
     PartitionTables partition_tables;
+    signatures.required_partition_table_backup = &partition_tables.snapshot_taken;
     LuksOperations luks;
     TopologyReader topology(partition_tables);
     Btrfs btrfs;
@@ -485,11 +497,21 @@ void test_preparation_sequence_uses_descriptors_and_installs_profile() {
     const auto format = std::ranges::find(commands.calls, std::string("mkfs.btrfs"), [](const auto& call) { return call.front(); });
     test_helpers::expect_true(
         "destructive adapters",
-        signatures.calls == std::vector<std::pair<std::string, std::string>>{{"/dev/test", "8:16"}} &&
+        partition_tables.snapshot_formats ==
+                std::vector<btrfsbackup::platform::linux::storage::PartitionTableFormat>{
+                    btrfsbackup::platform::linux::storage::PartitionTableFormat::None,
+                } &&
+            signatures.calls == std::vector<std::pair<std::string, std::string>>{{"/dev/test", "8:16"}} &&
             partition_tables.calls ==
                 std::vector<std::pair<std::string, std::string>>{{"/dev/test", "8:16"}} &&
             format != commands.calls.end(),
         "device mutations did not use the expected adapters"
+    );
+    const auto transaction = DevicePreparationTransactionStore(root / "transactions").load(started.operation_id);
+    test_helpers::expect_eq(
+        "whole-device partition table backup",
+        transaction.partition_table_backup,
+        "label: gpt\nlabel-id: gpt-test\n"
     );
     test_helpers::expect_true(
         "no sfdisk process",
@@ -547,6 +569,35 @@ void test_preparation_sequence_uses_descriptors_and_installs_profile() {
             return !call.empty() && (call.front() == "lsblk" || (call.front() == "udevadm" && call.size() > 1 && call.at(1) == "info"));
         }),
         "device discovery invoked a command instead of the topology reader"
+    );
+
+    topology.partition_table_type_override =
+        btrfsbackup::daemon::provisioning::PartitionTableType::Unsupported;
+    const auto unsupported_target = target(topology.scan().devices.front());
+    const int unsupported_manager_secret = secret_descriptor(password);
+    const auto unsupported = backend.start(
+        {
+            .profile_id = "unsupported",
+            .profile_name = "Unsupported table",
+            .plan_id = "plan-unsupported",
+            .source_subvolume = "/home",
+            .passphrase_label = "Recovery",
+            .create_automatic_key = false,
+        },
+        unsupported_target,
+        {.bus_name = ":1.5", .uid = 1000},
+        unsupported_manager_secret
+    );
+    ::close(unsupported_manager_secret);
+    const int unsupported_helper_secret = secret_descriptor(password);
+    backend.execute_operation(unsupported.operation_id, unsupported_helper_secret);
+    ::close(unsupported_helper_secret);
+    test_helpers::expect_true(
+        "unsupported partition table rejected before mutation",
+        backend.status(unsupported.operation_id).state == "failed" &&
+            partition_tables.snapshot_formats.size() == 1 && signatures.calls.size() == 1 &&
+            partition_tables.calls.size() == 1,
+        "unsupported partition table reached a destructive adapter"
     );
 }
 

@@ -13,6 +13,7 @@
 namespace {
 
 using btrfsbackup::daemon::provisioning::CreateBackupPartition;
+using btrfsbackup::daemon::provisioning::BackupPartitionTable;
 using btrfsbackup::daemon::provisioning::DestructiveScopeKind;
 using btrfsbackup::daemon::provisioning::DevicePreparationPlanBuilder;
 using btrfsbackup::daemon::provisioning::EraseDeviceSignatures;
@@ -103,10 +104,11 @@ void test_builds_before_and_after_preview_for_whole_device() {
             target.filesystem_type == "btrfs" && !target.geometry_exact,
         "predicted target stack is incorrect"
     );
-    test_helpers::expect_true("operation count", plan.operations.size() == 8, "operation sequence changed");
+    test_helpers::expect_true("operation count", plan.operations.size() == 9, "operation sequence changed");
     test_helpers::expect_true(
         "operation bounds",
-        std::holds_alternative<EraseDeviceSignatures>(plan.operations.front()) &&
+        std::holds_alternative<BackupPartitionTable>(plan.operations.front()) &&
+            std::holds_alternative<EraseDeviceSignatures>(plan.operations.at(1)) &&
             std::holds_alternative<PublishProfile>(plan.operations.back()),
         "operation sequence bounds changed"
     );
@@ -192,10 +194,11 @@ void test_builds_free_space_plan_without_changing_existing_partition() {
     );
     test_helpers::expect_true(
         "free region operations",
-        plan.operations.size() == 6 &&
-            std::holds_alternative<CreateBackupPartition>(plan.operations.front()) &&
-            std::get<CreateBackupPartition>(plan.operations.front()).free_region_id == plan.free_region_id &&
-            std::get<CreateBackupPartition>(plan.operations.front()).geometry ==
+        plan.operations.size() == 7 &&
+            std::holds_alternative<BackupPartitionTable>(plan.operations.front()) &&
+            std::holds_alternative<CreateBackupPartition>(plan.operations.at(1)) &&
+            std::get<CreateBackupPartition>(plan.operations.at(1)).free_region_id == plan.free_region_id &&
+            std::get<CreateBackupPartition>(plan.operations.at(1)).geometry ==
                 PlannedPartitionGeometry{.start_sector = 11, .sector_count = 4, .partition_number = 2} &&
             std::holds_alternative<PublishProfile>(plan.operations.back()),
         "free-space operation sequence changed"

@@ -232,7 +232,7 @@ void test_storage_topology_and_plan_contract() {
         "plan-1"
     );
     const Json plan_document = Json::parse(codec.encode(plan));
-    expect_field("plan", plan_document, "schemaVersion", 1);
+    expect_field("plan", plan_document, "schemaVersion", 2);
     expect_field("plan", plan_document, "planId", "plan-1");
     expect_field("plan", plan_document, "mode", "erase-whole-device");
     test_helpers::expect_true(
@@ -274,8 +274,9 @@ void test_storage_topology_and_plan_contract() {
     expect_field("free-space plan", free_document, "destructiveScope", "unallocated-region");
     test_helpers::expect_true(
         "free-space operations",
-        free_document.at("operations").front() == "create-backup-partition",
-        "free-space partition creation is not explicit"
+        free_document.at("operations").front() == "backup-partition-table" &&
+            free_document.at("operations").at(1) == "create-backup-partition",
+        "free-space partition backup and creation are not explicit"
     );
 
     const provisioning::ExistingTargetInspection inspection{

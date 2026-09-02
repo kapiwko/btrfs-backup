@@ -70,6 +70,8 @@ std::string operation_name(const provisioning::PlannedStorageOperation& operatio
     return std::visit(
         [](const auto& value) -> std::string {
             using Operation = std::decay_t<decltype(value)>;
+            if constexpr (std::is_same_v<Operation, provisioning::BackupPartitionTable>)
+                return "backup-partition-table";
             if constexpr (std::is_same_v<Operation, provisioning::EraseDeviceSignatures>)
                 return "erase-device-signatures";
             if constexpr (std::is_same_v<Operation, provisioning::ErasePartitionSignatures>)

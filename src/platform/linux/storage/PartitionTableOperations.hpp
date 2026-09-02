@@ -27,12 +27,19 @@ struct PartitionCreationInspection {
     std::filesystem::path partition;
 };
 
+enum class PartitionTableFormat {
+    None,
+    Gpt,
+    Mbr,
+};
+
 class IPartitionTableOperations {
   public:
     virtual ~IPartitionTableOperations() = default;
     [[nodiscard]] virtual std::string snapshot_partition_table(
         const std::filesystem::path& device,
         const std::string& expected_major_minor,
+        PartitionTableFormat expected_format,
         const std::string& expected_partition_table_id,
         std::uint32_t expected_logical_sector_size
     ) const = 0;
@@ -73,6 +80,7 @@ class LibfdiskPartitionTableOperations final : public IPartitionTableOperations 
     [[nodiscard]] std::string snapshot_partition_table(
         const std::filesystem::path& device,
         const std::string& expected_major_minor,
+        PartitionTableFormat expected_format,
         const std::string& expected_partition_table_id,
         std::uint32_t expected_logical_sector_size
     ) const override;
