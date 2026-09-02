@@ -79,6 +79,7 @@ target_link_libraries(btrfsbackup-platform-linux-filesystem
 )
 
 add_library(btrfsbackup-platform-linux-storage STATIC
+    storage/BlockDeviceMetadata.cpp
     storage/CryptsetupOperations.cpp
     storage/DeviceInfo.cpp
     storage/FilesystemSpaceProbe.cpp
@@ -124,6 +125,7 @@ target_link_libraries(btrfsbackup-platform-linux-restore
 )
 target_restricted_include_directories(btrfsbackup-platform-linux-storage
     PUBLIC_HEADERS
+        platform/linux/storage/BlockDeviceMetadata.hpp
         platform/linux/storage/DeviceInfo.hpp
         platform/linux/storage/CryptsetupOperations.hpp
         platform/linux/storage/FilesystemSpaceProbe.hpp
