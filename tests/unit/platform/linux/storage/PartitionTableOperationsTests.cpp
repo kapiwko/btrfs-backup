@@ -36,6 +36,21 @@ int main() {
         "not a block device"
     );
     test_helpers::expect_validation_error(
+        "out-of-range free-space creation geometry",
+        [&] {
+            static_cast<void>(operations.create_partition_in_free_space(
+                "/dev/null",
+                "1:3",
+                "gpt-id",
+                512,
+                2048,
+                4096,
+                {.start_sector = 1024, .sector_count = 4096, .partition_number = 1}
+            ));
+        },
+        "planned partition geometry"
+    );
+    test_helpers::expect_validation_error(
         "relative partition table path",
         [&] { operations.replace_with_single_gpt_partition("dev/test", "8:0"); },
         "path is invalid"

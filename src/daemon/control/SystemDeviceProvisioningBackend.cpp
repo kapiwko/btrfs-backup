@@ -71,10 +71,15 @@ void validate_execution_target(const DevicePreparationTarget& target) {
     const bool whole_device = target.mode == provisioning::ProvisioningMode::EraseWholeDevice;
     const bool existing_partition = target.mode == provisioning::ProvisioningMode::ReformatExistingPartition;
     const bool adoption = target.mode == provisioning::ProvisioningMode::AdoptExistingTarget;
-    if ((!whole_device && !existing_partition && !adoption) || (whole_device && target.partition.has_value()) ||
+    const bool free_space = target.mode == provisioning::ProvisioningMode::CreatePartitionInUnallocatedSpace;
+    if ((!whole_device && !existing_partition && !adoption && !free_space) ||
+        (whole_device && target.partition.has_value()) ||
         ((existing_partition || adoption) && !target.partition.has_value()) ||
+        (free_space &&
+         (target.partition.has_value() || !target.free_region.has_value() ||
+          !target.planned_partition_geometry.has_value())) ||
         (adoption && !target.expected_inspection.has_value()))
-        throw ValidationError("device preparation target mode is not executable yet");
+        throw ValidationError("device preparation target is incomplete");
     if (identity.display_path.empty() || identity.major_minor.empty() || identity.sysfs_path.empty() ||
         identity.size_bytes == 0 || target.device.logical_sector_size == 0 || target.device.transport.empty() ||
         (identity.wwn.empty() && identity.serial.empty() && identity.serial_short.empty()))
@@ -86,6 +91,12 @@ void validate_execution_target(const DevicePreparationTarget& target) {
             partition.partition_number == 0 || partition.sector_count == 0)
             throw ValidationError("partition preparation target identity is incomplete");
     }
+    if (free_space &&
+        (target.device.partition_table.type != provisioning::PartitionTableType::Gpt ||
+         target.device.partition_table.identifier.empty() || target.free_region->sector_count == 0 ||
+         target.planned_partition_geometry->sector_count == 0 ||
+         target.planned_partition_geometry->partition_number == 0))
+        throw ValidationError("free-space preparation target identity is incomplete");
     if (adoption &&
         (target.expected_inspection->luks_uuid.empty() || target.expected_inspection->btrfs_uuid.empty() ||
          target.expected_inspection->partition_uuid.empty() || target.expected_inspection->repository_id.empty()))
