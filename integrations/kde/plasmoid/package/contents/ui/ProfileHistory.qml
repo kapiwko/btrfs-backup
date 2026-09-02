@@ -41,7 +41,7 @@ ColumnLayout {
             spacing: Kirigami.Units.smallSpacing
 
             Kirigami.Icon {
-                source: historyRow.modelData.state === "succeeded" ? "emblem-ok"
+                source: historyRow.modelData.state === "succeeded" ? "emblem-success"
                     : historyRow.modelData.state === "failed" ? "dialog-error"
                     : historyRow.modelData.state === "cancelled" ? "dialog-cancel"
                     : "dialog-information"

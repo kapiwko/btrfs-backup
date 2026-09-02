@@ -186,10 +186,10 @@ PlasmaExtras.ExpandableListItem {
         if (profileStatus.target.spaceBelowMinimum)
             return "dialog-warning"
         if (profileStatus.target.safeToRemove)
-            return "emblem-ok"
+            return "emblem-success"
         switch (profileStatus.run.state) {
         case "succeeded":
-        case "validated": return "emblem-ok"
+        case "validated": return "emblem-success"
         case "failed": return "dialog-error"
         case "cancelled": return "media-playback-pause"
         default: return ""
