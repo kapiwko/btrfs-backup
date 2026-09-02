@@ -193,6 +193,15 @@ void CryptsetupOperations::remove_keyslot(
     require_result(crypt_keyslot_destroy(context.get(), keyslot), "removing a LUKS credential");
 }
 
+std::string CryptsetupOperations::active_luks_uuid(const std::string& mapper) {
+    validate_mapper(mapper);
+    crypt_device* raw = nullptr;
+    const int initialization = crypt_init_by_name(&raw, mapper.c_str());
+    OwnedCryptDevice context(raw);
+    require_result(initialization, "opening active LUKS mapping");
+    return uuid(context.get());
+}
+
 std::filesystem::path CryptsetupOperations::active_device(const std::string& mapper) {
     validate_mapper(mapper);
     crypt_device* raw = nullptr;

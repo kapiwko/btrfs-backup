@@ -554,7 +554,21 @@ TargetOperationResult eject_target(
 
     fs::path mapper = resolved.mapper_root / profile.target.mapper_name.value();
     if (fs::exists(mapper)) {
-        if (!request.force && !mapper_identity_matches(resolved.cryptsetup, profile, resolved.canonical_device)) {
+        bool identity_matches = request.force;
+        if (!request.force) {
+            try {
+                identity_matches = mapper_identity_matches(
+                    resolved.cryptsetup,
+                    profile,
+                    resolved.canonical_device
+                );
+            } catch (const btrfsbackup::platform::linux::storage::ActiveDeviceUnavailableError&) {
+                identity_matches = lower(resolved.cryptsetup.active_luks_uuid(
+                    profile.target.mapper_name.value()
+                )) == lower(profile.target.luks_uuid.value());
+            }
+        }
+        if (!identity_matches) {
             throw ValidationError(
                 "Refusing to close mapper " + profile.target.mapper_name.value() +
                 " because its underlying device does not match configuration."

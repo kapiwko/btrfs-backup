@@ -34,6 +34,7 @@ class RecordingCommandRunner final
     bool active_device_available = true;
     fs::path mapper_path;
     std::string status_device = "/dev/disk/by-uuid/target-luks";
+    std::string status_luks_uuid = luks_uuid;
     std::vector<std::string> calls;
 
     btrfsbackup::backup::CommandResult run(const std::vector<std::string>& argv) override {
@@ -73,6 +74,9 @@ class RecordingCommandRunner final
     void test_key(const fs::path&, int) override {
     }
     void remove_keyslot(const fs::path&, int, int) override {
+    }
+    std::string active_luks_uuid(const std::string&) override {
+        return status_luks_uuid;
     }
     fs::path active_device(const std::string&) override {
         if (!active_device_available) {
@@ -239,6 +243,46 @@ void test_eject_unmounts_and_stops_target_unit() {
         "target eject stop activation unit",
         contains_call(commands, std::string("systemctl stop ") + target_unit_name),
         "target activation unit was not stopped"
+    );
+    fs::remove_all(root);
+}
+
+void test_eject_closes_unmounted_mapper_after_underlying_device_disappears() {
+    fs::path root = test_helpers::test_root("target-command", "eject-stale-unmounted");
+    std::string mount_point = (root / "mnt" / "default").string();
+    write_profile(root, mount_point);
+    RecordingCommandRunner commands;
+    const fs::path mapper_root = root / "mapper";
+    commands.mapper_path = mapper_root / mapper_name;
+    test_helpers::write_file(commands.mapper_path, "stale mapper");
+    commands.active_device_available = false;
+    btrfsbackup::cli::target::TargetExecutionServices services{
+        .commands = commands,
+        .cryptsetup = commands,
+        .read_mounts = [] { return std::vector<btrfsbackup::backup::MountEntry>{}; },
+        .lock_root = root / "locks",
+        .mount_point_trust_root = root,
+        .mapper_root = mapper_root,
+        .activation_state_root = root / "activation",
+        .keyfile_trust_root = root,
+        .systemd_cryptsetup_command = "/test/systemd-cryptsetup",
+        .canonical_device = [](const fs::path& path) { return path; },
+    };
+    std::ostringstream output;
+
+    setenv("BTRFS_BACKUP_ALLOW_ROOTLESS_TESTS", "true", 1);
+    const int result = btrfsbackup::cli::target::target(
+        root,
+        {"eject", "--profile", "default"},
+        output,
+        &services
+    );
+
+    test_helpers::expect_eq("stale unmounted mapper eject result", std::to_string(result), "0");
+    test_helpers::expect_true(
+        "stale unmounted mapper closed",
+        !fs::exists(commands.mapper_path),
+        "stale unmounted mapper remains open"
     );
     fs::remove_all(root);
 }
@@ -638,6 +682,7 @@ void test_mount_rejects_symlinked_mount_point_without_chmod() {
 int main() {
     test_mount_starts_unit_and_validates_target();
     test_eject_unmounts_and_stops_target_unit();
+    test_eject_closes_unmounted_mapper_after_underlying_device_disappears();
     test_activation_owns_and_restores_mapper();
     test_activation_preserves_preexisting_mapper();
     test_deactivation_closes_owned_mapper_after_device_disappears();
