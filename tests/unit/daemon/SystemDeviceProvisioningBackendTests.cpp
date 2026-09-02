@@ -42,7 +42,14 @@ using btrfsbackup::daemon::control::SystemDeviceProvisioningBackend;
 using btrfsbackup::daemon::control::TargetCredential;
 
 DevicePreparationTarget target(btrfsbackup::daemon::provisioning::StorageDevice device) {
-    return {.device = std::move(device)};
+    return {
+        .device = std::move(device),
+        .planned_partition_geometry = btrfsbackup::daemon::provisioning::PlannedPartitionGeometry{
+            .start_sector = 1,
+            .sector_count = 2047,
+            .partition_number = 1,
+        },
+    };
 }
 
 DevicePreparationTarget partition_target(btrfsbackup::daemon::provisioning::StorageDevice device) {
@@ -212,6 +219,13 @@ class PartitionTables final : public btrfsbackup::platform::linux::storage::IPar
             .partition_number = 2,
         };
     }
+    btrfsbackup::platform::linux::storage::PlannedPartitionGeometry plan_single_gpt_partition(
+        const std::filesystem::path&,
+        const std::string&,
+        std::uint32_t
+    ) const override {
+        return {.start_sector = 1, .sector_count = 2047, .partition_number = 1};
+    }
     btrfsbackup::platform::linux::storage::PartitionCreationInspection inspect_partition_creation(
         const std::filesystem::path&,
         const std::string&,
@@ -247,9 +261,11 @@ class PartitionTables final : public btrfsbackup::platform::linux::storage::IPar
     }
     std::filesystem::path replace_with_single_gpt_partition(
         const std::filesystem::path& device,
-        const std::string& expected_major_minor
+        const std::string& expected_major_minor,
+        const btrfsbackup::platform::linux::storage::PlannedPartitionGeometry& geometry
     ) override {
         calls.emplace_back(device.string(), expected_major_minor);
+        created_geometry = geometry;
         partitioned = true;
         return "/dev/test1";
     }
@@ -505,6 +521,12 @@ void test_preparation_sequence_uses_descriptors_and_installs_profile() {
             signatures.calls == std::vector<std::pair<std::string, std::string>>{{"/dev/test", "8:16"}} &&
             partition_tables.calls ==
                 std::vector<std::pair<std::string, std::string>>{{"/dev/test", "8:16"}} &&
+            partition_tables.created_geometry ==
+                btrfsbackup::platform::linux::storage::PlannedPartitionGeometry{
+                    .start_sector = 1,
+                    .sector_count = 2047,
+                    .partition_number = 1,
+                } &&
             format != commands.calls.end(),
         "device mutations did not use the expected adapters"
     );
@@ -1129,6 +1151,12 @@ void test_restart_marks_active_transaction_interrupted_and_preserves_owner() {
     transaction.target.device.transport = "usb";
     transaction.target.device.logical_sector_size = 512;
     transaction.target.device.physical_sector_size = 4096;
+    transaction.target.planned_partition_geometry =
+        btrfsbackup::daemon::provisioning::PlannedPartitionGeometry{
+            .start_sector = 1,
+            .sector_count = 2047,
+            .partition_number = 1,
+        };
     transaction.profile_name = "Test";
     transaction.source_subvolume = "/home";
     transaction.passphrase_label = "Recovery";

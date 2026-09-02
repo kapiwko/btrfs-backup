@@ -229,7 +229,9 @@ void test_storage_topology_and_plan_contract() {
         topology.generation,
         device.candidate_id,
         provisioning::ProvisioningMode::EraseWholeDevice,
-        "plan-1"
+        "plan-1",
+        std::nullopt,
+        provisioning::PlannedPartitionGeometry{.start_sector = 0, .sector_count = 2, .partition_number = 1}
     );
     const Json plan_document = Json::parse(codec.encode(plan));
     expect_field("plan", plan_document, "schemaVersion", 2);

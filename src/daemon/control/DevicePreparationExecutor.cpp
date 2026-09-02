@@ -149,6 +149,8 @@ void DevicePreparationExecutor::execute(const std::string& operation_id, int pas
     try {
         phase(operation_id, "inspect", true);
         if (initial.target.mode == provisioning::ProvisioningMode::EraseWholeDevice) {
+            if (!initial.target.planned_partition_geometry.has_value())
+                throw ValidationError("whole-device preparation transaction is incomplete");
             const ProvisioningDevice selected = devices_.revalidate(initial.device);
             if (selected.mounted)
                 throw ValidationError("selected device or one of its partitions is mounted");
@@ -285,8 +287,17 @@ void DevicePreparationExecutor::execute(const std::string& operation_id, int pas
             completed(operation_id, "wipe-signatures");
 
             phase(operation_id, "partition", false);
+            const auto& planned = *initial.target.planned_partition_geometry;
             partition = partition_tables_
-                            .replace_with_single_gpt_partition(initial.device.path, initial.device.major_minor)
+                            .replace_with_single_gpt_partition(
+                                initial.device.path,
+                                initial.device.major_minor,
+                                {
+                                    .start_sector = planned.start_sector,
+                                    .sector_count = planned.sector_count,
+                                    .partition_number = planned.partition_number,
+                                }
+                            )
                             .string();
             update(operation_id, [&](auto& transaction) {
                 transaction.partition = partition;

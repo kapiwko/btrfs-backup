@@ -60,6 +60,13 @@ DevicePreparationTarget planned_target(
         .planned_partition_geometry = std::nullopt,
         .expected_inspection = std::nullopt,
     };
+    for (const auto& operation : plan.operations) {
+        const auto* create = std::get_if<provisioning::CreateBackupPartition>(&operation);
+        if (create != nullptr) {
+            result.planned_partition_geometry = create->geometry;
+            break;
+        }
+    }
     if (plan.partition_id.has_value()) {
         for (const auto& region : device->regions) {
             const auto* partition = std::get_if<provisioning::ExistingPartition>(&region);
@@ -79,19 +86,18 @@ DevicePreparationTarget planned_target(
                 break;
             }
         }
-        for (const auto& operation : plan.operations) {
-            const auto* create = std::get_if<provisioning::CreateBackupPartition>(&operation);
-            if (create != nullptr && create->free_region_id == plan.free_region_id) {
-                result.planned_partition_geometry = create->geometry;
-                break;
-            }
-        }
         if (!result.free_region.has_value() || !result.planned_partition_geometry.has_value())
             throw dbus::ManagerOperationError(
                 dbus::ManagerErrorCode::Conflict,
                 "planned free-space target snapshot is incomplete"
             );
     }
+    if (plan.mode == provisioning::ProvisioningMode::EraseWholeDevice &&
+        !result.planned_partition_geometry.has_value())
+        throw dbus::ManagerOperationError(
+            dbus::ManagerErrorCode::Conflict,
+            "planned whole-device partition geometry is missing"
+        );
     return result;
 }
 
@@ -291,6 +297,26 @@ provisioning::DevicePreparationPlan DeviceProvisioningService::build_device_prep
                 dbus::ManagerErrorCode::NotFound,
                 "unallocated storage region candidate is unavailable"
             );
+    }
+    if (mode == provisioning::ProvisioningMode::EraseWholeDevice) {
+        const auto device = std::ranges::find(
+            snapshot->second.topology.devices,
+            selected_candidate_id,
+            &provisioning::StorageDevice::candidate_id
+        );
+        if (device == snapshot->second.topology.devices.end())
+            throw dbus::ManagerOperationError(
+                dbus::ManagerErrorCode::NotFound,
+                "storage device candidate is unavailable"
+            );
+        try {
+            partition_geometry = backend_.plan_whole_device_partition_geometry(*device);
+        } catch (const ValidationError& error) {
+            throw dbus::ManagerOperationError(
+                dbus::ManagerErrorCode::Conflict,
+                std::string("cannot plan whole-device partition: ") + error.what()
+            );
+        }
     }
     std::string plan_id;
     for (int attempt = 0; attempt < 16 && plan_id.empty(); ++attempt) {

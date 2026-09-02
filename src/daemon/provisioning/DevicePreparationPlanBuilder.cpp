@@ -52,14 +52,18 @@ StorageLayout current_layout(const StorageDevice& device) {
 DevicePreparationPlan erase_whole_device_plan(
     const StorageTopology& topology,
     const StorageDevice& device,
-    DevicePreparationPlanId plan_id
+    DevicePreparationPlanId plan_id,
+    const PlannedPartitionGeometry& geometry
 ) {
-    StorageLayout before = current_layout(device);
-    for (auto& region : before.regions)
-        region.data_will_be_erased = region.kind == PredictedRegionKind::ExistingPartition;
     const std::uint64_t sectors = device.logical_sector_size == 0
         ? 0
         : device.size_bytes / device.logical_sector_size;
+    if (geometry.partition_number == 0 || geometry.sector_count == 0 ||
+        geometry.start_sector >= sectors || geometry.sector_count > sectors - geometry.start_sector)
+        throw ValidationError("planned whole-device partition geometry is invalid");
+    StorageLayout before = current_layout(device);
+    for (auto& region : before.regions)
+        region.data_will_be_erased = region.kind == PredictedRegionKind::ExistingPartition;
     StorageLayout after;
     after.device_id = device.candidate_id;
     after.size_bytes = device.size_bytes;
@@ -68,11 +72,12 @@ DevicePreparationPlan erase_whole_device_plan(
     PredictedStorageRegion target;
     target.id = "planned-backup-partition";
     target.kind = PredictedRegionKind::BackupPartition;
-    target.sector_count = sectors;
-    target.partition_number = 1;
+    target.start_sector = geometry.start_sector;
+    target.sector_count = geometry.sector_count;
+    target.partition_number = geometry.partition_number;
     target.partition_label = "btrfs-backup";
     target.filesystem_type = "btrfs";
-    target.geometry_exact = false;
+    target.geometry_exact = true;
     target.encrypted = true;
     target.changed = true;
     after.regions.push_back(std::move(target));
@@ -90,7 +95,7 @@ DevicePreparationPlan erase_whole_device_plan(
         BackupPartitionTable{device.candidate_id},
         EraseDeviceSignatures{device.candidate_id},
         CreateGptPartitionTable{device.candidate_id},
-        CreateBackupPartition{device.candidate_id, std::nullopt, std::nullopt},
+        CreateBackupPartition{device.candidate_id, std::nullopt, geometry},
         FormatLuks2{std::nullopt},
         OpenLuksMapping{},
         FormatBtrfs{},
@@ -271,10 +276,12 @@ DevicePreparationPlan DevicePreparationPlanBuilder::build(
     if (mode == ProvisioningMode::AdoptExistingTarget && !inspection_id.has_value())
         throw ValidationError("existing target inspection identifier is required");
     if (mode == ProvisioningMode::EraseWholeDevice) {
+        if (!partition_geometry.has_value())
+            throw ValidationError("planned whole-device partition geometry is required");
         const auto device = std::ranges::find(topology.devices, selected_candidate_id, &StorageDevice::candidate_id);
         if (device == topology.devices.end())
             throw ValidationError("storage device candidate is unavailable");
-        return erase_whole_device_plan(topology, *device, std::move(plan_id));
+        return erase_whole_device_plan(topology, *device, std::move(plan_id), *partition_geometry);
     }
     if (mode == ProvisioningMode::ReformatExistingPartition || mode == ProvisioningMode::AdoptExistingTarget) {
         for (const auto& device : topology.devices) {

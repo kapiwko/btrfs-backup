@@ -272,6 +272,10 @@ DevicePreparationTarget parse_target(const Json& value) {
           !result.planned_partition_geometry.has_value() || result.planned_partition_geometry->sector_count == 0 ||
           result.planned_partition_geometry->partition_number == 0)))
         throw ValidationError("incomplete device preparation target snapshot");
+    if (result.mode == provisioning::ProvisioningMode::EraseWholeDevice &&
+        (!result.planned_partition_geometry.has_value() || result.planned_partition_geometry->sector_count == 0 ||
+         result.planned_partition_geometry->partition_number == 0))
+        throw ValidationError("incomplete device preparation target snapshot");
     return result;
 }
 

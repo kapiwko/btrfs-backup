@@ -162,7 +162,13 @@ void test_whole_device_scope_rejects_any_topology_or_child_usage_change() {
         expected.generation,
         "opaque-device",
         provisioning::ProvisioningMode::EraseWholeDevice,
-        "plan-device"
+        "plan-device",
+        std::nullopt,
+        provisioning::PlannedPartitionGeometry{
+            .start_sector = 1,
+            .sector_count = 30,
+            .partition_number = 1,
+        }
     );
     const auto blockers = provisioning::StorageSafetyInspector{}.inspect(expected, current, plan);
     test_helpers::expect_true(
