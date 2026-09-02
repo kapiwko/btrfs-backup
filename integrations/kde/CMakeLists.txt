@@ -72,6 +72,7 @@ target_link_libraries(kio_btrfsbackup PRIVATE
     btrfsbackup_kde_manager_client
     btrfsbackup-restore
     btrfsbackup-platform-linux-storage
+    KF6::I18n
     KF6::KIOCore
     Qt6::Core
     Qt6::DBus
