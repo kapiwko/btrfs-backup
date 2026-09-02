@@ -11,6 +11,10 @@ file(READ "${PROJECT_SOURCE_DIR}/src/daemon/dbus/ManagerDbusObject.cpp" manager_
 file(READ "${PROJECT_SOURCE_DIR}/src/daemon/dbus/ManagerProvisioningMethods.cpp" manager_provisioning_methods)
 file(READ "${PROJECT_SOURCE_DIR}/src/daemon/dbus/ManagerJsonCodec.cpp" manager_json_codec)
 file(READ "${PROJECT_SOURCE_DIR}/integrations/kde/kcm/DeviceProvisioningModel.cpp" provisioning_kcm)
+file(READ "${PROJECT_SOURCE_DIR}/integrations/kde/kcm/ProfileConfigurationModel.cpp" profile_configuration_kcm)
+file(READ "${PROJECT_SOURCE_DIR}/integrations/kde/kcm/TargetCredentialModel.cpp" target_credentials_kcm)
+file(READ "${PROJECT_SOURCE_DIR}/integrations/kde/kcm/ui/ProfileOverview.qml" profile_overview_kcm)
+file(READ "${PROJECT_SOURCE_DIR}/integrations/kde/plasmoid/src/BackupStatusModel.cpp" plasma_status_model)
 string(REGEX REPLACE "[ \t\r\n]+" "" compact_xml "${manager_xml}")
 string(REGEX REPLACE "[ \t\r\n]+" "" compact_bus_policy "${manager_bus_policy}")
 string(REGEX REPLACE "[ \t\r\n]+" "" compact_polkit_policy "${manager_polkit_policy}")
@@ -18,6 +22,7 @@ string(REGEX REPLACE "[ \t\r\n]+" "" compact_authorization_map "${manager_author
 string(REGEX REPLACE "[ \t\r\n]+" "" compact_manager_vtable "${manager_vtable}")
 string(REGEX REPLACE "[ \t\r\n]+" "" compact_manager_json_codec "${manager_json_codec}")
 string(REGEX REPLACE "[ \t\r\n]+" "" compact_provisioning_kcm "${provisioning_kcm}")
+string(REGEX REPLACE "[ \t\r\n]+" "" compact_profile_overview_kcm "${profile_overview_kcm}")
 
 function(assert_contains content fragment description)
     string(FIND "${content}" "${fragment}" position)
@@ -303,6 +308,22 @@ foreach(legacy_field IN ITEMS devicePath expectedSerial expectedSizeBytes)
     assert_not_contains("${manager_provisioning_methods}" "${legacy_field}" "legacy daemon field ${legacy_field}")
     assert_not_contains("${provisioning_kcm}" "${legacy_field}" "legacy KCM field ${legacy_field}")
 endforeach()
+
+assert_contains(
+    "${target_credentials_kcm}"
+    "ManagerEventSubscriber::deviceStateChanged"
+    "credential refresh after a device state change"
+)
+assert_not_contains(
+    "${provisioning_kcm}${profile_configuration_kcm}${target_credentials_kcm}${plasma_status_model}"
+    "reply.error().message()"
+    "raw untranslated manager errors in KDE clients"
+)
+assert_contains(
+    "${compact_profile_overview_kcm}"
+    "&&(root.profileStatus.target.mounted||root.profileStatus.target.unlocked)"
+    "the eject action guard for a locked target"
+)
 
 assert_signal(profiles_changed ProfilesChanged "" "<signalname=\"ProfilesChanged\"/>")
 assert_signal(

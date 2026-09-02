@@ -9,6 +9,7 @@ kcmutils_add_qml_kcm(
     SOURCES
         BackupKcm.cpp
         BackupKcm.hpp
+        ManagerErrorMessage.hpp
         ProfileConfigurationModel.cpp
         ProfileConfigurationModel.hpp
         ProfileHistoryModel.cpp

@@ -85,7 +85,9 @@ ColumnLayout {
             icon.name: "media-eject-symbolic"
             text: translations.i18n("Eject")
             visible: root.profileStatus.target.connected
-            enabled: root.profileStatus.managerConnected && !root.profileStatus.operationPending && !root.runningStateFor(root.profileStatus.run.state)
+            enabled: root.profileStatus.managerConnected && !root.profileStatus.operationPending
+                && !root.runningStateFor(root.profileStatus.run.state)
+                && (root.profileStatus.target.mounted || root.profileStatus.target.unlocked)
             onClicked: root.profileStatus.ejectTarget()
         }
         Item {

@@ -3,6 +3,8 @@
 
 #include "DeviceProvisioningModel.hpp"
 
+#include "ManagerErrorMessage.hpp"
+
 #include <ManagerApi.hpp>
 #include <core/ManagerProtocol.hpp>
 
@@ -93,7 +95,7 @@ void DeviceProvisioningModel::buildPlan(const QVariantMap& selection, const QStr
     const QString path = selection.value(QStringLiteral("path")).toString();
     const QString topology_candidate = selection.value(QStringLiteral("candidateId")).toString();
     if (topology_candidate.isEmpty()) {
-        setError(i18n("Refresh the storage layout and select the disk again."));
+        setError(i18nd("kcm_btrfsbackup", "Refresh the storage layout and select the disk again."));
         return;
     }
     plan_.clear();
@@ -120,12 +122,12 @@ void DeviceProvisioningModel::inspectExistingTarget(
         return;
     const QString candidate = selection.value(QStringLiteral("candidateId")).toString();
     if (candidate.isEmpty()) {
-        setError(i18n("Refresh the storage layout and select the partition again."));
+        setError(i18nd("kcm_btrfsbackup", "Refresh the storage layout and select the partition again."));
         return;
     }
     const auto secret = secret_descriptor(passphrase);
     if (!secret.isValid()) {
-        setError(i18n("A passphrase must contain between 1 and 4096 bytes."));
+        setError(i18nd("kcm_btrfsbackup", "A passphrase must contain between 1 and 4096 bytes."));
         return;
     }
     clearSelection();
@@ -161,17 +163,17 @@ void DeviceProvisioningModel::start(
     if (busy_)
         return;
     if (passphrase != confirmation) {
-        setError(i18n("The passphrases do not match."));
+        setError(i18nd("kcm_btrfsbackup", "The passphrases do not match."));
         return;
     }
     const QString plan_id = plan_.value(QStringLiteral("planId")).toString();
     if (plan_id.isEmpty()) {
-        setError(i18n("Refresh the storage layout and review the preparation plan again."));
+        setError(i18nd("kcm_btrfsbackup", "Refresh the storage layout and review the preparation plan again."));
         return;
     }
     const auto secret = secret_descriptor(passphrase);
     if (!secret.isValid()) {
-        setError(i18n("A passphrase must contain between 1 and 4096 bytes."));
+        setError(i18nd("kcm_btrfsbackup", "A passphrase must contain between 1 and 4096 bytes."));
         return;
     }
     const QJsonObject payload{
@@ -179,7 +181,7 @@ void DeviceProvisioningModel::start(
         {QStringLiteral("profileName"), profile_name.trimmed()},
         {QStringLiteral("planId"), plan_id},
         {QStringLiteral("sourceSubvolume"), source_subvolume.trimmed()},
-        {QStringLiteral("passphraseLabel"), i18n("Recovery passphrase")},
+        {QStringLiteral("passphraseLabel"), i18nd("kcm_btrfsbackup", "Recovery passphrase")},
         {QStringLiteral("createAutomaticKey"), automatic_key},
     };
     request(
@@ -215,7 +217,7 @@ void DeviceProvisioningModel::request(RequestKind kind, const QString& method, c
         watcher->deleteLater();
         busy_ = false;
         if (reply.isError()) {
-            setError(reply.error().message());
+            setError(manager_error_message(reply.error()));
             emit stateChanged();
             return;
         }
@@ -231,7 +233,7 @@ void DeviceProvisioningModel::request(RequestKind kind, const QString& method, c
         else if (kind == RequestKind::Start || kind == RequestKind::Poll)
             valid = applyOperation(reply.value());
         if (!valid)
-            setError(i18n("The backup manager returned an invalid device preparation response."));
+            setError(i18nd("kcm_btrfsbackup", "The backup manager returned an invalid device preparation response."));
         emit stateChanged();
         if (valid && kind == RequestKind::Topology)
             request(RequestKind::Sources, QLatin1String(manager_protocol::method::list_source_candidates));

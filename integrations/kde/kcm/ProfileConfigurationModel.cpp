@@ -3,6 +3,8 @@
 
 #include "ProfileConfigurationModel.hpp"
 
+#include "ManagerErrorMessage.hpp"
+
 #include <ManagerApi.hpp>
 #include <core/ManagerProtocol.hpp>
 
@@ -203,7 +205,7 @@ void ProfileConfigurationModel::request(RequestKind kind, const QString& method,
                 emit profileDeleted(deleted_id);
                 return;
             }
-            setError(reply.error().name(), reply.error().message());
+            setError(reply.error().name(), manager_error_message(reply.error()));
             setBusy(false);
             if (reply.error().name().endsWith(QStringLiteral(".Conflict")))
                 emit conflictDetected();
@@ -220,20 +222,20 @@ void ProfileConfigurationModel::request(RequestKind kind, const QString& method,
             fingerprint_.clear();
             loaded_ = false;
             refresh_pending_ = false;
-            operation_message_ = i18n("Profile deleted");
+            operation_message_ = i18nd("kcm_btrfsbackup", "Profile deleted");
             emit profileChanged();
             setBusy(false);
             emit profileDeleted(deleted_id);
             return;
         }
         if (!applyEnvelope(reply.value())) {
-            setError(QStringLiteral("manager.invalid-response"), i18n("The backup manager returned an invalid profile response."));
+            setError(QStringLiteral("manager.invalid-response"), i18nd("kcm_btrfsbackup", "The backup manager returned an invalid profile response."));
             setBusy(false);
             return;
         }
         setBusy(false);
         if (kind != RequestKind::LoadDetails) {
-            operation_message_ = i18n("Profile saved");
+            operation_message_ = i18nd("kcm_btrfsbackup", "Profile saved");
             emit profileSaved(profileId());
         }
         emit stateChanged();

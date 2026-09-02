@@ -148,7 +148,7 @@ void ProfileHistoryModel::ensureCapabilities(bool replace) {
             return;
         loading_ = false;
         if (reply.isError()) {
-            setError(reply.error().name(), i18n("Could not query backup manager capabilities."));
+            setError(reply.error().name(), i18nd("kcm_btrfsbackup", "Could not query backup manager capabilities."));
             return;
         }
         const auto capabilities = btrfsbackup::kde::parse_capabilities(reply.value());
@@ -160,7 +160,7 @@ void ProfileHistoryModel::ensureCapabilities(bool replace) {
             )) {
             setError(
                 QStringLiteral("manager.unsupported-history"),
-                i18n("The backup manager does not provide compatible backup history.")
+                i18nd("kcm_btrfsbackup", "The backup manager does not provide compatible backup history.")
             );
             return;
         }
@@ -191,14 +191,14 @@ void ProfileHistoryModel::requestPage(bool replace) {
             return;
         loading_ = false;
         if (reply.isError()) {
-            setError(reply.error().name(), i18n("Could not load backup history."));
+            setError(reply.error().name(), i18nd("kcm_btrfsbackup", "Could not load backup history."));
             return;
         }
         QVariantList page;
         if (!parsePage(reply.value(), page)) {
             setError(
                 QStringLiteral("manager.invalid-history"),
-                i18n("The backup manager returned invalid backup history.")
+                i18nd("kcm_btrfsbackup", "The backup manager returned invalid backup history.")
             );
             return;
         }

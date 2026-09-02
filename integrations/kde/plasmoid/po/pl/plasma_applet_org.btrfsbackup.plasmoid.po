@@ -434,3 +434,45 @@ msgstr "Źródło kopii zapasowej nie jest podwoluminem Btrfs"
 
 msgid "A backup source cannot be inspected"
 msgstr "Nie można sprawdzić źródła kopii zapasowej"
+
+msgid "The request is invalid."
+msgstr "Żądanie jest nieprawidłowe."
+
+msgid "The selected backup source does not exist."
+msgstr "Wybrane źródło kopii zapasowej nie istnieje."
+
+msgid "The selected backup source is not a Btrfs subvolume."
+msgstr "Wybrane źródło kopii zapasowej nie jest podwoluminem Btrfs."
+
+msgid "The selected backup source cannot be inspected."
+msgstr "Nie można sprawdzić wybranego źródła kopii zapasowej."
+
+msgid "The requested item was not found."
+msgstr "Nie znaleziono żądanego elementu."
+
+msgid "The operation was cancelled or you do not have permission to perform it."
+msgstr "Operacja została anulowana albo nie masz uprawnień do jej wykonania."
+
+msgid "The requested item is busy."
+msgstr "Żądany element jest zajęty."
+
+msgid "The active backup run has changed. Refresh and try again."
+msgstr "Aktywne wykonanie kopii zapasowej uległo zmianie. Odśwież dane i spróbuj ponownie."
+
+msgid "The backup device is disconnected or unavailable."
+msgstr "Urządzenie kopii zapasowej jest odłączone lub niedostępne."
+
+msgid "The operation conflicts with the current state. Refresh and try again."
+msgstr "Operacja jest sprzeczna z bieżącym stanem. Odśwież dane i spróbuj ponownie."
+
+msgid "The configuration could not be saved."
+msgstr "Nie udało się zapisać konfiguracji."
+
+msgid "The operation could not be fully rolled back. Review the system log."
+msgstr "Nie udało się całkowicie wycofać operacji. Sprawdź dziennik systemowy."
+
+msgid "The backup manager could not complete the request."
+msgstr "Manager kopii zapasowych nie mógł wykonać żądania."
+
+msgid "The requested backup operation failed: %1"
+msgstr "Żądana operacja kopii zapasowej nie powiodła się: %1"

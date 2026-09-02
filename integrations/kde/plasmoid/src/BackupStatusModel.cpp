@@ -6,6 +6,8 @@
 
 #include "ManagerApi.hpp"
 
+#include <KLocalizedString>
+#include <QDBusError>
 #include <QDBusPendingCallWatcher>
 #include <QDBusPendingReply>
 #include <QJsonDocument>
@@ -21,6 +23,36 @@
 namespace {
 
 constexpr int operation_message_timeout_ms = 5000;
+constexpr auto translation_domain = "plasma_applet_org.btrfsbackup.plasmoid";
+
+QString manager_error_message(const QDBusError& error) {
+    const QString name = error.name();
+    if (name.endsWith(QStringLiteral(".InvalidRequest")))
+        return i18nd(translation_domain, "The request is invalid.");
+    if (name.endsWith(QStringLiteral(".SourceMissing")))
+        return i18nd(translation_domain, "The selected backup source does not exist.");
+    if (name.endsWith(QStringLiteral(".SourceNotSubvolume")))
+        return i18nd(translation_domain, "The selected backup source is not a Btrfs subvolume.");
+    if (name.endsWith(QStringLiteral(".SourceUnavailable")))
+        return i18nd(translation_domain, "The selected backup source cannot be inspected.");
+    if (name.endsWith(QStringLiteral(".NotFound")))
+        return i18nd(translation_domain, "The requested item was not found.");
+    if (name.endsWith(QStringLiteral(".NotAuthorized")))
+        return i18nd(translation_domain, "The operation was cancelled or you do not have permission to perform it.");
+    if (name.endsWith(QStringLiteral(".Busy")))
+        return i18nd(translation_domain, "The requested item is busy.");
+    if (name.endsWith(QStringLiteral(".RunMismatch")))
+        return i18nd(translation_domain, "The active backup run has changed. Refresh and try again.");
+    if (name.endsWith(QStringLiteral(".TargetUnavailable")))
+        return i18nd(translation_domain, "The backup device is disconnected or unavailable.");
+    if (name.endsWith(QStringLiteral(".Conflict")))
+        return i18nd(translation_domain, "The operation conflicts with the current state. Refresh and try again.");
+    if (name.endsWith(QStringLiteral(".SaveFailed")))
+        return i18nd(translation_domain, "The configuration could not be saved.");
+    if (name.endsWith(QStringLiteral(".RollbackIncomplete")))
+        return i18nd(translation_domain, "The operation could not be fully rolled back. Review the system log.");
+    return i18nd(translation_domain, "The backup manager could not complete the request.");
+}
 
 int json_int(const QJsonObject& object, const char* key, int fallback = 0) {
     const auto value = object.value(QLatin1String(key));
@@ -566,7 +598,14 @@ void BackupStatusModel::requestOperation(const QString& method, const QVariantLi
         }
         operation_pending_ = false;
         if (reply.isError()) {
-            setLastError(tr("The requested backup operation failed: %1").arg(reply.error().message()), reply.error().name());
+            setLastError(
+                i18nd(
+                    translation_domain,
+                    "The requested backup operation failed: %1",
+                    manager_error_message(reply.error())
+                ),
+                reply.error().name()
+            );
             emit operationChanged();
             return;
         }
