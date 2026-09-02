@@ -20,8 +20,11 @@
 #include <sys/stat.h>
 #include <system_error>
 #include <unistd.h>
+#include <vector>
 
 #include <platform/linux/config/ApplicationConfig.hpp>
+#include <platform/linux/config/FileProfileRepository.hpp>
+#include <platform/linux/config/ProfileService.hpp>
 #include <platform/linux/filesystem/SecretFile.hpp>
 #include <platform/linux/process/PosixCommandRunner.hpp>
 #include <platform/linux/storage/BlockDeviceMetadata.hpp>
@@ -90,9 +93,23 @@ int run_device_preparation(int argc, char** argv) {
             cryptsetup,
             activator
         );
-        btrfsbackup::platform::linux::storage::SystemStorageTopologyReader storage_topology({
-            .mountinfo = "/proc/self/mountinfo",
-        });
+        btrfsbackup::platform::linux::config::FileProfileRepository profiles(
+            config_root,
+            application_config
+        );
+        const auto configured_targets = [&profiles, &config_root] {
+            std::vector<btrfsbackup::daemon::provisioning::ConfiguredBackupTargetIdentity> result;
+            for (const auto& profile_id :
+                 btrfsbackup::platform::linux::config::list_profiles(config_root / "profiles")) {
+                const auto& target = profiles.get(btrfsbackup::ProfileId{profile_id}).profile.target;
+                result.push_back({target.partition_uuid.value(), target.luks_uuid.value()});
+            }
+            return result;
+        };
+        btrfsbackup::platform::linux::storage::SystemStorageTopologyReader storage_topology(
+            {.mountinfo = "/proc/self/mountinfo"},
+            configured_targets
+        );
         btrfsbackup::platform::linux::storage::LibblkidSignatureOperations signature_operations;
         btrfsbackup::platform::linux::storage::LibblkidBlockDeviceMetadataReader metadata_reader;
         btrfsbackup::platform::linux::storage::LibfdiskPartitionTableOperations partition_tables;

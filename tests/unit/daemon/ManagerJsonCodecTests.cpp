@@ -218,6 +218,12 @@ void test_storage_topology_and_plan_contract() {
     expect_field("topology", topology_document, "schemaVersion", 1);
     expect_field("topology", topology_document, "generation", "topology-1");
     expect_field("topology candidate", topology_document.at("devices").at(0), "candidateId", "opaque-device");
+    expect_field(
+        "topology configured target",
+        topology_document.at("devices").at(0).at("regions").at(0),
+        "configuredBackupTarget",
+        false
+    );
     test_helpers::expect_true(
         "topology identity privacy",
         !topology_document.at("devices").at(0).contains("majorMinor"),

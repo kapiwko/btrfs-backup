@@ -564,8 +564,13 @@ std::string topology_fingerprint(const StorageTopology& topology) {
 
 } // namespace
 
-SystemStorageTopologyReader::SystemStorageTopologyReader(SystemStorageTopologyPaths paths)
-    : paths_(std::move(paths)) {
+SystemStorageTopologyReader::SystemStorageTopologyReader(
+    SystemStorageTopologyPaths paths,
+    ConfiguredBackupTargetProvider configured_targets
+) : paths_(std::move(paths)),
+    configured_targets_(configured_targets ? std::move(configured_targets) : ConfiguredBackupTargetProvider{[] {
+        return std::vector<daemon::provisioning::ConfiguredBackupTargetIdentity>{};
+    }}) {
     if (!paths_.sysfs_root.is_absolute() || !paths_.mountinfo.is_absolute() || !paths_.swaps.is_absolute())
         throw std::invalid_argument("storage topology paths must be absolute");
 }
@@ -580,6 +585,7 @@ StorageTopology SystemStorageTopologyReader::scan() {
         if (node.devtype == "disk" && node.parent == 0)
             result.devices.push_back(describe_disk(node, nodes));
     }
+    daemon::provisioning::ConfiguredBackupTargetMarker(configured_targets_()).apply(result);
     std::ranges::sort(result.devices, {}, [](const auto& device) { return device.identity.major_minor; });
     result.generation = topology_fingerprint(result);
     return result;
