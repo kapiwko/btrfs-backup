@@ -255,25 +255,6 @@ std::string ManagerJsonCodec::encode(const std::vector<control::TargetCredential
     return config::json::dump_json(result);
 }
 
-std::string ManagerJsonCodec::encode(const std::vector<control::ProvisioningDevice>& devices) const {
-    config::json::Json result = config::json::Json::array();
-    for (const auto& device : devices) {
-        result.push_back({
-            {"schemaVersion", manager_protocol::device_provisioning_schema_version},
-            {"candidateId", device.candidate_id},
-            {"path", device.path},
-            {"model", device.model},
-            {"serial", device.serial},
-            {"transport", device.transport},
-            {"sizeBytes", device.size_bytes},
-            {"removable", device.removable},
-            {"mounted", device.mounted},
-            {"containsData", device.contains_data},
-        });
-    }
-    return config::json::dump_json(result);
-}
-
 std::string ManagerJsonCodec::encode(const provisioning::StorageTopology& topology) const {
     config::json::Json devices = config::json::Json::array();
     for (const auto& device : topology.devices) {

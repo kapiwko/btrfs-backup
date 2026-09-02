@@ -125,7 +125,7 @@ assert_delegated_methods(
 )
 assert_delegated_methods(
     provisioning_methods
-    list_provisioning_devices list_source_candidates start_device_preparation
+    list_source_candidates start_device_preparation
     get_device_preparation cancel_device_preparation
 )
 
@@ -245,11 +245,6 @@ assert_authorized_method(
     ManageTargetCredentials io.github.btrfsbackup.manage-target-credentials
 )
 assert_authorized_method(
-    list_provisioning_devices ListProvisioningDevices "" s
-    "<methodname=\"ListProvisioningDevices\"><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
-    PrepareBackupDevice io.github.btrfsbackup.prepare-backup-device
-)
-assert_authorized_method(
     inspect_storage_topology InspectStorageTopology "" s
     "<methodname=\"InspectStorageTopology\"><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
     PrepareBackupDevice io.github.btrfsbackup.prepare-backup-device
@@ -283,12 +278,7 @@ assert_authorized_method(
 assert_contains(
     "${manager_protocol}"
     "inline constexpr int device_provisioning_schema_version = 2;"
-    "the candidate-based provisioning schema version"
-)
-assert_contains(
-    "${compact_manager_json_codec}"
-    "{\"candidateId\",device.candidate_id}"
-    "the provisioning candidate identifier response"
+    "the device preparation status schema version"
 )
 assert_contains(
     "${manager_provisioning_methods}"
@@ -321,8 +311,8 @@ assert_signal(
 
 string(REGEX MATCHALL "<method name=" xml_methods "${manager_xml}")
 list(LENGTH xml_methods method_count)
-if(NOT method_count EQUAL 33)
-    message(FATAL_ERROR "manager XML must declare exactly 33 methods, found ${method_count}")
+if(NOT method_count EQUAL 32)
+    message(FATAL_ERROR "manager XML must declare exactly 32 methods, found ${method_count}")
 endif()
 
 string(REGEX MATCHALL "<signal name=" xml_signals "${manager_xml}")
