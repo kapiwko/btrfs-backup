@@ -195,6 +195,7 @@ void test_storage_topology_and_plan_contract() {
     device.identity.display_path = "/dev/sdb";
     device.identity.major_minor = "8:16";
     device.display_name = "Backup disk";
+    device.system_device = true;
     device.size_bytes = 1024;
     device.logical_sector_size = 512;
     device.partition_table.type = provisioning::PartitionTableType::Gpt;
@@ -218,6 +219,7 @@ void test_storage_topology_and_plan_contract() {
     expect_field("topology", topology_document, "schemaVersion", 1);
     expect_field("topology", topology_document, "generation", "topology-1");
     expect_field("topology candidate", topology_document.at("devices").at(0), "candidateId", "opaque-device");
+    expect_field("topology system device", topology_document.at("devices").at(0), "systemDevice", true);
     expect_field(
         "topology configured target",
         topology_document.at("devices").at(0).at("regions").at(0),
