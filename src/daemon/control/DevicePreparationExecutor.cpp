@@ -285,8 +285,9 @@ void DevicePreparationExecutor::execute(const std::string& operation_id, int pas
             completed(operation_id, "wipe-signatures");
 
             phase(operation_id, "partition", false);
-            partition_tables_.replace_with_single_gpt_partition(initial.device.path, initial.device.major_minor);
-            partition = devices_.only_partition(initial.device);
+            partition = partition_tables_
+                            .replace_with_single_gpt_partition(initial.device.path, initial.device.major_minor)
+                            .string();
             update(operation_id, [&](auto& transaction) {
                 transaction.partition = partition;
                 transaction.last_completed_phase = "partition";
