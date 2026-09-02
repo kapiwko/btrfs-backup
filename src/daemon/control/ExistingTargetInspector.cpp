@@ -4,6 +4,7 @@
 #include <daemon/control/ExistingTargetInspector.hpp>
 
 #include <exception>
+#include <filesystem>
 #include <optional>
 
 #include <backup/ports/IBtrfsOperations.hpp>
@@ -12,9 +13,45 @@
 #include <platform/linux/storage/CryptsetupOperations.hpp>
 #include <platform/linux/storage/ExistingTargetMountOperations.hpp>
 #include <restore/RepositoryDiscoveryService.hpp>
+#include <restore/RestoreError.hpp>
 
 namespace btrfsbackup::daemon::control {
 namespace {
+
+bool is_directory_without_symlink(const std::filesystem::path& path) {
+    std::error_code error;
+    const auto status = std::filesystem::symlink_status(path, error);
+    return !error && std::filesystem::is_directory(status) && !std::filesystem::is_symlink(status);
+}
+
+provisioning::ExistingTargetClassification classify_repositoryless_root(
+    const std::filesystem::path& root,
+    std::string& diagnostic_code
+) {
+    std::error_code error;
+    std::filesystem::directory_iterator entries(root, std::filesystem::directory_options::skip_permission_denied, error);
+    if (error) {
+        diagnostic_code = "repository-root-unreadable";
+        return provisioning::ExistingTargetClassification::ForeignOrInvalidRepository;
+    }
+    bool empty = true;
+    bool legacy = is_directory_without_symlink(root / "snapshots");
+    for (const auto& entry : entries) {
+        empty = false;
+        if (is_directory_without_symlink(entry.path()) && is_directory_without_symlink(entry.path() / "snapshots"))
+            legacy = true;
+    }
+    if (empty) {
+        diagnostic_code = "repository-not-found";
+        return provisioning::ExistingTargetClassification::EmptyFilesystem;
+    }
+    if (legacy) {
+        diagnostic_code = "legacy-repository-layout";
+        return provisioning::ExistingTargetClassification::LegacyRepository;
+    }
+    diagnostic_code = "repository-not-found";
+    return provisioning::ExistingTargetClassification::ForeignOrInvalidRepository;
+}
 
 void validate_partition(const provisioning::ExistingPartition& partition) {
     if (!partition.suitable_for_adoption || partition.filesystem.type != "crypto_LUKS" ||
@@ -81,33 +118,93 @@ provisioning::ExistingTargetInspectionSummary ExistingTargetInspector::inspect(
         cryptsetup_.open_luks2_read_only(device, mapper_name, credential_fd);
         opened = true;
         const auto mapped = metadata_.read(std::filesystem::path("/dev/mapper") / mapper_name);
-        if (mapped.filesystem_type != "btrfs" || mapped.filesystem_uuid.empty())
-            throw ValidationError("existing target does not contain a Btrfs filesystem");
-        mounts_.mount_btrfs_read_only(std::filesystem::path("/dev/mapper") / mapper_name, mount_point);
-        mounted = true;
+        if (mapped.filesystem_type != "btrfs" || mapped.filesystem_uuid.empty()) {
+            summary = provisioning::ExistingTargetInspectionSummary{
+                .classification = provisioning::ExistingTargetClassification::NotBtrfsFilesystem,
+                .diagnostic_code = "not-btrfs-filesystem",
+                .luks_uuid = luks.uuid,
+                .btrfs_uuid = {},
+                .partition_uuid = partition.partition_uuid.value_or(std::string{}),
+                .repository_id = {},
+                .catalog_generation = 0,
+                .snapshot_count = 0,
+            };
+        } else {
+            mounts_.mount_btrfs_read_only(std::filesystem::path("/dev/mapper") / mapper_name, mount_point);
+            mounted = true;
 
-        restore::RepositoryDiscoveryService discovery([this](const std::filesystem::path& path) {
-            const auto metadata = btrfs_.read_snapshot_metadata(path);
-            if (!metadata)
-                return std::optional<restore::DiscoveredSnapshotMetadata>{};
-            return std::optional<restore::DiscoveredSnapshotMetadata>{restore::DiscoveredSnapshotMetadata{
-                .is_subvolume = metadata->is_subvolume,
-                .readonly = metadata->readonly,
-                .uuid = metadata->uuid.value(),
-                .received_uuid = metadata->received_uuid.value(),
-            }};
-        });
-        const auto repository = discovery.discover(mount_point);
-        if (repository.identity().target_filesystem_uuid != mapped.filesystem_uuid)
-            throw ValidationError("repository filesystem identity does not match the existing target");
-        summary = provisioning::ExistingTargetInspectionSummary{
-            .luks_uuid = luks.uuid,
-            .btrfs_uuid = mapped.filesystem_uuid,
-            .partition_uuid = partition.partition_uuid.value_or(std::string{}),
-            .repository_id = repository.identity().repository_id,
-            .catalog_generation = repository.generation(),
-            .snapshot_count = repository.snapshots().size(),
-        };
+            std::error_code repository_error;
+            const bool repository_exists = std::filesystem::exists(mount_point / "repository.json", repository_error);
+            if (repository_error || !repository_exists) {
+                std::string diagnostic_code;
+                const auto classification = repository_error
+                    ? provisioning::ExistingTargetClassification::ForeignOrInvalidRepository
+                    : classify_repositoryless_root(mount_point, diagnostic_code);
+                if (repository_error)
+                    diagnostic_code = "repository-metadata-inaccessible";
+                summary = provisioning::ExistingTargetInspectionSummary{
+                    .classification = classification,
+                    .diagnostic_code = std::move(diagnostic_code),
+                    .luks_uuid = luks.uuid,
+                    .btrfs_uuid = mapped.filesystem_uuid,
+                    .partition_uuid = partition.partition_uuid.value_or(std::string{}),
+                    .repository_id = {},
+                    .catalog_generation = 0,
+                    .snapshot_count = 0,
+                };
+            } else {
+                restore::RepositoryDiscoveryService discovery([this](const std::filesystem::path& path) {
+                    const auto metadata = btrfs_.read_snapshot_metadata(path);
+                    if (!metadata)
+                        return std::optional<restore::DiscoveredSnapshotMetadata>{};
+                    return std::optional<restore::DiscoveredSnapshotMetadata>{restore::DiscoveredSnapshotMetadata{
+                        .is_subvolume = metadata->is_subvolume,
+                        .readonly = metadata->readonly,
+                        .uuid = metadata->uuid.value(),
+                        .received_uuid = metadata->received_uuid.value(),
+                    }};
+                });
+                try {
+                    const auto repository = discovery.discover(mount_point);
+                    if (repository.identity().target_filesystem_uuid != mapped.filesystem_uuid) {
+                        summary = provisioning::ExistingTargetInspectionSummary{
+                            .classification = provisioning::ExistingTargetClassification::ForeignOrInvalidRepository,
+                            .diagnostic_code = "repository-filesystem-identity-mismatch",
+                            .luks_uuid = luks.uuid,
+                            .btrfs_uuid = mapped.filesystem_uuid,
+                            .partition_uuid = partition.partition_uuid.value_or(std::string{}),
+                            .repository_id = {},
+                            .catalog_generation = 0,
+                            .snapshot_count = 0,
+                        };
+                    } else {
+                        summary = provisioning::ExistingTargetInspectionSummary{
+                            .classification = provisioning::ExistingTargetClassification::CompatibleRepository,
+                            .diagnostic_code = {},
+                            .luks_uuid = luks.uuid,
+                            .btrfs_uuid = mapped.filesystem_uuid,
+                            .partition_uuid = partition.partition_uuid.value_or(std::string{}),
+                            .repository_id = repository.identity().repository_id,
+                            .catalog_generation = repository.generation(),
+                            .snapshot_count = repository.snapshots().size(),
+                        };
+                    }
+                } catch (const restore::RestoreError& error) {
+                    summary = provisioning::ExistingTargetInspectionSummary{
+                        .classification = error.code() == restore::RestoreErrorCode::RepositoryFormatUnsupported
+                            ? provisioning::ExistingTargetClassification::UnsupportedRepository
+                            : provisioning::ExistingTargetClassification::ForeignOrInvalidRepository,
+                        .diagnostic_code = restore::restore_error_code_name(error.code()),
+                        .luks_uuid = luks.uuid,
+                        .btrfs_uuid = mapped.filesystem_uuid,
+                        .partition_uuid = partition.partition_uuid.value_or(std::string{}),
+                        .repository_id = {},
+                        .catalog_generation = 0,
+                        .snapshot_count = 0,
+                    };
+                }
+            }
+        }
     } catch (...) {
         pending = std::current_exception();
     }

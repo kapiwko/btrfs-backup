@@ -213,6 +213,8 @@ DevicePreparationTarget parse_target(const Json& value) {
     if (value.contains("expectedInspection") && value.at("expectedInspection").is_object()) {
         const auto& inspection = value.at("expectedInspection");
         result.expected_inspection = provisioning::ExistingTargetInspectionSummary{
+            .classification = provisioning::ExistingTargetClassification::CompatibleRepository,
+            .diagnostic_code = {},
             .luks_uuid = inspection.value("luksUuid", ""),
             .btrfs_uuid = inspection.value("btrfsUuid", ""),
             .partition_uuid = inspection.value("partitionUuid", ""),

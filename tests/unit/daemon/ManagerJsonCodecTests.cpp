@@ -266,8 +266,9 @@ void test_storage_topology_and_plan_contract() {
         },
     };
     const Json inspection_document = Json::parse(codec.encode(inspection));
-    expect_field("target inspection", inspection_document, "schemaVersion", 1);
+    expect_field("target inspection", inspection_document, "schemaVersion", 2);
     expect_field("target inspection", inspection_document, "inspectionId", "inspection-1");
+    expect_field("target inspection", inspection_document, "classification", "compatible-repository");
     expect_field("target inspection", inspection_document, "repositoryId", "repository-1");
     expect_field("target inspection", inspection_document, "snapshotCount", 2);
     test_helpers::expect_true(

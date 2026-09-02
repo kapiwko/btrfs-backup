@@ -266,15 +266,21 @@ bool DeviceProvisioningModel::applyInspection(const QString& payload) {
     if (!document.isObject())
         return false;
     const auto object = document.object();
+    const QString classification = object.value(QStringLiteral("classification")).toString();
+    const bool compatible = classification == QStringLiteral("compatible-repository");
+    const bool known_classification = compatible || classification == QStringLiteral("empty-filesystem") ||
+        classification == QStringLiteral("legacy-repository") ||
+        classification == QStringLiteral("unsupported-repository") ||
+        classification == QStringLiteral("foreign-or-invalid-repository") ||
+        classification == QStringLiteral("not-btrfs-filesystem");
     if (object.value(QStringLiteral("schemaVersion")).toInt(-1) !=
             manager_protocol::existing_target_inspection_schema_version ||
-        object.value(QStringLiteral("inspectionId")).toString().isEmpty() ||
-        object.value(QStringLiteral("repositoryId")).toString().isEmpty() ||
+        !known_classification ||
         object.value(QStringLiteral("luksUuid")).toString().isEmpty() ||
-        object.value(QStringLiteral("btrfsUuid")).toString().isEmpty() ||
         object.value(QStringLiteral("partitionUuid")).toString().isEmpty() ||
         !object.value(QStringLiteral("catalogGeneration")).isDouble() ||
-        !object.value(QStringLiteral("snapshotCount")).isDouble())
+        !object.value(QStringLiteral("snapshotCount")).isDouble() ||
+        (compatible && (object.value(QStringLiteral("inspectionId")).toString().isEmpty() || object.value(QStringLiteral("repositoryId")).toString().isEmpty() || object.value(QStringLiteral("btrfsUuid")).toString().isEmpty())))
         return false;
     const QString candidate = pending_inspection_selection_.value(QStringLiteral("candidateId")).toString();
     if (object.value(QStringLiteral("topologyGeneration")).toString() !=
@@ -282,10 +288,13 @@ bool DeviceProvisioningModel::applyInspection(const QString& payload) {
         object.value(QStringLiteral("partitionId")).toString() != candidate)
         return false;
     inspection_ = object.toVariantMap();
+    plan_.clear();
     emit inspectionChanged();
+    emit planChanged();
     const QVariantMap selection = pending_inspection_selection_;
     pending_inspection_selection_.clear();
-    buildPlan(selection, QStringLiteral("adopt-existing-target"));
+    if (compatible)
+        buildPlan(selection, QStringLiteral("adopt-existing-target"));
     return true;
 }
 

@@ -116,9 +116,12 @@ authorization and revalidation performed immediately before execution.
 API minor version 6 adds `InspectExistingTarget`. Its request contains only the
 topology generation and opaque partition candidate; the credential is supplied
 as a Unix file descriptor. The manager compares the topology before and after
-the read-only LUKS2/Btrfs inspection and returns a caller-bound, expiring
-`inspectionId`. The mapper and mount are closed before the response is sent,
-and the stored inspection contains no credential material.
+the read-only LUKS2/Btrfs inspection. API minor version 7 and inspection schema
+version 2 add an explicit `classification` and `diagnosticCode`. Compatible
+repositories receive a caller-bound, expiring `inspectionId`; empty Btrfs,
+legacy layouts, unsupported formats and foreign or invalid repositories do not.
+The mapper and mount are closed before the response is sent, and the stored
+inspection contains no credential material.
 
 The `target-storage-usage` feature is part of the current major-version
 baseline. The device-state parent remains schema version 1 and may contain this

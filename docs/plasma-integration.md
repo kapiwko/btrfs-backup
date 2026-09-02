@@ -70,10 +70,12 @@ Device preparation first obtains a caller-bound storage topology and then asks
 the manager to build a short-lived plan for the selected opaque candidate. The
 KCM renders proportional before/after layouts and a parallel textual list, so
 color is not the only indication of destructive scope. It can preview an
-existing-partition plan that preserves the table and every sibling region. The
-current executable path remains limited to erasing a whole disk; partition,
-free-space and adoption modes stay disabled until their backend transactions are
-implemented.
+existing-partition plan that preserves the table and every sibling region.
+Existing LUKS2/Btrfs targets are inspected read-only; compatible repositories
+can be adopted, while empty, legacy, unsupported and foreign layouts are
+presented as distinct non-adoptable results. Whole-disk, existing-partition and
+adoption plans are executable. Creating a partition in unallocated GPT space
+remains disabled until its transaction is implemented.
 
 For a development build, install the generated plugin and desktop entry, then
 refresh KDE's service cache:

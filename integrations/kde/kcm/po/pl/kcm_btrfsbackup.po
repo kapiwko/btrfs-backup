@@ -13,6 +13,21 @@ msgstr ""
 "Plural-Forms: nplurals=3; plural=(n==1 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 "
 "|| n%100>=20) ? 1 : 2);\n"
 
+msgid "This encrypted Btrfs filesystem is empty and does not contain a backup repository."
+msgstr "Ten zaszyfrowany system plików Btrfs jest pusty i nie zawiera repozytorium kopii zapasowych."
+
+msgid "This target uses an older backup layout and cannot be adopted automatically."
+msgstr "Ten nośnik używa starszego układu kopii zapasowych i nie może zostać przyjęty automatycznie."
+
+msgid "This repository format is not supported by this version of btrfs-backup."
+msgstr "Ten format repozytorium nie jest obsługiwany przez tę wersję btrfs-backup."
+
+msgid "This target does not contain a valid btrfs-backup repository."
+msgstr "Ten nośnik nie zawiera prawidłowego repozytorium btrfs-backup."
+
+msgid "The encrypted target does not contain a Btrfs filesystem."
+msgstr "Zaszyfrowany nośnik nie zawiera systemu plików Btrfs."
+
 #: integrations/kde/kcm/ui/NewProfilePage.qml:15
 msgid "Add backup profile"
 msgstr "Dodaj profil kopii zapasowej"

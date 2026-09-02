@@ -174,8 +174,8 @@ provisioning::ExistingTargetInspection DeviceProvisioningService::inspect_existi
     };
     inspect_safety(topology_reader_->scan());
     const auto summary = backend_.inspect_existing_target(target, credential_fd);
-    if (summary.luks_uuid.empty() || summary.btrfs_uuid.empty() || summary.partition_uuid.empty() ||
-        summary.repository_id.empty())
+    if (summary.luks_uuid.empty() || summary.partition_uuid.empty() ||
+        (summary.adoptable() && (summary.btrfs_uuid.empty() || summary.repository_id.empty())))
         throw dbus::ManagerOperationError(
             dbus::ManagerErrorCode::InternalError,
             "existing target inspection returned an incomplete fingerprint"
@@ -189,13 +189,15 @@ provisioning::ExistingTargetInspection DeviceProvisioningService::inspect_existi
     if (snapshot == topologies_.end() || snapshot->second.topology.generation != expected_generation)
         throw dbus::ManagerOperationError(dbus::ManagerErrorCode::NotFound, "storage topology is unavailable or expired");
     std::string inspection_id;
-    for (int attempt = 0; attempt < 16 && inspection_id.empty(); ++attempt) {
-        std::string candidate = candidate_ids_();
-        if (!candidate.empty() && !inspections_.contains(candidate) && !plans_.contains(candidate))
-            inspection_id = std::move(candidate);
+    if (summary.adoptable()) {
+        for (int attempt = 0; attempt < 16 && inspection_id.empty(); ++attempt) {
+            std::string candidate = candidate_ids_();
+            if (!candidate.empty() && !inspections_.contains(candidate) && !plans_.contains(candidate))
+                inspection_id = std::move(candidate);
+        }
+        if (inspection_id.empty())
+            throw dbus::ManagerOperationError(dbus::ManagerErrorCode::Conflict, "cannot allocate a target inspection identifier");
     }
-    if (inspection_id.empty())
-        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::Conflict, "cannot allocate a target inspection identifier");
     provisioning::ExistingTargetInspection inspection{
         .inspection_id = inspection_id,
         .topology_generation = expected_generation,
@@ -203,10 +205,8 @@ provisioning::ExistingTargetInspection DeviceProvisioningService::inspect_existi
         .partition_id = partition_id,
         .target = summary,
     };
-    inspections_.insert_or_assign(
-        inspection_id,
-        StoredInspection{inspection, caller, now + candidate_lifetime_}
-    );
+    if (summary.adoptable())
+        inspections_.insert_or_assign(inspection_id, StoredInspection{inspection, caller, now + candidate_lifetime_});
     return inspection;
 }
 
