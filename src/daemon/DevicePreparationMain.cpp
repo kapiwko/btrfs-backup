@@ -6,6 +6,7 @@
 #include <daemon/control/DestructiveDeviceSafetyInspector.hpp>
 #include <daemon/control/DevicePreparationTransaction.hpp>
 #include <daemon/control/DevicePreparationUnitController.hpp>
+#include <daemon/control/ExistingTargetInspector.hpp>
 #include <daemon/control/SystemCredentialAdministrationBackend.hpp>
 #include <daemon/control/SystemDeviceProvisioningBackend.hpp>
 
@@ -25,6 +26,7 @@
 #include <platform/linux/process/PosixCommandRunner.hpp>
 #include <platform/linux/storage/BlockDeviceMetadata.hpp>
 #include <platform/linux/storage/CryptsetupOperations.hpp>
+#include <platform/linux/storage/ExistingTargetMountOperations.hpp>
 #include <platform/linux/storage/SignatureOperations.hpp>
 #include <platform/linux/storage/LibBtrfsOperations.hpp>
 #include <platform/linux/storage/PartitionTableOperations.hpp>
@@ -93,6 +95,13 @@ int run_device_preparation(int argc, char** argv) {
         btrfsbackup::platform::linux::storage::LibblkidBlockDeviceMetadataReader metadata_reader;
         btrfsbackup::platform::linux::storage::LibfdiskPartitionTableOperations partition_tables;
         btrfsbackup::daemon::control::DestructiveDeviceSafetyInspector safety(storage_topology);
+        btrfsbackup::platform::linux::storage::LibmountExistingTargetMountOperations existing_target_mounts;
+        btrfsbackup::daemon::control::ExistingTargetInspector existing_target_inspector(
+            cryptsetup,
+            metadata_reader,
+            existing_target_mounts,
+            btrfs
+        );
         btrfsbackup::daemon::control::CommandSystemdUnitController systemd_units(commands);
         btrfsbackup::daemon::control::SystemdDevicePreparationUnitController units(systemd_units);
         btrfsbackup::daemon::control::SystemDeviceProvisioningBackend backend(
@@ -111,7 +120,9 @@ int run_device_preparation(int argc, char** argv) {
             credentials,
             safety,
             units,
-            false
+            false,
+            &existing_target_inspector,
+            paths.status_root.parent_path() / "target-inspections"
         );
 
         const auto transaction =
