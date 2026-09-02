@@ -17,6 +17,7 @@
 #include <cli/BackupTool.hpp>
 #include <cli/InstallationCommand.hpp>
 #include <cli/profile/ProfileCommand.hpp>
+#include <cli/repository/RepositoryCommand.hpp>
 #include <cli/runner/RunnerCommand.hpp>
 #include <cli/runner/RunnerOptions.hpp>
 #include <cli/restore/RestoreCommand.hpp>
@@ -53,6 +54,7 @@ void usage() {
         "  --profile-dir PATH   Override profile config root (default: /etc/btrfs-backup).\n"
         "\nCommands:\n"
         "  profile COMMAND\n"
+        "  repository COMMAND\n"
         "  status COMMAND\n"
         "  installation COMMAND\n"
         "  runner COMMAND\n"
@@ -106,6 +108,8 @@ int ctl_tool_main(int argc, char** argv) {
         if (command == "profile") {
             btrfsbackup::platform::linux::systemd::LinuxSystemConfigurationActivator activator;
             return profile::profile(args, profile_config_dir, activator);
+        } else if (command == "repository") {
+            return repository::repository(profile_config_dir, args, std::cout);
         } else if (command == "status") {
             bool help_requested = std::ranges::contains(args, "-h") || std::ranges::contains(args, "--help");
             if (!help_requested) {
