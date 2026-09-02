@@ -309,7 +309,7 @@ void BackupStatusModel::openSettings() {
 }
 
 void BackupStatusModel::browseBackups() {
-    if (!browseSupported()) {
+    if (!browseSupported() || !target_.connected()) {
         return;
     }
     QUrl location;

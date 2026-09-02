@@ -107,8 +107,8 @@ QQC2.ItemDelegate {
                         text: translations.i18n("Browse backups")
                         tooltip: text
                         visible: delegate.profileStatus.browseSupported
-                            && delegate.profileStatus.target.connected
                         enabled: delegate.profileStatus.managerConnected
+                            && delegate.profileStatus.target.connected
                             && !delegate.profileStatus.operationPending
                         onTriggered: delegate.profileStatus.browseBackups()
                     },
