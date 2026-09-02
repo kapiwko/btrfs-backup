@@ -34,6 +34,13 @@ KCMUtils.SimpleKCM {
             return root.provisioning.plan.freeRegionId === root.selectedTarget.candidateId
         return root.provisioning.plan.partitionId === root.selectedTarget.candidateId
     }
+    readonly property bool selectedTargetSafe: root.selectedTarget !== null
+        && (root.selectedTarget.blockers?.length ?? 0) === 0
+        && !root.selectedTarget.mounted
+        && (root.selectedTarget.mountPoints?.length ?? 0) === 0
+        && (!root.freeSpace || (root.selectedDevice !== null
+            && (root.selectedDevice.blockers?.length ?? 0) === 0
+            && !root.selectedDevice.mounted))
     readonly property string inspectionClassification: root.provisioning.inspection.classification ?? ""
 
     title: root.step === 0 ? translations.i18n("Add backup profile")
@@ -52,8 +59,7 @@ KCMUtils.SimpleKCM {
             ? (root.hasPlan ? translations.i18n("Use existing target") : translations.i18n("Inspect target"))
             : root.freeSpace ? translations.i18n("Create and prepare") : translations.i18n("Erase and prepare")
         visible: root.step === 1
-        enabled: root.selectedTarget !== null && (root.selectedTarget.blockers?.length ?? 0) === 0
-            && !root.selectedTarget.mounted && (root.selectedTarget.mountPoints?.length ?? 0) === 0
+        enabled: root.selectedTargetSafe
             && passphrase.text.length > 0
             && (root.adoption && !root.hasPlan
                 || profileId.acceptableInput
@@ -181,6 +187,8 @@ KCMUtils.SimpleKCM {
                                 ? modelData.kind === "existing-partition" && modelData.suitableForAdoption
                                 : modelData.kind === "unallocated"
                                     ? modelData.suitableForBackupPartition
+                                        && (root.selectedDevice.blockers?.length ?? 0) === 0
+                                        && !root.selectedDevice.mounted
                                     : modelData.suitableForReformat)
                                 && (modelData.blockers?.length ?? 0) === 0
                                 && (modelData.mountPoints?.length ?? 0) === 0
