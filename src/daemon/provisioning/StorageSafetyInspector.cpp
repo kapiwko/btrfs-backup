@@ -57,6 +57,25 @@ const ExistingPartition* current_partition(const StorageDevice& device, const Ex
     return nullptr;
 }
 
+const UnallocatedRegion* expected_free_region(const StorageDevice& device, const UnallocatedRegionId& id) {
+    for (const auto& region : device.regions) {
+        const auto* free_region = std::get_if<UnallocatedRegion>(&region);
+        if (free_region != nullptr && free_region->id == id)
+            return free_region;
+    }
+    return nullptr;
+}
+
+const UnallocatedRegion* current_free_region(const StorageDevice& device, const UnallocatedRegion& expected) {
+    for (const auto& region : device.regions) {
+        const auto* free_region = std::get_if<UnallocatedRegion>(&region);
+        if (free_region != nullptr && free_region->start_sector == expected.start_sector &&
+            free_region->sector_count == expected.sector_count)
+            return free_region;
+    }
+    return nullptr;
+}
+
 void inspect_device_identity(
     std::vector<SafetyBlocker>& result,
     const StorageDevice& expected,
@@ -126,6 +145,44 @@ std::vector<SafetyBlocker> StorageSafetyInspector::inspect(
     if (plan.destructive_scope.kind == DestructiveScopeKind::WholeDevice) {
         if (expected.generation != current.generation)
             add_blocker(result, "topology-generation-changed");
+        for (const auto& region : current_parent->regions) {
+            const auto* partition = std::get_if<ExistingPartition>(&region);
+            if (partition != nullptr)
+                inspect_partition_state(result, *partition, *partition);
+        }
+        for (const auto& region : expected_parent->regions) {
+            const auto* expected_child = std::get_if<ExistingPartition>(&region);
+            if (expected_child == nullptr)
+                continue;
+            const ExistingPartition* current_child = current_partition(*current_parent, *expected_child);
+            if (current_child == nullptr)
+                add_blocker(result, "block-partition-missing", expected_child->identity.display_path);
+            else
+                inspect_partition_state(result, *expected_child, *current_child);
+        }
+        return result;
+    }
+
+    if (plan.destructive_scope.kind == DestructiveScopeKind::UnallocatedRegion) {
+        if (expected.generation != current.generation)
+            add_blocker(result, "topology-generation-changed");
+        if (!plan.free_region_id.has_value()) {
+            add_blocker(result, "planned-free-region-missing");
+            return result;
+        }
+        const UnallocatedRegion* expected_region = expected_free_region(*expected_parent, *plan.free_region_id);
+        if (expected_region == nullptr) {
+            add_blocker(result, "planned-free-region-missing");
+            return result;
+        }
+        const UnallocatedRegion* current_region = current_free_region(*current_parent, *expected_region);
+        if (current_region == nullptr)
+            add_blocker(result, "unallocated-region-changed");
+        else {
+            add_blockers(result, current_region->blockers);
+            if (!current_region->suitable_for_backup_partition)
+                add_blocker(result, "unallocated-region-unsuitable");
+        }
         for (const auto& region : current_parent->regions) {
             const auto* partition = std::get_if<ExistingPartition>(&region);
             if (partition != nullptr)
