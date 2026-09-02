@@ -262,7 +262,8 @@ DevicePreparationStatus DeviceProvisioningService::start(
     if (topology_reader_ == nullptr)
         throw dbus::ManagerOperationError(dbus::ManagerErrorCode::NotFound, "storage topology is unavailable");
     const auto plan = find_plan(caller, request.plan_id);
-    if (plan.mode != provisioning::ProvisioningMode::EraseWholeDevice)
+    if (plan.mode != provisioning::ProvisioningMode::EraseWholeDevice &&
+        plan.mode != provisioning::ProvisioningMode::ReformatExistingPartition)
         throw dbus::ManagerOperationError(
             dbus::ManagerErrorCode::Conflict,
             "device preparation plan mode is not executable yet"

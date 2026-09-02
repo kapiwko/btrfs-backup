@@ -49,6 +49,7 @@ class Backend final : public IDeviceProvisioningBackend {
     std::vector<std::string> safety_reasons;
     std::vector<std::string>* events = nullptr;
     btrfsbackup::daemon::control::DevicePreparationOwner owner;
+    btrfsbackup::daemon::control::DevicePreparationTarget target;
     std::vector<std::string> list_source_candidates() override {
         return {"/home"};
     }
@@ -61,14 +62,15 @@ class Backend final : public IDeviceProvisioningBackend {
     }
     DevicePreparationStatus start(
         const DevicePreparationRequest& request,
-        const btrfsbackup::daemon::control::DevicePreparationTarget& target,
+        const btrfsbackup::daemon::control::DevicePreparationTarget& received_target,
         const btrfsbackup::daemon::control::DevicePreparationOwner& received_owner,
         int passphrase_fd
     ) override {
         owner = received_owner;
+        target = received_target;
         received_fd = passphrase_fd;
         ++starts;
-        test_helpers::expect_eq("resolved target path", target.device.identity.display_path, "/dev/test");
+        test_helpers::expect_eq("resolved target path", received_target.device.identity.display_path, "/dev/test");
         return {.operation_id = "prepare-1", .profile_id = request.profile_id, .state = "queued", .phase = "inspect", .can_cancel = true};
     }
     DevicePreparationStatus status(const std::string&) const override {
@@ -98,6 +100,7 @@ class TopologyReader final : public StorageTopologyReader {
             .start_sector = 1,
             .sector_count = 1,
             .filesystem = {.type = "ext4"},
+            .suitable_for_reformat = true,
         };
         if (partition_mounted) {
             partition.mount_points = {"/media/target"};
@@ -206,11 +209,13 @@ void test_topology_and_plan_are_caller_bound_and_revalidated() {
         partition.candidate_id,
         ProvisioningMode::ReformatExistingPartition
     );
-    try {
-        static_cast<void>(service.start(":1.20", 1000, plan_request(partition_plan.id), 17));
-        test_helpers::fail("partition execution", "a partition plan reached the whole-device executor");
-    } catch (const btrfsbackup::daemon::dbus::ManagerOperationError&) {
-    }
+    static_cast<void>(service.start(":1.20", 1000, plan_request(partition_plan.id), 17));
+    test_helpers::expect_true(
+        "partition execution target",
+        backend.target.mode == ProvisioningMode::ReformatExistingPartition && backend.target.partition.has_value() &&
+            backend.target.partition->identity.display_path == "/dev/test1",
+        "partition plan did not reach the backend with its exact target"
+    );
     const auto plan = service.build_device_preparation_plan(
         ":1.20",
         topology.generation,
