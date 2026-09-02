@@ -82,6 +82,9 @@ class IDeviceProvisioningBackend {
         const provisioning::StorageDevice& device,
         const provisioning::UnallocatedRegion& free_region
     ) const = 0;
+    [[nodiscard]] virtual provisioning::PlannedPartitionGeometry plan_whole_device_partition_geometry(
+        const provisioning::StorageDevice& device
+    ) const = 0;
     [[nodiscard]] virtual provisioning::ExistingTargetInspectionSummary inspect_existing_target(
         const DevicePreparationTarget& target,
         int credential_fd

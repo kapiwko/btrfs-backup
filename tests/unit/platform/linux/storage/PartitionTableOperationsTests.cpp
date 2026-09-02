@@ -63,6 +63,16 @@ int main() {
         "path is invalid"
     );
     test_helpers::expect_validation_error(
+        "relative whole-device planning path",
+        [&] { static_cast<void>(operations.plan_single_gpt_partition("dev/test", "8:0", 512)); },
+        "path is invalid"
+    );
+    test_helpers::expect_validation_error(
+        "non-block whole-device planning target",
+        [&] { static_cast<void>(operations.plan_single_gpt_partition("/dev/null", "1:3", 512)); },
+        "not a block device"
+    );
+    test_helpers::expect_validation_error(
         "non-block free-space planning target",
         [&] {
             static_cast<void>(operations.plan_partition_in_free_space(
@@ -93,17 +103,35 @@ int main() {
     );
     test_helpers::expect_validation_error(
         "relative partition table path",
-        [&] { static_cast<void>(operations.replace_with_single_gpt_partition("dev/test", "8:0")); },
+        [&] {
+            static_cast<void>(operations.replace_with_single_gpt_partition(
+                "dev/test",
+                "8:0",
+                {.start_sector = 2048, .sector_count = 4096, .partition_number = 1}
+            ));
+        },
         "path is invalid"
     );
     test_helpers::expect_validation_error(
         "invalid partition table identity",
-        [&] { static_cast<void>(operations.replace_with_single_gpt_partition("/dev/null", "invalid")); },
+        [&] {
+            static_cast<void>(operations.replace_with_single_gpt_partition(
+                "/dev/null",
+                "invalid",
+                {.start_sector = 2048, .sector_count = 4096, .partition_number = 1}
+            ));
+        },
         "identity is invalid"
     );
     test_helpers::expect_validation_error(
         "non-block partition table target",
-        [&] { static_cast<void>(operations.replace_with_single_gpt_partition("/dev/null", "1:3")); },
+        [&] {
+            static_cast<void>(operations.replace_with_single_gpt_partition(
+                "/dev/null",
+                "1:3",
+                {.start_sector = 2048, .sector_count = 4096, .partition_number = 1}
+            ));
+        },
         "not a block device"
     );
     return test_helpers::finish("partition table operations tests");

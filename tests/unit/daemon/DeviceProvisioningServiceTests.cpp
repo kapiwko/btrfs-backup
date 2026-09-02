@@ -75,6 +75,12 @@ class Backend final : public IDeviceProvisioningBackend {
             .partition_number = 2,
         };
     }
+    btrfsbackup::daemon::provisioning::PlannedPartitionGeometry plan_whole_device_partition_geometry(
+        const btrfsbackup::daemon::provisioning::StorageDevice&
+    ) const override {
+        ++geometry_plans;
+        return {.start_sector = 1, .sector_count = 14, .partition_number = 1};
+    }
     btrfsbackup::daemon::provisioning::ExistingTargetInspectionSummary inspect_existing_target(
         const btrfsbackup::daemon::control::DevicePreparationTarget& received_target,
         int passphrase_fd
@@ -269,7 +275,13 @@ void test_topology_and_plan_are_caller_bound_and_revalidated() {
         topology.devices.front().candidate_id,
         ProvisioningMode::EraseWholeDevice
     );
-    test_helpers::expect_true("caller plan", !plan.id.empty(), "plan identifier is empty");
+    test_helpers::expect_true(
+        "whole-device geometry plan",
+        !plan.id.empty() && plan.after.regions.size() == 1 && plan.after.regions.front().geometry_exact &&
+            plan.after.regions.front().start_sector == 1 && plan.after.regions.front().sector_count == 14 &&
+            plan.after.regions.front().partition_number == 1,
+        "whole-device plan did not expose exact backend geometry"
+    );
     try {
         static_cast<void>(service.start(":1.21", 1001, plan_request(plan.id), 17));
         test_helpers::fail("foreign plan", "another caller started a preparation plan");
@@ -288,6 +300,15 @@ void test_topology_and_plan_are_caller_bound_and_revalidated() {
         "device safety was not inspected before polkit"
     );
     test_helpers::expect_eq("topology execution candidate", started.operation_id, "prepare-1");
+    test_helpers::expect_true(
+        "whole-device execution geometry",
+        backend.target.mode == ProvisioningMode::EraseWholeDevice &&
+            backend.target.planned_partition_geometry.has_value() &&
+            backend.target.planned_partition_geometry->start_sector == 1 &&
+            backend.target.planned_partition_geometry->sector_count == 14 &&
+            backend.target.planned_partition_geometry->partition_number == 1,
+        "whole-device geometry changed between plan and execution"
+    );
     test_helpers::expect_true("secret descriptor", backend.received_fd == 17, "descriptor not forwarded");
     authorizer.allowed = false;
     test_helpers::expect_eq(

@@ -68,6 +68,9 @@ class SystemDeviceProvisioningBackend final : public IDeviceProvisioningBackend 
         const provisioning::StorageDevice& device,
         const provisioning::UnallocatedRegion& free_region
     ) const override;
+    [[nodiscard]] provisioning::PlannedPartitionGeometry plan_whole_device_partition_geometry(
+        const provisioning::StorageDevice& device
+    ) const override;
     [[nodiscard]] provisioning::ExistingTargetInspectionSummary inspect_existing_target(
         const DevicePreparationTarget& target,
         int credential_fd
