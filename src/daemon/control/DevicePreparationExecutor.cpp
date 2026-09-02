@@ -5,7 +5,6 @@
 
 #include <chrono>
 #include <iostream>
-#include <span>
 #include <utility>
 #include <unistd.h>
 
@@ -22,6 +21,7 @@
 #include <platform/linux/filesystem/SecretFile.hpp>
 #include <platform/linux/storage/BlockDeviceMetadata.hpp>
 #include <platform/linux/storage/CryptsetupOperations.hpp>
+#include <platform/linux/storage/PartitionTableOperations.hpp>
 #include <platform/linux/storage/SignatureOperations.hpp>
 
 namespace fs = std::filesystem;
@@ -62,6 +62,7 @@ DevicePreparationExecutor::DevicePreparationExecutor(
     backup::ICommandRunner& commands,
     platform::linux::storage::ISignatureOperations& signatures,
     platform::linux::storage::IBlockDeviceMetadataReader& metadata,
+    platform::linux::storage::IPartitionTableOperations& partition_tables,
     platform::linux::storage::ICryptsetupOperations& cryptsetup,
     backup::IBtrfsOperations& btrfs,
     config::IConfigurationActivator& configuration_activator,
@@ -74,6 +75,7 @@ DevicePreparationExecutor::DevicePreparationExecutor(
       commands_(commands),
       signatures_(signatures),
       metadata_(metadata),
+      partition_tables_(partition_tables),
       cryptsetup_(cryptsetup),
       btrfs_(btrfs),
       activator_(configuration_activator),
@@ -143,17 +145,7 @@ void DevicePreparationExecutor::execute(const std::string& operation_id, int pas
 
         phase(operation_id, "partition", false);
         backup::ControlledCommandOptions standard;
-        const std::string table = "label: gpt\n, type=L\n";
-        const auto bytes = std::as_bytes(std::span(table.data(), table.size()));
-        OwnedFileDescriptor partition_input = platform::linux::filesystem::create_sealed_secret_file(bytes);
-        backup::ControlledCommandOptions partition_options;
-        partition_options.stdin_fd = partition_input.get();
-        require_success(
-            commands_,
-            {"sfdisk", "--wipe", "always", initial.device.path},
-            partition_options,
-            "partitioning device"
-        );
+        partition_tables_.replace_with_single_gpt_partition(initial.device.path, initial.device.major_minor);
         require_success(commands_, {"udevadm", "settle", "--timeout=10"}, standard, "waiting for the new partition");
         const std::string partition = devices_.only_partition(initial.device);
         update(operation_id, [&](auto& transaction) {

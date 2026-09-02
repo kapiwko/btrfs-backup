@@ -98,15 +98,18 @@ signature erasure. Signature erasure uses libblkid on an `O_EXCL|O_NOFOLLOW`
 descriptor after checking that the opened block node still has the expected
 `major:minor`; it does not launch `wipefs`. Post-format filesystem and partition
 identifiers are read from a descriptor-backed libblkid probe instead of a
-`blkid` process. The helper verifies the chosen source as a Btrfs subvolume and
-disables cancellation before the first write. The long-lived manager persists
+`blkid` process. Whole-device GPT creation uses a deliberately narrow libfdisk
+adapter. It verifies `major:minor` on an `O_EXCL|O_NOFOLLOW` descriptor, holds an
+advisory device lock, uses libfdisk alignment and requires the kernel partition
+table reread to succeed. The helper verifies the chosen source as a Btrfs
+subvolume and disables cancellation before the first write. The long-lived manager persists
 the request and launches one
 `btrfs-backup-device-preparation@<operationId>.service` instance. That
 short-lived helper receives the passphrase through a root-only FIFO, executes
 exactly one transaction, and checkpoints every phase. Its unit has a closed
 device policy with explicit block-device access, a strict filesystem sandbox,
 and only the capabilities required for storage administration. No QML, KDE, or
-long-lived D-Bus worker thread invokes `sfdisk` or `mkfs.btrfs` directly. LUKS2
+long-lived D-Bus worker thread invokes `mkfs.btrfs` directly. LUKS2
 metadata, keyslots and mappings are managed through libcryptsetup; protected
 credential buffers use `crypt_safe_alloc` and are released with
 `crypt_safe_free`.

@@ -27,6 +27,7 @@
 #include <platform/linux/storage/BlockDeviceMetadata.hpp>
 #include <platform/linux/storage/LibBtrfsOperations.hpp>
 #include <platform/linux/storage/CryptsetupOperations.hpp>
+#include <platform/linux/storage/PartitionTableOperations.hpp>
 #include <platform/linux/storage/SignatureOperations.hpp>
 #include <platform/linux/storage/provisioning/SystemStorageTopologyReader.hpp>
 #include <state/persistence/FileRunStateRepository.hpp>
@@ -164,6 +165,7 @@ int main(int argc, char** argv) {
         });
         btrfsbackup::platform::linux::storage::LibblkidSignatureOperations signature_operations;
         btrfsbackup::platform::linux::storage::LibblkidBlockDeviceMetadataReader metadata_reader;
+        btrfsbackup::platform::linux::storage::LibfdiskPartitionTableOperations partition_tables;
         btrfsbackup::daemon::control::DestructiveDeviceSafetyInspector destructive_device_safety(storage_topology);
         btrfsbackup::daemon::control::SystemdDevicePreparationUnitController device_preparation_units(units);
         btrfsbackup::daemon::control::SystemDeviceProvisioningBackend device_provisioning_backend(
@@ -175,6 +177,7 @@ int main(int argc, char** argv) {
             commands,
             signature_operations,
             metadata_reader,
+            partition_tables,
             cryptsetup,
             btrfs,
             selected_configuration_activator,
