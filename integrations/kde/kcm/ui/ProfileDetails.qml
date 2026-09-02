@@ -104,8 +104,33 @@ ColumnLayout {
                 || translations.i18n("Unknown")
             elide: Text.ElideMiddle
         }
+        QQC2.Label { text: translations.i18n("Device connection:"); opacity: 0.65 }
+        RowLayout {
+            spacing: Kirigami.Units.smallSpacing
+            Kirigami.Icon {
+                source: root.profileStatus.target.connected
+                    ? "drive-removable-media-symbolic"
+                    : "network-disconnect-symbolic"
+                implicitWidth: Kirigami.Units.iconSizes.small
+                implicitHeight: implicitWidth
+            }
+            QQC2.Label {
+                objectName: "deviceConnectionState"
+                text: root.profileStatus.target.connected
+                    ? translations.i18n("Connected")
+                    : translations.i18n("Disconnected")
+            }
+        }
         QQC2.Label { text: translations.i18n("Target state:"); opacity: 0.65 }
-        QQC2.Label { text: root.targetStateTextFor(root.profileStatus.target.state) }
+        RowLayout {
+            spacing: Kirigami.Units.smallSpacing
+            Kirigami.Icon {
+                source: root.targetStateIcon(root.profileStatus.target.state)
+                implicitWidth: Kirigami.Units.iconSizes.small
+                implicitHeight: implicitWidth
+            }
+            QQC2.Label { text: root.targetStateTextFor(root.profileStatus.target.state) }
+        }
         QQC2.Label { text: translations.i18n("Automatic backups:"); opacity: 0.65 }
         QQC2.Label {
             text: root.profileStatus.profileEnabled
@@ -158,6 +183,17 @@ ColumnLayout {
         case "sizing": return translations.i18n("Calculating transfer size")
         case "transferring": return translations.i18n("Transferring backup data")
         default: return phase || translations.i18n("Preparing backup")
+        }
+    }
+
+    function targetStateIcon(state) {
+        switch (state) {
+        case "mounted": return "drive-harddisk-root-symbolic"
+        case "unexpected-mount": return "dialog-warning-symbolic"
+        case "unlocked": return "emblem-encrypted-unlocked"
+        case "connected": return "emblem-encrypted-locked"
+        case "disconnected": return "network-disconnect-symbolic"
+        default: return "dialog-question-symbolic"
         }
     }
 

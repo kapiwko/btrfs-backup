@@ -141,6 +141,9 @@ msgstr "Bieżąca aktywność"
 msgid "Connection:"
 msgstr "Połączenie:"
 
+msgid "Device connection:"
+msgstr "Połączenie urządzenia:"
+
 msgid "Target state:"
 msgstr "Stan celu:"
 

@@ -589,7 +589,13 @@ std::vector<TargetCredential> SystemCredentialAdministrationBackend::list_creden
 ) const {
     const config::Profile profile = load_profile(roots_, profile_id);
     const auto header = inspect_target(cryptsetup_, profile);
-    return merge_credentials(header.keyslots, load_metadata(roots_, profile.target.luks_uuid));
+    try {
+        return merge_credentials(header.keyslots, load_metadata(roots_, profile.target.luks_uuid));
+    } catch (const ValidationError& error) {
+        std::cerr << "btrfs-backupd: ignoring invalid credential metadata while listing LUKS keyslots for profile "
+                  << profile_id.value() << ": " << error.what() << '\n';
+        return merge_credentials(header.keyslots, {});
+    }
 }
 
 void SystemCredentialAdministrationBackend::add_passphrase(
