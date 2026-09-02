@@ -8,7 +8,14 @@
 #include <string>
 #include <vector>
 
+#include <core/Errors.hpp>
+
 namespace btrfsbackup::platform::linux::storage {
+
+class ActiveDeviceUnavailableError final : public btrfsbackup::ValidationError {
+  public:
+    using ValidationError::ValidationError;
+};
 
 struct LuksHeader {
     std::string uuid;

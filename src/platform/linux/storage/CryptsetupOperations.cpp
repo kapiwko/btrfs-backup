@@ -201,7 +201,7 @@ std::filesystem::path CryptsetupOperations::active_device(const std::string& map
     require_result(initialization, "opening active LUKS mapping");
     const char* device = crypt_get_device_name(context.get());
     if (device == nullptr || *device == '\0')
-        throw ValidationError("active LUKS device is unavailable");
+        throw ActiveDeviceUnavailableError("active LUKS device is unavailable");
     return device;
 }
 

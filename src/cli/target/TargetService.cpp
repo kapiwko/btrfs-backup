@@ -320,15 +320,45 @@ TargetOperationResult activate_target(
 
     validate_luks_uuid(resolved.cryptsetup, profile);
     if (fs::exists(mapper)) {
-        if (!mapper_identity_matches(resolved.cryptsetup, profile, resolved.canonical_device)) {
+        bool stale_owned_mapper = false;
+        try {
+            if (!mapper_identity_matches(resolved.cryptsetup, profile, resolved.canonical_device)) {
+                throw ValidationError(
+                    "Refusing to use mapper " + profile.target.mapper_name.value() +
+                    " because its underlying device does not match configuration"
+                );
+            }
+        } catch (const btrfsbackup::platform::linux::storage::ActiveDeviceUnavailableError&) {
+            stale_owned_mapper = activation_is_owned(resolved, profile);
+            if (!stale_owned_mapper) {
+                throw ValidationError(
+                    "Refusing to replace mapper " + profile.target.mapper_name.value() +
+                    " because its ownership cannot be verified"
+                );
+            }
+        }
+        if (!stale_owned_mapper) {
+            (void)activation_is_owned(resolved, profile);
+            events.push_back({.kind = TargetEventKind::Activated, .detail = profile.target.mapper_name.value()});
+            return TargetOperationCompleted{std::move(events)};
+        }
+
+        if (mapper_has_mounts(profile, resolved.read_mounts(), events, resolved.mapper_root)) {
             throw ValidationError(
-                "Refusing to use mapper " + profile.target.mapper_name.value() +
-                " because its underlying device does not match configuration"
+                "Refusing to replace stale mapper " + profile.target.mapper_name.value() +
+                " while it is still mounted"
             );
         }
-        (void)activation_is_owned(resolved, profile);
-        events.push_back({.kind = TargetEventKind::Activated, .detail = profile.target.mapper_name.value()});
-        return TargetOperationCompleted{std::move(events)};
+        run_checked_controlled(
+            resolved.commands,
+            {resolved.systemd_cryptsetup_command, "detach", profile.target.mapper_name.value()},
+            "could not detach stale LUKS mapper " + profile.target.mapper_name.value(),
+            std::chrono::seconds(30)
+        );
+        remove_activation_marker(resolved, profile);
+        if (fs::exists(mapper)) {
+            throw ValidationError("stale LUKS mapper remains active after detach");
+        }
     }
 
     std::string key_file = "-";

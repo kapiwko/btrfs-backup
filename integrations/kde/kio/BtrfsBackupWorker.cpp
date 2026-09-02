@@ -7,6 +7,7 @@
 
 #include <KIO/Global>
 #include <KIO/UDSEntry>
+#include <KLocalizedString>
 
 #include <QCoreApplication>
 #include <QDBusPendingReply>
@@ -115,6 +116,7 @@ std::optional<BtrfsBackupWorker::ParsedUrl> BtrfsBackupWorker::parse(const QUrl&
 }
 
 BtrfsBackupWorker::Session* BtrfsBackupWorker::session(const QString& profile) {
+    session_error_name_.clear();
     if (profile.isEmpty())
         return nullptr;
     if (auto existing = sessions_.find(profile); existing != sessions_.end()) {
@@ -126,10 +128,19 @@ BtrfsBackupWorker::Session* BtrfsBackupWorker::session(const QString& profile) {
         sessions_.erase(existing);
     }
 
-    const auto payload = reply_payload(btrfsbackup::kde::manager_call(QDBusConnection::systemBus(), QLatin1String(btrfsbackup::manager_protocol::method::open_browse_session), {profile}));
-    if (!payload)
+    QDBusPendingReply<QString> reply(
+        btrfsbackup::kde::manager_call(
+            QDBusConnection::systemBus(),
+            QLatin1String(btrfsbackup::manager_protocol::method::open_browse_session),
+            {profile}
+        )
+    );
+    reply.waitForFinished();
+    if (reply.isError()) {
+        session_error_name_ = reply.error().name();
         return nullptr;
-    const auto opened = btrfsbackup::kde::parse_browse_session(*payload);
+    }
+    const auto opened = btrfsbackup::kde::parse_browse_session(reply.value());
     if (!opened || opened->profile_id != profile || !opened->read_only)
         return nullptr;
 
@@ -187,6 +198,23 @@ bool BtrfsBackupWorker::session_root_available(const Session& session) const {
     return session.root_descriptor && session.root_descriptor->valid();
 }
 
+KIO::WorkerResult BtrfsBackupWorker::session_failure() const {
+    if (session_error_name_.endsWith(QStringLiteral(".TargetUnavailable"))) {
+        return KIO::WorkerResult::fail(
+            KIO::ERR_CANNOT_MOUNT,
+            i18nd(
+                "plasma_applet_org.btrfsbackup.plasmoid",
+                "The backup device is disconnected or unavailable."
+            )
+        );
+    }
+    if (session_error_name_.endsWith(QStringLiteral(".Busy")))
+        return KIO::WorkerResult::fail(KIO::ERR_SERVER_TIMEOUT);
+    if (session_error_name_.endsWith(QStringLiteral(".NotAuthorized")))
+        return KIO::WorkerResult::fail(KIO::ERR_ACCESS_DENIED);
+    return KIO::WorkerResult::fail(KIO::ERR_SERVICE_NOT_AVAILABLE);
+}
+
 KIO::WorkerResult BtrfsBackupWorker::list_profiles() {
     const auto payload = reply_payload(btrfsbackup::kde::manager_call(QDBusConnection::systemBus(), QLatin1String(btrfsbackup::manager_protocol::method::list_profiles)));
     const auto profiles = payload ? btrfsbackup::kde::parse_profiles(*payload) : std::nullopt;
@@ -202,7 +230,7 @@ KIO::WorkerResult BtrfsBackupWorker::list_profiles() {
 KIO::WorkerResult BtrfsBackupWorker::list_snapshots(const QString& profile) {
     Session* active = session(profile);
     if (active == nullptr || !active->catalog)
-        return KIO::WorkerResult::fail(KIO::ERR_ACCESS_DENIED);
+        return session_failure();
     const BrowseSessionPin pin(active->id);
     if (!pin)
         return KIO::WorkerResult::fail(KIO::ERR_ACCESS_DENIED);
@@ -244,7 +272,7 @@ KIO::WorkerResult BtrfsBackupWorker::list_versions(const ParsedUrl& url) {
     const QString relative = parts.size() > 1 ? parts.mid(1).join(u'/') : u"."_s;
     Session* active = session(url.profile);
     if (active == nullptr || !active->catalog)
-        return KIO::WorkerResult::fail(KIO::ERR_ACCESS_DENIED);
+        return session_failure();
     const BrowseSessionPin pin(active->id);
     if (!pin)
         return KIO::WorkerResult::fail(KIO::ERR_ACCESS_DENIED);
@@ -288,7 +316,7 @@ KIO::WorkerResult BtrfsBackupWorker::list_repository_directory(const QUrl& url) 
     const auto parsed = parse(url);
     Session* active = parsed ? session(parsed->profile) : nullptr;
     if (active == nullptr)
-        return KIO::WorkerResult::fail(KIO::ERR_ACCESS_DENIED);
+        return session_failure();
     const BrowseSessionPin pin(active->id);
     if (!pin)
         return KIO::WorkerResult::fail(KIO::ERR_ACCESS_DENIED);
@@ -333,7 +361,7 @@ KIO::WorkerResult BtrfsBackupWorker::get(const QUrl& url) {
     const auto parsed = parse(url);
     Session* active = parsed ? session(parsed->profile) : nullptr;
     if (active == nullptr)
-        return KIO::WorkerResult::fail(KIO::ERR_ACCESS_DENIED);
+        return session_failure();
     const BrowseSessionPin pin(active->id);
     if (!pin)
         return KIO::WorkerResult::fail(KIO::ERR_ACCESS_DENIED);
@@ -381,7 +409,7 @@ KIO::WorkerResult BtrfsBackupWorker::open(const QUrl& url, QIODevice::OpenMode m
     const auto parsed = parse(url);
     Session* active = parsed ? session(parsed->profile) : nullptr;
     if (active == nullptr)
-        return KIO::WorkerResult::fail(KIO::ERR_ACCESS_DENIED);
+        return session_failure();
     if (!set_session_active(active->id, true))
         return KIO::WorkerResult::fail(KIO::ERR_ACCESS_DENIED);
     const auto relative = resolve_entry(*parsed, *active);
@@ -454,7 +482,7 @@ KIO::WorkerResult BtrfsBackupWorker::stat(const QUrl& url) {
     }
     Session* active = session(parsed->profile);
     if (active == nullptr)
-        return KIO::WorkerResult::fail(KIO::ERR_ACCESS_DENIED);
+        return session_failure();
     const BrowseSessionPin pin(active->id);
     if (!pin)
         return KIO::WorkerResult::fail(KIO::ERR_ACCESS_DENIED);
@@ -492,7 +520,7 @@ KIO::WorkerResult BtrfsBackupWorker::mimetype(const QUrl& url) {
     }
     Session* active = session(parsed->profile);
     if (active == nullptr)
-        return KIO::WorkerResult::fail(KIO::ERR_ACCESS_DENIED);
+        return session_failure();
     const BrowseSessionPin pin(active->id);
     if (!pin)
         return KIO::WorkerResult::fail(KIO::ERR_ACCESS_DENIED);

@@ -31,6 +31,7 @@ class RecordingCommandRunner final
       public btrfsbackup::platform::linux::storage::ICryptsetupOperations {
   public:
     bool mounted = false;
+    bool active_device_available = true;
     fs::path mapper_path;
     std::string status_device = "/dev/disk/by-uuid/target-luks";
     std::vector<std::string> calls;
@@ -39,6 +40,7 @@ class RecordingCommandRunner final
         calls.push_back(join(argv));
         if (argv.size() == 6 && argv.at(1) == "attach") {
             test_helpers::write_file(mapper_path, "mapper");
+            active_device_available = true;
             return {};
         }
         if (argv.size() == 3 && argv.at(1) == "detach") {
@@ -73,6 +75,11 @@ class RecordingCommandRunner final
     void remove_keyslot(const fs::path&, int, int) override {
     }
     fs::path active_device(const std::string&) override {
+        if (!active_device_available) {
+            throw btrfsbackup::platform::linux::storage::ActiveDeviceUnavailableError(
+                "active LUKS device is unavailable"
+            );
+        }
         return status_device;
     }
     std::string format_luks2(const fs::path&, int) override {
@@ -377,6 +384,116 @@ void test_deactivation_closes_owned_mapper_after_device_disappears() {
     fs::remove_all(root);
 }
 
+void test_activation_replaces_owned_stale_mapper_after_reconnect() {
+    fs::path root = test_helpers::test_root("target-command", "activation-reconnect");
+    std::string mount_point = (root / "mnt" / "default").string();
+    write_profile(root, mount_point);
+    RecordingCommandRunner commands;
+    const fs::path mapper_root = root / "mapper";
+    commands.mapper_path = mapper_root / mapper_name;
+    btrfsbackup::cli::target::TargetExecutionServices services{
+        .commands = commands,
+        .cryptsetup = commands,
+        .read_mounts = [] { return std::vector<btrfsbackup::backup::MountEntry>{}; },
+        .lock_root = root / "locks",
+        .mount_point_trust_root = root,
+        .mapper_root = mapper_root,
+        .activation_state_root = root / "activation",
+        .keyfile_trust_root = root,
+        .systemd_cryptsetup_command = "/test/systemd-cryptsetup",
+        .canonical_device = [](const fs::path& path) { return path; },
+    };
+    std::ostringstream output;
+
+    setenv("BTRFS_BACKUP_ALLOW_ROOTLESS_TESTS", "true", 1);
+    (void)btrfsbackup::cli::target::target(
+        root,
+        {"activate", "--from-service", "--profile", "default"},
+        output,
+        &services
+    );
+    commands.active_device_available = false;
+
+    const int result = btrfsbackup::cli::target::target(
+        root,
+        {"activate", "--from-service", "--profile", "default"},
+        output,
+        &services
+    );
+
+    test_helpers::expect_eq("reconnected target activation result", std::to_string(result), "0");
+    test_helpers::expect_true(
+        "stale owned mapper detached",
+        contains_call(commands, "/test/systemd-cryptsetup detach " + std::string(mapper_name)),
+        "stale mapper was not detached"
+    );
+    test_helpers::expect_true(
+        "reconnected target mapper attached",
+        std::count(
+            commands.calls.begin(),
+            commands.calls.end(),
+            "/test/systemd-cryptsetup attach " + std::string(mapper_name) +
+                " /dev/disk/by-uuid/target-luks - luks"
+        ) == 2,
+        "target was not attached again"
+    );
+    test_helpers::expect_true(
+        "reconnected target activation marker",
+        fs::is_regular_file(root / "activation" / "default.json"),
+        "activation ownership was not restored"
+    );
+    fs::remove_all(root);
+}
+
+void test_activation_preserves_unowned_mapper_with_missing_device() {
+    fs::path root = test_helpers::test_root("target-command", "activation-unowned-missing-device");
+    std::string mount_point = (root / "mnt" / "default").string();
+    write_profile(root, mount_point);
+    RecordingCommandRunner commands;
+    const fs::path mapper_root = root / "mapper";
+    commands.mapper_path = mapper_root / mapper_name;
+    test_helpers::write_file(commands.mapper_path, "unowned mapper");
+    commands.active_device_available = false;
+    btrfsbackup::cli::target::TargetExecutionServices services{
+        .commands = commands,
+        .cryptsetup = commands,
+        .read_mounts = [] { return std::vector<btrfsbackup::backup::MountEntry>{}; },
+        .lock_root = root / "locks",
+        .mount_point_trust_root = root,
+        .mapper_root = mapper_root,
+        .activation_state_root = root / "activation",
+        .keyfile_trust_root = root,
+        .systemd_cryptsetup_command = "/test/systemd-cryptsetup",
+        .canonical_device = [](const fs::path& path) { return path; },
+    };
+    std::ostringstream output;
+
+    setenv("BTRFS_BACKUP_ALLOW_ROOTLESS_TESTS", "true", 1);
+    test_helpers::expect_validation_error(
+        "unowned mapper with missing device rejected",
+        [&] {
+            (void)btrfsbackup::cli::target::target(
+                root,
+                {"activate", "--from-service", "--profile", "default"},
+                output,
+                &services
+            );
+        },
+        "ownership cannot be verified"
+    );
+    test_helpers::expect_true(
+        "unowned mapper preserved",
+        fs::exists(commands.mapper_path),
+        "unowned mapper was removed"
+    );
+    test_helpers::expect_true(
+        "unowned mapper not detached",
+        !contains_call(commands, "/test/systemd-cryptsetup detach " + std::string(mapper_name)),
+        "unowned mapper was detached"
+    );
+    fs::remove_all(root);
+}
+
 void test_activation_rejects_insecure_key_file() {
     fs::path root = test_helpers::test_root("target-command", "activation-insecure-key");
     std::string mount_point = (root / "mnt" / "default").string();
@@ -524,6 +641,8 @@ int main() {
     test_activation_owns_and_restores_mapper();
     test_activation_preserves_preexisting_mapper();
     test_deactivation_closes_owned_mapper_after_device_disappears();
+    test_activation_replaces_owned_stale_mapper_after_reconnect();
+    test_activation_preserves_unowned_mapper_with_missing_device();
     test_activation_rejects_insecure_key_file();
     test_internal_eject_honors_auto_eject_setting();
     test_eject_refuses_busy_target_without_running_commands();

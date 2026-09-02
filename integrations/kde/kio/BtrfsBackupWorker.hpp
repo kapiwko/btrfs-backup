@@ -57,6 +57,7 @@ class BtrfsBackupWorker final : public KIO::WorkerBase {
         const Session& session
     ) const;
     [[nodiscard]] bool session_root_available(const Session& session) const;
+    [[nodiscard]] KIO::WorkerResult session_failure() const;
     void close_open_file() noexcept;
     KIO::WorkerResult list_profiles();
     KIO::WorkerResult list_snapshots(const QString& profile);
@@ -68,4 +69,5 @@ class BtrfsBackupWorker final : public KIO::WorkerBase {
     QHash<QString, Session> sessions_;
     btrfsbackup::kde::kio::SecureBrowseFile open_file_;
     QString open_session_id_;
+    QString session_error_name_;
 };
