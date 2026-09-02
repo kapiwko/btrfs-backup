@@ -186,11 +186,11 @@ PlasmoidItem {
 
     function panelIcon() {
         switch (root.primarySummary?.priority ?? 7) {
-        case 1: return "dialog-error"
-        case 3: return "dialog-warning"
-        case 5: return "media-eject"
-        case 6: return "emblem-success"
-        default: return "drive-harddisk"
+        case 1: return "dialog-error-symbolic"
+        case 3: return "dialog-warning-symbolic"
+        case 5: return "media-eject-symbolic"
+        case 6: return "emblem-success-symbolic"
+        default: return "drive-harddisk-symbolic"
         }
     }
 
