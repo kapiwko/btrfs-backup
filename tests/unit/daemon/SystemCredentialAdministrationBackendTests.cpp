@@ -433,12 +433,27 @@ void test_metadata_rejects_key_file_outside_trusted_root() {
         })
     );
 
+    const auto listed = backend.list_credentials(ProfileId{"default"});
+    test_helpers::expect_true(
+        "external key metadata ignored while listing",
+        listed.size() == 2 &&
+            std::ranges::none_of(listed, &control::TargetCredential::managed),
+        "unsafe metadata hid real LUKS keyslots or was exposed as trusted"
+    );
+
+    auto authorization = secret("authorization");
+    auto credential = secret("credential");
     try {
-        static_cast<void>(backend.list_credentials(ProfileId{"default"}));
-        test_helpers::fail("external key metadata", "external key path was accepted");
+        backend.add_passphrase(
+            ProfileId{"default"},
+            authorization.get(),
+            credential.get(),
+            "Recovery"
+        );
+        test_helpers::fail("external key metadata mutation", "unsafe metadata was accepted for mutation");
     } catch (const ValidationError& error) {
         test_helpers::expect_contains(
-            "external key metadata error",
+            "external key metadata mutation error",
             error.what(),
             "managed credential entry is invalid"
         );

@@ -168,10 +168,12 @@ PlasmaExtras.ExpandableListItem {
 
     function targetIcon() {
         if (!profileStatus.target.connected)
-            return "drive-removable-media-symbolic"
+            return "network-disconnect-symbolic"
         if (profileStatus.target.mounted)
             return "drive-harddisk-symbolic"
-        return "drive-removable-media-symbolic"
+        if (profileStatus.target.unlocked)
+            return "emblem-encrypted-unlocked"
+        return "emblem-encrypted-locked"
     }
 
     function statusEmblem() {

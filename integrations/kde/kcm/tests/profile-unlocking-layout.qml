@@ -53,5 +53,24 @@ Item {
             verify(unlocking.implicitHeight >= message.y + message.implicitHeight)
             credentials.errorMessage = ""
         }
+
+        function test_unknownLuksSlotRemainsVisible() {
+            credentials.credentials = [{
+                id: "slot-0",
+                label: "Other credential",
+                type: "unknown",
+                keyslot: 0,
+                managed: false,
+                automatic: false
+            }]
+            wait(0)
+
+            const method = findChild(unlocking, "unlockingMethodDetails")
+            verify(method !== null)
+            compare(method.title, "LUKS key slot 0")
+            verify(method.subtitle.startsWith("Unknown unlocking method"))
+
+            credentials.credentials = []
+        }
     }
 }

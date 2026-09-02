@@ -194,6 +194,9 @@ msgstr "Nazwa:"
 msgid "Target state:"
 msgstr "Stan celu:"
 
+msgid "Device connection:"
+msgstr "Połączenie urządzenia:"
+
 #: integrations/kde/kcm/ui/ProfileDetails.qml:109
 msgid "Automatic backups:"
 msgstr "Automatyczne kopie:"
@@ -511,6 +514,9 @@ msgstr "Dodaj plik klucza"
 
 msgid "LUKS key slot %1"
 msgstr "Slot klucza LUKS %1"
+
+msgid "Unknown unlocking method"
+msgstr "Nieznana metoda odblokowania"
 
 msgid "Remove unlocking method"
 msgstr "Usuń metodę odblokowania"

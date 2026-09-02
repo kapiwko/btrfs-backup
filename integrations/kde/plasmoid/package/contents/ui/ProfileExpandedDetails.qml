@@ -99,16 +99,49 @@ ColumnLayout {
         }
 
         PlasmaComponents3.Label {
+            text: translations.i18n("Device connection:")
+            horizontalAlignment: Text.AlignRight
+            font: Kirigami.Theme.smallFont
+            opacity: 0.6
+        }
+        RowLayout {
+            spacing: Kirigami.Units.smallSpacing
+            Kirigami.Icon {
+                source: details.profileStatus.target.connected
+                    ? "drive-removable-media-symbolic"
+                    : "network-disconnect-symbolic"
+                implicitWidth: Kirigami.Units.iconSizes.small
+                implicitHeight: implicitWidth
+            }
+            PlasmaComponents3.Label {
+                Layout.fillWidth: true
+                text: details.profileStatus.target.connected
+                    ? translations.i18n("Connected")
+                    : translations.i18n("Disconnected")
+                elide: Text.ElideRight
+                font: Kirigami.Theme.smallFont
+            }
+        }
+
+        PlasmaComponents3.Label {
             text: translations.i18n("Target state:")
             horizontalAlignment: Text.AlignRight
             font: Kirigami.Theme.smallFont
             opacity: 0.6
         }
-        PlasmaComponents3.Label {
-            Layout.fillWidth: true
-            text: details.targetStateLabel
-            elide: Text.ElideRight
-            font: Kirigami.Theme.smallFont
+        RowLayout {
+            spacing: Kirigami.Units.smallSpacing
+            Kirigami.Icon {
+                source: details.targetStateIcon(details.profileStatus.target.state)
+                implicitWidth: Kirigami.Units.iconSizes.small
+                implicitHeight: implicitWidth
+            }
+            PlasmaComponents3.Label {
+                Layout.fillWidth: true
+                text: details.targetStateLabel
+                elide: Text.ElideRight
+                font: Kirigami.Theme.smallFont
+            }
         }
 
         PlasmaComponents3.Label {
@@ -195,5 +228,16 @@ ColumnLayout {
         entries: details.profileStatus.history.entries
         summaryForEntry: details.historySummaryFor
         relativeTimeFor: details.relativeTimeFor
+    }
+
+    function targetStateIcon(state) {
+        switch (state) {
+        case "mounted": return "drive-harddisk-root-symbolic"
+        case "unexpected-mount": return "dialog-warning-symbolic"
+        case "unlocked": return "emblem-encrypted-unlocked"
+        case "connected": return "emblem-encrypted-locked"
+        case "disconnected": return "network-disconnect-symbolic"
+        default: return "dialog-question-symbolic"
+        }
     }
 }

@@ -624,6 +624,16 @@ if(BUILD_TESTING)
                 -o -,txt
         )
         add_test(
+            NAME kde-kcm-profile-device-connection
+            COMMAND
+                ${CMAKE_COMMAND} -E env
+                QT_QPA_PLATFORM=offscreen
+                ${QML_TEST_RUNNER_EXECUTABLE}
+                -input ${CMAKE_CURRENT_SOURCE_DIR}/kcm/tests/profile-device-connection.qml
+                -import ${CMAKE_BINARY_DIR}
+                -o -,txt
+        )
+        add_test(
             NAME kde-kcm-profile-sources-actions
             COMMAND
                 ${CMAKE_COMMAND} -E env
@@ -635,6 +645,7 @@ if(BUILD_TESTING)
         )
         set_tests_properties(
             kde-kcm-profile-unlocking-layout
+            kde-kcm-profile-device-connection
             kde-kcm-profile-sources-actions
             PROPERTIES
                 LABELS kde
