@@ -518,6 +518,9 @@ msgstr "Slot klucza LUKS %1"
 msgid "Unknown unlocking method"
 msgstr "Nieznana metoda odblokowania"
 
+msgid "Updating unlocking methods…"
+msgstr "Aktualizowanie metod odblokowania…"
+
 msgid "Remove unlocking method"
 msgstr "Usuń metodę odblokowania"
 

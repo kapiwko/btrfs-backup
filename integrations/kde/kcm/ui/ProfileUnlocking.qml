@@ -103,13 +103,42 @@ Item {
             }
         }
 
-        footer: Kirigami.InlineMessage {
+        footer: ColumnLayout {
             width: methodList.width
-            visible: methodList.count > 0 && (root.credentialModel?.errorMessage?.length ?? 0) > 0
-            type: Kirigami.MessageType.Error
-            text: root.credentialModel?.errorMessage ?? ""
-            showCloseButton: true
-            onVisibleChanged: if (!visible) root.credentialModel?.clearError()
+            spacing: 0
+
+            Item {
+                objectName: "unlockingMethodsProgress"
+                Layout.fillWidth: true
+                implicitHeight: progressRow.implicitHeight + Kirigami.Units.largeSpacing * 2
+                visible: root.credentialModel?.busy ?? false
+
+                RowLayout {
+                    id: progressRow
+                    anchors.centerIn: parent
+                    spacing: Kirigami.Units.smallSpacing
+
+                    QQC2.BusyIndicator {
+                        objectName: "unlockingMethodsBusyIndicator"
+                        running: parent.parent.visible
+                        implicitWidth: Kirigami.Units.iconSizes.smallMedium
+                        implicitHeight: implicitWidth
+                    }
+                    QQC2.Label {
+                        objectName: "unlockingMethodsProgressText"
+                        text: translations.i18n("Updating unlocking methods…")
+                    }
+                }
+            }
+
+            Kirigami.InlineMessage {
+                Layout.fillWidth: true
+                visible: methodList.count > 0 && (root.credentialModel?.errorMessage?.length ?? 0) > 0
+                type: Kirigami.MessageType.Error
+                text: root.credentialModel?.errorMessage ?? ""
+                showCloseButton: true
+                onVisibleChanged: if (!visible) root.credentialModel?.clearError()
+            }
         }
 
         Kirigami.PlaceholderMessage {

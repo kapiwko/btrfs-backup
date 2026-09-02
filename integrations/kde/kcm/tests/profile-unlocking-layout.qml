@@ -54,6 +54,23 @@ Item {
             credentials.errorMessage = ""
         }
 
+        function test_busyOperationIsVisible() {
+            const message = findChild(unlocking, "emptyUnlockingMessage")
+            const progress = findChild(unlocking, "unlockingMethodsProgress")
+            const indicator = findChild(unlocking, "unlockingMethodsBusyIndicator")
+            const progressText = findChild(unlocking, "unlockingMethodsProgressText")
+
+            credentials.busy = true
+            wait(0)
+
+            verify(progress.visible)
+            verify(indicator.running)
+            compare(progressText.text, "Updating unlocking methods…")
+            verify(!message.visible)
+
+            credentials.busy = false
+        }
+
         function test_unknownLuksSlotRemainsVisible() {
             credentials.credentials = [{
                 id: "slot-0",
