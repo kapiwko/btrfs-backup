@@ -73,7 +73,9 @@ void test_builds_before_and_after_preview_for_whole_device() {
         "topology-test",
         "device-8:16",
         ProvisioningMode::EraseWholeDevice,
-        "plan-test"
+        "plan-test",
+        std::nullopt,
+        PlannedPartitionGeometry{.start_sector = 1, .sector_count = 14, .partition_number = 1}
     );
     test_helpers::expect_eq("plan id", plan.id, "plan-test");
     test_helpers::expect_true(
@@ -101,7 +103,8 @@ void test_builds_before_and_after_preview_for_whole_device() {
     test_helpers::expect_true(
         "encrypted Btrfs target",
         target.kind == PredictedRegionKind::BackupPartition && target.encrypted &&
-            target.filesystem_type == "btrfs" && !target.geometry_exact,
+            target.filesystem_type == "btrfs" && target.geometry_exact && target.start_sector == 1 &&
+            target.sector_count == 14 && target.partition_number == 1,
         "predicted target stack is incorrect"
     );
     test_helpers::expect_true("operation count", plan.operations.size() == 9, "operation sequence changed");

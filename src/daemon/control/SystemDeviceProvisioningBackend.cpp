@@ -73,7 +73,7 @@ void validate_execution_target(const DevicePreparationTarget& target) {
     const bool adoption = target.mode == provisioning::ProvisioningMode::AdoptExistingTarget;
     const bool free_space = target.mode == provisioning::ProvisioningMode::CreatePartitionInUnallocatedSpace;
     if ((!whole_device && !existing_partition && !adoption && !free_space) ||
-        (whole_device && target.partition.has_value()) ||
+        (whole_device && (target.partition.has_value() || !target.planned_partition_geometry.has_value())) ||
         ((existing_partition || adoption) && !target.partition.has_value()) ||
         (free_space &&
          (target.partition.has_value() || !target.free_region.has_value() ||
@@ -97,6 +97,10 @@ void validate_execution_target(const DevicePreparationTarget& target) {
          target.planned_partition_geometry->sector_count == 0 ||
          target.planned_partition_geometry->partition_number == 0))
         throw ValidationError("free-space preparation target identity is incomplete");
+    if (whole_device &&
+        (target.planned_partition_geometry->sector_count == 0 ||
+         target.planned_partition_geometry->partition_number == 0))
+        throw ValidationError("whole-device preparation geometry is incomplete");
     if (adoption &&
         (target.expected_inspection->luks_uuid.empty() || target.expected_inspection->btrfs_uuid.empty() ||
          target.expected_inspection->partition_uuid.empty() || target.expected_inspection->repository_id.empty()))
@@ -346,6 +350,21 @@ provisioning::PlannedPartitionGeometry SystemDeviceProvisioningBackend::plan_par
         device.logical_sector_size,
         free_region.start_sector,
         free_region.sector_count
+    );
+    return {
+        .start_sector = geometry.start_sector,
+        .sector_count = geometry.sector_count,
+        .partition_number = geometry.partition_number,
+    };
+}
+
+provisioning::PlannedPartitionGeometry SystemDeviceProvisioningBackend::plan_whole_device_partition_geometry(
+    const provisioning::StorageDevice& device
+) const {
+    const auto geometry = impl_->partition_tables.plan_single_gpt_partition(
+        device.identity.display_path,
+        device.identity.major_minor,
+        device.logical_sector_size
     );
     return {
         .start_sector = geometry.start_sector,
