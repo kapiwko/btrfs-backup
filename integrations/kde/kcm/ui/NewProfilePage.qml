@@ -44,6 +44,15 @@ KCMUtils.SimpleKCM {
     readonly property url partitionManagerUrl: "applications:org.kde.partitionmanager.desktop"
     readonly property string inspectionClassification: root.provisioning.inspection.classification ?? ""
 
+    function deviceHasConfiguredTarget(device) {
+        const regions = device?.regions ?? []
+        for (const region of regions) {
+            if (region.configuredBackupTarget)
+                return true
+        }
+        return false
+    }
+
     title: root.step === 0 ? translations.i18n("Add backup profile")
         : root.step === 1 ? (root.adoption
             ? translations.i18n("Use existing backup device")
@@ -149,7 +158,7 @@ KCMUtils.SimpleKCM {
                         highlighted: root.selectedDevice?.candidateId === modelData.candidateId
                         onClicked: {
                             root.selectedDevice = modelData
-                            if (root.adoption) {
+                            if (root.adoption || root.deviceHasConfiguredTarget(modelData)) {
                                 root.selectedTarget = null
                                 root.provisioning.clearSelection()
                             } else {
@@ -161,7 +170,9 @@ KCMUtils.SimpleKCM {
                             title: (deviceRow.modelData.model || deviceRow.modelData.path)
                                 + " - " + root.formatBytes(deviceRow.modelData.sizeBytes)
                             subtitle: deviceRow.modelData.path + " - "
-                                + (deviceRow.modelData.mounted
+                                + (root.deviceHasConfiguredTarget(deviceRow.modelData)
+                                    ? translations.i18n("contains a configured backup target")
+                                    : deviceRow.modelData.mounted
                                     ? translations.i18n("in use")
                                     : deviceRow.modelData.containsData
                                         ? translations.i18n("contains data")
@@ -217,8 +228,10 @@ KCMUtils.SimpleKCM {
                                         * Number(root.selectedDevice.logicalSectorSize || 512))
                                 subtitle: partitionRow.modelData.kind === "unallocated"
                                     ? translations.i18n("Available for a new backup partition")
-                                    : partitionRow.modelData.path + " - "
-                                        + (partitionRow.modelData.filesystemType || translations.i18n("unknown filesystem"))
+                                    : partitionRow.modelData.configuredBackupTarget
+                                        ? translations.i18n("Already used by a backup profile")
+                                        : partitionRow.modelData.path + " - "
+                                            + (partitionRow.modelData.filesystemType || translations.i18n("unknown filesystem"))
                                 selected: partitionRow.highlighted
                             }
                         }
