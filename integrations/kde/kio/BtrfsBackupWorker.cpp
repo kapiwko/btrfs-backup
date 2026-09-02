@@ -483,7 +483,10 @@ KIO::WorkerResult BtrfsBackupWorker::stat(const QUrl& url) {
     if (!parsed)
         return KIO::WorkerResult::fail(KIO::ERR_MALFORMED_URL);
     if (parsed->profile.isEmpty() || parsed->snapshot.isEmpty() || parsed->snapshot == u".versions"_s) {
-        statEntry(directory_entry(u"."_s));
+        const QString name = parsed->profile.isEmpty()
+            ? u"."_s
+            : parsed->snapshot.isEmpty() ? parsed->profile : parsed->snapshot;
+        statEntry(directory_entry(name));
         return KIO::WorkerResult::pass();
     }
     Session* active = session(parsed->profile);
