@@ -242,21 +242,45 @@ void validate_device_path(const std::filesystem::path& device) {
         throw ValidationError("partition table device path is invalid");
 }
 
+void validate_partition_table_identity(
+    fdisk_context* context,
+    PartitionTableFormat expected_format,
+    const std::string& expected_partition_table_id,
+    std::uint32_t expected_logical_sector_size
+) {
+    if (fdisk_get_sector_size(context) != expected_logical_sector_size)
+        throw ValidationError("partition table sector size changed");
+    if (expected_format == PartitionTableFormat::None) {
+        if (fdisk_has_label(context) || !expected_partition_table_id.empty())
+            throw ValidationError("partition table identity changed");
+        return;
+    }
+    const bool expected_label = expected_format == PartitionTableFormat::Gpt
+        ? fdisk_is_label(context, GPT)
+        : fdisk_is_label(context, DOS);
+    if (!expected_label)
+        throw ValidationError("partition table type changed");
+    if (expected_partition_table_id.empty())
+        throw ValidationError("partition table identifier is unavailable");
+    char* raw_identifier = nullptr;
+    if (fdisk_get_disklabel_id(context, &raw_identifier) != 0 || raw_identifier == nullptr)
+        throw ValidationError("cannot read partition table identifier");
+    const std::unique_ptr<char, decltype(&std::free)> identifier(raw_identifier, &std::free);
+    if (lowercase(identifier.get()) != lowercase(expected_partition_table_id))
+        throw ValidationError("partition table identity changed");
+}
+
 void validate_gpt_identity(
     fdisk_context* context,
     const std::string& expected_partition_table_id,
     std::uint32_t expected_logical_sector_size
 ) {
-    if (!fdisk_is_label(context, GPT))
-        throw ValidationError("creating a partition in free space requires GPT");
-    if (fdisk_get_sector_size(context) != expected_logical_sector_size)
-        throw ValidationError("partition table sector size changed");
-    char* raw_identifier = nullptr;
-    if (fdisk_get_disklabel_id(context, &raw_identifier) != 0 || raw_identifier == nullptr)
-        throw ValidationError("cannot read GPT partition table identifier");
-    const std::unique_ptr<char, decltype(&std::free)> identifier(raw_identifier, &std::free);
-    if (lowercase(identifier.get()) != lowercase(expected_partition_table_id))
-        throw ValidationError("partition table identity changed");
+    validate_partition_table_identity(
+        context,
+        PartitionTableFormat::Gpt,
+        expected_partition_table_id,
+        expected_logical_sector_size
+    );
 }
 
 bool has_exact_free_region(
@@ -318,12 +342,14 @@ bool regions_overlap(
 std::string LibfdiskPartitionTableOperations::snapshot_partition_table(
     const std::filesystem::path& device,
     const std::string& expected_major_minor,
+    PartitionTableFormat expected_format,
     const std::string& expected_partition_table_id,
     std::uint32_t expected_logical_sector_size
 ) const {
     constexpr std::size_t maximum_snapshot_size = 1024 * 1024;
     validate_device_path(device);
-    if (expected_partition_table_id.empty() || expected_logical_sector_size == 0)
+    if (expected_logical_sector_size == 0 ||
+        (expected_format != PartitionTableFormat::None && expected_partition_table_id.empty()))
         throw ValidationError("partition table snapshot request is incomplete");
     const auto [expected_major, expected_minor] = parse_major_minor(expected_major_minor);
     OwnedFileDescriptor descriptor(::open(device.c_str(), O_RDONLY | O_CLOEXEC | O_NOFOLLOW));
@@ -345,7 +371,18 @@ std::string LibfdiskPartitionTableOperations::snapshot_partition_table(
     );
     try {
         require_success(fdisk_disable_dialogs(context.get(), 1), "disabling libfdisk dialogs");
-        validate_gpt_identity(context.get(), expected_partition_table_id, expected_logical_sector_size);
+        validate_partition_table_identity(
+            context.get(),
+            expected_format,
+            expected_partition_table_id,
+            expected_logical_sector_size
+        );
+        if (expected_format == PartitionTableFormat::None) {
+            const std::string result =
+                "label: none\nsector-size: " + std::to_string(expected_logical_sector_size) + "\n";
+            require_success(fdisk_deassign_device(context.get(), 1), "releasing partition table device");
+            return result;
+        }
         OwnedScript script(fdisk_new_script(context.get()));
         if (!script)
             throw ValidationError("cannot allocate partition table snapshot");

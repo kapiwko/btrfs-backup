@@ -62,6 +62,22 @@ void remove_inspection_mount_point(const fs::path& mount_point) {
         throw ValidationError("cannot remove existing target inspection mount point");
 }
 
+platform::linux::storage::PartitionTableFormat partition_table_format(
+    provisioning::PartitionTableType type
+) {
+    switch (type) {
+    case provisioning::PartitionTableType::None:
+        return platform::linux::storage::PartitionTableFormat::None;
+    case provisioning::PartitionTableType::Gpt:
+        return platform::linux::storage::PartitionTableFormat::Gpt;
+    case provisioning::PartitionTableType::Mbr:
+        return platform::linux::storage::PartitionTableFormat::Mbr;
+    case provisioning::PartitionTableType::Unsupported:
+        throw ValidationError("unsupported partition table cannot be backed up safely");
+    }
+    throw ValidationError("partition table type is invalid");
+}
+
 } // namespace
 
 DevicePreparationExecutor::DevicePreparationExecutor(
@@ -249,6 +265,21 @@ void DevicePreparationExecutor::execute(const std::string& operation_id, int pas
         backup::ControlledCommandOptions standard;
         std::string partition;
         if (initial.target.mode == provisioning::ProvisioningMode::EraseWholeDevice) {
+            phase(operation_id, "backup-partition-table", false);
+            const std::string partition_table_backup = partition_tables_.snapshot_partition_table(
+                initial.device.path,
+                initial.device.major_minor,
+                partition_table_format(initial.target.device.partition_table.type),
+                initial.target.device.partition_table.identifier,
+                initial.target.device.logical_sector_size
+            );
+            if (partition_table_backup.empty())
+                throw ValidationError("partition table backup is empty");
+            update(operation_id, [&](auto& transaction) {
+                transaction.partition_table_backup = partition_table_backup;
+                transaction.last_completed_phase = "backup-partition-table";
+            });
+
             phase(operation_id, "wipe-signatures", false);
             signatures_.wipe_all(initial.device.path, initial.device.major_minor);
             completed(operation_id, "wipe-signatures");
@@ -265,6 +296,7 @@ void DevicePreparationExecutor::execute(const std::string& operation_id, int pas
             const std::string partition_table_backup = partition_tables_.snapshot_partition_table(
                 initial.device.path,
                 initial.device.major_minor,
+                partition_table_format(initial.target.device.partition_table.type),
                 initial.target.device.partition_table.identifier,
                 initial.target.device.logical_sector_size
             );
