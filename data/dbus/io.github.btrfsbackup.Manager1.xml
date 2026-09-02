@@ -106,6 +106,21 @@ SPDX-License-Identifier: GPL-3.0-or-later
       <arg name="sessionId" type="s" direction="in"/>
       <arg name="payload" type="s" direction="out"/>
     </method>
+    <method name="ListBrowseDirectory">
+      <arg name="sessionId" type="s" direction="in"/>
+      <arg name="relativePath" type="s" direction="in"/>
+      <arg name="payload" type="s" direction="out"/>
+    </method>
+    <method name="InspectBrowseEntry">
+      <arg name="sessionId" type="s" direction="in"/>
+      <arg name="relativePath" type="s" direction="in"/>
+      <arg name="payload" type="s" direction="out"/>
+    </method>
+    <method name="OpenBrowseFile">
+      <arg name="sessionId" type="s" direction="in"/>
+      <arg name="relativePath" type="s" direction="in"/>
+      <arg name="file" type="h" direction="out"/>
+    </method>
     <method name="ResolveBackupCoverage">
       <arg name="localPath" type="s" direction="in"/>
       <arg name="payload" type="s" direction="out"/>

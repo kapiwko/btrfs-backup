@@ -35,6 +35,19 @@ class SystemBrowseSessionBackend final : public IBrowseSessionBackend {
     ) override;
     void close(const BrowseSessionId& session_id) override;
     void cleanup_stale() override;
+    [[nodiscard]] std::vector<BrowseEntryInfo> list_directory(
+        const BrowseSessionId& session_id,
+        const std::filesystem::path& relative_path,
+        std::size_t maximum_entries
+    ) override;
+    [[nodiscard]] BrowseEntryInfo inspect_entry(
+        const BrowseSessionId& session_id,
+        const std::filesystem::path& relative_path
+    ) override;
+    [[nodiscard]] btrfsbackup::platform::linux::OwnedFileDescriptor open_file(
+        const BrowseSessionId& session_id,
+        const std::filesystem::path& relative_path
+    ) override;
     [[nodiscard]] std::vector<BackupCoverage> resolve_coverage(
         const std::filesystem::path& local_path,
         const std::vector<ProfileId>& profiles

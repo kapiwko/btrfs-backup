@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include <chrono>
+#include <fcntl.h>
 #include <functional>
 #include <stdexcept>
 #include <string>
@@ -57,6 +58,25 @@ class Backend final : public IBrowseSessionBackend {
     void cleanup_stale() override {
         ++stale_cleanups;
     }
+    std::vector<btrfsbackup::daemon::control::BrowseEntryInfo> list_directory(
+        const BrowseSessionId&,
+        const std::filesystem::path&,
+        std::size_t
+    ) override {
+        return {{"snapshot", true, 0, 0500, 123}};
+    }
+    btrfsbackup::daemon::control::BrowseEntryInfo inspect_entry(
+        const BrowseSessionId&,
+        const std::filesystem::path& path
+    ) override {
+        return {path.filename().string(), false, 4, 0400, 123};
+    }
+    btrfsbackup::platform::linux::OwnedFileDescriptor open_file(
+        const BrowseSessionId&,
+        const std::filesystem::path&
+    ) override {
+        return btrfsbackup::platform::linux::OwnedFileDescriptor(::open("/dev/null", O_RDONLY | O_CLOEXEC));
+    }
     std::vector<btrfsbackup::daemon::BackupCoverage> resolve_coverage(
         const std::filesystem::path&,
         const std::vector<ProfileId>&
@@ -110,6 +130,15 @@ void test_foreign_caller_cannot_close_session() {
     expect_error("foreign renew", ManagerErrorCode::NotAuthorized, [&] { (void)service.renew(":1.31", "browse-owned"); });
     expect_error("foreign pin", ManagerErrorCode::NotAuthorized, [&] { service.set_active(":1.31", "browse-owned", true); });
     expect_error("foreign close", ManagerErrorCode::NotAuthorized, [&] { service.close(":1.31", "browse-owned"); });
+    expect_error("foreign list", ManagerErrorCode::NotAuthorized, [&] {
+        (void)service.list_directory(":1.31", "browse-owned", ".");
+    });
+    expect_error("foreign inspect", ManagerErrorCode::NotAuthorized, [&] {
+        (void)service.inspect_entry(":1.31", "browse-owned", "snapshot/file");
+    });
+    expect_error("foreign open file", ManagerErrorCode::NotAuthorized, [&] {
+        (void)service.open_file(":1.31", "browse-owned", "snapshot/file");
+    });
     test_helpers::expect_true("foreign resource preserved", backend.closed.empty(), "foreign caller closed the session");
     service.close(":1.30", "browse-owned");
 }

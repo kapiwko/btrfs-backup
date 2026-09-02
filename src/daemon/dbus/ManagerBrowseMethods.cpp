@@ -113,6 +113,82 @@ int ManagerBrowseMethods::close_browse_session(sd_bus_message* message, sd_bus_e
     );
 }
 
+int ManagerBrowseMethods::list_browse_directory(sd_bus_message* message, sd_bus_error* error) noexcept {
+    return invoke_dbus_callback(
+        [&] {
+            const char* session_id = nullptr;
+            const char* relative_path = nullptr;
+            const int read_result = sd_bus_message_read(message, "ss", &session_id, &relative_path);
+            if (read_result < 0)
+                return read_result;
+            config::json::Json entries = config::json::Json::array();
+            for (const auto& entry : browse_sessions_.list_directory(
+                     ManagerMethodSupport::caller_bus_name(message),
+                     session_id == nullptr ? "" : session_id,
+                     relative_path == nullptr ? "" : relative_path
+                 )) {
+                entries.push_back({
+                    {"name", entry.name},
+                    {"kind", entry.directory ? "directory" : "file"},
+                    {"size", entry.size},
+                    {"mode", entry.mode},
+                    {"modifiedAt", entry.modified_at},
+                });
+            }
+            return ManagerMethodSupport::reply_json(message, config::json::dump_json({
+                                                                  {"schemaVersion", 1},
+                                                                  {"entries", std::move(entries)},
+                                                              }));
+        },
+        [&](const std::exception* exception) { return support_.set_callback_error(error, exception); }
+    );
+}
+
+int ManagerBrowseMethods::inspect_browse_entry(sd_bus_message* message, sd_bus_error* error) noexcept {
+    return invoke_dbus_callback(
+        [&] {
+            const char* session_id = nullptr;
+            const char* relative_path = nullptr;
+            const int read_result = sd_bus_message_read(message, "ss", &session_id, &relative_path);
+            if (read_result < 0)
+                return read_result;
+            const auto entry = browse_sessions_.inspect_entry(
+                ManagerMethodSupport::caller_bus_name(message),
+                session_id == nullptr ? "" : session_id,
+                relative_path == nullptr ? "" : relative_path
+            );
+            return ManagerMethodSupport::reply_json(message, config::json::dump_json({
+                                                                  {"schemaVersion", 1},
+                                                                  {"name", entry.name},
+                                                                  {"kind", entry.directory ? "directory" : "file"},
+                                                                  {"size", entry.size},
+                                                                  {"mode", entry.mode},
+                                                                  {"modifiedAt", entry.modified_at},
+                                                              }));
+        },
+        [&](const std::exception* exception) { return support_.set_callback_error(error, exception); }
+    );
+}
+
+int ManagerBrowseMethods::open_browse_file(sd_bus_message* message, sd_bus_error* error) noexcept {
+    return invoke_dbus_callback(
+        [&] {
+            const char* session_id = nullptr;
+            const char* relative_path = nullptr;
+            const int read_result = sd_bus_message_read(message, "ss", &session_id, &relative_path);
+            if (read_result < 0)
+                return read_result;
+            auto file = browse_sessions_.open_file(
+                ManagerMethodSupport::caller_bus_name(message),
+                session_id == nullptr ? "" : session_id,
+                relative_path == nullptr ? "" : relative_path
+            );
+            return sd_bus_reply_method_return(message, "h", file.get());
+        },
+        [&](const std::exception* exception) { return support_.set_callback_error(error, exception); }
+    );
+}
+
 int ManagerBrowseMethods::resolve_backup_coverage(sd_bus_message* message, sd_bus_error* error) noexcept {
     return invoke_dbus_callback(
         [&] {
