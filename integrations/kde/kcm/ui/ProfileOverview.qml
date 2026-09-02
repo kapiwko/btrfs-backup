@@ -75,10 +75,13 @@ ColumnLayout {
             }
         }
         QQC2.Button {
+            objectName: "browseBackupsButton"
             icon.name: "folder-open-symbolic"
             text: translations.i18n("Browse backups")
-            visible: root.profileStatus.browseSupported && root.profileStatus.target.connected
-            enabled: root.profileStatus.managerConnected && !root.profileStatus.operationPending
+            visible: root.profileStatus.browseSupported
+            enabled: root.profileStatus.managerConnected
+                && root.profileStatus.target.connected
+                && !root.profileStatus.operationPending
             onClicked: root.profileStatus.browseBackups()
         }
         QQC2.Button {
