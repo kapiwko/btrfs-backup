@@ -13,6 +13,7 @@ QQC2.ScrollView {
     id: root
 
     required property var editor
+    required property string profileId
     required property var profileStatus
     required property var statusTextFor
     required property var targetStateTextFor
@@ -78,6 +79,7 @@ QQC2.ScrollView {
             Layout.leftMargin: -Kirigami.Units.largeSpacing
             Layout.rightMargin: -Kirigami.Units.largeSpacing
             editor: root.editor
+            profileId: root.profileId
             credentialModel: root.credentialModel
         }
 

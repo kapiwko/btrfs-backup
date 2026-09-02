@@ -13,10 +13,13 @@ import org.kde.kirigami as Kirigami
 Item {
     id: root
     required property var editor
+    required property string profileId
     property var credentialModel: null
     property var credentialToRemove: null
 
-    implicitHeight: Math.ceil(methodList.contentHeight)
+    implicitHeight: Math.ceil(methodList.count > 0
+        ? methodList.contentHeight
+        : (methodList.headerItem?.implicitHeight ?? 0) + methodList.emptyContentHeight)
     Kirigami.Theme.colorSet: Kirigami.Theme.View
     Kirigami.Theme.inherit: false
 
@@ -29,6 +32,10 @@ Item {
 
     ListView {
         id: methodList
+
+        readonly property real emptyContentHeight:
+            Kirigami.Units.largeSpacing * 4 + emptyMessage.implicitHeight
+
         anchors.fill: parent
         model: root.credentialModel?.credentials ?? []
         interactive: false
@@ -103,6 +110,8 @@ Item {
         }
 
         Kirigami.PlaceholderMessage {
+            id: emptyMessage
+            objectName: "emptyUnlockingMessage"
             width: parent.width - Kirigami.Units.largeSpacing * 4
             anchors.horizontalCenter: parent.horizontalCenter
             y: (methodList.headerItem?.height ?? 0) + Kirigami.Units.largeSpacing * 2
@@ -238,8 +247,8 @@ Item {
     }
 
     Component.onCompleted: {
-        if (root.credentialModel !== null && root.editor?.profileId)
-            root.credentialModel.load(root.editor.profileId)
+        if (root.credentialModel !== null && root.profileId.length > 0)
+            root.credentialModel.load(root.profileId)
     }
 
     function methodDescription(method) {

@@ -76,6 +76,7 @@ KCMUtils.SimpleKCM {
 
     ProfileDetailsPage {
         anchors.fill: parent
+        profileId: root.profileId
         editor: root.editor
         profileStatus: root.profileStatus
         statusTextFor: state => root.statusText(state)
