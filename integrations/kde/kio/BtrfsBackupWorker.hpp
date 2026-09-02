@@ -8,10 +8,7 @@
 #include <QHash>
 #include <QUrl>
 
-#include <memory>
 #include <optional>
-
-#include <restore/RepositoryCatalog.hpp>
 
 #include "SecureBrowsePath.hpp"
 
@@ -41,8 +38,6 @@ class BtrfsBackupWorker final : public KIO::WorkerBase {
   private:
     struct Session {
         QString id;
-        std::shared_ptr<btrfsbackup::kde::kio::SecureBrowseFile> root_descriptor;
-        std::optional<btrfsbackup::restore::RepositoryCatalog> catalog;
     };
     struct ParsedUrl {
         QString profile;
@@ -56,7 +51,6 @@ class BtrfsBackupWorker final : public KIO::WorkerBase {
         const ParsedUrl& url,
         const Session& session
     ) const;
-    [[nodiscard]] bool session_root_available(const Session& session) const;
     [[nodiscard]] KIO::WorkerResult session_failure() const;
     void close_open_file() noexcept;
     KIO::WorkerResult list_profiles();

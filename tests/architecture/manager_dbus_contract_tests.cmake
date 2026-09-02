@@ -130,7 +130,7 @@ assert_delegated_methods(
 assert_delegated_methods(
     browse_methods
     open_browse_session renew_browse_session set_browse_session_active close_browse_session
-    resolve_backup_coverage
+    list_browse_directory inspect_browse_entry open_browse_file resolve_backup_coverage
 )
 assert_delegated_methods(
     credential_methods
@@ -228,6 +228,18 @@ assert_method(
 assert_method(
     close_browse_session CloseBrowseSession s s
     "<methodname=\"CloseBrowseSession\"><argname=\"sessionId\"type=\"s\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
+)
+assert_method(
+    list_browse_directory ListBrowseDirectory ss s
+    "<methodname=\"ListBrowseDirectory\"><argname=\"sessionId\"type=\"s\"direction=\"in\"/><argname=\"relativePath\"type=\"s\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
+)
+assert_method(
+    inspect_browse_entry InspectBrowseEntry ss s
+    "<methodname=\"InspectBrowseEntry\"><argname=\"sessionId\"type=\"s\"direction=\"in\"/><argname=\"relativePath\"type=\"s\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
+)
+assert_method(
+    open_browse_file OpenBrowseFile ss h
+    "<methodname=\"OpenBrowseFile\"><argname=\"sessionId\"type=\"s\"direction=\"in\"/><argname=\"relativePath\"type=\"s\"direction=\"in\"/><argname=\"file\"type=\"h\"direction=\"out\"/></method>"
 )
 assert_method(
     resolve_backup_coverage ResolveBackupCoverage s s
@@ -341,8 +353,8 @@ assert_signal(
 
 string(REGEX MATCHALL "<method name=" xml_methods "${manager_xml}")
 list(LENGTH xml_methods method_count)
-if(NOT method_count EQUAL 33)
-    message(FATAL_ERROR "manager XML must declare exactly 33 methods, found ${method_count}")
+if(NOT method_count EQUAL 36)
+    message(FATAL_ERROR "manager XML must declare exactly 36 methods, found ${method_count}")
 endif()
 
 string(REGEX MATCHALL "<signal name=" xml_signals "${manager_xml}")

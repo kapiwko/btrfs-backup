@@ -14,11 +14,20 @@
 #include <core/Identifiers.hpp>
 #include <daemon/ManagerResponseModels.hpp>
 #include <daemon/control/OperationalControlService.hpp>
+#include <platform/linux/OwnedFileDescriptor.hpp>
 
 namespace btrfsbackup::daemon::control {
 
 struct OpenedBrowseRoot {
     std::filesystem::path path;
+};
+
+struct BrowseEntryInfo {
+    std::string name;
+    bool directory = false;
+    std::uint64_t size = 0;
+    std::uint32_t mode = 0;
+    std::int64_t modified_at = 0;
 };
 
 class IBrowseSessionBackend {
@@ -31,6 +40,19 @@ class IBrowseSessionBackend {
     ) = 0;
     virtual void close(const BrowseSessionId& session_id) = 0;
     virtual void cleanup_stale() = 0;
+    [[nodiscard]] virtual std::vector<BrowseEntryInfo> list_directory(
+        const BrowseSessionId& session_id,
+        const std::filesystem::path& relative_path,
+        std::size_t maximum_entries
+    ) = 0;
+    [[nodiscard]] virtual BrowseEntryInfo inspect_entry(
+        const BrowseSessionId& session_id,
+        const std::filesystem::path& relative_path
+    ) = 0;
+    [[nodiscard]] virtual btrfsbackup::platform::linux::OwnedFileDescriptor open_file(
+        const BrowseSessionId& session_id,
+        const std::filesystem::path& relative_path
+    ) = 0;
     [[nodiscard]] virtual std::vector<BackupCoverage> resolve_coverage(
         const std::filesystem::path& local_path,
         const std::vector<ProfileId>& profiles
@@ -85,6 +107,22 @@ class BrowseSessionService final {
         const std::string& profile_id
     );
     void close(const std::string& caller_bus_name, const std::string& session_id);
+    [[nodiscard]] std::vector<BrowseEntryInfo> list_directory(
+        const std::string& caller_bus_name,
+        const std::string& session_id,
+        const std::string& relative_path,
+        std::size_t maximum_entries = 10000
+    );
+    [[nodiscard]] BrowseEntryInfo inspect_entry(
+        const std::string& caller_bus_name,
+        const std::string& session_id,
+        const std::string& relative_path
+    );
+    [[nodiscard]] btrfsbackup::platform::linux::OwnedFileDescriptor open_file(
+        const std::string& caller_bus_name,
+        const std::string& session_id,
+        const std::string& relative_path
+    );
     void close_for_caller(const std::string& caller_bus_name) noexcept;
     void expire() noexcept;
     [[nodiscard]] std::vector<BackupCoverage> resolve_coverage(
