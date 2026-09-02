@@ -234,7 +234,16 @@ bool known_phase(const std::string& value) {
 }
 
 TransferProgress parse_progress(const Json& input) {
+    const std::uint64_t bytes_total_estimated = input.contains("bytesTotalEstimated")
+        ? required_non_negative(input, "bytesTotalEstimated")
+        : 0;
     return {
+        .bytes_processed = input.contains("bytesProcessed")
+            ? required_non_negative(input, "bytesProcessed")
+            : 0,
+        .bytes_total_estimated = bytes_total_estimated == 0
+            ? std::nullopt
+            : std::optional<std::uint64_t>{bytes_total_estimated},
         .speed_bps = required_non_negative(input, "speedBps"),
         .eta_seconds = required_optional_non_negative(input, "etaSeconds"),
         .source_percent = required_percentage(input, "sourceProgress"),
@@ -451,6 +460,8 @@ std::string RunStatusDocumentCodec::serialize_public(const PublicRunStatusV3& st
         {"errorCode", public_error_code_name(status.error_code)},
         {"sourceName", status.source_name},
         {"targetName", status.target_name},
+        {"bytesProcessed", status.progress.bytes_processed},
+        {"bytesTotalEstimated", status.progress.bytes_total_estimated.value_or(0)},
         {"speedBps", status.progress.speed_bps},
         {"etaSeconds", status.progress.eta_seconds.has_value() ? Json(*status.progress.eta_seconds) : Json(-1)},
         {"sourceProgress", status.progress.source_percent.value_or(-1)},
@@ -529,7 +540,15 @@ PublicRunStatusV3 make_public_status(const RunStatus& status) {
         .error_code = error,
         .source_name = status.current_source_name,
         .target_name = status.target_name,
-        .progress = {.speed_bps = status.progress.speed_bps, .eta_seconds = eta, .source_percent = status.progress.source_percent, .overall_percent = status.progress.overall_percent, .accuracy = status.progress.accuracy},
+        .progress = {
+            .bytes_processed = status.progress.processed_bytes,
+            .bytes_total_estimated = status.progress.estimated_bytes,
+            .speed_bps = status.progress.speed_bps,
+            .eta_seconds = eta,
+            .source_percent = status.progress.source_percent,
+            .overall_percent = status.progress.overall_percent,
+            .accuracy = status.progress.accuracy,
+        },
         .unknown_state = {},
         .unknown_activity = {},
     };
@@ -566,7 +585,15 @@ PrivateRunHistoryV2 make_private_history(const RunStatus& status) {
         .bytes_processed = status.progress.processed_bytes,
         .bytes_total_estimated = status.progress.estimated_bytes.value_or(0),
         .run_bytes_processed = status.progress.run_processed_bytes,
-        .progress = {.speed_bps = status.progress.speed_bps, .eta_seconds = eta, .source_percent = status.progress.source_percent, .overall_percent = status.progress.overall_percent, .accuracy = status.progress.accuracy},
+        .progress = {
+            .bytes_processed = status.progress.processed_bytes,
+            .bytes_total_estimated = status.progress.estimated_bytes,
+            .speed_bps = status.progress.speed_bps,
+            .eta_seconds = eta,
+            .source_percent = status.progress.source_percent,
+            .overall_percent = status.progress.overall_percent,
+            .accuracy = status.progress.accuracy,
+        },
         .exit_code = status.exit_code,
     };
 }

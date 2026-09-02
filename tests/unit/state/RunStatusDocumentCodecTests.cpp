@@ -27,6 +27,8 @@ Json public_document() {
         {"errorCode", ""},
         {"sourceName", "Home"},
         {"targetName", "Backup disk"},
+        {"bytesProcessed", 1048576},
+        {"bytesTotalEstimated", 4194304},
         {"speedBps", 1024},
         {"etaSeconds", 20},
         {"sourceProgress", 30},
@@ -83,6 +85,8 @@ void test_public_round_trip_is_typed() {
     test_helpers::expect_true("typed state", status.state == PublicRunState::Running, "state was not decoded");
     test_helpers::expect_true("typed run id", status.run_id.has_value(), "run id was not decoded");
     test_helpers::expect_true("typed ETA", status.progress.eta_seconds == 20, "ETA was not decoded");
+    test_helpers::expect_true("typed transferred bytes", status.progress.bytes_processed == 1048576, "processed bytes were not decoded");
+    test_helpers::expect_true("typed estimated bytes", status.progress.bytes_total_estimated == 4194304, "estimated bytes were not decoded");
     const auto round_trip = codec.parse_public(codec.serialize_public(status));
     test_helpers::expect_true("round-trip progress", round_trip.progress.overall_percent == 40, "progress changed");
 }

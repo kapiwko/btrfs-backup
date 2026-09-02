@@ -43,6 +43,22 @@ QString RunStatusModel::targetName() const {
     return target_name_;
 }
 
+qint64 RunStatusModel::bytesProcessed() const {
+    return bytes_processed_;
+}
+
+qint64 RunStatusModel::bytesTotalEstimated() const {
+    return bytes_total_estimated_;
+}
+
+QString RunStatusModel::bytesProcessedText() const {
+    return btrfsbackup::kde::format_byte_size(bytes_processed_);
+}
+
+QString RunStatusModel::bytesTotalEstimatedText() const {
+    return btrfsbackup::kde::format_byte_size(bytes_total_estimated_);
+}
+
 qint64 RunStatusModel::speedBps() const {
     return speed_bps_;
 }
@@ -142,6 +158,8 @@ bool RunStatusModel::apply(const QString& payload) {
     can_cancel_ = status->can_cancel;
     source_name_ = status->source_name;
     target_name_ = status->target_name;
+    bytes_processed_ = status->bytes_processed;
+    bytes_total_estimated_ = status->bytes_total_estimated;
     speed_bps_ = status->speed_bps;
     eta_seconds_ = static_cast<int>(status->eta_seconds);
     source_progress_ = status->source_progress;
@@ -170,6 +188,8 @@ void RunStatusModel::reset() {
     can_cancel_ = false;
     source_name_.clear();
     target_name_.clear();
+    bytes_processed_ = 0;
+    bytes_total_estimated_ = 0;
     speed_bps_ = 0;
     eta_seconds_ = -1;
     source_progress_ = -1;

@@ -31,6 +31,8 @@ QString run_payload(const QString& state, bool can_cancel) {
         "errorCode": "",
         "sourceName": "Home",
         "targetName": "Backup disk",
+        "bytesProcessed": 1048576,
+        "bytesTotalEstimated": 4194304,
         "speedBps": 1024,
         "etaSeconds": 20,
         "sourceProgress": 30,
@@ -56,6 +58,9 @@ void test_run_status_and_terminal_transition() {
     expect(model.apply(run_payload(QStringLiteral("running"), true)), "running status was rejected");
     expect(model.canCancel(), "cancellable status was not exposed");
     expect(model.overallProgress() == 40 && model.speedBps() == 1024, "run progress was not applied");
+    expect(model.bytesProcessed() == 1048576 && model.bytesTotalEstimated() == 4194304, "transfer byte counts were not applied");
+    expect(model.bytesProcessedText() == QStringLiteral("1,0 MiB"), "processed byte count was not localized");
+    expect(model.bytesTotalEstimatedText() == QStringLiteral("4,0 MiB"), "estimated byte count was not localized");
     expect(model.speedText() == QStringLiteral("1,0 KiB/s"), "transfer rate was not localized");
     expect(model.lastSuccessAt() == QStringLiteral("2026-08-18T18:42:00Z"), "last success was not applied");
     expect(model.lastAttemptAt() == QStringLiteral("2026-08-30T12:34:56Z"), "last attempt was not applied");

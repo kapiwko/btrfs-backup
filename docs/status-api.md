@@ -37,6 +37,8 @@ presentation-safe state and progress:
   "errorCode": "",
   "sourceName": "@home",
   "targetName": "backupdisk",
+  "bytesProcessed": 1073741824,
+  "bytesTotalEstimated": 4294967296,
   "speedBps": 104857600,
   "etaSeconds": 42,
   "sourceProgress": 50,
@@ -50,7 +52,9 @@ presentation-safe state and progress:
 empty for normal states, `backup.failed` for failures, and `backup.cancelled`
 for cancellation. Specific errors are private.
 
-Progress values use `-1` when unknown. `progressAccuracy` is `exact`,
+Progress values use `-1` when unknown. `bytesProcessed` is the amount sent for
+the current source and `bytesTotalEstimated` is its measured transfer size;
+the total is `0` while it is not known. `progressAccuracy` is `exact`,
 `estimated`, or `indeterminate`. `speedBps` uses a three-second exponentially
 weighted moving average, while `etaSeconds` is an estimate. Clients must not
 present estimated progress as an exact guarantee.
@@ -69,12 +73,14 @@ cleanup. `runId` and `canCancel` let an authorized client bind
 `sourceName` and `targetName` are presentation labels from the sanitized public
 profile. They must never be populated from device paths, mount points, UUIDs,
 or snapshot paths. The public document deliberately excludes private
-messages, timestamps, paths, UUIDs, byte totals, detailed error codes,
+messages, timestamps, paths, UUIDs, detailed error codes,
 diagnostic details, recovery guidance, and exit codes.
 
-All fields shown in the schema version 3 example are required. Unknown numeric
-progress is represented by `-1`, and an unavailable run identifier is represented
-by an empty `runId`; fields are not omitted. Producers and in-tree consumers use
+The byte-count fields are a backward-compatible extension: current producers
+always include them, while consumers accept older version 3 documents without
+them. All other fields shown in the schema version 3 example are required.
+Unknown numeric progress is represented by `-1`, and an unavailable run
+identifier is represented by an empty `runId`; fields are not omitted. Producers and in-tree consumers use
 the shared typed `RunStatusDocumentCodec`. Consumers reject missing fields, wrong
 JSON types, invalid progress ranges, and inconsistent cancellation/error state,
 while ignoring additional fields and retaining unknown state, phase, and activity
