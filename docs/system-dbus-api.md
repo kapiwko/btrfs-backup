@@ -219,7 +219,10 @@ currently open profile, including changes published by the CLI.
 Operational backup controls are allowed without a password from the active
 local session. The profile and hooks remain root-owned, so this grants control
 over an already approved backup definition, not configuration or arbitrary
-code execution. Eject still acquires the target lease and refuses to run while
+code execution. Opening a read-only browse session follows the same rule: an
+active local session may browse an already configured repository without an
+authentication prompt, while inactive and remote sessions still require an
+administrator. Eject still acquires the target lease and refuses to run while
 the target is in use:
 
 ```xml
