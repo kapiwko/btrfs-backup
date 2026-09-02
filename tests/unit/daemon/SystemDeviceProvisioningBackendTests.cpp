@@ -245,12 +245,13 @@ class PartitionTables final : public btrfsbackup::platform::linux::storage::IPar
         created_geometry = geometry;
         return "/dev/test2";
     }
-    void replace_with_single_gpt_partition(
+    std::filesystem::path replace_with_single_gpt_partition(
         const std::filesystem::path& device,
         const std::string& expected_major_minor
     ) override {
         calls.emplace_back(device.string(), expected_major_minor);
         partitioned = true;
+        return "/dev/test1";
     }
 };
 

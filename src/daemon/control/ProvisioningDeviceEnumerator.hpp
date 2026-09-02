@@ -23,7 +23,6 @@ class ProvisioningDeviceEnumerator final {
 
     [[nodiscard]] std::vector<ProvisioningDevice> list();
     [[nodiscard]] ProvisioningDevice revalidate(const ProvisioningDevice& expected);
-    [[nodiscard]] std::string only_partition(const ProvisioningDevice& expected_device);
 
   private:
     provisioning::StorageTopologyReader& topology_;

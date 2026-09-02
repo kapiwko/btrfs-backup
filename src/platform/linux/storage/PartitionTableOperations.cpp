@@ -682,7 +682,7 @@ std::filesystem::path LibfdiskPartitionTableOperations::create_partition_in_free
     }
 }
 
-void LibfdiskPartitionTableOperations::replace_with_single_gpt_partition(
+std::filesystem::path LibfdiskPartitionTableOperations::replace_with_single_gpt_partition(
     const std::filesystem::path& device,
     const std::string& expected_major_minor
 ) {
@@ -739,13 +739,14 @@ void LibfdiskPartitionTableOperations::replace_with_single_gpt_partition(
         if (::fsync(descriptor.get()) != 0)
             throw ValidationError("syncing GPT partition table failed");
         require_success(fdisk_reread_partition_table(context.get()), "rereading GPT partition table");
-        static_cast<void>(appearance.wait_for(
+        const auto partition_path = appearance.wait_for(
             partition_number + 1,
             partition_start * sysfs_sector_ratio,
             partition_size * sysfs_sector_ratio,
             std::chrono::seconds(10)
-        ));
+        );
         require_success(fdisk_deassign_device(context.get(), 0), "releasing partition table device");
+        return partition_path;
     } catch (...) {
         if (fdisk_get_devfd(context.get()) >= 0)
             static_cast<void>(fdisk_deassign_device(context.get(), 1));
