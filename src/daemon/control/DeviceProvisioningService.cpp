@@ -56,6 +56,8 @@ DevicePreparationTarget planned_target(
         .mode = plan.mode,
         .device = *device,
         .partition = std::nullopt,
+        .free_region = std::nullopt,
+        .planned_partition_geometry = std::nullopt,
         .expected_inspection = std::nullopt,
     };
     if (plan.partition_id.has_value()) {
@@ -68,6 +70,27 @@ DevicePreparationTarget planned_target(
         }
         if (!result.partition.has_value())
             throw dbus::ManagerOperationError(dbus::ManagerErrorCode::Conflict, "planned partition snapshot is missing");
+    }
+    if (plan.free_region_id.has_value()) {
+        for (const auto& region : device->regions) {
+            const auto* free_region = std::get_if<provisioning::UnallocatedRegion>(&region);
+            if (free_region != nullptr && free_region->id == *plan.free_region_id) {
+                result.free_region = *free_region;
+                break;
+            }
+        }
+        for (const auto& operation : plan.operations) {
+            const auto* create = std::get_if<provisioning::CreateBackupPartition>(&operation);
+            if (create != nullptr && create->free_region_id == plan.free_region_id) {
+                result.planned_partition_geometry = create->geometry;
+                break;
+            }
+        }
+        if (!result.free_region.has_value() || !result.planned_partition_geometry.has_value())
+            throw dbus::ManagerOperationError(
+                dbus::ManagerErrorCode::Conflict,
+                "planned free-space target snapshot is incomplete"
+            );
     }
     return result;
 }
