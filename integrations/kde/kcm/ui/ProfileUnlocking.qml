@@ -82,7 +82,10 @@ Item {
             Kirigami.Theme.useAlternateBackgroundColor: true
 
             contentItem: Kirigami.TitleSubtitleWithActions {
-                title: methodRow.modelData.label || translations.i18n("LUKS key slot %1", methodRow.modelData.keyslot)
+                objectName: "unlockingMethodDetails"
+                title: methodRow.modelData.managed && methodRow.modelData.label
+                    ? methodRow.modelData.label
+                    : translations.i18n("LUKS key slot %1", methodRow.modelData.keyslot)
                 subtitle: root.methodDescription(methodRow.modelData)
                 selected: false
                 actions: [
@@ -256,7 +259,11 @@ Item {
     }
 
     function methodDescription(method) {
-        const kind = method.type === "passphrase" ? translations.i18n("Passphrase") : translations.i18n("Key file")
+        const kind = method.type === "passphrase"
+            ? translations.i18n("Passphrase")
+            : method.type === "keyFile"
+                ? translations.i18n("Key file")
+                : translations.i18n("Unknown unlocking method")
         const ownership = method.managed ? translations.i18n("managed by btrfs-backup") : translations.i18n("configured outside btrfs-backup")
         const automatic = method.automatic ? translations.i18n("automatic backups") : translations.i18n("manual unlocking")
         return translations.i18nc("unlocking method details", "%1 - slot %2 - %3 - %4", kind, method.keyslot, ownership, automatic)
