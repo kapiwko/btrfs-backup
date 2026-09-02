@@ -78,7 +78,6 @@ QQC2.ItemDelegate {
                         anchors.fill: parent
                         anchors.margins: 2
                         source: delegate.targetIndicatorIcon()
-                        color: delegate.targetIndicatorColor()
                     }
 
                     HoverHandler { id: targetIndicatorHover }
@@ -204,14 +203,14 @@ QQC2.ItemDelegate {
     function targetIndicatorIcon() {
         if (delegate.profileStatus.run.state === "failed"
                 || !delegate.profileStatus.configurationValid)
-            return "state-error-symbolic"
+            return "dialog-error"
         if (!delegate.profileStatus.target.connected)
-            return "network-disconnect-symbolic"
+            return "network-disconnect"
         if (delegate.profileStatus.target.mounted)
-            return "media-mount-symbolic"
+            return "media-mount"
         if (delegate.profileStatus.target.unlocked)
-            return "object-unlocked-symbolic"
-        return "object-locked-symbolic"
+            return "object-unlocked"
+        return "object-locked"
     }
 
     function targetIndicatorColor() {

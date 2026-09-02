@@ -170,28 +170,28 @@ PlasmaExtras.ExpandableListItem {
 
     function targetIcon() {
         if (!profileStatus.target.connected)
-            return "network-disconnect-symbolic"
+            return "network-disconnect"
         if (profileStatus.target.mounted)
-            return "drive-harddisk-symbolic"
+            return "drive-harddisk"
         if (profileStatus.target.unlocked)
-            return "object-unlocked-symbolic"
-        return "object-locked-symbolic"
+            return "object-unlocked"
+        return "object-locked"
     }
 
     function statusEmblem() {
         if (profileStatus.lastError.length > 0 || !profileStatus.configurationValid || root.failed)
-            return "state-error-symbolic"
+            return "dialog-error"
         if (root.running)
             return ""
         if (profileStatus.target.spaceBelowMinimum)
-            return "state-warning-symbolic"
+            return "dialog-warning"
         if (profileStatus.target.safeToRemove)
-            return "emblem-ok-symbolic"
+            return "emblem-ok"
         switch (profileStatus.run.state) {
         case "succeeded":
-        case "validated": return "emblem-ok-symbolic"
-        case "failed": return "state-error-symbolic"
-        case "cancelled": return "state-pause-symbolic"
+        case "validated": return "emblem-ok"
+        case "failed": return "dialog-error"
+        case "cancelled": return "media-playback-pause"
         default: return ""
         }
     }
