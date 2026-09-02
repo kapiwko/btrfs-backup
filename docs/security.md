@@ -60,7 +60,7 @@ this lower-risk boundary.
 
 LUKS passphrases and key bytes cross D-Bus only as Unix file descriptors. The
 manager copies at most 4096 bytes into a sealed anonymous file, clears temporary
-buffers, and passes inherited `/proc/self/fd` paths directly to `cryptsetup`.
+buffers, and supplies them to libcryptsetup through its binary passphrase API.
 Generated keys are installed atomically with mode `0600` under
 `/etc/btrfs-backup/keys`; managed keyslot labels are stored separately under
 `/etc/btrfs-backup/credentials`. The LUKS2 header remains authoritative for
@@ -104,8 +104,10 @@ short-lived helper receives the passphrase through a root-only FIFO, executes
 exactly one transaction, and checkpoints every phase. Its unit has a closed
 device policy with explicit block-device access, a strict filesystem sandbox,
 and only the capabilities required for storage administration. No QML, KDE, or
-long-lived D-Bus worker thread invokes `sfdisk`, `cryptsetup` or
-`mkfs.btrfs` directly.
+long-lived D-Bus worker thread invokes `sfdisk` or `mkfs.btrfs` directly. LUKS2
+metadata, keyslots and mappings are managed through libcryptsetup; protected
+credential buffers use `crypt_safe_alloc` and are released with
+`crypt_safe_free`.
 
 Preparation operation identifiers contain 128 random bits supplied by
 `getrandom()`. The manager persists the initiating D-Bus unique name and UID in

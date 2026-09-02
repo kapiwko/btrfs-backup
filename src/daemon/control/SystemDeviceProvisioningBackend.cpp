@@ -25,6 +25,7 @@
 #include <daemon/dbus/ManagerErrors.hpp>
 #include <platform/linux/filesystem/SecretFile.hpp>
 #include <platform/linux/storage/MountInfo.hpp>
+#include <platform/linux/storage/CryptsetupOperations.hpp>
 #include <platform/linux/storage/SignatureOperations.hpp>
 
 namespace fs = std::filesystem;
@@ -99,6 +100,7 @@ struct SystemDeviceProvisioningBackend::Impl {
         provisioning::StorageTopologyReader& topology,
         backup::ICommandRunner& commands,
         platform::linux::storage::ISignatureOperations& signatures,
+        platform::linux::storage::ICryptsetupOperations& cryptsetup,
         backup::IBtrfsOperations& btrfs,
         config::IConfigurationActivator& configuration_activator,
         ICredentialAdministrationBackend& credentials,
@@ -116,6 +118,7 @@ struct SystemDeviceProvisioningBackend::Impl {
               std::move(target_mount_root),
               commands,
               signatures,
+              cryptsetup,
               btrfs,
               configuration_activator,
               credentials,
@@ -253,6 +256,7 @@ SystemDeviceProvisioningBackend::SystemDeviceProvisioningBackend(
     provisioning::StorageTopologyReader& topology,
     backup::ICommandRunner& commands,
     platform::linux::storage::ISignatureOperations& signatures,
+    platform::linux::storage::ICryptsetupOperations& cryptsetup,
     backup::IBtrfsOperations& btrfs,
     config::IConfigurationActivator& configuration_activator,
     ICredentialAdministrationBackend& credentials,
@@ -260,7 +264,7 @@ SystemDeviceProvisioningBackend::SystemDeviceProvisioningBackend(
     IDevicePreparationUnitController& units,
     bool recover_existing
 )
-    : impl_(std::make_unique<Impl>(std::move(roots), std::move(target_mount_root), std::move(mountinfo_path), std::move(transaction_root), topology, commands, signatures, btrfs, configuration_activator, credentials, safety_inspector, units, recover_existing)) {
+    : impl_(std::make_unique<Impl>(std::move(roots), std::move(target_mount_root), std::move(mountinfo_path), std::move(transaction_root), topology, commands, signatures, cryptsetup, btrfs, configuration_activator, credentials, safety_inspector, units, recover_existing)) {
 }
 
 SystemDeviceProvisioningBackend::~SystemDeviceProvisioningBackend() noexcept = default;
