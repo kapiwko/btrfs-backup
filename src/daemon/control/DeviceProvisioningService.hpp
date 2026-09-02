@@ -15,6 +15,7 @@
 
 #include <daemon/control/OperationalControlService.hpp>
 #include <daemon/provisioning/DevicePreparationPlanBuilder.hpp>
+#include <daemon/provisioning/ExistingTargetInspection.hpp>
 #include <daemon/provisioning/StorageSafetyInspector.hpp>
 #include <daemon/provisioning/StorageTopologyReader.hpp>
 
@@ -74,6 +75,10 @@ class IDeviceProvisioningBackend {
     [[nodiscard]] virtual std::vector<std::string> inspect_safety(
         const DevicePreparationTarget& target
     ) const = 0;
+    [[nodiscard]] virtual provisioning::ExistingTargetInspectionSummary inspect_existing_target(
+        const DevicePreparationTarget& target,
+        int credential_fd
+    ) = 0;
     [[nodiscard]] virtual DevicePreparationStatus start(
         const DevicePreparationRequest& request,
         const DevicePreparationTarget& target,
@@ -102,11 +107,18 @@ class DeviceProvisioningService final {
         provisioning::StorageTopologyReader* topology_reader = nullptr
     );
     [[nodiscard]] provisioning::StorageTopology inspect_storage_topology(const std::string& caller);
+    [[nodiscard]] provisioning::ExistingTargetInspection inspect_existing_target(
+        const std::string& caller,
+        const provisioning::TopologyGeneration& expected_generation,
+        const provisioning::PartitionCandidateId& partition_id,
+        int credential_fd
+    );
     [[nodiscard]] provisioning::DevicePreparationPlan build_device_preparation_plan(
         const std::string& caller,
         const provisioning::TopologyGeneration& expected_generation,
         const std::string& selected_candidate_id,
-        provisioning::ProvisioningMode mode
+        provisioning::ProvisioningMode mode,
+        const std::string& inspection_id = {}
     );
     [[nodiscard]] std::vector<std::string> list_source_candidates(const std::string& caller);
     [[nodiscard]] DevicePreparationStatus start(
@@ -130,6 +142,11 @@ class DeviceProvisioningService final {
     };
     struct StoredPlan {
         provisioning::DevicePreparationPlan plan;
+        std::string caller;
+        std::chrono::steady_clock::time_point expires_at;
+    };
+    struct StoredInspection {
+        provisioning::ExistingTargetInspection inspection;
         std::string caller;
         std::chrono::steady_clock::time_point expires_at;
     };
@@ -161,6 +178,7 @@ class DeviceProvisioningService final {
     std::mutex candidates_mutex_;
     std::map<std::string, TopologySnapshot> topologies_;
     std::map<std::string, StoredPlan> plans_;
+    std::map<std::string, StoredInspection> inspections_;
     provisioning::StorageTopologyReader* topology_reader_;
     provisioning::DevicePreparationPlanBuilder plan_builder_;
     provisioning::StorageSafetyInspector storage_safety_inspector_;

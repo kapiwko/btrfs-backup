@@ -334,11 +334,28 @@ std::string ManagerJsonCodec::encode(const provisioning::DevicePreparationPlan& 
         {"deviceId", plan.device_id},
         {"partitionId", plan.partition_id},
         {"freeRegionId", plan.free_region_id},
+        {"inspectionId", plan.inspection_id},
         {"before", layout_json(plan.before)},
         {"after", layout_json(plan.after)},
         {"operations", std::move(operations)},
         {"warnings", std::move(warnings)},
         {"destructiveScope", destructive_scope_name(plan.destructive_scope.kind)},
+    });
+}
+
+std::string ManagerJsonCodec::encode(const provisioning::ExistingTargetInspection& inspection) const {
+    return config::json::dump_json({
+        {"schemaVersion", manager_protocol::existing_target_inspection_schema_version},
+        {"inspectionId", inspection.inspection_id},
+        {"topologyGeneration", inspection.topology_generation},
+        {"deviceId", inspection.device_id},
+        {"partitionId", inspection.partition_id},
+        {"luksUuid", inspection.target.luks_uuid},
+        {"btrfsUuid", inspection.target.btrfs_uuid},
+        {"partitionUuid", inspection.target.partition_uuid},
+        {"repositoryId", inspection.target.repository_id},
+        {"catalogGeneration", inspection.target.catalog_generation},
+        {"snapshotCount", inspection.target.snapshot_count},
     });
 }
 

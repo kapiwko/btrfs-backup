@@ -250,6 +250,31 @@ void test_storage_topology_and_plan_contract() {
         partition_document.at("operations").front() == "erase-partition-signatures",
         "partition signature erasure is not explicit"
     );
+
+    const provisioning::ExistingTargetInspection inspection{
+        .inspection_id = "inspection-1",
+        .topology_generation = "topology-1",
+        .device_id = "opaque-device",
+        .partition_id = "opaque-partition",
+        .target = {
+            .luks_uuid = "luks-uuid",
+            .btrfs_uuid = "btrfs-uuid",
+            .partition_uuid = "partition-uuid",
+            .repository_id = "repository-1",
+            .catalog_generation = 7,
+            .snapshot_count = 2,
+        },
+    };
+    const Json inspection_document = Json::parse(codec.encode(inspection));
+    expect_field("target inspection", inspection_document, "schemaVersion", 1);
+    expect_field("target inspection", inspection_document, "inspectionId", "inspection-1");
+    expect_field("target inspection", inspection_document, "repositoryId", "repository-1");
+    expect_field("target inspection", inspection_document, "snapshotCount", 2);
+    test_helpers::expect_true(
+        "target inspection privacy",
+        !inspection_document.contains("path") && !inspection_document.contains("credential"),
+        "target inspection exposed a path or credential"
+    );
 }
 
 } // namespace

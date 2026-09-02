@@ -3,11 +3,10 @@
 
 #pragma once
 
-#include <cstddef>
-#include <cstdint>
 #include <filesystem>
 #include <string>
 
+#include <daemon/provisioning/ExistingTargetInspection.hpp>
 #include <daemon/provisioning/StorageTopology.hpp>
 
 namespace btrfsbackup::backup {
@@ -22,18 +21,18 @@ class IExistingTargetMountOperations;
 
 namespace btrfsbackup::daemon::control {
 
-struct ExistingTargetInspectionSummary {
-    std::string luks_uuid;
-    std::string btrfs_uuid;
-    std::string partition_uuid;
-    std::string repository_id;
-    std::uint64_t catalog_generation = 0;
-    std::size_t snapshot_count = 0;
-
-    bool operator==(const ExistingTargetInspectionSummary&) const = default;
+class IExistingTargetInspector {
+  public:
+    virtual ~IExistingTargetInspector() = default;
+    [[nodiscard]] virtual provisioning::ExistingTargetInspectionSummary inspect(
+        const provisioning::ExistingPartition& partition,
+        const std::string& mapper_name,
+        const std::filesystem::path& mount_point,
+        int credential_fd
+    ) = 0;
 };
 
-class ExistingTargetInspector {
+class ExistingTargetInspector final : public IExistingTargetInspector {
   public:
     ExistingTargetInspector(
         platform::linux::storage::ICryptsetupOperations& cryptsetup,
@@ -42,12 +41,12 @@ class ExistingTargetInspector {
         backup::IBtrfsOperations& btrfs
     );
 
-    [[nodiscard]] ExistingTargetInspectionSummary inspect(
+    [[nodiscard]] provisioning::ExistingTargetInspectionSummary inspect(
         const provisioning::ExistingPartition& partition,
         const std::string& mapper_name,
         const std::filesystem::path& mount_point,
         int credential_fd
-    );
+    ) override;
 
   private:
     platform::linux::storage::ICryptsetupOperations& cryptsetup_;
