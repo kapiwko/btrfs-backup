@@ -63,22 +63,13 @@ QQC2.ItemDelegate {
                     anchors.fill: parent
                     source: "drive-harddisk-symbolic"
                 }
-                Rectangle {
+                Kirigami.Icon {
                     objectName: "profileTargetStateIndicator"
                     anchors.right: parent.right
                     anchors.bottom: parent.bottom
-                    width: Kirigami.Units.iconSizes.smallMedium
+                    width: Kirigami.Units.iconSizes.small
                     height: width
-                    radius: width / 2
-                    color: Kirigami.Theme.backgroundColor
-                    border.width: 1
-                    border.color: delegate.targetIndicatorColor()
-
-                    Kirigami.Icon {
-                        anchors.fill: parent
-                        anchors.margins: 2
-                        source: delegate.targetIndicatorIcon()
-                    }
+                    source: delegate.targetIndicatorIcon()
 
                     HoverHandler { id: targetIndicatorHover }
                     QQC2.ToolTip.visible: targetIndicatorHover.hovered
@@ -203,25 +194,14 @@ QQC2.ItemDelegate {
     function targetIndicatorIcon() {
         if (delegate.profileStatus.run.state === "failed"
                 || !delegate.profileStatus.configurationValid)
-            return "dialog-error"
+            return "emblem-error"
         if (!delegate.profileStatus.target.connected)
-            return "network-disconnect"
+            return "emblem-unavailable"
         if (delegate.profileStatus.target.mounted)
-            return "media-mount"
+            return "emblem-success"
         if (delegate.profileStatus.target.unlocked)
-            return "object-unlocked"
-        return "object-locked"
-    }
-
-    function targetIndicatorColor() {
-        if (!delegate.profileStatus.configurationValid
-                || delegate.profileStatus.target.state === "unexpected-mount")
-            return Kirigami.Theme.negativeTextColor
-        if (!delegate.profileStatus.target.connected)
-            return Kirigami.Theme.disabledTextColor
-        if (delegate.profileStatus.target.mounted)
-            return Kirigami.Theme.positiveTextColor
-        return Kirigami.Theme.textColor
+            return "emblem-unlocked"
+        return "emblem-locked"
     }
 
     function targetIndicatorText() {
