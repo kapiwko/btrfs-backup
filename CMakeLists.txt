@@ -41,6 +41,7 @@ option(
 find_package(nlohmann_json REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(BLKID REQUIRED IMPORTED_TARGET blkid)
+pkg_check_modules(CRYPTSETUP REQUIRED IMPORTED_TARGET libcryptsetup)
 pkg_check_modules(MOUNT REQUIRED IMPORTED_TARGET mount)
 pkg_check_modules(UDEV REQUIRED IMPORTED_TARGET libudev)
 pkg_check_modules(BTRFSUTIL REQUIRED IMPORTED_TARGET libbtrfsutil)

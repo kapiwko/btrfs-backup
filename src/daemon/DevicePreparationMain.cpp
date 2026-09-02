@@ -69,7 +69,7 @@ int run_device_preparation(int argc, char** argv) {
         btrfsbackup::platform::linux::process::PosixCommandRunner commands;
         btrfsbackup::platform::linux::storage::LibBtrfsOperations btrfs;
         btrfsbackup::platform::linux::systemd::LinuxSystemConfigurationActivator activator;
-        btrfsbackup::platform::linux::storage::CryptsetupOperations cryptsetup(commands);
+        btrfsbackup::platform::linux::storage::CryptsetupOperations cryptsetup;
         const btrfsbackup::daemon::control::CredentialAdministrationRoots roots{
             .config_root = config_root,
             .metadata_root = config_root / "credentials",
@@ -99,6 +99,7 @@ int run_device_preparation(int argc, char** argv) {
             storage_topology,
             commands,
             signature_operations,
+            cryptsetup,
             btrfs,
             activator,
             credentials,

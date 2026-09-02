@@ -4,6 +4,13 @@
 
 add_btrfsbackup_test(btrfsbackup-btrfs-operations-tests linux/storage/BtrfsOperationsTests.cpp btrfs-operations-tests btrfsbackup-platform-linux-storage)
 add_btrfsbackup_test(btrfsbackup-command-runner-tests linux/process/CommandRunnerTests.cpp command-runner-tests btrfsbackup-platform-linux-process)
+add_btrfsbackup_test(
+    btrfsbackup-cryptsetup-operations-tests
+    linux/storage/CryptsetupOperationsTests.cpp
+    cryptsetup-operations-tests
+    btrfsbackup-platform-linux-filesystem
+    btrfsbackup-platform-linux-storage
+)
 add_btrfsbackup_test(btrfsbackup-device-info-tests linux/storage/DeviceInfoTests.cpp device-info-tests btrfsbackup-platform-linux-storage)
 add_btrfsbackup_test(btrfsbackup-file-lock-tests linux/filesystem/FileLockTests.cpp file-lock-tests btrfsbackup-platform-linux-filesystem)
 add_btrfsbackup_test(btrfsbackup-filesystem-tests linux/filesystem/FilesystemTests.cpp filesystem-tests btrfsbackup-platform-linux-filesystem)

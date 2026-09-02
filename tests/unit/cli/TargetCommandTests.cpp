@@ -11,6 +11,7 @@
 
 #include <cli/target/TargetCommand.hpp>
 #include <platform/linux/filesystem/FileLock.hpp>
+#include <platform/linux/storage/CryptsetupOperations.hpp>
 #include <config/json/Json.hpp>
 #include <config/json/JsonIo.hpp>
 
@@ -25,7 +26,9 @@ constexpr const char* btrfs_uuid = "22222222-3333-4444-5555-666666666666";
 constexpr const char* mapper_name = "btrfsbackup-test-target-command";
 constexpr const char* target_unit_name = "btrfs-backup-target@default.service";
 
-class RecordingCommandRunner final : public btrfsbackup::backup::ICommandRunner {
+class RecordingCommandRunner final
+    : public btrfsbackup::backup::ICommandRunner,
+      public btrfsbackup::platform::linux::storage::ICryptsetupOperations {
   public:
     bool mounted = false;
     fs::path mapper_path;
@@ -34,12 +37,6 @@ class RecordingCommandRunner final : public btrfsbackup::backup::ICommandRunner 
 
     btrfsbackup::backup::CommandResult run(const std::vector<std::string>& argv) override {
         calls.push_back(join(argv));
-        if (argv == std::vector<std::string>{"cryptsetup", "luksUUID", "/dev/disk/by-uuid/target-luks"}) {
-            return {0, std::string(luks_uuid) + "\n"};
-        }
-        if (argv == std::vector<std::string>{"cryptsetup", "status", mapper_name}) {
-            return {0, "device: " + status_device + "\n"};
-        }
         if (argv.size() == 6 && argv.at(1) == "attach") {
             test_helpers::write_file(mapper_path, "mapper");
             return {};
@@ -64,6 +61,27 @@ class RecordingCommandRunner final : public btrfsbackup::backup::ICommandRunner 
         const btrfsbackup::backup::ControlledCommandOptions&
     ) override {
         return run(argv);
+    }
+
+    btrfsbackup::platform::linux::storage::LuksHeader inspect_luks2(const fs::path&) override {
+        return {luks_uuid, {0}};
+    }
+    void add_key(const fs::path&, int, int) override {
+    }
+    void test_key(const fs::path&, int) override {
+    }
+    void remove_keyslot(const fs::path&, int, int) override {
+    }
+    fs::path active_device(const std::string&) override {
+        return status_device;
+    }
+    std::string format_luks2(const fs::path&, int) override {
+        return luks_uuid;
+    }
+    void open_luks2(const fs::path&, const std::string&, int) override {
+    }
+    void close(const std::string&) override {
+        fs::remove(mapper_path);
     }
 
   private:
@@ -163,6 +181,7 @@ void test_mount_starts_unit_and_validates_target() {
     RecordingCommandRunner commands;
     btrfsbackup::cli::target::TargetExecutionServices services{
         commands,
+        commands,
         [&commands, mount_point] { return mounts_for(commands.mounted, mount_point); },
         root / "locks",
         root
@@ -189,6 +208,7 @@ void test_eject_unmounts_and_stops_target_unit() {
     RecordingCommandRunner commands;
     commands.mounted = true;
     btrfsbackup::cli::target::TargetExecutionServices services{
+        commands,
         commands,
         [&commands, mount_point] { return mounts_for(commands.mounted, mount_point); },
         root / "locks",
@@ -223,6 +243,7 @@ void test_activation_owns_and_restores_mapper() {
     commands.mapper_path = mapper_root / mapper_name;
     btrfsbackup::cli::target::TargetExecutionServices services{
         .commands = commands,
+        .cryptsetup = commands,
         .read_mounts = [] { return std::vector<btrfsbackup::backup::MountEntry>{}; },
         .lock_root = root / "locks",
         .mount_point_trust_root = root,
@@ -284,6 +305,7 @@ void test_activation_preserves_preexisting_mapper() {
     test_helpers::write_file(commands.mapper_path, "preexisting mapper");
     btrfsbackup::cli::target::TargetExecutionServices services{
         .commands = commands,
+        .cryptsetup = commands,
         .read_mounts = [] { return std::vector<btrfsbackup::backup::MountEntry>{}; },
         .lock_root = root / "locks",
         .mount_point_trust_root = root,
@@ -316,6 +338,7 @@ void test_deactivation_closes_owned_mapper_after_device_disappears() {
     commands.mapper_path = mapper_root / mapper_name;
     btrfsbackup::cli::target::TargetExecutionServices services{
         .commands = commands,
+        .cryptsetup = commands,
         .read_mounts = [] { return std::vector<btrfsbackup::backup::MountEntry>{}; },
         .lock_root = root / "locks",
         .mount_point_trust_root = root,
@@ -364,6 +387,7 @@ void test_activation_rejects_insecure_key_file() {
     commands.mapper_path = mapper_root / mapper_name;
     btrfsbackup::cli::target::TargetExecutionServices services{
         .commands = commands,
+        .cryptsetup = commands,
         .read_mounts = [] { return std::vector<btrfsbackup::backup::MountEntry>{}; },
         .lock_root = root / "locks",
         .mount_point_trust_root = root,
@@ -404,6 +428,7 @@ void test_internal_eject_honors_auto_eject_setting() {
     commands.mounted = true;
     btrfsbackup::cli::target::TargetExecutionServices services{
         commands,
+        commands,
         [&commands, mount_point] { return mounts_for(commands.mounted, mount_point); },
         root / "locks",
         root
@@ -427,6 +452,7 @@ void test_eject_refuses_busy_target_without_running_commands() {
     commands.mounted = true;
     fs::path lock_root = root / "locks";
     btrfsbackup::cli::target::TargetExecutionServices services{
+        commands,
         commands,
         [&commands, mount_point] { return mounts_for(commands.mounted, mount_point); },
         lock_root,
@@ -466,6 +492,7 @@ void test_mount_rejects_symlinked_mount_point_without_chmod() {
 
     RecordingCommandRunner commands;
     btrfsbackup::cli::target::TargetExecutionServices services{
+        commands,
         commands,
         [&commands, mount_point] { return mounts_for(commands.mounted, mount_point.string()); },
         root / "locks",

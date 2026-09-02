@@ -71,7 +71,7 @@ The `source` target uses the source archive toolchain. Arch package construction
 additionally uses `zstd`; other package backends may have their own tool
 requirements.
 Building from source requires CMake, a C++23 compiler, `pkg-config`,
-`nlohmann-json`, `libmount`, `libblkid`, `libudev`, `libsystemd`, and `libbtrfsutil`
+`nlohmann-json`, `libmount`, `libblkid`, `libcryptsetup`, `libudev`, `libsystemd`, and `libbtrfsutil`
 development files for the native code under `src/`. Building the optional
 system manager additionally requires `libfdisk` development files.
 Building the optional Plasma package also requires Extra CMake Modules, Qt 6

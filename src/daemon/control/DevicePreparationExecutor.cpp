@@ -20,6 +20,7 @@
 #include <platform/linux/config/ProfileService.hpp>
 #include <platform/linux/filesystem/FileLock.hpp>
 #include <platform/linux/filesystem/SecretFile.hpp>
+#include <platform/linux/storage/CryptsetupOperations.hpp>
 #include <platform/linux/storage/SignatureOperations.hpp>
 
 namespace fs = std::filesystem;
@@ -47,10 +48,6 @@ void require_success(
         throw ValidationError(std::string(operation) + " failed");
 }
 
-std::string descriptor_path(int fd) {
-    return "/proc/self/fd/" + std::to_string(fd);
-}
-
 void rewind_secret(int fd) {
     if (::lseek(fd, 0, SEEK_SET) < 0)
         throw ValidationError("cannot rewind device preparation secret");
@@ -63,6 +60,7 @@ DevicePreparationExecutor::DevicePreparationExecutor(
     fs::path target_mount_root,
     backup::ICommandRunner& commands,
     platform::linux::storage::ISignatureOperations& signatures,
+    platform::linux::storage::ICryptsetupOperations& cryptsetup,
     backup::IBtrfsOperations& btrfs,
     config::IConfigurationActivator& configuration_activator,
     ICredentialAdministrationBackend& credentials,
@@ -73,6 +71,7 @@ DevicePreparationExecutor::DevicePreparationExecutor(
     : roots_(std::move(roots)),
       commands_(commands),
       signatures_(signatures),
+      cryptsetup_(cryptsetup),
       btrfs_(btrfs),
       activator_(configuration_activator),
       credentials_(credentials),
@@ -134,7 +133,7 @@ void DevicePreparationExecutor::execute(const std::string& operation_id, int pas
             throw dbus::ManagerOperationError(
                 dbus::ManagerErrorCode::Conflict,
                 "selected device is not safe for destructive preparation: " + safety_reasons.front()
-        );
+            );
         phase(operation_id, "wipe-signatures", false);
         signatures_.wipe_all(initial.device.path, initial.device.major_minor);
         completed(operation_id, "wipe-signatures");
@@ -160,16 +159,7 @@ void DevicePreparationExecutor::execute(const std::string& operation_id, int pas
         });
 
         phase(operation_id, "luks-format", false);
-        rewind_secret(passphrase.get());
-        backup::ControlledCommandOptions secret_options;
-        secret_options.inherited_fds = {passphrase.get()};
-        require_success(
-            commands_,
-            {"cryptsetup", "luksFormat", "--type", "luks2", "--batch-mode", "--key-file", descriptor_path(passphrase.get()), partition},
-            secret_options,
-            "formatting LUKS2"
-        );
-        const std::string luks_uuid = backup::capture_command(commands_, {"cryptsetup", "luksUUID", partition});
+        const std::string luks_uuid = cryptsetup_.format_luks2(partition, passphrase.get());
         update(operation_id, [&](auto& transaction) {
             transaction.luks_uuid = luks_uuid;
             transaction.last_completed_phase = "luks-format";
@@ -178,12 +168,7 @@ void DevicePreparationExecutor::execute(const std::string& operation_id, int pas
         phase(operation_id, "open", false);
         rewind_secret(passphrase.get());
         mapper = "btrfs-backup-" + initial.status.profile_id;
-        require_success(
-            commands_,
-            {"cryptsetup", "open", "--key-file", descriptor_path(passphrase.get()), partition, mapper},
-            secret_options,
-            "opening new LUKS target"
-        );
+        cryptsetup_.open_luks2(partition, mapper, passphrase.get());
         update(operation_id, [&](auto& transaction) {
             transaction.mapper = mapper;
             transaction.last_completed_phase = "open";
@@ -214,7 +199,7 @@ void DevicePreparationExecutor::execute(const std::string& operation_id, int pas
         });
 
         phase(operation_id, "close", false);
-        require_success(commands_, {"cryptsetup", "close", mapper}, standard, "closing new LUKS target");
+        cryptsetup_.close(mapper);
         mapper.clear();
         update(operation_id, [](auto& transaction) {
             transaction.mapper.clear();
@@ -257,7 +242,9 @@ void DevicePreparationExecutor::execute(const std::string& operation_id, int pas
         const bool cleanup_required = !mapper.empty();
         bool cleanup_ok = !cleanup_required;
         try {
-            cleanup_ok = !cleanup_required || commands_.run({"cryptsetup", "close", mapper}).exit_code == 0;
+            if (cleanup_required)
+                cryptsetup_.close(mapper);
+            cleanup_ok = true;
         } catch (...) {
             cleanup_ok = false;
         }
@@ -283,7 +270,9 @@ void DevicePreparationExecutor::execute(const std::string& operation_id, int pas
         const bool cleanup_required = !mapper.empty();
         bool cleanup_ok = !cleanup_required;
         try {
-            cleanup_ok = !cleanup_required || commands_.run({"cryptsetup", "close", mapper}).exit_code == 0;
+            if (cleanup_required)
+                cryptsetup_.close(mapper);
+            cleanup_ok = true;
         } catch (...) {
             cleanup_ok = false;
         }
@@ -311,10 +300,9 @@ void DevicePreparationExecutor::recover(const std::string& operation_id) {
     if (transaction.mapper.empty())
         return;
     try {
-        const auto result = commands_.run({"cryptsetup", "close", transaction.mapper});
-        transaction.cleanup_result = result.exit_code == 0 ? "mapper-closed" : "mapper-close-failed";
-        if (result.exit_code == 0)
-            transaction.mapper.clear();
+        cryptsetup_.close(transaction.mapper);
+        transaction.cleanup_result = "mapper-closed";
+        transaction.mapper.clear();
     } catch (...) {
         transaction.cleanup_result = "mapper-close-failed";
     }

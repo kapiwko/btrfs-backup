@@ -142,6 +142,7 @@ target_link_libraries(btrfsbackup-platform-linux-storage
         btrfsbackup-platform-linux-base
         PkgConfig::BLKID
         PkgConfig::BTRFSUTIL
+        PkgConfig::CRYPTSETUP
         PkgConfig::MOUNT
 )
 
