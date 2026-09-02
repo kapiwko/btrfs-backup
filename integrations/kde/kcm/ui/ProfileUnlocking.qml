@@ -82,32 +82,44 @@ Item {
             hoverEnabled: true
             focusPolicy: Qt.StrongFocus
             Kirigami.Theme.useAlternateBackgroundColor: true
-            Accessible.name: methodRow.contentItem.title
-            Accessible.description: methodRow.contentItem.subtitle
+            Accessible.name: methodDetails.title
+            Accessible.description: methodDetails.subtitle
             onClicked: {
                 root.credentialToInspect = methodRow.modelData;
                 methodDetailsDialog.open();
             }
 
-            contentItem: Kirigami.TitleSubtitleWithActions {
-                objectName: "unlockingMethodDetails"
-                title: methodRow.modelData.managed && methodRow.modelData.label
-                    ? methodRow.modelData.label
-                    : translations.i18n("LUKS key slot %1", methodRow.modelData.keyslot)
-                subtitle: root.methodDescription(methodRow.modelData)
-                selected: false
-                actions: [
-                    Kirigami.Action {
-                        icon.name: "edit-delete-symbolic"
-                        text: translations.i18n("Remove unlocking method")
-                        visible: methodRow.modelData.managed && !methodRow.modelData.automatic
-                        enabled: (root.credentialModel?.credentials.length ?? 0) > 1 && !root.credentialModel.busy
-                        onTriggered: {
-                            root.credentialToRemove = methodRow.modelData;
-                            removeDialog.open();
+            contentItem: RowLayout {
+                spacing: Kirigami.Units.smallSpacing
+
+                Kirigami.Icon {
+                    source: root.methodIcon(methodRow.modelData)
+                    implicitWidth: Kirigami.Units.iconSizes.smallMedium
+                    implicitHeight: implicitWidth
+                }
+
+                Kirigami.TitleSubtitleWithActions {
+                    id: methodDetails
+                    objectName: "unlockingMethodDetails"
+                    Layout.fillWidth: true
+                    title: methodRow.modelData.managed && methodRow.modelData.label
+                        ? methodRow.modelData.label
+                        : translations.i18n("LUKS key slot %1", methodRow.modelData.keyslot)
+                    subtitle: root.methodDescription(methodRow.modelData)
+                    selected: false
+                    actions: [
+                        Kirigami.Action {
+                            icon.name: "edit-delete-symbolic"
+                            text: translations.i18n("Remove unlocking method")
+                            visible: methodRow.modelData.managed && !methodRow.modelData.automatic
+                            enabled: (root.credentialModel?.credentials.length ?? 0) > 1 && !root.credentialModel.busy
+                            onTriggered: {
+                                root.credentialToRemove = methodRow.modelData;
+                                removeDialog.open();
+                            }
                         }
-                    }
-                ]
+                    ]
+                }
             }
         }
 
@@ -370,6 +382,16 @@ Item {
         if (method.type === "keyFile")
             return translations.i18n("Key file")
         return translations.i18n("Unknown unlocking method")
+    }
+
+    function methodIcon(method) {
+        if (method?.type === "passphrase")
+            return "dialog-password";
+        if (method?.type === "keyFile" && method?.automatic)
+            return "password-generate";
+        if (method?.type === "keyFile")
+            return "document-encrypt";
+        return "dialog-question";
     }
 
     function methodPrivacyText(method) {
