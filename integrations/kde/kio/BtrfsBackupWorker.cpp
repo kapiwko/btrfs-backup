@@ -161,10 +161,21 @@ BtrfsBackupWorker::Session* BtrfsBackupWorker::session(const QString& profile) {
         );
         const std::filesystem::path stable_root =
             "/proc/self/fd/" + std::to_string(root_descriptor->descriptor()) + "/.";
+        std::optional<btrfsbackup::restore::RepositoryCatalog> catalog;
+        try {
+            (void)btrfsbackup::kde::kio::open_browse_metadata(
+                root_descriptor->descriptor(),
+                "repository.json"
+            );
+            catalog = discovery.discover(stable_root);
+        } catch (const std::system_error& error) {
+            if (error.code().value() != ENOENT)
+                throw;
+        }
         Session value{
             opened->session_id,
             root_descriptor,
-            discovery.discover(stable_root),
+            std::move(catalog),
         };
         auto inserted = sessions_.insert(profile, std::move(value));
         return &inserted.value();
@@ -178,11 +189,17 @@ std::optional<std::filesystem::path> BtrfsBackupWorker::resolve_entry(
     const ParsedUrl& url,
     const Session& session
 ) const {
-    if (!session.catalog || url.snapshot.isEmpty())
+    if (url.snapshot.isEmpty())
         return std::nullopt;
     try {
-        const auto& snapshot = session.catalog->snapshot(url.snapshot.toStdString());
-        std::filesystem::path relative = snapshot.repository_path.value();
+        std::filesystem::path relative;
+        if (session.catalog) {
+            const auto& snapshot = session.catalog->snapshot(url.snapshot.toStdString());
+            relative = snapshot.repository_path.value();
+        } else {
+            const btrfsbackup::restore::RelativeRestorePath root_entry{url.snapshot.toStdString()};
+            relative = root_entry.value();
+        }
         if (!url.relative_path.isEmpty()) {
             const btrfsbackup::restore::RelativeRestorePath requested{url.relative_path.toStdString()};
             for (const auto& component : requested.value())
@@ -212,7 +229,13 @@ KIO::WorkerResult BtrfsBackupWorker::session_failure() const {
         return KIO::WorkerResult::fail(KIO::ERR_SERVER_TIMEOUT);
     if (session_error_name_.endsWith(QStringLiteral(".NotAuthorized")))
         return KIO::WorkerResult::fail(KIO::ERR_ACCESS_DENIED);
-    return KIO::WorkerResult::fail(KIO::ERR_SERVICE_NOT_AVAILABLE);
+    return KIO::WorkerResult::fail(
+        KIO::ERR_CANNOT_ENTER_DIRECTORY,
+        i18nd(
+            "plasma_applet_org.btrfsbackup.plasmoid",
+            "The backup repository could not be read."
+        )
+    );
 }
 
 KIO::WorkerResult BtrfsBackupWorker::list_profiles() {
@@ -229,13 +252,37 @@ KIO::WorkerResult BtrfsBackupWorker::list_profiles() {
 
 KIO::WorkerResult BtrfsBackupWorker::list_snapshots(const QString& profile) {
     Session* active = session(profile);
-    if (active == nullptr || !active->catalog)
+    if (active == nullptr)
         return session_failure();
     const BrowseSessionPin pin(active->id);
     if (!pin)
         return KIO::WorkerResult::fail(KIO::ERR_ACCESS_DENIED);
     KIO::UDSEntryList entries;
     int count = 0;
+    if (!active->catalog) {
+        try {
+            auto children = btrfsbackup::kde::kio::list_browse_directory(
+                active->root_descriptor->descriptor(),
+                maximum_directory_entries
+            );
+            std::ranges::sort(children, {}, &btrfsbackup::kde::kio::BrowseDirectoryEntry::name);
+            for (const auto& child : children) {
+                if (wasKilled())
+                    return KIO::WorkerResult::fail(KIO::ERR_USER_CANCELED);
+                if (child.kind != btrfsbackup::kde::kio::BrowseEntryKind::Directory)
+                    continue;
+                auto entry = directory_entry(QString::fromStdString(child.name));
+                entry.fastInsert(KIO::UDSEntry::UDS_MODIFICATION_TIME, child.modified_at);
+                entries.push_back(std::move(entry));
+            }
+        } catch (const btrfsbackup::kde::kio::BrowseDirectoryLimitError&) {
+            return KIO::WorkerResult::fail(KIO::ERR_OUT_OF_MEMORY, u"Repository listing exceeds the safe limit"_s);
+        } catch (...) {
+            return KIO::WorkerResult::fail(KIO::ERR_CANNOT_ENTER_DIRECTORY);
+        }
+        listEntries(entries);
+        return KIO::WorkerResult::pass();
+    }
     for (const auto& snapshot : active->catalog->snapshots()) {
         if (wasKilled())
             return KIO::WorkerResult::fail(KIO::ERR_USER_CANCELED);
@@ -271,8 +318,10 @@ KIO::WorkerResult BtrfsBackupWorker::list_versions(const ParsedUrl& url) {
     const QString& source_id = parts.front();
     const QString relative = parts.size() > 1 ? parts.mid(1).join(u'/') : u"."_s;
     Session* active = session(url.profile);
-    if (active == nullptr || !active->catalog)
+    if (active == nullptr)
         return session_failure();
+    if (!active->catalog)
+        return KIO::WorkerResult::fail(KIO::ERR_DOES_NOT_EXIST);
     const BrowseSessionPin pin(active->id);
     if (!pin)
         return KIO::WorkerResult::fail(KIO::ERR_ACCESS_DENIED);

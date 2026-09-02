@@ -465,6 +465,9 @@ msgstr "Aktywne wykonanie kopii zapasowej uległo zmianie. Odśwież dane i spr�
 msgid "The backup device is disconnected or unavailable."
 msgstr "Urządzenie kopii zapasowej jest odłączone lub niedostępne."
 
+msgid "The backup repository could not be read."
+msgstr "Nie można odczytać repozytorium kopii zapasowej."
+
 msgid "The operation conflicts with the current state. Refresh and try again."
 msgstr "Operacja jest sprzeczna z bieżącym stanem. Odśwież dane i spróbuj ponownie."
 
