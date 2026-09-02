@@ -17,6 +17,7 @@
 #include <core/ManagerProtocol.hpp>
 #include <platform/linux/storage/LibBtrfsOperations.hpp>
 #include <restore/RepositoryDiscoveryService.hpp>
+#include <restore/RestoreError.hpp>
 
 using Qt::StringLiterals::operator""_s;
 
@@ -83,6 +84,7 @@ void RestoreController::setDestination(const QString& value) {
     if (destination_ == normalized)
         return;
     destination_ = normalized;
+    replace_existing_ = false;
     plan_.reset();
     plan_summary_.clear();
     Q_EMIT planChanged();
@@ -149,6 +151,22 @@ bool RestoreController::prepare_plan() {
         Q_EMIT planChanged();
         Q_EMIT stateChanged();
         return true;
+    } catch (const btrfsbackup::restore::RestoreError& error) {
+        if (error.code() == btrfsbackup::restore::RestoreErrorCode::DestinationExists && !replace_existing_) {
+            error_text_.clear();
+            plan_.reset();
+            plan_summary_.clear();
+            Q_EMIT planChanged();
+            Q_EMIT stateChanged();
+            Q_EMIT overwriteConfirmationRequested(destination_);
+            return false;
+        }
+        error_text_ = QString::fromUtf8(error.what());
+        plan_.reset();
+        plan_summary_.clear();
+        Q_EMIT planChanged();
+        Q_EMIT stateChanged();
+        return false;
     } catch (const std::exception& error) {
         error_text_ = QString::fromUtf8(error.what());
         plan_.reset();
@@ -163,8 +181,13 @@ bool RestoreController::preview() {
     return prepare_plan();
 }
 
+bool RestoreController::confirmOverwrite() {
+    setReplaceExisting(true);
+    return prepare_plan();
+}
+
 void RestoreController::execute() {
-    if (busy_ || (!plan_ && !prepare_plan()))
+    if (busy_ || !prepare_plan())
         return;
     busy_ = true;
     completed_ = false;

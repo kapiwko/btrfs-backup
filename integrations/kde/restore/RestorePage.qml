@@ -50,13 +50,6 @@ Kirigami.Page {
                 }
             }
 
-            QQC2.ComboBox {
-                Kirigami.FormData.label: translations.i18n("If destination exists:")
-                model: [translations.i18n("Stop"), translations.i18n("Replace transactionally")]
-                currentIndex: root.controller.replaceExisting ? 1 : 0
-                onActivated: root.controller.replaceExisting = currentIndex === 1
-            }
-
             QQC2.Label {
                 Kirigami.FormData.label: translations.i18n("Metadata:")
                 text: translations.i18n("Preserve and verify")
@@ -107,6 +100,33 @@ Kirigami.Page {
                 enabled: root.controller.planSummary.length > 0
                 onClicked: root.controller.execute()
             }
+        }
+    }
+
+    Connections {
+        target: root.controller
+
+        function onOverwriteConfirmationRequested(destination) {
+            overwriteDialog.destination = destination;
+            overwriteDialog.open();
+        }
+    }
+
+    QQC2.Dialog {
+        id: overwriteDialog
+        property string destination: ""
+
+        parent: QQC2.Overlay.overlay
+        anchors.centerIn: parent
+        modal: true
+        title: translations.i18n("Destination already exists")
+        standardButtons: QQC2.Dialog.Yes | QQC2.Dialog.No
+        onAccepted: root.controller.confirmOverwrite()
+
+        contentItem: Kirigami.InlineMessage {
+            type: Kirigami.MessageType.Warning
+            visible: true
+            text: translations.i18n("%1 already exists. Replace it transactionally?", overwriteDialog.destination)
         }
     }
 

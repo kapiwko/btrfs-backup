@@ -46,12 +46,14 @@ class RestoreController final : public QObject {
     bool completed() const;
 
     Q_INVOKABLE bool preview();
+    Q_INVOKABLE bool confirmOverwrite();
     Q_INVOKABLE void execute();
     Q_INVOKABLE void cancel();
 
   signals:
     void planChanged();
     void stateChanged();
+    void overwriteConfirmationRequested(const QString& destination);
 
   private:
     bool prepare_plan();
