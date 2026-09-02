@@ -23,6 +23,7 @@
 #include <config/json/JsonIo.hpp>
 #include <config/ports/ConfigurationActivator.hpp>
 #include <core/Errors.hpp>
+#include <daemon/dbus/ManagerErrors.hpp>
 #include <platform/linux/config/ProfileService.hpp>
 #include <platform/linux/filesystem/SecretFile.hpp>
 #include <platform/linux/storage/CryptsetupOperations.hpp>
@@ -45,9 +46,12 @@ class Cryptsetup final : public btrfsbackup::platform::linux::storage::ICryptset
     std::vector<int> slots{0};
     bool fail_test = false;
     bool fail_remove = false;
+    bool fail_inspect = false;
     std::function<void()> after_remove;
 
     btrfsbackup::platform::linux::storage::LuksHeader inspect_luks2(const fs::path&) override {
+        if (fail_inspect)
+            throw ValidationError("initializing LUKS device failed: Block device required");
         return {std::string(luks_uuid), slots};
     }
     void add_key(const fs::path&, int, int) override {
@@ -153,6 +157,27 @@ OwnedFileDescriptor secret(std::string_view value) {
     return btrfsbackup::platform::linux::filesystem::create_sealed_secret_file(
         std::as_bytes(std::span(value.data(), value.size()))
     );
+}
+
+void test_unavailable_target_has_a_specific_error() {
+    const auto root = test_helpers::test_root("credential-administration", "target-unavailable");
+    const auto paths = roots(root);
+    install_profile(paths);
+    Cryptsetup cryptsetup;
+    cryptsetup.fail_inspect = true;
+    btrfsbackup::config::NullConfigurationActivator activator;
+    control::SystemCredentialAdministrationBackend backend(paths, cryptsetup, activator);
+
+    try {
+        static_cast<void>(backend.list_credentials(ProfileId{"default"}));
+        test_helpers::fail("unavailable credential target", "missing target was accepted");
+    } catch (const btrfsbackup::daemon::dbus::ManagerOperationError& error) {
+        test_helpers::expect_true(
+            "unavailable credential target code",
+            error.code() == btrfsbackup::daemon::dbus::ManagerErrorCode::TargetUnavailable,
+            "missing target was reported as an invalid request"
+        );
+    }
 }
 
 std::string read_file(const fs::path& path) {
@@ -455,6 +480,7 @@ void test_failed_install_does_not_remove_existing_key_file() {
 } // namespace
 
 int main() {
+    test_unavailable_target_has_a_specific_error();
     test_complete_rollback_preserves_primary_failure();
     test_keyslot_rollback_failure_is_typed();
     test_metadata_and_profile_rollback_failures_are_typed();

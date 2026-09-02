@@ -102,7 +102,7 @@ Item {
 
         footer: Kirigami.InlineMessage {
             width: methodList.width
-            visible: root.credentialModel?.errorMessage?.length > 0
+            visible: methodList.count > 0 && (root.credentialModel?.errorMessage?.length ?? 0) > 0
             type: Kirigami.MessageType.Error
             text: root.credentialModel?.errorMessage ?? ""
             showCloseButton: true
@@ -116,8 +116,12 @@ Item {
             anchors.horizontalCenter: parent.horizontalCenter
             y: (methodList.headerItem?.height ?? 0) + Kirigami.Units.largeSpacing * 2
             visible: methodList.count === 0 && !(root.credentialModel?.busy ?? false)
-            icon.name: "lock-symbolic"
-            text: translations.i18n("No LUKS unlocking methods found")
+            icon.name: (root.credentialModel?.errorMessage?.length ?? 0) > 0
+                ? "dialog-error-symbolic"
+                : "lock-symbolic"
+            text: (root.credentialModel?.errorMessage?.length ?? 0) > 0
+                ? root.credentialModel.errorMessage
+                : translations.i18n("No LUKS unlocking methods found")
         }
     }
 

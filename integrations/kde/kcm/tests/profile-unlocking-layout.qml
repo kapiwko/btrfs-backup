@@ -43,5 +43,15 @@ Item {
             verify(unlocking.implicitHeight >= message.y + message.implicitHeight)
             compare(credentials.loadedProfileId, "default")
         }
+
+        function test_errorReplacesEmptyMessage() {
+            const message = findChild(unlocking, "emptyUnlockingMessage")
+            credentials.errorMessage = "Device disconnected"
+            wait(0)
+            verify(message.visible)
+            compare(message.text, "Device disconnected")
+            verify(unlocking.implicitHeight >= message.y + message.implicitHeight)
+            credentials.errorMessage = ""
+        }
     }
 }
