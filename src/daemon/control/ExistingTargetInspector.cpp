@@ -115,4 +115,25 @@ provisioning::ExistingTargetInspectionSummary ExistingTargetInspector::inspect(
     return *summary;
 }
 
+void ExistingTargetInspector::cleanup_session(
+    const std::string& mapper_name,
+    const std::filesystem::path& mount_point
+) {
+    std::exception_ptr pending;
+    try {
+        mounts_.unmount(mount_point);
+    } catch (...) {
+        pending = std::current_exception();
+    }
+    try {
+        cryptsetup_.close(mapper_name);
+        pending = nullptr;
+    } catch (...) {
+        if (!pending)
+            pending = std::current_exception();
+    }
+    if (pending)
+        std::rethrow_exception(pending);
+}
+
 } // namespace btrfsbackup::daemon::control

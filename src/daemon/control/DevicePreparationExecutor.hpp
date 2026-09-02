@@ -29,6 +29,7 @@ class ISignatureOperations;
 namespace btrfsbackup::daemon::control {
 
 class IDestructiveDeviceSafetyInspector;
+class IExistingTargetInspector;
 class ProvisioningDeviceEnumerator;
 
 class DevicePreparationExecutor final {
@@ -46,7 +47,9 @@ class DevicePreparationExecutor final {
         ICredentialAdministrationBackend& credentials,
         IDestructiveDeviceSafetyInspector& safety_inspector,
         DevicePreparationTransactionStore& transactions,
-        ProvisioningDeviceEnumerator& devices
+        ProvisioningDeviceEnumerator& devices,
+        IExistingTargetInspector* existing_target_inspector = nullptr,
+        std::filesystem::path inspection_mount_root = {}
     );
 
     void execute(const std::string& operation_id, int passphrase_fd);
@@ -72,6 +75,8 @@ class DevicePreparationExecutor final {
     DevicePreparationTransactionStore& transactions_;
     ProvisioningDeviceEnumerator& devices_;
     DevicePreparationPlanBuilder plan_builder_;
+    IExistingTargetInspector* existing_target_inspector_;
+    std::filesystem::path inspection_mount_root_;
 };
 
 } // namespace btrfsbackup::daemon::control

@@ -70,8 +70,10 @@ void validate_execution_target(const DevicePreparationTarget& target) {
     const auto& identity = target.device.identity;
     const bool whole_device = target.mode == provisioning::ProvisioningMode::EraseWholeDevice;
     const bool existing_partition = target.mode == provisioning::ProvisioningMode::ReformatExistingPartition;
-    if ((!whole_device && !existing_partition) || (whole_device && target.partition.has_value()) ||
-        (existing_partition && !target.partition.has_value()))
+    const bool adoption = target.mode == provisioning::ProvisioningMode::AdoptExistingTarget;
+    if ((!whole_device && !existing_partition && !adoption) || (whole_device && target.partition.has_value()) ||
+        ((existing_partition || adoption) && !target.partition.has_value()) ||
+        (adoption && !target.expected_inspection.has_value()))
         throw ValidationError("device preparation target mode is not executable yet");
     if (identity.display_path.empty() || identity.major_minor.empty() || identity.sysfs_path.empty() ||
         identity.size_bytes == 0 || target.device.logical_sector_size == 0 || target.device.transport.empty() ||
@@ -84,6 +86,10 @@ void validate_execution_target(const DevicePreparationTarget& target) {
             partition.partition_number == 0 || partition.sector_count == 0)
             throw ValidationError("partition preparation target identity is incomplete");
     }
+    if (adoption &&
+        (target.expected_inspection->luks_uuid.empty() || target.expected_inspection->btrfs_uuid.empty() ||
+         target.expected_inspection->partition_uuid.empty() || target.expected_inspection->repository_id.empty()))
+        throw ValidationError("existing target adoption fingerprint is incomplete");
 }
 
 } // namespace
@@ -146,7 +152,9 @@ struct SystemDeviceProvisioningBackend::Impl {
               credentials,
               device_safety_inspector,
               transactions,
-              devices
+              devices,
+              target_inspector,
+              target_inspection_root
           ),
           existing_target_inspector(target_inspector),
           inspection_mount_root(std::move(target_inspection_root)) {
@@ -372,7 +380,7 @@ DevicePreparationStatus SystemDeviceProvisioningBackend::start(
         .profile_name = request.profile_name,
         .source_subvolume = request.source_subvolume,
         .passphrase_label = request.passphrase_label,
-        .create_automatic_key = request.create_automatic_key,
+        .create_automatic_key = target.mode == provisioning::ProvisioningMode::AdoptExistingTarget ? false : request.create_automatic_key,
         .created_at = now,
         .updated_at = now,
         .last_completed_phase = {},
@@ -381,6 +389,7 @@ DevicePreparationStatus SystemDeviceProvisioningBackend::start(
         .luks_uuid = {},
         .btrfs_uuid = {},
         .mapper = {},
+        .inspection_mount_point = {},
         .configuration_state = "not-started",
         .credentials_state = "not-started",
         .cleanup_result = "not-required",

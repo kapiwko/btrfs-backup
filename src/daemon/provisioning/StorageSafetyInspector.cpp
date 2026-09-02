@@ -60,7 +60,8 @@ const ExistingPartition* current_partition(const StorageDevice& device, const Ex
 void inspect_device_identity(
     std::vector<SafetyBlocker>& result,
     const StorageDevice& expected,
-    const StorageDevice& current
+    const StorageDevice& current,
+    bool require_writable
 ) {
     if (!same_identity(expected.identity, current.identity))
         add_blocker(result, "block-device-identity-changed", expected.identity.display_path);
@@ -69,7 +70,7 @@ void inspect_device_identity(
         add_blocker(result, "sector-size-changed", expected.identity.display_path);
     if (expected.partition_table != current.partition_table)
         add_blocker(result, "partition-table-changed", expected.identity.display_path);
-    if (current.read_only)
+    if (require_writable && current.read_only)
         add_blocker(result, "read-only-device", current.identity.display_path);
     add_blockers(result, current.blockers);
 }
@@ -115,7 +116,12 @@ std::vector<SafetyBlocker> StorageSafetyInspector::inspect(
         add_blocker(result, "block-device-missing", expected_parent->identity.display_path);
         return result;
     }
-    inspect_device_identity(result, *expected_parent, *current_parent);
+    inspect_device_identity(
+        result,
+        *expected_parent,
+        *current_parent,
+        plan.mode != ProvisioningMode::AdoptExistingTarget
+    );
 
     if (plan.destructive_scope.kind == DestructiveScopeKind::WholeDevice) {
         if (expected.generation != current.generation)
@@ -138,7 +144,11 @@ std::vector<SafetyBlocker> StorageSafetyInspector::inspect(
         return result;
     }
 
-    if (plan.destructive_scope.kind != DestructiveScopeKind::ExistingPartition || !plan.partition_id.has_value()) {
+    const bool existing_partition_scope =
+        plan.destructive_scope.kind == DestructiveScopeKind::ExistingPartition ||
+        (plan.mode == ProvisioningMode::AdoptExistingTarget &&
+         plan.destructive_scope.kind == DestructiveScopeKind::None);
+    if (!existing_partition_scope || !plan.partition_id.has_value()) {
         add_blocker(result, "unsupported-destructive-scope");
         return result;
     }

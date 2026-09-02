@@ -111,6 +111,29 @@ void test_round_trip_preserves_recovery_state() {
     test_helpers::expect_eq("recovery action", value.status.recovery_action, "inspect manually");
 }
 
+void test_round_trip_preserves_adoption_fingerprint() {
+    const auto root = test_helpers::test_root("device-preparation-transactions", "adoption");
+    auto value = transaction("prepare-adoption", "queued", now_seconds());
+    value.target.mode = btrfsbackup::daemon::provisioning::ProvisioningMode::AdoptExistingTarget;
+    value.target.expected_inspection = btrfsbackup::daemon::provisioning::ExistingTargetInspectionSummary{
+        .luks_uuid = "existing-luks",
+        .btrfs_uuid = "existing-btrfs",
+        .partition_uuid = "partition-uuid",
+        .repository_id = "repository-1",
+        .catalog_generation = 8,
+        .snapshot_count = 3,
+    };
+    DevicePreparationTransactionStore store(root);
+    store.save(value);
+    const auto loaded = store.load("prepare-adoption");
+    test_helpers::expect_true(
+        "adoption fingerprint",
+        loaded.target.mode == btrfsbackup::daemon::provisioning::ProvisioningMode::AdoptExistingTarget &&
+            loaded.target.expected_inspection == value.target.expected_inspection,
+        "adoption inspection fingerprint changed during persistence"
+    );
+}
+
 void test_completed_limit_ttl_and_active_retention() {
     const auto root = test_helpers::test_root("device-preparation-transactions", "retention");
     DevicePreparationTransactionStore store(root, 2, std::chrono::hours(1));
@@ -164,6 +187,7 @@ void test_legacy_transaction_is_rejected() {
 
 int main() {
     test_round_trip_preserves_recovery_state();
+    test_round_trip_preserves_adoption_fingerprint();
     test_completed_limit_ttl_and_active_retention();
     test_legacy_transaction_is_rejected();
     return test_helpers::finish("device preparation transaction tests");

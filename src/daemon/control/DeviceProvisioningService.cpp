@@ -52,7 +52,12 @@ DevicePreparationTarget planned_target(
     const auto device = std::ranges::find(topology.devices, plan.device_id, &provisioning::StorageDevice::candidate_id);
     if (device == topology.devices.end())
         throw dbus::ManagerOperationError(dbus::ManagerErrorCode::Conflict, "planned device snapshot is missing");
-    DevicePreparationTarget result{.mode = plan.mode, .device = *device, .partition = std::nullopt};
+    DevicePreparationTarget result{
+        .mode = plan.mode,
+        .device = *device,
+        .partition = std::nullopt,
+        .expected_inspection = std::nullopt,
+    };
     if (plan.partition_id.has_value()) {
         for (const auto& region : device->regions) {
             const auto* partition = std::get_if<provisioning::ExistingPartition>(&region);
@@ -169,6 +174,12 @@ provisioning::ExistingTargetInspection DeviceProvisioningService::inspect_existi
     };
     inspect_safety(topology_reader_->scan());
     const auto summary = backend_.inspect_existing_target(target, credential_fd);
+    if (summary.luks_uuid.empty() || summary.btrfs_uuid.empty() || summary.partition_uuid.empty() ||
+        summary.repository_id.empty())
+        throw dbus::ManagerOperationError(
+            dbus::ManagerErrorCode::InternalError,
+            "existing target inspection returned an incomplete fingerprint"
+        );
     inspect_safety(topology_reader_->scan());
 
     const auto now = clock_();
@@ -333,6 +344,38 @@ provisioning::StorageTopology DeviceProvisioningService::find_topology(
     return topology->second.topology;
 }
 
+provisioning::ExistingTargetInspection DeviceProvisioningService::find_inspection(
+    const std::string& caller,
+    const std::string& inspection_id
+) {
+    const auto now = clock_();
+    std::lock_guard lock(candidates_mutex_);
+    expire_candidates(now);
+    const auto inspection = inspections_.find(inspection_id);
+    if (inspection == inspections_.end() || inspection->second.caller != caller)
+        throw dbus::ManagerOperationError(
+            dbus::ManagerErrorCode::NotFound,
+            "existing target inspection is unavailable or expired"
+        );
+    return inspection->second.inspection;
+}
+
+void DeviceProvisioningService::consume_inspection(
+    const std::string& caller,
+    const std::string& inspection_id
+) {
+    const auto now = clock_();
+    std::lock_guard lock(candidates_mutex_);
+    expire_candidates(now);
+    const auto inspection = inspections_.find(inspection_id);
+    if (inspection == inspections_.end() || inspection->second.caller != caller)
+        throw dbus::ManagerOperationError(
+            dbus::ManagerErrorCode::NotFound,
+            "existing target inspection is unavailable or expired"
+        );
+    inspections_.erase(inspection);
+}
+
 DevicePreparationStatus DeviceProvisioningService::start(
     const std::string& caller,
     std::uint32_t caller_uid,
@@ -354,13 +397,24 @@ DevicePreparationStatus DeviceProvisioningService::start(
         throw dbus::ManagerOperationError(dbus::ManagerErrorCode::NotFound, "storage topology is unavailable");
     const auto plan = find_plan(caller, request.plan_id);
     if (plan.mode != provisioning::ProvisioningMode::EraseWholeDevice &&
-        plan.mode != provisioning::ProvisioningMode::ReformatExistingPartition)
+        plan.mode != provisioning::ProvisioningMode::ReformatExistingPartition &&
+        plan.mode != provisioning::ProvisioningMode::AdoptExistingTarget)
         throw dbus::ManagerOperationError(
             dbus::ManagerErrorCode::Conflict,
             "device preparation plan mode is not executable yet"
         );
     const auto expected = find_topology(caller, plan.topology_generation);
-    const DevicePreparationTarget target = planned_target(expected, plan);
+    DevicePreparationTarget target = planned_target(expected, plan);
+    std::optional<provisioning::ExistingTargetInspection> inspection;
+    if (plan.mode == provisioning::ProvisioningMode::AdoptExistingTarget) {
+        if (!plan.inspection_id.has_value())
+            throw dbus::ManagerOperationError(dbus::ManagerErrorCode::Conflict, "adoption plan has no inspection");
+        inspection = find_inspection(caller, *plan.inspection_id);
+        if (inspection->topology_generation != plan.topology_generation ||
+            inspection->device_id != plan.device_id || inspection->partition_id != plan.partition_id)
+            throw dbus::ManagerOperationError(dbus::ManagerErrorCode::Conflict, "adoption inspection does not match plan");
+        target.expected_inspection = inspection->target;
+    }
     const auto current = topology_reader_->scan();
     const auto blockers = storage_safety_inspector_.inspect(expected, current, plan);
     if (!blockers.empty())
@@ -378,6 +432,8 @@ DevicePreparationStatus DeviceProvisioningService::start(
     const auto consumed_plan = take_plan(caller, request.plan_id);
     if (consumed_plan.id != plan.id || consumed_plan.device_id != plan.device_id)
         throw dbus::ManagerOperationError(dbus::ManagerErrorCode::Conflict, "device preparation plan changed");
+    if (consumed_plan.inspection_id.has_value())
+        consume_inspection(caller, *consumed_plan.inspection_id);
     return backend_.start(
         request,
         target,

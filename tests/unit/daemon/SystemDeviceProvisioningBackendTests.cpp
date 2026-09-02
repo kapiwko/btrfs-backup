@@ -4,6 +4,7 @@
 #include <daemon/control/SystemDeviceProvisioningBackend.hpp>
 #include <daemon/control/DevicePreparationTransaction.hpp>
 #include <daemon/control/DevicePreparationUnitController.hpp>
+#include <daemon/control/ExistingTargetInspector.hpp>
 
 #include <algorithm>
 #include <backup/ports/ICommandRunner.hpp>
@@ -36,6 +37,7 @@ using btrfsbackup::daemon::control::DevicePreparationTransactionStore;
 using btrfsbackup::daemon::control::ICredentialAdministrationBackend;
 using btrfsbackup::daemon::control::IDestructiveDeviceSafetyInspector;
 using btrfsbackup::daemon::control::IDevicePreparationUnitController;
+using btrfsbackup::daemon::control::IExistingTargetInspector;
 using btrfsbackup::daemon::control::SystemDeviceProvisioningBackend;
 using btrfsbackup::daemon::control::TargetCredential;
 
@@ -52,6 +54,31 @@ DevicePreparationTarget partition_target(btrfsbackup::daemon::provisioning::Stor
         .mode = btrfsbackup::daemon::provisioning::ProvisioningMode::ReformatExistingPartition,
         .device = std::move(device),
         .partition = selected_partition,
+    };
+}
+
+DevicePreparationTarget adoption_target(btrfsbackup::daemon::provisioning::StorageDevice device) {
+    auto* partition = std::get_if<btrfsbackup::daemon::provisioning::ExistingPartition>(
+        &device.regions.front()
+    );
+    partition->filesystem = {
+        .type = "crypto_LUKS",
+        .uuid = "11111111-2222-3333-4444-555555555555",
+    };
+    partition->suitable_for_adoption = true;
+    const auto selected_partition = *partition;
+    return {
+        .mode = btrfsbackup::daemon::provisioning::ProvisioningMode::AdoptExistingTarget,
+        .device = std::move(device),
+        .partition = selected_partition,
+        .expected_inspection = btrfsbackup::daemon::provisioning::ExistingTargetInspectionSummary{
+            .luks_uuid = "11111111-2222-3333-4444-555555555555",
+            .btrfs_uuid = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+            .partition_uuid = "99999999-8888-7777-6666-555555555555",
+            .repository_id = "repository-1",
+            .catalog_generation = 4,
+            .snapshot_count = 2,
+        },
     };
 }
 
@@ -245,6 +272,26 @@ class SafetyInspector final : public IDestructiveDeviceSafetyInspector {
     ) const override {
         ++inspections;
         return reasons;
+    }
+};
+
+class ExistingTargetInspector final : public IExistingTargetInspector {
+  public:
+    int inspections = 0;
+    int cleanups = 0;
+    btrfsbackup::daemon::provisioning::ExistingTargetInspectionSummary result;
+
+    btrfsbackup::daemon::provisioning::ExistingTargetInspectionSummary inspect(
+        const btrfsbackup::daemon::provisioning::ExistingPartition&,
+        const std::string&,
+        const std::filesystem::path&,
+        int
+    ) override {
+        ++inspections;
+        return result;
+    }
+    void cleanup_session(const std::string&, const std::filesystem::path&) override {
+        ++cleanups;
     }
 };
 
@@ -514,6 +561,140 @@ void test_existing_partition_does_not_modify_parent_partition_table() {
     );
 }
 
+void test_adoption_revalidates_fingerprint_without_modifying_target() {
+    const auto root = test_helpers::test_root("device-provisioning", "adoption");
+    Commands commands;
+    Signatures signatures;
+    MetadataReader metadata;
+    PartitionTables partition_tables;
+    partition_tables.partitioned = true;
+    LuksOperations luks;
+    TopologyReader topology(partition_tables);
+    Btrfs btrfs;
+    Credentials credentials;
+    SafetyInspector safety;
+    ExistingTargetInspector inspector;
+    Units units;
+    config::NullConfigurationActivator activator;
+    auto selected = adoption_target(topology.scan().devices.front());
+    inspector.result = *selected.expected_inspection;
+    SystemDeviceProvisioningBackend backend(
+        {
+            .config_root = root / "etc",
+            .metadata_root = root / "etc/credentials",
+            .key_root = root / "etc/keys",
+            .lock_root = root / "run/locks",
+            .udev_root = root / "udev",
+            .systemd_root = root / "systemd",
+            .public_root = root / "public",
+        },
+        root / "mnt",
+        root / "mountinfo",
+        root / "transactions",
+        topology,
+        commands,
+        signatures,
+        metadata,
+        partition_tables,
+        luks,
+        btrfs,
+        activator,
+        credentials,
+        safety,
+        units,
+        false,
+        &inspector,
+        root / "inspections"
+    );
+    const int manager_secret = secret_descriptor("secret");
+    const auto started = backend.start(
+        {
+            .profile_id = "adopted",
+            .profile_name = "Adopted backup",
+            .plan_id = "plan-adoption",
+            .source_subvolume = "/home",
+            .passphrase_label = "Existing passphrase",
+            .create_automatic_key = true,
+        },
+        selected,
+        {.bus_name = ":1.8", .uid = 1000},
+        manager_secret
+    );
+    ::close(manager_secret);
+    const int helper_secret = secret_descriptor("secret");
+    backend.execute_operation(started.operation_id, helper_secret);
+    ::close(helper_secret);
+
+    test_helpers::expect_eq("adoption state", backend.status(started.operation_id).state, "succeeded");
+    test_helpers::expect_true("adoption reinspection", inspector.inspections == 1, "target was not reinspected");
+    test_helpers::expect_true(
+        "adoption does not mutate storage",
+        signatures.calls.empty() && partition_tables.calls.empty() && luks.calls.empty() && commands.calls.empty(),
+        "adoption invoked a target mutation"
+    );
+    test_helpers::expect_true(
+        "adoption does not mutate credentials",
+        !credentials.registered && !credentials.generated,
+        "adoption registered or generated a credential"
+    );
+    test_helpers::expect_true(
+        "adoption profile installed",
+        std::filesystem::exists(root / "etc/profiles/adopted/profile.json"),
+        "adopted profile was not installed"
+    );
+    const auto transaction = DevicePreparationTransactionStore(root / "transactions").load(started.operation_id);
+    test_helpers::expect_true(
+        "adoption transaction outcome",
+        transaction.credentials_state == "not-applicable" &&
+            transaction.luks_uuid == inspector.result.luks_uuid &&
+            transaction.btrfs_uuid == inspector.result.btrfs_uuid &&
+            !transaction.create_automatic_key,
+        "adoption result was not persisted"
+    );
+
+    ++inspector.result.catalog_generation;
+    const int changed_manager_secret = secret_descriptor("secret");
+    const auto changed = backend.start(
+        {
+            .profile_id = "changed",
+            .profile_name = "Changed backup",
+            .plan_id = "plan-changed",
+            .source_subvolume = "/home",
+            .passphrase_label = "Existing passphrase",
+        },
+        selected,
+        {.bus_name = ":1.8", .uid = 1000},
+        changed_manager_secret
+    );
+    ::close(changed_manager_secret);
+    const int changed_helper_secret = secret_descriptor("secret");
+    backend.execute_operation(changed.operation_id, changed_helper_secret);
+    ::close(changed_helper_secret);
+    test_helpers::expect_eq("changed adoption state", backend.status(changed.operation_id).state, "failed");
+    test_helpers::expect_true(
+        "changed adoption not published",
+        !std::filesystem::exists(root / "etc/profiles/changed/profile.json") && signatures.calls.empty() &&
+            partition_tables.calls.empty() && luks.calls.empty() && commands.calls.empty(),
+        "changed target was published or modified"
+    );
+
+    auto interrupted = DevicePreparationTransactionStore(root / "transactions").load(changed.operation_id);
+    interrupted.status.state = "interrupted";
+    interrupted.mapper = changed.operation_id;
+    interrupted.inspection_mount_point = (root / "inspections" / changed.operation_id).string();
+    interrupted.cleanup_result = "pending";
+    std::filesystem::create_directories(interrupted.inspection_mount_point);
+    DevicePreparationTransactionStore(root / "transactions").save(interrupted);
+    backend.recover_operation(changed.operation_id);
+    const auto recovered = DevicePreparationTransactionStore(root / "transactions").load(changed.operation_id);
+    test_helpers::expect_true(
+        "adoption recovery",
+        inspector.cleanups == 1 && recovered.mapper.empty() && recovered.inspection_mount_point.empty() &&
+            recovered.cleanup_result == "inspection-cleaned",
+        "interrupted adoption session was not cleaned"
+    );
+}
+
 void test_exited_helper_marks_transaction_interrupted() {
     const auto root = test_helpers::test_root("device-provisioning", "helper-exited");
     Commands commands;
@@ -770,6 +951,7 @@ void test_restart_marks_active_transaction_interrupted_and_preserves_owner() {
 int main() {
     test_preparation_sequence_uses_descriptors_and_installs_profile();
     test_existing_partition_does_not_modify_parent_partition_table();
+    test_adoption_revalidates_fingerprint_without_modifying_target();
     test_replacement_before_wipe_is_rejected();
     test_exited_helper_marks_transaction_interrupted();
     test_restart_marks_active_transaction_interrupted_and_preserves_owner();

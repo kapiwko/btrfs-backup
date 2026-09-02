@@ -30,6 +30,7 @@ struct DevicePreparationTransaction {
     std::string luks_uuid;
     std::string btrfs_uuid;
     std::string mapper;
+    std::string inspection_mount_point;
     std::string configuration_state = "not-started";
     std::string credentials_state = "not-started";
     std::string cleanup_result = "not-required";

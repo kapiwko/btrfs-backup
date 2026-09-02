@@ -30,6 +30,10 @@ class IExistingTargetInspector {
         const std::filesystem::path& mount_point,
         int credential_fd
     ) = 0;
+    virtual void cleanup_session(
+        const std::string& mapper_name,
+        const std::filesystem::path& mount_point
+    ) = 0;
 };
 
 class ExistingTargetInspector final : public IExistingTargetInspector {
@@ -46,6 +50,10 @@ class ExistingTargetInspector final : public IExistingTargetInspector {
         const std::string& mapper_name,
         const std::filesystem::path& mount_point,
         int credential_fd
+    ) override;
+    void cleanup_session(
+        const std::string& mapper_name,
+        const std::filesystem::path& mount_point
     ) override;
 
   private:

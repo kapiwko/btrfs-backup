@@ -373,6 +373,24 @@ void test_existing_target_inspection_is_caller_bound_and_invalidated_by_rescan()
             plan.before == plan.after,
         "adoption plan is not bound to the read-only inspection"
     );
+    static_cast<void>(service.start(":1.30", 1000, plan_request(plan.id), 23));
+    test_helpers::expect_true(
+        "adoption execution target",
+        backend.starts == 1 && backend.target.expected_inspection.has_value() &&
+            backend.target.expected_inspection->repository_id == "repository-1" &&
+            backend.target.expected_inspection->catalog_generation == 7,
+        "accepted inspection fingerprint did not reach the backend"
+    );
+    try {
+        static_cast<void>(service.build_device_preparation_plan(
+            ":1.30",
+            topology.generation,
+            partition.candidate_id,
+            ProvisioningMode::AdoptExistingTarget,
+            inspection.inspection_id
+        ));
+        test_helpers::fail("consumed inspection", "an inspection was reusable after starting its plan");
+    } catch (const btrfsbackup::daemon::dbus::ManagerOperationError&) {}
     authorizer.allowed = false;
     try {
         static_cast<void>(service.inspect_existing_target(

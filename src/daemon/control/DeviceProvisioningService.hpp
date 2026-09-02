@@ -66,6 +66,7 @@ struct DevicePreparationTarget {
     provisioning::ProvisioningMode mode = provisioning::ProvisioningMode::EraseWholeDevice;
     provisioning::StorageDevice device;
     std::optional<provisioning::ExistingPartition> partition;
+    std::optional<provisioning::ExistingTargetInspectionSummary> expected_inspection;
 };
 
 class IDeviceProvisioningBackend {
@@ -158,6 +159,11 @@ class DeviceProvisioningService final {
         const std::string& caller,
         const std::string& plan_id
     );
+    [[nodiscard]] provisioning::ExistingTargetInspection find_inspection(
+        const std::string& caller,
+        const std::string& inspection_id
+    );
+    void consume_inspection(const std::string& caller, const std::string& inspection_id);
     [[nodiscard]] provisioning::StorageTopology find_topology(
         const std::string& caller,
         const provisioning::TopologyGeneration& generation
