@@ -428,7 +428,7 @@ void test_deactivation_closes_owned_mapper_after_device_disappears() {
     fs::remove_all(root);
 }
 
-void test_activation_replaces_owned_stale_mapper_after_reconnect() {
+void test_activation_replaces_verified_stale_mapper_without_runtime_marker() {
     fs::path root = test_helpers::test_root("target-command", "activation-reconnect");
     std::string mount_point = (root / "mnt" / "default").string();
     write_profile(root, mount_point);
@@ -457,6 +457,7 @@ void test_activation_replaces_owned_stale_mapper_after_reconnect() {
         &services
     );
     commands.active_device_available = false;
+    fs::remove(root / "activation" / "default.json");
 
     const int result = btrfsbackup::cli::target::target(
         root,
@@ -489,7 +490,7 @@ void test_activation_replaces_owned_stale_mapper_after_reconnect() {
     fs::remove_all(root);
 }
 
-void test_activation_preserves_unowned_mapper_with_missing_device() {
+void test_activation_preserves_foreign_mapper_with_missing_device() {
     fs::path root = test_helpers::test_root("target-command", "activation-unowned-missing-device");
     std::string mount_point = (root / "mnt" / "default").string();
     write_profile(root, mount_point);
@@ -498,6 +499,7 @@ void test_activation_preserves_unowned_mapper_with_missing_device() {
     commands.mapper_path = mapper_root / mapper_name;
     test_helpers::write_file(commands.mapper_path, "unowned mapper");
     commands.active_device_available = false;
+    commands.status_luks_uuid = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
     btrfsbackup::cli::target::TargetExecutionServices services{
         .commands = commands,
         .cryptsetup = commands,
@@ -514,7 +516,7 @@ void test_activation_preserves_unowned_mapper_with_missing_device() {
 
     setenv("BTRFS_BACKUP_ALLOW_ROOTLESS_TESTS", "true", 1);
     test_helpers::expect_validation_error(
-        "unowned mapper with missing device rejected",
+        "foreign mapper with missing device rejected",
         [&] {
             (void)btrfsbackup::cli::target::target(
                 root,
@@ -523,17 +525,17 @@ void test_activation_preserves_unowned_mapper_with_missing_device() {
                 &services
             );
         },
-        "ownership cannot be verified"
+        "LUKS identity does not match configuration"
     );
     test_helpers::expect_true(
-        "unowned mapper preserved",
+        "foreign mapper preserved",
         fs::exists(commands.mapper_path),
-        "unowned mapper was removed"
+        "foreign mapper was removed"
     );
     test_helpers::expect_true(
-        "unowned mapper not detached",
+        "foreign mapper not detached",
         !contains_call(commands, "/test/systemd-cryptsetup detach " + std::string(mapper_name)),
-        "unowned mapper was detached"
+        "foreign mapper was detached"
     );
     fs::remove_all(root);
 }
@@ -686,8 +688,8 @@ int main() {
     test_activation_owns_and_restores_mapper();
     test_activation_preserves_preexisting_mapper();
     test_deactivation_closes_owned_mapper_after_device_disappears();
-    test_activation_replaces_owned_stale_mapper_after_reconnect();
-    test_activation_preserves_unowned_mapper_with_missing_device();
+    test_activation_replaces_verified_stale_mapper_without_runtime_marker();
+    test_activation_preserves_foreign_mapper_with_missing_device();
     test_activation_rejects_insecure_key_file();
     test_internal_eject_honors_auto_eject_setting();
     test_eject_refuses_busy_target_without_running_commands();

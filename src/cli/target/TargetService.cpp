@@ -320,7 +320,7 @@ TargetOperationResult activate_target(
 
     validate_luks_uuid(resolved.cryptsetup, profile);
     if (fs::exists(mapper)) {
-        bool stale_owned_mapper = false;
+        bool stale_verified_mapper = false;
         try {
             if (!mapper_identity_matches(resolved.cryptsetup, profile, resolved.canonical_device)) {
                 throw ValidationError(
@@ -329,15 +329,17 @@ TargetOperationResult activate_target(
                 );
             }
         } catch (const btrfsbackup::platform::linux::storage::ActiveDeviceUnavailableError&) {
-            stale_owned_mapper = activation_is_owned(resolved, profile);
-            if (!stale_owned_mapper) {
+            stale_verified_mapper = lower(resolved.cryptsetup.active_luks_uuid(
+                profile.target.mapper_name.value()
+            )) == lower(profile.target.luks_uuid.value());
+            if (!stale_verified_mapper) {
                 throw ValidationError(
                     "Refusing to replace mapper " + profile.target.mapper_name.value() +
-                    " because its ownership cannot be verified"
+                    " because its LUKS identity does not match configuration"
                 );
             }
         }
-        if (!stale_owned_mapper) {
+        if (!stale_verified_mapper) {
             (void)activation_is_owned(resolved, profile);
             events.push_back({.kind = TargetEventKind::Activated, .detail = profile.target.mapper_name.value()});
             return TargetOperationCompleted{std::move(events)};
