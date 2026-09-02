@@ -3,6 +3,7 @@
 
 #include "RestoreController.hpp"
 
+#include <KLocalizedString>
 #include <KLocalizedQmlContext>
 
 #include <QCommandLineParser>
@@ -15,6 +16,7 @@ int main(int argc, char** argv) {
     QGuiApplication application(argc, argv);
     application.setApplicationName(QStringLiteral("btrfs-backup-kde-restore"));
     application.setOrganizationDomain(QStringLiteral("io.github.btrfsbackup"));
+    KLocalizedString::setApplicationDomain("btrfs-backup-kde-restore");
     QCommandLineParser parser;
     parser.addHelpOption();
     parser.addOption({QStringLiteral("url"), QStringLiteral("Backup URL to restore"), QStringLiteral("url")});
