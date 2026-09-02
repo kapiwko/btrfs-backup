@@ -823,3 +823,178 @@ msgstr "Odśwież układ pamięci masowej i ponownie wybierz partycję."
 
 msgid "A passphrase must contain between 1 and 4096 bytes."
 msgstr "Hasło musi mieć od 1 do 4096 bajtów."
+
+msgid "Create and prepare"
+msgstr "Utwórz i przygotuj"
+
+msgid "Erase a disk, create LUKS2 and format it as Btrfs"
+msgstr "Wyczyść dysk, utwórz LUKS2 i sformatuj go jako Btrfs"
+
+msgid "Select a disk or partition"
+msgstr "Wybierz dysk lub partycję"
+
+msgid "contains a configured backup target"
+msgstr "zawiera skonfigurowany cel kopii zapasowej"
+
+msgid "in use"
+msgstr "w użyciu"
+
+msgid "contains data"
+msgstr "zawiera dane"
+
+msgid "empty"
+msgstr "pusty"
+
+msgid "Partitions and free space"
+msgstr "Partycje i wolne miejsce"
+
+msgid "Free space"
+msgstr "Wolne miejsce"
+
+msgid "Available for a new backup partition"
+msgstr "Dostępne dla nowej partycji kopii zapasowej"
+
+msgid "Already used by a backup profile"
+msgstr "Już używana przez profil kopii zapasowej"
+
+msgid "unknown filesystem"
+msgstr "nieznany system plików"
+
+msgid "Open KDE Partition Manager"
+msgstr "Otwórz Menedżera partycji KDE"
+
+msgid "Rescan"
+msgstr "Skanuj ponownie"
+
+msgid "Before"
+msgstr "Przed"
+
+msgid "After preparation"
+msgstr "Po przygotowaniu"
+
+msgid "Only data on the selected partition will be removed. Other partitions will remain unchanged."
+msgstr "Usunięte zostaną tylko dane z wybranej partycji. Pozostałe partycje pozostaną bez zmian."
+
+msgid "A new LUKS2 and Btrfs backup partition will be created in the selected free space. Existing partitions will remain unchanged."
+msgstr "W wybranym wolnym miejscu zostanie utworzona nowa partycja kopii zapasowej LUKS2 i Btrfs. Istniejące partycje pozostaną bez zmian."
+
+msgid "All existing partitions on this disk will be removed. The resulting backup target will use LUKS2 encryption and Btrfs."
+msgstr "Wszystkie istniejące partycje na tym dysku zostaną usunięte. Utworzony cel kopii zapasowej będzie używać szyfrowania LUKS2 i systemu plików Btrfs."
+
+msgid "Profile identifier"
+msgstr "Identyfikator profilu"
+
+msgid "Select source Btrfs subvolume"
+msgstr "Wybierz źródłowy podwolumin Btrfs"
+
+msgid "Create a protected key for automatic backups"
+msgstr "Utwórz chroniony klucz do automatycznych kopii zapasowych"
+
+msgid "Recovery passphrase"
+msgstr "Hasło odzyskiwania"
+
+msgid "Confirm recovery passphrase"
+msgstr "Potwierdź hasło odzyskiwania"
+
+msgid "All data on partition %1 will be permanently erased. Other partitions will remain unchanged. Type %2 to confirm."
+msgstr "Wszystkie dane na partycji %1 zostaną trwale usunięte. Pozostałe partycje pozostaną bez zmian. Wpisz %2, aby potwierdzić."
+
+msgid "A new partition will be created in the selected free space. Existing partitions will remain unchanged. Type CREATE to confirm."
+msgstr "W wybranym wolnym miejscu zostanie utworzona nowa partycja. Istniejące partycje pozostaną bez zmian. Wpisz CREATE, aby potwierdzić."
+
+msgid "All data on %1 will be permanently erased. Type %2 to confirm."
+msgstr "Wszystkie dane na %1 zostaną trwale usunięte. Wpisz %2, aby potwierdzić."
+
+msgid "Device preparation failed. The disk may require manual recovery."
+msgstr "Przygotowanie urządzenia nie powiodło się. Dysk może wymagać ręcznego odzyskiwania."
+
+msgid "Do not disconnect the device while preparation is in progress."
+msgstr "Nie odłączaj urządzenia podczas jego przygotowywania."
+
+msgid "Cancel"
+msgstr "Anuluj"
+
+msgctxt "disk size in gibibytes"
+msgid "%1 GiB"
+msgstr "%1 GiB"
+
+msgid "Inspecting device"
+msgstr "Sprawdzanie urządzenia"
+
+msgid "Erasing existing signatures"
+msgstr "Usuwanie istniejących sygnatur"
+
+msgid "Creating partition table"
+msgstr "Tworzenie tablicy partycji"
+
+msgid "Creating LUKS2 encryption"
+msgstr "Tworzenie szyfrowania LUKS2"
+
+msgid "Opening encrypted device"
+msgstr "Otwieranie zaszyfrowanego urządzenia"
+
+msgid "Creating Btrfs filesystem"
+msgstr "Tworzenie systemu plików Btrfs"
+
+msgid "Closing encrypted device"
+msgstr "Zamykanie zaszyfrowanego urządzenia"
+
+msgid "Installing backup profile"
+msgstr "Instalowanie profilu kopii zapasowej"
+
+msgid "Backup device is ready"
+msgstr "Urządzenie kopii zapasowej jest gotowe"
+
+msgid "The request is invalid."
+msgstr "Żądanie jest nieprawidłowe."
+
+msgid "The selected backup source does not exist."
+msgstr "Wybrane źródło kopii zapasowej nie istnieje."
+
+msgid "The selected backup source is not a Btrfs subvolume."
+msgstr "Wybrane źródło kopii zapasowej nie jest podwoluminem Btrfs."
+
+msgid "The selected backup source cannot be inspected."
+msgstr "Nie można sprawdzić wybranego źródła kopii zapasowej."
+
+msgid "The requested item was not found."
+msgstr "Nie znaleziono żądanego elementu."
+
+msgid "The requested item is busy."
+msgstr "Żądany element jest zajęty."
+
+msgid "The active backup run has changed. Refresh the page and try again."
+msgstr "Aktywne wykonanie kopii zapasowej uległo zmianie. Odśwież stronę i spróbuj ponownie."
+
+msgid "The backup device is disconnected or unavailable."
+msgstr "Urządzenie kopii zapasowej jest odłączone lub niedostępne."
+
+msgid "The operation conflicts with the current state. Rescan and try again."
+msgstr "Operacja jest sprzeczna z bieżącym stanem. Przeskanuj urządzenia ponownie i spróbuj jeszcze raz."
+
+msgid "The configuration could not be saved."
+msgstr "Nie udało się zapisać konfiguracji."
+
+msgid "The operation could not be fully rolled back. Review the system log."
+msgstr "Nie udało się całkowicie wycofać operacji. Sprawdź dziennik systemowy."
+
+msgid "The backup manager could not complete the request."
+msgstr "Manager kopii zapasowych nie mógł wykonać żądania."
+
+msgid "Refresh the storage layout and select the disk again."
+msgstr "Odśwież układ pamięci masowej i ponownie wybierz dysk."
+
+msgid "The passphrases do not match."
+msgstr "Hasła nie są takie same."
+
+msgid "Refresh the storage layout and review the preparation plan again."
+msgstr "Odśwież układ pamięci masowej i ponownie sprawdź plan przygotowania."
+
+msgid "The backup manager returned an invalid device preparation response."
+msgstr "Manager kopii zapasowych zwrócił nieprawidłową odpowiedź dotyczącą przygotowania urządzenia."
+
+msgid "Select a key file between 1 and 4096 bytes and enter a valid passphrase."
+msgstr "Wybierz plik klucza o rozmiarze od 1 do 4096 bajtów i wprowadź prawidłowe hasło."
+
+msgid "The backup manager returned an invalid credential response."
+msgstr "Manager kopii zapasowych zwrócił nieprawidłową odpowiedź dotyczącą danych uwierzytelniających."

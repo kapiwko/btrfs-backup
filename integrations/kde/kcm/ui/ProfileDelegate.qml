@@ -115,6 +115,8 @@ QQC2.ItemDelegate {
                         enabled: delegate.profileStatus.managerConnected
                             && !delegate.profileStatus.operationPending
                             && !delegate.runningStateFor(delegate.profileStatus.run.state)
+                            && (delegate.profileStatus.target.mounted
+                                || delegate.profileStatus.target.unlocked)
                         onTriggered: delegate.profileStatus.ejectTarget()
                     }
                 ]
