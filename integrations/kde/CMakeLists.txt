@@ -13,7 +13,7 @@ set(KDE_INSTALL_APPDIR "${CMAKE_INSTALL_DATADIR}/applications")
 set(KDE_INSTALL_DATADIR "${CMAKE_INSTALL_DATADIR}")
 set(KDE_INSTALL_LOCALEDIR "${CMAKE_INSTALL_DATADIR}/locale")
 
-find_package(Qt6 REQUIRED COMPONENTS Core DBus Gui Qml Quick)
+find_package(Qt6 REQUIRED COMPONENTS Core DBus Gui Qml Quick Widgets)
 find_package(KF6 REQUIRED COMPONENTS CoreAddons I18n JobWidgets KCMUtils Notifications Package KIO Runner WidgetsAddons)
 find_package(Plasma REQUIRED)
 if(COMMAND qt_policy)
@@ -133,12 +133,14 @@ target_link_libraries(btrfs-backup-kde-restore PRIVATE
     KF6::I18n
     KF6::I18nQml
     KF6::JobWidgets
+    KF6::KIOFileWidgets
     KF6::Notifications
     Qt6::Core
     Qt6::DBus
     Qt6::Gui
     Qt6::Qml
     Qt6::Quick
+    Qt6::Widgets
 )
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(btrfs-backup-kde-restore PRIVATE -fexceptions -Wall -Wextra -Wpedantic)

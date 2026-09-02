@@ -9,7 +9,6 @@ Kirigami.ApplicationWindow {
     id: root
 
     required property var controller
-    property bool destinationDialogEnabled: true
     width: 620
     height: 430
     minimumWidth: 420
@@ -24,6 +23,5 @@ Kirigami.ApplicationWindow {
 
     pageStack.initialPage: RestorePage {
         controller: root.controller
-        destinationDialogEnabled: root.destinationDialogEnabled
     }
 }
