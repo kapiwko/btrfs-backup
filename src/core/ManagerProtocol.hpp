@@ -76,7 +76,6 @@ inline constexpr char add_target_passphrase[] = "AddTargetPassphrase";
 inline constexpr char add_target_key[] = "AddTargetKey";
 inline constexpr char generate_target_key[] = "GenerateTargetKey";
 inline constexpr char remove_target_credential[] = "RemoveTargetCredential";
-inline constexpr char list_provisioning_devices[] = "ListProvisioningDevices";
 inline constexpr char inspect_storage_topology[] = "InspectStorageTopology";
 inline constexpr char build_device_preparation_plan[] = "BuildDevicePreparationPlan";
 inline constexpr char list_source_candidates[] = "ListSourceCandidates";

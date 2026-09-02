@@ -142,9 +142,6 @@ SPDX-License-Identifier: GPL-3.0-or-later
       <arg name="authorizationSecret" type="h" direction="in"/>
       <arg name="payload" type="s" direction="out"/>
     </method>
-    <method name="ListProvisioningDevices">
-      <arg name="payload" type="s" direction="out"/>
-    </method>
     <method name="InspectStorageTopology">
       <arg name="payload" type="s" direction="out"/>
     </method>

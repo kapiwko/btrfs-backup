@@ -60,6 +60,16 @@ std::int64_t system_time_seconds() {
         .count();
 }
 
+void validate_execution_target(const DevicePreparationTarget& target) {
+    const auto& identity = target.device.identity;
+    if (target.mode != provisioning::ProvisioningMode::EraseWholeDevice || target.partition.has_value())
+        throw ValidationError("device preparation target mode is not executable yet");
+    if (identity.display_path.empty() || identity.major_minor.empty() || identity.sysfs_path.empty() ||
+        identity.size_bytes == 0 || target.device.logical_sector_size == 0 || target.device.transport.empty() ||
+        (identity.wwn.empty() && identity.serial.empty() && identity.serial_short.empty()))
+        throw ValidationError("device preparation target identity is incomplete");
+}
+
 } // namespace
 
 struct SystemDeviceProvisioningBackend::State {
@@ -251,10 +261,6 @@ SystemDeviceProvisioningBackend::SystemDeviceProvisioningBackend(
 
 SystemDeviceProvisioningBackend::~SystemDeviceProvisioningBackend() noexcept = default;
 
-std::vector<ProvisioningDevice> SystemDeviceProvisioningBackend::list_devices() {
-    return impl_->devices.list();
-}
-
 std::vector<std::string> SystemDeviceProvisioningBackend::list_source_candidates() {
     const auto paths = platform::linux::storage::btrfs_mount_targets(impl_->mountinfo_path);
     std::vector<std::string> result;
@@ -265,18 +271,20 @@ std::vector<std::string> SystemDeviceProvisioningBackend::list_source_candidates
 }
 
 std::vector<std::string> SystemDeviceProvisioningBackend::inspect_safety(
-    const ProvisioningDevice& expected_device
+    const DevicePreparationTarget& target
 ) const {
-    return impl_->safety_inspector.inspect(expected_device);
+    return impl_->safety_inspector.inspect(provisioning_device_snapshot(target.device));
 }
 
 DevicePreparationStatus SystemDeviceProvisioningBackend::start(
     const DevicePreparationRequest& request,
-    const ProvisioningDevice& expected_device,
+    const DevicePreparationTarget& target,
     const DevicePreparationOwner& owner,
     int passphrase_fd
 ) {
     impl_->prune_completed();
+    validate_execution_target(target);
+    const ProvisioningDevice expected_device = provisioning_device_snapshot(target.device);
     OwnedFileDescriptor secret = platform::linux::filesystem::copy_secret_to_sealed_file(passphrase_fd);
     auto state = std::make_shared<State>();
     const std::int64_t now = system_time_seconds();
@@ -292,6 +300,7 @@ DevicePreparationStatus SystemDeviceProvisioningBackend::start(
         },
         .owner = owner,
         .device = expected_device,
+        .target = target,
         .profile_name = request.profile_name,
         .source_subvolume = request.source_subvolume,
         .passphrase_label = request.passphrase_label,

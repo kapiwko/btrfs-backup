@@ -180,8 +180,6 @@ void DeviceProvisioningModel::request(RequestKind kind, const QString& method, c
         bool valid = true;
         if (kind == RequestKind::Topology)
             valid = applyTopology(reply.value());
-        else if (kind == RequestKind::Devices)
-            valid = applyDevices(reply.value());
         else if (kind == RequestKind::Sources)
             valid = applySources(reply.value());
         else if (kind == RequestKind::Plan)
@@ -229,25 +227,6 @@ bool DeviceProvisioningModel::applyPlan(const QString& payload) {
     plan_ = object.toVariantMap();
     plan_.insert(QStringLiteral("displayPath"), pending_plan_path_);
     emit planChanged();
-    return true;
-}
-
-bool DeviceProvisioningModel::applyDevices(const QString& payload) {
-    const auto document = QJsonDocument::fromJson(payload.toUtf8());
-    if (!document.isArray())
-        return false;
-    for (const auto& value : document.array()) {
-        if (!value.isObject())
-            return false;
-        const auto device = value.toObject();
-        if (device.value(QStringLiteral("schemaVersion")).toInt(-1) !=
-                manager_protocol::device_provisioning_schema_version ||
-            device.value(QStringLiteral("candidateId")).toString().isEmpty() ||
-            device.value(QStringLiteral("path")).toString().isEmpty())
-            return false;
-    }
-    devices_ = document.array().toVariantList();
-    emit devicesChanged();
     return true;
 }
 

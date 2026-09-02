@@ -13,6 +13,10 @@ class StorageTopologyReader;
 
 namespace btrfsbackup::daemon::control {
 
+[[nodiscard]] ProvisioningDevice provisioning_device_snapshot(
+    const provisioning::StorageDevice& device
+);
+
 class ProvisioningDeviceEnumerator final {
   public:
     explicit ProvisioningDeviceEnumerator(provisioning::StorageTopologyReader& topology);

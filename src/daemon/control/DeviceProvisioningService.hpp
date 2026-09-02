@@ -8,6 +8,7 @@
 #include <functional>
 #include <map>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -20,7 +21,6 @@
 namespace btrfsbackup::daemon::control {
 
 struct ProvisioningDevice {
-    std::string candidate_id;
     std::string path;
     std::string model;
     std::string serial;
@@ -41,8 +41,6 @@ struct DevicePreparationRequest {
     std::string profile_id;
     std::string profile_name;
     std::string plan_id;
-    // Compatibility path for API clients predating storage preparation plans.
-    std::string candidate_id;
     std::string source_subvolume;
     std::string passphrase_label;
     bool create_automatic_key = true;
@@ -63,17 +61,22 @@ struct DevicePreparationOwner {
     std::uint32_t uid = 0;
 };
 
+struct DevicePreparationTarget {
+    provisioning::ProvisioningMode mode = provisioning::ProvisioningMode::EraseWholeDevice;
+    provisioning::StorageDevice device;
+    std::optional<provisioning::ExistingPartition> partition;
+};
+
 class IDeviceProvisioningBackend {
   public:
     virtual ~IDeviceProvisioningBackend() = default;
-    [[nodiscard]] virtual std::vector<ProvisioningDevice> list_devices() = 0;
     [[nodiscard]] virtual std::vector<std::string> list_source_candidates() = 0;
     [[nodiscard]] virtual std::vector<std::string> inspect_safety(
-        const ProvisioningDevice& expected_device
+        const DevicePreparationTarget& target
     ) const = 0;
     [[nodiscard]] virtual DevicePreparationStatus start(
         const DevicePreparationRequest& request,
-        const ProvisioningDevice& expected_device,
+        const DevicePreparationTarget& target,
         const DevicePreparationOwner& owner,
         int passphrase_fd
     ) = 0;
@@ -98,7 +101,6 @@ class DeviceProvisioningService final {
         ProvisioningCandidateClock clock = {},
         provisioning::StorageTopologyReader* topology_reader = nullptr
     );
-    [[nodiscard]] std::vector<ProvisioningDevice> list_devices(const std::string& caller);
     [[nodiscard]] provisioning::StorageTopology inspect_storage_topology(const std::string& caller);
     [[nodiscard]] provisioning::DevicePreparationPlan build_device_preparation_plan(
         const std::string& caller,
@@ -121,11 +123,6 @@ class DeviceProvisioningService final {
     void cancel(const std::string& caller, std::uint32_t caller_uid, const std::string& operation_id);
 
   private:
-    struct Candidate {
-        ProvisioningDevice device;
-        std::string caller;
-        std::chrono::steady_clock::time_point expires_at;
-    };
     struct TopologySnapshot {
         provisioning::StorageTopology topology;
         std::string caller;
@@ -136,14 +133,6 @@ class DeviceProvisioningService final {
         std::string caller;
         std::chrono::steady_clock::time_point expires_at;
     };
-    [[nodiscard]] ProvisioningDevice take_candidate(
-        const std::string& caller,
-        const std::string& candidate_id
-    );
-    [[nodiscard]] ProvisioningDevice find_candidate(
-        const std::string& caller,
-        const std::string& candidate_id
-    );
     [[nodiscard]] provisioning::DevicePreparationPlan find_plan(
         const std::string& caller,
         const std::string& plan_id
@@ -170,7 +159,6 @@ class DeviceProvisioningService final {
     ProvisioningCandidateIdGenerator candidate_ids_;
     ProvisioningCandidateClock clock_;
     std::mutex candidates_mutex_;
-    std::map<std::string, Candidate> candidates_;
     std::map<std::string, TopologySnapshot> topologies_;
     std::map<std::string, StoredPlan> plans_;
     provisioning::StorageTopologyReader* topology_reader_;

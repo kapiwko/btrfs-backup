@@ -187,36 +187,6 @@ void test_status_history_and_device() {
     expect_field("details candidates", details, "sourceCandidates", std::vector<std::string>{"/home", "/srv/work"});
 }
 
-void test_provisioning_candidate_contract() {
-    const ManagerJsonCodec codec;
-    const std::vector<btrfsbackup::daemon::control::ProvisioningDevice> devices{{
-        .candidate_id = "candidate-0123456789abcdef",
-        .path = "/dev/sdb",
-        .model = "Backup disk",
-        .serial = "SERIAL",
-        .transport = "usb",
-        .size_bytes = 1000,
-        .removable = true,
-        .major_minor = "8:16",
-        .sysfs_devpath = "/devices/test/block/sdb",
-        .wwn = "WWN",
-        .serial_id = "VENDOR_SERIAL",
-        .serial_short = "SERIAL",
-        .device_graph = "private-graph",
-    }};
-    const Json document = Json::parse(codec.encode(devices));
-    test_helpers::expect_true("candidate array", document.is_array() && document.size() == 1, "invalid candidate list");
-    expect_field("candidate", document.at(0), "schemaVersion", 2);
-    expect_field("candidate", document.at(0), "candidateId", "candidate-0123456789abcdef");
-    expect_field("candidate", document.at(0), "path", "/dev/sdb");
-    test_helpers::expect_true(
-        "candidate identity privacy",
-        !document.at(0).contains("majorMinor") && !document.at(0).contains("sysfsDevpath") &&
-            !document.at(0).contains("deviceGraph"),
-        "internal identity snapshot was exposed"
-    );
-}
-
 void test_storage_topology_and_plan_contract() {
     namespace provisioning = btrfsbackup::daemon::provisioning;
     const ManagerJsonCodec codec;
@@ -288,7 +258,6 @@ int main() {
     test_capabilities();
     test_profiles();
     test_status_history_and_device();
-    test_provisioning_candidate_contract();
     test_storage_topology_and_plan_contract();
     return test_helpers::finish("manager JSON codec tests");
 }

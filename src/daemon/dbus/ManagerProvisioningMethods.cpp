@@ -20,19 +20,6 @@ ManagerProvisioningMethods::ManagerProvisioningMethods(
       support_(support) {
 }
 
-int ManagerProvisioningMethods::list_provisioning_devices(sd_bus_message* message, sd_bus_error* error) noexcept {
-    return invoke_dbus_callback(
-        [&] {
-            return support_.reply_operational_json(message, error, "list-provisioning-devices", "", [&] {
-                return support_.codec().encode(device_provisioning_.list_devices(
-                    ManagerMethodSupport::caller_bus_name(message)
-                ));
-            });
-        },
-        [&](const std::exception* exception) { return support_.set_callback_error(error, exception); }
-    );
-}
-
 int ManagerProvisioningMethods::inspect_storage_topology(sd_bus_message* message, sd_bus_error* error) noexcept {
     return invoke_dbus_callback(
         [&] {
@@ -104,7 +91,6 @@ int ManagerProvisioningMethods::start_device_preparation(sd_bus_message* message
                 .profile_id = request.value("profileId", ""),
                 .profile_name = request.value("profileName", ""),
                 .plan_id = request.value("planId", ""),
-                .candidate_id = {},
                 .source_subvolume = request.value("sourceSubvolume", ""),
                 .passphrase_label = request.value("passphraseLabel", ""),
                 .create_automatic_key = request.value("createAutomaticKey", true),

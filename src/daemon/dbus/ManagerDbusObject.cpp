@@ -90,9 +90,6 @@ int generate_target_key(sd_bus_message* message, void* userdata, sd_bus_error* e
 int remove_target_credential(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
     return static_cast<ManagerDbusObject*>(userdata)->credential_methods().remove_target_credential(message, error);
 }
-int list_provisioning_devices(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
-    return static_cast<ManagerDbusObject*>(userdata)->provisioning_methods().list_provisioning_devices(message, error);
-}
 int inspect_storage_topology(sd_bus_message* message, void* userdata, sd_bus_error* error) noexcept {
     return static_cast<ManagerDbusObject*>(userdata)->provisioning_methods().inspect_storage_topology(message, error);
 }
@@ -140,7 +137,6 @@ const sd_bus_vtable manager_vtable[] = {
     SD_BUS_METHOD(manager_protocol::method::add_target_key, "shhsb", "s", add_target_key, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD(manager_protocol::method::generate_target_key, "shsb", "s", generate_target_key, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD(manager_protocol::method::remove_target_credential, "ssh", "s", remove_target_credential, SD_BUS_VTABLE_UNPRIVILEGED),
-    SD_BUS_METHOD(manager_protocol::method::list_provisioning_devices, "", "s", list_provisioning_devices, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD(manager_protocol::method::inspect_storage_topology, "", "s", inspect_storage_topology, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD(manager_protocol::method::build_device_preparation_plan, "s", "s", build_device_preparation_plan, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD(manager_protocol::method::list_source_candidates, "", "s", list_source_candidates, SD_BUS_VTABLE_UNPRIVILEGED),
