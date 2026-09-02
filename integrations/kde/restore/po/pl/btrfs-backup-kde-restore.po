@@ -80,3 +80,9 @@ msgstr "Źródło"
 
 msgid "Destination"
 msgstr "Miejsce docelowe"
+
+msgid "Destination already exists"
+msgstr "Miejsce docelowe już istnieje"
+
+msgid "%1 already exists. Replace it transactionally?"
+msgstr "%1 już istnieje. Zastąpić je transakcyjnie?"
