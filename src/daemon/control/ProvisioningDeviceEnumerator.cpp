@@ -100,14 +100,6 @@ bool same_device_identity(const ProvisioningDevice& expected, const Provisioning
         expected.serial_short == current.serial_short && expected.device_graph == current.device_graph;
 }
 
-bool same_stable_disk(const ProvisioningDevice& expected, const StorageDevice& current) {
-    const auto& identity = current.identity;
-    return expected.major_minor == identity.major_minor && expected.sysfs_devpath == identity.sysfs_path &&
-        expected.wwn == identity.wwn &&
-        expected.serial_id == identity.serial && expected.serial_short == identity.serial_short &&
-        expected.size_bytes == current.size_bytes && expected.transport == current.transport;
-}
-
 } // namespace
 
 ProvisioningDevice provisioning_device_snapshot(const provisioning::StorageDevice& device) {
@@ -133,24 +125,6 @@ ProvisioningDevice ProvisioningDeviceEnumerator::revalidate(const ProvisioningDe
     if (selected == current.end() || !same_device_identity(expected, *selected))
         throw dbus::ManagerOperationError(dbus::ManagerErrorCode::Conflict, "selected device identity changed");
     return *selected;
-}
-
-std::string ProvisioningDeviceEnumerator::only_partition(const ProvisioningDevice& expected_device) {
-    const provisioning::StorageTopology topology = topology_.scan();
-    const auto selected = std::ranges::find_if(topology.devices, [&](const auto& device) {
-        return same_stable_disk(expected_device, device);
-    });
-    if (selected == topology.devices.end())
-        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::Conflict, "selected device identity changed");
-    std::vector<std::string> partitions;
-    for (const auto& region : selected->regions) {
-        const auto* partition = std::get_if<ExistingPartition>(&region);
-        if (partition != nullptr && !partition->identity.display_path.empty())
-            partitions.push_back(partition->identity.display_path);
-    }
-    if (partitions.size() != 1)
-        throw ValidationError("exactly one created partition was not detected");
-    return partitions.front();
 }
 
 } // namespace btrfsbackup::daemon::control

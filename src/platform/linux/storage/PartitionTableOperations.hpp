@@ -69,7 +69,7 @@ class IPartitionTableOperations {
         std::uint64_t free_sector_count,
         const PlannedPartitionGeometry& geometry
     ) = 0;
-    virtual void replace_with_single_gpt_partition(
+    [[nodiscard]] virtual std::filesystem::path replace_with_single_gpt_partition(
         const std::filesystem::path& device,
         const std::string& expected_major_minor
     ) = 0;
@@ -110,7 +110,7 @@ class LibfdiskPartitionTableOperations final : public IPartitionTableOperations 
         std::uint64_t free_sector_count,
         const PlannedPartitionGeometry& geometry
     ) override;
-    void replace_with_single_gpt_partition(
+    [[nodiscard]] std::filesystem::path replace_with_single_gpt_partition(
         const std::filesystem::path& device,
         const std::string& expected_major_minor
     ) override;
