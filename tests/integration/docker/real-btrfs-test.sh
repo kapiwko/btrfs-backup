@@ -12,8 +12,10 @@ ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../.." && pwd)"
 TEST_ROOT="$(mktemp -d /tmp/btrfs-backup-real.XXXXXX)"
 SOURCE_IMAGE="$TEST_ROOT/source.img"
 TARGET_IMAGE="$TEST_ROOT/target.img"
+PROVISION_IMAGE="$TEST_ROOT/provision.img"
 SOURCE_LOOP=""
 TARGET_LOOP=""
+PROVISION_LOOP=""
 SOURCE_MOUNT=/mnt/bb-real-source
 TARGET_MOUNT=/mnt/btrfs-backup/default
 TARGET_STAGING_MOUNT=/mnt/bb-real-target-staging
@@ -36,6 +38,7 @@ cleanup() {
         sleep 0.1
     done
     umount -R "$SOURCE_MOUNT" 2>/dev/null
+    [[ -n "$PROVISION_LOOP" ]] && losetup -d "$PROVISION_LOOP" 2>/dev/null
     [[ -n "$TARGET_LOOP" ]] && losetup -d "$TARGET_LOOP" 2>/dev/null
     [[ -n "$SOURCE_LOOP" ]] && losetup -d "$SOURCE_LOOP" 2>/dev/null
     rm -rf -- "$TEST_ROOT" "$SOURCE_MOUNT" "$TARGET_MOUNT" "$TARGET_STAGING_MOUNT"
@@ -74,7 +77,7 @@ ensure_loop_devices() {
     if [[ ! -e /dev/loop-control ]]; then
         mknod /dev/loop-control c 10 237
     fi
-    for index in $(seq 0 15); do
+    for index in $(seq 0 63); do
         if [[ ! -e "/dev/loop$index" ]]; then
             mknod "/dev/loop$index" b 7 "$index"
         fi
@@ -114,6 +117,58 @@ build_and_verify_packages() {
         fail 'base commands link to a KDE or Qt runtime library'
     fi
     pass 'base package installs and runs without KDE or Qt runtime dependencies'
+}
+
+provision_existing_partition_test() {
+    local client="$TEST_ROOT/device-provisioning-client"
+    local first_partition second_partition
+    local first_hash_before first_hash_after
+    local table_before="$TEST_ROOT/provision-table-before"
+    local table_after="$TEST_ROOT/provision-table-after"
+    local response="$TEST_ROOT/device-provisioning-response.json"
+
+    truncate -s 512M "$PROVISION_IMAGE"
+    PROVISION_LOOP="$(losetup --find --show --partscan "$PROVISION_IMAGE")"
+    printf '%s\n' \
+        'label: gpt' \
+        'size=128M,type=0FC63DAF-8483-4772-8E79-3D69D8477DE4' \
+        'size=256M,type=0FC63DAF-8483-4772-8E79-3D69D8477DE4' \
+        | sfdisk --quiet "$PROVISION_LOOP"
+    udevadm settle --timeout=10
+    first_partition="${PROVISION_LOOP}p1"
+    second_partition="${PROVISION_LOOP}p2"
+    [[ -b "$first_partition" && -b "$second_partition" ]] \
+        || fail 'loop partition nodes were not created'
+    mkfs.ext4 -q -F -L PRESERVED "$first_partition"
+    mkfs.ext4 -q -F -L REFORMAT "$second_partition"
+    first_hash_before="$(sha256sum "$first_partition" | awk '{print $1}')"
+    sfdisk --dump "$PROVISION_LOOP" > "$table_before"
+
+    cc -std=c11 -Wall -Wextra -Werror -Wpedantic \
+        "$ROOT/tests/integration/DeviceProvisioningClient.c" \
+        -lsystemd -o "$client"
+    systemctl start polkit.service btrfs-backupd.service
+    "$client" "$second_partition" "$SOURCE_MOUNT/home" "$PASSPHRASE_FILE" > "$response"
+    systemctl stop btrfs-backupd.service polkit.service
+
+    first_hash_after="$(sha256sum "$first_partition" | awk '{print $1}')"
+    sfdisk --dump "$PROVISION_LOOP" > "$table_after"
+    [[ "$first_hash_before" == "$first_hash_after" ]] \
+        || fail 'existing-partition provisioning changed the sibling partition'
+    cmp "$table_before" "$table_after" \
+        || fail 'existing-partition provisioning changed the parent partition table'
+    [[ "$(blkid -s TYPE -o value "$first_partition")" == ext4 ]] \
+        || fail 'existing-partition provisioning changed the sibling filesystem'
+    [[ "$(blkid -s TYPE -o value "$second_partition")" == crypto_LUKS ]] \
+        || fail 'selected partition was not formatted as LUKS2'
+    grep -Eq '"state"[[:space:]]*:[[:space:]]*"succeeded"' "$response" \
+        || fail 'manager did not report successful partition provisioning'
+    [[ -f /etc/btrfs-backup/profiles/partition-integration/profile.json ]] \
+        || fail 'partition provisioning did not publish its profile'
+
+    losetup -d "$PROVISION_LOOP"
+    PROVISION_LOOP=""
+    pass 'manager provisions one partition without changing its sibling or partition table'
 }
 
 configure_backup_with_cli() {
@@ -877,7 +932,7 @@ missing_incremental_parent_test() {
 }
 
 require_root
-require_commands btrfs busctl cc cmp cryptsetup date dd diff dmsetup find findmnt grep journalctl ldd losetup mkfifo mkfs.btrfs mknod mount pacman perl runuser seq sha256sum stat systemd-escape tar tee timeout truncate useradd userdel
+require_commands awk blkid btrfs busctl cc cmp cryptsetup date dd diff dmsetup find findmnt grep journalctl ldd losetup mkfifo mkfs.btrfs mkfs.ext4 mknod mount pacman perl runuser seq sfdisk sha256sum stat systemd-escape tar tee timeout truncate udevadm useradd userdel
 ensure_loop_devices
 
 install -d -m0755 "$SOURCE_MOUNT" "$TARGET_MOUNT"
@@ -909,6 +964,8 @@ mkfs.btrfs -q -f "$MAPPER_PATH"
 mount -o noatime,compress=zstd:3 "$SOURCE_LOOP" "$SOURCE_MOUNT"
 btrfs subvolume create "$SOURCE_MOUNT/home" >/dev/null
 install -d -m0700 "$SOURCE_MOUNT/.snapshots/home"
+
+provision_existing_partition_test
 
 mount -o noatime,nodev,nosuid,noexec,nosymfollow,compress=zstd:3 "$MAPPER_PATH" "$TARGET_MOUNT"
 install -d -m0700 "$TARGET_MOUNT/snapshots" "$TARGET_MOUNT/.incoming"
