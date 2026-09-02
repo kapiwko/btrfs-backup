@@ -3,6 +3,8 @@
 
 #include <daemon/control/DevicePreparationTransaction.hpp>
 
+#include <core/Errors.hpp>
+
 #include <algorithm>
 #include <chrono>
 #include <filesystem>
@@ -38,6 +40,35 @@ DevicePreparationTransaction transaction(
     value.device.major_minor = "8:16";
     value.device.sysfs_devpath = "/devices/test/block/test";
     value.device.wwn = "wwn-test";
+    value.target.mode = btrfsbackup::daemon::provisioning::ProvisioningMode::ReformatExistingPartition;
+    value.target.device.identity = {
+        .display_path = "/dev/test",
+        .major_minor = "8:16",
+        .sysfs_path = "/devices/test/block/test",
+        .wwn = "wwn-test",
+        .size_bytes = 1048576,
+    };
+    value.target.device.size_bytes = 1048576;
+    value.target.device.transport = "usb";
+    value.target.device.logical_sector_size = 512;
+    value.target.device.physical_sector_size = 4096;
+    value.target.device.partition_table = {
+        .type = btrfsbackup::daemon::provisioning::PartitionTableType::Gpt,
+        .identifier = "pt-uuid",
+    };
+    value.target.partition = btrfsbackup::daemon::provisioning::ExistingPartition{
+        .identity = {
+            .display_path = "/dev/test1",
+            .major_minor = "8:17",
+            .sysfs_path = "/devices/test/block/test/test1",
+            .size_bytes = 524288,
+        },
+        .partition_uuid = "partition-uuid",
+        .partition_number = 1,
+        .start_sector = 2048,
+        .sector_count = 1024,
+        .filesystem = {.type = "ext4", .uuid = "filesystem-uuid"},
+    };
     value.profile_name = "Test";
     value.source_subvolume = "/home";
     value.passphrase_label = "Recovery";
@@ -61,6 +92,18 @@ void test_round_trip_preserves_recovery_state() {
     test_helpers::expect_eq("owner bus", value.owner.bus_name, ":1.42");
     test_helpers::expect_true("owner uid", value.owner.uid == 1000, "owner UID changed");
     test_helpers::expect_eq("stable identity", value.device.major_minor, "8:16");
+    test_helpers::expect_true(
+        "target mode",
+        value.target.mode == btrfsbackup::daemon::provisioning::ProvisioningMode::ReformatExistingPartition,
+        "target mode changed"
+    );
+    test_helpers::expect_eq("target transport", value.target.device.transport, "usb");
+    test_helpers::expect_true(
+        "target partition",
+        value.target.partition.has_value() && value.target.partition->partition_uuid == "partition-uuid" &&
+            value.target.partition->start_sector == 2048,
+        "partition target snapshot changed"
+    );
     test_helpers::expect_eq("last completed phase", value.last_completed_phase, "luks-format");
     test_helpers::expect_eq("partition", value.partition, "/dev/test1");
     test_helpers::expect_eq("LUKS UUID", value.luks_uuid, "luks-uuid");
@@ -91,13 +134,13 @@ void test_completed_limit_ttl_and_active_retention() {
     test_helpers::expect_true("active retained", contains("prepare-active"), "active transaction was TTL-pruned");
 }
 
-void test_version_one_transaction_remains_recoverable() {
-    const auto root = test_helpers::test_root("device-preparation-transactions", "version-one");
+void test_legacy_transaction_is_rejected() {
+    const auto root = test_helpers::test_root("device-preparation-transactions", "legacy");
     test_helpers::write_file(
-        root / "prepare-version-one.json",
+        root / "prepare-legacy.json",
         R"({
   "schemaVersion": 1,
-  "operationId": "prepare-version-one",
+  "operationId": "prepare-legacy",
   "profileId": "test",
   "state": "running",
   "phase": "open",
@@ -110,14 +153,11 @@ void test_version_one_transaction_remains_recoverable() {
 })"
     );
 
-    const auto loaded = DevicePreparationTransactionStore(root).load("prepare-version-one");
-    test_helpers::expect_eq("version one operation", loaded.status.operation_id, "prepare-version-one");
-    test_helpers::expect_eq("version one mapper", loaded.mapper, "btrfs-backup-test");
-    test_helpers::expect_true(
-        "version one has no executable request",
-        loaded.profile_name.empty() && loaded.source_subvolume.empty() && loaded.passphrase_label.empty(),
-        "legacy transaction unexpectedly gained request data"
-    );
+    try {
+        static_cast<void>(DevicePreparationTransactionStore(root).load("prepare-legacy"));
+        test_helpers::fail("legacy transaction", "an unreleased transaction schema was accepted");
+    } catch (const btrfsbackup::ValidationError&) {
+    }
 }
 
 } // namespace
@@ -125,6 +165,6 @@ void test_version_one_transaction_remains_recoverable() {
 int main() {
     test_round_trip_preserves_recovery_state();
     test_completed_limit_ttl_and_active_retention();
-    test_version_one_transaction_remains_recoverable();
+    test_legacy_transaction_is_rejected();
     return test_helpers::finish("device preparation transaction tests");
 }

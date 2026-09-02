@@ -68,12 +68,11 @@ std::string graph_fingerprint(const StorageDevice& device) {
     return result.str();
 }
 
-ProvisioningDevice provisioning_device(const StorageDevice& device) {
+ProvisioningDevice make_provisioning_device(const StorageDevice& device) {
     const std::string serial = !device.identity.serial_short.empty()
         ? device.identity.serial_short
         : device.identity.serial;
     return {
-        .candidate_id = {},
         .path = device.identity.display_path,
         .model = device.display_name,
         .serial = serial,
@@ -111,6 +110,10 @@ bool same_stable_disk(const ProvisioningDevice& expected, const StorageDevice& c
 
 } // namespace
 
+ProvisioningDevice provisioning_device_snapshot(const provisioning::StorageDevice& device) {
+    return make_provisioning_device(device);
+}
+
 ProvisioningDeviceEnumerator::ProvisioningDeviceEnumerator(provisioning::StorageTopologyReader& topology)
     : topology_(topology) {
 }
@@ -120,7 +123,7 @@ std::vector<ProvisioningDevice> ProvisioningDeviceEnumerator::list() {
     std::vector<ProvisioningDevice> result;
     result.reserve(topology.devices.size());
     for (const auto& device : topology.devices)
-        result.push_back(provisioning_device(device));
+        result.push_back(make_provisioning_device(device));
     return result;
 }
 

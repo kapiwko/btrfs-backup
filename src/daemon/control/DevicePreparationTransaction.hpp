@@ -17,6 +17,7 @@ struct DevicePreparationTransaction {
     DevicePreparationStatus status;
     DevicePreparationOwner owner;
     ProvisioningDevice device;
+    DevicePreparationTarget target;
     std::string profile_name;
     std::string source_subvolume;
     std::string passphrase_label;

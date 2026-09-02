@@ -60,7 +60,6 @@ schema versions are not advertised as public API versions.
 | `AddTargetKey` | `(s profileId, h authorization, h key, s label, b automatic)` | `(s)` | imports and optionally activates a protected key file |
 | `GenerateTargetKey` | `(s profileId, h authorization, s label, b automatic)` | `(s)` | generates a protected key without returning its bytes |
 | `RemoveTargetCredential` | `(s profileId, s credentialId, h authorization)` | `(s)` | removes a managed non-automatic keyslot, never the last slot |
-| `ListProvisioningDevices` | `()` | `(s)` | block-device candidates and destructive-operation warnings |
 | `InspectStorageTopology` | `()` | `(s)` | caller-bound device, partition, and unallocated-region snapshot |
 | `BuildDevicePreparationPlan` | `(s request)` | `(s)` | revalidates topology and creates a caller-bound whole-device or existing-partition before/after plan |
 | `ListSourceCandidates` | `()` | `(s)` | mounted Btrfs subvolumes eligible as an initial source |

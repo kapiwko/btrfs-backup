@@ -55,14 +55,12 @@ class DeviceProvisioningModel final : public QObject {
 
   private:
     enum class RequestKind { Topology,
-                             Devices,
                              Sources,
                              Plan,
                              Start,
                              Poll,
                              Cancel };
     void request(RequestKind kind, const QString& method, const QVariantList& arguments = {});
-    bool applyDevices(const QString& payload);
     bool applyTopology(const QString& payload);
     bool applyPlan(const QString& payload);
     bool applySources(const QString& payload);

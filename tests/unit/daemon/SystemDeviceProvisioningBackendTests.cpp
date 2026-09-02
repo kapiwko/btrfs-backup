@@ -26,6 +26,7 @@ namespace backup = btrfsbackup::backup;
 namespace config = btrfsbackup::config;
 using btrfsbackup::ProfileId;
 using btrfsbackup::daemon::control::DevicePreparationStatus;
+using btrfsbackup::daemon::control::DevicePreparationTarget;
 using btrfsbackup::daemon::control::DevicePreparationTransaction;
 using btrfsbackup::daemon::control::DevicePreparationTransactionStore;
 using btrfsbackup::daemon::control::ICredentialAdministrationBackend;
@@ -33,6 +34,10 @@ using btrfsbackup::daemon::control::IDestructiveDeviceSafetyInspector;
 using btrfsbackup::daemon::control::IDevicePreparationUnitController;
 using btrfsbackup::daemon::control::SystemDeviceProvisioningBackend;
 using btrfsbackup::daemon::control::TargetCredential;
+
+DevicePreparationTarget target(btrfsbackup::daemon::provisioning::StorageDevice device) {
+    return {.device = std::move(device)};
+}
 
 class Commands final : public backup::ICommandRunner {
   public:
@@ -226,18 +231,17 @@ void test_preparation_sequence_uses_descriptors_and_installs_profile() {
     constexpr std::string_view password = "secret";
     static_cast<void>(::write(descriptors[1], password.data(), password.size()));
     ::close(descriptors[1]);
-    const auto candidates = backend.list_devices();
-    test_helpers::expect_true("identity candidate", candidates.size() == 1, "device identity was incomplete");
+    const auto preparation_target = target(topology.scan().devices.front());
     const auto started = backend.start(
         {
             .profile_id = "test",
             .profile_name = "Test backup",
-            .candidate_id = "candidate-test",
+            .plan_id = "plan-test",
             .source_subvolume = "/home",
             .passphrase_label = "Recovery",
             .create_automatic_key = true,
         },
-        candidates.front(),
+        preparation_target,
         {.bus_name = ":1.5", .uid = 1000},
         descriptors[0]
     );
@@ -323,17 +327,17 @@ void test_exited_helper_marks_transaction_interrupted() {
         safety,
         units
     );
-    const auto candidate = backend.list_devices().front();
+    const auto preparation_target = target(topology.scan().devices.front());
     const int secret = secret_descriptor("secret");
     const auto started = backend.start(
         {
             .profile_id = "helper-exited",
             .profile_name = "Helper exited",
-            .candidate_id = "candidate-helper-exited",
+            .plan_id = "plan-helper-exited",
             .source_subvolume = "/home",
             .passphrase_label = "Recovery",
         },
-        candidate,
+        preparation_target,
         {.bus_name = ":1.7", .uid = 1000},
         secret
     );
@@ -392,7 +396,7 @@ void test_replacement_before_wipe_is_rejected() {
         safety,
         units
     );
-    const auto candidate = backend.list_devices().front();
+    const auto preparation_target = target(topology.scan().devices.front());
     topology.replace_on_scan = 3;
     int descriptors[2];
     test_helpers::expect_true("replacement secret pipe", ::pipe(descriptors) == 0, "cannot create pipe");
@@ -403,11 +407,11 @@ void test_replacement_before_wipe_is_rejected() {
         {
             .profile_id = "replacement",
             .profile_name = "Replacement",
-            .candidate_id = "candidate-replacement",
+            .plan_id = "plan-replacement",
             .source_subvolume = "/home",
             .passphrase_label = "Recovery",
         },
-        candidate,
+        preparation_target,
         {.bus_name = ":1.6", .uid = 1000},
         descriptors[0]
     );
@@ -437,6 +441,19 @@ void test_restart_marks_active_transaction_interrupted_and_preserves_owner() {
     transaction.owner = {.bus_name = ":1.20", .uid = 1000};
     transaction.device.path = "/dev/test";
     transaction.device.major_minor = "8:16";
+    transaction.target.device.identity = {
+        .display_path = "/dev/test",
+        .major_minor = "8:16",
+        .sysfs_path = "/sys/devices/test/block/test",
+        .wwn = "WWN-TEST",
+        .serial = "VENDOR_SERIAL",
+        .serial_short = "SERIAL",
+        .size_bytes = 1048576,
+    };
+    transaction.target.device.size_bytes = 1048576;
+    transaction.target.device.transport = "usb";
+    transaction.target.device.logical_sector_size = 512;
+    transaction.target.device.physical_sector_size = 4096;
     transaction.profile_name = "Test";
     transaction.source_subvolume = "/home";
     transaction.passphrase_label = "Recovery";
