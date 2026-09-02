@@ -47,6 +47,9 @@ OpenBrowseSession
 RenewBrowseSession
 SetBrowseSessionActive
 CloseBrowseSession
+ListBrowseDirectory
+InspectBrowseEntry
+OpenBrowseFile
 ProfilesChanged
 StatusChanged
 HistoryChanged

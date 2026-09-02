@@ -159,6 +159,37 @@ void BrowseSessionService::close(const std::string& caller_bus_name, const std::
     close_session(owned_session(caller_bus_name, session_id), BrowseSessionCloseReason::Requested);
 }
 
+std::vector<BrowseEntryInfo> BrowseSessionService::list_directory(
+    const std::string& caller_bus_name,
+    const std::string& session_id,
+    const std::string& relative_path,
+    std::size_t maximum_entries
+) {
+    auto session = owned_session(caller_bus_name, session_id);
+    extend(session->second);
+    return backend_.list_directory(session->second.id, relative_path, maximum_entries);
+}
+
+BrowseEntryInfo BrowseSessionService::inspect_entry(
+    const std::string& caller_bus_name,
+    const std::string& session_id,
+    const std::string& relative_path
+) {
+    auto session = owned_session(caller_bus_name, session_id);
+    extend(session->second);
+    return backend_.inspect_entry(session->second.id, relative_path);
+}
+
+btrfsbackup::platform::linux::OwnedFileDescriptor BrowseSessionService::open_file(
+    const std::string& caller_bus_name,
+    const std::string& session_id,
+    const std::string& relative_path
+) {
+    auto session = owned_session(caller_bus_name, session_id);
+    extend(session->second);
+    return backend_.open_file(session->second.id, relative_path);
+}
+
 void BrowseSessionService::close_session(std::map<std::string, Session>::iterator session, BrowseSessionCloseReason reason) {
     session->second.active = false;
     session->second.deadline = std::chrono::steady_clock::time_point::min();

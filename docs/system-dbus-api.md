@@ -54,6 +54,9 @@ schema versions are not advertised as public API versions.
 | `RenewBrowseSession` | `(s sessionId)` | `(s)` | extends the monotonic TTL of a session owned by the caller |
 | `SetBrowseSessionActive` | `(s sessionId, b active)` | `(s)` | pins or unpins an owned session during an active transfer |
 | `CloseBrowseSession` | `(s sessionId)` | `(s)` | closes a session owned by the caller |
+| `ListBrowseDirectory` | `(s sessionId, s relativePath)` | `(s)` | lists regular files and directories below an owned session root |
+| `InspectBrowseEntry` | `(s sessionId, s relativePath)` | `(s)` | returns sanitized metadata for one entry below an owned session root |
+| `OpenBrowseFile` | `(s sessionId, s relativePath)` | `(h)` | returns an already-open, read-only regular-file descriptor |
 | `ResolveBackupCoverage` | `(s localPath)` | `(s)` | presentation-safe profile/source coverage for a local path |
 | `ListTargetCredentials` | `(s profileId)` | `(s)` | occupied LUKS2 keyslots with labels only for managed credentials |
 | `AddTargetPassphrase` | `(s profileId, h authorization, h newSecret, s label)` | `(s)` | adds a LUKS2 passphrase through file descriptors |
@@ -214,6 +217,9 @@ currently open profile, including changes published by the CLI.
 | `RenewBrowseSession` | session ownership | none |
 | `SetBrowseSessionActive` | session ownership | none |
 | `CloseBrowseSession` | session ownership | none |
+| `ListBrowseDirectory` | session ownership and path confinement | none |
+| `InspectBrowseEntry` | session ownership and path confinement | none |
+| `OpenBrowseFile` | session ownership, path confinement and regular-file validation | none |
 | `ResolveBackupCoverage` | none | none |
 
 Operational backup controls are allowed without a password from the active
@@ -222,7 +228,11 @@ over an already approved backup definition, not configuration or arbitrary
 code execution. Opening a read-only browse session follows the same rule: an
 active local session may browse an already configured repository without an
 authentication prompt, while inactive and remote sessions still require an
-administrator. Eject still acquires the target lease and refuses to run while
+administrator. An owned session may list confined entries and receive only
+already-open, read-only regular-file descriptors. The daemon rejects absolute
+paths, traversal, symlinks, devices and other special files, so repository
+directory permissions never need to be weakened for Dolphin. Eject still
+acquires the target lease and refuses to run while
 the target is in use:
 
 ```xml
