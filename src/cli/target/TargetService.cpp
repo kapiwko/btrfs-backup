@@ -329,9 +329,15 @@ TargetOperationResult activate_target(
                 );
             }
         } catch (const btrfsbackup::platform::linux::storage::ActiveDeviceUnavailableError&) {
-            stale_verified_mapper = lower(resolved.cryptsetup.active_luks_uuid(
-                profile.target.mapper_name.value()
-            )) == lower(profile.target.luks_uuid.value());
+            std::string active_uuid;
+            try {
+                active_uuid = resolved.cryptsetup.active_luks_uuid(profile.target.mapper_name.value());
+            } catch (const btrfsbackup::ValidationError&) {
+                active_uuid = btrfsbackup::platform::linux::storage::active_luks_uuid_from_device_mapper(
+                    profile.target.mapper_name.value()
+                );
+            }
+            stale_verified_mapper = lower(active_uuid) == lower(profile.target.luks_uuid.value());
             if (!stale_verified_mapper) {
                 throw ValidationError(
                     "Refusing to replace mapper " + profile.target.mapper_name.value() +
