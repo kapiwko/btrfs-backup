@@ -17,7 +17,12 @@ kcmutils_add_qml_kcm(
         DeviceProvisioningModel.cpp
         DeviceProvisioningModel.hpp
 )
-set_target_properties(kcm_btrfsbackup PROPERTIES PREFIX "")
+set_target_properties(
+    kcm_btrfsbackup
+    PROPERTIES
+        PREFIX ""
+        INSTALL_RPATH "$ORIGIN/../../../../qml/org/btrfsbackup/kde"
+)
 target_compile_features(kcm_btrfsbackup PRIVATE cxx_std_23)
 target_link_libraries(
     kcm_btrfsbackup
