@@ -198,6 +198,8 @@ void test_storage_topology_and_plan_contract() {
     device.candidate_id = "opaque-device";
     device.identity.display_path = "/dev/sdb";
     device.identity.major_minor = "8:16";
+    device.identity.wwn = "private-wwn";
+    device.identity.serial = "private-serial";
     device.display_name = "Backup disk";
     device.hotplug = true;
     device.system_device = true;
@@ -208,10 +210,16 @@ void test_storage_topology_and_plan_contract() {
     partition.candidate_id = "opaque-partition";
     partition.identity.display_path = "/dev/sdb1";
     partition.identity.major_minor = "8:17";
+    partition.partition_uuid = "private-partition-uuid";
+    partition.partition_label = "private-partition-label";
     partition.partition_number = 1;
     partition.start_sector = 1;
     partition.sector_count = 1;
     partition.filesystem.type = "ext4";
+    partition.filesystem.label = "private-filesystem-label";
+    partition.filesystem.uuid = "private-filesystem-uuid";
+    partition.mount_points = {"/private/mount"};
+    partition.blockers = {{"mounted-filesystem", "/private/mount"}};
     device.regions.emplace_back(std::move(partition));
     device.regions.emplace_back(provisioning::UnallocatedRegion{
         .id = "opaque-free",
@@ -220,12 +228,14 @@ void test_storage_topology_and_plan_contract() {
         .suitable_for_backup_partition = true,
     });
     const provisioning::StorageTopology topology{.generation = "topology-1", .devices = {device}};
-    const Json topology_document = Json::parse(codec.encode(topology));
-    expect_field("topology", topology_document, "schemaVersion", 1);
+    const std::string topology_payload = codec.encode(topology);
+    const Json topology_document = Json::parse(topology_payload);
+    expect_field("topology", topology_document, "schemaVersion", 2);
     expect_field("topology", topology_document, "generation", "topology-1");
     expect_field("topology candidate", topology_document.at("devices").at(0), "candidateId", "opaque-device");
     expect_field("topology system device", topology_document.at("devices").at(0), "systemDevice", true);
     expect_field("topology hotplug device", topology_document.at("devices").at(0), "hotplug", true);
+    expect_field("topology display index", topology_document.at("devices").at(0), "displayIndex", 1);
     expect_field(
         "topology configured target",
         topology_document.at("devices").at(0).at("regions").at(0),
@@ -234,8 +244,24 @@ void test_storage_topology_and_plan_contract() {
     );
     test_helpers::expect_true(
         "topology identity privacy",
-        !topology_document.at("devices").at(0).contains("majorMinor"),
-        "internal block identity was exposed"
+        !topology_document.at("devices").at(0).contains("majorMinor") &&
+            !topology_document.at("devices").at(0).contains("path") &&
+            !topology_document.at("devices").at(0).contains("model") &&
+            !topology_document.at("devices").at(0).contains("displayName") &&
+            !topology_document.at("devices").at(0).at("regions").at(0).contains("path") &&
+            !topology_document.at("devices").at(0).at("regions").at(0).contains("partitionUuid") &&
+            !topology_document.at("devices").at(0).at("regions").at(0).contains("partitionLabel") &&
+            !topology_document.at("devices").at(0).at("regions").at(0).contains("filesystemUuid") &&
+            !topology_document.at("devices").at(0).at("regions").at(0).contains("filesystemLabel") &&
+            !topology_document.at("devices").at(0).at("regions").at(0).contains("mountPoints") &&
+            !topology_document.at("devices").at(0).at("regions").at(0).at("blockers").at(0).contains("detail"),
+        "private storage identity or path was exposed"
+    );
+    test_helpers::expect_true(
+        "topology private values",
+        topology_payload.find("private-") == std::string::npos &&
+            topology_payload.find("/dev/") == std::string::npos,
+        "private storage values were exposed under an unexpected field"
     );
 
     const auto plan = provisioning::DevicePreparationPlanBuilder{}.build(
@@ -248,7 +274,7 @@ void test_storage_topology_and_plan_contract() {
         provisioning::PlannedPartitionGeometry{.start_sector = 0, .sector_count = 2, .partition_number = 1}
     );
     const Json plan_document = Json::parse(codec.encode(plan));
-    expect_field("plan", plan_document, "schemaVersion", 2);
+    expect_field("plan", plan_document, "schemaVersion", 3);
     expect_field("plan", plan_document, "planId", "plan-1");
     expect_field("plan", plan_document, "mode", "erase-whole-device");
     test_helpers::expect_true(
@@ -256,6 +282,14 @@ void test_storage_topology_and_plan_contract() {
         plan_document.at("before").at("regions").size() == 2 &&
             plan_document.at("after").at("regions").size() == 1,
         "before or after layout is missing"
+    );
+    test_helpers::expect_true(
+        "plan privacy",
+        !plan_document.at("before").at("regions").at(0).contains("path") &&
+            !plan_document.at("before").at("regions").at(0).contains("partitionLabel") &&
+            !plan_document.at("before").at("regions").at(0).contains("filesystemType") &&
+            !plan_document.at("warnings").at(0).contains("detail"),
+        "preparation plan exposed private storage details"
     );
     const auto partition_plan = provisioning::DevicePreparationPlanBuilder{}.build(
         topology,
@@ -309,16 +343,26 @@ void test_storage_topology_and_plan_contract() {
             .snapshot_count = 2,
         },
     };
-    const Json inspection_document = Json::parse(codec.encode(inspection));
-    expect_field("target inspection", inspection_document, "schemaVersion", 2);
+    const std::string inspection_payload = codec.encode(inspection);
+    const Json inspection_document = Json::parse(inspection_payload);
+    expect_field("target inspection", inspection_document, "schemaVersion", 3);
     expect_field("target inspection", inspection_document, "inspectionId", "inspection-1");
     expect_field("target inspection", inspection_document, "classification", "compatible-repository");
     expect_field("target inspection", inspection_document, "repositoryId", "repository-1");
     expect_field("target inspection", inspection_document, "snapshotCount", 2);
     test_helpers::expect_true(
         "target inspection privacy",
-        !inspection_document.contains("path") && !inspection_document.contains("credential"),
-        "target inspection exposed a path or credential"
+        !inspection_document.contains("path") && !inspection_document.contains("credential") &&
+            !inspection_document.contains("luksUuid") && !inspection_document.contains("btrfsUuid") &&
+            !inspection_document.contains("partitionUuid"),
+        "target inspection exposed a path, credential, or storage identity"
+    );
+    test_helpers::expect_true(
+        "target inspection private values",
+        inspection_payload.find("luks-uuid") == std::string::npos &&
+            inspection_payload.find("btrfs-uuid") == std::string::npos &&
+            inspection_payload.find("partition-uuid") == std::string::npos,
+        "target inspection exposed storage identity under an unexpected field"
     );
 }
 

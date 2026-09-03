@@ -18,7 +18,7 @@ namespace {
 config::json::Json blockers_json(const std::vector<provisioning::SafetyBlocker>& blockers) {
     config::json::Json result = config::json::Json::array();
     for (const auto& blocker : blockers)
-        result.push_back({{"code", blocker.code}, {"detail", blocker.detail}});
+        result.push_back({{"code", blocker.code}});
     return result;
 }
 
@@ -48,9 +48,6 @@ config::json::Json layout_json(const provisioning::StorageLayout& layout) {
             {"startSector", region.start_sector},
             {"sectorCount", region.sector_count},
             {"partitionNumber", region.partition_number},
-            {"path", region.display_path},
-            {"partitionLabel", region.partition_label},
-            {"filesystemType", region.filesystem_type},
             {"geometryExact", region.geometry_exact},
             {"encrypted", region.encrypted},
             {"changed", region.changed},
@@ -259,7 +256,9 @@ std::string ManagerJsonCodec::encode(const std::vector<control::TargetCredential
 
 std::string ManagerJsonCodec::encode(const provisioning::StorageTopology& topology) const {
     config::json::Json devices = config::json::Json::array();
+    std::size_t display_index = 0;
     for (const auto& device : topology.devices) {
+        ++display_index;
         config::json::Json regions = config::json::Json::array();
         for (const auto& region : device.regions) {
             std::visit(
@@ -278,14 +277,9 @@ std::string ManagerJsonCodec::encode(const provisioning::StorageTopology& topolo
                         {"blockers", blockers_json(value.blockers)},
                     };
                     if constexpr (std::is_same_v<Region, provisioning::ExistingPartition>) {
-                        item["path"] = value.identity.display_path;
                         item["partitionNumber"] = value.partition_number;
-                        item["partitionUuid"] = value.partition_uuid;
-                        item["partitionLabel"] = value.partition_label;
-                        item["filesystemType"] = value.filesystem.type;
-                        item["filesystemLabel"] = value.filesystem.label;
-                        item["filesystemUuid"] = value.filesystem.uuid;
-                        item["mountPoints"] = value.mount_points;
+                        item["encrypted"] = value.filesystem.type == "crypto_LUKS";
+                        item["mounted"] = !value.mount_points.empty();
                         item["configuredBackupTarget"] = value.configured_backup_target;
                         item["suitableForReformat"] = value.suitable_for_reformat;
                         item["suitableForAdoption"] = value.suitable_for_adoption;
@@ -299,9 +293,7 @@ std::string ManagerJsonCodec::encode(const provisioning::StorageTopology& topolo
         }
         devices.push_back({
             {"candidateId", device.candidate_id},
-            {"path", device.identity.display_path},
-            {"displayName", device.display_name},
-            {"model", device.display_name},
+            {"displayIndex", display_index},
             {"transport", device.transport},
             {"sizeBytes", device.size_bytes},
             {"logicalSectorSize", device.logical_sector_size},
@@ -330,7 +322,7 @@ std::string ManagerJsonCodec::encode(const provisioning::DevicePreparationPlan& 
         operations.push_back(operation_name(operation));
     config::json::Json warnings = config::json::Json::array();
     for (const auto& warning : plan.warnings)
-        warnings.push_back({{"code", warning.code}, {"detail", warning.detail}});
+        warnings.push_back({{"code", warning.code}});
     return config::json::dump_json({
         {"schemaVersion", manager_protocol::device_preparation_plan_schema_version},
         {"planId", plan.id},
@@ -357,9 +349,6 @@ std::string ManagerJsonCodec::encode(const provisioning::ExistingTargetInspectio
         {"partitionId", inspection.partition_id},
         {"classification", provisioning::existing_target_classification_name(inspection.target.classification)},
         {"diagnosticCode", inspection.target.diagnostic_code},
-        {"luksUuid", inspection.target.luks_uuid},
-        {"btrfsUuid", inspection.target.btrfs_uuid},
-        {"partitionUuid", inspection.target.partition_uuid},
         {"repositoryId", inspection.target.repository_id},
         {"catalogGeneration", inspection.target.catalog_generation},
         {"snapshotCount", inspection.target.snapshot_count},

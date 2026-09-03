@@ -131,9 +131,11 @@ ColumnLayout {
     }
 
     function regionName(region) {
-        return region.partitionLabel || region.filesystemLabel || region.path
-            || (region.kind === "unallocated"
-                ? translations.i18n("Free space") : translations.i18n("Backup partition"))
+        if (region.kind === "unallocated")
+            return translations.i18n("Free space")
+        if (region.partitionNumber)
+            return translations.i18n("Partition %1", region.partitionNumber)
+        return translations.i18n("Backup partition")
     }
 
     function regionDetails(region) {
@@ -142,7 +144,7 @@ ColumnLayout {
             return size + " · LUKS2 · Btrfs"
         if (region.kind === "unallocated")
             return size
-        return region.filesystemType ? size + " · " + region.filesystemType : size
+        return region.encrypted ? size + " · LUKS2" : size
     }
 
     function regionColor(region) {

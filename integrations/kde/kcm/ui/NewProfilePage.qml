@@ -25,7 +25,9 @@ KCMUtils.SimpleKCM {
     readonly property bool freeSpace: root.planMode === "create-partition-in-unallocated-space"
     readonly property string confirmationToken: root.adoption ? ""
         : root.freeSpace ? "CREATE"
-        : "ERASE-" + root.deviceNodeName(root.selectedTarget?.path || root.selectedDevice?.path || "DEVICE")
+        : root.planMode === "reformat-existing-partition"
+            ? "ERASE-PARTITION-" + String(root.selectedTarget?.partitionNumber ?? "")
+            : "ERASE-DISK"
     readonly property bool planMatchesSelection: {
         if (!root.hasPlan || root.selectedTarget === null)
             return false
@@ -38,7 +40,6 @@ KCMUtils.SimpleKCM {
     readonly property bool selectedTargetSafe: root.selectedTarget !== null
         && (root.selectedTarget.blockers?.length ?? 0) === 0
         && !root.selectedTarget.mounted
-        && (root.selectedTarget.mountPoints?.length ?? 0) === 0
         && (!root.freeSpace || (root.selectedDevice !== null
             && (root.selectedDevice.blockers?.length ?? 0) === 0
             && !root.selectedDevice.mounted))
@@ -77,7 +78,7 @@ KCMUtils.SimpleKCM {
             return false
         const regions = device?.regions ?? []
         return regions.some(region => region.kind === "existing-partition"
-            && region.filesystemType === "crypto_LUKS"
+            && (region.encrypted ?? false)
             && (region.suitableForAdoption ?? false)
             && (region.blockers?.length ?? 0) === 0)
     }
@@ -297,10 +298,10 @@ KCMUtils.SimpleKCM {
                             }
                             Kirigami.TitleSubtitle {
                                 Layout.fillWidth: true
-                                title: (deviceRow.modelData.model || deviceRow.modelData.path)
+                                title: translations.i18n("Storage device %1", deviceRow.modelData.displayIndex)
                                     + " — " + root.formatBytes(deviceRow.modelData.sizeBytes)
-                                subtitle: deviceRow.modelData.path + " · "
-                                    + (root.deviceHasConfiguredTarget(deviceRow.modelData)
+                                subtitle: (deviceRow.modelData.transport || translations.i18n("unknown connection"))
+                                    + " · " + (root.deviceHasConfiguredTarget(deviceRow.modelData)
                                         ? translations.i18n("contains a configured backup target")
                                         : deviceRow.modelData.mounted
                                         ? translations.i18n("in use")
@@ -340,7 +341,7 @@ KCMUtils.SimpleKCM {
                                         && !root.selectedDevice.mounted
                                     : modelData.suitableForReformat)
                                 && (modelData.blockers?.length ?? 0) === 0
-                                && (modelData.mountPoints?.length ?? 0) === 0
+                                && !modelData.mounted
                                 && !root.provisioning.busy
                             highlighted: root.selectedTarget?.candidateId === modelData.candidateId
                             onClicked: {
@@ -367,17 +368,16 @@ KCMUtils.SimpleKCM {
                                     Layout.fillWidth: true
                                     title: (partitionRow.modelData.kind === "unallocated"
                                         ? translations.i18n("Free space")
-                                        : partitionRow.modelData.partitionLabel
-                                            || partitionRow.modelData.filesystemLabel
-                                            || partitionRow.modelData.path) + " — "
+                                        : translations.i18n("Partition %1", partitionRow.modelData.partitionNumber)) + " — "
                                         + root.formatBytes(Number(partitionRow.modelData.sectorCount)
                                             * Number(root.selectedDevice.logicalSectorSize || 512))
                                     subtitle: partitionRow.modelData.kind === "unallocated"
                                         ? translations.i18n("Available for a new backup partition")
                                         : partitionRow.modelData.configuredBackupTarget
                                             ? translations.i18n("Already used by a backup profile")
-                                            : partitionRow.modelData.path + " · "
-                                                + (partitionRow.modelData.filesystemType || translations.i18n("unknown filesystem"))
+                                            : partitionRow.modelData.encrypted
+                                                ? translations.i18n("encrypted partition")
+                                                : translations.i18n("existing partition")
                                     selected: partitionRow.highlighted
                                 }
                                 Kirigami.Icon {
@@ -574,7 +574,7 @@ KCMUtils.SimpleKCM {
                         : root.provisioning.plan.mode === "reformat-existing-partition"
                         ? translations.i18n(
                             "All data on partition %1 will be permanently erased. Other partitions will remain unchanged. Type %2 to confirm.",
-                            root.selectedTarget?.path ?? "",
+                            root.selectedTarget?.partitionNumber ?? "",
                             root.confirmationToken
                         )
                         : root.freeSpace
@@ -583,7 +583,7 @@ KCMUtils.SimpleKCM {
                         )
                         : translations.i18n(
                             "All data on %1 will be permanently erased. Type %2 to confirm.",
-                            root.selectedDevice?.path ?? "",
+                            translations.i18n("the selected storage device"),
                             root.confirmationToken
                         )
                 }
@@ -654,10 +654,6 @@ KCMUtils.SimpleKCM {
 
     function slug(value) {
         return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").substring(0, 63)
-    }
-    function deviceNodeName(path) {
-        const separator = path.lastIndexOf("/")
-        return path.substring(separator + 1).toUpperCase()
     }
     function rescanStorage() {
         root.selectedDevice = null
