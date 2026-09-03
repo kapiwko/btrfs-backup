@@ -4,7 +4,7 @@
 #include <filesystem>
 #include <fstream>
 
-#include <platform/linux/storage/ExistingTargetMountOperations.hpp>
+#include <platform/linux/storage/provisioning/ExistingTargetMountOperations.hpp>
 
 #include "support/TestHelpers.hpp"
 #include "support/ValidationTestHelpers.hpp"
@@ -12,7 +12,7 @@
 namespace fs = std::filesystem;
 
 int main() {
-    btrfsbackup::platform::linux::storage::LibmountExistingTargetMountOperations operations;
+    btrfsbackup::platform::linux::storage::provisioning::LibmountExistingTargetMountOperations operations;
     test_helpers::expect_validation_error(
         "relative existing target source",
         [&] { operations.mount_btrfs_read_only("dev/mapper/backup", "/tmp"); },

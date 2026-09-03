@@ -31,18 +31,18 @@
 
 namespace fs = std::filesystem;
 
-namespace btrfsbackup::platform::linux::storage {
+namespace btrfsbackup::platform::linux::storage::provisioning {
 namespace {
 
-using provisioning::ExistingPartition;
-using provisioning::FilesystemDescription;
-using provisioning::PartitionTableType;
-using provisioning::SafetyBlocker;
-using provisioning::StableBlockDeviceIdentity;
-using provisioning::StorageDevice;
-using provisioning::StorageRegion;
-using provisioning::StorageTopology;
-using provisioning::UnallocatedRegion;
+using ::btrfsbackup::provisioning::ExistingPartition;
+using ::btrfsbackup::provisioning::FilesystemDescription;
+using ::btrfsbackup::provisioning::PartitionTableType;
+using ::btrfsbackup::provisioning::SafetyBlocker;
+using ::btrfsbackup::provisioning::StableBlockDeviceIdentity;
+using ::btrfsbackup::provisioning::StorageDevice;
+using ::btrfsbackup::provisioning::StorageRegion;
+using ::btrfsbackup::provisioning::StorageTopology;
+using ::btrfsbackup::provisioning::UnallocatedRegion;
 
 template <typename T, auto Release>
 struct PointerDeleter {
@@ -544,7 +544,7 @@ StorageDevice describe_disk(
             result.regions.emplace_back(std::move(region));
         }
     }
-    std::ranges::sort(result.regions, {}, provisioning::region_start_sector);
+    std::ranges::sort(result.regions, {}, ::btrfsbackup::provisioning::region_start_sector);
     return result;
 }
 
@@ -566,7 +566,7 @@ std::string topology_fingerprint(const StorageTopology& topology) {
                   << device.identity.serial_short << '\0' << device.size_bytes << '\0'
                   << device.logical_sector_size << '\0' << device.physical_sector_size << '\0'
                   << device.system_device << '\0'
-                  << provisioning::partition_table_type_name(device.partition_table.type) << '\0'
+                  << ::btrfsbackup::provisioning::partition_table_type_name(device.partition_table.type) << '\0'
                   << device.partition_table.identifier << '\0';
         append_strings(device.mount_points);
         append_strings(device.holders);
@@ -612,7 +612,7 @@ SystemStorageTopologyReader::SystemStorageTopologyReader(
     ConfiguredBackupTargetProvider configured_targets
 ) : paths_(std::move(paths)),
     configured_targets_(configured_targets ? std::move(configured_targets) : ConfiguredBackupTargetProvider{[] {
-        return std::vector<provisioning::ConfiguredBackupTargetIdentity>{};
+        return std::vector<::btrfsbackup::provisioning::ConfiguredBackupTargetIdentity>{};
     }}) {
     if (!paths_.sysfs_root.is_absolute() || !paths_.mountinfo.is_absolute() || !paths_.swaps.is_absolute())
         throw std::invalid_argument("storage topology paths must be absolute");
@@ -629,10 +629,10 @@ StorageTopology SystemStorageTopologyReader::scan() {
         if (node.devtype == "disk" && node.parent == 0)
             result.devices.push_back(describe_disk(node, nodes, system_devices));
     }
-    provisioning::ConfiguredBackupTargetMarker(configured_targets_()).apply(result);
+    ::btrfsbackup::provisioning::ConfiguredBackupTargetMarker(configured_targets_()).apply(result);
     std::ranges::sort(result.devices, {}, [](const auto& device) { return device.identity.major_minor; });
     result.generation = topology_fingerprint(result);
     return result;
 }
 
-} // namespace btrfsbackup::platform::linux::storage
+} // namespace btrfsbackup::platform::linux::storage::provisioning

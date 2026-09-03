@@ -15,9 +15,9 @@
 #include <daemon/control/DestructiveDeviceSafetyInspector.hpp>
 #include <provisioning/StorageTopologyReader.hpp>
 #include <platform/linux/storage/BlockDeviceMetadata.hpp>
-#include <platform/linux/storage/BtrfsFilesystemFormatter.hpp>
+#include <platform/linux/storage/provisioning/BtrfsFilesystemFormatter.hpp>
 #include <platform/linux/storage/CryptsetupOperations.hpp>
-#include <platform/linux/storage/PartitionTableOperations.hpp>
+#include <platform/linux/storage/provisioning/PartitionTableOperations.hpp>
 #include <platform/linux/storage/SignatureOperations.hpp>
 #include <platform/linux/config/FileProfileRepository.hpp>
 
@@ -192,19 +192,19 @@ class Signatures final : public btrfsbackup::platform::linux::storage::ISignatur
     }
 };
 
-class PartitionTables final : public btrfsbackup::platform::linux::storage::IPartitionTableOperations {
+class PartitionTables final : public btrfsbackup::platform::linux::storage::provisioning::IPartitionTableOperations {
   public:
     bool partitioned = false;
     mutable bool snapshot_taken = false;
-    mutable std::vector<btrfsbackup::platform::linux::storage::PartitionTableFormat> snapshot_formats;
+    mutable std::vector<btrfsbackup::platform::linux::storage::provisioning::PartitionTableFormat> snapshot_formats;
     bool created_in_free_space = false;
     bool partition_creation_conflict = false;
-    btrfsbackup::platform::linux::storage::PlannedPartitionGeometry created_geometry;
+    btrfsbackup::platform::linux::storage::provisioning::PlannedPartitionGeometry created_geometry;
     std::vector<std::pair<std::string, std::string>> calls;
     std::string snapshot_partition_table(
         const std::filesystem::path&,
         const std::string&,
-        btrfsbackup::platform::linux::storage::PartitionTableFormat format,
+        btrfsbackup::platform::linux::storage::provisioning::PartitionTableFormat format,
         const std::string&,
         std::uint32_t
     ) const override {
@@ -212,7 +212,7 @@ class PartitionTables final : public btrfsbackup::platform::linux::storage::IPar
         snapshot_formats.push_back(format);
         return "label: gpt\nlabel-id: gpt-test\n";
     }
-    btrfsbackup::platform::linux::storage::PlannedPartitionGeometry plan_partition_in_free_space(
+    btrfsbackup::platform::linux::storage::provisioning::PlannedPartitionGeometry plan_partition_in_free_space(
         const std::filesystem::path&,
         const std::string&,
         const std::string&,
@@ -226,41 +226,41 @@ class PartitionTables final : public btrfsbackup::platform::linux::storage::IPar
             .partition_number = 2,
         };
     }
-    btrfsbackup::platform::linux::storage::PlannedPartitionGeometry plan_single_gpt_partition(
+    btrfsbackup::platform::linux::storage::provisioning::PlannedPartitionGeometry plan_single_gpt_partition(
         const std::filesystem::path&,
         const std::string&,
         std::uint32_t
     ) const override {
         return {.start_sector = 1, .sector_count = 2047, .partition_number = 1};
     }
-    btrfsbackup::platform::linux::storage::PartitionCreationInspection inspect_partition_creation(
+    btrfsbackup::platform::linux::storage::provisioning::PartitionCreationInspection inspect_partition_creation(
         const std::filesystem::path&,
         const std::string&,
         const std::string&,
         std::uint32_t,
         std::uint64_t,
         std::uint64_t,
-        const btrfsbackup::platform::linux::storage::PlannedPartitionGeometry& geometry
+        const btrfsbackup::platform::linux::storage::provisioning::PlannedPartitionGeometry& geometry
     ) const override {
         if (partition_creation_conflict)
-            return {.state = btrfsbackup::platform::linux::storage::PartitionCreationState::Conflict};
+            return {.state = btrfsbackup::platform::linux::storage::provisioning::PartitionCreationState::Conflict};
         if (!created_in_free_space || geometry != created_geometry)
-            return {.state = btrfsbackup::platform::linux::storage::PartitionCreationState::NotCreated};
+            return {.state = btrfsbackup::platform::linux::storage::provisioning::PartitionCreationState::NotCreated};
         return {
-            .state = btrfsbackup::platform::linux::storage::PartitionCreationState::Created,
+            .state = btrfsbackup::platform::linux::storage::provisioning::PartitionCreationState::Created,
             .partition = "/dev/test2",
         };
     }
-    btrfsbackup::platform::linux::storage::PartitionCreationInspection inspect_single_gpt_partition(
+    btrfsbackup::platform::linux::storage::provisioning::PartitionCreationInspection inspect_single_gpt_partition(
         const std::filesystem::path&,
         const std::string&,
         std::uint32_t,
-        const btrfsbackup::platform::linux::storage::PlannedPartitionGeometry& geometry
+        const btrfsbackup::platform::linux::storage::provisioning::PlannedPartitionGeometry& geometry
     ) const override {
         if (!partitioned || geometry != created_geometry)
-            return {.state = btrfsbackup::platform::linux::storage::PartitionCreationState::Conflict};
+            return {.state = btrfsbackup::platform::linux::storage::provisioning::PartitionCreationState::Conflict};
         return {
-            .state = btrfsbackup::platform::linux::storage::PartitionCreationState::Created,
+            .state = btrfsbackup::platform::linux::storage::provisioning::PartitionCreationState::Created,
             .partition = "/dev/test1",
         };
     }
@@ -271,7 +271,7 @@ class PartitionTables final : public btrfsbackup::platform::linux::storage::IPar
         std::uint32_t,
         std::uint64_t,
         std::uint64_t,
-        const btrfsbackup::platform::linux::storage::PlannedPartitionGeometry& geometry
+        const btrfsbackup::platform::linux::storage::provisioning::PlannedPartitionGeometry& geometry
     ) override {
         if (!snapshot_taken)
             throw std::runtime_error("partition table was not backed up");
@@ -282,7 +282,7 @@ class PartitionTables final : public btrfsbackup::platform::linux::storage::IPar
     std::filesystem::path replace_with_single_gpt_partition(
         const std::filesystem::path& device,
         const std::string& expected_major_minor,
-        const btrfsbackup::platform::linux::storage::PlannedPartitionGeometry& geometry
+        const btrfsbackup::platform::linux::storage::provisioning::PlannedPartitionGeometry& geometry
     ) override {
         calls.emplace_back(device.string(), expected_major_minor);
         created_geometry = geometry;
@@ -477,7 +477,7 @@ void test_preparation_sequence_uses_descriptors_and_installs_profile() {
     const auto root = test_helpers::test_root("device-provisioning", "success");
     write_source_mountinfo(root);
     Commands commands;
-    btrfsbackup::platform::linux::storage::CommandBtrfsFilesystemFormatter btrfs_formatter(commands);
+    btrfsbackup::platform::linux::storage::provisioning::CommandBtrfsFilesystemFormatter btrfs_formatter(commands);
     Signatures signatures;
     MetadataReader metadata;
     PartitionTables partition_tables;
@@ -722,14 +722,14 @@ void test_preparation_sequence_uses_descriptors_and_installs_profile() {
     test_helpers::expect_true(
         "destructive adapters",
         partition_tables.snapshot_formats ==
-                std::vector<btrfsbackup::platform::linux::storage::PartitionTableFormat>{
-                    btrfsbackup::platform::linux::storage::PartitionTableFormat::None,
+                std::vector<btrfsbackup::platform::linux::storage::provisioning::PartitionTableFormat>{
+                    btrfsbackup::platform::linux::storage::provisioning::PartitionTableFormat::None,
                 } &&
             signatures.calls == std::vector<std::pair<std::string, std::string>>{{"/dev/test", "8:16"}} &&
             partition_tables.calls ==
                 std::vector<std::pair<std::string, std::string>>{{"/dev/test", "8:16"}} &&
             partition_tables.created_geometry ==
-                btrfsbackup::platform::linux::storage::PlannedPartitionGeometry{
+                btrfsbackup::platform::linux::storage::provisioning::PlannedPartitionGeometry{
                     .start_sector = 1,
                     .sector_count = 2047,
                     .partition_number = 1,
@@ -853,7 +853,7 @@ void test_existing_partition_does_not_modify_parent_partition_table() {
     const auto root = test_helpers::test_root("device-provisioning", "existing-partition");
     write_source_mountinfo(root);
     Commands commands;
-    btrfsbackup::platform::linux::storage::CommandBtrfsFilesystemFormatter btrfs_formatter(commands);
+    btrfsbackup::platform::linux::storage::provisioning::CommandBtrfsFilesystemFormatter btrfs_formatter(commands);
     Signatures signatures;
     MetadataReader metadata;
     PartitionTables partition_tables;
@@ -949,7 +949,7 @@ void test_free_space_preparation_uses_frozen_geometry() {
     const auto root = test_helpers::test_root("device-provisioning", "free-space");
     write_source_mountinfo(root);
     Commands commands;
-    btrfsbackup::platform::linux::storage::CommandBtrfsFilesystemFormatter btrfs_formatter(commands);
+    btrfsbackup::platform::linux::storage::provisioning::CommandBtrfsFilesystemFormatter btrfs_formatter(commands);
     Signatures signatures;
     MetadataReader metadata;
     PartitionTables partition_tables;
@@ -1014,7 +1014,7 @@ void test_free_space_preparation_uses_frozen_geometry() {
         backend.status(started.operation_id).state == "succeeded" &&
             partition_tables.snapshot_taken && partition_tables.created_in_free_space &&
             partition_tables.created_geometry ==
-                btrfsbackup::platform::linux::storage::PlannedPartitionGeometry{
+                btrfsbackup::platform::linux::storage::provisioning::PlannedPartitionGeometry{
                     .start_sector = 2048,
                     .sector_count = 4096,
                     .partition_number = 2,
@@ -1093,7 +1093,7 @@ void test_adoption_revalidates_fingerprint_without_modifying_target() {
     const auto root = test_helpers::test_root("device-provisioning", "adoption");
     write_source_mountinfo(root);
     Commands commands;
-    btrfsbackup::platform::linux::storage::CommandBtrfsFilesystemFormatter btrfs_formatter(commands);
+    btrfsbackup::platform::linux::storage::provisioning::CommandBtrfsFilesystemFormatter btrfs_formatter(commands);
     Signatures signatures;
     MetadataReader metadata;
     PartitionTables partition_tables;
@@ -1235,7 +1235,7 @@ void test_exited_helper_marks_transaction_interrupted() {
     const auto root = test_helpers::test_root("device-provisioning", "helper-exited");
     write_source_mountinfo(root);
     Commands commands;
-    btrfsbackup::platform::linux::storage::CommandBtrfsFilesystemFormatter btrfs_formatter(commands);
+    btrfsbackup::platform::linux::storage::provisioning::CommandBtrfsFilesystemFormatter btrfs_formatter(commands);
     Signatures signatures;
     MetadataReader metadata;
     PartitionTables partition_tables;
@@ -1318,7 +1318,7 @@ void test_replacement_before_wipe_is_rejected() {
     const auto root = test_helpers::test_root("device-provisioning", "replacement");
     write_source_mountinfo(root);
     Commands commands;
-    btrfsbackup::platform::linux::storage::CommandBtrfsFilesystemFormatter btrfs_formatter(commands);
+    btrfsbackup::platform::linux::storage::provisioning::CommandBtrfsFilesystemFormatter btrfs_formatter(commands);
     Signatures signatures;
     MetadataReader metadata;
     PartitionTables partition_tables;
@@ -1487,7 +1487,7 @@ void test_restart_marks_active_transaction_interrupted_and_preserves_owner() {
     );
 
     Commands commands;
-    btrfsbackup::platform::linux::storage::CommandBtrfsFilesystemFormatter btrfs_formatter(commands);
+    btrfsbackup::platform::linux::storage::provisioning::CommandBtrfsFilesystemFormatter btrfs_formatter(commands);
     Signatures signatures;
     MetadataReader metadata;
     PartitionTables partition_tables;

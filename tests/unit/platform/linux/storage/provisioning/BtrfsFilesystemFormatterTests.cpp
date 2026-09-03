@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Kamil Piwowarski <kapiwko@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <platform/linux/storage/BtrfsFilesystemFormatter.hpp>
+#include <platform/linux/storage/provisioning/BtrfsFilesystemFormatter.hpp>
 
 #include <chrono>
 #include <vector>
@@ -38,7 +38,7 @@ class Commands final : public btrfsbackup::backup::ICommandRunner {
 
 void test_uses_fixed_controlled_command() {
     Commands commands;
-    btrfsbackup::platform::linux::storage::CommandBtrfsFilesystemFormatter formatter(commands);
+    btrfsbackup::platform::linux::storage::provisioning::CommandBtrfsFilesystemFormatter formatter(commands);
     formatter.format("/dev/mapper/backup", "Backup target");
 
     test_helpers::expect_true(
@@ -61,7 +61,7 @@ void test_uses_fixed_controlled_command() {
 
 void test_rejects_invalid_request_before_execution() {
     Commands commands;
-    btrfsbackup::platform::linux::storage::CommandBtrfsFilesystemFormatter formatter(commands);
+    btrfsbackup::platform::linux::storage::provisioning::CommandBtrfsFilesystemFormatter formatter(commands);
 
     try {
         formatter.format("dev/mapper/backup", "Backup target");
@@ -88,7 +88,7 @@ void test_rejects_failed_or_interrupted_command() {
          }) {
         Commands commands;
         commands.result = result;
-        btrfsbackup::platform::linux::storage::CommandBtrfsFilesystemFormatter formatter(commands);
+        btrfsbackup::platform::linux::storage::provisioning::CommandBtrfsFilesystemFormatter formatter(commands);
         try {
             formatter.format("/dev/mapper/backup", "Backup target");
             test_helpers::fail("failed formatter command", "failed command was accepted");

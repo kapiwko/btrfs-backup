@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Kamil Piwowarski <kapiwko@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <platform/linux/storage/ExistingTargetMountOperations.hpp>
+#include <platform/linux/storage/provisioning/ExistingTargetMountOperations.hpp>
 
 #include <libmount/libmount.h>
 #include <sys/stat.h>
@@ -13,7 +13,7 @@
 
 #include <core/Errors.hpp>
 
-namespace btrfsbackup::platform::linux::storage {
+namespace btrfsbackup::platform::linux::storage::provisioning {
 namespace {
 
 template <typename T, auto Release>
@@ -101,4 +101,4 @@ void LibmountExistingTargetMountOperations::unmount(const std::filesystem::path&
     require_success(mnt_context_umount(context.get()), "unmounting existing target");
 }
 
-} // namespace btrfsbackup::platform::linux::storage
+} // namespace btrfsbackup::platform::linux::storage::provisioning

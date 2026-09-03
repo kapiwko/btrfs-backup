@@ -5,7 +5,7 @@
 
 #include <filesystem>
 
-namespace btrfsbackup::platform::linux::storage {
+namespace btrfsbackup::platform::linux::storage::provisioning {
 
 class IExistingTargetMountOperations {
   public:
@@ -26,4 +26,4 @@ class LibmountExistingTargetMountOperations final : public IExistingTargetMountO
     void unmount(const std::filesystem::path& target) override;
 };
 
-} // namespace btrfsbackup::platform::linux::storage
+} // namespace btrfsbackup::platform::linux::storage::provisioning

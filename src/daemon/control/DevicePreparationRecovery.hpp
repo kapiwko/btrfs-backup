@@ -9,8 +9,11 @@
 
 namespace btrfsbackup::platform::linux::storage {
 class ICryptsetupOperations;
-class IPartitionTableOperations;
 } // namespace btrfsbackup::platform::linux::storage
+
+namespace btrfsbackup::platform::linux::storage::provisioning {
+class IPartitionTableOperations;
+} // namespace btrfsbackup::platform::linux::storage::provisioning
 
 namespace btrfsbackup::daemon::control {
 
@@ -20,7 +23,7 @@ class DevicePreparationRecovery final {
   public:
     DevicePreparationRecovery(
         DevicePreparationTransactionStore& transactions,
-        platform::linux::storage::IPartitionTableOperations& partition_tables,
+        platform::linux::storage::provisioning::IPartitionTableOperations& partition_tables,
         platform::linux::storage::ICryptsetupOperations& cryptsetup,
         IExistingTargetInspector* existing_target_inspector
     );
@@ -35,7 +38,7 @@ class DevicePreparationRecovery final {
     void close_mapper(DevicePreparationTransaction& transaction) const;
 
     DevicePreparationTransactionStore& transactions_;
-    platform::linux::storage::IPartitionTableOperations& partition_tables_;
+    platform::linux::storage::provisioning::IPartitionTableOperations& partition_tables_;
     platform::linux::storage::ICryptsetupOperations& cryptsetup_;
     IExistingTargetInspector* existing_target_inspector_;
 };

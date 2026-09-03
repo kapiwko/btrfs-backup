@@ -28,11 +28,11 @@
 #include <platform/linux/filesystem/PosixDurableFileOperations.hpp>
 #include <platform/linux/storage/MountInfo.hpp>
 #include <platform/linux/storage/BlockDeviceMetadata.hpp>
-#include <platform/linux/storage/BtrfsFilesystemFormatter.hpp>
+#include <platform/linux/storage/provisioning/BtrfsFilesystemFormatter.hpp>
 #include <platform/linux/storage/LibBtrfsOperations.hpp>
 #include <platform/linux/storage/CryptsetupOperations.hpp>
-#include <platform/linux/storage/ExistingTargetMountOperations.hpp>
-#include <platform/linux/storage/PartitionTableOperations.hpp>
+#include <platform/linux/storage/provisioning/ExistingTargetMountOperations.hpp>
+#include <platform/linux/storage/provisioning/PartitionTableOperations.hpp>
 #include <platform/linux/storage/SignatureOperations.hpp>
 #include <platform/linux/storage/provisioning/SystemStorageTopologyReader.hpp>
 #include <state/persistence/FileRunStateRepository.hpp>
@@ -182,15 +182,15 @@ int main(int argc, char** argv) {
             }
             return result;
         };
-        btrfsbackup::platform::linux::storage::SystemStorageTopologyReader storage_topology(
+        btrfsbackup::platform::linux::storage::provisioning::SystemStorageTopologyReader storage_topology(
             {.mountinfo = paths.mountinfo_path},
             configured_targets
         );
         btrfsbackup::platform::linux::storage::LibblkidSignatureOperations signature_operations;
         btrfsbackup::platform::linux::storage::LibblkidBlockDeviceMetadataReader metadata_reader;
-        btrfsbackup::platform::linux::storage::LibfdiskPartitionTableOperations partition_tables;
-        btrfsbackup::platform::linux::storage::CommandBtrfsFilesystemFormatter btrfs_formatter(commands);
-        btrfsbackup::platform::linux::storage::LibmountExistingTargetMountOperations existing_target_mounts;
+        btrfsbackup::platform::linux::storage::provisioning::LibfdiskPartitionTableOperations partition_tables;
+        btrfsbackup::platform::linux::storage::provisioning::CommandBtrfsFilesystemFormatter btrfs_formatter(commands);
+        btrfsbackup::platform::linux::storage::provisioning::LibmountExistingTargetMountOperations existing_target_mounts;
         btrfsbackup::daemon::control::ExistingTargetInspector existing_target_inspector(
             cryptsetup,
             metadata_reader,

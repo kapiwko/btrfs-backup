@@ -10,7 +10,7 @@ namespace btrfsbackup::backup {
 class ICommandRunner;
 }
 
-namespace btrfsbackup::platform::linux::storage {
+namespace btrfsbackup::platform::linux::storage::provisioning {
 
 class IBtrfsFilesystemFormatter {
   public:
@@ -27,4 +27,4 @@ class CommandBtrfsFilesystemFormatter final : public IBtrfsFilesystemFormatter {
     backup::ICommandRunner& commands_;
 };
 
-} // namespace btrfsbackup::platform::linux::storage
+} // namespace btrfsbackup::platform::linux::storage::provisioning

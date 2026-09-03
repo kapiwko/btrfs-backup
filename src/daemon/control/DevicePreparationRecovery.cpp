@@ -9,7 +9,7 @@
 #include <core/Errors.hpp>
 #include <daemon/control/ExistingTargetInspector.hpp>
 #include <platform/linux/storage/CryptsetupOperations.hpp>
-#include <platform/linux/storage/PartitionTableOperations.hpp>
+#include <platform/linux/storage/provisioning/PartitionTableOperations.hpp>
 
 namespace fs = std::filesystem;
 
@@ -27,7 +27,7 @@ std::int64_t system_time_seconds() {
 
 DevicePreparationRecovery::DevicePreparationRecovery(
     DevicePreparationTransactionStore& transactions,
-    platform::linux::storage::IPartitionTableOperations& partition_tables,
+    platform::linux::storage::provisioning::IPartitionTableOperations& partition_tables,
     platform::linux::storage::ICryptsetupOperations& cryptsetup,
     IExistingTargetInspector* existing_target_inspector
 )
@@ -75,7 +75,7 @@ bool DevicePreparationRecovery::inspect_replaced_partition(
                 .partition_number = planned.partition_number,
             }
         );
-        if (inspection.state == platform::linux::storage::PartitionCreationState::Created) {
+        if (inspection.state == platform::linux::storage::provisioning::PartitionCreationState::Created) {
             transaction.partition = inspection.partition.string();
             transaction.last_completed_phase = "partition";
             transaction.cleanup_result = "partition-detected";
@@ -118,13 +118,13 @@ bool DevicePreparationRecovery::inspect_created_partition(
                 .partition_number = planned.partition_number,
             }
         );
-        if (inspection.state == platform::linux::storage::PartitionCreationState::Created) {
+        if (inspection.state == platform::linux::storage::provisioning::PartitionCreationState::Created) {
             transaction.partition = inspection.partition.string();
             transaction.last_completed_phase = "partition";
             transaction.cleanup_result = "partition-detected";
             transaction.status.recovery_action =
                 "The planned partition exists. Inspect it before completing or removing it manually.";
-        } else if (inspection.state == platform::linux::storage::PartitionCreationState::NotCreated) {
+        } else if (inspection.state == platform::linux::storage::provisioning::PartitionCreationState::NotCreated) {
             transaction.cleanup_result = "partition-not-created";
             transaction.status.recovery_action =
                 "No new partition was detected. Rescan storage and build a new preparation plan.";

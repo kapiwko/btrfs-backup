@@ -7,7 +7,7 @@
 #include <filesystem>
 #include <string>
 
-namespace btrfsbackup::platform::linux::storage {
+namespace btrfsbackup::platform::linux::storage::provisioning {
 
 struct PlannedPartitionGeometry {
     std::uint64_t start_sector = 0;
@@ -140,4 +140,4 @@ class LibfdiskPartitionTableOperations final : public IPartitionTableOperations 
     ) override;
 };
 
-} // namespace btrfsbackup::platform::linux::storage
+} // namespace btrfsbackup::platform::linux::storage::provisioning
