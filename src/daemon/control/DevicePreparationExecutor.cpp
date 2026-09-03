@@ -266,10 +266,16 @@ void DevicePreparationExecutor::execute(const std::string& operation_id, int pas
                 inspected.partition_uuid
             );
             profile.enabled = false;
+            const platform::linux::config::ExpectedProfileIdentity expected_profile{
+                .exists = false,
+                .generation = {},
+                .fingerprint = {},
+            };
             platform::linux::config::install_profile(
                 profile,
                 {roots_.config_root, roots_.udev_root, roots_.systemd_root, roots_.public_root},
-                activator_
+                activator_,
+                &expected_profile
             );
             update(operation_id, [](auto& transaction) {
                 transaction.configuration_state = "installed";
@@ -424,10 +430,16 @@ void DevicePreparationExecutor::execute(const std::string& operation_id, int pas
         phase(operation_id, "write-profile", false);
         update(operation_id, [](auto& transaction) { transaction.configuration_state = "in-progress"; });
         config::Profile profile = plan_builder_.build(initial, luks_uuid, btrfs_uuid, partition_uuid);
+        const platform::linux::config::ExpectedProfileIdentity expected_profile{
+            .exists = false,
+            .generation = {},
+            .fingerprint = {},
+        };
         platform::linux::config::install_profile(
             profile,
             {roots_.config_root, roots_.udev_root, roots_.systemd_root, roots_.public_root},
-            activator_
+            activator_,
+            &expected_profile
         );
         update(operation_id, [](auto& transaction) {
             transaction.configuration_state = "installed";

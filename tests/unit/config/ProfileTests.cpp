@@ -791,6 +791,48 @@ void test_profile_installation_staging_failure_preserves_installed_artifacts() {
     fs::remove_all(root);
 }
 
+void test_profile_installer_create_only_refuses_existing_profile() {
+    const fs::path root = test_root();
+    const fs::path etc_root = root / "etc" / "btrfs-backup";
+    const fs::path udev_root = root / "etc" / "udev" / "rules.d";
+    const fs::path systemd_root = root / "etc" / "systemd" / "system";
+    const fs::path public_root = root / "public";
+    btrfsbackup::config::Profile original = btrfsbackup::config::json::profile_from_json(valid_profile());
+    install_test_profile_transactionally(original, etc_root, udev_root, systemd_root, public_root);
+    const fs::path profile_path = etc_root / "profiles" / "default" / "profile.json";
+    const std::string before = read_text(profile_path);
+
+    btrfsbackup::config::Profile replacement = original;
+    replacement.name = "Replacement that must not be published";
+    btrfsbackup::config::ProfileArtifactRenderer renderer(
+        btrfsbackup::platform::linux::config::generate_configuration_generation
+    );
+    btrfsbackup::config::NullConfigurationActivator activator;
+    btrfsbackup::platform::linux::config::ProfileInstaller installer(renderer, activator);
+    const btrfsbackup::platform::linux::config::ExpectedProfileIdentity create_only{
+        .exists = false,
+        .generation = {},
+        .fingerprint = {},
+    };
+    bool rejected = false;
+    try {
+        installer.install_profile_transactionally(
+            replacement,
+            {.etc_root = etc_root, .udev_root = udev_root, .systemd_root = systemd_root, .public_root = public_root},
+            &create_only
+        );
+    } catch (const btrfsbackup::CodedValidationError& error) {
+        rejected = error.error_code == btrfsbackup::ErrorCode::ConfigurationChanged;
+    }
+    expect_true("create-only profile publication", rejected, "existing profile was replaced");
+    expect_true(
+        "create-only preserves existing profile",
+        read_text(profile_path) == before,
+        "create-only failure modified the installed profile"
+    );
+    fs::remove_all(root);
+}
+
 void test_profile_installation_activation_failure_rolls_back_all_artifacts() {
     fs::path root = test_root();
     btrfsbackup::config::Profile original = btrfsbackup::config::json::profile_from_json(valid_profile());
@@ -997,6 +1039,7 @@ int main() {
     test_profile_installer();
     test_profile_installer_replaces_obsolete_mount_transactionally();
     test_profile_installation_staging_failure_preserves_installed_artifacts();
+    test_profile_installer_create_only_refuses_existing_profile();
     test_profile_installation_activation_failure_rolls_back_all_artifacts();
     test_profile_installation_reports_incomplete_rollback();
     test_profile_installation_refuses_active_profile_lock();
