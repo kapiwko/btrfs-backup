@@ -111,10 +111,10 @@ void DevicePreparationExecutor::update(
     const std::string& operation_id,
     const TransactionMutator& mutator
 ) {
-    DevicePreparationTransaction transaction = transactions_.load(operation_id);
-    mutator(transaction);
-    transaction.updated_at = system_time_seconds();
-    transactions_.save(transaction);
+    static_cast<void>(transactions_.update(operation_id, [&](auto& transaction) {
+        mutator(transaction);
+        transaction.updated_at = system_time_seconds();
+    }));
 }
 
 void DevicePreparationExecutor::phase(
@@ -123,6 +123,8 @@ void DevicePreparationExecutor::phase(
     bool can_cancel
 ) {
     update(operation_id, [&](auto& transaction) {
+        if (transaction.cancel_requested)
+            throw ValidationError("device preparation cancellation was requested");
         transaction.status.state = "running";
         transaction.status.phase = value;
         transaction.status.can_cancel = can_cancel;
@@ -494,11 +496,15 @@ void DevicePreparationExecutor::execute(const std::string& operation_id, int pas
             update(operation_id, [&](auto& transaction) {
                 std::cerr << "Device preparation " << operation_id << " failed during "
                           << transaction.status.phase << ": " << error.what() << '\n';
-                transaction.status.state = "failed";
-                transaction.status.error_code = "device-preparation." + transaction.status.phase + "-failed";
-                transaction.status.recovery_action = initial.target.mode == provisioning::ProvisioningMode::AdoptExistingTarget
-                    ? "Rescan and inspect the existing target before creating a new adoption plan."
-                    : "Inspect the recorded device artifacts and complete or remove partial structures manually.";
+                transaction.status.state = transaction.cancel_requested ? "cancelled" : "failed";
+                transaction.status.error_code = transaction.cancel_requested
+                    ? std::string{}
+                    : "device-preparation." + transaction.status.phase + "-failed";
+                transaction.status.recovery_action = transaction.cancel_requested
+                    ? std::string{}
+                    : (initial.target.mode == provisioning::ProvisioningMode::AdoptExistingTarget
+                           ? "Rescan and inspect the existing target before creating a new adoption plan."
+                           : "Inspect the recorded device artifacts and complete or remove partial structures manually.");
                 transaction.status.can_cancel = false;
                 transaction.cleanup_result = !cleanup_required
                     ? "not-required"
@@ -522,11 +528,15 @@ void DevicePreparationExecutor::execute(const std::string& operation_id, int pas
         }
         try {
             update(operation_id, [&](auto& transaction) {
-                transaction.status.state = "failed";
-                transaction.status.error_code = "device-preparation.unknown-failed";
-                transaction.status.recovery_action = initial.target.mode == provisioning::ProvisioningMode::AdoptExistingTarget
-                    ? "Rescan and inspect the existing target before creating a new adoption plan."
-                    : "Inspect and repair the recorded device artifacts manually.";
+                transaction.status.state = transaction.cancel_requested ? "cancelled" : "failed";
+                transaction.status.error_code = transaction.cancel_requested
+                    ? std::string{}
+                    : "device-preparation.unknown-failed";
+                transaction.status.recovery_action = transaction.cancel_requested
+                    ? std::string{}
+                    : (initial.target.mode == provisioning::ProvisioningMode::AdoptExistingTarget
+                           ? "Rescan and inspect the existing target before creating a new adoption plan."
+                           : "Inspect and repair the recorded device artifacts manually.");
                 transaction.status.can_cancel = false;
                 transaction.cleanup_result = !cleanup_required
                     ? "not-required"

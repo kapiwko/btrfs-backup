@@ -681,6 +681,33 @@ void test_preparation_sequence_uses_descriptors_and_installs_profile() {
         existing_rejected && units.starts == 1,
         "existing profile identity reached helper launch"
     );
+    const int cancelled_secret = secret_descriptor(password);
+    const auto cancelled = backend.start(
+        {
+            .profile_id = "cancelled",
+            .profile_name = "Cancelled",
+            .plan_id = "plan-cancelled",
+            .source_subvolume = "/home",
+            .passphrase_label = "Recovery",
+        },
+        preparation_target,
+        {.bus_name = ":1.8", .uid = 1000},
+        cancelled_secret
+    );
+    ::close(cancelled_secret);
+    const auto cancellation_phase = DevicePreparationTransactionStore(root / "transactions")
+                                        .load(cancelled.operation_id)
+                                        .status.phase;
+    backend.cancel(cancelled.operation_id);
+    const auto cancelled_transaction = DevicePreparationTransactionStore(root / "transactions")
+                                           .load(cancelled.operation_id);
+    test_helpers::expect_true(
+        "cancellation does not overwrite helper phase",
+        cancelled_transaction.status.state == "cancelled" && cancelled_transaction.cancel_requested &&
+            cancelled_transaction.status.phase == cancellation_phase &&
+            cancelled_transaction.profile_reservation_state == "released" && units.stops == 1,
+        "manager cancellation replaced execution progress or retained its reservation"
+    );
     const auto format = std::ranges::find(commands.calls, std::string("mkfs.btrfs"), [](const auto& call) { return call.front(); });
     test_helpers::expect_true(
         "destructive adapters",
@@ -706,13 +733,18 @@ void test_preparation_sequence_uses_descriptors_and_installs_profile() {
         transaction.partition_table_backup,
         "label: gpt\nlabel-id: gpt-test\n"
     );
+    transaction.revision = {};
+    transaction.status.operation_id = "prepare-recover-whole-device";
+    transaction.status.profile_id = "recover-whole-device";
     transaction.status.state = "interrupted";
     transaction.status.phase = "partition";
+    transaction.profile_reservation_state = "held";
     transaction.last_completed_phase = "wipe-signatures";
     transaction.partition.clear();
     DevicePreparationTransactionStore(root / "transactions").save(transaction);
-    backend.recover_operation(started.operation_id);
-    const auto recovered = DevicePreparationTransactionStore(root / "transactions").load(started.operation_id);
+    backend.recover_operation(transaction.status.operation_id);
+    const auto recovered = DevicePreparationTransactionStore(root / "transactions")
+                               .load(transaction.status.operation_id);
     test_helpers::expect_true(
         "whole-device partition recovery",
         recovered.partition == "/dev/test1" && recovered.last_completed_phase == "partition" &&
@@ -996,13 +1028,18 @@ void test_free_space_preparation_uses_frozen_geometry() {
         "LUKS was not limited to the newly verified partition"
     );
 
+    transaction.revision = {};
+    transaction.status.operation_id = "prepare-recover-free-space";
+    transaction.status.profile_id = "recover-free-space";
     transaction.status.state = "interrupted";
     transaction.status.phase = "partition";
+    transaction.profile_reservation_state = "held";
     transaction.last_completed_phase = "backup-partition-table";
     transaction.partition.clear();
     DevicePreparationTransactionStore(root / "transactions").save(transaction);
-    backend.recover_operation(started.operation_id);
-    const auto recovered = DevicePreparationTransactionStore(root / "transactions").load(started.operation_id);
+    backend.recover_operation(transaction.status.operation_id);
+    const auto recovered = DevicePreparationTransactionStore(root / "transactions")
+                               .load(transaction.status.operation_id);
     test_helpers::expect_true(
         "created partition recovery",
         recovered.partition == "/dev/test2" && recovered.last_completed_phase == "partition" &&
@@ -1016,8 +1053,9 @@ void test_free_space_preparation_uses_frozen_geometry() {
     transaction.partition.clear();
     partition_tables.created_in_free_space = false;
     DevicePreparationTransactionStore(root / "transactions").save(transaction);
-    backend.recover_operation(started.operation_id);
-    const auto not_created = DevicePreparationTransactionStore(root / "transactions").load(started.operation_id);
+    backend.recover_operation(transaction.status.operation_id);
+    const auto not_created = DevicePreparationTransactionStore(root / "transactions")
+                                 .load(transaction.status.operation_id);
     test_helpers::expect_true(
         "missing partition recovery",
         not_created.partition.empty() && not_created.last_completed_phase == "backup-partition-table" &&
@@ -1030,8 +1068,9 @@ void test_free_space_preparation_uses_frozen_geometry() {
     transaction.cleanup_result = "not-required";
     partition_tables.partition_creation_conflict = true;
     DevicePreparationTransactionStore(root / "transactions").save(transaction);
-    backend.recover_operation(started.operation_id);
-    const auto conflicted = DevicePreparationTransactionStore(root / "transactions").load(started.operation_id);
+    backend.recover_operation(transaction.status.operation_id);
+    const auto conflicted = DevicePreparationTransactionStore(root / "transactions")
+                                .load(transaction.status.operation_id);
     test_helpers::expect_true(
         "conflicting partition recovery",
         conflicted.partition.empty() && conflicted.cleanup_result == "partition-state-conflict" &&
@@ -1161,14 +1200,19 @@ void test_adoption_revalidates_fingerprint_without_modifying_target() {
     );
 
     auto interrupted = DevicePreparationTransactionStore(root / "transactions").load(changed.operation_id);
+    interrupted.revision = {};
+    interrupted.status.operation_id = "prepare-recover-adoption";
+    interrupted.status.profile_id = "recover-adoption";
     interrupted.status.state = "interrupted";
-    interrupted.mapper = changed.operation_id;
-    interrupted.inspection_mount_point = (root / "inspections" / changed.operation_id).string();
+    interrupted.profile_reservation_state = "held";
+    interrupted.mapper = interrupted.status.operation_id;
+    interrupted.inspection_mount_point = (root / "inspections" / interrupted.status.operation_id).string();
     interrupted.cleanup_result = "pending";
     std::filesystem::create_directories(interrupted.inspection_mount_point);
     DevicePreparationTransactionStore(root / "transactions").save(interrupted);
-    backend.recover_operation(changed.operation_id);
-    const auto recovered = DevicePreparationTransactionStore(root / "transactions").load(changed.operation_id);
+    backend.recover_operation(interrupted.status.operation_id);
+    const auto recovered = DevicePreparationTransactionStore(root / "transactions")
+                               .load(interrupted.status.operation_id);
     test_helpers::expect_true(
         "adoption recovery",
         inspector.cleanups == 1 && recovered.mapper.empty() && recovered.inspection_mount_point.empty() &&
