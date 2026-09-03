@@ -8,34 +8,10 @@ The core runtime works without a desktop. An optional KDE package adds setup in
 System Settings, live progress, notifications, backup browsing in Dolphin and a
 guided restore application.
 
-### Plasma Widget
+[![Monitoring an active backup from the Plasma panel](docs/images/plasma-widget-transferring.png)](docs/images/plasma-widget-transferring.png)
 
-| Profiles collapsed | Target connected |
-|---|---|
-| [![Collapsed profiles in the Plasma widget](docs/images/plasma-widget-collapsed.png)](docs/images/plasma-widget-collapsed.png) | [![Connected target in the Plasma widget](docs/images/plasma-widget-connected.png)](docs/images/plasma-widget-connected.png) |
-
-| Target disconnected | Backup in progress |
-|---|---|
-| [![Disconnected target in the Plasma widget](docs/images/plasma-widget-disconnected.png)](docs/images/plasma-widget-disconnected.png) | [![Active transfer in the Plasma widget](docs/images/plasma-widget-transferring.png)](docs/images/plasma-widget-transferring.png) |
-
-### Desktop Progress And Notifications
-
-| Native transfer progress | Backup completed |
-|---|---|
-| [![KUiJob transfer progress in Plasma notifications](docs/images/kui-job-transferring.png)](docs/images/kui-job-transferring.png) | [![Completed backup notification in Plasma](docs/images/notification-completed.png)](docs/images/notification-completed.png) |
-
-### System Settings
-
-| Targets connected | Targets disconnected | Backup in progress |
-|---|---|---|
-| [![Connected backup targets in System Settings](docs/images/system-settings-connected.png)](docs/images/system-settings-connected.png) | [![Disconnected backup targets in System Settings](docs/images/system-settings-disconnected.png)](docs/images/system-settings-disconnected.png) | [![Active backup in System Settings](docs/images/system-settings-transferring.png)](docs/images/system-settings-transferring.png) |
-
-### Guided Restore
-
-![Restore plan in the KDE restore application](docs/images/restore-dialog.png)
-
-The screenshots use sample data and are rendered deterministically from the
-repository with [`tools/render-readme-screenshot.sh`](tools/render-readme-screenshot.sh).
+*Monitor transferred data, speed, remaining time and target state directly from
+the Plasma panel.*
 
 ## What You Get
 
@@ -189,6 +165,57 @@ configured profile are available to the active local desktop session without a
 password. Other profile changes and validation use Polkit; hook changes require
 a separate high-risk authorization. Inspecting cached target capacity never
 unlocks or mounts the drive.
+
+### Configure A Backup Target
+
+Start by choosing whether to reuse an existing encrypted backup target or let
+the guided workflow prepare a removable device.
+
+[![Choosing how to configure a new backup profile in System Settings](docs/images/system-settings-new-profile.png)](docs/images/system-settings-new-profile.png)
+
+An existing removable LUKS/Btrfs target is inspected read-only before it can be
+assigned. Only compatible, non-system devices are offered.
+
+[![Selecting one of two existing encrypted backup partitions](docs/images/system-settings-new-profile-adopt-partition.png)](docs/images/system-settings-new-profile-adopt-partition.png)
+
+When preparing a partition, the KCM shows the proportional layout before and
+after the operation and marks the exact destructive scope before anything is
+written.
+
+[![Reviewing the before and after layouts for a partition preparation](docs/images/system-settings-new-profile-prepare-partition.png)](docs/images/system-settings-new-profile-prepare-partition.png)
+
+### Manage And Monitor Backups
+
+The profile page brings together target state, capacity, backup sources,
+unlocking methods and the actions that are currently safe to perform.
+
+[![Backup profile details, sources and unlocking methods in System Settings](docs/images/system-settings-profile-details.png)](docs/images/system-settings-profile-details.png)
+
+History distinguishes successful, cancelled and failed runs and reports their
+duration and transferred data. Plasma then provides a native completion
+notification without requiring the KCM to remain open.
+
+[![Successful, cancelled and failed backup runs in System Settings](docs/images/system-settings-history.png)](docs/images/system-settings-history.png)
+
+[![A completed backup notification in Plasma](docs/images/notification-completed.png)](docs/images/notification-completed.png)
+
+### Browse And Restore
+
+Available repositories can be opened read-only through the `btrfsbackup:` KIO
+worker. The manager activates the target when needed, while files and
+directories remain normal Dolphin items and the device lifecycle stays under
+manager control.
+
+[![Browsing a read-only backup snapshot in Dolphin](docs/images/dolphin-browse.png)](docs/images/dolphin-browse.png)
+
+The guided restore application lets the user choose a destination, preview the
+transactional plan and explicitly start the restore.
+
+[![Reviewing and starting a guided restore](docs/images/restore-dialog.png)](docs/images/restore-dialog.png)
+
+The screenshots use sample data and are rendered deterministically from the
+repository in an isolated KDE container with
+[`tools/render-readme-screenshot-container.sh`](tools/render-readme-screenshot-container.sh).
 
 ## How Backups Stay Consistent
 
