@@ -9,6 +9,7 @@ import org.kde.kcmutils as KCMUtils
 import org.kde.ki18n as KI18n
 import org.kde.kirigami as Kirigami
 import org.btrfsbackup.kde
+import org.btrfsbackup.kde as BtrfsBackup
 
 KCMUtils.SimpleKCM {
     id: root
@@ -65,7 +66,7 @@ KCMUtils.SimpleKCM {
             text: translations.i18nc("@action: automatic backups enabled", "Enabled")
             checkable: true
             checked: root.profileStatus.profileEnabled
-            enabled: root.profileStatus.managerConnected && !root.profileStatus.operationPending
+            enabled: BtrfsBackup.ProfilePresentation.canToggleAutomatic(root.profileStatus)
             onToggled: root.profileStatus.setProfileEnabled(!root.profileStatus.profileEnabled)
             displayHint: Kirigami.DisplayHint.KeepVisible
             displayComponent: QQC2.Switch {
@@ -81,7 +82,6 @@ KCMUtils.SimpleKCM {
         profileStatus: root.profileStatus
         statusTextFor: state => root.statusText(state)
         targetStateTextFor: state => root.targetStateText(state)
-        runningStateFor: state => root.isRunning(state)
         credentialModel: root.credentialModel
         onAddSourceRequested: (name, subvolume, localRetention, targetRetention) => {
             root.editor.addSourceConfiguration(name, subvolume, localRetention, targetRetention);
@@ -216,10 +216,6 @@ KCMUtils.SimpleKCM {
         default:
             return translations.i18n("No active backup");
         }
-    }
-
-    function isRunning(state) {
-        return state === "starting" || state === "running" || state === "validating";
     }
 
     function targetStateText(state) {

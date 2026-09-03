@@ -10,6 +10,7 @@ import QtQuick.Layouts
 import org.kde.ki18n as KI18n
 import org.kde.kirigami as Kirigami
 import org.kde.plasma.components as PlasmaComponents3
+import org.btrfsbackup.kde as BtrfsBackup
 
 ColumnLayout {
     id: details
@@ -107,9 +108,7 @@ ColumnLayout {
         RowLayout {
             spacing: Kirigami.Units.smallSpacing
             Kirigami.Icon {
-                source: details.profileStatus.target.connected
-                    ? "drive-removable-media-symbolic"
-                    : "network-disconnect-symbolic"
+                source: BtrfsBackup.ProfilePresentation.deviceConnectionIcon(details.profileStatus.target.connected)
                 implicitWidth: Kirigami.Units.iconSizes.small
                 implicitHeight: implicitWidth
             }
@@ -132,7 +131,7 @@ ColumnLayout {
         RowLayout {
             spacing: Kirigami.Units.smallSpacing
             Kirigami.Icon {
-                source: details.targetStateIcon(details.profileStatus.target.state)
+                source: BtrfsBackup.ProfilePresentation.targetStateIcon(details.profileStatus.target.state)
                 implicitWidth: Kirigami.Units.iconSizes.small
                 implicitHeight: implicitWidth
             }
@@ -230,14 +229,4 @@ ColumnLayout {
         relativeTimeFor: details.relativeTimeFor
     }
 
-    function targetStateIcon(state) {
-        switch (state) {
-        case "mounted": return "drive-harddisk-root-symbolic"
-        case "unexpected-mount": return "dialog-warning-symbolic"
-        case "unlocked": return "object-unlocked-symbolic"
-        case "connected": return "object-locked-symbolic"
-        case "disconnected": return "network-disconnect-symbolic"
-        default: return "dialog-question-symbolic"
-        }
-    }
 }

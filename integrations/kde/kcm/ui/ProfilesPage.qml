@@ -15,7 +15,6 @@ Item {
     required property var directory
     required property var profileStatusOverrides
     required property var profileSummaryFor
-    required property var runningStateFor
 
     signal profileRequested(string profileId)
     signal editProfileRequested(string profileId)
@@ -57,7 +56,6 @@ Item {
             delegate: ProfileDelegate {
                 statusOverride: root.profileStatusOverrides[modelData.profileId] ?? null
                 profileSummaryFor: root.profileSummaryFor
-                runningStateFor: root.runningStateFor
                 onDetailsRequested: profileId => root.profileRequested(profileId)
                 onEditRequested: profileId => root.editProfileRequested(profileId)
             }
