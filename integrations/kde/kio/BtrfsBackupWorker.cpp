@@ -3,6 +3,7 @@
 
 #include "BtrfsBackupWorker.hpp"
 
+#include "BrowseSessionClient.hpp"
 #include "ManagerApi.hpp"
 
 #include <KIO/Global>
@@ -89,11 +90,7 @@ std::optional<RemoteEntry> parse_remote_entry(const QJsonObject& object) {
 }
 
 std::optional<std::vector<RemoteEntry>> remote_directory(const QString& session_id, const QString& path) {
-    const auto payload = reply_payload(btrfsbackup::kde::manager_call(
-        QDBusConnection::systemBus(),
-        QLatin1String(btrfsbackup::manager_protocol::method::list_browse_directory),
-        {session_id, path}
-    ));
+    const auto payload = btrfsbackup::kde::BrowseSessionClient{}.listDirectory(session_id, path);
     if (!payload)
         return std::nullopt;
     const QJsonDocument document = QJsonDocument::fromJson(payload->toUtf8());
@@ -113,11 +110,7 @@ std::optional<std::vector<RemoteEntry>> remote_directory(const QString& session_
 }
 
 std::optional<RemoteEntry> remote_entry(const QString& session_id, const QString& path) {
-    const auto payload = reply_payload(btrfsbackup::kde::manager_call(
-        QDBusConnection::systemBus(),
-        QLatin1String(btrfsbackup::manager_protocol::method::inspect_browse_entry),
-        {session_id, path}
-    ));
+    const auto payload = btrfsbackup::kde::BrowseSessionClient{}.inspectEntry(session_id, path);
     if (!payload)
         return std::nullopt;
     const QJsonDocument document = QJsonDocument::fromJson(payload->toUtf8());
@@ -140,7 +133,7 @@ btrfsbackup::kde::kio::SecureBrowseFile remote_file(const QString& session_id, c
 }
 
 bool set_session_active(const QString& session_id, bool active) {
-    return reply_payload(btrfsbackup::kde::manager_call(QDBusConnection::systemBus(), QLatin1String(btrfsbackup::manager_protocol::method::set_browse_session_active), {session_id, active})).has_value();
+    return btrfsbackup::kde::BrowseSessionClient{}.setActive(session_id, active);
 }
 
 class BrowseSessionPin final {
@@ -202,27 +195,17 @@ BtrfsBackupWorker::Session* BtrfsBackupWorker::session(const QString& profile) {
     if (profile.isEmpty())
         return nullptr;
     if (auto existing = sessions_.find(profile); existing != sessions_.end()) {
-        const auto renewed = reply_payload(btrfsbackup::kde::manager_call(QDBusConnection::systemBus(), QLatin1String(btrfsbackup::manager_protocol::method::renew_browse_session), {existing->id}));
-        const auto lease = renewed ? btrfsbackup::kde::parse_browse_session(*renewed) : std::nullopt;
+        btrfsbackup::kde::BrowseSessionClient browse_sessions;
+        const auto lease = browse_sessions.renew(existing->id);
         if (lease && lease->session_id == existing->id)
             return &existing.value();
-        (void)reply_payload(btrfsbackup::kde::manager_call(QDBusConnection::systemBus(), QLatin1String(btrfsbackup::manager_protocol::method::close_browse_session), {existing->id}));
+        (void)browse_sessions.close(existing->id);
         sessions_.erase(existing);
     }
 
-    QDBusPendingReply<QString> reply(
-        btrfsbackup::kde::manager_call(
-            QDBusConnection::systemBus(),
-            QLatin1String(btrfsbackup::manager_protocol::method::open_browse_session),
-            {profile}
-        )
-    );
-    reply.waitForFinished();
-    if (reply.isError()) {
-        session_error_name_ = reply.error().name();
-        return nullptr;
-    }
-    const auto opened = btrfsbackup::kde::parse_browse_session(reply.value());
+    btrfsbackup::kde::BrowseSessionClient browse_sessions;
+    const auto opened = browse_sessions.open(profile);
+    session_error_name_ = browse_sessions.lastErrorName();
     if (!opened || opened->profile_id != profile || !opened->read_only)
         return nullptr;
 
@@ -575,14 +558,14 @@ void BtrfsBackupWorker::close_open_file() noexcept {
     const QString session_id = std::move(open_session_id_);
     open_session_id_.clear();
     try {
-        (void)set_session_active(session_id, false);
+        (void)btrfsbackup::kde::BrowseSessionClient{}.setActive(session_id, false);
     } catch (...) {}
 }
 
 void BtrfsBackupWorker::close_sessions() noexcept {
     for (const Session& session : std::as_const(sessions_)) {
         try {
-            (void)reply_payload(btrfsbackup::kde::manager_call(QDBusConnection::systemBus(), QLatin1String(btrfsbackup::manager_protocol::method::close_browse_session), {session.id}));
+            (void)btrfsbackup::kde::BrowseSessionClient{}.close(session.id);
         } catch (...) {}
     }
     sessions_.clear();

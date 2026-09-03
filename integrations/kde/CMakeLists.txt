@@ -34,6 +34,8 @@ qt_add_dbus_interface(
 add_library(
     btrfsbackup_kde_manager_client STATIC
     ${manager_client_sources}
+    client/BrowseSessionClient.cpp
+    client/BrowseSessionClient.hpp
     client/ManagerApi.cpp
     client/ManagerApi.hpp
     client/TargetStatusParser.cpp
