@@ -20,9 +20,9 @@ case "${1:-}" in
         cat <<'EOF_USAGE'
 Usage: tests/qemu/run-hotplug.sh
 
-Build and boot a disposable Arch guest, attach a virtual LUKS USB disk, then
-disconnect and reconnect it. Verify that udev restarts btrfs-backup@default.service
-without a graphical target and that target activation follows device lifetime.
+Build and boot a disposable Arch guest, provision a whole disk and one existing
+partition, then attach, disconnect and reconnect a virtual LUKS USB disk. Verify
+the destructive operations, udev activation and device lifetime handling.
 Non-root callers need permission to run privileged Docker containers.
 EOF_USAGE
         exit 0
@@ -136,6 +136,9 @@ ROOT_IMAGE="$ROOTFS_CACHE_DIR/rootfs-v${ROOTFS_CACHE_SCHEMA}-${ROOTFS_CACHE_KEY}
 ROOT_IMAGE_TEMP=""
 SETUP_IMAGE="$TEST_ROOT/setup.img"
 TARGET_IMAGE="$TEST_ROOT/target.img"
+SOURCE_IMAGE="$TEST_ROOT/source.img"
+WHOLE_DEVICE_IMAGE="$TEST_ROOT/whole-device.img"
+PARTITION_DEVICE_IMAGE="$TEST_ROOT/partition-device.img"
 ROOT_MOUNT="$TEST_ROOT/root"
 CONSOLE_LOG="$TEST_ROOT/console.log"
 QMP_SOCKET="$TEST_ROOT/qmp.sock"
@@ -173,7 +176,7 @@ fail() {
     exit 1
 }
 
-for command_name in cryptsetup flock mkfs.ext4 qemu-system-x86_64 socat tar; do
+for command_name in cc cryptsetup flock mkfs.btrfs mkfs.ext4 qemu-system-x86_64 sfdisk socat tar; do
     command -v "$command_name" >/dev/null 2>&1 || fail "missing command: $command_name"
 done
 if [[ -z "${QEMU_ROOTFS_TAR:-}" && -z "${QEMU_ROOTFS_FROM_CONTAINER:-}" ]]; then
@@ -261,14 +264,30 @@ mkfs.ext4 -q -F "$SETUP_IMAGE"
 mount -o loop "$SETUP_IMAGE" "$ROOT_MOUNT"
 ROOT_MOUNTED=1
 cp "$PACKAGE_DIR"/btrfs-backup-[0-9]*.pkg.tar.zst "$ROOT_MOUNT/package.pkg.tar.zst"
+cc -std=c11 -Wall -Wextra -Werror -Wpedantic \
+    "$ROOT/tests/integration/DeviceProvisioningClient.c" \
+    -lsystemd \
+    -o "$ROOT_MOUNT/device-provisioning-client"
 
 printf '%s\n' 'qemu-hotplug-test-key' > "$TEST_ROOT/luks.key"
 chmod 0600 "$TEST_ROOT/luks.key"
+cp "$TEST_ROOT/luks.key" "$ROOT_MOUNT/provisioning.key"
 truncate -s 64M "$TARGET_IMAGE"
 cryptsetup luksFormat --type luks2 --pbkdf pbkdf2 --pbkdf-force-iterations 1000 \
     --batch-mode --key-file "$TEST_ROOT/luks.key" "$TARGET_IMAGE"
 TARGET_UUID="$(cryptsetup luksUUID "$TARGET_IMAGE")"
 TARGET_DEVICE_UNIT="$(systemd-escape --path --suffix=device "/dev/disk/by-uuid/$TARGET_UUID")"
+
+truncate -s 384M "$SOURCE_IMAGE"
+mkfs.btrfs -q -f "$SOURCE_IMAGE"
+truncate -s 512M "$WHOLE_DEVICE_IMAGE"
+mkfs.ext4 -q -F -L QEMU-WHOLE "$WHOLE_DEVICE_IMAGE"
+truncate -s 768M "$PARTITION_DEVICE_IMAGE"
+printf '%s\n' \
+    'label: gpt' \
+    'size=128M,type=0FC63DAF-8483-4772-8E79-3D69D8477DE4' \
+    'size=512M,type=0FC63DAF-8483-4772-8E79-3D69D8477DE4' \
+    | sfdisk --quiet "$PARTITION_DEVICE_IMAGE"
 
 cat > "$ROOT_MOUNT/setup.sh" <<EOF_SETUP
 set -eu
@@ -318,6 +337,42 @@ systemctl daemon-reload
 udevadm control --reload
 ! systemd-detect-virt --container >/dev/null 2>&1
 ! systemctl is-active --quiet graphical.target
+
+udevadm settle --timeout=30
+install -d -m0755 /mnt/qemu-provisioning-source
+mount /dev/vdc /mnt/qemu-provisioning-source
+btrfs subvolume create /mnt/qemu-provisioning-source/home >/dev/null
+install -d -m0700 /mnt/qemu-provisioning-source/.snapshots/home
+
+systemctl start polkit.service btrfs-backupd.service
+/run/qemu-test-setup/device-provisioning-client \
+    /dev/vdd \
+    /mnt/qemu-provisioning-source/home \
+    /run/qemu-test-setup/provisioning.key \
+    erase-whole-device \
+    qemu-whole-device > /run/qemu-whole-device.json
+test "\$(blkid -s PTTYPE -o value /dev/vdd)" = gpt
+test -b /dev/vdd1
+test "\$(blkid -s TYPE -o value /dev/vdd1)" = crypto_LUKS
+grep -Eq '"state"[[:space:]]*:[[:space:]]*"succeeded"' /run/qemu-whole-device.json
+test -f /etc/btrfs-backup/profiles/qemu-whole-device/profile.json
+
+sfdisk --dump /dev/vde > /run/qemu-partition-table-before
+partition_one_hash="\$(sha256sum /dev/vde1 | awk '{print \$1}')"
+/run/qemu-test-setup/device-provisioning-client \
+    /dev/vde2 \
+    /mnt/qemu-provisioning-source/home \
+    /run/qemu-test-setup/provisioning.key \
+    reformat-existing-partition \
+    qemu-existing-partition > /run/qemu-existing-partition.json
+sfdisk --dump /dev/vde > /run/qemu-partition-table-after
+test "\$partition_one_hash" = "\$(sha256sum /dev/vde1 | awk '{print \$1}')"
+cmp /run/qemu-partition-table-before /run/qemu-partition-table-after
+test "\$(blkid -s TYPE -o value /dev/vde2)" = crypto_LUKS
+grep -Eq '"state"[[:space:]]*:[[:space:]]*"succeeded"' /run/qemu-existing-partition.json
+test -f /etc/btrfs-backup/profiles/qemu-existing-partition/profile.json
+systemctl stop btrfs-backupd.service polkit.service
+printf 'QEMU_PROVISIONING_OK\n' > /dev/ttyS0
 printf 'QEMU_READY\n' > /dev/ttyS0
 EOF_SETUP
 chmod 0755 "$ROOT_MOUNT/setup.sh"
@@ -334,6 +389,9 @@ qemu_args=(
     -append "root=/dev/vda rw rootfstype=ext4 console=ttyS0 systemd.unit=multi-user.target"
     -drive "file=$ROOT_IMAGE,if=virtio,format=raw,snapshot=on"
     -drive "file=$SETUP_IMAGE,if=virtio,format=raw,readonly=on"
+    -drive "file=$SOURCE_IMAGE,if=virtio,format=raw,snapshot=on"
+    -drive "file=$WHOLE_DEVICE_IMAGE,if=virtio,format=raw,snapshot=on"
+    -drive "file=$PARTITION_DEVICE_IMAGE,if=virtio,format=raw,snapshot=on"
     -device qemu-xhci,id=xhci
     -blockdev "driver=file,filename=$TARGET_IMAGE,node-name=hotplug-target-file"
     -blockdev "driver=raw,file=hotplug-target-file,node-name=hotplug-target"
@@ -350,12 +408,14 @@ fi
 
 qemu-system-x86_64 "${qemu_args[@]}" &
 QEMU_PID=$!
-for _ in $(seq 1 180); do
+for _ in $(seq 1 1200); do
     grep -Fq 'QEMU_READY' "$CONSOLE_LOG" 2>/dev/null && break
     kill -0 "$QEMU_PID" 2>/dev/null || fail 'QEMU guest exited before reaching multi-user.target'
     sleep 0.25
 done
 grep -Fq 'QEMU_READY' "$CONSOLE_LOG" || fail 'QEMU guest did not become ready'
+grep -Fq 'QEMU_PROVISIONING_OK' "$CONSOLE_LOG" \
+    || fail 'whole-device and existing-partition provisioning did not pass in QEMU'
 
 {
     printf '%s\n' '{"execute":"qmp_capabilities"}'
@@ -410,4 +470,4 @@ grep -Fq 'QEMU_TARGET_START_2' "$CONSOLE_LOG" \
 grep -Fq 'QEMU_HOTPLUG_OK_2' "$CONSOLE_LOG" \
     || fail 'udev did not restart btrfs-backup@default.service after USB reattachment'
 
-printf '%s\n' 'ok - QEMU USB hotplug restarts target activation and the system runner'
+printf '%s\n' 'ok - QEMU provisioning and USB hotplug lifecycle pass in a system guest'
