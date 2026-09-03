@@ -77,7 +77,7 @@ class ScreenshotManager final : public QObject {
     }
 
     QString ListSourceCandidates() const {
-        return QStringLiteral(R"(["/home","/srv/projects"])");
+        return QStringLiteral(R"([{"id":"source-home","path":"/home","filesystemUuid":"11111111-aaaa-bbbb-cccc-111111111111","mountRoot":"/home","localSnapshotRoot":"/home/.snapshots/btrfs-backup"},{"id":"source-projects","path":"/srv/projects","filesystemUuid":"22222222-aaaa-bbbb-cccc-222222222222","mountRoot":"/srv/projects","localSnapshotRoot":"/srv/projects/.snapshots/btrfs-backup"}])");
     }
 
     QString OpenBrowseSession(const QString& profile) const {

@@ -23,6 +23,7 @@
 #include <daemon/control/DevicePreparationUnitController.hpp>
 #include <daemon/control/ExistingTargetInspector.hpp>
 #include <daemon/control/ProvisioningDeviceEnumerator.hpp>
+#include <daemon/control/ProvisioningSource.hpp>
 #include <daemon/dbus/ManagerErrors.hpp>
 #include <platform/linux/filesystem/SecretFile.hpp>
 #include <platform/linux/filesystem/TrustedDirectory.hpp>
@@ -38,6 +39,14 @@ namespace btrfsbackup::daemon::control {
 namespace {
 
 using platform::linux::OwnedFileDescriptor;
+
+platform::linux::storage::FilesystemUuidResolver source_uuid_resolver_or_default(
+    platform::linux::storage::FilesystemUuidResolver resolver
+) {
+    if (resolver)
+        return resolver;
+    return platform::linux::storage::blkid_filesystem_uuid;
+}
 
 std::string next_operation_id() {
     std::array<unsigned char, 16> bytes{};
@@ -130,6 +139,7 @@ struct SystemDeviceProvisioningBackend::State {
 struct SystemDeviceProvisioningBackend::Impl {
     fs::path config_root;
     fs::path mountinfo_path;
+    platform::linux::storage::LinuxMountInspector source_mounts;
     IDestructiveDeviceSafetyInspector& safety_inspector;
     IDevicePreparationUnitController& units;
     DevicePreparationTransactionStore transactions;
@@ -161,10 +171,12 @@ struct SystemDeviceProvisioningBackend::Impl {
         IDevicePreparationUnitController& unit_controller,
         bool recover_existing,
         IExistingTargetInspector* target_inspector,
-        fs::path target_inspection_root
+        fs::path target_inspection_root,
+        platform::linux::storage::FilesystemUuidResolver source_filesystem_uuid_resolver
     )
         : config_root(roots.config_root),
           mountinfo_path(std::move(mountinfo)),
+          source_mounts(mountinfo_path, source_uuid_resolver_or_default(std::move(source_filesystem_uuid_resolver))),
           safety_inspector(device_safety_inspector),
           units(unit_controller),
           transactions(std::move(transaction_root)),
@@ -184,6 +196,7 @@ struct SystemDeviceProvisioningBackend::Impl {
               device_safety_inspector,
               transactions,
               devices,
+              source_mounts,
               target_inspector,
               target_inspection_root
           ),
@@ -405,20 +418,16 @@ SystemDeviceProvisioningBackend::SystemDeviceProvisioningBackend(
     IDevicePreparationUnitController& units,
     bool recover_existing,
     IExistingTargetInspector* existing_target_inspector,
-    fs::path inspection_mount_root
+    fs::path inspection_mount_root,
+    platform::linux::storage::FilesystemUuidResolver source_filesystem_uuid_resolver
 )
-    : impl_(std::make_unique<Impl>(std::move(roots), std::move(target_mount_root), std::move(mountinfo_path), std::move(transaction_root), topology, btrfs_formatter, signatures, metadata, partition_tables, cryptsetup, btrfs, configuration_activator, credentials, safety_inspector, units, recover_existing, existing_target_inspector, std::move(inspection_mount_root))) {
+    : impl_(std::make_unique<Impl>(std::move(roots), std::move(target_mount_root), std::move(mountinfo_path), std::move(transaction_root), topology, btrfs_formatter, signatures, metadata, partition_tables, cryptsetup, btrfs, configuration_activator, credentials, safety_inspector, units, recover_existing, existing_target_inspector, std::move(inspection_mount_root), std::move(source_filesystem_uuid_resolver))) {
 }
 
 SystemDeviceProvisioningBackend::~SystemDeviceProvisioningBackend() noexcept = default;
 
-std::vector<std::string> SystemDeviceProvisioningBackend::list_source_candidates() {
-    const auto paths = platform::linux::storage::btrfs_mount_targets(impl_->mountinfo_path);
-    std::vector<std::string> result;
-    result.reserve(paths.size());
-    for (const auto& path : paths)
-        result.push_back(path);
-    return result;
+std::vector<SourceCandidate> SystemDeviceProvisioningBackend::list_source_candidates() {
+    return provisioning_source_candidates(impl_->source_mounts.inspect());
 }
 
 std::vector<std::string> SystemDeviceProvisioningBackend::inspect_safety(
@@ -499,6 +508,19 @@ DevicePreparationStatus SystemDeviceProvisioningBackend::start(
 ) {
     impl_->prune_completed();
     validate_execution_target(target);
+    const SourceCandidate source = resolve_provisioning_source(
+        impl_->source_mounts.inspect(),
+        request.source_subvolume,
+        ProfileId{request.profile_id}
+    );
+    if ((!request.source_filesystem_uuid.empty() &&
+         request.source_filesystem_uuid != source.filesystem_uuid) ||
+        (!request.source_mount_root.empty() && request.source_mount_root != source.mount_root) ||
+        (!request.local_snapshot_dir.empty() && request.local_snapshot_dir != source.local_snapshot_root))
+        throw dbus::ManagerOperationError(
+            dbus::ManagerErrorCode::Conflict,
+            "device preparation source changed since selection"
+        );
     const ProvisioningDevice expected_device = provisioning_device_snapshot(target.device);
     OwnedFileDescriptor secret = platform::linux::filesystem::copy_secret_to_sealed_file(passphrase_fd);
     auto state = std::make_shared<State>();
@@ -518,6 +540,9 @@ DevicePreparationStatus SystemDeviceProvisioningBackend::start(
         .target = target,
         .profile_name = request.profile_name,
         .source_subvolume = request.source_subvolume,
+        .source_filesystem_uuid = source.filesystem_uuid,
+        .source_mount_root = source.mount_root,
+        .local_snapshot_dir = source.local_snapshot_root,
         .passphrase_label = request.passphrase_label,
         .create_automatic_key = target.mode == provisioning::ProvisioningMode::AdoptExistingTarget ? false : request.create_automatic_key,
         .created_at = now,

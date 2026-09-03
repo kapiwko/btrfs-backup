@@ -88,9 +88,20 @@ int ManagerProvisioningMethods::list_source_candidates(sd_bus_message* message, 
     return invoke_dbus_callback(
         [&] {
             return support_.reply_operational_json(message, error, "list-source-candidates", "", [&] {
-                return config::json::dump_json(device_provisioning_.list_source_candidates(
+                const auto candidates = device_provisioning_.list_source_candidates(
                     ManagerMethodSupport::caller_bus_name(message)
-                ));
+                );
+                auto result = config::json::Json::array();
+                for (const auto& candidate : candidates) {
+                    result.push_back({
+                        {"id", candidate.id},
+                        {"path", candidate.path},
+                        {"filesystemUuid", candidate.filesystem_uuid},
+                        {"mountRoot", candidate.mount_root},
+                        {"localSnapshotRoot", candidate.local_snapshot_root},
+                    });
+                }
+                return config::json::dump_json(result);
             });
         },
         [&](const std::exception* exception) { return support_.set_callback_error(error, exception); }
@@ -110,7 +121,11 @@ int ManagerProvisioningMethods::start_device_preparation(sd_bus_message* message
                 .profile_id = request.value("profileId", ""),
                 .profile_name = request.value("profileName", ""),
                 .plan_id = request.value("planId", ""),
-                .source_subvolume = request.value("sourceSubvolume", ""),
+                .source_candidate_id = request.value("sourceCandidateId", ""),
+                .source_subvolume = {},
+                .source_filesystem_uuid = {},
+                .source_mount_root = {},
+                .local_snapshot_dir = {},
                 .passphrase_label = request.value("passphraseLabel", ""),
                 .create_automatic_key = request.value("createAutomaticKey", true),
             };

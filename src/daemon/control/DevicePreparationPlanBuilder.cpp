@@ -35,7 +35,7 @@ config::Profile DevicePreparationPlanBuilder::build(
     answers.sources.push_back({
         .id = "source",
         .subvolume = transaction.source_subvolume,
-        .local_snapshot_dir = "/.snapshots/btrfs-backup/" + transaction.status.profile_id,
+        .local_snapshot_dir = transaction.local_snapshot_dir,
         .remote_subdir = "source",
     });
     config::Profile profile = config::wizard::profile_from_wizard_answers(answers);

@@ -16,6 +16,7 @@ using btrfsbackup::daemon::control::DeviceProvisioningService;
 using btrfsbackup::daemon::control::IDeviceProvisioningBackend;
 using btrfsbackup::daemon::control::IManagerAuthorizer;
 using btrfsbackup::daemon::control::ManagerAuthorizationAction;
+using btrfsbackup::daemon::control::SourceCandidate;
 using btrfsbackup::daemon::provisioning::ExistingPartition;
 using btrfsbackup::daemon::provisioning::PartitionTableType;
 using btrfsbackup::daemon::provisioning::ProvisioningMode;
@@ -50,12 +51,19 @@ class Backend final : public IDeviceProvisioningBackend {
     bool cancelled = false;
     std::vector<std::string> safety_reasons;
     std::vector<std::string>* events = nullptr;
+    DevicePreparationRequest received_request;
     btrfsbackup::daemon::control::DevicePreparationOwner owner;
     btrfsbackup::daemon::control::DevicePreparationTarget target;
     btrfsbackup::daemon::provisioning::ExistingTargetClassification inspection_classification =
         btrfsbackup::daemon::provisioning::ExistingTargetClassification::CompatibleRepository;
-    std::vector<std::string> list_source_candidates() override {
-        return {"/home"};
+    std::vector<SourceCandidate> list_source_candidates() override {
+        return {{
+            .id = {},
+            .path = "/home",
+            .filesystem_uuid = "source-fs-uuid",
+            .mount_root = "/home",
+            .local_snapshot_root = "/home/.snapshots/btrfs-backup",
+        }};
     }
     std::vector<std::string> inspect_safety(
         const btrfsbackup::daemon::control::DevicePreparationTarget&
@@ -110,6 +118,7 @@ class Backend final : public IDeviceProvisioningBackend {
         const btrfsbackup::daemon::control::DevicePreparationOwner& received_owner,
         int passphrase_fd
     ) override {
+        received_request = request;
         owner = received_owner;
         target = received_target;
         received_fd = passphrase_fd;
@@ -181,19 +190,23 @@ class TopologyReader final : public StorageTopologyReader {
     }
 };
 
-DevicePreparationRequest request(std::string plan_id = "plan-1") {
+DevicePreparationRequest request(std::string plan_id = "plan-1", std::string source_candidate_id = "source-1") {
     return {
         .profile_id = "test",
         .profile_name = "Test",
         .plan_id = std::move(plan_id),
-        .source_subvolume = "/home",
+        .source_candidate_id = std::move(source_candidate_id),
+        .source_subvolume = "/untrusted/source",
+        .source_filesystem_uuid = "untrusted-uuid",
+        .source_mount_root = "/untrusted/mount",
+        .local_snapshot_dir = "/untrusted/snapshots",
         .passphrase_label = "Recovery",
         .create_automatic_key = true,
     };
 }
 
-DevicePreparationRequest plan_request(std::string plan_id) {
-    return request(std::move(plan_id));
+DevicePreparationRequest plan_request(std::string plan_id, const std::string& source_candidate_id) {
+    return request(std::move(plan_id), source_candidate_id);
 }
 
 void test_read_only_discovery_requires_only_an_active_caller() {
@@ -218,10 +231,10 @@ void test_invalid_request_is_rejected_before_backend() {
     Backend backend;
     DeviceProvisioningService service(authorizer, backend);
     auto invalid = request();
-    invalid.source_subvolume = "relative/source";
+    invalid.source_candidate_id.clear();
     try {
         static_cast<void>(service.start(":1.5", 1000, invalid, 17));
-        test_helpers::fail("invalid preparation", "relative source was accepted");
+        test_helpers::fail("invalid preparation", "empty source candidate was accepted");
     } catch (const btrfsbackup::ValidationError&) {
     }
     try {
@@ -247,6 +260,7 @@ void test_topology_and_plan_are_caller_bound_and_revalidated() {
         {},
         &reader
     );
+    const auto source_candidate_id = service.list_source_candidates(":1.20").front().id;
     const auto topology = service.inspect_storage_topology(":1.20");
     test_helpers::expect_true(
         "opaque topology candidates",
@@ -261,7 +275,7 @@ void test_topology_and_plan_are_caller_bound_and_revalidated() {
         partition.candidate_id,
         ProvisioningMode::ReformatExistingPartition
     );
-    static_cast<void>(service.start(":1.20", 1000, plan_request(partition_plan.id), 17));
+    static_cast<void>(service.start(":1.20", 1000, plan_request(partition_plan.id, source_candidate_id), 17));
     test_helpers::expect_true(
         "partition execution target",
         backend.target.mode == ProvisioningMode::ReformatExistingPartition && backend.target.partition.has_value() &&
@@ -282,7 +296,7 @@ void test_topology_and_plan_are_caller_bound_and_revalidated() {
         "whole-device plan did not expose exact backend geometry"
     );
     try {
-        static_cast<void>(service.start(":1.21", 1001, plan_request(plan.id), 17));
+        static_cast<void>(service.start(":1.21", 1001, plan_request(plan.id, source_candidate_id), 17));
         test_helpers::fail("foreign plan", "another caller started a preparation plan");
     } catch (const btrfsbackup::daemon::dbus::ManagerOperationError&) {
     }
@@ -290,7 +304,7 @@ void test_topology_and_plan_are_caller_bound_and_revalidated() {
     const auto started = service.start(
         ":1.20",
         1000,
-        plan_request(plan.id),
+        plan_request(plan.id, source_candidate_id),
         17
     );
     test_helpers::expect_true(
@@ -309,6 +323,15 @@ void test_topology_and_plan_are_caller_bound_and_revalidated() {
         "whole-device geometry changed between plan and execution"
     );
     test_helpers::expect_true("secret descriptor", backend.received_fd == 17, "descriptor not forwarded");
+    test_helpers::expect_true(
+        "resolved source candidate",
+        backend.received_request.source_candidate_id == source_candidate_id &&
+            backend.received_request.source_subvolume == "/home" &&
+            backend.received_request.source_filesystem_uuid == "source-fs-uuid" &&
+            backend.received_request.source_mount_root == "/home" &&
+            backend.received_request.local_snapshot_dir == "/home/.snapshots/btrfs-backup/test",
+        "source fields supplied by the caller were not replaced with the stored candidate"
+    );
     authorizer.allowed = false;
     test_helpers::expect_eq(
         "owner status",
@@ -324,7 +347,7 @@ void test_topology_and_plan_are_caller_bound_and_revalidated() {
     service.cancel(":1.20", 1000, started.operation_id);
     test_helpers::expect_true("cancel", backend.cancelled, "cancel not forwarded");
     try {
-        static_cast<void>(service.start(":1.20", 1000, plan_request(plan.id), 17));
+        static_cast<void>(service.start(":1.20", 1000, plan_request(plan.id, source_candidate_id), 17));
         test_helpers::fail("reused plan", "a preparation plan was reusable");
     } catch (const btrfsbackup::daemon::dbus::ManagerOperationError&) {
     }
@@ -347,7 +370,7 @@ void test_topology_and_plan_are_caller_bound_and_revalidated() {
     );
     reader.generation = "topology-2";
     try {
-        static_cast<void>(service.start(":1.20", 1000, plan_request(stale_plan.id), 17));
+        static_cast<void>(service.start(":1.20", 1000, plan_request(stale_plan.id, source_candidate_id), 17));
         test_helpers::fail("changed topology", "a plan for changed topology was started");
     } catch (const btrfsbackup::daemon::dbus::ManagerOperationError&) {
     }
@@ -360,7 +383,7 @@ void test_topology_and_plan_are_caller_bound_and_revalidated() {
     );
     reader.partition_mounted = true;
     try {
-        static_cast<void>(service.start(":1.20", 1000, plan_request(unsafe_plan.id), 17));
+        static_cast<void>(service.start(":1.20", 1000, plan_request(unsafe_plan.id, source_candidate_id), 17));
         test_helpers::fail("changed safety state", "mounted child was accepted without a generation change");
     } catch (const btrfsbackup::daemon::dbus::ManagerOperationError&) {
     }
@@ -374,7 +397,7 @@ void test_topology_and_plan_are_caller_bound_and_revalidated() {
     );
     static_cast<void>(service.inspect_storage_topology(":1.20"));
     try {
-        static_cast<void>(service.start(":1.20", 1000, plan_request(replaced_plan.id), 17));
+        static_cast<void>(service.start(":1.20", 1000, plan_request(replaced_plan.id, source_candidate_id), 17));
         test_helpers::fail("replaced plan", "a plan survived a newer topology inspection");
     } catch (const btrfsbackup::daemon::dbus::ManagerOperationError&) {
     }
@@ -393,6 +416,7 @@ void test_existing_target_inspection_is_caller_bound_and_invalidated_by_rescan()
         {},
         &reader
     );
+    const auto source_candidate_id = service.list_source_candidates(":1.30").front().id;
     const auto topology = service.inspect_storage_topology(":1.30");
     const auto& partition = std::get<ExistingPartition>(topology.devices.front().regions.front());
     const auto inspection = service.inspect_existing_target(
@@ -424,7 +448,7 @@ void test_existing_target_inspection_is_caller_bound_and_invalidated_by_rescan()
             plan.before == plan.after,
         "adoption plan is not bound to the read-only inspection"
     );
-    static_cast<void>(service.start(":1.30", 1000, plan_request(plan.id), 23));
+    static_cast<void>(service.start(":1.30", 1000, plan_request(plan.id, source_candidate_id), 23));
     test_helpers::expect_true(
         "adoption execution target",
         backend.starts == 1 && backend.target.expected_inspection.has_value() &&
@@ -501,6 +525,7 @@ void test_free_space_plan_uses_backend_geometry() {
         {},
         &reader
     );
+    const auto source_candidate_id = service.list_source_candidates(":1.50").front().id;
     const auto topology = service.inspect_storage_topology(":1.50");
     const auto& free_region = std::get<UnallocatedRegion>(topology.devices.front().regions.back());
     const auto plan = service.build_device_preparation_plan(
@@ -520,7 +545,7 @@ void test_free_space_plan_uses_backend_geometry() {
             target->start_sector == 5 && target->sector_count == 6 && target->partition_number == 2,
         "free-space plan did not use backend geometry"
     );
-    const auto started = service.start(":1.50", 1000, plan_request(plan.id), 17);
+    const auto started = service.start(":1.50", 1000, plan_request(plan.id, source_candidate_id), 17);
     test_helpers::expect_true(
         "free-space execution target",
         started.operation_id == "prepare-1" && backend.starts == 1 &&
@@ -534,6 +559,92 @@ void test_free_space_plan_uses_backend_geometry() {
         "free-space plan did not reach the backend with its frozen geometry"
     );
 }
+
+void test_source_candidates_are_caller_bound_and_invalidated_by_relisting() {
+    Authorizer authorizer;
+    Backend backend;
+    TopologyReader reader;
+    int sequence = 0;
+    DeviceProvisioningService service(
+        authorizer,
+        backend,
+        std::chrono::minutes(5),
+        [&] { return "source-token-" + std::to_string(++sequence); },
+        {},
+        &reader
+    );
+    const auto foreign_source = service.list_source_candidates(":1.60").front();
+    const auto stale_source = service.list_source_candidates(":1.61").front();
+    test_helpers::expect_true(
+        "opaque source identifier",
+        !foreign_source.id.empty() && foreign_source.id != foreign_source.path,
+        "backend source path escaped as its capability identifier"
+    );
+    const auto topology = service.inspect_storage_topology(":1.61");
+    const auto plan = service.build_device_preparation_plan(
+        ":1.61",
+        topology.generation,
+        topology.devices.front().candidate_id,
+        ProvisioningMode::EraseWholeDevice
+    );
+    try {
+        static_cast<void>(service.start(":1.61", 1000, plan_request(plan.id, foreign_source.id), 17));
+        test_helpers::fail("foreign source candidate", "another caller's source candidate was accepted");
+    } catch (const btrfsbackup::daemon::dbus::ManagerOperationError&) {}
+
+    const auto current_source = service.list_source_candidates(":1.61").front();
+    try {
+        static_cast<void>(service.start(":1.61", 1000, plan_request(plan.id, stale_source.id), 17));
+        test_helpers::fail("stale source candidate", "a source candidate survived relisting");
+    } catch (const btrfsbackup::daemon::dbus::ManagerOperationError&) {}
+
+    static_cast<void>(service.start(":1.61", 1000, plan_request(plan.id, current_source.id), 17));
+    test_helpers::expect_true(
+        "stored source resolution",
+        backend.starts == 1 && backend.received_request.source_subvolume == "/home" &&
+            backend.received_request.source_filesystem_uuid == "source-fs-uuid" &&
+            backend.received_request.source_mount_root == "/home" &&
+            backend.received_request.local_snapshot_dir == "/home/.snapshots/btrfs-backup/test",
+        "stored source metadata was not forwarded to the backend"
+    );
+}
+
+void test_source_candidate_expires_independently_of_newer_plan() {
+    Authorizer authorizer;
+    Backend backend;
+    TopologyReader reader;
+    auto now = std::chrono::steady_clock::time_point{};
+    int sequence = 0;
+    DeviceProvisioningService service(
+        authorizer,
+        backend,
+        std::chrono::minutes(5),
+        [&] { return "expiring-token-" + std::to_string(++sequence); },
+        [&] { return now; },
+        &reader
+    );
+    const auto source = service.list_source_candidates(":1.70").front();
+    now += std::chrono::minutes(4);
+    const auto topology = service.inspect_storage_topology(":1.70");
+    const auto plan = service.build_device_preparation_plan(
+        ":1.70",
+        topology.generation,
+        topology.devices.front().candidate_id,
+        ProvisioningMode::EraseWholeDevice
+    );
+    now += std::chrono::minutes(2);
+    try {
+        static_cast<void>(service.start(":1.70", 1000, plan_request(plan.id, source.id), 17));
+        test_helpers::fail("expired source candidate", "an expired source candidate was accepted");
+    } catch (const btrfsbackup::daemon::dbus::ManagerOperationError& error) {
+        test_helpers::expect_true(
+            "source expiry reason",
+            std::string(error.what()).find("source candidate") != std::string::npos,
+            "a newer preparation plan expired together with the source candidate"
+        );
+    }
+    test_helpers::expect_true("expired source backend", backend.starts == 0, "backend started for expired source");
+}
 } // namespace
 
 int main() {
@@ -543,5 +654,7 @@ int main() {
     test_existing_target_inspection_is_caller_bound_and_invalidated_by_rescan();
     test_non_adoptable_inspection_has_no_reusable_token();
     test_free_space_plan_uses_backend_geometry();
+    test_source_candidates_are_caller_bound_and_invalidated_by_relisting();
+    test_source_candidate_expires_independently_of_newer_plan();
     return test_helpers::finish("device provisioning service tests");
 }
