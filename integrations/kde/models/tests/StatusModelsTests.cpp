@@ -93,6 +93,15 @@ void test_history_validation_and_reset() {
         "history was rejected"
     );
     expect(model.entries().size() == 1, "history entry was not applied");
+    const QVariantMap history_entry = model.entries().front().toMap();
+    expect(
+        history_entry.value(QStringLiteral("bytesTransferred")).toLongLong() == 4294967296LL,
+        "history byte count was not retained"
+    );
+    expect(
+        !history_entry.value(QStringLiteral("bytesTransferredText")).toString().isEmpty(),
+        "history byte count was not formatted"
+    );
     expect(
         model.entries().front().toMap().value(QStringLiteral("durationSeconds")).toInt() == 296,
         "history duration was not derived"
@@ -101,6 +110,10 @@ void test_history_validation_and_reset() {
     expect(model.entries().size() == 1, "rejected history changed the model");
     model.reset();
     expect(model.entries().isEmpty(), "history reset retained entries");
+    model.setPageSize(0);
+    expect(model.pageSize() == 1, "history page size was not bounded at the lower limit");
+    model.setPageSize(101);
+    expect(model.pageSize() == 100, "history page size was not bounded at the upper limit");
 }
 
 } // namespace

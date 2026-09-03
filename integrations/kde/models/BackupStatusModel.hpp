@@ -94,7 +94,6 @@ class BackupStatusModel : public QObject {
     void applyProfiles(const QString& payload);
     void applyStatus(const QString& payload);
     void applyDeviceState(const QString& payload);
-    void applyHistory(const QString& payload);
     void requestOperation(const QString& method, const QVariantList& arguments);
     bool supports(const QString& feature) const;
     void setManagerConnected(bool connected);
@@ -114,11 +113,9 @@ class BackupStatusModel : public QObject {
     bool profiles_request_pending_ = false;
     bool status_request_pending_ = false;
     bool device_request_pending_ = false;
-    bool history_request_pending_ = false;
     bool profiles_refresh_queued_ = false;
     bool status_refresh_queued_ = false;
     bool device_refresh_queued_ = false;
-    bool history_refresh_queued_ = false;
     bool manager_connected_ = false;
     bool operation_pending_ = false;
     quint64 generation_ = 0;

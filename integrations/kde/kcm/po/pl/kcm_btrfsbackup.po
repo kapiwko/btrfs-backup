@@ -781,21 +781,17 @@ msgstr "Profil zapisano"
 msgid "Profile duplicated"
 msgstr "Profil zduplikowano"
 
-#: integrations/kde/kcm/ProfileHistoryModel.cpp:151
-msgid "Could not query backup manager capabilities."
-msgstr "Nie udało się odczytać możliwości menedżera kopii zapasowych."
-
-#: integrations/kde/kcm/ProfileHistoryModel.cpp:163
+#: integrations/kde/kcm/ui/ProfileHistory.qml:212
 msgid "The backup manager does not provide compatible backup history."
 msgstr "Menedżer kopii zapasowych nie udostępnia zgodnej historii kopii."
 
-#: integrations/kde/kcm/ProfileHistoryModel.cpp:194
-msgid "Could not load backup history."
-msgstr "Nie udało się wczytać historii kopii zapasowych."
-
-#: integrations/kde/kcm/ProfileHistoryModel.cpp:201
+#: integrations/kde/kcm/ui/ProfileHistory.qml:214
 msgid "The backup manager returned invalid backup history."
 msgstr "Menedżer kopii zapasowych zwrócił nieprawidłową historię kopii."
+
+#: integrations/kde/kcm/ui/ProfileHistory.qml:215
+msgid "Could not load backup history."
+msgstr "Nie udało się wczytać historii kopii zapasowych."
 
 #~ msgid "Back"
 #~ msgstr "Wstecz"

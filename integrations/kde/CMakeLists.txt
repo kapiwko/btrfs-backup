@@ -287,7 +287,13 @@ qt_add_qml_module(btrfsbackup_kde_models
 )
 
 target_compile_features(btrfsbackup_kde_models PRIVATE cxx_std_23)
-target_include_directories(btrfsbackup_kde_models PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/models)
+target_include_directories(btrfsbackup_kde_models PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/models)
+set_target_properties(
+    btrfsbackup_kde_models
+    PROPERTIES
+        CXX_VISIBILITY_PRESET default
+        VISIBILITY_INLINES_HIDDEN OFF
+)
 target_link_libraries(btrfsbackup_kde_models
     PRIVATE
         Qt6::Core
