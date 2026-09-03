@@ -107,6 +107,18 @@ void validate_execution_target(const DevicePreparationTarget& target) {
         throw ValidationError("existing target adoption fingerprint is incomplete");
 }
 
+bool installed_profile_exists(const fs::path& config_root, const std::string& profile_id) {
+    validate_profile_id(profile_id);
+    std::error_code error;
+    const auto status = fs::symlink_status(
+        config_root / "profiles" / profile_id / "profile.json",
+        error
+    );
+    if (error && error != std::errc::no_such_file_or_directory)
+        throw ValidationError("cannot inspect existing profile configuration");
+    return !error && status.type() != fs::file_type::not_found;
+}
+
 } // namespace
 
 struct SystemDeviceProvisioningBackend::State {
@@ -116,6 +128,7 @@ struct SystemDeviceProvisioningBackend::State {
 };
 
 struct SystemDeviceProvisioningBackend::Impl {
+    fs::path config_root;
     fs::path mountinfo_path;
     IDestructiveDeviceSafetyInspector& safety_inspector;
     IDevicePreparationUnitController& units;
@@ -150,7 +163,8 @@ struct SystemDeviceProvisioningBackend::Impl {
         IExistingTargetInspector* target_inspector,
         fs::path target_inspection_root
     )
-        : mountinfo_path(std::move(mountinfo)),
+        : config_root(roots.config_root),
+          mountinfo_path(std::move(mountinfo)),
           safety_inspector(device_safety_inspector),
           units(unit_controller),
           transactions(std::move(transaction_root)),
@@ -196,6 +210,35 @@ struct SystemDeviceProvisioningBackend::Impl {
 
     void restore_transactions(bool recover_existing) {
         for (auto transaction : transactions.load_and_prune()) {
+            if (transaction.profile_reservation_state == "releasing" ||
+                (transaction.profile_reservation_state == "held" &&
+                 (transaction.configuration_state == "installed" ||
+                  transaction.status.state == "succeeded"))) {
+                transaction.profile_reservation_state = "releasing";
+                transaction.updated_at = system_time_seconds();
+                transactions.save(transaction);
+                transactions.release_profile(
+                    transaction.status.profile_id,
+                    transaction.status.operation_id
+                );
+                transaction.profile_reservation_state = "released";
+                transaction.updated_at = system_time_seconds();
+                transactions.save(transaction);
+            } else if (transaction.profile_reservation_state == "held") {
+                const auto owner = transactions.profile_reservation_owner(
+                    transaction.status.profile_id
+                );
+                if (!owner.has_value()) {
+                    transactions.reserve_profile(
+                        transaction.status.profile_id,
+                        transaction.status.operation_id
+                    );
+                } else if (*owner != transaction.status.operation_id) {
+                    throw ValidationError(
+                        "profile reservation does not match its device preparation transaction"
+                    );
+                }
+            }
             if (recover_existing &&
                 (transaction.status.state == "queued" || transaction.status.state == "running") &&
                 !units.active(transaction.status.operation_id)) {
@@ -286,8 +329,53 @@ struct SystemDeviceProvisioningBackend::Impl {
                 dbus::ManagerErrorCode::Conflict,
                 "device preparation operation identifier collision"
             );
-        transactions.save(state->transaction);
+        const std::string& profile_id = state->transaction.status.profile_id;
+        const std::string& operation_id = state->transaction.status.operation_id;
+        if (installed_profile_exists(config_root, profile_id))
+            throw dbus::ManagerOperationError(
+                dbus::ManagerErrorCode::Conflict,
+                "device preparation profile already exists"
+            );
+        try {
+            transactions.reserve_profile(profile_id, operation_id);
+        } catch (const ValidationError&) {
+            throw dbus::ManagerOperationError(
+                dbus::ManagerErrorCode::Conflict,
+                "device preparation profile is already reserved"
+            );
+        }
+        try {
+            if (installed_profile_exists(config_root, profile_id))
+                throw dbus::ManagerOperationError(
+                    dbus::ManagerErrorCode::Conflict,
+                    "device preparation profile already exists"
+                );
+            state->transaction.profile_reservation_state = "held";
+            transactions.save(state->transaction);
+        } catch (...) {
+            try {
+                transactions.release_profile(profile_id, operation_id);
+            } catch (...) {
+            }
+            throw;
+        }
         jobs.emplace(state->transaction.status.operation_id, state);
+    }
+
+    void release_profile_reservation(const std::shared_ptr<State>& state) {
+        std::lock_guard lock(state->mutex);
+        if (state->transaction.profile_reservation_state != "held")
+            return;
+        state->transaction.profile_reservation_state = "releasing";
+        state->transaction.updated_at = system_time_seconds();
+        transactions.save(state->transaction);
+        transactions.release_profile(
+            state->transaction.status.profile_id,
+            state->transaction.status.operation_id
+        );
+        state->transaction.profile_reservation_state = "released";
+        state->transaction.updated_at = system_time_seconds();
+        transactions.save(state->transaction);
     }
 
     template <typename Mutator>
@@ -456,6 +544,7 @@ DevicePreparationStatus SystemDeviceProvisioningBackend::start(
             transaction.status.recovery_action = "Retry device preparation after checking the helper service.";
             transaction.status.can_cancel = false;
         });
+        impl_->release_profile_reservation(state);
         throw;
     }
     return status(state->transaction.status.operation_id);
@@ -510,6 +599,16 @@ void SystemDeviceProvisioningBackend::cancel(const std::string& operation_id) {
     transaction.status.state = "cancelled";
     transaction.status.phase = "cancelled";
     transaction.status.can_cancel = false;
+    if (transaction.profile_reservation_state == "held") {
+        transaction.profile_reservation_state = "releasing";
+        transaction.updated_at = system_time_seconds();
+        impl_->transactions.save(transaction);
+        impl_->transactions.release_profile(
+            transaction.status.profile_id,
+            transaction.status.operation_id
+        );
+        transaction.profile_reservation_state = "released";
+    }
     transaction.updated_at = system_time_seconds();
     impl_->transactions.save(transaction);
 }

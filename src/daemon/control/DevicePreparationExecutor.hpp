@@ -61,6 +61,8 @@ class DevicePreparationExecutor final {
     void update(const std::string& operation_id, const TransactionMutator& mutator);
     void phase(const std::string& operation_id, const std::string& value, bool can_cancel);
     void completed(const std::string& operation_id, const std::string& value);
+    void release_profile_reservation(const std::string& operation_id);
+    void release_profile_reservation_after_safe_failure(const std::string& operation_id) noexcept;
 
     CredentialAdministrationRoots roots_;
     platform::linux::storage::IBtrfsFilesystemFormatter& btrfs_formatter_;

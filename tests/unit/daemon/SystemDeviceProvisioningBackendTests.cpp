@@ -5,6 +5,7 @@
 #include <daemon/control/DevicePreparationTransaction.hpp>
 #include <daemon/control/DevicePreparationUnitController.hpp>
 #include <daemon/control/ExistingTargetInspector.hpp>
+#include <daemon/dbus/ManagerErrors.hpp>
 
 #include <algorithm>
 #include <backup/ports/ICommandRunner.hpp>
@@ -509,6 +510,37 @@ void test_preparation_sequence_uses_descriptors_and_installs_profile() {
         descriptors[0]
     );
     ::close(descriptors[0]);
+    const auto reserved_by = DevicePreparationTransactionStore(root / "transactions")
+                                 .profile_reservation_owner("test");
+    test_helpers::expect_true(
+        "profile identity reserved",
+        reserved_by.has_value() && *reserved_by == started.operation_id,
+        "profile identity was not durably reserved before helper launch"
+    );
+    const int duplicate_secret = secret_descriptor(password);
+    bool duplicate_rejected = false;
+    try {
+        static_cast<void>(backend.start(
+            {
+                .profile_id = "test",
+                .profile_name = "Duplicate",
+                .plan_id = "plan-duplicate",
+                .source_subvolume = "/home",
+                .passphrase_label = "Recovery",
+            },
+            preparation_target,
+            {.bus_name = ":1.6", .uid = 1000},
+            duplicate_secret
+        ));
+    } catch (const btrfsbackup::daemon::dbus::ManagerOperationError& error) {
+        duplicate_rejected = error.code() == btrfsbackup::daemon::dbus::ManagerErrorCode::Conflict;
+    }
+    ::close(duplicate_secret);
+    test_helpers::expect_true(
+        "duplicate profile reservation",
+        duplicate_rejected && units.starts == 1,
+        "second provisioning operation reserved the same profile identity"
+    );
     test_helpers::expect_true("helper launched", units.starts == 1, "manager did not launch the helper unit");
     test_helpers::expect_true(
         "manager does not wipe",
@@ -528,6 +560,40 @@ void test_preparation_sequence_uses_descriptors_and_installs_profile() {
         "profile installed",
         std::filesystem::exists(root / "etc/profiles/test/profile.json"),
         "profile was not installed"
+    );
+    const auto completed_transaction = DevicePreparationTransactionStore(root / "transactions")
+                                           .load(started.operation_id);
+    test_helpers::expect_true(
+        "profile reservation released after commit",
+        completed_transaction.profile_reservation_state == "released" &&
+            !DevicePreparationTransactionStore(root / "transactions")
+                 .profile_reservation_owner("test")
+                 .has_value(),
+        "completed provisioning retained its profile reservation"
+    );
+    const int existing_secret = secret_descriptor(password);
+    bool existing_rejected = false;
+    try {
+        static_cast<void>(backend.start(
+            {
+                .profile_id = "test",
+                .profile_name = "Existing",
+                .plan_id = "plan-existing",
+                .source_subvolume = "/home",
+                .passphrase_label = "Recovery",
+            },
+            preparation_target,
+            {.bus_name = ":1.7", .uid = 1000},
+            existing_secret
+        ));
+    } catch (const btrfsbackup::daemon::dbus::ManagerOperationError& error) {
+        existing_rejected = error.code() == btrfsbackup::daemon::dbus::ManagerErrorCode::Conflict;
+    }
+    ::close(existing_secret);
+    test_helpers::expect_true(
+        "existing profile rejected before helper",
+        existing_rejected && units.starts == 1,
+        "existing profile identity reached helper launch"
     );
     const auto format = std::ranges::find(commands.calls, std::string("mkfs.btrfs"), [](const auto& call) { return call.front(); });
     test_helpers::expect_true(
@@ -1160,6 +1226,16 @@ void test_replacement_before_wipe_is_rejected() {
         signatures.calls.empty(),
         "replacement device reached wipefs"
     );
+    const auto failed_transaction = DevicePreparationTransactionStore(root / "transactions")
+                                        .load(started.operation_id);
+    test_helpers::expect_true(
+        "safe pre-write failure releases profile reservation",
+        failed_transaction.profile_reservation_state == "released" &&
+            !DevicePreparationTransactionStore(root / "transactions")
+                 .profile_reservation_owner("replacement")
+                 .has_value(),
+        "pre-write validation failure retained the profile reservation"
+    );
 }
 
 void test_restart_marks_active_transaction_interrupted_and_preserves_owner() {
@@ -1203,6 +1279,8 @@ void test_restart_marks_active_transaction_interrupted_and_preserves_owner() {
     transaction.luks_uuid = "11111111-2222-3333-4444-555555555555";
     transaction.mapper = "btrfs-backup-test";
     transaction.cleanup_result = "pending";
+    transaction.profile_reservation_state = "held";
+    DevicePreparationTransactionStore(transaction_root).reserve_profile("test", "prepare-restored");
     DevicePreparationTransactionStore(transaction_root).save(transaction);
 
     Commands commands;
@@ -1269,7 +1347,10 @@ void test_restart_marks_active_transaction_interrupted_and_preserves_owner() {
     test_helpers::expect_true(
         "restart persisted",
         persisted.size() == 1 && persisted.front().status.state == "interrupted" &&
-            persisted.front().mapper.empty() && persisted.front().cleanup_result == "mapper-closed",
+            persisted.front().mapper.empty() && persisted.front().cleanup_result == "mapper-closed" &&
+            persisted.front().profile_reservation_state == "held" &&
+            DevicePreparationTransactionStore(transaction_root)
+                    .profile_reservation_owner("test") == std::optional<std::string>{"prepare-restored"},
         "restart recovery outcome was not persisted"
     );
 }

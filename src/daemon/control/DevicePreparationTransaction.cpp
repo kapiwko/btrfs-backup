@@ -4,16 +4,22 @@
 #include <daemon/control/DevicePreparationTransaction.hpp>
 
 #include <algorithm>
+#include <cerrno>
 #include <chrono>
+#include <cstring>
+#include <fcntl.h>
 #include <fstream>
+#include <limits>
 #include <ranges>
 #include <stdexcept>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #include <config/json/Json.hpp>
 #include <core/Errors.hpp>
 #include <core/Identifiers.hpp>
 #include <platform/linux/filesystem/FileIo.hpp>
+#include <platform/linux/OwnedFileDescriptor.hpp>
 
 namespace fs = std::filesystem;
 
@@ -27,8 +33,10 @@ constexpr fs::perms transaction_directory_permissions =
     fs::perms::owner_read | fs::perms::owner_write | fs::perms::owner_exec;
 
 bool terminal(const DevicePreparationTransaction& transaction) {
-    return transaction.status.state == "succeeded" || transaction.status.state == "failed" ||
-        transaction.status.state == "cancelled" || transaction.status.state == "interrupted";
+    return transaction.profile_reservation_state != "held" &&
+        transaction.profile_reservation_state != "releasing" &&
+        (transaction.status.state == "succeeded" || transaction.status.state == "failed" ||
+         transaction.status.state == "cancelled" || transaction.status.state == "interrupted");
 }
 
 std::int64_t now_seconds() {
@@ -46,6 +54,81 @@ void prepare_root(const fs::path& root) {
     fs::permissions(root, transaction_directory_permissions, fs::perm_options::replace, error);
     if (error)
         throw ValidationError("cannot secure device preparation transaction directory");
+}
+
+fs::path reservation_root(const fs::path& root) {
+    return root / "profile-reservations";
+}
+
+fs::path reservation_path(const fs::path& root, const std::string& profile_id) {
+    return reservation_root(root) / (profile_id + ".reservation");
+}
+
+[[noreturn]] void throw_reservation_error(const std::string& operation, const fs::path& path, int error) {
+    throw ValidationError(operation + " " + path.string() + ": " + std::strerror(error));
+}
+
+void write_all(int descriptor, const std::string& value, const fs::path& path) {
+    const char* current = value.data();
+    std::size_t remaining = value.size();
+    while (remaining > 0) {
+        const std::size_t count = std::min(
+            remaining,
+            static_cast<std::size_t>(std::numeric_limits<ssize_t>::max())
+        );
+        const ssize_t written = ::write(descriptor, current, count);
+        if (written < 0) {
+            if (errno == EINTR)
+                continue;
+            throw_reservation_error("cannot write profile reservation", path, errno);
+        }
+        if (written == 0)
+            throw ValidationError("cannot write profile reservation " + path.string());
+        current += written;
+        remaining -= static_cast<std::size_t>(written);
+    }
+}
+
+void fsync_file(int descriptor, const fs::path& path) {
+    int result;
+    do {
+        result = ::fsync(descriptor);
+    } while (result < 0 && errno == EINTR);
+    if (result < 0)
+        throw_reservation_error("cannot sync profile reservation", path, errno);
+}
+
+std::optional<std::string> read_reservation(const fs::path& path) {
+    int descriptor;
+    do {
+        descriptor = ::open(path.c_str(), O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+    } while (descriptor < 0 && errno == EINTR);
+    if (descriptor < 0) {
+        if (errno == ENOENT)
+            return std::nullopt;
+        throw_reservation_error("cannot open profile reservation", path, errno);
+    }
+    platform::linux::OwnedFileDescriptor fd(descriptor);
+    struct stat status {};
+    if (::fstat(fd.get(), &status) < 0)
+        throw_reservation_error("cannot inspect profile reservation", path, errno);
+    if (!S_ISREG(status.st_mode) || status.st_size <= 0 || status.st_size > 64)
+        throw ValidationError("invalid profile reservation " + path.string());
+    std::string owner(static_cast<std::size_t>(status.st_size), '\0');
+    std::size_t offset = 0;
+    while (offset < owner.size()) {
+        const ssize_t count = ::read(fd.get(), owner.data() + offset, owner.size() - offset);
+        if (count < 0) {
+            if (errno == EINTR)
+                continue;
+            throw_reservation_error("cannot read profile reservation", path, errno);
+        }
+        if (count == 0)
+            throw ValidationError("incomplete profile reservation " + path.string());
+        offset += static_cast<std::size_t>(count);
+    }
+    validate_operation_id(owner);
+    return owner;
 }
 
 Json device_json(const ProvisioningDevice& device) {
@@ -303,6 +386,7 @@ Json transaction_json(const DevicePreparationTransaction& transaction) {
         {"inspectionMountPoint", transaction.inspection_mount_point},
         {"configurationState", transaction.configuration_state},
         {"credentialsState", transaction.credentials_state},
+        {"profileReservationState", transaction.profile_reservation_state},
         {"cleanupResult", transaction.cleanup_result},
     };
 }
@@ -345,6 +429,7 @@ DevicePreparationTransaction parse_transaction(const Json& value) {
     result.inspection_mount_point = value.value("inspectionMountPoint", "");
     result.configuration_state = value.value("configurationState", "not-started");
     result.credentials_state = value.value("credentialsState", "not-started");
+    result.profile_reservation_state = value.value("profileReservationState", "not-held");
     result.cleanup_result = value.value("cleanupResult", "not-required");
     if (result.status.operation_id.empty() || result.status.profile_id.empty() ||
         result.owner.bus_name.empty() || result.created_at <= 0 ||
@@ -437,6 +522,80 @@ std::vector<DevicePreparationTransaction> DevicePreparationTransactionStore::loa
         platform::linux::filesystem::fsync_dir(root_);
     std::erase_if(transactions, [](const auto& transaction) { return transaction.status.operation_id.empty(); });
     return transactions;
+}
+
+void DevicePreparationTransactionStore::reserve_profile(
+    const std::string& profile_id,
+    const std::string& operation_id
+) const {
+    validate_profile_id(profile_id);
+    validate_operation_id(operation_id);
+    prepare_root(root_);
+    const fs::path directory = reservation_root(root_);
+    prepare_root(directory);
+    const fs::path path = reservation_path(root_, profile_id);
+
+    int descriptor;
+    do {
+        descriptor = ::open(
+            path.c_str(),
+            O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC | O_NOFOLLOW,
+            transaction_permissions
+        );
+    } while (descriptor < 0 && errno == EINTR);
+    if (descriptor < 0) {
+        if (errno == EEXIST) {
+            const auto owner = read_reservation(path);
+            if (owner.has_value() && *owner == operation_id)
+                return;
+            throw ValidationError("profile is already reserved: " + profile_id);
+        }
+        throw_reservation_error("cannot create profile reservation", path, errno);
+    }
+
+    platform::linux::OwnedFileDescriptor fd(descriptor);
+    try {
+        write_all(fd.get(), operation_id, path);
+        fsync_file(fd.get(), path);
+        platform::linux::filesystem::fsync_dir(directory);
+    } catch (...) {
+        std::error_code ignored;
+        fs::remove(path, ignored);
+        throw;
+    }
+}
+
+void DevicePreparationTransactionStore::release_profile(
+    const std::string& profile_id,
+    const std::string& operation_id
+) const {
+    validate_profile_id(profile_id);
+    validate_operation_id(operation_id);
+    prepare_root(root_);
+    const fs::path directory = reservation_root(root_);
+    prepare_root(directory);
+    const fs::path path = reservation_path(root_, profile_id);
+    const auto owner = read_reservation(path);
+    if (!owner.has_value())
+        return;
+    if (*owner != operation_id)
+        throw ValidationError("profile reservation is owned by another operation: " + profile_id);
+    if (::unlink(path.c_str()) < 0) {
+        if (errno == ENOENT)
+            return;
+        throw_reservation_error("cannot remove profile reservation", path, errno);
+    }
+    platform::linux::filesystem::fsync_dir(directory);
+}
+
+std::optional<std::string> DevicePreparationTransactionStore::profile_reservation_owner(
+    const std::string& profile_id
+) const {
+    validate_profile_id(profile_id);
+    prepare_root(root_);
+    const fs::path directory = reservation_root(root_);
+    prepare_root(directory);
+    return read_reservation(reservation_path(root_, profile_id));
 }
 
 } // namespace btrfsbackup::daemon::control
