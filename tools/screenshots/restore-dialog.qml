@@ -2,17 +2,25 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import QtQuick
-import QtQuick.Window
+import org.kde.ki18n as KI18n
+import org.kde.kirigami as Kirigami
+import "../../integrations/kde/restore" as Restore
 
-Window {
+Kirigami.ApplicationWindow {
     id: runner
 
     width: 620
-    height: 260
+    height: 430
+    minimumWidth: 420
+    minimumHeight: 360
     visible: true
-    title: "Btrfs Backup Restore"
+    title: "Restore report.odt"
 
     Component.onCompleted: requestActivate()
+
+    KI18n.KI18nContext {
+        translationDomain: "btrfs-backup-kde-restore"
+    }
 
     QtObject {
         id: fakeController
@@ -20,51 +28,20 @@ Window {
         property string sourceName: "report.odt"
         property string destination: "/home/kamil/report.odt"
         property bool replaceExisting: false
-        property string planSummary: "Ready to restore one file (2.8 MiB) from the selected snapshot."
+        property string planSummary: "Plan ready: restore report.odt (2.8 MiB) from the Sep 2, 2026 snapshot, preserve its metadata and verify the result."
         property string errorText: ""
         property bool busy: false
+
+        signal overwriteConfirmationRequested(string destination)
 
         function preview() {}
         function chooseDestination() {}
         function execute() {}
         function cancel() {}
+        function confirmOverwrite() {}
     }
 
-    Loader {
-        id: restoreLoader
-
-        anchors.fill: parent
-        asynchronous: true
-        Component.onCompleted: setSource(
-            Qt.resolvedUrl("../../integrations/kde/restore/RestorePage.qml"),
-            {"controller": fakeController}
-        )
-    }
-
-    Timer {
-        interval: 100
-        running: true
-        repeat: true
-        onTriggered: {
-            if (restoreLoader.status === Loader.Error)
-                Qt.exit(2)
-            if (restoreLoader.status !== Loader.Ready || !restoreLoader.item)
-                return
-
-            stop()
-            runner.contentItem.grabToImage(function(result) {
-                if (!result.saveToFile("restore-dialog.png"))
-                    Qt.exit(2)
-                else
-                    runner.requestActivate()
-            }, Qt.size(runner.width, runner.height))
-        }
-    }
-
-    Timer {
-        interval: 5000
-        running: true
-        repeat: false
-        onTriggered: Qt.exit(0)
+    pageStack.initialPage: Restore.RestorePage {
+        controller: fakeController
     }
 }

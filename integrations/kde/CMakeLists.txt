@@ -187,6 +187,10 @@ add_executable(
 )
 
 if(BUILD_README_SCREENSHOTS)
+    qt_add_executable(btrfs-backup-kde-manager-demo EXCLUDE_FROM_ALL
+        ../../tools/screenshots/kde-manager-demo.cpp
+    )
+    target_link_libraries(btrfs-backup-kde-manager-demo PRIVATE Qt6::Core Qt6::DBus)
     qt_add_executable(btrfs-backup-kde-screenshot-demo EXCLUDE_FROM_ALL
         monitor/BackupProgressJob.cpp
         monitor/BackupProgressJob.hpp
