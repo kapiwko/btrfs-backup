@@ -9,6 +9,17 @@ Item {
     width: 800
     height: 720
 
+    function findObject(item, objectName) {
+        if (item.objectName === objectName)
+            return item
+        for (const child of item.children ?? []) {
+            const match = root.findObject(child, objectName)
+            if (match !== null)
+                return match
+        }
+        return null
+    }
+
     readonly property var partition: ({
         kind: "existing-partition",
         candidateId: "partition-1",
@@ -149,6 +160,26 @@ Item {
                     || page.candidateDevices[0].candidateId !== "device-1") {
                 console.error("Existing target adoption page bindings are invalid")
                 Qt.exit(1)
+                return
+            }
+            page.step = 0
+            verifyWelcome.start()
+        }
+    }
+
+    Timer {
+        id: verifyWelcome
+        interval: 100
+        repeat: false
+        onTriggered: {
+            const welcomeContent = root.findObject(page, "newProfileWelcomeContent")
+            const welcomePosition = welcomeContent?.mapToItem(page, 0, 0) ?? null
+            if (welcomePosition === null || welcomeContent.width <= 0
+                    || Math.abs(welcomePosition.x + welcomeContent.width / 2 - page.width / 2) > 0.5) {
+                console.error("New-profile welcome content is not centered horizontally",
+                              welcomePosition?.x, welcomeContent?.width, welcomeContent?.parent?.width,
+                              page.width)
+                Qt.exit(2)
                 return
             }
             Qt.exit(0)
