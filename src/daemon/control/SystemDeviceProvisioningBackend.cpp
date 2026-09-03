@@ -422,7 +422,7 @@ struct SystemDeviceProvisioningBackend::Impl {
         jobs.emplace(state->transaction.status.operation_id, state);
     }
 
-    void release_profile_reservation(const std::shared_ptr<State>& state) {
+    void release_profile_reservation(const std::shared_ptr<State>& state) const {
         std::lock_guard lock(state->mutex);
         if (state->transaction.profile_reservation_state != "held")
             return;
