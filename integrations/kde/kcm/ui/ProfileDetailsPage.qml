@@ -17,7 +17,6 @@ QQC2.ScrollView {
     required property var profileStatus
     required property var statusTextFor
     required property var targetStateTextFor
-    required property var runningStateFor
     property var credentialModel: null
 
     signal addSourceRequested(string name, string subvolume, int localRetention, int targetRetention)
@@ -57,7 +56,6 @@ QQC2.ScrollView {
             profileStatus: root.profileStatus
             statusTextFor: root.statusTextFor
             targetStateTextFor: root.targetStateTextFor
-            runningStateFor: root.runningStateFor
         }
 
         ProfileSources {

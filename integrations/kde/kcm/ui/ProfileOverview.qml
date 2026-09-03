@@ -8,6 +8,7 @@ import QtQuick.Controls as QQC2
 import QtQuick.Layouts
 import org.kde.ki18n as KI18n
 import org.kde.kirigami as Kirigami
+import org.btrfsbackup.kde as BtrfsBackup
 
 ColumnLayout {
     id: root
@@ -16,7 +17,6 @@ ColumnLayout {
     required property var profileStatus
     required property var statusTextFor
     required property var targetStateTextFor
-    required property var runningStateFor
     readonly property bool authorizationError: root.editor !== null && root.editor.errorCode.endsWith(".NotAuthorized")
 
     spacing: Kirigami.Units.largeSpacing
@@ -64,11 +64,11 @@ ColumnLayout {
         spacing: Kirigami.Units.smallSpacing
 
         QQC2.Button {
-            icon.name: root.runningStateFor(root.profileStatus.run.state) ? "media-playback-stop-symbolic" : "media-playback-start-symbolic"
-            text: root.runningStateFor(root.profileStatus.run.state) ? translations.i18n("Cancel backup") : translations.i18n("Start backup")
-            enabled: root.profileStatus.managerConnected && !root.profileStatus.operationPending && (root.runningStateFor(root.profileStatus.run.state) ? root.profileStatus.run.canCancel : root.profileStatus.target.connected)
+            icon.name: BtrfsBackup.ProfilePresentation.isRunning(root.profileStatus.run.state) ? "media-playback-stop-symbolic" : "media-playback-start-symbolic"
+            text: BtrfsBackup.ProfilePresentation.isRunning(root.profileStatus.run.state) ? translations.i18n("Cancel backup") : translations.i18n("Start backup")
+            enabled: BtrfsBackup.ProfilePresentation.primaryActionEnabled(root.profileStatus)
             onClicked: {
-                if (root.runningStateFor(root.profileStatus.run.state))
+                if (BtrfsBackup.ProfilePresentation.isRunning(root.profileStatus.run.state))
                     root.profileStatus.cancelBackup();
                 else
                     root.profileStatus.startBackup();
@@ -79,18 +79,14 @@ ColumnLayout {
             icon.name: "folder-open-symbolic"
             text: translations.i18n("Browse backups")
             visible: root.profileStatus.browseSupported
-            enabled: root.profileStatus.managerConnected
-                && root.profileStatus.target.connected
-                && !root.profileStatus.operationPending
+            enabled: BtrfsBackup.ProfilePresentation.canBrowse(root.profileStatus)
             onClicked: root.profileStatus.browseBackups()
         }
         QQC2.Button {
             icon.name: "media-eject-symbolic"
             text: translations.i18n("Eject")
             visible: root.profileStatus.target.connected
-            enabled: root.profileStatus.managerConnected && !root.profileStatus.operationPending
-                && !root.runningStateFor(root.profileStatus.run.state)
-                && (root.profileStatus.target.mounted || root.profileStatus.target.unlocked)
+            enabled: BtrfsBackup.ProfilePresentation.canEject(root.profileStatus)
             onClicked: root.profileStatus.ejectTarget()
         }
         Item {

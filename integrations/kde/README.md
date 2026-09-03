@@ -14,11 +14,13 @@ io.github.btrfsbackup.Manager1
 /io/github/btrfsbackup/Manager1
 ```
 
-QML only binds to C++ properties. The C++ model validates manager capabilities,
-loads public profiles, status, target state and sanitized history, and invokes
-authorized operations asynchronously. Subsequent refreshes are driven by D-Bus
-change signals rather than polling. It does not spawn `btrfs-backupctl` or block
-the UI thread on D-Bus calls.
+QML only binds to C++ properties. Shared models under `models/` validate manager
+capabilities, load public profiles, status, target state and paged sanitized
+history, and invoke authorized operations asynchronously. The neutral
+`org.btrfsbackup.kde` module also owns profile status icons, priorities and
+action-availability rules used by both the KCM and plasmoid. Subsequent refreshes
+are driven by D-Bus change signals rather than polling. It does not spawn
+`btrfs-backupctl` or block the UI thread on D-Bus calls.
 
 `managerConnected` reports whether a compatible manager has answered. It must
 not be interpreted as target-device connectivity; target lifecycle is a
