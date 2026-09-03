@@ -96,8 +96,8 @@ void test_round_trip_preserves_recovery_state() {
     saved.profile_reservation_state = "held";
     store.save(saved);
     const auto loaded = store.load_and_prune();
-    test_helpers::expect_true("round trip count", loaded.size() == 1, "transaction was not loaded");
-    const auto& value = loaded.front();
+    test_helpers::expect_true("round trip count", loaded.transactions.size() == 1, "transaction was not loaded");
+    const auto& value = loaded.transactions.front();
     test_helpers::expect_true("initial revision", value.revision == TransactionRevision{1}, "revision was not initialized");
     test_helpers::expect_eq("owner bus", value.owner.bus_name, ":1.42");
     test_helpers::expect_true("owner uid", value.owner.uid == 1000, "owner UID changed");
@@ -341,9 +341,9 @@ void test_completed_limit_ttl_and_active_retention() {
 
     const auto loaded = store.load_and_prune();
     const auto contains = [&](const std::string& id) {
-        return std::ranges::find(loaded, id, [](const auto& value) {
+        return std::ranges::find(loaded.transactions, id, [](const auto& value) {
                    return value.status.operation_id;
-               }) != loaded.end();
+               }) != loaded.transactions.end();
     };
     test_helpers::expect_true("retained newest", contains("prepare-newest"), "newest result was pruned");
     test_helpers::expect_true("retained middle", contains("prepare-middle"), "second newest result was pruned");
@@ -379,6 +379,34 @@ void test_previous_unreleased_transaction_schema_is_rejected() {
     }
 }
 
+void test_corrupted_transaction_is_isolated_and_preserved() {
+    const auto root = test_helpers::test_root("device-preparation-transactions", "corrupted");
+    DevicePreparationTransactionStore store(root);
+    auto valid = transaction("prepare-valid", "running", now_seconds());
+    valid.profile_reservation_state = "held";
+    store.save(valid);
+    const auto corrupted_path = root / "prepare-corrupted.json";
+    test_helpers::write_file(corrupted_path, "{not-json\n");
+    std::filesystem::permissions(
+        corrupted_path,
+        std::filesystem::perms::owner_read | std::filesystem::perms::owner_write,
+        std::filesystem::perm_options::replace
+    );
+
+    const auto scan = store.load_and_prune();
+    test_helpers::expect_true(
+        "corrupted transaction isolation",
+        scan.transactions.size() == 1 && scan.transactions.front().status.operation_id == "prepare-valid" &&
+            scan.corrupted_operation_ids == std::vector<std::string>{"prepare-corrupted"},
+        "a corrupted record blocked or contaminated the valid transaction"
+    );
+    test_helpers::expect_true(
+        "corrupted transaction preserved",
+        std::filesystem::exists(corrupted_path),
+        "the corrupted transaction was removed instead of retained for diagnostics"
+    );
+}
+
 } // namespace
 
 int main() {
@@ -390,5 +418,6 @@ int main() {
     test_round_trip_preserves_free_space_geometry();
     test_completed_limit_ttl_and_active_retention();
     test_previous_unreleased_transaction_schema_is_rejected();
+    test_corrupted_transaction_is_isolated_and_preserved();
     return test_helpers::finish("device preparation transaction tests");
 }

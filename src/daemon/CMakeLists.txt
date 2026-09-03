@@ -142,6 +142,7 @@ target_link_libraries(btrfsbackup-daemon-system-control
         btrfsbackup-platform-linux-storage
         btrfsbackup-platform-linux-transfer
         btrfsbackup-restore
+        btrfsbackup-status-documents
 )
 
 add_library(btrfsbackup-daemon-dbus STATIC
