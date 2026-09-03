@@ -3,7 +3,7 @@
 
 #include <daemon/control/DestructiveDeviceSafetyInspector.hpp>
 
-#include <daemon/provisioning/StorageTopologyReader.hpp>
+#include <provisioning/StorageTopologyReader.hpp>
 
 #include <algorithm>
 #include <stdexcept>
@@ -13,7 +13,7 @@
 
 namespace {
 
-namespace provisioning = btrfsbackup::daemon::provisioning;
+namespace provisioning = btrfsbackup::provisioning;
 using btrfsbackup::daemon::control::DestructiveDeviceSafetyInspector;
 using btrfsbackup::daemon::control::DevicePreparationTarget;
 using btrfsbackup::daemon::control::ProvisioningDevice;

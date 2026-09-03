@@ -7,8 +7,8 @@
 #include <functional>
 #include <vector>
 
-#include <daemon/provisioning/ConfiguredBackupTargetMarker.hpp>
-#include <daemon/provisioning/StorageTopologyReader.hpp>
+#include <provisioning/ConfiguredBackupTargetMarker.hpp>
+#include <provisioning/StorageTopologyReader.hpp>
 
 namespace btrfsbackup::platform::linux::storage {
 
@@ -19,16 +19,16 @@ struct SystemStorageTopologyPaths {
 };
 
 using ConfiguredBackupTargetProvider =
-    std::function<std::vector<daemon::provisioning::ConfiguredBackupTargetIdentity>()>;
+    std::function<std::vector<provisioning::ConfiguredBackupTargetIdentity>()>;
 
-class SystemStorageTopologyReader final : public daemon::provisioning::StorageTopologyReader {
+class SystemStorageTopologyReader final : public provisioning::StorageTopologyReader {
   public:
     explicit SystemStorageTopologyReader(
         SystemStorageTopologyPaths paths = {},
         ConfiguredBackupTargetProvider configured_targets = {}
     );
 
-    [[nodiscard]] daemon::provisioning::StorageTopology scan() override;
+    [[nodiscard]] provisioning::StorageTopology scan() override;
 
   private:
     SystemStorageTopologyPaths paths_;

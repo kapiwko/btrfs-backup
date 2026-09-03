@@ -46,7 +46,7 @@ DevicePreparationTransaction transaction(
     value.device.major_minor = "8:16";
     value.device.sysfs_devpath = "/devices/test/block/test";
     value.device.wwn = "wwn-test";
-    value.target.mode = btrfsbackup::daemon::provisioning::ProvisioningMode::ReformatExistingPartition;
+    value.target.mode = btrfsbackup::provisioning::ProvisioningMode::ReformatExistingPartition;
     value.target.device.identity = {
         .display_path = "/dev/test",
         .major_minor = "8:16",
@@ -59,10 +59,10 @@ DevicePreparationTransaction transaction(
     value.target.device.logical_sector_size = 512;
     value.target.device.physical_sector_size = 4096;
     value.target.device.partition_table = {
-        .type = btrfsbackup::daemon::provisioning::PartitionTableType::Gpt,
+        .type = btrfsbackup::provisioning::PartitionTableType::Gpt,
         .identifier = "pt-uuid",
     };
-    value.target.partition = btrfsbackup::daemon::provisioning::ExistingPartition{
+    value.target.partition = btrfsbackup::provisioning::ExistingPartition{
         .identity = {
             .display_path = "/dev/test1",
             .major_minor = "8:17",
@@ -132,7 +132,7 @@ void test_round_trip_preserves_recovery_state() {
     test_helpers::expect_eq("stable identity", value.device.major_minor, "8:16");
     test_helpers::expect_true(
         "target mode",
-        value.target.mode == btrfsbackup::daemon::provisioning::ProvisioningMode::ReformatExistingPartition,
+        value.target.mode == btrfsbackup::provisioning::ProvisioningMode::ReformatExistingPartition,
         "target mode changed"
     );
     test_helpers::expect_eq("target transport", value.target.device.transport, "usb");
@@ -299,8 +299,8 @@ void test_profile_reservation_is_durable_and_owner_guarded() {
 void test_round_trip_preserves_adoption_fingerprint() {
     const auto root = test_helpers::test_root("device-preparation-transactions", "adoption");
     auto value = transaction("prepare-adoption", "queued", now_seconds());
-    value.target.mode = btrfsbackup::daemon::provisioning::ProvisioningMode::AdoptExistingTarget;
-    value.target.expected_inspection = btrfsbackup::daemon::provisioning::ExistingTargetInspectionSummary{
+    value.target.mode = btrfsbackup::provisioning::ProvisioningMode::AdoptExistingTarget;
+    value.target.expected_inspection = btrfsbackup::provisioning::ExistingTargetInspectionSummary{
         .luks_uuid = "existing-luks",
         .btrfs_uuid = "existing-btrfs",
         .partition_uuid = "partition-uuid",
@@ -313,7 +313,7 @@ void test_round_trip_preserves_adoption_fingerprint() {
     const auto loaded = store.load("prepare-adoption");
     test_helpers::expect_true(
         "adoption fingerprint",
-        loaded.target.mode == btrfsbackup::daemon::provisioning::ProvisioningMode::AdoptExistingTarget &&
+        loaded.target.mode == btrfsbackup::provisioning::ProvisioningMode::AdoptExistingTarget &&
             loaded.target.expected_inspection == value.target.expected_inspection,
         "adoption inspection fingerprint changed during persistence"
     );
@@ -323,16 +323,16 @@ void test_round_trip_preserves_free_space_geometry() {
     const auto root = test_helpers::test_root("device-preparation-transactions", "free-space");
     auto value = transaction("prepare-free-space", "queued", now_seconds());
     value.target.mode =
-        btrfsbackup::daemon::provisioning::ProvisioningMode::CreatePartitionInUnallocatedSpace;
+        btrfsbackup::provisioning::ProvisioningMode::CreatePartitionInUnallocatedSpace;
     value.target.partition.reset();
-    btrfsbackup::daemon::provisioning::UnallocatedRegion free_region;
+    btrfsbackup::provisioning::UnallocatedRegion free_region;
     free_region.id = "ephemeral-candidate";
     free_region.start_sector = 4096;
     free_region.sector_count = 8192;
     free_region.suitable_for_backup_partition = true;
     value.target.free_region = std::move(free_region);
     value.target.planned_partition_geometry =
-        btrfsbackup::daemon::provisioning::PlannedPartitionGeometry{
+        btrfsbackup::provisioning::PlannedPartitionGeometry{
             .start_sector = 4096,
             .sector_count = 8192,
             .partition_number = 2,
@@ -344,7 +344,7 @@ void test_round_trip_preserves_free_space_geometry() {
     test_helpers::expect_true(
         "free-space geometry",
         loaded.target.mode ==
-                btrfsbackup::daemon::provisioning::ProvisioningMode::CreatePartitionInUnallocatedSpace &&
+                btrfsbackup::provisioning::ProvisioningMode::CreatePartitionInUnallocatedSpace &&
             loaded.target.free_region.has_value() && loaded.target.free_region->id.empty() &&
             loaded.target.free_region->start_sector == 4096 && loaded.target.free_region->sector_count == 8192 &&
             loaded.target.planned_partition_geometry == value.target.planned_partition_geometry &&

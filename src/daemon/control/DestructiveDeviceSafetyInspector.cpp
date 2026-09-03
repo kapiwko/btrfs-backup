@@ -13,7 +13,7 @@
 #include <set>
 #include <utility>
 
-#include <daemon/provisioning/StorageTopologyReader.hpp>
+#include <provisioning/StorageTopologyReader.hpp>
 #include <platform/linux/OwnedFileDescriptor.hpp>
 
 namespace fs = std::filesystem;

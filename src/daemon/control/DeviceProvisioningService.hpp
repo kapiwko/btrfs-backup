@@ -4,7 +4,6 @@
 #pragma once
 
 #include <chrono>
-#include <cstdint>
 #include <functional>
 #include <map>
 #include <mutex>
@@ -15,66 +14,19 @@
 
 #include <daemon/control/OperationalControlService.hpp>
 #include <daemon/control/SourceCandidate.hpp>
-#include <daemon/provisioning/DevicePreparationPlanBuilder.hpp>
-#include <daemon/provisioning/ExistingTargetInspection.hpp>
-#include <daemon/provisioning/StorageSafetyInspector.hpp>
-#include <daemon/provisioning/StorageTopologyReader.hpp>
+#include <provisioning/DevicePreparation.hpp>
+#include <provisioning/DevicePreparationPlanBuilder.hpp>
+#include <provisioning/ExistingTargetInspection.hpp>
+#include <provisioning/StorageSafetyInspector.hpp>
+#include <provisioning/StorageTopologyReader.hpp>
 
 namespace btrfsbackup::daemon::control {
 
-struct ProvisioningDevice {
-    std::string path;
-    std::string model;
-    std::string serial;
-    std::string transport;
-    std::uint64_t size_bytes = 0;
-    bool removable = false;
-    bool mounted = false;
-    bool contains_data = false;
-    std::string major_minor;
-    std::string sysfs_devpath;
-    std::string wwn;
-    std::string serial_id;
-    std::string serial_short;
-    std::string device_graph;
-};
-
-struct DevicePreparationRequest {
-    std::string profile_id;
-    std::string profile_name;
-    std::string plan_id;
-    std::string source_candidate_id;
-    std::string source_subvolume;
-    std::string source_filesystem_uuid;
-    std::string source_mount_root;
-    std::string local_snapshot_dir;
-    std::string passphrase_label;
-    bool create_automatic_key = true;
-};
-
-struct DevicePreparationStatus {
-    std::string operation_id;
-    std::string profile_id;
-    std::string state;
-    std::string phase;
-    std::string error_code;
-    std::string recovery_action;
-    bool can_cancel = false;
-};
-
-struct DevicePreparationOwner {
-    std::string bus_name;
-    std::uint32_t uid = 0;
-};
-
-struct DevicePreparationTarget {
-    provisioning::ProvisioningMode mode = provisioning::ProvisioningMode::EraseWholeDevice;
-    provisioning::StorageDevice device;
-    std::optional<provisioning::ExistingPartition> partition;
-    std::optional<provisioning::UnallocatedRegion> free_region;
-    std::optional<provisioning::PlannedPartitionGeometry> planned_partition_geometry;
-    std::optional<provisioning::ExistingTargetInspectionSummary> expected_inspection;
-};
+using provisioning::DevicePreparationOwner;
+using provisioning::DevicePreparationRequest;
+using provisioning::DevicePreparationStatus;
+using provisioning::DevicePreparationTarget;
+using provisioning::ProvisioningDevice;
 
 class IDeviceProvisioningBackend {
   public:

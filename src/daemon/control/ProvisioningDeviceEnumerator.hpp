@@ -7,7 +7,7 @@
 
 #include <daemon/control/DeviceProvisioningService.hpp>
 
-namespace btrfsbackup::daemon::provisioning {
+namespace btrfsbackup::provisioning {
 class StorageTopologyReader;
 }
 

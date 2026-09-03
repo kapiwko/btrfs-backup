@@ -112,11 +112,11 @@ assert_public_link_interface(
 )
 if(BUILD_SYSTEM_MANAGER)
     assert_public_link_interface(
-        btrfsbackup-daemon-provisioning
+        btrfsbackup-provisioning
     )
     assert_public_link_interface(
         btrfsbackup-platform-linux-provisioning
-        btrfsbackup-daemon-provisioning
+        btrfsbackup-provisioning
     )
 endif()
 assert_public_link_interface(
@@ -164,7 +164,7 @@ if(BUILD_SYSTEM_MANAGER)
         btrfsbackup-daemon-control
         btrfsbackup-config-domain
         btrfsbackup-daemon-core
-        btrfsbackup-daemon-provisioning
+        btrfsbackup-provisioning
         btrfsbackup-platform-linux-base
     )
     assert_public_link_interface(
@@ -216,7 +216,7 @@ if(BUILD_SYSTEM_MANAGER)
         btrfsbackup-daemon-control
         btrfsbackup-daemon-core
         btrfsbackup-daemon-dbus
-        btrfsbackup-daemon-provisioning
+        btrfsbackup-provisioning
         btrfsbackup-daemon-query
         btrfsbackup-daemon-system-control
         btrfsbackup-platform-linux-provisioning
@@ -301,6 +301,7 @@ add_subdirectory(unit/state)
 add_subdirectory(unit/platform)
 add_subdirectory(unit/cli)
 if(BUILD_SYSTEM_MANAGER)
+    add_subdirectory(unit/provisioning)
     add_subdirectory(unit/daemon)
 endif()
 add_subdirectory(integration)

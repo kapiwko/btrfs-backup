@@ -13,7 +13,7 @@
 #include <config/ports/ConfigurationActivator.hpp>
 #include <daemon/control/CredentialAdministrationService.hpp>
 #include <daemon/control/DestructiveDeviceSafetyInspector.hpp>
-#include <daemon/provisioning/StorageTopologyReader.hpp>
+#include <provisioning/StorageTopologyReader.hpp>
 #include <platform/linux/storage/BlockDeviceMetadata.hpp>
 #include <platform/linux/storage/BtrfsFilesystemFormatter.hpp>
 #include <platform/linux/storage/CryptsetupOperations.hpp>
@@ -45,10 +45,10 @@ using btrfsbackup::daemon::control::IExistingTargetInspector;
 using btrfsbackup::daemon::control::SystemDeviceProvisioningBackend;
 using btrfsbackup::daemon::control::TargetCredential;
 
-DevicePreparationTarget target(btrfsbackup::daemon::provisioning::StorageDevice device) {
+DevicePreparationTarget target(btrfsbackup::provisioning::StorageDevice device) {
     return {
         .device = std::move(device),
-        .planned_partition_geometry = btrfsbackup::daemon::provisioning::PlannedPartitionGeometry{
+        .planned_partition_geometry = btrfsbackup::provisioning::PlannedPartitionGeometry{
             .start_sector = 1,
             .sector_count = 2047,
             .partition_number = 1,
@@ -56,20 +56,20 @@ DevicePreparationTarget target(btrfsbackup::daemon::provisioning::StorageDevice 
     };
 }
 
-DevicePreparationTarget partition_target(btrfsbackup::daemon::provisioning::StorageDevice device) {
-    const auto* partition = std::get_if<btrfsbackup::daemon::provisioning::ExistingPartition>(
+DevicePreparationTarget partition_target(btrfsbackup::provisioning::StorageDevice device) {
+    const auto* partition = std::get_if<btrfsbackup::provisioning::ExistingPartition>(
         &device.regions.front()
     );
     const auto selected_partition = *partition;
     return {
-        .mode = btrfsbackup::daemon::provisioning::ProvisioningMode::ReformatExistingPartition,
+        .mode = btrfsbackup::provisioning::ProvisioningMode::ReformatExistingPartition,
         .device = std::move(device),
         .partition = selected_partition,
     };
 }
 
-DevicePreparationTarget adoption_target(btrfsbackup::daemon::provisioning::StorageDevice device) {
-    auto* partition = std::get_if<btrfsbackup::daemon::provisioning::ExistingPartition>(
+DevicePreparationTarget adoption_target(btrfsbackup::provisioning::StorageDevice device) {
+    auto* partition = std::get_if<btrfsbackup::provisioning::ExistingPartition>(
         &device.regions.front()
     );
     partition->filesystem = {
@@ -79,10 +79,10 @@ DevicePreparationTarget adoption_target(btrfsbackup::daemon::provisioning::Stora
     partition->suitable_for_adoption = true;
     const auto selected_partition = *partition;
     return {
-        .mode = btrfsbackup::daemon::provisioning::ProvisioningMode::AdoptExistingTarget,
+        .mode = btrfsbackup::provisioning::ProvisioningMode::AdoptExistingTarget,
         .device = std::move(device),
         .partition = selected_partition,
-        .expected_inspection = btrfsbackup::daemon::provisioning::ExistingTargetInspectionSummary{
+        .expected_inspection = btrfsbackup::provisioning::ExistingTargetInspectionSummary{
             .luks_uuid = "11111111-2222-3333-4444-555555555555",
             .btrfs_uuid = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
             .partition_uuid = "99999999-8888-7777-6666-555555555555",
@@ -93,8 +93,8 @@ DevicePreparationTarget adoption_target(btrfsbackup::daemon::provisioning::Stora
     };
 }
 
-DevicePreparationTarget free_space_target(btrfsbackup::daemon::provisioning::StorageDevice device) {
-    namespace provisioning = btrfsbackup::daemon::provisioning;
+DevicePreparationTarget free_space_target(btrfsbackup::provisioning::StorageDevice device) {
+    namespace provisioning = btrfsbackup::provisioning;
     device.partition_table = {.type = provisioning::PartitionTableType::Gpt, .identifier = "gpt-test"};
     provisioning::UnallocatedRegion free_region;
     free_region.start_sector = 2048;
@@ -291,17 +291,17 @@ class PartitionTables final : public btrfsbackup::platform::linux::storage::IPar
     }
 };
 
-class TopologyReader final : public btrfsbackup::daemon::provisioning::StorageTopologyReader {
+class TopologyReader final : public btrfsbackup::provisioning::StorageTopologyReader {
   public:
     explicit TopologyReader(const PartitionTables& partition_tables) : partition_tables_(partition_tables) {
     }
 
     int scans = 0;
     int replace_on_scan = 0;
-    std::optional<btrfsbackup::daemon::provisioning::PartitionTableType> partition_table_type_override;
+    std::optional<btrfsbackup::provisioning::PartitionTableType> partition_table_type_override;
 
-    btrfsbackup::daemon::provisioning::StorageTopology scan() override {
-        namespace provisioning = btrfsbackup::daemon::provisioning;
+    btrfsbackup::provisioning::StorageTopology scan() override {
+        namespace provisioning = btrfsbackup::provisioning;
         ++scans;
         const bool replaced = replace_on_scan != 0 && scans >= replace_on_scan;
         provisioning::StorageDevice device;
@@ -406,10 +406,10 @@ class ExistingTargetInspector final : public IExistingTargetInspector {
   public:
     int inspections = 0;
     int cleanups = 0;
-    btrfsbackup::daemon::provisioning::ExistingTargetInspectionSummary result;
+    btrfsbackup::provisioning::ExistingTargetInspectionSummary result;
 
-    btrfsbackup::daemon::provisioning::ExistingTargetInspectionSummary inspect(
-        const btrfsbackup::daemon::provisioning::ExistingPartition&,
+    btrfsbackup::provisioning::ExistingTargetInspectionSummary inspect(
+        const btrfsbackup::provisioning::ExistingPartition&,
         const std::string&,
         const std::filesystem::path&,
         int
@@ -820,7 +820,7 @@ void test_preparation_sequence_uses_descriptors_and_installs_profile() {
     );
 
     topology.partition_table_type_override =
-        btrfsbackup::daemon::provisioning::PartitionTableType::Unsupported;
+        btrfsbackup::provisioning::PartitionTableType::Unsupported;
     const auto unsupported_target = target(topology.scan().devices.front());
     const int unsupported_manager_secret = secret_descriptor(password);
     const auto unsupported = backend.start(
@@ -1457,7 +1457,7 @@ void test_restart_marks_active_transaction_interrupted_and_preserves_owner() {
     transaction.target.device.logical_sector_size = 512;
     transaction.target.device.physical_sector_size = 4096;
     transaction.target.planned_partition_geometry =
-        btrfsbackup::daemon::provisioning::PlannedPartitionGeometry{
+        btrfsbackup::provisioning::PlannedPartitionGeometry{
             .start_sector = 1,
             .sector_count = 2047,
             .partition_number = 1,

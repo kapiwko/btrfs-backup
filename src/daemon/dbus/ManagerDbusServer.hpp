@@ -15,7 +15,7 @@
 #include <daemon/control/BrowseSessionService.hpp>
 #include <daemon/control/CredentialAdministrationService.hpp>
 #include <daemon/control/DeviceProvisioningService.hpp>
-#include <daemon/provisioning/StorageTopologyReader.hpp>
+#include <provisioning/StorageTopologyReader.hpp>
 
 namespace btrfsbackup::daemon::dbus {
 
