@@ -7,9 +7,9 @@
 #include <string>
 
 #include <daemon/control/CredentialAdministrationService.hpp>
-#include <daemon/control/DevicePreparationPlanBuilder.hpp>
 #include <daemon/control/DevicePreparationRecovery.hpp>
 #include <daemon/control/DevicePreparationTransactionStore.hpp>
+#include <daemon/control/ProvisionedProfileBuilder.hpp>
 
 namespace btrfsbackup::backup {
 class IBtrfsOperations;
@@ -80,7 +80,7 @@ class DevicePreparationExecutor final {
     DevicePreparationTransactionStore& transactions_;
     ProvisioningDeviceEnumerator& devices_;
     backup::IMountInspector& source_mounts_;
-    DevicePreparationPlanBuilder plan_builder_;
+    ProvisionedProfileBuilder profile_builder_;
     IExistingTargetInspector* existing_target_inspector_;
     std::filesystem::path inspection_mount_root_;
     DevicePreparationRecovery recovery_;

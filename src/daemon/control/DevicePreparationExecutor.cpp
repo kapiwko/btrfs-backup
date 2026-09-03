@@ -102,7 +102,7 @@ DevicePreparationExecutor::DevicePreparationExecutor(
       transactions_(transactions),
       devices_(devices),
       source_mounts_(source_mounts),
-      plan_builder_(std::move(target_mount_root)),
+      profile_builder_(std::move(target_mount_root)),
       existing_target_inspector_(existing_target_inspector),
       inspection_mount_root_(std::move(inspection_mount_root)),
       recovery_(transactions, partition_tables, cryptsetup, existing_target_inspector) {
@@ -275,7 +275,7 @@ void DevicePreparationExecutor::execute(const std::string& operation_id, int pas
 
             phase(operation_id, "write-profile", false);
             update(operation_id, [](auto& transaction) { transaction.configuration_state = "in-progress"; });
-            config::Profile profile = plan_builder_.build(
+            config::Profile profile = profile_builder_.build(
                 initial,
                 inspected.luks_uuid,
                 inspected.btrfs_uuid,
@@ -445,7 +445,7 @@ void DevicePreparationExecutor::execute(const std::string& operation_id, int pas
 
         phase(operation_id, "write-profile", false);
         update(operation_id, [](auto& transaction) { transaction.configuration_state = "in-progress"; });
-        config::Profile profile = plan_builder_.build(initial, luks_uuid, btrfs_uuid, partition_uuid);
+        config::Profile profile = profile_builder_.build(initial, luks_uuid, btrfs_uuid, partition_uuid);
         const platform::linux::config::ExpectedProfileIdentity expected_profile{
             .exists = false,
             .generation = {},
