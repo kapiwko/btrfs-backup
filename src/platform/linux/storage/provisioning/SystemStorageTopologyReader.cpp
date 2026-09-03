@@ -211,7 +211,13 @@ std::map<dev_t, std::vector<std::string>> read_mounts(const fs::path& mountinfo)
     std::map<dev_t, std::vector<std::string>> result;
     libmnt_fs* entry = nullptr;
     while (mnt_table_next_fs(table.get(), iterator.get(), &entry) == 0) {
-        const dev_t number = mnt_fs_get_devno(entry);
+        dev_t number = mnt_fs_get_devno(entry);
+        const char* source = mnt_fs_get_srcpath(entry);
+        if (major(number) == 0 && source != nullptr && std::string_view(source).starts_with("/dev/")) {
+            struct stat source_status {};
+            if (::stat(source, &source_status) == 0 && S_ISBLK(source_status.st_mode))
+                number = source_status.st_rdev;
+        }
         const char* target = mnt_fs_get_target(entry);
         if (number != 0 && target != nullptr && *target != '\0')
             result[number].emplace_back(target);
@@ -364,7 +370,9 @@ std::set<dev_t> system_device_numbers(const std::map<dev_t, RawNode>& nodes) {
     std::vector<dev_t> pending;
     for (const auto& [number, node] : nodes) {
         numbers_by_name.insert_or_assign(node.sysname, number);
-        if (std::ranges::find(node.mount_points, "/") != node.mount_points.end())
+        if (std::ranges::any_of(node.mount_points, [](const std::string& mount_point) {
+                return mount_point == "/" || mount_point == "/boot" || mount_point == "/boot/efi";
+            }))
             pending.push_back(number);
     }
 

@@ -44,6 +44,7 @@ KCMUtils.SimpleKCM {
             && !root.selectedDevice.mounted))
     readonly property var candidateDevices: (root.provisioning.devices ?? []).filter(device =>
         !(device.systemDevice ?? false)
+            && !(device.mounted ?? false)
             && (!root.adoption || (root.deviceIsExternal(device) && root.deviceHasAdoptionCandidate(device))))
     readonly property url partitionManagerUrl: "applications:org.kde.partitionmanager.desktop"
     readonly property string inspectionClassification: root.provisioning.inspection.classification ?? ""
