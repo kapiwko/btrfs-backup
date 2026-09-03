@@ -4,7 +4,7 @@
 
 import QtQuick 2.15
 import QtQuick.Window 2.15
-import org.btrfsbackup.plasma 1.0
+import org.btrfsbackup.kde 1.0
 
 Window {
     width: 1

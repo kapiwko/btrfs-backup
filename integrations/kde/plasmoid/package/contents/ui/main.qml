@@ -12,8 +12,8 @@ import org.kde.plasma.components as PlasmaComponents3
 import org.kde.plasma.core as PlasmaCore
 import org.kde.plasma.extras as PlasmaExtras
 import org.kde.plasma.plasmoid
-import org.btrfsbackup.plasma
-import org.btrfsbackup.plasma as BtrfsBackup
+import org.btrfsbackup.kde
+import org.btrfsbackup.kde as BtrfsBackup
 
 PlasmoidItem {
     id: root

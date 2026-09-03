@@ -3,7 +3,7 @@
 
 import QtQuick
 import QtTest
-import org.btrfsbackup.plasma as BtrfsBackup
+import org.btrfsbackup.kde as BtrfsBackup
 
 TestCase {
     name: "ProfileStatusBadge"

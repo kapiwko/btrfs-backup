@@ -14,7 +14,7 @@ file(READ "${PROJECT_SOURCE_DIR}/integrations/kde/kcm/DeviceProvisioningModel.cp
 file(READ "${PROJECT_SOURCE_DIR}/integrations/kde/kcm/ProfileConfigurationModel.cpp" profile_configuration_kcm)
 file(READ "${PROJECT_SOURCE_DIR}/integrations/kde/kcm/TargetCredentialModel.cpp" target_credentials_kcm)
 file(READ "${PROJECT_SOURCE_DIR}/integrations/kde/kcm/ui/ProfileOverview.qml" profile_overview_kcm)
-file(READ "${PROJECT_SOURCE_DIR}/integrations/kde/plasmoid/src/BackupStatusModel.cpp" plasma_status_model)
+file(READ "${PROJECT_SOURCE_DIR}/integrations/kde/models/BackupStatusModel.cpp" plasma_status_model)
 string(REGEX REPLACE "[ \t\r\n]+" "" compact_xml "${manager_xml}")
 string(REGEX REPLACE "[ \t\r\n]+" "" compact_bus_policy "${manager_bus_policy}")
 string(REGEX REPLACE "[ \t\r\n]+" "" compact_polkit_policy "${manager_polkit_policy}")

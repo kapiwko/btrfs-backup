@@ -81,7 +81,7 @@ For a development build, install the generated plugin and desktop entry, then
 refresh KDE's service cache:
 
 ```bash
-cmake --build build/kde-tests --target kcm_btrfsbackup btrfsbackup_plasma_backendplugin
+cmake --build build/kde-tests --target kcm_btrfsbackup btrfsbackup_kde_modelsplugin
 sudo cmake --install build/kde-tests
 kbuildsycoca6
 kcmshell6 kcm_btrfsbackup
