@@ -12,8 +12,6 @@ kcmutils_add_qml_kcm(
         ManagerErrorMessage.hpp
         ProfileConfigurationModel.cpp
         ProfileConfigurationModel.hpp
-        ProfileHistoryModel.cpp
-        ProfileHistoryModel.hpp
         TargetCredentialModel.cpp
         TargetCredentialModel.hpp
         DeviceProvisioningModel.cpp
@@ -30,6 +28,7 @@ target_link_libraries(
         KF6::KCMUtilsQuick
         KF6::I18n
         btrfsbackup_kde_manager_client
+        btrfsbackup_kde_models
 )
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(kcm_btrfsbackup PRIVATE -Wall -Wextra -Wpedantic)

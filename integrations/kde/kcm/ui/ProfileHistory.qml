@@ -25,9 +25,9 @@ ColumnLayout {
     Kirigami.InlineMessage {
         Layout.fillWidth: true
         Layout.bottomMargin: Kirigami.Units.smallSpacing
-        visible: root.historyModel !== null && root.historyModel.errorMessage.length > 0
+        visible: root.historyModel !== null && root.historyModel.errorCode.length > 0
         type: Kirigami.MessageType.Error
-        text: root.historyModel !== null ? root.historyModel.errorMessage : ""
+        text: root.historyErrorText()
         actions: [
             Kirigami.Action {
                 text: translations.i18n("Retry")
@@ -81,7 +81,7 @@ ColumnLayout {
 
     Kirigami.PlaceholderMessage {
         Layout.fillWidth: true
-        visible: root.historyModel !== null && !root.historyModel.loading && root.historyModel.errorMessage.length === 0 && root.historyModel.entries.length === 0
+        visible: root.historyModel !== null && !root.historyModel.loading && root.historyModel.errorCode.length === 0 && root.historyModel.entries.length === 0
         icon.name: "view-history-symbolic"
         text: translations.i18n("No synchronization history")
     }
@@ -204,5 +204,14 @@ ColumnLayout {
     function dateTime(value, fallback) {
         const parsed = Date.parse(value);
         return isNaN(parsed) ? fallback : Qt.formatDateTime(new Date(parsed), Locale.ShortFormat);
+    }
+
+    function historyErrorText() {
+        const code = root.historyModel?.errorCode ?? "";
+        if (code === "manager.unsupported-history")
+            return translations.i18n("The backup manager does not provide compatible backup history.");
+        if (code === "manager.invalid-history")
+            return translations.i18n("The backup manager returned invalid backup history.");
+        return translations.i18n("Could not load backup history.");
     }
 }
