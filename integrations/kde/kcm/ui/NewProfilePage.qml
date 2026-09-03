@@ -46,7 +46,6 @@ KCMUtils.SimpleKCM {
         !(device.systemDevice ?? false)
             && !(device.mounted ?? false)
             && (!root.adoption || (root.deviceIsExternal(device) && root.deviceHasAdoptionCandidate(device))))
-    readonly property url partitionManagerUrl: "applications:org.kde.partitionmanager.desktop"
     readonly property string inspectionClassification: root.provisioning.inspection.classification ?? ""
 
     function deviceHasConfiguredTarget(device) {
@@ -386,8 +385,9 @@ KCMUtils.SimpleKCM {
                         QQC2.Button {
                             icon.name: "partitionmanager"
                             text: translations.i18n("Open KDE Partition Manager")
+                            visible: typeof kcm !== "undefined" && kcm.partitionManagerAvailable
                             enabled: !root.provisioning.busy
-                            onClicked: Qt.openUrlExternally(root.partitionManagerUrl)
+                            onClicked: kcm.openPartitionManager()
                         }
                         QQC2.Button {
                             icon.name: "view-refresh-symbolic"
