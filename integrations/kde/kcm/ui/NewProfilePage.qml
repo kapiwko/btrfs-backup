@@ -108,7 +108,7 @@ KCMUtils.SimpleKCM {
             spacing: Kirigami.Units.largeSpacing
             Layout.margins: Kirigami.Units.largeSpacing
 
-            Item { Layout.fillHeight: true; Layout.maximumHeight: Kirigami.Units.gridUnit * 2 }
+            Item { Layout.fillHeight: true }
             Kirigami.Icon {
                 Layout.alignment: Qt.AlignHCenter
                 source: "drive-removable-media"
