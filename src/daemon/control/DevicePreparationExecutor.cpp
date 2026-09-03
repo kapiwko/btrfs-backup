@@ -129,6 +129,35 @@ void DevicePreparationExecutor::completed(const std::string& operation_id, const
     update(operation_id, [&](auto& transaction) { transaction.last_completed_phase = value; });
 }
 
+void DevicePreparationExecutor::release_profile_reservation(const std::string& operation_id) {
+    DevicePreparationTransaction transaction = transactions_.load(operation_id);
+    if (transaction.profile_reservation_state != "held")
+        return;
+    transaction.profile_reservation_state = "releasing";
+    transaction.updated_at = system_time_seconds();
+    transactions_.save(transaction);
+    transactions_.release_profile(transaction.status.profile_id, operation_id);
+    transaction.profile_reservation_state = "released";
+    transaction.updated_at = system_time_seconds();
+    transactions_.save(transaction);
+}
+
+void DevicePreparationExecutor::release_profile_reservation_after_safe_failure(
+    const std::string& operation_id
+) noexcept {
+    try {
+        const DevicePreparationTransaction transaction = transactions_.load(operation_id);
+        const bool profile_committed = transaction.configuration_state == "installed";
+        const bool target_unchanged =
+            transaction.target.mode == provisioning::ProvisioningMode::AdoptExistingTarget ||
+            transaction.last_completed_phase.empty() || transaction.last_completed_phase == "inspect" ||
+            transaction.last_completed_phase == "backup-partition-table";
+        if (profile_committed || target_unchanged)
+            release_profile_reservation(operation_id);
+    } catch (...) {
+    }
+}
+
 void DevicePreparationExecutor::execute(const std::string& operation_id, int passphrase_fd) {
     const DevicePreparationTransaction initial = transactions_.load(operation_id);
     if (initial.status.state != "queued" && initial.status.state != "running")
@@ -246,6 +275,9 @@ void DevicePreparationExecutor::execute(const std::string& operation_id, int pas
                 transaction.configuration_state = "installed";
                 transaction.credentials_state = "not-applicable";
                 transaction.last_completed_phase = "write-profile";
+            });
+            release_profile_reservation(operation_id);
+            update(operation_id, [](auto& transaction) {
                 transaction.status.state = "succeeded";
                 transaction.status.phase = "complete";
                 transaction.status.can_cancel = false;
@@ -415,6 +447,9 @@ void DevicePreparationExecutor::execute(const std::string& operation_id, int pas
         update(operation_id, [](auto& transaction) {
             transaction.credentials_state = "installed";
             transaction.last_completed_phase = "credentials";
+        });
+        release_profile_reservation(operation_id);
+        update(operation_id, [](auto& transaction) {
             transaction.status.state = "succeeded";
             transaction.status.phase = "complete";
             transaction.status.can_cancel = false;
@@ -449,6 +484,7 @@ void DevicePreparationExecutor::execute(const std::string& operation_id, int pas
         } catch (const std::exception& persistence_error) {
             std::cerr << "Cannot persist failed device preparation: " << persistence_error.what() << '\n';
         }
+        release_profile_reservation_after_safe_failure(operation_id);
     } catch (...) {
         const bool cleanup_required = !mapper.empty();
         bool cleanup_ok = !cleanup_required;
@@ -475,6 +511,7 @@ void DevicePreparationExecutor::execute(const std::string& operation_id, int pas
             });
         } catch (...) {
         }
+        release_profile_reservation_after_safe_failure(operation_id);
     }
 }
 
