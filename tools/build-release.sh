@@ -1279,6 +1279,11 @@ if [[ "$TARGET" == all || "$TARGET" == arch ]]; then
     mkdir -p "$KDE_PACKAGE_AUDIT_ROOT"
     tar --zstd -xf "$KDE_PACKAGE_ARCHIVE" -C "$KDE_PACKAGE_AUDIT_ROOT"
     bash -n "$KDE_PACKAGE_AUDIT_ROOT/.INSTALL"
+    if ldd "$KDE_PACKAGE_AUDIT_ROOT/usr/lib/qt6/plugins/plasma/kcms/systemsettings/kcm_btrfsbackup.so" \
+        | grep -Fq 'not found'; then
+        printf '%s\n' 'Packaged System Settings module has an unresolved shared-library dependency.' >&2
+        exit 1
+    fi
     /usr/lib/qt6/bin/qmllint \
         --bare \
         -I "$KDE_PACKAGE_AUDIT_ROOT/usr/lib/qt6/qml" \
