@@ -127,7 +127,7 @@ PlasmoidItem {
         Kirigami.Icon {
             anchors.fill: parent
             anchors.margins: Math.max(1, parent.width * 0.13)
-            source: root.panelIcon()
+            source: "drive-harddisk-symbolic"
             opacity: profileDirectory.managerConnected ? 1 : 0.65
         }
 
@@ -182,16 +182,6 @@ PlasmoidItem {
             }
         }
 
-    }
-
-    function panelIcon() {
-        switch (root.primarySummary?.priority ?? 7) {
-        case 1: return "dialog-error-symbolic"
-        case 3: return "dialog-warning-symbolic"
-        case 5: return "media-eject-symbolic"
-        case 6: return "emblem-success-symbolic"
-        default: return "drive-harddisk-symbolic"
-        }
     }
 
     fullRepresentation: PlasmaExtras.Representation {
