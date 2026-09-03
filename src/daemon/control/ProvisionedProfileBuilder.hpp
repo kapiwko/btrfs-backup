@@ -11,9 +11,9 @@
 
 namespace btrfsbackup::daemon::control {
 
-class DevicePreparationPlanBuilder final {
+class ProvisionedProfileBuilder final {
   public:
-    explicit DevicePreparationPlanBuilder(std::filesystem::path target_mount_root);
+    explicit ProvisionedProfileBuilder(std::filesystem::path target_mount_root);
 
     [[nodiscard]] config::Profile build(
         const DevicePreparationTransaction& transaction,
