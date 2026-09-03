@@ -38,7 +38,7 @@ void show_transfer(KUiServerV2JobTracker& tracker) {
 void show_completion() {
     auto* notification = new KNotification(
         QStringLiteral("backupSucceeded"),
-        KNotification::CloseOnTimeout
+        KNotification::Persistent
     );
     notification->setComponentName(QStringLiteral("btrfs-backup-kde-monitor"));
     notification->setTitle(i18n("Backup completed"));
