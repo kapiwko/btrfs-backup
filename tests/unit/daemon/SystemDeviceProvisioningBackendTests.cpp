@@ -1468,6 +1468,13 @@ void test_restart_marks_active_transaction_interrupted_and_preserves_owner() {
     transaction.profile_reservation_state = "held";
     DevicePreparationTransactionStore(transaction_root).reserve_profile("test", "prepare-restored");
     DevicePreparationTransactionStore(transaction_root).save(transaction);
+    const auto corrupted_path = transaction_root / "prepare-corrupted.json";
+    test_helpers::write_file(corrupted_path, "{not-json\n");
+    std::filesystem::permissions(
+        corrupted_path,
+        std::filesystem::perms::owner_read | std::filesystem::perms::owner_write,
+        std::filesystem::perm_options::replace
+    );
 
     Commands commands;
     btrfsbackup::platform::linux::storage::CommandBtrfsFilesystemFormatter btrfs_formatter(commands);
@@ -1516,6 +1523,16 @@ void test_restart_marks_active_transaction_interrupted_and_preserves_owner() {
     test_helpers::expect_eq("restart error", restored.error_code, "device-preparation.daemon-restarted");
     test_helpers::expect_true("restart recovery", !restored.recovery_action.empty(), "recovery action missing");
     test_helpers::expect_true("cleanup helper launch", units.recoveries == 1, "cleanup helper was not launched");
+    const DevicePreparationStatus corrupted = backend.status("prepare-corrupted");
+    test_helpers::expect_true(
+        "corrupted transaction status",
+        corrupted.state == "failed" && corrupted.phase == "manual-intervention-required" &&
+            corrupted.error_code == "device-preparation.transaction-corrupted" &&
+            !corrupted.recovery_action.empty() && !corrupted.can_cancel &&
+            !backend.owned_by("prepare-corrupted", {.bus_name = ":1.20", .uid = 1000}) &&
+            std::filesystem::exists(corrupted_path),
+        "corrupted transaction was not isolated behind a sanitized manual recovery status"
+    );
     backend.recover_operation("prepare-restored");
     test_helpers::expect_true(
         "restored UID owner",
@@ -1536,9 +1553,12 @@ void test_restart_marks_active_transaction_interrupted_and_preserves_owner() {
     const auto persisted = DevicePreparationTransactionStore(transaction_root).load_and_prune();
     test_helpers::expect_true(
         "restart persisted",
-        persisted.size() == 1 && persisted.front().status.state == "interrupted" &&
-            persisted.front().mapper.empty() && persisted.front().cleanup_result == "mapper-closed" &&
-            persisted.front().profile_reservation_state == "held" &&
+        persisted.transactions.size() == 1 &&
+            persisted.corrupted_operation_ids == std::vector<std::string>{"prepare-corrupted"} &&
+            persisted.transactions.front().status.state == "interrupted" &&
+            persisted.transactions.front().mapper.empty() &&
+            persisted.transactions.front().cleanup_result == "mapper-closed" &&
+            persisted.transactions.front().profile_reservation_state == "held" &&
             DevicePreparationTransactionStore(transaction_root)
                     .profile_reservation_owner("test") == std::optional<std::string>{"prepare-restored"},
         "restart recovery outcome was not persisted"

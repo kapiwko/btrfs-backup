@@ -2,9 +2,11 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#include <cstdint>
 #include <filesystem>
 #include <string>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #include <state/document/BoundedDocumentReader.hpp>
 
@@ -78,6 +80,32 @@ void test_rejects_document_writable_by_others() {
     fs::remove_all(root);
 }
 
+void test_rejects_unexpected_owner_and_exact_permissions() {
+    const fs::path root = test_helpers::test_root("bounded-document-reader", "identity");
+    const fs::path path = root / "document.json";
+    test_helpers::write_file(path, "document");
+    chmod(path.c_str(), 0644);
+
+    test_helpers::expect_validation_error(
+        "unexpected document owner",
+        [&] { (void)BoundedDocumentReader{}.read(path, 1024, static_cast<std::uint32_t>(::geteuid() + 1)); },
+        "unexpected owner"
+    );
+    test_helpers::expect_validation_error(
+        "unexpected exact permissions",
+        [&] {
+            (void)BoundedDocumentReader{}.read(
+                path,
+                1024,
+                static_cast<std::uint32_t>(::geteuid()),
+                0600
+            );
+        },
+        "unexpected permissions"
+    );
+    fs::remove_all(root);
+}
+
 } // namespace
 
 int main() {
@@ -86,5 +114,6 @@ int main() {
     test_rejects_symbolic_link();
     test_rejects_non_regular_file();
     test_rejects_document_writable_by_others();
+    test_rejects_unexpected_owner_and_exact_permissions();
     return test_helpers::finish("bounded document reader tests");
 }

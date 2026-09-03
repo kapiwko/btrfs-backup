@@ -54,7 +54,12 @@ class FileDescriptor {
 namespace btrfsbackup::state {
 namespace document {
 
-std::string BoundedDocumentReader::read(const fs::path& path, std::size_t maximum_size) const {
+std::string BoundedDocumentReader::read(
+    const fs::path& path,
+    std::size_t maximum_size,
+    std::optional<std::uint32_t> expected_owner,
+    std::optional<std::uint32_t> expected_permissions
+) const {
     int raw_descriptor;
     do {
         raw_descriptor = open(path.c_str(), O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
@@ -80,6 +85,12 @@ std::string BoundedDocumentReader::read(const fs::path& path, std::size_t maximu
     }
     if ((info.st_mode & 0022) != 0) {
         throw ValidationError("document is writable by group or others: " + path.string());
+    }
+    if (expected_owner.has_value() && info.st_uid != *expected_owner) {
+        throw ValidationError("document has an unexpected owner: " + path.string());
+    }
+    if (expected_permissions.has_value() && (info.st_mode & 0777) != *expected_permissions) {
+        throw ValidationError("document has unexpected permissions: " + path.string());
     }
 
     std::string content;

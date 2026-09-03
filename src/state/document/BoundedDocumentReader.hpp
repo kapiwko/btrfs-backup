@@ -5,7 +5,9 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <filesystem>
+#include <optional>
 #include <string>
 
 namespace btrfsbackup::state {
@@ -15,7 +17,9 @@ class BoundedDocumentReader {
   public:
     [[nodiscard]] std::string read(
         const std::filesystem::path& path,
-        std::size_t maximum_size
+        std::size_t maximum_size,
+        std::optional<std::uint32_t> expected_owner = std::nullopt,
+        std::optional<std::uint32_t> expected_permissions = std::nullopt
     ) const;
 };
 

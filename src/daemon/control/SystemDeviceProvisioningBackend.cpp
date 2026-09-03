@@ -128,6 +128,18 @@ bool installed_profile_exists(const fs::path& config_root, const std::string& pr
     return !error && status.type() != fs::file_type::not_found;
 }
 
+DevicePreparationStatus corrupted_transaction_status(const std::string& operation_id) {
+    return {
+        .operation_id = operation_id,
+        .profile_id = {},
+        .state = "failed",
+        .phase = "manual-intervention-required",
+        .error_code = "device-preparation.transaction-corrupted",
+        .recovery_action = "Inspect the preserved device preparation transaction manually.",
+        .can_cancel = false,
+    };
+}
+
 } // namespace
 
 struct SystemDeviceProvisioningBackend::State {
@@ -150,6 +162,7 @@ struct SystemDeviceProvisioningBackend::Impl {
     fs::path inspection_mount_root;
     mutable std::mutex jobs_mutex;
     std::map<std::string, std::shared_ptr<State>> jobs;
+    std::map<std::string, DevicePreparationStatus> corrupted_transactions;
     std::condition_variable_any cleanup_wakeup;
     std::jthread cleanup_worker;
 
@@ -222,7 +235,10 @@ struct SystemDeviceProvisioningBackend::Impl {
     }
 
     void restore_transactions(bool recover_existing) {
-        for (auto transaction : transactions.load_and_prune()) {
+        const auto scan = transactions.load_and_prune();
+        for (const auto& operation_id : scan.corrupted_operation_ids)
+            corrupted_transactions.insert_or_assign(operation_id, corrupted_transaction_status(operation_id));
+        for (auto transaction : scan.transactions) {
             if (transaction.profile_reservation_state == "releasing" ||
                 (transaction.profile_reservation_state == "held" &&
                  (transaction.configuration_state == "installed" ||
@@ -280,12 +296,15 @@ struct SystemDeviceProvisioningBackend::Impl {
     }
 
     void prune_completed() {
-        const auto retained_transactions = transactions.load_and_prune();
+        const auto scan = transactions.load_and_prune();
         std::unordered_set<std::string> retained;
-        for (const auto& transaction : retained_transactions)
+        for (const auto& transaction : scan.transactions)
             retained.insert(transaction.status.operation_id);
         std::lock_guard lock(jobs_mutex);
-        for (const auto& transaction : retained_transactions) {
+        corrupted_transactions.clear();
+        for (const auto& operation_id : scan.corrupted_operation_ids)
+            corrupted_transactions.insert_or_assign(operation_id, corrupted_transaction_status(operation_id));
+        for (const auto& transaction : scan.transactions) {
             const auto item = jobs.find(transaction.status.operation_id);
             if (item == jobs.end()) {
                 auto state = std::make_shared<State>();
@@ -349,7 +368,8 @@ struct SystemDeviceProvisioningBackend::Impl {
                 dbus::ManagerErrorCode::Busy,
                 "too many device preparation operations are active"
             );
-        if (jobs.contains(state->transaction.status.operation_id))
+        if (jobs.contains(state->transaction.status.operation_id) ||
+            corrupted_transactions.contains(state->transaction.status.operation_id))
             throw dbus::ManagerOperationError(
                 dbus::ManagerErrorCode::Conflict,
                 "device preparation operation identifier collision"
@@ -596,6 +616,10 @@ DevicePreparationStatus SystemDeviceProvisioningBackend::status(const std::strin
     try {
         return impl_->load_current(operation_id).status;
     } catch (const std::exception&) {
+        std::lock_guard lock(impl_->jobs_mutex);
+        const auto corrupted = impl_->corrupted_transactions.find(operation_id);
+        if (corrupted != impl_->corrupted_transactions.end())
+            return corrupted->second;
         throw dbus::ManagerOperationError(
             dbus::ManagerErrorCode::NotFound,
             "device preparation operation not found"
