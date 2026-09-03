@@ -42,7 +42,8 @@ std::string systemd_hex_escape(unsigned char value) {
 
 std::string udev_value(const std::string& value) {
     std::string result;
-    for (const unsigned char character : value) {
+    for (const char raw_character : value) {
+        const auto character = static_cast<unsigned char>(raw_character);
         if (character == '"' || character == '\\' || character < 0x20 || character == 0x7f) {
             result += systemd_hex_escape(character);
         } else {
