@@ -70,6 +70,19 @@ struct RunStatus {
     int source_count = 0;
 };
 
+struct HistoryEntry {
+    QString state;
+    QString error_code;
+    QString source_name;
+    QString target_name;
+    QString started_at;
+    QString finished_at;
+    qint64 duration_seconds = -1;
+    qint64 bytes_transferred = 0;
+    int source_count = 0;
+    int overall_progress = -1;
+};
+
 struct OperationResult {
     QString operation;
     QString operation_id;
@@ -116,6 +129,7 @@ class ManagerEventSubscriber final : public QObject {
 [[nodiscard]] std::optional<ManagerCapabilities> parse_capabilities(const QString& payload);
 [[nodiscard]] std::optional<QList<ProfileSummary>> parse_profiles(const QString& payload);
 [[nodiscard]] std::optional<RunStatus> parse_status(const QString& payload);
+[[nodiscard]] std::optional<QList<HistoryEntry>> parse_history(const QString& payload);
 [[nodiscard]] std::optional<OperationResult> parse_operation_result(const QString& payload);
 [[nodiscard]] std::optional<BrowseSessionInfo> parse_browse_session(const QString& payload);
 [[nodiscard]] std::optional<QList<BackupCoverage>> parse_backup_coverage(const QString& payload);
