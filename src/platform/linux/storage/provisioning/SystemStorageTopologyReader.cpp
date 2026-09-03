@@ -371,7 +371,8 @@ std::set<dev_t> system_device_numbers(const std::map<dev_t, RawNode>& nodes) {
     for (const auto& [number, node] : nodes) {
         numbers_by_name.insert_or_assign(node.sysname, number);
         if (std::ranges::any_of(node.mount_points, [](const std::string& mount_point) {
-                return mount_point == "/" || mount_point == "/boot" || mount_point == "/boot/efi";
+                return mount_point == "/" || mount_point == "/boot" || mount_point == "/boot/efi" ||
+                    mount_point == "/home";
             }))
             pending.push_back(number);
     }
