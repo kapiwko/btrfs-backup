@@ -76,7 +76,7 @@ Item {
             const details = findChild(sources, "sourceDetailsDialog")
             const subvolume = findChild(sources, "subvolumeField")
             verify(row !== null)
-            const action = row.contentItem.actions[0]
+            const action = findChild(row, "editSourceAction")
             verify(action !== null)
             verify(dialog !== null)
             verify(details !== null)
