@@ -7,6 +7,7 @@ set(namespace_layout
     "src/backup/planning|btrfsbackup::backup::planning"
     "src/cli/runner|btrfsbackup::cli::runner"
     "src/cli/profile|btrfsbackup::cli::profile"
+    "src/cli/repository|btrfsbackup::cli::repository"
     "src/cli/restore|btrfsbackup::cli::restore"
     "src/cli/status|btrfsbackup::cli::status"
     "src/cli/target|btrfsbackup::cli::target"
