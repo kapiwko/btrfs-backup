@@ -174,8 +174,9 @@ SystemBrowseSessionBackend::TargetLease& SystemBrowseSessionBackend::acquire_tar
     auto table = mounts_.inspect();
     if (!btrfsbackup::backup::mount_at(table, profile.target.mount_point).has_value()) {
         const auto result = units_.start_unit({
-            btrfsbackup::config::target_mount_unit_name(profile.target.mount_point),
-            std::chrono::minutes(2),
+            .unit = btrfsbackup::config::target_mount_unit_name(profile.target.mount_point),
+            .timeout = std::chrono::minutes(2),
+            .runtime_properties = {},
         });
         if (!result)
             target_error("cannot mount backup target for browsing");

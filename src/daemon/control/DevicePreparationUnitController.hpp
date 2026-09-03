@@ -5,16 +5,29 @@
 
 #include <filesystem>
 #include <string>
+#include <vector>
 
 namespace btrfsbackup::daemon::control {
 
 class ISystemdUnitController;
 
+struct DevicePreparationDeviceAccess {
+    std::vector<std::string> major_minor;
+    bool allow_future_partitions = false;
+};
+
 class IDevicePreparationUnitController {
   public:
     virtual ~IDevicePreparationUnitController() = default;
-    virtual void start(const std::string& operation_id, int passphrase_fd) = 0;
-    virtual void recover(const std::string& operation_id) = 0;
+    virtual void start(
+        const std::string& operation_id,
+        int passphrase_fd,
+        const DevicePreparationDeviceAccess& access
+    ) = 0;
+    virtual void recover(
+        const std::string& operation_id,
+        const DevicePreparationDeviceAccess& access
+    ) = 0;
     virtual void stop(const std::string& operation_id) = 0;
     [[nodiscard]] virtual bool active(const std::string& operation_id) = 0;
 };
@@ -23,20 +36,32 @@ class SystemdDevicePreparationUnitController final : public IDevicePreparationUn
   public:
     SystemdDevicePreparationUnitController(
         ISystemdUnitController& units,
-        std::filesystem::path secret_root = "/run/btrfs-backup-manager/device-preparations"
+        std::filesystem::path secret_root = "/run/btrfs-backup-manager/device-preparations",
+        std::filesystem::path device_groups_path = "/proc/devices"
     );
 
-    void start(const std::string& operation_id, int passphrase_fd) override;
-    void recover(const std::string& operation_id) override;
+    void start(
+        const std::string& operation_id,
+        int passphrase_fd,
+        const DevicePreparationDeviceAccess& access
+    ) override;
+    void recover(
+        const std::string& operation_id,
+        const DevicePreparationDeviceAccess& access
+    ) override;
     void stop(const std::string& operation_id) override;
     [[nodiscard]] bool active(const std::string& operation_id) override;
 
     [[nodiscard]] std::filesystem::path secret_path(const std::string& operation_id) const;
 
   private:
-    void start_unit(const std::string& operation_id);
+    void start_unit(
+        const std::string& operation_id,
+        const DevicePreparationDeviceAccess& access
+    );
     ISystemdUnitController& units_;
     std::filesystem::path secret_root_;
+    std::filesystem::path device_groups_path_;
 };
 
 } // namespace btrfsbackup::daemon::control

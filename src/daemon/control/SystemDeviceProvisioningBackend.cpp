@@ -140,6 +140,21 @@ DevicePreparationStatus corrupted_transaction_status(const std::string& operatio
     };
 }
 
+DevicePreparationDeviceAccess device_access(const DevicePreparationTransaction& transaction) {
+    DevicePreparationDeviceAccess result;
+    result.major_minor.push_back(transaction.device.major_minor);
+    for (const auto& region : transaction.target.device.regions) {
+        if (const auto* partition = std::get_if<provisioning::ExistingPartition>(&region))
+            result.major_minor.push_back(partition->identity.major_minor);
+    }
+    if (transaction.target.partition.has_value())
+        result.major_minor.push_back(transaction.target.partition->identity.major_minor);
+    result.allow_future_partitions =
+        transaction.target.mode == provisioning::ProvisioningMode::EraseWholeDevice ||
+        transaction.target.mode == provisioning::ProvisioningMode::CreatePartitionInUnallocatedSpace;
+    return result;
+}
+
 } // namespace
 
 struct SystemDeviceProvisioningBackend::State {
@@ -281,7 +296,7 @@ struct SystemDeviceProvisioningBackend::Impl {
                 transactions.save(transaction);
                 if (!transaction.mapper.empty()) {
                     try {
-                        units.recover(transaction.status.operation_id);
+                        units.recover(transaction.status.operation_id, device_access(transaction));
                     } catch (const std::exception& error) {
                         std::cerr << "Cannot start device preparation cleanup: " << error.what() << '\n';
                     }
@@ -344,7 +359,7 @@ struct SystemDeviceProvisioningBackend::Impl {
             }
             if (!transaction.mapper.empty()) {
                 try {
-                    units.recover(operation_id);
+                    units.recover(operation_id, device_access(transaction));
                 } catch (const std::exception& error) {
                     std::cerr << "Cannot start device preparation cleanup: " << error.what() << '\n';
                 }
@@ -598,7 +613,11 @@ DevicePreparationStatus SystemDeviceProvisioningBackend::start(
     };
     impl_->register_job(state);
     try {
-        impl_->units.start(state->transaction.status.operation_id, secret.get());
+        impl_->units.start(
+            state->transaction.status.operation_id,
+            secret.get(),
+            device_access(state->transaction)
+        );
     } catch (...) {
         impl_->update(state, [](auto& transaction) {
             transaction.status.state = "failed";
