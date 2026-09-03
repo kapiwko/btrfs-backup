@@ -256,7 +256,9 @@ install(CODE [[
 
 set_source_files_properties(
     plasmoid/src/ProfileStatusBadge.qml
-    PROPERTIES QT_QML_SINGLETON_TYPE TRUE
+    PROPERTIES
+        QT_QML_SINGLETON_TYPE TRUE
+        QT_RESOURCE_ALIAS ProfileStatusBadge.qml
 )
 qt_add_qml_module(btrfsbackup_plasma_backend
     URI org.btrfsbackup.plasma
@@ -320,6 +322,7 @@ install(
     FILES
         ${CMAKE_BINARY_DIR}/org/btrfsbackup/plasma/qmldir
         ${CMAKE_BINARY_DIR}/org/btrfsbackup/plasma/btrfsbackup_plasma_backend.qmltypes
+        ${CMAKE_CURRENT_SOURCE_DIR}/plasmoid/src/ProfileStatusBadge.qml
     DESTINATION ${BTRFSBACKUP_PLASMA_QMLDIR}
 )
 
