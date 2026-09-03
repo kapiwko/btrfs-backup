@@ -10,7 +10,7 @@
 #include <provisioning/ConfiguredBackupTargetMarker.hpp>
 #include <provisioning/StorageTopologyReader.hpp>
 
-namespace btrfsbackup::platform::linux::storage {
+namespace btrfsbackup::platform::linux::storage::provisioning {
 
 struct SystemStorageTopologyPaths {
     std::filesystem::path sysfs_root = "/sys";
@@ -19,20 +19,20 @@ struct SystemStorageTopologyPaths {
 };
 
 using ConfiguredBackupTargetProvider =
-    std::function<std::vector<provisioning::ConfiguredBackupTargetIdentity>()>;
+    std::function<std::vector<::btrfsbackup::provisioning::ConfiguredBackupTargetIdentity>()>;
 
-class SystemStorageTopologyReader final : public provisioning::StorageTopologyReader {
+class SystemStorageTopologyReader final : public ::btrfsbackup::provisioning::StorageTopologyReader {
   public:
     explicit SystemStorageTopologyReader(
         SystemStorageTopologyPaths paths = {},
         ConfiguredBackupTargetProvider configured_targets = {}
     );
 
-    [[nodiscard]] provisioning::StorageTopology scan() override;
+    [[nodiscard]] ::btrfsbackup::provisioning::StorageTopology scan() override;
 
   private:
     SystemStorageTopologyPaths paths_;
     ConfiguredBackupTargetProvider configured_targets_;
 };
 
-} // namespace btrfsbackup::platform::linux::storage
+} // namespace btrfsbackup::platform::linux::storage::provisioning

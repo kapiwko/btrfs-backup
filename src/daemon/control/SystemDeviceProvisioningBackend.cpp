@@ -30,7 +30,7 @@
 #include <platform/linux/storage/BlockDeviceMetadata.hpp>
 #include <platform/linux/storage/CryptsetupOperations.hpp>
 #include <platform/linux/storage/MountInfo.hpp>
-#include <platform/linux/storage/PartitionTableOperations.hpp>
+#include <platform/linux/storage/provisioning/PartitionTableOperations.hpp>
 #include <platform/linux/storage/SignatureOperations.hpp>
 
 namespace fs = std::filesystem;
@@ -171,7 +171,7 @@ struct SystemDeviceProvisioningBackend::Impl {
     IDevicePreparationUnitController& units;
     DevicePreparationTransactionStore transactions;
     ProvisioningDeviceEnumerator devices;
-    platform::linux::storage::IPartitionTableOperations& partition_tables;
+    platform::linux::storage::provisioning::IPartitionTableOperations& partition_tables;
     DevicePreparationExecutor executor;
     IExistingTargetInspector* existing_target_inspector;
     fs::path inspection_mount_root;
@@ -187,10 +187,10 @@ struct SystemDeviceProvisioningBackend::Impl {
         fs::path mountinfo,
         fs::path transaction_root,
         provisioning::StorageTopologyReader& topology,
-        platform::linux::storage::IBtrfsFilesystemFormatter& btrfs_formatter,
+        platform::linux::storage::provisioning::IBtrfsFilesystemFormatter& btrfs_formatter,
         platform::linux::storage::ISignatureOperations& signatures,
         platform::linux::storage::IBlockDeviceMetadataReader& metadata,
-        platform::linux::storage::IPartitionTableOperations& partition_tables,
+        platform::linux::storage::provisioning::IPartitionTableOperations& partition_tables,
         platform::linux::storage::ICryptsetupOperations& cryptsetup,
         backup::IBtrfsOperations& btrfs,
         config::IConfigurationActivator& configuration_activator,
@@ -457,10 +457,10 @@ SystemDeviceProvisioningBackend::SystemDeviceProvisioningBackend(
     fs::path mountinfo_path,
     fs::path transaction_root,
     provisioning::StorageTopologyReader& topology,
-    platform::linux::storage::IBtrfsFilesystemFormatter& btrfs_formatter,
+    platform::linux::storage::provisioning::IBtrfsFilesystemFormatter& btrfs_formatter,
     platform::linux::storage::ISignatureOperations& signatures,
     platform::linux::storage::IBlockDeviceMetadataReader& metadata,
-    platform::linux::storage::IPartitionTableOperations& partition_tables,
+    platform::linux::storage::provisioning::IPartitionTableOperations& partition_tables,
     platform::linux::storage::ICryptsetupOperations& cryptsetup,
     backup::IBtrfsOperations& btrfs,
     config::IConfigurationActivator& configuration_activator,

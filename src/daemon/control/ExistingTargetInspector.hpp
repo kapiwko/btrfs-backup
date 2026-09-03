@@ -16,8 +16,11 @@ class IBtrfsOperations;
 namespace btrfsbackup::platform::linux::storage {
 class IBlockDeviceMetadataReader;
 class ICryptsetupOperations;
-class IExistingTargetMountOperations;
 } // namespace btrfsbackup::platform::linux::storage
+
+namespace btrfsbackup::platform::linux::storage::provisioning {
+class IExistingTargetMountOperations;
+} // namespace btrfsbackup::platform::linux::storage::provisioning
 
 namespace btrfsbackup::daemon::control {
 
@@ -41,7 +44,7 @@ class ExistingTargetInspector final : public IExistingTargetInspector {
     ExistingTargetInspector(
         platform::linux::storage::ICryptsetupOperations& cryptsetup,
         platform::linux::storage::IBlockDeviceMetadataReader& metadata,
-        platform::linux::storage::IExistingTargetMountOperations& mounts,
+        platform::linux::storage::provisioning::IExistingTargetMountOperations& mounts,
         backup::IBtrfsOperations& btrfs
     );
 
@@ -59,7 +62,7 @@ class ExistingTargetInspector final : public IExistingTargetInspector {
   private:
     platform::linux::storage::ICryptsetupOperations& cryptsetup_;
     platform::linux::storage::IBlockDeviceMetadataReader& metadata_;
-    platform::linux::storage::IExistingTargetMountOperations& mounts_;
+    platform::linux::storage::provisioning::IExistingTargetMountOperations& mounts_;
     backup::IBtrfsOperations& btrfs_;
 };
 

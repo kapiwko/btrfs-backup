@@ -11,7 +11,7 @@
 #include <core/Errors.hpp>
 #include <platform/linux/storage/BlockDeviceMetadata.hpp>
 #include <platform/linux/storage/CryptsetupOperations.hpp>
-#include <platform/linux/storage/ExistingTargetMountOperations.hpp>
+#include <platform/linux/storage/provisioning/ExistingTargetMountOperations.hpp>
 #include <restore/RepositoryDiscoveryService.hpp>
 #include <restore/RestoreError.hpp>
 
@@ -63,7 +63,7 @@ void validate_partition(const provisioning::ExistingPartition& partition) {
 
 void finish_session(
     platform::linux::storage::ICryptsetupOperations& cryptsetup,
-    platform::linux::storage::IExistingTargetMountOperations& mounts,
+    platform::linux::storage::provisioning::IExistingTargetMountOperations& mounts,
     const std::string& mapper_name,
     const std::filesystem::path& mount_point,
     bool mounted,
@@ -93,7 +93,7 @@ void finish_session(
 ExistingTargetInspector::ExistingTargetInspector(
     platform::linux::storage::ICryptsetupOperations& cryptsetup,
     platform::linux::storage::IBlockDeviceMetadataReader& metadata,
-    platform::linux::storage::IExistingTargetMountOperations& mounts,
+    platform::linux::storage::provisioning::IExistingTargetMountOperations& mounts,
     backup::IBtrfsOperations& btrfs
 )
     : cryptsetup_(cryptsetup), metadata_(metadata), mounts_(mounts), btrfs_(btrfs) {

@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Kamil Piwowarski <kapiwko@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <platform/linux/storage/PartitionTableOperations.hpp>
+#include <platform/linux/storage/provisioning/PartitionTableOperations.hpp>
 
 #include <fcntl.h>
 #include <libfdisk/libfdisk.h>
@@ -29,7 +29,7 @@
 #include <core/Errors.hpp>
 #include <platform/linux/OwnedFileDescriptor.hpp>
 
-namespace btrfsbackup::platform::linux::storage {
+namespace btrfsbackup::platform::linux::storage::provisioning {
 namespace {
 
 struct ContextDeleter {
@@ -906,4 +906,4 @@ std::filesystem::path LibfdiskPartitionTableOperations::replace_with_single_gpt_
     }
 }
 
-} // namespace btrfsbackup::platform::linux::storage
+} // namespace btrfsbackup::platform::linux::storage::provisioning

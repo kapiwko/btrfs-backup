@@ -20,6 +20,7 @@ set(namespace_layout
     "src/daemon/control|btrfsbackup::daemon::control"
     "src/daemon/query|btrfsbackup::daemon::query"
     "src/platform/linux/systemd|btrfsbackup::platform::linux::systemd"
+    "src/platform/linux/storage/provisioning|btrfsbackup::platform::linux::storage::provisioning"
     "src/platform/linux/storage|btrfsbackup::platform::linux::storage"
     "src/platform/linux/filesystem|btrfsbackup::platform::linux::filesystem"
     "src/platform/linux/process|btrfsbackup::platform::linux::process"

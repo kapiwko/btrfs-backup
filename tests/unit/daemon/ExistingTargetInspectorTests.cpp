@@ -13,7 +13,7 @@
 #include <daemon/control/ExistingTargetInspector.hpp>
 #include <platform/linux/storage/BlockDeviceMetadata.hpp>
 #include <platform/linux/storage/CryptsetupOperations.hpp>
-#include <platform/linux/storage/ExistingTargetMountOperations.hpp>
+#include <platform/linux/storage/provisioning/ExistingTargetMountOperations.hpp>
 #include <support/TestHelpers.hpp>
 
 namespace fs = std::filesystem;
@@ -66,7 +66,7 @@ class Metadata final : public bb::platform::linux::storage::IBlockDeviceMetadata
     }
 };
 
-class Mounts final : public bb::platform::linux::storage::IExistingTargetMountOperations {
+class Mounts final : public bb::platform::linux::storage::provisioning::IExistingTargetMountOperations {
   public:
     std::vector<std::string>& calls;
     bool fail_unmount = false;

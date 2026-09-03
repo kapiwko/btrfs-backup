@@ -20,11 +20,14 @@ class IConfigurationActivator;
 
 namespace btrfsbackup::platform::linux::storage {
 class IBlockDeviceMetadataReader;
-class IBtrfsFilesystemFormatter;
 class ICryptsetupOperations;
-class IPartitionTableOperations;
 class ISignatureOperations;
 } // namespace btrfsbackup::platform::linux::storage
+
+namespace btrfsbackup::platform::linux::storage::provisioning {
+class IBtrfsFilesystemFormatter;
+class IPartitionTableOperations;
+} // namespace btrfsbackup::platform::linux::storage::provisioning
 
 namespace btrfsbackup::provisioning {
 class StorageTopologyReader;
@@ -46,10 +49,10 @@ class SystemDeviceProvisioningBackend final : public IDeviceProvisioningBackend 
         std::filesystem::path mountinfo_path,
         std::filesystem::path transaction_root,
         provisioning::StorageTopologyReader& topology,
-        btrfsbackup::platform::linux::storage::IBtrfsFilesystemFormatter& btrfs_formatter,
+        btrfsbackup::platform::linux::storage::provisioning::IBtrfsFilesystemFormatter& btrfs_formatter,
         btrfsbackup::platform::linux::storage::ISignatureOperations& signatures,
         btrfsbackup::platform::linux::storage::IBlockDeviceMetadataReader& metadata,
-        btrfsbackup::platform::linux::storage::IPartitionTableOperations& partition_tables,
+        btrfsbackup::platform::linux::storage::provisioning::IPartitionTableOperations& partition_tables,
         btrfsbackup::platform::linux::storage::ICryptsetupOperations& cryptsetup,
         btrfsbackup::backup::IBtrfsOperations& btrfs,
         btrfsbackup::config::IConfigurationActivator& configuration_activator,
