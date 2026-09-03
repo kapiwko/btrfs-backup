@@ -11,6 +11,7 @@ import org.kde.ki18n as KI18n
 import org.kde.kirigami as Kirigami
 import org.kde.plasma.extras as PlasmaExtras
 import org.btrfsbackup.plasma
+import org.btrfsbackup.plasma as BtrfsBackup
 
 PlasmaExtras.ExpandableListItem {
     id: root
@@ -57,8 +58,8 @@ PlasmaExtras.ExpandableListItem {
         }
     }
 
-    icon: root.targetIcon()
-    iconEmblem: root.statusEmblem()
+    icon: "drive-harddisk-symbolic"
+    iconEmblem: root.targetIndicatorIcon()
     title: root.profileName || root.profileId
     subtitle: root.subtitleText()
     subtitleCanWrap: true
@@ -168,32 +169,8 @@ PlasmaExtras.ExpandableListItem {
         root.summaryUpdated(root.profileId, root.summaryPriority(), root.running, root.failed, root.progress, root.subtitleText())
     }
 
-    function targetIcon() {
-        if (!profileStatus.target.connected)
-            return "network-disconnect"
-        if (profileStatus.target.mounted)
-            return "drive-harddisk"
-        if (profileStatus.target.unlocked)
-            return "object-unlocked"
-        return "object-locked"
-    }
-
-    function statusEmblem() {
-        if (profileStatus.lastError.length > 0 || !profileStatus.configurationValid || root.failed)
-            return "dialog-error"
-        if (root.running)
-            return ""
-        if (profileStatus.target.spaceBelowMinimum)
-            return "dialog-warning"
-        if (profileStatus.target.safeToRemove)
-            return "emblem-success"
-        switch (profileStatus.run.state) {
-        case "succeeded":
-        case "validated": return "emblem-success"
-        case "failed": return "dialog-error"
-        case "cancelled": return "media-playback-pause"
-        default: return ""
-        }
+    function targetIndicatorIcon() {
+        return BtrfsBackup.ProfileStatusBadge.icon(profileStatus)
     }
 
     function summaryPriority() {
