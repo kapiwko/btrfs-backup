@@ -102,7 +102,8 @@ void test_public_transfer_progress_excludes_run_details() {
     sink.on_backup_run_event(transfer_progress());
     btrfsbackup::config::json::Json current = btrfsbackup::config::json::load_json_file(root / "status" / "default" / "current.json");
     test_helpers::expect_true("progress source hidden", !current.contains("currentSourceName"), "public status exposes source");
-    test_helpers::expect_true("progress bytes hidden", !current.contains("bytesProcessed"), "public status exposes byte count");
+    test_helpers::expect_true("progress bytes processed", current.at("bytesProcessed") == 4096, "wrong processed byte count");
+    test_helpers::expect_true("progress bytes total", current.at("bytesTotalEstimated") == 8192, "wrong estimated byte count");
     test_helpers::expect_true("progress source label", current.at("sourceName") == "@home", "wrong source label");
     test_helpers::expect_true("progress target label", current.at("targetName") == "backupdisk", "wrong target label");
     test_helpers::expect_true("progress source progress", current.at("sourceProgress") == 50, "wrong source progress");
