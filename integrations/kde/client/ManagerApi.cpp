@@ -13,6 +13,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 
+#include <algorithm>
 #include <limits>
 
 #include <state/document/RunStatusDocumentCodec.hpp>
@@ -228,6 +229,57 @@ std::optional<RunStatus> parse_status(const QString& payload) {
         .source_index = source_index,
         .source_count = source_count,
     };
+}
+
+std::optional<QList<HistoryEntry>> parse_history(const QString& payload) {
+    const QJsonDocument document = QJsonDocument::fromJson(payload.toUtf8());
+    if (!document.isArray())
+        return std::nullopt;
+
+    QList<HistoryEntry> result;
+    for (const QJsonValue& value : document.array()) {
+        if (!value.isObject())
+            return std::nullopt;
+        const QJsonObject object = value.toObject();
+        if (object.value(QStringLiteral("schemaVersion")).toInt(-1) != manager_protocol::history_schema_version)
+            return std::nullopt;
+        const QString started_at = object.value(QStringLiteral("startedAt")).toString();
+        const QString finished_at = object.value(QStringLiteral("finishedAt")).toString();
+        const QDateTime started = QDateTime::fromString(started_at, Qt::ISODate);
+        const QDateTime finished = QDateTime::fromString(finished_at, Qt::ISODate);
+        if ((!started_at.isEmpty() && !started.isValid()) || (!finished_at.isEmpty() && !finished.isValid()))
+            return std::nullopt;
+        const auto optional_integer = [&](const char* name, int fallback) -> std::optional<int> {
+            const QJsonValue number = object.value(QLatin1String(name));
+            if (number.isUndefined())
+                return fallback;
+            if (!number.isDouble() || number.toDouble() != number.toInt())
+                return std::nullopt;
+            return number.toInt();
+        };
+        const auto source_count = optional_integer("sourceCount", 0);
+        const auto overall_progress = optional_integer("overallProgress", -1);
+        const QJsonValue transferred_value = object.value(QStringLiteral("bytesTransferred"));
+        const double bytes = transferred_value.isUndefined() ? 0 : transferred_value.toDouble(-1);
+        if (!source_count.has_value() || !overall_progress.has_value() || bytes < 0 ||
+            bytes > static_cast<double>(std::numeric_limits<qint64>::max()))
+            return std::nullopt;
+        result.push_back({
+            .state = object.value(QStringLiteral("state")).toString(),
+            .error_code = object.value(QStringLiteral("errorCode")).toString(),
+            .source_name = object.value(QStringLiteral("sourceName")).toString(),
+            .target_name = object.value(QStringLiteral("targetName")).toString(),
+            .started_at = started_at,
+            .finished_at = finished_at,
+            .duration_seconds = started.isValid() && finished.isValid()
+                ? std::max<qint64>(0, started.secsTo(finished))
+                : -1,
+            .bytes_transferred = static_cast<qint64>(bytes),
+            .source_count = *source_count,
+            .overall_progress = *overall_progress,
+        });
+    }
+    return result;
 }
 
 std::optional<OperationResult> parse_operation_result(const QString& payload) {

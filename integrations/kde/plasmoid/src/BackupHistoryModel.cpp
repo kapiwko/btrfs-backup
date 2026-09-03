@@ -4,24 +4,8 @@
 
 #include "BackupHistoryModel.hpp"
 
-#include <core/ManagerProtocol.hpp>
-
-#include <QJsonArray>
-#include <QJsonDocument>
-#include <QJsonObject>
-#include <QDateTime>
+#include <ManagerApi.hpp>
 #include <QVariantMap>
-
-#include <algorithm>
-
-namespace {
-
-int json_int(const QJsonObject& object, const char* key, int fallback) {
-    const auto value = object.value(QLatin1String(key));
-    return value.isDouble() ? value.toInt() : fallback;
-}
-
-} // namespace
 
 BackupHistoryModel::BackupHistoryModel(QObject* parent)
     : QObject(parent) {
@@ -32,39 +16,23 @@ QVariantList BackupHistoryModel::entries() const {
 }
 
 bool BackupHistoryModel::apply(const QString& payload) {
-    const QJsonDocument document = QJsonDocument::fromJson(payload.toUtf8());
-    if (!document.isArray()) {
+    const auto history = btrfsbackup::kde::parse_history(payload);
+    if (!history.has_value()) {
         return false;
     }
 
     QVariantList entries;
-    for (const QJsonValue& value : document.array()) {
-        if (!value.isObject()) {
-            return false;
-        }
-        const QJsonObject item = value.toObject();
-        if (json_int(item, "schemaVersion", -1) != btrfsbackup::manager_protocol::history_schema_version) {
-            return false;
-        }
-        const QString started_at = item.value(QStringLiteral("startedAt")).toString();
-        const QString finished_at = item.value(QStringLiteral("finishedAt")).toString();
-        const QDateTime started = QDateTime::fromString(started_at, Qt::ISODate);
-        const QDateTime finished = QDateTime::fromString(finished_at, Qt::ISODate);
+    for (const btrfsbackup::kde::HistoryEntry& item : *history) {
         QVariantMap entry;
-        entry.insert(QStringLiteral("state"), item.value(QStringLiteral("state")).toString());
-        entry.insert(QStringLiteral("errorCode"), item.value(QStringLiteral("errorCode")).toString());
-        entry.insert(QStringLiteral("sourceName"), item.value(QStringLiteral("sourceName")).toString());
-        entry.insert(QStringLiteral("targetName"), item.value(QStringLiteral("targetName")).toString());
-        entry.insert(QStringLiteral("startedAt"), started_at);
-        entry.insert(QStringLiteral("finishedAt"), finished_at);
-        entry.insert(
-            QStringLiteral("durationSeconds"),
-            started.isValid() && finished.isValid()
-                ? static_cast<int>(std::max<qint64>(0, started.secsTo(finished)))
-                : -1
-        );
-        entry.insert(QStringLiteral("sourceCount"), json_int(item, "sourceCount", 0));
-        entry.insert(QStringLiteral("overallProgress"), json_int(item, "overallProgress", -1));
+        entry.insert(QStringLiteral("state"), item.state);
+        entry.insert(QStringLiteral("errorCode"), item.error_code);
+        entry.insert(QStringLiteral("sourceName"), item.source_name);
+        entry.insert(QStringLiteral("targetName"), item.target_name);
+        entry.insert(QStringLiteral("startedAt"), item.started_at);
+        entry.insert(QStringLiteral("finishedAt"), item.finished_at);
+        entry.insert(QStringLiteral("durationSeconds"), item.duration_seconds);
+        entry.insert(QStringLiteral("sourceCount"), item.source_count);
+        entry.insert(QStringLiteral("overallProgress"), item.overall_progress);
         entries.push_back(entry);
     }
     entries_ = entries;
