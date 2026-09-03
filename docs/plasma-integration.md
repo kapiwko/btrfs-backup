@@ -68,6 +68,9 @@ plasmoid and its settings remain useful without opening the KCM.
 
 Device preparation first obtains a caller-bound storage topology and then asks
 the manager to build a short-lived plan for the selected opaque candidate. The
+topology is a sanitized presentation model: the KCM identifies devices and
+partitions by display ordinal and never receives device nodes, hardware
+identity, mount paths, labels or filesystem UUIDs. The
 KCM renders proportional before/after layouts and a parallel textual list, so
 color is not the only indication of destructive scope. It can preview an
 existing-partition plan that preserves the table and every sibling region.

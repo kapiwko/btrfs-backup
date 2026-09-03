@@ -88,6 +88,13 @@ and correctness does not depend on a separate existence check.
 Device preparation has its own `io.github.btrfsbackup.prepare-backup-device`
 polkit action without retained authorization. The daemon binds short-lived
 random candidate and plan identifiers to a caller-owned topology snapshot.
+The unprivileged topology response contains only display ordinals, coarse
+device properties, storage geometry, safety decisions and stable blocker
+codes. It omits device nodes, serial numbers, WWNs, models, labels, filesystem
+and partition UUIDs, mount paths and free-form diagnostic details. Preparation
+plans and prepared-target inspections follow the same boundary; complete
+storage identity remains only in the manager's caller-bound records and in the
+helper transaction.
 Before authorization it rescans storage and compares the planned destructive
 scope with the current stable device identity, partition table, sector sizes,
 partition geometry, signatures, mounts, swap and holders. Whole-device plans

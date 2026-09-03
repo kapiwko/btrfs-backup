@@ -23,11 +23,10 @@ Item {
     readonly property var partition: ({
         kind: "existing-partition",
         candidateId: "partition-1",
-        path: "/dev/test1",
-        partitionLabel: "Backup",
-        filesystemType: "crypto_LUKS",
+        partitionNumber: 1,
+        encrypted: true,
         sectorCount: 1048576,
-        mountPoints: [],
+        mounted: false,
         blockers: [],
         suitableForAdoption: true,
         suitableForReformat: true,
@@ -36,8 +35,7 @@ Item {
     })
     readonly property var device: ({
         candidateId: "device-1",
-        path: "/dev/test",
-        model: "Test disk",
+        displayIndex: 5,
         transport: "usb",
         removable: false,
         hotplug: false,
@@ -51,7 +49,7 @@ Item {
     })
     readonly property var internalDevice: ({
         candidateId: "internal-device",
-        path: "/dev/internal",
+        displayIndex: 1,
         transport: "nvme",
         removable: false,
         hotplug: false,
@@ -61,7 +59,7 @@ Item {
     })
     readonly property var systemDevice: ({
         candidateId: "system-device",
-        path: "/dev/system",
+        displayIndex: 2,
         transport: "usb",
         removable: true,
         hotplug: true,
@@ -71,7 +69,7 @@ Item {
     })
     readonly property var mbrDevice: ({
         candidateId: "mbr-device",
-        path: "/dev/mbr",
+        displayIndex: 3,
         transport: "usb",
         removable: true,
         hotplug: true,
@@ -81,7 +79,7 @@ Item {
     })
     readonly property var unencryptedDevice: ({
         candidateId: "unencrypted-device",
-        path: "/dev/plain",
+        displayIndex: 4,
         transport: "usb",
         removable: true,
         hotplug: true,
@@ -90,7 +88,9 @@ Item {
         regions: [{
             kind: "existing-partition",
             candidateId: "plain-partition",
-            filesystemType: "btrfs",
+            partitionNumber: 1,
+            encrypted: false,
+            mounted: false,
             blockers: [],
             suitableForAdoption: false
         }]
@@ -119,7 +119,6 @@ Item {
         property var plan: ({
             planId: "plan-1",
             mode: "adopt-existing-target",
-            displayPath: "/dev/test1",
             partitionId: "partition-1",
             before: {logicalSectorSize: 512, regions: [root.partition]},
             after: {logicalSectorSize: 512, regions: [root.partition]}
@@ -161,7 +160,7 @@ Item {
         running: true
         repeat: false
         onTriggered: {
-            if (!page.adoption || !page.hasPlan || page.selectedTarget.path !== "/dev/test1"
+            if (!page.adoption || !page.hasPlan || page.selectedTarget.partitionNumber !== 1
                     || page.candidateDevices.length !== 1
                     || page.candidateDevices[0].candidateId !== "device-1"
                     || page.selectedSourceCandidate?.id !== "source-home") {
