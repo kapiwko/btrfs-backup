@@ -14,6 +14,7 @@ file(READ "${PROJECT_SOURCE_DIR}/integrations/kde/kcm/DeviceProvisioningModel.cp
 file(READ "${PROJECT_SOURCE_DIR}/integrations/kde/kcm/ProfileConfigurationModel.cpp" profile_configuration_kcm)
 file(READ "${PROJECT_SOURCE_DIR}/integrations/kde/kcm/TargetCredentialModel.cpp" target_credentials_kcm)
 file(READ "${PROJECT_SOURCE_DIR}/integrations/kde/kcm/ui/ProfileOverview.qml" profile_overview_kcm)
+file(READ "${PROJECT_SOURCE_DIR}/integrations/kde/models/ProfilePresentation.qml" profile_presentation)
 file(READ "${PROJECT_SOURCE_DIR}/integrations/kde/models/BackupStatusModel.cpp" plasma_status_model)
 string(REGEX REPLACE "[ \t\r\n]+" "" compact_xml "${manager_xml}")
 string(REGEX REPLACE "[ \t\r\n]+" "" compact_bus_policy "${manager_bus_policy}")
@@ -23,6 +24,7 @@ string(REGEX REPLACE "[ \t\r\n]+" "" compact_manager_vtable "${manager_vtable}")
 string(REGEX REPLACE "[ \t\r\n]+" "" compact_manager_json_codec "${manager_json_codec}")
 string(REGEX REPLACE "[ \t\r\n]+" "" compact_provisioning_kcm "${provisioning_kcm}")
 string(REGEX REPLACE "[ \t\r\n]+" "" compact_profile_overview_kcm "${profile_overview_kcm}")
+string(REGEX REPLACE "[ \t\r\n]+" "" compact_profile_presentation "${profile_presentation}")
 
 function(assert_contains content fragment description)
     string(FIND "${content}" "${fragment}" position)
@@ -352,7 +354,12 @@ assert_not_contains(
 )
 assert_contains(
     "${compact_profile_overview_kcm}"
-    "&&(root.profileStatus.target.mounted||root.profileStatus.target.unlocked)"
+    "enabled:BtrfsBackup.ProfilePresentation.canEject(root.profileStatus)"
+    "the shared eject action guard"
+)
+assert_contains(
+    "${compact_profile_presentation}"
+    "&&((profileStatus?.target?.mounted??false)||(profileStatus?.target?.unlocked??false))"
     "the eject action guard for a locked target"
 )
 

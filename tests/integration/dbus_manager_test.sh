@@ -72,6 +72,7 @@ start_daemon() {
         --mapper-root "$TEST_ROOT/mapper" \
         --udev-root "$TEST_ROOT/udev" \
         --systemd-root "$TEST_ROOT/systemd" \
+        --browse-session-root "$TEST_ROOT/browse" \
         --skip-configuration-activation \
         --audit-log "$TEST_ROOT/audit/manager.jsonl" \
         >"$TEST_ROOT/daemon.log" 2>&1 &
