@@ -23,9 +23,9 @@
 #include <platform/linux/filesystem/SecretFile.hpp>
 #include <platform/linux/filesystem/TrustedDirectory.hpp>
 #include <platform/linux/storage/BlockDeviceMetadata.hpp>
-#include <platform/linux/storage/BtrfsFilesystemFormatter.hpp>
+#include <platform/linux/storage/provisioning/BtrfsFilesystemFormatter.hpp>
 #include <platform/linux/storage/CryptsetupOperations.hpp>
-#include <platform/linux/storage/PartitionTableOperations.hpp>
+#include <platform/linux/storage/provisioning/PartitionTableOperations.hpp>
 #include <platform/linux/storage/SignatureOperations.hpp>
 
 namespace fs = std::filesystem;
@@ -53,16 +53,16 @@ void remove_inspection_mount_point(const fs::path& mount_point) {
         throw ValidationError("cannot remove existing target inspection mount point");
 }
 
-platform::linux::storage::PartitionTableFormat partition_table_format(
+platform::linux::storage::provisioning::PartitionTableFormat partition_table_format(
     provisioning::PartitionTableType type
 ) {
     switch (type) {
     case provisioning::PartitionTableType::None:
-        return platform::linux::storage::PartitionTableFormat::None;
+        return platform::linux::storage::provisioning::PartitionTableFormat::None;
     case provisioning::PartitionTableType::Gpt:
-        return platform::linux::storage::PartitionTableFormat::Gpt;
+        return platform::linux::storage::provisioning::PartitionTableFormat::Gpt;
     case provisioning::PartitionTableType::Mbr:
-        return platform::linux::storage::PartitionTableFormat::Mbr;
+        return platform::linux::storage::provisioning::PartitionTableFormat::Mbr;
     case provisioning::PartitionTableType::Unsupported:
         throw ValidationError("unsupported partition table cannot be backed up safely");
     }
@@ -74,10 +74,10 @@ platform::linux::storage::PartitionTableFormat partition_table_format(
 DevicePreparationExecutor::DevicePreparationExecutor(
     CredentialAdministrationRoots roots,
     fs::path target_mount_root,
-    platform::linux::storage::IBtrfsFilesystemFormatter& btrfs_formatter,
+    platform::linux::storage::provisioning::IBtrfsFilesystemFormatter& btrfs_formatter,
     platform::linux::storage::ISignatureOperations& signatures,
     platform::linux::storage::IBlockDeviceMetadataReader& metadata,
-    platform::linux::storage::IPartitionTableOperations& partition_tables,
+    platform::linux::storage::provisioning::IPartitionTableOperations& partition_tables,
     platform::linux::storage::ICryptsetupOperations& cryptsetup,
     backup::IBtrfsOperations& btrfs,
     config::IConfigurationActivator& configuration_activator,

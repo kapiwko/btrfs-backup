@@ -22,11 +22,14 @@ class IConfigurationActivator;
 
 namespace btrfsbackup::platform::linux::storage {
 class IBlockDeviceMetadataReader;
-class IBtrfsFilesystemFormatter;
 class ICryptsetupOperations;
-class IPartitionTableOperations;
 class ISignatureOperations;
 } // namespace btrfsbackup::platform::linux::storage
+
+namespace btrfsbackup::platform::linux::storage::provisioning {
+class IBtrfsFilesystemFormatter;
+class IPartitionTableOperations;
+} // namespace btrfsbackup::platform::linux::storage::provisioning
 
 namespace btrfsbackup::daemon::control {
 
@@ -39,10 +42,10 @@ class DevicePreparationExecutor final {
     DevicePreparationExecutor(
         CredentialAdministrationRoots roots,
         std::filesystem::path target_mount_root,
-        platform::linux::storage::IBtrfsFilesystemFormatter& btrfs_formatter,
+        platform::linux::storage::provisioning::IBtrfsFilesystemFormatter& btrfs_formatter,
         platform::linux::storage::ISignatureOperations& signatures,
         platform::linux::storage::IBlockDeviceMetadataReader& metadata,
-        platform::linux::storage::IPartitionTableOperations& partition_tables,
+        platform::linux::storage::provisioning::IPartitionTableOperations& partition_tables,
         platform::linux::storage::ICryptsetupOperations& cryptsetup,
         backup::IBtrfsOperations& btrfs,
         config::IConfigurationActivator& configuration_activator,
@@ -68,10 +71,10 @@ class DevicePreparationExecutor final {
     void release_profile_reservation_after_safe_failure(const std::string& operation_id) noexcept;
 
     CredentialAdministrationRoots roots_;
-    platform::linux::storage::IBtrfsFilesystemFormatter& btrfs_formatter_;
+    platform::linux::storage::provisioning::IBtrfsFilesystemFormatter& btrfs_formatter_;
     platform::linux::storage::ISignatureOperations& signatures_;
     platform::linux::storage::IBlockDeviceMetadataReader& metadata_;
-    platform::linux::storage::IPartitionTableOperations& partition_tables_;
+    platform::linux::storage::provisioning::IPartitionTableOperations& partition_tables_;
     platform::linux::storage::ICryptsetupOperations& cryptsetup_;
     backup::IBtrfsOperations& btrfs_;
     config::IConfigurationActivator& activator_;

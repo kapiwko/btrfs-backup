@@ -91,16 +91,16 @@ add_library(btrfsbackup-platform-linux-storage STATIC
 
 if(BUILD_SYSTEM_MANAGER)
     add_library(btrfsbackup-platform-linux-provisioning STATIC
-        storage/BtrfsFilesystemFormatter.cpp
-        storage/ExistingTargetMountOperations.cpp
-        storage/PartitionTableOperations.cpp
+        storage/provisioning/BtrfsFilesystemFormatter.cpp
+        storage/provisioning/ExistingTargetMountOperations.cpp
+        storage/provisioning/PartitionTableOperations.cpp
         storage/provisioning/SystemStorageTopologyReader.cpp
     )
     target_restricted_include_directories(btrfsbackup-platform-linux-provisioning
         PUBLIC_HEADERS
-            platform/linux/storage/BtrfsFilesystemFormatter.hpp
-            platform/linux/storage/ExistingTargetMountOperations.hpp
-            platform/linux/storage/PartitionTableOperations.hpp
+            platform/linux/storage/provisioning/BtrfsFilesystemFormatter.hpp
+            platform/linux/storage/provisioning/ExistingTargetMountOperations.hpp
+            platform/linux/storage/provisioning/PartitionTableOperations.hpp
             platform/linux/storage/provisioning/SystemStorageTopologyReader.hpp
     )
     target_link_libraries(btrfsbackup-platform-linux-provisioning

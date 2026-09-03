@@ -34,6 +34,7 @@ src/
 │   ├── process/
 │   ├── filesystem/
 │   ├── storage/
+│   │   └── provisioning/     # destructive preparation and topology adapters
 │   ├── transfer/
 │   ├── systemd/
 │   └── config/
@@ -80,6 +81,7 @@ types remain directly in `btrfsbackup`; domain code uses the following map:
 | `src/platform/linux/process/` | `btrfsbackup::platform::linux::process` |
 | `src/platform/linux/filesystem/` | `btrfsbackup::platform::linux::filesystem` |
 | `src/platform/linux/storage/` | `btrfsbackup::platform::linux::storage` |
+| `src/platform/linux/storage/provisioning/` | `btrfsbackup::platform::linux::storage::provisioning` |
 | `src/platform/linux/transfer/` | `btrfsbackup::platform::linux::transfer` |
 | `src/platform/linux/systemd/` | `btrfsbackup::platform::linux::systemd` |
 | `src/platform/linux/config/` | `btrfsbackup::platform::linux::config` |

@@ -6,7 +6,7 @@ add_btrfsbackup_test(btrfsbackup-btrfs-operations-tests linux/storage/BtrfsOpera
 if(BUILD_SYSTEM_MANAGER)
     add_btrfsbackup_test(
         btrfsbackup-btrfs-filesystem-formatter-tests
-        linux/storage/BtrfsFilesystemFormatterTests.cpp
+        linux/storage/provisioning/BtrfsFilesystemFormatterTests.cpp
         btrfs-filesystem-formatter-tests
         btrfsbackup-platform-linux-provisioning
         btrfsbackup-backup-ports
@@ -44,14 +44,14 @@ add_btrfsbackup_test(btrfsbackup-owned-file-descriptor-tests OwnedFileDescriptor
 if(BUILD_SYSTEM_MANAGER)
     add_btrfsbackup_test(
         btrfsbackup-existing-target-mount-operations-tests
-        linux/storage/ExistingTargetMountOperationsTests.cpp
+        linux/storage/provisioning/ExistingTargetMountOperationsTests.cpp
         existing-target-mount-operations-tests
         btrfsbackup-core
         btrfsbackup-platform-linux-provisioning
     )
     add_btrfsbackup_test(
         btrfsbackup-partition-table-operations-tests
-        linux/storage/PartitionTableOperationsTests.cpp
+        linux/storage/provisioning/PartitionTableOperationsTests.cpp
         partition-table-operations-tests
         btrfsbackup-core
         btrfsbackup-platform-linux-provisioning
