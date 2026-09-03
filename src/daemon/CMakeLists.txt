@@ -93,7 +93,6 @@ add_library(btrfsbackup-daemon-system-control STATIC
     control/CommandSystemdUnitController.cpp
     control/DestructiveDeviceSafetyInspector.cpp
     control/DevicePreparationExecutor.cpp
-    control/DevicePreparationPlanBuilder.cpp
     control/DevicePreparationRecovery.cpp
     control/DevicePreparationTransactionCodec.cpp
     control/DevicePreparationTransactionStore.cpp
@@ -101,6 +100,7 @@ add_library(btrfsbackup-daemon-system-control STATIC
     control/ExistingTargetInspector.cpp
     control/OperationEnvironmentFile.cpp
     control/ProvisioningDeviceEnumerator.cpp
+    control/ProvisionedProfileBuilder.cpp
     control/ProvisioningSource.cpp
     control/SystemOperationalControlBackend.cpp
     control/SystemBrowseSessionBackend.cpp
@@ -125,10 +125,10 @@ target_restricted_include_directories(btrfsbackup-daemon-system-control
         daemon/control/SystemProfileAdministrationBackend.hpp
     PRIVATE_HEADERS
         daemon/control/DevicePreparationExecutor.hpp
-        daemon/control/DevicePreparationPlanBuilder.hpp
         daemon/control/DevicePreparationRecovery.hpp
         daemon/control/OperationEnvironmentFile.hpp
         daemon/control/ProvisioningDeviceEnumerator.hpp
+        daemon/control/ProvisionedProfileBuilder.hpp
         daemon/control/ProvisioningSource.hpp
 )
 target_link_libraries(btrfsbackup-daemon-system-control

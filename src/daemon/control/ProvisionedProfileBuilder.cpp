@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Kamil Piwowarski <kapiwko@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <daemon/control/DevicePreparationPlanBuilder.hpp>
+#include <daemon/control/ProvisionedProfileBuilder.hpp>
 
 #include <utility>
 
@@ -9,11 +9,11 @@
 
 namespace btrfsbackup::daemon::control {
 
-DevicePreparationPlanBuilder::DevicePreparationPlanBuilder(std::filesystem::path target_mount_root)
+ProvisionedProfileBuilder::ProvisionedProfileBuilder(std::filesystem::path target_mount_root)
     : target_mount_root_(std::move(target_mount_root)) {
 }
 
-config::Profile DevicePreparationPlanBuilder::build(
+config::Profile ProvisionedProfileBuilder::build(
     const DevicePreparationTransaction& transaction,
     const std::string& luks_uuid,
     const std::string& btrfs_uuid,
