@@ -367,7 +367,7 @@ int main(int argc, char** argv) {
     if (operation_id == NULL)
         die("manager omitted the preparation operation identifier");
 
-    for (int attempt = 0; attempt < 600; ++attempt) {
+    for (int attempt = 0; attempt < 1800; ++attempt) {
         free(status);
         status = call(bus, "GetDevicePreparation", "s", operation_id);
         char* state = json_string(status, "state");

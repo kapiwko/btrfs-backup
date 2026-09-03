@@ -150,15 +150,18 @@ directory explicitly:
 PACKAGE_DIR=/path/to/dist tests/qemu/run-hotplug.sh
 ```
 
-It boots a disposable Arch/systemd root, installs the current base package,
-attaches a LUKS-formatted virtual USB disk through QMP and verifies on the guest
-serial console that udev starts `btrfs-backup@default.service` while no
-graphical target is active. The broader transfer and failure-injection matrix
-above remains separate follow-up work. For a regular user the script performs
-the mount and loop operations inside a disposable privileged Docker container,
-so host-side `sudo` is not required. Direct execution as root remains available
-for CI environments and hosts that already have QEMU and the filesystem tools;
-that path does not use Docker. Permission to use
+It boots a disposable Arch/systemd root, installs the current base package and
+uses a real Btrfs source inside the guest to verify both whole-device and
+existing-partition provisioning. The partition scenario also proves that the
+parent GPT and sibling partition remain unchanged. It then attaches a
+LUKS-formatted virtual USB disk through QMP and verifies on the guest serial
+console that udev starts `btrfs-backup@default.service` while no graphical
+target is active. The broader transfer, interruption and failure-injection
+matrix above remains separate follow-up work. For a regular user the script
+performs the mount and loop operations inside a disposable privileged Docker
+container, so host-side `sudo` is not required. Direct execution as root
+remains available for CI environments and hosts that already have QEMU and the
+filesystem tools; that path does not use Docker. Permission to use
 the Docker daemon and privileged containers is root-equivalent and must not be
 treated as a reduced security boundary. By default package compilation reuses
 the host's persistent `build/integration-package` CMake tree;
