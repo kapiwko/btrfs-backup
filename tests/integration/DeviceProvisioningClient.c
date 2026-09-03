@@ -277,10 +277,13 @@ static char* call_with_fd(sd_bus* bus, const char* method, const char* request, 
 }
 
 int main(int argc, char** argv) {
-    if (argc < 4 || argc > 6)
-        die("usage: DeviceProvisioningClient TARGET SOURCE PASSPHRASE_FILE [MODE [PROFILE_ID]]");
+    if (argc < 4 || argc > 7)
+        die("usage: DeviceProvisioningClient TARGET SOURCE PASSPHRASE_FILE [MODE [PROFILE_ID [start-only]]]");
     const char* mode = argc >= 5 ? argv[4] : "reformat-existing-partition";
     const char* profile_id = argc >= 6 ? argv[5] : "partition-integration";
+    const int start_only = argc == 7 && strcmp(argv[6], "start-only") == 0;
+    if (argc == 7 && !start_only)
+        die("unsupported execution mode");
     sd_bus* bus = NULL;
     if (sd_bus_open_system(&bus) < 0)
         die("cannot connect to the system bus");
@@ -366,6 +369,19 @@ int main(int argc, char** argv) {
     char* operation_id = json_string(status, "operationId");
     if (operation_id == NULL)
         die("manager omitted the preparation operation identifier");
+    if (start_only) {
+        puts(status);
+        free(status);
+        free(operation_id);
+        free(plan_id);
+        free(plan);
+        free(candidate);
+        free(inspection_id);
+        free(generation);
+        free(topology);
+        sd_bus_unref(bus);
+        return EXIT_SUCCESS;
+    }
 
     for (int attempt = 0; attempt < 1800; ++attempt) {
         free(status);

@@ -139,6 +139,11 @@ TARGET_IMAGE="$TEST_ROOT/target.img"
 SOURCE_IMAGE="$TEST_ROOT/source.img"
 WHOLE_DEVICE_IMAGE="$TEST_ROOT/whole-device.img"
 PARTITION_DEVICE_IMAGE="$TEST_ROOT/partition-device.img"
+MANAGER_KILL_IMAGE="$TEST_ROOT/manager-kill.img"
+HELPER_KILL_IMAGE="$TEST_ROOT/helper-kill.img"
+POWER_LOSS_IMAGE="$TEST_ROOT/power-loss.img"
+UNPLUG_IMAGE="$TEST_ROOT/unplug.img"
+REPLACEMENT_IMAGE="$TEST_ROOT/replacement.img"
 ROOT_MOUNT="$TEST_ROOT/root"
 CONSOLE_LOG="$TEST_ROOT/console.log"
 QMP_SOCKET="$TEST_ROOT/qmp.sock"
@@ -176,7 +181,7 @@ fail() {
     exit 1
 }
 
-for command_name in cc cryptsetup flock mkfs.btrfs mkfs.ext4 qemu-system-x86_64 sfdisk socat tar; do
+for command_name in cc cryptsetup flock mkfs.btrfs mkfs.ext4 qemu-system-x86_64 sfdisk sha256sum socat tar; do
     command -v "$command_name" >/dev/null 2>&1 || fail "missing command: $command_name"
 done
 if [[ -z "${QEMU_ROOTFS_TAR:-}" && -z "${QEMU_ROOTFS_FROM_CONTAINER:-}" ]]; then
@@ -288,10 +293,72 @@ printf '%s\n' \
     'size=128M,type=0FC63DAF-8483-4772-8E79-3D69D8477DE4' \
     'size=512M,type=0FC63DAF-8483-4772-8E79-3D69D8477DE4' \
     | sfdisk --quiet "$PARTITION_DEVICE_IMAGE"
+truncate -s 544M "$MANAGER_KILL_IMAGE"
+truncate -s 576M "$HELPER_KILL_IMAGE"
+truncate -s 608M "$POWER_LOSS_IMAGE"
+truncate -s 640M "$UNPLUG_IMAGE"
+truncate -s 672M "$REPLACEMENT_IMAGE"
+mkfs.ext4 -q -F -L QEMU-MANAGER-KILL "$MANAGER_KILL_IMAGE"
+mkfs.ext4 -q -F -L QEMU-HELPER-KILL "$HELPER_KILL_IMAGE"
+mkfs.ext4 -q -F -L QEMU-POWER-LOSS "$POWER_LOSS_IMAGE"
+mkfs.ext4 -q -F -L QEMU-UNPLUG "$UNPLUG_IMAGE"
+mkfs.ext4 -q -F -L QEMU-REPLACEMENT "$REPLACEMENT_IMAGE"
+REPLACEMENT_HASH="$(sha256sum "$REPLACEMENT_IMAGE" | awk '{print $1}')"
 
 cat > "$ROOT_MOUNT/setup.sh" <<EOF_SETUP
 set -eu
 tar --zstd -xpf /run/qemu-test-setup/package.pkg.tar.zst -C /
+transaction_file() {
+    printf '/var/lib/btrfs-backup/device-preparations/%s.json' "\$1"
+}
+transaction_state() {
+    sed -n 's/.*"state":[[:space:]]*"\([^"]*\)".*/\1/p' "\$(transaction_file "\$1")" | head -n1
+}
+wait_for_transaction_state() {
+    operation="\$1"
+    expected="\$2"
+    for _ in \$(seq 1 1800); do
+        test "\$(transaction_state "\$operation" 2>/dev/null || true)" = "\$expected" && return 0
+        sleep 0.1
+    done
+    return 1
+}
+operation_id_from() {
+    sed -n 's/.*"operationId":[[:space:]]*"\([^"]*\)".*/\1/p' "\$1" | head -n1
+}
+wait_for_helper_pid() {
+    unit="\$1"
+    for _ in \$(seq 1 600); do
+        pid="\$(systemctl show --property=MainPID --value "\$unit" 2>/dev/null || true)"
+        test -n "\$pid" && test "\$pid" != 0 && return 0
+        sleep 0.05
+    done
+    return 1
+}
+refresh_preparation_status() {
+    busctl --system call io.github.btrfsbackup.Manager1 /io/github/btrfsbackup/Manager1 \
+        io.github.btrfsbackup.Manager1 GetDevicePreparation s "\$1" >/dev/null
+}
+
+power_loss_marker=/var/lib/btrfs-backup/qemu-power-loss-operation
+if test -f "\$power_loss_marker"; then
+    power_loss_operation="\$(cat "\$power_loss_marker")"
+    systemctl start polkit.service btrfs-backupd.service
+    wait_for_transaction_state "\$power_loss_operation" interrupted
+    grep -Eq '"errorCode":[[:space:]]*"device-preparation\.(daemon-restarted|helper-exited)"' \
+        "\$(transaction_file "\$power_loss_operation")"
+    for _ in \$(seq 1 600); do
+        test ! -e /dev/mapper/btrfs-backup-qemu-power-loss && break
+        sleep 0.1
+    done
+    test ! -e /dev/mapper/btrfs-backup-qemu-power-loss
+    grep -Eq '"cleanupResult":[[:space:]]*"(mapper-closed|not-required)"' \
+        "\$(transaction_file "\$power_loss_operation")"
+    rm -f "\$power_loss_marker"
+    printf 'QEMU_POWER_LOSS_RECOVERED\n' > /dev/ttyS0
+    printf 'QEMU_READY\n' > /dev/ttyS0
+    exit 0
+fi
 install -d -m0755 \\
     /etc/btrfs-backup \\
     /etc/udev/rules.d \\
@@ -371,9 +438,121 @@ cmp /run/qemu-partition-table-before /run/qemu-partition-table-after
 test "\$(blkid -s TYPE -o value /dev/vde2)" = crypto_LUKS
 grep -Eq '"state"[[:space:]]*:[[:space:]]*"succeeded"' /run/qemu-existing-partition.json
 test -f /etc/btrfs-backup/profiles/qemu-existing-partition/profile.json
-systemctl stop btrfs-backupd.service polkit.service
+
+/run/qemu-test-setup/device-provisioning-client \
+    /dev/vdf \
+    /mnt/qemu-provisioning-source/home \
+    /run/qemu-test-setup/provisioning.key \
+    erase-whole-device \
+    qemu-manager-kill \
+    start-only > /run/qemu-manager-kill.json
+manager_operation="\$(operation_id_from /run/qemu-manager-kill.json)"
+test -n "\$manager_operation"
+manager_unit="btrfs-backup-device-preparation@\$manager_operation.service"
+wait_for_helper_pid "\$manager_unit"
+systemctl kill --kill-whom=main --signal=STOP "\$manager_unit"
+manager_pid="\$(systemctl show --property=MainPID --value btrfs-backupd.service)"
+kill -KILL "\$manager_pid"
+for _ in \$(seq 1 300); do
+    systemctl is-active --quiet btrfs-backupd.service || break
+    sleep 0.05
+done
+systemctl reset-failed btrfs-backupd.service
+systemctl start btrfs-backupd.service
+systemctl kill --kill-whom=main --signal=CONT "\$manager_unit"
+wait_for_transaction_state "\$manager_operation" succeeded
+test -f /etc/btrfs-backup/profiles/qemu-manager-kill/profile.json
+printf 'QEMU_MANAGER_KILL_OK\n' > /dev/ttyS0
+
+/run/qemu-test-setup/device-provisioning-client \
+    /dev/vdg \
+    /mnt/qemu-provisioning-source/home \
+    /run/qemu-test-setup/provisioning.key \
+    erase-whole-device \
+    qemu-helper-kill \
+    start-only > /run/qemu-helper-kill.json
+helper_operation="\$(operation_id_from /run/qemu-helper-kill.json)"
+test -n "\$helper_operation"
+helper_unit="btrfs-backup-device-preparation@\$helper_operation.service"
+wait_for_helper_pid "\$helper_unit"
+systemctl kill --kill-whom=main --signal=STOP "\$helper_unit"
+systemctl kill --kill-whom=all --signal=KILL "\$helper_unit"
+for _ in \$(seq 1 600); do
+    refresh_preparation_status "\$helper_operation" || true
+    test "\$(transaction_state "\$helper_operation" 2>/dev/null || true)" = interrupted && break
+    sleep 0.1
+done
+wait_for_transaction_state "\$helper_operation" interrupted
+grep -Eq '"errorCode":[[:space:]]*"device-preparation\.helper-exited"' \
+    "\$(transaction_file "\$helper_operation")"
+printf 'QEMU_HELPER_KILL_OK\n' > /dev/ttyS0
+
+printf 'QEMU_UNPLUG_ATTACH_READY\n' > /dev/ttyS0
+for _ in \$(seq 1 600); do
+    test -b /dev/vdi && break
+    sleep 0.1
+done
+test -b /dev/vdi
+/run/qemu-test-setup/device-provisioning-client \
+    /dev/vdi \
+    /mnt/qemu-provisioning-source/home \
+    /run/qemu-test-setup/provisioning.key \
+    erase-whole-device \
+    qemu-device-unplug \
+    start-only > /run/qemu-device-unplug.json
+unplug_operation="\$(operation_id_from /run/qemu-device-unplug.json)"
+test -n "\$unplug_operation"
+unplug_unit="btrfs-backup-device-preparation@\$unplug_operation.service"
+wait_for_helper_pid "\$unplug_unit"
+systemctl kill --kill-whom=main --signal=STOP "\$unplug_unit"
+printf 'QEMU_UNPLUG_READY\n' > /dev/ttyS0
+for _ in \$(seq 1 600); do
+    test ! -b /dev/vdi && break
+    sleep 0.1
+done
+test ! -b /dev/vdi
+systemctl kill --kill-whom=main --signal=CONT "\$unplug_unit" || true
+for _ in \$(seq 1 600); do
+    refresh_preparation_status "\$unplug_operation" || true
+    unplug_state="\$(transaction_state "\$unplug_operation" 2>/dev/null || true)"
+    if test "\$unplug_state" = failed || test "\$unplug_state" = interrupted; then
+        break
+    fi
+    sleep 0.1
+done
+grep -Eq '"state":[[:space:]]*"(failed|interrupted)"' "\$(transaction_file "\$unplug_operation")"
+grep -Eq '"errorCode":[[:space:]]*"device-preparation\.[^"]+"' "\$(transaction_file "\$unplug_operation")"
+printf 'QEMU_REPLACEMENT_ATTACH_READY\n' > /dev/ttyS0
+for _ in \$(seq 1 600); do
+    test -b /dev/vdi && break
+    sleep 0.1
+done
+test -b /dev/vdi
+test "\$(sha256sum /dev/vdi | awk '{print \$1}')" = "$REPLACEMENT_HASH"
+printf 'QEMU_UNPLUG_RECOVERY_OK\n' > /dev/ttyS0
 printf 'QEMU_PROVISIONING_OK\n' > /dev/ttyS0
-printf 'QEMU_READY\n' > /dev/ttyS0
+
+/run/qemu-test-setup/device-provisioning-client \
+    /dev/vdh \
+    /mnt/qemu-provisioning-source/home \
+    /run/qemu-test-setup/provisioning.key \
+    erase-whole-device \
+    qemu-power-loss \
+    start-only > /run/qemu-power-loss.json
+power_loss_operation="\$(operation_id_from /run/qemu-power-loss.json)"
+test -n "\$power_loss_operation"
+power_loss_unit="btrfs-backup-device-preparation@\$power_loss_operation.service"
+wait_for_helper_pid "\$power_loss_unit"
+for _ in \$(seq 1 1200); do
+    test -e /dev/mapper/btrfs-backup-qemu-power-loss && break
+    sleep 0.025
+done
+test -e /dev/mapper/btrfs-backup-qemu-power-loss
+systemctl kill --kill-whom=main --signal=STOP "\$power_loss_unit"
+printf '%s\n' "\$power_loss_operation" > "\$power_loss_marker"
+sync "\$power_loss_marker"
+printf 'QEMU_POWER_LOSS_READY\n' > /dev/ttyS0
+while :; do sleep 60; done
 EOF_SETUP
 chmod 0755 "$ROOT_MOUNT/setup.sh"
 umount "$ROOT_MOUNT"
@@ -384,7 +563,6 @@ qemu_args=(
     -m 768
     -smp 2
     -nographic
-    -no-reboot
     -kernel "$KERNEL_IMAGE"
     -append "root=/dev/vda rw rootfstype=ext4 console=ttyS0 systemd.unit=multi-user.target"
     -drive "file=$ROOT_IMAGE,if=virtio,format=raw,snapshot=on"
@@ -392,7 +570,14 @@ qemu_args=(
     -drive "file=$SOURCE_IMAGE,if=virtio,format=raw,snapshot=on"
     -drive "file=$WHOLE_DEVICE_IMAGE,if=virtio,format=raw,snapshot=on"
     -drive "file=$PARTITION_DEVICE_IMAGE,if=virtio,format=raw,snapshot=on"
+    -drive "file=$MANAGER_KILL_IMAGE,if=virtio,format=raw,snapshot=on"
+    -drive "file=$HELPER_KILL_IMAGE,if=virtio,format=raw,snapshot=on"
+    -drive "file=$POWER_LOSS_IMAGE,if=virtio,format=raw,snapshot=on"
     -device qemu-xhci,id=xhci
+    -blockdev "driver=file,filename=$UNPLUG_IMAGE,node-name=unplug-file"
+    -blockdev "driver=raw,file=unplug-file,node-name=unplug-disk"
+    -blockdev "driver=file,filename=$REPLACEMENT_IMAGE,node-name=replacement-file"
+    -blockdev "driver=raw,file=replacement-file,node-name=replacement-disk"
     -blockdev "driver=file,filename=$TARGET_IMAGE,node-name=hotplug-target-file"
     -blockdev "driver=raw,file=hotplug-target-file,node-name=hotplug-target"
     -qmp "unix:$QMP_SOCKET,server=on,wait=off"
@@ -408,14 +593,45 @@ fi
 
 qemu-system-x86_64 "${qemu_args[@]}" &
 QEMU_PID=$!
-for _ in $(seq 1 1200); do
-    grep -Fq 'QEMU_READY' "$CONSOLE_LOG" 2>/dev/null && break
-    kill -0 "$QEMU_PID" 2>/dev/null || fail 'QEMU guest exited before reaching multi-user.target'
-    sleep 0.25
-done
-grep -Fq 'QEMU_READY' "$CONSOLE_LOG" || fail 'QEMU guest did not become ready'
+wait_for_console() {
+    local marker="$1"
+    local failure="$2"
+    for _ in $(seq 1 1200); do
+        grep -Fq "$marker" "$CONSOLE_LOG" 2>/dev/null && return 0
+        kill -0 "$QEMU_PID" 2>/dev/null || fail "$failure"
+        sleep 0.25
+    done
+    fail "$failure"
+}
+qmp_request() {
+    local command="$1"
+    {
+        printf '%s\n' '{"execute":"qmp_capabilities"}'
+        printf '%s\n' "$command"
+    } | socat -t 5 - "UNIX-CONNECT:$QMP_SOCKET" > "$QMP_LOG"
+    if (( $(grep -Fc '"return": {}' "$QMP_LOG") < 2 )); then
+        cat "$QMP_LOG" >&2
+        fail 'QMP rejected a provisioning failure-injection request'
+    fi
+}
+
+wait_for_console QEMU_UNPLUG_ATTACH_READY 'guest did not request the provisioning hotplug disk'
+qmp_request '{"execute":"device_add","arguments":{"driver":"virtio-blk-pci","drive":"unplug-disk","id":"provisioning-hotplug","serial":"qemu-unplug-original"}}'
+wait_for_console QEMU_UNPLUG_READY 'guest did not reach the device-unplug boundary'
+qmp_request '{"execute":"device_del","arguments":{"id":"provisioning-hotplug"}}'
+wait_for_console QEMU_REPLACEMENT_ATTACH_READY 'guest did not reject the unplugged provisioning target'
+qmp_request '{"execute":"device_add","arguments":{"driver":"virtio-blk-pci","drive":"replacement-disk","id":"provisioning-hotplug","serial":"qemu-unplug-replacement"}}'
+wait_for_console QEMU_UNPLUG_RECOVERY_OK 'guest modified or accepted the replacement provisioning device'
+wait_for_console QEMU_POWER_LOSS_READY 'guest did not reach the power-loss boundary'
+qmp_request '{"execute":"system_reset"}'
+wait_for_console QEMU_POWER_LOSS_RECOVERED 'guest did not recover the interrupted transaction after reset'
+wait_for_console QEMU_READY 'QEMU guest did not become ready after recovery'
 grep -Fq 'QEMU_PROVISIONING_OK' "$CONSOLE_LOG" \
     || fail 'whole-device and existing-partition provisioning did not pass in QEMU'
+grep -Fq 'QEMU_MANAGER_KILL_OK' "$CONSOLE_LOG" \
+    || fail 'manager SIGKILL recovery did not pass in QEMU'
+grep -Fq 'QEMU_HELPER_KILL_OK' "$CONSOLE_LOG" \
+    || fail 'helper SIGKILL recovery did not pass in QEMU'
 
 {
     printf '%s\n' '{"execute":"qmp_capabilities"}'
@@ -470,4 +686,4 @@ grep -Fq 'QEMU_TARGET_START_2' "$CONSOLE_LOG" \
 grep -Fq 'QEMU_HOTPLUG_OK_2' "$CONSOLE_LOG" \
     || fail 'udev did not restart btrfs-backup@default.service after USB reattachment'
 
-printf '%s\n' 'ok - QEMU provisioning and USB hotplug lifecycle pass in a system guest'
+printf '%s\n' 'ok - QEMU provisioning, interruption recovery and USB hotplug pass in a system guest'
