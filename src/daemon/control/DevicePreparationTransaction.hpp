@@ -6,6 +6,7 @@
 #include <chrono>
 #include <cstddef>
 #include <filesystem>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -34,6 +35,7 @@ struct DevicePreparationTransaction {
     std::string inspection_mount_point;
     std::string configuration_state = "not-started";
     std::string credentials_state = "not-started";
+    std::string profile_reservation_state = "not-held";
     std::string cleanup_result = "not-required";
 };
 
@@ -48,6 +50,9 @@ class DevicePreparationTransactionStore final {
     void save(const DevicePreparationTransaction& transaction) const;
     [[nodiscard]] DevicePreparationTransaction load(const std::string& operation_id) const;
     [[nodiscard]] std::vector<DevicePreparationTransaction> load_and_prune() const;
+    void reserve_profile(const std::string& profile_id, const std::string& operation_id) const;
+    void release_profile(const std::string& profile_id, const std::string& operation_id) const;
+    [[nodiscard]] std::optional<std::string> profile_reservation_owner(const std::string& profile_id) const;
 
   private:
     std::filesystem::path root_;

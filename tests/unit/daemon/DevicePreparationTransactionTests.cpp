@@ -86,7 +86,9 @@ DevicePreparationTransaction transaction(
 void test_round_trip_preserves_recovery_state() {
     const auto root = test_helpers::test_root("device-preparation-transactions", "round-trip");
     DevicePreparationTransactionStore store(root);
-    store.save(transaction("prepare-round-trip", "running", now_seconds()));
+    auto saved = transaction("prepare-round-trip", "running", now_seconds());
+    saved.profile_reservation_state = "held";
+    store.save(saved);
     const auto loaded = store.load_and_prune();
     test_helpers::expect_true("round trip count", loaded.size() == 1, "transaction was not loaded");
     const auto& value = loaded.front();
@@ -109,7 +111,43 @@ void test_round_trip_preserves_recovery_state() {
     test_helpers::expect_eq("partition", value.partition, "/dev/test1");
     test_helpers::expect_eq("LUKS UUID", value.luks_uuid, "luks-uuid");
     test_helpers::expect_eq("mapper", value.mapper, "btrfs-backup-test");
+    test_helpers::expect_eq("profile reservation", value.profile_reservation_state, "held");
     test_helpers::expect_eq("recovery action", value.status.recovery_action, "inspect manually");
+}
+
+void test_profile_reservation_is_durable_and_owner_guarded() {
+    const auto root = test_helpers::test_root("device-preparation-transactions", "profile-reservation");
+    DevicePreparationTransactionStore store(root);
+    store.reserve_profile("archive", "prepare-first");
+    test_helpers::expect_true(
+        "reservation owner",
+        store.profile_reservation_owner("archive") == std::optional<std::string>{"prepare-first"},
+        "reservation owner was not persisted"
+    );
+    test_helpers::expect_true(
+        "reservation survives store recreation",
+        DevicePreparationTransactionStore(root).profile_reservation_owner("archive") ==
+            std::optional<std::string>{"prepare-first"},
+        "a new store instance did not observe the reservation"
+    );
+
+    try {
+        store.reserve_profile("archive", "prepare-second");
+        test_helpers::fail("reservation conflict", "a second operation reserved the same profile");
+    } catch (const btrfsbackup::ValidationError&) {
+    }
+    try {
+        store.release_profile("archive", "prepare-second");
+        test_helpers::fail("reservation owner guard", "a non-owner released the reservation");
+    } catch (const btrfsbackup::ValidationError&) {
+    }
+    store.release_profile("archive", "prepare-first");
+    store.release_profile("archive", "prepare-first");
+    test_helpers::expect_true(
+        "reservation release",
+        !store.profile_reservation_owner("archive").has_value(),
+        "owner release did not remove the reservation"
+    );
 }
 
 void test_round_trip_preserves_adoption_fingerprint() {
@@ -178,6 +216,9 @@ void test_completed_limit_ttl_and_active_retention() {
     store.save(transaction("prepare-middle", "failed", now - 20));
     store.save(transaction("prepare-newest", "cancelled", now - 10));
     store.save(transaction("prepare-active", "running", now - 7200));
+    auto held = transaction("prepare-held", "failed", now - 7200);
+    held.profile_reservation_state = "held";
+    store.save(held);
 
     const auto loaded = store.load_and_prune();
     const auto contains = [&](const std::string& id) {
@@ -190,6 +231,7 @@ void test_completed_limit_ttl_and_active_retention() {
     test_helpers::expect_true("limited oldest", !contains("prepare-oldest"), "completed limit was ignored");
     test_helpers::expect_true("expired result", !contains("prepare-expired"), "completed TTL was ignored");
     test_helpers::expect_true("active retained", contains("prepare-active"), "active transaction was TTL-pruned");
+    test_helpers::expect_true("held retained", contains("prepare-held"), "held reservation transaction was TTL-pruned");
 }
 
 void test_legacy_transaction_is_rejected() {
@@ -222,6 +264,7 @@ void test_legacy_transaction_is_rejected() {
 
 int main() {
     test_round_trip_preserves_recovery_state();
+    test_profile_reservation_is_durable_and_owner_guarded();
     test_round_trip_preserves_adoption_fingerprint();
     test_round_trip_preserves_free_space_geometry();
     test_completed_limit_ttl_and_active_retention();
