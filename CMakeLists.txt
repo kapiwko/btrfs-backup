@@ -28,7 +28,11 @@ if(BUILD_TESTING)
 endif()
 option(BUILD_KDE_INTEGRATION "Build the optional KDE integration" OFF)
 option(BUILD_README_SCREENSHOTS "Build helpers used to render README screenshots" OFF)
-option(BUILD_SYSTEM_MANAGER "Build the optional read-only system D-Bus manager" ON)
+option(
+    BUILD_SYSTEM_MANAGER
+    "Build the privileged system D-Bus manager and device-preparation helper"
+    ON
+)
 if(BUILD_KDE_INTEGRATION)
     set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 endif()
