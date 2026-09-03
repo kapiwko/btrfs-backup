@@ -126,6 +126,70 @@ jobs:
         env:
           CCACHE_DIR: ${{ github.workspace }}/.ccache
 
+  kde-dbus-contract:
+    runs-on: ubuntu-24.04
+    container: archlinux:base-devel
+    steps:
+      - name: Prepare Arch Linux
+        run: |
+          pacman -Syu --noconfirm --needed \
+            btrfs-progs \
+            ccache \
+            cmake \
+            extra-cmake-modules \
+            git \
+            kcmutils \
+            kcoreaddons \
+            ki18n \
+            kirigami \
+            kio \
+            kjobwidgets \
+            knotifications \
+            kpackage \
+            krunner \
+            kwidgetsaddons \
+            libplasma \
+            ninja \
+            nlohmann-json \
+            pkgconf \
+            qt6-base \
+            qt6-declarative \
+            systemd \
+            util-linux
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .ccache
+          key: ccache-${{ runner.os }}-kde-dbus-${{ github.sha }}
+          restore-keys: ccache-${{ runner.os }}-kde-dbus-
+      - name: Configure KDE D-Bus contract build
+        run: |
+          cmake \
+            -S . \
+            -B build/kde-dbus \
+            -G Ninja \
+            -DBUILD_KDE_INTEGRATION=ON \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+        env:
+          CCACHE_DIR: ${{ github.workspace }}/.ccache
+      - name: Build KDE integration and tests
+        run: |
+          cmake \
+            --build build/kde-dbus \
+            --target \
+              btrfs-backup-kde \
+              btrfs-backup-kde-tests \
+              btrfs-backupd \
+              btrfsbackup-fake-polkit-authority \
+            --parallel "$(nproc)"
+        env:
+          CCACHE_DIR: ${{ github.workspace }}/.ccache
+      - name: Verify server and KDE D-Bus contracts
+        run: |
+          ctest --test-dir build/kde-dbus -R '^(manager-dbus-contract|dbus-manager-tests)$' --output-on-failure
+          ctest --test-dir build/kde-dbus -L kde --parallel "$(nproc)" --output-on-failure
+
   sanitizers:
     runs-on: ubuntu-24.04
     container: archlinux:base-devel

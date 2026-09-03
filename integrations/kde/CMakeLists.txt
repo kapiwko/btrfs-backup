@@ -539,13 +539,16 @@ if(BUILD_TESTING)
     add_custom_target(btrfs-backup-kde-tests)
     add_dependencies(
         btrfs-backup-kde-tests
+        dolphin-previous-versions-selection-tests
         kde-manager-api-tests
         kde-terminal-notification-tests
+        kio-btrfsbackup-metadata-tests
         kio-secure-browse-path-tests
         kio-snapshot-interop-probe
         plasma-progress-job-tests
         kde-status-models-tests
         kde-target-status-model-tests
+        krunner-command-parser-tests
     )
 
     find_program(
