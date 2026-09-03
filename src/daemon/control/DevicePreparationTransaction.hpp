@@ -3,15 +3,9 @@
 
 #pragma once
 
-#include <chrono>
-#include <cstddef>
 #include <compare>
 #include <cstdint>
-#include <filesystem>
-#include <functional>
-#include <optional>
 #include <string>
-#include <vector>
 
 #include <daemon/control/DeviceProvisioningService.hpp>
 
@@ -51,43 +45,6 @@ struct DevicePreparationTransaction {
     std::string profile_reservation_state = "not-held";
     std::string cleanup_result = "not-required";
     bool cancel_requested = false;
-};
-
-using DevicePreparationTransition = std::function<void(DevicePreparationTransaction&)>;
-
-struct DevicePreparationTransactionScan {
-    std::vector<DevicePreparationTransaction> transactions;
-    std::vector<std::string> corrupted_operation_ids;
-};
-
-class DevicePreparationTransactionStore final {
-  public:
-    DevicePreparationTransactionStore(
-        std::filesystem::path root,
-        std::size_t completed_limit = 128,
-        std::chrono::seconds completed_ttl = std::chrono::hours(24 * 30)
-    );
-
-    void save(DevicePreparationTransaction& transaction) const;
-    [[nodiscard]] DevicePreparationTransaction update(
-        const std::string& operation_id,
-        TransactionRevision expected_revision,
-        const DevicePreparationTransition& transition
-    ) const;
-    [[nodiscard]] DevicePreparationTransaction update(
-        const std::string& operation_id,
-        const DevicePreparationTransition& transition
-    ) const;
-    [[nodiscard]] DevicePreparationTransaction load(const std::string& operation_id) const;
-    [[nodiscard]] DevicePreparationTransactionScan load_and_prune() const;
-    void reserve_profile(const std::string& profile_id, const std::string& operation_id) const;
-    void release_profile(const std::string& profile_id, const std::string& operation_id) const;
-    [[nodiscard]] std::optional<std::string> profile_reservation_owner(const std::string& profile_id) const;
-
-  private:
-    std::filesystem::path root_;
-    std::size_t completed_limit_;
-    std::chrono::seconds completed_ttl_;
 };
 
 } // namespace btrfsbackup::daemon::control

@@ -4,7 +4,7 @@
 #include <daemon/control/CredentialAdministrationService.hpp>
 #include <daemon/control/CommandSystemdUnitController.hpp>
 #include <daemon/control/DestructiveDeviceSafetyInspector.hpp>
-#include <daemon/control/DevicePreparationTransaction.hpp>
+#include <daemon/control/DevicePreparationTransactionStore.hpp>
 #include <daemon/control/DevicePreparationUnitController.hpp>
 #include <daemon/control/ExistingTargetInspector.hpp>
 #include <daemon/control/SystemCredentialAdministrationBackend.hpp>

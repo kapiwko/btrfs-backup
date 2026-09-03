@@ -1,7 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Kamil Piwowarski <kapiwko@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <daemon/control/DevicePreparationTransaction.hpp>
+#include <daemon/control/DevicePreparationTransactionCodec.hpp>
+#include <daemon/control/DevicePreparationTransactionStore.hpp>
 
 #include <core/Errors.hpp>
 
@@ -18,6 +19,7 @@
 namespace {
 
 using btrfsbackup::daemon::control::DevicePreparationTransaction;
+using btrfsbackup::daemon::control::DevicePreparationTransactionCodec;
 using btrfsbackup::daemon::control::DevicePreparationTransactionStore;
 using btrfsbackup::daemon::control::TransactionRevision;
 
@@ -87,6 +89,32 @@ DevicePreparationTransaction transaction(
     value.mapper = "btrfs-backup-test";
     value.cleanup_result = "pending";
     return value;
+}
+
+void test_codec_owns_schema_and_validation() {
+    DevicePreparationTransaction value = transaction("prepare-codec", "running", now_seconds());
+    value.revision = TransactionRevision{7};
+    const DevicePreparationTransactionCodec codec;
+    const std::string document = codec.serialize(value);
+    const auto decoded = codec.deserialize(document);
+    test_helpers::expect_true(
+        "codec round trip",
+        decoded.revision == value.revision && decoded.status.operation_id == value.status.operation_id &&
+            decoded.target.partition == value.target.partition && decoded.source_filesystem_uuid == value.source_filesystem_uuid,
+        "transaction codec changed persisted state"
+    );
+
+    std::string previous_schema = document;
+    const std::string current_version = "\"schemaVersion\": 8";
+    const auto version = previous_schema.find(current_version);
+    test_helpers::expect_true("codec schema field", version != std::string::npos, "current schema field is missing");
+    if (version != std::string::npos)
+        previous_schema.replace(version, current_version.size(), "\"schemaVersion\": 7");
+    try {
+        static_cast<void>(codec.deserialize(previous_schema));
+        test_helpers::fail("codec previous schema", "the previous unreleased transaction schema was accepted");
+    } catch (const btrfsbackup::ValidationError&) {
+    }
 }
 
 void test_round_trip_preserves_recovery_state() {
@@ -410,6 +438,7 @@ void test_corrupted_transaction_is_isolated_and_preserved() {
 } // namespace
 
 int main() {
+    test_codec_owns_schema_and_validation();
     test_round_trip_preserves_recovery_state();
     test_revision_conflicts_and_state_transitions_are_rejected();
     test_process_updates_are_serialized_without_losing_fields();

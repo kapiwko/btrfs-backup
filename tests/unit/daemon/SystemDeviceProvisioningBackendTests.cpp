@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include <daemon/control/SystemDeviceProvisioningBackend.hpp>
-#include <daemon/control/DevicePreparationTransaction.hpp>
+#include <daemon/control/DevicePreparationTransactionStore.hpp>
 #include <daemon/control/DevicePreparationUnitController.hpp>
 #include <daemon/control/ExistingTargetInspector.hpp>
 #include <daemon/dbus/ManagerErrors.hpp>
