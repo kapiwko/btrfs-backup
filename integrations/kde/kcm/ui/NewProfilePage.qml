@@ -383,11 +383,14 @@ KCMUtils.SimpleKCM {
                     RowLayout {
                         Layout.fillWidth: true
                         QQC2.Button {
-                            icon.name: "partitionmanager"
-                            text: translations.i18n("Open KDE Partition Manager")
-                            visible: typeof kcm !== "undefined" && kcm.partitionManagerAvailable
+                            readonly property bool partitionManagerInstalled: typeof kcm !== "undefined"
+                                && kcm.partitionManagerAvailable
+                            icon.name: partitionManagerInstalled ? "partitionmanager" : "system-software-install"
+                            text: partitionManagerInstalled
+                                ? translations.i18n("Open KDE Partition Manager")
+                                : translations.i18n("Install KDE Partition Manager")
                             enabled: !root.provisioning.busy
-                            onClicked: kcm.openPartitionManager()
+                            onClicked: if (typeof kcm !== "undefined") kcm.openPartitionManager()
                         }
                         QQC2.Button {
                             icon.name: "view-refresh-symbolic"

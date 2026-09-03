@@ -929,6 +929,9 @@ msgstr "nieznany system plików"
 msgid "Open KDE Partition Manager"
 msgstr "Otwórz Menedżera partycji KDE"
 
+msgid "Install KDE Partition Manager"
+msgstr "Zainstaluj Menedżera partycji KDE"
+
 msgid "Rescan"
 msgstr "Skanuj ponownie"
 
