@@ -94,7 +94,8 @@ add_library(btrfsbackup-daemon-system-control STATIC
     control/DestructiveDeviceSafetyInspector.cpp
     control/DevicePreparationExecutor.cpp
     control/DevicePreparationPlanBuilder.cpp
-    control/DevicePreparationTransaction.cpp
+    control/DevicePreparationTransactionCodec.cpp
+    control/DevicePreparationTransactionStore.cpp
     control/DevicePreparationUnitController.cpp
     control/ExistingTargetInspector.cpp
     control/OperationEnvironmentFile.cpp
@@ -112,6 +113,8 @@ target_restricted_include_directories(btrfsbackup-daemon-system-control
         daemon/control/CommandSystemdUnitController.hpp
         daemon/control/DestructiveDeviceSafetyInspector.hpp
         daemon/control/DevicePreparationTransaction.hpp
+        daemon/control/DevicePreparationTransactionCodec.hpp
+        daemon/control/DevicePreparationTransactionStore.hpp
         daemon/control/DevicePreparationUnitController.hpp
         daemon/control/ExistingTargetInspector.hpp
         daemon/control/SystemOperationalControlBackend.hpp

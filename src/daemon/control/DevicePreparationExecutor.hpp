@@ -8,7 +8,7 @@
 
 #include <daemon/control/CredentialAdministrationService.hpp>
 #include <daemon/control/DevicePreparationPlanBuilder.hpp>
-#include <daemon/control/DevicePreparationTransaction.hpp>
+#include <daemon/control/DevicePreparationTransactionStore.hpp>
 
 namespace btrfsbackup::backup {
 class IBtrfsOperations;

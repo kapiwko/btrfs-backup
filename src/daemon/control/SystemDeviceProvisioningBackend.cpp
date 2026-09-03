@@ -19,7 +19,7 @@
 #include <core/Errors.hpp>
 #include <daemon/control/DestructiveDeviceSafetyInspector.hpp>
 #include <daemon/control/DevicePreparationExecutor.hpp>
-#include <daemon/control/DevicePreparationTransaction.hpp>
+#include <daemon/control/DevicePreparationTransactionStore.hpp>
 #include <daemon/control/DevicePreparationUnitController.hpp>
 #include <daemon/control/ExistingTargetInspector.hpp>
 #include <daemon/control/ProvisioningDeviceEnumerator.hpp>
