@@ -9,9 +9,14 @@ Mutating methods obtain the caller identity from the active D-Bus
 connection and polkit subject; they must never trust a UID, PID, user name, or
 authorization result supplied as a method argument.
 
-Read methods expose only the same presentation-safe information that is
-currently public. They must not return paths, UUIDs, device nodes, hook
-commands, private diagnostics, or unsanitized history details.
+Globally readable status methods expose only presentation-safe information.
+Provisioning discovery additionally requires an active local caller. Its
+device topology, plans, and inspection results must not return paths, UUIDs,
+device nodes, hardware identity, labels, free-form diagnostics, or
+unsanitized blocker details. `ListSourceCandidates` is the documented narrow
+exception: it returns eligible Btrfs source paths and filesystem UUIDs to the
+active session, but later mutation accepts only the stored, caller-bound
+candidate identifier.
 
 ## Implemented API
 
@@ -66,7 +71,7 @@ schema versions are not advertised as public API versions.
 | `InspectStorageTopology` | `()` | `(s)` | caller-bound, sanitized device, partition, and unallocated-region snapshot |
 | `InspectExistingTarget` | `(s request, h credential)` | `(s)` | opens a caller-selected LUKS2 partition read-only and returns a short-lived repository inspection |
 | `BuildDevicePreparationPlan` | `(s request)` | `(s)` | revalidates topology and creates a caller-bound whole-device or existing-partition before/after plan |
-| `ListSourceCandidates` | `()` | `(s)` | caller-bound mounted Btrfs candidates with filesystem identity and a local snapshot root |
+| `ListSourceCandidates` | `()` | `(s)` | active-session, caller-bound mounted Btrfs candidates with source paths, filesystem identity, and a local snapshot root |
 | `StartDevicePreparation` | `(s request, h passphrase)` | `(s)` | starts an asynchronous destructive device-preparation operation |
 | `GetDevicePreparation` | `(s operationId)` | `(s)` | preparation state, phase, stable error and cancellation capability |
 | `CancelDevicePreparation` | `(s operationId)` | `(s)` | requests cancellation before the first destructive phase |

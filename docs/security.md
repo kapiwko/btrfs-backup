@@ -7,12 +7,78 @@ snapshots, opens and closes the configured LUKS target, mounts filesystems, and
 updates root-owned state. User-facing tools must treat the privileged runtime
 as the only component allowed to mutate system configuration or backup state.
 
-Direct runtime commands run as root. Ordinary readers can inspect only reduced,
-sanitized status through the manager. The active local session may invoke the
-already configured operational controls through their separate polkit actions;
-inactive callers still require administrator authentication. Run history,
-profile state, key material, and trusted runtime configuration are private to
-root.
+Direct runtime commands run as root. Globally readable manager responses are
+reduced and sanitized. Provisioning discovery is a separate, active-session
+interface: its device topology is sanitized, while source discovery may expose
+the active user's Btrfs mount paths and filesystem UUIDs so that the user can
+choose a source. The active local session may invoke already configured
+operational controls through their separate polkit actions; inactive callers
+still require administrator authentication. Run history, profile state, key
+material, complete storage identity, and trusted runtime configuration are
+private to root.
+
+## Device Provisioning Trust Boundary
+
+Provisioning crosses several independently enforced boundaries. No single UI
+selection, identifier, authorization result, saved plan, device cgroup rule, or
+device path is sufficient authority to modify storage.
+
+| Component | Trust and responsibility |
+|---|---|
+| KCM and D-Bus caller | Untrusted input and presentation. It selects opaque candidates and supplies secrets by file descriptor. Its typed confirmation is a user-safety measure, not authorization. |
+| System bus policy | Permits messages to reach the manager. It is transport filtering, not proof that a caller or operation is authorized. |
+| Manager | Derives the unique bus name and UID from the connection, requires an active local caller for discovery, owns caller-bound candidates, and validates requests. It does not delegate destructive target selection to the client. |
+| polkit | Grants the non-retained `prepare-backup-device` action to the current caller. It does not prove that a plan is fresh or that a device is unchanged. |
+| systemd | Starts one helper instance and constrains its filesystem, capabilities, namespaces, and block-device access. These restrictions are defense in depth, not storage identity validation. |
+| Preparation helper | Loads one root-owned transaction, revalidates its exact source and target, performs the authorized storage operations, checkpoints progress, and publishes the profile. |
+
+Provisioning data has distinct disclosure and lifetime rules:
+
+- sanitized status and topology responses contain presentation data, stable
+  codes, geometry, safety decisions, and opaque identifiers, but no device
+  nodes, hardware identity, mount paths, labels, or storage UUIDs;
+- source candidates are active-session selection data. Their paths and
+  filesystem UUIDs may be displayed, but `StartDevicePreparation` accepts only
+  the caller-bound, expiring candidate identifier and resolves the stored values
+  in the manager;
+- complete topology snapshots, plans, and compatible-target inspection
+  fingerprints are held only inside the manager and are bound to the unique bus
+  caller and an expiry time;
+- transaction records, profile reservations, private diagnostics, credentials,
+  and generated keys are root-only durable state;
+- passphrases and key bytes cross process boundaries through bounded file
+  descriptors or the root-only helper FIFO, never through JSON, command-line
+  arguments, environment variables, or logs.
+
+The preparation sequence preserves the following order:
+
+1. The manager scans storage, assigns random candidate identifiers, returns a
+   sanitized view, and retains the complete caller-bound snapshot.
+2. Plan creation rescans storage and rejects an expired or changed topology
+   generation. Existing-target adoption additionally requires a matching
+   read-only inspection performed between two safety checks.
+3. Start resolves the stored plan and source candidate, checks topology and
+   active users again, and only then requests the non-retained polkit action.
+4. After authorization, the manager verifies that the caller is still active,
+   consumes the single-use plan and inspection, and re-resolves the source from
+   current mount information.
+5. Before the helper starts, the backend re-resolves the source, seals the
+   passphrase, reserves the profile identifier, persists the initial
+   transaction, and configures the unit's narrow block-device allow-list.
+6. The helper reloads the transaction and repeats source, block graph, stable
+   identity, geometry, signature, mount, swap, and holder validation before the
+   first destructive operation. Cancellation is disabled once that boundary is
+   crossed.
+7. Profile publication is create-only. Success installs the profile before
+   releasing its reservation; failure records recovery state and releases the
+   reservation only when doing so is safe.
+
+Opaque identifiers prevent clients from choosing arbitrary device paths, but
+they are not capabilities outside their caller binding and expiry. A topology
+generation detects intervening discovery changes, but it does not replace the
+helper's immediate revalidation. Similarly, `DeviceAllow` limits reachable
+block devices if another check fails; it must never be used as evidence that a
+reachable device is the intended target.
 
 ## Configuration
 
@@ -294,6 +360,13 @@ diagnostic messages, details, suggested actions, or specific failure codes.
 History directories use mode `0700` and history files use mode `0600`. Full
 messages, specific error codes, paths, UUIDs, timestamps, and structured
 diagnostics belong only in that private history.
+
+Provisioning discovery is not part of globally readable public status. Device
+topology, plans and inspection results remain sanitized even for an active
+caller. Source discovery is the narrow exception: it requires the active local
+session and exposes eligible Btrfs source mount paths and filesystem UUIDs for
+selection, while subsequent mutating requests refer to the stored source only
+by its random, caller-bound identifier.
 
 ## Privileged Actions
 
