@@ -125,7 +125,13 @@ Item {
             after: {logicalSectorSize: 512, regions: [root.partition]}
         })
         property var operation: ({})
-        property var sourceCandidates: ["/home"]
+        property var sourceCandidates: [{
+            id: "source-home",
+            path: "/home",
+            filesystemUuid: "source-fs",
+            mountRoot: "/home",
+            localSnapshotRoot: "/home/.snapshots/btrfs-backup"
+        }]
         property bool busy: false
         property string errorMessage: ""
         signal completed(string profileId)
@@ -157,7 +163,8 @@ Item {
         onTriggered: {
             if (!page.adoption || !page.hasPlan || page.selectedTarget.path !== "/dev/test1"
                     || page.candidateDevices.length !== 1
-                    || page.candidateDevices[0].candidateId !== "device-1") {
+                    || page.candidateDevices[0].candidateId !== "device-1"
+                    || page.selectedSourceCandidate?.id !== "source-home") {
                 console.error("Existing target adoption page bindings are invalid")
                 Qt.exit(1)
                 return

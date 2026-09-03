@@ -358,7 +358,7 @@ DevicePreparationTarget parse_target(const Json& value) {
 
 Json transaction_json(const DevicePreparationTransaction& transaction) {
     return {
-        {"schemaVersion", 6},
+        {"schemaVersion", 7},
         {"operationId", transaction.status.operation_id},
         {"profileId", transaction.status.profile_id},
         {"state", transaction.status.state},
@@ -372,6 +372,9 @@ Json transaction_json(const DevicePreparationTransaction& transaction) {
         {"target", target_json(transaction.target)},
         {"profileName", transaction.profile_name},
         {"sourceSubvolume", transaction.source_subvolume},
+        {"sourceFilesystemUuid", transaction.source_filesystem_uuid},
+        {"sourceMountRoot", transaction.source_mount_root},
+        {"localSnapshotDir", transaction.local_snapshot_dir},
         {"passphraseLabel", transaction.passphrase_label},
         {"createAutomaticKey", transaction.create_automatic_key},
         {"createdAt", transaction.created_at},
@@ -393,7 +396,7 @@ Json transaction_json(const DevicePreparationTransaction& transaction) {
 
 DevicePreparationTransaction parse_transaction(const Json& value) {
     const int schema_version = value.value("schemaVersion", 0);
-    if (!value.is_object() || schema_version != 6 || !value.contains("device"))
+    if (!value.is_object() || schema_version != 7 || !value.contains("device"))
         throw ValidationError("invalid device preparation transaction");
     DevicePreparationTransaction result;
     result.status = {
@@ -415,6 +418,9 @@ DevicePreparationTransaction parse_transaction(const Json& value) {
     result.target = parse_target(value.at("target"));
     result.profile_name = value.value("profileName", "");
     result.source_subvolume = value.value("sourceSubvolume", "");
+    result.source_filesystem_uuid = value.value("sourceFilesystemUuid", "");
+    result.source_mount_root = value.value("sourceMountRoot", "");
+    result.local_snapshot_dir = value.value("localSnapshotDir", "");
     result.passphrase_label = value.value("passphraseLabel", "");
     result.create_automatic_key = value.value("createAutomaticKey", true);
     result.created_at = value.value("createdAt", std::int64_t{0});
@@ -433,7 +439,9 @@ DevicePreparationTransaction parse_transaction(const Json& value) {
     result.cleanup_result = value.value("cleanupResult", "not-required");
     if (result.status.operation_id.empty() || result.status.profile_id.empty() ||
         result.owner.bus_name.empty() || result.created_at <= 0 ||
-        result.profile_name.empty() || result.source_subvolume.empty() || result.passphrase_label.empty())
+        result.profile_name.empty() || result.source_subvolume.empty() || result.passphrase_label.empty() ||
+        result.source_filesystem_uuid.empty() || result.source_mount_root.empty() ||
+        result.local_snapshot_dir.empty())
         throw ValidationError("incomplete device preparation transaction");
     return result;
 }

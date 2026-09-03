@@ -108,8 +108,15 @@ table reread to succeed. A libudev monitor is enabled before the table is
 written; completion requires a visible partition with the expected parent,
 number and geometry. Filesystem creation is verified directly with a
 descriptor-backed libblkid probe, so provisioning does not invoke `udevadm settle`.
-The helper verifies the chosen source as a Btrfs subvolume and disables
-cancellation before the first write. The long-lived manager persists
+Source discovery returns only writable Btrfs mount roots with an explicit
+filesystem UUID. The manager exposes them through random, caller-bound,
+short-lived identifiers instead of accepting a client-provided path. It derives
+the profile's local snapshot directory below the selected mount, rejects a
+nested mount with a different filesystem identity, and persists the source UUID,
+mount root, and derived directory in the preparation transaction. The helper
+repeats this mount and identity validation and verifies the chosen source as a
+Btrfs subvolume before the first target write. It then disables cancellation.
+The long-lived manager persists
 the request and launches one
 `btrfs-backup-device-preparation@<operationId>.service` instance. That
 short-lived helper receives the passphrase through a root-only FIFO, executes

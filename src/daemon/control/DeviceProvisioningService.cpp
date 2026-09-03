@@ -350,9 +350,34 @@ provisioning::DevicePreparationPlan DeviceProvisioningService::build_device_prep
     return plan;
 }
 
-std::vector<std::string> DeviceProvisioningService::list_source_candidates(const std::string& caller) {
+std::vector<SourceCandidate> DeviceProvisioningService::list_source_candidates(const std::string& caller) {
     require_active_caller(caller);
-    return backend_.list_source_candidates();
+    auto candidates = backend_.list_source_candidates();
+    const auto now = clock_();
+    std::lock_guard lock(candidates_mutex_);
+    expire_candidates(now);
+    std::erase_if(source_candidates_, [&](const auto& item) { return item.second.caller == caller; });
+    std::set<std::string> allocated_ids;
+    for (auto& candidate : candidates) {
+        std::string id;
+        for (int attempt = 0; attempt < 16 && id.empty(); ++attempt) {
+            std::string generated = candidate_ids_();
+            if (!generated.empty() && !plans_.contains(generated) && !inspections_.contains(generated) &&
+                !source_candidates_.contains(generated) && allocated_ids.insert(generated).second)
+                id = std::move(generated);
+        }
+        if (id.empty())
+            throw dbus::ManagerOperationError(
+                dbus::ManagerErrorCode::Conflict,
+                "cannot allocate a source candidate identifier"
+            );
+        candidate.id = std::move(id);
+        source_candidates_.insert_or_assign(
+            candidate.id,
+            StoredSourceCandidate{candidate, caller, now + candidate_lifetime_}
+        );
+    }
+    return candidates;
 }
 
 void DeviceProvisioningService::require_active_caller(const std::string& caller) const {
@@ -386,6 +411,23 @@ void DeviceProvisioningService::expire_candidates(std::chrono::steady_clock::tim
     std::erase_if(topologies_, [&](const auto& item) { return item.second.expires_at <= now; });
     std::erase_if(plans_, [&](const auto& item) { return item.second.expires_at <= now; });
     std::erase_if(inspections_, [&](const auto& item) { return item.second.expires_at <= now; });
+    std::erase_if(source_candidates_, [&](const auto& item) { return item.second.expires_at <= now; });
+}
+
+SourceCandidate DeviceProvisioningService::find_source_candidate(
+    const std::string& caller,
+    const std::string& candidate_id
+) {
+    const auto now = clock_();
+    std::lock_guard lock(candidates_mutex_);
+    expire_candidates(now);
+    const auto candidate = source_candidates_.find(candidate_id);
+    if (candidate == source_candidates_.end() || candidate->second.caller != caller)
+        throw dbus::ManagerOperationError(
+            dbus::ManagerErrorCode::NotFound,
+            "source candidate is unavailable or expired"
+        );
+    return candidate->second.candidate;
 }
 
 provisioning::DevicePreparationPlan DeviceProvisioningService::find_plan(
@@ -477,18 +519,21 @@ DevicePreparationStatus DeviceProvisioningService::start(
     int passphrase_fd
 ) {
     if (request.profile_id.empty() || request.profile_name.empty() || request.plan_id.empty() ||
-        request.source_subvolume.empty() || request.passphrase_label.empty())
+        request.source_candidate_id.empty() || request.passphrase_label.empty())
         throw ValidationError("device preparation request is incomplete");
     static_cast<void>(ProfileId{request.profile_id});
-    const std::filesystem::path source(request.source_subvolume);
-    if (!source.is_absolute() || source.lexically_normal() != source)
-        throw ValidationError("device preparation source path is invalid");
     if (passphrase_fd < 0)
         throw ValidationError("device preparation passphrase descriptor is invalid");
     if (request.profile_name.size() > 120 || request.passphrase_label.size() > 80)
         throw ValidationError("device preparation text is too long");
     if (topology_reader_ == nullptr)
         throw dbus::ManagerOperationError(dbus::ManagerErrorCode::NotFound, "storage topology is unavailable");
+    const auto source = find_source_candidate(caller, request.source_candidate_id);
+    DevicePreparationRequest resolved_request = request;
+    resolved_request.source_subvolume = source.path;
+    resolved_request.source_filesystem_uuid = source.filesystem_uuid;
+    resolved_request.source_mount_root = source.mount_root;
+    resolved_request.local_snapshot_dir = (std::filesystem::path(source.local_snapshot_root) / request.profile_id).string();
     const auto plan = find_plan(caller, request.plan_id);
     if (plan.mode != provisioning::ProvisioningMode::EraseWholeDevice &&
         plan.mode != provisioning::ProvisioningMode::ReformatExistingPartition &&
@@ -530,7 +575,7 @@ DevicePreparationStatus DeviceProvisioningService::start(
     if (consumed_plan.inspection_id.has_value())
         consume_inspection(caller, *consumed_plan.inspection_id);
     return backend_.start(
-        request,
+        resolved_request,
         target,
         {.bus_name = caller, .uid = caller_uid},
         passphrase_fd

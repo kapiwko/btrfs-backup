@@ -12,6 +12,7 @@
 
 namespace btrfsbackup::backup {
 class IBtrfsOperations;
+class IMountInspector;
 } // namespace btrfsbackup::backup
 
 namespace btrfsbackup::config {
@@ -48,6 +49,7 @@ class DevicePreparationExecutor final {
         IDestructiveDeviceSafetyInspector& safety_inspector,
         DevicePreparationTransactionStore& transactions,
         ProvisioningDeviceEnumerator& devices,
+        backup::IMountInspector& source_mounts,
         IExistingTargetInspector* existing_target_inspector = nullptr,
         std::filesystem::path inspection_mount_root = {}
     );
@@ -76,6 +78,7 @@ class DevicePreparationExecutor final {
     IDestructiveDeviceSafetyInspector& safety_inspector_;
     DevicePreparationTransactionStore& transactions_;
     ProvisioningDeviceEnumerator& devices_;
+    backup::IMountInspector& source_mounts_;
     DevicePreparationPlanBuilder plan_builder_;
     IExistingTargetInspector* existing_target_inspector_;
     std::filesystem::path inspection_mount_root_;

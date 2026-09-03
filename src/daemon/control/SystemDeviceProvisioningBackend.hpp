@@ -4,7 +4,9 @@
 #pragma once
 
 #include <filesystem>
+#include <functional>
 #include <memory>
+#include <string>
 
 #include <daemon/control/DeviceProvisioningService.hpp>
 
@@ -56,11 +58,12 @@ class SystemDeviceProvisioningBackend final : public IDeviceProvisioningBackend 
         IDevicePreparationUnitController& units,
         bool recover_existing = true,
         IExistingTargetInspector* existing_target_inspector = nullptr,
-        std::filesystem::path inspection_mount_root = {}
+        std::filesystem::path inspection_mount_root = {},
+        std::function<std::string(const std::string&)> source_filesystem_uuid_resolver = {}
     );
     ~SystemDeviceProvisioningBackend() noexcept override;
 
-    [[nodiscard]] std::vector<std::string> list_source_candidates() override;
+    [[nodiscard]] std::vector<SourceCandidate> list_source_candidates() override;
     [[nodiscard]] std::vector<std::string> inspect_safety(
         const DevicePreparationTarget& target
     ) const override;

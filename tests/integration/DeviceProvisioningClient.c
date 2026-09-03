@@ -116,6 +116,25 @@ static char* candidate_for_path(const char* topology, const char* expected_path)
     return NULL;
 }
 
+static char* source_candidate_for_path(const char* candidates, const char* expected_path) {
+    const char* candidate = candidates;
+    while ((candidate = strstr(candidate, "\"id\"")) != NULL) {
+        const char* next = strstr(candidate + 1, "\"id\"");
+        char* path = json_string_between(candidate, next, "path");
+        char* identifier = json_string_between(candidate, next, "id");
+        if (path != NULL && identifier != NULL && strcmp(path, expected_path) == 0) {
+            free(path);
+            return identifier;
+        }
+        free(path);
+        free(identifier);
+        candidate = next;
+        if (candidate == NULL)
+            break;
+    }
+    return NULL;
+}
+
 static char* unallocated_candidate_for_device(const char* topology, const char* expected_path) {
     const char* device = topology;
     while ((device = strstr(device, "\"candidateId\"")) != NULL) {
@@ -207,23 +226,29 @@ int main(int argc, char** argv) {
     char* plan_id = json_string(plan, "planId");
     if (plan_id == NULL)
         die("manager omitted the preparation plan identifier");
+    char* sources = call(bus, "ListSourceCandidates", NULL, NULL);
+    char* source_candidate = source_candidate_for_path(sources, argv[2]);
+    if (source_candidate == NULL)
+        die("selected source is absent from source candidates");
 
     char start_request[4096];
     if (snprintf(
             start_request,
             sizeof(start_request),
             "{\"profileId\":\"%s\",\"profileName\":\"Partition integration\","
-            "\"planId\":\"%s\",\"sourceSubvolume\":\"%s\",\"passphraseLabel\":\"Integration\","
+            "\"planId\":\"%s\",\"sourceCandidateId\":\"%s\",\"passphraseLabel\":\"Integration\","
             "\"createAutomaticKey\":false}",
             profile_id,
             plan_id,
-            argv[2]
+            source_candidate
         ) >= (int)sizeof(start_request))
         die("start request is too large");
     const int passphrase_fd = open(argv[3], O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
     if (passphrase_fd < 0)
         die("cannot open the passphrase file");
     char* status = start_preparation(bus, start_request, passphrase_fd);
+    free(source_candidate);
+    free(sources);
     close(passphrase_fd);
     char* operation_id = json_string(status, "operationId");
     if (operation_id == NULL)

@@ -9,12 +9,14 @@
 #include <unistd.h>
 
 #include <backup/ports/IBtrfsOperations.hpp>
+#include <backup/ports/IMountInspector.hpp>
 #include <config/ports/ConfigurationActivator.hpp>
 #include <core/Errors.hpp>
 #include <core/Identifiers.hpp>
 #include <daemon/control/DestructiveDeviceSafetyInspector.hpp>
 #include <daemon/control/ExistingTargetInspector.hpp>
 #include <daemon/control/ProvisioningDeviceEnumerator.hpp>
+#include <daemon/control/ProvisioningSource.hpp>
 #include <daemon/dbus/ManagerErrors.hpp>
 #include <platform/linux/config/ProfileService.hpp>
 #include <platform/linux/filesystem/FileLock.hpp>
@@ -83,6 +85,7 @@ DevicePreparationExecutor::DevicePreparationExecutor(
     IDestructiveDeviceSafetyInspector& safety_inspector,
     DevicePreparationTransactionStore& transactions,
     ProvisioningDeviceEnumerator& devices,
+    backup::IMountInspector& source_mounts,
     IExistingTargetInspector* existing_target_inspector,
     fs::path inspection_mount_root
 )
@@ -98,6 +101,7 @@ DevicePreparationExecutor::DevicePreparationExecutor(
       safety_inspector_(safety_inspector),
       transactions_(transactions),
       devices_(devices),
+      source_mounts_(source_mounts),
       plan_builder_(std::move(target_mount_root)),
       existing_target_inspector_(existing_target_inspector),
       inspection_mount_root_(std::move(inspection_mount_root)) {
@@ -180,6 +184,15 @@ void DevicePreparationExecutor::execute(const std::string& operation_id, int pas
         }
         if (!btrfs_.is_subvolume(initial.source_subvolume))
             throw ValidationError("selected source is not a Btrfs subvolume");
+        const SourceCandidate source = resolve_provisioning_source(
+            source_mounts_.inspect(),
+            initial.source_subvolume,
+            ProfileId{initial.status.profile_id}
+        );
+        if (source.filesystem_uuid != initial.source_filesystem_uuid ||
+            source.mount_root != initial.source_mount_root ||
+            source.local_snapshot_root != initial.local_snapshot_dir)
+            throw ValidationError("selected source filesystem changed before device preparation");
         completed(operation_id, "inspect");
         platform::linux::filesystem::FileLock device_lock(roots_.lock_root / "device-provisioning.lock");
         if (!device_lock.try_acquire())
