@@ -3,6 +3,8 @@
 
 #include "RestoreController.hpp"
 
+#include <BrowseSessionClient.hpp>
+
 #include "ManagerApi.hpp"
 #include "RestoreJob.hpp"
 
@@ -27,14 +29,6 @@ using Qt::StringLiterals::operator""_s;
 
 namespace btrfsbackup::kde::restore {
 namespace {
-
-std::optional<QString> manager_payload(const QString& method, const QVariantList& arguments) {
-    QDBusPendingReply<QString> reply(btrfsbackup::kde::manager_call(QDBusConnection::systemBus(), method, arguments));
-    reply.waitForFinished();
-    if (reply.isError())
-        return std::nullopt;
-    return reply.value();
-}
 
 QString required_string(const QJsonObject& object, const QString& key) {
     const QJsonValue value = object.value(key);
@@ -175,28 +169,17 @@ bool RestoreController::prepare_plan() {
         if (profile_id_.isEmpty() || snapshot_id_.isEmpty() || !QDir::isAbsolutePath(destination_))
             throw std::runtime_error("restore source or destination is invalid");
         if (!catalog_) {
-            const auto payload = manager_payload(
-                QLatin1String(btrfsbackup::manager_protocol::method::open_browse_session),
-                {profile_id_}
-            );
-            const auto session = payload ? btrfsbackup::kde::parse_browse_session(*payload) : std::nullopt;
+            const auto session = btrfsbackup::kde::BrowseSessionClient{}.open(profile_id_);
             if (!session || session->profile_id != profile_id_)
                 throw std::runtime_error("could not open an authorized backup browsing session");
             session_id_ = session->session_id;
             session_root_ = session->root_path;
-            const auto repository = manager_payload(
-                QLatin1String(btrfsbackup::manager_protocol::method::inspect_browse_repository),
-                {session_id_}
-            );
+            const auto repository = btrfsbackup::kde::BrowseSessionClient{}.inspectRepository(session_id_);
             if (!repository)
                 throw std::runtime_error("could not inspect the backup repository");
             catalog_.emplace(parse_repository_catalog(*repository, session_root_));
         } else {
-            const auto renewed = manager_payload(
-                QLatin1String(btrfsbackup::manager_protocol::method::renew_browse_session),
-                {session_id_}
-            );
-            const auto lease = renewed ? btrfsbackup::kde::parse_browse_session(*renewed) : std::nullopt;
+            const auto lease = btrfsbackup::kde::BrowseSessionClient{}.renew(session_id_);
             if (!lease || lease->session_id != session_id_ || lease->profile_id != profile_id_)
                 throw std::runtime_error("could not renew the backup browsing session");
         }
@@ -269,11 +252,7 @@ void RestoreController::execute() {
     busy_ = true;
     completed_ = false;
     error_text_.clear();
-    const auto pinned = manager_payload(
-        QLatin1String(btrfsbackup::manager_protocol::method::set_browse_session_active),
-        {session_id_, true}
-    );
-    if (!pinned) {
+    if (!btrfsbackup::kde::BrowseSessionClient{}.setActive(session_id_, true)) {
         busy_ = false;
         error_text_ = i18n("Could not keep the backup browsing session active.");
         Q_EMIT stateChanged();
@@ -310,11 +289,9 @@ void RestoreController::close_session() noexcept {
     if (session_id_.isEmpty())
         return;
     try {
-        (void)manager_payload(
-            QLatin1String(btrfsbackup::manager_protocol::method::set_browse_session_active),
-            {session_id_, false}
-        );
-        (void)manager_payload(QLatin1String(btrfsbackup::manager_protocol::method::close_browse_session), {session_id_});
+        btrfsbackup::kde::BrowseSessionClient sessions;
+        (void)sessions.setActive(session_id_, false);
+        (void)sessions.close(session_id_);
     } catch (...) {}
     session_id_.clear();
     session_root_.clear();
