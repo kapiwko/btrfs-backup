@@ -7,9 +7,11 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <linux/fs.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/ioctl.h>
 #include <unistd.h>
 
 static const char* service = "io.github.btrfsbackup.Manager1";
@@ -97,17 +99,76 @@ static int json_true_between(const char* begin, const char* end, const char* key
     return strncmp(position, "true", 4) == 0;
 }
 
-static char* candidate_for_path(const char* topology, const char* expected_path) {
+static long json_integer_between(const char* begin, const char* end, const char* key) {
+    char pattern[128];
+    if (snprintf(pattern, sizeof(pattern), "\"%s\"", key) >= (int)sizeof(pattern))
+        die("JSON key is too long");
+    const char* position = strstr(begin, pattern);
+    if (position == NULL || (end != NULL && position >= end))
+        return -1;
+    position += strlen(pattern);
+    while (*position == ' ' || *position == '\t' || *position == '\r' || *position == '\n')
+        ++position;
+    if (*position++ != ':')
+        return -1;
+    while (*position == ' ' || *position == '\t' || *position == '\r' || *position == '\n')
+        ++position;
+    char* value_end = NULL;
+    const long value = strtol(position, &value_end, 10);
+    if (value_end == position || (end != NULL && value_end > end))
+        return -1;
+    return value;
+}
+
+static long partition_number_from_path(const char* path) {
+    const char* end = path + strlen(path);
+    const char* begin = end;
+    while (begin > path && begin[-1] >= '0' && begin[-1] <= '9')
+        --begin;
+    if (begin == end)
+        return -1;
+    return strtol(begin, NULL, 10);
+}
+
+struct BlockGeometry {
+    unsigned long long size_bytes;
+    unsigned int logical_sector_size;
+};
+
+static struct BlockGeometry block_geometry(const char* path) {
+    const int fd = open(path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+    if (fd < 0)
+        die("cannot open the selected block device");
+    struct BlockGeometry geometry = {0};
+    if (ioctl(fd, BLKGETSIZE64, &geometry.size_bytes) < 0 ||
+        ioctl(fd, BLKSSZGET, &geometry.logical_sector_size) < 0 || geometry.logical_sector_size == 0) {
+        close(fd);
+        die("cannot read the selected block device geometry");
+    }
+    close(fd);
+    return geometry;
+}
+
+static char* partition_candidate(
+    const char* topology,
+    long expected_partition_number,
+    struct BlockGeometry expected_geometry
+) {
     const char* candidate = topology;
     while ((candidate = strstr(candidate, "\"candidateId\"")) != NULL) {
         const char* next = strstr(candidate + 1, "\"candidateId\"");
-        char* path = json_string_between(candidate, next, "path");
+        char* kind = json_string_between(candidate, next, "kind");
         char* identifier = json_string_between(candidate, next, "candidateId");
-        if (path != NULL && identifier != NULL && strcmp(path, expected_path) == 0) {
-            free(path);
+        if (kind != NULL && identifier != NULL && strcmp(kind, "existing-partition") == 0 &&
+            json_integer_between(candidate, next, "partitionNumber") == expected_partition_number &&
+            (unsigned long long)json_integer_between(candidate, next, "sectorCount") *
+                    expected_geometry.logical_sector_size ==
+                expected_geometry.size_bytes &&
+            json_true_between(candidate, next, "suitableForReformat")) {
+            free(kind);
             return identifier;
         }
-        free(path);
+        free(kind);
         free(identifier);
         candidate = next;
         if (candidate == NULL)
@@ -135,18 +196,17 @@ static char* source_candidate_for_path(const char* candidates, const char* expec
     return NULL;
 }
 
-static char* unallocated_candidate_for_device(const char* topology, const char* expected_path) {
+static char* unallocated_candidate(const char* topology, unsigned long long expected_device_size) {
     const char* device = topology;
-    while ((device = strstr(device, "\"candidateId\"")) != NULL) {
-        const char* next_device = strstr(device + 1, "\"candidateId\"");
-        char* path = json_string_between(device, next_device, "path");
-        if (path != NULL && strcmp(path, expected_path) == 0) {
-            const char* region = strstr(device, "\"regions\"");
-            free(path);
-            if (region == NULL)
-                return NULL;
-            while ((region = strstr(region, "\"candidateId\"")) != NULL) {
+    while ((device = strstr(device, "\"displayIndex\"")) != NULL) {
+        const char* next_device = strstr(device + 1, "\"displayIndex\"");
+        if ((unsigned long long)json_integer_between(device, next_device, "sizeBytes") == expected_device_size) {
+            const char* region = device;
+            while ((region = strstr(region, "\"candidateId\"")) != NULL &&
+                   (next_device == NULL || region < next_device)) {
                 const char* next_region = strstr(region + 1, "\"candidateId\"");
+                if (next_device != NULL && (next_region == NULL || next_region > next_device))
+                    next_region = next_device;
                 char* kind = json_string_between(region, next_region, "kind");
                 char* identifier = json_string_between(region, next_region, "candidateId");
                 if (kind != NULL && identifier != NULL && strcmp(kind, "unallocated") == 0 &&
@@ -157,12 +217,10 @@ static char* unallocated_candidate_for_device(const char* topology, const char* 
                 free(kind);
                 free(identifier);
                 region = next_region;
-                if (region == NULL)
+                if (region == NULL || region == next_device)
                     break;
             }
-            return NULL;
         }
-        free(path);
         device = next_device;
         if (device == NULL)
             break;
@@ -206,9 +264,10 @@ int main(int argc, char** argv) {
 
     char* topology = call(bus, "InspectStorageTopology", NULL, NULL);
     char* generation = json_string(topology, "generation");
+    const struct BlockGeometry target_geometry = block_geometry(argv[1]);
     char* candidate = strcmp(mode, "create-partition-in-unallocated-space") == 0
-        ? unallocated_candidate_for_device(topology, argv[1])
-        : candidate_for_path(topology, argv[1]);
+        ? unallocated_candidate(topology, target_geometry.size_bytes)
+        : partition_candidate(topology, partition_number_from_path(argv[1]), target_geometry);
     if (generation == NULL || candidate == NULL)
         die("selected storage target is absent from storage topology");
 

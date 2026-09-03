@@ -919,8 +919,20 @@ msgstr "Dostępne dla nowej partycji kopii zapasowej"
 msgid "Already used by a backup profile"
 msgstr "Już używana przez profil kopii zapasowej"
 
-msgid "unknown filesystem"
-msgstr "nieznany system plików"
+msgid "Storage device %1"
+msgstr "Urządzenie pamięci masowej %1"
+
+msgid "unknown connection"
+msgstr "nieznane połączenie"
+
+msgid "Partition %1"
+msgstr "Partycja %1"
+
+msgid "encrypted partition"
+msgstr "zaszyfrowana partycja"
+
+msgid "existing partition"
+msgstr "istniejąca partycja"
 
 msgid "Open KDE Partition Manager"
 msgstr "Otwórz Menedżera partycji KDE"
@@ -969,6 +981,9 @@ msgstr "W wybranym wolnym miejscu zostanie utworzona nowa partycja. Istniejące 
 
 msgid "All data on %1 will be permanently erased. Type %2 to confirm."
 msgstr "Wszystkie dane na %1 zostaną trwale usunięte. Wpisz %2, aby potwierdzić."
+
+msgid "the selected storage device"
+msgstr "wybranym urządzeniu pamięci masowej"
 
 msgid "Device preparation failed. The disk may require manual recovery."
 msgstr "Przygotowanie urządzenia nie powiodło się. Dysk może wymagać ręcznego odzyskiwania."

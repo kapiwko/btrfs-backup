@@ -12,10 +12,10 @@ Item {
     readonly property var partition: ({
         kind: "existing-partition",
         candidateId: "partition-1",
-        path: "/dev/test1",
-        filesystemType: "ext4",
+        partitionNumber: 1,
+        encrypted: false,
         sectorCount: 524288,
-        mountPoints: [],
+        mounted: false,
         blockers: [],
         suitableForReformat: true,
         changed: false,
@@ -42,8 +42,7 @@ Item {
     })
     readonly property var device: ({
         candidateId: "device-1",
-        path: "/dev/test",
-        model: "Test disk",
+        displayIndex: 3,
         sizeBytes: 536870912,
         logicalSectorSize: 512,
         mounted: false,
@@ -53,8 +52,7 @@ Item {
     })
     readonly property var systemDevice: ({
         candidateId: "system-device",
-        path: "/dev/system",
-        model: "System disk",
+        displayIndex: 1,
         sizeBytes: 536870912,
         logicalSectorSize: 512,
         systemDevice: true,
@@ -65,8 +63,7 @@ Item {
     })
     readonly property var mountedDataDevice: ({
         candidateId: "mounted-data-device",
-        path: "/dev/data",
-        model: "Mounted data disk",
+        displayIndex: 2,
         sizeBytes: 536870912,
         logicalSectorSize: 512,
         systemDevice: false,
@@ -154,7 +151,7 @@ Item {
             page.selectedTarget = root.partition
             Qt.callLater(function() {
                 if (page.freeSpace || !page.planMatchesSelection
-                        || page.confirmationToken !== "ERASE-TEST1") {
+                        || page.confirmationToken !== "ERASE-PARTITION-1") {
                     console.error("Partition-specific erase confirmation is invalid")
                     Qt.exit(1)
                     return
@@ -169,7 +166,7 @@ Item {
                 }
                 page.selectedDevice = {
                     candidateId: "device-1",
-                    path: "/dev/test",
+                    displayIndex: 3,
                     mounted: true,
                     blockers: ["mounted-filesystem"],
                     regions: [root.partition, root.freeRegion]

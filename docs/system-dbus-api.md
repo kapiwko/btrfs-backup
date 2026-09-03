@@ -63,7 +63,7 @@ schema versions are not advertised as public API versions.
 | `AddTargetKey` | `(s profileId, h authorization, h key, s label, b automatic)` | `(s)` | imports and optionally activates a protected key file |
 | `GenerateTargetKey` | `(s profileId, h authorization, s label, b automatic)` | `(s)` | generates a protected key without returning its bytes |
 | `RemoveTargetCredential` | `(s profileId, s credentialId, h authorization)` | `(s)` | removes a managed non-automatic keyslot, never the last slot |
-| `InspectStorageTopology` | `()` | `(s)` | caller-bound device, partition, and unallocated-region snapshot |
+| `InspectStorageTopology` | `()` | `(s)` | caller-bound, sanitized device, partition, and unallocated-region snapshot |
 | `InspectExistingTarget` | `(s request, h credential)` | `(s)` | opens a caller-selected LUKS2 partition read-only and returns a short-lived repository inspection |
 | `BuildDevicePreparationPlan` | `(s request)` | `(s)` | revalidates topology and creates a caller-bound whole-device or existing-partition before/after plan |
 | `ListSourceCandidates` | `()` | `(s)` | caller-bound mounted Btrfs candidates with filesystem identity and a local snapshot root |
@@ -123,6 +123,11 @@ to the caller and a short-lived topology generation. The second method rescans
 storage, rejects a changed generation, and returns a stored before/after plan.
 It does not authorize a write and does not replace the separate preparation
 authorization and revalidation performed immediately before execution.
+Topology schema version 2 exposes only display ordinals, coarse device
+properties, geometry, safety decisions and stable blocker codes. Device nodes,
+hardware identity, labels, filesystem and partition UUIDs, mount paths and
+free-form blocker details remain internal to the manager. Preparation-plan
+schema version 3 applies the same rule to before/after layouts and warnings.
 
 API minor version 6 adds `InspectExistingTarget`. Its request contains only the
 topology generation and opaque partition candidate; the credential is supplied
@@ -132,7 +137,10 @@ version 2 add an explicit `classification` and `diagnosticCode`. Compatible
 repositories receive a caller-bound, expiring `inspectionId`; empty Btrfs,
 legacy layouts, unsupported formats and foreign or invalid repositories do not.
 The mapper and mount are closed before the response is sent, and the stored
-inspection contains no credential material.
+inspection contains no credential material. Inspection schema version 3 also
+keeps LUKS, Btrfs and partition UUIDs out of the response; clients receive only
+the classification, diagnostic code, repository metadata and opaque binding
+identifiers.
 
 The `target-storage-usage` feature is part of the current major-version
 baseline. The device-state parent remains schema version 1 and may contain this
