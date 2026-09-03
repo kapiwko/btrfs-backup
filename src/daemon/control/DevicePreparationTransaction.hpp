@@ -5,7 +5,10 @@
 
 #include <chrono>
 #include <cstddef>
+#include <compare>
+#include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <optional>
 #include <string>
 #include <vector>
@@ -14,7 +17,14 @@
 
 namespace btrfsbackup::daemon::control {
 
+struct TransactionRevision {
+    std::uint64_t value = 0;
+
+    auto operator<=>(const TransactionRevision&) const = default;
+};
+
 struct DevicePreparationTransaction {
+    TransactionRevision revision;
     DevicePreparationStatus status;
     DevicePreparationOwner owner;
     ProvisioningDevice device;
@@ -40,7 +50,10 @@ struct DevicePreparationTransaction {
     std::string credentials_state = "not-started";
     std::string profile_reservation_state = "not-held";
     std::string cleanup_result = "not-required";
+    bool cancel_requested = false;
 };
+
+using DevicePreparationTransition = std::function<void(DevicePreparationTransaction&)>;
 
 class DevicePreparationTransactionStore final {
   public:
@@ -50,7 +63,16 @@ class DevicePreparationTransactionStore final {
         std::chrono::seconds completed_ttl = std::chrono::hours(24 * 30)
     );
 
-    void save(const DevicePreparationTransaction& transaction) const;
+    void save(DevicePreparationTransaction& transaction) const;
+    [[nodiscard]] DevicePreparationTransaction update(
+        const std::string& operation_id,
+        TransactionRevision expected_revision,
+        const DevicePreparationTransition& transition
+    ) const;
+    [[nodiscard]] DevicePreparationTransaction update(
+        const std::string& operation_id,
+        const DevicePreparationTransition& transition
+    ) const;
     [[nodiscard]] DevicePreparationTransaction load(const std::string& operation_id) const;
     [[nodiscard]] std::vector<DevicePreparationTransaction> load_and_prune() const;
     void reserve_profile(const std::string& profile_id, const std::string& operation_id) const;
