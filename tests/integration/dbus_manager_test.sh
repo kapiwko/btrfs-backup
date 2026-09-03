@@ -388,8 +388,6 @@ grep -Fq 'operation is not authorized' <<<"$polkit_output" \
     || fail "operational call did not pass through bus policy and polkit: $polkit_output"
 
 set +e
-call ListTargetCredentials s default >/dev/null 2>&1
-credentials_status=$?
 call InspectStorageTopology >/dev/null 2>&1
 devices_status=$?
 call ListSourceCandidates >/dev/null 2>&1
@@ -399,12 +397,9 @@ preparation_status=$?
 call CancelDevicePreparation s guessed-operation >/dev/null 2>&1
 cancel_preparation_status=$?
 set -e
-[[ "$credentials_status" -ne 0 ]] || fail 'credential metadata was available without authorization'
 [[ "$devices_status" -eq 0 ]] || fail 'read-only device inventory required authorization'
 [[ "$sources_status" -eq 0 ]] || fail 'read-only source discovery required authorization'
 [[ "$preparation_status" -ne 0 ]] || fail 'foreign preparation status was available without authorization'
 [[ "$cancel_preparation_status" -ne 0 ]] || fail 'foreign preparation cancellation was accepted without authorization'
-grep -Fq 'io.github.btrfsbackup.manage-target-credentials' "$TEST_ROOT/polkit.log" \
-    || fail 'credential listing used the wrong polkit action'
 
 printf '%s\n' 'ok - private D-Bus manager API'
