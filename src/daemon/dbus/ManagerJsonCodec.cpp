@@ -307,6 +307,7 @@ std::string ManagerJsonCodec::encode(const provisioning::StorageTopology& topolo
             {"logicalSectorSize", device.logical_sector_size},
             {"physicalSectorSize", device.physical_sector_size},
             {"removable", device.removable},
+            {"hotplug", device.hotplug},
             {"systemDevice", device.system_device},
             {"mounted", device_mounted(device)},
             {"containsData", device_contains_data(device)},

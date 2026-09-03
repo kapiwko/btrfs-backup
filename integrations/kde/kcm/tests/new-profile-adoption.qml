@@ -27,12 +27,62 @@ Item {
         candidateId: "device-1",
         path: "/dev/test",
         model: "Test disk",
+        transport: "usb",
+        removable: false,
+        hotplug: false,
         sizeBytes: 536870912,
         logicalSectorSize: 512,
+        partitionTableType: "gpt",
         mounted: false,
         containsData: true,
         blockers: [],
         regions: [partition]
+    })
+    readonly property var internalDevice: ({
+        candidateId: "internal-device",
+        path: "/dev/internal",
+        transport: "nvme",
+        removable: false,
+        hotplug: false,
+        systemDevice: false,
+        partitionTableType: "gpt",
+        regions: [partition]
+    })
+    readonly property var systemDevice: ({
+        candidateId: "system-device",
+        path: "/dev/system",
+        transport: "usb",
+        removable: true,
+        hotplug: true,
+        systemDevice: true,
+        partitionTableType: "gpt",
+        regions: [partition]
+    })
+    readonly property var mbrDevice: ({
+        candidateId: "mbr-device",
+        path: "/dev/mbr",
+        transport: "usb",
+        removable: true,
+        hotplug: true,
+        systemDevice: false,
+        partitionTableType: "mbr",
+        regions: [partition]
+    })
+    readonly property var unencryptedDevice: ({
+        candidateId: "unencrypted-device",
+        path: "/dev/plain",
+        transport: "usb",
+        removable: true,
+        hotplug: true,
+        systemDevice: false,
+        partitionTableType: "gpt",
+        regions: [{
+            kind: "existing-partition",
+            candidateId: "plain-partition",
+            filesystemType: "btrfs",
+            blockers: [],
+            suitableForAdoption: false
+        }]
     })
 
     QtObject {
@@ -41,7 +91,13 @@ Item {
 
     QtObject {
         id: provisioning
-        property var devices: [root.device]
+        property var devices: [
+            root.internalDevice,
+            root.systemDevice,
+            root.mbrDevice,
+            root.unencryptedDevice,
+            root.device
+        ]
         property var topology: ({generation: "topology-1", devices: devices})
         property var inspection: ({
             inspectionId: "inspection-1",
@@ -88,7 +144,9 @@ Item {
         running: true
         repeat: false
         onTriggered: {
-            if (!page.adoption || !page.hasPlan || page.selectedTarget.path !== "/dev/test1") {
+            if (!page.adoption || !page.hasPlan || page.selectedTarget.path !== "/dev/test1"
+                    || page.candidateDevices.length !== 1
+                    || page.candidateDevices[0].candidateId !== "device-1") {
                 console.error("Existing target adoption page bindings are invalid")
                 Qt.exit(1)
                 return
