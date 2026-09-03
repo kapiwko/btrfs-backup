@@ -337,7 +337,7 @@ void BackupStatusModel::connectToManager() {
     device_refresh_queued_ = false;
     history_refresh_queued_ = false;
     const quint64 request_generation = ++generation_;
-    auto* watcher = new QDBusPendingCallWatcher(btrfsbackup::kde::manager_call(bus_, QLatin1String(btrfsbackup::manager_protocol::method::get_capabilities)), this);
+    auto* watcher = new QDBusPendingCallWatcher(btrfsbackup::kde::ManagerClient{bus_}.capabilities(), this);
     connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, watcher, request_generation](QDBusPendingCallWatcher*) {
         const QDBusPendingReply<QString> reply = *watcher;
         watcher->deleteLater();
@@ -393,7 +393,10 @@ void BackupStatusModel::requestDeviceState() {
     device_request_pending_ = true;
     const quint64 request_generation = generation_;
     const QString requested_profile = profile_;
-    auto* watcher = new QDBusPendingCallWatcher(btrfsbackup::kde::manager_call(bus_, QLatin1String(btrfsbackup::manager_protocol::method::get_device_state), {requested_profile}), this);
+    auto* watcher = new QDBusPendingCallWatcher(
+        btrfsbackup::kde::ManagerClient{bus_}.deviceState(requested_profile),
+        this
+    );
     connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, watcher, request_generation, requested_profile](QDBusPendingCallWatcher*) {
         const QDBusPendingReply<QString> reply = *watcher;
         watcher->deleteLater();
@@ -424,10 +427,10 @@ void BackupStatusModel::requestHistory() {
     const quint64 request_generation = generation_;
     const QString requested_profile = profile_;
     auto* watcher = new QDBusPendingCallWatcher(
-        btrfsbackup::kde::manager_call(
-            bus_,
-            QLatin1String(btrfsbackup::manager_protocol::method::get_history_sanitized),
-            {requested_profile, 0U, static_cast<uint>(history_limit_)}
+        btrfsbackup::kde::ManagerClient{bus_}.history(
+            requested_profile,
+            0U,
+            static_cast<uint>(history_limit_)
         ),
         this
     );
@@ -456,7 +459,7 @@ void BackupStatusModel::requestProfiles() {
     }
     profiles_request_pending_ = true;
     const quint64 request_generation = generation_;
-    auto* watcher = new QDBusPendingCallWatcher(btrfsbackup::kde::manager_call(bus_, QLatin1String(btrfsbackup::manager_protocol::method::list_profiles)), this);
+    auto* watcher = new QDBusPendingCallWatcher(btrfsbackup::kde::ManagerClient{bus_}.profiles(), this);
     connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, watcher, request_generation](QDBusPendingCallWatcher*) {
         const QDBusPendingReply<QString> reply = *watcher;
         watcher->deleteLater();
@@ -483,7 +486,10 @@ void BackupStatusModel::requestStatus() {
     status_request_pending_ = true;
     const quint64 request_generation = generation_;
     const QString requested_profile = profile_;
-    auto* watcher = new QDBusPendingCallWatcher(btrfsbackup::kde::manager_call(bus_, QLatin1String(btrfsbackup::manager_protocol::method::get_status), {requested_profile}), this);
+    auto* watcher = new QDBusPendingCallWatcher(
+        btrfsbackup::kde::ManagerClient{bus_}.status(requested_profile),
+        this
+    );
     connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, watcher, request_generation, requested_profile](QDBusPendingCallWatcher*) {
         const QDBusPendingReply<QString> reply = *watcher;
         watcher->deleteLater();

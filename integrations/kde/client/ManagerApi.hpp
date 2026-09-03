@@ -121,6 +121,34 @@ class ManagerEventSubscriber final : public QObject {
     IoGithubBtrfsbackupManager1Interface* manager_;
 };
 
+class ManagerClient {
+  public:
+    explicit ManagerClient(QDBusConnection bus = QDBusConnection::systemBus());
+
+    [[nodiscard]] QDBusPendingCall capabilities() const;
+    [[nodiscard]] QDBusPendingCall profiles() const;
+    [[nodiscard]] QDBusPendingCall status(const QString& profile_id) const;
+    [[nodiscard]] QDBusPendingCall deviceState(const QString& profile_id) const;
+    [[nodiscard]] QDBusPendingCall history(const QString& profile_id, uint offset, uint limit) const;
+    [[nodiscard]] QDBusPendingCall startBackup(const QString& profile_id) const;
+    [[nodiscard]] QDBusPendingCall cancelBackup(const QString& profile_id, const QString& run_id) const;
+    [[nodiscard]] QDBusPendingCall ejectTarget(const QString& profile_id) const;
+    [[nodiscard]] QDBusPendingCall resolveBackupCoverage(const QString& local_path) const;
+    [[nodiscard]] QDBusPendingCall openBrowseSession(const QString& profile_id) const;
+    [[nodiscard]] QDBusPendingCall renewBrowseSession(const QString& session_id) const;
+    [[nodiscard]] QDBusPendingCall setBrowseSessionActive(const QString& session_id, bool active) const;
+    [[nodiscard]] QDBusPendingCall closeBrowseSession(const QString& session_id) const;
+    [[nodiscard]] QDBusPendingCall listBrowseDirectory(const QString& session_id, const QString& path) const;
+    [[nodiscard]] QDBusPendingCall inspectBrowseEntry(const QString& session_id, const QString& path) const;
+    [[nodiscard]] QDBusPendingCall inspectBrowseRepository(const QString& session_id) const;
+    [[nodiscard]] QDBusPendingCall openBrowseFile(const QString& session_id, const QString& path) const;
+
+  private:
+    [[nodiscard]] QDBusPendingCall call(const QString& method, const QVariantList& arguments = {}) const;
+
+    QDBusConnection bus_;
+};
+
 [[nodiscard]] QDBusPendingCall manager_call(
     const QDBusConnection& bus,
     const QString& method,

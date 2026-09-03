@@ -21,11 +21,7 @@ CancellationRequestDispatcher::CancellationRequestDispatcher(QDBusConnection bus
 
 void CancellationRequestDispatcher::request(const QString& profile_id, const QString& run_id) {
     auto* watcher = new QDBusPendingCallWatcher(
-        btrfsbackup::kde::manager_call(
-            bus_,
-            QLatin1String(btrfsbackup::manager_protocol::method::cancel_backup),
-            {profile_id, run_id}
-        ),
+        btrfsbackup::kde::ManagerClient{bus_}.cancelBackup(profile_id, run_id),
         this
     );
     connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, watcher, profile_id, run_id](QDBusPendingCallWatcher*) {

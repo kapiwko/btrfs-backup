@@ -119,7 +119,7 @@ void BackupProgressMonitor::connect_to_manager() {
     const std::uint64_t generation = ++manager_generation_;
     capabilities_request_pending_ = true;
     auto* watcher = new QDBusPendingCallWatcher(
-        btrfsbackup::kde::manager_call(bus_, QLatin1String(btrfsbackup::manager_protocol::method::get_capabilities)),
+        btrfsbackup::kde::ManagerClient{bus_}.capabilities(),
         this
     );
     connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, watcher, generation](QDBusPendingCallWatcher*) {
@@ -181,7 +181,7 @@ void BackupProgressMonitor::request_profiles() {
     const std::uint64_t generation = manager_generation_;
     profiles_request_pending_ = true;
     auto* watcher = new QDBusPendingCallWatcher(
-        btrfsbackup::kde::manager_call(bus_, QLatin1String(btrfsbackup::manager_protocol::method::list_profiles)),
+        btrfsbackup::kde::ManagerClient{bus_}.profiles(),
         this
     );
     connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, watcher, generation](QDBusPendingCallWatcher*) {
@@ -212,7 +212,7 @@ void BackupProgressMonitor::request_status(const Profile& profile) {
     const std::uint64_t generation = manager_generation_;
     pending_status_requests_.insert(profile.id);
     auto* watcher = new QDBusPendingCallWatcher(
-        btrfsbackup::kde::manager_call(bus_, QLatin1String(btrfsbackup::manager_protocol::method::get_status), {profile.id}),
+        btrfsbackup::kde::ManagerClient{bus_}.status(profile.id),
         this
     );
     connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, watcher, profile, generation](QDBusPendingCallWatcher*) {
