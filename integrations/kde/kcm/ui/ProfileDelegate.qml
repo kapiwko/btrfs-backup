@@ -9,8 +9,8 @@ import QtQuick.Controls as QQC2
 import QtQuick.Layouts
 import org.kde.ki18n as KI18n
 import org.kde.kirigami as Kirigami
-import org.btrfsbackup.plasma
-import org.btrfsbackup.plasma as BtrfsBackup
+import org.btrfsbackup.kde
+import org.btrfsbackup.kde as BtrfsBackup
 
 QQC2.ItemDelegate {
     id: delegate

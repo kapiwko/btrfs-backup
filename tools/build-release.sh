@@ -1264,9 +1264,9 @@ if [[ "$TARGET" == all || "$TARGET" == arch ]]; then
         grep -qx "usr/share/plasma/plasmoids/org.btrfsbackup.plasmoid/contents/ui/$component.qml" \
             "$TMP_ROOT/package-kde-files.txt"
     done
-    grep -qx 'usr/lib/qt6/qml/org/btrfsbackup/plasma/qmldir' "$TMP_ROOT/package-kde-files.txt"
-    grep -qx 'usr/lib/qt6/qml/org/btrfsbackup/plasma/libbtrfsbackup_plasma_backend.so' "$TMP_ROOT/package-kde-files.txt"
-    grep -qx 'usr/lib/qt6/qml/org/btrfsbackup/plasma/libbtrfsbackup_plasma_backendplugin.so' "$TMP_ROOT/package-kde-files.txt"
+    grep -qx 'usr/lib/qt6/qml/org/btrfsbackup/kde/qmldir' "$TMP_ROOT/package-kde-files.txt"
+    grep -qx 'usr/lib/qt6/qml/org/btrfsbackup/kde/libbtrfsbackup_kde_models.so' "$TMP_ROOT/package-kde-files.txt"
+    grep -qx 'usr/lib/qt6/qml/org/btrfsbackup/kde/libbtrfsbackup_kde_modelsplugin.so' "$TMP_ROOT/package-kde-files.txt"
     grep -qx 'usr/bin/btrfs-backup-kde-monitor' "$TMP_ROOT/package-kde-files.txt"
     grep -qx 'usr/share/applications/io.github.btrfsbackup.ProgressMonitor.desktop' \
         "$TMP_ROOT/package-kde-files.txt"

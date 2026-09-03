@@ -34,7 +34,7 @@ cmake \
 cmake \
     --build "$BUILD_DIR" \
     --target \
-        btrfsbackup_plasma_backendplugin \
+        btrfsbackup_kde_modelsplugin \
         btrfs-backup-kde-manager-demo \
         kio_btrfsbackup \
         kcm_btrfsbackup \

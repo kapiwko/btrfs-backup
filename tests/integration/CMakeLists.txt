@@ -43,7 +43,7 @@ if(BUILD_SYSTEM_MANAGER)
         add_executable(btrfsbackup-fake-polkit-authority FakePolkitAuthority.cpp)
         target_link_libraries(btrfsbackup-fake-polkit-authority PRIVATE PkgConfig::SYSTEMD)
         set(DBUS_MANAGER_TEST_EXTRA_ARGS)
-        if(TARGET btrfsbackup_plasma_backend)
+        if(TARGET btrfsbackup_kde_models)
             find_program(
                 DBUS_TEST_QML_EXECUTABLE
                 NAMES qml

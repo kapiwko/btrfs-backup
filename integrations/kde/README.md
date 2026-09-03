@@ -55,7 +55,7 @@ QML2_IMPORT_PATH="$HOME/.local/lib/qt6/qml${QML2_IMPORT_PATH:+:$QML2_IMPORT_PATH
 
 For local package iteration, use the CMake install step above. Installing only
 `integrations/kde/plasmoid/package` with `kpackagetool6` is not enough because the
-plasmoid also needs the compiled `org.btrfsbackup.plasma` QML module.
+plasmoid also needs the compiled `org.btrfsbackup.kde` QML module.
 
 After installing both the plasmoid and the QML module:
 
