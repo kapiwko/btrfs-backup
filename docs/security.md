@@ -163,6 +163,13 @@ Terminal transactions are immutable. Cancellation is persisted separately as
 `cancelRequested`, so a manager request cannot replace the helper's recorded
 phase or artifact UUIDs.
 
+Transaction recovery reads each record independently through the bounded
+no-symlink document reader and requires a regular file owned by the daemon UID
+with mode `0600`. A malformed, oversized, unsafe, or unsupported record is
+preserved for diagnostics and exposed only as a sanitized
+`manual-intervention-required` status. It does not prevent valid transactions
+from being restored or pruned.
+
 Every external command receives a newly built environment containing only
 `PATH=/usr/bin`, `LANG=C.UTF-8`, `LC_ALL=C.UTF-8`, and `HOME=/root`. Variables
 from the privileged parent process, including interpreter search paths, shell

@@ -8,7 +8,6 @@
 #include <chrono>
 #include <cstring>
 #include <fcntl.h>
-#include <fstream>
 #include <limits>
 #include <ranges>
 #include <stdexcept>
@@ -22,6 +21,7 @@
 #include <core/Identifiers.hpp>
 #include <platform/linux/filesystem/FileIo.hpp>
 #include <platform/linux/OwnedFileDescriptor.hpp>
+#include <state/document/BoundedDocumentReader.hpp>
 
 namespace fs = std::filesystem;
 
@@ -31,6 +31,7 @@ namespace {
 using config::json::Json;
 
 constexpr mode_t transaction_permissions = S_IRUSR | S_IWUSR;
+constexpr std::size_t maximum_transaction_size = 1024 * 1024;
 constexpr fs::perms transaction_directory_permissions =
     fs::perms::owner_read | fs::perms::owner_write | fs::perms::owner_exec;
 
@@ -496,6 +497,14 @@ DevicePreparationTransaction parse_transaction(const Json& value) {
     return result;
 }
 
+DevicePreparationTransaction read_transaction(const fs::path& path) {
+    const state::document::BoundedDocumentReader reader;
+    const Json document = Json::parse(
+        reader.read(path, maximum_transaction_size, ::geteuid(), transaction_permissions)
+    );
+    return parse_transaction(document);
+}
+
 } // namespace
 
 DevicePreparationTransactionStore::DevicePreparationTransactionStore(
@@ -517,10 +526,7 @@ void DevicePreparationTransactionStore::save(DevicePreparationTransaction& trans
     const fs::path path = transaction_path(root_, transaction.status.operation_id);
     DevicePreparationTransaction changed = transaction;
     if (fs::exists(path)) {
-        std::ifstream input(path);
-        Json document;
-        input >> document;
-        const auto current = parse_transaction(document);
+        const auto current = read_transaction(path);
         if (current.status.operation_id != transaction.status.operation_id)
             throw ValidationError("transaction file name does not match its operation identifier");
         if (current.revision != transaction.revision)
@@ -559,12 +565,7 @@ DevicePreparationTransaction DevicePreparationTransactionStore::update(
     prepare_root(transaction_lock_root(root_));
     const TransactionLock lock(transaction_lock_path(root_, operation_id));
     const fs::path path = transaction_path(root_, operation_id);
-    std::ifstream input(path);
-    if (!input)
-        throw ValidationError("device preparation transaction not found");
-    Json document;
-    input >> document;
-    DevicePreparationTransaction current = parse_transaction(document);
+    DevicePreparationTransaction current = read_transaction(path);
     if (current.status.operation_id != operation_id)
         throw ValidationError("transaction file name does not match its operation identifier");
     if (current.revision != expected_revision)
@@ -612,43 +613,37 @@ DevicePreparationTransaction DevicePreparationTransactionStore::load(
     validate_operation_id(operation_id);
     prepare_root(root_);
     const fs::path path = root_ / (operation_id + ".json");
-    std::ifstream input(path);
-    if (!input)
-        throw ValidationError("device preparation transaction not found");
-    Json document;
-    input >> document;
-    DevicePreparationTransaction transaction = parse_transaction(document);
+    DevicePreparationTransaction transaction = read_transaction(path);
     if (transaction.status.operation_id != operation_id)
         throw ValidationError("transaction file name does not match its operation identifier");
     return transaction;
 }
 
-std::vector<DevicePreparationTransaction> DevicePreparationTransactionStore::load_and_prune() const {
-    std::vector<DevicePreparationTransaction> transactions;
+DevicePreparationTransactionScan DevicePreparationTransactionStore::load_and_prune() const {
+    DevicePreparationTransactionScan scan;
     prepare_root(root_);
     std::error_code error;
     for (const auto& entry : fs::directory_iterator(root_)) {
-        if (!entry.is_regular_file() || entry.path().extension() != ".json")
+        if (entry.path().extension() != ".json")
             continue;
         try {
-            std::ifstream input(entry.path());
-            Json document;
-            input >> document;
-            DevicePreparationTransaction transaction = parse_transaction(document);
+            DevicePreparationTransaction transaction = read_transaction(entry.path());
             if (entry.path().stem() != transaction.status.operation_id)
                 throw ValidationError("transaction file name does not match its operation identifier");
-            transactions.push_back(std::move(transaction));
-        } catch (const std::exception& exception) {
-            throw ValidationError(
-                "cannot load device preparation transaction " + entry.path().filename().string() +
-                ": " + exception.what()
-            );
+            scan.transactions.push_back(std::move(transaction));
+        } catch (const std::exception&) {
+            const std::string operation_id = entry.path().stem().string();
+            try {
+                validate_operation_id(operation_id);
+                scan.corrupted_operation_ids.push_back(operation_id);
+            } catch (const std::exception&) {
+            }
         }
     }
 
     const std::int64_t cutoff = now_seconds() - completed_ttl_.count();
     std::vector<DevicePreparationTransaction*> completed;
-    for (auto& transaction : transactions)
+    for (auto& transaction : scan.transactions)
         if (terminal(transaction))
             completed.push_back(&transaction);
     std::ranges::sort(completed, std::greater{}, &DevicePreparationTransaction::updated_at);
@@ -665,8 +660,8 @@ std::vector<DevicePreparationTransaction> DevicePreparationTransactionStore::loa
     }
     if (removed)
         platform::linux::filesystem::fsync_dir(root_);
-    std::erase_if(transactions, [](const auto& transaction) { return transaction.status.operation_id.empty(); });
-    return transactions;
+    std::erase_if(scan.transactions, [](const auto& transaction) { return transaction.status.operation_id.empty(); });
+    return scan;
 }
 
 void DevicePreparationTransactionStore::reserve_profile(

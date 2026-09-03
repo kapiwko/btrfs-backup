@@ -106,6 +106,10 @@ Source selection uses a short-lived opaque `sourceCandidateId`; the manager
 derives `localSnapshotDir` below that source's Btrfs mount and the helper
 revalidates both paths against the recorded filesystem UUID before its first
 storage write.
+Recovery isolates an unreadable or invalid transaction and reports only the
+stable `device-preparation.transaction-corrupted` error with phase
+`manual-intervention-required`; the original record remains root-private for
+diagnostics.
 
 API minor version 4 adds caller-owned browse-session renewal and active-operation
 pinning. Session expiry uses a monotonic clock; the wall-clock expiry in the
