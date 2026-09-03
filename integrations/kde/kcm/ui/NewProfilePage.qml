@@ -42,8 +42,9 @@ KCMUtils.SimpleKCM {
         && (!root.freeSpace || (root.selectedDevice !== null
             && (root.selectedDevice.blockers?.length ?? 0) === 0
             && !root.selectedDevice.mounted))
-    readonly property var candidateDevices: (root.provisioning.devices ?? []).filter(
-        device => !(device.systemDevice ?? false))
+    readonly property var candidateDevices: (root.provisioning.devices ?? []).filter(device =>
+        !(device.systemDevice ?? false)
+            && (!root.adoption || (root.deviceIsExternal(device) && root.deviceHasAdoptionCandidate(device))))
     readonly property url partitionManagerUrl: "applications:org.kde.partitionmanager.desktop"
     readonly property string inspectionClassification: root.provisioning.inspection.classification ?? ""
 
@@ -54,6 +55,22 @@ KCMUtils.SimpleKCM {
                 return true
         }
         return false
+    }
+
+    function deviceIsExternal(device) {
+        const transport = String(device?.transport ?? "").toLowerCase()
+        return (device?.removable ?? false) || (device?.hotplug ?? false)
+            || transport === "usb" || transport === "firewire" || transport === "thunderbolt"
+    }
+
+    function deviceHasAdoptionCandidate(device) {
+        if (String(device?.partitionTableType ?? "").toLowerCase() !== "gpt")
+            return false
+        const regions = device?.regions ?? []
+        return regions.some(region => region.kind === "existing-partition"
+            && region.filesystemType === "crypto_LUKS"
+            && (region.suitableForAdoption ?? false)
+            && (region.blockers?.length ?? 0) === 0)
     }
 
     title: root.step === 0 ? translations.i18n("Add backup profile")
