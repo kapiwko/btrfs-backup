@@ -261,34 +261,34 @@ install(CODE [[
 ]])
 
 set_source_files_properties(
-    plasmoid/src/ProfileStatusBadge.qml
+    models/ProfileStatusBadge.qml
     PROPERTIES
         QT_QML_SINGLETON_TYPE TRUE
         QT_RESOURCE_ALIAS ProfileStatusBadge.qml
 )
-qt_add_qml_module(btrfsbackup_plasma_backend
-    URI org.btrfsbackup.plasma
+qt_add_qml_module(btrfsbackup_kde_models
+    URI org.btrfsbackup.kde
     VERSION 1.0
     NO_PLUGIN_OPTIONAL
-    OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/org/btrfsbackup/plasma
+    OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/org/btrfsbackup/kde
     QML_FILES
-        plasmoid/src/ProfileStatusBadge.qml
+        models/ProfileStatusBadge.qml
     SOURCES
-        plasmoid/src/BackupHistoryModel.cpp
-        plasmoid/src/BackupHistoryModel.hpp
-        plasmoid/src/BackupStatusModel.cpp
-        plasmoid/src/BackupStatusModel.hpp
-        plasmoid/src/ByteFormatting.cpp
-        plasmoid/src/ByteFormatting.hpp
-        plasmoid/src/RunStatusModel.cpp
-        plasmoid/src/RunStatusModel.hpp
-        plasmoid/src/TargetStatusModel.cpp
-        plasmoid/src/TargetStatusModel.hpp
+        models/BackupHistoryModel.cpp
+        models/BackupHistoryModel.hpp
+        models/BackupStatusModel.cpp
+        models/BackupStatusModel.hpp
+        models/ByteFormatting.cpp
+        models/ByteFormatting.hpp
+        models/RunStatusModel.cpp
+        models/RunStatusModel.hpp
+        models/TargetStatusModel.cpp
+        models/TargetStatusModel.hpp
 )
 
-target_compile_features(btrfsbackup_plasma_backend PRIVATE cxx_std_23)
-target_include_directories(btrfsbackup_plasma_backend PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/plasmoid/src)
-target_link_libraries(btrfsbackup_plasma_backend
+target_compile_features(btrfsbackup_kde_models PRIVATE cxx_std_23)
+target_include_directories(btrfsbackup_kde_models PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/models)
+target_link_libraries(btrfsbackup_kde_models
     PRIVATE
         Qt6::Core
         Qt6::DBus
@@ -300,36 +300,36 @@ target_link_libraries(btrfsbackup_plasma_backend
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(btrfsbackup_kde_manager_client PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(btrfs-backup-kde-monitor PRIVATE -Wall -Wextra -Wpedantic)
-    target_compile_options(btrfsbackup_plasma_backend PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(btrfsbackup_kde_models PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 
 set(
-    BTRFSBACKUP_PLASMA_QMLDIR
-    "lib/qt6/qml/org/btrfsbackup/plasma"
+    BTRFSBACKUP_KDE_QMLDIR
+    "lib/qt6/qml/org/btrfsbackup/kde"
     CACHE PATH
-    "Install path for the btrfs-backup Plasma QML module"
+    "Install path for the btrfs-backup KDE QML module"
 )
 set_target_properties(
-    btrfsbackup_plasma_backendplugin
+    btrfsbackup_kde_modelsplugin
     PROPERTIES PREFIX "lib"
 )
 set_target_properties(
-    btrfsbackup_plasma_backend
-    btrfsbackup_plasma_backendplugin
+    btrfsbackup_kde_models
+    btrfsbackup_kde_modelsplugin
     PROPERTIES INSTALL_RPATH "$ORIGIN"
 )
 install(
     TARGETS
-        btrfsbackup_plasma_backend
-        btrfsbackup_plasma_backendplugin
-    LIBRARY DESTINATION ${BTRFSBACKUP_PLASMA_QMLDIR}
+        btrfsbackup_kde_models
+        btrfsbackup_kde_modelsplugin
+    LIBRARY DESTINATION ${BTRFSBACKUP_KDE_QMLDIR}
 )
 install(
     FILES
-        ${CMAKE_BINARY_DIR}/org/btrfsbackup/plasma/qmldir
-        ${CMAKE_BINARY_DIR}/org/btrfsbackup/plasma/btrfsbackup_plasma_backend.qmltypes
-        ${CMAKE_CURRENT_SOURCE_DIR}/plasmoid/src/ProfileStatusBadge.qml
-    DESTINATION ${BTRFSBACKUP_PLASMA_QMLDIR}
+        ${CMAKE_BINARY_DIR}/org/btrfsbackup/kde/qmldir
+        ${CMAKE_BINARY_DIR}/org/btrfsbackup/kde/btrfsbackup_kde_models.qmltypes
+        ${CMAKE_CURRENT_SOURCE_DIR}/models/ProfileStatusBadge.qml
+    DESTINATION ${BTRFSBACKUP_KDE_QMLDIR}
 )
 
 configure_file(
@@ -355,7 +355,7 @@ add_custom_target(btrfs-backup-kde)
 add_dependencies(
     btrfs-backup-kde
     btrfs-backup-kde-monitor
-    btrfsbackup_plasma_backendplugin
+    btrfsbackup_kde_modelsplugin
     kcm_btrfsbackup
     kio_btrfsbackup
     previousversionsaction
@@ -428,56 +428,56 @@ if(BUILD_TESTING)
     set_tests_properties(kde-manager-api PROPERTIES LABELS kde)
 
     add_executable(
-        plasma-target-status-model-tests
-        plasmoid/src/ByteFormatting.cpp
-        plasmoid/src/ByteFormatting.hpp
-        plasmoid/src/TargetStatusModel.cpp
-        plasmoid/src/TargetStatusModel.hpp
-        plasmoid/tests/TargetStatusModelTests.cpp
+        kde-target-status-model-tests
+        models/ByteFormatting.cpp
+        models/ByteFormatting.hpp
+        models/TargetStatusModel.cpp
+        models/TargetStatusModel.hpp
+        models/tests/TargetStatusModelTests.cpp
     )
-    target_compile_features(plasma-target-status-model-tests PRIVATE cxx_std_23)
+    target_compile_features(kde-target-status-model-tests PRIVATE cxx_std_23)
     target_include_directories(
-        plasma-target-status-model-tests
-        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/plasmoid/src
+        kde-target-status-model-tests
+        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/models
     )
     target_link_libraries(
-        plasma-target-status-model-tests
+        kde-target-status-model-tests
         PRIVATE
             Qt6::Core
             btrfsbackup_kde_manager_client
     )
     if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-        target_compile_options(plasma-target-status-model-tests PRIVATE -Wall -Wextra -Wpedantic)
+        target_compile_options(kde-target-status-model-tests PRIVATE -Wall -Wextra -Wpedantic)
     endif()
-    add_test(NAME plasma-target-status-model COMMAND plasma-target-status-model-tests)
-    set_tests_properties(plasma-target-status-model PROPERTIES LABELS kde)
+    add_test(NAME kde-target-status-model COMMAND kde-target-status-model-tests)
+    set_tests_properties(kde-target-status-model PROPERTIES LABELS kde)
 
     add_executable(
-        plasma-status-models-tests
-        plasmoid/src/BackupHistoryModel.cpp
-        plasmoid/src/BackupHistoryModel.hpp
-        plasmoid/src/ByteFormatting.cpp
-        plasmoid/src/ByteFormatting.hpp
-        plasmoid/src/RunStatusModel.cpp
-        plasmoid/src/RunStatusModel.hpp
-        plasmoid/tests/StatusModelsTests.cpp
+        kde-status-models-tests
+        models/BackupHistoryModel.cpp
+        models/BackupHistoryModel.hpp
+        models/ByteFormatting.cpp
+        models/ByteFormatting.hpp
+        models/RunStatusModel.cpp
+        models/RunStatusModel.hpp
+        models/tests/StatusModelsTests.cpp
     )
-    target_compile_features(plasma-status-models-tests PRIVATE cxx_std_23)
+    target_compile_features(kde-status-models-tests PRIVATE cxx_std_23)
     target_include_directories(
-        plasma-status-models-tests
-        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/plasmoid/src
+        kde-status-models-tests
+        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/models
     )
     target_link_libraries(
-        plasma-status-models-tests
+        kde-status-models-tests
         PRIVATE
             Qt6::Core
             btrfsbackup_kde_manager_client
     )
     if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-        target_compile_options(plasma-status-models-tests PRIVATE -Wall -Wextra -Wpedantic)
+        target_compile_options(kde-status-models-tests PRIVATE -Wall -Wextra -Wpedantic)
     endif()
-    add_test(NAME plasma-status-models COMMAND plasma-status-models-tests)
-    set_tests_properties(plasma-status-models PROPERTIES LABELS kde)
+    add_test(NAME kde-status-models COMMAND kde-status-models-tests)
+    set_tests_properties(kde-status-models PROPERTIES LABELS kde)
 
     add_executable(
         plasma-progress-job-tests
@@ -538,8 +538,8 @@ if(BUILD_TESTING)
         kio-secure-browse-path-tests
         kio-snapshot-interop-probe
         plasma-progress-job-tests
-        plasma-status-models-tests
-        plasma-target-status-model-tests
+        kde-status-models-tests
+        kde-target-status-model-tests
     )
 
     find_program(

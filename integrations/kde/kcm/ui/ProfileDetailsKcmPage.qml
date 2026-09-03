@@ -8,7 +8,7 @@ import QtQuick.Controls as QQC2
 import org.kde.kcmutils as KCMUtils
 import org.kde.ki18n as KI18n
 import org.kde.kirigami as Kirigami
-import org.btrfsbackup.plasma
+import org.btrfsbackup.kde
 
 KCMUtils.SimpleKCM {
     id: root

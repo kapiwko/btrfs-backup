@@ -6,7 +6,7 @@ import QtQuick
 import QtQuick.Controls as QQC2
 import QtQuick.Layouts
 import org.kde.kirigami as Kirigami
-import org.btrfsbackup.plasma
+import org.btrfsbackup.kde
 
 Kirigami.FormLayout {
     id: root
