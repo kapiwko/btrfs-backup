@@ -82,6 +82,10 @@ for directive in "${common_directives[@]}" "${policy_directives[@]}"; do
         exit 1
     }
 done
+if [[ "$POLICY" == device-preparation ]] && grep -Fxq -- 'DeviceAllow=block-* rw' "$STAGED_UNIT"; then
+    printf 'Device preparation must not grant access to every block device\n' >&2
+    exit 1
+fi
 
 security_output="$(
     SYSTEMD_UNIT_PATH="$TEST_ROOT" systemd-analyze security \

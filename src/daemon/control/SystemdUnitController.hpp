@@ -32,6 +32,7 @@ struct StartUnitRequest {
     std::string unit;
     std::chrono::milliseconds timeout;
     bool no_block = false;
+    std::vector<std::string> runtime_properties;
 };
 
 struct StopUnitRequest {

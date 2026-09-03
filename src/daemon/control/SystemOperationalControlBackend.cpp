@@ -119,7 +119,11 @@ void SystemOperationalControlBackend::run_target_validation(
 ) {
     OperationEnvironmentFile environment(operation_environment_root_, context);
     const std::string unit = authorized_target_validation_unit(context);
-    const StartJobResult result = units_.start_unit({unit, std::chrono::minutes(11)});
+    const StartJobResult result = units_.start_unit({
+        .unit = unit,
+        .timeout = std::chrono::minutes(11),
+        .runtime_properties = {},
+    });
     if (result) {
         return;
     }
