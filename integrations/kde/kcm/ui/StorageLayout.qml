@@ -27,42 +27,72 @@ ColumnLayout {
         return Math.max(1, total)
     }
 
-    RowLayout {
+    Rectangle {
         Layout.fillWidth: true
-        Layout.minimumHeight: Kirigami.Units.gridUnit * 3
-        spacing: 1
+        Layout.minimumHeight: Kirigami.Units.gridUnit * 3.5
+        radius: Kirigami.Units.smallSpacing
+        color: Kirigami.Theme.backgroundColor
+        border.width: 1
+        border.color: Kirigami.Theme.separatorColor
 
-        Repeater {
-            model: root.regions || []
-            delegate: Rectangle {
-                id: segment
-                required property var modelData
-                Layout.fillHeight: true
-                Layout.fillWidth: true
-                Layout.preferredWidth: Math.max(1, Number(segment.modelData.sectorCount || 0) / root.totalSectors * 1000)
-                Layout.minimumWidth: 2
-                color: segment.modelData.kind === "unallocated" ? Kirigami.Theme.alternateBackgroundColor
-                    : segment.modelData.dataWillBeErased ? Kirigami.Theme.negativeTextColor
-                    : segment.modelData.kind === "backup-partition" ? Kirigami.Theme.positiveTextColor
-                    : Kirigami.Theme.highlightColor
-                border.width: segment.modelData.candidateId === root.selectedRegionId ? 2 : 1
-                border.color: Kirigami.Theme.textColor
+        RowLayout {
+            anchors.fill: parent
+            anchors.margins: 2
+            spacing: 2
 
-                QQC2.Label {
-                    anchors.fill: parent
-                    anchors.margins: Kirigami.Units.smallSpacing
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                    elide: Text.ElideRight
-                    wrapMode: Text.Wrap
-                    maximumLineCount: 2
+            Repeater {
+                model: root.regions || []
+                delegate: Rectangle {
+                    id: segment
+                    required property var modelData
+                    readonly property string regionName: root.regionName(segment.modelData)
+                    readonly property string regionDetails: root.regionDetails(segment.modelData)
+
+                    Layout.fillHeight: true
+                    Layout.fillWidth: true
+                    Layout.preferredWidth: Math.max(1, Number(segment.modelData.sectorCount || 0)
+                        / root.totalSectors * 1000)
+                    Layout.minimumWidth: 3
+                    radius: Math.max(2, Kirigami.Units.smallSpacing - 2)
+                    color: root.regionColor(segment.modelData)
+                    border.width: 1
+                    border.color: Qt.darker(segment.color, 1.2)
                     clip: true
-                    text: segment.modelData.partitionLabel || segment.modelData.filesystemLabel
-                        || segment.modelData.filesystemType
-                        || (segment.modelData.kind === "unallocated"
-                            ? translations.i18n("Free") : translations.i18n("Backup"))
-                    color: segment.modelData.kind === "unallocated"
-                        ? Kirigami.Theme.textColor : Kirigami.Theme.highlightedTextColor
+
+                    Rectangle {
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.bottom: parent.bottom
+                        height: 4
+                        visible: segment.modelData.dataWillBeErased
+                        color: Kirigami.Theme.negativeTextColor
+                    }
+
+                    Column {
+                        anchors.centerIn: parent
+                        width: Math.max(0, parent.width - Kirigami.Units.largeSpacing)
+                        spacing: 1
+                        visible: width >= Kirigami.Units.gridUnit * 2
+
+                        QQC2.Label {
+                            width: parent.width
+                            horizontalAlignment: Text.AlignHCenter
+                            elide: Text.ElideRight
+                            text: segment.regionName
+                            font.bold: true
+                            color: root.regionTextColor(segment.modelData)
+                        }
+                        QQC2.Label {
+                            width: parent.width
+                            horizontalAlignment: Text.AlignHCenter
+                            elide: Text.ElideRight
+                            text: segment.regionDetails
+                            color: root.regionTextColor(segment.modelData)
+                            opacity: 0.9
+                        }
+                    }
+
+                    Accessible.name: segment.regionName + ", " + segment.regionDetails
                 }
             }
         }
@@ -70,21 +100,62 @@ ColumnLayout {
 
     Repeater {
         model: root.regions || []
-        delegate: QQC2.Label {
+        delegate: RowLayout {
+            id: detailRow
             required property var modelData
             Layout.fillWidth: true
-            wrapMode: Text.Wrap
-            text: {
-                const name = modelData.path || modelData.partitionLabel || modelData.filesystemLabel
-                    || (modelData.kind === "unallocated"
-                        ? translations.i18n("Free space") : translations.i18n("Backup partition"))
-                const size = root.formatBytes(Number(modelData.sectorCount || 0) * root.logicalSectorSize)
-                const outcome = modelData.dataWillBeErased ? translations.i18n("data will be erased")
-                    : modelData.changed ? translations.i18n("will become LUKS2 with Btrfs")
+            spacing: Kirigami.Units.smallSpacing
+
+            Rectangle {
+                Layout.preferredWidth: Kirigami.Units.smallSpacing * 1.5
+                Layout.preferredHeight: Layout.preferredWidth
+                radius: Layout.preferredWidth / 2
+                color: root.regionColor(detailRow.modelData)
+                border.width: 1
+                border.color: Qt.darker(color, 1.2)
+            }
+            QQC2.Label {
+                Layout.fillWidth: true
+                elide: Text.ElideMiddle
+                text: root.regionName(detailRow.modelData) + " · "
+                    + root.regionDetails(detailRow.modelData)
+            }
+            QQC2.Label {
+                text: detailRow.modelData.dataWillBeErased ? translations.i18n("data will be erased")
+                    : detailRow.modelData.changed ? translations.i18n("will become LUKS2 with Btrfs")
                         : translations.i18n("unchanged")
-                return name + " - " + size + " - " + outcome
+                color: detailRow.modelData.dataWillBeErased
+                    ? Kirigami.Theme.negativeTextColor : Kirigami.Theme.disabledTextColor
             }
         }
+    }
+
+    function regionName(region) {
+        return region.partitionLabel || region.filesystemLabel || region.path
+            || (region.kind === "unallocated"
+                ? translations.i18n("Free space") : translations.i18n("Backup partition"))
+    }
+
+    function regionDetails(region) {
+        const size = root.formatBytes(Number(region.sectorCount || 0) * root.logicalSectorSize)
+        if (region.kind === "backup-partition")
+            return size + " · LUKS2 · Btrfs"
+        if (region.kind === "unallocated")
+            return size
+        return region.filesystemType ? size + " · " + region.filesystemType : size
+    }
+
+    function regionColor(region) {
+        if (region.kind === "unallocated")
+            return Kirigami.Theme.alternateBackgroundColor
+        if (region.kind === "backup-partition")
+            return Kirigami.Theme.positiveTextColor
+        return Kirigami.Theme.highlightColor
+    }
+
+    function regionTextColor(region) {
+        return region.kind === "unallocated"
+            ? Kirigami.Theme.textColor : Kirigami.Theme.highlightedTextColor
     }
 
     function formatBytes(value) {
