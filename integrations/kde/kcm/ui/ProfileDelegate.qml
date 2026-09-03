@@ -10,6 +10,7 @@ import QtQuick.Layouts
 import org.kde.ki18n as KI18n
 import org.kde.kirigami as Kirigami
 import org.btrfsbackup.plasma
+import org.btrfsbackup.plasma as BtrfsBackup
 
 QQC2.ItemDelegate {
     id: delegate
@@ -192,16 +193,7 @@ QQC2.ItemDelegate {
     }
 
     function targetIndicatorIcon() {
-        if (delegate.profileStatus.run.state === "failed"
-                || !delegate.profileStatus.configurationValid)
-            return "emblem-error"
-        if (!delegate.profileStatus.target.connected)
-            return "emblem-unavailable"
-        if (delegate.profileStatus.target.mounted)
-            return "emblem-success"
-        if (delegate.profileStatus.target.unlocked)
-            return "emblem-unlocked"
-        return "emblem-locked"
+        return BtrfsBackup.ProfileStatusBadge.icon(delegate.profileStatus)
     }
 
     function targetIndicatorText() {

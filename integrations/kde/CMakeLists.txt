@@ -254,11 +254,17 @@ install(CODE [[
     )
 ]])
 
+set_source_files_properties(
+    plasmoid/src/ProfileStatusBadge.qml
+    PROPERTIES QT_QML_SINGLETON_TYPE TRUE
+)
 qt_add_qml_module(btrfsbackup_plasma_backend
     URI org.btrfsbackup.plasma
     VERSION 1.0
     NO_PLUGIN_OPTIONAL
     OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/org/btrfsbackup/plasma
+    QML_FILES
+        plasmoid/src/ProfileStatusBadge.qml
     SOURCES
         plasmoid/src/BackupHistoryModel.cpp
         plasmoid/src/BackupHistoryModel.hpp
@@ -649,10 +655,21 @@ if(BUILD_TESTING)
                 -import ${CMAKE_BINARY_DIR}
                 -o -,txt
         )
+        add_test(
+            NAME kde-profile-badge-consistency
+            COMMAND
+                ${CMAKE_COMMAND} -E env
+                QT_QPA_PLATFORM=offscreen
+                ${QML_TEST_RUNNER_EXECUTABLE}
+                -input ${CMAKE_CURRENT_SOURCE_DIR}/plasmoid/tests/profile-status-badge.qml
+                -import ${CMAKE_BINARY_DIR}
+                -o -,txt
+        )
         set_tests_properties(
             kde-kcm-profile-unlocking-layout
             kde-kcm-profile-device-connection
             kde-kcm-profile-sources-actions
+            kde-profile-badge-consistency
             PROPERTIES
                 LABELS kde
                 TIMEOUT 10
