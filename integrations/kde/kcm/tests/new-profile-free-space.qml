@@ -127,8 +127,7 @@ Item {
             if (!page.freeSpace || !page.hasPlan || !page.planMatchesSelection
                     || page.candidateDevices.length !== 1
                     || page.candidateDevices[0].candidateId !== "device-1"
-                    || page.confirmationToken !== "CREATE"
-                    || page.partitionManagerUrl.toString() !== "applications:org.kde.partitionmanager.desktop") {
+                    || page.confirmationToken !== "CREATE") {
                 console.error("Free-space preparation page bindings are invalid")
                 Qt.exit(1)
                 return

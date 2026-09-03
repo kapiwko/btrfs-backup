@@ -19,13 +19,16 @@ class BackupKcm final : public KQuickConfigModule {
     Q_PROPERTY(ProfileHistoryModel* profileHistory READ profileHistory CONSTANT)
     Q_PROPERTY(TargetCredentialModel* targetCredentials READ targetCredentials CONSTANT)
     Q_PROPERTY(DeviceProvisioningModel* deviceProvisioning READ deviceProvisioning CONSTANT)
+    Q_PROPERTY(bool partitionManagerAvailable READ partitionManagerAvailable CONSTANT)
 
   public:
     BackupKcm(QObject* parent, const KPluginMetaData& metadata);
 
     Q_INVOKABLE void openSystemLog();
     Q_INVOKABLE void openSupportPage();
+    Q_INVOKABLE void openPartitionManager();
     Q_INVOKABLE QString toLocalFile(const QUrl& url) const;
+    [[nodiscard]] bool partitionManagerAvailable() const;
     ProfileConfigurationModel* profileConfiguration();
     ProfileHistoryModel* profileHistory();
     TargetCredentialModel* targetCredentials();
