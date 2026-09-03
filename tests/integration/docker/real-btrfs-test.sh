@@ -16,6 +16,7 @@ PROVISION_IMAGE="$TEST_ROOT/provision.img"
 SOURCE_LOOP=""
 TARGET_LOOP=""
 PROVISION_LOOP=""
+PROVISION_MAPPER=""
 SOURCE_MOUNT=/mnt/bb-real-source
 TARGET_MOUNT=/mnt/btrfs-backup/default
 TARGET_STAGING_MOUNT=/mnt/bb-real-target-staging
@@ -39,6 +40,7 @@ cleanup() {
         timeout --kill-after=1s 1s cryptsetup close "$MAPPER_NAME" 2>/dev/null && break
         sleep 0.1
     done
+    [[ -n "$PROVISION_MAPPER" ]] && cryptsetup close "$PROVISION_MAPPER" 2>/dev/null
     umount -R "$SOURCE_MOUNT" 2>/dev/null
     [[ -n "$PROVISION_LOOP" ]] && losetup -d "$PROVISION_LOOP" 2>/dev/null
     [[ -n "$TARGET_LOOP" ]] && losetup -d "$TARGET_LOOP" 2>/dev/null
@@ -238,6 +240,121 @@ provision_unallocated_space_test() {
     losetup -d "$PROVISION_LOOP"
     PROVISION_LOOP=""
     pass 'manager creates a backup partition in free space without changing existing data'
+}
+
+provision_whole_device_test() {
+    local client="$TEST_ROOT/device-provisioning-client"
+    local backup_partition
+    local response="$TEST_ROOT/whole-device-provisioning-response.json"
+
+    truncate -s 640M "$PROVISION_IMAGE"
+    PROVISION_LOOP="$(losetup --find --show --partscan "$PROVISION_IMAGE")"
+    mkfs.ext4 -q -F -L ERASE-WHOLE "$PROVISION_LOOP"
+
+    systemctl start polkit.service btrfs-backupd.service
+    "$client" \
+        "$PROVISION_LOOP" \
+        "$SOURCE_MOUNT/home" \
+        "$PASSPHRASE_FILE" \
+        erase-whole-device \
+        whole-device-integration > "$response"
+    systemctl stop btrfs-backupd.service polkit.service
+
+    udevadm settle --timeout=10
+    backup_partition="${PROVISION_LOOP}p1"
+    [[ "$(sfdisk --json "$PROVISION_LOOP" | sed -n 's/.*"label"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)" == gpt ]] \
+        || fail 'whole-device provisioning did not create GPT'
+    [[ -b "$backup_partition" ]] \
+        || fail 'whole-device provisioning did not create its planned partition'
+    [[ "$(blkid -s TYPE -o value "$backup_partition")" == crypto_LUKS ]] \
+        || fail 'whole-device provisioning did not format the new partition as LUKS2'
+    grep -Eq '"state"[[:space:]]*:[[:space:]]*"succeeded"' "$response" \
+        || fail 'manager did not report successful whole-device provisioning'
+    [[ -f /etc/btrfs-backup/profiles/whole-device-integration/profile.json ]] \
+        || fail 'whole-device provisioning did not publish its profile'
+
+    losetup -d "$PROVISION_LOOP"
+    PROVISION_LOOP=""
+    pass 'manager replaces a whole device with one encrypted backup partition'
+}
+
+provision_existing_target_adoption_test() {
+    local client="$TEST_ROOT/device-provisioning-client"
+    local partition
+    local adoption_mapper="bb-real-adoption-${TEST_ROOT##*.}"
+    local adoption_mapper_path="/dev/mapper/$adoption_mapper"
+    local btrfs_uuid luks_uuid partition_hash_before partition_hash_after
+    local response="$TEST_ROOT/adoption-provisioning-response.json"
+    local created_at
+
+    truncate -s 512M "$PROVISION_IMAGE"
+    PROVISION_LOOP="$(losetup --find --show --partscan "$PROVISION_IMAGE")"
+    printf '%s\n' \
+        'label: gpt' \
+        'size=448M,type=0FC63DAF-8483-4772-8E79-3D69D8477DE4' \
+        | sfdisk --quiet "$PROVISION_LOOP"
+    udevadm settle --timeout=10
+    partition="${PROVISION_LOOP}p1"
+    [[ -b "$partition" ]] || fail 'adoption partition node was not created'
+    cryptsetup luksFormat \
+        --batch-mode \
+        --type luks2 \
+        --pbkdf pbkdf2 \
+        --pbkdf-force-iterations 1000 \
+        --key-file "$PASSPHRASE_FILE" \
+        "$partition"
+    cryptsetup open --key-file "$PASSPHRASE_FILE" "$partition" "$adoption_mapper"
+    PROVISION_MAPPER="$adoption_mapper"
+    udevadm settle --timeout=10
+    dmsetup mknodes "$adoption_mapper"
+    [[ -b "$adoption_mapper_path" ]] || fail 'adoption mapper was not created'
+    mkfs.btrfs -q -f "$adoption_mapper_path"
+    install -d -m0755 "$TARGET_STAGING_MOUNT"
+    mount "$adoption_mapper_path" "$TARGET_STAGING_MOUNT"
+    btrfs_uuid="$(findmnt -n -o UUID -M "$TARGET_STAGING_MOUNT")"
+    luks_uuid="$(cryptsetup luksUUID "$partition")"
+    created_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    cat > "$TARGET_STAGING_MOUNT/repository.json" <<EOF_ADOPTION_REPOSITORY
+{"schemaVersion":1,"repositoryId":"adoption-$btrfs_uuid","targetFilesystemUuid":"$btrfs_uuid","createdAt":"$created_at","features":["catalog-v1"]}
+EOF_ADOPTION_REPOSITORY
+    cat > "$TARGET_STAGING_MOUNT/catalog.json" <<'EOF_ADOPTION_CATALOG'
+{"schemaVersion":1,"generation":1,"snapshots":[]}
+EOF_ADOPTION_CATALOG
+    sync -f "$TARGET_STAGING_MOUNT/repository.json"
+    sync -f "$TARGET_STAGING_MOUNT/catalog.json"
+    umount "$TARGET_STAGING_MOUNT"
+    cryptsetup close "$adoption_mapper"
+    PROVISION_MAPPER=""
+    partition_hash_before="$(sha256sum "$partition" | awk '{print $1}')"
+
+    systemctl start polkit.service btrfs-backupd.service
+    "$client" \
+        "$partition" \
+        "$SOURCE_MOUNT/home" \
+        "$PASSPHRASE_FILE" \
+        adopt-existing-target \
+        adoption-integration > "$response"
+    systemctl stop btrfs-backupd.service polkit.service
+
+    partition_hash_after="$(sha256sum "$partition" | awk '{print $1}')"
+    [[ "$partition_hash_before" == "$partition_hash_after" ]] \
+        || fail 'existing-target adoption modified the selected partition'
+    [[ "$(cryptsetup luksUUID "$partition")" == "$luks_uuid" ]] \
+        || fail 'existing-target adoption changed the LUKS identity'
+    grep -Eq '"state"[[:space:]]*:[[:space:]]*"succeeded"' "$response" \
+        || fail 'manager did not report successful existing-target adoption'
+    grep -Fq "adoption-$btrfs_uuid" "$response" \
+        && fail 'adoption status leaked the repository identifier'
+    [[ -f /etc/btrfs-backup/profiles/adoption-integration/profile.json ]] \
+        || fail 'existing-target adoption did not publish its profile'
+    grep -Fq "$luks_uuid" /etc/btrfs-backup/profiles/adoption-integration/profile.json \
+        || fail 'adopted profile does not retain the inspected LUKS identity'
+    grep -Fq "$btrfs_uuid" /etc/btrfs-backup/profiles/adoption-integration/profile.json \
+        || fail 'adopted profile does not retain the inspected Btrfs identity'
+
+    losetup -d "$PROVISION_LOOP"
+    PROVISION_LOOP=""
+    pass 'manager adopts a compatible encrypted repository without modifying it'
 }
 
 configure_backup_with_cli() {
@@ -1036,6 +1153,8 @@ install -d -m0700 "$SOURCE_MOUNT/.snapshots/home"
 
 provision_existing_partition_test
 provision_unallocated_space_test
+provision_whole_device_test
+provision_existing_target_adoption_test
 
 mount -o noatime,nodev,nosuid,noexec,nosymfollow,compress=zstd:3 "$MAPPER_PATH" "$TARGET_MOUNT"
 install -d -m0700 "$TARGET_MOUNT/snapshots" "$TARGET_MOUNT/.incoming"
