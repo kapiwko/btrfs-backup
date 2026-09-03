@@ -62,6 +62,7 @@ int main(int argc, char** argv) {
         fs::path audit_log_path = "/var/log/btrfs-backup/manager-audit.jsonl";
         fs::path udev_root = "/etc/udev/rules.d";
         fs::path systemd_root = "/etc/systemd/system";
+        fs::path browse_session_root = "/run/btrfs-backup-browse";
         bool skip_configuration_activation = false;
         for (int index = 1; index < argc; ++index) {
             if (std::string(argv[index]) == "--config-root") {
@@ -103,6 +104,8 @@ int main(int argc, char** argv) {
                 paths.mountinfo_path = absolute_path(require_value(argc, argv, index), argument.c_str());
             } else if (argument == "--audit-log") {
                 audit_log_path = absolute_path(require_value(argc, argv, index), argument.c_str());
+            } else if (argument == "--browse-session-root") {
+                browse_session_root = absolute_path(require_value(argc, argv, index), argument.c_str());
             } else if (argument == "--udev-root") {
                 udev_root = absolute_path(require_value(argc, argv, index), argument.c_str());
             } else if (argument == "--systemd-root") {
@@ -115,7 +118,7 @@ int main(int argc, char** argv) {
                     << "                         [--public-profile-root PATH] [--status-root PATH]\n"
                     << "                         [--history-root PATH] [--target-mount-root PATH]\n"
                     << "                         [--mapper-root PATH] [--mountinfo PATH]\n"
-                    << "                         [--audit-log PATH]\n";
+                    << "                         [--audit-log PATH] [--browse-session-root PATH]\n";
                 return 0;
             } else {
                 throw std::runtime_error("unknown option: " + argument);
@@ -130,7 +133,12 @@ int main(int argc, char** argv) {
         btrfsbackup::daemon::control::CommandSystemdUnitController units(commands);
         btrfsbackup::daemon::control::SystemOperationalControlBackend operational_backend(profiles, state, units);
         btrfsbackup::platform::linux::storage::LinuxMountInspector mounts(paths.mountinfo_path);
-        btrfsbackup::daemon::control::SystemBrowseSessionBackend browse_session_backend(profiles, mounts, units);
+        btrfsbackup::daemon::control::SystemBrowseSessionBackend browse_session_backend(
+            profiles,
+            mounts,
+            units,
+            browse_session_root
+        );
         btrfsbackup::platform::linux::systemd::LinuxSystemConfigurationActivator configuration_activator;
         btrfsbackup::config::NullConfigurationActivator null_configuration_activator;
         btrfsbackup::config::IConfigurationActivator& selected_configuration_activator =
