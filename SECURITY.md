@@ -2,13 +2,16 @@
 
 ## Supported Versions
 
-Security fixes are provided for the latest `1.0.x` release line. Older release
-lines and unreleased development snapshots are not supported security branches.
+Security fixes are provided for the latest released line, currently `0.3.x`.
+The `1.0.x` development line is not a supported security branch until 1.0.0 is
+released. Older release lines and unreleased development snapshots are also not
+supported.
 
-| Version | Supported |
+| Version | Status |
 |---|---|
-| `1.0.x` | Yes |
-| `< 1.0` | No |
+| `1.0.x` | Development, not released |
+| `0.3.x` | Supported |
+| `<= 0.3.x` | Unsupported |
 
 This table will be updated when a newer release line becomes supported.
 
