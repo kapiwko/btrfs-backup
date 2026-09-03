@@ -59,9 +59,7 @@ void BackupRunner::match(KRunner::RunnerContext& context) {
     const auto command = btrfsbackup::kde::krunner::parse_command(context.query());
     if (!command)
         return;
-    const auto capabilities_payload = payload(btrfsbackup::kde::manager_call(
-        QDBusConnection::systemBus(), QLatin1String(btrfsbackup::manager_protocol::method::get_capabilities)
-    ));
+    const auto capabilities_payload = payload(btrfsbackup::kde::ManagerClient{}.capabilities());
     const auto capabilities = capabilities_payload ? btrfsbackup::kde::parse_capabilities(*capabilities_payload) : std::nullopt;
     if (!capabilities || capabilities->api_major != btrfsbackup::manager_protocol::api_major)
         return;
@@ -90,9 +88,7 @@ void BackupRunner::match(KRunner::RunnerContext& context) {
         return;
     }
 
-    const auto profiles_payload = payload(btrfsbackup::kde::manager_call(
-        QDBusConnection::systemBus(), QLatin1String(btrfsbackup::manager_protocol::method::list_profiles)
-    ));
+    const auto profiles_payload = payload(btrfsbackup::kde::ManagerClient{}.profiles());
     const auto profiles = profiles_payload ? btrfsbackup::kde::parse_profiles(*profiles_payload) : std::nullopt;
     if (!profiles)
         return;
@@ -129,11 +125,10 @@ void BackupRunner::run(const KRunner::RunnerContext&, const KRunner::QueryMatch&
     } else if (operation == u"versions"_s) {
         resolve_versions(data.value(u"argument"_s).toString());
     } else {
-        const QString method = operation == u"start"_s
-            ? QLatin1String(btrfsbackup::manager_protocol::method::start_backup)
-            : QLatin1String(btrfsbackup::manager_protocol::method::eject_target);
+        btrfsbackup::kde::ManagerClient manager;
         auto* watcher = new QDBusPendingCallWatcher(
-            btrfsbackup::kde::manager_call(QDBusConnection::systemBus(), method, {profile}), this
+            operation == u"start"_s ? manager.startBackup(profile) : manager.ejectTarget(profile),
+            this
         );
         connect(watcher, &QDBusPendingCallWatcher::finished, watcher, &QObject::deleteLater);
     }
@@ -141,10 +136,10 @@ void BackupRunner::run(const KRunner::RunnerContext&, const KRunner::QueryMatch&
 
 void BackupRunner::resolve_versions(const QString& value) {
     const QString local_path = QUrl(value).isLocalFile() ? QUrl(value).toLocalFile() : QFileInfo(value).absoluteFilePath();
-    auto* watcher = new QDBusPendingCallWatcher(btrfsbackup::kde::manager_call(
-        QDBusConnection::systemBus(), QLatin1String(btrfsbackup::manager_protocol::method::resolve_backup_coverage),
-        {local_path}
-    ), this);
+    auto* watcher = new QDBusPendingCallWatcher(
+        btrfsbackup::kde::ManagerClient{}.resolveBackupCoverage(local_path),
+        this
+    );
     connect(watcher, &QDBusPendingCallWatcher::finished, this, [watcher](QDBusPendingCallWatcher*) {
         const QDBusPendingReply<QString> reply = *watcher;
         watcher->deleteLater();
