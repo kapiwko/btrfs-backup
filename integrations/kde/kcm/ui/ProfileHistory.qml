@@ -8,6 +8,7 @@ import QtQuick.Controls as QQC2
 import QtQuick.Layouts
 import org.kde.ki18n as KI18n
 import org.kde.kirigami as Kirigami
+import org.btrfsbackup.kde as BtrfsBackup
 
 ColumnLayout {
     id: root
@@ -54,7 +55,7 @@ ColumnLayout {
                 spacing: Kirigami.Units.smallSpacing
 
                 Kirigami.Icon {
-                    source: root.stateIcon(historyRow.modelData.state)
+                    source: BtrfsBackup.ProfilePresentation.historyStateIcon(historyRow.modelData.state)
                     implicitWidth: Kirigami.Units.iconSizes.smallMedium
                     implicitHeight: implicitWidth
                 }
@@ -158,19 +159,6 @@ ColumnLayout {
                 Layout.fillWidth: true
                 wrapMode: Text.WrapAnywhere
             }
-        }
-    }
-
-    function stateIcon(state) {
-        switch (state) {
-        case "succeeded":
-            return "dialog-positive";
-        case "failed":
-            return "dialog-error";
-        case "cancelled":
-            return "dialog-cancel";
-        default:
-            return "dialog-information";
         }
     }
 

@@ -53,7 +53,7 @@ PlasmoidItem {
         }
         return selected
     }
-    readonly property string attentionIcon: BtrfsBackup.ProfileStatusBadge.mostImportantAttention(root.profileSummaries)
+    readonly property string attentionIcon: BtrfsBackup.ProfilePresentation.mostImportantAttention(root.profileSummaries)
     readonly property bool running: root.primarySummary?.running ?? false
     readonly property bool failed: root.primarySummary?.failed ?? false
     readonly property int progress: root.primarySummary?.progress ?? -1

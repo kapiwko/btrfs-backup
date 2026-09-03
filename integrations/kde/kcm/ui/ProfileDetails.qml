@@ -8,6 +8,7 @@ import QtQuick.Controls as QQC2
 import QtQuick.Layouts
 import org.kde.ki18n as KI18n
 import org.kde.kirigami as Kirigami
+import org.btrfsbackup.kde as BtrfsBackup
 
 ColumnLayout {
     id: root
@@ -16,9 +17,7 @@ ColumnLayout {
     required property string targetNameHint
     required property var statusTextFor
     required property var targetStateTextFor
-    readonly property bool running: profileStatus.run.state === "starting"
-        || profileStatus.run.state === "running"
-        || profileStatus.run.state === "validating"
+    readonly property bool running: BtrfsBackup.ProfilePresentation.isRunning(profileStatus.run.state)
 
     spacing: Kirigami.Units.smallSpacing
 
@@ -121,9 +120,7 @@ ColumnLayout {
         RowLayout {
             spacing: Kirigami.Units.smallSpacing
             Kirigami.Icon {
-                source: root.profileStatus.target.connected
-                    ? "drive-removable-media-symbolic"
-                    : "network-disconnect-symbolic"
+                source: BtrfsBackup.ProfilePresentation.deviceConnectionIcon(root.profileStatus.target.connected)
                 implicitWidth: Kirigami.Units.iconSizes.small
                 implicitHeight: implicitWidth
             }
@@ -138,7 +135,7 @@ ColumnLayout {
         RowLayout {
             spacing: Kirigami.Units.smallSpacing
             Kirigami.Icon {
-                source: root.targetStateIcon(root.profileStatus.target.state)
+                source: BtrfsBackup.ProfilePresentation.targetStateIcon(root.profileStatus.target.state)
                 implicitWidth: Kirigami.Units.iconSizes.small
                 implicitHeight: implicitWidth
             }
@@ -196,17 +193,6 @@ ColumnLayout {
         case "sizing": return translations.i18n("Calculating transfer size")
         case "transferring": return translations.i18n("Transferring backup data")
         default: return phase || translations.i18n("Preparing backup")
-        }
-    }
-
-    function targetStateIcon(state) {
-        switch (state) {
-        case "mounted": return "drive-harddisk-root-symbolic"
-        case "unexpected-mount": return "dialog-warning-symbolic"
-        case "unlocked": return "object-unlocked-symbolic"
-        case "connected": return "object-locked-symbolic"
-        case "disconnected": return "network-disconnect-symbolic"
-        default: return "dialog-question-symbolic"
         }
     }
 

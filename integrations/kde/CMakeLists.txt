@@ -261,10 +261,10 @@ install(CODE [[
 ]])
 
 set_source_files_properties(
-    models/ProfileStatusBadge.qml
+    models/ProfilePresentation.qml
     PROPERTIES
         QT_QML_SINGLETON_TYPE TRUE
-        QT_RESOURCE_ALIAS ProfileStatusBadge.qml
+        QT_RESOURCE_ALIAS ProfilePresentation.qml
 )
 qt_add_qml_module(btrfsbackup_kde_models
     URI org.btrfsbackup.kde
@@ -272,7 +272,7 @@ qt_add_qml_module(btrfsbackup_kde_models
     NO_PLUGIN_OPTIONAL
     OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/org/btrfsbackup/kde
     QML_FILES
-        models/ProfileStatusBadge.qml
+        models/ProfilePresentation.qml
     SOURCES
         models/BackupHistoryModel.cpp
         models/BackupHistoryModel.hpp
@@ -334,7 +334,7 @@ install(
     FILES
         ${CMAKE_BINARY_DIR}/org/btrfsbackup/kde/qmldir
         ${CMAKE_BINARY_DIR}/org/btrfsbackup/kde/btrfsbackup_kde_models.qmltypes
-        ${CMAKE_CURRENT_SOURCE_DIR}/models/ProfileStatusBadge.qml
+        ${CMAKE_CURRENT_SOURCE_DIR}/models/ProfilePresentation.qml
     DESTINATION ${BTRFSBACKUP_KDE_QMLDIR}
 )
 
@@ -671,12 +671,12 @@ if(BUILD_TESTING)
                 -o -,txt
         )
         add_test(
-            NAME kde-profile-badge-consistency
+            NAME kde-profile-presentation
             COMMAND
                 ${CMAKE_COMMAND} -E env
                 QT_QPA_PLATFORM=offscreen
                 ${QML_TEST_RUNNER_EXECUTABLE}
-                -input ${CMAKE_CURRENT_SOURCE_DIR}/plasmoid/tests/profile-status-badge.qml
+                -input ${CMAKE_CURRENT_SOURCE_DIR}/models/tests/profile-presentation.qml
                 -import ${CMAKE_BINARY_DIR}
                 -o -,txt
         )
@@ -684,7 +684,7 @@ if(BUILD_TESTING)
             kde-kcm-profile-unlocking-layout
             kde-kcm-profile-device-connection
             kde-kcm-profile-sources-actions
-            kde-profile-badge-consistency
+            kde-profile-presentation
             PROPERTIES
                 LABELS kde
                 TIMEOUT 10

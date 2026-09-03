@@ -19,7 +19,6 @@ QQC2.ItemDelegate {
     required property var modelData
     required property var statusOverride
     required property var profileSummaryFor
-    required property var runningStateFor
     readonly property var profileStatus: statusOverride ?? liveProfileStatus
 
     signal detailsRequested(string profileId)
@@ -98,28 +97,23 @@ QQC2.ItemDelegate {
                         text: translations.i18n("Browse backups")
                         tooltip: text
                         visible: delegate.profileStatus.browseSupported
-                        enabled: delegate.profileStatus.managerConnected
-                            && delegate.profileStatus.target.connected
-                            && !delegate.profileStatus.operationPending
+                        enabled: BtrfsBackup.ProfilePresentation.canBrowse(delegate.profileStatus)
                         onTriggered: delegate.profileStatus.browseBackups()
                     },
                     Kirigami.Action {
                         icon.name: "media-playback-start-symbolic"
                         text: translations.i18n("Start backup")
                         tooltip: text
-                        visible: !delegate.runningStateFor(delegate.profileStatus.run.state)
-                        enabled: delegate.profileStatus.managerConnected
-                            && !delegate.profileStatus.operationPending
-                            && delegate.profileStatus.target.connected
+                        visible: !BtrfsBackup.ProfilePresentation.isRunning(delegate.profileStatus.run.state)
+                        enabled: BtrfsBackup.ProfilePresentation.canStart(delegate.profileStatus)
                         onTriggered: delegate.profileStatus.startBackup()
                     },
                     Kirigami.Action {
                         icon.name: "media-playback-stop-symbolic"
                         text: translations.i18n("Cancel backup")
                         tooltip: text
-                        visible: delegate.runningStateFor(delegate.profileStatus.run.state)
-                        enabled: delegate.profileStatus.run.canCancel
-                            && !delegate.profileStatus.operationPending
+                        visible: BtrfsBackup.ProfilePresentation.isRunning(delegate.profileStatus.run.state)
+                        enabled: BtrfsBackup.ProfilePresentation.canCancel(delegate.profileStatus)
                         onTriggered: delegate.profileStatus.cancelBackup()
                     },
                     Kirigami.Action {
@@ -127,11 +121,7 @@ QQC2.ItemDelegate {
                         text: translations.i18n("Eject")
                         tooltip: text
                         visible: delegate.profileStatus.target.connected
-                        enabled: delegate.profileStatus.managerConnected
-                            && !delegate.profileStatus.operationPending
-                            && !delegate.runningStateFor(delegate.profileStatus.run.state)
-                            && (delegate.profileStatus.target.mounted
-                                || delegate.profileStatus.target.unlocked)
+                        enabled: BtrfsBackup.ProfilePresentation.canEject(delegate.profileStatus)
                         onTriggered: delegate.profileStatus.ejectTarget()
                     }
                 ]
@@ -139,7 +129,7 @@ QQC2.ItemDelegate {
 
             QQC2.BusyIndicator {
                 running: delegate.profileStatus.operationPending
-                    || delegate.runningStateFor(delegate.profileStatus.run.state)
+                    || BtrfsBackup.ProfilePresentation.isRunning(delegate.profileStatus.run.state)
                 visible: running
                 implicitWidth: Kirigami.Units.iconSizes.smallMedium
                 implicitHeight: implicitWidth
@@ -148,8 +138,7 @@ QQC2.ItemDelegate {
             QQC2.Switch {
                 text: translations.i18n("Automatic backups")
                 checked: delegate.profileStatus.profileEnabled
-                enabled: delegate.profileStatus.managerConnected
-                    && !delegate.profileStatus.operationPending
+                enabled: BtrfsBackup.ProfilePresentation.canToggleAutomatic(delegate.profileStatus)
                 onToggled: {
                     if (checked !== delegate.profileStatus.profileEnabled)
                         delegate.profileStatus.setProfileEnabled(checked)
@@ -193,7 +182,7 @@ QQC2.ItemDelegate {
     }
 
     function targetIndicatorIcon() {
-        return BtrfsBackup.ProfileStatusBadge.icon(delegate.profileStatus)
+        return BtrfsBackup.ProfilePresentation.statusIcon(delegate.profileStatus)
     }
 
     function targetIndicatorText() {

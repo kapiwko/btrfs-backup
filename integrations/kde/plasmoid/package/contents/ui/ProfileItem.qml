@@ -34,9 +34,7 @@ PlasmaExtras.ExpandableListItem {
     readonly property var ejectProfileAction: ejectAction
     readonly property var browseProfileAction: browseAction
 
-    readonly property bool running: profileStatus.run.state === "running"
-        || profileStatus.run.state === "starting"
-        || profileStatus.run.state === "validating"
+    readonly property bool running: BtrfsBackup.ProfilePresentation.isRunning(profileStatus.run.state)
     readonly property bool failed: profileStatus.run.state === "failed"
     readonly property int progress: profileStatus.run.overallProgress
 
@@ -69,11 +67,9 @@ PlasmaExtras.ExpandableListItem {
         : Kirigami.Theme.textColor
     isBusy: root.running || profileStatus.operationPending
     showDefaultActionButtonWhenBusy: root.running
-    defaultActionButtonVisible: profileStatus.managerConnected
-        && (root.running || profileStatus.target.connected)
+    defaultActionButtonVisible: BtrfsBackup.ProfilePresentation.primaryActionVisible(profileStatus)
     defaultActionButtonAction: QQC2.Action {
-        enabled: !profileStatus.operationPending
-            && (root.running ? profileStatus.run.canCancel : profileStatus.target.connected)
+        enabled: BtrfsBackup.ProfilePresentation.primaryActionEnabled(profileStatus)
         icon.name: root.running ? "process-stop" : "media-playback-start"
         text: root.running ? translations.i18n("Cancel") : translations.i18n("Start backup")
         onTriggered: {
@@ -85,11 +81,7 @@ PlasmaExtras.ExpandableListItem {
     }
     QQC2.Action {
         id: ejectAction
-        enabled: profileStatus.managerConnected
-            && profileStatus.target.connected
-            && !root.running
-            && !profileStatus.operationPending
-            && (profileStatus.target.mounted || profileStatus.target.unlocked)
+        enabled: BtrfsBackup.ProfilePresentation.canEject(profileStatus)
         icon.name: "media-eject"
         text: translations.i18n("Eject")
         onTriggered: profileStatus.ejectTarget()
@@ -97,9 +89,7 @@ PlasmaExtras.ExpandableListItem {
 
     QQC2.Action {
         id: browseAction
-        enabled: profileStatus.managerConnected
-            && profileStatus.target.connected
-            && !profileStatus.operationPending
+        enabled: BtrfsBackup.ProfilePresentation.canBrowse(profileStatus)
         icon.name: "folder-open-symbolic"
         text: translations.i18n("Browse backups")
         onTriggered: profileStatus.browseBackups()
@@ -168,26 +158,16 @@ PlasmaExtras.ExpandableListItem {
 
     function publishSummary() {
         root.summaryUpdated(root.profileId, root.summaryPriority(), root.running, root.failed, root.progress,
-                           BtrfsBackup.ProfileStatusBadge.attentionPriority(profileStatus),
-                           BtrfsBackup.ProfileStatusBadge.attentionIcon(profileStatus), root.subtitleText())
+                           BtrfsBackup.ProfilePresentation.attentionPriority(profileStatus),
+                           BtrfsBackup.ProfilePresentation.attentionIcon(profileStatus), root.subtitleText())
     }
 
     function targetIndicatorIcon() {
-        return BtrfsBackup.ProfileStatusBadge.icon(profileStatus)
+        return BtrfsBackup.ProfilePresentation.statusIcon(profileStatus)
     }
 
     function summaryPriority() {
-        if (profileStatus.lastError.length > 0 || !profileStatus.configurationValid || root.failed)
-            return 1
-        if (root.running)
-            return 2
-        if (profileStatus.target.spaceBelowMinimum)
-            return 3
-        if (profileStatus.target.safeToRemove)
-            return 5
-        if (profileStatus.run.state === "succeeded")
-            return 6
-        return 7
+        return BtrfsBackup.ProfilePresentation.summaryPriority(profileStatus)
     }
 
     function subtitleText() {
