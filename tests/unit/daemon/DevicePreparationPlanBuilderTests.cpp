@@ -15,6 +15,7 @@ namespace {
 
 using btrfsbackup::daemon::provisioning::CreateBackupPartition;
 using btrfsbackup::daemon::provisioning::BackupPartitionTable;
+using btrfsbackup::daemon::provisioning::DestructiveScope;
 using btrfsbackup::daemon::provisioning::DestructiveScopeKind;
 using btrfsbackup::daemon::provisioning::DevicePreparationPlanBuilder;
 using btrfsbackup::daemon::provisioning::EraseDeviceSignatures;
@@ -103,7 +104,7 @@ void test_builds_before_and_after_preview_for_whole_device() {
     test_helpers::expect_eq("plan id", plan.id, "plan-test");
     test_helpers::expect_true(
         "whole-device scope",
-        plan.destructive_scope.kind == DestructiveScopeKind::WholeDevice,
+        plan.destructive_scope.kind() == DestructiveScopeKind::WholeDevice,
         "destructive scope changed"
     );
     test_helpers::expect_true("before regions", plan.before.regions.size() == 2, "current layout was lost");
@@ -151,8 +152,8 @@ void test_builds_partition_plan_without_changing_other_regions() {
     test_helpers::expect_true(
         "partition scope",
         plan.partition_id == "partition-1" &&
-            plan.destructive_scope.kind == DestructiveScopeKind::ExistingPartition &&
-            plan.destructive_scope.partition_id == plan.partition_id,
+            plan.destructive_scope.kind() == DestructiveScopeKind::ExistingPartition &&
+            plan.destructive_scope.partition_id() == plan.partition_id,
         "destructive scope is not limited to the partition"
     );
     test_helpers::expect_true(
@@ -194,8 +195,8 @@ void test_builds_free_space_plan_without_changing_existing_partition() {
     test_helpers::expect_true(
         "free region scope",
         plan.free_region_id == "free-1" &&
-            plan.destructive_scope.kind == DestructiveScopeKind::UnallocatedRegion &&
-            plan.destructive_scope.free_region_id == plan.free_region_id,
+            plan.destructive_scope.kind() == DestructiveScopeKind::UnallocatedRegion &&
+            plan.destructive_scope.free_region_id() == plan.free_region_id,
         "plan is not limited to the selected free region"
     );
     test_helpers::expect_true(
@@ -301,6 +302,28 @@ void test_rejects_stale_topology_and_unimplemented_mode() {
     test_helpers::expect_true("unimplemented mode", mode_rejected, "unsafe mode was accepted");
 }
 
+void test_scope_factories_and_plan_validation_reject_contradictions() {
+    try {
+        static_cast<void>(DestructiveScope::whole_device(""));
+        test_helpers::fail("empty destructive device", "empty device identifier was accepted");
+    } catch (const btrfsbackup::ValidationError&) {}
+
+    auto plan = DevicePreparationPlanBuilder{}.build(
+        topology(),
+        "topology-test",
+        "device-8:16",
+        ProvisioningMode::EraseWholeDevice,
+        "plan-validated",
+        std::nullopt,
+        PlannedPartitionGeometry{.start_sector = 1, .sector_count = 14, .partition_number = 1}
+    );
+    plan.destructive_scope = DestructiveScope::existing_partition("device-8:16", "partition-1");
+    try {
+        plan.validate();
+        test_helpers::fail("contradictory destructive scope", "whole-device plan accepted partition scope");
+    } catch (const btrfsbackup::ValidationError&) {}
+}
+
 } // namespace
 
 int main() {
@@ -311,5 +334,6 @@ int main() {
     test_rejects_free_space_plan_without_gpt();
     test_rejects_invalid_free_space_geometry();
     test_rejects_stale_topology_and_unimplemented_mode();
+    test_scope_factories_and_plan_validation_reject_contradictions();
     return test_helpers::finish("device preparation plan builder tests");
 }

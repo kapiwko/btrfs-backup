@@ -142,7 +142,7 @@ std::vector<SafetyBlocker> StorageSafetyInspector::inspect(
         plan.mode != ProvisioningMode::AdoptExistingTarget
     );
 
-    if (plan.destructive_scope.kind == DestructiveScopeKind::WholeDevice) {
+    if (plan.destructive_scope.kind() == DestructiveScopeKind::WholeDevice) {
         if (expected.generation != current.generation)
             add_blocker(result, "topology-generation-changed");
         for (const auto& region : current_parent->regions) {
@@ -163,7 +163,7 @@ std::vector<SafetyBlocker> StorageSafetyInspector::inspect(
         return result;
     }
 
-    if (plan.destructive_scope.kind == DestructiveScopeKind::UnallocatedRegion) {
+    if (plan.destructive_scope.kind() == DestructiveScopeKind::UnallocatedRegion) {
         if (expected.generation != current.generation)
             add_blocker(result, "topology-generation-changed");
         if (!plan.free_region_id.has_value()) {
@@ -202,9 +202,9 @@ std::vector<SafetyBlocker> StorageSafetyInspector::inspect(
     }
 
     const bool existing_partition_scope =
-        plan.destructive_scope.kind == DestructiveScopeKind::ExistingPartition ||
+        plan.destructive_scope.kind() == DestructiveScopeKind::ExistingPartition ||
         (plan.mode == ProvisioningMode::AdoptExistingTarget &&
-         plan.destructive_scope.kind == DestructiveScopeKind::None);
+         plan.destructive_scope.kind() == DestructiveScopeKind::None);
     if (!existing_partition_scope || !plan.partition_id.has_value()) {
         add_blocker(result, "unsupported-destructive-scope");
         return result;

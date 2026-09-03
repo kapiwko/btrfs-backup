@@ -136,12 +136,41 @@ enum class DestructiveScopeKind {
     UnallocatedRegion,
 };
 
-struct DestructiveScope {
-    DestructiveScopeKind kind = DestructiveScopeKind::None;
-    DeviceCandidateId device_id;
-    std::optional<PartitionCandidateId> partition_id;
-    std::optional<UnallocatedRegionId> free_region_id;
+class DestructiveScope {
+  public:
+    [[nodiscard]] static DestructiveScope whole_device(DeviceCandidateId device_id);
+    [[nodiscard]] static DestructiveScope existing_partition(
+        DeviceCandidateId device_id,
+        PartitionCandidateId partition_id
+    );
+    [[nodiscard]] static DestructiveScope unallocated_region(
+        DeviceCandidateId device_id,
+        UnallocatedRegionId free_region_id
+    );
+    [[nodiscard]] static DestructiveScope adoption(
+        DeviceCandidateId device_id,
+        PartitionCandidateId partition_id
+    );
+
+    [[nodiscard]] DestructiveScopeKind kind() const noexcept;
+    [[nodiscard]] const DeviceCandidateId& device_id() const noexcept;
+    [[nodiscard]] const std::optional<PartitionCandidateId>& partition_id() const noexcept;
+    [[nodiscard]] const std::optional<UnallocatedRegionId>& free_region_id() const noexcept;
+
     bool operator==(const DestructiveScope&) const = default;
+
+  private:
+    DestructiveScope(
+        DestructiveScopeKind kind,
+        DeviceCandidateId device_id,
+        std::optional<PartitionCandidateId> partition_id,
+        std::optional<UnallocatedRegionId> free_region_id
+    );
+
+    DestructiveScopeKind kind_;
+    DeviceCandidateId device_id_;
+    std::optional<PartitionCandidateId> partition_id_;
+    std::optional<UnallocatedRegionId> free_region_id_;
 };
 
 struct DevicePreparationPlan {
@@ -159,6 +188,8 @@ struct DevicePreparationPlan {
     DestructiveScope destructive_scope;
 
     bool operator==(const DevicePreparationPlan&) const = default;
+
+    void validate() const;
 };
 
 [[nodiscard]] std::string provisioning_mode_name(ProvisioningMode mode);

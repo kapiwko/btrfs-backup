@@ -171,25 +171,36 @@ provisioning::ExistingTargetInspection DeviceProvisioningService::inspect_existi
     if (topology_reader_ == nullptr)
         throw dbus::ManagerOperationError(dbus::ManagerErrorCode::NotFound, "storage topology is unavailable");
     const auto expected = find_topology(caller, expected_generation);
-    provisioning::DevicePreparationPlan validation_plan;
-    validation_plan.topology_generation = expected_generation;
-    validation_plan.mode = provisioning::ProvisioningMode::AdoptExistingTarget;
-    validation_plan.partition_id = partition_id;
-    validation_plan.destructive_scope.kind = provisioning::DestructiveScopeKind::ExistingPartition;
-    validation_plan.destructive_scope.partition_id = partition_id;
+    const provisioning::StorageDevice* selected_device = nullptr;
     for (const auto& device : expected.devices) {
         const bool found = std::ranges::any_of(device.regions, [&](const auto& region) {
             const auto* partition = std::get_if<provisioning::ExistingPartition>(&region);
             return partition != nullptr && partition->candidate_id == partition_id;
         });
         if (found) {
-            validation_plan.device_id = device.candidate_id;
-            validation_plan.destructive_scope.device_id = device.candidate_id;
+            selected_device = &device;
             break;
         }
     }
-    if (validation_plan.device_id.empty())
+    if (selected_device == nullptr)
         throw dbus::ManagerOperationError(dbus::ManagerErrorCode::NotFound, "storage partition candidate is unavailable");
+    const provisioning::DevicePreparationPlan validation_plan{
+        .id = "existing-target-inspection",
+        .topology_generation = expected_generation,
+        .mode = provisioning::ProvisioningMode::AdoptExistingTarget,
+        .device_id = selected_device->candidate_id,
+        .partition_id = partition_id,
+        .free_region_id = std::nullopt,
+        .inspection_id = "pending-inspection",
+        .before = {},
+        .after = {},
+        .operations = {},
+        .warnings = {},
+        .destructive_scope = provisioning::DestructiveScope::adoption(
+            selected_device->candidate_id,
+            partition_id
+        ),
+    };
     const DevicePreparationTarget target = planned_target(expected, validation_plan);
     if (!target.partition->suitable_for_adoption)
         throw dbus::ManagerOperationError(dbus::ManagerErrorCode::Conflict, "storage partition cannot be adopted");
