@@ -7,9 +7,9 @@
 #include <cstdint>
 #include <string>
 
-#include <daemon/provisioning/StorageTopology.hpp>
+#include <provisioning/StorageTopology.hpp>
 
-namespace btrfsbackup::daemon::provisioning {
+namespace btrfsbackup::provisioning {
 
 enum class ExistingTargetClassification {
     CompatibleRepository,
@@ -49,4 +49,4 @@ struct ExistingTargetInspection {
     bool operator==(const ExistingTargetInspection&) const = default;
 };
 
-} // namespace btrfsbackup::daemon::provisioning
+} // namespace btrfsbackup::provisioning

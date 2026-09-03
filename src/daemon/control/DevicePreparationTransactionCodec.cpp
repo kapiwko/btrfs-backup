@@ -12,6 +12,8 @@ namespace btrfsbackup::daemon::control {
 namespace {
 
 using config::json::Json;
+using provisioning::DevicePreparationTarget;
+using provisioning::ProvisioningDevice;
 
 Json device_json(const ProvisioningDevice& device) {
     return {

@@ -98,7 +98,7 @@ int run_device_preparation(int argc, char** argv) {
             application_config
         );
         const auto configured_targets = [&profiles, &config_root] {
-            std::vector<btrfsbackup::daemon::provisioning::ConfiguredBackupTargetIdentity> result;
+            std::vector<btrfsbackup::provisioning::ConfiguredBackupTargetIdentity> result;
             for (const auto& profile_id :
                  btrfsbackup::platform::linux::config::list_profiles(config_root / "profiles")) {
                 const auto& target = profiles.get(btrfsbackup::ProfileId{profile_id}).profile.target;

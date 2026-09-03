@@ -10,9 +10,9 @@
 #include <variant>
 #include <vector>
 
-#include <daemon/provisioning/StorageTopology.hpp>
+#include <provisioning/StorageTopology.hpp>
 
-namespace btrfsbackup::daemon::provisioning {
+namespace btrfsbackup::provisioning {
 
 using DevicePreparationPlanId = std::string;
 
@@ -196,4 +196,4 @@ struct DevicePreparationPlan {
 [[nodiscard]] std::optional<ProvisioningMode> provisioning_mode_from_name(std::string_view name);
 [[nodiscard]] std::string predicted_region_kind_name(PredictedRegionKind kind);
 
-} // namespace btrfsbackup::daemon::provisioning
+} // namespace btrfsbackup::provisioning

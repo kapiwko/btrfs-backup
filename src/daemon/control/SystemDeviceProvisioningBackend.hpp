@@ -26,7 +26,7 @@ class IPartitionTableOperations;
 class ISignatureOperations;
 } // namespace btrfsbackup::platform::linux::storage
 
-namespace btrfsbackup::daemon::provisioning {
+namespace btrfsbackup::provisioning {
 class StorageTopologyReader;
 }
 

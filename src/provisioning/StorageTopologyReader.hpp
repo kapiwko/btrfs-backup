@@ -3,9 +3,9 @@
 
 #pragma once
 
-#include <daemon/provisioning/StorageTopology.hpp>
+#include <provisioning/StorageTopology.hpp>
 
-namespace btrfsbackup::daemon::provisioning {
+namespace btrfsbackup::provisioning {
 
 class StorageTopologyReader {
   public:
@@ -13,4 +13,4 @@ class StorageTopologyReader {
     [[nodiscard]] virtual StorageTopology scan() = 0;
 };
 
-} // namespace btrfsbackup::daemon::provisioning
+} // namespace btrfsbackup::provisioning

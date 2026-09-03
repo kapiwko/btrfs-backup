@@ -6,9 +6,11 @@
 #include <string>
 #include <string_view>
 
-#include <daemon/control/DevicePreparationTransaction.hpp>
+#include <provisioning/DevicePreparationTransaction.hpp>
 
 namespace btrfsbackup::daemon::control {
+
+using provisioning::DevicePreparationTransaction;
 
 class DevicePreparationTransactionCodec final {
   public:

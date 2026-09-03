@@ -81,7 +81,7 @@ target_link_libraries(btrfsbackup-daemon-control
     PUBLIC
         btrfsbackup-config-domain
         btrfsbackup-daemon-core
-        btrfsbackup-daemon-provisioning
+        btrfsbackup-provisioning
         btrfsbackup-platform-linux-base
     PRIVATE
         btrfsbackup-config-json
@@ -113,7 +113,6 @@ target_restricted_include_directories(btrfsbackup-daemon-system-control
     PUBLIC_HEADERS
         daemon/control/CommandSystemdUnitController.hpp
         daemon/control/DestructiveDeviceSafetyInspector.hpp
-        daemon/control/DevicePreparationTransaction.hpp
         daemon/control/DevicePreparationTransactionCodec.hpp
         daemon/control/DevicePreparationTransactionStore.hpp
         daemon/control/DevicePreparationUnitController.hpp
@@ -140,7 +139,7 @@ target_link_libraries(btrfsbackup-daemon-system-control
         btrfsbackup-config-json
         btrfsbackup-config-wizard
         btrfsbackup-backup-planning
-        btrfsbackup-daemon-provisioning
+        btrfsbackup-provisioning
         btrfsbackup-platform-linux-config
         btrfsbackup-platform-linux-process
         btrfsbackup-platform-linux-provisioning

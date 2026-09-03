@@ -1,13 +1,13 @@
 // SPDX-FileCopyrightText: 2026 Kamil Piwowarski <kapiwko@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <daemon/provisioning/DevicePreparationPlan.hpp>
+#include <provisioning/DevicePreparationPlan.hpp>
 
 #include <utility>
 
 #include <core/Errors.hpp>
 
-namespace btrfsbackup::daemon::provisioning {
+namespace btrfsbackup::provisioning {
 
 namespace {
 
@@ -159,4 +159,4 @@ std::string predicted_region_kind_name(PredictedRegionKind kind) {
     return "unsupported";
 }
 
-} // namespace btrfsbackup::daemon::provisioning
+} // namespace btrfsbackup::provisioning

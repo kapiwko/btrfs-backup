@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Kamil Piwowarski <kapiwko@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <daemon/provisioning/DevicePreparationPlanBuilder.hpp>
+#include <provisioning/DevicePreparationPlanBuilder.hpp>
 
 #include <algorithm>
 #include <iterator>
@@ -12,7 +12,7 @@
 
 #include <core/Errors.hpp>
 
-namespace btrfsbackup::daemon::provisioning {
+namespace btrfsbackup::provisioning {
 namespace {
 
 PredictedStorageRegion predicted_region(const StorageRegion& region) {
@@ -340,4 +340,4 @@ DevicePreparationPlan DevicePreparationPlanBuilder::build(
     throw ValidationError("provisioning mode is not implemented");
 }
 
-} // namespace btrfsbackup::daemon::provisioning
+} // namespace btrfsbackup::provisioning
