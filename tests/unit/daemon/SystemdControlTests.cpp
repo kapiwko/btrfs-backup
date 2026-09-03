@@ -36,6 +36,7 @@ using btrfsbackup::daemon::control::AuthorizedOperationContext;
 using btrfsbackup::daemon::control::ActiveUnitRequest;
 using btrfsbackup::daemon::control::ActiveUnitResult;
 using btrfsbackup::daemon::control::CommandSystemdUnitController;
+using btrfsbackup::daemon::control::DevicePreparationDeviceAccess;
 using btrfsbackup::daemon::control::SystemdDevicePreparationUnitController;
 using btrfsbackup::daemon::control::ISystemdUnitController;
 using btrfsbackup::daemon::dbus::ManagerErrorCode;
@@ -200,11 +201,36 @@ void test_command_adapter_builds_transient_invocation() {
     );
 }
 
+void test_runtime_property_failure_prevents_unit_start() {
+    FakeCommands commands;
+    commands.results.push_back({.exit_code = 1, .output = "Access denied"});
+    CommandSystemdUnitController units(commands);
+    const auto result = units.start_unit({
+        .unit = "restricted.service",
+        .timeout = std::chrono::seconds(5),
+        .runtime_properties = {"DevicePolicy=closed"},
+    });
+    test_helpers::expect_true(
+        "runtime property failure",
+        !result && result.error().failure == SystemdJobFailure::ManagerRejected &&
+            commands.calls == std::vector<std::vector<std::string>>{{
+                                  "systemctl",
+                                  "set-property",
+                                  "--runtime",
+                                  "restricted.service",
+                                  "DevicePolicy=closed",
+                              }},
+        "unit started without its required runtime restrictions"
+    );
+}
+
 void test_device_preparation_unit_receives_secret_over_fifo() {
     const auto root = test_helpers::test_root("systemd-control", "device-preparation-secret");
+    const auto device_groups = root / "devices";
+    test_helpers::write_file(device_groups, "Character devices:\n  1 mem\n\nBlock devices:\n  8 sd\n253 device-mapper\n");
     FakeCommands commands;
     CommandSystemdUnitController systemd_units(commands);
-    SystemdDevicePreparationUnitController units(systemd_units, root);
+    SystemdDevicePreparationUnitController units(systemd_units, root, device_groups);
     constexpr std::string_view expected = "helper secret";
     const auto bytes = std::as_bytes(std::span(expected.data(), expected.size()));
     auto secret = btrfsbackup::platform::linux::filesystem::create_sealed_secret_file(bytes);
@@ -224,17 +250,36 @@ void test_device_preparation_unit_receives_secret_over_fifo() {
         ::close(descriptor);
     });
 
-    units.start("prepare-fifo-test", secret.get());
+    units.start(
+        "prepare-fifo-test",
+        secret.get(),
+        DevicePreparationDeviceAccess{{"8:17", "8:16", "8:17"}, true}
+    );
     reader.join();
     test_helpers::expect_eq("device preparation FIFO secret", received, std::string(expected));
     test_helpers::expect_true(
         "device preparation start command",
-        commands.calls == std::vector<std::vector<std::string>>{{
-                              "systemctl",
-                              "start",
-                              "--no-block",
-                              "btrfs-backup-device-preparation@prepare-fifo-test.service",
-                          }},
+        commands.calls == std::vector<std::vector<std::string>>{
+                              {
+                                  "systemctl",
+                                  "set-property",
+                                  "--runtime",
+                                  "btrfs-backup-device-preparation@prepare-fifo-test.service",
+                                  "DevicePolicy=closed",
+                                  "DeviceAllow=",
+                                  "DeviceAllow=/dev/block/8:16 rw",
+                                  "DeviceAllow=/dev/block/8:17 rw",
+                                  "DeviceAllow=block-sd rw",
+                                  "DeviceAllow=block-device-mapper rw",
+                                  "DeviceAllow=/dev/mapper/control rw",
+                              },
+                              {
+                                  "systemctl",
+                                  "start",
+                                  "--no-block",
+                                  "btrfs-backup-device-preparation@prepare-fifo-test.service",
+                              },
+                          },
         "helper unit start command changed"
     );
     test_helpers::expect_true(
@@ -356,6 +401,7 @@ void test_backend_maps_typed_systemd_failures() {
 
 int main() {
     test_command_adapter_builds_transient_invocation();
+    test_runtime_property_failure_prevents_unit_start();
     test_device_preparation_unit_receives_secret_over_fifo();
     test_command_adapter_classifies_systemd_failures();
     test_command_adapter_reports_unit_activity();

@@ -121,8 +121,13 @@ the request and launches one
 `btrfs-backup-device-preparation@<operationId>.service` instance. That
 short-lived helper receives the passphrase through a root-only FIFO, executes
 exactly one transaction, and checkpoints every phase. Its unit has a closed
-device policy with explicit block-device access, a strict filesystem sandbox,
-and only the capabilities required for storage administration. No QML, KDE, or
+device policy. Before starting an operation, the manager replaces the unit's
+device allow-list with the exact selected disk and its existing partitions.
+Operations that create a partition additionally receive only the selected
+disk's kernel block-driver group because the new partition has no device number
+until after the unit starts. Device-mapper access is a separate explicit group;
+the blanket `block-*` grant is forbidden by tests. The unit also has a strict
+filesystem sandbox and only the capabilities required for storage administration. No QML, KDE, or
 long-lived D-Bus worker thread invokes `mkfs.btrfs` directly. LUKS2
 metadata, keyslots and mappings are managed through libcryptsetup; protected
 credential buffers use `crypt_safe_alloc` and are released with

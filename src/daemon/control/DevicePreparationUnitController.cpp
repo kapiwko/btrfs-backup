@@ -9,6 +9,9 @@
 #include <chrono>
 #include <cstring>
 #include <fcntl.h>
+#include <fstream>
+#include <set>
+#include <sstream>
 #include <string>
 #include <sys/stat.h>
 #include <thread>
@@ -73,6 +76,66 @@ void write_all(int descriptor, const std::byte* data, std::size_t size) {
     }
 }
 
+unsigned int device_major(std::string_view major_minor) {
+    const auto separator = major_minor.find(':');
+    if (separator == std::string_view::npos || separator == 0 || separator + 1 == major_minor.size())
+        throw ValidationError("device preparation major:minor is invalid");
+    std::size_t parsed = 0;
+    const unsigned long value = std::stoul(std::string(major_minor.substr(0, separator)), &parsed);
+    if (parsed != separator)
+        throw ValidationError("device preparation major:minor is invalid");
+    parsed = 0;
+    static_cast<void>(std::stoul(std::string(major_minor.substr(separator + 1)), &parsed));
+    if (parsed != major_minor.size() - separator - 1)
+        throw ValidationError("device preparation major:minor is invalid");
+    return static_cast<unsigned int>(value);
+}
+
+std::string block_device_group(const fs::path& groups_path, unsigned int expected_major) {
+    std::ifstream input(groups_path);
+    if (!input)
+        throw ValidationError("cannot read block device groups");
+    bool block_devices = false;
+    std::string line;
+    while (std::getline(input, line)) {
+        if (line == "Block devices:") {
+            block_devices = true;
+            continue;
+        }
+        if (!block_devices)
+            continue;
+        std::istringstream fields(line);
+        unsigned int major = 0;
+        std::string name;
+        if (fields >> major >> name && major == expected_major)
+            return name;
+    }
+    throw ValidationError("selected block device group is unavailable");
+}
+
+std::vector<std::string> device_properties(
+    const DevicePreparationDeviceAccess& access,
+    const fs::path& groups_path
+) {
+    if (access.major_minor.empty())
+        throw ValidationError("device preparation has no allowed target device");
+    std::set<std::string> devices;
+    for (const auto& value : access.major_minor) {
+        static_cast<void>(device_major(value));
+        devices.insert(value);
+    }
+    std::vector<std::string> properties{"DevicePolicy=closed", "DeviceAllow="};
+    for (const auto& value : devices)
+        properties.push_back("DeviceAllow=/dev/block/" + value + " rw");
+    if (access.allow_future_partitions) {
+        const auto major = device_major(*devices.begin());
+        properties.push_back("DeviceAllow=block-" + block_device_group(groups_path, major) + " rw");
+    }
+    properties.emplace_back("DeviceAllow=block-device-mapper rw");
+    properties.emplace_back("DeviceAllow=/dev/mapper/control rw");
+    return properties;
+}
+
 SecretBuffer read_secret(int descriptor) {
     if (::lseek(descriptor, 0, SEEK_SET) < 0)
         throw ValidationError("cannot rewind device preparation secret");
@@ -100,8 +163,9 @@ SecretBuffer read_secret(int descriptor) {
 
 SystemdDevicePreparationUnitController::SystemdDevicePreparationUnitController(
     ISystemdUnitController& units,
-    fs::path secret_root
-) : units_(units), secret_root_(std::move(secret_root)) {
+    fs::path secret_root,
+    fs::path device_groups_path
+) : units_(units), secret_root_(std::move(secret_root)), device_groups_path_(std::move(device_groups_path)) {
 }
 
 fs::path SystemdDevicePreparationUnitController::secret_path(const std::string& operation_id) const {
@@ -109,11 +173,15 @@ fs::path SystemdDevicePreparationUnitController::secret_path(const std::string& 
     return secret_root_ / (operation_id + ".fifo");
 }
 
-void SystemdDevicePreparationUnitController::start_unit(const std::string& operation_id) {
+void SystemdDevicePreparationUnitController::start_unit(
+    const std::string& operation_id,
+    const DevicePreparationDeviceAccess& access
+) {
     const auto result = units_.start_unit({
         .unit = unit_name(operation_id),
         .timeout = std::chrono::seconds(30),
         .no_block = true,
+        .runtime_properties = device_properties(access, device_groups_path_),
     });
     if (!result)
         throw dbus::ManagerOperationError(
@@ -124,7 +192,8 @@ void SystemdDevicePreparationUnitController::start_unit(const std::string& opera
 
 void SystemdDevicePreparationUnitController::start(
     const std::string& operation_id,
-    int passphrase_fd
+    int passphrase_fd,
+    const DevicePreparationDeviceAccess& access
 ) {
     ensure_secret_root(secret_root_);
     const fs::path fifo = secret_path(operation_id);
@@ -133,7 +202,7 @@ void SystemdDevicePreparationUnitController::start(
     if (::mkfifo(fifo.c_str(), S_IRUSR | S_IWUSR) < 0)
         throw ValidationError("cannot create device preparation secret channel");
     try {
-        start_unit(operation_id);
+        start_unit(operation_id, access);
         OwnedFileDescriptor writer;
         const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
         while (std::chrono::steady_clock::now() < deadline) {
@@ -160,8 +229,11 @@ void SystemdDevicePreparationUnitController::start(
     fs::remove(fifo, error);
 }
 
-void SystemdDevicePreparationUnitController::recover(const std::string& operation_id) {
-    start_unit(operation_id);
+void SystemdDevicePreparationUnitController::recover(
+    const std::string& operation_id,
+    const DevicePreparationDeviceAccess& access
+) {
+    start_unit(operation_id, access);
 }
 
 void SystemdDevicePreparationUnitController::stop(const std::string& operation_id) {

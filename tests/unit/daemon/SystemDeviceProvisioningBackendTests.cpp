@@ -33,6 +33,7 @@ namespace {
 namespace backup = btrfsbackup::backup;
 namespace config = btrfsbackup::config;
 using btrfsbackup::ProfileId;
+using btrfsbackup::daemon::control::DevicePreparationDeviceAccess;
 using btrfsbackup::daemon::control::DevicePreparationStatus;
 using btrfsbackup::daemon::control::DevicePreparationTarget;
 using btrfsbackup::daemon::control::DevicePreparationTransaction;
@@ -427,12 +428,15 @@ class Units final : public IDevicePreparationUnitController {
     int starts = 0;
     int recoveries = 0;
     int stops = 0;
-    void start(const std::string&, int) override {
+    DevicePreparationDeviceAccess last_access;
+    void start(const std::string&, int, const DevicePreparationDeviceAccess& access) override {
         running = true;
         ++starts;
+        last_access = access;
     }
-    void recover(const std::string&) override {
+    void recover(const std::string&, const DevicePreparationDeviceAccess& access) override {
         ++recoveries;
+        last_access = access;
     }
     void stop(const std::string&) override {
         running = false;
@@ -614,6 +618,12 @@ void test_preparation_sequence_uses_descriptors_and_installs_profile() {
         "second provisioning operation reserved the same profile identity"
     );
     test_helpers::expect_true("helper launched", units.starts == 1, "manager did not launch the helper unit");
+    test_helpers::expect_true(
+        "helper block access scoped",
+        units.last_access.major_minor == std::vector<std::string>{"8:16"} &&
+            units.last_access.allow_future_partitions,
+        "manager did not scope helper block access to the selected device"
+    );
     test_helpers::expect_true(
         "manager does not wipe",
         std::ranges::find(commands.calls, std::string("wipefs"), [](const auto& call) {
