@@ -155,7 +155,13 @@ a root-only transaction record. Status and cancellation require the matching
 owner (the UID is used after a daemon restart) or a fresh administrator
 authorization. Transaction files use mode `0600` in a `0700` directory and are
 updated using a same-directory atomic rename followed by file and parent
-directory synchronization.
+directory synchronization. Every document carries a monotonically increasing
+revision. Manager and helper transitions take an exclusive per-operation
+`flock()`, reload the document under that lock, compare the expected revision,
+validate the state transition, and only then publish the next revision.
+Terminal transactions are immutable. Cancellation is persisted separately as
+`cancelRequested`, so a manager request cannot replace the helper's recorded
+phase or artifact UUIDs.
 
 Every external command receives a newly built environment containing only
 `PATH=/usr/bin`, `LANG=C.UTF-8`, `LC_ALL=C.UTF-8`, and `HOME=/root`. Variables

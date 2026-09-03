@@ -9,6 +9,8 @@
 #include <chrono>
 #include <filesystem>
 #include <ranges>
+#include <sys/wait.h>
+#include <unistd.h>
 #include <utility>
 
 #include "support/TestHelpers.hpp"
@@ -17,6 +19,7 @@ namespace {
 
 using btrfsbackup::daemon::control::DevicePreparationTransaction;
 using btrfsbackup::daemon::control::DevicePreparationTransactionStore;
+using btrfsbackup::daemon::control::TransactionRevision;
 
 std::int64_t now_seconds() {
     return std::chrono::duration_cast<std::chrono::seconds>(
@@ -95,6 +98,7 @@ void test_round_trip_preserves_recovery_state() {
     const auto loaded = store.load_and_prune();
     test_helpers::expect_true("round trip count", loaded.size() == 1, "transaction was not loaded");
     const auto& value = loaded.front();
+    test_helpers::expect_true("initial revision", value.revision == TransactionRevision{1}, "revision was not initialized");
     test_helpers::expect_eq("owner bus", value.owner.bus_name, ":1.42");
     test_helpers::expect_true("owner uid", value.owner.uid == 1000, "owner UID changed");
     test_helpers::expect_eq("stable identity", value.device.major_minor, "8:16");
@@ -123,6 +127,110 @@ void test_round_trip_preserves_recovery_state() {
         "/home/.snapshots/btrfs-backup/test"
     );
     test_helpers::expect_eq("recovery action", value.status.recovery_action, "inspect manually");
+}
+
+void test_revision_conflicts_and_state_transitions_are_rejected() {
+    const auto root = test_helpers::test_root("device-preparation-transactions", "transitions");
+    DevicePreparationTransactionStore store(root);
+    auto saved = transaction("prepare-transitions", "running", now_seconds());
+    saved.profile_reservation_state = "held";
+    store.save(saved);
+    const auto stale = store.load("prepare-transitions");
+    const auto changed = store.update(
+        "prepare-transitions",
+        stale.revision,
+        [](auto& value) { value.last_completed_phase = "partition"; }
+    );
+    test_helpers::expect_true(
+        "revision increment",
+        changed.revision == TransactionRevision{2},
+        "transaction revision was not incremented"
+    );
+    try {
+        static_cast<void>(store.update(
+            "prepare-transitions",
+            stale.revision,
+            [](auto& value) { value.luks_uuid = "stale-write"; }
+        ));
+        test_helpers::fail("revision conflict", "a stale transaction update was accepted");
+    } catch (const btrfsbackup::ValidationError&) {
+    }
+    try {
+        static_cast<void>(store.update(
+            "prepare-transitions",
+            changed.revision,
+            [](auto& value) { value.status.state = "queued"; }
+        ));
+        test_helpers::fail("invalid state transition", "a running transaction returned to queued");
+    } catch (const btrfsbackup::ValidationError&) {
+    }
+
+    auto terminal = transaction("prepare-terminal", "failed", now_seconds());
+    store.save(terminal);
+    try {
+        static_cast<void>(store.update(
+            "prepare-terminal",
+            terminal.revision,
+            [](auto& value) { value.status.state = "running"; }
+        ));
+        test_helpers::fail("terminal transition", "a terminal transaction was modified");
+    } catch (const btrfsbackup::ValidationError&) {
+    }
+}
+
+void test_process_updates_are_serialized_without_losing_fields() {
+    const auto root = test_helpers::test_root("device-preparation-transactions", "process-update");
+    DevicePreparationTransactionStore store(root);
+    auto saved = transaction("prepare-process-update", "running", now_seconds());
+    saved.profile_reservation_state = "held";
+    store.save(saved);
+    int gate[2];
+    test_helpers::expect_true("process update gate", ::pipe(gate) == 0, "cannot create process update gate");
+    const auto spawn_update = [&](const auto& transition) {
+        const pid_t child = ::fork();
+        if (child == 0) {
+            ::close(gate[1]);
+            char start = 0;
+            if (::read(gate[0], &start, 1) != 1)
+                _exit(2);
+            try {
+                static_cast<void>(store.update("prepare-process-update", transition));
+                _exit(0);
+            } catch (...) {
+                _exit(3);
+            }
+        }
+        return child;
+    };
+    const pid_t first = spawn_update([](auto& value) { value.partition_uuid = "partition-from-helper"; });
+    const pid_t second = spawn_update([](auto& value) {
+        value.cancel_requested = true;
+        value.status.can_cancel = false;
+    });
+    ::close(gate[0]);
+    const char starts[2] = {'1', '2'};
+    test_helpers::expect_true("release process updates", ::write(gate[1], starts, 2) == 2, "cannot release updates");
+    ::close(gate[1]);
+    int first_status = 0;
+    int second_status = 0;
+    test_helpers::expect_true(
+        "wait for process updates",
+        ::waitpid(first, &first_status, 0) == first && ::waitpid(second, &second_status, 0) == second,
+        "cannot wait for transaction writers"
+    );
+    test_helpers::expect_true(
+        "process update results",
+        WIFEXITED(first_status) && WEXITSTATUS(first_status) == 0 && WIFEXITED(second_status) &&
+            WEXITSTATUS(second_status) == 0,
+        "a serialized transaction writer failed"
+    );
+    const auto loaded = store.load("prepare-process-update");
+    test_helpers::expect_true(
+        "merged process updates",
+        loaded.revision == TransactionRevision{3} && loaded.partition_uuid == "partition-from-helper" &&
+            loaded.cancel_requested && loaded.status.phase == "mkfs-btrfs",
+        "a concurrent field update or the helper phase was lost"
+    );
 }
 
 void test_profile_reservation_is_durable_and_owner_guarded() {
@@ -221,11 +329,12 @@ void test_completed_limit_ttl_and_active_retention() {
     const auto root = test_helpers::test_root("device-preparation-transactions", "retention");
     DevicePreparationTransactionStore store(root, 2, std::chrono::hours(1));
     const std::int64_t now = now_seconds();
-    store.save(transaction("prepare-expired", "failed", now - 7200));
-    store.save(transaction("prepare-oldest", "succeeded", now - 30));
-    store.save(transaction("prepare-middle", "failed", now - 20));
-    store.save(transaction("prepare-newest", "cancelled", now - 10));
-    store.save(transaction("prepare-active", "running", now - 7200));
+    const auto save = [&](DevicePreparationTransaction value) { store.save(value); };
+    save(transaction("prepare-expired", "failed", now - 7200));
+    save(transaction("prepare-oldest", "succeeded", now - 30));
+    save(transaction("prepare-middle", "failed", now - 20));
+    save(transaction("prepare-newest", "cancelled", now - 10));
+    save(transaction("prepare-active", "running", now - 7200));
     auto held = transaction("prepare-held", "failed", now - 7200);
     held.profile_reservation_state = "held";
     store.save(held);
@@ -249,7 +358,7 @@ void test_previous_unreleased_transaction_schema_is_rejected() {
     test_helpers::write_file(
         root / "prepare-legacy.json",
         R"({
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "operationId": "prepare-legacy",
   "profileId": "test",
   "state": "running",
@@ -274,6 +383,8 @@ void test_previous_unreleased_transaction_schema_is_rejected() {
 
 int main() {
     test_round_trip_preserves_recovery_state();
+    test_revision_conflicts_and_state_transitions_are_rejected();
+    test_process_updates_are_serialized_without_losing_fields();
     test_profile_reservation_is_durable_and_owner_guarded();
     test_round_trip_preserves_adoption_fingerprint();
     test_round_trip_preserves_free_space_geometry();

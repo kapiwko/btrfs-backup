@@ -304,13 +304,25 @@ struct SystemDeviceProvisioningBackend::Impl {
         DevicePreparationTransaction transaction = transactions.load(operation_id);
         if ((transaction.status.state == "queued" || transaction.status.state == "running") &&
             !units.active(operation_id)) {
-            transaction.status.state = "interrupted";
-            transaction.status.error_code = "device-preparation.helper-exited";
-            transaction.status.recovery_action =
-                "Inspect the recorded device and lastCompletedPhase; complete or remove partial structures manually.";
-            transaction.status.can_cancel = false;
-            transaction.updated_at = system_time_seconds();
-            transactions.save(transaction);
+            try {
+                transaction = transactions.update(
+                    operation_id,
+                    transaction.revision,
+                    [](auto& current) {
+                        current.status.state = current.cancel_requested ? "cancelled" : "interrupted";
+                        current.status.error_code = current.cancel_requested
+                            ? std::string{}
+                            : "device-preparation.helper-exited";
+                        current.status.recovery_action = current.cancel_requested
+                            ? std::string{}
+                            : "Inspect the recorded device and lastCompletedPhase; complete or remove partial structures manually.";
+                        current.status.can_cancel = false;
+                        current.updated_at = system_time_seconds();
+                    }
+                );
+            } catch (const ValidationError&) {
+                transaction = transactions.load(operation_id);
+            }
             if (!transaction.mapper.empty()) {
                 try {
                     units.recover(operation_id);
@@ -394,9 +406,13 @@ struct SystemDeviceProvisioningBackend::Impl {
     template <typename Mutator>
     void update(const std::shared_ptr<State>& state, Mutator mutator) {
         std::lock_guard lock(state->mutex);
-        mutator(state->transaction);
-        state->transaction.updated_at = system_time_seconds();
-        transactions.save(state->transaction);
+        state->transaction = transactions.update(
+            state->transaction.status.operation_id,
+            [&](auto& transaction) {
+                mutator(transaction);
+                transaction.updated_at = system_time_seconds();
+            }
+        );
     }
 };
 
@@ -526,6 +542,7 @@ DevicePreparationStatus SystemDeviceProvisioningBackend::start(
     auto state = std::make_shared<State>();
     const std::int64_t now = system_time_seconds();
     state->transaction = {
+        .revision = {},
         .status = {
             .operation_id = next_operation_id(),
             .profile_id = request.profile_id,
@@ -620,10 +637,38 @@ void SystemDeviceProvisioningBackend::cancel(const std::string& operation_id) {
             dbus::ManagerErrorCode::Conflict,
             "device preparation can no longer be cancelled"
         );
+    try {
+        transaction = impl_->transactions.update(
+            operation_id,
+            transaction.revision,
+            [](auto& current) {
+                if (!current.status.can_cancel)
+                    throw ValidationError("device preparation can no longer be cancelled");
+                current.cancel_requested = true;
+                current.updated_at = system_time_seconds();
+            }
+        );
+    } catch (const ValidationError&) {
+        throw dbus::ManagerOperationError(
+            dbus::ManagerErrorCode::Conflict,
+            "device preparation can no longer be cancelled"
+        );
+    }
     impl_->units.stop(operation_id);
-    transaction.status.state = "cancelled";
-    transaction.status.phase = "cancelled";
-    transaction.status.can_cancel = false;
+    try {
+        transaction = impl_->transactions.update(operation_id, [](auto& current) {
+            if (current.cancel_requested &&
+                (current.status.state == "queued" || current.status.state == "running")) {
+                current.status.state = "cancelled";
+                current.status.can_cancel = false;
+                current.updated_at = system_time_seconds();
+            }
+        });
+    } catch (const ValidationError&) {
+        transaction = impl_->transactions.load(operation_id);
+    }
+    if (transaction.status.state != "cancelled")
+        return;
     if (transaction.profile_reservation_state == "held") {
         transaction.profile_reservation_state = "releasing";
         transaction.updated_at = system_time_seconds();

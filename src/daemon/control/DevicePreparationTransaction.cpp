@@ -12,6 +12,8 @@
 #include <limits>
 #include <ranges>
 #include <stdexcept>
+#include <string_view>
+#include <sys/file.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -32,11 +34,43 @@ constexpr mode_t transaction_permissions = S_IRUSR | S_IWUSR;
 constexpr fs::perms transaction_directory_permissions =
     fs::perms::owner_read | fs::perms::owner_write | fs::perms::owner_exec;
 
+class TransactionLock final {
+  public:
+    explicit TransactionLock(const fs::path& path) {
+        int descriptor;
+        do {
+            descriptor = ::open(path.c_str(), O_WRONLY | O_CREAT | O_CLOEXEC | O_NOFOLLOW, transaction_permissions);
+        } while (descriptor < 0 && errno == EINTR);
+        if (descriptor < 0)
+            throw ValidationError("cannot open device preparation transaction lock");
+        descriptor_ = platform::linux::OwnedFileDescriptor(descriptor);
+        int result;
+        do {
+            result = ::flock(descriptor_.get(), LOCK_EX);
+        } while (result < 0 && errno == EINTR);
+        if (result < 0)
+            throw ValidationError("cannot lock device preparation transaction");
+    }
+
+  private:
+    platform::linux::OwnedFileDescriptor descriptor_;
+};
+
 bool terminal(const DevicePreparationTransaction& transaction) {
     return transaction.profile_reservation_state != "held" &&
         transaction.profile_reservation_state != "releasing" &&
         (transaction.status.state == "succeeded" || transaction.status.state == "failed" ||
          transaction.status.state == "cancelled" || transaction.status.state == "interrupted");
+}
+
+bool state_transition_allowed(std::string_view from, std::string_view to) {
+    if (from == to)
+        return true;
+    if (from == "queued")
+        return to == "running" || to == "cancelled" || to == "interrupted" || to == "failed";
+    if (from == "running")
+        return to == "succeeded" || to == "cancelled" || to == "interrupted" || to == "failed";
+    return false;
 }
 
 std::int64_t now_seconds() {
@@ -58,6 +92,18 @@ void prepare_root(const fs::path& root) {
 
 fs::path reservation_root(const fs::path& root) {
     return root / "profile-reservations";
+}
+
+fs::path transaction_lock_root(const fs::path& root) {
+    return root / "transaction-locks";
+}
+
+fs::path transaction_path(const fs::path& root, const std::string& operation_id) {
+    return root / (operation_id + ".json");
+}
+
+fs::path transaction_lock_path(const fs::path& root, const std::string& operation_id) {
+    return transaction_lock_root(root) / (operation_id + ".lock");
 }
 
 fs::path reservation_path(const fs::path& root, const std::string& profile_id) {
@@ -358,7 +404,8 @@ DevicePreparationTarget parse_target(const Json& value) {
 
 Json transaction_json(const DevicePreparationTransaction& transaction) {
     return {
-        {"schemaVersion", 7},
+        {"schemaVersion", 8},
+        {"revision", transaction.revision.value},
         {"operationId", transaction.status.operation_id},
         {"profileId", transaction.status.profile_id},
         {"state", transaction.status.state},
@@ -391,14 +438,16 @@ Json transaction_json(const DevicePreparationTransaction& transaction) {
         {"credentialsState", transaction.credentials_state},
         {"profileReservationState", transaction.profile_reservation_state},
         {"cleanupResult", transaction.cleanup_result},
+        {"cancelRequested", transaction.cancel_requested},
     };
 }
 
 DevicePreparationTransaction parse_transaction(const Json& value) {
     const int schema_version = value.value("schemaVersion", 0);
-    if (!value.is_object() || schema_version != 7 || !value.contains("device"))
+    if (!value.is_object() || schema_version != 8 || !value.contains("device"))
         throw ValidationError("invalid device preparation transaction");
     DevicePreparationTransaction result;
+    result.revision.value = value.value("revision", std::uint64_t{0});
     result.status = {
         .operation_id = value.value("operationId", ""),
         .profile_id = value.value("profileId", ""),
@@ -437,7 +486,8 @@ DevicePreparationTransaction parse_transaction(const Json& value) {
     result.credentials_state = value.value("credentialsState", "not-started");
     result.profile_reservation_state = value.value("profileReservationState", "not-held");
     result.cleanup_result = value.value("cleanupResult", "not-required");
-    if (result.status.operation_id.empty() || result.status.profile_id.empty() ||
+    result.cancel_requested = value.value("cancelRequested", false);
+    if (result.revision.value == 0 || result.status.operation_id.empty() || result.status.profile_id.empty() ||
         result.owner.bus_name.empty() || result.created_at <= 0 ||
         result.profile_name.empty() || result.source_subvolume.empty() || result.passphrase_label.empty() ||
         result.source_filesystem_uuid.empty() || result.source_mount_root.empty() ||
@@ -457,16 +507,103 @@ DevicePreparationTransactionStore::DevicePreparationTransactionStore(
         throw std::invalid_argument("invalid device preparation transaction retention");
 }
 
-void DevicePreparationTransactionStore::save(const DevicePreparationTransaction& transaction) const {
+void DevicePreparationTransactionStore::save(DevicePreparationTransaction& transaction) const {
     if (transaction.status.operation_id.empty())
         throw ValidationError("device preparation transaction has no operation identifier");
     validate_operation_id(transaction.status.operation_id);
     prepare_root(root_);
+    prepare_root(transaction_lock_root(root_));
+    const TransactionLock lock(transaction_lock_path(root_, transaction.status.operation_id));
+    const fs::path path = transaction_path(root_, transaction.status.operation_id);
+    DevicePreparationTransaction changed = transaction;
+    if (fs::exists(path)) {
+        std::ifstream input(path);
+        Json document;
+        input >> document;
+        const auto current = parse_transaction(document);
+        if (current.status.operation_id != transaction.status.operation_id)
+            throw ValidationError("transaction file name does not match its operation identifier");
+        if (current.revision != transaction.revision)
+            throw ValidationError("device preparation transaction revision conflict");
+        if (terminal(current))
+            throw ValidationError("terminal device preparation transaction is immutable");
+        if (!state_transition_allowed(current.status.state, transaction.status.state))
+            throw ValidationError("invalid device preparation transaction state transition");
+        if (current.cancel_requested && !transaction.cancel_requested)
+            throw ValidationError("device preparation cancellation request cannot be cleared");
+        if (transaction.revision.value == std::numeric_limits<std::uint64_t>::max())
+            throw ValidationError("device preparation transaction revision is exhausted");
+        changed.revision.value += 1;
+    } else {
+        if (transaction.revision.value != 0)
+            throw ValidationError("device preparation transaction is missing");
+        changed.revision.value = 1;
+    }
     platform::linux::filesystem::atomic_write(
-        root_ / (transaction.status.operation_id + ".json"),
-        transaction_json(transaction).dump(2) + "\n",
+        path,
+        transaction_json(changed).dump(2) + "\n",
         transaction_permissions
     );
+    transaction = std::move(changed);
+}
+
+DevicePreparationTransaction DevicePreparationTransactionStore::update(
+    const std::string& operation_id,
+    TransactionRevision expected_revision,
+    const DevicePreparationTransition& transition
+) const {
+    validate_operation_id(operation_id);
+    if (!transition)
+        throw ValidationError("device preparation transaction transition is empty");
+    prepare_root(root_);
+    prepare_root(transaction_lock_root(root_));
+    const TransactionLock lock(transaction_lock_path(root_, operation_id));
+    const fs::path path = transaction_path(root_, operation_id);
+    std::ifstream input(path);
+    if (!input)
+        throw ValidationError("device preparation transaction not found");
+    Json document;
+    input >> document;
+    DevicePreparationTransaction current = parse_transaction(document);
+    if (current.status.operation_id != operation_id)
+        throw ValidationError("transaction file name does not match its operation identifier");
+    if (current.revision != expected_revision)
+        throw ValidationError("device preparation transaction revision conflict");
+    if (terminal(current))
+        throw ValidationError("terminal device preparation transaction is immutable");
+    DevicePreparationTransaction changed = current;
+    transition(changed);
+    if (changed.revision != current.revision || changed.status.operation_id != current.status.operation_id)
+        throw ValidationError("device preparation transition changed immutable identity");
+    if (!state_transition_allowed(current.status.state, changed.status.state))
+        throw ValidationError("invalid device preparation transaction state transition");
+    if (current.cancel_requested && !changed.cancel_requested)
+        throw ValidationError("device preparation cancellation request cannot be cleared");
+    if (changed.revision.value == std::numeric_limits<std::uint64_t>::max())
+        throw ValidationError("device preparation transaction revision is exhausted");
+    changed.revision.value += 1;
+    platform::linux::filesystem::atomic_write(
+        path,
+        transaction_json(changed).dump(2) + "\n",
+        transaction_permissions
+    );
+    return changed;
+}
+
+DevicePreparationTransaction DevicePreparationTransactionStore::update(
+    const std::string& operation_id,
+    const DevicePreparationTransition& transition
+) const {
+    for (int attempt = 0; attempt < 16; ++attempt) {
+        const auto current = load(operation_id);
+        try {
+            return update(operation_id, current.revision, transition);
+        } catch (const ValidationError& error) {
+            if (std::string_view(error.what()) != "device preparation transaction revision conflict")
+                throw;
+        }
+    }
+    throw ValidationError("device preparation transaction remained busy");
 }
 
 DevicePreparationTransaction DevicePreparationTransactionStore::load(
