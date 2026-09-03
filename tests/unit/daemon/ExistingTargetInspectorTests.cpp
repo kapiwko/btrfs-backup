@@ -24,6 +24,7 @@ namespace {
 class Cryptsetup final : public bb::platform::linux::storage::ICryptsetupOperations {
   public:
     std::vector<std::string>& calls;
+    bool fail_close = false;
     explicit Cryptsetup(std::vector<std::string>& calls) : calls(calls) {
     }
     bb::platform::linux::storage::LuksHeader inspect_luks2(const fs::path& device) override {
@@ -52,6 +53,8 @@ class Cryptsetup final : public bb::platform::linux::storage::ICryptsetupOperati
     }
     void close(const std::string& mapper) override {
         calls.push_back("close:" + mapper);
+        if (fail_close)
+            throw std::runtime_error("close failed");
     }
 };
 
@@ -66,6 +69,7 @@ class Metadata final : public bb::platform::linux::storage::IBlockDeviceMetadata
 class Mounts final : public bb::platform::linux::storage::IExistingTargetMountOperations {
   public:
     std::vector<std::string>& calls;
+    bool fail_unmount = false;
     explicit Mounts(std::vector<std::string>& calls) : calls(calls) {
     }
     void mount_btrfs_read_only(const fs::path&, const fs::path&) override {
@@ -73,6 +77,8 @@ class Mounts final : public bb::platform::linux::storage::IExistingTargetMountOp
     }
     void unmount(const fs::path&) override {
         calls.push_back("unmount");
+        if (fail_unmount)
+            throw std::runtime_error("unmount failed");
     }
 };
 
@@ -217,6 +223,30 @@ void test_classifies_unsupported_repository_format() {
     );
 }
 
+void test_cleanup_preserves_unmount_failure_after_successful_mapper_close() {
+    const fs::path root = test_helpers::test_root("existing-target-inspector", "cleanup-unmount-failure");
+    std::vector<std::string> calls;
+    Cryptsetup cryptsetup(calls);
+    Metadata metadata;
+    Mounts mounts(calls);
+    mounts.fail_unmount = true;
+    Btrfs btrfs;
+    bb::daemon::control::ExistingTargetInspector inspector(cryptsetup, metadata, mounts, btrfs);
+
+    bool failed = false;
+    try {
+        inspector.cleanup_session("inspection-test", root);
+    } catch (const std::runtime_error& error) {
+        failed = std::string(error.what()) == "unmount failed";
+    }
+    test_helpers::expect_true(
+        "cleanup preserves unmount failure",
+        failed,
+        "successful mapper close hid the preceding unmount failure"
+    );
+    test_helpers::expect_eq("cleanup still closes mapper", calls.back(), "close:inspection-test");
+}
+
 } // namespace
 
 int main() {
@@ -224,5 +254,6 @@ int main() {
     test_closes_mapper_when_filesystem_is_not_btrfs();
     test_classifies_repositoryless_btrfs_filesystems();
     test_classifies_unsupported_repository_format();
+    test_cleanup_preserves_unmount_failure_after_successful_mapper_close();
     return test_helpers::finish("existing target inspector tests");
 }

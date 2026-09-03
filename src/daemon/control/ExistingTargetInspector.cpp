@@ -224,7 +224,6 @@ void ExistingTargetInspector::cleanup_session(
     }
     try {
         cryptsetup_.close(mapper_name);
-        pending = nullptr;
     } catch (...) {
         if (!pending)
             pending = std::current_exception();
