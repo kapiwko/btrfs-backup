@@ -40,7 +40,8 @@ PlasmaExtras.ExpandableListItem {
     readonly property bool failed: profileStatus.run.state === "failed"
     readonly property int progress: profileStatus.run.overallProgress
 
-    signal summaryUpdated(string profileId, int priority, bool isRunning, bool isFailed, int profileProgress, string subtitle)
+    signal summaryUpdated(string profileId, int priority, bool isRunning, bool isFailed, int profileProgress,
+                          int attentionPriority, string attentionIcon, string subtitle)
     signal summaryRemoved(string profileId)
 
     KI18n.KI18nContext {
@@ -166,7 +167,9 @@ PlasmaExtras.ExpandableListItem {
     onRefreshRevisionChanged: profileStatus.refreshNow()
 
     function publishSummary() {
-        root.summaryUpdated(root.profileId, root.summaryPriority(), root.running, root.failed, root.progress, root.subtitleText())
+        root.summaryUpdated(root.profileId, root.summaryPriority(), root.running, root.failed, root.progress,
+                           BtrfsBackup.ProfileStatusBadge.attentionPriority(profileStatus),
+                           BtrfsBackup.ProfileStatusBadge.attentionIcon(profileStatus), root.subtitleText())
     }
 
     function targetIndicatorIcon() {

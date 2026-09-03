@@ -13,6 +13,7 @@ import org.kde.plasma.core as PlasmaCore
 import org.kde.plasma.extras as PlasmaExtras
 import org.kde.plasma.plasmoid
 import org.btrfsbackup.plasma
+import org.btrfsbackup.plasma as BtrfsBackup
 
 PlasmoidItem {
     id: root
@@ -52,6 +53,7 @@ PlasmoidItem {
         }
         return selected
     }
+    readonly property string attentionIcon: BtrfsBackup.ProfileStatusBadge.mostImportantAttention(root.profileSummaries)
     readonly property bool running: root.primarySummary?.running ?? false
     readonly property bool failed: root.primarySummary?.failed ?? false
     readonly property int progress: root.primarySummary?.progress ?? -1
@@ -99,13 +101,16 @@ PlasmoidItem {
         onTriggered: root.relativeTimeTick++
     }
 
-    function updateSummary(profileId, priority, isRunning, isFailed, profileProgress, subtitle) {
+    function updateSummary(profileId, priority, isRunning, isFailed, profileProgress,
+                           attentionPriority, attentionIcon, subtitle) {
         const summaries = Object.assign({}, root.profileSummaries)
         summaries[profileId] = {
             priority: priority,
             running: isRunning,
             failed: isFailed,
             progress: profileProgress,
+            attentionPriority: attentionPriority,
+            attentionIcon: attentionIcon,
             subtitle: subtitle
         }
         root.profileSummaries = summaries
@@ -129,6 +134,15 @@ PlasmoidItem {
             anchors.margins: Math.max(1, parent.width * 0.13)
             source: "drive-harddisk-symbolic"
             opacity: profileDirectory.managerConnected ? 1 : 0.65
+        }
+
+        Kirigami.Icon {
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            width: Math.max(8, Math.round(parent.width * 0.48))
+            height: width
+            source: root.attentionIcon
+            visible: source.length > 0
         }
 
         Canvas {
@@ -229,8 +243,10 @@ PlasmoidItem {
                     autoExpandFailed: Plasmoid.configuration.autoExpandFailed
                     showStorageDetails: Plasmoid.configuration.showStorage
                     hideSourceNamesInTooltip: Plasmoid.configuration.hideSourceNamesInTooltip
-                    onSummaryUpdated: (profileId, priority, isRunning, isFailed, profileProgress, subtitle) =>
-                        root.updateSummary(profileId, priority, isRunning, isFailed, profileProgress, subtitle)
+                    onSummaryUpdated: (profileId, priority, isRunning, isFailed, profileProgress,
+                                       attentionPriority, attentionIcon, subtitle) =>
+                        root.updateSummary(profileId, priority, isRunning, isFailed, profileProgress,
+                                           attentionPriority, attentionIcon, subtitle)
                     onSummaryRemoved: profileId => root.removeSummary(profileId)
                 }
 
