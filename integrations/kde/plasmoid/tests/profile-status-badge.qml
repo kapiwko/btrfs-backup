@@ -36,4 +36,22 @@ TestCase {
         compare(BtrfsBackup.ProfileStatusBadge.icon(status({lastError: "failed", target: {connected: false}})),
                 "emblem-error")
     }
+
+    function test_attentionOnlyReportsActionableStates() {
+        compare(BtrfsBackup.ProfileStatusBadge.attentionIcon(status({target: {connected: true, mounted: true}})), "")
+        compare(BtrfsBackup.ProfileStatusBadge.attentionIcon(status({target: {connected: true, unlocked: true}})), "")
+        compare(BtrfsBackup.ProfileStatusBadge.attentionIcon(status({target: {connected: true, spaceBelowMinimum: true}})),
+                "emblem-warning")
+        compare(BtrfsBackup.ProfileStatusBadge.attentionIcon(status({profileEnabled: true, target: {connected: false}})),
+                "emblem-unavailable")
+        compare(BtrfsBackup.ProfileStatusBadge.attentionIcon(status({lastError: "failed"})), "emblem-error")
+    }
+
+    function test_mostImportantProfileAttentionWins() {
+        compare(BtrfsBackup.ProfileStatusBadge.mostImportantAttention({
+            healthy: {attentionPriority: 99, attentionIcon: ""},
+            warning: {attentionPriority: 2, attentionIcon: "emblem-warning"},
+            error: {attentionPriority: 1, attentionIcon: "emblem-error"}
+        }), "emblem-error")
+    }
 }
