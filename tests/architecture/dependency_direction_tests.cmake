@@ -21,6 +21,8 @@ assert_no_layer_includes("config" "backup|state|platform|cli|daemon")
 assert_no_layer_includes("backup" "state|platform|cli|daemon")
 assert_no_layer_includes("backup/model" "backup/ports|state|platform|cli|daemon")
 assert_no_layer_includes("state" "platform|cli|daemon")
+assert_no_layer_includes("provisioning" "config|backup|restore|state|platform|cli|daemon")
+assert_no_layer_includes("platform/linux/storage/provisioning" "cli|daemon")
 
 file(READ "${PROJECT_SOURCE_DIR}/src/backup/BackupService.hpp" backup_service_header)
 if(backup_service_header MATCHES "CancellationToken[ \t]*&")

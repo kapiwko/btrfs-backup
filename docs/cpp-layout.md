@@ -160,14 +160,16 @@ Arrows show direct public link interfaces; private and third-party dependencies
 are omitted. In particular, `btrfsbackup-backup` is platform-neutral: Linux and
 file-backed adapters meet it only in the CLI composition root.
 
-The `*-model` targets contain dependency-light contracts needed to avoid
-cycles between configuration, backup concepts, and Linux implementations. Their
-`model` directories are physical ownership aids and do not add namespaces.
+The `*-model` targets and the platform-neutral `provisioning` target contain
+dependency-light contracts needed to avoid cycles between configuration,
+backup concepts, provisioning, and Linux implementations. Their `model`
+directories are physical ownership aids and do not add namespaces.
 Configure-time architecture checks reject unexpected target dependencies and
-JSON, Linux, D-Bus, or UI includes in the model and transfer targets. The same
-checks require every source header to have exactly one owning CMake target,
-compile every public header in isolation, and use CMake File API data to ensure
-that every project library is covered by the architecture manifest.
+JSON, Linux, D-Bus, or UI includes in the model, provisioning, and transfer
+targets. The same checks require every source header to have exactly one owning
+CMake target, compile every public header in isolation, and use CMake File API
+data to ensure that every project library is covered by the architecture
+manifest.
 The `btrfsbackup-core` target contains the validated `ProfileId`, `RunId`, and
 `SourceId` value types and the shared error hierarchy. Those contracts can be
 used by configuration, backup, state, and platform adapters without pulling in
