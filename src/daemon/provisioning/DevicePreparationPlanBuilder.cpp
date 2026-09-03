@@ -84,27 +84,31 @@ DevicePreparationPlan erase_whole_device_plan(
     std::vector<SafetyWarning> warnings{{"erase-whole-device", device.identity.display_path}};
     for (const auto& blocker : device.blockers)
         warnings.push_back({blocker.code, blocker.detail});
-    DevicePreparationPlan result;
-    result.id = std::move(plan_id);
-    result.topology_generation = topology.generation;
-    result.mode = ProvisioningMode::EraseWholeDevice;
-    result.device_id = device.candidate_id;
-    result.before = std::move(before);
-    result.after = std::move(after);
-    result.operations = {
-        BackupPartitionTable{device.candidate_id},
-        EraseDeviceSignatures{device.candidate_id},
-        CreateGptPartitionTable{device.candidate_id},
-        CreateBackupPartition{device.candidate_id, std::nullopt, geometry},
-        FormatLuks2{std::nullopt},
-        OpenLuksMapping{},
-        FormatBtrfs{},
-        VerifyPreparedTarget{},
-        PublishProfile{},
+    DevicePreparationPlan result{
+        .id = std::move(plan_id),
+        .topology_generation = topology.generation,
+        .mode = ProvisioningMode::EraseWholeDevice,
+        .device_id = device.candidate_id,
+        .partition_id = std::nullopt,
+        .free_region_id = std::nullopt,
+        .inspection_id = std::nullopt,
+        .before = std::move(before),
+        .after = std::move(after),
+        .operations = {
+            BackupPartitionTable{device.candidate_id},
+            EraseDeviceSignatures{device.candidate_id},
+            CreateGptPartitionTable{device.candidate_id},
+            CreateBackupPartition{device.candidate_id, std::nullopt, geometry},
+            FormatLuks2{std::nullopt},
+            OpenLuksMapping{},
+            FormatBtrfs{},
+            VerifyPreparedTarget{},
+            PublishProfile{},
+        },
+        .warnings = std::move(warnings),
+        .destructive_scope = DestructiveScope::whole_device(device.candidate_id),
     };
-    result.warnings = std::move(warnings);
-    result.destructive_scope.kind = DestructiveScopeKind::WholeDevice;
-    result.destructive_scope.device_id = device.candidate_id;
+    result.validate();
     return result;
 }
 
@@ -127,26 +131,28 @@ DevicePreparationPlan reformat_partition_plan(
     std::vector<SafetyWarning> warnings{{"erase-existing-partition", partition.identity.display_path}};
     for (const auto& blocker : partition.blockers)
         warnings.push_back({blocker.code, blocker.detail});
-    DevicePreparationPlan result;
-    result.id = std::move(plan_id);
-    result.topology_generation = topology.generation;
-    result.mode = ProvisioningMode::ReformatExistingPartition;
-    result.device_id = device.candidate_id;
-    result.partition_id = partition.candidate_id;
-    result.before = std::move(before);
-    result.after = std::move(after);
-    result.operations = {
-        ErasePartitionSignatures{partition.candidate_id},
-        FormatLuks2{partition.candidate_id},
-        OpenLuksMapping{},
-        FormatBtrfs{},
-        VerifyPreparedTarget{},
-        PublishProfile{},
+    DevicePreparationPlan result{
+        .id = std::move(plan_id),
+        .topology_generation = topology.generation,
+        .mode = ProvisioningMode::ReformatExistingPartition,
+        .device_id = device.candidate_id,
+        .partition_id = partition.candidate_id,
+        .free_region_id = std::nullopt,
+        .inspection_id = std::nullopt,
+        .before = std::move(before),
+        .after = std::move(after),
+        .operations = {
+            ErasePartitionSignatures{partition.candidate_id},
+            FormatLuks2{partition.candidate_id},
+            OpenLuksMapping{},
+            FormatBtrfs{},
+            VerifyPreparedTarget{},
+            PublishProfile{},
+        },
+        .warnings = std::move(warnings),
+        .destructive_scope = DestructiveScope::existing_partition(device.candidate_id, partition.candidate_id),
     };
-    result.warnings = std::move(warnings);
-    result.destructive_scope.kind = DestructiveScopeKind::ExistingPartition;
-    result.destructive_scope.device_id = device.candidate_id;
-    result.destructive_scope.partition_id = partition.candidate_id;
+    result.validate();
     return result;
 }
 
@@ -209,27 +215,29 @@ DevicePreparationPlan create_partition_in_free_space_plan(
         std::make_move_iterator(replacements.end())
     );
 
-    DevicePreparationPlan result;
-    result.id = std::move(plan_id);
-    result.topology_generation = topology.generation;
-    result.mode = ProvisioningMode::CreatePartitionInUnallocatedSpace;
-    result.device_id = device.candidate_id;
-    result.free_region_id = free_region.id;
-    result.before = std::move(before);
-    result.after = std::move(after);
-    result.operations = {
-        BackupPartitionTable{device.candidate_id},
-        CreateBackupPartition{device.candidate_id, free_region.id, geometry},
-        FormatLuks2{std::nullopt},
-        OpenLuksMapping{},
-        FormatBtrfs{},
-        VerifyPreparedTarget{},
-        PublishProfile{},
+    DevicePreparationPlan result{
+        .id = std::move(plan_id),
+        .topology_generation = topology.generation,
+        .mode = ProvisioningMode::CreatePartitionInUnallocatedSpace,
+        .device_id = device.candidate_id,
+        .partition_id = std::nullopt,
+        .free_region_id = free_region.id,
+        .inspection_id = std::nullopt,
+        .before = std::move(before),
+        .after = std::move(after),
+        .operations = {
+            BackupPartitionTable{device.candidate_id},
+            CreateBackupPartition{device.candidate_id, free_region.id, geometry},
+            FormatLuks2{std::nullopt},
+            OpenLuksMapping{},
+            FormatBtrfs{},
+            VerifyPreparedTarget{},
+            PublishProfile{},
+        },
+        .warnings = {{"create-partition-in-unallocated-space", device.identity.display_path}},
+        .destructive_scope = DestructiveScope::unallocated_region(device.candidate_id, free_region.id),
     };
-    result.warnings = {{"create-partition-in-unallocated-space", device.identity.display_path}};
-    result.destructive_scope.kind = DestructiveScopeKind::UnallocatedRegion;
-    result.destructive_scope.device_id = device.candidate_id;
-    result.destructive_scope.free_region_id = free_region.id;
+    result.validate();
     return result;
 }
 
@@ -242,19 +250,22 @@ DevicePreparationPlan adopt_existing_target_plan(
 ) {
     if (!partition.suitable_for_adoption || inspection_id.empty())
         throw ValidationError("storage partition requires a valid existing target inspection");
-    DevicePreparationPlan result;
-    result.id = std::move(plan_id);
-    result.topology_generation = topology.generation;
-    result.mode = ProvisioningMode::AdoptExistingTarget;
-    result.device_id = device.candidate_id;
-    result.partition_id = partition.candidate_id;
-    result.inspection_id = std::move(inspection_id);
-    result.before = current_layout(device);
-    result.after = result.before;
-    result.operations = {VerifyPreparedTarget{}, PublishProfile{}};
-    result.destructive_scope.kind = DestructiveScopeKind::None;
-    result.destructive_scope.device_id = device.candidate_id;
-    result.destructive_scope.partition_id = partition.candidate_id;
+    StorageLayout layout = current_layout(device);
+    DevicePreparationPlan result{
+        .id = std::move(plan_id),
+        .topology_generation = topology.generation,
+        .mode = ProvisioningMode::AdoptExistingTarget,
+        .device_id = device.candidate_id,
+        .partition_id = partition.candidate_id,
+        .free_region_id = std::nullopt,
+        .inspection_id = std::move(inspection_id),
+        .before = layout,
+        .after = std::move(layout),
+        .operations = {VerifyPreparedTarget{}, PublishProfile{}},
+        .warnings = {},
+        .destructive_scope = DestructiveScope::adoption(device.candidate_id, partition.candidate_id),
+    };
+    result.validate();
     return result;
 }
 

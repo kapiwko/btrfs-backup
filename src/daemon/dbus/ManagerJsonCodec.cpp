@@ -344,7 +344,7 @@ std::string ManagerJsonCodec::encode(const provisioning::DevicePreparationPlan& 
         {"after", layout_json(plan.after)},
         {"operations", std::move(operations)},
         {"warnings", std::move(warnings)},
-        {"destructiveScope", destructive_scope_name(plan.destructive_scope.kind)},
+        {"destructiveScope", destructive_scope_name(plan.destructive_scope.kind())},
     });
 }
 
