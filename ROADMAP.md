@@ -17,21 +17,43 @@ Every roadmap item must preserve these properties:
 6. restore and administrative workflows remain usable without a desktop;
 7. formats and APIs are versioned before external clients depend on them.
 
-## Near Term: Extend The System Control Boundary
+## Near Term: Stabilize The 4.0 System Control Boundary
 
-The optional system manager described in
-[system-manager.md](docs/design/system-manager.md) now provides versioned,
-sanitized read APIs and polkit-protected start, cancel, validate and eject
-operations. Runner execution remains independent and owned by systemd.
+The unreleased 4.0 development tree includes the optional system manager
+described in [system-manager.md](docs/design/system-manager.md). Its implemented
+baseline provides versioned, sanitized read APIs and separately authorized
+backup control, profile administration, credential, browse-session and device
+provisioning operations. Runner execution remains independent and owned by
+systemd.
 
 The manager baseline also includes state-change signals, restart-safe
 file-backed reconstruction, explicit target and safe-removal state, secret-free
 audit records, authorized profile administration, caller-bound browse sessions,
-a shared C++ desktop client and the complete KDE integration shipped in 4.0.
+a shared C++ desktop client and the KDE integration implemented for 4.0.
 
-The remaining system-control increments are:
+Destructive device provisioning is implemented but remains experimental until
+the 4.0 release gates are complete. The current workflow provides caller-bound
+and expiring topology candidates, before/after plans in the KCM, typed
+confirmation, repeated device-identity and source-filesystem checks, four
+preparation modes, profile identity reservation, create-only profile
+publication, revisioned recovery records and execution in a separately
+hardened systemd helper. Public D-Bus responses expose sanitized presentation
+data rather than persistent device identifiers.
 
-- destructive device preparation only after repeated device-identity checks;
+Release blockers for this workflow are validation work rather than initial
+implementation: complete real-device coverage for all four modes, QEMU coverage
+for whole-device and existing-partition preparation, interruption and device-loss
+recovery tests, and the full compiler, sanitizer, static-analysis, D-Bus parity
+and systemd security matrix. Until those gates pass, provisioning must not be
+described as a stable 4.0 capability.
+
+Further hardening should validate the per-operation device cgroup rules on the
+supported systemd range, narrow access to dynamically created partition and
+mapper devices where the platform permits it, and expand power-loss recovery
+evidence without moving backup execution into the manager.
+
+The remaining planned system-control increment is:
+
 - scheduling and persistent request-queue integration without making the
   manager responsible for runner execution.
 
@@ -70,14 +92,15 @@ Improve configuration without weakening the privileged boundary:
 - analyze mounted Btrfs layouts and classify subvolumes as covered, explicitly
   excluded or probably missed;
 - generate proposed source entries without silently modifying a profile;
-- provide a destructive media-preparation workflow with system-disk rejection,
-  repeated device-identity checks and typed confirmation;
-- finish media preparation with profile creation, trial backup and trial
+- stabilize the implemented media-preparation workflow and its profile
+  publication only after its release-gate matrix passes;
+- extend successful media preparation with an explicit trial backup and trial
   restore;
 - evaluate TPM2, FIDO2 and PKCS#11 enrollment only after recovery-key and LUKS
   header-backup guidance is in place;
-- consider `libcryptsetup` only after manager authorization, cancellation and
-  recovery behavior are stable.
+- keep the existing `libcryptsetup` adapter behind manager authorization and
+  strengthen its cancellation and recovery coverage before adding enrollment
+  methods.
 
 ## Repository Durability
 
@@ -169,10 +192,10 @@ KCM owns target validation and administration, and the manager remains an outer
 adapter rather than the backup execution owner. See
 [ADR 0005](docs/adr/0005-kde-integration-boundaries.md).
 
-The 4.0 desktop baseline includes the monitor, notifications, widget settings,
-KCM, authorized profile administration, caller-bound browse sessions, KIO,
-Dolphin previous versions, guided restore and KRunner. Continue integration in
-this order:
+The unreleased 4.0 desktop baseline includes the monitor, notifications, widget
+settings, KCM, authorized profile administration, caller-bound browse sessions,
+KIO, Dolphin previous versions, guided restore and KRunner. Continue integration
+in this order:
 
 - detect and later adopt suitable Snapper snapshots;
 - dry-run import from btrbk configuration;
