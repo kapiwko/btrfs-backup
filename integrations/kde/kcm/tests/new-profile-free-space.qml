@@ -125,9 +125,8 @@ Item {
         repeat: false
         onTriggered: {
             if (!page.freeSpace || !page.hasPlan || !page.planMatchesSelection
-                    || page.candidateDevices.length !== 2
-                    || page.candidateDevices[0].candidateId !== "mounted-data-device"
-                    || page.candidateDevices[1].candidateId !== "device-1"
+                    || page.candidateDevices.length !== 1
+                    || page.candidateDevices[0].candidateId !== "device-1"
                     || page.confirmationToken !== "CREATE"
                     || page.partitionManagerUrl.toString() !== "applications:org.kde.partitionmanager.desktop") {
                 console.error("Free-space preparation page bindings are invalid")
