@@ -105,6 +105,21 @@ void test_run_transfer_bytes_are_decoded() {
     expect(run.has_value() && run->bytes_total_estimated == 4194304, "estimated byte count was not decoded");
 }
 
+void test_history_is_decoded_once_for_every_kde_client() {
+    const auto history = btrfsbackup::kde::parse_history(QStringLiteral(R"([{
+        "schemaVersion":3,"state":"succeeded","errorCode":"","sourceName":"Home",
+        "targetName":"Backup disk","startedAt":"2026-09-03T12:00:00Z",
+        "finishedAt":"2026-09-03T12:01:30Z","sourceCount":2,"overallProgress":100,
+        "bytesTransferred":1048576
+    }])"));
+    expect(history.has_value() && history->size() == 1, "valid history was rejected");
+    expect(history.has_value() && history->front().duration_seconds == 90, "history duration is wrong");
+    expect(history.has_value() && history->front().bytes_transferred == 1048576, "history byte count is wrong");
+    expect(!btrfsbackup::kde::parse_history(QStringLiteral(R"([{
+        "schemaVersion":3,"startedAt":"invalid","finishedAt":"2026-09-03T12:01:30Z"
+    }])")).has_value(), "invalid history timestamp was accepted");
+}
+
 void test_browse_session_requires_read_only_absolute_root() {
     const auto session = btrfsbackup::kde::parse_browse_session(QStringLiteral(R"({
         "schemaVersion": 1,
@@ -143,6 +158,7 @@ int main() {
     test_invalid_parent_is_rejected();
     test_profile_configuration_health_is_decoded();
     test_run_transfer_bytes_are_decoded();
+    test_history_is_decoded_once_for_every_kde_client();
     test_browse_session_requires_read_only_absolute_root();
     test_backup_coverage_is_sanitized();
     if (failures == 0) {

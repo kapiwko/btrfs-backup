@@ -8,34 +8,13 @@
 #include <QDBusPendingCallWatcher>
 #include <QDBusPendingReply>
 #include <QDateTime>
-#include <QJsonArray>
-#include <QJsonDocument>
-#include <QJsonObject>
 #include <QLocale>
 #include <KLocalizedString>
 
 #include <algorithm>
-#include <limits>
 #include <utility>
 
 namespace btrfsbackup::kde::kcm {
-
-namespace {
-
-int json_int(const QJsonObject& object, const char* key, int fallback) {
-    const QJsonValue value = object.value(QLatin1String(key));
-    return value.isDouble() && value.toDouble() == value.toInt() ? value.toInt() : fallback;
-}
-
-qint64 json_int64(const QJsonObject& object, const char* key, qint64 fallback) {
-    const QJsonValue value = object.value(QLatin1String(key));
-    const double number = value.toDouble(-1);
-    return value.isDouble() && number >= 0 && number <= static_cast<double>(std::numeric_limits<qint64>::max())
-        ? static_cast<qint64>(number)
-        : fallback;
-}
-
-} // namespace
 
 ProfileHistoryModel::ProfileHistoryModel(QObject* parent)
     : QObject(parent),
@@ -226,53 +205,32 @@ void ProfileHistoryModel::setError(const QString& code, const QString& message) 
 }
 
 bool ProfileHistoryModel::parsePage(const QString& payload, QVariantList& entries) {
-    const QJsonDocument document = QJsonDocument::fromJson(payload.toUtf8());
-    if (!document.isArray())
+    const auto history = btrfsbackup::kde::parse_history(payload);
+    if (!history.has_value())
         return false;
 
     QVariantList parsed;
-    for (const QJsonValue& value : document.array()) {
-        if (!value.isObject())
-            return false;
-        const QJsonObject item = value.toObject();
-        if (json_int(item, "schemaVersion", -1) != btrfsbackup::manager_protocol::history_schema_version)
-            return false;
-        const QString started_at = item.value(QStringLiteral("startedAt")).toString();
-        const QString finished_at = item.value(QStringLiteral("finishedAt")).toString();
-        const QDateTime started = QDateTime::fromString(started_at, Qt::ISODate);
-        const QDateTime finished = QDateTime::fromString(finished_at, Qt::ISODate);
-        if ((!started_at.isEmpty() && !started.isValid()) || (!finished_at.isEmpty() && !finished.isValid()))
-            return false;
-
+    for (const btrfsbackup::kde::HistoryEntry& item : *history) {
         QVariantMap entry;
-        entry.insert(QStringLiteral("state"), item.value(QStringLiteral("state")).toString());
-        entry.insert(QStringLiteral("errorCode"), item.value(QStringLiteral("errorCode")).toString());
-        entry.insert(QStringLiteral("sourceName"), item.value(QStringLiteral("sourceName")).toString());
-        entry.insert(QStringLiteral("targetName"), item.value(QStringLiteral("targetName")).toString());
-        entry.insert(QStringLiteral("startedAt"), started_at);
-        entry.insert(QStringLiteral("finishedAt"), finished_at);
-        entry.insert(
-            QStringLiteral("durationSeconds"),
-            started.isValid() && finished.isValid()
-                ? static_cast<int>(std::max<qint64>(0, started.secsTo(finished)))
-                : -1
-        );
-        entry.insert(QStringLiteral("sourceCount"), json_int(item, "sourceCount", 0));
-        entry.insert(QStringLiteral("overallProgress"), json_int(item, "overallProgress", -1));
-        const qint64 bytes_transferred = json_int64(item, "bytesTransferred", 0);
-        const qint64 duration_seconds = started.isValid() && finished.isValid()
-            ? std::max<qint64>(0, started.secsTo(finished))
-            : -1;
-        entry.insert(QStringLiteral("bytesTransferred"), bytes_transferred);
+        entry.insert(QStringLiteral("state"), item.state);
+        entry.insert(QStringLiteral("errorCode"), item.error_code);
+        entry.insert(QStringLiteral("sourceName"), item.source_name);
+        entry.insert(QStringLiteral("targetName"), item.target_name);
+        entry.insert(QStringLiteral("startedAt"), item.started_at);
+        entry.insert(QStringLiteral("finishedAt"), item.finished_at);
+        entry.insert(QStringLiteral("durationSeconds"), item.duration_seconds);
+        entry.insert(QStringLiteral("sourceCount"), item.source_count);
+        entry.insert(QStringLiteral("overallProgress"), item.overall_progress);
+        entry.insert(QStringLiteral("bytesTransferred"), item.bytes_transferred);
         entry.insert(
             QStringLiteral("bytesTransferredText"),
-            QLocale().formattedDataSize(bytes_transferred, 1, QLocale::DataSizeTraditionalFormat)
+            QLocale().formattedDataSize(item.bytes_transferred, 1, QLocale::DataSizeTraditionalFormat)
         );
         entry.insert(
             QStringLiteral("averageSpeedText"),
-            duration_seconds > 0
+            item.duration_seconds > 0
                 ? QLocale().formattedDataSize(
-                      bytes_transferred / duration_seconds,
+                      item.bytes_transferred / item.duration_seconds,
                       1,
                       QLocale::DataSizeTraditionalFormat
                   ) +
