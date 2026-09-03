@@ -59,6 +59,17 @@ std::optional<ManagerAuthorizationAction> manager_method_authorization_action(
     std::string_view method
 ) noexcept {
     static constexpr std::array method_actions{
+        std::pair{manager_protocol::method::start_backup, ManagerAuthorizationAction::StartBackup},
+        std::pair{manager_protocol::method::cancel_backup, ManagerAuthorizationAction::CancelBackup},
+        std::pair{manager_protocol::method::validate_target, ManagerAuthorizationAction::ValidateTarget},
+        std::pair{manager_protocol::method::eject_target, ManagerAuthorizationAction::EjectTarget},
+        std::pair{manager_protocol::method::update_profile_settings, ManagerAuthorizationAction::ManageProfileConfiguration},
+        std::pair{manager_protocol::method::add_profile_source, ManagerAuthorizationAction::ManageProfileConfiguration},
+        std::pair{manager_protocol::method::update_profile_source, ManagerAuthorizationAction::ManageProfileConfiguration},
+        std::pair{manager_protocol::method::remove_profile_source, ManagerAuthorizationAction::ManageProfileConfiguration},
+        std::pair{manager_protocol::method::delete_profile, ManagerAuthorizationAction::DeleteProfileConfiguration},
+        std::pair{manager_protocol::method::set_profile_enabled, ManagerAuthorizationAction::SetProfileEnabled},
+        std::pair{manager_protocol::method::open_browse_session, ManagerAuthorizationAction::OpenBrowseSession},
         std::pair{manager_protocol::method::add_target_passphrase, ManagerAuthorizationAction::ManageTargetCredentials},
         std::pair{manager_protocol::method::add_target_key, ManagerAuthorizationAction::ManageTargetCredentials},
         std::pair{manager_protocol::method::generate_target_key, ManagerAuthorizationAction::ManageTargetCredentials},
