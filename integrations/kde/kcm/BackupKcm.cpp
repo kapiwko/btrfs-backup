@@ -8,6 +8,7 @@
 
 #include <QDesktopServices>
 #include <QProcess>
+#include <QStandardPaths>
 #include <QUrl>
 
 namespace btrfsbackup::kde::kcm {
@@ -33,6 +34,16 @@ void BackupKcm::openSystemLog() {
 
 void BackupKcm::openSupportPage() {
     QDesktopServices::openUrl(QUrl(QStringLiteral("https://github.com/kapiwko/btrfs-backup/issues")));
+}
+
+void BackupKcm::openPartitionManager() {
+    const QString executable = QStandardPaths::findExecutable(QStringLiteral("partitionmanager"));
+    if (!executable.isEmpty())
+        QProcess::startDetached(executable);
+}
+
+bool BackupKcm::partitionManagerAvailable() const {
+    return !QStandardPaths::findExecutable(QStringLiteral("partitionmanager")).isEmpty();
 }
 
 QString BackupKcm::toLocalFile(const QUrl& url) const {
