@@ -420,7 +420,7 @@ void test_existing_target_inspection_is_caller_bound_and_invalidated_by_rescan()
         "inspection-bound adoption plan",
         plan.mode == ProvisioningMode::AdoptExistingTarget &&
             plan.inspection_id == std::optional<std::string>{inspection.inspection_id} &&
-            plan.destructive_scope.kind == btrfsbackup::daemon::provisioning::DestructiveScopeKind::None &&
+            plan.destructive_scope.kind() == btrfsbackup::daemon::provisioning::DestructiveScopeKind::None &&
             plan.before == plan.after,
         "adoption plan is not bound to the read-only inspection"
     );
