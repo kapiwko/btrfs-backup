@@ -25,6 +25,9 @@ assert_model_dependencies(
 )
 assert_model_dependencies(btrfsbackup-state-model btrfsbackup-core)
 assert_model_dependencies(btrfsbackup-transfer btrfsbackup-core)
+if(BUILD_SYSTEM_MANAGER)
+    assert_model_dependencies(btrfsbackup-provisioning btrfsbackup-core)
+endif()
 
 assert_public_link_interface(btrfsbackup-core)
 assert_public_link_interface(btrfsbackup-manager-protocol)
