@@ -57,7 +57,7 @@ ProfileConfigurationModel* BackupKcm::profileConfiguration() {
     return &profile_configuration_;
 }
 
-ProfileHistoryModel* BackupKcm::profileHistory() {
+BackupHistoryModel* BackupKcm::profileHistory() {
     return &profile_history_;
 }
 
