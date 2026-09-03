@@ -228,19 +228,42 @@ static char* unallocated_candidate(const char* topology, unsigned long long expe
     return NULL;
 }
 
-static char* start_preparation(sd_bus* bus, const char* request, int passphrase_fd) {
+static char* device_candidate(const char* topology, unsigned long long expected_device_size) {
+    const char* display_index = topology;
+    while ((display_index = strstr(display_index, "\"displayIndex\"")) != NULL) {
+        const char* next_device = strstr(display_index + 1, "\"displayIndex\"");
+        if ((unsigned long long)json_integer_between(display_index, next_device, "sizeBytes") ==
+            expected_device_size) {
+            const char* candidate = topology;
+            const char* selected = NULL;
+            while ((candidate = strstr(candidate, "\"candidateId\"")) != NULL && candidate < display_index) {
+                selected = candidate;
+                ++candidate;
+            }
+            if (selected != NULL)
+                return json_string_between(selected, display_index, "candidateId");
+        }
+        display_index = next_device;
+        if (display_index == NULL)
+            break;
+    }
+    return NULL;
+}
+
+static char* call_with_fd(sd_bus* bus, const char* method, const char* request, int descriptor) {
     sd_bus_error error = SD_BUS_ERROR_NULL;
     sd_bus_message* message = NULL;
     sd_bus_message* reply = NULL;
-    if (sd_bus_message_new_method_call(bus, &message, service, object, interface, "StartDevicePreparation") < 0 ||
-        sd_bus_message_append(message, "sh", request, passphrase_fd) < 0)
-        die("cannot construct StartDevicePreparation call");
+    if (sd_bus_message_new_method_call(bus, &message, service, object, interface, method) < 0 ||
+        sd_bus_message_append(message, "sh", request, descriptor) < 0)
+        die("cannot construct descriptor-bearing method call");
     const int result = sd_bus_call(bus, message, 0, &error, &reply);
     sd_bus_message_unref(message);
     if (result < 0) {
         fprintf(
             stderr,
-            "device provisioning client: StartDevicePreparation failed: %s\n",
+            "device provisioning client: %s failed: %s\n",
+            method,
             error.message != NULL ? error.message : strerror(-result)
         );
         sd_bus_error_free(&error);
@@ -265,20 +288,51 @@ int main(int argc, char** argv) {
     char* topology = call(bus, "InspectStorageTopology", NULL, NULL);
     char* generation = json_string(topology, "generation");
     const struct BlockGeometry target_geometry = block_geometry(argv[1]);
-    char* candidate = strcmp(mode, "create-partition-in-unallocated-space") == 0
-        ? unallocated_candidate(topology, target_geometry.size_bytes)
-        : partition_candidate(topology, partition_number_from_path(argv[1]), target_geometry);
+    char* candidate = NULL;
+    if (strcmp(mode, "erase-whole-device") == 0)
+        candidate = device_candidate(topology, target_geometry.size_bytes);
+    else if (strcmp(mode, "create-partition-in-unallocated-space") == 0)
+        candidate = unallocated_candidate(topology, target_geometry.size_bytes);
+    else
+        candidate = partition_candidate(topology, partition_number_from_path(argv[1]), target_geometry);
     if (generation == NULL || candidate == NULL)
         die("selected storage target is absent from storage topology");
+
+    char* inspection_id = NULL;
+    if (strcmp(mode, "adopt-existing-target") == 0) {
+        char inspection_request[2048];
+        if (snprintf(
+                inspection_request,
+                sizeof(inspection_request),
+                "{\"topologyGeneration\":\"%s\",\"candidateId\":\"%s\"}",
+                generation,
+                candidate
+            ) >= (int)sizeof(inspection_request))
+            die("inspection request is too large");
+        const int inspection_fd = open(argv[3], O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+        if (inspection_fd < 0)
+            die("cannot open the inspection passphrase file");
+        char* inspection = call_with_fd(bus, "InspectExistingTarget", inspection_request, inspection_fd);
+        close(inspection_fd);
+        inspection_id = json_string(inspection, "inspectionId");
+        char* classification = json_string(inspection, "classification");
+        if (inspection_id == NULL || *inspection_id == '\0' || classification == NULL ||
+            strcmp(classification, "compatible-repository") != 0)
+            die("selected storage target is not an adoptable repository");
+        free(classification);
+        free(inspection);
+    }
 
     char plan_request[2048];
     if (snprintf(
             plan_request,
             sizeof(plan_request),
-            "{\"topologyGeneration\":\"%s\",\"candidateId\":\"%s\",\"mode\":\"%s\"}",
+            "{\"topologyGeneration\":\"%s\",\"candidateId\":\"%s\",\"mode\":\"%s\","
+            "\"inspectionId\":\"%s\"}",
             generation,
             candidate,
-            mode
+            mode,
+            inspection_id != NULL ? inspection_id : ""
         ) >= (int)sizeof(plan_request))
         die("plan request is too large");
     char* plan = call(bus, "BuildDevicePreparationPlan", "s", plan_request);
@@ -305,7 +359,7 @@ int main(int argc, char** argv) {
     const int passphrase_fd = open(argv[3], O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
     if (passphrase_fd < 0)
         die("cannot open the passphrase file");
-    char* status = start_preparation(bus, start_request, passphrase_fd);
+    char* status = call_with_fd(bus, "StartDevicePreparation", start_request, passphrase_fd);
     free(source_candidate);
     free(sources);
     close(passphrase_fd);
@@ -327,6 +381,7 @@ int main(int argc, char** argv) {
             free(plan_id);
             free(plan);
             free(candidate);
+            free(inspection_id);
             free(generation);
             free(topology);
             sd_bus_unref(bus);
