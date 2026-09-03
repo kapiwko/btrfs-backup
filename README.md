@@ -249,13 +249,22 @@ Transfers always use send protocol v2 with
 write ioctl used by `btrfs receive` for compressed extents.
 
 Source builds additionally need CMake 3.20+, a C++23 compiler, pkg-config,
-nlohmann-json and development files for libmount, libblkid, libfdisk, libudev
-and libbtrfsutil. Build the base package with:
+nlohmann-json and development files for libmount, libblkid, libcryptsetup,
+libudev and libbtrfsutil. Build the base package with:
 
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr
 cmake --build build --parallel
 ```
+
+`BUILD_SYSTEM_MANAGER` is enabled by default. It additionally requires libfdisk
+and libsystemd development files and builds the privileged `btrfs-backupd`
+system D-Bus service, the isolated `btrfs-backup-device-preparation` helper,
+their systemd units, and D-Bus and polkit integration. The manager exposes
+sanitized status plus separately authorized backup control, profile,
+credential, browse-session, and destructive device-provisioning operations; it
+does not execute backup transfers. Pass `-DBUILD_SYSTEM_MANAGER=OFF` for a
+runner-and-CLI-only build.
 
 Pass `-DBUILD_KDE_INTEGRATION=ON` to build the optional desktop package. It
 requires Qt 6 Core, DBus, Gui, QML and Quick, Extra CMake Modules, Plasma and
