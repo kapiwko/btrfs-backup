@@ -7,13 +7,13 @@
 set -Eeuo pipefail
 export LC_ALL=C
 
-if (( $# != 1 )); then
-    printf 'Usage: %s UNIT_FILE\n' "$0" >&2
+if (( $# < 1 || $# > 2 )); then
+    printf 'Usage: %s UNIT_FILE [backup|device-preparation]\n' "$0" >&2
     exit 2
 fi
 
 UNIT_FILE="$1"
-THRESHOLD="${SYSTEMD_SECURITY_THRESHOLD:-8}"
+POLICY="${2:-backup}"
 TEST_ROOT="$(mktemp -d /tmp/btrfs-backup-systemd-security.XXXXXX)"
 UNIT_NAME="$(basename -- "$UNIT_FILE" .example)"
 STAGED_UNIT="$TEST_ROOT/$UNIT_NAME"
@@ -25,28 +25,60 @@ trap cleanup EXIT
 
 sed \
     -e 's#@BTRFSBACKUP_BACKUP_COMMAND@#/usr/bin/true#g' \
+    -e 's#@BTRFSBACKUP_DEVICE_PREPARATION_EXECUTABLE@#/usr/bin/true#g' \
     -e 's#@BTRFSBACKUP_EJECT_SCRIPT_PATH@#/usr/bin/true#g' \
     -e 's#{{PROFILE_ID}}#default#g' \
     "$UNIT_FILE" > "$STAGED_UNIT"
 
-for directive in \
-    NoNewPrivileges=yes \
-    PrivateTmp=yes \
-    ProtectSystem=full \
-    ProtectKernelTunables=yes \
-    ProtectKernelModules=yes \
-    ProtectControlGroups=yes \
-    ProtectHostname=yes \
-    ProtectClock=yes \
-    ProtectProc=invisible \
-    LockPersonality=yes \
-    RestrictRealtime=yes \
-    MemoryDenyWriteExecute=yes \
-    SystemCallArchitectures=native \
-    Environment=PATH=/usr/bin \
-    'RestrictAddressFamilies=AF_UNIX AF_NETLINK'; do
+common_directives=(
+    NoNewPrivileges=yes
+    PrivateTmp=yes
+    ProtectKernelTunables=yes
+    ProtectKernelModules=yes
+    ProtectControlGroups=yes
+    ProtectHostname=yes
+    ProtectClock=yes
+    ProtectProc=invisible
+    LockPersonality=yes
+    RestrictRealtime=yes
+    MemoryDenyWriteExecute=yes
+    SystemCallArchitectures=native
+    Environment=PATH=/usr/bin
+    'RestrictAddressFamilies=AF_UNIX AF_NETLINK'
+)
+
+case "$POLICY" in
+    backup)
+        threshold="${SYSTEMD_SECURITY_THRESHOLD:-8}"
+        policy_directives=(
+            ProtectSystem=full
+        )
+        ;;
+    device-preparation)
+        threshold="${SYSTEMD_DEVICE_PREPARATION_SECURITY_THRESHOLD:-4.5}"
+        policy_directives=(
+            User=root
+            Group=root
+            UMask=0077
+            PrivateMounts=yes
+            ProtectSystem=strict
+            ProtectHome=read-only
+            ProtectKernelLogs=yes
+            RestrictNamespaces=yes
+            DevicePolicy=closed
+            'DeviceAllow=/dev/mapper/control rw'
+            'CapabilityBoundingSet=CAP_SYS_ADMIN CAP_DAC_OVERRIDE CAP_FOWNER'
+        )
+        ;;
+    *)
+        printf 'Unknown systemd security policy: %s\n' "$POLICY" >&2
+        exit 2
+        ;;
+esac
+
+for directive in "${common_directives[@]}" "${policy_directives[@]}"; do
     grep -Fxq -- "$directive" "$STAGED_UNIT" || {
-        printf 'Missing systemd hardening directive: %s\n' "$directive" >&2
+        printf 'Missing %s systemd hardening directive: %s\n' "$POLICY" "$directive" >&2
         exit 1
     }
 done
@@ -62,8 +94,9 @@ security_output="$(
 printf '%s\n' "$security_output"
 
 exposure="$(sed -n 's/.*Overall exposure level.*: \([0-9][0-9.]*\) .*/\1/p' <<< "$security_output")"
-if [[ -z "$exposure" ]] || ! awk -v exposure="$exposure" -v threshold="$THRESHOLD" \
+if [[ -z "$exposure" ]] || ! awk -v exposure="$exposure" -v threshold="$threshold" \
     'BEGIN { exit !(exposure <= threshold) }'; then
-    printf 'systemd exposure %s exceeds threshold %s\n' "${exposure:-unknown}" "$THRESHOLD" >&2
+    printf '%s systemd exposure %s exceeds threshold %s\n' \
+        "$POLICY" "${exposure:-unknown}" "$threshold" >&2
     exit 1
 fi

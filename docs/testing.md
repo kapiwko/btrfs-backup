@@ -51,11 +51,17 @@ The focused systemd security contract can also be run directly:
 
 ```bash
 tests/systemd/check-security.sh data/systemd/btrfs-backup@.service.example
+tests/systemd/check-security.sh \
+    data/systemd/btrfs-backup-device-preparation@.service \
+    device-preparation
 ```
 
-It asserts the required directives and runs offline `systemd-analyze security`
-with a maximum accepted exposure level of 8. The GitHub Actions security job
-runs this check for every push and pull request.
+It asserts the required directives and runs offline `systemd-analyze security`.
+The backup runner and privileged device-preparation helper have separate
+policies and maximum exposure levels of `8.0` and `4.5`, respectively. The
+helper's policy explicitly accounts for its retained mount, block-device, and
+storage-administration privileges. The GitHub Actions security job runs both
+checks for every push and pull request.
 
 ## Mock Boundaries
 

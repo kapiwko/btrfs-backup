@@ -11,9 +11,16 @@ jobs:
   analyze-service:
     runs-on: ubuntu-24.04
     container: archlinux:base-devel
+    strategy:
+      matrix:
+        include:
+          - unit: data/systemd/btrfs-backup@.service.example
+            policy: backup
+          - unit: data/systemd/btrfs-backup-device-preparation@.service
+            policy: device-preparation
     steps:
       - name: Prepare Arch Linux
         run: pacman -Syu --noconfirm --needed git systemd
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Analyze service sandbox
-        run: tests/systemd/check-security.sh data/systemd/btrfs-backup@.service.example
+        run: tests/systemd/check-security.sh "${{ matrix.unit }}" "${{ matrix.policy }}"
