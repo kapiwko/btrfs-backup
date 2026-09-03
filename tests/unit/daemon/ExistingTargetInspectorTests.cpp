@@ -101,8 +101,8 @@ class Btrfs final : public bb::backup::IBtrfsOperations {
     }
 };
 
-bb::daemon::provisioning::ExistingPartition partition() {
-    bb::daemon::provisioning::ExistingPartition result;
+bb::provisioning::ExistingPartition partition() {
+    bb::provisioning::ExistingPartition result;
     result.identity.display_path = "/dev/test1";
     result.partition_uuid = "partition-uuid";
     result.filesystem.type = "crypto_LUKS";
@@ -156,7 +156,7 @@ void test_closes_mapper_when_filesystem_is_not_btrfs() {
     const auto summary = inspector.inspect(partition(), "inspection-test", root, 8);
     test_helpers::expect_true(
         "non-Btrfs classification",
-        summary.classification == bb::daemon::provisioning::ExistingTargetClassification::NotBtrfsFilesystem,
+        summary.classification == bb::provisioning::ExistingTargetClassification::NotBtrfsFilesystem,
         "non-Btrfs target was not classified"
     );
     test_helpers::expect_eq("failed inspection closes mapper", calls.back(), "close:inspection-test");
@@ -182,7 +182,7 @@ void test_classifies_repositoryless_btrfs_filesystems() {
     const auto empty_summary = inspect(empty);
     test_helpers::expect_true(
         "empty Btrfs classification",
-        empty_summary.classification == bb::daemon::provisioning::ExistingTargetClassification::EmptyFilesystem,
+        empty_summary.classification == bb::provisioning::ExistingTargetClassification::EmptyFilesystem,
         "empty Btrfs target was not classified"
     );
 
@@ -191,7 +191,7 @@ void test_classifies_repositoryless_btrfs_filesystems() {
     const auto legacy_summary = inspect(legacy);
     test_helpers::expect_true(
         "legacy classification",
-        legacy_summary.classification == bb::daemon::provisioning::ExistingTargetClassification::LegacyRepository,
+        legacy_summary.classification == bb::provisioning::ExistingTargetClassification::LegacyRepository,
         "legacy target was not recognized"
     );
 
@@ -200,7 +200,7 @@ void test_classifies_repositoryless_btrfs_filesystems() {
     const auto foreign_summary = inspect(foreign);
     test_helpers::expect_true(
         "foreign classification",
-        foreign_summary.classification == bb::daemon::provisioning::ExistingTargetClassification::ForeignOrInvalidRepository,
+        foreign_summary.classification == bb::provisioning::ExistingTargetClassification::ForeignOrInvalidRepository,
         "foreign target was not rejected"
     );
 }
@@ -217,7 +217,7 @@ void test_classifies_unsupported_repository_format() {
     const auto summary = inspector.inspect(partition(), "inspection-test", root, 8);
     test_helpers::expect_true(
         "unsupported repository classification",
-        summary.classification == bb::daemon::provisioning::ExistingTargetClassification::UnsupportedRepository &&
+        summary.classification == bb::provisioning::ExistingTargetClassification::UnsupportedRepository &&
             summary.diagnostic_code == "repository-format-unsupported",
         "unsupported repository format was not classified"
     );

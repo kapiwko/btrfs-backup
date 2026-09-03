@@ -7,9 +7,9 @@
 #include <cstdint>
 #include <string>
 
-#include <daemon/control/DeviceProvisioningService.hpp>
+#include <provisioning/DevicePreparation.hpp>
 
-namespace btrfsbackup::daemon::control {
+namespace btrfsbackup::provisioning {
 
 struct TransactionRevision {
     std::uint64_t value = 0;
@@ -47,4 +47,4 @@ struct DevicePreparationTransaction {
     bool cancel_requested = false;
 };
 
-} // namespace btrfsbackup::daemon::control
+} // namespace btrfsbackup::provisioning

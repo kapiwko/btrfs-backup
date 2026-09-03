@@ -105,7 +105,7 @@ if(BUILD_SYSTEM_MANAGER)
     )
     target_link_libraries(btrfsbackup-platform-linux-provisioning
         PUBLIC
-            btrfsbackup-daemon-provisioning
+            btrfsbackup-provisioning
         PRIVATE
             btrfsbackup-backup-ports
             btrfsbackup-core

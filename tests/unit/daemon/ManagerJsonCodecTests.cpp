@@ -192,7 +192,7 @@ void test_status_history_and_device() {
 }
 
 void test_storage_topology_and_plan_contract() {
-    namespace provisioning = btrfsbackup::daemon::provisioning;
+    namespace provisioning = btrfsbackup::provisioning;
     const ManagerJsonCodec codec;
     provisioning::StorageDevice device;
     device.candidate_id = "opaque-device";

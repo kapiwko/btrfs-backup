@@ -5,7 +5,7 @@
 
 #include <core/Errors.hpp>
 #include <daemon/dbus/ManagerErrors.hpp>
-#include <daemon/provisioning/StorageTopologyReader.hpp>
+#include <provisioning/StorageTopologyReader.hpp>
 
 #include "support/TestHelpers.hpp"
 
@@ -17,14 +17,14 @@ using btrfsbackup::daemon::control::IDeviceProvisioningBackend;
 using btrfsbackup::daemon::control::IManagerAuthorizer;
 using btrfsbackup::daemon::control::ManagerAuthorizationAction;
 using btrfsbackup::daemon::control::SourceCandidate;
-using btrfsbackup::daemon::provisioning::ExistingPartition;
-using btrfsbackup::daemon::provisioning::PartitionTableType;
-using btrfsbackup::daemon::provisioning::ProvisioningMode;
-using btrfsbackup::daemon::provisioning::StorageDevice;
-using btrfsbackup::daemon::provisioning::StorageRegion;
-using btrfsbackup::daemon::provisioning::StorageTopology;
-using btrfsbackup::daemon::provisioning::StorageTopologyReader;
-using btrfsbackup::daemon::provisioning::UnallocatedRegion;
+using btrfsbackup::provisioning::ExistingPartition;
+using btrfsbackup::provisioning::PartitionTableType;
+using btrfsbackup::provisioning::ProvisioningMode;
+using btrfsbackup::provisioning::StorageDevice;
+using btrfsbackup::provisioning::StorageRegion;
+using btrfsbackup::provisioning::StorageTopology;
+using btrfsbackup::provisioning::StorageTopologyReader;
+using btrfsbackup::provisioning::UnallocatedRegion;
 
 class Authorizer final : public IManagerAuthorizer {
   public:
@@ -54,8 +54,8 @@ class Backend final : public IDeviceProvisioningBackend {
     DevicePreparationRequest received_request;
     btrfsbackup::daemon::control::DevicePreparationOwner owner;
     btrfsbackup::daemon::control::DevicePreparationTarget target;
-    btrfsbackup::daemon::provisioning::ExistingTargetClassification inspection_classification =
-        btrfsbackup::daemon::provisioning::ExistingTargetClassification::CompatibleRepository;
+    btrfsbackup::provisioning::ExistingTargetClassification inspection_classification =
+        btrfsbackup::provisioning::ExistingTargetClassification::CompatibleRepository;
     std::vector<SourceCandidate> list_source_candidates() override {
         return {{
             .id = {},
@@ -72,9 +72,9 @@ class Backend final : public IDeviceProvisioningBackend {
             events->push_back("inspect");
         return safety_reasons;
     }
-    btrfsbackup::daemon::provisioning::PlannedPartitionGeometry plan_partition_geometry(
-        const btrfsbackup::daemon::provisioning::StorageDevice&,
-        const btrfsbackup::daemon::provisioning::UnallocatedRegion& free_region
+    btrfsbackup::provisioning::PlannedPartitionGeometry plan_partition_geometry(
+        const btrfsbackup::provisioning::StorageDevice&,
+        const btrfsbackup::provisioning::UnallocatedRegion& free_region
     ) const override {
         ++geometry_plans;
         return {
@@ -83,13 +83,13 @@ class Backend final : public IDeviceProvisioningBackend {
             .partition_number = 2,
         };
     }
-    btrfsbackup::daemon::provisioning::PlannedPartitionGeometry plan_whole_device_partition_geometry(
-        const btrfsbackup::daemon::provisioning::StorageDevice&
+    btrfsbackup::provisioning::PlannedPartitionGeometry plan_whole_device_partition_geometry(
+        const btrfsbackup::provisioning::StorageDevice&
     ) const override {
         ++geometry_plans;
         return {.start_sector = 1, .sector_count = 14, .partition_number = 1};
     }
-    btrfsbackup::daemon::provisioning::ExistingTargetInspectionSummary inspect_existing_target(
+    btrfsbackup::provisioning::ExistingTargetInspectionSummary inspect_existing_target(
         const btrfsbackup::daemon::control::DevicePreparationTarget& received_target,
         int passphrase_fd
     ) override {
@@ -98,14 +98,14 @@ class Backend final : public IDeviceProvisioningBackend {
         return {
             .classification = inspection_classification,
             .diagnostic_code = inspection_classification ==
-                    btrfsbackup::daemon::provisioning::ExistingTargetClassification::CompatibleRepository
+                    btrfsbackup::provisioning::ExistingTargetClassification::CompatibleRepository
                 ? ""
                 : "repository-not-found",
             .luks_uuid = "luks-uuid",
             .btrfs_uuid = "btrfs-uuid",
             .partition_uuid = "part-uuid",
             .repository_id = inspection_classification ==
-                    btrfsbackup::daemon::provisioning::ExistingTargetClassification::CompatibleRepository
+                    btrfsbackup::provisioning::ExistingTargetClassification::CompatibleRepository
                 ? "repository-1"
                 : "",
             .catalog_generation = 7,
@@ -444,7 +444,7 @@ void test_existing_target_inspection_is_caller_bound_and_invalidated_by_rescan()
         "inspection-bound adoption plan",
         plan.mode == ProvisioningMode::AdoptExistingTarget &&
             plan.inspection_id == std::optional<std::string>{inspection.inspection_id} &&
-            plan.destructive_scope.kind() == btrfsbackup::daemon::provisioning::DestructiveScopeKind::None &&
+            plan.destructive_scope.kind() == btrfsbackup::provisioning::DestructiveScopeKind::None &&
             plan.before == plan.after,
         "adoption plan is not bound to the read-only inspection"
     );
@@ -484,7 +484,7 @@ void test_non_adoptable_inspection_has_no_reusable_token() {
     Authorizer authorizer;
     Backend backend;
     backend.inspection_classification =
-        btrfsbackup::daemon::provisioning::ExistingTargetClassification::EmptyFilesystem;
+        btrfsbackup::provisioning::ExistingTargetClassification::EmptyFilesystem;
     TopologyReader reader;
     DeviceProvisioningService service(authorizer, backend, std::chrono::minutes(5), {}, {}, &reader);
     const auto topology = service.inspect_storage_topology(":1.40");
@@ -536,8 +536,8 @@ void test_free_space_plan_uses_backend_geometry() {
     );
     const auto target = std::ranges::find(
         plan.after.regions,
-        btrfsbackup::daemon::provisioning::PredictedRegionKind::BackupPartition,
-        &btrfsbackup::daemon::provisioning::PredictedStorageRegion::kind
+        btrfsbackup::provisioning::PredictedRegionKind::BackupPartition,
+        &btrfsbackup::provisioning::PredictedStorageRegion::kind
     );
     test_helpers::expect_true(
         "libfdisk geometry in plan",

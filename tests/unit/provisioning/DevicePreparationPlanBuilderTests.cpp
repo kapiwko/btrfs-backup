@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Kamil Piwowarski <kapiwko@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <daemon/provisioning/DevicePreparationPlanBuilder.hpp>
+#include <provisioning/DevicePreparationPlanBuilder.hpp>
 
 #include <utility>
 #include <array>
@@ -13,23 +13,23 @@
 
 namespace {
 
-using btrfsbackup::daemon::provisioning::CreateBackupPartition;
-using btrfsbackup::daemon::provisioning::BackupPartitionTable;
-using btrfsbackup::daemon::provisioning::DestructiveScope;
-using btrfsbackup::daemon::provisioning::DestructiveScopeKind;
-using btrfsbackup::daemon::provisioning::DevicePreparationPlanBuilder;
-using btrfsbackup::daemon::provisioning::EraseDeviceSignatures;
-using btrfsbackup::daemon::provisioning::ErasePartitionSignatures;
-using btrfsbackup::daemon::provisioning::ExistingPartition;
-using btrfsbackup::daemon::provisioning::PartitionTableType;
-using btrfsbackup::daemon::provisioning::PlannedPartitionGeometry;
-using btrfsbackup::daemon::provisioning::PredictedRegionKind;
-using btrfsbackup::daemon::provisioning::ProvisioningMode;
-using btrfsbackup::daemon::provisioning::PublishProfile;
-using btrfsbackup::daemon::provisioning::StorageDevice;
-using btrfsbackup::daemon::provisioning::StorageRegion;
-using btrfsbackup::daemon::provisioning::StorageTopology;
-using btrfsbackup::daemon::provisioning::UnallocatedRegion;
+using btrfsbackup::provisioning::CreateBackupPartition;
+using btrfsbackup::provisioning::BackupPartitionTable;
+using btrfsbackup::provisioning::DestructiveScope;
+using btrfsbackup::provisioning::DestructiveScopeKind;
+using btrfsbackup::provisioning::DevicePreparationPlanBuilder;
+using btrfsbackup::provisioning::EraseDeviceSignatures;
+using btrfsbackup::provisioning::ErasePartitionSignatures;
+using btrfsbackup::provisioning::ExistingPartition;
+using btrfsbackup::provisioning::PartitionTableType;
+using btrfsbackup::provisioning::PlannedPartitionGeometry;
+using btrfsbackup::provisioning::PredictedRegionKind;
+using btrfsbackup::provisioning::ProvisioningMode;
+using btrfsbackup::provisioning::PublishProfile;
+using btrfsbackup::provisioning::StorageDevice;
+using btrfsbackup::provisioning::StorageRegion;
+using btrfsbackup::provisioning::StorageTopology;
+using btrfsbackup::provisioning::UnallocatedRegion;
 
 void test_provisioning_mode_names_round_trip() {
     constexpr std::array modes{
@@ -39,16 +39,16 @@ void test_provisioning_mode_names_round_trip() {
         ProvisioningMode::AdoptExistingTarget,
     };
     for (const auto mode : modes) {
-        const auto name = btrfsbackup::daemon::provisioning::provisioning_mode_name(mode);
+        const auto name = btrfsbackup::provisioning::provisioning_mode_name(mode);
         test_helpers::expect_true(
             "provisioning mode round trip",
-            btrfsbackup::daemon::provisioning::provisioning_mode_from_name(name) == mode,
+            btrfsbackup::provisioning::provisioning_mode_from_name(name) == mode,
             "provisioning mode name cannot be parsed"
         );
     }
     test_helpers::expect_true(
         "unknown provisioning mode",
-        !btrfsbackup::daemon::provisioning::provisioning_mode_from_name("unknown").has_value(),
+        !btrfsbackup::provisioning::provisioning_mode_from_name("unknown").has_value(),
         "unknown provisioning mode was accepted"
     );
 }

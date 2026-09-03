@@ -10,7 +10,7 @@
 
 #include <core/Errors.hpp>
 #include <daemon/dbus/ManagerErrors.hpp>
-#include <daemon/provisioning/StorageTopologyReader.hpp>
+#include <provisioning/StorageTopologyReader.hpp>
 
 namespace btrfsbackup::daemon::control {
 namespace {

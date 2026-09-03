@@ -7,7 +7,7 @@
 #include <string>
 
 #include <config/domain/Profile.hpp>
-#include <daemon/control/DevicePreparationTransaction.hpp>
+#include <provisioning/DevicePreparationTransaction.hpp>
 
 namespace btrfsbackup::daemon::control {
 
@@ -16,7 +16,7 @@ class ProvisionedProfileBuilder final {
     explicit ProvisionedProfileBuilder(std::filesystem::path target_mount_root);
 
     [[nodiscard]] config::Profile build(
-        const DevicePreparationTransaction& transaction,
+        const provisioning::DevicePreparationTransaction& transaction,
         const std::string& luks_uuid,
         const std::string& btrfs_uuid,
         const std::string& partition_uuid

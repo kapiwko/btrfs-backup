@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Kamil Piwowarski <kapiwko@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <daemon/provisioning/ConfiguredBackupTargetMarker.hpp>
+#include <provisioning/ConfiguredBackupTargetMarker.hpp>
 
 #include <algorithm>
 
@@ -9,13 +9,13 @@
 
 namespace {
 
-btrfsbackup::daemon::provisioning::ExistingPartition partition(
+btrfsbackup::provisioning::ExistingPartition partition(
     std::string path,
     std::string partition_uuid,
     std::string filesystem_type,
     std::string filesystem_uuid
 ) {
-    btrfsbackup::daemon::provisioning::ExistingPartition result;
+    btrfsbackup::provisioning::ExistingPartition result;
     result.identity.display_path = std::move(path);
     result.partition_uuid = std::move(partition_uuid);
     result.filesystem.type = std::move(filesystem_type);
@@ -26,7 +26,7 @@ btrfsbackup::daemon::provisioning::ExistingPartition partition(
 }
 
 void test_marks_targets_by_partition_or_luks_uuid() {
-    namespace provisioning = btrfsbackup::daemon::provisioning;
+    namespace provisioning = btrfsbackup::provisioning;
     provisioning::StorageDevice device;
     device.regions.emplace_back(partition("/dev/test1", "part-1", "ext4", "filesystem-1"));
     device.regions.emplace_back(partition("/dev/test2", "part-2", "crypto_LUKS", "luks-2"));
@@ -69,7 +69,7 @@ void test_marks_targets_by_partition_or_luks_uuid() {
 }
 
 void test_ignores_empty_identities_and_does_not_duplicate_blocker() {
-    namespace provisioning = btrfsbackup::daemon::provisioning;
+    namespace provisioning = btrfsbackup::provisioning;
     auto candidate = partition("/dev/test1", "part-1", "crypto_LUKS", "luks-1");
     candidate.blockers.push_back({"configured-backup-target", "/dev/test1"});
     provisioning::StorageDevice device;

@@ -1,13 +1,13 @@
 // SPDX-FileCopyrightText: 2026 Kamil Piwowarski <kapiwko@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <daemon/provisioning/StorageSafetyInspector.hpp>
+#include <provisioning/StorageSafetyInspector.hpp>
 
 #include <algorithm>
 #include <ranges>
 #include <string>
 
-namespace btrfsbackup::daemon::provisioning {
+namespace btrfsbackup::provisioning {
 namespace {
 
 void add_blocker(std::vector<SafetyBlocker>& result, std::string code, std::string detail = {}) {
@@ -223,4 +223,4 @@ std::vector<SafetyBlocker> StorageSafetyInspector::inspect(
     return result;
 }
 
-} // namespace btrfsbackup::daemon::provisioning
+} // namespace btrfsbackup::provisioning

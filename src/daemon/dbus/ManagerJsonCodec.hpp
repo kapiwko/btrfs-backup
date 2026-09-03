@@ -11,8 +11,8 @@
 #include <daemon/control/ProfileAdministrationService.hpp>
 #include <daemon/control/CredentialAdministrationService.hpp>
 #include <daemon/control/DeviceProvisioningService.hpp>
-#include <daemon/provisioning/DevicePreparationPlan.hpp>
-#include <daemon/provisioning/StorageTopology.hpp>
+#include <provisioning/DevicePreparationPlan.hpp>
+#include <provisioning/StorageTopology.hpp>
 
 namespace btrfsbackup::daemon::dbus {
 

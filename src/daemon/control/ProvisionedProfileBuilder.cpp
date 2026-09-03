@@ -14,7 +14,7 @@ ProvisionedProfileBuilder::ProvisionedProfileBuilder(std::filesystem::path targe
 }
 
 config::Profile ProvisionedProfileBuilder::build(
-    const DevicePreparationTransaction& transaction,
+    const provisioning::DevicePreparationTransaction& transaction,
     const std::string& luks_uuid,
     const std::string& btrfs_uuid,
     const std::string& partition_uuid

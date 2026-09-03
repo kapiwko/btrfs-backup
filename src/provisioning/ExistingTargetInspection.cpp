@@ -1,9 +1,9 @@
 // SPDX-FileCopyrightText: 2026 Kamil Piwowarski <kapiwko@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <daemon/provisioning/ExistingTargetInspection.hpp>
+#include <provisioning/ExistingTargetInspection.hpp>
 
-namespace btrfsbackup::daemon::provisioning {
+namespace btrfsbackup::provisioning {
 
 std::string existing_target_classification_name(ExistingTargetClassification classification) {
     switch (classification) {
@@ -23,4 +23,4 @@ std::string existing_target_classification_name(ExistingTargetClassification cla
     return "foreign-or-invalid-repository";
 }
 
-} // namespace btrfsbackup::daemon::provisioning
+} // namespace btrfsbackup::provisioning

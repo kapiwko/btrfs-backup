@@ -39,14 +39,6 @@ add_btrfsbackup_test(
 )
 
 add_btrfsbackup_test(
-    btrfsbackup-configured-backup-target-marker-tests
-    ConfiguredBackupTargetMarkerTests.cpp
-    configured-backup-target-marker-tests
-    btrfsbackup-daemon-provisioning
-    btrfsbackup-core
-)
-
-add_btrfsbackup_test(
     btrfsbackup-manager-json-codec-tests
     ManagerJsonCodecTests.cpp
     manager-json-codec-tests
@@ -100,22 +92,6 @@ add_btrfsbackup_test(
 )
 
 add_btrfsbackup_test(
-    btrfsbackup-device-preparation-plan-builder-tests
-    DevicePreparationPlanBuilderTests.cpp
-    device-preparation-plan-builder-tests
-    btrfsbackup-daemon-provisioning
-    btrfsbackup-core
-)
-
-add_btrfsbackup_test(
-    btrfsbackup-storage-safety-inspector-tests
-    StorageSafetyInspectorTests.cpp
-    storage-safety-inspector-tests
-    btrfsbackup-daemon-provisioning
-    btrfsbackup-core
-)
-
-add_btrfsbackup_test(
     btrfsbackup-existing-target-inspector-tests
     ExistingTargetInspectorTests.cpp
     existing-target-inspector-tests
@@ -129,7 +105,7 @@ add_btrfsbackup_test(
     SystemDeviceProvisioningBackendTests.cpp
     system-device-provisioning-backend-tests
     btrfsbackup-daemon-system-control
-    btrfsbackup-daemon-provisioning
+    btrfsbackup-provisioning
     btrfsbackup-platform-linux-config
     btrfsbackup-platform-linux-provisioning
     btrfsbackup-platform-linux-storage
@@ -157,7 +133,7 @@ add_btrfsbackup_test(
     DestructiveDeviceSafetyInspectorTests.cpp
     destructive-device-safety-inspector-tests
     btrfsbackup-daemon-system-control
-    btrfsbackup-daemon-provisioning
+    btrfsbackup-provisioning
 )
 
 add_btrfsbackup_test(

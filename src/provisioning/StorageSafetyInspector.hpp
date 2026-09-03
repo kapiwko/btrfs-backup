@@ -5,9 +5,9 @@
 
 #include <vector>
 
-#include <daemon/provisioning/DevicePreparationPlan.hpp>
+#include <provisioning/DevicePreparationPlan.hpp>
 
-namespace btrfsbackup::daemon::provisioning {
+namespace btrfsbackup::provisioning {
 
 class StorageSafetyInspector final {
   public:
@@ -18,4 +18,4 @@ class StorageSafetyInspector final {
     ) const;
 };
 
-} // namespace btrfsbackup::daemon::provisioning
+} // namespace btrfsbackup::provisioning

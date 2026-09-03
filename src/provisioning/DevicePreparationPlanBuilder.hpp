@@ -3,9 +3,9 @@
 
 #pragma once
 
-#include <daemon/provisioning/DevicePreparationPlan.hpp>
+#include <provisioning/DevicePreparationPlan.hpp>
 
-namespace btrfsbackup::daemon::provisioning {
+namespace btrfsbackup::provisioning {
 
 class DevicePreparationPlanBuilder final {
   public:
@@ -20,4 +20,4 @@ class DevicePreparationPlanBuilder final {
     ) const;
 };
 
-} // namespace btrfsbackup::daemon::provisioning
+} // namespace btrfsbackup::provisioning

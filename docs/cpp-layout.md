@@ -23,6 +23,7 @@ src/
 │   ├── json/                 # JSON profile adapter
 │   ├── ports/                # configuration contracts
 │   └── wizard/               # interactive profile construction
+├── provisioning/             # storage topology, target preparation models, plans and safety rules
 ├── state/                    # one state domain, physically grouped by role
 │   ├── model/
 │   ├── persistence/
@@ -46,7 +47,7 @@ src/
     ├── control/
     └── dbus/
 tests/
-├── unit/{backup,config,state,platform,cli,daemon}/
+├── unit/{backup,config,state,provisioning,platform,cli,daemon}/
 ├── integration/
 ├── support/
 └── systemd/
@@ -88,7 +89,7 @@ types remain directly in `btrfsbackup`; domain code uses the following map:
 | `src/cli/status/` | `btrfsbackup::cli::status` |
 | `src/cli/target/` | `btrfsbackup::cli::target` |
 | `src/daemon/` | `btrfsbackup::daemon` |
-| `src/daemon/provisioning/` | `btrfsbackup::daemon::provisioning` |
+| `src/provisioning/` | `btrfsbackup::provisioning` |
 | `src/daemon/query/` | `btrfsbackup::daemon::query` |
 | `src/daemon/control/` | `btrfsbackup::daemon::control` |
 | `src/daemon/dbus/` | `btrfsbackup::daemon::dbus` |
@@ -146,11 +147,11 @@ flowchart TB
     manager_protocol[manager-protocol] --> daemon_core[daemon-core]
     daemon_core --> daemon_query[daemon-query]
     daemon_core --> daemon_control[daemon-control]
-    daemon_core --> daemon_provisioning[daemon-provisioning]
+    provisioning --> daemon_control
     config_domain --> daemon_control
     daemon_control --> daemon_dbus[daemon-dbus]
     daemon_query --> daemon_dbus
-    daemon_provisioning --> linux_provisioning[platform-linux-provisioning]
+    provisioning --> linux_provisioning[platform-linux-provisioning]
 ```
 
 Arrows show direct public link interfaces; private and third-party dependencies
@@ -195,6 +196,8 @@ respective adapters.
   by `backup`; the executor never writes those files directly.
   `btrfsbackup-state-model` exposes the typed `RunStatus`, `RunProgress`, and
   optional `RunError` contract without depending on JSON or filesystem code.
+- `provisioning` owns storage topology, target preparation requests, transactions
+  and plans, existing-target classification, and platform-neutral safety rules.
 - `platform/linux` owns POSIX processes, Btrfs and block-device integration,
   mount inspection, trusted files, locks, durable filesystem operations,
   transfer processes and `splice` pumping, poll wakeups for cancellation, and

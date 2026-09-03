@@ -9,7 +9,7 @@
 #include <variant>
 #include <vector>
 
-namespace btrfsbackup::daemon::provisioning {
+namespace btrfsbackup::provisioning {
 
 using TopologyGeneration = std::string;
 using DeviceCandidateId = std::string;
@@ -123,4 +123,4 @@ struct StorageTopology {
 [[nodiscard]] std::string partition_table_type_name(PartitionTableType type);
 [[nodiscard]] std::uint64_t region_start_sector(const StorageRegion& region);
 
-} // namespace btrfsbackup::daemon::provisioning
+} // namespace btrfsbackup::provisioning

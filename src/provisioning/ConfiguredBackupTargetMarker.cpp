@@ -1,12 +1,12 @@
 // SPDX-FileCopyrightText: 2026 Kamil Piwowarski <kapiwko@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <daemon/provisioning/ConfiguredBackupTargetMarker.hpp>
+#include <provisioning/ConfiguredBackupTargetMarker.hpp>
 
 #include <algorithm>
 #include <utility>
 
-namespace btrfsbackup::daemon::provisioning {
+namespace btrfsbackup::provisioning {
 namespace {
 
 bool matches(const ExistingPartition& partition, const ConfiguredBackupTargetIdentity& target) {
@@ -45,4 +45,4 @@ void ConfiguredBackupTargetMarker::apply(StorageTopology& topology) const {
     }
 }
 
-} // namespace btrfsbackup::daemon::provisioning
+} // namespace btrfsbackup::provisioning

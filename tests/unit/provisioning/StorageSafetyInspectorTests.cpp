@@ -1,8 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Kamil Piwowarski <kapiwko@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <daemon/provisioning/DevicePreparationPlanBuilder.hpp>
-#include <daemon/provisioning/StorageSafetyInspector.hpp>
+#include <provisioning/DevicePreparationPlanBuilder.hpp>
+#include <provisioning/StorageSafetyInspector.hpp>
 
 #include <algorithm>
 
@@ -10,7 +10,7 @@
 
 namespace {
 
-namespace provisioning = btrfsbackup::daemon::provisioning;
+namespace provisioning = btrfsbackup::provisioning;
 
 provisioning::ExistingPartition partition(
     std::string id,

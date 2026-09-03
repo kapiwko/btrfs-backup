@@ -6,9 +6,9 @@
 #include <string>
 #include <vector>
 
-#include <daemon/provisioning/StorageTopology.hpp>
+#include <provisioning/StorageTopology.hpp>
 
-namespace btrfsbackup::daemon::provisioning {
+namespace btrfsbackup::provisioning {
 
 struct ConfiguredBackupTargetIdentity {
     std::string partition_uuid;
@@ -24,4 +24,4 @@ class ConfiguredBackupTargetMarker final {
     std::vector<ConfiguredBackupTargetIdentity> targets_;
 };
 
-} // namespace btrfsbackup::daemon::provisioning
+} // namespace btrfsbackup::provisioning

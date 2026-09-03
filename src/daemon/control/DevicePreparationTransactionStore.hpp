@@ -11,9 +11,12 @@
 #include <string>
 #include <vector>
 
-#include <daemon/control/DevicePreparationTransaction.hpp>
+#include <provisioning/DevicePreparationTransaction.hpp>
 
 namespace btrfsbackup::daemon::control {
+
+using provisioning::DevicePreparationTransaction;
+using provisioning::TransactionRevision;
 
 using DevicePreparationTransition = std::function<void(DevicePreparationTransaction&)>;
 
