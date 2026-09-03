@@ -15,6 +15,7 @@
 
 #include <algorithm>
 #include <limits>
+#include <utility>
 
 #include <state/document/RunStatusDocumentCodec.hpp>
 
@@ -52,6 +53,81 @@ ManagerEventSubscriber::ManagerEventSubscriber(QDBusConnection bus, QObject* par
         this,
         &ManagerEventSubscriber::deviceStateChanged
     );
+}
+
+ManagerClient::ManagerClient(QDBusConnection bus) : bus_(std::move(bus)) {
+}
+
+QDBusPendingCall ManagerClient::call(const QString& method, const QVariantList& arguments) const {
+    return manager_call(bus_, method, arguments);
+}
+
+QDBusPendingCall ManagerClient::capabilities() const {
+    return call(QLatin1String(manager_protocol::method::get_capabilities));
+}
+
+QDBusPendingCall ManagerClient::profiles() const {
+    return call(QLatin1String(manager_protocol::method::list_profiles));
+}
+
+QDBusPendingCall ManagerClient::status(const QString& profile_id) const {
+    return call(QLatin1String(manager_protocol::method::get_status), {profile_id});
+}
+
+QDBusPendingCall ManagerClient::deviceState(const QString& profile_id) const {
+    return call(QLatin1String(manager_protocol::method::get_device_state), {profile_id});
+}
+
+QDBusPendingCall ManagerClient::history(const QString& profile_id, uint offset, uint limit) const {
+    return call(QLatin1String(manager_protocol::method::get_history_sanitized), {profile_id, offset, limit});
+}
+
+QDBusPendingCall ManagerClient::startBackup(const QString& profile_id) const {
+    return call(QLatin1String(manager_protocol::method::start_backup), {profile_id});
+}
+
+QDBusPendingCall ManagerClient::cancelBackup(const QString& profile_id, const QString& run_id) const {
+    return call(QLatin1String(manager_protocol::method::cancel_backup), {profile_id, run_id});
+}
+
+QDBusPendingCall ManagerClient::ejectTarget(const QString& profile_id) const {
+    return call(QLatin1String(manager_protocol::method::eject_target), {profile_id});
+}
+
+QDBusPendingCall ManagerClient::resolveBackupCoverage(const QString& local_path) const {
+    return call(QLatin1String(manager_protocol::method::resolve_backup_coverage), {local_path});
+}
+
+QDBusPendingCall ManagerClient::openBrowseSession(const QString& profile_id) const {
+    return call(QLatin1String(manager_protocol::method::open_browse_session), {profile_id});
+}
+
+QDBusPendingCall ManagerClient::renewBrowseSession(const QString& session_id) const {
+    return call(QLatin1String(manager_protocol::method::renew_browse_session), {session_id});
+}
+
+QDBusPendingCall ManagerClient::setBrowseSessionActive(const QString& session_id, bool active) const {
+    return call(QLatin1String(manager_protocol::method::set_browse_session_active), {session_id, active});
+}
+
+QDBusPendingCall ManagerClient::closeBrowseSession(const QString& session_id) const {
+    return call(QLatin1String(manager_protocol::method::close_browse_session), {session_id});
+}
+
+QDBusPendingCall ManagerClient::listBrowseDirectory(const QString& session_id, const QString& path) const {
+    return call(QLatin1String(manager_protocol::method::list_browse_directory), {session_id, path});
+}
+
+QDBusPendingCall ManagerClient::inspectBrowseEntry(const QString& session_id, const QString& path) const {
+    return call(QLatin1String(manager_protocol::method::inspect_browse_entry), {session_id, path});
+}
+
+QDBusPendingCall ManagerClient::inspectBrowseRepository(const QString& session_id) const {
+    return call(QLatin1String(manager_protocol::method::inspect_browse_repository), {session_id});
+}
+
+QDBusPendingCall ManagerClient::openBrowseFile(const QString& session_id, const QString& path) const {
+    return call(QLatin1String(manager_protocol::method::open_browse_file), {session_id, path});
 }
 
 QDBusPendingCall manager_call(

@@ -114,10 +114,7 @@ void ProfileHistoryModel::ensureCapabilities(bool replace) {
     emit stateChanged();
     const quint64 request_generation = generation_;
     auto* watcher = new QDBusPendingCallWatcher(
-        btrfsbackup::kde::manager_call(
-            bus_,
-            QLatin1String(btrfsbackup::manager_protocol::method::get_capabilities)
-        ),
+        btrfsbackup::kde::ManagerClient{bus_}.capabilities(),
         this
     );
     connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, watcher, request_generation, replace](QDBusPendingCallWatcher*) {
@@ -156,10 +153,10 @@ void ProfileHistoryModel::requestPage(bool replace) {
     const QString requested_profile = profile_id_;
     const uint offset = replace ? 0U : static_cast<uint>(entries_.size());
     auto* watcher = new QDBusPendingCallWatcher(
-        btrfsbackup::kde::manager_call(
-            bus_,
-            QLatin1String(btrfsbackup::manager_protocol::method::get_history_sanitized),
-            {requested_profile, offset, static_cast<uint>(page_size_)}
+        btrfsbackup::kde::ManagerClient{bus_}.history(
+            requested_profile,
+            offset,
+            static_cast<uint>(page_size_)
         ),
         this
     );

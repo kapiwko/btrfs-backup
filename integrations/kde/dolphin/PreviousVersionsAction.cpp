@@ -107,7 +107,10 @@ QList<QAction*> PreviousVersionsAction::actions(
 
 void PreviousVersionsAction::resolve_and_open(const QString& local_path, QWidget* parent_widget) {
     const QPointer<QWidget> parent = parent_widget;
-    auto* watcher = new QDBusPendingCallWatcher(btrfsbackup::kde::manager_call(QDBusConnection::systemBus(), QLatin1String(btrfsbackup::manager_protocol::method::resolve_backup_coverage), {local_path}), this);
+    auto* watcher = new QDBusPendingCallWatcher(
+        btrfsbackup::kde::ManagerClient{}.resolveBackupCoverage(local_path),
+        this
+    );
     connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, watcher, parent](QDBusPendingCallWatcher*) {
         const QDBusPendingReply<QString> reply = *watcher;
         watcher->deleteLater();
