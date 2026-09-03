@@ -38,8 +38,11 @@ void BackupKcm::openSupportPage() {
 
 void BackupKcm::openPartitionManager() {
     const QString executable = QStandardPaths::findExecutable(QStringLiteral("partitionmanager"));
-    if (!executable.isEmpty())
+    if (!executable.isEmpty()) {
         QProcess::startDetached(executable);
+        return;
+    }
+    QDesktopServices::openUrl(QUrl(QStringLiteral("appstream://org.kde.partitionmanager.desktop")));
 }
 
 bool BackupKcm::partitionManagerAvailable() const {
