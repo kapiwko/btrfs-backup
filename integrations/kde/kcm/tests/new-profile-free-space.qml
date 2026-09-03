@@ -92,7 +92,13 @@ Item {
             after: {logicalSectorSize: 512, regions: [root.partition, root.plannedPartition]}
         })
         property var operation: ({})
-        property var sourceCandidates: ["/home"]
+        property var sourceCandidates: [{
+            id: "source-home",
+            path: "/home",
+            filesystemUuid: "source-fs",
+            mountRoot: "/home",
+            localSnapshotRoot: "/home/.snapshots/btrfs-backup"
+        }]
         property bool busy: false
         property string errorMessage: ""
         property int refreshCalls: 0
@@ -127,7 +133,12 @@ Item {
             if (!page.freeSpace || !page.hasPlan || !page.planMatchesSelection
                     || page.candidateDevices.length !== 1
                     || page.candidateDevices[0].candidateId !== "device-1"
-                    || page.confirmationToken !== "CREATE") {
+                    || page.selectedSourceCandidate?.id !== "source-home") {
+                console.error("Free-space source candidate bindings are invalid")
+                Qt.exit(1)
+                return
+            }
+            if (page.confirmationToken !== "CREATE") {
                 console.error("Free-space preparation page bindings are invalid")
                 Qt.exit(1)
                 return

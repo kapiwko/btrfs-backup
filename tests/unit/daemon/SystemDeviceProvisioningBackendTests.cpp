@@ -19,6 +19,7 @@
 #include <platform/linux/storage/CryptsetupOperations.hpp>
 #include <platform/linux/storage/PartitionTableOperations.hpp>
 #include <platform/linux/storage/SignatureOperations.hpp>
+#include <platform/linux/config/FileProfileRepository.hpp>
 
 #include <chrono>
 #include <ranges>
@@ -450,8 +451,27 @@ int secret_descriptor(std::string_view secret) {
     return descriptors[0];
 }
 
+void write_source_mountinfo(const std::filesystem::path& root) {
+    test_helpers::write_file(
+        root / "mountinfo",
+        "21 31 0:20 / / rw,relatime - btrfs /dev/source-root rw,subvolid=5\n"
+        "22 21 0:21 / /home rw,relatime - btrfs /dev/source-home rw,subvolid=5\n"
+    );
+}
+
+std::string source_filesystem_uuid(const std::string& source) {
+    if (source == "/dev/source-root")
+        return "root-btrfs-uuid";
+    if (source == "/dev/source-home")
+        return "home-btrfs-uuid";
+    if (source == "/dev/nested")
+        return "nested-btrfs-uuid";
+    return {};
+}
+
 void test_preparation_sequence_uses_descriptors_and_installs_profile() {
     const auto root = test_helpers::test_root("device-provisioning", "success");
+    write_source_mountinfo(root);
     Commands commands;
     btrfsbackup::platform::linux::storage::CommandBtrfsFilesystemFormatter btrfs_formatter(commands);
     Signatures signatures;
@@ -488,8 +508,60 @@ void test_preparation_sequence_uses_descriptors_and_installs_profile() {
         activator,
         credentials,
         safety,
-        units
+        units,
+        true,
+        nullptr,
+        {},
+        source_filesystem_uuid
     );
+    const auto source_candidates = backend.list_source_candidates();
+    test_helpers::expect_true(
+        "source candidates retain filesystem identities",
+        source_candidates.size() == 2 && source_candidates.at(0).path == "/" &&
+            source_candidates.at(0).filesystem_uuid == "root-btrfs-uuid" &&
+            source_candidates.at(0).local_snapshot_root == "/.snapshots/btrfs-backup" &&
+            source_candidates.at(1).path == "/home" &&
+            source_candidates.at(1).filesystem_uuid == "home-btrfs-uuid" &&
+            source_candidates.at(1).local_snapshot_root == "/home/.snapshots/btrfs-backup",
+        "source candidates did not distinguish root and separate Btrfs filesystems"
+    );
+    const auto reject_nested_source_mount = [&](const std::string& filesystem_type) {
+        test_helpers::write_file(
+            root / "mountinfo",
+            "21 31 0:20 / / rw,relatime - btrfs /dev/source-root rw,subvolid=5\n"
+            "22 21 0:21 / /home rw,relatime - btrfs /dev/source-home rw,subvolid=5\n"
+            "23 22 0:22 / /home/.snapshots rw,relatime - " +
+                filesystem_type +
+                " /dev/nested rw\n"
+        );
+        const int invalid_secret = secret_descriptor("secret");
+        bool rejected = false;
+        try {
+            static_cast<void>(backend.start(
+                {
+                    .profile_id = "invalid-source-root",
+                    .profile_name = "Invalid source root",
+                    .plan_id = "plan-invalid-source",
+                    .source_subvolume = "/home",
+                    .passphrase_label = "Recovery",
+                },
+                target(topology.scan().devices.front()),
+                {.bus_name = ":1.4", .uid = 1000},
+                invalid_secret
+            ));
+        } catch (const btrfsbackup::ValidationError&) {
+            rejected = true;
+        }
+        ::close(invalid_secret);
+        test_helpers::expect_true(
+            "invalid local snapshot filesystem rejected",
+            rejected && units.starts == 0,
+            "local snapshot root on " + filesystem_type + " reached helper launch"
+        );
+    };
+    reject_nested_source_mount("ext4");
+    reject_nested_source_mount("btrfs");
+    write_source_mountinfo(root);
     int descriptors[2];
     test_helpers::expect_true("secret pipe", ::pipe(descriptors) == 0, "cannot create pipe");
     constexpr std::string_view password = "secret";
@@ -570,6 +642,20 @@ void test_preparation_sequence_uses_descriptors_and_installs_profile() {
                  .profile_reservation_owner("test")
                  .has_value(),
         "completed provisioning retained its profile reservation"
+    );
+    const auto installed_profile = btrfsbackup::platform::linux::config::FileProfileRepository(
+                                       root / "etc"
+    )
+                                       .get(ProfileId{"test"})
+                                       .profile;
+    test_helpers::expect_true(
+        "local snapshots bound to source filesystem",
+        completed_transaction.source_filesystem_uuid == "home-btrfs-uuid" &&
+            completed_transaction.source_mount_root == "/home" &&
+            completed_transaction.local_snapshot_dir == "/home/.snapshots/btrfs-backup/test" &&
+            installed_profile.sources.front().local_snapshot_dir.value() ==
+                std::filesystem::path("/home/.snapshots/btrfs-backup/test"),
+        "profile local snapshot directory was not derived from the source Btrfs mount"
     );
     const int existing_secret = secret_descriptor(password);
     bool existing_rejected = false;
@@ -723,6 +809,7 @@ void test_preparation_sequence_uses_descriptors_and_installs_profile() {
 
 void test_existing_partition_does_not_modify_parent_partition_table() {
     const auto root = test_helpers::test_root("device-provisioning", "existing-partition");
+    write_source_mountinfo(root);
     Commands commands;
     btrfsbackup::platform::linux::storage::CommandBtrfsFilesystemFormatter btrfs_formatter(commands);
     Signatures signatures;
@@ -759,7 +846,11 @@ void test_existing_partition_does_not_modify_parent_partition_table() {
         activator,
         credentials,
         safety,
-        units
+        units,
+        true,
+        nullptr,
+        {},
+        source_filesystem_uuid
     );
     const auto selected = partition_target(topology.scan().devices.front());
     const int manager_secret = secret_descriptor("secret");
@@ -814,6 +905,7 @@ void test_existing_partition_does_not_modify_parent_partition_table() {
 
 void test_free_space_preparation_uses_frozen_geometry() {
     const auto root = test_helpers::test_root("device-provisioning", "free-space");
+    write_source_mountinfo(root);
     Commands commands;
     btrfsbackup::platform::linux::storage::CommandBtrfsFilesystemFormatter btrfs_formatter(commands);
     Signatures signatures;
@@ -849,7 +941,11 @@ void test_free_space_preparation_uses_frozen_geometry() {
         activator,
         credentials,
         safety,
-        units
+        units,
+        true,
+        nullptr,
+        {},
+        source_filesystem_uuid
     );
     const auto selected = free_space_target(topology.scan().devices.front());
     const int manager_secret = secret_descriptor("secret");
@@ -946,6 +1042,7 @@ void test_free_space_preparation_uses_frozen_geometry() {
 
 void test_adoption_revalidates_fingerprint_without_modifying_target() {
     const auto root = test_helpers::test_root("device-provisioning", "adoption");
+    write_source_mountinfo(root);
     Commands commands;
     btrfsbackup::platform::linux::storage::CommandBtrfsFilesystemFormatter btrfs_formatter(commands);
     Signatures signatures;
@@ -988,7 +1085,8 @@ void test_adoption_revalidates_fingerprint_without_modifying_target() {
         units,
         false,
         &inspector,
-        root / "inspections"
+        root / "inspections",
+        source_filesystem_uuid
     );
     const int manager_secret = secret_descriptor("secret");
     const auto started = backend.start(
@@ -1081,6 +1179,7 @@ void test_adoption_revalidates_fingerprint_without_modifying_target() {
 
 void test_exited_helper_marks_transaction_interrupted() {
     const auto root = test_helpers::test_root("device-provisioning", "helper-exited");
+    write_source_mountinfo(root);
     Commands commands;
     btrfsbackup::platform::linux::storage::CommandBtrfsFilesystemFormatter btrfs_formatter(commands);
     Signatures signatures;
@@ -1116,7 +1215,11 @@ void test_exited_helper_marks_transaction_interrupted() {
         activator,
         credentials,
         safety,
-        units
+        units,
+        true,
+        nullptr,
+        {},
+        source_filesystem_uuid
     );
     const auto preparation_target = target(topology.scan().devices.front());
     const int secret = secret_descriptor("secret");
@@ -1159,6 +1262,7 @@ void test_exited_helper_marks_transaction_interrupted() {
 
 void test_replacement_before_wipe_is_rejected() {
     const auto root = test_helpers::test_root("device-provisioning", "replacement");
+    write_source_mountinfo(root);
     Commands commands;
     btrfsbackup::platform::linux::storage::CommandBtrfsFilesystemFormatter btrfs_formatter(commands);
     Signatures signatures;
@@ -1194,7 +1298,11 @@ void test_replacement_before_wipe_is_rejected() {
         activator,
         credentials,
         safety,
-        units
+        units,
+        true,
+        nullptr,
+        {},
+        source_filesystem_uuid
     );
     const auto preparation_target = target(topology.scan().devices.front());
     topology.replace_on_scan = 3;
@@ -1236,10 +1344,41 @@ void test_replacement_before_wipe_is_rejected() {
                  .has_value(),
         "pre-write validation failure retained the profile reservation"
     );
+
+    topology.replace_on_scan = 0;
+    const auto source_replacement_target = target(topology.scan().devices.front());
+    const int source_manager_secret = secret_descriptor(password);
+    const auto source_started = backend.start(
+        {
+            .profile_id = "source-replacement",
+            .profile_name = "Source replacement",
+            .plan_id = "plan-source-replacement",
+            .source_subvolume = "/home",
+            .passphrase_label = "Recovery",
+        },
+        source_replacement_target,
+        {.bus_name = ":1.7", .uid = 1000},
+        source_manager_secret
+    );
+    ::close(source_manager_secret);
+    test_helpers::write_file(
+        root / "mountinfo",
+        "21 31 0:20 / / rw,relatime - btrfs /dev/source-root rw,subvolid=5\n"
+        "22 21 0:21 / /home rw,relatime - btrfs /dev/nested rw,subvolid=5\n"
+    );
+    const int source_helper_secret = secret_descriptor(password);
+    backend.execute_operation(source_started.operation_id, source_helper_secret);
+    ::close(source_helper_secret);
+    test_helpers::expect_true(
+        "source replacement rejected before wipe",
+        backend.status(source_started.operation_id).state == "failed" && signatures.calls.empty(),
+        "changed source Btrfs identity reached a destructive adapter"
+    );
 }
 
 void test_restart_marks_active_transaction_interrupted_and_preserves_owner() {
     const auto root = test_helpers::test_root("device-provisioning", "restart");
+    write_source_mountinfo(root);
     const auto transaction_root = root / "transactions";
     DevicePreparationTransaction transaction;
     transaction.status.operation_id = "prepare-restored";
@@ -1271,6 +1410,9 @@ void test_restart_marks_active_transaction_interrupted_and_preserves_owner() {
         };
     transaction.profile_name = "Test";
     transaction.source_subvolume = "/home";
+    transaction.source_filesystem_uuid = "home-btrfs-uuid";
+    transaction.source_mount_root = "/home";
+    transaction.local_snapshot_dir = "/home/.snapshots/btrfs-backup/test";
     transaction.passphrase_label = "Recovery";
     transaction.created_at = 100;
     transaction.updated_at = 100;
@@ -1318,7 +1460,11 @@ void test_restart_marks_active_transaction_interrupted_and_preserves_owner() {
         activator,
         credentials,
         safety,
-        units
+        units,
+        true,
+        nullptr,
+        {},
+        source_filesystem_uuid
     );
 
     const DevicePreparationStatus restored = backend.status("prepare-restored");

@@ -72,6 +72,9 @@ DevicePreparationTransaction transaction(
     };
     value.profile_name = "Test";
     value.source_subvolume = "/home";
+    value.source_filesystem_uuid = "source-btrfs-uuid";
+    value.source_mount_root = "/home";
+    value.local_snapshot_dir = "/home/.snapshots/btrfs-backup/test";
     value.passphrase_label = "Recovery";
     value.created_at = updated_at - 10;
     value.updated_at = updated_at;
@@ -112,6 +115,13 @@ void test_round_trip_preserves_recovery_state() {
     test_helpers::expect_eq("LUKS UUID", value.luks_uuid, "luks-uuid");
     test_helpers::expect_eq("mapper", value.mapper, "btrfs-backup-test");
     test_helpers::expect_eq("profile reservation", value.profile_reservation_state, "held");
+    test_helpers::expect_eq("source filesystem UUID", value.source_filesystem_uuid, "source-btrfs-uuid");
+    test_helpers::expect_eq("source mount root", value.source_mount_root, "/home");
+    test_helpers::expect_eq(
+        "local snapshot directory",
+        value.local_snapshot_dir,
+        "/home/.snapshots/btrfs-backup/test"
+    );
     test_helpers::expect_eq("recovery action", value.status.recovery_action, "inspect manually");
 }
 
@@ -234,12 +244,12 @@ void test_completed_limit_ttl_and_active_retention() {
     test_helpers::expect_true("held retained", contains("prepare-held"), "held reservation transaction was TTL-pruned");
 }
 
-void test_legacy_transaction_is_rejected() {
+void test_previous_unreleased_transaction_schema_is_rejected() {
     const auto root = test_helpers::test_root("device-preparation-transactions", "legacy");
     test_helpers::write_file(
         root / "prepare-legacy.json",
         R"({
-  "schemaVersion": 1,
+  "schemaVersion": 6,
   "operationId": "prepare-legacy",
   "profileId": "test",
   "state": "running",
@@ -255,7 +265,7 @@ void test_legacy_transaction_is_rejected() {
 
     try {
         static_cast<void>(DevicePreparationTransactionStore(root).load("prepare-legacy"));
-        test_helpers::fail("legacy transaction", "an unreleased transaction schema was accepted");
+        test_helpers::fail("previous transaction", "the previous unreleased transaction schema was accepted");
     } catch (const btrfsbackup::ValidationError&) {
     }
 }
@@ -268,6 +278,6 @@ int main() {
     test_round_trip_preserves_adoption_fingerprint();
     test_round_trip_preserves_free_space_geometry();
     test_completed_limit_ttl_and_active_retention();
-    test_legacy_transaction_is_rejected();
+    test_previous_unreleased_transaction_schema_is_rejected();
     return test_helpers::finish("device preparation transaction tests");
 }

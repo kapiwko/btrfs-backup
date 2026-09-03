@@ -21,6 +21,9 @@ struct DevicePreparationTransaction {
     DevicePreparationTarget target;
     std::string profile_name;
     std::string source_subvolume;
+    std::string source_filesystem_uuid;
+    std::string source_mount_root;
+    std::string local_snapshot_dir;
     std::string passphrase_label;
     bool create_automatic_key = true;
     std::int64_t created_at = 0;

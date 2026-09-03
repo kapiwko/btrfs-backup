@@ -47,6 +47,15 @@ KCMUtils.SimpleKCM {
             && !(device.mounted ?? false)
             && (!root.adoption || (root.deviceIsExternal(device) && root.deviceHasAdoptionCandidate(device))))
     readonly property string inspectionClassification: root.provisioning.inspection.classification ?? ""
+    readonly property var selectedSourceCandidate: sourcePath.currentIndex >= 0
+        ? root.provisioning.sourceCandidates[sourcePath.currentIndex] : null
+    readonly property string localSnapshotDirectory: {
+        const snapshotRoot = root.selectedSourceCandidate?.localSnapshotRoot ?? ""
+        const id = profileId.text.trim()
+        if (snapshotRoot === "" || id === "")
+            return ""
+        return snapshotRoot.endsWith("/") ? snapshotRoot + id : snapshotRoot + "/" + id
+    }
 
     function deviceHasConfiguredTarget(device) {
         const regions = device?.regions ?? []
@@ -110,7 +119,7 @@ KCMUtils.SimpleKCM {
             }
             root.step = 2;
             root.provisioning.start(
-                profileId.text, profileName.text, sourcePath.currentText,
+                profileId.text, profileName.text, sourcePath.currentValue,
                 passphrase.text, root.adoption ? passphrase.text : confirmation.text,
                 root.adoption ? false : automaticKey.checked
             );
@@ -468,8 +477,17 @@ KCMUtils.SimpleKCM {
                         Layout.fillWidth: true
                         Kirigami.FormData.label: translations.i18n("Backup source:")
                         model: root.provisioning.sourceCandidates
+                        textRole: "path"
+                        valueRole: "id"
                         editable: false
                         displayText: currentIndex >= 0 ? currentText : translations.i18n("Select source Btrfs subvolume")
+                    }
+                    QQC2.Label {
+                        Layout.fillWidth: true
+                        Kirigami.FormData.label: translations.i18n("Local snapshots:")
+                        text: root.localSnapshotDirectory
+                        visible: text.length > 0
+                        elide: Text.ElideMiddle
                     }
                 }
 

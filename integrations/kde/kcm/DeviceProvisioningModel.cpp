@@ -74,7 +74,7 @@ QVariantMap DeviceProvisioningModel::inspection() const {
 QVariantMap DeviceProvisioningModel::operation() const {
     return operation_;
 }
-QStringList DeviceProvisioningModel::sourceCandidates() const {
+QVariantList DeviceProvisioningModel::sourceCandidates() const {
     return source_candidates_;
 }
 bool DeviceProvisioningModel::busy() const {
@@ -155,7 +155,7 @@ void DeviceProvisioningModel::clearSelection() {
 void DeviceProvisioningModel::start(
     const QString& profile_id,
     const QString& profile_name,
-    const QString& source_subvolume,
+    const QString& source_candidate_id,
     const QString& passphrase,
     const QString& confirmation,
     bool automatic_key
@@ -180,7 +180,7 @@ void DeviceProvisioningModel::start(
         {QStringLiteral("profileId"), profile_id.trimmed()},
         {QStringLiteral("profileName"), profile_name.trimmed()},
         {QStringLiteral("planId"), plan_id},
-        {QStringLiteral("sourceSubvolume"), source_subvolume.trimmed()},
+        {QStringLiteral("sourceCandidateId"), source_candidate_id.trimmed()},
         {QStringLiteral("passphraseLabel"), i18nd("kcm_btrfsbackup", "Recovery passphrase")},
         {QStringLiteral("createAutomaticKey"), automatic_key},
     };
@@ -320,11 +320,18 @@ bool DeviceProvisioningModel::applySources(const QString& payload) {
     const auto document = QJsonDocument::fromJson(payload.toUtf8());
     if (!document.isArray())
         return false;
-    QStringList result;
+    QVariantList result;
     for (const auto& value : document.array()) {
-        if (!value.isString() || value.toString().isEmpty())
+        if (!value.isObject())
             return false;
-        result.push_back(value.toString());
+        const auto candidate = value.toObject();
+        if (candidate.value(QStringLiteral("id")).toString().isEmpty() ||
+            candidate.value(QStringLiteral("path")).toString().isEmpty() ||
+            candidate.value(QStringLiteral("filesystemUuid")).toString().isEmpty() ||
+            candidate.value(QStringLiteral("mountRoot")).toString().isEmpty() ||
+            candidate.value(QStringLiteral("localSnapshotRoot")).toString().isEmpty())
+            return false;
+        result.push_back(candidate.toVariantMap());
     }
     source_candidates_ = std::move(result);
     emit sourceCandidatesChanged();

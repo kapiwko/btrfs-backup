@@ -320,6 +320,21 @@ assert_contains(
     "{QStringLiteral(\"planId\"),plan_id}"
     "the KCM provisioning plan request"
 )
+assert_contains(
+    "${manager_provisioning_methods}"
+    ".source_candidate_id = request.value(\"sourceCandidateId\", \"\")"
+    "the daemon caller-bound provisioning source request"
+)
+assert_contains(
+    "${compact_provisioning_kcm}"
+    "{QStringLiteral(\"sourceCandidateId\"),source_candidate_id.trimmed()}"
+    "the KCM caller-bound provisioning source request"
+)
+assert_not_contains(
+    "${manager_provisioning_methods}${provisioning_kcm}"
+    "request.value(\"sourceSubvolume\""
+    "a client-provided provisioning source path"
+)
 foreach(legacy_field IN ITEMS devicePath expectedSerial expectedSizeBytes)
     assert_not_contains("${manager_provisioning_methods}" "${legacy_field}" "legacy daemon field ${legacy_field}")
     assert_not_contains("${provisioning_kcm}" "${legacy_field}" "legacy KCM field ${legacy_field}")

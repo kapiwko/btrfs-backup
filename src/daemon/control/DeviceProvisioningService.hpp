@@ -14,6 +14,7 @@
 #include <vector>
 
 #include <daemon/control/OperationalControlService.hpp>
+#include <daemon/control/SourceCandidate.hpp>
 #include <daemon/provisioning/DevicePreparationPlanBuilder.hpp>
 #include <daemon/provisioning/ExistingTargetInspection.hpp>
 #include <daemon/provisioning/StorageSafetyInspector.hpp>
@@ -42,7 +43,11 @@ struct DevicePreparationRequest {
     std::string profile_id;
     std::string profile_name;
     std::string plan_id;
+    std::string source_candidate_id;
     std::string source_subvolume;
+    std::string source_filesystem_uuid;
+    std::string source_mount_root;
+    std::string local_snapshot_dir;
     std::string passphrase_label;
     bool create_automatic_key = true;
 };
@@ -74,7 +79,7 @@ struct DevicePreparationTarget {
 class IDeviceProvisioningBackend {
   public:
     virtual ~IDeviceProvisioningBackend() = default;
-    [[nodiscard]] virtual std::vector<std::string> list_source_candidates() = 0;
+    [[nodiscard]] virtual std::vector<SourceCandidate> list_source_candidates() = 0;
     [[nodiscard]] virtual std::vector<std::string> inspect_safety(
         const DevicePreparationTarget& target
     ) const = 0;
@@ -130,7 +135,7 @@ class DeviceProvisioningService final {
         provisioning::ProvisioningMode mode,
         const std::string& inspection_id = {}
     );
-    [[nodiscard]] std::vector<std::string> list_source_candidates(const std::string& caller);
+    [[nodiscard]] std::vector<SourceCandidate> list_source_candidates(const std::string& caller);
     [[nodiscard]] DevicePreparationStatus start(
         const std::string& caller,
         std::uint32_t caller_uid,
@@ -160,6 +165,11 @@ class DeviceProvisioningService final {
         std::string caller;
         std::chrono::steady_clock::time_point expires_at;
     };
+    struct StoredSourceCandidate {
+        SourceCandidate candidate;
+        std::string caller;
+        std::chrono::steady_clock::time_point expires_at;
+    };
     [[nodiscard]] provisioning::DevicePreparationPlan find_plan(
         const std::string& caller,
         const std::string& plan_id
@@ -176,6 +186,10 @@ class DeviceProvisioningService final {
     [[nodiscard]] provisioning::StorageTopology find_topology(
         const std::string& caller,
         const provisioning::TopologyGeneration& generation
+    );
+    [[nodiscard]] SourceCandidate find_source_candidate(
+        const std::string& caller,
+        const std::string& candidate_id
     );
     void expire_candidates(std::chrono::steady_clock::time_point now);
     void require_active_caller(const std::string& caller) const;
@@ -195,6 +209,7 @@ class DeviceProvisioningService final {
     std::map<std::string, TopologySnapshot> topologies_;
     std::map<std::string, StoredPlan> plans_;
     std::map<std::string, StoredInspection> inspections_;
+    std::map<std::string, StoredSourceCandidate> source_candidates_;
     provisioning::StorageTopologyReader* topology_reader_;
     provisioning::DevicePreparationPlanBuilder plan_builder_;
     provisioning::StorageSafetyInspector storage_safety_inspector_;

@@ -74,6 +74,7 @@ target_restricted_include_directories(btrfsbackup-daemon-control
         daemon/control/DeviceProvisioningService.hpp
         daemon/control/OperationalControlService.hpp
         daemon/control/ProfileAdministrationService.hpp
+        daemon/control/SourceCandidate.hpp
         daemon/control/SystemdUnitController.hpp
 )
 target_link_libraries(btrfsbackup-daemon-control
@@ -98,6 +99,7 @@ add_library(btrfsbackup-daemon-system-control STATIC
     control/ExistingTargetInspector.cpp
     control/OperationEnvironmentFile.cpp
     control/ProvisioningDeviceEnumerator.cpp
+    control/ProvisioningSource.cpp
     control/SystemOperationalControlBackend.cpp
     control/SystemBrowseSessionBackend.cpp
     control/SystemCredentialAdministrationBackend.cpp
@@ -122,6 +124,7 @@ target_restricted_include_directories(btrfsbackup-daemon-system-control
         daemon/control/DevicePreparationPlanBuilder.hpp
         daemon/control/OperationEnvironmentFile.hpp
         daemon/control/ProvisioningDeviceEnumerator.hpp
+        daemon/control/ProvisioningSource.hpp
 )
 target_link_libraries(btrfsbackup-daemon-system-control
     PUBLIC

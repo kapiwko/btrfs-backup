@@ -66,7 +66,7 @@ schema versions are not advertised as public API versions.
 | `InspectStorageTopology` | `()` | `(s)` | caller-bound device, partition, and unallocated-region snapshot |
 | `InspectExistingTarget` | `(s request, h credential)` | `(s)` | opens a caller-selected LUKS2 partition read-only and returns a short-lived repository inspection |
 | `BuildDevicePreparationPlan` | `(s request)` | `(s)` | revalidates topology and creates a caller-bound whole-device or existing-partition before/after plan |
-| `ListSourceCandidates` | `()` | `(s)` | mounted Btrfs subvolumes eligible as an initial source |
+| `ListSourceCandidates` | `()` | `(s)` | caller-bound mounted Btrfs candidates with filesystem identity and a local snapshot root |
 | `StartDevicePreparation` | `(s request, h passphrase)` | `(s)` | starts an asynchronous destructive device-preparation operation |
 | `GetDevicePreparation` | `(s operationId)` | `(s)` | preparation state, phase, stable error and cancellation capability |
 | `CancelDevicePreparation` | `(s operationId)` | `(s)` | requests cancellation before the first destructive phase |
@@ -102,6 +102,10 @@ initial call returns after the secret has been copied into protected memory.
 Clients poll the operation document and may cancel only while `canCancel` is
 true. The daemon revalidates the selected disk path, size, serial, mount state
 and initial Btrfs source after polkit authorization and before erasing data.
+Source selection uses a short-lived opaque `sourceCandidateId`; the manager
+derives `localSnapshotDir` below that source's Btrfs mount and the helper
+revalidates both paths against the recorded filesystem UUID before its first
+storage write.
 
 API minor version 4 adds caller-owned browse-session renewal and active-operation
 pinning. Session expiry uses a monotonic clock; the wall-clock expiry in the

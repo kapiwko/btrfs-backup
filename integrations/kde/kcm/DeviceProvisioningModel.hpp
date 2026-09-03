@@ -17,7 +17,7 @@ class DeviceProvisioningModel final : public QObject {
     Q_PROPERTY(QVariantMap plan READ plan NOTIFY planChanged)
     Q_PROPERTY(QVariantMap inspection READ inspection NOTIFY inspectionChanged)
     Q_PROPERTY(QVariantMap operation READ operation NOTIFY operationChanged)
-    Q_PROPERTY(QStringList sourceCandidates READ sourceCandidates NOTIFY sourceCandidatesChanged)
+    Q_PROPERTY(QVariantList sourceCandidates READ sourceCandidates NOTIFY sourceCandidatesChanged)
     Q_PROPERTY(bool busy READ busy NOTIFY stateChanged)
     Q_PROPERTY(QString errorMessage READ errorMessage NOTIFY stateChanged)
 
@@ -28,7 +28,7 @@ class DeviceProvisioningModel final : public QObject {
     [[nodiscard]] QVariantMap plan() const;
     [[nodiscard]] QVariantMap inspection() const;
     [[nodiscard]] QVariantMap operation() const;
-    [[nodiscard]] QStringList sourceCandidates() const;
+    [[nodiscard]] QVariantList sourceCandidates() const;
     [[nodiscard]] bool busy() const;
     [[nodiscard]] QString errorMessage() const;
 
@@ -39,7 +39,7 @@ class DeviceProvisioningModel final : public QObject {
     Q_INVOKABLE void start(
         const QString& profile_id,
         const QString& profile_name,
-        const QString& source_subvolume,
+        const QString& source_candidate_id,
         const QString& passphrase,
         const QString& confirmation,
         bool automatic_key
@@ -80,7 +80,7 @@ class DeviceProvisioningModel final : public QObject {
     QVariantMap plan_;
     QVariantMap inspection_;
     QVariantMap operation_;
-    QStringList source_candidates_;
+    QVariantList source_candidates_;
     QString pending_plan_path_;
     QVariantMap pending_inspection_selection_;
     QString error_message_;
