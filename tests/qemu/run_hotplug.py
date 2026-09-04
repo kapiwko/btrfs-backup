@@ -12,6 +12,8 @@ import shutil
 import subprocess
 import tempfile
 
+from hotplug_vm import HotplugVm
+
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -117,7 +119,7 @@ class QemuHotplugHost:
              "-e", "BTRFSBACKUP_DEVICE_PROVISIONING_CLIENT=/opt/btrfsbackup-device-provisioning-client",
              "-v", f"{ROOT}:/work:ro", "-v", f"{self.cache}:/qemu-cache", "-v", f"{package_dir}:/packages:ro",
              "-v", f"{self.client}:/opt/btrfsbackup-device-provisioning-client:ro", "-w", "/work",
-             self.qemu_image, "/work/tests/qemu/run-hotplug.sh"])
+             self.qemu_image, "python3", "/work/tests/qemu/run_hotplug.py", "--inner"])
 
     def run(self) -> None:
         try:
@@ -134,8 +136,12 @@ class QemuHotplugHost:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run provisioning recovery and USB hotplug in a disposable QEMU guest.")
-    parser.parse_args()
-    QemuHotplugHost().run()
+    parser.add_argument("--inner", action="store_true", help=argparse.SUPPRESS)
+    arguments = parser.parse_args()
+    if arguments.inner:
+        HotplugVm().run()
+    else:
+        QemuHotplugHost().run()
     return 0
 
 

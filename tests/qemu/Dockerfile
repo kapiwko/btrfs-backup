@@ -11,7 +11,6 @@ RUN pacman -Syu --noconfirm --needed \
         linux \
         polkit \
         qemu-system-x86 \
-        socat \
     && rm -rf /var/cache/pacman/pkg/*
 
 WORKDIR /work
