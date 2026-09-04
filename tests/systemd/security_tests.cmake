@@ -59,7 +59,6 @@ elseif("${POLICY}" STREQUAL "device-preparation")
         "ProtectKernelLogs=yes"
         "RestrictNamespaces=yes"
         "DevicePolicy=closed"
-        "DeviceAllow=/dev/mapper/control rw"
         "CapabilityBoundingSet=CAP_SYS_ADMIN CAP_DAC_OVERRIDE CAP_FOWNER"
     )
 else()

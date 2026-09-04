@@ -4,6 +4,7 @@
 #pragma once
 
 #include <filesystem>
+#include <functional>
 #include <string>
 
 #include <provisioning/ExistingTargetInspection.hpp>
@@ -26,12 +27,14 @@ namespace btrfsbackup::daemon::control {
 
 class IExistingTargetInspector {
   public:
+    using MapperReady = std::function<void(const std::filesystem::path&)>;
     virtual ~IExistingTargetInspector() = default;
     [[nodiscard]] virtual provisioning::ExistingTargetInspectionSummary inspect(
         const provisioning::ExistingPartition& partition,
         const std::string& mapper_name,
         const std::filesystem::path& mount_point,
-        int credential_fd
+        int credential_fd,
+        const MapperReady& mapper_ready = {}
     ) = 0;
     virtual void cleanup_session(
         const std::string& mapper_name,
@@ -52,7 +55,8 @@ class ExistingTargetInspector final : public IExistingTargetInspector {
         const provisioning::ExistingPartition& partition,
         const std::string& mapper_name,
         const std::filesystem::path& mount_point,
-        int credential_fd
+        int credential_fd,
+        const MapperReady& mapper_ready = {}
     ) override;
     void cleanup_session(
         const std::string& mapper_name,

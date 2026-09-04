@@ -143,17 +143,15 @@ DevicePreparationStatus corrupted_transaction_status(const std::string& operatio
 }
 
 DevicePreparationDeviceAccess device_access(const DevicePreparationTransaction& transaction) {
-    DevicePreparationDeviceAccess result;
-    result.major_minor.push_back(transaction.device.major_minor);
-    for (const auto& region : transaction.target.device.regions) {
+    return {transaction.requested_device_access, transaction.requested_mapper_control};
+}
+
+std::vector<std::string> initial_device_access(const DevicePreparationTarget& target) {
+    std::vector<std::string> result{target.device.identity.major_minor};
+    for (const auto& region : target.device.regions) {
         if (const auto* partition = std::get_if<provisioning::ExistingPartition>(&region))
-            result.major_minor.push_back(partition->identity.major_minor);
+            result.push_back(partition->identity.major_minor);
     }
-    if (transaction.target.partition.has_value())
-        result.major_minor.push_back(transaction.target.partition->identity.major_minor);
-    result.allow_future_partitions =
-        transaction.target.mode == provisioning::ProvisioningMode::EraseWholeDevice ||
-        transaction.target.mode == provisioning::ProvisioningMode::CreatePartitionInUnallocatedSpace;
     return result;
 }
 
@@ -182,6 +180,7 @@ struct SystemDeviceProvisioningBackend::Impl {
     std::map<std::string, DevicePreparationStatus> corrupted_transactions;
     std::condition_variable_any cleanup_wakeup;
     std::jthread cleanup_worker;
+    std::jthread access_worker;
 
     Impl(
         CredentialAdministrationRoots roots,
@@ -202,7 +201,9 @@ struct SystemDeviceProvisioningBackend::Impl {
         bool recover_existing,
         IExistingTargetInspector* target_inspector,
         fs::path target_inspection_root,
-        platform::linux::storage::FilesystemUuidResolver source_filesystem_uuid_resolver
+        platform::linux::storage::FilesystemUuidResolver source_filesystem_uuid_resolver,
+        DevicePreparationExecutor::BlockDeviceNumberResolver block_device_number_resolver,
+        bool coordinate_device_access
     )
         : config_root(roots.config_root),
           mountinfo_path(std::move(mountinfo)),
@@ -228,7 +229,8 @@ struct SystemDeviceProvisioningBackend::Impl {
               devices,
               source_mounts,
               target_inspector,
-              target_inspection_root
+              target_inspection_root,
+              std::move(block_device_number_resolver)
           ),
           existing_target_inspector(target_inspector),
           inspection_mount_root(std::move(target_inspection_root)) {
@@ -249,6 +251,32 @@ struct SystemDeviceProvisioningBackend::Impl {
                 }
             }
         });
+        if (coordinate_device_access) {
+            access_worker = std::jthread([this](std::stop_token stop) {
+                while (!stop.stop_requested()) {
+                    try {
+                        reconcile_device_access();
+                    } catch (const std::exception& error) {
+                        std::cerr << "Cannot reconcile device preparation access: " << error.what() << '\n';
+                    }
+                    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+                }
+            });
+        }
+    }
+
+    void reconcile_device_access() {
+        for (const auto& transaction : transactions.load_and_prune().transactions) {
+            if ((transaction.status.state != "queued" && transaction.status.state != "running" &&
+                 transaction.status.state != "interrupted") ||
+                transaction.authorized_access_generation >= transaction.access_generation)
+                continue;
+            units.update_access(transaction.status.operation_id, device_access(transaction));
+            static_cast<void>(transactions.update(transaction.status.operation_id, [&](auto& current) {
+                if (current.access_generation == transaction.access_generation)
+                    current.authorized_access_generation = current.access_generation;
+            }));
+        }
     }
 
     void restore_transactions(bool recover_existing) {
@@ -472,9 +500,11 @@ SystemDeviceProvisioningBackend::SystemDeviceProvisioningBackend(
     bool recover_existing,
     IExistingTargetInspector* existing_target_inspector,
     fs::path inspection_mount_root,
-    platform::linux::storage::FilesystemUuidResolver source_filesystem_uuid_resolver
+    platform::linux::storage::FilesystemUuidResolver source_filesystem_uuid_resolver,
+    DevicePreparationExecutor::BlockDeviceNumberResolver block_device_number_resolver,
+    bool coordinate_device_access
 )
-    : impl_(std::make_unique<Impl>(std::move(roots), std::move(target_mount_root), std::move(mountinfo_path), std::move(transaction_root), topology, btrfs_formatter, signatures, metadata, partition_tables, cryptsetup, btrfs, configuration_activator, credentials, safety_inspector, units, recover_existing, existing_target_inspector, std::move(inspection_mount_root), std::move(source_filesystem_uuid_resolver))) {
+    : impl_(std::make_unique<Impl>(std::move(roots), std::move(target_mount_root), std::move(mountinfo_path), std::move(transaction_root), topology, btrfs_formatter, signatures, metadata, partition_tables, cryptsetup, btrfs, configuration_activator, credentials, safety_inspector, units, recover_existing, existing_target_inspector, std::move(inspection_mount_root), std::move(source_filesystem_uuid_resolver), std::move(block_device_number_resolver), coordinate_device_access)) {
 }
 
 SystemDeviceProvisioningBackend::~SystemDeviceProvisioningBackend() noexcept = default;
@@ -606,14 +636,20 @@ DevicePreparationStatus SystemDeviceProvisioningBackend::start(
         .last_completed_phase = {},
         .partition_table_backup = {},
         .partition = target.partition.has_value() ? target.partition->identity.display_path : std::string{},
+        .partition_device_number = target.partition.has_value() ? target.partition->identity.major_minor : std::string{},
         .partition_uuid = {},
         .luks_uuid = {},
         .btrfs_uuid = {},
         .mapper = {},
+        .mapper_device_number = {},
         .inspection_mount_point = {},
         .configuration_state = "not-started",
         .credentials_state = "not-started",
         .cleanup_result = "not-required",
+        .requested_device_access = initial_device_access(target),
+        .requested_mapper_control = false,
+        .access_generation = 1,
+        .authorized_access_generation = 1,
     };
     impl_->register_job(state);
     try {

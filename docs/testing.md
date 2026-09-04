@@ -62,6 +62,12 @@ helper's policy explicitly accounts for its retained mount, block-device, and
 storage-administration privileges. The GitHub Actions security job runs both
 checks for every push and pull request.
 
+The QEMU provisioning scenario also moves a probe into the live helper cgroup.
+It proves that the selected disposable disk can be opened while a sibling disk
+is denied by the kernel-enforced systemd device policy. Successful whole-device
+provisioning additionally proves that access is extended to the concrete new
+partition and mapper without a broad block-device class rule.
+
 ## Mock Boundaries
 
 C++ unit tests cover the native backup entrypoint, target mount/eject commands,

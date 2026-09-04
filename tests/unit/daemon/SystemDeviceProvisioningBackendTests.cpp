@@ -412,7 +412,8 @@ class ExistingTargetInspector final : public IExistingTargetInspector {
         const btrfsbackup::provisioning::ExistingPartition&,
         const std::string&,
         const std::filesystem::path&,
-        int
+        int,
+        const MapperReady&
     ) override {
         ++inspections;
         return result;
@@ -436,6 +437,9 @@ class Units final : public IDevicePreparationUnitController {
     }
     void recover(const std::string&, const DevicePreparationDeviceAccess& access) override {
         ++recoveries;
+        last_access = access;
+    }
+    void update_access(const std::string&, const DevicePreparationDeviceAccess& access) override {
         last_access = access;
     }
     void stop(const std::string&) override {
@@ -471,6 +475,10 @@ std::string source_filesystem_uuid(const std::string& source) {
     if (source == "/dev/nested")
         return "nested-btrfs-uuid";
     return {};
+}
+
+std::string test_block_device_number(const std::filesystem::path& path) {
+    return path.string().starts_with("/dev/mapper/") ? "253:7" : "8:17";
 }
 
 void test_preparation_sequence_uses_descriptors_and_installs_profile() {
@@ -516,7 +524,8 @@ void test_preparation_sequence_uses_descriptors_and_installs_profile() {
         true,
         nullptr,
         {},
-        source_filesystem_uuid
+        source_filesystem_uuid,
+        test_block_device_number
     );
     const auto source_candidates = backend.list_source_candidates();
     test_helpers::expect_true(
@@ -621,7 +630,7 @@ void test_preparation_sequence_uses_descriptors_and_installs_profile() {
     test_helpers::expect_true(
         "helper block access scoped",
         units.last_access.major_minor == std::vector<std::string>{"8:16"} &&
-            units.last_access.allow_future_partitions,
+            !units.last_access.allow_mapper_control,
         "manager did not scope helper block access to the selected device"
     );
     test_helpers::expect_true(
@@ -892,7 +901,8 @@ void test_existing_partition_does_not_modify_parent_partition_table() {
         true,
         nullptr,
         {},
-        source_filesystem_uuid
+        source_filesystem_uuid,
+        test_block_device_number
     );
     const auto selected = partition_target(topology.scan().devices.front());
     const int manager_secret = secret_descriptor("secret");
@@ -987,7 +997,8 @@ void test_free_space_preparation_uses_frozen_geometry() {
         true,
         nullptr,
         {},
-        source_filesystem_uuid
+        source_filesystem_uuid,
+        test_block_device_number
     );
     const auto selected = free_space_target(topology.scan().devices.front());
     const int manager_secret = secret_descriptor("secret");
@@ -1135,7 +1146,8 @@ void test_adoption_revalidates_fingerprint_without_modifying_target() {
         false,
         &inspector,
         root / "inspections",
-        source_filesystem_uuid
+        source_filesystem_uuid,
+        test_block_device_number
     );
     const int manager_secret = secret_descriptor("secret");
     const auto started = backend.start(
@@ -1273,7 +1285,8 @@ void test_exited_helper_marks_transaction_interrupted() {
         true,
         nullptr,
         {},
-        source_filesystem_uuid
+        source_filesystem_uuid,
+        test_block_device_number
     );
     const auto preparation_target = target(topology.scan().devices.front());
     const int secret = secret_descriptor("secret");
@@ -1356,7 +1369,8 @@ void test_replacement_before_wipe_is_rejected() {
         true,
         nullptr,
         {},
-        source_filesystem_uuid
+        source_filesystem_uuid,
+        test_block_device_number
     );
     const auto preparation_target = target(topology.scan().devices.front());
     topology.replace_on_scan = 3;
@@ -1472,10 +1486,16 @@ void test_restart_marks_active_transaction_interrupted_and_preserves_owner() {
     transaction.updated_at = 100;
     transaction.last_completed_phase = "open";
     transaction.partition = "/dev/test1";
+    transaction.partition_device_number = "8:17";
     transaction.luks_uuid = "11111111-2222-3333-4444-555555555555";
     transaction.mapper = "btrfs-backup-test";
+    transaction.mapper_device_number = "253:7";
     transaction.cleanup_result = "pending";
     transaction.profile_reservation_state = "held";
+    transaction.requested_device_access = {"8:16", "8:17", "253:7"};
+    transaction.requested_mapper_control = true;
+    transaction.access_generation = 3;
+    transaction.authorized_access_generation = 3;
     DevicePreparationTransactionStore(transaction_root).reserve_profile("test", "prepare-restored");
     DevicePreparationTransactionStore(transaction_root).save(transaction);
     const auto corrupted_path = transaction_root / "prepare-corrupted.json";
@@ -1525,7 +1545,8 @@ void test_restart_marks_active_transaction_interrupted_and_preserves_owner() {
         true,
         nullptr,
         {},
-        source_filesystem_uuid
+        source_filesystem_uuid,
+        test_block_device_number
     );
 
     const DevicePreparationStatus restored = backend.status("prepare-restored");

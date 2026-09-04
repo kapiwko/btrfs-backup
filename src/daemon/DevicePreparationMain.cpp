@@ -169,7 +169,9 @@ int run_device_preparation(int argc, char** argv) {
             false,
             &existing_target_inspector,
             paths.status_root.parent_path() / "target-inspections",
-            source_uuid_resolver
+            source_uuid_resolver,
+            {},
+            false
         );
 
         if (transaction.status.state == "interrupted") {

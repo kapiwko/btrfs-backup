@@ -248,7 +248,7 @@ DevicePreparationTarget parse_target(const Json& value) {
 
 Json transaction_json(const DevicePreparationTransaction& transaction) {
     return {
-        {"schemaVersion", 8},
+        {"schemaVersion", 9},
         {"revision", transaction.revision.value},
         {"operationId", transaction.status.operation_id},
         {"profileId", transaction.status.profile_id},
@@ -273,22 +273,28 @@ Json transaction_json(const DevicePreparationTransaction& transaction) {
         {"lastCompletedPhase", transaction.last_completed_phase},
         {"partitionTableBackup", transaction.partition_table_backup},
         {"partition", transaction.partition},
+        {"partitionDeviceNumber", transaction.partition_device_number},
         {"partitionUuid", transaction.partition_uuid},
         {"luksUuid", transaction.luks_uuid},
         {"btrfsUuid", transaction.btrfs_uuid},
         {"mapper", transaction.mapper},
+        {"mapperDeviceNumber", transaction.mapper_device_number},
         {"inspectionMountPoint", transaction.inspection_mount_point},
         {"configurationState", transaction.configuration_state},
         {"credentialsState", transaction.credentials_state},
         {"profileReservationState", transaction.profile_reservation_state},
         {"cleanupResult", transaction.cleanup_result},
         {"cancelRequested", transaction.cancel_requested},
+        {"requestedDeviceAccess", transaction.requested_device_access},
+        {"requestedMapperControl", transaction.requested_mapper_control},
+        {"accessGeneration", transaction.access_generation},
+        {"authorizedAccessGeneration", transaction.authorized_access_generation},
     };
 }
 
 DevicePreparationTransaction parse_transaction(const Json& value) {
     const int schema_version = value.value("schemaVersion", 0);
-    if (!value.is_object() || schema_version != 8 || !value.contains("device"))
+    if (!value.is_object() || schema_version != 9 || !value.contains("device"))
         throw ValidationError("invalid device preparation transaction");
     DevicePreparationTransaction result;
     result.revision.value = value.value("revision", std::uint64_t{0});
@@ -323,21 +329,29 @@ DevicePreparationTransaction parse_transaction(const Json& value) {
     result.last_completed_phase = value.value("lastCompletedPhase", "");
     result.partition_table_backup = value.value("partitionTableBackup", "");
     result.partition = value.value("partition", "");
+    result.partition_device_number = value.value("partitionDeviceNumber", "");
     result.partition_uuid = value.value("partitionUuid", "");
     result.luks_uuid = value.value("luksUuid", "");
     result.btrfs_uuid = value.value("btrfsUuid", "");
     result.mapper = value.value("mapper", "");
+    result.mapper_device_number = value.value("mapperDeviceNumber", "");
     result.inspection_mount_point = value.value("inspectionMountPoint", "");
     result.configuration_state = value.value("configurationState", "not-started");
     result.credentials_state = value.value("credentialsState", "not-started");
     result.profile_reservation_state = value.value("profileReservationState", "not-held");
     result.cleanup_result = value.value("cleanupResult", "not-required");
     result.cancel_requested = value.value("cancelRequested", false);
+    result.requested_device_access = value.value("requestedDeviceAccess", std::vector<std::string>{});
+    result.requested_mapper_control = value.value("requestedMapperControl", false);
+    result.access_generation = value.value("accessGeneration", std::uint64_t{0});
+    result.authorized_access_generation = value.value("authorizedAccessGeneration", std::uint64_t{0});
     if (result.revision.value == 0 || result.status.operation_id.empty() || result.status.profile_id.empty() ||
         result.owner.bus_name.empty() || result.created_at <= 0 ||
         result.profile_name.empty() || result.source_subvolume.empty() || result.passphrase_label.empty() ||
         result.source_filesystem_uuid.empty() || result.source_mount_root.empty() ||
-        result.local_snapshot_dir.empty())
+        result.local_snapshot_dir.empty() || result.requested_device_access.empty() ||
+        result.access_generation == 0 ||
+        result.authorized_access_generation > result.access_generation)
         throw ValidationError("incomplete device preparation transaction");
     return result;
 }
