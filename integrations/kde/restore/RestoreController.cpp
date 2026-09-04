@@ -21,6 +21,8 @@
 #include <QJsonObject>
 #include <QUuid>
 
+#include <unistd.h>
+
 #include <core/ManagerProtocol.hpp>
 #include <core/RuntimeTime.hpp>
 #include <restore/RestoreError.hpp>
@@ -46,7 +48,7 @@ btrfsbackup::RuntimeTimePoint required_time(const QJsonObject& object, const QSt
 
 btrfsbackup::restore::RepositoryCatalog parse_repository_catalog(
     const QString& payload,
-    const QString& root_path
+    const std::filesystem::path& root_path
 ) {
     const QJsonDocument document = QJsonDocument::fromJson(payload.toUtf8());
     if (!document.isObject())
@@ -83,7 +85,7 @@ btrfsbackup::restore::RepositoryCatalog parse_repository_catalog(
         });
     }
     return {
-        root_path.toStdString(),
+        root_path,
         {
             .repository_id = required_string(root, u"repositoryId"_s).toStdString(),
             .target_filesystem_uuid = required_string(root, u"targetFilesystemUuid"_s).toStdString(),
@@ -94,6 +96,28 @@ btrfsbackup::restore::RepositoryCatalog parse_repository_catalog(
         std::move(snapshots),
     };
 }
+
+class BrowseOperationPin final {
+  public:
+    explicit BrowseOperationPin(QString session_id)
+        : session_id_(std::move(session_id)),
+          active_(btrfsbackup::kde::BrowseSessionClient{}.setActive(session_id_, true)) {
+    }
+    ~BrowseOperationPin() noexcept {
+        if (!active_)
+            return;
+        try {
+            (void)btrfsbackup::kde::BrowseSessionClient{}.setActive(session_id_, false);
+        } catch (...) {}
+    }
+    BrowseOperationPin(const BrowseOperationPin&) = delete;
+    BrowseOperationPin& operator=(const BrowseOperationPin&) = delete;
+    [[nodiscard]] explicit operator bool() const noexcept { return active_; }
+
+  private:
+    QString session_id_;
+    bool active_ = false;
+};
 
 } // namespace
 
@@ -173,16 +197,30 @@ bool RestoreController::prepare_plan() {
             if (!session || session->profile_id != profile_id_)
                 throw std::runtime_error("could not open an authorized backup browsing session");
             session_id_ = session->session_id;
-            session_root_ = session->root_path;
+            const BrowseOperationPin root_pin(session_id_);
+            if (!root_pin)
+                throw std::runtime_error("could not pin the backup browsing session");
+            const QDBusUnixFileDescriptor root = btrfsbackup::kde::BrowseSessionClient{}.openRoot(session_id_);
+            if (!root.isValid())
+                throw std::runtime_error("could not open the backup browsing root");
+            session_root_.reset(::dup(root.fileDescriptor()));
+            if (!session_root_.valid())
+                throw std::runtime_error("could not retain the backup browsing root");
             const auto repository = btrfsbackup::kde::BrowseSessionClient{}.inspectRepository(session_id_);
             if (!repository)
                 throw std::runtime_error("could not inspect the backup repository");
-            catalog_.emplace(parse_repository_catalog(*repository, session_root_));
+            catalog_.emplace(parse_repository_catalog(
+                *repository,
+                std::filesystem::path{"/proc/self/fd"} / std::to_string(session_root_.get())
+            ));
         } else {
             const auto lease = btrfsbackup::kde::BrowseSessionClient{}.renew(session_id_);
             if (!lease || lease->session_id != session_id_ || lease->profile_id != profile_id_)
                 throw std::runtime_error("could not renew the backup browsing session");
         }
+        const BrowseOperationPin planning_pin(session_id_);
+        if (!planning_pin)
+            throw std::runtime_error("could not pin the backup browsing session");
         btrfsbackup::restore::RestorePlanner planner;
         plan_ = planner.plan(*catalog_, {
                                             .transaction_id = QUuid::createUuid().toString(QUuid::WithoutBraces).toStdString(),
@@ -288,14 +326,14 @@ void RestoreController::cancel() {
 void RestoreController::close_session() noexcept {
     if (session_id_.isEmpty())
         return;
+    session_root_.reset();
+    catalog_.reset();
     try {
         btrfsbackup::kde::BrowseSessionClient sessions;
         (void)sessions.setActive(session_id_, false);
         (void)sessions.close(session_id_);
     } catch (...) {}
     session_id_.clear();
-    session_root_.clear();
-    catalog_.reset();
 }
 
 } // namespace btrfsbackup::kde::restore

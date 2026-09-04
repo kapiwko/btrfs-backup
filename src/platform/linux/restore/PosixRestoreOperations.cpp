@@ -4,8 +4,10 @@
 
 #include <platform/linux/restore/PosixRestoreOperations.hpp>
 
+#include <algorithm>
 #include <array>
 #include <cerrno>
+#include <cctype>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
@@ -28,7 +30,27 @@ struct SourceIdentity {
     dev_t device = 0;
 };
 
+bool is_pinned_descriptor_component(const std::filesystem::path& path) {
+    const std::filesystem::path prefix{"/proc/self/fd"};
+    const auto relative = path.lexically_relative(prefix);
+    if (relative.empty() || relative.is_absolute())
+        return false;
+    const std::string descriptor_text = (*relative.begin()).string();
+    if (descriptor_text.empty() || !std::ranges::all_of(descriptor_text, [](unsigned char value) {
+            return std::isdigit(value) != 0;
+        }))
+        return false;
+    try {
+        const int descriptor = std::stoi(descriptor_text);
+        struct stat status{};
+        return descriptor >= 0 && ::fstat(descriptor, &status) == 0 && S_ISDIR(status.st_mode);
+    } catch (...) {
+        return false;
+    }
+}
+
 void reject_symlink_components(const std::filesystem::path& path, bool leaf_may_be_missing) {
+    const bool pinned = is_pinned_descriptor_component(path);
     std::filesystem::path current;
     for (const std::filesystem::path& component : path) {
         current /= component;
@@ -42,7 +64,8 @@ void reject_symlink_components(const std::filesystem::path& path, bool leaf_may_
                 "could not inspect restore path " + current.string() + ": " + std::strerror(errno)
             );
         }
-        if (S_ISLNK(status.st_mode)) {
+        if (S_ISLNK(status.st_mode) &&
+            !(pinned && (current == "/proc/self" || current.parent_path() == "/proc/self/fd"))) {
             throw btrfsbackup::restore::RestoreError(
                 btrfsbackup::restore::RestoreErrorCode::SymlinkRejected,
                 "restore path traverses a symbolic link: " + current.string()

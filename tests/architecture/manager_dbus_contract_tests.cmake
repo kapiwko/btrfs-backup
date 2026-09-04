@@ -289,6 +289,10 @@ assert_unprivileged_method(
     "<methodname=\"OpenBrowseFile\"><argname=\"sessionId\"type=\"s\"direction=\"in\"/><argname=\"relativePath\"type=\"s\"direction=\"in\"/><argname=\"file\"type=\"h\"direction=\"out\"/></method>"
 )
 assert_unprivileged_method(
+    open_browse_root OpenBrowseRoot s h
+    "<methodname=\"OpenBrowseRoot\"><argname=\"sessionId\"type=\"s\"direction=\"in\"/><argname=\"root\"type=\"h\"direction=\"out\"/></method>"
+)
+assert_unprivileged_method(
     inspect_browse_repository InspectBrowseRepository s s
     "<methodname=\"InspectBrowseRepository\"><argname=\"sessionId\"type=\"s\"direction=\"in\"/><argname=\"payload\"type=\"s\"direction=\"out\"/></method>"
 )

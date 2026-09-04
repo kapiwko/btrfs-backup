@@ -99,9 +99,9 @@ BrowseSessionInfo BrowseSessionService::open(
     BrowseSessionId id = session_ids_();
     if (sessions_.contains(std::string(id.value())))
         throw dbus::ManagerOperationError(dbus::ManagerErrorCode::Conflict, "browse session identifier collision");
-    OpenedBrowseRoot root = backend_.open(profile, id, caller_uid);
+    backend_.open(profile, id, caller_uid);
     const std::string key{id.value()};
-    Session session{id, profile, caller_bus_name, caller_uid, root.path, {}, {}};
+    Session session{id, profile, caller_bus_name, caller_uid, {}, {}};
     extend(session);
     auto [position, inserted] = sessions_.emplace(key, std::move(session));
     (void)inserted;
@@ -130,7 +130,6 @@ BrowseSessionInfo BrowseSessionService::session_info(const Session& session) con
     return {
         std::string(session.id.value()),
         std::string(session.profile_id.value()),
-        session.root_path.string(),
         iso8601(session.expires_at),
         true,
     };
@@ -151,7 +150,11 @@ void BrowseSessionService::set_active(
     bool active
 ) {
     auto session = owned_session(caller_bus_name, session_id);
-    session->second.active = active;
+    if (active) {
+        ++session->second.active_operations;
+    } else if (session->second.active_operations > 0) {
+        --session->second.active_operations;
+    }
     extend(session->second);
 }
 
@@ -190,6 +193,15 @@ btrfsbackup::platform::linux::OwnedFileDescriptor BrowseSessionService::open_fil
     return backend_.open_file(session->second.id, relative_path);
 }
 
+btrfsbackup::platform::linux::OwnedFileDescriptor BrowseSessionService::open_root(
+    const std::string& caller_bus_name,
+    const std::string& session_id
+) {
+    auto session = owned_session(caller_bus_name, session_id);
+    extend(session->second);
+    return backend_.open_root(session->second.id);
+}
+
 std::string BrowseSessionService::inspect_repository(
     const std::string& caller_bus_name,
     const std::string& session_id
@@ -200,7 +212,7 @@ std::string BrowseSessionService::inspect_repository(
 }
 
 void BrowseSessionService::close_session(std::map<std::string, Session>::iterator session, BrowseSessionCloseReason reason) {
-    session->second.active = false;
+    session->second.active_operations = 0;
     session->second.deadline = std::chrono::steady_clock::time_point::min();
     const Session record = session->second;
     backend_.close(record.id);
@@ -213,7 +225,7 @@ void BrowseSessionService::close_noexcept(
     std::map<std::string, Session>::iterator session,
     BrowseSessionCloseReason reason
 ) noexcept {
-    session->second.active = false;
+    session->second.active_operations = 0;
     session->second.deadline = std::chrono::steady_clock::time_point::min();
     const Session record = session->second;
     bool succeeded = true;
@@ -248,7 +260,7 @@ void BrowseSessionService::expire() noexcept {
     } catch (...) {}
     const auto now = steady_clock_();
     for (auto session = sessions_.begin(); session != sessions_.end();) {
-        if (session->second.active || session->second.deadline > now) {
+        if (session->second.active_operations > 0 || session->second.deadline > now) {
             ++session;
             continue;
         }
