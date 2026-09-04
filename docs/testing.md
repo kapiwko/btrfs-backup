@@ -137,17 +137,19 @@ Keep this harness opt-in. It needs QEMU, nested privileges, disposable disk
 images, and root-equivalent control inside the guest, so it should not run from
 `make` or the default local test script.
 
-The current boundary smoke test is:
+The current boundary smoke test is an opt-in CMake target. It builds the
+non-installed public D-Bus provisioning client before starting the harness:
 
 ```bash
-tests/qemu/run-hotplug.sh
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --target qemu-hotplug-integration
 ```
 
 To reuse a package produced by a previous build or CI artifact, pass its
 directory explicitly:
 
 ```bash
-PACKAGE_DIR=/path/to/dist tests/qemu/run-hotplug.sh
+PACKAGE_DIR=/path/to/dist cmake --build build --target qemu-hotplug-integration
 ```
 
 It boots a disposable Arch/systemd root, installs the current base package and
@@ -198,10 +200,12 @@ inside a privileged container. It creates:
 4. rendered configuration from the installed `btrfs-backupctl`;
 5. active test configuration under `/etc/btrfs-backup` inside the container.
 
-Run it with:
+Run it through the opt-in CMake target so both non-installed public D-Bus
+clients are built and passed read-only to the container:
 
 ```bash
-tests/integration/docker/run-real-btrfs.sh
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --target real-btrfs-integration
 ```
 
 The restore engine also has a focused real-Btrfs gate which avoids the systemd
@@ -211,7 +215,11 @@ and encrypted-target lifecycle used by the full scenario:
 sudo tests/integration/real_restore_engine_test.sh build/btrfs-backupctl
 ```
 
-This runner accepts the same `PACKAGE_DIR=/path/to/dist` override. Without it,
+The underlying runner remains directly callable after a normal test-enabled
+build; it discovers the clients below `build/tests/integration`, or accepts
+explicit `BTRFSBACKUP_BROWSE_SESSION_CLIENT` and
+`BTRFSBACKUP_DEVICE_PROVISIONING_CLIENT` paths. It also accepts the same
+`PACKAGE_DIR=/path/to/dist` override. Without it,
 the base Arch package is built from the persistent local
 `build/integration-package` tree and mounted read-only into the privileged test
 container. Set `PACKAGE_BUILDER=docker` to use the separate toolchain image

@@ -263,6 +263,13 @@ add_test(
 )
 
 add_test(
+    NAME ad-hoc-compilation
+    COMMAND ${CMAKE_COMMAND}
+        -DPROJECT_SOURCE_DIR=${PROJECT_SOURCE_DIR}
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/architecture/ad_hoc_compilation_tests.cmake
+)
+
+add_test(
     NAME local-lifecycle-type-convention
     COMMAND ${CMAKE_COMMAND}
         -DPROJECT_SOURCE_DIR=${PROJECT_SOURCE_DIR}
@@ -289,6 +296,7 @@ set_tests_properties(
     cpp-filename-convention
     cpp-readability-convention
     cpp-special-member-convention
+    ad-hoc-compilation
     local-lifecycle-type-convention
     config-domain-boundary
     manager-dbus-contract

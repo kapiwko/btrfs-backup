@@ -13,6 +13,7 @@ QEMU_IMAGE_NAME="${QEMU_IMAGE_NAME:-btrfs-backup-qemu-test:local}"
 BUILD_IMAGE_NAME="${BUILD_IMAGE_NAME:-btrfs-backup-build-test:local}"
 PACKAGE_BUILDER="${PACKAGE_BUILDER:-local}"
 QEMU_CACHE_DIR="${QEMU_CACHE_DIR:-$ROOT/build/qemu-cache}"
+DEVICE_PROVISIONING_CLIENT="${BTRFSBACKUP_DEVICE_PROVISIONING_CLIENT:-$ROOT/build/tests/integration/btrfsbackup-integration-device-provisioning-client}"
 
 case "${1:-}" in
     "") ;;
@@ -32,6 +33,12 @@ EOF_USAGE
         exit 2
         ;;
 esac
+
+DEVICE_PROVISIONING_CLIENT="$(realpath -- "$DEVICE_PROVISIONING_CLIENT")"
+[[ -x "$DEVICE_PROVISIONING_CLIENT" ]] || {
+    printf 'Device-provisioning integration client is not executable: %s\n' "$DEVICE_PROVISIONING_CLIENT" >&2
+    exit 1
+}
 
 if (( EUID != 0 )); then
     remove_package_root=0
@@ -119,9 +126,11 @@ if (( EUID != 0 )); then
         -e "QEMU_ROOTFS_CACHE_KEY=$qemu_cache_key" \
         -e "QEMU_ROOTFS_TAR=/qemu-cache/$(basename -- "$guest_root_tar")" \
         -e QEMU_PACKAGE_DIR=/packages \
+        -e BTRFSBACKUP_DEVICE_PROVISIONING_CLIENT=/opt/btrfsbackup-device-provisioning-client \
         -v "$ROOT:/work:ro" \
         -v "$QEMU_CACHE_DIR:/qemu-cache" \
         -v "$package_dir:/packages:ro" \
+        -v "$DEVICE_PROVISIONING_CLIENT:/opt/btrfsbackup-device-provisioning-client:ro" \
         -w /work \
         "$QEMU_IMAGE_NAME" \
         /work/tests/qemu/run-hotplug.sh
@@ -182,7 +191,7 @@ fail() {
     exit 1
 }
 
-for command_name in cc cryptsetup flock mkfs.btrfs mkfs.ext4 qemu-system-x86_64 sfdisk sha256sum socat tar; do
+for command_name in cryptsetup flock mkfs.btrfs mkfs.ext4 qemu-system-x86_64 sfdisk sha256sum socat tar; do
     command -v "$command_name" >/dev/null 2>&1 || fail "missing command: $command_name"
 done
 if [[ -z "${QEMU_ROOTFS_TAR:-}" && -z "${QEMU_ROOTFS_FROM_CONTAINER:-}" ]]; then
@@ -270,10 +279,7 @@ mkfs.ext4 -q -F "$SETUP_IMAGE"
 mount -o loop "$SETUP_IMAGE" "$ROOT_MOUNT"
 ROOT_MOUNTED=1
 cp "$PACKAGE_DIR"/btrfs-backup-[0-9]*.pkg.tar.zst "$ROOT_MOUNT/package.pkg.tar.zst"
-cc -std=c11 -Wall -Wextra -Werror -Wpedantic \
-    "$ROOT/tests/integration/DeviceProvisioningClient.c" \
-    -lsystemd \
-    -o "$ROOT_MOUNT/device-provisioning-client"
+cp "$DEVICE_PROVISIONING_CLIENT" "$ROOT_MOUNT/device-provisioning-client"
 
 printf '%s\n' 'qemu-hotplug-test-key' > "$TEST_ROOT/luks.key"
 chmod 0600 "$TEST_ROOT/luks.key"

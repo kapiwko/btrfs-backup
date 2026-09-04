@@ -31,6 +31,8 @@ LOG_DIR="$TEST_ROOT/logs"
 RUN_LOG="$LOG_DIR/btrfs-backup.log"
 PROFILE_JSON=/etc/btrfs-backup/profiles/default/profile.json
 EJECT_COMPLETION_COUNT=0
+BROWSE_SESSION_CLIENT="${BTRFSBACKUP_BROWSE_SESSION_CLIENT:?missing browse-session integration client}"
+DEVICE_PROVISIONING_CLIENT="${BTRFSBACKUP_DEVICE_PROVISIONING_CLIENT:?missing device-provisioning integration client}"
 
 cleanup() {
     set +e
@@ -217,7 +219,7 @@ build_and_verify_packages() {
 }
 
 provision_existing_partition_test() {
-    local client="$TEST_ROOT/device-provisioning-client"
+    local client="$DEVICE_PROVISIONING_CLIENT"
     local first_partition second_partition
     local first_hash_before first_hash_after
     local table_before="$TEST_ROOT/provision-table-before"
@@ -248,9 +250,6 @@ provision_existing_partition_test() {
     sfdisk --dump "$PROVISION_LOOP" > "$table_before"
     mount -o ro "$first_partition" "$PROVISION_PRESERVED_MOUNT"
 
-    cc -std=c11 -Wall -Wextra -Werror -Wpedantic \
-        "$ROOT/tests/integration/DeviceProvisioningClient.c" \
-        -lsystemd -o "$client"
     systemctl start polkit.service btrfs-backupd.service
     if ! "$client" "$second_partition" "$SOURCE_MOUNT/home" "$PASSPHRASE_FILE" > "$response"; then
         journalctl --no-pager -o cat -u btrfs-backupd.service -n 100 >&2 || true
@@ -293,7 +292,7 @@ provision_existing_partition_test() {
 }
 
 provision_unallocated_space_test() {
-    local client="$TEST_ROOT/device-provisioning-client"
+    local client="$DEVICE_PROVISIONING_CLIENT"
     local preserved_partition backup_partition
     local preserved_hash_before preserved_hash_after
     local preserved_geometry_before preserved_geometry_after
@@ -351,7 +350,7 @@ provision_unallocated_space_test() {
 }
 
 provision_whole_device_test() {
-    local client="$TEST_ROOT/device-provisioning-client"
+    local client="$DEVICE_PROVISIONING_CLIENT"
     local backup_partition
     local response="$TEST_ROOT/whole-device-provisioning-response.json"
 
@@ -394,7 +393,7 @@ provision_whole_device_test() {
 }
 
 provision_existing_target_adoption_test() {
-    local client="$TEST_ROOT/device-provisioning-client"
+    local client="$DEVICE_PROVISIONING_CLIENT"
     local partition
     local adoption_mapper="bb-real-adoption-${TEST_ROOT##*.}"
     local adoption_mapper_path="/dev/mapper/$adoption_mapper"
@@ -686,14 +685,12 @@ EOF_POLKIT_RULE
 real_browse_session_test() {
     local test_user=btrfs-browse-test
     local policy_rule=/etc/polkit-1/rules.d/49-btrfs-backup-browse-integration.rules
-    local client="/tmp/btrfs-backup-browse-session-client.$$"
+    local client="$BROWSE_SESSION_CLIENT"
     local hold="/tmp/btrfs-backup-browse-session-hold.$$"
     local response="$TEST_ROOT/browse-session.json"
     local errors="$TEST_ROOT/browse-session.err"
     local browse_root options
 
-    cc -std=c11 -D_DEFAULT_SOURCE -Wall -Wextra -Werror \
-        "$ROOT/tests/integration/BrowseSessionClient.c" -lsystemd -o "$client"
     useradd --system --no-create-home --shell /usr/bin/nologin "$test_user"
     cat > "$policy_rule" <<'EOF_POLKIT_RULE'
 polkit.addRule(function(action, subject) {
@@ -743,7 +740,7 @@ EOF_POLKIT_RULE
         || fail 'browse cleanup unmounted a target it did not mount'
 
     systemctl stop btrfs-backupd.service polkit.service
-    rm -f -- "$client" "$policy_rule"
+    rm -f -- "$policy_rule"
     userdel "$test_user"
     pass 'real browse session is read-only and cleans up after caller disconnect'
 }
@@ -1243,7 +1240,9 @@ missing_incremental_parent_test() {
 }
 
 require_root
-require_commands awk blkid btrfs busctl cat cc cmp cryptsetup date dd diff dmsetup find findmnt grep journalctl ldd ln losetup mkfifo mkfs.btrfs mkfs.ext4 mknod mount mv pacman perl runuser seq sfdisk sha256sum stat systemd-escape tar tee timeout truncate udevadm useradd userdel
+require_commands awk blkid btrfs busctl cat cmp cryptsetup date dd diff dmsetup find findmnt grep journalctl ldd ln losetup mkfifo mkfs.btrfs mkfs.ext4 mknod mount mv pacman perl runuser seq sfdisk sha256sum stat systemd-escape tar tee timeout truncate udevadm useradd userdel
+[[ -x "$BROWSE_SESSION_CLIENT" ]] || fail 'browse-session integration client is not executable'
+[[ -x "$DEVICE_PROVISIONING_CLIENT" ]] || fail 'device-provisioning integration client is not executable'
 ensure_loop_devices
 for _ in $(seq 1 100); do
     systemctl show-environment >/dev/null 2>&1 && break
