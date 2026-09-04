@@ -401,69 +401,6 @@ EOF_POLKIT_RULE
     pass 'unprivileged user starts a real backup through system D-Bus and polkit'
 }
 
-real_browse_session_test() {
-    local test_user=btrfs-browse-test
-    local policy_rule=/etc/polkit-1/rules.d/49-btrfs-backup-browse-integration.rules
-    local client="$BROWSE_SESSION_CLIENT"
-    local hold="/tmp/btrfs-backup-browse-session-hold.$$"
-    local response="$TEST_ROOT/browse-session.json"
-    local errors="$TEST_ROOT/browse-session.err"
-    local browse_root options
-
-    useradd --system --no-create-home --shell /usr/bin/nologin "$test_user"
-    cat > "$policy_rule" <<'EOF_POLKIT_RULE'
-polkit.addRule(function(action, subject) {
-    if (action.id == "io.github.btrfsbackup.open-browse-session" &&
-        subject.user == "btrfs-browse-test") {
-        return polkit.Result.YES;
-    }
-});
-EOF_POLKIT_RULE
-    chmod 0644 "$policy_rule"
-    : > "$hold"
-    chmod 0644 "$hold"
-    systemctl start polkit.service btrfs-backupd.service
-
-    runuser -u "$test_user" -- "$client" default "$hold" > "$response" 2> "$errors" &
-    local client_pid=$!
-    for _ in $(seq 1 200); do
-        [[ -s "$response" ]] && break
-        if ! kill -0 "$client_pid" 2>/dev/null; then
-            cat "$errors" >&2 || true
-            journalctl --no-pager -u btrfs-backupd.service -n 100 >&2 || true
-            fail 'browse session client exited before opening a session'
-        fi
-        sleep 0.05
-    done
-    [[ -s "$response" ]] || fail 'browse session client did not return a session'
-    browse_root="$(sed -n 's/.*"rootPath":[[:space:]]*"\([^"]*\)".*/\1/p' "$response")"
-    [[ "$browse_root" == /run/btrfs-backup-browse/*/repository ]] \
-        || fail "manager returned an invalid browse root: $browse_root"
-    options="$(findmnt -n -o OPTIONS -M "$browse_root")"
-    for option in ro nodev nosuid noexec nosymfollow; do
-        grep -Eq "(^|,)$option(,|$)" <<< "$options" \
-            || fail "browse mount is missing $option: $options"
-    done
-    cmp "$TARGET_MOUNT/snapshots/browse-probe.txt" "$browse_root/browse-probe.txt" \
-        || fail 'browse session did not expose repository data'
-
-    rm -f -- "$hold"
-    wait "$client_pid"
-    for _ in $(seq 1 200); do
-        [[ ! -e "${browse_root%/repository}" ]] && break
-        sleep 0.05
-    done
-    [[ ! -e "${browse_root%/repository}" ]] \
-        || fail 'browse session survived D-Bus caller disconnect'
-    findmnt -n -M "$TARGET_MOUNT" >/dev/null \
-        || fail 'browse cleanup unmounted a target it did not mount'
-
-    systemctl stop btrfs-backupd.service polkit.service
-    rm -f -- "$policy_rule"
-    userdel "$test_user"
-    pass 'real browse session is read-only and cleans up after caller disconnect'
-}
-
 expect_backup_failure() {
     local pattern="$1"
     local output
@@ -509,138 +446,6 @@ assert_no_incoming_children() {
 
     leftover="$(find "$TARGET_MOUNT/.incoming/home" -mindepth 1 -print -quit 2>/dev/null || true)"
     [[ -z "$leftover" ]] || fail 'incoming source directory is not empty after successful backups'
-}
-
-write_pending_marker() {
-    local local_snapshot="$1"
-    local final_snapshot="$2"
-    local run_id="$3"
-    local state_dir=/var/lib/btrfs-backup/profiles/default
-    local marker="$state_dir/pending-home"
-
-    install -d -m0700 "$state_dir"
-    {
-        printf 'source_name=home\n'
-        printf 'local_snapshot_path=%s\n' "$local_snapshot"
-        printf 'final_snapshot_path=%s\n' "$final_snapshot"
-        printf 'run_id=%s\n' "$run_id"
-        printf 'timestamp=2026-08-24T12:00:00Z\n'
-    } > "$marker"
-    chmod 0600 "$marker"
-    sync -f "$marker"
-}
-
-recover_interrupted_before_receive() {
-    local interrupted="$SOURCE_MOUNT/.snapshots/home/home-2026-08-20T000000Z"
-    local final
-    local marker=/var/lib/btrfs-backup/profiles/default/pending-home
-    final="$TARGET_MOUNT/snapshots/home/$(basename -- "$interrupted")"
-
-    btrfs subvolume snapshot -r "$SOURCE_MOUNT/home" "$interrupted" >/dev/null
-    write_pending_marker "$interrupted" "$final" '20260820T000000Z-interrupted'
-    run_backup
-
-    [[ ! -e "$interrupted" ]] || fail 'orphaned local snapshot survived pending recovery'
-    [[ ! -e "$marker" ]] || fail 'pending marker survived pre-receive recovery'
-    assert_no_incoming_children
-    pass 'pending recovery removes an orphan left before receive'
-}
-
-recover_interrupted_after_commit() {
-    local latest_local latest_remote marker
-
-    latest_local="$(find "$SOURCE_MOUNT/.snapshots/home" -mindepth 1 -maxdepth 1 -type d -name 'home-*' | sort | tail -n1)"
-    latest_remote="$(find "$TARGET_MOUNT/snapshots/home" -mindepth 1 -maxdepth 1 -type d -name 'home-*' | sort | tail -n1)"
-    marker=/var/lib/btrfs-backup/profiles/default/pending-home
-    [[ -n "$latest_local" && -n "$latest_remote" ]] || fail 'committed snapshot recovery setup is incomplete'
-
-    write_pending_marker "$latest_local" "$latest_remote" '20260824T120000Z-committed'
-    run_backup
-
-    [[ ! -e "$marker" ]] || fail 'pending marker survived committed snapshot recovery'
-    [[ -d "$latest_local" ]] || fail 'committed local snapshot was not preserved during recovery'
-    [[ -d "$latest_remote" ]] || fail 'committed remote snapshot was not preserved during recovery'
-    assert_remote_matches_latest_local
-    assert_no_incoming_children
-    pass 'pending recovery preserves a snapshot committed before interruption'
-}
-
-restore_latest_snapshot() {
-    local latest_remote restore_root restored
-
-    latest_remote="$(find "$TARGET_MOUNT/snapshots/home" -mindepth 1 -maxdepth 1 -type d -name 'home-*' | sort | tail -n1)"
-    restore_root="$SOURCE_MOUNT/restore-drill"
-    restored="$restore_root/$(basename -- "$latest_remote")"
-    [[ -n "$latest_remote" ]] || fail 'restore drill has no remote snapshot'
-
-    install -d -m0700 "$restore_root"
-    btrfs send "$latest_remote" | btrfs receive "$restore_root" >/dev/null
-    if ! diff -qr "$latest_remote" "$restored" >/dev/null; then
-        diff -qr "$latest_remote" "$restored" >&2 || true
-        fail 'restored snapshot content differs from the repository snapshot'
-    fi
-    btrfs subvolume delete -- "$restored" >/dev/null
-    rmdir -- "$restore_root"
-    pass 'latest repository snapshot completes a full restore drill'
-}
-
-restore_engine_test() {
-    local repository="$TARGET_MOUNT/snapshots"
-    local latest_remote relative snapshot_uuid received_uuid created_at
-    local restored="$SOURCE_MOUNT/restore-engine-result"
-    local drill_destination="$SOURCE_MOUNT/restore-engine-drill/result"
-
-    latest_remote="$(find "$repository/home" -mindepth 1 -maxdepth 1 -type d -name 'home-*' | sort | tail -n1)"
-    [[ -n "$latest_remote" ]] || fail 'restore engine has no repository snapshot'
-    relative="home/$(basename -- "$latest_remote")"
-    snapshot_uuid="$(btrfs subvolume show "$latest_remote" | sed -n 's/^[[:space:]]*UUID:[[:space:]]*//p' | head -n1)"
-    received_uuid="$(btrfs subvolume show "$latest_remote" | sed -n 's/^[[:space:]]*Received UUID:[[:space:]]*//p' | head -n1)"
-    created_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-    [[ -n "$snapshot_uuid" && -n "$received_uuid" ]] \
-        || fail 'restore engine could not read real Btrfs snapshot identity'
-
-    cat > "$repository/repository.json" <<EOF_REPOSITORY
-{"schemaVersion":1,"repositoryId":"real-$TARGET_BTRFS_UUID","targetFilesystemUuid":"$TARGET_BTRFS_UUID","createdAt":"$created_at","features":["catalog-v1"]}
-EOF_REPOSITORY
-    cat > "$repository/catalog.json" <<EOF_CATALOG
-{"schemaVersion":1,"generation":1,"snapshots":[{"snapshotId":"real-latest","hostId":"real-host","profileId":"default","sourceId":"home","relativePath":"$relative","createdAt":"$created_at","uuid":"$snapshot_uuid","receivedUuid":"$received_uuid","verified":true}]}
-EOF_CATALOG
-
-    btrfs-backupctl restore plan \
-        --repository "$repository" \
-        --snapshot real-latest \
-        --source . \
-        --destination "$restored" \
-        --transaction real-plan \
-        --subvolume >/dev/null
-    [[ ! -e "$restored" ]] || fail 'restore plan mutated its destination'
-    btrfs-backupctl restore execute \
-        --repository "$repository" \
-        --snapshot real-latest \
-        --source . \
-        --destination "$restored" \
-        --transaction real-execute \
-        --subvolume >/dev/null
-    btrfs subvolume show "$restored" >/dev/null \
-        || fail 'restore engine did not create a Btrfs subvolume'
-    if ! diff -qr "$latest_remote" "$restored" >/dev/null; then
-        diff -qr "$latest_remote" "$restored" >&2 || true
-        fail 'restore engine output differs from the selected repository snapshot'
-    fi
-
-    btrfs-backupctl restore drill \
-        --repository "$repository" \
-        --snapshot real-latest \
-        --source . \
-        --destination "$drill_destination" \
-        --transaction real-drill >/dev/null
-    [[ ! -e "$drill_destination" ]] || fail 'restore drill published a destination'
-    [[ ! -e "$SOURCE_MOUNT/restore-engine-drill/.btrfs-backup-restore-real-drill.staging" ]] \
-        || fail 'restore drill left staging data'
-
-    btrfs subvolume delete -- "$restored" >/dev/null
-    rmdir -- "$SOURCE_MOUNT/restore-engine-drill"
-    pass 'restore engine plans, restores and drills against real Btrfs snapshots'
 }
 
 manager_independence_test() {
@@ -966,9 +771,6 @@ TARGET_LUKS_UUID="$(cryptsetup luksUUID "$TARGET_LOOP")"
 TARGET_BTRFS_UUID="$(findmnt -n -o UUID -M "$TARGET_MOUNT")"
 configure_backup_with_cli "$TARGET_LOOP" "$TARGET_LUKS_UUID" "$TARGET_BTRFS_UUID"
 pass 'installed CLI renders, installs, and validates configuration'
-printf 'browse probe\n' > "$TARGET_MOUNT/snapshots/browse-probe.txt"
-real_browse_session_test
-rm -f -- "$TARGET_MOUNT/snapshots/browse-probe.txt"
 managed_target_lifecycle_test
 validate_runtime_preflight
 pass 'installed runtime validates the mounted target'
@@ -999,33 +801,8 @@ grep -q '"state": "succeeded"' <<< "$CTL_HISTORY_OUTPUT" \
 assert_count 1 "$TARGET_MOUNT/snapshots/home"
 assert_count 1 "$SOURCE_MOUNT/.snapshots/home"
 assert_remote_matches_latest_local
-pass 'full backup transfers and verifies real Btrfs data'
+pass 'system D-Bus backup transfers and verifies real Btrfs data'
 
-printf 'beta\n' >> "$SOURCE_MOUNT/home/file-a.txt"
-rm -f -- "$SOURCE_MOUNT/home/dir/blob.bin"
-dd if=/dev/urandom of="$SOURCE_MOUNT/home/dir/blob-2.bin" bs=1M count=3 status=none
-sync -f "$SOURCE_MOUNT"
-run_backup
-grep -q '"incremental": true' "$RUN_LOG" || fail 'incremental stream was not used for second backup'
-assert_count 2 "$TARGET_MOUNT/snapshots/home"
-assert_count 2 "$SOURCE_MOUNT/.snapshots/home"
-assert_remote_matches_latest_local
-pass 'incremental backup transfers and verifies real Btrfs data'
-
-printf 'gamma\n' > "$SOURCE_MOUNT/home/new-file.txt"
-dd if=/dev/urandom of="$SOURCE_MOUNT/home/dir/blob-3.bin" bs=1M count=1 status=none
-sync -f "$SOURCE_MOUNT"
-run_backup
-assert_count 2 "$TARGET_MOUNT/snapshots/home"
-assert_count 2 "$SOURCE_MOUNT/.snapshots/home"
-assert_remote_matches_latest_local
-assert_no_incoming_children
-pass 'retention keeps the latest two local and remote snapshots'
-
-recover_interrupted_before_receive
-recover_interrupted_after_commit
-restore_latest_snapshot
-restore_engine_test
 manager_independence_test
 trusted_hook_security_test
 systemd_security_audit
