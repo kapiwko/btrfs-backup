@@ -165,6 +165,8 @@ ProbeResult probe_filesystem(const std::string& path) {
     result.filesystem.version = probe_value(probe.get(), "VERSION");
     result.filesystem.label = probe_value(probe.get(), "LABEL");
     result.filesystem.uuid = probe_value(probe.get(), "UUID");
+    if (result.filesystem.type == "LVM2_member" || result.filesystem.type == "linux_raid_member")
+        add_blocker(result.blockers, "unsupported-block-stack", result.filesystem.type);
     return result;
 }
 

@@ -14,6 +14,7 @@ RUN pacman -Syu --noconfirm --needed \
         gcc \
         gawk \
         grep \
+        lvm2 \
         perl \
         polkit \
         python \

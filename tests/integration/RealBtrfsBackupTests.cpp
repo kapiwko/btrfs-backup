@@ -62,6 +62,8 @@ void run_scenarios(
         std::cout << "ok - whole-device provisioning creates GPT and an encrypted partition\n";
         provisioning.require_existing_target_is_adopted();
         std::cout << "ok - existing-target adoption preserves bytes and identities\n";
+        provisioning.require_lvm_member_is_rejected_without_writes();
+        std::cout << "ok - LVM member is rejected without writes\n";
         provisioning.close();
 
         require_backup(

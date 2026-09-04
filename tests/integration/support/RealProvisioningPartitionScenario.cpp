@@ -94,4 +94,40 @@ void RealProvisioningTestEnvironment::require_existing_partition_preserves_sibli
     loop_.clear();
 }
 
+void RealProvisioningTestEnvironment::require_lvm_member_is_rejected_without_writes() {
+    constexpr std::string_view profile_id = "lvm-rejection-integration";
+    const fs::path profile = fs::path("/etc/btrfs-backup/profiles") / profile_id / "profile.json";
+    attach_image("256M");
+    const auto partitioned = command(
+        {"sfdisk", "--quiet", loop_},
+        "label: gpt\nsize=192M,type=E6D6D379-F507-44C2-A23C-238F2A3DF928\n"
+    );
+    if (partitioned.status != 0)
+        throw std::runtime_error("create LVM rejection partition failed: " + command_diagnostic(partitioned));
+    require_command({"udevadm", "settle", "--timeout=10"}, "settle LVM rejection partition");
+    const fs::path partition = loop_ + "p1";
+    require_block_device(partition, "LVM rejection partition was not created");
+    require_command({"pvcreate", "--yes", "--force", partition.string()}, "create disposable LVM member");
+    require_command({"udevadm", "settle", "--timeout=10"}, "settle LVM member signature");
+    const auto hash_before = command({"sha256sum", partition.string()});
+    if (hash_before.status != 0)
+        throw std::runtime_error("cannot capture LVM member baseline");
+
+    start_manager();
+    const auto rejected = command(
+        {client_.string(), partition.string(), source_.string(), "-", "reformat-existing-partition", std::string(profile_id)},
+        passphrase_
+    );
+    stop_manager();
+    if (rejected.status == 0 || fs::exists(profile))
+        throw std::runtime_error("LVM member was accepted for destructive preparation");
+    const auto hash_after = command({"sha256sum", partition.string()});
+    if (hash_after.status != 0 || hash_after.output != hash_before.output)
+        throw std::runtime_error("rejected LVM member was modified");
+
+    require_command({"pvremove", "--yes", "--force", partition.string()}, "remove disposable LVM member");
+    require_command({"losetup", "-d", loop_}, "detach LVM rejection loop");
+    loop_.clear();
+}
+
 } // namespace btrfsbackup::integration

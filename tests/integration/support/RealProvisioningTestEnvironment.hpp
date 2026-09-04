@@ -27,6 +27,7 @@ class RealProvisioningTestEnvironment final {
     void require_unallocated_space_preserves_partition();
     void require_whole_device_is_replaced();
     void require_existing_target_is_adopted();
+    void require_lvm_member_is_rejected_without_writes();
     void close();
 
   private:

@@ -17,11 +17,14 @@
 #include <fstream>
 #include <iostream>
 #include <memory>
+#include <optional>
 #include <set>
 #include <sstream>
 #include <stdexcept>
 #include <string>
 #include <thread>
+
+#include <platform/linux/OwnedFileDescriptor.hpp>
 
 namespace btrfsbackup::integration {
 
@@ -51,20 +54,24 @@ class BrowseSessionClient final {
             if (!browse_root.string().starts_with("/run/btrfs-backup-browse/") ||
                 browse_root.filename() != "repository")
                 throw std::runtime_error("test derived an invalid browse root");
-            struct stat parent_status{};
-            if (lstat(browse_root.parent_path().c_str(), &parent_status) != 0 ||
-                parent_status.st_uid != 0 || (parent_status.st_mode & 0777) != 0700)
-                throw std::runtime_error("browse session directory is not root-owned and private");
+            btrfsbackup::platform::linux::OwnedFileDescriptor root(
+                manager_->call_for_fd(manager_protocol::method::open_browse_root, session_id)
+            );
+            struct stat root_status{};
+            if (!root.valid() || fstat(root.get(), &root_status) != 0 || !S_ISDIR(root_status.st_mode))
+                throw std::runtime_error("manager did not return a pinned browse root directory");
             const auto options = mount_options(browse_root);
             for (const std::string_view required : {"ro", "nodev", "nosuid", "noexec", "nosymfollow"})
                 if (!options.contains(std::string(required)))
                     throw std::runtime_error("browse mount omitted option " + std::string(required));
-            std::ifstream probe(browse_root / "browse-probe.txt");
-            std::ostringstream content;
-            content << probe.rdbuf();
-            if (!probe.is_open() || content.str() != "browse probe\n")
+            btrfsbackup::platform::linux::OwnedFileDescriptor probe(
+                openat(root.get(), "browse-probe.txt", O_RDONLY | O_CLOEXEC | O_NOFOLLOW)
+            );
+            char content[32]{};
+            const ssize_t length = probe.valid() ? read(probe.get(), content, sizeof(content)) : -1;
+            if (length != 13 || std::string_view(content, static_cast<std::size_t>(length)) != "browse probe\n")
                 throw std::runtime_error("browse session did not expose repository data");
-            const int writable = open((browse_root / "browse-probe.txt").c_str(), O_WRONLY | O_CLOEXEC);
+            const int writable = openat(root.get(), "browse-probe.txt", O_WRONLY | O_CLOEXEC | O_NOFOLLOW);
             if (writable >= 0) {
                 close(writable);
                 throw std::runtime_error("browse session unexpectedly permits writes");
@@ -72,17 +79,16 @@ class BrowseSessionClient final {
         }
         manager_.reset();
         const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
-        while (std::filesystem::exists(browse_root.parent_path()) &&
-               std::chrono::steady_clock::now() < deadline)
+        while (find_mount_options(browse_root).has_value() && std::chrono::steady_clock::now() < deadline)
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
-        if (std::filesystem::exists(browse_root.parent_path()))
+        if (find_mount_options(browse_root).has_value())
             throw std::runtime_error("browse session survived D-Bus caller disconnect");
         static_cast<void>(mount_options(target_mount));
         return 0;
     }
 
   private:
-    static std::set<std::string> mount_options(const std::filesystem::path& mount_point) {
+    static std::optional<std::set<std::string>> find_mount_options(const std::filesystem::path& mount_point) {
         std::ifstream input("/proc/self/mountinfo");
         std::string line;
         while (std::getline(input, line)) {
@@ -104,6 +110,12 @@ class BrowseSessionClient final {
                 result.insert(value);
             return result;
         }
+        return std::nullopt;
+    }
+
+    static std::set<std::string> mount_options(const std::filesystem::path& mount_point) {
+        if (const auto result = find_mount_options(mount_point); result.has_value())
+            return *result;
         throw std::runtime_error("mount is absent from mountinfo: " + mount_point.string());
     }
 

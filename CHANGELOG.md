@@ -55,22 +55,25 @@ schema version 4 profile with 0.3.x before upgrading, then install it with the
 5. the manager and helper revalidate device identity, geometry, signatures,
    mounts, swap, holders and the source filesystem at their respective trust
    boundaries before allowing the first write;
-6. destructive storage commands run only in a separately hardened transient
+6. LVM physical-volume and Linux MD RAID member signatures are treated as
+   unsupported block stacks and cannot be selected for destructive
+   preparation;
+7. destructive storage commands run only in a separately hardened transient
    systemd helper with a per-operation device allow list; the manager
    coordinates authorization and durable transaction state;
-7. revisioned root-only transactions support restart recovery after
+8. revisioned root-only transactions support restart recovery after
    interruption and preserve the first cleanup failure. The store rejects
    unsafe directory ownership or modes, symlinks, non-regular records,
    insecure locks and reservations, and duplicate corrupted records without
    blocking on special files or replacing diagnostic evidence;
-8. ambiguous identity, unsafe persisted state or incomplete cleanup stops with
+9. ambiguous identity, unsafe persisted state or incomplete cleanup stops with
    a stable error and explicit manual-recovery guidance rather than guessing;
-9. version 1.0 does not migrate installed 3.x profiles in place; operators must
+10. version 1.0 does not migrate installed 3.x profiles in place; operators must
    prepare schema-v4 configuration before upgrading as described above;
-10. selecting a disk no longer implicitly chooses whole-device erasure. The KCM
+11. selecting a disk no longer implicitly chooses whole-device erasure. The KCM
    requires that scope to be selected explicitly and keeps rejected devices
    visible with their blocker;
-11. source choices use user-facing names, automatic-key storage and recovery
+12. source choices use user-facing names, automatic-key storage and recovery
    implications are explained, and failed operations show completed steps,
    cleanup outcome, a copyable diagnostic report and recovery guidance.
 

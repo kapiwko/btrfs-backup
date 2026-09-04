@@ -31,6 +31,7 @@ class ManagerTestClient final {
         std::string_view argument,
         int descriptor
     ) const;
+    [[nodiscard]] int call_for_fd(std::string_view method, std::string_view argument) const;
 
   private:
     struct Implementation;

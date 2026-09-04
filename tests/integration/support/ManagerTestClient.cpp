@@ -8,6 +8,8 @@
 
 #include <systemd/sd-bus.h>
 
+#include <fcntl.h>
+
 #include <cerrno>
 #include <cstring>
 #include <memory>
@@ -177,6 +179,38 @@ std::string ManagerTestClient::call_with_fd(
     }
     sd_bus_error_free(&error);
     return reply_payload(reply.get());
+}
+
+int ManagerTestClient::call_for_fd(std::string_view method, std::string_view argument) const {
+    sd_bus_error error{};
+    sd_bus_message* raw_reply = nullptr;
+    const std::string method_name(method);
+    const std::string value(argument);
+    const int result = sd_bus_call_method(
+        implementation_->bus.get(),
+        manager_protocol::service_name,
+        manager_protocol::object_path,
+        manager_protocol::interface_name,
+        method_name.c_str(),
+        &error,
+        &raw_reply,
+        "s",
+        value.c_str()
+    );
+    BusMessage reply(raw_reply, sd_bus_message_unref);
+    if (result < 0) {
+        const auto failure = bus_error(method, error, result);
+        sd_bus_error_free(&error);
+        throw failure;
+    }
+    sd_bus_error_free(&error);
+    int descriptor = -1;
+    if (sd_bus_message_read(reply.get(), "h", &descriptor) < 0 || descriptor < 0)
+        throw std::runtime_error("manager returned an invalid file descriptor");
+    const int duplicate = fcntl(descriptor, F_DUPFD_CLOEXEC, 3);
+    if (duplicate < 0)
+        throw std::runtime_error("cannot retain manager file descriptor");
+    return duplicate;
 }
 
 } // namespace btrfsbackup::integration
