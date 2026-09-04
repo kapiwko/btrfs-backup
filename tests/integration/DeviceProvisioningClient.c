@@ -298,8 +298,10 @@ int main(int argc, char** argv) {
         candidate = unallocated_candidate(topology, target_geometry.size_bytes);
     else
         candidate = partition_candidate(topology, partition_number_from_path(argv[1]), target_geometry);
-    if (generation == NULL || candidate == NULL)
+    if (generation == NULL || candidate == NULL) {
+        fprintf(stderr, "device provisioning client: storage topology: %s\n", topology);
         die("selected storage target is absent from storage topology");
+    }
 
     char* inspection_id = NULL;
     if (strcmp(mode, "adopt-existing-target") == 0) {
@@ -344,8 +346,10 @@ int main(int argc, char** argv) {
         die("manager omitted the preparation plan identifier");
     char* sources = call(bus, "ListSourceCandidates", NULL, NULL);
     char* source_candidate = source_candidate_for_path(sources, argv[2]);
-    if (source_candidate == NULL)
+    if (source_candidate == NULL) {
+        fprintf(stderr, "device provisioning client: source candidates: %s\n", sources);
         die("selected source is absent from source candidates");
+    }
 
     char start_request[4096];
     if (snprintf(

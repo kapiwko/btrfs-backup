@@ -17,6 +17,7 @@ SOURCE_LOOP=""
 TARGET_LOOP=""
 PROVISION_LOOP=""
 PROVISION_MAPPER=""
+PARTITION_NODE_MONITOR_PID=""
 SOURCE_MOUNT=/mnt/bb-real-source
 TARGET_MOUNT=/mnt/btrfs-backup/default
 TARGET_STAGING_MOUNT=/mnt/bb-real-target-staging
@@ -33,6 +34,10 @@ EJECT_COMPLETION_COUNT=0
 
 cleanup() {
     set +e
+    if [[ -n "$PARTITION_NODE_MONITOR_PID" ]]; then
+        kill "$PARTITION_NODE_MONITOR_PID" 2>/dev/null
+        wait "$PARTITION_NODE_MONITOR_PID" 2>/dev/null
+    fi
     umount -R "$TARGET_MOUNT" 2>/dev/null
     umount -R "$TARGET_STAGING_MOUNT" 2>/dev/null
     umount -R "$PROVISION_PRESERVED_MOUNT" 2>/dev/null
@@ -93,6 +98,89 @@ ensure_loop_devices() {
     done
 }
 
+materialize_loop_device_nodes() {
+    local sysfs_device device_name major minor actual_major actual_minor temporary_node
+    install -d -m0755 /dev/block
+    for sysfs_device in /sys/class/block/loop*; do
+        [[ -r "$sysfs_device/dev" ]] || continue
+        device_name="${sysfs_device##*/}"
+        IFS=: read -r major minor < "$sysfs_device/dev"
+        actual_major="$(stat -c '%t' "/dev/$device_name" 2>/dev/null || true)"
+        actual_minor="$(stat -c '%T' "/dev/$device_name" 2>/dev/null || true)"
+        if [[ "$actual_major" != "$(printf '%x' "$major")" ||
+              "$actual_minor" != "$(printf '%x' "$minor")" ]]; then
+            temporary_node="/dev/.${device_name}.${BASHPID}.tmp"
+            mknod "$temporary_node" b "$major" "$minor"
+            mv -f -- "$temporary_node" "/dev/$device_name"
+        fi
+        ln -sfn "../$device_name" "/dev/block/$major:$minor"
+    done
+}
+
+materialize_device_mapper_nodes() {
+    local sysfs_device device_name mapper_name major minor actual_major actual_minor temporary_node
+    install -d -m0755 /dev/block /dev/mapper
+    for sysfs_device in /sys/class/block/dm-*; do
+        [[ -r "$sysfs_device/dev" && -r "$sysfs_device/dm/name" ]] || continue
+        IFS= read -r mapper_name < "$sysfs_device/dm/name"
+        [[ "$mapper_name" =~ ^[A-Za-z0-9_.+-]+$ ]] || continue
+        [[ "$mapper_name" == btrfs-backup-* || "$mapper_name" == bb-real-* ]] || continue
+        device_name="${sysfs_device##*/}"
+        IFS=: read -r major minor < "$sysfs_device/dev"
+        actual_major="$(stat -c '%t' "/dev/$device_name" 2>/dev/null || true)"
+        actual_minor="$(stat -c '%T' "/dev/$device_name" 2>/dev/null || true)"
+        if [[ "$actual_major" != "$(printf '%x' "$major")" ||
+              "$actual_minor" != "$(printf '%x' "$minor")" ]]; then
+            temporary_node="/dev/.${device_name}.${BASHPID}.tmp"
+            mknod "$temporary_node" b "$major" "$minor"
+            mv -f -- "$temporary_node" "/dev/$device_name"
+        fi
+        ln -sfn "../$device_name" "/dev/mapper/$mapper_name"
+        ln -sfn "../$device_name" "/dev/block/$major:$minor"
+    done
+}
+
+materialize_loop_identity_links() {
+    local sysfs_device device_name filesystem_uuid partition_uuid
+    install -d -m0755 /dev/disk/by-uuid /dev/disk/by-partuuid
+    for sysfs_device in /sys/class/block/loop*p*; do
+        device_name="${sysfs_device##*/}"
+        [[ -b "/dev/$device_name" ]] || continue
+        filesystem_uuid="$(blkid -p -s UUID -o value "/dev/$device_name" 2>/dev/null || true)"
+        partition_uuid="$(blkid -p -s PART_ENTRY_UUID -o value "/dev/$device_name" 2>/dev/null || true)"
+        if [[ -n "$filesystem_uuid" ]]; then
+            ln -sfn "../../$device_name" "/dev/disk/by-uuid/$filesystem_uuid"
+        fi
+        if [[ -n "$partition_uuid" ]]; then
+            ln -sfn "../../$device_name" "/dev/disk/by-partuuid/$partition_uuid"
+        fi
+    done
+}
+
+monitor_loop_partition_nodes() {
+    while true; do
+        materialize_loop_device_nodes || true
+        materialize_device_mapper_nodes || true
+        materialize_loop_identity_links || true
+        sleep 0.05
+    done
+}
+
+detach_provision_loop() {
+    local loop_name partition_node
+    loop_name="${PROVISION_LOOP##*/}"
+    losetup -d "$PROVISION_LOOP"
+    for _ in $(seq 1 100); do
+        compgen -G "/sys/class/block/${loop_name}p*" >/dev/null || break
+        sleep 0.02
+    done
+    for partition_node in /dev/"$loop_name"p*; do
+        [[ "$partition_node" != "/dev/${loop_name}p*" ]] || continue
+        rm -f -- "$partition_node"
+    done
+    PROVISION_LOOP=""
+}
+
 build_and_verify_packages() {
     local base_packages=()
     local base_metadata
@@ -136,6 +224,7 @@ provision_existing_partition_test() {
     local table_after="$TEST_ROOT/provision-table-after"
     local response="$TEST_ROOT/device-provisioning-response.json"
 
+    truncate -s 0 "$PROVISION_IMAGE"
     truncate -s 512M "$PROVISION_IMAGE"
     PROVISION_LOOP="$(losetup --find --show --partscan "$PROVISION_IMAGE")"
     printf '%s\n' \
@@ -144,6 +233,7 @@ provision_existing_partition_test() {
         'size=256M,type=0FC63DAF-8483-4772-8E79-3D69D8477DE4' \
         | sfdisk --quiet "$PROVISION_LOOP"
     udevadm settle --timeout=10
+    materialize_loop_device_nodes
     first_partition="${PROVISION_LOOP}p1"
     second_partition="${PROVISION_LOOP}p2"
     [[ -b "$first_partition" && -b "$second_partition" ]] \
@@ -162,7 +252,12 @@ provision_existing_partition_test() {
         "$ROOT/tests/integration/DeviceProvisioningClient.c" \
         -lsystemd -o "$client"
     systemctl start polkit.service btrfs-backupd.service
-    "$client" "$second_partition" "$SOURCE_MOUNT/home" "$PASSPHRASE_FILE" > "$response"
+    if ! "$client" "$second_partition" "$SOURCE_MOUNT/home" "$PASSPHRASE_FILE" > "$response"; then
+        journalctl --no-pager -o cat -u btrfs-backupd.service -n 100 >&2 || true
+        systemctl --failed --no-pager >&2 || true
+        journalctl --no-pager -o cat -n 200 >&2 || true
+        fail 'existing-partition provisioning client failed'
+    fi
     systemctl stop btrfs-backupd.service polkit.service
 
     findmnt -n -M "$PROVISION_PRESERVED_MOUNT" >/dev/null \
@@ -178,15 +273,22 @@ provision_existing_partition_test() {
         || fail 'existing-partition provisioning changed the parent partition table'
     [[ "$(blkid -s TYPE -o value "$first_partition")" == ext4 ]] \
         || fail 'existing-partition provisioning changed the sibling filesystem'
-    [[ "$(blkid -s TYPE -o value "$second_partition")" == crypto_LUKS ]] \
-        || fail 'selected partition was not formatted as LUKS2'
+    if ! cryptsetup isLuks --type luks2 "$second_partition"; then
+        printf '%s\n' '--- provisioning response ---' >&2
+        cat "$response" >&2
+        printf '%s\n' '--- partition table and signatures ---' >&2
+        sfdisk --dump "$PROVISION_LOOP" >&2 || true
+        blkid "$PROVISION_LOOP" "$first_partition" "$second_partition" >&2 || true
+        printf '%s\n' '--- generated profile ---' >&2
+        cat /etc/btrfs-backup/profiles/partition-integration/profile.json >&2 || true
+        fail 'selected partition was not formatted as LUKS2'
+    fi
     grep -Eq '"state"[[:space:]]*:[[:space:]]*"succeeded"' "$response" \
         || fail 'manager did not report successful partition provisioning'
     [[ -f /etc/btrfs-backup/profiles/partition-integration/profile.json ]] \
         || fail 'partition provisioning did not publish its profile'
 
-    losetup -d "$PROVISION_LOOP"
-    PROVISION_LOOP=""
+    detach_provision_loop
     pass 'manager provisions one partition without changing its sibling or partition table'
 }
 
@@ -197,6 +299,7 @@ provision_unallocated_space_test() {
     local preserved_geometry_before preserved_geometry_after
     local response="$TEST_ROOT/free-space-provisioning-response.json"
 
+    truncate -s 0 "$PROVISION_IMAGE"
     truncate -s 768M "$PROVISION_IMAGE"
     PROVISION_LOOP="$(losetup --find --show --partscan "$PROVISION_IMAGE")"
     printf '%s\n' \
@@ -204,6 +307,7 @@ provision_unallocated_space_test() {
         'size=256M,type=0FC63DAF-8483-4772-8E79-3D69D8477DE4' \
         | sfdisk --quiet "$PROVISION_LOOP"
     udevadm settle --timeout=10
+    materialize_loop_device_nodes
     preserved_partition="${PROVISION_LOOP}p1"
     backup_partition="${PROVISION_LOOP}p2"
     [[ -b "$preserved_partition" ]] || fail 'preserved loop partition node was not created'
@@ -212,12 +316,17 @@ provision_unallocated_space_test() {
     preserved_geometry_before="$(sfdisk --dump "$PROVISION_LOOP" | grep -F "$preserved_partition :")"
 
     systemctl start polkit.service btrfs-backupd.service
-    "$client" \
+    if ! "$client" \
         "$PROVISION_LOOP" \
         "$SOURCE_MOUNT/home" \
         "$PASSPHRASE_FILE" \
         create-partition-in-unallocated-space \
-        free-space-integration > "$response"
+        free-space-integration > "$response"; then
+        journalctl --no-pager -o cat -u btrfs-backupd.service -n 100 >&2 || true
+        journalctl --no-pager -o cat -t btrfs-backup-device-preparation -n 100 >&2 || true
+        lslocks >&2 || true
+        fail 'free-space provisioning client failed'
+    fi
     systemctl stop btrfs-backupd.service polkit.service
 
     preserved_hash_after="$(sha256sum "$preserved_partition" | awk '{print $1}')"
@@ -230,15 +339,14 @@ provision_unallocated_space_test() {
         || fail 'free-space provisioning did not create the planned partition node'
     [[ "$(blkid -s TYPE -o value "$preserved_partition")" == ext4 ]] \
         || fail 'free-space provisioning changed the existing filesystem'
-    [[ "$(blkid -s TYPE -o value "$backup_partition")" == crypto_LUKS ]] \
+    cryptsetup isLuks --type luks2 "$backup_partition" \
         || fail 'free-space provisioning did not format the new partition as LUKS2'
     grep -Eq '"state"[[:space:]]*:[[:space:]]*"succeeded"' "$response" \
         || fail 'manager did not report successful free-space provisioning'
     [[ -f /etc/btrfs-backup/profiles/free-space-integration/profile.json ]] \
         || fail 'free-space provisioning did not publish its profile'
 
-    losetup -d "$PROVISION_LOOP"
-    PROVISION_LOOP=""
+    detach_provision_loop
     pass 'manager creates a backup partition in free space without changing existing data'
 }
 
@@ -247,17 +355,25 @@ provision_whole_device_test() {
     local backup_partition
     local response="$TEST_ROOT/whole-device-provisioning-response.json"
 
+    truncate -s 0 "$PROVISION_IMAGE"
     truncate -s 640M "$PROVISION_IMAGE"
     PROVISION_LOOP="$(losetup --find --show --partscan "$PROVISION_IMAGE")"
     mkfs.ext4 -q -F -L ERASE-WHOLE "$PROVISION_LOOP"
+    udevadm settle --timeout=10
 
     systemctl start polkit.service btrfs-backupd.service
-    "$client" \
+    if ! "$client" \
         "$PROVISION_LOOP" \
         "$SOURCE_MOUNT/home" \
         "$PASSPHRASE_FILE" \
         erase-whole-device \
-        whole-device-integration > "$response"
+        whole-device-integration > "$response"; then
+        journalctl --no-pager -o cat -u btrfs-backupd.service -n 100 >&2 || true
+        journalctl --no-pager -o cat -t btrfs-backup-device-preparation -n 100 >&2 || true
+        sfdisk --dump "$PROVISION_LOOP" >&2 || true
+        blkid "$PROVISION_LOOP" "${PROVISION_LOOP}p1" >&2 || true
+        fail 'whole-device provisioning client failed'
+    fi
     systemctl stop btrfs-backupd.service polkit.service
 
     udevadm settle --timeout=10
@@ -266,15 +382,14 @@ provision_whole_device_test() {
         || fail 'whole-device provisioning did not create GPT'
     [[ -b "$backup_partition" ]] \
         || fail 'whole-device provisioning did not create its planned partition'
-    [[ "$(blkid -s TYPE -o value "$backup_partition")" == crypto_LUKS ]] \
+    cryptsetup isLuks --type luks2 "$backup_partition" \
         || fail 'whole-device provisioning did not format the new partition as LUKS2'
     grep -Eq '"state"[[:space:]]*:[[:space:]]*"succeeded"' "$response" \
         || fail 'manager did not report successful whole-device provisioning'
     [[ -f /etc/btrfs-backup/profiles/whole-device-integration/profile.json ]] \
         || fail 'whole-device provisioning did not publish its profile'
 
-    losetup -d "$PROVISION_LOOP"
-    PROVISION_LOOP=""
+    detach_provision_loop
     pass 'manager replaces a whole device with one encrypted backup partition'
 }
 
@@ -287,6 +402,7 @@ provision_existing_target_adoption_test() {
     local response="$TEST_ROOT/adoption-provisioning-response.json"
     local created_at
 
+    truncate -s 0 "$PROVISION_IMAGE"
     truncate -s 512M "$PROVISION_IMAGE"
     PROVISION_LOOP="$(losetup --find --show --partscan "$PROVISION_IMAGE")"
     printf '%s\n' \
@@ -294,6 +410,7 @@ provision_existing_target_adoption_test() {
         'size=448M,type=0FC63DAF-8483-4772-8E79-3D69D8477DE4' \
         | sfdisk --quiet "$PROVISION_LOOP"
     udevadm settle --timeout=10
+    materialize_loop_device_nodes
     partition="${PROVISION_LOOP}p1"
     [[ -b "$partition" ]] || fail 'adoption partition node was not created'
     cryptsetup luksFormat \
@@ -328,12 +445,17 @@ EOF_ADOPTION_CATALOG
     partition_hash_before="$(sha256sum "$partition" | awk '{print $1}')"
 
     systemctl start polkit.service btrfs-backupd.service
-    "$client" \
+    if ! "$client" \
         "$partition" \
         "$SOURCE_MOUNT/home" \
         "$PASSPHRASE_FILE" \
         adopt-existing-target \
-        adoption-integration > "$response"
+        adoption-integration > "$response"; then
+        journalctl --no-pager -o cat -u btrfs-backupd.service -n 100 >&2 || true
+        journalctl --no-pager -o cat -t btrfs-backup-device-preparation -n 100 >&2 || true
+        stat -c '%n %t:%T' "$PROVISION_LOOP" "$partition" >&2 || true
+        fail 'existing-target adoption client failed'
+    fi
     systemctl stop btrfs-backupd.service polkit.service
 
     partition_hash_after="$(sha256sum "$partition" | awk '{print $1}')"
@@ -352,8 +474,7 @@ EOF_ADOPTION_CATALOG
     grep -Fq "$btrfs_uuid" /etc/btrfs-backup/profiles/adoption-integration/profile.json \
         || fail 'adopted profile does not retain the inspected Btrfs identity'
 
-    losetup -d "$PROVISION_LOOP"
-    PROVISION_LOOP=""
+    detach_provision_loop
     pass 'manager adopts a compatible encrypted repository without modifying it'
 }
 
@@ -362,6 +483,7 @@ configure_backup_with_cli() {
     local luks_uuid="$2"
     local btrfs_uuid="$3"
     local installed_keyfile=/etc/btrfs-backup/keys/default.key
+    local saved_profile="$RENDERED_CONFIG/config/profiles/default/profile.json"
     local mount_unit
 
     install -d -m0700 /etc/btrfs-backup/keys
@@ -393,6 +515,7 @@ configure_backup_with_cli() {
         --systemd-root "$RENDERED_CONFIG/systemd" \
         --public-root "$RENDERED_CONFIG/public/profiles" \
         save --file "$RENDERED_CONFIG/config/profile.json" >/dev/null
+    install -m0600 "$saved_profile" "$RENDERED_CONFIG/config/profile.json"
     btrfs-backupctl installation render \
         --file "$RENDERED_CONFIG/config/profile.json" \
         --output-dir "$RENDERED_CONFIG" \
@@ -401,7 +524,7 @@ configure_backup_with_cli() {
     btrfs-backupctl installation validate --rendered-root "$RENDERED_CONFIG" >/dev/null
 
     install -d -m0700 /etc/btrfs-backup /etc/btrfs-backup/profiles/default
-    install -m0600 "$RENDERED_CONFIG/config/profile.json" /etc/btrfs-backup/profiles/default/profile.json
+    install -m0600 "$saved_profile" /etc/btrfs-backup/profiles/default/profile.json
     install -Dm0644 "$RENDERED_CONFIG/systemd/btrfs-backup.service" /etc/systemd/system/btrfs-backup.service
     install -Dm0644 "$RENDERED_CONFIG/systemd/btrfs-backup@.service" /etc/systemd/system/btrfs-backup@.service
     install -Dm0644 "$RENDERED_CONFIG/systemd/btrfs-backup-eject@.service" /etc/systemd/system/btrfs-backup-eject@.service
@@ -640,8 +763,9 @@ expect_backup_failure() {
 
 with_restored_file() {
     local file="$1"
+    local backup
     shift
-    local backup="$TEST_ROOT/$(basename -- "$file").bak.$$"
+    backup="$TEST_ROOT/$(basename -- "$file").bak.$$"
 
     cp -a -- "$file" "$backup"
     "$@"
@@ -704,8 +828,9 @@ write_pending_marker() {
 
 recover_interrupted_before_receive() {
     local interrupted="$SOURCE_MOUNT/.snapshots/home/home-2026-08-20T000000Z"
-    local final="$TARGET_MOUNT/snapshots/home/$(basename -- "$interrupted")"
+    local final
     local marker=/var/lib/btrfs-backup/profiles/default/pending-home
+    final="$TARGET_MOUNT/snapshots/home/$(basename -- "$interrupted")"
 
     btrfs subvolume snapshot -r "$SOURCE_MOUNT/home" "$interrupted" >/dev/null
     write_pending_marker "$interrupted" "$final" '20260820T000000Z-interrupted'
@@ -1118,8 +1243,24 @@ missing_incremental_parent_test() {
 }
 
 require_root
-require_commands awk blkid btrfs busctl cat cc cmp cryptsetup date dd diff dmsetup find findmnt grep journalctl ldd losetup mkfifo mkfs.btrfs mkfs.ext4 mknod mount pacman perl runuser seq sfdisk sha256sum stat systemd-escape tar tee timeout truncate udevadm useradd userdel
+require_commands awk blkid btrfs busctl cat cc cmp cryptsetup date dd diff dmsetup find findmnt grep journalctl ldd ln losetup mkfifo mkfs.btrfs mkfs.ext4 mknod mount mv pacman perl runuser seq sfdisk sha256sum stat systemd-escape tar tee timeout truncate udevadm useradd userdel
 ensure_loop_devices
+for _ in $(seq 1 100); do
+    systemctl show-environment >/dev/null 2>&1 && break
+    sleep 0.1
+done
+systemctl show-environment >/dev/null 2>&1 \
+    || fail 'systemd did not become ready before provisioning setup'
+systemctl start systemd-udevd.service
+systemctl is-active --quiet systemd-udevd.service \
+    || fail 'systemd-udevd did not start before provisioning loop devices'
+# shellcheck disable=SC2016 # udev expands $kernel when handling the device event.
+printf '%s\n' \
+    'SUBSYSTEM=="block", KERNEL=="loop*", ENV{ID_BUS}="usb", ENV{ID_SERIAL}="btrfs-backup-test-$kernel"' \
+    > /etc/udev/rules.d/98-btrfs-backup-loop-test.rules
+udevadm control --reload
+monitor_loop_partition_nodes &
+PARTITION_NODE_MONITOR_PID=$!
 
 install -d -m0755 "$SOURCE_MOUNT" "$TARGET_MOUNT" "$PROVISION_PRESERVED_MOUNT"
 install -d -m0700 "$LOG_DIR"
@@ -1149,6 +1290,7 @@ mkfs.btrfs -q -f "$MAPPER_PATH"
 
 mount -o noatime,compress=zstd:3 "$SOURCE_LOOP" "$SOURCE_MOUNT"
 btrfs subvolume create "$SOURCE_MOUNT/home" >/dev/null
+mount --bind "$SOURCE_MOUNT/home" "$SOURCE_MOUNT/home"
 install -d -m0700 "$SOURCE_MOUNT/.snapshots/home"
 
 provision_existing_partition_test
