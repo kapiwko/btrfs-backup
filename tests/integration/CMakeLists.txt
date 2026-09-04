@@ -52,6 +52,11 @@ add_test(
 )
 
 add_test(
+    NAME qemu-guest-payload-tests
+    COMMAND ${PYTHON_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/qemu/hotplug_guest_payload_tests.py
+)
+
+add_test(
     NAME profile-json-cli-tests
     COMMAND
         ${CMAKE_COMMAND}
@@ -85,6 +90,7 @@ set_tests_properties(
     bash-syntax-tests
     real-btrfs-runner-cli-tests
     legacy-shell-harness-tests
+    qemu-guest-payload-tests
     installation-render-tests
     profile-json-cli-tests
     command-surface-tests
