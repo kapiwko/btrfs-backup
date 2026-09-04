@@ -59,7 +59,8 @@
       "inherits": "clang-debug",
       "binaryDir": "${sourceDir}/build/strict-warnings",
       "cacheVariables": {
-        "BUILD_TESTING": "OFF",
+        "BUILD_TESTING": "ON",
+        "BTRFSBACKUP_ARCHITECTURE_TESTS": "OFF",
         "CMAKE_CXX_FLAGS": "-Werror -Wconversion -Wsign-conversion -Wshadow"
       }
     },
@@ -70,8 +71,9 @@
       "binaryDir": "${sourceDir}/build/clang-tidy",
       "cacheVariables": {
         "BUILD_KDE_INTEGRATION": "OFF",
-        "BUILD_TESTING": "OFF",
-        "CMAKE_CXX_CLANG_TIDY": "clang-tidy;--config-file=${sourceDir}/.clang-tidy;--header-filter=^${sourceDir}/(apps|src)/"
+        "BUILD_TESTING": "ON",
+        "BTRFSBACKUP_ARCHITECTURE_TESTS": "OFF",
+        "CMAKE_CXX_CLANG_TIDY": "clang-tidy;--config-file=${sourceDir}/.clang-tidy;--header-filter=^${sourceDir}/(apps|src|tests/integration)/"
       }
     },
     {
@@ -122,11 +124,35 @@
     },
     {
       "name": "strict-warnings",
-      "configurePreset": "strict-warnings"
+      "configurePreset": "strict-warnings",
+      "targets": [
+        "btrfs-backup-native",
+        "btrfs-backupctl",
+        "btrfs-backupd",
+        "btrfs-backup-device-preparation",
+        "btrfsbackup-profile-schema-contract-tests",
+        "btrfsbackup-real-restore-tests",
+        "btrfsbackup-integration-browse-session-client",
+        "btrfsbackup-integration-device-provisioning-client",
+        "btrfsbackup-fake-polkit-authority",
+        "btrfsbackup-dbus-manager-tests"
+      ]
     },
     {
       "name": "clang-tidy",
-      "configurePreset": "clang-tidy"
+      "configurePreset": "clang-tidy",
+      "targets": [
+        "btrfs-backup-native",
+        "btrfs-backupctl",
+        "btrfs-backupd",
+        "btrfs-backup-device-preparation",
+        "btrfsbackup-profile-schema-contract-tests",
+        "btrfsbackup-real-restore-tests",
+        "btrfsbackup-integration-browse-session-client",
+        "btrfsbackup-integration-device-provisioning-client",
+        "btrfsbackup-fake-polkit-authority",
+        "btrfsbackup-dbus-manager-tests"
+      ]
     },
     {
       "name": "kde-debug",
