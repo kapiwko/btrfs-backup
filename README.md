@@ -215,7 +215,7 @@ transactional plan and explicitly start the restore.
 
 The screenshots use sample data and are rendered deterministically from the
 repository in an isolated KDE container with
-[`tools/render-readme-screenshot-container.sh`](tools/render-readme-screenshot-container.sh).
+[`python3 tools/screenshots/render.py container`](tools/screenshots/render.py).
 
 ## How Backups Stay Consistent
 

@@ -67,13 +67,13 @@ artifacts, Btrfs state, cleanup and required kernel capabilities.
 | `tools/render-release-notes.sh` | Validates arguments and renders release notes from repository metadata. | Developer/release user. | Python release-note renderer. | Pending stage 16. |
 | `tools/install-local-release.sh` | Builds and installs a local release with stage diagnostics. | Build as user; installation may require elevation and is **security-sensitive**. | CMake install preset/target using `cmake --install`. | Pending stage 16. |
 | `tools/build-release.sh` | Deterministic source/archive creation, CMake native payload, install staging, Arch/Deb/RPM/Nix/Gentoo packaging and package verification. | Release user plus optional container/package tools; package script execution is **security-sensitive**. | CPack/CMake install plus Python release orchestration. | Pending stage 17. |
-| `tools/render-readme-screenshot.sh` | Dispatches five screenshot compositions and writes README image artifacts. | Desktop session. | `tools/screenshots/render.py`. | Pending stage 15. |
-| `tools/render-readme-screenshot-container.sh` | Creates isolated screenshot-rendering container and copies artifacts out. | Docker access. | `render.py container`. | Pending stage 15. |
-| `tools/screenshots/capture-active-window.sh` | Captures the active application window. | Interactive Wayland/X11 desktop. | Python screenshot scenario. | Pending stage 15. |
-| `tools/screenshots/capture-desktop-notification.sh` | Creates/captures a desktop notification and cleans temporary state. | Interactive Plasma session and D-Bus. | Python screenshot scenario. | Pending stage 15. |
-| `tools/screenshots/capture-dolphin.sh` | Opens a controlled Dolphin view, captures it and cleans its temporary tree. | Interactive Plasma session. | Python screenshot scenario. | Pending stage 15. |
-| `tools/screenshots/capture-plasma-widget.sh` | Installs/opens the development widget, captures it and restores desktop state. | Interactive Plasma session; modifies user desktop state. | Python screenshot scenario. | Pending stage 15. |
-| `tools/screenshots/capture-system-settings.sh` | Opens the KCM, captures it and cleans temporary state. | Interactive Plasma session. | Python screenshot scenario. | Pending stage 15. |
+| `tools/screenshots/render.py render` | Dispatches five screenshot compositions and writes README image artifacts plus a machine-readable manifest. | Desktop session. | Python renderer and scenario modules. | Migrated in stage 15. |
+| `tools/screenshots/render.py container` | Creates the isolated screenshot-rendering container and writes artifacts into the mounted output directory. | Docker access. | Python container subcommand. | Migrated in stage 15. |
+| `tools/screenshots/scenarios.py:active_window` | Captures the active application window. | Isolated Wayland/X11 desktop. | Python screenshot scenario. | Migrated in stage 15. |
+| `tools/screenshots/scenarios.py:notification` | Creates/captures a desktop notification and cleans temporary state. | Isolated Plasma session and D-Bus. | Python screenshot scenario. | Migrated in stage 15. |
+| `tools/screenshots/scenarios.py:dolphin` | Opens a controlled Dolphin view, captures it and cleans its temporary tree. | Isolated Plasma session. | Python screenshot scenario. | Migrated in stage 15. |
+| `tools/screenshots/scenarios.py:plasma_widget` | Installs and captures the development widget in a disposable desktop session. | Isolated Plasma session. | Python screenshot scenario. | Migrated in stage 15. |
+| `tools/screenshots/scenarios.py:system_settings` | Opens the KCM, captures it and cleans temporary state. | Isolated Plasma session. | Python screenshot scenario. | Migrated in stage 15. |
 
 ## CI owners
 
