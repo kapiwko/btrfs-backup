@@ -116,6 +116,29 @@ add_test(
         -P ${CMAKE_CURRENT_SOURCE_DIR}/workflow/local_install_tests.cmake
 )
 
+add_test(
+    NAME release-builder-source-tests
+    COMMAND
+        ${CMAKE_COMMAND}
+        -DPYTHON=${PYTHON_EXECUTABLE}
+        -DSOURCE_DIR=${PROJECT_SOURCE_DIR}
+        -DTEST_ROOT=${PROJECT_BINARY_DIR}/workflow-contracts
+        -DBUILD_DIR=${PROJECT_BINARY_DIR}
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/workflow/release_builder_tests.cmake
+)
+
+add_test(
+    NAME release-builder-package-tests
+    COMMAND
+        ${CMAKE_COMMAND}
+        -DPYTHON=${PYTHON_EXECUTABLE}
+        -DSOURCE_DIR=${PROJECT_SOURCE_DIR}
+        -DTEST_ROOT=${PROJECT_BINARY_DIR}/workflow-contracts
+        -DRELEASE_BUILD_DIR=${PROJECT_BINARY_DIR}/release
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/workflow/release_package_tests.cmake
+)
+set_tests_properties(release-builder-package-tests PROPERTIES RUN_SERIAL TRUE)
+
 set_tests_properties(
     bash-syntax-tests
     real-btrfs-runner-cli-tests
@@ -130,6 +153,7 @@ set_tests_properties(
     release-notes-tests
     release-notes-unit-tests
     local-install-tests
+    release-builder-source-tests
     PROPERTIES LABELS workflow
 )
 
