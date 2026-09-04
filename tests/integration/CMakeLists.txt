@@ -62,6 +62,11 @@ add_test(
 )
 
 add_test(
+    NAME qemu-hotplug-runner-tests
+    COMMAND ${PYTHON_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/qemu/hotplug_runner_tests.py
+)
+
+add_test(
     NAME profile-json-cli-tests
     COMMAND
         ${CMAKE_COMMAND}
@@ -97,6 +102,7 @@ set_tests_properties(
     legacy-shell-harness-tests
     qemu-guest-payload-tests
     qemu-hotplug-runner-cli-tests
+    qemu-hotplug-runner-tests
     installation-render-tests
     profile-json-cli-tests
     command-surface-tests
