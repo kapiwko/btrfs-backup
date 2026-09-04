@@ -61,10 +61,13 @@ target_link_libraries(
 add_library(kio_btrfsbackup MODULE
     kio/BtrfsBackupWorker.cpp
     kio/BtrfsBackupWorker.hpp
+    kio/RepositorySnapshotModel.cpp
+    kio/RepositorySnapshotModel.hpp
     kio/SecureBrowsePath.cpp
     kio/SecureBrowsePath.hpp
     kio/btrfsbackup.json
 )
+
 set_target_properties(kio_btrfsbackup PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/kf6/kio"
     PREFIX ""
@@ -406,6 +409,20 @@ if(BUILD_TESTING)
     add_test(NAME kio-btrfsbackup-metadata COMMAND kio-btrfsbackup-metadata-tests)
     set_tests_properties(kio-btrfsbackup-metadata PROPERTIES LABELS "kde;kio")
 
+    add_executable(kio-repository-snapshot-model-tests
+        kio/RepositorySnapshotModel.cpp
+        kio/RepositorySnapshotModel.hpp
+        kio/tests/RepositorySnapshotModelTests.cpp
+    )
+    target_compile_features(kio-repository-snapshot-model-tests PRIVATE cxx_std_23)
+    target_include_directories(kio-repository-snapshot-model-tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/kio)
+    target_link_libraries(kio-repository-snapshot-model-tests PRIVATE Qt6::Core)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(kio-repository-snapshot-model-tests PRIVATE -fexceptions -Wall -Wextra -Wpedantic)
+    endif()
+    add_test(NAME kio-repository-snapshot-model COMMAND kio-repository-snapshot-model-tests)
+    set_tests_properties(kio-repository-snapshot-model PROPERTIES LABELS "kde;kio")
+
     add_executable(kio-secure-browse-path-tests
         kio/SecureBrowsePath.cpp
         kio/SecureBrowsePath.hpp
@@ -547,6 +564,7 @@ if(BUILD_TESTING)
         kde-manager-api-tests
         kde-terminal-notification-tests
         kio-btrfsbackup-metadata-tests
+        kio-repository-snapshot-model-tests
         kio-secure-browse-path-tests
         kio-snapshot-interop-probe
         plasma-progress-job-tests

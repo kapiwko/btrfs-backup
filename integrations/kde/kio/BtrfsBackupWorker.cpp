@@ -17,6 +17,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QLocale>
 #include <QMimeDatabase>
 
 #include <sys/stat.h>
@@ -120,6 +121,11 @@ std::optional<RemoteEntry> remote_entry(const QString& session_id, const QString
     return parse_remote_entry(object);
 }
 
+std::optional<QHash<QString, btrfsbackup::kde::kio::RepositorySnapshot>> remote_snapshots(const QString& session_id) {
+    const auto payload = btrfsbackup::kde::BrowseSessionClient{}.inspectRepository(session_id);
+    return payload ? btrfsbackup::kde::kio::parse_repository_snapshots(*payload) : std::nullopt;
+}
+
 btrfsbackup::kde::kio::SecureBrowseFile remote_file(const QString& session_id, const QString& path) {
     QDBusPendingReply<QDBusUnixFileDescriptor> reply(btrfsbackup::kde::manager_call(
         QDBusConnection::systemBus(),
@@ -209,7 +215,12 @@ BtrfsBackupWorker::Session* BtrfsBackupWorker::session(const QString& profile) {
     if (!opened || opened->profile_id != profile || !opened->read_only)
         return nullptr;
 
-    auto inserted = sessions_.insert(profile, Session{opened->session_id});
+    auto snapshots = remote_snapshots(opened->session_id);
+    if (!snapshots) {
+        (void)browse_sessions.close(opened->session_id);
+        return nullptr;
+    }
+    auto inserted = sessions_.insert(profile, Session{opened->session_id, std::move(*snapshots)});
     return &inserted.value();
 }
 
@@ -220,8 +231,10 @@ std::optional<std::filesystem::path> BtrfsBackupWorker::resolve_entry(
     if (url.snapshot.isEmpty())
         return std::nullopt;
     try {
-        (void)session;
-        const btrfsbackup::restore::RelativeRestorePath root_entry{url.snapshot.toStdString()};
+        const auto snapshot = session.snapshots.constFind(url.snapshot);
+        if (snapshot == session.snapshots.cend() || !snapshot->verified || snapshot->profile_id != url.profile)
+            return std::nullopt;
+        const btrfsbackup::restore::RelativeRestorePath root_entry{snapshot->repository_path.toStdString()};
         std::filesystem::path relative = root_entry.value();
         if (!url.relative_path.isEmpty()) {
             const btrfsbackup::restore::RelativeRestorePath requested{url.relative_path.toStdString()};
@@ -277,17 +290,16 @@ KIO::WorkerResult BtrfsBackupWorker::list_snapshots(const QString& profile) {
     if (!pin)
         return KIO::WorkerResult::fail(KIO::ERR_ACCESS_DENIED);
     KIO::UDSEntryList entries;
-    auto children = remote_directory(active->id, u"."_s);
-    if (!children)
-        return KIO::WorkerResult::fail(KIO::ERR_CANNOT_ENTER_DIRECTORY);
-    std::ranges::sort(*children, {}, &RemoteEntry::name);
-    for (const auto& child : *children) {
+    std::vector<btrfsbackup::kde::kio::RepositorySnapshot> snapshots;
+    for (const auto& snapshot : std::as_const(active->snapshots))
+        if (snapshot.verified && snapshot.profile_id == profile)
+            snapshots.push_back(snapshot);
+    std::ranges::sort(snapshots, std::greater{}, &btrfsbackup::kde::kio::RepositorySnapshot::created_at);
+    for (const auto& snapshot : snapshots) {
         if (wasKilled())
             return KIO::WorkerResult::fail(KIO::ERR_USER_CANCELED);
-        if (!child.directory)
-            continue;
-        auto entry = directory_entry(child.name);
-        entry.fastInsert(KIO::UDSEntry::UDS_MODIFICATION_TIME, child.modified_at);
+        auto entry = directory_entry(snapshot.id, QLocale{}.toString(snapshot.created_at.toLocalTime(), QLocale::ShortFormat));
+        entry.fastInsert(KIO::UDSEntry::UDS_MODIFICATION_TIME, snapshot.created_at.toSecsSinceEpoch());
         entries.push_back(std::move(entry));
     }
     listEntries(entries);
@@ -308,8 +320,46 @@ KIO::WorkerResult BtrfsBackupWorker::listDir(const QUrl& url) {
 }
 
 KIO::WorkerResult BtrfsBackupWorker::list_versions(const ParsedUrl& url) {
-    (void)url;
-    return KIO::WorkerResult::fail(KIO::ERR_DOES_NOT_EXIST);
+    Session* active = session(url.profile);
+    if (active == nullptr)
+        return session_failure();
+    const BrowseSessionPin pin(active->id);
+    if (!pin)
+        return KIO::WorkerResult::fail(KIO::ERR_ACCESS_DENIED);
+    const QStringList parts = url.relative_path.split(u'/', Qt::SkipEmptyParts);
+    if (parts.isEmpty())
+        return KIO::WorkerResult::fail(KIO::ERR_MALFORMED_URL);
+    const QString source_id = parts.front();
+    const QString requested = parts.size() > 1 ? parts.mid(1).join(u'/') : u"."_s;
+    const auto snapshots = btrfsbackup::kde::kio::matching_versions(active->snapshots, url.profile, source_id);
+
+    KIO::UDSEntryList entries;
+    for (const auto& snapshot : snapshots) {
+        std::filesystem::path repository_entry{snapshot.repository_path.toStdString()};
+        if (requested != u"."_s)
+            repository_entry /= requested.toStdString();
+        const auto remote = remote_entry(active->id, QString::fromStdString(repository_entry.string()));
+        if (!remote)
+            continue;
+        KIO::UDSEntry entry;
+        entry.fastInsert(KIO::UDSEntry::UDS_NAME, snapshot.id);
+        entry.fastInsert(KIO::UDSEntry::UDS_DISPLAY_NAME, QLocale{}.toString(snapshot.created_at.toLocalTime(), QLocale::ShortFormat));
+        entry.fastInsert(KIO::UDSEntry::UDS_FILE_TYPE, remote->directory ? S_IFDIR : S_IFREG);
+        entry.fastInsert(KIO::UDSEntry::UDS_SIZE, static_cast<KIO::filesize_t>(remote->size));
+        entry.fastInsert(KIO::UDSEntry::UDS_MODIFICATION_TIME, snapshot.created_at.toSecsSinceEpoch());
+        entry.fastInsert(KIO::UDSEntry::UDS_ACCESS, static_cast<long long>(remote->mode & 0777));
+        entry.fastInsert(KIO::UDSEntry::UDS_MIME_TYPE, entry_mime_type(*remote));
+        QUrl target;
+        target.setScheme(u"btrfsbackup"_s);
+        QString target_path = u"/"_s + url.profile + u"/"_s + snapshot.id;
+        if (requested != u"."_s)
+            target_path += u"/"_s + requested;
+        target.setPath(target_path);
+        entry.fastInsert(KIO::UDSEntry::UDS_URL, target.toString(QUrl::FullyEncoded));
+        entries.push_back(std::move(entry));
+    }
+    listEntries(entries);
+    return KIO::WorkerResult::pass();
 }
 
 KIO::WorkerResult BtrfsBackupWorker::list_repository_directory(const QUrl& url) {
