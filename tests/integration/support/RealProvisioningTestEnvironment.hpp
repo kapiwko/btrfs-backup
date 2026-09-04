@@ -35,6 +35,7 @@ class RealProvisioningTestEnvironment final {
         std::string_view standard_input = {}
     ) const;
     void require_command(std::vector<std::string> arguments, std::string_view operation) const;
+    void require_block_device(const std::filesystem::path& path, std::string_view operation) const;
     void attach_image(std::string_view size);
     void start_manager();
     void stop_manager();
@@ -47,6 +48,7 @@ class RealProvisioningTestEnvironment final {
     [[nodiscard]] std::vector<std::string> release_resources() noexcept;
 
     std::filesystem::path client_;
+    std::filesystem::path source_backing_;
     std::filesystem::path source_;
     std::filesystem::path root_;
     std::filesystem::path image_;

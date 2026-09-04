@@ -38,8 +38,7 @@ void RealProvisioningTestEnvironment::require_unallocated_space_preserves_partit
     require_command({"udevadm", "settle", "--timeout=10"}, "settle free-space partitions");
     const fs::path preserved = loop_ + "p1";
     const fs::path backup = loop_ + "p2";
-    if (!fs::is_block_file(preserved))
-        throw std::runtime_error("preserved partition node was not created");
+    require_block_device(preserved, "preserved partition node was not created");
     require_command({"mkfs.ext4", "-q", "-F", "-L", "PRESERVED", preserved.string()}, "format preserved partition");
     const auto hash_before = command({"sha256sum", preserved.string()});
     const auto table_before = command({"sfdisk", "--json", loop_});
@@ -62,14 +61,14 @@ void RealProvisioningTestEnvironment::require_unallocated_space_preserves_partit
     }
 
     require_command({"udevadm", "settle", "--timeout=10"}, "settle created backup partition");
+    require_block_device(backup, "free-space backup partition was not created");
     const auto hash_after = command({"sha256sum", preserved.string()});
     const auto table_after = command({"sfdisk", "--json", loop_});
     if (hash_after.status != 0 || hash_after.output != hash_before.output)
         throw std::runtime_error("free-space provisioning changed preserved partition bytes");
     if (table_after.status != 0 || partition_geometry(Json::parse(table_after.output), preserved) != geometry_before)
         throw std::runtime_error("free-space provisioning changed preserved partition geometry");
-    if (!fs::is_block_file(backup) ||
-        command({"cryptsetup", "isLuks", "--type", "luks2", backup.string()}).status != 0)
+    if (command({"cryptsetup", "isLuks", "--type", "luks2", backup.string()}).status != 0)
         throw std::runtime_error("free-space provisioning did not create a LUKS2 backup partition");
     const auto preserved_type = command({"blkid", "-s", "TYPE", "-o", "value", preserved.string()});
     if (preserved_type.status != 0 || trim_output(preserved_type.output) != "ext4")

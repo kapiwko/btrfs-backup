@@ -8,13 +8,14 @@
 #include <chrono>
 #include <cstdlib>
 #include <stdexcept>
+#include <thread>
 #include <utility>
 
 namespace btrfsbackup::integration {
 namespace fs = std::filesystem;
 
 RealProvisioningTestEnvironment::RealProvisioningTestEnvironment(fs::path client, fs::path source)
-    : client_(fs::canonical(client)), source_(fs::canonical(source)) {
+    : client_(fs::canonical(client)), source_backing_(fs::canonical(source)) {
     const char* consent = std::getenv("BTRFSBACKUP_REAL_BTRFS_CONTAINER");
     if (geteuid() != 0 || consent == nullptr || std::string_view(consent) != "1")
         throw std::runtime_error("real provisioning test requires root in its disposable container");
@@ -25,6 +26,7 @@ RealProvisioningTestEnvironment::RealProvisioningTestEnvironment(fs::path client
     if (created == nullptr)
         throw std::runtime_error("mkdtemp failed for provisioning fixture");
     root_ = created;
+    source_ = fs::path("/mnt") / ("btrfs-backup-provisioning-source-" + root_.filename().string());
     image_ = root_ / "device.img";
     preserved_mount_ = root_ / "preserved";
     staging_mount_ = root_ / "staging";
@@ -33,7 +35,8 @@ RealProvisioningTestEnvironment::RealProvisioningTestEnvironment(fs::path client
     write_test_file(root_ / ".btrfs-backup-test-root", "managed provisioning fixture\n");
     fs::create_directory(preserved_mount_);
     fs::create_directory(staging_mount_);
-    require_command({"mount", "--bind", source_.string(), source_.string()}, "bind provisioning source");
+    fs::create_directory(source_);
+    require_command({"mount", "--bind", source_backing_.string(), source_.string()}, "bind provisioning source");
     source_bind_mounted_ = true;
 }
 
@@ -56,6 +59,19 @@ void RealProvisioningTestEnvironment::require_command(
     const auto result = command(std::move(arguments));
     if (result.status != 0)
         throw std::runtime_error(std::string(operation) + " failed: " + command_diagnostic(result));
+}
+
+void RealProvisioningTestEnvironment::require_block_device(
+    const fs::path& path,
+    std::string_view operation
+) const {
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+    while (std::chrono::steady_clock::now() < deadline) {
+        if (fs::is_block_file(path))
+            return;
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    }
+    throw std::runtime_error(std::string(operation) + ": " + path.string());
 }
 
 void RealProvisioningTestEnvironment::attach_image(std::string_view size) {
@@ -94,8 +110,19 @@ std::string RealProvisioningTestEnvironment::provision(
         {client_.string(), target.string(), source_.string(), "-", std::string(mode), std::string(profile_id)},
         passphrase_
     );
-    if (result.status != 0)
-        throw std::runtime_error("device provisioning client failed: " + command_diagnostic(result));
+    if (result.status != 0) {
+        const auto manager_log = command(
+            {"journalctl", "--no-pager", "-o", "cat", "-u", "btrfs-backupd.service", "-n", "100"}
+        );
+        const auto helper_log = command(
+            {"journalctl", "--no-pager", "-o", "cat", "-t", "btrfs-backup-device-preparation", "-n", "100"}
+        );
+        throw std::runtime_error(
+            "device provisioning client failed: " + command_diagnostic(result) +
+            "\nmanager journal:\n" + command_diagnostic(manager_log) +
+            "\nhelper journal:\n" + command_diagnostic(helper_log)
+        );
+    }
     return result.output;
 }
 
@@ -145,6 +172,11 @@ std::vector<std::string> RealProvisioningTestEnvironment::release_resources() no
     }
     if (source_bind_mounted_ && cleanup({"umount", source_.string()}, "unmount provisioning source bind"))
         source_bind_mounted_ = false;
+    if (!source_bind_mounted_ && fs::exists(source_)) {
+        std::error_code error;
+        if (!fs::remove(source_, error) || error)
+            errors.push_back("remove provisioning source mount: " + error.message());
+    }
     if (!preserved_mounted_ && !staging_mounted_ && !adoption_mapper_open_ && !manager_started_ &&
         loop_.empty() && !source_bind_mounted_) {
         if (!fs::is_regular_file(root_ / ".btrfs-backup-test-root")) {

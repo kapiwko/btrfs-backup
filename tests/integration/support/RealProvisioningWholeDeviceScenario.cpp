@@ -36,11 +36,11 @@ void RealProvisioningTestEnvironment::require_whole_device_is_replaced() {
 
     require_command({"udevadm", "settle", "--timeout=10"}, "settle whole-device partition");
     const fs::path backup = loop_ + "p1";
+    require_block_device(backup, "whole-device backup partition was not created");
     const auto table = command({"sfdisk", "--json", loop_});
     if (table.status != 0 || Json::parse(table.output).at("partitiontable").at("label") != "gpt")
         throw std::runtime_error("whole-device provisioning did not create GPT");
-    if (!fs::is_block_file(backup) ||
-        command({"cryptsetup", "isLuks", "--type", "luks2", backup.string()}).status != 0)
+    if (command({"cryptsetup", "isLuks", "--type", "luks2", backup.string()}).status != 0)
         throw std::runtime_error("whole-device provisioning did not create its LUKS2 partition");
 
     require_command({"losetup", "-d", loop_}, "detach whole-device provisioning loop");
