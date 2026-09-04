@@ -79,6 +79,31 @@ cat > /etc/udev/rules.d/99-btrfs-backup-default.rules <<'EOF_RULE'
 ACTION=="add", SUBSYSTEM=="block", ENV{ID_FS_TYPE}=="crypto_LUKS", ENV{ID_FS_UUID}=="@TARGET_UUID@", TAG+="systemd", ENV{SYSTEMD_WANTS}+="btrfs-backup@default.service"
 EOF_RULE
 
+cat > /usr/local/bin/qemu-hotplug-counter <<'EOF_COUNTER'
+#!/usr/bin/bash
+set -eu
+kind="$1"
+action="$2"
+if [[ "$kind" == backup ]] && systemctl is-active --quiet graphical.target; then
+    exit 1
+fi
+counter="/run/qemu-hotplug-${kind}-count"
+prefix="${kind^^}"
+[[ "$kind" != backup ]] || prefix=HOTPLUG_OK
+count=0
+test ! -r "$counter" || read -r count < "$counter"
+if [[ "$action" == start ]]; then
+    count=$((count + 1))
+    printf '%s\n' "$count" > "$counter"
+fi
+if [[ "$kind" == backup ]]; then
+    printf 'QEMU_%s_%s\n' "$prefix" "$count" > /dev/ttyS0
+else
+    printf 'QEMU_%s_%s_%s\n' "$prefix" "${action^^}" "$count" > /dev/ttyS0
+fi
+EOF_COUNTER
+chmod 0755 /usr/local/bin/qemu-hotplug-counter
+
 cat > /etc/systemd/system/btrfs-backup@default.service.d/qemu-hotplug-test.conf <<'EOF_OVERRIDE'
 [Unit]
 OnSuccess=
@@ -88,16 +113,16 @@ After=qemu-hotplug-target-holder.service
 
 [Service]
 ExecStart=
-ExecStart=/usr/bin/sh -c 'if /usr/bin/systemctl is-active --quiet graphical.target; then exit 1; fi; count=0; test ! -r /run/qemu-hotplug-backup-count || read -r count < /run/qemu-hotplug-backup-count; count=$$((count + 1)); printf "%%s\n" "$$count" > /run/qemu-hotplug-backup-count; printf "QEMU_HOTPLUG_OK_%%s\n" "$$count" > /dev/ttyS0'
+ExecStart=/usr/local/bin/qemu-hotplug-counter backup start
 EOF_OVERRIDE
 
 install -d -m0755 /etc/systemd/system/btrfs-backup-target@default.service.d
 cat > /etc/systemd/system/btrfs-backup-target@default.service.d/qemu-hotplug-test.conf <<'EOF_TARGET_OVERRIDE'
 [Service]
 ExecStart=
-ExecStart=/usr/bin/sh -c 'count=0; test ! -r /run/qemu-hotplug-target-count || read -r count < /run/qemu-hotplug-target-count; count=$$((count + 1)); printf "%%s\n" "$$count" > /run/qemu-hotplug-target-count; printf "QEMU_TARGET_START_%%s\n" "$$count" > /dev/ttyS0'
+ExecStart=/usr/local/bin/qemu-hotplug-counter target start
 ExecStop=
-ExecStop=/usr/bin/sh -c 'count=0; test ! -r /run/qemu-hotplug-target-count || read -r count < /run/qemu-hotplug-target-count; printf "QEMU_TARGET_STOP_%%s\n" "$$count" > /dev/ttyS0'
+ExecStop=/usr/local/bin/qemu-hotplug-counter target stop
 EOF_TARGET_OVERRIDE
 
 cat > /etc/systemd/system/qemu-hotplug-target-holder.service <<'EOF_HOLDER'
