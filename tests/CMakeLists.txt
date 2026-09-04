@@ -270,6 +270,13 @@ add_test(
 )
 
 add_test(
+    NAME build-side-channel-convention
+    COMMAND ${CMAKE_COMMAND}
+        -DPROJECT_SOURCE_DIR=${PROJECT_SOURCE_DIR}
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/architecture/build_side_channel_tests.cmake
+)
+
+add_test(
     NAME local-lifecycle-type-convention
     COMMAND ${CMAKE_COMMAND}
         -DPROJECT_SOURCE_DIR=${PROJECT_SOURCE_DIR}
@@ -297,6 +304,7 @@ set_tests_properties(
     cpp-readability-convention
     cpp-special-member-convention
     ad-hoc-compilation
+    build-side-channel-convention
     local-lifecycle-type-convention
     config-domain-boundary
     manager-dbus-contract
