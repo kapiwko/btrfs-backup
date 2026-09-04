@@ -28,6 +28,7 @@
 #include <platform/linux/filesystem/SecretFile.hpp>
 #include <platform/linux/process/PosixCommandRunner.hpp>
 #include <platform/linux/storage/BlockDeviceMetadata.hpp>
+#include <platform/linux/storage/MountInfo.hpp>
 #include <platform/linux/storage/provisioning/BtrfsFilesystemFormatter.hpp>
 #include <platform/linux/storage/CryptsetupOperations.hpp>
 #include <platform/linux/storage/provisioning/ExistingTargetMountOperations.hpp>
@@ -59,6 +60,13 @@ OwnedFileDescriptor read_secret_fifo(const fs::path& path) {
     return secret;
 }
 
+std::string block_source(std::string source) {
+    const auto suffix = source.find('[');
+    if (suffix != std::string::npos)
+        source.erase(suffix);
+    return source;
+}
+
 } // namespace
 
 int run_device_preparation(int argc, char** argv) {
@@ -73,6 +81,25 @@ int run_device_preparation(int argc, char** argv) {
             btrfsbackup::platform::linux::config::load_application_config(config_root);
         const auto& paths = application_config.paths();
         transaction_root = paths.state_root / "device-preparations";
+        const auto transaction =
+            btrfsbackup::daemon::control::DevicePreparationTransactionStore(transaction_root)
+                .load(operation_id);
+        const auto host_mounts = btrfsbackup::platform::linux::storage::read_mount_table(
+            "/proc/1/mountinfo",
+            [](const std::string&) { return std::string{}; }
+        );
+        const auto source_mount = btrfsbackup::backup::mount_at(
+            host_mounts,
+            transaction.source_mount_root
+        );
+        if (!source_mount.has_value() || source_mount->fstype != "btrfs")
+            throw std::runtime_error("device preparation source mount is unavailable");
+        const std::string source_device = block_source(source_mount->source);
+        const auto source_uuid_resolver = [source_device, uuid = transaction.source_filesystem_uuid](
+                                              const std::string& device
+                                          ) {
+            return device == source_device ? uuid : std::string{};
+        };
 
         btrfsbackup::platform::linux::process::PosixCommandRunner commands;
         btrfsbackup::platform::linux::storage::provisioning::CommandBtrfsFilesystemFormatter btrfs_formatter(commands);
@@ -107,7 +134,7 @@ int run_device_preparation(int argc, char** argv) {
             return result;
         };
         btrfsbackup::platform::linux::storage::provisioning::SystemStorageTopologyReader storage_topology(
-            {.mountinfo = "/proc/self/mountinfo"},
+            {.mountinfo = "/proc/1/mountinfo"},
             configured_targets
         );
         btrfsbackup::platform::linux::storage::LibblkidSignatureOperations signature_operations;
@@ -126,7 +153,7 @@ int run_device_preparation(int argc, char** argv) {
         btrfsbackup::daemon::control::SystemDeviceProvisioningBackend backend(
             roots,
             paths.target_mount_root,
-            "/proc/self/mountinfo",
+            "/proc/1/mountinfo",
             transaction_root,
             storage_topology,
             btrfs_formatter,
@@ -141,12 +168,10 @@ int run_device_preparation(int argc, char** argv) {
             units,
             false,
             &existing_target_inspector,
-            paths.status_root.parent_path() / "target-inspections"
+            paths.status_root.parent_path() / "target-inspections",
+            source_uuid_resolver
         );
 
-        const auto transaction =
-            btrfsbackup::daemon::control::DevicePreparationTransactionStore(transaction_root)
-                .load(operation_id);
         if (transaction.status.state == "interrupted") {
             backend.recover_operation(operation_id);
             return 0;

@@ -4,7 +4,8 @@
 [Unit]
 Description=Prepare one backup block device for transaction %i
 Documentation=man:btrfs-backupd(8)
-After=systemd-udevd.service
+Wants=modprobe@dm_mod.service modprobe@dm_crypt.service
+After=systemd-udevd.service modprobe@dm_mod.service modprobe@dm_crypt.service
 
 [Service]
 Type=oneshot
@@ -15,6 +16,7 @@ UMask=0077
 RuntimeDirectory=btrfs-backup-manager/device-preparations
 RuntimeDirectoryMode=0700
 StateDirectory=btrfs-backup/device-preparations
+StateDirectory=btrfs-backup/public/profiles
 StateDirectoryMode=0700
 Environment=PATH=/usr/bin
 NoNewPrivileges=yes

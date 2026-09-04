@@ -23,6 +23,8 @@ Json device_json(const ProvisioningDevice& device) {
         {"transport", device.transport},
         {"sizeBytes", device.size_bytes},
         {"removable", device.removable},
+        {"mounted", device.mounted},
+        {"containsData", device.contains_data},
         {"majorMinor", device.major_minor},
         {"sysfsDevpath", device.sysfs_devpath},
         {"wwn", device.wwn},
@@ -40,8 +42,8 @@ ProvisioningDevice parse_device(const Json& value) {
         .transport = value.value("transport", ""),
         .size_bytes = value.value("sizeBytes", std::uint64_t{0}),
         .removable = value.value("removable", false),
-        .mounted = false,
-        .contains_data = false,
+        .mounted = value.value("mounted", false),
+        .contains_data = value.value("containsData", false),
         .major_minor = value.value("majorMinor", ""),
         .sysfs_devpath = value.value("sysfsDevpath", ""),
         .wwn = value.value("wwn", ""),
@@ -105,6 +107,8 @@ Json target_json(const DevicePreparationTarget& target) {
             {"startSector", target.partition->start_sector},
             {"sectorCount", target.partition->sector_count},
             {"filesystem", filesystem_json(target.partition->filesystem)},
+            {"suitableForReformat", target.partition->suitable_for_reformat},
+            {"suitableForAdoption", target.partition->suitable_for_adoption},
         };
     }
     Json expected_inspection = nullptr;
@@ -188,6 +192,8 @@ DevicePreparationTarget parse_target(const Json& value) {
             .mount_points = {},
             .holders = {},
             .blockers = {},
+            .suitable_for_reformat = partition.value("suitableForReformat", false),
+            .suitable_for_adoption = partition.value("suitableForAdoption", false),
         };
     }
     if (value.contains("expectedInspection") && value.at("expectedInspection").is_object()) {
