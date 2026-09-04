@@ -10,6 +10,8 @@
 #include <chrono>
 #include <filesystem>
 #include <ranges>
+#include <set>
+#include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
 #include <utility>
@@ -28,6 +30,16 @@ std::int64_t now_seconds() {
                std::chrono::system_clock::now().time_since_epoch()
     )
         .count();
+}
+
+std::filesystem::path transaction_test_root(const std::string& name) {
+    const auto root = test_helpers::test_root("device-preparation-transactions", name);
+    std::filesystem::permissions(
+        root,
+        std::filesystem::perms::owner_all,
+        std::filesystem::perm_options::replace
+    );
+    return root;
 }
 
 DevicePreparationTransaction transaction(
@@ -123,7 +135,7 @@ void test_codec_owns_schema_and_validation() {
 }
 
 void test_round_trip_preserves_recovery_state() {
-    const auto root = test_helpers::test_root("device-preparation-transactions", "round-trip");
+    const auto root = transaction_test_root("round-trip");
     DevicePreparationTransactionStore store(root);
     auto saved = transaction("prepare-round-trip", "running", now_seconds());
     saved.profile_reservation_state = "held";
@@ -163,7 +175,7 @@ void test_round_trip_preserves_recovery_state() {
 }
 
 void test_revision_conflicts_and_state_transitions_are_rejected() {
-    const auto root = test_helpers::test_root("device-preparation-transactions", "transitions");
+    const auto root = transaction_test_root("transitions");
     DevicePreparationTransactionStore store(root);
     auto saved = transaction("prepare-transitions", "running", now_seconds());
     saved.profile_reservation_state = "held";
@@ -212,7 +224,7 @@ void test_revision_conflicts_and_state_transitions_are_rejected() {
 }
 
 void test_process_updates_are_serialized_without_losing_fields() {
-    const auto root = test_helpers::test_root("device-preparation-transactions", "process-update");
+    const auto root = transaction_test_root("process-update");
     DevicePreparationTransactionStore store(root);
     auto saved = transaction("prepare-process-update", "running", now_seconds());
     saved.profile_reservation_state = "held";
@@ -267,7 +279,7 @@ void test_process_updates_are_serialized_without_losing_fields() {
 }
 
 void test_profile_reservation_is_durable_and_owner_guarded() {
-    const auto root = test_helpers::test_root("device-preparation-transactions", "profile-reservation");
+    const auto root = transaction_test_root("profile-reservation");
     DevicePreparationTransactionStore store(root);
     store.reserve_profile("archive", "prepare-first");
     test_helpers::expect_true(
@@ -302,7 +314,7 @@ void test_profile_reservation_is_durable_and_owner_guarded() {
 }
 
 void test_round_trip_preserves_adoption_fingerprint() {
-    const auto root = test_helpers::test_root("device-preparation-transactions", "adoption");
+    const auto root = transaction_test_root("adoption");
     auto value = transaction("prepare-adoption", "queued", now_seconds());
     value.target.mode = btrfsbackup::provisioning::ProvisioningMode::AdoptExistingTarget;
     value.target.expected_inspection = btrfsbackup::provisioning::ExistingTargetInspectionSummary{
@@ -325,7 +337,7 @@ void test_round_trip_preserves_adoption_fingerprint() {
 }
 
 void test_round_trip_preserves_free_space_geometry() {
-    const auto root = test_helpers::test_root("device-preparation-transactions", "free-space");
+    const auto root = transaction_test_root("free-space");
     auto value = transaction("prepare-free-space", "queued", now_seconds());
     value.target.mode =
         btrfsbackup::provisioning::ProvisioningMode::CreatePartitionInUnallocatedSpace;
@@ -359,7 +371,7 @@ void test_round_trip_preserves_free_space_geometry() {
 }
 
 void test_completed_limit_ttl_and_active_retention() {
-    const auto root = test_helpers::test_root("device-preparation-transactions", "retention");
+    const auto root = transaction_test_root("retention");
     DevicePreparationTransactionStore store(root, 2, std::chrono::hours(1));
     const std::int64_t now = now_seconds();
     const auto save = [&](DevicePreparationTransaction value) { store.save(value); };
@@ -387,7 +399,7 @@ void test_completed_limit_ttl_and_active_retention() {
 }
 
 void test_previous_unreleased_transaction_schema_is_rejected() {
-    const auto root = test_helpers::test_root("device-preparation-transactions", "legacy");
+    const auto root = transaction_test_root("legacy");
     test_helpers::write_file(
         root / "prepare-legacy.json",
         R"({
@@ -413,7 +425,7 @@ void test_previous_unreleased_transaction_schema_is_rejected() {
 }
 
 void test_corrupted_transaction_is_isolated_and_preserved() {
-    const auto root = test_helpers::test_root("device-preparation-transactions", "corrupted");
+    const auto root = transaction_test_root("corrupted");
     DevicePreparationTransactionStore store(root);
     auto valid = transaction("prepare-valid", "running", now_seconds());
     valid.profile_reservation_state = "held";
@@ -440,6 +452,98 @@ void test_corrupted_transaction_is_isolated_and_preserved() {
     );
 }
 
+void test_untrusted_transaction_entries_are_isolated_without_following_them() {
+    const auto root = transaction_test_root("untrusted-records");
+    DevicePreparationTransactionStore store(root);
+    auto valid = transaction("prepare-valid", "running", now_seconds());
+    store.save(valid);
+
+    auto unsafe_permissions = transaction("prepare-permissions", "running", now_seconds());
+    store.save(unsafe_permissions);
+    std::filesystem::permissions(
+        root / "prepare-permissions.json",
+        std::filesystem::perms::owner_read | std::filesystem::perms::owner_write |
+            std::filesystem::perms::group_read,
+        std::filesystem::perm_options::replace
+    );
+
+    std::filesystem::create_directory(root / "prepare-directory.json");
+    const auto fifo = root / "prepare-fifo.json";
+    test_helpers::expect_true("create transaction FIFO", ::mkfifo(fifo.c_str(), 0600) == 0, "cannot create FIFO");
+
+    const auto external_root = transaction_test_root("untrusted-record-target");
+    DevicePreparationTransactionStore external_store(external_root);
+    auto external = transaction("prepare-symlink", "running", now_seconds());
+    external_store.save(external);
+    std::filesystem::create_symlink(
+        external_root / "prepare-symlink.json",
+        root / "prepare-symlink.json"
+    );
+
+    const auto scan = store.load_and_prune();
+    test_helpers::expect_true(
+        "untrusted transaction isolation",
+        scan.transactions.size() == 1 && scan.transactions.front().status.operation_id == "prepare-valid" &&
+            std::set<std::string>(scan.corrupted_operation_ids.begin(), scan.corrupted_operation_ids.end()) ==
+                std::set<std::string>{
+                    "prepare-directory",
+                    "prepare-fifo",
+                    "prepare-permissions",
+                    "prepare-symlink"
+                },
+        "an unsafe record was accepted or blocked the valid transaction"
+    );
+    test_helpers::expect_true(
+        "symlink target preserved",
+        std::filesystem::exists(external_root / "prepare-symlink.json") &&
+            std::filesystem::is_symlink(root / "prepare-symlink.json"),
+        "transaction scanning followed or replaced the symlink"
+    );
+}
+
+void test_unsafe_transaction_root_and_duplicate_record_are_rejected() {
+    const auto root = transaction_test_root("unsafe-root");
+    std::filesystem::permissions(
+        root,
+        std::filesystem::perms::owner_all | std::filesystem::perms::group_read,
+        std::filesystem::perm_options::replace
+    );
+    try {
+        static_cast<void>(DevicePreparationTransactionStore(root).load_and_prune());
+        test_helpers::fail("unsafe transaction root", "a group-readable transaction directory was accepted");
+    } catch (const btrfsbackup::ValidationError&) {
+    }
+    std::filesystem::permissions(root, std::filesystem::perms::owner_all, std::filesystem::perm_options::replace);
+
+    const auto duplicate_path = root / "prepare-duplicate.json";
+    test_helpers::write_file(duplicate_path, "preserve this invalid record\n");
+    std::filesystem::permissions(
+        duplicate_path,
+        std::filesystem::perms::owner_read | std::filesystem::perms::owner_write,
+        std::filesystem::perm_options::replace
+    );
+    auto duplicate = transaction("prepare-duplicate", "queued", now_seconds());
+    try {
+        DevicePreparationTransactionStore(root).save(duplicate);
+        test_helpers::fail("duplicate transaction", "an existing invalid transaction was replaced");
+    } catch (const std::exception&) {
+    }
+    std::ifstream input(duplicate_path);
+    const std::string contents((std::istreambuf_iterator<char>(input)), std::istreambuf_iterator<char>());
+    test_helpers::expect_eq("duplicate transaction preserved", contents, "preserve this invalid record\n");
+
+    const auto actual = root / "actual-directory";
+    std::filesystem::create_directory(actual);
+    std::filesystem::permissions(actual, std::filesystem::perms::owner_all, std::filesystem::perm_options::replace);
+    const auto symlink_root = root / "linked-directory";
+    std::filesystem::create_symlink(actual, symlink_root);
+    try {
+        static_cast<void>(DevicePreparationTransactionStore(symlink_root).load_and_prune());
+        test_helpers::fail("symlink transaction root", "a symlink transaction directory was accepted");
+    } catch (const btrfsbackup::ValidationError&) {
+    }
+}
+
 } // namespace
 
 int main() {
@@ -453,5 +557,7 @@ int main() {
     test_completed_limit_ttl_and_active_retention();
     test_previous_unreleased_transaction_schema_is_rejected();
     test_corrupted_transaction_is_isolated_and_preserved();
+    test_untrusted_transaction_entries_are_isolated_without_following_them();
+    test_unsafe_transaction_root_and_duplicate_record_are_rejected();
     return test_helpers::finish("device preparation transaction tests");
 }

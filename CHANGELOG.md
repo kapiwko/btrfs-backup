@@ -59,15 +59,18 @@ schema version 4 profile with 0.3.x before upgrading, then install it with the
    systemd helper with a per-operation device allow list; the manager
    coordinates authorization and durable transaction state;
 7. revisioned root-only transactions support restart recovery after
-   interruption and preserve the first cleanup failure. Ambiguous identity,
-   unsafe records or incomplete cleanup stop with a stable error and explicit
-   manual-recovery guidance rather than guessing;
-8. version 1.0 does not migrate installed 3.x profiles in place; operators must
+   interruption and preserve the first cleanup failure. The store rejects
+   unsafe directory ownership or modes, symlinks, non-regular records,
+   insecure locks and reservations, and duplicate corrupted records without
+   blocking on special files or replacing diagnostic evidence;
+8. ambiguous identity, unsafe persisted state or incomplete cleanup stops with
+   a stable error and explicit manual-recovery guidance rather than guessing;
+9. version 1.0 does not migrate installed 3.x profiles in place; operators must
    prepare schema-v4 configuration before upgrading as described above;
-9. selecting a disk no longer implicitly chooses whole-device erasure. The KCM
+10. selecting a disk no longer implicitly chooses whole-device erasure. The KCM
    requires that scope to be selected explicitly and keeps rejected devices
    visible with their blocker;
-10. source choices use user-facing names, automatic-key storage and recovery
+11. source choices use user-facing names, automatic-key storage and recovery
    implications are explained, and failed operations show completed steps,
    cleanup outcome, a copyable diagnostic report and recovery guidance.
 
