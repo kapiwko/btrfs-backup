@@ -154,6 +154,21 @@ Item {
                 Qt.exit(1)
                 return
             }
+            provisioning.operation = {
+                operationId: "prepare-test",
+                state: "failed",
+                phase: "write-profile",
+                lastCompletedPhase: "close",
+                cleanupResult: "mapper-closed",
+                errorCode: "device-preparation.profile-conflict",
+                recoveryAction: "Review the prepared target."
+            }
+            if (!page.phaseCompleted("close") || page.phaseCompleted("write-profile")
+                    || !page.diagnosticReport().includes("cleanupResult=mapper-closed")) {
+                console.error("Structured provisioning recovery state is invalid")
+                Qt.exit(1)
+                return
+            }
             page.selectedTarget = null
             provisioning.plan = ({})
             const wholeDeviceChoice = root.findObject(page, "wholeDeviceChoice")
