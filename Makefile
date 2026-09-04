@@ -15,13 +15,15 @@ test: all
 	ctest --preset default --parallel $(BUILD_JOBS)
 
 check-format:
-	./tools/check-cpp-format.sh
+	cmake --preset default
+	cmake --build --preset default --target check-format
 
 clang-tidy:
-	BUILD_JOBS=$(BUILD_JOBS) ./tools/run-clang-tidy.sh
+	cmake --preset clang-tidy
+	cmake --build --preset clang-tidy --parallel $(BUILD_JOBS)
 
 clang-tidy-changed:
-	BUILD_JOBS=$(BUILD_JOBS) ./tools/run-clang-tidy-changed.sh
+	BUILD_JOBS=$(BUILD_JOBS) ./tools/run_clang_tidy_changed.py
 
 quality: check-format clang-tidy
 
