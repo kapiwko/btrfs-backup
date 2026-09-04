@@ -171,6 +171,20 @@ selected. Use `--build-dir PATH` to select another persistent tree. Use
 `--clean-build` for an isolated release build compiled from the staged source
 tree in a temporary directory.
 
+To build both Arch packages, install them through pacman and refresh the system
+manager and KDE user session, run the dedicated CMake target as the desktop
+user:
+
+```bash
+cmake --preset default
+cmake --build --preset default --target install-local
+```
+
+Additional release-builder flags can be supplied at configure time as a
+semicolon-separated list in `BTRFSBACKUP_LOCAL_INSTALL_BUILD_OPTIONS`. Full
+tests remain a separate privileged gate and are not accepted by this local
+deployment workflow.
+
 ## Reproducibility
 
 Directories, file modes, owners, entry order, and timestamps are normalized with a fixed `SOURCE_DATE_EPOCH`. Rebuilding from the delivered source ZIP should produce identical SHA-256 sums for the tarball, package, and source ZIP.

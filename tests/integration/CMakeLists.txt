@@ -106,6 +106,16 @@ add_test(
     COMMAND ${PYTHON_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tools/render_release_notes_tests.py
 )
 
+add_test(
+    NAME local-install-tests
+    COMMAND
+        ${CMAKE_COMMAND}
+        -DCMAKE_COMMAND=${CMAKE_COMMAND}
+        -DSOURCE_DIR=${PROJECT_SOURCE_DIR}
+        -DTEST_ROOT=${PROJECT_BINARY_DIR}/workflow-contracts
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/workflow/local_install_tests.cmake
+)
+
 set_tests_properties(
     bash-syntax-tests
     real-btrfs-runner-cli-tests
@@ -119,6 +129,7 @@ set_tests_properties(
     command-surface-tests
     release-notes-tests
     release-notes-unit-tests
+    local-install-tests
     PROPERTIES LABELS workflow
 )
 
