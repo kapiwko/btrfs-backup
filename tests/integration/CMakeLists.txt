@@ -105,6 +105,17 @@ add_executable(btrfsbackup-real-restore-tests RealRestoreEngineTests.cpp)
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(btrfsbackup-real-restore-tests PRIVATE -Wall -Wextra -Wpedantic)
 endif()
+
+add_executable(
+    btrfsbackup-real-btrfs-tests
+    RealBtrfsBackupTests.cpp
+    support/RealBtrfsTestEnvironment.cpp
+)
+target_link_libraries(btrfsbackup-real-btrfs-tests PRIVATE nlohmann_json::nlohmann_json)
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(btrfsbackup-real-btrfs-tests PRIVATE -Wall -Wextra -Wpedantic)
+endif()
+
 if(BTRFSBACKUP_REAL_RESTORE_TESTS)
     add_test(
         NAME real-restore-engine-tests
@@ -197,10 +208,12 @@ if(BUILD_SYSTEM_MANAGER)
         real-btrfs-integration
         COMMAND
             ${CMAKE_COMMAND} -E env
+            BTRFSBACKUP_REAL_BTRFS_TESTS=$<TARGET_FILE:btrfsbackup-real-btrfs-tests>
             BTRFSBACKUP_BROWSE_SESSION_CLIENT=$<TARGET_FILE:btrfsbackup-integration-browse-session-client>
             BTRFSBACKUP_DEVICE_PROVISIONING_CLIENT=$<TARGET_FILE:btrfsbackup-integration-device-provisioning-client>
             ${PROJECT_SOURCE_DIR}/tests/integration/docker/run-real-btrfs.sh
         DEPENDS
+            btrfsbackup-real-btrfs-tests
             btrfsbackup-integration-browse-session-client
             btrfsbackup-integration-device-provisioning-client
         USES_TERMINAL
