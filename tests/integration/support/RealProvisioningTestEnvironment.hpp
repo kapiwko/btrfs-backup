@@ -24,6 +24,9 @@ class RealProvisioningTestEnvironment final {
     RealProvisioningTestEnvironment& operator=(const RealProvisioningTestEnvironment&) = delete;
 
     void require_existing_partition_preserves_sibling();
+    void require_unallocated_space_preserves_partition();
+    void require_whole_device_is_replaced();
+    void require_existing_target_is_adopted();
     void close();
 
   private:
@@ -48,10 +51,15 @@ class RealProvisioningTestEnvironment final {
     std::filesystem::path root_;
     std::filesystem::path image_;
     std::filesystem::path preserved_mount_;
+    std::filesystem::path staging_mount_;
     std::string loop_;
+    std::string adoption_mapper_name_;
+    std::filesystem::path adoption_mapper_path_;
     std::string passphrase_{"btrfs-backup-provisioning-test-passphrase\n"};
     bool source_bind_mounted_{false};
     bool preserved_mounted_{false};
+    bool staging_mounted_{false};
+    bool adoption_mapper_open_{false};
     bool manager_started_{false};
     bool closed_{false};
 };
