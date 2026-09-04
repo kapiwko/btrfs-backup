@@ -30,6 +30,7 @@ BROWSE_SESSION_CLIENT="${BTRFSBACKUP_BROWSE_SESSION_CLIENT:?missing browse-sessi
 DEVICE_PROVISIONING_CLIENT="${BTRFSBACKUP_DEVICE_PROVISIONING_CLIENT:?missing device-provisioning integration client}"
 REAL_BTRFS_TESTS="${BTRFSBACKUP_REAL_BTRFS_TESTS:?missing real-Btrfs C++ integration test}"
 REAL_INSTALLED_RUNTIME_TESTS="${BTRFSBACKUP_REAL_INSTALLED_RUNTIME_TESTS:?missing installed-runtime C++ integration test}"
+REAL_MAPPER_LIFECYCLE_TESTS="${BTRFSBACKUP_REAL_MAPPER_LIFECYCLE_TESTS:?missing mapper-lifecycle C++ integration test}"
 
 cleanup() {
     set +e
@@ -469,18 +470,6 @@ wait_for_eject_service() {
     fail 'timed out waiting for the target eject service'
 }
 
-plain_mapper_lifecycle_test() {
-    umount "$TARGET_MOUNT"
-    cryptsetup close "$MAPPER_NAME"
-    [[ ! -e "$MAPPER_PATH" ]] || fail 'plain unmount did not close the test mapper'
-    cryptsetup open --key-file "$PASSPHRASE_FILE" "$TARGET_LOOP" "$MAPPER_NAME"
-    udevadm settle --timeout=10
-    dmsetup mknodes "$MAPPER_NAME"
-    mount -o noatime,nodev,nosuid,noexec,nosymfollow,compress=zstd:3 \
-        "$MAPPER_PATH" "$TARGET_MOUNT"
-    pass 'plain unmount closes and reopens the test mapper'
-}
-
 sandboxed_systemd_service_test() {
     local mount_unit
     local mount_unit_path
@@ -565,6 +554,7 @@ require_commands awk blkid btrfs busctl cat cmp cryptsetup date dd diff dmsetup 
 [[ -x "$DEVICE_PROVISIONING_CLIENT" ]] || fail 'device-provisioning integration client is not executable'
 [[ -x "$REAL_BTRFS_TESTS" ]] || fail 'real-Btrfs C++ integration test is not executable'
 [[ -x "$REAL_INSTALLED_RUNTIME_TESTS" ]] || fail 'installed-runtime C++ integration test is not executable'
+[[ -x "$REAL_MAPPER_LIFECYCLE_TESTS" ]] || fail 'mapper-lifecycle C++ integration test is not executable'
 ensure_loop_devices
 for _ in $(seq 1 100); do
     systemctl show-environment >/dev/null 2>&1 && break
@@ -627,7 +617,7 @@ install -d -m0755 "$SOURCE_MOUNT/home/dir"
 dd if=/dev/urandom of="$SOURCE_MOUNT/home/dir/blob.bin" bs=1M count=2 status=none
 sync -f "$SOURCE_MOUNT"
 
-plain_mapper_lifecycle_test
+"$REAL_MAPPER_LIFECYCLE_TESTS" "$TARGET_MOUNT" "$TARGET_LOOP" "$MAPPER_NAME" "$PASSPHRASE_FILE"
 
 "$REAL_INSTALLED_RUNTIME_TESTS" \
     /usr/bin/btrfs-backupctl \
@@ -667,7 +657,7 @@ pass 'system D-Bus backup transfers and verifies real Btrfs data'
 
 manager_independence_test
 trusted_hook_security_test
-plain_mapper_lifecycle_test
+"$REAL_MAPPER_LIFECYCLE_TESTS" "$TARGET_MOUNT" "$TARGET_LOOP" "$MAPPER_NAME" "$PASSPHRASE_FILE"
 sandboxed_systemd_service_test
 sandboxed_auto_eject_test
 

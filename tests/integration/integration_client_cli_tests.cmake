@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-foreach(client IN ITEMS BROWSE_CLIENT PROVISIONING_CLIENT INSTALLED_RUNTIME_TEST)
+foreach(client IN ITEMS BROWSE_CLIENT PROVISIONING_CLIENT INSTALLED_RUNTIME_TEST MAPPER_LIFECYCLE_TEST)
     if(NOT DEFINED ${client} OR NOT EXISTS "${${client}}")
         message(FATAL_ERROR "Missing integration client: ${client}")
     endif()
