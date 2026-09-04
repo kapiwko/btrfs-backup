@@ -261,7 +261,8 @@ class RealBtrfsContainer:
                 "-w",
                 CONTAINER_WORKDIR,
                 self.container_id,
-                f"{CONTAINER_WORKDIR}/tests/integration/docker/real-btrfs-test.sh",
+                "python3",
+                f"{CONTAINER_WORKDIR}/tests/integration/docker/real_btrfs_suite.py",
             ]
         )
 
