@@ -62,7 +62,7 @@ std::string BoundedDocumentReader::read(
 ) const {
     int raw_descriptor;
     do {
-        raw_descriptor = open(path.c_str(), O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+        raw_descriptor = open(path.c_str(), O_RDONLY | O_NONBLOCK | O_CLOEXEC | O_NOFOLLOW);
     } while (raw_descriptor < 0 && errno == EINTR);
     const FileDescriptor descriptor(raw_descriptor);
     if (descriptor.get() < 0) {
