@@ -15,5 +15,5 @@ var widget = panel.addWidget("org.btrfsbackup.plasmoid");
 widget.currentConfigGroup = ["General"];
 widget.writeConfig("showStorage", false);
 widget.globalShortcut = "Meta+B";
-panel.addWidget("org.kde.plasma.digitalclock");
+panel.addWidget("org.btrfsbackup.screenshotclock");
 print(widget.id);

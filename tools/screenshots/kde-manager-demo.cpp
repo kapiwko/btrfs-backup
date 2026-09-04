@@ -3,8 +3,12 @@
 
 #include <QCoreApplication>
 #include <QDBusConnection>
+#include <QDateTime>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QTime>
+
+#include <core/ManagerProtocol.hpp>
 
 class ScreenshotSplash final : public QObject {
     Q_OBJECT
@@ -20,7 +24,8 @@ class ScreenshotManager final : public QObject {
     Q_CLASSINFO("D-Bus Interface", "io.github.btrfsbackup.Manager1")
 
   public:
-    explicit ScreenshotManager(QString mode) : mode_(std::move(mode)) {
+    explicit ScreenshotManager(QString mode, QString page)
+        : mode_(std::move(mode)), page_(std::move(page)), now_(QDateTime::currentDateTimeUtc()) {
     }
 
   public slots:
@@ -34,10 +39,20 @@ class ScreenshotManager final : public QObject {
 
     QString GetStatus(const QString& profile) const {
         if (profile == QStringLiteral("home") && mode_ == QStringLiteral("transferring")) {
-            return QStringLiteral(R"({"schemaVersion":5,"runId":"run-1","state":"running","phase":"transfer","activity":"transferring","canCancel":true,"errorCode":"","sourceName":"Documents","targetName":"Portable Backup","bytesProcessed":68719476736,"bytesTotalEstimated":118111600640,"speedBps":94371840,"etaSeconds":540,"sourceProgress":58,"overallProgress":58,"progressAccuracy":"exact","sourceIndex":1,"sourceCount":1,"startedAt":"2026-09-03T08:00:00Z","updatedAt":"2026-09-03T08:12:00Z","lastSuccessAt":"2026-08-30T21:14:00Z","lastAttemptAt":"2026-08-30T21:14:00Z","lastAttemptState":"succeeded"})");
+            const QString started = now_.addSecs(-(4 * 60 * 60 + 14 * 60)).toString(Qt::ISODate);
+            const QString previous = now_.addDays(-3).toString(Qt::ISODate);
+            return QStringLiteral(R"({"schemaVersion":5,"runId":"run-1","state":"running","phase":"transfer","activity":"transferring","canCancel":true,"errorCode":"","sourceName":"Documents","targetName":"Portable Backup","bytesProcessed":68719476736,"bytesTotalEstimated":118111600640,"speedBps":94371840,"etaSeconds":540,"sourceProgress":58,"overallProgress":58,"progressAccuracy":"exact","sourceIndex":1,"sourceCount":1,"startedAt":"%1","updatedAt":"%2","lastSuccessAt":"%3","lastAttemptAt":"%3","lastAttemptState":"succeeded"})")
+                .arg(started, now_.toString(Qt::ISODate), previous);
         }
         if (profile == QStringLiteral("home")) {
-            return QStringLiteral(R"({"schemaVersion":5,"runId":"run-0","state":"succeeded","phase":"completed","activity":"idle","canCancel":false,"errorCode":"","sourceName":"Documents","targetName":"Portable Backup","bytesProcessed":68719476736,"bytesTotalEstimated":68719476736,"speedBps":0,"etaSeconds":-1,"sourceProgress":100,"overallProgress":100,"progressAccuracy":"exact","sourceIndex":1,"sourceCount":1,"startedAt":"2026-08-30T20:50:00Z","updatedAt":"2026-08-30T21:14:00Z","lastSuccessAt":"2026-08-30T21:14:00Z","lastAttemptAt":"2026-08-30T21:14:00Z","lastAttemptState":"succeeded"})");
+            QDateTime previous = now_.addDays(-3);
+            if (page_ == QStringLiteral("profile-details")) {
+                previous = now_.addDays(-4);
+                previous.setTime(QTime(21, 14));
+            }
+            const QString completed = previous.toString(Qt::ISODate);
+            return QStringLiteral(R"({"schemaVersion":5,"runId":"run-0","state":"succeeded","phase":"completed","activity":"idle","canCancel":false,"errorCode":"","sourceName":"Documents","targetName":"Portable Backup","bytesProcessed":68719476736,"bytesTotalEstimated":68719476736,"speedBps":0,"etaSeconds":-1,"sourceProgress":100,"overallProgress":100,"progressAccuracy":"exact","sourceIndex":1,"sourceCount":1,"startedAt":"%1","updatedAt":"%2","lastSuccessAt":"%2","lastAttemptAt":"%2","lastAttemptState":"succeeded"})")
+                .arg(previous.addSecs(-24 * 60).toString(Qt::ISODate), completed);
         }
         return QStringLiteral(R"({"schemaVersion":5,"runId":"","state":"idle","phase":"idle","activity":"idle","canCancel":false,"errorCode":"","sourceName":"","targetName":"Studio Archive","bytesProcessed":0,"bytesTotalEstimated":0,"speedBps":0,"etaSeconds":-1,"sourceProgress":-1,"overallProgress":-1,"progressAccuracy":"unknown","sourceIndex":0,"sourceCount":1,"startedAt":"","updatedAt":"","lastSuccessAt":"2026-08-27T18:42:00Z","lastAttemptAt":"2026-08-27T18:42:00Z","lastAttemptState":"succeeded"})");
     }
@@ -72,8 +87,9 @@ class ScreenshotManager final : public QObject {
 
     QString InspectStorageTopology() const {
         return QStringLiteral(
-            R"({"schemaVersion":1,"generation":"screenshot-topology-1","devices":[{"candidateId":"device-portable-backup","path":"/dev/sdb","displayName":"Samsung Portable SSD T7","model":"Samsung Portable SSD T7","transport":"usb","sizeBytes":2000398934016,"logicalSectorSize":512,"physicalSectorSize":4096,"removable":true,"hotplug":true,"systemDevice":false,"mounted":false,"containsData":true,"readOnly":false,"partitionTableType":"gpt","regions":[{"candidateId":"partition-portable-backup","kind":"existing-partition","path":"/dev/sdb1","partitionNumber":1,"partitionUuid":"11111111-2222-3333-4444-555555555555","partitionLabel":"Portable Backup","startSector":2048,"sectorCount":2734375000,"filesystemType":"crypto_LUKS","filesystemLabel":"Portable Backup","filesystemUuid":"aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee","mountPoints":[],"configuredBackupTarget":false,"suitableForReformat":true,"suitableForAdoption":true,"blockers":[]},{"candidateId":"partition-archive-backup","kind":"existing-partition","path":"/dev/sdb2","partitionNumber":2,"partitionUuid":"22222222-3333-4444-5555-666666666666","partitionLabel":"Archive Backup","startSector":2734377048,"sectorCount":1172652120,"filesystemType":"crypto_LUKS","filesystemLabel":"Archive Backup","filesystemUuid":"cccccccc-dddd-eeee-ffff-000000000000","mountPoints":[],"configuredBackupTarget":false,"suitableForReformat":true,"suitableForAdoption":true,"blockers":[]}],"blockers":[]},{"candidateId":"device-sandisk-extreme","path":"/dev/sdc","displayName":"SanDisk Extreme 55AE","model":"SanDisk Extreme 55AE","transport":"usb","sizeBytes":1000204886016,"logicalSectorSize":512,"physicalSectorSize":4096,"removable":true,"hotplug":true,"systemDevice":false,"mounted":false,"containsData":true,"readOnly":false,"partitionTableType":"gpt","regions":[{"candidateId":"partition-sandisk-data","kind":"existing-partition","path":"/dev/sdc1","partitionNumber":1,"partitionUuid":"66666666-7777-8888-9999-aaaaaaaaaaaa","partitionLabel":"Files","startSector":2048,"sectorCount":1269790000,"filesystemType":"ext4","filesystemLabel":"Files","filesystemUuid":"bbbbbbbb-cccc-dddd-eeee-ffffffffffff","mountPoints":[],"configuredBackupTarget":false,"suitableForReformat":true,"suitableForAdoption":false,"blockers":[]},{"candidateId":"free-sandisk","kind":"unallocated","startSector":1269792048,"sectorCount":683731000,"suitableForBackupPartition":true,"blockers":[]}],"blockers":[]}]})"
-        );
+            R"({"schemaVersion":%1,"generation":"screenshot-topology-1","devices":[{"candidateId":"device-portable-backup","displayIndex":1,"transport":"usb","sizeBytes":2000398934016,"logicalSectorSize":512,"physicalSectorSize":4096,"removable":true,"hotplug":true,"systemDevice":false,"mounted":false,"containsData":true,"readOnly":false,"partitionTableType":"gpt","regions":[{"candidateId":"partition-portable-backup","kind":"existing-partition","partitionNumber":1,"encrypted":true,"mounted":false,"startSector":2048,"sectorCount":2734375000,"configuredBackupTarget":false,"suitableForReformat":true,"suitableForAdoption":true,"blockers":[]},{"candidateId":"partition-archive-backup","kind":"existing-partition","partitionNumber":2,"encrypted":true,"mounted":false,"startSector":2734377048,"sectorCount":1172652120,"configuredBackupTarget":false,"suitableForReformat":true,"suitableForAdoption":true,"blockers":[]}],"blockers":[]},{"candidateId":"device-sandisk-extreme","displayIndex":2,"transport":"usb","sizeBytes":1000204886016,"logicalSectorSize":512,"physicalSectorSize":4096,"removable":true,"hotplug":true,"systemDevice":false,"mounted":false,"containsData":true,"readOnly":false,"partitionTableType":"gpt","regions":[{"candidateId":"partition-sandisk-data","kind":"existing-partition","partitionNumber":1,"encrypted":false,"mounted":false,"startSector":2048,"sectorCount":1269790000,"configuredBackupTarget":false,"suitableForReformat":true,"suitableForAdoption":false,"blockers":[]},{"candidateId":"free-sandisk","kind":"unallocated","startSector":1269792048,"sectorCount":683731000,"suitableForBackupPartition":true,"blockers":[]}],"blockers":[]}]})"
+        )
+            .arg(btrfsbackup::manager_protocol::storage_topology_schema_version);
     }
 
     QString ListSourceCandidates() const {
@@ -146,8 +162,9 @@ class ScreenshotManager final : public QObject {
                   R"({"deviceId":"device-sandisk-extreme","sizeBytes":1000204886016,"logicalSectorSize":512,"partitionTableType":"gpt","regions":[{"candidateId":"partition-sandisk-data","kind":"backup-partition","startSector":2048,"sectorCount":1269790000,"partitionNumber":1,"path":"/dev/sdc1","partitionLabel":"Btrfs Backup","filesystemType":"btrfs","geometryExact":true,"encrypted":true,"changed":true,"dataWillBeErased":false},{"candidateId":"free-sandisk","kind":"unallocated","startSector":1269792048,"sectorCount":683731000,"partitionNumber":0,"path":"","partitionLabel":"","filesystemType":"","geometryExact":true,"encrypted":false,"changed":false,"dataWillBeErased":false}]})"
               );
         return QStringLiteral(
-                   R"({"schemaVersion":2,"planId":"screenshot-plan-1","topologyGeneration":"screenshot-topology-1","mode":"%1"%2,"before":%3,"after":%4,"operations":["erase-partition-signatures","format-luks2","format-btrfs"],"warnings":[],"destructiveScope":"existing-partition"})"
+                   R"({"schemaVersion":%1,"planId":"screenshot-plan-1","topologyGeneration":"screenshot-topology-1","mode":"%2"%3,"before":%4,"after":%5,"operations":["erase-partition-signatures","format-luks2","format-btrfs"],"warnings":[],"destructiveScope":"existing-partition"})"
         )
+            .arg(btrfsbackup::manager_protocol::device_preparation_plan_schema_version)
             .arg(mode, identity, before, after);
     }
 
@@ -166,11 +183,16 @@ class ScreenshotManager final : public QObject {
     }
 
     QString mode_;
+    QString page_;
+    QDateTime now_;
 };
 
 int main(int argc, char* argv[]) {
     QCoreApplication application(argc, argv);
-    ScreenshotManager manager(application.arguments().value(1, QStringLiteral("connected")));
+    ScreenshotManager manager(
+        application.arguments().value(1, QStringLiteral("connected")),
+        application.arguments().value(2)
+    );
     ScreenshotSplash splash;
     QDBusConnection bus = QDBusConnection::sessionBus();
     if (!bus.registerObject(

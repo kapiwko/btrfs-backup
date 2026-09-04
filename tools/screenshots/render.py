@@ -24,6 +24,13 @@ TARGETS = (
     "btrfsbackup_kde_modelsplugin", "btrfs-backup-kde-manager-demo", "kio_btrfsbackup",
     "kcm_btrfsbackup", "btrfs-backup-kde-restore", "btrfs-backup-kde-screenshot-demo",
 )
+SCREENSHOT_TIME = "2026-09-03 12:14:00"
+FAKETIME_LIBRARY_PATHS = (
+    Path("/usr/lib/faketime/libfaketimeMT.so.1"),
+    Path("/usr/lib/faketime/libfaketime.so.1"),
+    Path("/usr/lib/x86_64-linux-gnu/faketime/libfaketimeMT.so.1"),
+    Path("/usr/lib/x86_64-linux-gnu/faketime/libfaketime.so.1"),
+)
 
 
 def scenario_specs(only: str, kcm_page: str) -> list[dict[str, str]]:
@@ -76,6 +83,32 @@ def session_identity(output_name: str) -> str:
     return hashlib.sha256(output_name.encode()).hexdigest()[:12]
 
 
+def deterministic_process_environment() -> dict[str, str]:
+    configured = os.environ.get("BTRFS_BACKUP_SCREENSHOT_FAKETIME_LIBRARY")
+    candidates = (Path(configured),) if configured else FAKETIME_LIBRARY_PATHS
+    library = next((path for path in candidates if path.is_file()), None)
+    if library is None:
+        raise RuntimeError("libfaketime is required to render deterministic screenshots")
+    preload = str(library)
+    if existing := os.environ.get("LD_PRELOAD"):
+        preload += f":{existing}"
+    return {
+        "FAKETIME": SCREENSHOT_TIME,
+        "FAKETIME_DONT_FAKE_MONOTONIC": "1",
+        "LD_PRELOAD": preload,
+        "TZ": "UTC",
+    }
+
+
+def normalize_png(output: Path) -> None:
+    normalized = output.with_name(f".{output.name}.normalized")
+    try:
+        run(["magick", str(output), "-strip", "-define", "png:exclude-chunks=date,time", str(normalized)])
+        normalized.replace(output)
+    finally:
+        normalized.unlink(missing_ok=True)
+
+
 def build(build_dir: Path) -> None:
     run(["cmake", "-S", str(ROOT), "-B", str(build_dir), "-DCMAKE_BUILD_TYPE=Release",
          "-DBUILD_KDE_INTEGRATION=ON", "-DBUILD_README_SCREENSHOTS=ON", "-DBUILD_TESTING=OFF"])
@@ -94,7 +127,7 @@ def capture(spec: dict[str, str], output_dir: Path, build_dir: Path, qml: str) -
                "source_dir": str(ROOT), "qml": qml, "mode": spec.get("mode", ""),
                "page": spec.get("page", ""), "scene": spec.get("scene", ""), "delay": 1.0}
     arguments = [str(Path(__file__).resolve())]
-    environment = {**os.environ, "XDG_RUNTIME_DIR": str(runtime_dir),
+    environment = {**os.environ, **deterministic_process_environment(), "XDG_RUNTIME_DIR": str(runtime_dir),
                    "BTRFS_BACKUP_SCREENSHOT_CAPTURE": json.dumps(payload)}
     if spec["kind"] == "notification":
         data = build_dir / "screenshot-data"
@@ -107,6 +140,7 @@ def capture(spec: dict[str, str], output_dir: Path, build_dir: Path, qml: str) -
          "--no-lockscreen", "--no-global-shortcuts", "--exit-with-session", *arguments], env=environment)
     if not output.is_file():
         raise RuntimeError(f"expected screenshot was not created: {output}")
+    normalize_png(output)
     print(f"Rendered {output}")
     return {"scenario": spec["kind"], "mode": spec.get("mode", ""), "page": spec.get("page", ""),
             "path": output.name, "bytes": output.stat().st_size,
