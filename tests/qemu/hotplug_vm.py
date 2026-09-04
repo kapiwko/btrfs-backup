@@ -260,6 +260,7 @@ class HotplugVm:
         self.require("QEMU_PROVISIONING_OK", "whole-device and existing-partition provisioning did not pass in QEMU")
         self.require("QEMU_MANAGER_KILL_OK", "manager SIGKILL recovery did not pass in QEMU")
         self.require("QEMU_HELPER_KILL_OK", "helper SIGKILL recovery did not pass in QEMU")
+        self.require("QEMU_DEVICE_ISOLATION_OK", "systemd did not isolate the preparation helper from an unrelated disk")
         self.qmp("device_add", {"driver": "usb-storage", "drive": "hotplug-target", "id": "target-usb"})
         self.wait_for("QEMU_HOTPLUG_OK_1", "udev did not start btrfs-backup@default.service after USB attachment", 15)
         self.qmp("device_del", {"id": "target-usb"})

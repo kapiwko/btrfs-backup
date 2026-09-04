@@ -13,7 +13,7 @@ class ISystemdUnitController;
 
 struct DevicePreparationDeviceAccess {
     std::vector<std::string> major_minor;
-    bool allow_future_partitions = false;
+    bool allow_mapper_control = false;
 };
 
 class IDevicePreparationUnitController {
@@ -28,6 +28,10 @@ class IDevicePreparationUnitController {
         const std::string& operation_id,
         const DevicePreparationDeviceAccess& access
     ) = 0;
+    virtual void update_access(
+        const std::string& operation_id,
+        const DevicePreparationDeviceAccess& access
+    ) = 0;
     virtual void stop(const std::string& operation_id) = 0;
     [[nodiscard]] virtual bool active(const std::string& operation_id) = 0;
 };
@@ -36,8 +40,7 @@ class SystemdDevicePreparationUnitController final : public IDevicePreparationUn
   public:
     SystemdDevicePreparationUnitController(
         ISystemdUnitController& units,
-        std::filesystem::path secret_root = "/run/btrfs-backup-manager/device-preparations",
-        std::filesystem::path device_groups_path = "/proc/devices"
+        std::filesystem::path secret_root = "/run/btrfs-backup-manager/device-preparations"
     );
 
     void start(
@@ -46,6 +49,10 @@ class SystemdDevicePreparationUnitController final : public IDevicePreparationUn
         const DevicePreparationDeviceAccess& access
     ) override;
     void recover(
+        const std::string& operation_id,
+        const DevicePreparationDeviceAccess& access
+    ) override;
+    void update_access(
         const std::string& operation_id,
         const DevicePreparationDeviceAccess& access
     ) override;
@@ -61,7 +68,6 @@ class SystemdDevicePreparationUnitController final : public IDevicePreparationUn
     );
     ISystemdUnitController& units_;
     std::filesystem::path secret_root_;
-    std::filesystem::path device_groups_path_;
 };
 
 } // namespace btrfsbackup::daemon::control

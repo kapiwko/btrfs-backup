@@ -43,6 +43,7 @@ using btrfsbackup::daemon::dbus::ManagerErrorCode;
 using btrfsbackup::daemon::dbus::ManagerOperationError;
 using btrfsbackup::daemon::control::StartJobResult;
 using btrfsbackup::daemon::control::StartUnitRequest;
+using btrfsbackup::daemon::control::SetUnitPropertiesRequest;
 using btrfsbackup::daemon::control::StopJobResult;
 using btrfsbackup::daemon::control::StopUnitRequest;
 using btrfsbackup::daemon::control::SystemdJobError;
@@ -131,6 +132,9 @@ class FakeUnits final : public ISystemdUnitController {
         return {};
     }
     StopJobResult stop_unit(const StopUnitRequest&) override {
+        return {};
+    }
+    StartJobResult set_unit_properties(const SetUnitPropertiesRequest&) override {
         return {};
     }
     ActiveUnitResult active_unit(const ActiveUnitRequest&) override {
@@ -226,14 +230,9 @@ void test_runtime_property_failure_prevents_unit_start() {
 
 void test_device_preparation_unit_receives_secret_over_fifo() {
     const auto root = test_helpers::test_root("systemd-control", "device-preparation-secret");
-    const auto device_groups = root / "devices";
-    test_helpers::write_file(
-        device_groups,
-        "Character devices:\n  1 mem\n\nBlock devices:\n  8 sd\n253 device-mapper\n259 blkext\n"
-    );
     FakeCommands commands;
     CommandSystemdUnitController systemd_units(commands);
-    SystemdDevicePreparationUnitController units(systemd_units, root, device_groups);
+    SystemdDevicePreparationUnitController units(systemd_units, root);
     constexpr std::string_view expected = "helper secret";
     const auto bytes = std::as_bytes(std::span(expected.data(), expected.size()));
     auto secret = btrfsbackup::platform::linux::filesystem::create_sealed_secret_file(bytes);
@@ -272,9 +271,6 @@ void test_device_preparation_unit_receives_secret_over_fifo() {
                                   "DeviceAllow=",
                                   "DeviceAllow=/dev/block/8:16 rw",
                                   "DeviceAllow=/dev/block/8:17 rw",
-                                  "DeviceAllow=block-sd rw",
-                                  "DeviceAllow=block-blkext rw",
-                                  "DeviceAllow=block-device-mapper rw",
                                   "DeviceAllow=/dev/mapper/control rw",
                               },
                               {
@@ -290,6 +286,24 @@ void test_device_preparation_unit_receives_secret_over_fifo() {
         "device preparation FIFO removed",
         !std::filesystem::exists(units.secret_path("prepare-fifo-test")),
         "secret FIFO remained on disk"
+    );
+    units.update_access(
+        "prepare-fifo-test",
+        DevicePreparationDeviceAccess{{"259:3", "8:16"}, false}
+    );
+    test_helpers::expect_true(
+        "device preparation access replacement",
+        commands.calls.back() == std::vector<std::string>{
+                                     "systemctl",
+                                     "set-property",
+                                     "--runtime",
+                                     "btrfs-backup-device-preparation@prepare-fifo-test.service",
+                                     "DevicePolicy=closed",
+                                     "DeviceAllow=",
+                                     "DeviceAllow=/dev/block/259:3 rw",
+                                     "DeviceAllow=/dev/block/8:16 rw",
+                                 },
+        "helper device access was not replaced with exact device numbers"
     );
 }
 

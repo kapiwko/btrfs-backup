@@ -44,7 +44,6 @@ LockPersonality=yes
 MemoryDenyWriteExecute=yes
 SystemCallArchitectures=native
 DevicePolicy=closed
-DeviceAllow=/dev/mapper/control rw
 CapabilityBoundingSet=CAP_SYS_ADMIN CAP_DAC_OVERRIDE CAP_FOWNER
 TimeoutStartSec=30min
 TimeoutStopSec=30s

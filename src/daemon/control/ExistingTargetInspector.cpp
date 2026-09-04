@@ -103,7 +103,8 @@ provisioning::ExistingTargetInspectionSummary ExistingTargetInspector::inspect(
     const provisioning::ExistingPartition& partition,
     const std::string& mapper_name,
     const std::filesystem::path& mount_point,
-    int credential_fd
+    int credential_fd,
+    const MapperReady& mapper_ready
 ) {
     validate_partition(partition);
     const std::filesystem::path device = partition.identity.display_path;
@@ -117,7 +118,10 @@ provisioning::ExistingTargetInspectionSummary ExistingTargetInspector::inspect(
     try {
         cryptsetup_.open_luks2_read_only(device, mapper_name, credential_fd);
         opened = true;
-        const auto mapped = metadata_.read(std::filesystem::path("/dev/mapper") / mapper_name);
+        const auto mapper_path = std::filesystem::path("/dev/mapper") / mapper_name;
+        if (mapper_ready)
+            mapper_ready(mapper_path);
+        const auto mapped = metadata_.read(mapper_path);
         if (mapped.filesystem_type != "btrfs" || mapped.filesystem_uuid.empty()) {
             summary = provisioning::ExistingTargetInspectionSummary{
                 .classification = provisioning::ExistingTargetClassification::NotBtrfsFilesystem,
@@ -130,7 +134,7 @@ provisioning::ExistingTargetInspectionSummary ExistingTargetInspector::inspect(
                 .snapshot_count = 0,
             };
         } else {
-            mounts_.mount_btrfs_read_only(std::filesystem::path("/dev/mapper") / mapper_name, mount_point);
+            mounts_.mount_btrfs_read_only(mapper_path, mount_point);
             mounted = true;
 
             std::error_code repository_error;

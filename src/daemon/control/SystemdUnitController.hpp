@@ -40,6 +40,12 @@ struct StopUnitRequest {
     std::chrono::milliseconds timeout;
 };
 
+struct SetUnitPropertiesRequest {
+    std::string unit;
+    std::chrono::milliseconds timeout;
+    std::vector<std::string> runtime_properties;
+};
+
 struct ActiveUnitRequest {
     std::string unit;
     std::chrono::milliseconds timeout;
@@ -64,6 +70,9 @@ class ISystemdUnitController {
     virtual ~ISystemdUnitController() = default;
     [[nodiscard]] virtual StartJobResult start_unit(const StartUnitRequest& request) = 0;
     [[nodiscard]] virtual StopJobResult stop_unit(const StopUnitRequest& request) = 0;
+    [[nodiscard]] virtual StartJobResult set_unit_properties(
+        const SetUnitPropertiesRequest& request
+    ) = 0;
     [[nodiscard]] virtual ActiveUnitResult active_unit(const ActiveUnitRequest& request) = 0;
     [[nodiscard]] virtual TransientJobResult start_transient_unit(
         const TransientUnitRequest& request

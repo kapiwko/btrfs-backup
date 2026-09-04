@@ -103,6 +103,12 @@ DevicePreparationTransaction transaction(
     value.partition = "/dev/test1";
     value.luks_uuid = "luks-uuid";
     value.mapper = "btrfs-backup-test";
+    value.partition_device_number = "8:17";
+    value.mapper_device_number = "253:7";
+    value.requested_device_access = {"8:16", "8:17", "253:7"};
+    value.requested_mapper_control = true;
+    value.access_generation = 3;
+    value.authorized_access_generation = 3;
     value.cleanup_result = "pending";
     return value;
 }
@@ -122,11 +128,11 @@ void test_codec_owns_schema_and_validation() {
     );
 
     std::string previous_schema = document;
-    const std::string current_version = "\"schemaVersion\": 8";
+    const std::string current_version = "\"schemaVersion\": 9";
     const auto version = previous_schema.find(current_version);
     test_helpers::expect_true("codec schema field", version != std::string::npos, "current schema field is missing");
     if (version != std::string::npos)
-        previous_schema.replace(version, current_version.size(), "\"schemaVersion\": 7");
+        previous_schema.replace(version, current_version.size(), "\"schemaVersion\": 8");
     try {
         static_cast<void>(codec.deserialize(previous_schema));
         test_helpers::fail("codec previous schema", "the previous unreleased transaction schema was accepted");
