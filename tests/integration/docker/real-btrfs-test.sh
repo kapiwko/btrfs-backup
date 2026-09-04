@@ -1246,7 +1246,7 @@ missing_incremental_parent_test() {
 }
 
 require_root
-require_commands awk blkid btrfs busctl cat cmp cryptsetup date dd diff dmsetup find findmnt grep journalctl ldd ln losetup mkfifo mkfs.btrfs mkfs.ext4 mknod mount mv pacman perl runuser seq sfdisk sha256sum stat systemd-escape tar tee timeout truncate udevadm useradd userdel
+require_commands awk blkid btrfs busctl cat cmp cryptsetup date dd diff dmsetup find findmnt grep journalctl ldd ln losetup mkfifo mkfs.btrfs mkfs.ext4 mknod mount mv pacman perl runuser seq sfdisk sha256sum stat systemd-escape systemd-run tar tee timeout truncate udevadm useradd userdel
 [[ -x "$BROWSE_SESSION_CLIENT" ]] || fail 'browse-session integration client is not executable'
 [[ -x "$DEVICE_PROVISIONING_CLIENT" ]] || fail 'device-provisioning integration client is not executable'
 [[ -x "$REAL_BTRFS_TESTS" ]] || fail 'real-Btrfs C++ integration test is not executable'
@@ -1271,7 +1271,7 @@ PARTITION_NODE_MONITOR_PID=$!
 install -d -m0755 "$SOURCE_MOUNT" "$TARGET_MOUNT" "$PROVISION_PRESERVED_MOUNT"
 install -d -m0700 "$LOG_DIR"
 build_and_verify_packages
-"$REAL_BTRFS_TESTS" /usr/bin/btrfs-backupctl
+"$REAL_BTRFS_TESTS" /usr/bin/btrfs-backupctl "$BROWSE_SESSION_CLIENT"
 
 printf '%s\n' 'btrfs-backup-real-test-passphrase' > "$PASSPHRASE_FILE"
 chmod 0600 "$PASSPHRASE_FILE"
