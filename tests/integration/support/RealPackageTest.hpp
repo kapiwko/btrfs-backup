@@ -10,7 +10,10 @@ namespace btrfsbackup::integration {
 
 class RealPackageTest final {
   public:
-    explicit RealPackageTest(std::filesystem::path package_directory);
+    RealPackageTest(
+        std::filesystem::path package_directory,
+        std::filesystem::path source_directory
+    );
 
     void install_and_verify() const;
 
@@ -18,6 +21,7 @@ class RealPackageTest final {
     [[nodiscard]] std::filesystem::path base_package() const;
 
     std::filesystem::path package_directory_;
+    std::filesystem::path source_directory_;
 };
 
 } // namespace btrfsbackup::integration

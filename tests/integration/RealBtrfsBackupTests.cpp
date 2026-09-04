@@ -41,10 +41,12 @@ void run_scenarios(
     const std::filesystem::path& backupctl,
     const std::filesystem::path& browse_session_client,
     const std::filesystem::path& provisioning_client,
-    const std::filesystem::path& package_directory
+    const std::filesystem::path& package_directory,
+    const std::filesystem::path& source_directory
 ) {
-    RealPackageTest(package_directory).install_and_verify();
+    RealPackageTest(package_directory, source_directory).install_and_verify();
     std::cout << "ok - base package installs and runs without KDE or Qt runtime dependencies\n";
+    std::cout << "ok - systemd security audit accepts the installed profile service\n";
 
     RealBtrfsTestEnvironment environment(backupctl, browse_session_client);
     try {
@@ -139,14 +141,14 @@ void run_scenarios(
 } // namespace
 
 int main(int argc, char** argv) {
-    if (argc != 5) {
+    if (argc != 6) {
         std::cerr << "usage: btrfsbackup-real-btrfs-tests /path/to/btrfs-backupctl "
                      "/path/to/browse-session-client /path/to/device-provisioning-client "
-                     "/path/to/package-directory\n";
+                     "/path/to/package-directory /path/to/source-directory\n";
         return 2;
     }
     try {
-        run_scenarios(argv[1], argv[2], argv[3], argv[4]);
+        run_scenarios(argv[1], argv[2], argv[3], argv[4], argv[5]);
         return 0;
     } catch (const std::exception& error) {
         std::cerr << "real-btrfs-backup-tests: " << error.what() << '\n';

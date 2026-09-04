@@ -32,8 +32,10 @@ void require_success(std::vector<std::string> arguments, std::string_view operat
 
 } // namespace
 
-RealPackageTest::RealPackageTest(fs::path package_directory)
-    : package_directory_(fs::canonical(package_directory)) {}
+RealPackageTest::RealPackageTest(fs::path package_directory, fs::path source_directory)
+    : package_directory_(fs::canonical(package_directory)),
+      source_directory_(fs::canonical(source_directory)) {
+}
 
 fs::path RealPackageTest::base_package() const {
     std::vector<fs::path> packages;
@@ -87,6 +89,19 @@ void RealPackageTest::install_and_verify() const {
         throw std::runtime_error("cannot inspect installed command linkage: " + command_diagnostic(linkage));
     if (std::regex_search(linkage.output, std::regex(R"(lib(Qt6|KF6|Plasma))")))
         throw std::runtime_error("base commands link to a KDE or Qt runtime library");
+
+    require_success(
+        {
+            "cmake",
+            "-DUNIT_FILE=/usr/lib/systemd/system/btrfs-backup@.service",
+            "-DPOLICY=backup",
+            "-DSYSTEMD_ANALYZE=/usr/bin/systemd-analyze",
+            "-DTEST_ROOT=/tmp/btrfs-backup-package-contracts",
+            "-P",
+            (source_directory_ / "tests/systemd/security_tests.cmake").string(),
+        },
+        "audit installed systemd service"
+    );
 }
 
 } // namespace btrfsbackup::integration
