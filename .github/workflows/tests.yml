@@ -45,6 +45,7 @@ jobs:
             clang \
             cmake \
             git \
+            ninja \
             nlohmann-json \
             pkgconf \
             systemd \
@@ -178,6 +179,7 @@ jobs:
               btrfs-backup-kde \
               btrfs-backup-kde-tests \
               btrfs-backupd \
+              btrfsbackup-dbus-manager-tests \
               btrfsbackup-fake-polkit-authority \
             --parallel "$(nproc)"
         env:

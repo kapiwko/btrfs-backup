@@ -71,13 +71,16 @@ add_test(
     COMMAND ${PYTHON_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tools/screenshots/render_tests.py
 )
 
+string(SHA256 profile_json_cli_test_hash "${PROJECT_BINARY_DIR}")
+string(SUBSTRING "${profile_json_cli_test_hash}" 0 12 profile_json_cli_test_id)
+set(profile_json_cli_test_root "/tmp/btrfs-backup-profile-json-cli-${profile_json_cli_test_id}")
 add_test(
     NAME profile-json-cli-tests
     COMMAND
         ${CMAKE_COMMAND}
         -DBACKUPCTL=$<TARGET_FILE:btrfs-backupctl>
         -DSOURCE_DIR=${PROJECT_SOURCE_DIR}
-        -DTEST_ROOT=${PROJECT_BINARY_DIR}/workflow-contracts
+        -DTEST_ROOT=${profile_json_cli_test_root}
         -P ${CMAKE_CURRENT_SOURCE_DIR}/workflow/profile_json_cli_tests.cmake
 )
 
