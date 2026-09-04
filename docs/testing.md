@@ -47,10 +47,8 @@ Tests cover:
 The focused systemd security contract can also be run directly:
 
 ```bash
-tests/systemd/check-security.sh data/systemd/btrfs-backup@.service.example
-tests/systemd/check-security.sh \
-    data/systemd/btrfs-backup-device-preparation@.service \
-    device-preparation
+cmake --preset gcc-debug
+ctest --preset gcc-debug -L systemd --parallel
 ```
 
 It asserts the required directives and runs offline `systemd-analyze security`.
