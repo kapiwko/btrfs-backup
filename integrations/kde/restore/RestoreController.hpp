@@ -14,6 +14,7 @@
 
 #include <restore/RepositoryCatalog.hpp>
 #include <restore/RestorePlan.hpp>
+#include <platform/linux/OwnedFileDescriptor.hpp>
 
 namespace btrfsbackup::kde::restore {
 
@@ -66,7 +67,7 @@ class RestoreController final : public QObject {
     QString relative_path_;
     QString destination_;
     QString session_id_;
-    QString session_root_;
+    btrfsbackup::platform::linux::OwnedFileDescriptor session_root_;
     bool replace_existing_ = false;
     bool busy_ = false;
     bool completed_ = false;

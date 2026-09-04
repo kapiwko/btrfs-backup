@@ -129,6 +129,7 @@ target_compile_features(btrfs-backup-kde-restore PRIVATE cxx_std_23)
 target_include_directories(btrfs-backup-kde-restore PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/client ${CMAKE_CURRENT_SOURCE_DIR}/restore)
 target_link_libraries(btrfs-backup-kde-restore PRIVATE
     btrfsbackup_kde_manager_client
+    btrfsbackup-platform-linux-base
     btrfsbackup-restore
     btrfsbackup-platform-linux-restore
     btrfsbackup-platform-linux-storage

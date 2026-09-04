@@ -122,21 +122,20 @@ void test_history_is_decoded_once_for_every_kde_client() {
 
 void test_browse_session_requires_read_only_absolute_root() {
     const auto session = btrfsbackup::kde::parse_browse_session(QStringLiteral(R"({
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "sessionId": "browse-1",
         "profileId": "default",
-        "rootPath": "/run/btrfs-backup-browse/browse-1/repository",
         "expiresAt": "2026-08-31T12:00:00Z",
         "readOnly": true
     })"));
     expect(session.has_value() && session->session_id == QStringLiteral("browse-1"), "valid browse session was rejected");
     expect(!btrfsbackup::kde::parse_browse_session(QStringLiteral(R"({
         "schemaVersion": 1, "sessionId": "browse-1", "profileId": "default",
-        "rootPath": "relative", "expiresAt": "2026-08-31T12:00:00Z", "readOnly": true
-    })")).has_value(), "relative browse root was accepted");
+        "expiresAt": "2026-08-31T12:00:00Z", "readOnly": true
+    })")).has_value(), "legacy browse session was accepted");
     expect(!btrfsbackup::kde::parse_browse_session(QStringLiteral(R"({
-        "schemaVersion": 1, "sessionId": "browse-1", "profileId": "default",
-        "rootPath": "/tmp/root", "expiresAt": "2026-08-31T12:00:00Z", "readOnly": false
+        "schemaVersion": 2, "sessionId": "browse-1", "profileId": "default",
+        "expiresAt": "2026-08-31T12:00:00Z", "readOnly": false
     })")).has_value(), "writable browse session was accepted");
 }
 

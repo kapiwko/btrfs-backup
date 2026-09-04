@@ -22,7 +22,6 @@ using btrfsbackup::daemon::control::BrowseSessionService;
 using btrfsbackup::daemon::control::IBrowseSessionBackend;
 using btrfsbackup::daemon::control::IManagerAuthorizer;
 using btrfsbackup::daemon::control::ManagerAuthorizationAction;
-using btrfsbackup::daemon::control::OpenedBrowseRoot;
 using btrfsbackup::daemon::dbus::ManagerErrorCode;
 using btrfsbackup::daemon::dbus::ManagerOperationError;
 
@@ -46,9 +45,8 @@ class Backend final : public IBrowseSessionBackend {
     bool fail_close = false;
     std::vector<std::string> opened;
     std::vector<std::string> closed;
-    OpenedBrowseRoot open(const ProfileId& profile, const BrowseSessionId& id, std::uint32_t uid) override {
+    void open(const ProfileId& profile, const BrowseSessionId& id, std::uint32_t uid) override {
         opened.push_back(std::string(profile.value()) + ":" + std::string(id.value()) + ":" + std::to_string(uid));
-        return {"/run/btrfs-backup-browse/" + std::string(id.value()) + "/repository"};
     }
     void close(const BrowseSessionId& id) override {
         closed.push_back(std::string(id.value()));
@@ -76,6 +74,9 @@ class Backend final : public IBrowseSessionBackend {
         const std::filesystem::path&
     ) override {
         return btrfsbackup::platform::linux::OwnedFileDescriptor(::open("/dev/null", O_RDONLY | O_CLOEXEC));
+    }
+    btrfsbackup::platform::linux::OwnedFileDescriptor open_root(const BrowseSessionId&) override {
+        return btrfsbackup::platform::linux::OwnedFileDescriptor(::open("/", O_PATH | O_DIRECTORY | O_CLOEXEC));
     }
     std::string inspect_repository(const BrowseSessionId&) override {
         return R"({"schemaVersion":1,"repositoryId":"test"})";
@@ -146,6 +147,9 @@ void test_foreign_caller_cannot_close_session() {
     });
     expect_error("foreign open file", ManagerErrorCode::NotAuthorized, [&] {
         (void)service.open_file(":1.31", "browse-owned", "snapshot/file");
+    });
+    expect_error("foreign open root", ManagerErrorCode::NotAuthorized, [&] {
+        (void)service.open_root(":1.31", "browse-owned");
     });
     expect_error("foreign repository inspection", ManagerErrorCode::NotAuthorized, [&] {
         (void)service.inspect_repository(":1.31", "browse-owned");
@@ -241,6 +245,30 @@ void test_renewal_uses_monotonic_deadline_and_active_pin() {
     test_helpers::expect_true("inactive session expired", backend.closed.size() == 1, "inactive session remained");
 }
 
+void test_concurrent_operation_pins_are_counted() {
+    Authorizer authorizer;
+    Backend backend;
+    auto monotonic = std::chrono::steady_clock::time_point{std::chrono::seconds{100}};
+    BrowseSessionService service(
+        authorizer,
+        backend,
+        std::chrono::seconds{10},
+        [] { return BrowseSessionId{"browse-concurrent"}; },
+        [&] { return monotonic; }
+    );
+    const auto opened = service.open(":1.61", 1000, "default");
+    service.set_active(":1.61", opened.session_id, true);
+    service.set_active(":1.61", opened.session_id, true);
+    monotonic += std::chrono::hours{1};
+    service.set_active(":1.61", opened.session_id, false);
+    service.expire();
+    test_helpers::expect_true("one concurrent lease remains", backend.closed.empty(), "one completion released every operation pin");
+    service.set_active(":1.61", opened.session_id, false);
+    monotonic += std::chrono::seconds{11};
+    service.expire();
+    test_helpers::expect_true("all concurrent leases released", backend.closed.size() == 1, "released session did not expire");
+}
+
 void test_session_limits_are_enforced_before_backend_open() {
     Authorizer authorizer;
     Backend backend;
@@ -280,6 +308,7 @@ int main() {
     test_expiration_and_cleanup_failure_are_contained();
     test_failed_disconnect_unpins_session_for_cleanup_retry();
     test_renewal_uses_monotonic_deadline_and_active_pin();
+    test_concurrent_operation_pins_are_counted();
     test_session_limits_are_enforced_before_backend_open();
     return test_helpers::finish("browse session service tests");
 }

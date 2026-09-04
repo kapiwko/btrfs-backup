@@ -9,11 +9,32 @@
 #include <filesystem>
 #include <string>
 
+#include <sys/stat.h>
+
 #include <restore/RestoreError.hpp>
 
 namespace btrfsbackup::restore {
 
 namespace {
+
+bool is_pinned_descriptor_component(const std::filesystem::path& path) {
+    const std::filesystem::path prefix{"/proc/self/fd"};
+    const auto relative = path.lexically_relative(prefix);
+    if (relative.empty() || relative.is_absolute())
+        return false;
+    const std::string descriptor_text = (*relative.begin()).string();
+    if (descriptor_text.empty() || !std::ranges::all_of(descriptor_text, [](unsigned char value) {
+            return std::isdigit(value) != 0;
+        }))
+        return false;
+    try {
+        const int descriptor = std::stoi(descriptor_text);
+        struct stat status{};
+        return descriptor >= 0 && ::fstat(descriptor, &status) == 0 && S_ISDIR(status.st_mode);
+    } catch (...) {
+        return false;
+    }
+}
 
 bool valid_transaction_id(const std::string& value) {
     return !value.empty() && value.size() <= 64 && std::ranges::all_of(value, [](unsigned char character) {
@@ -41,6 +62,7 @@ void validate_destination(const std::filesystem::path& destination) {
 }
 
 void reject_symlink_components(const std::filesystem::path& path, RestoreErrorCode code) {
+    const bool pinned = is_pinned_descriptor_component(path);
     std::filesystem::path current;
     for (const std::filesystem::path& component : path) {
         current /= component;
@@ -49,7 +71,8 @@ void reject_symlink_components(const std::filesystem::path& path, RestoreErrorCo
         if (error) {
             throw RestoreError(code, "restore path cannot be inspected: " + current.string());
         }
-        if (std::filesystem::is_symlink(status)) {
+        if (std::filesystem::is_symlink(status) &&
+            !(pinned && (current == "/proc/self" || current.parent_path() == "/proc/self/fd"))) {
             throw RestoreError(RestoreErrorCode::SymlinkRejected, "restore path traverses a symbolic link: " + current.string());
         }
     }

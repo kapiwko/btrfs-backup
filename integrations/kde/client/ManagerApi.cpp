@@ -130,6 +130,10 @@ QDBusPendingCall ManagerClient::openBrowseFile(const QString& session_id, const 
     return call(QLatin1String(manager_protocol::method::open_browse_file), {session_id, path});
 }
 
+QDBusPendingCall ManagerClient::openBrowseRoot(const QString& session_id) const {
+    return call(QLatin1String(manager_protocol::method::open_browse_root), {session_id});
+}
+
 QDBusPendingCall manager_call(
     const QDBusConnection& bus,
     const QString& method,
@@ -405,12 +409,10 @@ std::optional<BrowseSessionInfo> parse_browse_session(const QString& payload) {
     BrowseSessionInfo result{
         .session_id = object.value(QStringLiteral("sessionId")).toString(),
         .profile_id = object.value(QStringLiteral("profileId")).toString(),
-        .root_path = object.value(QStringLiteral("rootPath")).toString(),
         .expires_at = QDateTime::fromString(object.value(QStringLiteral("expiresAt")).toString(), Qt::ISODate),
         .read_only = true,
     };
-    if (result.session_id.isEmpty() || result.profile_id.isEmpty() || result.root_path.isEmpty() ||
-        !result.expires_at.isValid() || !QDir::isAbsolutePath(result.root_path))
+    if (result.session_id.isEmpty() || result.profile_id.isEmpty() || !result.expires_at.isValid())
         return std::nullopt;
     return result;
 }

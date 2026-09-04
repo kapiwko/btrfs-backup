@@ -298,7 +298,7 @@ std::optional<SystemBrowseSessionBackend::SessionMount> SystemBrowseSessionBacke
     }
 }
 
-OpenedBrowseRoot SystemBrowseSessionBackend::open(
+void SystemBrowseSessionBackend::open(
     const ProfileId& profile_id,
     const BrowseSessionId& session_id,
     std::uint32_t caller_uid
@@ -310,7 +310,7 @@ OpenedBrowseRoot SystemBrowseSessionBackend::open(
     const TargetLease& target = acquire_target(loaded.profile);
     const std::string key{loaded.profile.target.luks_uuid.value()};
     const fs::path uid_root = session_root_ / std::to_string(caller_uid);
-    require_private_directory(uid_root, 0700, caller_uid);
+    require_private_directory(uid_root, 0700, 0);
     const fs::path directory = uid_root / std::string(session_id.value());
     const fs::path view = directory / "repository";
     SessionMount record{
@@ -331,15 +331,15 @@ OpenedBrowseRoot SystemBrowseSessionBackend::open(
         if (fs::exists(directory))
             target_error("browse session directory already exists");
         fs::create_directories(view);
-        if (chown(directory.c_str(), caller_uid, static_cast<gid_t>(-1)) != 0 ||
-            chown(view.c_str(), caller_uid, static_cast<gid_t>(-1)) != 0 ||
-            chmod(directory.c_str(), 0500) != 0 || chmod(view.c_str(), 0500) != 0)
+        if (chown(directory.c_str(), 0, static_cast<gid_t>(-1)) != 0 ||
+            chown(view.c_str(), 0, static_cast<gid_t>(-1)) != 0 ||
+            chmod(directory.c_str(), 0700) != 0 || chmod(view.c_str(), 0700) != 0)
             target_error("cannot secure browse session directory");
         write_marker(session_id, session->second);
         session->second.view_mounted = true;
         write_marker(session_id, session->second);
         mount_read_only(session_id, loaded.profile.paths.remote_root.value(), view);
-        return {view};
+        return;
     } catch (...) {
         try {
             close(session_id);
@@ -527,6 +527,19 @@ OwnedFileDescriptor SystemBrowseSessionBackend::open_file(
     if (!S_ISREG(status.st_mode))
         throw std::invalid_argument("browse entry is not a regular file");
     return result;
+}
+
+OwnedFileDescriptor SystemBrowseSessionBackend::open_root(const BrowseSessionId& session_id) {
+    const auto session = sessions_.find(std::string(session_id.value()));
+    if (session == sessions_.end())
+        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::NotFound, "browse session was not found");
+    OwnedFileDescriptor root(::open(
+        session->second.view.c_str(),
+        O_PATH | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW
+    ));
+    if (!root.valid())
+        browse_path_error("cannot open browse session root");
+    return root;
 }
 
 std::string SystemBrowseSessionBackend::inspect_repository(const BrowseSessionId& session_id) {

@@ -491,6 +491,7 @@ void Fixture::verify_read_api() {
         "ListBrowseDirectory",
         "InspectBrowseEntry",
         "OpenBrowseFile",
+        "OpenBrowseRoot",
         "InspectBrowseRepository",
         "ResolveBackupCoverage",
         "ListTargetCredentials",

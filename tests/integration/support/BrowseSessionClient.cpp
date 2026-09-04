@@ -9,6 +9,7 @@
 #include <nlohmann/json.hpp>
 
 #include <fcntl.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include <chrono>
@@ -44,10 +45,16 @@ class BrowseSessionClient final {
         {
             const std::string payload = manager_->call(manager_protocol::method::open_browse_session, profile_id);
             validate_session(payload, profile_id);
-            browse_root = nlohmann::json::parse(payload).at("rootPath").get<std::string>();
+            const std::string session_id = nlohmann::json::parse(payload).at("sessionId").get<std::string>();
+            browse_root = std::filesystem::path{"/run/btrfs-backup-browse"} /
+                std::to_string(getuid()) / session_id / "repository";
             if (!browse_root.string().starts_with("/run/btrfs-backup-browse/") ||
                 browse_root.filename() != "repository")
-                throw std::runtime_error("manager returned an invalid browse root");
+                throw std::runtime_error("test derived an invalid browse root");
+            struct stat parent_status{};
+            if (lstat(browse_root.parent_path().c_str(), &parent_status) != 0 ||
+                parent_status.st_uid != 0 || (parent_status.st_mode & 0777) != 0700)
+                throw std::runtime_error("browse session directory is not root-owned and private");
             const auto options = mount_options(browse_root);
             for (const std::string_view required : {"ro", "nodev", "nosuid", "noexec", "nosymfollow"})
                 if (!options.contains(std::string(required)))
@@ -106,11 +113,12 @@ class BrowseSessionClient final {
             document.at("schemaVersion").get<int>() != manager_protocol::browse_session_schema_version ||
             document.at("sessionId").get<std::string>().empty() ||
             document.at("profileId").get<std::string>() != expected_profile_id ||
-            document.at("rootPath").get<std::string>().empty() ||
             document.at("expiresAt").get<std::string>().empty() ||
             !document.at("readOnly").get<bool>()) {
             throw std::runtime_error("manager returned an invalid browse session document");
         }
+        if (document.contains("rootPath"))
+            throw std::runtime_error("manager exposed a local browse root path");
     }
 
     std::unique_ptr<ManagerTestClient> manager_{std::make_unique<ManagerTestClient>()};

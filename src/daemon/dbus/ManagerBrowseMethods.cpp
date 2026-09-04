@@ -189,6 +189,23 @@ int ManagerBrowseMethods::open_browse_file(sd_bus_message* message, sd_bus_error
     );
 }
 
+int ManagerBrowseMethods::open_browse_root(sd_bus_message* message, sd_bus_error* error) noexcept {
+    return invoke_dbus_callback(
+        [&] {
+            const char* session_id = nullptr;
+            const int read_result = sd_bus_message_read(message, "s", &session_id);
+            if (read_result < 0)
+                return read_result;
+            auto root = browse_sessions_.open_root(
+                ManagerMethodSupport::caller_bus_name(message),
+                session_id == nullptr ? "" : session_id
+            );
+            return sd_bus_reply_method_return(message, "h", root.get());
+        },
+        [&](const std::exception* exception) { return support_.set_callback_error(error, exception); }
+    );
+}
+
 int ManagerBrowseMethods::inspect_browse_repository(sd_bus_message* message, sd_bus_error* error) noexcept {
     return invoke_dbus_callback(
         [&] {

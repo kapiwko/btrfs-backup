@@ -200,7 +200,6 @@ std::string ManagerJsonCodec::encode(const BrowseSessionInfo& session) const {
         {"schemaVersion", manager_protocol::browse_session_schema_version},
         {"sessionId", session.session_id},
         {"profileId", session.profile_id},
-        {"rootPath", session.root_path},
         {"expiresAt", session.expires_at},
         {"readOnly", session.read_only},
     });

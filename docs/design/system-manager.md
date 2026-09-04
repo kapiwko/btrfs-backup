@@ -50,6 +50,7 @@ CloseBrowseSession
 ListBrowseDirectory
 InspectBrowseEntry
 OpenBrowseFile
+OpenBrowseRoot
 ProfilesChanged
 StatusChanged
 HistoryChanged

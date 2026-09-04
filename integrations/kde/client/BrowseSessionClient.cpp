@@ -4,6 +4,7 @@
 #include "BrowseSessionClient.hpp"
 
 #include <QDBusPendingReply>
+#include <QDBusUnixFileDescriptor>
 
 #include <utility>
 
@@ -47,6 +48,13 @@ std::optional<QString> BrowseSessionClient::inspectEntry(const QString& session_
 
 std::optional<QString> BrowseSessionClient::inspectRepository(const QString& session_id) const {
     return payload(manager_.inspectBrowseRepository(session_id));
+}
+
+QDBusUnixFileDescriptor BrowseSessionClient::openRoot(const QString& session_id) const {
+    QDBusPendingReply<QDBusUnixFileDescriptor> reply(manager_.openBrowseRoot(session_id));
+    reply.waitForFinished();
+    last_error_name_ = reply.isError() ? reply.error().name() : QString{};
+    return reply.isError() ? QDBusUnixFileDescriptor{} : reply.value();
 }
 
 const QString& BrowseSessionClient::lastErrorName() const noexcept {
