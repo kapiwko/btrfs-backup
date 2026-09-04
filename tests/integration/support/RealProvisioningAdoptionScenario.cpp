@@ -73,6 +73,7 @@ void RealProvisioningTestEnvironment::require_existing_target_is_adopted() {
     staging_mounted_ = false;
     require_command({"cryptsetup", "close", adoption_mapper_name_}, "close adoption mapper");
     adoption_mapper_open_ = false;
+    require_command({"udevadm", "settle", "--timeout=10"}, "settle closed adoption mapper");
     const auto hash_before = command({"sha256sum", partition.string()});
     if (hash_before.status != 0)
         throw std::runtime_error("cannot capture adoption partition baseline");

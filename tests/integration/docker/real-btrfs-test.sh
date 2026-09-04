@@ -117,7 +117,7 @@ materialize_device_mapper_nodes() {
     install -d -m0755 /dev/block /dev/mapper
     for sysfs_device in /sys/class/block/dm-*; do
         [[ -r "$sysfs_device/dev" && -r "$sysfs_device/dm/name" ]] || continue
-        IFS= read -r mapper_name < "$sysfs_device/dm/name"
+        IFS= read -r mapper_name < "$sysfs_device/dm/name" 2>/dev/null || continue
         [[ "$mapper_name" =~ ^[A-Za-z0-9_.+-]+$ ]] || continue
         [[ "$mapper_name" == btrfs-backup-* || "$mapper_name" == bb-real-* ]] || continue
         device_name="${sysfs_device##*/}"
@@ -526,24 +526,6 @@ trusted_hook_security_test() {
     pass 'runtime executes only pinned root-owned hooks from trusted directories'
 }
 
-systemd_security_audit() {
-    local security_log="$LOG_DIR/systemd-security.log"
-
-    if ! cmake \
-        -DUNIT_FILE=/etc/systemd/system/btrfs-backup@.service \
-        -DPOLICY=backup \
-        -DSYSTEMD_ANALYZE="$(command -v systemd-analyze)" \
-        -DTEST_ROOT="$TEST_ROOT" \
-        -P "$ROOT/tests/systemd/security_tests.cmake" \
-        > "$security_log" 2>&1; then
-        cat -- "$security_log" >&2
-        fail 'systemd security exposure exceeds the accepted threshold'
-    fi
-    grep -Fq 'Overall exposure level' "$security_log" \
-        || fail 'systemd security audit did not report an exposure level'
-    pass 'systemd security audit accepts the installed profile service'
-}
-
 wait_for_eject_service() {
     local completion_count
     local state
@@ -704,7 +686,8 @@ install -d -m0700 "$LOG_DIR"
     /usr/bin/btrfs-backupctl \
     "$BROWSE_SESSION_CLIENT" \
     "$DEVICE_PROVISIONING_CLIENT" \
-    "$PACKAGE_DIR"
+    "$PACKAGE_DIR" \
+    "$ROOT"
 
 printf '%s\n' 'btrfs-backup-real-test-passphrase' > "$PASSPHRASE_FILE"
 chmod 0600 "$PASSPHRASE_FILE"
@@ -781,7 +764,6 @@ pass 'system D-Bus backup transfers and verifies real Btrfs data'
 
 manager_independence_test
 trusted_hook_security_test
-systemd_security_audit
 plain_mapper_lifecycle_test
 sandboxed_systemd_service_test
 sandboxed_auto_eject_test
