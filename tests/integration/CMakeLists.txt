@@ -15,6 +15,7 @@ target_compile_definitions(btrfsbackup-profile-schema-contract-tests
 )
 
 find_program(BASH_EXECUTABLE bash REQUIRED)
+find_program(PYTHON_EXECUTABLE python3 REQUIRED)
 
 add_test(
     NAME bash-syntax-tests
@@ -32,6 +33,14 @@ add_test(
         -DBACKUPCTL=$<TARGET_FILE:btrfs-backupctl>
         -DTEST_ROOT=${PROJECT_BINARY_DIR}/workflow-contracts
         -P ${CMAKE_CURRENT_SOURCE_DIR}/workflow/installation_render_tests.cmake
+)
+
+add_test(
+    NAME real-btrfs-runner-cli-tests
+    COMMAND
+        ${PYTHON_EXECUTABLE}
+        ${CMAKE_CURRENT_SOURCE_DIR}/docker/run_real_btrfs.py
+        --help
 )
 
 add_test(
@@ -66,6 +75,7 @@ add_test(
 
 set_tests_properties(
     bash-syntax-tests
+    real-btrfs-runner-cli-tests
     installation-render-tests
     profile-json-cli-tests
     command-surface-tests
@@ -221,7 +231,7 @@ if(BUILD_SYSTEM_MANAGER)
             BTRFSBACKUP_REAL_BTRFS_TESTS=$<TARGET_FILE:btrfsbackup-real-btrfs-tests>
             BTRFSBACKUP_BROWSE_SESSION_CLIENT=$<TARGET_FILE:btrfsbackup-integration-browse-session-client>
             BTRFSBACKUP_DEVICE_PROVISIONING_CLIENT=$<TARGET_FILE:btrfsbackup-integration-device-provisioning-client>
-            ${PROJECT_SOURCE_DIR}/tests/integration/docker/run-real-btrfs.sh
+            ${PROJECT_SOURCE_DIR}/tests/integration/docker/run_real_btrfs.py
         DEPENDS
             btrfsbackup-real-btrfs-tests
             btrfsbackup-integration-browse-session-client

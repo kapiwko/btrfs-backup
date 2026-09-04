@@ -659,7 +659,15 @@ sandboxed_auto_eject_test() {
     if findmnt -n -M "$TARGET_MOUNT" >/dev/null 2>&1; then
         fail 'target remained mounted after the eject service'
     fi
-    [[ ! -e "$MAPPER_PATH" ]] || fail 'LUKS mapper remained open after the eject service'
+    for _ in $(seq 1 100); do
+        if ! cryptsetup status "$MAPPER_NAME" >/dev/null 2>&1 && [[ ! -e "$MAPPER_PATH" ]]; then
+            break
+        fi
+        sleep 0.05
+    done
+    if cryptsetup status "$MAPPER_NAME" >/dev/null 2>&1 || [[ -e "$MAPPER_PATH" ]]; then
+        fail 'LUKS mapper remained open after the eject service'
+    fi
     pass 'automatic eject runs outside the backup mount namespace'
 }
 
