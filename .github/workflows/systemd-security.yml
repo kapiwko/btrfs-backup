@@ -19,6 +19,7 @@ jobs:
             cmake \
             gcc \
             git \
+            ninja \
             nlohmann-json \
             pkgconf \
             systemd \
