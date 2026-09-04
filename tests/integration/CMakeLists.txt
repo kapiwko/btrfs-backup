@@ -67,6 +67,11 @@ add_test(
 )
 
 add_test(
+    NAME screenshot-automation-tests
+    COMMAND ${PYTHON_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tools/screenshots/render_tests.py
+)
+
+add_test(
     NAME profile-json-cli-tests
     COMMAND
         ${CMAKE_COMMAND}
@@ -103,6 +108,7 @@ set_tests_properties(
     qemu-guest-payload-tests
     qemu-hotplug-runner-cli-tests
     qemu-hotplug-runner-tests
+    screenshot-automation-tests
     installation-render-tests
     profile-json-cli-tests
     command-surface-tests
