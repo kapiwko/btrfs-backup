@@ -366,6 +366,26 @@ void test_storage_topology_and_plan_contract() {
     );
 }
 
+void test_device_preparation_status_contract() {
+    const ManagerJsonCodec codec;
+    const btrfsbackup::provisioning::DevicePreparationStatus status{
+        .operation_id = "prepare-1",
+        .profile_id = "default",
+        .state = "failed",
+        .phase = "write-profile",
+        .error_code = "device-preparation.profile-conflict",
+        .recovery_action = "Inspect the prepared target before retrying.",
+        .last_completed_phase = "close",
+        .cleanup_result = "mapper-closed",
+        .can_cancel = false,
+    };
+    const Json document = Json::parse(codec.encode(status));
+    expect_field("preparation status", document, "schemaVersion", 3);
+    expect_field("preparation status", document, "lastCompletedPhase", "close");
+    expect_field("preparation status", document, "cleanupResult", "mapper-closed");
+    expect_field("preparation status", document, "errorCode", status.error_code);
+}
+
 } // namespace
 
 int main() {
@@ -373,5 +393,6 @@ int main() {
     test_profiles();
     test_status_history_and_device();
     test_storage_topology_and_plan_contract();
+    test_device_preparation_status_contract();
     return test_helpers::finish("manager JSON codec tests");
 }

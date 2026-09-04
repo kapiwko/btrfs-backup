@@ -299,6 +299,8 @@ DevicePreparationTransaction parse_transaction(const Json& value) {
         .phase = value.value("phase", ""),
         .error_code = value.value("errorCode", ""),
         .recovery_action = value.value("recoveryAction", ""),
+        .last_completed_phase = {},
+        .cleanup_result = "not-required",
         .can_cancel = value.value("canCancel", false),
     };
     result.owner = {

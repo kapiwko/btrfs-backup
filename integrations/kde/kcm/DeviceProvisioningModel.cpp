@@ -331,7 +331,15 @@ bool DeviceProvisioningModel::applySources(const QString& payload) {
             candidate.value(QStringLiteral("mountRoot")).toString().isEmpty() ||
             candidate.value(QStringLiteral("localSnapshotRoot")).toString().isEmpty())
             return false;
-        result.push_back(candidate.toVariantMap());
+        QVariantMap displayed = candidate.toVariantMap();
+        const QString path = candidate.value(QStringLiteral("path")).toString();
+        const QString name = path == QStringLiteral("/home")
+            ? i18nd("kcm_btrfsbackup", "Home folder")
+            : path == QStringLiteral("/")
+                ? i18nd("kcm_btrfsbackup", "System root")
+                : i18nd("kcm_btrfsbackup", "Btrfs source");
+        displayed.insert(QStringLiteral("displayName"), i18nd("kcm_btrfsbackup", "%1 — %2", name, path));
+        result.push_back(std::move(displayed));
     }
     source_candidates_ = std::move(result);
     emit sourceCandidatesChanged();
@@ -344,7 +352,9 @@ bool DeviceProvisioningModel::applyOperation(const QString& payload) {
         return false;
     const auto object = document.object();
     if (object.value(QStringLiteral("schemaVersion")).toInt(-1) != manager_protocol::device_provisioning_schema_version ||
-        object.value(QStringLiteral("operationId")).toString().isEmpty())
+        object.value(QStringLiteral("operationId")).toString().isEmpty() ||
+        !object.value(QStringLiteral("lastCompletedPhase")).isString() ||
+        !object.value(QStringLiteral("cleanupResult")).isString())
         return false;
     operation_ = object.toVariantMap();
     emit operationChanged();

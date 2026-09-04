@@ -89,8 +89,11 @@ selected.
 Existing LUKS2/Btrfs targets are inspected read-only; compatible repositories
 can be adopted, while empty, legacy, unsupported and foreign layouts are
 presented as distinct non-adoptable results. Whole-disk, existing-partition and
-adoption plans are executable. Creating a partition in unallocated GPT space
-remains disabled until its transaction is implemented.
+unallocated-space preparation and adoption plans are executable. After a
+failed preparation, the KCM presents the completed checkpoint sequence, failed
+phase, cleanup result, stable error code and operation identifier. It also
+offers a copyable diagnostic summary and a link to the recovery guide; private
+device identity remains in the root-only transaction and journal.
 
 For a development build, install the generated plugin and desktop entry, then
 refresh KDE's service cache:

@@ -49,6 +49,8 @@ struct DevicePreparationStatus {
     std::string phase;
     std::string error_code;
     std::string recovery_action;
+    std::string last_completed_phase;
+    std::string cleanup_result = "not-required";
     bool can_cancel = false;
 };
 

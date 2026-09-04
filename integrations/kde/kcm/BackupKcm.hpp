@@ -27,6 +27,8 @@ class BackupKcm final : public KQuickConfigModule {
     Q_INVOKABLE void openSystemLog();
     Q_INVOKABLE void openSupportPage();
     Q_INVOKABLE void openPartitionManager();
+    Q_INVOKABLE void openRecoveryGuide();
+    Q_INVOKABLE void copyText(const QString& text);
     Q_INVOKABLE QString toLocalFile(const QUrl& url) const;
     [[nodiscard]] bool partitionManagerAvailable() const;
     ProfileConfigurationModel* profileConfiguration();

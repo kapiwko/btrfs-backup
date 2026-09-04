@@ -154,6 +154,11 @@ root-owned and private; clients access repository contents only through brokered
 operations or a pinned directory descriptor. Active-operation pins are counted,
 so finishing one concurrent KIO request cannot unpin another request.
 
+Device-provisioning status schema version 3 adds `lastCompletedPhase` and
+`cleanupResult`. They are presentation-safe recovery evidence: clients can show
+which durable steps completed and whether the temporary mapper was closed
+without receiving device paths, mapper names or private transaction contents.
+
 The `target-storage-usage` feature is part of the current major-version
 baseline. The device-state parent remains schema version 1 and may contain this
 optional, independently versioned block:

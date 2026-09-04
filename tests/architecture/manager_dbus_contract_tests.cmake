@@ -358,7 +358,7 @@ assert_authorized_method(
 
 assert_contains(
     "${manager_protocol}"
-    "inline constexpr int device_provisioning_schema_version = 2;"
+    "inline constexpr int device_provisioning_schema_version = 3;"
     "the device preparation status schema version"
 )
 assert_contains(

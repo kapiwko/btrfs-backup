@@ -7,6 +7,8 @@
 #include <KPluginFactory>
 
 #include <QDesktopServices>
+#include <QGuiApplication>
+#include <QClipboard>
 #include <QProcess>
 #include <QStandardPaths>
 #include <QUrl>
@@ -43,6 +45,16 @@ void BackupKcm::openPartitionManager() {
         return;
     }
     QDesktopServices::openUrl(QUrl(QStringLiteral("appstream://org.kde.partitionmanager.desktop")));
+}
+
+void BackupKcm::openRecoveryGuide() {
+    QDesktopServices::openUrl(QUrl(QStringLiteral(
+        "https://github.com/kapiwko/btrfs-backup/blob/master/docs/recovery.md"
+    )));
+}
+
+void BackupKcm::copyText(const QString& text) {
+    QGuiApplication::clipboard()->setText(text);
 }
 
 bool BackupKcm::partitionManagerAvailable() const {

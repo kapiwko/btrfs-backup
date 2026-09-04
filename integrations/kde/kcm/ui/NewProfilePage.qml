@@ -99,6 +99,31 @@ KCMUtils.SimpleKCM {
         return translations.i18n("The device is not safe to use as a backup target")
     }
 
+    function operationSteps() {
+        if (root.adoption)
+            return ["verify-existing-target", "write-profile"]
+        if (root.planMode === "erase-whole-device")
+            return ["backup-partition-table", "wipe-signatures", "partition", "luks-format", "open", "mkfs-btrfs", "close", "write-profile", "credentials"]
+        if (root.planMode === "create-partition-in-unallocated-space")
+            return ["backup-partition-table", "partition", "luks-format", "open", "mkfs-btrfs", "close", "write-profile", "credentials"]
+        return ["wipe-signatures", "luks-format", "open", "mkfs-btrfs", "close", "write-profile", "credentials"]
+    }
+
+    function phaseCompleted(phase) {
+        const steps = root.operationSteps()
+        const completed = steps.indexOf(root.provisioning.operation.lastCompletedPhase ?? "")
+        return completed >= 0 && steps.indexOf(phase) <= completed
+    }
+
+    function diagnosticReport() {
+        return "operationId=" + (root.provisioning.operation.operationId ?? "")
+            + "\nstate=" + (root.provisioning.operation.state ?? "")
+            + "\nphase=" + (root.provisioning.operation.phase ?? "")
+            + "\nlastCompletedPhase=" + (root.provisioning.operation.lastCompletedPhase ?? "")
+            + "\ncleanupResult=" + (root.provisioning.operation.cleanupResult ?? "")
+            + "\nerrorCode=" + (root.provisioning.operation.errorCode ?? "")
+    }
+
     title: root.step === 0 ? translations.i18n("Add backup profile")
         : root.step === 1 ? (root.adoption
             ? translations.i18n("Use existing backup device")
@@ -539,7 +564,7 @@ KCMUtils.SimpleKCM {
                         Layout.fillWidth: true
                         Kirigami.FormData.label: translations.i18n("Backup source:")
                         model: root.provisioning.sourceCandidates
-                        textRole: "path"
+                        textRole: "displayName"
                         valueRole: "id"
                         editable: false
                         displayText: currentIndex >= 0 ? currentText : translations.i18n("Select source Btrfs subvolume")
@@ -566,6 +591,13 @@ KCMUtils.SimpleKCM {
                         checked: true
                         visible: !root.adoption
                         text: translations.i18n("Create a protected key for automatic backups")
+                    }
+                    QQC2.Label {
+                        Layout.fillWidth: true
+                        visible: automaticKey.visible && automaticKey.checked
+                        wrapMode: Text.Wrap
+                        text: translations.i18n("The key is stored in a root-only system directory and allows backups to unlock the target without a prompt. The recovery passphrase remains available if the key is lost or removed.")
+                        opacity: 0.75
                     }
                     RowLayout {
                         Layout.fillWidth: true
@@ -689,6 +721,57 @@ KCMUtils.SimpleKCM {
                         ? translations.i18n("Verifying and adding the existing backup target.")
                         : translations.i18n("Do not disconnect the device while preparation is in progress."))
             }
+            ColumnLayout {
+                Layout.alignment: Qt.AlignHCenter
+                Layout.maximumWidth: Kirigami.Units.gridUnit * 32
+                visible: (root.provisioning.operation.operationId ?? "") !== ""
+                Repeater {
+                    model: root.operationSteps()
+                    RowLayout {
+                        required property string modelData
+                        Kirigami.Icon {
+                            source: root.phaseCompleted(modelData)
+                                ? "emblem-success"
+                                : root.provisioning.operation.state === "failed"
+                                    && root.provisioning.operation.phase === modelData
+                                ? "dialog-error" : "emblem-pause"
+                            implicitWidth: Kirigami.Units.iconSizes.small
+                            implicitHeight: implicitWidth
+                        }
+                        QQC2.Label {
+                            text: root.phaseText(modelData)
+                            opacity: root.phaseCompleted(modelData)
+                                || root.provisioning.operation.phase === modelData ? 1 : 0.65
+                        }
+                    }
+                }
+                QQC2.Label {
+                    Layout.fillWidth: true
+                    visible: root.provisioning.operation.state === "failed"
+                        && (root.provisioning.operation.recoveryAction ?? "") !== ""
+                    wrapMode: Text.Wrap
+                    text: root.provisioning.operation.recoveryAction ?? ""
+                }
+                QQC2.Label {
+                    Layout.fillWidth: true
+                    visible: (root.provisioning.operation.operationId ?? "") !== ""
+                    text: translations.i18n("Operation identifier: %1", root.provisioning.operation.operationId ?? "")
+                    elide: Text.ElideMiddle
+                }
+                RowLayout {
+                    visible: root.provisioning.operation.state === "failed"
+                    QQC2.Button {
+                        text: translations.i18n("Copy diagnostic report")
+                        icon.name: "edit-copy"
+                        onClicked: if (typeof kcm !== "undefined") kcm.copyText(root.diagnosticReport())
+                    }
+                    QQC2.Button {
+                        text: translations.i18n("Open recovery instructions")
+                        icon.name: "help-contents"
+                        onClicked: if (typeof kcm !== "undefined") kcm.openRecoveryGuide()
+                    }
+                }
+            }
             QQC2.Button {
                 Layout.alignment: Qt.AlignHCenter
                 visible: root.provisioning.operation.canCancel ?? false
@@ -737,6 +820,7 @@ KCMUtils.SimpleKCM {
     function phaseText(phase) {
         switch (phase) {
         case "inspect": return translations.i18n("Inspecting device")
+        case "backup-partition-table": return translations.i18n("Saving the current partition table")
         case "verify-existing-target": return translations.i18n("Verifying existing backup target")
         case "wipe-signatures": return translations.i18n("Erasing existing signatures")
         case "partition": return translations.i18n("Creating partition table")
@@ -745,6 +829,7 @@ KCMUtils.SimpleKCM {
         case "mkfs-btrfs": return translations.i18n("Creating Btrfs filesystem")
         case "close": return translations.i18n("Closing encrypted device")
         case "write-profile": return translations.i18n("Installing backup profile")
+        case "credentials": return translations.i18n("Installing backup credentials")
         case "complete": return translations.i18n("Backup device is ready")
         default: return phase
         }

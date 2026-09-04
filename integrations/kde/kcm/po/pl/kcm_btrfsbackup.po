@@ -1159,3 +1159,33 @@ msgstr "Użyj całego urządzenia"
 
 msgid "Erase every partition and create a new encrypted backup target"
 msgstr "Usuń wszystkie partycje i utwórz nowy zaszyfrowany cel kopii zapasowej"
+
+msgid "Home folder"
+msgstr "Katalog domowy"
+
+msgid "System root"
+msgstr "Główny system plików"
+
+msgid "Btrfs source"
+msgstr "Źródło Btrfs"
+
+msgid "%1 — %2"
+msgstr "%1 — %2"
+
+msgid "The key is stored in a root-only system directory and allows backups to unlock the target without a prompt. The recovery passphrase remains available if the key is lost or removed."
+msgstr "Klucz jest przechowywany w katalogu systemowym dostępnym tylko dla roota i pozwala kopiom zapasowym odblokować nośnik bez pytania. Hasło odzyskiwania pozostaje dostępne w razie utraty lub usunięcia klucza."
+
+msgid "Operation identifier: %1"
+msgstr "Identyfikator operacji: %1"
+
+msgid "Copy diagnostic report"
+msgstr "Kopiuj raport diagnostyczny"
+
+msgid "Open recovery instructions"
+msgstr "Otwórz instrukcję odzyskiwania"
+
+msgid "Saving the current partition table"
+msgstr "Zapisywanie bieżącej tablicy partycji"
+
+msgid "Installing backup credentials"
+msgstr "Instalowanie danych uwierzytelniających kopii zapasowej"

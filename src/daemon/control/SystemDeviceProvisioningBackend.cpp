@@ -136,6 +136,8 @@ DevicePreparationStatus corrupted_transaction_status(const std::string& operatio
         .phase = "manual-intervention-required",
         .error_code = "device-preparation.transaction-corrupted",
         .recovery_action = "Inspect the preserved device preparation transaction manually.",
+        .last_completed_phase = {},
+        .cleanup_result = "unknown",
         .can_cancel = false,
     };
 }
@@ -585,6 +587,8 @@ DevicePreparationStatus SystemDeviceProvisioningBackend::start(
             .phase = "inspect",
             .error_code = {},
             .recovery_action = {},
+            .last_completed_phase = {},
+            .cleanup_result = "not-required",
             .can_cancel = true,
         },
         .owner = owner,
@@ -633,7 +637,11 @@ DevicePreparationStatus SystemDeviceProvisioningBackend::start(
 
 DevicePreparationStatus SystemDeviceProvisioningBackend::status(const std::string& operation_id) const {
     try {
-        return impl_->load_current(operation_id).status;
+        const DevicePreparationTransaction transaction = impl_->load_current(operation_id);
+        DevicePreparationStatus result = transaction.status;
+        result.last_completed_phase = transaction.last_completed_phase;
+        result.cleanup_result = transaction.cleanup_result;
+        return result;
     } catch (const std::exception&) {
         std::lock_guard lock(impl_->jobs_mutex);
         const auto corrupted = impl_->corrupted_transactions.find(operation_id);
