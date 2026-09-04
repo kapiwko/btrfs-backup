@@ -40,6 +40,7 @@ void RealProvisioningTestEnvironment::require_unallocated_space_preserves_partit
     const fs::path backup = loop_ + "p2";
     require_block_device(preserved, "preserved partition node was not created");
     require_command({"mkfs.ext4", "-q", "-F", "-L", "PRESERVED", preserved.string()}, "format preserved partition");
+    require_command({"udevadm", "settle", "--timeout=10"}, "settle preserved filesystem metadata");
     const auto hash_before = command({"sha256sum", preserved.string()});
     const auto table_before = command({"sfdisk", "--json", loop_});
     if (hash_before.status != 0 || table_before.status != 0)

@@ -22,7 +22,6 @@ MAPPER_NAME="bb-real-target-${TEST_ROOT##*.}"
 MAPPER_PATH="/dev/mapper/$MAPPER_NAME"
 PASSPHRASE_FILE="$TEST_ROOT/luks.pass"
 PACKAGE_DIR="${BTRFSBACKUP_PACKAGE_DIR:-$TEST_ROOT/package}"
-RENDERED_CONFIG="$TEST_ROOT/rendered"
 LOG_DIR="$TEST_ROOT/logs"
 RUN_LOG="$LOG_DIR/btrfs-backup.log"
 PROFILE_JSON=/etc/btrfs-backup/profiles/default/profile.json
@@ -30,6 +29,7 @@ EJECT_COMPLETION_COUNT=0
 BROWSE_SESSION_CLIENT="${BTRFSBACKUP_BROWSE_SESSION_CLIENT:?missing browse-session integration client}"
 DEVICE_PROVISIONING_CLIENT="${BTRFSBACKUP_DEVICE_PROVISIONING_CLIENT:?missing device-provisioning integration client}"
 REAL_BTRFS_TESTS="${BTRFSBACKUP_REAL_BTRFS_TESTS:?missing real-Btrfs C++ integration test}"
+REAL_INSTALLED_RUNTIME_TESTS="${BTRFSBACKUP_REAL_INSTALLED_RUNTIME_TESTS:?missing installed-runtime C++ integration test}"
 
 cleanup() {
     set +e
@@ -159,100 +159,6 @@ monitor_loop_partition_nodes() {
         materialize_loop_identity_links || true
         sleep 0.05
     done
-}
-
-configure_backup_with_cli() {
-    local target_device="$1"
-    local luks_uuid="$2"
-    local btrfs_uuid="$3"
-    local installed_keyfile=/etc/btrfs-backup/keys/default.key
-    local saved_profile="$RENDERED_CONFIG/config/profiles/default/profile.json"
-    local mount_unit
-
-    install -d -m0700 /etc/btrfs-backup/keys
-    install -m0600 "$PASSPHRASE_FILE" "$installed_keyfile"
-
-    install -d -m0750 "$RENDERED_CONFIG/config" "$RENDERED_CONFIG/systemd" "$RENDERED_CONFIG/udev"
-    btrfs-backupctl profile create \
-        --output "$RENDERED_CONFIG/config/profile.json" \
-        --profile default \
-        --name 'Default backup' \
-        --device "$target_device" \
-        --luks-uuid "$luks_uuid" \
-        --btrfs-uuid "$btrfs_uuid" \
-        --mapper-name "$MAPPER_NAME" \
-        --keyfile "$installed_keyfile" \
-        --remote-retention 2 \
-        --local-retention 2 \
-        --daily-limit false \
-        --incremental-required true \
-        --keep-failed-local-snapshot false \
-        --auto-eject false \
-        --minimum-target-free-bytes 0 \
-        --minimum-local-free-bytes 0 \
-        --source home home "$SOURCE_MOUNT/home" "$SOURCE_MOUNT/.snapshots/home" home 2 2 >/dev/null
-    btrfs-backupctl \
-        profile \
-        --etc-root "$RENDERED_CONFIG/config" \
-        --udev-root "$RENDERED_CONFIG/udev" \
-        --systemd-root "$RENDERED_CONFIG/systemd" \
-        --public-root "$RENDERED_CONFIG/public/profiles" \
-        save --file "$RENDERED_CONFIG/config/profile.json" >/dev/null
-    install -m0600 "$saved_profile" "$RENDERED_CONFIG/config/profile.json"
-    btrfs-backupctl installation render \
-        --file "$RENDERED_CONFIG/config/profile.json" \
-        --output-dir "$RENDERED_CONFIG" \
-        --backup-command '/usr/bin/btrfs-backupctl runner execute' \
-        --eject-script '/usr/bin/btrfs-backupctl target eject'
-    btrfs-backupctl installation validate --rendered-root "$RENDERED_CONFIG" >/dev/null
-
-    install -d -m0700 /etc/btrfs-backup /etc/btrfs-backup/profiles/default
-    install -m0600 "$saved_profile" /etc/btrfs-backup/profiles/default/profile.json
-    install -Dm0644 "$RENDERED_CONFIG/systemd/btrfs-backup.service" /etc/systemd/system/btrfs-backup.service
-    install -Dm0644 "$RENDERED_CONFIG/systemd/btrfs-backup@.service" /etc/systemd/system/btrfs-backup@.service
-    install -Dm0644 "$RENDERED_CONFIG/systemd/btrfs-backup-eject@.service" /etc/systemd/system/btrfs-backup-eject@.service
-    install -Dm0644 "$RENDERED_CONFIG/systemd/btrfs-backup-validate@.service" /etc/systemd/system/btrfs-backup-validate@.service
-    install -Dm0644 "$RENDERED_CONFIG/systemd/btrfs-backup-target@.service" /etc/systemd/system/btrfs-backup-target@.service
-    mount_unit="$(systemd-escape -p --suffix=mount "$TARGET_MOUNT")"
-    install -Dm0644 "$RENDERED_CONFIG/systemd/$mount_unit" "/etc/systemd/system/$mount_unit"
-    install -Dm0644 \
-        "$RENDERED_CONFIG/systemd/btrfs-backup@default.service.d/target-mount.conf" \
-        /etc/systemd/system/btrfs-backup@default.service.d/target-mount.conf
-    install -Dm0644 "$RENDERED_CONFIG/udev/99-btrfs-backup-default.rules" /etc/udev/rules.d/99-btrfs-backup-default.rules
-    systemctl daemon-reload
-    btrfs-backupctl installation validate --active --profile default >/dev/null
-    PROFILE_JSON=/etc/btrfs-backup/profiles/default/profile.json
-    [[ -f "$PROFILE_JSON" ]] || fail 'configuration did not create default profile JSON'
-}
-
-managed_target_lifecycle_test() {
-    local mount_unit
-    mount_unit="$(systemd-escape -p --suffix=mount "$TARGET_MOUNT")"
-    umount "$TARGET_MOUNT"
-    cryptsetup close "$MAPPER_NAME"
-    [[ ! -e "$MAPPER_PATH" ]] || fail 'test mapper remained active before managed activation'
-
-    systemctl start systemd-udevd.service
-    systemctl is-active --quiet systemd-udevd.service \
-        || fail 'systemd-udevd did not start before managed target activation'
-
-    if ! systemctl start "$mount_unit"; then
-        systemctl status --no-pager "$mount_unit" >&2 || true
-        systemctl status --no-pager btrfs-backup-target@default.service >&2 || true
-        cat "$PROFILE_JSON" >&2 || true
-        systemctl list-units --all 'systemd-cryptsetup@*' >&2 || true
-        ls -la /dev/mapper >&2 || true
-        dmsetup ls --tree >&2 || true
-        journalctl --no-pager -u "$mount_unit" -u btrfs-backup-target@default.service -n 100 >&2 || true
-        fail 'native mount unit could not activate and mount the backup target'
-    fi
-    findmnt -n -M "$TARGET_MOUNT" >/dev/null \
-        || fail 'native mount unit did not mount the backup target'
-    [[ -b "$MAPPER_PATH" ]] \
-        || fail 'managed target service did not activate the LUKS mapper'
-    [[ -f /run/btrfs-backup/target-activation/default.json ]] \
-        || fail 'managed target activation did not record mapper ownership'
-    pass 'native mount unit activates LUKS without fstab or crypttab'
 }
 
 run_backup() {
@@ -653,15 +559,12 @@ sandboxed_auto_eject_test() {
     pass 'automatic eject runs outside the backup mount namespace'
 }
 
-validate_runtime_preflight() {
-    INVOCATION_ID=real-docker-test btrfs-backup --validate --no-eject >/dev/null
-}
-
 require_root
 require_commands awk blkid btrfs busctl cat cmp cryptsetup date dd diff dmsetup find findmnt grep journalctl ldd ln losetup mkfifo mkfs.btrfs mkfs.ext4 mknod mount mv pacman perl runuser seq sfdisk sha256sum stat systemd-escape systemd-run tar tee timeout truncate udevadm useradd userdel
 [[ -x "$BROWSE_SESSION_CLIENT" ]] || fail 'browse-session integration client is not executable'
 [[ -x "$DEVICE_PROVISIONING_CLIENT" ]] || fail 'device-provisioning integration client is not executable'
 [[ -x "$REAL_BTRFS_TESTS" ]] || fail 'real-Btrfs C++ integration test is not executable'
+[[ -x "$REAL_INSTALLED_RUNTIME_TESTS" ]] || fail 'installed-runtime C++ integration test is not executable'
 ensure_loop_devices
 for _ in $(seq 1 100); do
     systemctl show-environment >/dev/null 2>&1 && break
@@ -726,15 +629,15 @@ sync -f "$SOURCE_MOUNT"
 
 plain_mapper_lifecycle_test
 
-TARGET_LUKS_UUID="$(cryptsetup luksUUID "$TARGET_LOOP")"
-TARGET_BTRFS_UUID="$(findmnt -n -o UUID -M "$TARGET_MOUNT")"
-configure_backup_with_cli "$TARGET_LOOP" "$TARGET_LUKS_UUID" "$TARGET_BTRFS_UUID"
-pass 'installed CLI renders, installs, and validates configuration'
-managed_target_lifecycle_test
-validate_runtime_preflight
-pass 'installed runtime validates the mounted target'
-btrfs-backupctl target mount --profile default >/dev/null
-pass 'installed mount command validates the mounted target'
+"$REAL_INSTALLED_RUNTIME_TESTS" \
+    /usr/bin/btrfs-backupctl \
+    /usr/bin/btrfs-backup \
+    "$TEST_ROOT" \
+    "$SOURCE_MOUNT" \
+    "$TARGET_MOUNT" \
+    "$TARGET_LOOP" \
+    "$MAPPER_NAME" \
+    "$PASSPHRASE_FILE"
 run_first_backup_through_system_dbus
 grep -q '"incremental": false' "$RUN_LOG" || fail 'full stream was not used for first backup'
 grep -q '^profile_id=default$' /var/lib/btrfs-backup/profiles/default/last-success \
