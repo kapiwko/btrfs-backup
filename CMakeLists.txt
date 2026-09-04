@@ -33,6 +33,15 @@ option(
     "Build the privileged system D-Bus manager and device-preparation helper"
     ON
 )
+
+add_custom_target(
+    check-format
+    COMMAND
+        ${CMAKE_COMMAND}
+        -DSOURCE_DIR=${PROJECT_SOURCE_DIR}
+        -P ${PROJECT_SOURCE_DIR}/cmake/CheckCppFormat.cmake
+    USES_TERMINAL
+)
 if(BUILD_KDE_INTEGRATION)
     set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 endif()
