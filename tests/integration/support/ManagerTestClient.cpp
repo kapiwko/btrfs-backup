@@ -108,6 +108,41 @@ std::string ManagerTestClient::call(std::string_view method, std::string_view ar
     return reply_payload(reply.get());
 }
 
+std::string ManagerTestClient::call(
+    std::string_view method,
+    std::string_view first,
+    std::string_view second,
+    std::string_view third
+) const {
+    sd_bus_error error{};
+    sd_bus_message* raw_reply = nullptr;
+    const std::string method_name(method);
+    const std::string first_value(first);
+    const std::string second_value(second);
+    const std::string third_value(third);
+    const int result = sd_bus_call_method(
+        implementation_->bus.get(),
+        manager_protocol::service_name,
+        manager_protocol::object_path,
+        manager_protocol::interface_name,
+        method_name.c_str(),
+        &error,
+        &raw_reply,
+        "sss",
+        first_value.c_str(),
+        second_value.c_str(),
+        third_value.c_str()
+    );
+    BusMessage reply(raw_reply, sd_bus_message_unref);
+    if (result < 0) {
+        const auto failure = bus_error(method, error, result);
+        sd_bus_error_free(&error);
+        throw failure;
+    }
+    sd_bus_error_free(&error);
+    return reply_payload(reply.get());
+}
+
 std::string ManagerTestClient::call_with_fd(
     std::string_view method,
     std::string_view argument,

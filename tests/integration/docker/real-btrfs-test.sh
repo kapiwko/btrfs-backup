@@ -1271,7 +1271,7 @@ PARTITION_NODE_MONITOR_PID=$!
 install -d -m0755 "$SOURCE_MOUNT" "$TARGET_MOUNT" "$PROVISION_PRESERVED_MOUNT"
 install -d -m0700 "$LOG_DIR"
 build_and_verify_packages
-"$REAL_BTRFS_TESTS" /usr/bin/btrfs-backupctl "$BROWSE_SESSION_CLIENT"
+"$REAL_BTRFS_TESTS" /usr/bin/btrfs-backupctl "$BROWSE_SESSION_CLIENT" "$DEVICE_PROVISIONING_CLIENT"
 
 printf '%s\n' 'btrfs-backup-real-test-passphrase' > "$PASSPHRASE_FILE"
 chmod 0600 "$PASSPHRASE_FILE"
@@ -1300,7 +1300,6 @@ btrfs subvolume create "$SOURCE_MOUNT/home" >/dev/null
 mount --bind "$SOURCE_MOUNT/home" "$SOURCE_MOUNT/home"
 install -d -m0700 "$SOURCE_MOUNT/.snapshots/home"
 
-provision_existing_partition_test
 provision_unallocated_space_test
 provision_whole_device_test
 provision_existing_target_adoption_test
