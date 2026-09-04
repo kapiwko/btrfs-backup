@@ -204,6 +204,14 @@ if(BUILD_SYSTEM_MANAGER)
     if(DBUS_DAEMON_EXECUTABLE AND BUSCTL_EXECUTABLE)
         add_executable(btrfsbackup-fake-polkit-authority FakePolkitAuthority.cpp)
         target_link_libraries(btrfsbackup-fake-polkit-authority PRIVATE PkgConfig::SYSTEMD)
+        add_executable(btrfsbackup-dbus-manager-tests DbusManagerTests.cpp)
+        target_link_libraries(
+            btrfsbackup-dbus-manager-tests
+            PRIVATE btrfsbackup-manager-protocol
+        )
+        if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+            target_compile_options(btrfsbackup-dbus-manager-tests PRIVATE -Wall -Wextra -Wpedantic)
+        endif()
         set(DBUS_MANAGER_TEST_EXTRA_ARGS)
         if(TARGET btrfsbackup_kde_models)
             find_program(
@@ -224,7 +232,7 @@ if(BUILD_SYSTEM_MANAGER)
         add_test(
             NAME dbus-manager-tests
             COMMAND
-                ${CMAKE_CURRENT_SOURCE_DIR}/dbus_manager_test.sh
+                $<TARGET_FILE:btrfsbackup-dbus-manager-tests>
                 $<TARGET_FILE:btrfs-backupd>
                 ${DBUS_DAEMON_EXECUTABLE}
                 ${BUSCTL_EXECUTABLE}
@@ -232,6 +240,6 @@ if(BUILD_SYSTEM_MANAGER)
                 $<TARGET_FILE:btrfsbackup-fake-polkit-authority>
                 ${DBUS_MANAGER_TEST_EXTRA_ARGS}
         )
-        set_tests_properties(dbus-manager-tests PROPERTIES TIMEOUT 20)
+        set_tests_properties(dbus-manager-tests PROPERTIES LABELS dbus TIMEOUT 20)
     endif()
 endif()
