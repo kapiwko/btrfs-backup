@@ -42,6 +42,23 @@ add_custom_target(
         -P ${PROJECT_SOURCE_DIR}/cmake/CheckCppFormat.cmake
     USES_TERMINAL
 )
+set(
+    BTRFSBACKUP_LOCAL_INSTALL_BUILD_OPTIONS
+    ""
+    CACHE STRING
+    "Semicolon-separated additional build-release options used by the install-local target"
+)
+add_custom_target(
+    install-local
+    COMMAND
+        ${CMAKE_COMMAND}
+        -DSOURCE_DIR=${PROJECT_SOURCE_DIR}
+        -DDIST_DIR=${PROJECT_SOURCE_DIR}/dist
+        "-DLOCAL_INSTALL_BUILD_OPTIONS=${BTRFSBACKUP_LOCAL_INSTALL_BUILD_OPTIONS}"
+        -P ${PROJECT_SOURCE_DIR}/cmake/InstallLocalRelease.cmake
+    USES_TERMINAL
+    VERBATIM
+)
 if(BUILD_KDE_INTEGRATION)
     set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 endif()
