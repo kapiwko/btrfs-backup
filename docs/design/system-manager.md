@@ -1,8 +1,8 @@
 # System Manager
 
 Status: query, event-driven change signals, authorized operational control,
-profile administration, caller-bound browse sessions and stable audit records
-implemented; scheduling and device preparation remain planned.
+profile administration, caller-bound browse sessions, transactional device
+preparation and stable audit records implemented; scheduling remains planned.
 
 Descriptions of the current query and operational-control surface below are
 implemented unless explicitly marked as planned. The delivery sequence records
@@ -17,6 +17,13 @@ surface exposes sanitized profiles, status, history and device state plus
 polkit-authorized start, cancel, validation, eject, profile administration and
 read-only browse-session operations. It does not contain backup planning or
 transfer implementations copied from the CLI.
+
+For device preparation the manager owns caller identity, polkit authorization,
+candidate and plan expiry, transaction coordination and sanitized status. A
+separately hardened transient systemd helper is the only process that executes
+the destructive storage operations. The helper revalidates the selected device
+and source immediately before acting and receives a per-operation device allow
+list.
 
 The runner remains a separate systemd process. udev starts the runner unit
 without contacting the manager, and an active runner survives manager restart
@@ -42,7 +49,7 @@ AddProfileSource
 UpdateProfileSource
 RemoveProfileSource
 DeleteProfile
-GetBackupCoverage
+SetProfileEnabled
 OpenBrowseSession
 RenewBrowseSession
 SetBrowseSessionActive
@@ -51,13 +58,28 @@ ListBrowseDirectory
 InspectBrowseEntry
 OpenBrowseFile
 OpenBrowseRoot
+InspectBrowseRepository
+ResolveBackupCoverage
+ListTargetCredentials
+AddTargetPassphrase
+AddTargetKey
+GenerateTargetKey
+RemoveTargetCredential
+InspectStorageTopology
+InspectExistingTarget
+BuildDevicePreparationPlan
+ListSourceCandidates
+StartDevicePreparation
+GetDevicePreparation
+CancelDevicePreparation
 ProfilesChanged
 StatusChanged
 HistoryChanged
 DeviceStateChanged
 ```
 
-Destructive device preparation remains a later operation. Stable codes and
+The canonical, complete signatures and authorization requirements are recorded
+in [the system D-Bus API contract](../system-dbus-api.md). Stable codes and
 structured details cross the bus; presentation text remains a client concern.
 
 Capabilities independently advertise D-Bus API, profile schema, public status
@@ -112,7 +134,9 @@ not the audit contract.
 4. administrative profile writes and hook-change authorization (implemented);
 5. shared C++ client, KDE monitor and KCM (implemented);
 6. caller-bound browse sessions and KDE restore adapters (implemented);
-7. scheduling and request queue integration (planned).
+7. transactional preparation and adoption of backup devices through an
+   isolated helper (implemented, unreleased);
+8. scheduling and request queue integration (planned).
 
 ## Open Questions
 

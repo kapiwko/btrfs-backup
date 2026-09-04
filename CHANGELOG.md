@@ -13,7 +13,10 @@
    backup commands in KRunner;
 3. the System Settings KCM can inspect, validate, save and delete profiles
    through the manager's authorized administration boundary, with hook changes
-   protected by a separate high-risk authorization.
+   protected by a separate high-risk authorization;
+4. guided provisioning prepares or adopts encrypted removable targets through
+   a durable, separately isolated system helper and an explicit destructive
+   confirmation flow.
 
 ### Upgrade Notes
 
@@ -33,6 +36,55 @@ schema version 4 profile with 0.3.x before upgrading, then install it with the
 1.0.0 wizard or `btrfs-backupctl profile save` so all generated artifacts and
 `configurationGeneration` are published together.
 
+### Backup Device Provisioning
+
+1. the System Settings workflow supports four explicit modes: formatting an
+   existing partition, creating a partition in unallocated GPT space, erasing
+   and repartitioning an entire selected disk, and adopting an existing
+   compatible target;
+2. existing-partition mode destroys signatures and data only on the selected
+   partition, unallocated-space mode creates one partition within the selected
+   free extent, and whole-device mode destroys the selected disk's partition
+   table and all of its contents; adoption performs read-only inspection and
+   does not format the target;
+3. newly prepared targets use LUKS2 with Btrfs, while adoption accepts only a
+   validated LUKS2+Btrfs repository layout supported by this release;
+4. the profile identifier is reserved before the first destructive operation
+   and final profile publication is create-only, preventing a preparation from
+   overwriting another configuration;
+5. the manager and helper revalidate device identity, geometry, signatures,
+   mounts, swap, holders and the source filesystem at their respective trust
+   boundaries before allowing the first write;
+6. destructive storage commands run only in a separately hardened transient
+   systemd helper with a per-operation device allow list; the manager
+   coordinates authorization and durable transaction state;
+7. revisioned root-only transactions support restart recovery after
+   interruption and preserve the first cleanup failure. Ambiguous identity,
+   unsafe records or incomplete cleanup stop with a stable error and explicit
+   manual-recovery guidance rather than guessing;
+8. version 1.0 does not migrate installed 3.x profiles in place; operators must
+   prepare schema-v4 configuration before upgrading as described above;
+9. selecting a disk no longer implicitly chooses whole-device erasure. The KCM
+   requires that scope to be selected explicitly and keeps rejected devices
+   visible with their blocker;
+10. source choices use user-facing names, automatic-key storage and recovery
+   implications are explained, and failed operations show completed steps,
+   cleanup outcome, a copyable diagnostic report and recovery guidance.
+
+### Target Credentials And Hotplug Recovery
+
+1. the manager and KCM list LUKS keyslots and support authorized passphrase,
+   managed-key generation, key enrollment and unambiguous credential removal;
+2. managed key files must remain below the trusted root-only credential store,
+   while incomplete credential mutations preserve rollback diagnostics;
+3. authorization distinguishes read-only credential discovery from privileged
+   storage mutation;
+4. target activation recovers after disconnect and reconnect by rejecting stale
+   mapper state, reopening the verified LUKS device and remounting only the
+   identity configured for the profile;
+5. eject handles an unmounted stale mapper and a mapper whose backing device
+   disappeared without treating unrelated mappings as owned resources.
+
 ### Restore And Repository Access
 
 1. repository discovery verifies format, catalog structure, snapshot identity,
@@ -40,19 +92,24 @@ schema version 4 profile with 0.3.x before upgrading, then install it with the
 2. restore planning rejects traversal, symlink escapes, special files, nested
    mount boundaries and unsafe destinations, while execution stages changes
    and either commits the complete result or rolls it back;
-3. the manager opens caller-bound, time-limited, read-only browse sessions,
-   verifies the bind mount and closes sessions on request, caller disconnect,
-   expiry or daemon shutdown;
-4. browse-session lifecycle and authorization are covered by unit tests and a
-   real system D-Bus integration test, including cleanup after client exit.
+3. the manager opens caller-bound, time-limited, read-only browse sessions in a
+   root-owned hierarchy and exposes a pinned root directory descriptor instead
+   of a reusable host path;
+4. concurrent browse operations hold independent session leases, so completing
+   one KIO request cannot allow cleanup while another request is active;
+5. browse-session lifecycle and authorization are covered by unit tests and a
+   real system D-Bus integration test, including cleanup after client exit;
+6. `btrfs-backupctl repository rebuild` inspects mounted snapshots, previews
+   the resulting metadata by default and atomically rebuilds repository and
+   catalog documents only with explicit `--apply`.
 
 ### KDE Desktop Integration
 
 1. `btrfsbackup:` URLs expose session-scoped repository entries without
    publishing device identifiers or persistent host paths;
-2. Dolphin offers previous versions for a single local file and launches the
-   guided restore workflow without scanning or activating backup media while
-   building the context menu;
+2. Dolphin resolves all backup coverage for a local path, asks the user when
+   more than one profile/source pair applies and opens a populated previous
+   versions list backed by the verified repository catalog;
 3. the restore application selects a version and destination, previews the
    operation and reports completion through native desktop notifications;
 4. KRunner provides status, start, browse and previous-version commands through
@@ -69,8 +126,9 @@ schema version 4 profile with 0.3.x before upgrading, then install it with the
 
 1. profile administration uses generation and fingerprint preconditions so a
    stale editor cannot overwrite a newer installed profile;
-2. browse-session roots are verified as usable by the requesting desktop user
-   while remaining read-only and manager-owned;
+2. browse-session mount paths remain root-owned, public replies contain no host
+   root path, and restore resolves content from the manager-provided pinned
+   descriptor;
 3. architecture and integration gates cover the expanded KCM, KIO, Dolphin,
    restore and KRunner surfaces without adding KDE dependencies to the base
    runtime;
@@ -82,9 +140,22 @@ schema version 4 profile with 0.3.x before upgrading, then install it with the
 
 1. `btrfs-backupctl profile regenerate --all` rebuilds transactional systemd
    and udev artifacts for every installed profile;
-2. the Arch package invokes profile regeneration automatically after upgrades
-   and reports profiles requiring manual attention without aborting the package
-   transaction.
+2. package upgrades do not rewrite administrator-owned profile artifacts or
+   restart the manager. Regeneration and service reload remain explicit
+   administrator actions.
+
+### Build, Packaging And Test Infrastructure
+
+1. CMake presets and CTest are the canonical build and test entry points;
+   release, screenshot, QEMU and privileged integration orchestration use
+   focused Python drivers instead of a monolithic shell harness;
+2. release packages are assembled from a common CPack staging tree, with Arch,
+   RPM, Nix and Gentoo definitions checked against the installed runtime;
+3. real-Btrfs, system D-Bus, systemd, installed-runtime and provisioning tests
+   use isolated C++/Python fixtures and disposable devices, including clean
+   package installation and loader checks;
+4. package lifecycle scripts are intentionally minimal: tmpfiles and native
+   package triggers replace privileged post-install configuration mutation.
 
 ## 0.3.3 - 2026-08-30
 
