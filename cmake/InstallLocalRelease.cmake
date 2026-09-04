@@ -39,7 +39,7 @@ if(NOT LOCAL_INSTALL_SKIP_BUILD)
     endif()
     run_stage(
         "Building Arch Linux release packages"
-        "${SOURCE_DIR}/tools/build-release.sh"
+        "${SOURCE_DIR}/tools/release.py"
         --target arch
         ${LOCAL_INSTALL_BUILD_OPTIONS}
     )

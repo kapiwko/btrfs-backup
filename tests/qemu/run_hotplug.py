@@ -74,7 +74,7 @@ class QemuHotplugHost:
             self.package_root = Path(tempfile.mkdtemp(prefix="btrfs-backup-qemu-packages.", dir="/tmp"))
             package_dir = self.package_root / "dist"
             if self.package_builder == "local":
-                run([str(ROOT / "tools/build-release.sh"), "--target", "arch-base", "--skip-tests",
+                run([str(ROOT / "tools/release.py"), "--target", "arch-base", "--skip-tests",
                      "--build-dir", str(ROOT / "build/integration-package"), "--dist-dir", str(package_dir)])
             elif self.package_builder == "docker":
                 self.build_packages_in_docker()
@@ -92,7 +92,7 @@ class QemuHotplugHost:
              "--tmpfs", f"/run:uid={os.getuid()},gid={os.getgid()},mode=0755", "-e",
              f"BUILD_JOBS={self.build_jobs}", "-e", "HOME=/tmp", "-v", f"{ROOT}:/work:ro",
              "-v", f"{self.package_root}:/artifacts", "-w", "/work", self.build_image,
-             "/work/tools/build-release.sh", "--target", "arch-base", "--skip-tests",
+             "/work/tools/release.py", "--target", "arch-base", "--skip-tests",
              "--dist-dir", "/artifacts/dist"])
 
     def image_id(self, image: str) -> str:

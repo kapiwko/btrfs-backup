@@ -1,0 +1,40 @@
+# Maintainer: local package
+pkgbase=btrfs-backup
+pkgname=('btrfs-backup' 'btrfs-backup-kde')
+pkgver=@VERSION@
+pkgrel=1
+pkgdesc='Verified Btrfs send/receive backups to an encrypted removable target'
+arch=('@ARCH@')
+license=('GPL-3.0-or-later')
+makedepends=('cmake' 'extra-cmake-modules' 'gcc' 'kcoreaddons' 'ki18n' 'kirigami' 'kjobwidgets' 'kpackage' 'libplasma' 'nlohmann-json' 'pkgconf' 'qt6-base' 'qt6-declarative' 'systemd')
+source=("$pkgbase-$pkgver.tar.gz")
+sha256sums=('@SOURCE_SHA256@')
+
+build() {
+  cmake -S "$srcdir/$pkgbase-$pkgver" -B build \
+    -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr \
+    -DCMAKE_INSTALL_SYSCONFDIR=/etc -DBUILD_KDE_INTEGRATION=ON -DBUILD_TESTING=OFF
+  cmake --build build --parallel
+}
+
+check() {
+  cmake -S "$srcdir/$pkgbase-$pkgver" -B build-tests \
+    -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr \
+    -DCMAKE_INSTALL_SYSCONFDIR=/etc -DBUILD_KDE_INTEGRATION=ON -DBUILD_TESTING=ON
+  cmake --build build-tests --parallel
+  ctest --test-dir build-tests --parallel
+}
+
+package_btrfs-backup() {
+  depends=('btrfs-progs>=6.0' 'coreutils' 'cryptsetup' 'gcc-libs' 'polkit' 'systemd' 'systemd-libs' 'util-linux' 'util-linux-libs')
+  optdepends=('btrfs-backup-kde: Plasma status widget')
+  install='btrfs-backup.install'
+  DESTDIR="$pkgdir" cmake --install build --component Unspecified
+}
+
+package_btrfs-backup-kde() {
+  pkgdesc='Plasma status widget and progress monitor for btrfs-backup'
+  depends=("btrfs-backup=$pkgver-$pkgrel" 'kcoreaddons' 'ki18n' 'kirigami' 'kjobwidgets' 'kservice' 'libplasma' 'qt6-base' 'qt6-declarative')
+  install='btrfs-backup-kde.install'
+  DESTDIR="$pkgdir" cmake --install build --component KDEIntegration
+}

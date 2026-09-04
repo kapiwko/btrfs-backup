@@ -12,12 +12,15 @@ import subprocess
 
 
 class ReleaseBuild:
-    def __init__(self, source: Path, build: Path, epoch: int, jobs: int) -> None:
+    def __init__(self, source: Path, build: Path, epoch: int, jobs: int,
+                 *, kde: bool = False) -> None:
         self.source = source
         self.build = build
         self.epoch = epoch
         self.jobs = jobs
+        self.kde = kde
         self.configured = False
+        self.built = False
         self.environment = os.environ.copy()
         self.environment.setdefault("CCACHE_DIR", str(build / ".ccache"))
 
@@ -25,7 +28,7 @@ class ReleaseBuild:
         print(f"[release] {' '.join(command)}")
         subprocess.run(command, check=True, env=env or self.environment)
 
-    def configure(self, *, kde: bool = False) -> None:
+    def configure(self) -> None:
         if self.configured:
             return
         command = ["cmake", "-S", str(self.source), "-B", str(self.build)]
@@ -35,7 +38,7 @@ class ReleaseBuild:
             "-DCMAKE_BUILD_TYPE=Release",
             "-DCMAKE_INSTALL_PREFIX=/usr",
             "-DCMAKE_INSTALL_SYSCONFDIR=/etc",
-            f"-DBUILD_KDE_INTEGRATION={'ON' if kde else 'OFF'}",
+            f"-DBUILD_KDE_INTEGRATION={'ON' if self.kde else 'OFF'}",
             "-DBUILD_TESTING=OFF",
         ))
         if shutil.which("ccache"):
@@ -44,8 +47,21 @@ class ReleaseBuild:
         self.configured = True
 
     def build_native(self) -> None:
+        if self.built:
+            return
         self.configure()
         self.run(["cmake", "--build", str(self.build), "--parallel", str(self.jobs)])
+        self.built = True
+
+    def stage(self, destination: Path, component: str) -> Path:
+        self.build_native()
+        destination.mkdir(parents=True, exist_ok=True)
+        environment = self.environment.copy()
+        environment["DESTDIR"] = str(destination)
+        self.run([
+            "cmake", "--install", str(self.build), "--component", component,
+        ], env=environment)
+        return destination
 
     def cpack(self, generator: str, work: Path, destination: Path) -> Path:
         self.build_native()
@@ -54,7 +70,7 @@ class ReleaseBuild:
         environment["SOURCE_DATE_EPOCH"] = str(self.epoch)
         self.run([
             "cpack", "--config", str(self.build / "CPackConfig.cmake"),
-            "-G", generator, "-B", str(work),
+            "-G", generator, "-D", "CPACK_COMPONENTS_ALL=Unspecified", "-B", str(work),
         ], env=environment)
         suffix = {"TGZ": ".tar.gz", "DEB": ".deb", "RPM": ".rpm"}[generator]
         candidates = sorted(path for path in work.glob(f"*{suffix}") if path.is_file())

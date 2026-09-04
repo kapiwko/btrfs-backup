@@ -1,0 +1,49 @@
+pkgbase = btrfs-backup
+	pkgdesc = Verified Btrfs send/receive backups to an encrypted removable target
+	pkgver = @VERSION@
+	pkgrel = 1
+	url = https://github.com/kamil/btrfs-backup
+	arch = @ARCH@
+	license = GPL-3.0-or-later
+	makedepends = cmake
+	makedepends = extra-cmake-modules
+	makedepends = gcc
+	makedepends = kcoreaddons
+	makedepends = ki18n
+	makedepends = kirigami
+	makedepends = kjobwidgets
+	makedepends = kpackage
+	makedepends = libplasma
+	makedepends = nlohmann-json
+	makedepends = pkgconf
+	makedepends = qt6-base
+	makedepends = qt6-declarative
+	makedepends = systemd
+	source = btrfs-backup-@VERSION@.tar.gz
+	sha256sums = @SOURCE_SHA256@
+
+pkgname = btrfs-backup
+	depends = btrfs-progs>=6.0
+	depends = coreutils
+	depends = cryptsetup
+	depends = gcc-libs
+	depends = polkit
+	depends = systemd
+	depends = systemd-libs
+	depends = util-linux
+	depends = util-linux-libs
+	optdepends = btrfs-backup-kde: Plasma status widget
+	install = btrfs-backup.install
+
+pkgname = btrfs-backup-kde
+	pkgdesc = Plasma status widget and progress monitor for btrfs-backup
+	depends = btrfs-backup=@VERSION@-1
+	depends = kcoreaddons
+	depends = ki18n
+	depends = kirigami
+	depends = kjobwidgets
+	depends = kservice
+	depends = libplasma
+	depends = qt6-base
+	depends = qt6-declarative
+	install = btrfs-backup-kde.install
