@@ -32,6 +32,7 @@ REAL_MAPPER_LIFECYCLE_TESTS="${BTRFSBACKUP_REAL_MAPPER_LIFECYCLE_TESTS:?missing 
 REAL_TRUSTED_HOOK_TESTS="${BTRFSBACKUP_REAL_TRUSTED_HOOK_TESTS:?missing trusted-hook C++ integration test}"
 REAL_SANDBOXED_SYSTEMD_TESTS="${BTRFSBACKUP_REAL_SANDBOXED_SYSTEMD_TESTS:?missing sandboxed-systemd C++ integration test}"
 REAL_SYSTEM_DBUS_BACKUP_TESTS="${BTRFSBACKUP_REAL_SYSTEM_DBUS_BACKUP_TESTS:?missing system-D-Bus-backup C++ integration test}"
+REAL_MANAGER_INDEPENDENCE_TESTS="${BTRFSBACKUP_REAL_MANAGER_INDEPENDENCE_TESTS:?missing manager-independence C++ integration test}"
 
 cleanup() {
     set +e
@@ -163,88 +164,6 @@ monitor_loop_partition_nodes() {
     done
 }
 
-assert_remote_matches_latest_local() {
-    local latest_local latest_remote local_uuid received_uuid
-
-    latest_local="$(find "$SOURCE_MOUNT/.snapshots/home" -mindepth 1 -maxdepth 1 -type d -name 'home-*' | sort | tail -n1)"
-    latest_remote="$(find "$TARGET_MOUNT/snapshots/home" -mindepth 1 -maxdepth 1 -type d -name 'home-*' | sort | tail -n1)"
-    [[ -n "$latest_local" && -n "$latest_remote" ]] || fail 'latest local or remote snapshot not found'
-
-    if ! diff -qr "$latest_local" "$latest_remote" >/dev/null; then
-        diff -qr "$latest_local" "$latest_remote" >&2 || true
-        fail 'latest remote snapshot does not match latest local snapshot'
-    fi
-
-    local_uuid="$(btrfs subvolume show "$latest_local" | sed -n 's/^[[:space:]]*UUID:[[:space:]]*//p' | head -n1)"
-    received_uuid="$(btrfs subvolume show "$latest_remote" | sed -n 's/^[[:space:]]*Received UUID:[[:space:]]*//p' | head -n1)"
-    [[ -n "$local_uuid" && "${local_uuid,,}" == "${received_uuid,,}" ]] \
-        || fail 'remote Received UUID does not match latest local snapshot UUID'
-}
-
-manager_independence_test() {
-    local hook_dir=/etc/btrfs-backup/hooks.d
-    local hook="$hook_dir/manager-independence-test"
-    local marker="$TEST_ROOT/manager-independence.marker"
-    local release_fifo="$TEST_ROOT/manager-independence.release"
-    local profile_backup="$TEST_ROOT/profile.manager-independence.json.bak"
-    local runner_log="$LOG_DIR/manager-independence.log"
-    local runner_pid
-
-    cp -a -- "$PROFILE_JSON" "$profile_backup"
-    perl -0pi -e \
-        's#"beforeSnapshot": \[\]#"beforeSnapshot": [{"type":"program","program":"/etc/btrfs-backup/hooks.d/manager-independence-test","arguments":[],"timeoutSeconds":30}]#' \
-        "$PROFILE_JSON"
-    chmod 0600 "$PROFILE_JSON"
-    mkfifo -m0600 "$release_fifo"
-    {
-        printf '#!/bin/sh\n'
-        printf "printf 'started\\n' > '%s'\n" "$marker"
-        printf "IFS= read -r release < '%s'\n" "$release_fifo"
-        printf "printf 'finished\\n' > '%s'\n" "$marker"
-    } > "$hook"
-    chmod 0755 "$hook"
-    chown root:root "$hook"
-
-    systemctl reload dbus.service
-    systemctl start btrfs-backupd.service
-    systemctl is-active --quiet btrfs-backupd.service \
-        || fail 'system manager did not start'
-
-    (
-        INVOCATION_ID=manager-independence-test \
-            btrfs-backup --force --no-eject >> "$runner_log" 2>&1
-    ) &
-    runner_pid=$!
-    for _ in $(seq 1 50); do
-        [[ -f "$marker" ]] && break
-        kill -0 "$runner_pid" 2>/dev/null || break
-        sleep 0.1
-    done
-    [[ "$(cat -- "$marker" 2>/dev/null || true)" == 'started' ]] \
-        || { cat -- "$runner_log" >&2; fail 'runner did not enter the blocking hook'; }
-
-    systemctl stop btrfs-backupd.service
-    systemctl is-active --quiet btrfs-backupd.service \
-        && fail 'system manager remained active after stop'
-    kill -0 "$runner_pid" 2>/dev/null \
-        || { cat -- "$runner_log" >&2; fail 'stopping the manager terminated the active runner'; }
-    printf 'continue\n' > "$release_fifo"
-    if ! wait "$runner_pid"; then
-        cat -- "$runner_log" >&2
-        fail 'runner failed after the manager was stopped'
-    fi
-
-    [[ "$(cat -- "$marker")" == 'finished' ]] \
-        || fail 'runner did not complete the blocking hook'
-    grep -q '"state": "succeeded"' /var/lib/btrfs-backup/history/default/last.json \
-        || fail 'runner did not persist successful history after manager stop'
-    assert_remote_matches_latest_local
-
-    cp -a -- "$profile_backup" "$PROFILE_JSON"
-    rm -f -- "$profile_backup" "$hook" "$marker" "$release_fifo"
-    pass 'active runner completes after the system manager stops'
-}
-
 require_root
 require_commands awk blkid btrfs busctl cat cmp cryptsetup date dd diff dmsetup find findmnt grep journalctl ldd ln losetup mkfifo mkfs.btrfs mkfs.ext4 mknod mount mv pacman perl runuser seq sfdisk sha256sum stat systemd-escape systemd-run tar tee timeout truncate udevadm useradd userdel
 [[ -x "$BROWSE_SESSION_CLIENT" ]] || fail 'browse-session integration client is not executable'
@@ -255,6 +174,7 @@ require_commands awk blkid btrfs busctl cat cmp cryptsetup date dd diff dmsetup 
 [[ -x "$REAL_TRUSTED_HOOK_TESTS" ]] || fail 'trusted-hook C++ integration test is not executable'
 [[ -x "$REAL_SANDBOXED_SYSTEMD_TESTS" ]] || fail 'sandboxed-systemd C++ integration test is not executable'
 [[ -x "$REAL_SYSTEM_DBUS_BACKUP_TESTS" ]] || fail 'system-D-Bus-backup C++ integration test is not executable'
+[[ -x "$REAL_MANAGER_INDEPENDENCE_TESTS" ]] || fail 'manager-independence C++ integration test is not executable'
 ensure_loop_devices
 for _ in $(seq 1 100); do
     systemctl show-environment >/dev/null 2>&1 && break
@@ -329,7 +249,12 @@ sync -f "$SOURCE_MOUNT"
     "$MAPPER_NAME" \
     "$PASSPHRASE_FILE"
 "$REAL_SYSTEM_DBUS_BACKUP_TESTS" "$SOURCE_MOUNT" "$TARGET_MOUNT" "$TEST_ROOT"
-manager_independence_test
+"$REAL_MANAGER_INDEPENDENCE_TESTS" \
+    /usr/bin/btrfs-backup \
+    "$PROFILE_JSON" \
+    "$TEST_ROOT" \
+    "$SOURCE_MOUNT" \
+    "$TARGET_MOUNT"
 "$REAL_TRUSTED_HOOK_TESTS" /usr/bin/btrfs-backup "$PROFILE_JSON" "$TEST_ROOT"
 "$REAL_MAPPER_LIFECYCLE_TESTS" "$TARGET_MOUNT" "$TARGET_LOOP" "$MAPPER_NAME" "$PASSPHRASE_FILE"
 "$REAL_SANDBOXED_SYSTEMD_TESTS" \

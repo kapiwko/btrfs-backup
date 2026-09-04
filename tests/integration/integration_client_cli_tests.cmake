@@ -9,7 +9,8 @@ foreach(client IN ITEMS
         MAPPER_LIFECYCLE_TEST
         TRUSTED_HOOK_TEST
         SANDBOXED_SYSTEMD_TEST
-        SYSTEM_DBUS_BACKUP_TEST)
+        SYSTEM_DBUS_BACKUP_TEST
+        MANAGER_INDEPENDENCE_TEST)
     if(NOT DEFINED ${client} OR NOT EXISTS "${${client}}")
         message(FATAL_ERROR "Missing integration client: ${client}")
     endif()

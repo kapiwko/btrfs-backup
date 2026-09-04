@@ -73,6 +73,10 @@ class RealBtrfsContainer:
             "BTRFSBACKUP_REAL_SYSTEM_DBUS_BACKUP_TESTS",
             "build/tests/integration/btrfsbackup-real-system-dbus-backup-tests",
         )
+        self.manager_independence_tests = executable_from_environment(
+            "BTRFSBACKUP_REAL_MANAGER_INDEPENDENCE_TESTS",
+            "build/tests/integration/btrfsbackup-real-manager-independence-tests",
+        )
         self.container_id: str | None = None
         self.package_temporary_root: Path | None = None
 
@@ -211,6 +215,8 @@ class RealBtrfsContainer:
                 f"{self.sandboxed_systemd_tests}:/opt/btrfsbackup-real-sandboxed-systemd-tests:ro",
                 "-v",
                 f"{self.system_dbus_backup_tests}:/opt/btrfsbackup-real-system-dbus-backup-tests:ro",
+                "-v",
+                f"{self.manager_independence_tests}:/opt/btrfsbackup-real-manager-independence-tests:ro",
                 "-w",
                 CONTAINER_WORKDIR,
                 self.image,
@@ -248,6 +254,8 @@ class RealBtrfsContainer:
                 "BTRFSBACKUP_REAL_SANDBOXED_SYSTEMD_TESTS=/opt/btrfsbackup-real-sandboxed-systemd-tests",
                 "-e",
                 "BTRFSBACKUP_REAL_SYSTEM_DBUS_BACKUP_TESTS=/opt/btrfsbackup-real-system-dbus-backup-tests",
+                "-e",
+                "BTRFSBACKUP_REAL_MANAGER_INDEPENDENCE_TESTS=/opt/btrfsbackup-real-manager-independence-tests",
                 "-e",
                 "BTRFSBACKUP_REAL_BTRFS_CONTAINER=1",
                 "-w",
