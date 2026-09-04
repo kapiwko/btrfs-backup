@@ -477,18 +477,6 @@ expect_backup_failure() {
     grep -Fq -- "$pattern" <<< "$output" || fail "backup failed without expected message: $pattern"
 }
 
-with_restored_file() {
-    local file="$1"
-    local backup
-    shift
-    backup="$TEST_ROOT/$(basename -- "$file").bak.$$"
-
-    cp -a -- "$file" "$backup"
-    "$@"
-    cp -a -- "$backup" "$file"
-    rm -f -- "$backup"
-}
-
 assert_count() {
     local expected="$1"
     local directory="$2"
@@ -909,60 +897,6 @@ validate_runtime_preflight() {
     INVOCATION_ID=real-docker-test btrfs-backup --validate --no-eject >/dev/null
 }
 
-target_uuid_mismatch_test() {
-    perl -0pi -e 's#"btrfsUuid": "[^"]*"#"btrfsUuid": "00000000-0000-0000-0000-000000000000"#' "$PROFILE_JSON"
-    expect_backup_failure 'Btrfs UUID mismatch'
-    pass 'runtime rejects a mismatched target Btrfs UUID'
-}
-
-source_on_target_test() {
-    local profile_backup="$TEST_ROOT/profile.source-on-target.json.bak"
-    btrfs subvolume create "$TARGET_MOUNT/bad-source" >/dev/null
-    install -d -m0700 "$TARGET_MOUNT/.bad-local"
-    cp -a -- "$PROFILE_JSON" "$profile_backup"
-    perl -0pi -e 's#"subvolume": "[^"]*"#"subvolume": "'"$TARGET_MOUNT"'/bad-source"#' "$PROFILE_JSON"
-    perl -0pi -e 's#"localSnapshotDir": "[^"]*"#"localSnapshotDir": "'"$TARGET_MOUNT"'/.bad-local"#' "$PROFILE_JSON"
-    chmod 0600 "$PROFILE_JSON"
-    expect_backup_failure 'SOURCE_SUBVOLUME must not be on the backup target filesystem'
-    cp -a -- "$profile_backup" "$PROFILE_JSON"
-    rm -f -- "$profile_backup"
-    btrfs subvolume delete -- "$TARGET_MOUNT/bad-source" >/dev/null
-    rm -rf -- "$TARGET_MOUNT/.bad-local"
-    pass 'runtime rejects a source on the backup target filesystem'
-}
-
-incoming_symlink_escape_test() {
-    local outside="$TEST_ROOT/incoming-escape-target"
-    local link="$TARGET_MOUNT/.incoming/home"
-
-    install -d -m0700 "$outside"
-    printf 'keep\n' > "$outside/sentinel"
-    ln -s -- "$outside" "$link"
-    expect_backup_failure 'Too many levels of symbolic links'
-    [[ "$(cat -- "$outside/sentinel")" == 'keep' ]] \
-        || fail 'incoming cleanup modified data outside the target repository'
-    rm -f -- "$link"
-    pass 'runtime rejects an incoming symlink escape without touching its target'
-}
-
-missing_incremental_parent_test() {
-    local empty_local_dir="$SOURCE_MOUNT/.snapshots/empty-parent-check"
-    local profile_backup="$TEST_ROOT/profile.parent-check.json.bak"
-
-    cp -a -- "$PROFILE_JSON" "$profile_backup"
-    install -d -m0700 "$empty_local_dir"
-    perl -0pi -e 's#"localSnapshotDir": "[^"]*"#"localSnapshotDir": "'"$empty_local_dir"'"#' "$PROFILE_JSON"
-    chmod 0600 "$PROFILE_JSON"
-    printf 'delta\n' > "$SOURCE_MOUNT/home/orphan-parent-check.txt"
-    sync
-    expect_backup_failure 'Remote snapshots exist for home, but no UUID-matching local parent was found.'
-    find "$empty_local_dir" -mindepth 1 -maxdepth 1 -type d -name 'home-*' -exec btrfs subvolume delete -- {} \; >/dev/null
-    rmdir -- "$empty_local_dir"
-    cp -a -- "$profile_backup" "$PROFILE_JSON"
-    rm -f -- "$profile_backup"
-    pass 'runtime rejects incremental backup when remote snapshots exist without a local parent'
-}
-
 require_root
 require_commands awk blkid btrfs busctl cat cmp cryptsetup date dd diff dmsetup find findmnt grep journalctl ldd ln losetup mkfifo mkfs.btrfs mkfs.ext4 mknod mount mv pacman perl runuser seq sfdisk sha256sum stat systemd-escape systemd-run tar tee timeout truncate udevadm useradd userdel
 [[ -x "$BROWSE_SESSION_CLIENT" ]] || fail 'browse-session integration client is not executable'
@@ -1040,10 +974,6 @@ validate_runtime_preflight
 pass 'installed runtime validates the mounted target'
 btrfs-backupctl target mount --profile default >/dev/null
 pass 'installed mount command validates the mounted target'
-with_restored_file "$PROFILE_JSON" target_uuid_mismatch_test
-source_on_target_test
-incoming_symlink_escape_test
-
 run_first_backup_through_system_dbus
 grep -q '"incremental": false' "$RUN_LOG" || fail 'full stream was not used for first backup'
 grep -q '^profile_id=default$' /var/lib/btrfs-backup/profiles/default/last-success \
@@ -1081,7 +1011,6 @@ assert_count 2 "$TARGET_MOUNT/snapshots/home"
 assert_count 2 "$SOURCE_MOUNT/.snapshots/home"
 assert_remote_matches_latest_local
 pass 'incremental backup transfers and verifies real Btrfs data'
-missing_incremental_parent_test
 
 printf 'gamma\n' > "$SOURCE_MOUNT/home/new-file.txt"
 dd if=/dev/urandom of="$SOURCE_MOUNT/home/dir/blob-3.bin" bs=1M count=1 status=none

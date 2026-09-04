@@ -93,6 +93,15 @@ void run_scenarios(
         environment.require_target_identity_rejected();
         std::cout << "ok - target identity mismatch is rejected without snapshot changes\n";
 
+        environment.require_source_on_target_rejected();
+        std::cout << "ok - source on the backup target is rejected without mutation\n";
+
+        environment.require_incoming_symlink_rejected();
+        std::cout << "ok - incoming symlink escape is rejected without touching its target\n";
+
+        environment.require_missing_incremental_parent_rejected();
+        std::cout << "ok - missing UUID-matching incremental parent is rejected\n";
+
         environment.require_pre_receive_recovery();
         std::cout << "ok - pending recovery removes a pre-receive orphan\n";
 

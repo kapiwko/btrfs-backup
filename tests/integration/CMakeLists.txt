@@ -112,6 +112,7 @@ add_executable(
     support/IntegrationTestProcess.cpp
     support/RealBtrfsBrowseScenario.cpp
     support/RealBtrfsRecoveryScenarios.cpp
+    support/RealBtrfsSafetyScenarios.cpp
     support/RealBtrfsTestEnvironment.cpp
     support/RealProvisioningAdoptionScenario.cpp
     support/RealProvisioningFreeSpaceScenario.cpp
