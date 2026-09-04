@@ -101,6 +101,23 @@ set_tests_properties(
     PROPERTIES LABELS systemd
 )
 
+add_executable(btrfsbackup-real-restore-tests RealRestoreEngineTests.cpp)
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(btrfsbackup-real-restore-tests PRIVATE -Wall -Wextra -Wpedantic)
+endif()
+if(BTRFSBACKUP_REAL_RESTORE_TESTS)
+    add_test(
+        NAME real-restore-engine-tests
+        COMMAND
+            $<TARGET_FILE:btrfsbackup-real-restore-tests>
+            $<TARGET_FILE:btrfs-backupctl>
+    )
+    set_tests_properties(
+        real-restore-engine-tests
+        PROPERTIES LABELS "real-btrfs;restore" TIMEOUT 120
+    )
+endif()
+
 add_test(
     NAME cmake-install-tests
     COMMAND
