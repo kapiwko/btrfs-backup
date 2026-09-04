@@ -24,11 +24,15 @@ namespace {
 class Cryptsetup final : public bb::platform::linux::storage::ICryptsetupOperations {
   public:
     std::vector<std::string>& calls;
+    bool fail_inspect = false;
+    bool fail_open = false;
     bool fail_close = false;
     explicit Cryptsetup(std::vector<std::string>& calls) : calls(calls) {
     }
     bb::platform::linux::storage::LuksHeader inspect_luks2(const fs::path& device) override {
         calls.push_back("inspect:" + device.string());
+        if (fail_inspect)
+            throw std::runtime_error("not a LUKS2 device");
         return {.uuid = "luks-uuid", .keyslots = {1}};
     }
     void add_key(const fs::path&, int, int) override {
@@ -50,6 +54,8 @@ class Cryptsetup final : public bb::platform::linux::storage::ICryptsetupOperati
     }
     void open_luks2_read_only(const fs::path& device, const std::string& mapper, int) override {
         calls.push_back("open-ro:" + device.string() + ":" + mapper);
+        if (fail_open)
+            throw std::runtime_error("wrong passphrase");
     }
     void close(const std::string& mapper) override {
         calls.push_back("close:" + mapper);
@@ -69,11 +75,14 @@ class Metadata final : public bb::platform::linux::storage::IBlockDeviceMetadata
 class Mounts final : public bb::platform::linux::storage::provisioning::IExistingTargetMountOperations {
   public:
     std::vector<std::string>& calls;
+    bool fail_mount = false;
     bool fail_unmount = false;
     explicit Mounts(std::vector<std::string>& calls) : calls(calls) {
     }
     void mount_btrfs_read_only(const fs::path&, const fs::path&) override {
         calls.push_back("mount-ro");
+        if (fail_mount)
+            throw std::runtime_error("mount failed");
     }
     void unmount(const fs::path&) override {
         calls.push_back("unmount");
@@ -223,6 +232,89 @@ void test_classifies_unsupported_repository_format() {
     );
 }
 
+void test_rejects_luks_identity_change_and_invalid_credentials() {
+    const fs::path root = test_helpers::test_root("existing-target-inspector", "luks-failures");
+    std::vector<std::string> calls;
+    Cryptsetup cryptsetup(calls);
+    Metadata metadata;
+    Mounts mounts(calls);
+    Btrfs btrfs;
+    bb::daemon::control::ExistingTargetInspector inspector(cryptsetup, metadata, mounts, btrfs);
+
+    auto changed = partition();
+    changed.filesystem.uuid = "different-luks-uuid";
+    try {
+        static_cast<void>(inspector.inspect(changed, "inspection-test", root, 8));
+        test_helpers::fail("changed LUKS identity", "a replaced LUKS container was accepted");
+    } catch (const bb::ValidationError&) {
+    }
+    test_helpers::expect_true(
+        "changed LUKS not opened",
+        std::ranges::find_if(calls, [](const auto& call) { return call.starts_with("open-ro:"); }) == calls.end(),
+        "identity mismatch reached credential use"
+    );
+
+    calls.clear();
+    cryptsetup.fail_open = true;
+    try {
+        static_cast<void>(inspector.inspect(partition(), "inspection-test", root, 8));
+        test_helpers::fail("invalid credential", "an invalid LUKS credential was accepted");
+    } catch (const std::runtime_error& error) {
+        test_helpers::expect_eq("invalid credential error", error.what(), "wrong passphrase");
+    }
+    test_helpers::expect_true(
+        "failed open owns no mapper",
+        std::ranges::find(calls, "close:inspection-test") == calls.end(),
+        "a mapper that never opened was closed"
+    );
+
+    calls.clear();
+    cryptsetup.fail_open = false;
+    cryptsetup.fail_inspect = true;
+    try {
+        static_cast<void>(inspector.inspect(partition(), "inspection-test", root, 8));
+        test_helpers::fail("LUKS1 rejection", "a non-LUKS2 container was accepted");
+    } catch (const std::runtime_error& error) {
+        test_helpers::expect_eq("LUKS1 error", error.what(), "not a LUKS2 device");
+    }
+}
+
+void test_mount_failure_closes_mapper_and_incomplete_metadata_is_classified() {
+    const fs::path mount_failure = test_helpers::test_root("existing-target-inspector", "mount-failure");
+    std::vector<std::string> calls;
+    Cryptsetup cryptsetup(calls);
+    Metadata metadata;
+    Mounts mounts(calls);
+    mounts.fail_mount = true;
+    Btrfs btrfs;
+    bb::daemon::control::ExistingTargetInspector inspector(cryptsetup, metadata, mounts, btrfs);
+    try {
+        static_cast<void>(inspector.inspect(partition(), "inspection-test", mount_failure, 8));
+        test_helpers::fail("unmountable Btrfs", "an unmountable Btrfs target was accepted");
+    } catch (const std::runtime_error& error) {
+        test_helpers::expect_eq("mount failure error", error.what(), "mount failed");
+    }
+    test_helpers::expect_eq("mount failure closes mapper", calls.back(), "close:inspection-test");
+    test_helpers::expect_true(
+        "failed mount not unmounted",
+        std::ranges::find(calls, "unmount") == calls.end(),
+        "a mount that never completed was unmounted"
+    );
+
+    const fs::path incomplete = test_helpers::test_root("existing-target-inspector", "incomplete-metadata");
+    test_helpers::write_file(incomplete / "repository.json", R"({"schemaVersion": 1})");
+    calls.clear();
+    mounts.fail_mount = false;
+    const auto summary = inspector.inspect(partition(), "inspection-test", incomplete, 8);
+    test_helpers::expect_true(
+        "incomplete metadata classification",
+        summary.classification == bb::provisioning::ExistingTargetClassification::ForeignOrInvalidRepository &&
+            !summary.diagnostic_code.empty(),
+        "incomplete repository metadata was accepted"
+    );
+    test_helpers::expect_eq("incomplete metadata closes mapper", calls.back(), "close:inspection-test");
+}
+
 void test_cleanup_preserves_unmount_failure_after_successful_mapper_close() {
     const fs::path root = test_helpers::test_root("existing-target-inspector", "cleanup-unmount-failure");
     std::vector<std::string> calls;
@@ -247,6 +339,30 @@ void test_cleanup_preserves_unmount_failure_after_successful_mapper_close() {
     test_helpers::expect_eq("cleanup still closes mapper", calls.back(), "close:inspection-test");
 }
 
+void test_cleanup_preserves_first_failure_when_unmount_and_close_fail() {
+    const fs::path root = test_helpers::test_root("existing-target-inspector", "cleanup-double-failure");
+    std::vector<std::string> calls;
+    Cryptsetup cryptsetup(calls);
+    cryptsetup.fail_close = true;
+    Metadata metadata;
+    Mounts mounts(calls);
+    mounts.fail_unmount = true;
+    Btrfs btrfs;
+    bb::daemon::control::ExistingTargetInspector inspector(cryptsetup, metadata, mounts, btrfs);
+
+    try {
+        inspector.cleanup_session("inspection-test", root);
+        test_helpers::fail("double cleanup failure", "simultaneous cleanup failures were ignored");
+    } catch (const std::runtime_error& error) {
+        test_helpers::expect_eq("first cleanup failure", error.what(), "unmount failed");
+    }
+    test_helpers::expect_true(
+        "double cleanup attempted both operations",
+        calls == std::vector<std::string>{"unmount", "close:inspection-test"},
+        "mapper close was skipped after unmount failure"
+    );
+}
+
 } // namespace
 
 int main() {
@@ -254,6 +370,9 @@ int main() {
     test_closes_mapper_when_filesystem_is_not_btrfs();
     test_classifies_repositoryless_btrfs_filesystems();
     test_classifies_unsupported_repository_format();
+    test_rejects_luks_identity_change_and_invalid_credentials();
+    test_mount_failure_closes_mapper_and_incomplete_metadata_is_classified();
     test_cleanup_preserves_unmount_failure_after_successful_mapper_close();
+    test_cleanup_preserves_first_failure_when_unmount_and_close_fail();
     return test_helpers::finish("existing target inspector tests");
 }
