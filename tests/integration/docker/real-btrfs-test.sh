@@ -31,6 +31,7 @@ DEVICE_PROVISIONING_CLIENT="${BTRFSBACKUP_DEVICE_PROVISIONING_CLIENT:?missing de
 REAL_BTRFS_TESTS="${BTRFSBACKUP_REAL_BTRFS_TESTS:?missing real-Btrfs C++ integration test}"
 REAL_INSTALLED_RUNTIME_TESTS="${BTRFSBACKUP_REAL_INSTALLED_RUNTIME_TESTS:?missing installed-runtime C++ integration test}"
 REAL_MAPPER_LIFECYCLE_TESTS="${BTRFSBACKUP_REAL_MAPPER_LIFECYCLE_TESTS:?missing mapper-lifecycle C++ integration test}"
+REAL_TRUSTED_HOOK_TESTS="${BTRFSBACKUP_REAL_TRUSTED_HOOK_TESTS:?missing trusted-hook C++ integration test}"
 
 cleanup() {
     set +e
@@ -162,13 +163,6 @@ monitor_loop_partition_nodes() {
     done
 }
 
-run_backup() {
-    INVOCATION_ID=real-docker-test \
-        btrfs-backup \
-        --force \
-        --no-eject 2>&1 | tee -a "$RUN_LOG"
-}
-
 run_first_backup_through_system_dbus() {
     local test_user=btrfs-dbus-test
     local action_id=io.github.btrfsbackup.start-backup
@@ -273,19 +267,6 @@ EOF_POLKIT_RULE
     pass 'unprivileged user starts a real backup through system D-Bus and polkit'
 }
 
-expect_backup_failure() {
-    local pattern="$1"
-    local output
-
-    set +e
-    output="$(INVOCATION_ID=real-docker-test btrfs-backup --force --no-eject 2>&1)"
-    local status=$?
-    set -e
-
-    [[ "$status" -ne 0 ]] || fail "backup unexpectedly succeeded; expected: $pattern"
-    grep -Fq -- "$pattern" <<< "$output" || fail "backup failed without expected message: $pattern"
-}
-
 assert_count() {
     local expected="$1"
     local directory="$2"
@@ -382,55 +363,6 @@ manager_independence_test() {
     cp -a -- "$profile_backup" "$PROFILE_JSON"
     rm -f -- "$profile_backup" "$hook" "$marker" "$release_fifo"
     pass 'active runner completes after the system manager stops'
-}
-
-trusted_hook_security_test() {
-    local hook_dir=/etc/btrfs-backup/hooks.d
-    local hook="$hook_dir/integration-test"
-    local original_hook="$hook_dir/integration-test.original"
-    local outside_hook="$TEST_ROOT/untrusted-hook"
-    local marker="$TEST_ROOT/trusted-hook-ran"
-    local profile_backup="$TEST_ROOT/profile.hook-security.json.bak"
-
-    [[ "$(stat -c '%U:%G:%a' "$hook_dir")" == 'root:root:755' ]] \
-        || fail 'package did not install /etc/btrfs-backup/hooks.d as root:root 0755'
-    cp -a -- "$PROFILE_JSON" "$profile_backup"
-    perl -0pi -e \
-        's#"beforeSnapshot": \[\]#"beforeSnapshot": [{"type":"program","program":"/etc/btrfs-backup/hooks.d/integration-test","arguments":[],"timeoutSeconds":30}]#' \
-        "$PROFILE_JSON"
-    chmod 0600 "$PROFILE_JSON"
-
-    {
-        printf '#!/bin/sh\n'
-        printf "printf 'trusted\\n' > '%s'\n" "$marker"
-    } > "$hook"
-    chmod 0755 "$hook"
-    chown root:root "$hook"
-    run_backup
-    [[ "$(cat -- "$marker")" == 'trusted' ]] || fail 'trusted root-owned hook was not executed'
-
-    chown 1000:1000 "$hook"
-    expect_backup_failure 'hook program must be owned by root'
-    chown root:root "$hook"
-
-    chmod 0775 "$hook"
-    expect_backup_failure 'hook program must not be writable by group or others'
-    chmod 0755 "$hook"
-
-    chmod 0777 "$hook_dir"
-    expect_backup_failure 'trusted hook parent must not be writable by group or others'
-    chmod 0755 "$hook_dir"
-
-    cp -a -- "$hook" "$outside_hook"
-    mv -- "$hook" "$original_hook"
-    ln -s -- "$outside_hook" "$hook"
-    expect_backup_failure 'Too many levels of symbolic links'
-    rm -f -- "$hook"
-    mv -- "$original_hook" "$hook"
-
-    cp -a -- "$profile_backup" "$PROFILE_JSON"
-    rm -f -- "$profile_backup" "$hook" "$outside_hook" "$marker"
-    pass 'runtime executes only pinned root-owned hooks from trusted directories'
 }
 
 wait_for_eject_service() {
@@ -555,6 +487,7 @@ require_commands awk blkid btrfs busctl cat cmp cryptsetup date dd diff dmsetup 
 [[ -x "$REAL_BTRFS_TESTS" ]] || fail 'real-Btrfs C++ integration test is not executable'
 [[ -x "$REAL_INSTALLED_RUNTIME_TESTS" ]] || fail 'installed-runtime C++ integration test is not executable'
 [[ -x "$REAL_MAPPER_LIFECYCLE_TESTS" ]] || fail 'mapper-lifecycle C++ integration test is not executable'
+[[ -x "$REAL_TRUSTED_HOOK_TESTS" ]] || fail 'trusted-hook C++ integration test is not executable'
 ensure_loop_devices
 for _ in $(seq 1 100); do
     systemctl show-environment >/dev/null 2>&1 && break
@@ -656,7 +589,7 @@ assert_remote_matches_latest_local
 pass 'system D-Bus backup transfers and verifies real Btrfs data'
 
 manager_independence_test
-trusted_hook_security_test
+"$REAL_TRUSTED_HOOK_TESTS" /usr/bin/btrfs-backup "$PROFILE_JSON" "$TEST_ROOT"
 "$REAL_MAPPER_LIFECYCLE_TESTS" "$TARGET_MOUNT" "$TARGET_LOOP" "$MAPPER_NAME" "$PASSPHRASE_FILE"
 sandboxed_systemd_service_test
 sandboxed_auto_eject_test
