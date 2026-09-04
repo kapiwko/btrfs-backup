@@ -135,6 +135,7 @@ docker exec \
     -e BTRFSBACKUP_BROWSE_SESSION_CLIENT=/opt/btrfsbackup-browse-session-client \
     -e BTRFSBACKUP_DEVICE_PROVISIONING_CLIENT=/opt/btrfsbackup-device-provisioning-client \
     -e BTRFSBACKUP_REAL_BTRFS_TESTS=/opt/btrfsbackup-real-btrfs-tests \
+    -e BTRFSBACKUP_REAL_BTRFS_CONTAINER=1 \
     -w "$CONTAINER_WORKDIR" \
     "$CONTAINER_ID" \
     "$CONTAINER_WORKDIR/tests/integration/docker/real-btrfs-test.sh"

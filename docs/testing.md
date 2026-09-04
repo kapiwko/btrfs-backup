@@ -206,6 +206,13 @@ cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --target real-btrfs-integration
 ```
 
+The C++ fixture currently covers full and incremental backup, interrupted
+receive cleanup, retention, target identity rejection, both pending-recovery
+paths, raw and public restore, public cancellation, and an unprivileged
+read-only browse session. The legacy scenario remains enabled until the
+manifest reaches full parity. The fixture refuses to run as root unless the
+Docker runner supplies its disposable-container marker.
+
 The restore engine also has a focused real-Btrfs gate which avoids the systemd
 and encrypted-target lifecycle used by the full scenario:
 
