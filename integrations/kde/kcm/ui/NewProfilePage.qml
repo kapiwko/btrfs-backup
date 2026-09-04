@@ -43,10 +43,8 @@ KCMUtils.SimpleKCM {
         && (!root.freeSpace || (root.selectedDevice !== null
             && (root.selectedDevice.blockers?.length ?? 0) === 0
             && !root.selectedDevice.mounted))
-    readonly property var candidateDevices: (root.provisioning.devices ?? []).filter(device =>
-        !(device.systemDevice ?? false)
-            && !(device.mounted ?? false)
-            && (!root.adoption || (root.deviceIsExternal(device) && root.deviceHasAdoptionCandidate(device))))
+    readonly property var candidateDevices: (root.provisioning.devices ?? []).filter(device => root.deviceAvailable(device))
+    readonly property var unavailableDevices: (root.provisioning.devices ?? []).filter(device => !root.deviceAvailable(device))
     readonly property string inspectionClassification: root.provisioning.inspection.classification ?? ""
     readonly property var selectedSourceCandidate: sourcePath.currentIndex >= 0
         ? root.provisioning.sourceCandidates[sourcePath.currentIndex] : null
@@ -81,6 +79,24 @@ KCMUtils.SimpleKCM {
             && (region.encrypted ?? false)
             && (region.suitableForAdoption ?? false)
             && (region.blockers?.length ?? 0) === 0)
+    }
+
+    function deviceAvailable(device) {
+        return !(device?.systemDevice ?? false)
+            && !(device?.mounted ?? false)
+            && (!root.adoption || (root.deviceIsExternal(device) && root.deviceHasAdoptionCandidate(device)))
+    }
+
+    function unavailableReason(device) {
+        if (device?.systemDevice ?? false)
+            return translations.i18n("System disk — it cannot be used as a backup target")
+        if (device?.mounted ?? false)
+            return translations.i18n("The device or one of its partitions is mounted")
+        if (root.adoption && !root.deviceIsExternal(device))
+            return translations.i18n("Only removable or externally connected targets can be adopted")
+        if (root.adoption && !root.deviceHasAdoptionCandidate(device))
+            return translations.i18n("No compatible LUKS2 and Btrfs repository was found")
+        return translations.i18n("The device is not safe to use as a backup target")
     }
 
     title: root.step === 0 ? translations.i18n("Add backup profile")
@@ -281,13 +297,8 @@ KCMUtils.SimpleKCM {
                         highlighted: root.selectedDevice?.candidateId === modelData.candidateId
                         onClicked: {
                             root.selectedDevice = modelData
-                            if (root.adoption || root.deviceHasConfiguredTarget(modelData)) {
-                                root.selectedTarget = null
-                                root.provisioning.clearSelection()
-                            } else {
-                                root.selectedTarget = modelData
-                                root.provisioning.buildPlan(modelData, "erase-whole-device")
-                            }
+                            root.selectedTarget = null
+                            root.provisioning.clearSelection()
                         }
                         contentItem: RowLayout {
                             spacing: Kirigami.Units.largeSpacing
@@ -322,10 +333,61 @@ KCMUtils.SimpleKCM {
 
                 ColumnLayout {
                     Layout.fillWidth: true
+                    visible: root.unavailableDevices.length > 0
+                    spacing: Kirigami.Units.smallSpacing
+
+                    Kirigami.Heading {
+                        text: translations.i18np(
+                            "%1 unavailable device",
+                            "%1 unavailable devices",
+                            root.unavailableDevices.length
+                        )
+                        level: 3
+                    }
+                    Repeater {
+                        model: root.unavailableDevices
+                        QQC2.ItemDelegate {
+                            required property var modelData
+                            Layout.fillWidth: true
+                            enabled: false
+                            contentItem: Kirigami.TitleSubtitle {
+                                title: translations.i18n("Storage device %1", modelData.displayIndex)
+                                    + " — " + root.formatBytes(modelData.sizeBytes)
+                                subtitle: root.unavailableReason(modelData)
+                                selected: false
+                            }
+                        }
+                    }
+                }
+
+                ColumnLayout {
+                    Layout.fillWidth: true
                     visible: root.selectedDevice !== null
                     spacing: Kirigami.Units.smallSpacing
 
-                    Kirigami.Heading { text: translations.i18n("Partitions and free space"); level: 3 }
+                    Kirigami.Heading { text: translations.i18n("How do you want to use this device?"); level: 3 }
+                    QQC2.ItemDelegate {
+                        id: wholeDeviceRow
+                        objectName: "wholeDeviceChoice"
+                        Layout.fillWidth: true
+                        visible: !root.adoption && !root.deviceHasConfiguredTarget(root.selectedDevice)
+                        enabled: visible
+                            && (root.selectedDevice?.blockers?.length ?? 0) === 0
+                            && !(root.selectedDevice?.mounted ?? false)
+                            && !root.provisioning.busy
+                        highlighted: root.selectedTarget?.candidateId === root.selectedDevice?.candidateId
+                            && root.planMode === "erase-whole-device"
+                        contentItem: Kirigami.TitleSubtitle {
+                            title: translations.i18n("Use the entire device")
+                            subtitle: translations.i18n("Erase every partition and create a new encrypted backup target")
+                            selected: wholeDeviceRow.highlighted
+                        }
+                        onClicked: {
+                            root.selectedTarget = root.selectedDevice
+                            root.provisioning.buildPlan(root.selectedDevice, "erase-whole-device")
+                        }
+                    }
+                    Kirigami.Heading { text: translations.i18n("Partitions and free space"); level: 4 }
                     Repeater {
                         model: root.selectedDevice?.regions ?? []
                         QQC2.ItemDelegate {

@@ -9,6 +9,17 @@ Item {
     width: 800
     height: 720
 
+    function findObject(item, objectName) {
+        if (item.objectName === objectName)
+            return item
+        for (const child of item.children ?? []) {
+            const match = root.findObject(child, objectName)
+            if (match !== null)
+                return match
+        }
+        return null
+    }
+
     readonly property var partition: ({
         kind: "existing-partition",
         candidateId: "partition-1",
@@ -100,9 +111,11 @@ Item {
         property string errorMessage: ""
         property int refreshCalls: 0
         property int clearSelectionCalls: 0
+        property int buildPlanCalls: 0
+        property string lastBuildMode: ""
         signal completed(string profileId)
         function refresh() { ++refreshCalls }
-        function buildPlan(selection, mode) {}
+        function buildPlan(selection, mode) { ++buildPlanCalls; lastBuildMode = mode }
         function inspectExistingTarget(selection, passphrase) {}
         function clearSelection() { ++clearSelectionCalls }
         function start(profileId, profileName, source, passphrase, confirmation, automaticKey) {}
@@ -130,6 +143,7 @@ Item {
             if (!page.freeSpace || !page.hasPlan || !page.planMatchesSelection
                     || page.candidateDevices.length !== 1
                     || page.candidateDevices[0].candidateId !== "device-1"
+                    || page.unavailableDevices.length !== 2
                     || page.selectedSourceCandidate?.id !== "source-home") {
                 console.error("Free-space source candidate bindings are invalid")
                 Qt.exit(1)
@@ -137,6 +151,22 @@ Item {
             }
             if (page.confirmationToken !== "CREATE") {
                 console.error("Free-space preparation page bindings are invalid")
+                Qt.exit(1)
+                return
+            }
+            page.selectedTarget = null
+            provisioning.plan = ({})
+            const wholeDeviceChoice = root.findObject(page, "wholeDeviceChoice")
+            if (wholeDeviceChoice === null || !wholeDeviceChoice.enabled) {
+                console.error("Explicit whole-device choice is unavailable")
+                Qt.exit(1)
+                return
+            }
+            wholeDeviceChoice.clicked()
+            if (page.selectedTarget?.candidateId !== "device-1"
+                    || provisioning.buildPlanCalls !== 1
+                    || provisioning.lastBuildMode !== "erase-whole-device") {
+                console.error("Whole-device plan was not created by an explicit choice")
                 Qt.exit(1)
                 return
             }

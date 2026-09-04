@@ -82,6 +82,10 @@ identity, mount paths, labels or filesystem UUIDs. The
 KCM renders proportional before/after layouts and a parallel textual list, so
 color is not the only indication of destructive scope. It can preview an
 existing-partition plan that preserves the table and every sibling region.
+Selecting a device does not select a destructive mode. Using the whole device
+is a separate explicit choice alongside an existing partition or unallocated
+region, and excluded devices remain visible with a reason why they cannot be
+selected.
 Existing LUKS2/Btrfs targets are inspected read-only; compatible repositories
 can be adopted, while empty, legacy, unsupported and foreign layouts are
 presented as distinct non-adoptable results. Whole-disk, existing-partition and

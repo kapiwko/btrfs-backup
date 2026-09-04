@@ -1129,3 +1129,33 @@ msgstr "Potwierdzenie hasła:"
 
 msgid "Destructive operation confirmation"
 msgstr "Potwierdzenie operacji destrukcyjnej"
+
+msgid "System disk — it cannot be used as a backup target"
+msgstr "Dysk systemowy — nie może zostać użyty jako cel kopii zapasowej"
+
+msgid "The device or one of its partitions is mounted"
+msgstr "Urządzenie lub jedna z jego partycji jest zamontowana"
+
+msgid "Only removable or externally connected targets can be adopted"
+msgstr "Można przyjąć tylko nośniki wymienne lub podłączone zewnętrznie"
+
+msgid "No compatible LUKS2 and Btrfs repository was found"
+msgstr "Nie znaleziono zgodnego repozytorium LUKS2 i Btrfs"
+
+msgid "The device is not safe to use as a backup target"
+msgstr "Użycie urządzenia jako celu kopii zapasowej nie jest bezpieczne"
+
+msgid "%1 unavailable device"
+msgid_plural "%1 unavailable devices"
+msgstr[0] "%1 niedostępne urządzenie"
+msgstr[1] "%1 niedostępne urządzenia"
+msgstr[2] "%1 niedostępnych urządzeń"
+
+msgid "How do you want to use this device?"
+msgstr "Jak chcesz użyć tego urządzenia?"
+
+msgid "Use the entire device"
+msgstr "Użyj całego urządzenia"
+
+msgid "Erase every partition and create a new encrypted backup target"
+msgstr "Usuń wszystkie partycje i utwórz nowy zaszyfrowany cel kopii zapasowej"
