@@ -64,6 +64,17 @@
       }
     },
     {
+      "name": "clang-tidy",
+      "displayName": "Clang-Tidy production analysis",
+      "inherits": "clang-debug",
+      "binaryDir": "${sourceDir}/build/clang-tidy",
+      "cacheVariables": {
+        "BUILD_KDE_INTEGRATION": "OFF",
+        "BUILD_TESTING": "OFF",
+        "CMAKE_CXX_CLANG_TIDY": "clang-tidy;--config-file=${sourceDir}/.clang-tidy;--header-filter=^${sourceDir}/(apps|src)/"
+      }
+    },
+    {
       "name": "kde-debug",
       "displayName": "GCC debug build with KDE integration",
       "inherits": "gcc-debug",
@@ -102,6 +113,10 @@
     {
       "name": "strict-warnings",
       "configurePreset": "strict-warnings"
+    },
+    {
+      "name": "clang-tidy",
+      "configurePreset": "clang-tidy"
     },
     {
       "name": "kde-debug",

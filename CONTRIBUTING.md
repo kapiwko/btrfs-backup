@@ -213,9 +213,9 @@ under `apps/` and `src/`. Run both enforced checks with:
 make quality
 ```
 
-`make check-format` checks uncommitted lines by default and accepts an optional
-base revision through `./tools/check-cpp-format.sh <revision>`. Do not combine a
-functional change with an unrelated repository-wide reformat.
+`make check-format` checks uncommitted lines by default. Set
+`CPP_FORMAT_BASE=<revision>` to compare with another base revision. Do not
+combine a functional change with an unrelated repository-wide reformat.
 
 Naming conventions are:
 
