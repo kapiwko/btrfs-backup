@@ -192,6 +192,18 @@
       }
     },
     {
+      "name": "dbus",
+      "configurePreset": "manager-debug",
+      "filter": {
+        "include": {
+          "label": "dbus"
+        }
+      },
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
       "name": "workflow",
       "configurePreset": "default",
       "filter": {
