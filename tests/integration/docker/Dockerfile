@@ -16,6 +16,7 @@ RUN pacman -Syu --noconfirm --needed \
         grep \
         perl \
         polkit \
+        python \
         sed \
         systemd \
         util-linux \
