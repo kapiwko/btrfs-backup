@@ -346,6 +346,7 @@ if(BUILD_SYSTEM_MANAGER)
         btrfsbackup-integration-browse-session-client
         PRIVATE
             btrfsbackup-integration-manager-client
+            btrfsbackup-platform-linux-base
             nlohmann_json::nlohmann_json
     )
 
