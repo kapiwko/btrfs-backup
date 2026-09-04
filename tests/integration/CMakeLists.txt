@@ -109,6 +109,9 @@ endif()
 add_executable(
     btrfsbackup-real-btrfs-tests
     RealBtrfsBackupTests.cpp
+    support/IntegrationTestProcess.cpp
+    support/RealBtrfsBrowseScenario.cpp
+    support/RealBtrfsRecoveryScenarios.cpp
     support/RealBtrfsTestEnvironment.cpp
 )
 target_link_libraries(btrfsbackup-real-btrfs-tests PRIVATE nlohmann_json::nlohmann_json)
