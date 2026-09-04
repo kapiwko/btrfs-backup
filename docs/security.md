@@ -245,12 +245,15 @@ Preparation operation identifiers contain 128 random bits supplied by
 `getrandom()`. The manager persists the initiating D-Bus unique name and UID in
 a root-only transaction record. Status and cancellation require the matching
 owner (the UID is used after a daemon restart) or a fresh administrator
-authorization. Transaction files use mode `0600` in a `0700` directory and are
-updated using a same-directory atomic rename followed by file and parent
-directory synchronization. Every document carries a monotonically increasing
-revision. Manager and helper transitions take an exclusive per-operation
-`flock()`, reload the document under that lock, compare the expected revision,
-validate the state transition, and only then publish the next revision.
+authorization. Transaction files use mode `0600` in a daemon-owned `0700`
+directory. Existing directories, lock files and profile reservations with a
+different owner, type or mode are rejected rather than repaired in place.
+Records are updated using a same-directory atomic rename followed by file and
+parent directory synchronization. Every document carries a monotonically
+increasing revision. Manager and helper transitions take an exclusive
+per-operation `flock()`, reload the document under that lock, compare the
+expected revision, validate the state transition, and only then publish the
+next revision.
 Terminal transactions are immutable. Cancellation is persisted separately as
 `cancelRequested`, so a manager request cannot replace the helper's recorded
 phase or artifact UUIDs.

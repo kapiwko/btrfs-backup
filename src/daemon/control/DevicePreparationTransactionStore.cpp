@@ -38,11 +38,20 @@ class TransactionLock final {
     explicit TransactionLock(const fs::path& path) {
         int descriptor;
         do {
-            descriptor = ::open(path.c_str(), O_WRONLY | O_CREAT | O_CLOEXEC | O_NOFOLLOW, transaction_permissions);
+            descriptor = ::open(
+                path.c_str(),
+                O_RDWR | O_CREAT | O_NONBLOCK | O_CLOEXEC | O_NOFOLLOW,
+                transaction_permissions
+            );
         } while (descriptor < 0 && errno == EINTR);
         if (descriptor < 0)
             throw ValidationError("cannot open device preparation transaction lock");
         descriptor_ = platform::linux::OwnedFileDescriptor(descriptor);
+        struct stat status{};
+        if (::fstat(descriptor_.get(), &status) < 0 || !S_ISREG(status.st_mode) ||
+            status.st_uid != ::geteuid() || (status.st_mode & 0777) != transaction_permissions) {
+            throw ValidationError("unsafe device preparation transaction lock");
+        }
         int result;
         do {
             result = ::flock(descriptor_.get(), LOCK_EX);
@@ -81,12 +90,31 @@ std::int64_t now_seconds() {
 
 void prepare_root(const fs::path& root) {
     std::error_code error;
-    fs::create_directories(root, error);
+    const bool created = fs::create_directories(root, error);
     if (error)
         throw ValidationError("cannot create device preparation transaction directory");
-    fs::permissions(root, transaction_directory_permissions, fs::perm_options::replace, error);
-    if (error)
+    platform::linux::OwnedFileDescriptor descriptor(
+        ::open(root.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW)
+    );
+    if (!descriptor.valid())
+        throw ValidationError("cannot open device preparation transaction directory");
+    if (created && ::fchmod(descriptor.get(), static_cast<mode_t>(transaction_directory_permissions)) < 0)
         throw ValidationError("cannot secure device preparation transaction directory");
+    struct stat status{};
+    if (::fstat(descriptor.get(), &status) < 0 || !S_ISDIR(status.st_mode) ||
+        status.st_uid != ::geteuid() ||
+        (status.st_mode & 0777) != static_cast<mode_t>(transaction_directory_permissions)) {
+        throw ValidationError("unsafe device preparation transaction directory");
+    }
+}
+
+bool path_entry_exists(const fs::path& path) {
+    struct stat status{};
+    if (::lstat(path.c_str(), &status) == 0)
+        return true;
+    if (errno == ENOENT)
+        return false;
+    throw ValidationError("cannot inspect device preparation transaction path");
 }
 
 fs::path reservation_root(const fs::path& root) {
@@ -157,8 +185,10 @@ std::optional<std::string> read_reservation(const fs::path& path) {
     struct stat status{};
     if (::fstat(fd.get(), &status) < 0)
         throw_reservation_error("cannot inspect profile reservation", path, errno);
-    if (!S_ISREG(status.st_mode) || status.st_size <= 0 || status.st_size > 64)
+    if (!S_ISREG(status.st_mode) || status.st_uid != ::geteuid() ||
+        (status.st_mode & 0777) != transaction_permissions || status.st_size <= 0 || status.st_size > 64) {
         throw ValidationError("invalid profile reservation " + path.string());
+    }
     std::string owner(static_cast<std::size_t>(status.st_size), '\0');
     std::size_t offset = 0;
     while (offset < owner.size()) {
@@ -203,7 +233,7 @@ void DevicePreparationTransactionStore::save(DevicePreparationTransaction& trans
     const TransactionLock lock(transaction_lock_path(root_, transaction.status.operation_id));
     const fs::path path = transaction_path(root_, transaction.status.operation_id);
     DevicePreparationTransaction changed = transaction;
-    if (fs::exists(path)) {
+    if (path_entry_exists(path)) {
         const auto current = read_transaction(path);
         if (current.status.operation_id != transaction.status.operation_id)
             throw ValidationError("transaction file name does not match its operation identifier");
