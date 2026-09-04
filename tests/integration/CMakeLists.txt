@@ -57,6 +57,11 @@ add_test(
 )
 
 add_test(
+    NAME qemu-hotplug-runner-cli-tests
+    COMMAND ${PYTHON_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/qemu/run_hotplug.py --help
+)
+
+add_test(
     NAME profile-json-cli-tests
     COMMAND
         ${CMAKE_COMMAND}
@@ -91,6 +96,7 @@ set_tests_properties(
     real-btrfs-runner-cli-tests
     legacy-shell-harness-tests
     qemu-guest-payload-tests
+    qemu-hotplug-runner-cli-tests
     installation-render-tests
     profile-json-cli-tests
     command-surface-tests
@@ -329,7 +335,7 @@ if(BUILD_SYSTEM_MANAGER)
         COMMAND
             ${CMAKE_COMMAND} -E env
             BTRFSBACKUP_DEVICE_PROVISIONING_CLIENT=$<TARGET_FILE:btrfsbackup-integration-device-provisioning-client>
-            ${PROJECT_SOURCE_DIR}/tests/qemu/run-hotplug.sh
+            ${PYTHON_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/qemu/run_hotplug.py
         DEPENDS btrfsbackup-integration-device-provisioning-client
         USES_TERMINAL
     )
