@@ -94,6 +94,51 @@ void test_reports_every_detected_usage_reason() {
     test_helpers::expect_true("exclusive reason", contains(reasons, "exclusive-open-failed"), "exclusive open failure was ignored");
 }
 
+void test_rejects_lvm_and_md_member_signatures_before_exclusive_open() {
+    for (const std::string signature : {"LVM2_member", "linux_raid_member"}) {
+        TopologyReader topology;
+        topology.topology = safe_topology();
+        provisioning::ExistingPartition selected;
+        selected.identity = {
+            .display_path = "/dev/test1",
+            .major_minor = "8:17",
+            .sysfs_path = "/devices/test/block/test/test1",
+            .size_bytes = 512,
+        };
+        selected.partition_uuid = "target";
+        selected.partition_number = 1;
+        selected.start_sector = 1;
+        selected.sector_count = 1;
+        selected.filesystem = {.type = signature};
+        selected.blockers = {{.code = "unsupported-block-stack", .detail = signature}};
+        topology.topology.devices.front().regions.emplace_back(selected);
+        bool exclusive_probe_called = false;
+        DestructiveDeviceSafetyInspector inspector(
+            topology,
+            [&](const ProvisioningDevice&) {
+                exclusive_probe_called = true;
+                return std::optional<std::string>{};
+            }
+        );
+        const DevicePreparationTarget target{
+            .mode = provisioning::ProvisioningMode::ReformatExistingPartition,
+            .device = topology.topology.devices.front(),
+            .partition = selected,
+        };
+        const auto reasons = inspector.inspect(candidate(), target);
+        test_helpers::expect_true(
+            "unsupported stack " + signature,
+            contains(reasons, "unsupported-block-stack:" + signature),
+            "an unsupported storage member reached destructive preparation"
+        );
+        test_helpers::expect_true(
+            "unsupported stack still probed " + signature,
+            exclusive_probe_called,
+            "the final exclusive-open safety check was skipped"
+        );
+    }
+}
+
 void test_accepts_complete_unused_device() {
     TopologyReader topology;
     topology.topology = safe_topology();
@@ -181,6 +226,7 @@ void test_unavailable_topology_fails_closed() {
 
 int main() {
     test_reports_every_detected_usage_reason();
+    test_rejects_lvm_and_md_member_signatures_before_exclusive_open();
     test_accepts_complete_unused_device();
     test_partition_scope_ignores_mounted_sibling_and_probes_only_target();
     test_unavailable_topology_fails_closed();
