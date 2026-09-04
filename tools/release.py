@@ -10,11 +10,15 @@ import json
 import os
 from pathlib import Path
 import platform
+import subprocess
 import tempfile
 
 from release_build import ReleaseBuild
+from release_arch import build_arch_package
 from release_common import (copy_source_tree, deterministic_tar_gz, deterministic_zip,
                             reset_directory, sha256, source_date_epoch, write_sbom)
+from release_packaging import build_definition
+from release_verify import verify_artifacts
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -64,43 +68,111 @@ def write_reports(dist: Path, artifacts: list[Path], version: str, epoch: int,
 
 def write_checksums(dist: Path, artifacts: list[Path]) -> None:
     checksums = dist / "SHA256SUMS"
-    checksums.write_text("".join(f"{sha256(path)}  {path.name}\n" for path in artifacts))
+    expected = {path.name: sha256(path) for path in artifacts}
+    checksums.write_text("".join(f"{digest}  {name}\n" for name, digest in expected.items()))
+    actual = {}
+    for line in checksums.read_text().splitlines():
+        digest, name = line.split("  ", maxsplit=1)
+        actual[name] = digest
     for path in artifacts:
-        if sha256(path) not in checksums.read_text():
+        if actual.get(path.name) != sha256(path):
             raise RuntimeError(f"checksum verification failed for {path.name}")
+
+
+def run_pre_package_tests(mode: str, jobs: int) -> None:
+    if mode == "skip":
+        return
+    if mode == "full" and os.geteuid() != 0:
+        raise RuntimeError("full tests require root")
+    subprocess.run(["cmake", "--preset", "default"], cwd=ROOT, check=True)
+    subprocess.run(["cmake", "--build", "--preset", "default", "--parallel", str(jobs)],
+                   cwd=ROOT, check=True)
+    subprocess.run(["ctest", "--preset", "default", "--parallel", str(jobs),
+                    "--output-on-failure"], cwd=ROOT, check=True)
+
+
+def build_selected(target: str, dist: Path, temporary: Path, source_stage: Path,
+                   source_archive: Path, version: str, epoch: int, build_dir: Path,
+                   clean_build: bool, jobs: int) -> list[Path]:
+    artifacts: list[Path] = []
+    arch, deb_arch = architecture_names()
+    definitions = ("rpm", "nix", "ebuild", "pkgbuild") if target == "all" else (target,)
+    for definition in definitions:
+        if definition in ("rpm", "nix", "ebuild", "pkgbuild"):
+            artifacts.append(build_definition(
+                ROOT, temporary / f"definition-{definition}", dist, definition,
+                version, arch, sha256(source_archive), epoch,
+            ))
+
+    binary_targets = ("tar-install", "deb", "rpm", "arch") if target == "all" else (target,)
+    if not any(item in ("tar-install", "deb", "rpm", "arch", "arch-base")
+               for item in binary_targets):
+        return artifacts
+    source_root = source_stage if clean_build else ROOT
+    actual_build_dir = temporary / "build" if clean_build else build_dir.resolve()
+    release_build = ReleaseBuild(
+        source_root, actual_build_dir, epoch, jobs, kde=target in ("all", "arch")
+    )
+    cpack_targets = {
+        "tar-install": ("TGZ", f"btrfs-backup-{version}-install.tar.gz"),
+        "deb": ("DEB", f"btrfs-backup_{version}-1_{deb_arch}.deb"),
+        "rpm": ("RPM", f"btrfs-backup-{version}-1.{arch}.rpm"),
+    }
+    for binary_target in binary_targets:
+        if binary_target in cpack_targets:
+            generator, name = cpack_targets[binary_target]
+            artifacts.append(release_build.cpack(
+                generator, temporary / f"cpack-{generator.lower()}", dist / name
+            ))
+    if target in ("all", "arch", "arch-base"):
+        base_stage = release_build.stage(temporary / "arch-base", "Unspecified")
+        artifacts.append(build_arch_package(
+            ROOT, base_stage, dist / f"btrfs-backup-{version}-1-{arch}.pkg.tar.zst",
+            version, arch, epoch,
+        ))
+    if target in ("all", "arch"):
+        kde_stage = release_build.stage(temporary / "arch-kde", "KDEIntegration")
+        artifacts.append(build_arch_package(
+            ROOT, kde_stage, dist / f"btrfs-backup-kde-{version}-1-{arch}.pkg.tar.zst",
+            version, arch, epoch, kde=True,
+        ))
+    return artifacts
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Build deterministic btrfs-backup release artifacts.")
-    parser.add_argument("--target", choices=("source", "tar-install", "deb", "rpm"), default="source")
+    parser.add_argument(
+        "--target",
+        choices=("all", "source", "arch", "arch-base", "tar-install", "deb", "rpm",
+                 "nix", "ebuild", "pkgbuild"), default="all",
+    )
     parser.add_argument("--dist-dir", type=Path, default=ROOT / "dist")
     parser.add_argument("--build-dir", type=Path, default=ROOT / "build" / "release")
     parser.add_argument("--clean-build", action="store_true")
-    parser.add_argument("--skip-tests", action="store_true", help="accepted for compatibility; source has no tests")
+    tests = parser.add_mutually_exclusive_group()
+    tests.add_argument("--full-tests", action="store_const", const="full", dest="test_mode")
+    tests.add_argument("--static-tests", action="store_const", const="static", dest="test_mode")
+    tests.add_argument("--skip-tests", action="store_const", const="skip", dest="test_mode")
+    parser.set_defaults(test_mode="skip")
     arguments = parser.parse_args()
     version = (ROOT / "VERSION").read_text().strip()
     epoch = source_date_epoch(ROOT)
     dist = arguments.dist_dir.resolve()
+    jobs = max(1, int(os.environ.get("BUILD_JOBS", os.cpu_count() or 2)))
+    run_pre_package_tests(arguments.test_mode, jobs)
     reset_directory(dist)
     with tempfile.TemporaryDirectory(prefix="btrfs-backup-release.", dir="/tmp") as temporary:
         temporary_root = Path(temporary)
         source_stage, artifacts = build_source(dist, temporary_root, epoch, version)
         if arguments.target != "source":
-            build_dir = temporary_root / "build" if arguments.clean_build else arguments.build_dir.resolve()
-            source_root = source_stage if arguments.clean_build else ROOT
-            jobs = max(1, int(os.environ.get("BUILD_JOBS", os.cpu_count() or 2)))
-            release_build = ReleaseBuild(source_root, build_dir, epoch, jobs)
-            arch, deb_arch = architecture_names()
-            destinations = {
-                "tar-install": ("TGZ", f"btrfs-backup-{version}-install.tar.gz"),
-                "deb": ("DEB", f"btrfs-backup_{version}-1_{deb_arch}.deb"),
-                "rpm": ("RPM", f"btrfs-backup-{version}-1.{arch}.rpm"),
-            }
-            generator, name = destinations[arguments.target]
-            artifacts.append(release_build.cpack(
-                generator, temporary_root / "cpack", dist / name
+            artifacts.extend(build_selected(
+                arguments.target, dist, temporary_root, source_stage, artifacts[0], version,
+                epoch, arguments.build_dir, arguments.clean_build, jobs,
             ))
-        artifacts = write_reports(dist, artifacts, version, epoch, arguments.target, "skip")
+        verify_artifacts(artifacts)
+        artifacts = write_reports(
+            dist, artifacts, version, epoch, arguments.target, arguments.test_mode
+        )
         write_checksums(dist, artifacts)
     print("Built release artifacts:")
     for artifact in [*artifacts, dist / "SHA256SUMS"]:

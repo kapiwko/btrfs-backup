@@ -118,7 +118,7 @@ class RealBtrfsContainer:
             if self.package_builder == "local":
                 run(
                     [
-                        str(ROOT / "tools/build-release.sh"),
+                        str(ROOT / "tools/release.py"),
                         "--target",
                         "arch-base",
                         "--skip-tests",
@@ -171,7 +171,7 @@ class RealBtrfsContainer:
                 "-w",
                 CONTAINER_WORKDIR,
                 self.build_image,
-                f"{CONTAINER_WORKDIR}/tools/build-release.sh",
+                f"{CONTAINER_WORKDIR}/tools/release.py",
                 "--target",
                 "arch-base",
                 "--skip-tests",
