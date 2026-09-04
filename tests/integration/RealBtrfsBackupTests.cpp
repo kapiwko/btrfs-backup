@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "support/RealBtrfsTestEnvironment.hpp"
+#include "support/RealPackageTest.hpp"
 #include "support/RealProvisioningTestEnvironment.hpp"
 
 #include <exception>
@@ -16,6 +17,7 @@ namespace {
 
 using btrfsbackup::integration::CommandResult;
 using btrfsbackup::integration::RealBtrfsTestEnvironment;
+using btrfsbackup::integration::RealPackageTest;
 using btrfsbackup::integration::RealProvisioningTestEnvironment;
 
 void require(bool condition, std::string_view message) {
@@ -38,8 +40,12 @@ void require_backup(const CommandResult& result, bool expected_incremental) {
 void run_scenarios(
     const std::filesystem::path& backupctl,
     const std::filesystem::path& browse_session_client,
-    const std::filesystem::path& provisioning_client
+    const std::filesystem::path& provisioning_client,
+    const std::filesystem::path& package_directory
 ) {
+    RealPackageTest(package_directory).install_and_verify();
+    std::cout << "ok - base package installs and runs without KDE or Qt runtime dependencies\n";
+
     RealBtrfsTestEnvironment environment(backupctl, browse_session_client);
     try {
         environment.prepare();
@@ -133,13 +139,14 @@ void run_scenarios(
 } // namespace
 
 int main(int argc, char** argv) {
-    if (argc != 4) {
+    if (argc != 5) {
         std::cerr << "usage: btrfsbackup-real-btrfs-tests /path/to/btrfs-backupctl "
-                     "/path/to/browse-session-client /path/to/device-provisioning-client\n";
+                     "/path/to/browse-session-client /path/to/device-provisioning-client "
+                     "/path/to/package-directory\n";
         return 2;
     }
     try {
-        run_scenarios(argv[1], argv[2], argv[3]);
+        run_scenarios(argv[1], argv[2], argv[3], argv[4]);
         return 0;
     } catch (const std::exception& error) {
         std::cerr << "real-btrfs-backup-tests: " << error.what() << '\n';
