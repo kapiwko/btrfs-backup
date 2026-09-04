@@ -17,48 +17,14 @@ Every roadmap item must preserve these properties:
 6. restore and administrative workflows remain usable without a desktop;
 7. formats and APIs are versioned before external clients depend on them.
 
-## Near Term: Stabilize The 4.0 System Control Boundary
+## Near Term: Extend The System Control Boundary
 
-The unreleased 4.0 development tree includes the optional system manager
-described in [system-manager.md](docs/design/system-manager.md). Its implemented
-baseline provides versioned, sanitized read APIs and separately authorized
-backup control, profile administration, credential, browse-session and device
-provisioning operations. Runner execution remains independent and owned by
-systemd.
-
-The manager baseline also includes state-change signals, restart-safe
-file-backed reconstruction, explicit target and safe-removal state, secret-free
-audit records, authorized profile administration, caller-bound browse sessions,
-a shared C++ desktop client and the KDE integration implemented for 4.0.
-
-Destructive device provisioning is implemented but remains experimental until
-the 4.0 release gates are complete. The current workflow provides caller-bound
-and expiring topology candidates, before/after plans in the KCM, typed
-confirmation, repeated device-identity and source-filesystem checks, four
-preparation modes, profile identity reservation, create-only profile
-publication, revisioned recovery records and execution in a separately
-hardened systemd helper. Public D-Bus responses expose sanitized presentation
-data rather than persistent device identifiers.
-
-Release blockers for this workflow are validation work rather than initial
-implementation: complete real-device coverage for all four modes, QEMU coverage
-for whole-device and existing-partition preparation, interruption and device-loss
-recovery tests, and the full compiler, sanitizer, static-analysis, D-Bus parity
-and systemd security matrix. Until those gates pass, provisioning must not be
-described as a stable 4.0 capability.
-
-Further hardening should validate the per-operation device cgroup rules on the
-supported systemd range, narrow access to dynamically created partition and
-mapper devices where the platform permits it, and expand power-loss recovery
-evidence without moving backup execution into the manager.
-
-The remaining planned system-control increment is:
-
-- scheduling and persistent request-queue integration without making the
-  manager responsible for runner execution.
-
-The manager remains an outer adapter. The systemd runner continues to execute
-an already-started backup if the manager or desktop disappears.
+- add scheduling and a persistent request queue without making the manager
+  responsible for runner execution;
+- broaden provisioning tests across the supported systemd range;
+- test physical removable devices from multiple vendors;
+- add emulated NVMe and SCSI/SATA controller coverage;
+- cover more unsupported block stacks and power-loss boundaries.
 
 ## Backup Semantics
 
@@ -89,47 +55,33 @@ Later improvements include:
 
 Improve configuration without weakening the privileged boundary:
 
-- analyze mounted Btrfs layouts and classify subvolumes as covered, explicitly
-  excluded or probably missed;
-- generate proposed source entries without silently modifying a profile;
-- stabilize the implemented media-preparation workflow and its profile
-  publication only after its release-gate matrix passes;
+- keep extending the media-preparation safety matrix after its 4.0 release
+  validation without expanding the set of supported destructive layouts;
 - extend successful media preparation with an explicit trial backup and trial
   restore;
 - evaluate TPM2, FIDO2 and PKCS#11 enrollment only after recovery-key and LUKS
   header-backup guidance is in place;
-- keep the existing `libcryptsetup` adapter behind manager authorization and
-  strengthen its cancellation and recovery coverage before adding enrollment
-  methods.
+- strengthen cancellation and recovery coverage for credential enrollment
+  before adding further enrollment methods.
 
 ## Repository Durability
 
-Repository format v1 provides a self-describing identity and a validated
-snapshot catalog. Add automatic catalog writing and define future format
-upgrades with dry-run, transactional commit and compatibility fixtures. See
+Define future repository-format upgrades with dry-run, transactional commit
+and compatibility fixtures. See
 [repository-format.md](docs/design/repository-format.md).
 
 Repository operations should grow in this order:
 
-1. discover and inspect;
-2. verify Btrfs state, UUID chains, incoming data and catalog consistency;
-3. rebuild derived metadata;
-4. produce a repair plan;
-5. repair or full reseed without deleting the last verified copy;
-6. optionally sign catalog metadata.
+1. produce a repair plan;
+2. repair or full reseed without deleting the last verified copy;
+3. optionally sign catalog metadata.
 
 Support rotated targets and multiple hosts only after repository namespaces,
 identity and upgrade rules are stable.
 
 ## Restore And Disaster Recovery
 
-The 4.0 CLI-first restore engine provides repository discovery, snapshot and
-version listing, read-only browsing, file/directory restore and subvolume
-restore. Dangerous destinations remain denied by default. Build operational
-recovery and repair workflows on that baseline. See
-[restore-engine.md](docs/design/restore-engine.md).
-
-Disaster-recovery work also includes:
+Disaster-recovery work includes:
 
 - LUKS key-slot and header-backup audit;
 - a secret-free host recovery manifest;
@@ -163,9 +115,8 @@ retention, scheduling, power and transport failures. Add:
 
 ## C++ Architecture And Quality
 
-Preserve the domain, port, adapter, persistence, CLI and daemon boundaries
-established in the current codebase without another broad directory migration or
-behavioral rewrite:
+Evolve the domain, port, adapter, persistence, CLI and daemon boundaries without
+a broad directory migration or behavioral rewrite:
 
 - split a broad effect or persistence component only when a concrete ownership
   or lifecycle problem remains;
@@ -175,8 +126,8 @@ behavioral rewrite:
   outcomes where failure is expected;
 - keep CMake interfaces minimal and model targets free of Linux, JSON and UI
   dependencies;
-- maintain the existing ASan, UBSan, GCC, Clang, formatting and static-analysis
-  gates, and extend compiler coverage to manager-enabled and manager-disabled
+- keep ASan, UBSan, GCC, Clang, formatting and static-analysis gates, and
+  extend compiler coverage to manager-enabled and manager-disabled
   builds.
 
 Refactors must preserve public CLI, profile, status, history, recovery and
@@ -192,10 +143,7 @@ KCM owns target validation and administration, and the manager remains an outer
 adapter rather than the backup execution owner. See
 [ADR 0005](docs/adr/0005-kde-integration-boundaries.md).
 
-The unreleased 4.0 desktop baseline includes the monitor, notifications, widget
-settings, KCM, authorized profile administration, caller-bound browse sessions,
-KIO, Dolphin previous versions, guided restore and KRunner. Continue integration
-in this order:
+Continue desktop integration in this order:
 
 - detect and later adopt suitable Snapper snapshots;
 - dry-run import from btrbk configuration;
@@ -207,11 +155,9 @@ No integration may become a required dependency of the base runtime.
 
 ## Verification Investment
 
-Maintain unit and real-Btrfs Docker coverage, the opt-in QEMU Arch hotplug test,
-ASan, UBSan, formatting, static analysis and GCC/Clang coverage. Extend QEMU
-coverage from its current package installation, USB attach, udev delivery and
-systemd startup baseline to device loss, ENOSPC and interruption at commit
-boundaries. Add fuzzing for untrusted JSON and path inputs.
+Add QEMU coverage for ENOSPC and more interruption boundaries. Add fuzzing for
+untrusted JSON and path inputs, and extend compiler and runtime checks when new
+supported platforms are introduced.
 
 ## Open Source And Release Maturity
 
