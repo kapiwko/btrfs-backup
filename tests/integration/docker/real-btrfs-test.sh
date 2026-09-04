@@ -25,13 +25,13 @@ PACKAGE_DIR="${BTRFSBACKUP_PACKAGE_DIR:-$TEST_ROOT/package}"
 LOG_DIR="$TEST_ROOT/logs"
 RUN_LOG="$LOG_DIR/btrfs-backup.log"
 PROFILE_JSON=/etc/btrfs-backup/profiles/default/profile.json
-EJECT_COMPLETION_COUNT=0
 BROWSE_SESSION_CLIENT="${BTRFSBACKUP_BROWSE_SESSION_CLIENT:?missing browse-session integration client}"
 DEVICE_PROVISIONING_CLIENT="${BTRFSBACKUP_DEVICE_PROVISIONING_CLIENT:?missing device-provisioning integration client}"
 REAL_BTRFS_TESTS="${BTRFSBACKUP_REAL_BTRFS_TESTS:?missing real-Btrfs C++ integration test}"
 REAL_INSTALLED_RUNTIME_TESTS="${BTRFSBACKUP_REAL_INSTALLED_RUNTIME_TESTS:?missing installed-runtime C++ integration test}"
 REAL_MAPPER_LIFECYCLE_TESTS="${BTRFSBACKUP_REAL_MAPPER_LIFECYCLE_TESTS:?missing mapper-lifecycle C++ integration test}"
 REAL_TRUSTED_HOOK_TESTS="${BTRFSBACKUP_REAL_TRUSTED_HOOK_TESTS:?missing trusted-hook C++ integration test}"
+REAL_SANDBOXED_SYSTEMD_TESTS="${BTRFSBACKUP_REAL_SANDBOXED_SYSTEMD_TESTS:?missing sandboxed-systemd C++ integration test}"
 
 cleanup() {
     set +e
@@ -294,13 +294,6 @@ assert_remote_matches_latest_local() {
         || fail 'remote Received UUID does not match latest local snapshot UUID'
 }
 
-assert_no_incoming_children() {
-    local leftover
-
-    leftover="$(find "$TARGET_MOUNT/.incoming/home" -mindepth 1 -print -quit 2>/dev/null || true)"
-    [[ -z "$leftover" ]] || fail 'incoming source directory is not empty after successful backups'
-}
-
 manager_independence_test() {
     local hook_dir=/etc/btrfs-backup/hooks.d
     local hook="$hook_dir/manager-independence-test"
@@ -365,121 +358,6 @@ manager_independence_test() {
     pass 'active runner completes after the system manager stops'
 }
 
-wait_for_eject_service() {
-    local completion_count
-    local state
-
-    for _ in $(seq 1 100); do
-        completion_count="$(journalctl --no-pager -u btrfs-backup-eject@default.service -o cat \
-            | grep -Fc 'Finished Safely eject Btrfs backup target for profile default.' || true)"
-        state="$(systemctl show -P ActiveState btrfs-backup-eject@default.service)"
-        if (( completion_count > EJECT_COMPLETION_COUNT )) && [[ "$state" == 'inactive' ]]; then
-            EJECT_COMPLETION_COUNT="$completion_count"
-            return
-        fi
-        sleep 0.1
-    done
-    systemctl status --no-pager btrfs-backup-eject@default.service >&2 || true
-    if [[ -e "$MAPPER_PATH" ]]; then
-        local mapper_device
-        mapper_device="$(lsblk -dnro MAJ:MIN "$MAPPER_PATH" 2>/dev/null || true)"
-        dmsetup info -c --noheadings -o name,major,minor,open,segments,uuid "$MAPPER_NAME" >&2 \
-            || true
-        dmsetup ls --tree >&2 || true
-        if [[ -n "$mapper_device" ]]; then
-            local mount_info
-            for mount_info in /proc/[0-9]*/mountinfo; do
-                if grep -Fq " $mapper_device " "$mount_info" 2>/dev/null; then
-                    local mount_pid="${mount_info#/proc/}"
-                    mount_pid="${mount_pid%/mountinfo}"
-                    printf '%s\n' "mapper $mapper_device is visible in $mount_info:" >&2
-                    grep -F " $mapper_device " "$mount_info" >&2 || true
-                    ps -o pid,ppid,user,stat,comm,args -p "$mount_pid" 2>/dev/null >&2 || true
-                fi
-            done
-        fi
-    fi
-    fail 'timed out waiting for the target eject service'
-}
-
-sandboxed_systemd_service_test() {
-    local mount_unit
-    local mount_unit_path
-    mount_unit="$(systemd-escape -p --suffix=mount "$TARGET_MOUNT")"
-    mount_unit_path="/etc/systemd/system/$mount_unit"
-    printf 'systemd sandbox\n' >> "$SOURCE_MOUNT/home/file-a.txt"
-    sync -f "$SOURCE_MOUNT"
-    install -d -m0755 "$TARGET_STAGING_MOUNT"
-    mount --move "$TARGET_MOUNT" "$TARGET_STAGING_MOUNT"
-    if findmnt -n -M "$TARGET_MOUNT" >/dev/null 2>&1; then
-        fail 'target remained mounted before sandboxed service test'
-    fi
-    {
-        printf '[Unit]\nDescription=Disposable bind mount for sandbox test\n\n'
-        printf '[Mount]\nWhat=%s\nWhere=%s\nType=none\nOptions=bind\n' \
-            "$TARGET_STAGING_MOUNT" "$TARGET_MOUNT"
-    } > "$mount_unit_path"
-    systemctl daemon-reload
-    [[ "$(systemctl show -P NoNewPrivileges btrfs-backup@default.service)" == 'yes' ]] \
-        || fail 'systemd did not apply NoNewPrivileges'
-    [[ "$(systemctl show -P ProtectSystem btrfs-backup@default.service)" == 'full' ]] \
-        || fail 'systemd did not apply ProtectSystem=full'
-    [[ "$(systemctl show -P MemoryDenyWriteExecute btrfs-backup@default.service)" == 'yes' ]] \
-        || fail 'systemd did not apply MemoryDenyWriteExecute'
-    if ! systemctl start btrfs-backup@default.service; then
-        systemctl status --no-pager btrfs-backup@default.service >&2 || true
-        systemctl status --no-pager "$mount_unit" >&2 || true
-        journalctl --no-pager -u btrfs-backup@default.service -n 100 >&2 || true
-        fail 'sandboxed systemd service failed'
-    fi
-    wait_for_eject_service
-
-    [[ "$(systemctl show -P Result btrfs-backup@default.service)" == 'success' ]] \
-        || fail 'sandboxed systemd service did not finish successfully'
-    findmnt -n -M "$TARGET_MOUNT" >/dev/null \
-        || fail 'sandboxed runner did not start or observe the target mount unit'
-    grep -q '"state": "succeeded"' /var/lib/btrfs-backup/history/default/last.json \
-        || fail 'sandboxed service did not publish successful history'
-    assert_remote_matches_latest_local
-    assert_no_incoming_children
-    pass 'sandboxed systemd service completes a real Btrfs backup'
-}
-
-sandboxed_auto_eject_test() {
-    local mount_unit
-    mount_unit="$(systemd-escape -p --suffix=mount "$TARGET_MOUNT")"
-
-    systemctl stop "$mount_unit"
-    rm -f -- "/etc/systemd/system/$mount_unit"
-    printf '[Unit]\n' > /etc/systemd/system/btrfs-backup@default.service.d/target-mount.conf
-    systemctl daemon-reload
-    mount --move "$TARGET_STAGING_MOUNT" "$TARGET_MOUNT"
-    sed -i 's/"autoEject": false/"autoEject": true/' "$PROFILE_JSON"
-    printf 'automatic eject\n' >> "$SOURCE_MOUNT/home/file-a.txt"
-    sync -f "$SOURCE_MOUNT"
-    if ! systemctl start btrfs-backup@default.service; then
-        systemctl status --no-pager btrfs-backup@default.service >&2 || true
-        journalctl --no-pager -u btrfs-backup@default.service -n 100 >&2 || true
-        fail 'sandboxed service failed before automatic eject'
-    fi
-    wait_for_eject_service
-    [[ "$(systemctl show -P Result btrfs-backup-eject@default.service)" == 'success' ]] \
-        || fail 'target eject service did not finish successfully'
-    if findmnt -n -M "$TARGET_MOUNT" >/dev/null 2>&1; then
-        fail 'target remained mounted after the eject service'
-    fi
-    for _ in $(seq 1 100); do
-        if ! cryptsetup status "$MAPPER_NAME" >/dev/null 2>&1 && [[ ! -e "$MAPPER_PATH" ]]; then
-            break
-        fi
-        sleep 0.05
-    done
-    if cryptsetup status "$MAPPER_NAME" >/dev/null 2>&1 || [[ -e "$MAPPER_PATH" ]]; then
-        fail 'LUKS mapper remained open after the eject service'
-    fi
-    pass 'automatic eject runs outside the backup mount namespace'
-}
-
 require_root
 require_commands awk blkid btrfs busctl cat cmp cryptsetup date dd diff dmsetup find findmnt grep journalctl ldd ln losetup mkfifo mkfs.btrfs mkfs.ext4 mknod mount mv pacman perl runuser seq sfdisk sha256sum stat systemd-escape systemd-run tar tee timeout truncate udevadm useradd userdel
 [[ -x "$BROWSE_SESSION_CLIENT" ]] || fail 'browse-session integration client is not executable'
@@ -488,6 +366,7 @@ require_commands awk blkid btrfs busctl cat cmp cryptsetup date dd diff dmsetup 
 [[ -x "$REAL_INSTALLED_RUNTIME_TESTS" ]] || fail 'installed-runtime C++ integration test is not executable'
 [[ -x "$REAL_MAPPER_LIFECYCLE_TESTS" ]] || fail 'mapper-lifecycle C++ integration test is not executable'
 [[ -x "$REAL_TRUSTED_HOOK_TESTS" ]] || fail 'trusted-hook C++ integration test is not executable'
+[[ -x "$REAL_SANDBOXED_SYSTEMD_TESTS" ]] || fail 'sandboxed-systemd C++ integration test is not executable'
 ensure_loop_devices
 for _ in $(seq 1 100); do
     systemctl show-environment >/dev/null 2>&1 && break
@@ -591,7 +470,11 @@ pass 'system D-Bus backup transfers and verifies real Btrfs data'
 manager_independence_test
 "$REAL_TRUSTED_HOOK_TESTS" /usr/bin/btrfs-backup "$PROFILE_JSON" "$TEST_ROOT"
 "$REAL_MAPPER_LIFECYCLE_TESTS" "$TARGET_MOUNT" "$TARGET_LOOP" "$MAPPER_NAME" "$PASSPHRASE_FILE"
-sandboxed_systemd_service_test
-sandboxed_auto_eject_test
+"$REAL_SANDBOXED_SYSTEMD_TESTS" \
+    "$SOURCE_MOUNT" \
+    "$TARGET_MOUNT" \
+    "$TARGET_STAGING_MOUNT" \
+    "$MAPPER_NAME" \
+    "$PROFILE_JSON"
 
 printf 'Real Btrfs integration test completed in %s\n' "$TEST_ROOT"
