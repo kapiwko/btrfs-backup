@@ -18,6 +18,7 @@
 #include <QDBusPendingCallWatcher>
 #include <QDBusPendingReply>
 #include <QIcon>
+#include <QInputDialog>
 #include <QPointer>
 #include <QProcess>
 #include <QWidget>
@@ -131,7 +132,28 @@ void PreviousVersionsAction::resolve_and_open(const QString& local_path, QWidget
             show_no_versions(parent.data());
             return;
         }
-        const auto& selected = coverage->front();
+        qsizetype selected_index = 0;
+        if (coverage->size() > 1) {
+            QStringList choices;
+            for (const auto& item : *coverage)
+                choices.push_back(i18nd(translation_domain, "%1 — source %2", item.profile_id, item.source_id));
+            bool accepted = false;
+            const QString selected_label = QInputDialog::getItem(
+                parent.data(),
+                i18nd(translation_domain, "Choose Backup Source"),
+                i18nd(translation_domain, "This path is covered by more than one backup source:"),
+                choices,
+                0,
+                false,
+                &accepted
+            );
+            if (!accepted)
+                return;
+            selected_index = choices.indexOf(selected_label);
+            if (selected_index < 0)
+                return;
+        }
+        const auto& selected = coverage->at(selected_index);
         QUrl url;
         url.setScheme(u"btrfsbackup"_s);
         QString path = u"/"_s + selected.profile_id + u"/.versions/"_s + selected.source_id;

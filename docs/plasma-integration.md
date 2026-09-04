@@ -46,6 +46,14 @@ The KDE interface has five distinct presentation layers:
 | Session monitor | Native job progress and terminal notifications independent of plasmoid lifetime |
 | Restore adapters | KIO browsing, Dolphin previous versions, guided restore and KRunner commands over shared manager and restore contracts |
 
+The KIO worker derives its visible snapshot namespace from the verified
+repository catalog, not from directory names at the repository root. The
+virtual `.versions/<source>/<relative-path>` namespace lists only verified
+snapshots that contain the requested entry and links each result to its normal
+`btrfsbackup:` URL. When a local path is covered by multiple profile/source
+pairs, Dolphin requires an explicit selection instead of depending on response
+order.
+
 The boundary rule is that the plasmoid answers what is happening now and what
 routine action is available, while the KCM answers how backup is configured and
 whether that configuration is valid. Plasmoid settings must not become an

@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "RepositorySnapshotModel.hpp"
+
 #include <KIO/WorkerBase>
 
 #include <QHash>
@@ -38,6 +40,7 @@ class BtrfsBackupWorker final : public KIO::WorkerBase {
   private:
     struct Session {
         QString id;
+        QHash<QString, btrfsbackup::kde::kio::RepositorySnapshot> snapshots;
     };
     struct ParsedUrl {
         QString profile;
