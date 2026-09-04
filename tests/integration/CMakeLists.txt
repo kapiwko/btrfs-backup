@@ -73,6 +73,34 @@ set_tests_properties(
     PROPERTIES LABELS workflow
 )
 
+find_program(SYSTEMD_ANALYZE_EXECUTABLE systemd-analyze REQUIRED)
+
+add_test(
+    NAME systemd-backup-security-tests
+    COMMAND
+        ${CMAKE_COMMAND}
+        -DUNIT_FILE=${PROJECT_SOURCE_DIR}/data/systemd/btrfs-backup@.service.example
+        -DPOLICY=backup
+        -DSYSTEMD_ANALYZE=${SYSTEMD_ANALYZE_EXECUTABLE}
+        -DTEST_ROOT=${PROJECT_BINARY_DIR}/workflow-contracts
+        -P ${PROJECT_SOURCE_DIR}/tests/systemd/security_tests.cmake
+)
+add_test(
+    NAME systemd-device-preparation-security-tests
+    COMMAND
+        ${CMAKE_COMMAND}
+        -DUNIT_FILE=${PROJECT_SOURCE_DIR}/data/systemd/btrfs-backup-device-preparation@.service
+        -DPOLICY=device-preparation
+        -DSYSTEMD_ANALYZE=${SYSTEMD_ANALYZE_EXECUTABLE}
+        -DTEST_ROOT=${PROJECT_BINARY_DIR}/workflow-contracts
+        -P ${PROJECT_SOURCE_DIR}/tests/systemd/security_tests.cmake
+)
+set_tests_properties(
+    systemd-backup-security-tests
+    systemd-device-preparation-security-tests
+    PROPERTIES LABELS systemd
+)
+
 add_test(
     NAME cmake-install-tests
     COMMAND
