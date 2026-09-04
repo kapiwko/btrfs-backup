@@ -114,6 +114,7 @@ add_executable(
     support/RealBtrfsRecoveryScenarios.cpp
     support/RealBtrfsSafetyScenarios.cpp
     support/RealBtrfsTestEnvironment.cpp
+    support/RealPackageTest.cpp
     support/RealProvisioningAdoptionScenario.cpp
     support/RealProvisioningFreeSpaceScenario.cpp
     support/RealProvisioningPartitionScenario.cpp

@@ -161,41 +161,6 @@ monitor_loop_partition_nodes() {
     done
 }
 
-build_and_verify_packages() {
-    local base_packages=()
-    local base_metadata
-
-    if ! compgen -G "$PACKAGE_DIR/btrfs-backup-[0-9]*.pkg.tar.zst" >/dev/null; then
-        "$ROOT/tools/build-release.sh" --target arch-base --skip-tests --dist-dir "$PACKAGE_DIR" >/dev/null
-    fi
-    base_packages=("$PACKAGE_DIR"/btrfs-backup-[0-9]*.pkg.tar.zst)
-    (( ${#base_packages[@]} == 1 )) || fail "expected one base package, found ${#base_packages[@]}"
-
-    base_metadata="$(tar --zstd -xOf "${base_packages[0]}" .PKGINFO)"
-    if grep -Eq '^depend = (extra-cmake-modules|ki18n|kirigami|kpackage|kservice|libplasma|qt6-[^ <>=]+)' \
-        <<< "$base_metadata"; then
-        fail 'base package has a KDE or Qt runtime dependency'
-    fi
-
-    pacman -U --noconfirm "${base_packages[0]}" >/dev/null
-    if pacman -Q btrfs-backup-kde >/dev/null 2>&1; then
-        fail 'KDE package was installed with the base package'
-    fi
-    command -v btrfs-backup >/dev/null
-    command -v btrfs-backupctl >/dev/null
-    command -v btrfs-backupd >/dev/null
-    command -v pkaction >/dev/null \
-        || fail 'base package did not install its polkit runtime dependency'
-    btrfs-backup --help >/dev/null
-    btrfs-backupctl --help >/dev/null
-    btrfs-backupd --help >/dev/null
-    if ldd /usr/bin/btrfs-backup /usr/bin/btrfs-backupctl /usr/bin/btrfs-backupd \
-        | grep -Eq 'lib(Qt6|KF6|Plasma)'; then
-        fail 'base commands link to a KDE or Qt runtime library'
-    fi
-    pass 'base package installs and runs without KDE or Qt runtime dependencies'
-}
-
 configure_backup_with_cli() {
     local target_device="$1"
     local luks_uuid="$2"
@@ -727,8 +692,11 @@ PARTITION_NODE_MONITOR_PID=$!
 
 install -d -m0755 "$SOURCE_MOUNT" "$TARGET_MOUNT"
 install -d -m0700 "$LOG_DIR"
-build_and_verify_packages
-"$REAL_BTRFS_TESTS" /usr/bin/btrfs-backupctl "$BROWSE_SESSION_CLIENT" "$DEVICE_PROVISIONING_CLIENT"
+"$REAL_BTRFS_TESTS" \
+    /usr/bin/btrfs-backupctl \
+    "$BROWSE_SESSION_CLIENT" \
+    "$DEVICE_PROVISIONING_CLIENT" \
+    "$PACKAGE_DIR"
 
 printf '%s\n' 'btrfs-backup-real-test-passphrase' > "$PASSPHRASE_FILE"
 chmod 0600 "$PASSPHRASE_FILE"
