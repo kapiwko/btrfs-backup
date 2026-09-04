@@ -28,8 +28,7 @@ void RealProvisioningTestEnvironment::require_existing_target_is_adopted() {
         throw std::runtime_error("create adoption partition failed: " + command_diagnostic(partitioned));
     require_command({"udevadm", "settle", "--timeout=10"}, "settle adoption partition");
     const fs::path partition = loop_ + "p1";
-    if (!fs::is_block_file(partition))
-        throw std::runtime_error("adoption partition node was not created");
+    require_block_device(partition, "adoption partition node was not created");
 
     const auto formatted = command(
         {"cryptsetup", "luksFormat", "--batch-mode", "--type", "luks2", "--pbkdf", "pbkdf2",
@@ -47,8 +46,7 @@ void RealProvisioningTestEnvironment::require_existing_target_is_adopted() {
     adoption_mapper_open_ = true;
     require_command({"udevadm", "settle", "--timeout=10"}, "settle adoption mapper");
     require_command({"dmsetup", "mknodes", adoption_mapper_name_}, "materialize adoption mapper");
-    if (!fs::is_block_file(adoption_mapper_path_))
-        throw std::runtime_error("adoption mapper node was not created");
+    require_block_device(adoption_mapper_path_, "adoption mapper node was not created");
     require_command({"mkfs.btrfs", "-q", "-f", adoption_mapper_path_.string()}, "format adoption Btrfs");
     require_command({"mount", adoption_mapper_path_.string(), staging_mount_.string()}, "mount adoption staging");
     staging_mounted_ = true;

@@ -31,8 +31,8 @@ void RealProvisioningTestEnvironment::require_existing_partition_preserves_sibli
 
     const fs::path first = loop_ + "p1";
     const fs::path second = loop_ + "p2";
-    if (!fs::is_block_file(first) || !fs::is_block_file(second))
-        throw std::runtime_error("provisioning partition nodes were not created");
+    require_block_device(first, "first provisioning partition was not created");
+    require_block_device(second, "second provisioning partition was not created");
     require_command({"mkfs.ext4", "-q", "-F", "-L", "PRESERVED", first.string()}, "format sibling");
     require_command({"mkfs.ext4", "-q", "-F", "-L", "REFORMAT", second.string()}, "format target");
     require_command({"mount", first.string(), preserved_mount_.string()}, "mount sibling for setup");

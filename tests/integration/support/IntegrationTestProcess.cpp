@@ -7,13 +7,14 @@
 #include <fcntl.h>
 #include <string.h>
 #include <sys/mman.h>
-#include <sys/resource.h>
+#include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
 #include <array>
 #include <cerrno>
 #include <csignal>
+#include <cstdint>
 #include <cstdlib>
 #include <fstream>
 #include <stdexcept>
@@ -111,9 +112,6 @@ CommandResult run_test_process(
             dup2(descriptors[1], STDOUT_FILENO) < 0 || dup2(descriptors[2], STDERR_FILENO) < 0)
             _exit(127);
         close_all(descriptors);
-        const rlimit output_limit{maximum_output_bytes, maximum_output_bytes};
-        if (setrlimit(RLIMIT_FSIZE, &output_limit) != 0)
-            _exit(127);
         if (clearenv() != 0 || setenv("PATH", "/usr/bin:/usr/sbin", 1) != 0 ||
             setenv("LANG", "C.UTF-8", 1) != 0 || setenv("LC_ALL", "C.UTF-8", 1) != 0 ||
             setenv("HOME", "/root", 1) != 0)
@@ -133,6 +131,7 @@ CommandResult run_test_process(
     }
     int status = 0;
     bool exited = false;
+    bool output_exceeded = false;
     const auto deadline = std::chrono::steady_clock::now() + timeout;
     while (std::chrono::steady_clock::now() < deadline) {
         const pid_t result = waitpid(child, &status, WNOHANG);
@@ -142,12 +141,23 @@ CommandResult run_test_process(
         }
         if (result < 0 && errno != EINTR)
             break;
+        struct stat output_status{};
+        struct stat error_status{};
+        if ((fstat(descriptors[1], &output_status) == 0 &&
+             static_cast<std::uintmax_t>(output_status.st_size) > maximum_output_bytes) ||
+            (fstat(descriptors[2], &error_status) == 0 &&
+             static_cast<std::uintmax_t>(error_status.st_size) > maximum_output_bytes)) {
+            output_exceeded = true;
+            break;
+        }
         usleep(10'000);
     }
     if (!exited) {
         kill(-child, SIGKILL);
         while (waitpid(child, &status, 0) < 0 && errno == EINTR) {}
         close_all(descriptors);
+        if (output_exceeded)
+            throw std::runtime_error("command output exceeded 1 MiB: " + arguments.front());
         throw std::runtime_error("command timed out: " + arguments.front());
     }
     try {
