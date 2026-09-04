@@ -1052,8 +1052,13 @@ trusted_hook_security_test() {
 systemd_security_audit() {
     local security_log="$LOG_DIR/systemd-security.log"
 
-    if ! "$ROOT/tests/systemd/check-security.sh" \
-        /etc/systemd/system/btrfs-backup@.service > "$security_log" 2>&1; then
+    if ! cmake \
+        -DUNIT_FILE=/etc/systemd/system/btrfs-backup@.service \
+        -DPOLICY=backup \
+        -DSYSTEMD_ANALYZE="$(command -v systemd-analyze)" \
+        -DTEST_ROOT="$TEST_ROOT" \
+        -P "$ROOT/tests/systemd/security_tests.cmake" \
+        > "$security_log" 2>&1; then
         cat -- "$security_log" >&2
         fail 'systemd security exposure exceeds the accepted threshold'
     fi
