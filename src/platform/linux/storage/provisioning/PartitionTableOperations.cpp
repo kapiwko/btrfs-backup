@@ -25,6 +25,7 @@
 #include <optional>
 #include <string_view>
 #include <system_error>
+#include <thread>
 
 #include <core/Errors.hpp>
 #include <platform/linux/OwnedFileDescriptor.hpp>
@@ -133,9 +134,12 @@ std::optional<std::filesystem::path> find_exact_partition(
         const auto number = parse_unsigned(udev_device_get_sysattr_value(candidate.get(), "partition"));
         const auto start = parse_unsigned(udev_device_get_sysattr_value(candidate.get(), "start"));
         const auto size = parse_unsigned(udev_device_get_sysattr_value(candidate.get(), "size"));
+        const char* device_node = udev_device_get_devnode(candidate.get());
+        struct stat status{};
         if (number == partition_number && start == start_512_sectors && size == size_512_sectors &&
-            udev_device_get_devnode(candidate.get()) != nullptr)
-            return std::filesystem::path(udev_device_get_devnode(candidate.get()));
+            device_node != nullptr && ::stat(device_node, &status) == 0 && S_ISBLK(status.st_mode) &&
+            status.st_rdev == udev_device_get_devnum(candidate.get()))
+            return std::filesystem::path(device_node);
     }
     return std::nullopt;
 }
@@ -230,6 +234,48 @@ void require_success(int result, const char* operation) {
         throw ValidationError(std::string(operation) + " failed");
 }
 
+void acquire_lock(int descriptor, int operation) {
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+    while (::flock(descriptor, operation | LOCK_NB) != 0) {
+        if (errno == EINTR)
+            continue;
+        if ((errno != EWOULDBLOCK && errno != EAGAIN) ||
+            std::chrono::steady_clock::now() >= deadline)
+            throw ValidationError("partition table device is locked by another process");
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    }
+}
+
+void acquire_shared_lock(int descriptor) {
+    acquire_lock(descriptor, LOCK_SH);
+}
+
+void acquire_exclusive_lock(int descriptor) {
+    acquire_lock(descriptor, LOCK_EX);
+}
+
+void wait_for_stable_block_device(const std::filesystem::path& device) {
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+    std::optional<dev_t> identity;
+    std::optional<std::chrono::steady_clock::time_point> stable_since;
+    while (std::chrono::steady_clock::now() < deadline) {
+        struct stat status{};
+        if (::stat(device.c_str(), &status) == 0 && S_ISBLK(status.st_mode)) {
+            if (identity != status.st_rdev) {
+                identity = status.st_rdev;
+                stable_since = std::chrono::steady_clock::now();
+            } else if (stable_since.has_value() && std::chrono::steady_clock::now() - *stable_since >= std::chrono::milliseconds(250)) {
+                return;
+            }
+        } else {
+            identity.reset();
+            stable_since.reset();
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    }
+    throw ValidationError("created partition device node did not become stable");
+}
+
 std::string lowercase(std::string value) {
     std::ranges::transform(value, value.begin(), [](char character) {
         return static_cast<char>(std::tolower(static_cast<unsigned char>(character)));
@@ -281,6 +327,30 @@ void validate_gpt_identity(
         expected_partition_table_id,
         expected_logical_sector_size
     );
+}
+
+PlannedPartitionGeometry resolved_partition_geometry(
+    fdisk_context* context,
+    std::size_t partition_number
+) {
+    if (partition_number >= std::numeric_limits<std::uint32_t>::max())
+        throw ValidationError("libfdisk returned an invalid partition number");
+    fdisk_table* raw_partitions = nullptr;
+    require_success(fdisk_get_partitions(context, &raw_partitions), "reading planned partitions");
+    OwnedTable partitions(raw_partitions);
+    for (std::size_t index = 0; index < fdisk_table_get_nents(partitions.get()); ++index) {
+        fdisk_partition* partition = fdisk_table_get_partition(partitions.get(), index);
+        if (partition != nullptr && fdisk_partition_has_partno(partition) &&
+            fdisk_partition_get_partno(partition) == partition_number &&
+            fdisk_partition_has_start(partition) && fdisk_partition_has_size(partition)) {
+            return {
+                .start_sector = fdisk_partition_get_start(partition),
+                .sector_count = fdisk_partition_get_size(partition),
+                .partition_number = static_cast<std::uint32_t>(partition_number + 1),
+            };
+        }
+    }
+    throw ValidationError("libfdisk did not resolve partition geometry");
 }
 
 bool has_exact_free_region(
@@ -360,8 +430,7 @@ std::string LibfdiskPartitionTableOperations::snapshot_partition_table(
         throw ValidationError("partition table target is not a block device");
     if (major(status.st_rdev) != expected_major || minor(status.st_rdev) != expected_minor)
         throw ValidationError("partition table device identity changed");
-    if (::flock(descriptor.get(), LOCK_SH | LOCK_NB) != 0)
-        throw ValidationError("partition table device is locked by another process");
+    acquire_shared_lock(descriptor.get());
     OwnedContext context(fdisk_new_context());
     if (!context)
         throw ValidationError("cannot allocate libfdisk context");
@@ -434,8 +503,7 @@ PlannedPartitionGeometry LibfdiskPartitionTableOperations::plan_partition_in_fre
         throw ValidationError("partition table target is not a block device");
     if (major(status.st_rdev) != expected_major || minor(status.st_rdev) != expected_minor)
         throw ValidationError("partition table device identity changed");
-    if (::flock(descriptor.get(), LOCK_SH | LOCK_NB) != 0)
-        throw ValidationError("partition table device is locked by another process");
+    acquire_shared_lock(descriptor.get());
 
     OwnedContext context(fdisk_new_context());
     if (!context)
@@ -468,19 +536,10 @@ PlannedPartitionGeometry LibfdiskPartitionTableOperations::plan_partition_in_fre
         require_success(fdisk_partition_partno_follow_default(partition.get(), 1), "selecting partition number");
         std::size_t partition_number = 0;
         require_success(fdisk_add_partition(context.get(), partition.get(), &partition_number), "planning GPT partition");
-        if (!fdisk_partition_has_start(partition.get()) || !fdisk_partition_has_size(partition.get()) ||
-            partition_number >= std::numeric_limits<std::uint32_t>::max())
-            throw ValidationError("libfdisk did not resolve partition geometry");
-        const std::uint64_t partition_start = fdisk_partition_get_start(partition.get());
-        const std::uint64_t partition_size = fdisk_partition_get_size(partition.get());
-        if (partition_start < free_start_sector || partition_start > free_end || partition_size == 0 ||
-            partition_size > free_end - partition_start + 1)
+        const PlannedPartitionGeometry result = resolved_partition_geometry(context.get(), partition_number);
+        if (result.start_sector < free_start_sector || result.start_sector > free_end ||
+            result.sector_count == 0 || result.sector_count > free_end - result.start_sector + 1)
             throw ValidationError("libfdisk planned a partition outside the selected free region");
-        const PlannedPartitionGeometry result{
-            .start_sector = partition_start,
-            .sector_count = partition_size,
-            .partition_number = static_cast<std::uint32_t>(partition_number + 1),
-        };
         require_success(fdisk_deassign_device(context.get(), 1), "releasing partition table device");
         return result;
     } catch (...) {
@@ -507,8 +566,7 @@ PlannedPartitionGeometry LibfdiskPartitionTableOperations::plan_single_gpt_parti
         throw ValidationError("partition table target is not a block device");
     if (major(status.st_rdev) != expected_major || minor(status.st_rdev) != expected_minor)
         throw ValidationError("partition table device identity changed");
-    if (::flock(descriptor.get(), LOCK_SH | LOCK_NB) != 0)
-        throw ValidationError("partition table device is locked by another process");
+    acquire_shared_lock(descriptor.get());
 
     OwnedContext context(fdisk_new_context());
     if (!context)
@@ -530,14 +588,7 @@ PlannedPartitionGeometry LibfdiskPartitionTableOperations::plan_single_gpt_parti
         require_success(fdisk_partition_partno_follow_default(partition.get(), 1), "selecting partition number");
         std::size_t partition_number = 0;
         require_success(fdisk_add_partition(context.get(), partition.get(), &partition_number), "planning GPT partition");
-        if (!fdisk_partition_has_start(partition.get()) || !fdisk_partition_has_size(partition.get()) ||
-            partition_number >= std::numeric_limits<std::uint32_t>::max())
-            throw ValidationError("libfdisk did not resolve partition geometry");
-        const PlannedPartitionGeometry result{
-            .start_sector = fdisk_partition_get_start(partition.get()),
-            .sector_count = fdisk_partition_get_size(partition.get()),
-            .partition_number = static_cast<std::uint32_t>(partition_number + 1),
-        };
+        const PlannedPartitionGeometry result = resolved_partition_geometry(context.get(), partition_number);
         if (result.sector_count == 0)
             throw ValidationError("libfdisk planned an empty partition");
         require_success(fdisk_deassign_device(context.get(), 1), "releasing partition table device");
@@ -579,8 +630,7 @@ PartitionCreationInspection LibfdiskPartitionTableOperations::inspect_partition_
         throw ValidationError("partition table target is not a block device");
     if (major(status.st_rdev) != expected_major || minor(status.st_rdev) != expected_minor)
         throw ValidationError("partition table device identity changed");
-    if (::flock(descriptor.get(), LOCK_SH | LOCK_NB) != 0)
-        throw ValidationError("partition table device is locked by another process");
+    acquire_shared_lock(descriptor.get());
 
     OwnedContext context(fdisk_new_context());
     if (!context)
@@ -665,8 +715,7 @@ PartitionCreationInspection LibfdiskPartitionTableOperations::inspect_single_gpt
         throw ValidationError("partition table target is not a block device");
     if (major(status.st_rdev) != expected_major || minor(status.st_rdev) != expected_minor)
         throw ValidationError("partition table device identity changed");
-    if (::flock(descriptor.get(), LOCK_SH | LOCK_NB) != 0)
-        throw ValidationError("partition table device is locked by another process");
+    acquire_shared_lock(descriptor.get());
 
     OwnedContext context(fdisk_new_context());
     if (!context)
@@ -761,8 +810,7 @@ std::filesystem::path LibfdiskPartitionTableOperations::create_partition_in_free
         throw ValidationError("partition table target is not a block device");
     if (major(status.st_rdev) != expected_major || minor(status.st_rdev) != expected_minor)
         throw ValidationError("partition table device identity changed");
-    if (::flock(descriptor.get(), LOCK_EX | LOCK_NB) != 0)
-        throw ValidationError("partition table device is locked by another process");
+    acquire_exclusive_lock(descriptor.get());
 
     OwnedContext context(fdisk_new_context());
     if (!context)
@@ -817,6 +865,7 @@ std::filesystem::path LibfdiskPartitionTableOperations::create_partition_in_free
             std::chrono::seconds(10)
         );
         require_success(fdisk_deassign_device(context.get(), 0), "releasing partition table device");
+        wait_for_stable_block_device(partition_path);
         return partition_path;
     } catch (...) {
         if (fdisk_get_devfd(context.get()) >= 0)
@@ -842,8 +891,7 @@ std::filesystem::path LibfdiskPartitionTableOperations::replace_with_single_gpt_
         throw ValidationError("partition table target is not a block device");
     if (major(status.st_rdev) != expected_major || minor(status.st_rdev) != expected_minor)
         throw ValidationError("partition table device identity changed");
-    if (::flock(descriptor.get(), LOCK_EX | LOCK_NB) != 0)
-        throw ValidationError("partition table device is locked by another process");
+    acquire_exclusive_lock(descriptor.get());
 
     OwnedContext context(fdisk_new_context());
     if (!context)
@@ -898,6 +946,7 @@ std::filesystem::path LibfdiskPartitionTableOperations::replace_with_single_gpt_
             std::chrono::seconds(10)
         );
         require_success(fdisk_deassign_device(context.get(), 0), "releasing partition table device");
+        wait_for_stable_block_device(partition_path);
         return partition_path;
     } catch (...) {
         if (fdisk_get_devfd(context.get()) >= 0)
