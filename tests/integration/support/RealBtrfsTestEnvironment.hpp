@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include "IntegrationTestProcess.hpp"
+
 #include <chrono>
 #include <filesystem>
 #include <string>
@@ -11,12 +13,6 @@
 #include <vector>
 
 namespace btrfsbackup::integration {
-
-struct CommandResult {
-    int status{};
-    std::string output;
-    std::string error_output;
-};
 
 class RealBtrfsTestEnvironment final {
   public:
