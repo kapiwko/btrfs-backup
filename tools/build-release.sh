@@ -192,14 +192,28 @@ case "$TEST_MODE" in
     *) printf 'Internal error: invalid test mode %s\n' "$TEST_MODE" >&2; exit 1 ;;
 esac
 
+run_pre_package_tests() {
+    local cmake_args=()
+
+    if command -v ccache >/dev/null 2>&1; then
+        cmake_args+=(-DCMAKE_CXX_COMPILER_LAUNCHER=ccache)
+    fi
+    (
+        cd "$ROOT"
+        cmake --preset default "${cmake_args[@]}"
+        cmake --build --preset default --parallel "$BUILD_JOBS"
+        ctest --preset default --parallel "$BUILD_JOBS"
+    )
+}
+
 case "$TEST_MODE" in
     full)
         log_stage 'Running the complete test suite'
-        "$ROOT/tests/run-tests.sh" --full
+        run_pre_package_tests
         ;;
     static)
         log_stage 'Running static release tests'
-        "$ROOT/tests/run-tests.sh" --static-only
+        run_pre_package_tests
         ;;
     skip) log_stage 'Skipping the pre-package test suite' ;;
 esac
@@ -881,8 +895,11 @@ sha256sums=('$SOURCE_SHA256')
 
 check() {
   cd "\$srcdir/\$pkgbase-\$pkgver"
-  CMAKE_CONFIGURE_ARGS='-DCMAKE_INSTALL_PREFIX=/usr -DBUILD_KDE_INTEGRATION=ON' \
-    ./tests/run-tests.sh --static-only
+  cmake --preset default \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DBUILD_KDE_INTEGRATION=ON
+  cmake --build --preset default --parallel
+  ctest --preset default --parallel
 }
 
 package_btrfs-backup() {

@@ -57,9 +57,9 @@ jobs:
       matrix:
         include:
           - compiler: GCC
-            cxx: g++
+            preset: gcc-debug
           - compiler: Clang
-            cxx: clang++
+            preset: clang-debug
     steps:
       - name: Prepare Arch Linux
         run: |
@@ -81,11 +81,15 @@ jobs:
           key: ccache-${{ runner.os }}-${{ matrix.compiler }}-${{ github.sha }}
           restore-keys: ccache-${{ runner.os }}-${{ matrix.compiler }}-
       - name: Run test suite
-        run: ./tests/run-tests.sh
+        run: |
+          cmake \
+            --preset "${{ matrix.preset }}" \
+            -DBTRFSBACKUP_ARCHITECTURE_TESTS=OFF \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+          cmake --build --preset "${{ matrix.preset }}" --parallel "$(nproc)"
+          ctest --preset "${{ matrix.preset }}" --parallel "$(nproc)"
         env:
           CCACHE_DIR: ${{ github.workspace }}/.ccache
-          CMAKE_CONFIGURE_ARGS: -G Ninja -DBTRFSBACKUP_ARCHITECTURE_TESTS=OFF -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
-          CXX: ${{ matrix.cxx }}
 
   architecture-tests:
     runs-on: ubuntu-24.04
@@ -111,18 +115,11 @@ jobs:
           key: ccache-${{ runner.os }}-architecture-${{ github.sha }}
           restore-keys: ccache-${{ runner.os }}-architecture-
       - name: Configure architecture tests
-        run: |
-          cmake \
-            -S . \
-            -B build/architecture \
-            -G Ninja \
-            -DCMAKE_BUILD_TYPE=Debug \
-            -DCMAKE_CXX_COMPILER=clang++ \
-            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+        run: cmake --preset architecture -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
         env:
           CCACHE_DIR: ${{ github.workspace }}/.ccache
       - name: Run architecture tests
-        run: ctest --test-dir build/architecture -L architecture --parallel "$(nproc)" --output-on-failure
+        run: ctest --preset architecture --parallel "$(nproc)"
         env:
           CCACHE_DIR: ${{ github.workspace }}/.ccache
 
@@ -163,20 +160,13 @@ jobs:
           key: ccache-${{ runner.os }}-kde-dbus-${{ github.sha }}
           restore-keys: ccache-${{ runner.os }}-kde-dbus-
       - name: Configure KDE D-Bus contract build
-        run: |
-          cmake \
-            -S . \
-            -B build/kde-dbus \
-            -G Ninja \
-            -DBUILD_KDE_INTEGRATION=ON \
-            -DCMAKE_BUILD_TYPE=Debug \
-            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+        run: cmake --preset kde-debug -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
         env:
           CCACHE_DIR: ${{ github.workspace }}/.ccache
       - name: Build KDE integration and tests
         run: |
           cmake \
-            --build build/kde-dbus \
+            --build --preset kde-debug \
             --target \
               btrfs-backup-kde \
               btrfs-backup-kde-tests \
@@ -187,8 +177,8 @@ jobs:
           CCACHE_DIR: ${{ github.workspace }}/.ccache
       - name: Verify server and KDE D-Bus contracts
         run: |
-          ctest --test-dir build/kde-dbus -R '^(manager-dbus-contract|dbus-manager-tests)$' --output-on-failure
-          ctest --test-dir build/kde-dbus -L kde --parallel "$(nproc)" --output-on-failure
+          ctest --test-dir build/kde-debug -R '^(manager-dbus-contract|dbus-manager-tests)$' --output-on-failure
+          ctest --preset kde --parallel "$(nproc)"
 
   sanitizers:
     runs-on: ubuntu-24.04
@@ -214,27 +204,15 @@ jobs:
           key: ccache-${{ runner.os }}-sanitizers-${{ github.sha }}
           restore-keys: ccache-${{ runner.os }}-sanitizers-
       - name: Configure ASan and UBSan
-        run: |
-          cmake \
-            -S . \
-            -B build/sanitizers \
-            -G Ninja \
-            -DBTRFSBACKUP_ARCHITECTURE_TESTS=OFF \
-            -DCMAKE_BUILD_TYPE=Debug \
-            -DCMAKE_CXX_COMPILER=clang++ \
-            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
-            -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer -fno-sanitize-recover=all" \
-            -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined"
+        run: cmake --preset asan-ubsan -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
       - name: Build with sanitizers
-        run: cmake --build build/sanitizers --parallel "$(nproc)"
+        run: cmake --build --preset asan-ubsan --parallel "$(nproc)"
         env:
           CCACHE_DIR: ${{ github.workspace }}/.ccache
       - name: Run tests with sanitizers
-        run: ctest --test-dir build/sanitizers --parallel "$(nproc)" --output-on-failure
+        run: ctest --preset asan-ubsan --parallel "$(nproc)"
         env:
-          ASAN_OPTIONS: detect_leaks=1:strict_string_checks=1
           CCACHE_DIR: ${{ github.workspace }}/.ccache
-          UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
 
   strict-warnings:
     runs-on: ubuntu-24.04
@@ -260,17 +238,8 @@ jobs:
           key: ccache-${{ runner.os }}-strict-${{ github.sha }}
           restore-keys: ccache-${{ runner.os }}-strict-
       - name: Configure strict warnings
-        run: |
-          cmake \
-            -S . \
-            -B build/strict-warnings \
-            -G Ninja \
-            -DBUILD_TESTING=OFF \
-            -DCMAKE_BUILD_TYPE=Debug \
-            -DCMAKE_CXX_COMPILER=clang++ \
-            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
-            -DCMAKE_CXX_FLAGS="-Werror -Wconversion -Wsign-conversion -Wshadow"
+        run: cmake --preset strict-warnings -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
       - name: Build with strict warnings
-        run: cmake --build build/strict-warnings --parallel "$(nproc)"
+        run: cmake --build --preset strict-warnings --parallel "$(nproc)"
         env:
           CCACHE_DIR: ${{ github.workspace }}/.ccache
