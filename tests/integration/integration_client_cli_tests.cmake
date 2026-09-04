@@ -22,3 +22,13 @@ foreach(client IN ITEMS BROWSE_CLIENT PROVISIONING_CLIENT)
         message(FATAL_ERROR "${client} wrote machine output for invalid arguments")
     endif()
 endforeach()
+
+execute_process(
+    COMMAND "${BROWSE_CLIENT}" default --unknown-mode /tmp
+    RESULT_VARIABLE browse_mode_result
+    OUTPUT_VARIABLE browse_mode_output
+    ERROR_VARIABLE browse_mode_error
+)
+if(NOT browse_mode_result EQUAL 2 OR NOT browse_mode_error MATCHES "usage:" OR NOT browse_mode_output STREQUAL "")
+    message(FATAL_ERROR "Browse client accepted an unknown extended mode")
+endif()

@@ -33,8 +33,11 @@ void require_backup(const CommandResult& result, bool expected_incremental) {
     );
 }
 
-void run_scenarios(const std::filesystem::path& backupctl) {
-    RealBtrfsTestEnvironment environment(backupctl);
+void run_scenarios(
+    const std::filesystem::path& backupctl,
+    const std::filesystem::path& browse_session_client
+) {
+    RealBtrfsTestEnvironment environment(backupctl, browse_session_client);
     try {
         environment.prepare();
         std::cout << "artifacts - " << environment.artifact_report() << '\n';
@@ -73,6 +76,24 @@ void run_scenarios(const std::filesystem::path& backupctl) {
         environment.require_latest_snapshots_match();
         std::cout << "ok - retention keeps the latest two local and remote snapshots\n";
 
+        environment.require_target_identity_rejected();
+        std::cout << "ok - target identity mismatch is rejected without snapshot changes\n";
+
+        environment.require_pre_receive_recovery();
+        std::cout << "ok - pending recovery removes a pre-receive orphan\n";
+
+        environment.require_post_commit_recovery();
+        std::cout << "ok - pending recovery preserves a committed snapshot pair\n";
+
+        environment.require_restore_scenarios();
+        std::cout << "ok - raw and public restore paths preserve data and clean staging\n";
+
+        environment.require_public_cancellation();
+        std::cout << "ok - public cancellation records terminal state and cleans its request\n";
+
+        environment.require_browse_session();
+        std::cout << "ok - unprivileged browse session is read-only and disconnect-cleaned\n";
+
         environment.close();
     } catch (...) {
         const auto failure = std::current_exception();
@@ -89,12 +110,13 @@ void run_scenarios(const std::filesystem::path& backupctl) {
 } // namespace
 
 int main(int argc, char** argv) {
-    if (argc != 2) {
-        std::cerr << "usage: btrfsbackup-real-btrfs-tests /path/to/btrfs-backupctl\n";
+    if (argc != 3) {
+        std::cerr << "usage: btrfsbackup-real-btrfs-tests /path/to/btrfs-backupctl "
+                     "/path/to/browse-session-client\n";
         return 2;
     }
     try {
-        run_scenarios(argv[1]);
+        run_scenarios(argv[1], argv[2]);
         return 0;
     } catch (const std::exception& error) {
         std::cerr << "real-btrfs-backup-tests: " << error.what() << '\n';
