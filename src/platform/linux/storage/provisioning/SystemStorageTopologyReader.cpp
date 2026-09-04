@@ -11,6 +11,7 @@
 #include <sys/sysmacros.h>
 
 #include <algorithm>
+#include <cctype>
 #include <cerrno>
 #include <cstdint>
 #include <cstdlib>
@@ -85,6 +86,13 @@ std::uint64_t checked_bytes(std::uint64_t sectors, std::uint64_t sector_size) {
 
 std::string major_minor(dev_t number) {
     return std::to_string(major(number)) + ":" + std::to_string(minor(number));
+}
+
+bool equal_ignoring_ascii_case(std::string_view left, std::string_view right) {
+    return left.size() == right.size() && std::ranges::equal(left, right, [](char lhs, char rhs) {
+               return std::tolower(static_cast<unsigned char>(lhs)) ==
+                   std::tolower(static_cast<unsigned char>(rhs));
+           });
 }
 
 void add_blocker(std::vector<SafetyBlocker>& blockers, std::string code, std::string detail = {}) {
@@ -214,7 +222,7 @@ std::map<dev_t, std::vector<std::string>> read_mounts(const fs::path& mountinfo)
         dev_t number = mnt_fs_get_devno(entry);
         const char* source = mnt_fs_get_srcpath(entry);
         if (major(number) == 0 && source != nullptr && std::string_view(source).starts_with("/dev/")) {
-            struct stat source_status {};
+            struct stat source_status{};
             if (::stat(source, &source_status) == 0 && S_ISBLK(source_status.st_mode))
                 number = source_status.st_rdev;
         }
@@ -319,10 +327,12 @@ std::map<dev_t, RawNode> enumerate_nodes(
         node.holders = directory_entries(block_path / "holders", holders_available);
         if (!holders_available)
             add_blocker(node.blockers, "holder-state-unavailable", major_minor(number));
-        bool slaves_available = false;
-        node.slaves = directory_entries(block_path / "slaves", slaves_available);
-        if (!slaves_available)
-            add_blocker(node.blockers, "dependency-state-unavailable", major_minor(number));
+        if (node.devtype == "disk") {
+            bool slaves_available = false;
+            node.slaves = directory_entries(block_path / "slaves", slaves_available);
+            if (!slaves_available)
+                add_blocker(node.blockers, "dependency-state-unavailable", major_minor(number));
+        }
         if (node.path.empty())
             add_blocker(node.blockers, "missing-device-node", major_minor(number));
         if (node.size_bytes == 0)
@@ -501,7 +511,8 @@ StorageDevice describe_disk(
                 node.size_bytes != checked_bytes(region.sector_count, result.logical_sector_size))
                 add_blocker(region.blockers, "partition-geometry-conflict");
             if (!node.partition_uuid.empty()) {
-                if (region.partition_uuid.has_value() && *region.partition_uuid != node.partition_uuid)
+                if (region.partition_uuid.has_value() &&
+                    !equal_ignoring_ascii_case(*region.partition_uuid, node.partition_uuid))
                     add_blocker(region.blockers, "partition-uuid-conflict");
                 region.partition_uuid = node.partition_uuid;
             }

@@ -7,6 +7,7 @@
 #include <sys/stat.h>
 #include <sys/statvfs.h>
 
+#include <array>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -52,6 +53,15 @@ void require_success(int result, const char* operation) {
         throw ValidationError(std::string(operation) + " failed");
 }
 
+void require_mount_success(MountContext& context, int result, const char* operation) {
+    if (result == 0)
+        return;
+    std::array<char, 256> diagnostic{};
+    static_cast<void>(mnt_context_get_excode(context.get(), result, diagnostic.data(), diagnostic.size()));
+    const std::string detail = diagnostic.front() == '\0' ? std::string{} : ": " + std::string(diagnostic.data());
+    throw ValidationError(std::string(operation) + " failed" + detail);
+}
+
 void verify_read_only_mount(const std::filesystem::path& target) {
     struct statvfs filesystem{};
     if (::statvfs(target.c_str(), &filesystem) != 0 || (filesystem.f_flag & ST_RDONLY) == 0)
@@ -80,10 +90,10 @@ void LibmountExistingTargetMountOperations::mount_btrfs_read_only(
     require_success(mnt_context_set_target(context.get(), target.c_str()), "setting existing target mount point");
     require_success(mnt_context_set_fstype(context.get(), "btrfs"), "setting existing target filesystem type");
     require_success(
-        mnt_context_set_options(context.get(), "ro,nodev,nosuid,noexec,nologreplay"),
+        mnt_context_set_options(context.get(), "ro,nodev,nosuid,noexec,rescue=nologreplay"),
         "setting existing target mount options"
     );
-    require_success(mnt_context_mount(context.get()), "mounting existing target read-only");
+    require_mount_success(context, mnt_context_mount(context.get()), "mounting existing target read-only");
     try {
         verify_read_only_mount(target);
     } catch (...) {
@@ -98,7 +108,7 @@ void LibmountExistingTargetMountOperations::unmount(const std::filesystem::path&
     validate_mount_target(target);
     auto context = new_context();
     require_success(mnt_context_set_target(context.get(), target.c_str()), "setting existing target unmount point");
-    require_success(mnt_context_umount(context.get()), "unmounting existing target");
+    require_mount_success(context, mnt_context_umount(context.get()), "unmounting existing target");
 }
 
 } // namespace btrfsbackup::platform::linux::storage::provisioning

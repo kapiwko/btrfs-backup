@@ -26,8 +26,10 @@ void CommandBtrfsFilesystemFormatter::format(
         {"mkfs.btrfs", "--force", "--label", label, device.string()},
         options
     );
-    if (result.exit_code != 0 || result.cancelled || result.timed_out)
-        throw ValidationError("creating Btrfs filesystem failed");
+    if (result.exit_code != 0 || result.cancelled || result.timed_out) {
+        const std::string detail = result.output.empty() ? std::string{} : ": " + result.output;
+        throw ValidationError("creating Btrfs filesystem failed" + detail);
+    }
 }
 
 } // namespace btrfsbackup::platform::linux::storage::provisioning
