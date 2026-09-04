@@ -44,6 +44,14 @@ add_test(
 )
 
 add_test(
+    NAME legacy-shell-harness-tests
+    COMMAND
+        ${CMAKE_COMMAND}
+        -DSOURCE_DIR=${PROJECT_SOURCE_DIR}
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/workflow/legacy_shell_harness_tests.cmake
+)
+
+add_test(
     NAME profile-json-cli-tests
     COMMAND
         ${CMAKE_COMMAND}
@@ -76,6 +84,7 @@ add_test(
 set_tests_properties(
     bash-syntax-tests
     real-btrfs-runner-cli-tests
+    legacy-shell-harness-tests
     installation-render-tests
     profile-json-cli-tests
     command-surface-tests

@@ -1,8 +1,8 @@
 # Real-Btrfs scenario manifest
 
-This manifest tracks the staged migration from `real-btrfs-test.sh`. The shell
-scenario remains authoritative until every row has a C++ owner and parity has
-been verified in the privileged container.
+This manifest records the C++ owners of every scenario executed by the Python
+container harness. Parity with the former shell harness has been verified in
+the privileged container.
 
 | Scenario | Setup | Public invocation | Exit | Expected artifacts and Btrfs state | Cleanup | Kernel capabilities | Owner |
 |---|---|---|---|---|---|---|---|
