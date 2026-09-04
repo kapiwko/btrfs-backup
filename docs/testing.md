@@ -286,7 +286,16 @@ profile generation/fingerprint races, and run mismatch handling.
 
 ## Release Checks
 
-`tools/build-release.sh --target all` creates the source tarball, builds all supported release targets, and writes SHA-256 reports. It does not repeat the repository test suite by default; use `--static-tests` or `--full-tests` for an explicit combined test-and-package run. Package targets that produce installable archives are also smoke-tested where practical. After building the Arch target, also check:
+`tools/release.py --target all` creates the source tarball, builds all supported release targets, and writes SHA-256 reports. It does not repeat the repository test suite by default; use `--static-tests` or `--full-tests` for an explicit combined test-and-package run. Package targets that produce installable archives are also smoke-tested where practical.
+
+The offline release matrix builds the complete artifact set twice in the release
+container and requires identical checksums for a fixed `SOURCE_DATE_EPOCH`:
+
+```bash
+python3 tests/integration/docker/run_release_matrix.py
+```
+
+After building the Arch target, also check:
 
 ```bash
 tar --zstd -tf dist/btrfs-backup-4.0.0-1-x86_64.pkg.tar.zst

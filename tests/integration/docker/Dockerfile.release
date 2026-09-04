@@ -1,0 +1,14 @@
+# syntax=docker/dockerfile:1
+
+# SPDX-FileCopyrightText: 2026 Kamil Piwowarski <kapiwko@gmail.com>
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+FROM archlinux:base-devel
+
+RUN pacman -Syu --noconfirm --needed \
+        btrfs-progs ccache cmake dpkg extra-cmake-modules kcmutils kcoreaddons ki18n \
+        kio kirigami kjobwidgets knotifications kpackage krunner libarchive libplasma \
+        nlohmann-json python qt6-declarative rpm-tools systemd util-linux zstd \
+    && rm -rf /var/cache/pacman/pkg/*
+
+WORKDIR /work

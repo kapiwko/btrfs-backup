@@ -62,8 +62,9 @@ def verify_native_package(artifact: Path) -> None:
         subprocess.run(["dpkg-deb", "--info", str(artifact)], check=True,
                        stdout=subprocess.DEVNULL)
     elif artifact.suffix == ".rpm":
-        subprocess.run(["rpm", "-qplp", str(artifact)], check=True,
-                       stdout=subprocess.DEVNULL)
+        with tempfile.TemporaryDirectory(prefix="btrfs-backup-rpm-db.", dir="/tmp") as database:
+            subprocess.run(["rpm", "-qp", "--list", "--dbpath", database, str(artifact)],
+                           check=True, stdout=subprocess.DEVNULL)
 
 
 def verify_artifacts(artifacts: list[Path]) -> None:
