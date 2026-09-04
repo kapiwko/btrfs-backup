@@ -17,6 +17,8 @@ CONTAINER_WORKDIR=/work
 CONTAINER_ID=""
 PACKAGE_ROOT=""
 PACKAGE_TEMP_ROOT=""
+BROWSE_SESSION_CLIENT="${BTRFSBACKUP_BROWSE_SESSION_CLIENT:-$ROOT/build/tests/integration/btrfsbackup-integration-browse-session-client}"
+DEVICE_PROVISIONING_CLIENT="${BTRFSBACKUP_DEVICE_PROVISIONING_CLIENT:-$ROOT/build/tests/integration/btrfsbackup-integration-device-provisioning-client}"
 
 cleanup() {
     if [[ -n "$CONTAINER_ID" ]]; then
@@ -49,6 +51,17 @@ case "${1:-}" in
         exit 2
         ;;
 esac
+
+BROWSE_SESSION_CLIENT="$(realpath -- "$BROWSE_SESSION_CLIENT")"
+DEVICE_PROVISIONING_CLIENT="$(realpath -- "$DEVICE_PROVISIONING_CLIENT")"
+[[ -x "$BROWSE_SESSION_CLIENT" ]] || {
+    printf 'Browse-session integration client is not executable: %s\n' "$BROWSE_SESSION_CLIENT" >&2
+    exit 1
+}
+[[ -x "$DEVICE_PROVISIONING_CLIENT" ]] || {
+    printf 'Device-provisioning integration client is not executable: %s\n' "$DEVICE_PROVISIONING_CLIENT" >&2
+    exit 1
+}
 
 docker build \
     -t "$IMAGE_NAME" \
@@ -103,6 +116,8 @@ CONTAINER_ID="$(docker run -d --rm --privileged \
     --tmpfs /tmp:exec,mode=1777 \
     -v "$ROOT:$CONTAINER_WORKDIR:ro" \
     -v "$PACKAGE_ROOT:/packages:ro" \
+    -v "$BROWSE_SESSION_CLIENT:/opt/btrfsbackup-browse-session-client:ro" \
+    -v "$DEVICE_PROVISIONING_CLIENT:/opt/btrfsbackup-device-provisioning-client:ro" \
     -w "$CONTAINER_WORKDIR" \
     "$IMAGE_NAME" \
     /sbin/init)"
@@ -110,6 +125,8 @@ CONTAINER_ID="$(docker run -d --rm --privileged \
 docker exec \
     -e BUILD_JOBS="$BUILD_JOBS" \
     -e BTRFSBACKUP_PACKAGE_DIR=/packages \
+    -e BTRFSBACKUP_BROWSE_SESSION_CLIENT=/opt/btrfsbackup-browse-session-client \
+    -e BTRFSBACKUP_DEVICE_PROVISIONING_CLIENT=/opt/btrfsbackup-device-provisioning-client \
     -w "$CONTAINER_WORKDIR" \
     "$CONTAINER_ID" \
     "$CONTAINER_WORKDIR/tests/integration/docker/real-btrfs-test.sh"
