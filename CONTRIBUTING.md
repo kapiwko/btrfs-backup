@@ -9,6 +9,9 @@ potential vulnerability privately as described in [SECURITY.md](SECURITY.md).
 
 ## Development Setup
 
+The [development workflow](docs/development.md) is the canonical map of local
+builds, quality gates, privileged integration tests and release commands.
+
 The primary development platform is Arch Linux. A source build needs CMake, a
 C++23 compiler, `pkg-config`, `nlohmann-json`, and development files for
 `libmount`, `libblkid`, `libudev` and `libbtrfsutil`. On Arch Linux:
@@ -52,7 +55,8 @@ Start with these documents before changing runtime behavior:
 - [engine compatibility contract](docs/engine-contract.md);
 - [security model](docs/security.md);
 - [configuration contract](docs/configuration.md);
-- [testing strategy](docs/testing.md).
+- [development workflow](docs/development.md);
+- [testing strategy](docs/testing.md);
 - [release notes and publication](docs/releasing.md).
 
 Current sprint status, including the absence of an active sprint, is in

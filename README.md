@@ -290,7 +290,8 @@ installation.
 - [Security model](docs/security.md)
 - [Status API](docs/status-api.md) and [system D-Bus API](docs/system-dbus-api.md)
 - [KDE integration](docs/plasma-integration.md)
-- [Testing](docs/testing.md) and [contributing](CONTRIBUTING.md)
+- [Development workflow](docs/development.md), [testing](docs/testing.md) and
+  [contributing](CONTRIBUTING.md)
 - [Release and packaging](docs/packaging.md)
 - [Product roadmap](ROADMAP.md) and [current task status](TODO.md)
 - [Architecture decisions](docs/adr/) and [implemented designs](docs/design/)
