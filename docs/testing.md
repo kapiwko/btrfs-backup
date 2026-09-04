@@ -196,7 +196,10 @@ inside a privileged container. It creates:
 5. active test configuration under `/etc/btrfs-backup` inside the container.
 
 Run it through the opt-in CMake target so both non-installed public D-Bus
-clients are built and passed read-only to the container:
+clients and the staged C++ real-Btrfs fixture are built and passed read-only to
+the container. Migration ownership and the expected artifacts for every
+scenario are recorded in
+[`tests/integration/docker/real-btrfs-scenarios.md`](../tests/integration/docker/real-btrfs-scenarios.md):
 
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
@@ -213,9 +216,11 @@ sudo ctest --preset real-restore
 ```
 
 The underlying runner remains directly callable after a normal test-enabled
-build; it discovers the clients below `build/tests/integration`, or accepts
+build; it discovers the clients and C++ fixture below
+`build/tests/integration`, or accepts
 explicit `BTRFSBACKUP_BROWSE_SESSION_CLIENT` and
-`BTRFSBACKUP_DEVICE_PROVISIONING_CLIENT` paths. It also accepts the same
+`BTRFSBACKUP_DEVICE_PROVISIONING_CLIENT` paths plus
+`BTRFSBACKUP_REAL_BTRFS_TESTS`. It also accepts the same
 `PACKAGE_DIR=/path/to/dist` override. Without it,
 the base Arch package is built from the persistent local
 `build/integration-package` tree and mounted read-only into the privileged test

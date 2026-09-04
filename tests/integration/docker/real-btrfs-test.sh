@@ -33,6 +33,7 @@ PROFILE_JSON=/etc/btrfs-backup/profiles/default/profile.json
 EJECT_COMPLETION_COUNT=0
 BROWSE_SESSION_CLIENT="${BTRFSBACKUP_BROWSE_SESSION_CLIENT:?missing browse-session integration client}"
 DEVICE_PROVISIONING_CLIENT="${BTRFSBACKUP_DEVICE_PROVISIONING_CLIENT:?missing device-provisioning integration client}"
+REAL_BTRFS_TESTS="${BTRFSBACKUP_REAL_BTRFS_TESTS:?missing real-Btrfs C++ integration test}"
 
 cleanup() {
     set +e
@@ -1248,6 +1249,7 @@ require_root
 require_commands awk blkid btrfs busctl cat cmp cryptsetup date dd diff dmsetup find findmnt grep journalctl ldd ln losetup mkfifo mkfs.btrfs mkfs.ext4 mknod mount mv pacman perl runuser seq sfdisk sha256sum stat systemd-escape tar tee timeout truncate udevadm useradd userdel
 [[ -x "$BROWSE_SESSION_CLIENT" ]] || fail 'browse-session integration client is not executable'
 [[ -x "$DEVICE_PROVISIONING_CLIENT" ]] || fail 'device-provisioning integration client is not executable'
+[[ -x "$REAL_BTRFS_TESTS" ]] || fail 'real-Btrfs C++ integration test is not executable'
 ensure_loop_devices
 for _ in $(seq 1 100); do
     systemctl show-environment >/dev/null 2>&1 && break
@@ -1269,6 +1271,7 @@ PARTITION_NODE_MONITOR_PID=$!
 install -d -m0755 "$SOURCE_MOUNT" "$TARGET_MOUNT" "$PROVISION_PRESERVED_MOUNT"
 install -d -m0700 "$LOG_DIR"
 build_and_verify_packages
+"$REAL_BTRFS_TESTS" /usr/bin/btrfs-backupctl
 
 printf '%s\n' 'btrfs-backup-real-test-passphrase' > "$PASSPHRASE_FILE"
 chmod 0600 "$PASSPHRASE_FILE"
