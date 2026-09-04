@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Kamil Piwowarski <kapiwko@gmail.com>
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-foreach(variable IN ITEMS BASH SOURCE_DIR TEST_ROOT)
+foreach(variable IN ITEMS PYTHON SOURCE_DIR TEST_ROOT)
     if(NOT DEFINED ${variable} OR "${${variable}}" STREQUAL "")
         message(FATAL_ERROR "${variable} is required")
     endif()
@@ -9,7 +9,7 @@ endforeach()
 
 function(render_notes output_file)
     execute_process(
-        COMMAND "${BASH}" "${SOURCE_DIR}/tools/render-release-notes.sh" ${ARGN}
+        COMMAND "${PYTHON}" "${SOURCE_DIR}/tools/render_release_notes.py" ${ARGN}
         RESULT_VARIABLE result
         OUTPUT_FILE "${output_file}"
         ERROR_VARIABLE error

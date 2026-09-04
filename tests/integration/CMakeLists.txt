@@ -95,10 +95,15 @@ add_test(
     NAME release-notes-tests
     COMMAND
         ${CMAKE_COMMAND}
-        -DBASH=${BASH_EXECUTABLE}
+        -DPYTHON=${PYTHON_EXECUTABLE}
         -DSOURCE_DIR=${PROJECT_SOURCE_DIR}
         -DTEST_ROOT=${PROJECT_BINARY_DIR}/workflow-contracts
         -P ${CMAKE_CURRENT_SOURCE_DIR}/workflow/release_notes_tests.cmake
+)
+
+add_test(
+    NAME release-notes-unit-tests
+    COMMAND ${PYTHON_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tools/render_release_notes_tests.py
 )
 
 set_tests_properties(
@@ -113,6 +118,7 @@ set_tests_properties(
     profile-json-cli-tests
     command-surface-tests
     release-notes-tests
+    release-notes-unit-tests
     PROPERTIES LABELS workflow
 )
 

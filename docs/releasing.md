@@ -59,7 +59,7 @@ Render the released changelog section instead of writing a second independent
 description:
 
 ```bash
-tools/render-release-notes.sh X.Y.Z vPREVIOUS > build/release-notes-X.Y.Z.md
+python3 tools/render_release_notes.py X.Y.Z vPREVIOUS > build/release-notes-X.Y.Z.md
 ```
 
 For the first release, omit `vPREVIOUS`; the footer then links to the tagged
@@ -97,7 +97,7 @@ Example publication commands:
 ```bash
 git tag -a vX.Y.Z -m "btrfs-backup X.Y.Z"
 git push origin vX.Y.Z
-tools/render-release-notes.sh X.Y.Z vPREVIOUS > build/release-notes-X.Y.Z.md
+python3 tools/render_release_notes.py X.Y.Z vPREVIOUS > build/release-notes-X.Y.Z.md
 gh release create vX.Y.Z dist/* \
     --verify-tag \
     --title "btrfs-backup X.Y.Z" \
