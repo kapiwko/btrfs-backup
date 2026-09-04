@@ -1,5 +1,9 @@
 # Testing
 
+See the [development workflow](development.md) for the canonical commands that
+connect CMake presets, quality checks, privileged integration tests and release
+validation.
+
 ## Automated Suite
 
 The default local suite runs without real Btrfs devices:
@@ -38,7 +42,7 @@ ctest --preset architecture --parallel "$(nproc)"
 
 Tests cover:
 
-1. syntax of remaining shell launchers and install hooks;
+1. syntax of the allowlisted QEMU guest bootstrap;
 2. multi-source rendering without unresolved placeholders;
 3. systemd unit and udev rule validation;
 4. canonical profile JSON validation, rendering, save, show, and export;
