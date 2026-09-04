@@ -35,6 +35,9 @@ class RealBtrfsTestEnvironment final {
     void write_source_file(const std::filesystem::path& relative_path, std::string_view content) const;
     void create_interrupted_receive_artifact() const;
     void require_target_identity_rejected() const;
+    void require_source_on_target_rejected() const;
+    void require_incoming_symlink_rejected() const;
+    void require_missing_incremental_parent_rejected() const;
     void require_pre_receive_recovery();
     void require_post_commit_recovery();
     void require_restore_scenarios() const;
