@@ -129,7 +129,10 @@ std::vector<std::string> device_properties(
         properties.push_back("DeviceAllow=/dev/block/" + value + " rw");
     if (access.allow_future_partitions) {
         const auto major = device_major(*devices.begin());
-        properties.push_back("DeviceAllow=block-" + block_device_group(groups_path, major) + " rw");
+        const std::string selected_group = block_device_group(groups_path, major);
+        properties.push_back("DeviceAllow=block-" + selected_group + " rw");
+        if (selected_group != "blkext")
+            properties.emplace_back("DeviceAllow=block-blkext rw");
     }
     properties.emplace_back("DeviceAllow=block-device-mapper rw");
     properties.emplace_back("DeviceAllow=/dev/mapper/control rw");
@@ -183,11 +186,15 @@ void SystemdDevicePreparationUnitController::start_unit(
         .no_block = true,
         .runtime_properties = device_properties(access, device_groups_path_),
     });
-    if (!result)
+    if (!result) {
+        const std::string detail = result.error().detail.empty()
+            ? std::string{}
+            : ": " + result.error().detail;
         throw dbus::ManagerOperationError(
             dbus::ManagerErrorCode::TargetUnavailable,
-            "cannot start device preparation helper"
+            "cannot start device preparation helper" + detail
         );
+    }
 }
 
 void SystemdDevicePreparationUnitController::start(

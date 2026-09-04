@@ -16,7 +16,7 @@ struct ManagerPaths {
     std::filesystem::path state_root = "/var/lib/btrfs-backup";
     std::filesystem::path target_mount_root = "/mnt/btrfs-backup";
     std::filesystem::path mapper_root = "/dev/mapper";
-    std::filesystem::path mountinfo_path = "/proc/self/mountinfo";
+    std::filesystem::path mountinfo_path = "/proc/1/mountinfo";
 };
 
 } // namespace btrfsbackup::daemon
