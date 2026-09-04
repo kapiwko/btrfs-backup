@@ -91,7 +91,7 @@ Storage, packaging, systemd or recovery changes may require the opt-in real
 Btrfs test:
 
 ```bash
-tests/integration/docker/run-real-btrfs.sh
+cmake --build build --target real-btrfs-integration
 ```
 
 That test uses a privileged container with disposable loop devices. Do not run
