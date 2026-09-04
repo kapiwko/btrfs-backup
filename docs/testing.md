@@ -5,13 +5,9 @@
 The default local suite runs without real Btrfs devices:
 
 ```bash
-./tests/run-tests.sh
-```
-
-Mode without root-only operations:
-
-```bash
-./tests/run-tests.sh --static-only
+cmake --preset gcc-debug
+cmake --build --preset gcc-debug --parallel
+ctest --preset gcc-debug --parallel
 ```
 
 For fast feedback while editing tracked C++ implementation files, run:
@@ -30,13 +26,14 @@ and carry the CTest label `architecture`. CI runs them once in a dedicated
 Clang job; compiler and sanitizer jobs configure with:
 
 ```bash
-cmake -S . -B build/fast -DBTRFSBACKUP_ARCHITECTURE_TESTS=OFF
+cmake --preset gcc-debug -DBTRFSBACKUP_ARCHITECTURE_TESTS=OFF
 ```
 
 Run only the architecture contract with:
 
 ```bash
-ctest --test-dir build -L architecture --parallel "$(nproc)"
+cmake --preset architecture
+ctest --preset architecture --parallel "$(nproc)"
 ```
 
 Tests cover:

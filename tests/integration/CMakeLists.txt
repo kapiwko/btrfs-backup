@@ -14,6 +14,65 @@ target_compile_definitions(btrfsbackup-profile-schema-contract-tests
     PRIVATE BTRFSBACKUP_SOURCE_DIR="${PROJECT_SOURCE_DIR}"
 )
 
+find_program(BASH_EXECUTABLE bash REQUIRED)
+
+add_test(
+    NAME bash-syntax-tests
+    COMMAND
+        ${CMAKE_COMMAND}
+        -DSOURCE_DIR=${PROJECT_SOURCE_DIR}
+        -DBASH=${BASH_EXECUTABLE}
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/workflow/bash_syntax_tests.cmake
+)
+
+add_test(
+    NAME installation-render-tests
+    COMMAND
+        ${CMAKE_COMMAND}
+        -DBACKUPCTL=$<TARGET_FILE:btrfs-backupctl>
+        -DTEST_ROOT=${PROJECT_BINARY_DIR}/workflow-contracts
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/workflow/installation_render_tests.cmake
+)
+
+add_test(
+    NAME profile-json-cli-tests
+    COMMAND
+        ${CMAKE_COMMAND}
+        -DBACKUPCTL=$<TARGET_FILE:btrfs-backupctl>
+        -DSOURCE_DIR=${PROJECT_SOURCE_DIR}
+        -DTEST_ROOT=${PROJECT_BINARY_DIR}/workflow-contracts
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/workflow/profile_json_cli_tests.cmake
+)
+
+add_test(
+    NAME command-surface-tests
+    COMMAND
+        ${CMAKE_COMMAND}
+        -DBACKUPCTL=$<TARGET_FILE:btrfs-backupctl>
+        -DSOURCE_DIR=${PROJECT_SOURCE_DIR}
+        -DTEST_ROOT=${PROJECT_BINARY_DIR}/workflow-contracts
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/workflow/command_surface_tests.cmake
+)
+
+add_test(
+    NAME release-notes-tests
+    COMMAND
+        ${CMAKE_COMMAND}
+        -DBASH=${BASH_EXECUTABLE}
+        -DSOURCE_DIR=${PROJECT_SOURCE_DIR}
+        -DTEST_ROOT=${PROJECT_BINARY_DIR}/workflow-contracts
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/workflow/release_notes_tests.cmake
+)
+
+set_tests_properties(
+    bash-syntax-tests
+    installation-render-tests
+    profile-json-cli-tests
+    command-surface-tests
+    release-notes-tests
+    PROPERTIES LABELS workflow
+)
+
 add_test(
     NAME cmake-install-tests
     COMMAND

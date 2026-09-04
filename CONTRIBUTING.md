@@ -31,17 +31,15 @@ Modules, Kirigami, KPackage, KI18n and libplasma development packages.
 Configure and build the base project with:
 
 ```bash
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
-cmake --build build --parallel
+cmake --preset gcc-debug
+cmake --build --preset gcc-debug --parallel
 ```
 
 Enable the optional KDE integration explicitly:
 
 ```bash
-cmake -S . -B build \
-  -DCMAKE_BUILD_TYPE=Debug \
-  -DBUILD_KDE_INTEGRATION=ON
-cmake --build build --target btrfs-backup-kde --parallel
+cmake --preset kde-debug
+cmake --build --preset kde-debug --target btrfs-backup-kde --parallel
 ```
 
 ## Architecture
@@ -72,26 +70,29 @@ through a shell command string.
 Run the default suite for ordinary changes:
 
 ```bash
-./tests/run-tests.sh
+cmake --preset gcc-debug
+cmake --build --preset gcc-debug --parallel
+ctest --preset gcc-debug --parallel
 ```
 
 Run a focused CTest while iterating:
 
 ```bash
-ctest --test-dir build --output-on-failure -R '<test-name>'
+ctest --test-dir build/gcc-debug --output-on-failure -R '<test-name>'
 ```
 
-The non-root static/rendering mode is:
+Run the architecture contract separately with Clang:
 
 ```bash
-./tests/run-tests.sh --static-only
+cmake --preset architecture
+ctest --preset architecture --parallel
 ```
 
 Storage, packaging, systemd or recovery changes may require the opt-in real
 Btrfs test:
 
 ```bash
-cmake --build build --target real-btrfs-integration
+cmake --build --preset gcc-debug --target real-btrfs-integration
 ```
 
 That test uses a privileged container with disposable loop devices. Do not run
@@ -336,7 +337,9 @@ Do not include generated `build/` or `dist/` output. Before submitting, run:
 ```bash
 git diff --check
 make quality
-./tests/run-tests.sh
+cmake --preset gcc-debug
+cmake --build --preset gcc-debug --parallel
+ctest --preset gcc-debug --parallel
 ```
 
 Run the heavier checks required by the affected boundary and report their exact

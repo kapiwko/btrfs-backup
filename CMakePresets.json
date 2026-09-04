@@ -1,0 +1,192 @@
+{
+  "version": 2,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 20,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "default",
+      "displayName": "Default release development build",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "BUILD_TESTING": "ON",
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "gcc-debug",
+      "displayName": "GCC debug development build",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/gcc-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_CXX_COMPILER": "g++"
+      }
+    },
+    {
+      "name": "clang-debug",
+      "displayName": "Clang debug development build",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/clang-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_CXX_COMPILER": "clang++"
+      }
+    },
+    {
+      "name": "architecture",
+      "displayName": "Clang architecture contract",
+      "inherits": "clang-debug",
+      "binaryDir": "${sourceDir}/build/architecture"
+    },
+    {
+      "name": "asan-ubsan",
+      "displayName": "Clang AddressSanitizer and UndefinedBehaviorSanitizer",
+      "inherits": "clang-debug",
+      "binaryDir": "${sourceDir}/build/asan-ubsan",
+      "cacheVariables": {
+        "BTRFSBACKUP_ARCHITECTURE_TESTS": "OFF",
+        "CMAKE_CXX_FLAGS": "-fsanitize=address,undefined -fno-omit-frame-pointer -fno-sanitize-recover=all",
+        "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=address,undefined"
+      }
+    },
+    {
+      "name": "strict-warnings",
+      "displayName": "Clang strict warnings",
+      "inherits": "clang-debug",
+      "binaryDir": "${sourceDir}/build/strict-warnings",
+      "cacheVariables": {
+        "BUILD_TESTING": "OFF",
+        "CMAKE_CXX_FLAGS": "-Werror -Wconversion -Wsign-conversion -Wshadow"
+      }
+    },
+    {
+      "name": "kde-debug",
+      "displayName": "GCC debug build with KDE integration",
+      "inherits": "gcc-debug",
+      "binaryDir": "${sourceDir}/build/kde-debug",
+      "cacheVariables": {
+        "BUILD_KDE_INTEGRATION": "ON"
+      }
+    },
+    {
+      "name": "manager-debug",
+      "displayName": "GCC debug build with the system manager",
+      "inherits": "gcc-debug",
+      "binaryDir": "${sourceDir}/build/manager-debug",
+      "cacheVariables": {
+        "BUILD_SYSTEM_MANAGER": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "default",
+      "configurePreset": "default"
+    },
+    {
+      "name": "gcc-debug",
+      "configurePreset": "gcc-debug"
+    },
+    {
+      "name": "clang-debug",
+      "configurePreset": "clang-debug"
+    },
+    {
+      "name": "asan-ubsan",
+      "configurePreset": "asan-ubsan"
+    },
+    {
+      "name": "strict-warnings",
+      "configurePreset": "strict-warnings"
+    },
+    {
+      "name": "kde-debug",
+      "configurePreset": "kde-debug"
+    },
+    {
+      "name": "manager-debug",
+      "configurePreset": "manager-debug"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "default",
+      "configurePreset": "default",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "gcc-debug",
+      "configurePreset": "gcc-debug",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "clang-debug",
+      "configurePreset": "clang-debug",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "architecture",
+      "configurePreset": "architecture",
+      "filter": {
+        "include": {
+          "label": "architecture"
+        }
+      },
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "asan-ubsan",
+      "configurePreset": "asan-ubsan",
+      "environment": {
+        "ASAN_OPTIONS": "detect_leaks=1:strict_string_checks=1",
+        "UBSAN_OPTIONS": "print_stacktrace=1:halt_on_error=1"
+      },
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "kde",
+      "configurePreset": "kde-debug",
+      "filter": {
+        "include": {
+          "label": "kde"
+        }
+      },
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "manager",
+      "configurePreset": "manager-debug",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "workflow",
+      "configurePreset": "default",
+      "filter": {
+        "include": {
+          "label": "workflow"
+        }
+      },
+      "output": {
+        "outputOnFailure": true
+      }
+    }
+  ]
+}

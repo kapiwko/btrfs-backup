@@ -5,13 +5,14 @@
 BUILD_JOBS ?= $(shell nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)
 CMAKE_CONFIGURE_ARGS ?=
 
-.PHONY: all check-format clang-tidy clang-tidy-changed quality quality-changed clean
+.PHONY: all test check-format clang-tidy clang-tidy-changed quality quality-changed clean
 
-all: build/btrfs-backupctl
+all:
+	cmake --preset default $(CMAKE_CONFIGURE_ARGS)
+	cmake --build --preset default --parallel $(BUILD_JOBS)
 
-build/btrfs-backupctl: CMakeLists.txt $(shell find apps src -type f | sort)
-	cmake -S . -B build -DCMAKE_BUILD_TYPE=Release $(CMAKE_CONFIGURE_ARGS)
-	cmake --build build --parallel $(BUILD_JOBS)
+test: all
+	ctest --preset default --parallel $(BUILD_JOBS)
 
 check-format:
 	./tools/check-cpp-format.sh
