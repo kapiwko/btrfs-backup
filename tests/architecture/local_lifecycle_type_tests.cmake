@@ -6,6 +6,7 @@
 # their copy/move/destruction policy visible without pretending to parse C++.
 set(local_lifecycle_types
     "integrations/kde/kio/BtrfsBackupWorker.cpp|BrowseSessionPin|immobile"
+    "integrations/kde/restore/RestoreController.cpp|BrowseOperationPin|immobile"
     "src/backup/execution/LinkedCancellationMonitor.cpp|LinkedCancellationWatch|immobile"
     "src/daemon/control/DevicePreparationUnitController.cpp|SecretBuffer|movable"
     "src/platform/linux/storage/CryptsetupOperations.cpp|SafeSecret|immobile"
