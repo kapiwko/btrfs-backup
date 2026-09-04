@@ -11,11 +11,13 @@
 #include <algorithm>
 #include <cerrno>
 #include <cctype>
+#include <chrono>
 #include <cstdint>
 #include <cstring>
 #include <fstream>
 #include <memory>
 #include <ranges>
+#include <thread>
 #include <utility>
 
 #include <core/Errors.hpp>
@@ -136,6 +138,17 @@ int activate_secret(
         secret.size(),
         flags
     );
+}
+
+bool wait_for_mapper_node(const std::string& mapper) {
+    const std::filesystem::path path = std::filesystem::path("/dev/mapper") / mapper;
+    for (int attempt = 0; attempt < 500; ++attempt) {
+        struct stat status{};
+        if (stat(path.c_str(), &status) == 0 && S_ISBLK(status.st_mode))
+            return true;
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    }
+    return false;
 }
 
 } // namespace
@@ -287,6 +300,10 @@ void CryptsetupOperations::open_luks2(
     auto context = initialize(device, true);
     const SafeSecret secret(key_fd);
     require_result(activate_secret(context.get(), mapper.c_str(), secret), "opening LUKS2 target");
+    if (!wait_for_mapper_node(mapper)) {
+        static_cast<void>(crypt_deactivate(context.get(), mapper.c_str()));
+        throw ValidationError("active LUKS mapping device node is unavailable");
+    }
 }
 
 void CryptsetupOperations::open_luks2_read_only(
@@ -301,6 +318,10 @@ void CryptsetupOperations::open_luks2_read_only(
         activate_secret(context.get(), mapper.c_str(), secret, CRYPT_ACTIVATE_READONLY),
         "opening read-only LUKS2 target"
     );
+    if (!wait_for_mapper_node(mapper)) {
+        static_cast<void>(crypt_deactivate(context.get(), mapper.c_str()));
+        throw ValidationError("active LUKS mapping device node is unavailable");
+    }
 }
 
 void CryptsetupOperations::close(const std::string& mapper) {
