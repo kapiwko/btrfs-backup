@@ -395,7 +395,7 @@ build_native_payload() {
     configure_release_build
     log_stage 'Building native release executables'
     cmake --build "$RELEASE_BUILD_DIR" \
-        --target btrfs-backup-native btrfs-backupctl btrfs-backupd \
+        --target btrfs-backup-native btrfs-backupctl btrfs-backupd btrfs-backup-device-preparation \
         --parallel "$BUILD_JOBS"
     NATIVE_BUILD_READY=true
 }
@@ -408,6 +408,8 @@ stage_package_payload() {
     install -Dm755 "$RELEASE_BUILD_DIR/btrfs-backup" "$pkgdir/usr/bin/btrfs-backup"
     install -Dm755 "$RELEASE_BUILD_DIR/btrfs-backupctl" "$pkgdir/usr/bin/btrfs-backupctl"
     install -Dm755 "$RELEASE_BUILD_DIR/btrfs-backupd" "$pkgdir/usr/bin/btrfs-backupd"
+    install -Dm755 "$RELEASE_BUILD_DIR/btrfs-backup-device-preparation" \
+        "$pkgdir/usr/bin/btrfs-backup-device-preparation"
     install -d -m0755 "$pkgdir/etc/btrfs-backup/hooks.d"
 
     install -Dm644 "$root/data/examples/profile.example.json" \
@@ -453,6 +455,11 @@ stage_package_payload() {
         "$root/data/systemd/btrfs-backupd.service" \
         > "$pkgdir/usr/lib/systemd/system/btrfs-backupd.service"
     chmod 0644 "$pkgdir/usr/lib/systemd/system/btrfs-backupd.service"
+    sed \
+        -e 's#@BTRFSBACKUP_DEVICE_PREPARATION_EXECUTABLE@#/usr/bin/btrfs-backup-device-preparation#g' \
+        "$root/data/systemd/btrfs-backup-device-preparation@.service" \
+        > "$pkgdir/usr/lib/systemd/system/btrfs-backup-device-preparation@.service"
+    chmod 0644 "$pkgdir/usr/lib/systemd/system/btrfs-backup-device-preparation@.service"
     install -d -m0755 "$pkgdir/usr/share/dbus-1/system-services"
     sed \
         -e 's#@BTRFSBACKUP_MANAGER_EXECUTABLE@#/usr/bin/btrfs-backupd#g' \
@@ -461,6 +468,8 @@ stage_package_payload() {
     chmod 0644 "$pkgdir/usr/share/dbus-1/system-services/io.github.btrfsbackup.Manager1.service"
     install -Dm644 "$root/data/dbus/io.github.btrfsbackup.Manager1.conf" \
         "$pkgdir/usr/share/dbus-1/system.d/io.github.btrfsbackup.Manager1.conf"
+    install -Dm644 "$root/data/dbus/io.github.btrfsbackup.Manager1.xml" \
+        "$pkgdir/usr/share/dbus-1/interfaces/io.github.btrfsbackup.Manager1.xml"
     install -Dm644 "$root/data/polkit/io.github.btrfsbackup.policy" \
         "$pkgdir/usr/share/polkit-1/actions/io.github.btrfsbackup.policy"
 
@@ -622,6 +631,7 @@ interrupted-run recovery, retention, and controlled eject.
 install -Dm755 build/btrfs-backup %{buildroot}%{_bindir}/btrfs-backup
 install -Dm755 build/btrfs-backupctl %{buildroot}%{_bindir}/btrfs-backupctl
 install -Dm755 build/btrfs-backupd %{buildroot}%{_bindir}/btrfs-backupd
+install -Dm755 build/btrfs-backup-device-preparation %{buildroot}%{_bindir}/btrfs-backup-device-preparation
 install -d -m0755 %{buildroot}/etc/btrfs-backup/hooks.d
 install -d %{buildroot}/usr/lib/systemd/system
   sed -e 's#@BTRFSBACKUP_BACKUP_COMMAND@#/usr/bin/btrfs-backupctl runner execute#g' \
@@ -637,9 +647,14 @@ install -d %{buildroot}/usr/lib/systemd/system
   sed -e 's#@BTRFSBACKUP_TARGET_COMMAND@#/usr/bin/btrfs-backupctl target#g' \
     data/systemd/btrfs-backup-target@.service.example \
     > %{buildroot}/usr/lib/systemd/system/btrfs-backup-target@.service
-install -Dm644 data/systemd/btrfs-backupd.service %{buildroot}/usr/lib/systemd/system/btrfs-backupd.service
+sed -e 's#@BTRFSBACKUP_MANAGER_EXECUTABLE@#/usr/bin/btrfs-backupd#g' \
+  data/systemd/btrfs-backupd.service > %{buildroot}/usr/lib/systemd/system/btrfs-backupd.service
+sed -e 's#@BTRFSBACKUP_DEVICE_PREPARATION_EXECUTABLE@#/usr/bin/btrfs-backup-device-preparation#g' \
+  data/systemd/btrfs-backup-device-preparation@.service \
+  > %{buildroot}/usr/lib/systemd/system/btrfs-backup-device-preparation@.service
 install -Dm644 data/dbus/io.github.btrfsbackup.Manager1.service %{buildroot}%{_datadir}/dbus-1/system-services/io.github.btrfsbackup.Manager1.service
 install -Dm644 data/dbus/io.github.btrfsbackup.Manager1.conf %{buildroot}%{_datadir}/dbus-1/system.d/io.github.btrfsbackup.Manager1.conf
+install -Dm644 data/dbus/io.github.btrfsbackup.Manager1.xml %{buildroot}%{_datadir}/dbus-1/interfaces/io.github.btrfsbackup.Manager1.xml
 install -Dm644 data/polkit/io.github.btrfsbackup.policy %{buildroot}%{_datadir}/polkit-1/actions/io.github.btrfsbackup.policy
 install -d %{buildroot}%{_datadir}/btrfs-backup/examples/config
 install -d %{buildroot}%{_datadir}/btrfs-backup/examples/systemd
@@ -655,6 +670,7 @@ install -Dm644 LICENSE %{buildroot}%{_licensedir}/btrfs-backup/LICENSE
 %{_bindir}/btrfs-backup
 %{_bindir}/btrfs-backupctl
 %{_bindir}/btrfs-backupd
+%{_bindir}/btrfs-backup-device-preparation
 %dir /etc/btrfs-backup
 %dir /etc/btrfs-backup/hooks.d
 /usr/lib/systemd/system/btrfs-backup@.service
@@ -662,6 +678,7 @@ install -Dm644 LICENSE %{buildroot}%{_licensedir}/btrfs-backup/LICENSE
 /usr/lib/systemd/system/btrfs-backup-validate@.service
 /usr/lib/systemd/system/btrfs-backup-target@.service
 /usr/lib/systemd/system/btrfs-backupd.service
+/usr/lib/systemd/system/btrfs-backup-device-preparation@.service
 %{_datadir}/dbus-1/
 %{_datadir}/polkit-1/actions/io.github.btrfsbackup.policy
 %{_datadir}/btrfs-backup/
@@ -712,6 +729,7 @@ stdenvNoCC.mkDerivation {
     install -Dm755 build/btrfs-backup $out/bin/btrfs-backup
     install -Dm755 build/btrfs-backupctl $out/bin/btrfs-backupctl
     install -Dm755 build/btrfs-backupd $out/bin/btrfs-backupd
+    install -Dm755 build/btrfs-backup-device-preparation $out/bin/btrfs-backup-device-preparation
     mkdir -p $out/etc/btrfs-backup/hooks.d
     mkdir -p $out/lib/systemd/system
     sed -e 's#@BTRFSBACKUP_BACKUP_COMMAND@#/usr/bin/btrfs-backupctl runner execute#g' \
@@ -727,9 +745,14 @@ stdenvNoCC.mkDerivation {
     sed -e 's#@BTRFSBACKUP_TARGET_COMMAND@#/usr/bin/btrfs-backupctl target#g' \
         data/systemd/btrfs-backup-target@.service.example \
         > $out/lib/systemd/system/btrfs-backup-target@.service
-    install -Dm644 data/systemd/btrfs-backupd.service $out/lib/systemd/system/btrfs-backupd.service
+    sed -e 's#@BTRFSBACKUP_MANAGER_EXECUTABLE@#/usr/bin/btrfs-backupd#g' \
+        data/systemd/btrfs-backupd.service > $out/lib/systemd/system/btrfs-backupd.service
+    sed -e 's#@BTRFSBACKUP_DEVICE_PREPARATION_EXECUTABLE@#/usr/bin/btrfs-backup-device-preparation#g' \
+        data/systemd/btrfs-backup-device-preparation@.service \
+        > $out/lib/systemd/system/btrfs-backup-device-preparation@.service
     install -Dm644 data/dbus/io.github.btrfsbackup.Manager1.service $out/share/dbus-1/system-services/io.github.btrfsbackup.Manager1.service
     install -Dm644 data/dbus/io.github.btrfsbackup.Manager1.conf $out/share/dbus-1/system.d/io.github.btrfsbackup.Manager1.conf
+    install -Dm644 data/dbus/io.github.btrfsbackup.Manager1.xml $out/share/dbus-1/interfaces/io.github.btrfsbackup.Manager1.xml
     install -Dm644 data/polkit/io.github.btrfsbackup.policy $out/share/polkit-1/actions/io.github.btrfsbackup.policy
     mkdir -p $out/share/btrfs-backup/examples/config
     mkdir -p $out/share/btrfs-backup/examples/systemd
@@ -799,7 +822,7 @@ RDEPEND="
 
 src_install() {
 	emake
-	dobin build/btrfs-backup build/btrfs-backupctl build/btrfs-backupd
+	dobin build/btrfs-backup build/btrfs-backupctl build/btrfs-backupd build/btrfs-backup-device-preparation
 	dodir /etc/btrfs-backup/hooks.d
 	sed -e 's#@BTRFSBACKUP_BACKUP_COMMAND@#/usr/bin/btrfs-backupctl runner execute#g' \
 		-e 's#@BTRFSBACKUP_EJECT_SCRIPT_PATH@#/usr/bin/btrfs-backupctl target eject#g' \
@@ -810,14 +833,20 @@ src_install() {
 		data/systemd/btrfs-backup-validate@.service.example > "${T}/btrfs-backup-validate@.service"
 	sed -e 's#@BTRFSBACKUP_TARGET_COMMAND@#/usr/bin/btrfs-backupctl target#g' \
 		data/systemd/btrfs-backup-target@.service.example > "${T}/btrfs-backup-target@.service"
+	sed -e 's#@BTRFSBACKUP_MANAGER_EXECUTABLE@#/usr/bin/btrfs-backupd#g' \
+		data/systemd/btrfs-backupd.service > "${T}/btrfs-backupd.service"
+	sed -e 's#@BTRFSBACKUP_DEVICE_PREPARATION_EXECUTABLE@#/usr/bin/btrfs-backup-device-preparation#g' \
+		data/systemd/btrfs-backup-device-preparation@.service > "${T}/btrfs-backup-device-preparation@.service"
 	insinto /usr/lib/systemd/system
 	doins "${T}/btrfs-backup@.service" "${T}/btrfs-backup-eject@.service" \
 		"${T}/btrfs-backup-validate@.service" "${T}/btrfs-backup-target@.service" \
-		data/systemd/btrfs-backupd.service
+		"${T}/btrfs-backupd.service" "${T}/btrfs-backup-device-preparation@.service"
 	insinto /usr/share/dbus-1/system-services
 	doins data/dbus/io.github.btrfsbackup.Manager1.service
 	insinto /usr/share/dbus-1/system.d
 	doins data/dbus/io.github.btrfsbackup.Manager1.conf
+	insinto /usr/share/dbus-1/interfaces
+	doins data/dbus/io.github.btrfsbackup.Manager1.xml
 	insinto /usr/share/polkit-1/actions
 	doins data/polkit/io.github.btrfsbackup.policy
 	insinto /usr/share/btrfs-backup/examples/config
@@ -867,6 +896,7 @@ package_btrfs-backup() {
   install -Dm755 "\$root/build/btrfs-backup" "\$pkgdir/usr/bin/btrfs-backup"
   install -Dm755 "\$root/build/btrfs-backupctl" "\$pkgdir/usr/bin/btrfs-backupctl"
   install -Dm755 "\$root/build/btrfs-backupd" "\$pkgdir/usr/bin/btrfs-backupd"
+  install -Dm755 "\$root/build/btrfs-backup-device-preparation" "\$pkgdir/usr/bin/btrfs-backup-device-preparation"
   install -d -m0755 "\$pkgdir/etc/btrfs-backup/hooks.d"
   install -d "\$pkgdir/usr/lib/systemd/system"
   sed -e 's#@BTRFSBACKUP_BACKUP_COMMAND@#/usr/bin/btrfs-backupctl runner execute#g' \\
@@ -885,11 +915,15 @@ package_btrfs-backup() {
   sed -e 's#@BTRFSBACKUP_MANAGER_EXECUTABLE@#/usr/bin/btrfs-backupd#g' \\
       "\$root/data/systemd/btrfs-backupd.service" \\
       > "\$pkgdir/usr/lib/systemd/system/btrfs-backupd.service"
+  sed -e 's#@BTRFSBACKUP_DEVICE_PREPARATION_EXECUTABLE@#/usr/bin/btrfs-backup-device-preparation#g' \\
+      "\$root/data/systemd/btrfs-backup-device-preparation@.service" \\
+      > "\$pkgdir/usr/lib/systemd/system/btrfs-backup-device-preparation@.service"
   install -d "\$pkgdir/usr/share/dbus-1/system-services"
   sed -e 's#@BTRFSBACKUP_MANAGER_EXECUTABLE@#/usr/bin/btrfs-backupd#g' \\
       "\$root/data/dbus/io.github.btrfsbackup.Manager1.service" \\
       > "\$pkgdir/usr/share/dbus-1/system-services/io.github.btrfsbackup.Manager1.service"
   install -Dm644 "\$root/data/dbus/io.github.btrfsbackup.Manager1.conf" "\$pkgdir/usr/share/dbus-1/system.d/io.github.btrfsbackup.Manager1.conf"
+  install -Dm644 "\$root/data/dbus/io.github.btrfsbackup.Manager1.xml" "\$pkgdir/usr/share/dbus-1/interfaces/io.github.btrfsbackup.Manager1.xml"
   install -Dm644 "\$root/data/polkit/io.github.btrfsbackup.policy" "\$pkgdir/usr/share/polkit-1/actions/io.github.btrfsbackup.policy"
   install -d "\$pkgdir/usr/share/btrfs-backup/examples/config"
   install -d "\$pkgdir/usr/share/btrfs-backup/examples/systemd"
@@ -1141,14 +1175,17 @@ if [[ "$TARGET" == all || "$TARGET" == arch || "$TARGET" == arch-base ]]; then
     grep -qx 'usr/bin/btrfs-backup' "$TMP_ROOT/package-files.txt"
     grep -qx 'usr/bin/btrfs-backupctl' "$TMP_ROOT/package-files.txt"
     grep -qx 'usr/bin/btrfs-backupd' "$TMP_ROOT/package-files.txt"
+    grep -qx 'usr/bin/btrfs-backup-device-preparation' "$TMP_ROOT/package-files.txt"
     grep -qx 'etc/btrfs-backup/hooks.d/' "$TMP_ROOT/package-files.txt"
     grep -qx 'usr/lib/systemd/system/btrfs-backup@.service' "$TMP_ROOT/package-files.txt"
     grep -qx 'usr/lib/systemd/system/btrfs-backup-eject@.service' "$TMP_ROOT/package-files.txt"
     grep -qx 'usr/lib/systemd/system/btrfs-backup-validate@.service' "$TMP_ROOT/package-files.txt"
     grep -qx 'usr/lib/systemd/system/btrfs-backup-target@.service' "$TMP_ROOT/package-files.txt"
     grep -qx 'usr/lib/systemd/system/btrfs-backupd.service' "$TMP_ROOT/package-files.txt"
+    grep -qx 'usr/lib/systemd/system/btrfs-backup-device-preparation@.service' "$TMP_ROOT/package-files.txt"
     grep -qx 'usr/share/dbus-1/system-services/io.github.btrfsbackup.Manager1.service' "$TMP_ROOT/package-files.txt"
     grep -qx 'usr/share/dbus-1/system.d/io.github.btrfsbackup.Manager1.conf' "$TMP_ROOT/package-files.txt"
+    grep -qx 'usr/share/dbus-1/interfaces/io.github.btrfsbackup.Manager1.xml' "$TMP_ROOT/package-files.txt"
     grep -qx 'usr/share/polkit-1/actions/io.github.btrfsbackup.policy' "$TMP_ROOT/package-files.txt"
     grep -qx 'usr/share/btrfs-backup/examples/config/profile.schema.json' "$TMP_ROOT/package-files.txt"
     grep -qx 'usr/share/btrfs-backup/examples/config/btrfs-backup.conf.example' "$TMP_ROOT/package-files.txt"
