@@ -84,7 +84,7 @@ changelog.
 
 1. Update `VERSION`, `CHANGELOG.md`, supported versions and versioned examples.
 2. Commit the release metadata and run the required quality and test gates.
-3. Build the complete artifact set with `tools/build-release.sh --target all`.
+3. Build the complete artifact set with `tools/release.py --target all`.
 4. Verify `SHA256SUMS` from inside the artifact directory.
 5. Create and push the annotated version tag.
 6. Render notes from the tagged changelog section.

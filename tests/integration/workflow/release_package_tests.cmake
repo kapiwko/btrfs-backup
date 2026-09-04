@@ -7,6 +7,19 @@ foreach(variable IN ITEMS CMAKE_COMMAND PYTHON SOURCE_DIR TEST_ROOT RELEASE_BUIL
     endif()
 endforeach()
 
+file(READ "${SOURCE_DIR}/cmake/ReleasePackaging.cmake" packaging)
+foreach(setting IN ITEMS
+        "CPACK_PACKAGE_RELOCATABLE OFF"
+        "CPACK_RPM_PACKAGE_RELOCATABLE OFF"
+        "%define _buildhost reproducible"
+        "%define use_source_date_epoch_as_buildtime 1"
+        "%define clamp_mtime_to_source_date_epoch 1")
+    string(FIND "${packaging}" "${setting}" position)
+    if(position EQUAL -1)
+        message(FATAL_ERROR "Release packaging is missing: ${setting}")
+    endif()
+endforeach()
+
 set(root "${TEST_ROOT}/release-package")
 file(REMOVE_RECURSE "${root}")
 

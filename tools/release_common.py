@@ -37,10 +37,13 @@ def source_date_epoch(root: Path) -> int:
         if not configured.isdigit() or int(configured) <= 0:
             raise ValueError("SOURCE_DATE_EPOCH must be a positive Unix timestamp.")
         return int(configured)
-    result = subprocess.run(["git", "-C", str(root), "log", "-1", "--format=%ct"],
-                            text=True, capture_output=True, check=False)
-    if result.returncode == 0 and result.stdout.strip().isdigit():
-        return int(result.stdout.strip())
+    try:
+        result = subprocess.run(["git", "-C", str(root), "log", "-1", "--format=%ct"],
+                                text=True, capture_output=True, check=False)
+        if result.returncode == 0 and result.stdout.strip().isdigit():
+            return int(result.stdout.strip())
+    except FileNotFoundError:
+        pass
     return int((root / "VERSION").stat().st_mtime)
 
 
@@ -50,7 +53,7 @@ def reset_directory(path: Path) -> None:
     if resolved in unsafe:
         raise ValueError(f"refusing unsafe dist directory: {resolved}")
     shutil.rmtree(resolved, ignore_errors=True)
-    resolved.mkdir(parents=True, mode=0o755)
+    resolved.mkdir(parents=True, mode=0o755, exist_ok=True)
 
 
 def copy_source_tree(root: Path, destination: Path, epoch: int) -> list[Path]:
