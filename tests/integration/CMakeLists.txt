@@ -217,6 +217,19 @@ if(BUILD_SYSTEM_MANAGER)
     )
 
     add_executable(
+        btrfsbackup-real-system-dbus-backup-tests
+        RealSystemDbusBackupTests.cpp
+        support/IntegrationTestProcess.cpp
+        support/RealSystemDbusBackupTest.cpp
+    )
+    target_link_libraries(
+        btrfsbackup-real-system-dbus-backup-tests
+        PRIVATE
+            btrfsbackup-integration-manager-client
+            nlohmann_json::nlohmann_json
+    )
+
+    add_executable(
         btrfsbackup-integration-browse-session-client
         support/BrowseSessionClient.cpp
     )
@@ -243,6 +256,7 @@ if(BUILD_SYSTEM_MANAGER)
         target_compile_options(btrfsbackup-integration-manager-client PRIVATE -Wall -Wextra -Wpedantic)
         target_compile_options(btrfsbackup-integration-browse-session-client PRIVATE -Wall -Wextra -Wpedantic)
         target_compile_options(btrfsbackup-integration-device-provisioning-client PRIVATE -Wall -Wextra -Wpedantic)
+        target_compile_options(btrfsbackup-real-system-dbus-backup-tests PRIVATE -Wall -Wextra -Wpedantic)
     endif()
 
     add_test(
@@ -255,6 +269,7 @@ if(BUILD_SYSTEM_MANAGER)
             -DMAPPER_LIFECYCLE_TEST=$<TARGET_FILE:btrfsbackup-real-mapper-lifecycle-tests>
             -DTRUSTED_HOOK_TEST=$<TARGET_FILE:btrfsbackup-real-trusted-hook-tests>
             -DSANDBOXED_SYSTEMD_TEST=$<TARGET_FILE:btrfsbackup-real-sandboxed-systemd-tests>
+            -DSYSTEM_DBUS_BACKUP_TEST=$<TARGET_FILE:btrfsbackup-real-system-dbus-backup-tests>
             -P ${CMAKE_CURRENT_SOURCE_DIR}/integration_client_cli_tests.cmake
     )
 
@@ -267,6 +282,7 @@ if(BUILD_SYSTEM_MANAGER)
             BTRFSBACKUP_REAL_MAPPER_LIFECYCLE_TESTS=$<TARGET_FILE:btrfsbackup-real-mapper-lifecycle-tests>
             BTRFSBACKUP_REAL_TRUSTED_HOOK_TESTS=$<TARGET_FILE:btrfsbackup-real-trusted-hook-tests>
             BTRFSBACKUP_REAL_SANDBOXED_SYSTEMD_TESTS=$<TARGET_FILE:btrfsbackup-real-sandboxed-systemd-tests>
+            BTRFSBACKUP_REAL_SYSTEM_DBUS_BACKUP_TESTS=$<TARGET_FILE:btrfsbackup-real-system-dbus-backup-tests>
             BTRFSBACKUP_BROWSE_SESSION_CLIENT=$<TARGET_FILE:btrfsbackup-integration-browse-session-client>
             BTRFSBACKUP_DEVICE_PROVISIONING_CLIENT=$<TARGET_FILE:btrfsbackup-integration-device-provisioning-client>
             ${PROJECT_SOURCE_DIR}/tests/integration/docker/run_real_btrfs.py
@@ -276,6 +292,7 @@ if(BUILD_SYSTEM_MANAGER)
             btrfsbackup-real-mapper-lifecycle-tests
             btrfsbackup-real-trusted-hook-tests
             btrfsbackup-real-sandboxed-systemd-tests
+            btrfsbackup-real-system-dbus-backup-tests
             btrfsbackup-integration-browse-session-client
             btrfsbackup-integration-device-provisioning-client
         USES_TERMINAL
