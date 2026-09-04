@@ -91,6 +91,16 @@
       "cacheVariables": {
         "BUILD_SYSTEM_MANAGER": "ON"
       }
+    },
+    {
+      "name": "real-restore",
+      "displayName": "Root-only real Btrfs restore integration",
+      "inherits": "gcc-debug",
+      "binaryDir": "${sourceDir}/build/real-restore",
+      "cacheVariables": {
+        "BTRFSBACKUP_ARCHITECTURE_TESTS": "OFF",
+        "BTRFSBACKUP_REAL_RESTORE_TESTS": "ON"
+      }
     }
   ],
   "buildPresets": [
@@ -125,6 +135,10 @@
     {
       "name": "manager-debug",
       "configurePreset": "manager-debug"
+    },
+    {
+      "name": "real-restore",
+      "configurePreset": "real-restore"
     }
   ],
   "testPresets": [
@@ -209,6 +223,18 @@
       "filter": {
         "include": {
           "label": "workflow"
+        }
+      },
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "real-restore",
+      "configurePreset": "real-restore",
+      "filter": {
+        "include": {
+          "label": "real-btrfs"
         }
       },
       "output": {

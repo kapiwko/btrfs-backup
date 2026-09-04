@@ -50,6 +50,11 @@ option(
     "Enable compile probes and dependency architecture tests"
     ON
 )
+option(
+    BTRFSBACKUP_REAL_RESTORE_TESTS
+    "Register the root-only loop-backed real Btrfs restore test"
+    OFF
+)
 
 find_package(nlohmann_json REQUIRED)
 find_package(PkgConfig REQUIRED)

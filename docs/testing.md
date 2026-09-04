@@ -207,7 +207,9 @@ The restore engine also has a focused real-Btrfs gate which avoids the systemd
 and encrypted-target lifecycle used by the full scenario:
 
 ```bash
-sudo tests/integration/real_restore_engine_test.sh build/btrfs-backupctl
+cmake --preset real-restore
+cmake --build --preset real-restore --parallel
+sudo ctest --preset real-restore
 ```
 
 The underlying runner remains directly callable after a normal test-enabled
