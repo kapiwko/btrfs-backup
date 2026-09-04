@@ -253,8 +253,8 @@ nlohmann-json and development files for libmount, libblkid, libcryptsetup,
 libudev and libbtrfsutil. Build the base package with:
 
 ```bash
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr
-cmake --build build --parallel
+cmake --preset default -DCMAKE_INSTALL_PREFIX=/usr
+cmake --build --preset default --parallel
 ```
 
 `BUILD_SYSTEM_MANAGER` is enabled by default. It additionally requires libfdisk
