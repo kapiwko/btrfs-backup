@@ -47,8 +47,14 @@ void run_scenarios(
 
         RealProvisioningTestEnvironment provisioning(provisioning_client, environment.source_subvolume());
         provisioning.require_existing_partition_preserves_sibling();
-        provisioning.close();
         std::cout << "ok - partition provisioning preserves its sibling and partition table\n";
+        provisioning.require_unallocated_space_preserves_partition();
+        std::cout << "ok - free-space provisioning preserves the existing partition\n";
+        provisioning.require_whole_device_is_replaced();
+        std::cout << "ok - whole-device provisioning creates GPT and an encrypted partition\n";
+        provisioning.require_existing_target_is_adopted();
+        std::cout << "ok - existing-target adoption preserves bytes and identities\n";
+        provisioning.close();
 
         require_backup(
             environment.execute_backup("2026-08-20T08:00:00Z", "20260820T080000Z-raii-full"),

@@ -27,8 +27,12 @@ RealProvisioningTestEnvironment::RealProvisioningTestEnvironment(fs::path client
     root_ = created;
     image_ = root_ / "device.img";
     preserved_mount_ = root_ / "preserved";
+    staging_mount_ = root_ / "staging";
+    adoption_mapper_name_ = "bb-real-adoption-" + root_.filename().string();
+    adoption_mapper_path_ = fs::path("/dev/mapper") / adoption_mapper_name_;
     write_test_file(root_ / ".btrfs-backup-test-root", "managed provisioning fixture\n");
     fs::create_directory(preserved_mount_);
+    fs::create_directory(staging_mount_);
     require_command({"mount", "--bind", source_.string(), source_.string()}, "bind provisioning source");
     source_bind_mounted_ = true;
 }
@@ -116,6 +120,11 @@ std::vector<std::string> RealProvisioningTestEnvironment::release_resources() no
     };
     if (preserved_mounted_ && cleanup({"umount", preserved_mount_.string()}, "unmount preserved sibling"))
         preserved_mounted_ = false;
+    if (staging_mounted_ && cleanup({"umount", staging_mount_.string()}, "unmount adoption staging"))
+        staging_mounted_ = false;
+    if (adoption_mapper_open_ && !staging_mounted_ &&
+        cleanup({"cryptsetup", "close", adoption_mapper_name_}, "close adoption mapper"))
+        adoption_mapper_open_ = false;
     if (manager_started_ &&
         cleanup({"systemctl", "stop", "btrfs-backupd.service", "polkit.service"}, "stop manager"))
         manager_started_ = false;
@@ -136,7 +145,8 @@ std::vector<std::string> RealProvisioningTestEnvironment::release_resources() no
     }
     if (source_bind_mounted_ && cleanup({"umount", source_.string()}, "unmount provisioning source bind"))
         source_bind_mounted_ = false;
-    if (!preserved_mounted_ && !manager_started_ && loop_.empty() && !source_bind_mounted_) {
+    if (!preserved_mounted_ && !staging_mounted_ && !adoption_mapper_open_ && !manager_started_ &&
+        loop_.empty() && !source_bind_mounted_) {
         if (!fs::is_regular_file(root_ / ".btrfs-backup-test-root")) {
             errors.push_back("provisioning root marker is missing; refusing removal");
         } else {

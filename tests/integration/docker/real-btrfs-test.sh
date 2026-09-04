@@ -12,16 +12,12 @@ ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../.." && pwd)"
 TEST_ROOT="$(mktemp -d /tmp/btrfs-backup-real.XXXXXX)"
 SOURCE_IMAGE="$TEST_ROOT/source.img"
 TARGET_IMAGE="$TEST_ROOT/target.img"
-PROVISION_IMAGE="$TEST_ROOT/provision.img"
 SOURCE_LOOP=""
 TARGET_LOOP=""
-PROVISION_LOOP=""
-PROVISION_MAPPER=""
 PARTITION_NODE_MONITOR_PID=""
 SOURCE_MOUNT=/mnt/bb-real-source
 TARGET_MOUNT=/mnt/btrfs-backup/default
 TARGET_STAGING_MOUNT=/mnt/bb-real-target-staging
-PROVISION_PRESERVED_MOUNT=/mnt/bb-real-provision-preserved
 MAPPER_NAME="bb-real-target-${TEST_ROOT##*.}"
 MAPPER_PATH="/dev/mapper/$MAPPER_NAME"
 PASSPHRASE_FILE="$TEST_ROOT/luks.pass"
@@ -43,22 +39,18 @@ cleanup() {
     fi
     umount -R "$TARGET_MOUNT" 2>/dev/null
     umount -R "$TARGET_STAGING_MOUNT" 2>/dev/null
-    umount -R "$PROVISION_PRESERVED_MOUNT" 2>/dev/null
     for _ in $(seq 1 5); do
         timeout --kill-after=1s 1s cryptsetup close "$MAPPER_NAME" 2>/dev/null && break
         sleep 0.1
     done
-    [[ -n "$PROVISION_MAPPER" ]] && cryptsetup close "$PROVISION_MAPPER" 2>/dev/null
     umount -R "$SOURCE_MOUNT" 2>/dev/null
-    [[ -n "$PROVISION_LOOP" ]] && losetup -d "$PROVISION_LOOP" 2>/dev/null
     [[ -n "$TARGET_LOOP" ]] && losetup -d "$TARGET_LOOP" 2>/dev/null
     [[ -n "$SOURCE_LOOP" ]] && losetup -d "$SOURCE_LOOP" 2>/dev/null
     rm -rf -- \
         "$TEST_ROOT" \
         "$SOURCE_MOUNT" \
         "$TARGET_MOUNT" \
-        "$TARGET_STAGING_MOUNT" \
-        "$PROVISION_PRESERVED_MOUNT"
+        "$TARGET_STAGING_MOUNT"
 }
 trap cleanup EXIT
 
@@ -169,21 +161,6 @@ monitor_loop_partition_nodes() {
     done
 }
 
-detach_provision_loop() {
-    local loop_name partition_node
-    loop_name="${PROVISION_LOOP##*/}"
-    losetup -d "$PROVISION_LOOP"
-    for _ in $(seq 1 100); do
-        compgen -G "/sys/class/block/${loop_name}p*" >/dev/null || break
-        sleep 0.02
-    done
-    for partition_node in /dev/"$loop_name"p*; do
-        [[ "$partition_node" != "/dev/${loop_name}p*" ]] || continue
-        rm -f -- "$partition_node"
-    done
-    PROVISION_LOOP=""
-}
-
 build_and_verify_packages() {
     local base_packages=()
     local base_metadata
@@ -217,265 +194,6 @@ build_and_verify_packages() {
         fail 'base commands link to a KDE or Qt runtime library'
     fi
     pass 'base package installs and runs without KDE or Qt runtime dependencies'
-}
-
-provision_existing_partition_test() {
-    local client="$DEVICE_PROVISIONING_CLIENT"
-    local first_partition second_partition
-    local first_hash_before first_hash_after
-    local table_before="$TEST_ROOT/provision-table-before"
-    local table_after="$TEST_ROOT/provision-table-after"
-    local response="$TEST_ROOT/device-provisioning-response.json"
-
-    truncate -s 0 "$PROVISION_IMAGE"
-    truncate -s 512M "$PROVISION_IMAGE"
-    PROVISION_LOOP="$(losetup --find --show --partscan "$PROVISION_IMAGE")"
-    printf '%s\n' \
-        'label: gpt' \
-        'size=128M,type=0FC63DAF-8483-4772-8E79-3D69D8477DE4' \
-        'size=256M,type=0FC63DAF-8483-4772-8E79-3D69D8477DE4' \
-        | sfdisk --quiet "$PROVISION_LOOP"
-    udevadm settle --timeout=10
-    materialize_loop_device_nodes
-    first_partition="${PROVISION_LOOP}p1"
-    second_partition="${PROVISION_LOOP}p2"
-    [[ -b "$first_partition" && -b "$second_partition" ]] \
-        || fail 'loop partition nodes were not created'
-    mkfs.ext4 -q -F -L PRESERVED "$first_partition"
-    mkfs.ext4 -q -F -L REFORMAT "$second_partition"
-    mount "$first_partition" "$PROVISION_PRESERVED_MOUNT"
-    printf 'preserved sibling data\n' > "$PROVISION_PRESERVED_MOUNT/preserved.txt"
-    sync -f "$PROVISION_PRESERVED_MOUNT/preserved.txt"
-    umount "$PROVISION_PRESERVED_MOUNT"
-    first_hash_before="$(sha256sum "$first_partition" | awk '{print $1}')"
-    sfdisk --dump "$PROVISION_LOOP" > "$table_before"
-    mount -o ro "$first_partition" "$PROVISION_PRESERVED_MOUNT"
-
-    systemctl start polkit.service btrfs-backupd.service
-    if ! "$client" "$second_partition" "$SOURCE_MOUNT/home" "$PASSPHRASE_FILE" > "$response"; then
-        journalctl --no-pager -o cat -u btrfs-backupd.service -n 100 >&2 || true
-        systemctl --failed --no-pager >&2 || true
-        journalctl --no-pager -o cat -n 200 >&2 || true
-        fail 'existing-partition provisioning client failed'
-    fi
-    systemctl stop btrfs-backupd.service polkit.service
-
-    findmnt -n -M "$PROVISION_PRESERVED_MOUNT" >/dev/null \
-        || fail 'partition provisioning unmounted the sibling partition'
-    [[ "$(cat "$PROVISION_PRESERVED_MOUNT/preserved.txt")" == 'preserved sibling data' ]] \
-        || fail 'partition provisioning changed data on the mounted sibling'
-    umount "$PROVISION_PRESERVED_MOUNT"
-    first_hash_after="$(sha256sum "$first_partition" | awk '{print $1}')"
-    sfdisk --dump "$PROVISION_LOOP" > "$table_after"
-    [[ "$first_hash_before" == "$first_hash_after" ]] \
-        || fail 'existing-partition provisioning changed the sibling partition'
-    cmp "$table_before" "$table_after" \
-        || fail 'existing-partition provisioning changed the parent partition table'
-    [[ "$(blkid -s TYPE -o value "$first_partition")" == ext4 ]] \
-        || fail 'existing-partition provisioning changed the sibling filesystem'
-    if ! cryptsetup isLuks --type luks2 "$second_partition"; then
-        printf '%s\n' '--- provisioning response ---' >&2
-        cat "$response" >&2
-        printf '%s\n' '--- partition table and signatures ---' >&2
-        sfdisk --dump "$PROVISION_LOOP" >&2 || true
-        blkid "$PROVISION_LOOP" "$first_partition" "$second_partition" >&2 || true
-        printf '%s\n' '--- generated profile ---' >&2
-        cat /etc/btrfs-backup/profiles/partition-integration/profile.json >&2 || true
-        fail 'selected partition was not formatted as LUKS2'
-    fi
-    grep -Eq '"state"[[:space:]]*:[[:space:]]*"succeeded"' "$response" \
-        || fail 'manager did not report successful partition provisioning'
-    [[ -f /etc/btrfs-backup/profiles/partition-integration/profile.json ]] \
-        || fail 'partition provisioning did not publish its profile'
-
-    detach_provision_loop
-    pass 'manager provisions one partition without changing its sibling or partition table'
-}
-
-provision_unallocated_space_test() {
-    local client="$DEVICE_PROVISIONING_CLIENT"
-    local preserved_partition backup_partition
-    local preserved_hash_before preserved_hash_after
-    local preserved_geometry_before preserved_geometry_after
-    local response="$TEST_ROOT/free-space-provisioning-response.json"
-
-    truncate -s 0 "$PROVISION_IMAGE"
-    truncate -s 768M "$PROVISION_IMAGE"
-    PROVISION_LOOP="$(losetup --find --show --partscan "$PROVISION_IMAGE")"
-    printf '%s\n' \
-        'label: gpt' \
-        'size=256M,type=0FC63DAF-8483-4772-8E79-3D69D8477DE4' \
-        | sfdisk --quiet "$PROVISION_LOOP"
-    udevadm settle --timeout=10
-    materialize_loop_device_nodes
-    preserved_partition="${PROVISION_LOOP}p1"
-    backup_partition="${PROVISION_LOOP}p2"
-    [[ -b "$preserved_partition" ]] || fail 'preserved loop partition node was not created'
-    mkfs.ext4 -q -F -L PRESERVED "$preserved_partition"
-    preserved_hash_before="$(sha256sum "$preserved_partition" | awk '{print $1}')"
-    preserved_geometry_before="$(sfdisk --dump "$PROVISION_LOOP" | grep -F "$preserved_partition :")"
-
-    systemctl start polkit.service btrfs-backupd.service
-    if ! "$client" \
-        "$PROVISION_LOOP" \
-        "$SOURCE_MOUNT/home" \
-        "$PASSPHRASE_FILE" \
-        create-partition-in-unallocated-space \
-        free-space-integration > "$response"; then
-        journalctl --no-pager -o cat -u btrfs-backupd.service -n 100 >&2 || true
-        journalctl --no-pager -o cat -t btrfs-backup-device-preparation -n 100 >&2 || true
-        lslocks >&2 || true
-        fail 'free-space provisioning client failed'
-    fi
-    systemctl stop btrfs-backupd.service polkit.service
-
-    preserved_hash_after="$(sha256sum "$preserved_partition" | awk '{print $1}')"
-    preserved_geometry_after="$(sfdisk --dump "$PROVISION_LOOP" | grep -F "$preserved_partition :")"
-    [[ "$preserved_hash_before" == "$preserved_hash_after" ]] \
-        || fail 'free-space provisioning changed the existing partition'
-    [[ "$preserved_geometry_before" == "$preserved_geometry_after" ]] \
-        || fail 'free-space provisioning changed existing partition geometry'
-    [[ -b "$backup_partition" ]] \
-        || fail 'free-space provisioning did not create the planned partition node'
-    [[ "$(blkid -s TYPE -o value "$preserved_partition")" == ext4 ]] \
-        || fail 'free-space provisioning changed the existing filesystem'
-    cryptsetup isLuks --type luks2 "$backup_partition" \
-        || fail 'free-space provisioning did not format the new partition as LUKS2'
-    grep -Eq '"state"[[:space:]]*:[[:space:]]*"succeeded"' "$response" \
-        || fail 'manager did not report successful free-space provisioning'
-    [[ -f /etc/btrfs-backup/profiles/free-space-integration/profile.json ]] \
-        || fail 'free-space provisioning did not publish its profile'
-
-    detach_provision_loop
-    pass 'manager creates a backup partition in free space without changing existing data'
-}
-
-provision_whole_device_test() {
-    local client="$DEVICE_PROVISIONING_CLIENT"
-    local backup_partition
-    local response="$TEST_ROOT/whole-device-provisioning-response.json"
-
-    truncate -s 0 "$PROVISION_IMAGE"
-    truncate -s 640M "$PROVISION_IMAGE"
-    PROVISION_LOOP="$(losetup --find --show --partscan "$PROVISION_IMAGE")"
-    mkfs.ext4 -q -F -L ERASE-WHOLE "$PROVISION_LOOP"
-    udevadm settle --timeout=10
-
-    systemctl start polkit.service btrfs-backupd.service
-    if ! "$client" \
-        "$PROVISION_LOOP" \
-        "$SOURCE_MOUNT/home" \
-        "$PASSPHRASE_FILE" \
-        erase-whole-device \
-        whole-device-integration > "$response"; then
-        journalctl --no-pager -o cat -u btrfs-backupd.service -n 100 >&2 || true
-        journalctl --no-pager -o cat -t btrfs-backup-device-preparation -n 100 >&2 || true
-        sfdisk --dump "$PROVISION_LOOP" >&2 || true
-        blkid "$PROVISION_LOOP" "${PROVISION_LOOP}p1" >&2 || true
-        fail 'whole-device provisioning client failed'
-    fi
-    systemctl stop btrfs-backupd.service polkit.service
-
-    udevadm settle --timeout=10
-    backup_partition="${PROVISION_LOOP}p1"
-    [[ "$(sfdisk --json "$PROVISION_LOOP" | sed -n 's/.*"label"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)" == gpt ]] \
-        || fail 'whole-device provisioning did not create GPT'
-    [[ -b "$backup_partition" ]] \
-        || fail 'whole-device provisioning did not create its planned partition'
-    cryptsetup isLuks --type luks2 "$backup_partition" \
-        || fail 'whole-device provisioning did not format the new partition as LUKS2'
-    grep -Eq '"state"[[:space:]]*:[[:space:]]*"succeeded"' "$response" \
-        || fail 'manager did not report successful whole-device provisioning'
-    [[ -f /etc/btrfs-backup/profiles/whole-device-integration/profile.json ]] \
-        || fail 'whole-device provisioning did not publish its profile'
-
-    detach_provision_loop
-    pass 'manager replaces a whole device with one encrypted backup partition'
-}
-
-provision_existing_target_adoption_test() {
-    local client="$DEVICE_PROVISIONING_CLIENT"
-    local partition
-    local adoption_mapper="bb-real-adoption-${TEST_ROOT##*.}"
-    local adoption_mapper_path="/dev/mapper/$adoption_mapper"
-    local btrfs_uuid luks_uuid partition_hash_before partition_hash_after
-    local response="$TEST_ROOT/adoption-provisioning-response.json"
-    local created_at
-
-    truncate -s 0 "$PROVISION_IMAGE"
-    truncate -s 512M "$PROVISION_IMAGE"
-    PROVISION_LOOP="$(losetup --find --show --partscan "$PROVISION_IMAGE")"
-    printf '%s\n' \
-        'label: gpt' \
-        'size=448M,type=0FC63DAF-8483-4772-8E79-3D69D8477DE4' \
-        | sfdisk --quiet "$PROVISION_LOOP"
-    udevadm settle --timeout=10
-    materialize_loop_device_nodes
-    partition="${PROVISION_LOOP}p1"
-    [[ -b "$partition" ]] || fail 'adoption partition node was not created'
-    cryptsetup luksFormat \
-        --batch-mode \
-        --type luks2 \
-        --pbkdf pbkdf2 \
-        --pbkdf-force-iterations 1000 \
-        --key-file "$PASSPHRASE_FILE" \
-        "$partition"
-    cryptsetup open --key-file "$PASSPHRASE_FILE" "$partition" "$adoption_mapper"
-    PROVISION_MAPPER="$adoption_mapper"
-    udevadm settle --timeout=10
-    dmsetup mknodes "$adoption_mapper"
-    [[ -b "$adoption_mapper_path" ]] || fail 'adoption mapper was not created'
-    mkfs.btrfs -q -f "$adoption_mapper_path"
-    install -d -m0755 "$TARGET_STAGING_MOUNT"
-    mount "$adoption_mapper_path" "$TARGET_STAGING_MOUNT"
-    btrfs_uuid="$(findmnt -n -o UUID -M "$TARGET_STAGING_MOUNT")"
-    luks_uuid="$(cryptsetup luksUUID "$partition")"
-    created_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-    cat > "$TARGET_STAGING_MOUNT/repository.json" <<EOF_ADOPTION_REPOSITORY
-{"schemaVersion":1,"repositoryId":"adoption-$btrfs_uuid","targetFilesystemUuid":"$btrfs_uuid","createdAt":"$created_at","features":["catalog-v1"]}
-EOF_ADOPTION_REPOSITORY
-    cat > "$TARGET_STAGING_MOUNT/catalog.json" <<'EOF_ADOPTION_CATALOG'
-{"schemaVersion":1,"generation":1,"snapshots":[]}
-EOF_ADOPTION_CATALOG
-    sync -f "$TARGET_STAGING_MOUNT/repository.json"
-    sync -f "$TARGET_STAGING_MOUNT/catalog.json"
-    umount "$TARGET_STAGING_MOUNT"
-    cryptsetup close "$adoption_mapper"
-    PROVISION_MAPPER=""
-    partition_hash_before="$(sha256sum "$partition" | awk '{print $1}')"
-
-    systemctl start polkit.service btrfs-backupd.service
-    if ! "$client" \
-        "$partition" \
-        "$SOURCE_MOUNT/home" \
-        "$PASSPHRASE_FILE" \
-        adopt-existing-target \
-        adoption-integration > "$response"; then
-        journalctl --no-pager -o cat -u btrfs-backupd.service -n 100 >&2 || true
-        journalctl --no-pager -o cat -t btrfs-backup-device-preparation -n 100 >&2 || true
-        stat -c '%n %t:%T' "$PROVISION_LOOP" "$partition" >&2 || true
-        fail 'existing-target adoption client failed'
-    fi
-    systemctl stop btrfs-backupd.service polkit.service
-
-    partition_hash_after="$(sha256sum "$partition" | awk '{print $1}')"
-    [[ "$partition_hash_before" == "$partition_hash_after" ]] \
-        || fail 'existing-target adoption modified the selected partition'
-    [[ "$(cryptsetup luksUUID "$partition")" == "$luks_uuid" ]] \
-        || fail 'existing-target adoption changed the LUKS identity'
-    grep -Eq '"state"[[:space:]]*:[[:space:]]*"succeeded"' "$response" \
-        || fail 'manager did not report successful existing-target adoption'
-    grep -Fq "adoption-$btrfs_uuid" "$response" \
-        && fail 'adoption status leaked the repository identifier'
-    [[ -f /etc/btrfs-backup/profiles/adoption-integration/profile.json ]] \
-        || fail 'existing-target adoption did not publish its profile'
-    grep -Fq "$luks_uuid" /etc/btrfs-backup/profiles/adoption-integration/profile.json \
-        || fail 'adopted profile does not retain the inspected LUKS identity'
-    grep -Fq "$btrfs_uuid" /etc/btrfs-backup/profiles/adoption-integration/profile.json \
-        || fail 'adopted profile does not retain the inspected Btrfs identity'
-
-    detach_provision_loop
-    pass 'manager adopts a compatible encrypted repository without modifying it'
 }
 
 configure_backup_with_cli() {
@@ -1268,7 +986,7 @@ udevadm control --reload
 monitor_loop_partition_nodes &
 PARTITION_NODE_MONITOR_PID=$!
 
-install -d -m0755 "$SOURCE_MOUNT" "$TARGET_MOUNT" "$PROVISION_PRESERVED_MOUNT"
+install -d -m0755 "$SOURCE_MOUNT" "$TARGET_MOUNT"
 install -d -m0700 "$LOG_DIR"
 build_and_verify_packages
 "$REAL_BTRFS_TESTS" /usr/bin/btrfs-backupctl "$BROWSE_SESSION_CLIENT" "$DEVICE_PROVISIONING_CLIENT"
@@ -1299,10 +1017,6 @@ mount -o noatime,compress=zstd:3 "$SOURCE_LOOP" "$SOURCE_MOUNT"
 btrfs subvolume create "$SOURCE_MOUNT/home" >/dev/null
 mount --bind "$SOURCE_MOUNT/home" "$SOURCE_MOUNT/home"
 install -d -m0700 "$SOURCE_MOUNT/.snapshots/home"
-
-provision_unallocated_space_test
-provision_whole_device_test
-provision_existing_target_adoption_test
 
 mount -o noatime,nodev,nosuid,noexec,nosymfollow,compress=zstd:3 "$MAPPER_PATH" "$TARGET_MOUNT"
 install -d -m0700 "$TARGET_MOUNT/snapshots" "$TARGET_MOUNT/.incoming"
