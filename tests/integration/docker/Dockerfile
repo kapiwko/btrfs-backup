@@ -14,6 +14,7 @@ RUN pacman -Syu --noconfirm --needed \
         gawk \
         grep \
         perl \
+        polkit \
         sed \
         systemd \
         util-linux \

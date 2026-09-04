@@ -9,6 +9,7 @@ FROM ${BASE_IMAGE}
 RUN pacman -Syu --noconfirm --needed \
         e2fsprogs \
         linux \
+        polkit \
         qemu-system-x86 \
         socat \
     && rm -rf /var/cache/pacman/pkg/*
