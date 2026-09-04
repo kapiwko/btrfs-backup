@@ -166,6 +166,8 @@ struct BlockDeviceGeometry {
 
 [[nodiscard]] OwnedFileDescriptor open_secret(const std::filesystem::path& path) {
     if (path == "-") {
+        if (::lseek(STDIN_FILENO, 0, SEEK_SET) < 0)
+            throw std::runtime_error("passphrase stdin must be a seekable descriptor");
         OwnedFileDescriptor descriptor(::fcntl(STDIN_FILENO, F_DUPFD_CLOEXEC, 3));
         if (!descriptor.valid())
             throw std::runtime_error("cannot duplicate the passphrase descriptor");
@@ -205,9 +207,9 @@ class DeviceProvisioningClient final {
             "profile details"
         );
         const std::string generation =
-            required_nonempty_string(details, "configurationGeneration", "configuration generation");
+            required_nonempty_string(details, "generation", "configuration generation");
         const std::string fingerprint =
-            required_nonempty_string(details, "configurationFingerprint", "configuration fingerprint");
+            required_nonempty_string(details, "fingerprint", "configuration fingerprint");
         const Json deleted = parse_document(
             manager_.call(manager_protocol::method::delete_profile, profile_id, generation, fingerprint),
             manager_protocol::operation_result_schema_version,

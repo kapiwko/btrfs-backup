@@ -197,6 +197,10 @@ void RealBtrfsTestEnvironment::write_configuration(const std::string& target_uui
          Json::array({{{"id", "home"}, {"name", "home"}, {"enabled", true}, {"subvolume", (source_mount_ / "home").string()}, {"localSnapshotDir", (source_mount_ / ".snapshots/home").string()}, {"remoteSubdir", "home"}, {"remoteRetention", 2}, {"localRetention", 2}}})}
     };
     write_test_file(config_root_ / "profiles/raii/profile.json", profile.dump() + "\n");
+    require_command(
+        {"chmod", "0600", (config_root_ / "profiles/raii/profile.json").string()},
+        "protect backup profile"
+    );
 }
 
 CommandResult RealBtrfsTestEnvironment::execute_backup(

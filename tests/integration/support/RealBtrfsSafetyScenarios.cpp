@@ -17,8 +17,10 @@ namespace {
 
 [[nodiscard]] std::string read_document(const fs::path& path) {
     std::ifstream input(path);
+    if (!input.is_open())
+        throw std::runtime_error("cannot open " + path.string());
     const std::string result{std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()};
-    if (!input.eof())
+    if (input.bad())
         throw std::runtime_error("cannot read " + path.string());
     return result;
 }

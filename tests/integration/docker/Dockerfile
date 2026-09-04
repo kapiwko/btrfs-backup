@@ -6,6 +6,7 @@ FROM archlinux:base
 RUN pacman -Syu --noconfirm --needed \
         bash \
         btrfs-progs \
+        cmake \
         coreutils \
         cryptsetup \
         diffutils \
