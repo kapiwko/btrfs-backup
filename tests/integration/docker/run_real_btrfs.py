@@ -57,6 +57,10 @@ class RealBtrfsContainer:
             "BTRFSBACKUP_REAL_INSTALLED_RUNTIME_TESTS",
             "build/tests/integration/btrfsbackup-real-installed-runtime-tests",
         )
+        self.mapper_lifecycle_tests = executable_from_environment(
+            "BTRFSBACKUP_REAL_MAPPER_LIFECYCLE_TESTS",
+            "build/tests/integration/btrfsbackup-real-mapper-lifecycle-tests",
+        )
         self.container_id: str | None = None
         self.package_temporary_root: Path | None = None
 
@@ -187,6 +191,8 @@ class RealBtrfsContainer:
                 f"{self.real_tests}:/opt/btrfsbackup-real-btrfs-tests:ro",
                 "-v",
                 f"{self.installed_runtime_tests}:/opt/btrfsbackup-real-installed-runtime-tests:ro",
+                "-v",
+                f"{self.mapper_lifecycle_tests}:/opt/btrfsbackup-real-mapper-lifecycle-tests:ro",
                 "-w",
                 CONTAINER_WORKDIR,
                 self.image,
@@ -216,6 +222,8 @@ class RealBtrfsContainer:
                 "BTRFSBACKUP_REAL_BTRFS_TESTS=/opt/btrfsbackup-real-btrfs-tests",
                 "-e",
                 "BTRFSBACKUP_REAL_INSTALLED_RUNTIME_TESTS=/opt/btrfsbackup-real-installed-runtime-tests",
+                "-e",
+                "BTRFSBACKUP_REAL_MAPPER_LIFECYCLE_TESTS=/opt/btrfsbackup-real-mapper-lifecycle-tests",
                 "-e",
                 "BTRFSBACKUP_REAL_BTRFS_CONTAINER=1",
                 "-w",
