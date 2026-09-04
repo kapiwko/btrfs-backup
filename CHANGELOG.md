@@ -158,7 +158,10 @@ schema version 4 profile with 3.2.x before upgrading, then install it with the
    use isolated C++/Python fixtures and disposable devices, including clean
    package installation and loader checks;
 4. package lifecycle scripts are intentionally minimal: tmpfiles and native
-   package triggers replace privileged post-install configuration mutation.
+   package triggers replace privileged post-install configuration mutation;
+5. adoption regression tests cover changed LUKS identity, invalid credentials,
+   non-LUKS2 containers, non-Btrfs and unmountable filesystems, empty, legacy,
+   unsupported and incomplete repositories, and simultaneous cleanup failures.
 
 ## 3.2.0 - 2026-08-30
 
