@@ -19,6 +19,7 @@ PACKAGE_ROOT=""
 PACKAGE_TEMP_ROOT=""
 BROWSE_SESSION_CLIENT="${BTRFSBACKUP_BROWSE_SESSION_CLIENT:-$ROOT/build/tests/integration/btrfsbackup-integration-browse-session-client}"
 DEVICE_PROVISIONING_CLIENT="${BTRFSBACKUP_DEVICE_PROVISIONING_CLIENT:-$ROOT/build/tests/integration/btrfsbackup-integration-device-provisioning-client}"
+REAL_BTRFS_TESTS="${BTRFSBACKUP_REAL_BTRFS_TESTS:-$ROOT/build/tests/integration/btrfsbackup-real-btrfs-tests}"
 
 cleanup() {
     if [[ -n "$CONTAINER_ID" ]]; then
@@ -54,12 +55,17 @@ esac
 
 BROWSE_SESSION_CLIENT="$(realpath -- "$BROWSE_SESSION_CLIENT")"
 DEVICE_PROVISIONING_CLIENT="$(realpath -- "$DEVICE_PROVISIONING_CLIENT")"
+REAL_BTRFS_TESTS="$(realpath -- "$REAL_BTRFS_TESTS")"
 [[ -x "$BROWSE_SESSION_CLIENT" ]] || {
     printf 'Browse-session integration client is not executable: %s\n' "$BROWSE_SESSION_CLIENT" >&2
     exit 1
 }
 [[ -x "$DEVICE_PROVISIONING_CLIENT" ]] || {
     printf 'Device-provisioning integration client is not executable: %s\n' "$DEVICE_PROVISIONING_CLIENT" >&2
+    exit 1
+}
+[[ -x "$REAL_BTRFS_TESTS" ]] || {
+    printf 'Real-Btrfs C++ integration test is not executable: %s\n' "$REAL_BTRFS_TESTS" >&2
     exit 1
 }
 
@@ -118,6 +124,7 @@ CONTAINER_ID="$(docker run -d --rm --privileged \
     -v "$PACKAGE_ROOT:/packages:ro" \
     -v "$BROWSE_SESSION_CLIENT:/opt/btrfsbackup-browse-session-client:ro" \
     -v "$DEVICE_PROVISIONING_CLIENT:/opt/btrfsbackup-device-provisioning-client:ro" \
+    -v "$REAL_BTRFS_TESTS:/opt/btrfsbackup-real-btrfs-tests:ro" \
     -w "$CONTAINER_WORKDIR" \
     "$IMAGE_NAME" \
     /sbin/init)"
@@ -127,6 +134,7 @@ docker exec \
     -e BTRFSBACKUP_PACKAGE_DIR=/packages \
     -e BTRFSBACKUP_BROWSE_SESSION_CLIENT=/opt/btrfsbackup-browse-session-client \
     -e BTRFSBACKUP_DEVICE_PROVISIONING_CLIENT=/opt/btrfsbackup-device-provisioning-client \
+    -e BTRFSBACKUP_REAL_BTRFS_TESTS=/opt/btrfsbackup-real-btrfs-tests \
     -w "$CONTAINER_WORKDIR" \
     "$CONTAINER_ID" \
     "$CONTAINER_WORKDIR/tests/integration/docker/real-btrfs-test.sh"

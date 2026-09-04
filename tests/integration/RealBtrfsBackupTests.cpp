@@ -1,0 +1,103 @@
+// SPDX-FileCopyrightText: 2026 Kamil Piwowarski <kapiwko@gmail.com>
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+#include "support/RealBtrfsTestEnvironment.hpp"
+
+#include <exception>
+#include <iostream>
+#include <stdexcept>
+#include <string_view>
+
+#include <nlohmann/json.hpp>
+
+namespace {
+
+using btrfsbackup::integration::CommandResult;
+using btrfsbackup::integration::RealBtrfsTestEnvironment;
+
+void require(bool condition, std::string_view message) {
+    if (!condition)
+        throw std::runtime_error(std::string(message));
+}
+
+void require_backup(const CommandResult& result, bool expected_incremental) {
+    require(result.status == 0, "backup failed: " + result.output + result.error_output);
+    const auto response = nlohmann::json::parse(result.output);
+    require(response.at("schemaVersion") == 1, "backup response has an unexpected schema");
+    require(response.at("completed") == true, "backup response is not completed");
+    require(response.at("sources").size() == 1, "backup response has an unexpected source count");
+    require(
+        response.at("sources").at(0).at("incremental") == expected_incremental,
+        "backup response did not report the expected transfer kind"
+    );
+}
+
+void run_scenarios(const std::filesystem::path& backupctl) {
+    RealBtrfsTestEnvironment environment(backupctl);
+    try {
+        environment.prepare();
+        std::cout << "artifacts - " << environment.artifact_report() << '\n';
+
+        require_backup(
+            environment.execute_backup("2026-08-20T08:00:00Z", "20260820T080000Z-raii-full"),
+            false
+        );
+        require(environment.local_snapshot_count() == 1, "full backup did not create one local snapshot");
+        require(environment.remote_snapshot_count() == 1, "full backup did not commit one remote snapshot");
+        environment.require_latest_snapshots_match();
+        std::cout << "ok - full backup commits a verified real Btrfs snapshot\n";
+
+        environment.write_source_file("file-a.txt", "alpha\nbeta\n");
+        environment.write_source_file("dir/file-c.txt", "second generation\n");
+        require_backup(
+            environment.execute_backup("2026-08-21T08:00:00Z", "20260821T080000Z-raii-incremental"),
+            true
+        );
+        require(environment.local_snapshot_count() == 2, "incremental backup did not retain two local snapshots");
+        require(environment.remote_snapshot_count() == 2, "incremental backup did not retain two remote snapshots");
+        environment.require_latest_snapshots_match();
+        std::cout << "ok - incremental backup uses and verifies its received parent\n";
+
+        environment.create_interrupted_receive_artifact();
+        environment.write_source_file("file-d.txt", "third generation\n");
+        require_backup(
+            environment.execute_backup("2026-08-22T08:00:00Z", "20260822T080000Z-raii-retention"),
+            true
+        );
+        require(environment.incoming_is_empty(), "stale interrupted receive artifact survived cleanup");
+        std::cout << "ok - interrupted receive artifacts stay outside the committed repository and are cleaned\n";
+
+        require(environment.local_snapshot_count() == 2, "local retention did not keep exactly two snapshots");
+        require(environment.remote_snapshot_count() == 2, "remote retention did not keep exactly two snapshots");
+        environment.require_latest_snapshots_match();
+        std::cout << "ok - retention keeps the latest two local and remote snapshots\n";
+
+        environment.close();
+    } catch (...) {
+        const auto failure = std::current_exception();
+        std::cerr << "failure artifacts - " << environment.artifact_report() << '\n';
+        try {
+            environment.close();
+        } catch (const std::exception& cleanup_error) {
+            std::cerr << "cleanup after failure: " << cleanup_error.what() << '\n';
+        }
+        std::rethrow_exception(failure);
+    }
+}
+
+} // namespace
+
+int main(int argc, char** argv) {
+    if (argc != 2) {
+        std::cerr << "usage: btrfsbackup-real-btrfs-tests /path/to/btrfs-backupctl\n";
+        return 2;
+    }
+    try {
+        run_scenarios(argv[1]);
+        return 0;
+    } catch (const std::exception& error) {
+        std::cerr << "real-btrfs-backup-tests: " << error.what() << '\n';
+        return 1;
+    }
+}
