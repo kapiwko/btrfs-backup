@@ -57,11 +57,12 @@ schema versions are not advertised as public API versions.
 | `DeleteProfile` | `(s profileId, s generation, s fingerprint)` | `(s)` | transactionally removed profile artifacts |
 | `OpenBrowseSession` | `(s profileId)` | `(s)` | caller-bound, expiring read-only repository session |
 | `RenewBrowseSession` | `(s sessionId)` | `(s)` | extends the monotonic TTL of a session owned by the caller |
-| `SetBrowseSessionActive` | `(s sessionId, b active)` | `(s)` | pins or unpins an owned session during an active transfer |
+| `SetBrowseSessionActive` | `(s sessionId, b active)` | `(s)` | acquires or releases one counted operation pin for an owned session |
 | `CloseBrowseSession` | `(s sessionId)` | `(s)` | closes a session owned by the caller |
 | `ListBrowseDirectory` | `(s sessionId, s relativePath)` | `(s)` | lists regular files and directories below an owned session root |
 | `InspectBrowseEntry` | `(s sessionId, s relativePath)` | `(s)` | returns sanitized metadata for one entry below an owned session root |
 | `OpenBrowseFile` | `(s sessionId, s relativePath)` | `(h)` | returns an already-open, read-only regular-file descriptor |
+| `OpenBrowseRoot` | `(s sessionId)` | `(h)` | returns a pinned read-only repository root descriptor for restore |
 | `ResolveBackupCoverage` | `(s localPath)` | `(s)` | presentation-safe profile/source coverage for a local path |
 | `ListTargetCredentials` | `(s profileId)` | `(s)` | occupied LUKS2 keyslots with labels only for managed credentials |
 | `AddTargetPassphrase` | `(s profileId, h authorization, h newSecret, s label)` | `(s)` | adds a LUKS2 passphrase through file descriptors |
@@ -146,6 +147,12 @@ inspection contains no credential material. Inspection schema version 3 also
 keeps LUKS, Btrfs and partition UUIDs out of the response; clients receive only
 the classification, diagnostic code, repository metadata and opaque binding
 identifiers.
+
+API minor version 8 removes the local `rootPath` from browse-session documents
+and adds `OpenBrowseRoot`. Session directories and mount points remain
+root-owned and private; clients access repository contents only through brokered
+operations or a pinned directory descriptor. Active-operation pins are counted,
+so finishing one concurrent KIO request cannot unpin another request.
 
 The `target-storage-usage` feature is part of the current major-version
 baseline. The device-state parent remains schema version 1 and may contain this
@@ -241,6 +248,7 @@ currently open profile, including changes published by the CLI.
 | `ListBrowseDirectory` | session ownership and path confinement | none |
 | `InspectBrowseEntry` | session ownership and path confinement | none |
 | `OpenBrowseFile` | session ownership, path confinement and regular-file validation | none |
+| `OpenBrowseRoot` | session ownership and pinned read-only root | none |
 | `ResolveBackupCoverage` | none | none |
 
 Operational backup controls are allowed without a password from the active
@@ -315,9 +323,10 @@ These rules describe the implemented API unless explicitly marked otherwise.
   managed artifacts transactionally, changing only automatic activation.
 - Profile saves and deletes compare the submitted generation and fingerprint
   before authorization and immediately before commit.
-- Browse sessions are bound to the unique caller bus name and UID, expose only
-  a verified read-only root and close on request, disconnect, expiry or daemon
-  shutdown.
+- Browse sessions are bound to the unique caller bus name and UID. Their
+  root-owned paths are never returned to clients; they expose only brokered
+  operations and pinned descriptors, and close on request, disconnect, expiry
+  or daemon shutdown.
 - `StartDevicePreparation` requires separate non-retained administrator
   authorization and a caller-bound, unexpired, single-use `planId`. The KCM
   additionally requires an explicit `ERASE` confirmation. The daemon rescans

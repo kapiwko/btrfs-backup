@@ -28,7 +28,7 @@ class SystemBrowseSessionBackend final : public IBrowseSessionBackend {
     );
     ~SystemBrowseSessionBackend() noexcept override;
 
-    [[nodiscard]] OpenedBrowseRoot open(
+    void open(
         const ProfileId& profile_id,
         const BrowseSessionId& session_id,
         std::uint32_t caller_uid
@@ -47,6 +47,9 @@ class SystemBrowseSessionBackend final : public IBrowseSessionBackend {
     [[nodiscard]] btrfsbackup::platform::linux::OwnedFileDescriptor open_file(
         const BrowseSessionId& session_id,
         const std::filesystem::path& relative_path
+    ) override;
+    [[nodiscard]] btrfsbackup::platform::linux::OwnedFileDescriptor open_root(
+        const BrowseSessionId& session_id
     ) override;
     [[nodiscard]] std::string inspect_repository(const BrowseSessionId& session_id) override;
     [[nodiscard]] std::vector<BackupCoverage> resolve_coverage(

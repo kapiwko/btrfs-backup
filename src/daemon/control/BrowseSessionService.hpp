@@ -18,10 +18,6 @@
 
 namespace btrfsbackup::daemon::control {
 
-struct OpenedBrowseRoot {
-    std::filesystem::path path;
-};
-
 struct BrowseEntryInfo {
     std::string name;
     bool directory = false;
@@ -33,7 +29,7 @@ struct BrowseEntryInfo {
 class IBrowseSessionBackend {
   public:
     virtual ~IBrowseSessionBackend() = default;
-    [[nodiscard]] virtual OpenedBrowseRoot open(
+    virtual void open(
         const ProfileId& profile_id,
         const BrowseSessionId& session_id,
         std::uint32_t caller_uid
@@ -52,6 +48,9 @@ class IBrowseSessionBackend {
     [[nodiscard]] virtual btrfsbackup::platform::linux::OwnedFileDescriptor open_file(
         const BrowseSessionId& session_id,
         const std::filesystem::path& relative_path
+    ) = 0;
+    [[nodiscard]] virtual btrfsbackup::platform::linux::OwnedFileDescriptor open_root(
+        const BrowseSessionId& session_id
     ) = 0;
     [[nodiscard]] virtual std::string inspect_repository(const BrowseSessionId& session_id) = 0;
     [[nodiscard]] virtual std::vector<BackupCoverage> resolve_coverage(
@@ -124,6 +123,10 @@ class BrowseSessionService final {
         const std::string& session_id,
         const std::string& relative_path
     );
+    [[nodiscard]] btrfsbackup::platform::linux::OwnedFileDescriptor open_root(
+        const std::string& caller_bus_name,
+        const std::string& session_id
+    );
     [[nodiscard]] std::string inspect_repository(
         const std::string& caller_bus_name,
         const std::string& session_id
@@ -142,10 +145,9 @@ class BrowseSessionService final {
         ProfileId profile_id;
         std::string caller_bus_name;
         std::uint32_t caller_uid;
-        std::filesystem::path root_path;
         std::chrono::steady_clock::time_point deadline;
         std::chrono::system_clock::time_point expires_at;
-        bool active = false;
+        std::size_t active_operations = 0;
     };
 
     [[nodiscard]] std::map<std::string, Session>::iterator owned_session(
