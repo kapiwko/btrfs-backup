@@ -113,6 +113,8 @@ add_executable(
     support/RealBtrfsBrowseScenario.cpp
     support/RealBtrfsRecoveryScenarios.cpp
     support/RealBtrfsTestEnvironment.cpp
+    support/RealProvisioningPartitionScenario.cpp
+    support/RealProvisioningTestEnvironment.cpp
 )
 target_link_libraries(btrfsbackup-real-btrfs-tests PRIVATE nlohmann_json::nlohmann_json)
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")

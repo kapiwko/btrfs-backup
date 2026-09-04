@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "support/RealBtrfsTestEnvironment.hpp"
+#include "support/RealProvisioningTestEnvironment.hpp"
 
 #include <exception>
 #include <iostream>
@@ -15,6 +16,7 @@ namespace {
 
 using btrfsbackup::integration::CommandResult;
 using btrfsbackup::integration::RealBtrfsTestEnvironment;
+using btrfsbackup::integration::RealProvisioningTestEnvironment;
 
 void require(bool condition, std::string_view message) {
     if (!condition)
@@ -35,12 +37,18 @@ void require_backup(const CommandResult& result, bool expected_incremental) {
 
 void run_scenarios(
     const std::filesystem::path& backupctl,
-    const std::filesystem::path& browse_session_client
+    const std::filesystem::path& browse_session_client,
+    const std::filesystem::path& provisioning_client
 ) {
     RealBtrfsTestEnvironment environment(backupctl, browse_session_client);
     try {
         environment.prepare();
         std::cout << "artifacts - " << environment.artifact_report() << '\n';
+
+        RealProvisioningTestEnvironment provisioning(provisioning_client, environment.source_subvolume());
+        provisioning.require_existing_partition_preserves_sibling();
+        provisioning.close();
+        std::cout << "ok - partition provisioning preserves its sibling and partition table\n";
 
         require_backup(
             environment.execute_backup("2026-08-20T08:00:00Z", "20260820T080000Z-raii-full"),
@@ -110,13 +118,13 @@ void run_scenarios(
 } // namespace
 
 int main(int argc, char** argv) {
-    if (argc != 3) {
+    if (argc != 4) {
         std::cerr << "usage: btrfsbackup-real-btrfs-tests /path/to/btrfs-backupctl "
-                     "/path/to/browse-session-client\n";
+                     "/path/to/browse-session-client /path/to/device-provisioning-client\n";
         return 2;
     }
     try {
-        run_scenarios(argv[1], argv[2]);
+        run_scenarios(argv[1], argv[2], argv[3]);
         return 0;
     } catch (const std::exception& error) {
         std::cerr << "real-btrfs-backup-tests: " << error.what() << '\n';
