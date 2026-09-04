@@ -8,7 +8,6 @@ from __future__ import annotations
 import gzip
 import os
 from pathlib import Path
-import shutil
 import stat
 import subprocess
 
@@ -46,8 +45,6 @@ def write_mtree(root: Path, epoch: int) -> None:
 def build_arch_package(root: Path, stage: Path, destination: Path, version: str,
                        arch: str, epoch: int, *, kde: bool = False) -> Path:
     package_name = "btrfs-backup-kde" if kde else "btrfs-backup"
-    hook_name = f"{package_name}.install"
-    shutil.copy2(root / "packaging/arch" / hook_name, stage / ".INSTALL")
     installed_size = sum(path.stat().st_size for path in stage.rglob("*") if path.is_file())
     dependencies = (
         [f"btrfs-backup={version}-1", "kcoreaddons", "ki18n", "kirigami", "kjobwidgets",

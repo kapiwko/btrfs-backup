@@ -63,7 +63,7 @@ assert_contains("${output}/profile.txt" "regenerate --all")
 assert_not_contains("${output}/status.txt" "write [OPTIONS]")
 assert_not_contains("${output}/status.txt" "--json")
 assert_contains(
-    "${SOURCE_DIR}/packaging/arch/btrfs-backup.install"
+    "${SOURCE_DIR}/docs/packaging-scriptlets.md"
     "btrfs-backupctl profile regenerate --all"
 )
 

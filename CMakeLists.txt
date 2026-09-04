@@ -207,6 +207,10 @@ install(
     DESTINATION "${CMAKE_INSTALL_DATADIR}/btrfs-backup/examples/udev"
 )
 install(
+    FILES data/tmpfiles/btrfs-backup.conf
+    DESTINATION "${CMAKE_INSTALL_LIBDIR}/tmpfiles.d"
+)
+install(
     FILES README.md CHANGELOG.md LICENSE
     DESTINATION "${CMAKE_INSTALL_DOCDIR}"
 )

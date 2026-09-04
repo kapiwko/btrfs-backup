@@ -33,7 +33,6 @@ pkgname = btrfs-backup
 	depends = util-linux
 	depends = util-linux-libs
 	optdepends = btrfs-backup-kde: Plasma status widget
-	install = btrfs-backup.install
 
 pkgname = btrfs-backup-kde
 	pkgdesc = Plasma status widget and progress monitor for btrfs-backup
@@ -46,4 +45,3 @@ pkgname = btrfs-backup-kde
 	depends = libplasma
 	depends = qt6-base
 	depends = qt6-declarative
-	install = btrfs-backup-kde.install
