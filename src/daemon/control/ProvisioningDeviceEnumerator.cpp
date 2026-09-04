@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <ranges>
 #include <sstream>
+#include <string_view>
 #include <type_traits>
 
 #include <core/Errors.hpp>
@@ -100,6 +101,32 @@ bool same_device_identity(const ProvisioningDevice& expected, const Provisioning
         expected.serial_short == current.serial_short && expected.device_graph == current.device_graph;
 }
 
+std::string changed_identity_fields(const ProvisioningDevice& expected, const ProvisioningDevice& current) {
+    std::string result;
+    const auto changed = [&](std::string_view name, const auto& expected_value, const auto& current_value) {
+        if (expected_value == current_value)
+            return;
+        if (!result.empty())
+            result += ", ";
+        result += name;
+    };
+    changed("path", expected.path, current.path);
+    changed("model", expected.model, current.model);
+    changed("serial", expected.serial, current.serial);
+    changed("transport", expected.transport, current.transport);
+    changed("size", expected.size_bytes, current.size_bytes);
+    changed("removable", expected.removable, current.removable);
+    changed("mounted", expected.mounted, current.mounted);
+    changed("contains-data", expected.contains_data, current.contains_data);
+    changed("major-minor", expected.major_minor, current.major_minor);
+    changed("sysfs-path", expected.sysfs_devpath, current.sysfs_devpath);
+    changed("wwn", expected.wwn, current.wwn);
+    changed("serial-id", expected.serial_id, current.serial_id);
+    changed("serial-short", expected.serial_short, current.serial_short);
+    changed("device-graph", expected.device_graph, current.device_graph);
+    return result;
+}
+
 } // namespace
 
 ProvisioningDevice provisioning_device_snapshot(const provisioning::StorageDevice& device) {
@@ -122,8 +149,13 @@ std::vector<ProvisioningDevice> ProvisioningDeviceEnumerator::list() {
 ProvisioningDevice ProvisioningDeviceEnumerator::revalidate(const ProvisioningDevice& expected) {
     const auto current = list();
     const auto selected = std::ranges::find(current, expected.major_minor, &ProvisioningDevice::major_minor);
-    if (selected == current.end() || !same_device_identity(expected, *selected))
-        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::Conflict, "selected device identity changed");
+    if (selected == current.end())
+        throw dbus::ManagerOperationError(dbus::ManagerErrorCode::Conflict, "selected device disappeared");
+    if (!same_device_identity(expected, *selected))
+        throw dbus::ManagerOperationError(
+            dbus::ManagerErrorCode::Conflict,
+            "selected device identity changed: " + changed_identity_fields(expected, *selected)
+        );
     return *selected;
 }
 

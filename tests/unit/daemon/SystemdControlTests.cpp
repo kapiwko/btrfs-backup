@@ -227,7 +227,10 @@ void test_runtime_property_failure_prevents_unit_start() {
 void test_device_preparation_unit_receives_secret_over_fifo() {
     const auto root = test_helpers::test_root("systemd-control", "device-preparation-secret");
     const auto device_groups = root / "devices";
-    test_helpers::write_file(device_groups, "Character devices:\n  1 mem\n\nBlock devices:\n  8 sd\n253 device-mapper\n");
+    test_helpers::write_file(
+        device_groups,
+        "Character devices:\n  1 mem\n\nBlock devices:\n  8 sd\n253 device-mapper\n259 blkext\n"
+    );
     FakeCommands commands;
     CommandSystemdUnitController systemd_units(commands);
     SystemdDevicePreparationUnitController units(systemd_units, root, device_groups);
@@ -270,6 +273,7 @@ void test_device_preparation_unit_receives_secret_over_fifo() {
                                   "DeviceAllow=/dev/block/8:16 rw",
                                   "DeviceAllow=/dev/block/8:17 rw",
                                   "DeviceAllow=block-sd rw",
+                                  "DeviceAllow=block-blkext rw",
                                   "DeviceAllow=block-device-mapper rw",
                                   "DeviceAllow=/dev/mapper/control rw",
                               },
@@ -319,16 +323,23 @@ void test_command_adapter_classifies_systemd_failures() {
 
 void test_command_adapter_reports_unit_activity() {
     FakeCommands commands;
-    commands.results.push_back({.exit_code = 0});
-    commands.results.push_back({.exit_code = 3});
+    commands.results.push_back({.exit_code = 0, .output = "active\n"});
+    commands.results.push_back({.exit_code = 3, .output = "activating\n"});
+    commands.results.push_back({.exit_code = 3, .output = "inactive\n"});
     CommandSystemdUnitController units(commands);
 
     const auto active = units.active_unit({"active.service", std::chrono::seconds(5)});
+    const auto activating = units.active_unit({"activating.service", std::chrono::seconds(5)});
     const auto inactive = units.active_unit({"inactive.service", std::chrono::seconds(5)});
     test_helpers::expect_true(
         "active unit",
         active && *active,
         "active systemd unit was not reported"
+    );
+    test_helpers::expect_true(
+        "activating unit",
+        activating && *activating,
+        "activating systemd unit was not reported"
     );
     test_helpers::expect_true(
         "inactive unit",
@@ -338,8 +349,9 @@ void test_command_adapter_reports_unit_activity() {
     test_helpers::expect_true(
         "activity commands",
         commands.calls == std::vector<std::vector<std::string>>{
-                              {"systemctl", "is-active", "--quiet", "active.service"},
-                              {"systemctl", "is-active", "--quiet", "inactive.service"},
+                              {"systemctl", "is-active", "active.service"},
+                              {"systemctl", "is-active", "activating.service"},
+                              {"systemctl", "is-active", "inactive.service"},
                           },
         "unit activity command changed"
     );

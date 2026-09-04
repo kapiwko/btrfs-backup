@@ -135,10 +135,13 @@ StartJobResult CommandSystemdUnitController::start_unit(const StartUnitRequest& 
 
 ActiveUnitResult CommandSystemdUnitController::active_unit(const ActiveUnitRequest& request) {
     const auto result = commands_.run_controlled(
-        {"systemctl", "is-active", "--quiet", request.unit},
+        {"systemctl", "is-active", request.unit},
         options(request.timeout)
     );
-    if (result.exit_code == 0 && !result.cancelled && !result.timed_out)
+    const std::string state = lowercase(result.output);
+    if (!result.cancelled && !result.timed_out &&
+        (state.starts_with("active") || state.starts_with("activating") || state.starts_with("reloading") ||
+         state.starts_with("deactivating")))
         return true;
     if (!result.cancelled && !result.timed_out &&
         (result.exit_code == 3 || result.exit_code == 4))

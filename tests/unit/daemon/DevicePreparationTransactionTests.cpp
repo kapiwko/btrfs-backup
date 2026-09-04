@@ -46,6 +46,8 @@ DevicePreparationTransaction transaction(
     value.device.major_minor = "8:16";
     value.device.sysfs_devpath = "/devices/test/block/test";
     value.device.wwn = "wwn-test";
+    value.device.mounted = true;
+    value.device.contains_data = true;
     value.target.mode = btrfsbackup::provisioning::ProvisioningMode::ReformatExistingPartition;
     value.target.device.identity = {
         .display_path = "/dev/test",
@@ -74,6 +76,8 @@ DevicePreparationTransaction transaction(
         .start_sector = 2048,
         .sector_count = 1024,
         .filesystem = {.type = "ext4", .uuid = "filesystem-uuid"},
+        .suitable_for_reformat = true,
+        .suitable_for_adoption = true,
     };
     value.profile_name = "Test";
     value.source_subvolume = "/home";
@@ -100,7 +104,8 @@ void test_codec_owns_schema_and_validation() {
     test_helpers::expect_true(
         "codec round trip",
         decoded.revision == value.revision && decoded.status.operation_id == value.status.operation_id &&
-            decoded.target.partition == value.target.partition && decoded.source_filesystem_uuid == value.source_filesystem_uuid,
+            decoded.target.partition == value.target.partition && decoded.source_filesystem_uuid == value.source_filesystem_uuid &&
+            decoded.device.mounted == value.device.mounted && decoded.device.contains_data == value.device.contains_data,
         "transaction codec changed persisted state"
     );
 

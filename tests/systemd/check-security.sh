@@ -57,6 +57,8 @@ case "$POLICY" in
     device-preparation)
         threshold="${SYSTEMD_DEVICE_PREPARATION_SECURITY_THRESHOLD:-4.5}"
         policy_directives=(
+            'Wants=modprobe@dm_mod.service modprobe@dm_crypt.service'
+            'After=systemd-udevd.service modprobe@dm_mod.service modprobe@dm_crypt.service'
             User=root
             Group=root
             UMask=0077

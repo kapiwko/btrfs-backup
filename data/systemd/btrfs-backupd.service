@@ -19,6 +19,7 @@ RuntimeDirectoryMode=0700
 LogsDirectory=btrfs-backup
 LogsDirectoryMode=0700
 StateDirectory=btrfs-backup/device-preparations
+StateDirectory=btrfs-backup/public/profiles
 StateDirectoryMode=0700
 ProtectSystem=strict
 ReadWritePaths=-/etc/btrfs-backup
