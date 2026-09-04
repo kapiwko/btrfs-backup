@@ -172,6 +172,9 @@ schema version 4 profile with 3.2.x before upgrading, then install it with the
 5. adoption regression tests cover changed LUKS identity, invalid credentials,
    non-LUKS2 containers, non-Btrfs and unmountable filesystems, empty, legacy,
    unsupported and incomplete repositories, and simultaneous cleanup failures.
+6. component-based DEB and RPM generation preserves the public package name
+   `btrfs-backup` instead of leaking CPack's internal `Unspecified` component
+   name into package metadata.
 
 ## 3.2.0 - 2026-08-30
 
