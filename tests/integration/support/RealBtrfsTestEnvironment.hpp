@@ -41,6 +41,10 @@ class RealBtrfsTestEnvironment final {
     void require_public_cancellation() const;
     void require_browse_session() const;
 
+    [[nodiscard]] std::filesystem::path source_subvolume() const {
+        return source_mount_ / "home";
+    }
+
     [[nodiscard]] std::size_t local_snapshot_count() const;
     [[nodiscard]] std::size_t remote_snapshot_count() const;
     [[nodiscard]] bool incoming_is_empty() const;

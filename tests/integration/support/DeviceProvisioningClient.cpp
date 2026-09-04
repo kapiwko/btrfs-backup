@@ -12,6 +12,7 @@
 #include <fcntl.h>
 #include <linux/fs.h>
 #include <sys/ioctl.h>
+#include <unistd.h>
 
 #include <algorithm>
 #include <charconv>
@@ -164,6 +165,12 @@ struct BlockDeviceGeometry {
 }
 
 [[nodiscard]] OwnedFileDescriptor open_secret(const std::filesystem::path& path) {
+    if (path == "-") {
+        OwnedFileDescriptor descriptor(::fcntl(STDIN_FILENO, F_DUPFD_CLOEXEC, 3));
+        if (!descriptor.valid())
+            throw std::runtime_error("cannot duplicate the passphrase descriptor");
+        return descriptor;
+    }
     OwnedFileDescriptor descriptor(::open(path.c_str(), O_RDONLY | O_CLOEXEC | O_NOFOLLOW));
     if (!descriptor.valid())
         throw std::runtime_error("cannot open the passphrase file");
@@ -189,6 +196,27 @@ class DeviceProvisioningClient final {
             return static_cast<int>(ExitCode::Success);
         }
         return wait_for_completion(operation_id);
+    }
+
+    int delete_profile(const std::string& profile_id) {
+        const Json details = parse_document(
+            manager_.call(manager_protocol::method::get_profile_details, profile_id),
+            manager_protocol::profile_details_schema_version,
+            "profile details"
+        );
+        const std::string generation =
+            required_nonempty_string(details, "configurationGeneration", "configuration generation");
+        const std::string fingerprint =
+            required_nonempty_string(details, "configurationFingerprint", "configuration fingerprint");
+        const Json deleted = parse_document(
+            manager_.call(manager_protocol::method::delete_profile, profile_id, generation, fingerprint),
+            manager_protocol::operation_result_schema_version,
+            "profile deletion result"
+        );
+        if (!deleted.at("accepted").get<bool>() || deleted.at("profileId").get<std::string>() != profile_id)
+            throw std::runtime_error("manager did not confirm profile deletion");
+        std::cout << deleted.dump() << '\n';
+        return static_cast<int>(ExitCode::Success);
     }
 
   private:
@@ -353,10 +381,19 @@ namespace {
 } // namespace btrfsbackup::integration
 
 int main(int argc, char** argv) {
+    if (argc == 3 && std::string_view(argv[1]) == "--delete-profile") {
+        try {
+            return btrfsbackup::integration::DeviceProvisioningClient{}.delete_profile(argv[2]);
+        } catch (const std::exception& error) {
+            std::cerr << "device provisioning client: " << error.what() << '\n';
+            return 1;
+        }
+    }
     const auto options = btrfsbackup::integration::parse_options(argc, argv);
     if (!options) {
         std::cerr << "usage: " << argv[0]
-                  << " TARGET SOURCE PASSPHRASE_FILE [MODE [PROFILE_ID [start-only]]]\n";
+                  << " TARGET SOURCE PASSPHRASE_FILE_OR_DASH [MODE [PROFILE_ID [start-only]]]\n"
+                  << "       " << argv[0] << " --delete-profile PROFILE_ID\n";
         return 2;
     }
     try {
