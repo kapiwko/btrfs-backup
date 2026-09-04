@@ -143,6 +143,11 @@ UUIDs, configuration state, credential state, and cleanup result to inspect the
 partial device manually. Neither process resumes a destructive phase
 automatically because the passphrase is not persisted.
 
+The record also carries revisioned device-access requests and acknowledgements.
+After a restart the manager replaces the unit's runtime allow list from the
+current record before cleanup; it never reuses permissions left by another
+operation.
+
 Do not delete an interrupted transaction until the partial block structures and
 installed profile or credential artifacts have been reconciled. Completed and
 interrupted records are retained for 30 days, with a maximum of 128 records.

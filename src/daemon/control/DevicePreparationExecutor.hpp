@@ -39,6 +39,7 @@ class ProvisioningDeviceEnumerator;
 
 class DevicePreparationExecutor final {
   public:
+    using BlockDeviceNumberResolver = std::function<std::string(const std::filesystem::path&)>;
     DevicePreparationExecutor(
         CredentialAdministrationRoots roots,
         std::filesystem::path target_mount_root,
@@ -55,7 +56,8 @@ class DevicePreparationExecutor final {
         ProvisioningDeviceEnumerator& devices,
         backup::IMountInspector& source_mounts,
         IExistingTargetInspector* existing_target_inspector = nullptr,
-        std::filesystem::path inspection_mount_root = {}
+        std::filesystem::path inspection_mount_root = {},
+        BlockDeviceNumberResolver block_device_number_resolver = {}
     );
 
     void execute(const std::string& operation_id, int passphrase_fd);
@@ -67,6 +69,11 @@ class DevicePreparationExecutor final {
     void update(const std::string& operation_id, const TransactionMutator& mutator);
     void phase(const std::string& operation_id, const std::string& value, bool can_cancel);
     void completed(const std::string& operation_id, const std::string& value);
+    void request_access(
+        const std::string& operation_id,
+        std::vector<std::string> devices,
+        bool mapper_control
+    );
     void release_profile_reservation(const std::string& operation_id);
     void release_profile_reservation_after_safe_failure(const std::string& operation_id) noexcept;
 
@@ -87,6 +94,7 @@ class DevicePreparationExecutor final {
     IExistingTargetInspector* existing_target_inspector_;
     std::filesystem::path inspection_mount_root_;
     DevicePreparationRecovery recovery_;
+    BlockDeviceNumberResolver block_device_number_resolver_;
 };
 
 } // namespace btrfsbackup::daemon::control

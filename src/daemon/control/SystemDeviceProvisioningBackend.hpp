@@ -62,7 +62,9 @@ class SystemDeviceProvisioningBackend final : public IDeviceProvisioningBackend 
         bool recover_existing = true,
         IExistingTargetInspector* existing_target_inspector = nullptr,
         std::filesystem::path inspection_mount_root = {},
-        std::function<std::string(const std::string&)> source_filesystem_uuid_resolver = {}
+        std::function<std::string(const std::string&)> source_filesystem_uuid_resolver = {},
+        std::function<std::string(const std::filesystem::path&)> block_device_number_resolver = {},
+        bool coordinate_device_access = true
     );
     ~SystemDeviceProvisioningBackend() noexcept override;
 

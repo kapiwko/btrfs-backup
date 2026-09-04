@@ -47,6 +47,27 @@ wait_for_helper_pid() {
     done
     return 1
 }
+probe_helper_device_isolation() {
+    unit="$1"
+    selected="$2"
+    unrelated="$3"
+    gate="/run/qemu-device-policy-gate-$$"
+    output="/run/qemu-device-policy-output-$$"
+    mkfifo -m0600 "$gate"
+    (
+        read -r signal < "$gate"
+        test "$signal" = go
+        dd if="$selected" of="$output" bs=4096 count=1 status=none
+        ! dd if="$unrelated" of="$output" bs=4096 count=1 status=none
+    ) &
+    probe_pid=$!
+    control_group="$(systemctl show --property=ControlGroup --value "$unit")"
+    test -n "$control_group"
+    printf '%s\n' "$probe_pid" > "/sys/fs/cgroup${control_group}/cgroup.procs"
+    printf 'go\n' > "$gate"
+    wait "$probe_pid"
+    rm -f "$gate" "$output"
+}
 refresh_preparation_status() {
     busctl --system call io.github.btrfsbackup.Manager1 /io/github/btrfsbackup/Manager1 \
         io.github.btrfsbackup.Manager1 GetDevicePreparation s "$1" >/dev/null
@@ -214,6 +235,9 @@ test -n "$helper_operation"
 helper_unit="btrfs-backup-device-preparation@$helper_operation.service"
 wait_for_helper_pid "$helper_unit"
 systemctl kill --kill-whom=main --signal=STOP "$helper_unit"
+probe_helper_device_isolation "$helper_unit" /dev/vdg /dev/vdf
+! systemctl show --property=DeviceAllow --value "$helper_unit" | grep -Eq 'block-[^ ]|block \*:'
+printf 'QEMU_DEVICE_ISOLATION_OK\n' > /dev/ttyS0
 systemctl kill --kill-whom=all --signal=KILL "$helper_unit"
 for _ in $(seq 1 600); do
     refresh_preparation_status "$helper_operation" || true

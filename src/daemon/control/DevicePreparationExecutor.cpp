@@ -3,8 +3,13 @@
 
 #include <daemon/control/DevicePreparationExecutor.hpp>
 
+#include <algorithm>
 #include <chrono>
 #include <iostream>
+#include <limits>
+#include <sys/stat.h>
+#include <sys/sysmacros.h>
+#include <thread>
 #include <utility>
 #include <unistd.h>
 
@@ -47,6 +52,13 @@ void rewind_secret(int fd) {
         throw ValidationError("cannot rewind device preparation secret");
 }
 
+std::string block_device_number(const fs::path& path) {
+    struct stat status{};
+    if (::stat(path.c_str(), &status) < 0 || !S_ISBLK(status.st_mode))
+        throw ValidationError("device preparation access target is not a block device");
+    return std::to_string(::major(status.st_rdev)) + ":" + std::to_string(::minor(status.st_rdev));
+}
+
 void remove_inspection_mount_point(const fs::path& mount_point) {
     std::error_code error;
     if (!fs::remove(mount_point, error) || error)
@@ -87,7 +99,8 @@ DevicePreparationExecutor::DevicePreparationExecutor(
     ProvisioningDeviceEnumerator& devices,
     backup::IMountInspector& source_mounts,
     IExistingTargetInspector* existing_target_inspector,
-    fs::path inspection_mount_root
+    fs::path inspection_mount_root,
+    BlockDeviceNumberResolver block_device_number_resolver
 )
     : roots_(std::move(roots)),
       btrfs_formatter_(btrfs_formatter),
@@ -105,7 +118,8 @@ DevicePreparationExecutor::DevicePreparationExecutor(
       profile_builder_(std::move(target_mount_root)),
       existing_target_inspector_(existing_target_inspector),
       inspection_mount_root_(std::move(inspection_mount_root)),
-      recovery_(transactions, partition_tables, cryptsetup, existing_target_inspector) {
+      recovery_(transactions, partition_tables, cryptsetup, existing_target_inspector),
+      block_device_number_resolver_(block_device_number_resolver ? std::move(block_device_number_resolver) : BlockDeviceNumberResolver{block_device_number}) {
 }
 
 void DevicePreparationExecutor::update(
@@ -134,6 +148,33 @@ void DevicePreparationExecutor::phase(
 
 void DevicePreparationExecutor::completed(const std::string& operation_id, const std::string& value) {
     update(operation_id, [&](auto& transaction) { transaction.last_completed_phase = value; });
+}
+
+void DevicePreparationExecutor::request_access(
+    const std::string& operation_id,
+    std::vector<std::string> devices,
+    bool mapper_control
+) {
+    std::ranges::sort(devices);
+    devices.erase(std::unique(devices.begin(), devices.end()), devices.end());
+    std::uint64_t generation = 0;
+    update(operation_id, [&](auto& transaction) {
+        transaction.requested_device_access = std::move(devices);
+        transaction.requested_mapper_control = mapper_control;
+        if (transaction.access_generation == std::numeric_limits<std::uint64_t>::max())
+            throw ValidationError("device preparation access generation is exhausted");
+        generation = ++transaction.access_generation;
+    });
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
+    while (std::chrono::steady_clock::now() < deadline) {
+        const auto transaction = transactions_.load(operation_id);
+        if (transaction.authorized_access_generation >= generation)
+            return;
+        if (transaction.cancel_requested)
+            throw ValidationError("device preparation cancellation was requested");
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    }
+    throw ValidationError("device preparation access authorization timed out");
 }
 
 void DevicePreparationExecutor::release_profile_reservation(const std::string& operation_id) {
@@ -236,17 +277,35 @@ void DevicePreparationExecutor::execute(const std::string& operation_id, int pas
                 transaction.cleanup_result = "pending";
             });
             provisioning::ExistingTargetInspectionSummary inspected;
+            const std::string partition_device_number = initial.target.partition->identity.major_minor;
             try {
+                request_access(
+                    operation_id,
+                    {initial.device.major_minor, partition_device_number},
+                    true
+                );
                 rewind_secret(passphrase.get());
                 inspected = existing_target_inspector_->inspect(
                     *initial.target.partition,
                     operation_id,
                     mount_point,
-                    passphrase.get()
+                    passphrase.get(),
+                    [&](const fs::path& mapper_path) {
+                        const std::string mapper_device_number = block_device_number_resolver_(mapper_path);
+                        update(operation_id, [&](auto& transaction) {
+                            transaction.mapper_device_number = mapper_device_number;
+                        });
+                        request_access(
+                            operation_id,
+                            {initial.device.major_minor, partition_device_number, mapper_device_number},
+                            true
+                        );
+                    }
                 );
                 remove_inspection_mount_point(mount_point);
                 update(operation_id, [](auto& transaction) {
                     transaction.mapper.clear();
+                    transaction.mapper_device_number.clear();
                     transaction.inspection_mount_point.clear();
                     transaction.cleanup_result = "inspection-cleaned";
                 });
@@ -255,11 +314,17 @@ void DevicePreparationExecutor::execute(const std::string& operation_id, int pas
                 static_cast<void>(fs::remove(mount_point, cleanup_error));
                 update(operation_id, [&](auto& transaction) {
                     transaction.mapper.clear();
+                    transaction.mapper_device_number.clear();
                     transaction.inspection_mount_point.clear();
                     transaction.cleanup_result = cleanup_error ? "inspection-directory-remove-failed" : "inspection-cleaned";
                 });
                 throw;
             }
+            request_access(
+                operation_id,
+                {initial.device.major_minor, partition_device_number},
+                false
+            );
             if (inspected != *initial.target.expected_inspection)
                 throw dbus::ManagerOperationError(
                     dbus::ManagerErrorCode::Conflict,
@@ -400,6 +465,20 @@ void DevicePreparationExecutor::execute(const std::string& operation_id, int pas
             completed(operation_id, "wipe-signatures");
         }
 
+        std::string partition_device_number = initial.target.partition.has_value()
+            ? initial.target.partition->identity.major_minor
+            : block_device_number_resolver_(partition);
+        if (!initial.target.partition.has_value()) {
+            update(operation_id, [&](auto& transaction) {
+                transaction.partition_device_number = partition_device_number;
+            });
+            request_access(
+                operation_id,
+                {initial.device.major_minor, partition_device_number},
+                false
+            );
+        }
+
         phase(operation_id, "luks-format", false);
         const std::string luks_uuid = cryptsetup_.format_luks2(partition, passphrase.get());
         update(operation_id, [&](auto& transaction) {
@@ -408,6 +487,11 @@ void DevicePreparationExecutor::execute(const std::string& operation_id, int pas
         });
 
         phase(operation_id, "open", false);
+        request_access(
+            operation_id,
+            {initial.device.major_minor, partition_device_number},
+            true
+        );
         rewind_secret(passphrase.get());
         mapper = "btrfs-backup-" + initial.status.profile_id;
         cryptsetup_.open_luks2(partition, mapper, passphrase.get());
@@ -417,6 +501,15 @@ void DevicePreparationExecutor::execute(const std::string& operation_id, int pas
             transaction.cleanup_result = "pending";
         });
         const std::string mapper_path = "/dev/mapper/" + mapper;
+        const std::string mapper_device_number = block_device_number_resolver_(mapper_path);
+        update(operation_id, [&](auto& transaction) {
+            transaction.mapper_device_number = mapper_device_number;
+        });
+        request_access(
+            operation_id,
+            {initial.device.major_minor, partition_device_number, mapper_device_number},
+            true
+        );
 
         phase(operation_id, "mkfs-btrfs", false);
         btrfs_formatter_.format(mapper_path, initial.profile_name);
@@ -439,9 +532,15 @@ void DevicePreparationExecutor::execute(const std::string& operation_id, int pas
         mapper.clear();
         update(operation_id, [](auto& transaction) {
             transaction.mapper.clear();
+            transaction.mapper_device_number.clear();
             transaction.cleanup_result = "mapper-closed";
             transaction.last_completed_phase = "close";
         });
+        request_access(
+            operation_id,
+            {initial.device.major_minor, partition_device_number},
+            false
+        );
 
         phase(operation_id, "write-profile", false);
         update(operation_id, [](auto& transaction) { transaction.configuration_state = "in-progress"; });

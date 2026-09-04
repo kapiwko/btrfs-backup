@@ -94,6 +94,16 @@ helper's immediate revalidation. Similarly, `DeviceAllow` limits reachable
 block devices if another check fails; it must never be used as evidence that a
 reachable device is the intended target.
 
+The preparation unit starts with an empty static device policy. For each
+transaction the manager replaces, rather than appends to, the runtime allow
+list with exact `major:minor` identities. Existing children of the selected
+disk are initially readable for the final safety scan, then removed unless
+selected. A partition created by the helper is authorized only after its block
+node exists. Device-mapper control is exposed
+only while opening or closing the transaction's LUKS mapping, and the resulting
+mapper node is then authorized by its exact identity. Broad block-device class
+rules are forbidden.
+
 ## Configuration
 
 Privileged filesystem roots belong to the global application configuration,

@@ -133,6 +133,17 @@ StartJobResult CommandSystemdUnitController::start_unit(const StartUnitRequest& 
     return std::unexpected(job_error(commands_, result, request.unit, true));
 }
 
+StartJobResult CommandSystemdUnitController::set_unit_properties(
+    const SetUnitPropertiesRequest& request
+) {
+    std::vector<std::string> configure{"systemctl", "set-property", "--runtime", request.unit};
+    configure.insert(configure.end(), request.runtime_properties.begin(), request.runtime_properties.end());
+    const auto result = commands_.run_controlled(configure, options(request.timeout));
+    if (result.exit_code == 0 && !result.cancelled && !result.timed_out)
+        return {};
+    return std::unexpected(job_error(commands_, result, request.unit, false));
+}
+
 ActiveUnitResult CommandSystemdUnitController::active_unit(const ActiveUnitRequest& request) {
     const auto result = commands_.run_controlled(
         {"systemctl", "is-active", request.unit},
