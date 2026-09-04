@@ -42,6 +42,7 @@ if (( EUID != 0 )); then
         package_dir="$package_root/dist"
         remove_package_root=1
     fi
+    # shellcheck disable=SC2329 # Invoked indirectly by the EXIT trap.
     cleanup_outer() {
         if (( remove_package_root )); then
             rm -rf -- "$package_root"
@@ -307,6 +308,26 @@ REPLACEMENT_HASH="$(sha256sum "$REPLACEMENT_IMAGE" | awk '{print $1}')"
 
 cat > "$ROOT_MOUNT/setup.sh" <<EOF_SETUP
 set -eu
+exec 2>/dev/ttyS0
+report_failure() {
+    status=\$?
+    if test "\$status" -ne 0; then
+        printf 'QEMU_SETUP_FAILED status=%s\n' "\$status" > /dev/ttyS0
+        systemctl status --no-pager --full btrfs-backupd.service > /dev/ttyS0 2>&1 || true
+        journalctl --no-pager -b -u btrfs-backupd.service -n 100 > /dev/ttyS0 2>&1 || true
+        journalctl --no-pager -b -t btrfs-backup-device-preparation -n 100 > /dev/ttyS0 2>&1 || true
+        for transaction in /var/lib/btrfs-backup/device-preparations/*.json; do
+            test -f "\$transaction" || continue
+            printf '%s\n' "--- \$transaction ---" > /dev/ttyS0
+            operation=\${transaction##*/}
+            operation=\${operation%.json}
+            systemctl show "btrfs-backup-device-preparation@\$operation.service" \
+                -p DevicePolicy -p DeviceAllow -p FragmentPath -p DropInPaths > /dev/ttyS0 2>&1 || true
+            cat "\$transaction" > /dev/ttyS0
+        done
+    fi
+}
+trap report_failure EXIT
 tar --zstd -xpf /run/qemu-test-setup/package.pkg.tar.zst -C /
 transaction_file() {
     printf '/var/lib/btrfs-backup/device-preparations/%s.json' "\$1"
@@ -409,6 +430,7 @@ udevadm settle --timeout=30
 install -d -m0755 /mnt/qemu-provisioning-source
 mount /dev/vdc /mnt/qemu-provisioning-source
 btrfs subvolume create /mnt/qemu-provisioning-source/home >/dev/null
+mount --bind /mnt/qemu-provisioning-source/home /mnt/qemu-provisioning-source/home
 install -d -m0700 /mnt/qemu-provisioning-source/.snapshots/home
 
 systemctl start polkit.service btrfs-backupd.service
@@ -565,15 +587,24 @@ qemu_args=(
     -nographic
     -kernel "$KERNEL_IMAGE"
     -append "root=/dev/vda rw rootfstype=ext4 console=ttyS0 systemd.unit=multi-user.target"
-    -drive "file=$ROOT_IMAGE,if=virtio,format=raw,snapshot=on"
-    -drive "file=$SETUP_IMAGE,if=virtio,format=raw,readonly=on"
-    -drive "file=$SOURCE_IMAGE,if=virtio,format=raw,snapshot=on"
-    -drive "file=$WHOLE_DEVICE_IMAGE,if=virtio,format=raw,snapshot=on"
-    -drive "file=$PARTITION_DEVICE_IMAGE,if=virtio,format=raw,snapshot=on"
-    -drive "file=$MANAGER_KILL_IMAGE,if=virtio,format=raw,snapshot=on"
-    -drive "file=$HELPER_KILL_IMAGE,if=virtio,format=raw,snapshot=on"
-    -drive "file=$POWER_LOSS_IMAGE,if=virtio,format=raw,snapshot=on"
-    -device qemu-xhci,id=xhci
+    -drive "file=$ROOT_IMAGE,if=none,id=root-disk,format=raw,snapshot=on"
+    -device "virtio-blk-pci,drive=root-disk,serial=bb-root"
+    -drive "file=$SETUP_IMAGE,if=none,id=setup-disk,format=raw,readonly=on"
+    -device "virtio-blk-pci,drive=setup-disk,serial=bb-setup"
+    -drive "file=$SOURCE_IMAGE,if=none,id=source-disk,format=raw,snapshot=on"
+    -device "virtio-blk-pci,drive=source-disk,serial=bb-source"
+    -drive "file=$WHOLE_DEVICE_IMAGE,if=none,id=whole-disk,format=raw,snapshot=on"
+    -device "virtio-blk-pci,drive=whole-disk,serial=bb-whole"
+    -drive "file=$PARTITION_DEVICE_IMAGE,if=none,id=partition-disk,format=raw,snapshot=on"
+    -device "virtio-blk-pci,drive=partition-disk,serial=bb-partition"
+    -drive "file=$MANAGER_KILL_IMAGE,if=none,id=manager-kill-disk,format=raw,snapshot=on"
+    -device "virtio-blk-pci,drive=manager-kill-disk,serial=bb-manager-kill"
+    -drive "file=$HELPER_KILL_IMAGE,if=none,id=helper-kill-disk,format=raw,snapshot=on"
+    -device "virtio-blk-pci,drive=helper-kill-disk,serial=bb-helper-kill"
+    -drive "file=$POWER_LOSS_IMAGE,if=none,id=power-loss-disk,format=raw,snapshot=on"
+    -device "virtio-blk-pci,drive=power-loss-disk,serial=bb-power-loss"
+    -device "pcie-root-port,id=provisioning-port,slot=0x10,chassis=10"
+    -device "qemu-xhci,id=xhci"
     -blockdev "driver=file,filename=$UNPLUG_IMAGE,node-name=unplug-file"
     -blockdev "driver=raw,file=unplug-file,node-name=unplug-disk"
     -blockdev "driver=file,filename=$REPLACEMENT_IMAGE,node-name=replacement-file"
@@ -586,9 +617,9 @@ qemu_args=(
     -nic none
 )
 if [[ -r /dev/kvm && -w /dev/kvm ]]; then
-    qemu_args=(-enable-kvm "${qemu_args[@]}")
+    qemu_args=(-enable-kvm -cpu host "${qemu_args[@]}")
 else
-    qemu_args=(-accel tcg "${qemu_args[@]}")
+    qemu_args=(-accel tcg -cpu max "${qemu_args[@]}")
 fi
 
 qemu-system-x86_64 "${qemu_args[@]}" &
@@ -616,11 +647,11 @@ qmp_request() {
 }
 
 wait_for_console QEMU_UNPLUG_ATTACH_READY 'guest did not request the provisioning hotplug disk'
-qmp_request '{"execute":"device_add","arguments":{"driver":"virtio-blk-pci","drive":"unplug-disk","id":"provisioning-hotplug","serial":"qemu-unplug-original"}}'
+qmp_request '{"execute":"device_add","arguments":{"driver":"virtio-blk-pci","drive":"unplug-disk","id":"provisioning-hotplug","serial":"qemu-unplug-original","bus":"provisioning-port"}}'
 wait_for_console QEMU_UNPLUG_READY 'guest did not reach the device-unplug boundary'
 qmp_request '{"execute":"device_del","arguments":{"id":"provisioning-hotplug"}}'
 wait_for_console QEMU_REPLACEMENT_ATTACH_READY 'guest did not reject the unplugged provisioning target'
-qmp_request '{"execute":"device_add","arguments":{"driver":"virtio-blk-pci","drive":"replacement-disk","id":"provisioning-hotplug","serial":"qemu-unplug-replacement"}}'
+qmp_request '{"execute":"device_add","arguments":{"driver":"virtio-blk-pci","drive":"replacement-disk","id":"provisioning-hotplug","serial":"qemu-unplug-replacement","bus":"provisioning-port"}}'
 wait_for_console QEMU_UNPLUG_RECOVERY_OK 'guest modified or accepted the replacement provisioning device'
 wait_for_console QEMU_POWER_LOSS_READY 'guest did not reach the power-loss boundary'
 qmp_request '{"execute":"system_reset"}'
