@@ -3,25 +3,25 @@
 Release-note structure, metadata preparation, tagging and GitHub publication
 are defined in [release notes and publication](releasing.md).
 
-## Release Script
+## Release Tool
 
-The upstream repository includes a release script with separate build targets:
+The upstream repository includes a Python release orchestrator with separate build targets:
 
 The root `VERSION` file is the authoritative version source for the native
 build, Plasma metadata, and all release artifact names.
 
 ```bash
-./tools/build-release.sh --target source --static-tests
-./tools/build-release.sh --target deb --static-tests
-./tools/build-release.sh --target arch-base --static-tests
-./tools/build-release.sh --target all --static-tests
-sudo ./tools/build-release.sh --target arch --full-tests
+./tools/release.py --target source --static-tests
+./tools/release.py --target deb --static-tests
+./tools/release.py --target arch-base --static-tests
+./tools/release.py --target all --static-tests
+sudo ./tools/release.py --target arch --full-tests
 ```
 
 For repeated local integration runs, reuse a persistent native build tree:
 
 ```bash
-./tools/build-release.sh \
+./tools/release.py \
   --target arch-base \
   --skip-tests \
   --build-dir build/integration-package \
@@ -37,13 +37,13 @@ Targets:
 | `arch-base` | source tarball, base `pkg.tar.zst` package, source ZIP, checksums, build report |
 | `deb` | source tarball, Debian-compatible `.deb`, source ZIP, checksums, build report |
 | `tar-install` | source tarball, generic install tree tarball, source ZIP, checksums, build report |
-| `rpm` | source tarball, RPM spec packaging archive, source ZIP, checksums, build report |
+| `rpm` | source tarball, native RPM, RPM spec archive, source ZIP, checksums, build report |
 | `nix` | source tarball, Nix packaging skeleton archive, source ZIP, checksums, build report |
 | `ebuild` | source tarball, Gentoo ebuild packaging archive, source ZIP, checksums, build report |
 | `pkgbuild` | source tarball, Arch/AUR `PKGBUILD` packaging archive, source ZIP, checksums, build report |
 | `all` | all targets above except unsupported package ecosystems |
 
-The script creates deterministic source archives, builds native package
+The tool creates deterministic source archives, builds native package
 archives where practical, and writes SHA-256 reports from its own packaging
 generators. Packaging does not run the repository test suite unless
 `--static-tests` or `--full-tests` is selected explicitly. Release CI should
@@ -59,6 +59,7 @@ btrfs-backup-kde-1.0.0-1-x86_64.pkg.tar.zst
 btrfs-backup_1.0.0-1_amd64.deb
 btrfs-backup-1.0.0-install.tar.gz
 btrfs-backup-1.0.0-rpm-packaging.tar.gz
+btrfs-backup-1.0.0-1.x86_64.rpm
 btrfs-backup-1.0.0-nix-packaging.tar.gz
 btrfs-backup-1.0.0-ebuild.tar.gz
 btrfs-backup-1.0.0-pkgbuild.tar.gz
@@ -161,7 +162,7 @@ Release builds reuse `build/release` by default, so Ninja can rebuild only
 changed targets and ccache can reuse compiler results:
 
 ```bash
-./tools/build-release.sh --target arch
+./tools/release.py --target arch
 ```
 
 Native and KDE targets share `build/release`, the same CMake cache and the same

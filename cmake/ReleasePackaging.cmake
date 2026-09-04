@@ -9,6 +9,7 @@ set(CPACK_PACKAGE_DESCRIPTION_SUMMARY
 )
 set(CPACK_PACKAGE_CONTACT "Kamil Piwowarski <kapiwko@gmail.com>")
 set(CPACK_PACKAGE_FILE_NAME "btrfs-backup-${PROJECT_VERSION}-install")
+set(CPACK_PACKAGE_RELOCATABLE OFF)
 set(CPACK_GENERATOR "TGZ")
 set(CPACK_ARCHIVE_COMPONENT_INSTALL ON)
 set(CPACK_SET_DESTDIR ON)
@@ -27,6 +28,10 @@ set(CPACK_RPM_COMPONENT_INSTALL ON)
 set(CPACK_RPM_PACKAGE_LICENSE "GPL-3.0-or-later")
 set(CPACK_RPM_PACKAGE_GROUP "System Environment/Daemons")
 set(CPACK_RPM_PACKAGE_RELEASE 1)
+set(CPACK_RPM_PACKAGE_RELOCATABLE OFF)
+set(CPACK_RPM_SPEC_MORE_DEFINE
+    "%define _buildhost reproducible\n%define use_source_date_epoch_as_buildtime 1\n%define clamp_mtime_to_source_date_epoch 1"
+)
 set(CPACK_RPM_PACKAGE_REQUIRES
     "btrfs-progs >= 6.0, coreutils, cryptsetup, libstdc++, polkit, systemd, systemd-libs, util-linux"
 )
