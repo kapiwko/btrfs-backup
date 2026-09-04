@@ -13,5 +13,5 @@ panel.addWidget("org.kde.plasma.panelspacer");
 
 var widget = panel.addWidget("org.kde.plasma.notifications");
 widget.globalShortcut = "Meta+N";
-panel.addWidget("org.kde.plasma.digitalclock");
+panel.addWidget("org.btrfsbackup.screenshotclock");
 print(widget.id);

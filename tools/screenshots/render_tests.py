@@ -6,10 +6,12 @@
 from __future__ import annotations
 
 import tempfile
+import os
 from pathlib import Path
 import unittest
+from unittest.mock import patch
 
-from render import scenario_specs, session_identity
+from render import SCREENSHOT_TIME, deterministic_process_environment, scenario_specs, session_identity
 from scenarios import NOTIFICATION_PANEL_SCRIPT, WIDGET_PANEL_SCRIPT
 from session import DesktopSession
 
@@ -18,6 +20,8 @@ class ScenarioSpecsTests(unittest.TestCase):
     def test_plasma_scripts_are_external_assets(self) -> None:
         self.assertIn('org.kde.plasma.notifications', NOTIFICATION_PANEL_SCRIPT)
         self.assertIn('org.btrfsbackup.plasmoid', WIDGET_PANEL_SCRIPT)
+        self.assertIn('org.btrfsbackup.screenshotclock', NOTIFICATION_PANEL_SCRIPT)
+        self.assertIn('org.btrfsbackup.screenshotclock', WIDGET_PANEL_SCRIPT)
 
     def test_all_contains_each_scenario_and_unique_outputs(self) -> None:
         specs = scenario_specs("all", "all")
@@ -42,6 +46,20 @@ class ScenarioSpecsTests(unittest.TestCase):
         name = "system-settings-new-profile-prepare-partition"
         self.assertEqual(session_identity(name), session_identity(name))
         self.assertEqual(len(session_identity(name)), 12)
+
+    def test_deterministic_environment_freezes_wall_clock_only(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            library = Path(directory) / "libfaketime.so.1"
+            library.touch()
+            with patch.dict(os.environ, {
+                "BTRFS_BACKUP_SCREENSHOT_FAKETIME_LIBRARY": str(library),
+                "LD_PRELOAD": "existing.so",
+            }, clear=False):
+                environment = deterministic_process_environment()
+        self.assertEqual(environment["FAKETIME"], SCREENSHOT_TIME)
+        self.assertEqual(environment["FAKETIME_DONT_FAKE_MONOTONIC"], "1")
+        self.assertEqual(environment["LD_PRELOAD"], f"{library}:existing.so")
+        self.assertEqual(environment["TZ"], "UTC")
 
 
 class DesktopSessionTests(unittest.TestCase):

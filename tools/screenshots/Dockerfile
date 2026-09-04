@@ -21,6 +21,7 @@ RUN pacman -Syu --noconfirm --needed \
         kpackage \
         krunner \
         kwin \
+        libfaketime \
         libplasma \
         ninja \
         nlohmann-json \
