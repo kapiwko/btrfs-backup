@@ -45,12 +45,17 @@ if(NOT list_result EQUAL 0)
     message(FATAL_ERROR "Cannot inspect Arch base package")
 endif()
 foreach(expected IN ITEMS
-        ".INSTALL" ".MTREE" ".PKGINFO" "etc/btrfs-backup/hooks.d/"
+        ".MTREE" ".PKGINFO" "etc/btrfs-backup/hooks.d/"
         "usr/bin/btrfs-backup" "usr/bin/btrfs-backupctl" "usr/bin/btrfs-backupd"
         "usr/bin/btrfs-backup-device-preparation"
-        "usr/lib/systemd/system/btrfs-backup@.service")
+        "usr/lib/systemd/system/btrfs-backup@.service"
+        "usr/lib/tmpfiles.d/btrfs-backup.conf")
     string(FIND "${entries}" "${expected}\n" position)
     if(position EQUAL -1)
         message(FATAL_ERROR "Arch base package is missing ${expected}")
     endif()
 endforeach()
+string(FIND "${entries}" ".INSTALL\n" install_scriptlet)
+if(NOT install_scriptlet EQUAL -1)
+    message(FATAL_ERROR "Arch base package unexpectedly contains a lifecycle scriptlet")
+endif()

@@ -24,6 +24,7 @@ set(required_paths
     "usr/${INSTALL_LIBDIR}/systemd/system/btrfs-backup-eject@.service"
     "usr/${INSTALL_LIBDIR}/systemd/system/btrfs-backup-validate@.service"
     "usr/${INSTALL_LIBDIR}/systemd/system/btrfs-backup-target@.service"
+    "usr/${INSTALL_LIBDIR}/tmpfiles.d/btrfs-backup.conf"
     "usr/share/btrfs-backup/examples/config/profile.schema.json"
     "usr/share/btrfs-backup/examples/config/profile.example.json"
     "usr/share/btrfs-backup/examples/udev/README.md"
