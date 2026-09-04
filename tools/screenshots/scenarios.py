@@ -19,6 +19,12 @@ NOTIFICATION_PANEL_SCRIPT = (SCRIPT_DIR / "notification_panel.js").read_text()
 WIDGET_PANEL_SCRIPT = (SCRIPT_DIR / "widget_panel.js").read_text()
 
 
+def install_static_clock(data: Path) -> None:
+    package = data / "plasma/plasmoids/org.btrfsbackup.screenshotclock"
+    package.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(SCRIPT_DIR / "static-clock", package, dirs_exist_ok=True)
+
+
 def qdbus_script(session: DesktopSession, script: str) -> str:
     for _ in range(30):
         try:
@@ -56,6 +62,7 @@ def active_window(session: DesktopSession, output: Path, build_dir: Path, source
 def notification(session: DesktopSession, output: Path, build_dir: Path, source_dir: Path,
                  mode: str, page: str, scene: str, qml: str, delay: float) -> None:
     unused = page, scene, qml, delay, source_dir
+    install_static_clock(Path(session.environment["XDG_DATA_HOME"]))
     session.environment.update({"QT_QUICK_BACKEND": "software",
                                 "XDG_CONFIG_HOME": str(session.runtime_dir / "config")})
     Path(session.environment["XDG_CONFIG_HOME"]).mkdir()
@@ -113,6 +120,7 @@ def plasma_widget(session: DesktopSession, output: Path, build_dir: Path, source
     package.parent.mkdir(parents=True)
     config.mkdir()
     shutil.copytree(source_dir / "integrations/kde/plasmoid/package", package)
+    install_static_clock(data)
     shutil.copy2(build_dir / "integrations/kde/metadata.json", package / "metadata.json")
     (package / "metadata.json.in").unlink(missing_ok=True)
     main_qml = package / "contents/ui/main.qml"
@@ -126,7 +134,7 @@ def plasma_widget(session: DesktopSession, output: Path, build_dir: Path, source
     session.update_activation_environment("WAYLAND_DISPLAY", "XDG_CURRENT_DESKTOP", "XDG_RUNTIME_DIR",
                                           "XDG_DATA_HOME", "XDG_CONFIG_HOME")
     manager = build_dir / "integrations/kde/btrfs-backup-kde-manager-demo"
-    session.start([str(manager), mode])
+    session.start([str(manager), mode, page])
     session.wait_for_bus_name("io.github.btrfsbackup.Manager1", 5)
     plasma = ["plasmashell"]
     if os.environ.get("BTRFS_BACKUP_SCREENSHOT_DEBUG") == "1":
@@ -159,7 +167,7 @@ def system_settings(session: DesktopSession, output: Path, build_dir: Path, sour
                                           "XDG_DATA_HOME", "QT_LINUX_ACCESSIBILITY_ALWAYS_ON",
                                           "QT_ACCESSIBILITY", "NO_AT_BRIDGE")
     manager = build_dir / "integrations/kde/btrfs-backup-kde-manager-demo"
-    session.start([str(manager), mode])
+    session.start([str(manager), mode, page])
     session.wait_for_bus_name("io.github.btrfsbackup.Manager1", 5)
     shutil.copy2(build_dir / "integrations/kde/kcm/kcm_btrfsbackup.desktop", applications)
     session.start(["systemsettings", "kcm_btrfsbackup"], extra_env={

@@ -1,0 +1,14 @@
+{
+    "KPackageStructure": "Plasma/Applet",
+    "KPlugin": {
+        "EnabledByDefault": true,
+        "Icon": "clock",
+        "Id": "org.btrfsbackup.screenshotclock",
+        "License": "GPL-3.0-or-later",
+        "Name": "Screenshot Clock",
+        "Version": "1.0"
+    },
+    "X-Plasma-API": "declarativeappletscript",
+    "X-Plasma-API-Minimum-Version": "6.0",
+    "X-Plasma-MainScript": "ui/main.qml"
+}

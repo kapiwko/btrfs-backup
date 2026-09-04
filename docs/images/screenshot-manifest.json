@@ -1,0 +1,150 @@
+{
+  "schema": 1,
+  "complete": true,
+  "screenshots": [
+    {
+      "scenario": "plasma-widget",
+      "mode": "connected",
+      "page": "",
+      "path": "plasma-widget-connected.png",
+      "bytes": 95671,
+      "sha256": "d97782ced5d84c905cd7b2a888845c8055ef8939da3162d06ff68bb8d76f7f54"
+    },
+    {
+      "scenario": "plasma-widget",
+      "mode": "disconnected",
+      "page": "",
+      "path": "plasma-widget-disconnected.png",
+      "bytes": 93694,
+      "sha256": "cbfa692d7d1de43738a29c7007e4a33d4394cc5a9146df7a1aed17196a289727"
+    },
+    {
+      "scenario": "plasma-widget",
+      "mode": "transferring",
+      "page": "",
+      "path": "plasma-widget-transferring.png",
+      "bytes": 123570,
+      "sha256": "51b253dd3f23dfc59c13fdf9d8d7bac39ce1f017f8c7cddacd26380f1d47c4c4"
+    },
+    {
+      "scenario": "notification",
+      "mode": "transfer",
+      "page": "",
+      "path": "kui-job-transferring.png",
+      "bytes": 35278,
+      "sha256": "29b762e1db88be547a4cf76f924ed31fabb6c22398fcb8093f65eb7bf71f17c5"
+    },
+    {
+      "scenario": "notification",
+      "mode": "completion",
+      "page": "",
+      "path": "notification-completed.png",
+      "bytes": 37321,
+      "sha256": "0e0f1b1a570bae9e557dac842e660378ee9231217263fc14caf74a6110cc2f13"
+    },
+    {
+      "scenario": "active-window",
+      "mode": "",
+      "page": "",
+      "path": "restore-dialog.png",
+      "bytes": 27592,
+      "sha256": "e24978cda4c1ba0e003e75f982150040d12c6eba8017cc2da1c31b34ed8d97d0"
+    },
+    {
+      "scenario": "dolphin",
+      "mode": "",
+      "page": "",
+      "path": "dolphin-browse.png",
+      "bytes": 23002,
+      "sha256": "7442f27cbc1462fc84b079f6712c314d0134a1189d68823712735f63e41b41df"
+    },
+    {
+      "scenario": "system-settings",
+      "mode": "connected",
+      "page": "",
+      "path": "system-settings-connected.png",
+      "bytes": 73212,
+      "sha256": "4e66317b04ead30fa1985091069281340161c2d39a58469ba84996faa54aff5c"
+    },
+    {
+      "scenario": "system-settings",
+      "mode": "disconnected",
+      "page": "",
+      "path": "system-settings-disconnected.png",
+      "bytes": 70306,
+      "sha256": "4037f3134e9ce839a78e56a50bba7f112b4e42eb1a50344a66e2072479f9a841"
+    },
+    {
+      "scenario": "system-settings",
+      "mode": "transferring",
+      "page": "",
+      "path": "system-settings-transferring.png",
+      "bytes": 72274,
+      "sha256": "a59c1662fe7559fa26291194464e9fde0babbb8c751c9fece28e2eac931dd145"
+    },
+    {
+      "scenario": "system-settings",
+      "mode": "connected",
+      "page": "profile-details",
+      "path": "system-settings-profile-details.png",
+      "bytes": 101326,
+      "sha256": "820651d7ab19a858904591ee94f43a1b99ffc3f2f650a4ac04722590084ebd03"
+    },
+    {
+      "scenario": "system-settings",
+      "mode": "connected",
+      "page": "profile-settings",
+      "path": "system-settings-profile-settings.png",
+      "bytes": 53949,
+      "sha256": "56c66a5acc476a3a106e299c28452f87309254c4a5a7b6aa34dfb5f53e575935"
+    },
+    {
+      "scenario": "system-settings",
+      "mode": "connected",
+      "page": "history",
+      "path": "system-settings-history.png",
+      "bytes": 71012,
+      "sha256": "958f56b9088f6f89179599acb9c6cc18e1744eaea077fdbd02ca908feed3a92f"
+    },
+    {
+      "scenario": "system-settings",
+      "mode": "connected",
+      "page": "new-profile",
+      "path": "system-settings-new-profile.png",
+      "bytes": 66689,
+      "sha256": "443d8301d6dc061e6146018b9891622ff0d8582b87b965e69bc3134af1c45bfa"
+    },
+    {
+      "scenario": "system-settings",
+      "mode": "connected",
+      "page": "new-profile-adopt",
+      "path": "system-settings-new-profile-adopt.png",
+      "bytes": 79044,
+      "sha256": "9991138b521a8df22731419dd0c39ae92a81df111b2c361fdeedbe42042317d5"
+    },
+    {
+      "scenario": "system-settings",
+      "mode": "connected",
+      "page": "new-profile-adopt-partition",
+      "path": "system-settings-new-profile-adopt-partition.png",
+      "bytes": 98283,
+      "sha256": "71a55504ef437e94591b80f198a8e08cf0dde64b44518f6a373979dd2a598a6f"
+    },
+    {
+      "scenario": "system-settings",
+      "mode": "connected",
+      "page": "new-profile-prepare",
+      "path": "system-settings-new-profile-prepare.png",
+      "bytes": 92518,
+      "sha256": "ca640329aba68beb8c0dce893cd285a4f60ab5d7cbca2b62a1eb9178f9a89848"
+    },
+    {
+      "scenario": "system-settings",
+      "mode": "connected",
+      "page": "new-profile-prepare-partition",
+      "path": "system-settings-new-profile-prepare-partition.png",
+      "bytes": 107662,
+      "sha256": "ad24810acb96def18cca12ffa8a14fa0c18da7757f0b514d872ab0c30a638096"
+    }
+  ]
+}
