@@ -137,16 +137,16 @@ wizard --apply` and `profile save` write active profiles, udev rules, native
 profile-specific mount units, and mount-dependency drop-ins after an explicit
 user command.
 
-The Arch `post_upgrade` hook regenerates the derived systemd and udev artifacts
-for all installed profiles, reloads systemd, D-Bus, and udev configuration, and
-uses `try-restart` to replace an already running `btrfs-backupd`. A profile that
-cannot be regenerated produces a warning without aborting the package upgrade.
-Backup runners are separate units and are not restarted by the package hook.
+Packages contain no lifecycle shell scriptlets. Standard state and runtime
+directory modes are declared through `systemd-tmpfiles`; distribution-native
+hooks handle cache and manager reloads. Profile regeneration is an explicit
+administrator operation after upgrades that change generated artifacts. The
+complete inventory and migration command are documented in
+[package lifecycle inventory](packaging-scriptlets.md).
 
 The optional `btrfs-backup-kde` package installs the Plasma applet under
 `/usr/share/plasma/plasmoids` and the compiled QML module under
-`/usr/lib/qt6/qml`. Its install hook prints a Plasma reload hint and does not
-run user-session cache tools as root.
+`/usr/lib/qt6/qml`. It never runs user-session cache tools as root.
 
 The base package installs native ELF commands directly in `/usr/bin` and uses
 Btrfs userspace tools, cryptsetup, systemd/udev, `coreutils`, and `util-linux` at

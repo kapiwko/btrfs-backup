@@ -28,13 +28,11 @@ check() {
 package_btrfs-backup() {
   depends=('btrfs-progs>=6.0' 'coreutils' 'cryptsetup' 'gcc-libs' 'polkit' 'systemd' 'systemd-libs' 'util-linux' 'util-linux-libs')
   optdepends=('btrfs-backup-kde: Plasma status widget')
-  install='btrfs-backup.install'
   DESTDIR="$pkgdir" cmake --install build --component Unspecified
 }
 
 package_btrfs-backup-kde() {
   pkgdesc='Plasma status widget and progress monitor for btrfs-backup'
   depends=("btrfs-backup=$pkgver-$pkgrel" 'kcoreaddons' 'ki18n' 'kirigami' 'kjobwidgets' 'kservice' 'libplasma' 'qt6-base' 'qt6-declarative')
-  install='btrfs-backup-kde.install'
   DESTDIR="$pkgdir" cmake --install build --component KDEIntegration
 }

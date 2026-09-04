@@ -83,8 +83,6 @@ path = [
     "integrations/kde/plasmoid/package/contents/config/main.xml",
     "integrations/kde/plasmoid/package/metadata.json.in",
     "integrations/kde/restore/btrfs-backup-kde-restore.notifyrc",
-    "packaging/arch/btrfs-backup-kde.install",
-    "packaging/arch/btrfs-backup.install",
     "tests/integration/docker/Dockerfile",
 ]
 precedence = "closest"

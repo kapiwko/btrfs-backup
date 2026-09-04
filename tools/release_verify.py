@@ -18,6 +18,7 @@ BASE_PATHS = {
     "usr/bin/btrfs-backupd",
     "usr/bin/btrfs-backup-device-preparation",
     "usr/lib/systemd/system/btrfs-backup@.service",
+    "usr/lib/tmpfiles.d/btrfs-backup.conf",
     "usr/share/dbus-1/system-services/io.github.btrfsbackup.Manager1.service",
     "usr/share/polkit-1/actions/io.github.btrfsbackup.policy",
 }
@@ -38,11 +39,10 @@ def archive_entries(artifact: Path) -> set[str]:
 
 def verify_arch(artifact: Path) -> None:
     entries = archive_entries(artifact)
-    require_paths(entries, BASE_PATHS | {".INSTALL", ".MTREE", ".PKGINFO"}, artifact)
+    require_paths(entries, BASE_PATHS | {".MTREE", ".PKGINFO"}, artifact)
     with tempfile.TemporaryDirectory(prefix="btrfs-backup-package-audit.", dir="/tmp") as temporary:
         root = Path(temporary)
         subprocess.run(["bsdtar", "-xf", str(artifact), "-C", str(root)], check=True)
-        subprocess.run(["bash", "-n", str(root / ".INSTALL")], check=True)
         for command in ("btrfs-backup", "btrfs-backupctl", "btrfs-backupd"):
             subprocess.run([str(root / "usr/bin" / command), "--help"], check=True,
                            stdout=subprocess.DEVNULL)

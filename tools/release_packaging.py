@@ -47,8 +47,6 @@ def build_definition(root: Path, work: Path, dist: Path, target: str, version: s
     else:
         render(root / "packaging/arch/PKGBUILD.in", package / "PKGBUILD", values)
         render(root / "packaging/arch/SRCINFO.in", package / ".SRCINFO", values)
-        for name in ("btrfs-backup.install", "btrfs-backup-kde.install"):
-            shutil.copy2(root / "packaging/arch" / name, package / name)
     destination = dist / f"{package_name}.tar.gz"
     deterministic_tar_gz(package, destination, epoch)
     return destination

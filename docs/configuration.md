@@ -34,8 +34,8 @@ profile last. A failure restores the previous files and attempts to reload
 their rules.
 
 `regenerate --all` installs fresh derived artifacts for every profile already
-stored below `/etc/btrfs-backup/profiles`. It is also run automatically by the
-Arch package's `post_upgrade` hook. The command does not change user-selected
+stored below `/etc/btrfs-backup/profiles`. Run it explicitly after an upgrade
+that changes generated artifacts. The command does not change user-selected
 profile settings, but it assigns a new configuration generation as part of the
 transactional publication.
 
