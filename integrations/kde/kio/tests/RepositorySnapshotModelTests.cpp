@@ -41,15 +41,10 @@ int main() {
             "entries":[{"snapshotId":"new","createdAt":"2026-09-05T12:00:00Z","kind":"file","size":4,"mode":256,"modifiedAt":123}],
             "continuationToken":"next"
         })"));
-        expect(page.has_value() && page->entries.size() == 1 && page->entries.front().snapshot_id == QStringLiteral("new") &&
-                   page->continuation_token == QStringLiteral("next"),
-               "valid previous versions page was rejected");
-        expect(!btrfsbackup::kde::kio::parse_previous_versions_page(QStringLiteral(R"({"schemaVersion":1,"entries":[{"snapshotId":"new","createdAt":"bad","kind":"file","size":4,"mode":256,"modifiedAt":123}],"continuationToken":""})")).has_value(),
-               "invalid previous versions page was accepted");
-        expect(btrfsbackup::kde::kio::previous_versions_method_unavailable(QStringLiteral("org.freedesktop.DBus.Error.UnknownMethod")),
-               "older daemon error did not enable the compatibility fallback");
-        expect(!btrfsbackup::kde::kio::previous_versions_method_unavailable(QStringLiteral("io.github.btrfsbackup.Error.NotAuthorized")),
-               "operational error incorrectly enabled the compatibility fallback");
+        expect(page.has_value() && page->entries.size() == 1 && page->entries.front().snapshot_id == QStringLiteral("new") && page->continuation_token == QStringLiteral("next"), "valid previous versions page was rejected");
+        expect(!btrfsbackup::kde::kio::parse_previous_versions_page(QStringLiteral(R"({"schemaVersion":1,"entries":[{"snapshotId":"new","createdAt":"bad","kind":"file","size":4,"mode":256,"modifiedAt":123}],"continuationToken":""})")).has_value(), "invalid previous versions page was accepted");
+        expect(btrfsbackup::kde::kio::previous_versions_method_unavailable(QStringLiteral("org.freedesktop.DBus.Error.UnknownMethod")), "older daemon error did not enable the compatibility fallback");
+        expect(!btrfsbackup::kde::kio::previous_versions_method_unavailable(QStringLiteral("io.github.btrfsbackup.Error.NotAuthorized")), "operational error incorrectly enabled the compatibility fallback");
         std::cout << "ok - repository snapshot model tests\n";
         return 0;
     } catch (const std::exception& error) {
