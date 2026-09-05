@@ -55,6 +55,7 @@ RenewBrowseSession
 SetBrowseSessionActive
 CloseBrowseSession
 ListBrowseDirectory
+ListBrowseDirectoryPage
 InspectBrowseEntry
 OpenBrowseFile
 OpenBrowseRoot

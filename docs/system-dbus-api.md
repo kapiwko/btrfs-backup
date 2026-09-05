@@ -60,6 +60,7 @@ schema versions are not advertised as public API versions.
 | `SetBrowseSessionActive` | `(s sessionId, b active)` | `(s)` | acquires or releases one counted operation pin for an owned session |
 | `CloseBrowseSession` | `(s sessionId)` | `(s)` | closes a session owned by the caller |
 | `ListBrowseDirectory` | `(s sessionId, s relativePath)` | `(s)` | lists regular files and directories below an owned session root |
+| `ListBrowseDirectoryPage` | `(s sessionId, s relativePath, s continuationToken, u limit)` | `(s)` | lists one stable name-sorted page of up to 512 entries |
 | `InspectBrowseEntry` | `(s sessionId, s relativePath)` | `(s)` | returns sanitized metadata for one entry below an owned session root |
 | `OpenBrowseFile` | `(s sessionId, s relativePath)` | `(h)` | returns an already-open, read-only regular-file descriptor |
 | `OpenBrowseRoot` | `(s sessionId)` | `(h)` | returns a pinned read-only repository root descriptor for restore |
@@ -153,6 +154,13 @@ and adds `OpenBrowseRoot`. Session directories and mount points remain
 root-owned and private; clients access repository contents only through brokered
 operations or a pinned directory descriptor. Active-operation pins are counted,
 so finishing one concurrent KIO request cannot unpin another request.
+
+API minor version 9 adds `ListBrowseDirectoryPage`. An empty continuation token
+starts a listing; a non-empty token resumes after the last name returned by the
+previous page and is valid only for the same session and normalized relative
+path. Page sizes from 1 through 512 bound response and working-set size. The
+legacy `ListBrowseDirectory` method remains available for API compatibility and
+retains its 10,000-entry safety limit.
 
 Device-provisioning status schema version 3 adds `lastCompletedPhase` and
 `cleanupResult`. They are presentation-safe recovery evidence: clients can show
@@ -251,6 +259,7 @@ currently open profile, including changes published by the CLI.
 | `SetBrowseSessionActive` | session ownership | none |
 | `CloseBrowseSession` | session ownership | none |
 | `ListBrowseDirectory` | session ownership and path confinement | none |
+| `ListBrowseDirectoryPage` | session ownership, path confinement and continuation-token binding | none |
 | `InspectBrowseEntry` | session ownership and path confinement | none |
 | `OpenBrowseFile` | session ownership, path confinement and regular-file validation | none |
 | `OpenBrowseRoot` | session ownership and pinned read-only root | none |
