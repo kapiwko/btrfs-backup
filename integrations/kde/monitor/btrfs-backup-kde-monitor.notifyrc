@@ -5,71 +5,95 @@
 [Global]
 IconName=drive-harddisk
 Name=Btrfs Backup
+Name[pl]=Btrfs Backup
 Comment=Backup status notifications
+Comment[pl]=Powiadomienia o stanie kopii zapasowych
 DesktopEntry=io.github.btrfsbackup.ProgressMonitor
 
 [Event/backupSucceeded]
 Name=Backup completed
+Name[pl]=Kopia zapasowa ukończona
 Comment=A backup completed successfully
+Comment[pl]=Kopia zapasowa została ukończona pomyślnie
 Action=Popup
 Urgency=Normal
 
 [Event/backupFailed]
 Name=Backup failed
+Name[pl]=Kopia zapasowa nie powiodła się
 Comment=A backup failed
+Comment[pl]=Wykonanie kopii zapasowej nie powiodło się
 Action=Popup
 Urgency=Critical
 
 [Event/targetValidated]
 Name=Backup target checked
+Name[pl]=Nośnik kopii zapasowej sprawdzony
 Comment=A backup target passed validation
+Comment[pl]=Nośnik kopii zapasowej przeszedł sprawdzanie
 Action=Popup
 Urgency=Normal
 
 [Event/backupSkipped]
 Name=Backup skipped
+Name[pl]=Kopia zapasowa pominięta
 Comment=A scheduled backup was already completed for this period
+Comment[pl]=Zaplanowana kopia zapasowa została już wykonana w tym okresie
 Action=Popup
 Urgency=Normal
 
 [Event/backupOverdueWarning]
 Name=Backup overdue
+Name[pl]=Kopia zapasowa jest zaległa
 Comment=A successful backup has not been created within the warning period
+Comment[pl]=Nie utworzono poprawnej kopii zapasowej w okresie ostrzegawczym
 Action=Popup
 Urgency=Normal
 
 [Event/backupOverdueCritical]
 Name=Backup critically overdue
+Name[pl]=Kopia zapasowa jest krytycznie zaległa
 Comment=A successful backup has not been created within the critical period
+Comment[pl]=Nie utworzono poprawnej kopii zapasowej w okresie krytycznym
 Action=Popup
 Urgency=Critical
 
 [Event/targetSpaceLow]
 Name=Backup target space is running low
+Name[pl]=Kończy się miejsce na nośniku kopii zapasowej
 Comment=Free space on a backup target has crossed the warning threshold
+Comment[pl]=Wolne miejsce na nośniku kopii zapasowej spadło poniżej progu ostrzegawczego
 Action=Popup
 Urgency=Normal
 
 [Event/targetSpaceCritical]
 Name=Backup target space is critical
+Name[pl]=Krytycznie mało miejsca na nośniku kopii zapasowej
 Comment=Free space on a backup target has crossed the critical threshold
+Comment[pl]=Wolne miejsce na nośniku kopii zapasowej spadło poniżej progu krytycznego
 Action=Popup
 Urgency=Critical
 
 [Event/targetValidationFailed]
 Name=Backup target check failed
+Name[pl]=Sprawdzanie nośnika kopii zapasowej nie powiodło się
 Comment=A backup target failed validation
+Comment[pl]=Sprawdzanie nośnika kopii zapasowej nie powiodło się
 Action=Popup
 Urgency=Critical
 
 [Event/backupCancelled]
 Name=Backup cancelled
+Name[pl]=Kopia zapasowa anulowana
 Comment=A backup was cancelled
+Comment[pl]=Kopia zapasowa została anulowana
 Action=
 Urgency=Normal
 
 [Event/targetValidationCancelled]
 Name=Backup target check cancelled
+Name[pl]=Sprawdzanie nośnika kopii zapasowej anulowane
 Comment=A backup target check was cancelled
+Comment[pl]=Sprawdzanie nośnika kopii zapasowej zostało anulowane
 Action=
 Urgency=Normal
