@@ -10,7 +10,6 @@ endif()
 
 set(scripts
     "${SOURCE_DIR}/packaging/arch/PKGBUILD.in"
-    "${SOURCE_DIR}/packaging/debian/preinst"
 )
 
 foreach(script IN LISTS scripts)

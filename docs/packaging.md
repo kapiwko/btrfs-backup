@@ -137,15 +137,12 @@ wizard --apply` and `profile save` write active profiles, udev rules, native
 profile-specific mount units, and mount-dependency drop-ins after an explicit
 user command.
 
-Packages keep lifecycle code to one read-only 4.0 profile preflight. DEB, RPM
-and Gentoo abort when it fails. Arch uses an ALPM pre-transaction hook with
-`AbortOnFail`; the hook must already be installed by the latest 3.2.x bridge
-package before a 4.0 transaction begins. Standard state and
+Packages do not run application-specific migration code. Standard state and
 runtime directory modes are declared through `systemd-tmpfiles`;
 distribution-native hooks handle cache and manager reloads.
 Profile regeneration remains an explicit administrator operation after
-upgrades that change generated artifacts. The complete inventory and migration
-commands are documented in
+upgrades that change generated artifacts. The complete lifecycle inventory is
+documented in
 [package lifecycle inventory](packaging-scriptlets.md).
 
 The optional `btrfs-backup-kde` package installs the Plasma applet under

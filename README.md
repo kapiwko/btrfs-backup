@@ -302,42 +302,13 @@ Runner development files.
 
 Version 4.0 accepts only canonical profile schema v4 and requires
 `configurationGeneration`. Legacy profile schemas, automatic profile migration
-and old activation markers have been removed from normal runtime loading. Before
-replacing an existing installation, run the read-only release gate and create a
-new, non-overwriting migration backup:
-
-```bash
-sudo btrfs-backupctl upgrade preflight
-sudo btrfs-backupctl profile export-v4 --all \
-  --output-dir /root/btrfs-backup-before-4.0
-```
-
-`export-v4` validates every profile before publishing anything, explicitly
-converts profile schemas 1 through 3 to v4, and copies the optional global
-`btrfs-backup.conf`. It does not modify the installed configuration and does not
-copy referenced key files. Back those up separately. The output directory must
-not already exist.
-
-If preflight reports an old schema, save the exported v4 profiles while the
-3.2.x installation is still active, then repeat preflight:
-
-```bash
-sudo btrfs-backupctl profile save \
-  --file /root/btrfs-backup-before-4.0/profiles/default/profile.json
-sudo btrfs-backupctl upgrade preflight
-```
-
-Do not install 4.0 until the final summary is `READY`. After upgrading, retain
-the export until a backup and restore test have both succeeded. `RESTORE.txt`
-inside the export records the recovery command. DEB, RPM and Gentoo upgrades
-run the same read-only gate and stop before replacement when it fails. The Arch
-install script runs the check, but pacman treats a failing install scriptlet as
-a warning and continues; run preflight and save the v4 export before `pacman
--U`. A direct Arch upgrade from 3.2.0 with installed profiles is unsupported.
+and old activation markers have been removed from normal runtime loading. The
+project does not support an in-place upgrade from a 3.x profile installation.
+Install 4.0 with a freshly reviewed v4 profile and verify a backup and restore
+before relying on it.
 
 Read the [4.0 changelog](CHANGELOG.md) and the
-[configuration guide](docs/configuration.md) before upgrading an existing
-installation.
+[configuration guide](docs/configuration.md) before installing it.
 
 ## Documentation
 

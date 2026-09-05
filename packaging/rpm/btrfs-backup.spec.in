@@ -24,26 +24,6 @@ interrupted-run recovery, retention, and controlled eject.
 %install
 %cmake_install
 
-%pre
-profiles_present=false
-for profile in /etc/btrfs-backup/profiles/*/profile.json; do
-    if [ -e "$profile" ] || [ -L "$profile" ]; then
-        profiles_present=true
-        break
-    fi
-done
-if [ "$profiles_present" = true ]; then
-    if [ ! -x /usr/bin/btrfs-backupctl ]; then
-        echo "btrfs-backup: upgrade blocked: installed profiles require the latest 3.2.x migration bridge" >&2
-        exit 1
-    fi
-    if ! /usr/bin/btrfs-backupctl upgrade preflight; then
-        echo "btrfs-backup: package upgrade blocked by profile migration preflight" >&2
-        echo "Run: btrfs-backupctl profile export-v4 --all --output-dir /root/btrfs-backup-before-4.0" >&2
-        exit 1
-    fi
-fi
-
 %files
 %{_bindir}/btrfs-backup*
 %dir /etc/btrfs-backup

@@ -202,7 +202,6 @@ class RealBtrfsSuite:
 
     def execute(self) -> None:
         package_dir = os.environ.get("BTRFSBACKUP_PACKAGE_DIR", "/packages")
-        run([sys.executable, "/work/tests/integration/docker/arch_migration_transaction.py", package_dir])
         run([self.executables["real"], "/usr/bin/btrfs-backupctl", self.executables["browse"],
              self.executables["provisioning"], package_dir, "/work"])
         self.prepare_filesystems()

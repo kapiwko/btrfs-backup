@@ -13,23 +13,6 @@ BDEPEND="dev-build/cmake dev-build/pkgconf"
 DEPEND="dev-cpp/nlohmann_json >=sys-fs/btrfs-progs-6.0 sys-fs/cryptsetup sys-apps/acl sys-apps/systemd sys-apps/util-linux"
 RDEPEND=">=sys-fs/btrfs-progs-6.0 sys-fs/cryptsetup sys-apps/acl sys-apps/coreutils sys-auth/polkit sys-apps/systemd sys-apps/util-linux"
 
-pkg_preinst() {
-  local profile profiles_present=false
-  for profile in "${EROOT}"etc/btrfs-backup/profiles/*/profile.json; do
-    if [[ -e ${profile} || -L ${profile} ]]; then
-      profiles_present=true
-      break
-    fi
-  done
-  if [[ ${profiles_present} == true ]]; then
-    if [[ ! -x ${EROOT}usr/bin/btrfs-backupctl ]]; then
-      die "upgrade blocked: installed profiles require the latest 3.2.x migration bridge"
-    fi
-    "${EROOT}"usr/bin/btrfs-backupctl upgrade preflight ||
-      die "package upgrade blocked; run: btrfs-backupctl profile export-v4 --all --output-dir /root/btrfs-backup-before-4.0"
-  fi
-}
-
 src_configure() {
   local mycmakeargs=( -DBUILD_KDE_INTEGRATION=OFF -DBUILD_TESTING=OFF )
   cmake_src_configure
